@@ -21,8 +21,8 @@ https://docs.growthbook.io/guides-for-agents/local-feature-flags-json
 
 Read the guide in full before editing. Create flags.json at the repository
 root, load it with the GrowthBook SDK for this project's language, and read
-every flag through the SDK. You do not need to create a GrowthBook account or add a client
-key. Never put secrets or personal data in flags.json.
+every flag through the SDK. You do not need to create a GrowthBook account or
+add a client key. Never put secrets or personal data in flags.json.
 
 Return: the flags you added, their default values and rules, the files you
 changed, and how you verified that each flag evaluates as intended.
@@ -52,7 +52,8 @@ A local file has the same limits as any flag defined in code. Tell the user abou
 - **No instant kill switch.** Changing a flag requires a commit, a build, and a deploy.
 - **Engineers only.** Product managers and other non-engineers can't toggle flags themselves.
 - **No UI or validation.** Every change is a hand-edited JSON file, and nothing checks the file for mistakes except your own tests.
-- **No analysis.** There are no experiment results, safe rollouts with guardrail metrics, or bandits.
+- **No guardrail metrics.** You cannot easily auto-rollback a feature if it causes a regression in your app metrics in production.
+- **No experiments.** You cannot run or analyze A/B tests, multi-armed bandits, or interleaving experiments.
 
 When any of these become a problem, move the flags into GrowthBook. See [Move to GrowthBook](#move-to-growthbook).
 
@@ -237,33 +238,48 @@ npm install @growthbook/growthbook
 ```
 
 ```ts
-import { GrowthBookClient, UserScopedGrowthBook } from "@growthbook/growthbook";
+import { GrowthBookClient } from "@growthbook/growthbook";
 import flags from "./flags.json" with { type: "json" };
 
 type Flags = typeof flags.features;
 
+// Type the flag() method that the middleware adds to each request
+declare global {
+  namespace Express {
+    interface Request {
+      flag<K extends keyof Flags>(key: K): Flags[K]["defaultValue"];
+    }
+  }
+}
+
 // Once, at startup
 const client = new GrowthBookClient().initSync({ payload: flags });
 
-// Reads a flag, using its defaultValue in flags.json as the SDK fallback
-function flag<K extends keyof Flags>(gb: UserScopedGrowthBook, key: K) {
-  const fallback = flags.features[key].defaultValue;
-  return gb.getFeatureValue(key, fallback) as Flags[K]["defaultValue"];
-}
-
-// Per request
-app.get("/upload", (req, res) => {
+// Middleware helper
+app.use((req, res, next) => {
+  // Scoped instance per request
   const gb = client.createScopedInstance({
     attributes: { id: req.user.id, plan: req.user.plan },
   });
 
+  // Helper method on the request to evaluate flags with fallback values
+  req.flag = function flag<K extends keyof Flags>(key: K) {
+    const fallback = flags.features[key].defaultValue;
+    return gb.getFeatureValue(key, fallback) as Flags[K]["defaultValue"];
+  };
+
+  next();
+});
+
+// Use in any request
+app.get("/upload", (req, res) => {
   // Boolean flag
-  if (flag(gb, "new-checkout")) {
+  if (req.flag("new-checkout")) {
     // ...
   }
 
   // Non-boolean flag
-  const uploadLimit = flag(gb, "upload-limit-mb");
+  const uploadLimit = req.flag("upload-limit-mb");
 });
 ```
 
@@ -352,8 +368,6 @@ func main() {
 }
 ```
 
-The Go SDK doesn't take a fallback. Read values with a type assertion, as shown. It panics if the key isn't in `flags.json`, so a typo fails immediately instead of silently returning `nil`.
-
 `//go:embed` compiles `flags.json` into the binary, so the file doesn't need to be deployed separately. It must be in the same directory as the Go file, or below it.
 
 #### Other languages
@@ -362,27 +376,46 @@ Every GrowthBook SDK can evaluate local feature definitions instead of fetching 
 
 If the SDK's method for reading a value requires a fallback, wrap it in a `flag(key)` helper that passes the flag's `defaultValue` from `flags.json`, like the sections above do.
 
-### Why read flags through a helper
-
-GrowthBook SDKs are built to fetch flags over the network, so `getFeatureValue` requires a fallback to use before flags load. With a local file, flags are always loaded, and a hand-written fallback would only repeat the `defaultValue` from `flags.json`. The `flag()` helper passes that `defaultValue` for you:
-
-- **Each value lives in one place.** Change a flag in `flags.json`, and no code changes.
-- **Typos fail loudly.** Without the helper, a misspelled key silently returns the fallback, and rules you add to `flags.json` never apply. With it, a key that isn't in `flags.json` is a TypeScript compile error, and throws in JavaScript and Python.
-- **Only the helper changes if you move to GrowthBook.** Code that calls `flag()` stays the same. See [Move to GrowthBook](#move-to-growthbook).
-
 ## The flags.json format
 
-`flags.json` is a GrowthBook SDK payload, the same JSON the SDKs download from GrowthBook, plus optional `description` fields. This guide documents only the subset you need for simple flags.
-
-### Top level
+`flags.json` describes each feature flag and the rules for assigning values to users. Here's a full example:
 
 ```json
 {
   "features": {
-    "<flag-key>": { ... }
+    "new-checkout": {
+      "description": "Redesigned checkout flow",
+      "defaultValue": false,
+      "rules": [
+        {
+          "description": "Enable on dev and staging",
+          "force": true,
+          "condition": { "env": { "$in": ["dev", "staging"] } }
+        },
+        {
+          "description": "Roll out to 20% of user ids",
+          "force": true,
+          "coverage": 0.2,
+          "hashAttribute": "id"
+        }
+      ]
+    },
+    "upload-limit-mb": {
+      "description": "Maximum upload size in MB",
+      "defaultValue": 10,
+      "rules": [
+        {
+          "description": "Bigger uploads for Pro users",
+          "force": 20,
+          "condition": { "plan": "pro" }
+        }
+      ]
+    }
   }
 }
 ```
+
+### Top level
 
 | Field      | Type   | Description                                   |
 | ---------- | ------ | --------------------------------------------- |
@@ -391,14 +424,6 @@ GrowthBook SDKs are built to fetch flags over the network, so `getFeatureValue` 
 Use lowercase kebab-case flag keys, such as `new-checkout` or `upload-limit-mb`. Code reads flags by these keys.
 
 ### Flag definition
-
-```json
-{
-  "description": "Redesigned checkout flow",
-  "defaultValue": false,
-  "rules": []
-}
-```
 
 | Field          | Type                               | Description                                                             |
 | -------------- | ---------------------------------- | ----------------------------------------------------------------------- |
@@ -410,25 +435,13 @@ Each flag has a single value type. Every `force` value in its rules must have th
 
 ### Rule
 
-```json
-{
-  "id": "internal-users",
-  "description": "Employees see the new checkout first",
-  "condition": { "email": { "$regex": "@acme\\.com$" } },
-  "force": true
-}
-```
-
-| Field           | Type         | Description                                                                                       |
-| --------------- | ------------ | ------------------------------------------------------------------------------------------------- |
-| `force`         | same as flag | The value to serve when this rule matches. Required.                                              |
-| `condition`     | object       | Optional. Attribute targeting. The rule matches only users whose attributes pass the condition.   |
-| `coverage`      | number, 0–1  | Optional. Percentage rollout. Only this fraction of matching users gets `force`. `0.2` means 20%. |
-| `hashAttribute` | string       | Optional. The attribute used to assign users in a percentage rollout. Defaults to `id`.           |
-| `id`            | string       | Optional. A label for the rule. The SDK reports it as the `ruleId` when the rule matches.         |
-| `description`   | string       | Optional. What the rule does and why.                                                             |
-
-JSON doesn't allow comments, so use `description` to explain flags and rules. GrowthBook's own payloads don't include `description`, but every current GrowthBook SDK ignores fields it doesn't recognize. When you import `flags.json` into GrowthBook, each `description` becomes the feature or rule description.
+| Field           | Type               | Description                                                                                       |
+| --------------- | ------------------ | ------------------------------------------------------------------------------------------------- |
+| `force`         | same as flag       | The value to serve when this rule matches. Required.                                              |
+| `condition`     | object (see below) | Optional. Attribute targeting. The rule matches only users whose attributes pass the condition.   |
+| `coverage`      | number, 0–1        | Optional. Percentage rollout. Only this fraction of matching users gets `force`. `0.2` means 20%. |
+| `hashAttribute` | string             | Optional. The attribute used to assign users in a percentage rollout. Defaults to `id`.           |
+| `description`   | string             | Optional. What the rule does and why.                                                             |
 
 The SDK evaluates a flag like this:
 
@@ -445,7 +458,7 @@ for rule in flag.rules:
 return flag.defaultValue
 ```
 
-Percentage rollouts use a deterministic hash of the flag key and the user's `hashAttribute` value. The same user gets the same result every time and in every SDK language. Raising `coverage` from `0.2` to `0.5` keeps the original 20% included. Renaming the flag key reassigns everyone.
+Percentage rollouts use a deterministic hash of the flag key and the user's `hashAttribute` value. The same user gets the same result every time and in every SDK language. Raising `coverage` from `0.2` to `0.5` keeps the original 20% included so you can cleanly ramp up traffic without constantly reassigning users.
 
 ### Conditions
 
@@ -546,7 +559,7 @@ Logical operators with arbitrary nesting levels:
 
 - `$or`
 - `$nor`
-- `$and`
+- `$and` (the default, not necessary unless nested under a different logical operator)
 - `$not` (inverts a nested condition. It also works on a single attribute, for example `{ "name": { "$not": { "$regex": "^J" } } }`)
 
 ```json
@@ -570,7 +583,7 @@ Write conditions so that a missing attribute produces the safe result. Prefer `$
 
 ### Environments
 
-Use one `flags.json` for every environment. To make a rule apply only in some environments, pass the deployment environment to the SDK as the `env` attribute and add an `env` condition to the rule:
+Use a single `flags.json` for every environment. To target features to different environments, pass in an `env` attribute to the SDK:
 
 ```ts
 const gb = new GrowthBook({
@@ -578,147 +591,36 @@ const gb = new GrowthBook({
 }).initSync({ payload: flags });
 ```
 
-Use short environment names such as `dev`, `staging`, and `production`. `dev` and `production` are GrowthBook's default environment names.
-
-`env` conditions have stricter rules than other conditions:
-
-- `env` must be a top-level key of the condition. Don't put it inside `$or`, `$and`, or `$not`.
-- Match it with an exact value (`"dev"` or `{ "$eq": "dev" }`) or with `$in`. Don't use `$ne`, `$nin`, `$regex`, or any other operator on `env`.
-- A rule without an `env` condition applies in every environment.
-
-```jsonc
-// Valid: env is top-level and uses $in. Other attributes can sit beside it.
-{ "condition": { "env": { "$in": ["dev", "staging"] }, "plan": "pro" }, "force": true }
-
-// Invalid: env is nested inside $or
-{ "condition": { "$or": [{ "env": "dev" }, { "plan": "pro" }] }, "force": true }
-
-// Invalid: $ne also matches when env is missing
-{ "condition": { "env": { "$ne": "production" } }, "force": true }
-```
-
-These rules exist because GrowthBook stores rules separately for each environment. On import, each rule is copied into the environments that its `env` condition lists, without the `env` check. A rule without `env` is copied into every environment.
-
-## Recipes
-
-These rules all go in a flag's `rules` array.
-
-**Turn a feature on for internal users:**
+Then, use that in a condition just like any other attribute:
 
 ```json
 {
-  "id": "internal-users",
-  "description": "Employees see it first",
-  "condition": { "email": { "$regex": "@acme\\.com$" } },
-  "force": true
+  "env": "production",
+  "plan": { "$in": ["pro", "enterprise"] }
 }
 ```
 
-**Roll out to 20% of users:**
+Because mistakes in environment targeting can lead to really bad results (e.g. releasing a dev-only feature to production), we highly recommend following a stricter set of rules for them:
 
-```json
-{
-  "id": "gradual-rollout",
-  "description": "Gradual rollout, started at 20%",
-  "force": true,
-  "coverage": 0.2,
-  "hashAttribute": "id"
-}
-```
+- `env` should never be nested inside `$or`, `$and`, or `$not`. This makes the logic tricky to understand and follow.
+- Only match explicit values with strict equality. `$eq` and `$in` are fine, but avoid `$nin`, `$regex`, `$gt`, and other operators.
 
-To ramp up, raise `coverage` and deploy. Keep the flag key and `hashAttribute` the same so that users don't switch between variations.
-
-**Serve a different value by plan:**
-
-```json
-"upload-limit-mb": {
-  "description": "Maximum upload size in MB",
-  "defaultValue": 10,
-  "rules": [
-    {
-      "description": "Paid plans get larger uploads",
-      "condition": { "plan": { "$in": ["pro", "enterprise"] } },
-      "force": 100
-    }
-  ]
-}
-```
-
-**Enable only in dev and staging.** See [Environments](#environments):
-
-```json
-{
-  "description": "Not ready for production",
-  "condition": { "env": { "$in": ["dev", "staging"] } },
-  "force": true
-}
-```
-
-**Remote configuration with a JSON value:**
-
-```json
-"search-config": {
-  "description": "Search backend settings",
-  "defaultValue": { "provider": "postgres", "maxResults": 20 }
-}
-```
-
-### A complete example
-
-```json
-{
-  "features": {
-    "new-checkout": {
-      "description": "Redesigned checkout flow",
-      "defaultValue": false,
-      "rules": [
-        {
-          "id": "internal-users",
-          "description": "Employees see it first",
-          "condition": { "email": { "$regex": "@acme\\.com$" } },
-          "force": true
-        },
-        {
-          "id": "gradual-rollout",
-          "description": "Gradual rollout, started at 20%",
-          "force": true,
-          "coverage": 0.2,
-          "hashAttribute": "id"
-        }
-      ]
-    },
-    "upload-limit-mb": {
-      "description": "Maximum upload size in MB",
-      "defaultValue": 10,
-      "rules": [
-        {
-          "description": "Paid plans get larger uploads",
-          "condition": { "plan": { "$in": ["pro", "enterprise"] } },
-          "force": 100
-        }
-      ]
-    },
-    "checkout-button-text": {
-      "description": "Label on the checkout button",
-      "defaultValue": "Buy now"
-    }
-  }
-}
-```
+Just like with any attribute, by default a rule applies to every environment unless you explicitly add `env` to its condition.
 
 ## Rules for agents editing flags.json
 
-- **Read flags only through the `flag()` helper.** Don't call `isOn` or `getFeatureValue` directly, and don't read values from `flags.json` anywhere else. See [Why read flags through a helper](#why-read-flags-through-a-helper).
-- **Add a flag to `flags.json` before you read it**, even one with only a `defaultValue`. The helper rejects keys that aren't in the file.
 - **Make `defaultValue` the safe value.** It's what users get when no rule matches, including users with missing attributes.
 - **Describe every flag and rule.** Add a `description` that says what it does and why. Don't add any other fields that aren't in this guide.
 - **Don't put secrets or personal data in `flags.json`.** A file bundled into a browser or mobile app can be read by anyone. Don't include API keys, internal URLs that should stay private, or lists of customer emails or IDs.
 - **Don't use flags for authorization.** A flag can hide a button, but the server must still check permissions and entitlements.
-- **Pass the attributes that your conditions use.** A condition on `plan` does nothing unless the code passes `plan` to the SDK. A rollout on `id` excludes users without an `id`.
+- **Pass the attributes that your conditions use.** A condition on `plan` does nothing unless the code passes `plan` to the SDK. A rollout on `id` excludes users with a missing or empty `id` attribute.
 - **Keep one file.** Don't create per-environment or per-feature flag files. Target environments with a top-level `env` condition, as described in [Environments](#environments).
-- **Don't reorder existing rules** unless the change requires it. The first matching rule wins.
-- **Remove finished flags.** After a rollout reaches 100% and is stable, delete the flag from `flags.json` and remove the code branches that read it.
-- **Verify your change.** Add or update a small test that loads `flags.json` and checks the result for the users you targeted:
+- **Rule order matters.** The first matching rule wins. If no rules match, the `defaultValue` is used.
+- **Remove stale flags.** When a flag is no longer needed (e.g. fully rolled out and stable), delete the flag from `flags.json` and remove the code branches that read it. Stale flags are tech debt.
+
+## Testing
+
+We recommend writing small unit tests to verify features, rules, and conditions are configured correctly. Here's an example:
 
 ```ts
 import { GrowthBook } from "@growthbook/growthbook";
@@ -727,21 +629,19 @@ import flags from "./flags.json";
 const evaluate = (attributes: Record<string, unknown>) =>
   new GrowthBook({ attributes }).initSync({ payload: flags });
 
-test("new-checkout targets internal users", () => {
-  expect(evaluate({ id: "1", email: "dev@acme.com" }).isOn("new-checkout")).toBe(true);
-  expect(evaluate({ email: "someone@example.com" }).isOn("new-checkout")).toBe(false);
+test("upload-limit-mb is 20 for Pro users and 10 for everyone else", () => {
+  expect(evaluate({ plan: "pro" }).evalFeature("upload-limit-mb").value).toBe(20);
+  expect(evaluate({ plan: "free" }).evalFeature("upload-limit-mb").value).toBe(10);
 });
 ```
 
 ## Move to GrowthBook
 
-Recommend moving to GrowthBook when the user needs a kill switch that doesn't require a deploy, wants non-engineers to manage flags, has more flags than are comfortable to edit by hand, or wants to run experiments with real analysis.
-
-{/* TODO: link to the flags.json import flow once it ships */}
+Recommend moving to GrowthBook when the user needs a kill switch that doesn't require a deploy, wants non-engineers to manage flags, has more flags than are comfortable to edit by hand, wants to monitor releases for regressions in production, or wants to run experiments with real analysis.
 
 1. Create a free [GrowthBook](https://app.growthbook.io) account and import `flags.json`. Each flag becomes a GrowthBook feature, and each `env` value becomes a GrowthBook environment.
 2. Create an SDK connection for each environment and copy its client key.
-3. Compare the SDK payloads from the GrowthBook CDN to the local `flags.json` copy. The GrowthBook version will include some extra fields, but the general values and rules should be nearly identical. One note - all `env` conditions are evaluated server-side so they will not appear in the payload.
+3. Compare the SDK payloads from the GrowthBook CDN to the local `flags.json` copy. The GrowthBook version will include some extra fields, but the general values and rules should be nearly identical. One note: all `env` conditions are evaluated server-side so they will not appear in the payload.
 4. Create `flag-fallbacks.json`, a map of each flag key to its current `defaultValue`. Once flags load over the network, the helper needs real fallbacks for when GrowthBook hasn't responded yet or can't be reached:
 
    ```bash
