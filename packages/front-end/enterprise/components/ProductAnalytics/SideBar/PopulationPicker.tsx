@@ -6,6 +6,7 @@ import type { AppFeatures } from "shared/types/app-features";
 import type { ApiPopulation, MetricValue } from "shared/validators";
 import { getMetricPopulationViolations } from "shared/enterprise";
 import { isProjectListValidForProject } from "shared/util";
+import { getSinglePopulationStep } from "shared/populations";
 import Callout from "@/ui/Callout";
 import HelperText from "@/ui/HelperText";
 import Link from "@/ui/Link";
@@ -66,7 +67,8 @@ export default function PopulationPicker({
     const isOnThisDataSource =
       candidate.datasource === draftExploreState.datasource;
     const readsFromMetricsFactTable =
-      candidate.steps[0]?.source.factTableId === populationFactTableId;
+      getSinglePopulationStep(candidate)?.source.factTableId ===
+      populationFactTableId;
     const supportsChartUnit = !unit || candidate.userIdTypes.includes(unit);
     return (
       isInThisProject &&

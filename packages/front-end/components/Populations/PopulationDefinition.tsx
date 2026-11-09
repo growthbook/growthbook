@@ -1,6 +1,7 @@
 import { Box, Flex, Grid, Separator } from "@radix-ui/themes";
 import { date, datetime } from "shared/dates";
 import type { ApiPopulation } from "shared/validators";
+import { getSinglePopulationStep } from "shared/populations";
 import Heading from "@/ui/Heading";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
@@ -13,8 +14,8 @@ export default function PopulationDefinition({
   population: ApiPopulation;
 }) {
   const { getFactTableById } = useDefinitions();
-  // TODO: Support multiple steps. Only the first step is shown for now.
-  const step = population.steps[0];
+  // TODO: Support multiple steps.
+  const step = getSinglePopulationStep(population);
   const factTable = step ? getFactTableById(step.source.factTableId) : null;
   const descriptionSegments = step
     ? describePopulationStep({

@@ -387,16 +387,17 @@ function buildResultCsv(
     if (col.sub === "numerator" || col.sub === "denominator") {
       return typeof raw === "number" ? String(raw) : String(raw);
     }
-    // value (ratio) and single: 4dp for ratios/per-unit, integer for totals.
+    // value (ratio) and single: 4dp for divided values (ratios, per unit,
+    // % of Population), integer for totals.
     if (typeof raw === "number") {
       const valueOpts = renderOpts.values[col.metricIndex];
-      const isRatioOrPerUnit =
+      const isDividedValue =
         col.sub === "value" ||
         (col.sub === "single" &&
           (valueOpts?.isRatio ||
             valueOpts?.showAs === "per_unit" ||
             valueOpts?.showAs === "percent_of_population"));
-      return isRatioOrPerUnit ? raw.toFixed(4) : String(raw);
+      return isDividedValue ? raw.toFixed(4) : String(raw);
     }
     return String(raw);
   };

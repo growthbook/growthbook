@@ -7,6 +7,7 @@ import type {
 } from "shared/validators";
 import {
   getPopulationRuleViolations,
+  getSinglePopulationStep,
   type PopulationRuleFactTable,
 } from "shared/populations";
 import type {
@@ -39,7 +40,14 @@ export function resolveExplorationPopulation(
   population: ExplorationPopulation,
   savedPopulation: ExplorationSavedPopulation,
 ): ResolvedExplorationPopulation {
-  return { ...savedPopulation.steps[0], unit: population.unit };
+  const step = getSinglePopulationStep(savedPopulation);
+  // getMetricPopulationViolations rejects these first.
+  if (!step) {
+    throw new Error(
+      "Only Populations with a single step can be combined with metrics.",
+    );
+  }
+  return { ...step, unit: population.unit };
 }
 
 // The population applies to every metric in the request, so one incompatible
@@ -68,7 +76,7 @@ export function getMetricPopulationViolations({
   if (savedPopulation.datasource !== datasource) {
     return ["The Population must use the same Data Source as the metrics."];
   }
-  if (savedPopulation.steps.length !== 1) {
+  if (!getSinglePopulationStep(savedPopulation)) {
     return [
       "Only Populations with a single step can be combined with metrics.",
     ];
