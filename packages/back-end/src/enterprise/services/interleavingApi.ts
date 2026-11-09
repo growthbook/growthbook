@@ -93,5 +93,7 @@ export function toApiInterleaving(
     savedGroups: doc.savedGroups,
     prerequisites: doc.prerequisites,
     environmentSettings: doc.environmentSettings,
+    autoSnapshots: doc.autoSnapshots,
+    nextSnapshotAttempt: doc.nextSnapshotAttempt?.toISOString(),
   };
 }
