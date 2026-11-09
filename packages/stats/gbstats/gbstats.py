@@ -3,7 +3,7 @@ import dataclasses
 import re
 import traceback
 import copy
-from typing import Any, Dict, List, Optional, Set, Tuple, Union
+from typing import Any, Dict, List, Optional, Set, Tuple, TypeVar, Union
 
 import pandas as pd
 
@@ -84,7 +84,9 @@ from gbstats.models.statistics import (
 )
 from gbstats.utils import check_srm
 
-from gbstats.models.tests import EffectMomentsResult
+from gbstats.models.tests import BaseABTest, EffectMomentsResult
+
+TestT = TypeVar("TestT", bound=BaseABTest)
 
 
 SUM_COLS = [
@@ -338,13 +340,20 @@ def get_configured_test(
 
     base_config = {
         "total_users": total_users,
-        "total_sub_units": total_sub_units,
-        "scale_by_sub_unit_count": metric.scale_by_sub_unit_count,
         "traffic_percentage": analysis.traffic_percentage,
         "phase_length_days": analysis.phase_length_days,
         "difference_type": analysis.difference_type,
         "post_stratify": post_stratify,
     }
+
+    # Sub-unit cluster scaled-impact inputs are set on the test instance after
+    # construction rather than on the (public) Config classes, so their
+    # constructor signatures stay backward-compatible.
+    def with_scaling_settings(test: TestT) -> TestT:
+        test.total_sub_units = total_sub_units
+        test.scale_by_sub_unit_count = metric.scale_by_sub_unit_count
+        return test
+
     if analysis.use_covariate_as_response:
         num_variations = len(analysis.var_names)
         # if there are no goal metrics, just use 1 as the number of tests
@@ -365,15 +374,19 @@ def get_configured_test(
             )
             if analysis.one_sided_intervals:
                 if metric.inverse:
-                    return SequentialOneSidedTreatmentGreaterTTest(
-                        stats, sequential_config
+                    return with_scaling_settings(
+                        SequentialOneSidedTreatmentGreaterTTest(
+                            stats, sequential_config
+                        )
                     )
                 else:
-                    return SequentialOneSidedTreatmentLesserTTest(
-                        stats, sequential_config
+                    return with_scaling_settings(
+                        SequentialOneSidedTreatmentLesserTTest(stats, sequential_config)
                     )
             else:
-                return SequentialTwoSidedTTest(stats, sequential_config)
+                return with_scaling_settings(
+                    SequentialTwoSidedTTest(stats, sequential_config)
+                )
         else:
             config = FrequentistConfig(
                 **base_config,
@@ -381,11 +394,15 @@ def get_configured_test(
             )
             if analysis.one_sided_intervals:
                 if metric.inverse:
-                    return OneSidedTreatmentGreaterTTest(stats, config)
+                    return with_scaling_settings(
+                        OneSidedTreatmentGreaterTTest(stats, config)
+                    )
                 else:
-                    return OneSidedTreatmentLesserTTest(stats, config)
+                    return with_scaling_settings(
+                        OneSidedTreatmentLesserTTest(stats, config)
+                    )
             else:
-                return TwoSidedTTest(stats, config)
+                return with_scaling_settings(TwoSidedTTest(stats, config))
     else:
         if analysis.use_covariate_as_response:
             prior = GaussianPrior(
@@ -399,15 +416,17 @@ def get_configured_test(
                 variance=pow(metric.prior_stddev, 2),
                 proper=metric.prior_proper,
             )
-        return EffectBayesianABTest(
-            stats,
-            EffectBayesianConfig(
-                **base_config,
-                inverse=metric.inverse,
-                prior_effect=prior,
-                prior_type="relative",
-                alpha=alpha,
-            ),
+        return with_scaling_settings(
+            EffectBayesianABTest(
+                stats,
+                EffectBayesianConfig(
+                    **base_config,
+                    inverse=metric.inverse,
+                    prior_effect=prior,
+                    prior_type="relative",
+                    alpha=alpha,
+                ),
+            )
         )
 
 

@@ -304,14 +304,13 @@ class TestScaledImpactSubUnitCluster(TestCase):
         config = EffectBayesianConfig(
             difference_type=difference_type,
             total_users=self.total_users,
-            total_sub_units=self.total_sub_units,
-            scale_by_sub_unit_count=scale_by_sub_unit_count,
             traffic_percentage=1.0,
             phase_length_days=1.0,
         )
-        return EffectBayesianABTest(
-            [(self.stat_a, self.stat_b)], config
-        ).compute_result()
+        test = EffectBayesianABTest([(self.stat_a, self.stat_b)], config)
+        test.total_sub_units = self.total_sub_units
+        test.scale_by_sub_unit_count = scale_by_sub_unit_count
+        return test.compute_result()
 
     def test_scales_by_sub_unit_count(self):
         absolute = self._result("absolute")

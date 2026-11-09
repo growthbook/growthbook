@@ -585,17 +585,18 @@ class TestScaledImpactSubUnitCluster(TestCase):
         self.total_users = 200  # clusters
         self.total_sub_units = 1020  # sub-units (500 + 520)
 
-    def _result(self, difference_type, **overrides):
+    def _result(self, difference_type, scale_by_sub_unit_count=True, **overrides):
         config = FrequentistConfig(
             difference_type=difference_type,
             total_users=self.total_users,
-            total_sub_units=self.total_sub_units,
-            scale_by_sub_unit_count=True,
             traffic_percentage=1.0,
             phase_length_days=1.0,
             **overrides,
         )
-        return TwoSidedTTest([(self.stat_a, self.stat_b)], config).compute_result()
+        test = TwoSidedTTest([(self.stat_a, self.stat_b)], config)
+        test.total_sub_units = self.total_sub_units
+        test.scale_by_sub_unit_count = scale_by_sub_unit_count
+        return test.compute_result()
 
     def test_scales_by_sub_unit_count(self):
         absolute = self._result("absolute")
@@ -667,31 +668,21 @@ class TestScaledImpactSubUnitCluster(TestCase):
             m_pre_d_post_sum_of_products=1604.0759503266522,
             theta=None,
         )
-        config_abs = FrequentistConfig(
-            difference_type="absolute",
-            total_users=200,
-            total_sub_units=1000,
-            scale_by_sub_unit_count=True,
-        )
-        config_scaled = FrequentistConfig(
-            difference_type="scaled",
-            total_users=200,
-            total_sub_units=1000,
-            scale_by_sub_unit_count=True,
-        )
-        absolute = TwoSidedTTest([(stat_a, stat_b)], config_abs).compute_result()
-        scaled = TwoSidedTTest([(stat_a, stat_b)], config_scaled).compute_result()
+
+        def scaled_test(difference_type):
+            config = FrequentistConfig(difference_type=difference_type, total_users=200)
+            test = TwoSidedTTest([(stat_a, stat_b)], config)
+            test.total_sub_units = 1000
+            test.scale_by_sub_unit_count = True
+            return test.compute_result()
+
+        absolute = scaled_test("absolute")
+        scaled = scaled_test("scaled")
         self.assertIsNone(scaled.errorMessage)
         self.assertAlmostEqual(scaled.expected, absolute.expected * 1000)
 
     def test_errors_when_flag_not_set(self):
-        config = FrequentistConfig(
-            difference_type="scaled",
-            total_users=self.total_users,
-            total_sub_units=self.total_sub_units,
-            scale_by_sub_unit_count=False,
-        )
-        result = TwoSidedTTest([(self.stat_a, self.stat_b)], config).compute_result()
+        result = self._result("scaled", scale_by_sub_unit_count=False)
         self.assertIsNotNone(result.errorMessage)
 
 
