@@ -132,12 +132,10 @@ export interface LicenseInterface {
   plan?: AccountPlan; // The assigned plan (pro, enterprise, etc.) for this license
   seatsInUse: number; // Number of seats currently in use
   remoteDowngrade: boolean; // True if the license was downgraded remotely
-  // Open Orb Pro card failure. Absent once the invoice is paid or the plan is canceled.
+  // Open Orb Pro card failure. Absent once the invoice is paid or void, or the subscription ends.
   paymentFailure?: {
     invoiceId: string;
-    firstFailedAt: string;
     downgradeAt: string;
-    amountDue?: string | null;
   };
   message?: {
     text: string; // The text to show in the account notice

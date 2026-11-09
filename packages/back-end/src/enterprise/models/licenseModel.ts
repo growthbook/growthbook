@@ -21,9 +21,7 @@ const licenseSchema = new mongoose.Schema({
   remoteDowngrade: { type: Boolean, default: false }, // True if this license was downgraded remotely
   paymentFailure: {
     invoiceId: String,
-    firstFailedAt: Date,
     downgradeAt: Date,
-    amountDue: String,
   },
   message: {
     text: String, // The text to show in the account notice
