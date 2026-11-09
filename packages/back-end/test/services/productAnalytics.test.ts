@@ -10,7 +10,7 @@ import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { getFactTablesByIds } from "back-end/src/models/FactTableModel";
 import { FactMetricModel } from "back-end/src/models/FactMetricModel";
 import { runProductAnalyticsExploration } from "back-end/src/enterprise/services/product-analytics";
-import { BadRequestError } from "back-end/src/util/errors";
+import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 
 jest.mock("back-end/src/models/DataSourceModel", () => ({
   getDataSourceById: jest.fn(),
@@ -403,9 +403,12 @@ describe("metric dataset population validation", () => {
   // Validation runs with the metric load after a cache miss.
   const runUncached = (c = config) =>
     runProductAnalyticsExploration(context, c, { cache: "never" });
-  it("passes the supplied population rules to cache lookup", async () => {
+  it("keys the cache lookup on the saved Population's definition", async () => {
     await expect(run()).resolves.toBeNull();
     expect(findLatestByConfig.mock.calls[0][0]).toEqual(config);
+    expect(findLatestByConfig.mock.calls[0][1]).toMatchObject({
+      savedPopulation,
+    });
     const testConfig = structuredClone(config);
     if (testConfig.dataset.type !== "metric")
       throw new Error("Expected metric dataset");
@@ -433,9 +436,14 @@ describe("metric dataset population validation", () => {
   it("rejects a Population that doesn't exist or can't be read", async () => {
     getPopulationById.mockResolvedValue(null);
     const result = runUncached();
-    await expect(result).rejects.toThrow(BadRequestError);
+    await expect(result).rejects.toThrow(NotFoundError);
     await expect(result).rejects.toThrow("Population pop_1 not found.");
     expect(create).not.toHaveBeenCalled();
+  });
+  it("never serves cached results for a missing Population", async () => {
+    getPopulationById.mockResolvedValue(null);
+    await expect(run()).rejects.toThrow("Population pop_1 not found.");
+    expect(findLatestByConfig).not.toHaveBeenCalled();
   });
   it("rejects the request when any metric is incompatible with the population", async () => {
     const mean = {

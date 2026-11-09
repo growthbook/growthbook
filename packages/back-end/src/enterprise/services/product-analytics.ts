@@ -5,6 +5,7 @@ import {
   ProductAnalyticsExploration,
   ExplorationCacheQuery,
   factMetricValidator,
+  PopulationInterface,
   PopulationStep,
   ResolvedExplorationPopulation,
 } from "shared/validators";
@@ -96,9 +97,26 @@ export async function runProductAnalyticsExploration(
     context.permissions.throwPermissionError();
   }
 
+  // Loaded before the cache lookup: a deleted or unreadable Population must
+  // not serve cached results, and the cache is keyed on its definition so
+  // edits to it invalidate them.
+  let savedPopulation: PopulationInterface | null = null;
+  if (dataset.type === "metric" && dataset.population) {
+    // Returns null when the Population doesn't exist or can't be read.
+    savedPopulation = await context.models.populations.getById(
+      dataset.population.populationId,
+    );
+    if (!savedPopulation) {
+      throw new NotFoundError(
+        `Population ${dataset.population.populationId} not found.`,
+      );
+    }
+  }
+
   if (options.cache !== "never") {
     const existing =
       await context.models.analyticsExplorations.findLatestByConfig(config, {
+        savedPopulation,
         // Every journey request needs one unused frontier level to project a
         // display payload. Prefix cache hits are reused; a miss runs SQL with
         // the full lookahead still in the dataset.
@@ -194,10 +212,6 @@ export async function runProductAnalyticsExploration(
     factTables.forEach((ft) => factTableMap.set(ft.id, ft));
 
     if (dataset.population) {
-      // Returns null when the Population doesn't exist or can't be read.
-      const savedPopulation = await context.models.populations.getById(
-        dataset.population.populationId,
-      );
       const parsedPopulation = parseMetricExplorationPopulation({
         population: dataset.population,
         savedPopulation,
@@ -408,8 +422,10 @@ export async function runProductAnalyticsExploration(
     throw new BadRequestError("Invalid dataset type");
   }
 
-  const configHashes =
-    context.models.analyticsExplorations.getConfigHashes(config);
+  const configHashes = context.models.analyticsExplorations.getConfigHashes(
+    config,
+    savedPopulation,
+  );
   if (!configHashes) {
     throw new BadRequestError("Invalid config");
   }
