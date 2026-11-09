@@ -19,6 +19,12 @@ const licenseSchema = new mongoose.Schema({
   inviteSeatsInUse: { type: Number }, // Number of invite seats currently in use
   stripeCustomerId: String, // The Stripe customer ID for the license
   remoteDowngrade: { type: Boolean, default: false }, // True if this license was downgraded remotely
+  paymentFailure: {
+    invoiceId: String,
+    firstFailedAt: Date,
+    downgradeAt: Date,
+    amountDue: String,
+  },
   message: {
     text: String, // The text to show in the account notice
     className: String, // The class name to apply to the account notice

@@ -113,6 +113,8 @@ export type SubscriptionInfo = {
   pendingCancelation: boolean;
   isVercelIntegration: boolean;
   stripeCustomerId?: string;
+  // ISO time the Pro plan ends if the open invoice stays unpaid. Orb Pro only.
+  pastDueUntil?: string;
 };
 
 export interface LicenseInterface {
@@ -130,6 +132,13 @@ export interface LicenseInterface {
   plan?: AccountPlan; // The assigned plan (pro, enterprise, etc.) for this license
   seatsInUse: number; // Number of seats currently in use
   remoteDowngrade: boolean; // True if the license was downgraded remotely
+  // Open Orb Pro card failure. Absent once the invoice is paid or the plan is canceled.
+  paymentFailure?: {
+    invoiceId: string;
+    firstFailedAt: string;
+    downgradeAt: string;
+    amountDue?: string | null;
+  };
   message?: {
     text: string; // The text to show in the account notice
     className: string; // The class name to apply to the account notice

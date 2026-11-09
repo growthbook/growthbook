@@ -141,6 +141,15 @@ function BillingStatusSection({
           your billing period on {billing.pendingCancelDate}.
         </Callout>
       ) : null;
+    case "self_serve_past_due":
+      return (
+        <Callout status="warning" mb="3">
+          We couldn&apos;t charge your card.
+          {billing.downgradeDate
+            ? ` Update your payment method by ${billing.downgradeDate} to keep your Pro plan.`
+            : " Update your payment method to keep your Pro plan."}
+        </Callout>
+      );
     case "self_serve_active":
     case "enterprise_active":
       return billing.nextBillDate ? (

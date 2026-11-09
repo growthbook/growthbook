@@ -38,6 +38,22 @@ describe("getSubscriptionBillingState", () => {
     expect(state.showCancelButton).toBe(true);
   });
 
+  it("self-serve past due: names the downgrade date and keeps the card update action", () => {
+    const state = getSubscriptionBillingState({
+      subscription: sub({
+        status: "past_due",
+        pastDueUntil: "2026-11-11T15:00:00.000Z",
+      }),
+      accountPlan: "pro",
+      canSubscribe: false,
+    });
+    expect(state.kind).toBe("self_serve_past_due");
+    if (state.kind !== "self_serve_past_due") return;
+    expect(state.downgradeDate).toBe(date("2026-11-11T15:00:00.000Z", "UTC"));
+    expect(state.showUpdateInvoiceButton).toBe(true);
+    expect(state.showCancelButton).toBe(false);
+  });
+
   it("self-serve pending cancel: hides next bill, shows access-until date", () => {
     const state = getSubscriptionBillingState({
       subscription: sub({

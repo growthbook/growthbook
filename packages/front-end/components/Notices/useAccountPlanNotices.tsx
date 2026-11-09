@@ -141,7 +141,10 @@ export default function useAccountPlanNotices(): AppNotice[] {
     ) {
       return {
         id: "license",
-        severity: "error",
+        // Grace-period copy is a warning. The downgrade notice, and any other
+        // license message, stays an error.
+        severity:
+          license.message.className === "payment-failure" ? "warning" : "error",
         title: license.message.text,
         details: license.message.tooltipText,
       };
