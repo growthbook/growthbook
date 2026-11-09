@@ -49,10 +49,10 @@ export type CustomFieldWithArrayIndex = CustomField & { arrayIndex: number };
 
 /**
  * Narrower than this, the table scrolls sideways in its frame rather than
- * squeezing its columns (e.g. beside the docked AI panel). Measured: at 968px
- * the end of the Required header is hidden behind the next column.
+ * squeezing its columns (e.g. beside the docked AI panel). Measured: at 818px
+ * the end of the Field Name header is hidden behind the next column.
  */
-const CUSTOM_FIELDS_TABLE_MIN_WIDTH = 970;
+const CUSTOM_FIELDS_TABLE_MIN_WIDTH = 820;
 
 function CustomFieldsTable({
   filter,
