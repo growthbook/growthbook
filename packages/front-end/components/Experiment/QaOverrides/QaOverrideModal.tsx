@@ -227,10 +227,8 @@ export default function QaOverrideModal({
     >
       <Flex direction="column" gap="5">
         <Box>
-          <Heading as="h3" size="sm" mb="1">
-            Environment
-          </Heading>
           <Select
+            label="Environment"
             value={values.environment}
             setValue={(v) => {
               form.setValue("environment", v);
@@ -247,12 +245,14 @@ export default function QaOverrideModal({
               </SelectItem>
             ))}
           </Select>
-          <Text as="p" size="sm" color="text-low" mt="1">
-            QA overrides aren&apos;t available on production. To use one of
-            those environments, turn off &quot;This is a production
-            environment&quot; in{" "}
-            <Link href="/environments">Settings → Environments</Link>.
-          </Text>
+          {environmentOptions.some((e) => e.isProduction) && (
+            <Text as="p" size="sm" color="text-low" mt="1">
+              QA overrides aren&apos;t available on production. To use one of
+              those environments, turn off &quot;This is a production
+              environment&quot; in{" "}
+              <Link href="/environments">Settings → Environments</Link>.
+            </Text>
+          )}
         </Box>
 
         <Box>
@@ -319,6 +319,7 @@ export default function QaOverrideModal({
                   )}
                   {kind === "sdkConnections" && (
                     <MultiSelectField
+                      aria-label={FILTER_LABELS[kind]}
                       value={values.sdkConnections}
                       onChange={(v) => form.setValue("sdkConnections", v)}
                       options={connectionOptions}
@@ -332,10 +333,11 @@ export default function QaOverrideModal({
                   )}
                   {kind === "projects" && (
                     <MultiSelectField
+                      aria-label={FILTER_LABELS[kind]}
                       value={values.projects}
                       onChange={(v) => form.setValue("projects", v)}
                       options={projectOptions}
-                      placeholder="Select projects..."
+                      placeholder="Select Projects..."
                     />
                   )}
                 </Box>
@@ -366,7 +368,7 @@ export default function QaOverrideModal({
 
         <Box>
           <Heading as="h3" size="sm" mb="2">
-            Which Variation?
+            Assignment
           </Heading>
           <RadioCards
             columns="1"

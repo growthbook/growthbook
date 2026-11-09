@@ -13,10 +13,14 @@ import useSdkConnectionQaOverrides, {
 import Frame from "@/ui/Frame";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
-import Button from "@/ui/Button";
 import Badge from "@/ui/Badge";
 import Link from "@/ui/Link";
 import Callout from "@/ui/Callout";
+import {
+  DropdownMenu,
+  DropdownMenuItem,
+  MoreMenuTrigger,
+} from "@/ui/DropdownMenu";
 import Table, {
   TableBody,
   TableCell,
@@ -28,7 +32,7 @@ import QaOverrideModal from "@/components/Experiment/QaOverrides/QaOverrideModal
 import {
   QaOverrideFiltersSummary,
   QaOverrideSetBy,
-  QaOverrideStatusBadge,
+  QaOverrideStatus,
   QaOverrideVariation,
 } from "@/components/Experiment/QaOverrides/QaOverrideSummary";
 
@@ -57,9 +61,17 @@ export default function SdkQaOverridesSection({
 
   const deleteOverride = async (override: ExperimentQaOverrideWithStatus) => {
     setActionError(null);
-    await apiCall(`/qa-overrides/${override.id}`, { method: "DELETE" });
-    await mutate();
+    try {
+      await apiCall(`/qa-overrides/${override.id}`, { method: "DELETE" });
+      await mutate();
+    } catch (e) {
+      setActionError(e.message);
+    }
   };
+
+  // Most connections are production, where QA overrides can't exist; a card
+  // saying so on every one of them is noise.
+  if (!envEligible) return null;
 
   return (
     <Frame>
@@ -109,13 +121,7 @@ export default function SdkQaOverridesSection({
         </Callout>
       )}
 
-      {!envEligible ? (
-        <Callout status="info">
-          <Text weight="medium">{connection.environment}</Text> is a production
-          environment, so QA overrides aren&apos;t available on this connection.{" "}
-          <Link href="/environments">Manage environments</Link>
-        </Callout>
-      ) : overrides.length === 0 ? (
+      {overrides.length === 0 ? (
         !error && (
           <Text color="text-low">
             No draft experiments are being served to this connection.
@@ -130,7 +136,7 @@ export default function SdkQaOverridesSection({
               <TableColumnHeader>Variation</TableColumnHeader>
               <TableColumnHeader>Status</TableColumnHeader>
               <TableColumnHeader>Set by</TableColumnHeader>
-              <TableColumnHeader />
+              <TableColumnHeader style={{ width: 30 }} />
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -157,29 +163,39 @@ export default function SdkQaOverridesSection({
                     />
                   </TableCell>
                   <TableCell>
-                    <QaOverrideStatusBadge override={override} />
+                    <QaOverrideStatus override={override} />
                   </TableCell>
                   <TableCell>
                     <QaOverrideSetBy override={override} />
                   </TableCell>
                   <TableCell>
                     {experiment && canEdit(experiment) && (
-                      <Flex gap="4" justify="end">
-                        <Button
-                          variant="ghost"
+                      <DropdownMenu
+                        trigger={
+                          <MoreMenuTrigger label="QA override actions" />
+                        }
+                        menuPlacement="end"
+                        variant="soft"
+                      >
+                        <DropdownMenuItem
                           onClick={() => setEditing({ override, experiment })}
                         >
                           Edit
-                        </Button>
-                        <Button
-                          variant="ghost"
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
                           color="red"
-                          setError={setActionError}
-                          onClick={() => deleteOverride(override)}
+                          confirmation={{
+                            confirmationTitle: "Remove this QA override?",
+                            cta: "Remove",
+                            ctaColor: "red",
+                            getConfirmationContent: async () =>
+                              `${experiment.name} will stop being served to ${connection.environment} through this override, for every connection it reaches.`,
+                            submit: () => deleteOverride(override),
+                          }}
                         >
                           Remove
-                        </Button>
-                      </Flex>
+                        </DropdownMenuItem>
+                      </DropdownMenu>
                     )}
                   </TableCell>
                 </TableRow>

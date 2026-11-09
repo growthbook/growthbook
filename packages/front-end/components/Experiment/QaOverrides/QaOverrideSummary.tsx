@@ -13,7 +13,6 @@ import { useUser } from "@/services/UserContext";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import ConditionDisplay from "@/components/Features/ConditionDisplay";
-import Tooltip from "@/components/Tooltip/Tooltip";
 import Badge from "@/ui/Badge";
 import Text from "@/ui/Text";
 import VariationLabel from "@/ui/VariationLabel";
@@ -105,7 +104,10 @@ export function QaOverrideSetBy({
   );
 }
 
-export function QaOverrideStatusBadge({
+// Badge for scanning, with the reasons spelled out beneath it: on the SDK
+// Connection page this is the only place a tester learns why an override
+// isn't active yet, so it must be reachable without hovering.
+export function QaOverrideStatus({
   override,
 }: {
   override: Pick<ExperimentQaOverrideWithStatus, "status" | "waitingOn">;
@@ -114,19 +116,13 @@ export function QaOverrideStatusBadge({
     return <Badge label="Active" color="green" variant="soft" />;
   }
   return (
-    <Tooltip
-      body={
-        <Flex direction="column" gap="1">
-          {override.waitingOn.map((w) => (
-            <Text key={w.featureId} size="sm">
-              <code>{w.featureId}</code>:{" "}
-              {QA_OVERRIDE_WAITING_REASONS[w.reason]}
-            </Text>
-          ))}
-        </Flex>
-      }
-    >
+    <Flex direction="column" gap="1" align="start">
       <Badge label="Waiting for Feature Flag" color="amber" variant="soft" />
-    </Tooltip>
+      {override.waitingOn.map((w) => (
+        <Text key={w.featureId} size="sm" color="text-mid">
+          <code>{w.featureId}</code>: {QA_OVERRIDE_WAITING_REASONS[w.reason]}
+        </Text>
+      ))}
+    </Flex>
   );
 }
