@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   databricksParamsSupportEventForwarder,
   getDatabricksEventForwarderAuthMessage,
@@ -597,13 +597,29 @@ function EventForwarderModal({
 }
 
 // First line only until expanded; error traces can run many lines.
+// - Toggle shows for extra lines, or a first line the clamp actually cut.
 function EventForwarderErrorMessage({ message }: { message: string }) {
   const [expanded, setExpanded] = useState(false);
+  const [clipped, setClipped] = useState(false);
+  const textRef = useRef<HTMLDivElement>(null);
   const firstLine = message.split("\n")[0];
-  const isLong = firstLine !== message || firstLine.length > 120;
+  const isLong = firstLine !== message || clipped;
+
+  // Measured only while clamped; expanding keeps the last answer.
+  useEffect(() => {
+    const el = textRef.current;
+    if (!el || expanded) return;
+    const check = () => setClipped(el.scrollHeight > el.clientHeight + 1);
+    check();
+    const observer = new ResizeObserver(check);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [expanded]);
+
   return (
     <Box>
       <Box
+        ref={textRef}
         style={
           expanded
             ? { whiteSpace: "pre-wrap" }
