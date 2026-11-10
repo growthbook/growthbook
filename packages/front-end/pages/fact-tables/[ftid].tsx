@@ -146,7 +146,7 @@ export default function FactTablePage() {
 
   if (
     factTable.managedBy &&
-    ["api", "dbt", "config"].includes(factTable.managedBy)
+    ["api", "dbt", "terraform", "config"].includes(factTable.managedBy)
   ) {
     canEdit = false;
     canDelete = false;

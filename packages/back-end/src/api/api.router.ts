@@ -4,6 +4,7 @@ import { Router, Request, RequestHandler } from "express";
 import rateLimit from "express-rate-limit";
 import bodyParser from "body-parser";
 import * as Sentry from "@sentry/node";
+import { getEnabledCrudActions } from "shared/api-model";
 import authenticateApiRequestMiddleware from "back-end/src/middleware/authenticateApiRequestMiddleware";
 import { DashboardModel } from "back-end/src/enterprise/models/DashboardModel";
 import { ContextualBanditModel } from "back-end/src/enterprise/models/ContextualBanditModel";
@@ -77,6 +78,7 @@ import { rampSchedulesRoutes } from "./ramp-schedules/ramp-schedules.router";
 import { reportRoutes } from "./reports/reports.router";
 import { namespacesRoutes } from "./namespaces/namespaces.router";
 import { getOpenApiRoutesForApiConfig } from "./apiModelHandlers";
+import { ApiResourceEntry, legacyApiResources } from "./resources";
 
 const API_MODELS: ModelClass[] = [
   DashboardModel,
@@ -242,6 +244,7 @@ export const apiModelTagMeta: Record<
   string,
   { displayName?: string; description?: string }
 > = {};
+export const apiResources: ApiResourceEntry[] = [...legacyApiResources];
 API_MODELS.forEach((modelClass) => {
   const apiConfig = modelClass.getModelConfig().apiConfig;
   if (!apiConfig) return;
@@ -256,6 +259,12 @@ API_MODELS.forEach((modelClass) => {
     displayName: spec.navDisplayName,
     description: spec.navDescription ?? "",
   };
+  if (getEnabledCrudActions(spec).length > 0) {
+    apiResources.push({
+      name: spec.modelSingular.replace(/[A-Z]/g, (c) => `_${c.toLowerCase()}`),
+      path: spec.pathBase,
+    });
+  }
 });
 
 // Not JSON, so it can't use createApiRequestHandler. Documented on

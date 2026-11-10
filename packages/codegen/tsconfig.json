@@ -1,0 +1,13 @@
+{
+  "compilerOptions": {
+    "skipLibCheck": true,
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "target": "es2022",
+    "strict": true,
+    "esModuleInterop": true,
+    "noEmit": true,
+    "typeRoots": ["node_modules/@types"]
+  },
+  "include": ["src/**/*", "test/**/*"]
+}

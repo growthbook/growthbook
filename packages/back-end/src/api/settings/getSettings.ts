@@ -31,12 +31,13 @@ export const getSettings = createApiRequestHandler(getSettingsValidator)(async (
     requireReviews: Array.isArray(filteredSettings.requireReviews)
       ? toApiRequireReviews(filteredSettings.requireReviews)
       : [],
-    // Not a scoped setting, so read it straight off the org.
+    // Not scoped settings, so read them straight off the org.
     approvalFlows: {
       savedGroups: toApiSavedGroupApprovals(
         req.context.org.settings?.approvalFlows?.savedGroups ?? [],
       ),
     },
+    restApiBypassesReviews: !!req.context.org.settings?.restApiBypassesReviews,
     experimentMaxLengthDays: filteredSettings.experimentMaxLengthDays ?? null,
     winRisk: DEFAULT_WIN_RISK_THRESHOLD,
     loseRisk: DEFAULT_LOSE_RISK_THRESHOLD,

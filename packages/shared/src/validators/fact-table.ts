@@ -186,11 +186,17 @@ export const aggregatedFactTableSettingsValidator = z
   })
   .strict();
 
-// "dbt" is locked like "api"; it marks what the dbt sync owns so --prune leaves other API resources alone.
-export const factManagedByValidator = z.enum(["", "api", "admin", "dbt"]);
+// "dbt" and "terraform" are locked like "api"; they mark what each tool owns, e.g. so the dbt sync's --prune leaves other API resources alone.
+export const factManagedByValidator = z.enum([
+  "",
+  "api",
+  "admin",
+  "dbt",
+  "terraform",
+]);
 
 export const isExternallyManaged = (managedBy?: string | null): boolean =>
-  managedBy === "api" || managedBy === "dbt";
+  managedBy === "api" || managedBy === "dbt" || managedBy === "terraform";
 
 export const externallyManagedError = (
   action: "create" | "update" | "delete",
@@ -199,7 +205,9 @@ export const externallyManagedError = (
 ): string =>
   managedBy === "dbt"
     ? `Cannot ${action} ${resource} managed by dbt. Change it in your dbt project and sync again.`
-    : `Cannot ${action} ${resource} managed by API if the request isn't from the API.`;
+    : managedBy === "terraform"
+      ? `Cannot ${action} ${resource} managed by Terraform. Change it in your Terraform configuration and apply again.`
+      : `Cannot ${action} ${resource} managed by API if the request isn't from the API.`;
 
 export const createFactTablePropsValidator = z
   .object({
@@ -1318,7 +1326,7 @@ export const postFactTableBody = z
       .optional(),
     managedBy: factManagedByValidator
       .describe(
-        'Set this to "api" (or "dbt" for resources synced from dbt) to disable editing in the GrowthBook UI',
+        'Set this to "api" (or "dbt" or "terraform" for resources those tools manage) to disable editing in the GrowthBook UI',
       )
       .optional(),
   })
@@ -1365,7 +1373,7 @@ const updateFactTableBody = z
       .optional(),
     managedBy: factManagedByValidator
       .describe(
-        'Set this to "api" (or "dbt" for resources synced from dbt) to disable editing in the GrowthBook UI',
+        'Set this to "api" (or "dbt" or "terraform" for resources those tools manage) to disable editing in the GrowthBook UI',
       )
       .optional(),
     archived: z.boolean().optional(),

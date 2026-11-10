@@ -76,11 +76,16 @@ const postEnvironmentBody = z
         "Permanent ID, shown as the environment name (e.g. `production`). Short lowercase slug.",
       ),
     description: z.string().describe(PLAIN_DESCRIPTION).optional(),
-    toggleOnList: z.boolean().describe("Show on feature list page").optional(),
+    toggleOnList: z
+      .boolean()
+      .describe("Show on feature list page")
+      .optional()
+      .meta({ "x-growthbook-default": false }),
     defaultState: z
       .boolean()
       .describe("Default state for new features")
-      .optional(),
+      .optional()
+      .meta({ "x-growthbook-default": false }),
     projects: z
       .array(z.string())
       .describe(ENVIRONMENT_PROJECTS_DESCRIPTION)

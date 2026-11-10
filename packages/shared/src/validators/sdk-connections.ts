@@ -42,7 +42,7 @@ export const apiSdkConnectionValidator = namedSchema(
         ),
       projects: z.array(z.string()).optional(),
       encryptPayload: z.boolean(),
-      encryptionKey: z.string(),
+      encryptionKey: z.string().meta({ "x-growthbook-sensitive": true }),
       includeVisualExperiments: z.boolean().optional(),
       includeDraftExperiments: z.boolean().optional(),
       includeDraftExperimentRefs: z
@@ -62,7 +62,7 @@ export const apiSdkConnectionValidator = namedSchema(
       key: z.string(),
       proxyEnabled: z.boolean(),
       proxyHost: z.string(),
-      proxySigningKey: z.string(),
+      proxySigningKey: z.string().meta({ "x-growthbook-sensitive": true }),
       sseEnabled: z.boolean().optional(),
       hashSecureAttributes: z.boolean().optional(),
       remoteEvalEnabled: z.boolean().optional(),
@@ -91,41 +91,92 @@ const postSdkConnectionBody = z
         "Short display name, usually app and platform (e.g. `Web app`).",
       ),
     language: z.string(),
-    sdkVersion: z.string().optional(),
+    sdkVersion: z
+      .string()
+      .optional()
+      .meta({ "x-growthbook-server-default": true }),
     environment: z.string(),
     projects: z.array(z.string()).optional(),
-    encryptPayload: z.boolean().optional(),
-    includeVisualExperiments: z.boolean().optional(),
-    includeDraftExperiments: z.boolean().optional(),
+    encryptPayload: z
+      .boolean()
+      .optional()
+      .meta({ "x-growthbook-default": false }),
+    includeVisualExperiments: z
+      .boolean()
+      .optional()
+      .meta({ "x-growthbook-default": false }),
+    includeDraftExperiments: z
+      .boolean()
+      .optional()
+      .meta({ "x-growthbook-default": false }),
     includeDraftExperimentRefs: z
       .boolean()
       .optional()
       .describe(
         "When true, experiment-ref rules linked to draft experiments are included in feature definitions. Off by default.",
-      ),
-    includeExperimentNames: z.boolean().optional(),
-    includeRedirectExperiments: z.boolean().optional(),
-    includeRuleIds: z.boolean().optional(),
-    includeProjectIdInMetadata: z.boolean().optional(),
-    includeCustomFieldsInMetadata: z.boolean().optional(),
+      )
+      .meta({ "x-growthbook-default": false }),
+    includeExperimentNames: z
+      .boolean()
+      .optional()
+      .meta({ "x-growthbook-default": false }),
+    includeRedirectExperiments: z
+      .boolean()
+      .optional()
+      .meta({ "x-growthbook-default": false }),
+    includeRuleIds: z
+      .boolean()
+      .optional()
+      .meta({ "x-growthbook-default": false }),
+    includeProjectIdInMetadata: z
+      .boolean()
+      .optional()
+      .meta({ "x-growthbook-default": false }),
+    includeCustomFieldsInMetadata: z
+      .boolean()
+      .optional()
+      .meta({ "x-growthbook-default": false }),
     allowedCustomFieldsInMetadata: z.array(z.string()).optional(),
-    includeTagsInMetadata: z.boolean().optional(),
-    includeExperimentScheduleInMetadata: z.boolean().optional(),
-    proxyEnabled: z.boolean().optional(),
-    proxyHost: z.string().optional(),
-    hashSecureAttributes: z.boolean().optional(),
-    remoteEvalEnabled: z.boolean().optional(),
+    includeTagsInMetadata: z
+      .boolean()
+      .optional()
+      .meta({ "x-growthbook-default": false }),
+    includeExperimentScheduleInMetadata: z
+      .boolean()
+      .optional()
+      .meta({ "x-growthbook-default": false }),
+    // Self-hosted instances take these from PROXY_* env vars instead.
+    proxyEnabled: z
+      .boolean()
+      .optional()
+      .meta({ "x-growthbook-server-default": true }),
+    proxyHost: z
+      .string()
+      .optional()
+      .meta({ "x-growthbook-server-default": true }),
+    hashSecureAttributes: z
+      .boolean()
+      .optional()
+      .meta({ "x-growthbook-default": false }),
+    remoteEvalEnabled: z
+      .boolean()
+      .optional()
+      .meta({ "x-growthbook-default": false }),
     savedGroupReferencesEnabled: z
       .boolean()
       .optional()
-      .describe("Deprecated. Use `savedGroupFormat`."),
-    savedGroupFormat: savedGroupFormatValidator.optional(),
+      .describe("Deprecated. Use `savedGroupFormat`.")
+      .meta({ "x-growthbook-server-default": true }),
+    savedGroupFormat: savedGroupFormatValidator
+      .optional()
+      .meta({ "x-growthbook-server-default": true }),
     includeReferencedPrerequisites: z
       .boolean()
       .optional()
       .describe(
         "Carry prerequisite Feature Flags into this payload even when they target other Projects. Defaults to true for new connections.",
-      ),
+      )
+      .meta({ "x-growthbook-default": true }),
   })
   .strict();
 
