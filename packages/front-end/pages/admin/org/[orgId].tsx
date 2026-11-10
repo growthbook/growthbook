@@ -17,6 +17,10 @@ import {
   LicenseInterface,
 } from "shared/enterprise";
 import { DEFAULT_STATS_ENGINE } from "shared/constants";
+import {
+  MANAGED_WAREHOUSE_RECREATABLE_TABLES,
+  ManagedWarehouseRecreatableTable,
+} from "shared/util";
 import { date } from "shared/dates";
 import useApi from "@/hooks/useApi";
 import { useAuth } from "@/services/auth";
@@ -37,6 +41,7 @@ import EditMember, { AdminMember } from "@/components/Admin/EditMember";
 import EditSSOModal from "@/components/Admin/EditSSOModal";
 import BannerModal from "@/components/Admin/BannerModal";
 import KeyValues from "@/components/Admin/KeyValues";
+import { RecreateTablesCheckboxes } from "@/components/Admin/ManagedWarehouseRecreate";
 import CardHeading, { EditLink } from "@/components/Admin/CardHeading";
 import EventForwarders from "@/components/Admin/EventForwarders";
 import { PlanBadge, StatusBadge } from "@/components/Admin/OrgBadges";
@@ -181,6 +186,10 @@ function OrganizationDetail({
   const [removeBannerIndex, setRemoveBannerIndex] = useState<number | null>(
     null,
   );
+  const [recreateOpen, setRecreateOpen] = useState(false);
+  const [recreateTables, setRecreateTables] = useState<
+    ManagedWarehouseRecreatableTable[]
+  >([...MANAGED_WAREHOUSE_RECREATABLE_TABLES]);
   const [region, setRegion] = useState<DataRegion>(DEFAULT_DATA_REGION);
 
   const users = new Map((membersData?.members ?? []).map((u) => [u.id, u]));
@@ -381,6 +390,43 @@ function OrganizationDetail({
           <Text as="p" color="text-mid" mt="2">
             This can&apos;t be changed later.
           </Text>
+        </ModalStandard>
+      )}
+      {recreateOpen && managedWarehouse && (
+        <ModalStandard
+          open
+          trackingEventModalType=""
+          header="Recreate Derived Tables"
+          cta="Recreate"
+          ctaEnabled={recreateTables.length > 0}
+          close={() => setRecreateOpen(false)}
+          submit={async () => {
+            const allTables =
+              recreateTables.length ===
+              MANAGED_WAREHOUSE_RECREATABLE_TABLES.length;
+            await apiCall(
+              `/datasource/${managedWarehouse.id}/recreate-managed-warehouse`,
+              {
+                method: "POST",
+                headers: { "X-Organization": org.id },
+                body: JSON.stringify(
+                  allTables ? {} : { tables: recreateTables },
+                ),
+              },
+            );
+          }}
+        >
+          <Text as="p" mb="3">
+            Each selected table is rebuilt and backfilled from raw events. This
+            may take several minutes. Queries keep working while it runs. Track
+            progress on the{" "}
+            <Link href="/admin#managed-warehouses">Managed Warehouses</Link>{" "}
+            admin tab.
+          </Text>
+          <RecreateTablesCheckboxes
+            value={recreateTables}
+            setValue={setRecreateTables}
+          />
         </ModalStandard>
       )}
       {rawOpen && (
@@ -802,25 +848,14 @@ function OrganizationDetail({
                                 menuPlacement="end"
                               >
                                 <DropdownMenuItem
-                                  color="red"
-                                  confirmation={{
-                                    confirmationTitle:
-                                      "Drop and Recreate Managed Warehouse?",
-                                    cta: "Drop and recreate",
-                                    submit: async () => {
-                                      await apiCall(
-                                        `/datasource/${managedWarehouse.id}/recreate-managed-warehouse`,
-                                        {
-                                          method: "POST",
-                                          headers: { "X-Organization": org.id },
-                                        },
-                                      );
-                                    },
-                                    getConfirmationContent: async () =>
-                                      "This may take several minutes, and all queries will fail in the meantime.",
+                                  onClick={() => {
+                                    setRecreateTables([
+                                      ...MANAGED_WAREHOUSE_RECREATABLE_TABLES,
+                                    ]);
+                                    setRecreateOpen(true);
                                   }}
                                 >
-                                  Drop and recreate
+                                  Recreate derived tables
                                 </DropdownMenuItem>
                               </DropdownMenu>
                             )}
