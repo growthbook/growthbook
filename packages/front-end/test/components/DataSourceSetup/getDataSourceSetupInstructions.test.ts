@@ -652,7 +652,15 @@ GRANT SELECT ON SCHEMA::public TO ro;`,
 
   describe("network access", () => {
     it("cloud: shows the egress IP and no Docker guidance", () => {
-      for (const type of ["postgres", "mysql", "mssql"] as const) {
+      for (const type of [
+        "postgres",
+        "mysql",
+        "mssql",
+        "snowflake",
+        "databricks",
+        "clickhouse",
+        "vertica",
+      ] as const) {
         const network = codeOf(
           getDataSourceSetupInstructions(type, "custom", undefined, {
             cloud: true,
@@ -665,7 +673,15 @@ GRANT SELECT ON SCHEMA::public TO ro;`,
     });
 
     it("self-hosted: shows Docker guidance and no egress IP", () => {
-      for (const type of ["postgres", "mysql", "mssql"] as const) {
+      for (const type of [
+        "postgres",
+        "mysql",
+        "mssql",
+        "snowflake",
+        "databricks",
+        "clickhouse",
+        "vertica",
+      ] as const) {
         const network = codeOf(
           getDataSourceSetupInstructions(type, "custom", undefined, {
             cloud: false,
@@ -683,6 +699,8 @@ GRANT SELECT ON SCHEMA::public TO ro;`,
       const steps = getDataSourceSetupInstructions(
         "snowflake",
         "event_forwarder",
+        undefined,
+        { cloud: true },
       );
       const create = codeOf(steps, "Create a user and grant access");
       expect(create.code).toContain("GRANT CREATE SCHEMA ON DATABASE");
@@ -702,6 +720,7 @@ GRANT SELECT ON SCHEMA::public TO ro;`,
           "event_forwarder",
           undefined,
           {
+            cloud: true,
             eventForwarderRegions: ["us-east-1"],
           },
         ),
@@ -717,6 +736,7 @@ GRANT SELECT ON SCHEMA::public TO ro;`,
           "event_forwarder",
           undefined,
           {
+            cloud: true,
             eventForwarderRegions: ["eu-west-1"],
           },
         ),
@@ -734,6 +754,7 @@ GRANT SELECT ON SCHEMA::public TO ro;`,
           "event_forwarder",
           undefined,
           {
+            cloud: true,
             eventForwarderRegions: ["us-east-1"],
           },
         ),
@@ -744,9 +765,11 @@ GRANT SELECT ON SCHEMA::public TO ro;`,
       expect(us.codeNote).toBeUndefined();
     });
 
-    it("snowflake custom: always lists both IPs, since the policy is shared with other connections", () => {
+    it("snowflake custom: lists both Cloud IPs, since the policy is shared with other connections", () => {
       const network = codeOf(
-        getDataSourceSetupInstructions("snowflake", "custom"),
+        getDataSourceSetupInstructions("snowflake", "custom", undefined, {
+          cloud: true,
+        }),
         "Allow network access",
       );
       expect(network.code).toContain(CLOUD_EGRESS_IP);
@@ -758,6 +781,8 @@ GRANT SELECT ON SCHEMA::public TO ro;`,
       const steps = getDataSourceSetupInstructions(
         "databricks",
         "event_forwarder",
+        undefined,
+        { cloud: true },
       );
       expect(codeOf(steps, "Grant access").code).toContain("CREATE TABLE");
       const network = codeOf(steps, "Allow network access");
