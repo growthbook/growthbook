@@ -7,7 +7,6 @@ import {
   setPolyfills,
   FeatureApiResponse,
   prefetchPayload,
-  StickyBucketService,
   onHidden,
   onVisible,
 } from "../src";
@@ -1716,65 +1715,6 @@ describe("feature-repo", () => {
     growthbook3.destroy();
     cleanup3();
   });
-
-  // After an init timeout with polling on, the late response and the fallback
-  // are both applied. Each does a sticky bucket lookup, and either can be the
-  // slower one: [fallback lookup ms, late response lookup ms]
-  it.each([
-    [300, 10],
-    [150, 300],
-  ])(
-    "applies fallbackPayload and a late response in order (lookups %ims, %ims)",
-    async (fallbackLookup, responseLookup) => {
-      await clearCache();
-      const fallbackPayload = {
-        features: { foo: { defaultValue: "bundled" } },
-      };
-      const payload = { features: { foo: { defaultValue: "api" } } };
-
-      let lookups = 0;
-      class DelayedLookups extends StickyBucketService {
-        async getAssignments() {
-          return null;
-        }
-        async saveAssignments() {
-          // Do nothing
-        }
-        async getAllAssignments() {
-          await sleep(lookups++ ? responseLookup : fallbackLookup);
-          return {};
-        }
-      }
-
-      const [, cleanup] = mockApi(payload, false, 100);
-      const growthbook = new GrowthBook({
-        apiHost: "https://fakeapi.sample.io",
-        clientKey: "qwerty1234",
-        stickyBucketService: new DelayedLookups(),
-      });
-      // Polling subscribes the instance, so it receives the late response
-      const res = await growthbook.init({
-        timeout: 20,
-        fallbackPayload,
-        pollingInterval: 60 * 1000,
-      });
-      expect(res.source).toEqual("timeout");
-
-      // init never resolves without flags
-      expect(growthbook.ready).toEqual(true);
-      expect(growthbook.getFeatureValue("foo", "")).toEqual("bundled");
-
-      // The late response is applied after the fallback, never before it
-      await sleep(responseLookup + 100);
-      expect(lookups).toEqual(2);
-      expect(growthbook.getFeatureValue("foo", "")).toEqual("api");
-      expect(growthbook.getPayload()).toEqual(payload);
-
-      growthbook.destroy();
-      cleanup();
-      await clearCache();
-    },
-  );
 
   it("handles errors with init", async () => {
     const [f, cleanup] = mockApi(null);

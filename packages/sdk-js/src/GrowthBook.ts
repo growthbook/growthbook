@@ -119,7 +119,6 @@ export class GrowthBook<
     | ((doc: StickyAssignmentsDocument) => Promise<unknown>);
 
   private _payload: FeatureApiResponse | undefined;
-  private _payloadQueue?: Promise<void>;
   private _decryptedPayload: FeatureApiResponse | undefined;
   private _destroyCallbacks: (() => void)[];
 
@@ -230,22 +229,13 @@ export class GrowthBook<
     }
   }
 
-  public setPayload(payload: FeatureApiResponse<AppFeatures>): Promise<void> {
+  public async setPayload(
+    payload: FeatureApiResponse<AppFeatures>,
+  ): Promise<void> {
     // AppFeatures only checks payloads written in code; internally they are untyped
     const untyped = payload as FeatureApiResponse;
     this._payload = untyped;
-    // Apply payloads one at a time, in call order. Otherwise a call that is
-    // slower to decrypt or load sticky buckets could finish after a newer one
-    // and overwrite it. A failed call doesn't block the ones after it.
-    const apply = () => this._applyPayload(untyped);
-    return (this._payloadQueue = (this._payloadQueue || Promise.resolve()).then(
-      apply,
-      apply,
-    ));
-  }
-
-  private async _applyPayload(payload: FeatureApiResponse): Promise<void> {
-    const data = await decryptPayload(payload, this._options.decryptionKey);
+    const data = await decryptPayload(untyped, this._options.decryptionKey);
     this._decryptedPayload = data;
     await this.refreshStickyBuckets(data);
     if (data.features) {
