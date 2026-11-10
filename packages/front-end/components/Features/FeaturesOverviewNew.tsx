@@ -15,6 +15,7 @@ import {
   getFeatureBaseConfigKey,
   parsePlainJSONObject,
   getReviewSetting,
+  getTargetingProjectIds,
 } from "shared/util";
 import { isRevisionEditLockedBySchedule } from "shared/enterprise";
 import { canOfferEnvironmentToggle } from "shared/permissions";
@@ -56,6 +57,7 @@ import {
   holdoutTrafficStep,
   PrerequisiteResult,
   resolveRuleValue,
+  ruleProjectReach,
   ruleTrafficStep,
   TrafficStep,
 } from "@/services/environmentStatus";
@@ -246,17 +248,34 @@ export default function FeaturesOverviewNew({
   // Each prerequisite's own state per environment, for what its condition
   // makes of it.
   // Live's too, to compare a past revision against what's served now.
+  // And the ones gating its rules, which the payload settles the same way.
+  const rulePrerequisites = (f: FeatureInterface) =>
+    envs
+      .flatMap((env) => getRules(f, env))
+      .flatMap((rule) => [
+        ...(rule.prerequisites ?? []),
+        ...(rule.type === "experiment-ref"
+          ? (experiments?.find((e) => e.id === rule.experimentId)?.phases.at(-1)
+              ?.prerequisites ?? [])
+          : []),
+      ]);
   const prerequisiteIds = [
     ...new Set(
-      [...prerequisites, ...(baseFeature.prerequisites ?? [])].map((p) => p.id),
+      [
+        ...prerequisites,
+        ...(baseFeature.prerequisites ?? []),
+        ...rulePrerequisites(feature),
+        ...rulePrerequisites(baseFeature),
+      ].map((p) => p.id),
     ),
   ];
-  const { results: parentStates } = useBatchPrerequisiteStates({
-    baseFeatureId: feature.id,
-    featureIds: prerequisiteIds,
-    environments: envs,
-    enabled: prerequisiteIds.length > 0,
-  });
+  const { results: parentStates, loading: parentStatesLoading } =
+    useBatchPrerequisiteStates({
+      baseFeatureId: feature.id,
+      featureIds: prerequisiteIds,
+      environments: envs,
+      enabled: prerequisiteIds.length > 0,
+    });
   // The constants and configs a config-backed flag, or one that references a
   // constant, resolves its values with, as the payload does for its project.
   const needsResolvables = useMemo(
@@ -494,7 +513,8 @@ export default function FeaturesOverviewNew({
     env: string,
   ): PrerequisiteResult | null => {
     if (prereqStates?.[env]?.state === "cyclic") return "cycle";
-    if (!parentStates) return null;
+    // Unknown, if they failed to load.
+    if (!parentStates) return parentStatesLoading ? null : "varies";
     // A parent the states don't include (archived, deleted, or out of view)
     // reaches the SDK as an unknown feature: null.
     const parent = parentStates[prerequisite.id]?.states[env] ?? {
@@ -514,24 +534,32 @@ export default function FeaturesOverviewNew({
     prerequisiteId: string,
     env: string,
     inScrollArea = false,
-  ) => (
-    <PrerequisiteStatesCols
-      prereqStates={
-        // A parent the states don't include reaches the SDK as an unknown
-        // feature, null, as prerequisiteResult counts it.
-        parentStates
-          ? (parentStates[prerequisiteId]?.states ?? {
-              [env]: { state: "deterministic", value: null },
-            })
-          : undefined
-      }
-      envs={[env]}
-      loading={!parentStates}
-      colWidth={20}
-      compact
-      usePortal={inScrollArea}
-    />
-  );
+  ) => {
+    // A parent the states don't include reaches the SDK as an unknown
+    // feature, null, as prerequisiteResult counts it.
+    const states = parentStates
+      ? (parentStates[prerequisiteId]?.states ?? {
+          [env]: { state: "deterministic" as const, value: null },
+        })
+      : undefined;
+    // A boolean parent serving false reads as off, not merely live.
+    const served = states?.[env];
+    const defaultValues =
+      served?.state === "deterministic" && typeof served.value === "boolean"
+        ? { [env]: String(served.value) }
+        : undefined;
+    return (
+      <PrerequisiteStatesCols
+        prereqStates={states}
+        defaultValues={defaultValues}
+        envs={[env]}
+        loading={parentStatesLoading}
+        colWidth={20}
+        compact
+        usePortal={inScrollArea}
+      />
+    );
+  };
   // The rules the rule list doesn't mark inactive or skipped.
   const liveRules = (f: FeatureInterface, env: string): FeatureRule[] =>
     getRules(f, env).filter(
@@ -616,19 +644,52 @@ export default function FeaturesOverviewNew({
           ),
         ]
       : []),
-    ...liveRules(f, env).map((rule) =>
-      ruleTrafficStep(rule, {
-        resolveValue: (value, options) => servedValue(f, value, env, options),
-        experiment:
-          rule.type === "experiment-ref"
-            ? experimentsMap.get(rule.experimentId)
-            : undefined,
-        safeRollout:
-          rule.type === "safe-rollout"
-            ? safeRolloutsMap.get(rule.safeRolloutId)
-            : undefined,
-      }),
-    ),
+    ...liveRules(f, env).flatMap((rule) => {
+      // Dropped for connections outside the rule's own projects.
+      const reach = ruleProjectReach(rule, getTargetingProjectIds(f));
+      if (reach === "none") return [];
+      const experiment =
+        rule.type === "experiment-ref"
+          ? experimentsMap.get(rule.experimentId)
+          : undefined;
+      const phase = experiment?.phases.at(-1);
+      // As the payload settles a deterministic gate: met, it's dropped; unmet
+      // or circular, the rule is. One that varies stays as targeting.
+      const gates = [
+        ...(rule.prerequisites ?? []),
+        ...(phase?.prerequisites ?? []),
+      ];
+      const blocked = gates.some((p) => {
+        const result = prerequisiteResult(p, env);
+        return result === "unmet" || result === "cycle";
+      });
+      const unsettled = (list?: FeaturePrerequisite[]) =>
+        list?.filter((p) => prerequisiteResult(p, env) !== "met");
+      const step = ruleTrafficStep(
+        { ...rule, prerequisites: unsettled(rule.prerequisites) },
+        {
+          resolveValue: (value, options) => servedValue(f, value, env, options),
+          experiment:
+            experiment && phase
+              ? {
+                  ...experiment,
+                  phases: [
+                    ...experiment.phases.slice(0, -1),
+                    { ...phase, prerequisites: unsettled(phase.prerequisites) },
+                  ],
+                }
+              : experiment,
+          safeRollout:
+            rule.type === "safe-rollout"
+              ? safeRolloutsMap.get(rule.safeRolloutId)
+              : undefined,
+        },
+      );
+      if (blocked)
+        return [{ ...step, traffic: { participation: 0, shares: [] } }];
+      // Served to some connections and not others, it depends on which.
+      return [reach === "some" ? { ...step, traffic: null } : step];
+    }),
   ];
   const sameJson = (a: unknown, b: unknown) =>
     JSON.stringify(a ?? null) === JSON.stringify(b ?? null);

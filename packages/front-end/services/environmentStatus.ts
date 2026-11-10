@@ -12,11 +12,31 @@ import {
 import {
   getNamespaceRanges,
   parsePlainJSONObject,
+  ruleProjectScope,
   stripConfigExtends,
 } from "shared/util";
 
 // A prerequisite's outcome in one environment.
 export type PrerequisiteResult = "met" | "unmet" | "varies" | "cycle";
+
+// Which of the flag's SDK connections a rule's own project scope reaches, as
+// the payload drops it per connection: every one, only some, or none. Null
+// delivery projects means the flag goes to every project.
+export function ruleProjectReach(
+  rule: FeatureRule,
+  deliveryProjects: string[] | null,
+): "all" | "some" | "none" {
+  const scope = ruleProjectScope(rule);
+  if (scope === null) return "all";
+  const reached =
+    deliveryProjects === null
+      ? scope
+      : deliveryProjects.filter((p) => scope.includes(p));
+  if (!reached.length) return "none";
+  return deliveryProjects !== null && reached.length === deliveryProjects.length
+    ? "all"
+    : "some";
+}
 
 type Share = { value: string; share: number };
 

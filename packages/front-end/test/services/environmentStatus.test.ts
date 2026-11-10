@@ -5,6 +5,7 @@ import {
   getEnvironmentStatus,
   holdoutTrafficStep,
   resolveRuleValue,
+  ruleProjectReach,
   ruleTrafficStep,
   TrafficStep,
 } from "@/services/environmentStatus";
@@ -531,4 +532,32 @@ describe("resolveRuleValue", () => {
       expected,
     );
   });
+});
+
+describe("ruleProjectReach", () => {
+  const scoped = (projects?: string[], allProjects?: boolean) =>
+    ({ ...force("true"), projects, allProjects }) as FeatureRule;
+  it.each([
+    ["an unscoped rule", scoped(), ["a", "b"], "all"],
+    [
+      "a rule scoped to every delivery project",
+      scoped(["a", "b"], false),
+      ["a", "b"],
+      "all",
+    ],
+    ["a rule scoped to one of two", scoped(["a"], false), ["a", "b"], "some"],
+    ["a rule scoped elsewhere", scoped(["c"], false), ["a", "b"], "none"],
+    ["a rule scoped to no project", scoped([], false), ["a"], "none"],
+    [
+      "a scoped rule on a flag sent everywhere",
+      scoped(["a"], false),
+      null,
+      "some",
+    ],
+  ])(
+    "reaches %s's connections as the payload does",
+    (_, rule, delivery, reach) => {
+      expect(ruleProjectReach(rule, delivery)).toBe(reach);
+    },
+  );
 });
