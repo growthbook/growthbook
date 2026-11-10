@@ -52,6 +52,17 @@ describe("getColumnEligibility", () => {
 });
 
 describe("prepareColumnUpdate", () => {
+  it("keeps the saved display name unless the edit changes it", () => {
+    const country = column({ name: "Country" });
+    const table = factTable([country]);
+    expect(
+      prepareColumnUpdate(table, country, { description: "x" }).data.name,
+    ).toBe("Country");
+    expect(
+      prepareColumnUpdate(table, country, { name: "Nation" }).data.name,
+    ).toBe("Nation");
+  });
+
   it("clears value mappings when filtering is turned off", () => {
     const country = column({ alwaysInlineFilter: true });
     expect(

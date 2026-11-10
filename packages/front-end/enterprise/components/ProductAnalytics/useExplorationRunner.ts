@@ -20,11 +20,15 @@ export default function useExplorationRunner() {
   const { fetchExplorationById } = useExploreData();
   const generation = useRef(0);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Settles the pending poll with null; the cleared timer can't anymore
+  const settlePending = useRef<(() => void) | null>(null);
 
   const cancel = useCallback(() => {
     generation.current += 1;
     if (timer.current) clearTimeout(timer.current);
     timer.current = null;
+    settlePending.current?.();
+    settlePending.current = null;
   }, []);
   useEffect(() => cancel, [cancel]);
 
@@ -43,6 +47,7 @@ export default function useExplorationRunner() {
         results: (ExplorationPoll | null)[];
         timedOut: boolean;
       } | null>((resolve) => {
+        settlePending.current = () => resolve(null);
         let latest = initial;
         const poll = async () => {
           timer.current = null;

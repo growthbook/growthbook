@@ -21,7 +21,9 @@ export default function useSaveFactTableColumn(factTable: FactTableInterface) {
     const url = `/fact-tables/${factTable.id}/column/${encodeURIComponent(column.column)}`;
     await apiCall(url, { method: "PUT", body: JSON.stringify(data) });
     if (loadTopValues) {
-      await apiCall(`${url}/top-values`, { method: "POST" });
+      // Optional: the edit is already saved, and a user who can't run queries
+      // can refresh the levels later
+      await apiCall(`${url}/top-values`, { method: "POST" }).catch(() => {});
     }
     await mutateDefinitions();
   };
