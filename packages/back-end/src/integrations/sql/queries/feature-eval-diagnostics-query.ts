@@ -74,9 +74,18 @@ export function shapeFeatureEvalDiagnosticsRows(
   const featureKeyColumn = featureUsageQuery
     ? getFeatureUsageFeatureKeyColumn(featureUsageQuery)
     : "feature_key";
+  // Some warehouses change the case of returned names; Snowflake lowercases them
+  const read = (row: QueryResponse["rows"][number], column: string) =>
+    column in row
+      ? row[column]
+      : row[
+          Object.keys(row).find(
+            (key) => key.toLowerCase() === column.toLowerCase(),
+          ) ?? column
+        ];
   return rows.map((row) => ({
     ...row,
-    timestamp: row[timestampColumn],
-    feature_key: row[featureKeyColumn],
+    timestamp: read(row, timestampColumn),
+    feature_key: read(row, featureKeyColumn),
   }));
 }

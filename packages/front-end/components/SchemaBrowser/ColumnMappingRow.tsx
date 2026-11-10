@@ -110,6 +110,8 @@ export default function ColumnMappingRow({
 }) {
   const [adding, setAdding] = useState(false);
   const [typing, setTyping] = useState(false);
+  // A value being typed is only flagged once the user leaves the field
+  const [touched, setTouched] = useState(false);
   const selected = validColumn(options, value);
   // A saved value that isn't an option was typed in
   const custom = !!customValue && (typing || (!!value && !selected));
@@ -137,7 +139,8 @@ export default function ColumnMappingRow({
                     placeholder={customValue.placeholder}
                     value={value}
                     onChange={(e) => setValue(e.target.value)}
-                    error={error ?? undefined}
+                    onBlur={() => setTouched(true)}
+                    error={(!typing || touched) && error ? error : undefined}
                     append={
                       <Link
                         onClick={() => {

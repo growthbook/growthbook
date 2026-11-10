@@ -346,10 +346,17 @@ export const FeatureEvaluationQueryModal = ({
   const identifierOptions: DetectedColumn[] = [
     ...stringOptions,
     ...suggestedRoots.flatMap((root) =>
-      attributes.map((a) => ({
-        column: `${root}.${a.property}`,
-        datatype: "string" as const,
-      })),
+      attributes
+        .map((a) => `${root}.${a.property}`)
+        // Attribute names that can't be read as a JSON field aren't offered
+        .filter(
+          (path) =>
+            !getFeatureUsageJsonFieldError({
+              columnMapping: { userIdColumns: { id: path } },
+              columns,
+            }),
+        )
+        .map((path) => ({ column: path, datatype: "string" as const })),
     ),
   ];
 
@@ -362,7 +369,8 @@ export const FeatureEvaluationQueryModal = ({
   const identifierErrors: Record<string, string | null> = Object.fromEntries(
     identifierTypes.map((t) => {
       const value = userIdColumns[t] || "";
-      if (!value || validColumn(identifierOptions, value)) return [t, null];
+      if (!value) return [t, null];
+      // JSON fields are checked even when suggested
       if (value.includes(".")) {
         return [
           t,
@@ -372,10 +380,16 @@ export const FeatureEvaluationQueryModal = ({
           }),
         ];
       }
+      if (validColumn(identifierOptions, value)) return [t, null];
+      if (value === savedRoleColumns[t]) {
+        return [t, `Your query no longer returns "${value}". Select a column.`];
+      }
       return [
         t,
         jsonRootNames.length
-          ? `Enter a JSON field like "${suggestedRoots[0] ?? jsonRootNames[0]}.${t}", or select a column.`
+          ? suggestedRoots.length
+            ? `Enter a JSON field like "${suggestedRoots[0]}.${t}", or select a column.`
+            : "Enter a JSON field (column.field), or select a column."
           : `Your query doesn't return "${value}". Select a column.`,
       ];
     }),
@@ -411,6 +425,18 @@ export const FeatureEvaluationQueryModal = ({
           role: label,
           column: optionalColumns[key] || "",
         })),
+        // Only saved identifier columns; a typed value is checked on its row,
+        // and JSON fields aren't result columns
+        ...identifierTypes.map((t) => {
+          const column = userIdColumns[t] || "";
+          return {
+            role: t,
+            column:
+              column === savedRoleColumns[t] && !column.includes(".")
+                ? column
+                : "",
+          };
+        }),
       ].filter(
         ({ column }) => column && !columns.some((c) => c.column === column),
       )
@@ -635,7 +661,9 @@ export const FeatureEvaluationQueryModal = ({
                     jsonRootNames.length
                       ? {
                           label: "Other JSON field...",
-                          placeholder: `${suggestedRoots[0] ?? jsonRootNames[0]}.field_name`,
+                          placeholder: suggestedRoots.length
+                            ? `${suggestedRoots[0]}.field_name`
+                            : "column.field",
                         }
                       : undefined
                   }

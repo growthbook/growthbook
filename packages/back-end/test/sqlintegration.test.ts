@@ -2011,6 +2011,25 @@ describe("getFeatureEvalDiagnosticsQuery column mapping", () => {
     ]);
   });
 
+  it("finds mapped columns whose case the warehouse changed", () => {
+    const rows = shapeFeatureEvalDiagnosticsRows(
+      [{ event_time: "2026-11-10 00:10:32", feature: "f" }],
+      {
+        id: "fu1",
+        query: "SELECT * FROM t",
+        columnMapping: {
+          timestampColumn: "EVENT_TIME",
+          featureKeyColumn: "FEATURE",
+        },
+      },
+    );
+
+    expect(rows[0]).toMatchObject({
+      timestamp: "2026-11-10 00:10:32",
+      feature_key: "f",
+    });
+  });
+
   it("keeps the standard columns when nothing is renamed", () => {
     const row = { timestamp: "2026-11-10 00:10:32", feature_key: "f" };
     expect(shapeFeatureEvalDiagnosticsRows([row], undefined)).toEqual([row]);
