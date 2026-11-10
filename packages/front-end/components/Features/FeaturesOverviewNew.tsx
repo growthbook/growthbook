@@ -32,6 +32,11 @@ import {
   MinimalFeatureRevisionInterface,
   RampScheduleInterface,
 } from "shared/validators";
+import {
+  buildConstantValueMap,
+  ConstantValueMap,
+  resolveConstantRefs,
+} from "shared/sdk-versioning";
 import Button from "@/ui/Button";
 import Switch from "@/ui/Switch";
 import { FeatureBadge } from "@/components/Features/FeatureBadge";
@@ -263,13 +268,32 @@ export default function FeaturesOverviewNew({
     environments: envs,
     enabled: prerequisiteIds.length > 0,
   });
-  // A config-backed flag's config, to resolve what its values serve.
-  const baseConfigKey = getFeatureBaseConfigKey(feature);
-  const { data: configInputs, error: configError } = useApi<{
+  // The constants and configs a config-backed flag, or one that references a
+  // constant, resolves its values with, as the payload does for its project.
+  const needsResolvables = useMemo(
+    () =>
+      getFeatureBaseConfigKey(feature) !== null ||
+      getFeatureBaseConfigKey(baseFeature) !== null ||
+      [feature, baseFeature].some((f) =>
+        JSON.stringify([f.defaultValue, f.rules, f.holdout]).includes(
+          "@const:",
+        ),
+      ),
+    [feature, baseFeature],
+  );
+  const { data: resolvables, error: resolvablesError } = useApi<{
     constants: ResolvableInput[];
-  }>(`/configs/${baseConfigKey}/resolved`, {
-    shouldRun: () => baseConfigKey !== null,
+  }>(`/constants-resolvables?project=${feature.project || ""}`, {
+    shouldRun: () => needsResolvables,
   });
+  // Their lookups, built once per environment as the payload builds them.
+  const constants = useMemo(
+    () => ({
+      inputs: resolvables?.constants,
+      maps: new Map<string, ConstantValueMap>(),
+    }),
+    [resolvables],
+  );
   // The holdout's own experiment says how much of the traffic it holds back.
   const { experimentsMap: holdoutExperiments, loading: holdoutsLoading } =
     useHoldouts(undefined, false, {
@@ -543,7 +567,7 @@ export default function FeaturesOverviewNew({
     { sparse = false, arm = false } = {},
   ): string => {
     const configKey = getFeatureBaseConfigKey(f);
-    const inputs = configKey !== null ? configInputs?.constants : undefined;
+    const { inputs } = constants;
     if (
       configKey !== null &&
       inputs &&
@@ -562,7 +586,23 @@ export default function FeaturesOverviewNew({
         arm ? deepMergePatch(resolve(f.defaultValue), resolved) : resolved,
       );
     }
-    return resolveRuleValue(f, value, sparse);
+    if (!inputs) return resolveRuleValue(f, value, sparse);
+    let map = constants.maps.get(env);
+    if (!map) {
+      map = buildConstantValueMap(inputs, env);
+      constants.maps.set(env, map);
+    }
+    const constantMap = map;
+    return resolveRuleValue(f, value, sparse, (v) =>
+      resolveConstantRefs(
+        v,
+        constantMap,
+        undefined,
+        undefined,
+        f.project || "",
+        env,
+      ),
+    );
   };
   // The holdout's control group, then the live rules.
   // The payload holds back traffic only while the holdout's experiment runs.
@@ -620,11 +660,9 @@ export default function FeaturesOverviewNew({
       result: prerequisiteResult(p, env),
     }));
     if (results.some((p) => !p.result)) return null;
-    // A config-backed flag's values aren't known until its config resolves;
-    // if that fails, they show as stored.
-    if (getFeatureBaseConfigKey(f) !== null && !configInputs && !configError) {
-      return null;
-    }
+    // Values aren't known until their constants and configs load; if that
+    // fails, they show as stored.
+    if (needsResolvables && !resolvables && !resolvablesError) return null;
     // Nor whether a holdout runs until the holdouts load.
     if (f.holdout && holdoutsLoading) return null;
     return getEnvironmentStatus({

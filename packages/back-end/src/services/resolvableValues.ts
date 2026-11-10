@@ -45,6 +45,42 @@ export function configToResolvable(config: ConfigInterface): ResolvableValue {
   return resolvable;
 }
 
+// What a client resolves one project's references with: the globals and
+// that project's values (never another project's), each with its
+// per-environment values and config flavors.
+export type ClientResolvable = Pick<
+  ResolvableValue,
+  | "key"
+  | "type"
+  | "source"
+  | "value"
+  | "environmentValues"
+  | "project"
+  | "archived"
+  | "scopedOverrides"
+>;
+export async function getClientResolvables(
+  context: ReqContext | ApiReqContext,
+  project: string,
+): Promise<ClientResolvable[]> {
+  return (await getResolvableValues(context))
+    .filter((c) => !c.project || c.project === project)
+    .map((c) => ({
+      key: c.key,
+      type: c.type,
+      source: c.source,
+      value: c.value,
+      project: c.project,
+      archived: c.archived,
+      ...(c.environmentValues
+        ? { environmentValues: c.environmentValues }
+        : {}),
+      ...(c.scopedOverrides?.length
+        ? { scopedOverrides: c.scopedOverrides }
+        : {}),
+    }));
+}
+
 // Every reference target: constants + configs, each tagged with its `source`.
 // The underlying loads are request-memoized by the models, so repeated calls
 // within one request re-query nothing.

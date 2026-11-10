@@ -447,6 +447,45 @@ describe("resolveRuleValue", () => {
     expect(resolveRuleValue(json, value, sparse)).toBe(expected);
   });
 
+  // Stands in for the payload's resolver: `@const:x` and its template.
+  const resolveRefs = (v: unknown): unknown =>
+    typeof v === "string"
+      ? v.replace("{{ @const:x }}", "hello")
+      : v && typeof v === "object" && "$extends" in v
+        ? { x: 1, ...Object.fromEntries(Object.entries(v).slice(1)) }
+        : v;
+
+  it.each([
+    [
+      "interpolates a string's constants",
+      { valueType: "string" as const, defaultValue: "" },
+      "{{ @const:x }} there",
+      false,
+      "hello there",
+    ],
+    [
+      "resolves a JSON value's constants",
+      json,
+      '{"$extends": ["@const:x"], "y": 2}',
+      false,
+      '{"x":1,"y":2}',
+    ],
+    [
+      "spreads a sparse patch over the resolved default",
+      {
+        valueType: "json" as const,
+        defaultValue: '{"$extends": ["@const:x"]}',
+      },
+      '{"y": 2}',
+      true,
+      '{"x":1,"y":2}',
+    ],
+  ])("%s", (_, feature, value, sparse, expected) => {
+    expect(resolveRuleValue(feature, value, sparse, resolveRefs)).toBe(
+      expected,
+    );
+  });
+
   it.each([
     ["string", " y ", " y "],
     ["number", "1.0", "1"],

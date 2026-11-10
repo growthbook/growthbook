@@ -48,7 +48,11 @@ import {
   assertKeyAvailable,
 } from "back-end/src/services/constants";
 import { assertConstantArchiveDependentsGuard } from "back-end/src/services/archiveDependentsGuard";
-import { getResolvableValues } from "back-end/src/services/resolvableValues";
+import {
+  ClientResolvable,
+  getClientResolvables,
+  getResolvableValues,
+} from "back-end/src/services/resolvableValues";
 import { dispatchConstantRevisionEvent } from "back-end/src/services/constantRevisionEvents";
 import { assertConstantPublishGuards } from "back-end/src/services/publishGuards";
 import { constantChangeAffectsServedValue } from "back-end/src/services/experimentGuard";
@@ -76,6 +80,21 @@ export const getConstants = async (
 ) => {
   const context = getContextFromReq(req);
   const constants = await context.models.constants.getAllWithoutValues();
+  return res.status(200).json({ status: 200, constants });
+};
+
+// GET /constants-resolvables?project= — the constants and configs a value in
+// that project resolves its references with, so a page can show what the SDK
+// receives.
+export const getConstantResolvables = async (
+  req: AuthRequest<null, Record<string, never>, { project?: string }>,
+  res: Response<{ status: 200; constants: ClientResolvable[] }>,
+) => {
+  const context = getContextFromReq(req);
+  const constants = await getClientResolvables(
+    context,
+    req.query.project ?? "",
+  );
   return res.status(200).json({ status: 200, constants });
 };
 

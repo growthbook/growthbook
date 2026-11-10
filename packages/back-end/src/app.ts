@@ -135,6 +135,7 @@ import { customFieldsRouter } from "./routers/custom-fields/custom-fields.router
 import {
   constantsRouter,
   constantDraftStatesRouter,
+  constantResolvablesRouter,
 } from "./routers/constant/constant.router";
 import {
   configsRouter,
@@ -700,6 +701,7 @@ app.use("/custom-fields", customFieldsRouter);
 
 app.use("/constants", constantsRouter);
 app.use("/constants-draft-states", constantDraftStatesRouter);
+app.use("/constants-resolvables", constantResolvablesRouter);
 app.use("/configs", configsRouter);
 app.use("/configs-draft-states", configDraftStatesRouter);
 

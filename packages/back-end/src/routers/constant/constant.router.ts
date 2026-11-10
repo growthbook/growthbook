@@ -14,6 +14,8 @@ const router = express.Router();
 // never collide with the `/constants/:key` lookup (a constant keyed literally
 // "draft-states" would otherwise be unreachable).
 const draftStatesRouter = express.Router();
+// Likewise its own sibling path (`/constants-resolvables`).
+const resolvablesRouter = express.Router();
 
 const constantController = wrapController(rawConstantController);
 
@@ -23,6 +25,14 @@ const keyParams = z.object({ key: z.string() }).strict();
 router.get("/", constantController.getConstants);
 
 draftStatesRouter.get("/", constantController.getConstantDraftStates);
+
+resolvablesRouter.get(
+  "/",
+  validateRequestMiddleware({
+    query: z.object({ project: z.string().optional() }).strict(),
+  }),
+  constantController.getConstantResolvables,
+);
 
 // Single-constant fetch is by `key` (drives the detail-page URL). The `/:id`
 // routes below operate on the internal id the client holds after this fetch.
@@ -68,4 +78,5 @@ router.delete(
 export {
   router as constantsRouter,
   draftStatesRouter as constantDraftStatesRouter,
+  resolvablesRouter as constantResolvablesRouter,
 };
