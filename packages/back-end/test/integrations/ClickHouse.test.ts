@@ -65,16 +65,17 @@ describe("getClickHouseTLSOptions", () => {
     ).toThrow("Client cert and client key must be provided together.");
   });
 
-  it("rejects a client cert without a CA cert", () => {
-    expect(() =>
+  it("passes a client cert without a CA cert, leaving the default CAs", () => {
+    expect(
       getClickHouseTLSOptions({
         ssl: true,
         clientCert: CERT,
         clientKey: KEY,
       }),
-    ).toThrow(
-      "A CA cert is required when using a client cert with ClickHouse.",
-    );
+    ).toStrictEqual({
+      cert: Buffer.from(CERT),
+      key: Buffer.from(KEY),
+    });
   });
 });
 

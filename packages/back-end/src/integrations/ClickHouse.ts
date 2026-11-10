@@ -1,5 +1,6 @@
 import { subDays } from "date-fns";
 import {
+  ClickHouseClientConfigOptions,
   ClickHouseError,
   ClickHouseLogLevel,
   createClient,
@@ -87,35 +88,23 @@ export function getClickHouseTLSOptions(
     ClickHouseConnectionParams,
     "ssl" | "caCert" | "clientCert" | "clientKey"
   >,
-):
-  | { ca_cert: Buffer }
-  | { ca_cert: Buffer; cert: Buffer; key: Buffer }
-  | undefined {
+): ClickHouseClientConfigOptions["tls"] {
   if (!params.ssl) return undefined;
 
   const { caCert, clientCert, clientKey } = params;
   if (!!clientCert !== !!clientKey) {
     throw new Error("Client cert and client key must be provided together.");
   }
-  if (!caCert) {
-    // The client has no way to send a client cert without a CA cert.
-    if (clientCert) {
-      throw new Error(
-        "A CA cert is required when using a client cert with ClickHouse.",
-      );
-    }
-    return undefined;
-  }
-
-  const ca_cert = Buffer.from(caCert);
+  const ca = caCert ? { ca_cert: Buffer.from(caCert) } : undefined;
   if (clientCert && clientKey) {
+    // The client's type requires ca_cert, but without one Node falls back to its default CAs
     return {
-      ca_cert,
+      ...ca,
       cert: Buffer.from(clientCert),
       key: Buffer.from(clientKey),
-    };
+    } as ClickHouseClientConfigOptions["tls"];
   }
-  return { ca_cert };
+  return ca;
 }
 
 export default class ClickHouse extends SqlIntegration {
