@@ -26,6 +26,14 @@ import DraftChangesPopover, {
 import { featureStatusColors } from "./FeaturesOverview";
 import styles from "./EnvironmentStatusCards.module.scss";
 
+// A prerequisite's state in an environment, with why on hover; a scroll area's
+// clips its tooltip unless it renders at the page root.
+type PrerequisiteStateRenderer = (
+  prerequisiteId: string,
+  environment: string,
+  inScrollArea?: boolean,
+) => ReactNode;
+
 export type EnvironmentCard = {
   id: string;
   // Null until the prerequisites' states load.
@@ -35,7 +43,6 @@ export type EnvironmentCard = {
     index: number;
     result: PrerequisiteResult | null;
   }[];
-  // The viewed draft turns the environment on or off.
   // What the draft changes about this environment's switch, if anything.
   environmentChanges: DraftChangeSection[] | null;
   // The rules it evaluates: those not inactive or skipped.
@@ -383,13 +390,7 @@ function Drilldown({
   status: EnvironmentStatus;
   valueType: FeatureValueType;
   toggle: ReactNode;
-  // A prerequisite's state in an environment, with why on hover; a scroll
-  // area's clips its tooltip unless it renders at the page root.
-  prerequisiteState: (
-    prerequisiteId: string,
-    environment: string,
-    inScrollArea?: boolean,
-  ) => ReactNode;
+  prerequisiteState: PrerequisiteStateRenderer;
 }) {
   const muted = (step: StepStatus) => step === "none" || step === "skipped";
   return (
@@ -458,13 +459,7 @@ function Card({
   card: EnvironmentCard;
   valueType: FeatureValueType;
   toggle: ReactNode;
-  // A prerequisite's state in an environment, with why on hover; a scroll
-  // area's clips its tooltip unless it renders at the page root.
-  prerequisiteState: (
-    prerequisiteId: string,
-    environment: string,
-    inScrollArea?: boolean,
-  ) => ReactNode;
+  prerequisiteState: PrerequisiteStateRenderer;
 }) {
   const [open, setOpen] = useState(false);
   const { status } = card;
@@ -478,12 +473,7 @@ function Card({
       sideOffset={5}
       showArrow={false}
       trigger={
-        <button
-          type="button"
-          className={styles.card}
-          // Its content names it: the environment, what it serves and why.
-          aria-haspopup="dialog"
-        >
+        <button type="button" className={styles.card}>
           <Flex align="center" justify="between" gap="2">
             <Text weight="semibold" color="text-mid" truncate>
               {card.environmentChanges ? (
@@ -541,13 +531,7 @@ export default function EnvironmentStatusCards({
   cards: EnvironmentCard[];
   valueType: FeatureValueType;
   renderToggle: (environment: string) => ReactNode;
-  // A prerequisite's state in an environment, with why on hover; a scroll
-  // area's clips its tooltip unless it renders at the page root.
-  prerequisiteState: (
-    prerequisiteId: string,
-    environment: string,
-    inScrollArea?: boolean,
-  ) => ReactNode;
+  prerequisiteState: PrerequisiteStateRenderer;
 }) {
   return (
     <div className={styles.grid}>
@@ -584,13 +568,7 @@ export function PrerequisiteList({
   changes: DraftChangeSection[] | null;
   environments: string[];
   actions: (index: number) => ReactNode;
-  // A prerequisite's state in an environment, with why on hover; a scroll
-  // area's clips its tooltip unless it renders at the page root.
-  prerequisiteState: (
-    prerequisiteId: string,
-    environment: string,
-    inScrollArea?: boolean,
-  ) => ReactNode;
+  prerequisiteState: PrerequisiteStateRenderer;
 }) {
   const [open, setOpen] = useState(false);
   return (

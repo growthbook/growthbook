@@ -22,7 +22,7 @@ import DraftSelectorForChanges, {
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import PermissionBlocker from "@/ui/PermissionBlocker";
 
-export interface KillSwitchModalProps {
+interface KillSwitchModalProps {
   // Merged feature (may reflect draft state)
   feature: FeatureInterface;
   // Raw live feature document (un-merged)
@@ -129,7 +129,9 @@ export default function KillSwitchModalNew({
     return desiredStates[envId] ?? baseEnvEnabled[envId] ?? false;
   };
 
-  const gatedEnvSet = getKillSwitchGatedEnvs(settings?.requireReviews, feature);
+  // On the live flag, as the toggle endpoint judges it: a draft can move the
+  // flag to another project.
+  const gatedEnvSet = getKillSwitchGatedEnvs(settings?.requireReviews, liveDoc);
 
   const liveEnvSettings = liveDoc.environmentSettings ?? {};
   const envIsGated =
@@ -242,9 +244,9 @@ export default function KillSwitchModalNew({
       // Without draft rights, publishing is the only route — and an
       // approval-gated change closes it, leaving nothing to submit.
       submit={noRouteAvailable ? undefined : submit}
-      // The switches are open to anyone with either route, so the CTA is where
-      // the chosen route is enforced: publishing environments this user can't
-      // publish is refused here rather than by the server.
+      // The switches are open to anyone with either route, so the CTA enforces
+      // the chosen one: publishing environments this user can't publish is
+      // stopped here, before the server refuses it.
       ctaEnabled={!cannotLandSelectedRoute && !targetRevisions.loading}
     >
       <div>

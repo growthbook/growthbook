@@ -62,10 +62,7 @@ export function resolveConfigBackedValue({
   );
   let patch: Record<string, unknown> = {};
   try {
-    patch = (JSON.parse(getConfigBackingPatch(value)) ?? {}) as Record<
-      string,
-      unknown
-    >;
+    patch = toObject(JSON.parse(getConfigBackingPatch(value))) ?? {};
   } catch {
     patch = {};
   }

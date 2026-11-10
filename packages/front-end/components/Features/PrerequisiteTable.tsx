@@ -20,7 +20,7 @@ const ENVIRONMENT_COLUMN_WIDTH = 96;
 const TYPE_COLUMN_WIDTH = 80;
 const DEFAULT_COLUMN_WIDTH = 160;
 
-export type PrerequisiteTableRow = {
+type PrerequisiteTableRow = {
   key: string | number;
   name: ReactNode;
   // Its type and default value, when the table shows them.

@@ -111,15 +111,13 @@ import { featureStatusColors } from "./FeaturesOverview";
 import FeatureRules from "./FeatureRulesNew";
 import cornerStyles from "./CornerActions.module.scss";
 
-// A changeable environment's switch, its state named after it. In a grid
-// column the switch centres and its label hangs off to the right.
+// A changeable environment's switch, its state named after it.
 function EnvironmentSwitch({
   environment,
   enabled,
   onToggle,
   disabled = false,
   changed = false,
-  labelOverhangs = false,
 }: {
   environment: string;
   enabled: boolean;
@@ -127,14 +125,9 @@ function EnvironmentSwitch({
   disabled?: boolean;
   // Differs from live, in a draft: ringed in amber.
   changed?: boolean;
-  labelOverhangs?: boolean;
 }) {
   return (
-    <Flex
-      align="center"
-      gap="2"
-      style={labelOverhangs ? { position: "relative" } : undefined}
-    >
+    <Flex align="center" gap="2">
       <span
         style={{
           display: "inline-flex",
@@ -156,11 +149,6 @@ function EnvironmentSwitch({
           color: enabled
             ? featureStatusColors.on
             : featureStatusColors.offMuted,
-          ...(labelOverhangs && {
-            position: "absolute",
-            left: "100%",
-            marginLeft: "var(--space-2)",
-          }),
         }}
       >
         <Text size="sm" weight="medium">
@@ -233,8 +221,11 @@ export default function FeaturesOverviewNew({
   const { showFeatureUsage } = useFeatureUsage();
 
   const allEnvironments = useEnvironments();
-  const environments = filterEnvironmentsByFeature(allEnvironments, feature);
-  const envs = environments.map((e) => e.id);
+  const environments = useMemo(
+    () => filterEnvironmentsByFeature(allEnvironments, feature),
+    [allEnvironments, feature],
+  );
+  const envs = useMemo(() => environments.map((e) => e.id), [environments]);
   // Selected rules env tab, lifted here so the Default Value display resolves a
   // config-backed value for the same environment the rules are filtered to.
   // null = "All Environments".
@@ -339,13 +330,6 @@ export default function FeaturesOverviewNew({
     }
   }, [feature?.id, prerequisitesSignature, mutatePrereqStates]);
 
-  const killSwitchKey = envs
-    .map(
-      (env) =>
-        `${env}:${feature?.environmentSettings?.[env]?.enabled ?? false}`,
-    )
-    .join(",");
-
   // Combine prereq states with kill switch so toggles reflect immediately without refetching.
   const prereqStates = useMemo(() => {
     if (!prereqStatesRaw || !feature) return prereqStatesRaw;
@@ -362,8 +346,7 @@ export default function FeaturesOverviewNew({
       }
     }
     return finalStates;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [prereqStatesRaw, feature, envs, killSwitchKey]);
+  }, [prereqStatesRaw, feature, envs]);
 
   const experimentsMap = useMemo<
     Map<string, ExperimentInterfaceStringDates>
