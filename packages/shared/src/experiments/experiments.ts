@@ -1448,11 +1448,15 @@ export function isSubUnitClusterMetric(
   );
 }
 
-const SCALABLE_CLUSTER_SUBUNIT_METRIC_TYPES = [
-  "mean",
+const CLUSTER_EXPERIMENT_ALLOWED_METRIC_TYPES = [
   "proportion",
   "retention",
+  "mean",
+  "ratio",
 ] as const;
+
+const SCALABLE_CLUSTER_SUBUNIT_METRIC_TYPES =
+  CLUSTER_EXPERIMENT_ALLOWED_METRIC_TYPES.filter((type) => type !== "ratio");
 
 export function isScalableClusterSubUnitMetric(
   m: ExperimentMetricDefinition,
@@ -1536,13 +1540,6 @@ export function quantileMetricType(
   }
   return "";
 }
-
-const CLUSTER_EXPERIMENT_ALLOWED_METRIC_TYPES = [
-  "proportion",
-  "retention",
-  "mean",
-  "ratio",
-] as const;
 
 // Picker labels for the types that reach the unsupported-type message.
 const UNSUPPORTED_CLUSTER_METRIC_TYPE_NAMES: Record<string, string> = {
