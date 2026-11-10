@@ -44,7 +44,9 @@ export type EnvironmentValue =
   // traffic overlap however their hashes happen to line up.
   | { kind: "partial"; value: string; percent: number | null }
   | { kind: "split"; count: number }
-  | { kind: "varies" };
+  | { kind: "varies" }
+  // A step that takes no one's traffic, as at 0% coverage.
+  | { kind: "none" };
 
 export type EnvironmentReason =
   | { kind: "disabled" }
@@ -170,6 +172,8 @@ export function ruleTrafficStep(
 ): TrafficStep {
   const resolve = (value: string, arm = true) =>
     resolveValue(value, { sparse: "sparse" in rule && !!rule.sparse, arm });
+  // Reaching nobody, a rule changes nothing, whatever its targeting.
+  const none = { participation: 0, shares: [] };
   if (rule.type === "force") {
     return stepOf(
       "Force rule",
@@ -184,28 +188,32 @@ export function ruleTrafficStep(
   if (rule.type === "rollout") {
     return stepOf(
       "Rollout",
-      hasTargetingConfigured(rule)
-        ? null
-        : {
-            // Full coverage, or none set, serves everyone.
-            participation: rule.coverage ?? 1,
-            shares: [{ value: resolve(rule.value), share: 1 }],
-          },
+      rule.coverage === 0
+        ? none
+        : hasTargetingConfigured(rule)
+          ? null
+          : {
+              // Full coverage, or none set, serves everyone.
+              participation: rule.coverage ?? 1,
+              shares: [{ value: resolve(rule.value), share: 1 }],
+            },
     );
   }
   if (rule.type === "experiment") {
+    const participation = (rule.coverage ?? 1) * namespaceWidth(rule.namespace);
     return stepOf(
       "Experiment",
-      hasTargetingConfigured(rule)
-        ? null
-        : {
-            participation:
-              (rule.coverage ?? 1) * namespaceWidth(rule.namespace),
-            shares: rule.values.map((v) => ({
-              value: resolve(v.value),
-              share: v.weight,
-            })),
-          },
+      participation === 0
+        ? none
+        : hasTargetingConfigured(rule)
+          ? null
+          : {
+              participation,
+              shares: rule.values.map((v) => ({
+                value: resolve(v.value),
+                share: v.weight,
+              })),
+            },
     );
   }
   if (rule.type === "experiment-ref") {
@@ -214,14 +222,7 @@ export function ruleTrafficStep(
     const name = experiment?.name ?? null;
     const href = experiment ? `/experiment/${experiment.id}` : null;
     const phase = experiment?.phases.at(-1);
-    if (
-      !experiment ||
-      !phase ||
-      hasTargetingConfigured(rule) ||
-      hasTargetingConfigured(phase)
-    ) {
-      return stepOf(label, null, name, href);
-    }
+    if (!experiment || !phase) return stepOf(label, null, name, href);
     const valueOf = (variationId: string) => {
       const value = rule.variations.find(
         (v) => v.variationId === variationId,
@@ -230,28 +231,35 @@ export function ruleTrafficStep(
     };
     const participation =
       (phase.coverage ?? 1) * namespaceWidth(phase.namespace);
+    const stopped = experiment.status === "stopped";
     // Stopped, it serves its released variation to the phase's traffic, or
     // isn't sent at all without one.
-    if (experiment.status === "stopped") {
-      const released = experiment.releasedVariationId
+    const released =
+      stopped && experiment.releasedVariationId
         ? valueOf(experiment.releasedVariationId)
         : undefined;
+    const variations = getLatestPhaseVariations(experiment);
+    if (
+      participation === 0 ||
+      (stopped && released === undefined) ||
+      // The SDK skips an experiment with fewer than two variations.
+      (!stopped && variations.length < 2)
+    ) {
+      return stepOf(label, none, name, href);
+    }
+    if (hasTargetingConfigured(rule) || hasTargetingConfigured(phase)) {
+      return stepOf(label, null, name, href);
+    }
+    if (released !== undefined) {
       return stepOf(
         label,
-        released === undefined
-          ? { participation: 0, shares: [] }
-          : { participation, shares: [{ value: released, share: 1 }] },
+        { participation, shares: [{ value: released, share: 1 }] },
         name,
         href,
       );
     }
     // A bandit's weights move, so who gets what isn't known ahead of time.
     if (isBandit) return stepOf(label, null, name, href);
-    const variations = getLatestPhaseVariations(experiment);
-    // The SDK skips an experiment with fewer than two variations.
-    if (variations.length < 2) {
-      return stepOf(label, { participation: 0, shares: [] }, name, href);
-    }
     // And splits evenly when the weights don't fit the variations.
     const weights = phase.variationWeights ?? [];
     const total = weights.reduce((sum, w) => sum + w, 0);
@@ -369,6 +377,7 @@ function stepValue(step: TrafficStep, isBoolean: boolean): EnvironmentValue {
   const values = [
     ...new Set(shares.filter((s) => s.share > EPSILON).map((s) => s.value)),
   ];
+  if (participation <= EPSILON || !values.length) return { kind: "none" };
   if (values.length === 1) {
     return participation >= 1 - EPSILON
       ? { kind: "value", value: values[0] }

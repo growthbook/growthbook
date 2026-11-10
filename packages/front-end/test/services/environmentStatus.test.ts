@@ -210,23 +210,57 @@ describe("getEnvironmentStatus", () => {
     },
   );
 
+  // Targeted, so only reaching no one tells them apart from varying.
+  const targeted = { condition: '{"country":"US"}' };
   it.each([
     [
       "a stopped experiment with no released variation",
-      experiment({ status: "stopped", releasedVariationId: "" }),
+      ruleTrafficStep(experimentRule, {
+        experiment: experiment(
+          { status: "stopped", releasedVariationId: "" },
+          targeted,
+        ),
+      }),
     ],
     [
       "an experiment with one variation",
-      experiment({
-        variations: [{ id: "v1" }],
-      } as Partial<ExperimentInterfaceStringDates>),
+      ruleTrafficStep(experimentRule, {
+        experiment: experiment(
+          {
+            variations: [{ id: "v1" }],
+          } as Partial<ExperimentInterfaceStringDates>,
+          targeted,
+        ),
+      }),
     ],
-  ])("skips %s, as the SDK does", (_, exp) => {
-    expect(
-      status([ruleTrafficStep(experimentRule, { experiment: exp })]),
-    ).toMatchObject({
+    [
+      "an experiment at 0% coverage",
+      ruleTrafficStep(experimentRule, {
+        experiment: experiment({}, { coverage: 0, ...targeted }),
+      }),
+    ],
+    [
+      "a rollout at 0%",
+      ruleTrafficStep({ ...rollout("true", 0), ...targeted } as FeatureRule),
+    ],
+    [
+      "an inline experiment at 0% coverage",
+      ruleTrafficStep({
+        id: "x",
+        type: "experiment",
+        coverage: 0,
+        values: [
+          { value: "false", weight: 0.5 },
+          { value: "true", weight: 0.5 },
+        ],
+        ...targeted,
+      } as FeatureRule),
+    ],
+  ])("skips %s, whatever it targets, as the SDK does", (_, step) => {
+    expect(status([step])).toMatchObject({
       value: { kind: "value", value: "false" },
       reason: { kind: "default" },
+      steps: [{ value: { kind: "none" } }],
     });
   });
 
