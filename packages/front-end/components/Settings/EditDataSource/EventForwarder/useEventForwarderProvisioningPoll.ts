@@ -28,8 +28,7 @@ export function useEventForwarderProvisioningPoll({
   const [pollTimedOut, setPollTimedOut] = useState(false);
   const [taskErrors, setTaskErrors] =
     useState<EventForwarderStatusResponse["taskErrors"]>();
-  const [backlog, setBacklog] =
-    useState<EventForwarderStatusResponse["backlog"]>();
+  const [backlogCount, setBacklogCount] = useState(0);
   const refreshedStatusRef = useRef<string | null>(null);
   const onRefreshRef = useRef(onRefresh);
   onRefreshRef.current = onRefresh;
@@ -43,7 +42,7 @@ export function useEventForwarderProvisioningPoll({
     if (result.taskErrors?.length) {
       setTaskErrors(result.taskErrors);
     }
-    setBacklog(result.backlog?.count ? result.backlog : undefined);
+    setBacklogCount(result.backlogCount ?? 0);
     await onRefreshRef.current();
   }, [apiCall, datasourceId]);
 
@@ -98,7 +97,7 @@ export function useEventForwarderProvisioningPoll({
   }, [datasourceId, fetchConnectorStatus, status]);
 
   // A replay shrinks the backlog while the forwarder is ready; keep the count current.
-  const hasBacklog = !!backlog;
+  const hasBacklog = backlogCount > 0;
   useEffect(() => {
     if (status !== "ready" || !hasBacklog) {
       return;
@@ -126,6 +125,6 @@ export function useEventForwarderProvisioningPoll({
     isError,
     pollTimedOut,
     taskErrors,
-    backlog,
+    backlogCount,
   };
 }

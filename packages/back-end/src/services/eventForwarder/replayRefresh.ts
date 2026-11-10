@@ -13,7 +13,7 @@ import {
 import { IS_CLOUD } from "back-end/src/util/secrets";
 import { logger } from "back-end/src/util/logger";
 
-export const EVENT_FORWARDER_REPLAY_FULL_REFRESH_REASON =
+const REPLAY_FULL_REFRESH_REASON =
   "Backed-up Event Forwarder events were written after the last Full Refresh";
 
 // Whether SQL reads a table, matched on its last path segment.
@@ -34,8 +34,8 @@ type ReplayCheckState = Pick<
   "unitsMaxTimestamp" | "metricSources" | "fullRefreshStartedAt"
 >;
 
-// A replay writes rows with old event times. An incremental update only reads
-// past its watermark, so it never sees them. True when all of these hold:
+// Replayed rows have old event times; an incremental update only reads past
+// its watermark. True when all hold:
 // - No Full Refresh has started since the replay's last write.
 // - A source's watermark is at or past the oldest replayed event.
 // - That source's SQL reads one of the forwarder's tables.
@@ -54,18 +54,18 @@ export function incrementalRefreshMissedReplay({
   exposureQuerySql: string | undefined;
   getFactTableSql: (factTableId: string) => string | undefined;
 }): boolean {
-  const lastWrite = new Date(replay.lastWriteAt);
-  const fullRefreshStartedAt = incrementalRefresh.fullRefreshStartedAt ?? null;
-  if (fullRefreshStartedAt !== null && fullRefreshStartedAt >= lastWrite) {
+  const { fullRefreshStartedAt } = incrementalRefresh;
+  if (
+    fullRefreshStartedAt &&
+    fullRefreshStartedAt >= new Date(replay.lastWriteAt)
+  ) {
     return false;
   }
-  const earliestEvent = replay.earliestEventAt
-    ? new Date(replay.earliestEventAt)
-    : null;
+  const earliestEvent = new Date(replay.earliestEventAt);
   const missed = (watermark: Date | null, sql: string | undefined) =>
     watermark !== null &&
     !!sql &&
-    (earliestEvent === null || watermark >= earliestEvent) &&
+    watermark >= earliestEvent &&
     forwarderTables.some((table) => sqlReferencesTable(sql, table));
 
   return (
@@ -76,55 +76,44 @@ export function incrementalRefreshMissedReplay({
   );
 }
 
-type ReplayInfo = { replay: EventForwarderReplay; tables: string[] } | null;
-
-// Every refresh of every experiment on the Data Source asks; one license
-// server call a minute is enough.
-const REPLAY_CACHE_MS = 60_000;
-const replayCache = new Map<string, { at: number; info: ReplayInfo }>();
-
+// The forwarder's replay times and table names; null when nothing was replayed.
 async function getReplayInfo(
   context: ReqContext,
   datasourceId: string,
-): Promise<ReplayInfo> {
-  const key = `${context.org.id}:${datasourceId}`;
-  const cached = replayCache.get(key);
-  if (cached && Date.now() - cached.at < REPLAY_CACHE_MS) return cached.info;
-
+): Promise<{ replay: EventForwarderReplay; tables: string[] } | null> {
   // Bypasses read scope: every viewer must get the same answer, and only the
   // yes/no decision leaves this module.
   const config = (
     await context.models.eventForwarderConfigs.getAllBypassingReadPermissions()
   ).find((c) => c.datasourceId === datasourceId);
   const connectorName = config?.connectorName?.trim();
-  let info: ReplayInfo = null;
   // Only the in-house consumer parks and replays events.
   if (
-    config &&
-    connectorName &&
-    isInHouseConsumerTopic(config.topic, config.sinkType)
+    !config ||
+    !connectorName ||
+    !isInHouseConsumerTopic(config.topic, config.sinkType)
   ) {
-    const { replay } = await postEventForwarderStatusToLicenseServer({
-      organizationId: context.org.id,
-      datasourceId,
-      connectorName,
-    });
-    if (replay) {
-      const tables = Object.values(
-        decryptEventForwarderConfigModel(config).tables ?? {},
-      ).filter((table) => !!table);
-      info = { replay, tables };
-    }
+    return null;
   }
-  replayCache.set(key, { at: Date.now(), info });
-  return info;
+  const { replay } = await postEventForwarderStatusToLicenseServer({
+    organizationId: context.org.id,
+    datasourceId,
+    connectorName,
+  });
+  if (!replay) return null;
+  return {
+    replay,
+    tables: Object.values(
+      decryptEventForwarderConfigModel(config).tables ?? {},
+    ).filter((table) => !!table),
+  };
 }
 
 /**
- * Why an incremental update of this experiment would miss replayed Event
- * Forwarder events, or null when it would not.
- * - Fails open: if the license server cannot be reached the update runs, and
- *   the next check still catches it (only a Full Refresh clears the condition).
+ * Why an incremental update would miss replayed Event Forwarder events, or
+ * null when it would not.
+ * - Fails open if the license server is unreachable. The next check still
+ *   catches it: only a Full Refresh clears the condition.
  */
 export async function getEventForwarderReplayFullRefreshReason(
   context: ReqContext,
@@ -152,7 +141,7 @@ export async function getEventForwarderReplayFullRefreshReason(
       )?.query,
       getFactTableSql: (id) => factTableMap.get(id)?.sql,
     })
-      ? EVENT_FORWARDER_REPLAY_FULL_REFRESH_REASON
+      ? REPLAY_FULL_REFRESH_REASON
       : null;
   } catch (e) {
     logger.warn(

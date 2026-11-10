@@ -73,7 +73,7 @@ describe("incrementalRefreshMissedReplay", () => {
     expect(
       incrementalRefreshMissedReplay({ ...base, incrementalRefresh: stale }),
     ).toBe(true);
-    // State saved before the field existed: assume it predates the replay.
+    // State saved before the field existed predates the replay.
     expect(
       incrementalRefreshMissedReplay({
         ...base,

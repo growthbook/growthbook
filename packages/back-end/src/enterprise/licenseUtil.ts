@@ -25,10 +25,7 @@ import {
 } from "shared/enterprise";
 import { StripeAddress, TaxIdType } from "shared/types/subscriptions";
 import { EventForwarderSinkType } from "shared/types/event-forwarder";
-import type {
-  EventForwarderBacklog,
-  EventForwarderReplay,
-} from "shared/validators";
+import type { EventForwarderReplay } from "shared/validators";
 import {
   OrganizationInterface,
   OrgMemberInfo,
@@ -1278,7 +1275,7 @@ export type EventForwarderLicenseConnectorStatus = {
   message?: string;
   taskErrors?: { id: number; state: string; trace?: string }[];
   /** In-house consumer only. */
-  backlog?: EventForwarderBacklog;
+  backlogCount?: number;
   replay?: EventForwarderReplay;
 };
 

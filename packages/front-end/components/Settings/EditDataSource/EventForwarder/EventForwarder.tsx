@@ -31,7 +31,6 @@ import {
   PiPlay,
 } from "react-icons/pi";
 import { DailyUsage, UsageLimits } from "shared/types/organization";
-import { date } from "shared/dates";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
 import useApi from "@/hooks/useApi";
@@ -87,9 +86,6 @@ type EventForwarderDatasourceDraft = {
   projects?: string[];
   eventForwarderConfig: EventForwarderConfigDraft | null;
 };
-
-// Retention of the fallback bucket the consumer parks events in.
-const BACKLOG_RETENTION_DAYS = 90;
 
 const statusLabels: Record<EventForwarderStatus, string> = {
   unconfigured: "Not configured",
@@ -717,7 +713,7 @@ export default function EventForwarder({
     await onRefresh();
   }, [onRefresh]);
 
-  const { isProvisioning, isError, pollTimedOut, taskErrors, backlog } =
+  const { isProvisioning, isError, pollTimedOut, taskErrors, backlogCount } =
     useEventForwarderProvisioningPoll({
       datasourceId: dataSource.id,
       status: eventForwarderConfig?.status,
@@ -748,16 +744,14 @@ export default function EventForwarder({
   const canToggle = canEdit && (isReady || isPaused);
   // Restart replaces Pause when there is something to retry:
   // - the destination errored, or
-  // - it is ready again but events are still backed up (a replay stopped).
+  // - it is ready but events are still backed up (a replay stopped).
   // Without a connector there is nothing to restart, so Edit is the retry path.
+  const hasBacklog = backlogCount > 0;
   const canRestart =
     canEdit &&
     !isProvisioning &&
-    (eventForwarderConfig?.status === "error" || (isReady && !!backlog)) &&
+    (eventForwarderConfig?.status === "error" || (isReady && hasBacklog)) &&
     !!eventForwarderConfig?.connectorName;
-  const backlogCount = backlog
-    ? `${backlog.count.toLocaleString()}${backlog.capped ? "+" : ""}`
-    : "";
   const action = canRestart ? "restart" : isReady ? "pause" : "resume";
   const actionButton = {
     restart: { label: "Restart", icon: <PiArrowClockwise /> },
@@ -837,22 +831,21 @@ export default function EventForwarder({
             key={primaryConnectorErrorMessage}
             message={primaryConnectorErrorMessage}
           />
-          {backlog && eventForwarderConfig.status === "error" ? (
+          {hasBacklog && eventForwarderConfig.status === "error" ? (
             <Box mt="2">
-              {backlogCount} events are backed up
-              {backlog.oldestAt ? ` since ${date(backlog.oldestAt)}` : ""}. They
-              are written to your warehouse when you restart. Backed-up events
-              are deleted after {BACKLOG_RETENTION_DAYS} days.
+              {backlogCount.toLocaleString()} events are backed up. They are
+              written to your warehouse when you restart. Backed-up events are
+              deleted after 90 days.
             </Box>
           ) : null}
         </Callout>
       ) : null}
 
-      {backlog && isReady && !isProvisioning ? (
+      {hasBacklog && isReady && !isProvisioning ? (
         <Callout status="info" mb="3">
-          {backlogCount} backed-up events are waiting to be written to your
-          warehouse. If this number stops going down, restart the Event
-          Forwarder.
+          {backlogCount.toLocaleString()} backed-up events are waiting to be
+          written to your warehouse. If this number stops going down, restart
+          the Event Forwarder.
         </Callout>
       ) : null}
 
