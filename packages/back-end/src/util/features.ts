@@ -17,7 +17,7 @@ import {
   getTargetingProjectIds,
   includeExperimentInPayload,
   isDefined,
-  isMultiRangeNamespaceFormat,
+  isMultiRangeInPayload,
   namespacesToMap,
   recursiveWalk,
   ruleFootprint,
@@ -968,11 +968,7 @@ export function applyNamespaceToPayload(
 ): void {
   const nsDefinition = namespacesMap?.get(namespace.name);
 
-  // When the namespace is defined on the org, trust its format; otherwise fall
-  // back to the structural check on the phase/rule's namespace shape.
-  const multiRange = nsDefinition
-    ? nsDefinition.format === "multiRange"
-    : isMultiRangeNamespaceFormat(namespace);
+  const multiRange = isMultiRangeInPayload(namespace, namespacesMap);
 
   // Some legacy docs stored strings like "0.5" in range tuples — coerce defensively.
   const ranges = getNamespaceRanges(namespace).map(

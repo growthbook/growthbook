@@ -204,6 +204,16 @@ describe("getEnvironmentStatus", () => {
       { coverage: 0.4 },
       { kind: "partial", value: "true", percent: 0.4 },
     ],
+    [
+      "past a legacy namespace, which its force rule doesn't read",
+      { namespace: { enabled: true, name: "ns", range: [0, 0.5] } },
+      { kind: "value", value: "true" },
+    ],
+    [
+      "within a multi-range namespace, its filter",
+      { namespace: { enabled: true, name: "ns", ranges: [[0, 0.5]] } },
+      { kind: "partial", value: "true", percent: 0.5 },
+    ],
   ])(
     "serves a stopped experiment's released variation %s",
     (_, phase, value) => {

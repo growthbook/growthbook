@@ -13,6 +13,7 @@ import {
   getFeatureBaseConfigKey,
   getReviewSetting,
   getTargetingProjectIds,
+  namespacesToMap,
   sdkValueResolver,
 } from "shared/util";
 import { isRevisionEditLockedBySchedule } from "shared/enterprise";
@@ -624,6 +625,7 @@ export default function FeaturesOverviewNew({
     : undefined;
   const holdoutRunning =
     holdoutExperiment?.status === "running" && !holdoutExperiment.archived;
+  const namespaceDefinitions = namespacesToMap(settings?.namespaces);
   const trafficSteps = (f: FeatureInterface, env: string): TrafficStep[] => [
     ...(holdout &&
     holdoutRunning &&
@@ -661,6 +663,7 @@ export default function FeaturesOverviewNew({
       const step = ruleTrafficStep(
         { ...rule, prerequisites: unsettled(rule.prerequisites) },
         {
+          namespaces: namespaceDefinitions,
           resolveValue: (value, options) => servedValue(f, value, env, options),
           experiment:
             experiment && phase

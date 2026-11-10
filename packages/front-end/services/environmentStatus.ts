@@ -9,7 +9,11 @@ import {
   getLatestPhaseVariations,
   hasTargetingConfigured,
 } from "shared/experiments";
-import { getNamespaceRanges, ruleProjectScope } from "shared/util";
+import {
+  getNamespaceRanges,
+  isMultiRangeInPayload,
+  ruleProjectScope,
+} from "shared/util";
 
 // A prerequisite's outcome in one environment.
 export type PrerequisiteResult = "met" | "unmet" | "varies" | "cycle";
@@ -139,10 +143,13 @@ export function ruleTrafficStep(
   {
     experiment,
     safeRollout,
+    namespaces,
     resolveValue = (value) => value,
   }: {
     experiment?: ExperimentInterfaceStringDates;
     safeRollout?: SafeRolloutInterface;
+    // The org's namespace definitions, which decide each one's format.
+    namespaces?: Map<string, { format?: "legacy" | "multiRange" }>;
     // A rule value as the SDK receives it, e.g. a sparse JSON patch merged
     // onto the default. `arm` is a value the payload treats as a patch on a
     // config-backed flag: every rule's value but a safe rollout's.
@@ -211,9 +218,15 @@ export function ruleTrafficStep(
       )?.value;
       return value === undefined ? undefined : resolve(value);
     };
-    const participation =
-      (phase.coverage ?? 1) * namespaceWidth(phase.namespace);
     const stopped = experiment.status === "stopped";
+    // Stopped, it reaches the SDK as a force rule, which only a multi-range
+    // namespace (a filter) narrows; the legacy tuple on it goes unread.
+    const namespaced =
+      phase.namespace &&
+      (!stopped || isMultiRangeInPayload(phase.namespace, namespaces))
+        ? phase.namespace
+        : undefined;
+    const participation = (phase.coverage ?? 1) * namespaceWidth(namespaced);
     // Stopped, it serves its released variation to the phase's traffic, or
     // isn't sent at all without one.
     const released =
