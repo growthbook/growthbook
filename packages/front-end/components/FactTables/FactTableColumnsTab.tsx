@@ -147,8 +147,13 @@ export default function FactTableColumnsTab({
           renderExpanded={(col) => (
             <Flex justify="between" align="start" gap="3" py="2">
               <Box flexGrow="1">
-                {/* Only string columns get top values */}
-                {col.datatype === "string" ? (
+                {/* Only string columns get top values, and never identifiers,
+                    which the server doesn't collect values for */}
+                {getColumnRole(factTable, col.column) === "identifier" ? (
+                  <Text color="text-mid">
+                    No value summary for identifier columns.
+                  </Text>
+                ) : col.datatype === "string" ? (
                   <ColumnValuesPanel
                     column={col}
                     counts={valueCounts.counts[col.column]}
