@@ -782,6 +782,7 @@ export default function FeaturesOverviewNew({
         <DropdownMenu
           trigger={<MoreMenuTrigger label="Environment actions" />}
           menuPlacement="end"
+          variant="soft"
         >
           {canEditDrafts ? (
             <DropdownMenuItem
