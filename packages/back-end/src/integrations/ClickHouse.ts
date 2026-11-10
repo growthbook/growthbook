@@ -92,8 +92,8 @@ export default class ClickHouse extends SqlIntegration {
 
   async runQuery(
     sql: string,
-    setExternalId?: ExternalIdCallback,
-    metadata?: RunQueryMetadata,
+    setExternalId: ExternalIdCallback | undefined,
+    metadata: RunQueryMetadata,
   ): Promise<QueryResponse> {
     // Block queries while never-provisioned OR mid-migration (tables being recreated).
     // Reuse the pending error so existing UI surfaces show the managed-warehouse callout;
@@ -173,7 +173,7 @@ export default class ClickHouse extends SqlIntegration {
               err: e,
               orgId: this.datasource.organization,
               datasourceId: this.datasource.id,
-              queryId: metadata?.queryId,
+              queryId: metadata.queryId,
             },
             `Managed Warehouse query failed (code ${code})`,
           );
@@ -272,7 +272,8 @@ export default class ClickHouse extends SqlIntegration {
       throw new Error(`Invalid lookback: ${lookback}`);
     }
 
-    const res = await this.runQuery(`
+    const res = await this.runQuery(
+      `
 WITH _data as (
 	SELECT
 	  ${this.getSqlDialect().formatDateTimeString(roundedTimestamp)} as ts,
@@ -304,7 +305,10 @@ WITH _data as (
     variationId
   ORDER BY evaluations DESC
   LIMIT 200
-      `);
+      `,
+      undefined,
+      { queryType: "featureUsage" },
+    );
 
     return {
       start: start.getTime(),

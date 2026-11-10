@@ -7,7 +7,7 @@ import {
   DEFAULT_STICKY_BUCKETING_ON_BY_DEFAULT,
 } from "shared/constants";
 import { RESERVED_ROLE_IDS, getDefaultRole } from "shared/permissions";
-import { stringifyFeatureValue } from "shared/util";
+import { stringifyFeatureValue, withIsProduction } from "shared/util";
 import { v4 as uuidv4 } from "uuid";
 import { accountFeatures } from "shared/enterprise";
 import {
@@ -572,6 +572,11 @@ export function upgradeOrganizationDoc(
   // Add default environments if there are none yet
   org.settings.environments = getEnvironments(org);
 
+  // Backfill isProduction for environments that predate the flag
+  if (org.settings.environments.some((e) => e.isProduction === undefined)) {
+    org.settings.environments = org.settings.environments.map(withIsProduction);
+  }
+
   // Change old `implementationTypes` field to new `visualEditorEnabled` field
   if (org.settings.implementationTypes) {
     if (!("visualEditorEnabled" in org.settings)) {
@@ -821,6 +826,14 @@ export function upgradeExperimentDoc(
 
   if (experiment.decisionFrameworkSettings === undefined) {
     experiment.decisionFrameworkSettings = {};
+  }
+  // The old target MDE modal saved a cleared field as null, meaning the
+  // metric's own target MDE, which is what leaving the entry out says.
+  const targetMDEOverrides =
+    experiment.decisionFrameworkSettings.decisionFrameworkMetricOverrides;
+  if (targetMDEOverrides) {
+    experiment.decisionFrameworkSettings.decisionFrameworkMetricOverrides =
+      targetMDEOverrides.filter((o) => (o.targetMDE ?? null) !== null);
   }
 
   // releasedVariationId

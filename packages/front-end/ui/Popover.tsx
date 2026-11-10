@@ -1,5 +1,6 @@
 import React, { forwardRef, useRef, useState } from "react";
 import * as RadixPopover from "@radix-ui/react-popover";
+import clsx from "clsx";
 import { IconButton } from "@radix-ui/themes";
 import type { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
 import { PiX } from "react-icons/pi";
@@ -8,6 +9,9 @@ import Button from "./Button";
 import styles from "./Popover.module.scss";
 
 type AllowedChildren = string | React.ReactNode;
+
+// Radix's default arrow height
+const ARROW_HEIGHT = 5;
 
 type ControlledPopoverProps = {
   open: boolean;
@@ -24,6 +28,8 @@ type UncontrolledPopoverProps = {
 type PopoverProps = (ControlledPopoverProps | UncontrolledPopoverProps) & {
   trigger: React.ReactNode;
   triggerAsChild?: boolean;
+  /** Positions the popover against this element. The trigger still opens it. */
+  anchor?: React.ReactNode;
   content: AllowedChildren;
   side?: "top" | "right" | "bottom" | "left";
   align?: "start" | "center" | "end";
@@ -64,6 +70,7 @@ type PopoverProps = (ControlledPopoverProps | UncontrolledPopoverProps) & {
 export function Popover({
   trigger,
   triggerAsChild = true,
+  anchor,
   content,
   side = "bottom",
   align = "center",
@@ -118,6 +125,31 @@ export function Popover({
       }
     : {};
 
+  // Sizes the strip that bridges the gap to the trigger (.HoverBridge). Radix
+  // starts the open animation once it has placed the popover. Content that
+  // scrolls would clip the strip, so it gets none.
+  const triggerNode = useRef<HTMLElement | null>(null);
+  const setTriggerNode = (node: HTMLElement | null) => {
+    triggerNode.current = node;
+  };
+  const fitBridge = (e: React.AnimationEvent<HTMLDivElement>) => {
+    const content = e.currentTarget;
+    const trigger = triggerNode.current;
+    if (e.target !== content || !trigger) return;
+    if (getComputedStyle(content).overflowY !== "visible") return;
+    const t = trigger.getBoundingClientRect();
+    const c = content.getBoundingClientRect();
+    // Above or below, it spans the whole edge so any path from the trigger
+    // lands on it. Beside (menus), only the trigger, clear of other options.
+    const [start, end] = ["top", "bottom"].includes(content.dataset.side ?? "")
+      ? [Math.min(t.left - c.left, 0), Math.max(t.right - c.left, c.width)]
+      : [t.top - c.top, t.bottom - c.top];
+    const gap = (sideOffset ?? 0) + (showArrow ? ARROW_HEIGHT : 0);
+    content.style.setProperty("--hover-bridge", `${gap}px`);
+    content.style.setProperty("--hover-bridge-start", `${start}px`);
+    content.style.setProperty("--hover-bridge-length", `${end - start}px`);
+  };
+
   const rootProps = openOnHover
     ? { open: hoverOpen, onOpenChange: setHoverOpen }
     : {
@@ -144,8 +176,12 @@ export function Popover({
 
   return (
     <RadixPopover.Root {...marginProps} {...rootProps}>
+      {anchor ? (
+        <RadixPopover.Anchor asChild>{anchor}</RadixPopover.Anchor>
+      ) : null}
       {anchorOnly ? (
         <RadixPopover.Anchor
+          ref={setTriggerNode}
           asChild={triggerAsChild}
           className={styles.UnstyledTrigger}
           {...hoverHandlers}
@@ -153,7 +189,11 @@ export function Popover({
           {clonedTrigger}
         </RadixPopover.Anchor>
       ) : (
-        <RadixPopover.Trigger asChild={triggerAsChild} {...hoverHandlers}>
+        <RadixPopover.Trigger
+          ref={setTriggerNode}
+          asChild={triggerAsChild}
+          {...hoverHandlers}
+        >
           {clonedTrigger}
         </RadixPopover.Trigger>
       )}
@@ -167,9 +207,14 @@ export function Popover({
               sideOffset={sideOffset}
               alignOffset={alignOffset}
               avoidCollisions={avoidCollisions}
-              className={`${styles.Content}${contentClassName ? ` ${contentClassName}` : ""}`}
+              className={clsx(
+                styles.Content,
+                openOnHover && styles.HoverBridge,
+                contentClassName,
+              )}
               style={appliedContentStyle}
               {...hoverHandlers}
+              onAnimationStart={openOnHover ? fitBridge : undefined}
               onOpenAutoFocus={
                 openOnHover ? (e) => e.preventDefault() : onOpenAutoFocus
               }

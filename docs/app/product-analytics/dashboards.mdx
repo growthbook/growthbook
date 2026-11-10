@@ -6,7 +6,7 @@ sidebarTitle: Dashboards
 
 import { CommercialFeature } from "/snippets/CommercialFeature.jsx";
 
-<CommercialFeature feature="product-analytics-dashboards" description="Pro organizations can create unlimited private dashboards. Enterprise organizations can also share dashboards with the rest of the organization." />
+<CommercialFeature feature="product-analytics-dashboards" description="Pro and Enterprise organizations can create unlimited dashboards, keep them private, or share them with the rest of the organization." />
 
 Product Analytics Dashboards are general-purpose dashboards built from the same explorations you create in the [Explorer](/app/product-analytics/explorer). Use them to monitor KPIs, document findings for stakeholders, or give a team a single place to track the metrics they care about.
 
@@ -37,10 +37,6 @@ When creating or editing a dashboard, you can configure:
   - **Only me** / **Owner only** — Only the owner (and admins) can edit it.
 
 When **View access** is set to private, **Edit access** is forced to private as well — you can't have a dashboard nobody can see but other people can edit.
-
-<Note>
-Sharing dashboards across the organization requires the **Share Product Analytics Dashboards** commercial feature, which is included on Enterprise plans. On Pro plans, dashboards are limited to private (owner-only) view and edit access.
-</Note>
 
 ### Update Schedules
 
@@ -134,7 +130,7 @@ Refreshing the dashboard requires the **Create Analyses** permission and read ac
 ## Sharing and Collaboration
 
 <Note>
-Only **Enterprise** organizations can publish dashboards for organization-wide viewing. On **Pro** plans, dashboards are limited to private (owner-only) view and edit access.
+**Pro** and **Enterprise** organizations can publish dashboards for organization-wide viewing and let other members edit them.
 </Note>
 
 Once a dashboard is published to the organization, anyone with view access can:
@@ -165,7 +161,7 @@ Dashboard actions are controlled by per-project permissions:
 | Refresh dashboard data          | Create Analyses + Run SQL Explorer Queries on each data source |
 | Delete a dashboard              | Delete General Dashboards (only the owner or org admins)       |
 | Change view/edit access         | Owner or organization admin                                    |
-| Share dashboards across the org | Enterprise plan (Share Product Analytics Dashboards feature)   |
+| Share dashboards across the org | Pro plan (Product Analytics Dashboards feature)                |
 
 Private dashboards (where edit access is set to **Owner only**) can only be edited and deleted by the owner and organization admins, regardless of other permissions.
 

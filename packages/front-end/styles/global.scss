@@ -544,9 +544,16 @@ pre {
   }
 }
 
+// Same reason as above, but interleaving keeps the default content width: it
+// has no details panel, so it has no .experiment-column to re-cap.
+.main.interleaving {
+  min-height: 100vh;
+}
+
 .main.experiment,
 .main.bandit,
 .main.holdout,
+.main.interleaving,
 .public.experiment,
 .public.bandit,
 .public.holdout {
@@ -3451,6 +3458,22 @@ select.form-control {
   padding-bottom: 4px;
   font-size: var(--font-size-2);
 }
+// The native arrow sits against the border. Draw our own so it lines up with
+// the field's right padding. Only 4 native `<select class="form-control">`
+// elements exist app-wide (checked via grep); none use the --sm/--md/--lg
+// size variants (those are input/textarea only) or set their own background.
+select.form-control:not([multiple]):not([size]) {
+  appearance: none;
+  padding-right: 2.25rem;
+  background-color: var(--color-surface);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8' fill='none'%3E%3Cpath d='M1 1.5 6 6.5 11 1.5' stroke='%23646e7b' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.75rem center;
+  background-size: 12px 8px;
+}
+.dark-theme select.form-control:not([multiple]):not([size]) {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8' fill='none'%3E%3Cpath d='M1 1.5 6 6.5 11 1.5' stroke='%23c1c8cd' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+}
 textarea.form-control {
   min-height: 36px;
   font-size: var(--font-size-2);
@@ -4109,4 +4132,13 @@ input:disabled {
 // Replay mouse cursor dot
 .replayer-mouse::after {
   background: var(--accent-9) !important;
+}
+
+// Every help launcher rises above a bottom bar the same way (see
+// useBottomBarClearance): our own, and Pylon's bubble and chat window. A margin
+// lifts each one from where it already sits, so no launcher's offsets are restated.
+.help-launcher,
+.PylonChat-bubbleFrameContainer,
+.PylonChat-chatWindowFrameContainer {
+  margin-bottom: var(--bottom-bar-clearance, 0px) !important;
 }

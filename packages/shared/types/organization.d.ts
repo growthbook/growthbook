@@ -278,6 +278,9 @@ export interface OrganizationSettings {
   sdkInstructionsViewed?: boolean;
   videoInstructionsViewed?: boolean;
   multipleExposureMinPercent?: number;
+  // Cluster experiments: share of clusters with mixed assignment, or of
+  // subunits in more than one cluster, that triggers a health warning.
+  clusterIssueMinPercent?: number;
   defaultRole?: MemberRoleWithProjects;
   statsEngine?: StatsEngine;
   pValueThreshold?: number;
@@ -403,6 +406,8 @@ export interface OrganizationSettings {
   banditBurnInUnit?: "hours" | "days";
   banditPeriodWeighting?: boolean;
   requireExperimentTemplates?: boolean;
+  disableResultsUpdateForStoppedExperiments?: boolean;
+  disableResultsUpdateForStoppedExperimentGraceHours?: number;
   requireUniqueExperimentTrackingKeys?: boolean;
   experimentKeyExample?: string;
   experimentKeyRegexValidator?: string; // Enforced on user-entered keys only; system-generated keys are exempt
@@ -412,6 +417,8 @@ export interface OrganizationSettings {
   defaultDecisionCriteriaId?: string;
   disableLegacyMetricCreation?: boolean;
   blockFileUploads?: boolean;
+  // Kill switch: public links stop resolving; shareLevel is left as-is.
+  disablePublicSharing?: boolean;
   savedGroupSizeLimit?: number;
   // Opt-in validation of Saved Group scope at consuming Feature Flags.
   enforceSavedGroupProjectScope?: boolean;
@@ -618,6 +625,7 @@ export type OrganizationUsage = {
     requests: UsageLimit;
     bandwidth: UsageLimit;
     managedClickhouseEvents?: UsageLimit;
+    tracesBytes?: UsageLimit;
     eventForwarderEvents?: UsageLimit;
   };
   cdn: {
@@ -625,6 +633,10 @@ export type OrganizationUsage = {
     status: "under" | "approaching" | "over";
   };
   managedClickhouse?: {
+    lastUpdated: Date;
+    status: "under" | "approaching" | "over";
+  };
+  traces?: {
     lastUpdated: Date;
     status: "under" | "approaching" | "over";
   };

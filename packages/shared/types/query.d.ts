@@ -76,6 +76,8 @@ export type QueryType =
 
   // 2 additional queries associated with having pipeline mode "ephemeral" enabled
   | "experimentUnits"
+  // Per-metric sufficient-statistics query for an interleaving experiment
+  | "interleavingMetric"
   | "experimentDropUnitsTable"
 
   // Queries associated with an experiment update using incremental refresh
@@ -136,6 +138,8 @@ export type QueryType =
   | "userExposure"
   // Feature evaluation diagnostics
   | "featureEvalDiagnostics"
+  // Live feature usage chart on the feature page (polled)
+  | "featureUsage"
   // Fact table column top-values scan (auto-slices + column refresh)
   | "columnTopValues"
   // Auto fact table tracked-event discovery scan

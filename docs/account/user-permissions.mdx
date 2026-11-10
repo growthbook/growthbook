@@ -306,6 +306,12 @@ environment restrictions.
 Moving a resource to another Project requires the relevant permission in both
 the current and destination Projects.
 
+Event webhooks also respect a role's Project and environment restrictions. A
+role limited to specific environments can only view and manage webhooks whose
+environment filter includes only those environments. Webhooks that notify for
+all Environments, and webhook secrets, which are shared by every webhook,
+require access that is not limited by environment.
+
 API Keys Full Access expands the same way. Create includes revealing key
 values, because a new key's value is shown by revealing it. Changing a key's
 role, scope, requester settings, or confirmations also takes Create, since it

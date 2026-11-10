@@ -7,6 +7,7 @@ import {
   GBProductAnalytics,
   GBSettings,
 } from "@/components/Icons";
+import { isInterleavingEnabled } from "@/services/interleaving";
 import type { SidebarLinkFilterProps, SidebarLinkProps } from "./SidebarLink";
 import styles from "./Layout.module.scss";
 
@@ -69,6 +70,13 @@ export const navlinks: SidebarLinkProps[] = [
         // Default ON; the remote flag only turns this off for specific orgs.
         filter: ({ gb }) =>
           gb?.getFeatureValue("contextual-bandits", true) ?? true,
+      },
+      {
+        name: "Interleaving",
+        href: "/interleavings",
+        path: /^interleavings?($|\/)/,
+        filter: ({ gb }) => isInterleavingEnabled(gb),
+        beta: true,
       },
       {
         name: "Holdouts",
@@ -265,7 +273,7 @@ export const navlinks: SidebarLinkProps[] = [
     name: "Settings",
     href: "/settings",
     Icon: GBSettings,
-    path: /^(settings|projects|integrations|events|importing)/,
+    path: /^(settings|projects?|integrations|events|importing)/,
     autoClose: true,
     hideSubLinks: true,
     subLinks: [
@@ -321,7 +329,7 @@ export const navlinks: SidebarLinkProps[] = [
         href: "/settings/webhooks",
         path: /^settings\/webhooks/,
         filter: ({ permissionsUtils }) =>
-          permissionsUtils.canViewEventWebhook(),
+          permissionsUtils.canManageSomeEventWebhooks(),
       },
       {
         name: "Events Log",

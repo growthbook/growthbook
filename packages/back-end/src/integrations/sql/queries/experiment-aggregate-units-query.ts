@@ -1,5 +1,5 @@
 import { BANDIT_SRM_DIMENSION_NAME } from "shared/constants";
-import { getUserIdTypes } from "shared/experiments";
+import { getClusterSubUnit, getUserIdTypes } from "shared/experiments";
 import { format } from "shared/sql";
 import type { DataSourceInterface } from "shared/types/datasource";
 import type { ExperimentAggregateUnitsQueryParams } from "shared/types/integrations";
@@ -7,6 +7,10 @@ import type { SqlDialect } from "shared/types/sql";
 import { MAX_ROWS_UNIT_AGGREGATE_QUERY } from "back-end/src/services/experimentQueries/constants";
 
 import { getBanditCaseWhen } from "back-end/src/integrations/sql/clauses/bandit-case-when";
+import {
+  getConsistentClusterCondition,
+  getSingleClusterPerUnitCondition,
+} from "back-end/src/integrations/sql/clauses/cluster-assignment-filter";
 import {
   getBanditDates,
   getBanditVariationPeriodWeights,
@@ -34,6 +38,9 @@ export function getExperimentAggregateUnitsQuery(
 
   const exposureQuery = unitsSettings.exposureQuery;
 
+  const isClusterExperiment = !!unitsSettings.isClusterExperiment;
+  const clusterGrain = !!params.clusterGrain && isClusterExperiment;
+
   const banditDates = getBanditDates(settings.banditSettings);
   const variationPeriodWeights = getBanditVariationPeriodWeights(
     settings.banditSettings,
@@ -42,23 +49,42 @@ export function getExperimentAggregateUnitsQuery(
 
   const computeBanditSrm = !!banditDates && !!variationPeriodWeights;
 
-  const { baseIdType, idJoinSQL } = getIdentitiesCTE(
-    dialect,
-    datasource.settings,
-    {
-      objects: [
-        [exposureQuery.identifierType],
-        !useUnitsTable && activationMetric
-          ? getUserIdTypes(activationMetric, factTableMap)
-          : [],
-        !useUnitsTable && segment ? [segment.userIdType || "user_id"] : [],
-      ],
-      from: settings.startDate,
-      to: settings.endDate,
-      forcedBaseIdType: exposureQuery.identifierType,
-      experimentId: settings.experimentId,
-    },
-  );
+  // Units are counted per assignment-query identifier (the cluster column in a
+  // cluster experiment), but the inlined units query is keyed on the sub-unit,
+  // so its identity joins are built from that base, as the units query does.
+  const baseIdType = exposureQuery.identifierType;
+  const unitsBaseIdType =
+    getClusterSubUnit(unitsSettings) ?? exposureQuery.identifierType;
+  const segmentIdType = segment ? segment.userIdType || "user_id" : null;
+  const { idJoinSQL } = getIdentitiesCTE(dialect, datasource.settings, {
+    objects: [
+      [unitsBaseIdType],
+      !useUnitsTable && activationMetric
+        ? getUserIdTypes(activationMetric, factTableMap)
+        : [],
+      !useUnitsTable && segmentIdType && segmentIdType !== baseIdType
+        ? [segmentIdType]
+        : [],
+    ],
+    from: settings.startDate,
+    to: settings.endDate,
+    forcedBaseIdType: unitsBaseIdType,
+    experimentId: settings.experimentId,
+  });
+
+  const unitsSourceName = useUnitsTable
+    ? `${params.unitsTableFullName}`
+    : "__experimentUnits";
+
+  const clusterConsistencyWhere = isClusterExperiment
+    ? `WHERE ${[
+        getSingleClusterPerUnitCondition({ clusterIdColumn: baseIdType }),
+        getConsistentClusterCondition({
+          sourceTable: unitsSourceName,
+          clusterIdColumn: baseIdType,
+        }),
+      ].join(" AND ")}`
+    : "";
 
   return format(
     `-- Traffic Query for Health Tab
@@ -70,6 +96,31 @@ export function getExperimentAggregateUnitsQuery(
               ...params,
               includeIdJoins: false,
             })},`
+          : ""
+      }
+      ${
+        clusterGrain
+          ? `__clusterCollapsedUnits AS (
+        SELECT
+          ${baseIdType}
+          , ${dialect.ifElse(
+            "COUNT(DISTINCT variation) > 1",
+            "'__multiple__'",
+            "MAX(variation)",
+          )} AS variation
+          , MIN(first_exposure_timestamp) AS first_exposure_timestamp
+          ${experimentDimensions
+            .map((d) => `, MAX(dim_exp_${d.id}) AS dim_exp_${d.id}`)
+            .join("\n")}
+          ${
+            activationMetric
+              ? `, MIN(first_activation_timestamp) AS first_activation_timestamp`
+              : ""
+          }
+        FROM ${unitsSourceName}
+        ${clusterConsistencyWhere}
+        GROUP BY ${baseIdType}
+      ),`
           : ""
       }
       __distinctUnits AS (
@@ -99,9 +150,8 @@ export function getExperimentAggregateUnitsQuery(
                 )} AS dim_activated`
               : ""
           }
-        FROM ${
-          useUnitsTable ? `${params.unitsTableFullName}` : "__experimentUnits"
-        }
+        FROM ${clusterGrain ? "__clusterCollapsedUnits" : unitsSourceName}
+        ${clusterGrain ? "" : clusterConsistencyWhere}
       )
       , __unitsByDimension AS (
         -- One row per variation per dimension slice

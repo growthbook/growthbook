@@ -1680,6 +1680,11 @@ export async function putOrganization(
     licenseKey,
   } = req.body;
 
+  // An object here would reach the global users lookup as a Mongo operator
+  if (ownerEmail && typeof ownerEmail !== "string") {
+    return res.status(400).json({ status: 400, message: "Invalid ownerEmail" });
+  }
+
   if (connections || name || ownerEmail || installationName) {
     if (!context.permissions.canManageOrgSettings()) {
       context.permissions.throwPermissionError();
@@ -1834,6 +1839,17 @@ export async function putOrganization(
           "Maximum token lifetime must be a whole number of days, at least 1",
         );
       }
+    }
+
+    const disableGraceHours =
+      settings?.disableResultsUpdateForStoppedExperimentGraceHours;
+    if (
+      (disableGraceHours ?? null) !== null &&
+      (typeof disableGraceHours !== "number" || disableGraceHours < 0)
+    ) {
+      context.throwBadRequestError(
+        "Grace period for updating stopped experiments must be a number of hours, at least 0",
+      );
     }
 
     const topValuesLookbackValue = settings?.topValuesLookbackValue;

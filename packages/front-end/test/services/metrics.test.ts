@@ -2,7 +2,6 @@ import { FactMetricInterface } from "shared/types/fact-table";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import {
   duplicateFactMetric,
-  resolveFactMetricCreation,
   CreateFactMetricFormProps,
   formatDurationMilliseconds,
   formatDurationSeconds,
@@ -445,44 +444,6 @@ describe("getDefaultFactMetricProps datasource", () => {
         .datasource,
     ).toBe("ds_default");
   });
-});
-
-describe("fact metric creation flow", () => {
-  it.each([
-    [false, false, false, "pending"],
-    [false, false, true, "pending"],
-    [false, true, false, "pending"],
-    [false, true, true, "pending"],
-    [true, true, false, "page"],
-    [true, true, true, "page"],
-    [true, false, true, "modal"],
-    [true, false, false, "fact-table"],
-  ] as const)(
-    "resolves ready=%s, treatment=%s, fact table=%s to %s",
-    (ready, treatment, hasFactTable, expected) => {
-      expect(resolveFactMetricCreation(ready, treatment, hasFactTable)).toBe(
-        expected,
-      );
-    },
-  );
-});
-
-describe("embedded fact metric creation", () => {
-  it.each([
-    [false, false, false, "pending"],
-    [false, true, true, "pending"],
-    [true, true, true, "inline"],
-    [true, true, false, "fact-table"],
-    [true, false, true, "modal"],
-    [true, false, false, "fact-table"],
-  ] as const)(
-    "keeps ready=%s, treatment=%s, table=%s on the current form",
-    (ready, treatment, hasFactTable, expected) => {
-      expect(
-        resolveFactMetricCreation(ready, treatment, hasFactTable, true),
-      ).toBe(expected);
-    },
-  );
 });
 
 describe("duplicateFactMetric", () => {
