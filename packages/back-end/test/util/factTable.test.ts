@@ -22,6 +22,7 @@ import {
   detectColumnsFromQueryResult,
   buildColumnTypeMaps,
   getTopValueFields,
+  applyTopValuesUpdates,
 } from "back-end/src/util/factTable";
 import { mergeUpsertColumns } from "back-end/src/models/FactTableModel";
 
@@ -88,6 +89,35 @@ describe("getTopValueFields", () => {
       topValueCounts: undefined,
       topValuesDate: refreshedAt,
     });
+  });
+});
+
+describe("applyTopValuesUpdates", () => {
+  const refreshedAt = new Date("2026-11-01T00:00:00Z");
+
+  it("replaces the top values as a unit, clearing stale counts", () => {
+    const [country, plan] = applyTopValuesUpdates(
+      [
+        {
+          column: "country",
+          topValues: ["old"],
+          topValueCounts: [{ value: "old", count: 1 }],
+        } as ColumnInterface,
+        { column: "plan", topValues: ["free"] } as ColumnInterface,
+      ],
+      [
+        {
+          column: "country",
+          snapshot: { values: [{ value: "US" }], refreshedAt },
+        },
+      ],
+    );
+    expect(country).toMatchObject({
+      topValues: ["US"],
+      topValueCounts: undefined,
+      topValuesDate: refreshedAt,
+    });
+    expect(plan.topValues).toEqual(["free"]);
   });
 });
 

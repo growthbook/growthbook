@@ -2,7 +2,7 @@ import { ColumnInterface } from "shared/types/fact-table";
 import { DataSourceInterface } from "shared/types/datasource";
 import { TestQueryResult } from "shared/types/integrations";
 import {
-  mergeRefreshedTopValues,
+  keepCurrentTopValues,
   refreshColumnTopValues,
   runColumnDetectionQuery,
   selectColumnsForTopValues,
@@ -234,7 +234,7 @@ describe("refreshColumnTopValues", () => {
     // @ts-expect-error - this test only needs a datasource type
     const datasource: DataSourceInterface = { type: "bigquery" };
 
-    const refreshedColumns = await refreshColumnTopValues(
+    const updates = await refreshColumnTopValues(
       context,
       datasource,
       {
@@ -246,173 +246,69 @@ describe("refreshColumnTopValues", () => {
       columns,
     );
 
-    expect(refreshedColumns.map((column) => column.column)).toEqual(
+    expect(updates.map((u) => u.column)).toEqual(
       columns.slice(0, 25).map((column) => column.column),
     );
-    expect(columns[0].topValues).toEqual(["fresh"]);
-    expect(columns[0].topValueCounts).toEqual([{ value: "fresh", count: 3 }]);
-    expect(columns[1].topValues).toEqual([]);
-    expect(columns[25].topValues).toEqual(["stale_25"]);
-    expect(columns[25].topValuesDate).toBeUndefined();
+    expect(updates[0].snapshot.values).toEqual([{ value: "fresh", count: 3 }]);
+    expect(updates[1].snapshot.values).toEqual([]);
+    // The detected columns themselves are left for the caller to update
+    expect(columns[0].topValues).toEqual(["stale_0"]);
   });
 });
 
-describe("mergeRefreshedTopValues", () => {
-  it("preserves concurrent metadata and newly added virtual columns", () => {
-    const topValuesDate = new Date("2026-08-19T12:00:00.000Z");
-    const currentCountry = makeCol("country", {
-      name: "Country label",
-      description: "Edited while the query ran",
-      alwaysInlineFilter: true,
-      numberFormat: "compact",
-    });
-    const addedVirtualColumn = makeCol("revenue_bucket", {
-      datatype: "number",
-      isVirtual: true,
-      sql: "CASE WHEN revenue > 100 THEN 1 ELSE 0 END",
-    });
-    const countryWithRefreshedTopValues = makeCol("country", {
-      name: "Stale country label",
-      description: "Stale description",
-      topValues: ["US", "CA"],
-      topValuesDate,
-      topValueCounts: [
-        { value: "US", count: 5 },
-        { value: "CA", count: 2 },
-      ],
-    });
+describe("keepCurrentTopValues", () => {
+  const snapshot = {
+    values: [{ value: "US", count: 5 }],
+    refreshedAt: new Date("2026-08-19T12:00:00.000Z"),
+  };
 
-    const result = mergeRefreshedTopValues({
-      currentColumns: [currentCountry, addedVirtualColumn],
-      currentUserIdTypes: [],
-      refreshedColumns: [countryWithRefreshedTopValues],
-    });
-
-    expect(result).toEqual([
-      {
-        ...currentCountry,
-        topValues: ["US", "CA"],
-        topValuesDate,
-        topValueCounts: [
-          { value: "US", count: 5 },
-          { value: "CA", count: 2 },
-        ],
-      },
-      addedVirtualColumn,
-    ]);
-  });
-
-  it("does not merge columns without a successful refresh result", () => {
-    const failedColumn = makeCol("failed", {
-      topValues: ["current-failed"],
-    });
-    const missingEnrichmentColumn = makeCol("missing_enrichment", {
-      topValues: ["current-missing"],
-    });
-
-    const result = mergeRefreshedTopValues({
-      currentColumns: [failedColumn, missingEnrichmentColumn],
-      currentUserIdTypes: [],
-      refreshedColumns: [],
-    });
-
-    expect(result).toEqual([failedColumn, missingEnrichmentColumn]);
-  });
-
-  it("does not merge columns that are no longer eligible", () => {
-    const userIdColumn = makeCol("user_id", {
-      topValues: ["current-user"],
-    });
-    const deletedColumn = makeCol("deleted_column", {
-      deleted: true,
-      topValues: ["current-deleted"],
-    });
-    const refreshedColumns = [
-      makeCol("user_id", {
-        topValues: ["stale-user"],
-        topValuesDate: new Date("2026-08-19T12:00:00.000Z"),
-      }),
-      makeCol("deleted_column", {
-        topValues: ["stale-deleted"],
-        topValuesDate: new Date("2026-08-19T12:00:00.000Z"),
-      }),
-    ];
-
-    const result = mergeRefreshedTopValues({
-      currentColumns: [userIdColumn, deletedColumn],
-      currentUserIdTypes: ["user_id"],
-      refreshedColumns,
-    });
-
-    expect(result).toEqual([userIdColumn, deletedColumn]);
-  });
-
-  it("preserves concurrently edited auto slices and derives fresh ones from refreshed top values", () => {
-    const topValuesDate = new Date("2026-08-19T12:00:00.000Z");
-    // Slices a user edited during the (slow) top-values scan must survive the
-    // merge, not be clobbered by the stale job-start snapshot.
-    const editedAutoSliceColumn = makeCol("country", {
-      isAutoSliceColumn: true,
-      autoSlices: ["user-edited"],
-    });
-    // An auto-slice column without existing slices derives them from the
-    // freshly refreshed top values.
-    const freshAutoSliceColumn = makeCol("plan", {
-      isAutoSliceColumn: true,
-    });
-    const noLongerAutoSliceColumn = makeCol("browser", {
-      isAutoSliceColumn: false,
-      autoSlices: ["current-manual"],
-    });
-
-    const result = mergeRefreshedTopValues({
+  it("drops columns that are no longer eligible", () => {
+    const result = keepCurrentTopValues({
       currentColumns: [
-        editedAutoSliceColumn,
-        freshAutoSliceColumn,
-        noLongerAutoSliceColumn,
+        makeCol("country"),
+        makeCol("user_id"),
+        makeCol("deleted_column", { deleted: true }),
       ],
-      currentUserIdTypes: [],
-      refreshedColumns: [
+      currentUserIdTypes: ["user_id"],
+      updates: [
+        { column: "country", snapshot },
+        { column: "user_id", snapshot },
+        { column: "deleted_column", snapshot },
+        { column: "gone", snapshot },
+      ],
+    });
+
+    expect(result.map((u) => u.column)).toEqual(["country"]);
+  });
+
+  it("keeps Auto Slice levels edited while the query ran", () => {
+    // Slices a user edited during the (slow) top-values scan must survive,
+    // not be clobbered by levels generated from the job-start snapshot.
+    const result = keepCurrentTopValues({
+      currentColumns: [
         makeCol("country", {
           isAutoSliceColumn: true,
-          autoSlices: ["stale-generated"],
-          topValues: ["US", "CA"],
-          topValuesDate,
+          autoSlices: ["user-edited"],
         }),
-        makeCol("plan", {
-          isAutoSliceColumn: true,
-          // refreshColumnTopValues already derived these from the new top
-          // values, since the current column had none.
-          autoSlices: ["free", "pro"],
-          topValues: ["free", "pro"],
-          topValuesDate,
-        }),
+        makeCol("plan", { isAutoSliceColumn: true }),
         makeCol("browser", {
-          isAutoSliceColumn: true,
-          autoSlices: ["stale-generated"],
-          topValues: ["Chrome"],
-          topValuesDate,
+          isAutoSliceColumn: false,
+          autoSlices: ["current-manual"],
         }),
+      ],
+      currentUserIdTypes: [],
+      updates: [
+        { column: "country", snapshot, autoSlices: ["stale-generated"] },
+        { column: "plan", snapshot, autoSlices: ["free", "pro"] },
+        { column: "browser", snapshot, autoSlices: ["stale-generated"] },
       ],
     });
 
-    expect(result[0]).toEqual({
-      ...editedAutoSliceColumn,
-      topValues: ["US", "CA"],
-      topValuesDate,
-      autoSlices: ["user-edited"],
-    });
-    expect(result[1]).toEqual({
-      ...freshAutoSliceColumn,
-      topValues: ["free", "pro"],
-      topValuesDate,
-      autoSlices: ["free", "pro"],
-    });
-    expect(result[2]).toEqual({
-      ...noLongerAutoSliceColumn,
-      topValues: ["Chrome"],
-      topValuesDate,
-    });
+    expect(result.map((u) => u.autoSlices)).toEqual([
+      undefined,
+      ["free", "pro"],
+      undefined,
+    ]);
   });
 });
 

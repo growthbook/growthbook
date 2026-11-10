@@ -22,7 +22,6 @@ import {
   UpdateColumnProps,
   UpdateFactTableProps,
   ColumnInterface,
-  TopValuesSnapshot,
 } from "shared/types/fact-table";
 import {
   ApiFactTable,
@@ -42,10 +41,11 @@ import {
   touchDefinitionsVersion,
 } from "back-end/src/models/DefinitionsVersionModel";
 import {
+  applyTopValuesUpdates,
   ensureAutoSliceDefaults,
-  getTopValueFields,
   normalizeJSONFieldsInput,
   normalizePersistedColumn,
+  type TopValuesUpdate,
 } from "back-end/src/util/factTable";
 import { logger } from "back-end/src/util/logger";
 
@@ -457,6 +457,25 @@ const ALLOWED_COLUMN_UPDATE_FIELDS = [
 
 // This is called from a background cronjob to re-sync all of the columns
 // It doesn't need to check for 'managedBy' and doesn't need to set 'dateUpdated'
+// The one way to persist top values: replaces each column's top values as a
+// unit, in one write
+export async function updateColumnsTopValues({
+  context,
+  factTable,
+  updates,
+}: {
+  context: ReqContext | ApiReqContext;
+  factTable: FactTableInterface;
+  updates: TopValuesUpdate[];
+}) {
+  if (!updates.length) return;
+  await updateFactTableColumns(
+    factTable,
+    { columns: applyTopValuesUpdates(factTable.columns, updates) },
+    context,
+  );
+}
+
 export async function updateFactTableColumns(
   factTable: FactTableInterface,
   changes: Partial<
@@ -662,31 +681,6 @@ export async function cleanupMetricAutoSlices({
   }
 }
 
-// The one way to persist a top values snapshot on a column
-export async function updateColumnTopValues({
-  context,
-  factTable,
-  column,
-  snapshot,
-  autoSlices,
-}: {
-  context?: ReqContext | ApiReqContext;
-  factTable: FactTableInterface;
-  column: string;
-  snapshot: TopValuesSnapshot;
-  autoSlices?: string[];
-}) {
-  await updateColumn({
-    context,
-    factTable,
-    column,
-    changes: {
-      ...getTopValueFields(snapshot),
-      ...(autoSlices && { autoSlices }),
-    },
-  });
-}
-
 export async function updateColumn({
   context,
   factTable,
@@ -696,8 +690,8 @@ export async function updateColumn({
   context?: ReqContext | ApiReqContext;
   factTable: FactTableInterface;
   column: string;
-  // topValueCounts is internal-only; write it with updateColumnTopValues
-  changes: UpdateColumnProps & Pick<ColumnInterface, "topValueCounts">;
+  // Top values go through updateColumnsTopValues
+  changes: UpdateColumnProps;
 }) {
   const columnIndex = factTable.columns.findIndex((c) => c.column === column);
   if (columnIndex < 0) throw new Error("Could not find that column");
@@ -717,7 +711,6 @@ export async function updateColumn({
       changes.jsonFields !== undefined
         ? normalizeJSONFieldsInput(changes.jsonFields)
         : originalColumn.jsonFields,
-    ...(changes.topValues ? { topValuesDate: new Date() } : {}),
     dateUpdated: new Date(),
   });
 
@@ -1073,7 +1066,6 @@ export function mergeUpsertColumns(
       sql: originalColumn.isVirtual
         ? (incomingColumn.sql ?? originalColumn.sql)
         : undefined,
-      ...(incomingColumn.topValues ? { topValuesDate: new Date() } : {}),
       dateUpdated: new Date(),
     });
 

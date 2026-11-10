@@ -146,7 +146,6 @@ export const updateColumnPropsValidator = z
     jsonFields: jsonColumnFieldsInputValidator.optional(),
     alwaysInlineFilter: z.boolean().optional(),
     conditionalInlineFilters: conditionalInlineFiltersValidator.optional(),
-    topValues: z.array(z.string()).optional(),
     deleted: z.boolean().optional(),
     isAutoSliceColumn: z.boolean().optional(),
     autoSlices: z.array(z.string()).optional(),

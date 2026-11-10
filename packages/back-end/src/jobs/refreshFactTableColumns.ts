@@ -2,13 +2,14 @@ import Agenda, { Job } from "agenda";
 import { ColumnInterface, FactTableInterface } from "shared/types/fact-table";
 import {
   getFactTable,
+  updateColumnsTopValues,
   updateFactTableColumns,
 } from "back-end/src/models/FactTableModel";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
 import { deriveUserIdTypesFromColumns } from "back-end/src/util/factTable";
 import {
-  mergeRefreshedTopValues,
+  keepCurrentTopValues,
   refreshColumnTopValues,
   runColumnDetectionQuery,
 } from "back-end/src/services/factTableColumns";
@@ -73,28 +74,27 @@ const refreshFactTableColumns = async (job: RefreshFactTableColumnsJob) => {
   // Top values can take minutes on large tables. Run
   // and persist them after column detection is complete.
   if (detectedColumns) {
-    const refreshedColumns = await refreshColumnTopValues(
+    const refreshed = await refreshColumnTopValues(
       context,
       datasource,
       factTable,
       detectedColumns,
     );
-    if (refreshedColumns.length === 0) return;
+    if (refreshed.length === 0) return;
 
     const currentFactTable = await getFactTable(context, factTableId);
     if (!currentFactTable) return;
 
-    const updatedColumns = mergeRefreshedTopValues({
-      currentColumns: currentFactTable.columns,
-      currentUserIdTypes: currentFactTable.userIdTypes,
-      currentUserIdColumns: currentFactTable.userIdColumns,
-      refreshedColumns,
-    });
-    await updateFactTableColumns(
-      currentFactTable,
-      { columns: updatedColumns },
+    await updateColumnsTopValues({
       context,
-    );
+      factTable: currentFactTable,
+      updates: keepCurrentTopValues({
+        currentColumns: currentFactTable.columns,
+        currentUserIdTypes: currentFactTable.userIdTypes,
+        currentUserIdColumns: currentFactTable.userIdColumns,
+        updates: refreshed,
+      }),
+    });
   }
 };
 

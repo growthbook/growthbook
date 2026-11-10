@@ -37,6 +37,34 @@ export function getTopValueFields(snapshot: TopValuesSnapshot): {
   };
 }
 
+export type TopValuesUpdate = {
+  column: string;
+  snapshot: TopValuesSnapshot;
+  // Replaces the column's Auto Slice levels when set
+  autoSlices?: string[];
+};
+
+// Replaces each updated column's top values as a unit, clearing any counts the
+// snapshot doesn't have
+export function applyTopValuesUpdates(
+  columns: ColumnInterface[],
+  updates: TopValuesUpdate[],
+): ColumnInterface[] {
+  const byColumn = new Map(updates.map((u) => [u.column, u]));
+  return columns.map((column) => {
+    const update = byColumn.get(column.column);
+    if (!update) return column;
+    return {
+      ...column,
+      ...getTopValueFields(update.snapshot),
+      ...(update.autoSlices && {
+        autoSlices: update.autoSlices,
+        dateUpdated: new Date(),
+      }),
+    };
+  });
+}
+
 /**
  * Clears datatype-incompatible props. Empty datatype skips checks while
  * auto-detection is pending.

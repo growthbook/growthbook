@@ -25,8 +25,8 @@ import {
 import { getSourceIntegrationObject } from "back-end/src/services/datasource";
 import {
   buildColumnTypeMaps,
-  getTopValueFields,
   normalizePersistedColumn,
+  type TopValuesUpdate,
 } from "back-end/src/util/factTable";
 import { logger } from "back-end/src/util/logger";
 
@@ -204,53 +204,33 @@ export function populateAutoSlices(
   return autoSlices;
 }
 
-export function mergeRefreshedTopValues({
+// Keeps the refreshed top values that still apply to the current columns. A
+// column can stop being eligible, and Auto Slice levels a user edited while
+// the slow query ran win over generated ones.
+export function keepCurrentTopValues({
   currentColumns,
   currentUserIdTypes,
   currentUserIdColumns,
-  refreshedColumns,
+  updates,
 }: {
   currentColumns: ColumnInterface[];
   currentUserIdTypes: string[];
   currentUserIdColumns?: Record<string, string>;
-  refreshedColumns: ColumnInterface[];
-}): ColumnInterface[] {
-  const refreshedColumnsById = new Map(
-    refreshedColumns.map((column) => [column.column, column]),
-  );
-  const eligibleCurrentColumnIds = new Set(
+  updates: TopValuesUpdate[];
+}): TopValuesUpdate[] {
+  const eligible = new Map(
     selectColumnsForTopValues({
       columns: currentColumns,
       userIdTypes: currentUserIdTypes,
       userIdColumns: currentUserIdColumns,
-    }).map((column) => column.column),
+    }).map((column) => [column.column, column]),
   );
-
-  return currentColumns.map((currentColumn) => {
-    if (!eligibleCurrentColumnIds.has(currentColumn.column)) {
-      return currentColumn;
-    }
-
-    const refreshedColumn = refreshedColumnsById.get(currentColumn.column);
-    if (!refreshedColumn) {
-      return currentColumn;
-    }
-
-    const updatedColumn = {
-      ...currentColumn,
-      topValues: refreshedColumn.topValues,
-      topValuesDate: refreshedColumn.topValuesDate,
-      topValueCounts: refreshedColumn.topValueCounts,
-    };
-
-    if (currentColumn.isAutoSliceColumn) {
-      updatedColumn.autoSlices =
-        currentColumn.autoSlices && currentColumn.autoSlices.length > 0
-          ? currentColumn.autoSlices
-          : refreshedColumn.autoSlices;
-    }
-
-    return updatedColumn;
+  return updates.flatMap((update) => {
+    const current = eligible.get(update.column);
+    if (!current) return [];
+    const keepSlices =
+      !current.isAutoSliceColumn || !!current.autoSlices?.length;
+    return [keepSlices ? { ...update, autoSlices: undefined } : update];
   });
 }
 
@@ -405,8 +385,8 @@ export async function refreshColumnTopValues(
     id: string | null;
   },
   detectedColumns: ColumnInterface[],
-): Promise<ColumnInterface[]> {
-  const refreshedColumns: ColumnInterface[] = [];
+): Promise<TopValuesUpdate[]> {
+  const updates: TopValuesUpdate[] = [];
   const columnsNeedingTopValues = selectColumnsForTopValues({
     columns: detectedColumns,
     userIdTypes: factTable.userIdTypes,
@@ -433,20 +413,18 @@ export async function refreshColumnTopValues(
 
         // Process results for each column
         for (const col of columnChunk) {
-          const fields = getTopValueFields({
-            values: countsByColumn[col.column] || [],
-            refreshedAt: new Date(),
+          const values = countsByColumn[col.column] || [];
+          updates.push({
+            column: col.column,
+            snapshot: { values, refreshedAt: new Date() },
+            ...(col.isAutoSliceColumn && {
+              autoSlices: populateAutoSlices(
+                col,
+                values.map((v) => v.value),
+                context.org.settings?.maxMetricSliceLevels,
+              ),
+            }),
           });
-          Object.assign(col, fields);
-
-          if (col.isAutoSliceColumn) {
-            col.autoSlices = populateAutoSlices(
-              col,
-              fields.topValues,
-              context.org.settings?.maxMetricSliceLevels,
-            );
-          }
-          refreshedColumns.push(col);
         }
       } catch (e) {
         logger.error(
@@ -460,5 +438,5 @@ export async function refreshColumnTopValues(
     }
   }
 
-  return refreshedColumns;
+  return updates;
 }

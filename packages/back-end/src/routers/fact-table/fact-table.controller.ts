@@ -40,7 +40,7 @@ import {
   getFactTablesByIds,
   createColumn,
   updateColumn,
-  updateColumnTopValues,
+  updateColumnsTopValues,
   deleteColumn as deleteColumnInDb,
   updateFactTable,
   updateFactTableColumns,
@@ -64,6 +64,7 @@ import {
 } from "back-end/src/services/factTableColumns";
 import {
   applyColumnUpdates,
+  applyTopValuesUpdates,
   buildColumnTypeMaps,
   deriveUserIdTypesFromColumns,
   getTopValueFields,
@@ -258,8 +259,16 @@ export async function refreshColumns(
   }
 
   const columns = await runColumnDetectionQuery(context, datasource, factTable);
-  await refreshColumnTopValues(context, datasource, factTable, columns);
-  return { columns, needsBackgroundRefresh: false };
+  const updates = await refreshColumnTopValues(
+    context,
+    datasource,
+    factTable,
+    columns,
+  );
+  return {
+    columns: applyTopValuesUpdates(columns, updates),
+    needsBackgroundRefresh: false,
+  };
 }
 
 export const postFactTable = async (
@@ -936,14 +945,18 @@ export const postColumnTopValues = async (
         context.org.settings?.maxMetricSliceLevels ??
         DEFAULT_MAX_METRIC_SLICE_LEVELS;
 
-      await updateColumnTopValues({
+      await updateColumnsTopValues({
         context,
         factTable,
-        column: column.column,
-        snapshot,
-        autoSlices: column.isAutoSliceColumn
-          ? populateAutoSlices(column, topValues, maxSliceLevels)
-          : undefined,
+        updates: [
+          {
+            column: column.column,
+            snapshot,
+            ...(column.isAutoSliceColumn && {
+              autoSlices: populateAutoSlices(column, topValues, maxSliceLevels),
+            }),
+          },
+        ],
       });
     } catch (e) {
       logger.error(
@@ -1046,10 +1059,15 @@ export const putColumn = async (
         .then(async (countsByColumn) => {
           const counts = countsByColumn[col.column] || [];
           if (!counts.length) return;
-          await updateColumnTopValues({
+          await updateColumnsTopValues({
+            context,
             factTable,
-            column: col.column,
-            snapshot: { values: counts, refreshedAt: new Date() },
+            updates: [
+              {
+                column: col.column,
+                snapshot: { values: counts, refreshedAt: new Date() },
+              },
+            ],
           });
         })
         .catch((e) => {
