@@ -25,6 +25,7 @@ import ScrollArea, { pinnedTo } from "@/ui/ScrollArea";
 import Text from "@/ui/Text";
 import ValueDisplay, { BooleanDot } from "./ValueDisplay";
 import StateIcon from "./StateIcon";
+import DraftChangesPopover, { DraftChangeSection } from "./DraftChangesPopover";
 import { featureStatusColors } from "./FeaturesOverview";
 import styles from "./EnvironmentStatusCards.module.scss";
 
@@ -38,7 +39,8 @@ export type EnvironmentCard = {
     result: PrerequisiteResult | null;
   }[];
   // The viewed draft turns the environment on or off.
-  environmentChanged: boolean;
+  // What the draft changes about this environment's switch, if anything.
+  environmentChanges: DraftChangeSection[] | null;
   // The rules it evaluates: those not inactive or skipped.
   ruleCount: number;
 };
@@ -446,10 +448,13 @@ function Card({
         >
           <Flex align="center" justify="between" gap="2">
             <Text weight="semibold" color="text-mid" truncate>
-              {/* The draft turns it on or off. */}
-              <span className={clsx(card.environmentChanged && styles.changed)}>
-                {card.id}
-              </span>
+              {card.environmentChanges ? (
+                <DraftChangesPopover sections={card.environmentChanges}>
+                  <span className={styles.changed}>{card.id}</span>
+                </DraftChangesPopover>
+              ) : (
+                card.id
+              )}
             </Text>
             <Caret size={14} color="var(--gray-9)" />
           </Flex>

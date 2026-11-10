@@ -99,6 +99,7 @@ import {
 } from "@/components/Features/ScheduleLock";
 import SectionFrame from "@/components/SectionFrame";
 import { useHoldouts } from "@/hooks/useHoldouts";
+import { renderEnvironmentToggles } from "@/components/Features/FeatureDiffRenders";
 import EnvironmentStatusCards, {
   PrerequisiteList,
   EnvironmentCard,
@@ -680,8 +681,23 @@ export default function FeaturesOverviewNew({
       isBoolean: f.valueType === "boolean",
     });
   };
+  const environmentToggles = isDraft
+    ? environments.flatMap((en) => {
+        const to = feature.environmentSettings?.[en.id]?.enabled ?? false;
+        const from = liveEnabled(en.id);
+        return from === to ? [] : [{ envId: en.id, from, to }];
+      })
+    : [];
+  const environmentChanges = environmentToggles.length
+    ? [
+        {
+          title:
+            environmentToggles.length === 1 ? "Environment" : "Environments",
+          render: renderEnvironmentToggles(environmentToggles),
+        },
+      ]
+    : null;
   const environmentCards: EnvironmentCard[] = environments.map((en) => {
-    const enabled = feature.environmentSettings?.[en.id]?.enabled ?? false;
     return {
       id: en.id,
       status: environmentStatus(feature, en.id),
@@ -690,7 +706,9 @@ export default function FeaturesOverviewNew({
         index,
         result: prerequisiteResult(p, en.id),
       })),
-      environmentChanged: isDraft && enabled !== liveEnabled(en.id),
+      environmentChanges: environmentToggles.some((t) => t.envId === en.id)
+        ? environmentChanges
+        : null,
       ruleCount: liveRules(feature, en.id).length,
     };
   });
