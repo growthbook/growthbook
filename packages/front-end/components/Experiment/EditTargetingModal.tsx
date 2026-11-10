@@ -342,6 +342,7 @@ export default function EditTargetingModal({
                 valueAsId
                 startEditingIndexes
                 startEditingSplits
+                keepKeysOnReorder
                 coverage={form.watch("coverage")}
                 setCoverage={(coverage) => form.setValue("coverage", coverage)}
                 setWeight={(i, weight) =>
