@@ -1,7 +1,22 @@
-import {
+import { createClient } from "@clickhouse/client";
+import { ClickHouseConnectionParams } from "shared/types/integrations/clickhouse";
+import ClickHouse, {
   getClickHouseTLSOptions,
   getClickHouseUrl,
 } from "back-end/src/integrations/ClickHouse";
+
+jest.mock("@clickhouse/client", () => {
+  const actual = jest.requireActual("@clickhouse/client");
+  return {
+    ClickHouseError: actual.ClickHouseError,
+    ClickHouseLogLevel: actual.ClickHouseLogLevel,
+    createClient: jest.fn(),
+  };
+});
+
+const mockCreateClient = createClient as jest.MockedFunction<
+  typeof createClient
+>;
 
 const CA = "-----BEGIN CERTIFICATE-----\nca\n-----END CERTIFICATE-----";
 const CERT = "-----BEGIN CERTIFICATE-----\ncert\n-----END CERTIFICATE-----";
@@ -96,5 +111,43 @@ describe("getClickHouseUrl", () => {
     ).toThrow(
       "SSL is required, but the ClickHouse URL uses http://. Use an https:// URL instead.",
     );
+  });
+});
+
+describe("ClickHouse password with TLS", () => {
+  const baseParams = {
+    url: "https://clickhouse.local",
+    port: 8443,
+    username: "growthbook",
+    password: "secret",
+    database: "analytics",
+    ssl: true,
+    caCert: CA,
+  };
+
+  async function sentPassword(params: Partial<ClickHouseConnectionParams>) {
+    mockCreateClient.mockReturnValue({
+      query: jest.fn().mockResolvedValue({ json: async () => ({ data: [] }) }),
+      close: jest.fn().mockResolvedValue(undefined),
+    } as unknown as ReturnType<typeof createClient>);
+    // @ts-expect-error -- only the datasource type is needed here
+    const integration = new ClickHouse("", { type: "clickhouse" });
+    integration.params = { ...baseParams, ...params };
+    await integration.runQuery("SELECT 1", undefined, {
+      queryType: "connectionTest",
+    });
+    return mockCreateClient.mock.lastCall?.[0]?.password;
+  }
+
+  afterEach(() => jest.clearAllMocks());
+
+  it("keeps the password with only a CA cert", async () => {
+    expect(await sentPassword({})).toBe("secret");
+  });
+
+  it("does not send the password with a client cert", async () => {
+    expect(
+      await sentPassword({ clientCert: CERT, clientKey: KEY }),
+    ).toBeUndefined();
   });
 });

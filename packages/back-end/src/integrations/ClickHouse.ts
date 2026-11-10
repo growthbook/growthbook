@@ -163,7 +163,8 @@ export default class ClickHouse extends SqlIntegration {
       url: getClickHouseUrl(this.params),
       ...(tls ? { tls } : {}),
       username: this.params.username,
-      password: this.params.password,
+      // ClickHouse rejects a password sent alongside certificate auth
+      password: tls && "cert" in tls ? undefined : this.params.password,
       database: this.params.database,
       application: "GrowthBook",
       request_timeout: 3620_000,

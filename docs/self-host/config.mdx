@@ -68,7 +68,7 @@ params:
   database: growthbook
 ```
 
-Redshift and Postgres also support optional params to force an SSL connection:
+Redshift, Postgres, and ClickHouse also support optional params to force an SSL connection (for ClickHouse, a client cert also requires `caCert`, and the password is not sent):
 
 ```yml
 type: postgres
