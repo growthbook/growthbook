@@ -539,7 +539,7 @@ export function getEnvironmentStatus({
 }
 
 // JSON on one line, spaced like it reads aloud: {"a": 1, "b": [2]}.
-export function oneLineJson(value: string): string {
+function oneLineJson(value: string): string {
   try {
     return JSON.stringify(JSON.parse(value), null, 1)
       .replace(/([[{])\n\s*/g, "$1")
@@ -582,7 +582,6 @@ export function servedDot(
   return "on";
 }
 
-// The "why" beside a card's value.
 export function reasonText(reason: EnvironmentReason): string {
   switch (reason.kind) {
     case "disabled":

@@ -21,8 +21,6 @@ const MARKS = {
   edited: { Icon: PiTriangle, color: "amber" },
 } as const;
 
-// How the draft changes something: its icon in a tinted box, or spelled out
-// beside it.
 export function DraftChangeMark({
   change,
   spelled = false,
@@ -53,8 +51,6 @@ export function DraftChangeMark({
   );
 }
 
-// Hovering a draft-changed marker previews what the draft changes. Clicks pass
-// through to whatever holds it.
 export default function DraftChangesPopover({
   sections,
   children,
@@ -125,7 +121,6 @@ export default function DraftChangesPopover({
                       </Text>
                     </span>
                     <div className={styles.value}>
-                      {/* A name of any length, cut short. */}
                       {typeof r.value === "string" ? (
                         <Text truncate>{r.value}</Text>
                       ) : (

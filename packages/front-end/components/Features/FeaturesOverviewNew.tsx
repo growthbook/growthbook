@@ -684,8 +684,8 @@ export default function FeaturesOverviewNew({
       );
       if (blocked)
         return [{ ...step, traffic: { participation: 0, shares: [] } }];
-      // Served to some connections and not others, it depends on which.
-      // A step that reaches no one stays known, wherever it's served.
+      // Served to only some connections, what it serves depends on which,
+      // unless it reaches no one anyway.
       return [
         reach === "some" && step.traffic?.participation !== 0
           ? { ...step, traffic: null }

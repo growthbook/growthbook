@@ -29,7 +29,6 @@ type PrerequisiteTableRow = {
   state?: (environment: string) => ReactNode;
 };
 
-// Cut short to its column, with the full name on hover when it is.
 function EnvironmentColumnName({ env }: { env: string }) {
   const ref = useRef<HTMLDivElement>(null);
   const truncated = useIsOverflowingX(ref);
@@ -46,8 +45,6 @@ function EnvironmentColumnName({ env }: { env: string }) {
   );
 }
 
-// Prerequisite features down the side, pinned while their state in each
-// environment scrolls under them.
 export default function PrerequisiteTable({
   rows,
   environments,

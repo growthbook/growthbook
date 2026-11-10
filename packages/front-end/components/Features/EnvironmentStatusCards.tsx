@@ -118,8 +118,6 @@ function ValueText({
   );
 }
 
-// A linked name cut short to its room, all of it on hover when it is. (Plain
-// text has TruncatedText.)
 function ClampedLink({
   name,
   href,
@@ -140,7 +138,6 @@ function ClampedLink({
   );
 }
 
-// A value cut short to its room, all of it on hover when it is.
 function ValueCode({ text, muted }: { text: string; muted: boolean }) {
   const ref = useRef<HTMLElement>(null);
   const truncated = useIsOverflowingX(ref);
@@ -159,8 +156,6 @@ function ValueCode({ text, muted }: { text: string; muted: boolean }) {
   );
 }
 
-// Why a card serves what it does, cut short to its room, all of it on hover
-// when it is.
 function ReasonText({ reason }: { reason: EnvironmentReason }) {
   const ref = useRef<HTMLSpanElement>(null);
   const truncated = useIsOverflowingX(ref);
