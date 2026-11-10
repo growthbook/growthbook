@@ -1,5 +1,6 @@
 import {
   apiCreatePopulationBody,
+  apiUpdatePopulationBody,
   type PopulationStep,
   populationValidator,
 } from "shared/validators";
@@ -353,6 +354,22 @@ describe("population step limits in validators", () => {
       apiCreatePopulationBody.safeParse(createBody(MAX_POPULATION_STEPS + 1))
         .success,
     ).toBe(false);
+  });
+
+  it("trims the name and rejects one that is only spaces", () => {
+    const parsed = apiCreatePopulationBody.parse({
+      ...createBody(1),
+      name: "  Purchasers  ",
+    });
+    expect(parsed.name).toBe("Purchasers");
+    expect(
+      apiCreatePopulationBody.safeParse({ ...createBody(1), name: "   " })
+        .success,
+    ).toBe(false);
+    expect(apiUpdatePopulationBody.safeParse({ name: "   " }).success).toBe(
+      false,
+    );
+    expect(apiUpdatePopulationBody.safeParse({}).success).toBe(true);
   });
 
   it("caps steps on the stored document", () => {
