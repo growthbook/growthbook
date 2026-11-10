@@ -8,7 +8,7 @@ const ClickHouseForm: FC<{
   params: Partial<ClickHouseConnectionParams>;
   existing: boolean;
   onParamChange: ChangeEventHandler<HTMLInputElement>;
-  setParams: (params: { [key: string]: string | boolean }) => void;
+  setParams: (params: { [key: string]: string | boolean | null }) => void;
   showAllowlist?: boolean;
 }> = ({ params, existing, onParamChange, setParams, showAllowlist }) => {
   return (
@@ -94,6 +94,9 @@ const ClickHouseForm: FC<{
           existing={existing}
           onParamChange={onParamChange}
           setSSL={(ssl) => setParams({ ssl })}
+          setCertRemoved={(name, removed) =>
+            setParams({ [name]: removed ? null : "" })
+          }
           value={{
             ssl: !!params.ssl,
             caCert: params.caCert,

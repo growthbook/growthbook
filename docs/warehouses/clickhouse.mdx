@@ -24,6 +24,8 @@ Enable **Require SSL** to connect over HTTPS. A URL without a scheme defaults to
 - **CA certificate**: paste a CA bundle to verify a server with a private or self-signed certificate. Leave it empty to use the default trusted CAs.
 - **Client certificate and key**: paste both to use [SSL certificate authentication](https://clickhouse.com/docs/concepts/features/security/ssl-user-auth). GrowthBook sends the username and certificate but not the password. If the certificate is signed by an intermediate CA, paste the leaf followed by its intermediates.
 
+Stored certificates are never shown again. To remove one, click **Remove stored value** under its field and save.
+
 The ClickHouse user must accept the certificate's common name, for example:
 
 ```sql
