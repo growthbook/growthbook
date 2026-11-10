@@ -38,6 +38,7 @@ import {
   parseLooseJSON,
   getTargetingProjectIds,
   getReviewSetting,
+  killSwitchReviewScope,
   type MergeResultChanges,
   type RequireRegisteredAttributesSettings,
 } from "shared/util";
@@ -1846,11 +1847,9 @@ export function getKillSwitchGatedEnvs(
   feature: FeatureInterface,
 ): Set<string> | "all" | "none" {
   if (requireReviews === true) return "all";
-  const reviewSetting = Array.isArray(requireReviews)
-    ? getReviewSetting(requireReviews, feature)
-    : null;
-  if (!reviewSetting?.requireReviewOn) return "none";
-  if (reviewSetting.featureRequireEnvironmentReview === false) return "none";
-  const gatedEnvs = reviewSetting.environments ?? [];
-  return gatedEnvs.length === 0 ? "all" : new Set(gatedEnvs);
+  return killSwitchReviewScope(
+    Array.isArray(requireReviews)
+      ? getReviewSetting(requireReviews, feature)
+      : null,
+  );
 }
