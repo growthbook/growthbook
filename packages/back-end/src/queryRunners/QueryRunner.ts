@@ -1,4 +1,5 @@
 import EventEmitter from "events";
+import { SpanKind } from "@opentelemetry/api";
 import { ExternalIdCallback, QueryResponse } from "shared/types/integrations";
 import {
   Queries,
@@ -27,6 +28,7 @@ import {
 import { SourceIntegrationInterface } from "back-end/src/types/Integration";
 import { getErrorMessage } from "back-end/src/util/errors";
 import { logger } from "back-end/src/util/logger";
+import { withSpan } from "back-end/src/services/ingestorTraces";
 import {
   cancelExternalJobsForQueries,
   cancelQueryAndConfirm,
@@ -1149,11 +1151,33 @@ export abstract class QueryRunner<
       }
     };
 
-    run(doc.query, setExternalId, {
-      ...metadata,
-      queryType: doc.queryType || "unknown",
-      queryId: doc.id,
-    })
+    withSpan(
+      `query ${doc.queryType || "unknown"}`,
+      {
+        kind: SpanKind.CLIENT,
+        attributes: {
+          "db.system.name": this.integration.datasource.type,
+          "db.query.text": doc.query,
+          "growthbook.organization": this.context.org.id,
+          "growthbook.datasource": this.integration.datasource.id,
+          "growthbook.query.id": doc.id,
+          "growthbook.query.type": doc.queryType || "unknown",
+        },
+      },
+      async (span) => {
+        const response = await run(doc.query, setExternalId, {
+          ...metadata,
+          queryType: doc.queryType || "unknown",
+          queryId: doc.id,
+        });
+        span.setAttribute("db.response.returned_rows", response.rows.length);
+        for (const [key, value] of Object.entries(response.statistics ?? {})) {
+          if (value !== undefined)
+            span.setAttribute(`db.statistics.${key}`, value);
+        }
+        return response;
+      },
+    )
       .then(async ({ rows, statistics }) => {
         clearInterval(timer);
         logger.debug("Query succeeded: " + doc.id);

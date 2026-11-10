@@ -2,8 +2,17 @@ import { performance } from "node:perf_hooks";
 import { Job, JobAttributesData } from "agenda";
 import { logger } from "back-end/src/util/logger";
 import { metrics, Counter, Histogram } from "back-end/src/util/metrics";
+import { withSpan } from "back-end/src/services/ingestorTraces";
 
 const disableJobLogs = process.env.GB_DISABLE_JOB_LOGS === "1";
+
+function safeStringify(value: unknown): string | undefined {
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return undefined;
+  }
+}
 
 // Datadog downcases tag values, so it is best to use snake case
 const normalizeJobName = (jobName: string) => {
@@ -68,7 +77,17 @@ export const trackJob =
       if (!disableJobLogs) {
         logger.debug({ job: job.attrs }, `Starting job ${jobName}`);
       }
-      res = await fn(job);
+      res = await withSpan(
+        `job ${jobName}`,
+        {
+          attributes: {
+            "job.name": jobName,
+            "job.id": job.attrs._id?.toString(),
+            "job.data": safeStringify(job.attrs.data),
+          },
+        },
+        () => fn(job),
+      );
     } catch (e) {
       logger.error({ err: e, job: job.attrs }, `Error running job: ${jobName}`);
       try {

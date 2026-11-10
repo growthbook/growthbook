@@ -65,7 +65,7 @@ import {
   estimateAIStepsUsd,
 } from "back-end/src/services/aiCost";
 import { IS_CLOUD } from "back-end/src/util/secrets";
-import { getAITelemetry } from "back-end/src/services/aiTraces";
+import { getAITelemetry } from "back-end/src/services/ingestorTraces";
 
 const usesOwnAIKey = (
   keySource: Record<AIProvider, AIKeySource>,

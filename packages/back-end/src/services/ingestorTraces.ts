@@ -1,10 +1,14 @@
 import {
+  Attributes,
   Context,
   context as otelContext,
   createContextKey,
+  INVALID_SPAN_CONTEXT,
   ROOT_CONTEXT,
   Span,
+  SpanKind,
   SpanOptions,
+  SpanStatusCode,
   trace,
   Tracer,
 } from "@opentelemetry/api";
@@ -26,24 +30,24 @@ import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 import { getBuild } from "back-end/src/util/build";
 import {
-  AI_TRACES_CLIENT_KEY,
-  AI_TRACES_ENDPOINT,
+  INGESTOR_TRACES_CLIENT_KEY,
+  INGESTOR_TRACES_ENDPOINT,
 } from "back-end/src/util/secrets";
 
 // Separate from the app's Datadog or OpenTelemetry tracing: never registered
-// globally, and only AI calls are handed its tracer.
+// globally, and only the spans below are handed its tracer.
 let provider: TracerProvider | null | undefined;
 let tracer: Tracer | null = null;
 
 function hasGlobalContextManager() {
-  const key = createContextKey("growthbook-ai-traces-probe");
+  const key = createContextKey("growthbook-ingestor-traces-probe");
   return otelContext.with(ROOT_CONTEXT.setValue(key, true), () =>
     Boolean(otelContext.active().getValue(key)),
   );
 }
 
-// AI calls run inside request spans from Sentry or Datadog, which never reach
-// this exporter. Only parent our own spans so each AI call is its own trace.
+// Our spans run inside request spans from Sentry or Datadog, which never reach
+// this exporter. Only parent our own spans so each job or AI call is its own trace.
 export class OwnParentTracer implements Tracer {
   private spans = new WeakSet<Span>();
   constructor(private inner: Tracer) {}
@@ -92,7 +96,7 @@ export class OwnParentTracer implements Tracer {
 
 function getTracer(): Tracer | null {
   if (provider !== undefined) return tracer;
-  if (!AI_TRACES_ENDPOINT || !AI_TRACES_CLIENT_KEY) {
+  if (!INGESTOR_TRACES_ENDPOINT || !INGESTOR_TRACES_CLIENT_KEY) {
     provider = null;
     return tracer;
   }
@@ -112,14 +116,46 @@ function getTracer(): Tracer | null {
     spanProcessors: [
       new BatchSpanProcessor({
         exporter: new OTLPTraceExporter({
-          url: AI_TRACES_ENDPOINT,
-          headers: { Authorization: `Bearer ${AI_TRACES_CLIENT_KEY}` },
+          url: INGESTOR_TRACES_ENDPOINT,
+          headers: { Authorization: `Bearer ${INGESTOR_TRACES_CLIENT_KEY}` },
         }),
       }),
     ],
   });
-  tracer = new OwnParentTracer(provider.getTracer("growthbook-ai"));
+  tracer = new OwnParentTracer(provider.getTracer("growthbook"));
   return tracer;
+}
+
+export async function runInSpan<T>(
+  tracer: Tracer,
+  name: string,
+  options: { kind?: SpanKind; attributes?: Attributes },
+  fn: (span: Span) => Promise<T>,
+): Promise<T> {
+  return tracer.startActiveSpan(name, options, async (span) => {
+    try {
+      return await fn(span);
+    } catch (e) {
+      span.recordException(e instanceof Error ? e : String(e));
+      span.setStatus({
+        code: SpanStatusCode.ERROR,
+        message: e instanceof Error ? e.message : String(e),
+      });
+      throw e;
+    } finally {
+      span.end();
+    }
+  });
+}
+
+export function withSpan<T>(
+  name: string,
+  options: { kind?: SpanKind; attributes?: Attributes },
+  fn: (span: Span) => Promise<T>,
+): Promise<T> {
+  const tracer = getTracer();
+  if (!tracer) return fn(trace.wrapSpanContext(INVALID_SPAN_CONTEXT));
+  return runInSpan(tracer, name, options, fn);
 }
 
 export function getAITelemetry(
@@ -133,9 +169,6 @@ export function getAITelemetry(
       isEnabled: true,
       tracer,
       functionId: type,
-      // Customer prompts and replies stay out of the spans.
-      recordInputs: false,
-      recordOutputs: false,
       metadata: {
         organization: context.org.id,
         ...(context.userId ? { userId: context.userId } : {}),
@@ -144,6 +177,6 @@ export function getAITelemetry(
   };
 }
 
-export async function shutdownAITraces() {
+export async function shutdownIngestorTraces() {
   await provider?.shutdown();
 }
