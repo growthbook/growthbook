@@ -395,12 +395,14 @@ function Drilldown({
   return (
     <div className={styles.rows}>
       <Row status={status.environment} label="Environment">
-        {/* An archived flag isn't sent at all, whatever its switch says. */}
+        {toggle}
+        {/* Not sent at all, whatever its switch says; the switch is what
+            serves once it's unarchived. */}
         {status.reason.kind === "archived" ? (
-          <Text color="text-mid">Archived</Text>
-        ) : (
-          toggle
-        )}
+          <Text color="text-low" whiteSpace="nowrap">
+            Archived, not sent to SDKs
+          </Text>
+        ) : null}
       </Row>
       {card.prerequisites.length ? (
         <Row

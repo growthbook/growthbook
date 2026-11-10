@@ -11,7 +11,7 @@
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--space-1);
   min-width: 0;
   // Less below: the value's line already leaves room under its text.
   padding: 10px var(--space-3) 7px;
