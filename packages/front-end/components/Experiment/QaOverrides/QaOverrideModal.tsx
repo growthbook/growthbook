@@ -19,7 +19,6 @@ import useSDKConnections from "@/hooks/useSDKConnections";
 import { QaOverrideFilterKind } from "@/services/qaOverrides";
 import ConditionInput from "@/components/Features/ConditionInput";
 import SavedGroupTargetingField from "@/components/Features/SavedGroupTargetingField";
-import { SetupFieldGroup } from "@/components/Experiment/TabbedPage/SetupFieldRow";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import { validatedSubmit } from "@/ui/Modal/validatedSubmit";
 import { Select, SelectItem } from "@/ui/Select";
@@ -100,7 +99,9 @@ export default function QaOverrideModal({
     () =>
       environments
         .map((e) => ({ id: e.id, isProduction: isProductionEnvironment(e) }))
-        .filter((e) => e.isProduction || canEditIn(e.id)),
+        .filter((e) => e.isProduction || canEditIn(e.id))
+        // Selectable ones first; otherwise the org's environment order.
+        .sort((a, b) => Number(a.isProduction) - Number(b.isProduction)),
     [environments, canEditIn],
   );
   const editable = eligibleEnvironments.filter((e) => canEditIn(e.id));
@@ -142,6 +143,8 @@ export default function QaOverrideModal({
         </Button>
       }
       menuPlacement="end"
+      menuWidth={280}
+      variant="soft"
       disabled={availableFilters.length === 0}
     >
       {availableFilters.map((kind) => {
@@ -150,14 +153,16 @@ export default function QaOverrideModal({
         return (
           <DropdownMenuItem
             key={kind}
+            // Two lines: menu items are one line tall unless told otherwise.
+            className="multiline-item"
             onClick={() => addFilter(kind)}
             disabled={needsEnvironment}
             tooltip={
               needsEnvironment ? "Select an environment first" : undefined
             }
           >
-            <Flex direction="column" gap="0">
-              <Text weight="medium">{QA_OVERRIDE_FILTER_META[kind].label}</Text>
+            <Flex direction="column" style={{ gap: 2 }}>
+              <Text>{QA_OVERRIDE_FILTER_META[kind].label}</Text>
               <Text size="sm" color="text-mid">
                 {QA_OVERRIDE_FILTER_META[kind].description}
               </Text>
@@ -179,7 +184,15 @@ export default function QaOverrideModal({
       </Flex>
     );
     return (
-      <SetupFieldGroup key={kind} inset>
+      <Box
+        key={kind}
+        style={{
+          backgroundColor: "var(--gray-a2)",
+          border: "1px solid var(--gray-a3)",
+          borderRadius: "var(--radius-3)",
+          padding: "10px 12px 14px",
+        }}
+      >
         {kind === "condition" && (
           <ConditionInput
             label={QA_OVERRIDE_FILTER_META.condition.label}
@@ -226,7 +239,7 @@ export default function QaOverrideModal({
             />
           </>
         )}
-      </SetupFieldGroup>
+      </Box>
     );
   };
 
@@ -242,7 +255,7 @@ export default function QaOverrideModal({
       }
       cta={existing ? "Apply" : "Add Override"}
       ctaEnabled={canSave}
-      size="md"
+      size="lg"
       trackingEventModalType="experiment-qa-override"
       submit={validatedSubmit(form, async () => {
         if (!body) return;
@@ -260,7 +273,7 @@ export default function QaOverrideModal({
         await onSaved();
       })}
     >
-      <Flex direction="column" gap="4">
+      <Flex direction="column" gap="5">
         <Flex direction="column" gap="2" align="start">
           <SectionHeading>Environment</SectionHeading>
           {existing ? (
@@ -269,6 +282,7 @@ export default function QaOverrideModal({
             <>
               <Select
                 aria-label="Environment"
+                style={{ width: 280 }}
                 value={values.environment}
                 setValue={setEnvironment}
                 placeholder="Select an environment…"
@@ -346,6 +360,7 @@ export default function QaOverrideModal({
         <Flex direction="column" gap="2">
           <SectionHeading>Variation</SectionHeading>
           <RadioGroup
+            gap="3"
             value={values.assignmentType}
             setValue={(v) =>
               form.setValue("assignmentType", v as "random" | "forced")
@@ -363,9 +378,10 @@ export default function QaOverrideModal({
                 description:
                   "Everyone who matches your filters sees the variation you pick.",
                 renderOnSelect: (
-                  <Box mt="2">
+                  <Box mt="1">
                     <Select
                       aria-label="Variation"
+                      style={{ width: 280 }}
                       value={values.forcedVariationId || undefined}
                       setValue={(v) => form.setValue("forcedVariationId", v)}
                       placeholder="Select a variation…"

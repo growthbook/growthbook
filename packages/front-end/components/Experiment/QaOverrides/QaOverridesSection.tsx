@@ -25,8 +25,9 @@ import QaOverridesTable, { QaOverrideRow } from "./QaOverridesTable";
 import { useQaOverrideNameLookups } from "./QaOverrideFilterChips";
 import useQaOverridePermissions from "./useQaOverridePermissions";
 
-// Matches the variations table above it in the Implementation panel.
-const EMPTY_CARD_WIDTH = 694;
+// Takes the width of the variations table above it instead of widening the
+// column to fit its own content (see `.tableColumn` in the funnel).
+const MATCH_TABLE_WIDTH = { contain: "inline-size" } as const;
 
 const ABOUT =
   "Serve this draft to yourself or your team in a non-production environment. " +
@@ -106,49 +107,21 @@ export default function QaOverridesSection({
     }
   };
 
-  const header = (title: boolean) => (
-    <Flex align="center" gap="2" mb={title ? "3" : "0"}>
-      <Heading as="h4" size="sm" mb="0">
-        QA Overrides
-      </Heading>
-      {title && <InfoTip content={ABOUT} />}
-      <Box flexGrow="1" />
-      {title && canAdd && (
-        <Button
-          variant="outline"
-          size="sm"
-          icon={<PiPlusBold />}
-          onClick={() => setModal({ mode: "create" })}
-        >
-          Add Override
-        </Button>
-      )}
-    </Flex>
-  );
-
-  // Empty states are a small centered card; a populated table spans the panel.
   if (overrides.length === 0 && !error) {
     const allProduction = eligibleEnvironments.length === 0;
     return (
       <>
         <Separator size="4" my="5" />
-        <Frame
-          mx="auto"
-          py="5"
-          px="6"
-          style={{ maxWidth: `min(${EMPTY_CARD_WIDTH}px, 100%)` }}
-        >
+        <Frame py="5" px="6" mb="0" style={MATCH_TABLE_WIDTH}>
           <Flex direction="column" align="center" gap="2">
             <Heading as="h4" size="sm" mb="0">
               QA Overrides
             </Heading>
-            <Box maxWidth="440px">
-              <Text color="text-mid" align="center">
-                {allProduction
-                  ? "QA overrides only run in non-production environments, and every environment in this organization is marked as production."
-                  : "Serve this draft to yourself or your team in a non-production environment before it starts."}
-              </Text>
-            </Box>
+            <Text color="text-mid" align="center">
+              {allProduction
+                ? "QA overrides only run in non-production environments, and every environment in this organization is marked as production."
+                : "Serve this draft to yourself or your team in a non-production environment before it starts."}
+            </Text>
             {allProduction ? (
               <Link href="/environments" mt="2">
                 Manage Environments →
@@ -184,7 +157,13 @@ export default function QaOverridesSection({
   return (
     <>
       <Separator size="4" my="5" />
-      <Frame py="4" px="4" style={{ alignSelf: "stretch" }}>
+      {/* The table runs to the card's edges, so the padding is on the header. */}
+      <Frame
+        px="0"
+        py="0"
+        mb="0"
+        style={{ ...MATCH_TABLE_WIDTH, overflow: "hidden" }}
+      >
         {modal && (
           <QaOverrideModal
             experiment={experiment}
@@ -197,16 +176,31 @@ export default function QaOverridesSection({
             }}
           />
         )}
-        {header(true)}
-        {error && (
-          <Callout status="error" mb="3">
-            Could not load QA overrides: {error.message}
-          </Callout>
-        )}
-        {actionError && (
-          <Callout status="error" mb="3">
-            {actionError}
-          </Callout>
+        <Flex align="center" gap="2" px="4" style={{ paddingBlock: 14 }}>
+          <Heading as="h4" size="xs" mb="0">
+            QA Overrides
+          </Heading>
+          <InfoTip content={ABOUT} />
+          <Box flexGrow="1" />
+          {canAdd && (
+            <Button
+              variant="outline"
+              size="sm"
+              icon={<PiPlusBold />}
+              onClick={() => setModal({ mode: "create" })}
+            >
+              Add Override
+            </Button>
+          )}
+        </Flex>
+        {(error || actionError) && (
+          <Box px="4" pb="3">
+            <Callout status="error">
+              {error
+                ? `Could not load QA overrides: ${error.message}`
+                : actionError}
+            </Callout>
+          </Box>
         )}
         {overrides.length > 0 && (
           <QaOverridesTable

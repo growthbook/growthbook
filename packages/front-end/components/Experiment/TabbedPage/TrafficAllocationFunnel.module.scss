@@ -29,3 +29,12 @@
     @include click-row-target;
   }
 }
+
+// As wide as the variations table, so what sits below it (the QA Overrides
+// card) lines up with it. Children that shouldn't widen it opt out with
+// `contain: inline-size`.
+.tableColumn {
+  width: fit-content;
+  max-width: 100%;
+  margin-inline: auto;
+}

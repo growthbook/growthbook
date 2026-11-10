@@ -329,11 +329,6 @@
       "count": 1
     }
   },
-  "packages/front-end/components/Experiment/QaOverrides/QaOverrideModal.tsx": {
-    "no-restricted-syntax": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/Experiment/QueryModal.tsx": {
     "no-restricted-imports": {
       "count": 1

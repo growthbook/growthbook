@@ -106,7 +106,11 @@ export default function QaOverrideFilterChips({
   lookups: QaOverrideNameLookups;
 }) {
   if (qaOverrideFiltersAreEmpty(filters)) {
-    return <Text color="text-mid">Everyone</Text>;
+    return (
+      <Text size="inherit" color="text-mid">
+        Everyone
+      </Text>
+    );
   }
   const { visible, hidden } = summarizeQaOverrideFilters(filters, lookups);
   const full = <FullFilters filters={filters} lookups={lookups} />;

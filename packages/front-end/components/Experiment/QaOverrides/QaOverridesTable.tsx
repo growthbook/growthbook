@@ -64,11 +64,24 @@ export type QaOverridesTableProps = {
 function VariationCell({ row }: { row: QaOverrideRow }) {
   const { assignment } = row.override;
   if (assignment.type === "random") {
-    return <Text color="text-mid">Random</Text>;
+    return (
+      <Text size="inherit" color="text-mid">
+        Random
+      </Text>
+    );
   }
   const variation = row.variations.find((v) => v.id === assignment.variationId);
-  if (!variation) return <Text color="text-low">Unknown variation</Text>;
-  return <Text color="text-high">{variation.name}</Text>;
+  if (!variation)
+    return (
+      <Text size="inherit" color="text-low">
+        Unknown variation
+      </Text>
+    );
+  return (
+    <Text size="inherit" color="text-high">
+      {variation.name}
+    </Text>
+  );
 }
 
 function RowCells({
@@ -104,7 +117,7 @@ function RowCells({
       {handle !== null && <TableCell>{handle}</TableCell>}
       {grouped ? (
         <TableCell>
-          <Text weight="semibold" color="text-mid">
+          <Text size="sm" weight="semibold" color="text-mid">
             {priority}
           </Text>
         </TableCell>
@@ -120,7 +133,9 @@ function RowCells({
         </TableCell>
       ) : (
         <TableCell>
-          <Text weight="medium">{row.override.environment}</Text>
+          <Text size="inherit" weight="medium">
+            {row.override.environment}
+          </Text>
         </TableCell>
       )}
       <TableCell>
@@ -311,7 +326,7 @@ export default function QaOverridesTable({
   const columns = (showHandles ? 1 : 0) + 1 + 3 + (showActions ? 1 : 0);
 
   return (
-    <Table variant="surface" roundedCorners size="sm">
+    <Table variant="ghost" size="sm" className={styles.table}>
       <TableHeader>
         <TableRow>
           {showHandles && (
@@ -321,14 +336,14 @@ export default function QaOverridesTable({
             <TableColumnHeader aria-label="Priority" style={{ width: 36 }} />
           ) : (
             <TableColumnHeader
-              style={{ width: leading === "environment" ? 120 : undefined }}
+              style={{ width: leading === "environment" ? 136 : undefined }}
             >
               {leading === "environment" ? "Environment" : "Experiment"}
             </TableColumnHeader>
           )}
           <TableColumnHeader>Filters</TableColumnHeader>
           <TableColumnHeader>Variation</TableColumnHeader>
-          <TableColumnHeader style={{ width: 110 }}>Status</TableColumnHeader>
+          <TableColumnHeader style={{ width: 124 }}>Status</TableColumnHeader>
           {showActions && (
             <TableColumnHeader aria-label="Actions" style={{ width: 44 }} />
           )}
