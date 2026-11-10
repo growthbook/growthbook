@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { Flex, Grid } from "@radix-ui/themes";
+import { upperFirst } from "lodash";
 import { PiPlus } from "react-icons/pi";
 import { populationEndpoints } from "shared/api-endpoints";
 import { getPopulationRuleViolations } from "shared/populations";
@@ -16,6 +17,7 @@ import MultiSelectField from "@/ui/MultiSelectField";
 import { Select, SelectItem } from "@/ui/Select";
 import Text from "@/ui/Text";
 import TextField from "@/ui/TextField";
+import Tooltip from "@/ui/Tooltip";
 import Field from "@/components/Forms/Field";
 import DataSourcePicker from "@/components/DataSourcePicker";
 import { RowFilterInput } from "@/components/FactTables/RowFilterInput";
@@ -151,6 +153,27 @@ export default function PopulationEditor({
   const needsComparison = showThreshold && !values.aggregateFilter.trim();
   const isValid = isComplete && problems.length === 0 && !needsComparison;
 
+  // Explains a disabled Save. Rule problems and a missing comparison are
+  // already explained next to their fields.
+  const missingFields: string[] = [];
+  if (!values.name.trim()) missingFields.push("enter a name");
+  if (!values.factTableId) {
+    missingFields.push("select a fact table");
+  } else if (values.userIdTypes.length === 0) {
+    missingFields.push("select an identifier type");
+  }
+  const missingMessage = missingFields.length
+    ? upperFirst(missingFields.join(" and "))
+    : null;
+  const canSave = isValid && !!values.name.trim();
+  // Save reacts at once, but new problems wait until typing pauses so a
+  // half-typed comparison like ">" doesn't flash an error. Fixes clear at once.
+  const debouncedProblems = useDebouncedValue(
+    JSON.stringify(problems),
+    problems,
+  );
+  const visibleProblems = problems.length ? debouncedProblems : [];
+
   const liveDraft = {
     datasource: values.datasource,
     userIdTypes: values.userIdTypes,
@@ -238,9 +261,14 @@ export default function PopulationEditor({
           <Button variant="soft" color="gray" onClick={onCancel}>
             Cancel
           </Button>
-          <Button onClick={save} setError={setError} disabled={!isValid}>
-            Save Population
-          </Button>
+          <Tooltip content={missingMessage} enabled={!!missingMessage}>
+            {/* A disabled button gets no hover events, so the span triggers the tooltip. */}
+            <span tabIndex={missingMessage ? 0 : undefined}>
+              <Button onClick={save} setError={setError} disabled={!canSave}>
+                Save Population
+              </Button>
+            </span>
+          </Tooltip>
         </Flex>
       </Flex>
 
@@ -389,9 +417,9 @@ export default function PopulationEditor({
                     )}
                   </>
                 )}
-                {problems.length > 0 && (
+                {visibleProblems.length > 0 && (
                   <Callout status="error">
-                    {problems.map((problem) => (
+                    {visibleProblems.map((problem) => (
                       <div key={problem}>{problem}</div>
                     ))}
                   </Callout>

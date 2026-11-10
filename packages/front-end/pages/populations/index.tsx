@@ -59,12 +59,15 @@ export default function PopulationsPage() {
       }
       enabled={!canCreate}
     >
-      <Button
-        disabled={!canCreate}
-        onClick={() => router.push("/populations/new")}
-      >
-        Add Population
-      </Button>
+      {/* A disabled button gets no hover events, so the span triggers the tooltip. */}
+      <span tabIndex={!canCreate ? 0 : undefined}>
+        <Button
+          disabled={!canCreate}
+          onClick={() => router.push("/populations/new")}
+        >
+          Add Population
+        </Button>
+      </span>
     </Tooltip>
   );
   const populationsWithLabels = useAddComputedFields(
