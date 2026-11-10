@@ -90,6 +90,7 @@ import {
 import {
   DropdownMenu,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   MoreMenuTrigger,
 } from "@/ui/DropdownMenu";
 import {
@@ -794,8 +795,12 @@ export default function FeaturesOverviewNew({
               </PremiumTooltip>
             </DropdownMenuItem>
           ) : null}
+          {canEditDrafts && canChangeEnvironments ? (
+            <DropdownMenuSeparator />
+          ) : null}
           {canChangeEnvironments ? (
             <DropdownMenuItem
+              color="red"
               disabled={allEnvironmentsOff}
               tooltip={
                 allEnvironmentsOff
