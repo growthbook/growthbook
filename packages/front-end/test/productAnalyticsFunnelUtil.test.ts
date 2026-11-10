@@ -9,6 +9,9 @@ import {
   hasSubmittablePayload,
   formatDurationMs,
   explorationPollDelayMs,
+  fromStartRate,
+  fromPrevRate,
+  stepChange,
 } from "@/enterprise/components/ProductAnalytics/util";
 
 function makeFactTable(
@@ -234,5 +237,45 @@ describe("ProductAnalytics util — funnel branches", () => {
       expect(explorationPollDelayMs(600)).toBe(0);
       expect(explorationPollDelayMs(100000)).toBe(0);
     });
+  });
+});
+
+describe("funnel compare helpers", () => {
+  const cur = { counts: [200, 50, 20] };
+  const prev = { counts: [160, 48, 8] };
+
+  it("fromStartRate divides by step 1 and is null when step 1 is empty", () => {
+    expect(fromStartRate(cur, 1)).toBe(0.25);
+    expect(fromStartRate({ counts: [0, 0] }, 1)).toBeNull();
+    expect(fromStartRate(undefined, 1)).toBeNull();
+  });
+
+  it("fromPrevRate divides by the previous step and is null on step 1", () => {
+    expect(fromPrevRate(cur, 2)).toBe(0.4);
+    expect(fromPrevRate(cur, 0)).toBeNull();
+    expect(fromPrevRate({ counts: [10, 0, 0] }, 2)).toBeNull();
+  });
+
+  it("stepChange is the % change in users on step 1", () => {
+    expect(stepChange(cur, prev, 0)).toBe(25);
+    expect(stepChange(cur, { counts: [0, 0, 0] }, 0)).toBeNull();
+  });
+
+  it("stepChange is the change in from-start conversion in pts on later steps", () => {
+    // 25% now vs 30% before
+    expect(stepChange(cur, prev, 1)).toBe(-5);
+    // 10% now vs 5% before
+    expect(stepChange(cur, prev, 2)).toBe(5);
+    expect(stepChange(cur, undefined, 1)).toBeNull();
+  });
+
+  it("stepChange rounds to 1 decimal and never returns -0", () => {
+    expect(stepChange({ counts: [3, 1] }, { counts: [3, 1] }, 1)).toBe(0);
+    expect(
+      Object.is(
+        stepChange({ counts: [1000, 333] }, { counts: [1000, 333.4] }, 1),
+        0,
+      ),
+    ).toBe(true);
   });
 });

@@ -2,7 +2,13 @@ import React, { useMemo, useRef } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import EChartsReact from "echarts-for-react";
 import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
-import { formatDurationMs } from "@/enterprise/components/ProductAnalytics/util";
+import {
+  formatDurationMs,
+  fromPrevRate,
+  fromStartRate,
+  round1,
+  stepChange,
+} from "@/enterprise/components/ProductAnalytics/util";
 import {
   CHART_COLORS,
   cssColorToHex,
@@ -50,45 +56,8 @@ export interface FunnelChartSeries {
   avgTimes: (number | null)[];
 }
 
-// Share of step-1 users who reached `stepIdx`; null when step 1 is empty.
-function fromStartRate(
-  s: FunnelChartSeries | undefined,
-  stepIdx: number,
-): number | null {
-  const first = s?.counts[0] ?? 0;
-  return first > 0 ? (s?.counts[stepIdx] ?? 0) / first : null;
-}
-
-// Share of the previous step's users who reached `stepIdx`.
-function fromPrevRate(
-  s: FunnelChartSeries | undefined,
-  stepIdx: number,
-): number | null {
-  const prev = stepIdx > 0 ? (s?.counts[stepIdx - 1] ?? 0) : 0;
-  return prev > 0 ? (s?.counts[stepIdx] ?? 0) / prev : null;
-}
-
-// Rounds to 1 decimal; `|| 0` folds -0 into 0.
-const round1 = (d: number) => Math.round(d * 10) / 10 || 0;
 const signed = (d: number) => `${d > 0 ? "+" : ""}${d.toFixed(1)}`;
 const tone = (d: number) => (d > 0 ? "green" : d < 0 ? "red" : "gray");
-
-// Compare-mode change for one bar:
-// - step 1: % change in users
-// - later steps: change in conversion from start, in pts
-function stepChange(
-  cur: FunnelChartSeries,
-  prev: FunnelChartSeries | undefined,
-  stepIdx: number,
-): number | null {
-  if (stepIdx === 0) {
-    const p = prev?.counts[0] ?? 0;
-    return p > 0 ? round1(((cur.counts[0] ?? 0) / p - 1) * 100) : null;
-  }
-  const a = fromStartRate(cur, stepIdx);
-  const b = fromStartRate(prev, stepIdx);
-  return a === null || b === null ? null : round1((a - b) * 100);
-}
 
 export default function FunnelStepsChart({
   stepLabels,
@@ -164,7 +133,7 @@ export default function FunnelStepsChart({
           show: true,
           position: "top" as const,
           distance: 2,
-          formatter: `${signed(d)}${stepIdx === 0 ? "%" : ""}`,
+          formatter: `${signed(d)}${stepIdx === 0 ? "%" : " pts"}`,
           color: toneHex[tone(d)],
           fontWeight: 600,
           fontSize: 11,
@@ -421,7 +390,7 @@ export default function FunnelStepsChart({
             title: {
               left: 8,
               top: 14,
-              text: `{cur| }{label|${comparison.currentLabel}}{prev| }{muted|${comparison.previousLabel} (previous)}{up|±}{muted|Change vs previous}`,
+              text: `{cur| }{label|${comparison.currentLabel}}{prev| }{muted|${comparison.previousLabel} (previous)}{chg|±}{muted|Change vs previous}`,
               textStyle: {
                 fontSize: 13,
                 fontWeight: "normal" as const,
@@ -430,16 +399,19 @@ export default function FunnelStepsChart({
                     width: 10,
                     height: 10,
                     borderRadius: 2,
-                    backgroundColor: toneHex.gray,
+                    // One series: its own color. Several: neutral, since
+                    // the series legend carries the colors.
+                    backgroundColor:
+                      series.length === 1 ? colorOf(0) : toneHex.gray,
                   },
                   label: {
                     color: textColor,
                     fontWeight: 600,
-                    padding: [0, 20, 0, 6],
+                    padding: [0, 28, 0, 6],
                   },
                   prev: { width: 14, height: 2, backgroundColor: textColor },
-                  muted: { color: toneHex.gray, padding: [0, 20, 0, 6] },
-                  up: { color: toneHex.green, fontWeight: 600 },
+                  muted: { color: toneHex.gray, padding: [0, 28, 0, 6] },
+                  chg: { color: toneHex.gray, fontWeight: 600 },
                 },
               },
             },
