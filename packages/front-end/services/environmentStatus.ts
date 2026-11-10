@@ -5,7 +5,10 @@ import {
   NamespaceValue,
   SafeRolloutInterface,
 } from "shared/validators";
-import { hasTargetingConfigured } from "shared/experiments";
+import {
+  getLatestPhaseVariations,
+  hasTargetingConfigured,
+} from "shared/experiments";
 import {
   getNamespaceRanges,
   parsePlainJSONObject,
@@ -45,6 +48,8 @@ export type EnvironmentValue =
 
 export type EnvironmentReason =
   | { kind: "disabled" }
+  // An archived flag isn't sent to SDKs at all.
+  | { kind: "archived" }
   // Prerequisites that keep everyone out.
   | {
       kind: "prerequisite";
@@ -191,11 +196,9 @@ export function ruleTrafficStep(
     const name = experiment?.name ?? null;
     const href = experiment ? `/experiment/${experiment.id}` : null;
     const phase = experiment?.phases.at(-1);
-    // A bandit's weights move, so who gets what isn't known ahead of time.
     if (
       !experiment ||
       !phase ||
-      isBandit ||
       hasTargetingConfigured(rule) ||
       hasTargetingConfigured(phase)
     ) {
@@ -207,7 +210,10 @@ export function ruleTrafficStep(
       )?.value;
       return value === undefined ? undefined : resolve(value);
     };
-    // Stopped, it serves its released variation as a temporary rollout.
+    const participation =
+      (phase.coverage ?? 1) * namespaceWidth(phase.namespace);
+    // Stopped, it serves its released variation to the phase's traffic, or
+    // isn't sent at all without one.
     if (experiment.status === "stopped") {
       const released = experiment.releasedVariationId
         ? valueOf(experiment.releasedVariationId)
@@ -215,28 +221,36 @@ export function ruleTrafficStep(
       return stepOf(
         label,
         released === undefined
-          ? null
-          : { participation: 1, shares: [{ value: released, share: 1 }] },
+          ? { participation: 0, shares: [] }
+          : { participation, shares: [{ value: released, share: 1 }] },
         name,
         href,
       );
     }
+    // A bandit's weights move, so who gets what isn't known ahead of time.
+    if (isBandit) return stepOf(label, null, name, href);
+    const variations = getLatestPhaseVariations(experiment);
+    // The SDK skips an experiment with fewer than two variations.
+    if (variations.length < 2) {
+      return stepOf(label, { participation: 0, shares: [] }, name, href);
+    }
+    // And splits evenly when the weights don't fit the variations.
+    const weights = phase.variationWeights ?? [];
+    const total = weights.reduce((sum, w) => sum + w, 0);
+    const evenly =
+      weights.length !== variations.length || total < 0.99 || total > 1.01;
     const shares: Share[] = [];
-    for (const [i, variation] of experiment.variations.entries()) {
+    for (const [i, variation] of variations.entries()) {
       const value = valueOf(variation.id);
       if (value === undefined) return stepOf(label, null, name, href);
-      shares.push({ value, share: phase.variationWeights[i] ?? 0 });
+      shares.push({
+        value,
+        share: evenly ? 1 / variations.length : (weights[i] ?? 0),
+      });
     }
-    return stepOf(
-      label,
-      {
-        participation: (phase.coverage ?? 1) * namespaceWidth(phase.namespace),
-        shares,
-      },
-      name,
-      href,
-    );
+    return stepOf(label, { participation, shares }, name, href);
   }
+
   if (rule.type === "safe-rollout") {
     if (hasTargetingConfigured(rule)) return stepOf("Safe rollout", null);
     // Decided, it serves one side to everyone.
@@ -282,17 +296,15 @@ export function holdoutTrafficStep(
     name: holdout.name,
     href: `/holdout/${holdout.id}`,
   };
-  const phase = experiment?.phases.at(-1);
+  // As the payload sends it: the main phase's coverage, split evenly.
+  const phase = experiment?.phases[0];
   if (!phase || hasTargetingConfigured(phase)) {
     return { ...step, traffic: null };
   }
   return {
     ...step,
     traffic: {
-      participation:
-        (phase.coverage ?? 1) *
-        namespaceWidth(phase.namespace) *
-        (phase.variationWeights[0] ?? 0),
+      participation: (phase.coverage ?? 1) * 0.5,
       shares: [{ value, share: 1 }],
     },
   };
@@ -352,12 +364,14 @@ function stepValue(step: TrafficStep, isBoolean: boolean): EnvironmentValue {
 
 export function getEnvironmentStatus({
   enabled,
+  archived = false,
   prerequisites,
   steps,
   defaultValue,
   isBoolean,
 }: {
   enabled: boolean;
+  archived?: boolean;
   prerequisites: { id: string; result: PrerequisiteResult }[];
   // The holdout, then the environment's live rules, in order.
   steps: TrafficStep[];
@@ -373,10 +387,10 @@ export function getEnvironmentStatus({
     servedDefault: defaultValue,
   };
 
-  if (!enabled) {
+  if (!enabled || archived) {
     return {
       value: { kind: "value", value: null },
-      reason: { kind: "disabled" },
+      reason: { kind: enabled ? "archived" : "disabled" },
       environment: "off",
       prerequisites: prerequisites.length ? "skipped" : "none",
       ...unreached,
@@ -449,9 +463,10 @@ export function getEnvironmentStatus({
       if (sameValue(walk(without).value, value)) credited = without;
     }
   }
-  const labels = (variesAt ? taking : walk(credited).taking).map(
-    (step) => step.label,
-  );
+  const reasons = [
+    ...(variesAt ? taking : walk(credited).taking),
+    ...(variesAt ? [variesAt] : []),
+  ];
 
   const statusOf = (kind: TrafficStep["kind"]): StepStatus => {
     if (!has(kind)) return "none";
@@ -463,10 +478,13 @@ export function getEnvironmentStatus({
   return {
     value: varying ? { kind: "varies" } : value,
     reason: (() => {
+      // In the SDK's order: the holdout comes before prerequisite gates.
+      const labelsOf = (kind: TrafficStep["kind"]) =>
+        reasons.filter((step) => step.kind === kind).map((step) => step.label);
       const chain = [
+        ...labelsOf("holdout"),
         ...(varying ? ["Prerequisite targeting"] : []),
-        ...labels,
-        ...(variesAt ? [variesAt.label] : []),
+        ...labelsOf("rule"),
       ].filter((label, i, all) => label !== all[i - 1]);
       return chain.length
         ? { kind: "traffic" as const, labels: chain }

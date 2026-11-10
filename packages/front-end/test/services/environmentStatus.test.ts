@@ -188,16 +188,65 @@ describe("getEnvironmentStatus", () => {
     });
   });
 
-  it("serves a stopped experiment's released variation", () => {
-    const result = status([
-      ruleTrafficStep(experimentRule, {
-        experiment: experiment({
-          status: "stopped",
-          releasedVariationId: "v1",
+  it.each([
+    ["to everyone", {}, { kind: "value", value: "true" }],
+    [
+      "to its phase's coverage",
+      { coverage: 0.4 },
+      { kind: "partial", value: "true", percent: 0.4 },
+    ],
+  ])(
+    "serves a stopped experiment's released variation %s",
+    (_, phase, value) => {
+      const result = status([
+        ruleTrafficStep(experimentRule, {
+          experiment: experiment(
+            { status: "stopped", releasedVariationId: "v1" },
+            phase,
+          ),
         }),
-      }),
-    ]);
-    expect(result.value).toEqual({ kind: "value", value: "true" });
+      ]);
+      expect(result.value).toEqual(value);
+    },
+  );
+
+  it.each([
+    [
+      "a stopped experiment with no released variation",
+      experiment({ status: "stopped", releasedVariationId: "" }),
+    ],
+    [
+      "an experiment with one variation",
+      experiment({
+        variations: [{ id: "v1" }],
+      } as Partial<ExperimentInterfaceStringDates>),
+    ],
+  ])("skips %s, as the SDK does", (_, exp) => {
+    expect(
+      status([ruleTrafficStep(experimentRule, { experiment: exp })]),
+    ).toMatchObject({
+      value: { kind: "value", value: "false" },
+      reason: { kind: "default" },
+    });
+  });
+
+  it("splits evenly when an experiment's weights don't add up", () => {
+    expect(
+      status([
+        ruleTrafficStep(experimentRule, {
+          experiment: experiment({}, { variationWeights: [0.2, 0.2] }),
+        }),
+      ]).value,
+    ).toEqual({ kind: "partial", value: "true", percent: 0.5 });
+  });
+
+  it("serves null from an archived flag", () => {
+    expect(
+      status([ruleTrafficStep(force("true"))], { archived: true }),
+    ).toMatchObject({
+      value: { kind: "value", value: null },
+      reason: { kind: "archived" },
+    });
   });
 
   it.each([
@@ -316,6 +365,22 @@ describe("getEnvironmentStatus", () => {
         defaultValue: "skipped",
       });
     }
+  });
+
+  it("puts the holdout ahead of prerequisite targeting, as the SDK does", () => {
+    const holdout = holdoutTrafficStep(
+      { id: "hld_1", name: "Q4" },
+      "false",
+      experiment({}, { coverage: 0.1 }),
+    );
+    expect(
+      status([holdout, ruleTrafficStep(force("true"))], {
+        prerequisites: [{ id: "parent", result: "varies" }],
+      }).reason,
+    ).toEqual({
+      kind: "traffic",
+      labels: ["Holdout", "Prerequisite targeting", "Force rule"],
+    });
   });
 
   it("chains prerequisite targeting ahead of the steps that serve", () => {

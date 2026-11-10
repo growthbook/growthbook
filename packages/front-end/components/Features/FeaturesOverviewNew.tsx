@@ -64,6 +64,7 @@ import {
   resolveConfigBackedValue,
 } from "@/services/configBackedValue";
 import useApi from "@/hooks/useApi";
+import { useContextualBandits } from "@/hooks/useContextualBandits";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { useUser } from "@/services/UserContext";
 import {
@@ -270,9 +271,12 @@ export default function FeaturesOverviewNew({
     shouldRun: () => baseConfigKey !== null,
   });
   // The holdout's own experiment says how much of the traffic it holds back.
-  const { experimentsMap: holdoutExperiments } = useHoldouts(undefined, false, {
-    enabled: !!holdout,
-  });
+  const { experimentsMap: holdoutExperiments, loading: holdoutsLoading } =
+    useHoldouts(undefined, false, {
+      enabled: !!holdout,
+    });
+  // To leave out contextual bandit rules the SDK skips, as the rule list does.
+  const { contextualBanditsMap } = useContextualBandits();
   const [deletingPrerequisite, setDeletingPrerequisite] = useState<{
     i: number;
     baseline: FeaturePrerequisite[];
@@ -482,8 +486,13 @@ export default function FeaturesOverviewNew({
     env: string,
   ): PrerequisiteResult | null => {
     if (prereqStates?.[env]?.state === "cyclic") return "cycle";
-    const parent = parentStates?.[prerequisite.id]?.states[env];
-    if (!parent) return null;
+    if (!parentStates) return null;
+    // A parent the states don't include (archived, deleted, or out of view)
+    // reaches the SDK as an unknown feature: null.
+    const parent = parentStates[prerequisite.id]?.states[env] ?? {
+      state: "deterministic" as const,
+      value: null,
+    };
     if (parent.state === "cyclic") return "cycle";
     if (parent.state === "conditional") return "varies";
     return evalDeterministicPrereqValue(
@@ -517,6 +526,10 @@ export default function FeaturesOverviewNew({
           linkedExperiment:
             rule.type === "experiment-ref"
               ? experimentsMap.get(rule.experimentId)
+              : undefined,
+          linkedContextualBandit:
+            rule.type === "contextual-bandit-ref"
+              ? contextualBanditsMap.get(rule.contextualBanditId)
               : undefined,
         }),
     );
@@ -552,15 +565,22 @@ export default function FeaturesOverviewNew({
     return resolveRuleValue(f, value, sparse);
   };
   // The holdout's control group, then the live rules.
+  // The payload holds back traffic only while the holdout's experiment runs.
+  const holdoutExperiment = holdout
+    ? holdoutExperiments.get(holdout.experimentId)
+    : undefined;
+  const holdoutRunning =
+    holdoutExperiment?.status === "running" && !holdoutExperiment.archived;
   const trafficSteps = (f: FeatureInterface, env: string): TrafficStep[] => [
     ...(holdout &&
+    holdoutRunning &&
     f.holdout?.id === holdout.id &&
     holdout.environmentSettings?.[env]?.enabled
       ? [
           holdoutTrafficStep(
             holdout,
             servedValue(f, f.holdout.value, env),
-            holdoutExperiments.get(holdout.experimentId),
+            holdoutExperiment,
           ),
         ]
       : []),
@@ -605,8 +625,11 @@ export default function FeaturesOverviewNew({
     if (getFeatureBaseConfigKey(f) !== null && !configInputs && !configError) {
       return null;
     }
+    // Nor whether a holdout runs until the holdouts load.
+    if (f.holdout && holdoutsLoading) return null;
     return getEnvironmentStatus({
       enabled: f.environmentSettings?.[env]?.enabled ?? false,
+      archived: !!f.archived,
       prerequisites: results.flatMap((p) =>
         p.result ? [{ id: p.id, result: p.result }] : [],
       ),

@@ -213,6 +213,8 @@ function reasonText(reason: EnvironmentReason): string {
   switch (reason.kind) {
     case "disabled":
       return "Environment OFF";
+    case "archived":
+      return "Feature archived";
     case "prerequisite":
       return reason.result === "cycle"
         ? "Circular dependency"
