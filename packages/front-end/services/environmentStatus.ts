@@ -106,6 +106,9 @@ export type EnvironmentStatus = {
   rules: StepStatus;
   // Each step reached, with what it serves whoever reaches it.
   steps: { step: TrafficStep; value: EnvironmentValue }[];
+  // Rules after the one that varies by user, which whoever it doesn't match
+  // goes on to.
+  rulesAfter: number;
   defaultValue: StepStatus;
   // The default as the SDK receives it.
   servedDefault: string;
@@ -165,6 +168,8 @@ export function ruleTrafficStep(
     resolveValue(value, { sparse: "sparse" in rule && !!rule.sparse, arm });
   // Reaching nobody, a rule changes nothing, whatever its targeting.
   const none = { participation: 0, shares: [] };
+  // What the rule is called, to tell it from others of its kind.
+  const described = rule.description?.trim() || null;
   if (rule.type === "force") {
     return stepOf(
       "Force rule",
@@ -174,6 +179,7 @@ export function ruleTrafficStep(
             participation: 1,
             shares: [{ value: resolve(rule.value), share: 1 }],
           },
+      described,
     );
   }
   if (rule.type === "rollout") {
@@ -188,6 +194,7 @@ export function ruleTrafficStep(
               participation: rule.coverage ?? 1,
               shares: [{ value: resolve(rule.value), share: 1 }],
             },
+      described,
     );
   }
   if (rule.type === "experiment") {
@@ -205,6 +212,7 @@ export function ruleTrafficStep(
                 share: v.weight,
               })),
             },
+      described,
     );
   }
   if (rule.type === "experiment-ref") {
@@ -410,6 +418,7 @@ export function getEnvironmentStatus({
     holdout: has("holdout") ? ("skipped" as const) : ("none" as const),
     rules: has("rule") ? ("skipped" as const) : ("none" as const),
     steps: [],
+    rulesAfter: 0,
     defaultValue: "skipped" as const,
     servedDefault: defaultValue,
   };
@@ -491,6 +500,15 @@ export function getEnvironmentStatus({
     return { reached, taking, variesAt, remaining, value };
   };
   const { reached, taking, variesAt, remaining, value } = walk(steps);
+  const rulesAfter = variesAt
+    ? steps
+        .slice(steps.indexOf(variesAt) + 1)
+        .filter(
+          (step) =>
+            step.kind === "rule" &&
+            (!step.traffic || step.traffic.participation > EPSILON),
+        ).length
+    : 0;
   const reachesDefault = !!variesAt || remaining > EPSILON;
   const sameValue = (a: EnvironmentValue, b: EnvironmentValue) =>
     JSON.stringify(a) === JSON.stringify(b);
@@ -532,7 +550,11 @@ export function getEnvironmentStatus({
           )
           .map((step) => step.label),
       ];
-      if (sources.length > 1) return { kind: "mixed" as const };
+      // Several vary it, or one does and the rules after it take over for
+      // whoever it doesn't match: no single thing to name.
+      if (sources.length > 1 || rulesAfter > 0) {
+        return { kind: "mixed" as const };
+      }
       // The holdout stacks in front, in the SDK's order.
       const chain = [
         ...reasons
@@ -549,6 +571,7 @@ export function getEnvironmentStatus({
     holdout: statusOf("holdout"),
     rules: statusOf("rule"),
     steps: reached,
+    rulesAfter,
     defaultValue: reachesDefault ? "applies" : "skipped",
     servedDefault: defaultValue,
   };

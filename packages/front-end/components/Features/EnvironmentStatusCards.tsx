@@ -325,6 +325,14 @@ function Steps({
             />
           </Flex>
         ))}
+      {kind === "rule" && status.rulesAfter > 0 ? (
+        <span className={styles.stepLine}>
+          <Text color="text-low">
+            Then {status.rulesAfter} more rule{status.rulesAfter > 1 ? "s" : ""}{" "}
+            for anyone it doesn&apos;t match
+          </Text>
+        </span>
+      ) : null}
     </Flex>
   );
 }

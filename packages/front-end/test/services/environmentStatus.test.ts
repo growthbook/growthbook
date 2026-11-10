@@ -474,6 +474,25 @@ describe("getEnvironmentStatus", () => {
     });
   });
 
+  it("names nothing when rules after a targeted one take over the rest", () => {
+    const result = status(
+      [
+        force("true", '{"country":"US"}'),
+        rollout("false", 0.5),
+        force("x"),
+      ].map((r) => ruleTrafficStep(r)),
+    );
+    expect(result).toMatchObject({ reason: { kind: "mixed" }, rulesAfter: 2 });
+  });
+
+  it("calls a rule by its description", () => {
+    const step = ruleTrafficStep({
+      ...force("true"),
+      description: " CR check ",
+    } as FeatureRule);
+    expect(step).toMatchObject({ label: "Force rule", name: "CR check" });
+  });
+
   it("chains the steps before the one that varies", () => {
     const holdout = holdoutTrafficStep(
       { id: "hld_1", name: "Q4" },
