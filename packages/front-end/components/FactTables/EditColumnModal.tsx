@@ -6,21 +6,23 @@ import {
   NumberFormat,
   UpdateColumnProps,
 } from "shared/types/fact-table";
-import {
-  canInlineFilterColumn,
-  getFactTableIdColumn,
-  getFactTableTimestampColumn,
-} from "shared/experiments";
 import { useUser } from "@/services/UserContext";
-import useSaveColumn from "@/hooks/useSaveColumn";
+import useSaveFactTableColumn from "@/hooks/useSaveFactTableColumn";
+import {
+  COLUMN_DATATYPE_OPTIONS,
+  getColumnEligibility,
+  getColumnRole,
+  NUMBER_FORMAT_OPTIONS,
+} from "@/services/columnEditModel";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
 import Checkbox from "@/ui/Checkbox";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Text from "@/ui/Text";
 
-// Edits one physical column on the redesigned page, showing only the settings
-// that apply to its type and role. ColumnModal stays the full editor.
+// Edits one physical column on the redesigned page: the column-edit model's
+// settings that apply to the column's type and role. ColumnModal adds the
+// advanced ones.
 export default function EditColumnModal({
   factTable,
   column,
@@ -30,7 +32,7 @@ export default function EditColumnModal({
   column: ColumnInterface;
   close: () => void;
 }) {
-  const saveColumn = useSaveColumn(factTable);
+  const saveColumn = useSaveFactTableColumn(factTable);
   const { hasCommercialFeature } = useUser();
 
   const [description, setDescription] = useState(column.description || "");
@@ -43,18 +45,12 @@ export default function EditColumnModal({
   const [filter, setFilter] = useState(!!column.alwaysInlineFilter);
   const [autoSlice, setAutoSlice] = useState(!!column.isAutoSliceColumn);
 
-  const isTimestamp = column.column === getFactTableTimestampColumn(factTable);
-  const isIdentifier = factTable.userIdTypes.some(
-    (idType) => getFactTableIdColumn(factTable, idType) === column.column,
-  );
   // The mapping roles are set in the SQL, so they replace the other settings
-  const role = isTimestamp ? "timestamp" : isIdentifier ? "identifier" : null;
-
-  const canFilter = !role && canInlineFilterColumn(factTable, column.column);
+  const role = getColumnRole(factTable, column.column);
+  const eligibility = getColumnEligibility(factTable, { ...column, datatype });
+  const canFilter = eligibility.canFilter;
   const canAutoSlice =
-    !role &&
-    (datatype === "string" || datatype === "boolean") &&
-    hasCommercialFeature("metric-slices");
+    eligibility.canAutoSlice && hasCommercialFeature("metric-slices");
 
   return (
     <ModalStandard
@@ -87,14 +83,7 @@ export default function EditColumnModal({
           onChange={(v) => setDatatype(v as FactTableColumnType)}
           initialOption="Unknown"
           sort={false}
-          options={[
-            { label: "Number", value: "number" },
-            { label: "String", value: "string" },
-            { label: "Date / Datetime", value: "date" },
-            { label: "Boolean", value: "boolean" },
-            { label: "JSON", value: "json" },
-            { label: "Other", value: "other" },
-          ]}
+          options={COLUMN_DATATYPE_OPTIONS}
         />
       )}
 
@@ -113,14 +102,7 @@ export default function EditColumnModal({
           value={numberFormat}
           onChange={(v) => setNumberFormat(v as NumberFormat)}
           sort={false}
-          options={[
-            { label: "Plain number", value: "" },
-            { label: "Currency", value: "currency" },
-            { label: "Time (seconds)", value: "time:seconds" },
-            { label: "Time (milliseconds)", value: "time:milliseconds" },
-            { label: "Memory (bytes)", value: "memory:bytes" },
-            { label: "Memory (kilobytes)", value: "memory:kilobytes" },
-          ]}
+          options={NUMBER_FORMAT_OPTIONS}
         />
       ) : null}
 

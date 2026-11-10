@@ -1,8 +1,4 @@
 import { ColumnInterface, FactTableInterface } from "shared/types/fact-table";
-import {
-  getFactTableIdColumn,
-  getFactTableTimestampColumn,
-} from "shared/experiments";
 import { Fragment, ReactNode, useEffect, useMemo, useState } from "react";
 import { PiArrowClockwise, PiCaretRightBold, PiPlusBold } from "react-icons/pi";
 import { FaTriangleExclamation } from "react-icons/fa6";
@@ -18,6 +14,7 @@ import Callout from "@/ui/Callout";
 import Badge from "@/ui/Badge";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
+import { getColumnRole } from "@/services/columnEditModel";
 import EditColumnModal from "./EditColumnModal";
 import VirtualColumnModal from "./VirtualColumnModal";
 import ColumnValues, { ColumnValuesPanel } from "./ColumnValues";
@@ -278,15 +275,11 @@ function ColumnsTable({
     return out;
   }, [columns]);
 
-  const timestampColumn = getFactTableTimestampColumn(factTable);
-
   const computed = useAddComputedFields(rows, (column) => ({
     ...column,
     name: column.name || column.column,
     id: column.name || column.column,
-    identifier: factTable.userIdTypes.some(
-      (idType) => getFactTableIdColumn(factTable, idType) === column.column,
-    ),
+    role: getColumnRole(factTable, column.column),
     isJsonField: !!column.jsonFieldParent,
     type:
       column.datatype === "number"
@@ -384,8 +377,8 @@ function ColumnsTable({
                     <td>
                       <Flex gap="1" wrap="wrap">
                         {[
-                          col.identifier && "Identifier",
-                          col.column === timestampColumn && "Timestamp",
+                          col.role === "identifier" && "Identifier",
+                          col.role === "timestamp" && "Timestamp",
                           col.alwaysInlineFilter && "Filter",
                           col.isAutoSliceColumn && "Auto Slice",
                         ]

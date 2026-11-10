@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import type {
   ExplorationConfig,
   ProductAnalyticsExploration,
@@ -7,52 +7,42 @@ import {
   CacheOption,
   useExploreData,
 } from "@/enterprise/components/ProductAnalytics/useExploreData";
-import { explorationPollDelayMs } from "@/enterprise/components/ProductAnalytics/util";
+import useExplorationRunner from "@/enterprise/components/ProductAnalytics/useExplorationRunner";
 
-// Runs one exploration and polls it to completion. The first load only reads
-// the cache ("required"); refresh(cache) runs it again with any cache policy.
+// One exploration's result for a widget. The first load only reads the cache
+// ("required"); refresh(cache) runs it again. Polling and supersession are
+// the shared runner's.
 export default function useExploration(config: ExplorationConfig) {
-  const { fetchData, fetchExplorationById } = useExploreData();
+  const { fetchData } = useExploreData();
+  const { begin } = useExplorationRunner();
   const [data, setData] = useState<ProductAnalyticsExploration | null>(null);
   // False until the first cache read finishes
   const [checked, setChecked] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  // Only the latest run may publish; an older poll can still be in flight
-  // after a newer run or a config change
-  const latestRun = useRef(0);
 
   const refresh = useCallback(
     async (cache: CacheOption) => {
-      const run = ++latestRun.current;
-      const stale = () => run !== latestRun.current;
+      const run = begin();
       setError(null);
       if (cache !== "required") setLoading(true);
-      try {
-        let { data, error } = await fetchData(config, { cache });
-        // Runs past the ~5s sync budget come back "running"; poll by id
-        const start = Date.now();
-        while (data?.status === "running") {
-          const delay = explorationPollDelayMs((Date.now() - start) / 1000);
-          if (!delay) {
-            error = "Timed out waiting for the query to finish.";
-            break;
-          }
-          await new Promise((resolve) => setTimeout(resolve, delay));
-          if (stale()) return;
-          ({ data, error } = await fetchExplorationById(data.id));
-        }
-        if (stale()) return;
-        if (error) setError(error);
-        else if (data?.status === "success") setData(data);
-      } finally {
-        if (!stale()) {
-          setLoading(false);
-          setChecked(true);
+      const startTime = Date.now();
+      let result = await fetchData(config, { cache });
+      if (!run.isCurrent()) return;
+      if (result.data?.status === "running") {
+        const outcome = await run.pollUntilDone([result], startTime);
+        if (!outcome) return;
+        result = { ...result, ...outcome.results[0] };
+        if (outcome.timedOut) {
+          result.error = "Timed out waiting for the query to finish.";
         }
       }
+      if (result.error) setError(result.error);
+      else if (result.data?.status === "success") setData(result.data);
+      setLoading(false);
+      setChecked(true);
     },
-    [config, fetchData, fetchExplorationById],
+    [config, fetchData, begin],
   );
 
   useEffect(() => {
