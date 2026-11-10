@@ -139,20 +139,15 @@ function ClampedLink({
 }
 
 function ValueCode({ text, muted }: { text: string; muted: boolean }) {
-  const ref = useRef<HTMLElement>(null);
-  const truncated = useIsOverflowingX(ref);
   return (
-    <Tooltip content={text} enabled={truncated}>
-      <code
-        ref={ref}
-        className={styles.value}
-        style={{
-          color: muted ? "var(--color-text-low)" : "var(--color-text-high)",
-        }}
-      >
-        {text}
-      </code>
-    </Tooltip>
+    <code
+      className={styles.value}
+      style={{
+        color: muted ? "var(--color-text-low)" : "var(--color-text-high)",
+      }}
+    >
+      {text}
+    </code>
   );
 }
 
