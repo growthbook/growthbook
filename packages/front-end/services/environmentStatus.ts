@@ -316,6 +316,8 @@ function summarize(
   isBoolean: boolean,
   exact: boolean,
   defaultValue: string,
+  // A step splits its users between values, as a running experiment does.
+  splits: boolean,
 ): EnvironmentValue {
   const merged = new Map<string, number>();
   for (const { value, share } of shares) {
@@ -331,9 +333,10 @@ function summarize(
     if (on >= 1 - EPSILON) return { kind: "value", value: "true" };
     return { kind: "partial", value: "true", percent: exact ? on : null };
   }
-  // One value over the default reads as that value for its share.
+  // One value over the default reads as that value for its share, unless
+  // it's one side of a split, which singling out would misread.
   const others = [...merged.keys()].filter((v) => v !== defaultValue);
-  if (merged.size === 2 && others.length === 1) {
+  if (!splits && merged.size === 2 && others.length === 1) {
     const share = merged.get(others[0]) ?? 0;
     return { kind: "partial", value: others[0], percent: exact ? share : null };
   }
@@ -447,7 +450,20 @@ export function getEnvironmentStatus({
     }
     const value: EnvironmentValue = variesAt
       ? { kind: "varies" }
-      : summarize(shares, isBoolean, partialSteps <= 1, defaultValue);
+      : summarize(
+          shares,
+          isBoolean,
+          partialSteps <= 1,
+          defaultValue,
+          taking.some(
+            (step) =>
+              new Set(
+                step.traffic?.shares
+                  .filter((s) => s.share > EPSILON)
+                  .map((s) => s.value),
+              ).size > 1,
+          ),
+        );
     return { reached, taking, variesAt, remaining, value };
   };
   const { reached, taking, variesAt, remaining, value } = walk(steps);

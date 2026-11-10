@@ -335,6 +335,26 @@ describe("getEnvironmentStatus", () => {
     ).toEqual({ kind: "traffic", labels: ["Force rule"] });
   });
 
+  it("counts an experiment's split of a non-boolean value as a split", () => {
+    expect(
+      status(
+        [
+          ruleTrafficStep(
+            {
+              ...experimentRule,
+              variations: [
+                { variationId: "v0", value: "c" },
+                { variationId: "v1", value: "FOO" },
+              ],
+            } as FeatureRule,
+            { experiment: experiment({}, { coverage: 0.5 }) },
+          ),
+        ],
+        { isBoolean: false, defaultValue: "c" },
+      ).value,
+    ).toEqual({ kind: "split", count: 2 });
+  });
+
   it("counts non-boolean values it can't reduce to one", () => {
     const result = status(
       [
