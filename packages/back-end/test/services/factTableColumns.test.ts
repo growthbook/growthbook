@@ -3,6 +3,7 @@ import { DataSourceInterface } from "shared/types/datasource";
 import { TestQueryResult } from "shared/types/integrations";
 import {
   keepCurrentTopValues,
+  runColumnsTopValueCountsQuery,
   refreshColumnTopValues,
   runColumnDetectionQuery,
   selectColumnsForTopValues,
@@ -200,6 +201,57 @@ describe("selectColumnsForTopValues", () => {
       userIdTypes: ["user_id"],
     });
     expect(result.map((c) => c.column)).toEqual(["country"]);
+  });
+});
+
+describe("runColumnsTopValueCountsQuery", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it("asks for real counts in both the query and the result", async () => {
+    const getColumnsTopValuesQuery = jest
+      .fn()
+      .mockReturnValue("SELECT top_values");
+    const runColumnsTopValuesQuery = jest.fn().mockResolvedValue({
+      rows: [{ column: "country", value: "US", count: 3 }],
+    });
+    // @ts-expect-error - this test only needs the top-values query methods
+    const integration: SourceIntegrationInterface = {
+      getColumnsTopValuesQuery,
+      runColumnsTopValuesQuery,
+    };
+    getSourceIntegrationObjectMock.mockReturnValue(integration);
+    // @ts-expect-error - this test only needs permissions and organization settings
+    const context: ReqContext = {
+      permissions: { canRunFactQueries: () => true },
+      org: {},
+    };
+    // @ts-expect-error - this test only needs a datasource type
+    const datasource: DataSourceInterface = { type: "clickhouse" };
+
+    const result = await runColumnsTopValueCountsQuery(
+      context,
+      datasource,
+      {
+        id: "ftb_1",
+        sql: "SELECT * FROM fact_table",
+        eventName: "",
+        columns: [],
+      },
+      [makeCol("country")],
+      { needsCounts: true },
+    );
+
+    expect(getColumnsTopValuesQuery).toHaveBeenCalledWith(
+      expect.objectContaining({ needsCounts: true }),
+    );
+    expect(runColumnsTopValuesQuery).toHaveBeenCalledWith(
+      "SELECT top_values",
+      "ftb_1",
+      true,
+    );
+    expect(result).toEqual({ country: [{ value: "US", count: 3 }] });
   });
 });
 
