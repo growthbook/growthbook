@@ -1713,11 +1713,6 @@
       "count": 1
     }
   },
-  "packages/front-end/pages/fact-tables/[ftid].tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
   "packages/front-end/pages/features/FeaturesDraftTable.tsx": {
     "no-restricted-syntax": {
       "count": 1

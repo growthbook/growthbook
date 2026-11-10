@@ -1,11 +1,8 @@
 import { useRouter } from "next/router";
 import { useEffect, useState } from "react";
-import { Box, Flex, IconButton } from "@radix-ui/themes";
-import { BsThreeDotsVertical } from "react-icons/bs";
+import { Box, Flex } from "@radix-ui/themes";
 import { PiCaretRightBold } from "react-icons/pi";
-import { FactTableInterface } from "shared/types/fact-table";
 import { hasStartDateFilter, usesBackslashStringEscapes } from "shared/sql";
-import { getFactMetricFactTableIds } from "shared/experiments";
 import { getDataSourceSqlDialect } from "shared/dialects";
 import Text from "@/ui/Text";
 import Link from "@/ui/Link";
@@ -15,14 +12,7 @@ import Badge from "@/ui/Badge";
 import Frame from "@/ui/Frame";
 import Heading from "@/ui/Heading";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
-import {
-  DropdownMenu,
-  DropdownMenuGroup,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-} from "@/ui/DropdownMenu";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
 import {
   getEventColumns,
@@ -30,22 +20,18 @@ import {
   getSqlSummaryTokens,
 } from "@/services/factTables";
 import { formatSql } from "@/services/sqlFormatter";
-import useApi from "@/hooks/useApi";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import useColumnValueCounts from "@/hooks/useColumnValueCounts";
-import LoadingOverlay from "@/components/LoadingOverlay";
+import useFactTableActions from "@/hooks/useFactTableActions";
+import { FactTablePageData } from "@/hooks/useFactTableDetailsPage";
 import PageHead from "@/components/Layout/PageHead";
 import Markdown from "@/components/Markdown/Markdown";
 import Code from "@/components/SyntaxHighlighting/Code";
-import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
-import HistoryTable from "@/components/HistoryTable";
-import OfficialResourceModal from "@/components/OfficialResourceModal";
 import { OfficialBadge } from "@/components/Metrics/MetricName";
 import { usesEventName } from "@/components/Metrics/MetricForm";
 import { DocLink } from "@/components/DocLink";
 import OpenInExplorerButton from "@/enterprise/components/ProductAnalytics/OpenInExplorerButton";
 import FactTableDetailsModal from "./FactTableDetailsModal";
-import NewFactTableModal from "./NewFactTableModal";
 import FactTableColumnsTab from "./FactTableColumnsTab";
 import FactTableFiltersTab from "./FactTableFiltersTab";
 import FactTableMetricsTab from "./FactTableMetricsTab";
@@ -88,55 +74,21 @@ function TabLabel({ label, count }: { label: string; count?: number }) {
   );
 }
 
-export default function FactTableDetailsPage() {
-  const router = useRouter();
-  const { ftid } = router.query;
-
+export default function FactTableDetailsPage({
+  page,
+}: {
+  page: FactTablePageData;
+}) {
+  const { factTable, metrics, datasource, canEdit, canOpenInExplorer } = page;
+  const actions = useFactTableActions(page);
   const [editOpen, setEditOpen] = useState(false);
-  const [settingsOpen, setSettingsOpen] = useState(false);
-  const [editSQLOpen, setEditSQLOpen] = useState(false);
   const [showSql, setShowSql] = useState(false);
-  const [showConvertToOfficialModal, setShowConvertToOfficialModal] =
-    useState(false);
-  const [dropdownOpen, setDropdownOpen] = useState(false);
-  const [auditModal, setAuditModal] = useState(false);
-  const [duplicateFactTable, setDuplicateFactTable] = useState<
-    FactTableInterface | undefined
-  >();
 
-  const { apiCall } = useAuth();
   const permissionsUtil = usePermissionsUtil();
-  const { hasCommercialFeature, getOwnerDisplay } = useUser();
-  const {
-    getFactTableById,
-    ready,
-    mutateDefinitions,
-    getProjectById,
-    projects,
-    _factMetricsIncludingArchived: factMetrics,
-    getDatasourceById,
-  } = useDefinitions();
+  const { getOwnerDisplay } = useUser();
+  const { getProjectById, projects } = useDefinitions();
 
-  // Definitions only contain a slimmed fact table (no sql or per-column
-  // jsonFields), so fetch the full version for this page
-  const factTableDefinition = getFactTableById(ftid as string);
-  const {
-    data,
-    error: factTableError,
-    mutate: mutateFactTable,
-  } = useApi<{ factTable: FactTableInterface }>(`/fact-tables/${ftid}`, {
-    shouldRun: () => !!ftid,
-  });
-  const factTable = data?.factTable;
-
-  // Child modals refresh definitions after saving; cascade that to the full
-  // fact table fetch. Keyed off the whole definition because background column
-  // refreshes update columns without bumping dateUpdated.
-  useEffect(() => {
-    mutateFactTable();
-  }, [factTableDefinition, mutateFactTable]);
-
-  const valueCounts = useColumnValueCounts(factTable?.id || "");
+  const valueCounts = useColumnValueCounts(factTable.id);
   const [tab, setTab] = useState<string | null>(null);
   // Set by an event's "+N more" link; narrows the Metrics tab to that event
   const [metricsEvent, setMetricsEvent] = useState<{
@@ -147,49 +99,18 @@ export default function FactTableDetailsPage() {
   const [highlightMetric, setHighlightMetric] = useState<string | null>(null);
 
   // `?filter=<id>` links to one Saved Filter, which that tab highlights
+  const router = useRouter();
   const linkedFilter = router.query.filter;
   useEffect(() => {
     if (typeof linkedFilter === "string") setTab("filters");
   }, [linkedFilter]);
 
-  if (!ready || (!data && !factTableError)) return <LoadingOverlay />;
-
-  if (!factTable) {
-    return (
-      <Callout status="error">
-        Could not find the requested Fact Table.{" "}
-        <Link href="/fact-tables">Back to all Fact Tables</Link>
-      </Callout>
-    );
-  }
-
-  const metrics = factMetrics.filter((m) =>
-    getFactMetricFactTableIds(m).includes(factTable.id),
-  );
   const eventColumns = getEventColumns(factTable);
-  const datasource = getDatasourceById(factTable.datasource);
   const dialect = datasource ? getDataSourceSqlDialect(datasource.type) : null;
-  const canOpenInExplorer = datasource
-    ? permissionsUtil.canRunFactQueries(datasource)
-    : false;
-  const canDuplicate = permissionsUtil.canCreateFactTable({
-    projects: factTable.projects,
-  });
-  let canEdit = permissionsUtil.canUpdateFactTable(factTable, factTable);
-  let canDelete = permissionsUtil.canDeleteFactTable(factTable);
-  if (factTable.managedBy && ["api", "config"].includes(factTable.managedBy)) {
-    canEdit = false;
-    canDelete = false;
-  }
-  // Editing columns is less restrictive than editing the whole fact table.
-  // The top-values endpoint behind row counts checks the same permission.
-  const canEditColumns = permissionsUtil.canUpdateFactTable(factTable, {
-    columns: [],
-  });
-  const canLoadCounts = canEditColumns && canOpenInExplorer;
+  // The top-values endpoint behind row counts checks the column permission
+  const canLoadCounts = page.canEditColumns && canOpenInExplorer;
 
   const numColumns = factTable.columns.filter((c) => !c.deleted).length;
-  const closeMenu = () => setDropdownOpen(false);
 
   return (
     <div className={`pagecontents container-fluid ${styles.page}`}>
@@ -199,52 +120,7 @@ export default function FactTableDetailsPage() {
           factTable={factTable}
         />
       )}
-      {settingsOpen && (
-        <NewFactTableModal
-          close={() => setSettingsOpen(false)}
-          existing={factTable}
-        />
-      )}
-      {duplicateFactTable && (
-        <NewFactTableModal
-          close={() => setDuplicateFactTable(undefined)}
-          existing={duplicateFactTable}
-          duplicate
-        />
-      )}
-      {editSQLOpen && (
-        <NewFactTableModal
-          close={() => setEditSQLOpen(false)}
-          existing={factTable}
-          editSql
-        />
-      )}
-      {showConvertToOfficialModal && (
-        <OfficialResourceModal
-          close={() => setShowConvertToOfficialModal(false)}
-          resourceType="Fact Table"
-          onSubmit={async () => {
-            await apiCall(`/fact-tables/${factTable.id}`, {
-              method: "PUT",
-              body: JSON.stringify({ managedBy: "admin" }),
-            });
-            await mutateDefinitions();
-          }}
-          source="fact-table-page"
-        />
-      )}
-      {auditModal && (
-        <ModalStandard
-          trackingEventModalType=""
-          open={true}
-          header="Audit Log"
-          close={() => setAuditModal(false)}
-          size="lg"
-          closeCta="Close"
-        >
-          <HistoryTable type="factTable" id={factTable.id} />
-        </ModalStandard>
-      )}
+      {actions.modals}
       <PageHead
         breadcrumb={[
           { display: "Fact Tables", href: "/fact-tables" },
@@ -278,127 +154,7 @@ export default function FactTableDetailsPage() {
               tooltip="Open this Fact Table in the Product Analytics Explorer and view trends, compare time periods, and slice/dice your data."
             />
           )}
-          <DropdownMenu
-            trigger={
-              <IconButton
-                variant="ghost"
-                color="gray"
-                radius="full"
-                size="2"
-                highContrast
-                aria-label="More actions"
-              >
-                <BsThreeDotsVertical size={16} />
-              </IconButton>
-            }
-            open={dropdownOpen}
-            onOpenChange={setDropdownOpen}
-            menuPlacement="end"
-          >
-            <DropdownMenuGroup>
-              {canEdit && (
-                <DropdownMenuItem
-                  onClick={() => {
-                    setEditSQLOpen(true);
-                    closeMenu();
-                  }}
-                >
-                  Edit SQL
-                </DropdownMenuItem>
-              )}
-              {canEdit && (
-                <DropdownMenuItem
-                  onClick={() => {
-                    setSettingsOpen(true);
-                    closeMenu();
-                  }}
-                >
-                  Edit settings
-                </DropdownMenuItem>
-              )}
-              {!factTable.managedBy &&
-                canEdit &&
-                permissionsUtil.canCreateOfficialResources(factTable) &&
-                hasCommercialFeature("manage-official-resources") && (
-                  <DropdownMenuItem
-                    onClick={() => {
-                      setShowConvertToOfficialModal(true);
-                      closeMenu();
-                    }}
-                  >
-                    Convert to Official Fact Table
-                  </DropdownMenuItem>
-                )}
-              {canDuplicate && (
-                <DropdownMenuItem
-                  onClick={() => {
-                    setDuplicateFactTable({
-                      ...factTable,
-                      name: `${factTable.name} (Copy)`,
-                      managedBy:
-                        factTable.managedBy === "admin" &&
-                        permissionsUtil.canCreateOfficialResources(factTable)
-                          ? "admin"
-                          : "",
-                    });
-                    closeMenu();
-                  }}
-                >
-                  Duplicate
-                </DropdownMenuItem>
-              )}
-              <DropdownMenuItem
-                onClick={() => {
-                  setAuditModal(true);
-                  closeMenu();
-                }}
-              >
-                Audit log
-              </DropdownMenuItem>
-            </DropdownMenuGroup>
-            {canEdit || canDelete ? (
-              <>
-                <DropdownMenuSeparator />
-                <DropdownMenuGroup>
-                  {canEdit && (
-                    <DropdownMenuItem
-                      onClick={async () => {
-                        await apiCall(
-                          `/fact-tables/${factTable.id}/${
-                            factTable.archived ? "unarchive" : "archive"
-                          }`,
-                          { method: "POST" },
-                        );
-                        mutateDefinitions();
-                        closeMenu();
-                      }}
-                    >
-                      {factTable.archived ? "Unarchive" : "Archive"}
-                    </DropdownMenuItem>
-                  )}
-                  {canDelete && (
-                    <DropdownMenuItem
-                      color="red"
-                      confirmation={{
-                        confirmationTitle: "Delete Fact Table",
-                        cta: "Delete",
-                        submit: async () => {
-                          await apiCall(`/fact-tables/${factTable.id}`, {
-                            method: "DELETE",
-                          });
-                          mutateDefinitions();
-                          router.push("/fact-tables");
-                        },
-                        closeDropdown: closeMenu,
-                      }}
-                    >
-                      Delete
-                    </DropdownMenuItem>
-                  )}
-                </DropdownMenuGroup>
-              </>
-            ) : null}
-          </DropdownMenu>
+          {actions.menu}
         </Flex>
       </Flex>
 
@@ -467,7 +223,7 @@ export default function FactTableDetailsPage() {
               variant="outline"
               size="sm"
               style={{ flexShrink: 0, whiteSpace: "nowrap" }}
-              onClick={() => setEditSQLOpen(true)}
+              onClick={actions.openEditSql}
             >
               Edit SQL
             </Button>
@@ -572,7 +328,7 @@ export default function FactTableDetailsPage() {
           <TabsContent value="columns">
             <FactTableColumnsTab
               factTable={factTable}
-              canEdit={canEditColumns}
+              canEdit={page.canEditColumns}
               canLoadCounts={canLoadCounts}
               valueCounts={valueCounts}
             />
