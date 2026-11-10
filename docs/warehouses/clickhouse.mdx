@@ -1,6 +1,6 @@
 ---
 title: Setting Up ClickHouse as a Data Source
-description: Connect ClickHouse to GrowthBook with a connection URL, database, and a read-only user. Allowlist the Cloud IP if needed.
+description: Connect ClickHouse to GrowthBook with a connection URL, database, and a read-only user, with optional SSL and client certificates. Allowlist the Cloud IP if needed.
 sidebarTitle: ClickHouse
 ---
 
@@ -16,3 +16,18 @@ are using something like Clickhouse Cloud, you can find the connection string in
 If you are making connection credentials just for GrowthBook, you can give it read-only access to the database.
 
 <CloudEgressIP />
+
+## SSL and client certificates
+
+Enable **Require SSL** to connect over HTTPS. A URL without a scheme defaults to `https://`, and an `http://` URL is rejected.
+
+- **CA certificate**: paste a CA bundle to verify a server with a private or self-signed certificate. Leave it empty to use the default trusted CAs.
+- **Client certificate and key**: paste both to use [SSL certificate authentication](https://clickhouse.com/docs/concepts/features/security/ssl-user-auth). GrowthBook sends the username and certificate but not the password. If the certificate is signed by an intermediate CA, paste the leaf followed by its intermediates.
+
+Stored certificates are never shown again. To remove one, click **Remove stored value** under its field and save.
+
+The ClickHouse user must accept the certificate's common name, for example:
+
+```sql
+CREATE USER growthbook IDENTIFIED WITH ssl_certificate CN 'growthbook.example.com';
+```

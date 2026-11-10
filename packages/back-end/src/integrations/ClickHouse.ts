@@ -1,5 +1,6 @@
 import { subDays } from "date-fns";
 import {
+  ClickHouseClientConfigOptions,
   ClickHouseError,
   ClickHouseLogLevel,
   createClient,
@@ -64,6 +65,48 @@ function normalizeManagedWarehouseDatetimes(
   }
 }
 
+// @clickhouse/client only applies `tls` to https URLs, so a scheme-less URL
+// defaults to https when SSL is required.
+export function getClickHouseUrl(
+  params: Pick<ClickHouseConnectionParams, "url" | "port" | "ssl">,
+): string | undefined {
+  const url =
+    params.ssl && params.url && !/^https?:\/\//i.test(params.url)
+      ? `https://${params.url}`
+      : params.url;
+  const host = getHost(url, params.port);
+  if (params.ssl && host?.startsWith("http://")) {
+    throw new Error(
+      "SSL is required, but the ClickHouse URL uses http://. Use an https:// URL instead.",
+    );
+  }
+  return host;
+}
+
+export function getClickHouseTLSOptions(
+  params: Pick<
+    ClickHouseConnectionParams,
+    "ssl" | "caCert" | "clientCert" | "clientKey"
+  >,
+): ClickHouseClientConfigOptions["tls"] {
+  if (!params.ssl) return undefined;
+
+  const { caCert, clientCert, clientKey } = params;
+  if (!!clientCert !== !!clientKey) {
+    throw new Error("Client cert and client key must be provided together.");
+  }
+  const ca = caCert ? { ca_cert: Buffer.from(caCert) } : undefined;
+  if (clientCert && clientKey) {
+    // The client's type requires ca_cert, but without one Node falls back to its default CAs
+    return {
+      ...ca,
+      cert: Buffer.from(clientCert),
+      key: Buffer.from(clientKey),
+    } as ClickHouseClientConfigOptions["tls"];
+  }
+  return ca;
+}
+
 export default class ClickHouse extends SqlIntegration {
   params!: ClickHouseConnectionParams;
   requiresDatabase = false;
@@ -104,10 +147,13 @@ export default class ClickHouse extends SqlIntegration {
     ) {
       throw new ManagedWarehousePendingError();
     }
+    const tls = getClickHouseTLSOptions(this.params);
     const client = createClient({
-      url: getHost(this.params.url, this.params.port),
+      url: getClickHouseUrl(this.params),
+      ...(tls ? { tls } : {}),
       username: this.params.username,
-      password: this.params.password,
+      // ClickHouse rejects a password sent alongside certificate auth
+      password: tls && "cert" in tls ? undefined : this.params.password,
       database: this.params.database,
       application: "GrowthBook",
       request_timeout: 3620_000,
