@@ -12,9 +12,9 @@ import {
   servedDot,
   StepStatus,
   holdoutTrafficStep,
-  resolveRuleValue,
   ruleProjectReach,
   ruleTrafficStep,
+  sdkValueText,
   TrafficStep,
 } from "@/services/environmentStatus";
 
@@ -475,70 +475,15 @@ describe("getEnvironmentStatus", () => {
   });
 });
 
-describe("resolveRuleValue", () => {
-  const json = { valueType: "json" as const, defaultValue: '{"a": 1, "b": 2}' };
-  it.each([
-    [
-      "merges a sparse patch onto the default",
-      '{"b": 3}',
-      true,
-      '{"a":1,"b":3}',
-    ],
-    ["respaces JSON", '{ "b" : 3 }', false, '{"b":3}'],
-    ["serves invalid JSON as null", "{bad", false, "null"],
-  ])("%s", (_, value, sparse, expected) => {
-    expect(resolveRuleValue(json, value, sparse)).toBe(expected);
-  });
-
-  // Stands in for the payload's resolver: `@const:x` and its template.
-  const resolveRefs = (v: unknown): unknown =>
-    typeof v === "string"
-      ? v.replace("{{ @const:x }}", "hello")
-      : v && typeof v === "object" && "$extends" in v
-        ? { x: 1, ...Object.fromEntries(Object.entries(v).slice(1)) }
-        : v;
-
-  it.each([
-    [
-      "interpolates a string's constants",
-      { valueType: "string" as const, defaultValue: "" },
-      "{{ @const:x }} there",
-      false,
-      "hello there",
-    ],
-    [
-      "resolves a JSON value's constants",
-      json,
-      '{"$extends": ["@const:x"], "y": 2}',
-      false,
-      '{"x":1,"y":2}',
-    ],
-    [
-      "spreads a sparse patch over the resolved default",
-      {
-        valueType: "json" as const,
-        defaultValue: '{"$extends": ["@const:x"]}',
-      },
-      '{"y": 2}',
-      true,
-      '{"x":1,"y":2}',
-    ],
-  ])("%s", (_, feature, value, sparse, expected) => {
-    expect(resolveRuleValue(feature, value, sparse, resolveRefs)).toBe(
-      expected,
-    );
-  });
-
+describe("sdkValueText", () => {
   it.each([
     ["string", " y ", " y "],
-    ["number", "1.0", "1"],
-    ["number", "abc", "0"],
-    ["boolean", "yes", "true"],
-    ["boolean", "false", "false"],
-  ] as const)("serves a %s %j as %j", (valueType, value, expected) => {
-    expect(resolveRuleValue({ valueType, defaultValue: "" }, value)).toBe(
-      expected,
-    );
+    ["number", 1, "1"],
+    ["boolean", false, "false"],
+    ["json", { a: 1, b: [2] }, '{"a":1,"b":[2]}'],
+    ["json", null, "null"],
+  ] as const)("shows a served %s %j as %j", (valueType, served, text) => {
+    expect(sdkValueText(valueType, served)).toBe(text);
   });
 });
 

@@ -9,11 +9,8 @@ import {
   ReverseDependencyIndex,
   buildExperimentDependencyIndex,
   buildReverseDependencyIndex,
-  deepMergePatch,
-  ensureConfigBacking,
   filterEnvironmentsByFeature,
   getApplicableEnvIds,
-  getFeatureBaseConfigKey,
   getNamespaceHashAttribute,
   getNamespaceRanges,
   getRulesForEnvironment,
@@ -22,13 +19,12 @@ import {
   isDefined,
   isMultiRangeNamespaceFormat,
   namespacesToMap,
-  parsePlainJSONObject,
   recursiveWalk,
   ruleFootprint,
   ruleProjectScope,
   ruleServedToConnection,
   stemRuleId,
-  stripConfigExtends,
+  sdkValueResolver,
 } from "shared/util";
 import {
   getActiveVariations,
@@ -1124,77 +1120,12 @@ export function getFeatureDefinition({
         )
       : val;
 
-  // Config-backing is authoritative via `baseConfig`. For a config-backed
-  // feature, every rule/variation value implicitly serves the base config: if a
-  // value doesn't reference its own (family) config, we prepend the feature's so
-  // resolution flattens the base underneath it. For a NON-config feature, a
-  // value must not carry `@config:` at all — strip any stray ref so it can never
-  // resolve a config (`@const:` refs are kept).
-  const defaultConfigKey = getFeatureBaseConfigKey({
+  const { configBacked, serve: valueForSDK } = sdkValueResolver({
     valueType: feature.valueType,
     baseConfig: feature.baseConfig,
+    defaultValue,
+    resolveRefs: constantMap ? resolveRefs : undefined,
   });
-
-  const jsonDefaultObj = (() => {
-    if (feature.valueType !== "json") return null;
-    // Inject the base config so the resolved default — the sparse merge base for
-    // rules — includes the config layer even when the stored default is a pure
-    // patch (no-op when the default already references its own config). Non-config
-    // features strip any stray `@config:`.
-    const backed = defaultConfigKey
-      ? ensureConfigBacking(defaultValue, defaultConfigKey)
-      : (stripConfigExtends(defaultValue) ?? defaultValue);
-    const base = parsePlainJSONObject(backed);
-    if (!base || !constantMap) return base;
-    const resolved = resolveRefs(base);
-    return resolved !== null &&
-      typeof resolved === "object" &&
-      !Array.isArray(resolved)
-      ? (resolved as Record<string, unknown>)
-      : base;
-  })();
-
-  const valueForSDK = (valueStr: string, sparse?: boolean): unknown => {
-    // Non-object values (array/scalar/string) have replace semantics — ship
-    // them as-is rather than prepending a config base they'd never merge with.
-    const normalized = defaultConfigKey
-      ? valueStr.trim() === "" || parsePlainJSONObject(valueStr) !== null
-        ? ensureConfigBacking(valueStr, defaultConfigKey)
-        : valueStr
-      : // Non-config feature: drop any stray `@config:` so it can't resolve a
-        // config (keeps `@const:` refs).
-        (stripConfigExtends(valueStr) ?? valueStr);
-    if (sparse && jsonDefaultObj) {
-      const patch = parsePlainJSONObject(normalized);
-      if (patch !== null) {
-        // Resolve the patch's constants BEFORE merging so the rule's fields are
-        // spread last and win over the (already-resolved) default — i.e. sparse
-        // fields are "further down". A config-backed rule keeps its own
-        // `$extends` here so it resolves against the config it references (which
-        // may be a descendant it was re-pointed to) — this matches the value the
-        // config-backing editor previews. Non-object resolutions (e.g. a
-        // whole-value JSON constant that resolves to an array) replace outright.
-        const resolvedPatch = resolveRefs(patch);
-        if (
-          resolvedPatch !== null &&
-          typeof resolvedPatch === "object" &&
-          !Array.isArray(resolvedPatch)
-        ) {
-          // Config-backed features get a deep (targeted) sparse patch so a rule
-          // restates only the leaves it changes; plain JSON features keep the
-          // top-level spread. `$extends`-composed chunks stay atomic.
-          return defaultConfigKey
-            ? deepMergePatch(jsonDefaultObj, resolvedPatch)
-            : {
-                ...jsonDefaultObj,
-                ...(resolvedPatch as Record<string, unknown>),
-              };
-        }
-        return resolvedPatch;
-      }
-    }
-    return resolveRefs(getJSONValue(feature.valueType, normalized));
-  };
 
   // Rule source: revision's unified array (draft/published) > feature's (live).
   // Legacy `settings.rules` is test-only — production reads flow through
@@ -1423,14 +1354,14 @@ export function getFeatureDefinition({
             // of the stored flag — a rule retro-fitted onto config-backing may
             // still carry sparse=false. Matches the CB-ref / inline-experiment
             // arms below. Non-config features keep their independent sparse.
-            const armSparse = r.sparse || !!defaultConfigKey;
+            const armSparse = r.sparse || configBacked;
 
             // If a variation has been rolled out to 100%
             rule.force = valueForSDK(variation.value, armSparse);
           }
           // Running experiment
           else {
-            const armSparse = r.sparse || !!defaultConfigKey;
+            const armSparse = r.sparse || configBacked;
             rule.variations = getLatestPhaseVariations(exp).map((v) => {
               const variation = r.variations?.find(
                 (ruleVariation) => v.id === ruleVariation.variationId,
@@ -1548,7 +1479,7 @@ export function getFeatureDefinition({
             // the experiment-ref (MAB) twin above, so they must resolve the same
             // way: sparse when config-backed, a full value otherwise.
             return variation
-              ? valueForSDK(variation.value, !!defaultConfigKey)
+              ? valueForSDK(variation.value, configBacked)
               : null;
           });
           rule.weights = cb.variationWeights
@@ -1625,13 +1556,13 @@ export function getFeatureDefinition({
         }
 
         if (r.type === "force") {
-          rule.force = valueForSDK(r.value, r.sparse || !!defaultConfigKey);
+          rule.force = valueForSDK(r.value, r.sparse || configBacked);
         } else if (r.type === "experiment") {
           // Inline experiment values have no `sparse` flag, but config-backed arms
           // are authored as sparse patches (like the experiment-ref twins), so a
           // bare resolve would drop the base config. Resolve sparse when backed.
           rule.variations = r.values.map((v) =>
-            valueForSDK(v.value, !!defaultConfigKey),
+            valueForSDK(v.value, configBacked),
           );
 
           rule.coverage = r.coverage;
@@ -1688,7 +1619,7 @@ export function getFeatureDefinition({
               : feature.defaultValue;
 
             rule.variations = [
-              valueForSDK(r.value, r.sparse || !!defaultConfigKey),
+              valueForSDK(r.value, r.sparse || configBacked),
               // valueForSDK (not a bare resolve): a config-backed default is a pure
               // config (`{}` for the base), so a bare resolve would serve an empty
               // object to the control arm instead of the config's value.
@@ -1742,7 +1673,7 @@ export function getFeatureDefinition({
                 "Monitored ramp rule missing hashAttribute — falling back to force rollout payload",
               );
             }
-            rule.force = valueForSDK(r.value, r.sparse || !!defaultConfigKey);
+            rule.force = valueForSDK(r.value, r.sparse || configBacked);
             const clampedCoverage =
               coverage > 1 ? 1 : coverage < 0 ? 0 : coverage;
             if (clampedCoverage < 1) {

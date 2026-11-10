@@ -10,12 +10,10 @@ import {
   evalDeterministicPrereqValue,
   filterEnvironmentsByFeature,
   getMalformedPrereqConditionError,
-  deepMergePatch,
-  getConfigBackingKey,
   getFeatureBaseConfigKey,
-  parsePlainJSONObject,
   getReviewSetting,
   getTargetingProjectIds,
+  sdkValueResolver,
 } from "shared/util";
 import { isRevisionEditLockedBySchedule } from "shared/enterprise";
 import { canOfferEnvironmentToggle } from "shared/permissions";
@@ -56,15 +54,12 @@ import {
   getEnvironmentStatus,
   holdoutTrafficStep,
   PrerequisiteResult,
-  resolveRuleValue,
   ruleProjectReach,
+  sdkValueText,
   ruleTrafficStep,
   TrafficStep,
 } from "@/services/environmentStatus";
-import {
-  ResolvableInput,
-  resolveConfigBackedValue,
-} from "@/services/configBackedValue";
+import { ResolvableInput } from "@/services/configBackedValue";
 import useApi from "@/hooks/useApi";
 import { useContextualBandits } from "@/hooks/useContextualBandits";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
@@ -586,7 +581,6 @@ export default function FeaturesOverviewNew({
     env: string,
     { sparse = false, arm = false } = {},
   ): string => {
-    const configKey = getFeatureBaseConfigKey(f);
     const { inputs } = constants;
     // Built once per environment, as the payload builds it.
     const mapFor = (resolvables: ResolvableInput[]) => {
@@ -597,36 +591,27 @@ export default function FeaturesOverviewNew({
       }
       return map;
     };
-    if (
-      configKey !== null &&
-      inputs &&
-      (value.trim() === "" || parsePlainJSONObject(value) !== null)
-    ) {
-      const resolve = (v: string) =>
-        resolveConfigBackedValue({
-          inputs,
-          configKey: getConfigBackingKey(v) ?? configKey,
-          value: v,
-          project: f.project || "",
-          environment: env,
-          map: mapFor(inputs),
-        });
-      const resolved = resolve(value);
-      return JSON.stringify(
-        arm ? deepMergePatch(resolve(f.defaultValue), resolved) : resolved,
-      );
-    }
-    if (!inputs) return resolveRuleValue(f, value, sparse);
-    const constantMap = mapFor(inputs);
-    return resolveRuleValue(f, value, sparse, (v) =>
-      resolveConstantRefs(
-        v,
-        constantMap,
-        undefined,
-        undefined,
-        f.project || "",
-        env,
-      ),
+    const resolver = sdkValueResolver({
+      valueType: f.valueType,
+      baseConfig: f.baseConfig,
+      defaultValue: f.defaultValue,
+      resolveRefs: inputs
+        ? (v) =>
+            resolveConstantRefs(
+              v,
+              mapFor(inputs),
+              undefined,
+              undefined,
+              f.project || "",
+              env,
+            )
+        : undefined,
+    });
+    // As the payload decides it: a rule's value is a patch when the rule says
+    // so or the flag is config-backed; a safe rollout's or holdout's never is.
+    return sdkValueText(
+      f.valueType,
+      resolver.serve(value, arm && (sparse || resolver.configBacked)),
     );
   };
   // The holdout's control group, then the live rules.

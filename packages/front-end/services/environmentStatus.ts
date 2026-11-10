@@ -1,8 +1,4 @@
-import {
-  FeatureInterface,
-  FeatureRule,
-  FeatureValueType,
-} from "shared/types/feature";
+import { FeatureRule, FeatureValueType } from "shared/types/feature";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import {
   HoldoutInterface,
@@ -13,12 +9,7 @@ import {
   getLatestPhaseVariations,
   hasTargetingConfigured,
 } from "shared/experiments";
-import {
-  getNamespaceRanges,
-  parsePlainJSONObject,
-  ruleProjectScope,
-  stripConfigExtends,
-} from "shared/util";
+import { getNamespaceRanges, ruleProjectScope } from "shared/util";
 
 // A prerequisite's outcome in one environment.
 export type PrerequisiteResult = "met" | "unmet" | "varies" | "cycle";
@@ -132,47 +123,14 @@ const stepOf = (
   href: string | null = null,
 ): TrafficStep => ({ kind: "rule", label, name, href, traffic });
 
-// A value as the SDK receives it, so equal values compare equal: JSON as one
-// string however it was spaced, constant references resolved, and a sparse
-// rule's patch spread over the resolved default.
-export function resolveRuleValue(
-  feature: Pick<FeatureInterface, "valueType" | "defaultValue">,
-  value: string,
-  sparse = false,
-  // Resolves `@const:` references, as the payload does.
-  resolveRefs: (value: unknown) => unknown = (v) => v,
+// A served value as the cards compare and show it, so equal values compare
+// equal: a string as itself, anything else as its JSON on one line.
+export function sdkValueText(
+  valueType: FeatureValueType,
+  served: unknown,
 ): string {
-  if (feature.valueType === "number") return String(parseFloat(value) || 0);
-  if (feature.valueType === "boolean") {
-    return value === "false" ? "false" : "true";
-  }
-  if (feature.valueType === "string") {
-    const resolved = resolveRefs(value);
-    return typeof resolved === "string" ? resolved : value;
-  }
-  // A flag that isn't config-backed never resolves a config.
-  const plain = (v: string) => stripConfigExtends(v) ?? v;
-  const asObject = (v: unknown) =>
-    v !== null && typeof v === "object" && !Array.isArray(v)
-      ? (v as Record<string, unknown>)
-      : null;
-  const defaultObject = parsePlainJSONObject(plain(feature.defaultValue));
-  const patch = sparse ? parsePlainJSONObject(plain(value)) : null;
-  if (defaultObject && patch) {
-    const resolvedPatch = resolveRefs(patch);
-    const patchObject = asObject(resolvedPatch);
-    return JSON.stringify(
-      patchObject
-        ? { ...(asObject(resolveRefs(defaultObject)) ?? {}), ...patchObject }
-        : resolvedPatch,
-    );
-  }
-  try {
-    return JSON.stringify(resolveRefs(JSON.parse(plain(value))));
-  } catch {
-    // Invalid JSON reaches the SDK as null.
-    return "null";
-  }
+  if (valueType === "string" && typeof served === "string") return served;
+  return JSON.stringify(served ?? null);
 }
 
 // How a rule splits the traffic that reaches it.
