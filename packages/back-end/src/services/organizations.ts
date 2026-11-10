@@ -3,7 +3,7 @@ import { z } from "zod";
 import { freeEmailDomains } from "free-email-domains-typescript";
 import { cloneDeep, omitBy } from "lodash";
 import { Request } from "express";
-import { PermissionError } from "shared/util";
+import { PermissionError, secretParamKeys } from "shared/util";
 import {
   areAdditionalRolesValid,
   areProjectRolesValid,
@@ -1521,9 +1521,10 @@ export async function importConfig(
             if (ds.params) {
               const integration = getSourceIntegrationObject(context, existing);
               // A blank YAML value parses as null, which would remove a stored secret
+              const secrets = secretParamKeys(existing.type);
               mergeParams(
                 integration,
-                omitBy(ds.params, (v) => v === null),
+                omitBy(ds.params, (v, k) => v === null && secrets.includes(k)),
               );
               await integration.testConnection();
               params = encryptParams(integration.params);
