@@ -39,6 +39,15 @@ function formatPct(value: number | null): string {
   return `${(value * 100).toFixed(1)}%`;
 }
 
+// Share of step-1 users who reached `stepIdx`; null when step 1 is empty.
+function fromStartRate(
+  s: FunnelChartSeries | undefined,
+  stepIdx: number,
+): number | null {
+  const first = s?.counts[0] ?? 0;
+  return first > 0 ? (s?.counts[stepIdx] ?? 0) / first : null;
+}
+
 export interface FunnelChartSeries {
   /** Stable identity for legend toggling. */
   key: string;
@@ -126,7 +135,6 @@ export default function FunnelStepsChart({
           rawCount: count,
           stepIdx,
           seriesIdx: idx,
-          axis,
         })),
         type: "bar" as const,
         stack: stackKey,
@@ -178,14 +186,12 @@ export default function FunnelStepsChart({
         interval: 0,
         overflow: "truncate" as const,
         width: 120,
-        ...(comparison && series.length === 1
+        ...(showLabels && comparison && series.length === 1
           ? {
               // Single funnel: conversion change (from start) under each step.
               formatter: (label: string, stepIdx: number) => {
-                const pct = (s: FunnelChartSeries | undefined) =>
-                  s?.counts[0] ? (s.counts[stepIdx] ?? 0) / s.counts[0] : null;
-                const cur = pct(series[0]);
-                const prev = pct(comparison.series[0]);
+                const cur = fromStartRate(series[0], stepIdx);
+                const prev = fromStartRate(comparison.series[0], stepIdx);
                 if (stepIdx === 0 || cur === null || prev === null) {
                   return label;
                 }
@@ -286,7 +292,6 @@ export default function FunnelStepsChart({
               stepIdx?: number;
               seriesIdx?: number;
               rawCount?: number;
-              axis?: number;
             };
           }[];
           // Drop-off ghost bars share the axis-trigger but shouldn't
@@ -309,11 +314,10 @@ export default function FunnelStepsChart({
           const numCell = "padding:3px 0 3px 8px;text-align:right";
           const stats = (s: FunnelChartSeries | undefined) => {
             const count = s?.counts[stepIdx] ?? 0;
-            const first = s?.counts[0] ?? 0;
             const prev = stepIdx > 0 ? (s?.counts[stepIdx - 1] ?? 0) : 0;
             return {
               count,
-              fromStart: first > 0 ? count / first : null,
+              fromStart: fromStartRate(s, stepIdx),
               fromPrev: prev > 0 ? count / prev : null,
               avgMs: s?.avgTimes[stepIdx] ?? null,
             };
@@ -326,20 +330,25 @@ export default function FunnelStepsChart({
               : `<span style="color:var(--${v >= 0 ? "green" : "red"}-11)">${v >= 0 ? "+" : ""}${(v * 100).toFixed(1)}${unit}</span>`;
           const diff = (a: number | null, b: number | null) =>
             a === null || b === null ? null : a - b;
+          // Hovering either compare row can bring points from one or both
+          // rows. Keep one point per series; the numbers come from the props.
+          const seen = new Set<number>();
           const rows = items
-            .filter((item) => item.data?.axis !== 1)
+            .filter((item) => {
+              const sIdx = item.data?.seriesIdx ?? 0;
+              if (seen.has(sIdx)) return false;
+              seen.add(sIdx);
+              return true;
+            })
             .map((item) => {
               const sIdx = item.data?.seriesIdx ?? 0;
               const cur = stats(series[sIdx]);
               if (!comparison) {
                 return row(`${item.marker}${item.seriesName}`, cur);
               }
-              // Rows: current, previous, then the change between them.
+              // Rows: current, previous, then the change between them. Both
+              // rows share the series color, so they share its marker too.
               const prev = stats(comparison.series[sIdx]);
-              const prevMarker =
-                items.find(
-                  (i) => i.data?.axis === 1 && i.data?.seriesIdx === sIdx,
-                )?.marker ?? "";
               const muted = (t: string) =>
                 `<span style="color:var(--gray-11)">${t}</span>`;
               return (
@@ -347,7 +356,7 @@ export default function FunnelStepsChart({
                   `${item.marker}${series.length > 1 ? item.seriesName : "Current"}`,
                   cur,
                 ) +
-                row(`${prevMarker}${muted("Previous")}`, prev) +
+                row(`${item.marker}${muted("Previous")}`, prev) +
                 `<tr><td style="${labelCell};color:var(--gray-11)">Change</td><td style="${numCell}">${signed(prev.count > 0 ? cur.count / prev.count - 1 : null, "%")}</td><td style="${numCell}">${stepIdx === 0 ? "—" : signed(diff(cur.fromStart, prev.fromStart), " pts")}</td><td style="${numCell}">${stepIdx === 0 ? "—" : signed(diff(cur.fromPrev, prev.fromPrev), " pts")}</td><td style="${numCell}"></td></tr>`
               );
             })
