@@ -622,16 +622,18 @@ function EventForwarderErrorMessage({ message }: { message: string }) {
       <Box
         ref={textRef}
         id={textId}
-        style={
-          expanded
+        style={{
+          // Long URLs/IDs have no spaces to wrap on.
+          overflowWrap: "anywhere",
+          ...(expanded
             ? { whiteSpace: "pre-wrap" }
             : {
                 display: "-webkit-box",
                 WebkitLineClamp: 1,
                 WebkitBoxOrient: "vertical",
                 overflow: "hidden",
-              }
-        }
+              }),
+        }}
       >
         {expanded ? message : firstLine}
       </Box>
