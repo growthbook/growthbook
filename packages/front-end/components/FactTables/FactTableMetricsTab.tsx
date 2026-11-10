@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef } from "react";
-import { Box, Flex } from "@radix-ui/themes";
+import { Flex } from "@radix-ui/themes";
 import { getAllMetricIdsFromExperiment } from "shared/experiments";
 import {
   ColumnInterface,
@@ -13,6 +13,13 @@ import useFactMetricFlow from "@/hooks/useFactMetricFlow";
 import { OfficialBadge } from "@/components/Metrics/MetricName";
 import FactMetricTypeDisplayName from "@/components/Metrics/FactMetricTypeDisplayName";
 import Link from "@/ui/Link";
+import Table, {
+  TableBody,
+  TableCell,
+  TableColumnHeader,
+  TableHeader,
+  TableRow,
+} from "@/ui/Table";
 import Text from "@/ui/Text";
 import columnStyles from "./FactTableDetailsPage.module.scss";
 
@@ -52,63 +59,64 @@ export default function FactTableMetricsTab({
   const visible = [...metrics].sort((a, b) => a.name.localeCompare(b.name));
 
   return (
-    <div className={columnStyles.frame}>
+    <Flex direction="column" gap="3">
       {factMetricFlow.modal}
-      <Flex justify="end" px="4" py="3">
+      <Flex justify="end">
         {factMetricFlow.createButton(
           { factTable: factTable.id },
           { children: "New metric", size: "sm", variant: "outline" },
         )}
       </Flex>
       {visible.length ? (
-        <table className={`table gbtable mb-0 ${columnStyles.detailsTable}`}>
-          <thead>
-            <tr>
-              <th>Name</th>
-              <th>Type</th>
-              {columns.length ? <th>Events</th> : null}
-              <th style={{ textAlign: "right" }}>Experiments</th>
-            </tr>
-          </thead>
-          <tbody>
+        <Table variant="list" roundedCorners>
+          <TableHeader>
+            <TableRow>
+              <TableColumnHeader>Name</TableColumnHeader>
+              <TableColumnHeader>Type</TableColumnHeader>
+              {columns.length ? (
+                <TableColumnHeader>Events</TableColumnHeader>
+              ) : null}
+              <TableColumnHeader justify="end">Experiments</TableColumnHeader>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {visible.map((m) => (
-              <tr
+              <TableRow
                 key={m.id}
+                align="center"
                 ref={m.id === highlightId ? highlightRef : undefined}
                 className={
                   m.id === highlightId ? columnStyles.highlightRow : undefined
                 }
               >
-                <td>
+                <TableCell>
                   <Link weight="bold" href={`/fact-metrics/${m.id}`}>
                     {m.name}
                   </Link>
                   <OfficialBadge type="metric" managedBy={m.managedBy} />
-                </td>
-                <td>
+                </TableCell>
+                <TableCell>
                   <FactMetricTypeDisplayName type={m.metricType} />
-                </td>
+                </TableCell>
                 {columns.length ? (
-                  <td>
+                  <TableCell>
                     <span className={columnStyles.mono}>
                       {getMetricEvents(m, factTable.id, columns).join(
                         m.metricType === "funnel" ? " → " : ", ",
                       )}
                     </span>
-                  </td>
+                  </TableCell>
                 ) : null}
-                <td style={{ textAlign: "right" }}>
+                <TableCell justify="end">
                   {experimentCounts.get(m.id) || 0}
-                </td>
-              </tr>
+                </TableCell>
+              </TableRow>
             ))}
-          </tbody>
-        </table>
+          </TableBody>
+        </Table>
       ) : (
-        <Box px="4" pb="3">
-          <Text color="text-mid">No metrics use this Fact Table yet.</Text>
-        </Box>
+        <Text color="text-mid">No metrics use this Fact Table yet.</Text>
       )}
-    </div>
+    </Flex>
   );
 }

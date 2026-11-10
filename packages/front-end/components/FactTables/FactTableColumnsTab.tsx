@@ -14,6 +14,13 @@ import Callout from "@/ui/Callout";
 import Badge from "@/ui/Badge";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
+import Table, {
+  TableBody,
+  TableCell,
+  TableColumnHeader,
+  TableHeader,
+  TableRow,
+} from "@/ui/Table";
 import { getColumnRole } from "@/services/columnEditModel";
 import EditColumnModal from "./EditColumnModal";
 import ColumnModal from "./ColumnModal";
@@ -141,7 +148,7 @@ export default function FactTableColumnsTab({
           factTable={factTable}
           columns={physical}
           toolbar={
-            <Flex justify="end" align="center" gap="3" px="4" py="3">
+            <Flex justify="end" align="center" gap="3">
               {refreshButton}
             </Flex>
           }
@@ -316,7 +323,7 @@ function ColumnsTable({
         : column.datatype,
   }));
 
-  const { items, SortableTH, pagination } = useSearch({
+  const { items, SortableTableColumnHeader, pagination } = useSearch({
     items: computed,
     defaultSortField: "dateCreated",
     localStorageKey: "factColumns",
@@ -335,19 +342,23 @@ function ColumnsTable({
           </span>
         </Callout>
       )}
-      <div className={styles.frame}>
+      <Flex direction="column" gap="3" mt="2">
         {toolbar}
-        <table className={`table gbtable mb-0 ${styles.detailsTable}`}>
-          <thead>
-            <tr>
-              <th style={{ width: 30 }}></th>
-              <SortableTH field="column">Column</SortableTH>
-              <SortableTH field="type">Type</SortableTH>
-              <th>Roles</th>
-              <th>Values</th>
-            </tr>
-          </thead>
-          <tbody>
+        <Table variant="list" roundedCorners>
+          <TableHeader>
+            <TableRow>
+              <TableColumnHeader style={{ width: 32 }} />
+              <SortableTableColumnHeader field="column">
+                Column
+              </SortableTableColumnHeader>
+              <SortableTableColumnHeader field="type">
+                Type
+              </SortableTableColumnHeader>
+              <TableColumnHeader>Roles</TableColumnHeader>
+              <TableColumnHeader>Values</TableColumnHeader>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {items.map((col) => {
               // JSON sub-fields are read-only, so they have no panel
               const expandable = !col.isJsonField;
@@ -355,11 +366,12 @@ function ColumnsTable({
               const toggle = () => setExpanded(isOpen ? null : col.column);
               return (
                 <Fragment key={col.column}>
-                  <tr
+                  <TableRow
+                    align="center"
                     onClick={expandable ? toggle : undefined}
                     style={expandable ? { cursor: "pointer" } : undefined}
                   >
-                    <td className={styles.iconCell}>
+                    <TableCell className={styles.iconCell}>
                       {expandable ? (
                         <IconButton
                           variant="ghost"
@@ -374,15 +386,17 @@ function ColumnsTable({
                           />
                         </IconButton>
                       ) : null}
-                    </td>
-                    <td>
+                    </TableCell>
+                    <TableCell>
                       {col.isJsonField ? (
-                        <span
-                          className={`text-muted ${styles.mono}`}
-                          style={{ paddingLeft: 16 }}
-                        >
-                          {col.column}
-                        </span>
+                        <Text color="text-mid">
+                          <span
+                            className={styles.mono}
+                            style={{ paddingLeft: 16 }}
+                          >
+                            {col.column}
+                          </span>
+                        </Text>
                       ) : (
                         <>
                           <span className={`${styles.mono} ${styles.name}`}>
@@ -391,19 +405,19 @@ function ColumnsTable({
                           {renderDetail(col)}
                         </>
                       )}
-                    </td>
-                    <td>
+                    </TableCell>
+                    <TableCell>
                       {col.datatype || "unknown"}{" "}
                       {col.datatype === "number" && col.numberFormat && (
                         <>({col.numberFormat})</>
                       )}
                       {col.datatype === "" && (
                         <Tooltip body="Unable to detect the data type. Edit this column to set one.">
-                          <FaTriangleExclamation className="text-danger" />
+                          <FaTriangleExclamation color="var(--red-9)" />
                         </Tooltip>
                       )}
-                    </td>
-                    <td>
+                    </TableCell>
+                    <TableCell>
                       <Flex gap="1" wrap="wrap">
                         {[
                           col.role === "identifier" && "Identifier",
@@ -421,22 +435,22 @@ function ColumnsTable({
                             />
                           ))}
                       </Flex>
-                    </td>
-                    <td>
+                    </TableCell>
+                    <TableCell>
                       {col.isJsonField ? null : <ColumnValues column={col} />}
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                   {isOpen ? (
-                    <tr>
-                      <td colSpan={5}>{renderExpanded(col)}</td>
-                    </tr>
+                    <TableRow>
+                      <TableCell colSpan={5}>{renderExpanded(col)}</TableCell>
+                    </TableRow>
                   ) : null}
                 </Fragment>
               );
             })}
-          </tbody>
-        </table>
-      </div>
+          </TableBody>
+        </Table>
+      </Flex>
       {pagination}
     </>
   );

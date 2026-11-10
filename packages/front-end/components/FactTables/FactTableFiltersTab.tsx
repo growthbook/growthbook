@@ -1,12 +1,19 @@
 import { FactTableInterface } from "shared/types/fact-table";
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/router";
-import { Box, Flex } from "@radix-ui/themes";
+import { Flex } from "@radix-ui/themes";
 import InlineCode from "@/components/SyntaxHighlighting/InlineCode";
 import { OfficialBadge } from "@/components/Metrics/MetricName";
 import useFactFilterEditor from "@/hooks/useFactFilterEditor";
 import Button from "@/ui/Button";
 import Link from "@/ui/Link";
+import Table, {
+  TableBody,
+  TableCell,
+  TableColumnHeader,
+  TableHeader,
+  TableRow,
+} from "@/ui/Table";
 import Text from "@/ui/Text";
 import styles from "./FactTableDetailsPage.module.scss";
 
@@ -40,9 +47,9 @@ export default function FactTableFiltersTab({
   );
 
   return (
-    <div className={styles.frame}>
+    <Flex direction="column" gap="3">
       {editor.modal}
-      <Flex justify="end" px="4" py="3">
+      <Flex justify="end">
         {editor.canCreate ? (
           <Button size="sm" variant="outline" onClick={editor.openNew}>
             New Saved Filter
@@ -50,28 +57,30 @@ export default function FactTableFiltersTab({
         ) : null}
       </Flex>
       {filters.length ? (
-        <table
-          className={`table gbtable mb-0 ${styles.detailsTable}`}
+        <Table
+          variant="list"
+          roundedCorners
           onPointerDown={() => setHighlightId("")}
           onKeyDown={() => setHighlightId("")}
         >
-          <thead>
-            <tr>
-              <th>Name</th>
-              <th>Filter SQL</th>
-            </tr>
-          </thead>
-          <tbody>
+          <TableHeader>
+            <TableRow>
+              <TableColumnHeader>Name</TableColumnHeader>
+              <TableColumnHeader>Filter SQL</TableColumnHeader>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {filters.map((filter) => (
-              <tr
+              <TableRow
                 key={filter.id}
+                align="center"
                 ref={filter.id === linkedId ? linkedRow : undefined}
                 aria-current={filter.id === highlightId ? "true" : undefined}
                 className={
                   filter.id === highlightId ? styles.highlightRow : undefined
                 }
               >
-                <td>
+                <TableCell>
                   {editor.canEdit(filter) ? (
                     <Link weight="bold" onClick={() => editor.openEdit(filter)}>
                       {filter.name}
@@ -80,19 +89,17 @@ export default function FactTableFiltersTab({
                     filter.name
                   )}
                   <OfficialBadge type="filter" managedBy={filter.managedBy} />
-                </td>
-                <td>
+                </TableCell>
+                <TableCell>
                   <InlineCode language="sql" code={filter.value} />
-                </td>
-              </tr>
+                </TableCell>
+              </TableRow>
             ))}
-          </tbody>
-        </table>
+          </TableBody>
+        </Table>
       ) : (
-        <Box px="4" pb="3">
-          <Text color="text-mid">No Saved Filters on this Fact Table yet.</Text>
-        </Box>
+        <Text color="text-mid">No Saved Filters on this Fact Table yet.</Text>
       )}
-    </div>
+    </Flex>
   );
 }
