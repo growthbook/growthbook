@@ -13,6 +13,8 @@ export type {
   Register,
   RegisteredFeatures,
   RegisteredAttributes,
+  PayloadFeatures,
+  BundledFeatureKey,
   Polyfills,
   CacheSettings,
   FeatureApiResponse,

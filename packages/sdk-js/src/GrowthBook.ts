@@ -36,6 +36,7 @@ import type {
   RegisteredAttributes,
   RegisteredFeatures,
   NoInferType,
+  BundledFeatureKey,
 } from "./types/growthbook";
 import {
   decrypt,
@@ -1013,12 +1014,21 @@ export class GrowthBook<
     return this.evalFeature(key).off;
   }
 
+  // The fallback is optional for a feature with a default in the registered payload
+  public getFeatureValue<K extends BundledFeatureKey & keyof AppFeatures>(
+    key: K,
+  ): AppFeatures[K];
   public getFeatureValue<
     V extends AppFeatures[K],
     K extends string & keyof AppFeatures = string,
-  >(key: K, defaultValue: V): WidenPrimitives<V> {
-    const value = this.evalFeature<WidenPrimitives<V>, K>(key).value;
-    return value === null ? (defaultValue as WidenPrimitives<V>) : value;
+  >(key: K, defaultValue: V): WidenPrimitives<V>;
+  public getFeatureValue(key: string, defaultValue?: unknown): unknown {
+    const value = _evalFeature(key, this._getEvalContext()).value;
+    if (value !== null || defaultValue !== undefined) {
+      return value === null ? defaultValue : value;
+    }
+    // No fallback: registering a payload promises the feature has a default
+    return this.getFeatures()[key]?.defaultValue;
   }
 
   /**

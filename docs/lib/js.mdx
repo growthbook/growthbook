@@ -690,6 +690,35 @@ const gb = new GrowthBook<AppFeatures, AppAttributes>({
 
 Instead of writing any of this by hand, you can [generate both types and the registration from your GrowthBook account and keep them up to date automatically](/tools/cli#generating-typescript-types).
 
+### Features Defined in Code
+
+You can use the SDK without a GrowthBook account by writing the payload in code. Register the payload itself in place of `features`, and each feature is typed from its `defaultValue` (SDK version 2.1.0+):
+
+```ts
+import { GrowthBook, type FeatureApiResponse } from "@growthbook/growthbook";
+
+const payload = {
+  features: {
+    "button-color": { defaultValue: "blue" },
+    "new-form": {
+      defaultValue: false,
+      rules: [{ condition: { employee: true }, force: true }],
+    },
+  },
+} satisfies FeatureApiResponse;
+
+declare module "@growthbook/growthbook" {
+  interface Register {
+    payload: typeof payload;
+  }
+}
+
+const gb = new GrowthBook().initSync({ payload });
+
+// No fallback needed. Type is `string`
+const color = gb.getFeatureValue("button-color");
+```
+
 ## Updating
 
 As a general philosophy, we aim to keep the SDK 100% backwards compatible at all times. View the [Changelog](https://github.com/growthbook/growthbook/blob/main/packages/sdk-js/CHANGELOG.md) for a complete list of all SDK changes.

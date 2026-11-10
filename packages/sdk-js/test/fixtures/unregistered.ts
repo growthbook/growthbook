@@ -6,6 +6,8 @@ gb.isOn("any-feature");
 gb.setAttributes({ other: true });
 gb.updateAttributes({ more: "x" });
 export const value: string = gb.getFeatureValue("any-feature", "fallback");
+// @ts-expect-error a fallback is required without a registered payload
+gb.getFeatureValue("any-feature");
 export const attribute: unknown = gb.getAttributes().anything;
 gb.setPayload({ features: { whatever: { defaultValue: 1 } } });
 new GrowthBookClient().isOn("any-feature", { attributes: { a: 1 } });

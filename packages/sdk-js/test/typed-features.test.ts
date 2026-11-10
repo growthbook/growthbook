@@ -91,6 +91,80 @@ describe("typed features", () => {
     });
   });
 
+  describe("getFeatureValue without a fallback", () => {
+    // Only type-checks against a registered payload (see
+    // fixtures/registered-payload.ts), so these calls are untyped
+    const getValue = (gb: unknown, ...args: unknown[]) =>
+      (gb as { getFeatureValue: (...a: unknown[]) => unknown }).getFeatureValue(
+        ...args,
+      );
+    const bundled: FeatureApiResponse = {
+      features: {
+        banner: {
+          defaultValue: "control",
+          rules: [{ condition: { country: "france" }, force: "bonjour" }],
+        },
+        gated: {
+          defaultValue: "on",
+          rules: [
+            {
+              parentConditions: [
+                { id: "parent", condition: { value: true }, gate: true },
+              ],
+            },
+          ],
+        },
+        parent: { defaultValue: false },
+        no_default: {},
+      },
+    };
+    const remote: FeatureApiResponse = {
+      features: { banner: { defaultValue: "remote" } },
+    };
+
+    it("uses the payload's own default", () => {
+      const gb = new GrowthBook().initSync({ payload: bundled });
+      expect(getValue(gb, "banner")).toEqual("control");
+      // Blocked by a prerequisite, so the value is null
+      expect(gb.evalFeature("gated").value).toEqual(null);
+      expect(getValue(gb, "gated")).toEqual("on");
+      expect(getValue(gb, "gated", "fallback")).toEqual("fallback");
+      expect(getValue(gb, "no_default")).toEqual(undefined);
+      expect(getValue(gb, "unknown_key")).toEqual(undefined);
+
+      gb.setAttributes({ country: "france" });
+      expect(getValue(gb, "banner")).toEqual("bonjour");
+    });
+
+    it("only reads the current payload", async () => {
+      const gb = new GrowthBook();
+      await gb.init({ payload: bundled, fallbackPayload: bundled });
+      expect(getValue(gb, "gated")).toEqual("on");
+
+      await gb.setPayload(remote);
+      expect(getValue(gb, "banner")).toEqual("remote");
+      // Not in the current payload, so the registered promise is broken
+      expect(getValue(gb, "gated")).toEqual(undefined);
+      expect(getValue(gb, "gated", "fallback")).toEqual("fallback");
+      gb.destroy();
+    });
+
+    it("works with GrowthBookClient and scoped instances", async () => {
+      const user = { attributes: { country: "france" } };
+      const client = new GrowthBookClient().initSync({ payload: bundled });
+      expect(getValue(client, "banner", user)).toEqual("bonjour");
+      expect(getValue(client, "gated", {})).toEqual("on");
+      expect(client.getFeatureValue("gated", "fallback", {})).toEqual(
+        "fallback",
+      );
+      expect(getValue(client.createScopedInstance({}), "gated")).toEqual("on");
+
+      await client.setPayload(remote);
+      expect(getValue(client, "banner", user)).toEqual("remote");
+      expect(getValue(client, "gated", {})).toEqual(undefined);
+    });
+  });
+
   describe("evalFeature", () => {
     const context: Context = {
       features,

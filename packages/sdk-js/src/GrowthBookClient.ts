@@ -31,6 +31,7 @@ import type {
   RegisteredAttributes,
   RegisteredFeatures,
   NoInferType,
+  BundledFeatureKey,
 } from "./types/growthbook";
 import { loadSDKVersion } from "./util";
 import {
@@ -456,6 +457,11 @@ export class GrowthBookClient<
     return this.evalFeature(key, userContext).off;
   }
 
+  // The fallback is optional for a feature with a default in the registered payload
+  public getFeatureValue<K extends BundledFeatureKey & keyof AppFeatures>(
+    key: K,
+    userContext: UserContext<AppAttributes>,
+  ): AppFeatures[K];
   public getFeatureValue<
     V extends AppFeatures[K],
     K extends string & keyof AppFeatures = string,
@@ -463,12 +469,23 @@ export class GrowthBookClient<
     key: K,
     defaultValue: V,
     userContext: UserContext<AppAttributes>,
-  ): WidenPrimitives<V> {
-    const value = this.evalFeature<WidenPrimitives<V>, K>(
-      key,
-      userContext,
-    ).value;
-    return value === null ? (defaultValue as WidenPrimitives<V>) : value;
+  ): WidenPrimitives<V>;
+  public getFeatureValue(
+    key: string,
+    defaultValue: unknown,
+    userContext?: UserContext<AppAttributes>,
+  ): unknown {
+    // Two arguments: (key, userContext)
+    if (!userContext) {
+      userContext = defaultValue as UserContext<AppAttributes>;
+      defaultValue = undefined;
+    }
+    const value = _evalFeature(key, this._getEvalContext(userContext)).value;
+    if (value !== null || defaultValue !== undefined) {
+      return value === null ? defaultValue : value;
+    }
+    // No fallback: registering a payload promises the feature has a default
+    return this._features[key]?.defaultValue;
   }
 
   public evalFeature<
@@ -571,11 +588,19 @@ export class UserScopedGrowthBook<
     return this._gb.isOff(key, this._userContext);
   }
 
+  public getFeatureValue<K extends BundledFeatureKey & keyof AppFeatures>(
+    key: K,
+  ): AppFeatures[K];
   public getFeatureValue<
     V extends AppFeatures[K],
     K extends string & keyof AppFeatures = string,
-  >(key: K, defaultValue: V): WidenPrimitives<V> {
-    return this._gb.getFeatureValue(key, defaultValue, this._userContext);
+  >(key: K, defaultValue: V): WidenPrimitives<V>;
+  public getFeatureValue(key: string, defaultValue?: unknown): unknown {
+    return this._gb.getFeatureValue(
+      key as string & keyof AppFeatures,
+      defaultValue as AppFeatures[string & keyof AppFeatures],
+      this._userContext,
+    );
   }
 
   public evalFeature<

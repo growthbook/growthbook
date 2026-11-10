@@ -47,6 +47,10 @@ describe("registered types", () => {
     expect(compileFixture("registered.ts")).toEqual([]);
   }, 60000);
 
+  it("types features from a registered payload", () => {
+    expect(compileFixture("registered-payload.ts")).toEqual([]);
+  }, 60000);
+
   it("stays loosely typed when nothing is registered", () => {
     expect(compileFixture("unregistered.ts")).toEqual([]);
   }, 60000);

@@ -17,6 +17,8 @@ export type {
   Register,
   RegisteredFeatures,
   RegisteredAttributes,
+  PayloadFeatures,
+  BundledFeatureKey,
   ConditionInterface,
   ExperimentStatus,
   FeatureDefinition,

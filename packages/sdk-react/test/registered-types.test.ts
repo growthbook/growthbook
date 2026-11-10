@@ -54,4 +54,8 @@ describe("registered types", () => {
   it("types hooks and components from the Register interface", () => {
     expect(compileFixture("registered.tsx")).toEqual([]);
   }, 60000);
+
+  it("types hooks from a registered payload", () => {
+    expect(compileFixture("registered-payload.tsx")).toEqual([]);
+  }, 60000);
 });

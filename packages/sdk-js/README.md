@@ -414,6 +414,27 @@ declare module "@growthbook/growthbook" {
 
 Instead of writing any of this by hand, you can auto-generate both types and the registration from your GrowthBook account using the [GrowthBook CLI](https://docs.growthbook.io/tools/cli#generating-typescript-types).
 
+If you write the payload in code instead, register it in place of `features`. Each feature is typed from its `defaultValue`, and `getFeatureValue` needs no fallback:
+
+```ts
+const payload = {
+  features: {
+    "button-color": { defaultValue: "blue" },
+  },
+} satisfies FeatureApiResponse;
+
+declare module "@growthbook/growthbook" {
+  interface Register {
+    payload: typeof payload;
+  }
+}
+
+const gb = new GrowthBook().initSync({ payload });
+
+// Type is `string`
+const color = gb.getFeatureValue("button-color");
+```
+
 ## GrowthBook Instance (reference)
 
 ### Attributes

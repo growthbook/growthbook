@@ -218,12 +218,38 @@ export type Attributes = Record<string, any>;
  *       attributes: AppAttributes;
  *     }
  *   }
+ *
+ * Or register a payload written in code (`payload: typeof payload`) in place
+ * of `features`: feature types come from each `defaultValue`, and
+ * `getFeatureValue` needs no fallback for a feature that has one. This is a
+ * promise that the SDK's payload always has those features with a default.
+ * `getFeatureValue` returns `undefined` for one that doesn't.
  */
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type
 export interface Register {}
+// Feature types taken from each defaultValue in a payload written in code
+export type PayloadFeatures<P> = P extends { features: infer F }
+  ? { [K in keyof F]: F[K] extends { defaultValue: infer V } ? V : unknown }
+  : Record<string, any>;
 export type RegisteredFeatures = Register extends { features: infer F }
   ? F
-  : Record<string, any>;
+  : Register extends { payload: infer P }
+    ? PayloadFeatures<P>
+    : Record<string, any>;
+// Features in the registered payload whose defaultValue can't be null, so
+// `getFeatureValue` can return it instead of requiring a fallback
+export type BundledFeatureKey = Register extends {
+  payload: { features: infer F };
+}
+  ? {
+      [K in keyof F]: F[K] extends {
+        defaultValue: string | number | boolean | object;
+      }
+        ? K
+        : never;
+    }[keyof F] &
+      string
+  : never;
 export type RegisteredAttributes = Register extends { attributes: infer A }
   ? A
   : Attributes;

@@ -11,6 +11,7 @@ import type {
   Attributes,
   RegisteredFeatures,
   RegisteredAttributes,
+  BundledFeatureKey,
 } from "@growthbook/growthbook";
 import { GrowthBook } from "@growthbook/growthbook";
 
@@ -93,12 +94,16 @@ export function useFeatureIsOn<
   return growthbook.isOn(id as string & keyof AppFeatures);
 }
 
+// The fallback is optional for a feature with a default in the registered payload
+export function useFeatureValue<K extends BundledFeatureKey & FeatureKey>(
+  id: K,
+): RegisteredFeatures[K];
 export function useFeatureValue<
   V extends RegisteredFeatures[K],
   K extends FeatureKey = FeatureKey,
->(id: K, fallback: V): WidenPrimitives<V> {
-  const growthbook = useGrowthBook();
-  return growthbook.getFeatureValue<V, K>(id, fallback);
+>(id: K, fallback: V): WidenPrimitives<V>;
+export function useFeatureValue(id: string, fallback?: unknown): unknown {
+  return useGrowthBook<Record<string, any>>().getFeatureValue(id, fallback);
 }
 
 export function useGrowthBook<
