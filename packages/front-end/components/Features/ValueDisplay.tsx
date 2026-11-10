@@ -31,6 +31,7 @@ import Modal from "@/components/Modal";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import Button from "@/ui/Button";
 import ScrollArea from "@/ui/ScrollArea";
+import Text from "@/ui/Text";
 import { CopyIcon, FullscreenIcon } from "@/ui/ActionIcons";
 import CornerActions, { ActionsOverlay } from "./CornerActions";
 import { useValueDiff } from "./ValueDiffContext";
@@ -54,6 +55,39 @@ function getSparseMerge(
 }
 
 // A value as one of several in a list, kept short.
+const BOOLEAN_ON = "var(--green-9)";
+const BOOLEAN_OFF = "#cccccc";
+
+// A boolean's dot: true, false, or true for only some users. Empty is
+// nothing served at all.
+export function BooleanDot({
+  fill,
+}: {
+  fill: "on" | "off" | "split" | "empty";
+}) {
+  return (
+    <span
+      style={{
+        flexShrink: 0,
+        alignSelf: "center",
+        boxSizing: "border-box",
+        height: 10,
+        width: 10,
+        borderRadius: "50%",
+        border: fill === "empty" ? `1.5px solid ${BOOLEAN_OFF}` : undefined,
+        background:
+          fill === "split"
+            ? `linear-gradient(90deg, ${BOOLEAN_ON} 50%, ${BOOLEAN_OFF} 50%)`
+            : fill === "on"
+              ? BOOLEAN_ON
+              : fill === "off"
+                ? BOOLEAN_OFF
+                : undefined,
+      }}
+    />
+  );
+}
+
 export const LISTED_VALUE_STYLE: CSSProperties = {
   maxHeight: 100,
   overflowY: "auto",
@@ -78,6 +112,7 @@ export default function ValueDisplay({
   linkify,
   lineHeight,
   monochrome,
+  split = false,
   extraActions,
 }: {
   value: string;
@@ -107,6 +142,8 @@ export default function ValueDisplay({
   // Override the rendered code line height (passed through to InlineCode).
   lineHeight?: number;
   monochrome?: boolean;
+  // A boolean served to only some users: its dot is half filled.
+  split?: boolean;
   // More buttons in the same row as copy and fullscreen, after them.
   extraActions?: ReactNode;
 }) {
@@ -210,18 +247,25 @@ export default function ValueDisplay({
   if (type === "boolean") {
     const on = !(value === "false" || value === "null" || !value);
     return (
-      <span className="text-gray font-weight-bold">
-        <div
+      <span
+        style={{
+          display: "inline-flex",
+          alignItems: "center",
+          gap: 6,
+          whiteSpace: "nowrap",
+        }}
+      >
+        <BooleanDot fill={split ? "split" : on ? "on" : "off"} />
+        <span
           style={{
-            display: "inline-block",
-            height: 10,
-            width: 10,
-            borderRadius: 10,
-            marginRight: 5,
-            backgroundColor: on ? "#3aa8e8" : "#cccccc",
+            color: on ? "var(--green-11)" : "var(--color-text-low)",
+            fontSize: "var(--font-size-2)",
           }}
-        ></div>
-        {on ? "TRUE" : "FALSE"}
+        >
+          <Text mono size="inherit" weight="semibold">
+            {on ? "true" : "false"}
+          </Text>
+        </span>
       </span>
     );
   }

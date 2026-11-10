@@ -1,8 +1,10 @@
-import dynamic from "next/dynamic";
-import { FeatureInterface } from "shared/types/feature";
+import {
+  FeatureInterface,
+  FeaturePrerequisite,
+  FeatureRule,
+} from "shared/types/feature";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { useMemo, useState, useEffect, useRef } from "react";
-import { FaCircleCheck, FaCircleXmark } from "react-icons/fa6";
 import {
   PiPlus,
   PiCaretRightBold,
@@ -10,8 +12,11 @@ import {
   PiInfo,
 } from "react-icons/pi";
 import {
+  evalDeterministicPrereqValue,
   filterEnvironmentsByFeature,
   getMalformedPrereqConditionError,
+  getConfigBackingKey,
+  getFeatureBaseConfigKey,
   getReviewSetting,
 } from "shared/util";
 import { isRevisionEditLockedBySchedule } from "shared/enterprise";
@@ -41,13 +46,24 @@ import {
   useEnvironments,
   getPrerequisites,
   getRules,
+  isRuleInactive,
   useFeatureRulesEnv,
 } from "@/services/features";
-import { useFeatureDefaultValues } from "@/hooks/useFeatureDefaultValues";
-import Tooltip from "@/components/Tooltip/Tooltip";
+import {
+  getEnvironmentStatus,
+  holdoutTrafficStep,
+  PrerequisiteResult,
+  resolveRuleValue,
+  ruleTrafficStep,
+  TrafficStep,
+} from "@/services/environmentStatus";
+import {
+  ResolvableInput,
+  resolveConfigBackedValue,
+} from "@/services/configBackedValue";
+import useApi from "@/hooks/useApi";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { useUser } from "@/services/UserContext";
-import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
 import {
   FeatureUsageSparkline,
   useFeatureUsage,
@@ -58,18 +74,34 @@ import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
 import Text from "@/ui/Text";
 import Link from "@/ui/Link";
 import UITooltip from "@/ui/Tooltip";
-import { SCHEDULE_EDIT_LOCK_REASON } from "@/components/Features/ScheduleLock";
 import {
   PrerequisiteStateResult,
+  useBatchPrerequisiteStates,
   usePrerequisiteStates,
 } from "@/hooks/usePrerequisiteStates";
+import {
+  DropdownMenu,
+  DropdownMenuItem,
+  MoreMenuTrigger,
+} from "@/ui/DropdownMenu";
+import {
+  LockedRowMenu,
+  SCHEDULE_EDIT_LOCK_REASON,
+} from "@/components/Features/ScheduleLock";
 import SectionFrame from "@/components/SectionFrame";
+import { useHoldouts } from "@/hooks/useHoldouts";
+import EnvironmentStatusCards, {
+  PrerequisiteList,
+  EnvironmentCard,
+} from "./EnvironmentStatusCards";
+import {
+  DeletePrerequisiteModal,
+  PrerequisiteStatesCols,
+} from "./PrerequisiteStatusRow";
+import { isRuleSkipped } from "./Rule";
 import PrerequisiteAlerts from "./PrerequisiteAlerts";
 import PrerequisiteModal from "./PrerequisiteModal";
-import {
-  featureStatusColors,
-  NonLiveRevisionTooltipNote,
-} from "./FeaturesOverview";
+import { featureStatusColors } from "./FeaturesOverview";
 import FeatureRules from "./FeatureRulesNew";
 import cornerStyles from "./CornerActions.module.scss";
 
@@ -130,67 +162,6 @@ function EnvironmentSwitch({
         </Text>
       </span>
     </Flex>
-  );
-}
-
-const PrerequisiteStatusRow = dynamic(() => import("./PrerequisiteStatusRow"));
-const PrerequisiteStatesCols = dynamic(() =>
-  import("./PrerequisiteStatusRow").then((mod) => mod.PrerequisiteStatesCols),
-);
-
-// What an environment's state is, and how it compares with live.
-function environmentKillSwitchTooltipBody(
-  enabled: boolean,
-  liveEnabled: boolean,
-  view: false | "draft" | "inactive",
-  // Why the switch is disabled.
-  blockedReason: string | null = null,
-): JSX.Element {
-  const state = (on: boolean, midSentence = false) => (
-    <strong
-      style={{
-        color: on ? featureStatusColors.on : featureStatusColors.offMuted,
-      }}
-    >
-      {midSentence ? (on ? "on" : "off") : on ? "On" : "Off"}
-    </strong>
-  );
-  const where = view === "draft" ? "this draft" : "this revision";
-  return (
-    <Text as="div" size="sm" color="text-high">
-      {!view ? (
-        enabled ? (
-          <>{state(true)}: traffic is on in this environment.</>
-        ) : (
-          <>
-            {state(false)}: it evaluates to <code>null</code> in this
-            environment.
-          </>
-        )
-      ) : enabled === liveEnabled ? (
-        <>
-          {state(enabled)} in {where}, the same as live.
-        </>
-      ) : view === "draft" ? (
-        <>
-          {state(enabled)} in this draft.
-          <Callout status="warning" size="sm" mt="2">
-            Changed from live, where it&apos;s {state(liveEnabled, true)}. Takes
-            effect when this draft is published.
-          </Callout>
-        </>
-      ) : (
-        <>
-          {state(enabled)} in {where}. It&apos;s {state(liveEnabled, true)}{" "}
-          live.
-        </>
-      )}
-      {blockedReason ? (
-        <Text as="div" mt="2" size="sm" color="text-mid">
-          {blockedReason}
-        </Text>
-      ) : null}
-    </Text>
   );
 }
 
@@ -265,22 +236,44 @@ export default function FeaturesOverviewNew({
 
   const prerequisites = feature?.prerequisites || [];
 
-  const { defaultValues: prereqDefaultValues } = useFeatureDefaultValues(
-    prerequisites.map((p) => p.id),
-  );
+  const { states: prereqStatesRaw, mutate: mutatePrereqStates } =
+    usePrerequisiteStates({
+      featureId: feature.id,
+      environments: envs,
+      enabled: !!feature,
+      skipRootConditions: true,
+      // Live until the page settles on a version, so landing on live asks once
+      version: version ?? feature?.version,
+    });
 
-  const {
-    states: prereqStatesRaw,
-    loading: prereqStatesLoading,
-    mutate: mutatePrereqStates,
-  } = usePrerequisiteStates({
-    featureId: feature.id,
+  // Each prerequisite's own state per environment, for what its condition
+  // makes of it.
+  // Live's too, to compare a past revision against what's served now.
+  const prerequisiteIds = [
+    ...new Set(
+      [...prerequisites, ...(baseFeature.prerequisites ?? [])].map((p) => p.id),
+    ),
+  ];
+  const { results: parentStates } = useBatchPrerequisiteStates({
+    baseFeatureId: feature.id,
+    featureIds: prerequisiteIds,
     environments: envs,
-    enabled: !!feature,
-    skipRootConditions: true,
-    // Live until the page settles on a version, so landing on live asks once
-    version: version ?? feature?.version,
+    enabled: prerequisiteIds.length > 0,
   });
+  // A config-backed flag's config, to resolve what its values serve.
+  const baseConfigKey = getFeatureBaseConfigKey(feature);
+  const { data: configInputs } = useApi<{ constants: ResolvableInput[] }>(
+    `/configs/${baseConfigKey}/resolved`,
+    { shouldRun: () => baseConfigKey !== null },
+  );
+  // The holdout's own experiment says how much of the traffic it holds back.
+  const { experimentsMap: holdoutExperiments } = useHoldouts(undefined, false, {
+    enabled: !!holdout,
+  });
+  const [deletingPrerequisite, setDeletingPrerequisite] = useState<{
+    i: number;
+    baseline: FeaturePrerequisite[];
+  } | null>(null);
 
   const prerequisitesSignature = useMemo(
     () =>
@@ -384,12 +377,6 @@ export default function FeaturesOverviewNew({
   const showsControls = !isReadOnly || editLockedBySchedule;
   const lockReason = editLockedBySchedule ? SCHEDULE_EDIT_LOCK_REASON : null;
 
-  const envAndSummaryTooltipNonLiveDisclaimer = !isLive
-    ? isDraft
-      ? ("draft" as const)
-      : ("inactive" as const)
-    : false;
-
   // TODO: support multiple per-project approval configs
   const featureReviewConfig = getReviewSetting(
     Array.isArray(settings?.requireReviews)
@@ -486,12 +473,230 @@ export default function FeaturesOverviewNew({
   // Switches show when any environment can change; each one is disabled where
   // it can't.
   const canChangeEnvironments = envs.some(canToggleEnvironment);
+
+  const prerequisiteResult = (
+    prerequisite: FeaturePrerequisite,
+    env: string,
+  ): PrerequisiteResult | null => {
+    if (prereqStates?.[env]?.state === "cyclic") return "cycle";
+    const parent = parentStates?.[prerequisite.id]?.states[env];
+    if (!parent) return null;
+    if (parent.state === "cyclic") return "cycle";
+    if (parent.state === "conditional") return "varies";
+    return evalDeterministicPrereqValue(
+      parent.value ?? null,
+      prerequisite.condition,
+    ) === "pass"
+      ? "met"
+      : "unmet";
+  };
+  const prerequisiteState = (
+    prerequisiteId: string,
+    env: string,
+    inScrollArea = false,
+  ) => (
+    <PrerequisiteStatesCols
+      prereqStates={parentStates?.[prerequisiteId]?.states}
+      envs={[env]}
+      loading={!parentStates?.[prerequisiteId]}
+      colWidth={20}
+      compact
+      usePortal={inScrollArea}
+    />
+  );
+  // The rules the rule list doesn't mark inactive or skipped.
+  const liveRules = (f: FeatureInterface, env: string): FeatureRule[] =>
+    getRules(f, env).filter(
+      (rule) =>
+        !isRuleInactive(rule, experimentsMap) &&
+        !isRuleSkipped({
+          rule,
+          linkedExperiment:
+            rule.type === "experiment-ref"
+              ? experimentsMap.get(rule.experimentId)
+              : undefined,
+        }),
+    );
+  // A value as the SDK receives it in an environment. A config-backed flag's
+  // values are patches over its config, which resolves per environment.
+  const servedValue = (
+    f: FeatureInterface,
+    value: string,
+    env: string,
+    sparse = false,
+  ) => {
+    const configKey = getFeatureBaseConfigKey(f);
+    if (
+      configKey !== null &&
+      configInputs?.constants &&
+      (getConfigBackingKey(value) ?? configKey) === configKey
+    ) {
+      return JSON.stringify(
+        resolveConfigBackedValue({
+          inputs: configInputs.constants,
+          configKey,
+          value,
+          project: f.project || "",
+          environment: env,
+        }),
+      );
+    }
+    return resolveRuleValue(f, value, sparse);
+  };
+  // The holdout's control group, then the live rules.
+  const trafficSteps = (f: FeatureInterface, env: string): TrafficStep[] => [
+    ...(holdout &&
+    f.holdout?.id === holdout.id &&
+    holdout.environmentSettings?.[env]?.enabled
+      ? [
+          holdoutTrafficStep(
+            holdout,
+            servedValue(f, f.holdout.value, env),
+            holdoutExperiments.get(holdout.experimentId),
+          ),
+        ]
+      : []),
+    ...liveRules(f, env).map((rule) =>
+      ruleTrafficStep(rule, {
+        resolveValue: (value, sparse) => servedValue(f, value, env, sparse),
+        experiment:
+          rule.type === "experiment-ref"
+            ? experimentsMap.get(rule.experimentId)
+            : undefined,
+        safeRollout:
+          rule.type === "safe-rollout"
+            ? safeRolloutsMap.get(rule.safeRolloutId)
+            : undefined,
+      }),
+    ),
+  ];
+  const sameJson = (a: unknown, b: unknown) =>
+    JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
+  const livePrerequisites = baseFeature.prerequisites ?? [];
+  const prerequisiteChange = (p: FeaturePrerequisite) => {
+    if (!isDraft) return null;
+    const live = livePrerequisites.find((l) => l.id === p.id);
+    if (!live) return "added" as const;
+    return sameJson(live, p) ? null : ("edited" as const);
+  };
+  const removedPrerequisites = isDraft
+    ? livePrerequisites
+        .filter((live) => !prerequisites.some((p) => p.id === live.id))
+        .map((live) => live.id)
+    : [];
+  // What a version of the flag serves in an environment; null until its
+  // prerequisites' states load.
+  const environmentStatus = (f: FeatureInterface, env: string) => {
+    const results = (f.prerequisites ?? []).map((p) => ({
+      id: p.id,
+      result: prerequisiteResult(p, env),
+    }));
+    if (results.some((p) => !p.result)) return null;
+    // A config-backed flag's values aren't known until its config resolves.
+    if (getFeatureBaseConfigKey(f) !== null && !configInputs) return null;
+    return getEnvironmentStatus({
+      enabled: f.environmentSettings?.[env]?.enabled ?? false,
+      prerequisites: results.flatMap((p) =>
+        p.result ? [{ id: p.id, result: p.result }] : [],
+      ),
+      steps: trafficSteps(f, env),
+      defaultValue: servedValue(f, f.defaultValue, env),
+      isBoolean: f.valueType === "boolean",
+    });
+  };
+  const environmentCards: EnvironmentCard[] = environments.map((en) => {
+    const enabled = feature.environmentSettings?.[en.id]?.enabled ?? false;
+    return {
+      id: en.id,
+      status: environmentStatus(feature, en.id),
+      prerequisites: prerequisites.map((p, index) => ({
+        id: p.id,
+        index,
+        result: prerequisiteResult(p, en.id),
+      })),
+      environmentChanged: isDraft && enabled !== liveEnabled(en.id),
+      ruleCount: liveRules(feature, en.id).length,
+    };
+  });
+  // A past or discarded revision's cards aren't what's served now: does live
+  // (the flag itself, so drift is repaired) serve something else, or for
+  // another reason, anywhere?
+  const differsFromLive =
+    !isDraft &&
+    !isLive &&
+    environmentCards.some(({ id, status }) => {
+      const live = environmentStatus(baseFeature, id);
+      return (
+        !!status &&
+        !!live &&
+        !sameJson(
+          { value: status.value, reason: status.reason },
+          { value: live.value, reason: live.reason },
+        )
+      );
+    });
+  const canEditPrerequisites = canEditDrafts && showsControls && !isReadOnly;
+  const prerequisiteActions = (i: number) =>
+    !canEditPrerequisites ? null : lockReason ? (
+      <LockedRowMenu style={{ margin: 0 }} />
+    ) : (
+      <DropdownMenu
+        trigger={<MoreMenuTrigger label="Prerequisite actions" size="sm" />}
+        menuPlacement="end"
+        variant="soft"
+      >
+        <DropdownMenuItem onClick={() => setPrerequisiteModal({ i })}>
+          Edit
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          color="red"
+          onClick={() =>
+            setDeletingPrerequisite({ i, baseline: getPrerequisites(feature) })
+          }
+        >
+          Delete
+        </DropdownMenuItem>
+      </DropdownMenu>
+    );
   const addPrerequisiteLabel = (
     <Flex align="center" gap="1">
       <PiPlus />
       Add prerequisite
     </Flex>
   );
+  const addPrerequisite =
+    canEditDrafts && showsControls ? (
+      lockReason ? (
+        <UITooltip content={lockReason}>
+          <Link aria-disabled style={{ opacity: 0.5, cursor: "not-allowed" }}>
+            {addPrerequisiteLabel}
+          </Link>
+        </UITooltip>
+      ) : (
+        <PremiumTooltip commercialFeature="prerequisites">
+          <Link
+            aria-disabled={!hasPrerequisitesCommercialFeature}
+            onClick={() => {
+              if (!hasPrerequisitesCommercialFeature) return;
+              setPrerequisiteModal({
+                i: getPrerequisites(feature).length,
+              });
+              track("Viewed prerequisite feature modal", {
+                entity_id_hash: entityTrackingHash(feature.id),
+                source: "add-prerequisite",
+              });
+            }}
+            style={
+              hasPrerequisitesCommercialFeature
+                ? undefined
+                : { opacity: 0.5, cursor: "not-allowed" }
+            }
+          >
+            {addPrerequisiteLabel}
+          </Link>
+        </PremiumTooltip>
+      )
+    ) : null;
 
   const invalidPrereqs: {
     key: string;
@@ -594,293 +799,80 @@ export default function FeaturesOverviewNew({
         <SectionFrame
           title="Environments"
           mb="5"
-          footnote={
-            <>
-              Disabled environments evaluate to <code>null</code>
-            </>
-          }
-          titleAddon={
+          actions={
             showFeatureUsage ? (
               <FeatureUsageSparkline valueType={feature.valueType} />
             ) : null
           }
-          actions={
-            <>
-              {canEditDrafts && showsControls ? (
-                lockReason ? (
-                  <UITooltip content={lockReason}>
-                    <Link
-                      aria-disabled
-                      style={{ opacity: 0.5, cursor: "not-allowed" }}
-                    >
-                      {addPrerequisiteLabel}
-                    </Link>
+        >
+          {environments.length > 0 ? (
+            <EnvironmentStatusCards
+              cards={environmentCards}
+              valueType={feature.valueType}
+              defaultValue={feature.defaultValue}
+              prerequisiteState={prerequisiteState}
+              renderToggle={(envId) => {
+                const enabled =
+                  feature.environmentSettings?.[envId]?.enabled ?? false;
+                const blocked = envBlockedReason(envId);
+                return showsControls && canChangeEnvironments ? (
+                  <UITooltip content={blocked} enabled={!!blocked}>
+                    <EnvironmentSwitch
+                      environment={envId}
+                      enabled={enabled}
+                      onToggle={(on) => toggleEnvironment(envId, on)}
+                      disabled={savingEnv !== null || !!blocked}
+                      changed={isDraft && enabled !== liveEnabled(envId)}
+                    />
                   </UITooltip>
                 ) : (
-                  <PremiumTooltip commercialFeature="prerequisites">
-                    <Link
-                      aria-disabled={!hasPrerequisitesCommercialFeature}
-                      onClick={() => {
-                        if (!hasPrerequisitesCommercialFeature) return;
-                        setPrerequisiteModal({
-                          i: getPrerequisites(feature).length,
-                        });
-                        track("Viewed prerequisite feature modal", {
-                          entity_id_hash: entityTrackingHash(feature.id),
-                          source: "add-prerequisite",
-                        });
-                      }}
-                      style={
-                        hasPrerequisitesCommercialFeature
-                          ? undefined
-                          : { opacity: 0.5, cursor: "not-allowed" }
-                      }
-                    >
-                      {addPrerequisiteLabel}
-                    </Link>
-                  </PremiumTooltip>
-                )
-              ) : null}
-            </>
-          }
-        >
-          {prerequisites.length > 0 ? (
-            /* Grid layout: env icons column-aligned with prereq rows */
-            <>
-              <div style={{ overflowX: "auto" }}>
-                <Flex direction="column" style={{ width: "max-content" }}>
-                  {/* Header row: env names in columns past the 200px label column */}
-                  <Flex align="start" pb="1">
-                    <Box style={{ width: 200, flexShrink: 0 }} />
-                    {envs.map((env) => (
-                      <Box
-                        key={env}
-                        style={{
-                          width: 120,
-                          flexShrink: 0,
-                          textAlign: "center",
-                        }}
-                      >
-                        <Text weight="semibold" color="text-mid">
-                          <OverflowText maxWidth={120}>{env}</OverflowText>
-                        </Text>
-                      </Box>
-                    ))}
-                  </Flex>
-
-                  {/* Env icon row */}
-                  <Flex align="center">
-                    <Box style={{ width: 200, flexShrink: 0 }} />
-                    {environments.map((en) => {
-                      const enabled =
-                        feature.environmentSettings?.[en.id]?.enabled ?? false;
-                      return (
-                        <Box key={en.id} style={{ width: 120, flexShrink: 0 }}>
-                          <Flex align="center" justify="center" pt="1">
-                            <Tooltip
-                              popperClassName="text-left"
-                              flipTheme={false}
-                              body={environmentKillSwitchTooltipBody(
-                                enabled,
-                                liveEnabled(en.id),
-                                envAndSummaryTooltipNonLiveDisclaimer,
-                                showsControls && canChangeEnvironments
-                                  ? envBlockedReason(en.id)
-                                  : null,
-                              )}
-                            >
-                              {showsControls && canChangeEnvironments ? (
-                                <EnvironmentSwitch
-                                  environment={en.id}
-                                  enabled={enabled}
-                                  onToggle={(on) =>
-                                    toggleEnvironment(en.id, on)
-                                  }
-                                  disabled={
-                                    savingEnv !== null ||
-                                    !!envBlockedReason(en.id)
-                                  }
-                                  changed={
-                                    isDraft && enabled !== liveEnabled(en.id)
-                                  }
-                                  labelOverhangs
-                                />
-                              ) : enabled ? (
-                                <FaCircleCheck
-                                  size={20}
-                                  style={{ color: featureStatusColors.on }}
-                                />
-                              ) : (
-                                <FaCircleXmark
-                                  size={20}
-                                  style={{
-                                    color: featureStatusColors.offMuted,
-                                  }}
-                                />
-                              )}
-                            </Tooltip>
-                          </Flex>
-                        </Box>
-                      );
-                    })}
-                  </Flex>
-
-                  {/* Prerequisites section heading */}
-                  <Flex align="center" pb="2">
-                    <Box style={{ width: 200, flexShrink: 0 }}>
-                      {/* A row label: regular weight, a step back from the values. */}
-                      <Text weight="regular" color="text-mid">
-                        Prerequisites
-                      </Text>
-                    </Box>
-                  </Flex>
-
-                  {/* Prerequisite rows */}
-                  {prerequisites.map(({ ...item }, i) => (
-                    <PrerequisiteStatusRow
-                      key={i}
-                      i={i}
-                      feature={feature}
-                      prereqDefaultValue={prereqDefaultValues[item.id]}
-                      prerequisite={item}
-                      environments={environments}
-                      mutate={mutate}
-                      setVersion={setVersion}
-                      setPrerequisiteModal={setPrerequisiteModal}
-                      revisionList={revisionList}
-                      gatedEnvSet={gatedEnvSet}
-                      isLocked={isReadOnly}
-                      lockedBySchedule={editLockedBySchedule}
-                      labelWidth={200}
-                      colWidth={120}
-                    />
-                  ))}
-
-                  {/* Summary row */}
-                  <Flex
-                    pt="1"
-                    align="center"
-                    style={{ borderTop: "2px solid var(--gray-4)" }}
-                  >
-                    <Box py="2" style={{ width: 200, flexShrink: 0 }}>
-                      <Text weight="regular" color="text-mid">
-                        Net status
-                      </Text>
-                    </Box>
-                    {envs.length > 0 && (
-                      <PrerequisiteStatesCols
-                        prereqStates={prereqStates ?? undefined}
-                        envs={envs}
-                        isSummaryRow={true}
-                        loading={prereqStatesLoading}
-                        tooltipBodyWrapper={
-                          envAndSummaryTooltipNonLiveDisclaimer
-                            ? (body) => (
-                                <>
-                                  {body}
-                                  <NonLiveRevisionTooltipNote
-                                    kind={envAndSummaryTooltipNonLiveDisclaimer}
-                                  />
-                                </>
-                              )
-                            : undefined
-                        }
-                        colWidth={120}
-                      />
-                    )}
-                  </Flex>
-                </Flex>
-              </div>
-            </>
+                  <Text color={enabled ? "text-high" : "text-low"}>
+                    {enabled ? "On" : "Off"}
+                  </Text>
+                );
+              }}
+            />
           ) : (
-            /* Pill layout: simple env name + icon pairs, no grid needed */
-            <Box>
-              <Flex
-                justify="start"
-                align="center"
-                gapX="6"
-                gapY="3"
-                wrap="wrap"
-              >
-                {environments.length > 0 ? (
-                  environments.map((en) => {
-                    const enabled =
-                      feature.environmentSettings?.[en.id]?.enabled ?? false;
-                    return (
-                      <Flex
-                        key={en.id}
-                        wrap="nowrap"
-                        direction="row"
-                        gap="2"
-                        align="center"
-                      >
-                        {/* Labelled as the prerequisites grid labels them. */}
-                        <Text
-                          weight="semibold"
-                          color={enabled ? "text-mid" : "text-low"}
-                        >
-                          <OverflowText maxWidth={120}>{en.id}</OverflowText>
-                        </Text>
-                        <Tooltip
-                          popperClassName="text-left"
-                          flipTheme={false}
-                          body={environmentKillSwitchTooltipBody(
-                            enabled,
-                            liveEnabled(en.id),
-                            envAndSummaryTooltipNonLiveDisclaimer,
-                            showsControls && canChangeEnvironments
-                              ? envBlockedReason(en.id)
-                              : null,
-                          )}
-                        >
-                          {showsControls && canChangeEnvironments ? (
-                            <EnvironmentSwitch
-                              environment={en.id}
-                              enabled={enabled}
-                              onToggle={(on) => toggleEnvironment(en.id, on)}
-                              disabled={
-                                savingEnv !== null || !!envBlockedReason(en.id)
-                              }
-                              changed={
-                                isDraft && enabled !== liveEnabled(en.id)
-                              }
-                            />
-                          ) : enabled ? (
-                            <FaCircleCheck
-                              size={20}
-                              style={{ color: featureStatusColors.on }}
-                            />
-                          ) : (
-                            <FaCircleXmark
-                              size={20}
-                              style={{ color: featureStatusColors.offMuted }}
-                            />
-                          )}
-                        </Tooltip>
-                      </Flex>
-                    );
-                  })
-                ) : (
-                  <Box width="100%">
-                    <Callout status="warning">
-                      <strong>
-                        This feature has no associated environments.
-                      </strong>{" "}
-                      Ensure that this feature&apos;s project is included in at
-                      least one environment to use it.{" "}
-                      <Link href="/environments">Manage environments</Link>
-                    </Callout>
-                  </Box>
-                )}
-              </Flex>
-            </Box>
+            <Callout status="warning">
+              <strong>This feature has no associated environments.</strong>{" "}
+              Ensure that this feature&apos;s project is included in at least
+              one environment to use it.{" "}
+              <Link href="/environments">Manage environments</Link>
+            </Callout>
           )}
+          {prerequisites.length || removedPrerequisites.length ? (
+            <PrerequisiteList
+              prerequisites={prerequisites.map((p, index) => ({
+                id: p.id,
+                index,
+                change: prerequisiteChange(p),
+              }))}
+              removed={removedPrerequisites}
+              environments={environments.map((en) => en.id)}
+              prerequisiteState={prerequisiteState}
+              actions={prerequisiteActions}
+              add={addPrerequisite}
+            />
+          ) : addPrerequisite ? (
+            <Box mt="5">{addPrerequisite}</Box>
+          ) : null}
 
           {envError ? (
             <HelperText status="error" size="sm" mt="3">
               Couldn&apos;t turn {envError.envId} {envError.on ? "on" : "off"}:{" "}
               {/* Several validation hooks' messages arrive one per line. */}
               <span style={{ whiteSpace: "pre-line" }}>{envError.message}</span>
+            </HelperText>
+          ) : null}
+          {differsFromLive ? (
+            <HelperText
+              status="info"
+              size="sm"
+              mt="3"
+              icon={<PiInfo size={13} />}
+            >
+              Revision {revision.version} isn&apos;t live, and live serves
+              differently.
             </HelperText>
           ) : null}
           {draftChangesEnvironments ? (
@@ -986,6 +978,18 @@ export default function FeaturesOverviewNew({
             setVersion={setVersion}
           />
         )}
+        {deletingPrerequisite ? (
+          <DeletePrerequisiteModal
+            i={deletingPrerequisite.i}
+            feature={feature}
+            baseline={deletingPrerequisite.baseline}
+            revisionList={revisionList}
+            gatedEnvSet={gatedEnvSet}
+            mutate={mutate}
+            setVersion={setVersion}
+            close={() => setDeletingPrerequisite(null)}
+          />
+        ) : null}
         {prerequisiteModal !== null && (
           <PrerequisiteModal
             feature={feature}

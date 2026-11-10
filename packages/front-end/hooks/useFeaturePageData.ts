@@ -225,12 +225,16 @@ export function useFeaturePageData(
     );
   }, [baseData, targetVersion, targetBaseVersion, loadRevisions]);
 
+  // Open drafts loaded beyond the initial response, which can still change.
+  const loadedDrafts = () =>
+    Object.values(cachedRevisions)
+      .filter((r) => !inBaseSet(r.version) && isActiveDraftStatus(r.status))
+      .map((r) => r.version);
+
   // Also reloads what was loaded beyond the initial response and can still
   // change: the version on screen and any open drafts, so edits show up
   const refreshData = async () => {
-    const changeable = Object.values(cachedRevisions)
-      .filter((r) => !inBaseSet(r.version) && isActiveDraftStatus(r.status))
-      .map((r) => r.version);
+    const changeable = loadedDrafts();
     const onScreen = [targetVersion, targetBaseVersion].filter(
       (v): v is number => v !== null && !inBaseSet(v),
     );
@@ -258,6 +262,31 @@ export function useFeaturePageData(
       await loadRevisions([...new Set(dropped)], { force: true });
     }
   };
+
+  // The initial response revalidates when the tab regains focus; the drafts
+  // loaded beyond it do too, so edits made elsewhere show up.
+  const reloadDraftsRef = useRef(() => {});
+  reloadDraftsRef.current = () => {
+    const drafts = loadedDrafts();
+    if (drafts.length) void loadRevisions(drafts, { force: true });
+  };
+  useEffect(() => {
+    // As often as SWR revalidates on focus.
+    const throttleMs = 5_000;
+    let last = 0;
+    const onFocus = () => {
+      if (document.visibilityState !== "visible") return;
+      if (Date.now() - last < throttleMs) return;
+      last = Date.now();
+      reloadDraftsRef.current();
+    };
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onFocus);
+    return () => {
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onFocus);
+    };
+  }, []);
 
   // When the ramp-schedule poll detects an advancement (step or status change),
   // re-fetch the full feature payload so revisions and rule state stay in sync.

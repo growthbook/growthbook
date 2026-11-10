@@ -291,7 +291,7 @@ type RuleProps = SortableProps &
     handle?: React.HTMLAttributes<HTMLDivElement>;
   };
 
-function isRuleSkipped({
+export function isRuleSkipped({
   rule,
   linkedExperiment,
   linkedContextualBandit,

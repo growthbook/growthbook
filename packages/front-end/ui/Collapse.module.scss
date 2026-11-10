@@ -27,6 +27,8 @@
 
 .inner {
   min-height: 0;
+  // As wide as the collapse, not its content, so wide content scrolls inside.
+  min-width: 0;
   overflow: hidden;
 
   // Settled open, it stops clipping, so hover tints and focus rings show.

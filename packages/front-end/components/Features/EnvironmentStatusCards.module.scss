@@ -1,0 +1,225 @@
+// Narrow values fit four to a row; JSON gets room for a line of it.
+.grid {
+  display: grid;
+  gap: var(--space-3);
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+
+  &.wide {
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  }
+}
+
+.card {
+  all: unset;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+  padding: var(--space-3);
+  border: 1px solid var(--gray-a5);
+  border-radius: var(--radius-3);
+  background: var(--color-panel-solid);
+  cursor: pointer;
+
+  &:hover {
+    border-color: var(--gray-a7);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--violet-8);
+    outline-offset: 2px;
+  }
+
+  &[data-state="open"] {
+    border-color: var(--violet-8);
+  }
+}
+
+.line {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  min-width: 0;
+  white-space: nowrap;
+}
+
+// A JSON or string value's line, which breaks in two when it runs out of
+// room: the value on the first, cut short, its share and reason under it.
+.wrappingLine {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+// Centers the dot on the first line.
+.dotSlot {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  height: 20px;
+}
+
+.wrapping {
+  display: flex;
+  flex: 1 1 auto;
+  flex-wrap: wrap;
+  align-items: baseline;
+  column-gap: var(--space-2);
+  min-width: 0;
+}
+
+.wrappingValue {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  min-width: 0;
+  max-width: 100%;
+  white-space: nowrap;
+
+  > * {
+    min-width: 0;
+  }
+}
+
+.wrapping > .line {
+  max-width: 100%;
+}
+
+// Dropped below the value, the share and reason sit at the right.
+.wrapping[data-wrapped] > .line {
+  margin-left: auto;
+}
+
+// The value keeps its room.
+.value {
+  // The platform's code font, at the size booleans read.
+  font-family: var(--code-font-family);
+  font-size: var(--font-size-2);
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+// The why reads quieter than the value, and gives way first.
+.reason {
+  display: flex;
+  flex: 0 100 auto;
+  min-width: 0;
+}
+
+// Something the draft changes: an environment it turns on or off, or the
+// prerequisites it edits.
+.changed {
+  text-decoration: underline;
+  text-decoration-color: var(--amber-9);
+  text-decoration-thickness: 2px;
+  text-underline-offset: 3px;
+}
+
+.rows {
+  display: grid;
+  grid-template-columns: 20px max-content minmax(0, 1fr);
+  // A value over several lines keeps its icon and label by its first.
+  align-items: start;
+  column-gap: var(--space-3);
+  row-gap: var(--space-1);
+  min-width: 320px;
+  max-width: 440px;
+}
+
+// One step of the evaluation, spanning the grid's columns.
+.row {
+  display: contents;
+}
+
+// Each a line tall, as every line of a value is.
+.icon,
+.label,
+.stepLine {
+  display: flex;
+  align-items: center;
+  min-height: 28px;
+}
+
+.icon {
+  justify-content: center;
+}
+
+// One prerequisite, under the Prerequisites row.
+.subRow {
+  // In line with the values beside the labels.
+  grid-column: 3 / -1;
+  padding-left: var(--space-3);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  min-height: 28px;
+}
+
+// Scrolled by the area around it, so the name column can pin inside it.
+.prerequisiteScroll {
+  margin-top: var(--space-2);
+}
+
+.prerequisiteTable {
+  :global(.rt-ScrollAreaRoot),
+  :global(.rt-ScrollAreaViewport),
+  :global(.rt-TableRootTable) {
+    overflow: visible !important;
+  }
+
+  :global(.rt-ScrollAreaScrollbar) {
+    display: none;
+  }
+
+  // A row's name, menu and statuses on one line.
+  :global(.rt-TableCell),
+  :global(.rt-TableColumnHeaderCell) {
+    vertical-align: middle;
+  }
+}
+
+// Stays put while the environments scroll under it.
+.pinned {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: var(--color-panel-solid);
+}
+
+// A long id truncates rather than widening the pinned column.
+.prerequisiteName {
+  min-width: 0;
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+// A name of any length, cut short with an ellipsis.
+.clamped {
+  display: inline-block;
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: bottom;
+}
+
+// A rule or holdout and what it's called, before what it serves.
+.stepTitle {
+  flex-shrink: 0;
+  white-space: nowrap;
+  color: var(--color-text-high);
+}
+
+// A prerequisite's menu, at the end of its name's cell.
+.actions {
+  display: flex;
+  margin-left: auto;
+}
