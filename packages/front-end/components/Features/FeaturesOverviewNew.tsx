@@ -666,11 +666,18 @@ export default function FeaturesOverviewNew({
     ...prerequisites.flatMap((p) => {
       const change = prerequisiteChange(p);
       if (!change) return [];
-      return [{ label: <DraftChangeMark change={change} />, value: p.id }];
+      return [
+        {
+          label: <DraftChangeMark change={change} />,
+          value: p.id,
+          text: `${change} ${p.id}`,
+        },
+      ];
     }),
     ...removedPrerequisites.map((id) => ({
       label: <DraftChangeMark change="removed" />,
       value: id,
+      text: `removed ${id}`,
     })),
   ];
   // What the draft changes in this section, before it's published.
@@ -724,6 +731,8 @@ export default function FeaturesOverviewNew({
                     besideApprovals={false}
                   />
                 ),
+                // Said beside the environment's name, which it'd repeat.
+                text: `turned ${to ? "on" : "off"}`,
               },
             ],
           },

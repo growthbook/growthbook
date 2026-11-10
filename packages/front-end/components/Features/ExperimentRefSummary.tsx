@@ -96,8 +96,8 @@ export function experimentRefSkipReason(
   if (experiment.status === "draft") {
     return (
       <>
-        This {noun} is a <strong>draft</strong>, served only to SDK connections
-        that include draft experiments.
+        This {noun} does not serve while in draft unless the SDK connection opts
+        in.
         {isDraft
           ? ` You can start the ${noun} when you publish this feature draft.`
           : null}

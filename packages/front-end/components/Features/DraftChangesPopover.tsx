@@ -11,7 +11,8 @@ import styles from "./DraftChangesPopover.module.scss";
 
 export type DraftChangeSection = {
   title: string;
-  rows: { label: ReactNode; value: ReactNode }[];
+  // `text` says the row in words, for screen readers.
+  rows: { label: ReactNode; value: ReactNode; text: string }[];
 };
 
 const MARKS = {
@@ -83,6 +84,13 @@ export default function DraftChangesPopover({
           >
             {children}
           </span>
+          {/* The hover can't be reached by keyboard or read out, so what it
+              shows is said here instead. */}
+          <VisuallyHidden>
+            {` (${sections
+              .flatMap((s) => s.rows.map((r) => r.text))
+              .join(", ")} in this draft)`}
+          </VisuallyHidden>
         </span>
       }
       contentStyle={{ maxWidth: 320, padding: 0 }}

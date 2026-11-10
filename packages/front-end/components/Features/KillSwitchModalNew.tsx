@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Flex } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import { FeatureInterface } from "shared/types/feature";
 import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
 import { isActiveDraftStatus, eventUserPersonId } from "shared/validators";
@@ -202,6 +202,15 @@ export default function KillSwitchModalNew({
     if (finalVersion !== null) setVersion(finalVersion);
   };
 
+  // Changing several at once, which of them it turns off, against what it
+  // lands on.
+  const turningOff =
+    Object.keys(desiredStates).length > 1
+      ? visibleEnvs.filter(
+          (env) => desiredStates[env] === false && !!baseEnvEnabled[env],
+        )
+      : [];
+
   const noNetChange = visibleEnvs.every(
     (env) =>
       getEffectiveState(env) ===
@@ -250,6 +259,20 @@ export default function KillSwitchModalNew({
             This change needs review before it can be published, and you
             don&apos;t have permission to put it in a draft.
           </PermissionBlocker>
+        ) : null}
+        {turningOff.length ? (
+          <Box mb="4">
+            <Text as="p" mb="1">
+              The following environments will be disabled:
+            </Text>
+            <ol style={{ margin: 0, paddingLeft: "var(--space-5)" }}>
+              {turningOff.map((env) => (
+                <li key={env}>
+                  <Text weight="medium">{env}</Text>
+                </li>
+              ))}
+            </ol>
+          </Box>
         ) : null}
         <DraftSelectorForChanges
           feature={feature}
