@@ -1,5 +1,6 @@
 import { execFileSync } from "child_process";
-import { mkdtemp, rm, writeFile } from "fs/promises";
+import { readFileSync } from "fs";
+import { mkdtemp, readFile, rm, writeFile } from "fs/promises";
 import os from "os";
 import path from "path";
 import { createClient } from "@clickhouse/client";
@@ -17,6 +18,10 @@ jest.mock("@clickhouse/client", () => {
     createClient: jest.fn(),
   };
 });
+jest.mock("fs/promises", () => {
+  const actual = jest.requireActual("fs/promises");
+  return { ...actual, readFile: jest.fn(actual.readFile) };
+});
 jest.mock("back-end/src/util/secrets", () => ({
   ...jest.requireActual("back-end/src/util/secrets"),
   IS_CLOUD: false,
@@ -27,6 +32,7 @@ const mockSecrets = jest.requireMock<{
   IS_CLOUD: boolean;
   IS_MULTI_ORG: boolean;
 }>("back-end/src/util/secrets");
+const mockReadFile = jest.mocked(readFile);
 const mockCreateClient = createClient as jest.MockedFunction<
   typeof createClient
 >;
@@ -210,6 +216,38 @@ describe("getClickHouseTLSOptions with certificate file paths", () => {
     await expect(
       getClickHouseTLSOptions({ ssl: true, ...params() }),
     ).rejects.toThrow(error);
+  });
+
+  it("re-reads once when a rotation pairs the old cert with the new key", async () => {
+    const pair = (name: string) => {
+      const [cert, key] = [`${name}.crt`, `${name}.key`].map((f) =>
+        path.join(dir, f),
+      );
+      const args = "req -x509 -newkey rsa:2048 -nodes -days 1 -subj".split(" ");
+      execFileSync(
+        "openssl",
+        [...args, `/CN=${name}`, "-keyout", key, "-out", cert],
+        { stdio: "ignore" },
+      );
+      return { cert: readFileSync(cert), key: readFileSync(key) };
+    };
+    const current = pair("current");
+    const stale = pair("stale");
+    await writeFile(clientCertPath, current.cert);
+    await writeFile(clientKeyPath, current.key);
+    // The first key read lands just after the Secret swapped in a new pair
+    mockReadFile.mockClear();
+    mockReadFile.mockImplementationOnce(async () => current.cert);
+    mockReadFile.mockImplementationOnce(async () => stale.key);
+
+    const tls = await getClickHouseTLSOptions({
+      ssl: true,
+      clientCertPath,
+      clientKeyPath,
+    });
+
+    expect(mockReadFile).toHaveBeenCalledTimes(4);
+    expect(tls).toStrictEqual({ cert: current.cert, key: current.key });
   });
 
   it("rejects a path that isn't a regular file", async () => {

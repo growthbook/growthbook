@@ -1,3 +1,4 @@
+import { createPrivateKey, X509Certificate } from "crypto";
 import { readFile, stat } from "fs/promises";
 import { subDays } from "date-fns";
 import {
@@ -88,6 +89,15 @@ export function getClickHouseUrl(
 
 const MAX_PEM_FILE_BYTES = 1024 * 1024;
 
+// Files that don't parse (e.g. an encrypted key) are left for the TLS handshake to report
+function certMatchesKey(cert: Buffer, key: Buffer): boolean {
+  try {
+    return new X509Certificate(cert).checkPrivateKey(createPrivateKey(key));
+  } catch {
+    return true;
+  }
+}
+
 // Files are read on every call, so certificates rotated on disk are picked up without a restart
 async function readPem(
   value: string | undefined,
@@ -142,12 +152,24 @@ export async function getClickHouseTLSOptions(
 ): Promise<ClickHouseClientConfigOptions["tls"]> {
   if (!params.ssl) return undefined;
 
-  const [caCert, leafCert, chain, clientKey] = await Promise.all([
-    readPem(params.caCert, params.caCertPath, "CA cert"),
-    readPem(params.clientCert, params.clientCertPath, "client cert"),
-    readPem(undefined, params.clientCertChainPath, "client cert chain"),
-    readPem(params.clientKey, params.clientKeyPath, "client key"),
-  ]);
+  const read = () =>
+    Promise.all([
+      readPem(params.caCert, params.caCertPath, "CA cert"),
+      readPem(params.clientCert, params.clientCertPath, "client cert"),
+      readPem(undefined, params.clientCertChainPath, "client cert chain"),
+      readPem(params.clientKey, params.clientKeyPath, "client key"),
+    ]);
+  let [caCert, leafCert, chain, clientKey] = await read();
+  // A Secret rotated between the two reads can pair the old cert with the new key
+  if (
+    params.clientCertPath &&
+    params.clientKeyPath &&
+    leafCert &&
+    clientKey &&
+    !certMatchesKey(leafCert, clientKey)
+  ) {
+    [caCert, leafCert, chain, clientKey] = await read();
+  }
   if (!!leafCert !== !!clientKey) {
     throw new Error("Client cert and client key must be provided together.");
   }
