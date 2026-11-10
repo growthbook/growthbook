@@ -511,9 +511,11 @@ export function getReadableExposureQueries<
 /**
  * A save only sends back the assignment queries the user was shown, so the
  * saved ones they can't read are put back unchanged. Each goes right after the
- * closest query before it in the saved list that was submitted again (matched
- * by id), or first if there is none, so it keeps its place among the visible
- * ones. Returns `submitted` itself when there are none.
+ * closest query before it in the saved list that was submitted again, or first
+ * if there is none, so it keeps its place among the visible ones. A repeated id
+ * is matched in order, as in getChangedExposureQueries, so an unchanged visible
+ * list gives back the saved list. Returns `submitted` itself when there are
+ * none.
  */
 export function withUnreadableExposureQueries<
   Q extends Pick<ExposureQuery, "id" | "projects">,
@@ -523,13 +525,28 @@ export function withUnreadableExposureQueries<
   datasourceProjects: string[] | undefined,
   canReadProjects: (projects: string[]) => boolean,
 ): Q[] {
-  const submittedIds = new Set(submitted.map((q) => q.id).filter(Boolean));
-  // Unreadable queries keyed by the id they follow; null means first.
+  // The nth query with an id, so repeated ids are told apart.
+  const occurrences = () => {
+    const counts = new Map<string, number>();
+    return (id: string) => {
+      const n = counts.get(id) ?? 0;
+      counts.set(id, n + 1);
+      return `${n}:${id}`;
+    };
+  };
+  const submittedKeys = new Set<string>();
+  const nextSubmitted = occurrences();
+  for (const q of submitted) {
+    if (q.id) submittedKeys.add(nextSubmitted(q.id));
+  }
+  // Unreadable queries keyed by the occurrence they follow; null means first.
   const after = new Map<string | null, Q[]>();
   let anchor: string | null = null;
+  const nextSaved = occurrences();
   for (const q of saved) {
     if (canReadProjects(getExposureQueryProjects(q, datasourceProjects))) {
-      if (submittedIds.has(q.id)) anchor = q.id;
+      const key = q.id ? nextSaved(q.id) : null;
+      if (key !== null && submittedKeys.has(key)) anchor = key;
       continue;
     }
     const group = after.get(anchor);
@@ -538,12 +555,15 @@ export function withUnreadableExposureQueries<
   }
   if (!after.size) return submitted;
   const merged = [...(after.get(null) ?? [])];
+  const nextMerged = occurrences();
   for (const q of submitted) {
     merged.push(q);
-    const group = after.get(q.id);
+    if (!q.id) continue;
+    const key = nextMerged(q.id);
+    const group = after.get(key);
     if (!group) continue;
     merged.push(...group);
-    after.delete(q.id);
+    after.delete(key);
   }
   return merged;
 }

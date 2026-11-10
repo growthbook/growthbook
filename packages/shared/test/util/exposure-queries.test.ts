@@ -902,6 +902,25 @@ describe("assignment query read access", () => {
     ).toEqual([third, own, other]);
   });
 
+  it("keeps the saved order of legacy queries that repeat an id", () => {
+    const a = { id: "eq_dup", name: "A", projects: ["prj_a"] };
+    const b = { id: "eq_dup", name: "B", projects: ["prj_a"] };
+    const hidden = { id: "eq_dup", name: "H", projects: ["prj_b"] };
+    const saved = [a, b, hidden];
+    const merged = withUnreadableExposureQueries(saved, [a, b], [], canRead);
+    expect(merged).toEqual(saved);
+    expect(getChangedExposureQueries(saved, merged)).toEqual([]);
+    expect(
+      withUnreadableExposureQueries([a, hidden, b], [a, b], [], canRead),
+    ).toEqual([a, hidden, b]);
+    // With fewer submitted than saved, the hidden query follows the last
+    // visible occurrence that was submitted again.
+    expect(withUnreadableExposureQueries(saved, [a], [], canRead)).toEqual([
+      a,
+      hidden,
+    ]);
+  });
+
   it("does not anchor unreadable queries to added queries without a saved id", () => {
     const added = { id: "", projects: ["prj_a"] };
     expect(
