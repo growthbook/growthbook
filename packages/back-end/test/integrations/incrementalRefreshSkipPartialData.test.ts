@@ -189,6 +189,56 @@ describe("incremental refresh statistics query with skipPartialData", () => {
     expect(unitsCte(sql)).toContain(`e.first_exposure_timestamp <= ${cutoff}`);
   });
 
+  describe("metric-level skipPartialData", () => {
+    const eligibleLongWindowMetric = factMetricFactory.build({
+      ...longWindowMetric,
+      id: "fact_long_window_eligible",
+      skipPartialData: true,
+    });
+
+    it("trims only the metrics that exclude in-progress conversions", () => {
+      const sql = buildSql({ ...baseSettings, skipPartialData: false }, [
+        shortWindowMetric,
+        eligibleLongWindowMetric,
+        { ...eligibleLongWindowMetric, id: "fact_long_window_eligible_2" },
+      ]);
+      // 96 hours before NOW
+      const eligible = `m.first_exposure_timestamp <= ${integration
+        .getSqlDialect()
+        .toTimestamp(new Date("2024-02-06T12:00:00.000Z"))}`;
+
+      // Every unit stays in the query...
+      expect(unitsCte(sql)).not.toContain("first_exposure_timestamp <=");
+      // ...and same-window metrics share one count of eligible units
+      expect(sql.split("AS users_cw5760m")).toHaveLength(2);
+      expect(sql).toContain(eligible);
+      expect(sql).toContain("m1_users_column");
+      expect(sql).toContain("m2_users_column");
+      expect(sql).not.toContain("m0_users_column");
+    });
+
+    it("computes a trimmed metric's percentile cap over the units it analyzes", () => {
+      const sql = buildSql({ ...baseSettings, skipPartialData: false }, [
+        {
+          ...eligibleLongWindowMetric,
+          cappingSettings: { type: "percentile", value: 0.99 },
+        },
+      ]).replace(/\s+/g, " ");
+      // 96 hours before NOW
+      expect(sql).toContain(
+        "FROM ( SELECT ( CASE WHEN first_exposure_timestamp <= '2024-02-06 12:00:00' THEN m0_value ELSE NULL END ) AS m0_value FROM __joinedData ) cap_source",
+      );
+    });
+
+    it("defers to the experiment-level setting", () => {
+      const sql = buildSql({ ...baseSettings, skipPartialData: true }, [
+        eligibleLongWindowMetric,
+      ]);
+      expect(sql).not.toContain("users_cw");
+      expect(sql).not.toContain("m.first_exposure_timestamp <=");
+    });
+  });
+
   it("allows a mixed-window slice when in-progress conversions are included", () => {
     expect(() =>
       buildSql({ ...baseSettings, skipPartialData: false }, [

@@ -23,6 +23,10 @@ import {
 import { resolveClusterMetricGrain } from "back-end/src/integrations/sql/fact-metrics/cluster-metric-grain";
 import { getDimensionCol } from "back-end/src/integrations/sql/columns/dimension-col";
 import { getExperimentEndDate } from "back-end/src/integrations/sql/dates/experiment-end-date";
+import {
+  getPercentileCapSource,
+  getUnitEligibilityHours,
+} from "back-end/src/integrations/sql/dates/unit-eligibility";
 import { getExperimentFactMetricStatisticsCTE } from "back-end/src/integrations/sql/ctes/experiment-fact-metric-statistics-cte";
 import { getExperimentUnitsQuery } from "back-end/src/integrations/sql/queries/experiment-units-query";
 import { getFactMetricCTE } from "back-end/src/integrations/sql/ctes/fact-metric-cte";
@@ -162,6 +166,18 @@ export function getExperimentFactMetricsQuery(
   );
 
   const useClusterRollup = clusterIdColumn !== null;
+
+  // Metrics with `skipPartialData` are trimmed in the statistics CTE, which
+  // then needs each unit's exposure timestamp on its source table.
+  const unitEligibility =
+    !useClusterRollup &&
+    !banditDates?.length &&
+    metricData.some(
+      (d) =>
+        getUnitEligibilityHours(d.metric, settings, activationMetric) !== null,
+    )
+      ? { timestampColumn: "timestamp", settings, activationMetric }
+      : undefined;
 
   // TODO(sql): Separate metric start by fact table
   const raMetricSettings = metricData
@@ -640,9 +656,10 @@ export function getExperimentFactMetricsQuery(
                 : ""
             }
             ${
-              // Funnel resolution anchors exposure-relative windows on this;
-              // source 0 drives the per-unit table.
-              hasFunnelMetrics && f.index === 0
+              // Funnel resolution anchors exposure-relative windows on this
+              // (source 0 drives the per-unit table); unit eligibility
+              // compares it to a cutoff on every source its caps read.
+              unitEligibility || (hasFunnelMetrics && f.index === 0)
                 ? `, MIN(umj.timestamp) AS timestamp`
                 : ""
             }
@@ -919,7 +936,13 @@ export function getExperimentFactMetricsQuery(
       , __capValue${suffix} AS (
           ${dialect.percentileCapSelectClause(
             percentileData.filter((p) => p.sourceIndex === f.index),
-            userMetricAggTable,
+            getPercentileCapSource(
+              dialect,
+              userMetricAggTable,
+              percentileData.filter((p) => p.sourceIndex === f.index),
+              metricData,
+              unitEligibility,
+            ),
           )}
       )
       `
@@ -998,6 +1021,7 @@ export function getExperimentFactMetricsQuery(
       factTablesWithIndices,
       percentileTableIndices,
       useClusterRollup,
+      unitEligibility,
     })}
     `
     }`,

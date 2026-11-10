@@ -12,9 +12,11 @@ import {
   analyzeExperimentClusterHealth,
   analyzeExperimentTraffic,
   getAnalysisSettingsForStatsEngine,
+  getMetricsAndQueryDataForStatsEngine,
   parseStatsEngineResult,
   selectAnalysisQueryData,
 } from "back-end/src/services/stats";
+import { factMetricFactory } from "../factories/FactMetric.factory";
 
 const analysisSettings: ExperimentSnapshotAnalysisSettings = {
   dimensions: [""],
@@ -594,5 +596,62 @@ describe("selectAnalysisQueryData", () => {
       "statistics_multi_group_0__group_1",
     ]);
     expect(result.get("statistics_group_0")).toBe(parentGroup);
+  });
+});
+
+describe("getMetricsAndQueryDataForStatsEngine", () => {
+  it("hands metrics with their own unit count to gbstats as separate results", () => {
+    const settings = {
+      goalMetrics: [],
+      secondaryMetrics: [],
+      guardrailMetrics: [],
+      metricSettings: [],
+      regressionAdjustmentEnabled: false,
+      variations,
+    } as unknown as ExperimentSnapshotSettings;
+    const metrics = ["all_units", "one_day", "two_days", "one_day_again"].map(
+      (id) => factMetricFactory.build({ id }),
+    );
+    const rows = [
+      {
+        variation: "control",
+        users: 10,
+        count: 10,
+        m0_id: "all_units",
+        m0_main_sum: 1,
+        m1_id: "one_day",
+        m1_users_column: "users_cw1440m",
+        m1_users: 6,
+        m1_main_sum: 2,
+        m2_id: "two_days",
+        m2_users_column: "users_cw2880m",
+        m2_users: 3,
+        m2_main_sum: 3,
+        m3_id: "one_day_again",
+        m3_users_column: "users_cw1440m",
+        m3_users: 6,
+        m3_main_sum: 4,
+      },
+    ];
+
+    const { queryResults, metricSettings } =
+      getMetricsAndQueryDataForStatsEngine(
+        new Map([
+          ["group_0", { result: rows, query: "SELECT 1" } as QueryInterface],
+        ]),
+        new Map(metrics.map((m) => [m.id, m])),
+        settings,
+      );
+
+    expect(Object.keys(metricSettings).sort()).toEqual(
+      metrics.map((m) => m.id).sort(),
+    );
+    expect(
+      queryResults.map((r) => [r.metrics, r.rows[0].users, r.rows[0].count]),
+    ).toEqual([
+      [["all_units", null, null, null], 10, 10],
+      [[null, "one_day", null, "one_day_again"], 6, 6],
+      [[null, null, "two_days", null], 3, 3],
+    ]);
   });
 });

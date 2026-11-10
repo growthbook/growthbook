@@ -222,7 +222,14 @@ export function readMetricData({
         (sum, r) => (sum += (r?.[prefix + "main_sum_squares"] as number) ?? 0),
         0,
       ),
-      count: rows.reduce((sum, r) => (sum += (r?.["count"] as number) ?? 0), 0),
+      // A metric that only analyzed units with complete data has its own count
+      count: rows.reduce(
+        (sum, r) =>
+          (sum += ((metricPrefix
+            ? (r?.[metricPrefix + "users"] ?? r?.["count"])
+            : r?.["count"]) ?? 0) as number),
+        0,
+      ),
       ...(isRatioMetric(metric, denominator)
         ? {
             denominator_sum: rows.reduce(

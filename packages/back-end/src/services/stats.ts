@@ -80,6 +80,7 @@ import { Context } from "back-end/src/models/BaseModel";
 import {
   MAX_METRICS_PER_QUERY,
   MAX_ROWS_UNIT_AGGREGATE_QUERY,
+  METRIC_USERS_COLUMN_MARKER,
 } from "back-end/src/services/experimentQueries/constants";
 import {
   CLUSTER_HEALTH_KIND_ASSIGNMENT,
@@ -88,6 +89,7 @@ import {
   CLUSTER_HEALTH_KIND_RELIABILITY,
 } from "back-end/src/integrations/sql/queries/experiment-cluster-health-query";
 import { splitFunnelMetricBlock } from "back-end/src/services/experimentQueries/funnelMetricBlock";
+import { withMetricSlotUsers } from "back-end/src/services/experimentQueries/metricSlotUsers";
 import { applyMetricOverrides } from "back-end/src/util/integration";
 import { statsServerPool } from "back-end/src/services/python";
 import { metrics } from "back-end/src/util/metrics";
@@ -469,11 +471,16 @@ export function getMetricsAndQueryDataForStatsEngine(
         const rows = query.result as ExperimentFactMetricsQueryResponseRows;
         if (!rows?.length) return;
         const metricIds: (string | null)[] = [];
+        // Metrics that only analyzed units with complete data have their own
+        // unit count, shared by every slot naming the same users column. Each
+        // such set goes to gbstats as its own result with that count.
+        const slotsByUsersColumn = new Map<string, Map<number, string>>();
         for (let i = 0; i < MAX_METRICS_PER_QUERY; i++) {
           const prefix = `m${i}_`;
           if (!rows[0]?.[prefix + "id"]) break;
 
           const metricId = rows[0][prefix + "id"] as string;
+          const usersColumn = rows[0][prefix + METRIC_USERS_COLUMN_MARKER];
 
           const metric = metricMap.get(metricId);
           // skip any metrics somehow missing from map
@@ -491,7 +498,7 @@ export function getMetricsAndQueryDataForStatsEngine(
               splitFunnelMetricBlock({
                 metric,
                 slotAlias: `m${i}`,
-                rows,
+                rows: withMetricSlotUsers(rows, `m${i}`),
                 sql: query.query,
               }),
             );
@@ -514,18 +521,32 @@ export function getMetricsAndQueryDataForStatsEngine(
             continue;
           }
 
-          metricIds.push(metricId);
           metricSettings[metricId] = getMetricSettingsForStatsEngine(
             metric,
             metricMap,
             settings,
             true,
           );
+          if (typeof usersColumn === "string") {
+            metricIds.push(null);
+            const slots =
+              slotsByUsersColumn.get(usersColumn) ?? new Map<number, string>();
+            slotsByUsersColumn.set(usersColumn, slots.set(i, metricId));
+            continue;
+          }
+          metricIds.push(metricId);
         }
         queryResults.push({
           metrics: metricIds,
           rows: rows,
           sql: query.query,
+        });
+        slotsByUsersColumn.forEach((slots) => {
+          queryResults.push({
+            metrics: metricIds.map((_id, i) => slots.get(i) ?? null),
+            rows: withMetricSlotUsers(rows, `m${[...slots.keys()][0]}`),
+            sql: query.query,
+          });
         });
         return;
       }

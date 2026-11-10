@@ -17,11 +17,13 @@ import { MetricInterface } from "shared/types/metric";
 import { ExperimentSnapshotSettings } from "shared/types/experiment-snapshot";
 import { OrganizationInterface } from "shared/types/organization";
 import cloneDeep from "lodash/cloneDeep";
+import sortBy from "lodash/sortBy";
 import { isManagedWarehouse } from "shared/util";
 import { SourceIntegrationInterface } from "back-end/src/types/Integration";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { applyMetricOverrides } from "back-end/src/util/integration";
 import { getMaxHoursToConvert } from "back-end/src/integrations/sql/dates/max-hours-to-convert";
+import { getUnitEligibilityHours } from "back-end/src/integrations/sql/dates/unit-eligibility";
 import {
   BANDIT_CUPED_FLOAT_COLS,
   BASE_METRIC_CUPED_FLOAT_COLS,
@@ -204,8 +206,9 @@ export function maxColumnsNeededForMetric({
   isBandit: boolean;
   efficientQuantileGrid?: boolean;
 }) {
-  // id column
-  const boilerplateCols = 1;
+  // id column, plus the users column marker and (at worst unshared) eligible
+  // users count for a metric that only analyzes units with complete data
+  const boilerplateCols = 1 + (metric.skipPartialData ? 2 : 0);
 
   // A funnel occupies one metric slot but emits one sum column per step, so
   // chunkMetrics has to budget for the step count, not for a fixed block.
@@ -391,17 +394,22 @@ export function getFactMetricGroups(
   Object.values(groups).forEach((group) => {
     // Split groups into chunks of MAX_METRICS_PER_QUERY
     const chunks = chunkMetrics({
-      metrics: group.map((m) => {
-        const metric = cloneDeep(m);
-        // TODO(overrides): refactor overrides to beginning of analysis
-        applyMetricOverrides(metric, settings);
-        return {
-          metric,
-          regressionAdjusted:
-            isRegressionAdjusted(metric) &&
-            settings.regressionAdjustmentEnabled,
-        };
-      }),
+      // Keep metrics trimmed to the same eligible units in the same query so
+      // they share one eligible users count.
+      metrics: sortBy(
+        group.map((m) => {
+          const metric = cloneDeep(m);
+          // TODO(overrides): refactor overrides to beginning of analysis
+          applyMetricOverrides(metric, settings);
+          return {
+            metric,
+            regressionAdjusted:
+              isRegressionAdjusted(metric) &&
+              settings.regressionAdjustmentEnabled,
+          };
+        }),
+        ({ metric }) => getUnitEligibilityHours(metric, settings, null) ?? -1,
+      ),
       maxColumnsPerQuery: sourceProps.maxColumns,
       isBandit: !!settings.banditSettings,
       efficientQuantileGrid: !!sourceProps.hasArrayQuantileGrid,

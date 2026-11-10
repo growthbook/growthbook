@@ -3,6 +3,7 @@ import {
   getDelayWindowHours,
   getMetricWindowHours,
   isFactFunnelMetric,
+  isRetentionMetric,
 } from "shared/experiments";
 import { conversionWindowToSeconds } from "shared/funnels";
 
@@ -54,6 +55,10 @@ export function getMaxHoursToConvert(
       // conversion window is not present. Note: we do not use the same logic
       // for lookback windows, which do not start at the exposure event.
       conversionHours = funnelHours;
+    } else if (m.windowSettings.type === "" && isRetentionMetric(m)) {
+      // Retention with no end only counts events after its delay, so a unit
+      // cannot convert until the delay has passed.
+      conversionHours = 0;
     }
     if (conversionHours === null) return;
 

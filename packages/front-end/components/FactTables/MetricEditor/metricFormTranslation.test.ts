@@ -1,3 +1,4 @@
+import type { FunnelStep } from "shared/types/fact-table";
 import {
   aggregationForShape,
   applyFormType,
@@ -16,6 +17,7 @@ import {
   retentionModeFromWindow,
   shapeForValueType,
   shapeFromColumnRef,
+  skipPartialDataOk,
   typeHasShape,
   THRESHOLD_SHAPES,
   windowOk,
@@ -1013,6 +1015,24 @@ describe("applyFormType", () => {
     const result = applyFormType(startingMode, "retention", factTable, dialect);
     expect(result.windowSettings?.type).toBe("");
   });
+
+  it("excludes in-progress conversions by default only for retention", () => {
+    const retention = applyFormType(current, "retention", factTable, dialect);
+    expect(retention.skipPartialData).toBe(true);
+    expect(
+      applyFormType(retention, "proportion", factTable, dialect)
+        .skipPartialData,
+    ).toBe(false);
+    // Other switches keep the user's choice
+    expect(
+      applyFormType(
+        { ...current, skipPartialData: true },
+        "ratio",
+        factTable,
+        dialect,
+      ).skipPartialData,
+    ).toBe(true);
+  });
 });
 
 describe("shapeForValueType", () => {
@@ -1088,6 +1108,38 @@ describe("gates", () => {
     expect(windowOk("retention")).toBe(false);
     expect(windowOk("proportion")).toBe(true);
     expect(windowOk("funnel")).toBe(true);
+  });
+
+  it("skipPartialDataOk needs a bounded time to convert", () => {
+    const step: FunnelStep = {
+      name: "Step",
+      factTableId: "ft1",
+      rowFilters: [],
+      optional: false,
+      conversionWindow: null,
+    };
+    const windowed: FunnelStep = {
+      ...step,
+      conversionWindow: { value: 1, unit: "hours" },
+    };
+    const ok = (
+      metricType: MetricTypeSwitchState["metricType"],
+      type: "" | "conversion" | "lookback",
+      steps?: FunnelStep[],
+    ) =>
+      skipPartialDataOk({
+        metricType,
+        windowSettings: { type },
+        funnelSettings: steps ? { steps } : null,
+      });
+    expect(ok("mean", "conversion")).toBe(true);
+    expect(ok("mean", "")).toBe(false);
+    expect(ok("mean", "lookback")).toBe(false);
+    expect(ok("retention", "")).toBe(true);
+    expect(ok("quantile", "conversion")).toBe(false);
+    expect(ok("funnel", "", [windowed, windowed])).toBe(true);
+    expect(ok("funnel", "", [windowed, step])).toBe(false);
+    expect(ok("funnel", "lookback", [windowed, windowed])).toBe(false);
   });
 
   it("THRESHOLD_SHAPES is exactly count and sum", () => {

@@ -64,6 +64,8 @@ import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { GBCuped } from "@/components/Icons";
 import ButtonSelectField from "@/components/Forms/ButtonSelectField";
 import { MetricWindowSettingsForm } from "@/components/Metrics/MetricForm/MetricWindowSettingsForm";
+import SkipPartialDataCheckbox from "@/components/FactTables/MetricEditor/SkipPartialDataCheckbox";
+import { skipPartialDataOk } from "@/components/FactTables/MetricEditor/metricFormTranslation";
 import { MetricCappingSettingsForm } from "@/components/Metrics/MetricForm/MetricCappingSettingsForm";
 import { OfficialBadge } from "@/components/Metrics/MetricName";
 import { MetricDelaySettings } from "@/components/Metrics/MetricForm/MetricDelaySettings";
@@ -1683,6 +1685,15 @@ function StandardFactMetricModal({
                     return;
                   }
 
+                  // Retention excludes in-progress conversions by default;
+                  // other types opt in
+                  if (
+                    (form.getValues("metricType") === "retention") !==
+                    (type === "retention")
+                  ) {
+                    form.setValue("skipPartialData", type === "retention");
+                  }
+
                   // always reset delay value when switching away from retention
                   if (
                     form.getValues("metricType") === "retention" &&
@@ -2066,6 +2077,19 @@ function StandardFactMetricModal({
               )}
 
               <MetricWindowSettingsForm form={form} type={type} />
+
+              {skipPartialDataOk({
+                metricType: type,
+                windowSettings,
+                funnelSettings,
+              }) && (
+                <Box mb="3">
+                  <SkipPartialDataCheckbox
+                    value={!!form.watch("skipPartialData")}
+                    setValue={(v) => form.setValue("skipPartialData", v)}
+                  />
+                </Box>
+              )}
 
               {type !== "funnel" && (
                 <SelectField

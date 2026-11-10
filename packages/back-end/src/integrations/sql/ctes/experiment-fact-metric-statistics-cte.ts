@@ -10,9 +10,17 @@ import type {
 } from "shared/types/integrations";
 import type { FactTableInterface } from "shared/types/fact-table";
 import type { SqlDialect } from "shared/types/sql";
-import { N_STAR_VALUES } from "back-end/src/services/experimentQueries/constants";
+import {
+  METRIC_USERS_COLUMN_MARKER,
+  N_STAR_VALUES,
+} from "back-end/src/services/experimentQueries/constants";
 
 import { getQuantileGridColumns } from "back-end/src/integrations/sql/columns/quantile-grid-columns";
+import {
+  getEligibleUsersColumn,
+  getUnitEligibilityCutoff,
+  type UnitEligibility,
+} from "back-end/src/integrations/sql/dates/unit-eligibility";
 import {
   funnelStepSumColumn,
   funnelStepValueColumn,
@@ -101,6 +109,7 @@ export function getExperimentFactMetricStatisticsCTE(
     factTablesWithIndices,
     percentileTableIndices,
     useClusterRollup = false,
+    unitEligibility,
   }: {
     dimensionCols: DimensionColumnData[];
     metricData: FactMetricData[];
@@ -127,10 +136,55 @@ export function getExperimentFactMetricStatisticsCTE(
      * cluster-level queries, which analyze the cluster as a standard unit.
      */
     useClusterRollup?: boolean;
+    /**
+     * Metrics with `skipPartialData` only analyze units exposed long enough
+     * ago: their sums skip the other units, and they are paired with a count
+     * of eligible units shared by every metric needing the same hours.
+     *
+     * ponytail: omitted (so the metric setting is ignored) for sub-unit
+     * cluster rollups and Bandits, whose statistics rows carry no per-unit
+     * exposure timestamp.
+     */
+    unitEligibility?: UnitEligibility;
   },
 ): string {
   const useArrayQuantileGrid = dialect.hasArrayQuantileGrid();
   const sourceTableName = statisticsSourceTableName ?? joinedMetricTableName;
+  const eligibilityByAlias = new Map<
+    string,
+    { usersColumn: string; condition: string }
+  >();
+  if (unitEligibility) {
+    metricData.forEach((data) => {
+      const eligibility = getUnitEligibilityCutoff(
+        dialect,
+        data.metric,
+        unitEligibility,
+      );
+      if (!eligibility) return;
+      eligibilityByAlias.set(data.alias, {
+        usersColumn: getEligibleUsersColumn(eligibility.hours),
+        condition: `m.${unitEligibility.timestampColumn} <= ${eligibility.cutoff}`,
+      });
+    });
+  }
+  // Zero out a unit that is not yet eligible for this metric
+  const ifEligible = (alias: string, expr: string): string => {
+    const eligibility = eligibilityByAlias.get(alias);
+    return eligibility
+      ? dialect.ifElse(eligibility.condition, expr, "0")
+      : expr;
+  };
+  const eligibleUsersColumns = new Map(
+    [...eligibilityByAlias.values()].map((e) => [e.usersColumn, e.condition]),
+  );
+  // Tells row processing which shared count is this metric's `users`
+  const usersColumnMarker = (alias: string): string => {
+    const eligibility = eligibilityByAlias.get(alias);
+    return eligibility
+      ? `, ${dialect.castToString(`'${eligibility.usersColumn}'`)} as ${alias}_${METRIC_USERS_COLUMN_MARKER}`
+      : "";
+  };
   // Funnel step values come from the resolution chain, not a per-source
   // aggregate.
   const hasFunnelMetrics = metricData.some((d) => isFactFunnelMetric(d.metric));
@@ -143,6 +197,12 @@ export function getExperimentFactMetricStatisticsCTE(
         m.variation AS variation
         ${dimensionCols.map((c) => `, m.${c.alias} AS ${c.alias}`).join("")}
         , COUNT(*) AS users
+        ${[...eligibleUsersColumns]
+          .map(
+            ([column, condition]) =>
+              `, SUM(${dialect.ifElse(condition, "1", "0")}) AS ${column}`,
+          )
+          .join("\n        ")}
         ${useClusterRollup ? `, SUM(COALESCE(m.sub_count, 0)) AS sub_count` : ""}
         ${metricData
           .map((data) => {
@@ -150,10 +210,11 @@ export function getExperimentFactMetricStatisticsCTE(
             if (isFactFunnelMetric(data.metric)) {
               return `
            , ${dialect.castToString(`'${data.id}'`)} as ${data.alias}_id
+            ${usersColumnMarker(data.alias)}
             ${data.metric.funnelSettings.steps
               .map(
                 (step, stepIndex) => `-- ${step.name}
-            , SUM(COALESCE(m.${funnelStepValueColumn(data.alias, stepIndex)}, 0)) AS ${funnelStepSumColumn(data.alias, stepIndex)}`,
+            , SUM(${ifEligible(data.alias, `COALESCE(m.${funnelStepValueColumn(data.alias, stepIndex)}, 0)`)}) AS ${funnelStepSumColumn(data.alias, stepIndex)}`,
               )
               .join("\n            ")}
           `;
@@ -165,18 +226,21 @@ export function getExperimentFactMetricStatisticsCTE(
             const numeratorLowerPct = isLowerPercentileCappedMetric(
               data.metric,
             );
-            const {
-              capMain,
-              capDenominator,
-              capCovariate,
-              capDenominatorCovariate,
-              uncappedMain,
-              uncappedDenominator,
-              uncappedCovariate,
-              uncappedDenominatorCovariate,
-              numeratorCapRef,
-              denominatorCapRef,
-            } = getStatisticColumnRefs(dialect, data, useClusterRollup);
+            const { numeratorCapRef, denominatorCapRef, ...valueRefs } =
+              getStatisticColumnRefs(dialect, data, useClusterRollup);
+            const eligible = (expr: string) => ifEligible(data.alias, expr);
+            const capMain = eligible(valueRefs.capMain);
+            const capDenominator = eligible(valueRefs.capDenominator);
+            const capCovariate = eligible(valueRefs.capCovariate);
+            const capDenominatorCovariate = eligible(
+              valueRefs.capDenominatorCovariate,
+            );
+            const uncappedMain = eligible(valueRefs.uncappedMain);
+            const uncappedDenominator = eligible(valueRefs.uncappedDenominator);
+            const uncappedCovariate = eligible(valueRefs.uncappedCovariate);
+            const uncappedDenominatorCovariate = eligible(
+              valueRefs.uncappedDenominatorCovariate,
+            );
             const createRatioStatistic =
               data.ratioMetric || data.isClusterRatioConversion;
             const numeratorPercentileCapCols = [
@@ -206,6 +270,7 @@ export function getExperimentFactMetricStatisticsCTE(
               : "";
             return `
            , ${dialect.castToString(`'${data.id}'`)} as ${data.alias}_id
+            ${usersColumnMarker(data.alias)}
             ${
               data.computeUncappedMetric
                 ? `

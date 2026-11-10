@@ -408,6 +408,27 @@ export function windowOk(type: FormMetricType): boolean {
   return type !== "retention";
 }
 
+// Whether a unit has a bounded time to convert, which is when excluding
+// in-progress conversions does anything: a conversion window, a retention
+// delay, or funnel steps that all have their own window. Mirrors the back-end
+// getUnitEligibilityHours.
+export function skipPartialDataOk(metric: {
+  metricType: FactMetricType;
+  windowSettings: Pick<MetricWindowSettings, "type">;
+  funnelSettings?: FunnelSettings | null;
+}): boolean {
+  if (metric.metricType === "quantile") return false;
+  if (metric.windowSettings.type === "conversion") return true;
+  if (metric.windowSettings.type === "lookback") return false;
+  if (metric.metricType === "retention") return true;
+  const steps = metric.funnelSettings?.steps ?? [];
+  return (
+    metric.metricType === "funnel" &&
+    steps.length > 0 &&
+    steps.every((step) => !!step.conversionWindow)
+  );
+}
+
 export type UnrepresentableReason =
   | "sketch-aggregation"
   | "quantile-event-count-column"
@@ -605,6 +626,7 @@ export type MetricTypeSwitchState = {
   cappingSettings?: MetricCappingSettings;
   lowerCappingSettings?: MetricCappingSettings | null;
   windowSettings?: MetricWindowSettings;
+  skipPartialData?: boolean;
 };
 
 const DEFAULT_QUANTILE = 0.5;
@@ -732,6 +754,12 @@ export function applyFormType<T extends MetricTypeSwitchState>(
     current.metricType,
     newFormType,
   );
+  // Retention reads wrong while recently exposed units count as not retained,
+  // so it excludes in-progress conversions by default; other types opt in.
+  const skipPartialData =
+    (current.metricType === "retention") !== (metricType === "retention")
+      ? metricType === "retention"
+      : current.skipPartialData;
 
   if (spec.kind === "none") {
     const funnelSettings =
@@ -753,6 +781,7 @@ export function applyFormType<T extends MetricTypeSwitchState>(
       ...(cappingSettings !== undefined && { cappingSettings }),
       ...(lowerCappingSettings !== undefined && { lowerCappingSettings }),
       ...(windowSettings !== undefined && { windowSettings }),
+      ...(skipPartialData !== undefined && { skipPartialData }),
     };
   }
 
@@ -813,6 +842,7 @@ export function applyFormType<T extends MetricTypeSwitchState>(
     ...(cappingSettings !== undefined && { cappingSettings }),
     ...(lowerCappingSettings !== undefined && { lowerCappingSettings }),
     ...(windowSettings !== undefined && { windowSettings }),
+    ...(skipPartialData !== undefined && { skipPartialData }),
     quantileSettings:
       newFormType === "quantile"
         ? (current.quantileSettings ?? {

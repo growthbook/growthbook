@@ -79,6 +79,33 @@ describe("processExperimentFactMetricsQueryRows", () => {
     ]);
   });
 
+  it("resolves a metric's users column marker into its own unit count", () => {
+    const [result] = processExperimentFactMetricsQueryRows([
+      {
+        variation: "1",
+        users: "10",
+        users_cw60m: "6",
+        m0_id: "fact__all_units",
+        m0_main_sum: "5",
+        m1_id: "fact__eligible_units",
+        m1_users_column: "users_cw60m",
+        m1_main_sum: "2",
+      },
+    ]);
+
+    expect(result).toEqual({
+      variation: "1",
+      users: 10,
+      count: 10,
+      m0_id: "fact__all_units",
+      m0_main_sum: 5,
+      m1_id: "fact__eligible_units",
+      m1_users_column: "users_cw60m",
+      m1_users: 6,
+      m1_main_sum: 2,
+    });
+  });
+
   it("returns only shared columns for a row without metrics", () => {
     expect(
       processExperimentFactMetricsQueryRows([{ variation: "0", users: "3" }]),

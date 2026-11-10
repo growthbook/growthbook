@@ -5,6 +5,8 @@ import type { ExperimentFactMetricsQueryResponseRows } from "shared/types/integr
 import {
   ALL_NON_QUANTILE_METRIC_FLOAT_COLS,
   MAX_METRICS_PER_QUERY,
+  METRIC_USERS_COL,
+  METRIC_USERS_COLUMN_MARKER,
 } from "back-end/src/services/experimentQueries/constants";
 
 import { getQuantileBoundsFromQueryResponse } from "back-end/src/integrations/sql/columns/quantile-bounds-from-query-response";
@@ -43,6 +45,17 @@ export function processExperimentFactMetricsQueryRows(
           metricData[prefix + col] = parseFloat(String(columns[col])) || 0;
         }
       });
+
+      // A metric that only analyzed units with complete data names the shared
+      // column holding its unit count.
+      const usersColumn = columns[METRIC_USERS_COLUMN_MARKER];
+      if (typeof usersColumn === "string") {
+        metricData[prefix + METRIC_USERS_COLUMN_MARKER] = usersColumn;
+        metricData[prefix + METRIC_USERS_COL] = parseIntWithDefault(
+          row[usersColumn],
+          0,
+        );
+      }
 
       // Funnel metrics emit one sum per step, so their columns aren't in a static list.
       funnelStepKeys[`m${i}`]?.forEach((key) => {

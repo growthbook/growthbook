@@ -188,6 +188,10 @@ import { getContextualBanditSrmQuery as getContextualBanditSrmQueryFromSql } fro
 import { getInterleavingMetricQuery as getInterleavingMetricQueryFromSql } from "back-end/src/integrations/sql/queries/interleaving-metric-query";
 import { getExperimentEndDate } from "back-end/src/integrations/sql/dates/experiment-end-date";
 import { getExperimentFactMetricStatisticsCTE } from "back-end/src/integrations/sql/ctes/experiment-fact-metric-statistics-cte";
+import {
+  getPercentileCapSource,
+  getUnitEligibilityHours,
+} from "back-end/src/integrations/sql/dates/unit-eligibility";
 import { getExperimentFactMetricsQuery as getExperimentFactMetricsQueryFromSql } from "back-end/src/integrations/sql/queries/experiment-fact-metrics-query";
 import { getSnapshotMetricQuery as buildSnapshotMetricQuerySql } from "back-end/src/integrations/sql/queries/snapshot-metric-query";
 import { getExperimentResultsQuery } from "back-end/src/integrations/sql/queries/experiment-results-query";
@@ -2838,12 +2842,33 @@ export default abstract class SqlIntegration
       percentileData,
       eventQuantileData,
       regressionAdjustedMetrics,
+      activationMetric,
     } = parseExperimentFactMetricsParams(this.getSqlDialect(), {
       ...params,
       // Covariate data joined to single table with `m` alias before columns are extracted
       covariateTableAlias: "m",
       flattenSources: hasMultiFtFunnelMetrics,
     });
+
+    // Metrics with `skipPartialData` are trimmed in the statistics CTE, which
+    // then needs each unit's exposure timestamp on its source table.
+    const unitEligibility =
+      !useClusterRollup &&
+      metricData.some(
+        (d) =>
+          getUnitEligibilityHours(
+            d.metric,
+            params.settings,
+            activationMetric,
+          ) !== null,
+      )
+        ? {
+            timestampColumn: "first_exposure_timestamp",
+            settings: params.settings,
+            activationMetric,
+            asOf: params.asOf,
+          }
+        : undefined;
 
     if (sources.length > 5) {
       throw new Error(
@@ -3461,7 +3486,8 @@ export default abstract class SqlIntegration
           const joinedTableName = hasFunnel
             ? `__joinedDataSteps${sourceSuffix(i)}`
             : `__joinedData${sourceSuffix(i)}`;
-          const needsExposureCol = hasFunnel || hasMultiFtFunnelStep;
+          const needsExposureCol =
+            hasFunnel || hasMultiFtFunnelStep || !!unitEligibility;
           const exposureCol = needsExposureCol
             ? `, ${this.getSqlDialect().castUserDateCol(
                 "u.first_exposure_timestamp",
@@ -3624,7 +3650,13 @@ export default abstract class SqlIntegration
         , __capValue${sourceSuffix(s.index)} AS (
             ${this.getSqlDialect().percentileCapSelectClause(
               percentileData.filter((p) => p.sourceIndex === s.index),
-              `__joinedData${sourceSuffix(s.index)}`,
+              getPercentileCapSource(
+                this.getSqlDialect(),
+                `__joinedData${sourceSuffix(s.index)}`,
+                percentileData.filter((p) => p.sourceIndex === s.index),
+                metricData,
+                unitEligibility,
+              ),
             )}
         )
         `,
@@ -3688,6 +3720,7 @@ export default abstract class SqlIntegration
           })),
           percentileTableIndices,
           useClusterRollup,
+          unitEligibility,
         });
       })()}
       `,

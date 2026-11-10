@@ -5,6 +5,7 @@ import type {
 import type { ExperimentFactMetricsQueryResponseRows } from "shared/types/integrations";
 
 import { splitFunnelMetricBlock } from "back-end/src/services/experimentQueries/funnelMetricBlock";
+import { withMetricSlotUsers } from "back-end/src/services/experimentQueries/metricSlotUsers";
 import { factMetricFactory } from "back-end/test/factories/FactMetric.factory";
 
 function buildStep(name: string): MetricFunnelStep {
@@ -120,6 +121,22 @@ describe("splitFunnelMetricBlock", () => {
       Object.values(result.rows[0]).includes(42),
       // fact__other's main_sum must not leak into a funnel step slot.
     ).toBe(false);
+  });
+
+  it("carries a slot's own unit count once it replaces the shared one", () => {
+    const trimmed = withMetricSlotUsers(
+      rows.map((row) => ({ ...row, m1_users: 60 })),
+      "m1",
+    );
+    const result = splitFunnelMetricBlock({
+      metric,
+      slotAlias: "m1",
+      rows: trimmed,
+    });
+
+    expect(result.rows[0]).toMatchObject({ users: 60, count: 60 });
+    // Slots without their own count keep the shared one
+    expect(withMetricSlotUsers(rows, "m0")).toEqual(rows);
   });
 
   it("passes the query sql through", () => {
