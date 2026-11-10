@@ -445,28 +445,32 @@ export default function PrerequisiteInput({
     setValue([{ id: "", condition: "{}" }]);
   }, [showAddRemoveSelector, addRemoveValue, value, setValue]);
 
-  const addPrerequisiteLink = (
-    <PremiumTooltip commercialFeature="prerequisite-targeting">
-      <Link
-        mt="2"
-        onClick={() => {
-          if (!hasPrerequisitesCommercialFeature || locked) return;
-          setValue([{ id: "", condition: "{}" }]);
-        }}
+  const addPrerequisiteLinkBody = (
+    <Link
+      mt="2"
+      onClick={() => {
+        if (!hasPrerequisitesCommercialFeature || locked) return;
+        setValue([{ id: "", condition: "{}" }]);
+      }}
+    >
+      <Text
+        weight="semibold"
+        size="md"
+        color={
+          !hasPrerequisitesCommercialFeature || locked ? "text-low" : undefined
+        }
       >
-        <Text
-          weight="semibold"
-          size="md"
-          color={
-            !hasPrerequisitesCommercialFeature || locked
-              ? "text-low"
-              : undefined
-          }
-        >
-          <PiPlusCircleBold className="mr-1" />
-          Add prerequisite targeting
-        </Text>
-      </Link>
+        <PiPlusCircleBold className="mr-1" />
+        Add prerequisite targeting
+      </Text>
+    </Link>
+  );
+  // The label already carries the plan badge.
+  const addPrerequisiteLink = label ? (
+    addPrerequisiteLinkBody
+  ) : (
+    <PremiumTooltip commercialFeature="prerequisite-targeting">
+      {addPrerequisiteLinkBody}
     </PremiumTooltip>
   );
 
