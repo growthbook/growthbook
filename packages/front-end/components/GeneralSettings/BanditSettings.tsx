@@ -186,28 +186,30 @@ export default function BanditSettings({
 
           {page === "org-settings" && (
             <Box mt="4">
-              <Checkbox
-                id="toggle-banditPeriodWeighting"
-                align="start"
-                weight="medium"
-                label={
-                  <LabelWithHelp
-                    label="Weight results across update periods"
-                    help="Each update period is weighted proportionally to traffic received. This reduces bias, but adds variance."
-                    adornment={
-                      <PremiumTooltip commercialFeature="contextual-bandits" />
-                    }
-                  />
-                }
-                description="Reduce bias in Contextual Bandit decision metric estimates due to changing traffic over time. This applies to every future Contextual Bandit in the organization and cannot be changed per experiment."
-                value={form.watch("banditPeriodWeighting") ?? false}
-                setValue={(value) =>
-                  form.setValue("banditPeriodWeighting", value, {
-                    shouldDirty: true,
-                  })
-                }
-                disabled={!hasContextualBandits}
-              />
+              <UnsavedMark name="banditPeriodWeighting">
+                <Checkbox
+                  id="toggle-banditPeriodWeighting"
+                  align="start"
+                  weight="medium"
+                  label={
+                    <LabelWithHelp
+                      label="Weight results across update periods"
+                      help="Each update period is weighted proportionally to traffic received. This reduces bias, but adds variance."
+                      adornment={
+                        <PremiumTooltip commercialFeature="contextual-bandits" />
+                      }
+                    />
+                  }
+                  description="Reduce bias in Contextual Bandit decision metric estimates due to changing traffic over time. This applies to every future Contextual Bandits in the organization and cannot be changed per experiment."
+                  value={form.watch("banditPeriodWeighting") ?? false}
+                  setValue={(value) =>
+                    form.setValue("banditPeriodWeighting", value, {
+                      shouldDirty: true,
+                    })
+                  }
+                  disabled={!hasContextualBandits}
+                />
+              </UnsavedMark>
             </Box>
           )}
         </Box>
