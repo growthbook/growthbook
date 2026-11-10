@@ -288,6 +288,15 @@ function Steps({
   const own = kind === "holdout" ? status.holdout : status.rules;
   if (own === "none") return <Text color="text-low">None</Text>;
   if (own === "skipped") return <Text color="text-low">Not reached</Text>;
+  // When later rules take over for whoever one doesn't match, no line of steps
+  // reads true: say only that it varies.
+  if (kind === "rule" && status.rulesAfter > 0) {
+    return (
+      <span className={styles.stepLine}>
+        <ValueText value={{ kind: "varies" }} valueType={valueType} />
+      </span>
+    );
+  }
   return (
     <Flex direction="column" minWidth="0">
       {status.steps
@@ -325,14 +334,6 @@ function Steps({
             />
           </Flex>
         ))}
-      {kind === "rule" && status.rulesAfter > 0 ? (
-        <span className={styles.stepLine}>
-          <Text color="text-low">
-            Then {status.rulesAfter} more rule{status.rulesAfter > 1 ? "s" : ""}{" "}
-            for anyone it doesn&apos;t match
-          </Text>
-        </span>
-      ) : null}
     </Flex>
   );
 }
