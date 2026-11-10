@@ -1246,6 +1246,12 @@ export async function deleteFeature(
       contextualBanditLinkagePlan,
     );
   }
+  // Last and non-fatal: a stale watch entry must not undo the cleanup above.
+  await context.models.watch
+    .removeEntityFromAllWatchers({ type: "features", item: feature.id })
+    .catch((e) => {
+      logger.error(e, "Error removing watchers on feature delete");
+    });
 }
 
 /**
@@ -1590,6 +1596,9 @@ export async function updateFeature(
     isCompensation?: boolean;
     // Preserve references already accepted in the draft being landed.
     savedGroupScopeRevision?: FeatureRevisionInterface;
+    // Drift repair copying a published revision back onto the feature. Hooks
+    // judge changes, not restoring what is already live.
+    restoresLiveRevision?: boolean;
   },
 ): Promise<FeatureInterface> {
   const ourStamp = advancedGuardStamp(options.casOnDateUpdated);
@@ -1660,11 +1669,13 @@ export async function updateFeature(
           : feature,
       );
     }
-    await runValidateFeatureHooks({
-      context,
-      feature: projected,
-      original: feature,
-    });
+    if (!options.restoresLiveRevision) {
+      await runValidateFeatureHooks({
+        context,
+        feature: projected,
+        original: feature,
+      });
+    }
   }
 
   // Hygiene: when persisting a new top-level v2 `rules` array, also force-scrub

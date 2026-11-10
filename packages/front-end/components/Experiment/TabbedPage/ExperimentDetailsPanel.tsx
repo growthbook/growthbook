@@ -31,9 +31,9 @@ import {
   todoTitle,
 } from "@/components/PreLaunchChecklist/PreLaunchChecklist";
 import Metadata from "@/ui/Metadata";
+import ExpandableBlock from "@/ui/ExpandableBlock";
 import QuickEditButton, { revealsQuickEdit } from "./QuickEditButton";
 import { headerDates } from "./statusSchedule";
-import ExpandableBlock from "./ExpandableBlock";
 
 const DETAILS_PANEL_TABS = ["details", "comments"] as const;
 export type DetailsPanelTab = (typeof DETAILS_PANEL_TABS)[number];
@@ -108,7 +108,7 @@ export default function ExperimentDetailsPanel({
   const showTodo = checklistActive && !experiment.archived;
 
   const customFieldRows = hasCustomFields ? (
-    <ExpandableBlock>
+    <ExpandableBlock bleed>
       <CustomFieldDisplay
         rows
         rowAction={(field) =>

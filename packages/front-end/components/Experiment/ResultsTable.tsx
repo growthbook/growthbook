@@ -35,6 +35,7 @@ import {
   SetExperimentSortBy,
   funnelStepMetricId,
   isFactMetric,
+  isSubUnitClusterMetric,
   SampleSizeSource,
 } from "shared/experiments";
 import { useAuth } from "@/services/auth";
@@ -515,6 +516,7 @@ export default function ResultsTable({
             isLatestPhase,
             experimentStatus: status,
             sampleSizeFrom,
+            clusterSettings: snapshot?.settings,
           });
           rr[i].push(rowResults);
         });
@@ -540,6 +542,7 @@ export default function ResultsTable({
       ssrPolyfills,
       getExperimentMetricById,
       sampleSizeFrom,
+      snapshot?.settings,
     ]);
 
   const noRows = rows.length === 0;
@@ -1075,6 +1078,17 @@ export default function ResultsTable({
                                 const hideScaledImpact =
                                   !rowResults.hasScaledImpact &&
                                   differenceType === "scaled";
+                                // These are often means or proportions, which
+                                // scale elsewhere, so say why they don't here.
+                                const noScaledImpactMessage =
+                                  hideScaledImpact &&
+                                  snapshot?.settings &&
+                                  isSubUnitClusterMetric(
+                                    row.metric,
+                                    snapshot.settings,
+                                  )
+                                    ? "No scaled impact for subunit metrics in cluster experiments"
+                                    : undefined;
 
                                 const resultsHighlightClassname = clsx(
                                   rowResults.resultsStatus,
@@ -1209,6 +1223,9 @@ export default function ResultsTable({
                                               hideScaledImpact={
                                                 hideScaledImpact
                                               }
+                                              noScaledImpactMessage={
+                                                noScaledImpactMessage
+                                              }
                                               className={clsx(
                                                 "results-ctw",
                                                 resultsHighlightClassname,
@@ -1237,6 +1254,9 @@ export default function ResultsTable({
                                               showUnadjustedPValue={false}
                                               hideScaledImpact={
                                                 hideScaledImpact
+                                              }
+                                              noScaledImpactMessage={
+                                                noScaledImpactMessage
                                               }
                                               className={clsx(
                                                 "results-pval",
@@ -1413,6 +1433,7 @@ export default function ResultsTable({
                                           experimentId={experimentId}
                                           pValueThreshold={pValueThreshold}
                                           phase={phase}
+                                          snapshotSettings={snapshot?.settings}
                                           metric={row.metric}
                                           differenceType={differenceType}
                                           variations={timeSeriesVariations}

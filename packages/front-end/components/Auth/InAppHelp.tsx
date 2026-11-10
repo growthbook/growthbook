@@ -1,4 +1,5 @@
 import { useFeature } from "@growthbook/growthbook-react";
+import clsx from "clsx";
 import { useRouter } from "next/router";
 import { useEffect, useRef, useState } from "react";
 import { BsQuestionLg, BsXLg } from "react-icons/bs";
@@ -19,8 +20,9 @@ import styles from "./InAppHelp.module.scss";
 // Pylon's launcher is a third-party iframe, so its footprint can't be measured.
 const PYLON_CLEARANCE_PX = 76;
 
-const LAUNCHER_SIZE_PX = 56;
-const LAUNCHER_BOTTOM_PX = 10;
+// But we want to match Pylon's bubble the best as we can
+const LAUNCHER_SIZE_PX = 54;
+const LAUNCHER_BOTTOM_PX = 12;
 
 export default function InAppHelp() {
   const router = useRouter();
@@ -104,9 +106,10 @@ export default function InAppHelp() {
           <button
             ref={launcher}
             type="button"
-            className={
-              showFreeHelpWidget ? styles.closeLauncher : styles.chatLauncher
-            }
+            className={clsx(
+              "help-launcher",
+              showFreeHelpWidget ? styles.closeLauncher : styles.chatLauncher,
+            )}
             style={{
               bottom: LAUNCHER_BOTTOM_PX,
               width: LAUNCHER_SIZE_PX,

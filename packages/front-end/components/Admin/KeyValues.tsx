@@ -8,7 +8,13 @@ export default function KeyValues({
   items: { label: string; value: ReactNode }[];
 }) {
   return (
-    <Grid columns="max-content minmax(0, 1fr)" gapX="4" gapY="2" align="center">
+    // Baseline keeps each label on the first line of a multi-line value
+    <Grid
+      columns="max-content minmax(0, 1fr)"
+      gapX="4"
+      gapY="2"
+      align="baseline"
+    >
       {items.map(({ label, value }) => (
         <Fragment key={label}>
           <Text color="text-mid">{label}</Text>

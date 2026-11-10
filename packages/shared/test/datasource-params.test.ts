@@ -128,6 +128,21 @@ describe("mergeDataSourceParams", () => {
     });
   });
 
+  it("removes a stored secret when the update sets it to null", () => {
+    const merged = mergeDataSourceParams(
+      "clickhouse",
+      {
+        username: "growthbook",
+        caCert: "ca",
+        clientCert: "cert",
+        clientKey: "key",
+      },
+      { caCert: "", clientCert: null, clientKey: null },
+    );
+
+    expect(merged).toEqual({ username: "growthbook", caCert: "ca" });
+  });
+
   it("preserves a stored legacy secret alias when the update leaves it blank", () => {
     const merged = mergeDataSourceParams(
       "mysql",
