@@ -52,7 +52,7 @@ import {
   rebasedRevisionChanges,
   getFeaturePageDefaultVersion,
   naiveFlattenV1Rules,
-  getMalformedPrereqConditionError,
+  evalDeterministicPrereqValue,
 } from "shared/util";
 import {
   statusFromStandingVerdicts,
@@ -7272,7 +7272,7 @@ async function evaluatePrerequisiteStateAsync(
       );
 
       if (prereqState === "deterministic") {
-        const evaled = evalDeterministicPrereqValueBackend(
+        const evaled = evalDeterministicPrereqValue(
           prereqValue ?? null,
           prereq.condition,
         );
@@ -7297,52 +7297,6 @@ async function evaluatePrerequisiteStateAsync(
   const result = await visit(feature, 0);
   if (stateCache && !skipRootConditions) stateCache.set(cacheKey, result);
   return result;
-}
-
-function evalDeterministicPrereqValueBackend(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  value: any,
-  condition: string,
-): "pass" | "fail" {
-  if (getMalformedPrereqConditionError(condition)) return "fail";
-  try {
-    const conditionObj = JSON.parse(condition || "{}");
-    // Empty condition means "is truthy"
-    if (Object.keys(conditionObj).length === 0) {
-      return value ? "pass" : "fail";
-    }
-    // Check if condition references "value" field
-    if ("value" in conditionObj) {
-      const valueCondition = conditionObj.value;
-      // Handle $exists checks
-      if (typeof valueCondition === "object" && valueCondition !== null) {
-        if ("$exists" in valueCondition) {
-          return valueCondition.$exists ===
-            (value !== null && value !== undefined)
-            ? "pass"
-            : "fail";
-        }
-        if ("$eq" in valueCondition) {
-          return valueCondition.$eq === value ? "pass" : "fail";
-        }
-        if ("$ne" in valueCondition) {
-          return valueCondition.$ne !== value ? "pass" : "fail";
-        }
-        if ("$in" in valueCondition && Array.isArray(valueCondition.$in)) {
-          return valueCondition.$in.includes(value) ? "pass" : "fail";
-        }
-        if ("$nin" in valueCondition && Array.isArray(valueCondition.$nin)) {
-          return !valueCondition.$nin.includes(value) ? "pass" : "fail";
-        }
-      }
-      // Direct value comparison
-      return valueCondition === value ? "pass" : "fail";
-    }
-    // Default: value must be truthy
-    return value ? "pass" : "fail";
-  } catch (e) {
-    return "fail";
-  }
 }
 
 // Return lightweight feature metadata for UI components
