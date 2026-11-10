@@ -250,7 +250,6 @@ export default function useFactTableActions(page: FactTablePageData) {
   return {
     menu,
     modals,
-    openSettings: () => open("settings"),
     openEditSql: () => open("sql"),
   };
 }

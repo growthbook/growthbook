@@ -21,7 +21,10 @@ export default function useSaveColumn(factTable: FactTableInterface) {
     const url = `/fact-tables/${factTable.id}/column/${encodeURIComponent(column.column)}`;
     await apiCall(url, { method: "PUT", body: JSON.stringify(data) });
     if (loadTopValues) {
-      await apiCall(`${url}/top-values`, { method: "POST" });
+      // The endpoint skips identifier columns unless told this is an Auto Slice
+      await apiCall(`${url}/top-values?forceAutoSlice=true`, {
+        method: "POST",
+      });
     }
     await mutateDefinitions();
   };

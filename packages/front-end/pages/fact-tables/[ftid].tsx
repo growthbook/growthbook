@@ -1,8 +1,6 @@
 import { useFeatureIsOn } from "@growthbook/growthbook-react";
 import { useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
-import { FactMetricInterface } from "shared/types/fact-table";
-import { getFactMetricFactTableIds } from "shared/experiments";
 import { hasStartDateFilter } from "shared/sql";
 import Text from "@/ui/Text";
 import Link from "@/ui/Link";
@@ -40,15 +38,6 @@ import useFactTableDetailsPage, {
   FactTablePageData,
 } from "@/hooks/useFactTableDetailsPage";
 import useFactTableActions from "@/hooks/useFactTableActions";
-
-export function getMetricsForFactTable(
-  factMetrics: FactMetricInterface[],
-  factTable: string,
-) {
-  return factMetrics.filter((m) =>
-    getFactMetricFactTableIds(m).includes(factTable),
-  );
-}
 
 export default function FactTablePage() {
   const newPage = useFeatureIsOn("new-fact-table-page");
