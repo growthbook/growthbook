@@ -5,12 +5,7 @@ import {
 } from "shared/types/feature";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { useMemo, useState, useEffect, useRef } from "react";
-import {
-  PiPlus,
-  PiCaretRightBold,
-  PiCaretDownBold,
-  PiInfo,
-} from "react-icons/pi";
+import { PiCaretRightBold, PiCaretDownBold, PiInfo } from "react-icons/pi";
 import {
   evalDeterministicPrereqValue,
   filterEnvironmentsByFeature,
@@ -99,11 +94,12 @@ import {
 } from "@/components/Features/ScheduleLock";
 import SectionFrame from "@/components/SectionFrame";
 import { useHoldouts } from "@/hooks/useHoldouts";
-import { renderEnvironmentToggles } from "@/components/Features/FeatureDiffRenders";
+import { EnvironmentToggleChange } from "@/components/Features/FeatureDiffRenders";
 import EnvironmentStatusCards, {
   PrerequisiteList,
   EnvironmentCard,
 } from "./EnvironmentStatusCards";
+import { DraftChangeMark } from "./DraftChangesPopover";
 import {
   DeletePrerequisiteModal,
   PrerequisiteStatesCols,
@@ -657,6 +653,27 @@ export default function FeaturesOverviewNew({
         .filter((live) => !prerequisites.some((p) => p.id === live.id))
         .map((live) => live.id)
     : [];
+  // Each prerequisite the draft adds, edits or removes.
+  const prerequisiteChangeRows = [
+    ...prerequisites.flatMap((p) => {
+      const change = prerequisiteChange(p);
+      if (!change) return [];
+      return [{ label: <DraftChangeMark change={change} />, value: p.id }];
+    }),
+    ...removedPrerequisites.map((id) => ({
+      label: <DraftChangeMark change="removed" />,
+      value: id,
+    })),
+  ];
+  // What the draft changes in this section, before it's published.
+  const draftChangedSubjects =
+    draftChangesEnvironments && prerequisiteChangeRows.length
+      ? "Environment and prerequisite"
+      : draftChangesEnvironments
+        ? "Environment"
+        : prerequisiteChangeRows.length
+          ? "Prerequisite"
+          : null;
   // What a version of the flag serves in an environment; null until its
   // prerequisites' states load.
   const environmentStatus = (f: FeatureInterface, env: string) => {
@@ -681,22 +698,30 @@ export default function FeaturesOverviewNew({
       isBoolean: f.valueType === "boolean",
     });
   };
-  const environmentToggles = isDraft
-    ? environments.flatMap((en) => {
-        const to = feature.environmentSettings?.[en.id]?.enabled ?? false;
-        const from = liveEnabled(en.id);
-        return from === to ? [] : [{ envId: en.id, from, to }];
-      })
-    : [];
-  const environmentChanges = environmentToggles.length
-    ? [
-        {
-          title:
-            environmentToggles.length === 1 ? "Environment" : "Environments",
-          render: renderEnvironmentToggles(environmentToggles),
-        },
-      ]
-    : null;
+  // The draft turning this environment on or off.
+  const environmentChanges = (envId: string) => {
+    const to = feature.environmentSettings?.[envId]?.enabled ?? false;
+    const from = liveEnabled(envId);
+    return isDraft && from !== to
+      ? [
+          {
+            title: "Environment",
+            rows: [
+              {
+                label: envId,
+                value: (
+                  <EnvironmentToggleChange
+                    from={from}
+                    to={to}
+                    besideApprovals={false}
+                  />
+                ),
+              },
+            ],
+          },
+        ]
+      : null;
+  };
   const environmentCards: EnvironmentCard[] = environments.map((en) => {
     return {
       id: en.id,
@@ -706,9 +731,7 @@ export default function FeaturesOverviewNew({
         index,
         result: prerequisiteResult(p, en.id),
       })),
-      environmentChanges: environmentToggles.some((t) => t.envId === en.id)
-        ? environmentChanges
-        : null,
+      environmentChanges: environmentChanges(en.id),
       ruleCount: liveRules(feature, en.id).length,
     };
   });
@@ -752,12 +775,6 @@ export default function FeaturesOverviewNew({
         </DropdownMenuItem>
       </DropdownMenu>
     );
-  const addPrerequisiteLabel = (
-    <Flex align="center" gap="1">
-      <PiPlus />
-      Add prerequisite
-    </Flex>
-  );
   const openAddPrerequisite = () => {
     if (!hasPrerequisitesCommercialFeature) return;
     setPrerequisiteModal({ i: getPrerequisites(feature).length });
@@ -766,30 +783,6 @@ export default function FeaturesOverviewNew({
       source: "add-prerequisite",
     });
   };
-  const addPrerequisite =
-    canEditDrafts && showsControls ? (
-      lockReason ? (
-        <UITooltip content={lockReason}>
-          <Link aria-disabled style={{ opacity: 0.5, cursor: "not-allowed" }}>
-            {addPrerequisiteLabel}
-          </Link>
-        </UITooltip>
-      ) : (
-        <PremiumTooltip commercialFeature="prerequisites">
-          <Link
-            aria-disabled={!hasPrerequisitesCommercialFeature}
-            onClick={openAddPrerequisite}
-            style={
-              hasPrerequisitesCommercialFeature
-                ? undefined
-                : { opacity: 0.5, cursor: "not-allowed" }
-            }
-          >
-            {addPrerequisiteLabel}
-          </Link>
-        </PremiumTooltip>
-      )
-    ) : null;
   const allEnvironmentsOff = envs.every(
     (envId) => !feature.environmentSettings?.[envId]?.enabled,
   );
@@ -993,10 +986,14 @@ export default function FeaturesOverviewNew({
                 change: prerequisiteChange(p),
               }))}
               removed={removedPrerequisites}
+              changes={
+                prerequisiteChangeRows.length
+                  ? [{ title: "Prerequisites", rows: prerequisiteChangeRows }]
+                  : null
+              }
               environments={environments.map((en) => en.id)}
               prerequisiteState={prerequisiteState}
               actions={prerequisiteActions}
-              add={addPrerequisite}
             />
           ) : null}
 
@@ -1018,7 +1015,7 @@ export default function FeaturesOverviewNew({
               differently.
             </HelperText>
           ) : null}
-          {draftChangesEnvironments ? (
+          {draftChangedSubjects ? (
             // Amber because it's about the draft, not a warning.
             <HelperText
               status="warning"
@@ -1026,7 +1023,8 @@ export default function FeaturesOverviewNew({
               mt="3"
               icon={<PiInfo size={13} />}
             >
-              Environment changes go live after this draft is published.
+              {draftChangedSubjects} changes go live after this draft is
+              published.
             </HelperText>
           ) : null}
           {hasConditionalState && (

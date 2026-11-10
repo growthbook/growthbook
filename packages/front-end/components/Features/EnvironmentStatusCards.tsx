@@ -14,18 +14,14 @@ import Collapse, { CollapseTrigger } from "@/ui/Collapse";
 import { Popover } from "@/ui/Popover";
 import Badge from "@/ui/Badge";
 import Link from "@/ui/Link";
-import Table, {
-  TableBody,
-  TableCell,
-  TableColumnHeader,
-  TableHeader,
-  TableRow,
-} from "@/ui/Table";
-import ScrollArea, { pinnedTo } from "@/ui/ScrollArea";
 import Text from "@/ui/Text";
 import ValueDisplay, { BooleanDot } from "./ValueDisplay";
 import StateIcon from "./StateIcon";
-import DraftChangesPopover, { DraftChangeSection } from "./DraftChangesPopover";
+import PrerequisiteTable from "./PrerequisiteTable";
+import DraftChangesPopover, {
+  DraftChangeMark,
+  DraftChangeSection,
+} from "./DraftChangesPopover";
 import { featureStatusColors } from "./FeaturesOverview";
 import styles from "./EnvironmentStatusCards.module.scss";
 
@@ -535,35 +531,13 @@ export default function EnvironmentStatusCards({
   );
 }
 
-const CHANGE_LABELS = {
-  added: "Added",
-  edited: "Edited",
-  removed: "Removed",
-} as const;
-
-function ChangeBadge({ change }: { change: keyof typeof CHANGE_LABELS }) {
-  return (
-    <Badge
-      size="xs"
-      color="amber"
-      variant="soft"
-      label={CHANGE_LABELS[change]}
-    />
-  );
-}
-
-// Wide enough for an environment's name and its status, before they truncate.
-const ENVIRONMENT_COLUMN_WIDTH = 96;
-// Room for an id, its draft badge and its menu.
-const NAME_COLUMN_WIDTH = 260;
-
 // The feature's prerequisites, where they're edited. Shut until asked for.
 export function PrerequisiteList({
   prerequisites,
   removed,
+  changes,
   environments,
   actions,
-  add,
   prerequisiteState,
 }: {
   prerequisites: {
@@ -573,10 +547,10 @@ export function PrerequisiteList({
   }[];
   // Live prerequisites the viewed draft removes.
   removed: string[];
+  // What the draft changes about them, if anything.
+  changes: DraftChangeSection[] | null;
   environments: string[];
   actions: (index: number) => ReactNode;
-  // Adds another, as the table's last row.
-  add: ReactNode;
   // A prerequisite's state in an environment, with why on hover; a scroll
   // area's clips its tooltip unless it renders at the page root.
   prerequisiteState: (
@@ -586,27 +560,18 @@ export function PrerequisiteList({
   ) => ReactNode;
 }) {
   const [open, setOpen] = useState(false);
-  const name = (content: ReactNode) => (
-    <TableCell className={clsx(styles.pinned, pinnedTo.left)}>
-      <Flex align="center" gap="2" minWidth="0">
-        {content}
-      </Flex>
-    </TableCell>
-  );
   return (
     <Box mt="5">
       <CollapseTrigger open={open} onOpenChange={setOpen}>
         <Flex align="center" gap="2">
           <Text weight="medium" color="text-mid">
-            {/* The draft adds, edits or removes one. */}
-            <span
-              className={clsx(
-                (removed.length > 0 || prerequisites.some((p) => p.change)) &&
-                  styles.changed,
-              )}
-            >
-              Prerequisites
-            </span>
+            {changes ? (
+              <DraftChangesPopover sections={changes}>
+                <span className={styles.changed}>Prerequisites</span>
+              </DraftChangesPopover>
+            ) : (
+              "Prerequisites"
+            )}
           </Text>
           <Badge
             label={String(prerequisites.length)}
@@ -618,96 +583,42 @@ export function PrerequisiteList({
         </Flex>
       </CollapseTrigger>
       <Collapse open={open} duration={150}>
-        <ScrollArea
-          direction="horizontal"
-          wheelScrollsSideways
-          // The pinned names shadow what scrolls under them; the far end fades.
-          edgeCue="fade"
-          skipEdges={["left"]}
-          className={styles.prerequisiteScroll}
-        >
-          <div
-            style={{
-              minWidth:
-                NAME_COLUMN_WIDTH +
-                environments.length * ENVIRONMENT_COLUMN_WIDTH,
-            }}
-          >
-            <Table
-              variant="ghost"
-              size="sm"
-              className={styles.prerequisiteTable}
-            >
-              <TableHeader>
-                <TableRow>
-                  <TableColumnHeader
-                    className={clsx(styles.pinned, pinnedTo.left)}
-                    style={{ width: NAME_COLUMN_WIDTH }}
-                  >
-                    Feature
-                  </TableColumnHeader>
-                  {environments.map((env) => (
-                    <TableColumnHeader
-                      key={env}
-                      justify="center"
-                      style={{ width: ENVIRONMENT_COLUMN_WIDTH }}
+        <Box mt="2">
+          <PrerequisiteTable
+            environments={environments}
+            rows={[
+              ...prerequisites.map((p) => ({
+                key: p.index,
+                name: (
+                  <>
+                    <Link
+                      href={`/features/${p.id}`}
+                      className={styles.prerequisiteName}
                     >
-                      <Text truncate>{env}</Text>
-                    </TableColumnHeader>
-                  ))}
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {prerequisites.map((p) => (
-                  <TableRow key={p.index}>
-                    {name(
-                      <>
-                        <Link
-                          href={`/features/${p.id}`}
-                          className={styles.prerequisiteName}
-                        >
-                          {p.id}
-                        </Link>
-                        {p.change ? <ChangeBadge change={p.change} /> : null}
-                        <span className={styles.actions}>
-                          {actions(p.index)}
-                        </span>
-                      </>,
-                    )}
-                    {environments.map((env) => (
-                      <TableCell key={env} justify="center">
-                        <Flex justify="center">
-                          {prerequisiteState(p.id, env, true)}
-                        </Flex>
-                      </TableCell>
-                    ))}
-                  </TableRow>
-                ))}
-                {removed.map((id) => (
-                  <TableRow key={id}>
-                    {name(
-                      <>
-                        <Text color="text-low" truncate>
-                          {id}
-                        </Text>
-                        <ChangeBadge change="removed" />
-                      </>,
-                    )}
-                    {environments.map((env) => (
-                      <TableCell key={env} />
-                    ))}
-                  </TableRow>
-                ))}
-                {add ? (
-                  <TableRow>
-                    {name(add)}
-                    <TableCell colSpan={environments.length} />
-                  </TableRow>
-                ) : null}
-              </TableBody>
-            </Table>
-          </div>
-        </ScrollArea>
+                      {p.id}
+                    </Link>
+                    {p.change ? (
+                      <DraftChangeMark change={p.change} spelled />
+                    ) : null}
+                    <span className={styles.actions}>{actions(p.index)}</span>
+                  </>
+                ),
+                state: (env: string) => prerequisiteState(p.id, env, true),
+              })),
+              ...removed.map((id) => ({
+                key: id,
+                name: (
+                  <>
+                    <Text color="text-low" truncate>
+                      {id}
+                    </Text>
+                    <DraftChangeMark change="removed" spelled />
+                  </>
+                ),
+              })),
+            ]}
+          />
+        </Box>
       </Collapse>
     </Box>
   );

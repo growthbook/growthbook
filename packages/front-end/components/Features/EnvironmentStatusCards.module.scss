@@ -167,37 +167,6 @@
   min-height: 28px;
 }
 
-// Scrolled by the area around it, so the name column can pin inside it.
-.prerequisiteScroll {
-  margin-top: var(--space-2);
-}
-
-.prerequisiteTable {
-  :global(.rt-ScrollAreaRoot),
-  :global(.rt-ScrollAreaViewport),
-  :global(.rt-TableRootTable) {
-    overflow: visible !important;
-  }
-
-  :global(.rt-ScrollAreaScrollbar) {
-    display: none;
-  }
-
-  // A row's name, menu and statuses on one line.
-  :global(.rt-TableCell),
-  :global(.rt-TableColumnHeaderCell) {
-    vertical-align: middle;
-  }
-}
-
-// Stays put while the environments scroll under it.
-.pinned {
-  position: sticky;
-  left: 0;
-  z-index: 1;
-  background: var(--color-panel-solid);
-}
-
 // A long id truncates rather than widening the pinned column.
 .prerequisiteName {
   min-width: 0;

@@ -1,13 +1,58 @@
-import { ReactNode } from "react";
-import { Box, Flex } from "@radix-ui/themes";
+import { Fragment, ReactNode } from "react";
+import { PiMinus, PiPlus, PiTriangle } from "react-icons/pi";
+import { Box, Flex, VisuallyHidden } from "@radix-ui/themes";
 import { Popover } from "@/ui/Popover";
-import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
+import Avatar from "@/ui/Avatar";
+import Badge from "@/ui/Badge";
+import { draftStatusDotColor } from "@/components/Reviews/RevisionStatusBadge";
+import styles from "./DraftChangesPopover.module.scss";
 
-export type DraftChangeSection = { title: string; render: ReactNode };
+export type DraftChangeSection = {
+  title: string;
+  rows: { label: ReactNode; value: ReactNode }[];
+};
 
-// Hovering a draft-changed marker previews what the draft changes, using the
-// review tab's formatted renders. Clicks pass through to whatever holds it.
+const MARKS = {
+  added: { Icon: PiPlus, color: "green" },
+  removed: { Icon: PiMinus, color: "red" },
+  edited: { Icon: PiTriangle, color: "amber" },
+} as const;
+
+// How the draft changes something: its icon in a tinted box, or spelled out
+// beside it.
+export function DraftChangeMark({
+  change,
+  spelled = false,
+}: {
+  change: keyof typeof MARKS;
+  spelled?: boolean;
+}) {
+  const { Icon, color } = MARKS[change];
+  return spelled ? (
+    <Badge
+      size="xs"
+      variant="soft"
+      radius="small"
+      color={color}
+      label={
+        <>
+          <Icon size={11} aria-hidden />
+          {change}
+        </>
+      }
+    />
+  ) : (
+    <Avatar size="xs" variant="soft" radius="small" color={color}>
+      <Icon size={11} aria-hidden />
+      {/* Read out in place of the icon. */}
+      <VisuallyHidden>{change}</VisuallyHidden>
+    </Avatar>
+  );
+}
+
+// Hovering a draft-changed marker previews what the draft changes. Clicks pass
+// through to whatever holds it.
 export default function DraftChangesPopover({
   sections,
   children,
@@ -18,22 +63,61 @@ export default function DraftChangesPopover({
   return (
     <Popover
       openOnHover
+      hoverDelay={350}
       anchorOnly
       side="top"
       align="start"
       sideOffset={5}
-      trigger={<span>{children}</span>}
-      // A set width, so the renders' auto-fill grids lay out side by side.
-      contentStyle={{ width: 440, maxWidth: "90vw" }}
+      // Above a row-wide click layer (CollapseTrigger's), which would take
+      // the hover.
+      trigger={
+        <span style={{ position: "relative", zIndex: 1 }}>{children}</span>
+      }
+      contentStyle={{ maxWidth: 320, padding: 0 }}
       content={
-        <Flex direction="column" gap="3">
-          <Text weight="medium">This draft changes the live revision:</Text>
+        // Portaled, but React still bubbles its clicks to whatever holds the
+        // marker: an accordion's toggle, a card's drilldown. It holds the
+        // padding, so clicks there are caught too.
+        <Flex
+          direction="column"
+          gap="3"
+          style={{ padding: "15px 20px" }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          {/* The draft ribbon's own label color. */}
+          <Flex align="center" style={{ gap: 6, color: "var(--amber-11)" }}>
+            <span
+              className={styles.dot}
+              style={{ background: draftStatusDotColor("draft") }}
+            />
+            <Text size="md" weight="medium">
+              Draft changes:
+            </Text>
+          </Flex>
           {sections.map((s) => (
             <Box key={s.title}>
-              <Heading as="h6" size="sm" color="text-mid" mb="2">
+              <Text as="div" size="md" weight="medium" color="text-high" mb="1">
                 {s.title}
-              </Heading>
-              {s.render}
+              </Text>
+              <div className={styles.rows}>
+                {s.rows.map((r, i) => (
+                  <Fragment key={i}>
+                    <span className={styles.label}>
+                      <Text color="text-high" truncate>
+                        {r.label}
+                      </Text>
+                    </span>
+                    <div className={styles.value}>
+                      {/* A name of any length, cut short. */}
+                      {typeof r.value === "string" ? (
+                        <Text truncate>{r.value}</Text>
+                      ) : (
+                        r.value
+                      )}
+                    </div>
+                  </Fragment>
+                ))}
+              </div>
             </Box>
           ))}
         </Flex>
