@@ -16,7 +16,6 @@ import {
   getGroupedIdentifierTypeOptions,
   getHashAttributeIdentifierTypeMap,
   getImportIdentifierTypes,
-  getGA4ExposureTemplate,
   getInitialExposureQuery,
   getInitialSettings,
   getNewExperimentDatasourceDefaults,
@@ -112,6 +111,14 @@ describe("validateSQL", () => {
 
     it("does not throw when a semicolon appears mid-query", () => {
       expect(() => validateSQL("SELECT ';' AS delim FROM t", [])).not.toThrow();
+    });
+
+    it("runs in linear time on a semicolon followed by many newlines", () => {
+      // The old `/;(\s|\n)*$/` backtracked exponentially here
+      const sql = "SELECT x FROM y;" + "\n".repeat(50000) + "z";
+      const start = performance.now();
+      expect(() => validateSQL(sql, [])).not.toThrow();
+      expect(performance.now() - start).toBeLessThan(500);
     });
   });
 
@@ -1010,17 +1017,4 @@ describe("getInitialExposureQuery", () => {
   });
 });
 
-describe("getGA4ExposureTemplate", () => {
-  it("uses the Data Source's identifiers and the picked table", () => {
-    const template = getGA4ExposureTemplate(["device_id"]);
-    expect(template.columns.map((c) => c.column)).toContain("device_id");
-    const sql = template.getSql(
-      { path: "`proj.analytics_1.events_*`" } as Parameters<
-        typeof template.getSql
-      >[0],
-      "",
-    );
-    expect(sql).toContain("user_pseudo_id as device_id");
-    expect(sql).toContain("FROM\n  `proj.analytics_1.events_*`,");
-  });
-});
+// GA4-specific helpers are covered in googleAnalytics4.test.ts.

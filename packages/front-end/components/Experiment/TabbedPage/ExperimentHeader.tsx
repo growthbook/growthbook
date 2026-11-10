@@ -225,7 +225,8 @@ export default function ExperimentHeader({
   editSchedule,
 }: Props) {
   const { apiCall } = useAuth();
-  const { hasCommercialFeature } = useUser();
+  const { hasCommercialFeature, settings } = useUser();
+  const publicSharingDisabled = !!settings?.disablePublicSharing;
   const { watchedExperiments, refreshWatching } = useWatching();
   const router = useRouter();
   const permissionsUtil = usePermissionsUtil();
@@ -462,7 +463,8 @@ export default function ExperimentHeader({
   ]);
 
   const shareLinkButton =
-    experiment.shareLevel !== "public" ? null : copySuccess ? (
+    experiment.shareLevel !== "public" ||
+    publicSharingDisabled ? null : copySuccess ? (
       <Button style={{ width: 130 }} icon={<PiCheck />}>
         Link copied
       </Button>
@@ -489,7 +491,10 @@ export default function ExperimentHeader({
   const showShareableReportButton =
     permissionsUtil.canCreateReport(experiment) && snapshot;
 
-  const showShareButton = canEditExperiment;
+  // Kept for an already-public experiment so its link can be revoked.
+  const showShareButton =
+    canEditExperiment &&
+    (!publicSharingDisabled || experiment.shareLevel === "public");
 
   const showSaveAsTemplateButton = canCreateTemplate && !isBandit;
 
@@ -932,9 +937,15 @@ export default function ExperimentHeader({
             ) : shareLevel === "public" ? (
               <>
                 <Callout status="warning" size="sm">
-                  Anyone with the link can view this{" "}
-                  {isBandit ? "Bandit" : "Experiment"}, even those outside your
-                  organization.
+                  {publicSharingDisabled ? (
+                    'Public sharing is turned off for your organization, so this link doesn\'t work right now. It will work again if sharing is turned back on. To revoke it, set View access to "Only organization members".'
+                  ) : (
+                    <>
+                      Anyone with the link can view this{" "}
+                      {isBandit ? "Bandit" : "Experiment"}, even those outside
+                      your organization.
+                    </>
+                  )}
                 </Callout>
               </>
             ) : null}
@@ -950,7 +961,9 @@ export default function ExperimentHeader({
             disabled={!hasUpdatePermissions}
             options={[
               { value: "organization", label: "Only organization members" },
-              { value: "public", label: "Anyone with the link" },
+              ...(publicSharingDisabled && experiment.shareLevel !== "public"
+                ? []
+                : [{ value: "public", label: "Anyone with the link" }]),
             ]}
           />
           <div className="mb-1" style={{ height: 24 }}>
@@ -1141,7 +1154,7 @@ export default function ExperimentHeader({
                     ) : null}
                     {experiment.status === "stopped" && experiment.results ? (
                       <>
-                        {canEditExperiment ? (
+                        {showShareButton ? (
                           <Button onClick={() => setShareModalOpen(true)}>
                             Share...
                           </Button>

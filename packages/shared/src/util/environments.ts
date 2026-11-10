@@ -8,3 +8,27 @@ export const NON_PRODUCTION_ENV_PATTERNS: RegExp[] = [
 export function isEnvironmentDevLike(envId: string): boolean {
   return NON_PRODUCTION_ENV_PATTERNS.some((re) => re.test(envId));
 }
+
+const NON_PRODUCTION_ENVIRONMENT_IDS = ["dev", "staging", "test"];
+
+export const DEFAULT_ENVIRONMENT_IDS = [
+  "production",
+  ...NON_PRODUCTION_ENVIRONMENT_IDS,
+];
+
+export function guessIsProductionEnvironment(envId: string): boolean {
+  return !NON_PRODUCTION_ENVIRONMENT_IDS.includes(envId.toLowerCase());
+}
+
+export function isProductionEnvironment(env: {
+  id: string;
+  isProduction?: boolean;
+}): boolean {
+  return env.isProduction ?? guessIsProductionEnvironment(env.id);
+}
+
+export function withIsProduction<
+  T extends { id: string; isProduction?: boolean },
+>(env: T): T & { isProduction: boolean } {
+  return { ...env, isProduction: isProductionEnvironment(env) };
+}

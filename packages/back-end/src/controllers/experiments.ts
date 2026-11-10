@@ -945,6 +945,11 @@ export async function getExperimentPublic(
   }
 
   const context = await getContextForAgendaJobByOrgId(experiment.organization);
+  if (context.org.settings?.disablePublicSharing) {
+    return res.status(401).json({
+      message: "Unauthorized",
+    });
+  }
   const phase = experiment.phases.length - 1;
 
   const snapshot =
@@ -1569,6 +1574,8 @@ export async function postExperiments(
           dimension: "",
           phase: 0,
           useCache: true,
+          // Imported experiments may already be stopped but have no results yet
+          bypassResultsUpdateDisabled: true,
         });
       } catch (e) {
         logger.error(e, "Failed to auto-refresh imported experiment");

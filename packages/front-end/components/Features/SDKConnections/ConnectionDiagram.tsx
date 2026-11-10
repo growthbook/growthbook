@@ -1,4 +1,5 @@
 import { SDKConnectionInterface } from "shared/types/sdk-connection";
+import { Box } from "@radix-ui/themes";
 import clsx from "clsx";
 import { BsLightningFill } from "react-icons/bs";
 import { FaLock } from "react-icons/fa";
@@ -112,6 +113,12 @@ export default function ConnectionDiagram({
               <GBRemoteEvalIcon className="text-purple" /> yes
             </strong>
           </div>
+        )}
+
+        {connection.tracesEnabled && (
+          <Box px="3">
+            Accepts traces: <strong>yes</strong>
+          </Box>
         )}
 
         {connection.hashSecureAttributes && (

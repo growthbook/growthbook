@@ -405,6 +405,8 @@ export interface OrganizationSettings {
   banditBurnInValue?: number;
   banditBurnInUnit?: "hours" | "days";
   requireExperimentTemplates?: boolean;
+  disableResultsUpdateForStoppedExperiments?: boolean;
+  disableResultsUpdateForStoppedExperimentGraceHours?: number;
   requireUniqueExperimentTrackingKeys?: boolean;
   experimentKeyExample?: string;
   experimentKeyRegexValidator?: string; // Enforced on user-entered keys only; system-generated keys are exempt
@@ -414,6 +416,8 @@ export interface OrganizationSettings {
   defaultDecisionCriteriaId?: string;
   disableLegacyMetricCreation?: boolean;
   blockFileUploads?: boolean;
+  // Kill switch: public links stop resolving; shareLevel is left as-is.
+  disablePublicSharing?: boolean;
   savedGroupSizeLimit?: number;
   // Opt-in validation of Saved Group scope at consuming Feature Flags.
   enforceSavedGroupProjectScope?: boolean;
@@ -620,6 +624,7 @@ export type OrganizationUsage = {
     requests: UsageLimit;
     bandwidth: UsageLimit;
     managedClickhouseEvents?: UsageLimit;
+    tracesBytes?: UsageLimit;
     eventForwarderEvents?: UsageLimit;
   };
   cdn: {
@@ -627,6 +632,10 @@ export type OrganizationUsage = {
     status: "under" | "approaching" | "over";
   };
   managedClickhouse?: {
+    lastUpdated: Date;
+    status: "under" | "approaching" | "over";
+  };
+  traces?: {
     lastUpdated: Date;
     status: "under" | "approaching" | "over";
   };
