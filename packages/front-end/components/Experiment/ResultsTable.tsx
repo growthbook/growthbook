@@ -35,6 +35,7 @@ import {
   SetExperimentSortBy,
   funnelStepMetricId,
   isFactMetric,
+  isScalableClusterSubUnitMetric,
   SampleSizeSource,
 } from "shared/experiments";
 import { useAuth } from "@/services/auth";
@@ -1077,6 +1078,14 @@ export default function ResultsTable({
                                 const hideScaledImpact =
                                   !rowResults.hasScaledImpact &&
                                   differenceType === "scaled";
+                                const scaledImpactMessage =
+                                  snapshot?.settings &&
+                                  isScalableClusterSubUnitMetric(
+                                    row.metric,
+                                    snapshot.settings,
+                                  )
+                                    ? "Scaled impact unavailable. Try updating results."
+                                    : undefined;
 
                                 const resultsHighlightClassname = clsx(
                                   rowResults.resultsStatus,
@@ -1211,6 +1220,9 @@ export default function ResultsTable({
                                               hideScaledImpact={
                                                 hideScaledImpact
                                               }
+                                              scaledImpactMessage={
+                                                scaledImpactMessage
+                                              }
                                               className={clsx(
                                                 "results-ctw",
                                                 resultsHighlightClassname,
@@ -1239,6 +1251,9 @@ export default function ResultsTable({
                                               showUnadjustedPValue={false}
                                               hideScaledImpact={
                                                 hideScaledImpact
+                                              }
+                                              scaledImpactMessage={
+                                                scaledImpactMessage
                                               }
                                               className={clsx(
                                                 "results-pval",
