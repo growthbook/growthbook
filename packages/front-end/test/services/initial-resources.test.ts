@@ -333,6 +333,7 @@ describe("getDatasourceTemplateSettings", () => {
     ]);
     expect(exposure[1].name).toBe("Langfuse: Logged-in Users");
     expect(exposure[1].query).toContain("t.project_id = 'proj_1'");
+    expect(settings.schemaOptions).toEqual({ projectId: "proj_1" });
     expect(settings.queries?.identityJoins?.[0].ids).toEqual([
       "user_id",
       "session_id",
@@ -368,6 +369,48 @@ describe("getDatasourceTemplateResources", () => {
       "Langfuse Observations",
       "Langfuse Scores",
     ]);
+  });
+
+  it("creates a missing fact table with the saved project, not the retry's blank one", () => {
+    const datasource = businessClickhouse();
+    datasource.settings = {
+      ...datasource.settings,
+      schemaOptions: { projectId: "proj_1" },
+    };
+    const resources = getDatasourceTemplateResources({
+      datasource,
+      template: "langfuse",
+      schemaOptions: { projectId: "" },
+      existingFactTables: [
+        { name: "Langfuse Traces", datasource: "ds_business", archived: false },
+        {
+          name: "Langfuse Observations",
+          datasource: "ds_business",
+          archived: false,
+        },
+      ],
+    });
+    expect(resources.factTables.map((f) => f.factTable.name)).toEqual([
+      "Langfuse Scores",
+    ]);
+    expect(resources.factTables[0].factTable.sql).toContain(
+      "project_id = 'proj_1'",
+    );
+
+    const settings = getDatasourceTemplateSettings({
+      datasource,
+      template: "langfuse",
+      schemaOptions: { projectId: "other" },
+      factTables: [
+        { name: "Langfuse Traces", datasource: "ds_business", archived: false },
+      ],
+    });
+    expect(settings.schemaOptions?.projectId).toBe("proj_1");
+    expect(
+      settings.queries?.exposure?.some((query) =>
+        query.query.includes("project_id = 'other'"),
+      ),
+    ).toBe(false);
   });
 
   it("skips fact tables the Data Source already has", () => {

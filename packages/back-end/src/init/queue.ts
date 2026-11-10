@@ -1,6 +1,7 @@
 import addExperimentLifecycleRemindersJob from "back-end/src/jobs/experimentLifecycleReminders";
 import addExperimentResultsJob from "back-end/src/jobs/updateExperimentResults";
 import addContextualBanditResultsJob from "back-end/src/jobs/updateContextualBanditResults";
+import addInterleavingResultsJob from "back-end/src/jobs/updateInterleavingResults";
 import refreshFactTableColumns from "back-end/src/jobs/refreshFactTableColumns";
 import revalidateEventForwarderDataSourceQueries from "back-end/src/jobs/revalidateEventForwarderDataSourceQueries";
 import updateScheduledFeatures from "back-end/src/jobs/updateScheduledFeatures";
@@ -30,6 +31,7 @@ import updateAggregatedFactTablesJob from "back-end/src/jobs/updateAggregatedFac
 import addRampScheduleJob from "back-end/src/jobs/updateRampSchedules";
 import addScheduledPublishJob from "back-end/src/jobs/updateScheduledPublishes";
 import addSyncManagedWarehouseJsonErgonomicsJob from "back-end/src/jobs/syncManagedWarehouseJsonErgonomics";
+import addRecreateManagedWarehouseTablesJob from "back-end/src/jobs/recreateManagedWarehouseTables";
 import addApiKeyExpirationJob from "back-end/src/jobs/apiKeyExpiration";
 import { initRampScheduleHooks } from "back-end/src/services/rampSchedule";
 import addSlackAssistantJobs from "back-end/src/jobs/slackAssistantJobs";
@@ -42,6 +44,7 @@ export async function queueInit() {
   addExperimentResultsJob(agenda);
   addExperimentLifecycleRemindersJob(agenda);
   addContextualBanditResultsJob(agenda);
+  addInterleavingResultsJob(agenda);
   updateScheduledFeatures(agenda);
   addMetricUpdateJob(agenda);
   addWebhooksJob(agenda);
@@ -67,6 +70,7 @@ export async function queueInit() {
   addScheduledPublishJob(agenda);
   addSlackAssistantJobs(agenda);
   await addSyncManagedWarehouseJsonErgonomicsJob(agenda);
+  await addRecreateManagedWarehouseTablesJob(agenda);
   initRampScheduleHooks();
   // Make sure we have index needed to delete efficiently
   agenda._collection

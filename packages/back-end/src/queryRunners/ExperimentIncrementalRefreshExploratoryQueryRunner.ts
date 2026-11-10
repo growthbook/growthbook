@@ -489,6 +489,7 @@ export class ExperimentIncrementalRefreshExploratoryQueryRunner extends QueryRun
         analysisSettings: this.model.analyses.map((a) => a.settings),
         variationNames: this.variationNames,
         metricMap: this.metricMap,
+        isStandaloneBreakdown: true,
       });
 
     const result: SnapshotResult = {

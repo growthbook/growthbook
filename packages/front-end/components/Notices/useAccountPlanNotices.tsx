@@ -1,4 +1,5 @@
 import { date, daysLeft } from "shared/dates";
+import { useFeatureIsOn } from "@growthbook/growthbook-react";
 import Link from "@/ui/Link";
 import { useUser } from "@/services/UserContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
@@ -11,6 +12,7 @@ export default function useAccountPlanNotices(): AppNotice[] {
   const { usage, license, licenseError, seatsInUse } = useUser();
   const canManageBilling = permissionsUtil.canManageBilling();
   const canViewUsage = permissionsUtil.canViewUsage();
+  const traceIngestEnabled = useFeatureIsOn("trace-ingest");
 
   const usageDetails = (
     docsHref: string,
@@ -75,6 +77,29 @@ export default function useAccountPlanNotices(): AppNotice[] {
             ? "managed-warehouse-usage-exceeded-topnav-notification"
             : "managed-warehouse-usage-approaching-topnav-notification",
         commercialFeature: "unlimited-managed-warehouse-usage",
+      },
+    });
+  }
+
+  const traces = usage?.traces?.status;
+  if (traceIngestEnabled && (traces === "approaching" || traces === "over")) {
+    notices.push({
+      id: "traces-usage",
+      severity: traces === "over" ? "error" : "warning",
+      title:
+        traces === "over"
+          ? "Traces usage limit exceeded"
+          : "Approaching traces usage limit",
+      details:
+        traces === "over"
+          ? "New traces are held for up to 30 days and won't appear until you upgrade."
+          : "Once you pass the limit, new traces are held until you upgrade.",
+      upgrade: {
+        source:
+          traces === "over"
+            ? "traces-usage-exceeded-topnav-notification"
+            : "traces-usage-approaching-topnav-notification",
+        commercialFeature: null,
       },
     });
   }

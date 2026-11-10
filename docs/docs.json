@@ -76,7 +76,14 @@
                     "pages": [
                       "features/rules",
                       "features/targeting",
-                      "features/remote-saved-groups",
+                      {
+                        "group": "Remote Groups",
+                        "root": "features/remote-saved-groups",
+                        "pages": [
+                          "features/remote-saved-groups-proxy",
+                          "features/remote-saved-groups-custom"
+                        ]
+                      },
                       "features/safe-rollouts",
                       "features/ramp-schedules",
                       "features/prerequisites",
@@ -312,7 +319,11 @@
                   {
                     "group": "Slack",
                     "root": "integrations/slack",
-                    "pages": ["integrations/slack/legacy-webhooks"]
+                    "pages": [
+                      "integrations/slack/ai-assistant",
+                      "integrations/slack/self-hosted",
+                      "integrations/slack/legacy-webhooks"
+                    ]
                   },
                   "integrations/discord",
                   "integrations/datadog",

@@ -1,6 +1,13 @@
-import type { PopulationStep } from "shared/validators";
+import type {
+  ApiPopulation,
+  ExplorationConfig,
+  PopulationExplorationConfig,
+  PopulationStep,
+  ProductAnalyticsExploration,
+} from "shared/validators";
 import type { FactTableDefinition } from "shared/types/fact-table";
 import { getRowFilterDescription } from "@/components/FactTables/rowFilterUtils";
+import { getDailyBuckets } from "@/components/QueryPreview/activityChart";
 
 export type PopulationStepDescriptionSegment =
   | string
@@ -58,4 +65,56 @@ export function describePopulationStep({
   return ["Has ", factTableSegment, conditionsDescriptions].filter(
     (segment) => segment !== "",
   );
+}
+
+// The preview query for a Population
+export function getPopulationPreviewConfig(
+  population: Pick<ApiPopulation, "datasource" | "steps">,
+  unit: string,
+  dateRange: ExplorationConfig["dateRange"],
+): PopulationExplorationConfig {
+  return {
+    type: "population",
+    datasource: population.datasource,
+    chartType: "bar",
+    showAs: "total",
+    dateRange,
+    dimensions: [
+      { dimensionType: "date", column: "date", dateGranularity: "day" },
+    ],
+    dataset: {
+      type: "population",
+      values: population.steps.map((step) => ({
+        type: "population",
+        name: "Members",
+        unit,
+        source: step.source,
+        rowFilters: step.rowFilters,
+        aggregateFilter: step.aggregateFilter,
+        aggregateFilterColumn: step.aggregateFilterColumn,
+      })),
+    },
+  };
+}
+
+export function getPopulationMemberCounts(
+  exploration: Pick<
+    ProductAnalyticsExploration,
+    "dateStart" | "dateEnd" | "result"
+  >,
+) {
+  const byDay = new Map(
+    (exploration.result?.rows ?? []).map((row) => [
+      row.dimensions[0]?.slice(0, 10),
+      row.values?.[0]?.numerator ?? 0,
+    ]),
+  );
+  const dailyValues = getDailyBuckets(exploration).map((day) => ({
+    day,
+    value: byDay.get(day) ?? 0,
+  }));
+  return {
+    dailyValues,
+    total: dailyValues.reduce((sum, { value }) => sum + value, 0),
+  };
 }

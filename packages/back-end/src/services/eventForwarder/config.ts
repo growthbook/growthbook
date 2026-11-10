@@ -687,7 +687,64 @@ export function toEventForwarderConfigWithMetadata(
     connectorName: config.connectorName,
     connectorId: config.connectorId,
     lastProvisioningError: config.lastProvisioningError,
+    inHouseConsumer: isInHouseConsumerTopic(config.topic, config.sinkType),
   };
+}
+
+// Moves a pre-consumer (Confluent connector) config onto the shared consumer
+// topic. Re-normalizes the stored config so it carries `tables`. Confluent
+// resources are left for manual teardown. Only claims the row; the caller
+// provisions it and audit-logs on success.
+export async function migrateEventForwarderToInHouseConsumer(
+  context: ReqContext,
+  existing: EventForwarderConfigInterface,
+  datasourceParams: EventForwarderDatasourceParams,
+): Promise<{
+  migrated: EventForwarderConfigInterface;
+  // The row the CAS actually claimed; revert and audit must use it, not `existing`
+  previous: EventForwarderConfigInterface;
+}> {
+  if (isInHouseConsumerTopic(existing.topic, existing.sinkType)) {
+    throw new Error("Event forwarder is already on the in-house consumer");
+  }
+  let previous = existing;
+  // All checks run on the freshly read row inside the CAS, guarded on the
+  // fields they decide on, so a pause, credential update or second migrate
+  // landing in between is seen rather than overwritten.
+  const migrated = await context.models.eventForwarderConfigs.updateWithCas(
+    existing.id,
+    ["topic", "status", "config"],
+    (fresh) => {
+      previous = fresh;
+      if (isInHouseConsumerTopic(fresh.topic, fresh.sinkType)) {
+        throw new Error("Event forwarder is already on the in-house consumer");
+      }
+      // Provisioning marks the row ready, which would silently undo a pause.
+      if (fresh.status === "paused") {
+        throw new Error("Resume the event forwarder before migrating it");
+      }
+      const draft = toEventForwarderConfigDraft(fresh);
+      if (!draft) {
+        throw new Error("Cannot read event forwarder config");
+      }
+      const normalizedPayload = buildNormalizedSinkPayload(
+        draft,
+        datasourceParams,
+        fresh,
+      );
+      validateNormalizedSinkPayload(draft, datasourceParams, normalizedPayload);
+      return {
+        topic: getInHouseConsumerTopicName(fresh.sinkType),
+        config: encryptSinkConfig(normalizedPayload),
+        status: "pending",
+        lastProvisioningError: "",
+      };
+    },
+  );
+  if (!migrated) {
+    throw new Error("Cannot find event forwarder config");
+  }
+  return { migrated, previous };
 }
 
 export async function getEventForwarderConfigDraftForDatasource(
