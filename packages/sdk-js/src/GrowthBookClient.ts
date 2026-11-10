@@ -74,7 +74,7 @@ export class GrowthBookClient<
   private _features: FeatureDefinitions;
   private _experiments: AutoExperiment[];
   private _payload: FeatureApiResponse | undefined;
-  private _payloadSeq?: number;
+  private _payloadQueue?: Promise<void>;
   private _decryptedPayload: FeatureApiResponse | undefined;
   private _destroyed?: boolean;
 
@@ -98,16 +98,22 @@ export class GrowthBookClient<
     }
   }
 
-  public async setPayload(
-    payload: FeatureApiResponse<AppFeatures>,
-  ): Promise<void> {
+  public setPayload(payload: FeatureApiResponse<AppFeatures>): Promise<void> {
     // AppFeatures only checks payloads written in code; internally they are untyped
     const untyped = payload as FeatureApiResponse;
     this._payload = untyped;
-    // The latest call wins, even if an older one is slower to decrypt
-    const seq = (this._payloadSeq = (this._payloadSeq || 0) + 1);
-    const data = await decryptPayload(untyped, this._options.decryptionKey);
-    if (seq !== this._payloadSeq) return;
+    // Apply payloads one at a time, in call order, so a call that is slower to
+    // decrypt can't finish after a newer one and overwrite it. A failed call
+    // doesn't block the ones after it.
+    const apply = () => this._applyPayload(untyped);
+    return (this._payloadQueue = (this._payloadQueue || Promise.resolve()).then(
+      apply,
+      apply,
+    ));
+  }
+
+  private async _applyPayload(payload: FeatureApiResponse): Promise<void> {
+    const data = await decryptPayload(payload, this._options.decryptionKey);
     this._decryptedPayload = data;
     if (data.features) {
       this._features = data.features;
