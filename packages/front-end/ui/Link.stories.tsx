@@ -54,6 +54,14 @@ export default function LinkStories() {
         </Link>{" "}
         while keeping the same style.
       </Box>
+
+      <Box>
+        As a button it can also be{" "}
+        <Link disabled onClick={() => alert("Never called")}>
+          disabled
+        </Link>
+        : skipped by the keyboard, inert to clicks, and greyed out.
+      </Box>
     </Flex>
   );
 }

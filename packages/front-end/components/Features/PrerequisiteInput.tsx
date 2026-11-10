@@ -451,13 +451,7 @@ export default function PrerequisiteInput({
       disabled={!hasPrerequisitesCommercialFeature || locked}
       onClick={() => setValue([{ id: "", condition: "{}" }])}
     >
-      <Text
-        weight="semibold"
-        size="md"
-        color={
-          !hasPrerequisitesCommercialFeature || locked ? "text-low" : undefined
-        }
-      >
+      <Text weight="semibold" size="md">
         <PiPlusCircleBold className="mr-1" />
         Add prerequisite targeting
       </Text>

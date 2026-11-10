@@ -13,9 +13,9 @@ import useOrgSettings from "@/hooks/useOrgSettings";
 import ChangesTable, {
   ChangesTableRow,
 } from "@/components/Reviews/ChangesTable";
-import { TargetingDetailsLink } from "@/ui/Collapse";
 import Text from "@/ui/Text";
 import { useTargetingDefaults } from "@/components/Experiment/useExperimentTargetingForm";
+import TargetingDetailsLink from "./TargetingDetailsLink";
 import SetupFieldRow, { SetupFieldGroup } from "./SetupFieldRow";
 
 function formatRanges(ranges: [number, number][]): string {
