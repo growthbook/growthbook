@@ -1,3 +1,6 @@
+import { mkdtemp, rm, writeFile } from "fs/promises";
+import os from "os";
+import path from "path";
 import { createClient } from "@clickhouse/client";
 import { ClickHouseConnectionParams } from "shared/types/integrations/clickhouse";
 import ClickHouse, {
@@ -13,7 +16,16 @@ jest.mock("@clickhouse/client", () => {
     createClient: jest.fn(),
   };
 });
+jest.mock("back-end/src/util/secrets", () => ({
+  ...jest.requireActual("back-end/src/util/secrets"),
+  IS_CLOUD: false,
+  IS_MULTI_ORG: false,
+}));
 
+const mockSecrets = jest.requireMock<{
+  IS_CLOUD: boolean;
+  IS_MULTI_ORG: boolean;
+}>("back-end/src/util/secrets");
 const mockCreateClient = createClient as jest.MockedFunction<
   typeof createClient
 >;
@@ -23,9 +35,9 @@ const CERT = "-----BEGIN CERTIFICATE-----\ncert\n-----END CERTIFICATE-----";
 const KEY = "-----BEGIN PRIVATE KEY-----\nkey\n-----END PRIVATE KEY-----";
 
 describe("getClickHouseTLSOptions", () => {
-  it("returns nothing when SSL is off, even if certs are set", () => {
+  it("returns nothing when SSL is off, even if certs are set", async () => {
     expect(
-      getClickHouseTLSOptions({
+      await getClickHouseTLSOptions({
         ssl: false,
         caCert: CA,
         clientCert: CERT,
@@ -34,19 +46,19 @@ describe("getClickHouseTLSOptions", () => {
     ).toBeUndefined();
   });
 
-  it("returns nothing when SSL is on without certs", () => {
-    expect(getClickHouseTLSOptions({ ssl: true })).toBeUndefined();
+  it("returns nothing when SSL is on without certs", async () => {
+    expect(await getClickHouseTLSOptions({ ssl: true })).toBeUndefined();
   });
 
-  it("passes a custom CA cert", () => {
-    expect(getClickHouseTLSOptions({ ssl: true, caCert: CA })).toEqual({
+  it("passes a custom CA cert", async () => {
+    expect(await getClickHouseTLSOptions({ ssl: true, caCert: CA })).toEqual({
       ca_cert: Buffer.from(CA),
     });
   });
 
-  it("passes a CA cert with a client cert and key for mutual TLS", () => {
+  it("passes a CA cert with a client cert and key for mutual TLS", async () => {
     expect(
-      getClickHouseTLSOptions({
+      await getClickHouseTLSOptions({
         ssl: true,
         caCert: CA,
         clientCert: CERT,
@@ -59,15 +71,15 @@ describe("getClickHouseTLSOptions", () => {
     });
   });
 
-  it("rejects a client cert without a key", () => {
-    expect(() =>
+  it("rejects a client cert without a key", async () => {
+    await expect(
       getClickHouseTLSOptions({ ssl: true, caCert: CA, clientCert: CERT }),
-    ).toThrow("Client cert and client key must be provided together.");
+    ).rejects.toThrow("Client cert and client key must be provided together.");
   });
 
-  it("passes a client cert without a CA cert, leaving the default CAs", () => {
+  it("passes a client cert without a CA cert, leaving the default CAs", async () => {
     expect(
-      getClickHouseTLSOptions({
+      await getClickHouseTLSOptions({
         ssl: true,
         clientCert: CERT,
         clientKey: KEY,
@@ -77,6 +89,151 @@ describe("getClickHouseTLSOptions", () => {
       key: Buffer.from(KEY),
     });
   });
+});
+
+describe("getClickHouseTLSOptions with certificate file paths", () => {
+  let dir: string;
+  let caCertPath: string;
+  let clientCertPath: string;
+  let clientKeyPath: string;
+
+  beforeEach(async () => {
+    mockSecrets.IS_CLOUD = false;
+    mockSecrets.IS_MULTI_ORG = false;
+    dir = await mkdtemp(path.join(os.tmpdir(), "clickhouse-tls-"));
+    caCertPath = path.join(dir, "ca.crt");
+    clientCertPath = path.join(dir, "tls.crt");
+    clientKeyPath = path.join(dir, "tls.key");
+    await writeFile(caCertPath, CA);
+    await writeFile(clientCertPath, CERT);
+    await writeFile(clientKeyPath, KEY);
+  });
+
+  afterEach(async () => {
+    await rm(dir, { recursive: true, force: true });
+  });
+
+  it("reads the certs from files", async () => {
+    expect(
+      await getClickHouseTLSOptions({
+        ssl: true,
+        caCertPath,
+        clientCertPath,
+        clientKeyPath,
+      }),
+    ).toEqual({
+      ca_cert: Buffer.from(CA),
+      cert: Buffer.from(CERT),
+      key: Buffer.from(KEY),
+    });
+  });
+
+  it("re-reads the files on every call so rotation is picked up", async () => {
+    const params = { ssl: true, clientCertPath, clientKeyPath };
+    await getClickHouseTLSOptions(params);
+    const rotated = CERT.replace("cert", "rotated");
+    await writeFile(clientCertPath, rotated);
+
+    expect((await getClickHouseTLSOptions(params))?.cert).toEqual(
+      Buffer.from(rotated),
+    );
+  });
+
+  it("mixes a pasted CA cert with a client cert from files", async () => {
+    expect(
+      await getClickHouseTLSOptions({
+        ssl: true,
+        caCert: CA,
+        clientCertPath,
+        clientKeyPath,
+      }),
+    ).toEqual({
+      ca_cert: Buffer.from(CA),
+      cert: Buffer.from(CERT),
+      key: Buffer.from(KEY),
+    });
+  });
+
+  it("sends the chain after a leaf-only client cert", async () => {
+    const clientCertChainPath = path.join(dir, "chain.crt");
+    await writeFile(clientCertChainPath, CA);
+
+    expect(
+      await getClickHouseTLSOptions({
+        ssl: true,
+        clientCertPath,
+        clientKeyPath,
+        clientCertChainPath,
+      }),
+    ).toStrictEqual({
+      cert: Buffer.from(`${CERT}\n${CA}`),
+      key: Buffer.from(KEY),
+    });
+  });
+
+  it("ignores the paths when SSL is off", async () => {
+    expect(
+      await getClickHouseTLSOptions({
+        ssl: false,
+        caCertPath: path.join(dir, "missing.crt"),
+      }),
+    ).toBeUndefined();
+  });
+
+  it.each<{
+    name: string;
+    params: () => Partial<ClickHouseConnectionParams>;
+    error: RegExp;
+  }>([
+    {
+      name: "a pasted value and a path for the same cert",
+      params: () => ({ caCert: CA, caCertPath }),
+      error: /either the ClickHouse CA cert or its file path, not both/,
+    },
+    {
+      name: "a chain without a client cert",
+      params: () => ({ caCertPath, clientCertChainPath: caCertPath }),
+      error: /client cert chain requires a client cert/,
+    },
+    {
+      name: "a client cert path without a key",
+      params: () => ({ clientCertPath }),
+      error: /must be provided together/,
+    },
+    {
+      name: "a file that can't be read",
+      params: () => ({ caCertPath: path.join(dir, "missing.crt") }),
+      error: /Unable to read the ClickHouse CA cert file/,
+    },
+  ])("rejects $name", async ({ params, error }) => {
+    await expect(
+      getClickHouseTLSOptions({ ssl: true, ...params() }),
+    ).rejects.toThrow(error);
+  });
+
+  it("rejects an empty file without echoing its contents", async () => {
+    const empty = path.join(dir, "empty.key");
+    await writeFile(empty, "");
+
+    await expect(
+      getClickHouseTLSOptions({
+        ssl: true,
+        clientCertPath,
+        clientKeyPath: empty,
+      }),
+    ).rejects.toThrow(/client key file .* is empty or not PEM-encoded/);
+  });
+
+  it.each(["IS_CLOUD", "IS_MULTI_ORG"] as const)(
+    "rejects file paths when %s is set",
+    async (flag) => {
+      mockSecrets[flag] = true;
+
+      await expect(
+        getClickHouseTLSOptions({ ssl: true, caCertPath }),
+      ).rejects.toThrow(/single organization/);
+    },
+  );
 });
 
 describe("getClickHouseUrl", () => {

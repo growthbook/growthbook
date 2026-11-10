@@ -1,3 +1,4 @@
+import { readFile } from "fs/promises";
 import { subDays } from "date-fns";
 import {
   ClickHouseClientConfigOptions,
@@ -27,6 +28,8 @@ import { getHost } from "back-end/src/util/sql";
 import { getFactTableTypeFromClickHouseType } from "back-end/src/util/warehouseColumnTypes";
 import { logger } from "back-end/src/util/logger";
 import { metrics } from "back-end/src/util/metrics";
+import { getErrorMessage } from "back-end/src/util/errors";
+import { IS_CLOUD, IS_MULTI_ORG } from "back-end/src/util/secrets";
 import SqlIntegration from "./SqlIntegration";
 
 // Matches ClickHouse DateTime/DateTime64 column types with no explicit
@@ -83,25 +86,79 @@ export function getClickHouseUrl(
   return host;
 }
 
-export function getClickHouseTLSOptions(
+// Files are read on every call, so certificates rotated on disk are picked up without a restart
+async function readPem(
+  value: string | undefined,
+  path: string | undefined,
+  description: string,
+): Promise<Buffer | undefined> {
+  if (value && path) {
+    throw new Error(
+      `Set either the ClickHouse ${description} or its file path, not both.`,
+    );
+  }
+  if (!path) return value ? Buffer.from(value) : undefined;
+  // Any org that can edit a data source could otherwise read files mounted for another org
+  if (IS_CLOUD || IS_MULTI_ORG) {
+    throw new Error(
+      "ClickHouse certificate file paths are only supported on self-hosted GrowthBook with a single organization.",
+    );
+  }
+  let contents: Buffer;
+  try {
+    contents = await readFile(path);
+  } catch (e) {
+    throw new Error(
+      `Unable to read the ClickHouse ${description} file: ${getErrorMessage(e)}`,
+    );
+  }
+  if (!contents.includes("-----BEGIN ")) {
+    throw new Error(
+      `The ClickHouse ${description} file ${path} is empty or not PEM-encoded.`,
+    );
+  }
+  return contents;
+}
+
+export async function getClickHouseTLSOptions(
   params: Pick<
     ClickHouseConnectionParams,
-    "ssl" | "caCert" | "clientCert" | "clientKey"
+    | "ssl"
+    | "caCert"
+    | "clientCert"
+    | "clientKey"
+    | "caCertPath"
+    | "clientCertPath"
+    | "clientKeyPath"
+    | "clientCertChainPath"
   >,
-): ClickHouseClientConfigOptions["tls"] {
+): Promise<ClickHouseClientConfigOptions["tls"]> {
   if (!params.ssl) return undefined;
 
-  const { caCert, clientCert, clientKey } = params;
-  if (!!clientCert !== !!clientKey) {
+  const [caCert, leafCert, chain, clientKey] = await Promise.all([
+    readPem(params.caCert, params.caCertPath, "CA cert"),
+    readPem(params.clientCert, params.clientCertPath, "client cert"),
+    readPem(undefined, params.clientCertChainPath, "client cert chain"),
+    readPem(params.clientKey, params.clientKeyPath, "client key"),
+  ]);
+  if (!!leafCert !== !!clientKey) {
     throw new Error("Client cert and client key must be provided together.");
   }
-  const ca = caCert ? { ca_cert: Buffer.from(caCert) } : undefined;
+  if (chain && !leafCert) {
+    throw new Error("A client cert chain requires a client cert.");
+  }
+  // Node expects the leaf first, followed by its intermediates
+  const clientCert =
+    leafCert && chain
+      ? Buffer.concat([leafCert, Buffer.from("\n"), chain])
+      : leafCert;
+  const ca = caCert ? { ca_cert: caCert } : undefined;
   if (clientCert && clientKey) {
     // The client's type requires ca_cert, but without one Node falls back to its default CAs
     return {
       ...ca,
-      cert: Buffer.from(clientCert),
-      key: Buffer.from(clientKey),
+      cert: clientCert,
+      key: clientKey,
     } as ClickHouseClientConfigOptions["tls"];
   }
   return ca;
@@ -147,7 +204,7 @@ export default class ClickHouse extends SqlIntegration {
     ) {
       throw new ManagedWarehousePendingError();
     }
-    const tls = getClickHouseTLSOptions(this.params);
+    const tls = await getClickHouseTLSOptions(this.params);
     const client = createClient({
       url: getClickHouseUrl(this.params),
       ...(tls ? { tls } : {}),
