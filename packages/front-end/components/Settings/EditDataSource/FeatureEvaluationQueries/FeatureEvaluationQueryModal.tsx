@@ -16,6 +16,7 @@ import {
   getFeatureUsageTimestampColumn,
   getFeatureUsageValueColumn,
   getFeatureUsageVariationIdColumn,
+  FEATURE_USAGE_JSON_ROOT_TYPES,
   splitFeatureUsageJsonField,
 } from "shared/util";
 import {
@@ -50,13 +51,25 @@ import Code from "@/components/SyntaxHighlighting/Code";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
 import Link from "@/ui/Link";
+import { Select, SelectItem } from "@/ui/Select";
 import Text from "@/ui/Text";
 import UITooltip from "@/ui/Tooltip";
 import TextField from "@/ui/TextField";
-import MultiSelectField from "@/ui/MultiSelectField";
 import Table, { TableBody } from "@/ui/Table";
 
 const BODY_HEIGHT = "calc(93vh - 200px)";
+
+// Text columns with these names usually hold the SDK's attributes as JSON
+const ATTRIBUTE_COLUMN_NAMES = [
+  "attributes",
+  "context",
+  "context_json",
+  "properties",
+  "properties_json",
+];
+
+const isJsonRoot = (c: DetectedColumn, root: string) =>
+  c.column === root && FEATURE_USAGE_JSON_ROOT_TYPES.includes(c.datatype);
 
 // No known evaluation-table layouts to recognize yet
 const NO_TEMPLATES: SourceTableTemplate[] = [];
@@ -241,14 +254,6 @@ export const FeatureEvaluationQueryModal = ({
         savedUserIdTypes.map((idType) => [idType, savedRoleColumns[idType]]),
       ),
   );
-  // Text columns the user says hold JSON, so their fields can be identifiers
-  const [jsonColumns, setJsonColumns] = useState<string[]>(
-    () =>
-      featureUsageQuery?.columns
-        ?.filter((c) => c.datatype === "json")
-        .map((c) => c.column) ?? [],
-  );
-
   const [refreshingColumns, setRefreshingColumns] = useState(false);
   const [refreshError, setRefreshError] = useState<string | null>(null);
 
@@ -286,12 +291,18 @@ export const FeatureEvaluationQueryModal = ({
         ]).filter(([, column]) => column),
       ),
     );
-    setUserIdColumns((prev) =>
-      rematchUserIdColumns(prev, identifierTypes, cols),
-    );
-    setJsonColumns((prev) =>
-      prev.filter((c) => cols.some((col) => col.column === c)),
-    );
+    setUserIdColumns((prev) => {
+      const rematched = rematchUserIdColumns(prev, identifierTypes, cols);
+      // rematchUserIdColumns only keeps fields of JSON-typed columns; a field
+      // of a text column holding JSON survives too
+      const keptFields = Object.fromEntries(
+        Object.entries(prev).filter(([, column]) => {
+          const parts = splitFeatureUsageJsonField(column);
+          return parts && cols.some((c) => isJsonRoot(c, parts.root));
+        }),
+      );
+      return { ...rematched, ...keptFields };
+    });
   };
 
   const source = useSourceTable({
@@ -310,11 +321,10 @@ export const FeatureEvaluationQueryModal = ({
       setFeatureKeyColumn("");
       setOptionalColumns({});
       setUserIdColumns({});
-      setJsonColumns([]);
     },
     onColumnsChanged: remapColumns,
   });
-  const { mode, selectedTable, detected, querySql } = source;
+  const { mode, selectedTable, partition, detected, querySql } = source;
   // False while editing a query saved before its columns were stored, whose
   // columns are only guessed from its mapping
   const columnsDetected =
@@ -322,25 +332,29 @@ export const FeatureEvaluationQueryModal = ({
     !!featureUsageQuery.columns?.length ||
     detected !== savedColumns;
 
-  // Detected columns, with the user's "Treat as JSON" choices applied
-  const columns: DetectedColumn[] = (detected || []).map((c) =>
-    jsonColumns.includes(c.column) ? { ...c, datatype: "json" } : c,
-  );
-  const jsonCandidates = columns.filter((c) =>
-    ["string", "json", ""].includes(c.datatype),
-  );
+  const columns: DetectedColumn[] = detected || [];
   const timestampOptions = columns.filter(
     (c) => isTimestampCandidate(c) || c.column === savedRoleColumns.timestamp,
   );
   const stringOptions = columns.filter(isIdentifierCandidate);
-  const jsonColumnNames = columns
-    .filter((c) => c.datatype === "json")
+  // Columns a typed JSON field can be read from
+  const jsonRootNames = columns
+    .filter((c) => FEATURE_USAGE_JSON_ROOT_TYPES.includes(c.datatype))
     .map((c) => c.column);
   // Identifiers can also be a field inside a JSON column; the org's attributes
-  // are the fields the SDK sends
+  // are the fields the SDK sends. They're suggested for JSON columns and for
+  // text columns named like they hold attributes.
+  const suggestedRoots = columns
+    .filter(
+      (c) =>
+        c.datatype === "json" ||
+        (FEATURE_USAGE_JSON_ROOT_TYPES.includes(c.datatype) &&
+          ATTRIBUTE_COLUMN_NAMES.includes(c.column.toLowerCase())),
+    )
+    .map((c) => c.column);
   const identifierOptions: DetectedColumn[] = [
     ...stringOptions,
-    ...jsonColumnNames.flatMap((root) =>
+    ...suggestedRoots.flatMap((root) =>
       attributes.map((a) => ({
         column: `${root}.${a.property}`,
         datatype: "string" as const,
@@ -352,7 +366,7 @@ export const FeatureEvaluationQueryModal = ({
     !!value &&
     (!!validColumn(identifierOptions, value) ||
       (!!splitFeatureUsageJsonField(value) &&
-        jsonColumnNames.includes(value.split(".")[0])));
+        jsonRootNames.includes(value.split(".")[0])));
   const mappedUserIdTypes = identifierTypes.filter((t) =>
     isValidIdentifier(userIdColumns[t] || ""),
   );
@@ -669,10 +683,10 @@ export const FeatureEvaluationQueryModal = ({
                         setUserIdColumns((prev) => omit(prev, idType))
                       }
                       customValue={
-                        jsonColumnNames.length
+                        jsonRootNames.length
                           ? {
                               label: "Other JSON field...",
-                              placeholder: `${jsonColumnNames[0]}.field_name`,
+                              placeholder: `${suggestedRoots[0] ?? jsonRootNames[0]}.field_name`,
                             }
                           : undefined
                       }
@@ -694,6 +708,34 @@ export const FeatureEvaluationQueryModal = ({
                       }
                     />
                   ))}
+                  {mode === "table" && partition.available ? (
+                    <ColumnMappingRow
+                      kind="partition"
+                      label="Date partition"
+                      tooltip="Only reads recent partitions, to limit data scanned"
+                      value={partition.column}
+                      options={partition.options}
+                      setValue={partition.setColumn}
+                      onRemove={() => partition.setColumn("")}
+                      append={
+                        partition.formats.length ? (
+                          <Select
+                            size="sm"
+                            mb="0"
+                            aria-label="Partition format"
+                            value={partition.format}
+                            setValue={partition.setFormat}
+                          >
+                            {partition.formats.map((f) => (
+                              <SelectItem key={f} value={f}>
+                                {f.toUpperCase()}
+                              </SelectItem>
+                            ))}
+                          </Select>
+                        ) : null
+                      }
+                    />
+                  ) : null}
                 </TableBody>
               </Table>
               {columnsNeedingQuotes.length ? (
@@ -707,24 +749,6 @@ export const FeatureEvaluationQueryModal = ({
                 </Callout>
               ) : null}
             </Box>
-
-            {jsonCandidates.length > 0 ? (
-              <MultiSelectField
-                label="Treat as JSON"
-                placeholder="No JSON columns"
-                value={jsonColumns.filter((c) =>
-                  jsonCandidates.some((col) => col.column === c),
-                )}
-                options={jsonCandidates
-                  .filter(
-                    (c) =>
-                      c.datatype !== "json" || jsonColumns.includes(c.column),
-                  )
-                  .map((c) => ({ label: c.column, value: c.column }))}
-                onChange={setJsonColumns}
-                helpText="Text columns that hold JSON, so identifiers can be read from their fields."
-              />
-            ) : null}
           </Flex>
         </Box>
       </Page>

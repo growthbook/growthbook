@@ -21,8 +21,19 @@ export function splitFeatureUsageJsonField(
   return field !== undefined && !rest.length ? { root, field } : null;
 }
 
-const isJsonColumn = (query: WithColumns, column: string) =>
-  !!query.columns?.some((c) => c.column === column && c.datatype === "json");
+/**
+ * Column types a JSON field can be read from. Text counts too, since every
+ * warehouse's JSON extraction accepts text that holds JSON.
+ */
+export const FEATURE_USAGE_JSON_ROOT_TYPES = ["json", "string", ""];
+
+// Unknown when the query's columns weren't stored, like queries saved by the API
+const canHoldJson = (query: WithColumns, column: string) =>
+  !query.columns ||
+  query.columns.some(
+    (c) =>
+      c.column === column && FEATURE_USAGE_JSON_ROOT_TYPES.includes(c.datatype),
+  );
 
 /** The column a mapped identifier reads from: the JSON column for a field. */
 const getRootColumn = (column: string) =>
@@ -131,7 +142,7 @@ export function findFeatureUsageColumnsNeedingQuotes(
 
 /**
  * Why a mapped JSON field can't be used, like validateColumnMappingTargets for
- * fact tables: one level, plain names, and a root that is a JSON column.
+ * fact tables: one level, plain names, and a root that can hold JSON.
  */
 export function getFeatureUsageJsonFieldError(
   query: WithColumnMapping & WithColumns,
@@ -147,8 +158,8 @@ export function getFeatureUsageJsonFieldError(
     if (!PLAIN_NAME.test(parts.root) || !PLAIN_NAME.test(parts.field)) {
       return `The ${type} identifier "${column}" must be a JSON column and a field name made of letters, numbers and underscores.`;
     }
-    if (!isJsonColumn(query, parts.root)) {
-      return `The ${type} identifier "${column}" reads a field from "${parts.root}", which isn't a JSON column.`;
+    if (!canHoldJson(query, parts.root)) {
+      return `The ${type} identifier "${column}" reads a field from "${parts.root}", which isn't a JSON or text column.`;
     }
   }
   return null;
@@ -166,8 +177,10 @@ export function getFeatureUsageIdentifierExpression(
 ): string {
   const column = getFeatureUsageIdentifierColumn(query, identifierType);
   const prefix = alias ? `${alias}.` : "";
+  // A dotted name is always a JSON field: real column names with dots are
+  // rejected on save because they'd need quoting
   const parts = splitFeatureUsageJsonField(column);
-  if (parts && isJsonColumn(query, parts.root)) {
+  if (parts) {
     return dialect.jsonExtract(`${prefix}${parts.root}`, parts.field, false);
   }
   return `${prefix}${column}`;

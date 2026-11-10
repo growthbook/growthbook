@@ -105,14 +105,24 @@ describe("JSON field identifiers", () => {
     ).toBeNull();
   });
 
-  it("rejects a field in a column that isn't JSON", () => {
+  it("allows a field in a text column that holds JSON", () => {
     expect(
       getFeatureUsageJsonFieldError(
         mapped("attributes.customerId", [
           { column: "attributes", datatype: "string" },
         ]),
       ),
-    ).toMatch(/isn't a JSON column/);
+    ).toBeNull();
+  });
+
+  it("rejects a field in a column that can't hold JSON", () => {
+    expect(
+      getFeatureUsageJsonFieldError(
+        mapped("attributes.customerId", [
+          { column: "attributes", datatype: "number" },
+        ]),
+      ),
+    ).toMatch(/isn't a JSON or text column/);
   });
 
   it("rejects more than one level and unusual names", () => {
