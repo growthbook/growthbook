@@ -68,7 +68,7 @@ import ContextualBanditRefSummary, {
   isContextualBanditRefRuleSkipped,
 } from "@/components/ContextualBandit/ContextualBanditRefSummary";
 import { useContextualBandits } from "@/hooks/useContextualBandits";
-import track from "@/services/track";
+import track, { entityTrackingHash } from "@/services/track";
 import {
   isRuleInactive,
   useEnvironments,
@@ -877,6 +877,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
             ctaColor="red"
             submit={async () => {
               track("Delete Feature Rule", {
+                entity_id_hash: entityTrackingHash(feature.id),
                 ruleIndex: i,
                 environment,
                 type: rule.type,

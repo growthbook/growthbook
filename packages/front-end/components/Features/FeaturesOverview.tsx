@@ -55,7 +55,7 @@ import Callout from "@/ui/Callout";
 import Checkbox from "@/ui/Checkbox";
 import { useAuth } from "@/services/auth";
 import ForceSummary from "@/components/Features/ForceSummary";
-import track from "@/services/track";
+import track, { entityTrackingHash } from "@/services/track";
 import EditDefaultValueModal from "@/components/Features/EditDefaultValueModal";
 import KillSwitchModal from "@/components/Features/KillSwitchModal";
 import EditProjectForm from "@/components/Experiment/EditProjectForm";
@@ -1413,6 +1413,7 @@ export default function FeaturesOverview({
                         i: getPrerequisites(feature).length,
                       });
                       track("Viewed prerequisite feature modal", {
+                        entity_id_hash: entityTrackingHash(feature.id),
                         source: "add-prerequisite",
                       });
                     }}
@@ -1550,6 +1551,7 @@ export default function FeaturesOverview({
                         i: getPrerequisites(feature).length,
                       });
                       track("Viewed prerequisite feature modal", {
+                        entity_id_hash: entityTrackingHash(feature.id),
                         source: "add-prerequisite",
                       });
                     }}

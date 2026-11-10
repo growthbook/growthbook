@@ -2022,3 +2022,15 @@ export function toFeatureMetaInfo(
     ...(includeDefaultValue && { defaultValue: f.defaultValue ?? "" }),
   };
 }
+
+// Keyed by `${featureId}:${version}`; the first revision for a key wins.
+export function indexRevisions<
+  T extends Pick<FeatureRevisionInterface, "featureId" | "version">,
+>(revisions: T[] | null | undefined): Map<string, T> {
+  const map = new Map<string, T>();
+  for (const r of revisions ?? []) {
+    const key = `${r.featureId}:${r.version}`;
+    if (!map.has(key)) map.set(key, r);
+  }
+  return map;
+}

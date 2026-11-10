@@ -18,7 +18,7 @@ import {
 } from "@/enterprise/components/ProductAnalytics/util";
 import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
 import Text from "@/ui/Text";
-import Tooltip from "@/components/Tooltip/Tooltip";
+import Tooltip from "@/ui/Tooltip";
 import { useUser } from "@/services/UserContext";
 import ValueCard from "./ValueCard";
 import styles from "./ValueCard.module.scss";
@@ -76,11 +76,19 @@ export default function MetricTabContent() {
     return getLockedMixClass(otherTypes);
   };
 
+  // Ratio/quantile metrics chart alone: no second slot once one is picked.
+  const exclusiveClass =
+    values
+      .map((v) =>
+        getMetricMixClass(getFactMetricById(v.metricId ?? "")?.metricType),
+      )
+      .find((c) => c === "ratio" || c === "quantile") ?? null;
+
   const mixTooltip = (locked: Exclude<MetricMixClass, "unknown">) =>
     locked === "ratio"
-      ? "Ratio metrics can't be combined with other metric types."
+      ? "Ratio metrics can't be combined with other metrics."
       : locked === "quantile"
-        ? "Quantile metrics can't be combined with other metric types."
+        ? "Quantile metrics can't be combined with other metrics."
         : "Only the same metric type can be combined in one chart.";
 
   return (
@@ -145,23 +153,23 @@ export default function MetricTabContent() {
                 }}
                 formatOptionLabel={({ value }, meta) => {
                   const metric = factMetrics.find((m) => m.id === value);
-                  const label = metric ? <MetricName metric={metric} /> : value;
+                  if (!metric) return value;
                   // Only attach the mix-restriction tooltip inside the open
                   // menu (not in the selected-value display) so it doesn't
                   // fire on every hover over the selected option.
                   const isDisabledInMenu =
                     meta.context === "menu" &&
                     !!lockedClass &&
-                    !!metric &&
                     getMetricMixClass(metric.metricType) !== lockedClass;
-                  if (isDisabledInMenu) {
-                    return (
-                      <Tooltip body={disabledTooltip} usePortal>
-                        <span>{label}</span>
-                      </Tooltip>
-                    );
-                  }
-                  return label;
+                  if (!isDisabledInMenu) return <MetricName metric={metric} />;
+                  // Badge tooltip off: one tooltip per option.
+                  return (
+                    <Tooltip content={disabledTooltip}>
+                      <span>
+                        <MetricName metric={metric} disableTooltip />
+                      </span>
+                    </Tooltip>
+                  );
                 }}
                 formatGroupLabel={({ label }) => {
                   return label;
@@ -174,16 +182,22 @@ export default function MetricTabContent() {
           </ValueCard>
         );
       })}
-      <Button
-        size="md"
-        variant="outline"
-        onClick={() => addValueToDataset("metric")}
+      <Tooltip
+        enabled={exclusiveClass !== null}
+        content={exclusiveClass ? mixTooltip(exclusiveClass) : ""}
       >
-        <Flex align="center" gap="2">
-          <PiPlus size={14} />
-          Add metric
-        </Flex>
-      </Button>
+        <Button
+          size="md"
+          variant="outline"
+          disabled={exclusiveClass !== null}
+          onClick={() => addValueToDataset("metric")}
+        >
+          <Flex align="center" gap="2">
+            <PiPlus size={14} />
+            Add metric
+          </Flex>
+        </Button>
+      </Tooltip>
     </Flex>
   );
 }

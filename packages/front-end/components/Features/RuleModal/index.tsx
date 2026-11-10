@@ -59,7 +59,7 @@ import {
   useEnvironments,
   validateFeatureRule,
 } from "@/services/features";
-import track from "@/services/track";
+import track, { entityTrackingHash } from "@/services/track";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useExperiments } from "@/hooks/useExperiments";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -1690,6 +1690,7 @@ export default function RuleModal({
       }
 
       track("Save Feature Rule", {
+        entity_id_hash: entityTrackingHash(feature.id),
         source: ruleAction,
         ruleIndex: i,
         environment,
@@ -2115,6 +2116,7 @@ export default function RuleModal({
       setVersion(res?.version ?? targetVersion);
     } catch (e) {
       track("Feature Rule Error", {
+        entity_id_hash: entityTrackingHash(feature.id),
         source: ruleAction,
         ruleIndex: i,
         environment,

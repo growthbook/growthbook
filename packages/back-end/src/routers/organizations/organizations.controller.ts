@@ -1846,6 +1846,17 @@ export async function putOrganization(
       }
     }
 
+    const disableGraceHours =
+      settings?.disableResultsUpdateForStoppedExperimentGraceHours;
+    if (
+      (disableGraceHours ?? null) !== null &&
+      (typeof disableGraceHours !== "number" || disableGraceHours < 0)
+    ) {
+      context.throwBadRequestError(
+        "Grace period for updating stopped experiments must be a number of hours, at least 0",
+      );
+    }
+
     const topValuesLookbackValue = settings?.topValuesLookbackValue;
     if (
       typeof topValuesLookbackValue === "number" &&

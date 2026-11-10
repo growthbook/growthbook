@@ -47,6 +47,7 @@ export * from "./event-forwarder-region-inference";
 export * from "./features";
 export * from "./featureHealth";
 export * from "./threeWayMerge";
+export * from "./tracking";
 export * from "./draftConflict";
 export * from "./projectScopedRules";
 export * from "./featureDraftPurity";
@@ -74,8 +75,6 @@ export * from "./format-json";
 export * from "./datasource";
 export * from "./event-forwarder-fact-table";
 export * from "./event-forwarder-warehouse-queries";
-
-export const DEFAULT_ENVIRONMENT_IDS = ["production", "dev", "staging", "test"];
 
 // URL Redirects and Visual Editor changes serve in every environment. Never
 // empty, which would pass a permission check vacuously.
@@ -1057,7 +1056,11 @@ export function capitalizeFirstCharacter(s: string) {
 }
 
 export {
+  DEFAULT_ENVIRONMENT_IDS,
   NON_PRODUCTION_ENV_PATTERNS,
   isEnvironmentDevLike,
+  guessIsProductionEnvironment,
+  isProductionEnvironment,
+  withIsProduction,
 } from "./environments";
 export * from "./confirmations";

@@ -7,7 +7,11 @@ import {
   DEFAULT_STICKY_BUCKETING_ON_BY_DEFAULT,
 } from "shared/constants";
 import { RESERVED_ROLE_IDS, getDefaultRole } from "shared/permissions";
-import { storedImplementationType, stringifyFeatureValue } from "shared/util";
+import {
+  storedImplementationType,
+  stringifyFeatureValue,
+  withIsProduction,
+} from "shared/util";
 import { v4 as uuidv4 } from "uuid";
 import { accountFeatures } from "shared/enterprise";
 import {
@@ -571,6 +575,11 @@ export function upgradeOrganizationDoc(
 
   // Add default environments if there are none yet
   org.settings.environments = getEnvironments(org);
+
+  // Backfill isProduction for environments that predate the flag
+  if (org.settings.environments.some((e) => e.isProduction === undefined)) {
+    org.settings.environments = org.settings.environments.map(withIsProduction);
+  }
 
   // Change old `implementationTypes` field to new `visualEditorEnabled` field
   if (org.settings.implementationTypes) {

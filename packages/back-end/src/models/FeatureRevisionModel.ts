@@ -1710,12 +1710,18 @@ export async function updateRevision(
     editResetsApproval(context, feature, revision, normalizedChanges);
 
   // Track contributors by identity, and the key behind an edit in either mode,
-  // via atomic $addToSet.
+  // via atomic $addToSet, sent only for new values: FerretDB 2.x duplicates the
+  // field on a no-op $addToSet beside $set.
   const contributorId = eventUserIdentity(log.user);
   const editorKey = log.user?.type === "api_key" ? log.user.apiKey : "";
   const addToSet = {
-    ...(contributorId != null ? { contributors: contributorId } : {}),
-    ...(editorKey ? { editorKeys: editorKey } : {}),
+    ...(contributorId !== null &&
+    !revision.contributors?.includes(contributorId)
+      ? { contributors: contributorId }
+      : {}),
+    ...(editorKey && !revision.editorKeys?.includes(editorKey)
+      ? { editorKeys: editorKey }
+      : {}),
   };
   const unset = {
     ...(clearRevertedFrom ? { revertedFrom: 1 } : {}),
@@ -2982,8 +2988,8 @@ export async function submitReviewAndComments(
     }
   }
 
-  // Fire and forget - no route that submits the review and comments expects the log to be there immediately
-  context.models.featureRevisionLogs
+  // Awaited: callers read the entry (e.g. to edit a comment) once this returns.
+  await context.models.featureRevisionLogs
     .create({
       featureId: revision.featureId,
       version: revision.version,
