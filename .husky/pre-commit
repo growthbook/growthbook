@@ -46,12 +46,12 @@ sdkchanged=$(has_changes "shared/src/sdk-versioning|shared/scripts/gen-sdk-resou
 if [ -n "$sdkchanged" ]; then
   echo "#### sdk-versioning or gen-sdk-resources.ts changed, running gen-sdk-resources"
   pnpm --filter shared gen-sdk-resources-for-docs
-  git add docs/snippets/data/SDKInfo.js
+  git add docs/snippets/SdkResources.jsx docs/snippets/SdkSupportedFeatures.jsx
 fi
 
 commercialchanged=$(has_changes "shared/src/enterprise/license-consts|shared/scripts/gen-commercial-features-for-docs.ts")
 if [ -n "$commercialchanged" ]; then
   echo "#### license-consts or gen-commercial-features-for-docs.ts changed, running gen-commercial-features-for-docs"
   pnpm --filter shared gen-commercial-features-for-docs
-  git add docs/snippets/data/commercialFeatures.js
+  git add docs/snippets/CommercialFeature.jsx
 fi
