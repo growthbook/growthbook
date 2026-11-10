@@ -120,7 +120,10 @@ export default function PopulationPage() {
         </Heading>
         <Flex align="center" gap="3" pr="2">
           {canEdit && (
-            <LinkButton href={`/populations/${population.id}/edit`}>
+            <LinkButton
+              variant="soft"
+              href={`/populations/${population.id}/edit`}
+            >
               Edit
             </LinkButton>
           )}

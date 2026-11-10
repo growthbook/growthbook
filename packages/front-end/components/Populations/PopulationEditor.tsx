@@ -153,8 +153,8 @@ export default function PopulationEditor({
   const needsComparison = showThreshold && !values.aggregateFilter.trim();
   const isValid = isComplete && problems.length === 0 && !needsComparison;
 
-  // Explains a disabled Save. Rule problems and a missing comparison are
-  // already explained next to their fields.
+  // Explains a disabled Save. Rule problems are already listed under
+  // Definition.
   const missingFields: string[] = [];
   if (!values.name.trim()) missingFields.push("enter a name");
   if (!values.factTableId) {
@@ -162,8 +162,13 @@ export default function PopulationEditor({
   } else if (values.userIdTypes.length === 0) {
     missingFields.push("select an identifier type");
   }
+  if (needsComparison) missingFields.push("enter a threshold comparison");
   const missingMessage = missingFields.length
-    ? upperFirst(missingFields.join(" and "))
+    ? upperFirst(
+        new Intl.ListFormat("en", { type: "conjunction" }).format(
+          missingFields,
+        ),
+      )
     : null;
   const canSave = isValid && !!values.name.trim();
   // Save reacts at once, but new problems wait until typing pauses so a
