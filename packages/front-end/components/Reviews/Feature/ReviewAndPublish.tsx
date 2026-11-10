@@ -1609,10 +1609,7 @@ export default function ReviewAndPublish({
     );
 
     const readonlyActionsColumn = (
-      <Box
-        className="appbox"
-        style={{ position: "sticky", top: 90, overflow: "hidden" }}
-      >
+      <Box className="appbox" style={{ overflow: "hidden" }}>
         {/* Status header – lifecycle status (Published / Discarded), not the
             deployment state (Live / Locked). */}
         <Flex
@@ -2684,10 +2681,7 @@ export default function ReviewAndPublish({
   // ── Right column: reviewer / approval-flow actions and state ──
   const statusColor = revisionStatusColor(revision.status);
   const actionsColumn = (
-    <Box
-      className="appbox"
-      style={{ position: "sticky", top: 90, overflow: "hidden" }}
-    >
+    <Box className="appbox" style={{ overflow: "hidden" }}>
       {/* Status header – colored tint matching the revision badge */}
       <Flex
         align="center"
