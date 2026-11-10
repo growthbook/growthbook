@@ -7,7 +7,8 @@ import {
   FactMetricInterface,
   FactTableInterface,
 } from "shared/types/fact-table";
-import { getColumnTopValues, getMetricsForEvent } from "@/services/factTables";
+import { getColumnTopValues } from "@/services/factTableColumns";
+import { getMetricsForEvent } from "@/services/factTableEvents";
 import useColumnValueCounts from "@/hooks/useColumnValueCounts";
 import TextField from "@/ui/TextField";
 import Table, {

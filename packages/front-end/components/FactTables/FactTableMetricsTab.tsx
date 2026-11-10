@@ -7,7 +7,7 @@ import {
   FactTableInterface,
 } from "shared/types/fact-table";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import { getMetricEvents } from "@/services/factTables";
+import { getMetricEvents } from "@/services/factTableEvents";
 import { useExperiments } from "@/hooks/useExperiments";
 import useFactMetricFlow from "@/hooks/useFactMetricFlow";
 import { OfficialBadge } from "@/components/Metrics/MetricName";

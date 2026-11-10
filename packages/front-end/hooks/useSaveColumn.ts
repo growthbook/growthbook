@@ -5,7 +5,7 @@ import {
 } from "shared/types/fact-table";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import { prepareColumnUpdate } from "@/services/factTables";
+import { prepareColumnUpdate } from "@/services/factTableColumns";
 
 // Saves an edit to an existing column with the shared save policy
 export default function useSaveColumn(factTable: FactTableInterface) {

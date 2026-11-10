@@ -17,8 +17,8 @@ import { useUser } from "@/services/UserContext";
 import {
   getEventColumns,
   getMetricsForEvent,
-  getSqlSummaryTokens,
-} from "@/services/factTables";
+} from "@/services/factTableEvents";
+import { getSqlSummaryTokens } from "@/services/sqlSummary";
 import { formatSql } from "@/services/sqlFormatter";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import useColumnValueCounts from "@/hooks/useColumnValueCounts";

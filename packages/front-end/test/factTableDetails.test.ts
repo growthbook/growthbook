@@ -6,12 +6,13 @@ import {
 import {
   getColumnTopValues,
   prepareColumnUpdate,
+} from "@/services/factTableColumns";
+import {
   getEventColumns,
   getMetricEvents,
   getMetricsForEvent,
-  getSqlSummary,
-  getSqlSummaryTokens,
-} from "@/services/factTables";
+} from "@/services/factTableEvents";
+import { getSqlSummary, getSqlSummaryTokens } from "@/services/sqlSummary";
 
 describe("getSqlSummary", () => {
   it("shortens the SELECT list and collapses whitespace", () => {

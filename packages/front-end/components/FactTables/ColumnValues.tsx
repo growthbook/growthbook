@@ -18,7 +18,7 @@ import Table, {
 } from "@/ui/Table";
 import Text from "@/ui/Text";
 import Tooltip from "@/ui/Tooltip";
-import { getColumnTopValues } from "@/services/factTables";
+import { getColumnTopValues } from "@/services/factTableColumns";
 
 const CHIPS = 4;
 
