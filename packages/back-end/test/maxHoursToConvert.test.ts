@@ -1,6 +1,7 @@
 import type {
   FunnelFactMetricInterface,
   MetricFunnelStep,
+  MetricWindowSettings,
 } from "shared/types/fact-table";
 
 import { getMaxHoursToConvert } from "back-end/src/integrations/sql/dates/max-hours-to-convert";
@@ -20,10 +21,12 @@ function buildStep(
 }
 
 function buildFunnelMetric({
+  windowType = "conversion",
   windowValueHours,
   delayValueHours = 0,
   steps,
 }: {
+  windowType?: MetricWindowSettings["type"];
   windowValueHours: number;
   delayValueHours?: number;
   steps: MetricFunnelStep[];
@@ -32,7 +35,7 @@ function buildFunnelMetric({
     ...factMetricFactory.build({
       id: "fact__funnel",
       windowSettings: {
-        type: "conversion",
+        type: windowType,
         windowUnit: "hours",
         windowValue: windowValueHours,
         delayUnit: "hours",
@@ -100,5 +103,42 @@ describe("getMaxHoursToConvert for fact funnel metrics", () => {
       ],
     });
     expect(getMaxHoursToConvert(false, [metric], null)).toEqual(6);
+  });
+
+  describe("without a metric conversion window", () => {
+    const windowedSteps = [
+      buildStep("View", { value: 1, unit: "hours" }),
+      buildStep("Purchase", { value: 30, unit: "minutes" }),
+    ];
+
+    it("uses the delay plus the sum of step windows when every step is windowed", () => {
+      const metric = buildFunnelMetric({
+        windowType: "",
+        windowValueHours: 72,
+        delayValueHours: 4,
+        steps: windowedSteps,
+      });
+      expect(getMaxHoursToConvert(false, [metric], null)).toEqual(5.5);
+    });
+
+    it("is unbounded when any step lacks a conversion window", () => {
+      const metric = buildFunnelMetric({
+        windowType: "",
+        windowValueHours: 72,
+        delayValueHours: 4,
+        steps: [...windowedSteps, buildStep("Refund")],
+      });
+      expect(getMaxHoursToConvert(false, [metric], null)).toEqual(0);
+    });
+
+    it("ignores step windows for lookback windows", () => {
+      const metric = buildFunnelMetric({
+        windowType: "lookback",
+        windowValueHours: 72,
+        delayValueHours: 4,
+        steps: windowedSteps,
+      });
+      expect(getMaxHoursToConvert(false, [metric], null)).toEqual(0);
+    });
   });
 });

@@ -16,7 +16,7 @@ import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
 import { ACTIVE_DRAFT_STATUSES } from "shared/validators";
 import { useAuth } from "@/services/auth";
 import { getPrerequisites } from "@/services/features";
-import track from "@/services/track";
+import track, { entityTrackingHash } from "@/services/track";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import ValueDisplay from "@/components/Features/ValueDisplay";
 import InvalidPrereqConditionBadge from "@/components/Features/InvalidPrereqConditionBadge";
@@ -123,7 +123,10 @@ export default function PrerequisiteStatusRow({
       cta="Delete"
       submit={async () => {
         setShowDeleteModal(false);
-        track("Delete Prerequisite", { prerequisiteIndex: i });
+        track("Delete Prerequisite", {
+          entity_id_hash: entityTrackingHash(feature.id),
+          prerequisiteIndex: i,
+        });
         const draftBody =
           deleteMode === "existing"
             ? { targetDraftVersion: deleteSelectedDraft }

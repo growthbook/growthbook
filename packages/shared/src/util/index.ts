@@ -46,6 +46,7 @@ export * from "./event-forwarder-region-inference";
 export * from "./features";
 export * from "./featureHealth";
 export * from "./threeWayMerge";
+export * from "./tracking";
 export * from "./draftConflict";
 export * from "./projectScopedRules";
 export * from "./featureDraftPurity";

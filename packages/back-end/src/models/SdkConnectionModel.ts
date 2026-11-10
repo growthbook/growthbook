@@ -23,7 +23,10 @@ import {
   savedGroupFormatFromConnection,
   withLegacySavedGroupFlag,
 } from "shared/sdk-versioning";
-import { cancellableFetch } from "back-end/src/util/http.util";
+import {
+  cancellableFetch,
+  trimTrailingSlashes,
+} from "back-end/src/util/http.util";
 import {
   IS_CLOUD,
   PROXY_ENABLED,
@@ -714,7 +717,7 @@ export async function testProxyConnection(
     return;
   }
 
-  const url = proxy.host.replace(/\/*$/, "") + "/healthcheck";
+  const url = trimTrailingSlashes(proxy.host) + "/healthcheck";
   let statusCode = 0;
   try {
     const { responseWithoutBody, stringBody } = await cancellableFetch(
