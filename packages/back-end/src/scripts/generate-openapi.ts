@@ -81,6 +81,7 @@ const openApiTags = [
   "queries",
   "settings",
   "attributes",
+  "tags",
   "usage",
   "meta",
 ] as const;
@@ -248,6 +249,11 @@ const tags: Record<OpenApiTag, { display: string; description: string }> = {
   attributes: {
     display: "Attributes",
     description: "Used when targeting feature flags and experiments.",
+  },
+  tags: {
+    display: "Tags",
+    description:
+      "Tags label features, experiments, metrics and other resources. Writes that name a new tag still create it; these endpoints list tags and set a tag's color and description.",
   },
   usage: {
     display: "Usage",
