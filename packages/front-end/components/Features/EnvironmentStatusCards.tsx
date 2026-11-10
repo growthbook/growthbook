@@ -432,6 +432,7 @@ function Card({
       onOpenChange={setOpen}
       side="bottom"
       align="start"
+      sideOffset={5}
       showArrow={false}
       trigger={
         <button

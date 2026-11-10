@@ -22,8 +22,13 @@
   background: var(--color-panel-solid);
   cursor: pointer;
 
+  // As the rule modal's option cards: tinted on hover, and outlined over
+  // their edge while open.
   &:hover {
     border-color: var(--gray-a7);
+    background:
+      linear-gradient(var(--violet-a2), var(--violet-a2)),
+      var(--color-panel-solid);
   }
 
   &:focus-visible {
@@ -32,7 +37,8 @@
   }
 
   &[data-state="open"] {
-    border-color: var(--violet-8);
+    outline: 2px solid var(--violet-9);
+    outline-offset: -1px;
   }
 }
 
