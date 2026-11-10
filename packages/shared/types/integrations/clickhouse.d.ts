@@ -11,4 +11,10 @@ export interface ClickHouseConnectionParams {
   caCert?: string;
   clientCert?: string;
   clientKey?: string;
+  // Self-hosted only: PEM files on the GrowthBook server, used instead of the pasted values
+  caCertPath?: string;
+  clientCertPath?: string;
+  clientKeyPath?: string;
+  // Intermediates sent after the client cert
+  clientCertChainPath?: string;
 }
