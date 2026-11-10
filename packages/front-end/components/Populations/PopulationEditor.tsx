@@ -5,8 +5,7 @@ import { upperFirst } from "lodash";
 import { PiPlus } from "react-icons/pi";
 import { populationEndpoints } from "shared/api-endpoints";
 import { getPopulationRuleViolations } from "shared/populations";
-import type { ApiPopulation, PopulationStep } from "shared/validators";
-import type { RowFilter } from "shared/types/fact-table";
+import type { ApiPopulation } from "shared/validators";
 import Badge from "@/ui/Badge";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
@@ -23,6 +22,11 @@ import DataSourcePicker from "@/components/DataSourcePicker";
 import { RowFilterInput } from "@/components/FactTables/RowFilterInput";
 import ThresholdBasisRow from "@/components/FactTables/MetricEditor/typeFields/ThresholdBasisRow";
 import PopulationPreview from "@/components/Populations/PopulationPreview";
+import {
+  type PopulationFormValues,
+  toFormValues,
+  toStep,
+} from "@/components/Populations/populationUtils";
 import useFullFactTable from "@/hooks/useFullFactTable";
 import useDebouncedValue from "@/hooks/useDebouncedValue";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
@@ -30,47 +34,6 @@ import { getNewExperimentDatasourceDefaults } from "@/services/datasources";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useRestApiCall } from "@/services/restApi";
-
-type PopulationFormValues = {
-  name: string;
-  description: string;
-  datasource: string;
-  userIdTypes: string[];
-  factTableId: string;
-  rowFilters: RowFilter[];
-  aggregateFilterColumn: string;
-  aggregateFilter: string;
-};
-
-// The MVP edits a single step, so the form flattens it into top-level fields.
-function toFormValues(
-  existing: ApiPopulation | null,
-  defaultDatasource: string,
-): PopulationFormValues {
-  const step = existing?.steps[0];
-  return {
-    name: existing?.name ?? "",
-    description: existing?.description ?? "",
-    datasource: existing?.datasource ?? defaultDatasource,
-    userIdTypes: existing?.userIdTypes ?? [],
-    factTableId: step?.source.factTableId ?? "",
-    rowFilters: step?.rowFilters ?? [],
-    aggregateFilterColumn: step?.aggregateFilterColumn ?? "",
-    aggregateFilter: step?.aggregateFilter ?? "",
-  };
-}
-
-function toStep(values: PopulationFormValues): PopulationStep {
-  const hasThreshold = values.aggregateFilter.trim() !== "";
-  return {
-    source: { type: "factTable", factTableId: values.factTableId },
-    rowFilters: values.rowFilters,
-    ...(hasThreshold && {
-      aggregateFilter: values.aggregateFilter.trim(),
-      aggregateFilterColumn: values.aggregateFilterColumn || "$$count",
-    }),
-  };
-}
 
 export default function PopulationEditor({
   existing,

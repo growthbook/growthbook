@@ -5,7 +5,7 @@ import type {
   PopulationStep,
   ProductAnalyticsExploration,
 } from "shared/validators";
-import type { FactTableDefinition } from "shared/types/fact-table";
+import type { FactTableDefinition, RowFilter } from "shared/types/fact-table";
 import { getRowFilterDescription } from "@/components/FactTables/rowFilterUtils";
 import { getDailyBuckets } from "@/components/QueryPreview/activityChart";
 
@@ -116,5 +116,46 @@ export function getPopulationMemberCounts(
   return {
     dailyValues,
     total: dailyValues.reduce((sum, { value }) => sum + value, 0),
+  };
+}
+
+export type PopulationFormValues = {
+  name: string;
+  description: string;
+  datasource: string;
+  userIdTypes: string[];
+  factTableId: string;
+  rowFilters: RowFilter[];
+  aggregateFilterColumn: string;
+  aggregateFilter: string;
+};
+
+// The MVP edits a single step, so the form flattens it into top-level fields.
+export function toFormValues(
+  existing: ApiPopulation | null,
+  defaultDatasource: string,
+): PopulationFormValues {
+  const step = existing?.steps[0];
+  return {
+    name: existing?.name ?? "",
+    description: existing?.description ?? "",
+    datasource: existing?.datasource ?? defaultDatasource,
+    userIdTypes: existing?.userIdTypes ?? [],
+    factTableId: step?.source.factTableId ?? "",
+    rowFilters: step?.rowFilters ?? [],
+    aggregateFilterColumn: step?.aggregateFilterColumn ?? "",
+    aggregateFilter: step?.aggregateFilter ?? "",
+  };
+}
+
+export function toStep(values: PopulationFormValues): PopulationStep {
+  const hasThreshold = values.aggregateFilter.trim() !== "";
+  return {
+    source: { type: "factTable", factTableId: values.factTableId },
+    rowFilters: values.rowFilters,
+    ...(hasThreshold && {
+      aggregateFilter: values.aggregateFilter.trim(),
+      aggregateFilterColumn: values.aggregateFilterColumn || "$$count",
+    }),
   };
 }
