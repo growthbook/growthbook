@@ -23,6 +23,7 @@ import {
   buildColumnTypeMaps,
   getTopValueFields,
   applyTopValuesUpdates,
+  keepStoredTopValues,
 } from "back-end/src/util/factTable";
 import { mergeUpsertColumns } from "back-end/src/models/FactTableModel";
 
@@ -118,6 +119,35 @@ describe("applyTopValuesUpdates", () => {
       topValuesDate: refreshedAt,
     });
     expect(plan.topValues).toEqual(["free"]);
+  });
+});
+
+describe("keepStoredTopValues", () => {
+  it("keeps each stored column's top values on a whole-column save", () => {
+    const topValuesDate = new Date("2026-11-01T00:00:00Z");
+    const stored = [
+      {
+        column: "country",
+        topValues: ["US"],
+        topValueCounts: [{ value: "US", count: 4 }],
+        topValuesDate,
+      } as ColumnInterface,
+    ];
+    expect(
+      keepStoredTopValues(stored, [
+        { column: "country", name: "Country" },
+        { column: "plan" },
+      ]),
+    ).toEqual([
+      {
+        column: "country",
+        name: "Country",
+        topValues: ["US"],
+        topValueCounts: [{ value: "US", count: 4 }],
+        topValuesDate,
+      },
+      { column: "plan" },
+    ]);
   });
 });
 

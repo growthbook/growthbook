@@ -43,6 +43,7 @@ import {
 import {
   applyTopValuesUpdates,
   ensureAutoSliceDefaults,
+  keepStoredTopValues,
   normalizeJSONFieldsInput,
   normalizePersistedColumn,
   type TopValuesUpdate,
@@ -408,6 +409,13 @@ export async function updateFactTable(
   // whole form on every save, and some API clients re-PUT the same definition
   // on a schedule. Not writing means there is nothing to invalidate, so the
   // write and the definitions-version bump stay in lockstep.
+  if (changes.columns) {
+    changes = {
+      ...changes,
+      columns: keepStoredTopValues(factTable.columns || [], changes.columns),
+    };
+  }
+
   const changed = Object.entries(changes).some(
     ([k, v]) => !isEqual(factTable[k as keyof FactTableInterface], v),
   );

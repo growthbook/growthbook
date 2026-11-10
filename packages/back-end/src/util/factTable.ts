@@ -65,6 +65,25 @@ export function applyTopValuesUpdates(
   });
 }
 
+// A whole-column save keeps each column's stored top values; only
+// updateColumnsTopValues replaces them
+export function keepStoredTopValues<T extends { column: string }>(
+  stored: ColumnInterface[],
+  incoming: T[],
+): T[] {
+  const byColumn = new Map(stored.map((c) => [c.column, c]));
+  return incoming.map((column) => {
+    const current = byColumn.get(column.column);
+    if (!current) return column;
+    return {
+      ...column,
+      topValues: current.topValues,
+      topValueCounts: current.topValueCounts,
+      topValuesDate: current.topValuesDate,
+    };
+  });
+}
+
 /**
  * Clears datatype-incompatible props. Empty datatype skips checks while
  * auto-detection is pending.

@@ -109,7 +109,6 @@ export const createColumnPropsValidator = z
     deleted: z.boolean().optional(),
     alwaysInlineFilter: z.boolean().optional(),
     conditionalInlineFilters: conditionalInlineFiltersValidator.optional(),
-    topValues: z.array(z.string()).optional(),
     isAutoSliceColumn: z.boolean().optional(),
     autoSlices: z.array(z.string()).optional(),
     lockedAutoSlices: z.array(z.string()).optional(),
