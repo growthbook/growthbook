@@ -2,7 +2,10 @@ import mongoose from "mongoose";
 import { MongoMemoryServer } from "mongodb-memory-server";
 import type { ManagedWarehouseRecreateRequest } from "shared/validators";
 import { getCollection } from "back-end/src/util/mongo.util";
-import { dangerousRecreateClickhouseTables } from "back-end/src/services/licenseServerManagedClickhouse";
+import {
+  dangerousRecreateClickhouseTables,
+  LicenseServerNoResponseError,
+} from "back-end/src/services/licenseServerManagedClickhouse";
 import {
   advanceManagedWarehouseRecreate,
   cancelPendingManagedWarehouseRecreates,
@@ -13,6 +16,7 @@ import {
 } from "back-end/src/services/managedWarehouseRecreate";
 
 jest.mock("back-end/src/services/licenseServerManagedClickhouse", () => ({
+  ...jest.requireActual("back-end/src/services/licenseServerManagedClickhouse"),
   dangerousRecreateClickhouseTables: jest.fn(),
 }));
 const recreate = jest.mocked(dangerousRecreateClickhouseTables);
@@ -133,6 +137,126 @@ test("a recreate runs, then records the license server's result", async () => {
   const request = await getManagedWarehouseRecreateRequest("org_a");
   expect(request?.status).toBe("failed");
   expect(request?.error).toBe("boom");
+});
+
+async function startRecreate(organization: string, minutesAgo: number) {
+  await requestManagedWarehouseRecreates({
+    organizations: [organization],
+    tables: ["feature_usage"],
+    requestedBy: "u_1",
+  });
+  await advanceManagedWarehouseRecreate(organization);
+  await datasources().updateOne(
+    { organization },
+    {
+      $set: {
+        "recreateRequest.startedAt": new Date(
+          Date.now() - minutesAgo * 60 * 1000,
+        ),
+      },
+    },
+  );
+}
+
+const setLockUntil = (organization: string, minutesFromNow: number | null) =>
+  datasources().updateOne(
+    { organization },
+    {
+      $set: {
+        lockUntil:
+          minutesFromNow === null
+            ? null
+            : new Date(Date.now() + minutesFromNow * 60 * 1000),
+      },
+    },
+  );
+
+test("a recreate fails once the license server's lock expires", async () => {
+  await addWarehouse("org_a");
+  await startRecreate("org_a", 30);
+  await setLockUntil("org_a", 5);
+  await advanceManagedWarehouseRecreate("org_a");
+  expect(await statusOf("org_a")).toBe("running");
+
+  await setLockUntil("org_a", -1);
+  await advanceManagedWarehouseRecreate("org_a");
+  const request = await getManagedWarehouseRecreateRequest("org_a");
+  expect(request?.status).toBe("failed");
+  expect(request?.error).toBe(
+    "The license server stopped or never started without reporting a result",
+  );
+});
+
+test("a recreate fails if the lock is gone after the grace period", async () => {
+  await addWarehouse("org_a");
+  await startRecreate("org_a", 10);
+  await setLockUntil("org_a", null);
+  await advanceManagedWarehouseRecreate("org_a");
+  expect(await statusOf("org_a")).toBe("failed");
+});
+
+test("an unexpired lock stored as a string keeps the recreate running", async () => {
+  await addWarehouse("org_a");
+  await startRecreate("org_a", 30);
+  await datasources().updateOne(
+    { organization: "org_a" },
+    { $set: { lockUntil: new Date(Date.now() + 60_000).toISOString() } },
+  );
+  await advanceManagedWarehouseRecreate("org_a");
+  expect(await statusOf("org_a")).toBe("running");
+});
+
+test("an expired lock stored as a string counts as expired", async () => {
+  await addWarehouse("org_a");
+  await startRecreate("org_a", 30);
+  await datasources().updateOne(
+    { organization: "org_a" },
+    { $set: { lockUntil: new Date(Date.now() - 60_000).toISOString() } },
+  );
+  await advanceManagedWarehouseRecreate("org_a");
+  expect(await statusOf("org_a")).toBe("failed");
+});
+
+test("a recreate with no response stays running for the lock check", async () => {
+  await addWarehouse("org_a");
+  await requestManagedWarehouseRecreates({
+    organizations: ["org_a"],
+    tables: ["feature_usage"],
+    requestedBy: "u_1",
+  });
+  recreate.mockRejectedValue(new LicenseServerNoResponseError("timed out"));
+
+  await advanceManagedWarehouseRecreate("org_a");
+  expect(await statusOf("org_a")).toBe("running");
+});
+
+test("a result counts even after the lock expires", async () => {
+  await addWarehouse("org_a");
+  await startRecreate("org_a", 30);
+  await setLockUntil("org_a", -1);
+  await setLicenseServerResult("org_a", "success");
+  await advanceManagedWarehouseRecreate("org_a");
+  expect(await statusOf("org_a")).toBe("done");
+});
+
+test("a just-started recreate keeps running before the lock shows up", async () => {
+  await addWarehouse("org_a");
+  await startRecreate("org_a", 1);
+  await setLockUntil("org_a", null);
+  await advanceManagedWarehouseRecreate("org_a");
+  expect(await statusOf("org_a")).toBe("running");
+});
+
+test("a recreate still holding the lock fails after 12 hours", async () => {
+  await addWarehouse("org_a");
+  await startRecreate("org_a", 13 * 60);
+  await setLockUntil("org_a", 5);
+  await advanceManagedWarehouseRecreate("org_a");
+  const request = await getManagedWarehouseRecreateRequest("org_a");
+  expect(request?.status).toBe("failed");
+  expect(request?.error).toBe(
+    "The license server didn't report a result within 12 hours",
+  );
 });
 
 test("selecting every table sends no table list", async () => {

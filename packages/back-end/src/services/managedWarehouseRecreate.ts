@@ -7,26 +7,37 @@ import type {
   ManagedWarehouseRecreateStatus,
 } from "shared/validators";
 import { getCollection } from "back-end/src/util/mongo.util";
-import { dangerousRecreateClickhouseTables } from "back-end/src/services/licenseServerManagedClickhouse";
+import {
+  dangerousRecreateClickhouseTables,
+  LicenseServerNoResponseError,
+} from "back-end/src/services/licenseServerManagedClickhouse";
 import { logger } from "back-end/src/util/logger";
 
 // Recreate requests live on each org's Managed Warehouse datasource document
 // (see managedWarehouseRecreateRequestValidator). `recreateStatus` is written by
-// the license server when a recreate it started finishes.
+// the license server when a recreate it started finishes. `lockUntil` is the
+// license server's lock, which it keeps moving forward while a recreate runs.
 type RecreateDatasourceDoc = {
   organization: string;
   type: string;
   settings?: { hasBeenProvisioned?: boolean };
   recreateRequest?: ManagedWarehouseRecreateRequest;
   recreateStatus?: { status: "success" | "error"; at: Date; error?: string };
+  // A Date, though the license server also accepts one stored as a string.
+  lockUntil?: Date | string | null;
 };
 
 /** How many recreates may run at once across all orgs. */
 export const MAX_CONCURRENT_RECREATES = 2;
 
-// The license server holds its lock for 30 minutes; allow well beyond that
-// before giving up on hearing back.
-const RECREATE_TIMEOUT_MS = 3 * 60 * 60 * 1000;
+// The license server takes its lock before acking the request; allow time
+// before treating a missing lock as a recreate that stopped.
+const LOCK_GRACE_MS = 5 * 60 * 1000;
+
+// Backstop for a recreate that's still running but stuck. Each table's
+// backfill and refill can each run up to an hour, so a healthy recreate of
+// every table can take around 8 hours.
+const RECREATE_TIMEOUT_MS = 12 * 60 * 60 * 1000;
 
 const MANAGED_WAREHOUSE_FILTER = { type: "growthbook_clickhouse" } as const;
 
@@ -244,7 +255,7 @@ export async function advanceManagedWarehouseRecreate(
 ): Promise<void> {
   const doc = await datasources().findOne(
     { ...MANAGED_WAREHOUSE_FILTER, organization },
-    { projection: { recreateRequest: 1, recreateStatus: 1 } },
+    { projection: { recreateRequest: 1, recreateStatus: 1, lockUntil: 1 } },
   );
   const request = doc?.recreateRequest;
   if (!request) return;
@@ -258,12 +269,28 @@ export async function advanceManagedWarehouseRecreate(
         result.status === "success" ? "done" : "failed",
         result.error,
       );
-    } else if (Date.now() - request.startedAt.getTime() > RECREATE_TIMEOUT_MS) {
+      return;
+    }
+    const elapsed = Date.now() - request.startedAt.getTime();
+    // The license server writes its result before releasing the lock, so an
+    // expired lock with no result usually means the recreate stopped (e.g. a
+    // deploy). It can also mean the result failed to save.
+    const lockUntil = doc.lockUntil ? new Date(doc.lockUntil).getTime() : NaN;
+    // NaN (missing or unparseable) fails the comparison, so counts as expired.
+    const lockExpired = !(lockUntil > Date.now());
+    if (elapsed > LOCK_GRACE_MS && lockExpired) {
       await finishRecreate(
         organization,
         request.startedAt,
         "failed",
-        "The license server didn't report a result within 3 hours",
+        "The license server stopped or never started without reporting a result",
+      );
+    } else if (elapsed > RECREATE_TIMEOUT_MS) {
+      await finishRecreate(
+        organization,
+        request.startedAt,
+        "failed",
+        "The license server didn't report a result within 12 hours",
       );
     }
     return;
@@ -325,6 +352,9 @@ export async function advanceManagedWarehouseRecreate(
       e,
       `Failed to start Managed Warehouse recreate for ${organization}`,
     );
+    // With no response, the license server may have started the recreate.
+    // Leave it running and let the lock check above decide.
+    if (e instanceof LicenseServerNoResponseError) return;
     await finishRecreate(
       organization,
       startedAt,

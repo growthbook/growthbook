@@ -103,13 +103,14 @@ const dataSourceSchema = new mongoose.Schema<DataSourceDocument>({
 });
 dataSourceSchema.index({ id: 1, organization: 1 }, { unique: true });
 // Managed Warehouse recreate state isn't part of the datasource and is written
-// outside this schema: `recreateRequest` by super admins, `recreateStatus` by
-// the license server. Only the admin endpoints read them
-// (services/managedWarehouseRecreate).
+// outside this schema: `recreateRequest` by super admins, `recreateStatus` and
+// the lock's `lockOwner` by the license server. Only the admin endpoints read
+// them (services/managedWarehouseRecreate).
 dataSourceSchema.set("toJSON", {
   transform: (doc, ret) => {
     delete ret.recreateRequest;
     delete ret.recreateStatus;
+    delete ret.lockOwner;
     return ret;
   },
 });
