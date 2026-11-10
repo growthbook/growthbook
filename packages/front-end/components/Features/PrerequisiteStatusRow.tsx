@@ -257,7 +257,7 @@ export function DeletePrerequisiteModal({
           mode === "existing"
             ? { targetDraftVersion: selectedDraft }
             : { forceNewDraft: true };
-        const res = await apiCall<{ version: number }>(
+        const res = await apiCall<{ draftVersion: number }>(
           `/feature/${feature.id}/prerequisite`,
           {
             method: "DELETE",
@@ -267,7 +267,7 @@ export function DeletePrerequisiteModal({
         );
         await mutate();
         const resolvedVersion =
-          res?.version ?? (mode === "existing" ? selectedDraft : null);
+          res?.draftVersion ?? (mode === "existing" ? selectedDraft : null);
         if (resolvedVersion !== null) setVersion(resolvedVersion);
       }}
     >
