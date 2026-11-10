@@ -352,6 +352,11 @@ function Drilldown({
   prerequisiteState: PrerequisiteStateRenderer;
 }) {
   const muted = (step: StepStatus) => step === "none" || step === "skipped";
+  // The half-filled mark means on for some, off for others: true for some
+  // and false for others reads that way, but other values don't. Their traffic
+  // still applies, and its value says how it varies.
+  const traffic = (step: StepStatus) =>
+    step === "varies" && valueType !== "boolean" ? "applies" : step;
   return (
     <div className={styles.rows}>
       <Row status={status.environment} label="Environment">
@@ -391,12 +396,12 @@ function Drilldown({
         </div>
       ))}
       {status.holdout !== "none" ? (
-        <Row status={status.holdout} label="Holdout">
+        <Row status={traffic(status.holdout)} label="Holdout">
           <Steps status={status} kind="holdout" valueType={valueType} />
         </Row>
       ) : null}
       <Row
-        status={status.rules}
+        status={traffic(status.rules)}
         label={card.ruleCount ? `Rules (${card.ruleCount})` : "Rules"}
       >
         <Steps status={status} kind="rule" valueType={valueType} />
