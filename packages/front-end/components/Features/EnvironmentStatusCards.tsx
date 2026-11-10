@@ -19,6 +19,7 @@ import Badge from "@/ui/Badge";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
 import Tooltip from "@/ui/Tooltip";
+import TruncatedText from "@/ui/TruncatedText";
 import { useIsOverflowingX } from "@/hooks/useIsOverflowing";
 import ValueDisplay, { BooleanDot } from "./ValueDisplay";
 import StateIcon from "./StateIcon";
@@ -117,30 +118,24 @@ function ValueText({
   );
 }
 
-// A name cut short to its room, all of it on hover when it is; a link when it
-// has somewhere to go.
-function ClampedName({
+// A linked name cut short to its room, all of it on hover when it is. (Plain
+// text has TruncatedText.)
+function ClampedLink({
   name,
   href,
   className,
 }: {
   name: string;
-  href: string | null;
+  href: string;
   className: string;
 }) {
-  const ref = useRef<HTMLAnchorElement & HTMLSpanElement>(null);
+  const ref = useRef<HTMLAnchorElement>(null);
   const truncated = useIsOverflowingX(ref);
   return (
     <Tooltip content={name} enabled={truncated}>
-      {href ? (
-        <Link ref={ref} href={href} className={className}>
-          {name}
-        </Link>
-      ) : (
-        <span ref={ref} className={className}>
-          {name}
-        </span>
-      )}
+      <Link ref={ref} href={href} className={className}>
+        {name}
+      </Link>
     </Tooltip>
   );
 }
@@ -318,11 +313,15 @@ function Steps({
               {step.name ? (
                 <>
                   {" "}
-                  <ClampedName
-                    name={step.name}
-                    href={step.href}
-                    className={styles.clamped}
-                  />
+                  {step.href ? (
+                    <ClampedLink
+                      name={step.name}
+                      href={step.href}
+                      className={styles.clamped}
+                    />
+                  ) : (
+                    <TruncatedText text={step.name} maxWidth={160} />
+                  )}
                 </>
               ) : null}
               :
@@ -379,7 +378,7 @@ function Drilldown({
       {card.prerequisites.map((p) => (
         <div key={p.index} className={styles.subRow}>
           {prerequisiteState(p.id, card.id)}
-          <ClampedName
+          <ClampedLink
             name={p.id}
             href={`/features/${p.id}`}
             className={styles.clamped}
@@ -562,7 +561,7 @@ export function PrerequisiteList({
                 key: p.index,
                 name: (
                   <>
-                    <ClampedName
+                    <ClampedLink
                       name={p.id}
                       href={`/features/${p.id}`}
                       className={styles.prerequisiteName}

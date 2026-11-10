@@ -3,8 +3,6 @@ import TextField from "@/ui/TextField";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import { NamedRevision } from "@/components/Reviews/RevisionLabel";
 
-// Shared "rename revision" modal. Entity-agnostic like
-// EditRevisionDescriptionModal: the caller owns the persistence via `onSubmit`.
 export default function EditRevisionTitleModal({
   initialValue,
   version,

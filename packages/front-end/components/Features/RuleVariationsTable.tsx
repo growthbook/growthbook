@@ -18,7 +18,6 @@ type RuleVariationRow = {
   value: ReactNode;
 };
 
-/** A rule's variations: each one's number, split and served value. */
 export default function RuleVariationsTable({
   rows,
 }: {

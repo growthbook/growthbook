@@ -264,13 +264,16 @@ export default function FeaturesOverviewNew({
       ].map((p) => p.id),
     ),
   ];
-  const { results: parentStates, loading: parentStatesLoading } =
-    useBatchPrerequisiteStates({
-      baseFeatureId: feature.id,
-      featureIds: prerequisiteIds,
-      environments: envs,
-      enabled: prerequisiteIds.length > 0,
-    });
+  const {
+    results: parentStates,
+    loading: parentStatesLoading,
+    error: parentStatesError,
+  } = useBatchPrerequisiteStates({
+    baseFeatureId: feature.id,
+    featureIds: prerequisiteIds,
+    environments: envs,
+    enabled: prerequisiteIds.length > 0,
+  });
   // The constants and configs a config-backed flag, or one that references a
   // constant, resolves its values with, as the payload does for its project.
   const needsResolvables = useMemo(
@@ -508,8 +511,8 @@ export default function FeaturesOverviewNew({
     env: string,
   ): PrerequisiteResult | null => {
     if (prereqStates?.[env]?.state === "cyclic") return "cycle";
-    // Unknown, if they failed to load.
-    if (!parentStates) return parentStatesLoading ? null : "varies";
+    // Unknown until they load, or if they don't.
+    if (!parentStates) return null;
     // A parent the states don't include (archived, deleted, or out of view)
     // reaches the SDK as an unknown feature: null.
     const parent = parentStates[prerequisite.id]?.states[env] ?? {
@@ -1002,6 +1005,12 @@ export default function FeaturesOverviewNew({
             </Flex>
           }
         >
+          {parentStatesError ? (
+            <Callout status="warning" mb="3">
+              Couldn&apos;t load prerequisite states, so what each environment
+              serves can&apos;t be shown.
+            </Callout>
+          ) : null}
           {environments.length > 0 ? (
             <EnvironmentStatusCards
               cards={environmentCards}
