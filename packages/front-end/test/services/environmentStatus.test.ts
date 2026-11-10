@@ -3,6 +3,7 @@ import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { SafeRolloutInterface } from "shared/validators";
 import {
   displayValue,
+  EnvironmentReason,
   EnvironmentStatus,
   EnvironmentValue,
   getEnvironmentStatus,
@@ -625,7 +626,7 @@ describe("reasonText", () => {
       "Rollout + Experiment",
     ],
     [{ kind: "default" }, "Default value"],
-  ] as const)("says %j as %j", (reason, text) => {
+  ] as [EnvironmentReason, string][])("says %j as %j", (reason, text) => {
     expect(reasonText(reason)).toBe(text);
   });
 });
