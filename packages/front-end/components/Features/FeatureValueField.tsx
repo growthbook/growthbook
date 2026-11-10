@@ -29,7 +29,8 @@ import {
 import { FaRegTrashAlt } from "react-icons/fa";
 import stringify from "json-stringify-pretty-compact";
 import clsx from "clsx";
-import { Box, Flex } from "@radix-ui/themes";
+// eslint-disable-next-line no-restricted-imports -- the bare checkbox, inline beside a field label; @/ui/Checkbox brings its own label and layout
+import { Box, Checkbox as RadixCheckbox, Flex } from "@radix-ui/themes";
 import { PiCaretDownFill } from "react-icons/pi";
 import Link from "@/ui/Link";
 import {
@@ -859,16 +860,19 @@ function SimpleSchemaPrimitiveEditor<T = unknown>({
   if (!field.required) {
     const checkbox = (
       <UITooltip content="Whether or not to include this optional field">
-        <input
-          type="checkbox"
-          style={{ verticalAlign: "middle" }}
+        <RadixCheckbox
+          size="1"
           aria-label="Include this optional field"
           name={`${uuid}_required`}
-          className="ml-1 mr-2"
+          style={{
+            verticalAlign: "middle",
+            marginLeft: "var(--space-1)",
+            marginRight: "var(--space-2)",
+          }}
           checked={isset}
           disabled={disabled}
-          onChange={(e) => {
-            if (!isset && e.target.checked) {
+          onCheckedChange={(checked) => {
+            if (!isset && checked === true) {
               setValue(
                 (field.type === "boolean"
                   ? false
@@ -876,7 +880,7 @@ function SimpleSchemaPrimitiveEditor<T = unknown>({
                     ? ""
                     : 0) as T,
               );
-            } else if (!e.target.checked) {
+            } else if (checked !== true) {
               setValue(undefined as T);
             }
           }}
