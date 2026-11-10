@@ -33,6 +33,12 @@ export const featureUsageQueryColumnMappingValidator = z.object({
     .record(z.string(), z.string())
     .optional()
     .describe("Column for each identifier type, keyed by type"),
+  userIdFallbackColumns: z
+    .record(z.string(), z.array(z.string()))
+    .optional()
+    .describe(
+      "More columns for each identifier type, read in order when the main one is empty, keyed by type",
+    ),
 });
 
 // Corresponds to schemas/DataSource.yaml

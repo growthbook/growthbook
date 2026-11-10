@@ -92,6 +92,7 @@ export default function ColumnMappingRow({
   append,
   customValue,
   error,
+  startOpen = false,
 }: {
   label: string;
   kind: keyof typeof KIND_ICONS;
@@ -107,8 +108,10 @@ export default function ColumnMappingRow({
   customValue?: { label: string; placeholder: string };
   /** Shown under the column, e.g. for a typed value that can't be used. */
   error?: string | null;
+  /** Shows the column picker right away instead of an "Add column" button. */
+  startOpen?: boolean;
 }) {
-  const [adding, setAdding] = useState(false);
+  const [adding, setAdding] = useState(startOpen);
   const [typing, setTyping] = useState(false);
   // A value being typed is only flagged once the user leaves the field
   const [touched, setTouched] = useState(false);
