@@ -208,6 +208,29 @@ export type CBContext = {
 
 export type Attributes = Record<string, any>;
 
+/**
+ * Register your app's feature and attribute types once and every GrowthBook
+ * instance and React hook is typed with no generics:
+ *
+ *   declare module "@growthbook/growthbook" {
+ *     interface Register {
+ *       features: AppFeatures;
+ *       attributes: AppAttributes;
+ *     }
+ *   }
+ */
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
+export interface Register {}
+export type RegisteredFeatures = Register extends { features: infer F }
+  ? F
+  : Record<string, any>;
+export type RegisteredAttributes = Register extends { attributes: infer A }
+  ? A
+  : Attributes;
+// Stops an argument from being used to infer T, which would override the
+// registered default (the built-in NoInfer needs TypeScript 5.4+)
+export type NoInferType<T> = [T][T extends any ? 0 : never];
+
 export type TrackingUserContext = Pick<UserContext, "attributes" | "url">;
 
 export interface TrackingData {
@@ -283,9 +306,9 @@ export type ApplyDomChangesCallback = (
 export type RenderFunction = () => void;
 
 // Constructor Options
-export type Options = {
+export type Options<AppAttributes extends Attributes = RegisteredAttributes> = {
   enabled?: boolean;
-  attributes?: Attributes;
+  attributes?: AppAttributes;
   /** The user's remote saved groups; wins over a `__gb_remoteGroupIds` attribute. */
   remoteGroupIds?: string[];
   url?: string;
@@ -293,7 +316,7 @@ export type Options = {
   experiments?: AutoExperiment[];
   forcedVariations?: Record<string, number>;
   forcedFeatureValues?: Map<string, any>;
-  attributeOverrides?: Attributes;
+  attributeOverrides?: Partial<AppAttributes>;
   blockedChangeIds?: string[];
   disableVisualExperiments?: boolean;
   disableJsInjection?: boolean;
@@ -352,10 +375,12 @@ export type Options = {
   plugins?: Plugin[];
 };
 
-export type ClientOptions = {
+export type ClientOptions<
+  AppAttributes extends Attributes = RegisteredAttributes,
+> = {
   enabled?: boolean;
   debug?: boolean;
-  globalAttributes?: Attributes;
+  globalAttributes?: Partial<AppAttributes>;
   forcedVariations?: Record<string, number>;
   forcedFeatureValues?: Map<string, any>;
   log?: (msg: string, ctx: any) => void;
@@ -411,11 +436,13 @@ export type GlobalContext = {
 };
 
 // Some global fields can be overridden by the user, others are always user-level
-export type UserContext = {
+export type UserContext<
+  AppAttributes extends Attributes = RegisteredAttributes,
+> = {
   enabled?: boolean;
   qaMode?: boolean;
   enableDevMode?: boolean;
-  attributes?: Attributes;
+  attributes?: AppAttributes;
   /** The user's remote saved groups; wins over a `__gb_remoteGroupIds` attribute. */
   remoteGroupIds?: string[];
   url?: string;
@@ -429,7 +456,7 @@ export type UserContext = {
   ) => Promise<unknown>;
   forcedVariations?: Record<string, number>;
   forcedFeatureValues?: Map<string, any>;
-  attributeOverrides?: Attributes;
+  attributeOverrides?: Partial<AppAttributes>;
   trackingCallback?: TrackingCallback;
   onFeatureUsage?: FeatureUsageCallback;
   trackedExperiments?: Set<string>;
@@ -519,10 +546,20 @@ export type AutoExperimentVariation = {
   urlRedirect?: string;
 };
 
-export type FeatureDefinitions = Record<string, FeatureDefinition>;
+// With AppFeatures, a payload written in code is checked against it: unknown
+// keys and values of the wrong type are errors. Features may be left out,
+// since a payload omits the ones that are toggled off. Without AppFeatures
+// (the default) any payload is accepted, as is one typed `FeatureApiResponse`.
+export type FeatureDefinitions<
+  AppFeatures extends Record<string, any> = Record<string, any>,
+> = string extends keyof AppFeatures
+  ? Record<string, FeatureDefinition>
+  : { [K in keyof AppFeatures]?: FeatureDefinition<AppFeatures[K]> };
 
-export type FeatureApiResponse = {
-  features?: FeatureDefinitions;
+export type FeatureApiResponse<
+  AppFeatures extends Record<string, any> = Record<string, any>,
+> = {
+  features?: FeatureDefinitions<AppFeatures>;
   dateUpdated?: string;
   encryptedFeatures?: string;
   experiments?: AutoExperiment[];
@@ -622,18 +659,24 @@ export type CacheSettings = {
 export type ApiHost = string;
 export type ClientKey = string;
 
-export type InitOptions = {
+export type InitOptions<
+  AppFeatures extends Record<string, any> = Record<string, any>,
+> = {
   timeout?: number;
   skipCache?: boolean;
-  payload?: FeatureApiResponse;
+  payload?: FeatureApiResponse<AppFeatures>;
+  /** Used when the fetch fails or times out and there is no cached payload, e.g. a copy bundled at build time. */
+  fallbackPayload?: FeatureApiResponse<AppFeatures>;
   streaming?: boolean;
   /** Refresh the payload on this interval (ms). Ignored when streaming is active. */
   pollingInterval?: number;
   cacheSettings?: CacheSettings;
 };
 
-export type InitSyncOptions = {
-  payload: FeatureApiResponse;
+export type InitSyncOptions<
+  AppFeatures extends Record<string, any> = Record<string, any>,
+> = {
+  payload: FeatureApiResponse<AppFeatures>;
   streaming?: boolean;
   /** Refresh the payload on this interval (ms). Ignored when streaming is active. */
   pollingInterval?: number;

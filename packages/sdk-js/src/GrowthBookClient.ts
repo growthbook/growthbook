@@ -28,6 +28,9 @@ import type {
   UserContext,
   WidenPrimitives,
   SavedGroupResolver,
+  RegisteredAttributes,
+  RegisteredFeatures,
+  NoInferType,
 } from "./types/growthbook";
 import { loadSDKVersion } from "./util";
 import {
@@ -58,7 +61,8 @@ const SDK_VERSION = loadSDKVersion();
 
 export class GrowthBookClient<
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  AppFeatures extends Record<string, any> = Record<string, any>,
+  AppFeatures extends Record<string, any> = RegisteredFeatures,
+  AppAttributes extends Attributes = RegisteredAttributes,
 > {
   public debug: boolean;
   public ready: boolean;
@@ -73,7 +77,7 @@ export class GrowthBookClient<
   private _decryptedPayload: FeatureApiResponse | undefined;
   private _destroyed?: boolean;
 
-  constructor(options?: ClientOptions) {
+  constructor(options?: ClientOptions<NoInferType<AppAttributes>>) {
     options = options || {};
     // These properties are all initialized in the constructor instead of above
     // This saves ~80 bytes in the final output
@@ -93,9 +97,13 @@ export class GrowthBookClient<
     }
   }
 
-  public async setPayload(payload: FeatureApiResponse): Promise<void> {
-    this._payload = payload;
-    const data = await decryptPayload(payload, this._options.decryptionKey);
+  public async setPayload(
+    payload: FeatureApiResponse<AppFeatures>,
+  ): Promise<void> {
+    // AppFeatures only checks payloads written in code; internally they are untyped
+    const untyped = payload as FeatureApiResponse;
+    this._payload = untyped;
+    const data = await decryptPayload(untyped, this._options.decryptionKey);
     this._decryptedPayload = data;
     if (data.features) {
       this._features = data.features;
@@ -112,8 +120,10 @@ export class GrowthBookClient<
     this.ready = true;
   }
 
-  public initSync(options: InitSyncOptions): GrowthBookClient<AppFeatures> {
-    const payload = options.payload;
+  public initSync(
+    options: InitSyncOptions<AppFeatures>,
+  ): GrowthBookClient<AppFeatures, AppAttributes> {
+    const payload = options.payload as FeatureApiResponse;
 
     if (payload.encryptedExperiments || payload.encryptedFeatures) {
       throw new Error("initSync does not support encrypted payloads");
@@ -141,7 +151,7 @@ export class GrowthBookClient<
     return this;
   }
 
-  public async init(options?: InitOptions): Promise<InitResponse> {
+  public async init(options?: InitOptions<AppFeatures>): Promise<InitResponse> {
     options = options || {};
 
     if (options.cacheSettings) {
@@ -161,7 +171,7 @@ export class GrowthBookClient<
         allowStale: true,
       });
       startBackgroundSync(this, options);
-      await this.setPayload(data || {});
+      await this.setPayload(data || options.fallbackPayload || {});
       return res;
     }
   }
@@ -247,17 +257,19 @@ export class GrowthBookClient<
     return this._features || {};
   }
 
-  public getGlobalAttributes(): Attributes {
-    return this._options.globalAttributes || {};
+  public getGlobalAttributes(): Partial<AppAttributes> {
+    return (this._options.globalAttributes || {}) as Partial<AppAttributes>;
   }
-  public setGlobalAttributes(attributes: Attributes) {
+  public setGlobalAttributes(attributes: Partial<AppAttributes>) {
     this._options.globalAttributes = attributes;
   }
 
   // Internal — first-party plugin use only.
   // Both halves of each gate runExperiment applies (core.ts), since either the
   // client or the user context can set them.
-  public _experimentsDisabled(userContext: UserContext): boolean {
+  public _experimentsDisabled(
+    userContext: UserContext<AppAttributes>,
+  ): boolean {
     return (
       this._options.enabled === false ||
       userContext.enabled === false ||
@@ -293,7 +305,7 @@ export class GrowthBookClient<
   public logEvent(
     eventName: string,
     properties: EventProperties,
-    userContext: UserContext,
+    userContext: UserContext<AppAttributes>,
   ) {
     if (this._options.eventLogger) {
       const ctx = this._getEvalContext(userContext);
@@ -321,7 +333,7 @@ export class GrowthBookClient<
 
   public runInlineExperiment<T>(
     experiment: Experiment<T>,
-    userContext: UserContext,
+    userContext: UserContext<AppAttributes>,
   ): Result<T> {
     const { result } = runExperiment(
       experiment,
@@ -339,9 +351,9 @@ export class GrowthBookClient<
    * directly instead of calling this helper.
    */
   public async addRemoteSavedGroups(
-    userContext: UserContext,
+    userContext: UserContext<AppAttributes>,
     resolver: SavedGroupResolver,
-  ): Promise<UserContext> {
+  ): Promise<UserContext<AppAttributes>> {
     // No remote entries doesn't mean no remote rules: payloads for SDKs
     // without remote support check __gb_remoteGroupIds directly. Leaving it
     // unset makes those rules fail closed; [] would let every "not in group"
@@ -432,14 +444,14 @@ export class GrowthBookClient<
 
   public isOn<K extends string & keyof AppFeatures = string>(
     key: K,
-    userContext: UserContext,
+    userContext: UserContext<AppAttributes>,
   ): boolean {
     return this.evalFeature(key, userContext).on;
   }
 
   public isOff<K extends string & keyof AppFeatures = string>(
     key: K,
-    userContext: UserContext,
+    userContext: UserContext<AppAttributes>,
   ): boolean {
     return this.evalFeature(key, userContext).off;
   }
@@ -447,7 +459,11 @@ export class GrowthBookClient<
   public getFeatureValue<
     V extends AppFeatures[K],
     K extends string & keyof AppFeatures = string,
-  >(key: K, defaultValue: V, userContext: UserContext): WidenPrimitives<V> {
+  >(
+    key: K,
+    defaultValue: V,
+    userContext: UserContext<AppAttributes>,
+  ): WidenPrimitives<V> {
     const value = this.evalFeature<WidenPrimitives<V>, K>(
       key,
       userContext,
@@ -458,7 +474,7 @@ export class GrowthBookClient<
   public evalFeature<
     V extends AppFeatures[K],
     K extends string & keyof AppFeatures = string,
-  >(id: K, userContext: UserContext): FeatureResult<V | null> {
+  >(id: K, userContext: UserContext<AppAttributes>): FeatureResult<V | null> {
     return _evalFeature(id, this._getEvalContext(userContext));
   }
 
@@ -478,11 +494,11 @@ export class GrowthBookClient<
 
   public async applyStickyBuckets(
     partialContext: Omit<
-      UserContext,
+      UserContext<AppAttributes>,
       "stickyBucketService" | "stickyBucketAssignmentDocs"
     >,
     stickyBucketService: StickyBucketService,
-  ): Promise<UserContext> {
+  ): Promise<UserContext<AppAttributes>> {
     const ctx = this._getEvalContext(partialContext);
 
     const stickyBucketAssignmentDocs = await getAllStickyBucketAssignmentDocs(
@@ -499,27 +515,29 @@ export class GrowthBookClient<
   }
 
   public createScopedInstance(
-    userContext: UserContext,
+    userContext: UserContext<AppAttributes>,
     userPlugins?: Plugin[],
   ) {
-    return new UserScopedGrowthBook(this, userContext, [
-      ...(this._options.plugins || []),
-      ...(userPlugins || []),
-    ]);
+    return new UserScopedGrowthBook<AppFeatures, AppAttributes>(
+      this,
+      userContext,
+      [...(this._options.plugins || []), ...(userPlugins || [])],
+    );
   }
 }
 
 export class UserScopedGrowthBook<
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  AppFeatures extends Record<string, any> = Record<string, any>,
+  AppFeatures extends Record<string, any> = RegisteredFeatures,
+  AppAttributes extends Attributes = RegisteredAttributes,
 > {
-  private _gb: GrowthBookClient;
-  private _userContext: UserContext;
+  private _gb: GrowthBookClient<AppFeatures, AppAttributes>;
+  private _userContext: UserContext<AppAttributes>;
   public logs: Array<LogUnion>;
 
   constructor(
-    gb: GrowthBookClient<AppFeatures>,
-    userContext: UserContext,
+    gb: GrowthBookClient<AppFeatures, AppAttributes>,
+    userContext: UserContext<AppAttributes>,
     plugins?: Plugin[],
   ) {
     this._gb = gb;
@@ -598,12 +616,12 @@ export class UserScopedGrowthBook<
   // The attributes feature evaluation sees: the client's globalAttributes under
   // this user's own, then attributeOverrides on top. Same merge evalFeature
   // applies, which getUserContext() does not.
-  public getAttributes(): Attributes {
+  public getAttributes(): AppAttributes {
     return {
       ...this._gb.getGlobalAttributes(),
       ...this._userContext.attributes,
       ...this._userContext.attributeOverrides,
-    };
+    } as AppAttributes;
   }
   // Internal — first-party plugin use only.
   // See GrowthBook._experimentsDisabled; this merges the client's settings with
@@ -625,13 +643,13 @@ export class UserScopedGrowthBook<
   public setURL(url: string) {
     this._userContext.url = url;
   }
-  public updateAttributes(attributes: Attributes) {
+  public updateAttributes(attributes: Partial<AppAttributes>) {
     this._userContext.attributes = {
       ...this._userContext.attributes,
       ...attributes,
-    };
+    } as AppAttributes;
   }
-  public setAttributeOverrides(overrides: Attributes) {
+  public setAttributeOverrides(overrides: Partial<AppAttributes>) {
     this._userContext.attributeOverrides = overrides;
   }
   public async setForcedVariations(vars: Record<string, number>) {

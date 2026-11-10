@@ -33,6 +33,9 @@ import type {
   EventLogger,
   LogUnion,
   DestroyOptions,
+  RegisteredAttributes,
+  RegisteredFeatures,
+  NoInferType,
 } from "./types/growthbook";
 import {
   decrypt,
@@ -74,7 +77,8 @@ const SDK_VERSION = loadSDKVersion();
 
 export class GrowthBook<
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  AppFeatures extends Record<string, any> = Record<string, any>,
+  AppFeatures extends Record<string, any> = RegisteredFeatures,
+  AppAttributes extends Attributes = RegisteredAttributes,
 > {
   // context is technically private, but some tools depend on it so we can't mangle the name
   private context: Options;
@@ -121,7 +125,7 @@ export class GrowthBook<
   private _autoExperimentsAllowed: boolean;
   private _destroyed?: boolean;
 
-  constructor(options?: Options) {
+  constructor(options?: Options<NoInferType<AppAttributes>>) {
     options = options || {};
     // These properties are all initialized in the constructor instead of above
     // This saves ~80 bytes in the final output
@@ -225,9 +229,13 @@ export class GrowthBook<
     }
   }
 
-  public async setPayload(payload: FeatureApiResponse): Promise<void> {
-    this._payload = payload;
-    const data = await decryptPayload(payload, this._options.decryptionKey);
+  public async setPayload(
+    payload: FeatureApiResponse<AppFeatures>,
+  ): Promise<void> {
+    // AppFeatures only checks payloads written in code; internally they are untyped
+    const untyped = payload as FeatureApiResponse;
+    this._payload = untyped;
+    const data = await decryptPayload(untyped, this._options.decryptionKey);
     this._decryptedPayload = data;
     await this.refreshStickyBuckets(data);
     if (data.features) {
@@ -249,10 +257,10 @@ export class GrowthBook<
     this._render();
   }
 
-  public initSync(options: InitSyncOptions): GrowthBook {
+  public initSync(options: InitSyncOptions<AppFeatures>): this {
     this._initialized = true;
 
-    const payload = options.payload;
+    const payload = options.payload as FeatureApiResponse;
 
     if (payload.encryptedExperiments || payload.encryptedFeatures) {
       throw new Error("initSync does not support encrypted payloads");
@@ -294,7 +302,7 @@ export class GrowthBook<
     return this;
   }
 
-  public async init(options?: InitOptions): Promise<InitResponse> {
+  public async init(options?: InitOptions<AppFeatures>): Promise<InitResponse> {
     this._initialized = true;
     options = options || {};
 
@@ -315,7 +323,7 @@ export class GrowthBook<
         allowStale: true,
       });
       startBackgroundSync(this, options);
-      await this.setPayload(data || {});
+      await this.setPayload(data || options.fallbackPayload || {});
       return res;
     }
   }
@@ -449,7 +457,7 @@ export class GrowthBook<
     this.setExperiments(JSON.parse(experimentsJSON) as AutoExperiment[]);
   }
 
-  public async setAttributes(attributes: Attributes) {
+  public async setAttributes(attributes: AppAttributes) {
     this._options.attributes = attributes;
     if (this._options.stickyBucketService) {
       await this.refreshStickyBuckets();
@@ -462,11 +470,14 @@ export class GrowthBook<
     this._updateAllAutoExperiments();
   }
 
-  public async updateAttributes(attributes: Attributes) {
-    return this.setAttributes({ ...this._options.attributes, ...attributes });
+  public async updateAttributes(attributes: Partial<AppAttributes>) {
+    return this.setAttributes({
+      ...this._options.attributes,
+      ...attributes,
+    } as AppAttributes);
   }
 
-  public async setAttributeOverrides(overrides: Attributes) {
+  public async setAttributeOverrides(overrides: Partial<AppAttributes>) {
     this._options.attributeOverrides = overrides;
     if (this._options.stickyBucketService) {
       await this.refreshStickyBuckets();
@@ -518,7 +529,7 @@ export class GrowthBook<
     this._updateAllAutoExperiments(true);
   }
 
-  public getAttributes(): Attributes {
+  public getAttributes(): AppAttributes {
     // Remote evaluation sends these, so it includes remote group IDs.
     return {
       ...this._options.attributes,
@@ -526,7 +537,7 @@ export class GrowthBook<
       ...(this._options.remoteGroupIds && {
         [REMOTE_GROUP_IDS_ATTRIBUTE]: this._options.remoteGroupIds,
       }),
-    };
+    } as AppAttributes;
   }
 
   public getForcedVariations() {

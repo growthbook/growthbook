@@ -399,7 +399,20 @@ console.log(feature.value);
 gb.isOn("buton-color"); // "buton" instead of "button"
 ```
 
-Instead of defining the `AppFeatures` interface manually like above, you can auto-generate it from your GrowthBook account using the [GrowthBook CLI](https://docs.growthbook.io/tools/cli).
+Attributes can be typed the same way with a second generic: `new GrowthBook<AppFeatures, AppAttributes>()`.
+
+To skip the generics entirely (including in the React SDK hooks), register your types once:
+
+```ts
+declare module "@growthbook/growthbook" {
+  interface Register {
+    features: AppFeatures;
+    attributes: AppAttributes;
+  }
+}
+```
+
+Instead of writing any of this by hand, you can auto-generate both types and the registration from your GrowthBook account using the [GrowthBook CLI](https://docs.growthbook.io/tools/cli#generating-typescript-types).
 
 ## GrowthBook Instance (reference)
 
