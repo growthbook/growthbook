@@ -1180,7 +1180,8 @@ export default function ExperimentHeader({
                     label="More actions"
                     size="lg"
                     // Above the details toggle, past the row's end.
-                    style={{ marginLeft: 8, marginRight: -16 }}
+                    ml="2"
+                    mr="-4"
                   />
                 }
                 open={dropdownOpen}

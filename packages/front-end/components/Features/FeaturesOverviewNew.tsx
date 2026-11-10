@@ -533,9 +533,17 @@ export default function FeaturesOverviewNew({
     inScrollArea = false,
   ) => (
     <PrerequisiteStatesCols
-      prereqStates={parentStates?.[prerequisiteId]?.states}
+      prereqStates={
+        // A parent the states don't include reaches the SDK as an unknown
+        // feature, null, as prerequisiteResult counts it.
+        parentStates
+          ? (parentStates[prerequisiteId]?.states ?? {
+              [env]: { state: "deterministic", value: null },
+            })
+          : undefined
+      }
       envs={[env]}
-      loading={!parentStates?.[prerequisiteId]}
+      loading={!parentStates}
       colWidth={20}
       compact
       usePortal={inScrollArea}
@@ -786,6 +794,14 @@ export default function FeaturesOverviewNew({
   const allEnvironmentsOff = envs.every(
     (envId) => !feature.environmentSettings?.[envId]?.enabled,
   );
+  // Without draft rights it can only publish, which every environment it
+  // turns off has to allow; the first that doesn't says why.
+  const turnOffAllBlockedReason = canEditDrafts
+    ? null
+    : (envs
+        .filter(liveEnabled)
+        .map(envBlockedReason)
+        .find((reason) => reason !== null) ?? null);
   const environmentActions =
     showsControls && (canEditDrafts || canChangeEnvironments) ? (
       lockReason ? (
@@ -812,11 +828,11 @@ export default function FeaturesOverviewNew({
           {canChangeEnvironments ? (
             <DropdownMenuItem
               color="red"
-              disabled={allEnvironmentsOff}
+              disabled={allEnvironmentsOff || !!turnOffAllBlockedReason}
               tooltip={
                 allEnvironmentsOff
                   ? "Already off in all environments"
-                  : undefined
+                  : (turnOffAllBlockedReason ?? undefined)
               }
               onClick={() =>
                 setKillSwitchTarget({
@@ -954,13 +970,21 @@ export default function FeaturesOverviewNew({
                 const blocked = envBlockedReason(envId);
                 return showsControls && canChangeEnvironments ? (
                   <UITooltip content={blocked} enabled={!!blocked}>
-                    <EnvironmentSwitch
-                      environment={envId}
-                      enabled={enabled}
-                      onToggle={(on) => toggleEnvironment(envId, on)}
-                      disabled={savingEnv !== null || !!blocked}
-                      changed={isDraft && enabled !== liveEnabled(envId)}
-                    />
+                    {/* A DOM trigger, which the switch component isn't; and
+                        focusable while the switch is disabled, so the reason
+                        reaches the keyboard too. */}
+                    <span
+                      tabIndex={blocked ? 0 : undefined}
+                      style={{ display: "inline-flex" }}
+                    >
+                      <EnvironmentSwitch
+                        environment={envId}
+                        enabled={enabled}
+                        onToggle={(on) => toggleEnvironment(envId, on)}
+                        disabled={savingEnv !== null || !!blocked}
+                        changed={isDraft && enabled !== liveEnabled(envId)}
+                      />
+                    </span>
                   </UITooltip>
                 ) : (
                   <Text color={enabled ? "text-high" : "text-low"}>

@@ -248,7 +248,8 @@ export default function FeaturesHeaderNew({
             label="More actions"
             size="lg"
             // Above the details toggle, past the row's end.
-            style={{ marginLeft: 0, marginRight: -16 }}
+            ml="0"
+            mr="-4"
           />
         }
         open={dropdownOpen}
@@ -535,7 +536,7 @@ export default function FeaturesHeaderNew({
               <Box
                 flexShrink="0"
                 ml="4"
-                mr="-12px"
+                mr="-3"
                 style={{ borderRight: "1px solid transparent" }}
               >
                 <RevisionDropdown

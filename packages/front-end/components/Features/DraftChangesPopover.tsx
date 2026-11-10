@@ -6,6 +6,7 @@ import Text from "@/ui/Text";
 import Avatar from "@/ui/Avatar";
 import Badge from "@/ui/Badge";
 import { draftStatusDotColor } from "@/components/Reviews/RevisionStatusBadge";
+import StatusDot from "@/components/Experiment/StatusDot";
 import styles from "./DraftChangesPopover.module.scss";
 
 export type DraftChangeSection = {
@@ -69,9 +70,20 @@ export default function DraftChangesPopover({
       align="start"
       sideOffset={5}
       // Above a row-wide click layer (CollapseTrigger's), which would take
-      // the hover.
+      // the hover. As the anchor it's an atomic box an ellipsis around it
+      // can't reach, so it shrinks to its room and cuts its own text short.
       trigger={
-        <span style={{ position: "relative", zIndex: 1 }}>{children}</span>
+        <span style={{ position: "relative", zIndex: 1, maxWidth: "100%" }}>
+          <span
+            style={{
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+            }}
+          >
+            {children}
+          </span>
+        </span>
       }
       contentStyle={{ maxWidth: 320, padding: 0 }}
       content={
@@ -86,10 +98,7 @@ export default function DraftChangesPopover({
         >
           {/* The draft ribbon's own label color. */}
           <Flex align="center" style={{ gap: 6, color: "var(--amber-11)" }}>
-            <span
-              className={styles.dot}
-              style={{ background: draftStatusDotColor("draft") }}
-            />
+            <StatusDot color={draftStatusDotColor("draft")} />
             <Text size="md" weight="medium">
               Draft changes:
             </Text>

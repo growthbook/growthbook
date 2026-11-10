@@ -5,8 +5,9 @@ import {
   isMetricGroupId,
 } from "shared/experiments";
 import { FeatureInterface } from "shared/types/feature";
-import { Box, Flex, Text, Tooltip } from "@radix-ui/themes";
+import { Box, Flex, Text } from "@radix-ui/themes";
 import { SafeRolloutInterface, SafeRolloutRule } from "shared/validators";
+import Tooltip from "@/ui/Tooltip";
 import RuleField from "@/components/Features/RuleField";
 import ValidateValue from "@/components/Features/ValidateValue";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -90,7 +91,8 @@ export default function SafeRolloutSummary({
                   </Fragment>
                 ))}
               >
-                <Text style={{ color: "var(--slate-12)" }}>
+                {/* Focusable, so the names reach the keyboard too. */}
+                <Text tabIndex={0} style={{ color: "var(--slate-12)" }}>
                   {metricNames.length}
                 </Text>
               </Tooltip>

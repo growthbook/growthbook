@@ -56,7 +56,7 @@ function getSparseMerge(
 
 // A value as one of several in a list, kept short.
 const BOOLEAN_ON = "var(--green-9)";
-const BOOLEAN_OFF = "#cccccc";
+const BOOLEAN_OFF = "var(--gray-7)";
 
 // A boolean's dot: true, false, or true for only some users. Empty is
 // nothing served at all.
@@ -74,7 +74,7 @@ export function BooleanDot({
         height: 10,
         width: 10,
         borderRadius: "50%",
-        border: fill === "empty" ? `1.5px solid ${BOOLEAN_OFF}` : undefined,
+        border: fill === "empty" ? "1.5px solid var(--gray-8)" : undefined,
         background:
           fill === "split"
             ? `linear-gradient(90deg, ${BOOLEAN_ON} 50%, ${BOOLEAN_OFF} 50%)`

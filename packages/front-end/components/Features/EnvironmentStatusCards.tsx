@@ -474,7 +474,8 @@ function Card({
         <button
           type="button"
           className={styles.card}
-          aria-label={`${card.id} status`}
+          // Its content names it: the environment, what it serves and why.
+          aria-haspopup="dialog"
         >
           <Flex align="center" justify="between" gap="2">
             <Text weight="semibold" color="text-mid" truncate>
