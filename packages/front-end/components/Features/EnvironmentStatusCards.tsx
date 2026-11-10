@@ -257,7 +257,8 @@ function Row({
   label,
   children,
 }: {
-  status: StepStatus;
+  // None while it isn't known.
+  status: StepStatus | null;
   label: string;
   children: ReactNode;
 }) {
@@ -265,7 +266,7 @@ function Row({
   return (
     <div className={styles.row}>
       <span className={styles.icon}>
-        <StepIcon status={status} />
+        {status ? <StepIcon status={status} /> : null}
       </span>
       <span className={styles.label}>
         <Text color={muted ? "text-low" : "text-high"}>{label}</Text>
@@ -472,7 +473,15 @@ function Card({
             prerequisiteState={prerequisiteState}
           />
         ) : (
-          <Text color="text-low">Loading…</Text>
+          // The switch stays in reach while what it serves isn't known.
+          <div className={styles.rows}>
+            <Row status={null} label="Environment">
+              {toggle}
+            </Row>
+            <span className={styles.subRow}>
+              <Text color="text-low">What it serves isn&apos;t known yet.</Text>
+            </span>
+          </div>
         )
       }
     />

@@ -207,6 +207,13 @@ export default function RevisionStatusBar({
     label = "Discarded";
     message = "This revision was never published.";
     actions = switchToLive;
+  } else if (status === "held") {
+    icon = <PiClockFill />;
+    label = "Held · not live";
+    message = (
+      <>Its ramp schedule publishes it. SDKs serve {liveRevisionLink}.</>
+    );
+    actions = switchToLive;
   } else if (status === "superseded") {
     icon = <PiLockSimple />;
     label = "Published · not live";

@@ -49,6 +49,12 @@ describe("getRevisionStatus", () => {
     );
   });
 
+  it("reads a revision a ramp schedule holds as held, never published", () => {
+    expect(status(revision({ status: "pending-parent", version: 4 }))).toBe(
+      "held",
+    );
+  });
+
   it("reads an older published revision as superseded", () => {
     expect(status(revision({ version: 2 }))).toBe("superseded");
   });

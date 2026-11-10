@@ -269,6 +269,7 @@ export default function FeaturesOverviewNew({
     results: parentStates,
     loading: parentStatesLoading,
     error: parentStatesError,
+    mutate: retryParentStates,
   } = useBatchPrerequisiteStates({
     baseFeatureId: feature.id,
     featureIds: prerequisiteIds,
@@ -684,7 +685,12 @@ export default function FeaturesOverviewNew({
       if (blocked)
         return [{ ...step, traffic: { participation: 0, shares: [] } }];
       // Served to some connections and not others, it depends on which.
-      return [reach === "some" ? { ...step, traffic: null } : step];
+      // A step that reaches no one stays known, wherever it's served.
+      return [
+        reach === "some" && step.traffic?.participation !== 0
+          ? { ...step, traffic: null }
+          : step,
+      ];
     }),
   ];
   const sameJson = (a: unknown, b: unknown) =>
@@ -1011,7 +1017,8 @@ export default function FeaturesOverviewNew({
           {parentStatesError ? (
             <Callout status="warning" mb="3">
               Couldn&apos;t load prerequisite states, so what each environment
-              serves can&apos;t be shown.
+              serves can&apos;t be shown.{" "}
+              <Link onClick={() => retryParentStates()}>Try again</Link>
             </Callout>
           ) : null}
           {environments.length > 0 ? (
@@ -1050,9 +1057,9 @@ export default function FeaturesOverviewNew({
             />
           ) : (
             <Callout status="warning">
-              <strong>This feature has no associated environments.</strong>{" "}
-              Ensure that this feature&apos;s project is included in at least
-              one environment to use it.{" "}
+              <strong>This Feature Flag has no associated environments.</strong>{" "}
+              Ensure that this Feature Flag&apos;s project is included in at
+              least one environment to use it.{" "}
               <Link href="/environments">Manage environments</Link>
             </Callout>
           )}
@@ -1181,7 +1188,7 @@ export default function FeaturesOverviewNew({
             <p>
               You need at least one environment to add rules. Add powerful logic
               on top of your feature. The first rule that matches will be
-              applied and override the Default Value.
+              applied and override the default value.
             </p>
           </SectionFrame>
         )}

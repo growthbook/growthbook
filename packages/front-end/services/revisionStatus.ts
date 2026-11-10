@@ -9,6 +9,8 @@ export type RevisionStatus =
   | "draft"
   | "scheduled"
   | "discarded"
+  // Held by a ramp schedule, which publishes it.
+  | "held"
   | "superseded"
   | "liveWithDrafts";
 
@@ -29,6 +31,7 @@ export function getRevisionStatus({
     return isScheduledPublishPending(revision) ? "scheduled" : "draft";
   }
   if (revision.status === "discarded") return "discarded";
+  if (revision.status === "pending-parent") return "held";
   if (revision.version !== liveVersion) return "superseded";
   return revisionList.some(isOpenUserDraft) ? "liveWithDrafts" : null;
 }

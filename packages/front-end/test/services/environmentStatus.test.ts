@@ -563,7 +563,7 @@ describe("servedDot", () => {
 describe("reasonText", () => {
   it.each([
     [{ kind: "disabled" }, "Environment OFF"],
-    [{ kind: "archived" }, "Feature archived"],
+    [{ kind: "archived" }, "Feature Flag archived"],
     [
       { kind: "prerequisite", result: "unmet", count: 1 },
       "Prerequisite not met",

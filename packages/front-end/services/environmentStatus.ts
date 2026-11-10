@@ -588,7 +588,7 @@ export function reasonText(reason: EnvironmentReason): string {
     case "disabled":
       return "Environment OFF";
     case "archived":
-      return "Feature archived";
+      return "Feature Flag archived";
     case "prerequisite":
       return reason.result === "cycle"
         ? "Circular dependency"

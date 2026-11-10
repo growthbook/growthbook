@@ -209,6 +209,7 @@ export function useFeaturePageData(
     setUnavailableVersions(new Set());
     setLoadingVersions(new Set());
     inFlight.current = new Set();
+    baseVersions.current = new Set();
     generation.current += 1;
   }, [fid]);
 
@@ -309,7 +310,10 @@ export function useFeaturePageData(
     }
   }, [rampSchedulesData]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Seed cache from initial response
+  // Seed cache from initial response. A version the response stopped
+  // carrying (a draft discarded elsewhere, say) is reloaded, or its cached copy
+  // would stay as it was.
+  const baseVersions = useRef<Set<number>>(new Set());
   useEffect(() => {
     if (!baseData || !baseData.feature || baseData.feature.id !== fid) {
       return;
@@ -322,7 +326,11 @@ export function useFeaturePageData(
       });
       return next;
     });
-  }, [baseData, fid]);
+    const carried = new Set(baseData.revisions.map((r) => r.version));
+    const dropped = [...baseVersions.current].filter((v) => !carried.has(v));
+    baseVersions.current = carried;
+    if (dropped.length) void loadRevisions(dropped, { force: true });
+  }, [baseData, fid, loadRevisions]);
 
   const isReady = useCallback(
     (v: number) => {
