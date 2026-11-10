@@ -14,16 +14,14 @@ import Custom404 from "@/pages/404";
 export default function NewPopulationPage() {
   const router = useRouter();
   const gb = useGrowthBook<AppFeatures>();
-  const { project, ready } = useDefinitions();
+  const { project, projects, ready } = useDefinitions();
   const permissionsUtil = usePermissionsUtil();
   const refreshPopulations = useRefreshPopulations();
 
   if (!gb?.isOn("populations")) return <Custom404 />;
   if (!ready) return <LoadingOverlay />;
 
-  const canCreate = permissionsUtil.canCreatePopulation({
-    projects: project ? [project] : [],
-  });
+  const canCreate = permissionsUtil.canViewCreatePopulation(project, projects);
 
   return (
     <div className="pagecontents container-fluid">
@@ -44,7 +42,8 @@ export default function NewPopulationPage() {
         />
       ) : (
         <Callout status="error">
-          You don&apos;t have permission to create Populations in this Project.{" "}
+          You don&apos;t have permission to create Populations
+          {project ? " in this Project" : ""}.{" "}
           <Link href="/populations">Back to Populations</Link>
         </Callout>
       )}

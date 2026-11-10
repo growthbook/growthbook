@@ -74,8 +74,7 @@ export default function PopulationPreview({
       ? selectedUnit
       : population.userIdTypes[0];
   const dateRange = usePreviewDateRange();
-  const isDefinitionComplete =
-    population.steps.length > 0 && population.userIdTypes.length > 0;
+  const isDefinitionComplete = population.steps.length > 0;
   const config = useMemo(
     () =>
       isDefinitionComplete
@@ -108,7 +107,7 @@ export default function PopulationPreview({
           config={config}
           trackingSource="population-preview"
           emptyDescription="Run the query to see daily member counts for the last 7 complete days."
-          incompleteDescription="Choose a fact table and identifier type to preview members."
+          incompleteDescription="Complete the definition to preview members."
           warehouseUnavailableText="The preview will be available when the warehouse is ready."
           renderChart={({ exploration, submittedExploreState }) => (
             <MembersChart

@@ -3,7 +3,7 @@ import { useForm } from "react-hook-form";
 import { Flex, Grid } from "@radix-ui/themes";
 import { PiPlus } from "react-icons/pi";
 import { populationEndpoints } from "shared/api-endpoints";
-import { isProjectListValidForProject } from "shared/util";
+import { getPopulationRuleViolations } from "shared/populations";
 import type { ApiPopulation, PopulationStep } from "shared/validators";
 import type { RowFilter } from "shared/types/fact-table";
 import Badge from "@/ui/Badge";
@@ -22,7 +22,10 @@ import { RowFilterInput } from "@/components/FactTables/RowFilterInput";
 import ThresholdBasisRow from "@/components/FactTables/MetricEditor/typeFields/ThresholdBasisRow";
 import PopulationPreview from "@/components/Populations/PopulationPreview";
 import useFullFactTable from "@/hooks/useFullFactTable";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import { getNewExperimentDatasourceDefaults } from "@/services/datasources";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import useOrgSettings from "@/hooks/useOrgSettings";
 import { useRestApiCall } from "@/services/restApi";
 
 type PopulationFormValues = {
@@ -78,14 +81,17 @@ export default function PopulationEditor({
   const { datasources, factTables, project, getFactTableById } =
     useDefinitions();
   const restApiCall = useRestApiCall();
+  const permissionsUtil = usePermissionsUtil();
+  const settings = useOrgSettings();
   const [error, setError] = useState<string | null>(null);
 
   const isNew = !existing;
-  // An existing Population keeps access to its fact table even when it sits
-  // outside the selected Project.
+  // Like the metric editor, the selected Project doesn't narrow the list. A new
+  // Population takes its fact table's Projects, so only offer fact tables the
+  // user can create a Population from.
   const availableFactTables = isNew
     ? factTables.filter((ft) =>
-        isProjectListValidForProject(ft.projects, project),
+        permissionsUtil.canCreatePopulation({ projects: ft.projects }),
       )
     : factTables;
   const datasourcesWithFactTables = datasources.filter((d) =>
@@ -95,7 +101,15 @@ export default function PopulationEditor({
   const form = useForm<PopulationFormValues>({
     defaultValues: toFormValues(
       existing,
-      datasourcesWithFactTables[0]?.id ?? "",
+      // Same default as a new metric, falling back to any Data Source with a
+      // usable fact table.
+      getNewExperimentDatasourceDefaults({
+        datasources: datasourcesWithFactTables,
+        settings,
+        project,
+      }).datasource ||
+        datasourcesWithFactTables[0]?.id ||
+        "",
     ),
   });
   const values = form.watch();
@@ -106,27 +120,59 @@ export default function PopulationEditor({
   const factTablesInDatasource = availableFactTables.filter(
     (ft) => ft.datasource === values.datasource,
   );
+  // The definitions list leaves out archived fact tables, so add the saved one
+  // back or the select shows nothing.
+  const selectedFactTable = getFactTableById(values.factTableId);
+  const factTableOptions = selectedFactTable?.archived
+    ? [...factTablesInDatasource, selectedFactTable]
+    : factTablesInDatasource;
+  // Keep saved identifier types the fact table no longer supports, so they
+  // show up and can be removed.
+  const idTypeOptions = factTable
+    ? [...new Set([...factTable.userIdTypes, ...values.userIdTypes])]
+    : [];
   const isComplete = !!values.factTableId && values.userIdTypes.length > 0;
+
+  // The same rules the server enforces on save, so Save stays disabled until
+  // they pass.
+  function getProblems(): string[] {
+    if (!isComplete) return [];
+    const problems = getPopulationRuleViolations({
+      datasource: values.datasource,
+      userIdTypes: values.userIdTypes,
+      steps: [toStep(values)],
+      factTables: factTable ? [factTable] : [],
+    });
+    return problems;
+  }
+  const problems = getProblems();
+  // toStep drops a threshold with no comparison, so block Save until there is one.
+  const needsComparison = showThreshold && !values.aggregateFilter.trim();
+  const isValid = isComplete && problems.length === 0 && !needsComparison;
 
   // Rebuilt only when the definition changes, so the preview doesn't see a new
   // draft on every render.
   const draftKey = JSON.stringify([
     values.datasource,
     values.userIdTypes,
-    isComplete ? toStep(values) : null,
+    isValid ? toStep(values) : null,
   ]);
   const draft = useMemo(
     () => ({
       datasource: values.datasource,
       userIdTypes: values.userIdTypes,
-      steps: isComplete ? [toStep(values)] : [],
+      steps: isValid ? [toStep(values)] : [],
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [draftKey],
   );
 
   function changeDatasource(datasource: string) {
-    form.reset({ ...toFormValues(null, datasource), name: values.name });
+    form.reset({
+      ...toFormValues(null, datasource),
+      name: values.name,
+      description: values.description,
+    });
     setShowThreshold(false);
   }
 
@@ -172,7 +218,7 @@ export default function PopulationEditor({
           body: {
             ...body,
             datasource: values.datasource,
-            projects: getFactTableById(values.factTableId)?.projects ?? [],
+            projects: factTable?.projects ?? [],
           },
         },
       );
@@ -195,7 +241,7 @@ export default function PopulationEditor({
           <Button variant="soft" color="gray" onClick={onCancel}>
             Cancel
           </Button>
-          <Button onClick={save} setError={setError} disabled={!isComplete}>
+          <Button onClick={save} setError={setError} disabled={!isValid}>
             Save Population
           </Button>
         </Flex>
@@ -219,130 +265,155 @@ export default function PopulationEditor({
 
       {error && <Callout status="error">{error}</Callout>}
 
-      <Grid columns={{ initial: "1", md: "minmax(0, 1fr) 420px" }} gap="4">
-        <Flex direction="column" gap="4" minWidth="0">
-          <Frame px="4" py="4" mb="0">
-            <Heading as="h4" size="sm" mb="3">
-              Details
-            </Heading>
-            <Flex direction="column" gap="3">
-              <TextField
-                label="Name"
-                autoFocus
-                markRequired
-                value={values.name}
-                onChange={(e) => form.setValue("name", e.target.value)}
-              />
-              {showDescription ? (
-                <Field
-                  label="Description"
-                  textarea
-                  value={values.description}
-                  onChange={(e) => form.setValue("description", e.target.value)}
+      {isNew && !datasourcesWithFactTables.length ? (
+        <Callout status="info">
+          There are no fact tables you can create a Population from.{" "}
+          <Link href="/fact-tables">Go to fact tables</Link>
+        </Callout>
+      ) : (
+        <Grid columns={{ initial: "1", md: "minmax(0, 1fr) 420px" }} gap="4">
+          <Flex direction="column" gap="4" minWidth="0">
+            <Frame px="4" py="4" mb="0">
+              <Heading as="h4" size="sm" mb="3">
+                Details
+              </Heading>
+              <Flex direction="column" gap="3">
+                <TextField
+                  label="Name"
+                  autoFocus
+                  markRequired
+                  value={values.name}
+                  onChange={(e) => form.setValue("name", e.target.value)}
                 />
-              ) : (
-                <Flex direction="column" align="start" gap="3">
-                  <Text weight="semibold">Description</Text>
-                  <Link size="sm" onClick={() => setShowDescription(true)}>
-                    + Add a description
-                  </Link>
-                </Flex>
-              )}
-            </Flex>
-          </Frame>
-
-          <Frame px="4" py="4" mb="0">
-            <Heading as="h4" size="sm" mb="3">
-              Definition
-            </Heading>
-            <Flex direction="column" gap="3">
-              <Text color="text-mid">
-                Include every unit with matching rows in a fact table.
-              </Text>
-              <Select
-                label="Fact table"
-                placeholder="Select a fact table"
-                value={values.factTableId}
-                setValue={changeFactTable}
-              >
-                {factTablesInDatasource.map((ft) => (
-                  <SelectItem key={ft.id} value={ft.id}>
-                    {ft.name}
-                  </SelectItem>
-                ))}
-              </Select>
-              {factTable && (
-                <>
-                  <MultiSelectField
-                    label="Identifier types"
-                    value={values.userIdTypes}
-                    options={factTable.userIdTypes.map((t) => ({
-                      label: t,
-                      value: t,
-                    }))}
-                    onChange={(userIdTypes) =>
-                      form.setValue("userIdTypes", userIdTypes)
+                {showDescription ? (
+                  <Field
+                    label="Description"
+                    textarea
+                    value={values.description}
+                    onChange={(e) =>
+                      form.setValue("description", e.target.value)
                     }
                   />
-                  <RowFilterInput
-                    factTable={factTable}
-                    value={values.rowFilters}
-                    setValue={(rowFilters) =>
-                      form.setValue("rowFilters", rowFilters)
-                    }
-                  />
-                  {showThreshold ? (
-                    <Flex align="end" gap="3" wrap="wrap">
-                      <ThresholdBasisRow
-                        value={{
-                          aggregateFilterColumn: values.aggregateFilterColumn,
-                          aggregateFilter: values.aggregateFilter,
-                        }}
-                        onChange={(threshold) => {
-                          form.setValue(
-                            "aggregateFilterColumn",
-                            threshold.aggregateFilterColumn ?? "",
-                          );
-                          form.setValue(
-                            "aggregateFilter",
-                            threshold.aggregateFilter ?? "",
-                          );
-                        }}
-                        factTable={factTable}
-                      />
-                      <Link size="sm" mb="2" onClick={removeThreshold}>
-                        Remove
-                      </Link>
-                    </Flex>
-                  ) : (
-                    <Flex direction="column" align="start" gap="2">
-                      <Text weight="semibold">Threshold</Text>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        icon={<PiPlus size={14} />}
-                        onClick={() => setShowThreshold(true)}
-                      >
-                        Add threshold
-                      </Button>
-                    </Flex>
-                  )}
-                </>
-              )}
-            </Flex>
-          </Frame>
-        </Flex>
+                ) : (
+                  <Flex direction="column" align="start" gap="3">
+                    <Text weight="semibold">Description</Text>
+                    <Link size="sm" onClick={() => setShowDescription(true)}>
+                      + Add a description
+                    </Link>
+                  </Flex>
+                )}
+              </Flex>
+            </Frame>
 
-        <Frame
-          px="5"
-          py="5"
-          mb="0"
-          minWidth="0"
-          style={{ position: "sticky", top: 72, alignSelf: "start" }}
-        >
-          <PopulationPreview population={draft} />
-        </Frame>
-      </Grid>
+            <Frame px="4" py="4" mb="0">
+              <Heading as="h4" size="sm" mb="3">
+                Definition
+              </Heading>
+              <Flex direction="column" gap="3">
+                <Text color="text-mid">
+                  Include every unit with matching rows in a fact table.
+                </Text>
+                <Select
+                  label="Fact table"
+                  placeholder="Select a fact table"
+                  value={values.factTableId}
+                  setValue={changeFactTable}
+                >
+                  {factTableOptions.map((ft) => (
+                    <SelectItem key={ft.id} value={ft.id}>
+                      {ft.archived ? `${ft.name} (archived)` : ft.name}
+                    </SelectItem>
+                  ))}
+                </Select>
+                {factTable && (
+                  <>
+                    <MultiSelectField
+                      label="Identifier types"
+                      value={values.userIdTypes}
+                      options={idTypeOptions.map((t) => ({
+                        label: t,
+                        value: t,
+                      }))}
+                      onChange={(userIdTypes) =>
+                        form.setValue("userIdTypes", userIdTypes)
+                      }
+                    />
+                    <RowFilterInput
+                      factTable={factTable}
+                      value={values.rowFilters}
+                      setValue={(rowFilters) =>
+                        form.setValue("rowFilters", rowFilters)
+                      }
+                    />
+                    {showThreshold ? (
+                      <Flex direction="column" gap="1">
+                        <Flex align="end" gap="3" wrap="wrap">
+                          <ThresholdBasisRow
+                            value={{
+                              aggregateFilterColumn:
+                                values.aggregateFilterColumn,
+                              aggregateFilter: values.aggregateFilter,
+                            }}
+                            onChange={(threshold) => {
+                              form.setValue(
+                                "aggregateFilterColumn",
+                                threshold.aggregateFilterColumn ?? "",
+                              );
+                              form.setValue(
+                                "aggregateFilter",
+                                threshold.aggregateFilter ?? "",
+                              );
+                            }}
+                            factTable={factTable}
+                          />
+                          <Link size="sm" mb="2" onClick={removeThreshold}>
+                            Remove
+                          </Link>
+                        </Flex>
+                        {needsComparison && (
+                          <Text size="sm" color="text-mid" as="p">
+                            Enter a comparison, such as &quot;&gt;=3&quot;, or
+                            remove the threshold.
+                          </Text>
+                        )}
+                      </Flex>
+                    ) : (
+                      <Flex direction="column" align="start" gap="2">
+                        <Text weight="semibold">Threshold</Text>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          icon={<PiPlus size={14} />}
+                          onClick={() => setShowThreshold(true)}
+                        >
+                          Add threshold
+                        </Button>
+                      </Flex>
+                    )}
+                  </>
+                )}
+                {problems.length > 0 && (
+                  <Callout status="error">
+                    {problems.map((problem) => (
+                      <div key={problem}>{problem}</div>
+                    ))}
+                  </Callout>
+                )}
+              </Flex>
+            </Frame>
+          </Flex>
+
+          <Frame
+            px="5"
+            py="5"
+            mb="0"
+            minWidth="0"
+            style={{ position: "sticky", top: 72, alignSelf: "start" }}
+          >
+            <PopulationPreview population={draft} />
+          </Frame>
+        </Grid>
+      )}
     </Flex>
   );
 }

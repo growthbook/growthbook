@@ -49,12 +49,14 @@ export default function PopulationsPage() {
   });
   const refreshPopulations = useRefreshPopulations();
   const permissionsUtil = usePermissionsUtil();
-  const canCreate = permissionsUtil.canCreatePopulation({
-    projects: project ? [project] : [],
-  });
+  const canCreate = permissionsUtil.canViewCreatePopulation(project, projects);
   const addPopulationButton = (
     <Tooltip
-      content="You don't have permission to create Populations in this Project"
+      content={
+        project
+          ? "You don't have permission to create Populations in this Project"
+          : "You don't have permission to create Populations"
+      }
       enabled={!canCreate}
     >
       <Button
