@@ -1,7 +1,7 @@
 import { randomBytes } from "crypto";
 import { z } from "zod";
 import { freeEmailDomains } from "free-email-domains-typescript";
-import { cloneDeep } from "lodash";
+import { cloneDeep, omitBy } from "lodash";
 import { Request } from "express";
 import { PermissionError } from "shared/util";
 import {
@@ -1520,7 +1520,11 @@ export async function importConfig(
             // If params are changing, merge them with existing and test the connection
             if (ds.params) {
               const integration = getSourceIntegrationObject(context, existing);
-              mergeParams(integration, ds.params);
+              // A blank YAML value parses as null, which would remove a stored secret
+              mergeParams(
+                integration,
+                omitBy(ds.params, (v) => v === null),
+              );
               await integration.testConnection();
               params = encryptParams(integration.params);
             }
