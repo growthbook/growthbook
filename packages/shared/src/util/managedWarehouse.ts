@@ -516,6 +516,28 @@ export function getManagedWarehouseIdentifierForAttribute({
   return BUILTIN_ATTRIBUTE_TO_IDENTIFIER[attribute] ?? attribute;
 }
 
+// Hash attribute -> identifier column for every attribute that maps to one, so
+// managed warehouses can stand in for userIdType.attributes links, which they
+// don't populate.
+export function getManagedWarehouseAttributeIdentifierMap(
+  settings: GrowthbookClickhouseSettings,
+): Map<string, string> {
+  const attributes = new Set([
+    ...Object.keys(BUILTIN_ATTRIBUTE_TO_IDENTIFIER),
+    ...(settings.materializedColumns || []).map((c) => c.sourceField),
+    ...(settings.userIdTypes || []).map((u) => u.userIdType),
+  ]);
+  const map = new Map<string, string>();
+  for (const attribute of attributes) {
+    const identifier = getManagedWarehouseIdentifierForAttribute({
+      settings,
+      attribute,
+    });
+    if (identifier) map.set(attribute, identifier);
+  }
+  return map;
+}
+
 // Resolve the exposure query (Experiment Assignment Query) a hash attribute maps
 // to on a managed warehouse, using the identifier mapping stored in the datasource
 // settings. Returns "" when no query matches.

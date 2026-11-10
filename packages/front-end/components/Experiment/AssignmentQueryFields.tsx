@@ -113,9 +113,9 @@ export function useAssignmentQuerySelection({
   const hashAttributeIdentifierTypeMap = useMemo(
     () =>
       useHashAttribute
-        ? getHashAttributeIdentifierTypeMap(datasource?.settings?.userIdTypes)
+        ? getHashAttributeIdentifierTypeMap(datasource)
         : new Map<string, string[]>(),
-    [useHashAttribute, datasource?.settings?.userIdTypes],
+    [useHashAttribute, datasource],
   );
   const identifierTypes = useMemo(() => {
     const selectable = getSelectableIdentifierTypes(exposureQueries);

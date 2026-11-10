@@ -15,6 +15,7 @@ import {
   resolveAnalysisIdentifierType,
   getExposureQueryIdentifierTypes,
   getExposureQueryProjects,
+  getManagedWarehouseAttributeIdentifierMap,
   isExposureQueryAvailableForProjects,
   isProjectListValidForProject,
 } from "shared/util";
@@ -1447,13 +1448,21 @@ export function getCopiedAssignmentQueryNotice(
 /**
  * Hash attribute -> identifier types linked to it in the data source's
  * identifier settings. An empty map means the org has configured no linkages,
- * which callers use to suppress hash-attribute grouping entirely.
+ * which callers use to suppress hash-attribute grouping entirely. Managed
+ * warehouses link by their fixed attribute -> identifier mapping instead.
  */
 export function getHashAttributeIdentifierTypeMap(
-  userIdTypes: DataSourceSettings["userIdTypes"],
+  datasource: DataSourceInterfaceWithParams | null | undefined,
 ): Map<string, string[]> {
+  if (datasource?.type === "growthbook_clickhouse") {
+    return new Map(
+      [...getManagedWarehouseAttributeIdentifierMap(datasource.settings)].map(
+        ([attribute, identifier]) => [attribute, [identifier]],
+      ),
+    );
+  }
   const map = new Map<string, string[]>();
-  for (const userIdType of userIdTypes ?? []) {
+  for (const userIdType of datasource?.settings?.userIdTypes ?? []) {
     for (const attribute of userIdType.attributes ?? []) {
       map.set(attribute, [
         ...(map.get(attribute) ?? []),
