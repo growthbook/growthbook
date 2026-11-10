@@ -152,6 +152,59 @@ const featureUsageContext = createContext<{
   mutateFeatureUsage: () => {},
 });
 
+// No pointer or keyboard input for this long counts as idle
+const IDLE_AFTER_MS = 60_000;
+const IDLE_REFRESH_MS = 60_000;
+
+type PageAttention = "active" | "idle" | "away";
+
+// "away": tab hidden or window unfocused. "idle": focused, but no recent input.
+function usePageAttention(): PageAttention {
+  const [attention, setAttention] = useState<PageAttention>("active");
+
+  useEffect(() => {
+    let lastInput = Date.now();
+    let current: PageAttention = "active";
+    const update = () => {
+      const next: PageAttention =
+        document.visibilityState !== "visible" || !document.hasFocus()
+          ? "away"
+          : Date.now() - lastInput > IDLE_AFTER_MS
+            ? "idle"
+            : "active";
+      // Set state only on transitions so mouse movement doesn't re-render
+      if (next !== current) {
+        current = next;
+        setAttention(next);
+      }
+    };
+    const onInput = () => {
+      lastInput = Date.now();
+      update();
+    };
+
+    const inputEvents = ["pointermove", "pointerdown", "keydown", "wheel"];
+    inputEvents.forEach((e) =>
+      window.addEventListener(e, onInput, { passive: true }),
+    );
+    window.addEventListener("focus", update);
+    window.addEventListener("blur", update);
+    document.addEventListener("visibilitychange", update);
+    const timer = setInterval(update, 5000);
+    update();
+
+    return () => {
+      inputEvents.forEach((e) => window.removeEventListener(e, onInput));
+      window.removeEventListener("focus", update);
+      window.removeEventListener("blur", update);
+      document.removeEventListener("visibilitychange", update);
+      clearInterval(timer);
+    };
+  }, []);
+
+  return attention;
+}
+
 export function FeatureUsageProvider({
   feature,
   children,
@@ -207,21 +260,25 @@ export function FeatureUsageProvider({
         ? data?.usage
         : sparkData?.usage;
 
-  const featureUsageAutoRefreshInterval = growthbook.getFeatureValue(
+  const { withData, withoutData } = growthbook.getFeatureValue(
     "feature-usage-auto-refresh-interval",
     { withData: 5000, withoutData: 15000 },
   );
+  const attention = usePageAttention();
+  const hasData =
+    (featureUsage?.bySource?.length ?? 0) > 0 ||
+    (sparkFeatureUsage?.bySource?.length ?? 0) > 0;
+  const activeInterval = hasData ? withData : withoutData;
+  // Stopped while away; SWR refetches as soon as the window regains focus
+  const refreshInterval =
+    !activeInterval || attention === "away"
+      ? 0
+      : attention === "idle"
+        ? Math.max(activeInterval, IDLE_REFRESH_MS)
+        : activeInterval;
 
   useEffect(() => {
-    if (managedWarehouseUnavailable) return;
-
-    const hasData =
-      (featureUsage?.bySource?.length ?? 0) > 0 ||
-      (sparkFeatureUsage?.bySource?.length ?? 0) > 0;
-    const interval = hasData
-      ? featureUsageAutoRefreshInterval["withData"]
-      : featureUsageAutoRefreshInterval["withoutData"];
-    if (interval === 0) return;
+    if (managedWarehouseUnavailable || !refreshInterval) return;
     const timer = setInterval(() => {
       if (lookback === SPARK_LOOKBACK) {
         mutateFeatureUsage();
@@ -229,13 +286,11 @@ export function FeatureUsageProvider({
         if (lookback === "15minute") mutateFeatureUsage();
         mutateSparkData();
       }
-    }, interval);
+    }, refreshInterval);
     return () => clearInterval(timer);
   }, [
     lookback,
-    featureUsage,
-    sparkFeatureUsage,
-    featureUsageAutoRefreshInterval,
+    refreshInterval,
     managedWarehouseUnavailable,
     mutateFeatureUsage,
     mutateSparkData,
