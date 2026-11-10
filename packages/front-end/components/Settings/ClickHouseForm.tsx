@@ -1,11 +1,10 @@
 import { FC, ChangeEventHandler, useState } from "react";
-import { FaCaretDown, FaCaretRight } from "react-icons/fa";
 import { Box } from "@radix-ui/themes";
 import { ClickHouseConnectionParams } from "shared/types/integrations/clickhouse";
 import { KEEP_EXISTING_PLACEHOLDER } from "@/components/Forms/secretInput";
 import Field from "@/components/Forms/Field";
 import { isCloud, isMultiOrg } from "@/services/env";
-import Link from "@/ui/Link";
+import Collapse, { CollapseTrigger } from "@/ui/Collapse";
 import Text from "@/ui/Text";
 import HostWarning from "./HostWarning";
 import SSLConnectionFields from "./SSLConnectionFields";
@@ -122,21 +121,20 @@ const ClickHouseForm: FC<{
       </div>
       {params.ssl && !isCloud() && !isMultiOrg() && (
         <Box mb="3">
-          <Box mb="3">
-            <Link onClick={() => setShowPaths(!showPaths)}>
-              Certificate file paths{" "}
-              {showPaths ? <FaCaretDown /> : <FaCaretRight />}
-            </Link>
-          </Box>
-          {showPaths && (
-            <>
+          <CollapseTrigger open={showPaths} onOpenChange={setShowPaths}>
+            <Text weight="medium">Certificate file paths</Text>
+          </CollapseTrigger>
+          <Collapse open={showPaths}>
+            <Box pt="3">
               <Text as="p" size="sm" color="text-mid" mb="3">
-                PEM files on the GrowthBook server, used instead of the pasted
-                certificates above. They are read for every query, so
-                certificates rotated on disk are picked up without a restart.
+                PEM files on the GrowthBook server. Set each certificate as
+                either a pasted value or a path, not both, so remove a stored
+                certificate under Advanced SSL Settings before setting its path.
+                Files are read for every query, so certificates rotated on disk
+                are picked up without a restart.
               </Text>
               <Field
-                label="CA cert path"
+                label="CA cert path (optional)"
                 name="caCertPath"
                 placeholder="/etc/ssl/certs/ca.crt"
                 value={params.caCertPath || ""}
@@ -164,8 +162,8 @@ const ClickHouseForm: FC<{
                 value={params.clientKeyPath || ""}
                 onChange={onParamChange}
               />
-            </>
-          )}
+            </Box>
+          </Collapse>
         </Box>
       )}
     </>

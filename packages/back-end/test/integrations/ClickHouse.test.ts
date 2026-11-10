@@ -236,18 +236,25 @@ describe("getClickHouseTLSOptions with certificate file paths", () => {
     await writeFile(clientCertPath, current.cert);
     await writeFile(clientKeyPath, current.key);
     // The first key read lands just after the Secret swapped in a new pair
-    mockReadFile.mockClear();
-    mockReadFile.mockImplementationOnce(async () => current.cert);
-    mockReadFile.mockImplementationOnce(async () => stale.key);
+    const realReadFile = jest.requireActual("fs/promises").readFile;
+    let keyReads = 0;
+    mockReadFile.mockImplementation((async (file: string) =>
+      file === clientKeyPath && keyReads++ === 0
+        ? stale.key
+        : realReadFile(file)) as typeof readFile);
 
-    const tls = await getClickHouseTLSOptions({
-      ssl: true,
-      clientCertPath,
-      clientKeyPath,
-    });
+    try {
+      const tls = await getClickHouseTLSOptions({
+        ssl: true,
+        clientCertPath,
+        clientKeyPath,
+      });
 
-    expect(mockReadFile).toHaveBeenCalledTimes(4);
-    expect(tls).toStrictEqual({ cert: current.cert, key: current.key });
+      expect(keyReads).toBe(2);
+      expect(tls).toStrictEqual({ cert: current.cert, key: current.key });
+    } finally {
+      mockReadFile.mockImplementation(realReadFile);
+    }
   });
 
   it("rejects a path that isn't a regular file", async () => {
