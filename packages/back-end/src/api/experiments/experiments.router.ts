@@ -24,6 +24,7 @@ import {
   postExperimentUnarchive,
 } from "./archiveExperiment";
 import { postExperimentComment } from "./postExperimentComment";
+import { getExperimentLog } from "./getExperimentLog";
 
 export const experimentsRoutes: OpenApiRoute[] = [
   // Experiment Endpoints
@@ -33,6 +34,7 @@ export const experimentsRoutes: OpenApiRoute[] = [
   // path `/experiments/results` is not captured by `/experiments/:id/results`.
   listExperimentResults,
   getExperiment,
+  getExperimentLog,
   getExperimentStartChecklist,
   getExperimentResults,
   getExperimentBulkResults,
