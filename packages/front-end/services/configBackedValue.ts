@@ -14,7 +14,7 @@ import {
 // each tagged with its namespace source).
 export type ResolvableInput = Pick<
   ConstantInterface,
-  "key" | "type" | "value" | "project" | "archived"
+  "key" | "type" | "value" | "environmentValues" | "project" | "archived"
 > & {
   source: ConstantSource;
   // A config's env/project flavor selection, so the resolver can swap in the

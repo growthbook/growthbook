@@ -79,6 +79,8 @@ export type EnvironmentStatus = {
   // Each step reached, with what it serves whoever reaches it.
   steps: { step: TrafficStep; value: EnvironmentValue }[];
   defaultValue: StepStatus;
+  // The default as the SDK receives it.
+  servedDefault: string;
 };
 
 const EPSILON = 1e-9;
@@ -107,6 +109,10 @@ export function resolveRuleValue(
   value: string,
   sparse = false,
 ): string {
+  if (feature.valueType === "number") return String(parseFloat(value) || 0);
+  if (feature.valueType === "boolean") {
+    return value === "false" ? "false" : "true";
+  }
   if (feature.valueType !== "json") return value;
   const defaultObject = parsePlainJSONObject(feature.defaultValue);
   if (sparse && defaultObject) {
@@ -115,7 +121,8 @@ export function resolveRuleValue(
   try {
     return JSON.stringify(JSON.parse(value));
   } catch {
-    return value;
+    // Invalid JSON reaches the SDK as null.
+    return "null";
   }
 }
 
@@ -130,12 +137,16 @@ export function ruleTrafficStep(
     experiment?: ExperimentInterfaceStringDates;
     safeRollout?: SafeRolloutInterface;
     // A rule value as the SDK receives it, e.g. a sparse JSON patch merged
-    // onto the default.
-    resolveValue?: (value: string, sparse: boolean) => string;
+    // onto the default. `arm` is a value the payload treats as a patch on a
+    // config-backed flag: every rule's value but a safe rollout's.
+    resolveValue?: (
+      value: string,
+      options: { sparse: boolean; arm: boolean },
+    ) => string;
   } = {},
 ): TrafficStep {
-  const resolve = (value: string) =>
-    resolveValue(value, "sparse" in rule && !!rule.sparse);
+  const resolve = (value: string, arm = true) =>
+    resolveValue(value, { sparse: "sparse" in rule && !!rule.sparse, arm });
   if (rule.type === "force") {
     return stepOf(
       "Force rule",
@@ -232,8 +243,8 @@ export function ruleTrafficStep(
     if (rule.status === "released" || rule.status === "rolled-back") {
       const value =
         rule.status === "released"
-          ? resolve(rule.variationValue)
-          : resolve(rule.controlValue);
+          ? resolve(rule.variationValue, false)
+          : resolve(rule.controlValue, false);
       return stepOf("Safe rollout", {
         participation: 1,
         shares: [{ value, share: 1 }],
@@ -248,8 +259,8 @@ export function ruleTrafficStep(
           ? 1
           : (ramp.steps[ramp.step]?.percent ?? 1),
       shares: [
-        { value: resolve(rule.controlValue), share: 0.5 },
-        { value: resolve(rule.variationValue), share: 0.5 },
+        { value: resolve(rule.controlValue, false), share: 0.5 },
+        { value: resolve(rule.variationValue, false), share: 0.5 },
       ],
     });
   }
@@ -359,6 +370,7 @@ export function getEnvironmentStatus({
     rules: has("rule") ? ("skipped" as const) : ("none" as const),
     steps: [],
     defaultValue: "skipped" as const,
+    servedDefault: defaultValue,
   };
 
   if (!enabled) {
@@ -466,5 +478,6 @@ export function getEnvironmentStatus({
     rules: statusOf("rule"),
     steps: reached,
     defaultValue: reachesDefault ? "applies" : "skipped",
+    servedDefault: defaultValue,
   };
 }

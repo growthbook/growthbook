@@ -357,13 +357,20 @@ describe("resolveRuleValue", () => {
       '{"a":1,"b":3}',
     ],
     ["respaces JSON", '{ "b" : 3 }', false, '{"b":3}'],
+    ["serves invalid JSON as null", "{bad", false, "null"],
   ])("%s", (_, value, sparse, expected) => {
     expect(resolveRuleValue(json, value, sparse)).toBe(expected);
   });
 
-  it("leaves other types alone", () => {
-    expect(
-      resolveRuleValue({ valueType: "string", defaultValue: "x" }, " y "),
-    ).toBe(" y ");
+  it.each([
+    ["string", " y ", " y "],
+    ["number", "1.0", "1"],
+    ["number", "abc", "0"],
+    ["boolean", "yes", "true"],
+    ["boolean", "false", "false"],
+  ] as const)("serves a %s %j as %j", (valueType, value, expected) => {
+    expect(resolveRuleValue({ valueType, defaultValue: "" }, value)).toBe(
+      expected,
+    );
   });
 });

@@ -164,7 +164,7 @@ function WrappingValueLine({
   return (
     <span className={styles.wrappingLine}>
       <span className={styles.dotSlot}>
-        <BooleanDot fill={servedDot(status)} />
+        <BooleanDot fill={servedDot(status, valueType)} />
       </span>
       <span className={styles.wrapping} data-wrapped={wrapped || undefined}>
         <span ref={valueRef} className={styles.wrappingValue}>
@@ -190,11 +190,17 @@ function WrappingValueLine({
 // Whether a non-boolean environment serves a value: to everyone (filled),
 // maybe not to all when a prerequisite varies by user (half), or not at all,
 // null (empty).
-function servedDot(status: EnvironmentStatus): "on" | "split" | "empty" {
+function servedDot(
+  status: EnvironmentStatus,
+  valueType: FeatureValueType,
+): "on" | "split" | "empty" {
   const { value } = status;
   // A JSON null serves nothing too.
   if (value.kind === "value") {
-    return value.value === null || value.value === "null" ? "empty" : "on";
+    return value.value === null ||
+      (valueType === "json" && value.value === "null")
+      ? "empty"
+      : "on";
   }
   if (value.kind === "varies" && status.prerequisites === "varies") {
     return "split";
@@ -336,14 +342,12 @@ function Drilldown({
   card,
   status,
   valueType,
-  defaultValue,
   toggle,
   prerequisiteState,
 }: {
   card: EnvironmentCard;
   status: EnvironmentStatus;
   valueType: FeatureValueType;
-  defaultValue: string;
   toggle: ReactNode;
   // A prerequisite's state in an environment, with why on hover; a scroll
   // area's clips its tooltip unless it renders at the page root.
@@ -394,7 +398,7 @@ function Drilldown({
       <Row status={status.defaultValue} label="Default value">
         <Flex align="baseline" gap="2" minWidth="0">
           <ValueText
-            value={{ kind: "value", value: defaultValue }}
+            value={{ kind: "value", value: status.servedDefault }}
             valueType={valueType}
             muted={muted(status.defaultValue)}
           />
@@ -407,13 +411,11 @@ function Drilldown({
 function Card({
   card,
   valueType,
-  defaultValue,
   toggle,
   prerequisiteState,
 }: {
   card: EnvironmentCard;
   valueType: FeatureValueType;
-  defaultValue: string;
   toggle: ReactNode;
   // A prerequisite's state in an environment, with why on hover; a scroll
   // area's clips its tooltip unless it renders at the page root.
@@ -458,7 +460,7 @@ function Card({
           ) : (
             <span className={styles.line}>
               {valueType === "boolean" ? null : (
-                <BooleanDot fill={servedDot(status)} />
+                <BooleanDot fill={servedDot(status, valueType)} />
               )}
               <ValueText value={status.value} valueType={valueType} />
               <span className={styles.reason}>
@@ -476,7 +478,6 @@ function Card({
             card={card}
             status={status}
             valueType={valueType}
-            defaultValue={defaultValue}
             toggle={toggle}
             prerequisiteState={prerequisiteState}
           />
@@ -493,13 +494,11 @@ function Card({
 export default function EnvironmentStatusCards({
   cards,
   valueType,
-  defaultValue,
   renderToggle,
   prerequisiteState,
 }: {
   cards: EnvironmentCard[];
   valueType: FeatureValueType;
-  defaultValue: string;
   renderToggle: (environment: string) => ReactNode;
   // A prerequisite's state in an environment, with why on hover; a scroll
   // area's clips its tooltip unless it renders at the page root.
@@ -521,7 +520,6 @@ export default function EnvironmentStatusCards({
           key={card.id}
           card={card}
           valueType={valueType}
-          defaultValue={defaultValue}
           toggle={renderToggle(card.id)}
           prerequisiteState={prerequisiteState}
         />

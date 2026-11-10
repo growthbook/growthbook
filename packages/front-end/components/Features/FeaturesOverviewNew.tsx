@@ -15,8 +15,10 @@ import {
   evalDeterministicPrereqValue,
   filterEnvironmentsByFeature,
   getMalformedPrereqConditionError,
+  deepMergePatch,
   getConfigBackingKey,
   getFeatureBaseConfigKey,
+  parsePlainJSONObject,
   getReviewSetting,
 } from "shared/util";
 import { isRevisionEditLockedBySchedule } from "shared/enterprise";
@@ -262,10 +264,11 @@ export default function FeaturesOverviewNew({
   });
   // A config-backed flag's config, to resolve what its values serve.
   const baseConfigKey = getFeatureBaseConfigKey(feature);
-  const { data: configInputs } = useApi<{ constants: ResolvableInput[] }>(
-    `/configs/${baseConfigKey}/resolved`,
-    { shouldRun: () => baseConfigKey !== null },
-  );
+  const { data: configInputs, error: configError } = useApi<{
+    constants: ResolvableInput[];
+  }>(`/configs/${baseConfigKey}/resolved`, {
+    shouldRun: () => baseConfigKey !== null,
+  });
   // The holdout's own experiment says how much of the traffic it holds back.
   const { experimentsMap: holdoutExperiments } = useHoldouts(undefined, false, {
     enabled: !!holdout,
@@ -518,27 +521,32 @@ export default function FeaturesOverviewNew({
         }),
     );
   // A value as the SDK receives it in an environment. A config-backed flag's
-  // values are patches over its config, which resolves per environment.
+  // object values are patches over its config (or the descendant config they
+  // name), resolved per environment; a rule's lands on the resolved default.
   const servedValue = (
     f: FeatureInterface,
     value: string,
     env: string,
-    sparse = false,
-  ) => {
+    { sparse = false, arm = false } = {},
+  ): string => {
     const configKey = getFeatureBaseConfigKey(f);
+    const inputs = configKey !== null ? configInputs?.constants : undefined;
     if (
       configKey !== null &&
-      configInputs?.constants &&
-      (getConfigBackingKey(value) ?? configKey) === configKey
+      inputs &&
+      (value.trim() === "" || parsePlainJSONObject(value) !== null)
     ) {
-      return JSON.stringify(
+      const resolve = (v: string) =>
         resolveConfigBackedValue({
-          inputs: configInputs.constants,
-          configKey,
-          value,
+          inputs,
+          configKey: getConfigBackingKey(v) ?? configKey,
+          value: v,
           project: f.project || "",
           environment: env,
-        }),
+        });
+      const resolved = resolve(value);
+      return JSON.stringify(
+        arm ? deepMergePatch(resolve(f.defaultValue), resolved) : resolved,
       );
     }
     return resolveRuleValue(f, value, sparse);
@@ -558,7 +566,7 @@ export default function FeaturesOverviewNew({
       : []),
     ...liveRules(f, env).map((rule) =>
       ruleTrafficStep(rule, {
-        resolveValue: (value, sparse) => servedValue(f, value, env, sparse),
+        resolveValue: (value, options) => servedValue(f, value, env, options),
         experiment:
           rule.type === "experiment-ref"
             ? experimentsMap.get(rule.experimentId)
@@ -592,8 +600,11 @@ export default function FeaturesOverviewNew({
       result: prerequisiteResult(p, env),
     }));
     if (results.some((p) => !p.result)) return null;
-    // A config-backed flag's values aren't known until its config resolves.
-    if (getFeatureBaseConfigKey(f) !== null && !configInputs) return null;
+    // A config-backed flag's values aren't known until its config resolves;
+    // if that fails, they show as stored.
+    if (getFeatureBaseConfigKey(f) !== null && !configInputs && !configError) {
+      return null;
+    }
     return getEnvironmentStatus({
       enabled: f.environmentSettings?.[env]?.enabled ?? false,
       prerequisites: results.flatMap((p) =>
@@ -809,7 +820,6 @@ export default function FeaturesOverviewNew({
             <EnvironmentStatusCards
               cards={environmentCards}
               valueType={feature.valueType}
-              defaultValue={feature.defaultValue}
               prerequisiteState={prerequisiteState}
               renderToggle={(envId) => {
                 const enabled =

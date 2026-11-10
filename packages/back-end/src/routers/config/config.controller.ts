@@ -317,6 +317,11 @@ export const getConfigResolved = async (
       value: c.value,
       project: c.project,
       archived: c.archived,
+      // A constant's per-environment values, so each environment resolves
+      // what it serves there.
+      ...(c.environmentValues
+        ? { environmentValues: c.environmentValues }
+        : {}),
       // Carry a config's env/project flavor selection so the client can resolve
       // per-environment (swap in the matching flavor) without a second fetch —
       // the flavor configs themselves are already in this resolvable set.
