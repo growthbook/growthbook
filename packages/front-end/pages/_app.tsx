@@ -12,6 +12,7 @@ import { GrowthBookProvider } from "@growthbook/growthbook-react";
 import { growthbookTrackingPlugin } from "@growthbook/growthbook/plugins";
 import { Inter } from "next/font/google";
 import { Container } from "@radix-ui/themes";
+import * as TooltipPrimitive from "@radix-ui/react-tooltip";
 import { OrganizationMessagesContainer } from "@/components/OrganizationMessages/OrganizationMessages";
 import { OrgSuspendedBannerContainer } from "@/components/OrgSuspendedBanner/OrgSuspendedBanner";
 import { DemoDataSourceGlobalBannerContainer } from "@/components/DemoDataSourceGlobalBanner/DemoDataSourceGlobalBanner";
@@ -223,89 +224,92 @@ function App({
       </Head>
       <AppearanceUIThemeProvider>
         <RadixTheme>
-          {ready || noLoadingOverlay ? (
-            <HoverTooltipProvider>
-              <SidebarOpenProvider>
-                <GrowthBookProvider growthbook={growthbook}>
-                  <div id="portal-root" />
-                  {preAuth || progressiveAuth ? (
-                    renderPreAuth()
-                  ) : (
-                    <PageHeadProvider>
-                      <AuthProvider>
-                        <ProtectedPage
-                          organizationRequired={organizationRequired}
-                        >
-                          {organizationRequired ? (
-                            <GetStartedProvider>
-                              <DefinitionsProvider>
-                                <FeatureHealthStatesProvider>
-                                  <AgentPanelProvider>
-                                    <SettingsNavProvider>
-                                      <SettingsForm>
-                                        {liteLayout ? (
-                                          <LayoutLite />
-                                        ) : (
-                                          <Layout />
-                                        )}
-                                        <CommandPaletteLauncher />
-                                        <AgentLauncher />
-                                        <main
-                                          className={clsx("main", parts[0], {
-                                            "settings-layout": inSettings,
-                                          })}
-                                        >
-                                          <OrgSuspendedBannerContainer />
-                                          <OrganizationMessagesContainer />
-                                          <DemoDataSourceGlobalBannerContainer />
-                                          <NPSSurvey />
-                                          <OrgPageContent>
-                                            <GuidedGetStartedBar />
-                                            <DefinitionsGuard>
-                                              <Component
-                                                {...{
-                                                  ...pageProps,
-                                                  envReady: ready,
-                                                }}
-                                              />
-                                            </DefinitionsGuard>
-                                          </OrgPageContent>
-                                        </main>
-                                      </SettingsForm>
-                                    </SettingsNavProvider>
-                                  </AgentPanelProvider>
-                                </FeatureHealthStatesProvider>
-                              </DefinitionsProvider>
-                            </GetStartedProvider>
-                          ) : (
-                            <div>
-                              <TopNavLite />
-                              <main className="container">
-                                <Component
-                                  {...{ ...pageProps, envReady: ready }}
-                                />
-                              </main>
-                            </div>
-                          )}
-                        </ProtectedPage>
-                      </AuthProvider>
-                    </PageHeadProvider>
-                  )}
-                </GrowthBookProvider>
-              </SidebarOpenProvider>
-            </HoverTooltipProvider>
-          ) : error ? (
-            <Container mt="9">
-              <Callout status="error">
-                Error Initializing GrowthBook:
-                <br />
-                <br />
-                {error}
-              </Callout>
-            </Container>
-          ) : (
-            <LoadingOverlay />
-          )}
+          {/* @/ui/Tooltip allows block content, so it manages its own provider. */}
+          <TooltipPrimitive.Provider delayDuration={200}>
+            {ready || noLoadingOverlay ? (
+              <HoverTooltipProvider>
+                <SidebarOpenProvider>
+                  <GrowthBookProvider growthbook={growthbook}>
+                    <div id="portal-root" />
+                    {preAuth || progressiveAuth ? (
+                      renderPreAuth()
+                    ) : (
+                      <PageHeadProvider>
+                        <AuthProvider>
+                          <ProtectedPage
+                            organizationRequired={organizationRequired}
+                          >
+                            {organizationRequired ? (
+                              <GetStartedProvider>
+                                <DefinitionsProvider>
+                                  <FeatureHealthStatesProvider>
+                                    <AgentPanelProvider>
+                                      <SettingsNavProvider>
+                                        <SettingsForm>
+                                          {liteLayout ? (
+                                            <LayoutLite />
+                                          ) : (
+                                            <Layout />
+                                          )}
+                                          <CommandPaletteLauncher />
+                                          <AgentLauncher />
+                                          <main
+                                            className={clsx("main", parts[0], {
+                                              "settings-layout": inSettings,
+                                            })}
+                                          >
+                                            <OrgSuspendedBannerContainer />
+                                            <OrganizationMessagesContainer />
+                                            <DemoDataSourceGlobalBannerContainer />
+                                            <NPSSurvey />
+                                            <OrgPageContent>
+                                              <GuidedGetStartedBar />
+                                              <DefinitionsGuard>
+                                                <Component
+                                                  {...{
+                                                    ...pageProps,
+                                                    envReady: ready,
+                                                  }}
+                                                />
+                                              </DefinitionsGuard>
+                                            </OrgPageContent>
+                                          </main>
+                                        </SettingsForm>
+                                      </SettingsNavProvider>
+                                    </AgentPanelProvider>
+                                  </FeatureHealthStatesProvider>
+                                </DefinitionsProvider>
+                              </GetStartedProvider>
+                            ) : (
+                              <div>
+                                <TopNavLite />
+                                <main className="container">
+                                  <Component
+                                    {...{ ...pageProps, envReady: ready }}
+                                  />
+                                </main>
+                              </div>
+                            )}
+                          </ProtectedPage>
+                        </AuthProvider>
+                      </PageHeadProvider>
+                    )}
+                  </GrowthBookProvider>
+                </SidebarOpenProvider>
+              </HoverTooltipProvider>
+            ) : error ? (
+              <Container mt="9">
+                <Callout status="error">
+                  Error Initializing GrowthBook:
+                  <br />
+                  <br />
+                  {error}
+                </Callout>
+              </Container>
+            ) : (
+              <LoadingOverlay />
+            )}
+          </TooltipPrimitive.Provider>
         </RadixTheme>
       </AppearanceUIThemeProvider>
     </>
