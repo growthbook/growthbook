@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { Flex, Grid } from "@radix-ui/themes";
 import { PiPlus } from "react-icons/pi";
@@ -22,6 +22,7 @@ import { RowFilterInput } from "@/components/FactTables/RowFilterInput";
 import ThresholdBasisRow from "@/components/FactTables/MetricEditor/typeFields/ThresholdBasisRow";
 import PopulationPreview from "@/components/Populations/PopulationPreview";
 import useFullFactTable from "@/hooks/useFullFactTable";
+import useDebouncedValue from "@/hooks/useDebouncedValue";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { getNewExperimentDatasourceDefaults } from "@/services/datasources";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -150,22 +151,18 @@ export default function PopulationEditor({
   const needsComparison = showThreshold && !values.aggregateFilter.trim();
   const isValid = isComplete && problems.length === 0 && !needsComparison;
 
-  // Rebuilt only when the definition changes, so the preview doesn't see a new
-  // draft on every render.
-  const draftKey = JSON.stringify([
-    values.datasource,
-    values.userIdTypes,
-    isValid ? toStep(values) : null,
-  ]);
-  const draft = useMemo(
-    () => ({
-      datasource: values.datasource,
-      userIdTypes: values.userIdTypes,
-      steps: isValid ? [toStep(values)] : [],
-    }),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [draftKey],
+  const liveDraft = {
+    datasource: values.datasource,
+    userIdTypes: values.userIdTypes,
+    steps: isValid ? [toStep(values)] : [],
+  };
+  const debouncedDraft = useDebouncedValue(
+    JSON.stringify(liveDraft),
+    liveDraft,
   );
+  // Like the metric editor, an invalid draft disables the preview at once
+  // instead of after the delay.
+  const draft = isValid ? debouncedDraft : liveDraft;
 
   function changeDatasource(datasource: string) {
     form.reset({
