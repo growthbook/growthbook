@@ -117,6 +117,34 @@ function ValueText({
   );
 }
 
+// A name cut short to its room, all of it on hover when it is; a link when it
+// has somewhere to go.
+function ClampedName({
+  name,
+  href,
+  className,
+}: {
+  name: string;
+  href: string | null;
+  className: string;
+}) {
+  const ref = useRef<HTMLAnchorElement & HTMLSpanElement>(null);
+  const truncated = useIsOverflowingX(ref);
+  return (
+    <Tooltip content={name} enabled={truncated}>
+      {href ? (
+        <Link ref={ref} href={href} className={className}>
+          {name}
+        </Link>
+      ) : (
+        <span ref={ref} className={className}>
+          {name}
+        </span>
+      )}
+    </Tooltip>
+  );
+}
+
 // A value cut short to its room, all of it on hover when it is.
 function ValueCode({ text, muted }: { text: string; muted: boolean }) {
   const ref = useRef<HTMLElement>(null);
@@ -290,13 +318,11 @@ function Steps({
               {step.name ? (
                 <>
                   {" "}
-                  {step.href ? (
-                    <Link href={step.href} className={styles.clamped}>
-                      {step.name}
-                    </Link>
-                  ) : (
-                    <span className={styles.clamped}>{step.name}</span>
-                  )}
+                  <ClampedName
+                    name={step.name}
+                    href={step.href}
+                    className={styles.clamped}
+                  />
                 </>
               ) : null}
               :
@@ -353,9 +379,11 @@ function Drilldown({
       {card.prerequisites.map((p) => (
         <div key={p.index} className={styles.subRow}>
           {prerequisiteState(p.id, card.id)}
-          <Link href={`/features/${p.id}`} className={styles.clamped}>
-            {p.id}
-          </Link>
+          <ClampedName
+            name={p.id}
+            href={`/features/${p.id}`}
+            className={styles.clamped}
+          />
         </div>
       ))}
       {status.holdout !== "none" ? (
@@ -534,12 +562,11 @@ export function PrerequisiteList({
                 key: p.index,
                 name: (
                   <>
-                    <Link
+                    <ClampedName
+                      name={p.id}
                       href={`/features/${p.id}`}
                       className={styles.prerequisiteName}
-                    >
-                      {p.id}
-                    </Link>
+                    />
                     {p.change ? (
                       <DraftChangeMark change={p.change} spelled />
                     ) : null}
