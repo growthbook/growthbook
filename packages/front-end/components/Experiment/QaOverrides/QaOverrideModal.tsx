@@ -1,76 +1,75 @@
-import { useMemo, useState } from "react";
-import { useForm } from "react-hook-form";
-import { Box, Flex } from "@radix-ui/themes";
-import { PiPlusBold, PiXBold } from "react-icons/pi";
+import { useMemo } from "react";
+import { Box, Flex, Separator } from "@radix-ui/themes";
+import { PiCaretDownBold, PiPlusBold } from "react-icons/pi";
 import {
   ExperimentInterfaceStringDates,
   LinkedFeatureInfo,
 } from "shared/types/experiment";
-import {
-  ExperimentQaOverrideAssignment,
-  ExperimentQaOverrideInterface,
-  QaOverrideFilters,
-} from "shared/types/experiment-qa-override";
-import { SavedGroupTargeting } from "shared/validators";
+import { ExperimentQaOverrideInterface } from "shared/types/experiment-qa-override";
 import { getLatestPhaseVariations } from "shared/experiments";
+import { date } from "shared/dates";
 import {
-  getQaOverrideWaitingFeatures,
+  QA_OVERRIDE_WAITING_REASONS,
   isProductionEnvironment,
-  qaOverrideHasCondition,
 } from "shared/util";
 import { useAuth } from "@/services/auth";
-import { useEnvironments } from "@/services/features";
+import { useUser } from "@/services/UserContext";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import useSDKConnections from "@/hooks/useSDKConnections";
+import { QaOverrideFilterKind } from "@/services/qaOverrides";
+import ConditionInput from "@/components/Features/ConditionInput";
+import SavedGroupTargetingField from "@/components/Features/SavedGroupTargetingField";
+import { SetupFieldGroup } from "@/components/Experiment/TabbedPage/SetupFieldRow";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
-import RadioCards from "@/ui/RadioCards";
-import RadioGroup from "@/ui/RadioGroup";
+import { validatedSubmit } from "@/ui/Modal/validatedSubmit";
 import { Select, SelectItem } from "@/ui/Select";
+import RadioGroup from "@/ui/RadioGroup";
 import MultiSelectField from "@/ui/MultiSelectField";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import Button from "@/ui/Button";
+import Badge from "@/ui/Badge";
 import Callout from "@/ui/Callout";
-import Text from "@/ui/Text";
 import Heading from "@/ui/Heading";
-import VariationLabel from "@/ui/VariationLabel";
 import Link from "@/ui/Link";
-import ConditionInput from "@/components/Features/ConditionInput";
-import SavedGroupTargetingField from "@/components/Features/SavedGroupTargetingField";
-import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import QaOverrideFeatureGate from "./QaOverrideFeatureGate";
+import Text from "@/ui/Text";
+import Tooltip from "@/ui/Tooltip";
+import VariationLabel from "@/ui/VariationLabel";
+import useQaOverridePermissions from "./useQaOverridePermissions";
+import useQaOverrideForm, {
+  QA_OVERRIDE_FILTER_META,
+} from "./useQaOverrideForm";
 
 export type QaOverrideModalExperiment = Pick<
   ExperimentInterfaceStringDates,
   "id" | "name" | "project" | "hashAttribute" | "variations" | "phases"
 >;
 
-type FilterKind = "attributes" | "savedGroups" | "sdkConnections" | "projects";
+function SectionHeading({ children }: { children: React.ReactNode }) {
+  return (
+    <Heading as="h3" size="sm" mb="0">
+      {children}
+    </Heading>
+  );
+}
 
-const FILTER_LABELS: Record<FilterKind, string> = {
-  attributes: "Identifiers",
-  savedGroups: "Saved Groups",
-  sdkConnections: "SDK Connections",
-  projects: "Projects",
-};
-
-type FormValues = {
-  environment: string;
-  assignmentType: ExperimentQaOverrideAssignment["type"];
-  forcedVariationId: string;
-  condition: string;
-  savedGroups: SavedGroupTargeting[];
-  sdkConnections: string[];
-  projects: string[];
-};
-
-function activeFiltersFrom(filters?: QaOverrideFilters): FilterKind[] {
-  if (!filters) return [];
-  const kinds: FilterKind[] = [];
-  if (qaOverrideHasCondition(filters)) kinds.push("attributes");
-  if (filters.savedGroups?.length) kinds.push("savedGroups");
-  if (filters.sdkConnections?.length) kinds.push("sdkConnections");
-  if (filters.projects?.length) kinds.push("projects");
-  return kinds;
+function RemoveFilterButton({
+  kind,
+  onClick,
+}: {
+  kind: QaOverrideFilterKind;
+  onClick: () => void;
+}) {
+  return (
+    <Button
+      variant="ghost"
+      color="gray"
+      size="sm"
+      aria-label={`Remove ${QA_OVERRIDE_FILTER_META[kind].label} filter`}
+      onClick={onClick}
+    >
+      Remove
+    </Button>
+  );
 }
 
 export default function QaOverrideModal({
@@ -79,63 +78,49 @@ export default function QaOverrideModal({
   existing,
   close,
   onSaved,
-  onFeatureChanged,
 }: {
   experiment: QaOverrideModalExperiment;
   linkedFeatures?: LinkedFeatureInfo[];
   existing?: ExperimentQaOverrideInterface;
   close: () => void;
   onSaved: () => Promise<unknown> | void;
-  onFeatureChanged?: () => Promise<unknown> | void;
 }) {
   const { apiCall } = useAuth();
-  const permissionsUtil = usePermissionsUtil();
-  const environments = useEnvironments();
+  const { getUserDisplay } = useUser();
   const { projects } = useDefinitions();
   const { data: connectionData } = useSDKConnections();
+  const { environments, eligibleEnvironments, canEditIn } =
+    useQaOverridePermissions(experiment);
 
   const variations = getLatestPhaseVariations(experiment);
-  const phase = experiment.phases[experiment.phases.length - 1];
-
-  // Production stays listed (disabled, with the note below) so people learn
-  // why it's missing; environments the user can't run experiments in are
-  // left out since the server would refuse them anyway.
+  // Production stays listed, disabled, so people learn why it's missing;
+  // environments the user can't run experiments in are left out since the
+  // server would refuse them anyway.
   const environmentOptions = useMemo(
     () =>
       environments
         .map((e) => ({ id: e.id, isProduction: isProductionEnvironment(e) }))
-        .filter(
-          (e) =>
-            e.isProduction ||
-            permissionsUtil.canRunExperiment(experiment, [e.id]),
-        ),
-    [environments, experiment, permissionsUtil],
+        .filter((e) => e.isProduction || canEditIn(e.id)),
+    [environments, canEditIn],
   );
-  const eligibleEnvironments = environmentOptions.filter(
-    (e) => !e.isProduction,
-  );
+  const editable = eligibleEnvironments.filter((e) => canEditIn(e.id));
 
-  const form = useForm<FormValues>({
-    defaultValues: {
-      environment:
-        existing?.environment ??
-        (eligibleEnvironments.length === 1 ? eligibleEnvironments[0].id : ""),
-      assignmentType: existing?.assignment.type ?? "forced",
-      forcedVariationId:
-        existing?.assignment.type === "forced"
-          ? existing.assignment.variationId
-          : "",
-      condition: existing?.filters.condition ?? "{}",
-      savedGroups: existing?.filters.savedGroups ?? [],
-      sdkConnections: existing?.filters.sdkConnections ?? [],
-      projects: existing?.filters.projects ?? [],
-    },
+  const {
+    form,
+    values,
+    addFilter,
+    removeFilter,
+    setEnvironment,
+    availableFilters,
+    waitingFeatures,
+    body,
+    canSave,
+  } = useQaOverrideForm({
+    existing,
+    defaultEnvironment: editable.length === 1 ? editable[0].id : "",
+    hashAttribute: experiment.hashAttribute || "id",
+    linkedFeatures: linkedFeatures ?? [],
   });
-  const [activeFilters, setActiveFilters] = useState<FilterKind[]>(() =>
-    activeFiltersFrom(existing?.filters),
-  );
-
-  const values = form.watch();
 
   const connectionOptions = useMemo(
     () =>
@@ -149,68 +134,118 @@ export default function QaOverrideModal({
     [projects],
   );
 
-  const waitingFeatures = values.environment
-    ? getQaOverrideWaitingFeatures(
-        { environment: values.environment },
-        linkedFeatures ?? [],
-      )
-    : [];
-
-  const addFilter = (kind: FilterKind) =>
-    setActiveFilters((current) =>
-      current.includes(kind) ? current : [...current, kind],
-    );
-  const removeFilter = (kind: FilterKind) => {
-    setActiveFilters((current) => current.filter((k) => k !== kind));
-    if (kind === "attributes") form.setValue("condition", "{}");
-    if (kind === "savedGroups") form.setValue("savedGroups", []);
-    if (kind === "sdkConnections") form.setValue("sdkConnections", []);
-    if (kind === "projects") form.setValue("projects", []);
-  };
-  const availableFilters = (Object.keys(FILTER_LABELS) as FilterKind[]).filter(
-    (k) => !activeFilters.includes(k),
+  const addFilterMenu = (
+    <DropdownMenu
+      trigger={
+        <Button variant="outline" size="sm" icon={<PiPlusBold />}>
+          Add Filter <PiCaretDownBold size={10} />
+        </Button>
+      }
+      menuPlacement="end"
+      disabled={availableFilters.length === 0}
+    >
+      {availableFilters.map((kind) => {
+        const needsEnvironment =
+          kind === "sdkConnections" && !values.environment;
+        return (
+          <DropdownMenuItem
+            key={kind}
+            onClick={() => addFilter(kind)}
+            disabled={needsEnvironment}
+            tooltip={
+              needsEnvironment ? "Select an environment first" : undefined
+            }
+          >
+            <Flex direction="column" gap="0">
+              <Text weight="medium">{QA_OVERRIDE_FILTER_META[kind].label}</Text>
+              <Text size="sm" color="text-mid">
+                {QA_OVERRIDE_FILTER_META[kind].description}
+              </Text>
+            </Flex>
+          </DropdownMenuItem>
+        );
+      })}
+    </DropdownMenu>
   );
 
-  const buildFilters = (): QaOverrideFilters => ({
-    ...(activeFilters.includes("attributes") && values.condition !== "{}"
-      ? { condition: values.condition }
-      : {}),
-    ...(activeFilters.includes("savedGroups") && values.savedGroups.length
-      ? { savedGroups: values.savedGroups }
-      : {}),
-    ...(activeFilters.includes("sdkConnections") && values.sdkConnections.length
-      ? { sdkConnections: values.sdkConnections }
-      : {}),
-    ...(activeFilters.includes("projects") && values.projects.length
-      ? { projects: values.projects }
-      : {}),
-  });
-
-  const buildAssignment = (): ExperimentQaOverrideAssignment =>
-    values.assignmentType === "forced"
-      ? { type: "forced", variationId: values.forcedVariationId }
-      : { type: "random" };
-
-  const valid =
-    !!values.environment &&
-    (values.assignmentType === "random" || !!values.forcedVariationId);
+  const filterCard = (kind: QaOverrideFilterKind) => {
+    const remove = (
+      <RemoveFilterButton kind={kind} onClick={() => removeFilter(kind)} />
+    );
+    const header = (
+      <Flex align="center" justify="between" mb="1">
+        <Text weight="semibold">{QA_OVERRIDE_FILTER_META[kind].label}</Text>
+        {remove}
+      </Flex>
+    );
+    return (
+      <SetupFieldGroup key={kind} inset>
+        {kind === "condition" && (
+          <ConditionInput
+            label={QA_OVERRIDE_FILTER_META.condition.label}
+            labelActions={remove}
+            defaultValue={values.condition}
+            onChange={(v) => form.setValue("condition", v)}
+            project={experiment.project || ""}
+            emptyText=""
+            identifiersOnly
+          />
+        )}
+        {kind === "savedGroups" && (
+          <SavedGroupTargetingField
+            label={QA_OVERRIDE_FILTER_META.savedGroups.label}
+            labelActions={remove}
+            value={values.savedGroups}
+            setValue={(v) => form.setValue("savedGroups", v)}
+            project={experiment.project || ""}
+          />
+        )}
+        {kind === "sdkConnections" && (
+          <>
+            {header}
+            <MultiSelectField
+              aria-label={QA_OVERRIDE_FILTER_META.sdkConnections.label}
+              value={values.sdkConnections}
+              onChange={(v) => form.setValue("sdkConnections", v)}
+              options={connectionOptions}
+              placeholder="Select SDK connections…"
+              autoFocus
+            />
+          </>
+        )}
+        {kind === "projects" && (
+          <>
+            {header}
+            <MultiSelectField
+              aria-label={QA_OVERRIDE_FILTER_META.projects.label}
+              value={values.projects}
+              onChange={(v) => form.setValue("projects", v)}
+              options={projectOptions}
+              placeholder="Select projects…"
+              autoFocus
+            />
+          </>
+        )}
+      </SetupFieldGroup>
+    );
+  };
 
   return (
     <ModalStandard
       open={true}
       close={close}
       header={existing ? "Edit QA Override" : "Add QA Override"}
-      subheader={experiment.name}
-      cta="Save override"
-      ctaEnabled={valid}
+      subheader={
+        existing
+          ? `${getUserDisplay(existing.createdBy, true)} · ${date(existing.dateCreated)}`
+          : undefined
+      }
+      cta={existing ? "Apply" : "Add Override"}
+      ctaEnabled={canSave}
       size="md"
       trackingEventModalType="experiment-qa-override"
-      submit={form.handleSubmit(async (value) => {
-        const body = {
-          environment: value.environment,
-          filters: buildFilters(),
-          assignment: buildAssignment(),
-        };
+      submit={validatedSubmit(form, async () => {
+        if (!body) return;
         if (existing) {
           await apiCall(`/qa-overrides/${existing.id}`, {
             method: "PUT",
@@ -219,235 +254,135 @@ export default function QaOverrideModal({
         } else {
           await apiCall(`/qa-overrides/experiment/${experiment.id}`, {
             method: "POST",
-            body: JSON.stringify(body),
+            body: JSON.stringify({ environment: values.environment, ...body }),
           });
         }
         await onSaved();
       })}
     >
-      <Flex direction="column" gap="5">
-        <Box>
-          <Select
-            label="Environment"
-            value={values.environment}
-            setValue={(v) => {
-              form.setValue("environment", v);
-              // Connections belong to one environment, so a different
-              // environment makes any connection filter meaningless.
-              form.setValue("sdkConnections", []);
-            }}
-            placeholder="Select an environment..."
-          >
-            {environmentOptions.map((e) => (
-              <SelectItem key={e.id} value={e.id} disabled={e.isProduction}>
-                {e.id}
-                {e.isProduction ? " (production)" : ""}
-              </SelectItem>
-            ))}
-          </Select>
-          {environmentOptions.some((e) => e.isProduction) && (
-            <Text as="p" size="sm" color="text-low" mt="1">
-              QA overrides aren&apos;t available on production. To use one of
-              those environments, turn off &quot;This is a production
-              environment&quot; in{" "}
-              <Link href="/environments">Settings → Environments</Link>.
-            </Text>
-          )}
-        </Box>
-
-        <Box>
-          <Flex align="center" justify="between" mb="1">
-            <Heading as="h3" size="sm" mb="0">
-              Filters
-            </Heading>
-            {availableFilters.length > 0 && (
-              <DropdownMenu
-                trigger={
-                  <Button variant="ghost" size="sm" icon={<PiPlusBold />}>
-                    Add filter
-                  </Button>
-                }
-                menuPlacement="end"
+      <Flex direction="column" gap="4">
+        <Flex direction="column" gap="2" align="start">
+          <SectionHeading>Environment</SectionHeading>
+          {existing ? (
+            <Badge label={existing.environment} color="gray" variant="soft" />
+          ) : (
+            <>
+              <Select
+                aria-label="Environment"
+                value={values.environment}
+                setValue={setEnvironment}
+                placeholder="Select an environment…"
               >
-                {availableFilters.map((kind) => (
-                  <DropdownMenuItem key={kind} onClick={() => addFilter(kind)}>
-                    {FILTER_LABELS[kind]}
-                  </DropdownMenuItem>
+                {environmentOptions.map((e) => (
+                  <SelectItem key={e.id} value={e.id} disabled={e.isProduction}>
+                    {e.id}
+                  </SelectItem>
                 ))}
-              </DropdownMenu>
+              </Select>
+              <Text size="sm" color="text-low">
+                Only non-production environments are selectable.
+              </Text>
+            </>
+          )}
+          {waitingFeatures.length > 0 && (
+            <Callout status="warning" size="sm" mt="1">
+              {waitingFeatures.map((w) => (
+                <Text as="p" size="sm" key={w.featureId} mb="0">
+                  <code>{w.featureId}</code>:{" "}
+                  {QA_OVERRIDE_WAITING_REASONS[w.reason]} in{" "}
+                  <Text size="sm" weight="medium">
+                    {values.environment}
+                  </Text>
+                  , so this override won&apos;t apply until that changes.{" "}
+                  <Link href={`/features/${w.featureId}`} size="sm">
+                    Open {w.featureId} →
+                  </Link>
+                </Text>
+              ))}
+            </Callout>
+          )}
+        </Flex>
+
+        <Separator size="4" />
+
+        <Flex direction="column" gap="2">
+          <Flex align="center" gap="2">
+            <SectionHeading>Filters</SectionHeading>
+            <Text size="sm" color="text-low">
+              Optional
+            </Text>
+            <Box flexGrow="1" />
+            {availableFilters.length === 0 ? (
+              <Tooltip content="Every filter type has been added.">
+                <span>{addFilterMenu}</span>
+              </Tooltip>
+            ) : (
+              addFilterMenu
             )}
           </Flex>
-          {activeFilters.length === 0 ? (
-            <Text as="p" size="sm" color="text-low">
-              No filters: every request in this environment gets the override.
-              Add one to narrow it to specific identifiers, Saved Groups, SDK
-              Connections or Projects.
-            </Text>
+          {values.filters.length === 0 ? (
+            <Box
+              py="3"
+              px="4"
+              style={{
+                border: "1px solid var(--gray-a4)",
+                borderRadius: "var(--radius-2)",
+              }}
+            >
+              <Text as="p" size="sm" color="text-low" align="center" mb="0">
+                No filters. Everyone in the selected environment gets this
+                override.
+              </Text>
+            </Box>
           ) : (
-            <Flex direction="column" gap="4" mt="2">
-              {activeFilters.map((kind) => (
-                <Box key={kind}>
-                  <Flex align="center" justify="between" mb="1">
-                    <Text weight="medium">{FILTER_LABELS[kind]}</Text>
-                    <Button
-                      variant="ghost"
-                      color="gray"
-                      size="sm"
-                      icon={<PiXBold />}
-                      onClick={() => removeFilter(kind)}
-                    >
-                      Remove
-                    </Button>
-                  </Flex>
-                  {kind === "attributes" && (
-                    <ConditionInput
-                      defaultValue={values.condition}
-                      onChange={(v) => form.setValue("condition", v)}
-                      project={experiment.project || ""}
-                      emptyText=""
-                      slimMode
-                      identifiersOnly
-                    />
-                  )}
-                  {kind === "savedGroups" && (
-                    <SavedGroupTargetingField
-                      value={values.savedGroups}
-                      setValue={(v) => form.setValue("savedGroups", v)}
-                      project={experiment.project || ""}
-                      slimMode
-                    />
-                  )}
-                  {kind === "sdkConnections" && (
-                    <MultiSelectField
-                      aria-label={FILTER_LABELS[kind]}
-                      value={values.sdkConnections}
-                      onChange={(v) => form.setValue("sdkConnections", v)}
-                      options={connectionOptions}
-                      placeholder={
-                        values.environment
-                          ? `Select SDK Connections in ${values.environment}...`
-                          : "Select an environment first"
-                      }
-                      disabled={!values.environment}
-                    />
-                  )}
-                  {kind === "projects" && (
-                    <MultiSelectField
-                      aria-label={FILTER_LABELS[kind]}
-                      value={values.projects}
-                      onChange={(v) => form.setValue("projects", v)}
-                      options={projectOptions}
-                      placeholder="Select Projects..."
-                    />
-                  )}
-                </Box>
-              ))}
+            <Flex direction="column" gap="2">
+              {values.filters.map(filterCard)}
             </Flex>
           )}
-        </Box>
+        </Flex>
 
-        {waitingFeatures.length > 0 && (
-          <Callout status="warning">
-            <Text as="p" mb="2">
-              This override won&apos;t apply through{" "}
-              {waitingFeatures.length === 1
-                ? "this Feature Flag"
-                : "these Feature Flags"}{" "}
-              until {waitingFeatures.length === 1 ? "it is" : "they are"} on in{" "}
-              <Text weight="medium">{values.environment}</Text>. You can still
-              save it now.
-            </Text>
-            <QaOverrideFeatureGate
-              environment={values.environment}
-              waitingOn={waitingFeatures}
-              linkedFeatures={linkedFeatures}
-              onChanged={onFeatureChanged}
-            />
-          </Callout>
-        )}
+        <Separator size="4" />
 
-        <Box>
-          <Heading as="h3" size="sm" mb="2">
-            Assignment
-          </Heading>
-          <RadioCards
-            columns="1"
+        <Flex direction="column" gap="2">
+          <SectionHeading>Variation</SectionHeading>
+          <RadioGroup
             value={values.assignmentType}
             setValue={(v) =>
-              form.setValue(
-                "assignmentType",
-                v as ExperimentQaOverrideAssignment["type"],
-              )
+              form.setValue("assignmentType", v as "random" | "forced")
             }
             options={[
               {
                 value: "random",
-                label: "Random assignment",
-                description: `Run the experiment as configured: hashing on ${
-                  experiment.hashAttribute || "id"
-                }, ${(phase?.variationWeights ?? [])
-                  .map((w) => Math.round(w * 100))
-                  .join(" / ")} split, ${Math.round(
-                  (phase?.coverage ?? 1) * 100,
-                )}% coverage, ${experimentTargetingDescription(
-                  experiment,
-                )}. Holdouts are ignored.`,
+                label: "Random",
+                description:
+                  "Split like the live experiment, using its targeting and traffic.",
               },
               {
                 value: "forced",
-                label: "Force variation",
+                label: "Force a variation",
                 description:
-                  "Everyone matching the filters gets one variation. Experiment targeting, coverage, namespaces and holdouts are ignored.",
+                  "Everyone who matches your filters sees the variation you pick.",
+                renderOnSelect: (
+                  <Box mt="2">
+                    <Select
+                      aria-label="Variation"
+                      value={values.forcedVariationId || undefined}
+                      setValue={(v) => form.setValue("forcedVariationId", v)}
+                      placeholder="Select a variation…"
+                    >
+                      {variations.map((v, i) => (
+                        <SelectItem key={v.id} value={v.id} textValue={v.name}>
+                          <VariationLabel number={i} name={v.name} />
+                        </SelectItem>
+                      ))}
+                    </Select>
+                  </Box>
+                ),
               },
             ]}
           />
-          {values.assignmentType === "forced" && (
-            <Box mt="3" ml="2">
-              <RadioGroup
-                value={values.forcedVariationId}
-                setValue={(v) => form.setValue("forcedVariationId", v)}
-                options={variations.map((v, i) => ({
-                  value: v.id,
-                  label: <VariationLabel number={i} name={v.name} />,
-                }))}
-              />
-            </Box>
-          )}
-        </Box>
-
-        <Callout status="info">
-          Removed automatically when the experiment starts.
-        </Callout>
+        </Flex>
       </Flex>
     </ModalStandard>
   );
-}
-
-function experimentTargetingDescription(
-  experiment: QaOverrideModalExperiment,
-): string {
-  const phase = experiment.phases[experiment.phases.length - 1];
-  if (!phase) return "no targeting";
-  const parts: string[] = [];
-  if (phase.condition && phase.condition !== "{}") {
-    parts.push("attribute targeting");
-  }
-  if (phase.savedGroups?.length) {
-    parts.push(
-      `${phase.savedGroups.length} saved group rule${
-        phase.savedGroups.length === 1 ? "" : "s"
-      }`,
-    );
-  }
-  if (phase.prerequisites?.length) {
-    parts.push(
-      `${phase.prerequisites.length} prerequisite${
-        phase.prerequisites.length === 1 ? "" : "s"
-      }`,
-    );
-  }
-  if (phase.namespace?.enabled && phase.namespace.name) {
-    parts.push(`namespace ${phase.namespace.name}`);
-  }
-  return parts.length ? parts.join(", ") : "no targeting";
 }

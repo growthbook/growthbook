@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Box, Flex } from "@radix-ui/themes";
+import { useMemo, useState } from "react";
+import { Box, Flex, Separator } from "@radix-ui/themes";
 import { PiPlusBold } from "react-icons/pi";
 import {
   ExperimentInterfaceStringDates,
@@ -7,98 +7,184 @@ import {
 } from "shared/types/experiment";
 import { ExperimentQaOverrideWithStatus } from "shared/types/experiment-qa-override";
 import { getLatestPhaseVariations } from "shared/experiments";
-import { isProductionEnvironment } from "shared/util";
 import { useAuth } from "@/services/auth";
-import { useEnvironments } from "@/services/features";
-import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import useExperimentQaOverrides from "@/hooks/useExperimentQaOverrides";
-import ExposureLogsCard from "@/components/HealthTab/ExposureLogsCard";
+import {
+  groupQaOverrides,
+  qaOverridesNeedGrouping,
+} from "@/services/qaOverrides";
+import { InfoTip } from "@/components/Experiment/TabbedPage/SetupFieldRow";
 import Frame from "@/ui/Frame";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
 import Button from "@/ui/Button";
-import Badge from "@/ui/Badge";
 import Link from "@/ui/Link";
 import Callout from "@/ui/Callout";
-import ConfirmDialog from "@/ui/ConfirmDialog";
-import {
-  DropdownMenu,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  MoreMenuTrigger,
-} from "@/ui/DropdownMenu";
-import Table, {
-  TableBody,
-  TableCell,
-  TableColumnHeader,
-  TableHeader,
-  TableRow,
-} from "@/ui/Table";
 import QaOverrideModal from "./QaOverrideModal";
-import QaOverrideFeatureGate from "./QaOverrideFeatureGate";
-import {
-  QaOverrideFiltersSummary,
-  QaOverrideSetBy,
-  QaOverrideStatus,
-  QaOverrideVariation,
-} from "./QaOverrideSummary";
+import QaOverridesTable, { QaOverrideRow } from "./QaOverridesTable";
+import { useQaOverrideNameLookups } from "./QaOverrideFilterChips";
+import useQaOverridePermissions from "./useQaOverridePermissions";
 
+// Matches the variations table above it in the Implementation panel.
+const EMPTY_CARD_WIDTH = 694;
+
+const ABOUT =
+  "Serve this draft to yourself or your team in a non-production environment. " +
+  "Testers skip holdout, targeting and traffic. When several overrides match, " +
+  "the first one wins. Overrides are removed automatically when the experiment starts.";
+
+/**
+ * The QA Overrides card at the bottom of a draft's Implementation panel.
+ * Rendered through `TrafficAllocationFunnel`'s `qaOverrides` slot.
+ */
 export default function QaOverridesSection({
   experiment,
   linkedFeatures,
-  mutateExperiment,
 }: {
   experiment: ExperimentInterfaceStringDates;
   linkedFeatures?: LinkedFeatureInfo[];
-  // Refreshes the experiment (and its linked features) after a flag is toggled.
-  mutateExperiment?: () => Promise<unknown> | void;
 }) {
   const { apiCall } = useAuth();
-  const permissionsUtil = usePermissionsUtil();
-  const environments = useEnvironments();
   const { data, error, mutate } = useExperimentQaOverrides(experiment.id);
+  const { environmentOrder, eligibleEnvironments, canEditIn, canAdd } =
+    useQaOverridePermissions(experiment);
+  const lookups = useQaOverrideNameLookups(data?.sdkConnections);
   const [modal, setModal] = useState<
     | { mode: "create" }
     | { mode: "edit"; override: ExperimentQaOverrideWithStatus }
     | null
   >(null);
-  const [confirmRemoveAll, setConfirmRemoveAll] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
 
-  const overrides = data?.overrides ?? [];
+  const overrides = useMemo(() => data?.overrides ?? [], [data]);
   const variations = getLatestPhaseVariations(experiment);
-  const eligibleEnvs = environments.filter((e) => !isProductionEnvironment(e));
-  // Permissions are per environment, so check the one each row targets and
-  // offer "Add" when any eligible environment is allowed.
-  const canEditIn = (environment: string) =>
-    permissionsUtil.canRunExperiment(experiment, [environment]);
-  const canAdd = eligibleEnvs.some((e) => canEditIn(e.id));
-  const editableOverrides = overrides.filter((o) => canEditIn(o.environment));
+  const groups = useMemo(
+    () =>
+      groupQaOverrides(overrides, environmentOrder).map((g) => ({
+        environment: g.environment,
+        rows: g.rows.map((r) => ({
+          priority: r.priority,
+          item: { override: r.item, variations } as QaOverrideRow,
+        })),
+      })),
+    [overrides, variations, environmentOrder],
+  );
+  const grouped = qaOverridesNeedGrouping(groups);
 
-  const run = async (action: () => Promise<unknown>) => {
+  const remove = async (row: QaOverrideRow) => {
     setActionError(null);
-    await action();
+    await apiCall(`/qa-overrides/${row.override.id}`, { method: "DELETE" });
     await mutate();
   };
 
-  const move = (index: number, direction: -1 | 1) =>
-    run(async () => {
-      const ids = overrides.map((o) => o.id);
-      const target = index + direction;
-      if (target < 0 || target >= ids.length) return;
-      [ids[index], ids[target]] = [ids[target], ids[index]];
-      await apiCall(`/qa-overrides/experiment/${experiment.id}/order`, {
-        method: "PUT",
-        body: JSON.stringify({ overrideIds: ids }),
-      });
-    });
-  // Ordering and "Remove all" act on every row, so they need access to all.
-  const canEditAll = editableOverrides.length === overrides.length;
-  const canReorder = overrides.length > 1 && canEditAll;
+  // Optimistic: the dragged row stays where it was dropped while the order
+  // saves; a failure refetches and reports.
+  const reorder = async (environment: string, orderedIds: string[]) => {
+    setActionError(null);
+    const others = overrides.filter((o) => o.environment !== environment);
+    const moved = orderedIds
+      .map((id) => overrides.find((o) => o.id === id))
+      .filter((o): o is ExperimentQaOverrideWithStatus => !!o);
+    const next = [...others, ...moved].map((o, i) => ({ ...o, order: i }));
+    try {
+      await mutate(
+        async () => {
+          await apiCall(`/qa-overrides/experiment/${experiment.id}/order`, {
+            method: "PUT",
+            body: JSON.stringify({ overrideIds: next.map((o) => o.id) }),
+          });
+          return undefined;
+        },
+        {
+          optimisticData: data ? { ...data, overrides: next } : undefined,
+          rollbackOnError: true,
+          revalidate: true,
+        },
+      );
+    } catch (e) {
+      setActionError(e.message);
+    }
+  };
+
+  const header = (title: boolean) => (
+    <Flex align="center" gap="2" mb={title ? "3" : "0"}>
+      <Heading as="h4" size="sm" mb="0">
+        QA Overrides
+      </Heading>
+      {title && <InfoTip content={ABOUT} />}
+      <Box flexGrow="1" />
+      {title && canAdd && (
+        <Button
+          variant="outline"
+          size="sm"
+          icon={<PiPlusBold />}
+          onClick={() => setModal({ mode: "create" })}
+        >
+          Add Override
+        </Button>
+      )}
+    </Flex>
+  );
+
+  // Empty states are a small centered card; a populated table spans the panel.
+  if (overrides.length === 0 && !error) {
+    const allProduction = eligibleEnvironments.length === 0;
+    return (
+      <>
+        <Separator size="4" my="5" />
+        <Frame
+          mx="auto"
+          py="5"
+          px="6"
+          style={{ maxWidth: `min(${EMPTY_CARD_WIDTH}px, 100%)` }}
+        >
+          <Flex direction="column" align="center" gap="2">
+            <Heading as="h4" size="sm" mb="0">
+              QA Overrides
+            </Heading>
+            <Box maxWidth="440px">
+              <Text color="text-mid" align="center">
+                {allProduction
+                  ? "QA overrides only run in non-production environments, and every environment in this organization is marked as production."
+                  : "Serve this draft to yourself or your team in a non-production environment before it starts."}
+              </Text>
+            </Box>
+            {allProduction ? (
+              <Link href="/environments" mt="2">
+                Manage Environments →
+              </Link>
+            ) : canAdd ? (
+              <Box mt="2">
+                <Button
+                  variant="outline"
+                  icon={<PiPlusBold />}
+                  onClick={() => setModal({ mode: "create" })}
+                >
+                  Add Override
+                </Button>
+              </Box>
+            ) : null}
+          </Flex>
+        </Frame>
+        {modal && (
+          <QaOverrideModal
+            experiment={experiment}
+            linkedFeatures={linkedFeatures}
+            close={() => setModal(null)}
+            onSaved={async () => {
+              await mutate();
+              setModal(null);
+            }}
+          />
+        )}
+      </>
+    );
+  }
 
   return (
     <>
-      <Frame>
+      <Separator size="4" my="5" />
+      <Frame py="4" px="4" style={{ alignSelf: "stretch" }}>
         {modal && (
           <QaOverrideModal
             experiment={experiment}
@@ -109,62 +195,9 @@ export default function QaOverridesSection({
               await mutate();
               setModal(null);
             }}
-            onFeatureChanged={mutateExperiment}
           />
         )}
-        {confirmRemoveAll && (
-          <ConfirmDialog
-            title="Remove all QA overrides?"
-            content="This draft will stop being served to every environment listed here."
-            yesText="Remove all"
-            color="red"
-            onCancel={() => setConfirmRemoveAll(false)}
-            onConfirm={async () => {
-              try {
-                await run(() =>
-                  apiCall(`/qa-overrides/experiment/${experiment.id}`, {
-                    method: "DELETE",
-                  }),
-                );
-              } catch (e) {
-                setActionError(e.message);
-              }
-              setConfirmRemoveAll(false);
-            }}
-          />
-        )}
-        <Flex align="start" justify="between" gap="3" mb="3">
-          <Box>
-            <Heading color="text-high" as="h4" size="sm" mb="1">
-              QA Overrides
-            </Heading>
-            <Text color="text-mid">
-              Serve this draft to a non-production environment before it starts.
-              When several overrides match a request, the first one wins.
-            </Text>
-          </Box>
-          {canAdd && (
-            <Flex align="center" gap="3" flexShrink="0">
-              {overrides.length > 1 && canEditAll && (
-                <Button
-                  variant="ghost"
-                  color="red"
-                  onClick={() => setConfirmRemoveAll(true)}
-                >
-                  Remove all
-                </Button>
-              )}
-              <Button
-                variant="outline"
-                icon={<PiPlusBold />}
-                onClick={() => setModal({ mode: "create" })}
-              >
-                Add override
-              </Button>
-            </Flex>
-          )}
-        </Flex>
-
+        {header(true)}
         {error && (
           <Callout status="error" mb="3">
             Could not load QA overrides: {error.message}
@@ -175,145 +208,25 @@ export default function QaOverridesSection({
             {actionError}
           </Callout>
         )}
-
-        {eligibleEnvs.length === 0 ? (
-          <Callout status="info">
-            Every environment is marked as production. Turn off &quot;This is a
-            production environment&quot; on one in Settings → Environments to
-            use QA overrides.{" "}
-            <Link href="/environments">Manage environments</Link>
-          </Callout>
-        ) : overrides.length === 0 ? (
-          !error && (
-            <Text color="text-low">
-              No QA overrides yet. Add one to serve this draft to an
-              environment.
-            </Text>
-          )
-        ) : (
-          <Table variant="ghost">
-            <TableHeader>
-              <TableRow>
-                <TableColumnHeader>Environment</TableColumnHeader>
-                <TableColumnHeader>Filters</TableColumnHeader>
-                <TableColumnHeader>Variation</TableColumnHeader>
-                <TableColumnHeader>Status</TableColumnHeader>
-                <TableColumnHeader>Set by</TableColumnHeader>
-                <TableColumnHeader style={{ width: 30 }} />
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {overrides.map((override, i) => {
-                const canEdit = canEditIn(override.environment);
-                return (
-                  <TableRow key={override.id}>
-                    <TableCell>
-                      <Badge label={override.environment} color="gray" />
-                    </TableCell>
-                    <TableCell>
-                      <QaOverrideFiltersSummary override={override} />
-                    </TableCell>
-                    <TableCell>
-                      <QaOverrideVariation
-                        override={override}
-                        variations={variations}
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <Flex direction="column" gap="2" align="start">
-                        <QaOverrideStatus override={override} />
-                        {canEdit && (
-                          <QaOverrideFeatureGate
-                            environment={override.environment}
-                            waitingOn={override.waitingOn}
-                            linkedFeatures={linkedFeatures}
-                            onChanged={async () => {
-                              await mutateExperiment?.();
-                              await mutate();
-                            }}
-                          />
-                        )}
-                      </Flex>
-                    </TableCell>
-                    <TableCell>
-                      <QaOverrideSetBy override={override} />
-                    </TableCell>
-                    <TableCell>
-                      {canEdit && (
-                        <DropdownMenu
-                          trigger={
-                            <MoreMenuTrigger label="QA override actions" />
-                          }
-                          menuPlacement="end"
-                          variant="soft"
-                        >
-                          <DropdownMenuItem
-                            onClick={() => setModal({ mode: "edit", override })}
-                          >
-                            Edit
-                          </DropdownMenuItem>
-                          {canReorder && i > 0 && (
-                            <DropdownMenuItem
-                              onClick={() =>
-                                move(i, -1).catch((e) =>
-                                  setActionError(e.message),
-                                )
-                              }
-                            >
-                              Move up
-                            </DropdownMenuItem>
-                          )}
-                          {canReorder && i < overrides.length - 1 && (
-                            <DropdownMenuItem
-                              onClick={() =>
-                                move(i, 1).catch((e) =>
-                                  setActionError(e.message),
-                                )
-                              }
-                            >
-                              Move down
-                            </DropdownMenuItem>
-                          )}
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem
-                            color="red"
-                            confirmation={{
-                              confirmationTitle: "Remove this QA override?",
-                              cta: "Remove",
-                              ctaColor: "red",
-                              getConfirmationContent: async () =>
-                                `This draft will stop being served to ${override.environment} through this override.`,
-                              // Let errors propagate so the confirmation
-                              // dialog shows them inline instead of closing.
-                              submit: () =>
-                                run(() =>
-                                  apiCall(`/qa-overrides/${override.id}`, {
-                                    method: "DELETE",
-                                  }),
-                                ),
-                            }}
-                          >
-                            Remove
-                          </DropdownMenuItem>
-                        </DropdownMenu>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
+        {overrides.length > 0 && (
+          <QaOverridesTable
+            groups={groups}
+            leading="environment"
+            grouped={grouped}
+            // Order only matters with a Feature Flag; Visual Editor and URL
+            // Redirect changes each ship as their own experiment copy.
+            reorderable={grouped && !!linkedFeatures?.length}
+            lookups={lookups}
+            canEdit={(row) => canEditIn(row.override.environment)}
+            onEdit={(row) => setModal({ mode: "edit", override: row.override })}
+            onRemove={remove}
+            removeConfirmation={(row) =>
+              `This draft will stop being served to ${row.override.environment} through this override.`
+            }
+            onReorder={reorder}
+          />
         )}
       </Frame>
-      {overrides.length > 0 && experiment.datasource && (
-        <ExposureLogsCard
-          experiment={experiment}
-          isTabActive={true}
-          phase={experiment.phases.length - 1}
-          exposureSource="qa"
-          title="QA Exposure Logs"
-        />
-      )}
     </>
   );
 }

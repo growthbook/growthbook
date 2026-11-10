@@ -18,6 +18,7 @@ import {
   PreLaunchChecklistPanel,
 } from "@/components/PreLaunchChecklist/PreLaunchChecklist";
 import { usePreLaunchChecklist } from "@/components/PreLaunchChecklist/PreLaunchChecklistProvider";
+import useExperimentQaOverrides from "@/hooks/useExperimentQaOverrides";
 import { StartExperiment } from "./useStartExperiment";
 import useStartGate from "./useStartGate";
 import { getStartTitle } from "./startActions";
@@ -126,6 +127,11 @@ function StartContent({
     setBypassed(false);
   }
   const editsBlocked = useEditsBlockedReason();
+  // Only drafts can have QA overrides; starting deletes them.
+  const { data: qaData } = useExperimentQaOverrides(
+    experiment.status === "draft" ? experiment.id : undefined,
+  );
+  const qaOverrideCount = qaData?.overrides.length ?? 0;
   const end = scheduledEnd(experiment.statusUpdateSchedule);
   const [error, setError] = useState<string | null>(null);
 
@@ -151,6 +157,15 @@ function StartContent({
 
       <StartFailures failures={start.pendingDraftFailures} />
       <StartChecklistFailures items={start.checklistFailures} />
+      {qaOverrideCount > 0 ? (
+        <Callout status="info" size="sm">
+          Starting removes this experiment&apos;s{" "}
+          {qaOverrideCount === 1
+            ? "QA override"
+            : `${qaOverrideCount} QA overrides`}
+          .
+        </Callout>
+      ) : null}
       {pastSchedule ? (
         <Callout status="warning" size="sm">
           The scheduled start date{" "}

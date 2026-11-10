@@ -1,8 +1,6 @@
 // Specific files, not the package barrels: this module is imported by both apps
 // and a barrel round-trip risks a runtime cycle.
-import type { RequireReview } from "shared/types/organization";
 import { proposedProjectScope } from "../util/featureDraftPurity";
-import { getReviewSetting } from "../util/features";
 import { holdsMoveDestination } from "./moveAuthority";
 import { NO_ENVIRONMENT_BINDING } from "./revisionPermissions";
 import type { RevisionAction, RevisionModel } from "./revisionPermissions";
@@ -240,41 +238,4 @@ export function canWriteArchiveIntoDraft({
   return (
     revision.authorId === userId || !!revision.contributors?.includes(userId)
   );
-}
-
-export type EnvironmentTogglePath = "publish" | "draft" | "none";
-
-// Whether turning a Feature Flag on or off in one environment can be published
-// directly, has to be staged as a draft for approval, or isn't available to
-// this user at all. Mirrors the kill-switch modal's decision: an environment is
-// review-gated when the org requires reviews everywhere, or the feature's
-// review setting lists it (or lists no environments, meaning all of them) and
-// doesn't exempt environment toggles; a user who can bypass approvals ignores
-// the gate.
-export function canPublishEnvironmentToggle(
-  permissionsUtil: Pick<
-    Permissions,
-    "canPublishFeature" | "canEditFeatureDrafts" | "canBypassFlagApprovalChecks"
-  >,
-  feature: { project?: string },
-  environment: string,
-  requireReviews: boolean | RequireReview[] | undefined,
-): EnvironmentTogglePath {
-  const gated = (() => {
-    if (requireReviews === true) return true;
-    if (!Array.isArray(requireReviews)) return false;
-    const setting = getReviewSetting(requireReviews, feature);
-    if (!setting?.requireReviewOn) return false;
-    if (setting.featureRequireEnvironmentReview === false) return false;
-    const envs = setting.environments ?? [];
-    return envs.length === 0 || envs.includes(environment);
-  })();
-
-  const canPublish =
-    (!gated ||
-      permissionsUtil.canBypassFlagApprovalChecks(feature, "feature")) &&
-    permissionsUtil.canPublishFeature(feature, [environment]);
-  if (canPublish) return "publish";
-  if (permissionsUtil.canEditFeatureDrafts(feature)) return "draft";
-  return "none";
 }

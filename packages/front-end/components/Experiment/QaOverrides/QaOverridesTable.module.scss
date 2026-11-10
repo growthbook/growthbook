@@ -1,0 +1,22 @@
+// The row menu shows on hover and keyboard focus, and stays while it is open.
+.actions {
+  opacity: 0;
+  transition: opacity 0.1s ease-in;
+}
+
+.row:hover .actions,
+.row:focus-within .actions,
+.actions:has([aria-expanded="true"]) {
+  opacity: 1;
+}
+
+.groupHeader {
+  background: var(--gray-a2);
+}
+
+.groupHeader td,
+.groupHeader th {
+  padding-top: 4px;
+  padding-bottom: 4px;
+  box-shadow: inset 0 -1px var(--gray-a4);
+}

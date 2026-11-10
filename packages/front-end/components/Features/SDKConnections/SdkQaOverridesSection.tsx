@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import { SDKConnectionInterface } from "shared/types/sdk-connection";
 import { ExperimentQaOverrideWithStatus } from "shared/types/experiment-qa-override";
@@ -10,32 +10,23 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import useSdkConnectionQaOverrides, {
   QaOverrideExperiment,
 } from "@/hooks/useSdkConnectionQaOverrides";
+import { groupQaOverrides } from "@/services/qaOverrides";
+import { InfoTip } from "@/components/Experiment/TabbedPage/SetupFieldRow";
 import Frame from "@/ui/Frame";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
-import Badge from "@/ui/Badge";
-import Link from "@/ui/Link";
 import Callout from "@/ui/Callout";
-import {
-  DropdownMenu,
-  DropdownMenuItem,
-  MoreMenuTrigger,
-} from "@/ui/DropdownMenu";
-import Table, {
-  TableBody,
-  TableCell,
-  TableColumnHeader,
-  TableHeader,
-  TableRow,
-} from "@/ui/Table";
 import QaOverrideModal from "@/components/Experiment/QaOverrides/QaOverrideModal";
-import {
-  QaOverrideFiltersSummary,
-  QaOverrideSetBy,
-  QaOverrideStatus,
-  QaOverrideVariation,
-} from "@/components/Experiment/QaOverrides/QaOverrideSummary";
+import QaOverridesTable, {
+  QaOverrideRow,
+} from "@/components/Experiment/QaOverrides/QaOverridesTable";
+import { useQaOverrideNameLookups } from "@/components/Experiment/QaOverrides/QaOverrideFilterChips";
 
+const ABOUT =
+  "Draft experiments served to this connection's environment that reach it. " +
+  "Each override is removed when its experiment starts.";
+
+/** Every draft experiment's QA overrides that reach this SDK Connection. */
 export default function SdkQaOverridesSection({
   connection,
 }: {
@@ -45,24 +36,52 @@ export default function SdkQaOverridesSection({
   const permissionsUtil = usePermissionsUtil();
   const environments = useEnvironments();
   const { data, error, mutate } = useSdkConnectionQaOverrides(connection.id);
+  const lookups = useQaOverrideNameLookups([connection]);
   const [editing, setEditing] = useState<{
     override: ExperimentQaOverrideWithStatus;
     experiment: QaOverrideExperiment;
   } | null>(null);
 
-  const overrides = data?.overrides ?? [];
-  const experiments = data?.experiments ?? [];
+  const overrides = useMemo(() => data?.overrides ?? [], [data]);
+  const experiments = useMemo(() => data?.experiments ?? [], [data]);
   const environment = environments.find((e) => e.id === connection.environment);
   const envEligible = !!environment && !isProductionEnvironment(environment);
 
-  const canEdit = (experiment: QaOverrideExperiment) =>
-    permissionsUtil.canRunExperiment(experiment, [connection.environment]);
+  const experimentOf = (override: ExperimentQaOverrideWithStatus) =>
+    experiments.find((e) => e.id === override.experiment);
 
-  // Used as a confirmation `submit`: errors propagate so the dialog shows
-  // them inline instead of closing as if the remove worked.
-  const deleteOverride = async (override: ExperimentQaOverrideWithStatus) => {
-    await apiCall(`/qa-overrides/${override.id}`, { method: "DELETE" });
-    await mutate();
+  // One environment, so one group: the table shows the experiment per row.
+  const groups = useMemo(
+    () =>
+      groupQaOverrides(overrides, [connection.environment]).map((g) => ({
+        environment: g.environment,
+        rows: g.rows.map((r) => {
+          const experiment = experiments.find(
+            (e) => e.id === r.item.experiment,
+          );
+          return {
+            priority: r.priority,
+            item: {
+              override: r.item,
+              experiment: experiment
+                ? { id: experiment.id, name: experiment.name }
+                : undefined,
+              variations: experiment
+                ? getLatestPhaseVariations(experiment)
+                : [],
+            } as QaOverrideRow,
+          };
+        }),
+      })),
+    [overrides, experiments, connection.environment],
+  );
+
+  const canEdit = (row: QaOverrideRow) => {
+    const experiment = experimentOf(row.override);
+    return (
+      !!experiment &&
+      permissionsUtil.canRunExperiment(experiment, [connection.environment])
+    );
   };
 
   // Most connections are production, where QA overrides can't exist; a card
@@ -82,28 +101,12 @@ export default function SdkQaOverridesSection({
           }}
         />
       )}
-      <Flex align="start" justify="between" gap="3" mb="3">
-        <Box>
-          <Flex align="center" gap="2" mb="1">
-            <Heading color="text-high" as="h4" size="sm" mb="0">
-              QA Overrides
-            </Heading>
-            {overrides.length > 0 && (
-              <Badge
-                label={String(overrides.length)}
-                color="gray"
-                variant="soft"
-                radius="full"
-              />
-            )}
-          </Flex>
-          <Text color="text-mid">
-            Draft experiments served to the{" "}
-            <Text weight="medium">{connection.environment}</Text> environment
-            that reach this connection. Each one is removed when its experiment
-            starts.
-          </Text>
-        </Box>
+      <Flex align="center" gap="2" mb="3">
+        <Heading color="text-high" as="h4" size="sm" mb="0">
+          QA Overrides
+        </Heading>
+        <InfoTip content={ABOUT} />
+        <Box flexGrow="1" />
       </Flex>
 
       {error && (
@@ -119,81 +122,25 @@ export default function SdkQaOverridesSection({
           </Text>
         )
       ) : (
-        <Table variant="ghost">
-          <TableHeader>
-            <TableRow>
-              <TableColumnHeader>Experiment</TableColumnHeader>
-              <TableColumnHeader>Filters</TableColumnHeader>
-              <TableColumnHeader>Variation</TableColumnHeader>
-              <TableColumnHeader>Status</TableColumnHeader>
-              <TableColumnHeader>Set by</TableColumnHeader>
-              <TableColumnHeader style={{ width: 30 }} />
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {overrides.map((override) => {
-              const experiment = experiments.find(
-                (e) => e.id === override.experiment,
-              );
-              return (
-                <TableRow key={override.id}>
-                  <TableCell>
-                    <Link href={`/experiment/${override.experiment}`}>
-                      {experiment?.name ?? override.experiment}
-                    </Link>
-                  </TableCell>
-                  <TableCell>
-                    <QaOverrideFiltersSummary override={override} />
-                  </TableCell>
-                  <TableCell>
-                    <QaOverrideVariation
-                      override={override}
-                      variations={
-                        experiment ? getLatestPhaseVariations(experiment) : []
-                      }
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <QaOverrideStatus override={override} />
-                  </TableCell>
-                  <TableCell>
-                    <QaOverrideSetBy override={override} />
-                  </TableCell>
-                  <TableCell>
-                    {experiment && canEdit(experiment) && (
-                      <DropdownMenu
-                        trigger={
-                          <MoreMenuTrigger label="QA override actions" />
-                        }
-                        menuPlacement="end"
-                        variant="soft"
-                      >
-                        <DropdownMenuItem
-                          onClick={() => setEditing({ override, experiment })}
-                        >
-                          Edit
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          color="red"
-                          confirmation={{
-                            confirmationTitle: "Remove this QA override?",
-                            cta: "Remove",
-                            ctaColor: "red",
-                            getConfirmationContent: async () =>
-                              `${experiment.name} will stop being served to ${connection.environment} through this override, for every connection it reaches.`,
-                            submit: () => deleteOverride(override),
-                          }}
-                        >
-                          Remove
-                        </DropdownMenuItem>
-                      </DropdownMenu>
-                    )}
-                  </TableCell>
-                </TableRow>
-              );
-            })}
-          </TableBody>
-        </Table>
+        <QaOverridesTable
+          groups={groups}
+          leading="experiment"
+          lookups={lookups}
+          canEdit={canEdit}
+          onEdit={(row) => {
+            const experiment = experimentOf(row.override);
+            if (experiment) setEditing({ override: row.override, experiment });
+          }}
+          onRemove={async (row) => {
+            await apiCall(`/qa-overrides/${row.override.id}`, {
+              method: "DELETE",
+            });
+            await mutate();
+          }}
+          removeConfirmation={(row) =>
+            `${row.experiment?.name ?? row.override.experiment} will stop being served to ${connection.environment} through this override, for every connection it reaches.`
+          }
+        />
       )}
     </Frame>
   );

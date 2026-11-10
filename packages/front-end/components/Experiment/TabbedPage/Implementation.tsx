@@ -69,6 +69,7 @@ import Frame from "@/ui/Frame";
 import useExperimentEditing from "@/components/Experiment/TabbedPage/useExperimentEditing";
 import type { AnalysisFormFocus } from "@/components/Experiment/AnalysisForm";
 import QaOverridesSection from "@/components/Experiment/QaOverrides/QaOverridesSection";
+import QaExposureLogs from "@/components/Experiment/QaOverrides/QaExposureLogs";
 import HoldoutEnvironments from "./HoldoutEnvironments";
 import {
   FlagEnvironmentsDraft,
@@ -432,6 +433,11 @@ export default function Implementation({
   );
 
   const isHoldout = experiment.type === "holdout";
+  const showQaOverrides =
+    !isHoldout &&
+    experiment.status === "draft" &&
+    !experiment.archived &&
+    experimentSupportsQaOverrides(experiment);
   const isBandit = experiment.type === "multi-armed-bandit";
 
   const safeToEdit = canEditDeliveryInPlace(experiment);
@@ -549,6 +555,14 @@ export default function Implementation({
               canEditFlagValues={canEdit}
               implementationColumns={implementationColumns}
               addImplementation={addImplementation}
+              qaOverrides={
+                showQaOverrides ? (
+                  <QaOverridesSection
+                    experiment={experiment}
+                    linkedFeatures={linkedFeatures}
+                  />
+                ) : null
+              }
             />
             <Box mt="5" mb="4">
               <Heading as="h4" size="sm" color="text-high" mb="3">
@@ -582,14 +596,8 @@ export default function Implementation({
             phaseIndex={getActivePhaseIndex(experiment)}
           />
         )}
-        {experiment.status === "draft" &&
-        !experiment.archived &&
-        experimentSupportsQaOverrides(experiment) ? (
-          <QaOverridesSection
-            experiment={experiment}
-            linkedFeatures={linkedFeatures}
-            mutateExperiment={mutate}
-          />
+        {showQaOverrides && experiment.datasource ? (
+          <QaExposureLogs experiment={experiment} />
         ) : null}
         {isHoldout && holdout ? (
           <HoldoutEnvironments
