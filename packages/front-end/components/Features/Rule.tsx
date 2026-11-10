@@ -2109,7 +2109,7 @@ export function getRuleMetaInfo({
 
   const targetReason =
     rule.type === "experiment-ref"
-      ? experimentRefSkipReason(linkedExperiment, isDraft)
+      ? experimentRefSkipReason(linkedExperiment)
       : rule.type === "contextual-bandit-ref" && linkedContextualBandit
         ? contextualBanditSkipReason(linkedContextualBandit)
         : null;
@@ -2238,7 +2238,7 @@ export function getRuleMetaInfo({
     return skipped(
       rule.type === "safe-rollout"
         ? "This Safe Rollout is stopped."
-        : experimentRefSkipReason(linkedExperiment, isDraft),
+        : experimentRefSkipReason(linkedExperiment),
       calloutSize,
     );
   }
@@ -2266,7 +2266,7 @@ export function getRuleMetaInfo({
       );
     }
     return skipped(
-      experimentRefSkipReason(linkedExperiment, isDraft),
+      experimentRefSkipReason(linkedExperiment),
       calloutSize,
       // An SDK connection can include draft experiment rules.
       linkedExperiment?.status === "draft" ? "Skipped by default" : "Skipped",

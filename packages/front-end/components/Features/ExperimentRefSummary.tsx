@@ -54,7 +54,6 @@ export function isExperimentRefRuleSkipped(
 // Why an experiment rule serves nothing, or null while it serves.
 export function experimentRefSkipReason(
   experiment: ExperimentInterfaceStringDates | undefined,
-  isDraft: boolean,
 ): ReactNode {
   if (!experiment) return "The experiment could not be found.";
   const isBandit = experiment.type === "multi-armed-bandit";
@@ -98,9 +97,6 @@ export function experimentRefSkipReason(
       <>
         This {noun} does not serve while in draft unless the SDK connection opts
         in.
-        {isDraft
-          ? ` You can start the ${noun} when you publish this feature draft.`
-          : null}
       </>
     );
   }

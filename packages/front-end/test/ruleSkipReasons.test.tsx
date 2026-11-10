@@ -26,11 +26,10 @@ function experiment(
 
 describe("experimentRefSkipReason", () => {
   it("serves a running experiment", () => {
-    expect(experimentRefSkipReason(experiment({}), false)).toBeNull();
+    expect(experimentRefSkipReason(experiment({}))).toBeNull();
     expect(
       experimentRefSkipReason(
         experiment({ status: "stopped", releasedVariationId: "v1" }),
-        false,
       ),
     ).toBeNull();
   });
@@ -61,20 +60,10 @@ describe("experimentRefSkipReason", () => {
     [
       "a draft",
       experiment({ status: "draft" }),
-      "SDK connections that include draft experiments",
+      "does not serve while in draft unless the SDK connection opts in",
     ],
   ])("explains %s", (_, exp, reason) => {
-    expect(text(experimentRefSkipReason(exp, false))).toContain(reason);
-  });
-
-  it("offers a draft's start on publish only while viewing a draft", () => {
-    const draft = experiment({ status: "draft" });
-    expect(text(experimentRefSkipReason(draft, true))).toContain(
-      "You can start the experiment when you publish this feature draft.",
-    );
-    expect(text(experimentRefSkipReason(draft, false))).not.toContain(
-      "publish",
-    );
+    expect(text(experimentRefSkipReason(exp))).toContain(reason);
   });
 
   it("names a Bandit as one", () => {
@@ -82,7 +71,6 @@ describe("experimentRefSkipReason", () => {
       text(
         experimentRefSkipReason(
           experiment({ type: "multi-armed-bandit", archived: true }),
-          false,
         ),
       ),
     ).toContain("This Bandit is archived");
