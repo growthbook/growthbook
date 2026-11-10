@@ -20,6 +20,7 @@ import {
   isRowFilterComplete,
 } from "@/components/FactTables/rowFilterUtils";
 import { useAuth } from "@/services/auth";
+import { validateSQL } from "@/services/datasources";
 import {
   getDefaultPartitionColumn,
   getPartitionFormats,
@@ -97,6 +98,9 @@ export function useSourceTable({
   const [detectedSql, setDetectedSql] = useState<string | null>(
     initialColumns ? sql : null,
   );
+
+  const [refreshingSqlColumns, setRefreshingSqlColumns] = useState(false);
+  const [refreshSqlError, setRefreshSqlError] = useState<string | null>(null);
 
   const onColumnsChangedRef = useRef(onColumnsChanged);
   onColumnsChangedRef.current = onColumnsChanged;
@@ -360,6 +364,38 @@ export function useSourceTable({
     return { ...res, where, generatedSql };
   };
 
+  // Detects every column the SQL returns, e.g. for a saved query that only
+  // lists the columns it maps
+  async function refreshSqlColumns() {
+    setRefreshingSqlColumns(true);
+    setRefreshSqlError(null);
+    try {
+      validateSQL(sql, []);
+      const res = await apiCall<{ error?: string; columns?: DetectedColumn[] }>(
+        "/query/test",
+        {
+          method: "POST",
+          body: JSON.stringify({
+            query: sql,
+            datasourceId,
+            limit: 0,
+            detectColumns: true,
+            queryType,
+          }),
+        },
+      );
+      if (res.error) throw new Error(res.error);
+      const cols = res.columns || [];
+      const error = getColumnMappingError(cols);
+      if (error) throw new Error(error);
+      handleColumnsDetected(cols, sql);
+    } catch (e) {
+      setRefreshSqlError(e.message);
+    } finally {
+      setRefreshingSqlColumns(false);
+    }
+  }
+
   const setMode = (next: SourceMode) => {
     if (next === "sql" && selectedTable) setSql(tableSql);
     setPreferredMode(next);
@@ -383,6 +419,9 @@ export function useSourceTable({
     setSql,
     detected,
     handleColumnsDetected,
+    refreshSqlColumns,
+    refreshingSqlColumns,
+    refreshSqlError,
     hasFreshResults,
     columnError,
     getColumnMappingError,

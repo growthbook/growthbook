@@ -42,7 +42,10 @@ import {
   MAX_ROWS_CLUSTER_UNITS_QUERY,
   N_STAR_VALUES,
 } from "back-end/src/services/experimentQueries/constants";
-import { getFeatureEvalDiagnosticsQuery } from "back-end/src/integrations/sql/queries/feature-eval-diagnostics-query";
+import {
+  getFeatureEvalDiagnosticsQuery,
+  shapeFeatureEvalDiagnosticsRows,
+} from "back-end/src/integrations/sql/queries/feature-eval-diagnostics-query";
 import { getExperimentExposuresQuery } from "back-end/src/integrations/sql/queries/experiment-exposures-query";
 import { factMetricFactory } from "./factories/FactMetric.factory";
 import { factTableFactory } from "./factories/FactTable.factory";
@@ -1988,22 +1991,35 @@ describe("getFeatureEvalDiagnosticsQuery column mapping", () => {
     expect(sql).not.toMatch(/\btimestamp\b >=/);
   });
 
-  it("returns renamed columns under the standard names too", () => {
+  it("adds the standard names to rows from the mapped columns", () => {
+    const rows = shapeFeatureEvalDiagnosticsRows(
+      [{ ts: "2026-11-10 00:10:32", feature: "f", timestamp: "other" }],
+      {
+        id: "fu1",
+        query: "SELECT * FROM t",
+        columnMapping: { timestampColumn: "ts", featureKeyColumn: "feature" },
+      },
+    );
+
+    expect(rows).toEqual([
+      {
+        ts: "2026-11-10 00:10:32",
+        feature: "f",
+        timestamp: "2026-11-10 00:10:32",
+        feature_key: "f",
+      },
+    ]);
+  });
+
+  it("keeps the standard columns when nothing is renamed", () => {
+    const row = { timestamp: "2026-11-10 00:10:32", feature_key: "f" };
+    expect(shapeFeatureEvalDiagnosticsRows([row], undefined)).toEqual([row]);
+  });
+
+  it("leaves the SQL selecting the query's own columns", () => {
     const sql = getFeatureEvalDiagnosticsQuery(
       bigQueryDialect,
       datasourceWith({ timestampColumn: "ts", featureKeyColumn: "feature" }),
-      { feature: "my-feature-key" },
-    );
-
-    expect(sql).toMatch(
-      /SELECT\s+\*,\s*ts AS timestamp,\s*feature AS feature_key\s+FROM/,
-    );
-  });
-
-  it("adds no aliases when nothing is renamed", () => {
-    const sql = getFeatureEvalDiagnosticsQuery(
-      bigQueryDialect,
-      datasourceWith(),
       { feature: "my-feature-key" },
     );
 

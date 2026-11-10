@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
-import { PiArrowClockwise, PiArrowLeft } from "react-icons/pi";
+import { PiArrowLeft } from "react-icons/pi";
 import uniqId from "uniqid";
 import omit from "lodash/omit";
 import {
@@ -31,6 +31,7 @@ import { useSourceTable } from "@/components/SchemaBrowser/useSourceTable";
 import ColumnMappingRow, {
   validColumn,
 } from "@/components/SchemaBrowser/ColumnMappingRow";
+import ColumnMappingSection from "@/components/SchemaBrowser/ColumnMappingSection";
 import {
   findColumnByName,
   getDefaultTimestampColumn,
@@ -41,21 +42,15 @@ import {
   rematchUserIdColumns,
   SourceTableTemplate,
 } from "@/services/factTables";
-import { validateSQL } from "@/services/datasources";
 import { useAttributeSchema } from "@/services/features";
-import { useAuth } from "@/services/auth";
 import PagedModal from "@/components/Modal/PagedModal";
 import Page from "@/components/Modal/Page";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Code from "@/components/SyntaxHighlighting/Code";
-import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
 import Link from "@/ui/Link";
 import { Select, SelectItem } from "@/ui/Select";
-import Text from "@/ui/Text";
-import UITooltip from "@/ui/Tooltip";
 import TextField from "@/ui/TextField";
-import Table, { TableBody } from "@/ui/Table";
 
 const BODY_HEIGHT = "calc(93vh - 200px)";
 
@@ -216,7 +211,6 @@ export const FeatureEvaluationQueryModal = ({
   onCancel: () => void;
 }) => {
   const permissionsUtil = usePermissionsUtil();
-  const { apiCall } = useAuth();
   const attributes = useAttributeSchema(false);
 
   const savedRoleColumns = featureUsageQuery
@@ -254,9 +248,6 @@ export const FeatureEvaluationQueryModal = ({
         savedUserIdTypes.map((idType) => [idType, savedRoleColumns[idType]]),
       ),
   );
-  const [refreshingColumns, setRefreshingColumns] = useState(false);
-  const [refreshError, setRefreshError] = useState<string | null>(null);
-
   const validateSql = useRef<(() => Promise<void>) | null>(null);
 
   const identifierTypes = useMemo(
@@ -367,12 +358,32 @@ export const FeatureEvaluationQueryModal = ({
     (!!validColumn(identifierOptions, value) ||
       (!!splitFeatureUsageJsonField(value) &&
         jsonRootNames.includes(value.split(".")[0])));
-  // A typed JSON field is always kept, so the JSON field check reports a bad
-  // path instead of the identifier being dropped on save
-  const mappedUserIdTypes = identifierTypes.filter((t) => {
-    const value = userIdColumns[t] || "";
-    return isValidIdentifier(value) || value.includes(".");
-  });
+  // A value that can't be used is flagged on its row rather than dropped on save
+  const identifierErrors: Record<string, string | null> = Object.fromEntries(
+    identifierTypes.map((t) => {
+      const value = userIdColumns[t] || "";
+      if (!value || validColumn(identifierOptions, value)) return [t, null];
+      if (value.includes(".")) {
+        return [
+          t,
+          getFeatureUsageJsonFieldError({
+            columnMapping: { userIdColumns: { [t]: value } },
+            columns,
+          }),
+        ];
+      }
+      return [
+        t,
+        jsonRootNames.length
+          ? `Enter a JSON field like "${suggestedRoots[0] ?? jsonRootNames[0]}.${t}", or select a column.`
+          : `Your query doesn't return "${value}". Select a column.`,
+      ];
+    }),
+  );
+  const identifierError = Object.values(identifierErrors).find(Boolean);
+  const mappedUserIdTypes = identifierTypes.filter(
+    (t) => isValidIdentifier(userIdColumns[t] || "") && !identifierErrors[t],
+  );
 
   const mappingForChecks: FeatureUsageQueryColumnMapping = {
     timestampColumn,
@@ -391,50 +402,19 @@ export const FeatureEvaluationQueryModal = ({
     { columnMapping: mappingForChecks },
     getDataSourceSqlDialect(dataSource.type)?.unquotedIdentifierFold,
   );
-  const jsonFieldError = getFeatureUsageJsonFieldError({
-    columnMapping: mappingForChecks,
-    columns,
-  });
 
   const missingColumns = featureUsageQuery
-    ? Object.entries({
-        timestamp: timestampColumn,
-        feature_key: featureKeyColumn,
-        ...optionalColumns,
-      }).filter(
-        ([, column]) => column && !columns.some((c) => c.column === column),
+    ? [
+        { role: "Timestamp", column: timestampColumn },
+        { role: "Feature key", column: featureKeyColumn },
+        ...OPTIONAL_ROLES.map(({ key, label }) => ({
+          role: label,
+          column: optionalColumns[key] || "",
+        })),
+      ].filter(
+        ({ column }) => column && !columns.some((c) => c.column === column),
       )
     : [];
-
-  async function refreshColumns() {
-    setRefreshingColumns(true);
-    setRefreshError(null);
-    try {
-      validateSQL(sql, []);
-      const res = await apiCall<{ error?: string; columns?: DetectedColumn[] }>(
-        "/query/test",
-        {
-          method: "POST",
-          body: JSON.stringify({
-            query: sql,
-            datasourceId: dataSource.id,
-            limit: 0,
-            detectColumns: true,
-            queryType: "featureUsageQueryTest",
-          }),
-        },
-      );
-      if (res.error) throw new Error(res.error);
-      const cols = res.columns || [];
-      const error = getFeatureUsageColumnMappingError(cols);
-      if (error) throw new Error(error);
-      source.handleColumnsDetected(cols, sql);
-    } catch (e) {
-      setRefreshError(e.message);
-    } finally {
-      setRefreshingColumns(false);
-    }
-  }
 
   async function submit() {
     if (!detected) throw new Error("Test your SQL first");
@@ -467,7 +447,7 @@ export const FeatureEvaluationQueryModal = ({
     if (columnsNeedingQuotes.length) {
       throw new Error(getColumnsNeedingQuotesMessage(columnsNeedingQuotes));
     }
-    if (jsonFieldError) throw new Error(jsonFieldError);
+    if (identifierError) throw new Error(identifierError);
 
     const remappedUserIds = getRemappedUserIdColumns(
       mappedUserIdTypes,
@@ -593,165 +573,117 @@ export const FeatureEvaluationQueryModal = ({
               />
             )}
 
-            <Box>
-              <Flex align="center" justify="between" mb="2">
-                <Text as="div" weight="semibold">
-                  Column mapping
-                </Text>
-                {featureUsageQuery ? (
-                  <UITooltip
-                    content="You don't have permission to run test queries"
-                    enabled={!canRunQueries}
-                  >
-                    <span style={{ display: "inline-flex" }}>
-                      <Button
+            <ColumnMappingSection
+              source={source}
+              canRefresh={!!featureUsageQuery}
+              canRunQueries={canRunQueries}
+              columnsDetected={columnsDetected}
+              missingColumns={missingColumns}
+              messages={
+                columnsNeedingQuotes.length ? (
+                  <Callout status="warning" size="sm" mb="2">
+                    {getColumnsNeedingQuotesMessage(columnsNeedingQuotes)}
+                  </Callout>
+                ) : null
+              }
+            >
+              <ColumnMappingRow
+                label="Timestamp"
+                kind="timestamp"
+                tooltip="When the flag was evaluated"
+                value={timestampColumn}
+                options={timestampOptions}
+                setValue={setTimestampColumn}
+              />
+              <ColumnMappingRow
+                label="Feature key"
+                kind="feature"
+                value={featureKeyColumn}
+                options={stringOptions}
+                setValue={setFeatureKeyColumn}
+              />
+              {OPTIONAL_ROLES.slice(0, 2).map(({ key, label, tooltip }) => (
+                <ColumnMappingRow
+                  key={key}
+                  label={label}
+                  kind="detail"
+                  tooltip={tooltip}
+                  value={optionalColumns[key] || ""}
+                  options={columns}
+                  setValue={(v) =>
+                    setOptionalColumns((prev) => ({ ...prev, [key]: v }))
+                  }
+                  onRemove={() => setOptionalColumns((prev) => omit(prev, key))}
+                />
+              ))}
+              {identifierTypes.map((idType) => (
+                <ColumnMappingRow
+                  key={idType}
+                  label={idType}
+                  kind="identifier"
+                  tooltip="Lets you filter evaluations by user and chart metrics for users who got the flag"
+                  value={userIdColumns[idType] || ""}
+                  options={identifierOptions}
+                  setValue={(v) =>
+                    setUserIdColumns((prev) => ({ ...prev, [idType]: v }))
+                  }
+                  onRemove={() =>
+                    setUserIdColumns((prev) => omit(prev, idType))
+                  }
+                  error={identifierErrors[idType]}
+                  customValue={
+                    jsonRootNames.length
+                      ? {
+                          label: "Other JSON field...",
+                          placeholder: `${suggestedRoots[0] ?? jsonRootNames[0]}.field_name`,
+                        }
+                      : undefined
+                  }
+                />
+              ))}
+              {OPTIONAL_ROLES.slice(2).map(({ key, label, tooltip }) => (
+                <ColumnMappingRow
+                  key={key}
+                  label={label}
+                  kind="detail"
+                  tooltip={tooltip}
+                  value={optionalColumns[key] || ""}
+                  options={columns}
+                  setValue={(v) =>
+                    setOptionalColumns((prev) => ({ ...prev, [key]: v }))
+                  }
+                  onRemove={() => setOptionalColumns((prev) => omit(prev, key))}
+                />
+              ))}
+              {mode === "table" && partition.available ? (
+                <ColumnMappingRow
+                  kind="partition"
+                  label="Date partition"
+                  tooltip="Only reads recent partitions, to limit data scanned"
+                  value={partition.column}
+                  options={partition.options}
+                  setValue={partition.setColumn}
+                  onRemove={() => partition.setColumn("")}
+                  append={
+                    partition.formats.length ? (
+                      <Select
                         size="sm"
-                        variant="ghost"
-                        icon={<PiArrowClockwise />}
-                        onClick={refreshColumns}
-                        loading={refreshingColumns}
-                        disabled={!canRunQueries || !sql}
+                        mb="0"
+                        aria-label="Partition format"
+                        value={partition.format}
+                        setValue={partition.setFormat}
                       >
-                        Refresh columns
-                      </Button>
-                    </span>
-                  </UITooltip>
-                ) : null}
-              </Flex>
-              {!columnsDetected ? (
-                <Callout status="info" mb="2">
-                  Only the columns this query already uses are listed.
-                  {canRunQueries
-                    ? " Refresh columns to see everything it returns."
-                    : ""}
-                </Callout>
+                        {partition.formats.map((f) => (
+                          <SelectItem key={f} value={f}>
+                            {f.toUpperCase()}
+                          </SelectItem>
+                        ))}
+                      </Select>
+                    ) : null
+                  }
+                />
               ) : null}
-              {refreshError ? (
-                <Callout status="error" mb="2">
-                  {refreshError}
-                </Callout>
-              ) : null}
-              {missingColumns.length > 0 ? (
-                <Callout status="warning" mb="2">
-                  {`Your query no longer returns ${missingColumns
-                    .map(([, column]) => `"${column}"`)
-                    .join(", ")}. Choose a new column for each.`}
-                </Callout>
-              ) : null}
-              <Table size="sm" variant="surface" layout="fixed" mb="2">
-                <TableBody>
-                  <ColumnMappingRow
-                    label="Timestamp"
-                    kind="timestamp"
-                    tooltip="When the flag was evaluated"
-                    value={timestampColumn}
-                    options={timestampOptions}
-                    setValue={setTimestampColumn}
-                  />
-                  <ColumnMappingRow
-                    label="Feature key"
-                    kind="feature"
-                    value={featureKeyColumn}
-                    options={stringOptions}
-                    setValue={setFeatureKeyColumn}
-                  />
-                  {OPTIONAL_ROLES.slice(0, 2).map(({ key, label, tooltip }) => (
-                    <ColumnMappingRow
-                      key={key}
-                      label={label}
-                      kind="detail"
-                      tooltip={tooltip}
-                      value={optionalColumns[key] || ""}
-                      options={columns}
-                      setValue={(v) =>
-                        setOptionalColumns((prev) => ({ ...prev, [key]: v }))
-                      }
-                      onRemove={() =>
-                        setOptionalColumns((prev) => omit(prev, key))
-                      }
-                    />
-                  ))}
-                  {identifierTypes.map((idType) => (
-                    <ColumnMappingRow
-                      key={idType}
-                      label={idType}
-                      kind="identifier"
-                      tooltip="Lets you filter evaluations by user and chart metrics for users who got the flag"
-                      value={userIdColumns[idType] || ""}
-                      options={identifierOptions}
-                      setValue={(v) =>
-                        setUserIdColumns((prev) => ({ ...prev, [idType]: v }))
-                      }
-                      onRemove={() =>
-                        setUserIdColumns((prev) => omit(prev, idType))
-                      }
-                      customValue={
-                        jsonRootNames.length
-                          ? {
-                              label: "Other JSON field...",
-                              placeholder: `${suggestedRoots[0] ?? jsonRootNames[0]}.field_name`,
-                            }
-                          : undefined
-                      }
-                    />
-                  ))}
-                  {OPTIONAL_ROLES.slice(2).map(({ key, label, tooltip }) => (
-                    <ColumnMappingRow
-                      key={key}
-                      label={label}
-                      kind="detail"
-                      tooltip={tooltip}
-                      value={optionalColumns[key] || ""}
-                      options={columns}
-                      setValue={(v) =>
-                        setOptionalColumns((prev) => ({ ...prev, [key]: v }))
-                      }
-                      onRemove={() =>
-                        setOptionalColumns((prev) => omit(prev, key))
-                      }
-                    />
-                  ))}
-                  {mode === "table" && partition.available ? (
-                    <ColumnMappingRow
-                      kind="partition"
-                      label="Date partition"
-                      tooltip="Only reads recent partitions, to limit data scanned"
-                      value={partition.column}
-                      options={partition.options}
-                      setValue={partition.setColumn}
-                      onRemove={() => partition.setColumn("")}
-                      append={
-                        partition.formats.length ? (
-                          <Select
-                            size="sm"
-                            mb="0"
-                            aria-label="Partition format"
-                            value={partition.format}
-                            setValue={partition.setFormat}
-                          >
-                            {partition.formats.map((f) => (
-                              <SelectItem key={f} value={f}>
-                                {f.toUpperCase()}
-                              </SelectItem>
-                            ))}
-                          </Select>
-                        ) : null
-                      }
-                    />
-                  ) : null}
-                </TableBody>
-              </Table>
-              {columnsNeedingQuotes.length ? (
-                <Callout status="warning" size="sm" mb="2">
-                  {getColumnsNeedingQuotesMessage(columnsNeedingQuotes)}
-                </Callout>
-              ) : null}
-              {jsonFieldError ? (
-                <Callout status="warning" size="sm" mb="2">
-                  {jsonFieldError}
-                </Callout>
-              ) : null}
-            </Box>
+            </ColumnMappingSection>
           </Flex>
         </Box>
       </Page>

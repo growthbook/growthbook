@@ -5,8 +5,15 @@ import {
   getFeatureUsageFeatureKeyColumn,
   getFeatureUsageTimestampColumn,
 } from "shared/util";
-import type { DataSourceInterface } from "shared/types/datasource";
-import type { FeatureEvalDiagnosticsQueryParams } from "shared/types/integrations";
+import type {
+  DataSourceInterface,
+  FeatureUsageQuery,
+} from "shared/types/datasource";
+import type {
+  FeatureEvalDiagnosticsQueryParams,
+  FeatureEvalDiagnosticsQueryResponseRows,
+  QueryResponse,
+} from "shared/types/integrations";
 import type { SqlDialect } from "shared/types/sql";
 import { compileSqlTemplate } from "back-end/src/util/sql";
 
@@ -30,15 +37,6 @@ export function getFeatureEvalDiagnosticsQuery(
     ? getFeatureUsageTimestampColumn(featureUsageQuery)
     : "timestamp";
 
-  // Rows are read by the standard names, so return renamed columns under them too
-  const standardNameAliases = [
-    [timestampColumn, "timestamp"],
-    [featureKeyColumn, "feature_key"],
-  ]
-    .filter(([column, name]) => column !== name)
-    .map(([column, name]) => `, ${column} AS ${name}`)
-    .join("");
-
   const compiledFeatureEvalQuery = compileSqlTemplate(
     featureEvalQuery,
     {
@@ -52,11 +50,33 @@ export function getFeatureEvalDiagnosticsQuery(
       WITH __featureEvalQuery AS (
         ${compiledFeatureEvalQuery}
       )
-      SELECT *${standardNameAliases} FROM __featureEvalQuery
+      SELECT * FROM __featureEvalQuery
       WHERE ${featureKeyColumn} = '${featureKey}' AND ${timestampColumn} >= ${dialect.toTimestamp(oneWeekAgo)}
       ORDER BY ${timestampColumn} DESC
       LIMIT 100
       `,
     dialect.formatDialect,
   );
+}
+
+/**
+ * Adds `timestamp` and `feature_key` to each row from the mapped columns, since
+ * the Diagnostics page reads those names. Renaming them in the SQL instead would
+ * clash with a result column that already has the standard name.
+ */
+export function shapeFeatureEvalDiagnosticsRows(
+  rows: QueryResponse["rows"],
+  featureUsageQuery: FeatureUsageQuery | undefined,
+): FeatureEvalDiagnosticsQueryResponseRows {
+  const timestampColumn = featureUsageQuery
+    ? getFeatureUsageTimestampColumn(featureUsageQuery)
+    : "timestamp";
+  const featureKeyColumn = featureUsageQuery
+    ? getFeatureUsageFeatureKeyColumn(featureUsageQuery)
+    : "feature_key";
+  return rows.map((row) => ({
+    ...row,
+    timestamp: row[timestampColumn],
+    feature_key: row[featureKeyColumn],
+  }));
 }

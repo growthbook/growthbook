@@ -7,14 +7,15 @@ import {
   PiColumnsBold,
   PiFlagBold,
   PiFlaskBold,
-  PiInfoBold,
   PiFunnelBold,
   PiPlus,
+  PiTagBold,
   PiUserBold,
   PiX,
 } from "react-icons/pi";
 import { DetectedColumn } from "shared/types/fact-table";
 import Button from "@/ui/Button";
+import HelperText from "@/ui/HelperText";
 import Link from "@/ui/Link";
 import TextField from "@/ui/TextField";
 import Tooltip from "@/ui/Tooltip";
@@ -60,7 +61,7 @@ const KIND_ICONS = {
   },
   detail: {
     tooltip: "Extra detail about each evaluation",
-    icon: <PiInfoBold />,
+    icon: <PiTagBold />,
   },
 };
 
@@ -90,6 +91,7 @@ export default function ColumnMappingRow({
   onRemove,
   append,
   customValue,
+  error,
 }: {
   label: string;
   kind: keyof typeof KIND_ICONS;
@@ -103,6 +105,8 @@ export default function ColumnMappingRow({
   append?: ReactNode;
   /** Lets the user type a value not in the options, like a JSON field path. */
   customValue?: { label: string; placeholder: string };
+  /** Shown under the column, e.g. for a typed value that can't be used. */
+  error?: string | null;
 }) {
   const [adding, setAdding] = useState(false);
   const [typing, setTyping] = useState(false);
@@ -120,7 +124,7 @@ export default function ColumnMappingRow({
           </Text>
         </Flex>
       </TableCell>
-      {selected || custom || adding || !onRemove ? (
+      {selected || custom || adding || !onRemove || error ? (
         <>
           <TableCell>
             <Flex align="center" gap="2">
@@ -133,6 +137,7 @@ export default function ColumnMappingRow({
                     placeholder={customValue.placeholder}
                     value={value}
                     onChange={(e) => setValue(e.target.value)}
+                    error={error ?? undefined}
                     append={
                       <Link
                         onClick={() => {
@@ -140,7 +145,7 @@ export default function ColumnMappingRow({
                           setValue("");
                         }}
                       >
-                        Choose a column
+                        Select a column
                       </Link>
                     }
                   />
@@ -173,6 +178,11 @@ export default function ColumnMappingRow({
                     ) : null}
                   </Select>
                 )}
+                {error && !custom ? (
+                  <HelperText status="error" mt="1">
+                    {error}
+                  </HelperText>
+                ) : null}
               </Box>
               {selected ? append : null}
             </Flex>
