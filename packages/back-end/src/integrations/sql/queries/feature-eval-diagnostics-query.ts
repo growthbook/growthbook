@@ -30,6 +30,15 @@ export function getFeatureEvalDiagnosticsQuery(
     ? getFeatureUsageTimestampColumn(featureUsageQuery)
     : "timestamp";
 
+  // Rows are read by the standard names, so return renamed columns under them too
+  const standardNameAliases = [
+    [timestampColumn, "timestamp"],
+    [featureKeyColumn, "feature_key"],
+  ]
+    .filter(([column, name]) => column !== name)
+    .map(([column, name]) => `, ${column} AS ${name}`)
+    .join("");
+
   const compiledFeatureEvalQuery = compileSqlTemplate(
     featureEvalQuery,
     {
@@ -43,7 +52,7 @@ export function getFeatureEvalDiagnosticsQuery(
       WITH __featureEvalQuery AS (
         ${compiledFeatureEvalQuery}
       )
-      SELECT * FROM __featureEvalQuery
+      SELECT *${standardNameAliases} FROM __featureEvalQuery
       WHERE ${featureKeyColumn} = '${featureKey}' AND ${timestampColumn} >= ${dialect.toTimestamp(oneWeekAgo)}
       ORDER BY ${timestampColumn} DESC
       LIMIT 100

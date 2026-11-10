@@ -367,9 +367,12 @@ export const FeatureEvaluationQueryModal = ({
     (!!validColumn(identifierOptions, value) ||
       (!!splitFeatureUsageJsonField(value) &&
         jsonRootNames.includes(value.split(".")[0])));
-  const mappedUserIdTypes = identifierTypes.filter((t) =>
-    isValidIdentifier(userIdColumns[t] || ""),
-  );
+  // A typed JSON field is always kept, so the JSON field check reports a bad
+  // path instead of the identifier being dropped on save
+  const mappedUserIdTypes = identifierTypes.filter((t) => {
+    const value = userIdColumns[t] || "";
+    return isValidIdentifier(value) || value.includes(".");
+  });
 
   const mappingForChecks: FeatureUsageQueryColumnMapping = {
     timestampColumn,

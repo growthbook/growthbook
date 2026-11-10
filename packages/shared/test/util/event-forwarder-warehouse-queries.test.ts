@@ -599,6 +599,18 @@ describe("feature usage query identifier columns", () => {
     ).toEqual(["user_id"]);
   });
 
+  it("leaves out identifier types named like the query's own columns", () => {
+    const query = buildEventForwarderFeatureUsageQuery(params, [
+      ...pairs,
+      {
+        attribute: "feature_key",
+        userIdType: { userIdType: "feature_key", managedBy: "api" as const },
+      },
+    ]);
+    expect(query.userIdTypes).toEqual(["user_id"]);
+    expect(query.query.match(/AS `?feature_key`?/g)).toHaveLength(1);
+  });
+
   it("regenerates managed queries and leaves user-written ones alone", () => {
     const managed = {
       id: "fuq_managed",

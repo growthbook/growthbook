@@ -7,7 +7,10 @@ import {
   MetricCappingSettings,
   RowFilter,
 } from "shared/types/fact-table";
-import { ExposureQuery } from "shared/types/datasource";
+import {
+  ExposureQuery,
+  FeatureUsageQueryColumnMapping,
+} from "shared/types/datasource";
 import { DimensionInterface } from "shared/types/dimension";
 import { Dimension } from "shared/types/integrations";
 import { SegmentInterface } from "shared/types/segment";
@@ -1936,6 +1939,21 @@ describe("getFeatureEvalDiagnosticsQuery", () => {
 });
 
 describe("getFeatureEvalDiagnosticsQuery column mapping", () => {
+  function datasourceWith(columnMapping?: FeatureUsageQueryColumnMapping) {
+    // @ts-expect-error -- context not needed for test
+    return new BigQuery("", {
+      type: "bigquery",
+      params: "",
+      settings: {
+        queries: {
+          featureUsage: [
+            { id: "fu1", query: "SELECT * FROM t", columnMapping },
+          ],
+        },
+      },
+    }).datasource;
+  }
+
   it("filters and orders on the mapped feature key and timestamp columns", () => {
     const datasource = {
       type: "bigquery",
@@ -1964,10 +1982,32 @@ describe("getFeatureEvalDiagnosticsQuery column mapping", () => {
       { feature: "my-feature-key" },
     );
 
-    expect(sql).toMatch(/feature\s*=\s*'my-feature-key'/);
+    expect(sql).toMatch(/WHERE\s+feature\s*=\s*'my-feature-key'/);
     expect(sql).toMatch(/AND\s+ts\s*>=/);
     expect(sql).toMatch(/ORDER BY\s+ts\s+DESC/);
-    expect(sql).not.toMatch(/\bfeature_key\b|\btimestamp\b >=/);
+    expect(sql).not.toMatch(/\btimestamp\b >=/);
+  });
+
+  it("returns renamed columns under the standard names too", () => {
+    const sql = getFeatureEvalDiagnosticsQuery(
+      bigQueryDialect,
+      datasourceWith({ timestampColumn: "ts", featureKeyColumn: "feature" }),
+      { feature: "my-feature-key" },
+    );
+
+    expect(sql).toMatch(
+      /SELECT\s+\*,\s*ts AS timestamp,\s*feature AS feature_key\s+FROM/,
+    );
+  });
+
+  it("adds no aliases when nothing is renamed", () => {
+    const sql = getFeatureEvalDiagnosticsQuery(
+      bigQueryDialect,
+      datasourceWith(),
+      { feature: "my-feature-key" },
+    );
+
+    expect(sql).toMatch(/SELECT\s+\*\s+FROM\s+__featureEvalQuery/);
   });
 });
 

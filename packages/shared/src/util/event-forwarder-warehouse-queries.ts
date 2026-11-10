@@ -371,6 +371,18 @@ WHERE ${EVENT_FORWARDER_AVRO_PARTITION_FIELD} BETWEEN '{{startDate}}' AND '{{end
 FROM ${tableRef}`;
 }
 
+// Columns the generated feature usage query always returns. An identifier type
+// with one of these names would duplicate the column, so it's left out.
+const EVENT_FORWARDER_FEATURE_USAGE_COLUMNS = [
+  "timestamp",
+  "feature_key",
+  "environment",
+  "value",
+  "source",
+  "rule_id",
+  "variation_id",
+];
+
 export type GenerateEventForwarderFeatureUsageQueryParams =
   BuildEventForwarderFeatureUsageTableRefParams;
 
@@ -383,15 +395,21 @@ export function buildEventForwarderFeatureUsageQuery(
   "query" | "managedBy" | "description" | "userIdTypes"
 > {
   const tableRef = buildEventForwarderFeatureUsageTableReference(params);
+  const identifierPairs = pairs.filter(
+    ({ userIdType }) =>
+      !EVENT_FORWARDER_FEATURE_USAGE_COLUMNS.includes(
+        userIdType.userIdType.toLowerCase(),
+      ),
+  );
 
   return {
     managedBy: "api",
     description: EVENT_FORWARDER_MANAGED_FEATURE_USAGE_QUERY_DESCRIPTION,
-    userIdTypes: pairs.map(({ userIdType }) => userIdType.userIdType),
+    userIdTypes: identifierPairs.map(({ userIdType }) => userIdType.userIdType),
     query: buildEventForwarderFeatureUsageQuerySql({
       sinkType: params.sinkType,
       tableRef,
-      pairs,
+      pairs: identifierPairs,
       attributeSchema,
     }),
   };
