@@ -81,6 +81,20 @@ params:
   clientKey: "-----BEGIN CERTIFICATE-----\n..."
 ```
 
+ClickHouse can also read the certificates from PEM files on the GrowthBook server, re-reading them for every query so rotated certificates are picked up without a restart (single-organization installs only):
+
+```yml
+type: clickhouse
+params:
+  ...
+  ssl: true
+  caCertPath: /etc/ssl/certs/ca.crt
+  clientCertPath: /etc/ssl/client/tls.crt
+  clientKeyPath: /etc/ssl/client/tls.key
+  # Optional: intermediates to send after a leaf-only client certificate
+  clientCertChainPath: /etc/ssl/client/chain.crt
+```
+
 #### Snowflake
 
 ```yml

@@ -83,6 +83,11 @@ const CLICKHOUSE_FAMILY = {
   caCert: "secret",
   clientCert: "secret",
   clientKey: "secret",
+  // Paths, not contents, so they stay visible and a blank clears them
+  caCertPath: "public",
+  clientCertPath: "public",
+  clientKeyPath: "public",
+  clientCertChainPath: "public",
 } satisfies ParamClassification<DataSourceParamsForType<"clickhouse">>;
 
 const DATA_SOURCE_PARAM_SENSITIVITY = {
