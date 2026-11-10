@@ -16,7 +16,7 @@ export default function FullRefreshRequiredDialog({
     <ModalStandard
       open={true}
       header="Unable to incrementally update"
-      subheader="A Full Refresh is required."
+      subheader="A full refresh is required."
       cta="Run full refresh"
       trackingEventModalType="incremental-pipeline-full-refresh"
       submit={controller.onConfirm}
