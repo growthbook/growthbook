@@ -15,6 +15,21 @@ export function getDailyBuckets(exploration: ExplorationRange): string[] {
   }).map((day) => day.slice(0, 10));
 }
 
+// Rows per UTC day across the whole range; days with no result row count 0
+export function getRowsPerDay(
+  exploration: ExplorationRange & Pick<ProductAnalyticsExploration, "result">,
+) {
+  const days = getDailyBuckets(exploration);
+  const byDay = new Map(
+    (exploration.result?.rows ?? []).map((row) => [
+      row.dimensions[0]?.slice(0, 10),
+      row.values?.[0]?.numerator ?? 0,
+    ]),
+  );
+  const counts = days.map((day) => byDay.get(day) ?? 0);
+  return { days, counts, total: counts.reduce((sum, count) => sum + count, 0) };
+}
+
 // Parses the day as UTC. `new Date("2026-09-21 00:00:00")` is local time in
 // most browsers and Invalid Date in Safari.
 export function formatUtcWeekday(

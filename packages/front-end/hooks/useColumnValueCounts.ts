@@ -3,6 +3,8 @@ import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 
 export type ValueCount = { value: string; count: number };
+// refreshedAt is the server's, so it compares with the stored topValuesDate
+export type FreshValueCounts = { values: ValueCount[]; refreshedAt: Date };
 
 /**
  * Row counts per value, loaded on demand and kept in page memory only. Each
@@ -12,7 +14,7 @@ export type ValueCount = { value: string; count: number };
 export default function useColumnValueCounts(factTableId: string) {
   const { apiCall } = useAuth();
   const { mutateDefinitions } = useDefinitions();
-  const [counts, setCounts] = useState<Record<string, ValueCount[]>>({});
+  const [counts, setCounts] = useState<Record<string, FreshValueCounts>>({});
   const [loading, setLoading] = useState<Record<string, boolean>>({});
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -26,15 +28,19 @@ export default function useColumnValueCounts(factTableId: string) {
     setErrors((e) => ({ ...e, [column]: "" }));
     try {
       // values is missing when the warehouse can only rank values
-      const res = await apiCall<{ values?: ValueCount[] }>(
+      const res = await apiCall<{
+        values?: ValueCount[];
+        refreshedAt?: string;
+      }>(
         `/fact-tables/${factTableId}/column/${encodeURIComponent(column)}/top-values`,
         { method: "POST" },
       );
-      const values = res.values;
+      const { values, refreshedAt } = res;
       setCounts((c) => {
         const next = { ...c };
-        if (values) next[column] = values;
-        else delete next[column];
+        if (values && refreshedAt) {
+          next[column] = { values, refreshedAt: new Date(refreshedAt) };
+        } else delete next[column];
         return next;
       });
       await mutateDefinitions();

@@ -23,6 +23,7 @@ import { formatSql } from "@/services/sqlFormatter";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import useColumnValueCounts from "@/hooks/useColumnValueCounts";
 import useFactTableActions from "@/hooks/useFactTableActions";
+import useURLHash from "@/hooks/useURLHash";
 import { FactTablePageData } from "@/hooks/useFactTableDetailsPage";
 import PageHead from "@/components/Layout/PageHead";
 import Markdown from "@/components/Markdown/Markdown";
@@ -79,7 +80,10 @@ export default function FactTableDetailsPage({
 }: {
   page: FactTablePageData;
 }) {
-  const { factTable, metrics, datasource, canEdit, canOpenInExplorer } = page;
+  const { factTable, datasource, canEdit, canOpenInExplorer } = page;
+  // Archived metrics are hidden everywhere on this page, so event metric
+  // buttons and "+N more" always land on a visible row
+  const metrics = page.metrics.filter((m) => !m.archived);
   const actions = useFactTableActions(page);
   const [editOpen, setEditOpen] = useState(false);
   const [showSql, setShowSql] = useState(false);
@@ -89,7 +93,8 @@ export default function FactTableDetailsPage({
   const { getProjectById, projects } = useDefinitions();
 
   const valueCounts = useColumnValueCounts(factTable.id);
-  const [tab, setTab] = useState<string | null>(null);
+  // The tab lives in the URL hash so links like #metrics keep working
+  const [hash, setTab] = useURLHash();
   // Set by an event's "+N more" link; narrows the Metrics tab to that event
   const [metricsEvent, setMetricsEvent] = useState<{
     column: string;
@@ -103,9 +108,19 @@ export default function FactTableDetailsPage({
   const linkedFilter = router.query.filter;
   useEffect(() => {
     if (typeof linkedFilter === "string") setTab("filters");
-  }, [linkedFilter]);
+  }, [linkedFilter, setTab]);
 
   const eventColumns = getEventColumns(factTable);
+  const tabs = [
+    ...(eventColumns.length > 0 ? ["events"] : []),
+    "columns",
+    "sample",
+    "filters",
+    "metrics",
+  ];
+  // The legacy page has its own Virtual Columns tab; here they're on Columns
+  const linkedTab = hash === "virtual-columns" ? "columns" : hash;
+  const tab = linkedTab && tabs.includes(linkedTab) ? linkedTab : tabs[0];
   const dialect = datasource ? getDataSourceSqlDialect(datasource.type) : null;
   // The top-values endpoint behind row counts checks the column permission
   const canLoadCounts = page.canEditColumns && canOpenInExplorer;
@@ -271,7 +286,7 @@ export default function FactTableDetailsPage({
         ) && <FactTableRowsPerDay factTable={factTable} />}
 
       <Tabs
-        value={tab ?? (eventColumns.length > 0 ? "events" : "columns")}
+        value={tab}
         onValueChange={(value) => {
           setTab(value);
           if (value !== "metrics") {

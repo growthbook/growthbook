@@ -104,7 +104,7 @@ export default function FactFilterList({ factTable }: Props) {
               }}
               disabled={!editor.canCreate}
             >
-              New filter
+              New Saved Filter
             </Button>
           </Tooltip>
         </div>

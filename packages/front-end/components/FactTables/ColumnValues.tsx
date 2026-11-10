@@ -5,7 +5,7 @@ import { useState } from "react";
 import { PiArrowClockwise, PiInfo } from "react-icons/pi";
 import { ago } from "shared/dates";
 import useOrgSettings from "@/hooks/useOrgSettings";
-import { ValueCount } from "@/hooks/useColumnValueCounts";
+import { FreshValueCounts } from "@/hooks/useColumnValueCounts";
 import Badge from "@/ui/Badge";
 import Button from "@/ui/Button";
 import TextField from "@/ui/TextField";
@@ -93,7 +93,7 @@ export function ColumnValuesPanel({
   onLoad,
 }: {
   column: ColumnInterface;
-  counts?: ValueCount[];
+  counts?: FreshValueCounts;
   loading: boolean;
   error?: string;
   // Omitted when the viewer can't run the top-values query

@@ -49,9 +49,7 @@ export default function FactTableMetricsTab({
   }, [experiments, metricGroups]);
 
   const columns = eventColumns.map((c) => c.column);
-  const visible = metrics
-    .filter((m) => !m.archived)
-    .sort((a, b) => a.name.localeCompare(b.name));
+  const visible = [...metrics].sort((a, b) => a.name.localeCompare(b.name));
 
   return (
     <div className={columnStyles.frame}>

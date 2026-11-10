@@ -10,6 +10,7 @@ import {
   getMetricsForEvent,
 } from "@/services/factTableEvents";
 import { getSqlSummary, getSqlSummaryTokens } from "@/services/sqlSummary";
+import { getRowsPerDay } from "@/components/QueryPreview/activityChart";
 
 describe("getSqlSummary", () => {
   it("shortens the SELECT list and collapses whitespace", () => {
@@ -223,13 +224,39 @@ describe("getColumnTopValues", () => {
   ];
 
   it("prefers counts from a refresh over stored ones", () => {
-    const fresh = [{ value: "c", count: 9 }];
+    const later = new Date("2026-11-02T00:00:00Z");
+    const fresh = { values: [{ value: "c", count: 9 }], refreshedAt: later };
     expect(
       getColumnTopValues(
         { topValues: ["a", "b"], topValueCounts: counts },
         fresh,
       ),
-    ).toEqual({ values: fresh, hasCounts: true, refreshedAt: null });
+    ).toEqual({ values: fresh.values, hasCounts: true, refreshedAt: later });
+    // The same refresh, once stored, still reads as the session's counts
+    expect(
+      getColumnTopValues(
+        { topValues: ["c"], topValueCounts: counts, topValuesDate: later },
+        fresh,
+      ).values,
+    ).toEqual(fresh.values);
+  });
+
+  it("drops session counts once newer ones are stored", () => {
+    const fresh = {
+      values: [{ value: "c", count: 9 }],
+      refreshedAt: new Date("2026-10-31T00:00:00Z"),
+    };
+    expect(
+      getColumnTopValues(
+        {
+          topValues: ["a", "b"],
+          topValueCounts: counts,
+          // JSON gives the stored date as a string
+          topValuesDate: refreshedAt.toISOString() as unknown as Date,
+        },
+        fresh,
+      ),
+    ).toEqual({ values: counts, hasCounts: true, refreshedAt });
   });
 
   it("uses stored counts, then the plain list", () => {
@@ -247,5 +274,35 @@ describe("getColumnTopValues", () => {
       hasCounts: false,
       refreshedAt: null,
     });
+  });
+});
+
+describe("getRowsPerDay", () => {
+  const range = {
+    dateStart: "2026-11-01T00:00:00Z",
+    dateEnd: "2026-11-03T00:00:00Z",
+  };
+  const row = (day: string, numerator: number | null) => ({
+    dimensions: [`${day} 00:00:00`],
+    values: [{ metricId: "m", numerator, denominator: null }],
+  });
+
+  it("fills missing and null days with zero and totals the rest", () => {
+    expect(
+      getRowsPerDay({
+        ...range,
+        result: { rows: [row("2026-11-01", 5), row("2026-11-03", null)] },
+      }),
+    ).toEqual({
+      days: ["2026-11-01", "2026-11-02", "2026-11-03"],
+      counts: [5, 0, 0],
+      total: 5,
+    });
+  });
+
+  it("returns all zeros without a result", () => {
+    expect(getRowsPerDay({ ...range, result: { rows: [] } }).counts).toEqual([
+      0, 0, 0,
+    ]);
   });
 });

@@ -2,14 +2,11 @@ import { useMemo } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import { PiArrowClockwise } from "react-icons/pi";
 import { FactTableInterface } from "shared/types/fact-table";
-import type {
-  ExplorationConfig,
-  ProductAnalyticsExploration,
-} from "shared/validators";
+import type { ExplorationConfig } from "shared/validators";
 import { getInitialConfigByBlockType } from "shared/enterprise";
 import { ago } from "shared/dates";
 import useExploration from "@/enterprise/components/ProductAnalytics/useExploration";
-import { getDailyBuckets } from "@/components/QueryPreview/activityChart";
+import { getRowsPerDay } from "@/components/QueryPreview/activityChart";
 import Button from "@/ui/Button";
 import Frame from "@/ui/Frame";
 import Heading from "@/ui/Heading";
@@ -19,22 +16,6 @@ import styles from "./FactTableRowsPerDay.module.scss";
 
 const RANGE_DAYS = 30;
 
-function getRowsPerDay(
-  exploration: Pick<
-    ProductAnalyticsExploration,
-    "dateStart" | "dateEnd" | "result"
-  >,
-) {
-  const days = getDailyBuckets(exploration);
-  const byDay = new Map(
-    (exploration.result?.rows ?? []).map((row) => [
-      row.dimensions[0]?.slice(0, 10),
-      row.values?.[0]?.numerator ?? 0,
-    ]),
-  );
-  const counts = days.map((day) => byDay.get(day) ?? 0);
-  return { days, counts, total: counts.reduce((sum, count) => sum + count, 0) };
-}
 const CHART_HEIGHT = 96;
 // Relative heights of the empty-state bars, as a percent of the tallest
 const PLACEHOLDER_BARS = Array.from(

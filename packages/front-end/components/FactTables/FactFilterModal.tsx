@@ -10,6 +10,7 @@ import { useEffect } from "react";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Field from "@/components/Forms/Field";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import { validatedSubmit } from "@/ui/Modal/validatedSubmit";
@@ -29,7 +30,8 @@ export default function FactFilterModal({
   close,
 }: Props) {
   const { apiCall } = useAuth();
-  const { mutateDefinitions } = useDefinitions();
+  const { mutateDefinitions, getDatasourceById } = useDefinitions();
+  const permissionsUtil = usePermissionsUtil();
 
   const form = useForm<Pick<CreateFactFilterProps, "name" | "value">>({
     defaultValues: {
@@ -59,14 +61,22 @@ export default function FactFilterModal({
           throw new Error("Cannot leave the SQL condition blank");
         }
 
-        // A broken condition would fail every metric that uses it, so check
-        // it against the warehouse before saving
-        const { result } = await apiCall<{ result: FactFilterTestResults }>(
-          `/fact-tables/${factTable.id}/test-filter`,
-          { method: "POST", body: JSON.stringify({ value: value.value }) },
-        );
-        if (result.error) {
-          throw new Error(result.error);
+        // A broken condition would fail every metric that uses it, so check a
+        // changed one against the warehouse. Editors without query access
+        // can still save, as before.
+        const datasource = getDatasourceById(factTable.datasource);
+        if (
+          value.value !== existing?.value &&
+          datasource &&
+          permissionsUtil.canRunTestQueries(datasource)
+        ) {
+          const { result } = await apiCall<{ result: FactFilterTestResults }>(
+            `/fact-tables/${factTable.id}/test-filter`,
+            { method: "POST", body: JSON.stringify({ value: value.value }) },
+          );
+          if (result.error) {
+            throw new Error(result.error);
+          }
         }
 
         if (existing) {

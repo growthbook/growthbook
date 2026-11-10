@@ -52,10 +52,12 @@ export default function FactTablePage() {
       </Callout>
     );
   }
+  // Keyed so table-bound state (value counts, samples, tabs) resets when
+  // navigating between fact tables
   return newPage ? (
-    <FactTableDetailsPage page={page} />
+    <FactTableDetailsPage key={page.factTable.id} page={page} />
   ) : (
-    <LegacyFactTablePage page={page} />
+    <LegacyFactTablePage key={page.factTable.id} page={page} />
   );
 }
 

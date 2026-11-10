@@ -4,8 +4,10 @@ import { RowFilter, RowFilterTestResults } from "shared/types/fact-table";
 import { parseWarehouseDate } from "shared/dates";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { TestQueryResultsTable } from "@/components/Settings/DisplayTestQueryResults";
 import Button from "@/ui/Button";
+import Callout from "@/ui/Callout";
 import Text from "@/ui/Text";
 import styles from "./FactTableSampleRows.module.scss";
 
@@ -53,6 +55,7 @@ const SKELETON_WIDTHS = [
 ];
 
 // Kept for the page session so switching tabs or rows doesn't re-run the query.
+// Keyed by organization, since fact table IDs are only unique within one.
 // shortcut: never invalidated until a full page reload; add a refresh button if stale rows become a problem
 const resultCache = new Map<string, RowFilterTestResults>();
 
@@ -70,16 +73,17 @@ export default function FactTableSampleRows({
   // Smaller rows that grow to the full sample, for use inside a table row
   compact?: boolean;
 }) {
-  const { apiCall } = useAuth();
+  const { apiCall, orgId } = useAuth();
   const { getFactTableById, getDatasourceById } = useDefinitions();
-  const cacheKey = `${factTableId}:${JSON.stringify(rowFilters)}`;
+  const permissionsUtil = usePermissionsUtil();
+  const cacheKey = `${orgId}:${factTableId}:${JSON.stringify(rowFilters)}`;
   const [result, setResult] = useState<RowFilterTestResults | null>(
     resultCache.get(cacheKey) ?? null,
   );
+  const [error, setError] = useState<string | null>(null);
   const datasourceId = getFactTableById(factTableId)?.datasource;
-  const datasourceName = datasourceId
-    ? getDatasourceById(datasourceId)?.name
-    : undefined;
+  const datasource = datasourceId ? getDatasourceById(datasourceId) : null;
+  const canRun = !!datasource && permissionsUtil.canRunTestQueries(datasource);
 
   if (!result) {
     return (
@@ -96,24 +100,37 @@ export default function FactTableSampleRows({
           </Box>
         ))}
         <Flex className={styles.overlay}>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={async () => {
-              const res = await apiCall<{ result: RowFilterTestResults }>(
-                `/fact-tables/${factTableId}/test-row-filters`,
-                { method: "POST", body: JSON.stringify({ rowFilters }) },
-              );
-              resultCache.set(cacheKey, res.result);
-              setResult(res.result);
-            }}
-          >
-            Load sample rows
-          </Button>
-          <Text size="sm" color="text-mid">
-            Runs a small query
-            {datasourceName ? ` on ${datasourceName}` : ""}
-          </Text>
+          {error ? <Callout status="error">{error}</Callout> : null}
+          {canRun ? (
+            <>
+              <Button
+                variant="outline"
+                size="sm"
+                setError={setError}
+                onClick={async () => {
+                  const res = await apiCall<{ result: RowFilterTestResults }>(
+                    `/fact-tables/${factTableId}/test-row-filters`,
+                    { method: "POST", body: JSON.stringify({ rowFilters }) },
+                  );
+                  // Warehouse errors come back as a result; keep them out of
+                  // the cache and leave the button up to retry
+                  if (res.result.error) throw new Error(res.result.error);
+                  resultCache.set(cacheKey, res.result);
+                  setResult(res.result);
+                }}
+              >
+                {error ? "Try again" : "Load sample rows"}
+              </Button>
+              <Text size="sm" color="text-mid">
+                Runs a small query
+                {datasource ? ` on ${datasource.name}` : ""}
+              </Text>
+            </>
+          ) : (
+            <Text size="sm" color="text-mid">
+              You don&apos;t have permission to run queries on this data source.
+            </Text>
+          )}
         </Flex>
       </Box>
     );
@@ -139,7 +156,7 @@ export default function FactTableSampleRows({
             : result.results || []
         }
         sql={result.sql || ""}
-        error={result.error || ""}
+        error=""
         expandable={false}
         allowDownload={true}
         compact={compact}

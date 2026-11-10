@@ -45,7 +45,7 @@ export default function FactTableFiltersTab({
       <Flex justify="end" px="4" py="3">
         {editor.canCreate ? (
           <Button size="sm" variant="outline" onClick={editor.openNew}>
-            New filter
+            New Saved Filter
           </Button>
         ) : null}
       </Flex>
