@@ -905,6 +905,23 @@ export function ExplorerProvider({
             }
           : cleanedDraftExploreState;
       setSubmittedExploreState(submittedConfig);
+      // The server computed its trends for the config it was sent, and a
+      // value's Show as changes both the trends and the row order they follow.
+      const previousTimeFrame = draftExploreState.previousTimeFrame;
+      if (data && previousTimeFrame) {
+        const { bigNumberTrends, tableTrendsByRow, previousPeriod } =
+          computeExplorationComparisonPayload(
+            data,
+            comparisonExploration,
+            cleanedDraftExploreState,
+            previousTimeFrame,
+            getFactMetricById,
+            getComparisonAlignmentStrategy(comparisonMode),
+          );
+        setComparisonComputed((prev) =>
+          prev ? { bigNumberTrends, tableTrendsByRow, previousPeriod } : prev,
+        );
+      }
     }
   }, [
     needsFetch,
@@ -921,6 +938,9 @@ export function ExplorerProvider({
     managedWarehouseUnavailable,
     isManagedWarehouse,
     collapseFunnelStepsForAnalyze,
+    data,
+    comparisonExploration,
+    getFactMetricById,
   ]);
 
   /** Clear staleness when draft matches submitted (known state) */

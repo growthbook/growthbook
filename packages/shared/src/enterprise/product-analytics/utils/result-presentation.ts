@@ -45,7 +45,10 @@ export function getValueAxisName(
 }
 
 /** A value's display name; "Metric N" when it was saved blank. */
-function getValueName(value: ProductAnalyticsValue, index: number): string {
+export function getValueName(
+  value: ProductAnalyticsValue,
+  index: number,
+): string {
   return value.name.trim() ? value.name : `Metric ${index + 1}`;
 }
 
@@ -100,11 +103,29 @@ export function isRatioValue(
   );
 }
 
+/**
+ * Whether a value renders as a total or per unit. Ratios and quantiles are
+ * neither, so they take no mode note and no "Total" / "Per unit" axis title.
+ */
+function valueHasShowAsMode(
+  value: ProductAnalyticsValue,
+  getFactMetricById: (id: string) => FactMetricInterface | null,
+): boolean {
+  if (value.type !== "metric") return true;
+  const metricType = getDraftOrSavedMetric(
+    value,
+    getFactMetricById,
+  )?.metricType;
+  return metricType !== "ratio" && metricType !== "quantile";
+}
+
 /** How one dataset value renders. */
 export type ValueRenderOpts = {
   showAs: ShowAs;
   isRatio: boolean;
-  /** Chart legend and tooltip name. */
+  /** The value's name, noting its mode when a plain name would read as a total. */
+  label: string;
+  /** `label` for a chart legend or tooltip: plain when the axis title names the unit. */
   seriesName: string;
 };
 
@@ -112,9 +133,12 @@ export type ValueRenderOpts = {
 export type ExplorationRenderOpts = {
   /** Index-aligned with `dataset.values`; empty for funnels and journeys. */
   values: ValueRenderOpts[];
-  /** The mode every value renders in; null when modes differ or no value offers a choice. */
+  /**
+   * The mode every value renders in; null when modes differ, a value has no
+   * mode (see `valueHasShowAsMode`) or no value offers a choice.
+   */
   sharedShowAs: ShowAs | null;
-  /** Some values render as totals and others per unit. */
+  /** The values don't all render in one mode. */
   modesAreMixed: boolean;
   /** See `getSharedUnit`. */
   sharedUnit: string | null;
@@ -140,30 +164,39 @@ export function getExplorationRenderOpts(
   const choices = values.map((v) =>
     getShowAsChoice(v, config.showAs, getFactMetricById),
   );
-  const someValueOffersShowAs = choices.some(
-    (choice) => choice.options.length > 0,
+  // A per-unit value with no options is one whose metric hasn't resolved.
+  const someValueHasShowAs = choices.some(
+    (choice) => choice.options.length > 0 || choice.showAs === "per_unit",
   );
+  const hasMode = values.map((v) => valueHasShowAsMode(v, getFactMetricById));
   const modes = new Set(choices.map((choice) => choice.showAs));
   const sharedShowAs =
-    someValueOffersShowAs && modes.size === 1 ? [...modes][0] : null;
-  const modesAreMixed = someValueOffersShowAs && sharedShowAs === null;
+    someValueHasShowAs && hasMode.every(Boolean) && modes.size === 1
+      ? [...modes][0]
+      : null;
+  const modesAreMixed = someValueHasShowAs && sharedShowAs === null;
   const sharedUnit = getSharedUnit(config, getFactMetricById);
 
-  // Annotate series names when the axis title can't tell readers how the
-  // values are calculated.
   const hasCustomAxisTitle = config.chartSettings?.valueAxisLabel !== undefined;
-  const axisTitleNamesTheUnit = !hasCustomAxisTitle && sharedUnit !== null;
-  const annotateNames =
-    modesAreMixed || (sharedShowAs === "per_unit" && !axisTitleNamesTheUnit);
+  const axisTitleNamesTheUnit =
+    !hasCustomAxisTitle && sharedShowAs === "per_unit" && sharedUnit !== null;
 
   return {
-    values: values.map((v, i) => ({
-      showAs: choices[i].showAs,
-      isRatio: isRatioValue(v, getFactMetricById),
-      seriesName: annotateNames
-        ? getAnnotatedName(v, i, choices[i].showAs, sharedUnit)
-        : getValueName(v, i),
-    })),
+    values: values.map((v, i) => {
+      const { showAs } = choices[i];
+      const name = getValueName(v, i);
+      // A plain name means total, unless per-unit values sit beside it.
+      const annotate = hasMode[i] && (showAs === "per_unit" || modesAreMixed);
+      const label = annotate
+        ? getAnnotatedName(v, i, showAs, sharedUnit)
+        : name;
+      return {
+        showAs,
+        isRatio: isRatioValue(v, getFactMetricById),
+        label,
+        seriesName: axisTitleNamesTheUnit ? name : label,
+      };
+    }),
     sharedShowAs,
     modesAreMixed,
     sharedUnit,
@@ -247,11 +280,9 @@ export function buildExplorationColumns(
   const { values } = config.dataset;
   if (values.length === 0) return cols;
 
-  const { modesAreMixed, sharedUnit } = renderOpts;
-
   values.forEach((v, metricIndex) => {
     const name = getValueName(v, metricIndex);
-    const { isRatio, showAs } = renderOpts.values[metricIndex];
+    const { isRatio, label } = renderOpts.values[metricIndex];
     if (isRatio) {
       cols.push({
         kind: "metric",
@@ -277,15 +308,10 @@ export function buildExplorationColumns(
       return;
     }
 
-    // A plain header means total, unless per-unit columns sit beside it.
-    const annotate = showAs === "per_unit" || modesAreMixed;
-    const singleLabel = annotate
-      ? getAnnotatedName(v, metricIndex, showAs, sharedUnit)
-      : name;
     cols.push({
       kind: "metric",
       key: `__metric_${metricIndex}__`,
-      label: singleLabel,
+      label,
       metricIndex,
       sub: "single",
     });

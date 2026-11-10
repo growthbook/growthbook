@@ -73,6 +73,7 @@ export {
   getExplorationRenderOpts,
   getDefaultValueAxisName,
   getValueAxisName,
+  getValueName,
   buildExplorationColumns,
   getExplorationCellValue,
   computeDimensionTotals,

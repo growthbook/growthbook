@@ -39,6 +39,7 @@ const metrics = new Map(
     makeMetric("installs", "mean", "devices_only"),
     makeMetric("aov", "ratio", "users_and_devices"),
     makeMetric("p95", "quantile", "devices_only"),
+    makeMetric("pageViews", "mean", "no_identifiers"),
   ].map((m) => [m.id, m]),
 );
 const factTables = new Map(
@@ -46,6 +47,7 @@ const factTables = new Map(
     { id: "users_and_devices", userIdTypes: ["user_id", "device_id"] },
     { id: "users_only", userIdTypes: ["user_id"] },
     { id: "devices_only", userIdTypes: ["device_id"] },
+    { id: "no_identifiers", userIdTypes: [] as string[] },
   ].map((ft) => [ft.id, ft as FactTableDefinition]),
 );
 const getFactMetricById = (id: string) => metrics.get(id) ?? null;
@@ -91,18 +93,19 @@ function metricChart(
 function describeExplorerDisplay(config: ExplorationConfig) {
   const values = config.dataset.type === "metric" ? config.dataset.values : [];
   const renderOpts = getExplorationRenderOpts(config, getFactMetricById);
-  const unitsAreMixed = getMetricValuesUnitState(
+  const unitState = getMetricValuesUnitState(
     values,
     getFactMetricById,
     getFactTableById,
-  ).isMixed;
+  );
   return {
     axisTitle: getValueAxisName(config, renderOpts),
     seriesNames: renderOpts.values.map((opts) => opts.seriesName),
+    bigNumberLabels: renderOpts.values.map((opts) => opts.label),
     columnHeaders: buildExplorationColumns(config, renderOpts)
       .filter((col) => col.kind === "metric")
       .map((col) => col.label),
-    unitPicker: getUnitPicker(values, getFactMetricById, getFactTableById),
+    unitPicker: getUnitPicker(values, unitState, getFactMetricById),
     cards: values.map((v) => {
       const { options, showAs } = getShowAsChoice(
         v,
@@ -112,7 +115,7 @@ function describeExplorerDisplay(config: ExplorationConfig) {
       return {
         showAsOptions: options,
         showAs,
-        readOnlyUnit: getReadOnlyUnit(v, unitsAreMixed, getFactMetricById),
+        readOnlyUnit: getReadOnlyUnit(v, unitState.isMixed, getFactMetricById),
       };
     }),
   };
@@ -131,6 +134,7 @@ describe("describeExplorerDisplay", () => {
     ).toEqual({
       axisTitle: "Per user_id",
       seriesNames: ["revenue", "maxOrder"],
+      bigNumberLabels: ["revenue (per user_id)", "maxOrder (per user_id)"],
       columnHeaders: ["revenue (per user_id)", "maxOrder (per user_id)"],
       unitPicker: {
         value: "user_id",
@@ -165,6 +169,7 @@ describe("describeExplorerDisplay", () => {
     ).toEqual({
       axisTitle: "Total",
       seriesNames: ["signups", "installs"],
+      bigNumberLabels: ["signups", "installs"],
       columnHeaders: ["signups", "installs"],
       unitPicker: {
         value: null,
@@ -184,6 +189,18 @@ describe("describeExplorerDisplay", () => {
     });
   });
 
+  it("one metric whose Fact Table has no identifier types: the picker says so", () => {
+    expect(
+      describeExplorerDisplay(metricChart([value("pageViews", null)]))
+        .unitPicker,
+    ).toEqual({
+      value: null,
+      placeholder: "Select identifier type...",
+      options: [],
+      disabledReason: "This metric's Fact Table has no identifier types.",
+    });
+  });
+
   it("a lone quantile: no Show as and no identifier type picker", () => {
     expect(
       // Quantiles can't change unit or Show as.
@@ -191,6 +208,7 @@ describe("describeExplorerDisplay", () => {
     ).toEqual({
       axisTitle: "",
       seriesNames: ["p95"],
+      bigNumberLabels: ["p95"],
       columnHeaders: ["p95"],
       unitPicker: null,
       cards: [{ showAsOptions: [], showAs: "total", readOnlyUnit: null }],

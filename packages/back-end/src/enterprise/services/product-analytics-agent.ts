@@ -22,7 +22,7 @@ import {
 import { DataSourceInterface } from "shared/types/datasource";
 import {
   normalizeShowAs,
-  getShowAsOptions,
+  getShowAsChoice,
   fillMissingUnits,
   getExplorationRenderOpts,
   buildExplorationColumns,
@@ -105,7 +105,7 @@ Always follow the unitNote returned by getAvailableColumns:
 - metric: always set unit to userIdTypes[0] for standard metric types (mean, proportion, retention, dailyParticipation). The backend requires a unit to emit the denominator needed for per-unit rendering. For ratio and quantile metrics, leave unit null (they handle units internally).
 - denominatorUnit: always null.
 
-If you omit unit on a standard metric, the backend will fill in userIdTypes[0] automatically and return a configNormalized warning. Prefer setting it explicitly.
+If you omit unit on a standard metric, the backend fills in the unit the chart's other metrics share, or else the first userIdType of the metric's fact table, and returns a configNormalized warning. Prefer setting it explicitly.
 </unit_rules>
 
 <show_as_rules>
@@ -260,17 +260,32 @@ function buildConfigSchemaSummary(): string {
   ].join("\n");
 }
 
-/** A config's explicit per-value showAs choices, e.g. "Revenue: per_unit". */
-function describeShowAs(config: ExplorationConfig): string {
+/**
+ * The mode each value that offers Show as renders in, chosen or inferred,
+ * e.g. "Revenue: per_unit".
+ */
+function describeShowAs(
+  config: ExplorationConfig,
+  getFactMetricById: (id: string) => FactMetricInterface | null,
+): string {
   if (config.dataset?.type !== "metric") return "";
   return config.dataset.values
-    .flatMap((v) => (v.showAs ? [`${v.name}: ${v.showAs}`] : []))
+    .flatMap((v) => {
+      const { options, showAs } = getShowAsChoice(
+        v,
+        config.showAs,
+        getFactMetricById,
+      );
+      return options.length ? [`${v.name}: ${showAs}`] : [];
+    })
     .join(", ");
 }
 
 function buildSnapshotSummary(
   prev: ExplorationConfig | null,
   curr: ExplorationConfig,
+  // Must resolve the metrics of both configs.
+  getFactMetricById: (id: string) => FactMetricInterface | null,
 ): string {
   const parts: string[] = [];
 
@@ -289,7 +304,7 @@ function buildSnapshotSummary(
         parts.push(`values: ${valueNames.join(", ")}`);
       }
     }
-    const showAs = describeShowAs(curr);
+    const showAs = describeShowAs(curr, getFactMetricById);
     if (showAs) {
       parts.push(`showAs: ${showAs}`);
     }
@@ -334,12 +349,10 @@ function buildSnapshotSummary(
     parts.push("datasource changed");
   }
 
-  const prevShowAs = describeShowAs(prev);
-  const currShowAs = describeShowAs(curr);
+  const prevShowAs = describeShowAs(prev, getFactMetricById);
+  const currShowAs = describeShowAs(curr, getFactMetricById);
   if (prevShowAs !== currShowAs) {
-    parts.push(
-      `showAs: ${prevShowAs || "inferred"} → ${currShowAs || "inferred"}`,
-    );
+    parts.push(`showAs: ${prevShowAs || "none"} → ${currShowAs || "none"}`);
   }
 
   return parts.length ? parts.join(", ") : "minor config update";
@@ -387,11 +400,9 @@ function buildResultCsv(
     }
     // value (ratio) and single: 4dp for ratios/per-unit, integer for totals.
     if (typeof raw === "number") {
-      const valueOpts = renderOpts.values[col.metricIndex];
       const isRatioOrPerUnit =
         col.sub === "value" ||
-        (col.sub === "single" &&
-          (valueOpts?.isRatio || valueOpts?.showAs === "per_unit"));
+        renderOpts.values[col.metricIndex]?.showAs === "per_unit";
       return isRatioOrPerUnit ? raw.toFixed(4) : String(raw);
     }
     return String(raw);
@@ -690,6 +701,32 @@ interface NormalizeResult {
   getFactMetricById: (id: string) => FactMetricInterface | null;
 }
 
+function getReferencedMetricIds(
+  dataset: ExplorationConfig["dataset"] | undefined,
+): string[] {
+  if (dataset?.type !== "metric") return [];
+  return Array.from(
+    new Set(
+      dataset.values.map((v) => v.metricId).filter((id): id is string => !!id),
+    ),
+  );
+}
+
+/** Extends a metric resolver with the metrics `config` references that it lacks. */
+async function withMetricsOf(
+  ctx: ReqContext,
+  config: ExplorationConfig | null,
+  getFactMetricById: (id: string) => FactMetricInterface | null,
+): Promise<(id: string) => FactMetricInterface | null> {
+  const missingIds = getReferencedMetricIds(config?.dataset).filter(
+    (id) => !getFactMetricById(id),
+  );
+  if (!missingIds.length) return getFactMetricById;
+  const metrics = await ctx.models.factMetrics.getByIds(missingIds);
+  const metricById = new Map(metrics.map((m) => [m.id, m]));
+  return (id) => getFactMetricById(id) ?? metricById.get(id) ?? null;
+}
+
 async function normalizeConfigForExplorer(
   ctx: ReqContext,
   config: ExplorationConfig,
@@ -762,16 +799,7 @@ async function normalizeConfigForExplorer(
 
   // Load every referenced fact metric once. This map serves both the unit
   // backfill below and the CSV writer downstream — no second round-trip.
-  const referencedMetricIds =
-    dataset.type === "metric"
-      ? Array.from(
-          new Set(
-            dataset.values
-              .map((v) => v.metricId)
-              .filter((id): id is string => !!id),
-          ),
-        )
-      : [];
+  const referencedMetricIds = getReferencedMetricIds(dataset);
   const referencedMetrics = referencedMetricIds.length
     ? await ctx.models.factMetrics.getByIds(referencedMetricIds)
     : [];
@@ -831,22 +859,19 @@ async function normalizeConfigForExplorer(
   // isn't one of the metric's Show as options, so we never persist a mode that
   // disagrees with what the chart will actually render.
   const legacyShowAs = normalized.showAs;
-  const dropped =
-    normalized.dataset.type === "metric"
-      ? normalized.dataset.values.filter((v) => {
-          const asked = v.showAs ?? legacyShowAs;
-          const metric = getFactMetricByIdResolver(v.metricId);
-          return (
-            asked !== undefined &&
-            metric !== null &&
-            !getShowAsOptions(metric.metricType).includes(asked)
-          );
-        })
-      : [];
+  const valuesBefore =
+    normalized.dataset.type === "metric" ? normalized.dataset.values : [];
   normalized = normalizeShowAs(normalized, getFactMetricByIdResolver);
+  const valuesAfter =
+    normalized.dataset.type === "metric" ? normalized.dataset.values : [];
+  const dropped = valuesBefore.filter(
+    (v, i) =>
+      (v.showAs ?? legacyShowAs) !== undefined &&
+      valuesAfter[i]?.showAs === undefined,
+  );
   if (dropped.length) {
     warnings.push(
-      `Dropped showAs from ${dropped.map((v) => `"${v.name}"`).join(", ")} — it isn't an option for that metric type (only mean metrics offer showAs). These values render as totals.`,
+      `Dropped showAs from ${dropped.map((v) => `"${v.name}"`).join(", ")} — it isn't an option for that metric type (only mean metrics offer showAs). These values render in their default mode (ratio and quantile metrics as computed, others as totals).`,
     );
   }
 
@@ -938,7 +963,11 @@ async function executeRunExploration(
     const prevConfig = explorationConfigFromLatestRun(
       buffer.getLatestToolResult("runExploration"),
     );
-    const summary = buildSnapshotSummary(prevConfig, config);
+    const summary = buildSnapshotSummary(
+      prevConfig,
+      config,
+      await withMetricsOf(ctx, prevConfig, getFactMetricById),
+    );
     const resultCsv = buildResultCsv(
       exploration?.result?.rows ?? [],
       config,

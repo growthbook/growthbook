@@ -244,7 +244,8 @@ export default function ExplorerChart({
     return renderOpts.values.map((opts, metricIndex) => {
       const cell = row?.values?.[metricIndex];
       const value = cell ? getEffectiveMetricValue(cell, opts) : 0;
-      return { value, label: opts.seriesName };
+      // A tile has no axis title to name the unit.
+      return { value, label: opts.label };
     });
   }, [exploration?.result?.rows, submittedExploreState, renderOpts]);
 

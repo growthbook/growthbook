@@ -10,17 +10,13 @@ import { parseWarehouseDate } from "shared/dates";
 import type { FactMetricInterface } from "shared/types/fact-table";
 // Imported from the module rather than the `shared/validators` barrel: the
 // barrel forms a require cycle with this file, leaving the array undefined.
-import {
-  comparisonMode,
-  datasetHasValues,
-} from "../../validators/product-analytics";
+import { comparisonMode } from "../../validators/product-analytics";
 import { calculateProductAnalyticsDateRange, getDateGranularity } from "./sql";
 import {
   buildExplorationColumns,
   getEffectiveMetricValue,
   getExplorationCellValue,
   getExplorationRenderOpts,
-  isRatioValue,
   sortExplorationRows,
 } from "./utils";
 
@@ -714,16 +710,12 @@ function orderedMetricIdsForDensify(
 
 function buildZeroValueRow(
   metricIds: string[],
-  isRatioByIndex: boolean[],
 ): ProductAnalyticsResultRow["values"] {
-  return metricIds.map((metricId, i) => {
-    const isRatio = isRatioByIndex[i] ?? false;
-    return {
-      metricId,
-      numerator: 0,
-      denominator: isRatio ? 0 : null,
-    };
-  });
+  return metricIds.map((metricId) => ({
+    metricId,
+    numerator: 0,
+    denominator: null,
+  }));
 }
 
 /** Composite merge key for a date bucket + optional breakdown value. */
@@ -747,17 +739,11 @@ export function densifyComparisonExplorationTimeseries(params: {
   comparison: ProductAnalyticsExploration | null;
   submittedConfig: ExplorationConfig;
   previousTimeFrame: ExplorationDateRange;
-  getFactMetricById: (id: string) => FactMetricInterface | null;
   /** Primary-period rows; used to seed breakdown series in the grouped case. */
   primaryRows?: ProductAnalyticsResultRow[];
 }): ProductAnalyticsExploration | null {
-  const {
-    comparison,
-    submittedConfig,
-    previousTimeFrame,
-    getFactMetricById,
-    primaryRows,
-  } = params;
+  const { comparison, submittedConfig, previousTimeFrame, primaryRows } =
+    params;
 
   if (!comparison) return null;
 
@@ -765,14 +751,6 @@ export function densifyComparisonExplorationTimeseries(params: {
   const firstIsDate = dims[0]?.dimensionType === "date";
   const isGrouped = dims.length === 2 && firstIsDate;
   if (!((dims.length === 1 && firstIsDate) || isGrouped)) {
-    return null;
-  }
-
-  const hasAnyRatio = getExplorationRenderOpts(
-    submittedConfig,
-    getFactMetricById,
-  ).values.some((opts) => opts.isRatio);
-  if (hasAnyRatio) {
     return null;
   }
 
@@ -801,14 +779,9 @@ export function densifyComparisonExplorationTimeseries(params: {
     return null;
   }
 
-  const isRatioByIndex = datasetHasValues(submittedConfig.dataset)
-    ? submittedConfig.dataset.values.map((v) =>
-        isRatioValue(v, getFactMetricById),
-      )
-    : [];
   // buildZeroValueRow always returns an array; the `| undefined` comes from
   // the union type on ProductAnalyticsResultRow["values"] (funnel rows omit it).
-  const zeroValues = buildZeroValueRow(metricIds, isRatioByIndex)!;
+  const zeroValues = buildZeroValueRow(metricIds)!;
   const comparisonRows = comparison.result?.rows ?? [];
 
   if (!isGrouped) {
@@ -962,16 +935,15 @@ export function computeExplorationComparisonPayload(
     (c) => c.kind === "metric" && c.sub !== "single",
   );
 
-  const densifiedComparison =
-    !hasAnyRatio && comparison
-      ? densifyComparisonExplorationTimeseries({
-          comparison,
-          submittedConfig,
-          previousTimeFrame,
-          getFactMetricById,
-          primaryRows: primary?.result?.rows,
-        })
-      : null;
+  // Zero-filled ratio rows would read as 0/0, so ratios aren't densified.
+  const densifiedComparison = hasAnyRatio
+    ? null
+    : densifyComparisonExplorationTimeseries({
+        comparison,
+        submittedConfig,
+        previousTimeFrame,
+        primaryRows: primary?.result?.rows,
+      });
 
   const exploration = densifiedComparison ?? comparison;
 

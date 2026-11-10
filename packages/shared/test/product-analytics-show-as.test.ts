@@ -140,6 +140,20 @@ describe("getShowAsChoice", () => {
     ).toEqual(none);
   });
 
+  it("renders the saved choice while the metric hasn't loaded", () => {
+    const savedPerUnit = { options: [], showAs: "per_unit" };
+    expect(
+      getShowAsChoice(
+        metricValue("loading", "per_unit"),
+        undefined,
+        getFactMetricById,
+      ),
+    ).toEqual(savedPerUnit);
+    expect(
+      getShowAsChoice(metricValue("loading"), "per_unit", getFactMetricById),
+    ).toEqual(savedPerUnit);
+  });
+
   it("falls back to the deprecated config-level showAs", () => {
     expect(
       getShowAsChoice(metricValue("revenue"), "per_unit", getFactMetricById),
@@ -317,6 +331,17 @@ describe("getDefaultValueAxisName", () => {
       ),
     ).toBe("");
   });
+
+  it("is empty when a ratio shares the axis, since a ratio isn't a total", () => {
+    expect(
+      getDefaultValueAxisName(
+        getExplorationRenderOpts(
+          metricConfig([metricValue("revenue", "total"), metricValue("aov")]),
+          getFactMetricById,
+        ),
+      ),
+    ).toBe("");
+  });
 });
 
 describe("getEffectiveMetricValue", () => {
@@ -430,6 +455,24 @@ describe("seriesName", () => {
     ).toEqual(["revenue", "maxOrder"]);
   });
 
+  it("keeps the note in labels, which have no axis title beside them", () => {
+    expect(
+      getExplorationRenderOpts(
+        metricConfig([
+          metricValue("revenue", "per_unit"),
+          metricValue("maxOrder"),
+        ]),
+        getFactMetricById,
+      ).values.map((opts) => opts.label),
+    ).toEqual(["revenue (per user_id)", "maxOrder (per user_id)"]);
+  });
+
+  it("annotates a per-unit value whose metric hasn't loaded", () => {
+    expect(names(metricConfig([metricValue("loading", "per_unit")]))).toEqual([
+      "loading (per user_id)",
+    ]);
+  });
+
   it("annotates each value when per-unit values use different units", () => {
     expect(
       names(
@@ -450,6 +493,19 @@ describe("seriesName", () => {
         ]),
       ),
     ).toEqual(["revenue", "converted"]);
+  });
+
+  it("never annotates a ratio, which is neither a total nor per unit", () => {
+    expect(
+      names(
+        metricConfig([metricValue("revenue", "per_unit"), metricValue("aov")]),
+      ),
+    ).toEqual(["revenue (per user_id)", "aov"]);
+    expect(
+      names(
+        metricConfig([metricValue("revenue", "total"), metricValue("aov")]),
+      ),
+    ).toEqual(["revenue (total)", "aov"]);
   });
 
   it("annotates per-unit values under a custom axis title", () => {

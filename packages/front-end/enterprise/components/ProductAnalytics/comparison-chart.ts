@@ -338,7 +338,9 @@ function metricNameForDatasetValue(
   renderOpts: RenderOpts,
   metricIndex: number,
 ): string {
-  return renderOpts.values[metricIndex]?.seriesName ?? `Metric ${metricIndex}`;
+  return (
+    renderOpts.values[metricIndex]?.seriesName ?? `Metric ${metricIndex + 1}`
+  );
 }
 
 /**

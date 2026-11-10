@@ -82,8 +82,9 @@ export function inferShowAs(metric: ShowAsMetric | null): ShowAs {
 }
 
 /**
- * Returns the showAs options and selected mode for a metric value.
- *
+ * Returns the showAs options and selected mode for a metric value. A value
+ * whose metric hasn't resolved offers no options but renders its saved choice,
+ * the one `normalizeShowAs` keeps for it.
  */
 export function getShowAsChoice(
   value: ProductAnalyticsValue,
@@ -92,7 +93,13 @@ export function getShowAsChoice(
 ): ShowAsChoice {
   if (value.type !== "metric") return NO_SHOW_AS_CHOICE;
   const metric = getDraftOrSavedMetric(value, getFactMetricById);
-  const options = getShowAsOptions(metric?.metricType);
+  if (metric === null) {
+    return {
+      options: [],
+      showAs: value.showAs ?? legacyShowAs ?? NO_SHOW_AS_CHOICE_DEFAULT,
+    };
+  }
+  const options = getShowAsOptions(metric.metricType);
   if (!options.length) return NO_SHOW_AS_CHOICE;
   const showAs =
     [value.showAs, legacyShowAs, inferShowAs(metric)].find(

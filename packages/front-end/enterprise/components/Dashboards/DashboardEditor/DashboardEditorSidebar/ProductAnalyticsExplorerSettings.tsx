@@ -15,7 +15,7 @@ import {
   SqlExplorationBlockInterface,
 } from "shared/enterprise";
 import { ReactNode } from "react";
-import { isEqual } from "lodash";
+import { isEqual, omit } from "lodash";
 import type {
   ComparisonMode,
   ExplorationDateRange,
@@ -76,9 +76,11 @@ export default function ProductAnalyticsExplorerSettings({
     data?.exploration.id === block.explorerAnalysisId
       ? data.exploration
       : undefined;
+  // The block renders from its own config, so the cached exploration's
+  // deprecated chart-level showAs must not become its values' fallback here.
   const baseInitialConfig =
     exploration?.config && block.config
-      ? { ...exploration.config, ...block.config }
+      ? { ...omit(exploration.config, "showAs"), ...block.config }
       : (exploration?.config ?? block.config ?? null);
   const blockForInitialConfig = baseInitialConfig
     ? ({

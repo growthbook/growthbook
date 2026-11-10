@@ -4,7 +4,7 @@ import { Flex } from "@radix-ui/themes";
 import { PiPlus } from "react-icons/pi";
 import type { FactMetricInterface } from "shared/types/fact-table";
 import type { MetricValue } from "shared/validators";
-import { getFactMetricPrimaryFactTableId } from "shared/experiments";
+import { getMetricIdentifierTypes } from "shared/enterprise";
 import SelectField, {
   GroupedValue,
   SingleValue,
@@ -16,6 +16,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import {
   generateUniqueValueName,
   getShowAsChoice,
+  getValueName,
   MetricMixClass,
 } from "@/enterprise/components/ProductAnalytics/util";
 import {
@@ -51,12 +52,12 @@ export default function MetricTabContent() {
     draftExploreState.dataset?.type === "metric"
       ? draftExploreState.dataset.values
       : [];
-  const unitPicker = getUnitPicker(values, getFactMetricById, getFactTableById);
-  const unitsAreMixed = getMetricValuesUnitState(
+  const unitState = getMetricValuesUnitState(
     values,
     getFactMetricById,
     getFactTableById,
-  ).isMixed;
+  );
+  const unitPicker = getUnitPicker(values, unitState, getFactMetricById);
   const addMetricConflict = getAddMetricConflict(
     values.map((v) => getFactMetricById(v.metricId ?? "")?.metricType),
   );
@@ -165,7 +166,11 @@ export default function MetricTabContent() {
           <ValueCard
             key={idx}
             index={idx}
-            readOnlyUnit={getReadOnlyUnit(v, unitsAreMixed, getFactMetricById)}
+            readOnlyUnit={getReadOnlyUnit(
+              v,
+              unitState.isMixed,
+              getFactMetricById,
+            )}
             filterActions={
               showAsOptions.length > 0 && (
                 <ShowAsInput
@@ -175,7 +180,7 @@ export default function MetricTabContent() {
                     updateValueInDataset(idx, { ...v, showAs: next })
                   }
                   unit={v.unit}
-                  metricName={v.name.trim() || `Metric ${idx + 1}`}
+                  metricName={getValueName(v, idx)}
                 />
               )
             }
@@ -196,16 +201,15 @@ export default function MetricTabContent() {
                   // metric) if the new metric offers it; otherwise
                   // fillMissingUnits picks one.
                   const unit = lockedUnit ?? v.unit;
-                  const newUserIdTypes = newMetric
-                    ? (getFactTableById(
-                        getFactMetricPrimaryFactTableId(newMetric),
-                      )?.userIdTypes ?? [])
+                  const newIdentifierTypes = newMetric
+                    ? getMetricIdentifierTypes(newMetric, getFactTableById)
                     : [];
                   // A new metric starts from its own inferred showAs.
                   const updates = {
                     ...omit(v, "showAs"),
                     metricId: val,
-                    unit: unit && newUserIdTypes.includes(unit) ? unit : null,
+                    unit:
+                      unit && newIdentifierTypes.includes(unit) ? unit : null,
                     name: newMetric?.name
                       ? generateUniqueValueName(
                           newMetric.name,
