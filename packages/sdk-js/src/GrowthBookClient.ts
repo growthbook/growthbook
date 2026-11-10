@@ -74,6 +74,7 @@ export class GrowthBookClient<
   private _features: FeatureDefinitions;
   private _experiments: AutoExperiment[];
   private _payload: FeatureApiResponse | undefined;
+  private _payloadSeq?: number;
   private _decryptedPayload: FeatureApiResponse | undefined;
   private _destroyed?: boolean;
 
@@ -103,7 +104,10 @@ export class GrowthBookClient<
     // AppFeatures only checks payloads written in code; internally they are untyped
     const untyped = payload as FeatureApiResponse;
     this._payload = untyped;
+    // The latest call wins, even if an older one is slower to decrypt
+    const seq = (this._payloadSeq = (this._payloadSeq || 0) + 1);
     const data = await decryptPayload(untyped, this._options.decryptionKey);
+    if (seq !== this._payloadSeq) return;
     this._decryptedPayload = data;
     if (data.features) {
       this._features = data.features;
@@ -616,12 +620,12 @@ export class UserScopedGrowthBook<
   // The attributes feature evaluation sees: the client's globalAttributes under
   // this user's own, then attributeOverrides on top. Same merge evalFeature
   // applies, which getUserContext() does not.
-  public getAttributes(): AppAttributes {
+  public getAttributes(): Partial<AppAttributes> {
     return {
       ...this._gb.getGlobalAttributes(),
       ...this._userContext.attributes,
       ...this._userContext.attributeOverrides,
-    } as AppAttributes;
+    };
   }
   // Internal — first-party plugin use only.
   // See GrowthBook._experimentsDisabled; this merges the client's settings with

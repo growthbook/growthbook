@@ -7,6 +7,7 @@ import {
   setPolyfills,
   FeatureApiResponse,
   prefetchPayload,
+  StickyBucketService,
   onHidden,
   onVisible,
 } from "../src";
@@ -1714,6 +1715,49 @@ describe("feature-repo", () => {
     expect(growthbook3.getFeatureValue("foo", "")).toEqual("api");
     growthbook3.destroy();
     cleanup3();
+  });
+
+  it("does not let a slow fallbackPayload overwrite a newer payload", async () => {
+    await clearCache();
+    const fallbackPayload = { features: { foo: { defaultValue: "bundled" } } };
+    const payload = { features: { foo: { defaultValue: "api" } } };
+
+    // The first sticky bucket lookup (for the fallback) is slower than the
+    // second (for the response that arrives after the timeout)
+    let lookups = 0;
+    class SlowFirstLookup extends StickyBucketService {
+      async getAssignments() {
+        return null;
+      }
+      async saveAssignments() {
+        // Do nothing
+      }
+      async getAllAssignments() {
+        await sleep(lookups++ ? 10 : 300);
+        return {};
+      }
+    }
+
+    const [, cleanup] = mockApi(payload, false, 100);
+    const growthbook = new GrowthBook({
+      apiHost: "https://fakeapi.sample.io",
+      clientKey: "qwerty1234",
+      stickyBucketService: new SlowFirstLookup(),
+    });
+    // Polling subscribes the instance, so it receives the late response
+    const res = await growthbook.init({
+      timeout: 20,
+      fallbackPayload,
+      pollingInterval: 60 * 1000,
+    });
+    expect(res.source).toEqual("timeout");
+    expect(lookups).toEqual(2);
+    expect(growthbook.getFeatureValue("foo", "")).toEqual("api");
+    expect(growthbook.getPayload()).toEqual(payload);
+
+    growthbook.destroy();
+    cleanup();
+    await clearCache();
   });
 
   it("handles errors with init", async () => {

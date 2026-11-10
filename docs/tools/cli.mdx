@@ -222,8 +222,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
-  pull-requests: write
+  contents: read
 
 jobs:
   update:
@@ -235,12 +234,18 @@ jobs:
           GBCLI_BEARER_AUTH: ${{ secrets.GROWTHBOOK_API_KEY }}
       - uses: peter-evans/create-pull-request@v7
         with:
+          token: ${{ secrets.TYPES_PR_TOKEN }}
           branch: growthbook-types
           title: Update GrowthBook types
           commit-message: Update GrowthBook types
 ```
 
-The only setup is a `GROWTHBOOK_API_KEY` repository secret holding a read-only Secret Key. The workflow does nothing when the types haven't changed.
+Setup is two repository secrets:
+
+- `GROWTHBOOK_API_KEY`: a read-only Secret Key.
+- `TYPES_PR_TOKEN`: a personal access token or GitHub App token that can push branches and open pull requests. GitHub doesn't run other workflows on pull requests opened with the default `GITHUB_TOKEN`, so without this your type-check would never run on them.
+
+The workflow does nothing when the types haven't changed.
 
 If you'd rather not commit generated code, add the output directory to `.gitignore` and generate on every build instead. This needs `GBCLI_BEARER_AUTH` wherever you build:
 

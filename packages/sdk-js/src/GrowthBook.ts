@@ -119,6 +119,7 @@ export class GrowthBook<
     | ((doc: StickyAssignmentsDocument) => Promise<unknown>);
 
   private _payload: FeatureApiResponse | undefined;
+  private _payloadSeq?: number;
   private _decryptedPayload: FeatureApiResponse | undefined;
   private _destroyCallbacks: (() => void)[];
 
@@ -235,9 +236,14 @@ export class GrowthBook<
     // AppFeatures only checks payloads written in code; internally they are untyped
     const untyped = payload as FeatureApiResponse;
     this._payload = untyped;
+    // The latest call wins. Without this, an older call that is slower to
+    // decrypt or load sticky buckets would overwrite a newer payload.
+    const seq = (this._payloadSeq = (this._payloadSeq || 0) + 1);
     const data = await decryptPayload(untyped, this._options.decryptionKey);
+    if (seq !== this._payloadSeq) return;
     this._decryptedPayload = data;
     await this.refreshStickyBuckets(data);
+    if (seq !== this._payloadSeq) return;
     if (data.features) {
       this._options.features = data.features;
     }
@@ -529,7 +535,8 @@ export class GrowthBook<
     this._updateAllAutoExperiments(true);
   }
 
-  public getAttributes(): AppAttributes {
+  // Partial because attributes may not have been set yet
+  public getAttributes(): Partial<AppAttributes> {
     // Remote evaluation sends these, so it includes remote group IDs.
     return {
       ...this._options.attributes,
@@ -537,7 +544,7 @@ export class GrowthBook<
       ...(this._options.remoteGroupIds && {
         [REMOTE_GROUP_IDS_ATTRIBUTE]: this._options.remoteGroupIds,
       }),
-    } as AppAttributes;
+    } as Partial<AppAttributes>;
   }
 
   public getForcedVariations() {

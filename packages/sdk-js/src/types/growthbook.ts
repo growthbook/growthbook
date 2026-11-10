@@ -229,9 +229,14 @@ export type RegisteredAttributes = Register extends { attributes: infer A }
   : Attributes;
 // Stops an argument from being used to infer T, which would override the
 // registered default (the built-in NoInfer needs TypeScript 5.4+)
-export type NoInferType<T> = [T][T extends any ? 0 : never];
+export type NoInferType<T> = [T][T extends unknown ? 0 : never];
 
-export type TrackingUserContext = Pick<UserContext, "attributes" | "url">;
+// Loosely typed attributes: callbacks are not tied to one instance's types, so
+// the registered types would be wrong for an instance with its own generics
+export type TrackingUserContext = Pick<
+  UserContext<Attributes>,
+  "attributes" | "url"
+>;
 
 export interface TrackingData {
   experiment: Experiment<any>;

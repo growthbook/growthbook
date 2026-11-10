@@ -74,7 +74,7 @@ export function useExperiment<T>(exp: Experiment<T>): Result<T> {
 // Feature keys default to the types registered on the SDK's `Register` interface
 type FeatureKey = string & keyof RegisteredFeatures;
 // Stops `id` from being used to infer AppFeatures, which would accept any key
-type NoInferType<T> = [T][T extends any ? 0 : never];
+type NoInferType<T> = [T][T extends unknown ? 0 : never];
 
 // `useFeature<number>("key")` still works; without the generic, the registered type is used
 export function useFeature<
