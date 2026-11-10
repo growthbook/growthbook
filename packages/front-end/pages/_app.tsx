@@ -12,7 +12,6 @@ import { GrowthBookProvider } from "@growthbook/growthbook-react";
 import { growthbookTrackingPlugin } from "@growthbook/growthbook/plugins";
 import { Inter } from "next/font/google";
 import { Container } from "@radix-ui/themes";
-import * as TooltipPrimitive from "@radix-ui/react-tooltip";
 import { OrganizationMessagesContainer } from "@/components/OrganizationMessages/OrganizationMessages";
 import { OrgSuspendedBannerContainer } from "@/components/OrgSuspendedBanner/OrgSuspendedBanner";
 import { DemoDataSourceGlobalBannerContainer } from "@/components/DemoDataSourceGlobalBanner/DemoDataSourceGlobalBanner";
@@ -52,6 +51,7 @@ import { CommandPaletteLauncher } from "@/components/CommandPalette/CommandPalet
 import AgentLauncher from "@/components/Agent/AgentLauncher";
 import { AgentPanelProvider } from "@/components/Agent/AgentPanelContext";
 import Callout from "@/ui/Callout";
+import { TooltipProvider } from "@/ui/Tooltip";
 
 // Make useLayoutEffect isomorphic (for SSR)
 if (typeof window === "undefined") React.useLayoutEffect = React.useEffect;
@@ -224,8 +224,7 @@ function App({
       </Head>
       <AppearanceUIThemeProvider>
         <RadixTheme>
-          {/* @/ui/Tooltip allows block content, so it manages its own provider. */}
-          <TooltipPrimitive.Provider delayDuration={200}>
+          <TooltipProvider>
             {ready || noLoadingOverlay ? (
               <HoverTooltipProvider>
                 <SidebarOpenProvider>
@@ -309,7 +308,7 @@ function App({
             ) : (
               <LoadingOverlay />
             )}
-          </TooltipPrimitive.Provider>
+          </TooltipProvider>
         </RadixTheme>
       </AppearanceUIThemeProvider>
     </>

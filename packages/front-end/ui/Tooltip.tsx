@@ -3,6 +3,7 @@ import {
   forwardRef,
   isValidElement,
   PointerEvent,
+  ReactNode,
   useState,
 } from "react";
 import * as TooltipPrimitive from "@radix-ui/react-tooltip";
@@ -126,4 +127,14 @@ const Tooltip = forwardRef<HTMLDivElement, TooltipProps>(
 );
 
 Tooltip.displayName = "Tooltip";
+// It allows block content, so it brings its own provider rather than relying on
+// Radix Themes': mount this once around the app.
+export function TooltipProvider({ children }: { children: ReactNode }) {
+  return (
+    <TooltipPrimitive.Provider delayDuration={200}>
+      {children}
+    </TooltipPrimitive.Provider>
+  );
+}
+
 export default Tooltip;

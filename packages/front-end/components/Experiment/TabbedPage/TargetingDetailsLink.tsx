@@ -1,4 +1,5 @@
 import { ReactNode } from "react";
+import { Flex } from "@radix-ui/themes";
 import { PiCaretDown, PiCaretRight } from "react-icons/pi";
 import Link from "@/ui/Link";
 
@@ -22,10 +23,10 @@ export default function TargetingDetailsLink({
         onOpenChange(!open);
       }}
     >
-      <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+      <Flex as="span" display="inline-flex" align="center" gap="1">
         {children}
         {open ? <PiCaretDown /> : <PiCaretRight />}
-      </span>
+      </Flex>
     </Link>
   );
 }
