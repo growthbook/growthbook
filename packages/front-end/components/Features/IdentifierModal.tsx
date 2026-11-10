@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Box, Flex } from "@radix-ui/themes";
+import { Box, Flex, VisuallyHidden } from "@radix-ui/themes";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import {
   SDKAttribute,
@@ -202,9 +202,7 @@ export default function IdentifierModal({
         (!settledName || pickFor(d) !== null);
   // The server can't update Data Sources defined in config.yml.
   const fileConfig = hasFileConfig();
-  // `base` picks which existing type each Data Source matches; a new type is
-  // named after `typeName`.
-  const linksFor = (base: string, typeName = base) =>
+  const linksFor = (base: string) =>
     (fileConfig ? [] : mappable).flatMap((d) => {
       if (!canEdit(d) || linkedType(d) || !isChecked(d)) return [];
       const pick = pickFor(d, base);
@@ -213,13 +211,13 @@ export default function IdentifierModal({
         {
           id: d.id,
           userIdType:
-            pick === NEW_TYPE ? attributeToUserIdTypeName(typeName) : pick,
+            pick === NEW_TYPE ? attributeToUserIdTypeName(base) : pick,
         },
       ];
     });
-  // Matching waits for the name to settle so rows don't flicker, but new type
-  // names follow every keystroke, like the snippet.
-  const links = linksFor(settledName, newProperty);
+  // A live preview, like the snippet. The table waits for the name to settle
+  // so its rows don't flicker.
+  const links = linksFor(newProperty);
 
   const setChecked = (d: DataSourceInterfaceWithParams, v: boolean) => {
     if (isEdit) {
@@ -464,7 +462,12 @@ export default function IdentifierModal({
                     <TableColumnHeader>
                       {selectable.length > 1 ? (
                         <Checkbox
-                          label="Data Source"
+                          label={
+                            <>
+                              Data Source
+                              <VisuallyHidden> (select all)</VisuallyHidden>
+                            </>
+                          }
                           weight="medium"
                           value={
                             selectedCount === selectable.length

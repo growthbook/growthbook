@@ -159,6 +159,11 @@ export default function AttributeDetailPage() {
           source="attribute-page"
           existing={attribute}
           close={() => setShowConvertModal(false)}
+          onSave={(saved) => {
+            if (saved !== attribute.property) {
+              router.replace(`/attributes/${encodeURIComponent(saved)}`);
+            }
+          }}
         />
       )}
       {showDeleteModal && (

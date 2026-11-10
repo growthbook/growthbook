@@ -725,12 +725,20 @@ const FeatureAttributesPage = (): React.ReactElement => {
       "tagsSearch",
       "customFieldsSearch",
     ],
+    searchTermFilterDeps: [attributeCustomFields],
     searchTermFilters: {
       is: (item) =>
         item.archived ? [item.datatype, "archived"] : [item.datatype],
       datatype: (item) => item.datatype,
       project: (item) => item.projectNames || [],
       tag: (item) => item.tags || [],
+      ...Object.fromEntries(
+        filterableCustomFields.map((f) => [
+          f.id.toLowerCase(),
+          (item: { customFields?: Record<string, string> }) =>
+            customFieldFilterValue(f, item.customFields?.[f.id] ?? ""),
+        ]),
+      ),
     },
   });
 
@@ -839,6 +847,7 @@ const FeatureAttributesPage = (): React.ReactElement => {
                     searchInputProps={identifierSearchInputProps}
                     setSearchValue={setIdentifierSearchValue}
                     syntaxFilters={identifierSyntaxFilters}
+                    customFields={filterableCustomFields}
                     noun="identifiers"
                   />
                 </Flex>
