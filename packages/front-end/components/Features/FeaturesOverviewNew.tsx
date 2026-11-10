@@ -806,11 +806,11 @@ export default function FeaturesOverviewNew({
                   desiredStates: Object.fromEntries(
                     envs.map((envId) => [envId, false]),
                   ),
-                  header: "Turn off feature in all environments",
+                  header: "Turn off ALL environments",
                 })
               }
             >
-              Turn off feature in all environments
+              Turn off ALL environments
             </DropdownMenuItem>
           ) : null}
         </DropdownMenu>
