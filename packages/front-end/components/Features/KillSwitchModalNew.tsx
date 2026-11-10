@@ -260,8 +260,20 @@ export default function KillSwitchModalNew({
             don&apos;t have permission to put it in a draft.
           </PermissionBlocker>
         ) : null}
+        <DraftSelectorForChanges
+          feature={feature}
+          baseFeature={baseFeature}
+          revisionList={revisionList}
+          mode={mode}
+          setMode={setMode}
+          selectedDraft={selectedDraft}
+          setSelectedDraft={setSelectedDraft}
+          canAutoPublish={canAutoPublish}
+          canDraft={canDraft}
+          gatedEnvSet={envIsGated ? gatedEnvSet : "none"}
+        />
         {turningOff.length ? (
-          <Box mb="4">
+          <Box mt="4">
             <Text as="p" mb="1">
               The following environments will be disabled:
             </Text>
@@ -274,19 +286,6 @@ export default function KillSwitchModalNew({
             </ol>
           </Box>
         ) : null}
-        <DraftSelectorForChanges
-          feature={feature}
-          baseFeature={baseFeature}
-          revisionList={revisionList}
-          mode={mode}
-          setMode={setMode}
-          selectedDraft={selectedDraft}
-          setSelectedDraft={setSelectedDraft}
-          canAutoPublish={canAutoPublish}
-          canDraft={canDraft}
-          gatedEnvSet={envIsGated ? gatedEnvSet : "none"}
-          defaultExpanded
-        />
 
         <Flex justify="center" mt="2">
           {noNetChange && (
