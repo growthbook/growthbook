@@ -27,9 +27,9 @@ export interface KillSwitchModalProps {
   feature: FeatureInterface;
   // Raw live feature document (un-merged)
   baseFeature: FeatureInterface;
-  // The environment a switch was flipped for, and the state it asks for.
-  environment: string;
-  desiredState: boolean;
+  // The state each changed environment asks for.
+  desiredStates: Record<string, boolean>;
+  header: string;
   currentVersion: number;
   revisionList: MinimalFeatureRevisionInterface[];
   mutate: () => Promise<unknown>;
@@ -40,8 +40,8 @@ export interface KillSwitchModalProps {
 export default function KillSwitchModalNew({
   feature,
   baseFeature,
-  environment,
-  desiredState,
+  desiredStates,
+  header,
   currentVersion,
   revisionList,
   mutate,
@@ -93,10 +93,12 @@ export default function KillSwitchModalNew({
     mode === "existing" ? selectedDraft : null,
   ]);
 
-  const visibleEnvs = useMemo(
-    () => filterEnvironmentsByFeature(allOrgEnvironments, liveDoc),
-    [allOrgEnvironments, liveDoc],
-  );
+  const visibleEnvs = useMemo(() => {
+    const envs = filterEnvironmentsByFeature(allOrgEnvironments, liveDoc).map(
+      (env) => env.id,
+    );
+    return [...new Set([...envs, ...Object.keys(desiredStates)])];
+  }, [allOrgEnvironments, liveDoc, desiredStates]);
 
   // Base enabled state per env: live (filled) for new/publish, effective draft for existing.
   const baseEnvEnabled = useMemo<Record<string, boolean>>(() => {
@@ -124,8 +126,7 @@ export default function KillSwitchModalNew({
   }, [targetRevisions, liveDoc, feature.version, mode, selectedDraft]);
 
   const getEffectiveState = (envId: string): boolean => {
-    if (envId === environment) return desiredState;
-    return baseEnvEnabled[envId] ?? false;
+    return desiredStates[envId] ?? baseEnvEnabled[envId] ?? false;
   };
 
   const gatedEnvSet = getKillSwitchGatedEnvs(settings?.requireReviews, feature);
@@ -134,20 +135,20 @@ export default function KillSwitchModalNew({
   const envIsGated =
     gatedEnvSet !== "none" &&
     visibleEnvs.some((env) => {
-      const isGated = gatedEnvSet === "all" || gatedEnvSet.has(env.id);
+      const isGated = gatedEnvSet === "all" || gatedEnvSet.has(env);
       if (!isGated) return false;
-      return getEffectiveState(env.id) !== !!liveEnvSettings[env.id]?.enabled;
+      return getEffectiveState(env) !== !!liveEnvSettings[env]?.enabled;
     });
 
   const canPublishFlippedEnvs = visibleEnvs.every(
     (env) =>
-      getEffectiveState(env.id) === !!liveEnvSettings[env.id]?.enabled ||
-      permissionsUtil.canPublishFeature(liveDoc, [env.id]),
+      getEffectiveState(env) === !!liveEnvSettings[env]?.enabled ||
+      permissionsUtil.canPublishFeature(liveDoc, [env]),
   );
 
   // Require at least one visible environment the user may publish.
   const canPublishAnyVisibleEnv = visibleEnvs.some((env) =>
-    permissionsUtil.canPublishFeature(liveDoc, [env.id]),
+    permissionsUtil.canPublishFeature(liveDoc, [env]),
   );
   const canAutoPublish =
     (isAdmin || !envIsGated) &&
@@ -164,9 +165,9 @@ export default function KillSwitchModalNew({
   const submit = async () => {
     const environments: Record<string, boolean> = {};
     for (const env of visibleEnvs) {
-      const effective = getEffectiveState(env.id);
-      if (effective !== (baseEnvEnabled[env.id] ?? false)) {
-        environments[env.id] = effective;
+      const effective = getEffectiveState(env);
+      if (effective !== (baseEnvEnabled[env] ?? false)) {
+        environments[env] = effective;
       }
     }
 
@@ -203,8 +204,8 @@ export default function KillSwitchModalNew({
 
   const noNetChange = visibleEnvs.every(
     (env) =>
-      getEffectiveState(env.id) ===
-      (liveDoc.environmentSettings?.[env.id]?.enabled ?? false),
+      getEffectiveState(env) ===
+      (liveDoc.environmentSettings?.[env]?.enabled ?? false),
   );
 
   // True only when the selected draft itself had changes vs live before the user touched anything.
@@ -212,21 +213,19 @@ export default function KillSwitchModalNew({
     mode === "existing" &&
     visibleEnvs.some(
       (env) =>
-        (baseEnvEnabled[env.id] ?? false) !==
-        !!liveDoc.environmentSettings?.[env.id]?.enabled,
+        (baseEnvEnabled[env] ?? false) !==
+        !!liveDoc.environmentSettings?.[env]?.enabled,
     );
 
   // Selected "Publish now" but the flip set includes an environment this user
   // can't publish. The switch was legitimately theirs to flip; the route isn't.
   const cannotLandSelectedRoute =
     mode === "publish" && !noRouteAvailable && !canAutoPublish;
-  // Named for the switch that was flipped, whatever else the draft changes.
-  const modalHeader = `${getEffectiveState(environment) ? "Enable" : "Disable"} ${environment}`;
 
   return (
     <ModalStandard
       trackingEventModalType="kill-switch-toggle"
-      header={modalHeader}
+      header={header}
       close={close}
       open={true}
       cta={mode === "publish" ? "Publish now" : "Save to draft"}

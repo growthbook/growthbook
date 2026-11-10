@@ -212,8 +212,8 @@ export default function FeaturesOverviewNew({
   const permissionsUtil = usePermissionsUtil();
 
   const [killSwitchTarget, setKillSwitchTarget] = useState<{
-    envId: string;
-    desiredState: boolean;
+    desiredStates: Record<string, boolean>;
+    header: string;
   } | null>(null);
   // The environment whose switch is saving to the draft. Every switch waits
   // on it: each save writes the draft's whole environment map, so two at once
@@ -471,7 +471,10 @@ export default function FeaturesOverviewNew({
   const toggleEnvironment = async (envId: string, on: boolean) => {
     setEnvError(null);
     if (!isDraft || !canEditDrafts) {
-      setKillSwitchTarget({ envId, desiredState: on });
+      setKillSwitchTarget({
+        desiredStates: { [envId]: on },
+        header: `${on ? "Enable" : "Disable"} ${envId}`,
+      });
       return;
     }
     setSavingEnv(envId);
@@ -768,8 +771,11 @@ export default function FeaturesOverviewNew({
         </PremiumTooltip>
       )
     ) : null;
+  const allEnvironmentsOff = envs.every(
+    (envId) => !feature.environmentSettings?.[envId]?.enabled,
+  );
   const environmentActions =
-    canEditDrafts && showsControls ? (
+    showsControls && (canEditDrafts || canChangeEnvironments) ? (
       lockReason ? (
         <LockedRowMenu style={{ margin: 0 }} />
       ) : (
@@ -777,14 +783,36 @@ export default function FeaturesOverviewNew({
           trigger={<MoreMenuTrigger label="Environment actions" />}
           menuPlacement="end"
         >
-          <DropdownMenuItem
-            disabled={!hasPrerequisitesCommercialFeature}
-            onClick={openAddPrerequisite}
-          >
-            <PremiumTooltip commercialFeature="prerequisites">
-              Add prerequisite
-            </PremiumTooltip>
-          </DropdownMenuItem>
+          {canEditDrafts ? (
+            <DropdownMenuItem
+              disabled={!hasPrerequisitesCommercialFeature}
+              onClick={openAddPrerequisite}
+            >
+              <PremiumTooltip commercialFeature="prerequisites">
+                Add prerequisite
+              </PremiumTooltip>
+            </DropdownMenuItem>
+          ) : null}
+          {canChangeEnvironments ? (
+            <DropdownMenuItem
+              disabled={allEnvironmentsOff}
+              tooltip={
+                allEnvironmentsOff
+                  ? "Already off in all environments"
+                  : undefined
+              }
+              onClick={() =>
+                setKillSwitchTarget({
+                  desiredStates: Object.fromEntries(
+                    envs.map((envId) => [envId, false]),
+                  ),
+                  header: "Turn off feature in all environments",
+                })
+              }
+            >
+              Turn off feature in all environments
+            </DropdownMenuItem>
+          ) : null}
         </DropdownMenu>
       )
     ) : null;
@@ -1095,8 +1123,8 @@ export default function FeaturesOverviewNew({
           <KillSwitchModal
             feature={feature}
             baseFeature={baseFeature}
-            environment={killSwitchTarget.envId}
-            desiredState={killSwitchTarget.desiredState}
+            desiredStates={killSwitchTarget.desiredStates}
+            header={killSwitchTarget.header}
             currentVersion={currentVersion}
             revisionList={revisionList}
             mutate={mutate}
