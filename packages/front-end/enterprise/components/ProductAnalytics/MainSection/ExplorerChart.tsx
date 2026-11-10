@@ -895,6 +895,18 @@ export default function ExplorerChart({
         ) : (
           <FunnelChart
             exploration={exploration}
+            comparisonExploration={
+              compareEnabled ? comparisonExploration : null
+            }
+            periodLabels={
+              compareEnabled
+                ? getComparisonPeriodLabels(
+                    submittedExploreState.dateRange,
+                    submittedPreviousTimeFrame ?? undefined,
+                    submittedComparisonMode ?? "previousPeriod",
+                  )
+                : null
+            }
             submittedExploreState={submittedExploreState}
             animate={animate}
           />

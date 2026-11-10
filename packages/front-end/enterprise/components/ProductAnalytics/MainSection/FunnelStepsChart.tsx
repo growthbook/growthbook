@@ -1,4 +1,4 @@
-import React, { useMemo, useRef } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import EChartsReact from "echarts-for-react";
 import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
@@ -53,12 +53,20 @@ export interface FunnelChartSeries {
 export default function FunnelStepsChart({
   stepLabels,
   series,
+  comparison,
   yAxisScale = "percent",
   animate = true,
   colors = CHART_COLORS,
 }: {
   stepLabels: string[];
   series: FunnelChartSeries[];
+  // Previous period, index-aligned with `series`. Drawn as a second funnel
+  // row under the current one, sharing the step columns and y scale.
+  comparison?: {
+    series: FunnelChartSeries[];
+    currentLabel: string;
+    previousLabel: string;
+  };
   yAxisScale?: "count" | "percent";
   animate?: boolean;
   // Per-series bar colors in series order, wrapping if fewer than series.
@@ -68,6 +76,19 @@ export default function FunnelStepsChart({
   const { theme } = useAppearanceUITheme();
   const { textColor, tooltipBackgroundColor, gridLineColor } =
     getChartThemeColors(theme);
+
+  // Compare mode sizes its two rows in pixels from the container height.
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [chartHeight, setChartHeight] = useState(0);
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const observer = new ResizeObserver(([entry]) =>
+      setChartHeight(Math.round(entry.contentRect.height)),
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
 
   const option = useMemo(() => {
     if (!series.length || !stepLabels.length) return null;
@@ -82,12 +103,16 @@ export default function FunnelStepsChart({
     // In "percent" scale we feed normalized values to the y-axis but
     // still carry the raw count on each data point so the tooltip can
     // surface actual user numbers alongside the percentage.
-    const seriesConfigs = series.flatMap((s, idx) => {
+    // Compare mode: grid 0 = current period, grid 1 = previous period. The
+    // previous row reuses each series name, so one legend click toggles both rows.
+    const isPrevious = (axis: number) => axis === 1;
+    const buildSeries = (s: FunnelChartSeries, idx: number, axis: number) => {
       // Resolved here rather than by callers: `hexToRgba` below and zrender's
       // hover emphasis both need concrete hex. `textColor` is a dep of this
       // memo, so a theme switch re-resolves the variables to the new values.
-      const baseColor = cssColorToHex(colors[idx % colors.length]);
-      const stackKey = `stack_${idx}`;
+      const hex = cssColorToHex(colors[idx % colors.length]);
+      const baseColor = isPrevious(axis) ? hexToRgba(hex, 0.55) : hex;
+      const stackKey = `stack_${axis}_${idx}`;
       const firstStep = s.counts[0] ?? 0;
       const toY = (n: number) =>
         yAxisScale === "percent"
@@ -102,9 +127,12 @@ export default function FunnelStepsChart({
           rawCount: count,
           stepIdx,
           seriesIdx: idx,
+          axis,
         })),
         type: "bar" as const,
         stack: stackKey,
+        xAxisIndex: axis,
+        yAxisIndex: axis,
         color: baseColor,
         animation: animate,
         animationDuration: animate ? 300 : 0,
@@ -123,7 +151,9 @@ export default function FunnelStepsChart({
         }),
         type: "bar" as const,
         stack: stackKey,
-        itemStyle: { color: hexToRgba(baseColor, 0.18) },
+        xAxisIndex: axis,
+        yAxisIndex: axis,
+        itemStyle: { color: hexToRgba(hex, isPrevious(axis) ? 0.1 : 0.18) },
         // Ghost bars are decorative — don't react to hover, don't get
         // their own tooltip line. The filter in the formatter below
         // keeps them out of the table regardless.
@@ -133,11 +163,115 @@ export default function FunnelStepsChart({
         animationDuration: animate ? 300 : 0,
       };
       return [mainSeries, ghostSeries];
+    };
+    const seriesConfigs = [
+      ...series.flatMap((s, idx) => buildSeries(s, idx, 0)),
+      ...(comparison?.series ?? []).flatMap((s, idx) => buildSeries(s, idx, 1)),
+    ];
+
+    const xAxisFor = (axis: number, showLabels: boolean) => ({
+      type: "category" as const,
+      gridIndex: axis,
+      data: stepLabels,
+      axisLabel: {
+        show: showLabels,
+        color: textColor,
+        interval: 0,
+        overflow: "truncate" as const,
+        width: 120,
+        ...(comparison && series.length === 1
+          ? {
+              // Single funnel: conversion change (from start) under each step.
+              formatter: (label: string, stepIdx: number) => {
+                const pct = (s: FunnelChartSeries | undefined) =>
+                  s?.counts[0] ? (s.counts[stepIdx] ?? 0) / s.counts[0] : null;
+                const cur = pct(series[0]);
+                const prev = pct(comparison.series[0]);
+                if (stepIdx === 0 || cur === null || prev === null) {
+                  return label;
+                }
+                const d = (cur - prev) * 100;
+                return `${label}\n{${d >= 0 ? "up" : "down"}|${d >= 0 ? "+" : ""}${d.toFixed(1)} pts}`;
+              },
+              rich: {
+                up: {
+                  color: cssColorToHex("var(--green-11)"),
+                  padding: [4, 0, 0, 0],
+                },
+                down: {
+                  color: cssColorToHex("var(--red-11)"),
+                  padding: [4, 0, 0, 0],
+                },
+              },
+            }
+          : {}),
+      },
+      splitLine: { lineStyle: { color: gridLineColor, width: 1 } },
     });
+    const yAxisFor = (
+      axis: number,
+      name: string | undefined,
+      max?: number,
+    ) => ({
+      type: "value" as const,
+      gridIndex: axis,
+      name,
+      nameLocation: "end" as const,
+      nameGap: 12,
+      nameTextStyle: {
+        color: textColor,
+        align: "left" as const,
+        fontWeight: 500,
+      },
+      axisLabel: {
+        color: textColor,
+        formatter: (v: number) =>
+          yAxisScale === "percent" ? `${Math.round(v)}%` : formatNumber(v),
+      },
+      // Percent mode anchors at 0–100 (drop-off ghosts can push series
+      // totals to exactly 100, so we don't need a hard max).
+      min: 0,
+      max,
+      splitLine: { lineStyle: { color: gridLineColor, width: 1 } },
+    });
+    // Two stacked funnels with one shared y scale, so bar heights compare
+    // across rows. Linked axis pointers highlight a step in both rows.
+    const compareAxes = () => {
+      const all = [...series, ...(comparison?.series ?? [])];
+      const max =
+        yAxisScale === "percent"
+          ? 100
+          : Math.max(1, ...all.map((s) => s.counts[0] ?? 0));
+      // Equal pixel heights, so the same value is the same bar height in
+      // both rows. Room for the legend, row titles, and step labels.
+      const top = series.length > 1 ? 72 : 32;
+      const bottom = series.length === 1 ? 52 : 36;
+      const gap = 40;
+      const rowHeight = Math.max(40, (chartHeight - top - bottom - gap) / 2);
+      return {
+        axisPointer: { link: [{ xAxisIndex: "all" }] },
+        grid: [
+          { left: 56, right: 24, top, height: rowHeight },
+          {
+            left: 56,
+            right: 24,
+            top: top + rowHeight + gap,
+            height: rowHeight,
+          },
+        ],
+        xAxis: [xAxisFor(0, false), xAxisFor(1, true)],
+        yAxis: [
+          yAxisFor(0, comparison?.currentLabel, max),
+          yAxisFor(1, comparison?.previousLabel, max),
+        ],
+      };
+    };
 
     return {
       tooltip: {
         appendTo: "body",
+        // Compare mode lists 3 rows per series; keep tall tooltips on screen.
+        confine: true,
         trigger: "axis",
         padding: [10, 14],
         backgroundColor: tooltipBackgroundColor,
@@ -153,6 +287,7 @@ export default function FunnelStepsChart({
               stepIdx?: number;
               seriesIdx?: number;
               rawCount?: number;
+              axis?: number;
             };
           }[];
           // Drop-off ghost bars share the axis-trigger but shouldn't
@@ -173,31 +308,55 @@ export default function FunnelStepsChart({
             "padding:2px 0 4px 8px;font-weight:600;text-align:right;border-bottom:1px solid var(--gray-a4)";
           const labelCell = "padding:3px 8px 3px 0;text-align:left";
           const numCell = "padding:3px 0 3px 8px;text-align:right";
+          const stats = (s: FunnelChartSeries | undefined) => {
+            const count = s?.counts[stepIdx] ?? 0;
+            const first = s?.counts[0] ?? 0;
+            const prev = stepIdx > 0 ? (s?.counts[stepIdx - 1] ?? 0) : 0;
+            return {
+              count,
+              fromStart: first > 0 ? count / first : null,
+              fromPrev: prev > 0 ? count / prev : null,
+              avgMs: s?.avgTimes[stepIdx] ?? null,
+            };
+          };
+          const row = (label: string, st: ReturnType<typeof stats>) =>
+            `<tr><td style="${labelCell}">${label}</td><td style="${numCell}"><b>${formatNumber(st.count)}</b></td><td style="${numCell}">${formatPct(st.fromStart)}</td><td style="${numCell}">${stepIdx === 0 ? "—" : formatPct(st.fromPrev)}</td><td style="${numCell}">${stepIdx === 0 ? "—" : formatDurationMs(st.avgMs)}</td></tr>`;
+          const signed = (v: number | null, unit: string) =>
+            v === null || !Number.isFinite(v)
+              ? "—"
+              : `<span style="color:var(--${v >= 0 ? "green" : "red"}-11)">${v >= 0 ? "+" : ""}${(v * 100).toFixed(1)}${unit}</span>`;
+          const diff = (a: number | null, b: number | null) =>
+            a === null || b === null ? null : a - b;
           const rows = items
+            .filter((item) => item.data?.axis !== 1)
             .map((item) => {
               const sIdx = item.data?.seriesIdx ?? 0;
-              const seriesRow = series[sIdx];
-              // In "percent" scale `item.value` is the normalized 0–100
-              // value used for the bar height; the raw user count is
-              // stashed on the data object for tooltip rendering.
-              const count = item.data?.rawCount ?? item.value;
-              const firstStepCount = seriesRow?.counts[0] ?? 0;
-              const prevCount =
-                stepIdx > 0 ? seriesRow?.counts[stepIdx - 1] : null;
-              const fromStart =
-                firstStepCount > 0 ? formatPct(count / firstStepCount) : "—";
-              const fromPrev =
-                stepIdx === 0
-                  ? "—"
-                  : prevCount != null && prevCount > 0
-                    ? formatPct(count / prevCount)
-                    : "—";
-              const avgMs = seriesRow?.avgTimes[stepIdx] ?? null;
-              const avgLabel = stepIdx === 0 ? "—" : formatDurationMs(avgMs);
-              return `<tr><td style="${labelCell}">${item.marker}${item.seriesName}</td><td style="${numCell}"><b>${formatNumber(count)}</b></td><td style="${numCell}">${fromStart}</td><td style="${numCell}">${fromPrev}</td><td style="${numCell}">${avgLabel}</td></tr>`;
+              const cur = stats(series[sIdx]);
+              if (!comparison) {
+                return row(`${item.marker}${item.seriesName}`, cur);
+              }
+              // Rows: current, previous, then the change between them.
+              const prev = stats(comparison.series[sIdx]);
+              const prevMarker =
+                items.find(
+                  (i) => i.data?.axis === 1 && i.data?.seriesIdx === sIdx,
+                )?.marker ?? "";
+              const muted = (t: string) =>
+                `<span style="color:var(--gray-11)">${t}</span>`;
+              return (
+                row(
+                  `${item.marker}${series.length > 1 ? item.seriesName : "Current"}`,
+                  cur,
+                ) +
+                row(`${prevMarker}${muted("Previous")}`, prev) +
+                `<tr><td style="${labelCell};color:var(--gray-11)">Change</td><td style="${numCell}">${signed(prev.count > 0 ? cur.count / prev.count - 1 : null, "%")}</td><td style="${numCell}">${stepIdx === 0 ? "—" : signed(diff(cur.fromStart, prev.fromStart), " pts")}</td><td style="${numCell}">${stepIdx === 0 ? "—" : signed(diff(cur.fromPrev, prev.fromPrev), " pts")}</td><td style="${numCell}"></td></tr>`
+              );
             })
             .join("");
-          return `<div><div style="margin-bottom:6px"><b>${header}</b></div><table style="border-collapse:collapse;font-size:inherit"><thead><tr><th style="${headerCell}"></th><th style="${numHeaderCell}">Count</th><th style="${numHeaderCell}">From start</th><th style="${numHeaderCell}">From prev</th><th style="${numHeaderCell}">Avg time</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+          const periods = comparison
+            ? `<div style="color:var(--gray-11)">${comparison.currentLabel} vs ${comparison.previousLabel}</div>`
+            : "";
+          return `<div><div style="margin-bottom:6px"><b>${header}</b>${periods}</div><table style="border-collapse:collapse;font-size:inherit"><thead><tr><th style="${headerCell}"></th><th style="${numHeaderCell}">Count</th><th style="${numHeaderCell}">From start</th><th style="${numHeaderCell}">From prev</th><th style="${numHeaderCell}">Avg time</th></tr></thead><tbody>${rows}</tbody></table></div>`;
         },
       },
       legend: {
@@ -210,33 +369,23 @@ export default function FunnelStepsChart({
         textStyle: { color: textColor },
         type: "scroll",
       },
-      xAxis: {
-        type: "category",
-        data: stepLabels,
-        axisLabel: {
-          color: textColor,
-          interval: 0,
-          overflow: "truncate",
-          width: 120,
-        },
-        splitLine: { lineStyle: { color: gridLineColor, width: 1 } },
-      },
-      yAxis: {
-        type: "value",
-        axisLabel: {
-          color: textColor,
-          formatter: (v: number) =>
-            yAxisScale === "percent" ? `${Math.round(v)}%` : formatNumber(v),
-        },
-        // Percent mode anchors at 0–100 (drop-off ghosts can push series
-        // totals to exactly 100, so we don't need a hard max).
-        min: 0,
-        splitLine: { lineStyle: { color: gridLineColor, width: 1 } },
-      },
+      ...(comparison
+        ? compareAxes()
+        : {
+            grid: {
+              left: "8%",
+              right: "5%",
+              top: series.length > 1 ? 52 : "8%",
+              bottom: "10%",
+            },
+            xAxis: xAxisFor(0, true),
+            yAxis: yAxisFor(0, undefined),
+          }),
       series: seriesConfigs,
     };
   }, [
     series,
+    comparison,
     stepLabels,
     textColor,
     gridLineColor,
@@ -244,6 +393,7 @@ export default function FunnelStepsChart({
     animate,
     yAxisScale,
     colors,
+    chartHeight,
   ]);
 
   // Mirror legend toggles onto the matching low-opacity drop-off ghost so
@@ -290,7 +440,10 @@ export default function FunnelStepsChart({
   }
 
   return (
-    <Box style={{ flex: 1, minHeight: 0, position: "relative" }}>
+    <Box
+      ref={containerRef}
+      style={{ flex: 1, minHeight: 0, position: "relative" }}
+    >
       <EChartsReact
         ref={chartRef}
         key={JSON.stringify(option)}
@@ -298,12 +451,6 @@ export default function FunnelStepsChart({
           ...option,
           ...(animate ? {} : { animation: false }),
           padding: [0, 0, 0, 0],
-          grid: {
-            left: "8%",
-            right: "5%",
-            top: option.legend?.show ? 52 : "8%",
-            bottom: "10%",
-          },
         }}
         style={{ width: "100%", height: "100%" }}
         onEvents={onEvents}
