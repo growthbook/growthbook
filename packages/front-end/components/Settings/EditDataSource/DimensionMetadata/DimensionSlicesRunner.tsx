@@ -6,7 +6,6 @@ import { useForm } from "react-hook-form";
 import { Box, Flex, Text } from "@radix-ui/themes";
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import { QueryStatus } from "shared/types/query";
-import { AppFeatures } from "shared/types/app-features";
 import RunQueriesButton, {
   getQueryStatus,
 } from "@/components/Queries/RunQueriesButton";
@@ -242,7 +241,7 @@ export const DimensionSlicesResults: FC<{
   dimensionSlices,
   status,
 }) => {
-  const growthbook = useGrowthBook<AppFeatures>();
+  const growthbook = useGrowthBook();
 
   const updateCustomSelectedSlices = (dimension: string, values: string[]) => {
     const newCustomDimensionMetadata: CustomDimensionMetadata[] = [];

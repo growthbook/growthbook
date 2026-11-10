@@ -1,6 +1,5 @@
 import { AISuggestionType, formatAIRateLimitRetryMessage } from "shared/ai";
 import { useGrowthBook } from "@growthbook/growthbook-react";
-import { AppFeatures } from "shared/types/app-features";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 
@@ -8,7 +7,7 @@ import track from "@/services/track";
 // premium gates.
 export function useSuggestHypothesis(hypothesis: string, source: string) {
   const { apiCall } = useAuth();
-  const gb = useGrowthBook<AppFeatures>();
+  const gb = useGrowthBook();
   return async (type: AISuggestionType) => {
     const temperature =
       gb?.getFeatureValue("ai-suggestions-temperature", 0.1) || 0.1;

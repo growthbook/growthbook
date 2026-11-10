@@ -1,6 +1,6 @@
 import { Box, Flex, IconButton, Tooltip } from "@radix-ui/themes";
 import { ReactNode } from "react";
-import { useFeatureValue } from "@growthbook/growthbook-react";
+import { useFeature } from "@growthbook/growthbook-react";
 import { PiX } from "react-icons/pi";
 import Badge from "@/ui/Badge";
 import Callout from "@/ui/Callout";
@@ -164,10 +164,8 @@ function slugify(value: string): string {
  * Returns null when a required field is missing or the flag is unset.
  */
 export function HomeMarketingBanner() {
-  const config = useFeatureValue<MarketingBannerConfig | null>(
-    "home-marketing-banner",
-    null,
-  );
+  const config = useFeature("home-marketing-banner")
+    .value as MarketingBannerConfig | null;
   const { accountCreatedAt } = useUser();
 
   const cta =

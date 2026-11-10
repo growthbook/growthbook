@@ -8,6 +8,7 @@ import uniqBy from "lodash/uniqBy";
 import uniqWith from "lodash/uniqWith";
 import type { Request } from "express";
 import {
+  Attributes,
   AutoExperiment,
   FeatureRule as FeatureDefinitionRule,
   GrowthBook,
@@ -2646,7 +2647,8 @@ export function evaluateFeature({
 
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const log: [string, any][] = [];
-        const gb = new GrowthBook({
+        // Evaluates a customer's feature, so opt out of our own registered types
+        const gb = new GrowthBook<Record<string, unknown>, Attributes>({
           features: {
             [feature.id]: definition,
           },
@@ -2750,8 +2752,9 @@ export async function evaluateAllFeatures({
       organization: context.org,
     });
 
-    // now we have all the definitions, lets evaluate them
-    const gb = new GrowthBook({
+    // now we have all the definitions, lets evaluate them. These are a
+    // customer's features, so opt out of our own registered types
+    const gb = new GrowthBook<Record<string, unknown>, Attributes>({
       features: featureDefinitions,
       savedGroups: savedGroups,
       attributes: attributeValues,

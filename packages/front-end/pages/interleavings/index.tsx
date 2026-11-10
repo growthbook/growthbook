@@ -2,7 +2,6 @@ import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import { Box, Flex } from "@radix-ui/themes";
-import { AppFeatures } from "shared/types/app-features";
 import type { ApiInterleavingInterface } from "shared/validators";
 import { date, datetime } from "shared/dates";
 import LoadingOverlay from "@/components/LoadingOverlay";
@@ -61,7 +60,7 @@ const InterleavingsPage = (): React.ReactElement => {
   const { ready, project, getProjectById } = useDefinitions();
   const { hasCommercialFeature, getOwnerDisplay } = useUser();
   const permissionsUtil = usePermissionsUtil();
-  const gb = useGrowthBook<AppFeatures>();
+  const gb = useGrowthBook();
   const interleavingEnabled = isInterleavingEnabled(gb);
   const { interleavings, loading, error } = useInterleavings(project, {
     enabled: interleavingEnabled,

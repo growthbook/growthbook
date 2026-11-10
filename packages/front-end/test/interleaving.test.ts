@@ -1,7 +1,6 @@
 import { beforeEach, vi } from "vitest";
 import type { ApiInterleavingInterface } from "shared/validators";
 import type { GrowthBook } from "@growthbook/growthbook-react";
-import type { AppFeatures } from "shared/types/app-features";
 import {
   interleavingResultToSnapshotMetrics,
   interleavingStatusIndicatorData,
@@ -16,7 +15,7 @@ vi.mock("@/services/env", () => ({
 
 describe("isInterleavingEnabled", () => {
   const gbWithFlag = (on: boolean) =>
-    ({ isOn: () => on }) as unknown as GrowthBook<AppFeatures>;
+    ({ isOn: () => on }) as unknown as GrowthBook;
 
   beforeEach(() => {
     envInterleaving.value = false;

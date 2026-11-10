@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { useRouter } from "next/router";
 import { useGrowthBook } from "@growthbook/growthbook-react";
-import { AppFeatures } from "shared/types/app-features";
 import { populationEndpoints } from "shared/api-endpoints";
 import { Box, Flex } from "@radix-ui/themes";
 import Callout from "@/ui/Callout";
@@ -31,7 +30,7 @@ import Custom404 from "@/pages/404";
 export default function PopulationPage() {
   const router = useRouter();
   const { pid } = router.query;
-  const gb = useGrowthBook<AppFeatures>();
+  const gb = useGrowthBook();
   const populationsEnabled = !!gb?.isOn("populations");
   const refreshPopulations = useRefreshPopulations();
   const { population, loading, error } = usePopulation(

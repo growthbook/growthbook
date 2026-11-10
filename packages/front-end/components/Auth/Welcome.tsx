@@ -1,7 +1,7 @@
 import { ReactElement, useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { useRouter } from "next/router";
-import { useFeatureValue } from "@growthbook/growthbook-react";
+import { useFeature } from "@growthbook/growthbook-react";
 import { Flex, Box } from "@radix-ui/themes";
 import track from "@/services/track";
 import Text from "@/ui/Text";
@@ -44,10 +44,8 @@ export default function Welcome({
   const [error, setError] = useState(null);
   const [welcomeMsgIndex] = useState(Math.floor(Math.random() * 4));
   const { pathname } = useRouter();
-  const hero = useFeatureValue<LoginHeroContent | null>(
-    "login-page-content",
-    null,
-  );
+  const hero = useFeature("login-page-content")
+    .value as LoginHeroContent | null;
 
   useEffect(() => {
     if (pathname === "/invitation") {

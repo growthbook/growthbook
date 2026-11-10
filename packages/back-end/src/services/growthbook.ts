@@ -27,11 +27,11 @@ import {
 // Set up Node.js polyfills for streaming support
 setPolyfills({ EventSource });
 
-let gbClient: GrowthBookClient<AppFeatures> | null = null;
+let gbClient: GrowthBookClient | null = null;
 let initPromise: Promise<void> | null = null;
 
-function createGrowthBookClient(): GrowthBookClient<AppFeatures> {
-  const client = new GrowthBookClient<AppFeatures>({
+function createGrowthBookClient(): GrowthBookClient {
+  const client = new GrowthBookClient({
     apiHost: "https://cdn.growthbook.io",
     clientKey: GB_SDK_ID,
     globalAttributes: {
@@ -46,7 +46,7 @@ function createGrowthBookClient(): GrowthBookClient<AppFeatures> {
         debug: isGrowthBookTelemetryDebug(),
         eventFilter: (event) => {
           // Wait for account plan to load before sending events
-          if (event.attributes.accountPlan === "loading") return false;
+          if (event.attributes.accountPlan === null) return false;
           return true;
         },
         dedupeKeyAttributes: ["id", "organizationId"],
@@ -360,7 +360,7 @@ export function trackAIUsage({
   }
 }
 
-function ensureGrowthBookClient(): GrowthBookClient<AppFeatures> | null {
+function ensureGrowthBookClient(): GrowthBookClient | null {
   if (!gbClient) {
     gbClient = createGrowthBookClient();
   }
@@ -373,7 +373,7 @@ function ensureGrowthBookClient(): GrowthBookClient<AppFeatures> | null {
  * This provides 3x performance improvement over creating new instances per request
  * by reusing the same core instance across all requests
  */
-export function getGrowthBookClient(): GrowthBookClient<AppFeatures> | null {
+export function getGrowthBookClient(): GrowthBookClient | null {
   const client = ensureGrowthBookClient();
 
   if (!initPromise) {

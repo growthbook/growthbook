@@ -7,15 +7,12 @@ import { interleavingVariationsList } from "shared/util";
 import type { SnapshotMetric } from "shared/types/experiment-snapshot";
 import type { ExperimentDataForStatusStringDates } from "shared/types/experiment";
 import type { GrowthBook } from "@growthbook/growthbook-react";
-import type { AppFeatures } from "shared/types/app-features";
 import { envEnablesInterleaving } from "@/services/env";
 
 // The remote flag never evaluates true for self-hosted installs, so the
 // ENABLE_INTERLEAVING env var is the fallback there. Every UI gate goes
 // through here so retiring the flag later is a one-line change.
-export function isInterleavingEnabled(
-  gb: GrowthBook<AppFeatures> | undefined,
-): boolean {
+export function isInterleavingEnabled(gb: GrowthBook | undefined): boolean {
   return envEnablesInterleaving() || !!gb?.isOn("interleave-exp");
 }
 
