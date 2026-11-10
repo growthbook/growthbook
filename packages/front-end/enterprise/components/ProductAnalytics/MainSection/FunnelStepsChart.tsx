@@ -243,7 +243,7 @@ export default function FunnelStepsChart({
       const pill = (d: number | null) => {
         if (d === null) return "—";
         const arrow = d > 0 ? "▲ " : d < 0 ? "▼ " : "";
-        return `<span style="display:inline-block;padding:1px 6px;border-radius:4px;font-weight:600;background:var(--${tone(d)}-a3);color:var(--${tone(d)}-11)"><span style="font-size:0.7em">${arrow}</span>${signed(d)} pts</span>`;
+        return `<span style="display:inline-block;padding:0 4px;border-radius:3px;font-weight:600;background:var(--${tone(d)}-a3);color:var(--${tone(d)}-11)"><span style="font-size:0.7em">${arrow}</span>${signed(d)} pts</span>`;
       };
       const usersChange = (a: number, b: number) => {
         if (b <= 0) return "—";
@@ -331,13 +331,15 @@ export default function FunnelStepsChart({
             ),
             col("Avg time", (c) => dashOnFirst(formatDurationMs(avg(c)))),
           ];
-      // Extra left padding on each group's first column separates groups.
+      // Spacing matches the original tooltip; compare groups get a bit more
+      // room before their first column.
+      const groupGap = comparison ? 16 : 8;
       const cellStyle = (colIdx: number) =>
-        `padding:5px 0 5px ${colIdx === 0 ? 28 : 16}px;text-align:right;white-space:nowrap`;
+        `padding:3px 0 3px ${colIdx === 0 ? groupGap : 8}px;text-align:right;white-space:nowrap`;
       const groupRow = groups
         .map(
           (g) =>
-            `<th colspan="${g.cols.length}" style="padding:0 0 0 28px;text-align:${g.cols.length > 1 ? "left" : "right"}"><div style="padding-bottom:4px;border-bottom:1px solid var(--gray-a5);font-size:11px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;${muted}">${g.title}</div></th>`,
+            `<th colspan="${g.cols.length}" style="padding:2px 0 0 ${groupGap}px;text-align:${g.cols.length > 1 ? "left" : "right"}"><div style="padding-bottom:3px;border-bottom:1px solid var(--gray-a5);font-size:11px;font-weight:600;text-transform:uppercase;${muted}">${g.title}</div></th>`,
         )
         .join("");
       const headRow = groups
@@ -352,7 +354,7 @@ export default function FunnelStepsChart({
         .map((sIdx) => {
           const c = series[sIdx];
           const p = comparison?.series[sIdx];
-          const swatch = `<span style="display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:8px;flex-shrink:0;background:${colorOf(sIdx)}"></span>`;
+          const swatch = `<span style="display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:6px;flex-shrink:0;background:${colorOf(sIdx)}"></span>`;
           const cells = groups
             .flatMap((g) =>
               g.cols.map(
@@ -361,19 +363,19 @@ export default function FunnelStepsChart({
               ),
             )
             .join("");
-          return `<tr><td style="padding:5px 0;max-width:140px"><div style="display:flex;align-items:center;white-space:normal">${swatch}${c?.label ?? ""}</div></td>${cells}</tr>`;
+          return `<tr><td style="padding:3px 8px 3px 0;max-width:140px"><div style="display:flex;align-items:center;white-space:normal">${swatch}${c?.label ?? ""}</div></td>${cells}</tr>`;
         })
         .join("");
       // `width:0;min-width:100%` wraps the note to the table's width
       // instead of widening the tooltip.
       const footnote =
         comparison && stepIdx === 1
-          ? `<div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--gray-a4);white-space:normal;width:0;min-width:100%;${muted}">Conversion from previous step is hidden here because it equals conversion from start on this step.</div>`
+          ? `<div style="margin-top:6px;padding-top:6px;border-top:1px solid var(--gray-a4);white-space:normal;width:0;min-width:100%;${muted}">Conversion from previous step is hidden here because it equals conversion from start on this step.</div>`
           : "";
       const periods = comparison
         ? `<span style="${muted}"><b style="color:var(--gray-12)">Now</b> ${comparison.currentLabel} · <b style="color:var(--gray-12)">Prev</b> ${comparison.previousLabel}</span>`
         : "";
-      return `<div><div style="display:flex;justify-content:space-between;align-items:baseline;gap:32px;margin-bottom:10px"><b style="font-size:1.1em">${stepLabels[stepIdx] ?? `Step ${stepIdx + 1}`}</b>${periods}</div><table style="border-collapse:collapse;font-size:inherit"><thead><tr><th></th>${groupRow}</tr>${comparison ? `<tr><th></th>${headRow}</tr>` : ""}</thead><tbody>${rows}</tbody></table>${footnote}</div>`;
+      return `<div><div style="display:flex;justify-content:space-between;align-items:baseline;gap:16px;margin-bottom:6px"><b>${stepLabels[stepIdx] ?? `Step ${stepIdx + 1}`}</b>${periods}</div><table style="border-collapse:collapse;font-size:inherit"><thead><tr><th></th>${groupRow}</tr>${comparison ? `<tr><th></th>${headRow}</tr>` : ""}</thead><tbody>${rows}</tbody></table>${footnote}</div>`;
     };
 
     return {
@@ -382,7 +384,7 @@ export default function FunnelStepsChart({
         // The table is wide; keep it on screen.
         confine: true,
         trigger: "axis",
-        padding: [12, 16],
+        padding: [10, 14],
         backgroundColor: tooltipBackgroundColor,
         textStyle: { color: textColor },
         axisPointer: { type: "shadow" },
