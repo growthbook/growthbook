@@ -47,6 +47,11 @@ const incrementalRefresh = z
     // Snapshot whose run materialized the current tables
     materializedBySnapshotId: z.string().optional(),
 
+    // When the last successful Full Refresh started. Rows that reached the
+    // warehouse later with older event times (an Event Forwarder replay) are
+    // behind the watermarks and need another Full Refresh.
+    fullRefreshStartedAt: z.date().nullable().optional(),
+
     // Metrics
     metricSources: z.array(incrementalRefreshMetricSourceValidator),
 

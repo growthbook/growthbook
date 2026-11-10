@@ -1381,6 +1381,7 @@ export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
 > {
   private variationNames: string[] = [];
   private metricMap: Map<string, ExperimentMetricInterface> = new Map();
+  private fullRefresh = false;
 
   checkPermissions(): boolean {
     return this.context.permissions.canRunExperimentQueries(
@@ -1445,6 +1446,7 @@ export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
       analysisType: params.fullRefresh ? "main-fullRefresh" : "main-update",
     });
 
+    this.fullRefresh = params.fullRefresh;
     if (this.experimentUpdateExecutionLogger) {
       this.experimentUpdateExecutionLogger.execution.incrementalRefreshMode =
         params.fullRefresh ? "full" : "incremental";
@@ -1689,7 +1691,12 @@ export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
           .updateByExperimentIdIfCurrentExecution(
             this.model.experiment,
             this.model.id,
-            { materializedBySnapshotId: this.model.id },
+            {
+              materializedBySnapshotId: this.model.id,
+              ...(this.fullRefresh
+                ? { fullRefreshStartedAt: this.model.dateCreated }
+                : {}),
+            },
           )
           .catch((e) =>
             this.context.logger.warn(

@@ -78,6 +78,7 @@ import {
   validateVariationIds,
   validateExperimentData,
 } from "back-end/src/services/experiments";
+import { getEventForwarderReplayFullRefreshReason } from "back-end/src/services/eventForwarder/replayRefresh";
 import {
   assertRegisteredAttributesScoped,
   lazyAttributeScope,
@@ -919,9 +920,27 @@ export async function getExperimentIncrementalRefresh(
     }
   }
 
+  // Reasons only the server can see; the page adds its own settings checks.
+  const fullRefreshReasons: string[] = [];
+  if (incrementalRefresh) {
+    const datasource =
+      await context.dangerouslyGetDataSourceByIdBypassPermission(
+        experiment.datasource,
+      );
+    const replayReason = datasource
+      ? await getEventForwarderReplayFullRefreshReason(context, {
+          datasource,
+          incrementalRefresh,
+          exposureQueryId: experiment.exposureQueryId,
+        })
+      : null;
+    if (replayReason) fullRefreshReasons.push(replayReason);
+  }
+
   return res.status(200).json({
     status: 200,
     incrementalRefresh: incrementalRefresh || null,
+    fullRefreshReasons,
   });
 }
 
