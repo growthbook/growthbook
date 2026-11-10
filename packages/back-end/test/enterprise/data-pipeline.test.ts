@@ -1,5 +1,6 @@
 import { ExperimentSnapshotSettings } from "shared/types/experiment-snapshot";
 import { ExperimentInterface } from "shared/types/experiment";
+import { ExposureQueryColumnMapping } from "shared/types/datasource";
 import { OrganizationInterface } from "shared/types/organization";
 import { IncrementalRefreshInterface } from "shared/validators";
 import { SourceIntegrationInterface } from "back-end/src/types/Integration";
@@ -582,6 +583,59 @@ describe("getExperimentSettingsHashForIncrementalRefresh — output hash", () =>
     ).toBe("1c14c7b3c695413e66101563d2b606ab");
   });
 
+  it("changes the hash when the selected query's column mapping changes", () => {
+    const withMapping = (timestampColumn: string) =>
+      getExperimentSettingsHashForIncrementalRefresh(
+        { ...GOLDEN_INPUT, exposureQueryIdentifierType: "user_id" },
+        [{ ...EXPOSURE_QUERIES[0], columnMapping: { timestampColumn } }],
+      );
+    expect(withMapping("received_at")).not.toBe(
+      "1c14c7b3c695413e66101563d2b606ab",
+    );
+    expect(withMapping("received_at")).not.toBe(withMapping("event_time"));
+  });
+
+  it("ignores mapped columns the units table doesn't read", () => {
+    const hash = (columnMapping: ExposureQueryColumnMapping) =>
+      getExperimentSettingsHashForIncrementalRefresh(
+        { ...GOLDEN_INPUT, exposureQueryIdentifierType: "user_id" },
+        [{ ...EXPOSURE_QUERIES[0], columnMapping }],
+      );
+    const base = hash({ timestampColumn: "received_at" });
+    expect(
+      hash({
+        timestampColumn: "received_at",
+        experimentNameColumn: "exp_title",
+        variationNameColumn: "variant_title",
+        userIdColumns: { anonymous_id: "anon" },
+      }),
+    ).toBe(base);
+    expect(
+      hash({
+        timestampColumn: "received_at",
+        userIdColumns: { user_id: "uid" },
+      }),
+    ).not.toBe(base);
+  });
+
+  it("keeps the pinned md5 when every units column keeps its standard name", () => {
+    expect(
+      getExperimentSettingsHashForIncrementalRefresh(
+        { ...GOLDEN_INPUT, exposureQueryIdentifierType: "user_id" },
+        [
+          {
+            ...EXPOSURE_QUERIES[0],
+            columnMapping: {
+              timestampColumn: "timestamp",
+              experimentNameColumn: "exp_title",
+              userIdColumns: { anonymous_id: "anon" },
+            },
+          },
+        ],
+      ),
+    ).toBe("1c14c7b3c695413e66101563d2b606ab");
+  });
+
   it("changes the hash when the identifier isn't the query's legacy default", () => {
     expect(
       getExperimentSettingsHashForIncrementalRefresh(
@@ -613,6 +667,63 @@ describe("getExperimentSettingsHashForIncrementalRefresh — output hash", () =>
         [],
       ),
     ).toBe("96e51c90778ee575dc6cae62b2e99df2");
+  });
+
+  it("keeps the pinned md5 for a non-cluster experiment (isClusterExperiment false)", () => {
+    expect(
+      getExperimentSettingsHashForIncrementalRefresh(
+        { ...GOLDEN_INPUT, isClusterExperiment: false },
+        [],
+      ),
+    ).toBe("1c14c7b3c695413e66101563d2b606ab");
+  });
+
+  it("changes the hash for a cluster experiment", () => {
+    expect(
+      getExperimentSettingsHashForIncrementalRefresh(
+        {
+          ...GOLDEN_INPUT,
+          isClusterExperiment: true,
+          clusterSubUnitIdentifier: "user_id",
+        },
+        [],
+      ),
+    ).not.toBe("1c14c7b3c695413e66101563d2b606ab");
+  });
+
+  it("changes the hash when the cluster sub-unit identifier changes", () => {
+    const base = getExperimentSettingsHashForIncrementalRefresh(
+      {
+        ...GOLDEN_INPUT,
+        isClusterExperiment: true,
+        clusterSubUnitIdentifier: "user_id",
+      },
+      [],
+    );
+    const changed = getExperimentSettingsHashForIncrementalRefresh(
+      {
+        ...GOLDEN_INPUT,
+        isClusterExperiment: true,
+        clusterSubUnitIdentifier: "device_id",
+      },
+      [],
+    );
+    expect(changed).not.toBe(base);
+  });
+
+  it("changes a cluster experiment's hash when its sub-unit column is remapped", () => {
+    const hash = (columnMapping?: ExposureQueryColumnMapping) =>
+      getExperimentSettingsHashForIncrementalRefresh(
+        {
+          ...GOLDEN_INPUT,
+          exposureQueryIdentifierType: "anonymous_id",
+          isClusterExperiment: true,
+          clusterSubUnitIdentifier: "user_id",
+        },
+        [{ ...EXPOSURE_QUERIES[0], columnMapping }],
+      );
+    expect(hash({ userIdColumns: { user_id: "user_id" } })).toBe(hash());
+    expect(hash({ userIdColumns: { user_id: "uid" } })).not.toBe(hash());
   });
 });
 

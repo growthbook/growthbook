@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 import { SavedGroupsPayload } from "./types/growthbook";
+import { REMOTE_GROUP_IDS_ATTRIBUTE } from "./remoteSavedGroups";
 import {
   ConditionInterface,
   SavedGroupReference,
@@ -12,7 +13,7 @@ import {
   TypeMismatchCallback,
   VarType,
 } from "./types/mongrule";
-import { hasOwn, paddedVersionString } from "./util";
+import { getPath, hasOwn, paddedVersionString } from "./util";
 
 const _regexCache: { [key: string]: RegExp } = {};
 
@@ -248,6 +249,15 @@ function evalSavedGroup(
     );
   }
 
+  if (entry.type === "remote") {
+    // Another attribute needs a derived group, which isn't supported yet
+    if (attributeKey !== undefined && attributeKey !== entry.attributeKey)
+      return false;
+    if (prune && !isKnown(obj, REMOTE_GROUP_IDS_ATTRIBUTE)) return null;
+    const groupIds = getPath(obj, REMOTE_GROUP_IDS_ATTRIBUTE);
+    return Array.isArray(groupIds) && groupIds.includes(id);
+  }
+
   if (entry.type === "condition") {
     // A condition group has no single attribute, so any override is ignored
     if (!entry.condition || typeof entry.condition !== "object") return false;
@@ -260,21 +270,6 @@ function evalSavedGroup(
 
   // A group type added after this SDK was built. The client SDK may support it.
   return null;
-}
-
-// Return value at dot-separated path of an object
-function getPath(obj: TestedObj, path: string) {
-  const parts = path.split(".");
-  let current: any = obj;
-  for (let i = 0; i < parts.length; i++) {
-    // Own keys only, so a missing `constructor` isn't the inherited one
-    if (current && typeof current === "object" && hasOwn(current, parts[i])) {
-      current = current[parts[i]];
-    } else {
-      return null;
-    }
-  }
-  return current;
 }
 
 // Transform a regex string into a real RegExp object

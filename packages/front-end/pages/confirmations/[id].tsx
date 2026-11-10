@@ -111,6 +111,8 @@ function bypassReason(
       return "Confirming skips schema validation.";
     case "skipHooks":
       return "Confirming skips the custom validation hooks.";
+    case "skipChecklist":
+      return "Confirming skips the experiment's incomplete checklist items.";
     case null:
       return null;
   }

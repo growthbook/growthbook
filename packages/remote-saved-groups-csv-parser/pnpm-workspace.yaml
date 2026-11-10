@@ -1,0 +1,4 @@
+# Makes this package its own pnpm project when it is installed as a Git
+# dependency, so pnpm installs and builds only this package (its "prepare"
+# script), not the whole monorepo. The monorepo ignores it.
+packages: []

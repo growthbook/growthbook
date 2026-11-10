@@ -1,5 +1,8 @@
 import { Agenda, Job, JobAttributesData } from "agenda";
-import { EventWebHookMethod } from "shared/types/event-webhook";
+import {
+  EventWebHookInterface,
+  EventWebHookMethod,
+} from "shared/types/event-webhook";
 import { NotificationEventName } from "shared/types/events/event";
 import { getAgendaInstance } from "back-end/src/services/queueing";
 import { getEvent } from "back-end/src/models/EventModel";
@@ -135,6 +138,10 @@ export class EventWebHookNotifier implements Notifier {
     }
 
     const { result: webHookResult, payload: logPayload } = delivery;
+    const filters = {
+      projects: eventWebHook.projects,
+      environments: eventWebHook.environments,
+    };
 
     switch (webHookResult.result) {
       case "success":
@@ -146,6 +153,7 @@ export class EventWebHookNotifier implements Notifier {
           url: eventWebHook.url,
           method,
           payload: logPayload,
+          filters,
         });
 
       case "error":
@@ -157,6 +165,7 @@ export class EventWebHookNotifier implements Notifier {
           url: eventWebHook.url,
           method,
           payload: logPayload,
+          filters,
         });
     }
   }
@@ -171,6 +180,7 @@ export class EventWebHookNotifier implements Notifier {
     url,
     method,
     payload,
+    filters,
   }: {
     job: Job<EventWebHookJobData>;
     webHookResult: EventWebHookSuccessResult;
@@ -179,6 +189,7 @@ export class EventWebHookNotifier implements Notifier {
     url: string;
     method: EventWebHookMethod;
     payload: Record<string, unknown>;
+    filters: Pick<EventWebHookInterface, "projects" | "environments">;
   }): Promise<void> {
     const { eventWebHookId } = job.attrs.data;
 
@@ -194,6 +205,7 @@ export class EventWebHookNotifier implements Notifier {
       event,
       url,
       method,
+      filters,
       result: {
         state: "success",
         responseBody: successResult.responseBody,
@@ -210,6 +222,7 @@ export class EventWebHookNotifier implements Notifier {
     url,
     method,
     payload,
+    filters,
   }: {
     job: Job<EventWebHookJobData>;
     webHookResult: EventWebHookErrorResult;
@@ -218,6 +231,7 @@ export class EventWebHookNotifier implements Notifier {
     url: string;
     method: EventWebHookMethod;
     payload: Record<string, unknown>;
+    filters: Pick<EventWebHookInterface, "projects" | "environments">;
   }): Promise<void> {
     const { eventWebHookId } = job.attrs.data;
 
@@ -233,6 +247,7 @@ export class EventWebHookNotifier implements Notifier {
       event,
       url,
       method,
+      filters,
       result: {
         state: "error",
         responseBody: errorResult.error,

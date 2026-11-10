@@ -150,7 +150,7 @@ function getExperimentStoppedCallout(
   const conclusion = getExperimentStoppedConclusion(data);
   const rollout = getExperimentStoppedRollout(data);
   const aside = rollout
-    ? { label: "Temporary Rollout", markdown: rollout }
+    ? { label: "Temporary rollout", markdown: rollout }
     : undefined;
   if (conclusion) {
     return {

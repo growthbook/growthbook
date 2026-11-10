@@ -292,6 +292,14 @@ export async function getSignedPublicImageToken(
     return;
   }
 
+  if (org.settings?.disablePublicSharing) {
+    res.status(403).json({
+      status: 403,
+      message: "Public sharing is disabled for this organization",
+    });
+    return;
+  }
+
   if (org.settings?.blockFileUploads) {
     res.status(403).json({
       status: 403,
@@ -352,11 +360,12 @@ export async function getSignedPublicImageToken(
       }
     }
 
-    // Check experiment description for image references
+    // The description and hypothesis, which the public page shows
     if (
       !imageFound &&
-      experiment.description &&
-      experiment.description.includes(fullPath)
+      [experiment.description, experiment.hypothesis].some((text) =>
+        text?.includes(fullPath),
+      )
     ) {
       imageFound = true;
     }

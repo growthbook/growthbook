@@ -1,4 +1,10 @@
+import type { ExperimentInterface } from "shared/types/experiment";
 import { isFactMetric } from "../../experiments";
+import {
+  DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
+  DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
+  DEFAULT_STATS_ENGINE,
+} from "../../constants";
 import genDefaultResolver from "./resolvers/genDefaultResolver";
 import genMetricOverrideResolver from "./resolvers/genMetricOverrideResolver";
 import genDefaultSettings from "./resolvers/genDefaultSettings";
@@ -109,8 +115,6 @@ export const resolvers: Record<
   delayHours: genMetricOverrideResolver("delayHours"),
   windowType: genMetricOverrideResolver("windowType"),
   windowHours: genMetricOverrideResolver("windowHours"),
-  winRisk: genMetricOverrideResolver("winRisk"),
-  loseRisk: genMetricOverrideResolver("loseRisk"),
   secureAttributeSalt: genDefaultResolver("secureAttributeSalt"),
   killswitchConfirmation: genDefaultResolver("killswitchConfirmation"),
   requireReviews: genDefaultResolver("requireReviews"),
@@ -201,3 +205,49 @@ export const getScopedSettings = (
 
   return scopeSettings(settings, scopes);
 };
+
+// Analysis settings stored on the experiment when unset, so a later org or
+// project change can't move these.
+export const SETTLED_ANALYSIS_SETTINGS = [
+  "statsEngine",
+  "regressionAdjustmentEnabled",
+  "postStratificationEnabled",
+  "sequentialTestingEnabled",
+  "sequentialTestingTuningParameter",
+] as const;
+type SettledAnalysisSettings = Pick<
+  ExperimentInterface,
+  (typeof SETTLED_ANALYSIS_SETTINGS)[number]
+>;
+
+export const isAnalysisSettingUnset = (value: unknown) => (value ?? "") === "";
+
+/**
+ * What each unset analysis setting resolves to now, the way the analysis
+ * resolves it, so storing it leaves today's results unchanged.
+ */
+export function getUnsetAnalysisSettings({
+  organization,
+  project,
+  experiment,
+}: Pick<ScopeDefinition, "organization" | "project"> & {
+  experiment: Partial<SettledAnalysisSettings>;
+}): Partial<SettledAnalysisSettings> {
+  const { settings } = getScopedSettings({ organization, project });
+  const orgSettings = organization.settings ?? {};
+  const resolved: SettledAnalysisSettings = {
+    statsEngine: settings.statsEngine.value ?? DEFAULT_STATS_ENGINE,
+    // An experiment without its own CUPED setting is analyzed without CUPED.
+    regressionAdjustmentEnabled: DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
+    postStratificationEnabled: settings.postStratificationEnabled.value,
+    sequentialTestingEnabled: !!orgSettings.sequentialTestingEnabled,
+    sequentialTestingTuningParameter:
+      orgSettings.sequentialTestingTuningParameter ??
+      DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
+  };
+  return Object.fromEntries(
+    SETTLED_ANALYSIS_SETTINGS.filter((key) =>
+      isAnalysisSettingUnset(experiment[key]),
+    ).map((key) => [key, resolved[key]]),
+  );
+}

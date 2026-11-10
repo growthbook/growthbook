@@ -2,6 +2,7 @@ import md5 from "md5";
 import {
   getAllExpandedMetricIdsFromExperiment,
   getAllMetricIdsFromExperiment,
+  getClusterSubUnit,
   isFactMetricId,
   expandDerivedMetricsInMap,
   getLatestPhaseVariations,
@@ -296,6 +297,7 @@ export async function updateExperimentAnalysisTimeSeries({
           ),
           factMetrics,
           factTableMap,
+          experimentSnapshot.settings,
         ),
         singleDataPoint: {
           date: experimentSnapshot.dateCreated,
@@ -401,6 +403,13 @@ function getExperimentSettingsHash(
       snapshotSettings.exposureQueryIdentifierType,
       exposureQueries,
     ),
+    // Only present for cluster experiments, so non-cluster hashes are unchanged.
+    ...(snapshotSettings.isClusterExperiment
+      ? {
+          isClusterExperiment: true,
+          clusterSubUnitIdentifier: snapshotSettings.clusterSubUnitIdentifier,
+        }
+      : {}),
     startDate: snapshotSettings.startDate,
     regressionAdjustmentEnabled: snapshotSettings.regressionAdjustmentEnabled,
     experimentId: snapshotSettings.experimentId,
@@ -450,9 +459,12 @@ export function getFiltersForHash(
  */
 function getDefinitionMetricId(metricId: string): string {
   const stepInfo = parseFunnelStepMetricId(metricId);
-  return stepInfo.isFunnelStepMetric
+  // Strip step info first (if present), then strip slice info.
+  // A sliced funnel step like funnelId?step=0&dim:col=val has both.
+  const afterStep = stepInfo.isFunnelStepMetric
     ? stepInfo.baseMetricId
-    : parseSliceMetricId(metricId).baseMetricId;
+    : metricId;
+  return parseSliceMetricId(afterStep).baseMetricId;
 }
 
 /**
@@ -527,17 +539,39 @@ export function getMetricSettingsHash(
   metricSettings?: MetricForSnapshot,
   factMetrics?: FactMetricInterface[],
   factTableMap?: Map<string, FactTableInterface>,
+  clusterSettings?: Pick<
+    ExperimentSnapshotSettings,
+    "isClusterExperiment" | "clusterSubUnitIdentifier" | "clusterLevelMetricIds"
+  >,
 ): string {
+  // A fact table's identifiers decide whether a metric is analyzed per
+  // sub-unit or per cluster, which changes what its values mean. Only cluster
+  // experiments record it, so other hashes are unchanged.
   const definitionMetricId = getDefinitionMetricId(metricId);
+  const clusterLevelMetricIds = clusterSettings?.clusterLevelMetricIds ?? [];
+  const clusterLevel =
+    clusterSettings && getClusterSubUnit(clusterSettings) !== null
+      ? {
+          clusterAnalysisLevel:
+            clusterLevelMetricIds.includes(metricId) ||
+            clusterLevelMetricIds.includes(definitionMetricId)
+              ? "cluster"
+              : "subunit",
+        }
+      : {};
   const factMetric = factMetrics?.find(
     (metric) => metric.id === definitionMetricId,
   );
   if (!factMetric) {
-    return hashObject(metricSettings ?? { id: metricId });
+    return hashObject({
+      ...(metricSettings ?? { id: metricId }),
+      ...clusterLevel,
+    });
   }
   return hashObject({
     ...metricSettings,
     ...getFactMetricDefinitionForHash(factMetric, factTableMap),
+    ...clusterLevel,
   });
 }
 

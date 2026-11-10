@@ -1,4 +1,5 @@
 import {
+  funnelStepMetricId,
   getMetricResultStatus,
   setAdjustedPValuesOnResults,
 } from "shared/experiments";
@@ -13,7 +14,10 @@ import {
 } from "shared/types/experiment-snapshot";
 import { ExperimentReportResultDimension } from "shared/types/report";
 import { MetricDefaults } from "shared/types/organization";
-import { ExperimentTableRow } from "@/services/experiments";
+import {
+  ExperimentTableRow,
+  NO_DATA_ERROR_MESSAGE,
+} from "@/services/experiments";
 
 export function filterRowsForMetricDrilldown(
   rows: ExperimentTableRow[],
@@ -41,6 +45,58 @@ export function filterRowsForMetricDrilldown(
   }
 
   return { mainRow, sliceRows, filteredSliceRows };
+}
+
+/**
+ * Re-points whole-funnel slice rows at a single step, led by that step's own
+ * row. Step slice ids are minted the same way the stats engine mints them
+ * (`{metricId}?{slice}&step={k}`), so results and time series both resolve.
+ */
+export function buildFunnelStepSliceRows({
+  stepRow,
+  sliceRows,
+  stepIndex,
+  results,
+}: {
+  stepRow: ExperimentTableRow | undefined;
+  sliceRows: ExperimentTableRow[];
+  stepIndex: number;
+  results: ExperimentReportResultDimension;
+}): ExperimentTableRow[] {
+  const stepSliceRows: ExperimentTableRow[] = sliceRows.map((row) => {
+    const stepSliceId = row.sliceId
+      ? funnelStepMetricId(row.sliceId, stepIndex)
+      : undefined;
+    return {
+      ...row,
+      sliceId: stepSliceId,
+      childRowType: "funnelSlice",
+      funnelStepIndex: stepIndex,
+      variations: results.variations.map(
+        (v) =>
+          (stepSliceId ? v.metrics?.[stepSliceId] : undefined) || {
+            users: 0,
+            value: 0,
+            cr: 0,
+            errorMessage: NO_DATA_ERROR_MESSAGE,
+          },
+      ),
+    };
+  });
+
+  if (!stepRow) return stepSliceRows;
+
+  // The step heads its own slices here, so it can no longer be a child row —
+  // sorting groups children under a parent that has no parent of its own.
+  return [
+    {
+      ...stepRow,
+      parentRowId: undefined,
+      isChildRow: false,
+      numChildren: stepSliceRows.length,
+    },
+    ...stepSliceRows,
+  ];
 }
 
 /**

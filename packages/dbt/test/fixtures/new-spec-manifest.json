@@ -1,0 +1,169 @@
+{
+  "metadata": {
+    "dbt_schema_version": "https://schemas.getdbt.com/dbt/manifest/v12.json"
+  },
+  "nodes": {
+    "model.jaffle.orders": {
+      "name": "orders",
+      "resource_type": "model",
+      "relation_name": "`analytics`.`jaffle`.`orders`",
+      "config": { "meta": {}, "tags": [] }
+    }
+  },
+  "semantic_models": {
+    "semantic_model.jaffle.orders": {
+      "name": "orders",
+      "node_relation": { "relation_name": "`analytics`.`jaffle`.`orders`" },
+      "defaults": { "agg_time_dimension": "ordered_at" },
+      "primary_entity": "order",
+      "entities": [
+        { "name": "customer", "type": "foreign", "expr": "customer_id" }
+      ],
+      "dimensions": [
+        {
+          "name": "ordered_at",
+          "type": "time",
+          "expr": null,
+          "type_params": { "time_granularity": "day" }
+        },
+        { "name": "is_food_order", "type": "categorical", "expr": null }
+      ],
+      "measures": [],
+      "config": { "meta": {} },
+      "tags": []
+    },
+    "semantic_model.jaffle.visits": {
+      "name": "visits",
+      "node_relation": { "relation_name": "`analytics`.`jaffle`.`visits`" },
+      "defaults": { "agg_time_dimension": "visited_at" },
+      "primary_entity": "visit",
+      "entities": [
+        { "name": "customer", "type": "foreign", "expr": "customer_id" }
+      ],
+      "dimensions": [
+        {
+          "name": "visited_at",
+          "type": "time",
+          "expr": null,
+          "type_params": { "time_granularity": "day" }
+        }
+      ],
+      "measures": [],
+      "config": { "meta": {} },
+      "tags": []
+    }
+  },
+  "metrics": {
+    "metric.jaffle.order_total": {
+      "name": "order_total",
+      "label": "Order total",
+      "type": "simple",
+      "type_params": {
+        "measure": null,
+        "expr": null,
+        "metric_aggregation_params": {
+          "semantic_model": "orders",
+          "agg": "sum",
+          "agg_params": null,
+          "agg_time_dimension": null,
+          "non_additive_dimension": null
+        },
+        "join_to_timespine": false,
+        "fill_nulls_with": 0
+      },
+      "filter": null,
+      "config": { "meta": {} },
+      "tags": []
+    },
+    "metric.jaffle.order_count": {
+      "name": "order_count",
+      "type": "simple",
+      "type_params": {
+        "expr": "order_id",
+        "metric_aggregation_params": {
+          "semantic_model": "orders",
+          "agg": "count"
+        }
+      },
+      "filter": null,
+      "config": { "meta": {} },
+      "tags": []
+    },
+    "metric.jaffle.food_orders": {
+      "name": "food_orders",
+      "type": "simple",
+      "type_params": {
+        "expr": "order_id",
+        "metric_aggregation_params": {
+          "semantic_model": "orders",
+          "agg": "count"
+        }
+      },
+      "filter": {
+        "where_filters": [
+          {
+            "where_sql_template": "{{ Dimension('order__is_food_order') }} = true"
+          }
+        ]
+      },
+      "config": { "meta": {} },
+      "tags": []
+    },
+    "metric.jaffle.visits": {
+      "name": "visits",
+      "type": "simple",
+      "type_params": {
+        "expr": "visit_id",
+        "metric_aggregation_params": {
+          "semantic_model": "visits",
+          "agg": "count"
+        }
+      },
+      "filter": null,
+      "config": { "meta": {} },
+      "tags": []
+    },
+    "metric.jaffle.aov": {
+      "name": "aov",
+      "type": "ratio",
+      "type_params": {
+        "numerator": { "name": "order_total" },
+        "denominator": { "name": "order_count" }
+      },
+      "filter": null,
+      "config": { "meta": {} },
+      "tags": []
+    },
+    "metric.jaffle.revenue_30d": {
+      "name": "revenue_30d",
+      "type": "cumulative",
+      "type_params": {
+        "cumulative_type_params": {
+          "metric": { "name": "order_total" },
+          "window": { "count": 30, "granularity": "day" },
+          "grain_to_date": null,
+          "period_agg": "first"
+        }
+      },
+      "filter": null,
+      "config": { "meta": {} },
+      "tags": []
+    },
+    "metric.jaffle.visit_to_order": {
+      "name": "visit_to_order",
+      "type": "conversion",
+      "type_params": {
+        "conversion_type_params": {
+          "base_metric": { "name": "visits" },
+          "conversion_metric": { "name": "order_count" },
+          "entity": "customer",
+          "calculation": "conversion_rate",
+          "window": { "count": 2, "granularity": "weeks" }
+        }
+      },
+      "filter": null,
+      "config": { "meta": {} },
+      "tags": []
+    }
+  }
+}

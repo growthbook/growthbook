@@ -13,14 +13,13 @@ import {
   isFactMetric,
   isFactFunnelMetric,
   isRatioMetric,
-  getRowFilterSQL,
 } from "shared/experiments";
-import { createLikeStringMatchFn } from "shared/sql";
 import Metadata from "@/ui/Metadata";
 import Link from "@/ui/Link";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { getPercentileLabel } from "@/services/metrics";
 import InlineCode from "@/components/SyntaxHighlighting/InlineCode";
+import { getRowFiltersDisplaySQL } from "@/components/FactTables/rowFilterUtils";
 
 interface MetricDrilldownMetricCardProps {
   metric: ExperimentMetricDefinition;
@@ -49,32 +48,12 @@ function RowFilterDisplay({
 }) {
   if (!rowFilters.length) return null;
 
-  const text = `WHERE ${
-    factTable
-      ? rowFilters
-          .map((rf) =>
-            getRowFilterSQL({
-              rowFilter: rf,
-              factTable,
-              escapeStringLiteral: (s) => s.replace(/'/g, "''"),
-              stringMatch: createLikeStringMatchFn({
-                escapeStringLiteral: (s) => s.replace(/'/g, "''"),
-                emitEscapeClause: false,
-              }),
-              evalBoolean: (col, value) =>
-                `${col} IS ${value ? "TRUE" : "FALSE"}`,
-              jsonExtract: (col, path) => `${col}.${path}`,
-              showSourceComment: true,
-            }),
-          )
-          .join("\nAND ")
-      : rowFilters
-          .map((rf) => `${rf.column} ${rf.operator} ${rf.values?.join(", ")}`)
-          .join("\nAND ")
-  }`;
-
-  // TODO: Merge with RowFilterCodeDisplay -- the difference is that this uses InlineCode
-  return <InlineCode language="sql" code={text} />;
+  return (
+    <InlineCode
+      language="sql"
+      code={getRowFiltersDisplaySQL(rowFilters, factTable ?? null)}
+    />
+  );
 }
 
 // TODO: Merge with getColumnDisplayValue in MetricTooltipBody.tsx

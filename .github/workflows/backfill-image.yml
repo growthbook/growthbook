@@ -1,0 +1,72 @@
+name: Backfill image
+
+# Deploy keeps one queued run, so a commit merged mid-deploy can be cancelled before it builds.
+on:
+  workflow_run:
+    workflows: [Deploy]
+    types: [completed]
+
+# Read-only token by default; a job that needs more declares it itself.
+permissions:
+  contents: read
+
+jobs:
+  # A run cancelled mid-push may have one registry's tag; copy it to the other rather than rebuild.
+  check:
+    if: ${{ github.repository == 'growthbook/growthbook' && github.event.workflow_run.conclusion == 'cancelled' && github.event.workflow_run.event == 'push' && github.event.workflow_run.head_branch == 'main' && github.event.workflow_run.head_repository.full_name == github.repository }}
+    runs-on: ubuntu-latest
+    permissions: {}
+    outputs:
+      build: ${{ steps.inspect.outputs.build }}
+    steps:
+      - name: Login to Docker Hub
+        uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
+        with:
+          username: ${{ secrets.DOCKER_HUB_USERNAME }}
+          password: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
+
+      - name: Configure AWS credentials for ECR
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@03f1aad4c6c7ffd436567f42f9384779290529bd # v2.1.7
+
+      - name: Install buildx
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+      - name: Restore a missing tag or request a build
+        id: inspect
+        env:
+          SHA: ${{ github.event.workflow_run.head_sha }}
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        run: |
+          HUB="growthbook/growthbook:git-${SHA::7}"
+          ECR="${ECR_REGISTRY}/growthbook:git-${SHA::7}"
+          HUB_EXISTS=false
+          ECR_EXISTS=false
+          docker buildx imagetools inspect "$HUB" > /dev/null 2>&1 && HUB_EXISTS=true
+          docker buildx imagetools inspect "$ECR" > /dev/null 2>&1 && ECR_EXISTS=true
+
+          if [ "$HUB_EXISTS" = true ] && [ "$ECR_EXISTS" = false ]; then
+            docker buildx imagetools create -t "$ECR" "$HUB"
+          elif [ "$ECR_EXISTS" = true ] && [ "$HUB_EXISTS" = false ]; then
+            docker buildx imagetools create -t "$HUB" "$ECR"
+          elif [ "$HUB_EXISTS" = false ]; then
+            echo "build=true" >> "$GITHUB_OUTPUT"
+          fi
+
+  docker:
+    needs: [check]
+    if: ${{ needs.check.outputs.build == 'true' }}
+    permissions:
+      contents: read
+      id-token: write
+    uses: ./.github/workflows/build-image.yml
+    with:
+      ref: ${{ github.event.workflow_run.head_sha }}
+    secrets: inherit

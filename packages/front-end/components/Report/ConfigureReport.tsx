@@ -12,6 +12,7 @@ import { DifferenceType } from "shared/types/stats";
 import {
   DEFAULT_LOOKBACK_OVERRIDE_VALUE_UNIT,
   DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
+  DEFAULT_STATS_ENGINE,
 } from "shared/constants";
 import Button from "@/ui/Button";
 import DatePicker from "@/components/DatePicker";
@@ -441,6 +442,12 @@ export default function ConfigureReport({
               exposureQueryIdentifierType={
                 assignmentQuerySelection.identifierType
               }
+              isClusterExperiment={form.watch(
+                "experimentAnalysisSettings.isClusterExperiment",
+              )}
+              clusterSubUnitIdentifier={form.watch(
+                "experimentAnalysisSettings.clusterSubUnitIdentifier",
+              )}
               project={experiment?.project}
               forceSingleGoalMetric={experiment?.type === "multi-armed-bandit"}
               noQuantileGoalMetrics={experiment?.type === "multi-armed-bandit"}
@@ -540,12 +547,17 @@ export default function ConfigureReport({
                     </label>
                   </PremiumTooltip>
                   <small className="form-text text-muted mb-2">
-                    Override metric behaviors within this experiment. Leave any
-                    fields empty that you do not want to override.
+                    Override metric behaviors within this experiment. Anything
+                    you don&apos;t override follows the metric&apos;s own
+                    settings.
                   </small>
                   <MetricsOverridesSelector
                     experiment={experiment}
                     form={form}
+                    statsEngine={
+                      form.watch("experimentAnalysisSettings.statsEngine") ||
+                      DEFAULT_STATS_ENGINE
+                    }
                     fieldMap={{
                       goalMetrics: "experimentAnalysisSettings.goalMetrics",
                       guardrailMetrics:

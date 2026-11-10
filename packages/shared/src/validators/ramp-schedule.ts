@@ -6,7 +6,7 @@ import {
 import { featurePrerequisite, savedGroupTargeting } from "./shared";
 import { apiBaseSchema, baseSchema } from "./base-model";
 
-import { namedSchema } from "./openapi-helpers";
+import { componentSchema, namedSchema } from "./openapi-helpers";
 import { apiEventUser, eventUser } from "./event-user";
 
 export const DEFAULT_NO_TRAFFIC_GRACE_PERIOD_HOURS = 24;
@@ -780,3 +780,83 @@ export type RampScheduleForDisplay = Partial<RampScheduleInterface> & {
   dateCreated: Date;
   dateUpdated: Date;
 };
+
+// ---- Alert webhooks: roll back or pause every ramp matching query filters ----
+
+const splitCsv = (value: string) =>
+  value
+    .split(",")
+    .map((v) => v.trim())
+    .filter(Boolean);
+
+// Comma-separated or repeated values. Splitting is idempotent, so a confirmed
+// request, which replays the query as it was saved after parsing, parses the
+// same way.
+const csvList = z.preprocess(
+  (v) =>
+    typeof v === "string" || Array.isArray(v)
+      ? [v].flat().flatMap((x) => (typeof x === "string" ? splitCsv(x) : [x]))
+      : v,
+  z.array(z.string()),
+);
+
+const csvFilter = (description: string) =>
+  csvList.describe(description).meta({ explode: false }).optional();
+
+// Strict, so a misspelled filter is refused instead of matching every ramp.
+export const rampAlertQueryValidator = z
+  .object({
+    environment: csvFilter(
+      "Comma-separated environments. Matches ramps whose rules run in any of them.",
+    ),
+    project: csvFilter(
+      "Comma-separated Project ids. Matches ramps on Feature Flags in any of them.",
+    ),
+    tag: csvFilter(
+      "Comma-separated tags. Matches ramps on Feature Flags with any of them.",
+    ),
+    feature: csvFilter("Comma-separated Feature Flag ids."),
+    customFields: z
+      .record(z.string(), csvList)
+      .describe(
+        "Custom field values, as `customFields[<key>]=<value>`. Comma-separate several values for one key.",
+      )
+      .meta({ style: "deepObject", explode: true })
+      .optional(),
+    reason: z
+      .string()
+      .optional()
+      .describe(
+        "Used when the body has no `reason`, for tools whose payload can't be changed.",
+      ),
+  })
+  .strict();
+export type RampAlertQuery = z.infer<typeof rampAlertQueryValidator>;
+export type RampAlertFilters = Omit<RampAlertQuery, "reason">;
+
+// Alerting tools post their own payloads, so unknown fields are allowed.
+export const rampAlertBodyValidator = z
+  .object({
+    reason: z
+      .string()
+      .optional()
+      .describe(
+        "Recorded on each ramp, prefixed with `Alert: `. Use the alert title and link.",
+      ),
+  })
+  .loose()
+  .optional();
+
+export const rampAlertResponseValidator = z.object({
+  rampSchedules: z.array(
+    componentSchema(
+      "MatchedRampSchedule",
+      z.object({
+        id: z.string(),
+        featureId: z.string(),
+        result: z.enum(["applied", "skipped"]),
+        message: z.string().optional(),
+      }),
+    ),
+  ),
+});

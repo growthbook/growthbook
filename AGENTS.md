@@ -112,7 +112,7 @@ Three tiers: global (`manageTeam`, `manageBilling`), project-scoped (`manageFeat
 ## Code Conventions
 
 - **TypeScript strict mode** — never use `any`; use `unknown` for untrusted data and validate it with Zod.
-- **Environment variables** — only reference `process.env` in `back-end/src/util/secrets.ts` or `front-end/pages/api/init.ts`.
+- **Environment variables** — only reference `process.env` in `back-end/src/util/secrets.ts` or `front-end/pages/api/init.ts`. Standalone CLIs (such as `packages/dbt`) read theirs in their entry point only.
 - **Logging** — back-end uses `import { logger } from "util/logger"`, not `console.log`.
 - **Testing policy** — write tests for utility/helper functions; do not write tests for front-end components or back-end routers/controllers/models.
 - **Zod as source of truth** — infer types from schemas (`z.infer<typeof mySchema>`); do not duplicate type definitions.

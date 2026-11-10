@@ -30,20 +30,10 @@ function column(
   };
 }
 
-function step(
-  factTableId: string,
-  windowType: PopulationStep["windowSettings"]["type"] = "",
-): PopulationStep {
+function step(factTableId: string): PopulationStep {
   return {
     source: { type: "factTable", factTableId },
     rowFilters: [],
-    windowSettings: {
-      type: windowType,
-      delayValue: 0,
-      delayUnit: "days",
-      windowValue: 0,
-      windowUnit: "days",
-    },
   };
 }
 
@@ -51,6 +41,7 @@ const events: PopulationRuleFactTable = {
   id: "ftb_events",
   datasource: "ds_main",
   userIdTypes: ["user_id", "anonymous_id"],
+  filters: [{ id: "flt_mobile", name: "Mobile", value: "device = 'mobile'" }],
   columns: [
     column("amount", "number"),
     column("country", "string"),
@@ -72,12 +63,14 @@ const orders: PopulationRuleFactTable = {
   datasource: "ds_main",
   userIdTypes: ["user_id"],
   columns: [],
+  filters: [],
 };
 const otherWarehouse: PopulationRuleFactTable = {
   id: "ftb_other",
   datasource: "ds_other",
   userIdTypes: ["user_id"],
   columns: [],
+  filters: [],
 };
 
 describe("getPopulationFactTableIds", () => {
@@ -98,24 +91,10 @@ describe("getPopulationRuleViolations", () => {
       getPopulationRuleViolations({
         datasource: "ds_main",
         userIdTypes: ["user_id"],
-        steps: [
-          step("ftb_events", "lookback"),
-          step("ftb_orders", "conversion"),
-        ],
+        steps: [step("ftb_events"), step("ftb_orders")],
         factTables: [events, orders],
       }),
     ).toEqual([]);
-  });
-
-  it("rejects a conversion window on the first step", () => {
-    expect(
-      getPopulationRuleViolations({
-        datasource: "ds_main",
-        userIdTypes: ["user_id"],
-        steps: [step("ftb_events", "conversion")],
-        factTables: [events],
-      }),
-    ).toEqual(["The first step cannot use a conversion window."]);
   });
 
   it("reports a fact table that was not found", () => {
@@ -127,6 +106,24 @@ describe("getPopulationRuleViolations", () => {
         factTables: [],
       }),
     ).toEqual(["Fact table ftb_missing not found."]);
+  });
+
+  it("reports a saved filter the fact table doesn't have", () => {
+    const savedFilter = (id: string): PopulationStep => ({
+      ...step("ftb_events"),
+      rowFilters: [{ operator: "saved_filter", values: [id] }],
+    });
+    const check = (id: string) =>
+      getPopulationRuleViolations({
+        datasource: "ds_main",
+        userIdTypes: ["user_id"],
+        steps: [savedFilter(id)],
+        factTables: [events],
+      });
+    expect(check("flt_mobile")).toEqual([]);
+    expect(check("flt_deleted")).toEqual([
+      "Saved filter not found on Fact Table ftb_events: flt_deleted (step 1).",
+    ]);
   });
 
   it("reports a fact table from a different Data Source", () => {
@@ -172,6 +169,7 @@ describe("getPopulationRuleViolations", () => {
         datasource: "ds_main",
         userIdTypes: ["user_id"],
         columns: [],
+        filters: [],
       }),
     );
     const atCap = tables.slice(0, MAX_POPULATION_FACT_TABLES);
@@ -325,15 +323,10 @@ describe("getPopulationRuleViolations", () => {
       getPopulationRuleViolations({
         datasource: "ds_main",
         userIdTypes: ["anonymous_id"],
-        steps: [
-          step("ftb_events", "conversion"),
-          step("ftb_orders"),
-          step("ftb_other"),
-        ],
+        steps: [step("ftb_events"), step("ftb_orders"), step("ftb_other")],
         factTables: [events, orders, otherWarehouse],
       }),
     ).toEqual([
-      "The first step cannot use a conversion window.",
       "Fact table ftb_orders does not support identifier types: anonymous_id.",
       "Fact table ftb_other is not in Data Source ds_main.",
     ]);

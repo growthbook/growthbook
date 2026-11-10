@@ -8,6 +8,7 @@ import {
 } from "react-icons/pi";
 import { ApiContextualBanditInterface } from "shared/validators";
 import { LinkedFeatureInfo } from "shared/types/experiment";
+import { linkedDraftApproved } from "shared/util";
 import { contextualBanditHasServableVisualChanges } from "shared/experiments";
 import { VisualChangesetInterface } from "shared/types/visual-changeset";
 import Modal from "@/ui/Modal";
@@ -28,6 +29,19 @@ import {
   LINKED_CHANGE_CONTAINER_PROPERTIES,
   type LinkedChange,
 } from "@/components/Experiment/LinkedChanges/constants";
+import StartModalSection from "@/components/Experiment/StartModalSection";
+import { TargetingSummaryRow } from "@/components/Experiment/TabbedPage/StartSections";
+import { ChecklistItems } from "@/components/PreLaunchChecklist/PreLaunchChecklist";
+import {
+  blockingRow,
+  linkedFeatureAction,
+  mergeConflictRows,
+  missingVariationValueRows,
+  unrelatedDraftChangeRows,
+  type CheckListItem,
+} from "@/components/PreLaunchChecklist/PreLaunchChecklistItems";
+import { summarizeChecklist } from "@/components/PreLaunchChecklist/checklistSummary";
+import { coveragePercentFormatter } from "@/services/utils";
 
 export interface Props {
   cb: ApiContextualBanditInterface;
@@ -39,155 +53,80 @@ export interface Props {
   close: () => void;
 }
 
-type BlockerItem = {
-  key: string;
-  display: ReactNode;
-  hardBlock: boolean;
-};
-
-function computeBlockers(
+function linkedChangeRow(
   cb: ApiContextualBanditInterface,
   linkedFeatures: LinkedFeatureInfo[],
   visualChangesets: VisualChangesetInterface[],
   visualChangesetsLoading: boolean,
   visualChangesetsError: Error | undefined,
-): { hardBlockerItems: BlockerItem[]; softBlockerItems: BlockerItem[] } {
-  const hardBlockerItems: BlockerItem[] = [];
-  const softBlockerItems: BlockerItem[] = [];
-  const featureLink = (f: LinkedFeatureInfo) => (
-    <Link
-      href={`/features/${f.feature.id}${
-        f.draftRevisionVersion != null ? `?v=${f.draftRevisionVersion}` : ""
-      }`}
-      target="_blank"
-    >
-      {f.feature.id}
-      <PiArrowSquareOut className="ml-1" />
-    </Link>
-  );
-
+): CheckListItem | null {
   if (visualChangesetsError) {
-    hardBlockerItems.push({
+    return blockingRow({
       key: "visual-changes-error",
-      hardBlock: true,
-      display: (
-        <>
-          Couldn&apos;t load this Contextual Bandit&apos;s visual changes (
-          {visualChangesetsError.message}). Reload the page and try again.
-        </>
-      ),
+      display: `Couldn't load this Contextual Bandit's visual changes (${visualChangesetsError.message}). Reload the page and try again.`,
     });
-  } else if (visualChangesetsLoading) {
-    hardBlockerItems.push({
+  }
+  if (visualChangesetsLoading) {
+    return blockingRow({
       key: "visual-changes-loading",
-      hardBlock: true,
-      display: <>Checking for saved AI Visual Editor changes…</>,
+      display: "Checking for saved AI Visual Editor changes…",
     });
-  } else if (
+  }
+  if (
     linkedFeatures.length === 0 &&
     !contextualBanditHasServableVisualChanges(cb, visualChangesets)
   ) {
-    hardBlockerItems.push({
+    return blockingRow({
       key: "no-linked-change",
-      hardBlock: true,
-      display: (
-        <>
-          Link at least one Feature Flag or save an AI Visual Editor change
-          before this Contextual Bandit can start
-        </>
-      ),
+      display:
+        "Link at least one Feature Flag or save an AI Visual Editor change",
     });
   }
+  return null;
+}
 
-  linkedFeatures
-    .filter((f) => f.state === "draft" && f.hasMergeConflict)
-    .forEach((f) => {
-      hardBlockerItems.push({
-        key: `merge-${f.feature.id}`,
-        hardBlock: true,
-        display: (
-          <>
-            Resolve merge conflict in {featureLink(f)} before this Contextual
-            Bandit can start
-          </>
-        ),
-      });
-    });
-
-  linkedFeatures
+function getChecklistItems(
+  cb: ApiContextualBanditInterface,
+  linkedFeatures: LinkedFeatureInfo[],
+  visualChangesets: VisualChangesetInterface[],
+  visualChangesetsLoading: boolean,
+  visualChangesetsError: Error | undefined,
+): CheckListItem[] {
+  const noLinkedChange = linkedChangeRow(
+    cb,
+    linkedFeatures,
+    visualChangesets,
+    visualChangesetsLoading,
+    visualChangesetsError,
+  );
+  const awaitingApproval = linkedFeatures
     .filter(
       (f) =>
         f.pendingApproval &&
         !f.hasUnrelatedDraftChanges &&
-        f.draftRevisionStatus !== "approved",
+        !linkedDraftApproved(f),
     )
-    .forEach((f) => {
-      hardBlockerItems.push({
+    .map((f) =>
+      blockingRow({
         key: `approve-${f.feature.id}`,
-        hardBlock: true,
-        display: (
-          <>
-            Approve the feature draft revision in {featureLink(f)}{" "}
-            {f.draftRevisionStatus && (
-              <Badge
-                label={revisionStatusLabel(f.draftRevisionStatus)}
-                color={revisionStatusColor(f.draftRevisionStatus)}
-                radius="full"
-                ml="1"
-              />
-            )}
-          </>
-        ),
-      });
-    });
-
-  linkedFeatures
-    .filter(
-      (f) =>
-        f.state === "draft" &&
-        f.hasUnrelatedDraftChanges &&
-        !f.hasMergeConflict,
-    )
-    .forEach((f) => {
-      hardBlockerItems.push({
-        key: `unrelated-${f.feature.id}`,
-        hardBlock: true,
-        display: (
-          <>
-            The feature draft revision in {featureLink(f)} contains additional
-            changes unrelated to this Contextual Bandit.
-          </>
-        ),
-      });
-    });
-
-  linkedFeatures
-    .filter((f) => f.state !== "discarded" && f.state !== "archived")
-    .forEach((f) => {
-      const configuredVariationIds = new Set(
-        f.values.map((v) => v.variationId),
-      );
-      const hasMissingValues = cb.variations.some(
-        (v) => !configuredVariationIds.has(v.id),
-      );
-      if (hasMissingValues) {
-        softBlockerItems.push({
-          key: `values-${f.feature.id}`,
-          hardBlock: false,
-          display: (
-            <>
-              Fill in missing variation values for{" "}
-              <Link href={`/features/${f.feature.id}`} target="_blank">
-                {f.feature.id}
-                <PiArrowSquareOut className="ml-1" />
-              </Link>
-            </>
-          ),
-        });
-      }
-    });
-
-  return { hardBlockerItems, softBlockerItems };
+        display: `Approve the Feature Flag draft for ${f.feature.id}`,
+        action: linkedFeatureAction(f),
+        description: f.draftRevisionStatus ? (
+          <Badge
+            label={revisionStatusLabel(f.draftRevisionStatus)}
+            color={revisionStatusColor(f.draftRevisionStatus)}
+            radius="full"
+          />
+        ) : undefined,
+      }),
+    );
+  return [
+    ...(noLinkedChange ? [noLinkedChange] : []),
+    ...mergeConflictRows(linkedFeatures),
+    ...awaitingApproval,
+    ...unrelatedDraftChangeRows(linkedFeatures),
+    ...missingVariationValueRows(linkedFeatures, cb.variations),
+  ];
 }
 
 function SubmitButton({ cta, disabled }: { cta: string; disabled: boolean }) {
@@ -196,44 +135,6 @@ function SubmitButton({ cta, disabled }: { cta: string; disabled: boolean }) {
     <Button type="submit" disabled={disabled} loading={loading}>
       {cta}
     </Button>
-  );
-}
-
-function BlockerList({ items }: { items: BlockerItem[] }) {
-  return (
-    <Flex direction="column" gap="2">
-      {items.map((item) => (
-        <Flex key={item.key} gap="2" align="baseline">
-          <Text color="text-mid">•</Text>
-          <Text as="div" weight="semibold" color="text-mid">
-            {item.display}
-          </Text>
-        </Flex>
-      ))}
-    </Flex>
-  );
-}
-
-function SummaryRow({
-  label,
-  children,
-  inline = false,
-}: {
-  label: string;
-  children: ReactNode;
-  inline?: boolean;
-}) {
-  return (
-    <Flex
-      direction={inline ? "row" : "column"}
-      gap={inline ? "2" : "1"}
-      align={inline ? "baseline" : "stretch"}
-    >
-      <Text size="md" weight="semibold" color="text-high">
-        {label}:
-      </Text>
-      <Box>{children}</Box>
-    </Flex>
   );
 }
 
@@ -279,21 +180,22 @@ export default function StartContextualBanditModal({
   startContextualBandit,
   close,
 }: Props) {
-  const coveragePct = cb.coverage != null ? Math.floor(cb.coverage * 100) : 100;
+  const coveragePct = coveragePercentFormatter.format(cb.coverage ?? 1);
   const hasAttributeTargeting = !!(cb.condition && cb.condition !== "{}");
   const hasSavedGroupTargeting = !!cb.savedGroups?.length;
   const hasPrerequisites = !!cb.prerequisites?.length;
   const hasLinkedFeatures = linkedFeatures.length > 0;
 
-  const { hardBlockerItems, softBlockerItems } = computeBlockers(
-    cb,
-    linkedFeatures,
-    visualChangesets,
-    visualChangesetsLoading,
-    visualChangesetsError,
+  const summary = summarizeChecklist(
+    getChecklistItems(
+      cb,
+      linkedFeatures,
+      visualChangesets,
+      visualChangesetsLoading,
+      visualChangesetsError,
+    ),
   );
-  const hasHardBlockers = hardBlockerItems.length > 0;
-  const hasBlockers = hasHardBlockers || softBlockerItems.length > 0;
+  const hasHardBlockers = summary.blocking > 0;
 
   return (
     <Modal.Root
@@ -315,10 +217,11 @@ export default function StartContextualBanditModal({
           <Modal.Title>Start Contextual Bandit</Modal.Title>
         </Modal.Header>
         <Modal.Body>
-          {hasBlockers && (
-            <Box mb="3">
-              <Flex align="center" gap="1">
-                {hasHardBlockers ? (
+          {summary.remaining > 0 && (
+            <StartModalSection
+              title="To Do"
+              icon={
+                hasHardBlockers ? (
                   <PiWarningOctagonFill
                     color="var(--red-11)"
                     size={15}
@@ -330,94 +233,42 @@ export default function StartContextualBanditModal({
                     size={15}
                     aria-label="warning"
                   />
-                )}
-                <Text size="lg" weight="semibold" color="text-high">
-                  Tasks to Complete
-                </Text>
-              </Flex>
-              <Box
-                mt="3"
-                style={{
-                  backgroundColor: "var(--slate-2)",
-                  padding: "20px",
-                  borderRadius: "var(--radius-3)",
-                }}
-              >
-                {hasHardBlockers ? (
-                  <Flex direction="column" gap="4">
-                    <Box>
-                      <Text size="sm" weight="semibold" color="text-high">
-                        Must resolve before starting
-                      </Text>
-                      <Box mt="2">
-                        <BlockerList items={hardBlockerItems} />
-                      </Box>
-                    </Box>
-                    {softBlockerItems.length > 0 && (
-                      <Box>
-                        <Text size="sm" weight="semibold" color="text-high">
-                          Recommended
-                        </Text>
-                        <Box mt="2">
-                          <BlockerList items={softBlockerItems} />
-                        </Box>
-                      </Box>
-                    )}
-                  </Flex>
-                ) : (
-                  <BlockerList items={softBlockerItems} />
-                )}
-              </Box>
-            </Box>
+                )
+              }
+              mb="3"
+            >
+              <ChecklistItems summary={summary} size="md" />
+            </StartModalSection>
           )}
-          <Box>
-            <Flex align="center" gap="1">
-              <PiInfoFill color="var(--indigo-11)" size={15} />
-              <Text size="lg" weight="semibold" color="text-high">
-                Summary
-              </Text>
+          <StartModalSection
+            title="Summary"
+            icon={<PiInfoFill color="var(--indigo-11)" size={15} />}
+          >
+            <Flex direction="column" gap="4">
+              <TargetingSummaryRow label="Traffic" inline>
+                <Text>{coveragePct} included</Text>
+              </TargetingSummaryRow>
+              {hasAttributeTargeting && (
+                <TargetingSummaryRow label="Attribute targeting">
+                  <ConditionDisplay condition={cb.condition ?? "{}"} />
+                </TargetingSummaryRow>
+              )}
+              {hasSavedGroupTargeting && (
+                <TargetingSummaryRow label="Saved Group targeting">
+                  <SavedGroupTargetingDisplay
+                    savedGroups={cb.savedGroups ?? []}
+                  />
+                </TargetingSummaryRow>
+              )}
+              {hasPrerequisites && (
+                <TargetingSummaryRow label="Prerequisites">
+                  <ConditionDisplay prerequisites={cb.prerequisites} />
+                </TargetingSummaryRow>
+              )}
             </Flex>
-            <Box
-              mt="3"
-              style={{
-                backgroundColor: "var(--slate-2)",
-                padding: "20px",
-                borderRadius: "var(--radius-3)",
-              }}
-            >
-              <Flex direction="column" gap="4">
-                <SummaryRow label="Traffic" inline>
-                  <Text>{coveragePct}% included</Text>
-                </SummaryRow>
-                {hasAttributeTargeting && (
-                  <SummaryRow label="Attribute Targeting">
-                    <ConditionDisplay condition={cb.condition ?? "{}"} />
-                  </SummaryRow>
-                )}
-                {hasSavedGroupTargeting && (
-                  <SummaryRow label="Saved Group Targeting">
-                    <SavedGroupTargetingDisplay
-                      savedGroups={cb.savedGroups ?? []}
-                    />
-                  </SummaryRow>
-                )}
-                {hasPrerequisites && (
-                  <SummaryRow label="Prerequisites">
-                    <ConditionDisplay prerequisites={cb.prerequisites} />
-                  </SummaryRow>
-                )}
-              </Flex>
-            </Box>
-          </Box>
+          </StartModalSection>
           {(hasLinkedFeatures || visualChangesets.length > 0) && (
-            <Box
-              mt="3"
-              style={{
-                backgroundColor: "var(--slate-2)",
-                padding: "20px",
-                borderRadius: "var(--radius-3)",
-              }}
-            >
+            <StartModalSection mt="3">
               <Text weight="semibold" color="text-high">
                 Linked changes will activate. Users will see Bandit variations
                 immediately.
@@ -465,7 +316,7 @@ export default function StartContextualBanditModal({
                   </LinkedChangeSection>
                 )}
               </Flex>
-            </Box>
+            </StartModalSection>
           )}
         </Modal.Body>
         <Modal.Footer justify="between">

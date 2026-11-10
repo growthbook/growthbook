@@ -4,6 +4,7 @@ import {
 } from "shared/types/datasource";
 import { describe, expect, it } from "vitest";
 import {
+  followAssignmentAttribute,
   getDefaultIdentifierType,
   getIdentifierTypeForHashAttribute,
   isIdentifierUndeclared,
@@ -15,9 +16,11 @@ import {
   getGroupedIdentifierTypeOptions,
   getHashAttributeIdentifierTypeMap,
   getImportIdentifierTypes,
+  getInitialExposureQuery,
   getInitialSettings,
   getNewExperimentDatasourceDefaults,
   getSelectableIdentifierTypes,
+  resolveAssignmentIdentifier,
   validateSQL,
 } from "@/services/datasources";
 
@@ -108,6 +111,14 @@ describe("validateSQL", () => {
 
     it("does not throw when a semicolon appears mid-query", () => {
       expect(() => validateSQL("SELECT ';' AS delim FROM t", [])).not.toThrow();
+    });
+
+    it("runs in linear time on a semicolon followed by many newlines", () => {
+      // The old `/;(\s|\n)*$/` backtracked exponentially here
+      const sql = "SELECT x FROM y;" + "\n".repeat(50000) + "z";
+      const start = performance.now();
+      expect(() => validateSQL(sql, [])).not.toThrow();
+      expect(performance.now() - start).toBeLessThan(500);
     });
   });
 
@@ -717,12 +728,31 @@ describe("getInitialSettings", () => {
   });
 
   it("omits the project filter when the option is blank", () => {
+    for (const projectId of ["", "   "]) {
+      // @ts-expect-error minimal params for the test
+      const settings = getInitialSettings("langfuse", clickhouseParams, {
+        projectId,
+      });
+      for (const q of settings.queries.exposure) {
+        expect(q.query).not.toContain("project_id = '");
+      }
+    }
+  });
+
+  it("trims the project option before filtering", () => {
     // @ts-expect-error minimal params for the test
-    const settings = getInitialSettings("langfuse", clickhouseParams, {
-      projectId: "",
+    const langfuse = getInitialSettings("langfuse", clickhouseParams, {
+      projectId: " proj_1 ",
     });
-    for (const q of settings.queries.exposure) {
-      expect(q.query).not.toContain("project_id = '");
+    expect(langfuse.queries.exposure[0].query).toContain(
+      "project_id = 'proj_1'",
+    );
+    // @ts-expect-error minimal params for the test
+    const phoenix = getInitialSettings("phoenix", postgresParams, {
+      projectName: "  ",
+    });
+    for (const q of phoenix.queries.exposure) {
+      expect(q.query).not.toContain("p.name = '");
     }
   });
 });
@@ -835,3 +865,156 @@ describe("getNewExperimentDatasourceDefaults", () => {
     });
   });
 });
+
+describe("assignment identifier binding", () => {
+  const users = makeExposureQuery({
+    id: "users",
+    userIdType: "user_id",
+    userIdTypes: ["user_id"],
+  });
+  const visitors = makeExposureQuery({
+    id: "visitors",
+    userIdType: "anonymous_id",
+    userIdTypes: ["anonymous_id"],
+  });
+  const both = makeExposureQuery({
+    id: "both",
+    userIdType: "user_id",
+    userIdTypes: ["user_id", "anonymous_id"],
+  });
+  const links = new Map([
+    ["id", ["user_id"]],
+    ["deviceId", ["anonymous_id"]],
+  ]);
+  const resolve = (
+    query: ExposureQuery,
+    hashAttribute: string,
+    identifierType?: string,
+    map = links,
+  ) =>
+    resolveAssignmentIdentifier({
+      query,
+      identifierType,
+      hashAttribute,
+      hashAttributeIdentifierTypeMap: map,
+    });
+
+  it("settles on what the table declares, then on what the attribute links", () => {
+    expect(resolve(visitors, "id")).toMatchObject({
+      identifierType: "anonymous_id",
+      choose: false,
+      conflict: true,
+      attribute: "deviceId",
+    });
+    expect(resolve(both, "deviceId", "anonymous_id")).toMatchObject({
+      identifierType: "anonymous_id",
+      choose: false,
+      conflict: false,
+    });
+    // Left unset, the analysis takes the table's first, so it isn't settled.
+    expect(resolve(both, "deviceId")).toMatchObject({
+      identifierType: "user_id",
+      choose: true,
+      conflict: true,
+    });
+    expect(resolve(both, "id", undefined, new Map())).toMatchObject({
+      identifierType: "user_id",
+      choose: true,
+      conflict: false,
+      attribute: null,
+    });
+    // Leads back to an attribute only when exactly one is linked.
+    expect(
+      resolve(
+        visitors,
+        "id",
+        undefined,
+        new Map([...links, ["anonId", ["anonymous_id"]]]),
+      ),
+    ).toMatchObject({ conflict: true, attribute: null });
+    expect(resolve(visitors, "unlinked")).toMatchObject({
+      conflict: false,
+      attribute: "deviceId",
+    });
+  });
+
+  it("follows the attribute to its identifier, keeping a table that fits", () => {
+    const follow = (
+      exposureQueryId: string,
+      hashAttribute: string,
+      identifierType = "",
+    ) =>
+      followAssignmentAttribute({
+        queries: [users, visitors, both],
+        hashAttribute,
+        hashAttributeIdentifierTypeMap: links,
+        exposureQueryId,
+        identifierType,
+      });
+    expect(follow("users", "deviceId")).toEqual({
+      exposureQueryId: "visitors",
+      identifierType: "anonymous_id",
+    });
+    expect(follow("both", "deviceId")).toEqual({
+      exposureQueryId: "both",
+      identifierType: "anonymous_id",
+    });
+    // Already explicit, or the table declares only that one.
+    expect(follow("both", "deviceId", "anonymous_id")).toBeNull();
+    expect(follow("users", "id")).toBeNull();
+    expect(follow("users", "unlinked")).toBeNull();
+  });
+});
+
+describe("getInitialExposureQuery", () => {
+  const datasource = {
+    type: "postgres",
+    params: { defaultSchema: "analytics" },
+    settings: {
+      userIdTypes: [{ userIdType: "anonymous_id" }, { userIdType: "user_id" }],
+    },
+  } as unknown as DataSourceInterfaceWithParams;
+
+  it("covers the requested identifiers, else every declared one", () => {
+    const requested = getInitialExposureQuery(datasource, ["user_id"]);
+    expect(requested).toMatch(/^ {2}user_id,$/m);
+    expect(requested).not.toContain("anonymous_id");
+
+    const all = getInitialExposureQuery(datasource);
+    expect(all).toMatch(/^ {2}anonymous_id,$/m);
+    expect(all).toMatch(/^ {2}user_id,$/m);
+  });
+
+  it("falls back to user_id when the Data Source declares no identifiers", () => {
+    const sql = getInitialExposureQuery({
+      ...datasource,
+      settings: { userIdTypes: [], schemaFormat: "segment" },
+    } as unknown as DataSourceInterfaceWithParams);
+    expect(sql).toMatch(/^SELECT\n {2}user_id,/);
+    expect(sql).toContain("user_id is not null");
+  });
+
+  it("keeps rows with any of a tracker's identifiers", () => {
+    const sql = getInitialExposureQuery({
+      ...datasource,
+      settings: { ...datasource.settings, schemaFormat: "snowplow" },
+    });
+    expect(sql).toContain("domain_userid as anonymous_id");
+    expect(sql).toContain("(domain_userid is not null OR user_id is not null)");
+  });
+
+  it("reads GA4 experiment and variation ids from either value column", () => {
+    const sql = getInitialExposureQuery({
+      ...datasource,
+      settings: { ...datasource.settings, schemaFormat: "ga4" },
+    });
+    expect(sql).toContain(
+      "COALESCE(variation_id_param.value.string_value, CAST(variation_id_param.value.int_value AS STRING)) AS variation_id",
+    );
+    expect(sql).toContain(
+      "COALESCE(experiment_id_param.value.string_value, CAST(experiment_id_param.value.int_value AS STRING)) AS experiment_id",
+    );
+  });
+});
+
+// GA4-specific helpers are covered in googleAnalytics4.test.ts.

@@ -14,7 +14,10 @@ import { AuditUserLoggedIn } from "shared/types/audit";
 import { MetricInterface } from "shared/types/metric";
 import { ExperimentWithSnapshot } from "shared/types/experiment-snapshot";
 import { EventUserForResponseLocals } from "shared/types/events/event-types";
-import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import {
+  ExperimentInterface,
+  ExperimentInterfaceStringDates,
+} from "shared/types/experiment";
 import { MetricAnalysisInterface } from "shared/types/metric-analysis";
 import {
   AuthRequest,
@@ -85,8 +88,6 @@ export const UPDATEABLE_FIELDS: (keyof MetricInterface)[] = [
   "status",
   "tags",
   "projects",
-  "winRisk",
-  "loseRisk",
   "maxPercentChange",
   "minPercentChange",
   "minSampleSize",
@@ -432,8 +433,6 @@ export async function postMetrics(
     segment,
     tags,
     projects,
-    winRisk,
-    loseRisk,
     maxPercentChange,
     minPercentChange,
     minSampleSize,
@@ -493,8 +492,6 @@ export async function postMetrics(
     conditions,
     tags,
     projects,
-    winRisk,
-    loseRisk,
     maxPercentChange,
     minPercentChange,
     minSampleSize,
@@ -537,6 +534,40 @@ export async function putMetric(
   res.status(200).json({
     status: 200,
   });
+}
+
+function withStringDates(
+  e: ExperimentInterface,
+): ExperimentInterfaceStringDates {
+  return {
+    ...e,
+    dateCreated: e.dateCreated.toISOString(),
+    dateUpdated: e.dateUpdated.toISOString(),
+    phases: e.phases.map((p) => ({
+      ...p,
+      dateStarted: p.dateStarted?.toISOString(),
+      dateEnded: p.dateEnded?.toISOString(),
+    })),
+    nextScheduledStatusUpdate: e.nextScheduledStatusUpdate
+      ? {
+          ...e.nextScheduledStatusUpdate,
+          date: e.nextScheduledStatusUpdate.date.toISOString(),
+        }
+      : e.nextScheduledStatusUpdate,
+    statusUpdateSchedule: e.statusUpdateSchedule
+      ? {
+          ...e.statusUpdateSchedule,
+          startAt: e.statusUpdateSchedule.startAt?.toISOString(),
+          stopAt: e.statusUpdateSchedule.stopAt?.toISOString(),
+        }
+      : e.statusUpdateSchedule,
+    scheduledStatusUpdateFailure: e.scheduledStatusUpdateFailure
+      ? {
+          ...e.scheduledStatusUpdateFailure,
+          date: e.scheduledStatusUpdateFailure.date.toISOString(),
+        }
+      : e.scheduledStatusUpdateFailure,
+  };
 }
 
 export const getMetricExperimentResults = async (
@@ -602,27 +633,7 @@ export const getMetricExperimentResults = async (
 
   // TODO simplify data for front-end?
   const data = experiments.map((e) => ({
-    ...e,
-    dateCreated: e.dateCreated.toISOString(),
-    dateUpdated: e.dateUpdated.toISOString(),
-    phases: e.phases.map((p) => ({
-      ...p,
-      dateStarted: p.dateStarted?.toISOString(),
-      dateEnded: p.dateEnded?.toISOString(),
-    })),
-    nextScheduledStatusUpdate: e.nextScheduledStatusUpdate
-      ? {
-          ...e.nextScheduledStatusUpdate,
-          date: e.nextScheduledStatusUpdate.date.toISOString(),
-        }
-      : e.nextScheduledStatusUpdate,
-    statusUpdateSchedule: e.statusUpdateSchedule
-      ? {
-          ...e.statusUpdateSchedule,
-          startAt: e.statusUpdateSchedule.startAt?.toISOString(),
-          stopAt: e.statusUpdateSchedule.stopAt?.toISOString(),
-        }
-      : e.statusUpdateSchedule,
+    ...withStringDates(e),
     snapshot: snapshots.find((s) => s.experiment === e.id),
   }));
 
@@ -701,29 +712,7 @@ export const getMetricNorthstarData = async (
     }
   }
 
-  const experimentsStringDates = experiments.map((e) => ({
-    ...e,
-    dateCreated: e.dateCreated.toISOString(),
-    dateUpdated: e.dateUpdated.toISOString(),
-    phases: e.phases.map((p) => ({
-      ...p,
-      dateStarted: p.dateStarted?.toISOString(),
-      dateEnded: p.dateEnded?.toISOString(),
-    })),
-    nextScheduledStatusUpdate: e.nextScheduledStatusUpdate
-      ? {
-          ...e.nextScheduledStatusUpdate,
-          date: e.nextScheduledStatusUpdate.date.toISOString(),
-        }
-      : e.nextScheduledStatusUpdate,
-    statusUpdateSchedule: e.statusUpdateSchedule
-      ? {
-          ...e.statusUpdateSchedule,
-          startAt: e.statusUpdateSchedule.startAt?.toISOString(),
-          stopAt: e.statusUpdateSchedule.stopAt?.toISOString(),
-        }
-      : e.statusUpdateSchedule,
-  }));
+  const experimentsStringDates = experiments.map(withStringDates);
 
   res.status(200).json({
     status: 200,

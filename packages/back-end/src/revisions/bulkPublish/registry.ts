@@ -11,6 +11,7 @@ import {
 import { collectConfigLockGate } from "back-end/src/services/configLock";
 import { collectSavedGroupArchiveDependentsGate } from "back-end/src/services/archiveDependentsGuard";
 import { assertRegisteredAttributes } from "back-end/src/services/attributes";
+import { collectRemoteSavedGroupGate } from "back-end/src/services/remoteSavedGroups";
 import {
   assertSavedGroupProjectScope,
   collectSavedGroupScopeGate,
@@ -119,6 +120,15 @@ async function savedGroupExtraGates(args: {
       );
     }
   }
+  // Remote group checks (flag, plan, upload version) also throw at commit,
+  // which would roll back the whole release.
+  gates.push(
+    ...(await collectRemoteSavedGroupGate(
+      args.callerContext,
+      { ...savedGroup, ...args.desiredState } as SavedGroupInterface,
+      savedGroup,
+    )),
+  );
   return gates;
 }
 

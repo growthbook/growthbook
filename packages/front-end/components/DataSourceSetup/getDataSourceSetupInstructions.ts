@@ -5,6 +5,7 @@ import {
 } from "shared/types/datasource";
 import type { DataRegion } from "shared/util";
 import { DocSection } from "@/components/docSections";
+import type { EventForwarderDestination } from "./EventForwarderDestinationFields";
 import { SnowflakeKeyPair } from "./generateSnowflakeKeyPair";
 
 export type ConnectSetupKind = "custom" | "event_forwarder";
@@ -44,6 +45,12 @@ type StepContext<T extends DataSourceType = DataSourceType> = {
    * pick, since the choice happens after the connection is created.
    */
   eventForwarderRegions: DataRegion[];
+  /**
+   * The dataset/schema/catalog-schema chosen in the Event Destination fields.
+   * Null while it is still unknown, so write-access SQL falls back to the
+   * connection's own defaults rather than guessing.
+   */
+  eventForwarderDestination: EventForwarderDestination | null;
   /** Editing a saved connection. Affects defaults such as Snowflake's auth method. */
   existing: boolean;
   /**
@@ -67,7 +74,6 @@ const CLOUD_EGRESS_IP = "52.70.79.40";
 // Event Forwarder ingestors write from the egress IP, plus this one when the
 // eu-west-1 region is selected.
 const EU_INGESTOR_IP = "54.74.233.97";
-const EU_INGESTOR_NOTE = `\`${EU_INGESTOR_IP}\` is only needed if you choose the eu-west-1 data region when setting up the Event Forwarder.`;
 
 // Every field the SQL above depends on is already in the form by now, so the
 // last step is only the test.
@@ -158,9 +164,8 @@ function sqlStringLiteral(value: string, dialect: SqlDialect): string {
 
 /**
  * The credential a user statement sets, in two forms: `display` for the
- * screen and `copy` for the clipboard. A password in the form shows as a mask
- * with the exact value on Copy, so the query runs without the secret ever
- * being visible. A public key or identity binding is the same in both.
+ * screen and `copy` for the clipboard. A password or generated public key
+ * shows as a mask, and Copy includes the real value.
  */
 type CredentialLiteral = {
   /** The form holds a real value, as opposed to a placeholder. */
@@ -267,9 +272,9 @@ function cidrList(ips: string[]): string {
 
 /**
  * The "Allow network access" step. Lists the Cloud egress IP, plus the EU
- * ingestor when the Event Forwarder may write from eu-west-1. The note only
- * appears while the region is still the user's to choose. `code` formats the
- * list for the warehouse; the default is one CIDR per line.
+ * ingestor when the Event Forwarder may write from eu-west-1. Both addresses
+ * are listed together. `code` formats the list for the warehouse; the default
+ * is one CIDR per line.
  */
 function networkAccessStep({
   description,
@@ -287,10 +292,6 @@ function networkAccessStep({
     title: "Allow network access",
     description,
     code: code(ips),
-    codeNote:
-      mayUseEu && eventForwarderRegions.length > 1
-        ? EU_INGESTOR_NOTE
-        : undefined,
   };
 }
 
@@ -308,10 +309,21 @@ function networkAccessOrDockerStep(
     : { title: "Allow network access", description: dockerDescription };
 }
 
-const bigquerySteps: StepBuilder<"bigquery"> = (p, { isEventForwarder }) => {
+const bigquerySteps: StepBuilder<"bigquery"> = (
+  p,
+  { isEventForwarder, eventForwarderDestination },
+) => {
   const projectId = field(p, "projectId", "YOUR_PROJECT");
   const sa = `growthbook@${projectId}.iam.gserviceaccount.com`;
   const member = `--member="serviceAccount:${sa}"`;
+  // GrowthBook queries `defaultProject`, which can differ from the service
+  // account's own home project (`projectId`). The write-access dataset must
+  // live there too, or the grant lands in the wrong project.
+  const destinationProjectId = field(p, "defaultProject", projectId);
+  // Falls back to the form's own default only when the destination isn't
+  // known yet; once chosen, the grant must match exactly or the write test fails.
+  const efDataset =
+    eventForwarderDestination?.location?.trim() || "growthbook_events";
 
   const steps: SetupInstructionStep[] = [
     {
@@ -346,10 +358,10 @@ gcloud projects add-iam-policy-binding ${projectId} \\
       title: "Grant write access for Event Forwarder",
       description:
         "Create the dataset in the same region as your event data (BigQuery cannot join across regions), then grant BigQuery Data Editor on it.",
-      code: `CREATE SCHEMA \`${projectId}\`.growthbook_events
+      code: `CREATE SCHEMA IF NOT EXISTS \`${destinationProjectId}\`.${efDataset}
   OPTIONS (location = "<region>");
 GRANT \`roles/bigquery.dataEditor\`
-  ON SCHEMA \`${projectId}\`.growthbook_events
+  ON SCHEMA \`${destinationProjectId}\`.${efDataset}
   TO "serviceAccount:${sa}";`,
     });
   }
@@ -367,12 +379,23 @@ const SNOWFLAKE_FALLBACKS = {
 } as const;
 
 const snowflakeSteps: StepBuilder<"snowflake"> = (p, ctx) => {
-  const { isEventForwarder, existing, saved, snowflakeKeyPair } = ctx;
+  const {
+    isEventForwarder,
+    existing,
+    saved,
+    snowflakeKeyPair,
+    eventForwarderDestination,
+  } = ctx;
   const role = field(p, "role", SNOWFLAKE_FALLBACKS.role);
   const user = field(p, "username", "GROWTHBOOK");
   const warehouse = field(p, "warehouse", SNOWFLAKE_FALLBACKS.warehouse);
   const database = field(p, "database", SNOWFLAKE_FALLBACKS.database);
-  const efSchema = field(p, "schema", SNOWFLAKE_FALLBACKS.schema);
+  // The Event Forwarder writes to a destination schema chosen separately from
+  // the connection's own (read) schema — prefer it once known, and otherwise
+  // fall back to the connection schema field the way this used to work.
+  const efSchema =
+    eventForwarderDestination?.location?.trim() ||
+    field(p, "schema", SNOWFLAKE_FALLBACKS.schema);
   // Match SnowflakeForm: connections saved before authMethod existed used
   // a password; new connections default to key-pair.
   const authMethod = p.authMethod ?? (existing ? "password" : "key-pair");
@@ -389,11 +412,13 @@ const snowflakeSteps: StepBuilder<"snowflake"> = (p, ctx) => {
     : PUBLIC_KEY_PLACEHOLDER;
   const publicKey: CredentialLiteral = {
     present: !!p.privateKey,
-    display: publicKeyLiteral,
+    display: usingGeneratedKey ? PASSWORD_MASK : publicKeyLiteral,
     copy: publicKeyLiteral,
-    note: p.privateKey
-      ? undefined
-      : "Add or generate a private key before copying the query.",
+    note: !p.privateKey
+      ? "Add or generate a private key before copying the query."
+      : usingGeneratedKey
+        ? "The public key is hidden here. Copy includes the full key."
+        : undefined,
   };
 
   const wifBinding =
@@ -428,7 +453,7 @@ GRANT SELECT ON ALL TABLES
   const efGrants =
     isEventForwarder && authMethod !== "workload-identity"
       ? `GRANT CREATE SCHEMA ON DATABASE ${database} TO ROLE ${role};
-CREATE SCHEMA ${database}.${efSchema};
+CREATE SCHEMA IF NOT EXISTS ${database}.${efSchema};
 GRANT USAGE ON SCHEMA ${database}.${efSchema} TO ROLE ${role};
 GRANT CREATE TABLE ON SCHEMA ${database}.${efSchema} TO ROLE ${role};
 GRANT INSERT ON ALL TABLES IN SCHEMA ${database}.${efSchema} TO ROLE ${role};
@@ -437,9 +462,16 @@ GRANT INSERT ON FUTURE TABLES IN SCHEMA ${database}.${efSchema} TO ROLE ${role};
 
   // TYPE = SERVICE marks a programmatic user: no MFA prompts, and
   // Snowflake's password retirement does not apply to it.
-  const createUser = (auth: string) => `CREATE ROLE ${role};
-CREATE USER ${user}
-${auth}
+  // CREATE USER IF NOT EXISTS does not change an existing user, so the
+  // credential is applied with ALTER and a rerun still picks up a new key
+  // or password.
+  const createUser = (
+    options: string,
+    alter: string,
+  ) => `CREATE ROLE IF NOT EXISTS ${role};
+CREATE USER IF NOT EXISTS ${user}
+${options}
+${alter}
 GRANT ROLE ${role} TO USER ${user};
 ${readGrants}${efGrants ? `\n\n${efGrants}` : ""}`;
 
@@ -449,7 +481,7 @@ ${readGrants}${efGrants ? `\n\n${efGrants}` : ""}`;
   if (changed(p, saved, "role", SNOWFLAKE_FALLBACKS.role)) {
     changes.push({
       label: "role",
-      sql: `CREATE ROLE ${role};
+      sql: `CREATE ROLE IF NOT EXISTS ${role};
 GRANT ROLE ${role} TO USER ${user};
 ALTER USER ${user} SET DEFAULT_ROLE = ${role};
 ${readGrants}${efGrants ? `\n${efGrants}` : ""}`,
@@ -498,8 +530,10 @@ ${readGrants}${efGrants ? `\n${efGrants}` : ""}`,
           description: isEventForwarder
             ? "Self-hosted only. The Event Forwarder requires key-pair authentication."
             : "Self-hosted only. Run as ACCOUNTADMIN.",
-          code: createUser(`  WORKLOAD_IDENTITY = ${wifBinding}
-  TYPE = SERVICE;`),
+          code: createUser(
+            `  TYPE = SERVICE;`,
+            `ALTER USER ${user} SET WORKLOAD_IDENTITY = ${wifBinding};`,
+          ),
         };
   } else if (authMethod === "password") {
     userStep = hasSavedUser(p, saved)
@@ -516,8 +550,10 @@ ${readGrants}${efGrants ? `\n${efGrants}` : ""}`,
             ? "Run as ACCOUNTADMIN. The Event Forwarder requires key-pair authentication."
             : "Run as ACCOUNTADMIN.",
           ...withCredential(password, (pw) =>
-            createUser(`  DEFAULT_ROLE = ${role}
-  PASSWORD = ${pw};`),
+            createUser(
+              `  DEFAULT_ROLE = ${role};`,
+              `ALTER USER ${user} SET PASSWORD = ${pw};`,
+            ),
           ),
           codeNote: password.note,
         };
@@ -532,34 +568,60 @@ ${readGrants}${efGrants ? `\n${efGrants}` : ""}`,
       : {
           title: "Create a user and grant access",
           description: "Run as ACCOUNTADMIN.",
-          code: createUser(`  TYPE = SERVICE
-  DEFAULT_ROLE = ${role}
-  RSA_PUBLIC_KEY = ${publicKeyLiteral};`),
+          ...withCredential(publicKey, (key) =>
+            createUser(
+              `  TYPE = SERVICE
+  DEFAULT_ROLE = ${role};`,
+              `ALTER USER ${user} SET RSA_PUBLIC_KEY = ${key};`,
+            ),
+          ),
           codeNote: publicKey.note,
         };
   }
 
   return [
     userStep,
-    networkAccessStep({
-      description: "Only if a network policy restricts IPs.",
-      ctx,
-      code: (ips) => `CREATE NETWORK POLICY GROWTHBOOK_POLICY
-  ALLOWED_IP_LIST = (${ips.map((ip) => `'${ip}'`).join(", ")});
+    // GROWTHBOOK_POLICY is one shared, named object per Snowflake account,
+    // not scoped to this connection. On Cloud, always list every address
+    // GrowthBook might connect from (ignoring this connection's own region),
+    // so the SET below never drops an address another connection's Event
+    // Forwarder still relies on. Self-hosted has no fixed IP; applying that
+    // policy would lock out the server running GrowthBook.
+    ctx.cloud
+      ? networkAccessStep({
+          description: "Only if a network policy restricts IPs.",
+          ctx,
+          code: () => {
+            const list = [CLOUD_EGRESS_IP, EU_INGESTOR_IP]
+              .map((ip) => `'${ip}'`)
+              .join(", ");
+            return `CREATE NETWORK POLICY IF NOT EXISTS GROWTHBOOK_POLICY
+  ALLOWED_IP_LIST = (${list});
+ALTER NETWORK POLICY GROWTHBOOK_POLICY SET
+  ALLOWED_IP_LIST = (${list});
 ALTER USER ${user}
-  SET NETWORK_POLICY = GROWTHBOOK_POLICY;`,
-    }),
+  SET NETWORK_POLICY = GROWTHBOOK_POLICY;`;
+          },
+        })
+      : networkAccessOrDockerStep(
+          ctx,
+          "Only if a network policy restricts IPs.",
+        ),
     TEST_STEP,
   ];
 };
 
 const databricksSteps: StepBuilder<"databricks"> = (p, ctx) => {
-  const { isEventForwarder } = ctx;
+  const { isEventForwarder, eventForwarderDestination } = ctx;
   const catalog = field(p, "catalog", "main");
   // Match DatabricksForm: connections saved before authType existed are PAT.
   const authType = p.authType ?? "pat";
   const usingOauth = isEventForwarder || authType === "oauth-m2m";
   const principal = "`<service-principal-application-id>`";
+  // Falls back to the form's own default only while the destination is still
+  // unknown; once chosen, the grant must match it or the write test fails.
+  const efSchema =
+    eventForwarderDestination?.location?.trim() || "growthbook_events";
 
   let grantCode = `GRANT USE CATALOG ON CATALOG ${catalog}
   TO ${principal};
@@ -570,7 +632,7 @@ GRANT USE SCHEMA, SELECT ON SCHEMA ${catalog}.<schema>
     grantCode += `
 
 GRANT USE SCHEMA, CREATE TABLE
-  ON SCHEMA ${catalog}.growthbook
+  ON SCHEMA ${catalog}.${efSchema}
   TO ${principal};`;
   }
 
@@ -595,14 +657,11 @@ GRANT USE SCHEMA, CREATE TABLE
     {
       title: "Grant access",
       description: isEventForwarder
-        ? "Replace the application ID and schema. Unity Catalog only. Use a schema such as growthbook for Event Forwarder tables."
+        ? "Replace the application ID and the schema in the read grant. Unity Catalog only. The Event Forwarder grant already uses your chosen Event Destination schema."
         : "Replace the application ID and schema.",
       code: grantCode,
     },
-    networkAccessStep({
-      description: "Only if IP access lists are on.",
-      ctx,
-    }),
+    networkAccessOrDockerStep(ctx, "Only if IP access lists are on."),
     TEST_STEP,
   ];
 };
@@ -693,7 +752,7 @@ const athenaSteps: StepBuilder<"athena"> = () => [
   TEST_STEP,
 ];
 
-const prestoSteps: StepBuilder<"presto"> = () => [
+const prestoSteps: StepBuilder<"presto"> = (_p, ctx) => [
   {
     title: "Choose engine and auth",
     description:
@@ -704,6 +763,10 @@ const prestoSteps: StepBuilder<"presto"> = () => [
     description:
       "Host includes http:// or https://. Port defaults to 8080. Set catalog and schema. Source defaults to GrowthBook.",
   },
+  networkAccessOrDockerStep(
+    ctx,
+    "If Presto or Trino is behind a firewall, allow this IP.",
+  ),
   TEST_STEP,
 ];
 
@@ -713,10 +776,10 @@ const clickhouseSteps: StepBuilder<"clickhouse"> = (p, ctx) => [
     description:
       "In ClickHouse Cloud, copy the connection string. Use read-only credentials.",
   },
-  networkAccessStep({
-    description: "If ClickHouse is behind a firewall, allow this IP.",
+  networkAccessOrDockerStep(
     ctx,
-  }),
+    "If ClickHouse is behind a firewall, allow this IP.",
+  ),
   TEST_STEP,
 ];
 
@@ -798,7 +861,12 @@ FLUSH PRIVILEGES;`;
             "Grant SELECT on the database. Restrict the host from '%' when you can.",
           ...withCredential(
             password,
-            (pw) => `CREATE USER '${user}'@'%' IDENTIFIED BY ${pw};
+            // IDENTIFIED BY on CREATE too, so a failed ALTER (e.g. a
+            // password-policy rejection) never leaves a passwordless account.
+            (
+              pw,
+            ) => `CREATE USER IF NOT EXISTS '${user}'@'%' IDENTIFIED BY ${pw};
+ALTER USER '${user}'@'%' IDENTIFIED BY ${pw};
 ${selectGrant}`,
           ),
           codeNote: password.note,
@@ -840,8 +908,13 @@ const mssqlSteps: StepBuilder<"mssql"> = (p, ctx) => {
           description: "Grant SELECT on the schema.",
           ...withCredential(
             password,
-            (pw) => `CREATE LOGIN ${user} WITH PASSWORD = ${pw};
-${databaseUser}
+            (
+              pw,
+            ) => `IF NOT EXISTS (SELECT 1 FROM sys.sql_logins WHERE name = '${user}')
+  CREATE LOGIN ${user} WITH PASSWORD = ${pw};
+ALTER LOGIN ${user} WITH PASSWORD = ${pw};
+IF NOT EXISTS (SELECT 1 FROM sys.database_principals WHERE name = '${user}')
+  ${databaseUser}
 ${schemaGrant}`,
           ),
           codeNote: password.note,
@@ -861,10 +934,7 @@ const verticaSteps: StepBuilder<"vertica"> = (p, ctx) => [
     description:
       "Optional. Grant SELECT, and allow HOST password auth from GrowthBook Cloud.",
   },
-  networkAccessStep({
-    description: "If Vertica is firewalled, allow this IP.",
-    ctx,
-  }),
+  networkAccessOrDockerStep(ctx, "If Vertica is firewalled, allow this IP."),
   TEST_STEP,
 ];
 
@@ -941,6 +1011,8 @@ export type SetupInstructionOptions = {
   cloud?: boolean;
   /** Defaults to every region, which is the right answer when none is chosen yet. */
   eventForwarderRegions?: DataRegion[];
+  /** The dataset/schema/catalog-schema chosen in the Event Destination fields. */
+  eventForwarderDestination?: EventForwarderDestination | null;
   snowflakeKeyPair?: SnowflakeKeyPair | null;
 };
 
@@ -953,6 +1025,7 @@ export function getDataSourceSetupInstructions(
     saved = null,
     cloud = false,
     eventForwarderRegions = ["us-east-1", "eu-west-1"],
+    eventForwarderDestination = null,
     snowflakeKeyPair = null,
   }: SetupInstructionOptions = {},
 ): SetupInstructionStep[] {
@@ -963,6 +1036,7 @@ export function getDataSourceSetupInstructions(
   return build(params ?? {}, {
     isEventForwarder: setup === "event_forwarder",
     eventForwarderRegions,
+    eventForwarderDestination,
     existing,
     saved: existing ? saved : null,
     cloud,

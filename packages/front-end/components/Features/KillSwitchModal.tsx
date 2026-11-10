@@ -18,7 +18,7 @@ import { useUser } from "@/services/UserContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useEnvironments } from "@/services/features";
-import track from "@/services/track";
+import track, { entityTrackingHash } from "@/services/track";
 import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
 import { useFeatureRevisions } from "@/hooks/useFeatureRevisions";
 import { useFeatureRevisionsContext } from "@/contexts/FeatureRevisionsContext";
@@ -466,6 +466,7 @@ export default function KillSwitchModal({
     conflict.clear();
 
     track("Feature Environment Toggle", {
+      entity_id_hash: entityTrackingHash(feature.id),
       environments,
       autoPublish: mode === "publish",
     });

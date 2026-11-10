@@ -1,36 +1,32 @@
+import { ReactNode } from "react";
 import { date } from "shared/dates";
 import { parseIntWithDefault } from "shared/util";
 import { ExperimentPhaseStringDates } from "shared/types/experiment";
 import { Flex } from "@radix-ui/themes";
 import { HoldoutInterfaceStringDates } from "shared/validators";
 import { phaseSummary } from "@/services/utils";
-import Tooltip from "@/components/Tooltip/Tooltip";
+import Tooltip from "@/ui/Tooltip";
 import SelectField from "@/components/Forms/SelectField";
-import Text from "@/ui/Text";
 import { useSnapshot } from "./SnapshotProvider";
+import { upcomingEnd } from "./TabbedPage/statusSchedule";
 
 export interface Props {
-  mutateExperiment?: () => void;
-  editPhases?: () => void;
   phase?: number;
   phases?: ExperimentPhaseStringDates[];
-  setPhase?: (p: number) => void;
   isBandit?: boolean;
   isHoldout?: boolean;
-  newUi?: boolean;
   holdout?: HoldoutInterfaceStringDates;
+  // The selected phase's tooltip, as if it were the only phase.
+  details?: (phaseIndex: number) => ReactNode;
 }
 
 export default function PhaseSelector({
-  mutateExperiment,
-  editPhases,
   phase,
   phases,
-  setPhase,
   isBandit,
   isHoldout,
-  newUi = true,
   holdout,
+  details,
 }: Props) {
   const {
     phase: snapshotPhase,
@@ -44,16 +40,19 @@ export default function PhaseSelector({
       value: i + "",
     })) || [];
 
+  // Running, the latest phase ends when it's scheduled to, or open-ended.
+  const ends = (index: number, phase: ExperimentPhaseStringDates) =>
+    phase.dateEnded
+      ? date(phase.dateEnded, "UTC")
+      : (index === phaseOptions.length - 1 &&
+          experiment?.status === "running" &&
+          upcomingEnd(experiment, new Date())) ||
+        "now";
+
   function formatPhase(
-    { value, label }: { value: string; label: string },
+    { value }: { value: string },
     meta?: { context?: string },
   ) {
-    if (value === "edit") {
-      return (
-        <div className="cursor-pointer btn btn-outline-primary">{label}</div>
-      );
-    }
-
     const phaseIndex = parseIntWithDefault(value, 0);
     const phase = (phases ?? experiment?.phases)?.[phaseIndex];
     if (!phase) return value;
@@ -61,32 +60,19 @@ export default function PhaseSelector({
     const isValueContext = meta?.context === "value";
 
     if (isValueContext) {
+      const tip = details?.(phaseIndex) ?? null;
       // Collapsed/selected value mode - show tooltip version
       return (
-        <Tooltip
-          body={
-            <>
-              <div className="font-weight-bold">
-                {!isHoldout && `Phase ${phaseIndex + 1}: `} {phase.name}
-              </div>
-              {!isHoldout && (
-                <div className="mt-1">{phaseSummary(phase, isBandit)}</div>
-              )}
-            </>
-          }
-          shouldDisplay={!isBandit}
-          tipPosition="top"
-        >
-          <>
-            {newUi ? (
-              <span className="font-weight-bold">
-                {!isHoldout
-                  ? "Phase "
-                  : phaseIndex === 0
-                    ? "Holdout: "
-                    : "Analysis: "}
-              </span>
-            ) : null}
+        // Closes once pressed, so it stays out of the way of the menu.
+        <Tooltip content={tip} enabled={!!tip} side="top">
+          <span>
+            <span className="font-weight-bold">
+              {!isHoldout
+                ? "Phase "
+                : phaseIndex === 0
+                  ? "Holdout: "
+                  : "Analysis: "}
+            </span>
             {!isHoldout && (
               <span className="font-weight-bold">{phaseIndex + 1}: </span>
             )}
@@ -97,9 +83,9 @@ export default function PhaseSelector({
                     "UTC",
                   )
                 : date(phase.dateStarted ?? "", "UTC")}{" "}
-              - {phase.dateEnded ? date(phase.dateEnded, "UTC") : "now"}
+              – {ends(phaseIndex, phase)}
             </span>
-          </>
+          </span>
         </Tooltip>
       );
     }
@@ -114,7 +100,7 @@ export default function PhaseSelector({
           {phase.lookbackStartDate && isHoldout
             ? date(phase.lookbackStartDate, "UTC")
             : date(phase.dateStarted ?? "", "UTC")}{" "}
-          — {phase.dateEnded ? date(phase.dateEnded, "UTC") : "now"}
+          – {ends(phaseIndex, phase)}
         </span>
         {!isHoldout && (
           <div className="small">{phaseSummary(phase, isBandit)}</div>
@@ -123,96 +109,24 @@ export default function PhaseSelector({
     );
   }
 
-  const selectOptions =
-    !isHoldout && editPhases && mutateExperiment
-      ? [
-          {
-            label: "Phases",
-            value: "",
-            options: phaseOptions,
-          },
-          {
-            label: "",
-            value: "",
-            options: [
-              {
-                label: "Edit Phases",
-                value: "edit",
-              },
-            ],
-          },
-        ]
-      : phaseOptions;
-
-  if (newUi) {
-    return (
-      <Flex direction="row" gap="2" align="center">
-        {!newUi ? (
-          <Text weight="medium">{isHoldout ? "Date Range:" : "Phase:"}</Text>
-        ) : null}
-        {selectOptions.length > 1 ? (
-          <SelectField
-            size="legacy"
-            options={selectOptions}
-            value={(phase !== undefined ? phase : snapshotPhase) + ""}
-            onChange={(value) => {
-              if (mutateExperiment && editPhases && value === "edit") {
-                editPhases();
-                return;
-              }
-              (setPhase ?? setSnapshotPhase)(parseIntWithDefault(value, 0));
-            }}
-            sort={false}
-            containerClassName="select-dropdown-no-underline"
-            isSearchable={false}
-            formatOptionLabel={(option, meta) => formatPhase(option, meta)}
-          />
-        ) : (
-          <div className="phase-selector text-dark">
-            {selectOptions.length >= 1 ? (
-              <div className="gb-select__single-value" style={{ height: 24 }}>
-                {formatPhase(selectOptions[0], { context: "value" })}
-              </div>
-            ) : (
-              <div className="gb-select__single-value" style={{ height: 24 }}>
-                <em>No phases</em>
-              </div>
-            )}
-          </div>
-        )}
-      </Flex>
-    );
-  }
-
   return (
-    <div>
-      <div className="uppercase-title text-muted">
-        {isHoldout ? "Date Range" : "Phase"}
-      </div>
-      {selectOptions.length > 1 ? (
+    <Flex direction="row" gap="2" align="center">
+      {phaseOptions.length > 1 ? (
         <SelectField
           size="legacy"
-          options={selectOptions}
+          options={phaseOptions}
           value={(phase !== undefined ? phase : snapshotPhase) + ""}
-          onChange={(value) => {
-            if (mutateExperiment && editPhases && value === "edit") {
-              editPhases();
-              return;
-            }
-            (setPhase ?? setSnapshotPhase)(parseIntWithDefault(value, 0));
-          }}
+          onChange={(value) => setSnapshotPhase(parseIntWithDefault(value, 0))}
           sort={false}
-          label={isHoldout ? "Date Range" : "Phase"}
-          labelClassName="mr-2"
-          containerClassName="phase-selector align-right select-dropdown-underline pr-1"
+          containerClassName="select-dropdown-no-underline"
           isSearchable={false}
           formatOptionLabel={(option, meta) => formatPhase(option, meta)}
         />
       ) : (
         <div className="phase-selector text-dark">
-          {selectOptions.length >= 1 ? (
+          {phaseOptions.length >= 1 ? (
             <div className="gb-select__single-value" style={{ height: 24 }}>
-              {formatPhase(selectOptions[0], { context: "value" })}
+              {formatPhase(phaseOptions[0], { context: "value" })}
             </div>
           ) : (
             <div className="gb-select__single-value" style={{ height: 24 }}>
@@ -221,6 +135,6 @@ export default function PhaseSelector({
           )}
         </div>
       )}
-    </div>
+    </Flex>
   );
 }

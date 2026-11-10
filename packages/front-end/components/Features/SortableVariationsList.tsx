@@ -15,7 +15,21 @@ import {
   rectSortingStrategy,
 } from "@dnd-kit/sortable";
 import { Variation } from "shared/types/experiment";
-import { SortableVariation } from "./SortableFeatureVariationRow";
+import type { SortableVariation } from "./SortableFeatureVariationRow";
+
+/** Moves a variation; keys that track position are renumbered to match. */
+export function reorderVariations<T extends { id: string; value?: string }>(
+  variations: T[],
+  from: number,
+  to: number,
+  renumberKeys: boolean,
+): T[] {
+  const moved = arrayMove(variations, from, to);
+  if (!renumberKeys) return moved;
+  return moved.map((v, i) =>
+    v.value === undefined ? v : { ...v, value: i + "" },
+  );
+}
 
 const SortableVariationsList: FC<{
   children: ReactNode;
@@ -64,17 +78,14 @@ const SortableVariationsList: FC<{
 
           if (oldIndex === -1 || newIndex === -1) return;
 
-          const newVariations = arrayMove<
-            SortableVariation | (Variation & { value?: string })
-          >(variations, oldIndex, newIndex);
-          if (valuesAsIds || forceRenormalizeVariationKeysOnSort) {
-            newVariations.forEach((variation, i) => {
-              if (variation.value === undefined) return;
-              variation.value = i + "";
-            });
-          }
-
-          setVariations(newVariations);
+          setVariations(
+            reorderVariations(
+              variations,
+              oldIndex,
+              newIndex,
+              valuesAsIds || forceRenormalizeVariationKeysOnSort,
+            ),
+          );
         }
       }}
     >

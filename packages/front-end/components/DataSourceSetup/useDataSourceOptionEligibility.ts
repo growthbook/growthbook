@@ -1,4 +1,5 @@
 import { useDefinitions } from "@/services/DefinitionsContext";
+import { isCloud } from "@/services/env";
 import { useUser } from "@/services/UserContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 
@@ -8,6 +9,7 @@ export type DataSourceOptionAvailability =
   | { status: "available" }
   | { status: "already-set-up"; datasourceId: string }
   | { status: "upgrade-required" }
+  | { status: "cloud-only"; reason: string }
   | { status: "unavailable"; reason: string };
 
 const NO_PERMISSION: DataSourceOptionAvailability = {
@@ -19,6 +21,11 @@ const LEGACY_PRO_PLAN: DataSourceOptionAvailability = {
   status: "unavailable",
   reason:
     "Your Pro plan doesn't support this feature. Reach out to support@growthbook.io for more info.",
+};
+
+const CLOUD_ONLY: DataSourceOptionAvailability = {
+  status: "cloud-only",
+  reason: "Only available on GrowthBook Cloud.",
 };
 
 // Managed Warehouse and Event Forwarder are limited to one per organization,
@@ -45,6 +52,7 @@ function getEventPipelineAvailability({
       reason: `Your organization already has ${name}, but you do not have access.`,
     };
   }
+  if (!isCloud()) return CLOUD_ONLY;
   if (!canCreate) return NO_PERMISSION;
   if (isLegacyProPlan) return LEGACY_PRO_PLAN;
   if (!hasCommercialFeature) return { status: "upgrade-required" };

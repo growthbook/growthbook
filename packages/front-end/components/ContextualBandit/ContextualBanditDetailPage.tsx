@@ -1,5 +1,6 @@
 import { contextualBanditEndpoints } from "shared/api-endpoints";
 import { Fragment, ReactNode, useMemo, useState } from "react";
+import { useRouter } from "next/router";
 import { Box, Flex, Grid, IconButton } from "@radix-ui/themes";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { date } from "shared/dates";
@@ -60,6 +61,7 @@ import {
   useContextualBanditStatusHealth,
 } from "@/hooks/useContextualBandits";
 import Avatar from "@/ui/Avatar";
+import { coveragePercentFormatter } from "@/services/utils";
 
 function OverviewSection({
   title,
@@ -101,6 +103,9 @@ export default function ContextualBanditDetailPage({
   cb,
   mutate,
   canRun = false,
+  canStop = false,
+  canArchive = false,
+  canDelete = false,
   editOverview,
   editAnalysisMetrics,
   editVariations,
@@ -123,6 +128,9 @@ export default function ContextualBanditDetailPage({
   cb: ApiContextualBanditInterface;
   mutate: () => void;
   canRun?: boolean;
+  canStop?: boolean;
+  canArchive?: boolean;
+  canDelete?: boolean;
   editOverview?: () => void;
   editAnalysisMetrics?: () => void;
   editVariations?: () => void;
@@ -149,6 +157,9 @@ export default function ContextualBanditDetailPage({
     cb.datasource,
   );
   const [confirmStop, setConfirmStop] = useState(false);
+  const [confirmArchive, setConfirmArchive] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const router = useRouter();
   const [showStart, setShowStart] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [auditModal, setAuditModal] = useState(false);
@@ -167,7 +178,7 @@ export default function ContextualBanditDetailPage({
 
   const showResultsTab = cb.status !== "draft";
 
-  const coveragePct = cb.coverage != null ? Math.round(cb.coverage * 100) : 100;
+  const coveragePct = coveragePercentFormatter.format(cb.coverage ?? 1);
 
   const formatConversionWindow = (value: number, unit: string): string =>
     `${value} ${value === 1 ? unit.replace(/s$/, "") : unit}`;
@@ -323,6 +334,19 @@ export default function ContextualBanditDetailPage({
     });
     mutate();
   };
+  const setArchived = async (archived: boolean) => {
+    await restApiCall(contextualBanditEndpoints.updateContextualBandit, {
+      params: { id: cb.id },
+      body: { archived },
+    });
+    mutate();
+  };
+  const deleteContextualBandit = async () => {
+    await restApiCall(contextualBanditEndpoints.deleteContextualBandit, {
+      params: { id: cb.id },
+    });
+    await router.push("/contextual-bandits");
+  };
 
   const renderMetricList = (ids: string[]): ReactNode =>
     ids.length ? (
@@ -366,7 +390,7 @@ export default function ContextualBanditDetailPage({
               Start Contextual Bandit
             </Button>
           ) : null}
-          {canRun && cb.status === "running" ? (
+          {canStop && cb.status === "running" ? (
             <Button
               variant="outline"
               color="red"
@@ -426,6 +450,38 @@ export default function ContextualBanditDetailPage({
                 >
                   Duplicate
                 </DropdownMenuItem>
+              </DropdownMenuGroup>
+            ) : null}
+            {canArchive || canDelete ? <DropdownMenuSeparator /> : null}
+            {canArchive || canDelete ? (
+              <DropdownMenuGroup>
+                {canArchive ? (
+                  <DropdownMenuItem
+                    onClick={() => {
+                      setDropdownOpen(false);
+                      setConfirmArchive(true);
+                    }}
+                  >
+                    {cb.archived ? "Unarchive" : "Archive"}
+                  </DropdownMenuItem>
+                ) : null}
+                {canDelete ? (
+                  <DropdownMenuItem
+                    color="red"
+                    disabled={cb.status === "running"}
+                    tooltip={
+                      cb.status === "running"
+                        ? "Stop this Contextual Bandit before deleting it"
+                        : undefined
+                    }
+                    onClick={() => {
+                      setDropdownOpen(false);
+                      setConfirmDelete(true);
+                    }}
+                  >
+                    Delete
+                  </DropdownMenuItem>
+                ) : null}
               </DropdownMenuGroup>
             ) : null}
           </DropdownMenu>
@@ -660,7 +716,7 @@ export default function ContextualBanditDetailPage({
             >
               <Grid columns="3" gap="4">
                 <DetailSectionColumn label="Traffic">
-                  {coveragePct}% included
+                  {coveragePct} included
                 </DetailSectionColumn>
                 <DetailSectionColumn label="Assignment Attribute">
                   <Flex align="center" gap="1" wrap="wrap">
@@ -849,6 +905,62 @@ export default function ContextualBanditDetailPage({
             setConfirmStop(false);
           }}
           onCancel={() => setConfirmStop(false)}
+        />
+      ) : null}
+      {confirmArchive ? (
+        <ConfirmDialog
+          title={
+            cb.archived
+              ? "Unarchive this Contextual Bandit?"
+              : "Archive this Contextual Bandit?"
+          }
+          content={
+            <>
+              <Text as="p">
+                {cb.archived
+                  ? "It will show up in the main list again and can be edited."
+                  : "It will move to the Archived tab and can't be edited until it is unarchived."}
+              </Text>
+              {cb.status === "running" ? (
+                <Callout status="warning">
+                  {cb.archived
+                    ? "This Contextual Bandit is still running and will resume serving to its linked Feature Flags."
+                    : "This will immediately stop all linked Feature Flags from serving this Contextual Bandit."}
+                </Callout>
+              ) : null}
+            </>
+          }
+          yesText={cb.archived ? "Unarchive" : "Archive"}
+          color={cb.archived ? "violet" : "red"}
+          onConfirm={async () => {
+            await setArchived(!cb.archived);
+            setConfirmArchive(false);
+          }}
+          onCancel={() => setConfirmArchive(false)}
+        />
+      ) : null}
+      {confirmDelete ? (
+        <ConfirmDialog
+          title="Delete this Contextual Bandit?"
+          content={
+            <>
+              <Text as="p">
+                Its results history will be deleted. This can&apos;t be undone.
+              </Text>
+              {linkedFeatures.length > 0 ? (
+                <Callout status="warning">
+                  {linkedFeatures.length} linked Feature Flag
+                  {linkedFeatures.length === 1 ? "" : "s"} will keep a rule
+                  pointing to this Contextual Bandit. Remove the rule from each
+                  flag if it is no longer needed.
+                </Callout>
+              ) : null}
+            </>
+          }
+          yesText="Delete"
+          color="red"
+          onConfirm={deleteContextualBandit}
+          onCancel={() => setConfirmDelete(false)}
         />
       ) : null}
     </Box>

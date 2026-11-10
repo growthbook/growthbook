@@ -34,7 +34,7 @@ export default function VariationLabelStories() {
 
       <Flex direction="column" gap="2">
         <Text size="2" weight="bold">
-          Truncation
+          Truncation (ellipsis; fadeOverflow)
         </Text>
         <Flex direction="column" gap="2">
           {(["sm", "md", "lg"] as const).map((size) => (
@@ -42,17 +42,21 @@ export default function VariationLabelStories() {
               <Text size="1" style={{ width: 64, color: "var(--gray-9)" }}>
                 {size}
               </Text>
-              <Box
-                width="120px"
-                p="2"
-                style={{ border: "1px solid var(--gray-6)" }}
-              >
-                <VariationLabel
-                  number={1}
-                  name="A very long variation name that should truncate"
-                  size={size}
-                />
-              </Box>
+              {[false, true].map((fadeOverflow) => (
+                <Box
+                  key={String(fadeOverflow)}
+                  width="120px"
+                  p="2"
+                  style={{ border: "1px solid var(--gray-6)" }}
+                >
+                  <VariationLabel
+                    number={1}
+                    name="A very long variation name that should truncate"
+                    size={size}
+                    fadeOverflow={fadeOverflow}
+                  />
+                </Box>
+              ))}
             </Flex>
           ))}
         </Flex>

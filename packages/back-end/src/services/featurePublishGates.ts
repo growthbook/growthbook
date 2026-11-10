@@ -652,6 +652,23 @@ export async function collectFeaturePublishGates({
   return gates;
 }
 
+// What a caller skips on one linked flag when an experiment publishes to it. The
+// org's REST setting waives approval outright; the caller's own needs the opt-in.
+export function flagBypass(
+  context: Context,
+  feature: FeatureInterface,
+  {
+    optIn,
+    restApiBypassesReviews = false,
+  }: { optIn: boolean; restApiBypassesReviews?: boolean },
+): { approval: boolean; lockdown: boolean } {
+  const approval =
+    restApiBypassesReviews ||
+    (optIn &&
+      context.permissions.canBypassFlagApprovalChecks(feature, "feature"));
+  return { approval, lockdown: optIn && approval };
+}
+
 // The merge an unattended publish lands, under the governance the publish button
 // applies. `rebaseRequired` is the mergeable-but-blocked case; conflicts are the
 // caller's to report.

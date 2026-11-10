@@ -65,6 +65,7 @@ describe("environments API", () => {
           toggleOnList: true,
           defaultState: true,
           projects: ["bla"],
+          isProduction: true,
         },
         {
           id: "env2",
@@ -72,6 +73,7 @@ describe("environments API", () => {
           toggleOnList: false,
           defaultState: false,
           projects: [],
+          isProduction: true,
         },
       ],
     });
@@ -114,6 +116,7 @@ describe("environments API", () => {
           toggleOnList: true,
           defaultState: true,
           projects: ["bla"],
+          isProduction: true,
         },
       ],
     });
@@ -275,6 +278,7 @@ describe("environments API", () => {
         id: "env1",
         projects: ["proj1", "proj2"],
         toggleOnList: false,
+        isProduction: true,
       },
     });
     expect(updateOrganization).toHaveBeenCalledWith("org1", {
@@ -286,6 +290,7 @@ describe("environments API", () => {
             toggleOnList: false,
             defaultState: false,
             projects: ["proj1", "proj2"],
+            isProduction: true,
           },
           { id: "env2" },
         ],
@@ -293,7 +298,7 @@ describe("environments API", () => {
     });
     expect(auditMock).toHaveBeenCalledWith({
       details:
-        '{"pre":{"id":"env1","description":"env1","toggleOnList":true,"defaultState":true,"projects":["bla"]},"post":{"id":"env1","projects":["proj1","proj2"],"description":"new description","toggleOnList":false,"defaultState":false},"context":{}}',
+        '{"pre":{"id":"env1","description":"env1","toggleOnList":true,"defaultState":true,"projects":["bla"]},"post":{"id":"env1","projects":["proj1","proj2"],"description":"new description","toggleOnList":false,"defaultState":false,"isProduction":true},"context":{}}',
       entity: {
         id: "env1",
         object: "environment",
@@ -486,6 +491,7 @@ describe("environments API", () => {
         id: "env3",
         projects: ["proj1", "proj2"],
         toggleOnList: false,
+        isProduction: true,
       },
     });
     expect(updateOrganization).toHaveBeenCalledWith("org1", {
@@ -507,13 +513,14 @@ describe("environments API", () => {
             toggleOnList: false,
             defaultState: false,
             projects: ["proj1", "proj2"],
+            isProduction: true,
           },
         ],
       },
     });
     expect(auditMock).toHaveBeenCalledWith({
       details:
-        '{"post":{"id":"env3","projects":["proj1","proj2"],"description":"new description","toggleOnList":false,"defaultState":false},"context":{}}',
+        '{"post":{"id":"env3","projects":["proj1","proj2"],"description":"new description","toggleOnList":false,"defaultState":false,"isProduction":true},"context":{}}',
       entity: {
         id: "env3",
         object: "environment",

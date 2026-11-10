@@ -38,6 +38,12 @@ jest.mock("../../src/models/ExperimentModel", () => ({
   createExperiment: jest.fn(),
   updateExperiment: jest.fn(),
   getAllExperiments: jest.fn(),
+  // Derive list keys from whatever the test feeds getAllExperiments
+  getAllExperimentListKeys: jest.fn((...args) =>
+    jest
+      .requireMock("../../src/models/ExperimentModel")
+      .getAllExperiments(...args),
+  ),
 }));
 
 jest.mock("../../src/models/ExperimentSnapshotModel", () => ({
@@ -88,6 +94,9 @@ describe("experiments API", () => {
       models: {
         metricGroups: {
           getAll: jest.fn().mockResolvedValue([]),
+        },
+        urlRedirects: {
+          findByExperiment: jest.fn().mockResolvedValue([]),
         },
         customFields: {
           getCustomFieldsBySectionAndProject: jest.fn().mockResolvedValue([]),
@@ -220,7 +229,7 @@ describe("experiments API", () => {
         .get("/api/v1/experiments/nonexistent")
         .set("Authorization", "Bearer foo");
 
-      expect(res.status).toBe(400);
+      expect(res.status).toBe(404);
       expect(res.body).toHaveProperty("message");
     });
 
@@ -599,6 +608,38 @@ describe("experiments API", () => {
         "exp_zebra",
         "exp_apple",
       ]);
+    });
+
+    it("only loads full experiments for the requested page", async () => {
+      const older = {
+        ...experiment,
+        id: "exp_older",
+        dateCreated: new Date("2020-01-01"),
+      };
+      const newer = {
+        ...experiment,
+        id: "exp_newer",
+        dateCreated: new Date("2024-01-01"),
+      };
+      (getAllExperiments as jest.Mock).mockResolvedValue([newer, older]);
+      const res = await request(app)
+        .get("/api/v1/experiments?limit=1&offset=1")
+        .set("Authorization", "Bearer foo");
+
+      expect(res.status).toBe(200);
+      expect(res.body.experiments.map((e: { id: string }) => e.id)).toEqual([
+        "exp_newer",
+      ]);
+      expect(res.body).toMatchObject({
+        count: 1,
+        total: 2,
+        hasMore: false,
+        nextOffset: null,
+      });
+      expect(getAllExperiments).toHaveBeenLastCalledWith(
+        expect.anything(),
+        expect.objectContaining({ ids: ["exp_newer"] }),
+      );
     });
 
     it("rejects an unsupported sortBy field", async () => {
@@ -2130,6 +2171,73 @@ describe("experiments API", () => {
         });
       });
 
+      it("moves to another data source along with one of its queries", async () => {
+        (getExperimentById as jest.Mock).mockResolvedValue({
+          ...withSelection,
+          status: "draft",
+        });
+        (getDataSourceById as jest.Mock).mockImplementation(
+          async (_context, id: string) => ({
+            id,
+            type: "postgres",
+            settings: {
+              queries: {
+                exposure: [
+                  {
+                    id: "eq_other",
+                    name: "Other",
+                    userIdType: "user_id",
+                    userIdTypes: ["user_id"],
+                  },
+                ],
+              },
+            },
+          }),
+        );
+        const move = (body: object) =>
+          request(app)
+            .post("/api/v1/experiments/exp_123")
+            .send(body)
+            .set("Authorization", "Bearer foo");
+
+        expect((await move({ datasourceId: "ds_other" })).status).toBe(400);
+        const moved = await move({
+          datasourceId: "ds_other",
+          assignmentQueryId: "eq_other",
+        });
+        expect(moved.status).toBe(200);
+        expect(
+          (updateExperiment as jest.Mock).mock.calls[0][0].changes,
+        ).toMatchObject({
+          datasource: "ds_other",
+          exposureQueryId: "eq_other",
+        });
+
+        // A running experiment can move too, dropping the old source's settings.
+        updateReqContext({
+          models: {
+            segments: {
+              getById: jest
+                .fn()
+                .mockResolvedValue({ id: "seg_old", datasource: "ds_123" }),
+            },
+          },
+        });
+        (getExperimentById as jest.Mock).mockResolvedValue({
+          ...withSelection,
+          segment: "seg_old",
+          precomputedUnitDimensionIds: ["dim_old"],
+        });
+        const running = await move({
+          datasourceId: "ds_other",
+          assignmentQueryId: "eq_other",
+        });
+        expect(running.status).toBe(200);
+        expect(
+          (updateExperiment as jest.Mock).mock.calls.at(-1)[0].changes,
+        ).toMatchObject({ segment: "", precomputedUnitDimensionIds: [] });
+      });
+
       it("accepts re-sending a selection whose query no longer declares it", async () => {
         const res = await request(app)
           .post("/api/v1/experiments/exp_123")
@@ -2360,7 +2468,7 @@ describe("experiments API", () => {
       );
     });
 
-    it("returns 400 when experiment not found", async () => {
+    it("returns 404 when experiment not found", async () => {
       (getExperimentById as jest.Mock).mockResolvedValue(null);
 
       const updatePayload = {
@@ -2372,9 +2480,9 @@ describe("experiments API", () => {
         .send(updatePayload)
         .set("Authorization", "Bearer foo");
 
-      expect(res.status).toBe(400);
+      expect(res.status).toBe(404);
       expect(res.body).toHaveProperty("message");
-      expect(res.body.message).toContain("Could not find");
+      expect(res.body.message).toContain("not found");
     });
 
     it("allows duplicate trackingKey on update when bypassDuplicateKeyCheck is true", async () => {
@@ -2874,7 +2982,19 @@ describe("experiments API", () => {
     });
 
     it("prefers the POST-only phase fields when both they and their aliases are set", async () => {
-      (getExperimentById as jest.Mock).mockResolvedValue(experiment);
+      (getExperimentById as jest.Mock).mockResolvedValue({
+        ...experiment,
+        variations: [
+          ...experiment.variations,
+          {
+            id: "1",
+            key: "treatment",
+            name: "Treatment",
+            description: "",
+            screenshots: [],
+          },
+        ],
+      });
       (updateExperiment as jest.Mock).mockImplementation(
         ({ experiment, changes }) => ({ ...experiment, ...changes }),
       );
@@ -3165,6 +3285,36 @@ describe("experiments API", () => {
       );
     });
 
+    it("ends the latest phase when stopping by update, as the app does", async () => {
+      (getExperimentById as jest.Mock).mockResolvedValue({
+        ...experiment,
+        status: "running",
+        phases: [
+          {
+            name: "Main",
+            dateStarted: new Date("2026-01-01"),
+            reason: "",
+            coverage: 1,
+            condition: "",
+            variationWeights: [1],
+            variations: [{ id: "0", status: "active" }],
+          },
+        ],
+      });
+      (updateExperiment as jest.Mock).mockImplementation(
+        ({ experiment, changes }) => ({ ...experiment, ...changes }),
+      );
+
+      const res = await request(app)
+        .post("/api/v1/experiments/exp_123")
+        .send({ status: "stopped" })
+        .set("Authorization", "Bearer foo");
+
+      expect(res.status).toBe(200);
+      const { changes } = (updateExperiment as jest.Mock).mock.calls[0][0];
+      expect(changes.phases[0].dateEnded).toEqual(expect.any(Date));
+    });
+
     it("syncs only the latest phase when updating top-level variations without phases", async () => {
       const experimentWithMultiplePhases = {
         ...experiment,
@@ -3261,6 +3411,7 @@ describe("experiments API", () => {
         { id: "vb", status: "active" },
         { id: "vc", status: "active" },
       ]);
+      expect(updateCall.changes.phases[1].variationWeights).toHaveLength(3);
     });
   });
 
@@ -3441,14 +3592,14 @@ describe("experiments API", () => {
       );
     });
 
-    it("returns 400 when experiment not found", async () => {
+    it("returns 404 when experiment not found", async () => {
       (getExperimentById as jest.Mock).mockResolvedValue(null);
 
       const res = await request(app)
         .get("/api/v1/experiments/nonexistent/results")
         .set("Authorization", "Bearer foo");
 
-      expect(res.status).toBe(400);
+      expect(res.status).toBe(404);
       expect(res.body).toHaveProperty("message");
     });
 
@@ -3711,7 +3862,7 @@ describe("experiments API", () => {
       expect(updateExperiment).toHaveBeenCalled();
     });
 
-    it("returns 400 when experiment not found", async () => {
+    it("returns 404 when experiment not found", async () => {
       (getExperimentById as jest.Mock).mockResolvedValue(null);
 
       const res = await request(app)
@@ -3725,7 +3876,7 @@ describe("experiments API", () => {
         })
         .set("Authorization", "Bearer foo");
 
-      expect(res.status).toBe(400);
+      expect(res.status).toBe(404);
       expect(res.body.message).toContain("Experiment not found");
     });
 
@@ -3864,7 +4015,7 @@ describe("experiments API", () => {
       expect(updateExperiment).not.toHaveBeenCalled();
     });
 
-    it("returns 400 when experiment not found", async () => {
+    it("returns 404 when experiment not found", async () => {
       (getExperimentById as jest.Mock).mockResolvedValue(null);
 
       const res = await request(app)
@@ -3874,7 +4025,7 @@ describe("experiments API", () => {
         .send({ path: "/upload/org_1/2026-03/img1.png" })
         .set("Authorization", "Bearer foo");
 
-      expect(res.status).toBe(400);
+      expect(res.status).toBe(404);
       expect(res.body.message).toContain("Experiment not found");
     });
   });

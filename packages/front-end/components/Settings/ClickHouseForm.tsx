@@ -9,11 +9,13 @@ const ClickHouseForm: FC<{
   existing: boolean;
   onParamChange: ChangeEventHandler<HTMLInputElement>;
   setParams: (params: { [key: string]: string | boolean }) => void;
-}> = ({ params, existing, onParamChange, setParams }) => {
+  showAllowlist?: boolean;
+}> = ({ params, existing, onParamChange, setParams, showAllowlist }) => {
   return (
     <>
       <HostWarning
         host={params.url}
+        showAllowlist={showAllowlist}
         setHost={(url) => {
           setParams({
             url,
