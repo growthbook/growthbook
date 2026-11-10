@@ -783,19 +783,11 @@ export function getRowResults({
     maximumFractionDigits: 2,
   });
 
-  const isScalableSubUnitCluster =
-    !!clusterSettings &&
-    isScalableClusterSubUnitMetric(metric, clusterSettings);
-  const hasStaleScaledImpact =
-    isScalableSubUnitCluster &&
-    differenceType === "scaled" &&
-    !!stats.errorMessage;
   const hasScaledImpact =
-    !hasStaleScaledImpact &&
-    !quantileMetricType(metric) &&
-    (isScalableSubUnitCluster ||
-      (!isRatioMetric(metric, denominator) &&
-        !(clusterSettings && isSubUnitClusterMetric(metric, clusterSettings))));
+    clusterSettings && isSubUnitClusterMetric(metric, clusterSettings)
+      ? isScalableClusterSubUnitMetric(metric, clusterSettings) &&
+        !stats.errorMessage
+      : !isRatioMetric(metric, denominator) && !quantileMetricType(metric);
   const metricSampleSize = getMetricSampleSize(
     baseline,
     stats,
