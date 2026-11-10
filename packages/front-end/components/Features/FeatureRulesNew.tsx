@@ -472,7 +472,7 @@ export default function FeatureRulesNew({
     <>
       <SectionFrame
         title="Rules"
-        mt="5"
+        mt="4"
         stickyTop={stickyHeaderTop}
         actions={
           (!isLocked || lockedBySchedule) &&

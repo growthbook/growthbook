@@ -73,9 +73,9 @@ export default function SectionFrame({
           justify="between"
           gap="4"
           px="5"
-          pt="3"
+          pt="2"
           // Tighter over tabs, which bring their own height.
-          pb={tabs ? "1" : "3"}
+          pb={tabs ? "1" : "2"}
         >
           {/* As tall as an action button, so headers match whatever they hold
               and don't grow when a late addon (a sparkline) arrives. */}

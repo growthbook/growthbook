@@ -1,12 +1,9 @@
-// Narrow values fit four to a row; JSON gets room for a line of it.
+// One size for every value type: as many as fit at the minimum, stretched to
+// fill the row. A long value wraps or cuts short inside it.
 .grid {
   display: grid;
   gap: var(--space-3);
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-
-  &.wide {
-    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-  }
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
 }
 
 .card {
@@ -14,9 +11,10 @@
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
-  gap: var(--space-1);
+  gap: 2px;
   min-width: 0;
-  padding: var(--space-3);
+  // Less below: the value's line already leaves room under its text.
+  padding: 10px var(--space-3) 7px;
   border: 1px solid var(--gray-a5);
   border-radius: var(--radius-3);
   background: var(--color-panel-solid);
@@ -50,7 +48,7 @@
   white-space: nowrap;
 }
 
-// A JSON or string value's line, which breaks in two when it runs out of
+// A JSON value's line, which breaks in two when it runs out of
 // room: the value on the first, cut short, its share and reason under it.
 .wrappingLine {
   display: flex;

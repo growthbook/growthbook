@@ -1,5 +1,6 @@
 import { ReactNode, useMemo, useState } from "react";
 import { Flex } from "@radix-ui/themes";
+import clsx from "clsx";
 import {
   PiArrowRight,
   PiCaretDown,
@@ -42,6 +43,7 @@ import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
 import { getRevisionStatus } from "@/services/revisionStatus";
+import styles from "./RevisionStatusBar.module.scss";
 
 // Room for a normal-sized button with even padding. A message that wraps
 // grows it.
@@ -257,15 +259,16 @@ export default function RevisionStatusBar({
   return (
     <>
       <div
+        className={styles.bar}
         style={{
           backgroundColor: `var(--${tint}-a3)`,
           // The tab row's underline, above it.
           boxShadow: "inset 0 1px 0 0 var(--gray-a5)",
         }}
       >
-        <Flex
+        <div
           // The header's page column, so the two line up.
-          className="container-fluid pagecontents"
+          className={clsx("container-fluid pagecontents", styles.row)}
           style={{
             // Inset as the cards' content is below: the page gutter, a card's
             // padding, and a border as wide as the card's, which zoom rounds
@@ -275,11 +278,8 @@ export default function RevisionStatusBar({
             paddingBlock: "var(--space-2)",
             minHeight: REVISION_STATUS_BAR_HEIGHT_PX,
           }}
-          align="center"
-          justify="between"
-          gap="4"
         >
-          <Flex align="center" gap="3" minWidth="0">
+          <Flex className={styles.status} align="center" gap="3">
             <Flex
               align="center"
               gap="1"
@@ -298,14 +298,16 @@ export default function RevisionStatusBar({
                 />
               </Flex>
             ) : null}
-            <Text color="text-mid">{message}</Text>
           </Flex>
+          <div className={styles.message}>
+            <Text color="text-mid">{message}</Text>
+          </div>
           {actions ? (
-            <Flex align="center" gap="4" flexShrink="0">
+            <Flex className={styles.actions} align="center" gap="4">
               {actions}
             </Flex>
           ) : null}
-        </Flex>
+        </div>
       </div>
       {confirmDiscard ? (
         <DiscardDraftModal

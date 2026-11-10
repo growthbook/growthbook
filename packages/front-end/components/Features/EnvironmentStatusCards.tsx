@@ -1,6 +1,5 @@
 import { ReactNode, useLayoutEffect, useRef, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
-import clsx from "clsx";
 import { FeatureValueType } from "shared/types/feature";
 import { PiArrowRight, PiCaretDown, PiCaretUp, PiMinus } from "react-icons/pi";
 import {
@@ -15,6 +14,8 @@ import { Popover } from "@/ui/Popover";
 import Badge from "@/ui/Badge";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
+import Tooltip from "@/ui/Tooltip";
+import { useIsOverflowingX } from "@/hooks/useIsOverflowing";
 import ValueDisplay, { BooleanDot } from "./ValueDisplay";
 import StateIcon from "./StateIcon";
 import PrerequisiteTable from "./PrerequisiteTable";
@@ -78,6 +79,13 @@ function ValueText({
   // Off when the caller places the share itself.
   withPercent?: boolean;
 }) {
+  if (value.kind === "none") {
+    return (
+      <Text color="text-low" whiteSpace="nowrap">
+        Reaches no one
+      </Text>
+    );
+  }
   if (value.kind === "varies" || value.kind === "split") {
     return (
       <>
@@ -105,23 +113,53 @@ function ValueText({
         />
       </span>
     ) : (
-      <code
-        className={styles.value}
-        style={{
-          color:
-            muted || value.value === null
-              ? "var(--color-text-low)"
-              : "var(--color-text-high)",
-        }}
-      >
-        {displayValue(value.value, valueType)}
-      </code>
+      <ValueCode
+        text={displayValue(value.value, valueType)}
+        muted={muted || value.value === null}
+      />
     );
   return (
     <>
       {shown}
       {withPercent ? <Percent value={value} /> : null}
     </>
+  );
+}
+
+// A value cut short to its room, all of it on hover when it is.
+function ValueCode({ text, muted }: { text: string; muted: boolean }) {
+  const ref = useRef<HTMLElement>(null);
+  const truncated = useIsOverflowingX(ref);
+  return (
+    <Tooltip content={text} enabled={truncated}>
+      <code
+        ref={ref}
+        className={styles.value}
+        style={{
+          color: muted ? "var(--color-text-low)" : "var(--color-text-high)",
+        }}
+      >
+        {text}
+      </code>
+    </Tooltip>
+  );
+}
+
+// Why a card serves what it does, cut short to its room, all of it on hover
+// when it is.
+function ReasonText({ reason }: { reason: EnvironmentReason }) {
+  const ref = useRef<HTMLSpanElement>(null);
+  const truncated = useIsOverflowingX(ref);
+  const text = reasonText(reason);
+  // The span triggers it: @/ui/Text drops the hover handlers a trigger needs.
+  return (
+    <Tooltip content={text} enabled={truncated}>
+      <span className={styles.reason}>
+        <Text ref={ref} size="sm" color="text-low" truncate>
+          · {text}
+        </Text>
+      </span>
+    </Tooltip>
   );
 }
 
@@ -174,11 +212,7 @@ function WrappingValueLine({
         </span>
         <span ref={tailRef} className={styles.line}>
           <Percent value={status.value} />
-          <span className={styles.reason}>
-            <Text size="sm" color="text-low" truncate>
-              · {reasonText(status.reason)}
-            </Text>
-          </span>
+          <ReasonText reason={status.reason} />
         </span>
       </span>
     </span>
@@ -458,7 +492,7 @@ function Card({
             <span className={styles.line}>
               <Text color="text-low">…</Text>
             </span>
-          ) : valueType === "json" || valueType === "string" ? (
+          ) : valueType === "json" ? (
             <WrappingValueLine status={status} valueType={valueType} />
           ) : (
             <span className={styles.line}>
@@ -466,11 +500,7 @@ function Card({
                 <BooleanDot fill={servedDot(status, valueType)} />
               )}
               <ValueText value={status.value} valueType={valueType} />
-              <span className={styles.reason}>
-                <Text size="sm" color="text-low" truncate>
-                  · {reasonText(status.reason)}
-                </Text>
-              </span>
+              <ReasonText reason={status.reason} />
             </span>
           )}
         </button>
@@ -512,12 +542,7 @@ export default function EnvironmentStatusCards({
   ) => ReactNode;
 }) {
   return (
-    <div
-      className={clsx(
-        styles.grid,
-        (valueType === "json" || valueType === "string") && styles.wide,
-      )}
-    >
+    <div className={styles.grid}>
       {cards.map((card) => (
         <Card
           key={card.id}

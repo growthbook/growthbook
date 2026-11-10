@@ -1359,7 +1359,7 @@ export function FeatureUsageSparkline({
               style={{ pointerEvents: "none" }}
             />
           </svg>
-          <PiCaretRightBold className={styles.sparkCaret} />
+          {redesign ? null : <PiCaretRightBold className={styles.sparkCaret} />}
         </Flex>
       </Tooltip>
       {modalOpen && (

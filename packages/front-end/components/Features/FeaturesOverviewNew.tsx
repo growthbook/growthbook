@@ -929,14 +929,13 @@ export default function FeaturesOverviewNew({
           </Callout>
         )}
 
-        <Box mt="3">
-          <CustomMarkdown page={"feature"} variables={variables} />
-        </Box>
+        {/* Its box brings its own margin; without markdown it renders nothing. */}
+        <CustomMarkdown page={"feature"} variables={variables} />
         <SectionFrame
           title="Environments"
-          mb="5"
+          mb="4"
           actions={
-            <Flex align="center" gap="3">
+            <Flex align="center" gap="5">
               {showFeatureUsage ? (
                 <FeatureUsageSparkline valueType={feature.valueType} />
               ) : null}
@@ -1040,7 +1039,7 @@ export default function FeaturesOverviewNew({
 
         <SectionFrame
           title="Default Value"
-          mt="5"
+          mt="4"
           // Its copy and fullscreen buttons show while it's hovered, as a
           // rule's do.
           className={cornerStyles.hoverActions}
@@ -1099,7 +1098,7 @@ export default function FeaturesOverviewNew({
             stickyHeaderTop={stickyTop}
           />
         ) : (
-          <SectionFrame title="Rules" mt="5">
+          <SectionFrame title="Rules" mt="4">
             <p>
               You need at least one environment to add rules. Add powerful logic
               on top of your feature. The first rule that matches will be
