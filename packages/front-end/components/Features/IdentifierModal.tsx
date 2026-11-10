@@ -154,7 +154,7 @@ export default function IdentifierModal({
     });
 
   const newProperty = name.trim() || PLACEHOLDER_NAME;
-  const defaultType = attributeToUserIdTypeName(settledName);
+  const defaultType = attributeToUserIdTypeName(newProperty);
   const linkedType = (d: DataSourceInterfaceWithParams) =>
     existing
       ? (d.settings.userIdTypes?.find((t) =>
@@ -202,7 +202,9 @@ export default function IdentifierModal({
         (!settledName || pickFor(d) !== null);
   // The server can't update Data Sources defined in config.yml.
   const fileConfig = hasFileConfig();
-  const linksFor = (base: string) =>
+  // `base` picks which existing type each Data Source matches; a new type is
+  // named after `typeName`.
+  const linksFor = (base: string, typeName = base) =>
     (fileConfig ? [] : mappable).flatMap((d) => {
       if (!canEdit(d) || linkedType(d) || !isChecked(d)) return [];
       const pick = pickFor(d, base);
@@ -211,11 +213,13 @@ export default function IdentifierModal({
         {
           id: d.id,
           userIdType:
-            pick === NEW_TYPE ? attributeToUserIdTypeName(base) : pick,
+            pick === NEW_TYPE ? attributeToUserIdTypeName(typeName) : pick,
         },
       ];
     });
-  const links = settledName ? linksFor(settledName) : [];
+  // Matching waits for the name to settle so rows don't flicker, but new type
+  // names follow every keystroke, like the snippet.
+  const links = linksFor(settledName, newProperty);
 
   const setChecked = (d: DataSourceInterfaceWithParams, v: boolean) => {
     if (isEdit) {
@@ -334,8 +338,13 @@ export default function IdentifierModal({
                       <code>{t}</code>
                     </span>
                   ))}
-                  ). Its assignment queries and fact tables then map that type
-                  to the column holding it, which can have any name.
+                  ). In your assignment queries and fact tables, map{" "}
+                  {shownTypes.length === 1 ? (
+                    <code>{shownTypes[0]}</code>
+                  ) : (
+                    "that type"
+                  )}{" "}
+                  to the column that holds it, which can have any name.
                 </Text>
               </Flex>
             )}

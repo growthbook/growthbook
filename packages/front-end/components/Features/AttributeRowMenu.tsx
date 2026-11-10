@@ -19,21 +19,19 @@ import { IDENTIFIER_DATA_TYPES } from "@/components/Features/AttributeFormLayout
 // types from active identifiers, so archiving or converting one drops it there.
 function AutoSyncedIdentifierWarning({
   attribute,
+  undo,
 }: {
   attribute: SDKAttribute;
+  undo: string;
 }) {
   const { datasources } = useDefinitions();
-  if (
-    !attribute.hashAttribute ||
-    !datasources.some(syncsIdentifiersAutomatically)
-  ) {
-    return null;
-  }
+  const affected = datasources.filter(syncsIdentifiersAutomatically);
+  if (!attribute.hashAttribute || affected.length === 0) return null;
   return (
     <Callout status="warning" mt="3">
-      Your Managed Warehouse and Event Forwarder Data Sources will also stop
-      using it as an identifier type, so experiments assigned on it can&apos;t
-      be analyzed there.
+      {new Intl.ListFormat("en").format(affected.map((d) => d.name))} will stop
+      using <code>{attribute.property}</code> as an identifier type, so
+      experiments assigned on it can&apos;t be analyzed there until you {undo}.
     </Callout>
   );
 }
@@ -65,10 +63,13 @@ export function ConvertToAttributeItem({
         getConfirmationContent: async () => (
           <>
             <code>{attribute.property}</code> will no longer be offered for
-            assigning users in new experiments and percentage rollouts. Ones
-            already using it keep working in your SDKs, and it stays available
-            for targeting.
-            <AutoSyncedIdentifierWarning attribute={attribute} />
+            assigning users in new experiments and percentage rollouts.
+            Experiments and rules that already use it will continue working, and
+            it stays available for targeting.
+            <AutoSyncedIdentifierWarning
+              attribute={attribute}
+              undo="convert it back"
+            />
           </>
         ),
       }}
@@ -121,14 +122,17 @@ export function ArchiveAttributeItem({
         ctaColor: "violet",
         getConfirmationContent: async () => (
           <>
-            <code>{attribute.property}</code> will no longer be offered when
-            creating or editing{" "}
+            <code>{attribute.property}</code> will be hidden when creating or
+            editing{" "}
             {attribute.hashAttribute
-              ? "experiments and targeting rules"
-              : "targeting rules"}
-            . Anything already using it keeps working in your SDKs, which still
-            receive it. You can unarchive it at any time.
-            <AutoSyncedIdentifierWarning attribute={attribute} />
+              ? "experiments and targeting rules. Experiments and rules"
+              : "targeting rules. Rules"}{" "}
+            that already use it will continue working, and you can unarchive it
+            any time.
+            <AutoSyncedIdentifierWarning
+              attribute={attribute}
+              undo="unarchive it"
+            />
           </>
         ),
       }}
