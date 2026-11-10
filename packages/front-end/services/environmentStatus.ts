@@ -78,9 +78,11 @@ export type EnvironmentReason =
       // How many aren't met.
       count: number;
     }
-  // What decides who gets what, in order: prerequisite targeting, the holdout,
-  // then the rules that take traffic, ending at whichever one varies by user.
+  // The one thing that decides who gets what, behind any holdout: a rule or
+  // prerequisite targeting that varies it, else the rule serving everyone.
   | { kind: "traffic"; labels: string[] }
+  // Several things vary it together, too many to name as one reason.
+  | { kind: "mixed" }
   | { kind: "default" };
 
 // How each part of the evaluation bears on the outcome. "skipped" parts are
@@ -516,13 +518,27 @@ export function getEnvironmentStatus({
   return {
     value: varying ? { kind: "varies" } : value,
     reason: (() => {
-      // In the SDK's order: the holdout comes before prerequisite gates.
-      const labelsOf = (kind: TrafficStep["kind"]) =>
-        reasons.filter((step) => step.kind === kind).map((step) => step.label);
-      const chain = [
-        ...labelsOf("holdout"),
+      const rules = reasons.filter((step) => step.kind === "rule");
+      // What makes the value vary; a rule serving one value to all the
+      // traffic left over doesn't, any more than the default does.
+      const sources = [
         ...(varying ? ["Prerequisite targeting"] : []),
-        ...labelsOf("rule"),
+        ...rules
+          .filter(
+            (step) =>
+              !step.traffic ||
+              step.traffic.participation < 1 - EPSILON ||
+              new Set(step.traffic.shares.map((s) => s.value)).size > 1,
+          )
+          .map((step) => step.label),
+      ];
+      if (sources.length > 1) return { kind: "mixed" as const };
+      // The holdout stacks in front, in the SDK's order.
+      const chain = [
+        ...reasons
+          .filter((step) => step.kind === "holdout")
+          .map((step) => step.label),
+        ...(sources.length ? sources : rules.map((step) => step.label)),
       ].filter((label, i, all) => label !== all[i - 1]);
       return chain.length
         ? { kind: "traffic" as const, labels: chain }
@@ -582,7 +598,7 @@ export function servedDot(
   return "on";
 }
 
-export function reasonText(reason: EnvironmentReason): string {
+export function reasonText(reason: EnvironmentReason): string | null {
   switch (reason.kind) {
     case "disabled":
       return "Environment OFF";
@@ -596,6 +612,8 @@ export function reasonText(reason: EnvironmentReason): string {
           : "Prerequisite not met";
     case "traffic":
       return reason.labels.join(" + ");
+    case "mixed":
+      return null;
     case "default":
       return "Default value";
   }

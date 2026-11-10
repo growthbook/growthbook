@@ -139,14 +139,19 @@ describe("getEnvironmentStatus", () => {
     expect(result.value).toEqual(value);
   });
 
-  it("names a run of the same kind of step once", () => {
-    expect(
-      status(
-        [rollout("true", 0.5), rollout("true", 0.5)].map((r) =>
-          ruleTrafficStep(r),
-        ),
-      ).reason,
-    ).toEqual({ kind: "traffic", labels: ["Rollout"] });
+  it.each([
+    [
+      "a rollout over a rule serving the rest",
+      [rollout("true", 0.5), force("false")],
+      { kind: "traffic", labels: ["Rollout"] },
+    ],
+    [
+      "nothing when two rollouts both vary it",
+      [rollout("true", 0.5), rollout("false", 0.5)],
+      { kind: "mixed" },
+    ],
+  ])("names %s", (_, rules, reason) => {
+    expect(status(rules.map((r) => ruleTrafficStep(r))).reason).toEqual(reason);
   });
 
   it("stops at the first rule that serves everyone", () => {
@@ -452,21 +457,18 @@ describe("getEnvironmentStatus", () => {
       }).reason,
     ).toEqual({
       kind: "traffic",
-      labels: ["Holdout", "Prerequisite targeting", "Force rule"],
+      labels: ["Holdout", "Prerequisite targeting"],
     });
   });
 
-  it("chains prerequisite targeting ahead of the steps that serve", () => {
+  it("names nothing when prerequisite targeting and a split both vary it", () => {
     expect(
       status([ruleTrafficStep(experimentRule, { experiment: experiment() })], {
         prerequisites: [{ id: "parent", result: "varies" }],
       }),
     ).toMatchObject({
       value: { kind: "varies" },
-      reason: {
-        kind: "traffic",
-        labels: ["Prerequisite targeting", "Experiment"],
-      },
+      reason: { kind: "mixed" },
       prerequisites: "varies",
       rules: "applies",
     });
@@ -581,9 +583,13 @@ describe("reasonText", () => {
       "Rollout + Experiment",
     ],
     [{ kind: "default" }, "Default value"],
-  ] as [EnvironmentReason, string][])("says %j as %j", (reason, text) => {
-    expect(reasonText(reason)).toBe(text);
-  });
+    [{ kind: "mixed" }, null],
+  ] as [EnvironmentReason, string | null][])(
+    "says %j as %j",
+    (reason, text) => {
+      expect(reasonText(reason)).toBe(text);
+    },
+  );
 });
 
 describe("prerequisitesSummary", () => {

@@ -160,6 +160,7 @@ function ReasonText({ reason }: { reason: EnvironmentReason }) {
   const ref = useRef<HTMLSpanElement>(null);
   const truncated = useIsOverflowingX(ref);
   const text = reasonText(reason);
+  if (text === null) return null;
   // The span triggers it: @/ui/Text drops the hover handlers a trigger needs.
   return (
     <Tooltip content={text} enabled={truncated}>
@@ -322,7 +323,11 @@ function Steps({
               ) : null}
               :
             </span>
-            <ValueText value={value} valueType={valueType} />
+            <ValueText
+              value={value}
+              valueType={valueType}
+              withPercent={step.kind !== "holdout"}
+            />
           </Flex>
         ))}
     </Flex>
