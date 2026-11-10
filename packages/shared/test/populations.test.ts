@@ -122,7 +122,7 @@ describe("getPopulationRuleViolations", () => {
       });
     expect(check("flt_mobile")).toEqual([]);
     expect(check("flt_deleted")).toEqual([
-      "Saved filter not found on Fact Table ftb_events: flt_deleted (step 1).",
+      "Saved filter not found on Fact Table ftb_events: flt_deleted.",
     ]);
   });
 
@@ -302,7 +302,7 @@ describe("getPopulationRuleViolations", () => {
           factTables: [slimEvents],
         }),
       ).toEqual([
-        `Aggregate filter column 'props.quantity' must be a numeric column or "$$count" (step 1).`,
+        `Aggregate filter column 'props.quantity' must be a numeric column or "$$count".`,
       ]);
     });
 

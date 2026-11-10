@@ -20,6 +20,12 @@ function isValidAggregateFilter(aggregateFilter: string): boolean {
   return conditions.length > 0 && !invalid.length;
 }
 
+// Names the steps a violation is about. With a single step the label adds
+// nothing, and the editor never mentions steps.
+function stepLabel(stepNumbers: number[], stepCount: number): string {
+  return stepCount > 1 ? ` (step ${stepNumbers.join(", ")})` : "";
+}
+
 export type PopulationRuleInput = {
   datasource: string;
   userIdTypes: string[];
@@ -47,7 +53,7 @@ export function getPopulationRuleViolations({
     .filter((n): n is number => n !== null);
   if (halfAggregateSteps.length) {
     violations.push(
-      `Must specify both "aggregateFilter" and "aggregateFilterColumn" or neither (step ${halfAggregateSteps.join(", ")}).`,
+      `Must specify both "aggregateFilter" and "aggregateFilterColumn" or neither${stepLabel(halfAggregateSteps, steps.length)}.`,
     );
   }
 
@@ -93,7 +99,7 @@ export function getPopulationRuleViolations({
       : [];
     if (missingFilters.length) {
       violations.push(
-        `Saved filter not found on Fact Table ${step.source.factTableId}: ${missingFilters.join(", ")} (step ${i + 1}).`,
+        `Saved filter not found on Fact Table ${step.source.factTableId}: ${missingFilters.join(", ")}${stepLabel([i + 1], steps.length)}.`,
       );
     }
 
@@ -102,7 +108,7 @@ export function getPopulationRuleViolations({
 
     if (!isValidAggregateFilter(aggregateFilter)) {
       violations.push(
-        `Invalid aggregate filter "${aggregateFilter}" (step ${i + 1}). Use comparisons such as ">=3" or ">=3,<10".`,
+        `Invalid aggregate filter "${aggregateFilter}"${stepLabel([i + 1], steps.length)}. Use comparisons such as ">=3" or ">=3,<10".`,
       );
     }
 
@@ -115,7 +121,7 @@ export function getPopulationRuleViolations({
     });
     if (columnType !== "number") {
       violations.push(
-        `Aggregate filter column '${aggregateFilterColumn}' must be a numeric column or "$$count" (step ${i + 1}).`,
+        `Aggregate filter column '${aggregateFilterColumn}' must be a numeric column or "$$count"${stepLabel([i + 1], steps.length)}.`,
       );
     }
   });
