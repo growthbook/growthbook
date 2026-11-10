@@ -217,8 +217,11 @@ export default function HealthTab({
           </div>
 
           <div>
-            For more advice, see the documentation on the Health Tab{" "}
-            <DocLink docSection="healthTabDimensions">here</DocLink>.
+            For more advice, see the{" "}
+            <DocLink docSection="healthTabDimensions">
+              Health tab documentation
+            </DocLink>
+            .
           </div>
         </Callout>
       );
