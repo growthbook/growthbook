@@ -36,12 +36,20 @@ function labelAppCta() {
   // since the primary button already says "Open App".
   document.documentElement.classList.toggle("gb-used-app", usedApp);
   const label = usedApp ? "Open App" : "Start For Free";
-  const span = document.querySelector(
-    'a.bg-primary[href^="https://app.growthbook.io"] span',
-  );
-  if (span && span.textContent !== label) {
-    span.textContent = label;
-  }
+  // The primary button exists twice: in the navbar, and as a plain menu item
+  // in the More actions menu below 1100px. The secondary Open App link is the
+  // one inside li.navbar-link in both places, so skip it.
+  const cta =
+    'li:not(.navbar-link) > a[href^="https://app.growthbook.io"] span';
+  document
+    .querySelectorAll(`#navbar ${cta}, [role="dialog"] nav ${cta}`)
+    .forEach((span) => {
+      if (span.textContent !== label) {
+        span.textContent = label;
+      }
+    });
+  // styles.css keeps the app buttons invisible until this has run once.
+  document.documentElement.classList.add("gb-cta-ready");
 }
 
 function applyDocsUi() {

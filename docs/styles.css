@@ -330,10 +330,28 @@ code a {
 }
 
 /* Returning app users (docs-ui.js sets .gb-used-app from the gb_last_active
-   cookie) see the primary button as "Open App", so drop the separate link. */
-.gb-used-app #navbar li.navbar-link:has(> a[href^="https://app.growthbook.io"])
+   cookie) see the primary button as "Open App", so drop the separate link.
+   Not scoped to #navbar: below 1100px the links render in the More actions
+   menu, which is portaled outside the navbar. */
+.gb-used-app li.navbar-link:has(> a[href^="https://app.growthbook.io"])
 {
   display: none;
+}
+
+/* The server-rendered navbar always has the no-cookie state, so keep the app
+   buttons invisible (space still reserved) until docs-ui.js has picked the
+   right label and adds .gb-cta-ready. The animation reveals them after 1s
+   anyway in case the script never runs. */
+@keyframes gb-cta-reveal {
+  to {
+    visibility: visible;
+  }
+}
+
+html:not(.gb-cta-ready) #navbar a[href^="https://app.growthbook.io"]
+{
+  visibility: hidden;
+  animation: gb-cta-reveal 0s 1s forwards;
 }
 
 /* GitHub navbar link as a borderless pill with just the GitHub mark and the
@@ -370,7 +388,21 @@ code a {
   height: 1.25rem;
 }
 
-#navbar a[href="https://github.com/growthbook/growthbook"] > span.truncate,
+/* The mark svg is aria-hidden, so the "Github" label is the link's only
+   accessible name: hide it visually but keep it for screen readers. */
+#navbar a[href="https://github.com/growthbook/growthbook"] > span.truncate
+{
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 #navbar a[href="https://github.com/growthbook/growthbook"] span.ml-1 > svg
 {
   display: none;
