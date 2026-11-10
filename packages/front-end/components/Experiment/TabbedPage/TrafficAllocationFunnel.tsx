@@ -60,6 +60,7 @@ import {
   HoldoutDraft,
   reviewAgainstCurrent,
   useEditBase,
+  useEditsBlockedReason,
   useExperimentEdits,
   useRegisterExperimentEdit,
   useStagedState,
@@ -68,6 +69,11 @@ import {
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
   editTargeting?: (() => void) | null;
+  /**
+   * Opens the Make Changes form, set where targeting and traffic are edited
+   * through it rather than staged here.
+   */
+  makeChanges?: ((openAt?: "traffic") => void) | null;
   editNamespace?: (() => void) | null;
   /** Offers the + that appends a variation and evens out the split. */
   canAddVariation: boolean;
@@ -220,6 +226,7 @@ function FunnelCard({
 export default function TrafficAllocationFunnel({
   experiment,
   editTargeting,
+  makeChanges,
   editNamespace,
   canAddVariation,
   stageVariations,
@@ -239,6 +246,7 @@ export default function TrafficAllocationFunnel({
 }: Props) {
   const { namespaces } = useOrgSettings();
   const edits = useExperimentEdits();
+  const editsBlocked = useEditsBlockedReason();
   const { editInline } = useExperimentEditing(experiment);
 
   const targetingDefaults = useTargetingDefaults(experiment);
@@ -499,7 +507,8 @@ export default function TrafficAllocationFunnel({
           <FunnelCard
             title="Targeting"
             grow
-            onEdit={editTargeting}
+            onEdit={makeChanges ? () => makeChanges() : editTargeting}
+            editBlockedReason={makeChanges ? editsBlocked : null}
             disabled={!safeToEdit}
             menu={
               canAddHoldout ? (
@@ -566,8 +575,13 @@ export default function TrafficAllocationFunnel({
           <FunnelCard
             title="Traffic"
             onEdit={
-              editDeliveryInline ? () => setEditingTraffic(true) : editTargeting
+              makeChanges
+                ? () => makeChanges("traffic")
+                : editDeliveryInline
+                  ? () => setEditingTraffic(true)
+                  : editTargeting
             }
+            editBlockedReason={makeChanges ? editsBlocked : null}
             disabled={!safeToEdit}
           >
             <FunnelRow label="Rollout percentage">
