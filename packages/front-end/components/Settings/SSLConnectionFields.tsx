@@ -1,7 +1,9 @@
 import { ChangeEventHandler, useState } from "react";
 import { FaCaretDown, FaCaretRight } from "react-icons/fa";
+import { Box } from "@radix-ui/themes";
 import Field from "@/components/Forms/Field";
 import Switch from "@/ui/Switch";
+import Text from "@/ui/Text";
 
 type CertField = "caCert" | "clientCert" | "clientKey";
 
@@ -76,9 +78,11 @@ export default function SSLConnectionFields({
             )}
             {CERT_FIELDS.map(({ name, label }) =>
               value[name] === null ? (
-                <div className="form-group" key={name}>
-                  <label>{label}</label>
-                  <div className="text-muted">
+                <Box mb="3" key={name}>
+                  <Text as="label" weight="semibold">
+                    {label}
+                  </Text>
+                  <Text as="div" color="text-mid">
                     The stored value will be removed when you save.{" "}
                     <a
                       href="#"
@@ -89,8 +93,8 @@ export default function SSLConnectionFields({
                     >
                       Undo
                     </a>
-                  </div>
-                </div>
+                  </Text>
+                </Box>
               ) : (
                 <Field
                   key={name}
