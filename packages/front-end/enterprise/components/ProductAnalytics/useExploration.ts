@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type {
   ExplorationConfig,
   ProductAnalyticsExploration,
@@ -18,9 +18,14 @@ export default function useExploration(config: ExplorationConfig) {
   const [checked, setChecked] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Only the latest run may publish; an older poll can still be in flight
+  // after a newer run or a config change
+  const latestRun = useRef(0);
 
   const refresh = useCallback(
     async (cache: CacheOption) => {
+      const run = ++latestRun.current;
+      const stale = () => run !== latestRun.current;
       setError(null);
       if (cache !== "required") setLoading(true);
       try {
@@ -34,13 +39,17 @@ export default function useExploration(config: ExplorationConfig) {
             break;
           }
           await new Promise((resolve) => setTimeout(resolve, delay));
+          if (stale()) return;
           ({ data, error } = await fetchExplorationById(data.id));
         }
+        if (stale()) return;
         if (error) setError(error);
         else if (data?.status === "success") setData(data);
       } finally {
-        setLoading(false);
-        setChecked(true);
+        if (!stale()) {
+          setLoading(false);
+          setChecked(true);
+        }
       }
     },
     [config, fetchData, fetchExplorationById],
