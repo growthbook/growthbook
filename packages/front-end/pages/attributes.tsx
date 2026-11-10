@@ -1,5 +1,6 @@
 import React, { FC, ReactNode, useEffect, useMemo, useState } from "react";
 import { SDKAttribute } from "shared/types/organization";
+import { CustomField } from "shared/types/custom-fields";
 import { PiInfo, PiMagnifyingGlass } from "react-icons/pi";
 import { Box, Flex } from "@radix-ui/themes";
 import Text from "@/ui/Text";
@@ -15,8 +16,15 @@ import Button from "@/ui/Button";
 import Badge from "@/ui/Badge";
 import TextField from "@/ui/TextField";
 import Pagination from "@/ui/Pagination";
-import { useAttributeReferences } from "@/hooks/useAttributeReferences";
-import { useAddComputedFields, useSearch } from "@/services/search";
+import {
+  AttributeRefEntry,
+  useAttributeReferences,
+} from "@/hooks/useAttributeReferences";
+import {
+  SearchReturn,
+  useAddComputedFields,
+  useSearch,
+} from "@/services/search";
 import AttributeSearchFilters from "@/components/Search/AttributeSearchFilters";
 import SortedTags from "@/components/Tags/SortedTags";
 import Markdown from "@/components/Markdown/Markdown";
@@ -61,8 +69,6 @@ const RESERVED_FILTER_KEYS = new Set([
 ]);
 
 const PAGE_SIZE = 10;
-// Same widths as the attributes table's defaults; the row menu column is last.
-const IDENTIFIER_COLUMN_WIDTHS = [200, 360, 170, 130, 130, 130, 40];
 
 // Rough char budget for a column of `width` px. Only settles after a resize
 // commits, which is why it takes the committed width rather than a live one.
@@ -161,6 +167,364 @@ const EmptySection: FC<{
     )}
   </Flex>
 );
+
+// Features count rollout and experiment rules as well as targeting conditions.
+function usageCounts(refs: AttributeRefEntry | undefined) {
+  if (!refs) return { usedIn: undefined };
+  return {
+    usedIn: refs.experiments.length + refs.features.length,
+    experimentCount: refs.experiments.length,
+    featureCount: refs.features.length,
+  };
+}
+
+function pluralize(count: number, noun: string) {
+  return count ? `${count} ${noun}${count === 1 ? "" : "s"}` : "";
+}
+
+function buildAttributeColumns<T extends SDKAttribute>({
+  nameLabel,
+  customFields,
+  extraColumns = [],
+  onEdit,
+  onConvertToIdentifier,
+}: {
+  nameLabel: string;
+  customFields: CustomField[];
+  extraColumns?: TableColumnDef<T>[];
+  onEdit: (row: T) => void;
+  onConvertToIdentifier?: (row: T) => void;
+}): TableColumnDef<T>[] {
+  return [
+    {
+      id: "property",
+      label: nameLabel,
+      sortField: "property",
+      hideable: false,
+      defaultWidth: 200,
+      minWidth: 120,
+      render: (v, width) => (
+        <Flex align="center" gap="2">
+          <Link
+            href={`/attributes/${encodeURIComponent(v.property)}`}
+            style={{ color: "var(--gray-12)" }}
+          >
+            <Text mono weight="medium">
+              <TruncateMiddleWithTooltip
+                text={v.property}
+                maxChars={truncateCharsForWidth(width)}
+                maxWidth="100%"
+              />
+            </Text>
+          </Link>
+          {v.archived && <Badge label="Archived" color="gray" />}
+        </Flex>
+      ),
+    },
+    {
+      id: "description",
+      label: "Description",
+      sortField: "description",
+      defaultWidth: 360,
+      cellProps: () => ({ className: "text-gray" }),
+      render: (v) =>
+        v.description ? (
+          // Plain text in the tooltip: Radix wraps content in a <p>, so
+          // rendered Markdown would nest block elements inside it.
+          <ClampedCell tooltip={v.description} clampLines={2}>
+            <Markdown className="mb-0">{v.description}</Markdown>
+          </ClampedCell>
+        ) : (
+          <Text color="text-low">—</Text>
+        ),
+    },
+    {
+      id: "datatype",
+      label: "Data Type",
+      sortField: "datatype",
+      defaultWidth: 170,
+      cellProps: () => ({ className: "text-gray" }),
+      render: (v) => {
+        // Enum lists are unbounded, so the detail line gets one line plus a
+        // tooltip rather than wrapping and making every row taller.
+        const detail =
+          v.datatype === "enum" && v.enum
+            ? `(${v.enum})`
+            : v.format
+              ? `(format: ${v.format})`
+              : "";
+        return (
+          <>
+            <Text as="div" truncate>
+              {v.datatype}
+            </Text>
+            {detail && (
+              <ClampedCell tooltip={detail}>
+                {/* Inline, so the clamp's text-overflow ellipsis applies — it
+                      doesn't act on an overflowing block child. whiteSpace is
+                      explicit because Text otherwise sets `normal` inline,
+                      which beats the clamp's nowrap and lets the text wrap. */}
+                <Text as="span" size="sm" whiteSpace="nowrap">
+                  {detail}
+                </Text>
+              </ClampedCell>
+            )}
+          </>
+        );
+      },
+    },
+    {
+      id: "projects",
+      label: "Projects",
+      defaultWidth: 130,
+      render: (v) => (
+        <ProjectBadges
+          resourceType="attribute"
+          projectIds={(v.projects || []).length > 0 ? v.projects : undefined}
+        />
+      ),
+    },
+    {
+      id: "tags",
+      label: "Tags",
+      defaultWidth: 130,
+      render: (v) => (
+        // The inner div is the flex min-width: 0 fix for SortedTags useFlex;
+        // overflow must not go on the <td> (list cells stay visible so
+        // in-cell poppers aren't clipped).
+        <div
+          className="tags-cell-content"
+          style={{ minWidth: 0, maxWidth: "100%", overflow: "hidden" }}
+        >
+          <SortedTags
+            tags={v.tags || []}
+            useFlex={true}
+            maxVisibleTags={1}
+            truncateTagChars={15}
+          />
+        </div>
+      ),
+    },
+    // Hidden by default so existing users see no change until they opt in.
+    ...customFields.map<TableColumnDef<T>>((f) => ({
+      id: `custom:${f.id}`,
+      label: f.name,
+      header: f.description ? (
+        <>
+          {f.name}{" "}
+          <RadixTooltip content={f.description}>
+            <PiInfo style={{ position: "relative", top: "-1px" }} />
+          </RadixTooltip>
+        </>
+      ) : undefined,
+      defaultWidth: 160,
+      defaultHidden: true,
+      cellProps: () => ({ className: "text-gray" }),
+      render: (v) => {
+        const raw = v.customFields?.[f.id] ?? "";
+        const text = customFieldValueToText(f, raw);
+        if (!text.trim()) return null;
+        return (
+          <ClampedCell
+            tooltip={text}
+            clampLines={f.type === "textarea" || f.type === "markdown" ? 2 : 1}
+          >
+            {renderCustomFieldValue(f, raw)}
+          </ClampedCell>
+        );
+      },
+    })),
+    ...extraColumns,
+    {
+      // The one column that absorbs leftover width, so a resize elsewhere
+      // only moves the columns to its right. Renders nothing.
+      id: "spacer",
+      label: "",
+      header: null,
+      locked: true,
+      resizable: false,
+      minWidth: 0,
+      render: () => null,
+    },
+    {
+      id: "actions",
+      label: "Row actions",
+      header: null,
+      locked: true,
+      resizable: false,
+      // Fixed, so the pinned column can't grow over the data it covers.
+      defaultWidth: 40,
+      minWidth: 40,
+      headerProps: { style: { paddingLeft: 4, paddingRight: 4 } },
+      cellProps: () => ({ style: { paddingLeft: 4, paddingRight: 4 } }),
+      render: (v) => (
+        <Flex justify="center">
+          <AttributeRowMenu
+            attribute={v}
+            onEdit={() => onEdit(v)}
+            onConvertToIdentifier={
+              onConvertToIdentifier && (() => onConvertToIdentifier(v))
+            }
+          />
+        </Flex>
+      ),
+    },
+  ];
+}
+
+// Column order, visibility and width are saved per table under `storageKey`.
+function AttributeColumnsTable<T extends SDKAttribute>({
+  storageKey,
+  columnDefs,
+  rows,
+  SortableHeader,
+  emptyMessage,
+  note,
+}: {
+  storageKey: string;
+  columnDefs: TableColumnDef<T>[];
+  rows: T[];
+  SortableHeader: SearchReturn<T>["SortableTableColumnHeader"];
+  emptyMessage: string | null;
+  note: string;
+}) {
+  const {
+    columns,
+    visibleColumns,
+    colSpan,
+    hiddenCount,
+    isCustomized,
+    applySettings,
+    setWidth,
+    reset,
+    colRefs,
+    minTableWidth,
+    ColGroup,
+  } = useTableColumns({ storageKey, columns: columnDefs });
+
+  // Lives in the empty row-actions header rather than the filter toolbar, which
+  // is for data filters.
+  const columnSettings = (
+    <Flex justify="center">
+      <ColumnSettingsButton
+        columns={columns
+          // Locked columns can't be hidden or moved, so listing them is noise.
+          .filter((c) => !c.locked)
+          .map((c) => ({
+            id: c.id,
+            label: c.label,
+            visible: c.visible,
+            alwaysVisible: c.hideable === false,
+          }))}
+        hiddenCount={hiddenCount}
+        canReset={isCustomized}
+        onReset={reset}
+        onChange={applySettings}
+        note={note}
+      />
+    </Flex>
+  );
+
+  const renderHeader = (col: ResolvedTableColumn<T>) =>
+    col.id === "actions"
+      ? columnSettings
+      : col.header !== undefined
+        ? col.header
+        : col.label;
+
+  const renderResizeHandle = (col: ResolvedTableColumn<T>) => {
+    if (col.resizable === false) return null;
+    const { min, max } = columnWidthBounds(col);
+    return (
+      <ColumnResizeHandle
+        label={col.label}
+        width={col.width}
+        minWidth={min}
+        maxWidth={max}
+        onCommit={(w) => setWidth(col.id, w)}
+        setLiveWidth={(w) => {
+          const el = colRefs.current.get(col.id);
+          if (!el) return;
+          el.style.width = `${w}px`;
+          // Move the floor with the drag, or the auto column squeezes mid-drag
+          // and snaps back to its minimum on release.
+          const committed = col.width ?? columnWidthBounds(col).min;
+          el.closest<HTMLElement>("[data-table-list]")?.style.setProperty(
+            "--table-min-width",
+            `${minTableWidth - committed + w}px`,
+          );
+        }}
+      />
+    );
+  };
+
+  return (
+    <Table
+      variant="list"
+      stickyHeader
+      roundedCorners
+      layout="fixed"
+      scrollX
+      stickyLastColumn
+      minTableWidth={minTableWidth}
+    >
+      <ColGroup />
+      <TableHeader>
+        <TableRow>
+          {visibleColumns.map((col) =>
+            col.sortField ? (
+              <SortableHeader
+                key={col.id}
+                field={col.sortField}
+                className={col.headerProps?.className}
+                style={{
+                  textAlign: col.align,
+                  ...col.headerProps?.style,
+                }}
+                endAdornment={renderResizeHandle(col)}
+              >
+                {renderHeader(col)}
+              </SortableHeader>
+            ) : (
+              <TableColumnHeader
+                key={col.id}
+                className={col.headerProps?.className}
+                style={{
+                  textAlign: col.align,
+                  ...col.headerProps?.style,
+                }}
+              >
+                {renderHeader(col)}
+                {renderResizeHandle(col)}
+              </TableColumnHeader>
+            ),
+          )}
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {rows.map((v) => (
+          <TableRow key={v.property}>
+            {visibleColumns.map((col) => {
+              const { className, style } = col.cellProps?.(v) ?? {};
+              return (
+                <TableCell key={col.id} className={className} style={style}>
+                  {col.render(v, col.width)}
+                </TableCell>
+              );
+            })}
+          </TableRow>
+        ))}
+        {!rows.length && emptyMessage && (
+          <TableRow>
+            <TableCell colSpan={colSpan}>
+              <Text color="text-low">{emptyMessage}</Text>
+            </TableCell>
+          </TableRow>
+        )}
+      </TableBody>
+    </Table>
+  );
+}
 
 const FeatureAttributesPage = (): React.ReactElement => {
   const permissionsUtil = usePermissionsUtil();
@@ -324,7 +688,7 @@ const FeatureAttributesPage = (): React.ReactElement => {
     () =>
       identifiers.map((i) => ({
         ...i,
-        usedIn: identifierReferences?.[i.property]?.experiments.length,
+        ...usageCounts(identifierReferences?.[i.property]),
       })),
     [identifiers, identifierReferences],
   );
@@ -359,6 +723,7 @@ const FeatureAttributesPage = (): React.ReactElement => {
       "datatype",
       "projectNamesSearch",
       "tagsSearch",
+      "customFieldsSearch",
     ],
     searchTermFilters: {
       is: (item) =>
@@ -381,253 +746,48 @@ const FeatureAttributesPage = (): React.ReactElement => {
   }, [identifierSyntaxFilters]);
 
   type AttributeRow = (typeof attributesWithComputedFields)[number];
+  type IdentifierRow = (typeof identifierRows)[number];
 
-  const columnDefs = useMemo<TableColumnDef<AttributeRow>[]>(
-    () => [
-      {
-        id: "property",
-        label: "Attribute",
-        sortField: "property",
-        hideable: false,
-        defaultWidth: 200,
-        minWidth: 120,
-        render: (v, width) => (
-          <Flex align="center" gap="2">
-            <Link
-              href={`/attributes/${encodeURIComponent(v.property)}`}
-              style={{ color: "var(--gray-12)" }}
-            >
-              <Text mono weight="medium">
-                <TruncateMiddleWithTooltip
-                  text={v.property}
-                  maxChars={truncateCharsForWidth(width)}
-                  maxWidth="100%"
-                />
-              </Text>
-            </Link>
-            {v.archived && <Badge label="Archived" color="gray" />}
-          </Flex>
-        ),
-      },
-      {
-        id: "description",
-        label: "Description",
-        sortField: "description",
-        defaultWidth: 360,
-        cellProps: () => ({ className: "text-gray" }),
-        render: (v) =>
-          v.description ? (
-            // Plain text in the tooltip: Radix wraps content in a <p>, so
-            // rendered Markdown would nest block elements inside it.
-            <ClampedCell tooltip={v.description} clampLines={2}>
-              <Markdown className="mb-0">{v.description}</Markdown>
-            </ClampedCell>
-          ) : (
-            <Text color="text-low">—</Text>
-          ),
-      },
-      {
-        id: "datatype",
-        label: "Data Type",
-        sortField: "datatype",
-        defaultWidth: 170,
-        cellProps: () => ({ className: "text-gray" }),
-        render: (v) => {
-          // Enum lists are unbounded, so the detail line gets one line plus a
-          // tooltip rather than wrapping and making every row taller.
-          const detail =
-            v.datatype === "enum" && v.enum
-              ? `(${v.enum})`
-              : v.format
-                ? `(format: ${v.format})`
-                : "";
-          return (
-            <>
-              <Text as="div" truncate>
-                {v.datatype}
-              </Text>
-              {detail && (
-                <ClampedCell tooltip={detail}>
-                  {/* Inline, so the clamp's text-overflow ellipsis applies — it
-                      doesn't act on an overflowing block child. whiteSpace is
-                      explicit because Text otherwise sets `normal` inline,
-                      which beats the clamp's nowrap and lets the text wrap. */}
-                  <Text as="span" size="sm" whiteSpace="nowrap">
-                    {detail}
-                  </Text>
-                </ClampedCell>
-              )}
-            </>
-          );
-        },
-      },
-      {
-        id: "projects",
-        label: "Projects",
-        defaultWidth: 130,
-        render: (v) => (
-          <ProjectBadges
-            resourceType="attribute"
-            projectIds={(v.projects || []).length > 0 ? v.projects : undefined}
-          />
-        ),
-      },
-      {
-        id: "tags",
-        label: "Tags",
-        defaultWidth: 130,
-        render: (v) => (
-          // The inner div is the flex min-width: 0 fix for SortedTags useFlex;
-          // overflow must not go on the <td> (list cells stay visible so
-          // in-cell poppers aren't clipped).
-          <div
-            className="tags-cell-content"
-            style={{ minWidth: 0, maxWidth: "100%", overflow: "hidden" }}
-          >
-            <SortedTags
-              tags={v.tags || []}
-              useFlex={true}
-              maxVisibleTags={1}
-              truncateTagChars={15}
-            />
-          </div>
-        ),
-      },
-      // Hidden by default so existing users see no change until they opt in.
-      ...attributeCustomFields.map<TableColumnDef<AttributeRow>>((f) => ({
-        id: `custom:${f.id}`,
-        label: f.name,
-        header: f.description ? (
-          <>
-            {f.name}{" "}
-            <RadixTooltip content={f.description}>
-              <PiInfo style={{ position: "relative", top: "-1px" }} />
-            </RadixTooltip>
-          </>
-        ) : undefined,
-        defaultWidth: 160,
-        defaultHidden: true,
-        cellProps: () => ({ className: "text-gray" }),
-        render: (v) => {
-          const raw = v.customFields?.[f.id] ?? "";
-          const text = customFieldValueToText(f, raw);
-          if (!text.trim()) return null;
-          return (
-            <ClampedCell
-              tooltip={text}
-              clampLines={
-                f.type === "textarea" || f.type === "markdown" ? 2 : 1
-              }
-            >
-              {renderCustomFieldValue(f, raw)}
-            </ClampedCell>
-          );
-        },
-      })),
-      {
-        // The one column that absorbs leftover width, so a resize elsewhere
-        // only moves the columns to its right. Renders nothing.
-        id: "spacer",
-        label: "",
-        header: null,
-        locked: true,
-        resizable: false,
-        minWidth: 0,
-        render: () => null,
-      },
-      {
-        id: "actions",
-        label: "Row actions",
-        header: null,
-        locked: true,
-        resizable: false,
-        // Fixed, so the pinned column can't grow over the data it covers.
-        defaultWidth: 40,
-        minWidth: 40,
-        headerProps: { style: { paddingLeft: 4, paddingRight: 4 } },
-        cellProps: () => ({ style: { paddingLeft: 4, paddingRight: 4 } }),
-        render: (v) => (
-          <Flex justify="center">
-            <AttributeRowMenu
-              attribute={v}
-              onEdit={() => setModalData(v.property)}
-            />
-          </Flex>
-        ),
-      },
-    ],
+  const attributeColumns = useMemo(
+    () =>
+      buildAttributeColumns<AttributeRow>({
+        nameLabel: "Attribute",
+        customFields: attributeCustomFields,
+        onEdit: (v) => setModalData(v.property),
+        onConvertToIdentifier: (v) => setIdentifierModal({ existing: v }),
+      }),
     [attributeCustomFields],
   );
-
-  const {
-    columns,
-    visibleColumns,
-    colSpan,
-    hiddenCount,
-    isCustomized,
-    applySettings,
-    setWidth,
-    reset,
-    colRefs,
-    minTableWidth,
-    ColGroup,
-  } = useTableColumns({ storageKey: "attributes", columns: columnDefs });
-
-  // Lives in the empty row-actions header rather than the filter toolbar, which
-  // is for data filters.
-  const columnSettings = (
-    <Flex justify="center">
-      <ColumnSettingsButton
-        columns={columns
-          // Locked columns can't be hidden or moved, so listing them is noise.
-          .filter((c) => !c.locked)
-          .map((c) => ({
-            id: c.id,
-            label: c.label,
-            visible: c.visible,
-            alwaysVisible: c.hideable === false,
-          }))}
-        hiddenCount={hiddenCount}
-        canReset={isCustomized}
-        onReset={reset}
-        onChange={applySettings}
-        note="The Attribute column is always shown."
-      />
-    </Flex>
+  const identifierColumns = useMemo(
+    () =>
+      buildAttributeColumns<IdentifierRow>({
+        nameLabel: "Identifier",
+        customFields: attributeCustomFields,
+        onEdit: (v) => setIdentifierModal({ existing: v }),
+        extraColumns: [
+          {
+            id: "usedIn",
+            label: "Used in",
+            sortField: "usedIn",
+            defaultWidth: 130,
+            render: (v) =>
+              v.usedIn === undefined ? null : v.usedIn === 0 ? (
+                <Text color="text-low">Not used</Text>
+              ) : (
+                <Text color="text-mid">
+                  {[
+                    pluralize(v.experimentCount ?? 0, "experiment"),
+                    pluralize(v.featureCount ?? 0, "feature"),
+                  ]
+                    .filter(Boolean)
+                    .join(", ")}
+                </Text>
+              ),
+          },
+        ],
+      }),
+    [attributeCustomFields],
   );
-
-  const renderHeader = (col: ResolvedTableColumn<AttributeRow>) =>
-    col.id === "actions"
-      ? columnSettings
-      : col.header !== undefined
-        ? col.header
-        : col.label;
-
-  const renderResizeHandle = (col: ResolvedTableColumn<AttributeRow>) => {
-    if (col.resizable === false) return null;
-    const { min, max } = columnWidthBounds(col);
-    return (
-      <ColumnResizeHandle
-        label={col.label}
-        width={col.width}
-        minWidth={min}
-        maxWidth={max}
-        onCommit={(w) => setWidth(col.id, w)}
-        setLiveWidth={(w) => {
-          const el = colRefs.current.get(col.id);
-          if (!el) return;
-          el.style.width = `${w}px`;
-          // Move the floor with the drag, or the auto column squeezes mid-drag
-          // and snaps back to its minimum on release.
-          const committed = col.width ?? columnWidthBounds(col).min;
-          el.closest<HTMLElement>("[data-table-list]")?.style.setProperty(
-            "--table-min-width",
-            `${minTableWidth - committed + w}px`,
-          );
-        }}
-      />
-    );
-  };
 
   return (
     <>
@@ -652,7 +812,8 @@ const FeatureAttributesPage = (): React.ReactElement => {
                   <Badge label={String(identifiers.length)} color="gray" />
                 </Flex>
                 <Text as="div" color="text-low">
-                  Used to assign users to experiment variations.
+                  Used to assign users consistently in experiments and
+                  percentage rollouts.
                 </Text>
               </Box>
               {canCreateAttributes && identifiers.length > 0 && (
@@ -681,154 +842,18 @@ const FeatureAttributesPage = (): React.ReactElement => {
                     noun="identifiers"
                   />
                 </Flex>
-                <Table
-                  variant="list"
-                  roundedCorners
-                  layout="fixed"
-                  scrollX
-                  minTableWidth={IDENTIFIER_COLUMN_WIDTHS.reduce(
-                    (sum, w) => sum + w,
-                    0,
-                  )}
-                >
-                  <colgroup>
-                    {/* The spacer takes the leftover so description doesn't. */}
-                    {IDENTIFIER_COLUMN_WIDTHS.slice(0, -1).map((w, i) => (
-                      <col key={i} style={{ width: w }} />
-                    ))}
-                    <col />
-                    <col style={{ width: IDENTIFIER_COLUMN_WIDTHS.at(-1) }} />
-                  </colgroup>
-                  <TableHeader>
-                    <TableRow>
-                      <SortableIdentifierHeader field="property">
-                        Identifier
-                      </SortableIdentifierHeader>
-                      <SortableIdentifierHeader field="description">
-                        Description
-                      </SortableIdentifierHeader>
-                      <SortableIdentifierHeader field="datatype">
-                        Data Type
-                      </SortableIdentifierHeader>
-                      <TableColumnHeader>Projects</TableColumnHeader>
-                      <TableColumnHeader>Tags</TableColumnHeader>
-                      <SortableIdentifierHeader field="usedIn">
-                        Used in
-                      </SortableIdentifierHeader>
-                      <TableColumnHeader />
-                      <TableColumnHeader />
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {pagedIdentifiers.map((v) => {
-                      const experiments = v.usedIn;
-                      return (
-                        <TableRow key={v.property}>
-                          <TableCell>
-                            <Flex align="center" gap="2">
-                              <Link
-                                href={`/attributes/${encodeURIComponent(v.property)}`}
-                                style={{ color: "var(--gray-12)" }}
-                              >
-                                <Text mono weight="medium">
-                                  <TruncateMiddleWithTooltip
-                                    text={v.property}
-                                    maxChars={truncateCharsForWidth(200)}
-                                    maxWidth="100%"
-                                  />
-                                </Text>
-                              </Link>
-                              {v.archived && (
-                                <Badge label="Archived" color="gray" />
-                              )}
-                            </Flex>
-                          </TableCell>
-                          <TableCell>
-                            {v.description ? (
-                              <ClampedCell
-                                tooltip={v.description}
-                                clampLines={2}
-                              >
-                                <Markdown className="mb-0">
-                                  {v.description}
-                                </Markdown>
-                              </ClampedCell>
-                            ) : (
-                              <Text color="text-low">—</Text>
-                            )}
-                          </TableCell>
-                          <TableCell>
-                            <Text color="text-mid">{v.datatype}</Text>
-                          </TableCell>
-                          <TableCell>
-                            <ProjectBadges
-                              resourceType="attribute"
-                              projectIds={
-                                (v.projects || []).length > 0
-                                  ? v.projects
-                                  : undefined
-                              }
-                            />
-                          </TableCell>
-                          <TableCell>
-                            <div
-                              className="tags-cell-content"
-                              style={{
-                                minWidth: 0,
-                                maxWidth: "100%",
-                                overflow: "hidden",
-                              }}
-                            >
-                              <SortedTags
-                                tags={v.tags || []}
-                                useFlex={true}
-                                maxVisibleTags={1}
-                                truncateTagChars={15}
-                              />
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            {experiments === undefined ? null : experiments ===
-                              0 ? (
-                              <Text color="text-low">Not used</Text>
-                            ) : (
-                              <Text color="text-mid">
-                                {experiments}{" "}
-                                {experiments === 1
-                                  ? "experiment"
-                                  : "experiments"}
-                              </Text>
-                            )}
-                          </TableCell>
-                          <TableCell />
-                          <TableCell
-                            style={{ paddingLeft: 4, paddingRight: 4 }}
-                          >
-                            <Flex justify="center">
-                              <AttributeRowMenu
-                                attribute={v}
-                                onEdit={() =>
-                                  setIdentifierModal({ existing: v })
-                                }
-                              />
-                            </Flex>
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })}
-                    {pagedIdentifiers.length === 0 && (
-                      <TableRow>
-                        <TableCell colSpan={8}>
-                          <Text color="text-low">
-                            {identifiersFiltered
-                              ? "No identifiers match this search."
-                              : "All identifiers are archived. Show them with More > Archived identifiers."}
-                          </Text>
-                        </TableCell>
-                      </TableRow>
-                    )}
-                  </TableBody>
-                </Table>
+                <AttributeColumnsTable
+                  storageKey="identifiers"
+                  columnDefs={identifierColumns}
+                  rows={pagedIdentifiers}
+                  SortableHeader={SortableIdentifierHeader}
+                  emptyMessage={
+                    identifiersFiltered
+                      ? "No identifiers match this search."
+                      : "All identifiers are archived. Show them with More > Archived identifiers."
+                  }
+                  note="The Identifier column is always shown."
+                />
                 {sortedIdentifiers.length > PAGE_SIZE && (
                   <Box mt="3">
                     <Pagination
@@ -894,76 +919,16 @@ const FeatureAttributesPage = (): React.ReactElement => {
                     />
                   </Flex>
                 </Box>
-                <Table
-                  variant="list"
-                  stickyHeader
-                  roundedCorners
-                  layout="fixed"
-                  scrollX
-                  stickyLastColumn
-                  minTableWidth={minTableWidth}
-                >
-                  <ColGroup />
-                  <TableHeader>
-                    <TableRow>
-                      {visibleColumns.map((col) =>
-                        col.sortField ? (
-                          <SortableTableColumnHeader
-                            key={col.id}
-                            field={col.sortField}
-                            className={col.headerProps?.className}
-                            style={{
-                              textAlign: col.align,
-                              ...col.headerProps?.style,
-                            }}
-                            endAdornment={renderResizeHandle(col)}
-                          >
-                            {renderHeader(col)}
-                          </SortableTableColumnHeader>
-                        ) : (
-                          <TableColumnHeader
-                            key={col.id}
-                            className={col.headerProps?.className}
-                            style={{
-                              textAlign: col.align,
-                              ...col.headerProps?.style,
-                            }}
-                          >
-                            {renderHeader(col)}
-                            {renderResizeHandle(col)}
-                          </TableColumnHeader>
-                        ),
-                      )}
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredAttributes.map((v) => (
-                      <TableRow key={"attr-row-" + v.property}>
-                        {visibleColumns.map((col) => {
-                          const { className, style } = col.cellProps?.(v) ?? {};
-                          return (
-                            <TableCell
-                              key={col.id}
-                              className={className}
-                              style={style}
-                            >
-                              {col.render(v, col.width)}
-                            </TableCell>
-                          );
-                        })}
-                      </TableRow>
-                    ))}
-                    {!filteredAttributes.length && isFiltered && (
-                      <TableRow>
-                        <TableCell colSpan={colSpan}>
-                          <Text color="text-low">
-                            No attributes match this search.
-                          </Text>
-                        </TableCell>
-                      </TableRow>
-                    )}
-                  </TableBody>
-                </Table>
+                <AttributeColumnsTable
+                  storageKey="attributes"
+                  columnDefs={attributeColumns}
+                  rows={filteredAttributes}
+                  SortableHeader={SortableTableColumnHeader}
+                  emptyMessage={
+                    isFiltered ? "No attributes match this search." : null
+                  }
+                  note="The Attribute column is always shown."
+                />
                 {sortedAttributes.length > PAGE_SIZE && (
                   <Box mt="3">
                     <Pagination

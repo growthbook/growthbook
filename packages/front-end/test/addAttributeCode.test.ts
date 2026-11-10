@@ -44,6 +44,22 @@ describe("getAddAttributeCode", () => {
     );
   });
 
+  it("writes Flutter attributes as a Dart map", () => {
+    const result = getAddAttributeCode("flutter", "address.country", {
+      nested: true,
+    });
+    expect(result?.snippet.code).toBe(
+      [
+        "gb.setAttributes({",
+        "  // ...your other attributes",
+        '  "address": {',
+        '    "country": "foo"',
+        "  }",
+        "});",
+      ].join("\n"),
+    );
+  });
+
   it("keeps a nested object intact when Node.js substitutes request values", () => {
     const result = getAddAttributeCode("nodejs", "query.campaign", {
       nested: true,

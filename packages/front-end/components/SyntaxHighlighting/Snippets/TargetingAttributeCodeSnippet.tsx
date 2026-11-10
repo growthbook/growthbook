@@ -272,15 +272,7 @@ growthBook.setAttributes(userAttributesJson);
   if (language === "flutter") {
     return {
       language: "dart",
-      code: `
-val attrs = HashMap<String, Any>()
-${Object.entries(exampleAttributes)
-  .map(([key, value]) => {
-    return `attrs.put(${JSON.stringify(key)}, ${JSON.stringify(value)})`;
-  })
-  .join("\n")}
-gb.setAttributes(attrs);
-`.trim(),
+      code: `gb.setAttributes(${format(exampleAttributes)});`,
     };
   }
   if (language === "csharp") {

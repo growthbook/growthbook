@@ -3,6 +3,8 @@ import { z } from "zod";
 export const postIdentifierValidator = z.strictObject({
   property: z.string().min(1, "Attribute property cannot be empty"),
   datatype: z.enum(["string", "number", "secureString"]),
+  format: z.enum(["", "version", "date", "isoCountryCode"]).optional(),
+  disableEqualityConditions: z.boolean().optional(),
   description: z.string().optional(),
   tags: z.array(z.string()).optional(),
   customFields: z.record(z.string(), z.string()).optional(),

@@ -221,6 +221,10 @@ export const postIdentifier = async (
     ...attributeFields,
     customFields: customFields ?? {},
     hashAttribute: true,
+    ...(attributeFields.datatype !== "string" && {
+      format: "",
+      disableEqualityConditions: false,
+    }),
   };
   if (!context.permissions.canCreateAttribute(attribute)) {
     context.permissions.throwPermissionError();
@@ -261,16 +265,13 @@ export const putIdentifier = async (
   if (!existing) {
     return context.throwNotFoundError("Attribute not found");
   }
-  if (!existing.hashAttribute) {
-    context.throwBadRequestError(`${existing.property} isn't an identifier`);
-  }
 
   const targets = await getIdentifierLinkTargets(context, links);
 
   // Links point at the attribute by name, so a rename moves them along.
   const renamedFrom =
     previousName && previousName !== property ? previousName : null;
-  const renamed: DataSourceInterface[] = [];
+  const linkedDatasources: DataSourceInterface[] = [];
   if (renamedFrom && !usingFileConfig()) {
     // Includes Data Sources the user can't read, whose links would otherwise
     // keep the old name without anyone noticing.
@@ -283,14 +284,14 @@ export const putIdentifier = async (
         ) &&
         !(await syncsIdentifiersAutomatically(context, d))
       ) {
-        renamed.push(d);
+        linkedDatasources.push(d);
       }
     }
   }
   // Renaming without moving every link would leave those links pointing at a
   // name that no longer exists.
   if (
-    renamed.some(
+    linkedDatasources.some(
       (d) => !context.permissions.canReadMultiProjectResource(d.projects),
     )
   ) {
@@ -298,7 +299,7 @@ export const putIdentifier = async (
       `Can't rename ${renamedFrom}: it's linked in a Data Source you don't have access to`,
     );
   }
-  const locked = renamed.filter(
+  const locked = linkedDatasources.filter(
     (d) => !context.permissions.canUpdateDataSourceSettings(d),
   );
   if (locked.length > 0) {
@@ -311,7 +312,10 @@ export const putIdentifier = async (
 
   await updateAttribute(req, context, {
     ...attributeFields,
+    // Also converts a targeting attribute into an identifier.
     hashAttribute: true,
+    // Enum options don't apply to an identifier's data types.
+    ...(existing.enum && { enum: "" }),
     // String-only settings would otherwise survive a change to number and
     // keep restricting its targeting operators.
     ...(attributeFields.datatype !== "string" && {
@@ -327,13 +331,14 @@ export const putIdentifier = async (
       update: (userIdTypes: UserIdType[]) => UserIdType[];
     }
   >();
-  for (const datasource of renamed) {
-    if (!renamedFrom) continue;
-    updates.set(datasource.id, {
-      datasource,
-      update: (types) =>
-        renameAttributeInUserIdTypes(types, renamedFrom, property),
-    });
+  if (renamedFrom) {
+    for (const datasource of linkedDatasources) {
+      updates.set(datasource.id, {
+        datasource,
+        update: (types) =>
+          renameAttributeInUserIdTypes(types, renamedFrom, property),
+      });
+    }
   }
   for (const { datasource, userIdType } of targets) {
     const rename = updates.get(datasource.id)?.update;
@@ -559,7 +564,7 @@ type AttributeReferencesMap = Record<
 /**
  * GET /attribute/references?ids=attr1,attr2
  * Returns features, experiments, and condition groups that reference each requested attribute key.
- * Walks rule/phase condition JSON and checks hashAttribute on experiments.
+ * Walks rule/phase condition JSON and checks hashAttribute on rules and experiments.
  */
 export const getAttributeReferences = async (
   req: AuthRequest<null, Record<string, never>, { ids?: string }>,
@@ -597,17 +602,24 @@ export const getAttributeReferences = async (
   for (let i = 0; i < allFeatures.length; i++) {
     await yieldEventLoop(i);
     const feature = allFeatures[i];
+    const addFeature = (key: string) => {
+      if (!keySet.has(key)) return;
+      featureRefs.get(key)!.set(feature.id, {
+        id: feature.id,
+        name: feature.id,
+        project: feature.project,
+      });
+    };
     for (const rule of feature.rules ?? []) {
+      // Rollout, Safe Rollout and inline experiment rules bucket on these.
+      if ("hashAttribute" in rule) addFeature(rule.hashAttribute);
+      if ("fallbackAttribute" in rule && rule.fallbackAttribute) {
+        addFeature(rule.fallbackAttribute);
+      }
       try {
         const parsed = JSON.parse(rule.condition ?? "{}");
         for (const nodeKey of extractConditionAttributeKeys(parsed)) {
-          if (keySet.has(nodeKey)) {
-            featureRefs.get(nodeKey)!.set(feature.id, {
-              id: feature.id,
-              name: feature.id,
-              project: feature.project,
-            });
-          }
+          addFeature(nodeKey);
         }
       } catch {
         // ignore unparseable conditions

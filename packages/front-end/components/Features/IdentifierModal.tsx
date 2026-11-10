@@ -1,7 +1,11 @@
 import { useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
-import { SDKAttribute, SDKAttributeType } from "shared/types/organization";
+import {
+  SDKAttribute,
+  SDKAttributeFormat,
+  SDKAttributeType,
+} from "shared/types/organization";
 import { getDefaultProjectsForNewResource } from "shared/demo-datasource";
 import {
   attributeMatchesDatasourceProjects,
@@ -24,7 +28,6 @@ import Checkbox from "@/ui/Checkbox";
 import Text from "@/ui/Text";
 import HelperText from "@/ui/HelperText";
 import Badge from "@/ui/Badge";
-import Callout from "@/ui/Callout";
 import Table, {
   TableBody,
   TableCell,
@@ -33,7 +36,15 @@ import Table, {
   TableRow,
 } from "@/ui/Table";
 import AttributeFormLayout, {
+  AdvancedSettings,
   DescriptionField,
+  RenameWarning,
+  isSecureDatatype,
+  STRING_FORMATS,
+  StringFormatField,
+  ATTRIBUTE_DATA_TYPES,
+  DataTypeField,
+  IDENTIFIER_DATA_TYPES,
 } from "@/components/Features/AttributeFormLayout";
 import { Select, SelectItem, SelectSeparator } from "@/ui/Select";
 import TagsInput from "@/components/Tags/TagsInput";
@@ -44,15 +55,8 @@ const PLACEHOLDER_NAME = "userId";
 // Select value for creating a type named after the identifier.
 const NEW_TYPE = "__new__";
 
-// The data types an attribute can be a unique identifier with.
-const IDENTIFIER_DATATYPES: { value: SDKAttributeType; label: string }[] = [
-  { value: "string", label: "String" },
-  { value: "number", label: "Number" },
-  { value: "secureString", label: "Secure string" },
-];
-
 // These rebuild their identifier types from the attribute schema on their own.
-function syncsIdentifiersAutomatically(
+export function syncsIdentifiersAutomatically(
   datasource: DataSourceInterfaceWithParams,
 ) {
   return (
@@ -90,6 +94,8 @@ export default function IdentifierModal({
   const { apiCall, orgId } = useAuth();
   const permissionsUtil = usePermissionsUtil();
   const isEdit = !!existing;
+  // Editing a targeting attribute here turns it into an identifier.
+  const converting = !!existing && !existing.hashAttribute;
 
   const [name, setName] = useState(existing?.property ?? "");
   // The name once the user leaves the field. Data Source defaults follow this
@@ -107,6 +113,12 @@ export default function IdentifierModal({
   const [datatype, setDatatype] = useState<SDKAttributeType>(
     existing?.datatype ?? "string",
   );
+  const [format, setFormat] = useState<SDKAttributeFormat>(
+    existing?.format ?? "",
+  );
+  const [disableEqualityConditions, setDisableEqualityConditions] = useState(
+    !!existing?.disableEqualityConditions,
+  );
   const [tags, setTags] = useState<string[]>(existing?.tags ?? []);
   const [description, setDescription] = useState(existing?.description ?? "");
   const [customFields, setCustomFields] = useState<Record<string, string>>(
@@ -121,9 +133,6 @@ export default function IdentifierModal({
     renamed ? [existing.property] : [],
   );
   const refs = existing ? references?.[existing.property] : undefined;
-  const refCount = refs
-    ? refs.features.length + refs.experiments.length + refs.savedGroups.length
-    : 0;
 
   const projectOptions = useProjectOptions(
     (p) =>
@@ -208,21 +217,53 @@ export default function IdentifierModal({
     });
   const links = settledName ? linksFor(settledName) : [];
 
+  const setChecked = (d: DataSourceInterfaceWithParams, v: boolean) => {
+    if (isEdit) {
+      setPicks((p) => {
+        const next = { ...p };
+        if (v) next[d.id] = pickOnCheck(d);
+        else delete next[d.id];
+        return next;
+      });
+    } else {
+      setUncheckedIds((ids) =>
+        v ? ids.filter((id) => id !== d.id) : [...ids, d.id],
+      );
+      if (v && pickFor(d) === null) {
+        setPicks((p) => ({ ...p, [d.id]: pickOnCheck(d) }));
+      }
+    }
+  };
+  const selectable = mappable.filter((d) => canEdit(d) && !linkedType(d));
+  const selectedCount = selectable.filter(isChecked).length;
+
   const shownTypes = [
     ...new Set([
       ...mappable.flatMap((d) => linkedType(d) ?? []),
-      ...links.map((l) => l.userIdType).filter(Boolean),
+      ...links.map((l) => l.userIdType),
     ]),
   ];
 
   return (
     <ModalStandard
       open={true}
-      header={isEdit ? "Edit Identifier" : "Add Identifier"}
-      cta={isEdit ? "Save" : "Add Identifier"}
+      header={
+        converting
+          ? "Convert to Identifier"
+          : isEdit
+            ? "Edit Identifier"
+            : "Add Identifier"
+      }
+      cta={converting ? "Convert" : isEdit ? "Save" : "Add Identifier"}
       size="xl"
       ctaEnabled={canSave && !!name.trim() && lockedLinks.length === 0}
-      trackingEventModalType={isEdit ? "edit-identifier" : "add-identifier"}
+      trackingEventModalType={
+        converting
+          ? "convert-to-identifier"
+          : isEdit
+            ? "edit-identifier"
+            : "add-identifier"
+      }
       trackingEventModalSource={source}
       close={close}
       submit={async () => {
@@ -235,6 +276,12 @@ export default function IdentifierModal({
               property,
               ...(renamed && { previousName: existing.property }),
               datatype,
+              // Same rules as the Attribute modal: string-only, and a format
+              // replaces equality comparisons with its own operators.
+              ...(datatype === "string" && {
+                format,
+                disableEqualityConditions: !format && disableEqualityConditions,
+              }),
               description,
               tags,
               ...(availableCustomFields.length > 0 && {
@@ -260,7 +307,14 @@ export default function IdentifierModal({
           <>
             <AddAttributeSnippet
               property={newProperty}
-              value={datatype === "number" ? 123 : "foo"}
+              value={
+                datatype === "number"
+                  ? 123
+                  : datatype === "string"
+                    ? (STRING_FORMATS.find((f) => f.value === format)
+                        ?.example ?? "foo")
+                    : "foo"
+              }
               projects={projects}
             />
             {shownTypes.length > 0 && (
@@ -268,18 +322,20 @@ export default function IdentifierModal({
                 <Flex align="center" gap="2">
                   <PiDatabase />
                   <Text weight="semibold" color="text-mid">
-                    In your assignment queries &amp; fact tables
+                    In your Data Sources
                   </Text>
                 </Flex>
                 <Text size="sm">
-                  When you set up an assignment query or fact table, map{" "}
+                  Each Data Source links <code>{newProperty}</code> to an
+                  identifier type (
                   {shownTypes.map((t, i) => (
                     <span key={t}>
-                      {i > 0 && (i === shownTypes.length - 1 ? " and " : ", ")}
+                      {i > 0 && (i === shownTypes.length - 1 ? " or " : ", ")}
                       <code>{t}</code>
                     </span>
-                  ))}{" "}
-                  to the column that holds it. The column can have any name.
+                  ))}
+                  ). Its assignment queries and fact tables then map that type
+                  to the column holding it, which can have any name.
                 </Text>
               </Flex>
             )}
@@ -309,35 +365,34 @@ export default function IdentifierModal({
           }
         />
         {renamed && (
-          <Callout status="warning">
-            Renaming doesn&apos;t update targeting that uses{" "}
-            <code>{existing.property}</code>
-            {refCount > 0 &&
-              ` (${refCount} ${refCount === 1 ? "reference" : "references"})`}
-            . It keeps using the old name until you change it.
-          </Callout>
+          <RenameWarning
+            references={refs}
+            hasJsonManagedWarehouse={datasources.some(
+              (d) =>
+                d.type === "growthbook_clickhouse" &&
+                !!d.settings.useJsonColumns,
+            )}
+            secure={isSecureDatatype(existing.datatype)}
+            identifier
+          />
         )}
         <DescriptionField
           value={description}
           setValue={setDescription}
           placeholder="Where this value comes from, e.g. set at login from the account ID"
         />
-        <Select
-          label="Data type"
+        <DataTypeField
           value={datatype}
-          setValue={(v) =>
-            setDatatype(
-              IDENTIFIER_DATATYPES.find((d) => d.value === v)?.value ??
-                "string",
-            )
-          }
-        >
-          {IDENTIFIER_DATATYPES.map((d) => (
-            <SelectItem key={d.value} value={d.value}>
-              {d.label}
-            </SelectItem>
-          ))}
-        </Select>
+          setValue={setDatatype}
+          options={ATTRIBUTE_DATA_TYPES.filter((d) =>
+            IDENTIFIER_DATA_TYPES.includes(d.value),
+          )}
+        />
+        {datatype === "string" && (
+          <Box pl="4" style={{ borderLeft: "2px solid var(--gray-a5)" }}>
+            <StringFormatField value={format} setValue={setFormat} />
+          </Box>
+        )}
         <MultiSelectField
           label="Projects"
           size="md"
@@ -367,7 +422,7 @@ export default function IdentifierModal({
         {fileConfig && shown.length > 0 && (
           <Box>
             <Text weight="semibold">Data Sources</Text>
-            <Text as="div" size="sm" color="text-low">
+            <Text as="div" size="sm" color="text-mid">
               Data Sources are managed in <code>config.yml</code>, so this
               identifier isn&apos;t linked to them here.
             </Text>
@@ -377,7 +432,7 @@ export default function IdentifierModal({
           <Flex direction="column" gap="2">
             <Box>
               <Text weight="semibold">Data Sources</Text>
-              <Text as="div" size="sm" color="text-low">
+              <Text as="div" size="sm" color="text-mid">
                 {isEdit ? (
                   <>
                     Link this identifier in more Data Sources so experiments
@@ -397,7 +452,28 @@ export default function IdentifierModal({
               <Table variant="surface" size="sm">
                 <TableHeader>
                   <TableRow>
-                    <TableColumnHeader>Data Source</TableColumnHeader>
+                    <TableColumnHeader>
+                      {selectable.length > 1 ? (
+                        <Checkbox
+                          label="Data Source"
+                          weight="medium"
+                          value={
+                            selectedCount === selectable.length
+                              ? true
+                              : selectedCount > 0
+                                ? "indeterminate"
+                                : false
+                          }
+                          setValue={(v) =>
+                            selectable
+                              .filter((d) => isChecked(d) !== v)
+                              .forEach((d) => setChecked(d, v))
+                          }
+                        />
+                      ) : (
+                        "Data Source"
+                      )}
+                    </TableColumnHeader>
                     <TableColumnHeader style={{ width: 240 }}>
                       Identifier type
                     </TableColumnHeader>
@@ -445,28 +521,7 @@ export default function IdentifierModal({
                                 ? `Linked as ${linked}. Change it from the Data Source.`
                                 : "You don't have permission to edit this Data Source"
                             }
-                            setValue={(v) => {
-                              if (isEdit) {
-                                setPicks((p) => {
-                                  const next = { ...p };
-                                  if (v) next[d.id] = pickOnCheck(d);
-                                  else delete next[d.id];
-                                  return next;
-                                });
-                              } else {
-                                setUncheckedIds((ids) =>
-                                  v
-                                    ? ids.filter((id) => id !== d.id)
-                                    : [...ids, d.id],
-                                );
-                                if (v && pickFor(d) === null) {
-                                  setPicks((p) => ({
-                                    ...p,
-                                    [d.id]: pickOnCheck(d),
-                                  }));
-                                }
-                              }
-                            }}
+                            setValue={(v) => setChecked(d, v)}
                           />
                         </TableCell>
                         <TableCell>
@@ -522,6 +577,12 @@ export default function IdentifierModal({
               </HelperText>
             )}
           </Flex>
+        )}
+        {datatype === "string" && !format && (
+          <AdvancedSettings
+            disableEqualityConditions={disableEqualityConditions}
+            setDisableEqualityConditions={setDisableEqualityConditions}
+          />
         )}
       </AttributeFormLayout>
     </ModalStandard>
