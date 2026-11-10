@@ -736,6 +736,14 @@ export default function FeaturesOverviewNew({
       Add prerequisite
     </Flex>
   );
+  const openAddPrerequisite = () => {
+    if (!hasPrerequisitesCommercialFeature) return;
+    setPrerequisiteModal({ i: getPrerequisites(feature).length });
+    track("Viewed prerequisite feature modal", {
+      entity_id_hash: entityTrackingHash(feature.id),
+      source: "add-prerequisite",
+    });
+  };
   const addPrerequisite =
     canEditDrafts && showsControls ? (
       lockReason ? (
@@ -748,16 +756,7 @@ export default function FeaturesOverviewNew({
         <PremiumTooltip commercialFeature="prerequisites">
           <Link
             aria-disabled={!hasPrerequisitesCommercialFeature}
-            onClick={() => {
-              if (!hasPrerequisitesCommercialFeature) return;
-              setPrerequisiteModal({
-                i: getPrerequisites(feature).length,
-              });
-              track("Viewed prerequisite feature modal", {
-                entity_id_hash: entityTrackingHash(feature.id),
-                source: "add-prerequisite",
-              });
-            }}
+            onClick={openAddPrerequisite}
             style={
               hasPrerequisitesCommercialFeature
                 ? undefined
@@ -767,6 +766,26 @@ export default function FeaturesOverviewNew({
             {addPrerequisiteLabel}
           </Link>
         </PremiumTooltip>
+      )
+    ) : null;
+  const environmentActions =
+    canEditDrafts && showsControls ? (
+      lockReason ? (
+        <LockedRowMenu style={{ margin: 0 }} />
+      ) : (
+        <DropdownMenu
+          trigger={<MoreMenuTrigger label="Environment actions" />}
+          menuPlacement="end"
+        >
+          <DropdownMenuItem
+            disabled={!hasPrerequisitesCommercialFeature}
+            onClick={openAddPrerequisite}
+          >
+            <PremiumTooltip commercialFeature="prerequisites">
+              Add prerequisite
+            </PremiumTooltip>
+          </DropdownMenuItem>
+        </DropdownMenu>
       )
     ) : null;
 
@@ -872,9 +891,12 @@ export default function FeaturesOverviewNew({
           title="Environments"
           mb="5"
           actions={
-            showFeatureUsage ? (
-              <FeatureUsageSparkline valueType={feature.valueType} />
-            ) : null
+            <Flex align="center" gap="3">
+              {showFeatureUsage ? (
+                <FeatureUsageSparkline valueType={feature.valueType} />
+              ) : null}
+              {environmentActions}
+            </Flex>
           }
         >
           {environments.length > 0 ? (
@@ -924,8 +946,6 @@ export default function FeaturesOverviewNew({
               actions={prerequisiteActions}
               add={addPrerequisite}
             />
-          ) : addPrerequisite ? (
-            <Box mt="5">{addPrerequisite}</Box>
           ) : null}
 
           {envError ? (
