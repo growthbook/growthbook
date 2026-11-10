@@ -880,7 +880,10 @@ export function getManagedWarehouseContextualBanditTargetingAttributes(
     const topLevelColumn = SDK_TOP_LEVEL_ATTRIBUTE_COLUMNS.get(property);
     if (topLevelColumn) {
       seen.add(property);
-      out.push({ property, selectExpr: `${topLevelColumn} AS ${property}` });
+      out.push({
+        property,
+        selectExpr: `nullIf(${topLevelColumn}, '') AS ${property}`,
+      });
       continue;
     }
     if (RESERVED_TOP_LEVEL_ATTRIBUTE_KEYS.has(property)) continue;

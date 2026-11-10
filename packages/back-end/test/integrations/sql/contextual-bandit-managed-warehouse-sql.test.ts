@@ -101,7 +101,7 @@ describe("managed warehouse contextual bandit units query (ClickHouse)", () => {
       expect(c).toContain(`ASattr_cb_${col}`);
     });
     expect(c).toContain("attributes.country::Nullable(String)AScountry");
-    expect(c).toContain("utm_sourceASutmSource");
+    expect(c).toContain("nullIf(utm_source,'')ASutmSource");
     expect(c).not.toContain("ASplan");
     expect(c).not.toContain("ASurl");
   });

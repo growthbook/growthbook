@@ -451,9 +451,18 @@ describe("getManagedWarehouseContextualBanditTargetingAttributes", () => {
     expect(
       getManagedWarehouseContextualBanditTargetingAttributes(schema),
     ).toEqual([
-      { property: "pageTitle", selectExpr: "page_title AS pageTitle" },
-      { property: "utmCampaign", selectExpr: "utm_campaign AS utmCampaign" },
-      { property: "utmSource", selectExpr: "utm_source AS utmSource" },
+      {
+        property: "pageTitle",
+        selectExpr: "nullIf(page_title, '') AS pageTitle",
+      },
+      {
+        property: "utmCampaign",
+        selectExpr: "nullIf(utm_campaign, '') AS utmCampaign",
+      },
+      {
+        property: "utmSource",
+        selectExpr: "nullIf(utm_source, '') AS utmSource",
+      },
     ]);
   });
 
@@ -517,7 +526,10 @@ describe("getManagedWarehouseContextualBanditTargetingAttributes", () => {
         property: "tags",
         selectExpr: "attributes.tags::Nullable(String) AS tags",
       },
-      { property: "utmSource", selectExpr: "utm_source AS utmSource" },
+      {
+        property: "utmSource",
+        selectExpr: "nullIf(utm_source, '') AS utmSource",
+      },
     ]);
   });
 
@@ -574,14 +586,14 @@ describe("buildManagedWarehouseContextualBanditQueries", () => {
     expect(cbQuery.query).toContain(
       "attributes.country::Nullable(String) AS country",
     );
-    expect(cbQuery.query).toContain("utm_source AS utmSource");
+    expect(cbQuery.query).toContain("nullIf(utm_source, '') AS utmSource");
     expect(cbQuery.query).not.toContain("AS plan");
     expect(cbQuery.query).not.toContain("AS url");
     expect(cbQuery.query).toContain("FROM experiment_views");
     expect(cbQuery.query).toContain("experiment_id LIKE '{{ experimentId }}'");
     expect(
       cbQuery.query.replace(
-        ",\n  attributes.country::Nullable(String) AS country,\n  utm_source AS utmSource",
+        ",\n  attributes.country::Nullable(String) AS country,\n  nullIf(utm_source, '') AS utmSource",
         "",
       ),
     ).toBe(exposureQuery.query);
