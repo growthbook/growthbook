@@ -11,7 +11,10 @@ import {
   redshiftDialect,
   mysqlDialect,
 } from "shared/dialects";
-import { getColumnsTopValuesQuery } from "back-end/src/integrations/sql/queries/columns-top-values-query";
+import {
+  getColumnsTopValuesQuery,
+  parseColumnTopValuesRows,
+} from "back-end/src/integrations/sql/queries/columns-top-values-query";
 
 function makeColumn(column: string): ColumnInterface {
   return {
@@ -74,7 +77,12 @@ function registerSharedTopValuesTests(dialect: SqlDialect) {
     expect(sql).toMatch(/column_name/i);
     expect(sql).toMatch(/\bvalue\b/i);
     expect(sql).toMatch(/\bcount\b/i);
-    expect(sql).toMatch(/ORDER BY\s+column_name,\s*count DESC/i);
+    // ClickHouse's topK has no counts, so it orders by its own rank
+    expect(sql).toMatch(
+      dialect.approxTopValuesRankColumn
+        ? /ORDER BY\s+column_name,\s*rank DESC/i
+        : /ORDER BY\s+column_name,\s*count DESC/i,
+    );
     expect(sql).toMatch(
       /SELECT\s+column_name,\s*value,\s*count\s+FROM\s+__topValues/i,
     );
@@ -186,14 +194,36 @@ describe("getColumnsTopValuesQuery — exact fallback path", () => {
 });
 
 describe("getColumnsTopValuesQuery — needsCounts", () => {
-  it("uses the exact query where the approximate one only ranks", () => {
-    const sql = buildSql(clickHouseDialect, { needsCounts: true });
-    expect(sql).toMatch(/GROUP BY/i);
-    expect(sql).not.toMatch(/topK/);
+  it("runs the exact aggregate instead of an approximate query", () => {
+    [clickHouseDialect, snowflakeDialect].forEach((dialect) => {
+      const sql = buildSql(dialect, { needsCounts: true });
+      expect(sql).toMatch(/GROUP BY/i);
+      expect(sql).not.toMatch(/topK|APPROX_TOP_K/i);
+      expect(sql).toMatch(/ORDER BY\s+column_name,\s*count DESC/i);
+    });
   });
+});
 
-  it("keeps an approximate query that returns counts", () => {
-    const sql = buildSql(snowflakeDialect, { needsCounts: true });
-    expect(sql).toMatch(/APPROX_TOP_K/i);
+describe("ClickHouse topK", () => {
+  it("returns no frequency, only a rank to order by", () => {
+    const sql = buildSql(clickHouseDialect);
+    expect(sql).toMatch(/CAST\(NULL AS Nullable\(Int64\)\) AS count/);
+    expect(sql).toMatch(/AS rank/);
+  });
+});
+
+describe("parseColumnTopValuesRows", () => {
+  it("keeps a count only when it is a real number", () => {
+    expect(
+      parseColumnTopValuesRows([
+        { column_name: "country", value: "US", count: "12" },
+        { column_name: "country", value: "CA", count: null },
+        { column_name: "country", value: "MX" },
+      ]),
+    ).toEqual([
+      { column: "country", value: "US", count: 12 },
+      { column: "country", value: "CA" },
+      { column: "country", value: "MX" },
+    ]);
   });
 });

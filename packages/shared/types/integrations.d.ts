@@ -349,7 +349,7 @@ export type ColumnTopValuesParams = {
   lookbackDays: number;
   maxValueLength?: number;
   searchTerm?: string;
-  // Skips an approximate query that can only rank values (ClickHouse topK)
+  // Runs the exact aggregate instead of an approximate query, for counts
   needsCounts?: boolean;
 };
 

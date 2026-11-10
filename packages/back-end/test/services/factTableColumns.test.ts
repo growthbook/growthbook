@@ -209,7 +209,7 @@ describe("runColumnsTopValueCountsQuery", () => {
     jest.clearAllMocks();
   });
 
-  it("asks for real counts in both the query and the result", async () => {
+  it("asks the query for exact counts", async () => {
     const getColumnsTopValuesQuery = jest
       .fn()
       .mockReturnValue("SELECT top_values");
@@ -249,7 +249,6 @@ describe("runColumnsTopValueCountsQuery", () => {
     expect(runColumnsTopValuesQuery).toHaveBeenCalledWith(
       "SELECT top_values",
       "ftb_1",
-      true,
     );
     expect(result).toEqual({ country: [{ value: "US", count: 3 }] });
   });

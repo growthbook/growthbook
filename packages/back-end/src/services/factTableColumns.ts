@@ -127,7 +127,7 @@ export async function runColumnsTopValueCountsQuery(
   options?: {
     limit?: number;
     searchTerm?: string;
-    // Real counts even where the fast query only ranks values
+    // Runs the exact aggregate instead of an approximate query, for counts
     needsCounts?: boolean;
   },
 ): Promise<Record<string, RankedValue[]>> {
@@ -168,11 +168,7 @@ export async function runColumnsTopValueCountsQuery(
     searchTerm: options?.searchTerm,
     needsCounts: options?.needsCounts,
   });
-  const result = await integration.runColumnsTopValuesQuery(
-    sql,
-    factTable.id,
-    options?.needsCounts,
-  );
+  const result = await integration.runColumnsTopValuesQuery(sql, factTable.id);
 
   // Group results by column name
   const columnValues: Record<string, RankedValue[]> = {};

@@ -330,8 +330,6 @@ export interface SourceIntegrationInterface<
   runColumnsTopValuesQuery?(
     sql: string,
     factTableId: string | null,
-    // The SQL was built with needsCounts, so its counts are real
-    needsCounts?: boolean,
   ): Promise<ColumnTopValuesResponse>;
   getColumnsTopValuesQuery?: (params: ColumnTopValuesParams) => string;
   getEventsTrackedByDatasource?: (
