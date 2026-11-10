@@ -16,7 +16,6 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import {
   generateUniqueValueName,
   getShowAsChoice,
-  getValueName,
   MetricMixClass,
 } from "@/enterprise/components/ProductAnalytics/util";
 import {
@@ -180,7 +179,7 @@ export default function MetricTabContent() {
                     updateValueInDataset(idx, { ...v, showAs: next })
                   }
                   unit={v.unit}
-                  metricName={getValueName(v, idx)}
+                  metricName={v.name.trim() || `Metric ${idx + 1}`}
                 />
               )
             }

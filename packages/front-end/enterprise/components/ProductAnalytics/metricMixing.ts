@@ -135,22 +135,20 @@ export function getUnitPicker(
   { unit, isMixed, options }: MetricValuesUnitState,
   getFactMetricById: (id: string) => FactMetricInterface | null,
 ): UnitPicker | null {
-  const unitSelectableCount = values.filter((value) =>
+  const someMetricSupportsUnitSelection = values.some((value) =>
     metricSupportsUnitSelection(getFactMetricById(value.metricId)),
-  ).length;
-  if (!unitSelectableCount) return null;
+  );
+  if (!someMetricSupportsUnitSelection) return null;
 
-  const noOptionsReason =
-    unitSelectableCount === 1
-      ? "This metric's Fact Table has no identifier types."
-      : "These metrics' Fact Tables share no identifier type. Remove or change a metric to pick one.";
   return {
     value: unit,
     placeholder: isMixed
       ? "Mixed identifier types"
       : "Select identifier type...",
     options,
-    disabledReason: options.length ? null : noOptionsReason,
+    disabledReason: options.length
+      ? null
+      : "These metrics' Fact Tables share no identifier type. Remove or change a metric to pick one.",
   };
 }
 

@@ -6,7 +6,6 @@ import type {
   ProductAnalyticsExploration,
   ProductAnalyticsResultRow,
 } from "shared/validators";
-import { datasetHasValues } from "shared/validators";
 import {
   calculateProductAnalyticsDateRange,
   getComparisonAlignmentStrategy,
@@ -27,7 +26,6 @@ import {
   getExplorationRenderOpts,
   buildExplorationColumns,
   getExplorationCellValue,
-  getValueName,
   formatDateByGranularity,
   formatDurationMs,
   getFunnelStepDisplayLabel,
@@ -661,12 +659,10 @@ export default function useExplorationTableData(
         continue;
       }
       const ds = submittedExploreState?.dataset;
-      const value = datasetHasValues(ds)
-        ? ds.values[col.metricIndex]
-        : undefined;
-      const metricName = value
-        ? getValueName(value, col.metricIndex)
-        : col.label;
+      const metricName =
+        (ds && ds.type !== "funnel" && ds.type !== "journey"
+          ? ds.values?.[col.metricIndex]?.name
+          : undefined) ?? col.label;
       if (col.sub === "numerator") {
         row1.push({ label: metricName, colSpan: 3 });
       }

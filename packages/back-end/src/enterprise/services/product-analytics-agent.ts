@@ -105,7 +105,7 @@ Always follow the unitNote returned by getAvailableColumns:
 - metric: always set unit to userIdTypes[0] for standard metric types (mean, proportion, retention, dailyParticipation). The backend requires a unit to emit the denominator needed for per-unit rendering. For ratio and quantile metrics, leave unit null (they handle units internally).
 - denominatorUnit: always null.
 
-If you omit unit on a standard metric, the backend fills in the unit the chart's other metrics share, or else the first userIdType of the metric's fact table, and returns a configNormalized warning. Prefer setting it explicitly.
+If you omit unit on a standard metric, the backend will fill in userIdTypes[0] automatically and return a configNormalized warning. Prefer setting it explicitly.
 </unit_rules>
 
 <show_as_rules>

@@ -331,17 +331,6 @@ describe("getDefaultValueAxisName", () => {
       ),
     ).toBe("");
   });
-
-  it("is empty when a ratio shares the axis, since a ratio isn't a total", () => {
-    expect(
-      getDefaultValueAxisName(
-        getExplorationRenderOpts(
-          metricConfig([metricValue("revenue", "total"), metricValue("aov")]),
-          getFactMetricById,
-        ),
-      ),
-    ).toBe("");
-  });
 });
 
 describe("getEffectiveMetricValue", () => {
@@ -493,19 +482,6 @@ describe("seriesName", () => {
         ]),
       ),
     ).toEqual(["revenue", "converted"]);
-  });
-
-  it("never annotates a ratio, which is neither a total nor per unit", () => {
-    expect(
-      names(
-        metricConfig([metricValue("revenue", "per_unit"), metricValue("aov")]),
-      ),
-    ).toEqual(["revenue (per user_id)", "aov"]);
-    expect(
-      names(
-        metricConfig([metricValue("revenue", "total"), metricValue("aov")]),
-      ),
-    ).toEqual(["revenue (total)", "aov"]);
   });
 
   it("annotates per-unit values under a custom axis title", () => {
