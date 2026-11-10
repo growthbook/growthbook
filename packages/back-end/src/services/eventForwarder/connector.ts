@@ -674,23 +674,16 @@ export async function resumeEventForwarderThroughLicenseServer(
 }
 
 /**
- * Restarts an event forwarder after the user fixed the destination.
- * - Confluent: restarts the errored connector.
- * - In-house consumer: retries writes and replays parked events. Also allowed
- *   while ready, to finish a replay that stopped partway.
+ * Restarts an errored event forwarder after the user fixed the destination.
+ * - Confluent: restarts the connector.
+ * - In-house consumer: retries writes and replays parked events.
  * - Back to pending so the status poll re-reads the outcome.
  */
 export async function restartEventForwarderThroughLicenseServer(
   context: ReqContext,
   eventForwarderConfig: EventForwarderConfigInterface,
 ): Promise<void> {
-  const canReplay =
-    eventForwarderConfig.status === "ready" &&
-    isInHouseConsumerTopic(
-      eventForwarderConfig.topic,
-      eventForwarderConfig.sinkType,
-    );
-  if (eventForwarderConfig.status !== "error" && !canReplay) {
+  if (eventForwarderConfig.status !== "error") {
     throw new Error("Only errored event forwarders can be restarted");
   }
 

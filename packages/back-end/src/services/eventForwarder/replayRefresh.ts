@@ -5,7 +5,7 @@ import type {
 } from "shared/validators";
 import { ReqContext } from "back-end/types/request";
 import { postEventForwarderStatusToLicenseServer } from "back-end/src/enterprise/licenseUtil";
-import { getFactTableMap } from "back-end/src/models/FactTableModel";
+import { dangerouslyGetFactTableByIdBypassPermission } from "back-end/src/models/FactTableModel";
 import {
   decryptEventForwarderConfigModel,
   isInHouseConsumerTopic,
@@ -17,15 +17,18 @@ const REPLAY_FULL_REFRESH_REASON =
   "Backed-up Event Forwarder events were written after the last Full Refresh";
 
 // Whether SQL reads a table, matched on its last path segment.
-// - Ignores case and identifier quoting.
+// - Ignores case, identifier quoting, comments and string values.
 // - `gb_events` does not match `gb_events_v2` or `my_gb_events`.
 export function sqlReferencesTable(sql: string, table: string): boolean {
   const unquote = (text: string) => text.toLowerCase().replace(/["`[\]]/g, "");
   const name = unquote(table).split(".").pop()?.trim();
   if (!name) return false;
   const escaped = name.replace(/[.*+?^${}()|\\]/g, "\\$&");
+  // One pass, so a quote inside a comment (or `--` inside a string) cannot
+  // swallow real SQL.
+  const code = sql.replace(/'(?:[^']|'')*'|--[^\n]*|\/\*[\s\S]*?\*\//g, " ");
   return new RegExp(`(^|[^a-z0-9_$])${escaped}([^a-z0-9_$]|$)`).test(
-    unquote(sql),
+    unquote(code),
   );
 }
 
@@ -131,7 +134,23 @@ export async function getEventForwarderReplayFullRefreshReason(
   try {
     const info = await getReplayInfo(context, datasource.id);
     if (!info) return null;
-    const factTableMap = await getFactTableMap(context);
+    // Same bypass as the forwarder config: a viewer who cannot read a Fact
+    // Table must still get the same answer.
+    const factTableSql = new Map(
+      await Promise.all(
+        incrementalRefresh.metricSources.map(
+          async ({ factTableId }): Promise<[string, string | undefined]> => [
+            factTableId,
+            (
+              await dangerouslyGetFactTableByIdBypassPermission(
+                context.org.id,
+                factTableId,
+              )
+            )?.sql,
+          ],
+        ),
+      ),
+    );
     return incrementalRefreshMissedReplay({
       incrementalRefresh,
       replay: info.replay,
@@ -139,7 +158,7 @@ export async function getEventForwarderReplayFullRefreshReason(
       exposureQuerySql: datasource.settings.queries?.exposure?.find(
         (query) => query.id === exposureQueryId,
       )?.query,
-      getFactTableSql: (id) => factTableMap.get(id)?.sql,
+      getFactTableSql: (id) => factTableSql.get(id),
     })
       ? REPLAY_FULL_REFRESH_REASON
       : null;

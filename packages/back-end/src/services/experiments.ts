@@ -275,6 +275,7 @@ import {
   assertIncrementalRefreshPrerequisites,
   exploratoryOverallRequiresFullRefresh,
 } from "back-end/src/enterprise/services/data-pipeline";
+import { getEventForwarderReplayFullRefreshReason } from "back-end/src/services/eventForwarder/replayRefresh";
 import {
   ExperimentUpdateLogPlan,
   ExperimentUpdateExecutionLogger,
@@ -1906,6 +1907,29 @@ async function planSnapshotQueryRunner({
           ? "main-update"
           : "exploratory",
     });
+    // Replayed Event Forwarder rows sit behind the watermarks; an update would
+    // never read them.
+    // - Asked here only, not in the runner's own prerequisite check: a second
+    //   answer after planning would fail the run instead of falling back.
+    if (
+      !fullRefresh &&
+      snapshotType === "standard" &&
+      incrementalRefreshModel
+    ) {
+      const replayReason = await getEventForwarderReplayFullRefreshReason(
+        integration.context,
+        {
+          datasource,
+          incrementalRefresh: incrementalRefreshModel,
+          exposureQueryId: snapshotSettings.exposureQueryId,
+        },
+      );
+      if (replayReason) {
+        throw new ExperimentIncrementalPipelineRequiresFullRefreshError(
+          `${replayReason}. Please run a Full Refresh.`,
+        );
+      }
+    }
     return {
       ...decision,
       fullRefresh,

@@ -60,30 +60,13 @@ describe("restartEventForwarderThroughLicenseServer", () => {
     );
   });
 
-  it("restarts a ready in-house forwarder so a stopped replay can finish", async () => {
-    const update = jest.fn().mockResolvedValue(undefined);
-
-    await restartEventForwarderThroughLicenseServer(makeContext(update), {
-      ...config,
-      status: "ready",
-    });
-
-    expect(restartRemoteMock).toHaveBeenCalledTimes(1);
-  });
-
-  it.each([
-    { name: "a paused forwarder", overrides: { status: "paused" as const } },
-    {
-      name: "a ready forwarder on a Confluent connector",
-      overrides: { status: "ready" as const, topic: "gb-events-org1-ds_1" },
-    },
-  ])("rejects $name", async ({ overrides }) => {
+  it("rejects forwarders that are not errored", async () => {
     const update = jest.fn();
 
     await expect(
       restartEventForwarderThroughLicenseServer(makeContext(update), {
         ...config,
-        ...overrides,
+        status: "ready",
       }),
     ).rejects.toThrow("Only errored event forwarders can be restarted");
     expect(restartRemoteMock).not.toHaveBeenCalled();

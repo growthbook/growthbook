@@ -742,16 +742,17 @@ export default function EventForwarder({
           !!primaryConnectorErrorMessage)));
   // Pause/Resume stay available while usage-blocked; a resume takes effect on the 1st
   const canToggle = canEdit && (isReady || isPaused);
-  // Restart replaces Pause when there is something to retry:
-  // - the destination errored, or
-  // - it is ready but events are still backed up (a replay stopped).
-  // Without a connector there is nothing to restart, so Edit is the retry path.
-  const hasBacklog = backlogCount > 0;
+  // Restart replaces Pause once the destination errored; without a connector
+  // there is nothing to restart, so Edit is the retry path.
   const canRestart =
     canEdit &&
     !isProvisioning &&
-    (eventForwarderConfig?.status === "error" || (isReady && hasBacklog)) &&
-    !!eventForwarderConfig?.connectorName;
+    eventForwarderConfig?.status === "error" &&
+    !!eventForwarderConfig.connectorName;
+  const hasBacklog = backlogCount > 0;
+  const backlogEvents = `${backlogCount.toLocaleString()} ${
+    backlogCount === 1 ? "event is" : "events are"
+  }`;
   const action = canRestart ? "restart" : isReady ? "pause" : "resume";
   const actionButton = {
     restart: { label: "Restart", icon: <PiArrowClockwise /> },
@@ -833,9 +834,8 @@ export default function EventForwarder({
           />
           {hasBacklog && eventForwarderConfig.status === "error" ? (
             <Box mt="2">
-              {backlogCount.toLocaleString()} events are backed up. They are
-              written to your warehouse when you restart. Backed-up events are
-              deleted after 90 days.
+              {backlogEvents} backed up and will be written to your warehouse
+              when you restart. Backed-up events are deleted after 90 days.
             </Box>
           ) : null}
         </Callout>
@@ -843,9 +843,7 @@ export default function EventForwarder({
 
       {hasBacklog && isReady && !isProvisioning ? (
         <Callout status="info" mb="3">
-          {backlogCount.toLocaleString()} backed-up events are waiting to be
-          written to your warehouse. If this number stops going down, restart
-          the Event Forwarder.
+          {backlogEvents} still backed up and being written to your warehouse.
         </Callout>
       ) : null}
 

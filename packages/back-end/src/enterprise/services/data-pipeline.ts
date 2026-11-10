@@ -44,7 +44,6 @@ import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { ExperimentIncrementalPipelineRequiresFullRefreshError } from "back-end/src/util/errors";
 import { SourceIntegrationInterface } from "back-end/src/types/Integration";
 import { getFiltersForHash } from "back-end/src/services/experimentTimeSeries";
-import { getEventForwarderReplayFullRefreshReason } from "back-end/src/services/eventForwarder/replayRefresh";
 import { getColumnsForMetric } from "back-end/src/integrations/sql/fact-metrics/columns-for-metric";
 import { getQueryableMetricsFromSnapshotSettings } from "back-end/src/services/experimentQueries/experimentQueries";
 import type { MetricFanOut } from "back-end/src/services/experimentQueries/planMetricFanOut";
@@ -130,22 +129,6 @@ export async function assertIncrementalRefreshPrerequisites({
     if (cutoff && tablesEnd.some((end) => !!end && end > cutoff)) {
       throw new ExperimentIncrementalPipelineRequiresFullRefreshError(
         "The Incremental Refresh tables hold data past the analysis end date. Please run a Full Refresh.",
-      );
-    }
-
-    // Replayed Event Forwarder rows sit behind the watermarks; an update
-    // would never read them.
-    const replayReason = await getEventForwarderReplayFullRefreshReason(
-      integration.context,
-      {
-        datasource: integration.datasource,
-        incrementalRefresh: incrementalRefreshModel,
-        exposureQueryId: snapshotSettings.exposureQueryId,
-      },
-    );
-    if (replayReason) {
-      throw new ExperimentIncrementalPipelineRequiresFullRefreshError(
-        `${replayReason}. Please run a Full Refresh.`,
       );
     }
   }
