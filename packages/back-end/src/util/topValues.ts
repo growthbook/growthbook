@@ -73,7 +73,9 @@ function addTopValues(
   return levels;
 }
 
-// Columns whose top values are queried and stored
+// Columns a background refresh queries for top values. The writer only needs
+// the column to still exist, so on-demand and Auto Slice refreshes of other
+// columns (virtual ones, or one whose new type isn't saved yet) persist too.
 export function canHaveTopValues(
   factTable: Pick<
     FactTableInterface,
@@ -115,9 +117,11 @@ function getTopValuesUpdateFields(
 }
 
 // The positional write for stored columns: only the updated fields of each
-// still-eligible column, so concurrent edits to anything else survive.
+// still-existing column, so concurrent edits to anything else survive.
 // Clears counts the snapshot doesn't have. Null when nothing applies.
-// `changed` is false when only the refresh dates moved.
+// `changed` is false when only the refresh dates moved. `filter` matches only
+// while each column whose Auto Slice levels it rewrites still has the slice
+// settings they were built from, so a concurrent slice save isn't undone.
 export function buildTopValuesWrite(
   current: Pick<
     FactTableInterface,
@@ -129,17 +133,32 @@ export function buildTopValuesWrite(
   $set: Record<string, unknown>;
   $unset: Record<string, "">;
   arrayFilters: Record<string, string>[];
+  filter: Record<string, unknown>;
   changed: boolean;
 } | null {
   const $set: Record<string, unknown> = {};
   const $unset: Record<string, ""> = {};
   const arrayFilters: Record<string, string>[] = [];
+  const guards: Record<string, unknown>[] = [];
   let changed = false;
   updates.forEach((update, i) => {
     const column = current.columns.find((c) => c.column === update.column);
-    if (!column || !canHaveTopValues(current, column)) return;
+    if (!column || column.deleted) return;
     const id = `c${i}`;
     const fields = getTopValuesUpdateFields(column, update, maxSliceLevels);
+    if (fields.autoSlices) {
+      guards.push({
+        columns: {
+          $elemMatch: {
+            column: column.column,
+            isAutoSliceColumn: true,
+            datatype: column.datatype,
+            autoSlices: storedArray(column.autoSlices),
+            lockedAutoSlices: storedArray(column.lockedAutoSlices),
+          },
+        },
+      });
+    }
     Object.entries({ topValueCounts: undefined, ...fields }).forEach(
       ([key, value]) => {
         if (value === undefined) $unset[`columns.$[${id}].${key}`] = "";
@@ -151,7 +170,16 @@ export function buildTopValuesWrite(
     );
     arrayFilters.push({ [`${id}.column`]: update.column });
   });
-  return arrayFilters.length ? { $set, $unset, arrayFilters, changed } : null;
+  const filter = guards.length ? { $and: guards } : {};
+  return arrayFilters.length
+    ? { $set, $unset, arrayFilters, filter, changed }
+    : null;
+}
+
+// Mongoose loads a missing array as [], so an empty one may be stored as
+// either
+function storedArray(values: string[] | undefined) {
+  return values?.length ? values : { $in: [[], null] };
 }
 
 // A whole-column write carries each column's stored top values, never the

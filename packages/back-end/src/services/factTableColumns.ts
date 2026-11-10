@@ -318,8 +318,9 @@ export async function runColumnDetectionQuery(
 }
 
 /**
- * Runs the top-values query for a fact table's eligible columns and mutates
- * the supplied columns with the results, returning those enriched successfully.
+ * Runs the top-values query for a fact table's eligible columns and returns
+ * an update for each column queried successfully. It doesn't change
+ * `detectedColumns`; callers save the updates with `updateColumnsTopValues`.
  */
 export async function refreshColumnTopValues(
   context: ReqContext,

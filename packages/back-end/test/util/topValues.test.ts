@@ -109,11 +109,10 @@ describe("buildTopValuesWrite", () => {
     ] as ColumnInterface[],
   };
 
-  it("writes only top values fields, positionally, for eligible columns", () => {
+  it("writes only top values fields, positionally, for existing columns", () => {
     expect(
       buildTopValuesWrite(current, [
         { column: "country", snapshot },
-        { column: "uid", snapshot },
         { column: "gone", snapshot },
         { column: "missing", snapshot },
       ]),
@@ -124,7 +123,50 @@ describe("buildTopValuesWrite", () => {
       },
       $unset: { "columns.$[c0].topValueCounts": "" },
       arrayFilters: [{ "c0.column": "country" }],
+      filter: {},
       changed: true,
+    });
+  });
+
+  it("writes columns a background refresh wouldn't select", () => {
+    const write = buildTopValuesWrite(
+      {
+        ...current,
+        columns: [
+          { column: "v", datatype: "string", isVirtual: true },
+          { column: "n", datatype: "number" },
+        ] as ColumnInterface[],
+      },
+      [
+        { column: "v", snapshot },
+        { column: "n", snapshot },
+      ],
+    );
+    expect(write?.arrayFilters).toEqual([
+      { "c0.column": "v" },
+      { "c1.column": "n" },
+    ]);
+  });
+
+  it("guards rewritten Auto Slice levels on the slice settings they used", () => {
+    expect(
+      buildTopValuesWrite(current, [
+        { column: "country", snapshot, slices: "refill" },
+      ])?.filter,
+    ).toEqual({
+      $and: [
+        {
+          columns: {
+            $elemMatch: {
+              column: "country",
+              isAutoSliceColumn: true,
+              datatype: "string",
+              autoSlices: ["edited"],
+              lockedAutoSlices: { $in: [[], null] },
+            },
+          },
+        },
+      ],
     });
   });
 
@@ -158,7 +200,7 @@ describe("buildTopValuesWrite", () => {
   });
 
   it("returns null when no column applies", () => {
-    expect(buildTopValuesWrite(current, [{ column: "uid", snapshot }])).toBe(
+    expect(buildTopValuesWrite(current, [{ column: "gone", snapshot }])).toBe(
       null,
     );
   });

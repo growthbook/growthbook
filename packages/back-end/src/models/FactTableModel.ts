@@ -96,7 +96,10 @@ const factTableSchema = new mongoose.Schema({
       conditionalInlineFilters: {},
       topValues: [String],
       topValuesDate: Date,
-      topValueCounts: [{ _id: false, value: String, count: Number }],
+      topValueCounts: {
+        type: [{ _id: false, value: String, count: Number }],
+        default: undefined,
+      },
       isAutoSliceColumn: Boolean,
       autoSlices: [String],
       lockedAutoSlices: [String],
@@ -490,7 +493,7 @@ const ALLOWED_COLUMN_UPDATE_FIELDS = [
 
 // The one way to persist top values. Re-reads the fact table, since a slow
 // warehouse query may have run since the caller loaded it, then writes only
-// each still-eligible column's top values (and Auto Slice levels when an
+// each still-existing column's top values (and Auto Slice levels when an
 // update says how they follow), so concurrent column edits survive.
 export async function updateColumnsTopValues({
   context,
@@ -502,36 +505,41 @@ export async function updateColumnsTopValues({
   updates: TopValuesUpdate[];
 }) {
   if (!updates.length) return;
-  const doc = await FactTableModel.findOne({
-    id: factTable.id,
-    organization: factTable.organization,
-  });
-  if (!doc) return;
-  const current = toInterface(doc);
+  const filter = { id: factTable.id, organization: factTable.organization };
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const doc = await FactTableModel.findOne(filter);
+    if (!doc) return;
+    const current = toInterface(doc);
 
-  const write = buildTopValuesWrite(
-    current,
-    updates,
-    context.org.settings?.maxMetricSliceLevels,
-  );
-  if (!write) return;
-
-  await FactTableModel.updateOne(
-    { id: current.id, organization: current.organization },
-    {
-      $set: write.$set,
-      ...(Object.keys(write.$unset).length ? { $unset: write.$unset } : {}),
-    },
-    { arrayFilters: write.arrayFilters },
-  );
-  // A cron refreshes every fact table; a refresh that found the same values
-  // keeps the definitions ETag
-  if (write.changed) {
-    await touchDefinitionsVersion(
-      current.organization,
-      definitionsScope(current.projects),
+    const write = buildTopValuesWrite(
+      current,
+      updates,
+      context.org.settings?.maxMetricSliceLevels,
     );
+    if (!write) return;
+
+    // A slice save between the read and the write fails the match, so the
+    // levels are rebuilt from the saved settings
+    const { matchedCount } = await FactTableModel.updateOne(
+      { ...filter, ...write.filter },
+      {
+        $set: write.$set,
+        ...(Object.keys(write.$unset).length ? { $unset: write.$unset } : {}),
+      },
+      { arrayFilters: write.arrayFilters },
+    );
+    if (!matchedCount) continue;
+    // A cron refreshes every fact table; a refresh that found the same values
+    // keeps the definitions ETag
+    if (write.changed) {
+      await touchDefinitionsVersion(
+        current.organization,
+        definitionsScope(current.projects),
+      );
+    }
+    return;
   }
+  throw new Error("The fact table's columns changed while saving. Try again.");
 }
 
 export async function updateFactTableColumns(
