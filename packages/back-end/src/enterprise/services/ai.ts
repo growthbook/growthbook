@@ -65,6 +65,7 @@ import {
   estimateAIStepsUsd,
 } from "back-end/src/services/aiCost";
 import { IS_CLOUD } from "back-end/src/util/secrets";
+import { getAITelemetry } from "back-end/src/services/aiTraces";
 
 const usesOwnAIKey = (
   keySource: Record<AIProvider, AIKeySource>,
@@ -482,6 +483,7 @@ export const simpleCompletion = async ({
       : {}),
     ...((maxOutputTokens ?? null) !== null ? { maxOutputTokens } : {}),
     ...(abortSignal ? { abortSignal } : {}),
+    ...getAITelemetry(context, type),
   };
 
   const recordUsage = usageRecorder({
@@ -708,6 +710,7 @@ export const streamingChatCompletion = async ({
         }
       : {}),
     ...(abortSignal ? { abortSignal } : {}),
+    ...getAITelemetry(context, type),
     onFinish: ({ totalUsage, steps }) => {
       // onFinish's `usage` is only the last step; totalUsage covers the run.
       if (terminalUsage?.outcome !== "aborted") {
@@ -978,6 +981,7 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
               }),
           }
         : {}),
+      ...getAITelemetry(context, type),
       onStepFinish: (step) => {
         stepsUsed++;
         attemptSteps.push({ usage: step.usage });
