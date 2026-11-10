@@ -134,35 +134,43 @@ export default function PopulationEditor({
   const idTypeOptions = factTable
     ? [...new Set([...factTable.userIdTypes, ...values.userIdTypes])]
     : [];
-  const isComplete = !!values.factTableId && values.userIdTypes.length > 0;
+  // Every required field that is still empty, checked in one place.
+  const missing = {
+    name: !values.name.trim(),
+    factTable: !values.factTableId,
+    // Only asked for once a fact table is chosen, since choosing one fills it in.
+    identifierType: !!values.factTableId && values.userIdTypes.length === 0,
+    // toStep drops a threshold with no comparison.
+    comparison: showThreshold && !values.aggregateFilter.trim(),
+  };
 
-  // The same rules the server enforces on save, so Save stays disabled until
-  // they pass.
-  function getProblems(): string[] {
-    if (!isComplete) return [];
-    const problems = getPopulationRuleViolations({
-      datasource: values.datasource,
-      userIdTypes: values.userIdTypes,
-      steps: [toStep(values)],
-      factTables: factTable ? [factTable] : [],
-    });
-    return problems;
-  }
-  const problems = getProblems();
-  // toStep drops a threshold with no comparison, so block Save until there is one.
-  const needsComparison = showThreshold && !values.aggregateFilter.trim();
-  const isValid = isComplete && problems.length === 0 && !needsComparison;
+  // The same rules the server enforces on save. They need a fact table and
+  // identifier types to check against.
+  const problems =
+    missing.factTable || missing.identifierType
+      ? []
+      : getPopulationRuleViolations({
+          datasource: values.datasource,
+          userIdTypes: values.userIdTypes,
+          steps: [toStep(values)],
+          factTables: factTable ? [factTable] : [],
+        });
+
+  // The preview runs without a name; saving needs one.
+  const canPreview =
+    !missing.factTable &&
+    !missing.identifierType &&
+    !missing.comparison &&
+    problems.length === 0;
+  const canSave = canPreview && !missing.name;
 
   // Explains a disabled Save. Rule problems are already listed under
   // Definition.
   const missingFields: string[] = [];
-  if (!values.name.trim()) missingFields.push("enter a name");
-  if (!values.factTableId) {
-    missingFields.push("select a fact table");
-  } else if (values.userIdTypes.length === 0) {
-    missingFields.push("select an identifier type");
-  }
-  if (needsComparison) missingFields.push("enter a threshold comparison");
+  if (missing.name) missingFields.push("enter a name");
+  if (missing.factTable) missingFields.push("select a fact table");
+  if (missing.identifierType) missingFields.push("select an identifier type");
+  if (missing.comparison) missingFields.push("enter a threshold comparison");
   const missingMessage = missingFields.length
     ? upperFirst(
         new Intl.ListFormat("en", { type: "conjunction" }).format(
@@ -170,7 +178,6 @@ export default function PopulationEditor({
         ),
       )
     : null;
-  const canSave = isValid && !!values.name.trim();
   // Save reacts at once, but new problems wait until typing pauses so a
   // half-typed comparison like ">" doesn't flash an error. Fixes clear at once.
   const debouncedProblems = useDebouncedValue(
@@ -182,7 +189,7 @@ export default function PopulationEditor({
   const liveDraft = {
     datasource: values.datasource,
     userIdTypes: values.userIdTypes,
-    steps: isValid ? [toStep(values)] : [],
+    steps: canPreview ? [toStep(values)] : [],
   };
   const debouncedDraft = useDebouncedValue(
     JSON.stringify(liveDraft),
@@ -190,7 +197,7 @@ export default function PopulationEditor({
   );
   // Like the metric editor, an invalid draft disables the preview at once
   // instead of after the delay.
-  const draft = isValid ? debouncedDraft : liveDraft;
+  const draft = canPreview ? debouncedDraft : liveDraft;
 
   function changeDatasource(datasource: string) {
     form.reset({
@@ -400,7 +407,7 @@ export default function PopulationEditor({
                             Remove
                           </Link>
                         </Flex>
-                        {needsComparison && (
+                        {missing.comparison && (
                           <Text size="sm" color="text-mid" as="p">
                             Enter a comparison, such as &quot;&gt;=3&quot;, or
                             remove the threshold.
