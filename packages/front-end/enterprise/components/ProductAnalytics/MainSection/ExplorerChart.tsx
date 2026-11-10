@@ -869,6 +869,15 @@ export default function ExplorerChart({
     );
   }
 
+  const compareNoDataCallout = compareReturnedNoData ? (
+    <Box px="4" pt="3">
+      <Callout status="info">
+        The previous period returned no data, so there&apos;s nothing to compare
+        against.
+      </Callout>
+    </Box>
+  ) : null;
+
   // Funnels have a wholly different visualization than metric/fact-table/
   // data-source datasets. Render the funnel-specific chart and bypass the
   // ECharts config we built above.
@@ -893,23 +902,26 @@ export default function ExplorerChart({
             )}
           </Box>
         ) : (
-          <FunnelChart
-            exploration={exploration}
-            comparisonExploration={
-              compareEnabled ? comparisonExploration : null
-            }
-            periodLabels={
-              compareEnabled
-                ? getComparisonPeriodLabels(
-                    submittedExploreState.dateRange,
-                    submittedPreviousTimeFrame ?? undefined,
-                    submittedComparisonMode ?? "previousPeriod",
-                  )
-                : null
-            }
-            submittedExploreState={submittedExploreState}
-            animate={animate}
-          />
+          <>
+            {compareNoDataCallout}
+            <FunnelChart
+              exploration={exploration}
+              comparisonExploration={
+                compareEnabled ? comparisonExploration : null
+              }
+              periodLabels={
+                compareEnabled
+                  ? getComparisonPeriodLabels(
+                      submittedExploreState.dateRange,
+                      submittedPreviousTimeFrame ?? undefined,
+                      submittedComparisonMode ?? "previousPeriod",
+                    )
+                  : null
+              }
+              submittedExploreState={submittedExploreState}
+              animate={animate}
+            />
+          </>
         )}
       </Flex>
     );
@@ -1049,14 +1061,7 @@ export default function ExplorerChart({
           direction="column"
           style={{ flex: 1, minHeight: 0, minWidth: 0, width: "100%" }}
         >
-          {compareReturnedNoData ? (
-            <Box px="4" pt="3">
-              <Callout status="info">
-                The previous period returned no data, so there&apos;s nothing to
-                compare against.
-              </Callout>
-            </Box>
-          ) : null}
+          {compareNoDataCallout}
           {compareLegend ? (
             <ComparisonChartLegend
               currentLabel={compareLegend.currentLabel}

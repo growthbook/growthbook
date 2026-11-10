@@ -104,14 +104,13 @@ export default function FunnelStepsChart({
     // still carry the raw count on each data point so the tooltip can
     // surface actual user numbers alongside the percentage.
     // Compare mode: grid 0 = current period, grid 1 = previous period. The
-    // previous row reuses each series name, so one legend click toggles both rows.
-    const isPrevious = (axis: number) => axis === 1;
+    // previous row reuses each series name and color, so a series reads the
+    // same in both rows and one legend click toggles both.
     const buildSeries = (s: FunnelChartSeries, idx: number, axis: number) => {
       // Resolved here rather than by callers: `hexToRgba` below and zrender's
       // hover emphasis both need concrete hex. `textColor` is a dep of this
       // memo, so a theme switch re-resolves the variables to the new values.
-      const hex = cssColorToHex(colors[idx % colors.length]);
-      const baseColor = isPrevious(axis) ? hexToRgba(hex, 0.55) : hex;
+      const baseColor = cssColorToHex(colors[idx % colors.length]);
       const stackKey = `stack_${axis}_${idx}`;
       const firstStep = s.counts[0] ?? 0;
       const toY = (n: number) =>
@@ -153,7 +152,7 @@ export default function FunnelStepsChart({
         stack: stackKey,
         xAxisIndex: axis,
         yAxisIndex: axis,
-        itemStyle: { color: hexToRgba(hex, isPrevious(axis) ? 0.1 : 0.18) },
+        itemStyle: { color: hexToRgba(baseColor, 0.18) },
         // Ghost bars are decorative — don't react to hover, don't get
         // their own tooltip line. The filter in the formatter below
         // keeps them out of the table regardless.
@@ -444,17 +443,22 @@ export default function FunnelStepsChart({
       ref={containerRef}
       style={{ flex: 1, minHeight: 0, position: "relative" }}
     >
-      <EChartsReact
-        ref={chartRef}
-        key={JSON.stringify(option)}
-        option={{
-          ...option,
-          ...(animate ? {} : { animation: false }),
-          padding: [0, 0, 0, 0],
-        }}
-        style={{ width: "100%", height: "100%" }}
-        onEvents={onEvents}
-      />
+      {/* Compare rows are sized in px: wait for the first measurement, and
+          leave `grid` out of the key so a resize updates in place instead of
+          remounting and replaying the animation. */}
+      {comparison && chartHeight === 0 ? null : (
+        <EChartsReact
+          ref={chartRef}
+          key={JSON.stringify({ ...option, grid: null })}
+          option={{
+            ...option,
+            ...(animate ? {} : { animation: false }),
+            padding: [0, 0, 0, 0],
+          }}
+          style={{ width: "100%", height: "100%" }}
+          onEvents={onEvents}
+        />
+      )}
     </Box>
   );
 }
