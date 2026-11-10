@@ -6,11 +6,10 @@ import Field from "@/components/Forms/Field";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import InlineCode from "@/components/SyntaxHighlighting/InlineCode";
 import { OfficialBadge } from "@/components/Metrics/MetricName";
-import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Button from "@/ui/Button";
 import ExpandableBlock from "@/ui/ExpandableBlock";
 import Link from "@/ui/Link";
-import FactFilterModal from "./FactFilterModal";
+import useFactFilterEditor from "@/hooks/useFactFilterEditor";
 
 export interface Props {
   factTable: FactTableInterface;
@@ -24,11 +23,8 @@ export default function FactFilterList({ factTable }: Props) {
     typeof router.query.filter === "string" ? router.query.filter : "";
   const [highlightedFilterId, setHighlightedFilterId] =
     useState(requestedFilterId);
-  const [editOpen, setEditOpen] = useState("");
-  const [newOpen, setNewOpen] = useState(false);
+  const editor = useFactFilterEditor(factTable);
   const didJumpToFilter = useRef(false);
-
-  const permissionsUtil = usePermissionsUtil();
 
   const {
     items,
@@ -47,9 +43,6 @@ export default function FactFilterList({ factTable }: Props) {
     searchFields: ["name^3", "description", "value^2"],
     pageSize: FILTER_PAGE_SIZE,
   });
-
-  const canAddAndEdit = permissionsUtil.canCreateAndUpdateFactFilter(factTable);
-  const canDelete = permissionsUtil.canDeleteFactFilter(factTable);
 
   useEffect(() => {
     if (requestedFilterId) setHighlightedFilterId(requestedFilterId);
@@ -83,20 +76,7 @@ export default function FactFilterList({ factTable }: Props) {
 
   return (
     <>
-      {newOpen && (
-        <FactFilterModal
-          close={() => setNewOpen(false)}
-          factTable={factTable}
-        />
-      )}
-      {editOpen && (
-        <FactFilterModal
-          close={() => setEditOpen("")}
-          factTable={factTable}
-          existing={factTable.filters.find((f) => f.id === editOpen)}
-          canDelete={canDelete}
-        />
-      )}
+      {editor.modal}
 
       <div className="row align-items-center">
         {factTable.filters.length > 0 && (
@@ -112,17 +92,17 @@ export default function FactFilterList({ factTable }: Props) {
         <div className="col-auto ml-auto">
           <Tooltip
             body={
-              canAddAndEdit
+              editor.canCreate
                 ? ""
                 : `You don't have permission to edit this fact table`
             }
           >
             <Button
               onClick={() => {
-                if (!canAddAndEdit) return;
-                setNewOpen(true);
+                if (!editor.canCreate) return;
+                editor.openNew();
               }}
-              disabled={!canAddAndEdit}
+              disabled={!editor.canCreate}
             >
               New filter
             </Button>
@@ -157,10 +137,10 @@ export default function FactFilterList({ factTable }: Props) {
                   }
                 >
                   <td style={{ verticalAlign: "top" }}>
-                    {canAddAndEdit && !filter.managedBy ? (
+                    {editor.canEdit(filter) ? (
                       <Link
                         weight="bold"
-                        onClick={() => setEditOpen(filter.id)}
+                        onClick={() => editor.openEdit(filter)}
                       >
                         {filter.name}
                       </Link>

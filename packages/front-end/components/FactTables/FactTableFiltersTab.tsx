@@ -4,11 +4,10 @@ import { useRouter } from "next/router";
 import { Box, Flex } from "@radix-ui/themes";
 import InlineCode from "@/components/SyntaxHighlighting/InlineCode";
 import { OfficialBadge } from "@/components/Metrics/MetricName";
-import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import useFactFilterEditor from "@/hooks/useFactFilterEditor";
 import Button from "@/ui/Button";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
-import FactFilterModal from "./FactFilterModal";
 import styles from "./FactTableDetailsPage.module.scss";
 
 export default function FactTableFiltersTab({
@@ -16,8 +15,7 @@ export default function FactTableFiltersTab({
 }: {
   factTable: FactTableInterface;
 }) {
-  const [editOpen, setEditOpen] = useState("");
-  const [newOpen, setNewOpen] = useState(false);
+  const editor = useFactFilterEditor(factTable);
 
   // `?filter=<id>` deep-links one Saved Filter. The highlight is only a
   // landing cue: drop the query once the row is in view.
@@ -37,33 +35,16 @@ export default function FactTableFiltersTab({
     });
   }, [linkedId, router]);
 
-  const permissionsUtil = usePermissionsUtil();
-  const canAddAndEdit = permissionsUtil.canCreateAndUpdateFactFilter(factTable);
-  const canDelete = permissionsUtil.canDeleteFactFilter(factTable);
-
   const filters = [...factTable.filters].sort((a, b) =>
     a.name.localeCompare(b.name),
   );
 
   return (
     <div className={styles.frame}>
-      {newOpen && (
-        <FactFilterModal
-          close={() => setNewOpen(false)}
-          factTable={factTable}
-        />
-      )}
-      {editOpen && (
-        <FactFilterModal
-          close={() => setEditOpen("")}
-          factTable={factTable}
-          existing={factTable.filters.find((f) => f.id === editOpen)}
-          canDelete={canDelete}
-        />
-      )}
+      {editor.modal}
       <Flex justify="end" px="4" py="3">
-        {canAddAndEdit ? (
-          <Button size="sm" variant="outline" onClick={() => setNewOpen(true)}>
+        {editor.canCreate ? (
+          <Button size="sm" variant="outline" onClick={editor.openNew}>
             New filter
           </Button>
         ) : null}
@@ -91,8 +72,8 @@ export default function FactTableFiltersTab({
                 }
               >
                 <td>
-                  {canAddAndEdit && !filter.managedBy ? (
-                    <Link weight="bold" onClick={() => setEditOpen(filter.id)}>
+                  {editor.canEdit(filter) ? (
+                    <Link weight="bold" onClick={() => editor.openEdit(filter)}>
                       {filter.name}
                     </Link>
                   ) : (
