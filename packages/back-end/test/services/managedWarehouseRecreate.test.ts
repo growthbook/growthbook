@@ -183,7 +183,7 @@ test("a recreate fails once the license server's lock expires", async () => {
   const request = await getManagedWarehouseRecreateRequest("org_a");
   expect(request?.status).toBe("failed");
   expect(request?.error).toBe(
-    "The license server stopped or never started without reporting a result",
+    "The license server didn't report a result. It may have stopped during a deploy. Retry to run it again.",
   );
 });
 
@@ -255,7 +255,7 @@ test("a recreate still holding the lock fails after 12 hours", async () => {
   const request = await getManagedWarehouseRecreateRequest("org_a");
   expect(request?.status).toBe("failed");
   expect(request?.error).toBe(
-    "The license server didn't report a result within 12 hours",
+    "The license server didn't report a result within 12 hours. Retry to run it again.",
   );
 });
 

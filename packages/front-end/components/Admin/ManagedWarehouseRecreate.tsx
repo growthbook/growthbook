@@ -43,6 +43,14 @@ const STATUSES = {
   failed: { label: "Failed", color: "red" },
 } as const;
 
+// Done requests stay on the datasource across batches and aren't listed, so
+// their count isn't shown.
+const SUMMARY_STATUSES: ManagedWarehouseRecreateStatus[] = [
+  "pending",
+  "running",
+  "failed",
+];
+
 /** What the row's remove button does, by status. */
 function removeLabel(status: ManagedWarehouseRecreateStatus) {
   switch (status) {
@@ -337,15 +345,13 @@ export default function ManagedWarehouseRecreates({
         </Flex>
         {counts && (
           <Flex gap="3" mb="3">
-            {(Object.keys(STATUSES) as ManagedWarehouseRecreateStatus[]).map(
-              (status) => (
-                <RecreateStatusBadge
-                  key={status}
-                  status={status}
-                  count={counts[status]}
-                />
-              ),
-            )}
+            {SUMMARY_STATUSES.map((status) => (
+              <RecreateStatusBadge
+                key={status}
+                status={status}
+                count={counts[status]}
+              />
+            ))}
           </Flex>
         )}
         {!data && !error ? (

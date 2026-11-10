@@ -283,14 +283,14 @@ export async function advanceManagedWarehouseRecreate(
         organization,
         request.startedAt,
         "failed",
-        "The license server stopped or never started without reporting a result",
+        "The license server didn't report a result. It may have stopped during a deploy. Retry to run it again.",
       );
     } else if (elapsed > RECREATE_TIMEOUT_MS) {
       await finishRecreate(
         organization,
         request.startedAt,
         "failed",
-        "The license server didn't report a result within 12 hours",
+        "The license server didn't report a result within 12 hours. Retry to run it again.",
       );
     }
     return;
