@@ -3,10 +3,14 @@ import { Box, Flex } from "@radix-ui/themes";
 import { FeatureValueType } from "shared/types/feature";
 import { PiArrowRight, PiCaretDown, PiCaretUp, PiMinus } from "react-icons/pi";
 import {
+  displayValue,
   EnvironmentReason,
   EnvironmentStatus,
   EnvironmentValue,
   PrerequisiteResult,
+  prerequisitesSummary,
+  reasonText,
+  servedDot,
   StepStatus,
 } from "@/services/environmentStatus";
 import Collapse, { CollapseTrigger } from "@/ui/Collapse";
@@ -53,26 +57,6 @@ const percentFormatter = new Intl.NumberFormat(undefined, {
   style: "percent",
   maximumFractionDigits: 2,
 });
-
-// JSON on one line, spaced like it reads aloud: {"a": 1, "b": [2]}.
-function oneLineJson(value: string): string {
-  try {
-    return JSON.stringify(JSON.parse(value), null, 1)
-      .replace(/([[{])\n\s*/g, "$1")
-      .replace(/\n\s*([\]}])/g, "$1")
-      .replace(/\n\s*/g, " ");
-  } catch {
-    return value.replace(/\s+/g, " ");
-  }
-}
-
-// A value as the SDK hands it back; an environment serving nothing is null.
-function displayValue(value: string | null, valueType: FeatureValueType) {
-  if (value === null) return "null";
-  if (valueType === "string") return JSON.stringify(value);
-  if (valueType === "json") return oneLineJson(value);
-  return value;
-}
 
 function ValueText({
   value,
@@ -226,61 +210,6 @@ function WrappingValueLine({
   );
 }
 
-// Whether a non-boolean environment serves a value: to everyone (filled),
-// maybe not to all when a prerequisite varies by user (half), or not at all,
-// null (empty).
-function servedDot(
-  status: EnvironmentStatus,
-  valueType: FeatureValueType,
-): "on" | "split" | "empty" {
-  const { value } = status;
-  // A JSON null serves nothing too.
-  if (value.kind === "value") {
-    return value.value === null ||
-      (valueType === "json" && value.value === "null")
-      ? "empty"
-      : "on";
-  }
-  if (value.kind === "varies" && status.prerequisites === "varies") {
-    return "split";
-  }
-  return "on";
-}
-
-// The "why" beside a card's value.
-function reasonText(reason: EnvironmentReason): string {
-  switch (reason.kind) {
-    case "disabled":
-      return "Environment OFF";
-    case "archived":
-      return "Feature archived";
-    case "prerequisite":
-      return reason.result === "cycle"
-        ? "Circular dependency"
-        : reason.count > 1
-          ? "Prerequisites not met"
-          : "Prerequisite not met";
-    case "traffic":
-      return reason.labels.join(" + ");
-    case "default":
-      return "Default value";
-  }
-}
-
-// The prerequisites together: the first that keeps everyone out, else whether
-// any depends on who the user is.
-function prerequisitesSummary(
-  card: EnvironmentCard,
-  overall: StepStatus,
-): string {
-  if (overall === "skipped") return "Not reached";
-  const results = card.prerequisites.map((p) => p.result);
-  if (results.includes("cycle")) return "Circular dependency";
-  if (results.includes("unmet")) return "Not met";
-  if (results.includes("varies")) return "Varies by user";
-  return card.prerequisites.length > 1 ? "All met" : "Met";
-}
-
 function StepIcon({ status }: { status: StepStatus }) {
   switch (status) {
     case "on":
@@ -414,7 +343,10 @@ function Drilldown({
             color={muted(status.prerequisites) ? "text-low" : "text-mid"}
             truncate
           >
-            {prerequisitesSummary(card, status.prerequisites)}
+            {prerequisitesSummary(
+              card.prerequisites.map((p) => p.result),
+              status.prerequisites,
+            )}
           </Text>
         </Row>
       ) : null}

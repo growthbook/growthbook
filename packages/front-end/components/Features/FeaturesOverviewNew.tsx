@@ -588,6 +588,15 @@ export default function FeaturesOverviewNew({
   ): string => {
     const configKey = getFeatureBaseConfigKey(f);
     const { inputs } = constants;
+    // Built once per environment, as the payload builds it.
+    const mapFor = (resolvables: ResolvableInput[]) => {
+      let map = constants.maps.get(env);
+      if (!map) {
+        map = buildConstantValueMap(resolvables, env);
+        constants.maps.set(env, map);
+      }
+      return map;
+    };
     if (
       configKey !== null &&
       inputs &&
@@ -600,6 +609,7 @@ export default function FeaturesOverviewNew({
           value: v,
           project: f.project || "",
           environment: env,
+          map: mapFor(inputs),
         });
       const resolved = resolve(value);
       return JSON.stringify(
@@ -607,12 +617,7 @@ export default function FeaturesOverviewNew({
       );
     }
     if (!inputs) return resolveRuleValue(f, value, sparse);
-    let map = constants.maps.get(env);
-    if (!map) {
-      map = buildConstantValueMap(inputs, env);
-      constants.maps.set(env, map);
-    }
-    const constantMap = map;
+    const constantMap = mapFor(inputs);
     return resolveRuleValue(f, value, sparse, (v) =>
       resolveConstantRefs(
         v,

@@ -2,7 +2,14 @@ import { FeatureRule } from "shared/types/feature";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { SafeRolloutInterface } from "shared/validators";
 import {
+  displayValue,
+  EnvironmentStatus,
+  EnvironmentValue,
   getEnvironmentStatus,
+  prerequisitesSummary,
+  reasonText,
+  servedDot,
+  StepStatus,
   holdoutTrafficStep,
   resolveRuleValue,
   ruleProjectReach,
@@ -560,4 +567,78 @@ describe("ruleProjectReach", () => {
       expect(ruleProjectReach(rule, delivery)).toBe(reach);
     },
   );
+});
+
+describe("displayValue", () => {
+  it.each([
+    [null, "string", "null"],
+    ["hi", "string", '"hi"'],
+    ["3.5", "number", "3.5"],
+    ['{"a":1,"b":[2,{"c":3}]}', "json", '{"a": 1, "b": [2, {"c": 3}]}'],
+    ["{not json\n  at all", "json", "{not json at all"],
+  ] as const)("shows %j (%s) as %j", (value, type, shown) => {
+    expect(displayValue(value, type)).toBe(shown);
+  });
+});
+
+describe("servedDot", () => {
+  const card = (value: EnvironmentValue, prerequisites: StepStatus = "none") =>
+    ({
+      ...status([]),
+      value,
+      prerequisites,
+    }) as EnvironmentStatus;
+  it.each([
+    ["null", card({ kind: "value", value: null }), "string", "empty"],
+    ["a JSON null", card({ kind: "value", value: "null" }), "json", "empty"],
+    ["a value", card({ kind: "value", value: "1" }), "number", "on"],
+    [
+      "one that varies by prerequisite",
+      card({ kind: "varies" }, "varies"),
+      "string",
+      "split",
+    ],
+    ["one that varies by rule", card({ kind: "varies" }), "string", "on"],
+  ] as const)("marks %s", (_, value, type, dot) => {
+    expect(servedDot(value, type)).toBe(dot);
+  });
+});
+
+describe("reasonText", () => {
+  it.each([
+    [{ kind: "disabled" }, "Environment OFF"],
+    [{ kind: "archived" }, "Feature archived"],
+    [
+      { kind: "prerequisite", result: "unmet", count: 1 },
+      "Prerequisite not met",
+    ],
+    [
+      { kind: "prerequisite", result: "unmet", count: 2 },
+      "Prerequisites not met",
+    ],
+    [
+      { kind: "prerequisite", result: "cycle", count: 1 },
+      "Circular dependency",
+    ],
+    [
+      { kind: "traffic", labels: ["Rollout", "Experiment"] },
+      "Rollout + Experiment",
+    ],
+    [{ kind: "default" }, "Default value"],
+  ] as const)("says %j as %j", (reason, text) => {
+    expect(reasonText(reason)).toBe(text);
+  });
+});
+
+describe("prerequisitesSummary", () => {
+  it.each([
+    [["met"], "skipped", "Not reached"],
+    [["met", "cycle", "unmet"], "applies", "Circular dependency"],
+    [["met", "unmet", "varies"], "applies", "Not met"],
+    [["met", "varies"], "applies", "Varies by user"],
+    [["met", "met"], "applies", "All met"],
+    [["met"], "applies", "Met"],
+  ] as const)("sums up %j (%s) as %j", (results, overall, text) => {
+    expect(prerequisitesSummary([...results], overall)).toBe(text);
+  });
 });

@@ -7,6 +7,7 @@ import {
 import {
   buildConstantValueMap,
   ConstantSource,
+  ConstantValueMap,
   resolveConstantRefs,
 } from "shared/sdk-versioning";
 
@@ -40,6 +41,7 @@ export function resolveConfigBackedValue({
   value,
   project,
   environment,
+  map: prebuilt,
 }: {
   inputs: ResolvableInput[];
   configKey: string;
@@ -47,11 +49,13 @@ export function resolveConfigBackedValue({
   project: string;
   // Its env flavor (scopedOverrides) applies; absent is the base value.
   environment?: string;
+  // The inputs' lookup for this environment, when the caller keeps one.
+  map?: ConstantValueMap;
 }): Record<string, unknown> {
   // Keep undefined undefined: the resolver's env-agnostic mode (base only, no
   // flavors) is the all-environments contract — coercing to "" would apply
   // wildcard/project-only overrides in the all-envs view.
-  const map = buildConstantValueMap(inputs, environment ?? "");
+  const map = prebuilt ?? buildConstantValueMap(inputs, environment ?? "");
   const base = resolveConstantRefs(
     JSON.parse(setConfigBacking(configKey, "{}")),
     map,
