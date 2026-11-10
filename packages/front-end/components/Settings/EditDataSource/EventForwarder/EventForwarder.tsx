@@ -750,6 +750,11 @@ export default function EventForwarder({
     eventForwarderConfig?.status === "error" &&
     !!eventForwarderConfig.connectorName;
   const action = canRestart ? "restart" : isReady ? "pause" : "resume";
+  const actionButton = {
+    restart: { label: "Restart", icon: <PiArrowClockwise /> },
+    pause: { label: "Pause", icon: <PiPause />, color: "red" as const },
+    resume: { label: "Resume", icon: <PiPlay /> },
+  }[action];
   const databricksParams =
     dataSource.params as Partial<DatabricksConnectionParams>;
   const databricksAuthBlocked =
@@ -789,16 +794,8 @@ export default function EventForwarder({
           {canToggle || canRestart ? (
             <Button
               variant="outline"
-              color={action === "pause" ? "red" : undefined}
-              icon={
-                action === "restart" ? (
-                  <PiArrowClockwise />
-                ) : action === "pause" ? (
-                  <PiPause />
-                ) : (
-                  <PiPlay />
-                )
-              }
+              color={"color" in actionButton ? actionButton.color : undefined}
+              icon={actionButton.icon}
               iconPosition="left"
               loading={pauseResumeLoading}
               onClick={async () => {
@@ -817,11 +814,7 @@ export default function EventForwarder({
                 }
               }}
             >
-              {action === "restart"
-                ? "Restart"
-                : action === "pause"
-                  ? "Pause"
-                  : "Resume"}
+              {actionButton.label}
             </Button>
           ) : null}
         </Flex>
