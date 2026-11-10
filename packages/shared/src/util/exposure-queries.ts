@@ -510,26 +510,40 @@ export function getReadableExposureQueries<
 
 /**
  * A save only sends back the assignment queries the user was shown, so the
- * saved ones they can't read are put back unchanged, each at its saved
- * position. Returns `submitted` itself when there are none.
+ * saved ones they can't read are put back unchanged. Each goes right after the
+ * closest query before it in the saved list that was submitted again (matched
+ * by id), or first if there is none, so it keeps its place among the visible
+ * ones. Returns `submitted` itself when there are none.
  */
 export function withUnreadableExposureQueries<
-  Q extends Pick<ExposureQuery, "projects">,
+  Q extends Pick<ExposureQuery, "id" | "projects">,
 >(
   saved: Q[],
   submitted: Q[],
   datasourceProjects: string[] | undefined,
   canReadProjects: (projects: string[]) => boolean,
 ): Q[] {
-  const unreadable = saved.flatMap((q, index) =>
-    canReadProjects(getExposureQueryProjects(q, datasourceProjects))
-      ? []
-      : [{ q, index }],
-  );
-  if (!unreadable.length) return submitted;
-  const merged = [...submitted];
-  for (const { q, index } of unreadable) {
-    merged.splice(Math.min(index, merged.length), 0, q);
+  const submittedIds = new Set(submitted.map((q) => q.id).filter(Boolean));
+  // Unreadable queries keyed by the id they follow; null means first.
+  const after = new Map<string | null, Q[]>();
+  let anchor: string | null = null;
+  for (const q of saved) {
+    if (canReadProjects(getExposureQueryProjects(q, datasourceProjects))) {
+      if (submittedIds.has(q.id)) anchor = q.id;
+      continue;
+    }
+    const group = after.get(anchor);
+    if (group) group.push(q);
+    else after.set(anchor, [q]);
+  }
+  if (!after.size) return submitted;
+  const merged = [...(after.get(null) ?? [])];
+  for (const q of submitted) {
+    merged.push(q);
+    const group = after.get(q.id);
+    if (!group) continue;
+    merged.push(...group);
+    after.delete(q.id);
   }
   return merged;
 }

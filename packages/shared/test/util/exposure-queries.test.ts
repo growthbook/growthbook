@@ -847,6 +847,68 @@ describe("assignment query read access", () => {
     ).toEqual([own, other, added]);
   });
 
+  it("keeps an unreadable query after the visible one before it when an earlier one is deleted", () => {
+    const third = { id: "eq_a2", projects: ["prj_a"] };
+    expect(
+      withUnreadableExposureQueries([own, other, third], [third], [], canRead),
+    ).toEqual([other, third]);
+  });
+
+  it("keeps an unreadable query at the end", () => {
+    const third = { id: "eq_a2", projects: ["prj_a"] };
+    expect(
+      withUnreadableExposureQueries(
+        [own, third, other],
+        [own, third],
+        [],
+        canRead,
+      ),
+    ).toEqual([own, third, other]);
+    expect(
+      withUnreadableExposureQueries([own, third, other], [own], [], canRead),
+    ).toEqual([own, other]);
+  });
+
+  it("keeps consecutive unreadable queries together in their saved order", () => {
+    const other2 = { id: "eq_b2", projects: ["prj_b"] };
+    const third = { id: "eq_a2", projects: ["prj_a"] };
+    expect(
+      withUnreadableExposureQueries(
+        [own, other, other2, third],
+        [third],
+        [],
+        canRead,
+      ),
+    ).toEqual([other, other2, third]);
+    expect(
+      withUnreadableExposureQueries(
+        [own, other, other2, third],
+        [own, third],
+        [],
+        canRead,
+      ),
+    ).toEqual([own, other, other2, third]);
+  });
+
+  it("moves an unreadable query with the visible one before it on reorder", () => {
+    const third = { id: "eq_a2", projects: ["prj_a"] };
+    expect(
+      withUnreadableExposureQueries(
+        [own, other, third],
+        [third, own],
+        [],
+        canRead,
+      ),
+    ).toEqual([third, own, other]);
+  });
+
+  it("does not anchor unreadable queries to added queries without a saved id", () => {
+    const added = { id: "", projects: ["prj_a"] };
+    expect(
+      withUnreadableExposureQueries([own, other], [added], [], canRead),
+    ).toEqual([other, added]);
+  });
+
   it("returns the submitted list when every saved query is readable", () => {
     const submitted = [shared];
     expect(
