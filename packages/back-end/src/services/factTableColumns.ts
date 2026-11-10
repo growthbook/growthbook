@@ -1,9 +1,6 @@
 import chunk from "lodash/chunk";
 import cloneDeep from "lodash/cloneDeep";
-import {
-  canInlineFilterColumn,
-  getFactTableTimestampColumn,
-} from "shared/experiments";
+import { getFactTableTimestampColumn } from "shared/experiments";
 import {
   DEFAULT_MAX_METRIC_SLICE_LEVELS,
   DEFAULT_TOP_VALUES_LOOKBACK_VALUE,
@@ -26,8 +23,11 @@ import { getSourceIntegrationObject } from "back-end/src/services/datasource";
 import {
   buildColumnTypeMaps,
   normalizePersistedColumn,
-  type TopValuesUpdate,
 } from "back-end/src/util/factTable";
+import {
+  canHaveTopValues,
+  type TopValuesUpdate,
+} from "back-end/src/util/topValues";
 import { logger } from "back-end/src/util/logger";
 
 export const MAX_COLUMNS_WITH_TOP_VALUES = 50;
@@ -76,15 +76,8 @@ export function selectColumnsForTopValues({
   maxColumns?: number;
 }): ColumnInterface[] {
   const factTableLike = { columns, userIdTypes, userIdColumns };
-
-  const eligible = columns.filter(
-    (col) =>
-      col.datatype === "string" &&
-      !col.deleted &&
-      // Virtual columns aren't real columns in the SQL, so a top-values query
-      // keyed on their name would be invalid.
-      !col.isVirtual &&
-      canInlineFilterColumn(factTableLike, col.column),
+  const eligible = columns.filter((col) =>
+    canHaveTopValues(factTableLike, col),
   );
 
   const alwaysCaptured = eligible.filter(
@@ -182,61 +175,6 @@ export async function runColumnsTopValueCountsQuery(
   return columnValues;
 }
 
-export function populateAutoSlices(
-  col: ColumnInterface,
-  topValues: string[],
-  maxValues?: number,
-): string[] {
-  if (col.datatype === "boolean") {
-    return ["true", "false"];
-  }
-
-  // Use existing autoSlices if they exist, otherwise use topValues up to the max
-  if (col.autoSlices && col.autoSlices.length > 0) {
-    return col.autoSlices;
-  }
-  const maxSliceLevels = maxValues ?? DEFAULT_MAX_METRIC_SLICE_LEVELS;
-  const autoSlices: string[] = [];
-  for (const value of topValues) {
-    if (autoSlices.length >= maxSliceLevels) break;
-    if (!autoSlices.includes(value)) {
-      autoSlices.push(value);
-    }
-  }
-
-  return autoSlices;
-}
-
-// Keeps the refreshed top values that still apply to the current columns. A
-// column can stop being eligible, and Auto Slice levels a user edited while
-// the slow query ran win over generated ones.
-export function keepCurrentTopValues({
-  currentColumns,
-  currentUserIdTypes,
-  currentUserIdColumns,
-  updates,
-}: {
-  currentColumns: ColumnInterface[];
-  currentUserIdTypes: string[];
-  currentUserIdColumns?: Record<string, string>;
-  updates: TopValuesUpdate[];
-}): TopValuesUpdate[] {
-  const eligible = new Map(
-    selectColumnsForTopValues({
-      columns: currentColumns,
-      userIdTypes: currentUserIdTypes,
-      userIdColumns: currentUserIdColumns,
-    }).map((column) => [column.column, column]),
-  );
-  return updates.flatMap((update) => {
-    const current = eligible.get(update.column);
-    if (!current) return [];
-    const keepSlices =
-      !current.isAutoSliceColumn || !!current.autoSlices?.length;
-    return [keepSlices ? { ...update, autoSlices: undefined } : update];
-  });
-}
-
 export async function runColumnDetectionQuery(
   context: ReqContext,
   datasource: DataSourceInterface,
@@ -246,6 +184,9 @@ export async function runColumnDetectionQuery(
   > & {
     id: string | null;
   },
+  // The columns to merge the detected types onto, read once the query is
+  // done; defaults to factTable.columns
+  loadColumns?: () => Promise<ColumnInterface[]>,
 ): Promise<ColumnInterface[]> {
   if (!context.permissions.canRunFactQueries(datasource)) {
     context.permissions.throwPermissionError();
@@ -280,7 +221,9 @@ export async function runColumnDetectionQuery(
 
   const { jsonMap, warehouseTypeMap, datatypes } = buildColumnTypeMaps(result);
 
-  const columns = cloneDeep(factTable.columns || []);
+  const columns = cloneDeep(
+    (await loadColumns?.()) ?? (factTable.columns || []),
+  );
 
   // Update existing column
   columns.forEach((col) => {
@@ -420,13 +363,7 @@ export async function refreshColumnTopValues(
           updates.push({
             column: col.column,
             snapshot: { values, refreshedAt: new Date() },
-            ...(col.isAutoSliceColumn && {
-              autoSlices: populateAutoSlices(
-                col,
-                values.map((v) => v.value),
-                context.org.settings?.maxMetricSliceLevels,
-              ),
-            }),
+            slices: "fill",
           });
         }
       } catch (e) {

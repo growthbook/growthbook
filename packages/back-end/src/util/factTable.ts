@@ -9,7 +9,6 @@ import {
   FactTableColumnType,
   FactTableInterface,
   JSONColumnFields,
-  TopValuesSnapshot,
   UpdateFactTableProps,
 } from "shared/types/fact-table";
 import { DataSourceInterface } from "shared/types/datasource";
@@ -18,71 +17,6 @@ import {
   type DetectedJSONFields,
   determineColumnTypes,
 } from "back-end/src/util/sql";
-
-// The one writer for a column's stored top values. topValues is derived for
-// Auto Slices and filter pickers; counts are kept only when every value has one.
-export function getTopValueFields(snapshot: TopValuesSnapshot): {
-  topValues: string[];
-  topValueCounts: ColumnInterface["topValueCounts"];
-  topValuesDate: Date;
-} {
-  const { values } = snapshot;
-  const counts = values.flatMap((v) =>
-    v.count === undefined ? [] : [{ value: v.value, count: v.count }],
-  );
-  return {
-    topValues: values.map((v) => v.value),
-    topValueCounts: counts.length === values.length ? counts : undefined,
-    topValuesDate: snapshot.refreshedAt,
-  };
-}
-
-export type TopValuesUpdate = {
-  column: string;
-  snapshot: TopValuesSnapshot;
-  // Replaces the column's Auto Slice levels when set
-  autoSlices?: string[];
-};
-
-// Replaces each updated column's top values as a unit, clearing any counts the
-// snapshot doesn't have
-export function applyTopValuesUpdates(
-  columns: ColumnInterface[],
-  updates: TopValuesUpdate[],
-): ColumnInterface[] {
-  const byColumn = new Map(updates.map((u) => [u.column, u]));
-  return columns.map((column) => {
-    const update = byColumn.get(column.column);
-    if (!update) return column;
-    return {
-      ...column,
-      ...getTopValueFields(update.snapshot),
-      ...(update.autoSlices && {
-        autoSlices: update.autoSlices,
-        dateUpdated: new Date(),
-      }),
-    };
-  });
-}
-
-// A whole-column save keeps each column's stored top values; only
-// updateColumnsTopValues replaces them
-export function keepStoredTopValues<T extends { column: string }>(
-  stored: ColumnInterface[],
-  incoming: T[],
-): T[] {
-  const byColumn = new Map(stored.map((c) => [c.column, c]));
-  return incoming.map((column) => {
-    const current = byColumn.get(column.column);
-    if (!current) return column;
-    return {
-      ...column,
-      topValues: current.topValues,
-      topValueCounts: current.topValueCounts,
-      topValuesDate: current.topValuesDate,
-    };
-  });
-}
 
 /**
  * Clears datatype-incompatible props. Empty datatype skips checks while

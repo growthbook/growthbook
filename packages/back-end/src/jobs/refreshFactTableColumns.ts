@@ -9,7 +9,6 @@ import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
 import { deriveUserIdTypesFromColumns } from "back-end/src/util/factTable";
 import {
-  keepCurrentTopValues,
   refreshColumnTopValues,
   runColumnDetectionQuery,
 } from "back-end/src/services/factTableColumns";
@@ -50,10 +49,16 @@ const refreshFactTableColumns = async (job: RefreshFactTableColumnsJob) => {
   let detectedColumns: ColumnInterface[] | null = null;
 
   try {
+    // The query can be slow, so the detected types go onto the columns as
+    // they are now, not as loaded: edits and Auto Slice refills made while it
+    // ran survive
     detectedColumns = await runColumnDetectionQuery(
       context,
       datasource,
       factTable,
+      async () =>
+        (await getFactTable(context, factTableId))?.columns ??
+        factTable.columns,
     );
     columnDetectionChanges.columns = detectedColumns;
     columnDetectionChanges.columnsError = null;
@@ -74,26 +79,15 @@ const refreshFactTableColumns = async (job: RefreshFactTableColumnsJob) => {
   // Top values can take minutes on large tables. Run
   // and persist them after column detection is complete.
   if (detectedColumns) {
-    const refreshed = await refreshColumnTopValues(
-      context,
-      datasource,
-      factTable,
-      detectedColumns,
-    );
-    if (refreshed.length === 0) return;
-
-    const currentFactTable = await getFactTable(context, factTableId);
-    if (!currentFactTable) return;
-
     await updateColumnsTopValues({
       context,
-      factTable: currentFactTable,
-      updates: keepCurrentTopValues({
-        currentColumns: currentFactTable.columns,
-        currentUserIdTypes: currentFactTable.userIdTypes,
-        currentUserIdColumns: currentFactTable.userIdColumns,
-        updates: refreshed,
-      }),
+      factTable,
+      updates: await refreshColumnTopValues(
+        context,
+        datasource,
+        factTable,
+        detectedColumns,
+      ),
     });
   }
 };

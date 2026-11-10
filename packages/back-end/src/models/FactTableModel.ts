@@ -41,13 +41,16 @@ import {
   touchDefinitionsVersion,
 } from "back-end/src/models/DefinitionsVersionModel";
 import {
-  applyTopValuesUpdates,
   ensureAutoSliceDefaults,
-  keepStoredTopValues,
   normalizeJSONFieldsInput,
   normalizePersistedColumn,
-  type TopValuesUpdate,
 } from "back-end/src/util/factTable";
+import {
+  buildTopValuesWrite,
+  keepStoredTopValues,
+  storedTopValuesFilter,
+  type TopValuesUpdate,
+} from "back-end/src/util/topValues";
 import { logger } from "back-end/src/util/logger";
 
 const audit = createModelAuditLogger({
@@ -149,6 +152,34 @@ const FactTableModel = mongoose.model<FactTableInterface>(
 function toInterface(doc: FactTableDocument): FactTableInterface {
   const ret = doc.toJSON<FactTableDocument>();
   return omit(ret, ["__v", "_id"]);
+}
+
+// Every whole-array column write goes through here. Each column keeps the
+// stored element's top values (updateColumnsTopValues is their one writer),
+// and the write matches only while those are unchanged, so a top-values write
+// that lands between the read and the $set makes it re-read, not get undone.
+// Without columns it's a plain $set of the other fields.
+async function persistColumns<T extends { column: string }>(
+  factTable: Pick<FactTableInterface, "id" | "organization">,
+  columns: T[] | undefined,
+  $set: Record<string, unknown> = {},
+): Promise<T[] | undefined> {
+  const filter = { id: factTable.id, organization: factTable.organization };
+  if (!columns) {
+    await FactTableModel.updateOne(filter, { $set });
+    return undefined;
+  }
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const doc = await FactTableModel.findOne(filter, { columns: 1 });
+    const stored = doc ? toInterface(doc).columns || [] : [];
+    const next = keepStoredTopValues(stored, columns);
+    const { matchedCount } = await FactTableModel.updateOne(
+      { ...filter, ...storedTopValuesFilter(stored) },
+      { $set: { ...$set, columns: next } },
+    );
+    if (matchedCount || !doc) return next;
+  }
+  throw new Error("The fact table's columns changed while saving. Try again.");
 }
 
 export function buildColumnInterface(
@@ -408,7 +439,8 @@ export async function updateFactTable(
   // Bail on a no-op save before writing anything — the front-end resubmits the
   // whole form on every save, and some API clients re-PUT the same definition
   // on a schedule. Not writing means there is nothing to invalidate, so the
-  // write and the definitions-version bump stay in lockstep.
+  // write and the definitions-version bump stay in lockstep. Top values aren't
+  // part of a save, so the comparison uses the loaded ones.
   if (changes.columns) {
     changes = {
       ...changes,
@@ -421,18 +453,11 @@ export async function updateFactTable(
   );
   if (!changed) return;
 
-  await FactTableModel.updateOne(
-    {
-      id: factTable.id,
-      organization: factTable.organization,
-    },
-    {
-      $set: {
-        ...changes,
-        dateUpdated: new Date(),
-      },
-    },
-  );
+  const { columns, ...rest } = changes;
+  await persistColumns(factTable, columns, {
+    ...rest,
+    dateUpdated: new Date(),
+  });
 
   await audit.logUpdate(context, factTable, { ...factTable, ...changes });
 
@@ -463,25 +488,50 @@ const ALLOWED_COLUMN_UPDATE_FIELDS = [
   "userIdTypes",
 ] as const;
 
-// This is called from a background cronjob to re-sync all of the columns
-// It doesn't need to check for 'managedBy' and doesn't need to set 'dateUpdated'
-// The one way to persist top values: replaces each column's top values as a
-// unit, in one write
+// The one way to persist top values. Re-reads the fact table, since a slow
+// warehouse query may have run since the caller loaded it, then writes only
+// each still-eligible column's top values (and Auto Slice levels when an
+// update says how they follow), so concurrent column edits survive.
 export async function updateColumnsTopValues({
   context,
   factTable,
   updates,
 }: {
   context: ReqContext | ApiReqContext;
-  factTable: FactTableInterface;
+  factTable: Pick<FactTableInterface, "id" | "organization">;
   updates: TopValuesUpdate[];
 }) {
   if (!updates.length) return;
-  await updateFactTableColumns(
-    factTable,
-    { columns: applyTopValuesUpdates(factTable.columns, updates) },
-    context,
+  const doc = await FactTableModel.findOne({
+    id: factTable.id,
+    organization: factTable.organization,
+  });
+  if (!doc) return;
+  const current = toInterface(doc);
+
+  const write = buildTopValuesWrite(
+    current,
+    updates,
+    context.org.settings?.maxMetricSliceLevels,
   );
+  if (!write) return;
+
+  await FactTableModel.updateOne(
+    { id: current.id, organization: current.organization },
+    {
+      $set: write.$set,
+      ...(Object.keys(write.$unset).length ? { $unset: write.$unset } : {}),
+    },
+    { arrayFilters: write.arrayFilters },
+  );
+  // A cron refreshes every fact table; a refresh that found the same values
+  // keeps the definitions ETag
+  if (write.changed) {
+    await touchDefinitionsVersion(
+      current.organization,
+      definitionsScope(current.projects),
+    );
+  }
 }
 
 export async function updateFactTableColumns(
@@ -491,23 +541,18 @@ export async function updateFactTableColumns(
   >,
   context: ReqContext | ApiReqContext,
 ) {
-  const safeChanges = Object.fromEntries(
+  const { columns, ...rest } = Object.fromEntries(
     Object.entries(changes).filter(([key]) =>
       ALLOWED_COLUMN_UPDATE_FIELDS.includes(
         key as (typeof ALLOWED_COLUMN_UPDATE_FIELDS)[number],
       ),
     ),
-  );
+  ) as typeof changes;
 
-  await FactTableModel.updateOne(
-    {
-      id: factTable.id,
-      organization: factTable.organization,
-    },
-    {
-      $set: safeChanges,
-    },
-  );
+  const written = await persistColumns(factTable, columns, rest);
+  const safeChanges: typeof changes = written
+    ? { ...rest, columns: written }
+    : rest;
 
   // Only bump the definitions version if something actually changed — this runs
   // from a background cron on every fact table, so an unconditional touch would
@@ -558,18 +603,11 @@ export async function dangerouslySyncManagedWarehouseFactTable(
     return;
   }
 
-  await FactTableModel.updateOne(
-    {
-      id: factTable.id,
-      organization: factTable.organization,
-    },
-    {
-      $set: {
-        ...changes,
-        dateUpdated: new Date(),
-      },
-    },
-  );
+  const { columns, ...rest } = changes;
+  await persistColumns(factTable, columns, {
+    ...rest,
+    dateUpdated: new Date(),
+  });
   await touchDefinitionsVersion(
     factTable.organization,
     definitionsScope(factTable.projects),
@@ -724,18 +762,9 @@ export async function updateColumn({
 
   factTable.columns[columnIndex] = updatedColumn;
 
-  await FactTableModel.updateOne(
-    {
-      id: factTable.id,
-      organization: factTable.organization,
-    },
-    {
-      $set: {
-        dateUpdated: new Date(),
-        columns: factTable.columns,
-      },
-    },
-  );
+  await persistColumns(factTable, factTable.columns, {
+    dateUpdated: new Date(),
+  });
   await touchDefinitionsVersion(
     factTable.organization,
     definitionsScope(factTable.projects),
@@ -777,18 +806,7 @@ export async function createColumn(
 
   const columns = [...factTable.columns, column];
 
-  await FactTableModel.updateOne(
-    {
-      id: factTable.id,
-      organization: factTable.organization,
-    },
-    {
-      $set: {
-        dateUpdated: new Date(),
-        columns,
-      },
-    },
-  );
+  await persistColumns(factTable, columns, { dateUpdated: new Date() });
   await touchDefinitionsVersion(
     factTable.organization,
     definitionsScope(factTable.projects),
@@ -1007,18 +1025,7 @@ export async function deleteColumn(
 
   const columns = factTable.columns.filter((c) => c.column !== columnName);
 
-  await FactTableModel.updateOne(
-    {
-      id: factTable.id,
-      organization: factTable.organization,
-    },
-    {
-      $set: {
-        dateUpdated: new Date(),
-        columns,
-      },
-    },
-  );
+  await persistColumns(factTable, columns, { dateUpdated: new Date() });
   await touchDefinitionsVersion(
     factTable.organization,
     definitionsScope(factTable.projects),
@@ -1102,18 +1109,7 @@ export async function upsertColumns({
 
   factTable.columns = nextColumns;
 
-  await FactTableModel.updateOne(
-    {
-      id: factTable.id,
-      organization: factTable.organization,
-    },
-    {
-      $set: {
-        dateUpdated: new Date(),
-        columns: nextColumns,
-      },
-    },
-  );
+  await persistColumns(factTable, nextColumns, { dateUpdated: new Date() });
 
   await touchDefinitionsVersion(
     factTable.organization,

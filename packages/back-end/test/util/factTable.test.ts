@@ -21,9 +21,6 @@ import {
   stripIncompatibleFields,
   detectColumnsFromQueryResult,
   buildColumnTypeMaps,
-  getTopValueFields,
-  applyTopValuesUpdates,
-  keepStoredTopValues,
 } from "back-end/src/util/factTable";
 import { mergeUpsertColumns } from "back-end/src/models/FactTableModel";
 
@@ -63,93 +60,6 @@ function makeStandardDatasource(
     settings: { userIdTypes },
   } as unknown as DataSourceInterface;
 }
-
-describe("getTopValueFields", () => {
-  const refreshedAt = new Date("2026-11-01T00:00:00Z");
-
-  it("derives the string list from the counts", () => {
-    const values = [
-      { value: "a", count: 3 },
-      { value: "b", count: 1 },
-    ];
-    expect(getTopValueFields({ values, refreshedAt })).toEqual({
-      topValues: ["a", "b"],
-      topValueCounts: values,
-      topValuesDate: refreshedAt,
-    });
-  });
-
-  it("stores no counts when any value is missing one", () => {
-    expect(
-      getTopValueFields({
-        values: [{ value: "a" }, { value: "b", count: 2 }],
-        refreshedAt,
-      }),
-    ).toEqual({
-      topValues: ["a", "b"],
-      topValueCounts: undefined,
-      topValuesDate: refreshedAt,
-    });
-  });
-});
-
-describe("applyTopValuesUpdates", () => {
-  const refreshedAt = new Date("2026-11-01T00:00:00Z");
-
-  it("replaces the top values as a unit, clearing stale counts", () => {
-    const [country, plan] = applyTopValuesUpdates(
-      [
-        {
-          column: "country",
-          topValues: ["old"],
-          topValueCounts: [{ value: "old", count: 1 }],
-        } as ColumnInterface,
-        { column: "plan", topValues: ["free"] } as ColumnInterface,
-      ],
-      [
-        {
-          column: "country",
-          snapshot: { values: [{ value: "US" }], refreshedAt },
-        },
-      ],
-    );
-    expect(country).toMatchObject({
-      topValues: ["US"],
-      topValueCounts: undefined,
-      topValuesDate: refreshedAt,
-    });
-    expect(plan.topValues).toEqual(["free"]);
-  });
-});
-
-describe("keepStoredTopValues", () => {
-  it("keeps each stored column's top values on a whole-column save", () => {
-    const topValuesDate = new Date("2026-11-01T00:00:00Z");
-    const stored = [
-      {
-        column: "country",
-        topValues: ["US"],
-        topValueCounts: [{ value: "US", count: 4 }],
-        topValuesDate,
-      } as ColumnInterface,
-    ];
-    expect(
-      keepStoredTopValues(stored, [
-        { column: "country", name: "Country" },
-        { column: "plan" },
-      ]),
-    ).toEqual([
-      {
-        column: "country",
-        name: "Country",
-        topValues: ["US"],
-        topValueCounts: [{ value: "US", count: 4 }],
-        topValuesDate,
-      },
-      { column: "plan" },
-    ]);
-  });
-});
 
 describe("columnsHaveAutoSlices", () => {
   it("returns false when columns is undefined", () => {

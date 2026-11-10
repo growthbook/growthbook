@@ -1,7 +1,6 @@
 import Agenda, { Job } from "agenda";
 import chunk from "lodash/chunk";
 import { canInlineFilterColumn } from "shared/experiments";
-import { DEFAULT_MAX_METRIC_SLICE_LEVELS } from "shared/constants";
 import { ColumnInterface, FactTableInterface } from "shared/types/fact-table";
 import { DataSourceInterface } from "shared/types/datasource";
 import { ReqContext } from "back-end/types/request";
@@ -14,7 +13,7 @@ import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
 import { logger } from "back-end/src/util/logger";
 import { AUTO_SLICE_UPDATE_FREQUENCY_HOURS } from "back-end/src/util/secrets";
-import { type TopValuesUpdate } from "back-end/src/util/factTable";
+import { type TopValuesUpdate } from "back-end/src/util/topValues";
 import {
   runColumnsTopValueCountsQuery,
   TOP_VALUES_CHUNK_SIZE,
@@ -113,10 +112,6 @@ async function updateAutoSlicesForColumns(
 ): Promise<TopValuesUpdate[]> {
   const columns = factTable.columns;
   const updates: TopValuesUpdate[] = [];
-  const maxSliceLevels =
-    context.org.settings?.maxMetricSliceLevels ??
-    DEFAULT_MAX_METRIC_SLICE_LEVELS;
-
   // Collect columns that need auto-slice updates
   const columnsNeedingUpdates: ColumnInterface[] = [];
   for (const col of columns) {
@@ -149,25 +144,16 @@ async function updateAutoSlicesForColumns(
 
         // Process results for each column
         for (const col of columnChunk) {
-          const values = countsByColumn[col.column] ?? [];
-          const snapshot = { values, refreshedAt: new Date() };
-
-          // Keep the slices when there are no top values; an empty response
-          // may be transient, not worth losing the slices
-          if (!values.length) {
-            updates.push({ column: col.column, snapshot });
-            continue;
-          }
-
-          // Locked levels first, then the new top values
-          const autoSlices: string[] = [...(col.lockedAutoSlices || [])];
-          for (const { value } of values) {
-            if (autoSlices.length >= maxSliceLevels) break;
-            if (!autoSlices.includes(value)) {
-              autoSlices.push(value);
-            }
-          }
-          updates.push({ column: col.column, snapshot, autoSlices });
+          // An empty response may be transient, not worth losing the slices,
+          // so "refill" leaves them alone when there are no top values
+          updates.push({
+            column: col.column,
+            snapshot: {
+              values: countsByColumn[col.column] ?? [],
+              refreshedAt: new Date(),
+            },
+            slices: "refill",
+          });
         }
       } catch (e) {
         logger.error(

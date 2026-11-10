@@ -2,7 +2,6 @@ import { ColumnInterface } from "shared/types/fact-table";
 import { DataSourceInterface } from "shared/types/datasource";
 import { TestQueryResult } from "shared/types/integrations";
 import {
-  keepCurrentTopValues,
   runColumnsTopValueCountsQuery,
   refreshColumnTopValues,
   runColumnDetectionQuery,
@@ -44,9 +43,11 @@ function makeCol(
 async function refreshColumns({
   column,
   result,
+  loadColumns,
 }: {
   column: ColumnInterface;
   result: TestQueryResult;
+  loadColumns?: () => Promise<ColumnInterface[]>;
 }): Promise<ColumnInterface[]> {
   // @ts-expect-error - this test only needs the query methods
   const integration: SourceIntegrationInterface = {
@@ -63,13 +64,18 @@ async function refreshColumns({
   // @ts-expect-error - this test does not read datasource fields
   const datasource: DataSourceInterface = {};
 
-  return runColumnDetectionQuery(context, datasource, {
-    id: "ftb_1",
-    sql: "SELECT * FROM fact_table",
-    eventName: "",
-    columns: [column],
-    userIdTypes: [],
-  });
+  return runColumnDetectionQuery(
+    context,
+    datasource,
+    {
+      id: "ftb_1",
+      sql: "SELECT * FROM fact_table",
+      eventName: "",
+      columns: [column],
+      userIdTypes: [],
+    },
+    loadColumns,
+  );
 }
 
 describe("selectColumnsForTopValues", () => {
@@ -307,65 +313,23 @@ describe("refreshColumnTopValues", () => {
   });
 });
 
-describe("keepCurrentTopValues", () => {
-  const snapshot = {
-    values: [{ value: "US", count: 5 }],
-    refreshedAt: new Date("2026-08-19T12:00:00.000Z"),
-  };
-
-  it("drops columns that are no longer eligible", () => {
-    const result = keepCurrentTopValues({
-      currentColumns: [
-        makeCol("country"),
-        makeCol("user_id"),
-        makeCol("deleted_column", { deleted: true }),
-      ],
-      currentUserIdTypes: ["user_id"],
-      updates: [
-        { column: "country", snapshot },
-        { column: "user_id", snapshot },
-        { column: "deleted_column", snapshot },
-        { column: "gone", snapshot },
-      ],
-    });
-
-    expect(result.map((u) => u.column)).toEqual(["country"]);
-  });
-
-  it("keeps Auto Slice levels edited while the query ran", () => {
-    // Slices a user edited during the (slow) top-values scan must survive,
-    // not be clobbered by levels generated from the job-start snapshot.
-    const result = keepCurrentTopValues({
-      currentColumns: [
-        makeCol("country", {
-          isAutoSliceColumn: true,
-          autoSlices: ["user-edited"],
-        }),
-        makeCol("plan", { isAutoSliceColumn: true }),
-        makeCol("browser", {
-          isAutoSliceColumn: false,
-          autoSlices: ["current-manual"],
-        }),
-      ],
-      currentUserIdTypes: [],
-      updates: [
-        { column: "country", snapshot, autoSlices: ["stale-generated"] },
-        { column: "plan", snapshot, autoSlices: ["free", "pro"] },
-        { column: "browser", snapshot, autoSlices: ["stale-generated"] },
-      ],
-    });
-
-    expect(result.map((u) => u.autoSlices)).toEqual([
-      undefined,
-      ["free", "pro"],
-      undefined,
-    ]);
-  });
-});
-
 describe("runColumnDetectionQuery", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+  });
+
+  it("merges onto the columns loaded after the query", async () => {
+    const columns = await refreshColumns({
+      column: makeCol("country", { autoSlices: ["stale"] }),
+      loadColumns: async () => [makeCol("country", { autoSlices: ["fresh"] })],
+      result: {
+        columns: [{ name: "country", dataType: "string" }],
+        results: [{ country: "US" }],
+        duration: 1,
+      },
+    });
+
+    expect(columns.map((c) => c.autoSlices)).toEqual([["fresh"]]);
   });
 
   it("keeps case-distinct keys in JSON stored as a string", async () => {
