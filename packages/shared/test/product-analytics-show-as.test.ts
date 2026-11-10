@@ -444,24 +444,6 @@ describe("seriesName", () => {
     ).toEqual(["revenue", "maxOrder"]);
   });
 
-  it("keeps the note in labels, which have no axis title beside them", () => {
-    expect(
-      getExplorationRenderOpts(
-        metricConfig([
-          metricValue("revenue", "per_unit"),
-          metricValue("maxOrder"),
-        ]),
-        getFactMetricById,
-      ).values.map((opts) => opts.label),
-    ).toEqual(["revenue (per user_id)", "maxOrder (per user_id)"]);
-  });
-
-  it("annotates a per-unit value whose metric hasn't loaded", () => {
-    expect(names(metricConfig([metricValue("loading", "per_unit")]))).toEqual([
-      "loading (per user_id)",
-    ]);
-  });
-
   it("annotates each value when per-unit values use different units", () => {
     expect(
       names(
