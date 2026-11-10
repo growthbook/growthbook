@@ -30,11 +30,14 @@ type NextProps = Omit<
 type ConditionalProps =
   | ({
       href: NextLinkProps["href"];
+      disabled?: never;
     } & NextProps)
   | {
       href?: never;
       type?: "submit" | "reset" | "button";
       onClick?: RadixLinkProps["onClick"];
+      // A real disabled button: skipped by the keyboard and inert to clicks.
+      disabled?: boolean;
     };
 
 type Props = RadixProps & ConditionalProps;
@@ -49,6 +52,7 @@ const Link = forwardRef<HTMLAnchorElement, Props>(
       size,
       type = "button",
       external,
+      disabled,
       ...props
     },
     ref: ForwardedRef<HTMLAnchorElement>,
@@ -60,7 +64,11 @@ const Link = forwardRef<HTMLAnchorElement, Props>(
     let radixProps = props;
 
     if (href === undefined) {
-      childrenWrapper = <button type={type}>{children}</button>;
+      childrenWrapper = (
+        <button type={type} disabled={disabled}>
+          {children}
+        </button>
+      );
     } else {
       const {
         replace,

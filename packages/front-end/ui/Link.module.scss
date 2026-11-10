@@ -7,6 +7,12 @@
     color: var(--accent-10);
   }
 
+  &:disabled {
+    color: var(--color-text-disabled);
+    cursor: not-allowed;
+    text-decoration: none;
+  }
+
   // Override needed because of bootstrap
   &:global(.rt-underline-none):hover {
     text-decoration: none;

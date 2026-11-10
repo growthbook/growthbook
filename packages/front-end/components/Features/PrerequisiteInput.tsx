@@ -448,10 +448,8 @@ export default function PrerequisiteInput({
   const addPrerequisiteLinkBody = (
     <Link
       mt="2"
-      onClick={() => {
-        if (!hasPrerequisitesCommercialFeature || locked) return;
-        setValue([{ id: "", condition: "{}" }]);
-      }}
+      disabled={!hasPrerequisitesCommercialFeature || locked}
+      onClick={() => setValue([{ id: "", condition: "{}" }])}
     >
       <Text
         weight="semibold"

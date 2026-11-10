@@ -66,6 +66,41 @@ export default function TabsStories() {
           </Tabs>
         </Box>
       </Box>
+
+      <Box>
+        With alignText, the labels line up with the padded content under them
+        rather than their underlines; the list reaches past its box by a
+        tab&apos;s padding on each side, so it needs that much room around it.
+        <Flex direction="column" gap="4" mt="2">
+          {[
+            { label: "Fits", tabs: OVERFLOW_TABS.slice(0, 2), width: 480 },
+            { label: "With a More menu", tabs: OVERFLOW_TABS, width: 360 },
+          ].map(({ label, tabs, width }) => (
+            <Box
+              key={label}
+              p="5"
+              style={{
+                width,
+                border: "1px solid var(--gray-a5)",
+                borderRadius: "var(--radius-3)",
+              }}
+            >
+              <Tabs defaultValue={tabs[0]}>
+                <TabsList alignText>
+                  {tabs.map((tab) => (
+                    <TabsTrigger key={tab} value={tab}>
+                      {tab}
+                    </TabsTrigger>
+                  ))}
+                </TabsList>
+              </Tabs>
+              <Box mt="3">
+                {label}: the first label starts where this text does.
+              </Box>
+            </Box>
+          ))}
+        </Flex>
+      </Box>
     </Flex>
   );
 }

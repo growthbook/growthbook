@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Flex, Text } from "@radix-ui/themes";
-import Collapse, { CollapseLink, CollapseTrigger } from "./Collapse";
+import Collapse, { TargetingDetailsLink, CollapseTrigger } from "./Collapse";
 
 export default function CollapseStories() {
   const [closed, setClosed] = useState(false);
@@ -34,11 +34,11 @@ export default function CollapseStories() {
 
       <Flex direction="column" gap="2" align="start">
         <Text size="2" weight="bold">
-          Toggled by a link
+          On the experiment targeting tables
         </Text>
-        <CollapseLink open={linkOpen} onOpenChange={setLinkOpen}>
+        <TargetingDetailsLink open={linkOpen} onOpenChange={setLinkOpen}>
           {linkOpen ? "Hide details" : "Show details"}
-        </CollapseLink>
+        </TargetingDetailsLink>
         <Collapse open={linkOpen}>
           <Text as="p">For where a full-width row is too heavy.</Text>
         </Collapse>

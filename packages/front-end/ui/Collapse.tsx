@@ -87,8 +87,12 @@ export function CollapseTrigger({
   );
 }
 
-/** A link that opens and shuts a Collapse, for where a row is too heavy. */
-export function CollapseLink({
+/**
+ * The small link at the foot of the experiment page's targeting tables that
+ * shows or hides their details. Not a general disclosure: elsewhere, use a
+ * CollapseTrigger or a text trigger sized to its surroundings.
+ */
+export function TargetingDetailsLink({
   open,
   onOpenChange,
   children,

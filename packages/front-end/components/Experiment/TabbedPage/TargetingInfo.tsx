@@ -13,7 +13,7 @@ import useOrgSettings from "@/hooks/useOrgSettings";
 import ChangesTable, {
   ChangesTableRow,
 } from "@/components/Reviews/ChangesTable";
-import { CollapseLink } from "@/ui/Collapse";
+import { TargetingDetailsLink } from "@/ui/Collapse";
 import Text from "@/ui/Text";
 import { useTargetingDefaults } from "@/components/Experiment/useExperimentTargetingForm";
 import SetupFieldRow, { SetupFieldGroup } from "./SetupFieldRow";
@@ -266,18 +266,21 @@ export function TargetingChanges({
           key: "release",
           rows: releaseRows,
           footer: releaseRows.some((row) => row.details) ? (
-            <CollapseLink open={showDetails} onOpenChange={setShowDetails}>
+            <TargetingDetailsLink
+              open={showDetails}
+              onOpenChange={setShowDetails}
+            >
               {showDetails ? "Hide details" : "Show details"}
-            </CollapseLink>
+            </TargetingDetailsLink>
           ) : undefined,
         },
         {
           key: "targeting",
           rows: targetingRows,
           footer: (
-            <CollapseLink open={showAll} onOpenChange={setShowAll}>
+            <TargetingDetailsLink open={showAll} onOpenChange={setShowAll}>
               {showAll ? "Show changes only" : "Show full targeting"}
-            </CollapseLink>
+            </TargetingDetailsLink>
           ),
         },
       ]}
