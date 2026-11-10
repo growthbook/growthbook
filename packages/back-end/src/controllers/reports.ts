@@ -280,6 +280,11 @@ export async function getReportPublic(
     });
   }
   const context = await getContextForAgendaJobByOrgId(report.organization);
+  if (context.org.settings?.disablePublicSharing) {
+    return res.status(401).json({
+      message: "Unauthorized",
+    });
+  }
 
   let snapshot =
     (await findSnapshotById(context, report.snapshot)) || undefined;

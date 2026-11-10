@@ -112,6 +112,14 @@ describe("validateSQL", () => {
     it("does not throw when a semicolon appears mid-query", () => {
       expect(() => validateSQL("SELECT ';' AS delim FROM t", [])).not.toThrow();
     });
+
+    it("runs in linear time on a semicolon followed by many newlines", () => {
+      // The old `/;(\s|\n)*$/` backtracked exponentially here
+      const sql = "SELECT x FROM y;" + "\n".repeat(50000) + "z";
+      const start = performance.now();
+      expect(() => validateSQL(sql, [])).not.toThrow();
+      expect(performance.now() - start).toBeLessThan(500);
+    });
   });
 
   describe("required columns", () => {

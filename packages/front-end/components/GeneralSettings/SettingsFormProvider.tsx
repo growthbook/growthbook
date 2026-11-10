@@ -286,6 +286,7 @@ export function SettingsFormProvider({ children }: { children: ReactNode }) {
       decisionFrameworkEnabled: DEFAULT_DECISION_FRAMEWORK_ENABLED,
       defaultDecisionCriteriaId: PRESET_DECISION_CRITERIA.id,
       blockFileUploads: false,
+      disablePublicSharing: false,
       requireProjectForFeatures: DEFAULT_REQUIRE_PROJECT_FOR_FEATURES,
       requireProjectForSdkConnections:
         DEFAULT_REQUIRE_PROJECT_FOR_SDK_CONNECTIONS,
