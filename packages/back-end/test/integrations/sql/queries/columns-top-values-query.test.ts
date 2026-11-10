@@ -184,3 +184,16 @@ describe("getColumnsTopValuesQuery — exact fallback path", () => {
     expect(athenaDialect.approxTopValuesCTEBody).toBeUndefined();
   });
 });
+
+describe("getColumnsTopValuesQuery — needsCounts", () => {
+  it("uses the exact query where the approximate one only ranks", () => {
+    const sql = buildSql(clickHouseDialect, { needsCounts: true });
+    expect(sql).toMatch(/GROUP BY/i);
+    expect(sql).not.toMatch(/topK/);
+  });
+
+  it("keeps an approximate query that returns counts", () => {
+    const sql = buildSql(snowflakeDialect, { needsCounts: true });
+    expect(sql).toMatch(/APPROX_TOP_K/i);
+  });
+});

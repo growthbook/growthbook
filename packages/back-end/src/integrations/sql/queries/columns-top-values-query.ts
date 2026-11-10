@@ -17,6 +17,7 @@ export function getColumnsTopValuesQuery(
     lookbackDays,
     maxValueLength,
     searchTerm,
+    needsCounts,
   }: ColumnTopValuesParams,
 ): string {
   if (columns.length === 0) {
@@ -59,6 +60,7 @@ __topValues AS (
     maxValueLength,
     searchTerm,
     timestampColumn,
+    needsCounts,
   })}
 )
 SELECT column_name, value, count FROM __topValues
@@ -76,6 +78,7 @@ type TopValuesCTEBodyParams = {
   maxValueLength?: number;
   searchTerm?: string;
   timestampColumn: string;
+  needsCounts?: boolean;
 };
 
 function getTopValuesCTEBody(
@@ -88,6 +91,7 @@ function getTopValuesCTEBody(
     maxValueLength,
     searchTerm,
     timestampColumn,
+    needsCounts,
   }: TopValuesCTEBodyParams,
 ): string {
   const pairs = columns.map((c) => {
@@ -116,7 +120,10 @@ function getTopValuesCTEBody(
 
   // When the dialect has a native approximate top-k aggregate use it
   // for better performance.
-  if (dialect.approxTopValuesCTEBody) {
+  if (
+    dialect.approxTopValuesCTEBody &&
+    !(needsCounts && dialect.approxTopValuesCountsAreRanks)
+  ) {
     return dialect.approxTopValuesCTEBody({
       pairs,
       fromTable: "__factTable",

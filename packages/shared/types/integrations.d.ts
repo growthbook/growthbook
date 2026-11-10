@@ -349,6 +349,8 @@ export type ColumnTopValuesParams = {
   lookbackDays: number;
   maxValueLength?: number;
   searchTerm?: string;
+  // Skips an approximate query that can only rank values (ClickHouse topK)
+  needsCounts?: boolean;
 };
 
 /** Rows are returned most-frequent-first per column. */

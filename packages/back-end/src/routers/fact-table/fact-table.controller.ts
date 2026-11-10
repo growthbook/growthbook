@@ -928,11 +928,14 @@ export const postColumnTopValues = async (
       column.datatype === "string")
   ) {
     try {
+      // One column, on a click: worth the exact query where the fast one
+      // can't count, so the value list shows counts
       const countsByColumn = await runColumnsTopValueCountsQuery(
         context,
         datasource,
         factTable,
         [column],
+        { needsCounts: true },
       );
 
       const snapshot = {

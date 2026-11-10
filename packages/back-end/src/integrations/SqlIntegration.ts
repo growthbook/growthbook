@@ -1830,13 +1830,15 @@ export default abstract class SqlIntegration
   public async runColumnsTopValuesQuery(
     sql: string,
     factTableId: string | null,
+    needsCounts?: boolean,
   ): Promise<ColumnTopValuesResponse> {
     const { rows, statistics } = await this.runQuery(sql, undefined, {
       queryType: "columnTopValues",
       ...(factTableId && { factTableIds: [factTableId] }),
     });
 
-    const countsAreRanks = !!this.getSqlDialect().approxTopValuesCountsAreRanks;
+    const countsAreRanks =
+      !needsCounts && !!this.getSqlDialect().approxTopValuesCountsAreRanks;
     return {
       statistics,
       rows: rows.map((r) => ({
