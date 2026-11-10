@@ -1,3 +1,4 @@
+import { execFileSync } from "child_process";
 import { mkdtemp, rm, writeFile } from "fs/promises";
 import os from "os";
 import path from "path";
@@ -209,6 +210,26 @@ describe("getClickHouseTLSOptions with certificate file paths", () => {
     await expect(
       getClickHouseTLSOptions({ ssl: true, ...params() }),
     ).rejects.toThrow(error);
+  });
+
+  it("rejects a path that isn't a regular file", async () => {
+    const fifo = path.join(dir, "pipe");
+    execFileSync("mkfifo", [fifo]);
+
+    for (const caCertPath of [dir, fifo]) {
+      await expect(
+        getClickHouseTLSOptions({ ssl: true, caCertPath }),
+      ).rejects.toThrow(/expected a regular file/);
+    }
+  });
+
+  it("rejects a file over 1 MB", async () => {
+    const big = path.join(dir, "big.crt");
+    await writeFile(big, CA + " ".repeat(1024 * 1024));
+
+    await expect(
+      getClickHouseTLSOptions({ ssl: true, caCertPath: big }),
+    ).rejects.toThrow(/at most 1 MB/);
   });
 
   it("rejects an empty file without echoing its contents", async () => {

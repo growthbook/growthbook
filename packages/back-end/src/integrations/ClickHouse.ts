@@ -1,4 +1,4 @@
-import { readFile } from "fs/promises";
+import { readFile, stat } from "fs/promises";
 import { subDays } from "date-fns";
 import {
   ClickHouseClientConfigOptions,
@@ -86,6 +86,8 @@ export function getClickHouseUrl(
   return host;
 }
 
+const MAX_PEM_FILE_BYTES = 1024 * 1024;
+
 // Files are read on every call, so certificates rotated on disk are picked up without a restart
 async function readPem(
   value: string | undefined,
@@ -106,6 +108,11 @@ async function readPem(
   }
   let contents: Buffer;
   try {
+    // A device or pipe (e.g. /dev/zero) would otherwise be read without end
+    const info = await stat(path);
+    if (!info.isFile() || info.size > MAX_PEM_FILE_BYTES) {
+      throw new Error("expected a regular file of at most 1 MB");
+    }
     contents = await readFile(path);
   } catch (e) {
     throw new Error(

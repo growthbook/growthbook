@@ -4,7 +4,7 @@ import { Box } from "@radix-ui/themes";
 import { ClickHouseConnectionParams } from "shared/types/integrations/clickhouse";
 import { KEEP_EXISTING_PLACEHOLDER } from "@/components/Forms/secretInput";
 import Field from "@/components/Forms/Field";
-import { isCloud } from "@/services/env";
+import { isCloud, isMultiOrg } from "@/services/env";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
 import HostWarning from "./HostWarning";
@@ -120,7 +120,7 @@ const ClickHouseForm: FC<{
           }}
         />
       </div>
-      {params.ssl && !isCloud() && (
+      {params.ssl && !isCloud() && !isMultiOrg() && (
         <Box mb="3">
           <Box mb="3">
             <Link onClick={() => setShowPaths(!showPaths)}>
