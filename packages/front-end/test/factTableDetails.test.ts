@@ -5,6 +5,7 @@ import {
 } from "shared/types/fact-table";
 import {
   getColumnTopValues,
+  prepareColumnUpdate,
   getEventColumns,
   getMetricEvents,
   getMetricsForEvent,
@@ -248,5 +249,60 @@ describe("getColumnTopValues", () => {
       hasCounts: false,
       refreshedAt: null,
     });
+  });
+});
+
+describe("prepareColumnUpdate", () => {
+  const column = (c: Partial<ColumnInterface>) =>
+    ({
+      column: "country",
+      datatype: "string",
+      deleted: false,
+      ...c,
+    }) as ColumnInterface;
+  const factTable = (columns: ColumnInterface[]) => ({
+    userIdTypes: ["user_id"],
+    userIdColumns: { user_id: "user_id" },
+    columns,
+  });
+
+  it("clears value mappings when filtering is turned off", () => {
+    const country = column({ alwaysInlineFilter: true });
+    expect(
+      prepareColumnUpdate(factTable([country]), country, {
+        alwaysInlineFilter: false,
+      }).data,
+    ).toEqual({ alwaysInlineFilter: false, conditionalInlineFilters: {} });
+  });
+
+  it("drops filtering for a column that can't be filtered", () => {
+    const userId = column({ column: "user_id" });
+    expect(
+      prepareColumnUpdate(factTable([userId]), userId, {
+        alwaysInlineFilter: true,
+      }).data.alwaysInlineFilter,
+    ).toBe(false);
+  });
+
+  it("loads top values only for a new string Auto Slice without levels", () => {
+    const country = column({});
+    const flag = column({ column: "flag", datatype: "boolean" });
+    const table = factTable([country, flag]);
+    expect(
+      prepareColumnUpdate(table, country, { isAutoSliceColumn: true })
+        .loadTopValues,
+    ).toBe(true);
+    expect(
+      prepareColumnUpdate(table, country, {
+        isAutoSliceColumn: true,
+        autoSlices: ["US"],
+      }).loadTopValues,
+    ).toBe(false);
+    const boolean = prepareColumnUpdate(table, flag, {
+      isAutoSliceColumn: true,
+      autoSlices: [],
+    });
+    expect(boolean.loadTopValues).toBe(false);
+    expect(boolean.data.autoSlices).toEqual(["true", "false"]);
   });
 });

@@ -11,9 +11,8 @@ import {
   getFactTableIdColumn,
   getFactTableTimestampColumn,
 } from "shared/experiments";
-import { useAuth } from "@/services/auth";
-import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
+import useSaveColumn from "@/hooks/useSaveColumn";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
 import Checkbox from "@/ui/Checkbox";
@@ -31,8 +30,7 @@ export default function EditColumnModal({
   column: ColumnInterface;
   close: () => void;
 }) {
-  const { apiCall } = useAuth();
-  const { mutateDefinitions } = useDefinitions();
+  const saveColumn = useSaveColumn(factTable);
   const { hasCommercialFeature } = useUser();
 
   const [description, setDescription] = useState(column.description || "");
@@ -70,31 +68,9 @@ export default function EditColumnModal({
         const data: UpdateColumnProps = { description };
         if (!column.datatype) data.datatype = datatype;
         if (datatype === "number") data.numberFormat = numberFormat;
-        if (canFilter) {
-          data.alwaysInlineFilter = filter;
-          // Matches ColumnModal: value mappings only apply while filtering
-          if (!filter) data.conditionalInlineFilters = {};
-        }
+        if (canFilter) data.alwaysInlineFilter = filter;
         if (canAutoSlice) data.isAutoSliceColumn = autoSlice;
-
-        await apiCall(`/fact-tables/${factTable.id}/column/${column.column}`, {
-          method: "PUT",
-          body: JSON.stringify(data),
-        });
-        // A new string auto slice column takes its levels from its top values;
-        // the server sets boolean levels itself
-        if (
-          canAutoSlice &&
-          autoSlice &&
-          !column.isAutoSliceColumn &&
-          datatype === "string"
-        ) {
-          await apiCall(
-            `/fact-tables/${factTable.id}/column/${column.column}/top-values`,
-            { method: "POST" },
-          );
-        }
-        await mutateDefinitions();
+        await saveColumn(column, data);
       }}
     >
       <Field
