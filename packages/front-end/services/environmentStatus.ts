@@ -65,10 +65,6 @@ export type EnvironmentValue =
   // A step that takes no one's traffic, as at 0% coverage.
   | { kind: "none" };
 
-// A step in a reason, with the attribute it buckets users by, if any:
-// "Experiment split by user_id".
-export type ReasonLabel = { text: string; by?: string };
-
 export type EnvironmentReason =
   | { kind: "disabled" }
   // An archived flag isn't sent to SDKs at all.
@@ -84,7 +80,7 @@ export type EnvironmentReason =
     }
   // The one thing that decides who gets what, behind any holdout: a rule or
   // prerequisite targeting that varies it, else the rule serving everyone.
-  | { kind: "traffic"; labels: ReasonLabel[] }
+  | { kind: "traffic"; labels: string[] }
   // Several things vary it together, too many to name as one reason.
   | { kind: "mixed" }
   | { kind: "default" };
@@ -431,10 +427,18 @@ export function stepTargets(step: TrafficStep): string | null {
   return `${percentFormatter.format(participation)} of users`;
 }
 
-// The attribute a step taking everyone needs a user to have: the SDK skips it
-// for whoever lacks one.
-export function stepRequires(step: TrafficStep): string | null {
-  return (takes(step) ?? 0) >= 1 - EPSILON ? step.hashAttribute : null;
+// The attribute a step buckets users by: it samples the share that gets its
+// one value, or splits users between several. Values unknown ahead of time, as
+// a bandit's, are a split. The SDK skips it for a user without the attribute.
+export function stepBucketing(
+  step: TrafficStep,
+): { label: "Sample by" | "Split by"; attribute: string } | null {
+  if (!step.hashAttribute) return null;
+  const values = new Set(step.traffic?.shares?.map((s) => s.value));
+  return {
+    label: values.size === 1 ? "Sample by" : "Split by",
+    attribute: step.hashAttribute,
+  };
 }
 
 // The rules that bear on a drilldown's outcome: not one that reaches no one,
@@ -668,17 +672,6 @@ export function getEnvironmentStatus({
     return own.some((r) => !decided(r.step)) ? "varies" : "applies";
   };
 
-  // Bucketing splits users between its values, or samples the share that gets
-  // its one value. Values unknown ahead of time, as a bandit's, are a split.
-  const named = (step: TrafficStep): ReasonLabel => {
-    if (!step.hashAttribute) return { text: step.label };
-    const values = new Set(step.traffic?.shares?.map((s) => s.value));
-    return {
-      text: `${step.label} ${values.size === 1 ? "sampled" : "split"}`,
-      by: step.hashAttribute,
-    };
-  };
-
   return {
     value: varying ? { kind: "varies" } : value,
     reason: (() => {
@@ -686,7 +679,7 @@ export function getEnvironmentStatus({
       // What makes the value vary; a rule serving one value to all the
       // traffic left over doesn't, any more than the default does.
       const sources = [
-        ...(varying ? [{ text: "Prerequisite targeting" }] : []),
+        ...(varying ? ["Prerequisite targeting"] : []),
         ...rules
           .filter((step) => {
             const traffic = decided(step);
@@ -696,7 +689,7 @@ export function getEnvironmentStatus({
               new Set(traffic.shares.map((s) => s.value)).size > 1
             );
           })
-          .map(named),
+          .map((step) => step.label),
       ];
       // Several vary it, or one does and the rules after it take over for
       // whoever it doesn't match: no single thing to name.
@@ -705,12 +698,11 @@ export function getEnvironmentStatus({
       }
       // The holdout stacks in front, in the SDK's order.
       const chain = [
-        ...reasons.filter((step) => step.kind === "holdout").map(named),
-        ...(sources.length ? sources : rules.map(named)),
-      ].filter(
-        (label, i, all) =>
-          label.text !== all[i - 1]?.text || label.by !== all[i - 1]?.by,
-      );
+        ...reasons
+          .filter((step) => step.kind === "holdout")
+          .map((step) => step.label),
+        ...(sources.length ? sources : rules.map((step) => step.label)),
+      ].filter((label, i, all) => label !== all[i - 1]);
       return chain.length
         ? { kind: "traffic" as const, labels: chain }
         : { kind: "default" as const };
@@ -785,11 +777,7 @@ export function reasonText(reason: EnvironmentReason): string | null {
       return reason.holdout ? `Holdout + ${text}` : text;
     }
     case "traffic":
-      return reason.labels
-        .map((label) =>
-          label.by ? `${label.text} by ${label.by}` : label.text,
-        )
-        .join(" + ");
+      return reason.labels.join(" + ");
     case "mixed":
       return null;
     case "default":

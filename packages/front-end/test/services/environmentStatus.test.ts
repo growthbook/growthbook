@@ -18,7 +18,7 @@ import {
   sdkValueText,
   stepServes,
   stepTargets,
-  stepRequires,
+  stepBucketing,
   TrafficStep,
 } from "@/services/environmentStatus";
 
@@ -147,7 +147,7 @@ describe("getEnvironmentStatus", () => {
     [
       "a rollout over a rule serving the rest",
       [rollout("true", 0.5), force("false")],
-      { kind: "traffic", labels: [{ text: "Rollout sampled", by: "id" }] },
+      { kind: "traffic", labels: ["Rollout"] },
     ],
     [
       "nothing when two rollouts both vary it",
@@ -164,7 +164,7 @@ describe("getEnvironmentStatus", () => {
     );
     expect(result.reason).toEqual({
       kind: "traffic",
-      labels: [{ text: "Force rule" }],
+      labels: ["Force rule"],
     });
     expect(result.steps.map((s) => s.reachable)).toEqual([true, false]);
     expect(result.defaultValue).toBe("skipped");
@@ -190,7 +190,7 @@ describe("getEnvironmentStatus", () => {
     });
     expect(result.reason).toEqual({
       kind: "traffic",
-      labels: [{ text: "Experiment split", by: "id" }],
+      labels: ["Experiment"],
     });
   });
 
@@ -226,18 +226,18 @@ describe("getEnvironmentStatus", () => {
       "a running experiment",
       {},
       { kind: "partial", value: "true", percent: 0.5 },
-      "Experiment split",
+      "Split by",
     ],
     [
       "a stopped experiment's released variation",
       { status: "stopped", releasedVariationId: "v1" },
       { kind: "value", value: "true" },
       // One value, to the share its coverage samples.
-      "Experiment sampled",
+      "Sample by",
     ],
   ] as const)(
     "lets whoever lacks the hash attribute past %s at full coverage",
-    (_, overrides, value, text) => {
+    (_, overrides, value, bucketing) => {
       const step = ruleTrafficStep(experimentRule, {
         experiment: experiment({ hashAttribute: "user_id", ...overrides }),
       });
@@ -246,12 +246,15 @@ describe("getEnvironmentStatus", () => {
       expect(alone.value).toEqual(value);
       expect(alone.reason).toEqual({
         kind: "traffic",
-        labels: [{ text, by: "user_id" }],
+        labels: ["Experiment"],
       });
       expect(alone.defaultValue).toBe("applies");
       expect(alone.defaultWithout).toEqual(["user_id"]);
       expect(stepTargets(step)).toBe("All users");
-      expect(stepRequires(step)).toBe("user_id");
+      expect(stepBucketing(step)).toEqual({
+        label: bucketing,
+        attribute: "user_id",
+      });
       expect(reachedRules(alone)).toEqual({ rule: step, count: 1 });
 
       // A rule that buckets no one still ends it.
@@ -407,7 +410,7 @@ describe("getEnvironmentStatus", () => {
     });
     expect(result.reason).toEqual({
       kind: "traffic",
-      labels: [{ text: "Holdout" }, { text: "Force rule" }],
+      labels: ["Holdout", "Force rule"],
     });
     expect(result).toMatchObject({ holdout: "applies", rules: "applies" });
   });
@@ -443,7 +446,7 @@ describe("getEnvironmentStatus", () => {
     expect(
       status([force("true"), force("true")].map((r) => ruleTrafficStep(r)))
         .reason,
-    ).toEqual({ kind: "traffic", labels: [{ text: "Force rule" }] });
+    ).toEqual({ kind: "traffic", labels: ["Force rule"] });
   });
 
   it("counts an experiment's split of a non-boolean value as a split", () => {
@@ -538,7 +541,7 @@ describe("getEnvironmentStatus", () => {
       "the rule after it",
       [force("true", '{"country":"US"}'), force("true")],
       "false",
-      { kind: "traffic", labels: [{ text: "Force rule" }] },
+      { kind: "traffic", labels: ["Force rule"] },
     ],
   ])(
     "serves one value when a targeted rule serves the same as %s",
@@ -577,7 +580,7 @@ describe("getEnvironmentStatus", () => {
       }).reason,
     ).toEqual({
       kind: "traffic",
-      labels: [{ text: "Holdout" }, { text: "Prerequisite targeting" }],
+      labels: ["Holdout", "Prerequisite targeting"],
     });
   });
 
@@ -615,7 +618,7 @@ describe("getEnvironmentStatus", () => {
         .reason,
     ).toEqual({
       kind: "traffic",
-      labels: [{ text: "Holdout" }, { text: "Force rule" }],
+      labels: ["Holdout", "Force rule"],
     });
   });
 });
@@ -777,9 +780,9 @@ describe("reasonText", () => {
     [
       {
         kind: "traffic",
-        labels: [{ text: "Rollout" }, { text: "Experiment split", by: "id" }],
+        labels: ["Rollout", "Experiment"],
       },
-      "Rollout + Experiment split by id",
+      "Rollout + Experiment",
     ],
     [{ kind: "default" }, "Default value"],
     [{ kind: "mixed" }, null],

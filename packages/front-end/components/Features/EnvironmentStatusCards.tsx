@@ -12,7 +12,6 @@ import { PiArrowRight, PiCaretDown, PiCaretUp, PiMinus } from "react-icons/pi";
 import {
   displayValue,
   reachedRules,
-  ReasonLabel,
   EnvironmentStatus,
   EnvironmentValue,
   PrerequisiteResult,
@@ -20,7 +19,7 @@ import {
   reasonText,
   servedDot,
   StepStatus,
-  stepRequires,
+  stepBucketing,
   stepServes,
   stepTargets,
   TrafficStep,
@@ -210,14 +209,7 @@ function Attributes({ names }: { names: string[] }) {
   );
 }
 
-function ReasonText({
-  text,
-  labels,
-}: {
-  text: string;
-  // A traffic reason's steps, to set what each buckets by apart as code.
-  labels?: ReasonLabel[];
-}) {
+function ReasonText({ text }: { text: string }) {
   const ref = useRef<HTMLSpanElement>(null);
   const truncated = useIsOverflowingX(ref);
   // The span triggers it: @/ui/Text drops the hover handlers a trigger needs.
@@ -225,20 +217,7 @@ function ReasonText({
     <Tooltip content={text} enabled={truncated}>
       <span className={styles.reason}>
         <Text ref={ref} size="sm" color="text-mid" truncate>
-          {labels
-            ? labels.map((label, i) => (
-                <Fragment key={i}>
-                  {i ? " + " : null}
-                  {label.text}
-                  {label.by ? (
-                    <>
-                      {" by "}
-                      <Attributes names={[label.by]} />
-                    </>
-                  ) : null}
-                </Fragment>
-              ))
-            : text}
+          {text}
         </Text>
       </span>
     </Tooltip>
@@ -358,7 +337,7 @@ function StepFields({
 }) {
   const serves = stepServes(step, valueType === "boolean");
   const targets = stepTargets(step);
-  const requires = stepRequires(step);
+  const bucketing = stepBucketing(step);
   return (
     <Fields
       fields={[
@@ -387,15 +366,18 @@ function StepFields({
           ? [
               {
                 label: "Targets",
+                value: <Text color="text-mid">{targets}</Text>,
+              },
+            ]
+          : []),
+        // The SDK skips it for a user without the attribute.
+        ...(bucketing
+          ? [
+              {
+                label: bucketing.label,
                 value: (
                   <Text color="text-mid">
-                    {targets}
-                    {requires ? (
-                      <>
-                        {" with "}
-                        <Attributes names={[requires]} />
-                      </>
-                    ) : null}
+                    <Attributes names={[bucketing.attribute]} />
                   </Text>
                 ),
               },
@@ -609,14 +591,7 @@ function Card({
                 <Text size="sm" color="text-low">
                   Reason:
                 </Text>
-                <ReasonText
-                  text={reason}
-                  labels={
-                    status?.reason.kind === "traffic"
-                      ? status.reason.labels
-                      : undefined
-                  }
-                />
+                <ReasonText text={reason} />
               </>
             ) : null}
           </span>
