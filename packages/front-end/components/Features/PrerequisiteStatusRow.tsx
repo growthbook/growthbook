@@ -297,6 +297,7 @@ export function PrerequisiteStatesCols({
   tooltipBodyWrapper,
   colWidth = 120,
   compact = false,
+  iconSize = compact ? 14 : 20,
   usePortal = false,
 }: {
   prereqStates?: Record<string, PrerequisiteStateResult>;
@@ -308,10 +309,10 @@ export function PrerequisiteStatesCols({
   tooltipBodyWrapper?: (body: ReactElement) => ReactElement;
   colWidth?: number;
   compact?: boolean;
+  iconSize?: number;
   /** Renders tooltips at the document root, for columns inside a scroll area. */
   usePortal?: boolean;
 }) {
-  const iconSize = compact ? 14 : 20;
   const featureLabel = isSummaryRow
     ? "The current feature"
     : "This prerequisite";

@@ -102,7 +102,7 @@ import {
   DeletePrerequisiteModal,
   PrerequisiteStatesCols,
 } from "./PrerequisiteStatusRow";
-import { isRuleSkipped } from "./Rule";
+import { isRuleSkipped, ruleElementId } from "./Rule";
 import PrerequisiteAlerts from "./PrerequisiteAlerts";
 import PrerequisiteModal from "./PrerequisiteModal";
 import { featureStatusColors } from "./FeaturesOverview";
@@ -228,6 +228,30 @@ export default function FeaturesOverviewNew({
   // config-backed value for the same environment the rules are filtered to.
   // null = "All Environments".
   const [rulesEnv, setRulesEnv] = useFeatureRulesEnv();
+  // A rule to bring into view once the rules show it, which may take a few
+  // frames after switching their tab.
+  const [scrollToRule, setScrollToRule] = useState<string | null>(null);
+  useEffect(() => {
+    if (scrollToRule === null) return;
+    let frames = 0;
+    let request = 0;
+    const scroll = () => {
+      const rule = document.getElementById(ruleElementId(scrollToRule));
+      if (rule || ++frames > 30) {
+        rule?.scrollIntoView({ behavior: "smooth", block: "center" });
+        setScrollToRule(null);
+        return;
+      }
+      request = requestAnimationFrame(scroll);
+    };
+    scroll();
+    return () => cancelAnimationFrame(request);
+  }, [scrollToRule]);
+  // All Environments shows every rule; another environment's tab may not.
+  const jumpToRule = (environment: string, ruleId: string) => {
+    if (rulesEnv !== null && rulesEnv !== environment) setRulesEnv(environment);
+    setScrollToRule(ruleId);
+  };
 
   const prerequisites = feature?.prerequisites || [];
 
@@ -533,7 +557,7 @@ export default function FeaturesOverviewNew({
   const prerequisiteState = (
     prerequisiteId: string,
     env: string,
-    inScrollArea = false,
+    { inScrollArea = false, inline = false } = {},
   ) => {
     // A parent the states don't include reaches the SDK as an unknown
     // feature, null, as prerequisiteResult counts it.
@@ -554,8 +578,9 @@ export default function FeaturesOverviewNew({
         defaultValues={defaultValues}
         envs={[env]}
         loading={parentStatesLoading}
-        colWidth={20}
+        colWidth={inline ? 12 : 20}
         compact
+        iconSize={inline ? 12 : undefined}
         usePortal={inScrollArea}
       />
     );
@@ -634,7 +659,6 @@ export default function FeaturesOverviewNew({
     holdout.environmentSettings?.[env]?.enabled
       ? [
           holdoutTrafficStep(
-            holdout,
             servedValue(f, f.holdout.value, env),
             holdoutExperiment,
           ),
@@ -682,14 +706,22 @@ export default function FeaturesOverviewNew({
               : undefined,
         },
       );
-      if (blocked)
-        return [{ ...step, traffic: { participation: 0, shares: [] } }];
-      // Served to only some connections, what it serves depends on which,
-      // unless it reaches no one anyway.
+      if (blocked) {
+        return [
+          {
+            ...step,
+            ruleId: rule.id,
+            traffic: { participation: 0, shares: step.traffic?.shares ?? [] },
+          },
+        ];
+      }
+      // Served to only some connections, what it serves depends on which.
       return [
-        reach === "some" && step.traffic?.participation !== 0
-          ? { ...step, traffic: null }
-          : step,
+        {
+          ...step,
+          ruleId: rule.id,
+          targeted: step.targeted || reach === "some",
+        },
       ];
     }),
   ];
@@ -795,7 +827,6 @@ export default function FeaturesOverviewNew({
         result: prerequisiteResult(p, en.id),
       })),
       environmentChanges: environmentChanges(en.id),
-      ruleCount: liveRules(feature, en.id).length,
     };
   });
   // A past or discarded revision's cards aren't what's served now: does live
@@ -1026,6 +1057,7 @@ export default function FeaturesOverviewNew({
               cards={environmentCards}
               valueType={feature.valueType}
               prerequisiteState={prerequisiteState}
+              jumpToRule={jumpToRule}
               renderToggle={(envId) => {
                 const enabled =
                   feature.environmentSettings?.[envId]?.enabled ?? false;

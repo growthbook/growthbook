@@ -1,10 +1,15 @@
-import { ReactNode, useLayoutEffect, useRef, useState } from "react";
+import { Fragment, ReactNode, useLayoutEffect, useRef, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import { FeatureValueType } from "shared/types/feature";
-import { PiArrowRight, PiCaretDown, PiCaretUp, PiMinus } from "react-icons/pi";
+import {
+  PiArrowRight,
+  PiCaretDown,
+  PiCaretUp,
+  PiMinus,
+  PiPlus,
+} from "react-icons/pi";
 import {
   displayValue,
-  EnvironmentReason,
   EnvironmentStatus,
   EnvironmentValue,
   PrerequisiteResult,
@@ -12,14 +17,17 @@ import {
   reasonText,
   servedDot,
   StepStatus,
+  stepServes,
+  stepTargets,
+  TrafficStep,
 } from "@/services/environmentStatus";
 import Collapse, { CollapseTrigger } from "@/ui/Collapse";
 import { Popover } from "@/ui/Popover";
+import ScrollArea from "@/ui/ScrollArea";
 import Badge from "@/ui/Badge";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
 import Tooltip from "@/ui/Tooltip";
-import TruncatedText from "@/ui/TruncatedText";
 import { useIsOverflowingX } from "@/hooks/useIsOverflowing";
 import ValueDisplay, { BooleanDot } from "./ValueDisplay";
 import StateIcon from "./StateIcon";
@@ -27,17 +35,22 @@ import PrerequisiteTable from "./PrerequisiteTable";
 import DraftChangesPopover, {
   DraftChangeMark,
   DraftChangeSection,
+  mergeDraftChangeSections,
 } from "./DraftChangesPopover";
 import { featureStatusColors } from "./FeaturesOverview";
 import styles from "./EnvironmentStatusCards.module.scss";
 
 // A prerequisite's state in an environment, with why on hover; a scroll area's
-// clips its tooltip unless it renders at the page root.
+// clips its tooltip unless it renders at the page root. Inline, it's sized to
+// sit beside text.
 type PrerequisiteStateRenderer = (
   prerequisiteId: string,
   environment: string,
-  inScrollArea?: boolean,
+  options?: { inScrollArea?: boolean; inline?: boolean },
 ) => ReactNode;
+
+// Brings an environment's rule into view in the rule list.
+type RuleJumper = (environment: string, ruleId: string) => void;
 
 export type EnvironmentCard = {
   id: string;
@@ -50,8 +63,6 @@ export type EnvironmentCard = {
   }[];
   // What the draft changes about this environment's switch, if anything.
   environmentChanges: DraftChangeSection[] | null;
-  // The rules it evaluates: those not inactive or skipped.
-  ruleCount: number;
 };
 
 const percentFormatter = new Intl.NumberFormat(undefined, {
@@ -78,15 +89,13 @@ function ValueText({
       </Text>
     );
   }
-  if (value.kind === "varies" || value.kind === "split") {
+  if (value.kind === "varies") {
     return (
       <>
         {/* Some get true and some false. */}
         {valueType === "boolean" ? <BooleanDot fill="split" /> : null}
         <Text color="text-mid" fontStyle="italic" whiteSpace="nowrap">
-          {value.kind === "split"
-            ? `Split ${value.count} ways`
-            : "Varies by user"}
+          Varies by user
         </Text>
       </>
     );
@@ -151,17 +160,15 @@ function ValueCode({ text, muted }: { text: string; muted: boolean }) {
   );
 }
 
-function ReasonText({ reason }: { reason: EnvironmentReason }) {
+function ReasonText({ text }: { text: string }) {
   const ref = useRef<HTMLSpanElement>(null);
   const truncated = useIsOverflowingX(ref);
-  const text = reasonText(reason);
-  if (text === null) return null;
   // The span triggers it: @/ui/Text drops the hover handlers a trigger needs.
   return (
     <Tooltip content={text} enabled={truncated}>
       <span className={styles.reason}>
-        <Text ref={ref} size="sm" color="text-low" truncate>
-          · {text}
+        <Text ref={ref} size="sm" color="text-mid" truncate>
+          {text}
         </Text>
       </span>
     </Tooltip>
@@ -178,8 +185,7 @@ function Percent({ value }: { value: EnvironmentValue }) {
   );
 }
 
-// A long value takes the line; its share and reason drop below it, to the
-// right.
+// A long value takes the line; its share drops below it, to the right.
 function WrappingValueLine({
   status,
   valueType,
@@ -217,7 +223,6 @@ function WrappingValueLine({
         </span>
         <span ref={tailRef} className={styles.line}>
           <Percent value={status.value} />
-          <ReasonText reason={status.reason} />
         </span>
       </span>
     </span>
@@ -244,23 +249,23 @@ function StepIcon({ status }: { status: StepStatus }) {
 }
 
 function Row({
-  status,
+  icon,
   label,
+  muted = false,
   children,
 }: {
-  // None while it isn't known.
-  status: StepStatus | null;
-  label: string;
+  icon: ReactNode;
+  label: ReactNode;
+  muted?: boolean;
   children: ReactNode;
 }) {
-  const muted = status === "none" || status === "skipped";
   return (
     <div className={styles.row}>
-      <span className={styles.icon}>
-        {status ? <StepIcon status={status} /> : null}
-      </span>
+      <span className={styles.icon}>{icon}</span>
       <span className={styles.label}>
-        <Text color={muted ? "text-low" : "text-high"}>{label}</Text>
+        <Text color={muted ? "text-low" : "text-high"} whiteSpace="nowrap">
+          {label}
+        </Text>
       </span>
       <Flex
         align="center"
@@ -275,66 +280,109 @@ function Row({
   );
 }
 
-// The holdout or rules a card's traffic passes through, with what each serves.
-function Steps({
-  status,
-  kind,
+// A group of rows, with what they come to together when there's an icon for
+// it, in line with the rows' icons.
+function Section({
+  label,
+  icon,
+  muted = false,
+}: {
+  label: string;
+  icon?: ReactNode;
+  muted?: boolean;
+}) {
+  return (
+    <div className={styles.section}>
+      {icon ? <span className={styles.icon}>{icon}</span> : null}
+      <Text weight="medium" color={muted ? "text-low" : "text-mid"}>
+        {label}
+      </Text>
+    </div>
+  );
+}
+
+// Labeled lines beside a row's label: what it serves, and to whom.
+function Fields({ fields }: { fields: { label: string; value: ReactNode }[] }) {
+  return (
+    <span className={`${styles.fields} ${styles.stepFields}`}>
+      {fields.map(({ label, value }) => (
+        <Fragment key={label}>
+          <Text color="text-low">{label}:</Text>
+          <span className={styles.line}>{value}</span>
+        </Fragment>
+      ))}
+    </span>
+  );
+}
+
+// What a rule or rules serve whoever they reach, and who that is.
+function StepFields({
+  step,
   valueType,
 }: {
-  status: EnvironmentStatus;
-  kind: "holdout" | "rule";
+  step: TrafficStep;
   valueType: FeatureValueType;
 }) {
-  const own = kind === "holdout" ? status.holdout : status.rules;
-  if (own === "none") return <Text color="text-low">None</Text>;
-  if (own === "skipped") return <Text color="text-low">Not reached</Text>;
-  // When later rules take over for whoever one doesn't match, no line of steps
-  // reads true: say only that it varies.
-  if (kind === "rule" && status.rulesAfter > 0) {
-    return (
-      <span className={styles.stepLine}>
-        <ValueText value={{ kind: "varies" }} valueType={valueType} />
-      </span>
-    );
-  }
+  const serves = stepServes(step, valueType === "boolean");
+  const targets = stepTargets(step);
   return (
-    <Flex direction="column" minWidth="0">
-      {status.steps
-        .filter(({ step }) => step.kind === kind)
-        .map(({ step, value }, i) => (
-          <Flex
-            key={i}
-            align="center"
-            gap="2"
-            minWidth="0"
-            className={styles.stepLine}
-          >
-            <span className={styles.stepTitle}>
-              {step.label}
-              {step.name ? (
-                <>
-                  {" "}
-                  {step.href ? (
-                    <ClampedLink
-                      name={step.name}
-                      href={step.href}
-                      className={styles.clamped}
-                    />
+    <Fields
+      fields={[
+        ...(serves
+          ? [
+              {
+                label: "Serves",
+                // Split across an experiment's arms, its values say less than
+                // how many there are.
+                value:
+                  serves.kind === "varies" &&
+                  valueType !== "boolean" &&
+                  step.variations ? (
+                    <Text color="text-mid">{step.variations} variations</Text>
                   ) : (
-                    <TruncatedText text={step.name} maxWidth={160} />
-                  )}
-                </>
-              ) : null}
-              :
-            </span>
-            <ValueText
-              value={value}
-              valueType={valueType}
-              withPercent={step.kind !== "holdout"}
-            />
-          </Flex>
-        ))}
-    </Flex>
+                    <ValueText value={serves} valueType={valueType} />
+                  ),
+              },
+            ]
+          : []),
+        ...(targets
+          ? [
+              {
+                label: "Targets",
+                value: <Text color="text-mid">{targets}</Text>,
+              },
+            ]
+          : []),
+      ]}
+    />
+  );
+}
+
+// A rule, which takes you to it in the rule list.
+function RuleRow({
+  label,
+  onClick,
+  children,
+}: {
+  label: string;
+  onClick: (() => void) | null;
+  children: ReactNode;
+}) {
+  return (
+    <Row
+      icon={null}
+      label={
+        onClick ? (
+          <Link color="dark" underline="hover" onClick={onClick}>
+            {label}
+          </Link>
+        ) : (
+          label
+        )
+      }
+    >
+      {children}
+    </Row>
   );
 }
 
@@ -344,22 +392,34 @@ function Drilldown({
   valueType,
   toggle,
   prerequisiteState,
+  jumpToRule,
 }: {
   card: EnvironmentCard;
   status: EnvironmentStatus;
   valueType: FeatureValueType;
   toggle: ReactNode;
   prerequisiteState: PrerequisiteStateRenderer;
+  jumpToRule: (ruleId: string) => void;
 }) {
-  const muted = (step: StepStatus) => step === "none" || step === "skipped";
-  // The half-filled mark means on for some, off for others: true for some
-  // and false for others reads that way, but other values don't. Their traffic
-  // still applies, and its value says how it varies.
-  const traffic = (step: StepStatus) =>
-    step === "varies" && valueType !== "boolean" ? "applies" : step;
+  const holdout = status.steps.find(({ step }) => step.kind === "holdout");
+  // Only rules that bear on the outcome: not one that reaches no one, which
+  // the SDK drops, nor one no traffic gets as far as.
+  const rules = status.steps.flatMap(({ step, reachable }) =>
+    step.kind === "rule" && reachable && step.traffic?.participation !== 0
+      ? [step]
+      : [],
+  );
+  // The first rule, or the first two when they settle everyone between them;
+  // the rest together.
+  const [expanded, setExpanded] = useState(false);
+  const shown =
+    expanded || (rules.length === 2 && status.defaultValue === "skipped")
+      ? rules
+      : rules.slice(0, 1);
+  const rest = rules.slice(shown.length);
   return (
     <div className={styles.rows}>
-      <Row status={status.environment} label="Environment">
+      <Row icon={<StepIcon status={status.environment} />} label="Environment">
         {toggle}
         {/* Not sent at all, whatever its switch says; the switch is what
             serves once it's unarchived. */}
@@ -370,50 +430,119 @@ function Drilldown({
         ) : null}
       </Row>
       {card.prerequisites.length ? (
+        <>
+          <Section
+            label="Prerequisites"
+            icon={<StepIcon status={status.prerequisites} />}
+            muted={status.prerequisites === "skipped"}
+          />
+          <div className={styles.group}>
+            {card.prerequisites.map((p) => {
+              const muted = status.prerequisites === "skipped";
+              return (
+                <Row
+                  key={p.index}
+                  icon={null}
+                  muted={muted}
+                  label={
+                    <ClampedLink
+                      name={p.id}
+                      href={`/features/${p.id}`}
+                      className={styles.clamped}
+                    />
+                  }
+                >
+                  <Flex align="center" style={{ gap: 6 }}>
+                    {muted
+                      ? null
+                      : prerequisiteState(p.id, card.id, { inline: true })}
+                    <Text color={muted ? "text-low" : "text-mid"}>
+                      {prerequisitesSummary([p.result], status.prerequisites)}
+                    </Text>
+                  </Flex>
+                </Row>
+              );
+            })}
+          </div>
+        </>
+      ) : null}
+      {status.holdout !== "none" ? (
         <Row
-          status={status.prerequisites}
-          label={`Prerequisites (${card.prerequisites.length})`}
+          icon={<StepIcon status={holdout ? "applies" : "skipped"} />}
+          muted={!holdout}
+          label="Holdout"
         >
-          <Text
-            color={muted(status.prerequisites) ? "text-low" : "text-mid"}
-            truncate
-          >
-            {prerequisitesSummary(
-              card.prerequisites.map((p) => p.result),
-              status.prerequisites,
-            )}
+          {holdout ? (
+            <StepFields step={holdout.step} valueType={valueType} />
+          ) : (
+            <Text color="text-low">Not reachable</Text>
+          )}
+        </Row>
+      ) : null}
+      {rules.length ? (
+        <>
+          <Section icon={<StepIcon status="applies" />} label="Rules reached" />
+          <div className={styles.group}>
+            {shown.map((step, i) => {
+              const { ruleId } = step;
+              return (
+                <RuleRow
+                  key={i}
+                  label={step.label}
+                  onClick={ruleId !== null ? () => jumpToRule(ruleId) : null}
+                >
+                  <StepFields step={step} valueType={valueType} />
+                </RuleRow>
+              );
+            })}
+            {rest.length ? (
+              <Row
+                icon={null}
+                label={
+                  <Link underline="hover" onClick={() => setExpanded(true)}>
+                    {/* Inline, so the underline runs under the text. */}
+                    <PiPlus
+                      size={12}
+                      style={{ marginRight: 4, verticalAlign: -1 }}
+                    />
+                    {rest.length} other {rest.length === 1 ? "rule" : "rules"}
+                  </Link>
+                }
+              >
+                {null}
+              </Row>
+            ) : null}
+          </div>
+        </>
+      ) : (
+        <Row icon={<StepIcon status="skipped" />} muted label="Rules">
+          <Text color="text-low">
+            {status.rules === "skipped" ? "Not reachable" : "None"}
           </Text>
         </Row>
-      ) : null}
-      {card.prerequisites.map((p) => (
-        <div key={p.index} className={styles.subRow}>
-          {prerequisiteState(p.id, card.id)}
-          <ClampedLink
-            name={p.id}
-            href={`/features/${p.id}`}
-            className={styles.clamped}
-          />
-        </div>
-      ))}
-      {status.holdout !== "none" ? (
-        <Row status={traffic(status.holdout)} label="Holdout">
-          <Steps status={status} kind="holdout" valueType={valueType} />
-        </Row>
-      ) : null}
+      )}
       <Row
-        status={traffic(status.rules)}
-        label={card.ruleCount ? `Rules (${card.ruleCount})` : "Rules"}
+        icon={<StepIcon status={status.defaultValue} />}
+        muted={status.defaultValue === "skipped"}
+        label="Default value"
       >
-        <Steps status={status} kind="rule" valueType={valueType} />
-      </Row>
-      <Row status={status.defaultValue} label="Default value">
-        <Flex align="baseline" gap="2" minWidth="0">
-          <ValueText
-            value={{ kind: "value", value: status.servedDefault }}
-            valueType={valueType}
-            muted={muted(status.defaultValue)}
+        {status.defaultValue === "skipped" ? (
+          <Text color="text-low">Not reachable</Text>
+        ) : (
+          <Fields
+            fields={[
+              {
+                label: "Serves",
+                value: (
+                  <ValueText
+                    value={{ kind: "value", value: status.servedDefault }}
+                    valueType={valueType}
+                  />
+                ),
+              },
+            ]}
           />
-        </Flex>
+        )}
       </Row>
     </div>
   );
@@ -424,20 +553,25 @@ function Card({
   valueType,
   toggle,
   prerequisiteState,
+  jumpToRule,
+  side = "bottom",
 }: {
   card: EnvironmentCard;
   valueType: FeatureValueType;
   toggle: ReactNode;
   prerequisiteState: PrerequisiteStateRenderer;
+  jumpToRule: RuleJumper;
+  side?: "bottom" | "right";
 }) {
   const [open, setOpen] = useState(false);
   const { status } = card;
+  const reason = status ? reasonText(status.reason) : null;
   const Caret = open ? PiCaretUp : PiCaretDown;
   return (
     <Popover
       open={open}
       onOpenChange={setOpen}
-      side="bottom"
+      side={side}
       align="start"
       sideOffset={5}
       showArrow={false}
@@ -455,21 +589,33 @@ function Card({
             </Text>
             <Caret size={14} color="var(--gray-9)" />
           </Flex>
-          {!status ? (
-            <span className={styles.line}>
-              <Text color="text-low">…</Text>
-            </span>
-          ) : valueType === "json" ? (
-            <WrappingValueLine status={status} valueType={valueType} />
-          ) : (
-            <span className={styles.line}>
-              {valueType === "boolean" ? null : (
-                <BooleanDot fill={servedDot(status, valueType)} />
-              )}
-              <ValueText value={status.value} valueType={valueType} />
-              <ReasonText reason={status.reason} />
-            </span>
-          )}
+          <span className={styles.fields}>
+            <Text size="sm" color="text-low">
+              Serves:
+            </Text>
+            {!status ? (
+              <span className={styles.line}>
+                <Text color="text-low">…</Text>
+              </span>
+            ) : valueType === "json" ? (
+              <WrappingValueLine status={status} valueType={valueType} />
+            ) : (
+              <span className={styles.line}>
+                {valueType === "boolean" ? null : (
+                  <BooleanDot fill={servedDot(status, valueType)} />
+                )}
+                <ValueText value={status.value} valueType={valueType} />
+              </span>
+            )}
+            {reason !== null ? (
+              <>
+                <Text size="sm" color="text-low">
+                  Reason:
+                </Text>
+                <ReasonText text={reason} />
+              </>
+            ) : null}
+          </span>
         </button>
       }
       content={
@@ -480,11 +626,16 @@ function Card({
             valueType={valueType}
             toggle={toggle}
             prerequisiteState={prerequisiteState}
+            // Out of the way of the rule it takes you to.
+            jumpToRule={(ruleId) => {
+              setOpen(false);
+              jumpToRule(card.id, ruleId);
+            }}
           />
         ) : (
           // The switch stays in reach while what it serves isn't known.
           <div className={styles.rows}>
-            <Row status={null} label="Environment">
+            <Row icon={null} label="Environment">
               {toggle}
             </Row>
             <span className={styles.subRow}>
@@ -497,6 +648,85 @@ function Card({
   );
 }
 
+// The environments that don't fit, as the same cards in a list. What the
+// draft changes about any of them shows here too.
+function MoreCards({
+  cards,
+  valueType,
+  renderToggle,
+  prerequisiteState,
+  jumpToRule,
+}: {
+  cards: EnvironmentCard[];
+  valueType: FeatureValueType;
+  renderToggle: (environment: string) => ReactNode;
+  prerequisiteState: PrerequisiteStateRenderer;
+  jumpToRule: RuleJumper;
+}) {
+  const [open, setOpen] = useState(false);
+  // Several environments' switches read as one section of them.
+  const changes = mergeDraftChangeSections(
+    cards.flatMap((card) => card.environmentChanges ?? []),
+  ).map((section) =>
+    section.title === "Environment" && section.rows.length > 1
+      ? { ...section, title: "Environments" }
+      : section,
+  );
+  const label = `More environments (${cards.length})`;
+  const Caret = open ? PiCaretUp : PiCaretDown;
+  return (
+    <Popover
+      open={open}
+      onOpenChange={setOpen}
+      side="bottom"
+      align="start"
+      sideOffset={5}
+      showArrow={false}
+      trigger={
+        <button type="button" className={styles.card}>
+          <Flex align="center" justify="between" gap="2">
+            <Text weight="semibold" color="text-mid" truncate>
+              {changes.length ? (
+                <DraftChangesPopover sections={changes}>
+                  <span className={styles.changed}>{label}</span>
+                </DraftChangesPopover>
+              ) : (
+                label
+              )}
+            </Text>
+            <Caret size={14} color="var(--gray-9)" />
+          </Flex>
+          <Text size="sm" color="text-low" truncate>
+            {cards.map((card) => card.id).join(", ")}
+          </Text>
+        </button>
+      }
+      // The list holds the padding, so its scrollbar runs at the edge.
+      contentStyle={{ padding: 0 }}
+      content={
+        <ScrollArea style={{ maxHeight: "60vh" }}>
+          <div className={styles.moreList}>
+            {cards.map((card) => (
+              <Card
+                key={card.id}
+                card={card}
+                valueType={valueType}
+                toggle={renderToggle(card.id)}
+                prerequisiteState={prerequisiteState}
+                jumpToRule={(environment, ruleId) => {
+                  setOpen(false);
+                  jumpToRule(environment, ruleId);
+                }}
+                side="right"
+              />
+            ))}
+          </div>
+        </ScrollArea>
+      }
+    />
+  );
+}
+
 // Each environment as what it serves, and why. Its drilldown walks the
 // evaluation and holds the environment's controls.
 export default function EnvironmentStatusCards({
@@ -504,23 +734,55 @@ export default function EnvironmentStatusCards({
   valueType,
   renderToggle,
   prerequisiteState,
+  jumpToRule,
 }: {
   cards: EnvironmentCard[];
   valueType: FeatureValueType;
   renderToggle: (environment: string) => ReactNode;
   prerequisiteState: PrerequisiteStateRenderer;
+  jumpToRule: RuleJumper;
 }) {
+  // How many cards a row holds, as the grid lays them out.
+  const ref = useRef<HTMLDivElement>(null);
+  const [columns, setColumns] = useState<number | null>(null);
+  useLayoutEffect(() => {
+    const grid = ref.current;
+    if (!grid) return;
+    const measure = () =>
+      setColumns(
+        getComputedStyle(grid).gridTemplateColumns.split(" ").filter(Boolean)
+          .length,
+      );
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(grid);
+    return () => observer.disconnect();
+  }, []);
+  // Past one row, the last place goes to the rest, but at least two show,
+  // wrapping if they must. One left over shows in that place itself.
+  const overflows = columns !== null && cards.length > Math.max(columns, 3);
+  const shown = overflows ? Math.max(2, columns - 1) : cards.length;
   return (
-    <div className={styles.grid}>
-      {cards.map((card) => (
+    <div ref={ref} className={styles.grid}>
+      {cards.slice(0, shown).map((card) => (
         <Card
           key={card.id}
           card={card}
           valueType={valueType}
           toggle={renderToggle(card.id)}
           prerequisiteState={prerequisiteState}
+          jumpToRule={jumpToRule}
         />
       ))}
+      {shown < cards.length ? (
+        <MoreCards
+          cards={cards.slice(shown)}
+          valueType={valueType}
+          renderToggle={renderToggle}
+          prerequisiteState={prerequisiteState}
+          jumpToRule={jumpToRule}
+        />
+      ) : null}
     </div>
   );
 }
@@ -590,7 +852,8 @@ export function PrerequisiteList({
                     <span className={styles.actions}>{actions(p.index)}</span>
                   </>
                 ),
-                state: (env: string) => prerequisiteState(p.id, env, true),
+                state: (env: string) =>
+                  prerequisiteState(p.id, env, { inScrollArea: true }),
               })),
               ...removed.map((id) => ({
                 key: id,

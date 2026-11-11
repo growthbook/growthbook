@@ -2000,6 +2000,9 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
   },
 );
 
+// Where a rule's card is on the page, placeholder or not, to scroll to it.
+export const ruleElementId = (ruleId: string) => `rule-${ruleId}`;
+
 // Rules past the first few start as a sized placeholder that keeps its
 // sortable slot, and render once they come near the viewport. A rule that has
 // rendered stays rendered.
@@ -2030,6 +2033,7 @@ export function SortableRule(props: SortableProps) {
   if (!rendered) {
     return (
       <div
+        id={ruleElementId(props.rule.id)}
         ref={(el) => {
           setNodeRef(el);
           placeholderRef.current = el;
@@ -2039,7 +2043,15 @@ export function SortableRule(props: SortableProps) {
     );
   }
 
-  return <Rule {...props} ref={setNodeRef} style={ruleStyle} handle={handle} />;
+  return (
+    <Rule
+      {...props}
+      id={ruleElementId(props.rule.id)}
+      ref={setNodeRef}
+      style={ruleStyle}
+      handle={handle}
+    />
+  );
 }
 
 // A rule that serves nothing says so, and why, across its card.

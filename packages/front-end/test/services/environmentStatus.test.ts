@@ -15,6 +15,8 @@ import {
   ruleProjectReach,
   ruleTrafficStep,
   sdkValueText,
+  stepServes,
+  stepTargets,
   TrafficStep,
 } from "@/services/environmentStatus";
 
@@ -159,7 +161,7 @@ describe("getEnvironmentStatus", () => {
       [force("true"), force("false")].map((r) => ruleTrafficStep(r)),
     );
     expect(result.reason).toEqual({ kind: "traffic", labels: ["Force rule"] });
-    expect(result.steps).toHaveLength(1);
+    expect(result.steps.map((s) => s.reachable)).toEqual([true, false]);
     expect(result.defaultValue).toBe("skipped");
   });
 
@@ -188,7 +190,6 @@ describe("getEnvironmentStatus", () => {
   });
 
   it.each([
-    ["is a bandit", experiment({ type: "multi-armed-bandit" })],
     ["targets", experiment({}, { condition: '{"country":"US"}' })],
     ["is missing", undefined],
   ])("varies by user when the experiment %s", (_, exp) => {
@@ -200,6 +201,21 @@ describe("getEnvironmentStatus", () => {
       rules: "varies",
       defaultValue: "applies",
     });
+  });
+
+  it("varies by user behind a bandit, which takes everyone it reaches", () => {
+    const result = status([
+      ruleTrafficStep(experimentRule, {
+        experiment: experiment({ type: "multi-armed-bandit" }),
+      }),
+      ruleTrafficStep(force("false")),
+    ]);
+    expect(result).toMatchObject({
+      value: { kind: "varies" },
+      rules: "varies",
+      defaultValue: "skipped",
+    });
+    expect(result.steps.map((s) => s.reachable)).toEqual([true, false]);
   });
 
   it.each([
@@ -284,8 +300,8 @@ describe("getEnvironmentStatus", () => {
     expect(status([step])).toMatchObject({
       value: { kind: "value", value: "false" },
       reason: { kind: "default" },
-      steps: [{ value: { kind: "none" } }],
     });
+    expect(stepTargets(step)).toBe("No one");
   });
 
   it("splits evenly when an experiment's weights don't add up", () => {
@@ -336,7 +352,6 @@ describe("getEnvironmentStatus", () => {
 
   it("serves the holdout's control group ahead of the rules", () => {
     const holdout = holdoutTrafficStep(
-      { id: "hld_1", name: "Q4" },
       "false",
       experiment({}, { coverage: 0.1, variationWeights: [0.5, 0.5] }),
     );
@@ -370,13 +385,7 @@ describe("getEnvironmentStatus", () => {
     ],
     [
       "a holdout of what everyone else gets",
-      [
-        holdoutTrafficStep(
-          { id: "hld_1", name: "Q4" },
-          "false",
-          experiment({}, { coverage: 0.2 }),
-        ),
-      ],
+      [holdoutTrafficStep("false", experiment({}, { coverage: 0.2 }))],
       "false",
     ],
   ])("leaves %s out of the reason", (_, steps, defaultValue) => {
@@ -410,10 +419,10 @@ describe("getEnvironmentStatus", () => {
         ],
         { isBoolean: false, defaultValue: "c" },
       ).value,
-    ).toEqual({ kind: "split", count: 2 });
+    ).toEqual({ kind: "varies" });
   });
 
-  it("counts non-boolean values it can't reduce to one", () => {
+  it("reads non-boolean values it can't reduce to one as varying", () => {
     const result = status(
       [
         ruleTrafficStep(
@@ -429,7 +438,7 @@ describe("getEnvironmentStatus", () => {
       ],
       { isBoolean: false, defaultValue: "c" },
     );
-    expect(result.value).toEqual({ kind: "split", count: 2 });
+    expect(result.value).toEqual({ kind: "varies" });
   });
 
   it("serves null when a prerequisite isn't met or forms a cycle", () => {
@@ -447,7 +456,6 @@ describe("getEnvironmentStatus", () => {
 
   it("puts the holdout ahead of prerequisite targeting, as the SDK does", () => {
     const holdout = holdoutTrafficStep(
-      { id: "hld_1", name: "Q4" },
       "false",
       experiment({}, { coverage: 0.1 }),
     );
@@ -485,17 +493,8 @@ describe("getEnvironmentStatus", () => {
     expect(result).toMatchObject({ reason: { kind: "mixed" }, rulesAfter: 2 });
   });
 
-  it("calls a rule by its description", () => {
-    const step = ruleTrafficStep({
-      ...force("true"),
-      description: " CR check ",
-    } as FeatureRule);
-    expect(step).toMatchObject({ label: "Force rule", name: "CR check" });
-  });
-
   it("chains the steps before the one that varies", () => {
     const holdout = holdoutTrafficStep(
-      { id: "hld_1", name: "Q4" },
       "false",
       experiment({}, { coverage: 0.1 }),
     );
@@ -503,6 +502,42 @@ describe("getEnvironmentStatus", () => {
       status([holdout, ruleTrafficStep(force("true", '{"country":"US"}'))])
         .reason,
     ).toEqual({ kind: "traffic", labels: ["Holdout", "Force rule"] });
+  });
+});
+
+describe("stepServes and stepTargets", () => {
+  it.each([
+    [
+      "a partial rollout",
+      ruleTrafficStep(rollout("true", 0.5)),
+      { kind: "value", value: "true" },
+      "50% of users",
+    ],
+    [
+      "a targeted rule",
+      ruleTrafficStep(force("x", '{"country":"US"}')),
+      { kind: "value", value: "x" },
+      "Specific users",
+    ],
+    [
+      "an experiment's split among whoever it reaches",
+      ruleTrafficStep(experimentRule, {
+        experiment: experiment({}, { coverage: 0.5 }),
+      }),
+      { kind: "partial", value: "true", percent: 0.5 },
+      "50% of users",
+    ],
+    [
+      "a bandit",
+      ruleTrafficStep(experimentRule, {
+        experiment: experiment({ type: "multi-armed-bandit" }),
+      }),
+      { kind: "varies" },
+      "All users",
+    ],
+  ])("reads %s", (_, step, serves, targets) => {
+    expect(stepServes(step, true)).toEqual(serves);
+    expect(stepTargets(step)).toBe(targets);
   });
 });
 
@@ -613,10 +648,10 @@ describe("reasonText", () => {
 
 describe("prerequisitesSummary", () => {
   it.each([
-    [["met"], "skipped", "Not reached"],
+    [["met"], "skipped", "Not reachable"],
     [["met", "cycle", "unmet"], "applies", "Circular dependency"],
     [["met", "unmet", "varies"], "applies", "Not met"],
-    [["met", "varies"], "applies", "Varies by user"],
+    [["met", "varies"], "applies", "Met for some users"],
     [["met", "met"], "applies", "All met"],
     [["met"], "applies", "Met"],
   ] as const)("sums up %j (%s) as %j", (results, overall, text) => {

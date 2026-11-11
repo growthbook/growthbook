@@ -1,10 +1,6 @@
 import { FeatureRule, FeatureValueType } from "shared/types/feature";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import {
-  HoldoutInterface,
-  NamespaceValue,
-  SafeRolloutInterface,
-} from "shared/validators";
+import { NamespaceValue, SafeRolloutInterface } from "shared/validators";
 import {
   getLatestPhaseVariations,
   hasTargetingConfigured,
@@ -41,17 +37,19 @@ type Share = { value: string; share: number };
 
 // One thing traffic passes through before the default value: the holdout, or a
 // rule. `traffic` is how it splits whoever reaches it — the share it takes
-// (`participation`) and the values that share is served — or null when that
-// depends on who the user is.
+// (`participation`) and the values that share is served, null when they move
+// as a bandit's do — or null when none of that is known ahead of time.
+// Targeted, the share it takes depends on who the user is.
 export type TrafficStep = {
   kind: "holdout" | "rule";
-  // The gist, for a summary: "Experiment", "Holdout".
+  // What kind it is: "Experiment", "Holdout".
   label: string;
-  // What it is, for a closer look: the experiment's or holdout's name, and
-  // where to find it.
-  name: string | null;
-  href: string | null;
-  traffic: { participation: number; shares: Share[] } | null;
+  // The rule it is, to find it in the rule list.
+  ruleId: string | null;
+  // An experiment's or bandit's arms.
+  variations: number | null;
+  targeted: boolean;
+  traffic: { participation: number; shares: Share[] | null } | null;
 };
 
 // What an environment serves: one value to everyone (null when it serves
@@ -62,7 +60,6 @@ export type EnvironmentValue =
   // Null when the share can't be known: steps that each take part of the
   // traffic overlap however their hashes happen to line up.
   | { kind: "partial"; value: string; percent: number | null }
-  | { kind: "split"; count: number }
   | { kind: "varies" }
   // A step that takes no one's traffic, as at 0% coverage.
   | { kind: "none" };
@@ -104,8 +101,8 @@ export type EnvironmentStatus = {
   prerequisites: StepStatus;
   holdout: StepStatus;
   rules: StepStatus;
-  // Each step reached, with what it serves whoever reaches it.
-  steps: { step: TrafficStep; value: EnvironmentValue }[];
+  // Each step, and whether any traffic gets that far.
+  steps: { step: TrafficStep; reachable: boolean }[];
   // Rules after the one that varies by user, which whoever it doesn't match
   // goes on to.
   rulesAfter: number;
@@ -128,9 +125,34 @@ function namespaceWidth(namespace?: NamespaceValue): number {
 const stepOf = (
   label: string,
   traffic: TrafficStep["traffic"],
-  name: string | null = null,
-  href: string | null = null,
-): TrafficStep => ({ kind: "rule", label, name, href, traffic });
+  targeted: boolean,
+): TrafficStep => ({
+  kind: "rule",
+  label,
+  ruleId: null,
+  variations: null,
+  targeted,
+  traffic,
+});
+
+// The share of traffic a step takes, or null when that depends on who the
+// user is. Reaching no one, its targeting doesn't matter.
+function takes(step: TrafficStep): number | null {
+  if (!step.traffic) return null;
+  const participation = Math.min(step.traffic.participation, 1);
+  if (step.targeted && participation > EPSILON) return null;
+  return participation;
+}
+
+// How a step splits whoever reaches it, or null when that depends on who they
+// are.
+function decided(
+  step: TrafficStep,
+): { participation: number; shares: Share[] } | null {
+  const participation = takes(step);
+  const shares = step.traffic?.shares;
+  return participation === null || !shares ? null : { participation, shares };
+}
 
 // A served value as the cards compare and show it, so equal values compare
 // equal: a string as itself, anything else as its JSON on one line.
@@ -168,60 +190,53 @@ export function ruleTrafficStep(
     resolveValue(value, { sparse: "sparse" in rule && !!rule.sparse, arm });
   // Reaching nobody, a rule changes nothing, whatever its targeting.
   const none = { participation: 0, shares: [] };
-  // What the rule is called, to tell it from others of its kind.
-  const described = rule.description?.trim() || null;
+  const targeted = hasTargetingConfigured(rule);
   if (rule.type === "force") {
     return stepOf(
       "Force rule",
-      hasTargetingConfigured(rule)
-        ? null
-        : {
-            participation: 1,
-            shares: [{ value: resolve(rule.value), share: 1 }],
-          },
-      described,
+      { participation: 1, shares: [{ value: resolve(rule.value), share: 1 }] },
+      targeted,
     );
   }
   if (rule.type === "rollout") {
     return stepOf(
       "Rollout",
-      rule.coverage === 0
-        ? none
-        : hasTargetingConfigured(rule)
-          ? null
-          : {
-              // Full coverage, or none set, serves everyone.
-              participation: rule.coverage ?? 1,
-              shares: [{ value: resolve(rule.value), share: 1 }],
-            },
-      described,
+      {
+        // Full coverage, or none set, serves everyone.
+        participation: rule.coverage ?? 1,
+        shares: [{ value: resolve(rule.value), share: 1 }],
+      },
+      targeted,
     );
   }
   if (rule.type === "experiment") {
-    const participation = (rule.coverage ?? 1) * namespaceWidth(rule.namespace);
-    return stepOf(
-      "Experiment",
-      participation === 0
-        ? none
-        : hasTargetingConfigured(rule)
-          ? null
-          : {
-              participation,
-              shares: rule.values.map((v) => ({
-                value: resolve(v.value),
-                share: v.weight,
-              })),
-            },
-      described,
-    );
+    return {
+      ...stepOf(
+        "Experiment",
+        {
+          participation: (rule.coverage ?? 1) * namespaceWidth(rule.namespace),
+          shares: rule.values.map((v) => ({
+            value: resolve(v.value),
+            share: v.weight,
+          })),
+        },
+        targeted,
+      ),
+      variations: rule.values.length,
+    };
   }
   if (rule.type === "experiment-ref") {
     const isBandit = experiment?.type === "multi-armed-bandit";
     const label = isBandit ? "Bandit" : "Experiment";
-    const name = experiment?.name ?? null;
-    const href = experiment ? `/experiment/${experiment.id}` : null;
     const phase = experiment?.phases.at(-1);
-    if (!experiment || !phase) return stepOf(label, null, name, href);
+    const refTargeted = targeted || (!!phase && hasTargetingConfigured(phase));
+    const step = (traffic: TrafficStep["traffic"]): TrafficStep => ({
+      ...stepOf(label, traffic, refTargeted),
+      variations: experiment
+        ? getLatestPhaseVariations(experiment).length
+        : rule.variations.length,
+    });
+    if (!experiment || !phase) return step(null);
     const valueOf = (variationId: string) => {
       const value = rule.variations.find(
         (v) => v.variationId === variationId,
@@ -250,21 +265,13 @@ export function ruleTrafficStep(
       // The SDK skips an experiment with fewer than two variations.
       (!stopped && variations.length < 2)
     ) {
-      return stepOf(label, none, name, href);
-    }
-    if (hasTargetingConfigured(rule) || hasTargetingConfigured(phase)) {
-      return stepOf(label, null, name, href);
+      return step(none);
     }
     if (released !== undefined) {
-      return stepOf(
-        label,
-        { participation, shares: [{ value: released, share: 1 }] },
-        name,
-        href,
-      );
+      return step({ participation, shares: [{ value: released, share: 1 }] });
     }
     // A bandit's weights move, so who gets what isn't known ahead of time.
-    if (isBandit) return stepOf(label, null, name, href);
+    if (isBandit) return step({ participation, shares: null });
     // And splits evenly when the weights don't fit the variations.
     const weights = phase.variationWeights ?? [];
     const total = weights.reduce((sum, w) => sum + w, 0);
@@ -273,65 +280,68 @@ export function ruleTrafficStep(
     const shares: Share[] = [];
     for (const [i, variation] of variations.entries()) {
       const value = valueOf(variation.id);
-      if (value === undefined) return stepOf(label, null, name, href);
+      if (value === undefined) return step(null);
       shares.push({
         value,
         share: evenly ? 1 / variations.length : (weights[i] ?? 0),
       });
     }
-    return stepOf(label, { participation, shares }, name, href);
+    return step({ participation, shares });
   }
 
   if (rule.type === "safe-rollout") {
-    if (hasTargetingConfigured(rule)) return stepOf("Safe rollout", null);
     // Decided, it serves one side to everyone.
     if (rule.status === "released" || rule.status === "rolled-back") {
       const value =
         rule.status === "released"
           ? resolve(rule.variationValue, false)
           : resolve(rule.controlValue, false);
-      return stepOf("Safe rollout", {
-        participation: 1,
-        shares: [{ value, share: 1 }],
-      });
+      return stepOf(
+        "Safe rollout",
+        { participation: 1, shares: [{ value, share: 1 }] },
+        targeted,
+      );
     }
     // Running, it splits evenly at the current ramp-up step's coverage.
     const ramp = safeRollout?.rampUpSchedule;
-    if (!ramp) return stepOf("Safe rollout", null);
-    return stepOf("Safe rollout", {
-      participation:
-        ramp.rampUpCompleted || !ramp.enabled
-          ? 1
-          : (ramp.steps[ramp.step]?.percent ?? 1),
-      shares: [
-        { value: resolve(rule.controlValue, false), share: 0.5 },
-        { value: resolve(rule.variationValue, false), share: 0.5 },
-      ],
-    });
+    if (!ramp) return stepOf("Safe rollout", null, targeted);
+    return stepOf(
+      "Safe rollout",
+      {
+        participation:
+          ramp.rampUpCompleted || !ramp.enabled
+            ? 1
+            : (ramp.steps[ramp.step]?.percent ?? 1),
+        shares: [
+          { value: resolve(rule.controlValue, false), share: 0.5 },
+          { value: resolve(rule.variationValue, false), share: 0.5 },
+        ],
+      },
+      targeted,
+    );
   }
   return stepOf(
     rule.type === "contextual-bandit-ref" ? "Contextual bandit" : "Rule",
     null,
+    targeted,
   );
 }
 
 // The holdout's control group is served the holdout value ahead of every rule.
 export function holdoutTrafficStep(
-  holdout: Pick<HoldoutInterface, "id" | "name">,
   value: string,
   experiment?: ExperimentInterfaceStringDates,
 ): TrafficStep {
+  // As the payload sends it: the main phase's coverage, split evenly.
+  const phase = experiment?.phases[0];
   const step = {
     kind: "holdout" as const,
     label: "Holdout",
-    name: holdout.name,
-    href: `/holdout/${holdout.id}`,
+    ruleId: null,
+    variations: null,
+    targeted: !!phase && hasTargetingConfigured(phase),
   };
-  // As the payload sends it: the main phase's coverage, split evenly.
-  const phase = experiment?.phases[0];
-  if (!phase || hasTargetingConfigured(phase)) {
-    return { ...step, traffic: null };
-  }
+  if (!phase) return { ...step, traffic: null };
   return {
     ...step,
     traffic: {
@@ -371,30 +381,33 @@ function summarize(
     const share = merged.get(others[0]) ?? 0;
     return { kind: "partial", value: others[0], percent: exact ? share : null };
   }
-  return { kind: "split", count: merged.size };
+  return { kind: "varies" };
 }
 
-// What one step serves whoever reaches it; the share it doesn't take falls
-// through.
-function stepValue(step: TrafficStep, isBoolean: boolean): EnvironmentValue {
-  if (!step.traffic) return { kind: "varies" };
-  const { participation, shares } = step.traffic;
-  const values = [
-    ...new Set(shares.filter((s) => s.share > EPSILON).map((s) => s.value)),
-  ];
-  if (participation <= EPSILON || !values.length) return { kind: "none" };
-  if (values.length === 1) {
-    return participation >= 1 - EPSILON
-      ? { kind: "value", value: values[0] }
-      : { kind: "partial", value: values[0], percent: participation };
-  }
-  if (isBoolean) {
-    const on = shares
-      .filter((s) => s.value === "true")
-      .reduce((sum, s) => sum + s.share * participation, 0);
-    return { kind: "partial", value: "true", percent: on };
-  }
-  return { kind: "split", count: values.length };
+// What a step serves whoever it reaches, or null when it serves nothing.
+export function stepServes(
+  step: TrafficStep,
+  isBoolean: boolean,
+): EnvironmentValue | null {
+  const shares = step.traffic?.shares;
+  if (!shares) return { kind: "varies" };
+  if (!shares.some((s) => s.share > EPSILON)) return null;
+  return summarize(shares, isBoolean, true, "", true);
+}
+
+const percentFormatter = new Intl.NumberFormat(undefined, {
+  style: "percent",
+  maximumFractionDigits: 2,
+});
+
+// Who a step reaches, when that's known.
+export function stepTargets(step: TrafficStep): string | null {
+  const participation = step.traffic?.participation ?? null;
+  if (participation !== null && participation <= EPSILON) return "No one";
+  if (step.targeted) return "Specific users";
+  if (participation === null) return null;
+  if (participation >= 1 - EPSILON) return "All users";
+  return `${percentFormatter.format(participation)} of users`;
 }
 
 export function getEnvironmentStatus({
@@ -455,20 +468,19 @@ export function getEnvironmentStatus({
   const walk = (list: TrafficStep[]) => {
     let remaining = 1;
     const shares: Share[] = [];
-    const reached: EnvironmentStatus["steps"] = [];
     const taking: TrafficStep[] = [];
     let variesAt: TrafficStep | null = null;
     let partialSteps = 0;
     for (const step of list) {
       if (remaining <= EPSILON) break;
-      reached.push({ step, value: stepValue(step, isBoolean) });
-      if (!step.traffic) {
+      if ((takes(step) ?? 1) <= EPSILON) continue;
+      const traffic = decided(step);
+      if (!traffic) {
         variesAt = step;
         break;
       }
-      const participation = Math.min(step.traffic.participation, 1);
-      if (participation <= EPSILON) continue;
-      for (const s of step.traffic.shares) {
+      const { participation } = traffic;
+      for (const s of traffic.shares) {
         shares.push({
           value: s.value,
           share: remaining * participation * s.share,
@@ -491,25 +503,32 @@ export function getEnvironmentStatus({
           taking.some(
             (step) =>
               new Set(
-                step.traffic?.shares
-                  .filter((s) => s.share > EPSILON)
+                decided(step)
+                  ?.shares.filter((s) => s.share > EPSILON)
                   .map((s) => s.value),
               ).size > 1,
           ),
         );
-    return { reached, taking, variesAt, remaining, value };
+    return { taking, variesAt, value };
   };
-  const { reached, taking, variesAt, remaining, value } = walk(steps);
+  const { taking, variesAt, value } = walk(steps);
+  // Traffic gets past every step until one takes all of it.
+  let open = true;
+  const listed = steps.map((step) => {
+    const reachable = open;
+    if ((takes(step) ?? 0) >= 1 - EPSILON) open = false;
+    return { step, reachable };
+  });
   const rulesAfter = variesAt
-    ? steps
+    ? listed
         .slice(steps.indexOf(variesAt) + 1)
         .filter(
-          (step) =>
+          ({ step, reachable }) =>
+            reachable &&
             step.kind === "rule" &&
-            (!step.traffic || step.traffic.participation > EPSILON),
+            (step.traffic?.participation ?? 1) > EPSILON,
         ).length
     : 0;
-  const reachesDefault = !!variesAt || remaining > EPSILON;
   const sameValue = (a: EnvironmentValue, b: EnvironmentValue) =>
     JSON.stringify(a) === JSON.stringify(b);
   // A step whose users would get the same without it isn't a reason. Drop
@@ -528,9 +547,9 @@ export function getEnvironmentStatus({
 
   const statusOf = (kind: TrafficStep["kind"]): StepStatus => {
     if (!has(kind)) return "none";
-    const own = reached.filter((r) => r.step.kind === kind);
+    const own = listed.filter((r) => r.reachable && r.step.kind === kind);
     if (!own.length) return "skipped";
-    return own.some((r) => !r.step.traffic) ? "varies" : "applies";
+    return own.some((r) => !decided(r.step)) ? "varies" : "applies";
   };
 
   return {
@@ -542,12 +561,14 @@ export function getEnvironmentStatus({
       const sources = [
         ...(varying ? ["Prerequisite targeting"] : []),
         ...rules
-          .filter(
-            (step) =>
-              !step.traffic ||
-              step.traffic.participation < 1 - EPSILON ||
-              new Set(step.traffic.shares.map((s) => s.value)).size > 1,
-          )
+          .filter((step) => {
+            const traffic = decided(step);
+            return (
+              !traffic ||
+              traffic.participation < 1 - EPSILON ||
+              new Set(traffic.shares.map((s) => s.value)).size > 1
+            );
+          })
           .map((step) => step.label),
       ];
       // Several vary it, or one does and the rules after it take over for
@@ -570,9 +591,9 @@ export function getEnvironmentStatus({
     prerequisites: !prerequisites.length ? "none" : varying ? "varies" : "met",
     holdout: statusOf("holdout"),
     rules: statusOf("rule"),
-    steps: reached,
+    steps: listed,
     rulesAfter,
-    defaultValue: reachesDefault ? "applies" : "skipped",
+    defaultValue: open ? "applies" : "skipped",
     servedDefault: defaultValue,
   };
 }
@@ -648,9 +669,9 @@ export function prerequisitesSummary(
   results: (PrerequisiteResult | null)[],
   overall: StepStatus,
 ): string {
-  if (overall === "skipped") return "Not reached";
+  if (overall === "skipped") return "Not reachable";
   if (results.includes("cycle")) return "Circular dependency";
   if (results.includes("unmet")) return "Not met";
-  if (results.includes("varies")) return "Varies by user";
+  if (results.includes("varies")) return "Met for some users";
   return results.length > 1 ? "All met" : "Met";
 }

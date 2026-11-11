@@ -15,6 +15,19 @@ export type DraftChangeSection = {
   rows: { label: ReactNode; value: ReactNode; text: string }[];
 };
 
+// Several subjects' changes as one list, a section per title.
+export function mergeDraftChangeSections(
+  sections: DraftChangeSection[],
+): DraftChangeSection[] {
+  const merged = new Map<string, DraftChangeSection>();
+  for (const { title, rows } of sections) {
+    const into = merged.get(title);
+    if (into) into.rows.push(...rows);
+    else merged.set(title, { title, rows: [...rows] });
+  }
+  return [...merged.values()];
+}
+
 const MARKS = {
   added: { Icon: PiPlus, color: "green" },
   removed: { Icon: PiMinus, color: "red" },

@@ -1,4 +1,4 @@
-import { CSSProperties, ReactNode, useRef } from "react";
+import { ReactNode, useRef } from "react";
 import { Flex } from "@radix-ui/themes";
 import clsx from "clsx";
 import { FeatureValueType } from "shared/types/feature";
@@ -53,31 +53,22 @@ export default function PrerequisiteTable({
 }: {
   rows: PrerequisiteTableRow[];
   environments: string[];
-  // Adds each one's type and default value, pinned with its name.
+  // Adds each one's type and default value.
   showDetails?: boolean;
   nameWidth?: number;
 }) {
-  const pinned = [
-    { width: nameWidth },
-    ...(showDetails
-      ? [{ width: TYPE_COLUMN_WIDTH }, { width: DEFAULT_COLUMN_WIDTH }]
-      : []),
-  ];
-  // Each pinned column sticks beside the ones before it; the last casts the
-  // shadow over what scrolls under.
-  const pinnedCell = (
-    i: number,
-  ): { className: string; style: CSSProperties } => ({
-    className: clsx(styles.pinned, i === pinned.length - 1 && pinnedTo.left),
-    style: {
-      left: pinned.slice(0, i).reduce((sum, c) => sum + c.width, 0),
-      width: pinned[i].width,
-    },
-  });
-  const pinnedWidth = pinned.reduce((sum, c) => sum + c.width, 0);
+  // The name stays put, shadowing what scrolls under it.
+  const nameCell = {
+    className: clsx(styles.pinned, pinnedTo.left),
+    style: { left: 0, width: nameWidth },
+  };
+  const detailsWidth = showDetails
+    ? TYPE_COLUMN_WIDTH + DEFAULT_COLUMN_WIDTH
+    : 0;
   return (
     <ScrollArea
       direction="horizontal"
+      gutter
       wheelScrollsSideways
       // The pinned columns shadow what scrolls under them; the far end fades.
       edgeCue="fade"
@@ -86,17 +77,22 @@ export default function PrerequisiteTable({
       {/* Its columns' width: stretched, they'd spread across the area. */}
       <div
         style={{
-          width: pinnedWidth + environments.length * ENVIRONMENT_COLUMN_WIDTH,
+          width:
+            nameWidth +
+            detailsWidth +
+            environments.length * ENVIRONMENT_COLUMN_WIDTH,
         }}
       >
         <Table variant="ghost" size="sm" className={styles.table}>
           <TableHeader>
             <TableRow>
-              <TableColumnHeader {...pinnedCell(0)}>Feature</TableColumnHeader>
+              <TableColumnHeader {...nameCell}>Feature</TableColumnHeader>
               {showDetails ? (
                 <>
-                  <TableColumnHeader {...pinnedCell(1)}>Type</TableColumnHeader>
-                  <TableColumnHeader {...pinnedCell(2)}>
+                  <TableColumnHeader style={{ width: TYPE_COLUMN_WIDTH }}>
+                    Type
+                  </TableColumnHeader>
+                  <TableColumnHeader style={{ width: DEFAULT_COLUMN_WIDTH }}>
                     Default value
                   </TableColumnHeader>
                 </>
@@ -115,14 +111,14 @@ export default function PrerequisiteTable({
           <TableBody>
             {rows.map((row) => (
               <TableRow key={row.key}>
-                <TableCell {...pinnedCell(0)}>
+                <TableCell {...nameCell}>
                   <Flex align="center" gap="2" minWidth="0">
                     {row.name}
                   </Flex>
                 </TableCell>
                 {showDetails ? (
                   <>
-                    <TableCell {...pinnedCell(1)}>
+                    <TableCell>
                       {row.details ? (
                         <Text color="text-mid">
                           {row.details.valueType === "json"
@@ -131,9 +127,7 @@ export default function PrerequisiteTable({
                         </Text>
                       ) : null}
                     </TableCell>
-                    <TableCell {...pinnedCell(2)}>
-                      {row.details?.defaultValue}
-                    </TableCell>
+                    <TableCell>{row.details?.defaultValue}</TableCell>
                   </>
                 ) : null}
                 {environments.map((env) => (
