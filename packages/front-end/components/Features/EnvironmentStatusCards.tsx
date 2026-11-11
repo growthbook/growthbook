@@ -159,12 +159,7 @@ function ClampedName({
           {name}
         </Link>
       ) : (
-        // Focusable when cut short, so the keyboard can show its whole too.
-        <span
-          ref={ref}
-          className={className}
-          tabIndex={truncated ? 0 : undefined}
-        >
+        <span ref={ref} className={className}>
           {name}
         </span>
       )}
