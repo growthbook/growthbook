@@ -394,20 +394,16 @@ function RuleRow({
   children,
 }: {
   label: string;
-  onClick: (() => void) | null;
+  onClick: () => void;
   children: ReactNode;
 }) {
   return (
     <Row
       icon={null}
       label={
-        onClick ? (
-          <Link color="dark" underline="hover" onClick={onClick}>
-            {label}
-          </Link>
-        ) : (
-          label
-        )
+        <Link color="dark" underline="hover" onClick={onClick}>
+          {label}
+        </Link>
       }
     >
       {children}
@@ -510,18 +506,15 @@ function Drilldown({
         <>
           <Section icon={<StepIcon status="applies" />} label="Rules reached" />
           <div className={styles.group}>
-            {shown.map((step, i) => {
-              const { ruleId } = step;
-              return (
-                <RuleRow
-                  key={i}
-                  label={step.label}
-                  onClick={ruleId !== null ? () => jumpToRule(ruleId) : null}
-                >
-                  <StepFields step={step} valueType={valueType} />
-                </RuleRow>
-              );
-            })}
+            {shown.map((step) => (
+              <RuleRow
+                key={step.ruleId}
+                label={step.label}
+                onClick={() => jumpToRule(step.ruleId)}
+              >
+                <StepFields step={step} valueType={valueType} />
+              </RuleRow>
+            ))}
             {rest.length ? (
               <Row
                 icon={null}

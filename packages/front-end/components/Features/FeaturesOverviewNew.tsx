@@ -269,15 +269,22 @@ export default function FeaturesOverviewNew({
   const [rulesEnv, setRulesEnv] = useFeatureRulesEnv();
   // A rule to bring into view once the rules show its tab and it stays put
   // there: the list redraws a few frames after its tab does. Far down the
-  // list, it's a placeholder until it nears the viewport.
+  // list, it's a placeholder until it nears the viewport. Past its deadline,
+  // the jump is dropped, wherever the rule is, rather than left to land on a
+  // later tab change.
   const [scrollToRule, setScrollToRule] = useState<{
     ruleId: string;
     tab: string | null;
+    deadline: number;
   } | null>(null);
   useEffect(() => {
-    if (scrollToRule === null || rulesEnv !== scrollToRule.tab) return;
-    // Gives up after this long, wherever the rule is.
-    const deadline = performance.now() + 2000;
+    if (scrollToRule === null) return;
+    const { deadline } = scrollToRule;
+    if (performance.now() > deadline) {
+      setScrollToRule(null);
+      return;
+    }
+    if (rulesEnv !== scrollToRule.tab) return;
     let request = 0;
     let lastTop: number | null = null;
     let steadyFrames = 0;
@@ -324,7 +331,7 @@ export default function FeaturesOverviewNew({
   const jumpToRule = (environment: string, ruleId: string) => {
     const tab = rulesEnv === null ? null : environment;
     if (tab !== rulesEnv) setRulesEnv(tab);
-    setScrollToRule({ ruleId, tab });
+    setScrollToRule({ ruleId, tab, deadline: performance.now() + 3000 });
   };
 
   const prerequisites = feature?.prerequisites || [];
@@ -784,19 +791,12 @@ export default function FeaturesOverviewNew({
         return [
           {
             ...step,
-            ruleId: rule.id,
             traffic: { participation: 0, shares: step.traffic?.shares ?? [] },
           },
         ];
       }
       // Served to only some connections, what it serves depends on which.
-      return [
-        {
-          ...step,
-          ruleId: rule.id,
-          targeted: step.targeted || reach === "some",
-        },
-      ];
+      return [{ ...step, targeted: step.targeted || reach === "some" }];
     }),
   ];
   const sameJson = (a: unknown, b: unknown) =>

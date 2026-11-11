@@ -41,16 +41,17 @@ type Share = { value: string; share: number };
 // as a bandit's do — or null when none of that is known ahead of time.
 // Targeted, the share it takes depends on who the user is.
 export type TrafficStep = {
-  kind: "holdout" | "rule";
   // What kind it is: "Experiment", "Holdout".
   label: string;
-  // The rule it is, to find it in the rule list.
-  ruleId: string | null;
   // An experiment's or bandit's arms.
   variations: number | null;
   targeted: boolean;
   traffic: { participation: number; shares: Share[] | null } | null;
-};
+} & (
+  | { kind: "holdout"; ruleId: null }
+  // The rule it is, to find it in the rule list.
+  | { kind: "rule"; ruleId: string }
+);
 
 // What an environment serves: one value to everyone (null when it serves
 // nothing), one value to a share of users, several values in known shares, or
@@ -120,13 +121,14 @@ function namespaceWidth(namespace?: NamespaceValue): number {
 }
 
 const stepOf = (
+  ruleId: string,
   label: string,
   traffic: TrafficStep["traffic"],
   targeted: boolean,
 ): TrafficStep => ({
   kind: "rule",
   label,
-  ruleId: null,
+  ruleId,
   variations: null,
   targeted,
   traffic,
@@ -190,6 +192,7 @@ export function ruleTrafficStep(
   const targeted = hasTargetingConfigured(rule);
   if (rule.type === "force") {
     return stepOf(
+      rule.id,
       "Force rule",
       { participation: 1, shares: [{ value: resolve(rule.value), share: 1 }] },
       targeted,
@@ -197,6 +200,7 @@ export function ruleTrafficStep(
   }
   if (rule.type === "rollout") {
     return stepOf(
+      rule.id,
       "Rollout",
       {
         // Full coverage, or none set, serves everyone.
@@ -209,6 +213,7 @@ export function ruleTrafficStep(
   if (rule.type === "experiment") {
     return {
       ...stepOf(
+        rule.id,
         "Experiment",
         {
           participation: (rule.coverage ?? 1) * namespaceWidth(rule.namespace),
@@ -228,7 +233,7 @@ export function ruleTrafficStep(
     const phase = experiment?.phases.at(-1);
     const refTargeted = targeted || (!!phase && hasTargetingConfigured(phase));
     const step = (traffic: TrafficStep["traffic"]): TrafficStep => ({
-      ...stepOf(label, traffic, refTargeted),
+      ...stepOf(rule.id, label, traffic, refTargeted),
       variations: experiment
         ? getLatestPhaseVariations(experiment).length
         : rule.variations.length,
@@ -294,6 +299,7 @@ export function ruleTrafficStep(
           ? resolve(rule.variationValue, false)
           : resolve(rule.controlValue, false);
       return stepOf(
+        rule.id,
         "Safe rollout",
         { participation: 1, shares: [{ value, share: 1 }] },
         targeted,
@@ -301,8 +307,9 @@ export function ruleTrafficStep(
     }
     // Running, it splits evenly at the current ramp-up step's coverage.
     const ramp = safeRollout?.rampUpSchedule;
-    if (!ramp) return stepOf("Safe rollout", null, targeted);
+    if (!ramp) return stepOf(rule.id, "Safe rollout", null, targeted);
     return stepOf(
+      rule.id,
       "Safe rollout",
       {
         participation:
@@ -318,6 +325,7 @@ export function ruleTrafficStep(
     );
   }
   return stepOf(
+    rule.id,
     rule.type === "contextual-bandit-ref" ? "Contextual bandit" : "Rule",
     null,
     targeted,
