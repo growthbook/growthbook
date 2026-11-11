@@ -407,11 +407,10 @@ export function stepTargets(step: TrafficStep): string | null {
 // which the SDK drops, nor one no traffic gets as far as. A lone rule shows
 // when who gets what from it is known: it takes everyone left, or a set
 // share of them with the rest falling to the default. Otherwise they're
-// counted. Past a holdout, only an outcome known that way shows at all.
+// counted.
 export function reachedRules(status: EnvironmentStatus): {
   count: number;
   rule: TrafficStep | null;
-  hidden: boolean;
 } {
   const rules = status.steps.flatMap(({ step, reachable }) =>
     step.kind === "rule" && reachable && step.traffic?.participation !== 0
@@ -423,14 +422,7 @@ export function reachedRules(status: EnvironmentStatus): {
     (status.defaultValue === "skipped" || decided(rules[0]) !== null)
       ? rules[0]
       : null;
-  const holdout = status.steps.some(
-    ({ step }) => step.kind === "holdout" && step.traffic?.participation !== 0,
-  );
-  return {
-    count: rules.length,
-    rule,
-    hidden: holdout && rules.length > 0 && !rule,
-  };
+  return { count: rules.length, rule };
 }
 
 export function getEnvironmentStatus({

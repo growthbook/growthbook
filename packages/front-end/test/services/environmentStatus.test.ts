@@ -551,28 +551,15 @@ describe("reachedRules", () => {
     experiment({}, { coverage: 0.2 }),
   );
   it.each([
-    ["a rule taking everyone", [everyone], everyone, 1, false],
-    ["a set share over the default", [partial], partial, 1, false],
-    ["a targeted rule", [targeted], null, 1, false],
-    ["several rules", [targeted, everyone], null, 2, false],
-    [
-      "a rule reaching no one",
-      [ruleTrafficStep(rollout("true", 0))],
-      null,
-      0,
-      false,
-    ],
-    ["a set share past a holdout", [holdout, partial], partial, 1, false],
-    ["a targeted rule past a holdout", [holdout, targeted], null, 1, true],
-    [
-      "a targeted rule past a holdout reaching no one",
-      [holdoutTrafficStep("false", experiment({}, { coverage: 0 })), targeted],
-      null,
-      1,
-      false,
-    ],
-  ] as const)("lists %s", (_, steps, rule, count, hidden) => {
-    expect(reachedRules(status([...steps]))).toEqual({ rule, count, hidden });
+    ["a rule taking everyone", [everyone], everyone, 1],
+    ["a set share over the default", [partial], partial, 1],
+    ["a targeted rule", [targeted], null, 1],
+    ["several rules", [targeted, everyone], null, 2],
+    ["a rule reaching no one", [ruleTrafficStep(rollout("true", 0))], null, 0],
+    ["a set share past a holdout", [holdout, partial], partial, 1],
+    ["several rules past a holdout", [holdout, targeted, everyone], null, 2],
+  ] as const)("lists %s", (_, steps, rule, count) => {
+    expect(reachedRules(status([...steps]))).toEqual({ rule, count });
   });
 });
 

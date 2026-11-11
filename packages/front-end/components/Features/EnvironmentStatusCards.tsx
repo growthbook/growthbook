@@ -428,7 +428,7 @@ function Drilldown({
           )}
         </Row>
       ) : null}
-      {reached.hidden ? null : reached.count ? (
+      {reached.count ? (
         reached.rule ? (
           <Row
             icon={<StepIcon status="applies" />}
@@ -459,32 +459,30 @@ function Drilldown({
           </Text>
         </Row>
       )}
-      {reached.hidden ? null : (
-        <Row
-          icon={<StepIcon status={status.defaultValue} />}
-          muted={status.defaultValue === "skipped"}
-          label="Default value"
-        >
-          {status.defaultValue === "skipped" ? (
-            <Text color="text-low">Not reachable</Text>
-          ) : (
-            <Fields
-              fields={[
-                {
-                  label: "Serves",
-                  value: (
-                    <ValueText
-                      value={{ kind: "value", value: status.servedDefault }}
-                      valueType={valueType}
-                      revealable
-                    />
-                  ),
-                },
-              ]}
-            />
-          )}
-        </Row>
-      )}
+      <Row
+        icon={<StepIcon status={status.defaultValue} />}
+        muted={status.defaultValue === "skipped"}
+        label="Default value"
+      >
+        {status.defaultValue === "skipped" ? (
+          <Text color="text-low">Not reachable</Text>
+        ) : (
+          <Fields
+            fields={[
+              {
+                label: "Serves",
+                value: (
+                  <ValueText
+                    value={{ kind: "value", value: status.servedDefault }}
+                    valueType={valueType}
+                    revealable
+                  />
+                ),
+              },
+            ]}
+          />
+        )}
+      </Row>
     </div>
   );
 }
