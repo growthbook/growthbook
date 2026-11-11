@@ -40,6 +40,7 @@ const mockRunner = InterleavingResultsQueryRunner as unknown as jest.Mock;
 class NotFound extends Error {}
 class PlanError extends Error {}
 class Forbidden extends Error {}
+class BadRequest extends Error {}
 
 const DATASOURCE = "ds_1";
 const USER_ID_TYPE = "user_id";
@@ -96,6 +97,9 @@ function makeContext({
     },
     throwNotFoundError: (message: string) => {
       throw new NotFound(message);
+    },
+    throwBadRequestError: (message: string) => {
+      throw new BadRequest(message);
     },
     permissions: {
       canRunExperimentQueries: () => canRunQueries,
@@ -210,12 +214,27 @@ describe("runInterleavingSnapshot", () => {
     );
   });
 
+  // getInterleavingResultsBlocker owns this now, so it is a 400 rather than the
+  // bare Error getInterleavingSnapshotSettings used to throw.
   it("refuses an experiment with no metrics", async () => {
     const { context, create } = makeContext({
       il: interleaving({ metrics: [] }),
     });
     await expect(runInterleavingSnapshot(context, "il_1")).rejects.toThrow(
+      BadRequest,
+    );
+    await expect(runInterleavingSnapshot(context, "il_1")).rejects.toThrow(
       "at least one metric",
+    );
+    expect(create).not.toHaveBeenCalled();
+  });
+
+  it("refuses an experiment with an incomplete analysis", async () => {
+    const { context, create } = makeContext({
+      il: interleaving({ datasourceId: "" }),
+    });
+    await expect(runInterleavingSnapshot(context, "il_1")).rejects.toThrow(
+      "Choose a Data Source",
     );
     expect(create).not.toHaveBeenCalled();
   });

@@ -233,9 +233,7 @@ function getAutoExposureQueryIdentifierType({
     return templateIdentifierType;
   }
   const linked =
-    getHashAttributeIdentifierTypeMap(datasource?.settings?.userIdTypes).get(
-      hashAttribute,
-    ) ?? [];
+    getHashAttributeIdentifierTypeMap(datasource).get(hashAttribute) ?? [];
   return (
     declared.find((identifierType) => linked.includes(identifierType)) ??
     getDefaultIdentifierTypeForQuery(exposureQuery)

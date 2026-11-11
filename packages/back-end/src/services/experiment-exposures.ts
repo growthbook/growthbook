@@ -62,6 +62,8 @@ export function getExposuresCacheKey(params: ExposuresCacheKeyParams): string {
 export interface ShapeExposureRowsParams {
   rows: Record<string, unknown>[];
   identifierColumn: string;
+  /** Cluster experiments only; null otherwise. */
+  subUnitIdColumn: string | null;
   timestampColumn: string;
   variationIdColumn: string;
   /** Dimensions declared on the exposure query, in configured order. */
@@ -147,6 +149,7 @@ export function getColumn(
 export function shapeExposureRows({
   rows,
   identifierColumn,
+  subUnitIdColumn,
   timestampColumn,
   variationIdColumn,
   dimensions,
@@ -157,6 +160,7 @@ export function shapeExposureRows({
   // expanded row shows the complete record.
   const reserved = [
     identifierColumn,
+    ...(subUnitIdColumn ? [subUnitIdColumn] : []),
     timestampColumn,
     variationIdColumn,
     ...dimensions,
@@ -192,14 +196,19 @@ export function shapeExposureRows({
       extra[key] = coerceValue(getColumn(row, key, caseSensitive));
     }
 
-    const userId = coerceValue(getColumn(row, identifierColumn, caseSensitive));
-    if (isTruncated(userId)) valuesTruncated = true;
+    const unitId = coerceValue(getColumn(row, identifierColumn, caseSensitive));
+    if (isTruncated(unitId)) valuesTruncated = true;
+    const subUnitId = subUnitIdColumn
+      ? coerceValue(getColumn(row, subUnitIdColumn, caseSensitive))
+      : null;
+    if (isTruncated(subUnitId)) valuesTruncated = true;
 
     return {
       timestamp: normalizeTimestamp(
         getColumn(row, timestampColumn, caseSensitive),
       ),
-      userId,
+      unitId,
+      ...(subUnitIdColumn ? { subUnitId } : {}),
       variationId:
         coerceValue(getColumn(row, variationIdColumn, caseSensitive)) ?? "",
       dimensions: dimensionValues,

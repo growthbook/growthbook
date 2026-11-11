@@ -12,6 +12,7 @@ import { isCloud, isMultiOrg } from "@/services/env";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import PageHead from "@/components/Layout/PageHead";
 import CreateOrganization from "@/components/Admin/CreateOrganization";
+import ManagedWarehouseRecreates from "@/components/Admin/ManagedWarehouseRecreate";
 import { AdminMember, formatSuperAdmin } from "@/components/Admin/EditMember";
 import { PlanBadge, StatusBadge } from "@/components/Admin/OrgBadges";
 import ShowLicenseInfo from "@/components/License/ShowLicenseInfo";
@@ -602,6 +603,11 @@ export default function Admin() {
             {!isCloud() && <TabsTrigger value="license">License</TabsTrigger>}
             <TabsTrigger value="organizations">Organizations</TabsTrigger>
             <TabsTrigger value="members">Members</TabsTrigger>
+            {isCloud() && (
+              <TabsTrigger value="managed-warehouses">
+                Managed Warehouses
+              </TabsTrigger>
+            )}
           </TabsList>
         </Box>
         {!isCloud() && (
@@ -617,6 +623,13 @@ export default function Admin() {
         <TabsContent value="members">
           <MemberList filters={memberFilters} setFilters={setMemberFilters} />
         </TabsContent>
+        {isCloud() && (
+          <TabsContent value="managed-warehouses">
+            <ManagedWarehouseRecreates
+              canRequest={hasSuperAdminPermission(superAdmin, "provision")}
+            />
+          </TabsContent>
+        )}
       </Tabs>
     </Box>
   );

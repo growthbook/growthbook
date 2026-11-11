@@ -191,6 +191,8 @@ export type ExperimentValue = z.infer<typeof experimentValue>;
 const experimentType = ["standard", "multi-armed-bandit"] as const;
 const banditStageType = ["explore", "exploit", "paused"] as const;
 
+// Legacy inline experiment rule. New experiments are linked to features
+// through "experiment-ref" rules instead.
 const experimentRule = baseRule
   .extend({
     type: z.literal("experiment"), // refers to RuleType, not experiment.type

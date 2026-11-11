@@ -18,8 +18,12 @@ import { isTestableDataSourceType } from "shared/validators";
 import { Box, Flex } from "@radix-ui/themes";
 import { PiLinkBold } from "react-icons/pi";
 import { datetime } from "shared/dates";
-import { useFeatureValue } from "@growthbook/growthbook-react";
+import { useFeatureValue, useGrowthBook } from "@growthbook/growthbook-react";
+import { AppFeatures } from "shared/types/app-features";
+import { getDataSourceSqlDialect } from "shared/dialects";
+import { isInterleavingEnabled } from "@/services/interleaving";
 import ManagedWarehouseNoEventsCallout from "@/components/ManagedWarehouse/ManagedWarehouseNoEventsCallout";
+import ManagedWarehouseActivity from "@/components/ManagedWarehouse/ManagedWarehouseActivity";
 import Link from "@/ui/Link";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -60,6 +64,11 @@ import { FeatureEvaluationQueries } from "@/components/Settings/EditDataSource/F
 import Heading from "@/ui/Heading";
 import Metadata from "@/ui/Metadata";
 import Text from "@/ui/Text";
+import { hasGoogleAnalytics4ExposureQuery } from "@/services/datasources";
+import {
+  GA4_EVENTS_TEMPLATE,
+  getAllowedNewFactTableProjects,
+} from "@/services/factTables";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import HistoryTable from "@/components/HistoryTable";
 import EventForwarder from "@/components/Settings/EditDataSource/EventForwarder/EventForwarder";
@@ -67,6 +76,7 @@ import EditProjectsForm from "@/components/Projects/EditProjectsForm";
 import { GBEdit } from "@/components/Icons";
 import ConnectedResources from "@/components/Settings/EditDataSource/ConnectedResources";
 import DataSourceDescriptionSection from "@/components/Settings/EditDataSource/DataSourceDescriptionSection";
+import LlmTracingSettings from "@/components/Settings/EditDataSource/LlmTracingSettings";
 import LinkButton from "@/ui/LinkButton";
 import Button from "@/ui/Button";
 import Explorer from "@/enterprise/components/ProductAnalytics/Explorer";
@@ -74,9 +84,11 @@ import TextField from "@/ui/TextField";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
 import { DataSourceUsage } from "@/pages/datasources/queries/[did]";
 import useURLHash from "@/hooks/useURLHash";
+import { InterleavingExposureQueries } from "@/components/Settings/EditDataSource/InterleavingExposureQueries/InterleavingExposureQueries";
 
 export const EAQ_ANCHOR_ID = "experiment-assignment-queries";
 export const CBAQ_ANCHOR_ID = "contextual-bandit-assignment-queries";
+export const IEQ_ANCHOR_ID = "interleaving-exposure-queries";
 
 // Default when this Data Source has no Event Forwarder tab. Queries is only
 // rendered for SQL sources; non-SQL sources fall back to Usage.
@@ -88,7 +100,10 @@ const DATA_SOURCE_TABS = [
   "settings",
 ] as const;
 
-type DataSourceTab = (typeof DATA_SOURCE_TABS)[number] | "event-forwarder";
+type DataSourceTab =
+  | (typeof DATA_SOURCE_TABS)[number]
+  | "event-forwarder"
+  | "recent-events";
 
 // Used when Finish Setting Up is on the page, so Explore stays a normal
 // scrolling section instead of a viewport-locked panel.
@@ -99,6 +114,7 @@ const EXPLORER_HEIGHT_WHEN_PAGE_SCROLLS = "max(480px, calc(100vh - 280px))";
 const LEGACY_ANCHOR_TABS: Record<string, (typeof DATA_SOURCE_TABS)[number]> = {
   [EAQ_ANCHOR_ID]: "queries",
   [CBAQ_ANCHOR_ID]: "queries",
+  [IEQ_ANCHOR_ID]: "queries",
 };
 
 function quotePropertyName(name: string) {
@@ -227,6 +243,7 @@ const DataSourcePage: FC = () => {
     ready,
     error,
     projects,
+    project,
     factTables: allFactTables,
   } = useDefinitions();
   const { did } = router.query as { did: string };
@@ -249,9 +266,13 @@ const DataSourcePage: FC = () => {
       d?.eventForwarderConfig &&
       d.eventForwarderConfig.status !== "unconfigured",
   );
+  // Recent Events is first for a Managed Warehouse, for the same reason.
+  const isManagedWarehouse = d?.type === "growthbook_clickhouse";
   const tabIds: readonly DataSourceTab[] = showEventForwarderTab
     ? ["event-forwarder", ...DATA_SOURCE_TABS]
-    : DATA_SOURCE_TABS;
+    : isManagedWarehouse
+      ? ["recent-events", ...DATA_SOURCE_TABS]
+      : DATA_SOURCE_TABS;
   const [tab, setTab] = useURLHash();
   // A full page load renders on the server, where the hash is invisible, so
   // read it once here. Legacy anchors are not tab ids; open Queries and
@@ -267,7 +288,8 @@ const DataSourcePage: FC = () => {
     }
     if (
       (DATA_SOURCE_TABS as readonly string[]).includes(hash) ||
-      hash === "event-forwarder"
+      hash === "event-forwarder" ||
+      hash === "recent-events"
     ) {
       setTab(hash);
     }
@@ -286,6 +308,26 @@ const DataSourcePage: FC = () => {
   const combinedMetrics = useCombinedMetrics({});
   const metrics = combinedMetrics.filter((m) => m.datasource === did);
   const factTables = allFactTables.filter((ft) => ft.datasource === did);
+  // Set when the connect page just set up GA4, until the notice is dismissed.
+  const ga4JustSetUp =
+    router.query.setup === "ga4" &&
+    !!d &&
+    hasGoogleAnalytics4ExposureQuery(d.settings);
+  const ga4FactTableCreated = factTables.some(
+    (ft) => ft.name === GA4_EVENTS_TEMPLATE.name,
+  );
+  // Why a missing GA4 fact table is missing, so the notice can say what to do.
+  // The connect page skips it without permission; otherwise the request failed.
+  const ga4FactTableNoPermission =
+    !!d &&
+    getAllowedNewFactTableProjects({
+      datasource: d,
+      project,
+      permissionsUtil,
+    }) === null;
+  // Matches the "Add fact table" button in Finish Setting Up.
+  const canAddFactTable =
+    !!d && permissionsUtil.canCreateFactTable({ projects: d.projects ?? [] });
   const { data: experimentsData, error: experimentsError } = useApi<{
     experiments: ExperimentInterfaceStringDates[];
   }>(
@@ -307,7 +349,6 @@ const DataSourcePage: FC = () => {
     setDataSourceNameError(null);
   }, [d?.name]);
 
-  const isManagedWarehouse = d?.type === "growthbook_clickhouse";
   const showFinishSettingUp =
     !!d &&
     d.properties?.queryLanguage === "sql" &&
@@ -364,6 +405,8 @@ const DataSourcePage: FC = () => {
   const { hasCommercialFeature, settings: orgSettings } = useUser();
   // Default ON; the remote flag only turns this off for specific orgs.
   const contextualBanditsEnabled = useFeatureValue("contextual-bandits", true);
+  const interleavingEnabled =
+    isInterleavingEnabled(useGrowthBook<AppFeatures>());
 
   // Only the never-provisioned state replaces the settings UI with the onboarding
   // callout. A transient migration must NOT blank the config page — query sub-surfaces
@@ -399,6 +442,14 @@ const DataSourcePage: FC = () => {
   const canUpdateDataSourceSettings =
     (d && permissionsUtil.canUpdateDataSourceSettings(d) && !hasFileConfig()) ||
     false;
+
+  // Interleaving analysis unnests a JSON array of ranked items, so only
+  // dialects that can do that are offered the section.
+  const showInterleavingQueries =
+    !!d &&
+    interleavingEnabled &&
+    hasCommercialFeature("interleaving") &&
+    !!getDataSourceSqlDialect(d.type)?.jsonArray;
 
   const pipelineEnabled = hasCommercialFeature("pipeline-mode");
 
@@ -607,6 +658,48 @@ const DataSourcePage: FC = () => {
             : undefined
         }
       >
+        {ga4JustSetUp && (
+          <Callout
+            status={ga4FactTableCreated ? "success" : "warning"}
+            mb="4"
+            action={
+              <Button
+                size="sm"
+                variant="ghost"
+                color="inherit"
+                onClick={() =>
+                  router.replace(`/datasources/${did}`, undefined, {
+                    shallow: true,
+                  })
+                }
+              >
+                Dismiss
+              </Button>
+            }
+          >
+            {ga4FactTableCreated ? (
+              <>
+                Google Analytics 4 is set up. GrowthBook added the{" "}
+                <Text mono>user_id</Text> and <Text mono>anonymous_id</Text>{" "}
+                identifier types, an experiment assignment query, and a GA4
+                Events fact table.
+              </>
+            ) : (
+              <>
+                Google Analytics 4 is partly set up. GrowthBook added the{" "}
+                <Text mono>user_id</Text> and <Text mono>anonymous_id</Text>{" "}
+                identifier types and an experiment assignment query
+                {ga4FactTableNoPermission
+                  ? ", but you don't have permission to create the GA4 Events fact table."
+                  : ", but couldn't create the GA4 Events fact table."}{" "}
+                {canAddFactTable
+                  ? "Add a fact table in Finish Setting Up below."
+                  : "Ask an admin to add one in Finish Setting Up."}
+              </>
+            )}
+          </Callout>
+        )}
+
         {showFinishSettingUp && (
           <Frame px="0" py="0" style={{ overflow: "hidden" }}>
             <FinishSettingUp
@@ -625,24 +718,6 @@ const DataSourcePage: FC = () => {
             />
           </Frame>
         )}
-
-        {isManagedWarehouse &&
-          (managedWarehouseAwaitingProvisioning ? (
-            <ManagedWarehouseNoEventsCallout />
-          ) : (
-            <Frame>
-              <Heading as="h2" size="md" mb="2">
-                Sending Events
-              </Heading>
-              <Text>
-                <DocLink useRadix={false} docSection="managedWarehouseTracking">
-                  Read our full docs
-                </DocLink>{" "}
-                with instructions on how to send events from your app to
-                GrowthBook.
-              </Text>
-            </Frame>
-          ))}
 
         <Tabs
           value={activeTab}
@@ -669,6 +744,9 @@ const DataSourcePage: FC = () => {
             {showEventForwarderTab ? (
               <TabsTrigger value="event-forwarder">Event Forwarder</TabsTrigger>
             ) : null}
+            {isManagedWarehouse ? (
+              <TabsTrigger value="recent-events">Recent Events</TabsTrigger>
+            ) : null}
             {supportsSQL && <TabsTrigger value="queries">Queries</TabsTrigger>}
             <TabsTrigger value="usage">Usage</TabsTrigger>
             <TabsTrigger value="resources">Connected Resources</TabsTrigger>
@@ -686,6 +764,27 @@ const DataSourcePage: FC = () => {
                     onRefresh={refreshDataSource}
                   />
                 </Frame>
+              </Flex>
+            </TabsContent>
+          ) : null}
+
+          {isManagedWarehouse ? (
+            <TabsContent value="recent-events">
+              <Flex direction="column" gap="2" mt="3">
+                {managedWarehouseAwaitingProvisioning ? (
+                  <ManagedWarehouseNoEventsCallout />
+                ) : (
+                  <Frame mb="0">
+                    <ManagedWarehouseActivity dataSource={d} />
+                    <Text as="p" mt="4" mb="0">
+                      <DocLink docSection="managedWarehouseTracking">
+                        Read our full docs
+                      </DocLink>{" "}
+                      with instructions on how to send events from your app to
+                      GrowthBook.
+                    </Text>
+                  </Frame>
+                )}
               </Flex>
             </TabsContent>
           ) : null}
@@ -764,6 +863,14 @@ const DataSourcePage: FC = () => {
                         />
                       </Frame>
                     )}
+                  {showInterleavingQueries && (
+                    <Frame id={IEQ_ANCHOR_ID} mb="0">
+                      <InterleavingExposureQueries
+                        dataSource={d}
+                        canEdit={canUpdateDataSourceSettings}
+                      />
+                    </Frame>
+                  )}
                   {!isManagedWarehouse && (
                     <>
                       <Frame mb="0">
@@ -815,7 +922,7 @@ const DataSourcePage: FC = () => {
                 <Flex
                   direction="column"
                   gap="3"
-                  mt={exploreFillsViewport ? "0" : "3"}
+                  mt="3"
                   style={
                     exploreFillsViewport ? { flex: 1, minHeight: 0 } : undefined
                   }
@@ -964,6 +1071,7 @@ const DataSourcePage: FC = () => {
                     dataSource={d}
                     canEdit={canUpdateDataSourceSettings}
                     onRefresh={refreshDataSource}
+                    showTitle
                   />
                 </Frame>
               ) : null}
@@ -1002,6 +1110,14 @@ const DataSourcePage: FC = () => {
                   configuration.
                 </Callout>
               )}
+
+              <LlmTracingSettings
+                dataSource={d}
+                factTables={factTables}
+                canEdit={canUpdateDataSourceSettings}
+                onOpenTab={setTab}
+                onRefresh={refreshDataSource}
+              />
 
               <Frame mb="0">
                 <HistoryTable type="datasource" id={d.id} maxHeight="420px" />

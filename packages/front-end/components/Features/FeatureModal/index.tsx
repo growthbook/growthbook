@@ -28,7 +28,7 @@ import { useFeatureMetaInfo } from "@/hooks/useFeatureMetaInfo";
 import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import track from "@/services/track";
+import track, { entityTrackingHash } from "@/services/track";
 import {
   genDuplicatedKey,
   getDefaultValue,
@@ -415,6 +415,7 @@ export default function FeatureModal({
         });
 
         track("Feature Created", {
+          entity_id_hash: entityTrackingHash(res.feature.id),
           valueType: values.valueType,
           hasDescription: !!values.description?.length,
           initialRule: "none",

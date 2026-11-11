@@ -207,6 +207,10 @@ export interface ExperimentSnapshotSettings {
   datasourceId: string;
   exposureQueryId: string;
   exposureQueryIdentifierType?: string;
+  isClusterExperiment?: boolean;
+  clusterSubUnitIdentifier?: string;
+  /** Cluster experiment metrics joined on the cluster id instead of the sub-unit. */
+  clusterLevelMetricIds?: string[];
   startDate: Date;
   endDate: Date;
   phase?: PhaseSQLVar;
@@ -292,8 +296,45 @@ export type SnapshotStatusSummary = Pick<
 
 export interface ExperimentSnapshotHealth {
   traffic: ExperimentSnapshotTraffic;
+  /** Cluster experiments: traffic counted per cluster rather than per subunit. */
+  clusterTraffic?: ExperimentSnapshotTraffic;
+  clusterUnits?: ExperimentSnapshotClusterUnits;
+  clusterAssignment?: ExperimentSnapshotClusterAssignment;
+  clusterSubUnitMapping?: ExperimentSnapshotClusterSubUnitMapping;
+  subUnitMultipleExposures?: ExperimentSnapshotSubUnitMultipleExposures;
   power?: MidExperimentPowerCalculationResult;
   covariateImbalance?: CovariateImbalanceResult;
+}
+
+export interface ExperimentSnapshotClusterSubUnitMapping {
+  totalUnits: number;
+  multiClusterUnits: number;
+  error?: string;
+}
+
+export interface ExperimentSnapshotSubUnitMultipleExposures {
+  totalSubUnits: number;
+  multipleExposedSubUnits: number;
+  error?: string;
+}
+
+export interface ExperimentSnapshotClusterAssignment {
+  totalClusters: number;
+  mixedClusters: number;
+  error?: string;
+}
+
+export interface ExperimentSnapshotClusterUnits {
+  // Ordered largest-first; capped at the query's row limit.
+  clusters: ExperimentSnapshotClusterUnit[];
+  error?: string;
+}
+
+export interface ExperimentSnapshotClusterUnit {
+  id: string;
+  variation: number;
+  units: number;
+  pct: number;
 }
 
 export interface ExperimentSnapshotTraffic {
@@ -318,6 +359,7 @@ export interface ExperimentMetricAnalysisParams {
   variations: ExperimentReportVariation[];
   phaseLengthHours: number;
   coverage: number;
+  isClusterExperiment?: boolean;
 
   analyses: ExperimentSnapshotAnalysisSettings[];
   banditSettings?: SnapshotBanditSettings;

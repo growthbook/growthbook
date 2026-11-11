@@ -1035,7 +1035,7 @@ export default {
   },
   edgeCloudflare: {
     name: "Cloudflare Workers App & SDK",
-    version: "0.2.9",
+    version: "0.3.0",
     github:
       "https://github.com/growthbook/growthbook-proxy/tree/main/packages/lib/edge-cloudflare",
     examples: [
@@ -1056,6 +1056,18 @@ export default {
       },
       {
         experimentation: "All versions",
+      },
+      {
+        contextualBandits: "≥ v0.3.0",
+      },
+      {
+        savedGroupReferencesV2: "≥ v0.3.0",
+      },
+      {
+        interleaving: "≥ v0.3.0",
+      },
+      {
+        contextualBanditsAuto: "≥ v0.3.0",
       },
       {
         caseInsensitiveRegex: "≥ v0.2.7",
@@ -1106,7 +1118,7 @@ export default {
   },
   edgeFastly: {
     name: "Fastly Compute App & SDK",
-    version: "0.2.9",
+    version: "0.3.0",
     github:
       "https://github.com/growthbook/growthbook-proxy/tree/main/packages/lib/edge-fastly",
     examples: [
@@ -1127,6 +1139,18 @@ export default {
       },
       {
         experimentation: "All versions",
+      },
+      {
+        contextualBandits: "≥ v0.3.0",
+      },
+      {
+        savedGroupReferencesV2: "≥ v0.3.0",
+      },
+      {
+        interleaving: "≥ v0.3.0",
+      },
+      {
+        contextualBanditsAuto: "≥ v0.3.0",
       },
       {
         caseInsensitiveRegex: "≥ v0.2.7",
@@ -1177,7 +1201,7 @@ export default {
   },
   edgeLambda: {
     name: "Lambda@Edge App & SDK",
-    version: "0.0.29",
+    version: "0.3.0",
     github:
       "https://github.com/growthbook/growthbook-proxy/tree/main/packages/lib/edge-lambda",
     examples: [],
@@ -1193,6 +1217,18 @@ export default {
       },
       {
         experimentation: "All versions",
+      },
+      {
+        contextualBandits: "≥ v0.3.0",
+      },
+      {
+        savedGroupReferencesV2: "≥ v0.3.0",
+      },
+      {
+        interleaving: "≥ v0.3.0",
+      },
+      {
+        contextualBanditsAuto: "≥ v0.3.0",
       },
       {
         caseInsensitiveRegex: "≥ v0.0.27",
@@ -1243,7 +1279,7 @@ export default {
   },
   edgeUtils: {
     name: "Edge Utils",
-    version: "0.2.9",
+    version: "0.3.0",
     github:
       "https://github.com/growthbook/growthbook-proxy/tree/main/packages/lib/edge-utils",
     examples: [],
@@ -1259,6 +1295,18 @@ export default {
       },
       {
         experimentation: "All versions",
+      },
+      {
+        contextualBandits: "≥ v0.3.0",
+      },
+      {
+        savedGroupReferencesV2: "≥ v0.3.0",
+      },
+      {
+        interleaving: "≥ v0.3.0",
+      },
+      {
+        contextualBanditsAuto: "≥ v0.3.0",
       },
       {
         caseInsensitiveRegex: "≥ v0.2.7",

@@ -5,6 +5,7 @@ import {
   ExposureQuery,
   SchemaFormat,
   SchemaInterface,
+  UserIdType,
 } from "shared/types/datasource";
 import { MetricType } from "shared/types/metric";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
@@ -14,6 +15,7 @@ import {
   resolveAnalysisIdentifierType,
   getExposureQueryIdentifierTypes,
   getExposureQueryProjects,
+  getManagedWarehouseAttributeIdentifierMap,
   isExposureQueryAvailableForProjects,
   isProjectListValidForProject,
 } from "shared/util";
@@ -776,22 +778,26 @@ export const PHOENIX_TABLES = {
 // Langfuse tables hold every project in the instance. Scope by project id when
 // one is configured; otherwise include everything, which is what a
 // single-project self-host wants.
+// Blank and whitespace-only both mean every project. The settings label uses
+// the same rule, so the SQL must not filter on a project made of spaces.
+function normalizedProjectScope(value?: string | number): string {
+  return String(value ?? "").trim();
+}
+
 export function langfuseProjectClause(
   alias: string,
   projectId?: string | number,
 ): string {
-  return projectId
-    ? `\n  AND ${alias}project_id = ${sqlStringLiteral(projectId)}`
-    : "";
+  const id = normalizedProjectScope(projectId);
+  return id ? `\n  AND ${alias}project_id = ${sqlStringLiteral(id)}` : "";
 }
 
 export function phoenixProjectClause(
   alias: string,
   projectName?: string | number,
 ): string {
-  return projectName
-    ? `\n  AND ${alias}name = ${sqlStringLiteral(projectName)}`
-    : "";
+  const name = normalizedProjectScope(projectName);
+  return name ? `\n  AND ${alias}name = ${sqlStringLiteral(name)}` : "";
 }
 
 const LANGFUSE_ID_COLUMNS: Record<string, string> = {
@@ -1048,6 +1054,76 @@ export function getInitialSettings(
         query: schema.getExperimentSQL(getTablePrefix(params), [id], options),
       })),
       identityJoins: schema.getIdentitySQL(getTablePrefix(params), options),
+    },
+  };
+}
+
+export const GA4_EXPOSURE_QUERY_ID = "ga4";
+
+// The dataset a GA4 export lives in, for display:
+// `project.analytics_123.events_*` -> analytics_123
+export function getGA4DatasetName(eventsTablePath: string): string {
+  return eventsTablePath.replace(/`/g, "").split(".").at(-2) ?? eventsTablePath;
+}
+
+export function hasGoogleAnalytics4ExposureQuery(
+  settings: DataSourceSettings | undefined,
+): boolean {
+  return (settings?.queries?.exposure ?? []).some(
+    (query) => query.id === GA4_EXPOSURE_QUERY_ID,
+  );
+}
+
+export function getGoogleAnalytics4UserIdTypes(
+  existingTypes: UserIdType[],
+): UserIdType[] {
+  const ga4Types = getSchemaObject("ga4").userIdTypes;
+  const existingNames = new Set(existingTypes.map((type) => type.userIdType));
+  return [
+    ...existingTypes,
+    ...ga4Types
+      .filter((id) => !existingNames.has(id))
+      .map((id) => ({
+        userIdType: id,
+        description: USER_ID_TYPE_META[id]?.description ?? "",
+      })),
+  ];
+}
+
+export function getGoogleAnalytics4ExposureQuery(
+  eventsTablePath: string,
+): ExposureQuery {
+  const schema = getSchemaObject("ga4");
+  const ga4Types = schema.userIdTypes;
+  return {
+    id: GA4_EXPOSURE_QUERY_ID,
+    name: "Google Analytics 4",
+    description: "",
+    userIdType: ga4Types[0] ?? "anonymous_id",
+    userIdTypes: [...ga4Types],
+    query: getGA4ExposureSql(eventsTablePath, ga4Types),
+    dimensions: [...schema.experimentDimensions],
+  };
+}
+
+// Existing identifier types and queries stay; this only fills in what GA4
+// needs, so applying it twice changes nothing.
+export function applyGoogleAnalytics4Settings(
+  settings: DataSourceSettings | undefined,
+  eventsTablePath: string,
+): DataSourceSettings {
+  const exposure = [...(settings?.queries?.exposure ?? [])];
+  if (!hasGoogleAnalytics4ExposureQuery(settings)) {
+    exposure.push(getGoogleAnalytics4ExposureQuery(eventsTablePath));
+  }
+
+  return {
+    ...settings,
+    schemaFormat: "ga4",
+    userIdTypes: getGoogleAnalytics4UserIdTypes(settings?.userIdTypes ?? []),
+    queries: {
+      ...settings?.queries,
+      exposure,
     },
   };
 }
@@ -1372,13 +1448,21 @@ export function getCopiedAssignmentQueryNotice(
 /**
  * Hash attribute -> identifier types linked to it in the data source's
  * identifier settings. An empty map means the org has configured no linkages,
- * which callers use to suppress hash-attribute grouping entirely.
+ * which callers use to suppress hash-attribute grouping entirely. Managed
+ * warehouses link by their fixed attribute -> identifier mapping instead.
  */
 export function getHashAttributeIdentifierTypeMap(
-  userIdTypes: DataSourceSettings["userIdTypes"],
+  datasource: DataSourceInterfaceWithParams | null | undefined,
 ): Map<string, string[]> {
+  if (datasource?.type === "growthbook_clickhouse") {
+    return new Map(
+      [...getManagedWarehouseAttributeIdentifierMap(datasource.settings)].map(
+        ([attribute, identifier]) => [attribute, [identifier]],
+      ),
+    );
+  }
   const map = new Map<string, string[]>();
-  for (const userIdType of userIdTypes ?? []) {
+  for (const userIdType of datasource?.settings?.userIdTypes ?? []) {
     for (const attribute of userIdType.attributes ?? []) {
       map.set(attribute, [
         ...(map.get(attribute) ?? []),
@@ -1548,7 +1632,8 @@ export function validateSQL(sql: string, requiredColumns: string[]): void {
     throw new Error("Invalid SQL. Expecting `SELECT ... FROM ...`");
   }
 
-  if (sql.match(/;(\s|\n)*$/)) {
+  // `\s` already matches newlines; `(\s|\n)*` backtracked exponentially.
+  if (/;\s*$/.test(sql)) {
     throw new Error(
       "Don't end your SQL statements with semicolons since it will break our generated queries",
     );

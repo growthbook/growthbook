@@ -25,7 +25,7 @@ import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import { validatedSubmit } from "@/ui/Modal/validatedSubmit";
 import useUnscopedRuleGate from "@/components/Features/useUnscopedRuleGate";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import track from "@/services/track";
+import track, { entityTrackingHash } from "@/services/track";
 import {
   getDefaultValue,
   useEnvironments,
@@ -371,6 +371,7 @@ export default function LinkFeatureToContextualBanditModal({
           targetFeatureId = created.feature.id;
 
           track("Feature Created", {
+            entity_id_hash: entityTrackingHash(created.feature.id),
             valueType: featureToCreate.valueType,
             hasDescription: featureToCreate.description
               ? featureToCreate.description.length > 0

@@ -2,7 +2,11 @@ import {
   DataSourceInterfaceWithParams,
   DataSourceType,
 } from "shared/types/datasource";
-import { DetectedColumn, FactTableColumnType } from "shared/types/fact-table";
+import {
+  CreateFactTableProps,
+  DetectedColumn,
+  FactTableColumnType,
+} from "shared/types/fact-table";
 import { Column } from "shared/types/integrations";
 import { SqlIdentifierQuote } from "shared/types/sql";
 import { quoteIdentifier } from "shared/sql";
@@ -21,7 +25,7 @@ export function getNewFactTableProjects({
   project,
   permissionsUtil,
 }: {
-  datasource: DataSourceInterfaceWithParams;
+  datasource: Pick<DataSourceInterfaceWithParams, "projects">;
   project: string;
   permissionsUtil: Permissions;
 }): string[] {
@@ -36,6 +40,23 @@ export function getNewFactTableProjects({
   return permissionsUtil.canCreateFactTable({ projects: [] })
     ? []
     : [project].filter(Boolean);
+}
+
+// The Projects a new fact table can go in, or null when the user can't create
+// one for this Data Source. Narrows to the allowed Projects before checking,
+// so a user who can only create in some of them still can.
+export function getAllowedNewFactTableProjects(
+  args: Parameters<typeof getNewFactTableProjects>[0],
+): string[] | null {
+  const projects = getNewFactTableProjects(args);
+  // An empty list means every Project, which isn't what a scoped Data Source
+  // with no allowed Projects asked for.
+  if ((args.datasource.projects ?? []).length > 0 && projects.length === 0) {
+    return null;
+  }
+  return args.permissionsUtil.canCreateFactTable({ projects })
+    ? projects
+    : null;
 }
 
 /**
@@ -63,14 +84,17 @@ export function getColumnMappingError(
   {
     minColumns = 2,
     separateColumns = "separate timestamp and identifier columns",
+    // What each role can map to, for a caller that allows more than the types
+    timestampOptions = columns.filter(isTimestampCandidate),
+    identifierOptions = columns.filter(isIdentifierCandidate),
   } = {},
 ): string | null {
-  if (!columns.some(isTimestampCandidate)) {
+  if (!timestampOptions.length) {
     return fromTable
       ? "Selected table does not have a timestamp column."
       : "Your query must return a date column to use as the timestamp.";
   }
-  if (!columns.some(isIdentifierCandidate)) {
+  if (!identifierOptions.length) {
     return fromTable
       ? "Selected table does not have an identifier column."
       : "Your query must return a string or number column to use as an identifier.";
@@ -99,9 +123,15 @@ export const rematchUserIdColumns = (
 ): Record<string, string> =>
   Object.fromEntries(
     identifierTypes.flatMap((idType) => {
-      const column = rematchColumn(previous[idType] ?? "", columns, () =>
-        findColumnByName(columns, idType),
-      );
+      const prev = previous[idType] ?? "";
+      // A field inside a JSON column survives as long as that column does
+      const [root, field] = prev.split(".");
+      const column =
+        field && columns.some((c) => c.column === root && c.datatype === "json")
+          ? prev
+          : rematchColumn(prev, columns, () =>
+              findColumnByName(columns, idType),
+            );
       return column ? [[idType, column]] : [];
     }),
   );
@@ -236,6 +266,50 @@ export const GA4_EVENTS_TEMPLATE: SourceTableTemplate = {
     return rowFilterWhere ? `${sql}\n  AND ${rowFilterWhere}` : sql;
   },
 };
+
+// The columns are declared up front so the fact table can be created without
+// running a query. A background refresh confirms their types and loads the
+// event names.
+export function getGA4EventsFactTable({
+  datasourceId,
+  eventsTablePath,
+  projects,
+}: {
+  datasourceId: string;
+  eventsTablePath: string;
+  projects: string[];
+}): CreateFactTableProps {
+  return {
+    name: GA4_EVENTS_TEMPLATE.name,
+    description: "",
+    owner: "",
+    tags: [],
+    projects,
+    datasource: datasourceId,
+    sql: getGA4EventsSql(eventsTablePath),
+    eventName: GA4_EVENTS_TEMPLATE.name,
+    tableType: "event",
+    userIdTypes: ["user_id", "anonymous_id"],
+    timestampColumn: "timestamp",
+    columns: GA4_EVENTS_COLUMNS.map((col) => ({
+      column: col.column,
+      datatype: col.datatype,
+      ...(col.column === "event_name" ? { alwaysInlineFilter: true } : {}),
+    })),
+    columnRefreshPending: true,
+  };
+}
+
+export async function createGA4EventsFactTable(
+  apiCall: (url: string, options?: RequestInit) => Promise<{ error?: string }>,
+  props: Parameters<typeof getGA4EventsFactTable>[0],
+): Promise<void> {
+  const { error } = await apiCall("/fact-tables", {
+    method: "POST",
+    body: JSON.stringify(getGA4EventsFactTable(props)),
+  });
+  if (error) throw new Error(error);
+}
 
 export const getPickerTableColumns = (columns: Column[]): DetectedColumn[] =>
   columns.map((c) => ({
