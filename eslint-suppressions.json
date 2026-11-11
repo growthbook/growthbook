@@ -1148,7 +1148,7 @@
   },
   "packages/front-end/components/Reviews/RevisionStatusBadge.tsx": {
     "@typescript-eslint/switch-exhaustiveness-check": {
-      "count": 3
+      "count": 1
     }
   },
   "packages/front-end/components/Revision/CompareRevisionsModal.tsx": {

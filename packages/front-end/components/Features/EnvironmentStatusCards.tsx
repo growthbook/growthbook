@@ -75,12 +75,15 @@ function ValueText({
   valueType,
   muted = false,
   withPercent = true,
+  revealable = false,
 }: {
   value: EnvironmentValue;
   valueType: FeatureValueType;
   muted?: boolean;
   // Off when the caller places the share itself.
   withPercent?: boolean;
+  // Cut short, its whole value shows on hover or focus.
+  revealable?: boolean;
 }) {
   if (value.kind === "none") {
     return (
@@ -117,6 +120,7 @@ function ValueText({
       <ValueCode
         text={displayValue(value.value, valueType)}
         muted={muted || value.value === null}
+        revealable={revealable}
       />
     );
   return (
@@ -147,16 +151,30 @@ function ClampedLink({
   );
 }
 
-function ValueCode({ text, muted }: { text: string; muted: boolean }) {
+function ValueCode({
+  text,
+  muted,
+  revealable = false,
+}: {
+  text: string;
+  muted: boolean;
+  revealable?: boolean;
+}) {
+  const ref = useRef<HTMLElement>(null);
+  const truncated = useIsOverflowingX(ref, revealable, text);
   return (
-    <code
-      className={styles.value}
-      style={{
-        color: muted ? "var(--color-text-low)" : "var(--color-text-high)",
-      }}
-    >
-      {text}
-    </code>
+    <Tooltip content={text} enabled={revealable && truncated}>
+      <code
+        ref={ref}
+        className={styles.value}
+        tabIndex={revealable && truncated ? 0 : undefined}
+        style={{
+          color: muted ? "var(--color-text-low)" : "var(--color-text-high)",
+        }}
+      >
+        {text}
+      </code>
+    </Tooltip>
   );
 }
 
@@ -340,7 +358,11 @@ function StepFields({
                   step.variations ? (
                     <Text color="text-mid">{step.variations} variations</Text>
                   ) : (
-                    <ValueText value={serves} valueType={valueType} />
+                    <ValueText
+                      value={serves}
+                      valueType={valueType}
+                      revealable
+                    />
                   ),
               },
             ]
@@ -516,8 +538,13 @@ function Drilldown({
         </>
       ) : (
         <Row icon={<StepIcon status="skipped" />} muted label="Rules">
+          {/* Hidden from the list above, rules that reach no one still exist. */}
           <Text color="text-low">
-            {status.rules === "skipped" ? "Not reachable" : "None"}
+            {status.rules === "skipped"
+              ? "Not reachable"
+              : status.rules === "none"
+                ? "None"
+                : "None reach anyone"}
           </Text>
         </Row>
       )}
@@ -537,6 +564,7 @@ function Drilldown({
                   <ValueText
                     value={{ kind: "value", value: status.servedDefault }}
                     valueType={valueType}
+                    revealable
                   />
                 ),
               },
@@ -564,6 +592,8 @@ function Card({
   side?: "bottom" | "right";
 }) {
   const [open, setOpen] = useState(false);
+  // Closed to go to a rule, focus follows it there, not back to the card.
+  const jumping = useRef(false);
   const { status } = card;
   const reason = status ? reasonText(status.reason) : null;
   const Caret = open ? PiCaretUp : PiCaretDown;
@@ -571,6 +601,11 @@ function Card({
     <Popover
       open={open}
       onOpenChange={setOpen}
+      onCloseAutoFocus={(e) => {
+        if (!jumping.current) return;
+        jumping.current = false;
+        e.preventDefault();
+      }}
       side={side}
       align="start"
       sideOffset={5}
@@ -628,6 +663,7 @@ function Card({
             prerequisiteState={prerequisiteState}
             // Out of the way of the rule it takes you to.
             jumpToRule={(ruleId) => {
+              jumping.current = true;
               setOpen(false);
               jumpToRule(card.id, ruleId);
             }}
@@ -664,6 +700,8 @@ function MoreCards({
   jumpToRule: RuleJumper;
 }) {
   const [open, setOpen] = useState(false);
+  // Closed to go to a rule, focus follows it there, not back to the card.
+  const jumping = useRef(false);
   // Several environments' switches read as one section of them.
   const changes = mergeDraftChangeSections(
     cards.flatMap((card) => card.environmentChanges ?? []),
@@ -678,6 +716,11 @@ function MoreCards({
     <Popover
       open={open}
       onOpenChange={setOpen}
+      onCloseAutoFocus={(e) => {
+        if (!jumping.current) return;
+        jumping.current = false;
+        e.preventDefault();
+      }}
       side="bottom"
       align="start"
       sideOffset={5}
@@ -714,6 +757,7 @@ function MoreCards({
                 toggle={renderToggle(card.id)}
                 prerequisiteState={prerequisiteState}
                 jumpToRule={(environment, ruleId) => {
+                  jumping.current = true;
                   setOpen(false);
                   jumpToRule(environment, ruleId);
                 }}

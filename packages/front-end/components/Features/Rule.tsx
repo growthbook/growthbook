@@ -2034,6 +2034,7 @@ export function SortableRule(props: SortableProps) {
     return (
       <div
         id={ruleElementId(props.rule.id)}
+        tabIndex={-1}
         ref={(el) => {
           setNodeRef(el);
           placeholderRef.current = el;
@@ -2047,6 +2048,7 @@ export function SortableRule(props: SortableProps) {
     <Rule
       {...props}
       id={ruleElementId(props.rule.id)}
+      tabIndex={-1}
       ref={setNodeRef}
       style={ruleStyle}
       handle={handle}

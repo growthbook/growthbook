@@ -228,17 +228,42 @@ export default function FeaturesOverviewNew({
   // config-backed value for the same environment the rules are filtered to.
   // null = "All Environments".
   const [rulesEnv, setRulesEnv] = useFeatureRulesEnv();
-  // A rule to bring into view once the rules show it, which may take a few
-  // frames after switching their tab.
-  const [scrollToRule, setScrollToRule] = useState<string | null>(null);
+  // A rule to bring into view once the rules show its tab and it stays put
+  // there: the list redraws a few frames after its tab does.
+  const [scrollToRule, setScrollToRule] = useState<{
+    ruleId: string;
+    tab: string | null;
+  } | null>(null);
   useEffect(() => {
-    if (scrollToRule === null) return;
+    if (scrollToRule === null || rulesEnv !== scrollToRule.tab) return;
     let frames = 0;
     let request = 0;
+    let lastTop: number | null = null;
+    let steadyFrames = 0;
     const scroll = () => {
-      const rule = document.getElementById(ruleElementId(scrollToRule));
-      if (rule || ++frames > 30) {
-        rule?.scrollIntoView({ behavior: "smooth", block: "center" });
+      const rule = document.getElementById(ruleElementId(scrollToRule.ruleId));
+      const ruleTop = rule
+        ? rule.getBoundingClientRect().top + window.scrollY
+        : null;
+      steadyFrames =
+        ruleTop !== null && ruleTop === lastTop ? steadyFrames + 1 : 0;
+      lastTop = ruleTop;
+      if (steadyFrames >= 5 || ++frames > 60) {
+        if (rule) {
+          // Centered, unless it's too tall to see its top that way, under the
+          // page's sticky headers; then its top sits a third of the way down.
+          const { top, height } = rule.getBoundingClientRect();
+          if (height < window.innerHeight / 2) {
+            rule.scrollIntoView({ behavior: "smooth", block: "center" });
+          } else {
+            window.scrollTo({
+              top: window.scrollY + top - window.innerHeight / 3,
+              behavior: "smooth",
+            });
+          }
+          // Keyboard focus lands there too, so the next Tab goes on from it.
+          rule.focus({ preventScroll: true });
+        }
         setScrollToRule(null);
         return;
       }
@@ -246,11 +271,12 @@ export default function FeaturesOverviewNew({
     };
     scroll();
     return () => cancelAnimationFrame(request);
-  }, [scrollToRule]);
+  }, [scrollToRule, rulesEnv]);
   // All Environments shows every rule; another environment's tab may not.
   const jumpToRule = (environment: string, ruleId: string) => {
-    if (rulesEnv !== null && rulesEnv !== environment) setRulesEnv(environment);
-    setScrollToRule(ruleId);
+    const tab = rulesEnv === null ? null : environment;
+    if (tab !== rulesEnv) setRulesEnv(tab);
+    setScrollToRule({ ruleId, tab });
   };
 
   const prerequisites = feature?.prerequisites || [];
