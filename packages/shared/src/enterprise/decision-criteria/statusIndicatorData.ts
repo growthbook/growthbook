@@ -21,6 +21,8 @@ export type StatusIndicatorData = {
   tooltip?: string;
   // More actionable statuses sort first.
   sortOrder: number;
+  // The verdict a running status was derived from.
+  resultStatus?: ExperimentResultStatusData;
 };
 
 export function getStatusIndicatorData({
@@ -82,7 +84,10 @@ export function getStatusIndicatorData({
           healthSettings,
         });
         if (cbResultStatus?.status === "unhealthy") {
-          return getDetailedRunningStatusIndicatorData(cbResultStatus);
+          return {
+            ...getDetailedRunningStatusIndicatorData(cbResultStatus),
+            resultStatus: cbResultStatus,
+          };
         }
       }
       return {
@@ -99,10 +104,13 @@ export function getStatusIndicatorData({
       metricGroups,
     });
     if (runningStatusData) {
-      return getDetailedRunningStatusIndicatorData(
-        runningStatusData,
-        resolveMetricName,
-      );
+      return {
+        ...getDetailedRunningStatusIndicatorData(
+          runningStatusData,
+          resolveMetricName,
+        ),
+        resultStatus: runningStatusData,
+      };
     }
 
     // 6. Otherwise, show running status

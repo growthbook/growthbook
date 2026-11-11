@@ -152,6 +152,7 @@ import {
   LinkedFeatureState,
   StagedRefDraft,
   Variation,
+  ExperimentHealthSettings,
 } from "shared/types/experiment";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import {
@@ -180,6 +181,7 @@ import {
   getUnsupportedIncrementalExperimentTypeReason,
   PRESET_DECISION_CRITERIA,
   getPresetDecisionCriteriaForOrg,
+  getHealthSettings,
 } from "shared/enterprise";
 import { ExperimentChangesetOwner } from "back-end/src/services/changesetOwner";
 import { generateId } from "back-end/src/util/uuid";
@@ -3787,6 +3789,15 @@ export function toApiDimension(
     case "user":
       return { type: "user", id: parsed.id };
   }
+}
+
+export function getHealthSettingsForOrg(
+  context: ReqContext | ApiReqContext,
+): ExperimentHealthSettings {
+  return getHealthSettings(
+    context.org.settings,
+    orgHasPremiumFeature(context.org, "decision-framework"),
+  );
 }
 
 export function toSnapshotApiInterface(
