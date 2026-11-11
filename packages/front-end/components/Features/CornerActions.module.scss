@@ -29,6 +29,12 @@
 .inline {
   width: fit-content;
   max-width: 100%;
+
+  // Several lines, at least a readable width, so a short line doesn't squeeze
+  // the box; one line, like `{}`, stays as short as it is.
+  &.lines {
+    min-width: min(200px, 100%);
+  }
 }
 
 // A one-line value keeps a strip on its right for its buttons, which would
