@@ -15,6 +15,7 @@ import { useAuth } from "@/services/auth";
 import { useEnvironments } from "@/services/features";
 import useApi from "@/hooks/useApi";
 import Text from "@/ui/Text";
+import HelperText from "@/ui/HelperText";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useConfigBacking } from "@/hooks/useConfigBacking";
 import { useDefaultDraft } from "@/hooks/useDefaultDraft";
@@ -148,7 +149,6 @@ export default function HoldoutValueModal({
       ) : null}
       <FeatureValueField
         label="Value for held-out units"
-        helpText="Changing it changes what units already held out see."
         id="holdoutValue"
         value={form.watch("value")}
         setValue={(v) => form.setValue("value", v)}
@@ -160,6 +160,10 @@ export default function HoldoutValueModal({
         configBackingShowPatch={isConfigBacked}
         lockConfigBacking={isConfigBacked}
       />
+      <HelperText status="warning" size="sm" mt="1">
+        Changing this while the holdout runs changes what units already held out
+        see, which can bias its results.
+      </HelperText>
     </ModalStandard>
   );
 }
