@@ -1624,7 +1624,7 @@ export const round1 = (d: number) => Math.round(d * 10) / 10 || 0;
 
 // Funnel compare change for one bar:
 // - step 1: % change in users
-// - later steps: change in conversion from start, in pts
+// - later steps: change in conversion from start, in pp
 export function stepChange(
   cur: FunnelCounts,
   prev: FunnelCounts | undefined,

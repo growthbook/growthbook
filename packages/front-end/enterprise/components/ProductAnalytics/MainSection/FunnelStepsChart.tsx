@@ -133,7 +133,7 @@ export default function FunnelStepsChart({
           show: true,
           position: "top" as const,
           distance: 2,
-          formatter: `${signed(d)}${stepIdx === 0 ? "%" : " pts"}`,
+          formatter: `${signed(d)}${stepIdx === 0 ? "%" : " pp"}`,
           color: toneHex[tone(d)],
           fontWeight: 600,
           fontSize: 11,
@@ -212,7 +212,7 @@ export default function FunnelStepsChart({
       const pill = (d: number | null) => {
         if (d === null) return "—";
         const arrow = d > 0 ? "▲ " : d < 0 ? "▼ " : "";
-        return `<span style="display:inline-block;padding:0 4px;border-radius:3px;font-weight:600;background:var(--${tone(d)}-a3);color:var(--${tone(d)}-11)"><span style="font-size:0.7em">${arrow}</span>${signed(d)} pts</span>`;
+        return `<span style="display:inline-block;padding:0 4px;border-radius:3px;font-weight:600;background:var(--${tone(d)}-a3);color:var(--${tone(d)}-11)"><span style="font-size:0.7em">${arrow}</span>${signed(d)} pp</span>`;
       };
       const usersChange = (a: number, b: number) => {
         if (b <= 0) return "—";

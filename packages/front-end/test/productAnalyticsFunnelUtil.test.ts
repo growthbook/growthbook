@@ -261,7 +261,7 @@ describe("funnel compare helpers", () => {
     expect(stepChange(cur, { counts: [0, 0, 0] }, 0)).toBeNull();
   });
 
-  it("stepChange is the change in from-start conversion in pts on later steps", () => {
+  it("stepChange is the change in from-start conversion in pp on later steps", () => {
     // 25% now vs 30% before
     expect(stepChange(cur, prev, 1)).toBe(-5);
     // 10% now vs 5% before
