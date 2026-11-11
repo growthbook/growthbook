@@ -15,7 +15,7 @@ export const CATEGORY_TITLES: Record<Category, string> = {
   config: "Configs",
   rampSchedule: "Ramp Schedules",
   settings: "Settings",
-  access: "Members & Teams",
+  access: "Access",
   customHook: "Custom Hooks",
   environment: "Environments",
   project: "Projects",
@@ -83,6 +83,7 @@ export const verbOf = (action: string) => {
     return "allow rules for All Environments and All Projects";
   if (verb === "visualEditor") return "AI Visual Editor";
   if (verb === "checklist") return "launch checklist items";
+  if (verb === "apiKeys") return "API keys";
   return verb.replace(/([A-Z])/g, " $1").toLowerCase();
 };
 
