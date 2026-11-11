@@ -987,16 +987,21 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
               <Flex align="center" gap="3" flexShrink="0">
                 {info.pill}
                 {/* After the rule's state, ahead of the ramp's CTAs, which
-                    stay by the menu. Shown on hover, as the menu is. */}
+                    stay by the menu. Shown on hover, as the menu is, but
+                    taking room only then, so the state sits by the CTAs. */}
                 {redesign && canEditRule ? (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className={cornerStyles.actions}
-                    onClick={editRule}
-                  >
-                    Edit
-                  </Button>
+                  <span className={cornerStyles.reveal}>
+                    <span>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className={cornerStyles.actions}
+                        onClick={editRule}
+                      >
+                        Edit
+                      </Button>
+                    </span>
+                  </span>
                 ) : null}
                 {rampSchedule &&
                   safeRollout &&

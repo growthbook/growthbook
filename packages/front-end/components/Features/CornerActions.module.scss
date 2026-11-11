@@ -25,6 +25,33 @@
   opacity: 1;
 }
 
+// A hidden action that gives up its room too, along with the gap before it,
+// so what sits ahead of it closes up. It opens with the card's hover.
+.hoverActions .reveal {
+  display: grid;
+  grid-template-columns: 0fr;
+  margin-left: calc(-1 * var(--space-3));
+  transition:
+    grid-template-columns 0.1s ease,
+    margin-left 0.1s ease;
+
+  > * {
+    min-width: 0;
+    overflow: hidden;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
+  }
+}
+
+.hoverActions:hover .reveal,
+.hoverActions:has(:focus-visible) .reveal,
+.showActions .reveal {
+  grid-template-columns: 1fr;
+  margin-left: 0;
+}
+
 // Hugs its content.
 .inline {
   width: fit-content;
