@@ -302,7 +302,7 @@ export default function SafeRolloutFields({
               exposureQueryIdentifierType={form.watch(
                 "safeRolloutFields.exposureQueryIdentifierType",
               )}
-              project={feature.project}
+              contextProject={feature.project}
               includeFacts={true}
               forceSingleMetric={false}
               includeGroups={true}

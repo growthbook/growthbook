@@ -4,7 +4,7 @@ import { SegmentInterface } from "shared/types/segment";
 import { useForm } from "react-hook-form";
 import { FaExternalLinkAlt } from "react-icons/fa";
 import { PiArrowRight } from "react-icons/pi";
-import { isProjectListValidForProject } from "shared/util";
+import { isAvailableInProject } from "shared/util";
 import Callout from "@/ui/Callout";
 import Button from "@/ui/Button";
 import Field from "@/components/Forms/Field";
@@ -61,7 +61,7 @@ const SegmentForm: FC<{
     .filter(
       (d) =>
         d.id === current.datasource ||
-        isProjectListValidForProject(d.projects, project),
+        isAvailableInProject(d.projects, project),
     );
 
   const form = useForm({

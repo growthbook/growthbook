@@ -17,7 +17,7 @@ import {
   FactTableType,
   UpdateFactTableProps,
 } from "shared/types/fact-table";
-import { isProjectListValidForProject } from "shared/util";
+import { isAvailableInProject } from "shared/util";
 import {
   getFactTableIdColumn,
   getFactTableTimestampColumn,
@@ -417,7 +417,7 @@ export default function NewFactTableModal({
 
   const datasource = getDatasourceById(datasourceId);
   const validDatasources = datasources
-    .filter((d) => isProjectListValidForProject(d.projects, project))
+    .filter((d) => isAvailableInProject(d.projects, project))
     .filter((d) => d.properties?.queryLanguage === "sql");
   const identifierTypes = (datasource?.settings?.userIdTypes || []).map(
     (t) => t.userIdType,

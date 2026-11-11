@@ -1,6 +1,6 @@
 import { FC, useEffect, useState } from "react";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import { isProjectListValidForProject } from "shared/util";
+import { isAvailableInProject } from "shared/util";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useAuth } from "@/services/auth";
 import useOrgSettings from "@/hooks/useOrgSettings";
@@ -33,7 +33,7 @@ const ImportExperimentModal: FC<{
   const [importModal, setImportModal] = useState<boolean>(importMode);
   const validDatasources = datasources
     .filter((d) => d.properties?.pastExperiments)
-    .filter((d) => isProjectListValidForProject(d.projects, project));
+    .filter((d) => isAvailableInProject(d.projects, project));
   const [datasourceId, setDatasourceId] = useState(() => {
     if (!validDatasources?.length) return null;
 

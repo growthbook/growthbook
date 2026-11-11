@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Flex } from "@radix-ui/themes";
-import { isProjectListValidForProject } from "shared/util";
+import { isAvailableInProject } from "shared/util";
 import { canInlineFilterColumn } from "shared/experiments";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import {
@@ -51,11 +51,11 @@ export default function TemplateFieldMapping({
   );
 
   const availableDatasources = datasources.filter((d) =>
-    isProjectListValidForProject(d.projects, project),
+    isAvailableInProject(d.projects, project),
   );
   const availableFactTables = factTables.filter(
     (ft) =>
-      isProjectListValidForProject(ft.projects, project) &&
+      isAvailableInProject(ft.projects, project) &&
       availableDatasources.some((d) => d.id === ft.datasource),
   );
   const factTable = availableFactTables.find((ft) => ft.id === factTableId);

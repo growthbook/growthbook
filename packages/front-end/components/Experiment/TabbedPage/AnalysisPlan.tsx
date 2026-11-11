@@ -18,7 +18,7 @@ import {
 import { getScopedSettings } from "shared/settings";
 import {
   hasPendingScheduledStart,
-  isProjectListValidForProject,
+  isAvailableInProject,
   resolveAnalysisIdentifierType,
 } from "shared/util";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -612,7 +612,7 @@ export default function AnalysisPlan({
       (d) =>
         d.id === datasource ||
         (d.id !== demoDataSourceId &&
-          isProjectListValidForProject(d.projects, experiment.project)),
+          isAvailableInProject(d.projects, experiment.project)),
     )
     .map((d) => ({ value: d.id, label: d.name }));
 
@@ -689,7 +689,7 @@ export default function AnalysisPlan({
         exposureQueryId={exposureQueryId}
         exposureQueryIdentifierType={identifierType || undefined}
         {...clusterSettings}
-        project={experiment.project}
+        contextProject={experiment.project}
         includeFacts
         includeGroups
         getMetricDisabledInfo={getMetricDisabledInfo}

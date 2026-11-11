@@ -1,7 +1,8 @@
-import { FC, ReactNode, useCallback, useMemo, useState } from "react";
+import { FC, ReactNode, useCallback, useMemo } from "react";
 import {
   resolveAnalysisIdentifierType,
-  isProjectListValidForProject,
+  isAvailableInProject,
+  coversAllRequiredProjects,
 } from "shared/util";
 import { DecisionFrameworkMetricOverrides } from "shared/types/experiment";
 import {
@@ -11,7 +12,6 @@ import {
   getFactMetricFactTableIds,
   isFactMetric,
   isFactMetricJoinable,
-  isMetricGroupId,
   isMetricJoinable,
   quantileMetricType,
 } from "shared/experiments";
@@ -21,7 +21,7 @@ import {
   FactMetricType,
   FactTableDefinition,
 } from "shared/types/fact-table";
-import { PiInfo, PiTag } from "react-icons/pi";
+import { PiTag } from "react-icons/pi";
 import { MetricOverride } from "shared/validators";
 import Text from "@/ui/Text";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -44,9 +44,6 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import UITooltip from "@/ui/Tooltip";
 import MetricName from "@/components/Metrics/MetricName";
 import { IdentifierCode } from "@/components/Experiment/AssignmentQueryFields";
-import { useUser } from "@/services/UserContext";
-import MetricGroupInlineForm from "@/enterprise/components/MetricGroupInlineForm";
-import Link from "@/ui/Link";
 import {
   DropdownMenu,
   DropdownMenuItem,
@@ -233,7 +230,10 @@ export const MetricsSelectorTooltip = ({
 
 const MetricsSelector: FC<{
   datasource?: string;
-  project?: string;
+  /** Hides metrics that are not available in this Project. */
+  contextProject?: string;
+  /** Hides metrics that are not available in every one of these Projects. */
+  requiredProjects?: string[];
   exposureQueryId?: string;
   exposureQueryIdentifierType?: string;
   isClusterExperiment?: boolean;
@@ -243,6 +243,8 @@ const MetricsSelector: FC<{
   autoFocus?: boolean;
   includeFacts?: boolean;
   includeGroups?: boolean;
+  /** Keeps already-selected metrics that fail the Project filters visible and removable. */
+  preserveSelectedUnavailableMetrics?: boolean;
   excludeQuantiles?: boolean;
   allowedFactMetricTypes?: FactMetricType[];
   forceSingleMetric?: boolean;
@@ -272,7 +274,8 @@ const MetricsSelector: FC<{
   targetMDEOverrides?: DecisionFrameworkMetricOverrides[];
 }> = ({
   datasource,
-  project,
+  contextProject,
+  requiredProjects,
   exposureQueryId,
   exposureQueryIdentifierType,
   isClusterExperiment = false,
@@ -282,6 +285,7 @@ const MetricsSelector: FC<{
   autoFocus,
   includeFacts,
   includeGroups = true,
+  preserveSelectedUnavailableMetrics = false,
   excludeQuantiles,
   allowedFactMetricTypes,
   forceSingleMetric = false,
@@ -299,7 +303,6 @@ const MetricsSelector: FC<{
   settingsScope,
   targetMDEOverrides,
 }) => {
-  const [createMetricGroup, setCreateMetricGroup] = useState(false);
   const {
     metrics,
     _metricsIncludingArchived,
@@ -310,9 +313,7 @@ const MetricsSelector: FC<{
     getFactTableById,
     getDatasourceById,
     getMetricGroupById,
-    mutateDefinitions,
   } = useDefinitions();
-  const { hasCommercialFeature } = useUser();
 
   const overriddenChips = useMemo(() => {
     const overridden = getOverriddenMetricIds(
@@ -327,10 +328,6 @@ const MetricsSelector: FC<{
       ),
     );
   }, [metricOverrides, targetMDEOverrides, selected, getMetricGroupById]);
-
-  const metricListContainsGroup = selected.some((metric) =>
-    isMetricGroupId(metric),
-  );
 
   // get data to help filter metrics to those with joinable userIdTypes to
   // the experiment assignment table
@@ -548,12 +545,40 @@ const MetricsSelector: FC<{
         : []),
     ];
 
-    return options
+    const filtered = options
       .filter((m) =>
         datasource ? m.datasource === datasource : !requireDatasource,
       )
       .filter((m) => m.joinable)
-      .filter((m) => isProjectListValidForProject(m.projects, project));
+      .filter((m) => isAvailableInProject(m.projects, contextProject))
+      .filter(
+        (m) =>
+          requiredProjects === undefined ||
+          coversAllRequiredProjects(m.projects, requiredProjects),
+      );
+    // Keep existing members visible and removable without offering them as additions.
+    if (preserveSelectedUnavailableMetrics) {
+      const optionIds = new Set(filtered.map((m) => m.id));
+      for (const id of selected) {
+        if (optionIds.has(id)) continue;
+        const metric = getExperimentMetricById(id);
+        filtered.push({
+          id,
+          name: metric?.name || id,
+          description: metric?.description || "",
+          datasource: metric?.datasource || "",
+          tags: metric?.tags || [],
+          projects: metric?.projects || [],
+          factTables: [],
+          joinable: true,
+          isGroup: false,
+          disabled: true,
+          disabledReason:
+            "This metric is already in the group but is unavailable for new selections.",
+        });
+      }
+    }
+    return filtered;
   }, [
     metricsWithArchivedSelections,
     factMetricsWithArchivedSelections,
@@ -565,7 +590,8 @@ const MetricsSelector: FC<{
     userIdType,
     clusterIdType,
     clusterSubUnit,
-    project,
+    contextProject,
+    requiredProjects,
     noLegacyMetrics,
     noManual,
     includeFacts,
@@ -575,6 +601,9 @@ const MetricsSelector: FC<{
     filterConversionWindowMetrics,
     getMetricDisabledInfo,
     requireDatasource,
+    preserveSelectedUnavailableMetrics,
+    selected,
+    getExperimentMetricById,
   ]);
 
   // O(1) lookup map for filteredOptions by id
@@ -608,16 +637,6 @@ const MetricsSelector: FC<{
     });
     return counts;
   }, [filteredOptions, selected]);
-
-  let showMetricGroupHelper =
-    hasCommercialFeature("metric-groups") &&
-    selected.length >= 2 &&
-    !metricListContainsGroup &&
-    datasource;
-
-  // Disable this for now since it is making the UI too cluttered
-  // We will revisit when we re-design the metric selector
-  showMetricGroupHelper = false;
 
   // Pre-compute joinable status for all metric groups once, not per-render of each option
   const groupMetricsJoinableMap = useMemo(() => {
@@ -920,46 +939,7 @@ const MetricsSelector: FC<{
           : undefined
       }
       disabled={selectorDisabled}
-      helpText={
-        <>
-          {helpText}
-          {showMetricGroupHelper && datasource ? (
-            <Flex align="center">
-              {createMetricGroup ? (
-                <MetricGroupInlineForm
-                  selectedMetricIds={selected}
-                  datasource={datasource}
-                  mutateDefinitions={mutateDefinitions}
-                  onChange={onChange}
-                  cancel={() => setCreateMetricGroup(false)}
-                />
-              ) : (
-                <>
-                  <Flex
-                    align="center"
-                    gap="1"
-                    style={{ color: "var(--violet-11)" }}
-                  >
-                    <PiInfo color="var(--color-text-low)" className="mr-1" />
-                    <Text size="sm">
-                      Create a Metric Group so you can easily re-use this set of
-                      metrics in other experiments.
-                    </Text>
-                    <Link
-                      role="button"
-                      onClick={() => setCreateMetricGroup(true)}
-                    >
-                      <strong style={{ textDecoration: "underline" }}>
-                        Convert now
-                      </strong>
-                    </Link>
-                  </Flex>
-                </>
-              )}
-            </Flex>
-          ) : null}
-        </>
-      }
+      helpText={helpText}
       extraIndicator={
         !disabled && Object.keys(tagCounts).length > 0 ? (
           <MetricTagPicker

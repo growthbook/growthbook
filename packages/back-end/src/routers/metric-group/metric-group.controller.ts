@@ -29,7 +29,9 @@ export const postMetricGroup = async (
   const data = req.body;
   const context = getContextFromReq(req);
 
-  if (!context.permissions.canCreateMetricGroup()) {
+  if (
+    !context.permissions.canCreateMetricGroup({ projects: data.projects || [] })
+  ) {
     context.permissions.throwPermissionError();
   }
 
@@ -78,7 +80,7 @@ export const putMetricGroup = async (
     );
   }
 
-  if (!context.permissions.canUpdateMetricGroup()) {
+  if (!context.permissions.canUpdateMetricGroup(metricGroup, data)) {
     context.permissions.throwPermissionError();
   }
 
@@ -102,17 +104,16 @@ export const deleteMetricGroup = async (
 ) => {
   const context = getContextFromReq(req);
 
-  if (!context.permissions.canDeleteMetricGroup()) {
-    context.permissions.throwPermissionError();
-  }
-
   const metricGroup = await context.models.metricGroups.getById(req.params.id);
 
   if (!metricGroup) {
     return context.throwNotFoundError("Could not find the metric group");
   }
 
-  // should we delete all references to this metric group in the experiments?
+  if (!context.permissions.canDeleteMetricGroup(metricGroup)) {
+    context.permissions.throwPermissionError();
+  }
+
   await removeMetricFromExperiments(context, metricGroup.id);
 
   await context.models.metricGroups.delete(metricGroup);
@@ -136,7 +137,7 @@ export const putMetricGroupReorder = async (
       "Could not find metric group with that id",
     );
   }
-  if (!context.permissions.canUpdateMetricGroup()) {
+  if (!context.permissions.canUpdateMetricGroup(metricGroup)) {
     context.permissions.throwPermissionError();
   }
   if (metricGroup.organization !== context.org.id) {
@@ -174,7 +175,7 @@ export const removeMetricFromGroup = async (
       "Could not find metric group with that id",
     );
   }
-  if (!context.permissions.canUpdateMetricGroup()) {
+  if (!context.permissions.canUpdateMetricGroup(metricGroup)) {
     context.permissions.throwPermissionError();
   }
   if (metricGroup.organization !== context.org.id) {

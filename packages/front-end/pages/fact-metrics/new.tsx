@@ -2,7 +2,7 @@ import { useRouter } from "next/router";
 import { useState } from "react";
 import { Flex } from "@radix-ui/themes";
 import { FactMetricInterface } from "shared/types/fact-table";
-import { isProjectListValidForProject } from "shared/util";
+import { isAvailableInProject } from "shared/util";
 import { CommercialFeature } from "shared/enterprise";
 import { getFactMetricCommercialFeature } from "@/services/factMetrics";
 import { duplicateFactMetric } from "@/services/metrics";
@@ -138,11 +138,11 @@ export default function NewFactMetricPage() {
 
   const hasDatasource = datasources.some(
     (d) =>
-      isProjectListValidForProject(d.projects, project) &&
+      isAvailableInProject(d.projects, project) &&
       d.properties?.queryLanguage === "sql",
   );
   const hasFactTable = factTables.some((t) =>
-    isProjectListValidForProject(t.projects, project),
+    isAvailableInProject(t.projects, project),
   );
 
   const nameCollision =

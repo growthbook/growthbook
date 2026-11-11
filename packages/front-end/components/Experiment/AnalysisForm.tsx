@@ -13,7 +13,7 @@ import {
 } from "shared/constants";
 import {
   resolveAnalysisIdentifierType,
-  isProjectListValidForProject,
+  isAvailableInProject,
 } from "shared/util";
 import { getScopedSettings, getUnsetAnalysisSettings } from "shared/settings";
 import {
@@ -768,10 +768,7 @@ const AnalysisForm: FC<{
                   .filter(
                     (ds) =>
                       ds.id === experiment.datasource ||
-                      isProjectListValidForProject(
-                        ds.projects,
-                        experiment.project,
-                      ),
+                      isAvailableInProject(ds.projects, experiment.project),
                   )
                   .map((d) => ({
                     value: d.id,

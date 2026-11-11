@@ -1,7 +1,7 @@
 import { useFormContext } from "react-hook-form";
 import { useEffect, useMemo, useRef } from "react";
 import { getMetricWindowHours } from "shared/experiments";
-import { isProjectListValidForProject } from "shared/util";
+import { isAvailableInProject } from "shared/util";
 import { MetricWindowSettings } from "shared/types/fact-table";
 import { Box, Flex, Grid } from "@radix-ui/themes";
 import clsx from "clsx";
@@ -81,7 +81,7 @@ export default function ContextualBanditDecisionMetricSettings({
       (m) =>
         m.datasource === datasourceId &&
         (m.metricType === "mean" || m.metricType === "proportion") &&
-        isProjectListValidForProject(m.projects, project),
+        isAvailableInProject(m.projects, project),
     );
   }, [factMetrics, datasourceId, project]);
   const showNoFactMetricsMessage =
@@ -92,7 +92,7 @@ export default function ContextualBanditDecisionMetricSettings({
     return factTables.filter(
       (t) =>
         t.datasource === datasourceId &&
-        isProjectListValidForProject(t.projects, project),
+        isAvailableInProject(t.projects, project),
     );
   }, [factTables, datasourceId, project]);
   const factTableForMetric = factTablesForDatasource[0] ?? null;

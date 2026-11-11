@@ -3230,7 +3230,7 @@ export default function RampScheduleSection({
             exposureQueryIdentifierType={
               assignmentQuerySelection.identifierType
             }
-            project={feature.project ?? ""}
+            contextProject={feature.project ?? ""}
             includeFacts
             includeGroups
             selected={state.monitoring.guardrailMetricIds}
@@ -3254,7 +3254,7 @@ export default function RampScheduleSection({
             exposureQueryIdentifierType={
               assignmentQuerySelection.identifierType
             }
-            project={feature.project ?? ""}
+            contextProject={feature.project ?? ""}
             includeFacts
             includeGroups
             selected={state.monitoring.signalMetricIds}

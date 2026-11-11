@@ -8,7 +8,7 @@ import { getValidDate, ago, date, datetime, daysBetween } from "shared/dates";
 import {
   getExposureQueryIdentifierTypes,
   getPastExperimentQueryName,
-  isProjectListValidForProject,
+  isAvailableInProject,
   parseIntWithDefault,
   parseOptionalInt,
 } from "shared/util";
@@ -261,7 +261,7 @@ const ImportExperimentList: FC<{
     .filter(
       (d) =>
         d.id === data?.experiments?.datasource ||
-        isProjectListValidForProject(d.projects, project),
+        isAvailableInProject(d.projects, project),
     );
 
   function clearFilters() {

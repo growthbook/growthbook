@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { isProjectListValidForProject } from "shared/util";
+import { isAvailableInProject } from "shared/util";
 import { SavedQuery } from "shared/validators";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import useApi from "@/hooks/useApi";
@@ -22,7 +22,7 @@ export default function SqlExplorer() {
   }>("/saved-queries");
 
   const hasDatasource = datasources.some((d) =>
-    isProjectListValidForProject(d.projects, project),
+    isAvailableInProject(d.projects, project),
   );
 
   const permissionsUtil = usePermissionsUtil();

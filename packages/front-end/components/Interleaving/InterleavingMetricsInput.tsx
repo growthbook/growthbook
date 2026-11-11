@@ -117,7 +117,7 @@ export default function InterleavingMetricsInput({
           <MetricsSelector
             datasource={datasource}
             exposureQueryIdentifierType={userIdType}
-            project={project}
+            contextProject={project}
             selected={selectedFor(type)}
             onChange={(ids) => setSelected(type, ids)}
             includeFacts

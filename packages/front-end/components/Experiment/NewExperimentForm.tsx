@@ -10,7 +10,7 @@ import { date, getValidDate } from "shared/dates";
 import { getProviderFromEmbeddingModel } from "shared/ai";
 import {
   getExposureQueryIdentifierTypes,
-  isProjectListValidForProject,
+  isAvailableInProject,
   validateAndFixCondition,
 } from "shared/util";
 import { getScopedSettings } from "shared/settings";
@@ -621,9 +621,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     .sort((a, b) =>
       a.templateMetadata.name > b.templateMetadata.name ? 1 : -1,
     )
-    .filter((t) =>
-      isProjectListValidForProject(t.project ? [t.project] : [], project),
-    )
+    .filter((t) => isAvailableInProject(t.project ? [t.project] : [], project))
     .map((t) => ({ value: t.id, label: t.templateMetadata.name }));
 
   const allowAllProjects = permissionsUtils.canViewExperimentModal();

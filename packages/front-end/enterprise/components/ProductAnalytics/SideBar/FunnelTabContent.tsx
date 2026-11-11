@@ -28,7 +28,7 @@ import {
   funnelSettingsToFunnelDataset,
   MAX_FUNNEL_STEPS,
 } from "shared/funnels";
-import { isProjectListValidForProject } from "shared/util";
+import { isAvailableInProject } from "shared/util";
 import Button from "@/ui/Button";
 import useSortableItem from "@/hooks/useSortableItem";
 import Text from "@/ui/Text";
@@ -202,7 +202,7 @@ export default function FunnelTabContent() {
       factMetrics
         .filter(isFactFunnelMetric)
         .filter((m) => m.datasource === draftExploreState.datasource)
-        .filter((m) => isProjectListValidForProject(m.projects, project))
+        .filter((m) => isAvailableInProject(m.projects, project))
         .map((m) => ({ label: m.name, value: m.id })),
     [factMetrics, draftExploreState.datasource, project],
   );

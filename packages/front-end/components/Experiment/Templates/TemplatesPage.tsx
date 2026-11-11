@@ -4,7 +4,7 @@ import { ExperimentTemplateInterface } from "shared/types/experiment";
 import React, { useState } from "react";
 import { omit } from "lodash";
 import { useRouter } from "next/router";
-import { isProjectListValidForProject } from "shared/util";
+import { isAvailableInProject } from "shared/util";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import Link from "@/ui/Link";
 import Button from "@/ui/Button";
@@ -151,7 +151,7 @@ export const TemplatesPage = ({
 
   const filteredTemplates = project
     ? allTemplates.filter((t) =>
-        isProjectListValidForProject(t.project ? [t.project] : [], project),
+        isAvailableInProject(t.project ? [t.project] : [], project),
       )
     : allTemplates;
 
