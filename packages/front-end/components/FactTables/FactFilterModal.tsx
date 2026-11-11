@@ -19,6 +19,7 @@ import { validatedSubmit } from "@/ui/Modal/validatedSubmit";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Button from "@/ui/Button";
 import Text from "@/ui/Text";
+import { TextField } from "@/ui/TextField";
 import MarkdownInput from "@/components/Markdown/MarkdownInput";
 import DisplayTestQueryResults from "@/components/Settings/DisplayTestQueryResults";
 import FactTableSchema from "./FactTableSchema";
@@ -156,12 +157,18 @@ export default function FactFilterModal({
     >
       <Flex gap="5" align="start">
         <Box flexGrow="1" minWidth="0">
-          <Field label="Name" {...form.register("name")} required />
-          <Box mb="3">
-            <Text as="label" weight="semibold" mb="1">
+          <TextField label="Name" required {...form.register("name")} />
+          <Box my="3">
+            <Text
+              as="label"
+              htmlFor="fact-filter-description"
+              weight="semibold"
+              mb="1"
+            >
               Description
             </Text>
             <MarkdownInput
+              id="fact-filter-description"
               value={form.watch("description")}
               setValue={(v) => form.setValue("description", v)}
             />

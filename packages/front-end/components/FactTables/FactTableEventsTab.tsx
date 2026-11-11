@@ -80,6 +80,7 @@ export default function FactTableEventsTab({
         <Flex gap="2" align="center">
           {eventColumns.length > 1 ? (
             <SegmentedControl
+              aria-label="Event column"
               size="sm"
               value={column.column}
               setValue={(v) => {

@@ -191,15 +191,15 @@ export default function FactTableDetailsPage({
           }
         />
         {eventColumns.length > 0 && (
-          <Text color="text-mid">
-            Event stream, typed by{" "}
-            {eventColumns.map((c, i) => (
+          <Metadata
+            label={eventColumns.length > 1 ? "Event columns" : "Event column"}
+            value={eventColumns.map((c, i) => (
               <span key={c.column}>
                 {i > 0 ? ", " : ""}
                 <span className={styles.mono}>{c.column}</span>
               </span>
             ))}
-          </Text>
+          />
         )}
         {projects.length > 0 && (
           <Metadata

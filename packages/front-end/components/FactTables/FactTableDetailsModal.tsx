@@ -63,10 +63,19 @@ export default function FactTableDetailsModal({
         autoFocus
       />
       <Box my="3">
-        <Text as="label" weight="semibold" mb="1">
+        <Text
+          as="label"
+          htmlFor="fact-table-description"
+          weight="semibold"
+          mb="1"
+        >
           Description
         </Text>
-        <MarkdownInput value={description} setValue={setDescription} />
+        <MarkdownInput
+          id="fact-table-description"
+          value={description}
+          setValue={setDescription}
+        />
       </Box>
       <SelectOwner value={owner} onChange={setOwner} />
       <MultiSelectField
@@ -78,12 +87,12 @@ export default function FactTableDetailsModal({
         onChange={setProjects}
         customClassName="label-overflow-ellipsis"
       />
-      <Box my="3">
-        <Text as="label" weight="semibold" mb="1">
-          Tags
-        </Text>
-        <TagsInput value={tags} onChange={setTags} autoFocus={false} />
-      </Box>
+      <TagsInput
+        label="Tags"
+        value={tags}
+        onChange={setTags}
+        autoFocus={false}
+      />
     </ModalStandard>
   );
 }
