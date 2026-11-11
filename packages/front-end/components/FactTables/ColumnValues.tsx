@@ -17,6 +17,7 @@ import Table, {
   TableRow,
 } from "@/ui/Table";
 import Text from "@/ui/Text";
+import HelperText from "@/ui/HelperText";
 import Tooltip from "@/ui/Tooltip";
 import { getColumnTopValues } from "@/services/factTableColumns";
 
@@ -145,9 +146,9 @@ export function ColumnValuesPanel({
         ) : null}
       </Flex>
       {error ? (
-        <Text size="sm" color="text-low">
+        <HelperText status="error" size="sm">
           Couldn&apos;t refresh values: {error}
-        </Text>
+        </HelperText>
       ) : null}
       <Table variant="list" roundedCorners>
         <TableHeader>

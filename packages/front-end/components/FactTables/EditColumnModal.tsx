@@ -14,7 +14,7 @@ import {
   getColumnRole,
   NUMBER_FORMAT_OPTIONS,
 } from "@/services/columnEditModel";
-import Field from "@/components/Forms/Field";
+import { TextField } from "@/ui/TextField";
 import SelectField from "@/components/Forms/SelectField";
 import Checkbox from "@/ui/Checkbox";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
@@ -69,7 +69,7 @@ export default function EditColumnModal({
         await saveColumn(column, data);
       }}
     >
-      <Field
+      <TextField
         label="Description"
         placeholder="What this column holds"
         value={description}

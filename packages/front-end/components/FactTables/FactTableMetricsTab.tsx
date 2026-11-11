@@ -64,7 +64,7 @@ export default function FactTableMetricsTab({
       <Flex justify="end">
         {factMetricFlow.createButton(
           { factTable: factTable.id },
-          { children: "New metric", size: "sm", variant: "outline" },
+          { children: "New Fact Metric", size: "sm", variant: "outline" },
         )}
       </Flex>
       {visible.length ? (
@@ -115,7 +115,7 @@ export default function FactTableMetricsTab({
           </TableBody>
         </Table>
       ) : (
-        <Text color="text-mid">No metrics use this Fact Table yet.</Text>
+        <Text color="text-mid">No Fact Metrics use this Fact Table yet.</Text>
       )}
     </Flex>
   );

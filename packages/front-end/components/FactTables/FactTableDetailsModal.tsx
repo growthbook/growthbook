@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { FactTableInterface } from "shared/types/fact-table";
+import { Box } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
@@ -7,7 +8,8 @@ import useProjectOptions from "@/hooks/useProjectOptions";
 import track from "@/services/track";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import MultiSelectField from "@/ui/MultiSelectField";
-import Field from "@/components/Forms/Field";
+import { TextField } from "@/ui/TextField";
+import Text from "@/ui/Text";
 import MarkdownInput from "@/components/Markdown/MarkdownInput";
 import SelectOwner from "@/components/Owner/SelectOwner";
 import TagsInput from "@/components/Tags/TagsInput";
@@ -53,16 +55,19 @@ export default function FactTableDetailsModal({
         await mutateDefinitions();
       }}
     >
-      <Field
+      <TextField
         label="Name"
         value={name}
         onChange={(e) => setName(e.target.value)}
         required
+        autoFocus
       />
-      <div className="form-group">
-        <label>Description</label>
+      <Box my="3">
+        <Text as="label" weight="semibold" mb="1">
+          Description
+        </Text>
         <MarkdownInput value={description} setValue={setDescription} />
-      </div>
+      </Box>
       <SelectOwner value={owner} onChange={setOwner} />
       <MultiSelectField
         legacyHeight
@@ -73,10 +78,12 @@ export default function FactTableDetailsModal({
         onChange={setProjects}
         customClassName="label-overflow-ellipsis"
       />
-      <div className="form-group">
-        <label>Tags</label>
-        <TagsInput value={tags} onChange={setTags} />
-      </div>
+      <Box my="3">
+        <Text as="label" weight="semibold" mb="1">
+          Tags
+        </Text>
+        <TagsInput value={tags} onChange={setTags} autoFocus={false} />
+      </Box>
     </ModalStandard>
   );
 }

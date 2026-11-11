@@ -1,14 +1,18 @@
 import { ColumnInterface, FactTableInterface } from "shared/types/fact-table";
 import { Fragment, ReactNode, useEffect, useMemo, useState } from "react";
-import { PiArrowClockwise, PiCaretRightBold, PiPlusBold } from "react-icons/pi";
-import { FaTriangleExclamation } from "react-icons/fa6";
+import {
+  PiArrowClockwise,
+  PiCaretRightBold,
+  PiPlusBold,
+  PiWarningFill,
+} from "react-icons/pi";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
 import { useAddComputedFields, useSearch } from "@/services/search";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import useColumnValueCounts from "@/hooks/useColumnValueCounts";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import Tooltip from "@/components/Tooltip/Tooltip";
+import Tooltip from "@/ui/Tooltip";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
 import Badge from "@/ui/Badge";
@@ -27,7 +31,6 @@ import ColumnModal from "./ColumnModal";
 import VirtualColumnModal from "./VirtualColumnModal";
 import ColumnValues, { ColumnValuesPanel } from "./ColumnValues";
 import styles from "./FactTableDetailsPage.module.scss";
-import eventsStyles from "./FactTableEventsTab.module.scss";
 
 const POLL_INTERVAL_MS = 3000;
 const POLL_TIMEOUT_MS = 60000;
@@ -137,7 +140,7 @@ export default function FactTableColumnsTab({
         <Callout status="error">
           <span>
             <strong>
-              Error {physical.length > 0 ? "Refreshing" : "Detecting"} Columns
+              Error {physical.length > 0 ? "refreshing" : "detecting"} columns
             </strong>
             : {factTable.columnsError}
           </span>
@@ -217,7 +220,7 @@ export default function FactTableColumnsTab({
       ) : (
         <Callout status="warning" mt="3" action={refreshButton}>
           <span>
-            <strong>Unable to Auto-Detect Columns</strong>. Double check your
+            <strong>Unable to auto-detect columns</strong>. Double check your
             SQL above to make sure it&apos;s correct and returning rows.
           </span>
         </Callout>
@@ -250,7 +253,16 @@ export default function FactTableColumnsTab({
           renderExpanded={(col) => (
             <Flex justify="between" align="start" gap="3" py="2">
               <Box flexGrow="1">
-                <div className={eventsStyles.sectionLabel}>Expression</div>
+                <Text
+                  as="div"
+                  size="sm"
+                  weight="semibold"
+                  color="text-mid"
+                  textTransform="uppercase"
+                  mb="2"
+                >
+                  Expression
+                </Text>
                 <div className={styles.expression}>{col.sql}</div>
               </Box>
               {canManageVirtual ? (
@@ -412,8 +424,8 @@ function ColumnsTable({
                         <>({col.numberFormat})</>
                       )}
                       {col.datatype === "" && (
-                        <Tooltip body="Unable to detect the data type. Edit this column to set one.">
-                          <FaTriangleExclamation color="var(--red-9)" />
+                        <Tooltip content="Unable to detect the data type. Edit this column to set one.">
+                          <PiWarningFill color="var(--amber-11)" />
                         </Tooltip>
                       )}
                     </TableCell>

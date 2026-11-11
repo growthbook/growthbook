@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useRouter } from "next/router";
 import { IconButton } from "@radix-ui/themes";
-import { BsThreeDotsVertical } from "react-icons/bs";
+import { PiDotsThreeVerticalBold } from "react-icons/pi";
 import { FactTableInterface } from "shared/types/fact-table";
 import { DEFAULT_TOP_VALUES_LOOKBACK_VALUE } from "shared/settings";
 import { useAuth } from "@/services/auth";
@@ -111,7 +111,7 @@ export default function useFactTableActions(page: FactTablePageData) {
           highContrast
           aria-label="More actions"
         >
-          <BsThreeDotsVertical size={16} />
+          <PiDotsThreeVerticalBold size={16} />
         </IconButton>
       }
       open={menuOpen}

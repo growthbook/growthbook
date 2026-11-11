@@ -22,6 +22,8 @@ import Button from "@/ui/Button";
 import Link from "@/ui/Link";
 import useFactMetricFlow from "@/hooks/useFactMetricFlow";
 import Text from "@/ui/Text";
+import HelperText from "@/ui/HelperText";
+import SegmentedControl from "@/ui/SegmentedControl";
 import Tooltip from "@/ui/Tooltip";
 import FactTableSampleRows from "./FactTableSampleRows";
 import styles from "./FactTableEventsTab.module.scss";
@@ -76,20 +78,20 @@ export default function FactTableEventsTab({
       {factMetricFlow.modal}
       <Flex justify="between" align="center" gap="3" wrap="wrap">
         <Flex gap="2" align="center">
-          {eventColumns.length > 1 &&
-            eventColumns.map((c) => (
-              <Button
-                key={c.column}
-                size="sm"
-                variant={c.column === column.column ? "soft" : "ghost"}
-                onClick={() => {
-                  setColumnName(c.column);
-                  setOpen(null);
-                }}
-              >
-                {c.column}
-              </Button>
-            ))}
+          {eventColumns.length > 1 ? (
+            <SegmentedControl
+              size="sm"
+              value={column.column}
+              setValue={(v) => {
+                setColumnName(v);
+                setOpen(null);
+              }}
+              options={eventColumns.map((c) => ({
+                value: c.column,
+                label: c.column,
+              }))}
+            />
+          ) : null}
           <TextField
             size="sm"
             type="search"
@@ -116,9 +118,9 @@ export default function FactTableEventsTab({
         </Flex>
       </Flex>
       {valueCounts.errors[column.column] ? (
-        <Text size="sm" color="text-low">
+        <HelperText status="error" size="sm">
           Couldn&apos;t refresh events: {valueCounts.errors[column.column]}
-        </Text>
+        </HelperText>
       ) : null}
 
       {rows.length === 0 ? (
@@ -170,6 +172,7 @@ export default function FactTableEventsTab({
                       <IconButton
                         variant="ghost"
                         size="1"
+                        aria-expanded={isOpen}
                         aria-label={`${isOpen ? "Collapse" : "Expand"} ${r.value}`}
                       >
                         <PiCaretRightBold
@@ -197,9 +200,16 @@ export default function FactTableEventsTab({
                       <TableCell colSpan={showCounts ? 5 : 3}>
                         <Flex gap="5" py="3" px="4" align="start">
                           <Box flexGrow="1" minWidth="0">
-                            <div className={styles.sectionLabel}>
+                            <Text
+                              as="div"
+                              size="sm"
+                              weight="semibold"
+                              color="text-mid"
+                              textTransform="uppercase"
+                              mb="2"
+                            >
                               Sample rows
-                            </div>
+                            </Text>
                             <FactTableSampleRows
                               key={`${column.column}:${r.value}`}
                               factTableId={factTable.id}
@@ -214,7 +224,16 @@ export default function FactTableEventsTab({
                             />
                           </Box>
                           <Box flexShrink="0" width="33%">
-                            <div className={styles.sectionLabel}>Metrics</div>
+                            <Text
+                              as="div"
+                              size="sm"
+                              weight="semibold"
+                              color="text-mid"
+                              textTransform="uppercase"
+                              mb="2"
+                            >
+                              Metrics
+                            </Text>
                             <Flex direction="column" align="start" gap="2">
                               {/* Two equal buttons per line; long names truncate */}
                               <Grid
@@ -223,16 +242,18 @@ export default function FactTableEventsTab({
                                 width="100%"
                               >
                                 {eventMetrics.slice(0, MAX_METRICS).map((m) => (
-                                  <Button
-                                    key={m.id}
-                                    size="sm"
-                                    variant="outline"
-                                    onClick={() => onSelectMetric(m.id)}
-                                    title={m.name}
-                                    className={styles.metricButton}
-                                  >
-                                    {m.name}
-                                  </Button>
+                                  // Long names truncate; the tooltip also
+                                  // shows on keyboard focus
+                                  <Tooltip key={m.id} content={m.name}>
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={() => onSelectMetric(m.id)}
+                                      className={styles.metricButton}
+                                    >
+                                      {m.name}
+                                    </Button>
+                                  </Tooltip>
                                 ))}
                               </Grid>
                               {eventMetrics.length > MAX_METRICS ? (

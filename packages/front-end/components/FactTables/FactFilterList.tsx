@@ -1,3 +1,4 @@
+import { Box, Flex } from "@radix-ui/themes";
 import { FactTableInterface } from "shared/types/fact-table";
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/router";
@@ -78,18 +79,16 @@ export default function FactFilterList({ factTable }: Props) {
     <>
       {editor.modal}
 
-      <div className="row align-items-center">
+      <Flex align="center" gap="3">
         {factTable.filters.length > 0 && (
-          <div className="col-auto mr-auto">
-            <Field
-              size="legacy"
-              placeholder="Search..."
-              type="search"
-              {...searchInputProps}
-            />
-          </div>
+          <Field
+            size="legacy"
+            placeholder="Search..."
+            type="search"
+            {...searchInputProps}
+          />
         )}
-        <div className="col-auto ml-auto">
+        <Box ml="auto">
           <Tooltip
             body={
               editor.canCreate
@@ -107,8 +106,8 @@ export default function FactFilterList({ factTable }: Props) {
               New Saved Filter
             </Button>
           </Tooltip>
-        </div>
-      </div>
+        </Box>
+      </Flex>
       {factTable.filters.length > 0 && (
         <>
           <table

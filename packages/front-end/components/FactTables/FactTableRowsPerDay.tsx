@@ -11,6 +11,7 @@ import Button from "@/ui/Button";
 import Frame from "@/ui/Frame";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
+import HelperText from "@/ui/HelperText";
 import Tooltip from "@/ui/Tooltip";
 import styles from "./FactTableRowsPerDay.module.scss";
 
@@ -139,9 +140,9 @@ export default function FactTableRowsPerDay({
             ) : null}
           </Flex>
           {error ? (
-            <Text size="sm" color="text-mid">
+            <HelperText status="error" size="sm">
               {error}
-            </Text>
+            </HelperText>
           ) : null}
         </Flex>
         {chart ? (

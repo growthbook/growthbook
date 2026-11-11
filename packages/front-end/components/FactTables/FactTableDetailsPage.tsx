@@ -1,7 +1,6 @@
 import { useRouter } from "next/router";
 import { useEffect, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
-import { PiCaretRightBold } from "react-icons/pi";
 import { hasStartDateFilter, usesBackslashStringEscapes } from "shared/sql";
 import { getDataSourceSqlDialect } from "shared/dialects";
 import Text from "@/ui/Text";
@@ -10,6 +9,9 @@ import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
 import Badge from "@/ui/Badge";
 import Frame from "@/ui/Frame";
+import Metadata from "@/ui/Metadata";
+import SortedTags from "@/components/Tags/SortedTags";
+import Collapse, { CollapseTrigger } from "@/ui/Collapse";
 import Heading from "@/ui/Heading";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -128,7 +130,7 @@ export default function FactTableDetailsPage({
   const numColumns = factTable.columns.filter((c) => !c.deleted).length;
 
   return (
-    <div className={`pagecontents container-fluid ${styles.page}`}>
+    <div className={`pagecontents ${styles.page}`}>
       {editOpen && (
         <FactTableDetailsModal
           close={() => setEditOpen(false)}
@@ -180,9 +182,14 @@ export default function FactTableDetailsPage({
       ) : null}
 
       <Flex gap="4" align="center" wrap="wrap" mb="4">
-        <Link href={`/datasources/${factTable.datasource}`}>
-          {datasource?.name || "Unknown data source"}
-        </Link>
+        <Metadata
+          label="Data source"
+          value={
+            <Link href={`/datasources/${factTable.datasource}`}>
+              {datasource?.name || "Unknown data source"}
+            </Link>
+          }
+        />
         {eventColumns.length > 0 && (
           <Text color="text-mid">
             Event stream, typed by{" "}
@@ -195,56 +202,54 @@ export default function FactTableDetailsPage({
           </Text>
         )}
         {projects.length > 0 && (
-          <Text color="text-mid">
-            Projects:{" "}
-            {factTable.projects.length > 0
-              ? factTable.projects
-                  .map((p) => getProjectById(p)?.name || p)
-                  .join(", ")
-              : "All Projects"}
-          </Text>
+          <Metadata
+            label="Projects"
+            value={
+              factTable.projects.length > 0
+                ? factTable.projects
+                    .map((p) => getProjectById(p)?.name || p)
+                    .join(", ")
+                : "All Projects"
+            }
+          />
         )}
-        <Text color="text-mid">
-          Owner: {getOwnerDisplay(factTable.owner) || "None"}
-        </Text>
+        <Metadata
+          label="Owner"
+          value={getOwnerDisplay(factTable.owner) || "None"}
+        />
         {factTable.tags?.length ? (
-          <Text color="text-mid">Tags: {factTable.tags.join(", ")}</Text>
+          <Metadata
+            label="Tags"
+            value={<SortedTags tags={factTable.tags} useFlex />}
+          />
         ) : null}
         {canEdit && <Link onClick={() => setEditOpen(true)}>Edit details</Link>}
       </Flex>
 
       <Frame px="3" py="2" mb="4">
-        <Flex align="center" gap="3">
-          <button
-            type="button"
-            className={styles.sqlBar}
-            onClick={() => setShowSql(!showSql)}
-            aria-expanded={showSql}
-            aria-label={showSql ? "Collapse SQL" : "Expand SQL"}
-          >
-            <PiCaretRightBold
-              className={styles.caret}
-              style={{ transform: showSql ? "rotate(90deg)" : undefined }}
-            />
-            <SqlSummary
-              sql={factTable.sql}
-              backslashEscapes={
-                !!dialect && usesBackslashStringEscapes(dialect)
-              }
-            />
-          </button>
-          {canEdit && (
-            <Button
-              variant="outline"
-              size="sm"
-              style={{ flexShrink: 0, whiteSpace: "nowrap" }}
-              onClick={actions.openEditSql}
-            >
-              Edit SQL
-            </Button>
-          )}
-        </Flex>
-        {showSql && (
+        <CollapseTrigger
+          open={showSql}
+          onOpenChange={setShowSql}
+          caret="start"
+          action={
+            canEdit ? (
+              <Button
+                variant="outline"
+                size="sm"
+                style={{ whiteSpace: "nowrap" }}
+                onClick={actions.openEditSql}
+              >
+                Edit SQL
+              </Button>
+            ) : undefined
+          }
+        >
+          <SqlSummary
+            sql={factTable.sql}
+            backslashEscapes={!!dialect && usesBackslashStringEscapes(dialect)}
+          />
+        </CollapseTrigger>
+        <Collapse open={showSql}>
           <Box mt="3">
             <Code
               // Display only: the saved SQL keeps its own formatting
@@ -257,7 +262,7 @@ export default function FactTableDetailsPage({
               wrapLongLines
             />
           </Box>
-        )}
+        </Collapse>
         {usesEventName(factTable.sql) && (
           <Text as="div" mt="2" color="text-mid">
             <strong>eventName</strong> = <code>{factTable.eventName}</code>
