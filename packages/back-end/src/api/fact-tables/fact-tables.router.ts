@@ -14,6 +14,10 @@ import { updateFactTableVirtualColumn } from "./updateFactTableVirtualColumn";
 import { deleteFactTableVirtualColumn } from "./deleteFactTableVirtualColumn";
 import { getAggregatedFactTables } from "./getAggregatedFactTables";
 import { refreshAggregatedFactTable } from "./refreshAggregatedFactTable";
+import {
+  cancelAggregatedFactTableRun,
+  refreshFactTableColumns,
+} from "./factTableActions";
 import { listAggregatedTableRuns } from "./listAggregatedTableRuns";
 import { getAggregatedTableRun } from "./getAggregatedTableRun";
 
@@ -33,6 +37,8 @@ export const factTablesRoutes: OpenApiRoute[] = [
   deleteFactTableVirtualColumn,
   getAggregatedFactTables,
   refreshAggregatedFactTable,
+  cancelAggregatedFactTableRun,
+  refreshFactTableColumns,
   listAggregatedTableRuns,
   getAggregatedTableRun,
 ];

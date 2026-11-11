@@ -336,6 +336,18 @@ export function pruneAggregatedFactTableSettings(
   return idTypes.length ? { ...settings, idTypes } : null;
 }
 
+// True when an update sends `null` for aggregated tables that are currently on.
+// The app sends `null` on every save when they're off, so that alone isn't a change.
+export function turnsOffAggregatedFactTables(
+  factTable: Pick<FactTableInterface, "aggregatedFactTableSettings">,
+  update: { aggregatedFactTableSettings?: AggregatedFactTableSettings | null },
+): boolean {
+  return (
+    update.aggregatedFactTableSettings === null &&
+    !!factTable.aggregatedFactTableSettings?.idTypes.length
+  );
+}
+
 // Throws if the aggregated fact table settings are invalid: every id type must
 // be one of the fact table's userIdTypes, updateTime must be a valid "HH:mm"
 // time in a valid IANA timezone, and lookbackWindow must be a positive integer.

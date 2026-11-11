@@ -1,9 +1,7 @@
 import { Response } from "express";
 import { getValidDate } from "shared/dates";
 import { z } from "zod";
-import { v4 as uuidv4 } from "uuid";
 import {
-  DataVizConfig,
   SavedQuery,
   SavedQueryCreateProps,
   SavedQueryUpdateProps,
@@ -35,16 +33,7 @@ import { fetchTableData } from "back-end/src/services/informationSchema";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 import { IS_CLOUD } from "back-end/src/util/secrets";
-
-/**
- * Ensures all dataVizConfig items have IDs. Adds IDs to any items that don't have them.
- */
-function ensureDataVizIds(dataVizConfig: DataVizConfig[]): DataVizConfig[] {
-  return dataVizConfig.map((config) => ({
-    ...config,
-    id: config.id || `data-viz_${uuidv4()}`,
-  }));
-}
+import { withVizIds } from "back-end/src/util/savedQueries";
 
 export async function getSavedQueries(req: AuthRequest, res: Response) {
   const context = getContextFromReq(req);
@@ -152,7 +141,7 @@ export async function postSavedQuery(
     datasourceId,
     dateLastRan: getValidDate(dateLastRan),
     results,
-    dataVizConfig: ensureDataVizIds(dataVizConfig || []),
+    dataVizConfig: withVizIds(dataVizConfig || []),
     linkedDashboardIds,
   });
   res.status(200).json({
@@ -184,7 +173,7 @@ export async function putSavedQuery(
       ? { dateLastRan: getValidDate(req.body.dateLastRan) }
       : {}),
     ...(req.body.dataVizConfig
-      ? { dataVizConfig: ensureDataVizIds(req.body.dataVizConfig) }
+      ? { dataVizConfig: withVizIds(req.body.dataVizConfig) }
       : {}),
   };
 

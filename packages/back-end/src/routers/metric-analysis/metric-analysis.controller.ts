@@ -121,6 +121,9 @@ export async function cancelMetricAnalysis(
     context,
     metric.datasource,
   );
+  if (!context.permissions.canRunMetricQueries(integration.datasource)) {
+    context.permissions.throwPermissionError();
+  }
 
   const queryRunner = new MetricAnalysisQueryRunner(
     context,
