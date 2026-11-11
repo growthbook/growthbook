@@ -290,7 +290,14 @@ export default function ValueDisplay({
   return (
     <>
       <CornerActions
-        overlay={actionsOverlay}
+        // Only the lines near the viewport render when it's long, so it can't
+        // hug its widest line without a long one widening it mid-scroll: it
+        // takes the full width instead.
+        overlay={
+          virtualize && actionsOverlay?.inline
+            ? { ...actionsOverlay, inline: false }
+            : actionsOverlay
+        }
         oneLine={!formatted.includes("\n")}
         actions={
           isFullscreen ? null : (
