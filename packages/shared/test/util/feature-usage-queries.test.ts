@@ -18,7 +18,6 @@ import {
   getFeatureUsageJsonFieldError,
   getFeatureUsageFeatureKeyColumn,
   getFeatureUsageIdentifierColumn,
-  getFeatureUsageIdentifierColumns,
   getFeatureUsageRequiredColumns,
   getFeatureUsageRuleIdColumn,
   getFeatureUsageTimestampColumn,
@@ -215,24 +214,6 @@ describe("JSON field identifiers", () => {
     ).toBe(expected);
   });
 
-  it("takes the first identifier column with a value", () => {
-    expect(
-      getFeatureUsageIdentifierExpression(
-        {
-          columnMapping: {
-            userIdColumns: { user_id: "uid" },
-            userIdFallbackColumns: { user_id: ["attributes.customerId"] },
-          },
-        },
-        "user_id",
-        bigQueryDialect,
-        "e",
-      ),
-    ).toBe(
-      "COALESCE(NULLIF(cast(e.uid as string), ''), NULLIF(cast(JSON_VALUE(e.attributes, '$.customerId') as string), ''))",
-    );
-  });
-
   it("extracts a JSON field on clickhouse from JSON or text columns", () => {
     const sql = getFeatureUsageIdentifierExpression(
       mapped("attributes.customerId"),
@@ -242,44 +223,5 @@ describe("JSON field identifiers", () => {
     );
     expect(sql).toContain("e.attributes.customerId::Nullable(String)");
     expect(sql).toContain("JSONExtractString(e.attributes, 'customerId')");
-  });
-});
-
-describe("identifier fallback columns", () => {
-  const query = {
-    userIdTypes: ["user_id"],
-    columnMapping: {
-      userIdColumns: { user_id: "uid" },
-      userIdFallbackColumns: { user_id: ["attributes.customerId", "uid"] },
-    },
-  };
-
-  it("lists the main column, then the fallbacks, without repeats", () => {
-    expect(getFeatureUsageIdentifierColumns(query, "user_id")).toEqual([
-      "uid",
-      "attributes.customerId",
-    ]);
-    expect(getFeatureUsageIdentifierColumns(query, "device_id")).toEqual([
-      "device_id",
-    ]);
-  });
-
-  it("requires each fallback's column", () => {
-    expect(getFeatureUsageRequiredColumns(query)).toEqual([
-      "timestamp",
-      "feature_key",
-      "uid",
-      "attributes",
-    ]);
-  });
-
-  it("checks fallbacks for JSON field errors and quoting", () => {
-    const bad = {
-      columnMapping: {
-        userIdFallbackColumns: { user_id: ["attributes.user.id", "Uid"] },
-      },
-    };
-    expect(getFeatureUsageJsonFieldError(bad)).toMatch(/more than one level/);
-    expect(findFeatureUsageColumnsNeedingQuotes(bad, "lower")).toEqual(["Uid"]);
   });
 });

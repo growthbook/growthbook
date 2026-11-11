@@ -91,35 +91,6 @@ export function getFeatureUsageIdentifierColumn(
 }
 
 /**
- * Every column an identifier reads from, in order: the main one, then the
- * fallbacks. Apps that send the same id in different attributes map each one.
- */
-export function getFeatureUsageIdentifierColumns(
-  query: WithColumnMapping,
-  identifierType: string,
-): string[] {
-  return [
-    ...new Set([
-      getFeatureUsageIdentifierColumn(query, identifierType),
-      ...(query.columnMapping?.userIdFallbackColumns?.[identifierType] ?? []),
-    ]),
-  ].filter(Boolean);
-}
-
-/** Every mapped identifier column with its type, fallbacks included. */
-function getMappedIdentifierColumns(
-  query: WithColumnMapping,
-): [type: string, column: string][] {
-  const mapping = query.columnMapping ?? {};
-  return [
-    ...Object.entries(mapping.userIdColumns ?? {}),
-    ...Object.entries(mapping.userIdFallbackColumns ?? {}).flatMap(
-      ([type, columns]) => columns.map((c): [string, string] => [type, c]),
-    ),
-  ];
-}
-
-/**
  * Columns a saved query must return: the required ones, every column it maps,
  * and one per identifier type it declares.
  */
@@ -139,8 +110,8 @@ export function getFeatureUsageRequiredColumns(
         mapping.sourceColumn,
         mapping.revisionColumn,
       ].filter((c): c is string => !!c),
-      ...(query.userIdTypes ?? []).flatMap((type) =>
-        getFeatureUsageIdentifierColumns(query, type).map(getRootColumn),
+      ...(query.userIdTypes ?? []).map((type) =>
+        getRootColumn(getFeatureUsageIdentifierColumn(query, type)),
       ),
     ]),
   ];
@@ -163,7 +134,7 @@ export function findFeatureUsageColumnsNeedingQuotes(
       mapping.revisionColumn,
       // A JSON field's root is a column; the field itself is checked by
       // getFeatureUsageJsonFieldError
-      ...getMappedIdentifierColumns(query).map(([, c]) => getRootColumn(c)),
+      ...Object.values(mapping.userIdColumns ?? {}).map(getRootColumn),
     ],
     fold,
   );
@@ -176,7 +147,9 @@ export function findFeatureUsageColumnsNeedingQuotes(
 export function getFeatureUsageJsonFieldError(
   query: WithColumnMapping & WithColumns,
 ): string | null {
-  for (const [type, column] of getMappedIdentifierColumns(query)) {
+  for (const [type, column] of Object.entries(
+    query.columnMapping?.userIdColumns ?? {},
+  )) {
     if (!column.includes(".")) continue;
     const parts = splitFeatureUsageJsonField(column);
     if (!parts) {
@@ -195,29 +168,20 @@ export function getFeatureUsageJsonFieldError(
 /**
  * SQL that reads an identifier, extracting a JSON field with the warehouse's
  * syntax when it's mapped to one, like getColumnExpression for fact tables.
- * With fallbacks, it takes the first column that has a value.
  */
 export function getFeatureUsageIdentifierExpression(
   query: WithColumnMapping & WithColumns,
   identifierType: string,
-  dialect: Pick<SqlDialect, "jsonExtract" | "castToString">,
+  dialect: Pick<SqlDialect, "jsonExtract">,
   alias = "",
 ): string {
+  const column = getFeatureUsageIdentifierColumn(query, identifierType);
   const prefix = alias ? `${alias}.` : "";
-  const read = (column: string) => {
-    // A dotted name is always a JSON field: real column names with dots are
-    // rejected on save because they'd need quoting
-    const parts = splitFeatureUsageJsonField(column);
-    return parts
-      ? dialect.jsonExtract(`${prefix}${parts.root}`, parts.field, false)
-      : `${prefix}${column}`;
-  };
-  const columns = getFeatureUsageIdentifierColumns(query, identifierType);
-  if (columns.length === 1) return read(columns[0]);
-  // Cast so a numeric column and a JSON field (text) can be combined, and skip
-  // empty strings, which some warehouses return for a missing JSON field
-  const values = columns.map(
-    (c) => `NULLIF(${dialect.castToString(read(c))}, '')`,
-  );
-  return `COALESCE(${values.join(", ")})`;
+  // A dotted name is always a JSON field: real column names with dots are
+  // rejected on save because they'd need quoting
+  const parts = splitFeatureUsageJsonField(column);
+  if (parts) {
+    return dialect.jsonExtract(`${prefix}${parts.root}`, parts.field, false);
+  }
+  return `${prefix}${column}`;
 }

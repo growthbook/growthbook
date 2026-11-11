@@ -1,6 +1,6 @@
-import { Fragment, useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
-import { PiArrowLeft, PiPlus } from "react-icons/pi";
+import { PiArrowLeft } from "react-icons/pi";
 import uniqId from "uniqid";
 import omit from "lodash/omit";
 import {
@@ -9,7 +9,6 @@ import {
   getFeatureUsageEnvironmentColumn,
   getFeatureUsageFeatureKeyColumn,
   getFeatureUsageIdentifierColumn,
-  getFeatureUsageIdentifierColumns,
   getFeatureUsageJsonFieldError,
   getFeatureUsageRevisionColumn,
   getFeatureUsageRuleIdColumn,
@@ -48,12 +47,10 @@ import PagedModal from "@/components/Modal/PagedModal";
 import Page from "@/components/Modal/Page";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Code from "@/components/SyntaxHighlighting/Code";
-import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
 import Link from "@/ui/Link";
 import { Select, SelectItem } from "@/ui/Select";
 import TextField from "@/ui/TextField";
-import { TableCell, TableRow } from "@/ui/Table";
 
 const BODY_HEIGHT = "calc(93vh - 200px)";
 
@@ -190,10 +187,10 @@ function getSavedColumns(query: FeatureUsageQuery): DetectedColumn[] {
   const known = new Set([
     timestamp,
     getFeatureUsageFeatureKeyColumn(query),
-    ...(query.userIdTypes ?? []).flatMap((type) =>
-      getFeatureUsageIdentifierColumns(query, type).map(
-        (column) => splitFeatureUsageJsonField(column)?.root ?? column,
-      ),
+    ...(query.userIdTypes ?? []).map(
+      (type) =>
+        splitFeatureUsageJsonField(getFeatureUsageIdentifierColumn(query, type))
+          ?.root ?? getFeatureUsageIdentifierColumn(query, type),
     ),
   ]);
   return [...known].map((column) => ({
@@ -250,25 +247,6 @@ export const FeatureEvaluationQueryModal = ({
       Object.fromEntries(
         savedUserIdTypes.map((idType) => [idType, savedRoleColumns[idType]]),
       ),
-  );
-  // More columns per identifier, read in order when the main one is empty, for
-  // apps that send the same id in different attributes
-  const savedFallbackColumns =
-    featureUsageQuery?.columnMapping?.userIdFallbackColumns ?? {};
-  const [fallbackColumns, setFallbackColumns] = useState<
-    Record<string, string[]>
-  >(() =>
-    Object.fromEntries(
-      savedUserIdTypes
-        .filter((idType) => savedFallbackColumns[idType]?.length)
-        .map((idType) => [idType, savedFallbackColumns[idType]]),
-    ),
-  );
-  // Fallbacks added in this session open straight to the column picker
-  const [savedFallbackCount] = useState(() =>
-    Object.fromEntries(
-      Object.entries(savedFallbackColumns).map(([t, c]) => [t, c.length]),
-    ),
   );
   const validateSql = useRef<(() => Promise<void>) | null>(null);
 
@@ -334,7 +312,6 @@ export const FeatureEvaluationQueryModal = ({
       setFeatureKeyColumn("");
       setOptionalColumns({});
       setUserIdColumns({});
-      setFallbackColumns({});
     },
     onColumnsChanged: remapColumns,
   });
@@ -389,63 +366,37 @@ export const FeatureEvaluationQueryModal = ({
       (!!splitFeatureUsageJsonField(value) &&
         jsonRootNames.includes(value.split(".")[0])));
   // A value that can't be used is flagged on its row rather than dropped on save
-  const getIdentifierError = (
-    t: string,
-    value: string,
-    saved: boolean,
-  ): string | null => {
-    if (!value) return null;
-    // JSON fields are checked even when suggested
-    if (value.includes(".")) {
-      return getFeatureUsageJsonFieldError({
-        columnMapping: { userIdColumns: { [t]: value } },
-        columns,
-      });
-    }
-    if (validColumn(identifierOptions, value)) return null;
-    if (saved)
-      return `Your query no longer returns "${value}". Select a column.`;
-    return jsonRootNames.length
-      ? suggestedRoots.length
-        ? `Enter a JSON field like "${suggestedRoots[0]}.${t}", or select a column.`
-        : "Enter a JSON field (column.field), or select a column."
-      : `Your query doesn't return "${value}". Select a column.`;
-  };
   const identifierErrors: Record<string, string | null> = Object.fromEntries(
     identifierTypes.map((t) => {
       const value = userIdColumns[t] || "";
-      return [t, getIdentifierError(t, value, value === savedRoleColumns[t])];
+      if (!value) return [t, null];
+      // JSON fields are checked even when suggested
+      if (value.includes(".")) {
+        return [
+          t,
+          getFeatureUsageJsonFieldError({
+            columnMapping: { userIdColumns: { [t]: value } },
+            columns,
+          }),
+        ];
+      }
+      if (validColumn(identifierOptions, value)) return [t, null];
+      if (value === savedRoleColumns[t]) {
+        return [t, `Your query no longer returns "${value}". Select a column.`];
+      }
+      return [
+        t,
+        jsonRootNames.length
+          ? suggestedRoots.length
+            ? `Enter a JSON field like "${suggestedRoots[0]}.${t}", or select a column.`
+            : "Enter a JSON field (column.field), or select a column."
+          : `Your query doesn't return "${value}". Select a column.`,
+      ];
     }),
   );
-  const fallbackErrors: Record<string, (string | null)[]> = Object.fromEntries(
-    identifierTypes.map((t) => [
-      t,
-      (fallbackColumns[t] ?? []).map((value) =>
-        getIdentifierError(
-          t,
-          value,
-          !!savedFallbackColumns[t]?.includes(value),
-        ),
-      ),
-    ]),
-  );
-  const identifierError = [
-    ...Object.values(identifierErrors),
-    ...Object.values(fallbackErrors).flat(),
-  ].find(Boolean);
+  const identifierError = Object.values(identifierErrors).find(Boolean);
   const mappedUserIdTypes = identifierTypes.filter(
     (t) => isValidIdentifier(userIdColumns[t] || "") && !identifierErrors[t],
-  );
-  // Empty fallback rows are dropped; ones that can't be used block saving
-  const mappedFallbacks: Record<string, string[]> = Object.fromEntries(
-    mappedUserIdTypes
-      .map((t) => [
-        t,
-        (fallbackColumns[t] ?? []).filter(
-          (v, i) => isValidIdentifier(v) && !fallbackErrors[t][i],
-        ),
-      ])
-      .filter(([, columns]) => columns.length),
   );
 
   const mappingForChecks: FeatureUsageQueryColumnMapping = {
@@ -460,7 +411,6 @@ export const FeatureEvaluationQueryModal = ({
     userIdColumns: Object.fromEntries(
       mappedUserIdTypes.map((t) => [t, userIdColumns[t]]),
     ),
-    userIdFallbackColumns: mappedFallbacks,
   };
   const columnsNeedingQuotes = findFeatureUsageColumnsNeedingQuotes(
     { columnMapping: mappingForChecks },
@@ -513,7 +463,6 @@ export const FeatureEvaluationQueryModal = ({
       featureKey,
       ...Object.values(optional),
       ...mappedUserIdTypes.map((t) => userIdColumns[t]),
-      ...Object.values(mappedFallbacks).flat(),
     ];
     const duplicate = mapped.find((c, i) => mapped.indexOf(c) !== i);
     if (duplicate) {
@@ -544,9 +493,6 @@ export const FeatureEvaluationQueryModal = ({
         ),
         userIdColumns: Object.keys(remappedUserIds).length
           ? remappedUserIds
-          : undefined,
-        userIdFallbackColumns: Object.keys(mappedFallbacks).length
-          ? mappedFallbacks
           : undefined,
       }).filter(([, value]) => value !== undefined),
     );
@@ -696,82 +642,33 @@ export const FeatureEvaluationQueryModal = ({
                   onRemove={() => setOptionalColumns((prev) => omit(prev, key))}
                 />
               ))}
-              {identifierTypes.map((idType) => {
-                const fallbacks = fallbackColumns[idType] ?? [];
-                const setFallbacks = (next: string[]) =>
-                  setFallbackColumns((prev) =>
-                    next.length
-                      ? { ...prev, [idType]: next }
-                      : omit(prev, idType),
-                  );
-                const customValue = jsonRootNames.length
-                  ? {
-                      label: "Other JSON field...",
-                      placeholder: suggestedRoots.length
-                        ? `${suggestedRoots[0]}.field_name`
-                        : "column.field",
-                    }
-                  : undefined;
-                return (
-                  <Fragment key={idType}>
-                    <ColumnMappingRow
-                      label={idType}
-                      kind="identifier"
-                      tooltip="Lets you filter evaluations by user and chart metrics for users who got the flag"
-                      value={userIdColumns[idType] || ""}
-                      options={identifierOptions}
-                      setValue={(v) =>
-                        setUserIdColumns((prev) => ({ ...prev, [idType]: v }))
-                      }
-                      onRemove={() => {
-                        setUserIdColumns((prev) => omit(prev, idType));
-                        setFallbacks([]);
-                      }}
-                      error={identifierErrors[idType]}
-                      customValue={customValue}
-                    />
-                    {userIdColumns[idType]
-                      ? fallbacks.map((value, i) => (
-                          <ColumnMappingRow
-                            // Rows are only added or removed at the end
-                            key={`${idType}-fallback-${i}`}
-                            label={`${idType} fallback`}
-                            kind="identifier"
-                            tooltip={`Read when the ${idType} columns above are empty, for apps that send this id in a different column or attribute`}
-                            value={value}
-                            options={identifierOptions}
-                            setValue={(v) =>
-                              setFallbacks(
-                                fallbacks.map((c, j) => (j === i ? v : c)),
-                              )
-                            }
-                            onRemove={() =>
-                              setFallbacks(fallbacks.filter((_, j) => j !== i))
-                            }
-                            error={fallbackErrors[idType]?.[i]}
-                            customValue={customValue}
-                            startOpen={i >= (savedFallbackCount[idType] ?? 0)}
-                          />
-                        ))
-                      : null}
-                    {userIdColumns[idType] && fallbacks.every(Boolean) ? (
-                      <TableRow>
-                        <TableCell />
-                        <TableCell colSpan={2}>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            icon={<PiPlus />}
-                            onClick={() => setFallbacks([...fallbacks, ""])}
-                          >
-                            Add {idType} fallback
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    ) : null}
-                  </Fragment>
-                );
-              })}
+              {identifierTypes.map((idType) => (
+                <ColumnMappingRow
+                  key={idType}
+                  label={idType}
+                  kind="identifier"
+                  tooltip="Lets you filter evaluations by user and chart metrics for users who got the flag"
+                  value={userIdColumns[idType] || ""}
+                  options={identifierOptions}
+                  setValue={(v) =>
+                    setUserIdColumns((prev) => ({ ...prev, [idType]: v }))
+                  }
+                  onRemove={() =>
+                    setUserIdColumns((prev) => omit(prev, idType))
+                  }
+                  error={identifierErrors[idType]}
+                  customValue={
+                    jsonRootNames.length
+                      ? {
+                          label: "Other JSON field...",
+                          placeholder: suggestedRoots.length
+                            ? `${suggestedRoots[0]}.field_name`
+                            : "column.field",
+                        }
+                      : undefined
+                  }
+                />
+              ))}
               {OPTIONAL_ROLES.slice(2).map(({ key, label, tooltip }) => (
                 <ColumnMappingRow
                   key={key}
