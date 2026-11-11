@@ -264,6 +264,7 @@ export default function AttributeModal({
               value={exampleValue(datatype, format, enumOptions)}
               projects={selectedProjects}
               nested
+              secure={isSecureDatatype(datatype)}
             />
             {snippetHelp && (
               <Text size="sm" color="text-low">

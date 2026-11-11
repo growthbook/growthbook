@@ -623,7 +623,7 @@ window.growthbook_config.attributes = ${stringify(
   );
 }
 
-function sha256(str: string, salt: string): string {
+export function sha256(str: string, salt: string): string {
   return createHash("sha256")
     .update(salt + str)
     .digest("hex");

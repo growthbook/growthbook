@@ -127,6 +127,7 @@ export default function IdentifierModal({
   // Add: Data Sources the user unchecked. Edit: the type picked per Data Source.
   const [uncheckedIds, setUncheckedIds] = useState<string[]>([]);
   const [picks, setPicks] = useState<Record<string, string>>({});
+  const [savedWithErrors, setSavedWithErrors] = useState<string | null>(null);
 
   const renamed = isEdit && name.trim() !== existing.property;
   const { references } = useAttributeReferences(
@@ -192,14 +193,16 @@ export default function IdentifierModal({
   // What checking a row selects when there's no default to fall back on.
   const pickOnCheck = (d: DataSourceInterfaceWithParams) =>
     defaultPick(d) ?? userIdTypeNames(d)[0] ?? NEW_TYPE;
-  // Add starts with every Data Source checked that has a type to link to;
-  // edit starts with none.
+  // Add and convert start with every Data Source checked that has a type to
+  // link to; editing an identifier starts with none.
+  const preChecked = !isEdit || converting;
   const isChecked = (d: DataSourceInterfaceWithParams) =>
-    isEdit
-      ? !!linkedType(d) || d.id in picks
-      : canEdit(d) &&
+    !!linkedType(d) ||
+    (preChecked
+      ? canEdit(d) &&
         !uncheckedIds.includes(d.id) &&
-        (!settledName || pickFor(d) !== null);
+        (!settledName || pickFor(d) !== null)
+      : d.id in picks);
   // The server can't update Data Sources defined in config.yml.
   const fileConfig = hasFileConfig();
   const linksFor = (base: string) =>
@@ -220,7 +223,7 @@ export default function IdentifierModal({
   const links = linksFor(newProperty);
 
   const setChecked = (d: DataSourceInterfaceWithParams, v: boolean) => {
-    if (isEdit) {
+    if (!preChecked) {
       setPicks((p) => {
         const next = { ...p };
         if (v) next[d.id] = pickOnCheck(d);
@@ -246,6 +249,11 @@ export default function IdentifierModal({
     ]),
   ];
 
+  const finishSave = async (property: string) => {
+    await Promise.all([refreshOrganization(), mutateDefinitions()]);
+    onSave?.(property);
+  };
+
   return (
     <ModalStandard
       open={true}
@@ -258,7 +266,9 @@ export default function IdentifierModal({
       }
       cta={converting ? "Convert" : isEdit ? "Save" : "Add Identifier"}
       size="xl"
-      ctaEnabled={canSave && !!name.trim() && lockedLinks.length === 0}
+      ctaEnabled={
+        canSave && !!name.trim() && lockedLinks.length === 0 && !savedWithErrors
+      }
       trackingEventModalType={
         converting
           ? "convert-to-identifier"
@@ -267,7 +277,10 @@ export default function IdentifierModal({
             : "add-identifier"
       }
       trackingEventModalSource={source}
-      close={close}
+      close={async () => {
+        if (savedWithErrors) await finishSave(savedWithErrors);
+        close();
+      }}
       submit={async () => {
         const property = name.trim();
         const res = await apiCall<{ failedDatasources: string[] }>(
@@ -295,13 +308,15 @@ export default function IdentifierModal({
             }),
           },
         );
-        await Promise.all([refreshOrganization(), mutateDefinitions()]);
-        onSave?.(property);
         if (res.failedDatasources.length > 0) {
+          // Refreshing now could unmount this modal (the detail page loses the
+          // old name) before the error shows, so it waits until close.
+          setSavedWithErrors(property);
           throw new Error(
             `${property} was saved, but ${res.failedDatasources.join(", ")} couldn't be updated. Link it from each Data Source's identifier types.`,
           );
         }
+        await finishSave(property);
       }}
     >
       <AttributeFormLayout
@@ -318,6 +333,7 @@ export default function IdentifierModal({
                     : "foo"
               }
               projects={projects}
+              secure={isSecureDatatype(datatype)}
             />
             {shownTypes.length > 0 && (
               <Flex direction="column" gap="2">
@@ -440,7 +456,7 @@ export default function IdentifierModal({
             <Box>
               <Text weight="semibold">Data Sources</Text>
               <Text as="div" size="sm" color="text-mid">
-                {isEdit ? (
+                {isEdit && !converting ? (
                   <>
                     Link this identifier in more Data Sources so experiments
                     using it pick the right assignment query. Change existing
