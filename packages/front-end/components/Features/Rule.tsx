@@ -575,6 +575,8 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
       missingSavedGroupIds: getMissingSavedGroupIds?.(rule) ?? [],
       // The redesign's ribbons all match its conflict ribbon.
       calloutSize: redesign ? "sm" : undefined,
+      // And say why a rule is off there, rather than in a header pill.
+      disabledAsRibbon: redesign,
     });
 
     if (hideInactive && isInactive) {
@@ -985,23 +987,17 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
               </Box>
 
               <Flex align="center" gap="3" flexShrink="0">
-                {info.pill}
-                {/* After the rule's state, ahead of the ramp's CTAs, which
-                    stay by the menu. Shown on hover, as the menu is, but
-                    taking room only then, so the state sits by the CTAs. */}
+                {/* Ahead of the ramp's CTAs, which stay by the menu. Shown on
+                    hover, as the menu is. */}
                 {redesign && canEditRule ? (
-                  <span className={cornerStyles.reveal}>
-                    <span>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className={cornerStyles.actions}
-                        onClick={editRule}
-                      >
-                        Edit
-                      </Button>
-                    </span>
-                  </span>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className={cornerStyles.actions}
+                    onClick={editRule}
+                  >
+                    Edit
+                  </Button>
                 ) : null}
                 {rampSchedule &&
                   safeRollout &&
@@ -1058,6 +1054,8 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                     />
                   )}
                 {ruleCtas}
+
+                {info.pill}
 
                 {canEdit && lockedBySchedule && !rampSchedule ? (
                   <LockedRowMenu
@@ -2094,6 +2092,7 @@ export function getRuleMetaInfo({
   rampPendingDetach,
   missingSavedGroupIds = [],
   calloutSize,
+  disabledAsRibbon = false,
 }: {
   rule: FeatureRule;
   experimentsMap: Map<string, ExperimentInterfaceStringDates>;
@@ -2106,6 +2105,7 @@ export function getRuleMetaInfo({
   // Saved groups this rule names that no longer exist
   missingSavedGroupIds?: string[];
   calloutSize?: "sm";
+  disabledAsRibbon?: boolean;
 }): RuleMetaInfo {
   const linkedExperiment =
     rule.type === "experiment-ref"
@@ -2133,25 +2133,70 @@ export function getRuleMetaInfo({
         : null;
 
   if (!rule.enabled) {
+    // A disabled rule's pill, or on the redesign a ribbon saying why, with
+    // any other ribbon it has.
+    const disabled = ({
+      label,
+      title,
+      reason,
+    }: {
+      label: string;
+      title: string;
+      reason?: string;
+    }): RuleMetaInfo => {
+      // Its summary has nothing to show for a missing or retired target.
+      const targetCallout = targetReason ? (
+        <Callout key="target" status="info" size={calloutSize}>
+          {targetReason}
+        </Callout>
+      ) : null;
+      if (!disabledAsRibbon) {
+        return {
+          pill: (
+            <Badge
+              color="gray"
+              title={title}
+              label={
+                <>
+                  <RxCircleBackslash />
+                  {label}
+                </>
+              }
+            />
+          ),
+          callout: targetCallout ?? undefined,
+          sideColor: "disabled",
+        };
+      }
+      return {
+        callout: (
+          <Flex direction="column">
+            <Callout
+              key="disabled"
+              status="neutral"
+              size={calloutSize}
+              icon={<RxCircleBackslash />}
+            >
+              <strong>Disabled</strong>
+              {reason ? <>: {reason}</> : null}
+            </Callout>
+            {targetCallout}
+          </Flex>
+        ),
+        sideColor: "disabled",
+      };
+    };
     // An approval-gated ramp holds the rule off (zero traffic) until someone
     // approves the start — surface that instead of a bare "Disabled" so it's
     // clear the rule is staged, not turned off by hand.
     if (rampSchedule && isAwaitingStartApproval(rampSchedule)) {
-      return {
-        pill: (
-          <Badge
-            color="gray"
-            title="This rule is staged and serving no traffic. It will go live when someone approves the ramp's start."
-            label={
-              <>
-                <RxCircleBackslash />
-                Disabled · awaiting approval
-              </>
-            }
-          />
-        ),
-        sideColor: "disabled",
-      };
+      return disabled({
+        label: "Disabled · awaiting approval",
+        title:
+          "This rule is staged and serving no traffic. It will go live when someone approves the ramp's start.",
+        reason:
+          "Staged with no traffic until someone approves its ramp's start.",
+      });
     }
     const rampEnableDate = getRampEnableDate(rampSchedule);
     if (rampEnableDate) {
@@ -2160,27 +2205,17 @@ export function getRuleMetaInfo({
       // a one-shot gate and enables immediately. Showing the stale date is
       // confusing; surface the actual semantics instead.
       const inPast = rampEnableDate.getTime() <= Date.now();
-      const label = inPast
-        ? "Disabled · enables on publish"
-        : `Disabled \u00b7 enables ${fmtScheduleDate(rampEnableDate)}`;
-      const title = inPast
-        ? "Rule will be enabled by its schedule on the next publish"
-        : `Rule will be enabled by its schedule on ${rampEnableDate.toLocaleDateString()}`;
-      return {
-        pill: (
-          <Badge
-            color="gray"
-            title={title}
-            label={
-              <>
-                <RxCircleBackslash />
-                {label}
-              </>
-            }
-          />
-        ),
-        sideColor: "disabled",
-      };
+      return disabled({
+        label: inPast
+          ? "Disabled · enables on publish"
+          : `Disabled \u00b7 enables ${fmtScheduleDate(rampEnableDate)}`,
+        title: inPast
+          ? "Rule will be enabled by its schedule on the next publish"
+          : `Rule will be enabled by its schedule on ${rampEnableDate.toLocaleDateString()}`,
+        reason: inPast
+          ? "Its ramp schedule enables it on the next publish."
+          : `Its ramp schedule enables it ${fmtScheduleDate(rampEnableDate)}.`,
+      });
     }
     // A pre-start ramp with no start date and no approval gate (both handled
     // above) starts — and enables the rule — immediately on publish. Disabling
@@ -2195,43 +2230,15 @@ export function getRuleMetaInfo({
       (rampSchedule.status === "pending" || rampSchedule.status === "ready") &&
       !rampSchedule.startDate;
     if (rampEnablesOnPublish) {
-      return {
-        pill: (
-          <Badge
-            color="gray"
-            title="This rule's ramp schedule starts on publish and will re-enable it — disabling here won't hold the rollout. Use Start → On approval to stage it with zero traffic until approved."
-            label={
-              <>
-                <RxCircleBackslash />
-                Disabled · enables on publish
-              </>
-            }
-          />
-        ),
-        sideColor: "disabled",
-      };
+      return disabled({
+        label: "Disabled · enables on publish",
+        title:
+          "This rule's ramp schedule starts on publish and will re-enable it — disabling here won't hold the rollout. Use Start → On approval to stage it with zero traffic until approved.",
+        reason:
+          "Its ramp starts on publish and enables it, so this won't hold the rollout. To stage it with no traffic, start the ramp On approval.",
+      });
     }
-    return {
-      pill: (
-        <Badge
-          color="gray"
-          title="Rule is not enabled"
-          label={
-            <>
-              <RxCircleBackslash />
-              Disabled
-            </>
-          }
-        />
-      ),
-      // Its summary has nothing to show for a missing or retired target.
-      callout: targetReason ? (
-        <Callout status="info" size={calloutSize}>
-          {targetReason}
-        </Callout>
-      ) : undefined,
-      sideColor: "disabled",
-    };
+    return disabled({ label: "Disabled", title: "Rule is not enabled" });
   }
 
   if (
