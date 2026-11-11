@@ -1,6 +1,10 @@
 import { ReactNode } from "react";
 import { FeatureInterface } from "shared/types/feature";
-import { getConfigBackingKey, getFeatureBaseConfigKey } from "shared/util";
+import {
+  getConfigBackingKey,
+  getFeatureBaseConfigKey,
+  parsePlainJSONObject,
+} from "shared/util";
 import { Box } from "@radix-ui/themes";
 import ValidateValue from "@/components/Features/ValidateValue";
 import ValueDisplay from "./ValueDisplay";
@@ -50,9 +54,11 @@ export default function ForceSummary({
   // Mirror the SDK compiler: a value resolves a config ONLY when the feature is
   // config-backed (baseConfig set). A stray `@config:` hand-typed into a plain
   // flag's value is stripped at serve time, so it must not be previewed as backed.
+  // An array or scalar replaces the config outright, so it shows as itself.
   const baseConfigKey = getFeatureBaseConfigKey(feature);
   const configKey =
-    baseConfigKey !== null
+    baseConfigKey !== null &&
+    (value.trim() === "" || parsePlainJSONObject(value) !== null)
       ? (getConfigBackingKey(value) ?? baseConfigKey)
       : null;
   if (configKey !== null) {

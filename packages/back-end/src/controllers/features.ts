@@ -5426,7 +5426,12 @@ export async function putFeature(
       metadataUpdates.project ?? feature.project,
     );
   }
-  assertHoldoutValueValid(context, feature, holdoutUpdate);
+  // Judged by the schema the draft it lands in would publish.
+  assertHoldoutValueValid(
+    context,
+    withStagedSchema(feature, targetDraft),
+    holdoutUpdate,
+  );
 
   if (Object.keys(metadataUpdates).length > 0 || holdoutUpdate !== undefined) {
     const envelopeChanges: Parameters<

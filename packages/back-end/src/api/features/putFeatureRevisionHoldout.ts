@@ -17,6 +17,7 @@ import {
   discardIfJustCreated,
   isDraftStatus,
   resolveOrCreateRevision,
+  withStagedSchema,
 } from "./validations";
 import { assertValidHoldout } from "./v2Shared";
 
@@ -38,7 +39,6 @@ export async function setRevisionHoldout(
   }
 
   await assertValidHoldout(body.holdout, context, feature.project);
-  assertHoldoutValueValid(context, feature, body.holdout);
 
   const { revision, created } = await resolveOrCreateRevision(
     context,
@@ -54,6 +54,12 @@ export async function setRevisionHoldout(
         `Cannot edit a revision with status "${revision.status}"`,
       );
     }
+    // Judged by the schema this draft would publish.
+    assertHoldoutValueValid(
+      context,
+      withStagedSchema(feature, revision),
+      body.holdout,
+    );
 
     // Side effects (linking the feature/experiments to the holdout) run at
     // publish time via applyHoldoutSideEffects, not here.
