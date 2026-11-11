@@ -120,7 +120,9 @@ export const apiSdkWebhookValidator = namedSchema(
 const sdkWebhookFields = {
   name: z.string(),
   endpoint: z.string().url(),
-  httpMethod: z.enum(["GET", "POST", "PUT", "DELETE", "PATCH", "PURGE"]),
+  httpMethod: z
+    .enum(["GET", "POST", "PUT", "DELETE", "PATCH", "PURGE"])
+    .optional(),
   payloadFormat: payloadFormatValidator
     .exclude(["vercelNativeIntegration"])
     .optional(),

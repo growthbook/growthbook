@@ -31,7 +31,7 @@ export const postSdkConnectionWebhookEndpoint = {
   zodReturnObject: apiSdkWebhookReturn,
   summary: "Add a webhook to an SDK Connection",
   description:
-    "Called whenever the connection's payload changes. More than one webhook per organization requires a paid plan.",
+    "Called whenever the connection's payload changes. `httpMethod` defaults to POST. More than one webhook per organization requires a paid plan.",
 };
 
 export const putSdkWebhookEndpoint = {
