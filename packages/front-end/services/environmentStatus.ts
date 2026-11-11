@@ -403,9 +403,9 @@ export function stepTargets(step: TrafficStep): string | null {
   return `${percentFormatter.format(participation)} of users`;
 }
 
-// The rules a drilldown lists, which bear on the outcome: not one that reaches
-// no one, which the SDK drops, nor one no traffic gets as far as. A lone rule
-// shows when who gets what from it is known: it takes everyone left, or a set
+// The rules that bear on a drilldown's outcome: not one that reaches no one,
+// which the SDK drops, nor one no traffic gets as far as. A lone rule shows
+// when who gets what from it is known: it takes everyone left, or a set
 // share of them with the rest falling to the default. Otherwise they're
 // counted. Past a holdout, only an outcome known that way shows at all.
 export function reachedRules(status: EnvironmentStatus): {
