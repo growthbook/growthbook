@@ -3,8 +3,8 @@ import uniqid from "uniqid";
 import {
   getFactMetricColumnRefs,
   getMetricAutoSliceFactTableIds,
-  sqlReferencesColumn,
 } from "shared/experiments";
+import { sqlReferencesColumn } from "shared/sql";
 import { explorationConfigReferencesColumn } from "shared/enterprise";
 import { SqlIdentifierQuote } from "shared/types/sql";
 import { isEqual, omit } from "lodash";
