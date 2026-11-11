@@ -101,27 +101,37 @@ export default function VirtualizedCode({
     overscan: 10,
   });
 
-  // Re-measured when the box resizes, since that changes where lines wrap.
+  // Re-measured when the box's width changes, which moves where lines wrap.
+  // Its height changes on most scrolls, which moves nothing.
   useLayoutEffect(() => {
     const box = boxRef.current;
     if (!box) return;
-    const update = () =>
-      setMetrics((prev) => {
-        const next = measureMetrics(box);
-        return next &&
-          (next.rowHeight !== prev?.rowHeight ||
-            next.charsPerRow !== prev?.charsPerRow)
+    let measuredWidth: number | null = null;
+    const update = () => {
+      if (box.clientWidth === measuredWidth) return;
+      const next = measureMetrics(box);
+      if (!next) return;
+      measuredWidth = box.clientWidth;
+      setMetrics((prev) =>
+        next.rowHeight !== prev?.rowHeight ||
+        next.charsPerRow !== prev?.charsPerRow
           ? next
-          : prev;
-      });
+          : prev,
+      );
+    };
     update();
     const observer = new ResizeObserver(update);
     observer.observe(box);
     return () => observer.disconnect();
   }, []);
-  // New estimates apply to rows not yet measured; drop the stale ones.
+  // New estimates apply to rows not yet measured. Clearing the stale ones
+  // clears the rows on screen too, which are measured again from the page.
   useLayoutEffect(() => {
-    if (metrics) virtualizer.measure();
+    if (!metrics) return;
+    virtualizer.measure();
+    boxRef.current
+      ?.querySelectorAll<HTMLElement>("[data-index]")
+      .forEach((row) => virtualizer.measureElement(row));
   }, [metrics, virtualizer]);
 
   // Rows stay in normal flow between spacers, rather than absolutely
