@@ -68,54 +68,6 @@
   white-space: nowrap;
 }
 
-// A JSON value's line, which breaks in two when it runs out of
-// room: the value on the first, cut short, its share under it.
-.wrappingLine {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--space-2);
-  min-width: 0;
-}
-
-// Centers the dot on the first line.
-.dotSlot {
-  display: flex;
-  flex-shrink: 0;
-  align-items: center;
-  height: 20px;
-}
-
-.wrapping {
-  display: flex;
-  flex: 1 1 auto;
-  flex-wrap: wrap;
-  align-items: baseline;
-  column-gap: var(--space-2);
-  min-width: 0;
-}
-
-.wrappingValue {
-  display: flex;
-  align-items: baseline;
-  gap: var(--space-2);
-  min-width: 0;
-  max-width: 100%;
-  white-space: nowrap;
-
-  > * {
-    min-width: 0;
-  }
-}
-
-.wrapping > .line {
-  max-width: 100%;
-}
-
-// Dropped below the value, the share sits at the right.
-.wrapping[data-wrapped] > .line {
-  margin-left: auto;
-}
-
 // The value keeps its room.
 .value {
   // The platform's code font, at the size booleans read.
@@ -220,31 +172,18 @@
 }
 
 // A section's rows, on the popover's columns, indented under its label and
-// each marked by its own line, broken between rows.
+// set a little closer together than the rows around them.
 .group {
   grid-column: 1 / -1;
   display: grid;
   grid-template-columns: subgrid;
-  row-gap: var(--space-2);
+  row-gap: 0;
 
   > .row {
     grid-column: 1 / -1;
     display: grid;
     grid-template-columns: subgrid;
     align-items: start;
-    position: relative;
-
-    &::before {
-      content: "";
-      position: absolute;
-      top: 6px;
-      bottom: 6px;
-      // Just inside where the section's label starts.
-      left: calc(20px + var(--space-3) + 2px);
-      width: 2px;
-      border-radius: 1px;
-      background: var(--gray-a4);
-    }
 
     > .label {
       padding-left: var(--space-4);

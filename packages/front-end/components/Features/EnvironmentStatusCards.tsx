@@ -1,15 +1,17 @@
-import { Fragment, ReactNode, useLayoutEffect, useRef, useState } from "react";
+import {
+  Fragment,
+  ReactNode,
+  RefObject,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import { FeatureValueType } from "shared/types/feature";
-import {
-  PiArrowRight,
-  PiCaretDown,
-  PiCaretUp,
-  PiMinus,
-  PiPlus,
-} from "react-icons/pi";
+import { PiArrowRight, PiCaretDown, PiCaretUp, PiMinus } from "react-icons/pi";
 import {
   displayValue,
+  reachedRules,
   EnvironmentStatus,
   EnvironmentValue,
   PrerequisiteResult,
@@ -48,9 +50,6 @@ type PrerequisiteStateRenderer = (
   environment: string,
   options?: { inScrollArea?: boolean; inline?: boolean },
 ) => ReactNode;
-
-// Brings an environment's rule into view in the rule list.
-type RuleJumper = (environment: string, ruleId: string) => void;
 
 export type EnvironmentCard = {
   id: string;
@@ -103,6 +102,7 @@ function ValueText({
       </>
     );
   }
+  const text = displayValue(value.value, valueType);
   const shown =
     valueType === "boolean" ? (
       <span
@@ -116,9 +116,14 @@ function ValueText({
           split={value.kind === "partial"}
         />
       </span>
+    ) : text === null ? (
+      // JSON with anything in it is named, never cut short.
+      <Text color={muted ? "text-low" : "text-high"} whiteSpace="nowrap">
+        JSON
+      </Text>
     ) : (
       <ValueCode
-        text={displayValue(value.value, valueType)}
+        text={text}
         muted={muted || value.value === null}
         revealable={revealable}
       />
@@ -131,22 +136,33 @@ function ValueText({
   );
 }
 
-function ClampedLink({
+// A name cut short with its whole on hover; a link when it has somewhere to go.
+function ClampedName({
   name,
   href,
   className,
 }: {
   name: string;
-  href: string;
+  href?: string;
   className: string;
 }) {
-  const ref = useRef<HTMLAnchorElement>(null);
+  const ref = useRef<HTMLElement>(null);
   const truncated = useIsOverflowingX(ref);
   return (
     <Tooltip content={name} enabled={truncated}>
-      <Link ref={ref} href={href} className={className}>
-        {name}
-      </Link>
+      {href ? (
+        <Link
+          ref={ref as RefObject<HTMLAnchorElement>}
+          href={href}
+          className={className}
+        >
+          {name}
+        </Link>
+      ) : (
+        <span ref={ref} className={className}>
+          {name}
+        </span>
+      )}
     </Tooltip>
   );
 }
@@ -200,50 +216,6 @@ function Percent({ value }: { value: EnvironmentValue }) {
     <Text color="text-mid" whiteSpace="nowrap">
       for {percentFormatter.format(value.percent)}
     </Text>
-  );
-}
-
-// A long value takes the line; its share drops below it, to the right.
-function WrappingValueLine({
-  status,
-  valueType,
-}: {
-  status: EnvironmentStatus;
-  valueType: FeatureValueType;
-}) {
-  const valueRef = useRef<HTMLSpanElement>(null);
-  const tailRef = useRef<HTMLSpanElement>(null);
-  const [wrapped, setWrapped] = useState(false);
-  useLayoutEffect(() => {
-    const value = valueRef.current;
-    const tail = tailRef.current;
-    if (!value || !tail) return;
-    // On the same line, baseline alignment still sets them a few px apart.
-    const measure = () =>
-      setWrapped(tail.offsetTop >= value.offsetTop + value.offsetHeight / 2);
-    measure();
-    const observer = new ResizeObserver(measure);
-    observer.observe(value.parentElement ?? value);
-    return () => observer.disconnect();
-  }, []);
-  return (
-    <span className={styles.wrappingLine}>
-      <span className={styles.dotSlot}>
-        <BooleanDot fill={servedDot(status, valueType)} />
-      </span>
-      <span className={styles.wrapping} data-wrapped={wrapped || undefined}>
-        <span ref={valueRef} className={styles.wrappingValue}>
-          <ValueText
-            value={status.value}
-            valueType={valueType}
-            withPercent={false}
-          />
-        </span>
-        <span ref={tailRef} className={styles.line}>
-          <Percent value={status.value} />
-        </span>
-      </span>
-    </span>
   );
 }
 
@@ -387,61 +359,21 @@ function StepFields({
   );
 }
 
-// A rule, which takes you to it in the rule list.
-function RuleRow({
-  label,
-  onClick,
-  children,
-}: {
-  label: string;
-  onClick: () => void;
-  children: ReactNode;
-}) {
-  return (
-    <Row
-      icon={null}
-      label={
-        <Link color="dark" underline="hover" onClick={onClick}>
-          {label}
-        </Link>
-      }
-    >
-      {children}
-    </Row>
-  );
-}
-
 function Drilldown({
   card,
   status,
   valueType,
   toggle,
   prerequisiteState,
-  jumpToRule,
 }: {
   card: EnvironmentCard;
   status: EnvironmentStatus;
   valueType: FeatureValueType;
   toggle: ReactNode;
   prerequisiteState: PrerequisiteStateRenderer;
-  jumpToRule: (ruleId: string) => void;
 }) {
   const holdout = status.steps.find(({ step }) => step.kind === "holdout");
-  // Only rules that bear on the outcome: not one that reaches no one, which
-  // the SDK drops, nor one no traffic gets as far as.
-  const rules = status.steps.flatMap(({ step, reachable }) =>
-    step.kind === "rule" && reachable && step.traffic?.participation !== 0
-      ? [step]
-      : [],
-  );
-  // The first rule, or the first two when they settle everyone between them;
-  // the rest together.
-  const [expanded, setExpanded] = useState(false);
-  const shown =
-    expanded || (rules.length === 2 && status.defaultValue === "skipped")
-      ? rules
-      : rules.slice(0, 1);
-  const rest = rules.slice(shown.length);
+  const reached = reachedRules(status);
   const prerequisitesMuted = status.prerequisites === "skipped";
   return (
     <div className={styles.rows}>
@@ -468,13 +400,7 @@ function Drilldown({
                 key={p.index}
                 icon={null}
                 muted={prerequisitesMuted}
-                label={
-                  <ClampedLink
-                    name={p.id}
-                    href={`/features/${p.id}`}
-                    className={styles.clamped}
-                  />
-                }
+                label={<ClampedName name={p.id} className={styles.clamped} />}
               >
                 <Flex align="center" gap="2">
                   {prerequisitesMuted
@@ -502,36 +428,25 @@ function Drilldown({
           )}
         </Row>
       ) : null}
-      {rules.length ? (
-        <>
-          <Section icon={<StepIcon status="applies" />} label="Rules reached" />
-          <div className={styles.group}>
-            {shown.map((step) => (
-              <RuleRow
-                key={step.ruleId}
-                label={step.label}
-                onClick={() => jumpToRule(step.ruleId)}
-              >
-                <StepFields step={step} valueType={valueType} />
-              </RuleRow>
-            ))}
-            {rest.length ? (
-              <Row
-                icon={null}
-                label={
-                  <Link underline="hover" onClick={() => setExpanded(true)}>
-                    {/* Inline, so the underline runs under the text. */}
-                    <PiPlus
-                      size={12}
-                      style={{ marginRight: 4, verticalAlign: -1 }}
-                    />
-                    {rest.length} other {rest.length === 1 ? "rule" : "rules"}
-                  </Link>
-                }
-              />
-            ) : null}
-          </div>
-        </>
+      {reached.hidden ? null : reached.count ? (
+        reached.rule ? (
+          <Row
+            icon={<StepIcon status="applies" />}
+            // Named as a rule: "Experiment rule", "Force rule".
+            label={
+              /rule$/i.test(reached.rule.label)
+                ? reached.rule.label
+                : `${reached.rule.label} rule`
+            }
+          >
+            <StepFields step={reached.rule} valueType={valueType} />
+          </Row>
+        ) : (
+          <Row
+            icon={<StepIcon status="applies" />}
+            label={`${reached.count} ${reached.count === 1 ? "rule" : "rules"} reached`}
+          />
+        )
       ) : (
         <Row icon={<StepIcon status="skipped" />} muted label="Rules">
           {/* Rules that reach no one aren't listed, but they're there. */}
@@ -544,30 +459,32 @@ function Drilldown({
           </Text>
         </Row>
       )}
-      <Row
-        icon={<StepIcon status={status.defaultValue} />}
-        muted={status.defaultValue === "skipped"}
-        label="Default value"
-      >
-        {status.defaultValue === "skipped" ? (
-          <Text color="text-low">Not reachable</Text>
-        ) : (
-          <Fields
-            fields={[
-              {
-                label: "Serves",
-                value: (
-                  <ValueText
-                    value={{ kind: "value", value: status.servedDefault }}
-                    valueType={valueType}
-                    revealable
-                  />
-                ),
-              },
-            ]}
-          />
-        )}
-      </Row>
+      {reached.hidden ? null : (
+        <Row
+          icon={<StepIcon status={status.defaultValue} />}
+          muted={status.defaultValue === "skipped"}
+          label="Default value"
+        >
+          {status.defaultValue === "skipped" ? (
+            <Text color="text-low">Not reachable</Text>
+          ) : (
+            <Fields
+              fields={[
+                {
+                  label: "Serves",
+                  value: (
+                    <ValueText
+                      value={{ kind: "value", value: status.servedDefault }}
+                      valueType={valueType}
+                      revealable
+                    />
+                  ),
+                },
+              ]}
+            />
+          )}
+        </Row>
+      )}
     </div>
   );
 }
@@ -577,19 +494,15 @@ function Card({
   valueType,
   toggle,
   prerequisiteState,
-  jumpToRule,
   side = "bottom",
 }: {
   card: EnvironmentCard;
   valueType: FeatureValueType;
   toggle: ReactNode;
   prerequisiteState: PrerequisiteStateRenderer;
-  jumpToRule: RuleJumper;
   side?: "bottom" | "right";
 }) {
   const [open, setOpen] = useState(false);
-  // Closed to go to a rule, focus follows it there, not back to the card.
-  const jumping = useRef(false);
   const { status } = card;
   const reason = status ? reasonText(status.reason) : null;
   const Caret = open ? PiCaretUp : PiCaretDown;
@@ -597,11 +510,6 @@ function Card({
     <Popover
       open={open}
       onOpenChange={setOpen}
-      onCloseAutoFocus={(e) => {
-        if (!jumping.current) return;
-        jumping.current = false;
-        e.preventDefault();
-      }}
       side={side}
       align="start"
       sideOffset={5}
@@ -628,8 +536,6 @@ function Card({
               <span className={styles.line}>
                 <Text color="text-low">…</Text>
               </span>
-            ) : valueType === "json" ? (
-              <WrappingValueLine status={status} valueType={valueType} />
             ) : (
               <span className={styles.line}>
                 {valueType === "boolean" ? null : (
@@ -657,12 +563,6 @@ function Card({
             valueType={valueType}
             toggle={toggle}
             prerequisiteState={prerequisiteState}
-            // Out of the way of the rule it takes you to.
-            jumpToRule={(ruleId) => {
-              jumping.current = true;
-              setOpen(false);
-              jumpToRule(card.id, ruleId);
-            }}
           />
         ) : (
           // The switch stays in reach while what it serves isn't known.
@@ -687,17 +587,13 @@ function MoreCards({
   valueType,
   renderToggle,
   prerequisiteState,
-  jumpToRule,
 }: {
   cards: EnvironmentCard[];
   valueType: FeatureValueType;
   renderToggle: (environment: string) => ReactNode;
   prerequisiteState: PrerequisiteStateRenderer;
-  jumpToRule: RuleJumper;
 }) {
   const [open, setOpen] = useState(false);
-  // Closed to go to a rule, focus follows it there, not back to the card.
-  const jumping = useRef(false);
   // Several environments' switches read as one section of them.
   const changes = mergeDraftChangeSections(
     cards.flatMap((card) => card.environmentChanges ?? []),
@@ -712,11 +608,6 @@ function MoreCards({
     <Popover
       open={open}
       onOpenChange={setOpen}
-      onCloseAutoFocus={(e) => {
-        if (!jumping.current) return;
-        jumping.current = false;
-        e.preventDefault();
-      }}
       side="bottom"
       align="start"
       sideOffset={5}
@@ -752,11 +643,6 @@ function MoreCards({
                 valueType={valueType}
                 toggle={renderToggle(card.id)}
                 prerequisiteState={prerequisiteState}
-                jumpToRule={(environment, ruleId) => {
-                  jumping.current = true;
-                  setOpen(false);
-                  jumpToRule(environment, ruleId);
-                }}
                 side="right"
               />
             ))}
@@ -774,13 +660,11 @@ export default function EnvironmentStatusCards({
   valueType,
   renderToggle,
   prerequisiteState,
-  jumpToRule,
 }: {
   cards: EnvironmentCard[];
   valueType: FeatureValueType;
   renderToggle: (environment: string) => ReactNode;
   prerequisiteState: PrerequisiteStateRenderer;
-  jumpToRule: RuleJumper;
 }) {
   // How many cards a row holds, as the grid lays them out.
   const ref = useRef<HTMLDivElement>(null);
@@ -811,7 +695,6 @@ export default function EnvironmentStatusCards({
           valueType={valueType}
           toggle={renderToggle(card.id)}
           prerequisiteState={prerequisiteState}
-          jumpToRule={jumpToRule}
         />
       ))}
       {shown < cards.length ? (
@@ -820,7 +703,6 @@ export default function EnvironmentStatusCards({
           valueType={valueType}
           renderToggle={renderToggle}
           prerequisiteState={prerequisiteState}
-          jumpToRule={jumpToRule}
         />
       ) : null}
     </div>
@@ -881,7 +763,7 @@ export function PrerequisiteList({
                 key: p.index,
                 name: (
                   <>
-                    <ClampedLink
+                    <ClampedName
                       name={p.id}
                       href={`/features/${p.id}`}
                       className={styles.prerequisiteName}

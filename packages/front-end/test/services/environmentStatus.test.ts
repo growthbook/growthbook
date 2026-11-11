@@ -8,6 +8,7 @@ import {
   EnvironmentValue,
   getEnvironmentStatus,
   prerequisitesSummary,
+  reachedRules,
   reasonText,
   servedDot,
   StepStatus,
@@ -541,6 +542,33 @@ describe("stepServes and stepTargets", () => {
   });
 });
 
+describe("reachedRules", () => {
+  const targeted = ruleTrafficStep(force("true", '{"country":"US"}'));
+  const partial = ruleTrafficStep(rollout("true", 0.55));
+  const everyone = ruleTrafficStep(force("true"));
+  const holdout = holdoutTrafficStep(
+    "false",
+    experiment({}, { coverage: 0.2 }),
+  );
+  it.each([
+    ["a rule taking everyone", [everyone], everyone, 1, false],
+    ["a set share over the default", [partial], partial, 1, false],
+    ["a targeted rule", [targeted], null, 1, false],
+    ["several rules", [targeted, everyone], null, 2, false],
+    [
+      "a rule reaching no one",
+      [ruleTrafficStep(rollout("true", 0))],
+      null,
+      0,
+      false,
+    ],
+    ["a set share past a holdout", [holdout, partial], partial, 1, false],
+    ["a targeted rule past a holdout", [holdout, targeted], null, 1, true],
+  ] as const)("lists %s", (_, steps, rule, count, hidden) => {
+    expect(reachedRules(status([...steps]))).toEqual({ rule, count, hidden });
+  });
+});
+
 describe("sdkValueText", () => {
   it.each([
     ["string", " y ", " y "],
@@ -586,8 +614,14 @@ describe("displayValue", () => {
     [null, "string", "null"],
     ["hi", "string", '"hi"'],
     ["3.5", "number", "3.5"],
-    ['{"a":1,"b":[2,{"c":3}]}', "json", '{"a": 1, "b": [2, {"c": 3}]}'],
-    ["{not json\n  at all", "json", "{not json at all"],
+    [null, "json", "null"],
+    ["null", "json", "null"],
+    ["{}", "json", "{}"],
+    ["[]", "json", "[]"],
+    ['{"a":1}', "json", null],
+    ["[1]", "json", null],
+    ['"hi"', "json", null],
+    ["{not json", "json", null],
   ] as const)("shows %j (%s) as %j", (value, type, shown) => {
     expect(displayValue(value, type)).toBe(shown);
   });

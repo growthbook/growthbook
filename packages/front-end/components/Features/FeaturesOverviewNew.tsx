@@ -5,7 +5,7 @@ import {
 } from "shared/types/feature";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { useMemo, useState, useEffect, useRef } from "react";
-import { PiCaretRightBold, PiCaretDownBold, PiInfo } from "react-icons/pi";
+import { PiCaretRightBold, PiCaretDownBold } from "react-icons/pi";
 import {
   evalDeterministicPrereqValue,
   filterEnvironmentsByFeature,
@@ -102,7 +102,7 @@ import {
   DeletePrerequisiteModal,
   PrerequisiteStatesCols,
 } from "./PrerequisiteStatusRow";
-import { isRuleSkipped, ruleElementId } from "./Rule";
+import { isRuleSkipped } from "./Rule";
 import PrerequisiteAlerts from "./PrerequisiteAlerts";
 import PrerequisiteModal from "./PrerequisiteModal";
 import { featureStatusColors } from "./FeaturesOverview";
@@ -110,45 +110,6 @@ import FeatureRules from "./FeatureRulesNew";
 import cornerStyles from "./CornerActions.module.scss";
 
 // A changeable environment's switch, its state named after it.
-// Rings the rule a jump lands on in violet, lighter than an open card's:
-// it fades in quickly once the page stops scrolling, holds, then fades out.
-// Without motion, it shows, then goes.
-function markJumpedRule(rule: HTMLElement) {
-  const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  // Animations take values, not the theme's variables, so read them here.
-  const theme = getComputedStyle(rule);
-  const color = (name: string) => theme.getPropertyValue(name).trim();
-  // A ring, not an outline, which focus styles override; its soft edge is a
-  // glow around it.
-  const ring = (line: string, glow: string) => ({
-    boxShadow: `0 0 0 2px ${line}, 0 0 6px 2px ${glow}`,
-    // Around the card, whose corners are round.
-    borderRadius: color("--radius-4"),
-  });
-  const shown = ring(color("--violet-8"), color("--violet-6"));
-  const gone = ring("transparent", "transparent");
-  let started = false;
-  const start = () => {
-    if (started) return;
-    started = true;
-    window.removeEventListener("scrollend", start);
-    rule.animate(
-      reduced
-        ? [shown, shown]
-        : [
-            { ...gone, easing: "ease-out" },
-            { ...shown, offset: 0.08 },
-            { ...shown, offset: 0.55, easing: "ease-in-out" },
-            gone,
-          ],
-      { duration: reduced ? 1500 : 2000 },
-    );
-  };
-  window.addEventListener("scrollend", start);
-  // Already in view, or where scrollend isn't supported.
-  setTimeout(start, 1000);
-}
-
 function EnvironmentSwitch({
   environment,
   enabled,
@@ -267,73 +228,6 @@ export default function FeaturesOverviewNew({
   // config-backed value for the same environment the rules are filtered to.
   // null = "All Environments".
   const [rulesEnv, setRulesEnv] = useFeatureRulesEnv();
-  // A rule to bring into view once the rules show its tab and it stays put
-  // there: the list redraws a few frames after its tab does. Far down the
-  // list, it's a placeholder until it nears the viewport. Past its deadline,
-  // the jump is dropped, wherever the rule is, rather than left to land on a
-  // later tab change.
-  const [scrollToRule, setScrollToRule] = useState<{
-    ruleId: string;
-    tab: string | null;
-    deadline: number;
-  } | null>(null);
-  useEffect(() => {
-    if (scrollToRule === null) return;
-    const { deadline } = scrollToRule;
-    if (performance.now() > deadline) {
-      setScrollToRule(null);
-      return;
-    }
-    if (rulesEnv !== scrollToRule.tab) return;
-    let request = 0;
-    let lastTop: number | null = null;
-    let steadyFrames = 0;
-    const scroll = () => {
-      const late = performance.now() > deadline;
-      const rule = document.getElementById(ruleElementId(scrollToRule.ruleId));
-      const ruleTop = rule
-        ? rule.getBoundingClientRect().top + window.scrollY
-        : null;
-      steadyFrames =
-        ruleTop !== null && ruleTop === lastTop ? steadyFrames + 1 : 0;
-      lastTop = ruleTop;
-      const placeholder = rule?.dataset.placeholder !== undefined;
-      if (steadyFrames >= 5 && placeholder && !late) {
-        // Near enough to render its card, which then takes its place.
-        rule?.scrollIntoView({ block: "center" });
-        steadyFrames = 0;
-      } else if (steadyFrames >= 5 || late) {
-        if (rule) {
-          // Centered, unless it's too tall to see its top that way, under the
-          // page's sticky headers; then its top sits a third of the way down.
-          const { top, height } = rule.getBoundingClientRect();
-          if (height < window.innerHeight / 2) {
-            rule.scrollIntoView({ behavior: "smooth", block: "center" });
-          } else {
-            window.scrollTo({
-              top: window.scrollY + top - window.innerHeight / 3,
-              behavior: "smooth",
-            });
-          }
-          // Keyboard focus lands there too, so the next Tab goes on from it.
-          rule.focus({ preventScroll: true });
-          markJumpedRule(rule);
-        }
-        setScrollToRule(null);
-        return;
-      }
-      request = requestAnimationFrame(scroll);
-    };
-    scroll();
-    return () => cancelAnimationFrame(request);
-  }, [scrollToRule, rulesEnv]);
-  // All Environments shows every rule; another environment's tab may not.
-  const jumpToRule = (environment: string, ruleId: string) => {
-    const tab = rulesEnv === null ? null : environment;
-    if (tab !== rulesEnv) setRulesEnv(tab);
-    setScrollToRule({ ruleId, tab, deadline: performance.now() + 3000 });
-  };
-
   const prerequisites = feature?.prerequisites || [];
 
   const { states: prereqStatesRaw, mutate: mutatePrereqStates } =
@@ -561,14 +455,6 @@ export default function FeaturesOverviewNew({
         : null);
   const liveEnabled = (envId: string) =>
     baseFeature.environmentSettings?.[envId]?.enabled ?? false;
-  // A draft that turns environments on or off, before it's published.
-  const draftChangesEnvironments =
-    isDraft &&
-    environments.some(
-      (en) =>
-        (feature.environmentSettings?.[en.id]?.enabled ?? false) !==
-        liveEnabled(en.id),
-    );
 
   // On a draft, a switch saves to it; on live, it asks which draft to use.
   // A stale switch can't conflict: whoever flipped it first flipped it the
@@ -832,15 +718,6 @@ export default function FeaturesOverviewNew({
       text: `removed ${id}`,
     })),
   ];
-  // What the draft changes in this section, before it's published.
-  const draftChangedSubjects =
-    draftChangesEnvironments && prerequisiteChangeRows.length
-      ? "Environment and prerequisite"
-      : draftChangesEnvironments
-        ? "Environment"
-        : prerequisiteChangeRows.length
-          ? "Prerequisite"
-          : null;
   // What a version of the flag serves in an environment; null until its
   // prerequisites' states load.
   const environmentStatus = (f: FeatureInterface, env: string) => {
@@ -903,23 +780,6 @@ export default function FeaturesOverviewNew({
       environmentChanges: environmentChanges(en.id),
     };
   });
-  // A past or discarded revision's cards aren't what's served now: does live
-  // (the flag itself, so drift is repaired) serve something else, or for
-  // another reason, anywhere?
-  const differsFromLive =
-    !isDraft &&
-    !isLive &&
-    environmentCards.some(({ id, status }) => {
-      const live = environmentStatus(baseFeature, id);
-      return (
-        !!status &&
-        !!live &&
-        !sameJson(
-          { value: status.value, reason: status.reason },
-          { value: live.value, reason: live.reason },
-        )
-      );
-    });
   const canEditPrerequisites = canEditDrafts && showsControls && !isReadOnly;
   const prerequisiteActions = (i: number) =>
     !canEditPrerequisites ? null : lockReason ? (
@@ -1131,7 +991,6 @@ export default function FeaturesOverviewNew({
               cards={environmentCards}
               valueType={feature.valueType}
               prerequisiteState={prerequisiteState}
-              jumpToRule={jumpToRule}
               renderToggle={(envId) => {
                 const enabled =
                   feature.environmentSettings?.[envId]?.enabled ?? false;
@@ -1193,29 +1052,6 @@ export default function FeaturesOverviewNew({
               Couldn&apos;t turn {envError.envId} {envError.on ? "on" : "off"}:{" "}
               {/* Several validation hooks' messages arrive one per line. */}
               <span style={{ whiteSpace: "pre-line" }}>{envError.message}</span>
-            </HelperText>
-          ) : null}
-          {differsFromLive ? (
-            <HelperText
-              status="info"
-              size="sm"
-              mt="3"
-              icon={<PiInfo size={13} />}
-            >
-              Revision {revision.version} isn&apos;t live, and live serves
-              differently.
-            </HelperText>
-          ) : null}
-          {draftChangedSubjects ? (
-            // Amber because it's about the draft, not a warning.
-            <HelperText
-              status="warning"
-              size="sm"
-              mt="3"
-              icon={<PiInfo size={13} />}
-            >
-              {draftChangedSubjects} changes go live after this draft is
-              published.
             </HelperText>
           ) : null}
           {hasConditionalState && (

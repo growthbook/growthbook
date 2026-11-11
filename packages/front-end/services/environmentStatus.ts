@@ -41,17 +41,14 @@ type Share = { value: string; share: number };
 // as a bandit's do — or null when none of that is known ahead of time.
 // Targeted, the share it takes depends on who the user is.
 export type TrafficStep = {
+  kind: "holdout" | "rule";
   // What kind it is: "Experiment", "Holdout".
   label: string;
   // An experiment's or bandit's arms.
   variations: number | null;
   targeted: boolean;
   traffic: { participation: number; shares: Share[] | null } | null;
-} & (
-  | { kind: "holdout"; ruleId: null }
-  // The rule it is, to find it in the rule list.
-  | { kind: "rule"; ruleId: string }
-);
+};
 
 // What an environment serves: one value to everyone (null when it serves
 // nothing), one value to a share of users, several values in known shares, or
@@ -121,14 +118,12 @@ function namespaceWidth(namespace?: NamespaceValue): number {
 }
 
 const stepOf = (
-  ruleId: string,
   label: string,
   traffic: TrafficStep["traffic"],
   targeted: boolean,
 ): TrafficStep => ({
   kind: "rule",
   label,
-  ruleId,
   variations: null,
   targeted,
   traffic,
@@ -192,7 +187,6 @@ export function ruleTrafficStep(
   const targeted = hasTargetingConfigured(rule);
   if (rule.type === "force") {
     return stepOf(
-      rule.id,
       "Force rule",
       { participation: 1, shares: [{ value: resolve(rule.value), share: 1 }] },
       targeted,
@@ -200,7 +194,6 @@ export function ruleTrafficStep(
   }
   if (rule.type === "rollout") {
     return stepOf(
-      rule.id,
       "Rollout",
       {
         // Full coverage, or none set, serves everyone.
@@ -213,7 +206,6 @@ export function ruleTrafficStep(
   if (rule.type === "experiment") {
     return {
       ...stepOf(
-        rule.id,
         "Experiment",
         {
           participation: (rule.coverage ?? 1) * namespaceWidth(rule.namespace),
@@ -233,7 +225,7 @@ export function ruleTrafficStep(
     const phase = experiment?.phases.at(-1);
     const refTargeted = targeted || (!!phase && hasTargetingConfigured(phase));
     const step = (traffic: TrafficStep["traffic"]): TrafficStep => ({
-      ...stepOf(rule.id, label, traffic, refTargeted),
+      ...stepOf(label, traffic, refTargeted),
       variations: experiment
         ? getLatestPhaseVariations(experiment).length
         : rule.variations.length,
@@ -299,7 +291,6 @@ export function ruleTrafficStep(
           ? resolve(rule.variationValue, false)
           : resolve(rule.controlValue, false);
       return stepOf(
-        rule.id,
         "Safe rollout",
         { participation: 1, shares: [{ value, share: 1 }] },
         targeted,
@@ -307,9 +298,8 @@ export function ruleTrafficStep(
     }
     // Running, it splits evenly at the current ramp-up step's coverage.
     const ramp = safeRollout?.rampUpSchedule;
-    if (!ramp) return stepOf(rule.id, "Safe rollout", null, targeted);
+    if (!ramp) return stepOf("Safe rollout", null, targeted);
     return stepOf(
-      rule.id,
       "Safe rollout",
       {
         participation:
@@ -325,7 +315,6 @@ export function ruleTrafficStep(
     );
   }
   return stepOf(
-    rule.id,
     rule.type === "contextual-bandit-ref" ? "Contextual bandit" : "Rule",
     null,
     targeted,
@@ -342,7 +331,6 @@ export function holdoutTrafficStep(
   const step = {
     kind: "holdout" as const,
     label: "Holdout",
-    ruleId: null,
     variations: null,
     targeted: !!phase && hasTargetingConfigured(phase),
   };
@@ -413,6 +401,34 @@ export function stepTargets(step: TrafficStep): string | null {
   if (participation === null) return null;
   if (participation >= 1 - EPSILON) return "All users";
   return `${percentFormatter.format(participation)} of users`;
+}
+
+// The rules a drilldown lists, which bear on the outcome: not one that reaches
+// no one, which the SDK drops, nor one no traffic gets as far as. A lone rule
+// shows when who gets what from it is known: it takes everyone left, or a set
+// share of them with the rest falling to the default. Otherwise they're
+// counted. Past a holdout, only an outcome known that way shows at all.
+export function reachedRules(status: EnvironmentStatus): {
+  count: number;
+  rule: TrafficStep | null;
+  hidden: boolean;
+} {
+  const rules = status.steps.flatMap(({ step, reachable }) =>
+    step.kind === "rule" && reachable && step.traffic?.participation !== 0
+      ? [step]
+      : [],
+  );
+  const rule =
+    rules.length === 1 &&
+    (status.defaultValue === "skipped" || decided(rules[0]) !== null)
+      ? rules[0]
+      : null;
+  const holdout = status.steps.some(({ step }) => step.kind === "holdout");
+  return {
+    count: rules.length,
+    rule,
+    hidden: holdout && rules.length > 0 && !rule,
+  };
 }
 
 export function getEnvironmentStatus({
@@ -603,27 +619,25 @@ export function getEnvironmentStatus({
   };
 }
 
-// JSON on one line, spaced like it reads aloud: {"a": 1, "b": [2]}.
-function oneLineJson(value: string): string {
-  try {
-    return JSON.stringify(JSON.parse(value), null, 1)
-      .replace(/([[{])\n\s*/g, "$1")
-      .replace(/\n\s*([\]}])/g, "$1")
-      .replace(/\n\s*/g, " ");
-  } catch {
-    return value.replace(/\s+/g, " ");
-  }
-}
-
 // A value as the SDK hands it back; an environment serving nothing is null.
+// JSON shows only when it's empty, as `null`, `{}` or `[]`; anything else is
+// null, for the caller to name rather than cut short.
 export function displayValue(
   value: string | null,
   valueType: FeatureValueType,
-) {
+): string | null {
   if (value === null) return "null";
   if (valueType === "string") return JSON.stringify(value);
-  if (valueType === "json") return oneLineJson(value);
-  return value;
+  if (valueType !== "json") return value;
+  try {
+    const parsed: unknown = JSON.parse(value);
+    if (parsed === null) return "null";
+    if (Array.isArray(parsed)) return parsed.length ? null : "[]";
+    if (typeof parsed === "object" && !Object.keys(parsed).length) return "{}";
+  } catch {
+    // Not JSON the SDK could read either: named, not shown.
+  }
+  return null;
 }
 
 // Whether a non-boolean environment serves a value: to everyone (filled),
