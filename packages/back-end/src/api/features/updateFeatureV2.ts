@@ -269,6 +269,14 @@ export const updateFeatureV2 = createApiRequestHandler(
       req.body.project ?? feature.project,
     );
   }
+  if (req.body.holdout) {
+    assertFeatureValuesValid(
+      req.context,
+      effectiveFeature,
+      { holdout: req.body.holdout },
+      { holdout: feature.holdout },
+    );
+  }
 
   // Block a config-backed default value coexisting with an enabled JSON schema
   // (either inbound or already on the flag), using the effective post-update

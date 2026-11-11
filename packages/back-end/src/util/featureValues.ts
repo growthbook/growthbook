@@ -4,7 +4,12 @@ import { validateFeatureValue } from "shared/util";
 import isEqual from "lodash/isEqual";
 import { BadRequestError } from "./errors";
 
-type FeatureValues = Partial<Pick<FeatureInterface, "defaultValue" | "rules">>;
+type FeatureValues = Partial<
+  Pick<FeatureInterface, "defaultValue" | "rules"> & {
+    // What the holdout's held-out units are served; null clears the holdout.
+    holdout: FeatureInterface["holdout"] | null;
+  }
+>;
 
 export class FeatureValueError extends BadRequestError {}
 
@@ -117,6 +122,18 @@ export function mapChangedFeatureValues<T extends FeatureValues>(
           rules: values.rules
             .filter((rule) => rule !== null && typeof rule === "object")
             .map(mapRule),
+        }
+      : {}),
+    ...(values.holdout
+      ? {
+          holdout: {
+            ...values.holdout,
+            value: mapValue(
+              values.holdout.value,
+              previous?.holdout?.value,
+              "Holdout value",
+            ),
+          },
         }
       : {}),
   };

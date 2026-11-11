@@ -5425,6 +5425,14 @@ export async function putFeature(
       metadataUpdates.project ?? feature.project,
     );
   }
+  if (holdoutUpdate) {
+    assertFeatureValuesValid(
+      context,
+      feature,
+      { holdout: holdoutUpdate },
+      { holdout: feature.holdout },
+    );
+  }
 
   if (Object.keys(metadataUpdates).length > 0 || holdoutUpdate !== undefined) {
     const envelopeChanges: Parameters<

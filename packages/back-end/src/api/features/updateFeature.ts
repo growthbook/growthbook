@@ -29,6 +29,7 @@ import { BadRequestError } from "back-end/src/util/errors";
 import {
   addIdsToFlatRules,
   addIdsToRules,
+  assertFeatureValuesValid,
   fromApiEnvSettingsRulesToFeatureEnvSettingsRules,
   getApiFeatureObj,
   getFeatureDefinitionLookups,
@@ -209,6 +210,14 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
         req.body.holdout !== undefined ? req.body.holdout : feature.holdout,
         req.context,
         req.body.project ?? feature.project,
+      );
+    }
+    if (req.body.holdout) {
+      assertFeatureValuesValid(
+        req.context,
+        feature,
+        { holdout: req.body.holdout },
+        { holdout: feature.holdout },
       );
     }
 

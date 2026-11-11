@@ -4026,8 +4026,16 @@ export function validateFeatureRuleValues(
 export function assertFeatureValuesValid(
   context: ReqContext | ApiReqContext,
   feature: Pick<FeatureInterface, "valueType" | "jsonSchema">,
-  values: { defaultValue?: string; rules?: FeatureRule[] },
-  previous?: { defaultValue?: string; rules?: FeatureRule[] },
+  values: {
+    defaultValue?: string;
+    rules?: FeatureRule[];
+    holdout?: FeatureInterface["holdout"] | null;
+  },
+  previous?: {
+    defaultValue?: string;
+    rules?: FeatureRule[];
+    holdout?: FeatureInterface["holdout"] | null;
+  },
 ): void {
   const valueFeature = context.canSkipSchemaValidationFor("feature")
     ? { valueType: feature.valueType }

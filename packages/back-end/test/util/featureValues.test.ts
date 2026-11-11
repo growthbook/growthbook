@@ -500,6 +500,42 @@ describe("schema validation overrides", () => {
   });
 });
 
+describe("holdout values", () => {
+  const context = {
+    canSkipSchemaValidationFor: () => false,
+    ignoreWarnings: false,
+    org: { settings: {} },
+  } as unknown as ReqContext;
+  const holdout = (value: string) => ({ id: "hld_1", value });
+
+  it.each([
+    ["loose JSON", { valueType: "json" as const }, "{ answer: 42 }"],
+    ["a non-number", { valueType: "number" as const }, "abc"],
+    ["a value outside the schema", jsonFeature, "{}"],
+  ])("rejects %s", (_, feature, value) => {
+    expect(() =>
+      assertFeatureValuesValid(context, feature, { holdout: holdout(value) }),
+    ).toThrow(/Holdout value/);
+  });
+
+  it("passes an unchanged legacy value through", () => {
+    expect(() =>
+      assertFeatureValuesValid(
+        context,
+        { valueType: "json" },
+        { holdout: holdout("{ answer: 42 }") },
+        { holdout: holdout("{ answer: 42 }") },
+      ),
+    ).not.toThrow();
+  });
+
+  it("ignores a cleared holdout", () => {
+    expect(() =>
+      assertFeatureValuesValid(context, jsonFeature, { holdout: null }),
+    ).not.toThrow();
+  });
+});
+
 describe("published JSON snapshots", () => {
   const rule = (value: string): FeatureRule => ({
     ...baseRule,
