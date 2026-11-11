@@ -157,6 +157,7 @@
                     "root": "app/metrics",
                     "pages": [
                       "app/metrics",
+                      "app/metrics/compound",
                       "app/metrics/funnel",
                       "app/metrics/examples",
                       "app/metrics/legacy"

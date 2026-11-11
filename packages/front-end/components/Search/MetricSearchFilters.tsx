@@ -67,6 +67,7 @@ const MetricSearchFilters: FC<
     "revenue",
     "count",
     "funnel",
+    "compound",
   ];
 
   return (

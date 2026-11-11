@@ -26,6 +26,7 @@ import {
   FactTableMap,
   FunnelFactMetricInterface,
   FunnelStep,
+  CompoundFactMetricInterface,
   MetricQuantileSettings,
   MetricWindowSettings,
   RowFilter,
@@ -1100,20 +1101,27 @@ export function isCappableMetricType(m: ExperimentMetricDefinition) {
 
 export function isBinomialMetric(m: ExperimentMetricDefinition) {
   if (isFactMetric(m))
-    return ["proportion", "retention", "funnel"].includes(m.metricType);
+    return ["proportion", "retention", "funnel", "compound"].includes(
+      m.metricType,
+    );
   return m.type === "binomial";
 }
 
 /**
  * Fact table the metric's primary events come from: the numerator's for most
- * metric types, the first step's for funnels (which have no numerator).
+ * metric types, the first step's / component's for funnels and compound
+ * metrics (which have no numerator).
  */
 export function getFactMetricPrimaryFactTableId(
   m: FactMetricInterface,
 ): string {
-  return isFactFunnelMetric(m)
-    ? (m.funnelSettings.steps[0]?.factTableId ?? "")
-    : m.numerator.factTableId;
+  if (isFactFunnelMetric(m)) {
+    return m.funnelSettings.steps[0]?.factTableId ?? "";
+  }
+  if (isFactCompoundMetric(m)) {
+    return m.compoundSettings.components[0]?.factTableId ?? "";
+  }
+  return m.numerator.factTableId;
 }
 
 /**
@@ -1125,12 +1133,14 @@ export function getFactMetricPrimaryFactTableId(
 export function getFactMetricFactTableIds(m: FactMetricInterface): string[] {
   const ids = isFactFunnelMetric(m)
     ? m.funnelSettings.steps.map((step) => step.factTableId)
-    : [
-        m.numerator.factTableId,
-        ...(isRatioMetric(m) && m.denominator?.factTableId
-          ? [m.denominator.factTableId]
-          : []),
-      ];
+    : isFactCompoundMetric(m)
+      ? m.compoundSettings.components.map((c) => c.factTableId)
+      : [
+          m.numerator.factTableId,
+          ...(isRatioMetric(m) && m.denominator?.factTableId
+            ? [m.denominator.factTableId]
+            : []),
+        ];
   return Array.from(new Set(ids.filter((id) => !!id)));
 }
 
@@ -1152,7 +1162,7 @@ export function getFactTableIdsForMetrics(
 export function getMetricAutoSliceFactTableIds(
   m: FactMetricInterface,
 ): string[] {
-  return isFactFunnelMetric(m)
+  return isFactFunnelMetric(m) || isFactCompoundMetric(m)
     ? getFactMetricFactTableIds(m)
     : [getFactMetricPrimaryFactTableId(m)].filter((id) => !!id);
 }
@@ -1168,6 +1178,13 @@ export function getFactMetricColumnRefs(m: FactMetricInterface): ColumnRef[] {
       factTableId: step.factTableId,
       column: "",
       rowFilters: step.rowFilters,
+    }));
+  }
+  if (isFactCompoundMetric(m)) {
+    return m.compoundSettings.components.map((c) => ({
+      factTableId: c.factTableId,
+      column: "",
+      rowFilters: c.rowFilters,
     }));
   }
   return m.denominator ? [m.numerator, m.denominator] : [m.numerator];
@@ -1284,6 +1301,7 @@ export function quantileMetricType(
 
 const CLUSTER_EXPERIMENT_ALLOWED_METRIC_TYPES = [
   "proportion",
+  "compound",
   "retention",
   "mean",
   "ratio",
@@ -1380,6 +1398,16 @@ export function isFactFunnelMetric(
   m: ExperimentMetricDefinition,
 ): m is FunnelFactMetricInterface {
   return isFactMetric(m) && m.metricType === "funnel";
+}
+
+/**
+ * Compound fact metric: a unit passes when it matched every component, in any
+ * order. Statistically a proportion.
+ */
+export function isFactCompoundMetric(
+  m: ExperimentMetricDefinition,
+): m is CompoundFactMetricInterface {
+  return isFactMetric(m) && m.metricType === "compound";
 }
 
 export function isRegressionAdjusted(
@@ -2605,13 +2633,13 @@ export function getMetricAutoSliceColumns({
   });
 }
 
-// Same rule, for callers holding draft funnel settings rather than a saved
-// metric (the metric modal, create/update validation).
+// Same rule, for callers holding draft funnel steps or compound components
+// rather than a saved metric (the metric modal, create/update validation).
 export function getCompatibleFunnelAutoSliceColumns({
   steps,
   getFactTable,
 }: {
-  steps: FunnelStep[];
+  steps: Pick<FunnelStep, "factTableId">[];
   getFactTable: GetSliceFactTable;
 }): MetricAutoSliceColumn[] {
   return getAutoSliceColumnsForFactTables({
@@ -2755,7 +2783,7 @@ export function getAutoSliceMetrics({
   metric: FactMetricInterface;
   factTable: FactTableDefinition;
 }): FactMetricInterface[] {
-  if (isFactFunnelMetric(metric)) return [];
+  if (isFactFunnelMetric(metric) || isFactCompoundMetric(metric)) return [];
 
   return createAutoSliceDataForMetric({
     parentMetric: metric,

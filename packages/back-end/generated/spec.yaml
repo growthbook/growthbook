@@ -33022,6 +33022,7 @@ paths:
                     - ratio
                     - dailyParticipation
                     - funnel
+                    - compound
                 numerator:
                   anyOf:
                     - type: object
@@ -33419,6 +33420,85 @@ paths:
                       minimum: 0
                   required:
                     - steps
+                  additionalProperties: false
+                compoundSettings:
+                  description: >-
+                    Compound metric settings (required when metricType is
+                    "compound")
+                  type: object
+                  properties:
+                    components:
+                      description: >-
+                        A unit passes when it has at least one matching event
+                        for every component, in any order. Minimum 2 components
+                        required.
+                      minItems: 2
+                      maxItems: 20
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          factTableId:
+                            description: The fact table this component draws events from
+                            type: string
+                          rowFilters:
+                            description: >-
+                              Filters that decide whether an event row counts
+                              for this component
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                operator:
+                                  type: string
+                                  enum:
+                                    - '='
+                                    - '!='
+                                    - '>'
+                                    - <
+                                    - '>='
+                                    - <=
+                                    - between
+                                    - not_between
+                                    - in
+                                    - not_in
+                                    - is_null
+                                    - not_null
+                                    - is_true
+                                    - is_false
+                                    - contains
+                                    - not_contains
+                                    - matches_pattern
+                                    - not_matches_pattern
+                                    - starts_with
+                                    - ends_with
+                                    - sql_expr
+                                    - saved_filter
+                                values:
+                                  description: >-
+                                    Not required for is_null, not_null, is_true,
+                                    is_false operators. The between and
+                                    not_between operators take at most two
+                                    values, a lower and an upper bound in that
+                                    order; leave a bound as an empty string for
+                                    an open-ended range.
+                                  type: array
+                                  items:
+                                    type: string
+                                column:
+                                  description: >-
+                                    Required for all operators except sql_expr
+                                    and saved_filter.
+                                  type: string
+                              required:
+                                - operator
+                              additionalProperties: false
+                        required:
+                          - factTableId
+                          - rowFilters
+                        additionalProperties: false
+                  required:
+                    - components
                   additionalProperties: false
                 cappingSettings:
                   description: >-
@@ -33751,6 +33831,7 @@ paths:
                     - ratio
                     - dailyParticipation
                     - funnel
+                    - compound
                 numerator:
                   anyOf:
                     - type: object
@@ -34148,6 +34229,85 @@ paths:
                       minimum: 0
                   required:
                     - steps
+                  additionalProperties: false
+                compoundSettings:
+                  description: >-
+                    Compound metric settings (required when metricType is
+                    "compound")
+                  type: object
+                  properties:
+                    components:
+                      description: >-
+                        A unit passes when it has at least one matching event
+                        for every component, in any order. Minimum 2 components
+                        required.
+                      minItems: 2
+                      maxItems: 20
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          factTableId:
+                            description: The fact table this component draws events from
+                            type: string
+                          rowFilters:
+                            description: >-
+                              Filters that decide whether an event row counts
+                              for this component
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                operator:
+                                  type: string
+                                  enum:
+                                    - '='
+                                    - '!='
+                                    - '>'
+                                    - <
+                                    - '>='
+                                    - <=
+                                    - between
+                                    - not_between
+                                    - in
+                                    - not_in
+                                    - is_null
+                                    - not_null
+                                    - is_true
+                                    - is_false
+                                    - contains
+                                    - not_contains
+                                    - matches_pattern
+                                    - not_matches_pattern
+                                    - starts_with
+                                    - ends_with
+                                    - sql_expr
+                                    - saved_filter
+                                values:
+                                  description: >-
+                                    Not required for is_null, not_null, is_true,
+                                    is_false operators. The between and
+                                    not_between operators take at most two
+                                    values, a lower and an upper bound in that
+                                    order; leave a bound as an empty string for
+                                    an open-ended range.
+                                  type: array
+                                  items:
+                                    type: string
+                                column:
+                                  description: >-
+                                    Required for all operators except sql_expr
+                                    and saved_filter.
+                                  type: string
+                              required:
+                                - operator
+                              additionalProperties: false
+                        required:
+                          - factTableId
+                          - rowFilters
+                        additionalProperties: false
+                  required:
+                    - components
                   additionalProperties: false
                 cappingSettings:
                   description: >-
@@ -34798,6 +34958,7 @@ paths:
                               - ratio
                               - dailyParticipation
                               - funnel
+                              - compound
                           numerator:
                             anyOf:
                               - type: object
@@ -35213,6 +35374,87 @@ paths:
                                 minimum: 0
                             required:
                               - steps
+                            additionalProperties: false
+                          compoundSettings:
+                            description: >-
+                              Compound metric settings (required when metricType
+                              is "compound")
+                            type: object
+                            properties:
+                              components:
+                                description: >-
+                                  A unit passes when it has at least one
+                                  matching event for every component, in any
+                                  order. Minimum 2 components required.
+                                minItems: 2
+                                maxItems: 20
+                                type: array
+                                items:
+                                  type: object
+                                  properties:
+                                    factTableId:
+                                      description: >-
+                                        The fact table this component draws
+                                        events from
+                                      type: string
+                                    rowFilters:
+                                      description: >-
+                                        Filters that decide whether an event row
+                                        counts for this component
+                                      type: array
+                                      items:
+                                        type: object
+                                        properties:
+                                          operator:
+                                            type: string
+                                            enum:
+                                              - '='
+                                              - '!='
+                                              - '>'
+                                              - <
+                                              - '>='
+                                              - <=
+                                              - between
+                                              - not_between
+                                              - in
+                                              - not_in
+                                              - is_null
+                                              - not_null
+                                              - is_true
+                                              - is_false
+                                              - contains
+                                              - not_contains
+                                              - matches_pattern
+                                              - not_matches_pattern
+                                              - starts_with
+                                              - ends_with
+                                              - sql_expr
+                                              - saved_filter
+                                          values:
+                                            description: >-
+                                              Not required for is_null, not_null,
+                                              is_true, is_false operators. The between
+                                              and not_between operators take at most
+                                              two values, a lower and an upper bound
+                                              in that order; leave a bound as an empty
+                                              string for an open-ended range.
+                                            type: array
+                                            items:
+                                              type: string
+                                          column:
+                                            description: >-
+                                              Required for all operators except
+                                              sql_expr and saved_filter.
+                                            type: string
+                                        required:
+                                          - operator
+                                        additionalProperties: false
+                                  required:
+                                    - factTableId
+                                    - rowFilters
+                                  additionalProperties: false
+                            required:
+                              - components
                             additionalProperties: false
                           cappingSettings:
                             description: >-
@@ -78523,6 +78765,7 @@ components:
             - ratio
             - dailyParticipation
             - funnel
+            - compound
         numerator:
           type: object
           properties:
@@ -78871,6 +79114,81 @@ components:
               minimum: 0
           required:
             - steps
+          additionalProperties: false
+        compoundSettings:
+          description: Compound metric settings (required when metricType is "compound")
+          type: object
+          properties:
+            components:
+              description: >-
+                A unit passes when it has at least one matching event for every
+                component, in any order. Minimum 2 components required.
+              minItems: 2
+              maxItems: 20
+              type: array
+              items:
+                type: object
+                properties:
+                  factTableId:
+                    description: The fact table this component draws events from
+                    type: string
+                  rowFilters:
+                    description: >-
+                      Filters that decide whether an event row counts for this
+                      component
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        operator:
+                          type: string
+                          enum:
+                            - '='
+                            - '!='
+                            - '>'
+                            - <
+                            - '>='
+                            - <=
+                            - between
+                            - not_between
+                            - in
+                            - not_in
+                            - is_null
+                            - not_null
+                            - is_true
+                            - is_false
+                            - contains
+                            - not_contains
+                            - matches_pattern
+                            - not_matches_pattern
+                            - starts_with
+                            - ends_with
+                            - sql_expr
+                            - saved_filter
+                        values:
+                          description: >-
+                            Not required for is_null, not_null, is_true,
+                            is_false operators. The between and not_between
+                            operators take at most two values, a lower and an
+                            upper bound in that order; leave a bound as an empty
+                            string for an open-ended range.
+                          type: array
+                          items:
+                            type: string
+                        column:
+                          description: >-
+                            Required for all operators except sql_expr and
+                            saved_filter.
+                          type: string
+                      required:
+                        - operator
+                      additionalProperties: false
+                required:
+                  - factTableId
+                  - rowFilters
+                additionalProperties: false
+          required:
+            - components
           additionalProperties: false
         cappingSettings:
           description: Controls how outliers are handled

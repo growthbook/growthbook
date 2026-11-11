@@ -1,6 +1,10 @@
 import cloneDeep from "lodash/cloneDeep";
 import { isFunnelSupportedDatasourceType } from "shared/enterprise";
-import { getUserIdTypes, isFactFunnelMetric } from "shared/experiments";
+import {
+  getUserIdTypes,
+  isFactCompoundMetric,
+  isFactFunnelMetric,
+} from "shared/experiments";
 import { format } from "shared/sql";
 import type { DataSourceInterface } from "shared/types/datasource";
 import type {
@@ -42,6 +46,10 @@ import {
   funnelStepResolvedTsColumn,
   funnelStepTimestampColumn,
 } from "back-end/src/integrations/sql/fact-metrics/funnel-columns";
+import {
+  compoundComponentColumn,
+  compoundCovariateComponentColumn,
+} from "back-end/src/integrations/sql/fact-metrics/compound-columns";
 import { getFactMetricPercentileData } from "back-end/src/integrations/sql/columns/fact-metric-percentile-data";
 import { getFactMetricQuantileData } from "back-end/src/integrations/sql/columns/fact-metric-quantile-data";
 import { getFactTablesForMetrics } from "back-end/src/integrations/sql/fact-metrics/fact-tables-for-metrics";
@@ -329,6 +337,9 @@ export function getExperimentFactMetricsQuery(
   const regressionAdjustedTableIndices = new Set<number>();
   regressionAdjustedMetrics.forEach((m) => {
     regressionAdjustedTableIndices.add(m.numeratorSourceIndex);
+    m.compoundComponentSourceIndices.forEach((i) =>
+      regressionAdjustedTableIndices.add(i),
+    );
     if (m.ratioMetric && m.denominatorSourceIndex !== m.numeratorSourceIndex) {
       regressionAdjustedTableIndices.add(m.denominatorSourceIndex);
     }
@@ -345,6 +356,17 @@ export function getExperimentFactMetricsQuery(
         ? [{ metric: d.metric, alias: d.alias, stepIndices }]
         : [];
     });
+
+  // Funnel and compound metrics have no `_value` column of their own.
+  const hasValueColumn = (data: (typeof metricData)[number]) =>
+    !isFactFunnelMetric(data.metric) && !isFactCompoundMetric(data.metric);
+  const compoundComponentsForSource = (
+    data: (typeof metricData)[number],
+    sourceIndex: number,
+  ): number[] =>
+    data.compoundComponentSourceIndices.flatMap((componentSourceIndex, k) =>
+      componentSourceIndex === sourceIndex ? [k] : [],
+    );
 
   const kllMergeMetricsForSource = (sourceIndex: number) =>
     metricData.filter(
@@ -369,7 +391,7 @@ export function getExperimentFactMetricsQuery(
         });
       } else if (
         data.numeratorSourceIndex === sourceIndex &&
-        !isFactFunnelMetric(data.metric)
+        hasValueColumn(data)
       ) {
         columns.push({
           name: `${data.alias}_value`,
@@ -383,6 +405,11 @@ export function getExperimentFactMetricsQuery(
           }),
         });
       }
+
+      compoundComponentsForSource(data, sourceIndex).forEach((k) => {
+        const col = compoundComponentColumn(data.alias, k);
+        columns.push({ name: col, expr: `SUM(umj.${col})` });
+      });
 
       if (data.ratioMetric && data.denominatorSourceIndex === sourceIndex) {
         columns.push({
@@ -417,7 +444,14 @@ export function getExperimentFactMetricsQuery(
 
     if (regressionAdjustedTableIndices.has(sourceIndex)) {
       regressionAdjustedMetrics.forEach((metric) => {
-        if (metric.numeratorSourceIndex === sourceIndex) {
+        compoundComponentsForSource(metric, sourceIndex).forEach((k) => {
+          const col = compoundCovariateComponentColumn(metric.alias, k);
+          columns.push({ name: col, expr: `SUM(umj.${col})` });
+        });
+        if (
+          metric.numeratorSourceIndex === sourceIndex &&
+          hasValueColumn(metric)
+        ) {
           columns.push({
             name: `${metric.alias}_covariate_value`,
             expr: metric.covariateNumeratorAggFns.fullAggregationFunction(
@@ -810,8 +844,7 @@ export function getExperimentFactMetricsQuery(
             .map(
               (data) =>
                 `${
-                  data.numeratorSourceIndex === f.index &&
-                  !isFactFunnelMetric(data.metric)
+                  data.numeratorSourceIndex === f.index && hasValueColumn(data)
                     ? `, ${addCaseWhenTimeFilter(dialect, {
                         col: `m.${data.alias}_value`,
                         metric: data.metric,
@@ -888,6 +921,19 @@ export function getExperimentFactMetricsQuery(
                         .join("\n")
                     : ""
                 }
+                ${compoundComponentsForSource(data, f.index)
+                  .map((k) => {
+                    const col = compoundComponentColumn(data.alias, k);
+                    return `, ${addCaseWhenTimeFilter(dialect, {
+                      col: `m.${col}`,
+                      metric: data.metric,
+                      overrideConversionWindows: data.overrideConversionWindows,
+                      endDate: settings.endDate,
+                      metricTimestampColExpr: "m.timestamp",
+                      exposureTimestampColExpr: "d.timestamp",
+                    })} as ${col}`;
+                  })
+                  .join("\n")}
                 `,
             )
             .join("\n")}
@@ -899,8 +945,18 @@ export function getExperimentFactMetricsQuery(
               ? regressionAdjustedMetrics
                   .map(
                     (metric) =>
-                      `${
-                        metric.numeratorSourceIndex === f.index
+                      `${compoundComponentsForSource(metric, f.index)
+                        .map(
+                          (k) =>
+                            `, ${dialect.ifElse(
+                              `m.timestamp >= d.${metric.alias}_preexposure_start AND m.timestamp < d.${metric.alias}_preexposure_end`,
+                              `m.${compoundComponentColumn(metric.alias, k)}`,
+                              "NULL",
+                            )} AS ${compoundCovariateComponentColumn(metric.alias, k)}`,
+                        )
+                        .join("")}${
+                        metric.numeratorSourceIndex === f.index &&
+                        hasValueColumn(metric)
                           ? `, ${dialect.ifElse(
                               `m.timestamp >= d.${metric.alias}_preexposure_start AND m.timestamp < d.${metric.alias}_preexposure_end`,
                               `m.${metric.alias}_value`,
