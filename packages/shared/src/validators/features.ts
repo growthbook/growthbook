@@ -1,3 +1,4 @@
+import omit from "lodash/omit";
 import pickBy from "lodash/pickBy";
 import { z } from "zod";
 import {
@@ -315,6 +316,17 @@ export function stripUnknownRuleFields<T extends { type?: string }>(
   if (!schema) return rule;
   const allowed = new Set(Object.keys(schema.shape));
   return pickBy(rule, (value, key) => allowed.has(key)) as T;
+}
+
+// A force rule serves everyone, so `coverage` below 1 is a former rollout's leftover.
+export function dropStaleForceCoverage<T extends { type?: string }>(
+  rule: T,
+): T {
+  const { coverage } = rule as { coverage?: unknown };
+  if (rule.type !== "force" || typeof coverage !== "number" || coverage >= 1) {
+    return rule;
+  }
+  return omit(rule, "coverage") as T;
 }
 
 // Env-level settings only (kill switch + prerequisites). Rules live on

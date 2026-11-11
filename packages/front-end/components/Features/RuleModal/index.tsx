@@ -37,6 +37,7 @@ import {
   RampStepAction,
   SafeRolloutInterface,
   SafeRolloutRule,
+  dropStaleForceCoverage,
   stripUnknownRuleFields,
 } from "shared/validators";
 import {
@@ -670,6 +671,10 @@ export default function RuleModal({
         // Default to 1 here so a re-save never silently rebuckets existing traffic.
         hashVersion: (rule.hashVersion as 1 | 2 | undefined) ?? 1,
       };
+    }
+    if (rule.type === "force") {
+      // Otherwise a leftover sub-100% `coverage` reopens the rule as a rollout.
+      return dropStaleForceCoverage(rule);
     }
     return rule;
   };

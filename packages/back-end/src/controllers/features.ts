@@ -77,6 +77,7 @@ import {
   RevisionRampUpdateAction,
   SafeRolloutInterface,
   SafeRolloutRule,
+  dropStaleForceCoverage,
 } from "shared/validators";
 import { FeatureUsageLookback } from "shared/types/integrations";
 import {
@@ -4561,10 +4562,10 @@ export async function putFeatureRule(
 
   // Drop stale `environments`/`projects` when merge produces an all-* scope.
   const { rules: nextRules } = updateRuleById(existingRules, ruleId, (e) => {
-    let merged = {
+    let merged = dropStaleForceCoverage({
       ...e,
       ...(effectiveRule as Partial<FeatureRule>),
-    } as FeatureRule;
+    } as FeatureRule);
     if (merged.allEnvironments === true) {
       merged = {
         ...omit(merged, ["environments"]),
