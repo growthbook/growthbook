@@ -272,7 +272,6 @@ function getFunnelPassthroughColumns({
   dimensionCols,
   includeVariationAndDimensions,
   metricData,
-  metricColumnFilter,
   covariatePairs,
   sourceIndex,
 }: {
@@ -280,12 +279,8 @@ function getFunnelPassthroughColumns({
   dimensionCols: { alias: string }[];
   includeVariationAndDimensions: boolean;
   metricData: FactMetricData[];
-  /** Limit compound component columns to this source; all sources if unset. */
-  sourceIndex?: number;
-  metricColumnFilter?: (data: FactMetricData) => {
-    numerator: boolean;
-    denominator: boolean;
-  };
+  /** Only the metric columns hosted by this source; `null` for every source. */
+  sourceIndex: number | null;
   covariatePairs?: {
     data: FactMetricData;
     includeNumerator: boolean;
@@ -297,17 +292,16 @@ function getFunnelPassthroughColumns({
     cols.push("variation", ...dimensionCols.map((d) => d.alias));
   }
   cols.push("first_exposure_timestamp");
+  const inSource = (index: number) =>
+    sourceIndex === null || index === sourceIndex;
   for (const data of metricData) {
     if (isFactFunnelMetric(data.metric)) continue;
     if (isFactCompoundMetric(data.metric)) {
-      const components =
-        sourceIndex === undefined
-          ? data.compoundComponentSourceIndices.map((_, k) => k)
-          : compoundComponentsForSource(data, sourceIndex);
       const hasCovariate = covariatePairs
         ? covariatePairs.some((p) => p.data === data)
         : data.regressionAdjusted;
-      components.forEach((k) => {
+      data.compoundComponentSourceIndices.forEach((componentSource, k) => {
+        if (!inSource(componentSource)) return;
         cols.push(compoundComponentColumn(data.alias, k));
         if (hasCovariate) {
           cols.push(compoundCovariateComponentColumn(data.alias, k));
@@ -315,14 +309,13 @@ function getFunnelPassthroughColumns({
       });
       continue;
     }
-    const filter = metricColumnFilter?.(data);
-    const hasNumerator = filter ? filter.numerator : true;
-    const hasDenominator = filter ? filter.denominator : data.ratioMetric;
-    if (hasNumerator) {
+    if (inSource(data.numeratorSourceIndex)) {
       cols.push(`${data.alias}_value`);
       if (data.quantileMetric === "event") cols.push(`${data.alias}_n_events`);
     }
-    if (hasDenominator) cols.push(`${data.alias}_denominator`);
+    if (data.ratioMetric && inSource(data.denominatorSourceIndex)) {
+      cols.push(`${data.alias}_denominator`);
+    }
   }
   if (covariatePairs) {
     for (const {
@@ -3649,12 +3642,6 @@ export default abstract class SqlIntegration
             dimensionCols: allDimensionCols,
             includeVariationAndDimensions: isSource0,
             metricData,
-            metricColumnFilter: (data) => ({
-              numerator: data.numeratorSourceIndex === i,
-              denominator: !!(
-                data.ratioMetric && data.denominatorSourceIndex === i
-              ),
-            }),
             covariatePairs: localCovariatePairs.map((p) => ({
               data: p.data,
               includeNumerator: p.numeratorHere,
@@ -3758,6 +3745,7 @@ export default abstract class SqlIntegration
           dimensionCols: allDimensionCols,
           includeVariationAndDimensions: true,
           metricData,
+          sourceIndex: null,
         });
 
         const resolutionCtes = getFunnelResolutionCTEs(this.getSqlDialect(), {

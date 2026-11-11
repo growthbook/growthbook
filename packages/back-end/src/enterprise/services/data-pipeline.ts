@@ -44,7 +44,10 @@ import {
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { ExperimentIncrementalPipelineRequiresFullRefreshError } from "back-end/src/util/errors";
 import { SourceIntegrationInterface } from "back-end/src/types/Integration";
-import { getFiltersForHash } from "back-end/src/services/experimentTimeSeries";
+import {
+  getCompoundComponentFactTablesForHash,
+  getFiltersForHash,
+} from "back-end/src/services/experimentTimeSeries";
 import { getColumnsForMetric } from "back-end/src/integrations/sql/fact-metrics/columns-for-metric";
 import { getQueryableMetricsFromSnapshotSettings } from "back-end/src/services/experimentQueries/experimentQueries";
 import type { MetricFanOut } from "back-end/src/services/experimentQueries/planMetricFanOut";
@@ -323,22 +326,13 @@ export function getMetricSettingsHashForIncrementalRefresh({
         )
       : {};
 
-  // A compound metric has no numerator, so `numeratorFactTable` below only
-  // sees the first component's table SQL and no saved filters. Each
-  // component's cache column is computed from its own table and filters, so
-  // hash every one of them. Only present for compound metrics, so other
+  // Each component's cache column is computed from its own table and filters,
+  // so hash every one of them. Only present for compound metrics, so other
   // hashes are unchanged.
-  const compoundComponentFactTables = isFactCompoundMetric(factMetric)
-    ? factMetric.compoundSettings.components.map((component) => {
-        const factTable = factTableMap?.get(component.factTableId);
-        return {
-          factTableId: component.factTableId,
-          sql: factTable?.sql,
-          eventName: factTable?.eventName,
-          filters: getFiltersForHash(factTable, component),
-        };
-      })
-    : undefined;
+  const compoundComponentFactTables = getCompoundComponentFactTablesForHash(
+    factMetric,
+    factTableMap,
+  );
 
   return hashObject({
     ...hashedComputedSettings,

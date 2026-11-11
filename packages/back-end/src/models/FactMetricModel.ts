@@ -532,7 +532,7 @@ export class FactMetricModel extends BaseClass<WriteOptions> {
       data.metricType !== "compound" &&
       !data.numerator
     ) {
-      throw new Error("Numerator required for non-funnel metrics");
+      throw new Error("Numerator required for this metric type");
     }
 
     if (isFactFunnelMetric(data)) {

@@ -817,7 +817,7 @@ function refineEventListSettings(
   } else if (isCreate && !body.numerator) {
     ctx.addIssue({
       code: "custom",
-      message: "numerator is required for non-funnel metrics",
+      message: `numerator is required for ${body.metricType} metrics`,
       path: ["numerator"],
     });
   }

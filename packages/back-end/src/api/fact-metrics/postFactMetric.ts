@@ -101,7 +101,7 @@ export async function getCreateMetricPropsFromBody(
         })
       : null;
   if (!eventListMetric && !cleanedNumerator) {
-    throw new Error("Numerator required for non-funnel metrics");
+    throw new Error(`Numerator required for ${body.metricType} metrics`);
   }
 
   const data: CreateFactMetricProps = {

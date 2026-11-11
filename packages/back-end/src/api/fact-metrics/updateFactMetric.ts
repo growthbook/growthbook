@@ -98,7 +98,7 @@ export async function getUpdateFactMetricPropsFromBody(
     }
   } else {
     if (numerator === null) {
-      throw new Error("Numerator required for non-funnel metrics");
+      throw new Error(`Numerator required for ${metricType} metrics`);
     }
     if (funnelSettings) {
       throw new Error("Funnel settings are only allowed for funnel metrics");
