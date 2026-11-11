@@ -3,7 +3,10 @@ import {
   ExperimentSnapshotInterface,
   ExperimentSnapshotTraffic,
 } from "shared/types/experiment-snapshot";
-import { ExperimentHealthSettings } from "shared/types/experiment";
+import {
+  ExperimentHealthSettings,
+  ExperimentInterface,
+} from "shared/types/experiment";
 import { toApiResultHealth } from "back-end/src/api/experiments/resultHealth";
 import { toApiExperimentDecision } from "back-end/src/api/experiments/experimentDecision";
 
@@ -40,7 +43,14 @@ function makeSnapshot(
   } as ExperimentSnapshotInterface;
 }
 
-const experiment = { type: "standard" as const };
+// Snapshots identify variations by key, the API by ID.
+const experiment = {
+  type: "standard" as const,
+  variations: [
+    { id: "var_a", key: "0" },
+    { id: "var_b", key: "1" },
+  ] as ExperimentInterface["variations"],
+};
 
 describe("toApiResultHealth", () => {
   it("judges SRM and multiple exposures against the org thresholds", () => {
@@ -199,7 +209,12 @@ describe("toApiResultHealth", () => {
 
     expect(health.cluster?.reliability).toMatchObject({
       status: "unhealthy",
-      tooFewClusters: { variationId: "1", clusters: 19 },
+      tooFewClusters: {
+        variationIndex: 1,
+        variationKey: "1",
+        variationId: "var_b",
+        clusters: 19,
+      },
       oversizedCluster: { id: "acme", percent: 0.3 },
     });
   });

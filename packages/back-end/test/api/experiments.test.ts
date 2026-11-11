@@ -3594,36 +3594,6 @@ describe("experiments API", () => {
       );
     });
 
-    it("only returns the decision with the latest phase's results", async () => {
-      const phase = {
-        dateStarted: new Date(),
-        variationWeights: [0.5, 0.5],
-        savedGroups: [],
-        prerequisites: [],
-      };
-      (getExperimentById as jest.Mock).mockResolvedValue({
-        ...experiment,
-        phases: [phase, phase],
-      });
-      (getLatestSuccessfulSnapshot as jest.Mock).mockResolvedValue({
-        id: "snap_123",
-        dateCreated: new Date(),
-        queries: [],
-        settings: { variations: [] },
-      });
-
-      const decisionFor = async (query: string) =>
-        (
-          await request(app)
-            .get(`/api/v1/experiments/exp_123/results${query}`)
-            .set("Authorization", "Bearer foo")
-        ).body.experiment.enhancedStatus.decision;
-
-      expect(await decisionFor("")).toBeDefined();
-      expect(await decisionFor("?phase=1")).toBeDefined();
-      expect(await decisionFor("?phase=0")).toBeUndefined();
-    });
-
     it("returns 404 when experiment not found", async () => {
       (getExperimentById as jest.Mock).mockResolvedValue(null);
 

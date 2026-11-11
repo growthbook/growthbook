@@ -1389,10 +1389,15 @@ const apiExperimentResultHealthValidator = z
                 "Share of sub-units, as a fraction from 0 to 1, that no single cluster should reach.",
               ),
             tooFewClusters: z
-              .object({ variationId: z.string(), clusters: z.number() })
+              .object({
+                variationIndex: z.number(),
+                variationKey: z.string(),
+                variationId: z.string().optional(),
+                clusters: z.number(),
+              })
               .nullable()
               .describe(
-                "The variation with the fewest clusters, when it has fewer than `minClustersPerVariation`.",
+                "The variation with the fewest clusters, when it has fewer than `minClustersPerVariation`. `variationIndex` and `variationKey` come from the snapshot; `variationId` is the current variation with that key, omitted when none matches.",
               ),
             oversizedCluster: z
               .object({

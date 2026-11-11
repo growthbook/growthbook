@@ -29,7 +29,7 @@ export function toApiResultHealth({
   snapshot,
   healthSettings,
 }: {
-  experiment: Pick<ExperimentInterface, "type">;
+  experiment: Pick<ExperimentInterface, "type" | "variations">;
   snapshot: ExperimentSnapshotInterface;
   healthSettings: ExperimentHealthSettings;
 }): ApiExperimentResultHealth {
@@ -113,15 +113,23 @@ export function toApiResultHealth({
           }
         : null,
     ...(isCluster
-      ? { cluster: getApiClusterHealth({ snapshot, healthSettings }) }
+      ? {
+          cluster: getApiClusterHealth({
+            experiment,
+            snapshot,
+            healthSettings,
+          }),
+        }
       : {}),
   };
 }
 
 function getApiClusterHealth({
+  experiment,
   snapshot,
   healthSettings,
 }: {
+  experiment: Pick<ExperimentInterface, "variations">;
   snapshot: ExperimentSnapshotInterface;
   healthSettings: ExperimentHealthSettings;
 }): NonNullable<ApiExperimentResultHealth["cluster"]> {
@@ -172,6 +180,20 @@ function getApiClusterHealth({
     maxClusterShare: DEFAULT_MAX_CLUSTER_SHARE,
   });
   const { tooFewClusters, oversizedCluster } = clusterReliability;
+  // Snapshots store the variation key; older ones stored the ID in its place.
+  const toApiVariation = (variationIndex: number) => {
+    const variationKey =
+      snapshot.settings.variations[variationIndex]?.id ?? `${variationIndex}`;
+    const variationId = (
+      experiment.variations.find((v) => v.key === variationKey) ??
+      experiment.variations.find((v) => v.id === variationKey)
+    )?.id;
+    return {
+      variationIndex,
+      variationKey,
+      ...(variationId ? { variationId } : {}),
+    };
+  };
   const reliability =
     clusterReliability.status === "not-enough-traffic"
       ? null
@@ -181,9 +203,7 @@ function getApiClusterHealth({
           maxClusterShare: DEFAULT_MAX_CLUSTER_SHARE,
           tooFewClusters: tooFewClusters
             ? {
-                variationId:
-                  snapshot.settings.variations[tooFewClusters.variationIndex]
-                    ?.id ?? tooFewClusters.variationIndex + "",
+                ...toApiVariation(tooFewClusters.variationIndex),
                 clusters: tooFewClusters.count,
               }
             : null,

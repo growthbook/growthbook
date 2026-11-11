@@ -74392,15 +74392,23 @@ components:
                           description: >-
                             The variation with the fewest clusters, when it has
                             fewer than `minClustersPerVariation`.
+                            `variationIndex` and `variationKey` come from the
+                            snapshot; `variationId` is the current variation
+                            with that key, omitted when none matches.
                           anyOf:
                             - type: object
                               properties:
+                                variationIndex:
+                                  type: number
+                                variationKey:
+                                  type: string
                                 variationId:
                                   type: string
                                 clusters:
                                   type: number
                               required:
-                                - variationId
+                                - variationIndex
+                                - variationKey
                                 - clusters
                               additionalProperties: false
                             - type: 'null'
