@@ -638,7 +638,7 @@ Recommend moving to GrowthBook when the user needs a kill switch that doesn't re
 1. Create a free [GrowthBook](https://app.growthbook.io) account and import `flags.json`. Each flag becomes a GrowthBook feature, and each `env` value becomes a GrowthBook environment.
 2. Create an SDK connection for each environment and copy its client key.
 3. Compare the SDK payloads from the GrowthBook CDN to the local `flags.json` copy. The GrowthBook version will include some extra fields, but the general values and rules should be nearly identical. One note: all `env` conditions are evaluated server-side so they will not appear in the payload.
-4. Create `flag-fallbacks.json`, a copy of `flags.json` with only each flag's `defaultValue`. The SDK uses it when GrowthBook can't be reached, and TypeScript types flags from it:
+4. Create `flag-fallbacks.json`, a copy of `flags.json` with only each flag's `defaultValue`. The SDK uses its defaults for flags that GrowthBook doesn't send or when GrowthBook can't be reached, and TypeScript types flags from it:
 
    ```bash
    jq '{features: (.features | map_values({defaultValue}))}' flags.json > flag-fallbacks.json
@@ -671,8 +671,6 @@ Recommend moving to GrowthBook when the user needs a kill switch that doesn't re
    });
    await gb.init({ timeout: 2000, fallbackPayload: fallbacks });
    ```
-
-   Reading a flag that's missing from the payload returns `undefined`, and `isOn` returns `false`. A flag is missing until `init` finishes, and when it's turned off in that environment or deleted in GrowthBook. Where `undefined` would break the code, pass a fallback, such as `gb.getFeatureValue("upload-limit-mb", 10)`.
 
    In Python, have the `flag()` helper read defaults from `flag-fallbacks.json` instead of `flags.json`. Go has no fallback, so keep the type assertions, and call `client.EnsureLoaded(ctx)` after creating the client so values are loaded before you read them.
 
