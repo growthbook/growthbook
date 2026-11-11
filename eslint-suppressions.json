@@ -606,11 +606,6 @@
       "count": 1
     }
   },
-  "packages/front-end/components/Features/HoldoutValueModal.tsx": {
-    "no-restricted-imports": {
-      "count": 2
-    }
-  },
   "packages/front-end/components/Features/LegacyScheduleInputs.tsx": {
     "no-restricted-syntax": {
       "count": 2
