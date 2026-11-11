@@ -6373,6 +6373,7 @@ export async function getExperimentAnalysisSummary({
 }): Promise<ExperimentAnalysisSummary> {
   const analysisSummary: ExperimentAnalysisSummary = {
     snapshotId: experimentSnapshot.id,
+    phase: experimentSnapshot.phase,
     precomputedDimensions: experimentSnapshot.settings.dimensions.map(
       (d) => d.id,
     ),

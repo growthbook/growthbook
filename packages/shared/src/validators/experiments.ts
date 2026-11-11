@@ -436,6 +436,9 @@ export type ExperimentAnalysisSummaryResultsStatus = z.infer<
 export const experimentAnalysisSummary = z
   .object({
     snapshotId: z.string(),
+    // Phase index of the snapshot. Missing on summaries written before it was
+    // recorded; -1 once that phase has been deleted.
+    phase: z.number().optional(),
     health: experimentAnalysisSummaryHealth.optional(),
     resultsStatus: experimentAnalysisSummaryResultsStatus.optional(),
     precomputedDimensions: z.array(z.string()).optional(),
