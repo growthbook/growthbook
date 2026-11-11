@@ -472,6 +472,15 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
     const useDummyData = router.query["dummy"] === "true";
 
     const canEdit = permissionsUtil.canEditFeatureDrafts(feature);
+    // RuleModal has no `contextual-bandit-ref` form, and a second rule for one
+    // bandit is rejected on update: its values are edited from its own page.
+    const canEditRule =
+      canEdit &&
+      !locked &&
+      !rampControlsLocked &&
+      rule.type !== "contextual-bandit-ref";
+    const editRule = () =>
+      setRuleModal({ environment, i, ruleId: rule.id, mode: "edit" });
 
     const canPublishFeatureEnvs = useMemo(
       () =>
@@ -976,6 +985,14 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
               </Box>
 
               <Flex align="center" gap="3" flexShrink="0">
+                {info.pill}
+                {/* After the rule's state, ahead of the ramp's CTAs, which
+                    stay by the menu. */}
+                {redesign && canEditRule ? (
+                  <Button variant="ghost" size="sm" onClick={editRule}>
+                    Edit
+                  </Button>
+                ) : null}
                 {rampSchedule &&
                   safeRollout &&
                   canControlRamp &&
@@ -1032,8 +1049,6 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                   )}
                 {ruleCtas}
 
-                {info.pill}
-
                 {canEdit && lockedBySchedule && !rampSchedule ? (
                   <LockedRowMenu
                     className={clsx(
@@ -1065,18 +1080,11 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                     >
                       {canEdit && !locked && (
                         <DropdownMenuGroup>
-                          {/* RuleModal has no `contextual-bandit-ref` form, and a
-                            second rule for one bandit is rejected on update.
-                            Edit the values from the Contextual Bandit page. */}
-                          {rule.type !== "contextual-bandit-ref" && (
+                          {/* The redesign has it on the card itself. */}
+                          {canEditRule && !redesign && (
                             <DropdownMenuItem
                               onClick={() => {
-                                setRuleModal({
-                                  environment,
-                                  i,
-                                  ruleId: rule.id,
-                                  mode: "edit",
-                                });
+                                editRule();
                                 setDropdownOpen(false);
                               }}
                             >
