@@ -229,18 +229,21 @@ export default function FeaturesOverviewNew({
   // null = "All Environments".
   const [rulesEnv, setRulesEnv] = useFeatureRulesEnv();
   // A rule to bring into view once the rules show its tab and it stays put
-  // there: the list redraws a few frames after its tab does.
+  // there: the list redraws a few frames after its tab does. Far down the
+  // list, it's a placeholder until it nears the viewport.
   const [scrollToRule, setScrollToRule] = useState<{
     ruleId: string;
     tab: string | null;
   } | null>(null);
   useEffect(() => {
     if (scrollToRule === null || rulesEnv !== scrollToRule.tab) return;
-    let frames = 0;
+    // Gives up after this long, wherever the rule is.
+    const deadline = performance.now() + 2000;
     let request = 0;
     let lastTop: number | null = null;
     let steadyFrames = 0;
     const scroll = () => {
+      const late = performance.now() > deadline;
       const rule = document.getElementById(ruleElementId(scrollToRule.ruleId));
       const ruleTop = rule
         ? rule.getBoundingClientRect().top + window.scrollY
@@ -248,7 +251,12 @@ export default function FeaturesOverviewNew({
       steadyFrames =
         ruleTop !== null && ruleTop === lastTop ? steadyFrames + 1 : 0;
       lastTop = ruleTop;
-      if (steadyFrames >= 5 || ++frames > 60) {
+      const placeholder = rule?.dataset.placeholder !== undefined;
+      if (steadyFrames >= 5 && placeholder && !late) {
+        // Near enough to render its card, which then takes its place.
+        rule?.scrollIntoView({ block: "center" });
+        steadyFrames = 0;
+      } else if (steadyFrames >= 5 || late) {
         if (rule) {
           // Centered, unless it's too tall to see its top that way, under the
           // page's sticky headers; then its top sits a third of the way down.
