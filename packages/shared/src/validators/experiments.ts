@@ -1151,7 +1151,7 @@ const apiExperimentDecisionValidator = z
         "data-incomplete",
       ])
       .describe(
-        "`ship-now`, `rollback-now` and `ready-for-review` are recommendations from the Experiment Decision Framework and need it enabled. `unhealthy` means a health check is failing (see `unhealthyChecks`). `data-incomplete` means some metrics could not be computed (see `erroredMetricIds`). `days-left` and `before-min-duration` mean the experiment should keep running. `scheduled-end-review` means the scheduled end date passed without a recommendation.",
+        "`ship-now`, `rollback-now` and `ready-for-review` are recommendations from the Experiment Decision Framework and are only rendered if the Decision Framework is enabled for your organization. `unhealthy` means a health check is failing (see `unhealthyChecks`). `data-incomplete` means some metrics could not be computed (see `erroredMetricIds`). `days-left` and `before-min-duration` mean the experiment should keep running. `scheduled-end-review` means the scheduled end date passed without a recommendation.",
       ),
     reason: z
       .string()
@@ -1215,7 +1215,7 @@ const apiExperimentDecisionValidator = z
       ),
   })
   .describe(
-    "The decision behind `detailedStatus` for a running experiment, based on the latest successful standard snapshot of the current phase. Omitted when there is nothing to report yet.",
+    "The decision behind `detailedStatus` for a running experiment, based on the latest successful standard snapshot of the latest phase. Omitted when there is nothing to report yet.",
   );
 
 export type ApiExperimentDecision = z.infer<
@@ -1270,7 +1270,7 @@ const apiExperimentResultHealthValidator = z
         threshold: z
           .number()
           .describe(
-            "The organization's SRM threshold. The check is `unhealthy` when `pValue` is below it.",
+            "The organization's SRM p-value threshold. The check is `unhealthy` when `pValue` is below it.",
           ),
         totalUnits: z
           .number()
@@ -1306,7 +1306,7 @@ const apiExperimentResultHealthValidator = z
         threshold: z
           .number()
           .describe(
-            "The organization's threshold, as a fraction from 0 to 1. The check is `unhealthy` when `percent` reaches it.",
+            "The organization's threshold, as a fraction from 0 to 1. The check is `unhealthy` when `percent` reaches or exceeds it.",
           ),
       })
       .nullable()
