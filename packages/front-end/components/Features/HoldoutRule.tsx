@@ -7,6 +7,7 @@ import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
 import { PiArrowBendRightDown } from "react-icons/pi";
 import {
+  coverageToHoldoutSize,
   filterEnvironmentsByFeature,
   getEnabledHoldoutEnvironments,
 } from "shared/util";
@@ -14,13 +15,14 @@ import { hasTargetingConfigured } from "shared/experiments";
 import Link from "@/ui/Link";
 import { LockedRowMenu } from "@/components/Features/ScheduleLock";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import { useExperimentStatusIndicator } from "@/hooks/useExperimentStatusIndicator";
+import Text from "@/ui/Text";
 import { useEnvironments } from "@/services/features";
 import Badge from "@/ui/Badge";
 import RuleEnvScopeBadges from "@/components/Features/RuleEnvScopeBadges";
 import RuleCard, { RuleCardSideColor } from "@/components/Features/RuleCard";
 import useApi from "@/hooks/useApi";
 import Callout from "@/ui/Callout";
-import ExperimentStatusIndicator from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
 import TruncatedConditionDisplay from "@/components/SavedGroups/TruncatedConditionDisplay";
 import {
   DropdownMenu,
@@ -33,6 +35,7 @@ import RemoveFromHoldoutModal from "./RemoveFromHoldoutModal";
 import AddToHoldoutModal from "./AddToHoldoutModal";
 import HoldoutSummary from "./HoldoutSummary";
 import RuleField from "./RuleField";
+import { useFeaturePageRedesign } from "./FeaturePageRedesign";
 import cornerStyles from "./CornerActions.module.scss";
 import ruleCardStyles from "./RuleCard.module.scss";
 
@@ -88,6 +91,8 @@ export const HoldoutRule = forwardRef<HTMLDivElement, Props>(
     const allEnvironments = useEnvironments();
     const environments = filterEnvironmentsByFeature(allEnvironments, feature);
 
+    const getStatusIndicator = useExperimentStatusIndicator();
+    const redesign = useFeaturePageRedesign();
     const holdout = data?.holdout;
     const holdoutExperiment = data?.experiment;
 
@@ -99,7 +104,10 @@ export const HoldoutRule = forwardRef<HTMLDivElement, Props>(
       holdout.environmentSettings,
     );
 
-    const hasCondition = hasTargetingConfigured(holdoutExperiment.phases[0]);
+    // The phase the payload sends.
+    const phase = holdoutExperiment.phases[0];
+    const hasCondition = hasTargetingConfigured(phase);
+    const status = getStatusIndicator(holdoutExperiment);
 
     const canEdit = permissionsUtil.canEditFeatureDrafts(feature);
 
@@ -141,9 +149,13 @@ export const HoldoutRule = forwardRef<HTMLDivElement, Props>(
                     </Link>
                   </>
                 </Heading>
+                {/* Its status alone, as the experiment page shows a holdout's. */}
                 {!isDeleted && (
-                  <ExperimentStatusIndicator
-                    experimentData={holdoutExperiment}
+                  <Badge
+                    label={status.status}
+                    color={status.color}
+                    variant="soft"
+                    radius="full"
                   />
                 )}
               </Flex>
@@ -254,34 +266,25 @@ export const HoldoutRule = forwardRef<HTMLDivElement, Props>(
           </Box>
           {!isInactive && !isDeleted && (
             <Box style={{ opacity: isInactive ? 0.6 : 1 }} mt="3">
-              {hasCondition && (
-                <Flex align="center" justify="start" gap="3">
-                  <Box pb="3">
-                    <strong className="font-weight-semibold">IF</strong>
-                  </Box>
-                  <Box
-                    width="100%"
-                    flexShrink="4"
-                    flexGrow="1"
-                    overflowX="auto"
-                    pb="3"
-                  >
-                    <TruncatedConditionDisplay
-                      condition={holdoutExperiment.phases[0].condition || ""}
-                      savedGroups={holdoutExperiment.phases[0].savedGroups}
-                      prerequisites={holdoutExperiment.phases[0].prerequisites}
-                    />
-                  </Box>
-                </Flex>
-              )}
+              <RuleField label="Targeting">
+                {hasCondition ? (
+                  <TruncatedConditionDisplay
+                    condition={phase.condition || ""}
+                    savedGroups={phase.savedGroups}
+                    prerequisites={phase.prerequisites}
+                    prefix={
+                      redesign ? <Text weight="medium">IF</Text> : undefined
+                    }
+                  />
+                ) : (
+                  "All traffic"
+                )}
+              </RuleField>
               <HoldoutSummary
                 feature={feature}
                 value={feature.holdout?.value || ""}
                 hashAttribute={holdoutExperiment.hashAttribute || ""}
-                holdoutWeight={
-                  holdoutExperiment.phases[0].coverage *
-                  holdoutExperiment.phases[0].variationWeights[0]
-                }
+                holdoutSize={coverageToHoldoutSize(phase.coverage)}
               />
             </Box>
           )}

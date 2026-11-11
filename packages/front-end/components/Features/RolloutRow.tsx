@@ -9,13 +9,15 @@ import styles from "./RolloutRow.module.scss";
 // detail follows "of units".
 export default function RolloutRow({
   coverage,
+  label = "Rollout",
   children,
 }: {
   coverage: number;
+  label?: string;
   children?: ReactNode;
 }) {
   return (
-    <RuleField label="Rollout">
+    <RuleField label={label}>
       <Flex gap="3" align="center">
         <Box flexGrow="1" className={styles.track}>
           <Box

@@ -1,39 +1,29 @@
 import { FeatureInterface } from "shared/types/feature";
-import { Box, Flex, Text } from "@radix-ui/themes";
+import { Box } from "@radix-ui/themes";
 import ValidateValue from "@/components/Features/ValidateValue";
-import Badge from "@/ui/Badge";
-import { coveragePercentFormatter } from "@/services/utils";
 import { AttributeBadge } from "./AttributeBadge";
 import ValueDisplay from "./ValueDisplay";
+import RolloutRow from "./RolloutRow";
 import RuleField from "./RuleField";
 
+// A holdout's split, laid out as a rollout's is.
 export default function HoldoutSummary({
   value,
   feature,
   hashAttribute,
-  holdoutWeight,
+  holdoutSize,
 }: {
   value: string;
   feature: FeatureInterface;
   hashAttribute: string;
-  holdoutWeight: number;
+  holdoutSize: number;
 }) {
   return (
     <Box>
-      <RuleField label="Holdout">
-        <Flex align="center" gap="2" wrap="wrap">
-          <Badge
-            color="gray"
-            label={
-              <Text style={{ color: "var(--slate-12)" }}>
-                {coveragePercentFormatter.format(holdoutWeight)}
-              </Text>
-            }
-          />
-          of
-          <AttributeBadge attributeId={hashAttribute} />
-        </Flex>
+      <RuleField label="Sample by">
+        <AttributeBadge attributeId={hashAttribute} />
       </RuleField>
+      <RolloutRow coverage={holdoutSize} label="Holdout" />
       <RuleField label="Serve" mb="0">
         <ValueDisplay
           value={value}
