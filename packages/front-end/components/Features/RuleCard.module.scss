@@ -15,11 +15,10 @@ $body-inset: 28px;
 .card.card {
   // The row inside sets it, so the header sits snug.
   padding: 0;
-  // The soft layer of the page tab bar's pinned shadow, with a tight one
-  // under it so the card reads as lifted.
+  // A soft layer, with a tight one under it so the card reads as lifted.
   box-shadow:
-    0 4px 4px var(--lift-shadow-far),
-    0 1px 2px var(--lift-shadow-far);
+    0 4px 4px var(--card-shadow),
+    0 1px 2px var(--card-shadow);
 }
 
 .sideBar {

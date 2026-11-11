@@ -123,6 +123,8 @@
   // A bar or card lifted off what's under it: a tight shadow, then a soft one.
   --lift-shadow-near: rgba(0, 0, 0, 0.1);
   --lift-shadow-far: rgba(0, 0, 0, 0.025);
+  // A card resting on the page, a touch firmer than a pinned bar's soft layer.
+  --card-shadow: rgba(0, 0, 0, 0.04);
   // Over a scroll area's edge with more past it.
   --edge-shadow: var(--gray-a2);
   --edge-shadow-deep: var(--gray-a4);
@@ -262,6 +264,7 @@
   // alphas lighten here, which reads as a glow rather than a shadow.
   --lift-shadow-near: rgba(0, 0, 0, 0.2);
   --lift-shadow-far: rgba(0, 0, 0, 0.25);
+  --card-shadow: var(--lift-shadow-far);
   --edge-shadow: var(--black-a5);
   --edge-shadow-deep: var(--black-a7);
 
