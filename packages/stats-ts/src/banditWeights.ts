@@ -193,6 +193,21 @@ type SubsetThompsonResult = {
 };
 
 /**
+ * Degrees-of-freedom-weighted pooled variance across arms.
+ */
+function weightedVariance(stats: BanditArmStatistic[]): number {
+  let numerator = 0;
+  let denominator = 0;
+  for (const s of stats) {
+    const df = s.n - 1;
+    if (df <= 0) continue;
+    numerator += df * s.variance;
+    denominator += df;
+  }
+  return denominator > 0 ? numerator / denominator : 0;
+}
+
+/**
  * Compute Thompson weights for the subset of arms identified by `indices`.
  */
 function thompsonWeightsForSubset(
@@ -203,8 +218,10 @@ function thompsonWeightsForSubset(
 ): SubsetThompsonResult {
   const subset = indices.map((i) => stats[i]);
 
+  const varianceFloor = Math.max(weightedVariance(subset), BANDIT_MIN_VARIANCE);
+
   const dataPrecision = subset.map(
-    (s) => s.n / Math.max(s.variance, BANDIT_MIN_VARIANCE),
+    (s) => s.n / Math.max(s.variance, varianceFloor),
   );
 
   let posteriorMean: number[];
@@ -214,7 +231,7 @@ function thompsonWeightsForSubset(
     const n0 = priorSampleSize;
     const shrinkage = subset.map((s) => n0 / (s.n + n0));
     const poolPrecision = subset.map(
-      (s) => n0 / Math.max(s.variance, BANDIT_MIN_VARIANCE),
+      (s) => n0 / Math.max(s.variance, varianceFloor),
     );
 
     let muNumerator = BANDIT_PRIOR_PRECISION * BANDIT_PRIOR_MEAN;
