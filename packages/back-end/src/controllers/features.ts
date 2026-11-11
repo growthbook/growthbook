@@ -172,6 +172,7 @@ import {
   getDraftRevision,
   assertCanAutoPublish,
   assertFeatureValuesValid,
+  assertHoldoutValueValid,
   revisionRequiresReview,
   assertCanUndoFeatureReview,
 } from "back-end/src/services/features";
@@ -5425,14 +5426,7 @@ export async function putFeature(
       metadataUpdates.project ?? feature.project,
     );
   }
-  if (holdoutUpdate) {
-    assertFeatureValuesValid(
-      context,
-      feature,
-      { holdout: holdoutUpdate },
-      { holdout: feature.holdout },
-    );
-  }
+  assertHoldoutValueValid(context, feature, holdoutUpdate);
 
   if (Object.keys(metadataUpdates).length > 0 || holdoutUpdate !== undefined) {
     const envelopeChanges: Parameters<

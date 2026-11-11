@@ -11,8 +11,7 @@ import cornerStyles from "./CornerActions.module.scss";
 import styles from "./RuleCard.module.scss";
 import { useFeaturePageRedesign } from "./FeaturePageRedesign";
 
-// A header row (title or actions) that keeps its place when the title grows a
-// second line.
+// A header's title or actions row.
 export const ruleHeaderRowClass = styles.headerRow;
 
 // A rule card's ⋮, shown on hover with the card's other actions.

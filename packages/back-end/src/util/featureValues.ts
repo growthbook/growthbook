@@ -4,7 +4,7 @@ import { validateFeatureValue } from "shared/util";
 import isEqual from "lodash/isEqual";
 import { BadRequestError } from "./errors";
 
-type FeatureValues = Partial<
+export type FeatureValues = Partial<
   Pick<FeatureInterface, "defaultValue" | "rules"> & {
     // What the holdout's held-out units are served; null clears the holdout.
     holdout: FeatureInterface["holdout"] | null;

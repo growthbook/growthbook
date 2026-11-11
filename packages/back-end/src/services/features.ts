@@ -153,7 +153,10 @@ import {
 import { measureSdkPayloadSize } from "shared/health";
 import { assertStorableFeatureValue } from "back-end/src/util/storableFeatureValue";
 import { armerActor } from "back-end/src/util/armingApiKeyId";
-import { mapChangedFeatureValues } from "back-end/src/util/featureValues";
+import {
+  FeatureValues,
+  mapChangedFeatureValues,
+} from "back-end/src/util/featureValues";
 import {
   FeatureDefinitionSources,
   getSafeRolloutIdsForFeatureDefinitions,
@@ -4026,16 +4029,8 @@ export function validateFeatureRuleValues(
 export function assertFeatureValuesValid(
   context: ReqContext | ApiReqContext,
   feature: Pick<FeatureInterface, "valueType" | "jsonSchema">,
-  values: {
-    defaultValue?: string;
-    rules?: FeatureRule[];
-    holdout?: FeatureInterface["holdout"] | null;
-  },
-  previous?: {
-    defaultValue?: string;
-    rules?: FeatureRule[];
-    holdout?: FeatureInterface["holdout"] | null;
-  },
+  values: FeatureValues,
+  previous?: FeatureValues,
 ): void {
   const valueFeature = context.canSkipSchemaValidationFor("feature")
     ? { valueType: feature.valueType }
@@ -4044,6 +4039,22 @@ export function assertFeatureValuesValid(
     values,
     (value, label) => assertStorableFeatureValue(valueFeature, value, label),
     previous,
+  );
+}
+
+// A holdout's value as written, checked as other values are; one it keeps
+// unchanged isn't re-checked.
+export function assertHoldoutValueValid(
+  context: ReqContext | ApiReqContext,
+  feature: Pick<FeatureInterface, "valueType" | "jsonSchema" | "holdout">,
+  holdout: FeatureInterface["holdout"] | null | undefined,
+): void {
+  if (!holdout) return;
+  assertFeatureValuesValid(
+    context,
+    feature,
+    { holdout },
+    { holdout: feature.holdout },
   );
 }
 

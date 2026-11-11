@@ -35,8 +35,7 @@ interface Props {
   setVersion: (version: number) => void;
 }
 
-// A feature's holdout: where it runs, shown, and the value its held-out units
-// get, edited as a forced rule's value is.
+// A feature's holdout: where it runs, and the value its held-out units get.
 export default function HoldoutValueModal({
   feature,
   revisionList,

@@ -2,7 +2,7 @@ import type { OrganizationInterface } from "shared/types/organization";
 import { putFeatureRevisionHoldoutValidator } from "shared/validators";
 import type { ApiReqContext } from "back-end/types/api";
 import {
-  assertFeatureValuesValid,
+  assertHoldoutValueValid,
   toApiRevision,
 } from "back-end/src/services/features";
 import { recordRevisionUpdate } from "back-end/src/services/featureRevisionEvents";
@@ -38,12 +38,7 @@ export async function setRevisionHoldout(
   }
 
   await assertValidHoldout(body.holdout, context, feature.project);
-  assertFeatureValuesValid(
-    context,
-    feature,
-    { holdout: body.holdout },
-    { holdout: feature.holdout },
-  );
+  assertHoldoutValueValid(context, feature, body.holdout);
 
   const { revision, created } = await resolveOrCreateRevision(
     context,

@@ -29,7 +29,7 @@ import { BadRequestError } from "back-end/src/util/errors";
 import {
   addIdsToFlatRules,
   addIdsToRules,
-  assertFeatureValuesValid,
+  assertHoldoutValueValid,
   fromApiEnvSettingsRulesToFeatureEnvSettingsRules,
   getApiFeatureObj,
   getFeatureDefinitionLookups,
@@ -212,14 +212,7 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
         req.body.project ?? feature.project,
       );
     }
-    if (req.body.holdout) {
-      assertFeatureValuesValid(
-        req.context,
-        feature,
-        { holdout: req.body.holdout },
-        { holdout: feature.holdout },
-      );
-    }
+    assertHoldoutValueValid(req.context, feature, req.body.holdout);
 
     const jsonSchema =
       feature.valueType !== "boolean" && req.body.jsonSchema != null
