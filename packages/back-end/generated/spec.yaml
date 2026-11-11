@@ -36300,6 +36300,13 @@ paths:
                   anyOf:
                     - type: boolean
                     - type: 'null'
+                requireScopedFeatureRules:
+                  anyOf:
+                    - description: >-
+                        Rules for all environments and all projects need an
+                        extra confirmation
+                      type: boolean
+                    - type: 'null'
                 requireRegisteredAttributes:
                   anyOf:
                     - type: object
@@ -36375,6 +36382,17 @@ paths:
                         type: string
                     - type: 'null'
                 defaultAIModel:
+                  anyOf:
+                    - type: string
+                    - type: 'null'
+                aiAutocompleteEnabled:
+                  anyOf:
+                    - description: >-
+                        Suggest completions in the AI Assistant; each pause in
+                        typing is an AI call
+                      type: boolean
+                    - type: 'null'
+                aiAutocompleteModel:
                   anyOf:
                     - type: string
                     - type: 'null'
@@ -79759,6 +79777,11 @@ components:
           type: boolean
         requireProjectForSdkConnections:
           type: boolean
+        requireScopedFeatureRules:
+          description: >-
+            Rules for all environments and all projects need an extra
+            confirmation
+          type: boolean
         requireRegisteredAttributes:
           type: object
           properties:
@@ -79806,6 +79829,13 @@ components:
           items:
             type: string
         defaultAIModel:
+          type: string
+        aiAutocompleteEnabled:
+          description: >-
+            Suggest completions in the AI Assistant; each pause in typing is an
+            AI call
+          type: boolean
+        aiAutocompleteModel:
           type: string
         embeddingModel:
           type: string

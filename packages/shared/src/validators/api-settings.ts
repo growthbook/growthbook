@@ -238,6 +238,11 @@ const writableSettingsFields = {
     .describe("Environment the UI opens on. Null remembers the last one used."),
   requireProjectForFeatures: z.boolean(),
   requireProjectForSdkConnections: z.boolean(),
+  requireScopedFeatureRules: z
+    .boolean()
+    .describe(
+      "Rules for all environments and all projects need an extra confirmation",
+    ),
   requireRegisteredAttributes: z
     .object({ isOn: z.boolean(), requireProjectScoping: z.boolean() })
     .strict(),
@@ -263,6 +268,12 @@ const writableSettingsFields = {
     .array(z.string())
     .describe("AI Assistant skills turned off for the organization"),
   defaultAIModel: z.string(),
+  aiAutocompleteEnabled: z
+    .boolean()
+    .describe(
+      "Suggest completions in the AI Assistant; each pause in typing is an AI call",
+    ),
+  aiAutocompleteModel: z.string(),
   embeddingModel: z.string(),
   sttModel: z.string(),
   visualEditorAIModel: z.string(),
