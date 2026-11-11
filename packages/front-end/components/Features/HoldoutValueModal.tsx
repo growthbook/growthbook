@@ -4,10 +4,17 @@ import { FeatureInterface } from "shared/types/feature";
 import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
 import {
   ensureConfigBacking,
+  filterEnvironmentsByFeature,
+  getEnabledHoldoutEnvironments,
   getReviewSetting,
   validateFeatureValue,
 } from "shared/util";
+import { Box } from "@radix-ui/themes";
+import { HoldoutInterface } from "shared/validators";
 import { useAuth } from "@/services/auth";
+import { useEnvironments } from "@/services/features";
+import useApi from "@/hooks/useApi";
+import Text from "@/ui/Text";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useConfigBacking } from "@/hooks/useConfigBacking";
 import { useDefaultDraft } from "@/hooks/useDefaultDraft";
@@ -17,6 +24,7 @@ import DraftSelectorForChanges, {
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import { validatedSubmit } from "@/ui/Modal/validatedSubmit";
 import FeatureValueField from "./FeatureValueField";
+import RuleEnvScopeBadges from "./RuleEnvScopeBadges";
 
 interface Props {
   feature: FeatureInterface;
@@ -26,7 +34,8 @@ interface Props {
   setVersion: (version: number) => void;
 }
 
-// The value a holdout's held-out units get, edited as a forced rule's value is.
+// A feature's holdout: where it runs, shown, and the value its held-out units
+// get, edited as a forced rule's value is.
 export default function HoldoutValueModal({
   feature,
   revisionList,
@@ -69,13 +78,20 @@ export default function HoldoutValueModal({
     defaultDraft,
   );
 
+  // Where the holdout runs is set on the holdout itself; shown for context.
+  const environments = filterEnvironmentsByFeature(useEnvironments(), feature);
+  const { data: holdoutData } = useApi<{ holdout: HoldoutInterface }>(
+    `/holdout/${feature.holdout?.id}`,
+    { shouldRun: () => !!feature.holdout?.id },
+  );
+
   const holdout = feature.holdout;
   if (!holdout) return null;
 
   return (
     <ModalStandard
       trackingEventModalType="holdout-value-modal"
-      header="Edit Holdout Value"
+      header="Edit Holdout"
       cta="Save to draft"
       open={true}
       close={close}
@@ -116,6 +132,20 @@ export default function HoldoutValueModal({
         canAutoPublish={false}
         gatedEnvSet={gatedEnvSet}
       />
+      {holdoutData ? (
+        <Box mb="6">
+          <Text as="div" weight="semibold" mb="3">
+            Holdout Environments
+          </Text>
+          <RuleEnvScopeBadges
+            activeEnvironmentIds={getEnabledHoldoutEnvironments(
+              holdoutData.holdout.environmentSettings,
+            )}
+            environments={environments}
+            my="0"
+          />
+        </Box>
+      ) : null}
       <FeatureValueField
         label="Value for held-out units"
         helpText="Changing it changes what units already held out see."
