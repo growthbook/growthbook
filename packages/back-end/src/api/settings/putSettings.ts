@@ -1,13 +1,18 @@
 import cronParser from "cron-parser";
-import { isEqual, omit, omitBy, pick } from "lodash";
+import type { RequestHandler } from "express";
+import { isEqual, isPlainObject, omit, omitBy, pick } from "lodash";
 import { getDefaultRole } from "shared/permissions";
 import {
   API_ECHO_ONLY_SETTING_KEYS,
+  API_WRITABLE_SETTING_KEYS,
   putSettingsValidator,
 } from "shared/validators";
 import { PRESET_DECISION_CRITERIAS } from "shared/enterprise";
 import { AI_MODEL_SETTINGS, getProviderForAIModel } from "shared/ai";
-import { OrganizationSettings } from "shared/types/organization";
+import {
+  OrganizationInterface,
+  OrganizationSettings,
+} from "shared/types/organization";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import {
   findOrganizationById,
@@ -21,11 +26,38 @@ import {
   validateOrgSettingsUpdate,
 } from "back-end/src/services/orgSettings";
 import { createApiRequestHandler } from "back-end/src/util/handler";
+import { ApiRequestLocals } from "back-end/types/api";
 import { toApiDefaultRole, toApiSettings } from "./getSettings";
 
-export const putSettings = createApiRequestHandler(putSettingsValidator)(async (
-  req,
-) => {
+// Clients often GET the settings, change one field, and PUT the whole object back.
+// Stored values the settings page allowed can fail the API's stricter write schemas,
+// so writable settings that match the GET response are omitted before validation.
+export function omitEchoedSettings(
+  body: Record<string, unknown>,
+  org: OrganizationInterface,
+) {
+  const apiSettings: Record<string, unknown> = toApiSettings(org);
+  return omitBy(
+    body,
+    (value, key) =>
+      (API_WRITABLE_SETTING_KEYS as string[]).includes(key) &&
+      (value ?? null) !== null &&
+      isEqual(toJson(value), toJson(apiSettings[key])),
+  );
+}
+
+const dropEchoedSettings: RequestHandler = (req, res, next) => {
+  const { context } = req as unknown as ApiRequestLocals;
+  if (isPlainObject(req.body)) {
+    req.body = omitEchoedSettings(req.body, context.org);
+  }
+  next();
+};
+
+export const putSettings = createApiRequestHandler({
+  ...putSettingsValidator,
+  middleware: [dropEchoedSettings],
+})(async (req) => {
   const { context } = req;
   const org = context.org;
   const sent = req.body;
