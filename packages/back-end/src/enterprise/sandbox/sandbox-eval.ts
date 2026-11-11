@@ -40,6 +40,10 @@ import {
 } from "back-end/src/services/resolvableValues";
 import type { SandboxEvalResult } from "./sandbox-core";
 import { runInSandbox } from "./sandbox-pool";
+import {
+  loadInputFeatureFacts,
+  withInputFeatureFacts,
+} from "./inputFeatureFacts";
 
 // Custom hook orchestration; sandboxed JS runs in the child-process pool (sandbox-pool.ts).
 
@@ -684,14 +688,21 @@ export async function collectCustomHookResults(
     configBases,
   );
 
+  const facts = await loadInputFeatureFacts(
+    context.scanContextOverride ?? adminContext,
+    hooks,
+  );
+
   const hardErrors: CustomHookErrorDetail[] = [];
   const warnings: string[] = [];
   for (const hook of hooks) {
+    const withInputs = (args: Record<string, unknown>) =>
+      withInputFeatureFacts(hook, facts, withHookTarget(hook, args) ?? args);
     const { error, warnings: hookWarnings } = await _runCustomHook(
       adminContext,
       hook,
-      withHookTarget(hook, functionArgs) ?? functionArgs,
-      withHookTarget(hook, originalFunctionArgs),
+      withInputs(functionArgs),
+      originalFunctionArgs ? withInputs(originalFunctionArgs) : undefined,
     );
     if (error) hardErrors.push(error);
     warnings.push(...hookWarnings);

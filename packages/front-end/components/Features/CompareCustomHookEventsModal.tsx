@@ -48,6 +48,7 @@ const CUSTOM_HOOK_DIFF_CONFIG: AuditDiffConfig<CustomHookInterface> = {
         "entityType",
         "entityId",
         "incrementalChangesOnly",
+        "inputFeatures",
       ],
       render: renderCustomHookSettingsSection,
       getBadges: getCustomHookSettingsBadges,
