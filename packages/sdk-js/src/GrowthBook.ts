@@ -34,7 +34,10 @@ import type {
   LogUnion,
   DestroyOptions,
   RegisteredAttributes,
+  RegisteredEvents,
   RegisteredFeatures,
+  EventArgs,
+  EventProperties,
   NoInferType,
   BundledFeatureKey,
 } from "./types/growthbook";
@@ -1112,10 +1115,12 @@ export class GrowthBook<
     this._options.eventLogger = logger;
   }
 
-  public async logEvent(
-    eventName: string,
-    properties?: Record<string, unknown>,
-  ) {
+  // Event names and properties are checked against the registered events
+  public logEvent<K extends string & keyof RegisteredEvents>(
+    eventName: K,
+    ...args: EventArgs<RegisteredEvents[K]>
+  ): Promise<void>;
+  public async logEvent(eventName: string, properties?: EventProperties) {
     if (this._destroyed) {
       console.error("Cannot log event to destroyed GrowthBook instance");
       return;

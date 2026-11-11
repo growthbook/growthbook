@@ -227,6 +227,13 @@ export type Attributes = Record<string, any>;
  * `defaultValue`: the one in the SDK's payload, else the one in the
  * `fallbackPayload` given to `init`. Pass a fallback to use a different value.
  * Registering a payload is a promise that one of the two has each feature.
+ *
+ * Register `events` (event name -> properties) to check `logEvent` calls:
+ *
+ *   events: {
+ *     start_checkout: { plan: "pro" | "enterprise" };
+ *     button_click: { button: string };
+ *   };
  */
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type
 export interface Register {}
@@ -258,6 +265,13 @@ export type BundledFeatureKey = Register extends {
 export type RegisteredAttributes = Register extends { attributes: infer A }
   ? A
   : Attributes;
+export type RegisteredEvents = Register extends { events: infer E }
+  ? E
+  : Record<string, EventProperties>;
+// The arguments after the event name: properties can be left out for an event
+// that has no required ones
+export type EventArgs<P> =
+  Record<never, never> extends P ? [properties?: P] : [properties: P];
 // Stops an argument from being used to infer T, which would override the
 // registered default (the built-in NoInfer needs TypeScript 5.4+)
 export type NoInferType<T> = [T][T extends unknown ? 0 : never];

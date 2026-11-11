@@ -29,7 +29,9 @@ import type {
   WidenPrimitives,
   SavedGroupResolver,
   RegisteredAttributes,
+  RegisteredEvents,
   RegisteredFeatures,
+  EventArgs,
   NoInferType,
   BundledFeatureKey,
 } from "./types/growthbook";
@@ -308,6 +310,12 @@ export class GrowthBookClient<
     this._options.eventLogger = logger;
   }
 
+  // Event names and properties are checked against the registered events
+  public logEvent<K extends string & keyof RegisteredEvents>(
+    eventName: K,
+    properties: RegisteredEvents[K],
+    userContext: UserContext<AppAttributes>,
+  ): void;
   public logEvent(
     eventName: string,
     properties: EventProperties,
@@ -610,6 +618,10 @@ export class UserScopedGrowthBook<
     return this._gb.evalFeature(id, this._userContext);
   }
 
+  public logEvent<K extends string & keyof RegisteredEvents>(
+    eventName: K,
+    ...args: EventArgs<RegisteredEvents[K]>
+  ): void;
   public logEvent(eventName: string, properties?: EventProperties) {
     if (this._userContext.enableDevMode) {
       this.logs.push({

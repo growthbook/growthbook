@@ -14,6 +14,7 @@ declare module "@growthbook/growthbook-react" {
   interface Register {
     features: { dark_mode: boolean; price: number };
     attributes: { id: string };
+    events: { button_click: { button: string } };
   }
 }
 
@@ -33,6 +34,11 @@ export function Component() {
   useFeature("nope");
   // @ts-expect-error missing required attribute
   useGrowthBook().setAttributes({});
+  useGrowthBook().logEvent("button_click", { button: "signup" });
+  // @ts-expect-error unknown event
+  useGrowthBook().logEvent("button_clik", { button: "signup" });
+  // @ts-expect-error missing required properties
+  useGrowthBook().logEvent("button_click");
 
   // Explicit generics still type a single call
   useGrowthBook<{ other_flag: boolean }>().isOn("other_flag");

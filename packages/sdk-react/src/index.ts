@@ -17,6 +17,7 @@ export type {
   Register,
   RegisteredFeatures,
   RegisteredAttributes,
+  RegisteredEvents,
   PayloadFeatures,
   BundledFeatureKey,
   ConditionInterface,

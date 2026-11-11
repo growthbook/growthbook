@@ -663,7 +663,31 @@ gb.setAttributes({ id: "123", loggedIn: true, plan: "pro" }); // unknown "plan"
 gb.updateAttributes({ country: "US" });
 ```
 
-You can register `features`, `attributes`, or both. Anything you leave out stays loosely typed.
+To check `logEvent` calls as well, register your events, with each event name mapped to its properties:
+
+```ts
+interface AppEvents {
+  start_checkout: { plan: "pro" | "enterprise" };
+  button_click: { button: string };
+  page_view: {};
+}
+
+declare module "@growthbook/growthbook" {
+  interface Register {
+    events: AppEvents;
+  }
+}
+
+gb.logEvent("start_checkout", { plan: "pro" });
+gb.logEvent("page_view");
+
+// Compile-time errors
+gb.logEvent("start_checkuot", { plan: "pro" }); // unknown event
+gb.logEvent("start_checkout", { plan: "free" }); // invalid "plan"
+gb.logEvent("button_click"); // missing "button"
+```
+
+You can register any combination of `features`, `attributes`, and `events`. Anything you leave out stays loosely typed.
 
 Payloads written in code are checked as well, for example in tests or offline defaults:
 

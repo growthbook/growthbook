@@ -11,6 +11,11 @@ gb.getFeatureValue("any-feature");
 export const attribute: unknown = gb.getAttributes().anything;
 gb.setPayload({ features: { whatever: { defaultValue: 1 } } });
 new GrowthBookClient().isOn("any-feature", { attributes: { a: 1 } });
+// Any event name and properties
+gb.logEvent("any-event");
+gb.logEvent("any-event", { anything: 1 });
+new GrowthBookClient().logEvent("any-event", { anything: 1 }, {});
+new GrowthBookClient().createScopedInstance({}).logEvent("any-event");
 
 // Explicit generics still type a single instance
 const typed = new GrowthBook<{ dark_mode: boolean }, { id: string }>();
