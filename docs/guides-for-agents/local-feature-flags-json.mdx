@@ -8,7 +8,7 @@ sidebarTitle: "Local flags.json"
 
 When a project needs a few simple feature flags, don't hard-code booleans or add environment variables. Commit a `flags.json` file to the repository and load it with a GrowthBook SDK. You don't need an account, client key, or network calls.
 
-`flags.json` uses the same JSON format that GrowthBook's SDKs already read. It supports targeting, percentage rollouts, and typed values in dozens of languages. To change a flag, edit the file and deploy. When the project outgrows this approach, import the file into GrowthBook and replace the payload with a client key. Only the small helper that reads flags changes.
+`flags.json` uses the same JSON format that GrowthBook's SDKs already read. It supports targeting, percentage rollouts, and typed values in dozens of languages. To change a flag, edit the file and deploy. When the project outgrows this approach, import the file into GrowthBook and replace the payload with a client key. Only the code that sets up the SDK changes.
 
 _This guide is written for AI coding agents. If you're a person, give your agent the prompt below._
 
@@ -92,28 +92,27 @@ npm install @growthbook/growthbook
 import { GrowthBook } from "@growthbook/growthbook";
 import flags from "./flags.json";
 
-type Flags = typeof flags.features;
+// Types each flag from its defaultValue in flags.json, so reads need no fallback
+declare module "@growthbook/growthbook" {
+  interface Register {
+    payload: typeof flags;
+  }
+}
 
-const gb = new GrowthBook({
+export const gb = new GrowthBook({
   attributes: { id: user.id, email: user.email, plan: user.plan },
 }).initSync({ payload: flags });
 
-// Reads a flag, using its defaultValue in flags.json as the SDK fallback
-export function flag<K extends keyof Flags>(key: K) {
-  const fallback = flags.features[key].defaultValue;
-  return gb.getFeatureValue(key, fallback) as Flags[K]["defaultValue"];
-}
-
 // Boolean flag
-if (flag("new-checkout")) {
+if (gb.isOn("new-checkout")) {
   renderNewCheckout();
 }
 
-// Non-boolean flag
-const uploadLimit = flag("upload-limit-mb");
+// Non-boolean flag, typed as a number
+const uploadLimit = gb.getFeatureValue("upload-limit-mb");
 ```
 
-TypeScript needs `"resolveJsonModule": true` to import JSON files. Most bundlers handle JSON imports by default. In plain JavaScript, remove the `Flags` type, the `<K extends keyof Flags>` generic, and the `as` cast.
+Declare `Register` once per project, in the file that creates the instance. It needs SDK version 2.1.0 or later. A misspelled flag key is then a TypeScript error. TypeScript needs `"resolveJsonModule": true` to import JSON files, and most bundlers handle JSON imports by default. In plain JavaScript, remove the `declare module` block.
 
 #### React
 
@@ -126,16 +125,16 @@ import { useMemo } from "react";
 import {
   GrowthBook,
   GrowthBookProvider,
+  useFeatureIsOn,
   useFeatureValue,
 } from "@growthbook/growthbook-react";
 import flags from "./flags.json";
 
-type Flags = typeof flags.features;
-
-// Reads a flag, using its defaultValue in flags.json as the SDK fallback
-export function useFlag<K extends keyof Flags>(key: K) {
-  const fallback = flags.features[key].defaultValue;
-  return useFeatureValue(key, fallback) as Flags[K]["defaultValue"];
+// Types each flag from its defaultValue in flags.json, so reads need no fallback
+declare module "@growthbook/growthbook-react" {
+  interface Register {
+    payload: typeof flags;
+  }
 }
 
 export function App({ user }) {
@@ -157,10 +156,10 @@ export function App({ user }) {
 
 function Checkout() {
   // Boolean flag
-  const newCheckout = useFlag("new-checkout");
+  const newCheckout = useFeatureIsOn("new-checkout");
 
-  // Non-boolean flag
-  const uploadLimit = useFlag("upload-limit-mb");
+  // Non-boolean flag, typed as a number
+  const uploadLimit = useFeatureValue("upload-limit-mb");
 
   return newCheckout ? (
     <NewCheckout uploadLimit={uploadLimit} />
@@ -170,7 +169,7 @@ function Checkout() {
 }
 ```
 
-TypeScript needs `"resolveJsonModule": true` to import JSON files.
+Declare `Register` once per project, in the file that creates the instance. It needs SDK version 2.1.0 or later. A misspelled flag key is then a TypeScript error. TypeScript needs `"resolveJsonModule": true` to import JSON files.
 
 #### React Native
 
@@ -184,16 +183,16 @@ import { Text, View } from "react-native";
 import {
   GrowthBook,
   GrowthBookProvider,
+  useFeatureIsOn,
   useFeatureValue,
 } from "@growthbook/growthbook-react";
 import flags from "./flags.json";
 
-type Flags = typeof flags.features;
-
-// Reads a flag, using its defaultValue in flags.json as the SDK fallback
-export function useFlag<K extends keyof Flags>(key: K) {
-  const fallback = flags.features[key].defaultValue;
-  return useFeatureValue(key, fallback) as Flags[K]["defaultValue"];
+// Types each flag from its defaultValue in flags.json, so reads need no fallback
+declare module "@growthbook/growthbook-react" {
+  interface Register {
+    payload: typeof flags;
+  }
 }
 
 export default function App({ user }) {
@@ -215,10 +214,10 @@ export default function App({ user }) {
 
 function Checkout() {
   // Boolean flag
-  const newCheckout = useFlag("new-checkout");
+  const newCheckout = useFeatureIsOn("new-checkout");
 
-  // Non-boolean flag
-  const uploadLimit = useFlag("upload-limit-mb");
+  // Non-boolean flag, typed as a number
+  const uploadLimit = useFeatureValue("upload-limit-mb");
 
   return (
     <View>
@@ -229,7 +228,7 @@ function Checkout() {
 }
 ```
 
-Metro bundles JSON imports by default. No polyfills are needed because the SDK makes no network requests.
+Declare `Register` once per project, in the file that creates the instance. It needs SDK version 2.1.0 or later. A misspelled flag key is then a TypeScript error. Metro bundles JSON imports by default. No polyfills are needed because the SDK makes no network requests.
 
 #### Node.js
 
@@ -238,16 +237,21 @@ npm install @growthbook/growthbook
 ```
 
 ```ts
-import { GrowthBookClient } from "@growthbook/growthbook";
+import { GrowthBookClient, UserScopedGrowthBook } from "@growthbook/growthbook";
 import flags from "./flags.json" with { type: "json" };
 
-type Flags = typeof flags.features;
+// Types each flag from its defaultValue in flags.json, so reads need no fallback
+declare module "@growthbook/growthbook" {
+  interface Register {
+    payload: typeof flags;
+  }
+}
 
-// Type the flag() method that the middleware adds to each request
+// Type the scoped instance that the middleware adds to each request
 declare global {
   namespace Express {
     interface Request {
-      flag<K extends keyof Flags>(key: K): Flags[K]["defaultValue"];
+      gb: UserScopedGrowthBook;
     }
   }
 }
@@ -255,35 +259,27 @@ declare global {
 // Once, at startup
 const client = new GrowthBookClient().initSync({ payload: flags });
 
-// Middleware helper
+// Scoped instance per request
 app.use((req, res, next) => {
-  // Scoped instance per request
-  const gb = client.createScopedInstance({
+  req.gb = client.createScopedInstance({
     attributes: { id: req.user.id, plan: req.user.plan },
   });
-
-  // Helper method on the request to evaluate flags with fallback values
-  req.flag = function flag<K extends keyof Flags>(key: K) {
-    const fallback = flags.features[key].defaultValue;
-    return gb.getFeatureValue(key, fallback) as Flags[K]["defaultValue"];
-  };
-
   next();
 });
 
 // Use in any request
 app.get("/upload", (req, res) => {
   // Boolean flag
-  if (req.flag("new-checkout")) {
+  if (req.gb.isOn("new-checkout")) {
     // ...
   }
 
-  // Non-boolean flag
-  const uploadLimit = req.flag("upload-limit-mb");
+  // Non-boolean flag, typed as a number
+  const uploadLimit = req.gb.getFeatureValue("upload-limit-mb");
 });
 ```
 
-In CommonJS, or with TypeScript's `"resolveJsonModule": true` and a CommonJS module setting, drop `with { type: "json" }`.
+Declare `Register` once per project. It needs SDK version 2.1.0 or later. A misspelled flag key is then a TypeScript error. In CommonJS, or with TypeScript's `"resolveJsonModule": true` and a CommonJS module setting, drop `with { type: "json" }`.
 
 #### Python
 
@@ -374,7 +370,7 @@ func main() {
 
 Every GrowthBook SDK can evaluate local feature definitions instead of fetching them with a client key. Find the project's language under [SDKs](/lib), install the SDK, and look for the option that sets the payload or features directly. If the SDK accepts only a features map, pass it the `features` object from `flags.json`.
 
-If the SDK's method for reading a value requires a fallback, wrap it in a `flag(key)` helper that passes the flag's `defaultValue` from `flags.json`, like the sections above do.
+If the SDK's method for reading a value requires a fallback, wrap it in a `flag(key)` helper that passes the flag's `defaultValue` from `flags.json`, like the Python section does.
 
 ## The flags.json format
 
@@ -642,39 +638,42 @@ Recommend moving to GrowthBook when the user needs a kill switch that doesn't re
 1. Create a free [GrowthBook](https://app.growthbook.io) account and import `flags.json`. Each flag becomes a GrowthBook feature, and each `env` value becomes a GrowthBook environment.
 2. Create an SDK connection for each environment and copy its client key.
 3. Compare the SDK payloads from the GrowthBook CDN to the local `flags.json` copy. The GrowthBook version will include some extra fields, but the general values and rules should be nearly identical. One note: all `env` conditions are evaluated server-side so they will not appear in the payload.
-4. Create `flag-fallbacks.json`, a map of each flag key to its current `defaultValue`. Once flags load over the network, the helper needs real fallbacks for when GrowthBook hasn't responded yet or can't be reached:
+4. Create `flag-fallbacks.json`, a copy of `flags.json` with only each flag's `defaultValue`. The SDK uses it when GrowthBook can't be reached, and TypeScript types flags from it:
 
    ```bash
-   jq '.features | map_values(.defaultValue)' flags.json > flag-fallbacks.json
+   jq '{features: (.features | map_values({defaultValue}))}' flags.json > flag-fallbacks.json
    ```
 
    ```json
    {
-     "new-checkout": false,
-     "upload-limit-mb": 10
+     "features": {
+       "new-checkout": { "defaultValue": false },
+       "upload-limit-mb": { "defaultValue": 10 }
+     }
    }
    ```
 
-5. Replace the payload with that environment's client key, and point the `flag()` helper at `flag-fallbacks.json`. Code that calls `flag()` doesn't change:
+5. Load flags with that environment's client key, and register `flag-fallbacks.json` in place of `flags.json`. Code that reads flags doesn't change:
 
    ```ts
    import { GrowthBook } from "@growthbook/growthbook";
    import fallbacks from "./flag-fallbacks.json";
 
-   type Fallbacks = typeof fallbacks;
+   declare module "@growthbook/growthbook" {
+     interface Register {
+       payload: typeof fallbacks;
+     }
+   }
 
-   const gb = new GrowthBook({
+   export const gb = new GrowthBook({
      clientKey: "sdk-abc123",
      attributes: { id: user.id, email: user.email, plan: user.plan },
    });
-   await gb.init({ timeout: 2000 });
-
-   // Reads a flag. The fallback is used until flags load or if GrowthBook can't be reached.
-   export function flag<K extends keyof Fallbacks>(key: K) {
-     return gb.getFeatureValue(key, fallbacks[key]) as Fallbacks[K];
-   }
+   await gb.init({ timeout: 2000, fallbackPayload: fallbacks });
    ```
 
-   In Python, read `fallbacks[key]` instead of `flags["features"][key]["defaultValue"]`. Go has no fallback, so keep the type assertions, and call `client.EnsureLoaded(ctx)` after creating the client so values are loaded before you read them.
+   Reading a flag that's missing from the payload returns `undefined`, and `isOn` returns `false`. A flag is missing until `init` finishes, and when it's turned off in that environment or deleted in GrowthBook. Where `undefined` would break the code, pass a fallback, such as `gb.getFeatureValue("upload-limit-mb", 10)`.
 
-6. Delete `flags.json`. GrowthBook is now the source of truth for flag values. When you add a flag in GrowthBook, also add its key and fallback to `flag-fallbacks.json`.
+   In Python, have the `flag()` helper read defaults from `flag-fallbacks.json` instead of `flags.json`. Go has no fallback, so keep the type assertions, and call `client.EnsureLoaded(ctx)` after creating the client so values are loaded before you read them.
+
+6. Delete `flags.json`. GrowthBook is now the source of truth for flag values. When you add a flag in GrowthBook, also add it with its `defaultValue` to `flag-fallbacks.json`. In TypeScript, reading a flag that isn't in the file is a type error.
