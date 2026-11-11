@@ -5,7 +5,9 @@ import { Flex } from "@radix-ui/themes";
 import InlineCode from "@/components/SyntaxHighlighting/InlineCode";
 import { OfficialBadge } from "@/components/Metrics/MetricName";
 import useFactFilterEditor from "@/hooks/useFactFilterEditor";
+import { useSearch } from "@/services/search";
 import Button from "@/ui/Button";
+import { TextField } from "@/ui/TextField";
 import Link from "@/ui/Link";
 import Table, {
   TableBody,
@@ -16,6 +18,8 @@ import Table, {
 } from "@/ui/Table";
 import Text from "@/ui/Text";
 import styles from "./FactTableDetailsPage.module.scss";
+
+const PAGE_SIZE = 20;
 
 export default function FactTableFiltersTab({
   factTable,
@@ -31,8 +35,41 @@ export default function FactTableFiltersTab({
     typeof router.query.filter === "string" ? router.query.filter : "";
   const [highlightId, setHighlightId] = useState(linkedId);
   const linkedRow = useRef<HTMLTableRowElement>(null);
+
+  const {
+    items,
+    unpaginatedItems,
+    searchInputProps,
+    SortableTableColumnHeader,
+    pagination,
+    page,
+    setPage,
+  } = useSearch({
+    items: factTable.filters,
+    defaultSortField: "name",
+    localStorageKey: "factTableFiltersTab",
+    searchFields: ["name^3", "description", "value^2"],
+    pageSize: PAGE_SIZE,
+    // The Metrics tab on this page searches too, so neither owns ?q=
+    disableUrlSearchTerm: true,
+  });
+
+  // Turn to the linked filter's page first, then scroll to it
+  const jumpedTo = useRef<string | null>(null);
   useEffect(() => {
-    if (!linkedId) return;
+    if (!linkedId) {
+      jumpedTo.current = null;
+      return;
+    }
+    if (jumpedTo.current === linkedId) return;
+    const index = unpaginatedItems.findIndex((f) => f.id === linkedId);
+    if (index < 0) return;
+    const target = Math.floor(index / PAGE_SIZE) + 1;
+    if (target !== page) {
+      setPage(target);
+      return;
+    }
+    jumpedTo.current = linkedId;
     setHighlightId(linkedId);
     linkedRow.current?.scrollIntoView({ block: "center" });
     const query = { ...router.query };
@@ -40,23 +77,29 @@ export default function FactTableFiltersTab({
     void router.replace({ pathname: router.pathname, query }, undefined, {
       shallow: true,
     });
-  }, [linkedId, router]);
-
-  const filters = [...factTable.filters].sort((a, b) =>
-    a.name.localeCompare(b.name),
-  );
+  }, [linkedId, unpaginatedItems, page, setPage, router]);
 
   return (
     <Flex direction="column" gap="3">
       {editor.modal}
-      <Flex justify="end">
+      <Flex justify="between" align="center" gap="3">
+        {factTable.filters.length ? (
+          <TextField
+            size="sm"
+            type="search"
+            placeholder={`Search ${factTable.filters.length} Saved Filters`}
+            {...searchInputProps}
+          />
+        ) : (
+          <span />
+        )}
         {editor.canCreate ? (
           <Button size="sm" variant="outline" onClick={editor.openNew}>
             New Saved Filter
           </Button>
         ) : null}
       </Flex>
-      {filters.length ? (
+      {items.length ? (
         <Table
           variant="list"
           roundedCorners
@@ -65,12 +108,14 @@ export default function FactTableFiltersTab({
         >
           <TableHeader>
             <TableRow>
-              <TableColumnHeader>Name</TableColumnHeader>
+              <SortableTableColumnHeader field="name">
+                Name
+              </SortableTableColumnHeader>
               <TableColumnHeader>Filter SQL</TableColumnHeader>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filters.map((filter) => (
+            {items.map((filter) => (
               <TableRow
                 key={filter.id}
                 align="center"
@@ -98,8 +143,13 @@ export default function FactTableFiltersTab({
           </TableBody>
         </Table>
       ) : (
-        <Text color="text-mid">No Saved Filters on this Fact Table yet.</Text>
+        <Text color="text-mid">
+          {factTable.filters.length
+            ? "No Saved Filters match your search."
+            : "No Saved Filters on this Fact Table yet."}
+        </Text>
       )}
+      {pagination}
     </Flex>
   );
 }
