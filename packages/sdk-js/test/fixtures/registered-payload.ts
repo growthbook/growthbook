@@ -28,7 +28,9 @@ declare module "@growthbook/growthbook" {
 // No fallback: the value type comes from each defaultValue
 const gb = new GrowthBook().initSync({ payload });
 export const banner: string = gb.getFeatureValue("banner");
-export const darkMode: boolean = gb.getFeatureValue("dark_mode");
+// @ts-expect-error a boolean feature still requires a fallback (or isOn)
+gb.getFeatureValue("dark_mode");
+export const darkMode: boolean = gb.getFeatureValue("dark_mode", false);
 export const config: { size: number; color: string } =
   gb.getFeatureValue("config");
 export const variant: "a" | "b" = gb.getFeatureValue("variant");

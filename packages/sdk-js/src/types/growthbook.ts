@@ -221,9 +221,10 @@ export type Attributes = Record<string, any>;
  *
  * Or register a payload written in code (`payload: typeof payload`) in place
  * of `features`: feature types come from each `defaultValue`, and
- * `getFeatureValue` needs no fallback for a feature that has one. With no
- * fallback, a feature with no value (missing, blocked by a prerequisite...)
- * uses its `defaultValue`: the one in the SDK's payload, else the one in the
+ * `getFeatureValue` needs no fallback for a feature that has one, other than
+ * a boolean (use `isOn`, or pass the fallback). With no fallback, a feature
+ * with no value (missing, blocked by a prerequisite...) uses its
+ * `defaultValue`: the one in the SDK's payload, else the one in the
  * `fallbackPayload` given to `init`. Pass a fallback to use a different value.
  * Registering a payload is a promise that one of the two has each feature.
  */
@@ -239,13 +240,15 @@ export type RegisteredFeatures = Register extends { features: infer F }
     ? PayloadFeatures<P>
     : Record<string, any>;
 // Features in the registered payload whose defaultValue can't be null, so
-// `getFeatureValue` can return it instead of requiring a fallback
+// `getFeatureValue` can return it instead of requiring a fallback. Boolean
+// features are left out: `isOn` is false when there is no value, and a
+// `true` default here would disagree with it.
 export type BundledFeatureKey = Register extends {
   payload: { features: infer F };
 }
   ? {
       [K in keyof F]: F[K] extends {
-        defaultValue: string | number | boolean | object;
+        defaultValue: string | number | object;
       }
         ? K
         : never;

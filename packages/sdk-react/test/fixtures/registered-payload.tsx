@@ -3,6 +3,7 @@ import {
   FeatureApiResponse,
   GrowthBook,
   GrowthBookProvider,
+  useFeatureIsOn,
   useFeatureValue,
   useGrowthBook,
 } from "@growthbook/growthbook-react";
@@ -12,6 +13,7 @@ const payload = {
   features: {
     banner: { defaultValue: "control" },
     price: { defaultValue: 10 },
+    dark_mode: { defaultValue: true },
     no_default: { rules: [{ force: 1 }] },
   },
 } satisfies FeatureApiResponse;
@@ -34,6 +36,9 @@ export function Component() {
   useFeatureValue("nope");
   // @ts-expect-error no defaultValue, so a fallback is still required
   useFeatureValue("no_default");
+  // @ts-expect-error a boolean feature still requires a fallback (or isOn)
+  useFeatureValue("dark_mode");
+  const darkMode: boolean = useFeatureIsOn("dark_mode");
   // @ts-expect-error wrong fallback type
   useFeatureValue("price", "1");
 
@@ -43,6 +48,7 @@ export function Component() {
       {price}
       {viaInstance}
       {withFallback}
+      {String(darkMode)}
     </GrowthBookProvider>
   );
 }

@@ -717,6 +717,9 @@ const gb = new GrowthBook().initSync({ payload });
 
 // No fallback needed. Type is `string`
 const color = gb.getFeatureValue("button-color");
+
+// Boolean features use `isOn`
+const newForm = gb.isOn("new-form");
 ```
 
 When you connect a GrowthBook account later, pass the same payload as the `fallbackPayload`. A feature that's missing from the payload GrowthBook sends then uses its `defaultValue` from code:
