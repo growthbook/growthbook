@@ -110,7 +110,7 @@ import FeatureRules from "./FeatureRulesNew";
 import cornerStyles from "./CornerActions.module.scss";
 
 // A changeable environment's switch, its state named after it.
-// Rings the rule a jump lands on in the violet an open card's outline has:
+// Rings the rule a jump lands on in violet, lighter than an open card's:
 // it fades in quickly once the page stops scrolling, holds, then fades out.
 // Without motion, it shows, then goes.
 function markJumpedRule(rule: HTMLElement) {
@@ -125,7 +125,7 @@ function markJumpedRule(rule: HTMLElement) {
     // Around the card, whose corners are round.
     borderRadius: color("--radius-4"),
   });
-  const shown = ring(color("--violet-a9"), color("--violet-a6"));
+  const shown = ring(color("--violet-8"), color("--violet-6"));
   const gone = ring("transparent", "transparent");
   let started = false;
   const start = () => {
