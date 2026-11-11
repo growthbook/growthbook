@@ -110,6 +110,35 @@ import FeatureRules from "./FeatureRulesNew";
 import cornerStyles from "./CornerActions.module.scss";
 
 // A changeable environment's switch, its state named after it.
+// Rings the rule a jump lands on in the violet an open card's outline has,
+// fading once the page stops scrolling. Without motion, it shows, then goes.
+function markJumpedRule(rule: HTMLElement) {
+  const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  // Animations take values, not the theme's variables, so read them here.
+  const theme = getComputedStyle(rule);
+  // A ring, not an outline, which focus styles override.
+  const ring = (color: string) => ({
+    boxShadow: `0 0 0 2px ${color}`,
+    // Around the card, whose corners are round.
+    borderRadius: theme.getPropertyValue("--radius-4").trim(),
+  });
+  const shown = ring(theme.getPropertyValue("--violet-9").trim());
+  const gone = ring("transparent");
+  let started = false;
+  const start = () => {
+    if (started) return;
+    started = true;
+    window.removeEventListener("scrollend", start);
+    rule.animate(
+      reduced ? [shown, shown] : [shown, { ...shown, offset: 0.65 }, gone],
+      { duration: 1500, easing: "ease-out" },
+    );
+  };
+  window.addEventListener("scrollend", start);
+  // Already in view, or where scrollend isn't supported.
+  setTimeout(start, 1000);
+}
+
 function EnvironmentSwitch({
   environment,
   enabled,
@@ -271,6 +300,7 @@ export default function FeaturesOverviewNew({
           }
           // Keyboard focus lands there too, so the next Tab goes on from it.
           rule.focus({ preventScroll: true });
+          markJumpedRule(rule);
         }
         setScrollToRule(null);
         return;
