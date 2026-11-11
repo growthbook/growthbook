@@ -121,7 +121,7 @@ function markJumpedRule(rule: HTMLElement) {
   // A ring, not an outline, which focus styles override; its soft edge is a
   // glow around it.
   const ring = (line: string, glow: string) => ({
-    boxShadow: `0 0 0 3px ${line}, 0 0 10px 4px ${glow}`,
+    boxShadow: `0 0 0 2px ${line}, 0 0 6px 2px ${glow}`,
     // Around the card, whose corners are round.
     borderRadius: color("--radius-4"),
   });
