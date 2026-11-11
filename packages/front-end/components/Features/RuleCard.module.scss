@@ -6,12 +6,12 @@ $side-bar-width: 4px;
 // The body's inset from either edge of the card.
 $body-inset: 28px;
 
-// Doubled to outrank Radix's card padding.
 // A rule's badges, a shade darker than elsewhere, so they hold up on the card.
 .badges {
   --entity-badge-background: var(--gray-a2-5);
 }
 
+// Doubled to outrank Radix's card padding.
 .card.card {
   // The row inside sets it, so the header sits snug.
   padding: 0;
