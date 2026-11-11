@@ -280,20 +280,28 @@ function Row({
   return (
     <div className={styles.row}>
       <span className={styles.icon}>{icon}</span>
-      <span className={styles.label}>
+      {/* With nothing beside it, it takes the value's column too, rather than
+          widening the labels'. */}
+      <span
+        className={
+          children === null ? `${styles.label} ${styles.wide}` : styles.label
+        }
+      >
         <Text color={muted ? "text-low" : "text-high"} whiteSpace="nowrap">
           {label}
         </Text>
       </span>
-      <Flex
-        align="center"
-        gap="2"
-        minWidth="0"
-        pl="3"
-        style={{ minHeight: 28 }}
-      >
-        {children}
-      </Flex>
+      {children === null ? null : (
+        <Flex
+          align="center"
+          gap="2"
+          minWidth="0"
+          pl="3"
+          style={{ minHeight: 28 }}
+        >
+          {children}
+        </Flex>
+      )}
     </div>
   );
 }

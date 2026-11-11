@@ -170,6 +170,10 @@
   justify-content: center;
 }
 
+.wide {
+  grid-column: 2 / -1;
+}
+
 // One prerequisite, under the Prerequisites row.
 .subRow {
   // In line with the values beside the labels.
