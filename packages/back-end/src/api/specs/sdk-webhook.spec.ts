@@ -42,7 +42,8 @@ export const putSdkWebhookEndpoint = {
   validator: putSdkWebhookValidator,
   zodReturnObject: apiSdkWebhookReturn,
   summary: "Update an SDK webhook",
-  description: "The webhook fires once after an update.",
+  description:
+    "The webhook fires once after an update. Webhooks managed by the Vercel integration can't be changed.",
 };
 
 export const deleteSdkWebhookEndpoint = {
@@ -53,6 +54,8 @@ export const deleteSdkWebhookEndpoint = {
   validator: sdkWebhookIdValidator,
   zodReturnObject: apiSdkWebhookDeleteReturn,
   summary: "Delete an SDK webhook",
+  description:
+    "Webhooks managed by the Vercel integration can't be deleted here.",
 };
 
 // A successful test clears `disabled`, which resumes delivery

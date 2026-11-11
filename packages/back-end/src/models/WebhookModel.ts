@@ -181,6 +181,15 @@ export class SdkWebhookModel extends BaseClass {
     return webhook;
   }
 
+  // The Vercel integration recreates and rewrites its webhooks, so REST leaves them alone
+  private assertNotManaged(webhook: WebhookInterface) {
+    if (webhook.managedBy?.type === "vercel") {
+      this.context.throwBadRequestError(
+        "This SDK webhook is managed by the Vercel integration",
+      );
+    }
+  }
+
   public async apiListForConnection(
     connectionId: string,
   ): Promise<ApiSdkWebhookListReturn> {
@@ -257,6 +266,7 @@ export class SdkWebhookModel extends BaseClass {
     const can = (c: SDKConnectionInterface) =>
       context.permissions.canUpdateSDKWebhook(c);
     const webhook = await this.getWebhookForApiUpdate(id, can);
+    this.assertNotManaged(webhook);
     const { sdkConnections: sent, ...updates } = body;
     const sdkConnections = sent && uniq(sent);
     // Only changed values are checked, so an echoed GET response still saves
@@ -306,11 +316,12 @@ export class SdkWebhookModel extends BaseClass {
   }
 
   public async apiDelete(id: string): Promise<{ deletedId: string }> {
-    await this.getWebhookForApiUpdate(
+    const webhook = await this.getWebhookForApiUpdate(
       id,
       (c) => this.context.permissions.canDeleteSDKWebhook(c),
       true,
     );
+    this.assertNotManaged(webhook);
     await this.deleteById(id);
     return { deletedId: id };
   }
