@@ -38,6 +38,7 @@ export interface EnvironmentInitValue {
   hasMistralKey?: boolean;
   hasGoogleAIKey?: boolean;
   uploadMethod: "local" | "s3" | "google-cloud";
+  pageLoadTiming: boolean;
   interleavingEnabled: boolean;
 }
 
@@ -75,6 +76,7 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
     MISTRAL_API_KEY,
     GOOGLE_AI_API_KEY,
     UPLOAD_METHOD,
+    ENABLE_PAGE_LOAD_TIMING,
   } = process.env;
 
   // Use process.cwd() which returns the front-end directory (set via ecosystem.config.js cwd)
@@ -173,6 +175,7 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
     hasMistralKey: !!MISTRAL_API_KEY || false,
     hasGoogleAIKey: !!GOOGLE_AI_API_KEY || false,
     uploadMethod: (UPLOAD_METHOD || "local") as "local" | "s3" | "google-cloud",
+    pageLoadTiming: stringToBoolean(ENABLE_PAGE_LOAD_TIMING),
   };
 
   const cacheControl =

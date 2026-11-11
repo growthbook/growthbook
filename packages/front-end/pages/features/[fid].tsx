@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { FeatureEvalDiagnosticsQueryResponseRows } from "shared/types/integrations";
 import { ACTIVE_DRAFT_STATUSES } from "shared/validators";
 import LoadingOverlay from "@/components/LoadingOverlay";
+import PageLoadMark from "@/components/PageLoadMark";
 import PageHead from "@/components/Layout/PageHead";
 import FeaturesHeader from "@/components/Features/FeaturesHeader";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
@@ -172,6 +173,7 @@ export default function FeaturePage() {
       }}
     >
       <FeatureUsageProvider feature={feature}>
+        <PageLoadMark name="pageReady" last />
         <PageHead
           breadcrumb={[
             { display: "Feature Flags", href: "/features" },
@@ -325,3 +327,5 @@ export default function FeaturePage() {
     </FeatureRevisionsContext.Provider>
   );
 }
+
+FeaturePage.marksPageReady = true;
