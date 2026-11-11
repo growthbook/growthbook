@@ -12,7 +12,11 @@ export default function useSaveFactTableColumn(factTable: FactTableInterface) {
   const { apiCall } = useAuth();
   const { mutateDefinitions } = useDefinitions();
 
-  return async (column: ColumnInterface, changes: UpdateColumnProps) => {
+  return async (
+    column: ColumnInterface,
+    changes: UpdateColumnProps,
+    { loadTopValues: allowLoadTopValues = true } = {},
+  ) => {
     const { data, loadTopValues } = prepareColumnUpdate(
       factTable,
       column,
@@ -20,7 +24,7 @@ export default function useSaveFactTableColumn(factTable: FactTableInterface) {
     );
     const url = `/fact-tables/${factTable.id}/column/${encodeURIComponent(column.column)}`;
     await apiCall(url, { method: "PUT", body: JSON.stringify(data) });
-    if (loadTopValues) {
+    if (loadTopValues && allowLoadTopValues) {
       // Optional: the edit is already saved, and a user who can't run queries
       // can refresh the levels later
       await apiCall(`${url}/top-values`, { method: "POST" }).catch(() => {});

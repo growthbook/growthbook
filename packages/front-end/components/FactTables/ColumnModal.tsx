@@ -348,7 +348,9 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
             data.jsonFields = value.jsonFields;
           }
 
-          await saveColumn(existing, data);
+          // The modal loads top values when Auto Slice is ticked, so levels
+          // the user cleared stay cleared
+          await saveColumn(existing, data, { loadTopValues: false });
         } else {
           if (value.datatype === "boolean" && value.autoSlices) {
             value.autoSlices = ["true", "false"];
