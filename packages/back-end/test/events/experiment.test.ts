@@ -1,4 +1,5 @@
 import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
+import type { EventInterface } from "shared/types/events/event";
 import {
   logExperimentCreated,
   logExperimentUpdated,
@@ -14,6 +15,7 @@ import {
   notifySrm,
 } from "back-end/src/services/experimentNotifications";
 import { EventModel } from "back-end/src/models/EventModel";
+import { isBookkeepingExperimentUpdate } from "back-end/src/events/experimentUpdateNoise";
 
 // Serializers resolve legacy identifiers through the request's data source cache,
 // which these mock contexts don't have.
@@ -600,6 +602,61 @@ describe("experiments events", () => {
         },
       }),
     );
+  });
+
+  it("leaves analysis health out of experiment.updated, so a refresh that only moves it is bookkeeping", async () => {
+    let rawPayload;
+
+    jest.spyOn(EventModel, "create").mockImplementation(({ data }) => {
+      rawPayload = data;
+      return { toJSON: () => "" };
+    });
+
+    await logExperimentUpdated({
+      context: {
+        org,
+        userId: "aabb",
+        email: "user@mail.com",
+        userName: "User Name",
+        auditUser: {
+          type: "dashboard",
+          id: "aabb",
+          email: "user@mail.com",
+          name: "User Name",
+        },
+      },
+      current: {
+        ...experimentSnapshot,
+        lastSnapshotAttempt: new Date("2024-01-02T00:00:00.000Z"),
+        pastNotifications: ["srm"],
+        analysisSummary: {
+          snapshotId: "snp_2",
+          health: { srm: 0.0002, multipleExposures: 40, totalUsers: 2000 },
+        },
+      },
+      previous: {
+        ...experimentSnapshot,
+        lastSnapshotAttempt: new Date("2024-01-01T00:00:00.000Z"),
+        pastNotifications: [],
+        analysisSummary: {
+          snapshotId: "snp_1",
+          health: { srm: 0.4, multipleExposures: 0, totalUsers: 1000 },
+        },
+      },
+    });
+
+    const stored = JSON.parse(JSON.stringify(rawPayload));
+    expect(stored.data.object).not.toHaveProperty("analysisSummary");
+    expect(stored.data.object).not.toHaveProperty("pastNotifications");
+    expect(stored.data.previous_attributes ?? {}).not.toHaveProperty(
+      "analysisSummary",
+    );
+    expect(
+      isBookkeepingExperimentUpdate({
+        version: 1,
+        data: stored,
+      } as EventInterface),
+    ).toBe(true);
   });
 
   it("dispatches experiment.deleted event on experiment delete", async () => {

@@ -1650,15 +1650,25 @@ const findExperiment = async ({
 
 // region Events
 
+// Analysis health changes on every snapshot refresh, so events leave it out
+// rather than send an experiment.updated per refresh.
+const EVENT_OMITTED_EXPERIMENT_FIELDS = [
+  "pastNotifications",
+  "analysisSummary",
+] as const;
+
 // The event payload: the API shape plus the owner's email when it resolves,
 // so deliveries can name the owner without reading the experiment back.
 const toExperimentEventPayload = async (
   context: ReqContext | ApiReqContext,
   experiment: ExperimentInterface,
 ) => {
-  const apiExperiment = await toExperimentApiInterface(
-    context,
-    experiment as ExperimentInterfaceExcludingHoldouts,
+  const apiExperiment = omit(
+    await toExperimentApiInterface(
+      context,
+      experiment as ExperimentInterfaceExcludingHoldouts,
+    ),
+    EVENT_OMITTED_EXPERIMENT_FIELDS,
   );
   const ownerEmail = await getOwnerEmail(apiExperiment.owner, context);
   return ownerEmail ? { ...apiExperiment, ownerEmail } : apiExperiment;

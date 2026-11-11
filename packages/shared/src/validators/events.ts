@@ -12,7 +12,7 @@ import {
   holdoutNewLinkageNotificationPayload,
 } from "./holdout-notifications";
 import { sdkConnectionPayloadSizeNotificationPayload } from "./sdk-connection-notifications";
-import { apiExperimentValidator } from "./experiments";
+import { apiExperimentEventValidator } from "./experiments";
 import { featureWebhookPayload } from "./feature-webhook-schemas";
 import {
   safeRolloutDecisionNotificationPayload,
@@ -289,14 +289,14 @@ export const notificationEvents = {
   },
   experiment: {
     created: {
-      schema: apiExperimentValidator,
+      schema: apiExperimentEventValidator,
     },
     updated: {
-      schema: apiExperimentValidator,
+      schema: apiExperimentEventValidator,
       isDiff: true,
     },
     deleted: {
-      schema: apiExperimentValidator,
+      schema: apiExperimentEventValidator,
     },
     warning: {
       schema: experimentWarningNotificationPayload,

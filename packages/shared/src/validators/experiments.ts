@@ -1125,6 +1125,34 @@ const apiExperimentShape = z.object({
     })
     .nullable()
     .optional(),
+  pastNotifications: z
+    .array(z.enum(experimentNotification))
+    .describe(
+      "Alerts sent for a condition that is still true, such as `srm` or `multiple-exposures`. An entry is removed when its condition ends.",
+    )
+    .optional(),
+  analysisSummary: z
+    .object({
+      snapshotId: z.string(),
+      health: z
+        .object({
+          srm: z
+            .number()
+            .nullable()
+            .describe(
+              "SRM p-value, rounded to 20 decimal places, so a p-value below 5e-21 reads as 0. Null when it isn't a finite number.",
+            ),
+          multipleExposures: z.number(),
+          totalUsers: z.number().nullable(),
+        })
+        .strict()
+        .optional(),
+    })
+    .strict()
+    .describe(
+      "Health from the most recent successful standard snapshot of the latest phase, which experiment alerts are based on. When a new phase starts, the previous phase's summary is returned until the new phase's first snapshot completes.",
+    )
+    .optional(),
 });
 export const apiExperimentValidator = namedSchema(
   "Experiment",
@@ -1132,6 +1160,12 @@ export const apiExperimentValidator = namedSchema(
 );
 
 export type ApiExperiment = z.infer<typeof apiExperimentValidator>;
+
+// Experiment webhook events: the API shape without analysis health, which
+// changes on every snapshot refresh.
+export const apiExperimentEventValidator = apiExperimentShape
+  .omit({ pastNotifications: true, analysisSummary: true })
+  .strict();
 
 // Corresponds to schemas/ExperimentWithEnhancedStatus.yaml (allOf Experiment + enhancedStatus)
 // Uses the non-strict shape so z.intersection can add enhancedStatus.

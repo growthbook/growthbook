@@ -3738,6 +3738,24 @@ export async function toExperimentApiInterface(
       : experiment.nextScheduledStatusUpdate === undefined
         ? undefined
         : null,
+    pastNotifications: experiment.pastNotifications ?? [],
+    ...(experiment.analysisSummary
+      ? {
+          analysisSummary: {
+            snapshotId: experiment.analysisSummary.snapshotId,
+            ...(experiment.analysisSummary.health
+              ? {
+                  health: {
+                    srm: safeFloatOrNull(experiment.analysisSummary.health.srm),
+                    multipleExposures:
+                      experiment.analysisSummary.health.multipleExposures,
+                    totalUsers: experiment.analysisSummary.health.totalUsers,
+                  },
+                }
+              : {}),
+          },
+        }
+      : {}),
   };
   return apiExperiment;
 }
