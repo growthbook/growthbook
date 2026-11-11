@@ -186,7 +186,18 @@ export class SdkWebhookModel extends BaseClass {
   ): Promise<ApiSdkWebhookListReturn> {
     const conn = await this.getConnectionForApi(connectionId);
     const webhooks = await this.findAllSdkWebhooksByConnection(conn.id);
-    // Secrets go to whoever could update the webhook, as getWebhookForApiUpdate requires
+    const editable = await this.getEditableWebhookIds(webhooks);
+    return {
+      sdkWebhooks: webhooks.map((w) =>
+        this.toApiInterface(w, editable.has(w.id)),
+      ),
+    };
+  }
+
+  // Secrets go to whoever could update the webhook: every live connection it covers must allow it
+  public async getEditableWebhookIds(
+    webhooks: WebhookInterface[],
+  ): Promise<Set<string>> {
     const conns = await findSDKConnectionsByIds(this.context, [
       ...new Set(webhooks.flatMap((w) => w.sdks)),
     ]);
@@ -196,15 +207,14 @@ export class SdkWebhookModel extends BaseClass {
         .filter((c) => this.context.permissions.canUpdateSDKWebhook(c))
         .map((c) => c.id),
     );
-    return {
-      sdkWebhooks: webhooks.map((w) => {
-        const live = w.sdks.filter((id) => existing.has(id));
-        return this.toApiInterface(
-          w,
-          live.length > 0 && live.every((id) => editable.has(id)),
-        );
-      }),
-    };
+    return new Set(
+      webhooks
+        .filter((w) => {
+          const live = w.sdks.filter((id) => existing.has(id));
+          return live.length > 0 && live.every((id) => editable.has(id));
+        })
+        .map((w) => w.id),
+    );
   }
 
   public async apiCreateForConnection(

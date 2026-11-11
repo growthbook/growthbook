@@ -266,13 +266,15 @@ export const getSDKConnectionWebhooks = async (
   const webhooks =
     await context.models.sdkWebhooks.findAllSdkWebhooksByConnection(id);
 
-  // If user does not have write access, remove the shared secret and headers
-  if (!context.permissions.canUpdateSDKWebhook(conn)) {
-    webhooks.forEach((w) => {
+  // Blank the shared secret and headers unless the user can edit every connection the webhook covers
+  const editable =
+    await context.models.sdkWebhooks.getEditableWebhookIds(webhooks);
+  webhooks.forEach((w) => {
+    if (!editable.has(w.id)) {
       w.signingKey = "";
       w.headers = "";
-    });
-  }
+    }
+  });
 
   res.status(200).json({
     status: 200,
