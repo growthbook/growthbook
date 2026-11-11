@@ -490,7 +490,7 @@ describe("getEnvironmentStatus", () => {
         force("x"),
       ].map((r) => ruleTrafficStep(r)),
     );
-    expect(result).toMatchObject({ reason: { kind: "mixed" }, rulesAfter: 2 });
+    expect(result.reason).toEqual({ kind: "mixed" });
   });
 
   it("chains the steps before the one that varies", () => {

@@ -103,9 +103,6 @@ export type EnvironmentStatus = {
   rules: StepStatus;
   // Each step, and whether any traffic gets that far.
   steps: { step: TrafficStep; reachable: boolean }[];
-  // Rules after the one that varies by user, which whoever it doesn't match
-  // goes on to.
-  rulesAfter: number;
   defaultValue: StepStatus;
   // The default as the SDK receives it.
   servedDefault: string;
@@ -431,7 +428,6 @@ export function getEnvironmentStatus({
     holdout: has("holdout") ? ("skipped" as const) : ("none" as const),
     rules: has("rule") ? ("skipped" as const) : ("none" as const),
     steps: [],
-    rulesAfter: 0,
     defaultValue: "skipped" as const,
     servedDefault: defaultValue,
   };
@@ -519,6 +515,8 @@ export function getEnvironmentStatus({
     if ((takes(step) ?? 0) >= 1 - EPSILON) open = false;
     return { step, reachable };
   });
+  // Rules after the one that varies by user, which whoever it doesn't match
+  // goes on to.
   const rulesAfter = variesAt
     ? listed
         .slice(steps.indexOf(variesAt) + 1)
@@ -592,7 +590,6 @@ export function getEnvironmentStatus({
     holdout: statusOf("holdout"),
     rules: statusOf("rule"),
     steps: listed,
-    rulesAfter,
     defaultValue: open ? "applies" : "skipped",
     servedDefault: defaultValue,
   };

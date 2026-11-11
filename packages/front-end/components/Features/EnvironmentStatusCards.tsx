@@ -270,12 +270,12 @@ function Row({
   icon,
   label,
   muted = false,
-  children,
+  children = null,
 }: {
   icon: ReactNode;
   label: ReactNode;
   muted?: boolean;
-  children: ReactNode;
+  children?: ReactNode;
 }) {
   return (
     <div className={styles.row}>
@@ -298,20 +298,19 @@ function Row({
   );
 }
 
-// A group of rows, with what they come to together when there's an icon for
-// it, in line with the rows' icons.
+// A group of rows, under what they come to together.
 function Section({
   label,
   icon,
   muted = false,
 }: {
   label: string;
-  icon?: ReactNode;
+  icon: ReactNode;
   muted?: boolean;
 }) {
   return (
     <div className={styles.section}>
-      {icon ? <span className={styles.icon}>{icon}</span> : null}
+      <span className={styles.icon}>{icon}</span>
       <Text weight="medium" color={muted ? "text-low" : "text-mid"}>
         {label}
       </Text>
@@ -439,6 +438,7 @@ function Drilldown({
       ? rules
       : rules.slice(0, 1);
   const rest = rules.slice(shown.length);
+  const prerequisitesMuted = status.prerequisites === "skipped";
   return (
     <div className={styles.rows}>
       <Row icon={<StepIcon status={status.environment} />} label="Environment">
@@ -456,35 +456,32 @@ function Drilldown({
           <Section
             label="Prerequisites"
             icon={<StepIcon status={status.prerequisites} />}
-            muted={status.prerequisites === "skipped"}
+            muted={prerequisitesMuted}
           />
           <div className={styles.group}>
-            {card.prerequisites.map((p) => {
-              const muted = status.prerequisites === "skipped";
-              return (
-                <Row
-                  key={p.index}
-                  icon={null}
-                  muted={muted}
-                  label={
-                    <ClampedLink
-                      name={p.id}
-                      href={`/features/${p.id}`}
-                      className={styles.clamped}
-                    />
-                  }
-                >
-                  <Flex align="center" gap="2">
-                    {muted
-                      ? null
-                      : prerequisiteState(p.id, card.id, { inline: true })}
-                    <Text color={muted ? "text-low" : "text-mid"}>
-                      {prerequisitesSummary([p.result], status.prerequisites)}
-                    </Text>
-                  </Flex>
-                </Row>
-              );
-            })}
+            {card.prerequisites.map((p) => (
+              <Row
+                key={p.index}
+                icon={null}
+                muted={prerequisitesMuted}
+                label={
+                  <ClampedLink
+                    name={p.id}
+                    href={`/features/${p.id}`}
+                    className={styles.clamped}
+                  />
+                }
+              >
+                <Flex align="center" gap="2">
+                  {prerequisitesMuted
+                    ? null
+                    : prerequisiteState(p.id, card.id, { inline: true })}
+                  <Text color={prerequisitesMuted ? "text-low" : "text-mid"}>
+                    {prerequisitesSummary([p.result], status.prerequisites)}
+                  </Text>
+                </Flex>
+              </Row>
+            ))}
           </div>
         </>
       ) : null}
@@ -530,15 +527,13 @@ function Drilldown({
                     {rest.length} other {rest.length === 1 ? "rule" : "rules"}
                   </Link>
                 }
-              >
-                {null}
-              </Row>
+              />
             ) : null}
           </div>
         </>
       ) : (
         <Row icon={<StepIcon status="skipped" />} muted label="Rules">
-          {/* Hidden from the list above, rules that reach no one still exist. */}
+          {/* Rules that reach no one aren't listed, but they're there. */}
           <Text color="text-low">
             {status.rules === "skipped"
               ? "Not reachable"
