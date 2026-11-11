@@ -80,6 +80,11 @@
   white-space: nowrap;
 }
 
+// In the drilldown, a long value is cut short rather than widening it.
+.rows .value {
+  max-width: 200px;
+}
+
 .reason {
   display: flex;
   min-width: 0;
