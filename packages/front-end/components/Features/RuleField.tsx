@@ -1,7 +1,11 @@
 import { ReactNode } from "react";
 import { Box, Flex } from "@radix-ui/themes";
+import { hasTargetingConfigured } from "shared/experiments";
+import { FeaturePrerequisite, SavedGroupTargeting } from "shared/types/feature";
 import Text from "@/ui/Text";
+import TruncatedConditionDisplay from "@/components/SavedGroups/TruncatedConditionDisplay";
 import { useFeaturePageRedesign } from "./FeaturePageRedesign";
+import { AttributeBadge } from "./AttributeBadge";
 
 // Wide enough for the longest label, so values share a left edge.
 const LABEL_WIDTH = 104;
@@ -61,5 +65,52 @@ export default function RuleField({
         {children}
       </Box>
     </Flex>
+  );
+}
+
+// Who a rule or holdout reaches: its condition, or all traffic.
+export function TargetingField(target: {
+  condition?: string;
+  savedGroups?: SavedGroupTargeting[];
+  prerequisites?: FeaturePrerequisite[];
+}) {
+  const redesign = useFeaturePageRedesign();
+  return (
+    <RuleField label="Targeting">
+      {hasTargetingConfigured(target) ? (
+        <TruncatedConditionDisplay
+          condition={target.condition || ""}
+          savedGroups={target.savedGroups}
+          prerequisites={target.prerequisites}
+          prefix={redesign ? <Text weight="medium">IF</Text> : undefined}
+        />
+      ) : (
+        "All traffic"
+      )}
+    </RuleField>
+  );
+}
+
+// The attribute a rule or holdout hashes its traffic on.
+export function SampleByField({
+  hashAttribute,
+  fallbackAttribute,
+  mb,
+}: {
+  hashAttribute: string;
+  fallbackAttribute?: string;
+  mb?: "0" | "3" | "4";
+}) {
+  return (
+    <RuleField label="Sample by" mb={mb}>
+      <Flex align="center" gap="2" wrap="wrap">
+        <AttributeBadge attributeId={hashAttribute} />
+        {fallbackAttribute ? (
+          <>
+            falling back to <AttributeBadge attributeId={fallbackAttribute} />
+          </>
+        ) : null}
+      </Flex>
+    </RuleField>
   );
 }

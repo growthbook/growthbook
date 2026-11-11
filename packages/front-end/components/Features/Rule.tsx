@@ -1,4 +1,3 @@
-import clsx from "clsx";
 import { FeatureInterface, FeatureRule } from "shared/types/feature";
 import {
   FeatureRevisionInterface,
@@ -91,7 +90,10 @@ import Badge from "@/ui/Badge";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import RuleEnvScopeBadges from "@/components/Features/RuleEnvScopeBadges";
 import RuleProjectScopeBadges from "@/components/Features/RuleProjectScopeBadges";
-import RuleCard from "@/components/Features/RuleCard";
+import RuleCard, {
+  RuleEditButton,
+  ruleRowMenuClass,
+} from "@/components/Features/RuleCard";
 import DraftSelectorForChanges, {
   DraftMode,
 } from "@/components/Features/DraftSelectorForChanges";
@@ -112,7 +114,6 @@ import {
   useApprovalTimerTick,
 } from "@/components/RampSchedule/RampMonitoringSignals";
 import { formatRollbackReason } from "@/components/RampSchedule/rollbackReason";
-import TruncatedConditionDisplay from "@/components/SavedGroups/TruncatedConditionDisplay";
 import {
   DropdownMenu,
   DropdownMenuGroup,
@@ -124,7 +125,7 @@ import {
 import useSortableItem from "@/hooks/useSortableItem";
 import ForceSummary from "./ForceSummary";
 import RolloutSummary from "./RolloutSummary";
-import RuleField from "./RuleField";
+import RuleField, { TargetingField } from "./RuleField";
 import { useFeaturePageRedesign } from "./FeaturePageRedesign";
 
 function fmtScheduleDate(d: Date | string): string {
@@ -215,8 +216,6 @@ function computeRemainingTime(
   return { seconds, manualApprovals };
 }
 import ExperimentSummary from "./ExperimentSummary";
-import cornerStyles from "./CornerActions.module.scss";
-import ruleCardStyles from "./RuleCard.module.scss";
 import ExperimentRefSummary, {
   experimentRefSkipReason,
   isExperimentRefRuleSkipped,
@@ -543,11 +542,6 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
         : undefined;
 
     const isInactive = isRuleInactive(rule, experimentsMap);
-
-    const hasCondition =
-      (rule.condition && rule.condition !== "{}") ||
-      !!rule.savedGroups?.length ||
-      !!rule.prerequisites?.length;
 
     let safeRollout: SafeRolloutInterface | undefined;
 
@@ -990,14 +984,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                 {/* Ahead of the ramp's CTAs, which stay by the menu. Shown on
                     hover, as the menu is. */}
                 {redesign && canEditRule ? (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className={cornerStyles.actions}
-                    onClick={editRule}
-                  >
-                    Edit
-                  </Button>
+                  <RuleEditButton onClick={editRule} />
                 ) : null}
                 {rampSchedule &&
                   safeRollout &&
@@ -1058,12 +1045,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                 {info.pill}
 
                 {canEdit && lockedBySchedule && !rampSchedule ? (
-                  <LockedRowMenu
-                    className={clsx(
-                      cornerStyles.actions,
-                      ruleCardStyles.rowMenu,
-                    )}
-                  />
+                  <LockedRowMenu className={ruleRowMenuClass} />
                 ) : null}
                 {/* Shown when rule-edit OR ramp runtime actions are available.
                 Under a scheduled-publish lock the rule-edit group is hidden but
@@ -1075,10 +1057,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                       trigger={
                         <MoreMenuTrigger
                           label="Rule actions"
-                          className={clsx(
-                            cornerStyles.actions,
-                            ruleCardStyles.rowMenu,
-                          )}
+                          className={ruleRowMenuClass}
                         />
                       }
                       open={dropdownOpen}
@@ -1733,20 +1712,11 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
             {/* An experiment or Bandit rule shows its own phase's targeting. */}
             {rule.type !== "experiment-ref" &&
             rule.type !== "contextual-bandit-ref" ? (
-              <RuleField label="Targeting">
-                {hasCondition ? (
-                  <TruncatedConditionDisplay
-                    condition={rule.condition || ""}
-                    savedGroups={rule.savedGroups}
-                    prerequisites={rule.prerequisites}
-                    prefix={
-                      redesign ? <Text weight="medium">IF</Text> : undefined
-                    }
-                  />
-                ) : (
-                  "All traffic"
-                )}
-              </RuleField>
+              <TargetingField
+                condition={rule.condition}
+                savedGroups={rule.savedGroups}
+                prerequisites={rule.prerequisites}
+              />
             ) : null}
             {rule.type === "force" && (
               <ForceSummary

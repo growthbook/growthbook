@@ -3,10 +3,28 @@ import clsx from "clsx";
 import { Box, Card, Flex } from "@radix-ui/themes";
 import { PiDotsSixVertical } from "react-icons/pi";
 import Badge from "@/ui/Badge";
+import Button from "@/ui/Button";
 import Tooltip from "@/ui/Tooltip";
 import cornerStyles from "./CornerActions.module.scss";
 import styles from "./RuleCard.module.scss";
 import { useFeaturePageRedesign } from "./FeaturePageRedesign";
+
+// A rule card's ⋮, shown on hover with the card's other actions.
+export const ruleRowMenuClass = clsx(cornerStyles.actions, styles.rowMenu);
+
+// A rule card's Edit, in its header and shown on hover, as its ⋮ is.
+export function RuleEditButton({ onClick }: { onClick: () => void }) {
+  return (
+    <Button
+      variant="ghost"
+      size="sm"
+      className={cornerStyles.actions}
+      onClick={onClick}
+    >
+      Edit
+    </Button>
+  );
+}
 
 export type RuleCardSideColor =
   | "active"

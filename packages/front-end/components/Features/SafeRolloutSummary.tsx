@@ -8,12 +8,11 @@ import { FeatureInterface } from "shared/types/feature";
 import { Box, Flex, Text } from "@radix-ui/themes";
 import { SafeRolloutInterface, SafeRolloutRule } from "shared/validators";
 import Tooltip from "@/ui/Tooltip";
-import RuleField from "@/components/Features/RuleField";
+import RuleField, { SampleByField } from "@/components/Features/RuleField";
 import ValidateValue from "@/components/Features/ValidateValue";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Table, { TableBody, TableRow, TableCell } from "@/ui/Table";
 import { EntityBadge } from "@/components/Features/EntityBadge";
-import { AttributeBadge } from "./AttributeBadge";
 import ValueDisplay from "./ValueDisplay";
 import ForceSummary from "./ForceSummary";
 
@@ -76,9 +75,7 @@ export default function SafeRolloutSummary({
 
   return (
     <Flex direction="column" gap="3">
-      <RuleField label="Sample by" mb="0">
-        <AttributeBadge attributeId={hashAttribute} />
-      </RuleField>
+      <SampleByField hashAttribute={hashAttribute} mb="0" />
       <RuleField label="Monitor" mb="0">
         <Flex direction="row" gap="2">
           <EntityBadge

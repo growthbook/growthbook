@@ -1,9 +1,8 @@
 import { FeatureInterface } from "shared/types/feature";
-import { Box, Flex } from "@radix-ui/themes";
-import { AttributeBadge } from "./AttributeBadge";
+import { Box } from "@radix-ui/themes";
 import ForceSummary from "./ForceSummary";
 import RolloutRow from "./RolloutRow";
-import RuleField from "./RuleField";
+import { SampleByField } from "./RuleField";
 
 export default function RolloutSummary({
   value,
@@ -27,16 +26,10 @@ export default function RolloutSummary({
 }) {
   return (
     <Box>
-      <RuleField label="Sample by">
-        <Flex align="center" gap="2" wrap="wrap">
-          <AttributeBadge attributeId={hashAttribute} />
-          {fallbackAttribute ? (
-            <>
-              falling back to <AttributeBadge attributeId={fallbackAttribute} />
-            </>
-          ) : null}
-        </Flex>
-      </RuleField>
+      <SampleByField
+        hashAttribute={hashAttribute}
+        fallbackAttribute={fallbackAttribute}
+      />
       <RolloutRow coverage={coverage} />
       <ForceSummary
         value={value}

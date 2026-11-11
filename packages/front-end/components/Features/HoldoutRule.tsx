@@ -1,4 +1,3 @@
-import clsx from "clsx";
 import { FeatureInterface } from "shared/types/feature";
 import React, { forwardRef, useState } from "react";
 import { Box, Flex, Heading } from "@radix-ui/themes";
@@ -11,19 +10,20 @@ import {
   filterEnvironmentsByFeature,
   getEnabledHoldoutEnvironments,
 } from "shared/util";
-import { hasTargetingConfigured } from "shared/experiments";
 import Link from "@/ui/Link";
 import { LockedRowMenu } from "@/components/Features/ScheduleLock";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useExperimentStatusIndicator } from "@/hooks/useExperimentStatusIndicator";
-import Text from "@/ui/Text";
 import { useEnvironments } from "@/services/features";
 import Badge from "@/ui/Badge";
 import RuleEnvScopeBadges from "@/components/Features/RuleEnvScopeBadges";
-import RuleCard, { RuleCardSideColor } from "@/components/Features/RuleCard";
+import RuleCard, {
+  RuleCardSideColor,
+  RuleEditButton,
+  ruleRowMenuClass,
+} from "@/components/Features/RuleCard";
 import useApi from "@/hooks/useApi";
 import Callout from "@/ui/Callout";
-import TruncatedConditionDisplay from "@/components/SavedGroups/TruncatedConditionDisplay";
 import {
   DropdownMenu,
   DropdownMenuGroup,
@@ -34,10 +34,8 @@ import {
 import RemoveFromHoldoutModal from "./RemoveFromHoldoutModal";
 import AddToHoldoutModal from "./AddToHoldoutModal";
 import HoldoutSummary from "./HoldoutSummary";
-import RuleField from "./RuleField";
+import RuleField, { TargetingField } from "./RuleField";
 import { useFeaturePageRedesign } from "./FeaturePageRedesign";
-import cornerStyles from "./CornerActions.module.scss";
-import ruleCardStyles from "./RuleCard.module.scss";
 
 interface Props {
   feature: FeatureInterface;
@@ -106,7 +104,6 @@ export const HoldoutRule = forwardRef<HTMLDivElement, Props>(
 
     // The phase the payload sends.
     const phase = holdoutExperiment.phases[0];
-    const hasCondition = hasTargetingConfigured(phase);
     const status = getStatusIndicator(holdoutExperiment);
 
     const canEdit = permissionsUtil.canEditFeatureDrafts(feature);
@@ -173,23 +170,19 @@ export const HoldoutRule = forwardRef<HTMLDivElement, Props>(
                   />
                 )}
 
+                {/* Shown on hover, as the menu is. */}
+                {redesign && canEdit && !isLocked && !isDeleted ? (
+                  <RuleEditButton onClick={() => setRuleModal()} />
+                ) : null}
                 {canEdit && lockedBySchedule ? (
-                  <LockedRowMenu
-                    className={clsx(
-                      cornerStyles.actions,
-                      ruleCardStyles.rowMenu,
-                    )}
-                  />
+                  <LockedRowMenu className={ruleRowMenuClass} />
                 ) : null}
                 {canEdit && !isLocked && (
                   <DropdownMenu
                     trigger={
                       <MoreMenuTrigger
                         label="Holdout actions"
-                        className={clsx(
-                          cornerStyles.actions,
-                          ruleCardStyles.rowMenu,
-                        )}
+                        className={ruleRowMenuClass}
                       />
                     }
                     open={dropdownOpen}
@@ -209,15 +202,20 @@ export const HoldoutRule = forwardRef<HTMLDivElement, Props>(
                         </DropdownMenuItem>
                       ) : (
                         <>
-                          <DropdownMenuItem
-                            onClick={() => {
-                              setRuleModal();
-                              setDropdownOpen(false);
-                            }}
-                          >
-                            Edit
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
+                          {/* The redesign has it on the card itself. */}
+                          {!redesign && (
+                            <>
+                              <DropdownMenuItem
+                                onClick={() => {
+                                  setRuleModal();
+                                  setDropdownOpen(false);
+                                }}
+                              >
+                                Edit
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                            </>
+                          )}
                           <DropdownMenuItem
                             color="red"
                             onClick={() => {
@@ -266,25 +264,17 @@ export const HoldoutRule = forwardRef<HTMLDivElement, Props>(
           </Box>
           {!isInactive && !isDeleted && (
             <Box style={{ opacity: isInactive ? 0.6 : 1 }} mt="3">
-              <RuleField label="Targeting">
-                {hasCondition ? (
-                  <TruncatedConditionDisplay
-                    condition={phase.condition || ""}
-                    savedGroups={phase.savedGroups}
-                    prerequisites={phase.prerequisites}
-                    prefix={
-                      redesign ? <Text weight="medium">IF</Text> : undefined
-                    }
-                  />
-                ) : (
-                  "All traffic"
-                )}
-              </RuleField>
+              <TargetingField
+                condition={phase.condition}
+                savedGroups={phase.savedGroups}
+                prerequisites={phase.prerequisites}
+              />
               <HoldoutSummary
                 feature={feature}
                 value={feature.holdout?.value || ""}
                 hashAttribute={holdoutExperiment.hashAttribute || ""}
                 holdoutSize={coverageToHoldoutSize(phase.coverage)}
+                environment={currentEnvironment}
               />
             </Box>
           )}
