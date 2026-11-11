@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
 import { isActiveDraftStatus } from "shared/validators";
+import { isRevisionEditLockedBySchedule } from "shared/enterprise";
 import { useFeatureRevisionsContext } from "@/contexts/FeatureRevisionsContext";
 import { isRampGenerated } from "@/components/Reviews/RevisionStatusBadge";
 import { DraftMode } from "@/components/DraftSelector";
@@ -25,6 +26,8 @@ export function useDefaultDraft(
           (r) =>
             !isRampGenerated(r) &&
             isActiveDraftStatus(r.status) &&
+            // A scheduled publish that locks edits rejects writes into it.
+            !isRevisionEditLockedBySchedule(r) &&
             (canWriteIntoDraft?.(r) ?? true),
         )
         .sort(
