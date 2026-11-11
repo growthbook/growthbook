@@ -120,13 +120,9 @@ export default function useFactTableActions(page: FactTablePageData) {
     >
       <DropdownMenuGroup>
         {page.canEdit && (
+          // Both pages have their own Edit SQL button, so the menu skips it
           <DropdownMenuItem onClick={() => open("settings")}>
-            Edit settings
-          </DropdownMenuItem>
-        )}
-        {page.canEdit && (
-          <DropdownMenuItem onClick={() => open("sql")}>
-            Edit SQL
+            Edit column mapping
           </DropdownMenuItem>
         )}
         {!factTable.managedBy && page.canManageOfficial && (
