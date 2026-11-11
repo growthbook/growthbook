@@ -62,7 +62,6 @@ import Button from "@/ui/Button";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
 import Text from "@/ui/Text";
-import CopyableCode from "@/components/Settings/CopyableCode";
 import ContextualBanditRefSummary, {
   contextualBanditSkipReason,
   isContextualBanditRefRuleSkipped,
@@ -92,6 +91,8 @@ import RuleEnvScopeBadges from "@/components/Features/RuleEnvScopeBadges";
 import RuleProjectScopeBadges from "@/components/Features/RuleProjectScopeBadges";
 import RuleCard, {
   RuleEditButton,
+  ruleHeaderRowClass,
+  RuleIdLine,
   ruleRowMenuClass,
 } from "@/components/Features/RuleCard";
 import DraftSelectorForChanges, {
@@ -900,12 +901,17 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
           header={
             <Flex
               justify="between"
-              align="center"
+              align="start"
               gap="8"
               style={{ maxWidth: "100%" }}
             >
               <Box style={{ flex: "0 1 auto", minWidth: 0 }}>
-                <Flex align="center" gap="2" wrap="wrap">
+                <Flex
+                  align="center"
+                  gap="2"
+                  wrap="wrap"
+                  className={ruleHeaderRowClass}
+                >
                   <Heading as="h4" size="md" weight="medium" mb="0">
                     {linkedExperiment ? (
                       <>
@@ -968,19 +974,15 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                       <RampMonitoringBadges rampSchedule={rampSchedule} />
                     )}
                 </Flex>
-                {showRuleIds ? (
-                  <Flex align="center" gap="1" mt="1">
-                    <Text size="sm" color="text-low">
-                      Rule ID:
-                    </Text>
-                    <Text size="sm">
-                      <CopyableCode value={rule.id} muted />
-                    </Text>
-                  </Flex>
-                ) : null}
+                {showRuleIds ? <RuleIdLine id={rule.id} /> : null}
               </Box>
 
-              <Flex align="center" gap="3" flexShrink="0">
+              <Flex
+                align="center"
+                gap="3"
+                flexShrink="0"
+                className={ruleHeaderRowClass}
+              >
                 {/* Ahead of the ramp's CTAs, which stay by the menu. Shown on
                     hover, as the menu is. */}
                 {redesign && canEditRule ? (

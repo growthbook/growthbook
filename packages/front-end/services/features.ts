@@ -1,4 +1,5 @@
 import isEqual from "lodash/isEqual";
+import md5 from "md5";
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import {
   Environment,
@@ -1852,4 +1853,10 @@ export function getKillSwitchGatedEnvs(
       ? getReviewSetting(requireReviews, feature)
       : null,
   );
+}
+
+// The id the SDK payload gives a feature's holdout rule (back-end
+// `util/features.ts`), derived rather than stored like a rule's own.
+export function getHoldoutRuleId(featureId: string, holdoutId: string) {
+  return `holdout_${md5(featureId + holdoutId)}`;
 }

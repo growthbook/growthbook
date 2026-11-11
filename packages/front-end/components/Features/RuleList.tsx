@@ -502,6 +502,7 @@ export default function RuleList(props: RuleListProps) {
             isLocked={locked}
             lockedBySchedule={lockedBySchedule}
             currentEnvironment={allEnvsView ? undefined : props.environment}
+            showRuleIds={showRuleIds}
           />
         )}
         <SortableContext items={items} strategy={verticalListSortingStrategy}>

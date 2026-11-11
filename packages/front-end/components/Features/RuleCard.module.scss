@@ -71,6 +71,12 @@ $body-inset: 28px;
   min-width: 20px;
 }
 
+// A header's title row and actions row, each a header's height, so a line
+// under the title (a rule's id) doesn't move them.
+.headerRow {
+  min-height: $header-height;
+}
+
 .header {
   min-height: $header-height;
 }

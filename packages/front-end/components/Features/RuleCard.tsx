@@ -3,11 +3,17 @@ import clsx from "clsx";
 import { Box, Card, Flex } from "@radix-ui/themes";
 import { PiDotsSixVertical } from "react-icons/pi";
 import Badge from "@/ui/Badge";
+import Text from "@/ui/Text";
+import CopyableCode from "@/components/Settings/CopyableCode";
 import Button from "@/ui/Button";
 import Tooltip from "@/ui/Tooltip";
 import cornerStyles from "./CornerActions.module.scss";
 import styles from "./RuleCard.module.scss";
 import { useFeaturePageRedesign } from "./FeaturePageRedesign";
+
+// A header row (title or actions) that keeps its place when the title grows a
+// second line.
+export const ruleHeaderRowClass = styles.headerRow;
 
 // A rule card's ⋮, shown on hover with the card's other actions.
 export const ruleRowMenuClass = clsx(cornerStyles.actions, styles.rowMenu);
@@ -23,6 +29,20 @@ export function RuleEditButton({ onClick }: { onClick: () => void }) {
     >
       Edit
     </Button>
+  );
+}
+
+// A rule card's id under its title, for "Show rule IDs".
+export function RuleIdLine({ id }: { id: string }) {
+  return (
+    <Flex align="center" gap="1" mt="1">
+      <Text size="sm" color="text-low">
+        Rule ID:
+      </Text>
+      <Text size="sm">
+        <CopyableCode value={id} muted />
+      </Text>
+    </Flex>
   );
 }
 

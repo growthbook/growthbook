@@ -1,6 +1,6 @@
 import { FeatureInterface } from "shared/types/feature";
 import React, { forwardRef, useState } from "react";
-import { Box, Flex, Heading } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import { HoldoutInterface } from "shared/validators";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
@@ -10,16 +10,19 @@ import {
   filterEnvironmentsByFeature,
   getEnabledHoldoutEnvironments,
 } from "shared/util";
+import Heading from "@/ui/Heading";
 import Link from "@/ui/Link";
 import { LockedRowMenu } from "@/components/Features/ScheduleLock";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useExperimentStatusIndicator } from "@/hooks/useExperimentStatusIndicator";
-import { useEnvironments } from "@/services/features";
+import { getHoldoutRuleId, useEnvironments } from "@/services/features";
 import Badge from "@/ui/Badge";
 import RuleEnvScopeBadges from "@/components/Features/RuleEnvScopeBadges";
 import RuleCard, {
   RuleCardSideColor,
   RuleEditButton,
+  ruleHeaderRowClass,
+  RuleIdLine,
   ruleRowMenuClass,
 } from "@/components/Features/RuleCard";
 import useApi from "@/hooks/useApi";
@@ -47,6 +50,8 @@ interface Props {
   // The current draft adds this holdout; it goes live when the draft publishes.
   isPendingAdd?: boolean;
   isLocked?: boolean;
+  // Its id under the title, as other rules show theirs.
+  showRuleIds?: boolean;
   // Shows the menu disabled rather than hiding it.
   lockedBySchedule?: boolean;
   // Per-env tab passes its env id so the badge sorts current env first;
@@ -66,6 +71,7 @@ export const HoldoutRule = forwardRef<HTMLDivElement, Props>(
       isDeleted = false,
       isPendingAdd = false,
       isLocked = false,
+      showRuleIds = false,
       lockedBySchedule = false,
       currentEnvironment,
       ...props
@@ -126,38 +132,49 @@ export const HoldoutRule = forwardRef<HTMLDivElement, Props>(
           header={
             <Flex
               justify="between"
-              align="center"
+              align="start"
               gap="3"
               style={{ maxWidth: "100%" }}
             >
+              <Box style={{ flex: "0 1 auto", minWidth: 0 }}>
+                <Flex
+                  align="center"
+                  gap="2"
+                  wrap="wrap"
+                  className={ruleHeaderRowClass}
+                >
+                  <Heading as="h4" size="md" weight="medium" mb="0">
+                    <>
+                      Holdout:{" "}
+                      <Link
+                        href={`/holdout/${feature.holdout?.id}`}
+                        style={{ marginRight: "var(--space-2)" }}
+                      >
+                        {holdout.name}
+                      </Link>
+                    </>
+                  </Heading>
+                  {/* Its status alone, as the experiment page shows a holdout's. */}
+                  {!isDeleted && (
+                    <Badge
+                      label={status.status}
+                      color={status.color}
+                      variant="soft"
+                      radius="full"
+                    />
+                  )}
+                </Flex>
+                {showRuleIds ? (
+                  <RuleIdLine id={getHoldoutRuleId(feature.id, holdout.id)} />
+                ) : null}
+              </Box>
+
               <Flex
                 align="center"
-                gap="2"
-                style={{ flex: "0 1 auto", flexWrap: "wrap" }}
+                gap="3"
+                flexShrink="0"
+                className={ruleHeaderRowClass}
               >
-                <Heading as="h4" size="3" weight="medium" mb="0">
-                  <>
-                    Holdout:{" "}
-                    <Link
-                      href={`/holdout/${feature.holdout?.id}`}
-                      style={{ marginRight: "var(--space-2)" }}
-                    >
-                      {holdout.name}
-                    </Link>
-                  </>
-                </Heading>
-                {/* Its status alone, as the experiment page shows a holdout's. */}
-                {!isDeleted && (
-                  <Badge
-                    label={status.status}
-                    color={status.color}
-                    variant="soft"
-                    radius="full"
-                  />
-                )}
-              </Flex>
-
-              <Flex align="center" gap="3" flexShrink="0">
                 {isInactive && (
                   <Badge
                     color="amber"
