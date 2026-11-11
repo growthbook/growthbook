@@ -1,6 +1,5 @@
 import { useMemo, useRef, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
-import { PiArrowLeft } from "react-icons/pi";
 import uniqId from "uniqid";
 import omit from "lodash/omit";
 import {
@@ -32,6 +31,8 @@ import ColumnMappingRow, {
   validColumn,
 } from "@/components/SchemaBrowser/ColumnMappingRow";
 import ColumnMappingSection from "@/components/SchemaBrowser/ColumnMappingSection";
+import PartitionMappingRow from "@/components/SchemaBrowser/PartitionMappingRow";
+import SourceSummary from "@/components/SchemaBrowser/SourceSummary";
 import {
   findColumnByName,
   getDefaultTimestampColumn,
@@ -46,11 +47,7 @@ import { useAttributeSchema } from "@/services/features";
 import PagedModal from "@/components/Modal/PagedModal";
 import Page from "@/components/Modal/Page";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import Code from "@/components/SyntaxHighlighting/Code";
 import Callout from "@/ui/Callout";
-import Link from "@/ui/Link";
-import { Select, SelectItem } from "@/ui/Select";
-import TextField from "@/ui/TextField";
 
 const BODY_HEIGHT = "calc(93vh - 200px)";
 
@@ -576,28 +573,11 @@ export const FeatureEvaluationQueryModal = ({
           style={{ maxHeight: BODY_HEIGHT, overflowY: "auto" }}
         >
           <Flex direction="column" gap="3">
-            {mode === "table" && selectedTable ? (
-              <TextField
-                label="Source table"
-                value={selectedTable.path.replace(/`/g, "")}
-                readOnly
-                append={<Link onClick={() => setStep(0)}>Change</Link>}
-              />
-            ) : (
-              <Code
-                language="sql"
-                code={querySql}
-                expandable
-                collapsedLines={3}
-                filename={
-                  <Link onClick={() => setStep(0)}>
-                    <Flex align="center" gap="1">
-                      <PiArrowLeft /> Edit SQL
-                    </Flex>
-                  </Link>
-                }
-              />
-            )}
+            <SourceSummary
+              table={mode === "table" ? (selectedTable?.path ?? null) : null}
+              sql={querySql}
+              onEdit={() => setStep(0)}
+            />
 
             <ColumnMappingSection
               source={source}
@@ -683,32 +663,10 @@ export const FeatureEvaluationQueryModal = ({
                   onRemove={() => setOptionalColumns((prev) => omit(prev, key))}
                 />
               ))}
-              {mode === "table" && partition.available ? (
-                <ColumnMappingRow
-                  kind="partition"
-                  label="Date partition"
+              {mode === "table" ? (
+                <PartitionMappingRow
+                  partition={partition}
                   tooltip="Only reads recent partitions, to limit data scanned"
-                  value={partition.column}
-                  options={partition.options}
-                  setValue={partition.setColumn}
-                  onRemove={() => partition.setColumn("")}
-                  append={
-                    partition.formats.length ? (
-                      <Select
-                        size="sm"
-                        mb="0"
-                        aria-label="Partition format"
-                        value={partition.format}
-                        setValue={partition.setFormat}
-                      >
-                        {partition.formats.map((f) => (
-                          <SelectItem key={f} value={f}>
-                            {f.toUpperCase()}
-                          </SelectItem>
-                        ))}
-                      </Select>
-                    ) : null
-                  }
                 />
               ) : null}
             </ColumnMappingSection>
