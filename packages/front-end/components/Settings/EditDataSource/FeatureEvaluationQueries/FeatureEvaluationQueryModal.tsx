@@ -647,7 +647,7 @@ export const FeatureEvaluationQueryModal = ({
                   key={idType}
                   label={idType}
                   kind="identifier"
-                  tooltip="Lets you filter evaluations by user and chart metrics for users who got the flag"
+                  tooltip="Lets you filter evaluations by user and chart metrics for users who got the flag. If apps send this id in different attributes, combine them in the SQL, for example with COALESCE."
                   value={userIdColumns[idType] || ""}
                   options={identifierOptions}
                   setValue={(v) =>
