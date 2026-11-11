@@ -113,6 +113,12 @@ export const HoldoutRule = forwardRef<HTMLDivElement, Props>(
     const status = getStatusIndicator(holdoutExperiment);
 
     const canEdit = permissionsUtil.canEditFeatureDrafts(feature);
+    // The payload carries the holdout's rule only where the holdout runs.
+    const inPayload =
+      !isDeleted &&
+      (currentEnvironment
+        ? activeHoldoutEnvIds.includes(currentEnvironment)
+        : activeHoldoutEnvIds.length > 0);
 
     const isInactive =
       !isDeleted &&
@@ -164,7 +170,7 @@ export const HoldoutRule = forwardRef<HTMLDivElement, Props>(
                     />
                   )}
                 </Flex>
-                {showRuleIds ? (
+                {showRuleIds && inPayload ? (
                   <RuleIdLine id={getHoldoutRuleId(feature.id, holdout.id)} />
                 ) : null}
               </Box>

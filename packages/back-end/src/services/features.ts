@@ -4070,8 +4070,8 @@ export function assertHoldoutValueValid(
 // the REST publish handler's gate collector.
 export function collectFeatureValueErrorsForPublish(
   feature: Pick<FeatureInterface, "valueType" | "jsonSchema">,
-  values: { defaultValue?: string; rules?: FeatureRule[] },
-  previous?: { defaultValue?: string; rules?: FeatureRule[] },
+  values: FeatureValues,
+  previous?: FeatureValues,
 ): string[] {
   const errors: string[] = [];
   mapChangedFeatureValues(
@@ -4092,8 +4092,8 @@ export function collectFeatureValueErrorsForPublish(
 export function assertFeatureValuesValidForPublish(
   context: ReqContext | ApiReqContext,
   feature: Pick<FeatureInterface, "valueType" | "jsonSchema">,
-  values: { defaultValue?: string; rules?: FeatureRule[] },
-  previous?: { defaultValue?: string; rules?: FeatureRule[] },
+  values: FeatureValues,
+  previous?: FeatureValues,
 ): void {
   const typeErrors = collectFeatureValueErrorsForPublish(
     { valueType: feature.valueType },

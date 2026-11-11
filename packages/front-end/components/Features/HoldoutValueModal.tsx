@@ -5,8 +5,11 @@ import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
 import {
   ensureConfigBacking,
   filterEnvironmentsByFeature,
+  getConfigBackingKey,
+  getConfigBackingPatch,
   getEnabledHoldoutEnvironments,
   getReviewSetting,
+  stripConfigExtends,
   validateFeatureValue,
 } from "shared/util";
 import { Box } from "@radix-ui/themes";
@@ -85,6 +88,16 @@ export default function HoldoutValueModal({
     { shouldRun: () => !!feature.holdout?.id },
   );
 
+  // Stored as the default value is: a patch when it backs onto the flag's own
+  // config, and never a stray `@config:` on a plain flag.
+  const toStored = (value: string) =>
+    !isConfigBacked
+      ? (stripConfigExtends(value) ?? value)
+      : getConfigBackingKey(value) === defaultConfigKey
+        ? getConfigBackingPatch(value)
+        : value;
+  const changed = toStored(form.watch("value")) !== storedValue;
+
   const holdout = feature.holdout;
   if (!holdout) return null;
 
@@ -93,6 +106,7 @@ export default function HoldoutValueModal({
       trackingEventModalType="holdout-value-modal"
       header="Edit Holdout"
       cta="Save to draft"
+      ctaEnabled={changed}
       open={true}
       close={close}
       size="lg"
@@ -109,7 +123,7 @@ export default function HoldoutValueModal({
           {
             method: "PUT",
             body: JSON.stringify({
-              holdout: { id: holdout.id, value: fixed },
+              holdout: { id: holdout.id, value: toStored(fixed) },
               ...(mode === "existing" && selectedDraft !== null
                 ? { targetDraftVersion: selectedDraft }
                 : { forceNewDraft: true }),

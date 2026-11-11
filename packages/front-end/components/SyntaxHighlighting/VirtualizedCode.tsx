@@ -122,7 +122,17 @@ export default function VirtualizedCode({
     update();
     const observer = new ResizeObserver(update);
     observer.observe(box);
-    return () => observer.disconnect();
+    // A font that finishes loading after the first measure changes the
+    // character width at the same box width.
+    const remeasure = () => {
+      measuredWidth = null;
+      update();
+    };
+    document.fonts?.addEventListener("loadingdone", remeasure);
+    return () => {
+      observer.disconnect();
+      document.fonts?.removeEventListener("loadingdone", remeasure);
+    };
   }, []);
   // New estimates apply to rows not yet measured. Clearing the stale ones
   // clears the rows on screen too, which are measured again from the page.

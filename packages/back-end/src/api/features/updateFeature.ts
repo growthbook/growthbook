@@ -212,7 +212,6 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
         req.body.project ?? feature.project,
       );
     }
-    assertHoldoutValueValid(req.context, feature, req.body.holdout);
 
     const jsonSchema =
       feature.valueType !== "boolean" && req.body.jsonSchema != null
@@ -222,6 +221,12 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
             feature.valueType,
           )
         : null;
+    // Judged by the schema this request leaves in place.
+    assertHoldoutValueValid(
+      req.context,
+      jsonSchema ? { ...feature, jsonSchema } : feature,
+      req.body.holdout,
+    );
 
     // The backing config is fixed at creation — reject any attempt to change it
     // (a no-op resend of the same value is allowed). Matches the UI, which only

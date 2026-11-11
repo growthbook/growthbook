@@ -6,7 +6,8 @@ import { BadRequestError } from "./errors";
 
 export type FeatureValues = Partial<
   Pick<FeatureInterface, "defaultValue" | "rules"> & {
-    // What the holdout's held-out units are served; null clears the holdout.
+    // What the holdout's held-out units are served, repaired and checked
+    // wherever the other values are; null clears the holdout.
     holdout: FeatureInterface["holdout"] | null;
   }
 >;
