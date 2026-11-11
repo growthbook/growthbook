@@ -1,15 +1,9 @@
 import type { SqlDialect } from "shared/types/sql";
 
 /**
- * Column names and the pass test for a compound metric.
- *
- * Each component k emits one column: 1 per matching event, summed per unit
- * (and per unit-day in incremental caches, re-merged with SUM). Counts stay
- * additive so CUPED and incremental refresh work, and later rules (thresholds,
- * negation) only change the pass test.
- *
- * `prefix` is the metric's slot alias (`m0`, ...) in queries, or its encoded
- * id in cache tables.
+ * One column per component rather than one pass flag: "matched every
+ * component" can't be merged across unit-days, so the pass test runs last.
+ * `prefix` is the slot alias (`m0`) in queries, or the encoded id in caches.
  */
 export function compoundComponentColumn(prefix: string, index: number): string {
   return `${prefix}_c${index}`;
