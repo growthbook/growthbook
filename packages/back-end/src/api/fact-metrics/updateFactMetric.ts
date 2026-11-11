@@ -26,6 +26,7 @@ function expectsDenominator(metricType: FactMetricType) {
     case "retention":
     case "dailyParticipation":
     case "funnel":
+    case "compound":
       return false;
   }
 }
@@ -40,6 +41,7 @@ export async function getUpdateFactMetricPropsFromBody(
     numerator,
     denominator,
     funnelSettings,
+    compoundSettings,
     cappingSettings,
     lowerCappingSettings,
     windowSettings,
@@ -57,7 +59,13 @@ export async function getUpdateFactMetricPropsFromBody(
     if (!nextFunnelSettings) {
       throw new Error("Funnel settings required for funnel metrics");
     }
+    if (compoundSettings) {
+      throw new Error(
+        "Compound settings are only allowed for compound metrics",
+      );
+    }
     updates.funnelSettings = nextFunnelSettings;
+    updates.compoundSettings = null;
     updates.numerator = null;
     updates.denominator = null;
     updates.quantileSettings = null;
@@ -67,17 +75,50 @@ export async function getUpdateFactMetricPropsFromBody(
     if (factMetric.metricType !== "funnel") {
       updates.metricAutoSlices = body.metricAutoSlices ?? [];
     }
-  } else {
-    if (numerator === null) {
-      throw new Error("Numerator required for non-funnel metrics");
+  } else if (metricType === "compound") {
+    const nextCompoundSettings =
+      compoundSettings ??
+      (factMetric.metricType === "compound"
+        ? factMetric.compoundSettings
+        : null);
+    if (!nextCompoundSettings) {
+      throw new Error("Compound settings required for compound metrics");
     }
     if (funnelSettings) {
       throw new Error("Funnel settings are only allowed for funnel metrics");
     }
-    if (factMetric.metricType === "funnel" && !numerator) {
-      throw new Error("Numerator required when changing from a funnel metric");
+    updates.compoundSettings = nextCompoundSettings;
+    updates.funnelSettings = null;
+    updates.numerator = null;
+    updates.denominator = null;
+    updates.quantileSettings = null;
+    // Same as funnels: slices must exist on every component's fact table.
+    if (factMetric.metricType !== "compound") {
+      updates.metricAutoSlices = body.metricAutoSlices ?? [];
+    }
+  } else {
+    if (numerator === null) {
+      throw new Error(`Numerator required for ${metricType} metrics`);
+    }
+    if (funnelSettings) {
+      throw new Error("Funnel settings are only allowed for funnel metrics");
+    }
+    if (compoundSettings) {
+      throw new Error(
+        "Compound settings are only allowed for compound metrics",
+      );
+    }
+    if (
+      (factMetric.metricType === "funnel" ||
+        factMetric.metricType === "compound") &&
+      !numerator
+    ) {
+      throw new Error(
+        `Numerator required when changing from a ${factMetric.metricType} metric`,
+      );
     }
     updates.funnelSettings = null;
+    updates.compoundSettings = null;
   }
 
   if (numerator) {
@@ -116,7 +157,7 @@ export async function getUpdateFactMetricPropsFromBody(
   ) {
     updates.denominator = null;
   }
-  if (denominator && metricType !== "funnel") {
+  if (denominator && metricType !== "funnel" && metricType !== "compound") {
     updates.denominator = FactMetricModel.migrateColumnRef({
       ...denominator,
       column: denominator.column || "$$distinctUsers",

@@ -57,6 +57,7 @@ const QUERY_TYPE_LABELS: Record<QueryType, string> = {
   pipelineValidation: "Pipeline permissions check",
   userExposure: "User exposure lookup",
   featureEvalDiagnostics: "Feature Flag diagnostics",
+  featureUsage: "Feature usage graph",
   columnTopValues: "Column top values",
   trackedEvents: "Tracked event discovery",
   sessionReplayList: "Session replay list",

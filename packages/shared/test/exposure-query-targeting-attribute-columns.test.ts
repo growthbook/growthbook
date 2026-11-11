@@ -7,6 +7,7 @@ import {
   getMalformedTargetingAttributeColumnsForExposureQueries,
   isSafeSqlIdentifier,
   queryHasContextualBanditSrmColumns,
+  queryHasContextualBanditVersionColumn,
 } from "../src/validators/exposure-query-targeting-attribute-columns";
 
 const schema: SDKAttributeSchema = [
@@ -146,6 +147,30 @@ describe("exposure query targeting attribute columns", () => {
       expect(
         queryHasContextualBanditSrmColumns(
           "SELECT bandit_version, leaf_id, 'variation_weights' AS note FROM exposures",
+        ),
+      ).toBe(false);
+    });
+  });
+
+  describe("queryHasContextualBanditVersionColumn", () => {
+    it("detects a bare or qualified bandit_version reference", () => {
+      expect(
+        queryHasContextualBanditVersionColumn(
+          "SELECT user_id, bandit_version FROM exposures",
+        ),
+      ).toBe(true);
+      expect(
+        queryHasContextualBanditVersionColumn(
+          "SELECT e.user_id, e.bandit_version FROM exposures e",
+        ),
+      ).toBe(true);
+    });
+
+    it("is false for a missing query or a string-literal-only mention", () => {
+      expect(queryHasContextualBanditVersionColumn(undefined)).toBe(false);
+      expect(
+        queryHasContextualBanditVersionColumn(
+          "SELECT user_id, 'bandit_version' AS note FROM exposures",
         ),
       ).toBe(false);
     });

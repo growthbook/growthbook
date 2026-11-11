@@ -2,6 +2,8 @@ import {
   ColumnAggregation,
   ColumnInterface,
   ColumnRef,
+  CompoundComponent,
+  CompoundSettings,
   FactMetricType,
   FactTableDefinition,
   FunnelSettings,
@@ -365,6 +367,7 @@ export const FORM_METRIC_TYPES = [
   "proportion",
   "threshold",
   "retention",
+  "compound",
   "funnel",
   "rowCount",
   "colSum",
@@ -462,6 +465,9 @@ export function formTypeFromStored(
   }
 
   if (metricType === "funnel") return { representable: true, type: "funnel" };
+  if (metricType === "compound") {
+    return { representable: true, type: "compound" };
+  }
   if (metricType === "ratio") return { representable: true, type: "ratio" };
   if (metricType === "dailyParticipation") {
     return { representable: true, type: "dailyParticipation" };
@@ -564,6 +570,8 @@ function storedTypeAndNumeratorFor(formType: FormMetricType): {
       };
     case "funnel":
       return { metricType: "funnel", numerator: { kind: "none" } };
+    case "compound":
+      return { metricType: "compound", numerator: { kind: "none" } };
     case "rowCount":
       return {
         metricType: "mean",
@@ -602,6 +610,7 @@ export type MetricTypeSwitchState = {
   denominator?: ColumnRef | null;
   quantileSettings?: MetricQuantileSettings | null;
   funnelSettings?: FunnelSettings | null;
+  compoundSettings?: CompoundSettings | null;
   cappingSettings?: MetricCappingSettings;
   lowerCappingSettings?: MetricCappingSettings | null;
   windowSettings?: MetricWindowSettings;
@@ -621,6 +630,13 @@ function defaultFunnelStep(
     optional: false,
     conversionWindow: null,
   };
+}
+
+function defaultCompoundComponent(
+  factTableId: string,
+  factTable: MinimalFactTable,
+): CompoundComponent {
+  return { factTableId, rowFilters: initialFilters(factTable) };
 }
 
 /**
@@ -734,8 +750,52 @@ export function applyFormType<T extends MetricTypeSwitchState>(
   );
 
   if (spec.kind === "none") {
-    const funnelSettings =
-      current.funnelSettings && current.funnelSettings.steps.length >= 2
+    // Funnel <-> compound carry the event list across; compound from a
+    // numerator type starts from the numerator.
+    const fromCompound =
+      current.metricType === "compound" ? current.compoundSettings : null;
+    const fromFunnel =
+      current.metricType === "funnel" ? current.funnelSettings : null;
+
+    if (newFormType === "compound") {
+      const components: CompoundComponent[] = fromFunnel
+        ? fromFunnel.steps.map(({ factTableId, rowFilters }) => ({
+            factTableId,
+            rowFilters,
+          }))
+        : [
+            current.numerator?.factTableId
+              ? {
+                  factTableId: current.numerator.factTableId,
+                  rowFilters: current.numerator.rowFilters ?? [],
+                }
+              : defaultCompoundComponent(sourceFactTableId, factTable),
+            ...(current.compoundSettings?.components.slice(1).length
+              ? current.compoundSettings.components.slice(1)
+              : [defaultCompoundComponent(sourceFactTableId, factTable)]),
+          ];
+      return {
+        ...current,
+        metricType,
+        numerator: null,
+        denominator: null,
+        quantileSettings: null,
+        compoundSettings: { components },
+        ...(cappingSettings !== undefined && { cappingSettings }),
+        ...(lowerCappingSettings !== undefined && { lowerCappingSettings }),
+        ...(windowSettings !== undefined && { windowSettings }),
+      };
+    }
+
+    const funnelSettings = fromCompound
+      ? {
+          ...current.funnelSettings,
+          steps: fromCompound.components.map((component, i) => ({
+            ...defaultFunnelStep(`Step ${i + 1}`, component.factTableId, null),
+            rowFilters: component.rowFilters,
+          })),
+        }
+      : current.funnelSettings && current.funnelSettings.steps.length >= 2
         ? current.funnelSettings
         : {
             steps: [
@@ -757,15 +817,27 @@ export function applyFormType<T extends MetricTypeSwitchState>(
   }
 
   // A funnel's form numerator is an empty placeholder - start from the
-  // passed-in table (the funnel's first step) instead.
-  const base: ColumnRef = current.numerator?.factTableId
-    ? current.numerator
-    : {
+  // passed-in table (the funnel's first step) instead. A compound metric's
+  // first component becomes the numerator (its form numerator is stale too).
+  const firstComponent =
+    current.metricType === "compound"
+      ? current.compoundSettings?.components[0]
+      : undefined;
+  const base: ColumnRef = firstComponent
+    ? {
         ...current.numerator,
-        factTableId: factTable?.id ?? "",
+        factTableId: firstComponent.factTableId,
         column: current.numerator?.column ?? "",
-        rowFilters: initialFilters(factTable),
-      };
+        rowFilters: firstComponent.rowFilters,
+      }
+    : current.numerator?.factTableId
+      ? current.numerator
+      : {
+          ...current.numerator,
+          factTableId: factTable?.id ?? "",
+          column: current.numerator?.column ?? "",
+          rowFilters: initialFilters(factTable),
+        };
 
   const numerator: ColumnRef =
     spec.kind === "fixed"

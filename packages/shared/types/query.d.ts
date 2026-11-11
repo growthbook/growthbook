@@ -140,6 +140,8 @@ export type QueryType =
   | "userExposure"
   // Feature evaluation diagnostics
   | "featureEvalDiagnostics"
+  // Live feature usage chart on the feature page (polled)
+  | "featureUsage"
   // Fact table column top-values scan (auto-slices + column refresh)
   | "columnTopValues"
   // Auto fact table tracked-event discovery scan

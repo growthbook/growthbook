@@ -659,6 +659,36 @@ describe("confirmations", () => {
     });
   });
 
+  it("refuses a review request with nothing to review before asking anyone", async () => {
+    await seed("production");
+    setReqContext(asKey(pat));
+    const unchanged = await auth(
+      request(app).post(`/api/v2/features/${FLAG}/revisions`),
+    ).send({});
+    expect(unchanged.status).toBe(200);
+
+    setReqContext(asKey({ ...pat, ...everything }));
+    const requestReview = (version: number) =>
+      auth(
+        request(app).post(
+          `/api/v2/features/${FLAG}/revisions/${version}/request-review`,
+        ),
+      ).send({});
+
+    const refused = await requestReview(unchanged.body.revision.version);
+    expect(refused.status).toBe(400);
+    expect(refused.body.message).toMatch(/no changes detected/);
+    expect(
+      await mongoose.connection.collection("confirmations").countDocuments(),
+    ).toBe(0);
+
+    const held = await requestReview(2);
+    expect(held.status).toBe(202);
+    expect(held.body.confirmation.actions).toEqual([
+      { action: "feature.draft", environments: [] },
+    ]);
+  });
+
   it("holds a request that asks to skip a check, even on a draft", async () => {
     await seed("production");
     setReqContext(
@@ -746,6 +776,44 @@ describe("confirmations", () => {
     ).toMatchObject({
       notices: [{ severity: "warning", via: "ignoreWarnings" }],
     });
+  });
+
+  it("doesn't show a try at something missing as a check the retry skips", async () => {
+    await seed("production");
+    setReqContext(asKey({ ...pat, ...everything }));
+    const LATER = "hitl_later";
+    // Skipping a check, so the hold looks for what the last try said.
+    const createDraft = () =>
+      auth(
+        request(app).post(
+          `/api/v2/features/${LATER}/revisions?overrideDraftLimit=true`,
+        ),
+      ).send({});
+
+    expect((await createDraft()).status).toBe(404);
+    const flag = await mongoose.connection
+      .collection("features")
+      .findOne({ id: FLAG }, { projection: { _id: 0 } });
+    await mongoose.connection
+      .collection("features")
+      .insertOne({ ...flag, id: LATER });
+    const live = await mongoose.connection
+      .collection("featurerevisions")
+      .findOne({ featureId: FLAG, version: 1 }, { projection: { _id: 0 } });
+    await mongoose.connection
+      .collection("featurerevisions")
+      .insertOne({ ...live, featureId: LATER });
+
+    const held = await createDraft();
+    expect(held.status).toBe(202);
+    expect(held.body.confirmation.actions).toContainEqual({
+      action: "override.draftLimit",
+      environments: [],
+    });
+    const stored = await mongoose.connection
+      .collection("confirmations")
+      .findOne({ id: held.body.confirmation.id });
+    expect(stored?.notices ?? []).toEqual([]);
   });
 
   it("refuses a draft past the cap first, then shows why when the retry skips it", async () => {

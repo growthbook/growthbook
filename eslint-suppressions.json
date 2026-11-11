@@ -1380,7 +1380,7 @@
   },
   "packages/front-end/components/Settings/SSLConnectionFields.tsx": {
     "no-restricted-syntax": {
-      "count": 3
+      "count": 1
     }
   },
   "packages/front-end/components/Settings/SubscriptionInfo.tsx": {

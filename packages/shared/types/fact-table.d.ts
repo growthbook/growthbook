@@ -29,6 +29,9 @@ import {
   aggregatedFactTableSettingsValidator,
   StandardFactMetric,
   FunnelFactMetric,
+  CompoundFactMetric,
+  compoundComponentValidator,
+  compoundSettingsValidator,
   conversionWindowValidator,
   funnelStepValidator,
   funnelOrderingValidator,
@@ -47,6 +50,8 @@ export type ConversionWindow = z.infer<typeof conversionWindowValidator>;
 export type FunnelStep = z.infer<typeof funnelStepValidator>;
 export type FunnelOrdering = z.infer<typeof funnelOrderingValidator>;
 export type FunnelSettings = z.infer<typeof funnelSettingsValidator>;
+export type CompoundComponent = z.infer<typeof compoundComponentValidator>;
+export type CompoundSettings = z.infer<typeof compoundSettingsValidator>;
 export type NumberFormat = z.infer<typeof numberFormatValidator>;
 
 export type JSONColumnFields = z.infer<typeof jsonColumnFieldsValidator>;
@@ -177,10 +182,12 @@ export type MetricPriorSettings = z.infer<typeof priorSettingsValidator>;
 
 export type StandardFactMetricInterface = StandardFactMetric;
 export type FunnelFactMetricInterface = FunnelFactMetric;
+export type CompoundFactMetricInterface = CompoundFactMetric;
 
 export type FactMetricInterface =
   | StandardFactMetricInterface
-  | FunnelFactMetricInterface;
+  | FunnelFactMetricInterface
+  | CompoundFactMetricInterface;
 
 export type LegacyColumnRef = ColumnRef & {
   filters?: string[];

@@ -36,6 +36,7 @@ import {
   getContextualBanditUnitsBaseColumns,
   getContextualBanditUnitsCTEs,
   getContextualBanditUnitsSqlConfig,
+  getContextualBanditUnitVersionColumn,
 } from "back-end/src/integrations/sql/ctes/contextual-bandit-experiment-units-cte";
 
 export function getExperimentUnitsQuery(
@@ -140,7 +141,10 @@ export function getExperimentUnitsQuery(
         );
 
   const contextualExposureSelectCols = contextualBanditCfg
-    ? getContextualBanditExposureSelectCols(contextualBanditCfg.aliases)
+    ? getContextualBanditExposureSelectCols(
+        contextualBanditCfg.aliases,
+        contextualBanditCfg.periodWeighting,
+      )
     : "";
   const contextualBanditRawColumns = contextualBanditCfg
     ? getContextualBanditUnitsBaseColumns(
@@ -148,6 +152,11 @@ export function getExperimentUnitsQuery(
         contextualBanditCfg.aliases,
         timestampColumn,
       )
+    : [];
+  // Carried through to the final __experimentUnits, unlike the raw attribute
+  // columns which the bandit CTEs replace with bucketed ones
+  const contextualBanditVersionColumns = contextualBanditCfg?.periodWeighting
+    ? [getContextualBanditUnitVersionColumn(dialect, timestampColumn)]
     : [];
   // Contextual bandits add CTEs after the units CTE and emit the final
   // __experimentUnits themselves
@@ -206,6 +215,7 @@ export function getExperimentUnitsQuery(
         ]
       : []),
     ...contextualBanditRawColumns,
+    ...contextualBanditVersionColumns,
   ];
   const timedColumns = timedUnitDimensions.map((d) => ({
     alias: `dim_unit_${d.dimension.id}`,
