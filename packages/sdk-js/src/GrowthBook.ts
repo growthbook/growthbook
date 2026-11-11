@@ -121,6 +121,7 @@ export class GrowthBook<
 
   private _payload: FeatureApiResponse | undefined;
   private _decryptedPayload: FeatureApiResponse | undefined;
+  private _fallbackFeatures: FeatureApiResponse["features"];
   private _destroyCallbacks: (() => void)[];
 
   private _autoExperimentsAllowed: boolean;
@@ -306,6 +307,10 @@ export class GrowthBook<
   public async init(options?: InitOptions<AppFeatures>): Promise<InitResponse> {
     this._initialized = true;
     options = options || {};
+    // For getFeatureValue calls with no fallback (not read if encrypted)
+    this._fallbackFeatures = (
+      options.fallbackPayload as FeatureApiResponse | undefined
+    )?.features;
 
     if (options.cacheSettings) {
       configureCache(options.cacheSettings);
@@ -1022,13 +1027,16 @@ export class GrowthBook<
     V extends AppFeatures[K],
     K extends string & keyof AppFeatures = string,
   >(key: K, defaultValue: V): WidenPrimitives<V>;
-  public getFeatureValue(key: string, defaultValue?: unknown): unknown {
+  public getFeatureValue(key: string, ...fallback: unknown[]): unknown {
     const value = _evalFeature(key, this._getEvalContext()).value;
-    if (value !== null || defaultValue !== undefined) {
-      return value === null ? defaultValue : value;
-    }
-    // No fallback: registering a payload promises the feature has a default
-    return this.getFeatures()[key]?.defaultValue;
+    if (value !== null) return value;
+    // A fallback that was passed in is always used, even `undefined`
+    if (fallback.length) return fallback[0];
+    // No fallback: the feature's default, whatever the reason for the null
+    return (
+      this.getFeatures()[key]?.defaultValue ??
+      this._fallbackFeatures?.[key]?.defaultValue
+    );
   }
 
   /**

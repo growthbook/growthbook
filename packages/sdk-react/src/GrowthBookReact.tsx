@@ -102,8 +102,11 @@ export function useFeatureValue<
   V extends RegisteredFeatures[K],
   K extends FeatureKey = FeatureKey,
 >(id: K, fallback: V): WidenPrimitives<V>;
-export function useFeatureValue(id: string, fallback?: unknown): unknown {
-  return useGrowthBook<Record<string, any>>().getFeatureValue(id, fallback);
+export function useFeatureValue(id: string, ...fallback: unknown[]): unknown {
+  // Passed through as given, so the instance can tell if there is a fallback
+  return (
+    useGrowthBook() as { getFeatureValue(...args: unknown[]): unknown }
+  ).getFeatureValue(id, ...fallback);
 }
 
 export function useGrowthBook<

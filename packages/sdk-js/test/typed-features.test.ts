@@ -122,13 +122,15 @@ describe("typed features", () => {
       features: { banner: { defaultValue: "remote" } },
     };
 
-    it("uses the payload's own default", () => {
+    it("uses the default of a feature that evaluates to null", () => {
       const gb = new GrowthBook().initSync({ payload: bundled });
       expect(getValue(gb, "banner")).toEqual("control");
       // Blocked by a prerequisite, so the value is null
       expect(gb.evalFeature("gated").value).toEqual(null);
       expect(getValue(gb, "gated")).toEqual("on");
       expect(getValue(gb, "gated", "fallback")).toEqual("fallback");
+      // A fallback that is passed in is used, even `undefined`
+      expect(getValue(gb, "gated", undefined)).toEqual(undefined);
       expect(getValue(gb, "no_default")).toEqual(undefined);
       expect(getValue(gb, "unknown_key")).toEqual(undefined);
 
@@ -136,17 +138,28 @@ describe("typed features", () => {
       expect(getValue(gb, "banner")).toEqual("bonjour");
     });
 
-    it("only reads the current payload", async () => {
+    it("uses the fallbackPayload's default for a feature the payload omits", async () => {
       const gb = new GrowthBook();
-      await gb.init({ payload: bundled, fallbackPayload: bundled });
-      expect(getValue(gb, "gated")).toEqual("on");
-
-      await gb.setPayload(remote);
+      await gb.init({ payload: remote, fallbackPayload: bundled });
       expect(getValue(gb, "banner")).toEqual("remote");
-      // Not in the current payload, so the registered promise is broken
-      expect(getValue(gb, "gated")).toEqual(undefined);
+      expect(getValue(gb, "gated")).toEqual("on");
       expect(getValue(gb, "gated", "fallback")).toEqual("fallback");
+      expect(getValue(gb, "gated", undefined)).toEqual(undefined);
+
+      // The current payload's default wins when it has one
+      await gb.setPayload({
+        features: {
+          gated: { ...bundled.features?.gated, defaultValue: "remote-on" },
+        },
+      });
+      expect(gb.evalFeature("gated").value).toEqual(null);
+      expect(getValue(gb, "gated")).toEqual("remote-on");
+      expect(getValue(gb, "banner")).toEqual("control");
       gb.destroy();
+
+      // Without a fallbackPayload there is nothing to use
+      const gb2 = new GrowthBook().initSync({ payload: remote });
+      expect(getValue(gb2, "gated")).toEqual(undefined);
     });
 
     it("works with GrowthBookClient and scoped instances", async () => {
@@ -157,11 +170,22 @@ describe("typed features", () => {
       expect(client.getFeatureValue("gated", "fallback", {})).toEqual(
         "fallback",
       );
-      expect(getValue(client.createScopedInstance({}), "gated")).toEqual("on");
+      const scoped = client.createScopedInstance({});
+      expect(getValue(scoped, "banner")).toEqual("control");
+      expect(getValue(scoped, "gated")).toEqual("on");
+      expect(getValue(scoped, "gated", "fallback")).toEqual("fallback");
+      // A fallback that is passed in is used, even `undefined`
+      expect(getValue(client, "gated", undefined, {})).toEqual(undefined);
+      expect(getValue(scoped, "gated", undefined)).toEqual(undefined);
 
-      await client.setPayload(remote);
-      expect(getValue(client, "banner", user)).toEqual("remote");
-      expect(getValue(client, "gated", {})).toEqual(undefined);
+      const client2 = new GrowthBookClient();
+      await client2.init({ payload: remote, fallbackPayload: bundled });
+      expect(getValue(client2, "banner", user)).toEqual("remote");
+      expect(getValue(client2, "gated", {})).toEqual("on");
+      expect(getValue(client2.createScopedInstance(user), "gated")).toEqual(
+        "on",
+      );
+      client2.destroy();
     });
   });
 

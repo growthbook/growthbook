@@ -719,6 +719,15 @@ const gb = new GrowthBook().initSync({ payload });
 const color = gb.getFeatureValue("button-color");
 ```
 
+When you connect a GrowthBook account later, pass the same payload as the `fallbackPayload`. A feature that's missing from the payload GrowthBook sends then uses its `defaultValue` from code:
+
+```ts
+const gb = new GrowthBook({ clientKey: "sdk-abc123" });
+await gb.init({ fallbackPayload: payload });
+
+const color = gb.getFeatureValue("button-color");
+```
+
 ## Updating
 
 As a general philosophy, we aim to keep the SDK 100% backwards compatible at all times. View the [Changelog](https://github.com/growthbook/growthbook/blob/main/packages/sdk-js/CHANGELOG.md) for a complete list of all SDK changes.

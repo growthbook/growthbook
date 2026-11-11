@@ -221,9 +221,11 @@ export type Attributes = Record<string, any>;
  *
  * Or register a payload written in code (`payload: typeof payload`) in place
  * of `features`: feature types come from each `defaultValue`, and
- * `getFeatureValue` needs no fallback for a feature that has one. This is a
- * promise that the SDK's payload always has those features with a default.
- * `getFeatureValue` returns `undefined` for one that doesn't.
+ * `getFeatureValue` needs no fallback for a feature that has one. With no
+ * fallback, a feature with no value (missing, blocked by a prerequisite...)
+ * uses its `defaultValue`: the one in the SDK's payload, else the one in the
+ * `fallbackPayload` given to `init`. Pass a fallback to use a different value.
+ * Registering a payload is a promise that one of the two has each feature.
  */
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type
 export interface Register {}
