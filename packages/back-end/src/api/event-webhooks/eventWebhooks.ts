@@ -64,6 +64,10 @@ function isSlackAppManaged(w: EventWebHookInterface) {
 }
 
 async function getWebhook(context: ApiReqContext, id: string) {
+  // Callers with no webhook access get 403 before a lookup can reveal whether the id exists
+  if (!context.permissions.canManageSomeEventWebhooks()) {
+    context.permissions.throwPermissionError();
+  }
   const webhook = await getEventWebHookById(id, context.org.id);
   if (!webhook || isSlackAppManaged(webhook)) {
     context.throwNotFoundError(`Event webhook not found: ${id}`);
