@@ -24,7 +24,8 @@ export const getExperimentResults = createApiRequestHandler(
     throw new NotFoundError("Could not find experiment with that id");
   }
 
-  const phase = parseInt(req.query.phase ?? experiment.phases.length - 1 + "");
+  const latestPhase = experiment.phases.length - 1;
+  const phase = parseInt(req.query.phase ?? latestPhase + "");
 
   const snapshot = await getLatestSuccessfulSnapshot({
     context: req.context,
@@ -44,6 +45,7 @@ export const getExperimentResults = createApiRequestHandler(
       : toEnhancedExperimentApiResponse(
           req.context,
           experiment as ExperimentInterfaceExcludingHoldouts,
+          phase === latestPhase,
         ),
     getMetricMapForExperiment(req.context, experiment),
     getExposureQueriesForDatasource(req.context, experiment.datasource),

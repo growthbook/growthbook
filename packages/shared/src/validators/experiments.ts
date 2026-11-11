@@ -3026,7 +3026,12 @@ export const getExperimentResultsValidator = {
   bodySchema: z.never(),
   querySchema: z
     .object({
-      phase: z.string().optional(),
+      phase: z
+        .string()
+        .optional()
+        .describe(
+          "Phase index, defaulting to the latest phase. `experiment.enhancedStatus.decision` describes the latest phase, so it is omitted for any other phase.",
+        ),
       dimension: z.string().optional(),
     })
     .strict(),
