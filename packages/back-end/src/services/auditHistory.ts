@@ -13,9 +13,26 @@ import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 
 type Context = ReqContext | ApiReqContext;
+type SetElement<S> = S extends Set<infer T> ? T : never;
 
-// Read-filtered getters: each returns null for an entity the user can't read.
-const readableEntityGetters: Partial<
+// BaseModels whose `context.models.<type>s.getById` gates history reads.
+const READABLE_BASE_MODEL_TYPES = new Set([
+  "population",
+  "savedGroup",
+  "constant",
+  "config",
+  "customHook",
+  "contextualBandit",
+  "interleaving",
+] as const);
+
+function isReadableBaseModelType(
+  type: EntityType,
+): type is SetElement<typeof READABLE_BASE_MODEL_TYPES> {
+  return (READABLE_BASE_MODEL_TYPES as ReadonlySet<EntityType>).has(type);
+}
+
+const legacyEntityGetters: Partial<
   Record<EntityType, (context: Context, id: string) => Promise<unknown>>
 > = {
   feature: getFeature,
@@ -26,15 +43,15 @@ const readableEntityGetters: Partial<
       : getMetricById(context, id),
   factTable: getFactTable,
   datasource: getDataSourceById,
-  population: (context, id) => context.models.populations.getById(id),
-  savedGroup: (context, id) => context.models.savedGroups.getById(id),
-  constant: (context, id) => context.models.constants.getById(id),
-  config: (context, id) => context.models.configs.getById(id),
-  customHook: (context, id) => context.models.customHooks.getById(id),
-  contextualBandit: (context, id) =>
-    context.models.contextualBandits.getById(id),
-  interleaving: (context, id) => context.models.interleavings.getById(id),
 };
+
+// Read-filtered getters: each returns null for an entity the user can't read.
+function getReadableEntity(context: Context, type: EntityType, id: string) {
+  if (isReadableBaseModelType(type)) {
+    return context.models[`${type}s` as const].getById(id);
+  }
+  return legacyEntityGetters[type]?.(context, id) ?? null;
+}
 
 // Throws unless the user may read this audit history; returns entity ids to leave out of it.
 export async function getAuditHistoryExcludeIds(
@@ -66,8 +83,7 @@ export async function getAuditHistoryExcludeIds(
         );
   }
 
-  const getReadable = id ? readableEntityGetters[type] : undefined;
-  if (id && getReadable && (await getReadable(context, id))) return [];
+  if (id && (await getReadableEntity(context, type, id))) return [];
 
   // Deleted, unreadable, unscoped or type-wide history needs the org-level audit permission.
   if (!permissions.canViewAuditLogs()) {
