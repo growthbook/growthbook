@@ -423,7 +423,9 @@ export function reachedRules(status: EnvironmentStatus): {
     (status.defaultValue === "skipped" || decided(rules[0]) !== null)
       ? rules[0]
       : null;
-  const holdout = status.steps.some(({ step }) => step.kind === "holdout");
+  const holdout = status.steps.some(
+    ({ step }) => step.kind === "holdout" && step.traffic?.participation !== 0,
+  );
   return {
     count: rules.length,
     rule,

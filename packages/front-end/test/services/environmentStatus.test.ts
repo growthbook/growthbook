@@ -564,6 +564,13 @@ describe("reachedRules", () => {
     ],
     ["a set share past a holdout", [holdout, partial], partial, 1, false],
     ["a targeted rule past a holdout", [holdout, targeted], null, 1, true],
+    [
+      "a targeted rule past a holdout reaching no one",
+      [holdoutTrafficStep("false", experiment({}, { coverage: 0 })), targeted],
+      null,
+      1,
+      false,
+    ],
   ] as const)("lists %s", (_, steps, rule, count, hidden) => {
     expect(reachedRules(status([...steps]))).toEqual({ rule, count, hidden });
   });
