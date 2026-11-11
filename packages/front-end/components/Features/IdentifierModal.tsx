@@ -277,6 +277,7 @@ export default function IdentifierModal({
             : "add-identifier"
       }
       trackingEventModalSource={source}
+      closeCta={savedWithErrors ? "Close" : "Cancel"}
       close={async () => {
         if (savedWithErrors) await finishSave(savedWithErrors);
         close();

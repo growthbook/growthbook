@@ -138,6 +138,13 @@ export default function AddAttributeSnippet({
           highlightLine={sdkCode.highlightLine}
         />
       )}
+      {hashed !== value && (
+        <Text size="sm" color="text-low">
+          Shown hashed with your organization&apos;s salt, because an SDK
+          Connection for this language hashes secure attributes. Hash your real
+          values the same way before passing them in.
+        </Text>
+      )}
     </Flex>
   );
 }
