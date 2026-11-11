@@ -21,6 +21,7 @@ export const getDashboardsForExperimentEndpoint = {
 export const createDashboardV2Endpoint = {
   pathFragment: "/",
   verb: "post" as const,
+  confirmation: ["other.write"] as const,
   operationId: "createDashboardV2",
   validator: {
     bodySchema: apiCreateDashboardBodyV2,
@@ -42,6 +43,11 @@ export const dashboardApiSpec = {
     updateBody: apiUpdateDashboardBody,
   },
   includeDefaultCrud: true,
+  confirmation: {
+    create: ["other.write"],
+    update: ["other.write"],
+    delete: ["other.write"],
+  },
   customEndpoints: [
     getDashboardsForExperimentEndpoint,
     createDashboardV2Endpoint,

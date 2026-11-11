@@ -1,7 +1,13 @@
 import { webcrypto } from "node:crypto";
 import crypto from "crypto";
 import { OrganizationInterface } from "shared/types/organization";
+import {
+  EventUserApiKey,
+  EventUserRequestedBy,
+} from "shared/types/events/event-types";
 import { ApiKeyInterface } from "shared/types/apikey";
+import omit from "lodash/omit";
+import { actsAsUser } from "shared/permissions";
 import { isExpired } from "shared/api-key-expiration";
 import {
   APP_ORIGIN,
@@ -14,6 +20,7 @@ import {
   getCollection,
   removeMongooseFields,
 } from "back-end/src/util/mongo.util";
+import { BadRequestError } from "back-end/src/util/errors";
 import { findAllOrganizations } from "back-end/src/models/OrganizationModel";
 import {
   ApiKeyModel,
@@ -78,13 +85,21 @@ export function generateSigningKey(prefix: string = "", bytes = 32): string {
 }
 
 export function migrateApiKey(legacyDoc: unknown) {
-  const obj = legacyDoc as ApiKeyInterface;
+  // `actAs` replaced requesterHeader (where "required" acted as the member)
+  // and requesterPermissions, both dropped here once read.
+  const { requesterHeader } = legacyDoc as { requesterHeader?: string };
+  const obj = omit(legacyDoc as ApiKeyInterface, [
+    "requesterHeader",
+    "requesterPermissions",
+  ]) as ApiKeyInterface;
   return {
     ...obj,
     role: roleForApiKey(obj) || undefined,
     dateUpdated: obj.dateUpdated ?? obj.dateCreated,
     limitAccessByEnvironment: obj.limitAccessByEnvironment ?? false,
     environments: obj.environments ?? [],
+    ...(!obj.actAs &&
+      requesterHeader === "required" && { actAs: "user" as const }),
   };
 }
 
@@ -114,7 +129,7 @@ export async function dangerousLookupOrganizationByApiKey(
     : key;
 
   const doc = await getCollection<ApiKeyInterface>(API_KEY_COLLECTION).findOne({
-    key: lookupKey,
+    $or: [{ key: lookupKey }, { previousKey: lookupKey }],
   });
 
   if (!doc || !doc.organization) {
@@ -122,6 +137,20 @@ export async function dangerousLookupOrganizationByApiKey(
   }
 
   const migrated = migrateApiKey(removeMongooseFields(doc));
+
+  // A rotated key's replaced secret only works until its grace period ends.
+  if (
+    migrated.key !== lookupKey &&
+    !(
+      migrated.previousKeyExpiresAt && !isExpired(migrated.previousKeyExpiresAt)
+    )
+  ) {
+    throw new Error(
+      migrated.userId
+        ? `This personal access token was rotated and has expired. Reveal the new one at ${APP_ORIGIN}/account/personal-access-tokens`
+        : `This API key was rotated and has expired. An admin can reveal the new one at ${APP_ORIGIN}/settings/keys`,
+    );
+  }
 
   // The one expiry check for every caller. The attempt is recorded first so a
   // lapsed key's `lastUsed` shows whether something still depends on it.
@@ -146,4 +175,101 @@ export async function dangerousLookupOrganizationByApiKey(
   }
 
   return migrated;
+}
+
+export const REQUESTED_BY_HEADER = "x-growthbook-requested-by";
+
+type MemberLookup = {
+  byId: (
+    id: string,
+  ) => Promise<{ id: string; name?: string; email: string } | null>;
+  byEmail: (
+    email: string,
+  ) => Promise<{ id: string; name?: string; email: string } | null>;
+};
+
+function headerValue(value: string | string[] | undefined): string | null {
+  const first = (Array.isArray(value) ? value[0] : value)?.trim();
+  return first || null;
+}
+
+// Resolves `X-GrowthBook-Requested-By` to an organization member by user id, then email.
+// Null when the header is absent. Throws when it names nobody in the
+// organization, so attribution never silently falls back to the key alone.
+export async function resolveRequestedBy(
+  value: string | string[] | undefined,
+  organization: Pick<OrganizationInterface, "members">,
+  lookup: MemberLookup,
+): Promise<EventUserRequestedBy | null> {
+  const named = headerValue(value);
+  if (!named) return null;
+
+  const memberIds = new Set((organization.members ?? []).map((m) => m.id));
+  const user = memberIds.has(named)
+    ? await lookup.byId(named)
+    : await lookup.byEmail(named);
+  if (!user || !memberIds.has(user.id)) {
+    throw new BadRequestError(
+      `X-GrowthBook-Requested-By does not match a member of this organization: ${named}`,
+    );
+  }
+  return { id: user.id, name: user.name || "", email: user.email };
+}
+
+// The actor an API key request records: a personal token as its owner, an org
+// key under its own name with the member it named.
+export function apiKeyEventUser({
+  apiKeyId,
+  key,
+  owner,
+  requester,
+}: {
+  apiKeyId: string;
+  key: Pick<ApiKeyInterface, "description" | "actAs">;
+  owner: { id: string; name?: string; email: string } | null;
+  requester: EventUserRequestedBy | null;
+}): EventUserApiKey {
+  if (owner) {
+    return {
+      type: "api_key",
+      apiKey: apiKeyId,
+      id: owner.id,
+      name: owner.name || "",
+      email: owner.email,
+    };
+  }
+  return {
+    type: "api_key",
+    apiKey: apiKeyId,
+    name: key.description || "",
+    ...(requester && {
+      requestedBy: requester,
+      ...(actsAsUser(key) && { assumedRole: true }),
+    }),
+  };
+}
+
+// Applies a credential's rules to X-GrowthBook-Requested-By: personal and OAuth
+// tokens already act as their user, and a User key requires it.
+export async function resolveRequestedByFor(
+  value: string | string[] | undefined,
+  orgKey: Pick<ApiKeyInterface, "actAs"> | null,
+  organization: Pick<OrganizationInterface, "members">,
+  lookup: MemberLookup,
+): Promise<EventUserRequestedBy | null> {
+  if (!orgKey) {
+    if (headerValue(value)) {
+      throw new BadRequestError(
+        "X-GrowthBook-Requested-By is only for organization API keys. Personal access and OAuth tokens already act as their user.",
+      );
+    }
+    return null;
+  }
+  const requestedBy = await resolveRequestedBy(value, organization, lookup);
+  if (!requestedBy && actsAsUser(orgKey)) {
+    throw new BadRequestError(
+      "This API key requires an X-GrowthBook-Requested-By header naming an organization member",
+    );
+  }
+  return requestedBy;
 }

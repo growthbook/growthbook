@@ -54,6 +54,7 @@ export type CommercialFeature =
   | "quantile-metrics"
   | "retention-metrics"
   | "funnel-metrics"
+  | "compound-metrics"
   | "custom-markdown"
   | "experiment-impact"
   | "metric-populations"
@@ -66,6 +67,7 @@ export type CommercialFeature =
   | "decision-framework"
   | "unlimited-cdn-usage"
   | "unlimited-managed-warehouse-usage"
+  | "unlimited-event-forwarder-usage"
   | "safe-rollout"
   | "require-project-for-features-setting"
   | "require-project-for-sdk-connections-setting"
@@ -76,7 +78,6 @@ export type CommercialFeature =
   | "learnings"
   | "dashboards"
   | "product-analytics-dashboards"
-  | "share-product-analytics-dashboards"
   | "precomputed-dimensions"
   | "custom-hooks"
   | "metric-slices"
@@ -88,7 +89,9 @@ export type CommercialFeature =
   | "feature-configs"
   | "releases"
   | "contextual-bandits"
-  | "interleaving";
+  | "interleaving"
+  | "cluster-experiments"
+  | "human-in-the-loop";
 
 export type CommercialFeaturesMap = Record<AccountPlan, Set<CommercialFeature>>;
 
@@ -235,6 +238,7 @@ const commercialFeaturesPro: CommercialFeature[] = [
   "quantile-metrics",
   "retention-metrics",
   "funnel-metrics",
+  "compound-metrics",
   "metric-populations",
   "multi-armed-bandits",
   "historical-power",
@@ -242,9 +246,11 @@ const commercialFeaturesPro: CommercialFeature[] = [
   "safe-rollout",
   "ramp-schedules",
   "unlimited-managed-warehouse-usage",
+  "unlimited-event-forwarder-usage",
   "saveSqlExplorerQueries",
   "precomputed-dimensions",
   "product-analytics-dashboards",
+  "cluster-experiments",
 ];
 
 const commercialFeaturesProSso: CommercialFeature[] = [
@@ -288,7 +294,6 @@ const commercialFeaturesEnterpriseOnly: CommercialFeature[] = [
   "custom-hooks",
   "metric-slices",
   "manage-official-resources",
-  "share-product-analytics-dashboards",
   "incremental-refresh",
   "adv-presentations",
   "contextual-bandits",
@@ -296,6 +301,7 @@ const commercialFeaturesEnterpriseOnly: CommercialFeature[] = [
   "scheduled-revisions",
   "feature-configs",
   "releases",
+  "human-in-the-loop",
 ];
 
 const commercialFeaturesEnterprise: CommercialFeature[] = [
@@ -305,7 +311,8 @@ const commercialFeaturesEnterprise: CommercialFeature[] = [
 
 export const accountFeatures: CommercialFeaturesMap = {
   oss: new Set<CommercialFeature>([]),
-  starter: new Set<CommercialFeature>([]),
+  // Metered on cloud (license-server STARTER_USAGE_LIMITS)
+  starter: new Set<CommercialFeature>(["events-forwarder"]),
   pro: new Set<CommercialFeature>(commercialFeaturesPro),
   pro_sso: new Set<CommercialFeature>(commercialFeaturesProSso),
   enterprise: new Set<CommercialFeature>(commercialFeaturesEnterprise),

@@ -56,7 +56,7 @@ export async function validatePayload(
     projects,
     environments,
     isPublic,
-    owner: context.userId,
+    owner: context.actingUserId,
     organization: context.org.id,
   };
 }

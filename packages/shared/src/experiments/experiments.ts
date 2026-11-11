@@ -18,12 +18,15 @@ import {
   ColumnInterface,
   ColumnRef,
   FactMetricInterface,
+  FactTableColumnDefinition,
   FactTableColumnType,
   FactTableDefinition,
   FactTableDefinitionMap,
   FactTableInterface,
   FactTableMap,
   FunnelFactMetricInterface,
+  FunnelStep,
+  CompoundFactMetricInterface,
   MetricQuantileSettings,
   MetricWindowSettings,
   RowFilter,
@@ -35,6 +38,7 @@ import {
 } from "shared/types/organization";
 import {
   AttributionModel,
+  CustomMetricSlice,
   ExperimentInterface,
   ExperimentInterfaceStringDates,
   LookbackOverride,
@@ -48,7 +52,10 @@ import {
   DataSourceInterfaceWithParams,
   DataSourceSettings,
 } from "shared/types/datasource";
-import { SnapshotMetric } from "shared/types/experiment-snapshot";
+import {
+  ExperimentSnapshotSettings,
+  SnapshotMetric,
+} from "shared/types/experiment-snapshot";
 import {
   DifferenceType,
   IndexedPValue,
@@ -63,10 +70,13 @@ import {
   TemplateVariables,
 } from "shared/types/sql";
 import { stringToBoolean } from "../util";
+import { DEFAULT_IDENTIFIER_QUOTE, replaceSqlIdentifiers } from "../sql";
 import {
   getCappingTailState,
   isCappableFactMetric,
 } from "../validators/fact-table";
+import { parseAggregateFilter } from "../aggregate-filters";
+import { parseDimensionId } from "./dimension-ids";
 
 export type ExperimentMetricInterface = MetricInterface | FactMetricInterface;
 
@@ -207,185 +217,6 @@ export function reconcileInlineFilterPrompts(
     }
   }
   return result;
-}
-
-// Standard SQL quotes identifiers with double quotes; only MySQL, BigQuery,
-// and Databricks (Spark) use backticks. When the active data source's dialect
-// is unknown we assume the standard, which is correct for every dialect except
-// those three.
-export const DEFAULT_IDENTIFIER_QUOTE: SqlIdentifierQuote = '"';
-
-function isBareIdentifierChar(c: string): boolean {
-  return (
-    (c >= "a" && c <= "z") ||
-    (c >= "A" && c <= "Z") ||
-    (c >= "0" && c <= "9") ||
-    c === "_"
-  );
-}
-
-// Walk a SQL string and rewrite bare or quoted references to any of `names`,
-// correctly skipping spans where a matching token must NOT be treated as a
-// column reference:
-//   - single-quoted string literals ('' escapes a quote),
-//   - `--` line comments and `/* */` block comments,
-//   - dollar-quoted string bodies ($tag$...$tag$, Postgres),
-//   - and, depending on the dialect, the "other" quote character: whichever of
-//     " or ` is NOT the dialect's identifier quote delimits string literals.
-//
-// `identifierQuote` says which quote character delimits identifiers for the
-// active data source. A span in that quote is a *quoted identifier* (so
-// `"margin_vc"` / `` `margin_vc` `` can reference a column); a span in the
-// opposite quote is a string literal and is left alone. This matters because
-// e.g. `"margin_vc"` is a quoted identifier in Postgres but a string literal
-// in MySQL.
-//
-// `replacer(name, quoted)` returns the replacement for a matched identifier;
-// `quoted` tells it whether the match came from a quoted-identifier span so it
-// can re-quote when qualifying. Identifiers preceded by `.` (ignoring
-// whitespace, so `m.price` and `m . price` both count) are skipped so
-// already-qualified names are not re-qualified. Single
-// pass — inserted replacement text is never re-scanned, so an inserted
-// `m.price` is never re-qualified into `m.m.price`.
-function replaceSqlIdentifiers(
-  sql: string,
-  names: string[],
-  replacer: (name: string, quoted: boolean) => string,
-  identifierQuote: SqlIdentifierQuote = DEFAULT_IDENTIFIER_QUOTE,
-): string {
-  if (!names.length) return sql;
-  const nameSet = new Set(names);
-  // Whichever quote is not the identifier quote delimits string literals.
-  const stringQuote = identifierQuote === '"' ? "`" : '"';
-
-  let out = "";
-  let i = 0;
-  const n = sql.length;
-
-  // Consume a quote-delimited span starting at `i` (which is the opening
-  // quote), honoring doubled-quote escapes. Returns the end index (exclusive)
-  // and the unescaped inner text, plus whether a closing quote was found.
-  const readQuoted = (quote: string) => {
-    let j = i + 1;
-    let inner = "";
-    let closed = false;
-    while (j < n) {
-      if (sql[j] === quote) {
-        if (sql[j + 1] === quote) {
-          inner += quote;
-          j += 2;
-          continue;
-        }
-        j++;
-        closed = true;
-        break;
-      }
-      inner += sql[j];
-      j++;
-    }
-    return { end: j, inner, closed };
-  };
-
-  // Whether the identifier about to be emitted is already qualified by a
-  // preceding `.`. SQL allows whitespace around the dot (`m . price`), so skip
-  // any trailing whitespace before looking for the qualifier.
-  const isAlreadyQualified = () => {
-    let k = out.length - 1;
-    while (k >= 0 && /\s/.test(out[k])) k--;
-    return k >= 0 && out[k] === ".";
-  };
-
-  while (i < n) {
-    const c = sql[i];
-
-    // Single-quoted string literal.
-    if (c === "'") {
-      const { end } = readQuoted("'");
-      out += sql.slice(i, end);
-      i = end;
-      continue;
-    }
-
-    // Line comment: -- ... to end of line.
-    if (c === "-" && sql[i + 1] === "-") {
-      let j = i + 2;
-      while (j < n && sql[j] !== "\n") j++;
-      out += sql.slice(i, j);
-      i = j;
-      continue;
-    }
-
-    // Block comment: /* ... */.
-    if (c === "/" && sql[i + 1] === "*") {
-      let j = i + 2;
-      while (j < n && !(sql[j] === "*" && sql[j + 1] === "/")) j++;
-      j = Math.min(n, j + 2);
-      out += sql.slice(i, j);
-      i = j;
-      continue;
-    }
-
-    // Dollar-quoted string ($tag$...$tag$). Only treated as a string when a
-    // valid closing delimiter exists; otherwise `$` is an ordinary character
-    // (e.g. a positional parameter or `col$1`).
-    if (c === "$") {
-      const open = sql.slice(i).match(/^\$([A-Za-z_][A-Za-z0-9_]*)?\$/);
-      if (open) {
-        const delim = open[0];
-        const close = sql.indexOf(delim, i + delim.length);
-        if (close !== -1) {
-          const end = close + delim.length;
-          out += sql.slice(i, end);
-          i = end;
-          continue;
-        }
-      }
-      out += c;
-      i++;
-      continue;
-    }
-
-    // Quoted identifier in the dialect's identifier quote.
-    if (c === identifierQuote) {
-      const { end, inner, closed } = readQuoted(identifierQuote);
-      if (closed && !isAlreadyQualified() && nameSet.has(inner)) {
-        out += replacer(inner, true);
-      } else {
-        out += sql.slice(i, end);
-      }
-      i = end;
-      continue;
-    }
-
-    // A span in the opposite quote is a string literal for this dialect; skip.
-    if (c === stringQuote) {
-      const { end } = readQuoted(stringQuote);
-      out += sql.slice(i, end);
-      i = end;
-      continue;
-    }
-
-    // Bare identifier run.
-    if (isBareIdentifierChar(c)) {
-      let j = i;
-      while (j < n && isBareIdentifierChar(sql[j])) j++;
-      const token = sql.slice(i, j);
-      // A run starting with a digit is a numeric literal, not an identifier.
-      const startsWithDigit = c >= "0" && c <= "9";
-      if (!startsWithDigit && !isAlreadyQualified() && nameSet.has(token)) {
-        out += replacer(token, false);
-      } else {
-        out += token;
-      }
-      i = j;
-      continue;
-    }
-
-    out += c;
-    i++;
-  }
-
-  return out;
 }
 
 // A virtual column's expression is inlined into generated SQL as `(<sql>)`, so
@@ -574,27 +405,6 @@ export function expandVirtualColumnsInSql(
 }
 
 // Whether a SQL expression references a given column identifier. String
-// literals and comments are skipped, so a name inside a string literal (e.g.
-// `status = 'margin_vc'`) does not count as a reference, while a quoted
-// identifier (per `identifierQuote`) does. Computed on demand — no dependency
-// state is persisted.
-export function sqlReferencesColumn(
-  sql: string,
-  column: string,
-  identifierQuote: SqlIdentifierQuote = DEFAULT_IDENTIFIER_QUOTE,
-): boolean {
-  let found = false;
-  replaceSqlIdentifiers(
-    sql,
-    [column],
-    (name) => {
-      found = true;
-      return name;
-    },
-    identifierQuote,
-  );
-  return found;
-}
 
 export function getColumnExpression(
   column: string,
@@ -1190,23 +1000,16 @@ export function getAggregateFilters({
   // Only support distinctUsers for now
   if (columnRef.column !== "$$distinctUsers") return [];
 
-  const parts = columnRef.aggregateFilter.replace(/\s*/g, "").split(",");
+  const { conditions, invalid } = parseAggregateFilter(
+    columnRef.aggregateFilter,
+  );
+  if (invalid.length && !ignoreInvalid) {
+    throw new Error(`Invalid user filter: ${invalid[0]}`);
+  }
 
-  const filters: string[] = [];
-  parts.forEach((part) => {
-    if (!part) return;
-
-    // i.e. ">10" or "!=5.1"
-    const match = part.match(/^(=|!=|<>|<|<=|>|>=)(\d+(\.\d+)?)$/);
-    if (match) {
-      const [, operator, value] = match;
-      filters.push(`${column} ${operator} ${value}`);
-    } else if (!ignoreInvalid) {
-      throw new Error(`Invalid user filter: ${part}`);
-    }
-  });
-
-  return filters;
+  return conditions.map(
+    ({ operator, value }) => `${column} ${operator} ${value}`,
+  );
 }
 
 export function getFactTableTemplateVariables(
@@ -1298,20 +1101,27 @@ export function isCappableMetricType(m: ExperimentMetricDefinition) {
 
 export function isBinomialMetric(m: ExperimentMetricDefinition) {
   if (isFactMetric(m))
-    return ["proportion", "retention", "funnel"].includes(m.metricType);
+    return ["proportion", "retention", "funnel", "compound"].includes(
+      m.metricType,
+    );
   return m.type === "binomial";
 }
 
 /**
  * Fact table the metric's primary events come from: the numerator's for most
- * metric types, the first step's for funnels (which have no numerator).
+ * metric types, the first step's / component's for funnels and compound
+ * metrics (which have no numerator).
  */
 export function getFactMetricPrimaryFactTableId(
   m: FactMetricInterface,
 ): string {
-  return isFactFunnelMetric(m)
-    ? (m.funnelSettings.steps[0]?.factTableId ?? "")
-    : m.numerator.factTableId;
+  if (isFactFunnelMetric(m)) {
+    return m.funnelSettings.steps[0]?.factTableId ?? "";
+  }
+  if (isFactCompoundMetric(m)) {
+    return m.compoundSettings.components[0]?.factTableId ?? "";
+  }
+  return m.numerator.factTableId;
 }
 
 /**
@@ -1323,13 +1133,38 @@ export function getFactMetricPrimaryFactTableId(
 export function getFactMetricFactTableIds(m: FactMetricInterface): string[] {
   const ids = isFactFunnelMetric(m)
     ? m.funnelSettings.steps.map((step) => step.factTableId)
-    : [
-        m.numerator.factTableId,
-        ...(isRatioMetric(m) && m.denominator?.factTableId
-          ? [m.denominator.factTableId]
-          : []),
-      ];
+    : isFactCompoundMetric(m)
+      ? m.compoundSettings.components.map((c) => c.factTableId)
+      : [
+          m.numerator.factTableId,
+          ...(isRatioMetric(m) && m.denominator?.factTableId
+            ? [m.denominator.factTableId]
+            : []),
+        ];
   return Array.from(new Set(ids.filter((id) => !!id)));
+}
+
+// Every fact table a group of fact metrics reads, e.g. for one combined query
+export function getFactTableIdsForMetrics(
+  metrics: FactMetricInterface[],
+): string[] {
+  return Array.from(new Set(metrics.flatMap(getFactMetricFactTableIds)));
+}
+
+/**
+ * Fact tables whose columns back the metric's auto slices, for cascading a
+ * column change. A funnel slices on every step (the column has to be an Auto
+ * Slice column with the same levels on all of them), so any step's table can
+ * invalidate a slice. Everything else slices on the numerator's table alone —
+ * a ratio metric's denominator table has no say, even when it happens to have
+ * a column of the same name.
+ */
+export function getMetricAutoSliceFactTableIds(
+  m: FactMetricInterface,
+): string[] {
+  return isFactFunnelMetric(m) || isFactCompoundMetric(m)
+    ? getFactMetricFactTableIds(m)
+    : [getFactMetricPrimaryFactTableId(m)].filter((id) => !!id);
 }
 
 /**
@@ -1343,6 +1178,13 @@ export function getFactMetricColumnRefs(m: FactMetricInterface): ColumnRef[] {
       factTableId: step.factTableId,
       column: "",
       rowFilters: step.rowFilters,
+    }));
+  }
+  if (isFactCompoundMetric(m)) {
+    return m.compoundSettings.components.map((c) => ({
+      factTableId: c.factTableId,
+      column: "",
+      rowFilters: c.rowFilters,
     }));
   }
   return m.denominator ? [m.numerator, m.denominator] : [m.numerator];
@@ -1360,6 +1202,94 @@ export function isRatioMetric(
   return !!denominatorMetric && !isBinomialMetric(denominatorMetric);
 }
 
+export function getClusterSubUnit(
+  settings: Pick<
+    ExperimentSnapshotSettings,
+    "isClusterExperiment" | "clusterSubUnitIdentifier"
+  >,
+): string | null {
+  return settings.isClusterExperiment && settings.clusterSubUnitIdentifier
+    ? settings.clusterSubUnitIdentifier
+    : null;
+}
+
+/**
+ * Whether a metric in a cluster experiment is analyzed per sub-unit and rolled
+ * up to the cluster. Metrics in `clusterLevelMetricIds` instead join on the
+ * cluster id directly and are analyzed with the cluster as the unit.
+ */
+export function isSubUnitClusterMetric(
+  m: ExperimentMetricDefinition,
+  settings: Pick<
+    ExperimentSnapshotSettings,
+    "isClusterExperiment" | "clusterSubUnitIdentifier" | "clusterLevelMetricIds"
+  >,
+): boolean {
+  return (
+    getClusterSubUnit(settings) !== null &&
+    isFactMetric(m) &&
+    !settings.clusterLevelMetricIds?.includes(m.id)
+  );
+}
+
+export type ClusterMetricAnalysisLevel = "subunit" | "cluster";
+
+// Aggregations that collapse to a single scalar per sub-unit, so the rollup can
+// sum them into a cluster total.
+const CLUSTER_SUBUNIT_ROLLUP_AGGREGATIONS = [
+  "sum",
+  "count distinct",
+  "max",
+  "hll merge",
+] as const;
+
+export function getNonRollupAggregation(
+  metric: FactMetricInterface,
+): string | null {
+  for (const ref of getFactMetricColumnRefs(metric)) {
+    if (
+      ref.aggregation &&
+      !(CLUSTER_SUBUNIT_ROLLUP_AGGREGATIONS as readonly string[]).includes(
+        ref.aggregation,
+      )
+    ) {
+      return ref.aggregation;
+    }
+  }
+  return null;
+}
+
+export function getClusterMetricAnalysisLevel(
+  metric: FactMetricInterface,
+  {
+    clusterIdentifier,
+    clusterSubUnitIdentifier,
+    getFactTable,
+    datasourceSettings,
+  }: {
+    clusterIdentifier?: string | null;
+    clusterSubUnitIdentifier: string;
+    getFactTable: (
+      id: string,
+    ) => Pick<FactTableInterface, "userIdTypes"> | null | undefined;
+    datasourceSettings?: DataSourceSettings;
+  },
+): ClusterMetricAnalysisLevel | null {
+  const canRollUp = !getNonRollupAggregation(metric);
+  // Without datasource settings, joinability means the fact table declares the
+  // id type directly.
+  const direct = (idType: string) =>
+    isFactMetricJoinable(metric, idType, getFactTable);
+  const viaJoins = (idType: string) =>
+    isFactMetricJoinable(metric, idType, getFactTable, datasourceSettings);
+
+  if (canRollUp && direct(clusterSubUnitIdentifier)) return "subunit";
+  if (clusterIdentifier && direct(clusterIdentifier)) return "cluster";
+  if (canRollUp && viaJoins(clusterSubUnitIdentifier)) return "subunit";
+  if (clusterIdentifier && viaJoins(clusterIdentifier)) return "cluster";
+  return null;
+}
+
 export function quantileMetricType(
   m: ExperimentMetricDefinition,
 ): "" | MetricQuantileSettings["type"] {
@@ -1367,6 +1297,85 @@ export function quantileMetricType(
     return m.quantileSettings?.type || "";
   }
   return "";
+}
+
+const CLUSTER_EXPERIMENT_ALLOWED_METRIC_TYPES = [
+  "proportion",
+  "compound",
+  "retention",
+  "mean",
+  "ratio",
+] as const;
+
+// Picker labels for the types that reach the unsupported-type message.
+const UNSUPPORTED_CLUSTER_METRIC_TYPE_NAMES: Record<string, string> = {
+  dailyParticipation: "Daily Participation",
+  funnel: "Funnel",
+};
+
+type ClusterMetricEligibility =
+  // `level` is null when no sub-unit identifier was given to resolve it against.
+  | { allowed: true; level: ClusterMetricAnalysisLevel | null }
+  | { allowed: false; reason: string };
+
+export function getClusterExperimentMetricEligibility(
+  metric: ExperimentMetricDefinition,
+  options: {
+    clusterIdentifier?: string | null;
+    clusterSubUnitIdentifier?: string | null;
+    getFactTable: (
+      id: string,
+    ) => Pick<FactTableInterface, "userIdTypes"> | null | undefined;
+    datasourceSettings?: DataSourceSettings;
+  },
+): ClusterMetricEligibility {
+  if (!isFactMetric(metric)) {
+    return {
+      allowed: false,
+      reason: "Cluster experiments support only Fact Metrics.",
+    };
+  }
+  if (quantileMetricType(metric)) {
+    return {
+      allowed: false,
+      reason: "Quantile metrics are not supported in cluster experiments.",
+    };
+  }
+  if (
+    !(CLUSTER_EXPERIMENT_ALLOWED_METRIC_TYPES as readonly string[]).includes(
+      metric.metricType,
+    )
+  ) {
+    return {
+      allowed: false,
+      reason: `Cluster experiments don't support ${
+        UNSUPPORTED_CLUSTER_METRIC_TYPE_NAMES[metric.metricType] ??
+        metric.metricType
+      } metrics. Use proportion, retention, mean, or ratio metrics.`,
+    };
+  }
+  if (!options.clusterSubUnitIdentifier) {
+    return { allowed: true, level: null };
+  }
+  const level = getClusterMetricAnalysisLevel(metric, {
+    clusterIdentifier: options.clusterIdentifier,
+    clusterSubUnitIdentifier: options.clusterSubUnitIdentifier,
+    getFactTable: options.getFactTable,
+    datasourceSettings: options.datasourceSettings,
+  });
+  if (!level) {
+    if (options.clusterIdentifier) {
+      return {
+        allowed: false,
+        reason: `This metric's fact table exposes neither the subunit identifier "${options.clusterSubUnitIdentifier}" nor the cluster identifier "${options.clusterIdentifier}".`,
+      };
+    }
+    return {
+      allowed: false,
+      reason: `This metric's fact table does not expose the subunit identifier "${options.clusterSubUnitIdentifier}".`,
+    };
+  }
+  return { allowed: true, level };
 }
 
 /**
@@ -1389,6 +1398,16 @@ export function isFactFunnelMetric(
   m: ExperimentMetricDefinition,
 ): m is FunnelFactMetricInterface {
   return isFactMetric(m) && m.metricType === "funnel";
+}
+
+/**
+ * Compound fact metric: a unit passes when it matched every component, in any
+ * order. Statistically a proportion.
+ */
+export function isFactCompoundMetric(
+  m: ExperimentMetricDefinition,
+): m is CompoundFactMetricInterface {
+  return isFactMetric(m) && m.metricType === "compound";
 }
 
 export function isRegressionAdjusted(
@@ -1676,24 +1695,52 @@ export function funnelStepMetricId(
   baseMetricId: string,
   stepIndex: number,
 ): string {
-  return `${baseMetricId}?step=${stepIndex}`;
+  const sep = baseMetricId.includes("?") ? "&" : "?";
+  return `${baseMetricId}${sep}step=${stepIndex}`;
 }
 
 export function parseFunnelStepMetricId(
   metricId: string,
 ): FunnelStepMetricInfo {
-  const match = metricId.match(/^(.+)\?step=(\d+)$/);
-  if (!match) {
+  const qIndex = metricId.indexOf("?");
+  if (qIndex === -1) {
     return {
       isFunnelStepMetric: false,
       baseMetricId: metricId,
       stepIndex: null,
     };
   }
+
+  const baseId = metricId.substring(0, qIndex);
+  const parts = metricId.substring(qIndex + 1).split("&");
+
+  let stepIndex: number | null = null;
+  const otherParts: string[] = [];
+
+  for (const part of parts) {
+    const stepMatch = part.match(/^step=(\d+)$/);
+    if (stepMatch) {
+      stepIndex = parseInt(stepMatch[1], 10);
+    } else {
+      otherParts.push(part);
+    }
+  }
+
+  if (stepIndex === null) {
+    return {
+      isFunnelStepMetric: false,
+      baseMetricId: metricId,
+      stepIndex: null,
+    };
+  }
+
+  const baseMetricId =
+    otherParts.length > 0 ? `${baseId}?${otherParts.join("&")}` : baseId;
+
   return {
     isFunnelStepMetric: true,
-    baseMetricId: match[1],
-    stepIndex: parseInt(match[2], 10),
+    baseMetricId,
+    stepIndex,
   };
 }
 
@@ -1792,6 +1839,28 @@ export function getMetricLink(id: string): string {
   return `/metric/${id}`;
 }
 
+/** The CUPED lookback a metric gets when an experiment doesn't override it. */
+export function getDefaultRegressionAdjustmentDays(
+  metric: Pick<
+    ExperimentMetricDefinition,
+    "regressionAdjustmentOverride" | "regressionAdjustmentDays"
+  > | null,
+  organizationSettings?: Partial<OrganizationSettings>,
+): number {
+  if (metric?.regressionAdjustmentOverride) {
+    return (
+      metric.regressionAdjustmentDays ?? DEFAULT_REGRESSION_ADJUSTMENT_DAYS
+    );
+  }
+  if (organizationSettings?.regressionAdjustmentEnabled) {
+    return (
+      organizationSettings.regressionAdjustmentDays ??
+      DEFAULT_REGRESSION_ADJUSTMENT_DAYS
+    );
+  }
+  return DEFAULT_REGRESSION_ADJUSTMENT_DAYS;
+}
+
 export function getMetricSnapshotSettings<
   T extends ExperimentMetricDefinition,
 >({
@@ -1816,15 +1885,15 @@ export function getMetricSnapshotSettings<
   // start with default RA settings
   let regressionAdjustmentAvailable = true;
   let regressionAdjustmentEnabled = false;
-  let regressionAdjustmentDays = DEFAULT_REGRESSION_ADJUSTMENT_DAYS;
+  let regressionAdjustmentDays = getDefaultRegressionAdjustmentDays(
+    metric,
+    organizationSettings,
+  );
   let regressionAdjustmentReason = "";
 
   // get RA settings from organization
   if (organizationSettings?.regressionAdjustmentEnabled) {
     regressionAdjustmentEnabled = true;
-    regressionAdjustmentDays =
-      organizationSettings?.regressionAdjustmentDays ??
-      regressionAdjustmentDays;
   }
   if (experimentRegressionAdjustmentEnabled) {
     regressionAdjustmentEnabled = true;
@@ -1833,8 +1902,6 @@ export function getMetricSnapshotSettings<
   // get RA settings from metric
   if (metric?.regressionAdjustmentOverride) {
     regressionAdjustmentEnabled = !!metric?.regressionAdjustmentEnabled;
-    regressionAdjustmentDays =
-      metric?.regressionAdjustmentDays ?? DEFAULT_REGRESSION_ADJUSTMENT_DAYS;
     if (!regressionAdjustmentEnabled) {
       regressionAdjustmentAvailable = false;
       regressionAdjustmentReason = "disabled in metric settings";
@@ -2054,27 +2121,39 @@ export function shouldHighlight({
   stats,
   hasEnoughData,
   belowMinChange,
+  hasData,
 }: {
   metric: { id: string };
   baseline: SnapshotMetric;
   stats: SnapshotMetric;
   hasEnoughData: boolean;
   belowMinChange: boolean;
+  // Defaults to non-zero metric values. Denominator-sized rows pass their own,
+  // since a value of 0 is a real result there.
+  hasData?: boolean;
 }): boolean {
   return !!(
     metric &&
-    baseline?.value &&
-    stats?.value &&
+    (hasData ?? !!(baseline?.value && stats?.value)) &&
     hasEnoughData &&
     !belowMinChange
   );
 }
 
+export type SampleSizeSource = "denominator";
+
 export function getMetricSampleSize(
   baseline: SnapshotMetric,
   stats: SnapshotMetric,
   metric: ExperimentMetricDefinition,
+  sampleSizeFrom?: SampleSizeSource,
 ): { baselineValue?: number; variationValue?: number } {
+  if (sampleSizeFrom === "denominator") {
+    return {
+      baselineValue: baseline?.denominator,
+      variationValue: stats?.denominator,
+    };
+  }
   return quantileMetricType(metric)
     ? {
         baselineValue: baseline?.stats?.count,
@@ -2088,11 +2167,13 @@ export function hasEnoughData(
   stats: SnapshotMetric,
   metric: ExperimentMetricDefinition,
   metricDefaults: MetricDefaults,
+  sampleSizeFrom?: SampleSizeSource,
 ): boolean {
   const { baselineValue, variationValue } = getMetricSampleSize(
     baseline,
     stats,
     metric,
+    sampleSizeFrom,
   );
   if (!baselineValue || !variationValue) return false;
 
@@ -2168,6 +2249,7 @@ export function getMetricResultStatus({
   pValueThreshold,
   statsEngine,
   differenceType,
+  sampleSizeFrom,
 }: {
   metric: ExperimentMetricDefinition;
   metricDefaults: MetricDefaults;
@@ -2178,13 +2260,20 @@ export function getMetricResultStatus({
   pValueThreshold: number;
   statsEngine: StatsEngine;
   differenceType: DifferenceType;
+  sampleSizeFrom?: SampleSizeSource;
 }) {
   const directionalStatus: "winning" | "losing" =
     (stats.expected ?? 0) * (metric.inverse ? -1 : 1) > 0
       ? "winning"
       : "losing";
 
-  const enoughData = hasEnoughData(baseline, stats, metric, metricDefaults);
+  const enoughData = hasEnoughData(
+    baseline,
+    stats,
+    metric,
+    metricDefaults,
+    sampleSizeFrom,
+  );
   const belowMinChange = isBelowMinChange(
     baseline,
     stats,
@@ -2192,12 +2281,21 @@ export function getMetricResultStatus({
     metricDefaults,
     differenceType,
   );
+  const sampleSize = getMetricSampleSize(
+    baseline,
+    stats,
+    metric,
+    sampleSizeFrom,
+  );
   const _shouldHighlight = shouldHighlight({
     metric,
     baseline,
     stats,
     hasEnoughData: enoughData,
     belowMinChange,
+    hasData: sampleSizeFrom
+      ? !!sampleSize.baselineValue && !!sampleSize.variationValue
+      : undefined,
   });
 
   let significant: boolean;
@@ -2438,90 +2536,246 @@ export interface SliceDataForMetric {
   allSliceLevels: string[];
 }
 
-// Creates auto slice data for a fact metric based on the metric's metricAutoSlices
-// Used for FE: row generation, slice filtering/expansion
+// A fact table as slice logic needs to see it: the columns plus the unit-id
+// metadata that disqualifies a column from being sliced on.
+type SliceFactTable = Pick<
+  FactTableDefinition,
+  "columns" | "userIdTypes" | "userIdColumns"
+>;
+type GetSliceFactTable = (id: string) => SliceFactTable | null | undefined;
+
+export interface MetricAutoSliceColumn {
+  column: FactTableColumnDefinition;
+  // Levels only have to agree across tables for the "other" bucket, which
+  // means "not one of these levels" and would filter each of a funnel's steps
+  // differently when the lists diverge.
+  levelsMatchAllTables: boolean;
+}
+
+function isSliceableColumn(
+  factTable: SliceFactTable,
+  column: FactTableColumnDefinition | undefined,
+): column is FactTableColumnDefinition {
+  return (
+    !!column &&
+    !column.deleted &&
+    (column.datatype === "string" || column.datatype === "boolean") &&
+    !getFactTableIdColumns(factTable).includes(column.column)
+  );
+}
+
+function getAutoSliceColumnsForFactTables({
+  factTableIds,
+  getFactTable,
+}: {
+  factTableIds: string[];
+  getFactTable: GetSliceFactTable;
+}): MetricAutoSliceColumn[] {
+  const factTables = factTableIds.map(getFactTable);
+  const primaryFactTable = factTables[0];
+  if (!primaryFactTable || factTables.some((factTable) => !factTable)) {
+    return [];
+  }
+
+  return primaryFactTable.columns
+    .filter(
+      (column) =>
+        isSliceableColumn(primaryFactTable, column) &&
+        column.isAutoSliceColumn &&
+        !!column.autoSlices?.length,
+    )
+    .map((primaryColumn): MetricAutoSliceColumn | null => {
+      const primaryLevels = [...(primaryColumn.autoSlices ?? [])].sort();
+      let levelsMatchAllTables = true;
+
+      const usableOnEveryTable = factTables.every((factTable) => {
+        if (!factTable) return false;
+        const column = factTable.columns.find(
+          (candidate) => candidate.column === primaryColumn.column,
+        );
+        if (
+          !isSliceableColumn(factTable, column) ||
+          !column.isAutoSliceColumn ||
+          column.datatype !== primaryColumn.datatype
+        ) {
+          return false;
+        }
+        const levels = [...(column.autoSlices ?? [])].sort();
+        if (
+          levels.length !== primaryLevels.length ||
+          levels.some((level, i) => level !== primaryLevels[i])
+        ) {
+          levelsMatchAllTables = false;
+        }
+        return true;
+      });
+
+      return usableOnEveryTable
+        ? { column: primaryColumn, levelsMatchAllTables }
+        : null;
+    })
+    .filter((column): column is MetricAutoSliceColumn => !!column);
+}
+
+// Columns a metric can auto-slice on. A funnel applies the same slice to every
+// step, so every step's fact table has to support the column; everything else
+// slices on its numerator's table alone.
+export function getMetricAutoSliceColumns({
+  metric,
+  getFactTable,
+}: {
+  metric: FactMetricInterface;
+  getFactTable: GetSliceFactTable;
+}): MetricAutoSliceColumn[] {
+  return getAutoSliceColumnsForFactTables({
+    factTableIds: getMetricAutoSliceFactTableIds(metric),
+    getFactTable,
+  });
+}
+
+// Same rule, for callers holding draft funnel steps or compound components
+// rather than a saved metric (the metric modal, create/update validation).
+export function getCompatibleFunnelAutoSliceColumns({
+  steps,
+  getFactTable,
+}: {
+  steps: Pick<FunnelStep, "factTableId">[];
+  getFactTable: GetSliceFactTable;
+}): MetricAutoSliceColumn[] {
+  return getAutoSliceColumnsForFactTables({
+    factTableIds: Array.from(
+      new Set(steps.map((step) => step.factTableId).filter((id) => !!id)),
+    ),
+    getFactTable,
+  });
+}
+
+// The column a custom slice resolves to, or null when the metric can't slice
+// on it. A column has to mean the same thing on every fact table the metric
+// reads from: the SQL layer picks each funnel step's predicate from that
+// step's own column metadata, so a column that is a string here and a boolean
+// there would filter two different ways.
+export function getMetricSliceColumn({
+  metric,
+  column,
+  getFactTable,
+}: {
+  metric: FactMetricInterface;
+  column: string;
+  getFactTable: GetSliceFactTable;
+}): FactTableColumnDefinition | null {
+  const factTableIds = getMetricAutoSliceFactTableIds(metric);
+  const primaryFactTable = getFactTable(factTableIds[0]);
+  if (!primaryFactTable) return null;
+
+  const primaryColumn = primaryFactTable.columns.find(
+    (candidate) => candidate.column === column,
+  );
+  if (!isSliceableColumn(primaryFactTable, primaryColumn)) return null;
+
+  const validOnEveryTable = factTableIds.every((factTableId) => {
+    const factTable = getFactTable(factTableId);
+    if (!factTable) return false;
+    const candidate = factTable.columns.find((c) => c.column === column);
+    return (
+      isSliceableColumn(factTable, candidate) &&
+      candidate.datatype === primaryColumn.datatype
+    );
+  });
+
+  return validOnEveryTable ? primaryColumn : null;
+}
+
+function sliceMetricFromData<T extends ExperimentMetricDefinition>(
+  metric: T,
+  slice: SliceDataForMetric,
+): T {
+  return {
+    ...metric,
+    id: slice.id,
+    name: slice.name,
+    description: slice.description,
+  };
+}
+
+// Auto slice descriptors for a fact metric: the intersection of its
+// metricAutoSlices with the columns its fact tables actually support.
 export function createAutoSliceDataForMetric({
   parentMetric,
-  factTable,
+  getFactTable,
   includeOther = true,
 }: {
   parentMetric: ExperimentMetricDefinition | null | undefined;
-  factTable: FactTableDefinition | null | undefined;
+  getFactTable: GetSliceFactTable;
   includeOther?: boolean;
 }): SliceDataForMetric[] {
-  // Sanity checks
   if (!parentMetric || !isFactMetric(parentMetric)) return [];
-  if (!factTable) return [];
+  if (!parentMetric.metricAutoSlices?.length) return [];
 
-  // Cast to FactMetricInterface after type check
-  const factMetric = parentMetric as FactMetricInterface;
-  if (!factMetric.metricAutoSlices?.length) return [];
-
+  const factMetric = parentMetric;
   const sliceData: SliceDataForMetric[] = [];
 
-  // Get the intersection of metricAutoSlices with fact table auto slice columns
-  const factTableAutoSliceColumns = factTable.columns.filter(
-    (col) =>
-      col.isAutoSliceColumn &&
-      !col.deleted &&
-      (col.autoSlices?.length || 0) > 0,
-  );
+  getMetricAutoSliceColumns({ metric: factMetric, getFactTable })
+    .filter(({ column }) =>
+      factMetric.metricAutoSlices?.includes(column.column),
+    )
+    .forEach(({ column: col, levelsMatchAllTables }) => {
+      const autoSlices = col.autoSlices || [];
+      const columnName = col.name || col.column;
 
-  const autoSliceColumns = factTableAutoSliceColumns.filter((col) =>
-    factMetric.metricAutoSlices?.includes(col.column),
-  );
+      // For boolean columns, generate true/false slices, "null" will be handled as "other" below
+      const sliceValues =
+        col.datatype === "boolean" ? ["true", "false"] : autoSlices;
 
-  autoSliceColumns.forEach((col) => {
-    const autoSlices = col.autoSlices || [];
-    const columnName = col.name || col.column;
-
-    // For boolean columns, generate true/false slices, "null" will be handled as "other" below
-    const sliceValues =
-      col.datatype === "boolean" ? ["true", "false"] : autoSlices;
-
-    // Create slice data for each slice value
-    sliceValues.forEach((value) => {
-      const sliceString = generateSliceString({ [col.column]: value });
-      sliceData.push({
-        id: `${factMetric.id}?${sliceString}`,
-        name: `${factMetric.name} (${columnName}: ${value})`,
-        description: `Slice analysis of ${factMetric.name} for ${columnName} = ${value}`,
-        sliceLevels: [
-          {
-            column: col.column,
-            datatype: col.datatype as "string" | "boolean",
-            levels: [value],
-          },
-        ],
-        allSliceLevels: autoSlices,
+      sliceValues.forEach((value) => {
+        const sliceString = generateSliceString({ [col.column]: value });
+        sliceData.push({
+          id: `${factMetric.id}?${sliceString}`,
+          name: `${factMetric.name} (${columnName}: ${value})`,
+          description: `Slice analysis of ${factMetric.name} for ${columnName} = ${value}`,
+          sliceLevels: [
+            {
+              column: col.column,
+              datatype: col.datatype as "string" | "boolean",
+              levels: [value],
+            },
+          ],
+          allSliceLevels: autoSlices,
+        });
       });
+
+      // An "other" bucket for values not in autoSlices (includes NULL for
+      // boolean). It means "not one of these levels", so it can only be
+      // computed when every one of the metric's tables agrees on the list.
+      if (
+        includeOther &&
+        levelsMatchAllTables &&
+        (autoSlices.length > 0 || col.datatype === "boolean")
+      ) {
+        const sliceString = generateSliceString({ [col.column]: "" });
+        sliceData.push({
+          id: `${factMetric.id}?${sliceString}`,
+          name: `${factMetric.name} (${columnName}: other)`,
+          description: `Slice analysis of ${factMetric.name} for ${columnName} (other)`,
+          sliceLevels: [
+            {
+              column: col.column,
+              datatype: col.datatype as "string" | "boolean",
+              levels: [],
+            },
+          ],
+          allSliceLevels: autoSlices,
+        });
+      }
     });
-
-    // Create an "other" slice data for values not in autoSlices (includes NULL for boolean)
-    if (includeOther && (autoSlices.length > 0 || col.datatype === "boolean")) {
-      const sliceString = generateSliceString({ [col.column]: "" });
-      sliceData.push({
-        id: `${factMetric.id}?${sliceString}`,
-        name: `${factMetric.name} (${columnName}: other)`,
-        description: `Slice analysis of ${factMetric.name} for ${columnName} (other)`,
-        sliceLevels: [
-          {
-            column: col.column,
-            datatype: col.datatype as "string" | "boolean",
-            levels: [],
-          },
-        ],
-        allSliceLevels: autoSlices,
-      });
-    }
-  });
 
   return sliceData;
 }
 
 // Auto-slice metric variants of a base fact metric (clones with slice-encoded
-// ids `<baseId>?dim:col=value`, plus an "other" bucket). Experiment-independent
-// so it can be reused outside `expandDerivedMetricsInMap`.
+// ids `<baseId>?dim:col=value`, plus an "other" bucket). Single fact table
+// only — a funnel slices across every step's table, so it goes through
+// getSliceDataForMetric instead.
 export function getAutoSliceMetrics({
   metric,
   factTable,
@@ -2529,116 +2783,95 @@ export function getAutoSliceMetrics({
   metric: FactMetricInterface;
   factTable: FactTableDefinition;
 }): FactMetricInterface[] {
-  if (!metric.metricAutoSlices?.length) return [];
+  if (isFactFunnelMetric(metric) || isFactCompoundMetric(metric)) return [];
 
-  const autoSliceColumns = factTable.columns.filter(
-    (col) =>
-      col.isAutoSliceColumn &&
-      !col.deleted &&
-      (col.autoSlices?.length || 0) > 0 &&
-      metric.metricAutoSlices?.includes(col.column),
-  );
-
-  const sliceMetrics: FactMetricInterface[] = [];
-
-  autoSliceColumns.forEach((col) => {
-    const autoSlices = col.autoSlices || [];
-
-    // One metric per configured auto slice value.
-    autoSlices.forEach((value: string) => {
-      const sliceString = generateSliceString({ [col.column]: value });
-      sliceMetrics.push({
-        ...metric,
-        id: `${metric.id}?${sliceString}`,
-        name: `${metric.name} (${col.name || col.column}: ${value})`,
-        description: `Slice analysis of ${metric.name} for ${col.name || col.column} = ${value}`,
-      });
-    });
-
-    // An "other" bucket for values not in autoSlices (includes NULL for boolean).
-    if (autoSlices.length > 0 || col.datatype === "boolean") {
-      const sliceString = generateSliceString({ [col.column]: "" });
-      sliceMetrics.push({
-        ...metric,
-        id: `${metric.id}?${sliceString}`,
-        name: `${metric.name} (${col.name || col.column}: other)`,
-        description: `Slice analysis of ${metric.name} for ${col.name || col.column} = other`,
-      });
-    }
-  });
-
-  return sliceMetrics;
+  return createAutoSliceDataForMetric({
+    parentMetric: metric,
+    getFactTable: () => factTable,
+  }).map((slice) => sliceMetricFromData(metric, slice));
 }
 
-// Creates custom slice data for a fact metric by using the experiment's customMetricSlices
+// Custom slice descriptors from the experiment's customMetricSlices. Groups
+// naming a column the metric can't slice on are skipped, so the front end
+// never shows a slice row the back end didn't compute.
 export function createCustomSliceDataForMetric({
-  metricId,
+  metric,
   metricName,
   customMetricSlices,
-  factTable,
+  getFactTable,
 }: {
-  metricId: string;
+  metric: FactMetricInterface;
   metricName: string;
-  customMetricSlices?: { slices: { column: string; levels: string[] }[] }[];
-  factTable?: FactTableDefinition | null;
+  customMetricSlices?: CustomMetricSlice[];
+  getFactTable: GetSliceFactTable;
 }): SliceDataForMetric[] {
-  // Sanity checks
   if (!customMetricSlices?.length) return [];
 
   const customSliceData: SliceDataForMetric[] = [];
 
   customMetricSlices.forEach((group) => {
-    // Sort slices alphabetically for consistent ID generation
-    const sortedSlices = group.slices.sort((a, b) =>
+    // Sorted for consistent id generation; copied so the caller's array is
+    // left alone.
+    const sortedSlices = [...group.slices].sort((a, b) =>
       a.column.localeCompare(b.column),
     );
 
-    // Create slice levels with proper handling for boolean "null" values
-    const sliceLevelsForString = sortedSlices.map((d) => {
-      const column = factTable?.columns.find((col) => col.column === d.column);
+    const columns = sortedSlices.map((slice) =>
+      getMetricSliceColumn({ metric, column: slice.column, getFactTable }),
+    );
+    if (columns.some((column) => !column)) return;
+
+    const sliceLevels: SliceLevelsData[] = sortedSlices.map((d, i) => {
+      const datatype =
+        columns[i]?.datatype === "boolean" ? "boolean" : "string";
       // For boolean "null" slices, use empty array to generate ?dim:col= format
       const levels =
-        d.levels[0] === "null" && column?.datatype === "boolean"
-          ? []
-          : d.levels;
-      return {
-        column: d.column,
-        datatype: (column?.datatype === "boolean" ? "boolean" : "string") as
-          | "string"
-          | "boolean",
-        levels,
-      };
+        datatype === "boolean" && d.levels[0] === "null" ? [] : d.levels;
+      return { column: d.column, datatype, levels };
     });
 
-    const sliceString = generateSliceStringFromLevels(sliceLevelsForString);
-
-    const customSliceMetric = {
-      id: `${metricId}?${sliceString}`,
+    customSliceData.push({
+      id: `${metric.id}?${generateSliceStringFromLevels(sliceLevels)}`,
       name: `${metricName} (${sortedSlices.map((combo) => `${combo.column}: ${combo.levels[0] || ""}`).join(", ")})`,
       description: `Slice analysis of ${metricName} for ${sortedSlices.map((combo) => `${combo.column} = ${combo.levels[0] || ""}`).join(" and ")}`,
-      sliceLevels: sortedSlices.map((d) => {
-        const column = factTable?.columns.find(
-          (col) => col.column === d.column,
-        );
-        // For boolean "null" slices, use empty array to match "other" slice format
-        const levels =
-          d.levels[0] === "null" && column?.datatype === "boolean"
-            ? []
-            : d.levels;
-        return {
-          column: d.column,
-          datatype: (column?.datatype === "boolean" ? "boolean" : "string") as
-            | "string"
-            | "boolean",
-          levels,
-        };
-      }),
+      sliceLevels,
       allSliceLevels: sortedSlices.flatMap((slice) => slice.levels),
-    };
-    customSliceData.push(customSliceMetric);
+    });
   });
 
   return customSliceData;
+}
+
+// Every slice a fact metric actually has, auto plus custom. The single source
+// of truth: the front end builds its slice rows from this and the back end
+// builds the slice metrics it computes from the same call, so the two can't
+// disagree about which slices exist.
+export function getSliceDataForMetric({
+  metric,
+  metricName,
+  customMetricSlices,
+  getFactTable,
+}: {
+  metric: ExperimentMetricDefinition;
+  metricName: string;
+  customMetricSlices?: CustomMetricSlice[];
+  getFactTable: GetSliceFactTable;
+}): SliceDataForMetric[] {
+  if (!isFactMetric(metric)) return [];
+
+  return dedupeSliceMetrics([
+    ...createAutoSliceDataForMetric({
+      parentMetric: metric,
+      getFactTable,
+      includeOther: true,
+    }),
+    ...createCustomSliceDataForMetric({
+      metric,
+      metricName,
+      customMetricSlices,
+      getFactTable,
+    }),
+  ]);
 }
 
 export function generateSelectAllSliceString(column: string): string {
@@ -2684,6 +2917,13 @@ export function isVariationWeightsSumValid(
 ): boolean {
   const sum = weights.reduce((acc, w) => acc + w, 0);
   return Math.abs(sum - 1) <= tolerance;
+}
+
+export function areVariationWeightsValid(weights: number[]): boolean {
+  return (
+    weights.every((w) => w >= 0 && w <= 1) &&
+    isVariationWeightsSumValid(weights)
+  );
 }
 
 // Returns n "equal" decimals rounded to 3 places that add up to 1
@@ -3068,76 +3308,29 @@ export function expandDerivedMetricsInMap({
   for (const metric of baseMetrics) {
     if (!metric) continue;
     if (!isFactMetric(metric)) continue;
-    // A funnel expands into its per-step proportions instead of slices, which
-    // are not supported for funnel metrics yet.
+
+    const sliceMetrics = getSliceDataForMetric({
+      metric,
+      metricName: metric.name,
+      customMetricSlices: experiment.customMetricSlices,
+      getFactTable: (id) => factTableMap.get(id),
+    }).map((slice) => sliceMetricFromData(metric, slice));
+
+    // A funnel reports per step, so the funnel itself and each of its slices
+    // expand into step metrics on top of the slice metrics below.
     if (isFactFunnelMetric(metric)) {
-      getFunnelStepMetrics(metric).forEach((stepMetric) => {
-        metricMap.set(stepMetric.id, stepMetric);
+      [metric, ...sliceMetrics].forEach((funnel) => {
+        getFunnelStepMetrics(funnel as FunnelFactMetricInterface).forEach(
+          (stepMetric) => {
+            metricMap.set(stepMetric.id, stepMetric);
+          },
+        );
       });
-      continue;
     }
 
-    const factTable = factTableMap.get(metric.numerator.factTableId);
-    if (!factTable) continue;
-
-    // 1. Add auto slice metrics
-    getAutoSliceMetrics({ metric, factTable }).forEach((sliceMetric) => {
+    sliceMetrics.forEach((sliceMetric) => {
       metricMap.set(sliceMetric.id, sliceMetric);
     });
-
-    // 2. Add custom slice metrics
-    if (experiment.customMetricSlices) {
-      experiment.customMetricSlices.forEach((customSliceGroup) => {
-        // Sort slices alphabetically for consistent ID generation
-        const sortedSliceGroups = customSliceGroup.slices.sort((a, b) =>
-          a.column.localeCompare(b.column),
-        );
-
-        // Verify all custom slice columns exist and are string or boolean type
-        const hasAllRequiredColumns = sortedSliceGroups.every((slice) => {
-          const column = factTable.columns.find(
-            (col) => col.column === slice.column,
-          );
-          return (
-            column &&
-            !column.deleted &&
-            (column.datatype === "string" || column.datatype === "boolean") &&
-            !getFactTableIdColumns(factTable).includes(column.column)
-          );
-        });
-
-        if (!hasAllRequiredColumns) return;
-
-        // Create slice levels
-        const sliceLevelsForString = sortedSliceGroups.map((d) => {
-          const column = factTable.columns.find(
-            (col) => col.column === d.column,
-          );
-          // For boolean "null" slices, use empty array to generate ?dim:col= format
-          const levels =
-            column?.datatype === "boolean" && d.levels[0] === "null"
-              ? []
-              : d.levels;
-          return {
-            column: d.column,
-            datatype: (column?.datatype === "boolean"
-              ? "boolean"
-              : "string") as "string" | "boolean",
-            levels,
-          };
-        });
-
-        const sliceString = generateSliceStringFromLevels(sliceLevelsForString);
-
-        const customSliceMetric: ExperimentMetricDefinition = {
-          ...metric,
-          id: `${metric.id}?${sliceString}`,
-          name: `${metric.name} (${sortedSliceGroups.map((combo) => `${combo.column}: ${combo.levels[0] || ""}`).join(", ")})`,
-          description: `Slice analysis of ${metric.name} for ${sortedSliceGroups.map((combo) => `${combo.column} = ${combo.levels[0] || ""}`).join(" and ")}`,
-        };
-        metricMap.set(customSliceMetric.id, customSliceMetric);
-      });
-    }
   }
 }
 
@@ -3155,6 +3348,44 @@ export function isDimensionPrecomputed(
   }
 
   return !!dimension && snapshotUnitDimensionIds.includes(dimension);
+}
+
+type IsolatedDimensionSettings = Pick<
+  ExperimentSnapshotSettings,
+  | "dimensions"
+  | "precomputedUnitDimensionIds"
+  | "isClusterExperiment"
+  | "clusterSubUnitIdentifier"
+>;
+
+/**
+ * Single source of truth for the dimensions that must be computed in their own
+ * isolated query and analyzed per-dimension, instead of being folded into the
+ * parent snapshot query and re-aggregated by gbstats.
+ */
+export function getIsolatedDimensionIds(
+  settings: IsolatedDimensionSettings,
+): string[] {
+  const ids = new Set<string>(settings.precomputedUnitDimensionIds ?? []);
+
+  if (getClusterSubUnit(settings) !== null) {
+    for (const dimension of settings.dimensions) {
+      if (parseDimensionId(dimension.id).kind === "experiment") {
+        ids.add(dimension.id);
+      }
+    }
+  }
+
+  return Array.from(ids);
+}
+
+/** True when `dimensionId` must be isolated for this snapshot. */
+export function isIsolatedDimension(
+  settings: IsolatedDimensionSettings,
+  dimensionId: string | undefined,
+): boolean {
+  if (!dimensionId) return false;
+  return getIsolatedDimensionIds(settings).includes(dimensionId);
 }
 
 /**

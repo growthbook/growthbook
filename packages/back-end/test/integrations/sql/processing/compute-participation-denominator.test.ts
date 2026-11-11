@@ -24,12 +24,14 @@ function run(
   dialect: SqlDialect,
   windowSettings: Partial<WindowSettings>,
   overrideConversionWindows = false,
+  cutoffDate: Date | null = null,
 ) {
   return computeParticipationDenominator(dialect, {
     initialTimestampColumn: "first_exposure_timestamp",
     analysisEndDate,
     metric: makeMetric(windowSettings),
     overrideConversionWindows,
+    cutoffDate,
   });
 }
 
@@ -62,6 +64,26 @@ describe("computeParticipationDenominator", () => {
       const sql = run(postgresDialect, { type: "lookback", windowValue: 7 });
       expect(sql).toMatch(/AS TIMESTAMP/);
       expect(sql).not.toMatch(/AS DATETIME/);
+    });
+  });
+
+  describe("caps an open conversion window", () => {
+    const conversionWindow = { type: "conversion" as const, windowValue: 3 };
+
+    it("at the query time without a cutoff", () => {
+      const sql = run(postgresDialect, conversionWindow);
+      expect(sql).toContain("LEAST(CURRENT_TIMESTAMP,");
+    });
+
+    it("at a cutoff date", () => {
+      const sql = run(
+        postgresDialect,
+        conversionWindow,
+        false,
+        analysisEndDate,
+      );
+      expect(sql).not.toContain("CURRENT_TIMESTAMP");
+      expect(sql).toContain("LEAST(CAST('2026-09-28 00:00:00' AS TIMESTAMP),");
     });
   });
 });

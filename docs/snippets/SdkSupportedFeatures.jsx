@@ -2,7 +2,7 @@ export const SdkSupportedFeatures = ({ sdk }) => {
   const sdkInfo = {
     js: {
       name: "JS SDK",
-      version: "1.8.0",
+      version: "2.0.0",
       github:
         "https://github.com/growthbook/growthbook/tree/main/packages/sdk-js",
       examples: [
@@ -23,6 +23,15 @@ export const SdkSupportedFeatures = ({ sdk }) => {
         },
         {
           experimentation: "All versions",
+        },
+        {
+          interleaving: "≥ v2.0.0",
+        },
+        {
+          savedGroupReferencesRemote: "≥ v2.0.0",
+        },
+        {
+          contextualBanditsAuto: "≥ v2.0.0",
         },
         {
           savedGroupReferencesV2: "≥ v1.8.0",
@@ -85,7 +94,7 @@ export const SdkSupportedFeatures = ({ sdk }) => {
     },
     react: {
       name: "React SDK",
-      version: "1.8.0",
+      version: "2.0.0",
       github:
         "https://github.com/growthbook/growthbook/tree/main/packages/sdk-react",
       examples: [
@@ -114,6 +123,15 @@ export const SdkSupportedFeatures = ({ sdk }) => {
         },
         {
           experimentation: "All versions",
+        },
+        {
+          interleaving: "≥ v2.0.0",
+        },
+        {
+          savedGroupReferencesRemote: "≥ v2.0.0",
+        },
+        {
+          contextualBanditsAuto: "≥ v2.0.0",
         },
         {
           savedGroupReferencesV2: "≥ v1.8.0",
@@ -229,7 +247,7 @@ export const SdkSupportedFeatures = ({ sdk }) => {
     },
     php: {
       name: "PHP SDK",
-      version: "2.6.1",
+      version: "3.0.0",
       github: "https://github.com/growthbook/growthbook-php",
       examples: [],
       packageRepos: [
@@ -244,6 +262,9 @@ export const SdkSupportedFeatures = ({ sdk }) => {
         },
         {
           experimentation: "All versions",
+        },
+        {
+          savedGroupReferencesV2: "≥ v3.0.0",
         },
         {
           remoteEval: "≥ v2.5.0",
@@ -285,7 +306,7 @@ export const SdkSupportedFeatures = ({ sdk }) => {
     },
     node: {
       name: "Node SDK",
-      version: "1.8.0",
+      version: "2.0.0",
       github:
         "https://github.com/growthbook/growthbook/tree/main/packages/sdk-js",
       examples: [
@@ -308,19 +329,28 @@ export const SdkSupportedFeatures = ({ sdk }) => {
           experimentation: "All versions",
         },
         {
+          interleaving: "≥ v2.0.0",
+        },
+        {
+          savedGroupReferencesRemote: "≥ v2.0.0",
+        },
+        {
+          contextualBanditsAuto: "≥ v2.0.0",
+        },
+        {
           savedGroupReferencesV2: "≥ v1.8.0",
         },
         {
           contextualBandits: "≥ v1.7.0",
         },
         {
+          trackingPlugin: "≥ v1.7.0",
+        },
+        {
           caseInsensitiveMembership: "≥ v1.6.4",
         },
         {
           caseInsensitiveRegex: "≥ v1.6.3",
-        },
-        {
-          trackingPlugin: "≥ v1.4.0",
         },
         {
           savedGroupReferences: "≥ v1.1.0",
@@ -356,7 +386,7 @@ export const SdkSupportedFeatures = ({ sdk }) => {
     },
     ruby: {
       name: "Ruby SDK",
-      version: "1.3.0",
+      version: "2.0.0",
       github: "https://github.com/growthbook/growthbook-ruby",
       examples: [
         {
@@ -376,6 +406,18 @@ export const SdkSupportedFeatures = ({ sdk }) => {
         },
         {
           experimentation: "All versions",
+        },
+        {
+          caseInsensitiveMembership: "≥ v2.0.0",
+        },
+        {
+          caseInsensitiveRegex: "≥ v2.0.0",
+        },
+        {
+          savedGroupReferences: "≥ v2.0.0",
+        },
+        {
+          savedGroupReferencesV2: "≥ v2.0.0",
         },
         {
           prerequisites: "≥ v1.3.0",
@@ -402,7 +444,7 @@ export const SdkSupportedFeatures = ({ sdk }) => {
     },
     python: {
       name: "Python SDK",
-      version: "3.2.0",
+      version: "4.0.0",
       github: "https://github.com/growthbook/growthbook-python",
       examples: [],
       packageRepos: [
@@ -464,7 +506,7 @@ export const SdkSupportedFeatures = ({ sdk }) => {
     },
     go: {
       name: "Go SDK",
-      version: "0.6.0",
+      version: "0.7.0",
       github: "https://github.com/growthbook/growthbook-golang",
       examples: [
         {
@@ -492,7 +534,7 @@ export const SdkSupportedFeatures = ({ sdk }) => {
           contextualBandits: "≥ v0.5.0",
         },
         {
-          trackingPlugin: "≥ v0.2.8",
+          trackingPlugin: "≥ v0.5.0",
         },
         {
           caseInsensitiveMembership: "≥ v0.2.7",
@@ -531,7 +573,7 @@ export const SdkSupportedFeatures = ({ sdk }) => {
     },
     rust: {
       name: "Rust SDK",
-      version: "0.3.0",
+      version: "0.4.0",
       github: "https://github.com/growthbook/growthbook-rust",
       examples: [
         {
@@ -589,7 +631,7 @@ export const SdkSupportedFeatures = ({ sdk }) => {
     },
     java: {
       name: "Java SDK",
-      version: "0.11.0",
+      version: "0.12.0",
       github: "https://github.com/growthbook/growthbook-sdk-java",
       examples: [
         {
@@ -621,6 +663,15 @@ export const SdkSupportedFeatures = ({ sdk }) => {
         },
         {
           experimentation: "All versions",
+        },
+        {
+          savedGroupReferencesV2: "≥ v0.12.0",
+        },
+        {
+          savedGroupReferences: "≥ v0.11.1",
+        },
+        {
+          trackingPlugin: "≥ v0.11.1",
         },
         {
           caseInsensitiveMembership: "≥ v0.10.9",
@@ -659,7 +710,7 @@ export const SdkSupportedFeatures = ({ sdk }) => {
     },
     csharp: {
       name: "C# SDK",
-      version: "1.2.0",
+      version: "2.0.0",
       github: "https://github.com/growthbook/growthbook-c-sharp",
       examples: [
         {
@@ -679,6 +730,9 @@ export const SdkSupportedFeatures = ({ sdk }) => {
         },
         {
           experimentation: "All versions",
+        },
+        {
+          savedGroupReferencesV2: "≥ v2.0.0",
         },
         {
           caseInsensitiveMembership: "≥ v1.2.0",
@@ -720,7 +774,7 @@ export const SdkSupportedFeatures = ({ sdk }) => {
     },
     elixir: {
       name: "Elixir SDK",
-      version: "0.3.0",
+      version: "0.4.0",
       github: "https://github.com/growthbook/growthbook-elixir",
       examples: [],
       packageRepos: [
@@ -735,6 +789,12 @@ export const SdkSupportedFeatures = ({ sdk }) => {
         },
         {
           experimentation: "All versions",
+        },
+        {
+          caseInsensitiveMembership: "≥ v0.4.0",
+        },
+        {
+          caseInsensitiveRegex: "≥ v0.4.0",
         },
         {
           encryption: "≥ v0.3.0",
@@ -758,7 +818,7 @@ export const SdkSupportedFeatures = ({ sdk }) => {
     },
     kotlin: {
       name: "Kotlin SDK",
-      version: "7.6.0",
+      version: "10.0.0",
       github: "https://github.com/growthbook/growthbook-kotlin",
       examples: [],
       packageRepos: [
@@ -773,6 +833,15 @@ export const SdkSupportedFeatures = ({ sdk }) => {
         },
         {
           experimentation: "All versions",
+        },
+        {
+          savedGroupReferences: "≥ v10.0.0",
+        },
+        {
+          contextualBandits: "≥ v8.0.0",
+        },
+        {
+          trackingPlugin: "≥ v7.8.0",
         },
         {
           caseInsensitiveMembership: "≥ v7.1.1",
@@ -811,7 +880,7 @@ export const SdkSupportedFeatures = ({ sdk }) => {
     },
     swift: {
       name: "Swift SDK",
-      version: "1.2.4",
+      version: "2.0.0",
       github: "https://github.com/growthbook/growthbook-swift",
       examples: [],
       packageRepos: [
@@ -828,7 +897,13 @@ export const SdkSupportedFeatures = ({ sdk }) => {
           experimentation: "All versions",
         },
         {
+          savedGroupReferences: "≥ v2.0.0",
+        },
+        {
           contextualBandits: "≥ v1.2.3",
+        },
+        {
+          trackingPlugin: "≥ v1.1.15",
         },
         {
           namespacesV2: "≥ v1.1.4",
@@ -867,7 +942,7 @@ export const SdkSupportedFeatures = ({ sdk }) => {
     },
     reactNative: {
       name: "React Native SDK",
-      version: "1.8.0",
+      version: "2.0.0",
       github:
         "https://github.com/growthbook/growthbook/tree/main/packages/sdk-react",
       examples: [
@@ -888,6 +963,15 @@ export const SdkSupportedFeatures = ({ sdk }) => {
         },
         {
           experimentation: "All versions",
+        },
+        {
+          interleaving: "≥ v2.0.0",
+        },
+        {
+          savedGroupReferencesRemote: "≥ v2.0.0",
+        },
+        {
+          contextualBanditsAuto: "≥ v2.0.0",
         },
         {
           savedGroupReferencesV2: "≥ v1.8.0",
@@ -1224,7 +1308,7 @@ export const SdkSupportedFeatures = ({ sdk }) => {
     },
     flutter: {
       name: "Flutter SDK",
-      version: "4.4.0",
+      version: "5.0.0",
       github: "https://github.com/growthbook/growthbook-flutter",
       examples: [],
       packageRepos: [
@@ -1239,9 +1323,6 @@ export const SdkSupportedFeatures = ({ sdk }) => {
         },
         {
           experimentation: "All versions",
-        },
-        {
-          trackingPlugin: "≥ v4.4.0",
         },
         {
           caseInsensitiveRegex: "≥ v4.3.0",
@@ -1283,7 +1364,7 @@ export const SdkSupportedFeatures = ({ sdk }) => {
     },
     roku: {
       name: "Roku SDK",
-      version: "1.4.1",
+      version: "2.0.0",
       github: "https://github.com/growthbook/growthbook-roku",
       examples: [
         {
@@ -1302,6 +1383,15 @@ export const SdkSupportedFeatures = ({ sdk }) => {
         },
         {
           experimentation: "All versions",
+        },
+        {
+          caseInsensitiveMembership: "≥ v2.0.0",
+        },
+        {
+          caseInsensitiveRegex: "≥ v2.0.0",
+        },
+        {
+          savedGroupReferences: "≥ v2.0.0",
         },
         {
           encryption: "≥ v1.4.1",
@@ -1554,6 +1644,42 @@ export const SdkSupportedFeatures = ({ sdk }) => {
           viewBox="0 0 256 256"
         >
           <path d="M240,128a8,8,0,0,1-8,8H204.94l-37.78,75.58A8,8,0,0,1,160,216h-.4a8,8,0,0,1-7.08-5.14L95.35,60.76,63.28,131.31A8,8,0,0,1,56,136H24a8,8,0,0,1,0-16H50.46L88.62,36.69a8,8,0,0,1,14.76.46L160.46,187,187.06,136H232A8,8,0,0,1,240,128Z" />
+        </svg>
+      ),
+    },
+    contextualBanditsAuto: {
+      label: "Contextual Bandits (Visual & Redirects)",
+      icon: () => (
+        <svg
+          fill="currentColor"
+          xmlns="http://www.w3.org/2000/svg"
+          viewBox="0 0 256 256"
+        >
+          <path d="M88,24V16a8,8,0,0,1,16,0v8a8,8,0,0,1-16,0ZM16,104h8a8,8,0,0,0,0-16H16a8,8,0,0,0,0,16ZM124.42,39.16a8,8,0,0,0,10.74-3.58l8-16a8,8,0,0,0-14.31-7.16l-8,16A8,8,0,0,0,124.42,39.16Zm-96,81.69-16,8a8,8,0,0,0,7.16,14.31l16-8a8,8,0,1,0-7.16-14.31ZM219.31,184a16,16,0,0,1,0,22.63l-12.68,12.68a16,16,0,0,1-22.63,0L132.7,168,115,214.09c0,.1-.08.21-.13.32a15.83,15.83,0,0,1-14.6,9.59l-.79,0a15.83,15.83,0,0,1-14.41-11L32.8,52.92A16,16,0,0,1,52.92,32.8L213,85.07a16,16,0,0,1,1.41,29.8l-.32.13L168,132.69ZM208,195.31,156.69,144h0a16,16,0,0,1,4.93-26l.32-.14,45.95-17.64L48,48l52.2,159.86,17.65-46c0-.11.08-.22.13-.33a16,16,0,0,1,11.69-9.34,16.72,16.72,0,0,1,3-.28,16,16,0,0,1,11.3,4.69L195.31,208Z" />
+        </svg>
+      ),
+    },
+    savedGroupReferencesRemote: {
+      label: "Remote Groups",
+      icon: () => (
+        <svg
+          fill="currentColor"
+          xmlns="http://www.w3.org/2000/svg"
+          viewBox="0 0 256 256"
+        >
+          <path d="M160,40A88.09,88.09,0,0,0,81.29,88.67,64,64,0,1,0,72,216h88a88,88,0,0,0,0-176Zm0,160H72a48,48,0,0,1,0-96c1.1,0,2.2,0,3.29.11A88,88,0,0,0,72,128a8,8,0,0,0,16,0,72,72,0,1,1,72,72Z" />
+        </svg>
+      ),
+    },
+    interleaving: {
+      label: "Interleaving",
+      icon: () => (
+        <svg
+          fill="currentColor"
+          xmlns="http://www.w3.org/2000/svg"
+          viewBox="0 0 256 256"
+        >
+          <path d="M237.66,178.34a8,8,0,0,1,0,11.32l-24,24a8,8,0,0,1-11.32-11.32L212.69,192H200.94a72.12,72.12,0,0,1-58.59-30.15l-41.72-58.4A56.1,56.1,0,0,0,55.06,80H32a8,8,0,0,1,0-16H55.06a72.12,72.12,0,0,1,58.59,30.15l41.72,58.4A56.1,56.1,0,0,0,200.94,176h11.75l-10.35-10.34a8,8,0,0,1,11.32-11.32ZM143,107a8,8,0,0,0,11.16-1.86l1.2-1.67A56.1,56.1,0,0,1,200.94,80h11.75L202.34,90.34a8,8,0,0,0,11.32,11.32l24-24a8,8,0,0,0,0-11.32l-24-24a8,8,0,0,0-11.32,11.32L212.69,64H200.94a72.12,72.12,0,0,0-58.59,30.15l-1.2,1.67A8,8,0,0,0,143,107Zm-30,42a8,8,0,0,0-11.16,1.86l-1.2,1.67A56.1,56.1,0,0,1,55.06,176H32a8,8,0,0,0,0,16H55.06a72.12,72.12,0,0,0,58.59-30.15l1.2-1.67A8,8,0,0,0,113,149Z" />
         </svg>
       ),
     },

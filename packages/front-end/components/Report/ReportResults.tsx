@@ -275,12 +275,16 @@ export default function ReportResults({
                 // metricFilter={metricFilter}
                 // setMetricFilter={setMetricFilter}
                 ssrPolyfills={ssrPolyfills}
+                customMetricSlices={
+                  report.experimentAnalysisSettings.customMetricSlices
+                }
               />
             ) : showCompactResults ? (
               <CompactResults
                 experimentId={snapshot.experiment}
                 significanceThresholds={significanceThresholds}
                 variations={variations}
+                snapshot={snapshot}
                 multipleExposures={snapshot.multipleExposures || 0}
                 results={analysis.results[0]}
                 queryStatusData={queryStatusData}

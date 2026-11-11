@@ -23,6 +23,13 @@ import useProjectOptions from "@/hooks/useProjectOptions";
 import { getDefaultFactMetricProps } from "@/services/metrics";
 import track from "@/services/track";
 import { useUser } from "@/services/UserContext";
+import styles from "./SaveFunnelMetricModal.module.scss";
+
+const LIST_STYLE: React.CSSProperties = {
+  marginTop: "var(--space-1)",
+  marginBottom: 0,
+  paddingLeft: "var(--space-4)",
+};
 
 export interface SaveFunnelMetricModalProps {
   close: () => void;
@@ -153,12 +160,12 @@ export default function SaveFunnelMetricModal({
       size="md"
       trackingEventModalType="save-funnel-metric"
     >
-      <Flex direction="column" gap="3">
+      <Flex direction="column" gap="4" className={styles.body}>
         {error && <Callout status="error">{error}</Callout>}
         {blockers.length > 0 && (
           <Callout status="error">
             <Text weight="medium">This funnel can&apos;t be saved yet:</Text>
-            <ul style={{ marginTop: "var(--space-1)", marginBottom: 0 }}>
+            <ul style={LIST_STYLE}>
               {blockers.map((b) => (
                 <li key={b}>{b}</li>
               ))}
@@ -187,7 +194,8 @@ export default function SaveFunnelMetricModal({
           {...form.register("description")}
         />
 
-        <MetricWindowSettingsForm form={form} type="funnel" />
+        {/* Drop default mt-4/mb-3; the Flex gap spaces it. */}
+        <MetricWindowSettingsForm form={form} type="funnel" className="" />
 
         <MultiSelectField
           label="Projects"
@@ -209,7 +217,7 @@ export default function SaveFunnelMetricModal({
 
         <Callout status="info">
           Two things change when a funnel becomes a metric:
-          <ul style={{ marginTop: "var(--space-1)", marginBottom: 0 }}>
+          <ul style={LIST_STYLE}>
             <li>
               The counting unit isn&apos;t carried over — in an experiment, the
               metric counts whatever the experiment&apos;s exposure table uses.

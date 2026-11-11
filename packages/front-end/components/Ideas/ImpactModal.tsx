@@ -6,6 +6,7 @@ import Link from "@/ui/Link";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
+import { validatedSubmit } from "@/ui/Modal/validatedSubmit";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
 
@@ -44,7 +45,7 @@ const ImpactModal: FC<{
       trackingEventModalType=""
       header="Impact Score Parameters"
       open={true}
-      submit={form.handleSubmit(async (value) => {
+      submit={validatedSubmit(form, async (value) => {
         // Need an API call to get an updated estimate
         let est = estimate;
         if (

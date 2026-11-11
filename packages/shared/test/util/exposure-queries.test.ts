@@ -1,4 +1,8 @@
 import {
+  assignServerIdsToAddedExposureQueries,
+  getChangedExposureQueries,
+  getDataSourceSaveChanges,
+  getSavedQueriesSharingId,
   assertExposureQueryDeclaresIdentifierType,
   getExposureQueryIdentifierTypes,
   parseAssignmentQueryInput,
@@ -8,10 +12,15 @@ import {
   parseAssignmentQuerySelection,
   isSameAssignmentQuerySelection,
   flattenExposureQueryInput,
+  getExposureQueryProjectScopeViolations,
+  getExposureQueryProjectScopeError,
+  isExposureQueryAvailableForProjects,
   getIdentifierTypeForSettingsHash,
-  getPreferredIdentifierType,
+  getPastExperimentQueryName,
   withKeptIdentifierType,
   resolveAssignmentQuerySelectionChange,
+  findColumnsNeedingQuotes,
+  getColumnsNeedingQuotesMessage,
 } from "shared/util";
 import { ExposureQuery } from "shared/types/datasource";
 
@@ -659,22 +668,424 @@ describe("getIdentifierTypeForSettingsHash", () => {
   });
 });
 
-describe("getPreferredIdentifierType", () => {
-  it("keeps the legacy identifier while the query declares it", () => {
+describe("getPastExperimentQueryName", () => {
+  it("names the past experiments query after its assignment query", () => {
+    expect(getPastExperimentQueryName("exq_1")).toBe("experiments_exq_1");
+  });
+});
+
+describe("getExposureQueryProjectScopeViolations", () => {
+  it("lists each query's projects outside the data source's", () => {
     expect(
-      getPreferredIdentifierType({
-        userIdType: "anonymous_id",
-        userIdTypes: ["user_id", "anonymous_id"],
-      }),
-    ).toBe("anonymous_id");
+      getExposureQueryProjectScopeViolations(
+        [
+          { name: "Q1", projects: ["p1", "p3"] },
+          { name: "Q2", projects: ["p1"] },
+        ],
+        ["p1", "p2"],
+      ),
+    ).toEqual([{ name: "Q1", projects: ["p3"] }]);
   });
 
-  it("uses a declared identifier once the legacy one was removed", () => {
+  it("treats an empty data source project list as all projects", () => {
     expect(
-      getPreferredIdentifierType({
-        userIdType: "anonymous_id",
-        userIdTypes: ["user_id"],
+      getExposureQueryProjectScopeViolations(
+        [{ name: "Q1", projects: ["p1"] }],
+        [],
+      ),
+    ).toEqual([]);
+  });
+});
+
+describe("getExposureQueryProjectScopeError", () => {
+  const projectNames = new Map([
+    ["prj_a", "Mobile"],
+    ["prj_b", "Web"],
+  ]);
+
+  it("explains a removed Project with the queries scoped to it", () => {
+    expect(
+      getExposureQueryProjectScopeError(
+        [
+          { name: "Q1", projects: ["prj_a"] },
+          { name: "Q2", projects: ["prj_a"] },
+        ],
+        { projectNames, previousDatasourceProjects: ["prj_a", "prj_b"] },
+      ),
+    ).toBe(
+      'Can\'t remove Mobile from this Data Source while assignment queries are scoped to it: "Q1", "Q2". Remove Mobile from those queries first.',
+    );
+  });
+
+  it("treats narrowing from all Projects as removing them", () => {
+    expect(
+      getExposureQueryProjectScopeError(
+        [{ name: "Q1", projects: ["prj_a", "prj_b"] }],
+        { projectNames, previousDatasourceProjects: [] },
+      ),
+    ).toBe(
+      'Can\'t remove these Projects from this Data Source while assignment queries are scoped to them: Mobile ("Q1"); Web ("Q1"). Remove those Projects from the queries first.',
+    );
+  });
+
+  it("explains a query scoped beyond the data source, falling back to ids", () => {
+    expect(
+      getExposureQueryProjectScopeError(
+        [{ name: "Q1", projects: ["prj_a", "prj_gone"] }],
+        { projectNames },
+      ),
+    ).toBe(
+      "Assignment query \"Q1\" is scoped to Mobile, prj_gone, which aren't among this Data Source's Projects.",
+    );
+  });
+});
+
+describe("isExposureQueryAvailableForProjects", () => {
+  it("allows an unrestricted query for any projects, including all", () => {
+    expect(
+      isExposureQueryAvailableForProjects(
+        { projects: [] },
+        { holdoutProjects: [], datasourceProjects: [] },
+      ),
+    ).toBe(true);
+    expect(
+      isExposureQueryAvailableForProjects(
+        {},
+        { holdoutProjects: ["prj_a"], datasourceProjects: undefined },
+      ),
+    ).toBe(true);
+  });
+
+  it("requires a scoped query to cover every project", () => {
+    const query = { projects: ["prj_a", "prj_b"] };
+    expect(
+      isExposureQueryAvailableForProjects(query, {
+        holdoutProjects: ["prj_a"],
+        datasourceProjects: [],
       }),
-    ).toBe("user_id");
+    ).toBe(true);
+    expect(
+      isExposureQueryAvailableForProjects(query, {
+        holdoutProjects: ["prj_a", "prj_c"],
+        datasourceProjects: [],
+      }),
+    ).toBe(false);
+  });
+
+  it("rejects a scoped query when all projects are covered", () => {
+    expect(
+      isExposureQueryAvailableForProjects(
+        { projects: ["prj_a"] },
+        { holdoutProjects: [], datasourceProjects: [] },
+      ),
+    ).toBe(false);
+  });
+
+  it("applies the data source's projects to an unscoped query", () => {
+    const dsProjects = ["prj_a", "prj_b"];
+    expect(
+      isExposureQueryAvailableForProjects(
+        { projects: [] },
+        { holdoutProjects: [], datasourceProjects: dsProjects },
+      ),
+    ).toBe(false);
+    expect(
+      isExposureQueryAvailableForProjects(
+        { projects: [] },
+        { holdoutProjects: ["prj_a", "prj_c"], datasourceProjects: dsProjects },
+      ),
+    ).toBe(false);
+    expect(
+      isExposureQueryAvailableForProjects(
+        { projects: [] },
+        { holdoutProjects: ["prj_b"], datasourceProjects: dsProjects },
+      ),
+    ).toBe(true);
+  });
+});
+
+describe("assignment query project scope", () => {
+  const scoped = query({
+    id: "eq_scoped",
+    name: "Scoped",
+    userIdType: "user_id",
+    userIdTypes: ["user_id"],
+    projects: ["prj_a"],
+  });
+
+  it("rejects a query outside the project, unless the scope check is skipped", () => {
+    const selection = {
+      exposureQueryId: "eq_scoped",
+      onOmitted: "defaultToFirst" as const,
+    };
+    expect(
+      parseAssignmentQuerySelection([scoped], {
+        ...selection,
+        scope: { project: "prj_b", datasourceProjects: [] },
+      }),
+    ).toEqual({
+      ok: false,
+      error:
+        'Assignment query "Scoped" isn\'t available for the selected project',
+    });
+    expect(parseAssignmentQuerySelection([scoped], selection).ok).toBe(true);
+  });
+
+  it("scopes a query with no projects to its data source's", () => {
+    const unscoped = query({
+      id: "eq_unscoped",
+      userIdType: "user_id",
+      userIdTypes: ["user_id"],
+    });
+    const parse = (project: string) =>
+      parseAssignmentQuerySelection([unscoped], {
+        exposureQueryId: "eq_unscoped",
+        onOmitted: "defaultToFirst",
+        scope: { project, datasourceProjects: ["prj_a"] },
+      }).ok;
+    expect(parse("prj_a")).toBe(true);
+    expect(parse("prj_b")).toBe(false);
+  });
+
+  it("only checks a new or changed selection", () => {
+    const previous = { datasource: "ds_1", exposureQueryId: "eq_scoped" };
+    expect(
+      resolveAssignmentQuerySelectionChange([scoped], {
+        previous,
+        next: previous,
+        onOmitted: "defaultToFirst",
+        scope: { project: "prj_b", datasourceProjects: [] },
+      }),
+    ).toMatchObject({ ok: true, changed: false });
+    expect(
+      resolveAssignmentQuerySelectionChange([scoped], {
+        previous: null,
+        next: previous,
+        onOmitted: "defaultToFirst",
+        scope: { project: "prj_b", datasourceProjects: [] },
+      }).ok,
+    ).toBe(false);
+  });
+});
+
+describe("getChangedExposureQueries", () => {
+  const a = { id: "eq_a", query: "SELECT 1" };
+  const b = { id: "eq_b", query: "SELECT 2" };
+
+  it("ignores validation errors and unchanged queries", () => {
+    expect(
+      getChangedExposureQueries([a, b], [{ ...a, error: "bad" }, b]),
+    ).toEqual([]);
+  });
+
+  it("lists added, changed and removed queries", () => {
+    const changed = { ...a, query: "SELECT 3" };
+    const added = { query: "SELECT 4" };
+    expect(getChangedExposureQueries([a, b], [changed, added])).toEqual([
+      { previous: a, next: changed },
+      { previous: null, next: added },
+      { previous: b, next: null },
+    ]);
+  });
+
+  it("lists a query reusing a saved id as added", () => {
+    const reused = { id: "eq_a", query: "SELECT 3" };
+    expect(getChangedExposureQueries([a, b], [a, b, reused])).toEqual([
+      { previous: null, next: reused },
+    ]);
+  });
+
+  it("pairs repeated ids in order", () => {
+    const a2 = { id: "eq_a", query: "SELECT 3" };
+    expect(getChangedExposureQueries([a, a2], [a, a2])).toEqual([]);
+    expect(getChangedExposureQueries([a, a2], [a2])).toEqual([
+      { previous: a, next: a2 },
+      { previous: a2, next: null },
+    ]);
+    expect(getChangedExposureQueries([a, a2], [a])).toEqual([
+      { previous: a2, next: null },
+    ]);
+  });
+});
+
+describe("assignServerIdsToAddedExposureQueries", () => {
+  const a = { id: "eq_a", query: "SELECT 1" };
+  const b = { id: "eq_b", query: "SELECT 2" };
+  const newId = () => {
+    let n = 0;
+    return () => `exq_${++n}`;
+  };
+
+  it("gives a restricted member's added queries new ids", () => {
+    expect(
+      assignServerIdsToAddedExposureQueries(
+        [a],
+        [a, { id: "eq_mine", query: "SELECT 3" }, { query: "SELECT 4" }],
+        false,
+        newId(),
+      ),
+    ).toEqual([
+      a,
+      { id: "exq_1", query: "SELECT 3" },
+      { id: "exq_2", query: "SELECT 4" },
+    ]);
+  });
+
+  it("keeps the ids a full editor sends", () => {
+    const next = [a, { id: "eq_mine", query: "SELECT 3" }];
+    expect(
+      assignServerIdsToAddedExposureQueries([a], next, true, newId()),
+    ).toBe(next);
+  });
+
+  it("keeps saved queries' ids, edited or not", () => {
+    const edited = { ...b, query: "SELECT 5" };
+    expect(
+      assignServerIdsToAddedExposureQueries(
+        [a, b],
+        [a, edited],
+        false,
+        newId(),
+      ),
+    ).toEqual([a, edited]);
+  });
+
+  it("gives an addition repeating a saved id a new id", () => {
+    expect(
+      assignServerIdsToAddedExposureQueries(
+        [a],
+        [a, { id: "eq_a", query: "SELECT 3" }],
+        false,
+        newId(),
+      ),
+    ).toEqual([a, { id: "exq_1", query: "SELECT 3" }]);
+  });
+});
+
+describe("getSavedQueriesSharingId", () => {
+  const a = { id: "eq_a", query: "SELECT 1" };
+  const a2 = { id: "eq_a", query: "SELECT 2" };
+  const b = { id: "eq_b", query: "SELECT 3" };
+
+  it("returns every saved query with the id", () => {
+    expect(getSavedQueriesSharingId([a, b, a2], "eq_a")).toEqual([a, a2]);
+    expect(getSavedQueriesSharingId([a, b, a2], "eq_c")).toEqual([]);
+  });
+
+  it("returns nothing for a missing id", () => {
+    expect(getSavedQueriesSharingId([a, { query: "SELECT 4" }], "")).toEqual(
+      [],
+    );
+    expect(getSavedQueriesSharingId([a], undefined)).toEqual([]);
+  });
+});
+
+describe("getDataSourceSaveChanges", () => {
+  const eq = {
+    id: "eq_a",
+    name: "A",
+    userIdType: "user_id",
+    query: "SELECT 1",
+  };
+  const datasource = {
+    settings: { queries: { exposure: [eq] }, userIdTypes: [] },
+  };
+
+  it("treats an assignment query edit alone as no other change", () => {
+    const edited = { ...eq, query: "SELECT 2" };
+    expect(
+      getDataSourceSaveChanges(datasource, {
+        settings: { ...datasource.settings, queries: { exposure: [edited] } },
+      }),
+    ).toEqual({
+      changesOtherFields: false,
+      exposureQueryChanges: [{ previous: eq, next: edited }],
+    });
+  });
+
+  it("counts any other body field, even an unchanged or unknown one", () => {
+    expect(
+      getDataSourceSaveChanges(datasource, { name: "Same name" })
+        .changesOtherFields,
+    ).toBe(true);
+    expect(
+      getDataSourceSaveChanges(datasource, { someFutureField: 1 })
+        .changesOtherFields,
+    ).toBe(true);
+  });
+
+  it("counts a settings change outside the assignment queries", () => {
+    expect(
+      getDataSourceSaveChanges(datasource, {
+        settings: {
+          ...datasource.settings,
+          userIdTypes: [{ userIdType: "user_id" }],
+        },
+      }).changesOtherFields,
+    ).toBe(true);
+  });
+});
+
+describe("findColumnsNeedingQuotes", () => {
+  it("rejects capitals only where unquoted names fold to lowercase", () => {
+    const query = { columnMapping: { userIdColumns: { user_id: "userId" } } };
+    expect(findColumnsNeedingQuotes(query, "lower")).toEqual(["userId"]);
+    // Snowflake's driver lowercases every name, so case says nothing there
+    expect(findColumnsNeedingQuotes(query, "upper")).toEqual([]);
+    expect(findColumnsNeedingQuotes(query, undefined)).toEqual([]);
+    expect(
+      findColumnsNeedingQuotes(
+        { columnMapping: { timestampColumn: "created_at" } },
+        "lower",
+      ),
+    ).toEqual([]);
+  });
+
+  it("rejects names that need quoting on every warehouse", () => {
+    expect(
+      findColumnsNeedingQuotes(
+        { columnMapping: { experimentNameColumn: "exp name" } },
+        undefined,
+      ),
+    ).toEqual(["exp name"]);
+  });
+
+  it("returns every offending column once", () => {
+    expect(
+      findColumnsNeedingQuotes(
+        {
+          columnMapping: {
+            experimentIdColumn: "experimentId",
+            variationNameColumn: "Variation Name",
+            timestampColumn: "timestamp",
+            userIdColumns: { user_id: "userId", anonymous_id: "userId" },
+          },
+        },
+        "lower",
+      ),
+    ).toEqual(["experimentId", "Variation Name", "userId"]);
+  });
+});
+
+describe("getColumnsNeedingQuotesMessage", () => {
+  it("names one column with the matching fix", () => {
+    expect(getColumnsNeedingQuotesMessage(["userId"])).toBe(
+      'Column "userId" can\'t be mapped because of its capital letters. In SQL mode, quote it and alias it to a lowercase name, like "userId" AS user_id.',
+    );
+    expect(getColumnsNeedingQuotesMessage(["exp name"])).toBe(
+      'Column "exp name" can\'t be mapped because of its special characters. In SQL mode, quote it and alias it to a lowercase name with only letters, numbers and underscores, like "exp name" AS exp_name.',
+    );
+  });
+
+  it("lists every column and covers both reasons", () => {
+    expect(
+      getColumnsNeedingQuotesMessage([
+        "userId",
+        "experimentId",
+        "Variation Name",
+      ]),
+    ).toBe(
+      'Columns "userId", "experimentId" and "Variation Name" can\'t be mapped because of their capital letters or special characters. In SQL mode, quote each one and alias them to lowercase names with only letters, numbers and underscores, like "userId" AS user_id.',
+    );
   });
 });

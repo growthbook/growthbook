@@ -221,20 +221,8 @@ export class DashboardModel extends BaseClass {
       }
       return this.context.permissions.canCreateReport(experiment);
     } else {
-      if (doc.editLevel === "private") {
-        if (!this.context.hasPremiumFeature("product-analytics-dashboards")) {
-          throw new Error(
-            "Your plan does not support creating private dashboards.",
-          );
-        }
-      } else {
-        if (
-          !this.context.hasPremiumFeature("share-product-analytics-dashboards")
-        ) {
-          throw new Error(
-            "Your plan does not support creating shared dashboards.",
-          );
-        }
+      if (!this.context.hasPremiumFeature("product-analytics-dashboards")) {
+        throw new Error("Your plan does not support creating dashboards.");
       }
       return this.context.permissions.canCreateGeneralDashboards(doc);
     }
@@ -294,24 +282,8 @@ export class DashboardModel extends BaseClass {
       // Check that the user has permission to update experiment reports
       return this.context.permissions.canUpdateReport(experiment);
     } else {
-      if (existing.editLevel === "private" || updates.editLevel === "private") {
-        if (!this.context.hasPremiumFeature("product-analytics-dashboards")) {
-          throw new Error(
-            "Your plan does not support updating private dashboards.",
-          );
-        }
-      }
-      if (
-        existing.editLevel === "published" ||
-        updates.editLevel === "published"
-      ) {
-        if (
-          !this.context.hasPremiumFeature("share-product-analytics-dashboards")
-        ) {
-          throw new Error(
-            "Your plan does not support updating shared dashboards.",
-          );
-        }
+      if (!this.context.hasPremiumFeature("product-analytics-dashboards")) {
+        throw new Error("Your plan does not support updating dashboards.");
       }
       return this.context.permissions.canUpdateGeneralDashboards(
         existing,
@@ -526,7 +498,7 @@ export class DashboardModel extends BaseClass {
   protected async processApiCreateBody(rawBody: unknown) {
     return this.buildApiCreateDoc(
       apiCreateDashboardBody.parse(rawBody),
-      this.context.userId,
+      this.context.actingUserId,
     );
   }
 

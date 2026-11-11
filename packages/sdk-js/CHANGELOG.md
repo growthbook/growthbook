@@ -1,8 +1,19 @@
 # Changelog
 
-## **1.8.1** - Unreleased
+## **2.0.0** - Oct 29, 2026
 
-- Run visual and URL redirect auto experiments as Contextual Bandits when they carry a `contextualBanditRef`
+- Add Remote Saved Groups support - a new type of saved group where values are managed in an external data store, rather than in the payload
+- Add `reducePayload` - a new SDK function that shrinks the size of the payload by filters when hydrating to a client-side SDK
+- Add `interleavePlugin` for testing ranking algorithms
+- Add Contextual Bandit support for visual and URL redirect experiments
+- Various fixes for condition operators and evaluation edge cases
+
+**Breaking changes.** See [Updating to 2.0.0](https://docs.growthbook.io/lib/js#updating-to-2-0-0).
+
+- Comparison operators no longer do implicit type conversions
+- Tighten attribute hashing logic to only accept strings and number values
+- Fix fence post bug with rollout bucketing logic, affecting a tiny minority of users
+- Missing or unrecognized saved groups always fail closed
 
 ## **1.8.0** - Sep 29, 2026
 

@@ -32,6 +32,7 @@ import Owner from "@/components/Avatar/Owner";
 import Metadata from "@/ui/Metadata";
 import Heading from "@/ui/Heading";
 import ShareStatusBadge from "@/components/Report/ShareStatusBadge";
+import { useUser } from "@/services/UserContext";
 
 type ShareLevel = "public" | "organization" | "private";
 type EditLevel = "organization" | "private";
@@ -70,6 +71,10 @@ export default function ReportMetaInfo({
     : `${HOST}/report/${report.id}`;
 
   const { apiCall } = useAuth();
+  const { settings, organization } = useUser();
+  // Viewers of another org's public report shouldn't get their own org's setting.
+  const publicSharingDisabled =
+    organization.id === report.organization && !!settings?.disablePublicSharing;
 
   const { performCopy, copySuccess } = useCopyToClipboard({
     timeout: 800,
@@ -207,7 +212,8 @@ export default function ReportMetaInfo({
   ]);
 
   const shareLinkButton =
-    report.shareLevel !== "public" ? null : copySuccess ? (
+    report.shareLevel !== "public" ||
+    publicSharingDisabled ? null : copySuccess ? (
       <Button style={{ width: 130 }} icon={<PiCheck />}>
         Link copied
       </Button>
@@ -344,19 +350,15 @@ export default function ReportMetaInfo({
             </Flex>
           </div>
           <div className="flex-shrink-0">
-            <div className="d-flex">
+            <Flex align="center" gap="3">
               {showPrivateLink && (
-                <LinkButton
-                  variant="outline"
-                  href={`/report/${report.id}`}
-                  mr="4"
-                >
+                <LinkButton variant="outline" href={`/report/${report.id}`}>
                   Edit Report
                 </LinkButton>
               )}
               {showEditControls ? (
                 <div className="d-flex flex-column align-items-end">
-                  {shareLevel === "public" ? (
+                  {shareLevel === "public" && !publicSharingDisabled ? (
                     <SplitButton menu={shareLinkButtonTiny}>
                       <Button onClick={() => setShareModalOpen(true)}>
                         Share...
@@ -397,7 +399,7 @@ export default function ReportMetaInfo({
                   canDelete={canDelete}
                 />
               ) : null}
-            </div>
+            </Flex>
           </div>
         </div>
       </div>
@@ -467,8 +469,13 @@ export default function ReportMetaInfo({
             ) : shareLevel === "public" ? (
               <>
                 <Callout status="warning" size="sm">
-                  Anyone with the link can view this report, even those outside
-                  your organization.
+                  {publicSharingDisabled
+                    ? `Public sharing is turned off for your organization, so this link doesn't work right now. It will work again if sharing is turned back on. ${
+                        isOwner || isAdmin
+                          ? 'To revoke it, set View access to "Only organization members" or "Only me".'
+                          : "Ask the report owner or an admin to revoke it."
+                      }`
+                    : "Anyone with the link can view this report, even those outside your organization."}
                 </Callout>
               </>
             ) : shareLevel === "private" ? (
@@ -490,7 +497,10 @@ export default function ReportMetaInfo({
             options={[
               { value: "private", label: "Only me" },
               { value: "organization", label: "Only organization members" },
-              { value: "public", label: "Anyone with the link" },
+              // Kept for an already-public report so it can be switched off.
+              ...(publicSharingDisabled && report.shareLevel !== "public"
+                ? []
+                : [{ value: "public", label: "Anyone with the link" }]),
             ]}
           />
           <div className="mb-1" style={{ height: 24 }}>

@@ -16,6 +16,7 @@ import {
   assertVariationsCoverBandit,
   buildContextualBanditRefRule,
   loadContextualBanditForRead,
+  holdLinkedFeatureWrite,
 } from "./_shared";
 
 export const addContextualBanditLinkedFeature = createApiRequestHandler(
@@ -82,6 +83,13 @@ export const addContextualBanditLinkedFeature = createApiRequestHandler(
     req.context,
     withStagedSchema(feature, staged),
     rule,
+  );
+  // Publishing a new link branches from live, whatever draft was named.
+  await holdLinkedFeatureWrite(
+    req.context,
+    feature,
+    autoPublish,
+    autoPublish ? undefined : draftVersion,
   );
   const result = await linkFeatureToContextualBandit({
     context: req.context,

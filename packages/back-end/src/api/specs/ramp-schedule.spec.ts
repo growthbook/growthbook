@@ -256,6 +256,10 @@ export const rampScheduleApiSpec = {
     delete:
       "Permanently deletes a ramp schedule. This does not undo any rule patches that\nwere already applied by completed steps.\n",
   },
+  confirmation: {
+    update: ["rampSchedule.edit"],
+    delete: ["rampSchedule.delete"],
+  },
   tag: "ramp-schedules",
   navDisplayName: "Ramp Schedules",
   navDescription:

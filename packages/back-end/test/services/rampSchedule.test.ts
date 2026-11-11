@@ -694,6 +694,35 @@ describe("getStartPatchForRule", () => {
     ).not.toHaveProperty("hashAttribute");
   });
 
+  it("replaying a force rule's anchor leaves no coverage key on it", () => {
+    const force = {
+      id: "r1",
+      type: "force",
+      value: "true",
+      enabled: true,
+    } as FeatureRule;
+    const afterStart = applyPatchToRule(force, getStartPatchForRule(force));
+    expect(afterStart.type).toBe("force");
+    expect(afterStart).not.toHaveProperty("coverage");
+  });
+
+  it("rolling a promoted force rule back to its anchor restores full coverage", () => {
+    const force = {
+      id: "r1",
+      type: "force",
+      value: "true",
+      enabled: true,
+    } as FeatureRule;
+    const anchor = getStartPatchForRule(force);
+    const ramped = applyPatchToRule(force, {
+      coverage: 0.5,
+      hashAttribute: "id",
+    });
+    expect(ramped.type).toBe("rollout");
+    const rolledBack = applyPatchToRule(ramped, anchor);
+    expect((rolledBack as { coverage?: number }).coverage).toBe(1);
+  });
+
   it("captures explicit null clears for absent rule fields", () => {
     const patch = getStartPatchForRule({
       id: "r1",
@@ -4686,6 +4715,8 @@ describe("approveAndPublishStep", () => {
     return {
       ctx: {
         userId: USER_ID,
+        actingUserId: USER_ID,
+        actorId: USER_ID,
         org: { id: ORG_ID, settings: {} },
         auditUser: { type: "session" as const, userAgent: "", ip: "" },
         environments: [],
@@ -4719,6 +4750,7 @@ describe("approveAndPublishStep", () => {
     expect(updates.stepApproval).toMatchObject({
       stepIndex: 0,
       approvedBy: USER_ID,
+      approvedByUser: ctx.auditUser,
       context: "api",
     });
     expect(updates.stepApproval?.approvedAt).toBeInstanceOf(Date);
@@ -5854,6 +5886,8 @@ describe("applyRampBaseStateSync / restoreRampBaseStates", () => {
     const updateById = jest.fn().mockResolvedValue(doc);
     const ctx = {
       userId: "u1",
+      actingUserId: "u1",
+      actorId: "u1",
       models: {
         rampSchedules: {
           getById: jest.fn().mockResolvedValue(doc),

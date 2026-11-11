@@ -12,6 +12,11 @@ import {
   apiAggregatedTableRunSummaryValidator,
   apiAggregatedTableRunValidator,
 } from "./aggregated-fact-table-run";
+import {
+  GENERIC_NAME_DESCRIPTION,
+  MARKDOWN_DESCRIPTION,
+  PLAIN_DESCRIPTION,
+} from "./api-field-descriptions";
 
 // If you change these types, also update the factTableColumnTypeValidator to match
 export const factTableColumnTypes = [
@@ -181,6 +186,21 @@ export const aggregatedFactTableSettingsValidator = z
   })
   .strict();
 
+// "dbt" is locked like "api"; it marks what the dbt sync owns so --prune leaves other API resources alone.
+export const factManagedByValidator = z.enum(["", "api", "admin", "dbt"]);
+
+export const isExternallyManaged = (managedBy?: string | null): boolean =>
+  managedBy === "api" || managedBy === "dbt";
+
+export const externallyManagedError = (
+  action: "create" | "update" | "delete",
+  resource: "fact table" | "fact metric",
+  managedBy?: string | null,
+): string =>
+  managedBy === "dbt"
+    ? `Cannot ${action} ${resource} managed by dbt. Change it in your dbt project and sync again.`
+    : `Cannot ${action} ${resource} managed by API if the request isn't from the API.`;
+
 export const createFactTablePropsValidator = z
   .object({
     name: z.string(),
@@ -200,7 +220,7 @@ export const createFactTablePropsValidator = z
     eventName: z.string(),
     tableType: factTableTypeValidator.optional(),
     columns: z.array(createColumnPropsValidator).optional(),
-    managedBy: z.enum(["", "api", "admin"]).optional(),
+    managedBy: factManagedByValidator.optional(),
     autoSliceUpdatesEnabled: z.boolean().optional(),
     aggregatedFactTableSettings:
       aggregatedFactTableSettingsValidator.optional(),
@@ -222,7 +242,20 @@ export const updateFactTablePropsValidator = z
     eventName: z.string().optional(),
     tableType: factTableTypeValidator.optional(),
     columns: z.array(createColumnPropsValidator).optional(),
-    managedBy: z.enum(["", "api", "admin"]).optional(),
+    // Changes only these fields of each named column, in the same write.
+    // Fields that need more checks go through the column endpoint.
+    columnUpdates: z
+      .record(
+        z.string(),
+        updateColumnPropsValidator.pick({
+          name: true,
+          description: true,
+          numberFormat: true,
+          alwaysInlineFilter: true,
+        }),
+      )
+      .optional(),
+    managedBy: factManagedByValidator.optional(),
     archived: z.boolean().optional(),
     autoSliceUpdatesEnabled: z.boolean().optional(),
     aggregatedFactTableSettings: aggregatedFactTableSettingsValidator
@@ -270,6 +303,37 @@ export const rowFilterOperators = [
   "sql_expr",
   "saved_filter",
 ] as const;
+
+/**
+ * The operators that compare a column against plain string values. Every one is
+ * safe to accept from an untrusted caller: the column is an identifier the
+ * caller must still allowlist, and the values are escaped as string literals.
+ *
+ * The set deliberately excludes `sql_expr` and `saved_filter`, whose values
+ * `getRowFilterSQL` interpolates into the WHERE clause verbatim — an endpoint
+ * that accepts row filters over the wire must not accept those.
+ */
+export const stringRowFilterOperators = [
+  "=",
+  "!=",
+  "in",
+  "not_in",
+  "contains",
+  "not_contains",
+  "matches_pattern",
+  "not_matches_pattern",
+  "starts_with",
+  "ends_with",
+  "is_null",
+  "not_null",
+] as const;
+
+/** A row filter restricted to {@link stringRowFilterOperators}, with a column. */
+export const stringRowFilterValidator = z.object({
+  operator: z.enum(stringRowFilterOperators),
+  column: z.string().min(1),
+  values: z.array(z.string()).optional(),
+});
 
 /**
  * `between` / `not_between` describe a lower and an upper bound, so a third
@@ -695,7 +759,7 @@ export const windowSettingsValidator = z.object({
 });
 
 export const quantileSettingsValidator = z.object({
-  quantile: z.number(),
+  quantile: z.number().gt(0).lt(1),
   type: z.enum(["unit", "event"]),
   ignoreZeros: z.boolean(),
   // Override the source-column name used to recover per-row event counts for
@@ -767,6 +831,26 @@ export const funnelSettingsValidator = z.object({
 });
 export type FunnelSettings = z.infer<typeof funnelSettingsValidator>;
 
+export const MAX_COMPOUND_COMPONENTS = 20;
+// Incremental refresh joins at most five per-fact-table caches per query.
+export const MAX_COMPOUND_FACT_TABLES = 5;
+
+// A unit passes a compound metric when every component has at least one
+// matching event in the metric window, in any order.
+export const compoundComponentValidator = z.object({
+  factTableId: z.string(),
+  rowFilters: z.array(rowFilterValidator),
+});
+export type CompoundComponent = z.infer<typeof compoundComponentValidator>;
+
+export const compoundSettingsValidator = z.object({
+  components: z
+    .array(compoundComponentValidator)
+    .min(2)
+    .max(MAX_COMPOUND_COMPONENTS),
+});
+export type CompoundSettings = z.infer<typeof compoundSettingsValidator>;
+
 export const metricTypeValidator = z.enum([
   "ratio",
   "mean",
@@ -775,6 +859,7 @@ export const metricTypeValidator = z.enum([
   "quantile",
   "dailyParticipation",
   "funnel",
+  "compound",
 ]);
 
 export function isCappableFactMetric(
@@ -787,6 +872,7 @@ export function isCappableFactMetric(
     case "proportion":
     case "retention":
     case "funnel":
+    case "compound":
     case "dailyParticipation":
     case "quantile":
       return false;
@@ -799,7 +885,7 @@ const factMetricObjectValidator = z
   .object({
     id: z.string(),
     organization: z.string(),
-    managedBy: z.enum(["", "api", "admin"]).optional(),
+    managedBy: factManagedByValidator.optional(),
     owner: ownerField,
     datasource: z.string(),
     dateCreated: z.date(),
@@ -815,9 +901,9 @@ const factMetricObjectValidator = z
     replaces: z.array(z.string()).optional(),
 
     metricType: metricTypeValidator,
-    // Null only for funnel metrics, which describe their events through
-    // funnelSettings.steps instead. Cross-field rules live in
-    // FactMetricModel.customValidation.
+    // Null only for funnel and compound metrics, which describe their events
+    // through funnelSettings.steps / compoundSettings.components instead.
+    // Cross-field rules live in FactMetricModel.customValidation.
     numerator: columnRefValidator.nullable(),
     denominator: columnRefValidator.nullable(),
 
@@ -835,9 +921,6 @@ const factMetricObjectValidator = z
     targetMDE: z.number().optional(),
     displayAsPercentage: z.boolean().optional(),
 
-    winRisk: z.number(),
-    loseRisk: z.number(),
-
     regressionAdjustmentOverride: z.boolean(),
     regressionAdjustmentEnabled: z.boolean(),
     regressionAdjustmentDays: z.number(),
@@ -847,23 +930,29 @@ const factMetricObjectValidator = z
     quantileSettings: quantileSettingsValidator.nullable(),
 
     funnelSettings: funnelSettingsValidator.nullable(),
+
+    compoundSettings: compoundSettingsValidator.nullable(),
   })
   .strict();
 
 type FactMetricFields = z.infer<typeof factMetricObjectValidator>;
 type FactMetricSharedFields = Omit<
   FactMetricFields,
-  "metricType" | "numerator" | "funnelSettings"
+  "metricType" | "numerator" | "funnelSettings" | "compoundSettings"
 >;
 
-/** Every metric type except "funnel": describes its events with a ColumnRef. */
+/**
+ * Every metric type except "funnel" and "compound": describes its events with
+ * a ColumnRef.
+ */
 export type StandardFactMetric = FactMetricSharedFields & {
-  metricType: Exclude<FactMetricFields["metricType"], "funnel">;
+  metricType: Exclude<FactMetricFields["metricType"], "funnel" | "compound">;
   numerator: z.infer<typeof columnRefValidator>;
   // Required-null (like quantileSettings) rather than optional: this keeps the
   // member a subtype of the flat schema output, which MakeModelClass's
   // BaseSchemaWithPrimaryKey constraint intersects with the union.
   funnelSettings: null;
+  compoundSettings: null;
 };
 
 /** Describes its events with an ordered list of funnel steps instead. */
@@ -871,6 +960,15 @@ export type FunnelFactMetric = FactMetricSharedFields & {
   metricType: "funnel";
   numerator: null;
   funnelSettings: z.infer<typeof funnelSettingsValidator>;
+  compoundSettings: null;
+};
+
+/** Describes its events with an unordered set of components instead. */
+export type CompoundFactMetric = FactMetricSharedFields & {
+  metricType: "compound";
+  numerator: null;
+  funnelSettings: null;
+  compoundSettings: z.infer<typeof compoundSettingsValidator>;
 };
 
 /**
@@ -889,7 +987,7 @@ export type FunnelFactMetric = FactMetricSharedFields & {
  */
 export const factMetricValidator =
   factMetricObjectValidator as typeof factMetricObjectValidator &
-    z.ZodType<StandardFactMetric | FunnelFactMetric>;
+    z.ZodType<StandardFactMetric | FunnelFactMetric | CompoundFactMetric>;
 
 export const createFactFilterPropsValidator = z
   .object({
@@ -975,7 +1073,11 @@ export const apiFactTableColumnValidator = namedSchema(
           "Display name for the column (can be different from the actual column name)",
         )
         .optional(),
-      description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
+      description: z
+        .string()
+        .max(MAX_DESCRIPTION_LENGTH)
+        .describe("What the column contains.")
+        .optional(),
       alwaysInlineFilter: z
         .boolean()
         .describe(
@@ -1115,11 +1217,9 @@ export const apiFactTableValidator = namedSchema(
           "Whether Auto Slice values for this fact table's columns are refreshed automatically in the background.",
         )
         .optional(),
-      managedBy: z
-        .enum(["", "api", "admin"])
-        .describe(
-          "Where this fact table must be managed from. If not set (empty string), it can be managed from anywhere.",
-        ),
+      managedBy: factManagedByValidator.describe(
+        "Where this fact table must be managed from. If not set (empty string), it can be managed from anywhere.",
+      ),
       dateCreated: z.string().meta({ format: "date-time" }),
       dateUpdated: z.string().meta({ format: "date-time" }),
     })
@@ -1217,11 +1317,11 @@ export type ApiAggregatedFactTable = z.infer<
 // Corresponds to payload-schemas/PostFactTablePayload.yaml
 export const postFactTableBody = z
   .object({
-    name: z.string(),
+    name: z.string().describe(GENERIC_NAME_DESCRIPTION),
     description: z
       .string()
       .max(MAX_DESCRIPTION_LENGTH)
-      .describe("Description of the fact table")
+      .describe(MARKDOWN_DESCRIPTION)
       .optional(),
     owner: ownerInputField.optional(),
     projects: z
@@ -1253,9 +1353,10 @@ export const postFactTableBody = z
         'Optional array of column definitions to store for this fact table. Supplied columns are stored as-is. Omit `datatype` (or send "") on a column to have it auto-detected from the SQL.',
       )
       .optional(),
-    managedBy: z
-      .enum(["", "api", "admin"])
-      .describe('Set this to "api" to disable editing in the GrowthBook UI')
+    managedBy: factManagedByValidator
+      .describe(
+        'Set this to "api" (or "dbt" for resources synced from dbt) to disable editing in the GrowthBook UI',
+      )
       .optional(),
   })
   .strict();
@@ -1263,11 +1364,11 @@ export const postFactTableBody = z
 // Corresponds to payload-schemas/UpdateFactTablePayload.yaml
 const updateFactTableBody = z
   .object({
-    name: z.string().optional(),
+    name: z.string().describe(GENERIC_NAME_DESCRIPTION).optional(),
     description: z
       .string()
       .max(MAX_DESCRIPTION_LENGTH)
-      .describe("Description of the fact table")
+      .describe(MARKDOWN_DESCRIPTION)
       .optional(),
     owner: ownerInputField.optional(),
     projects: z
@@ -1299,9 +1400,10 @@ const updateFactTableBody = z
         'Optional array of columns to upsert by `column`: existing columns are patched, new columns are created, and columns not included are left unchanged. Omit `datatype` to leave an existing column\'s type untouched; send "" to reset it for auto-detection; new columns are auto-detected when `datatype` is omitted or "". Slice-related properties require an enterprise license.',
       )
       .optional(),
-    managedBy: z
-      .enum(["", "api", "admin"])
-      .describe('Set this to "api" to disable editing in the GrowthBook UI')
+    managedBy: factManagedByValidator
+      .describe(
+        'Set this to "api" (or "dbt" for resources synced from dbt) to disable editing in the GrowthBook UI',
+      )
       .optional(),
     archived: z.boolean().optional(),
   })
@@ -1309,7 +1411,7 @@ const updateFactTableBody = z
 
 // Corresponds to payload-schemas/PostFactTableFilterPayload.yaml
 export const postFactTableFilterBodyFields = z.object({
-  name: z.string(),
+  name: z.string().describe(GENERIC_NAME_DESCRIPTION),
   description: z
     .string()
     .max(MAX_DESCRIPTION_LENGTH)
@@ -1386,6 +1488,7 @@ export const postFactTableValidator = {
     })
     .strict(),
   summary: "Create a single fact table",
+  confirmation: ["factTable.create"] as const,
   operationId: "postFactTable",
   tags: ["fact-tables"],
   method: "post" as const,
@@ -1427,6 +1530,7 @@ export const updateFactTableValidator = {
     })
     .strict(),
   summary: "Update a single fact table",
+  confirmation: ["factTable.edit"] as const,
   operationId: "updateFactTable",
   tags: ["fact-tables"],
   method: "post" as const,
@@ -1450,6 +1554,7 @@ export const deleteFactTableValidator = {
     })
     .strict(),
   summary: "Deletes a single fact table",
+  confirmation: ["factTable.delete"] as const,
   operationId: "deleteFactTable",
   tags: ["fact-tables"],
   method: "delete" as const,
@@ -1489,6 +1594,7 @@ export const postFactTableFilterValidator = {
     })
     .strict(),
   summary: "Create a single fact table filter",
+  confirmation: ["factTable.create"] as const,
   operationId: "postFactTableFilter",
   tags: ["fact-tables"],
   method: "post" as const,
@@ -1526,6 +1632,7 @@ export const updateFactTableFilterValidator = {
     })
     .strict(),
   summary: "Update a single fact table filter",
+  confirmation: ["factTable.edit"] as const,
   operationId: "updateFactTableFilter",
   tags: ["fact-tables"],
   method: "post" as const,
@@ -1549,6 +1656,7 @@ export const deleteFactTableFilterValidator = {
     })
     .strict(),
   summary: "Deletes a single fact table filter",
+  confirmation: ["factTable.edit"] as const,
   operationId: "deleteFactTableFilter",
   tags: ["fact-tables"],
   method: "delete" as const,
@@ -1578,7 +1686,11 @@ const postFactTableVirtualColumnBody = z
       )
       .meta({ example: "revenue_vc" }),
     name: z.string().describe("Display name for the column").optional(),
-    description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
+    description: z
+      .string()
+      .max(MAX_DESCRIPTION_LENGTH)
+      .describe(PLAIN_DESCRIPTION)
+      .optional(),
     numberFormat: numberFormatValidator.optional(),
     datatype: virtualColumnDatatype.describe(
       "The data type of the computed column",
@@ -1593,7 +1705,11 @@ const postFactTableVirtualColumnBody = z
 const updateFactTableVirtualColumnBody = z
   .object({
     name: z.string().describe("Display name for the column").optional(),
-    description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
+    description: z
+      .string()
+      .max(MAX_DESCRIPTION_LENGTH)
+      .describe(PLAIN_DESCRIPTION)
+      .optional(),
     numberFormat: numberFormatValidator.optional(),
     datatype: virtualColumnDatatype
       .describe("The data type of the computed column")
@@ -1615,6 +1731,7 @@ export const postFactTableVirtualColumnValidator = {
     })
     .strict(),
   summary: "Create a virtual (computed) column on a fact table",
+  confirmation: ["factTable.create"] as const,
   operationId: "postFactTableVirtualColumn",
   tags: ["fact-tables"],
   method: "post" as const,
@@ -1639,6 +1756,7 @@ export const updateFactTableVirtualColumnValidator = {
     })
     .strict(),
   summary: "Update a virtual (computed) column on a fact table",
+  confirmation: ["factTable.edit"] as const,
   operationId: "updateFactTableVirtualColumn",
   tags: ["fact-tables"],
   method: "post" as const,
@@ -1662,6 +1780,7 @@ export const deleteFactTableVirtualColumnValidator = {
     })
     .strict(),
   summary: "Delete a virtual (computed) column from a fact table",
+  confirmation: ["factTable.edit"] as const,
   operationId: "deleteFactTableVirtualColumn",
   tags: ["fact-tables"],
   method: "delete" as const,
@@ -1724,6 +1843,7 @@ export const refreshAggregatedFactTableValidator = {
     .strict(),
   summary:
     "Force a refresh or full restate of a fact table's shared daily aggregated tables",
+  confirmation: [],
   operationId: "refreshAggregatedFactTable",
   tags: ["fact-tables"],
   method: "post" as const,

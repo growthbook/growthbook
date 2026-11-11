@@ -4,7 +4,7 @@ import { FaCircleCheck, FaCircleXmark } from "react-icons/fa6";
 import { FeatureInterface } from "shared/types/feature";
 import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
 import { Environment } from "shared/types/organization";
-import { ACTIVE_DRAFT_STATUSES } from "shared/validators";
+import { ACTIVE_DRAFT_STATUSES, eventUserPersonId } from "shared/validators";
 import {
   getReviewSetting,
   liveRevisionFromFeature,
@@ -18,7 +18,7 @@ import { useUser } from "@/services/UserContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useEnvironments } from "@/services/features";
-import track from "@/services/track";
+import track, { entityTrackingHash } from "@/services/track";
 import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
 import { useFeatureRevisions } from "@/hooks/useFeatureRevisions";
 import { useFeatureRevisionsContext } from "@/contexts/FeatureRevisionsContext";
@@ -244,7 +244,7 @@ export default function KillSwitchModal({
   const { apiCall } = useAuth();
   const permissionsUtil = usePermissionsUtil();
   const settings = useOrgSettings();
-  const { organization } = useUser();
+  const { userId } = useUser();
   const allOrgEnvironments = useEnvironments();
   const ctx = useFeatureRevisionsContext();
 
@@ -276,15 +276,11 @@ export default function KillSwitchModal({
     (r) => r.version === currentVersion,
   );
 
-  const userId = organization?.ownerEmail;
   const defaultDraft = useMemo((): number | null => {
     if (activeDrafts.find((r) => r.version === currentVersion))
       return currentVersion;
     const byMe = activeDrafts.find(
-      (r) =>
-        r.createdBy &&
-        "id" in r.createdBy &&
-        (r.createdBy as { id?: string }).id === userId,
+      (r) => eventUserPersonId(r.createdBy ?? null) === userId,
     );
     if (byMe) return byMe.version;
     return activeDrafts[0]?.version ?? null;
@@ -470,6 +466,7 @@ export default function KillSwitchModal({
     conflict.clear();
 
     track("Feature Environment Toggle", {
+      entity_id_hash: entityTrackingHash(feature.id),
       environments,
       autoPublish: mode === "publish",
     });

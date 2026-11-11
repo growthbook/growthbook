@@ -190,6 +190,22 @@ export function getCollection<T extends Document>(name: string) {
  * Uses `$in` instead of implicit array element matching so the filter
  * also works with `evalCondition` (used for config-file resources).
  */
+/**
+ * Pre-filter for multi-project resources the user may read. null (every
+ * project) adds nothing; no-project docs are org-wide and always pass.
+ */
+export function readableProjectsClause(projects: string[] | null) {
+  return projects
+    ? {
+        $or: [
+          { projects: { $in: projects } },
+          { projects: { $size: 0 } },
+          { projects: { $exists: false } },
+        ],
+      }
+    : {};
+}
+
 export function projectFilterQuery(projectId: string) {
   return {
     $or: [

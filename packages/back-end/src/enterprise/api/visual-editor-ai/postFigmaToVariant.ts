@@ -1,7 +1,6 @@
 import { z } from "zod";
 import { pickVisionModel } from "shared/ai";
-import { findVisualChangesetById } from "back-end/src/models/VisualChangesetModel";
-import { getExperimentById } from "back-end/src/models/ExperimentModel";
+import { loadChangesetWithOwner } from "back-end/src/api/visual-editor-ai/loadChangesetWithOwner";
 import {
   parsePrompt,
   secondsUntilAICanBeUsedAgainForModel,
@@ -114,6 +113,7 @@ const validation = {
   responseSchema,
   method: "post" as const,
   path: "/visual-editor/ai/figma-to-variant",
+  confirmation: [],
   operationId: "postVisualEditorAIFigmaToVariant",
   // Internal endpoint used only by the Visual Editor extension — keep it
   // out of the public OpenAPI spec.
@@ -325,16 +325,11 @@ export const postFigmaToVariant = createApiRequestHandler(validation)(async (
   const context = req.context;
   requireUserAuth(context);
 
-  const changeset = await findVisualChangesetById(
+  const { changeset, owner } = await loadChangesetWithOwner(
+    context,
     visualChangesetId,
-    req.organization.id,
   );
-  if (!changeset)
-    return context.throwNotFoundError("Visual changeset not found");
-
-  const experiment = await getExperimentById(context, changeset.experiment);
-  if (!experiment) return context.throwNotFoundError("Experiment not found");
-  if (!context.permissions.canUpdateVisualChange(experiment)) {
+  if (!owner.canUpdateVisualChange()) {
     context.permissions.throwPermissionError();
   }
 

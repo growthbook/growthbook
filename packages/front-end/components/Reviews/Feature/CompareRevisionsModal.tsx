@@ -4,7 +4,7 @@ import {
   MinimalFeatureRevisionInterface,
   RevisionLog,
 } from "shared/types/feature-revision";
-import { RampScheduleInterface } from "shared/validators";
+import { eventUserLabel, RampScheduleInterface } from "shared/validators";
 import React, {
   useCallback,
   useEffect,
@@ -1422,15 +1422,9 @@ export default function CompareRevisionsModal({
                                     </div>
                                     <Text size="sm" color="text-low">
                                       {datetime(logEntry.timestamp)}
-                                      {logEntry.user?.type === "dashboard"
-                                        ? ` · ${logEntry.user.name}`
-                                        : logEntry.user?.type === "api_key"
-                                          ? logEntry.user.name
-                                            ? ` · ${logEntry.user.name} (API)`
-                                            : logEntry.user.email
-                                              ? ` · ${logEntry.user.email} (API)`
-                                              : " · API"
-                                          : ""}
+                                      {logEntry.user
+                                        ? ` · ${eventUserLabel(logEntry.user)}`
+                                        : ""}
                                     </Text>
                                   </Flex>
                                 </div>

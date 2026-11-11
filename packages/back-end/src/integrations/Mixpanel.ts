@@ -4,6 +4,7 @@ import {
   DimensionSlicesQueryResponse,
   DropTableQueryResponse,
   ExperimentAggregateUnitsQueryResponse,
+  ExperimentClusterHealthQueryResponse,
   ExperimentMetricQueryResponse,
   ExperimentQueryResponses,
   ExperimentUnitsQueryResponse,
@@ -29,7 +30,7 @@ import {
   InsertMetricSourceDataQueryParams,
   IncrementalRefreshStatisticsQueryParams,
   DimensionSlicesQueryParams,
-  PastExperimentParams,
+  PastExperimentQueryParams,
   MetricAnalysisParams,
   ExperimentFactMetricsQueryResponse,
   UserExperimentExposuresQueryResponse,
@@ -131,6 +132,18 @@ export default class Mixpanel implements SourceIntegrationInterface {
     _setExternalId: ExternalIdCallback,
     _queryMetadata?: QueryMetadata,
   ): Promise<ExperimentAggregateUnitsQueryResponse> {
+    throw new Error("Method not implemented.");
+  }
+  getExperimentClusterHealthQuery(
+    _: ExperimentAggregateUnitsQueryParams,
+  ): string {
+    throw new Error("Method not implemented.");
+  }
+  runExperimentClusterHealthQuery(
+    _query: string,
+    _setExternalId: ExternalIdCallback,
+    _queryMetadata?: QueryMetadata,
+  ): Promise<ExperimentClusterHealthQueryResponse> {
     throw new Error("Method not implemented.");
   }
   runSnapshotMetricQuery(
@@ -767,7 +780,7 @@ export default class Mixpanel implements SourceIntegrationInterface {
 
     return { rows: [overall, ...result] };
   }
-  getPastExperimentQuery(_: PastExperimentParams): string {
+  getPastExperimentQuery(_: PastExperimentQueryParams): string {
     throw new Error("Method not implemented.");
   }
   async runPastExperimentQuery(

@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import {
   filterEnvironmentsByFeature,
   getDefaultPrerequisiteCondition,
+  getMalformedPrereqConditionError,
   getReviewSetting,
 } from "shared/util";
 import { getConnectionsSDKCapabilities } from "shared/sdk-versioning";
@@ -14,7 +15,7 @@ import PrerequisiteStatesTable, {
 } from "@/components/Features/PrerequisiteStatesTable";
 import { getPrerequisites, useEnvironments } from "@/services/features";
 import { useFeatureMetaInfo } from "@/hooks/useFeatureMetaInfo";
-import track from "@/services/track";
+import track, { entityTrackingHash } from "@/services/track";
 import ValueDisplay from "@/components/Features/ValueDisplay";
 import { useAuth } from "@/services/auth";
 import useOrgSettings from "@/hooks/useOrgSettings";
@@ -103,10 +104,17 @@ export default function PrerequisiteModal({
     condition: getDefaultPrerequisiteCondition(),
   };
 
+  const malformedConditionError = prerequisite
+    ? getMalformedPrereqConditionError(prerequisite.condition)
+    : null;
+
   const form = useForm<FeaturePrerequisite>({
     defaultValues: {
       id: prerequisite?.id ?? defaultValues.id,
-      condition: prerequisite?.condition ?? defaultValues.condition,
+      // Saving resets a malformed condition to the parent's default.
+      condition: malformedConditionError
+        ? ""
+        : (prerequisite?.condition ?? defaultValues.condition),
     },
   });
 
@@ -280,6 +288,7 @@ export default function PrerequisiteModal({
         const action = i === prerequisites.length ? "add" : "edit";
 
         track("Save Prerequisite", {
+          entity_id_hash: entityTrackingHash(feature.id),
           source: action,
           prerequisiteIndex: i,
         });
@@ -345,6 +354,12 @@ export default function PrerequisiteModal({
             </Button>
           }
         />
+      )}
+      {malformedConditionError && (
+        <Callout status="error" mb="3">
+          Invalid condition: {malformedConditionError}. Saving replaces it with
+          the default.
+        </Callout>
       )}
       <Text as="div" mt="2" mb="3">
         Prerequisite features must evaluate to{" "}

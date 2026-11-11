@@ -6,7 +6,7 @@ import addMonths from "date-fns/addMonths";
 import addDays from "date-fns/addDays";
 import addHours from "date-fns/addHours";
 import formatRelative from "date-fns/formatRelative";
-import { formatInTimeZone } from "date-fns-tz";
+import { format as formatWithZone, formatInTimeZone } from "date-fns-tz";
 
 export function dateNoYear(date: string | Date): string {
   if (!date) return "";
@@ -29,6 +29,11 @@ export function datetime(date: string | Date, inTimezone?: string): string {
   return inTimezone
     ? formatInTimeZone(d, inTimezone, formatStr)
     : format(d, formatStr);
+}
+// The viewer's local time with its zone, e.g. "Oct 21, 2026 at 12:00 PM GMT+9".
+export function datetimeWithZone(date: string | Date): string {
+  if (!date) return "";
+  return formatWithZone(getValidDate(date), "MMM d, yyyy 'at' h:mm a z");
 }
 export function datetimeAt(date: string | Date, inTimezone?: string): string {
   if (!date) return "";
@@ -137,6 +142,15 @@ export function getValidDateOffsetByUTC(
   return new Date(date.getTime() + date.getTimezoneOffset() * 60000);
 }
 
+// Warehouse values like "2026-10-01 07:00:00" carry no zone; read them as UTC, not as the runtime's local time.
+export function parseWarehouseDate(value: string | Date | number): Date {
+  if (typeof value !== "string") return new Date(value);
+  const s = value.trim();
+  return /^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}(:\d{2}(\.\d+)?)?$/.test(s)
+    ? new Date(`${s.replace(" ", "T")}Z`)
+    : new Date(s);
+}
+
 // Compact relative time using single-char units: "5s ago", "3m ago", "2h ago", "7d ago"
 export function formatShortAgo(dateOrTimestamp: Date | number): string {
   const ts =
@@ -165,6 +179,30 @@ export function snapToUtcDayStart(date: Date): Date {
   const snapped = new Date(date);
   snapped.setUTCHours(0, 0, 0, 0);
   return snapped;
+}
+
+// Drop seconds and milliseconds. Used to make repeated warehouse queries for a
+// rolling "last N hours" window produce byte-identical SQL within the same
+// minute, so the query cache can actually hit.
+export function snapToMinuteStart(date: Date): Date {
+  const snapped = new Date(date);
+  snapped.setSeconds(0, 0);
+  return snapped;
+}
+
+/**
+ * Round up to the next minute, leaving a value already on a boundary alone.
+ *
+ * The companion to {@link snapToMinuteStart} for an exclusive upper bound. A
+ * calendar range ends at 23:59:59.999, so flooring it would drop that day's
+ * final minute from a `timestamp < end` comparison; ceiling lands on the next
+ * midnight, which is exactly the intended range. Every instant within a minute
+ * still maps to one value, so the query cache keeps hitting.
+ */
+export function snapToMinuteEnd(date: Date): Date {
+  const snapped = snapToMinuteStart(date);
+  if (snapped.getTime() === date.getTime()) return snapped;
+  return new Date(snapped.getTime() + 60 * 1000);
 }
 
 export function precedingUtcDayStart(date: Date): Date {

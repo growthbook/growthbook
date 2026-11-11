@@ -32,6 +32,7 @@ const validation = {
   responseSchema: z.any(),
   method: "post" as const,
   path: "/transform-copy",
+  confirmation: [],
   operationId: "postCopyTransform",
 };
 

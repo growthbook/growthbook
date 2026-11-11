@@ -5,12 +5,14 @@ import type {
   DataSourceInterface,
   ExposureQuery,
 } from "shared/types/datasource";
+import type { ExperimentInterface } from "shared/types/experiment";
 import type {
   ApiAssignmentQueryRefInput,
   RampMonitoringConfig,
 } from "shared/validators";
 import {
   apiMonitoringConfigToInternal,
+  AssignmentQueryScope,
   AssignmentQuerySelection,
   isSameAssignmentQuerySelection,
   parseAssignmentQuerySelection,
@@ -20,6 +22,35 @@ import {
 } from "shared/util";
 import type { ReqContext } from "back-end/types/request";
 import type { ApiReqContext } from "back-end/types/api";
+
+/** A scope whose data source projects are filled in from the loaded data source. */
+export type RecordAssignmentQueryScope = Omit<
+  AssignmentQueryScope,
+  "datasourceProjects"
+>;
+
+/** Queries without their own projects inherit the data source's. */
+function withDatasourceProjects(
+  scope: RecordAssignmentQueryScope | undefined,
+  datasource: DataSourceInterface,
+): AssignmentQueryScope | undefined {
+  return scope && { ...scope, datasourceProjects: datasource.projects };
+}
+
+/**
+ * Where an experiment uses its query: its project, or for a holdout's
+ * experiment, which has no project, every project the holdout covers.
+ */
+export async function getExperimentAssignmentQueryScope(
+  context: ReqContext | ApiReqContext,
+  experiment: Pick<ExperimentInterface, "id" | "type">,
+  project: string,
+): Promise<RecordAssignmentQueryScope> {
+  if (experiment.type !== "holdout") return { project };
+  const holdout = await context.models.holdout.getByExperimentId(experiment.id);
+  if (!holdout) throw new Error("Could not find this experiment's holdout");
+  return { projects: holdout.projects };
+}
 
 /**
  * Whether `next` changes `previous` (always when `previous` is null), with the
@@ -73,11 +104,20 @@ export async function resolveAssignmentQueryIdentifier(
     next,
     onOmitted,
     field,
+    scope,
   }: {
     previous: AssignmentQuerySelection | null;
     next: AssignmentQuerySelection;
     onOmitted: "defaultToFirst" | "requireUnambiguous";
     field?: "assignmentQuery" | "exposureQuery";
+    /**
+     * Where the record uses the query. Omit to skip the project check. Pass a
+     * function when finding the scope costs a lookup, so it only runs for a
+     * changed selection.
+     */
+    scope?:
+      | RecordAssignmentQueryScope
+      | (() => Promise<RecordAssignmentQueryScope>);
   },
 ): Promise<{ identifierType: string | undefined; changed: boolean }> {
   const kept = withKeptIdentifierType(previous, next);
@@ -97,7 +137,16 @@ export async function resolveAssignmentQueryIdentifier(
   }
   const result = resolveAssignmentQuerySelectionChange(
     selection.datasource.settings.queries?.exposure ?? [],
-    { previous, next: kept, onOmitted, field },
+    {
+      previous,
+      next: kept,
+      onOmitted,
+      field,
+      scope: withDatasourceProjects(
+        typeof scope === "function" ? await scope() : scope,
+        selection.datasource,
+      ),
+    },
   );
   if (!result.ok) throw new Error(result.error);
   return result;
@@ -111,6 +160,8 @@ export async function assertValidAssignmentQuerySelectionChange(
   context: ReqContext | ApiReqContext,
   previous: AssignmentQuerySelection | null,
   next: AssignmentQuerySelection,
+  /** Where the record uses the query. Omit to skip the project check. */
+  scope?: RecordAssignmentQueryScope,
 ): Promise<void> {
   const selection = await loadChangedAssignmentQuerySelection(
     context,
@@ -124,6 +175,7 @@ export async function assertValidAssignmentQuerySelectionChange(
       exposureQueryId: next.exposureQueryId,
       identifierType: next.identifierType,
       onOmitted: "defaultToFirst",
+      scope: withDatasourceProjects(scope, selection.datasource),
     },
   );
   if (!parsed.ok) throw new Error(parsed.error);

@@ -6,6 +6,7 @@ import {
   flattenV1ToV2Rules,
   hasNoV1EnvRules,
   isV2RevisionRules,
+  mergeSyncRules,
   narrowRuleForEnvRemoval,
   V1FeatureRule,
   V1RulesByEnv,
@@ -1660,5 +1661,92 @@ describe("rampTargetsEquivalent", () => {
         { ruleId: "r_foo", environment: "dev" },
       ),
     ).toBe(false);
+  });
+});
+
+describe("mergeSyncRules", () => {
+  const environments = ["dev", "production"];
+  const live = [
+    forceRule("fr_all", { allEnvironments: true }),
+    forceRule("fr_prod", {
+      allEnvironments: false,
+      environments: ["production"],
+    }),
+  ] as FeatureRule[];
+
+  it("replaces every rule with a flat rules array", () => {
+    const inbound = [
+      forceRule("fr_new", { allEnvironments: false, environments: ["dev"] }),
+    ] as FeatureRule[];
+    expect(
+      mergeSyncRules({ liveRules: live, environments, rules: inbound }),
+    ).toEqual({ rules: inbound, replacedAll: true });
+    expect(
+      mergeSyncRules({ liveRules: live, environments, rules: [] }),
+    ).toEqual({ rules: [], replacedAll: true });
+  });
+
+  it("keeps live rules in environments the caller doesn't know", () => {
+    const qaOnly = forceRule("fr_qa", {
+      allEnvironments: false,
+      environments: ["qa"],
+    }) as FeatureRule;
+    const everywhere = forceRule("fr_all", {
+      allEnvironments: true,
+    }) as FeatureRule;
+    const inbound = forceRule("fr_new", {
+      allEnvironments: false,
+      environments: ["production"],
+    }) as FeatureRule;
+    expect(
+      mergeSyncRules({
+        liveRules: [qaOnly, everywhere],
+        environments: ["production", "qa"],
+        rules: [inbound],
+        knownEnvironments: ["production"],
+      }),
+    ).toEqual({
+      rules: [
+        inbound,
+        qaOnly,
+        { ...everywhere, allEnvironments: false, environments: ["qa"] },
+      ],
+      replacedAll: true,
+    });
+  });
+
+  it("replaces only the environments sent per environment", () => {
+    const { rules, replacedAll } = mergeSyncRules({
+      liveRules: live,
+      environments,
+      envSettings: {
+        production: { rules: [forceRule("fr_new")] as FeatureRule[] },
+      },
+      rules: [],
+    });
+    expect(replacedAll).toBe(false);
+    expect(rules.map((r) => [r.id, r.allEnvironments, r.environments])).toEqual(
+      [
+        ["fr_all", false, ["dev"]],
+        ["fr_new", false, ["production"]],
+      ],
+    );
+  });
+
+  it("keeps the live rules when no rules are sent", () => {
+    expect(
+      mergeSyncRules({ liveRules: live, environments, envSettings: {} }),
+    ).toEqual({ rules: live, replacedAll: false });
+  });
+
+  it("rejects flat rules mixed with per-environment rules", () => {
+    expect(() =>
+      mergeSyncRules({
+        liveRules: live,
+        environments,
+        envSettings: { dev: { rules: [forceRule("fr_x")] as FeatureRule[] } },
+        rules: [forceRule("fr_y")] as FeatureRule[],
+      }),
+    ).toThrow("Use one shape or the other");
   });
 });

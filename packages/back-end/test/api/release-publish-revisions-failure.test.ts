@@ -374,7 +374,7 @@ describe("POST /api/v1/releases/publish-revisions — commit failure", () => {
     expect(ruleIds(feature)).toEqual(["fr_alice", "fr_bob"]);
   });
 
-  it("keeps a restore-failed item published and skips its publishFailed event", async () => {
+  it("keeps a restore-failed item published and says so in its publishFailed event", async () => {
     setReqContext(makeContext());
     const now = new Date();
 
@@ -486,19 +486,23 @@ describe("POST /api/v1/releases/publish-revisions — commit failure", () => {
       .findOne({ organization: ORG_ID, featureId: "stuck-feat", version: 2 });
     expect(featRevision?.status).toBe("draft");
 
-    // Exactly one publishFailed — for the rolled-back feature, not the
-    // still-published constant.
+    // The rolled-back feature and the still-published constant both notify;
+    // the constant's reason says it was not rolled back.
     const failed = await mongoose.connection
       .collection("events")
       .find({ organizationId: ORG_ID, event: /revision\.publishFailed/ })
       .toArray();
-    const forThisRelease = failed.filter(
-      (e) =>
-        e.data?.data?.object?.featureId === "stuck-feat" ||
-        e.data?.data?.object?.key === "stuck-const",
+    const reason = (
+      match: (o: Record<string, { id?: string; key?: string }>) => boolean,
+    ) =>
+      failed.find((e) => match(e.data?.data?.object ?? {}))?.data?.data?.object
+        ?.failureReason;
+    expect(reason((o) => o.feature?.id === "stuck-feat")).toContain(
+      "was rolled back",
     );
-    expect(forThisRelease.length).toBe(1);
-    expect(forThisRelease[0].data?.data?.object?.featureId).toBe("stuck-feat");
+    expect(reason((o) => o.constant?.key === "stuck-const")).toContain(
+      "could NOT be rolled back",
+    );
   });
 
   it("reports an item whose reopen fails as published, not rolled-back", async () => {
@@ -593,18 +597,17 @@ describe("POST /api/v1/releases/publish-revisions — commit failure", () => {
       .findOne({ organization: ORG_ID, key: "reopen-fail" });
     expect(constant?.value).toBe("before");
 
-    // No publishFailed for the still-merged constant; only the feature.
+    // The still-merged constant's notice says it was not rolled back.
     const failed = await mongoose.connection
       .collection("events")
       .find({ organizationId: ORG_ID, event: /revision\.publishFailed/ })
       .toArray();
-    const forThisRelease = failed.filter(
-      (e) =>
-        e.data?.data?.object?.featureId === "reopen-feat" ||
-        e.data?.data?.object?.key === "reopen-fail",
+    const constantNotice = failed.find(
+      (e) => e.data?.data?.object?.constant?.key === "reopen-fail",
     );
-    expect(forThisRelease.length).toBe(1);
-    expect(forThisRelease[0].data?.data?.object?.featureId).toBe("reopen-feat");
+    expect(constantNotice?.data?.data?.object?.failureReason).toContain(
+      "could NOT be rolled back",
+    );
   });
 
   it("surfaces a stuck claim when a pre-apply abort fails to reopen it", async () => {
@@ -706,8 +709,8 @@ describe("POST /api/v1/releases/publish-revisions — commit failure", () => {
       .toArray();
     const forThisRelease = failed.filter(
       (e) =>
-        e.data?.data?.object?.featureId === "abort-feat" ||
-        e.data?.data?.object?.key === "abort-stuck",
+        e.data?.data?.object?.feature?.id === "abort-feat" ||
+        e.data?.data?.object?.constant?.key === "abort-stuck",
     );
     expect(forThisRelease.length).toBe(0);
   });
@@ -811,7 +814,7 @@ describe("POST /api/v1/releases/publish-revisions — commit failure", () => {
       .toArray();
     expect(failed.length).toBe(2);
     const stuck = failed.find(
-      (e) => e.data?.data?.object?.featureId === "noop-feat",
+      (e) => e.data?.data?.object?.feature?.id === "noop-feat",
     );
     expect(stuck).toBeDefined();
     // Not the plain "rolled back" reason — its state is the opposite.
@@ -934,13 +937,16 @@ describe("POST /api/v1/releases/publish-revisions — commit failure", () => {
     expect(constRevision?.status).toBe("merged");
     expect(constRevision?.dateUpdated?.getTime()).toBe(restampedAt.getTime());
 
-    // No contradictory publishFailed for the still-merged constant.
+    // The still-merged constant's notice says it was not rolled back.
     const failed = await mongoose.connection
       .collection("events")
       .find({ organizationId: ORG_ID, event: /revision\.publishFailed/ })
       .toArray();
-    expect(failed.some((e) => e.data?.data?.object?.key === "restamp")).toBe(
-      false,
+    const constantNotice = failed.find(
+      (e) => e.data?.data?.object?.constant?.key === "restamp",
+    );
+    expect(constantNotice?.data?.data?.object?.failureReason).toContain(
+      "could NOT be rolled back",
     );
   });
 

@@ -21,6 +21,7 @@ import {
 import { AIModel, AIProvider, EmbeddingModel, STTModel } from "shared/ai";
 import {
   AgreementType,
+  dailyUsageByKeyValidator,
   environment,
   expandedMember,
   expandedMemberInfo,
@@ -226,6 +227,10 @@ export type ExperimentUpdateSchedule = {
   type: "cron" | "never" | "stale";
   cron?: string;
   hours?: number;
+  analysisEndDateMode?: "runTime" | "lag" | "fixedTime";
+  analysisEndDateLagHours?: number;
+  // "HH:MM" in UTC; only used with a cron schedule
+  analysisEndDateTime?: string;
 };
 
 export type Environment = z.infer<typeof environment>;
@@ -260,10 +265,6 @@ export type ApprovalFlowPolicy = Omit<
 export interface OrganizationSettings {
   visualEditorEnabled?: boolean;
   confidenceLevel?: number;
-  customized?: boolean;
-  logoPath?: string;
-  primaryColor?: string;
-  secondaryColor?: string;
   northStar?: NorthStarMetric;
   namespaces?: Namespaces[];
   metricDefaults?: MetricDefaults;
@@ -277,6 +278,9 @@ export interface OrganizationSettings {
   sdkInstructionsViewed?: boolean;
   videoInstructionsViewed?: boolean;
   multipleExposureMinPercent?: number;
+  // Cluster experiments: share of clusters with mixed assignment, or of
+  // subunits in more than one cluster, that triggers a health warning.
+  clusterIssueMinPercent?: number;
   defaultRole?: MemberRoleWithProjects;
   statsEngine?: StatsEngine;
   pValueThreshold?: number;
@@ -287,6 +291,10 @@ export interface OrganizationSettings {
   srmThreshold?: number;
   aiEnabled?: boolean;
   aiAskDataEnabled?: boolean;
+  /** Inline suggestions in the AI Assistant composer. Unset means on. */
+  aiAutocompleteEnabled?: boolean;
+  // Unset resolves to the cheapest tier in getAISettingsForOrg.
+  aiAutocompleteModel?: AIModel;
   // AI Assistant skill names turned off for this org, so new skills start enabled.
   disabledAgentSkills?: string[];
   defaultAIModel?: AIModel;
@@ -366,6 +374,8 @@ export interface OrganizationSettings {
   // Only affects new rules on eligible JSON features; off by default.
   sparseJSONRulesByDefault?: boolean;
   requireProjectForFeatures?: boolean;
+  // New Feature Flag rules for all environments and all projects need an explicit override.
+  requireScopedFeatureRules?: boolean;
   requireProjectForSdkConnections?: boolean;
   // When true, saving a feature rule or experiment rejects hashAttribute,
   // fallbackAttribute, or condition keys that don't appear (unarchived) in
@@ -394,7 +404,10 @@ export interface OrganizationSettings {
   banditScheduleUnit?: "hours" | "days";
   banditBurnInValue?: number;
   banditBurnInUnit?: "hours" | "days";
+  banditPeriodWeighting?: boolean;
   requireExperimentTemplates?: boolean;
+  disableResultsUpdateForStoppedExperiments?: boolean;
+  disableResultsUpdateForStoppedExperimentGraceHours?: number;
   requireUniqueExperimentTrackingKeys?: boolean;
   experimentKeyExample?: string;
   experimentKeyRegexValidator?: string; // Enforced on user-entered keys only; system-generated keys are exempt
@@ -404,7 +417,8 @@ export interface OrganizationSettings {
   defaultDecisionCriteriaId?: string;
   disableLegacyMetricCreation?: boolean;
   blockFileUploads?: boolean;
-  defaultFeatureRulesInAllEnvs?: boolean;
+  // Kill switch: public links stop resolving; shareLevel is left as-is.
+  disablePublicSharing?: boolean;
   savedGroupSizeLimit?: number;
   // Opt-in validation of Saved Group scope at consuming Feature Flags.
   enforceSavedGroupProjectScope?: boolean;
@@ -577,6 +591,8 @@ export type GetOrganizationResponse = {
     ApiKeyInterface,
     "id" | "description" | "expiresAt" | "lastUsed"
   >[];
+  // The organization's API keys in the same state, for members who manage API keys
+  expiringApiKeys: GetOrganizationResponse["expiringPersonalAccessTokens"];
   // Providers with a usable key, stored or inherited from the environment.
   // Non-secret, and rides along here so AI gating needs no separate request.
   aiKeyProviders: AIProvider[];
@@ -589,7 +605,11 @@ export type DailyUsage = {
   requests: number;
   bandwidth: number;
   managedClickhouseEvents: number;
+  eventForwarderEvents: number;
 };
+
+// One row per day, SDK key and request type; empty key is image traffic.
+export type DailyUsageByKey = z.infer<typeof dailyUsageByKeyValidator>;
 
 type UsageLimit = number | "unlimited";
 
@@ -597,6 +617,7 @@ export type UsageLimits = {
   cdnRequests: UsageLimit;
   cdnBandwidth: UsageLimit;
   managedClickhouseEvents?: UsageLimit;
+  eventForwarderEvents?: UsageLimit;
 };
 
 export type OrganizationUsage = {
@@ -604,6 +625,8 @@ export type OrganizationUsage = {
     requests: UsageLimit;
     bandwidth: UsageLimit;
     managedClickhouseEvents?: UsageLimit;
+    tracesBytes?: UsageLimit;
+    eventForwarderEvents?: UsageLimit;
   };
   cdn: {
     lastUpdated: Date;
@@ -612,5 +635,15 @@ export type OrganizationUsage = {
   managedClickhouse?: {
     lastUpdated: Date;
     status: "under" | "approaching" | "over";
+  };
+  traces?: {
+    lastUpdated: Date;
+    status: "under" | "approaching" | "over";
+  };
+  eventForwarder?: {
+    lastUpdated: Date;
+    status: "under" | "approaching" | "over";
+    // Past the license server's hidden hard limit; forwarding has stopped
+    blocked?: boolean;
   };
 };

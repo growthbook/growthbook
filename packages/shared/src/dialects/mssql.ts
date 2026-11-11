@@ -30,12 +30,21 @@ export const mssqlDialect: SqlDialect = {
   castToFloat: (col: string) => `CAST(${col} as FLOAT)`,
   formatDate: (col: string) => `FORMAT(${col}, 'yyyy-MM-dd')`,
   castToString: (col: string) => `cast(${col} as varchar(256))`,
+  castToFilterString: (col: string) => `cast(${col} as varchar(8000))`,
   formatDateTimeString: (col: string) => `CONVERT(VARCHAR(25), ${col}, 121)`,
   percentileApprox: (value: string, quantile: string | number) =>
     `APPROX_PERCENTILE_CONT(${quantile}) WITHIN GROUP (ORDER BY ${value})`,
   jsonExtract: (jsonCol: string, path: string, isNumeric: boolean) => {
     const raw = `JSON_VALUE(${jsonCol}, '$.${path}')`;
     return isNumeric ? mssqlDialect.castToFloat(raw) : raw;
+  },
+  // OPENJSON without a WITH clause yields (key, value, type) rows; the
+  // element's JSON text is in [value]
+  jsonArray: {
+    unnest: (jsonColumn, itemAlias) =>
+      `CROSS APPLY OPENJSON(${jsonColumn}) AS ${itemAlias}`,
+    fieldText: (itemAlias, field) =>
+      `JSON_VALUE(${itemAlias}.[value], '$.${field}')`,
   },
   evalBoolean: (col: string, value: boolean) => `${col} = ${value ? "1" : "0"}`,
   percentileCapSelectClause: (values, metricTable, where = "") =>

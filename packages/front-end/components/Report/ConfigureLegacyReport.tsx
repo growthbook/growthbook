@@ -1,3 +1,4 @@
+import { HoldoutInterfaceStringDates } from "shared/validators";
 import React, { useCallback, useMemo } from "react";
 import { useFieldArray, useForm } from "react-hook-form";
 import {
@@ -14,7 +15,7 @@ import {
   DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
   DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
 } from "shared/constants";
-import { datetime, getValidDate } from "shared/dates";
+import { getValidDate } from "shared/dates";
 import { getScopedSettings } from "shared/settings";
 import { MetricDefinitionInterface } from "shared/types/metric";
 import { DifferenceType } from "shared/types/stats";
@@ -79,6 +80,12 @@ export default function ConfigureLegacyReport({
     experiment: ExperimentInterfaceStringDates;
   }>(`/experiment/${eid}`);
   const experiment = experimentData?.experiment;
+  const isHoldout = experiment?.type === "holdout";
+  const { data: holdoutData } = useApi<{
+    holdout: HoldoutInterfaceStringDates;
+  }>(`/holdout/${experiment?.holdoutId}`, {
+    shouldRun: () => isHoldout && !!experiment?.holdoutId,
+  });
   const pid = experiment?.project;
   const project = pid ? getProjectById(pid) : null;
 
@@ -128,11 +135,9 @@ export default function ConfigureLegacyReport({
         report.args.attributionModel ||
         orgSettings.attributionModel ||
         "firstExposure",
-      startDate: getValidDate(report.args.startDate)
-        .toISOString()
-        .substr(0, 16),
+      startDate: getValidDate(report.args.startDate).toISOString(),
       endDate: report.args.endDate
-        ? getValidDate(report.args.endDate).toISOString().substr(0, 16)
+        ? getValidDate(report.args.endDate).toISOString()
         : undefined,
       statsEngine: report.args.statsEngine || parentSettings.statsEngine.value,
       useLatestPriorSettings: report.args.useLatestPriorSettings || false,
@@ -199,6 +204,8 @@ export default function ConfigureLegacyReport({
   );
   const assignmentQuerySelection = useAssignmentQuerySelection({
     datasource,
+    project: experiment?.project,
+    holdoutProjects: isHoldout ? holdoutData?.holdout.projects : undefined,
     hashAttribute: experiment?.hashAttribute,
     exposureQueryId,
     identifierType: resolveAnalysisIdentifierType(
@@ -318,10 +325,11 @@ export default function ConfigureLegacyReport({
       <div className="row">
         <div className="col">
           <DatePicker
-            label="Start Date (UTC)"
+            label="Start date"
+            timeZone="utc"
             date={form.watch("startDate")}
             setDate={(v) => {
-              form.setValue("startDate", v ? datetime(v) : "");
+              form.setValue("startDate", v ? v.toISOString() : "");
             }}
             scheduleEndDate={form.watch("endDate")}
             disableAfter={form.watch("endDate") || undefined}
@@ -329,10 +337,11 @@ export default function ConfigureLegacyReport({
         </div>
         <div className="col">
           <DatePicker
-            label="End Date (UTC)"
+            label="End date"
+            timeZone="utc"
             date={form.watch("endDate")}
             setDate={(v) => {
-              form.setValue("endDate", v ? datetime(v) : "");
+              form.setValue("endDate", v ? v.toISOString() : "");
             }}
             scheduleStartDate={form.watch("startDate")}
             disableBefore={form.watch("startDate") || undefined}

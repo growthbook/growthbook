@@ -17,7 +17,7 @@ import RuleModal, {
   type RampToNewValueSeed,
 } from "@/components/Features/RuleModal/index";
 import RuleList from "@/components/Features/RuleList";
-import track from "@/services/track";
+import track, { entityTrackingHash } from "@/services/track";
 import {
   getRules,
   isRuleInactive,
@@ -95,6 +95,7 @@ export default function FeatureRules({
     "hide-disabled-rules",
     false,
   );
+  const [showRuleIds, setShowRuleIds] = useLocalStorage("show-rule-ids", false);
   const [showOrphaned, setShowOrphaned] = useLocalStorage(
     "show-orphaned-rules",
     false,
@@ -456,6 +457,16 @@ export default function FeatureRules({
                     disabled={!hasInactiveRules}
                   />
                 </Flex>
+                <Flex align="center" gap="2" justify="end" py="2">
+                  <Text size="sm" color="text-low">
+                    Show rule IDs
+                  </Text>
+                  <Switch
+                    size="sm"
+                    value={showRuleIds}
+                    onChange={setShowRuleIds}
+                  />
+                </Flex>
                 {env === null && hasOrphanedRules && (
                   <Flex align="center" gap="2" justify="end" py="2">
                     <Text size="sm" color="text-low">
@@ -535,6 +546,7 @@ export default function FeatureRules({
                 lockedBySchedule={lockedBySchedule}
                 experimentsMap={experimentsMap}
                 hideInactive={hideInactive}
+                showRuleIds={showRuleIds}
                 isDraft={isDraft}
                 safeRolloutsMap={safeRolloutsMap}
                 holdout={liveHoldoutActiveAnyEnv ? holdout : undefined}
@@ -563,6 +575,7 @@ export default function FeatureRules({
                       mode: "create",
                     });
                     track("Viewed Rule Modal", {
+                      entity_id_hash: entityTrackingHash(feature.id),
                       source: "add-rule",
                       type: "force",
                     });
@@ -589,6 +602,7 @@ export default function FeatureRules({
                 lockedBySchedule={lockedBySchedule}
                 experimentsMap={experimentsMap}
                 hideInactive={hideInactive}
+                showRuleIds={showRuleIds}
                 isDraft={isDraft}
                 safeRolloutsMap={safeRolloutsMap}
                 holdout={liveHoldoutActive ? holdout : undefined}

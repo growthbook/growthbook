@@ -12,7 +12,7 @@ const PersonalAccessTokenSettings: FC = () => {
   // Same key as the member table, so SWR shares the request and a save refreshes both.
   const { data, mutate } = useApi<{ keys: ApiKeyInterface[] }>(
     "/keys/personal-access-tokens",
-    { shouldRun: () => permissionsUtil.canDeleteApiKey() },
+    { shouldRun: () => permissionsUtil.canManagePersonalAccessTokens() },
   );
 
   return (

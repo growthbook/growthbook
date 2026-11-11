@@ -5,23 +5,17 @@ import {
 } from "shared/types/report";
 import { MetricOverride } from "shared/types/experiment";
 import { PValueCorrection, StatsEngine } from "shared/types/stats";
-import {
-  FactMetricInterface,
-  FactTableDefinition,
-} from "shared/types/fact-table";
+import { FactTableDefinition } from "shared/types/fact-table";
 import {
   expandMetricGroups,
   ExperimentMetricDefinition,
   ExperimentSortBy,
   funnelStepMetricId,
   isFactFunnelMetric,
-  createCustomSliceDataForMetric,
-  createAutoSliceDataForMetric,
   setAdjustedCIs,
   setAdjustedPValuesOnResults,
-  dedupeSliceMetrics,
+  getSliceDataForMetric,
   SliceDataForMetric,
-  isFactMetric,
   generateSliceString,
   generateSelectAllSliceString,
   isMetricGroupId,
@@ -510,6 +504,22 @@ export function generateRowsForMetricGroup({
   });
 }
 
+export function getSliceRowLabel(slice: SliceDataForMetric): string {
+  return slice.sliceLevels
+    .map((dl) => {
+      if (dl.levels.length === 0) {
+        const emptyValue = dl.datatype === "string" ? "other" : "null";
+        return `${dl.column}: ${emptyValue}`;
+      }
+      const value = dl.levels[0];
+      if (dl.datatype === "boolean") {
+        return `${dl.column}: ${value}`;
+      }
+      return value;
+    })
+    .join(" + ");
+}
+
 export function generateRowsForMetric({
   metricId,
   resultGroup,
@@ -557,38 +567,26 @@ export function generateRowsForMetric({
   // Calculate slice count (will be computed from actual slice data below)
   let numSlices = 0;
 
-  let sliceData: SliceDataForMetric[] = [];
-
-  if (shouldShowMetricSlices && isFactMetric(metric)) {
-    const standardSliceData = createAutoSliceDataForMetric({
-      parentMetric: getExperimentMetricById(metricId),
-      factTable: getFactTableById(
-        (getExperimentMetricById(metricId) as FactMetricInterface)?.numerator
-          ?.factTableId || "",
-      ),
-      includeOther: true,
-    });
-
-    const customSliceData = createCustomSliceDataForMetric({
-      metricId,
-      metricName: newMetric?.name || "",
-      customMetricSlices: customMetricSlices || [],
-      factTable: getFactTableById(
-        (metric as FactMetricInterface)?.numerator?.factTableId || "",
-      ),
-    });
-
-    // Dedupe (auto and custom slices sometimes overlap)
-    sliceData = dedupeSliceMetrics([...standardSliceData, ...customSliceData]);
-  }
+  const sliceData: SliceDataForMetric[] = shouldShowMetricSlices
+    ? getSliceDataForMetric({
+        metric,
+        metricName: newMetric?.name || "",
+        customMetricSlices,
+        getFactTable: getFactTableById,
+      })
+    : [];
 
   numSlices = sliceData.length;
+
+  // A funnel expands into its steps in a results table and slices each step in
+  // the drilldown, so it has no slices a slice filter could match here.
+  const hasDisplayableSlices = numSlices > 0 && !isFactFunnelMetric(metric);
 
   // If slice filter is active and metric has no slices, don't show parent row (unless "overall" filter is set)
   if (
     sliceTagsFilter &&
     sliceTagsFilter.length > 0 &&
-    numSlices === 0 &&
+    !hasDisplayableSlices &&
     !sliceTagsFilter.includes("overall")
   ) {
     return [];
@@ -598,7 +596,7 @@ export function generateRowsForMetric({
   const isLabelOnly =
     sliceTagsFilter &&
     sliceTagsFilter.length > 0 &&
-    numSlices > 0 &&
+    hasDisplayableSlices &&
     !sliceTagsFilter.includes("overall");
 
   const funnelSteps = isFactFunnelMetric(metric)
@@ -692,19 +690,7 @@ export function generateRowsForMetric({
         ? isExpanded && sliceMatches
         : isExpanded;
 
-      const label = slice.sliceLevels
-        .map((dl, _index) => {
-          if (dl.levels.length === 0) {
-            const emptyValue = dl.datatype === "string" ? "other" : "null";
-            return `${dl.column}: ${emptyValue}`;
-          }
-          const value = dl.levels[0];
-          if (dl.datatype === "boolean") {
-            return `${dl.column}: ${value}`;
-          }
-          return value;
-        })
-        .join(" + ");
+      const label = getSliceRowLabel(slice);
 
       const sliceRow: ExperimentTableRow = {
         label,
@@ -767,6 +753,7 @@ export function generateRowsForMetric({
   }
 
   if (funnelSteps.length) {
+    // Two-level hierarchy: parent → steps (no slices)
     parentRow.numChildren = funnelSteps.length;
     funnelSteps.forEach((step, stepIndex) => {
       const stepMetricId = funnelStepMetricId(metricId, stepIndex);

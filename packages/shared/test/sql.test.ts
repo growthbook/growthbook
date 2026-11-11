@@ -5,10 +5,29 @@ import {
   decodeSQLResults,
   encodeSQLResults,
   ensureLimit,
+  hasStartDateFilter,
   isMultiStatementSQL,
   isReadOnlySQL,
+  sqlReferencesColumn,
+  sqlReferencesColumnAllowingQualified,
+  stripTrailingSemicolon,
   usesBackslashStringEscapes,
 } from "../src/sql";
+
+describe("hasStartDateFilter", () => {
+  it.each([
+    ["SELECT * FROM t WHERE ts >= '{{ startDate }}'", true],
+    ["SELECT * FROM t WHERE ts >= '{{startDateISO}}'", true],
+    [
+      `SELECT * FROM events_* WHERE _TABLE_SUFFIX >= '{{date startDateISO "yyyyMMdd"}}'`,
+      true,
+    ],
+    ["SELECT * FROM t WHERE ts <= '{{endDate}}'", false],
+    ["SELECT * FROM t", false],
+  ])("%s", (sql, expected) => {
+    expect(hasStartDateFilter(sql)).toBe(expected);
+  });
+});
 
 describe("ensureLimit", () => {
   describe("already has LIMIT and OFFSET clauses", () => {
@@ -163,6 +182,71 @@ describe("ensureLimit", () => {
       const sql = "SELECT * FROM users;\n-- note";
       const result = ensureLimit(sql, 10);
       expect(result).toBe("SELECT * FROM users\nLIMIT 10");
+    });
+  });
+});
+
+describe("stripTrailingSemicolon", () => {
+  it.each([
+    ["SELECT 1", "SELECT 1"],
+    ["SELECT 1;", "SELECT 1"],
+    ["SELECT 1 ;  \n\t", "SELECT 1"],
+    ["  SELECT 1;  ", "SELECT 1"],
+    ["SELECT 1;\n-- note", "SELECT 1"],
+    ["SELECT 1; -- note\n", "SELECT 1"],
+    ["SELECT 1; -- a\n-- b\n", "SELECT 1"],
+    ["SELECT 1; /* note */", "SELECT 1"],
+    ["SELECT 1;/* a *//* b */", "SELECT 1"],
+    ["SELECT 1; /* multi\nline */ -- and more\n", "SELECT 1"],
+    ["SELECT 1;/**/", "SELECT 1"],
+    // Only the terminating semicolon is removed
+    ["SELECT 1;;", "SELECT 1;"],
+    ["SELECT 1; ;", "SELECT 1;"],
+    ["SELECT 1; SELECT 2;", "SELECT 1; SELECT 2"],
+    // Content after the semicolon means it is not terminating
+    ["SELECT 1; SELECT 2", "SELECT 1; SELECT 2"],
+    ["SELECT 1; /* c */ SELECT 2", "SELECT 1; /* c */ SELECT 2"],
+    ["SELECT 1; -- c\nSELECT 2", "SELECT 1; -- c\nSELECT 2"],
+    ["SELECT ';' AS a", "SELECT ';' AS a"],
+    ["SELECT 1 /* a; */", "SELECT 1 /* a; */"],
+    // A comment that never closes is not trailing trivia
+    ["SELECT 1; /* never closed", "SELECT 1; /* never closed"],
+    ["SELECT 1; /* a; ", "SELECT 1; /* a"],
+    // A line comment ends at the newline, so a later `*/` is not part of it
+    ["SELECT 1; -- a /*\n*/", "SELECT 1; -- a /*\n*/"],
+    ["", ""],
+    [";", ""],
+  ])("%j", (sql, expected) => {
+    expect(stripTrailingSemicolon(sql)).toBe(expected);
+  });
+
+  describe("pathological input", () => {
+    // These used to backtrack exponentially (each extra `/**/` doubled the
+    // time), which stalled the server on user-supplied SQL.
+    const pathological = [
+      ";" + "/**/".repeat(30) + "x",
+      ";" + "/**/".repeat(100000) + "x",
+      ";/*".repeat(100000) + "x",
+      ";--\n".repeat(100000) + "x",
+      ";" + " ".repeat(100000) + "x",
+    ];
+
+    it.each(pathological.map((sql) => ({ label: sql.slice(0, 20), sql })))(
+      "finishes quickly for $label...",
+      ({ sql }) => {
+        const start = Date.now();
+        // Nothing trailing to strip: x follows every semicolon. Compare as a
+        // boolean so a failure does not print a megabyte of SQL.
+        expect(stripTrailingSemicolon(sql) === sql).toBe(true);
+        expect(Date.now() - start).toBeLessThan(500);
+      },
+    );
+
+    it("ensureLimit stays fast on the same input", () => {
+      const sql = ";" + "/**/".repeat(30) + "x";
+      const start = Date.now();
+      expect(ensureLimit(sql, 10)).toBe(`${sql}\nLIMIT 10`);
+      expect(Date.now() - start).toBeLessThan(500);
     });
   });
 });
@@ -929,4 +1013,128 @@ it("compiles a glob to the same LIKE clause as the equivalent operator", () => {
       matchers.stringMatch("url", operator as "starts_with", value),
     );
   }
+});
+
+describe("sqlReferencesColumn", () => {
+  it("detects a bare identifier reference", () => {
+    expect(sqlReferencesColumn("margin_vc / price", "margin_vc")).toBe(true);
+  });
+
+  it("does not match a name inside a string literal", () => {
+    expect(sqlReferencesColumn("status = 'margin_vc'", "margin_vc")).toBe(
+      false,
+    );
+  });
+
+  it("does not match a partial identifier", () => {
+    expect(sqlReferencesColumn("gross_margin_vc + 1", "margin_vc")).toBe(false);
+  });
+
+  it("does not match an already-qualified identifier", () => {
+    expect(sqlReferencesColumn("m.price", "price")).toBe(false);
+  });
+
+  it("does not match a qualified identifier with whitespace around the dot", () => {
+    expect(sqlReferencesColumn("m . price", "price")).toBe(false);
+    expect(sqlReferencesColumn("m.\n  price", "price")).toBe(false);
+    expect(sqlReferencesColumn('m . "price"', "price")).toBe(false);
+    expect(sqlReferencesColumn("`m` . `price`", "price", "`")).toBe(false);
+  });
+
+  it("matches a double-quoted identifier in the default dialect", () => {
+    expect(sqlReferencesColumn('"margin_vc" / 2', "margin_vc")).toBe(true);
+  });
+
+  it("treats a double-quoted span as a string literal in a backtick dialect", () => {
+    expect(sqlReferencesColumn('label = "margin_vc"', "margin_vc", "`")).toBe(
+      false,
+    );
+  });
+
+  it("matches a backtick-quoted identifier in a backtick dialect", () => {
+    expect(sqlReferencesColumn("`margin_vc` / 2", "margin_vc", "`")).toBe(true);
+  });
+
+  it("does not match a name inside a line comment", () => {
+    expect(sqlReferencesColumn("price -- margin_vc\n + 1", "margin_vc")).toBe(
+      false,
+    );
+  });
+
+  it("does not match a name inside a block comment", () => {
+    expect(sqlReferencesColumn("price /* margin_vc */ + 1", "margin_vc")).toBe(
+      false,
+    );
+  });
+
+  it("does not match a name inside a dollar-quoted string", () => {
+    expect(sqlReferencesColumn("$$margin_vc$$", "margin_vc")).toBe(false);
+    expect(sqlReferencesColumn("$tag$margin_vc$tag$", "margin_vc")).toBe(false);
+  });
+
+  it("still matches around a lone dollar sign with no closing delimiter", () => {
+    expect(sqlReferencesColumn("margin_vc + $1", "margin_vc")).toBe(true);
+  });
+});
+
+describe("sqlReferencesColumnAllowingQualified", () => {
+  it("detects a bare identifier reference", () => {
+    expect(
+      sqlReferencesColumnAllowingQualified("margin_vc / price", "margin_vc"),
+    ).toBe(true);
+  });
+
+  it("detects a table-qualified reference", () => {
+    expect(
+      sqlReferencesColumnAllowingQualified(
+        "SELECT e.bandit_version FROM exposures e",
+        "bandit_version",
+      ),
+    ).toBe(true);
+  });
+
+  it("detects a qualified reference with whitespace around the dot", () => {
+    expect(sqlReferencesColumnAllowingQualified("e . price", "price")).toBe(
+      true,
+    );
+    expect(sqlReferencesColumnAllowingQualified("e.\n  price", "price")).toBe(
+      true,
+    );
+    expect(sqlReferencesColumnAllowingQualified('e . "price"', "price")).toBe(
+      true,
+    );
+    expect(
+      sqlReferencesColumnAllowingQualified("`e` . `price`", "price", "`"),
+    ).toBe(true);
+  });
+
+  it("does not match a name inside a string literal", () => {
+    expect(
+      sqlReferencesColumnAllowingQualified(
+        "status = 'bandit_version'",
+        "bandit_version",
+      ),
+    ).toBe(false);
+  });
+
+  it("does not match a partial identifier", () => {
+    expect(
+      sqlReferencesColumnAllowingQualified("e.gross_margin_vc", "margin_vc"),
+    ).toBe(false);
+  });
+
+  it("does not match a name inside a comment", () => {
+    expect(
+      sqlReferencesColumnAllowingQualified(
+        "e.price -- e.margin_vc\n",
+        "margin_vc",
+      ),
+    ).toBe(false);
+    expect(
+      sqlReferencesColumnAllowingQualified(
+        "e.price /* e.margin_vc */",
+        "margin_vc",
+      ),
+    ).toBe(false);
+  });
 });

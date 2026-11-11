@@ -50,6 +50,11 @@ import {
 import { addTagsDiff } from "back-end/src/models/TagModel";
 import { getEnvironments } from "back-end/src/services/organizations";
 import { getEnvironmentIdsFromOrg } from "back-end/src/util/organization.util";
+import {
+  confirmationLink,
+  landingActions,
+  requireConfirmation,
+} from "back-end/src/services/confirmations";
 import { assertValidHoldout } from "./v2Shared";
 import { canUseRestApiBypassSetting } from "./reviewBypass";
 
@@ -361,6 +366,13 @@ export async function revertFeatureRevision(
       context.permissions.throwPermissionError();
     }
 
+    await requireConfirmation(context, {
+      actions: ["feature.draft"],
+      project: feature.project,
+      summary: `Draft a revert of ${feature.id} to revision ${targetRevision.version}`,
+      links: [confirmationLink("feature", feature.id)],
+      pin: feature.dateUpdated,
+    });
     const newDraft = await createRevision({
       context,
       feature,
@@ -447,6 +459,17 @@ export async function revertFeatureRevision(
       : [];
 
   await assertRevertLandingGuards(context, feature, changes, targetRevision);
+  await requireConfirmation(context, {
+    actions: landingActions(
+      "feature",
+      changes.archived === true && !feature.archived,
+    ),
+    bypassing: bypassedGates,
+    project: feature.project,
+    summary: `Revert ${feature.id} to revision ${targetRevision.version}`,
+    links: [confirmationLink("feature", feature.id)],
+    pin: feature.dateUpdated,
+  });
   const { revision: publishedRevision, updatedFeature } =
     await createAndPublishRevision({
       context,

@@ -1,13 +1,16 @@
 import { useFormContext } from "react-hook-form";
 import { ScopedSettings } from "shared/settings";
 import { Box, Flex, Grid } from "@radix-ui/themes";
+import { useOptionalSettingsForm } from "@/components/GeneralSettings/SettingsFormProvider";
+import { UnsavedMark } from "@/components/GeneralSettings/SettingsGroup";
+import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
-import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { useUser } from "@/services/UserContext";
+import Checkbox from "@/ui/Checkbox";
 import HelperText from "@/ui/HelperText";
-import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
+import LabelWithHelp from "@/ui/LabelWithHelp";
 
 export default function BanditSettings({
   page = "org-settings",
@@ -20,7 +23,9 @@ export default function BanditSettings({
 }) {
   const { hasCommercialFeature } = useUser();
   const form = useFormContext();
+  const defaultFor = useOptionalSettingsForm()?.defaultFor;
   const hasBandits = hasCommercialFeature("multi-armed-bandits");
+  const hasContextualBandits = hasCommercialFeature("contextual-bandits");
 
   const scheduleHours =
     parseFloat(form.watch("banditScheduleValue") ?? "0") *
@@ -36,45 +41,22 @@ export default function BanditSettings({
   return (
     <Box>
       <Flex gap="4">
-        {page === "org-settings" && (
-          <Box width="220px" flexShrink="0">
-            <Heading size="md" as="h4">
-              Bandit Settings
-            </Heading>
-          </Box>
-        )}
-        <Box
-          width="100%"
-          mb={page === "org-settings" ? "4" : undefined}
-          ml={page === "org-settings" ? "0" : undefined}
-        >
-          {page === "org-settings" && (
-            <>
-              <PremiumTooltip
-                commercialFeature="multi-armed-bandits"
-                premiumText="Bandits are a Pro feature"
-              >
-                <div className="d-inline-block h5 mb-0">Bandit Defaults</div>
-              </PremiumTooltip>
-              <p className="mt-2">
-                These are organizational default values for configuring Bandits.
-                You can always change these values on a per-experiment basis.
-              </p>
-            </>
-          )}
-
+        <Box width="100%">
           <Grid columns="2" width="auto" gap="1">
             <Box>
-              <Text weight="semibold" as="label" mb="1">
-                Exploratory stage
-              </Text>
+              <UnsavedMark name={["banditBurnInValue", "banditBurnInUnit"]}>
+                <Text weight="semibold" as="label" mb="1">
+                  Exploratory stage
+                </Text>
+              </UnsavedMark>
               <Text size="sm" color="text-mid" mb="2" as="p">
-                Period before variation weights update:
+                Time before variation weights start updating.
               </Text>
               <Flex direction="row" align="center" gap="3">
                 <Box>
                   <Field
                     size="legacy"
+                    placeholder={defaultFor?.("banditBurnInValue")}
                     {...form.register("banditBurnInValue", {
                       valueAsNumber: true,
                     })}
@@ -132,16 +114,19 @@ export default function BanditSettings({
             </Box>
 
             <Box>
-              <Text weight="semibold" as="label" mb="1">
-                Update cadence
-              </Text>
+              <UnsavedMark name={["banditScheduleValue", "banditScheduleUnit"]}>
+                <Text weight="semibold" as="label" mb="1">
+                  Update cadence
+                </Text>
+              </UnsavedMark>
               <Text size="sm" color="text-mid" mb="2" as="p">
-                Update variation weights every:
+                How often variation weights update.
               </Text>
               <Flex direction="row" align="center" gap="3">
                 <Box>
                   <Field
                     size="legacy"
+                    placeholder={defaultFor?.("banditScheduleValue")}
                     {...form.register("banditScheduleValue", {
                       valueAsNumber: true,
                     })}
@@ -198,6 +183,35 @@ export default function BanditSettings({
               ) : null}
             </Box>
           </Grid>
+
+          {page === "org-settings" && (
+            <Box mt="4">
+              <UnsavedMark name="banditPeriodWeighting">
+                <Checkbox
+                  id="toggle-banditPeriodWeighting"
+                  align="start"
+                  weight="medium"
+                  label={
+                    <LabelWithHelp
+                      label="Weight results across update periods"
+                      help="Each update period is weighted proportionally to traffic received. This reduces bias, but adds variance."
+                      adornment={
+                        <PremiumTooltip commercialFeature="contextual-bandits" />
+                      }
+                    />
+                  }
+                  description="Reduce bias in Contextual Bandit decision metric estimates due to changing traffic over time. This applies to every future Contextual Bandits in the organization and cannot be changed per experiment."
+                  value={form.watch("banditPeriodWeighting") ?? false}
+                  setValue={(value) =>
+                    form.setValue("banditPeriodWeighting", value, {
+                      shouldDirty: true,
+                    })
+                  }
+                  disabled={!hasContextualBandits}
+                />
+              </UnsavedMark>
+            </Box>
+          )}
         </Box>
       </Flex>
     </Box>

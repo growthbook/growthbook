@@ -1,4 +1,8 @@
-import { OAuthGrantInterface, oauthGrantValidator } from "shared/validators";
+import {
+  OAuthGrantInterface,
+  oauthGrantValidator,
+  OAuthTokenPermissions,
+} from "shared/validators";
 import { OAUTH_REFRESH_TOKEN_TTL_SECONDS } from "back-end/src/util/secrets";
 import { isDuplicateKeyError } from "back-end/src/util/mongo.util";
 import { MakeModelClass } from "./BaseModel";
@@ -30,6 +34,8 @@ const BaseClass = MakeModelClass({
   defaultValues: {
     revoked: false,
   },
+  // Every hourly refresh extends a grant's expiry; that alone isn't audited.
+  skipAuditLogFields: ["expiresAt"],
   additionalIndexes: [
     // Unique so concurrent authorizations can't fork a grant into two targets.
     { fields: { organization: 1, clientId: 1, userId: 1 }, unique: true },
@@ -82,7 +88,9 @@ export class OAuthGrantModel extends BaseClass {
     userId: string;
     scope?: string;
     resource?: string;
+    permissions?: OAuthTokenPermissions | null;
     revoked: boolean;
+    revokedAt?: Date;
     expiresAt: Date;
   }): Promise<{ grant: OAuthGrantInterface; created: boolean }> {
     const existing = await this.getGrant(props.clientId, props.userId);
@@ -97,18 +105,20 @@ export class OAuthGrantModel extends BaseClass {
     }
   }
 
-  /** Consent: create, or clear `revoked` and refresh scope on re-consent. */
+  /** Consent: create, or clear `revoked` and refresh scope and permissions on re-consent. */
   public async startGrant(params: {
     clientId: string;
     userId: string;
     scope?: string;
     resource?: string;
+    permissions: OAuthTokenPermissions | null;
   }): Promise<OAuthGrantInterface> {
     const { grant, created } = await this.getOrCreateGrant({
       clientId: params.clientId,
       userId: params.userId,
       scope: params.scope,
       resource: params.resource,
+      permissions: params.permissions,
       revoked: false,
       expiresAt: grantExpiry(),
     });
@@ -117,6 +127,7 @@ export class OAuthGrantModel extends BaseClass {
       revoked: false,
       scope: params.scope,
       resource: params.resource,
+      permissions: params.permissions,
       expiresAt: grantExpiry(),
     });
   }
@@ -149,13 +160,19 @@ export class OAuthGrantModel extends BaseClass {
    * post-write re-check still sees `revoked`.
    */
   public async markRevoked(clientId: string, userId: string): Promise<void> {
+    const revokedAt = new Date();
     const { grant, created } = await this.getOrCreateGrant({
       clientId,
       userId,
       revoked: true,
+      revokedAt,
       expiresAt: grantExpiry(),
     });
     if (created || grant.revoked) return;
-    await this.update(grant, { revoked: true, expiresAt: grantExpiry() });
+    await this.update(grant, {
+      revoked: true,
+      revokedAt,
+      expiresAt: grantExpiry(),
+    });
   }
 }

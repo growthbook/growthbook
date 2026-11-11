@@ -12,18 +12,24 @@ import { ReqContext } from "back-end/types/request";
 
 // This functions needs to stay in the back-end because it uses models, and can't be shared like the
 // other validators in shared/validators.ts
-export async function validateCreateSafeRolloutFields(
+export async function validateSafeRolloutFields(
   safeRolloutFields: Partial<CreateSafeRolloutInterface> | undefined,
   context: ReqContext | ApiReqContext,
-  /**
-   * The stored rollout on update: an unchanged selection isn't re-validated.
-   */
-  previous?: Pick<
-    SafeRolloutInterface,
-    "datasourceId" | "exposureQueryId" | "exposureQueryIdentifierType"
-  > | null,
-  /** REST's grouped exposureQuery must name an identifier when ambiguous. */
-  onOmitted: "defaultToFirst" | "requireUnambiguous" = "defaultToFirst",
+  {
+    previous,
+    onOmitted = "defaultToFirst",
+    project,
+  }: {
+    /** The stored rollout on update: an unchanged selection isn't re-validated. */
+    previous?: Pick<
+      SafeRolloutInterface,
+      "datasourceId" | "exposureQueryId" | "exposureQueryIdentifierType"
+    > | null;
+    /** REST's grouped exposureQuery must name an identifier when ambiguous. */
+    onOmitted?: "defaultToFirst" | "requireUnambiguous";
+    /** The feature's project, checked against a new or changed selection. */
+    project?: string;
+  } = {},
 ): Promise<CreateSafeRolloutInterface> {
   // TODO: How to use Zod validator here and provide a good error message to the user?
   if (!safeRolloutFields) {
@@ -75,6 +81,10 @@ export async function validateCreateSafeRolloutFields(
       },
       onOmitted,
       field: "exposureQuery",
+      scope:
+        project !== undefined
+          ? { project, datasourceProjects: datasource.projects }
+          : undefined,
     },
   );
   if (!resolved.ok) throw new BadRequestError(resolved.error);

@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { apiOptionalAssignmentQueryResponseFields } from "./assignment-query-field";
-import { namedSchema } from "./openapi-helpers";
+import { namedSchema, retiredRiskInput } from "./openapi-helpers";
 import {
   apiExperimentResultsValidator,
   attributionModel,
@@ -21,6 +21,12 @@ const idParams = z
   })
   .strict();
 
+// Older clients may still send the retired risk thresholds.
+const apiReportMetricOverride = metricOverride.extend({
+  winRisk: retiredRiskInput(),
+  loseRisk: retiredRiskInput(),
+});
+
 const reportAnalysisSettingsSchema = z
   .object({
     statsEngine: z.enum(["bayesian", "frequentist"]).optional(),
@@ -29,8 +35,8 @@ const reportAnalysisSettingsSchema = z
     guardrailMetrics: z.array(z.string()).optional(),
     activationMetric: z.string().optional(),
     metricOverrides: z
-      .array(metricOverride)
-      .describe("Per-metric window, risk, and regression-adjustment overrides")
+      .array(apiReportMetricOverride)
+      .describe("Per-metric window, prior, and regression-adjustment overrides")
       .optional(),
     customMetricSlices: z
       .array(customMetricSlice)
@@ -286,8 +292,8 @@ const postReportBody = z
       .describe("Lookback window when `attributionModel` is `lookbackOverride`")
       .optional(),
     metricOverrides: z
-      .array(metricOverride)
-      .describe("Per-metric window, risk, and regression-adjustment overrides")
+      .array(apiReportMetricOverride)
+      .describe("Per-metric window, prior, and regression-adjustment overrides")
       .optional(),
     customMetricSlices: z
       .array(customMetricSlice)
@@ -329,6 +335,7 @@ export const postReportValidator = {
     })
     .strict(),
   summary: "Create a new report",
+  confirmation: ["other.write"] as const,
   operationId: "postReport",
   tags: ["reports"],
   method: "post" as const,
@@ -345,6 +352,7 @@ export const postReportRefreshValidator = {
     })
     .strict(),
   summary: "Refresh a report by re-running its analysis",
+  confirmation: [],
   operationId: "postReportRefresh",
   tags: ["reports"],
   method: "post" as const,
@@ -379,6 +387,7 @@ export const putReportMetadataValidator = {
   paramsSchema: idParams,
   responseSchema: z.object({ report: apiReportValidator }).strict(),
   summary: "Update report metadata (title, description, visibility)",
+  confirmation: ["other.write"] as const,
   operationId: "putReportMetadata",
   tags: ["reports"],
   method: "put" as const,
@@ -402,8 +411,8 @@ const putReportSettingsBody = z
       .optional(),
     activationMetric: z.string().describe("Activation metric ID").optional(),
     metricOverrides: z
-      .array(metricOverride)
-      .describe("Per-metric window, risk, and regression-adjustment overrides")
+      .array(apiReportMetricOverride)
+      .describe("Per-metric window, prior, and regression-adjustment overrides")
       .optional(),
     customMetricSlices: z
       .array(customMetricSlice)
@@ -494,6 +503,7 @@ export const putReportSettingsValidator = {
   summary: "Update report analysis settings",
   description:
     "Updates the analysis settings for an existing report. Changes are staged and do not take effect until you call `POST /reports/:id/refresh`.",
+  confirmation: ["other.write"] as const,
   operationId: "putReportSettings",
   tags: ["reports"],
   method: "put" as const,

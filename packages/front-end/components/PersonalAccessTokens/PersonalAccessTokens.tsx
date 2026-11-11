@@ -1,12 +1,13 @@
 import React, { FC, useCallback, useMemo, useState } from "react";
-import { FaKey } from "react-icons/fa";
 import { ApiKeyInterface, SecretApiKey } from "shared/types/apikey";
 import Link from "@/ui/Link";
 import { ApiKeysTable } from "@/components/ApiKeysTable/ApiKeysTable";
+import { RotatedApiKey } from "@/components/ApiKeysTable/RotateApiKeyModal";
 import ApiKeysModal from "@/components/Settings/ApiKeysModal";
 import { useAuth } from "@/services/auth";
 import { groupApiKeysByType } from "@/services/secret-api-keys.utils";
 import useApi from "@/hooks/useApi";
+import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
 import { useUser } from "@/services/UserContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
@@ -20,6 +21,8 @@ type PersonalAccessTokensProps = {
     disabled: boolean,
   ) => () => Promise<void>;
   onCreate: () => void;
+  onRotate: (keyId: string, gracePeriodHours: number) => Promise<RotatedApiKey>;
+  onRevokePrevious: (keyId: string) => Promise<void>;
 };
 
 export const PersonalAccessTokens: FC<PersonalAccessTokensProps> = ({
@@ -28,6 +31,8 @@ export const PersonalAccessTokens: FC<PersonalAccessTokensProps> = ({
   onReveal,
   onToggleDisabled,
   onCreate,
+  onRotate,
+  onRevokePrevious,
 }) => {
   const [open, setOpen] = useState(false);
   const [editingKey, setEditingKey] = useState<ApiKeyInterface | null>(null);
@@ -36,10 +41,10 @@ export const PersonalAccessTokens: FC<PersonalAccessTokensProps> = ({
   const tokensDisabled = !!settings?.disablePersonalAccessTokens;
   const permissionsUtils = usePermissionsUtil();
   // Each settings page has its own gate, so link only where the member can go.
-  const canManageApiKeys =
-    permissionsUtils.canCreateApiKey() || permissionsUtils.canDeleteApiKey();
+  const canManageApiKeys = permissionsUtils.canViewApiKeys();
   const canManageTokens =
-    canManageApiKeys || permissionsUtils.canManageOrgSettings();
+    permissionsUtils.canManagePersonalAccessTokens() ||
+    permissionsUtils.canManageOrgSettings();
 
   return (
     <div>
@@ -79,12 +84,13 @@ export const PersonalAccessTokens: FC<PersonalAccessTokensProps> = ({
           <ApiKeysTable
             onDelete={onDelete}
             keys={accessTokens}
-            canCreateKeys
             canDeleteKeys
             onReveal={onReveal}
             onToggleDisabled={onToggleDisabled}
             onEdit={(key) => setEditingKey(key)}
             onCopy={tokensDisabled ? undefined : setCopyFrom}
+            onRotate={tokensDisabled ? undefined : onRotate}
+            onRevokePrevious={onRevokePrevious}
           />
         )}
         {tokensDisabled ? (
@@ -94,15 +100,9 @@ export const PersonalAccessTokens: FC<PersonalAccessTokensProps> = ({
             admin if you need API access.
           </Callout>
         ) : (
-          <button
-            className="btn btn-primary"
-            onClick={(e) => {
-              e.preventDefault();
-              setOpen(true);
-            }}
-          >
-            <FaKey /> Create New Personal Access Token
-          </button>
+          <Button onClick={() => setOpen(true)}>
+            New personal access token
+          </Button>
         )}
       </div>
 
@@ -181,6 +181,26 @@ export const PersonalAccessTokensContainer = () => {
     [apiCall, mutate],
   );
 
+  const onRotate = useCallback(
+    async (keyId: string, gracePeriodHours: number) => {
+      const res = await apiCall<RotatedApiKey>(`/keys/${keyId}/rotate`, {
+        method: "POST",
+        body: JSON.stringify({ gracePeriodHours }),
+      });
+      mutate();
+      return res;
+    },
+    [apiCall, mutate],
+  );
+
+  const onRevokePrevious = useCallback(
+    async (keyId: string) => {
+      await apiCall(`/keys/${keyId}/previous-key`, { method: "DELETE" });
+      mutate();
+    },
+    [apiCall, mutate],
+  );
+
   return (
     <PersonalAccessTokens
       onDelete={onDelete}
@@ -188,6 +208,8 @@ export const PersonalAccessTokensContainer = () => {
       onCreate={mutate}
       onReveal={onReveal}
       onToggleDisabled={onToggleDisabled}
+      onRotate={onRotate}
+      onRevokePrevious={onRevokePrevious}
     />
   );
 };

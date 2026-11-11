@@ -1,0 +1,181 @@
+import { useMemo, useState } from "react";
+import { Flex } from "@radix-ui/themes";
+import { FactMetricInterface } from "shared/types/fact-table";
+import { getFactMetricPrimaryFactTableId } from "shared/experiments";
+import {
+  DefinitionsContext,
+  useDefinitions,
+} from "@/services/DefinitionsContext";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import PermissionBlocker from "@/ui/PermissionBlocker";
+import Text from "@/ui/Text";
+import {
+  getMetricPreviewConfig,
+  getMetricPreviewUnits,
+} from "@/components/FactTables/MetricEditor/metricPreview";
+import { usePreviewDateRange } from "@/components/QueryPreview/previewUtils";
+import styles from "@/components/FactTables/MetricEditor/PreviewPanel.module.scss";
+import PreviewUnitSelect from "@/components/QueryPreview/PreviewUnitSelect";
+import MetricPreviewChart from "./MainSection/MetricPreviewChart";
+import PreviewExplorer, { DisabledPreview } from "./PreviewExplorer";
+
+export default function MetricPerformance({
+  metric,
+  datasourceId,
+  draft = false,
+}: {
+  metric: FactMetricInterface | null;
+  datasourceId: string;
+  draft?: boolean;
+}) {
+  const definitions = useDefinitions();
+  const { getFactTableById, getDatasourceById } = definitions;
+  const previewDefinitions = useMemo(
+    () => ({
+      ...definitions,
+      getFactMetricById: (id: string) =>
+        draft && metric && id === metric.id
+          ? metric
+          : definitions.getFactMetricById(id),
+    }),
+    [definitions, draft, metric],
+  );
+  const [selectedUnit, setSelectedUnit] = useState<string | null>(null);
+  const [selectedDenominatorUnit, setSelectedDenominatorUnit] = useState<
+    string | null
+  >(null);
+  const units = getMetricPreviewUnits(metric, getFactTableById);
+  const unit =
+    selectedUnit && units.numerator.includes(selectedUnit)
+      ? selectedUnit
+      : (units.numerator[0] ?? null);
+  const denominatorUnit =
+    selectedDenominatorUnit &&
+    units.denominator.includes(selectedDenominatorUnit)
+      ? selectedDenominatorUnit
+      : (units.denominator[0] ?? null);
+  const numeratorFactTable = getFactTableById(
+    metric ? getFactMetricPrimaryFactTableId(metric) : "",
+  );
+  const denominatorFactTable = getFactTableById(
+    metric?.denominator?.factTableId ?? "",
+  );
+  const dateRange = usePreviewDateRange();
+  const config = useMemo(
+    () =>
+      metric
+        ? getMetricPreviewConfig(metric, {
+            draft,
+            unit,
+            denominatorUnit,
+            dateRange,
+          })
+        : null,
+    [metric, draft, unit, denominatorUnit, dateRange],
+  );
+  const permissions = usePermissionsUtil();
+  const datasource = getDatasourceById(datasourceId);
+  if (!datasource)
+    return (
+      <DisabledPreview description="Select a fact table to see live sample data for the last 7 days." />
+    );
+  if (!permissions.canRunMetricQueries(datasource))
+    return (
+      <DisabledPreview description="Live sample data for the last 7 days appears here.">
+        <PermissionBlocker>
+          You don’t have permission to load this metric’s performance.
+        </PermissionBlocker>
+      </DisabledPreview>
+    );
+  return (
+    <DefinitionsContext.Provider value={previewDefinitions}>
+      <PreviewExplorer
+        config={config}
+        trackingSource="metric-preview"
+        emptyDescription="Run the query to see live sample data for the last 7 days."
+        incompleteDescription="Complete the metric definition to see live sample data for the last 7 days."
+        warehouseUnavailableText="Metric performance will be available when the warehouse is ready."
+        renderChart={(state) => <MetricPreviewChart {...state} />}
+        controls={
+          <Flex
+            direction="column"
+            gap="3"
+            width={
+              metric?.metricType === "ratio" || metric?.metricType === "funnel"
+                ? "100%"
+                : undefined
+            }
+            minWidth="0"
+          >
+            {metric?.metricType === "ratio" && (
+              <Flex direction="column" gap="1">
+                <Text size="sm" weight="semibold" color="text-mid">
+                  Numerator
+                </Text>
+                <Text size="sm" color="text-mid">
+                  {numeratorFactTable?.name ||
+                    metric.numerator.factTableId ||
+                    "Select a fact table"}
+                </Text>
+              </Flex>
+            )}
+            {units.numerator.length > 0 && (
+              <PreviewUnitSelect
+                units={units.numerator}
+                value={unit}
+                setValue={setSelectedUnit}
+                factTable={numeratorFactTable}
+                size={
+                  metric?.metricType === "ratio" ||
+                  metric?.metricType === "funnel"
+                    ? "md"
+                    : "sm"
+                }
+                aria-label={
+                  metric?.metricType === "ratio"
+                    ? "Numerator unit"
+                    : metric?.metricType === "funnel"
+                      ? "Shared unit for all steps"
+                      : "Unit"
+                }
+              />
+            )}
+            {metric?.metricType === "funnel" &&
+              units.numerator.length === 0 && (
+                <Text size="sm" color="text-mid">
+                  The steps need a shared identifier to preview this funnel.
+                </Text>
+              )}
+            {metric?.metricType === "ratio" && (
+              <>
+                <div className={styles.ratioDivider} aria-hidden="true">
+                  <span>÷</span>
+                </div>
+                <Flex direction="column" gap="1">
+                  <Text size="sm" weight="semibold" color="text-mid">
+                    Denominator
+                  </Text>
+                  <Text size="sm" color="text-mid">
+                    {denominatorFactTable?.name ||
+                      metric.denominator?.factTableId ||
+                      "Select a fact table"}
+                  </Text>
+                </Flex>
+              </>
+            )}
+            {units.denominator.length > 0 && (
+              <PreviewUnitSelect
+                units={units.denominator}
+                value={denominatorUnit}
+                setValue={setSelectedDenominatorUnit}
+                factTable={denominatorFactTable}
+                size="md"
+                aria-label="Denominator unit"
+              />
+            )}
+          </Flex>
+        }
+      />
+    </DefinitionsContext.Provider>
+  );
+}

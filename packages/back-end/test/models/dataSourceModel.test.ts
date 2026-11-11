@@ -9,10 +9,16 @@ import {
   validateExposureQueriesAndAddMissingIds,
   hasActualChanges,
   toDataSourceApiInterface,
+  removeProjectFromDatasources,
 } from "back-end/src/models/DataSourceModel";
 import { testQueryValidity } from "back-end/src/services/datasource";
 import { usingFileConfig } from "back-end/src/init/config";
 import { ReqContext } from "back-end/types/request";
+import { getCollection } from "back-end/src/util/mongo.util";
+import {
+  connectTestMongo,
+  disconnectTestMongo,
+} from "back-end/test/test-helpers";
 
 jest.mock("back-end/src/services/datasource");
 jest.mock("back-end/src/init/config");
@@ -589,5 +595,82 @@ describe("dataSourceModel", () => {
         updateDataSource(context, datasource, updates),
       ).rejects.toThrow("Cannot update. Data sources managed by config.yml");
     });
+  });
+});
+
+describe("removeProjectFromDatasources", () => {
+  const datasources = () => getCollection("datasources");
+  const query = (id: string, projects?: string[]) => ({
+    id,
+    name: id,
+    userIdType: "user_id",
+    userIdTypes: ["user_id"],
+    query: "SELECT 1",
+    ...(projects ? { projects } : {}),
+  });
+  const queryProjects = async (id: string) => {
+    const doc = await datasources().findOne({ id });
+    return doc?.settings?.queries?.exposure?.map(
+      (q: { projects?: string[] }) => q.projects,
+    );
+  };
+
+  beforeAll(connectTestMongo);
+  afterAll(disconnectTestMongo);
+
+  it("drops the project from data sources and assignment query scopes", async () => {
+    await datasources().insertMany([
+      {
+        id: "ds_scoped",
+        organization: "org_1",
+        projects: ["prj_a", "prj_b"],
+        settings: { queries: { exposure: [query("eq_1", ["prj_a"])] } },
+      },
+      {
+        id: "ds_unscoped",
+        organization: "org_1",
+        projects: [],
+        settings: {
+          queries: {
+            exposure: [
+              query("eq_a", ["prj_a", "prj_b"]),
+              query("eq_b", ["prj_b"]),
+              query("eq_all"),
+            ],
+          },
+        },
+      },
+      {
+        id: "ds_no_queries",
+        organization: "org_1",
+        projects: ["prj_a"],
+        settings: {},
+      },
+      {
+        id: "ds_other_org",
+        organization: "org_2",
+        projects: ["prj_a"],
+        settings: { queries: { exposure: [query("eq_x", ["prj_a"])] } },
+      },
+    ]);
+
+    await removeProjectFromDatasources("prj_a", "org_1");
+
+    expect(
+      (await datasources().findOne({ id: "ds_scoped" }))?.projects,
+    ).toEqual(["prj_b"]);
+    expect(await queryProjects("ds_scoped")).toEqual([[]]);
+    expect(await queryProjects("ds_unscoped")).toEqual([
+      ["prj_b"],
+      ["prj_b"],
+      undefined,
+    ]);
+    expect(
+      (await datasources().findOne({ id: "ds_no_queries" }))?.projects,
+    ).toEqual([]);
+    expect(
+      (await datasources().findOne({ id: "ds_other_org" }))?.projects,
+    ).toEqual(["prj_a"]);
+    expect(await queryProjects("ds_other_org")).toEqual([["prj_a"]]);
   });
 });

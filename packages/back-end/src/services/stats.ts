@@ -16,8 +16,10 @@ import {
   isBinomialMetric,
   isFactMetric,
   isFactFunnelMetric,
+  isIsolatedDimension,
   isRatioMetric,
   isRegressionAdjusted,
+  isSubUnitClusterMetric,
   parseDimensionId,
   quantileMetricType,
 } from "shared/experiments";
@@ -25,6 +27,7 @@ import { hoursBetween } from "shared/dates";
 import chunk from "lodash/chunk";
 import {
   ExperimentAggregateUnitsQueryResponseRows,
+  ExperimentClusterHealthQueryResponseRows,
   ExperimentFactMetricsQueryResponseRows,
   ExperimentMetricQueryResponseRows,
   ExperimentResults,
@@ -49,6 +52,11 @@ import {
   ExperimentAnalysisParamsContextData,
   ExperimentMetricAnalysisParams,
   ExperimentSnapshotAnalysisSettings,
+  ExperimentSnapshotClusterAssignment,
+  ExperimentSnapshotClusterSubUnitMapping,
+  ExperimentSnapshotClusterUnit,
+  ExperimentSnapshotClusterUnits,
+  ExperimentSnapshotSubUnitMultipleExposures,
   ExperimentSnapshotSettings,
   ExperimentSnapshotTraffic,
   ExperimentSnapshotTrafficDimension,
@@ -63,6 +71,7 @@ import { promiseAllChunks } from "back-end/src/util/promise";
 import { logger } from "back-end/src/util/logger";
 import { QueryMap } from "back-end/src/queryRunners/QueryRunner";
 import {
+  buildUnitDimensionQueryMap,
   filterParentQueryMap,
   parseUnitDimQueryName,
 } from "back-end/src/queryRunners/unitDimensionQueryNaming";
@@ -72,7 +81,14 @@ import {
   MAX_METRICS_PER_QUERY,
   MAX_ROWS_UNIT_AGGREGATE_QUERY,
 } from "back-end/src/services/experimentQueries/constants";
+import {
+  CLUSTER_HEALTH_KIND_ASSIGNMENT,
+  CLUSTER_HEALTH_KIND_EXPOSURES,
+  CLUSTER_HEALTH_KIND_MAPPING,
+  CLUSTER_HEALTH_KIND_RELIABILITY,
+} from "back-end/src/integrations/sql/queries/experiment-cluster-health-query";
 import { splitFunnelMetricBlock } from "back-end/src/services/experimentQueries/funnelMetricBlock";
+import { sumCompoundComponentUnits } from "back-end/src/integrations/sql/fact-metrics/compound-columns";
 import { applyMetricOverrides } from "back-end/src/util/integration";
 import { statsServerPool } from "back-end/src/services/python";
 import { metrics } from "back-end/src/util/metrics";
@@ -85,6 +101,7 @@ export function getAnalysisSettingsForStatsEngine(
   variations: ExperimentReportVariation[],
   coverage: number,
   phaseLengthDays: number,
+  isClusterExperiment: boolean = false,
 ): AnalysisSettingsForStatsEngine {
   const sortedVariations = putBaselineVariationFirst(
     variations,
@@ -124,7 +141,9 @@ export function getAnalysisSettingsForStatsEngine(
     num_guardrail_metrics: settings.numGuardrailMetrics ?? 0,
     one_sided_intervals: !!settings.oneSidedIntervals,
     use_covariate_as_response: !!settings.useCovariateAsResponse,
-    post_stratification_enabled: !!settings.postStratificationEnabled,
+    post_stratification_enabled:
+      !isClusterExperiment && !!settings.postStratificationEnabled,
+    is_cluster_experiment: isClusterExperiment,
   };
 
   return analysisData;
@@ -229,6 +248,7 @@ function createStatsEngineData(
         variations,
         coverage,
         phaseLengthDays,
+        !!params.isClusterExperiment,
       ),
     ),
     bandit_settings: banditSettings
@@ -314,20 +334,31 @@ export function getMetricSettingsForStatsEngine(
     applyMetricOverrides(denominator, settings);
   }
 
-  const ratioMetric = isRatioMetric(metric, denominator);
+  // Cluster-level metrics are a standard analysis with the cluster as the unit.
+  const isClusterMetric = isSubUnitClusterMetric(metric, settings);
+
+  const createRatioStatistic =
+    isClusterMetric || isRatioMetric(metric, denominator);
   const quantileMetric = quantileMetricType(metric);
   const regressionAdjusted =
     settings.regressionAdjustmentEnabled &&
     isRegressionAdjusted(metric, denominator) &&
-    // block RA for ratio metrics from non-optimized fact metrics
-    (!isRatioMetric(metric, denominator) || optimizedFactMetric);
-  const mainMetricType = quantileMetric
-    ? "quantile"
-    : isBinomialMetric(metric)
-      ? "binomial"
-      : "count";
-  // Fact ratio metrics contain denominator
-  if (isFactMetric(metric) && ratioMetric) {
+    (isClusterMetric ||
+      !isRatioMetric(metric, denominator) ||
+      optimizedFactMetric);
+  let mainMetricType: "count" | "quantile" | "binomial";
+  if (isClusterMetric) {
+    mainMetricType = "count";
+  } else if (quantileMetric) {
+    mainMetricType = "quantile";
+  } else if (isBinomialMetric(metric)) {
+    mainMetricType = "binomial";
+  } else {
+    mainMetricType = "count";
+  }
+  // Fact ratio metrics (and every cluster metric) carry the denominator on the
+  // metric row itself.
+  if (isClusterMetric || (isFactMetric(metric) && createRatioStatistic)) {
     denominator = metric;
   }
 
@@ -340,18 +371,19 @@ export function getMetricSettingsForStatsEngine(
         ? "quantile_unit"
         : quantileMetric === "event"
           ? "quantile_event"
-          : ratioMetric && regressionAdjusted
+          : createRatioStatistic && regressionAdjusted
             ? "ratio_ra"
-            : ratioMetric && !regressionAdjusted
+            : createRatioStatistic && !regressionAdjusted
               ? "ratio"
               : regressionAdjusted
                 ? "mean_ra"
                 : "mean",
     main_metric_type: mainMetricType,
     ...(denominator && {
-      denominator_metric_type: isBinomialMetric(denominator)
-        ? "binomial"
-        : "count",
+      denominator_metric_type:
+        isClusterMetric || !isBinomialMetric(denominator)
+          ? "count"
+          : "binomial",
     }),
     ...(regressionAdjusted && {
       covariate_metric_type: mainMetricType,
@@ -556,6 +588,10 @@ export function parseStatsEngineResult({
   result: ExperimentMetricAnalysis;
 }): ExperimentReportResults[] {
   let unknownVariationsCopy = [...unknownVariations];
+  const compoundComponentUnits = sumCompoundComponentUnits(
+    queryResults,
+    snapshotSettings.variations.map((v) => v.id),
+  );
 
   const experimentReportResults: ExperimentReportResults[] = [];
   // Fallback when there is no traffic query; see analyzeExperimentTraffic.
@@ -668,6 +704,19 @@ export function parseStatsEngineResult({
     }
 
     const dimensions = Array.from(dimensionMap.values());
+    // Overall result only; see sumCompoundComponentUnits.
+    if (!analysisSettings[analysisIndex].dimensions[0]) {
+      dimensions.forEach((dim) =>
+        dim.variations.forEach((variation, v) => {
+          for (const [metricId, byVariation] of compoundComponentUnits) {
+            const metric = variation.metrics[metricId];
+            if (metric && byVariation[v]) {
+              metric.componentUnits = byVariation[v];
+            }
+          }
+        }),
+      );
+    }
     const hasFailedMetrics = Object.keys(failedMetrics).length > 0;
     if (dimensions.length === 0) {
       dimensions.push({
@@ -752,25 +801,57 @@ export async function writeSnapshotAnalyses(
   }
 }
 
+export function selectAnalysisQueryData(
+  queryData: QueryMap,
+  snapshotSettings: ExperimentSnapshotSettings,
+  dimensionId: string | undefined,
+  { isStandaloneBreakdown = false }: { isStandaloneBreakdown?: boolean } = {},
+): QueryMap {
+  if (
+    !isStandaloneBreakdown &&
+    dimensionId &&
+    isIsolatedDimension(snapshotSettings, dimensionId)
+  ) {
+    const isolatedQueryData = buildUnitDimensionQueryMap(
+      queryData,
+      dimensionId,
+    );
+    if (isolatedQueryData.size === 0) {
+      throw new Error(
+        `Snapshot is missing query results for dimension "${dimensionId}". Refresh the experiment results to recompute.`,
+      );
+    }
+    return isolatedQueryData;
+  }
+  return filterParentQueryMap(queryData);
+}
+
 export async function analyzeExperimentResults({
   queryData,
   analysisSettings,
   snapshotSettings,
   variationNames,
   metricMap,
+  isStandaloneBreakdown,
 }: {
   queryData: QueryMap;
   analysisSettings: ExperimentSnapshotAnalysisSettings[];
   snapshotSettings: ExperimentSnapshotSettings;
   variationNames: string[];
   metricMap: Map<string, ExperimentMetricInterface>;
+  isStandaloneBreakdown?: boolean;
 }): Promise<{
   results: ExperimentReportResults[];
   banditResult?: BanditResult;
 }> {
-  const parentQueryData = filterParentQueryMap(queryData);
+  const analysisQueryData = selectAnalysisQueryData(
+    queryData,
+    snapshotSettings,
+    analysisSettings[0]?.dimensions[0],
+    { isStandaloneBreakdown },
+  );
   const mdat = getMetricsAndQueryDataForStatsEngine(
-    parentQueryData,
+    analysisQueryData,
     metricMap,
     snapshotSettings,
   );
@@ -780,6 +861,7 @@ export async function analyzeExperimentResults({
   const params: ExperimentMetricAnalysisParams = {
     id: snapshotSettings.experimentId,
     coverage: snapshotSettings.coverage ?? 1,
+    isClusterExperiment: !!snapshotSettings.isClusterExperiment,
     phaseLengthHours: Math.max(
       hoursBetween(snapshotSettings.startDate, snapshotSettings.endDate),
       1,
@@ -880,8 +962,9 @@ export function analyzeExperimentTraffic({
       trafficResults.multipleExposures =
         (trafficResults.multipleExposures ?? 0) + (Number(r.units) || 0);
     }
+    // Exact variation-id match only. Any value that doesn't match a known
+    // variation id is skipped rather than coerced.
     const variationIndex = variationIdMap[r.variation];
-    // skip if variation is not found (this happens if variation is __multiple__)
     if (variationIndex === undefined) return;
     const dimTraffic: Map<string, ExperimentSnapshotTrafficDimension> =
       dimTrafficResults.get(r.dimension_name) ?? new Map();
@@ -926,4 +1009,83 @@ export function analyzeExperimentTraffic({
     }
   }
   return trafficResults;
+}
+
+export function analyzeExperimentClusterHealth({
+  rows,
+  error,
+  variations,
+}: {
+  rows: ExperimentClusterHealthQueryResponseRows;
+  error?: string;
+  variations: SnapshotSettingsVariation[];
+}): {
+  clusterUnits: ExperimentSnapshotClusterUnits;
+  clusterAssignment: ExperimentSnapshotClusterAssignment;
+  clusterSubUnitMapping: ExperimentSnapshotClusterSubUnitMapping;
+  subUnitMultipleExposures: ExperimentSnapshotSubUnitMultipleExposures;
+} {
+  if (error) {
+    return {
+      clusterUnits: { clusters: [], error },
+      clusterAssignment: { totalClusters: 0, mixedClusters: 0, error },
+      clusterSubUnitMapping: { totalUnits: 0, multiClusterUnits: 0, error },
+      subUnitMultipleExposures: {
+        totalSubUnits: 0,
+        multipleExposedSubUnits: 0,
+        error,
+      },
+    };
+  }
+
+  const variationIdMap: { [key: string]: number } = {};
+  variations.forEach((v, i) => {
+    variationIdMap[v.id] = i;
+  });
+
+  const clusters: ExperimentSnapshotClusterUnit[] = [];
+  const clusterAssignment: ExperimentSnapshotClusterAssignment = {
+    totalClusters: 0,
+    mixedClusters: 0,
+  };
+  const clusterSubUnitMapping: ExperimentSnapshotClusterSubUnitMapping = {
+    totalUnits: 0,
+    multiClusterUnits: 0,
+  };
+  const subUnitMultipleExposures: ExperimentSnapshotSubUnitMultipleExposures = {
+    totalSubUnits: 0,
+    multipleExposedSubUnits: 0,
+  };
+
+  (rows ?? []).forEach((r) => {
+    switch (r.kind) {
+      case CLUSTER_HEALTH_KIND_RELIABILITY:
+        clusters.push({
+          id: r.cluster_id,
+          variation: variationIdMap[r.variation] ?? -1,
+          units: r.metric_a,
+          pct: r.metric_b,
+        });
+        break;
+      case CLUSTER_HEALTH_KIND_ASSIGNMENT:
+        clusterAssignment.totalClusters = r.metric_a;
+        clusterAssignment.mixedClusters = r.metric_b;
+        break;
+      case CLUSTER_HEALTH_KIND_MAPPING:
+        clusterSubUnitMapping.totalUnits = r.metric_a;
+        clusterSubUnitMapping.multiClusterUnits = r.metric_b;
+        break;
+      case CLUSTER_HEALTH_KIND_EXPOSURES:
+        subUnitMultipleExposures.totalSubUnits = r.metric_a;
+        subUnitMultipleExposures.multipleExposedSubUnits = r.metric_b;
+        break;
+    }
+  });
+
+  return {
+    clusterUnits: { clusters },
+    clusterAssignment,
+    clusterSubUnitMapping,
+    subUnitMultipleExposures,
+  };
 }

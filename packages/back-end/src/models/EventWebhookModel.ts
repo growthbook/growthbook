@@ -18,6 +18,7 @@ import {
 import { EventWebHookInterface } from "shared/types/event-webhook";
 import { errorStringFromZodResult } from "back-end/src/util/validation";
 import { logger } from "back-end/src/util/logger";
+import { validateWebhookTimeoutSeconds } from "back-end/src/util/http.util";
 import { ReqContext } from "back-end/types/request";
 import { createEvent } from "./EventModel";
 
@@ -112,6 +113,7 @@ const eventWebHookSchema = new mongoose.Schema({
     required: false,
   },
   excludeBookkeepingUpdates: { type: Boolean, required: false },
+  timeoutSeconds: { type: Number, required: false },
   dateCreated: {
     type: Date,
     required: true,
@@ -256,10 +258,12 @@ export const createEventWebHook = async ({
   payloadType,
   method,
   headers,
+  timeoutSeconds,
   slack,
   notificationSettings,
   excludeBookkeepingUpdates,
 }: CreateEventWebHookOptions): Promise<EventWebHookInterface> => {
+  validateWebhookTimeoutSeconds(timeoutSeconds);
   const now = new Date();
   const signingKey = "ewhk_" + md5(randomUUID()).substr(0, 32);
 
@@ -279,6 +283,7 @@ export const createEventWebHook = async ({
     payloadType,
     method,
     headers,
+    timeoutSeconds,
     slack,
     notificationSettings,
     excludeBookkeepingUpdates,
@@ -360,6 +365,7 @@ export const updateEventWebHook = async (
   { eventWebHookId, organizationId }: UpdateEventWebHookQueryOptions,
   updates: UpdateEventWebHookAttributes,
 ): Promise<boolean> => {
+  validateWebhookTimeoutSeconds(updates.timeoutSeconds);
   const result = await EventWebHookModel.updateOne(
     { id: eventWebHookId, organizationId },
     {
@@ -522,13 +528,13 @@ export const sendEventWebhookTestEvent = async (
   context: ReqContext,
   webhookId: string,
 ) => {
-  if (!context.permissions.canCreateEventWebhook()) {
-    context.permissions.throwPermissionError();
-  }
-
   const webhook = await getEventWebHookById(webhookId, context.org.id);
 
   if (!webhook) throw new Error(`Cannot find webhook with id ${webhookId}`);
+
+  if (!context.permissions.canCreateEventWebhook(webhook)) {
+    context.permissions.throwPermissionError();
+  }
 
   await createEvent({
     context,

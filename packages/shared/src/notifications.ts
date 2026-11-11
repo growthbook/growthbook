@@ -194,7 +194,7 @@ export const notificationEventMetadata = {
   "feature.revision.published": {
     label: "New version published",
     description:
-      "Triggered when a draft revision is published. Overlaps with `feature.updated` but provides revision-specific context (base version, comment, author).",
+      "Triggered when a draft revision is published. Overlaps with `feature.updated` but identifies the revision and its author.",
     subtitle: "A draft becomes the live version.",
     preview: true,
   },

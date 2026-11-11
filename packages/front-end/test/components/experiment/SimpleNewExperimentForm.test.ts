@@ -9,6 +9,7 @@ import {
   getAutoDatasourceId,
   getAutoExposureQueryId,
   resolveTemplateAssignment,
+  defaultHashAttributeOf,
 } from "@/components/Experiment/SimpleNewExperimentForm";
 
 // ---------------------------------------------------------------------------
@@ -330,6 +331,36 @@ describe("getAutoExposureQueryId", () => {
   });
 });
 
+describe("getAutoExposureQueryId project scope", () => {
+  const scoped = {
+    ...makeExposureQuery("eq_other", "user_id"),
+    projects: ["prj_other"],
+  };
+
+  it("does not auto-select the only query when it is scoped to another project", () => {
+    expect(
+      getAutoExposureQueryId({
+        datasource: makeDatasourceWithSettings(makeSettings([scoped])),
+        hashAttribute: "id",
+        project: "prj_1",
+      }),
+    ).toBe("");
+  });
+
+  it("ignores a template query scoped to another project", () => {
+    expect(
+      getAutoExposureQueryId({
+        datasource: makeDatasourceWithSettings(
+          makeSettings([scoped, makeExposureQuery("eq_1", "user_id")]),
+        ),
+        hashAttribute: "id",
+        project: "prj_1",
+        templateExposureQueryId: "eq_other",
+      }),
+    ).toBe("eq_1");
+  });
+});
+
 describe("resolveTemplateAssignment", () => {
   const dropped = {
     ...makeExposureQuery("eq_dropped", "anonymous_id"),
@@ -356,6 +387,52 @@ describe("resolveTemplateAssignment", () => {
         datasource: makeDatasourceWithSettings(makeSettings([dropped])),
         templateExposureQueryId: "eq_dropped",
       }),
-    ).toEqual({ kind: "unavailable", identifierType: "anonymous_id" });
+    ).toEqual({
+      kind: "unavailable",
+      identifierType: "anonymous_id",
+      outOfScope: false,
+    });
+  });
+
+  it("is unavailable as out of scope when only another Project's query declares it", () => {
+    expect(
+      resolveTemplateAssignment({
+        datasource: makeDatasourceWithSettings(
+          makeSettings([dropped, { ...other, projects: ["prj_other"] }]),
+        ),
+        project: "prj_1",
+        templateExposureQueryId: "eq_dropped",
+      }),
+    ).toEqual({
+      kind: "unavailable",
+      identifierType: "anonymous_id",
+      outOfScope: true,
+    });
+  });
+});
+
+describe("defaultHashAttributeOf", () => {
+  const attrs = (...flags: [string, boolean][]) =>
+    flags.map(([property, hashAttribute]) => ({ property, hashAttribute }));
+  it.each([
+    ["id when it's flagged", attrs(["id", true], ["deviceId", true]), "id"],
+    [
+      "the only flagged one",
+      attrs(["id", false], ["deviceId", true]),
+      "deviceId",
+    ],
+    [
+      "nothing when several are flagged without id",
+      attrs(["userId", true], ["deviceId", true]),
+      "",
+    ],
+    ["id when none are flagged but it's declared", attrs(["id", false]), "id"],
+    [
+      "nothing when none are flagged and id isn't declared",
+      attrs(["userId", false]),
+      "",
+    ],
+  ])("%s", (_, schema, expected) => {
+    expect(defaultHashAttributeOf(schema)).toBe(expected);
   });
 });

@@ -1,5 +1,9 @@
 import { BigQueryTimestamp } from "@google-cloud/bigquery";
 import { ExperimentMetricInterface } from "shared/experiments";
+import type {
+  InterleavingAnalysis,
+  InterleavingVariationRole,
+} from "shared/validators";
 import { MetricAnalysisSettings } from "shared/types/metric-analysis";
 import { DimensionInterface } from "shared/types/dimension";
 import { AttributionModel } from "shared/types/experiment";
@@ -11,6 +15,10 @@ import {
 } from "shared/types/experiment-snapshot";
 import { MetricInterface, MetricType } from "shared/types/metric";
 import { QueryStatistics } from "shared/types/query";
+import type {
+  ExposureQuery,
+  ExposureQueryColumnMapping,
+} from "shared/types/datasource";
 import {
   FactTableMap,
   ColumnInterface,
@@ -18,6 +26,7 @@ import {
   FactTableColumnType,
   FactTableInterface,
   MetricQuantileSettings,
+  RowFilter,
 } from "shared/types/fact-table";
 import type { PopulationDataQuerySettings } from "shared/types/query";
 import { SegmentInterface } from "shared/types/segment";
@@ -132,6 +141,7 @@ export type FactMetricData = {
   metric: FactMetricInterface;
   metricIndex: number;
   ratioMetric: boolean;
+  isClusterRatioConversion: boolean;
   funnelMetric: boolean;
   quantileMetric: "" | MetricQuantileSettings["type"];
   metricQuantileSettings: MetricQuantileSettings;
@@ -145,8 +155,9 @@ export type FactMetricData = {
   computeUncappedMetric: boolean;
   numeratorSourceIndex: number;
   denominatorSourceIndex: number;
-  // Empty for non-funnel metrics.
   funnelStepSourceIndices: number[];
+  compoundComponentSourceIndices: number[];
+  compoundComponentRefs: string[];
   capCoalesceMetric: string;
   capCoalesceDenominator: string;
   capCoalesceCovariate: string;
@@ -329,7 +340,10 @@ export type TestQueryParams = {
 };
 
 export type ColumnTopValuesParams = {
-  factTable: Pick<FactTableInterface, "sql" | "eventName" | "timestampColumn">;
+  factTable: Pick<
+    FactTableInterface,
+    "sql" | "eventName" | "timestampColumn" | "columns"
+  >;
   columns: ColumnInterface[];
   limit?: number;
   lookbackDays: number;
@@ -346,8 +360,11 @@ export type ColumnTopValuesResponseRow = {
 export interface ExperimentUnitsQuerySettings {
   experimentId: string;
   exposureQuery: ResolvedExposureQuery;
+  isClusterExperiment?: boolean;
+  clusterSubUnitIdentifier?: string;
   startDate: Date;
   endDate: Date;
+  endDateIsCutoff?: boolean;
   skipPartialData: boolean;
   attributionModel: AttributionModel;
   queryFilter: string;
@@ -453,8 +470,9 @@ export interface InsertMetricSourceDataQueryParams {
   metrics: FactMetricInterface[];
   lastMaxTimestamp: Date | null;
   lastMaxTimestampRaw?: string | null;
-  // Wall-clock start of the refresh. The fact table scan never runs past it,
-  // so a row stamped ahead of the refresh can't become the cache watermark.
+  // Latest timestamp the fact table scan may load: the refresh's start time
+  // for an ended phase, the analysis end date for a running one. A row past it
+  // can't become the cache watermark.
   incrementalRefreshStartTime: Date;
 }
 
@@ -585,7 +603,11 @@ type UnitsSource = "exposureQuery" | "exposureTable" | "otherQuery";
  * Deliberately not shaped like `ExposureQuery`, so an unresolved query can't
  * be passed where a resolved one is expected.
  */
-export type ResolvedExposureQuery = { query: string; identifierType: string };
+export type ResolvedExposureQuery = {
+  query: string;
+  identifierType: string;
+  columnMapping?: ExposureQueryColumnMapping;
+};
 
 export interface ExperimentMetricQueryParams extends ExperimentBaseQueryParams {
   metric: MetricInterface;
@@ -617,6 +639,7 @@ export interface ExperimentAggregateUnitsQueryParams
   extends Omit<ExperimentBaseQueryParams, "dimensions"> {
   dimensions: ExperimentDimensionWithSpecifiedSlices[];
   useUnitsTable: boolean;
+  clusterGrain?: boolean;
 }
 
 export type DimensionSlicesQueryParams = {
@@ -638,6 +661,12 @@ export type FeatureEvalDiagnosticsQueryParams = {
 export type PastExperimentParams = {
   from: Date;
   forceRefresh?: boolean;
+};
+
+export type PastExperimentQueryParams = {
+  exposureQuery: ExposureQuery;
+  identifierTypes: string[];
+  from: Date;
 };
 
 export type MetricValueParams = {
@@ -685,9 +714,15 @@ export type MetricValueResult = {
 };
 
 export type PastExperimentResult = {
+  /** Unset on results stored before imports ran one query per assignment query. */
+  exposureQueryId?: string;
+  identifierTypes?: string[];
+  from?: Date;
   mergeResults: boolean;
   experiments: {
     exposureQueryId: string;
+    /** Unset on results stored before every identifier was counted. */
+    identifierType?: string;
     experiment_id: string;
     experiment_name?: string;
     variation_id: string;
@@ -790,6 +825,7 @@ export type MetricAnalysisQueryResponseRows = MetricAnalysisQueryResponseRow[];
 
 export type PastExperimentResponseRows = {
   exposure_query: string;
+  identifier_type: string;
   experiment_id: string;
   experiment_name?: string;
   variation_id: string;
@@ -833,6 +869,8 @@ export type ExperimentFactMetricsQueryResponseRows = {
   variation: string;
   users: number;
   count: number;
+  // Cluster experiments also emit a shared `sub_count` (distinct sub-units
+  // behind the clusters), covered by the index signature below.
   [key: string]: number | string;
 }[];
 
@@ -841,6 +879,21 @@ export type ExperimentAggregateUnitsQueryResponseRows = {
   dimension_value: string;
   dimension_name: string;
   units: number;
+}[];
+
+export type ExperimentClusterHealthQueryResponseRows = {
+  // Row discriminator: "reliability" | "assignment" | "mapping" | "exposures".
+  kind: string;
+  // Only meaningful for reliability rows ("" for summary rows).
+  cluster_id: string;
+  variation: string;
+  // Payload columns; meaning depends on `kind`:
+  //  - reliability: metric_a = sub-unit count, metric_b = share (0..1)
+  //  - assignment:  metric_a = total clusters, metric_b = mixed clusters
+  //  - mapping:     metric_a = total sub-units, metric_b = multi-cluster sub-units
+  //  - exposures:   metric_a = total sub-units, metric_b = multi-variation sub-units
+  metric_a: number;
+  metric_b: number;
 }[];
 
 export type DimensionSlicesQueryResponseRows = {
@@ -852,16 +905,19 @@ export type DimensionSlicesQueryResponseRows = {
 
 export type ContextualBanditSrmQueryResponseRows = {
   /**
-   * Chi-square statistic: SUM((observed - expected)^2 / expected) over the
-   * usable cells (expected >= 5) of the kept (leaf_id, bandit_version)
-   * groups (those with at least 2 usable cells).
+   * "summary" carries the overall statistic + degrees_of_freedom (across all
+   * bandit periods). "cell" rows carry raw observed/expected per leaf &
+   * variation for the most recent bandit period only.
    */
+  row_type: "summary" | "cell";
   statistic: number;
-  /**
-   * Degrees of freedom computed in SQL as
-   * (sum of usable cells across kept groups) - (number of kept groups).
-   */
   degrees_of_freedom: number;
+  bandit_version: string;
+  leaf_id: string;
+  variation: string;
+  observed: number;
+  expected: number;
+  multiple_exposures: number;
 }[];
 
 export type MaxTimestampQueryResponseRow = {
@@ -909,6 +965,8 @@ export type ExperimentFactMetricsQueryResponse =
 export type ExperimentUnitsQueryResponse = QueryResponse;
 export type ExperimentAggregateUnitsQueryResponse =
   QueryResponse<ExperimentAggregateUnitsQueryResponseRows>;
+export type ExperimentClusterHealthQueryResponse =
+  QueryResponse<ExperimentClusterHealthQueryResponseRows>;
 export type DimensionSlicesQueryResponse =
   QueryResponse<DimensionSlicesQueryResponseRows>;
 export type ContextualBanditSrmQueryResponse =
@@ -931,6 +989,31 @@ export type FeatureEvalDiagnosticsQueryResponse =
     truncated?: boolean;
   };
 
+export type ExperimentExposuresQueryParams = {
+  experimentId: string;
+  experimentTrackingKey: string;
+  exposureQuery: ResolvedExposureQuery;
+  startDate: Date;
+  endDate: Date;
+  dimensions: string[];
+  /** Cluster experiments only. */
+  subUnitIdentifierType?: string | null;
+  phase?: PhaseSQLVar;
+  customFields?: Record<string, unknown>;
+  /** Same filter model Product Analytics uses; compiled by getRowFilterSQL. */
+  rowFilters?: RowFilter[];
+  limit: number;
+};
+
+// The query selects every column the exposure query returns, so the shape is
+// only known at runtime. shapeExposureRows() in
+// back-end/src/services/experiment-exposures.ts splits it into typed fields
+// and the `extra` bag behind the expandable row.
+export type ExperimentExposuresQueryResponseRows = Record<string, unknown>[];
+
+export type ExperimentExposuresQueryResponse =
+  QueryResponse<ExperimentExposuresQueryResponseRows>;
+
 export interface TestQueryRow {
   [key: string]: unknown;
 }
@@ -952,6 +1035,7 @@ export interface Column {
   columnName: string;
   path?: string;
   dataType: string;
+  isPartition?: boolean;
 }
 
 export interface Table {
@@ -1056,3 +1140,41 @@ export interface FeatureUsageAggregateRow {
   evaluations: number;
 }
 export type FeatureUsageLookback = "15minute" | "hour" | "day" | "week";
+
+// One metric and every analysis requested on it. The metric's numerator
+// (column, aggregation, row filters) is resolved with the same helpers as
+// experiment fact metrics.
+export interface InterleavingMetricQueryMetric {
+  metric: FactMetricInterface;
+  // Position in the snapshot's frozen metric list, which names this metric's
+  // output columns. Not the position within this query: metrics are split
+  // across one query per fact table and the results merge into one row.
+  index: number;
+  // "paired" needs ranking_id on the metric's fact table; preference only
+  // needs item_id.
+  analyses: InterleavingAnalysis[];
+}
+
+export interface InterleavingMetricQueryParams {
+  // The interleaving exposure query SQL (one row per impression, nested
+  // items JSON column)
+  interleavingExposureQuerySql: string;
+  userIdType: string;
+  trackingKey: string;
+  // Matched against the exposure items' `variation` values
+  variationKeys: Record<InterleavingVariationRole, string>;
+  startDate: Date;
+  endDate: Date;
+  // One query analyzes all metrics whose numerator reads this fact table;
+  // output columns are prefixed m{index}_ using each metric's `index`, with
+  // every analysis's columns under the same prefix. Paired/preference CTEs
+  // are only included when at least one metric requests them.
+  factTable: FactTableInterface;
+  metrics: InterleavingMetricQueryMetric[];
+}
+
+// One row of numeric aggregates; the column set depends on the attribution type
+// (paired sufficient statistics vs preference counts)
+export type InterleavingMetricQueryResponseRows = Record<string, number>[];
+export type InterleavingMetricQueryResponse =
+  QueryResponse<InterleavingMetricQueryResponseRows>;

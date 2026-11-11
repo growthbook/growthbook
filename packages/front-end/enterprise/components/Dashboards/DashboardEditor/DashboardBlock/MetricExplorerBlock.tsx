@@ -19,6 +19,7 @@ import ViewAsyncQueriesButton from "@/components/Queries/ViewAsyncQueriesButton"
 import HelperText from "@/ui/HelperText";
 import { useDashboardMetricAnalysis } from "@/enterprise/components/Dashboards/DashboardSnapshotProvider";
 import { useDashboardCharts } from "@/enterprise/components/Dashboards/DashboardChartsContext";
+import { CHART_GRID } from "@/enterprise/components/ProductAnalytics/MainSection/ExplorerChart";
 import { BlockProps } from ".";
 
 export default function MetricExplorerBlock({
@@ -165,8 +166,15 @@ export default function MetricExplorerBlock({
         ? {
             data: ["Current period", "Previous period"],
             textStyle: { color: textColor },
+            top: 8,
           }
         : undefined,
+      grid: {
+        left: CHART_GRID.left,
+        right: CHART_GRID.right,
+        top: showComparisonSeries ? CHART_GRID.topWithLegend : CHART_GRID.top,
+        bottom: CHART_GRID.bottom,
+      },
       xAxis: {
         type: visualizationType === "timeseries" ? "time" : "category",
         nameLocation: "middle",
@@ -239,7 +247,10 @@ export default function MetricExplorerBlock({
   ]);
 
   return (
-    <Box
+    <Flex
+      direction="column"
+      flexGrow="1"
+      minHeight="0"
       p="4"
       position="relative"
       style={{
@@ -328,7 +339,7 @@ export default function MetricExplorerBlock({
         <EChartsReact
           key={JSON.stringify(chartData)}
           option={chartData}
-          style={{ width: "100%", minHeight: "450px", height: "80%" }}
+          style={{ width: "100%", flex: 1, minHeight: 0 }}
           onChartReady={(chart) => {
             if (chartsContext && chart) {
               chartsContext.registerChart(chartId, chart);
@@ -336,6 +347,6 @@ export default function MetricExplorerBlock({
           }}
         />
       )}
-    </Box>
+    </Flex>
   );
 }

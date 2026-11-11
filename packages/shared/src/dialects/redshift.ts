@@ -10,6 +10,7 @@ const redshiftEscapeStringLiteral = (value: string) =>
 export const redshiftDialect: SqlDialect = {
   ...baseDialect,
   formatDialect: "redshift",
+  unquotedIdentifierFold: "lower",
   escapeStringLiteral: redshiftEscapeStringLiteral,
   ...createLikeMatchFns({
     escapeStringLiteral: redshiftEscapeStringLiteral,

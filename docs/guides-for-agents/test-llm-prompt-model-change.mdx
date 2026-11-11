@@ -2,10 +2,10 @@
 title: "Test an LLM Prompt or Model Change"
 description: "A complete, production-minded implementation for assigning an LLM treatment consistently, recording exposure at the moment of use, measuring quality and cost, and deciding whether to ship."
 sidebarTitle: "Test an LLM change"
-last_verified: "2026-08-12"
-last_verified_growthbook_commit: "e44a15af063860c7118f52508746356d55e5a91d"
+last_verified: "2026-11-03"
+last_verified_growthbook_commit: "489de700e4a57af3b1c594a41c9f84e6aa146951"
 tested_stack:
-  - "@growthbook/growthbook 1.7.0"
+  - "@growthbook/growthbook 2.0.0"
   - "Node.js 22"
   - "TypeScript 5.7"
   - "Vitest 3"
@@ -110,7 +110,6 @@ src/
   analytics/
     llm-events.ts
   experimentation/
-    feature-refresh.ts
     growthbook.ts
   llm/
     prompt-variants.ts
@@ -201,7 +200,7 @@ An offline score does not prove product impact. It is the admission test for a p
 Install a pinned major version and record the resolved version in your lockfile:
 
 ```bash
-npm install @growthbook/growthbook@^1.7.0
+npm install @growthbook/growthbook@^2.0.0
 npm install --save-dev vitest@^3.2.0
 npm ls @growthbook/growthbook
 ```
@@ -209,17 +208,17 @@ npm ls @growthbook/growthbook
 Expected receipt:
 
 ```text
-@growthbook/growthbook@1.7.x
+@growthbook/growthbook@2.0.x
 ```
 
-This guide was verified against `1.7.0`. If the installed version differs, compare the current [Node.js SDK documentation](https://docs.growthbook.io/lib/node) and changelog before copying the code.
+This guide was verified against `2.0.0`. If you are upgrading from 1.x, read [Updating to 2.0.0](/lib/js#updating-to-2-0-0) first: targeting conditions no longer convert attribute types. If the installed version differs, compare the current [Node.js SDK documentation](https://docs.growthbook.io/lib/node) and changelog before copying the code.
 
 Add server-only configuration:
 
 ```dotenv title=".env.example"
 GROWTHBOOK_API_HOST=https://cdn.growthbook.io
 GROWTHBOOK_CLIENT_KEY=sdk_REPLACE_ME
-GROWTHBOOK_INGESTOR_HOST=https://us1.gb-ingest.com
+GROWTHBOOK_INGESTOR_HOST=https://us-east-1.gb-ingest.com
 LLM_PROVIDER_API_KEY=replace-me
 ```
 
@@ -362,36 +361,9 @@ Your real provider adapter must parse and validate the structured response befor
 
 Create one long-lived `GrowthBookClient` per process, initialize it during startup, and create a user-scoped instance for each workflow. Do not create a new network-fetching client for every request.
 
-Create a polling helper for the pinned SDK. Version `1.7.0` supports `refreshFeatures`, but not the newer `init({ pollingInterval })` option.
-
-```ts title="src/experimentation/feature-refresh.ts"
-import type { GrowthBookClient } from "@growthbook/growthbook";
-
-export function startFeaturePolling(
-  client: Pick<GrowthBookClient, "refreshFeatures">,
-): () => void {
-  let refreshing = false;
-  const timer = setInterval(() => {
-    if (refreshing) return;
-    refreshing = true;
-    void client
-      .refreshFeatures({ skipCache: true, timeout: 2_000 })
-      .catch(() => {
-        console.error("Unexpected GrowthBook refresh error");
-      })
-      .finally(() => {
-        refreshing = false;
-      });
-  }, 60_000);
-  timer.unref();
-  return () => clearInterval(timer);
-}
-```
-
 ```ts title="src/experimentation/growthbook.ts"
 import { GrowthBookClient } from "@growthbook/growthbook";
 import { growthbookTrackingPlugin } from "@growthbook/growthbook/plugins";
-import { startFeaturePolling } from "./feature-refresh";
 
 export type AppFeatures = {
   "support-llm-treatment": "control" | "prompt-v2";
@@ -409,15 +381,17 @@ export const growthbook = new GrowthBookClient<AppFeatures>({
   plugins: [
     growthbookTrackingPlugin({
       ingestorHost:
-        process.env.GROWTHBOOK_INGESTOR_HOST ?? "https://us1.gb-ingest.com",
+        process.env.GROWTHBOOK_INGESTOR_HOST ?? "https://us-east-1.gb-ingest.com",
     }),
   ],
 });
 
-let stopPolling: (() => void) | undefined;
-
 export async function initializeGrowthBook(): Promise<void> {
-  const result = await growthbook.init({ timeout: 2_000 });
+  const result = await growthbook.init({
+    timeout: 2_000,
+    // Refresh the payload every 60 seconds (milliseconds).
+    pollingInterval: 60_000,
+  });
   if (!result.success) {
     // Startup may continue because the application has a safe local default.
     // Send this to your normal operational alerting system.
@@ -426,20 +400,17 @@ export async function initializeGrowthBook(): Promise<void> {
       error: result.error?.message,
     });
   }
-  stopPolling?.();
-  stopPolling = startFeaturePolling(growthbook);
 }
 
 export async function shutdownGrowthBook(): Promise<void> {
-  stopPolling?.();
-  stopPolling = undefined;
+  // Also stops polling.
   growthbook.destroy();
 }
 ```
 
 Call `initializeGrowthBook()` once from the service startup path. The JavaScript SDK reports initialization failure in the returned result; a timeout does not need to throw. An unloaded feature evaluates to `null`, and `getFeatureValue(..., "control")` therefore supplies control.
 
-Polling continues after an initial fetch failure and is stopped on shutdown. Publish-to-evaluation latency is up to the 60-second interval plus delivery time when the endpoint is healthy. A failed refresh retains the last payload, which may still select treatment; it does not automatically switch an already-running service to control. SDK `1.7.0` does not return a success receipt from `refreshFeatures()`, so monitor delivery and prove rollback propagation in staging. If that window is too slow, use the [Node.js streaming setup](/lib/node#streaming-updates) and verify it before launch. Retain a deployment-level rollback to the known-good control for a delivery outage.
+Polling starts even when the initial fetch fails, and `destroy()` stops it on shutdown. Publish-to-evaluation latency is up to the 60-second interval plus delivery time when the endpoint is healthy. A failed refresh retains the last payload, which may still select treatment; it does not automatically switch an already-running service to control. After failures, polling backs off exponentially, up to 5 minutes between attempts, so updates can lag after the endpoint recovers. The built-in poller does not report whether a refresh succeeded, so monitor delivery and prove rollback propagation in staging. If that window is too slow, use the [Node.js streaming setup](/lib/node#streaming-updates) and verify it before launch. Retain a deployment-level rollback to the known-good control for a delivery outage.
 
 If your GrowthBook Cloud data region is `eu-west-1`, use `https://eu-west-1.gb-ingest.com`. A wrong ingestor region can make evaluation work while event data silently lands in the wrong place or is dropped.
 
@@ -901,7 +872,7 @@ Add adapter-specific tests for schema validation, provider timeouts, safety refu
 1. In GrowthBook, open **SDK Connections**.
 2. Create a server-side JavaScript/Node connection for the correct project and environments.
 3. Copy the API host and client key into your secret/configuration system.
-4. Under **Attributes**, ensure `user_id` exists and is marked as an identifier.
+4. Under **Attributes**, ensure `user_id` exists as a string and is marked as an identifier. Send every attribute with the type set here; SDK 2.0.0 does not convert between strings, numbers, and booleans when matching targeting rules.
 5. Keep attributes deliberately small: `user_id`, `surface`, and non-sensitive targeting fields only.
 
 ### Create the feature
@@ -1158,6 +1129,6 @@ This guide depends on these current primary sources:
 - [Experiment configuration](https://docs.growthbook.io/app/experiment-configuration) for setup, metrics, phases, and activation guidance.
 - [Experiment results](https://docs.growthbook.io/app/experiment-results) for SRM, multiple exposures, pre-exposure bias, and interpretation.
 - [GrowthBook pricing](https://www.growthbook.io/pricing) for current plan boundaries. Verify plan-specific functionality at implementation time.
-- [GrowthBook source at `e44a15af`](https://github.com/growthbook/growthbook/tree/e44a15af063860c7118f52508746356d55e5a91d) for the SDK and documentation behavior tested here.
+- [GrowthBook source at `489de700`](https://github.com/growthbook/growthbook/tree/489de700e4a57af3b1c594a41c9f84e6aa146951) for the SDK and documentation behavior tested here.
 
 Reverify this guide when any of these change: the JavaScript SDK major/minor API, tracking plugin event schema, Managed Warehouse identifier mapping or hostnames, experiment rule UI, metric types, or plan entitlements.

@@ -3,8 +3,12 @@
  * (see managed-clickhouse/* routes there).
  */
 import type { AIPromptType } from "shared/ai";
-import type { DailyUsage } from "shared/types/organization";
-import { dailyUsageForOrgResponseValidator } from "shared/validators";
+import type { DailyUsage, DailyUsageByKey } from "shared/types/organization";
+import type { ManagedWarehouseRecreatableTable } from "shared/util";
+import {
+  dailyUsageByKeyForOrgResponseValidator,
+  dailyUsageForOrgResponseValidator,
+} from "shared/validators";
 import type { RequestInit, Response } from "node-fetch";
 import { LICENSE_SERVER_URL } from "back-end/src/enterprise/licenseUtil";
 import { logger } from "back-end/src/util/logger";
@@ -14,6 +18,14 @@ import { CLOUD_SECRET, IS_CLOUD } from "back-end/src/util/secrets";
 const MAX_SENTRY_RESPONSE_BODY_LENGTH = 16_000;
 /** Long cap so outbound requests cannot hang indefinitely (e.g. black-holed TCP). */
 const MANAGED_CLICKHOUSE_FETCH_TIMEOUT_MS = 60 * 60 * 1000;
+
+/**
+ * The request got no HTTP response (timeout or network error), so the license
+ * server may or may not have acted on it.
+ */
+export class LicenseServerNoResponseError extends Error {
+  name = "LicenseServerNoResponseError";
+}
 
 function errorDetailForLog(text: string, status: number): string {
   const trimmed = text.trim();
@@ -39,7 +51,10 @@ function errorDetailForLog(text: string, status: number): string {
 async function postManagedClickhouse(
   path: string,
   body: unknown,
-  { allowStatuses = [] }: { allowStatuses?: number[] } = {},
+  {
+    allowStatuses = [],
+    timeoutMs = MANAGED_CLICKHOUSE_FETCH_TIMEOUT_MS,
+  }: { allowStatuses?: number[]; timeoutMs?: number } = {},
 ): Promise<Response> {
   if (!CLOUD_SECRET) {
     throw new Error(
@@ -54,7 +69,7 @@ async function postManagedClickhouse(
   const abortController = new AbortController();
   const timeoutId = setTimeout(() => {
     abortController.abort();
-  }, MANAGED_CLICKHOUSE_FETCH_TIMEOUT_MS);
+  }, timeoutMs);
 
   let res: Response;
   try {
@@ -81,7 +96,7 @@ async function postManagedClickhouse(
         ? "License server managed ClickHouse request timed out before HTTP response"
         : "License server managed ClickHouse request failed before HTTP response",
     );
-    throw new Error(
+    throw new LicenseServerNoResponseError(
       timedOut
         ? "The managed warehouse service did not respond in time. Please try again in a few minutes. If the problem continues, contact support."
         : "We couldn't reach the managed warehouse service. Please try again in a few minutes. If the problem continues, contact support.",
@@ -143,14 +158,19 @@ async function postManagedClickhouseJson<T>(
  * and rebuilds in the background under a datasource lock, so this returns as soon
  * as the rebuild is accepted — not when it finishes. A 423 means a rebuild is
  * already running for this org, so the caller should wait rather than re-request.
+ *
+ * @param tables Rebuild only these tables; omit to rebuild all of them.
  */
 export async function dangerousRecreateClickhouseTables(
   orgId: string,
+  tables?: ManagedWarehouseRecreatableTable[],
 ): Promise<"started" | "already-running"> {
   const res = await postManagedClickhouse(
     "recreate-tables",
-    { orgId },
-    { allowStatuses: [423] },
+    { orgId, tables },
+    // The license server acks as soon as it takes the lock, so this stays well
+    // under the grace period in managedWarehouseRecreate.ts.
+    { allowStatuses: [423], timeoutMs: 60 * 1000 },
   );
   return res.status === 423 ? "already-running" : "started";
 }
@@ -250,5 +270,31 @@ export async function getDailyUsageForOrg(
       "Unexpected response shape from daily-usage-for-org endpoint",
     );
   }
-  return parsed.data.days;
+  return parsed.data.days.map((d) => ({
+    ...d,
+    eventForwarderEvents: d.eventForwarderEvents ?? 0,
+  }));
+}
+
+export async function getDailyUsageByKeyForOrg(
+  orgId: string,
+  start: Date,
+  end: Date,
+): Promise<DailyUsageByKey[]> {
+  const json = await postManagedClickhouseJson("daily-usage-by-key-for-org", {
+    orgId,
+    start: start.toISOString(),
+    end: end.toISOString(),
+  });
+  const parsed = dailyUsageByKeyForOrgResponseValidator.safeParse(json);
+  if (!parsed.success) {
+    logger.error(
+      { zodError: parsed.error.flatten() },
+      "Unexpected response shape from daily-usage-by-key-for-org endpoint",
+    );
+    throw new Error(
+      "Unexpected response shape from daily-usage-by-key-for-org endpoint",
+    );
+  }
+  return parsed.data.rows;
 }

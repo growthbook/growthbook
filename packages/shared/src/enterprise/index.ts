@@ -1,6 +1,7 @@
 export * from "./reviewCycle";
 export * from "../revisions";
 export * from "./license-consts";
+export * from "./adminOrganizations";
 export * from "./pricing-limits";
 export * from "./entitlements";
 export * from "./sso";
@@ -19,3 +20,5 @@ export * from "./validators/decision-criteria";
 export * from "./validators/dashboard";
 export * from "./validators/dashboard-block";
 export * from "./validators/dashboard-template";
+
+export * from "./product-analytics/populations";

@@ -42,6 +42,11 @@ export const rampScheduleTemplateApiSpec = {
     }),
   },
   includeDefaultCrud: true,
+  confirmation: {
+    create: ["other.write"],
+    update: ["other.write"],
+    delete: ["other.write"],
+  },
   navDescription: "Reusable step configurations for ramp schedules.",
   navAfterTag: "ramp-schedules",
 } satisfies OpenApiModelSpec;

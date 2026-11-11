@@ -1,11 +1,9 @@
 import { z } from "zod";
 import type { ModelMessage } from "ai";
 import { pickVisionModel } from "shared/ai";
-import {
-  findVisualChangesetById,
-  updateVisualChange,
-} from "back-end/src/models/VisualChangesetModel";
-import { getExperimentById } from "back-end/src/models/ExperimentModel";
+import { updateVisualChange } from "back-end/src/models/VisualChangesetModel";
+import { loadChangesetWithOwner } from "back-end/src/api/visual-editor-ai/loadChangesetWithOwner";
+import { changesetOwnerConfirmationLink } from "back-end/src/services/changesetOwner";
 import {
   DeferredToolCallsError,
   parsePrompt,
@@ -32,7 +30,6 @@ import {
   newImageTurnState,
   VISUAL_EDITOR_MAX_STEPS,
 } from "back-end/src/api/visual-editor-ai/aiTools";
-import { requireDraftExperiment } from "back-end/src/api/visual-editor-ai/requireDraftExperiment";
 import { aiEditJobStore } from "back-end/src/api/visual-editor-ai/aiTools/clientJob";
 import {
   type DomDigest,
@@ -54,6 +51,7 @@ import {
 } from "back-end/src/api/visual-editor-ai/editOutput";
 import { renderPageOutline } from "back-end/src/api/visual-editor-ai/pageStructure";
 import { buildDigestFromEditorUrl } from "back-end/src/api/visual-editor-ai/serverPageDigest";
+import { requireConfirmation } from "back-end/src/services/confirmations";
 
 // A `css` rewrite plus a multi-part edit truncates at parsePrompt's 8000 default.
 const EDIT_MAX_OUTPUT_TOKENS = 16000;
@@ -109,6 +107,7 @@ const bodySchema = z
     streamingMode: z.boolean().optional(),
     // Save the result rather than returning it for the caller to persist.
     persist: z.boolean().optional(),
+    allowRunningExperiment: z.boolean().optional(),
     // Bytes so the back-end never fetches; `url` is the hosted copy for placing it.
     attachments: z
       .array(
@@ -155,6 +154,8 @@ const validation = {
   responseSchema: z.any(),
   method: "post" as const,
   path: "/visual-editor/ai/edit",
+  confirmation: ["experiment.draft"] as const,
+  confirmationInHandler: true,
   operationId: "postVisualEditorAIEdit",
   // Internal Visual Editor extension endpoint — not part of the
   // public OpenAPI spec.
@@ -663,6 +664,7 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
     conversationHistory,
     locale,
     persist,
+    allowRunningExperiment,
     attachments,
     resume,
   } = req.body;
@@ -678,20 +680,28 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
     );
   }
 
-  const changeset = await findVisualChangesetById(
+  const { changeset, owner } = await loadChangesetWithOwner(
+    context,
     visualChangesetId,
-    req.organization.id,
   );
-  if (!changeset)
-    return context.throwNotFoundError("Visual changeset not found");
-
-  const experiment = await getExperimentById(context, changeset.experiment);
-  if (!experiment) return context.throwNotFoundError("Experiment not found");
-  if (!context.permissions.canUpdateVisualChange(experiment)) {
+  if (!owner.canUpdateVisualChange()) {
     context.permissions.throwPermissionError();
   }
-  // Before the generation, so a doomed save doesn't burn AI quota first.
-  if (persist) requireDraftExperiment(context, experiment);
+  // Before the generation, so a doomed save doesn't burn AI quota first. Only a
+  // save is held; a preview changes nothing.
+  if (persist) {
+    owner.requireWrite(req, {
+      allowRunning: !!allowRunningExperiment,
+      visualChangesetId,
+    });
+    await requireConfirmation(context, {
+      actions: ["experiment.draft"],
+      project: owner.project,
+      summary: `Edit ${owner.name} with AI`,
+      links: [changesetOwnerConfirmationLink(owner)],
+      pin: null,
+    });
+  }
 
   // Gated on the model this request will actually run: an org on its own key
   // for that provider pays its own bill, so the managed cap doesn't apply.
@@ -1172,9 +1182,22 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
   const completeTurn = async (raw: z.infer<typeof outputSchema>) => {
     const finalized = await finalizeOutput(raw);
     if (persist) {
+      // Re-checked against the stored owner: it may have started during the generation.
+      const { owner: storedOwner } = await loadChangesetWithOwner(
+        context,
+        visualChangesetId,
+      );
+      if (!storedOwner.canUpdateVisualChange()) {
+        context.permissions.throwPermissionError();
+      }
+      const auditLiveEdit = storedOwner.requireWrite(req, {
+        allowRunning: !!allowRunningExperiment,
+        visualChangesetId,
+      });
       const change = currentChange;
       await updateVisualChange({
         context,
+        owner: storedOwner,
         changesetId: visualChangesetId,
         visualChangeId: change.id,
         payload: {
@@ -1187,6 +1210,7 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
           ...(finalized.js !== undefined ? { js: finalized.js } : {}),
         },
       });
+      await auditLiveEdit();
       return {
         ...finalized,
         saved: true as const,

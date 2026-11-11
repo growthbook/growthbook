@@ -5,6 +5,8 @@ import { addDays } from "date-fns";
 import {
   ExperimentMetricInterface,
   getAllMetricIdsFromExperiment,
+  getFactTableIdsForMetrics,
+  getIsolatedDimensionIds,
   quantileMetricType,
 } from "shared/experiments";
 import { FALLBACK_EXPERIMENT_MAX_LENGTH_DAYS } from "shared/constants";
@@ -17,6 +19,7 @@ import { SegmentInterface } from "shared/types/segment";
 import {
   Dimension,
   ExperimentAggregateUnitsQueryResponseRows,
+  ExperimentClusterHealthQueryResponseRows,
   ExperimentDimensionWithSpecifiedSlices,
   ExperimentFactMetricsQueryParams,
   ExperimentMetricQueryParams,
@@ -57,6 +60,7 @@ import {
 } from "back-end/src/services/experimentQueries/experimentQueries";
 import { parseDimension } from "back-end/src/services/experiments";
 import {
+  analyzeExperimentClusterHealth,
   analyzeExperimentResults,
   analyzeExperimentTraffic,
 } from "back-end/src/services/stats";
@@ -93,6 +97,10 @@ export type ExperimentResultsQueryParams = {
 };
 
 export const TRAFFIC_QUERY_NAME = "traffic";
+
+export const CLUSTER_TRAFFIC_QUERY_NAME = "clusterTraffic";
+
+export const CLUSTER_HEALTH_QUERY_NAME = "clusterHealth";
 
 export const UNITS_TABLE_PREFIX = "growthbook_tmp_units";
 
@@ -152,13 +160,27 @@ export const startExperimentResultQueries = async (
     snapshotSettings.exposureQueryIdentifierType,
   );
 
-  const snapshotDimensions: Dimension[] = (
+  const isolatedDimensionIds = new Set(
+    getIsolatedDimensionIds(snapshotSettings),
+  );
+  const parsedSnapshotDimensions: { id: string; dimension: Dimension }[] = (
     await Promise.all(
-      snapshotSettings.dimensions.map(
-        async (d) => await parseDimension(d.id, d.slices, org.id),
-      ),
+      snapshotSettings.dimensions.map(async (d) => {
+        const dimension = await parseDimension(d.id, d.slices, org.id);
+        return dimension ? { id: d.id, dimension } : null;
+      }),
     )
-  ).filter((d): d is Dimension => d !== null);
+  ).filter((d): d is { id: string; dimension: Dimension } => d !== null);
+
+  const snapshotDimensions: Dimension[] = parsedSnapshotDimensions.map(
+    (d) => d.dimension,
+  );
+  const parentSnapshotDimensions: Dimension[] = parsedSnapshotDimensions
+    .filter((d) => !isolatedDimensionIds.has(d.id))
+    .map((d) => d.dimension);
+  const isolatedSnapshotDimensions = parsedSnapshotDimensions.filter((d) =>
+    isolatedDimensionIds.has(d.id),
+  );
 
   const queries: Queries = [];
 
@@ -288,7 +310,7 @@ export const startExperimentResultQueries = async (
     const queryParams: ExperimentMetricQueryParams = {
       activationMetric,
       denominatorMetrics,
-      dimensions: runOverallQuantileAnalysis ? [] : snapshotDimensions,
+      dimensions: runOverallQuantileAnalysis ? [] : parentSnapshotDimensions,
       metric: m,
       segment: segmentObj,
       settings: snapshotSettings,
@@ -321,7 +343,7 @@ export const startExperimentResultQueries = async (
 
     const queryParams: ExperimentFactMetricsQueryParams = {
       activationMetric,
-      dimensions: runOverallQuantileAnalysis ? [] : snapshotDimensions,
+      dimensions: runOverallQuantileAnalysis ? [] : parentSnapshotDimensions,
       metrics: m,
       segment: segmentObj,
       settings: snapshotSettings,
@@ -349,98 +371,125 @@ export const startExperimentResultQueries = async (
             setExternalId,
             queryMetadata,
           ),
+        metadata: { factTableIds: getFactTableIdsForMetrics(m) },
         queryType: "experimentMultiMetric",
       }),
     );
   }
 
-  // Per-unit-dimension metric queries (unitdim:<id>:…). Parent gbstats skips
-  // them; a post-success hook runs per-dimension analyses from these results.
+  const pushIsolatedDimensionQueries = async ({
+    dimensionId,
+    dimension,
+    unitsSource,
+    dependencies,
+  }: {
+    dimensionId: string;
+    dimension: Dimension;
+    unitsSource: "exposureTable" | "exposureQuery";
+    dependencies: string[];
+  }) => {
+    for (const [i, m] of factMetricGroups.entries()) {
+      if (
+        !integration.getExperimentFactMetricsQuery ||
+        !integration.runExperimentFactMetricsQuery
+      ) {
+        throw new Error("Integration does not support multi-metric queries");
+      }
+      const queryParams: ExperimentFactMetricsQueryParams = {
+        activationMetric,
+        dimensions: [dimension],
+        metrics: m,
+        segment: segmentObj,
+        settings: snapshotSettings,
+        unitsSource,
+        unitsSettings,
+        unitsTableFullName: unitsTableFullName,
+        factTableMap: params.factTableMap,
+      };
+      queries.push(
+        await startQuery({
+          name: getUnitDimQueryName(dimensionId, `group_${i}`),
+          query: integration.getExperimentFactMetricsQuery(queryParams),
+          dependencies,
+          run: (query, setExternalId, queryMetadata) =>
+            (integration as SqlIntegration).runExperimentFactMetricsQuery(
+              query,
+              setExternalId,
+              queryMetadata,
+            ),
+          metadata: { factTableIds: getFactTableIdsForMetrics(m) },
+          queryType: "experimentMultiMetric",
+        }),
+      );
+    }
+
+    for (const m of legacyMetricSingles) {
+      // Only run overall quantile analysis for standard snapshots
+      // regardless of how many dimensions are requested
+      const runOverallQuantileAnalysis =
+        snapshotType === "standard" && quantileMetricType(m);
+
+      const denominatorMetrics: MetricInterface[] = [];
+      if (m.denominator) {
+        denominatorMetrics.push(
+          ...expandDenominatorMetrics(
+            m.denominator,
+            metricMap as Map<string, MetricInterface>,
+          )
+            .map((dm) => metricMap.get(dm) as MetricInterface)
+            .filter(Boolean),
+        );
+      }
+
+      const queryParams: ExperimentMetricQueryParams = {
+        activationMetric,
+        denominatorMetrics,
+        dimensions: runOverallQuantileAnalysis ? [] : [dimension],
+        metric: m,
+        segment: segmentObj,
+        settings: snapshotSettings,
+        unitsSource,
+        unitsSettings,
+        unitsTableFullName: unitsTableFullName,
+        factTableMap: params.factTableMap,
+      };
+      queries.push(
+        await startQuery({
+          name: getUnitDimQueryName(dimensionId, m.id),
+          query: integration.getSnapshotMetricQuery(queryParams),
+          dependencies,
+          run: (query, setExternalId, queryMetadata) =>
+            integration.runSnapshotMetricQuery(
+              query,
+              setExternalId,
+              queryMetadata,
+            ),
+          queryType: "experimentMetric",
+        }),
+      );
+    }
+  };
+
+  // Precomputed unit dimensions are always isolated.
   if (unitQuery && unitDimensionsToPrecompute.length > 0) {
     for (const unitDim of unitDimensionsToPrecompute) {
       if (unitDim.type !== "user") continue;
-      const dimensionId = unitDim.dimension.id;
-
-      for (const [i, m] of factMetricGroups.entries()) {
-        if (
-          !integration.getExperimentFactMetricsQuery ||
-          !integration.runExperimentFactMetricsQuery
-        ) {
-          throw new Error("Integration does not support multi-metric queries");
-        }
-        const queryParams: ExperimentFactMetricsQueryParams = {
-          activationMetric,
-          dimensions: [unitDim],
-          metrics: m,
-          segment: segmentObj,
-          settings: snapshotSettings,
-          unitsSource: "exposureTable",
-          unitsSettings,
-          unitsTableFullName: unitsTableFullName,
-          factTableMap: params.factTableMap,
-        };
-        queries.push(
-          await startQuery({
-            name: getUnitDimQueryName(dimensionId, `group_${i}`),
-            query: integration.getExperimentFactMetricsQuery(queryParams),
-            dependencies: [unitQuery.query],
-            run: (query, setExternalId, queryMetadata) =>
-              (integration as SqlIntegration).runExperimentFactMetricsQuery(
-                query,
-                setExternalId,
-                queryMetadata,
-              ),
-            queryType: "experimentMultiMetric",
-          }),
-        );
-      }
-
-      for (const m of legacyMetricSingles) {
-        // Only run overall quantile analysis for standard snapshots
-        // regardless of how many dimensions are requested
-        const runOverallQuantileAnalysis =
-          snapshotType === "standard" && quantileMetricType(m);
-
-        const denominatorMetrics: MetricInterface[] = [];
-        if (m.denominator) {
-          denominatorMetrics.push(
-            ...expandDenominatorMetrics(
-              m.denominator,
-              metricMap as Map<string, MetricInterface>,
-            )
-              .map((dm) => metricMap.get(dm) as MetricInterface)
-              .filter(Boolean),
-          );
-        }
-
-        const queryParams: ExperimentMetricQueryParams = {
-          activationMetric,
-          denominatorMetrics,
-          dimensions: runOverallQuantileAnalysis ? [] : [unitDim],
-          metric: m,
-          segment: segmentObj,
-          settings: snapshotSettings,
-          unitsSource: "exposureTable",
-          unitsSettings,
-          unitsTableFullName: unitsTableFullName,
-          factTableMap: params.factTableMap,
-        };
-        queries.push(
-          await startQuery({
-            name: getUnitDimQueryName(dimensionId, m.id),
-            query: integration.getSnapshotMetricQuery(queryParams),
-            dependencies: [unitQuery.query],
-            run: (query, setExternalId, queryMetadata) =>
-              integration.runSnapshotMetricQuery(
-                query,
-                setExternalId,
-                queryMetadata,
-              ),
-            queryType: "experimentMetric",
-          }),
-        );
-      }
+      await pushIsolatedDimensionQueries({
+        dimensionId: unitDim.dimension.id,
+        dimension: unitDim,
+        unitsSource: "exposureTable",
+        dependencies: [unitQuery.query],
+      });
     }
+  }
+
+  for (const { id, dimension } of isolatedSnapshotDimensions) {
+    await pushIsolatedDimensionQueries({
+      dimensionId: id,
+      dimension,
+      unitsSource: unitQuery ? "exposureTable" : "exposureQuery",
+      dependencies: unitQuery ? [unitQuery.query] : [],
+    });
   }
 
   let trafficQuery: QueryPointer | null = null;
@@ -479,6 +528,53 @@ export const startExperimentResultQueries = async (
       queryType: "experimentTraffic",
     });
     queries.push(trafficQuery);
+
+    if (snapshotSettings.isClusterExperiment) {
+      // Traffic counted at the cluster (randomization-unit) grain, so the
+      // balance check / SRM is per-cluster rather than per sub-unit.
+      const clusterTrafficQuery = await startQuery({
+        name: CLUSTER_TRAFFIC_QUERY_NAME,
+        query: integration.getExperimentAggregateUnitsQuery({
+          ...unitQueryParams,
+          settings: snapshotSettings,
+          dimensions: snapshotDimensionsForTraffic.length
+            ? snapshotDimensionsForTraffic
+            : dimensionsForTraffic,
+          useUnitsTable: !!unitQuery,
+          clusterGrain: true,
+        }),
+        dependencies: unitQuery ? [unitQuery.query] : [],
+        run: (query, setExternalId, queryMetadata) =>
+          integration.runExperimentAggregateUnitsQuery(
+            query,
+            setExternalId,
+            queryMetadata,
+          ),
+        queryType: "experimentTraffic",
+      });
+      queries.push(clusterTrafficQuery);
+
+      const clusterHealthQuery = await startQuery({
+        name: CLUSTER_HEALTH_QUERY_NAME,
+        query: integration.getExperimentClusterHealthQuery({
+          ...unitQueryParams,
+          settings: snapshotSettings,
+          dimensions: snapshotDimensionsForTraffic.length
+            ? snapshotDimensionsForTraffic
+            : dimensionsForTraffic,
+          useUnitsTable: !!unitQuery,
+        }),
+        dependencies: unitQuery ? [unitQuery.query] : [],
+        run: (query, setExternalId, queryMetadata) =>
+          integration.runExperimentClusterHealthQuery(
+            query,
+            setExternalId,
+            queryMetadata,
+          ),
+        queryType: "experimentTraffic",
+      });
+      queries.push(clusterHealthQuery);
+    }
   }
 
   const dropUnitsTable =
@@ -591,6 +687,36 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
       };
       result.multipleExposures =
         trafficHealth.multipleExposures ?? result.multipleExposures;
+
+      const clusterTrafficQuery = queryMap.get(CLUSTER_TRAFFIC_QUERY_NAME);
+      if (clusterTrafficQuery) {
+        result.health.clusterTraffic = analyzeExperimentTraffic({
+          rows: clusterTrafficQuery.result as ExperimentAggregateUnitsQueryResponseRows,
+          error: clusterTrafficQuery.error,
+          variations: this.model.settings.variations,
+        });
+      }
+
+      const clusterHealthQuery = queryMap.get(CLUSTER_HEALTH_QUERY_NAME);
+      if (clusterHealthQuery) {
+        const clusterHealth = analyzeExperimentClusterHealth({
+          rows: clusterHealthQuery.result as ExperimentClusterHealthQueryResponseRows,
+          error: clusterHealthQuery.error,
+          variations: this.model.settings.variations,
+        });
+        result.health.clusterUnits = clusterHealth.clusterUnits;
+        result.health.clusterAssignment = clusterHealth.clusterAssignment;
+        result.health.clusterSubUnitMapping =
+          clusterHealth.clusterSubUnitMapping;
+        result.health.subUnitMultipleExposures =
+          clusterHealth.subUnitMultipleExposures;
+        // The traffic query drops any cluster containing a multi-exposed
+        // sub-unit, so its count is always 0 here; use the pre-filter count.
+        if (!clusterHealth.subUnitMultipleExposures.error) {
+          result.multipleExposures =
+            clusterHealth.subUnitMultipleExposures.multipleExposedSubUnits;
+        }
+      }
 
       const relativeAnalysis = this.model.analyses.find(
         (a) => a.settings.differenceType === "relative",

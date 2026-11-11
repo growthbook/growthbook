@@ -1,38 +1,11 @@
 import { CSSProperties } from "react";
-import { PiShield, PiPulseBold } from "react-icons/pi";
+import { PiPulseBold } from "react-icons/pi";
+import ShieldBadgeIcon from "@/components/ShieldBadgeIcon";
 
-export default function MonitoredIcon({
-  size = 20,
-  style,
-  className,
-}: {
+export default function MonitoredIcon(props: {
   size?: number;
   style?: CSSProperties;
   className?: string;
 }) {
-  return (
-    <span
-      className={className}
-      style={{
-        position: "relative",
-        display: "inline-flex",
-        alignItems: "center",
-        justifyContent: "center",
-        width: size,
-        height: size,
-        ...style,
-      }}
-    >
-      <PiShield size={size} />
-      <PiPulseBold
-        size={size * 0.58}
-        style={{
-          position: "absolute",
-          top: "22%",
-          left: "50%",
-          transform: "translateX(-50%)",
-        }}
-      />
-    </span>
-  );
+  return <ShieldBadgeIcon icon={PiPulseBold} scale={0.58} {...props} />;
 }

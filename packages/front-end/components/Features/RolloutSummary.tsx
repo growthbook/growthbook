@@ -2,22 +2,19 @@ import { FeatureInterface } from "shared/types/feature";
 import { getConfigBackingKey, getFeatureBaseConfigKey } from "shared/util";
 import { Box, Flex } from "@radix-ui/themes";
 import ValidateValue from "@/components/Features/ValidateValue";
-import Badge from "@/ui/Badge";
 import Text from "@/ui/Text";
+import { coveragePercentFormatter } from "@/services/utils";
 import { AttributeBadge } from "./AttributeBadge";
+import { PlainEntityBadge } from "./EntityBadge";
 import ConfigBackedSummary from "./ConfigBackedSummary";
 import ValueDisplay from "./ValueDisplay";
-
-const percentFormatter = new Intl.NumberFormat(undefined, {
-  style: "percent",
-  maximumFractionDigits: 2,
-});
 
 export default function RolloutSummary({
   value,
   coverage,
   feature,
   hashAttribute,
+  fallbackAttribute,
   sparse = false,
   environment,
 }: {
@@ -25,6 +22,7 @@ export default function RolloutSummary({
   coverage: number;
   feature: FeatureInterface;
   hashAttribute: string;
+  fallbackAttribute?: string;
   monitored?: boolean;
   sparse?: boolean;
   // Environment this value is shown for, so a config-backed value previews its
@@ -46,6 +44,11 @@ export default function RolloutSummary({
       <Flex direction="row" gap="2" mb="3">
         <Text weight="medium">SAMPLE</Text> by{" "}
         <AttributeBadge attributeId={hashAttribute} />
+        {fallbackAttribute ? (
+          <>
+            falling back to <AttributeBadge attributeId={fallbackAttribute} />
+          </>
+        ) : null}
       </Flex>
       <Box className="mb-3">
         <Flex gap="3" align="center">
@@ -83,18 +86,12 @@ export default function RolloutSummary({
               />
             </Box>
           </Box>
-          <Box>
-            <Badge
-              color="gray"
-              mr="2"
-              label={
-                <Text color="text-high">
-                  {percentFormatter.format(displayCoverage)}
-                </Text>
-              }
+          <Flex align="center" gap="2">
+            <PlainEntityBadge
+              label={coveragePercentFormatter.format(displayCoverage)}
             />
             of units
-          </Box>
+          </Flex>
         </Flex>
       </Box>
       {configKey !== null ? (

@@ -1,6 +1,6 @@
 import cloneDeep from "lodash/cloneDeep";
 import { format } from "shared/sql";
-import { isRatioMetric } from "shared/experiments";
+import { isFactCompoundMetric, isRatioMetric } from "shared/experiments";
 import type { DataSourceInterface } from "shared/types/datasource";
 import type { ExperimentMetricInterface } from "shared/experiments";
 import type { ExperimentSnapshotSettings } from "shared/types/experiment-snapshot";
@@ -16,7 +16,12 @@ import { getFactMetricCTE } from "back-end/src/integrations/sql/ctes/fact-metric
 import { getIdentitiesCTE } from "back-end/src/integrations/sql/ctes/identities-cte";
 import { parseExperimentFactMetricsParams } from "back-end/src/integrations/sql/fact-metrics/parse-experiment-fact-metrics-params";
 import { getMetricSourceCovariateTableColumns } from "back-end/src/integrations/sql/fact-metrics/metric-source-covariate-table-schema";
+import { resolveClusterMetricGrain } from "back-end/src/integrations/sql/fact-metrics/cluster-metric-grain";
 import { encodeMetricIdForColumnName } from "back-end/src/integrations/sql/fact-metrics/encode-metric-id-for-column-name";
+import {
+  compoundComponentColumn,
+  compoundCovariateComponentColumn,
+} from "back-end/src/integrations/sql/fact-metrics/compound-columns";
 import { capCoalesceValue } from "back-end/src/integrations/sql/primitives/cap-coalesce-value";
 import { toTimestampWithMs } from "back-end/src/integrations/sql/primitives/to-timestamp-with-ms";
 import { afterWatermark } from "back-end/src/integrations/sql/primitives/watermark";
@@ -70,17 +75,23 @@ export function getInsertMetricSourceCovariateDataLegacyQuery(
     );
   }
 
+  // Match the grain of the metric source cache this covariate data pairs with:
+  // sub-unit id for sub-unit metrics, cluster id for cluster-level metrics.
+  const { baseIdType: effectiveBaseIdType, isClusterLevelGroup } =
+    resolveClusterMetricGrain({
+      settings: params.settings,
+      metrics: sortedMetrics,
+      exposureIdentifierType: exposureQuery.identifierType,
+    });
+
   const { baseIdType, idJoinMap, idJoinSQL } = getIdentitiesCTE(
     dialect,
     datasource.settings,
     {
-      objects: [
-        [exposureQuery.identifierType],
-        source.factTable?.userIdTypes || [],
-      ],
+      objects: [[effectiveBaseIdType], source.factTable?.userIdTypes || []],
       from: params.settings.startDate,
       to: params.settings.endDate,
-      forcedBaseIdType: exposureQuery.identifierType,
+      forcedBaseIdType: effectiveBaseIdType,
       experimentId: params.settings.experimentId,
     },
   );
@@ -94,6 +105,13 @@ export function getInsertMetricSourceCovariateDataLegacyQuery(
 
   // Floor to UTC days when aligning, so this fallback computes the identical
   // covariate window as the pre-aggregated path (windowFilter is floored too).
+  const compoundComponentsOnThisFt = (m: (typeof metricData)[number]) =>
+    isFactCompoundMetric(m.metric)
+      ? m.metric.compoundSettings.components.flatMap((component, k) =>
+          component.factTableId === params.factTableId ? [k] : [],
+        )
+      : [];
+
   const scanStartDate = params.alignLegacyScanToDailyGrain
     ? snapToUtcDayStart(source.minCovariateStartDate)
     : source.minCovariateStartDate;
@@ -156,7 +174,17 @@ export function getInsertMetricSourceCovariateDataLegacyQuery(
                 const denominatorOnThisFt =
                   isRatioMetric(m.metric) &&
                   m.metric.denominator?.factTableId === params.factTableId;
-                return `
+                const compoundCols = compoundComponentsOnThisFt(m)
+                  .map(
+                    (k) =>
+                      `, SUM(${dialect.ifElse(
+                        windowFilter,
+                        compoundComponentColumn(m.alias, k),
+                        "NULL",
+                      )}) AS ${compoundCovariateComponentColumn(m.alias, k)}`,
+                  )
+                  .join("");
+                return `${compoundCols}
                 ${
                   numeratorOnThisFt
                     ? `, ${aggfunction(
@@ -184,7 +212,7 @@ export function getInsertMetricSourceCovariateDataLegacyQuery(
               .join("\n")}
           FROM __factTable m
           INNER JOIN (
-            SELECT ${baseIdType}
+            SELECT ${isClusterLevelGroup ? "DISTINCT " : ""}${baseIdType}
             FROM ${params.unitsSourceTableFullName}
             ${
               params.lastCovariateSuccessfulMaxTimestamp
@@ -206,6 +234,12 @@ export function getInsertMetricSourceCovariateDataLegacyQuery(
             const includeDenominator =
               m.ratioMetric &&
               m.metric.denominator?.factTableId === params.factTableId;
+            const compoundCols = compoundComponentsOnThisFt(m)
+              .map(
+                (k) =>
+                  `, COALESCE(c.${compoundCovariateComponentColumn(m.alias, k)}, 0) AS ${compoundComponentColumn(encodeMetricIdForColumnName(m.id), k)}`,
+              )
+              .join("");
             const numeratorCol = includeNumerator
               ? `, ${capCoalesceValue(dialect, {
                   valueCol: `c.${m.alias}_covariate_value`,
@@ -222,7 +256,7 @@ export function getInsertMetricSourceCovariateDataLegacyQuery(
                   preserveType: true,
                 })} AS ${encodeMetricIdForColumnName(m.id)}_denominator_value`
               : "";
-            return `${numeratorCol}${denominatorCol}`;
+            return `${compoundCols}${numeratorCol}${denominatorCol}`;
           })
           .join("\n")}
       FROM __newCovariateValues c

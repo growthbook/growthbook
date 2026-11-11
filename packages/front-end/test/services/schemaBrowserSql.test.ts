@@ -79,6 +79,74 @@ describe("columnInsertDisabledReason", () => {
     ).toBeNull();
   });
 
+  it("parses multi-part unquoted, mixed-quote, and bracketed paths", () => {
+    const threePart = "my_db.analytics.events";
+    expect(
+      columnInsertDisabledReason(
+        `SELECT * FROM ${threePart}`,
+        threePart,
+        "user_id",
+      ),
+    ).toBeNull();
+    expect(
+      columnInsertDisabledReason(
+        `SELECT * FROM ${threePart}`,
+        TABLE_A,
+        "user_id",
+      ),
+    ).toMatch(/different table/);
+    expect(
+      columnInsertDisabledReason(
+        `SELECT * FROM my_db."Analytics".events`,
+        threePart,
+        "user_id",
+      ),
+    ).toBeNull();
+    expect(
+      columnInsertDisabledReason(
+        `SELECT * FROM [analytics].[events]`,
+        TABLE_A,
+        "user_id",
+      ),
+    ).toBeNull();
+    expect(
+      columnInsertDisabledReason(
+        `SELECT * FROM "my db"."my.table"`,
+        TABLE_B,
+        "user_id",
+      ),
+    ).toMatch(/different table/);
+  });
+
+  it.each(['"a""b"', "`a``b`", "[a]]b]"])(
+    "parses %s with an escaped quote",
+    (table) => {
+      expect(
+        columnInsertDisabledReason(`SELECT * FROM ${table}`, TABLE_A, "id"),
+      ).toMatch(/different table/);
+    },
+  );
+
+  it("does not backtrack catastrophically on many dot-separated segments", () => {
+    const sql = "select a from !." + "!.".repeat(30) + ",";
+    const start = performance.now();
+    expect(columnInsertDisabledReason(sql, TABLE_A, "user_id")).toBeNull();
+    expect(insertColumnIntoSelect(sql, "user_id", TABLE_A)).toBe(
+      `SELECT user_id FROM ${TABLE_A}`,
+    );
+    expect(performance.now() - start).toBeLessThan(500);
+  });
+
+  it.each(['"x"', "`x`", "[x]", '"x""y"', "`x``y`", "[x]]y]"])(
+    "does not backtrack catastrophically on many %s segments",
+    (segment) => {
+      const sql = "select a from " + Array(30).fill(segment).join(".") + ",";
+      const start = performance.now();
+      expect(columnInsertDisabledReason(sql, TABLE_A, "user_id")).toBeNull();
+      expect(performance.now() - start).toBeLessThan(500);
+    },
+  );
+
   it("disables CTEs, UNIONs, and multiple SELECT statements", () => {
     expect(
       columnInsertDisabledReason(

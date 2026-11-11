@@ -18,6 +18,7 @@ import CodeTabsExperimentResultCallbackPartial from "/snippets/partials/java/_co
 import CodeTabsExperimentResultSubscribeMultipleCallbackPartial from "/snippets/partials/java/_code-tabs-subscribe-multiple.mdx";
 import CodeTabsFeaturesRepository from "/snippets/partials/java/_code-tabs-gbfeatures-repository.mdx";
 import CodeTabsFeatureUsageCallback from "/snippets/partials/java/_code-tabs-feature-usage-callback.mdx";
+import JavaEventTracking from "/snippets/partials/sdk-event-tracking/_java.mdx";
 import { SdkResources } from "/snippets/SdkResources.jsx";
 import { SdkSupportedFeatures } from "/snippets/SdkSupportedFeatures.jsx";
 
@@ -715,6 +716,12 @@ There's also a number of methods available.
 | **`getHashUsed()`**      | `Boolean`              | If a hash was used to evaluate the experiment. This flag will only be true if the user was randomly assigned a variation. If the user was forced into a specific variation instead, this flag will be false. |
 
 As expected in Kotlin, you can access these getters using property accessors.
+
+### GrowthBook Event Tracking
+
+Sends experiment view and feature usage events to GrowthBook's [Managed Warehouse](/app/managed-warehouse) or [Event Forwarder](/app/event-forwarder).
+
+<JavaEventTracking />
 
 ### Tracking feature usage and experiment impressions
 

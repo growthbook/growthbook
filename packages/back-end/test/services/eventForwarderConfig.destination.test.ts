@@ -78,6 +78,11 @@ describe("event forwarder qualified destinations", () => {
       database: "EVENT_DB",
       schema: "PUBLIC",
       tablePrefix: "GB",
+      tables: {
+        events: "GB_EVENTS",
+        experiment_viewed: "GB_EXPERIMENT_VIEWED",
+        feature_usage: "GB_FEATURE_USAGE",
+      },
       accessUrl: "https://myorg-account.snowflakecomputing.com",
       role: "EVENT_ROLE",
       warehouse: "EVENT_WH",

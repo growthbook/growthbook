@@ -1,3 +1,30 @@
+// Copy a Date's UTC date and time into local fields and back, so a picker that only shows local time can show UTC.
+export function utcAsLocal(date: Date): Date {
+  return new Date(
+    date.getUTCFullYear(),
+    date.getUTCMonth(),
+    date.getUTCDate(),
+    date.getUTCHours(),
+    date.getUTCMinutes(),
+    date.getUTCSeconds(),
+    date.getUTCMilliseconds(),
+  );
+}
+
+export function localAsUtc(picked: Date): Date {
+  return new Date(
+    Date.UTC(
+      picked.getFullYear(),
+      picked.getMonth(),
+      picked.getDate(),
+      picked.getHours(),
+      picked.getMinutes(),
+      picked.getSeconds(),
+      picked.getMilliseconds(),
+    ),
+  );
+}
+
 export const formatDateForURL = (date: Date) => {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, "0"); // Months are 0-indexed

@@ -4,8 +4,10 @@ import {
   parseAssignmentQueryInput,
 } from "shared/util";
 import {
+  CLUSTER_BANDIT_NOT_SUPPORTED_MESSAGE,
   ExperimentInterfaceExcludingHoldouts,
   ExperimentTemplateInterface,
+  isUnsupportedClusterBanditCombination,
   postExperimentValidator,
 } from "shared/validators";
 import { omit } from "lodash";
@@ -15,6 +17,7 @@ import {
 } from "back-end/src/models/ExperimentModel";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import {
+  assertValidClusterExperimentConfig,
   assertExperimentKeyFormat,
   getExperimentAttributeScopeProjects,
   postExperimentApiPayloadToInterface,
@@ -34,6 +37,10 @@ import {
   resolveOwnerEmail,
 } from "back-end/src/services/owner";
 import { getMetricMap } from "back-end/src/models/MetricModel";
+import {
+  experimentChangeActions,
+  requireConfirmation,
+} from "back-end/src/services/confirmations";
 import {
   assertValidExperimentPrerequisites,
   phasePrerequisites,
@@ -166,6 +173,7 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
       decisionFrameworkSettings: fields.decisionFrameworkSettings,
       metricOverrides: fields.metricOverrides,
       defaultDashboardId: fields.defaultDashboardId,
+      isClusterExperiment: fields.isClusterExperiment,
     });
 
     const datasource = fields.datasourceId
@@ -190,6 +198,10 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
              * on the template, not in this body.
              */
             field: template ? "exposureQuery" : "assignmentQuery",
+            scope: {
+              project: fields.project ?? "",
+              datasourceProjects: datasource.projects,
+            },
           },
         )
       : null;
@@ -207,6 +219,15 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
         ? parsed.identifierType
         : requestedIdentifierType,
     };
+
+    if (
+      isUnsupportedClusterBanditCombination({
+        type: payload.type,
+        isClusterExperiment: payload.isClusterExperiment,
+      })
+    ) {
+      throw new Error(CLUSTER_BANDIT_NOT_SUPPORTED_MESSAGE);
+    }
 
     await assertExperimentKeyFormat(
       req.context,
@@ -253,7 +274,7 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
     }
     const ownerId =
       (await resolveOwnerToUserId(ownerEmail, req.context, { strict: true })) ??
-      req.context.userId;
+      req.context.actingUserId;
 
     // Validate that specified metrics exist and belong to the organization
     const metricGroups = await req.context.models.metricGroups.getAll();
@@ -267,11 +288,11 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
       true,
       metricGroups,
     );
+    const map = await getMetricMap(req.context);
     if (metricIds.length) {
       if (!datasource) {
         throw new Error("Must provide a datasource when including metrics");
       }
-      const map = await getMetricMap(req.context);
       for (let i = 0; i < metricIds.length; i++) {
         const metric = map.get(metricIds[i]);
         if (metric) {
@@ -302,6 +323,27 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
         }
       }
     }
+
+    await assertValidClusterExperimentConfig({
+      context: req.context,
+      datasource,
+      current: {
+        isClusterExperiment: payload.isClusterExperiment,
+        exposureQueryId: payload.assignmentQueryId,
+        exposureQueryIdentifierType: payload.assignmentQueryIdentifierType,
+        clusterSubUnitIdentifier: payload.clusterSubUnitIdentifier,
+        goalMetrics: payload.metrics,
+        secondaryMetrics: payload.secondaryMetrics,
+        guardrailMetrics: payload.guardrailMetrics,
+        activationMetric: payload.activationMetric,
+      },
+      metricMap: map,
+      metricGroups,
+      wrapIdentifierError: templateId
+        ? (message) => `Template "${templateId}": ${message}`
+        : undefined,
+    });
+
     if (payload.variations) {
       validateVariationIds(payload.variations);
     }
@@ -395,6 +437,26 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
       req.context,
       phasePrerequisites(newExperiment.phases),
     );
+
+    // Created running, stopped or with a scheduled start: judged as a change
+    // from a draft of itself.
+    await requireConfirmation(req.context, {
+      actions: [
+        "experiment.create",
+        ...experimentChangeActions(
+          {
+            ...newExperiment,
+            status: "draft",
+            statusUpdateSchedule: undefined,
+          },
+          newExperiment,
+        ),
+      ],
+      project: newExperiment.project,
+      summary: `Create ${newExperiment.name}`,
+      links: [],
+      pin: null,
+    });
 
     const experiment = await createExperiment({
       data: newExperiment,

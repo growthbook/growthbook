@@ -181,7 +181,7 @@ export class LearningModel extends BaseClass {
       projects: body.projects ?? [],
       status: body.status ?? "",
       owner: body.owner,
-      authors: this.context.userId ? [this.context.userId] : [],
+      authors: this.context.actingUserId ? [this.context.actingUserId] : [],
       source: "api",
     } as CreateProps<LearningInterface>;
   }

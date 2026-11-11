@@ -1,0 +1,5 @@
+.badge:global(.rt-Badge) {
+  padding-block: calc(var(--space-1) / 2 - 1px);
+  background-color: var(--gray-a2);
+  border-radius: var(--radius-3);
+}

@@ -260,7 +260,7 @@ export function trackMcpRequestCompletion(
 
       const client = getGrowthBookClient();
       if (!client || !req.organization) return;
-      const userId = req.user?.id || "";
+      const userId = req.context?.actingUserId || req.user?.id || "";
       client.logEvent(EVENT_MCP_REQUEST, properties, {
         attributes: {
           ...getTrustedOrgAttributes(req.organization),

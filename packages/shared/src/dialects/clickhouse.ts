@@ -81,6 +81,7 @@ export const clickHouseDialect: SqlDialect = {
     return `if(length(${filtered}) > 0, arrayMin(${filtered}), NULL)`;
   },
   castToString: (col: string) => `toString(${col})`,
+  lowerString: (col: string) => `lowerUTF8(${col})`,
   castToFloat: (col: string) => `toFloat64(${col})`,
   hasCountDistinctHLL: () => true,
   hllAggregate: (col: string) => `uniqState(${col})`,
@@ -113,6 +114,13 @@ if(
   JSONExtractString(${jsonCol}, '${path}')
 )
       `;
+  },
+  // toString so a native JSON column is unnested via its text form like a
+  // String column; JSON_VALUE returns scalars (incl. bools) unquoted
+  jsonArray: {
+    unnest: (jsonColumn, itemAlias) =>
+      `ARRAY JOIN JSONExtractArrayRaw(toString(${jsonColumn})) AS ${itemAlias}`,
+    fieldText: (itemAlias, field) => `JSON_VALUE(${itemAlias}, '$.${field}')`,
   },
   evalBoolean: (col: string, value: boolean) =>
     `${col} = ${value ? "true" : "false"}`,

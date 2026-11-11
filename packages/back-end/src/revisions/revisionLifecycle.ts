@@ -15,9 +15,10 @@ import {
 } from "back-end/src/revisions/revisionActions";
 import {
   draftAuthorityOnRow,
-  isRevisionAuthor,
-  reviewAuthorityOnRow,
+  hasAuthorRights,
+  retractAuthorityOnRow,
 } from "back-end/src/revisions/revisionAuthority";
+import { assertCasAuthority } from "back-end/src/models/casLoop";
 
 export async function recallRevisionReview({
   context,
@@ -36,7 +37,7 @@ export async function recallRevisionReview({
   }
 
   if (
-    !isRevisionAuthor(revision.authorId, context.userId) &&
+    !hasAuthorRights(context, revision, "draft") &&
     !canRevisionOwnedAction(context, revision, "draft")
   ) {
     context.permissions.throwPermissionError();
@@ -44,7 +45,7 @@ export async function recallRevisionReview({
 
   const recalled = await context.models.revisions.recallReview(
     revision.id,
-    context.userId,
+    context.actorId,
     draftAuthorityOnRow(context),
   );
   await getRevisionWebhookAdapter(type)?.dispatch(context, recalled, {
@@ -68,7 +69,7 @@ export async function reopenRevision({
   }
 
   if (
-    !isRevisionAuthor(revision.authorId, context.userId) &&
+    !hasAuthorRights(context, revision, "draft") &&
     !canRevisionOwnedAction(context, revision, "draft")
   ) {
     context.permissions.throwPermissionError();
@@ -76,7 +77,7 @@ export async function reopenRevision({
 
   const reopened = await context.models.revisions.reopen(
     revision.id,
-    context.userId,
+    context.actorId,
     draftAuthorityOnRow(context),
   );
   await getRevisionWebhookAdapter(type)?.dispatch(context, reopened, {
@@ -97,14 +98,13 @@ export async function undoRevisionReview({
   revision: Revision;
 }): Promise<Revision> {
   // Verdict authority follows the revision snapshot and is rechecked inside the CAS.
-  if (!canRevisionOwnedAction(context, revision, "review")) {
-    context.permissions.throwPermissionError();
-  }
+  const authority = retractAuthorityOnRow(context);
+  await assertCasAuthority(authority, revision);
 
   const updated = await context.models.revisions.undoReview(
     revision.id,
-    context.userId,
-    reviewAuthorityOnRow(context),
+    context.actorId,
+    authority,
     // The cycle this caller was looking at when they asked to retract.
     revision.reviewCycle ?? 0,
   );

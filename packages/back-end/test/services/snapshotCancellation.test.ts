@@ -247,7 +247,7 @@ describe("cancelExperimentSnapshot", () => {
     };
     const doc =
       status === "succeeded"
-        ? await createCompletedQuery({ ...base, rawResult: [] })
+        ? await createCompletedQuery(context, { ...base, rawResult: [] })
         : await createNewQuery({
             ...base,
             dependencies: [],

@@ -21,7 +21,12 @@ const PROVIDER_DISPLAY_NAMES: Record<AIProvider, string> = {
 
 /** Human-readable display names for all AI models, without vendor prefix. */
 export const AI_MODEL_DISPLAY_LABELS: Record<AIModel, string> = {
-  // OpenAI GPT-5.6 series. Hyphenated, matching OpenAI's own naming.
+  // OpenAI. Hyphenated, matching OpenAI's own naming.
+  "gpt-6-astra": "GPT-6 Astra",
+  "gpt-6.1-sol": "GPT-6.1 Sol",
+  "gpt-6-sol": "GPT-6 Sol",
+  "gpt-6-luna": "GPT-6 Luna",
+  // GPT-5.6 series
   "gpt-5.6-sol": "GPT-5.6 Sol",
   "gpt-5.6-terra": "GPT-5.6 Terra",
   "gpt-5.6-luna": "GPT-5.6 Luna",
@@ -30,14 +35,10 @@ export const AI_MODEL_DISPLAY_LABELS: Record<AIModel, string> = {
   "gpt-5.4-nano": "GPT-5.4 Nano",
   "gpt-5.2": "GPT-5.2",
   "gpt-5.2-pro": "GPT-5.2 Pro",
-  "gpt-5.1-codex": "GPT-5.1 Codex",
-  "gpt-5.1-codex-max": "GPT-5.1 Codex Max",
-  "gpt-5.1-codex-mini": "GPT-5.1 Codex Mini",
   "gpt-5": "GPT-5",
   "gpt-5-nano": "GPT-5 Nano",
   "gpt-5-mini": "GPT-5 Mini",
   "gpt-5-pro": "GPT-5 Pro",
-  "gpt-5-codex": "GPT-5 Codex",
   // OpenAI GPT-4 series
   "gpt-4.1": "GPT-4.1",
   "gpt-4.1-mini": "GPT-4.1 Mini",
@@ -54,27 +55,26 @@ export const AI_MODEL_DISPLAY_LABELS: Record<AIModel, string> = {
   "claude-opus-5": "Claude Opus 5",
   "claude-sonnet-5-5": "Claude Sonnet 5.5",
   "claude-sonnet-5": "Claude Sonnet 5",
+  "claude-haiku-5-5": "Claude Haiku 5.5",
   "claude-opus-4-8": "Claude Opus 4.8",
   "claude-sonnet-4-6": "Claude Sonnet 4.6",
   "claude-haiku-4-5-20251001": "Claude Haiku 4.5",
   "claude-sonnet-4-5-20250929": "Claude Sonnet 4.5",
-  "claude-opus-4-1-20250805": "Claude Opus 4.1",
   "claude-opus-4-20250514": "Claude Opus 4",
   "claude-sonnet-4-20250514": "Claude Sonnet 4",
-  "claude-3-7-sonnet-20250219": "Claude Sonnet 3.7",
-  "claude-3-5-haiku-20241022": "Claude Haiku 3.5",
-  "claude-3-haiku-20240307": "Claude Haiku 3",
   // xAI Grok
+  "grok-4.7": "Grok 4.7",
   "grok-4.6": "Grok 4.6",
   "grok-4.5": "Grok 4.5",
   "grok-4.3": "Grok 4.3",
   "mistral-large-latest": "Mistral Large (latest)",
   "mistral-medium-latest": "Mistral Medium (latest)",
   "mistral-small-latest": "Mistral Small (latest)",
-  "pixtral-large-latest": "Pixtral Large (latest)",
   // Google Gemini
   "gemini-3.1-pro-preview": "Gemini 3.1 Pro Preview",
+  "gemini-3.8-flash": "Gemini 3.8 Flash",
   "gemini-3.7-flash": "Gemini 3.7 Flash",
+  "gemini-3.6-flash": "Gemini 3.6 Flash",
   "gemini-3.5-flash": "Gemini 3.5 Flash",
   "gemini-3.5-flash-lite": "Gemini 3.5 Flash Lite",
   "gemini-3-flash-preview": "Gemini 3 Flash Preview",

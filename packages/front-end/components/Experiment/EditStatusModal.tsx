@@ -3,7 +3,6 @@ import {
   ExperimentStatus,
 } from "shared/types/experiment";
 import { useForm } from "react-hook-form";
-import { datetime } from "shared/dates";
 import { HoldoutInterfaceStringDates } from "shared/validators";
 import { getHoldoutStage } from "shared/util";
 import { Box } from "@radix-ui/themes";
@@ -14,6 +13,11 @@ import DatePicker from "@/components/DatePicker";
 import Callout from "@/ui/Callout";
 import Text from "@/ui/Text";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
+import { validatedSubmit } from "@/ui/Modal/validatedSubmit";
+import {
+  armedStartDate,
+  scheduledTime,
+} from "@/components/Experiment/TabbedPage/statusSchedule";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
@@ -21,6 +25,8 @@ export interface Props {
   close: () => void;
   source?: string;
   holdout?: HoldoutInterfaceStringDates;
+  // Where a draft experiment starts, so its checks aren't skipped here.
+  openStart: (() => void) | null;
 }
 
 export default function EditStatusModal({
@@ -29,6 +35,7 @@ export default function EditStatusModal({
   mutate,
   source,
   holdout,
+  openStart,
 }: Props) {
   const isHoldout = experiment.type === "holdout";
   const form = useForm<{
@@ -44,10 +51,18 @@ export default function EditStatusModal({
           ? "analysis"
           : experiment.status,
       reason: "",
-      dateEnded: new Date().toISOString().substr(0, 16),
+      dateEnded: new Date().toISOString(),
     },
   });
   const { apiCall } = useAuth();
+  const startsElsewhere =
+    !isHoldout &&
+    !!openStart &&
+    experiment.status === "draft" &&
+    form.watch("status") === "running";
+  // An armed start shows its date in place of the start popover, so moving it
+  // up goes through the schedule.
+  const armedStart = startsElsewhere ? armedStartDate(experiment) : null;
   const hasLinkedChanges =
     !!experiment.linkedFeatures?.length || !!experiment.hasVisualChangesets;
   const statusOptions = [
@@ -81,13 +96,18 @@ export default function EditStatusModal({
       }
       close={close}
       open={true}
-      submit={form.handleSubmit(
+      submit={validatedSubmit(
+        form,
         async (value: {
           status: ExperimentStatus | "analysis";
           reason: string;
           dateEnded: string;
           holdoutRunningStatus?: "running" | "analysis-period";
         }) => {
+          if (startsElsewhere) {
+            openStart();
+            return;
+          }
           const status = value.status;
           if (isHoldout && status === "analysis") {
             value.holdoutRunningStatus = "analysis-period";
@@ -118,8 +138,9 @@ export default function EditStatusModal({
           }
         },
       )}
-      cta="Update"
-      ctaColor="red"
+      cta={startsElsewhere ? "Continue" : "Update"}
+      ctaColor={startsElsewhere ? "violet" : "red"}
+      ctaEnabled={!armedStart}
     >
       {isHoldout && (
         <Box mb="4">
@@ -130,7 +151,13 @@ export default function EditStatusModal({
           </Text>
         </Box>
       )}
-      {hasLinkedChanges && (
+      {armedStart ? (
+        <Callout status="info" mb="4">
+          This experiment is scheduled to start {scheduledTime(armedStart)}. To
+          start it sooner, edit its schedule.
+        </Callout>
+      ) : null}
+      {hasLinkedChanges && !startsElsewhere && (
         <Callout status="warning" mb="4">
           Changes you make here will immediately affect any linked Feature Flags
           or Visual Changes.
@@ -158,10 +185,11 @@ export default function EditStatusModal({
               placeholder="(optional)"
             />
             <DatePicker
-              label="Stop Time (UTC)"
+              label="Stop time"
+              timeZone="utc"
               date={form.watch("dateEnded")}
               setDate={(v) => {
-                form.setValue("dateEnded", v ? datetime(v) : "");
+                form.setValue("dateEnded", v ? v.toISOString() : "");
               }}
             />
           </>

@@ -38,7 +38,7 @@ Notes:
 
 - Self-hosted deployments only — on GrowthBook Cloud there is no customer-controlled cloud identity to bind.
 - The identity you bind is whatever the GrowthBook _server_ runs as. If that role is shared with other services, they can all authenticate as this Snowflake user — prefer a dedicated role for GrowthBook.
-- The Event Forwarder still requires key-pair authentication (Confluent's Snowflake sink needs a literal private key). Remove it before switching an existing data source to Workload Identity; the forwarder keeps its own copy of the private key until removed.
+- The Event Forwarder still requires key-pair authentication. Remove it before switching an existing data source to Workload Identity; the forwarder keeps its own copy of the private key until removed.
 
 ## Self-Hosting
 

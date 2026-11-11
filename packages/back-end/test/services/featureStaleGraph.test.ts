@@ -27,6 +27,7 @@ const features = [
 
 describe("loadStaleGraph", () => {
   beforeEach(() => {
+    jest.clearAllMocks();
     jest
       .mocked(getFeaturesWithPrerequisitesOn)
       .mockImplementation(
@@ -57,6 +58,16 @@ describe("loadStaleGraph", () => {
       "exp_on_c",
     ]);
     // One query per dependency level: [a], then [b], then [c] finds nothing new
-    expect(getFeaturesWithPrerequisitesOn).toHaveBeenCalledTimes(3);
+    expect(
+      jest
+        .mocked(getFeaturesWithPrerequisitesOn)
+        .mock.calls.map(([, ids]) => ids),
+    ).toEqual([["a"], ["b"], ["c"]]);
+  });
+
+  it("queries once for a flag nothing depends on", async () => {
+    const graph = await loadStaleGraph({ org: {} } as ReqContext, ["d"]);
+    expect(graph.features.map((f) => f.id)).toEqual(["d"]);
+    expect(getFeaturesWithPrerequisitesOn).toHaveBeenCalledTimes(1);
   });
 });

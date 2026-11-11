@@ -572,9 +572,127 @@ describe("computeContextualBanditWeights", () => {
     const bic = result.bic_trajectory![0];
     // The split reduces SSE, so the likelihood ratio is positive.
     expect(bic.logLikelihoodRatio).toBeGreaterThan(0);
-    // K = 2 variations, N = 800 total users => penalty = 2 * ln(800).
-    expect(bic.penalty).toBeCloseTo(2 * Math.log(800), 6);
+    // Base BIC penalty: K = 2 variations, N = 800 total users => 2 * ln(800).
+    // The `country` attribute has 2 categories (US, CA), so the exhaustive
+    // search evaluates exactly one binary partition (2^(2-1) - 1 = 1). With
+    // M = 1 the EBIC multiplicity penalty 2 * gamma * ln(M) is zero.
+    const basePenalty = 2 * Math.log(800);
+    const expectedMultiplicity = 2 * Math.log(1);
+    expect(bic.numCandidates).toBe(1);
+    expect(bic.multiplicityPenalty).toBeCloseTo(expectedMultiplicity, 6);
+    expect(bic.penalty).toBeCloseTo(basePenalty + expectedMultiplicity, 6);
     expect(bic.deltaBic).toBeCloseTo(bic.penalty - bic.logLikelihoodRatio, 6);
+  });
+
+  it("adds the EBIC multiplicity penalty when gamma > 0", () => {
+    // Three categories (US, CA, GB) on the single `country` attribute, so the
+    // root leaf's exhaustive search evaluates 2^(3-1) - 1 = 3 binary partitions
+    // (M = 3) and the multiplicity penalty is non-zero.
+    const data = [
+      countryObs("US", 0, 200, 1),
+      countryObs("US", 1, 200, 2),
+      countryObs("CA", 0, 200, 2),
+      countryObs("CA", 1, 200, 1),
+      countryObs("GB", 0, 200, 1),
+      countryObs("GB", 1, 200, 2),
+    ];
+
+    const gamma0 = computeContextualBanditWeights({
+      ...input(data),
+      ebicGamma: 0,
+    });
+    const gamma1 = computeContextualBanditWeights({
+      ...input(data),
+      ebicGamma: 1,
+    });
+
+    const bic0 = gamma0.bic_trajectory![0];
+    const bic1 = gamma1.bic_trajectory![0];
+
+    // M (candidates searched) is independent of gamma: 3 categories on the
+    // single `country` attribute of the root leaf => 2^(3-1) - 1 = 3 partitions.
+    expect(bic0.numCandidates).toBe(3);
+    expect(bic1.numCandidates).toBe(3);
+
+    // gamma = 0 => no multiplicity penalty; gamma = 1 => 2 * ln(M).
+    const expectedMultiplicity = 2 * Math.log(3);
+    expect(bic0.multiplicityPenalty).toBeCloseTo(0, 6);
+    expect(bic1.multiplicityPenalty).toBeCloseTo(expectedMultiplicity, 6);
+
+    // The likelihood ratio depends only on the data, so it is unchanged across
+    // gamma; only the penalty (and thus deltaBic) grows by the multiplicity term.
+    expect(bic1.logLikelihoodRatio).toBeCloseTo(bic0.logLikelihoodRatio, 6);
+    expect(bic1.penalty).toBeCloseTo(bic0.penalty + expectedMultiplicity, 6);
+    expect(bic1.deltaBic).toBeCloseTo(bic0.deltaBic + expectedMultiplicity, 6);
+    expect(bic1.deltaBic).toBeCloseTo(
+      bic1.penalty - bic1.logLikelihoodRatio,
+      6,
+    );
+  });
+
+  it("gates a near-threshold split: ebicGamma 0 accepts, ebicGamma 1 rejects", () => {
+    // v0 is flat across countries (no between-country signal); v1 differs only
+    // for GB (US = CA = 0, GB = 0.34). The one informative split separates
+    // {GB} from {US, CA}. The gap is tuned so the deviance improvement lands
+    // between the plain-BIC penalty and that penalty plus the EBIC multiplicity
+    // term, so the two gamma settings straddle the acceptance threshold:
+    //   base penalty  = K*ln(N) = 2 * ln(1200) ~= 14.18
+    //   deviance (LLR) = (2N/3) * gap^2 contribution ~= 15.29
+    //   multiplicity   = 2 * ln(M) = 2 * ln(3)       ~=  2.20
+    // => gamma 0: deltaBic ~= -1.11 (accept); gamma 1: deltaBic ~= +1.08 (reject).
+    const data = [
+      countryObs("US", 0, 200, 1),
+      countryObs("US", 1, 200, 0),
+      countryObs("CA", 0, 200, 1),
+      countryObs("CA", 1, 200, 0),
+      countryObs("GB", 0, 200, 1),
+      countryObs("GB", 1, 200, 0.34),
+    ];
+
+    const accepted = computeContextualBanditWeights({
+      ...input(data),
+      ebicGamma: 0,
+    });
+    const rejected = computeContextualBanditWeights({
+      ...input(data),
+      ebicGamma: 1,
+    });
+
+    const bicAccepted = accepted.bic_trajectory![0];
+    const bicRejected = rejected.bic_trajectory![0];
+
+    // Same data => same candidate count and deviance improvement; the runs
+    // differ only by the multiplicity penalty 2 * ln(M), M = 3.
+    expect(bicAccepted.numCandidates).toBe(3);
+    expect(bicRejected.numCandidates).toBe(3);
+    expect(bicRejected.logLikelihoodRatio).toBeCloseTo(
+      bicAccepted.logLikelihoodRatio,
+      6,
+    );
+    expect(bicRejected.deltaBic).toBeCloseTo(
+      bicAccepted.deltaBic + 2 * Math.log(3),
+      6,
+    );
+
+    // gamma = 0 accepts: deltaBic < 0, the split is applied (an sse_trajectory
+    // stage at numSplits = 1 appears) and contexts land in two leaves.
+    expect(bicAccepted.deltaBic).toBeLessThan(0);
+    expect(accepted.bic_trajectory).toHaveLength(1);
+    expect(accepted.sse_trajectory).toHaveLength(2);
+    expect(
+      accepted.sse_trajectory!.some((s) => s.numSplits === 1 && !!s.split),
+    ).toBe(true);
+    expect(new Set(accepted.leaf_map!.map((e) => e.leafId)).size).toBe(2);
+
+    // gamma = 1 rejects: deltaBic >= 0. The evaluated candidate is still
+    // recorded in bic_trajectory, but the gate stops before pushing a new
+    // sse_trajectory stage, so only the root stage (numSplits = 0) remains.
+    expect(bicRejected.deltaBic).toBeGreaterThanOrEqual(0);
+    expect(rejected.bic_trajectory).toHaveLength(1);
+    expect(rejected.sse_trajectory).toHaveLength(1);
+    expect(rejected.sse_trajectory![0].numSplits).toBe(0);
+    expect(rejected.sse_trajectory![0].split).toBeUndefined();
+    expect(new Set(rejected.leaf_map!.map((e) => e.leafId)).size).toBe(1);
   });
 
   it("produces no BIC entries when the tree does not split", () => {
@@ -630,6 +748,69 @@ describe("computeContextualBanditWeights", () => {
     // Higher-converting arm (v1) should be weighted more heavily.
     const [w0, w1] = r.updatedWeights as number[];
     expect(w1).toBeGreaterThan(w0);
+  });
+
+  it("uses folded main_sum_squares for binomial variance under period weighting", () => {
+    // Period weighting folds reweighted rows in the assignment query, so a
+    // binomial arm's `main_sum_squares` no longer equals its `main_sum` (the
+    // unweighted 0/1 identity x^2 = x). The variance must then come from the
+    // folded `main_sum_squares`; reverting the binomial branch to the
+    // unweighted `sumSquares = main_sum` would silently shrink the variance and
+    // shift the Thompson allocation while every other test still passed.
+    const data = [
+      observation({ country: "US" }, 0, {
+        n: 200,
+        main_sum: 40,
+        main_sum_squares: 72,
+      }),
+      observation({ country: "US" }, 1, {
+        n: 200,
+        main_sum: 120,
+        main_sum_squares: 160,
+      }),
+    ];
+
+    const weightedSettings: ContextualBanditWeightsInput = {
+      ...input(data),
+      periodWeighting: true,
+      metricSettings: {
+        ...meanMetric(),
+        main_metric_type: "binomial",
+      },
+    };
+    const weighted = computeContextualBanditWeights(weightedSettings);
+    const wr = weighted.responses[0];
+
+    // variance = (main_sum_squares - main_sum^2 / n) / (n - 1), using the
+    // folded sum of squares.
+    expect(wr.sampleVariances[0]).toBeCloseTo((72 - 40 ** 2 / 200) / 199, 10);
+    expect(wr.sampleVariances[1]).toBeCloseTo((160 - 120 ** 2 / 200) / 199, 10);
+
+    // Same observations, but without period weighting the binomial branch falls
+    // back to the unweighted identity sumSquares = main_sum, so the variance is
+    // strictly smaller and the resulting weights differ.
+    const unweighted = computeContextualBanditWeights({
+      ...weightedSettings,
+      periodWeighting: false,
+    });
+    const ur = unweighted.responses[0];
+
+    expect(ur.sampleVariances[0]).toBeCloseTo((40 - 40 ** 2 / 200) / 199, 10);
+    expect(ur.sampleVariances[1]).toBeCloseTo((120 - 120 ** 2 / 200) / 199, 10);
+
+    // The folded variance is larger, so both arms carry more posterior
+    // uncertainty under period weighting. The allocation it feeds must change:
+    // the winning arm (v1) is weighted less aggressively than in the unweighted
+    // run, confirming the variance actually drives traffic.
+    expect(wr.sampleVariances[0]).toBeGreaterThan(ur.sampleVariances[0]);
+    expect(wr.sampleVariances[1]).toBeGreaterThan(ur.sampleVariances[1]);
+
+    const ww = wr.updatedWeights as number[];
+    const uw = ur.updatedWeights as number[];
+    expect(ww[1]).toBeGreaterThan(ww[0]);
+    expect(uw[1]).toBeGreaterThan(uw[0]);
+    expect(ww).not.toEqual(uw);
+    expect(ww[1]).toBeLessThan(uw[1]);
   });
 
   it.each([

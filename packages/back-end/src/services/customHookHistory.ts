@@ -1,8 +1,10 @@
 import {
   ApiCustomHook,
+  auditUserToEventUser,
   CustomHookEntityType,
   CustomHookInterface,
   CustomHookType,
+  eventUserCredit,
 } from "shared/validators";
 import { UpdateProps } from "shared/types/base-model";
 import { Context } from "back-end/src/models/BaseModel";
@@ -96,12 +98,13 @@ export async function getCustomHookVersions(
   for (const a of audits) {
     const snapshot = parseSnapshot(a.details);
     if (!snapshot) continue;
+    const credit = eventUserCredit(auditUserToEventUser(a.user));
     versions.push({
       auditId: a.id,
       event: a.event,
       dateCreated: asDate(a.dateCreated) ?? "",
-      userName: "name" in a.user ? a.user.name : undefined,
-      userEmail: "email" in a.user ? a.user.email : undefined,
+      userName: credit.name,
+      userEmail: credit.email,
       customHook: snapshotToApi(snapshot),
     });
   }

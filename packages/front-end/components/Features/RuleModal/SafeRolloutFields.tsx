@@ -112,6 +112,7 @@ export default function SafeRolloutFields({
   );
   const assignmentQuerySelection = useAssignmentQuerySelection({
     datasource: dataSource,
+    project: feature.project,
     hashAttribute: form.watch("hashAttribute"),
     exposureQueryId: form.watch("safeRolloutFields.exposureQueryId"),
     identifierType: form.watch("safeRolloutFields.exposureQueryIdentifierType"),
@@ -410,7 +411,6 @@ export default function SafeRolloutFields({
               renderJSONInline={true}
               disabled={disableFields || controlValueDisabled}
               useDropdown={true}
-              useCodeInput={true}
               showFullscreenButton={true}
               codeInputDefaultHeight={FIVE_LINES_HEIGHT}
             />
@@ -435,7 +435,6 @@ export default function SafeRolloutFields({
               renderJSONInline={true}
               disabled={disableFields}
               useDropdown={true}
-              useCodeInput={true}
               showFullscreenButton={true}
               codeInputDefaultHeight={FIVE_LINES_HEIGHT}
             />

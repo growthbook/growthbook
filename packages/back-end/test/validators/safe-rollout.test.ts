@@ -1,5 +1,5 @@
 import { DataSourceInterface } from "shared/types/datasource";
-import { validateCreateSafeRolloutFields } from "back-end/src/validators/safe-rollout";
+import { validateSafeRolloutFields } from "back-end/src/validators/safe-rollout";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { getMetricMap } from "back-end/src/models/MetricModel";
 import { ReqContext } from "back-end/types/request";
@@ -61,44 +61,44 @@ beforeEach(() => {
     );
 });
 
-describe("validateCreateSafeRolloutFields", () => {
+describe("validateSafeRolloutFields", () => {
   it("keeps an unchanged selection, even one its query no longer declares", async () => {
-    const validated = await validateCreateSafeRolloutFields(
+    const validated = await validateSafeRolloutFields(
       { ...fields, exposureQueryId: "eq_single" },
       context,
-      stored,
+      { previous: stored },
     );
     expect(validated.exposureQueryIdentifierType).toBe("company_id");
   });
 
   it("leaves a legacy rollout's identifier unset when the form echoes the resolved one", async () => {
-    const validated = await validateCreateSafeRolloutFields(
+    const validated = await validateSafeRolloutFields(
       {
         ...fields,
         exposureQueryId: "eq_multi",
         exposureQueryIdentifierType: "anonymous_id",
       },
       context,
-      { datasourceId: "ds_1", exposureQueryId: "eq_multi" },
+      { previous: { datasourceId: "ds_1", exposureQueryId: "eq_multi" } },
     );
     expect(validated.exposureQueryIdentifierType).toBeUndefined();
   });
 
   it("clears the stored identifier when switching to an implicit query", async () => {
-    const validated = await validateCreateSafeRolloutFields(
+    const validated = await validateSafeRolloutFields(
       { ...fields, exposureQueryId: "eq_multi" },
       context,
-      stored,
+      { previous: stored },
     );
     expect(validated).toHaveProperty("exposureQueryIdentifierType", undefined);
   });
 
   it("rejects switching to a query that dropped its legacy identifier", async () => {
     await expect(
-      validateCreateSafeRolloutFields(
+      validateSafeRolloutFields(
         { ...fields, exposureQueryId: "eq_dropped" },
         context,
-        stored,
+        { previous: stored },
       ),
     ).rejects.toThrow(
       'no longer declares its default identifier type "user_id"',
@@ -107,11 +107,10 @@ describe("validateCreateSafeRolloutFields", () => {
 
   it("requires the grouped field to name an identifier on an ambiguous query", async () => {
     await expect(
-      validateCreateSafeRolloutFields(
+      validateSafeRolloutFields(
         { ...fields, exposureQueryId: "eq_multi" },
         context,
-        null,
-        "requireUnambiguous",
+        { onOmitted: "requireUnambiguous" },
       ),
     ).rejects.toThrow("Set exposureQuery.identifierType to choose one");
   });

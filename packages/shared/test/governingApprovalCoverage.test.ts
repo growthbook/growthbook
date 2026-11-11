@@ -1,4 +1,6 @@
 import {
+  approvalApprovers,
+  approvalRoleIds,
   assessGoverningApprovalCoverage,
   assessRequiredApproverTeamsByProject,
   getRolePermissions,
@@ -109,6 +111,56 @@ describe("assessGoverningApprovalCoverage", () => {
       hasCoveringApproval: false,
       uncoveredApprovers: ["u_none"],
       requiredProjects: { satisfied: false, unmet: ["prj_a"] },
+    });
+  });
+});
+
+describe("approvals given through a key assuming a member", () => {
+  const viaKey = (memberId: string, apiKey: string) => ({
+    userId: memberId,
+    user: {
+      type: "api_key" as const,
+      apiKey,
+      requestedBy: { id: memberId, name: "", email: "" },
+      assumedRole: true,
+    },
+  });
+  // The member reviews everything; the key only the primary project.
+  const roles: Record<string, MemberRoleWithProjects | null> = {
+    u_both: roleInfo("u_both"),
+    key_primary: roleInfo("u_b"),
+  };
+  const assessVia = (approvals: { userId: string }[]) =>
+    assessGoverningApprovalCoverage({
+      org,
+      teams: [],
+      model: "feature",
+      projects: ["prj_b"],
+      approverProjects: ["prj_a"],
+      footprint: { scope: "environments", environments: ["production"] },
+      approvers: approvalApprovers(approvals, (id) => roles[id] ?? null),
+    });
+
+  it("resolves the key's role alongside the member's", () => {
+    expect(
+      approvalRoleIds([viaKey("u_both", "key_primary"), { userId: "u_a" }]),
+    ).toEqual(["u_both", "key_primary", "u_a"]);
+  });
+
+  it("counts only where both the key and the member can review", () => {
+    expect(assessVia([{ userId: "u_both" }]).requiredProjects.satisfied).toBe(
+      true,
+    );
+    expect(assessVia([viaKey("u_both", "key_primary")])).toMatchObject({
+      hasCoveringApproval: true,
+      requiredProjects: { satisfied: false, unmet: ["prj_a"] },
+    });
+  });
+
+  it("counts for nothing once the key is gone", () => {
+    expect(assessVia([viaKey("u_both", "key_gone")])).toMatchObject({
+      hasCoveringApproval: false,
+      uncoveredApprovers: ["u_both"],
     });
   });
 });

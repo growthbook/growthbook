@@ -16,6 +16,7 @@ import {
 import { getSafeRolloutResultStatus } from "../enterprise/decision-criteria/decisionCriteria";
 import {
   EnvStaleResult,
+  getMalformedPrereqConditionError,
   getTempRolloutStaleReason,
   isUnconditionalCatcher,
   IsFeatureStaleResult,
@@ -38,6 +39,7 @@ export const FEATURE_HEALTH_SIGNAL_SEVERITY = {
   "safe-rollout-unhealthy": "high",
   "safe-rollout-no-data": "high",
   "invalid-value": "high",
+  "invalid-prerequisite": "high",
   "ramp-needs-approval": "medium",
   "ramp-paused": "medium",
   "missing-experiment": "medium",
@@ -300,6 +302,16 @@ export function computeFeatureHealth({
   for (const rule of rules) {
     if (RULE_VALUES(rule).some((v) => isInvalidValue(feature, v))) {
       add("invalid-value");
+    }
+  }
+
+  const prerequisites = [
+    ...(feature.prerequisites ?? []),
+    ...rules.flatMap((rule) => rule.prerequisites ?? []),
+  ];
+  for (const prereq of prerequisites) {
+    if (getMalformedPrereqConditionError(prereq.condition)) {
+      add("invalid-prerequisite");
     }
   }
 

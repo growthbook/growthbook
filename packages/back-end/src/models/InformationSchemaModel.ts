@@ -110,6 +110,7 @@ export async function updateInformationSchemaById(
   id: string,
   updates: Partial<InformationSchemaInterface>,
 ): Promise<void> {
+  if (id && typeof id !== "string") return;
   await InformationSchemaModel.updateOne(
     {
       id,
@@ -149,6 +150,9 @@ export async function getInformationSchemaById(
   organization: string,
   informationSchemaId: string,
 ): Promise<InformationSchemaInterface | null> {
+  if (informationSchemaId && typeof informationSchemaId !== "string") {
+    return null;
+  }
   const result = await InformationSchemaModel.findOne({
     organization,
     id: informationSchemaId,

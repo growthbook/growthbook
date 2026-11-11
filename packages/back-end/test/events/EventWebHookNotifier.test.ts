@@ -8,6 +8,7 @@ jest.mock("back-end/src/events/handlers/webhooks/event-webhooks-utils", () => ({
 }));
 
 jest.mock("back-end/src/util/http.util", () => ({
+  ...jest.requireActual("back-end/src/util/http.util"),
   cancellableFetch: jest.fn(),
 }));
 

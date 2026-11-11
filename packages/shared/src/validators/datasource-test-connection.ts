@@ -10,7 +10,7 @@ const omittedFromConnectionTest = [
   "google_analytics",
 ] as const satisfies readonly DataSourceType[];
 
-type TestableDataSourceType = Exclude<
+export type TestableDataSourceType = Exclude<
   DataSourceType,
   (typeof omittedFromConnectionTest)[number]
 >;
@@ -22,12 +22,23 @@ export const testableDataSourceTypes = dataSourceTypes.filter(
     !omittedFromConnectionTestSet.has(type),
 ) as [TestableDataSourceType, ...TestableDataSourceType[]];
 
+const testableDataSourceTypeSet = new Set<string>(testableDataSourceTypes);
+
+export function isTestableDataSourceType(
+  type: string | undefined | null,
+): type is TestableDataSourceType {
+  return !!type && testableDataSourceTypeSet.has(type);
+}
+
 export const testDataSourceConnectionBodySchema = z.strictObject({
   type: z.enum(testableDataSourceTypes),
   params: z.record(z.string(), z.unknown()),
   projects: z.array(z.string()).optional(),
   // When set, blank secret fields fall back to this Data Source's saved values.
   datasourceId: z.string().optional(),
+  // Also look for Google Analytics 4 exports (BigQuery only), so a new Data
+  // Source can offer to set them up.
+  findGoogleAnalytics4Exports: z.boolean().optional(),
 });
 
 export type TestDataSourceConnectionBody = z.infer<

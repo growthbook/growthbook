@@ -1,27 +1,20 @@
 import { FC } from "react";
 import ApiKeys from "@/components/Settings/ApiKeys";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import Callout from "@/ui/Callout";
+import SettingsPage, {
+  SettingsNoAccess,
+} from "@/components/Layout/SettingsPage";
 
 const ApiKeysPage: FC = () => {
   const permissionsUtils = usePermissionsUtil();
-  if (
-    !permissionsUtils.canCreateApiKey() &&
-    !permissionsUtils.canDeleteApiKey()
-  ) {
-    return (
-      <div className="container pagecontents">
-        <Callout status="error">
-          You do not have access to view this page.
-        </Callout>
-      </div>
-    );
+  if (!permissionsUtils.canViewApiKeys()) {
+    return <SettingsNoAccess title="API Keys" />;
   }
 
   return (
-    <div className="container-fluid pagecontents">
+    <SettingsPage title="API Keys" hideHeader>
       <ApiKeys />
-    </div>
+    </SettingsPage>
   );
 };
 export default ApiKeysPage;

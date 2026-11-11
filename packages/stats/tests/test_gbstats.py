@@ -27,6 +27,7 @@ from gbstats.bayesian.bandits import BanditsSimple, BanditConfig
 from gbstats.models.settings import BanditWeightsSinglePeriod
 from gbstats.models.statistics import (
     RegressionAdjustedStatistic,
+    ProportionStatistic,
     SampleMeanStatistic,
 )
 from gbstats.models.results import (
@@ -441,6 +442,225 @@ class TestProcessSingleMetricAnalysisIsolation(TestCase):
         self.assertEqual(result.analyses[0].dimensions, [])
         self.assertIsNone(result.analyses[0].error)
         self.assertEqual(result.analyses[1].dimensions, kept_dimensions)
+
+
+class TestClusterExperimentDimensionIsolation(TestCase):
+    """Cluster experiments must keep each cluster whole.
+
+    Worked example: one variation, 2 clusters A and B with metric totals 20 and
+    40, each split evenly across a sub-unit dimension "slice" (X/Y):
+
+        cluster  slice X  slice Y  cluster total
+        A        10       10       20
+        B        20       20       40
+
+    Correct overall (whole clusters {20, 40}):            n=2, mean=30, var=200.
+    Each slice (per-cluster portions within slice {10,20}): n=2, mean=15, var=50.
+    Reaggregating the (slice, cluster) rows to an overall splits each cluster
+    across slices and double-counts it:                   n=4, mean=15, var=100/3.
+    """
+
+    # Dimensionless parent query: SQL has already rolled the sub-units up to one
+    # row per variation over whole clusters (n=2 clusters, sum 20+40=60,
+    # squares 20^2 + 40^2 = 2000).
+    PARENT_ROWS = [
+        {
+            "variation": "zero",
+            "main_sum": 60,
+            "main_sum_squares": 2000,
+            "users": 2,
+            "count": 2,
+        }
+    ]
+
+    # Isolated per-dimension query: one row per (variation, slice), each rolled
+    # up over whole clusters within the slice (portions {10, 20} -> sum 30,
+    # squares 10^2 + 20^2 = 500 per slice).
+    ISOLATED_SLICE_ROWS = [
+        {
+            "variation": "zero",
+            "dim_exp_slice": "X",
+            "main_sum": 30,
+            "main_sum_squares": 500,
+            "users": 2,
+            "count": 2,
+        },
+        {
+            "variation": "zero",
+            "dim_exp_slice": "Y",
+            "main_sum": 30,
+            "main_sum_squares": 500,
+            "users": 2,
+            "count": 2,
+        },
+    ]
+
+    def _baseline_stat(self, df_entry):
+        stat = variation_statistic_from_metric_row(
+            df_entry.data.iloc[0], "baseline", COUNT_METRIC
+        )
+        assert isinstance(stat, SampleMeanStatistic)
+        return stat
+
+    def test_dimensionless_parent_keeps_clusters_whole(self):
+        df = get_metric_dfs(pd.DataFrame(self.PARENT_ROWS), {"zero": 0}, ["zero"])
+        self.assertEqual(len(df), 1)
+        stat = self._baseline_stat(df[0])
+        self.assertEqual(stat.n, 2)
+        self.assertEqual(stat.mean, 30)
+        self.assertEqual(stat.variance, 200)
+
+    def test_isolated_slice_is_cluster_robust(self):
+        df = get_metric_dfs(
+            pd.DataFrame(self.ISOLATED_SLICE_ROWS),
+            {"zero": 0},
+            ["zero"],
+            dimension="exp:slice",
+        )
+        by_dim = {d.dimension: d for d in df}
+        self.assertEqual(set(by_dim), {"X", "Y"})
+        for slice_value in ("X", "Y"):
+            stat = self._baseline_stat(by_dim[slice_value])
+            self.assertEqual(stat.n, 2)
+            self.assertEqual(stat.mean, 15)
+            self.assertEqual(stat.variance, 50)
+
+    def test_reaggregating_slice_rows_breaks_the_overall(self):
+        # Regression witness: the OLD behavior computed the overall by collapsing
+        # the (slice, cluster) rows, which splits each cluster across slices
+        # (summing 500 + 500 instead of 2000 and double-counting clusters). This
+        # is exactly what the fix (dimensionless parent + isolated breakdowns)
+        # and the gbstats guard prevent.
+        df = get_metric_dfs(
+            pd.DataFrame(self.ISOLATED_SLICE_ROWS), {"zero": 0}, ["zero"]
+        )
+        self.assertEqual(len(df), 1)
+        wrong = self._baseline_stat(df[0])
+        self.assertEqual(wrong.n, 4)  # 2 clusters double-counted
+        self.assertEqual(wrong.mean, 15)  # wrong: whole-cluster overall is 30
+        self.assertAlmostEqual(wrong.variance, 100 / 3)  # wrong: should be 200
+
+        correct = self._baseline_stat(
+            get_metric_dfs(pd.DataFrame(self.PARENT_ROWS), {"zero": 0}, ["zero"])[0]
+        )
+        self.assertNotEqual(wrong.mean, correct.mean)
+        self.assertNotEqual(wrong.variance, correct.variance)
+
+    def test_cluster_overall_guard_rejects_dimension_bearing_rows(self):
+        analysis = dataclasses.replace(
+            DEFAULT_ANALYSIS, dimension="", is_cluster_experiment=True
+        )
+        with patch("gbstats.gbstats.process_analysis") as mock_process:
+            result = process_single_metric(
+                rows=self.ISOLATED_SLICE_ROWS,
+                metric=COUNT_METRIC,
+                analyses=[analysis],
+            )
+        # Guard fired before reaggregating, so process_analysis never ran.
+        mock_process.assert_not_called()
+        self.assertEqual(len(result.analyses), 1)
+        error = result.analyses[0].error
+        assert error is not None
+        self.assertIn("dimensionless", error)
+
+    def test_cluster_overall_allows_dimensionless_rows(self):
+        analysis = dataclasses.replace(
+            DEFAULT_ANALYSIS, dimension="", is_cluster_experiment=True
+        )
+        sentinel = [DimensionResponse(dimension="", srm=1.0, variations=[])]
+        with patch(
+            "gbstats.gbstats.process_analysis", return_value=sentinel
+        ) as mock_process:
+            result = process_single_metric(
+                rows=self.PARENT_ROWS, metric=COUNT_METRIC, analyses=[analysis]
+            )
+        mock_process.assert_called_once()
+        self.assertIsNone(result.analyses[0].error)
+        self.assertEqual(result.analyses[0].dimensions, sentinel)
+
+    def test_non_cluster_overall_allows_dimension_bearing_rows(self):
+        # Non-cluster overall analyses legitimately reaggregate a dimension-bearing
+        # frame (each unit lands in exactly one slice), so the guard must not fire.
+        analysis = dataclasses.replace(
+            DEFAULT_ANALYSIS, dimension="", is_cluster_experiment=False
+        )
+        sentinel = [DimensionResponse(dimension="", srm=1.0, variations=[])]
+        with patch(
+            "gbstats.gbstats.process_analysis", return_value=sentinel
+        ) as mock_process:
+            result = process_single_metric(
+                rows=self.ISOLATED_SLICE_ROWS,
+                metric=COUNT_METRIC,
+                analyses=[analysis],
+            )
+        mock_process.assert_called_once()
+        self.assertIsNone(result.analyses[0].error)
+
+
+class TestCreateBanditStatisticsBinomial(TestCase):
+    """Binomial bandit rows carry the period-weighted variance in main_sum_squares."""
+
+    # One folded row per variation, as the bandit SQL produces it. The
+    # main_sum_squares values are not sum (what iid binomial data would give)
+    # because the period weighting inflates the variance of the mean.
+    ROWS = pd.DataFrame(
+        [
+            {
+                "dimension": "All",
+                "variation": "zero",
+                "main_sum": 30.0,
+                "main_sum_squares": 45.0,
+                "users": 300,
+                "count": 300,
+            },
+            {
+                "dimension": "All",
+                "variation": "one",
+                "main_sum": 36.0,
+                "main_sum_squares": 60.0,
+                "users": 300,
+                "count": 300,
+            },
+        ]
+    )
+    # Binomial is coerced to count upstream, so the metric that actually reaches
+    # create_bandit_statistics is a count metric.
+    METRIC = COUNT_METRIC
+
+    def _stats(self, rows):
+        df = get_metric_dfs(rows, {"zero": 0, "one": 1}, ["zero", "one"])
+        return create_bandit_statistics(df[0].data.iloc[0], self.METRIC, 2)
+
+    def test_uses_period_weighted_variance_from_row(self):
+        stats = self._stats(self.ROWS)
+        for stat, row in zip(stats, self.ROWS.itertuples()):
+            assert isinstance(stat, SampleMeanStatistic)
+            self.assertEqual(stat.n, row.users)
+            self.assertEqual(stat.sum, row.main_sum)
+            self.assertEqual(stat.sum_squares, row.main_sum_squares)
+            iid_variance = ProportionStatistic(n=stat.n, sum=stat.sum).variance
+            self.assertGreater(stat.variance, iid_variance)
+
+    def test_keeps_folded_sum_squares_below_the_sum(self):
+        # Two equally weighted periods at 10% and 90% conversion: the period
+        # weighting removes the between-period spread, so the folded
+        # main_sum_squares (102.09) is below the sum (150) and must be kept.
+        rows = self.ROWS.copy()
+        rows.loc[0, ["main_sum", "main_sum_squares"]] = [150.0, 102.09]
+        stat = self._stats(rows)[0]
+        assert isinstance(stat, SampleMeanStatistic)
+        self.assertEqual(stat.sum_squares, 102.09)
+        self.assertLess(
+            stat.variance,
+            SampleMeanStatistic(n=300, sum=150.0, sum_squares=150.0).variance,
+        )
+
+    def test_rejects_binomial_metric(self):
+        # A binomial metric should have been coerced to count upstream.
+        binomial_metric = dataclasses.replace(COUNT_METRIC, main_metric_type="binomial")
+        df = get_metric_dfs(self.ROWS, {"zero": 0, "one": 1}, ["zero", "one"])
+        with self.assertRaises(ValueError):
+            create_bandit_statistics(df[0].data.iloc[0], binomial_metric, 2)
 
 
 class TestBanditMinVariationWeightFloor(TestCase):
@@ -1638,6 +1858,51 @@ class TestThreeArmedCuped(TestCase):
             round_(baseline_stats_02.stddev),
             "Baseline stddev should be the same, implying theta from 0 vs 2 comparison is used",
         )
+
+
+class TestSubCount(TestCase):
+    def test_sub_count_flows_into_metric_stats(self):
+        """Cluster experiments carry a sub-unit count alongside cluster-grain users."""
+        rows = pd.DataFrame(
+            [
+                {
+                    "dimension": "All",
+                    "variation": "zero",
+                    "main_sum": 270,
+                    "main_sum_squares": 848.79,
+                    "users": 100,  # clusters (randomization unit)
+                    "count": 100,
+                    "sub_count": 540,  # sub-units (e.g. users) behind the clusters
+                },
+                {
+                    "dimension": "All",
+                    "variation": "one",
+                    "main_sum": 300,
+                    "main_sum_squares": 869,
+                    "users": 120,
+                    "count": 120,
+                    "sub_count": 610,
+                },
+            ]
+        )
+        df = get_metric_dfs(rows, {"zero": 0, "one": 1}, ["zero", "one"])
+        result = analyze_metric_df(
+            df, num_variations=2, metric=COUNT_METRIC, analysis=DEFAULT_ANALYSIS
+        )
+        self.assertEqual(result[0].variations[0].stats.sub_count, 540)
+        self.assertEqual(result[0].variations[1].stats.sub_count, 610)
+
+    def test_sub_count_defaults_to_zero_when_absent(self):
+        """Non-cluster experiments omit sub_count, which defaults to 0."""
+        df = get_metric_dfs(
+            MULTI_DIMENSION_STATISTICS_DF, {"zero": 0, "one": 1}, ["zero", "one"]
+        )
+        result = analyze_metric_df(
+            df, num_variations=2, metric=COUNT_METRIC, analysis=DEFAULT_ANALYSIS
+        )
+        for dim in result:
+            for variation in dim.variations:
+                self.assertEqual(variation.stats.sub_count, 0)
 
 
 if __name__ == "__main__":

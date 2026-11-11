@@ -29,7 +29,7 @@ curl -X GET 'https://api.growthbook.io/api/v1/experiments/exp_abc123/bulk-result
 | `limit`        | no       | Snapshots per page, 1–100. Defaults to 10.                         |
 | `offset`       | no       | Snapshots to skip. Defaults to 0.                                  |
 
-The query is strict: an unrecognized param is a `400`. Other failures are `400` for a malformed `dateStart`/`dateEnd`/`phase` or an out-of-range `limit`, `404` for an unknown or unreadable experiment id, and `429` past the per-key cap (60 requests/minute, set by `EXPERIMENT_BULK_RESULTS_RATE_LIMIT_MAX`).
+The query is strict: an unrecognized param is a `400`. Other failures are `400` for a malformed `dateStart`/`dateEnd`/`phase` or an out-of-range `limit`, `404` for an unknown or unreadable experiment id, and `429` past the per-key cap (60 requests/minute, set by `EXPERIMENT_BULK_RESULTS_RATE_LIMIT_MAX` and not raised by `API_RATE_LIMIT_MAX_BY_KEY`).
 
 ## Response
 

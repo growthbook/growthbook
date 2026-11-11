@@ -7,14 +7,19 @@ import {
   MemberRoleWithProjects,
   ProjectMemberRole,
 } from "shared/types/organization";
-import { isProjectScopedTeam } from "shared/permissions";
+import { holdsGlobalAdmin, isProjectScopedTeam } from "shared/permissions";
 import { Team, useUser } from "@/services/UserContext";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import ChangeProjectRoleModal from "@/components/Settings/Team/ChangeProjectRoleModal";
 import { AddMembersModal } from "@/components/Teams/AddMembersModal";
-import { RoleRuleLines } from "@/components/Settings/Team/RoleRuleLabel";
+import {
+  CollapsedRuleRows,
+  RoleRuleLines,
+  ruleRows,
+  shadowedRulesCell,
+} from "@/components/Settings/Team/RoleRuleLabel";
 import ProjectRuleFields from "@/components/Settings/Team/ProjectRuleFields";
 import { MEMBER_COLUMN_WIDTHS } from "@/components/Settings/Team/memberTableWidths";
 import PremiumEmptyState from "@/components/PremiumEmptyState";
@@ -243,6 +248,7 @@ const ProjectTeams: FC<{ project: string }> = ({ project }) => {
       {roleTeam && (
         <ChangeProjectRoleModal
           memberName={roleTeam.name}
+          adminEverywhere={holdsGlobalAdmin(roleTeam, [])}
           projectRole={
             roleTeam.projectRoles?.find((rule) => rule.project === project) ||
             newRule(project)
@@ -317,6 +323,8 @@ const ProjectTeams: FC<{ project: string }> = ({ project }) => {
         <TableBody>
           {rows.map((team) => {
             const rule = team.projectRoles?.find((r) => r.project === project);
+            // A global admin team's project rule has no effect.
+            const adminEverywhere = holdsGlobalAdmin(team, []);
             const otherProjects = rulesWithoutProject(team, project).map(
               (r) => getProjectById(r.project)?.name ?? r.project,
             );
@@ -365,9 +373,14 @@ const ProjectTeams: FC<{ project: string }> = ({ project }) => {
                   <RoleRuleLines scope={team} organization={organization} />
                 </TableCell>
                 <TableCell>
-                  {rule && (
-                    <RoleRuleLines scope={rule} organization={organization} />
-                  )}
+                  {rule &&
+                    (adminEverywhere ? (
+                      <CollapsedRuleRows
+                        rows={shadowedRulesCell(ruleRows(rule, organization))}
+                      />
+                    ) : (
+                      <RoleRuleLines scope={rule} organization={organization} />
+                    ))}
                 </TableCell>
                 <TableCell>{team.members?.length ?? 0}</TableCell>
                 <TableCell justify="end">

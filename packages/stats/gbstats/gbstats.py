@@ -90,6 +90,7 @@ from gbstats.models.tests import EffectMomentsResult
 SUM_COLS = [
     "users",
     "count",
+    "sub_count",
     "main_sum",
     "main_sum_squares",
     "denominator_sum",
@@ -738,6 +739,7 @@ def get_metric_response(
         count=count,
         stddev=statistic.stddev,
         mean=statistic.unadjusted_mean,
+        sub_count=int(metric_row[f"{prefix}_sub_count"].sum()),
     )
     return BaselineResponse(
         cr=statistic.unadjusted_mean,
@@ -1184,6 +1186,19 @@ def process_single_metric(
             )
             continue
         try:
+            if (
+                a.is_cluster_experiment
+                and a.dimension == ""
+                and any(
+                    str(col).startswith("dim_exp_") or str(col).startswith("dim_unit_")
+                    for col in pdrows.columns
+                )
+            ):
+                raise ValueError(
+                    "Cluster-experiment overall analysis received dimension-bearing "
+                    "rows; the parent query must be dimensionless to preserve "
+                    "cluster-robust variance."
+                )
             dimensions = process_analysis(
                 rows=pdrows,
                 var_id_map=get_var_id_map(a.var_ids),
@@ -1225,13 +1240,11 @@ def create_bandit_statistics(
         stat = variation_statistic_from_metric_row(
             row=metric_data, prefix=prefix, metric=metric
         )
-        # recast proportion metrics in case they slipped through
-        # for bandits we weight by period; iid data over periods no longer holds
+        # Binomial metrics are coerced to "count" upstream for bandits.
         if isinstance(stat, ProportionStatistic):
-            stat = SampleMeanStatistic(
-                n=stat.n,
-                sum=stat.sum,
-                sum_squares=stat.sum,
+            raise ValueError(
+                "ProportionStatistic not supported for bandits; "
+                "binomial metrics must be recast to count upstream"
             )
         if isinstance(stat, QuantileStatistic):
             raise ValueError("QuantileStatistic not supported for bandits")

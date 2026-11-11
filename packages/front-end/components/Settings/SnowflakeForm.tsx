@@ -1,14 +1,39 @@
 import { FC, ChangeEventHandler, useState } from "react";
+import { Box } from "@radix-ui/themes";
 import { SnowflakeConnectionParams } from "shared/types/integrations/snowflake";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import Button from "@/ui/Button";
+import Callout from "@/ui/Callout";
+import ConfirmDialog from "@/ui/ConfirmDialog";
+import FileInput from "@/ui/FileInput";
+import HelperText from "@/ui/HelperText";
+import Link from "@/ui/Link";
 import Switch from "@/ui/Switch";
 import { GBInfo } from "@/components/Icons";
-import FileInput from "@/components/FileInput";
 import {
   KEEP_EXISTING_PLACEHOLDER,
   useCanKeepExistingCredentials,
 } from "@/components/Forms/secretInput";
 import { isCloud } from "@/services/env";
+
+/**
+ * Lets the user have GrowthBook create the key pair instead of uploading
+ * one. Only the new connect page provides this.
+ */
+export type KeyPairGenerator = {
+  /** The private key in the form is the generated one, so it has no passphrase. */
+  usingGenerated: boolean;
+  /** Resolves false when the browser cannot generate keys. */
+  generate: () => Promise<boolean>;
+  /**
+   * Key-pair is the only auth method this setup works with (the Event
+   * Forwarder's Snowpipe Streaming needs a private key), so password auth
+   * is not offered.
+   */
+  keyPairRequired: boolean;
+  /** Set while create mode is generating the initial key, or if that failed. */
+  auto?: "pending" | "failed";
+};
 
 const SnowflakeForm: FC<{
   params: Partial<SnowflakeConnectionParams>;
@@ -16,14 +41,67 @@ const SnowflakeForm: FC<{
   onParamChange: ChangeEventHandler<HTMLInputElement>;
   onManualParamChange: (name: string, value: string) => void;
   setParams: (params: { [key: string]: string }) => void;
-}> = ({ params, existing, onParamChange, onManualParamChange, setParams }) => {
+  keyPairGenerator?: KeyPairGenerator;
+  /** Event Forwarder uses the Event Destination schema instead. */
+  hideSchema?: boolean;
+}> = ({
+  params,
+  existing,
+  onParamChange,
+  onManualParamChange,
+  setParams,
+  keyPairGenerator,
+  hideSchema = false,
+}) => {
   const [useAccessUrl, setUseAccessUrl] = useState(!!params.accessUrl);
+  const [generateFailed, setGenerateFailed] = useState(false);
+  const [showOwnKey, setShowOwnKey] = useState(false);
+  const [confirmRegenerate, setConfirmRegenerate] = useState(false);
+  // keyPairGenerator.auto comes from the parent and has no setter, so a
+  // successful upload or manual generate can't clear it there. Track the
+  // dismissal locally instead, or the "upload one instead" error outlives it.
+  const [autoFailureDismissed, setAutoFailureDismissed] = useState(false);
+  // Bumped on each successful generate so the file input remounts and drops
+  // a previously chosen file name. Keyed on this rather than "is the
+  // generated key in use" so uploading a file afterward keeps its name.
+  const [generation, setGeneration] = useState(0);
   // Saved connections without authMethod used password; new ones default to key-pair.
   const authMethod = params.authMethod ?? (existing ? "password" : "key-pair");
   const canKeepExistingCredentials = useCanKeepExistingCredentials(
     existing,
     authMethod,
   );
+  const usingGeneratedKey = keyPairGenerator?.usingGenerated ?? false;
+  const generatingKey =
+    !!keyPairGenerator &&
+    !existing &&
+    keyPairGenerator.auto === "pending" &&
+    !showOwnKey;
+  const showGeneratedSummary =
+    !!keyPairGenerator && !existing && usingGeneratedKey && !showOwnKey;
+  const generationFailed =
+    generateFailed ||
+    (keyPairGenerator?.auto === "failed" && !autoFailureDismissed);
+  const regenerateKeyPair = async () => {
+    if (!keyPairGenerator) return;
+    const ok = await keyPairGenerator.generate();
+    setGenerateFailed(!ok);
+    if (ok) {
+      setGeneration((g) => g + 1);
+      setShowOwnKey(false);
+      setAutoFailureDismissed(true);
+    }
+  };
+  // Generating is a no-op the first time, since there is nothing in the form
+  // yet. Replacing a key already in use breaks a Snowflake user that already
+  // ran the setup SQL, so that case asks first.
+  const onRegenerateClick = () => {
+    if (usingGeneratedKey) {
+      setConfirmRegenerate(true);
+    } else {
+      void regenerateKeyPair();
+    }
+  };
 
   return (
     <div className="row">
@@ -39,7 +117,7 @@ const SnowflakeForm: FC<{
           onChange={onParamChange}
         />
       </div>
-      <div className="form-group col-md-12">
+      <div className="form-group col-md-6">
         <label>Username</label>
         <input
           type="text"
@@ -51,7 +129,7 @@ const SnowflakeForm: FC<{
         />
       </div>
 
-      <div className="form-group col-md-12">
+      <div className="form-group col-md-6">
         <label>Authentication Method</label>
         <select
           className="form-control"
@@ -77,7 +155,9 @@ const SnowflakeForm: FC<{
           }}
         >
           <option value="key-pair">Key Pair</option>
-          <option value="password">Password</option>
+          {keyPairGenerator?.keyPairRequired ? null : (
+            <option value="password">Password</option>
+          )}
           {(!isCloud() || authMethod === "workload-identity") && (
             <option value="workload-identity">
               Workload Identity Federation
@@ -85,6 +165,15 @@ const SnowflakeForm: FC<{
           )}
         </select>
       </div>
+
+      {authMethod === "password" && keyPairGenerator ? (
+        <div className="col-md-12">
+          <Callout status="warning" size="sm" mb="3">
+            Snowflake is retiring password-only sign-in. Key pair is
+            recommended.
+          </Callout>
+        </div>
+      ) : null}
 
       {authMethod === "password" ? (
         <div className="form-group col-md-12">
@@ -104,16 +193,53 @@ const SnowflakeForm: FC<{
         </div>
       ) : null}
 
-      {authMethod === "key-pair" && (
+      {authMethod === "key-pair" && generatingKey ? (
+        <div className="form-group col-md-12">
+          <HelperText status="info" size="sm">
+            Generating a key pair…
+          </HelperText>
+        </div>
+      ) : null}
+
+      {authMethod === "key-pair" && showGeneratedSummary ? (
+        <div className="col-md-12">
+          <Callout
+            status="info"
+            size="sm"
+            mb="3"
+            contentAlign="center"
+            action={
+              <Button
+                variant="outline"
+                size="sm"
+                color="inherit"
+                onClick={() => setShowOwnKey(true)}
+              >
+                Upload your own key
+              </Button>
+            }
+          >
+            A key pair was generated for this connection. The setup instructions
+            include the public key.{" "}
+            <Link onClick={onRegenerateClick}>Regenerate key pair</Link>
+          </Callout>
+        </div>
+      ) : null}
+
+      {authMethod === "key-pair" && !generatingKey && !showGeneratedSummary ? (
         <>
           <div className="form-group col-md-12">
             <label>Private Key File</label>
             <FileInput
+              key={generation}
               name="privateKey"
-              required={!canKeepExistingCredentials}
+              required={!canKeepExistingCredentials && !usingGeneratedKey}
               onChange={(e) => {
                 const file = e.target.files?.[0];
                 if (file) {
+                  // Uploading is the fallback the error suggests, so clear it.
+                  setGenerateFailed(false);
+                  setAutoFailureDismissed(true);
                   const reader = new FileReader();
                   reader.onload = () => {
                     onManualParamChange("privateKey", reader.result as string);
@@ -122,34 +248,53 @@ const SnowflakeForm: FC<{
                 }
               }}
               placeholder={
-                canKeepExistingCredentials
-                  ? KEEP_EXISTING_PLACEHOLDER
-                  : "Select a private key file"
+                usingGeneratedKey
+                  ? "Using the generated key. Choose a file to replace it."
+                  : canKeepExistingCredentials
+                    ? KEEP_EXISTING_PLACEHOLDER
+                    : "Select a private key file"
               }
             />
+            {keyPairGenerator ? (
+              <Box mt="2">
+                <Link onClick={onRegenerateClick}>
+                  {usingGeneratedKey
+                    ? "Regenerate key pair"
+                    : "Generate key pair"}
+                </Link>
+              </Box>
+            ) : null}
+            {generationFailed ? (
+              <HelperText status="error" size="sm" mt="1">
+                This browser cannot generate keys here. Upload a key file
+                instead.
+              </HelperText>
+            ) : null}
           </div>
 
-          <div className="form-group col-md-12">
-            <label>
-              Private Key Password{" "}
-              <Tooltip body="If your private key is encrypted, you will need to enter the password used to encrypt it.">
-                <GBInfo />
-              </Tooltip>
-            </label>
-            <input
-              type="text"
-              className="form-control password-presentation"
-              autoComplete="off"
-              name="privateKeyPassword"
-              value={params.privateKeyPassword || ""}
-              onChange={onParamChange}
-              placeholder={
-                canKeepExistingCredentials ? KEEP_EXISTING_PLACEHOLDER : ""
-              }
-            />
-          </div>
+          {!usingGeneratedKey ? (
+            <div className="form-group col-md-12">
+              <label>
+                Private Key Password{" "}
+                <Tooltip body="If your private key is encrypted, you will need to enter the password used to encrypt it.">
+                  <GBInfo />
+                </Tooltip>
+              </label>
+              <input
+                type="text"
+                className="form-control password-presentation"
+                autoComplete="off"
+                name="privateKeyPassword"
+                value={params.privateKeyPassword || ""}
+                onChange={onParamChange}
+                placeholder={
+                  canKeepExistingCredentials ? KEEP_EXISTING_PLACEHOLDER : ""
+                }
+              />
+            </div>
+          ) : null}
         </>
-      )}
+      ) : null}
 
       {authMethod === "workload-identity" && (
         <div className="form-group col-md-12">
@@ -180,7 +325,7 @@ const SnowflakeForm: FC<{
         </div>
       )}
 
-      <div className="form-group col-md-12">
+      <div className={`form-group ${hideSchema ? "col-md-12" : "col-md-6"}`}>
         <label>Database</label>
         <input
           type="text"
@@ -191,18 +336,20 @@ const SnowflakeForm: FC<{
           onChange={onParamChange}
         />
       </div>
-      <div className="form-group col-md-12">
-        <label>Schema</label>
-        <input
-          type="text"
-          className="form-control"
-          name="schema"
-          required
-          value={params.schema || ""}
-          onChange={onParamChange}
-        />
-      </div>
-      <div className="form-group col-md-12">
+      {hideSchema ? null : (
+        <div className="form-group col-md-6">
+          <label>Schema</label>
+          <input
+            type="text"
+            className="form-control"
+            name="schema"
+            required
+            value={params.schema || ""}
+            onChange={onParamChange}
+          />
+        </div>
+      )}
+      <div className="form-group col-md-6">
         <label>Role</label>
         <input
           type="text"
@@ -212,7 +359,7 @@ const SnowflakeForm: FC<{
           onChange={onParamChange}
         />
       </div>
-      <div className="form-group col-md-12">
+      <div className="form-group col-md-6">
         <label>
           Warehouse (Optional){" "}
           <Tooltip body="If no Warehouse is specified, queries will be executed in the default Warehouse for your User, set in Snowflake." />
@@ -257,6 +404,18 @@ const SnowflakeForm: FC<{
           />
         </div>
       )}
+      {confirmRegenerate ? (
+        <ConfirmDialog
+          title="Regenerate key pair?"
+          content="This replaces the private key in the form right away. If this connection already ran the setup SQL in Snowflake, that user stops authenticating until you rerun it with the new key."
+          yesText="Regenerate"
+          onConfirm={async () => {
+            setConfirmRegenerate(false);
+            await regenerateKeyPair();
+          }}
+          onCancel={() => setConfirmRegenerate(false)}
+        />
+      ) : null}
     </div>
   );
 };

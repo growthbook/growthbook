@@ -182,6 +182,7 @@ export const postOrganizationValidator = {
     .strict(),
   summary:
     "Create a single organization (only for super admins on multi-org Enterprise Plan only)",
+  confirmation: ["settings.other"] as const,
   operationId: "postOrganization",
   tags: ["organizations"],
   method: "post" as const,
@@ -200,6 +201,7 @@ export const putOrganizationValidator = {
     .strict(),
   summary:
     "Edit a single organization (only for super admins on multi-org Enterprise Plan only)",
+  confirmation: ["settings.other"] as const,
   operationId: "putOrganization",
   tags: ["organizations"],
   method: "put" as const,
@@ -217,11 +219,29 @@ export const dailyUsageValidator = z
     requests: z.number(),
     bandwidth: z.number(),
     managedClickhouseEvents: z.number(),
+    eventForwarderEvents: z.number().optional(),
   })
   .strict();
 
 export const dailyUsageForOrgResponseValidator = z
   .object({
     days: z.array(dailyUsageValidator),
+  })
+  .strict();
+
+/** Daily CDN usage by SDK key from license server managed-clickhouse/daily-usage-by-key-for-org */
+export const dailyUsageByKeyValidator = z
+  .object({
+    date: z.string(),
+    key: z.string(),
+    type: z.string(),
+    requests: z.number(),
+    bandwidth: z.number(),
+  })
+  .strict();
+
+export const dailyUsageByKeyForOrgResponseValidator = z
+  .object({
+    rows: z.array(dailyUsageByKeyValidator),
   })
   .strict();
