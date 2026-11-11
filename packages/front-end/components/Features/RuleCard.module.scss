@@ -46,6 +46,13 @@ $body-inset: 28px;
   width: $handle-width;
 }
 
+// Centers the dots, rather than setting them on a line's baseline.
+.grab,
+.idleHandle {
+  display: flex;
+  align-items: center;
+}
+
 .grab {
   cursor: grab;
 }
