@@ -15,7 +15,6 @@ Track usage statistics
 
 import { jitsuClient, JitsuClient } from "@jitsu/sdk-js";
 import md5 from "md5";
-import { StatsEngine } from "shared/types/stats";
 import {
   ExperimentSnapshotAnalysis,
   ExperimentSnapshotInterface,
@@ -24,6 +23,11 @@ import { ExperimentReportInterface } from "shared/types/report";
 import { DEFAULT_STATS_ENGINE } from "shared/constants";
 import { entityTrackingKey } from "shared/util";
 import { growthbook } from "@/services/utils";
+import {
+  AppEventName,
+  AppEvents,
+  TrackSnapshotProps,
+} from "@/types/app-events";
 import { getCurrentUser } from "./UserContext";
 import {
   getGrowthBookBuild,
@@ -34,23 +38,12 @@ import {
 
 export type TrackEventProps = Record<string, unknown>;
 
-export interface TrackSnapshotProps {
-  id: string;
-  source: string;
-  experiment: string;
-  engine: StatsEngine;
-  datasource_type: string | null;
-  regression_adjustment_enabled: boolean;
-  sequential_testing_enabled: boolean;
-  sequential_testing_tuning_parameter?: number;
-  skip_partial_data: boolean;
-  activation_metric_selected: boolean;
-  query_filter_selected: boolean;
-  segment_selected: boolean;
-  dimension_type: string;
-  dimension_id: string;
-  error?: string;
-}
+// The arguments after the event name: properties can be left out for an event
+// that has no required ones
+type TrackArgs<P> =
+  Record<never, never> extends P
+    ? [props?: P, skipGrowthBookLogging?: boolean]
+    : [props: P, skipGrowthBookLogging?: boolean];
 
 const PAGE_VIEW_EVENT = "Page View";
 export function trackPageView(pathName: string) {
@@ -110,10 +103,10 @@ export function entityTrackingHash(entityId: string): string {
   return md5(entityTrackingKey(getCurrentUser()?.org ?? "", entityId));
 }
 
-export default function track(
-  event: string,
-  props: TrackEventProps = {},
-  skipGrowthBookLogging = false,
+// Events and their properties are defined in types/app-events.ts
+export default function track<K extends AppEventName>(
+  event: K,
+  ...[props, skipGrowthBookLogging]: TrackArgs<AppEvents[K]>
 ): void {
   // Only run client-side, not during SSR
   if (typeof window === "undefined") return;
@@ -153,7 +146,7 @@ export default function track(
   };
 
   if (!skipGrowthBookLogging) {
-    growthbook.logEvent(event, props);
+    growthbook.logEvent<AppEventName>(event, props);
   }
 
   const jitsu = getJitsuClient();
@@ -173,7 +166,7 @@ export function trackSnapshot(
     ? getTrackingPropsFromSnapshot(snapshot, source, datasourceType)
     : { error: "no snapshot object returned by API" };
 
-  track("Experiment Snapshot: " + event, {
+  track(`Experiment Snapshot: ${event}` as const, {
     ...trackingProps,
   });
 }
@@ -188,7 +181,7 @@ export function trackReport(
     ? getTrackingPropsFromReport(report, source, datasourceType)
     : { error: "no report object returned by API" };
 
-  track("Experiment Report: " + event, {
+  track(`Experiment Report: ${event}` as const, {
     ...trackingProps,
   });
 }

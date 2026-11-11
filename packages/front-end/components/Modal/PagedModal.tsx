@@ -15,6 +15,7 @@ import { v4 as uuidv4 } from "uuid";
 import Modal from "@/components/Modal";
 import { DocSection } from "@/components/DocLink";
 import track, { TrackEventProps } from "@/services/track";
+import { ModalEventName } from "@/types/app-events";
 
 type Props = {
   header: string | ReactNode | null;
@@ -144,7 +145,7 @@ const PagedModal: FC<Props> = (props) => {
     typeof navFill === "undefined" ? "nav-fill" : navFill ? "nav-fill" : "";
 
   const sendTrackingEvent = useCallback(
-    (eventName: string, additionalProps?: Record<string, unknown>) => {
+    (eventName: ModalEventName, additionalProps?: Record<string, unknown>) => {
       if (trackingEventModalType === "") {
         return;
       }

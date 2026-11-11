@@ -1,15 +1,12 @@
 import { createHash } from "crypto";
-import {
-  EventProperties,
-  GrowthBookClient,
-  setPolyfills,
-} from "@growthbook/growthbook";
+import { GrowthBookClient, setPolyfills } from "@growthbook/growthbook";
 import { growthbookTrackingPlugin } from "@growthbook/growthbook/plugins";
 import { EventSource } from "eventsource";
 import { NextFunction, Request, Response } from "express";
 import { GROWTHBOOK_SECURE_ATTRIBUTE_SALT } from "shared/constants";
 import { AppFeatures } from "shared/types/app-features";
 import { OrganizationInterface } from "shared/types/organization";
+import { AppEventName, AppEvents } from "back-end/src/types/app-events";
 import { getEffectiveAccountPlan } from "back-end/src/enterprise";
 import { logger } from "back-end/src/util/logger";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
@@ -245,7 +242,7 @@ export function trackMcpRequestCompletion(
     res.removeListener("finish", onComplete);
     res.removeListener("close", onComplete);
     try {
-      const properties: EventProperties = {
+      const properties: AppEvents["MCP Request"] = {
         tool,
         mcpVersion: getMcpHeader(req, MCP_VERSION_HEADER),
         transport: getMcpHeader(req, MCP_TRANSPORT_HEADER),
@@ -460,10 +457,10 @@ export function getTrustedOrgAttributes(
  * Sets org attributes so the accountPlan filter doesn't drop the event, and
  * never throws — callers fire these inside business-logic try/catch blocks.
  */
-export function trackEventForOrganization(
+export function trackEventForOrganization<K extends AppEventName>(
   org: OrganizationInterface,
-  eventName: string,
-  properties: EventProperties = {},
+  eventName: K,
+  properties: AppEvents[K],
 ): void {
   try {
     const client = getGrowthBookClient();
@@ -477,15 +474,15 @@ export function trackEventForOrganization(
   }
 }
 
-export function trackEventForContext(
+export function trackEventForContext<K extends AppEventName>(
   context: ReqContext,
-  eventName: string,
-  properties: EventProperties = {},
+  eventName: K,
+  properties: AppEvents[K],
 ): void {
   const gb = (context.req as AuthRequest | undefined)?.gb;
   if (gb) {
     try {
-      gb.logEvent(eventName, properties);
+      gb.logEvent<AppEventName>(eventName, properties);
     } catch (e) {
       logger.warn({ err: e, eventName }, "Failed to log GrowthBook event");
     }
