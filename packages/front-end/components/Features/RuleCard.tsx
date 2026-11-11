@@ -78,7 +78,7 @@ export default function RuleCard({
   // The page it's tested against: header and details in one column.
   if (!redesign) {
     return (
-      <Card>
+      <Card className={styles.badges}>
         <div className={clsx(styles.sideBar, styles[sideColor])} />
         <Flex align="start" justify="between" gap="2" p="1">
           <Box className={styles.handle}>{handle}</Box>
@@ -95,7 +95,9 @@ export default function RuleCard({
 
   // Its values' copy and fullscreen buttons show while it's hovered.
   return (
-    <Card className={clsx(cornerStyles.hoverActions, styles.card)}>
+    <Card
+      className={clsx(cornerStyles.hoverActions, styles.card, styles.badges)}
+    >
       <div className={clsx(styles.sideBar, styles[sideColor])} />
       <Box px="2" pt="2" pb="4">
         <Flex align="start" gap="2" mb="2">

@@ -126,6 +126,9 @@
   // Over a scroll area's edge with more past it.
   --edge-shadow: var(--gray-a2);
   --edge-shadow-deep: var(--gray-a4);
+
+  // Halfway between Radix's gray-a2 and gray-a3, which has no step there.
+  --gray-a2-5: color-mix(in srgb, var(--gray-a2), var(--gray-a3));
 }
 
 @mixin dark-theme {
@@ -261,6 +264,9 @@
   --lift-shadow-far: rgba(0, 0, 0, 0.25);
   --edge-shadow: var(--black-a5);
   --edge-shadow-deep: var(--black-a7);
+
+  // Halfway between Radix's gray-a2 and gray-a3, which has no step there.
+  --gray-a2-5: color-mix(in srgb, var(--gray-a2), var(--gray-a3));
 }
 
 .light-theme {
