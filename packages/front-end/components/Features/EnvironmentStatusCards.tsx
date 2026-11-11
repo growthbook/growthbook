@@ -734,7 +734,7 @@ export function PrerequisiteList({
     <Box mt="5">
       <CollapseTrigger open={open} onOpenChange={setOpen}>
         <Flex align="center" gap="2">
-          <Text weight="medium" color="text-mid">
+          <Text weight="medium" color="text-high">
             {changes ? (
               <DraftChangesPopover sections={changes}>
                 <span className={styles.changed}>Prerequisites</span>
