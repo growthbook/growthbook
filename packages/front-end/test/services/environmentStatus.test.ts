@@ -18,6 +18,7 @@ import {
   sdkValueText,
   stepServes,
   stepTargets,
+  stepRequires,
   TrafficStep,
 } from "@/services/environmentStatus";
 
@@ -146,7 +147,7 @@ describe("getEnvironmentStatus", () => {
     [
       "a rollout over a rule serving the rest",
       [rollout("true", 0.5), force("false")],
-      { kind: "traffic", labels: ["Rollout"] },
+      { kind: "traffic", labels: [{ text: "Rollout sampled", by: "id" }] },
     ],
     [
       "nothing when two rollouts both vary it",
@@ -161,7 +162,10 @@ describe("getEnvironmentStatus", () => {
     const result = status(
       [force("true"), force("false")].map((r) => ruleTrafficStep(r)),
     );
-    expect(result.reason).toEqual({ kind: "traffic", labels: ["Force rule"] });
+    expect(result.reason).toEqual({
+      kind: "traffic",
+      labels: [{ text: "Force rule" }],
+    });
     expect(result.steps.map((s) => s.reachable)).toEqual([true, false]);
     expect(result.defaultValue).toBe("skipped");
   });
@@ -186,7 +190,7 @@ describe("getEnvironmentStatus", () => {
     });
     expect(result.reason).toEqual({
       kind: "traffic",
-      labels: ["Experiment"],
+      labels: [{ text: "Experiment split", by: "id" }],
     });
   });
 
@@ -204,20 +208,59 @@ describe("getEnvironmentStatus", () => {
     });
   });
 
-  it("varies by user behind a bandit, which takes everyone it reaches", () => {
+  it("varies by user behind a bandit", () => {
     const result = status([
       ruleTrafficStep(experimentRule, {
         experiment: experiment({ type: "multi-armed-bandit" }),
       }),
-      ruleTrafficStep(force("false")),
     ]);
     expect(result).toMatchObject({
       value: { kind: "varies" },
       rules: "varies",
-      defaultValue: "skipped",
     });
-    expect(result.steps.map((s) => s.reachable)).toEqual([true, false]);
   });
+
+  // The SDK skips a bucketed rule for a user without its hash attribute.
+  it.each([
+    [
+      "a running experiment",
+      {},
+      { kind: "partial", value: "true", percent: 0.5 },
+      "Experiment split",
+    ],
+    [
+      "a stopped experiment's released variation",
+      { status: "stopped", releasedVariationId: "v1" },
+      { kind: "value", value: "true" },
+      // One value, to the share its coverage samples.
+      "Experiment sampled",
+    ],
+  ] as const)(
+    "lets whoever lacks the hash attribute past %s at full coverage",
+    (_, overrides, value, text) => {
+      const step = ruleTrafficStep(experimentRule, {
+        experiment: experiment({ hashAttribute: "user_id", ...overrides }),
+      });
+      const alone = status([step]);
+      // The share it shows still counts everyone as having one.
+      expect(alone.value).toEqual(value);
+      expect(alone.reason).toEqual({
+        kind: "traffic",
+        labels: [{ text, by: "user_id" }],
+      });
+      expect(alone.defaultValue).toBe("applies");
+      expect(alone.defaultWithout).toEqual(["user_id"]);
+      expect(stepTargets(step)).toBe("All users");
+      expect(stepRequires(step)).toBe("user_id");
+      expect(reachedRules(alone)).toEqual({ rule: step, count: 1 });
+
+      // A rule that buckets no one still ends it.
+      const followed = status([step, ruleTrafficStep(force("false"))]);
+      expect(followed.steps.map((s) => s.reachable)).toEqual([true, true]);
+      expect(followed.defaultValue).toBe("skipped");
+      expect(followed.defaultWithout).toEqual([]);
+    },
+  );
 
   it.each([
     ["to everyone", {}, { kind: "value", value: "true" }],
@@ -364,7 +407,7 @@ describe("getEnvironmentStatus", () => {
     });
     expect(result.reason).toEqual({
       kind: "traffic",
-      labels: ["Holdout", "Force rule"],
+      labels: [{ text: "Holdout" }, { text: "Force rule" }],
     });
     expect(result).toMatchObject({ holdout: "applies", rules: "applies" });
   });
@@ -400,7 +443,7 @@ describe("getEnvironmentStatus", () => {
     expect(
       status([force("true"), force("true")].map((r) => ruleTrafficStep(r)))
         .reason,
-    ).toEqual({ kind: "traffic", labels: ["Force rule"] });
+    ).toEqual({ kind: "traffic", labels: [{ text: "Force rule" }] });
   });
 
   it("counts an experiment's split of a non-boolean value as a split", () => {
@@ -455,6 +498,74 @@ describe("getEnvironmentStatus", () => {
     }
   });
 
+  it("serves the holdout's control group ahead of an unmet prerequisite", () => {
+    const prerequisites = [{ id: "parent", result: "unmet" as const }];
+    const held = (value: string) =>
+      status(
+        [
+          holdoutTrafficStep(value, experiment({}, { coverage: 0.1 })),
+          ruleTrafficStep(force("true")),
+        ],
+        { prerequisites },
+      );
+    const result = held("true");
+    expect(result).toMatchObject({
+      value: { kind: "partial", value: "true", percent: 0.05 },
+      reason: { kind: "prerequisite", result: "unmet", holdout: true },
+      prerequisites: "unmet",
+      holdout: "applies",
+      rules: "skipped",
+      defaultValue: "skipped",
+    });
+    expect(result.steps.map((s) => s.step.kind)).toEqual(["holdout"]);
+    expect(reasonText(result.reason)).toBe("Holdout + Prerequisite not met");
+    // Held back to false, a boolean flag reads the same as serving nothing.
+    expect(held("false")).toMatchObject({
+      value: { kind: "value", value: null },
+      holdout: "applies",
+    });
+    expect(reasonText(held("false").reason)).toBe("Prerequisite not met");
+  });
+
+  it.each([
+    [
+      "the default",
+      [force("true", '{"country":"US"}')],
+      "true",
+      { kind: "default" },
+    ],
+    [
+      "the rule after it",
+      [force("true", '{"country":"US"}'), force("true")],
+      "false",
+      { kind: "traffic", labels: [{ text: "Force rule" }] },
+    ],
+  ])(
+    "serves one value when a targeted rule serves the same as %s",
+    (_, rules, defaultValue, reason) => {
+      const result = status(
+        rules.map((r) => ruleTrafficStep(r)),
+        { defaultValue },
+      );
+      expect(result.value).toEqual({ kind: "value", value: "true" });
+      expect(result.reason).toEqual(reason);
+    },
+  );
+
+  it("varies when a targeted rule sits ahead of values it can't know", () => {
+    expect(
+      status(
+        [
+          ruleTrafficStep(force("true", '{"country":"US"}')),
+          ruleTrafficStep(experimentRule, {
+            experiment: experiment({ type: "multi-armed-bandit" }),
+          }),
+        ],
+        { defaultValue: "true" },
+      ).value,
+    ).toEqual({ kind: "varies" });
+  });
+
   it("puts the holdout ahead of prerequisite targeting, as the SDK does", () => {
     const holdout = holdoutTrafficStep(
       "false",
@@ -466,7 +577,7 @@ describe("getEnvironmentStatus", () => {
       }).reason,
     ).toEqual({
       kind: "traffic",
-      labels: ["Holdout", "Prerequisite targeting"],
+      labels: [{ text: "Holdout" }, { text: "Prerequisite targeting" }],
     });
   });
 
@@ -502,7 +613,10 @@ describe("getEnvironmentStatus", () => {
     expect(
       status([holdout, ruleTrafficStep(force("true", '{"country":"US"}'))])
         .reason,
-    ).toEqual({ kind: "traffic", labels: ["Holdout", "Force rule"] });
+    ).toEqual({
+      kind: "traffic",
+      labels: [{ text: "Holdout" }, { text: "Force rule" }],
+    });
   });
 });
 
@@ -661,8 +775,11 @@ describe("reasonText", () => {
       "Circular dependency",
     ],
     [
-      { kind: "traffic", labels: ["Rollout", "Experiment"] },
-      "Rollout + Experiment",
+      {
+        kind: "traffic",
+        labels: [{ text: "Rollout" }, { text: "Experiment split", by: "id" }],
+      },
+      "Rollout + Experiment split by id",
     ],
     [{ kind: "default" }, "Default value"],
     [{ kind: "mixed" }, null],

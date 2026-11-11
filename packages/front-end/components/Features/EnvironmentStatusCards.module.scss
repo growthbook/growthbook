@@ -90,6 +90,13 @@
   min-width: 0;
 }
 
+// An attribute's name in a reason, set apart from the words around it.
+.attribute {
+  font-family: var(--code-font-family);
+  font-size: inherit;
+  color: inherit;
+}
+
 // Something the draft changes: an environment it turns on or off, or the
 // prerequisites it edits.
 .changed {

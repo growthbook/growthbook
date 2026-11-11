@@ -12,6 +12,7 @@ import { PiArrowRight, PiCaretDown, PiCaretUp, PiMinus } from "react-icons/pi";
 import {
   displayValue,
   reachedRules,
+  ReasonLabel,
   EnvironmentStatus,
   EnvironmentValue,
   PrerequisiteResult,
@@ -19,6 +20,7 @@ import {
   reasonText,
   servedDot,
   StepStatus,
+  stepRequires,
   stepServes,
   stepTargets,
   TrafficStep,
@@ -194,7 +196,28 @@ function ValueCode({
   );
 }
 
-function ReasonText({ text }: { text: string }) {
+// Attribute names, set apart from the words around them as code.
+function Attributes({ names }: { names: string[] }) {
+  return (
+    <>
+      {names.map((name, i) => (
+        <Fragment key={name}>
+          {i ? " or " : null}
+          <code className={styles.attribute}>{name}</code>
+        </Fragment>
+      ))}
+    </>
+  );
+}
+
+function ReasonText({
+  text,
+  labels,
+}: {
+  text: string;
+  // A traffic reason's steps, to set what each buckets by apart as code.
+  labels?: ReasonLabel[];
+}) {
   const ref = useRef<HTMLSpanElement>(null);
   const truncated = useIsOverflowingX(ref);
   // The span triggers it: @/ui/Text drops the hover handlers a trigger needs.
@@ -202,7 +225,20 @@ function ReasonText({ text }: { text: string }) {
     <Tooltip content={text} enabled={truncated}>
       <span className={styles.reason}>
         <Text ref={ref} size="sm" color="text-mid" truncate>
-          {text}
+          {labels
+            ? labels.map((label, i) => (
+                <Fragment key={i}>
+                  {i ? " + " : null}
+                  {label.text}
+                  {label.by ? (
+                    <>
+                      {" by "}
+                      <Attributes names={[label.by]} />
+                    </>
+                  ) : null}
+                </Fragment>
+              ))
+            : text}
         </Text>
       </span>
     </Tooltip>
@@ -322,6 +358,7 @@ function StepFields({
 }) {
   const serves = stepServes(step, valueType === "boolean");
   const targets = stepTargets(step);
+  const requires = stepRequires(step);
   return (
     <Fields
       fields={[
@@ -350,7 +387,17 @@ function StepFields({
           ? [
               {
                 label: "Targets",
-                value: <Text color="text-mid">{targets}</Text>,
+                value: (
+                  <Text color="text-mid">
+                    {targets}
+                    {requires ? (
+                      <>
+                        {" with "}
+                        <Attributes names={[requires]} />
+                      </>
+                    ) : null}
+                  </Text>
+                ),
               },
             ]
           : []),
@@ -387,6 +434,20 @@ function Drilldown({
           </Text>
         ) : null}
       </Row>
+      {/* Ahead of the prerequisites, as the SDK evaluates it. */}
+      {status.holdout !== "none" ? (
+        <Row
+          icon={<StepIcon status={holdout ? "applies" : "skipped"} />}
+          muted={!holdout}
+          label="Holdout"
+        >
+          {holdout ? (
+            <StepFields step={holdout.step} valueType={valueType} />
+          ) : (
+            <Text color="text-low">Not reachable</Text>
+          )}
+        </Row>
+      ) : null}
       {card.prerequisites.length ? (
         <>
           <Section
@@ -414,19 +475,6 @@ function Drilldown({
             ))}
           </div>
         </>
-      ) : null}
-      {status.holdout !== "none" ? (
-        <Row
-          icon={<StepIcon status={holdout ? "applies" : "skipped"} />}
-          muted={!holdout}
-          label="Holdout"
-        >
-          {holdout ? (
-            <StepFields step={holdout.step} valueType={valueType} />
-          ) : (
-            <Text color="text-low">Not reachable</Text>
-          )}
-        </Row>
       ) : null}
       {reached.count ? (
         reached.rule ? (
@@ -479,6 +527,20 @@ function Drilldown({
                   />
                 ),
               },
+              // Only whoever a step ahead of it skips.
+              ...(status.defaultWithout.length
+                ? [
+                    {
+                      label: "Targets",
+                      value: (
+                        <Text color="text-mid">
+                          Users without{" "}
+                          <Attributes names={status.defaultWithout} />
+                        </Text>
+                      ),
+                    },
+                  ]
+                : []),
             ]}
           />
         )}
@@ -547,7 +609,14 @@ function Card({
                 <Text size="sm" color="text-low">
                   Reason:
                 </Text>
-                <ReasonText text={reason} />
+                <ReasonText
+                  text={reason}
+                  labels={
+                    status?.reason.kind === "traffic"
+                      ? status.reason.labels
+                      : undefined
+                  }
+                />
               </>
             ) : null}
           </span>

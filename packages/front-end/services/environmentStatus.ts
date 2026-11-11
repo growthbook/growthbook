@@ -47,6 +47,9 @@ export type TrafficStep = {
   // An experiment's or bandit's arms.
   variations: number | null;
   targeted: boolean;
+  // The attribute it buckets users by, null when it doesn't bucket. The SDK
+  // skips it for a user without one, so it never takes everyone.
+  hashAttribute: string | null;
   traffic: { participation: number; shares: Share[] | null } | null;
 };
 
@@ -62,6 +65,10 @@ export type EnvironmentValue =
   // A step that takes no one's traffic, as at 0% coverage.
   | { kind: "none" };
 
+// A step in a reason, with the attribute it buckets users by, if any:
+// "Experiment split by user_id".
+export type ReasonLabel = { text: string; by?: string };
+
 export type EnvironmentReason =
   | { kind: "disabled" }
   // An archived flag isn't sent to SDKs at all.
@@ -72,10 +79,12 @@ export type EnvironmentReason =
       result: "unmet" | "cycle";
       // How many aren't met.
       count: number;
+      // The holdout's control group is served ahead of them.
+      holdout?: true;
     }
   // The one thing that decides who gets what, behind any holdout: a rule or
   // prerequisite targeting that varies it, else the rule serving everyone.
-  | { kind: "traffic"; labels: string[] }
+  | { kind: "traffic"; labels: ReasonLabel[] }
   // Several things vary it together, too many to name as one reason.
   | { kind: "mixed" }
   | { kind: "default" };
@@ -102,6 +111,9 @@ export type EnvironmentStatus = {
   // Each step, and whether any traffic gets that far.
   steps: { step: TrafficStep; reachable: boolean }[];
   defaultValue: StepStatus;
+  // The attributes whoever reaches the default lacks, when a step ahead of it
+  // takes everyone who has one.
+  defaultWithout: string[];
   // The default as the SDK receives it.
   servedDefault: string;
 };
@@ -121,11 +133,13 @@ const stepOf = (
   label: string,
   traffic: TrafficStep["traffic"],
   targeted: boolean,
+  hashAttribute: string | null = null,
 ): TrafficStep => ({
   kind: "rule",
   label,
   variations: null,
   targeted,
+  hashAttribute,
   traffic,
 });
 
@@ -193,14 +207,17 @@ export function ruleTrafficStep(
     );
   }
   if (rule.type === "rollout") {
+    const coverage = rule.coverage ?? 1;
     return stepOf(
       "Rollout",
       {
         // Full coverage, or none set, serves everyone.
-        participation: rule.coverage ?? 1,
+        participation: coverage,
         shares: [{ value: resolve(rule.value), share: 1 }],
       },
       targeted,
+      // And reaches the SDK as a force rule, which buckets no one.
+      coverage < 1 ? rule.hashAttribute || "id" : null,
     );
   }
   if (rule.type === "experiment") {
@@ -215,6 +232,7 @@ export function ruleTrafficStep(
           })),
         },
         targeted,
+        rule.hashAttribute || "id",
       ),
       variations: rule.values.length,
     };
@@ -224,8 +242,14 @@ export function ruleTrafficStep(
     const label = isBandit ? "Bandit" : "Experiment";
     const phase = experiment?.phases.at(-1);
     const refTargeted = targeted || (!!phase && hasTargetingConfigured(phase));
+    // Stopped, its force rule keeps the phase's coverage, so it still buckets.
     const step = (traffic: TrafficStep["traffic"]): TrafficStep => ({
-      ...stepOf(label, traffic, refTargeted),
+      ...stepOf(
+        label,
+        traffic,
+        refTargeted,
+        experiment ? experiment.hashAttribute || "id" : null,
+      ),
       variations: experiment
         ? getLatestPhaseVariations(experiment).length
         : rule.variations.length,
@@ -298,7 +322,8 @@ export function ruleTrafficStep(
     }
     // Running, it splits evenly at the current ramp-up step's coverage.
     const ramp = safeRollout?.rampUpSchedule;
-    if (!ramp) return stepOf("Safe rollout", null, targeted);
+    const hashAttribute = rule.hashAttribute || "id";
+    if (!ramp) return stepOf("Safe rollout", null, targeted, hashAttribute);
     return stepOf(
       "Safe rollout",
       {
@@ -312,6 +337,7 @@ export function ruleTrafficStep(
         ],
       },
       targeted,
+      hashAttribute,
     );
   }
   return stepOf(
@@ -333,6 +359,8 @@ export function holdoutTrafficStep(
     label: "Holdout",
     variations: null,
     targeted: !!phase && hasTargetingConfigured(phase),
+    // Never taking everyone, what it buckets by doesn't bear on what follows.
+    hashAttribute: null,
   };
   if (!phase) return { ...step, traffic: null };
   return {
@@ -403,6 +431,12 @@ export function stepTargets(step: TrafficStep): string | null {
   return `${percentFormatter.format(participation)} of users`;
 }
 
+// The attribute a step taking everyone needs a user to have: the SDK skips it
+// for whoever lacks one.
+export function stepRequires(step: TrafficStep): string | null {
+  return (takes(step) ?? 0) >= 1 - EPSILON ? step.hashAttribute : null;
+}
+
 // The rules that bear on a drilldown's outcome: not one that reaches no one,
 // which the SDK drops, nor one no traffic gets as far as. A lone rule shows
 // when who gets what from it is known: it takes everyone left, or a set
@@ -419,7 +453,7 @@ export function reachedRules(status: EnvironmentStatus): {
   );
   const rule =
     rules.length === 1 &&
-    (status.defaultValue === "skipped" || decided(rules[0]) !== null)
+    ((takes(rules[0]) ?? 0) >= 1 - EPSILON || decided(rules[0]) !== null)
       ? rules[0]
       : null;
   return { count: rules.length, rule };
@@ -447,6 +481,7 @@ export function getEnvironmentStatus({
     rules: has("rule") ? ("skipped" as const) : ("none" as const),
     steps: [],
     defaultValue: "skipped" as const,
+    defaultWithout: [],
     servedDefault: defaultValue,
   };
 
@@ -464,16 +499,38 @@ export function getEnvironmentStatus({
     (p) => p.result === "unmet" || p.result === "cycle",
   );
   if (blocking.length) {
+    // The payload puts the holdout ahead of the prerequisites, so its control
+    // group is served its value whether or not they're met.
+    const holdout = steps.find((s) => s.kind === "holdout");
+    const held = holdout && (takes(holdout) ?? 1) > EPSILON ? holdout : null;
+    // The share it holds, unless that depends on who the user is.
+    const traffic = held ? decided(held) : null;
+    const served = traffic?.shares[0]?.value;
+    const value: EnvironmentValue = !held
+      ? { kind: "value", value: null }
+      : !traffic || served === undefined
+        ? { kind: "varies" }
+        : // Serving nothing, a boolean flag reads as false already.
+          isBoolean && served === "false"
+          ? { kind: "value", value: null }
+          : { kind: "partial", value: served, percent: traffic.participation };
     return {
-      value: { kind: "value", value: null },
+      value,
       reason: {
         kind: "prerequisite",
         result: blocking.some((p) => p.result === "cycle") ? "cycle" : "unmet",
         count: blocking.length,
+        ...(value.kind === "value" ? {} : { holdout: true as const }),
       },
       environment: "on",
       prerequisites: "unmet",
       ...unreached,
+      ...(held
+        ? {
+            holdout: traffic ? ("applies" as const) : ("varies" as const),
+            steps: [{ step: held, reachable: true }],
+          }
+        : {}),
     };
   }
   const varying = prerequisites.find((p) => p.result === "varies");
@@ -507,6 +564,42 @@ export function getEnvironmentStatus({
     if (!variesAt && remaining > EPSILON) {
       shares.push({ value: defaultValue, share: remaining });
     }
+    // Who gets what may depend on the user while what they get doesn't: every
+    // step from there on, and the default if traffic gets that far, may serve
+    // the one value.
+    if (variesAt) {
+      const values = new Set(
+        shares.filter((s) => s.share > EPSILON).map((s) => s.value),
+      );
+      const rest: TrafficStep[] = [];
+      let open = true;
+      for (const step of list.slice(list.indexOf(variesAt))) {
+        const taken = takes(step);
+        if ((taken ?? 1) <= EPSILON) continue;
+        const served = step.traffic?.shares;
+        // Unknown ahead of time, as a bandit's are.
+        if (!served) {
+          values.clear();
+          break;
+        }
+        served
+          .filter((s) => s.share > EPSILON)
+          .forEach((s) => values.add(s.value));
+        rest.push(step);
+        if ((taken ?? 0) >= 1 - EPSILON) {
+          open = false;
+          break;
+        }
+      }
+      if (values.size && open) values.add(defaultValue);
+      if (values.size === 1) {
+        return {
+          taking: [...taking, ...rest],
+          variesAt: null,
+          value: { kind: "value" as const, value: [...values][0] },
+        };
+      }
+    }
     const value: EnvironmentValue = variesAt
       ? { kind: "varies" }
       : summarize(
@@ -526,11 +619,18 @@ export function getEnvironmentStatus({
     return { taking, variesAt, value };
   };
   const { taking, variesAt, value } = walk(steps);
-  // Traffic gets past every step until one takes all of it.
+  // Traffic gets past every step until one takes all of it. One that buckets
+  // by an attribute still lets through whoever lacks it.
   let open = true;
+  const defaultWithout: string[] = [];
   const listed = steps.map((step) => {
     const reachable = open;
-    if ((takes(step) ?? 0) >= 1 - EPSILON) open = false;
+    if (open && (takes(step) ?? 0) >= 1 - EPSILON) {
+      if (!step.hashAttribute) open = false;
+      else if (!defaultWithout.includes(step.hashAttribute)) {
+        defaultWithout.push(step.hashAttribute);
+      }
+    }
     return { step, reachable };
   });
   // Rules after the one that varies by user, which whoever it doesn't match
@@ -568,6 +668,17 @@ export function getEnvironmentStatus({
     return own.some((r) => !decided(r.step)) ? "varies" : "applies";
   };
 
+  // Bucketing splits users between its values, or samples the share that gets
+  // its one value. Values unknown ahead of time, as a bandit's, are a split.
+  const named = (step: TrafficStep): ReasonLabel => {
+    if (!step.hashAttribute) return { text: step.label };
+    const values = new Set(step.traffic?.shares?.map((s) => s.value));
+    return {
+      text: `${step.label} ${values.size === 1 ? "sampled" : "split"}`,
+      by: step.hashAttribute,
+    };
+  };
+
   return {
     value: varying ? { kind: "varies" } : value,
     reason: (() => {
@@ -575,7 +686,7 @@ export function getEnvironmentStatus({
       // What makes the value vary; a rule serving one value to all the
       // traffic left over doesn't, any more than the default does.
       const sources = [
-        ...(varying ? ["Prerequisite targeting"] : []),
+        ...(varying ? [{ text: "Prerequisite targeting" }] : []),
         ...rules
           .filter((step) => {
             const traffic = decided(step);
@@ -585,7 +696,7 @@ export function getEnvironmentStatus({
               new Set(traffic.shares.map((s) => s.value)).size > 1
             );
           })
-          .map((step) => step.label),
+          .map(named),
       ];
       // Several vary it, or one does and the rules after it take over for
       // whoever it doesn't match: no single thing to name.
@@ -594,11 +705,12 @@ export function getEnvironmentStatus({
       }
       // The holdout stacks in front, in the SDK's order.
       const chain = [
-        ...reasons
-          .filter((step) => step.kind === "holdout")
-          .map((step) => step.label),
-        ...(sources.length ? sources : rules.map((step) => step.label)),
-      ].filter((label, i, all) => label !== all[i - 1]);
+        ...reasons.filter((step) => step.kind === "holdout").map(named),
+        ...(sources.length ? sources : rules.map(named)),
+      ].filter(
+        (label, i, all) =>
+          label.text !== all[i - 1]?.text || label.by !== all[i - 1]?.by,
+      );
       return chain.length
         ? { kind: "traffic" as const, labels: chain }
         : { kind: "default" as const };
@@ -609,6 +721,7 @@ export function getEnvironmentStatus({
     rules: statusOf("rule"),
     steps: listed,
     defaultValue: open ? "applies" : "skipped",
+    defaultWithout: open ? defaultWithout : [],
     servedDefault: defaultValue,
   };
 }
@@ -661,14 +774,22 @@ export function reasonText(reason: EnvironmentReason): string | null {
       return "Environment OFF";
     case "archived":
       return "Feature Flag archived";
-    case "prerequisite":
-      return reason.result === "cycle"
-        ? "Circular dependency"
-        : reason.count > 1
-          ? "Prerequisites not met"
-          : "Prerequisite not met";
+    case "prerequisite": {
+      const text =
+        reason.result === "cycle"
+          ? "Circular dependency"
+          : reason.count > 1
+            ? "Prerequisites not met"
+            : "Prerequisite not met";
+      // The holdout stacks in front, in the SDK's order.
+      return reason.holdout ? `Holdout + ${text}` : text;
+    }
     case "traffic":
-      return reason.labels.join(" + ");
+      return reason.labels
+        .map((label) =>
+          label.by ? `${label.text} by ${label.by}` : label.text,
+        )
+        .join(" + ");
     case "mixed":
       return null;
     case "default":
