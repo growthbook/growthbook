@@ -10,6 +10,8 @@ import { Popover } from "@/ui/Popover";
 import Text from "@/ui/Text";
 import Tooltip from "@/ui/Tooltip";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
+import { NARROW_LAYOUT_BREAKPOINT_PX } from "@/components/Layout/constants";
+import useMediaQuery from "@/hooks/useMediaQuery";
 import { AppNotice, rankNotices } from "./notices";
 import styles from "./NoticeStack.module.scss";
 
@@ -20,6 +22,11 @@ type Upgrade = NonNullable<AppNotice["upgrade"]>;
 export default function NoticeStack({ notices }: { notices: AppNotice[] }) {
   const [upgrade, setUpgrade] = useState<Upgrade | null>(null);
   const [listOpen, setListOpen] = useState(false);
+  // Narrow headers share their first row with the menu and the AI Assistant
+  // button (TopNav.module.scss), so the notices collapse to one button.
+  const compact = useMediaQuery(
+    `(max-width: ${NARROW_LAYOUT_BREAKPOINT_PX}px)`,
+  );
   // The list lives in the persistent top nav, so following a link closes it.
   const router = useRouter();
   useEffect(() => {
@@ -30,6 +37,58 @@ export default function NoticeStack({ notices }: { notices: AppNotice[] }) {
   if (!notices.length) return null;
   const ranked = rankNotices(notices);
   const [top, ...rest] = ranked;
+
+  const list = (
+    <Flex direction="column" gap="2">
+      {ranked.map((notice) => (
+        <NoticeCallout key={notice.id} notice={notice} onUpgrade={setUpgrade} />
+      ))}
+    </Flex>
+  );
+  const upgradeModal = upgrade ? (
+    <UpgradeModal
+      close={() => setUpgrade(null)}
+      source={upgrade.source}
+      commercialFeature={upgrade.commercialFeature}
+    />
+  ) : null;
+
+  // Even with one notice, so a tap shows its full text.
+  if (compact) {
+    return (
+      <Flex align="center" flexShrink="0">
+        <Popover
+          open={listOpen}
+          onOpenChange={setListOpen}
+          side="bottom"
+          align="end"
+          contentStyle={{ maxWidth: 380 }}
+          onOpenAutoFocus={(e) => e.preventDefault()}
+          trigger={
+            <Button
+              variant="soft"
+              color="gray"
+              size="sm"
+              className={styles.more}
+              aria-label={
+                ranked.length === 1 ? "1 notice" : `${ranked.length} notices`
+              }
+            >
+              <PiWarningFill
+                size={15}
+                color={
+                  top.severity === "error" ? "var(--red-11)" : "var(--amber-11)"
+                }
+              />
+              {ranked.length}
+            </Button>
+          }
+          content={list}
+        />
+        {upgradeModal}
+      </Flex>
+    );
+  }
 
   return (
     <Flex align="center" gap="2" flexShrink="0">
@@ -60,26 +119,10 @@ export default function NoticeStack({ notices }: { notices: AppNotice[] }) {
               +{rest.length}
             </Button>
           }
-          content={
-            <Flex direction="column" gap="2">
-              {ranked.map((notice) => (
-                <NoticeCallout
-                  key={notice.id}
-                  notice={notice}
-                  onUpgrade={setUpgrade}
-                />
-              ))}
-            </Flex>
-          }
+          content={list}
         />
       ) : null}
-      {upgrade ? (
-        <UpgradeModal
-          close={() => setUpgrade(null)}
-          source={upgrade.source}
-          commercialFeature={upgrade.commercialFeature}
-        />
-      ) : null}
+      {upgradeModal}
     </Flex>
   );
 }

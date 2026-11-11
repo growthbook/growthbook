@@ -94,7 +94,9 @@ export const EventsPage: FC<EventsPageProps> = ({
         }
       />
 
-      <Flex justify="between" align="center" gap="4" mt="2">
+      {/* Wraps onto more lines where it doesn't fit, rather than running off
+          the page. */}
+      <Flex justify="between" align="center" gap="4" wrap="wrap" mt="2">
         {filters}
       </Flex>
       {error && (
@@ -111,59 +113,63 @@ export const EventsPage: FC<EventsPageProps> = ({
       {!error && (
         <Box position="relative" mt="3">
           {refreshing && <LoadingOverlay />}
-          <table className="table gbtable appbox">
-            <thead>
-              <tr>
-                <th
-                  style={{ width: 200 }}
-                  aria-sort={ariaSort(sort.field === "dateCreated", sort.dir)}
-                >
-                  <SortButton
-                    active={sort.field === "dateCreated"}
-                    dir={sort.dir}
-                    subtle
-                    onClick={() =>
-                      setSort({
-                        field: "dateCreated",
-                        dir: sort.dir * -1,
-                      })
-                    }
-                  >
-                    Date
-                  </SortButton>
-                </th>
-                <th>Type</th>
-                <th>By</th>
-                <th>Data</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {events.length === 0 ? (
-                // Empty state
+          {/* Scrolls sideways inside its frame where it's wider than the
+              page. */}
+          <div className="appbox" style={{ overflowX: "auto" }}>
+            <table className="table gbtable">
+              <thead>
                 <tr>
-                  <td colSpan={5}>
-                    {hasFilters ? (
-                      <div className="text-center">
-                        No events were found that match the filters.
-                      </div>
-                    ) : (
-                      <div className="text-center">
-                        No events were found. Events are created when users
-                        interact with the system.
-                      </div>
-                    )}
-                  </td>
+                  <th
+                    style={{ width: 200 }}
+                    aria-sort={ariaSort(sort.field === "dateCreated", sort.dir)}
+                  >
+                    <SortButton
+                      active={sort.field === "dateCreated"}
+                      dir={sort.dir}
+                      subtle
+                      onClick={() =>
+                        setSort({
+                          field: "dateCreated",
+                          dir: sort.dir * -1,
+                        })
+                      }
+                    >
+                      Date
+                    </SortButton>
+                  </th>
+                  <th>Type</th>
+                  <th>By</th>
+                  <th>Data</th>
+                  <th></th>
                 </tr>
-              ) : (
-                <>
-                  {events.map((event) => (
-                    <EventsTableRow key={event.id} event={event} />
-                  ))}
-                </>
-              )}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {events.length === 0 ? (
+                  // Empty state
+                  <tr>
+                    <td colSpan={5}>
+                      {hasFilters ? (
+                        <div className="text-center">
+                          No events were found that match the filters.
+                        </div>
+                      ) : (
+                        <div className="text-center">
+                          No events were found. Events are created when users
+                          interact with the system.
+                        </div>
+                      )}
+                    </td>
+                  </tr>
+                ) : (
+                  <>
+                    {events.map((event) => (
+                      <EventsTableRow key={event.id} event={event} />
+                    ))}
+                  </>
+                )}
+              </tbody>
+            </table>
+          </div>
         </Box>
       )}
     </div>

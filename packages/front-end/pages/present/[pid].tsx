@@ -95,3 +95,5 @@ const PresentPage = (): React.ReactElement => {
   );
 };
 export default PresentPage;
+
+PresentPage.noPageWrapper = true;

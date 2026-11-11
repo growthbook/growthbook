@@ -38,6 +38,7 @@ import Metadata from "@/ui/Metadata";
 import EventUser from "@/components/Avatar/EventUser";
 import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
 import { getStatusBadge } from "@/components/Revision/revisionUtils";
+import { useTabsBottom } from "@/components/Layout/pageTopOffset";
 import { useUser } from "@/services/UserContext";
 
 const DRAFT_STATUSES = ["draft", "pending-review", "changes-requested"];
@@ -90,7 +91,9 @@ export default function RevisionSummaryCard({
 }: RevisionSummaryCardProps) {
   const { getOwnerDisplay } = useUser();
   const [bannerPinned, setBannerPinned] = useState(false);
-  // Pinned once a sentinel above the banner scrolls past the 110px sticky offset
+  // Pins where the feature page's draft banner does (FeaturesOverview).
+  const bannerTop = useTabsBottom() + 15;
+  // Pinned once a sentinel above the banner scrolls past its sticky offset
   // (more reliable than getBoundingClientRect). Ref callback so the observer
   // re-attaches if the sentinel mounts later (e.g. a draft created on a bare page).
   const bannerSentinelObserver = useRef<IntersectionObserver | null>(null);
@@ -106,12 +109,12 @@ export default function RevisionSummaryCard({
       }
       const observer = new IntersectionObserver(
         ([entry]) => setBannerPinned(!entry.isIntersecting),
-        { rootMargin: "-110px 0px 0px 0px", threshold: 0 },
+        { rootMargin: `-${bannerTop}px 0px 0px 0px`, threshold: 0 },
       );
       observer.observe(el);
       bannerSentinelObserver.current = observer;
     },
-    [disablePinning],
+    [disablePinning, bannerTop],
   );
 
   // The "Review & Publish" CTA portals between the card slot and the banner
@@ -330,7 +333,7 @@ export default function RevisionSummaryCard({
           <div
             style={{
               position: disablePinning ? "static" : "sticky",
-              top: 110,
+              top: bannerTop,
               zIndex: 920,
               marginBottom: 12,
               display: "flex",

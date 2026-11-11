@@ -183,7 +183,9 @@ const ExperimentsPage = (): React.ReactElement => {
     <>
       <div className="contents experiments container-fluid pagecontents">
         <div className="my-3">
-          <div className="filters md-form row align-items-center">
+          <div
+            className={`filters md-form row align-items-center${hasExperiments ? "" : " mb-3"}`}
+          >
             <div className="col-auto">
               <h1>Experiments</h1>
             </div>

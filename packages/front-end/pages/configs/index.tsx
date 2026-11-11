@@ -37,6 +37,7 @@ import { useConfigDraftStates } from "@/hooks/useConstantDraftStates";
 import { useRevisionsEntityType } from "@/hooks/useRevisions";
 import ConfigModal from "@/components/Configs/ConfigModal";
 import ConfigReviews from "@/components/Configs/ConfigReviews";
+import SearchFilterRow from "@/components/Search/SearchFilterRow";
 import ConfigSearchFilters from "@/components/Search/ConfigSearchFilters";
 
 const VALID_TABS = ["all", "drafts"] as const;
@@ -282,22 +283,25 @@ export default function ConfigsPage(): React.ReactElement {
 
             <TabsContent value="all">
               <Box mt="4">
-                <Flex align="center" justify="between" gap="3" mb="3">
-                  <Box style={{ width: "40%" }}>
+                <SearchFilterRow
+                  mb="3"
+                  search={
                     <Field
                       placeholder="Search..."
                       type="search"
                       {...searchInputProps}
                     />
-                  </Box>
-                  <ConfigSearchFilters
-                    searchInputProps={searchInputProps}
-                    syntaxFilters={syntaxFilters}
-                    setSearchValue={setSearchValue}
-                    configs={items}
-                    hasArchived={hasArchived}
-                  />
-                </Flex>
+                  }
+                  filters={
+                    <ConfigSearchFilters
+                      searchInputProps={searchInputProps}
+                      syntaxFilters={syntaxFilters}
+                      setSearchValue={setSearchValue}
+                      configs={items}
+                      hasArchived={hasArchived}
+                    />
+                  }
+                />
                 <Table variant="list" stickyHeader roundedCorners>
                   <TableHeader>
                     <TableRow>

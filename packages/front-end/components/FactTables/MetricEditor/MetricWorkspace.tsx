@@ -31,11 +31,25 @@ import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
 import ConfirmDialog from "@/ui/ConfirmDialog";
 import MetricEditor from "@/components/FactTables/MetricEditor/MetricEditor";
+import usePageAreaCrowded from "@/components/Layout/usePageAreaCrowded";
 import TemplateFieldMapping from "@/components/FactTables/MetricEditor/TemplateFieldMapping";
 import { FactMetricSeed } from "@/components/FactTables/MetricEditor/templateMetric";
 
 import styles from "./MetricWorkspace.module.scss";
 import { createNavigationCancellation } from "./navigationCancellation";
+
+/**
+ * With the AI panel docked, the narrowest page area (the window less the side
+ * nav and the panel) the form beside the 380px preview holds up in; narrower,
+ * the editor stacks as it does below 1024px. Measured across the metric
+ * types: at 956px a Tag starts to clip.
+ */
+const EDITOR_WIDE_MIN_PAGE_AREA_PX = 958;
+/**
+ * Likewise for Description and Tags side by side, which a narrow window keeps
+ * from 768px: the page area there, with the side nav a drawer.
+ */
+const EDITOR_FIELDS_MIN_PAGE_AREA_PX = 768;
 
 type DefaultsContext = Pick<
   Parameters<typeof getDefaultFactMetricProps>[0],
@@ -160,6 +174,11 @@ export default function MetricWorkspace({
     metricType === "funnel"
       ? !!funnelSteps?.length && funnelSteps.every((step) => !!step.factTableId)
       : !!numeratorTable && (metricType !== "ratio" || !!denominatorTable);
+  // Its narrow layout (the preview below the form, the actions inline) on a
+  // wide window too, when the docked AI panel leaves too little room.
+  const stacked = usePageAreaCrowded(EDITOR_WIDE_MIN_PAGE_AREA_PX);
+  // And, narrower, Description above Tags, as below a 768px window.
+  const stackedFields = usePageAreaCrowded(EDITOR_FIELDS_MIN_PAGE_AREA_PX);
   const workspaceRef = useRef<HTMLDivElement>(null);
   const [actionsRight, setActionsRight] = useState(16);
   const [floating, setFloating] = useState(false);
@@ -171,9 +190,11 @@ export default function MetricWorkspace({
     const updateFloating = () => {
       // Keep the actions inline until the full header button area has passed
       // behind the top navigation, rather than switching at its first edge.
-      // Below 1024px the form is one column, so a floating card would cover it.
+      // Below 1024px, or stacked, the form is one column, so a floating card
+      // would cover it.
       setFloating(
         window.matchMedia("(min-width: 1024px)").matches &&
+          !stacked &&
           window.scrollY > 0 &&
           actionsContainer.getBoundingClientRect().bottom < 56,
       );
@@ -185,7 +206,7 @@ export default function MetricWorkspace({
       window.removeEventListener("scroll", updateFloating);
       window.removeEventListener("resize", updateFloating);
     };
-  }, [actionsContainer, isEditing]);
+  }, [actionsContainer, isEditing, stacked]);
   const [error, setError] = useState<string | null>(null);
   // The error shows above the form, so bring it into view on a failed save.
   const errorRef = useRef<HTMLDivElement>(null);
@@ -475,6 +496,8 @@ export default function MetricWorkspace({
         form={form}
         canEdit={isEditing}
         onRepresentableChange={setRepresentable}
+        stacked={stacked}
+        stackedFields={stackedFields}
       />
     </Flex>
   );

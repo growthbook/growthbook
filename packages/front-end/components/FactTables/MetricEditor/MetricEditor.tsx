@@ -77,6 +77,8 @@ export default function MetricEditor({
   canEdit,
   onRepresentableChange,
   existingMetric,
+  stacked = false,
+  stackedFields = false,
 }: {
   existingMetric?: FactMetricInterface | null;
   form: UseFormReturn<CreateFactMetricFormProps>;
@@ -86,6 +88,13 @@ export default function MetricEditor({
   // definition Callout, instead of deriving formTypeFromStored a second time
   // from the same form fields.
   onRepresentableChange?: (representable: boolean) => void;
+  /**
+   * The preview below the form on a wide window too, as below 1024px: when
+   * the docked AI panel leaves too little room (MetricWorkspace).
+   */
+  stacked?: boolean;
+  /** Description above Tags on a wide window too, as below 768px. */
+  stackedFields?: boolean;
 }) {
   const {
     getFactTableById,
@@ -357,7 +366,10 @@ export default function MetricEditor({
   const valueShape = shapeForValueType(formType);
 
   const grid = (
-    <Grid columns={{ initial: "1", md: "minmax(0, 1fr) 380px" }} gap="4">
+    <Grid
+      columns={stacked ? "1" : { initial: "1", md: "minmax(0, 1fr) 380px" }}
+      gap="4"
+    >
       <Flex direction="column" gap="4" minWidth="0">
         <Frame px="4" py="4" mb="0">
           <Heading as="h4" size="sm" mb="3">
@@ -376,7 +388,10 @@ export default function MetricEditor({
                 onChange={(e) => form.setValue("name", e.target.value)}
                 required
               />
-              <Grid columns={{ initial: "1", sm: "2" }} gap="4">
+              <Grid
+                columns={stackedFields ? "1" : { initial: "1", sm: "2" }}
+                gap="4"
+              >
                 <div style={{ minWidth: 0 }}>
                   {showDescription || form.watch("description") ? (
                     <Field
@@ -653,6 +668,7 @@ export default function MetricEditor({
 
       <Flex direction="column" gap="4" minWidth="0">
         <PreviewPanel
+          stacked={stacked}
           draft={canEdit ? form.watch() : null}
           previewSql={previewSql}
           metric={canEdit ? null : existingMetric}

@@ -18,3 +18,12 @@ export const MEMBER_COLUMN_WIDTHS = {
   teamDate: "14%",
   actions: "4%",
 } as const;
+
+/**
+ * Narrower than this, a member table scrolls sideways in its frame rather than
+ * squeezing its columns (e.g. beside the docked AI panel). Measured with the
+ * sort icons: at 834px the members table's Date joined icon crosses into the
+ * Last login column (and from 734px runs into its text). The other tables,
+ * without sort icons, fit narrower. Shared, so the tables stay lined up.
+ */
+export const MEMBER_TABLE_MIN_WIDTH = 836;

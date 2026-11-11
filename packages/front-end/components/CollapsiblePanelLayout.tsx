@@ -15,6 +15,10 @@ import styles from "./CollapsiblePanelLayout.module.scss";
 export const PANEL_WIDTH_PX = 360;
 const MIN_PANEL_WIDTH_PX = 280;
 const MAX_PANEL_SHARE = 2 / 3;
+// The narrowest the content takes beside a docked panel without overlapping or
+// cutting off (the experiment page's linked changes and Hypothesis). Less
+// room than this beside it, the panel floats instead.
+const MIN_CONTENT_WIDTH_PX = 540;
 // Drag this far past the minimum width to close the panel instead.
 const COLLAPSE_DELTA_PX = 60;
 const HANDLE_WIDTH_PX = 20;
@@ -26,8 +30,9 @@ export interface Props {
   // Sticks to the bottom of the content column; a floating panel ends above it.
   footer?: ReactNode;
   open: boolean;
-  // Viewport offset the panel sticks to, below any fixed page header.
-  top?: number;
+  // CSS length the panel sticks to, below any fixed page header, e.g.
+  // "var(--tabs-bottom)".
+  top?: string;
   // Fixed so the panel does not stretch on wide screens.
   width?: number;
   onWidthChange: (width: number) => void;
@@ -38,19 +43,20 @@ export interface Props {
 }
 
 // A right panel that sticks beside the content at full screen height. Wide, it
-// docks and the content reflows; narrow, it floats so the content keeps its width.
+// docks and the content reflows; narrow, or with too little room beside it, it
+// floats so the content keeps its width.
 export default function CollapsiblePanelLayout({
   children,
   panel,
   footer = null,
   open,
-  top = 0,
+  top = "0px",
   width = PANEL_WIDTH_PX,
   onWidthChange,
   onCollapse,
   busy = false,
 }: Props) {
-  const overlay = useMediaQuery(
+  const narrowWindow = useMediaQuery(
     `(max-width: ${NARROW_LAYOUT_BREAKPOINT_PX}px)`,
   );
   const [dragWidth, setDragWidth] = useState<number | null>(null);
@@ -77,8 +83,6 @@ export default function CollapsiblePanelLayout({
     observer.observe(footerEl);
     return () => observer.disconnect();
   }, []);
-  // Floating, the panel ends where the footer starts, so the footer stays whole.
-  const footerClearance = overlay ? footerHeight : 0;
   const [previewCollapsed, setPreviewCollapsed] = useState(false);
   // Clamped at render rather than stored, so widening the window restores the
   // dragged width.
@@ -87,6 +91,14 @@ export default function CollapsiblePanelLayout({
     : Infinity;
   const panelWidth = Math.min(dragWidth ?? width, maxPanelWidth);
   const collapseBelow = MIN_PANEL_WIDTH_PX - COLLAPSE_DELTA_PX;
+  // Floats on a narrow window, or when docking would squeeze the content (e.g.
+  // beside the side nav and the AI panel). The layout's own width holds still
+  // as the panel docks or floats, so it can't flip back and forth.
+  const overlay =
+    narrowWindow ||
+    (layoutWidth > 0 && layoutWidth - panelWidth < MIN_CONTENT_WIDTH_PX);
+  // Floating, the panel ends where the footer starts, so the footer stays whole.
+  const footerClearance = overlay ? footerHeight : 0;
 
   const startDrag = (e: ReactPointerEvent<HTMLDivElement>) => {
     e.preventDefault();
@@ -199,6 +211,9 @@ export default function CollapsiblePanelLayout({
       align="start"
       width="100%"
       ref={layout}
+      // For the page around it: whether the panel takes room beside the
+      // content (global.scss).
+      data-panel-docked={shown && !overlay ? "" : undefined}
       // The drag handle straddles the panel's edge, which reaches the window's
       // while it slides; clip, not hidden, so nothing inside stops sticking.
       style={{ overflowX: "clip" }}
@@ -226,7 +241,7 @@ export default function CollapsiblePanelLayout({
           style={{
             top,
             // Until `fit` measures it.
-            height: `calc(100vh - ${top + footerClearance}px)`,
+            height: `calc(100vh - ${top} - ${footerClearance}px)`,
             background: "var(--color-panel-solid)",
             // Matches the tab row's underline.
             borderLeft: shown ? "1px solid var(--gray-a5)" : "none",

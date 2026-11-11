@@ -1,0 +1,454 @@
+import { ReactNode, useState } from "react";
+import { createPortal } from "react-dom";
+import { useRouter } from "next/router";
+import { IconButton, VisuallyHidden } from "@radix-ui/themes";
+import clsx from "clsx";
+import { IconType } from "react-icons";
+import {
+  PiBuildingsBold,
+  PiCircleHalf,
+  PiFileText,
+  PiHourglassHigh,
+  PiKey,
+  PiListChecks,
+  PiLock,
+  PiMoon,
+  PiPlus,
+  PiShieldCheck,
+  PiSignOut,
+  PiSlackLogo,
+  PiSunDim,
+  PiUserCircle,
+} from "react-icons/pi";
+import { DropdownMenu } from "@/ui/DropdownMenu";
+import Badge from "@/ui/Badge";
+import Text from "@/ui/Text";
+import { Select, SelectItem } from "@/ui/Select";
+import { useUser } from "@/services/UserContext";
+import { useAuth } from "@/services/auth";
+import {
+  allowSelfOrgCreation,
+  isCloud,
+  isMultiOrg,
+  showMultiOrgSelfSelector,
+  usingSSO,
+} from "@/services/env";
+import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
+import { useOpenRevisionCount } from "@/hooks/useRevisions";
+import UserAvatar from "@/components/Avatar/UserAvatar";
+import ChangePasswordModal from "@/components/Auth/ChangePasswordModal";
+import EditProfileModal from "./EditProfileModal";
+import { withOpticalWeight } from "./opticalWeight";
+import { useMenuTriggerTooltip } from "./SidebarTooltip";
+import {
+  DropdownEntries,
+  InPlaceMenu,
+  MenuItemContent,
+  SidebarItemLook,
+  SidebarMenuEntry,
+  SidebarMenuInPlace,
+} from "./SidebarMenu";
+import {
+  useSwitchOrganization,
+  useUserOrganizations,
+} from "./useUserOrganizations";
+import { useIsTruncated } from "./useIsTruncated";
+import styles from "./ProfileMenu.module.scss";
+
+const ProfileIcon = withOpticalWeight(PiUserCircle);
+const SunDimIcon = withOpticalWeight(PiSunDim);
+const ActivityIcon = withOpticalWeight(PiListChecks);
+const TokenIcon = withOpticalWeight(PiKey);
+const LockIcon = withOpticalWeight(PiLock);
+const SignOutIcon = withOpticalWeight(PiSignOut);
+/** 0.1px heavier at the menu's 16px: 0.1 × 256 / 16 in the 256-unit grid. */
+const AdminIcon: IconType = (props) => (
+  <PiShieldCheck
+    {...props}
+    stroke="currentColor"
+    strokeWidth={(0.1 * 256) / 16}
+    strokeLinejoin="round"
+  />
+);
+
+const THEME_LABELS = { system: "System", light: "Light", dark: "Dark" };
+const THEME_ICONS: Record<keyof typeof THEME_LABELS, IconType> = {
+  system: PiCircleHalf,
+  light: SunDimIcon,
+  dark: PiMoon,
+};
+
+export default function ProfileMenu({
+  sidebarItem,
+  inPlace,
+  adminLink,
+}: {
+  /** Set in the sidebar; without it, it's the header's button. */
+  sidebarItem?: SidebarItemLook;
+  /** In the drawer, the menu is drawn in place (Sidebar.tsx). */
+  inPlace?: SidebarMenuInPlace;
+  /** Admin, for super admins on multi-org installs (Sidebar.tsx's rule). */
+  adminLink?: { name: string; href: string } | null;
+} = {}) {
+  const router = useRouter();
+  const { name, email, organization, hasCommercialFeature } = useUser();
+  const { logout } = useAuth();
+  const { currentOrgId, switchOrg } = useSwitchOrganization();
+  const { setTheme, preferredTheme } = useAppearanceUITheme();
+  const organizations = useUserOrganizations();
+
+  const [open, setOpen] = useState(false);
+  const [editProfileOpen, setEditProfileOpen] = useState(false);
+  const [changePasswordOpen, setChangePasswordOpen] = useState(false);
+
+  const hasApprovalFlows = hasCommercialFeature("require-approvals");
+  const { count: openRevisionCount } = useOpenRevisionCount();
+  const pendingReviewCount = hasApprovalFlows ? openRevisionCount : 0;
+
+  const canAddOrganization =
+    !isCloud() &&
+    isMultiOrg() &&
+    (showMultiOrgSelfSelector() || allowSelfOrgCreation());
+  const orgName =
+    organizations.find((o) => o.id === currentOrgId)?.name ??
+    organization.name ??
+    "";
+  const multiOrg = organizations.length > 1;
+  // In the side nav, its organization menu (OrgMenu) switches; the header's
+  // profile menu, on pages without the side nav, keeps the picker.
+  const showOrgPicker = multiOrg && !sidebarItem;
+
+  const chooseOrg = (id: string) => {
+    if (id === currentOrgId) return;
+    setOpen(false);
+    // In the drawer, switching closes it, as choosing an item does.
+    inPlace?.onDone();
+    switchOrg(id);
+  };
+
+  const go = (href: string) => {
+    setOpen(false);
+    void router.push(href);
+  };
+  const ThemeIcon = THEME_ICONS[preferredTheme];
+
+  const accountLabel = [
+    "Profile",
+    name,
+    email,
+    multiOrg ? orgName : null,
+    pendingReviewCount > 0
+      ? `${pendingReviewCount} pending review${pendingReviewCount === 1 ? "" : "s"}`
+      : null,
+  ]
+    .filter(Boolean)
+    .join(", ");
+
+  const item = (
+    key: string,
+    content: ReactNode,
+    onSelect: () => void,
+  ): SidebarMenuEntry => ({ type: "item", key, content, onSelect });
+  const themeKeys = Object.keys(THEME_LABELS) as (keyof typeof THEME_LABELS)[];
+  const entries: SidebarMenuEntry[] = [
+    {
+      type: "item",
+      key: "identity",
+      className: styles.identity,
+      onSelect: () => {
+        setOpen(false);
+        setEditProfileOpen(true);
+      },
+      content: (
+        <span className={styles.identityContent}>
+          <VisuallyHidden>Edit profile: </VisuallyHidden>
+          <UserAvatar name={name || ""} email={email || ""} variant="soft" />
+          <span className={styles.identityText}>
+            {name ? (
+              <Text as="div" weight="semibold" truncate>
+                {name}
+              </Text>
+            ) : null}
+            <Text as="div" size="sm" color="text-low" truncate>
+              {email}
+            </Text>
+            {/* With several organizations, the org menu (or, without the side
+                nav, the picker below) shows it. */}
+            {orgName && !multiOrg ? (
+              <span className={styles.orgLine}>
+                <PiBuildingsBold size={12} aria-hidden="true" />
+                <Text size="sm" color="text-low" truncate>
+                  {orgName}
+                </Text>
+              </span>
+            ) : null}
+          </span>
+        </span>
+      ),
+    },
+    ...(showOrgPicker
+      ? [
+          {
+            type: "node" as const,
+            key: "org-picker",
+            node: (
+              <div className={styles.orgPicker}>
+                <Select
+                  size="md"
+                  label="Organization"
+                  labelSize="sm"
+                  value={currentOrgId}
+                  setValue={chooseOrg}
+                >
+                  {organizations.map((o) => (
+                    <SelectItem
+                      key={o.id}
+                      value={o.id}
+                      className={styles.orgOption}
+                    >
+                      {o.name}
+                    </SelectItem>
+                  ))}
+                </Select>
+              </div>
+            ),
+          },
+        ]
+      : []),
+    ...(canAddOrganization
+      ? [
+          item(
+            "add-org",
+            <MenuItemContent Icon={PiPlus} label="Add organization" />,
+            () => go("/settings/organizations"),
+          ),
+        ]
+      : []),
+    { type: "separator", key: "sep-1" },
+    // Its own group at the top, divided from the rest.
+    ...(adminLink
+      ? [
+          item(
+            "admin",
+            <MenuItemContent Icon={AdminIcon} label={adminLink.name} />,
+            () => go(adminLink.href),
+          ),
+          { type: "separator" as const, key: "sep-admin" },
+        ]
+      : []),
+    ...(hasApprovalFlows
+      ? [
+          item(
+            "reviews",
+            <MenuItemContent
+              Icon={PiHourglassHigh}
+              label="Pending reviews"
+              trailing={
+                pendingReviewCount > 0 ? (
+                  <Badge
+                    label={String(pendingReviewCount)}
+                    color="red"
+                    variant="solid"
+                    radius="full"
+                    // At least as wide as it's tall, so one digit is a circle.
+                    style={{ minWidth: 20, justifyContent: "center" }}
+                  />
+                ) : null
+              }
+            />,
+            () => go("/approval-requests"),
+          ),
+        ]
+      : []),
+    item(
+      "activity",
+      <MenuItemContent Icon={ActivityIcon} label="Activity feed" />,
+      () => go("/activity"),
+    ),
+    item(
+      "reports",
+      <MenuItemContent Icon={PiFileText} label="My reports" />,
+      () => go("/reports"),
+    ),
+    { type: "separator", key: "sep-2" },
+    item(
+      "tokens",
+      <MenuItemContent Icon={TokenIcon} label="Personal access tokens" />,
+      () => go("/account/personal-access-tokens"),
+    ),
+    item(
+      "slack",
+      <MenuItemContent Icon={PiSlackLogo} label="My Slack links" />,
+      () => go("/account/slack"),
+    ),
+    {
+      type: "submenu",
+      key: "theme",
+      label: "Theme",
+      trigger: (
+        <MenuItemContent
+          Icon={ThemeIcon}
+          label="Theme"
+          trailing={
+            <Text size="sm" color="text-low">
+              {THEME_LABELS[preferredTheme]}
+            </Text>
+          }
+        />
+      ),
+      entries: themeKeys.map((key) =>
+        item(
+          `theme-${key}`,
+          <MenuItemContent
+            Icon={THEME_ICONS[key]}
+            label={key === "system" ? "System default" : THEME_LABELS[key]}
+          />,
+          () => {
+            setOpen(false);
+            setTheme(key);
+          },
+        ),
+      ),
+    },
+    { type: "separator", key: "sep-3" },
+    // As main's: not with SSO, which owns the password.
+    ...(usingSSO()
+      ? []
+      : [
+          item(
+            "change-password",
+            <MenuItemContent Icon={LockIcon} label="Change password" />,
+            () => {
+              setOpen(false);
+              setChangePasswordOpen(true);
+            },
+          ),
+        ]),
+    item(
+      "sign-out",
+      <MenuItemContent Icon={SignOutIcon} label="Sign out" />,
+      () => logout(),
+    ),
+  ];
+
+  // Full name, else the first name (some users only have that), else email.
+  // UserAvatar's initials follow the same order: two, one, the email's first.
+  const displayName = name?.trim() || "";
+  const sidebarName = displayName || email || "Account";
+  // State, not a ref, so it re-measures when the label comes back on expanding.
+  const [labelEl, setLabelEl] = useState<HTMLSpanElement | null>(null);
+  const labelTruncated = useIsTruncated(labelEl, sidebarName);
+  // The name, when collapsed or cut off. The organization row above shows the
+  // organization.
+  const tooltip = useMenuTriggerTooltip({
+    label: sidebarName,
+    enabled: inPlace
+      ? labelTruncated
+      : !!sidebarItem?.collapsed || labelTruncated,
+    menuOpen: open || !!inPlace?.open,
+  });
+
+  const reviewDot =
+    pendingReviewCount > 0 ? (
+      <span className={styles.reviewDot} aria-hidden="true" />
+    ) : null;
+
+  const trigger = sidebarItem ? (
+    <button
+      type="button"
+      className={clsx(
+        sidebarItem.className,
+        styles.sidebarItem,
+        (open || inPlace?.open) && sidebarItem.openClassName,
+      )}
+      aria-label={accountLabel}
+      data-sidebar-menu-trigger="profile"
+      {...tooltip.triggerProps}
+      {...(inPlace
+        ? {
+            "aria-expanded": inPlace.open,
+            onClick: (e: React.MouseEvent) => inPlace.onOpen(e.detail === 0),
+          }
+        : {})}
+    >
+      <span className={styles.avatarWrap} aria-hidden="true">
+        <UserAvatar
+          name={displayName}
+          email={email || ""}
+          size="sm"
+          variant="soft"
+        />
+        {reviewDot}
+      </span>
+      {sidebarItem.collapsed ? null : (
+        <span ref={setLabelEl} className={sidebarItem.labelClassName}>
+          {sidebarName}
+        </span>
+      )}
+      {tooltip.anchor}
+    </button>
+  ) : (
+    // Size 2 is 24px, matching the AI Assistant button.
+    <IconButton
+      variant="ghost"
+      color="gray"
+      size="2"
+      className={styles.headerButton}
+      aria-label={accountLabel}
+      data-sidebar-menu-trigger="profile"
+    >
+      <ProfileIcon size={16} aria-hidden="true" />
+      {reviewDot}
+    </IconButton>
+  );
+
+  const modals = (
+    <>
+      {editProfileOpen ? (
+        <EditProfileModal close={() => setEditProfileOpen(false)} />
+      ) : null}
+      {changePasswordOpen ? (
+        <ChangePasswordModal close={() => setChangePasswordOpen(false)} />
+      ) : null}
+    </>
+  );
+
+  if (inPlace) {
+    return (
+      <>
+        {modals}
+        {trigger}
+        {inPlace.open && inPlace.host
+          ? createPortal(
+              <InPlaceMenu
+                label="Profile"
+                entries={entries}
+                inPlace={inPlace}
+              />,
+              inPlace.host,
+            )
+          : null}
+      </>
+    );
+  }
+
+  return (
+    <>
+      {modals}
+      <DropdownMenu
+        open={open}
+        onOpenChange={setOpen}
+        menuPlacement="end"
+        menuSide={sidebarItem ? "right" : "bottom"}
+        // 8px past the sidebar's edge: the item sits 8px inside it.
+        menuSideOffset={sidebarItem ? 16 : undefined}
+        // Room for the name, email and organization.
+        menuWidth={280}
+        variant="soft"
+        trigger={trigger}
+      >
+        <DropdownEntries entries={entries} />
+      </DropdownMenu>
+    </>
+  );
+}
