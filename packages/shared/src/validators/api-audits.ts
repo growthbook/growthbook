@@ -100,7 +100,7 @@ export const listAuditsValidator = {
     .strict(),
   summary: "Get audit history for an entity or entity type",
   description:
-    "Includes changes to child entities (e.g. a feature's revisions). Newest first. Requires permission to view audit logs, except for Projects, API keys you can view, and the history of one feature, experiment, metric, fact table, data source, population, saved group, constant, config, custom hook, contextual bandit or interleaving you can read.",
+    "Includes changes to child entities (e.g. a feature's revisions). Newest first. Requires permission to view audit logs, except for Projects, API keys, and some individual entities (e.g. a feature or experiment) you can view.",
   operationId: "listAudits",
   tags: ["audits"],
   method: "get" as const,
