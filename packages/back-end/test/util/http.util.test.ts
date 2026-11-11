@@ -86,6 +86,23 @@ describe("cancellableFetch truncation", () => {
     expect(stringBody).toBe("abcdef");
   });
 
+  it("decodes a multi-byte character split across chunks", async () => {
+    const bytes = Buffer.from("日本語");
+    mockedFetch.mockResolvedValueOnce({
+      status: 200,
+      body: (async function* () {
+        yield bytes.subarray(0, 4);
+        yield bytes.subarray(4);
+      })(),
+    });
+    const { stringBody } = await cancellableFetch(
+      "https://example.com/ja",
+      {},
+      { maxTimeMs: 1000, maxContentSize: 1000 },
+    );
+    expect(stringBody).toBe("日本語");
+  });
+
   it("throws instead when throwOnTruncate is set", async () => {
     mockedFetch.mockResolvedValueOnce(oversizedResponse());
     await expect(

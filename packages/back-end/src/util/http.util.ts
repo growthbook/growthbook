@@ -105,7 +105,7 @@ export const cancellableFetch = async (
 ): Promise<CancellableFetchReturn> => {
   const abortController: AbortController = new AbortController();
 
-  const chunks: string[] = [];
+  const chunks: Buffer[] = [];
 
   const timeout = setTimeout(() => {
     abortController.abort();
@@ -116,7 +116,8 @@ export const cancellableFetch = async (
   const readResponseBody = async (res: Response): Promise<string> => {
     for await (const chunk of res.body) {
       received += chunk.length;
-      chunks.push(chunk.toString());
+      // Decoded once at the end: a multi-byte character can straddle chunks.
+      chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
 
       if (received > abortOptions.maxContentSize) {
         abortController.abort();
@@ -131,7 +132,7 @@ export const cancellableFetch = async (
       }
     }
 
-    return chunks.join("");
+    return Buffer.concat(chunks).toString();
   };
 
   let response: Response | null = null;

@@ -1,14 +1,14 @@
 import * as cheerio from "cheerio";
 
 jest.mock("back-end/src/util/http.util", () => ({
+  ...jest.requireActual("back-end/src/util/http.util"),
   cancellableFetch: jest.fn(),
 }));
 
 import { cancellableFetch } from "back-end/src/util/http.util";
-import {
-  buildDigestFromEditorUrl,
-  parseFetchableEditorUrl,
-} from "back-end/src/api/visual-editor-ai/serverPageDigest";
+import { buildDigestFromEditorUrl } from "back-end/src/api/visual-editor-ai/serverPageDigest";
+import { parseFetchableEditorUrl } from "back-end/src/api/visual-editor-ai/editorUrlFetch";
+import { hasDocumentOrder } from "back-end/src/api/visual-editor-ai/pageStructure";
 
 const mockFetch = cancellableFetch as jest.Mock;
 
@@ -165,6 +165,8 @@ describe("buildDigestFromEditorUrl", () => {
       "footer",
     ]);
     expect(digest.pageStructure.length).toBeGreaterThan(0);
+    // Document order unlocks the page outline and describeContainer.
+    expect(hasDocumentOrder(digest.pageStructure)).toBe(true);
 
     // The whole point of the digest: every selector it hands the model must
     // resolve, and resolve to one element. A selector that matches zero or
@@ -177,7 +179,15 @@ describe("buildDigestFromEditorUrl", () => {
       ...digest.inputs,
       ...digest.images,
       ...digest.pageStructure,
-    ].map((e) => e.selector);
+    ]
+      .map((e) => e.selector)
+      .concat(
+        digest.pageStructure.flatMap((n) =>
+          [n.prevSiblingSelector, n.nextSiblingSelector].filter(
+            (s): s is string => !!s,
+          ),
+        ),
+      );
     expect(selectors.length).toBeGreaterThan(10);
     for (const selector of selectors) {
       expect([selector, $(selector).length]).toEqual([selector, 1]);
@@ -298,6 +308,14 @@ describe("buildDigestFromEditorUrl", () => {
     await expect(
       buildDigestFromEditorUrl("https://example.com/"),
     ).resolves.toBeNull();
+  });
+
+  it("skips a page that isn't valid UTF-8", async () => {
+    // Latin-1 "é" decoded as UTF-8.
+    mockFetch.mockResolvedValue(
+      respond({ body: SSR_PAGE.replace("Ship faster", "Caf\uFFFD") }),
+    );
+    expect(await buildDigestFromEditorUrl("https://example.com/")).toBeNull();
   });
 
   it("skips a page with almost no content", async () => {

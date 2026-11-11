@@ -12,8 +12,6 @@ import {
 } from "back-end/src/api/visual-editor-ai/selectorHeuristics";
 import { logger } from "back-end/src/util/logger";
 
-export { parseFetchableEditorUrl };
-
 // visual-editor/src/content_script/pageDigest.ts is the source of truth for
 // WHAT belongs in a digest. This builds the same catalog over fetched HTML
 // (no layout, computed styles, or JavaScript). Every failure returns null:
@@ -21,12 +19,19 @@ export { parseFetchableEditorUrl };
 // and the self-correct pass trusts them.
 
 type Api = cheerio.CheerioAPI;
-type El = {
+type DomNode = {
+  type: string;
+  name?: string;
+  data?: string;
+  parent?: DomNode | null;
+  prev?: DomNode | null;
+  next?: DomNode | null;
+  children?: DomNode[];
+};
+type El = DomNode & {
   type: "tag";
   name: string;
   attribs: Record<string, string>;
-  parent?: { type: string; children?: unknown[] } | null;
-  children?: Array<{ type: string }>;
 };
 
 const isEl = (node: unknown): node is El =>
@@ -45,6 +50,28 @@ const squish = (s: string | null | undefined): string =>
 const truncate = (s: string, n: number): string =>
   s.length <= n ? s : s.slice(0, n - 1) + "…";
 
+// A node's squished text, exact for at least its first `min` characters. Stops
+// reading once it has them, so a large subtree costs no more than a small one.
+const leadingText = (
+  root: DomNode,
+  min: number,
+  skipTags?: ReadonlySet<string>,
+): string => {
+  const chunks: string[] = [];
+  let seen = 0;
+  const walk = (node: DomNode): boolean => {
+    if (node.type === "text") {
+      chunks.push(node.data ?? "");
+      seen += squish(node.data).length;
+      return seen >= min;
+    }
+    if (skipTags?.has(node.name ?? "")) return false;
+    return (node.children ?? []).some(walk);
+  };
+  walk(root);
+  return squish(chunks.join(""));
+};
+
 const TEXT_MAX = 120;
 const HREF_MAX = 160;
 
@@ -57,27 +84,77 @@ const SKIP_ANCESTORS =
 const isSkippable = ($: Api, el: El): boolean =>
   $el($, el).closest(SKIP_ANCESTORS).length > 0;
 
-// ponytail: fixed global uniqueness-probe budget. Per-element or memoized
-// by selector string only if digest latency actually shows up.
-const PROBE_BUDGET = 4000;
+const classList = (el: El): string[] =>
+  (el.attribs?.class || "").split(/\s+/).filter(Boolean);
 
-type SelectorCtx = { $: Api; cache: Map<El, string>; probes: number };
+const attrSelector = (tag: string, name: string, value: string): string =>
+  `${tag}[${name}="${value}"]`;
 
-const isUnique = (ctx: SelectorCtx, selector: string, el: El): boolean => {
-  if (ctx.probes >= PROBE_BUDGET) return false;
-  ctx.probes++;
-  try {
-    const found = ctx.$(selector);
-    return found.length === 1 && found[0] === el;
-  } catch {
-    return false;
+const isSelectorAttr = (name: string, value: string): boolean =>
+  CSS_IDENT.test(name) && isPreferredAttr(name, value);
+
+// Built in one pass so selector uniqueness is a lookup. A selector-engine
+// query per candidate scans the whole document each time, which took seconds
+// on large pages.
+type DocIndex = {
+  order: Map<El, number>;
+  // Elements in document order, keyed by the selector that matches them:
+  // `tag`, `#id`, `tag.class`, `tag[name="value"]`.
+  els: Map<string, El[]>;
+};
+
+const buildIndex = ($: Api): DocIndex => {
+  const index: DocIndex = { order: new Map(), els: new Map() };
+  const add = (key: string, el: El) => {
+    const list = index.els.get(key);
+    if (list) list.push(el);
+    else index.els.set(key, [el]);
+  };
+  const nodes: unknown[] = $("*").toArray();
+  nodes.forEach((node, i) => {
+    if (!isEl(node)) return;
+    index.order.set(node, i);
+    const tag = tagOf(node);
+    add(tag, node);
+    for (const [name, value] of Object.entries(node.attribs ?? {})) {
+      if (name === "id") add(`#${value}`, node);
+      else if (isSelectorAttr(name, value)) {
+        add(attrSelector(tag, name, value), node);
+      }
+    }
+    for (const c of new Set(classList(node))) add(`${tag}.${c}`, node);
+  });
+  return index;
+};
+
+type SelectorCtx = { $: Api; cache: Map<El, string>; index: DocIndex };
+
+const matches = (index: DocIndex, key: string): El[] =>
+  index.els.get(key) ?? [];
+
+const isUnique = (ctx: SelectorCtx, key: string): boolean =>
+  matches(ctx.index, key).length === 1;
+
+// `tag.a.b` — walk the rarest class's elements, stopping at a second match.
+const isUniqueByClasses = (
+  ctx: SelectorCtx,
+  tag: string,
+  classes: string[],
+): boolean => {
+  const rarest = classes
+    .map((c) => matches(ctx.index, `${tag}.${c}`))
+    .reduce((a, b) => (b.length < a.length ? b : a));
+  let found = 0;
+  for (const node of rarest) {
+    const have = classList(node);
+    if (classes.every((c) => have.includes(c)) && ++found > 1) return false;
   }
+  return found === 1;
 };
 
 const stableClasses = (el: El): string[] =>
-  (el.attribs?.class || "")
-    .split(/\s+/)
-    .filter((c) => c && CSS_IDENT.test(c) && !isHashedClass(c))
+  classList(el)
+    .filter((c) => CSS_IDENT.test(c) && !isHashedClass(c))
     .slice(0, 3);
 
 const SINGLETON_TAGS: ReadonlySet<string> = new Set([
@@ -106,7 +183,7 @@ const buildSelector = (ctx: SelectorCtx, el: El): string => {
     id &&
     CSS_IDENT.test(id) &&
     !isHashedClass(id) &&
-    isUnique(ctx, `#${id}`, el)
+    isUnique(ctx, `#${id}`)
   ) {
     selector = `#${id}`;
   }
@@ -115,11 +192,11 @@ const buildSelector = (ctx: SelectorCtx, el: El): string => {
     let tried = 0;
     for (const [name, value] of Object.entries(el.attribs ?? {})) {
       if (tried >= 3) break;
-      if (name === "id" || !isPreferredAttr(name, value)) continue;
+      if (name === "id" || !isSelectorAttr(name, value)) continue;
       if (/["\\\n]/.test(value)) continue;
       tried++;
-      const candidate = `${tag}[${name}="${value}"]`;
-      if (isUnique(ctx, candidate, el)) {
+      const candidate = attrSelector(tag, name, value);
+      if (isUnique(ctx, candidate)) {
         selector = candidate;
         break;
       }
@@ -128,11 +205,12 @@ const buildSelector = (ctx: SelectorCtx, el: El): string => {
 
   const classes = stableClasses(el);
   if (!selector && classes.length) {
-    const candidate = `${tag}.${classes.join(".")}`;
-    if (isUnique(ctx, candidate, el)) selector = candidate;
+    if (isUniqueByClasses(ctx, tag, classes)) {
+      selector = `${tag}.${classes.join(".")}`;
+    }
   }
 
-  if (!selector && SINGLETON_TAGS.has(tag) && isUnique(ctx, tag, el)) {
+  if (!selector && SINGLETON_TAGS.has(tag) && isUnique(ctx, tag)) {
     selector = tag;
   }
 
@@ -149,11 +227,9 @@ const buildSelector = (ctx: SelectorCtx, el: El): string => {
     selector = parent ? `${buildSelector(ctx, parent)} > ${segment}` : segment;
   }
 
+  // The stem comes from this element's own class, so the selector stays unique.
   const stem = bestStemForClass(el.attribs?.class || "");
-  if (stem) {
-    const augmented = `${selector}[class*="${stem}"]`;
-    if (isUnique(ctx, augmented, el)) selector = augmented;
-  }
+  if (stem) selector = `${selector}[class*="${stem}"]`;
 
   ctx.cache.set(el, selector);
   return selector;
@@ -181,7 +257,7 @@ const collect = (ctx: SelectorCtx, selector: string, cap: number): El[] => {
   return out;
 };
 
-const collectStructural = ($: Api): DomDigest["structural"] => {
+const collectStructural = (index: DocIndex): DomDigest["structural"] => {
   const out: DomDigest["structural"] = [
     { selector: "html", tag: "html", note: "page root" },
     { selector: "body", tag: "body", note: "page body" },
@@ -195,7 +271,7 @@ const collectStructural = ($: Api): DomDigest["structural"] => {
     { selector: "article", tag: "article", note: "article container" },
   ];
   for (const l of landmarks) {
-    if ($(l.selector).length > 0) out.push(l);
+    if (matches(index, l.tag).length > 0) out.push(l);
   }
   return out;
 };
@@ -265,9 +341,10 @@ const inputLabel = (ctx: SelectorCtx, el: El): string | undefined => {
   const aria = el.attribs?.["aria-label"];
   if (aria) return truncate(squish(aria), TEXT_MAX);
   const id = el.attribs?.id;
-  if (id && CSS_IDENT.test(id)) {
-    const explicit = ctx.$(`label[for="${id}"]`).first();
-    if (explicit.length) return truncate(squish(explicit.text()), TEXT_MAX);
+  const explicit =
+    id && matches(ctx.index, "label").find((l) => l.attribs?.for === id);
+  if (explicit) {
+    return truncate(squish($el(ctx.$, explicit).text()), TEXT_MAX);
   }
   const wrapping = $el(ctx.$, el).closest("label");
   if (wrapping.length) return truncate(squish(wrapping.text()), TEXT_MAX);
@@ -351,6 +428,17 @@ const collectStructureSnapshot = (ctx: SelectorCtx): PageStructureNode[] => {
     )
     .each((_, n) => add(n));
 
+  // Document order and nearest visible siblings: the page outline,
+  // describeContainer and sibling moves all need them.
+  const siblingSelector = (el: El, dir: "prev" | "next") => {
+    for (let node = el[dir]; node; node = node[dir]) {
+      if (isEl(node) && !$el(ctx.$, node).is(SKIP_ANCESTORS)) {
+        return buildSelector(ctx, node);
+      }
+    }
+    return undefined;
+  };
+
   const nodes: PageStructureNode[] = [];
   const seenSelectors = new Set<string>();
   for (const el of ordered) {
@@ -369,7 +457,9 @@ const collectStructureSnapshot = (ctx: SelectorCtx): PageStructureNode[] => {
       .split(/\s+/)
       .filter((c) => c && !isHashedClass(c))
       .slice(0, 8);
-    const label = squish($el(ctx.$, el).text()).slice(0, 80) || undefined;
+    const label = leadingText(el, 80).slice(0, 80) || undefined;
+    const prevSiblingSelector = siblingSelector(el, "prev");
+    const nextSiblingSelector = siblingSelector(el, "next");
 
     nodes.push({
       selector,
@@ -379,6 +469,9 @@ const collectStructureSnapshot = (ctx: SelectorCtx): PageStructureNode[] => {
       ...(classes.length ? { classes } : {}),
       ...(el.attribs?.role ? { role: el.attribs.role } : {}),
       ...(label ? { label } : {}),
+      docOrder: ctx.index.order.get(el) ?? 0,
+      ...(prevSiblingSelector ? { prevSiblingSelector } : {}),
+      ...(nextSiblingSelector ? { nextSiblingSelector } : {}),
     });
   }
   return nodes;
@@ -397,19 +490,29 @@ const SPA_ROOT_IDS = [
   "q-app",
 ];
 
-const visibleBodyTextLength = ($: Api): number => {
-  const body = $("body").clone();
-  body.find("script, style, noscript, template, svg").remove();
-  return squish(body.text()).length;
-};
+const NON_VISIBLE_TEXT_TAGS: ReadonlySet<string> = new Set([
+  "script",
+  "style",
+  "noscript",
+  "template",
+  "svg",
+]);
 
-const hasEmptySpaRoot = ($: Api): boolean => {
-  for (const id of SPA_ROOT_IDS) {
-    const mount = $(`#${id}`);
-    if (mount.length > 0 && mount.children().length === 0) return true;
-  }
-  return false;
-};
+const hasEnoughBodyText = (index: DocIndex): boolean =>
+  matches(index, "body").some(
+    (body) =>
+      leadingText(body, MIN_BODY_TEXT, NON_VISIBLE_TEXT_TAGS).length >=
+      MIN_BODY_TEXT,
+  );
+
+const hasEmptySpaRoot = (index: DocIndex): boolean =>
+  SPA_ROOT_IDS.some((id) => {
+    const mounts = matches(index, `#${id}`);
+    return (
+      mounts.length > 0 &&
+      mounts.every((mount) => !(mount.children ?? []).some(isEl))
+    );
+  });
 
 const catalogEntryCount = (digest: DomDigest): number =>
   digest.headings.length +
@@ -420,8 +523,8 @@ const catalogEntryCount = (digest: DomDigest): number =>
 
 // Hybrid pages that SSR chrome but CSR the body still slip through — nothing
 // short of a headless browser detects that.
-const looksLikeThinShell = ($: Api): boolean =>
-  visibleBodyTextLength($) < MIN_BODY_TEXT || hasEmptySpaRoot($);
+const looksLikeThinShell = (index: DocIndex): boolean =>
+  !hasEnoughBodyText(index) || hasEmptySpaRoot(index);
 
 // Editor URLs come from a live browser tab, so the query string can carry a
 // session, reset, or preview token. Logs keep the origin and path only.
@@ -460,7 +563,8 @@ export const buildDigestFromEditorUrl = async (
     }
 
     const $ = cheerio.load(page.html);
-    if (looksLikeThinShell($)) {
+    const index = buildIndex($);
+    if (looksLikeThinShell(index)) {
       logger.info(
         { url: redactUrl(url.href) },
         "[visual-editor-ai] fetched HTML looks client-rendered or too thin; skipping server digest",
@@ -468,12 +572,12 @@ export const buildDigestFromEditorUrl = async (
       return null;
     }
 
-    const ctx: SelectorCtx = { $, cache: new Map(), probes: 0 };
+    const ctx: SelectorCtx = { $, cache: new Map(), index };
     const buttons = collectButtons(ctx);
     const digest: DomDigest = {
       url: page.url.href,
       title: squish($("title").first().text()),
-      structural: collectStructural($),
+      structural: collectStructural(index),
       headings: collectHeadings(ctx),
       buttons,
       links: collectLinks(ctx, new Set(buttons.map((b) => b.selector))),

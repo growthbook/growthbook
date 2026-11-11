@@ -1,4 +1,7 @@
-import { cancellableFetch } from "back-end/src/util/http.util";
+import {
+  cancellableFetch,
+  trimTrailingSlashes,
+} from "back-end/src/util/http.util";
 
 const MAX_HTML_BYTES = 2_000_000;
 // One budget for the whole operation, redirects included — not per hop.
@@ -49,7 +52,7 @@ const fetchOnce = (url: URL, maxTimeMs: number) =>
 // Ignore scheme upgrade, optional www., and a trailing slash — those never
 // change the document. Anything else (path, query, host) is a different page.
 const pageIdentity = (u: URL): string =>
-  `${u.host.replace(/^www\./, "")}${u.pathname.replace(/\/+$/, "")}${u.search}`;
+  `${u.host.replace(/^www\./, "")}${trimTrailingSlashes(u.pathname)}${u.search}`;
 
 // Follow same-page canonicalization only. Login, locale, cross-host, and
 // https→http are different documents (or a downgrade) and return null.
@@ -91,6 +94,9 @@ export const fetchPageHtml = async (
     if (!HTML_CONTENT_TYPE.test(res.headers.get("content-type") ?? "")) {
       return null;
     }
+    // The body is decoded as UTF-8, so U+FFFD means another charset (or a
+    // corrupt page): its text and attribute selectors would be garbage.
+    if (stringBody.includes("\uFFFD")) return null;
     return { url, html: stringBody };
   }
 
