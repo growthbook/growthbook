@@ -211,7 +211,7 @@ export default function RevisionStatusBar({
     icon = <PiClockFill />;
     label = "Held · not live";
     message = (
-      <>Its ramp schedule publishes it. SDKs serve {liveRevisionLink}.</>
+      <>Its ramp schedule will publish it. SDKs serve {liveRevisionLink}.</>
     );
     actions = switchToLive;
   } else if (status === "superseded") {

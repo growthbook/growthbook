@@ -474,7 +474,7 @@ function Drilldown({
                     />
                   }
                 >
-                  <Flex align="center" style={{ gap: 6 }}>
+                  <Flex align="center" gap="2">
                     {muted
                       ? null
                       : prerequisiteState(p.id, card.id, { inline: true })}
