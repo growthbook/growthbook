@@ -69,7 +69,7 @@ describe("toApiResultHealth", () => {
     });
     expect(health.power).toBeNull();
     expect(health.covariateImbalance).toBeNull();
-    expect(health.cluster).toBeNull();
+    expect(health).not.toHaveProperty("cluster");
   });
 
   it("does not judge either check on too few units", () => {
@@ -171,6 +171,36 @@ describe("toApiResultHealth", () => {
         percent: 0,
         status: "healthy",
       },
+      reliability: {
+        status: "healthy",
+        minClustersPerVariation: 20,
+        maxClusterShare: 0.2,
+        tooFewClusters: null,
+        oversizedCluster: null,
+      },
+    });
+  });
+
+  it("warns when clusters are too few or one is too large", () => {
+    const health = toApiResultHealth({
+      experiment,
+      snapshot: makeSnapshot({
+        settings: { ...makeSnapshot().settings, isClusterExperiment: true },
+        health: {
+          traffic: makeTraffic(0.5, [5000, 5000]),
+          clusterTraffic: makeTraffic(0.5, [25, 19]),
+          clusterUnits: {
+            clusters: [{ id: "acme", variation: 0, units: 3000, pct: 0.3 }],
+          },
+        },
+      }),
+      healthSettings,
+    });
+
+    expect(health.cluster?.reliability).toMatchObject({
+      status: "unhealthy",
+      tooFewClusters: { variationId: "1", clusters: 19 },
+      oversizedCluster: { id: "acme", percent: 0.3 },
     });
   });
 
@@ -206,10 +236,13 @@ describe("toApiResultHealth", () => {
     const health = toApiResultHealth({
       experiment,
       snapshot: makeSnapshot({
+        settings: { ...makeSnapshot().settings, isClusterExperiment: true },
         health: {
           traffic: makeTraffic(1, [500, 500]),
           power: {},
           covariateImbalance: {},
+          clusterTraffic: {},
+          clusterUnits: {},
           clusterAssignment: {},
           clusterSubUnitMapping: {},
         } as never,
@@ -219,7 +252,27 @@ describe("toApiResultHealth", () => {
 
     expect(health.power).toBeNull();
     expect(health.covariateImbalance).toBeNull();
-    expect(health.cluster).toBeNull();
+    expect(health.cluster).toEqual({
+      mixedAssignment: null,
+      unitsInMultipleClusters: null,
+      reliability: null,
+    });
+  });
+
+  it("returns no cluster checks for a non-cluster experiment", () => {
+    const health = toApiResultHealth({
+      experiment,
+      snapshot: makeSnapshot({
+        health: {
+          traffic: makeTraffic(1, [500, 500]),
+          clusterTraffic: makeTraffic(0.5, [25, 19]),
+          clusterAssignment: { totalClusters: 100, mixedClusters: 5 },
+        },
+      }),
+      healthSettings,
+    });
+
+    expect(health).not.toHaveProperty("cluster");
   });
 });
 

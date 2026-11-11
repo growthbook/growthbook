@@ -1,4 +1,6 @@
 import {
+  DEFAULT_MAX_CLUSTER_SHARE,
+  DEFAULT_MIN_CLUSTERS_PER_VARIATION,
   DEFAULT_SRM_BANDIT_MINIMINUM_COUNT_PER_VARIATION,
   DEFAULT_SRM_MINIMINUM_COUNT_PER_VARIATION,
 } from "shared/constants";
@@ -6,6 +8,7 @@ import { getSrmAndMultipleExposuresHealth } from "shared/enterprise";
 import {
   getBanditSRMValue,
   getClusterIssueHealthData,
+  getClusterReliabilityHealthData,
   getExperimentSRMValue,
   getExperimentSRMVariationUnits,
   getExperimentVariationUnitsFromHealth,
@@ -62,45 +65,6 @@ export function toApiResultHealth({
     healthSettings,
   });
 
-  const clusterIssue = (affectedCount: number, totalCount: number) => {
-    const { status, rawDecimal } = getClusterIssueHealthData({
-      affectedCount,
-      totalCount,
-      minPercentThreshold: healthSettings.clusterIssueMinPercent,
-    });
-    return { percent: rawDecimal, status };
-  };
-
-  const clusterAssignment = health?.clusterAssignment;
-  const mixedAssignment =
-    clusterAssignment &&
-    !clusterAssignment.error &&
-    typeof clusterAssignment.totalClusters === "number"
-      ? {
-          totalClusters: clusterAssignment.totalClusters,
-          mixedClusters: clusterAssignment.mixedClusters,
-          ...clusterIssue(
-            clusterAssignment.mixedClusters,
-            clusterAssignment.totalClusters,
-          ),
-        }
-      : null;
-
-  const clusterMapping = health?.clusterSubUnitMapping;
-  const unitsInMultipleClusters =
-    clusterMapping &&
-    !clusterMapping.error &&
-    typeof clusterMapping.totalUnits === "number"
-      ? {
-          totalUnits: clusterMapping.totalUnits,
-          multiClusterUnits: clusterMapping.multiClusterUnits,
-          ...clusterIssue(
-            clusterMapping.multiClusterUnits,
-            clusterMapping.totalUnits,
-          ),
-        }
-      : null;
-
   const power = health?.power;
   const covariateImbalance = health?.covariateImbalance;
 
@@ -148,9 +112,85 @@ export function toApiResultHealth({
               covariateImbalance.numSecondaryMetricsImbalanced,
           }
         : null,
-    cluster:
-      isCluster || mixedAssignment || unitsInMultipleClusters
-        ? { mixedAssignment, unitsInMultipleClusters }
-        : null,
+    ...(isCluster
+      ? { cluster: getApiClusterHealth({ snapshot, healthSettings }) }
+      : {}),
   };
+}
+
+function getApiClusterHealth({
+  snapshot,
+  healthSettings,
+}: {
+  snapshot: ExperimentSnapshotInterface;
+  healthSettings: ExperimentHealthSettings;
+}): NonNullable<ApiExperimentResultHealth["cluster"]> {
+  const health = snapshot.health;
+  const clusterIssue = (affectedCount: number, totalCount: number) => {
+    const { status, rawDecimal } = getClusterIssueHealthData({
+      affectedCount,
+      totalCount,
+      minPercentThreshold: healthSettings.clusterIssueMinPercent,
+    });
+    return { percent: rawDecimal, status };
+  };
+
+  const clusterAssignment = health?.clusterAssignment;
+  const mixedAssignment =
+    clusterAssignment &&
+    !clusterAssignment.error &&
+    typeof clusterAssignment.totalClusters === "number"
+      ? {
+          totalClusters: clusterAssignment.totalClusters,
+          mixedClusters: clusterAssignment.mixedClusters,
+          ...clusterIssue(
+            clusterAssignment.mixedClusters,
+            clusterAssignment.totalClusters,
+          ),
+        }
+      : null;
+
+  const clusterMapping = health?.clusterSubUnitMapping;
+  const unitsInMultipleClusters =
+    clusterMapping &&
+    !clusterMapping.error &&
+    typeof clusterMapping.totalUnits === "number"
+      ? {
+          totalUnits: clusterMapping.totalUnits,
+          multiClusterUnits: clusterMapping.multiClusterUnits,
+          ...clusterIssue(
+            clusterMapping.multiClusterUnits,
+            clusterMapping.totalUnits,
+          ),
+        }
+      : null;
+
+  const clusterReliability = getClusterReliabilityHealthData({
+    clusterTraffic: health?.clusterTraffic,
+    clusterUnits: health?.clusterUnits,
+    minClustersPerVariation: DEFAULT_MIN_CLUSTERS_PER_VARIATION,
+    maxClusterShare: DEFAULT_MAX_CLUSTER_SHARE,
+  });
+  const { tooFewClusters, oversizedCluster } = clusterReliability;
+  const reliability =
+    clusterReliability.status === "not-enough-traffic"
+      ? null
+      : {
+          status: clusterReliability.status,
+          minClustersPerVariation: DEFAULT_MIN_CLUSTERS_PER_VARIATION,
+          maxClusterShare: DEFAULT_MAX_CLUSTER_SHARE,
+          tooFewClusters: tooFewClusters
+            ? {
+                variationId:
+                  snapshot.settings.variations[tooFewClusters.variationIndex]
+                    ?.id ?? tooFewClusters.variationIndex + "",
+                clusters: tooFewClusters.count,
+              }
+            : null,
+          oversizedCluster: oversizedCluster
+            ? { id: oversizedCluster.id, percent: oversizedCluster.pct }
+            : null,
+        };
+
+  return { mixedAssignment, unitsInMultipleClusters, reliability };
 }

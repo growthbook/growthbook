@@ -74302,80 +74302,146 @@ components:
                   additionalProperties: false
                 - type: 'null'
             cluster:
-              description: Cluster experiment checks. null for other experiments.
-              anyOf:
-                - type: object
-                  properties:
-                    mixedAssignment:
-                      anyOf:
-                        - type: object
-                          properties:
-                            totalClusters:
-                              type: number
-                            mixedClusters:
-                              description: >-
-                                Clusters whose sub-units saw more than one
-                                variation.
-                              type: number
-                            percent:
-                              type: number
-                            status:
-                              description: >-
-                                `unhealthy` when the check fails the
-                                organization's threshold. `not-enough-traffic`
-                                when there are too few units to judge.
-                              type: string
-                              enum:
-                                - healthy
-                                - unhealthy
-                                - not-enough-traffic
-                          required:
-                            - totalClusters
-                            - mixedClusters
-                            - percent
-                            - status
-                          additionalProperties: false
-                        - type: 'null'
-                    unitsInMultipleClusters:
-                      anyOf:
-                        - type: object
-                          properties:
-                            totalUnits:
-                              type: number
-                            multiClusterUnits:
-                              description: Sub-units that appear in more than one cluster.
-                              type: number
-                            percent:
-                              type: number
-                            status:
-                              description: >-
-                                `unhealthy` when the check fails the
-                                organization's threshold. `not-enough-traffic`
-                                when there are too few units to judge.
-                              type: string
-                              enum:
-                                - healthy
-                                - unhealthy
-                                - not-enough-traffic
-                          required:
-                            - totalUnits
-                            - multiClusterUnits
-                            - percent
-                            - status
-                          additionalProperties: false
-                        - type: 'null'
-                  required:
-                    - mixedAssignment
-                    - unitsInMultipleClusters
-                  additionalProperties: false
-                - type: 'null'
+              description: Cluster experiment checks. Omitted for other experiments.
+              type: object
+              properties:
+                mixedAssignment:
+                  anyOf:
+                    - type: object
+                      properties:
+                        totalClusters:
+                          type: number
+                        mixedClusters:
+                          description: >-
+                            Clusters whose sub-units saw more than one
+                            variation.
+                          type: number
+                        percent:
+                          type: number
+                        status:
+                          description: >-
+                            `unhealthy` when the check fails the organization's
+                            threshold. `not-enough-traffic` when there are too
+                            few units to judge.
+                          type: string
+                          enum:
+                            - healthy
+                            - unhealthy
+                            - not-enough-traffic
+                      required:
+                        - totalClusters
+                        - mixedClusters
+                        - percent
+                        - status
+                      additionalProperties: false
+                    - type: 'null'
+                unitsInMultipleClusters:
+                  anyOf:
+                    - type: object
+                      properties:
+                        totalUnits:
+                          type: number
+                        multiClusterUnits:
+                          description: Sub-units that appear in more than one cluster.
+                          type: number
+                        percent:
+                          type: number
+                        status:
+                          description: >-
+                            `unhealthy` when the check fails the organization's
+                            threshold. `not-enough-traffic` when there are too
+                            few units to judge.
+                          type: string
+                          enum:
+                            - healthy
+                            - unhealthy
+                            - not-enough-traffic
+                      required:
+                        - totalUnits
+                        - multiClusterUnits
+                        - percent
+                        - status
+                      additionalProperties: false
+                    - type: 'null'
+                reliability:
+                  description: >-
+                    Whether there are enough clusters, evenly sized enough, to
+                    trust the results. `unhealthy` when either `tooFewClusters`
+                    or `oversizedCluster` is set. The app shows it as a warning
+                    on the results; it is not part of `enhancedStatus.decision`.
+                    null when the snapshot has no cluster counts.
+                  anyOf:
+                    - type: object
+                      properties:
+                        status:
+                          type: string
+                          enum:
+                            - healthy
+                            - unhealthy
+                        minClustersPerVariation:
+                          description: >-
+                            Recommended minimum number of clusters per
+                            variation.
+                          type: number
+                        maxClusterShare:
+                          description: >-
+                            Share of sub-units, as a fraction from 0 to 1, that
+                            no single cluster should reach.
+                          type: number
+                        tooFewClusters:
+                          description: >-
+                            The variation with the fewest clusters, when it has
+                            fewer than `minClustersPerVariation`.
+                          anyOf:
+                            - type: object
+                              properties:
+                                variationId:
+                                  type: string
+                                clusters:
+                                  type: number
+                              required:
+                                - variationId
+                                - clusters
+                              additionalProperties: false
+                            - type: 'null'
+                        oversizedCluster:
+                          description: >-
+                            The largest cluster, when its share reaches
+                            `maxClusterShare`.
+                          anyOf:
+                            - type: object
+                              properties:
+                                id:
+                                  type: string
+                                percent:
+                                  description: >-
+                                    The cluster's share of sub-units, as a
+                                    fraction from 0 to 1.
+                                  type: number
+                              required:
+                                - id
+                                - percent
+                              additionalProperties: false
+                            - type: 'null'
+                      required:
+                        - status
+                        - minClustersPerVariation
+                        - maxClusterShare
+                        - tooFewClusters
+                        - oversizedCluster
+                      additionalProperties: false
+                    - type: 'null'
+              required:
+                - mixedAssignment
+                - unitsInMultipleClusters
+                - reliability
+              additionalProperties: false
           required:
             - srm
             - multipleExposures
             - unknownVariations
             - power
             - covariateImbalance
-            - cluster
           additionalProperties: false
         results:
           type: array

@@ -1375,9 +1375,46 @@ const apiExperimentResultHealthValidator = z
             status: apiHealthCheckStatus,
           })
           .nullable(),
+        reliability: z
+          .object({
+            status: z.enum(["healthy", "unhealthy"]),
+            minClustersPerVariation: z
+              .number()
+              .describe(
+                "Recommended minimum number of clusters per variation.",
+              ),
+            maxClusterShare: z
+              .number()
+              .describe(
+                "Share of sub-units, as a fraction from 0 to 1, that no single cluster should reach.",
+              ),
+            tooFewClusters: z
+              .object({ variationId: z.string(), clusters: z.number() })
+              .nullable()
+              .describe(
+                "The variation with the fewest clusters, when it has fewer than `minClustersPerVariation`.",
+              ),
+            oversizedCluster: z
+              .object({
+                id: z.string(),
+                percent: z
+                  .number()
+                  .describe(
+                    "The cluster's share of sub-units, as a fraction from 0 to 1.",
+                  ),
+              })
+              .nullable()
+              .describe(
+                "The largest cluster, when its share reaches `maxClusterShare`.",
+              ),
+          })
+          .nullable()
+          .describe(
+            "Whether there are enough clusters, evenly sized enough, to trust the results. `unhealthy` when either `tooFewClusters` or `oversizedCluster` is set. The app shows it as a warning on the results; it is not part of `enhancedStatus.decision`. null when the snapshot has no cluster counts.",
+          ),
       })
-      .nullable()
-      .describe("Cluster experiment checks. null for other experiments."),
+      .optional()
+      .describe("Cluster experiment checks. Omitted for other experiments."),
   })
   .describe(
     "Health checks for the snapshot as a whole, with the same verdicts the app shows. They are not broken down by dimension value.",

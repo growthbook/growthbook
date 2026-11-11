@@ -111,6 +111,15 @@ export function getClusterReliabilityHealthData({
   tooFewClusters: { variationIndex: number; count: number } | null;
   oversizedCluster: { id: string; pct: number } | null;
 } {
+  if (!clusterTraffic && !clusterUnits) {
+    return {
+      status: "not-enough-traffic",
+      countChecked: false,
+      sizeChecked: false,
+      tooFewClusters: null,
+      oversizedCluster: null,
+    };
+  }
   const clustersPerVariation = clusterTraffic?.error
     ? []
     : (clusterTraffic?.overall?.variationUnits ?? []);
