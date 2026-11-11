@@ -110,28 +110,38 @@ import FeatureRules from "./FeatureRulesNew";
 import cornerStyles from "./CornerActions.module.scss";
 
 // A changeable environment's switch, its state named after it.
-// Rings the rule a jump lands on in the violet an open card's outline has,
-// fading once the page stops scrolling. Without motion, it shows, then goes.
+// Rings the rule a jump lands on in the violet an open card's outline has:
+// it fades in quickly once the page stops scrolling, holds, then fades out.
+// Without motion, it shows, then goes.
 function markJumpedRule(rule: HTMLElement) {
   const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   // Animations take values, not the theme's variables, so read them here.
   const theme = getComputedStyle(rule);
-  // A ring, not an outline, which focus styles override.
-  const ring = (color: string) => ({
-    boxShadow: `0 0 0 2px ${color}`,
+  const color = (name: string) => theme.getPropertyValue(name).trim();
+  // A ring, not an outline, which focus styles override; its soft edge is a
+  // glow around it.
+  const ring = (line: string, glow: string) => ({
+    boxShadow: `0 0 0 3px ${line}, 0 0 10px 4px ${glow}`,
     // Around the card, whose corners are round.
-    borderRadius: theme.getPropertyValue("--radius-4").trim(),
+    borderRadius: color("--radius-4"),
   });
-  const shown = ring(theme.getPropertyValue("--violet-9").trim());
-  const gone = ring("transparent");
+  const shown = ring(color("--violet-a9"), color("--violet-a6"));
+  const gone = ring("transparent", "transparent");
   let started = false;
   const start = () => {
     if (started) return;
     started = true;
     window.removeEventListener("scrollend", start);
     rule.animate(
-      reduced ? [shown, shown] : [shown, { ...shown, offset: 0.65 }, gone],
-      { duration: 1500, easing: "ease-out" },
+      reduced
+        ? [shown, shown]
+        : [
+            { ...gone, easing: "ease-out" },
+            { ...shown, offset: 0.08 },
+            { ...shown, offset: 0.55, easing: "ease-in-out" },
+            gone,
+          ],
+      { duration: reduced ? 1500 : 2000 },
     );
   };
   window.addEventListener("scrollend", start);
