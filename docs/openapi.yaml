@@ -36077,6 +36077,24 @@ paths:
                   anyOf:
                     - type: boolean
                     - type: 'null'
+                disableResultsUpdateForStoppedExperiments:
+                  anyOf:
+                    - description: Stop updating results once an experiment has stopped
+                      type: boolean
+                    - type: 'null'
+                disableResultsUpdateForStoppedExperimentGraceHours:
+                  anyOf:
+                    - description: >-
+                        Hours after an experiment stops that its results can
+                        still update
+                      type: number
+                      minimum: 0
+                    - type: 'null'
+                disablePublicSharing:
+                  anyOf:
+                    - description: Public experiment and report links stop resolving
+                      type: boolean
+                    - type: 'null'
                 requireUniqueExperimentTrackingKeys:
                   anyOf:
                     - type: boolean
@@ -79574,6 +79592,16 @@ components:
         runHealthTrafficQuery:
           type: boolean
         requireExperimentTemplates:
+          type: boolean
+        disableResultsUpdateForStoppedExperiments:
+          description: Stop updating results once an experiment has stopped
+          type: boolean
+        disableResultsUpdateForStoppedExperimentGraceHours:
+          description: Hours after an experiment stops that its results can still update
+          type: number
+          minimum: 0
+        disablePublicSharing:
+          description: Public experiment and report links stop resolving
           type: boolean
         requireUniqueExperimentTrackingKeys:
           type: boolean
