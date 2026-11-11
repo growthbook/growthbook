@@ -2477,6 +2477,7 @@ export default function ReviewAndPublish({
           await apiCall(`/feature/${feature.id}/${revision.version}/discard`, {
             method: "POST",
           });
+          setVersion(feature.version);
         } finally {
           await mutate();
         }

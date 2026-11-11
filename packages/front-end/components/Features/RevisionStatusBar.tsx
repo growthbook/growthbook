@@ -326,6 +326,7 @@ export default function RevisionStatusBar({
                 `/feature/${baseFeature.id}/${revision.version}/discard`,
                 { method: "POST" },
               );
+              setVersion(liveVersion);
             } finally {
               await mutate();
             }
