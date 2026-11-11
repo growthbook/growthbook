@@ -1179,9 +1179,10 @@ export default function ExperimentHeader({
                   <MoreMenuTrigger
                     label="More actions"
                     size="lg"
-                    // Above the details toggle, past the row's end.
-                    ml="2"
-                    mr="-4"
+                    // Above the details toggle, past the row's end. Inline,
+                    // not margin props: a ghost button adds its own offset to
+                    // those.
+                    style={{ marginLeft: 8, marginRight: -17 }}
                   />
                 }
                 open={dropdownOpen}

@@ -247,9 +247,9 @@ export default function FeaturesHeaderNew({
           <MoreMenuTrigger
             label="More actions"
             size="lg"
-            // Above the details toggle, past the row's end.
-            ml="0"
-            mr="-4"
+            // Above the details toggle, past the row's end. Inline, not
+            // margin props: a ghost button adds its own offset to those.
+            style={{ marginLeft: 0, marginRight: -17 }}
           />
         }
         open={dropdownOpen}
