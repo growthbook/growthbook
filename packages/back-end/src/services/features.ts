@@ -220,7 +220,10 @@ import {
   ApiFeatureEnvSettings,
   ApiFeatureEnvSettingsRules,
 } from "back-end/src/api/features/postFeature";
-import { triggerWebhookJobs } from "back-end/src/jobs/updateAllJobs";
+import {
+  hasSdkPayloadListeners,
+  triggerWebhookJobs,
+} from "back-end/src/jobs/updateAllJobs";
 import {
   createRevision,
   featureRevisionId,
@@ -1499,6 +1502,22 @@ export async function refreshSDKPayloadCache({
     await context.models.sdkConnectionCache.deleteAllLegacyCacheEntries();
   } catch (e) {
     logger.warn(e, "Failed to delete legacy cache entries");
+  }
+
+  // With no payload cache, the only reason to continue is to notify webhooks,
+  // proxies or the CDN. If there are none, skip the org-wide loads below.
+  if (storageLocation === "none" && !(await hasSdkPayloadListeners(context))) {
+    const durationMs = Math.round(performance.now() - refreshStartedAt);
+    recordSdkPayloadRefreshMetrics(durationMs);
+    logger.info(
+      {
+        orgId: context.org.id,
+        auditContext: initialAuditContext,
+        durationMs,
+      },
+      "[sdk-payload] refresh skipped — no payload cache, and no SDK webhook, proxy or CDN to notify",
+    );
+    return;
   }
 
   // With no payload cache configured there is nowhere to store a pre-built

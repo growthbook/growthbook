@@ -7,6 +7,15 @@ import {
   purgeCDNCache,
 } from "back-end/src/util/cdn.util";
 import { logger } from "back-end/src/util/logger";
+import {
+  FASTLY_API_TOKEN,
+  FASTLY_SERVICE_ID,
+  IS_CLOUD,
+  PROXY_ENABLED,
+  PROXY_HOST_INTERNAL,
+  PROXY_HOST_PUBLIC,
+  WEBHOOKS,
+} from "back-end/src/util/secrets";
 import { queueProxyUpdate } from "./proxyUpdate";
 import {
   fireGlobalSdkWebhooks,
@@ -14,6 +23,29 @@ import {
 } from "./sdkWebhooks";
 import { queueLegacySdkWebhooks } from "./webhooks";
 
+// Whether triggerWebhookJobs would notify anything for this org. Env checks go
+// first so the database is only read when none apply. Per-connection proxy
+// settings are skipped: outside cloud they're overwritten from the environment
+// (see addEnvProxySettings).
+export async function hasSdkPayloadListeners(
+  context: ReqContext | ApiReqContext,
+): Promise<boolean> {
+  if (IS_CLOUD) return true;
+  if (WEBHOOKS.length) return true;
+  if (FASTLY_SERVICE_ID && FASTLY_API_TOKEN) return true;
+  if (PROXY_ENABLED && (PROXY_HOST_INTERNAL || PROXY_HOST_PUBLIC)) return true;
+
+  const sdkWebhooks = await context.models.sdkWebhooks.getAll();
+  if (sdkWebhooks.some((w) => !w.disabled)) return true;
+
+  const legacyWebhooks =
+    await context.models.sdkWebhooks.findAllLegacySdkWebhooks();
+  return legacyWebhooks.some((w) => !w.disabled);
+}
+
+// Any new notification type added here needs a matching check in
+// hasSdkPayloadListeners, or refreshes will be skipped when there is no
+// payload cache.
 export const triggerWebhookJobs = async (
   context: ReqContext | ApiReqContext,
   payloadKeys: SDKPayloadKey[],

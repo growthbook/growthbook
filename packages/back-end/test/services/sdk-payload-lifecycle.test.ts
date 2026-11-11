@@ -75,6 +75,7 @@ jest.mock("back-end/src/services/organizations", () => ({
 }));
 jest.mock("back-end/src/jobs/updateAllJobs", () => ({
   triggerWebhookJobs: jest.fn().mockResolvedValue(undefined),
+  hasSdkPayloadListeners: jest.fn().mockResolvedValue(true),
 }));
 
 const getSDKPayloadCacheLocationMock = jest.requireMock(
@@ -85,6 +86,9 @@ const findSDKConnectionsByOrganization = jest.requireMock(
 ).findSDKConnectionsByOrganization as jest.Mock;
 const triggerWebhookJobs = jest.requireMock("back-end/src/jobs/updateAllJobs")
   .triggerWebhookJobs as jest.Mock;
+const hasSdkPayloadListeners = jest.requireMock(
+  "back-end/src/jobs/updateAllJobs",
+).hasSdkPayloadListeners as jest.Mock;
 const getContextForAgendaJobByOrgObject = jest.requireMock(
   "back-end/src/services/organizations",
 ).getContextForAgendaJobByOrgObject as jest.Mock;
@@ -503,6 +507,75 @@ describe("SDK payload lifecycle (comprehensive)", () => {
         expect(triggerWebhookJobs).not.toHaveBeenCalled();
       },
     );
+
+    it("storage none with nothing to notify: deletes legacy entries, then returns before any org-wide load", async () => {
+      getSDKPayloadCacheLocationMock.mockReturnValue("none");
+      hasSdkPayloadListeners.mockResolvedValueOnce(false);
+      const deleteAllLegacy = jest.fn().mockResolvedValue(undefined);
+      const upsert = jest.fn().mockResolvedValue(undefined);
+      findSDKConnectionsByOrganization.mockResolvedValue([
+        sdkConn("sdk-prod", []),
+      ]);
+      const mockModels = {
+        sdkConnectionCache: {
+          deleteAllLegacyCacheEntries: deleteAllLegacy,
+          upsert,
+        },
+        ...payloadBuildModels(),
+      };
+      (
+        global as unknown as { __mockContextModels: unknown }
+      ).__mockContextModels = mockModels;
+
+      await refreshSDKPayloadCache({
+        context: minimalContext({
+          models: mockModels as unknown as ReqContext["models"],
+        }) as ReqContext,
+        payloadKeys: [{ environment: "production", project: "" }],
+        sdkConnections: [],
+      });
+
+      expect(deleteAllLegacy).toHaveBeenCalledTimes(1);
+      expect(hasSdkPayloadListeners).toHaveBeenCalledTimes(1);
+      expect(ExperimentModel.getAllPayloadExperiments).not.toHaveBeenCalled();
+      expect(FeatureModel.getAllFeatures).not.toHaveBeenCalled();
+      expect(
+        FeatureModel.getAllFeaturesWithoutEditorFields,
+      ).not.toHaveBeenCalled();
+      expect(findSDKConnectionsByOrganization).not.toHaveBeenCalled();
+      expectNoPayloadBuildLoads(mockModels);
+      expect(upsert).not.toHaveBeenCalled();
+      expect(triggerWebhookJobs).not.toHaveBeenCalled();
+    });
+
+    it("storage mongo: never checks for listeners, since the cache must be rebuilt", async () => {
+      getSDKPayloadCacheLocationMock.mockReturnValue("mongo");
+      findSDKConnectionsByOrganization.mockResolvedValue([
+        sdkConn("sdk-prod", []),
+      ]);
+      const mockModels = {
+        sdkConnectionCache: {
+          deleteAllLegacyCacheEntries: jest.fn().mockResolvedValue(undefined),
+          upsert: jest.fn().mockResolvedValue(undefined),
+        },
+        ...payloadBuildModels(),
+      };
+      (
+        global as unknown as { __mockContextModels: unknown }
+      ).__mockContextModels = mockModels;
+
+      await refreshSDKPayloadCache({
+        context: minimalContext({
+          models: mockModels as unknown as ReqContext["models"],
+        }) as ReqContext,
+        payloadKeys: [{ environment: "production", project: "" }],
+        sdkConnections: [],
+      });
+
+      expect(hasSdkPayloadListeners).not.toHaveBeenCalled();
+      expect(mockModels.sdkConnectionCache.upsert).toHaveBeenCalledTimes(1);
+      expect(triggerWebhookJobs).toHaveBeenCalledTimes(1);
+    });
 
     // Cross-project prerequisites (#6858): a change to a project-A feature that
     // a project-B feature lists as a prerequisite must also reach connections
