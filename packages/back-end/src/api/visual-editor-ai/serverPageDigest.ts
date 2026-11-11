@@ -87,8 +87,12 @@ const isSkippable = ($: Api, el: El): boolean =>
 const classList = (el: El): string[] =>
   (el.attribs?.class || "").split(/\s+/).filter(Boolean);
 
+// Browsers match `type` values case-insensitively in HTML, so `EMAIL` and
+// `email` must share an index entry. `type` is the only such attribute that
+// isPreferredAttr allows; adding `rel`, `lang`, `method` or `target` there
+// needs the same treatment here.
 const attrSelector = (tag: string, name: string, value: string): string =>
-  `${tag}[${name}="${value}"]`;
+  `${tag}[${name}="${name === "type" ? value.toLowerCase() : value}"]`;
 
 const isSelectorAttr = (name: string, value: string): boolean =>
   CSS_IDENT.test(name) && isPreferredAttr(name, value);

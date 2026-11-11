@@ -310,6 +310,21 @@ describe("buildDigestFromEditorUrl", () => {
     ).resolves.toBeNull();
   });
 
+  it("doesn't call a `type` selector unique when only its case differs", async () => {
+    mockFetch.mockResolvedValue(
+      respond({
+        body: SSR_PAGE.replace(
+          '<button type="submit">',
+          '<input type="tel"><input type="TEL"><button type="submit">',
+        ),
+      }),
+    );
+    const digest = await buildDigestFromEditorUrl("https://example.com/");
+    const selectors = digest?.inputs.map((i) => i.selector) ?? [];
+    expect(selectors.length).toBeGreaterThan(2);
+    expect(selectors.filter((s) => /type="tel"/i.test(s))).toEqual([]);
+  });
+
   it("skips a page that isn't valid UTF-8", async () => {
     // Latin-1 "é" decoded as UTF-8.
     mockFetch.mockResolvedValue(

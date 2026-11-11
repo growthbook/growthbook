@@ -8,6 +8,12 @@ const RE_EMOTION = /^css-[A-Za-z0-9_-]{4,}$/;
 const RE_STYLED_COMPONENTS = /(^|__)sc-[A-Za-z0-9]{4,}$/;
 const RE_STYLED_JSX = /^jsx-(?=[0-9a-f]*\d)[0-9a-f]{6,}$/i;
 
+// Server-only guard, not in the extension: these classes come from a fetched
+// page. The CSS-module patterns backtrack quadratically on a plain token and
+// worse on one with other characters, and neither pattern can match those.
+const MAX_CLASS_LENGTH = 128;
+const isPlainToken = (s: string): boolean => /^[\w-]+$/.test(s);
+
 const looksLikeHash = (s: string): boolean =>
   /\d/.test(s) || (/[a-z]/.test(s) && /[A-Z]/.test(s));
 
@@ -21,7 +27,9 @@ const isPureHashClass = (name: string): boolean => {
 
 export const isHashedClass = (className: string): boolean => {
   if (!className) return false;
-  const cssMod = RE_CSS_MODULE.exec(className);
+  // Too long to be a real class name, so never worth anchoring a selector on.
+  if (className.length > MAX_CLASS_LENGTH) return true;
+  const cssMod = isPlainToken(className) && RE_CSS_MODULE.exec(className);
   if (cssMod && looksLikeHash(cssMod[1])) return true;
   if (RE_EMOTION.test(className)) return true;
   if (RE_STYLED_COMPONENTS.test(className)) return true;
@@ -33,6 +41,10 @@ export const isHashedClass = (className: string): boolean => {
 };
 
 const extractClassStem = (className: string): string | null => {
+  // Every pattern below only matches a plain token.
+  if (className.length > MAX_CLASS_LENGTH || !isPlainToken(className)) {
+    return null;
+  }
   const cssMod = /^[A-Za-z][\w-]*_([A-Za-z][\w-]+)__([A-Za-z0-9_-]{4,})$/.exec(
     className,
   );
