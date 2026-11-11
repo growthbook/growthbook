@@ -191,6 +191,18 @@ const writableSettingsFields = {
     .strict(),
   runHealthTrafficQuery: z.boolean(),
   requireExperimentTemplates: z.boolean(),
+  disableResultsUpdateForStoppedExperiments: z
+    .boolean()
+    .describe("Stop updating results once an experiment has stopped"),
+  disableResultsUpdateForStoppedExperimentGraceHours: z
+    .number()
+    .nonnegative()
+    .describe(
+      "Hours after an experiment stops that its results can still update",
+    ),
+  disablePublicSharing: z
+    .boolean()
+    .describe("Public experiment and report links stop resolving"),
   requireUniqueExperimentTrackingKeys: z.boolean(),
   experimentKeyExample: z.string(),
   experimentKeyRegexValidator: z
