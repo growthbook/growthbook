@@ -71,7 +71,7 @@ const baseRowResults: RowResults = {
     timeRemainingMs: 0,
     showTimeRemaining: false,
   },
-  hasScaledImpact: true,
+  scaledImpactEligible: true,
   significant: true,
   significantUnadjusted: true,
   significantReason: "p < 0.05",

@@ -1075,15 +1075,19 @@ export default function ResultsTable({
                                   });
                                 }
 
-                                const hideScaledImpact =
-                                  !rowResults.hasScaledImpact &&
-                                  differenceType === "scaled";
-                                const scaledImpactMessage =
-                                  snapshot?.settings &&
+                                const scaledImpactUnavailable =
+                                  !!snapshot?.settings &&
                                   isScalableClusterSubUnitMetric(
                                     row.metric,
                                     snapshot.settings,
-                                  )
+                                  ) &&
+                                  !!stats.errorMessage;
+                                const hideScaledImpact =
+                                  (!rowResults.scaledImpactEligible ||
+                                    scaledImpactUnavailable) &&
+                                  differenceType === "scaled";
+                                const scaledImpactMessage =
+                                  scaledImpactUnavailable
                                     ? "Scaled impact unavailable. Try updating results."
                                     : undefined;
 

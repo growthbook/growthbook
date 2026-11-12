@@ -348,7 +348,7 @@ const ExperimentWithMetricsTable: FC<Props> = ({
                   rowResults={{
                     enoughData: true,
                     directionalStatus: mr.directionalStatus ?? "losing",
-                    hasScaledImpact: true,
+                    scaledImpactEligible: true,
                     significant: mr.significant,
                     resultsStatus:
                       (mr.resultsStatus as RowResults["resultsStatus"]) ?? "",
