@@ -152,10 +152,14 @@ function getEventForwarderDraft(
   dataSource: DataSourceInterfaceWithParams,
 ): EventForwarderConfigDraft | null {
   const existing = dataSource.eventForwarderConfig;
+  const environment = existing?.environment
+    ? { environment: existing.environment }
+    : {};
   if (existing?.sinkType === "bigquery") {
     return {
       sinkType: "bigquery",
       region: existing.region,
+      ...environment,
       config: {
         projectId: existing.config.projectId,
         dataset: existing.config.dataset,
@@ -168,6 +172,7 @@ function getEventForwarderDraft(
     return {
       sinkType: "snowflake",
       region: existing.region,
+      ...environment,
       config: {
         database: existing.config.database,
         schema: existing.config.schema,
@@ -182,6 +187,7 @@ function getEventForwarderDraft(
     return {
       sinkType: "databricks",
       region: existing.region,
+      ...environment,
       config: {
         catalog: existing.config.catalog,
         schema: existing.config.schema,

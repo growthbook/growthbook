@@ -293,7 +293,12 @@ export async function postDataSources(
       await assertNoEventForwarderEnvironmentOverlap(
         context,
         eventForwarderConfig?.environment,
-        { allowUnset: !eventForwarderConfig },
+        {
+          allowUnset: !eventForwarderConfig,
+          region:
+            eventForwarderConfig?.region ??
+            (eventForwarderConfig ? "us-east-1" : eventForwarderRegion),
+        },
       );
     }
     datasource = await createDataSource(
@@ -2278,10 +2283,26 @@ export async function postMigrateEventForwarder(
     } catch (e) {
       // Restore the pre-migrate row so the Confluent connector keeps serving it
       // and Migrate can be retried; lastProvisioningError keeps the cause.
+      // - Environment goes back only if that no longer overlaps: another
+      //   forwarder may have been added while this one was narrowed
+      let environment = migrated.environment ?? "";
+      try {
+        await assertNoEventForwarderEnvironmentOverlap(
+          context,
+          previous.environment || undefined,
+          { current: migrated, adding: true },
+        );
+        environment = previous.environment ?? "";
+      } catch (overlapError) {
+        req.log.warn(
+          { err: overlapError, datasourceId: previous.datasourceId },
+          "Keeping the migrated environment on revert",
+        );
+      }
       const ids = {
         topic: previous.topic,
         status: previous.status,
-        environment: previous.environment ?? "",
+        environment,
         schemaId: previous.schemaId,
         connectorName: previous.connectorName,
         connectorId: previous.connectorId,

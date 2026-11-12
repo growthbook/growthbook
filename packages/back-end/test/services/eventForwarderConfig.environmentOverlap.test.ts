@@ -90,4 +90,22 @@ describe("assertNoEventForwarderEnvironmentOverlap", () => {
       check([row("a")], undefined, { allowUnset: true }),
     ).rejects.toThrow(/receives all environments/);
   });
+
+  it("still rejects an environment held by a row that never received events (unique index)", async () => {
+    const rows = [
+      row("a", { status: "error", connectorName: "", environment: "dev" }),
+    ];
+    await expect(check(rows, "dev")).rejects.toThrow(/already receives/);
+    await expect(check(rows, "staging")).resolves.toBeUndefined();
+  });
+
+  it("rejects a new forwarder in a different data region, counting unconfigured rows and absent as us-east-1", async () => {
+    const rows = [row("a", { status: "unconfigured" })];
+    await expect(check(rows, "dev", { region: "eu-west-1" })).rejects.toThrow(
+      /same data region.*us-east-1/,
+    );
+    await expect(
+      check(rows, "dev", { region: "us-east-1" }),
+    ).resolves.toBeUndefined();
+  });
 });
