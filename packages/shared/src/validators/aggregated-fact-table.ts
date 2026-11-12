@@ -37,6 +37,10 @@ const aggregatedFactTable = z
     firstEventDate: z.date().nullable(),
     lastEventDate: z.date().nullable(),
 
+    // When the last successful restate started. An Event Forwarder replay
+    // after it wrote rows behind the watermark.
+    lastRestateStartedAt: z.date().optional(),
+
     // Hash of the fact table definition; detects FT drift, acted on only via a forced restate.
     factTableSettingsHash: z.string().nullable(),
 
