@@ -87,7 +87,7 @@ export function useDataSourceOptionEligibility(): Record<
     : environments.every((env) =>
           eventForwarderEnvironments.some((e) => e.environment === env.id),
         )
-      ? "Every environment already goes to an Event Forwarder."
+      ? "Every environment already has an Event Forwarder. Add an environment, or change or delete an existing Event Forwarder."
       : undefined;
   const { effectiveAccountPlan, license, hasCommercialFeature } = useUser();
   const permissionsUtil = usePermissionsUtil();
