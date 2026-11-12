@@ -245,6 +245,7 @@ export default function FactTableColumnsTab({
         <ColumnsTable
           factTable={factTable}
           columns={virtual}
+          label="virtual columns"
           renderDetail={(col) => (
             <Text as="div" size="sm" color="text-mid">
               <span className={styles.mono}>{col.sql}</span>
@@ -288,12 +289,15 @@ function ColumnsTable({
   factTable,
   columns,
   toolbar,
+  label = "columns",
   renderDetail,
   renderExpanded,
 }: {
   factTable: FactTableInterface;
   columns: ColumnInterface[];
   toolbar?: ReactNode;
+  // What the rows are, for the search placeholder and empty state
+  label?: string;
   renderDetail: (column: ColumnInterface) => ReactNode;
   renderExpanded: (column: ColumnInterface) => ReactNode;
 }) {
@@ -362,7 +366,7 @@ function ColumnsTable({
           <TextField
             size="sm"
             type="search"
-            placeholder={`Search ${columns.length} columns`}
+            placeholder={`Search ${columns.length} ${label}`}
             {...searchInputProps}
           />
           {toolbar}
@@ -471,6 +475,13 @@ function ColumnsTable({
                 </Fragment>
               );
             })}
+            {!items.length ? (
+              <TableRow>
+                <TableCell colSpan={5}>
+                  <Text color="text-mid">No {label} match your search.</Text>
+                </TableCell>
+              </TableRow>
+            ) : null}
           </TableBody>
         </Table>
       </Flex>
