@@ -967,6 +967,10 @@ function cleanChartSettings(
   if (chartSettings.valueAxisLabel !== undefined) {
     next.valueAxisLabel = chartSettings.valueAxisLabel.trim();
   }
+  // Only persist the non-default: anchored to zero is the default.
+  if (chartSettings.anchorYAxisToZero === false) {
+    next.anchorYAxisToZero = false;
+  }
   return Object.keys(next).length ? next : undefined;
 }
 
