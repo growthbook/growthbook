@@ -21,6 +21,7 @@ import {
   StepStatus,
   stepBucketing,
   stepServes,
+  nullServedTo,
   stepTargets,
   TrafficStep,
 } from "@/services/environmentStatus";
@@ -322,7 +323,9 @@ function Fields({ fields }: { fields: { label: string; value: ReactNode }[] }) {
     <span className={`${styles.fields} ${styles.stepFields}`}>
       {fields.map(({ label, value }) => (
         <Fragment key={label}>
-          <Text color="text-low">{label}:</Text>
+          <Text color="text-low" whiteSpace="nowrap">
+            {label}:
+          </Text>
           <span className={styles.line}>{value}</span>
         </Fragment>
       ))}
@@ -529,7 +532,46 @@ function Drilldown({
           />
         )}
       </Row>
+      <ServedAndEvaluated status={status} valueType={valueType} />
     </div>
+  );
+}
+
+// A boolean flag serving null reads as false, as isOn() reads it, but isn't
+// served false: getFeatureValue() returns the caller's fallback.
+function ServedAndEvaluated({
+  status,
+  valueType,
+}: {
+  status: EnvironmentStatus;
+  valueType: FeatureValueType;
+}) {
+  const who = nullServedTo(status);
+  if (!who || valueType !== "boolean") return null;
+  const toWhom =
+    who === "unheld" ? (
+      <Text color="text-mid">to everyone the holdout doesn&apos;t hold</Text>
+    ) : null;
+  return (
+    <Row icon={null} label="Result">
+      <Fields
+        fields={[
+          {
+            label: "Evaluates to",
+            value: <ValueDisplay value="false" type="boolean" />,
+          },
+          {
+            label: "Serves",
+            value: (
+              <>
+                <ValueCode text="null" muted={false} />
+                {toWhom}
+              </>
+            ),
+          },
+        ]}
+      />
+    </Row>
   );
 }
 
@@ -574,7 +616,7 @@ function Card({
           </Flex>
           <span className={styles.fields}>
             <Text size="sm" color="text-low">
-              Serves:
+              Evals to:
             </Text>
             {!status ? (
               <span className={styles.line}>

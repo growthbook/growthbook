@@ -786,6 +786,26 @@ export function reasonText(reason: EnvironmentReason): string | null {
   }
 }
 
+// Who gets null: everyone when the flag isn't served, or everyone the holdout
+// doesn't hold when prerequisites keep them out.
+export function nullServedTo(
+  status: EnvironmentStatus,
+): "everyone" | "unheld" | null {
+  switch (status.reason.kind) {
+    case "disabled":
+    case "archived":
+      return "everyone";
+    case "prerequisite":
+      return status.holdout === "applies" || status.holdout === "varies"
+        ? "unheld"
+        : "everyone";
+    case "traffic":
+    case "mixed":
+    case "default":
+      return null;
+  }
+}
+
 // The prerequisites together: the first that keeps everyone out, else whether
 // any depends on who the user is.
 export function prerequisitesSummary(
