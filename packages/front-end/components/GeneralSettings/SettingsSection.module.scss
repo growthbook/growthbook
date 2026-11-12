@@ -2,6 +2,11 @@
   padding-top: 28px;
   // Clears the fixed top nav when scrolled to.
   scroll-margin-top: 64px;
+
+  // Anchors inside a section also clear its sticky header.
+  [id] {
+    scroll-margin-top: 112px;
+  }
 }
 
 .header {

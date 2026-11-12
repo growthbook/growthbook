@@ -776,22 +776,26 @@ export const PHOENIX_TABLES = {
 // Langfuse tables hold every project in the instance. Scope by project id when
 // one is configured; otherwise include everything, which is what a
 // single-project self-host wants.
+// Blank and whitespace-only both mean every project. The settings label uses
+// the same rule, so the SQL must not filter on a project made of spaces.
+function normalizedProjectScope(value?: string | number): string {
+  return String(value ?? "").trim();
+}
+
 export function langfuseProjectClause(
   alias: string,
   projectId?: string | number,
 ): string {
-  return projectId
-    ? `\n  AND ${alias}project_id = ${sqlStringLiteral(projectId)}`
-    : "";
+  const id = normalizedProjectScope(projectId);
+  return id ? `\n  AND ${alias}project_id = ${sqlStringLiteral(id)}` : "";
 }
 
 export function phoenixProjectClause(
   alias: string,
   projectName?: string | number,
 ): string {
-  return projectName
-    ? `\n  AND ${alias}name = ${sqlStringLiteral(projectName)}`
-    : "";
+  const name = normalizedProjectScope(projectName);
+  return name ? `\n  AND ${alias}name = ${sqlStringLiteral(name)}` : "";
 }
 
 const LANGFUSE_ID_COLUMNS: Record<string, string> = {
@@ -1548,7 +1552,8 @@ export function validateSQL(sql: string, requiredColumns: string[]): void {
     throw new Error("Invalid SQL. Expecting `SELECT ... FROM ...`");
   }
 
-  if (sql.match(/;(\s|\n)*$/)) {
+  // `\s` already matches newlines; `(\s|\n)*` backtracked exponentially.
+  if (/;\s*$/.test(sql)) {
     throw new Error(
       "Don't end your SQL statements with semicolons since it will break our generated queries",
     );

@@ -68,7 +68,10 @@ import {
 } from "back-end/src/enterprise/services/interleavingAnalysis";
 import { resolveInterleavingMetrics } from "back-end/src/enterprise/services/interleavingMetrics";
 import { getContextForAgendaJobByOrgObject } from "back-end/src/services/organizations";
-import { PAYLOAD_AFFECTING_INTERLEAVING_FIELDS } from "back-end/src/services/experimentPayloadFields";
+import {
+  interleavingUpdateNeedsRunPermission,
+  payloadAffectingInterleavingChanges,
+} from "back-end/src/services/experimentPayloadFields";
 import {
   ensureIndexOnce,
   getCollection,
@@ -81,16 +84,6 @@ type ApiVariationInput = NonNullable<
 type ApiJSONSchemaInput = NonNullable<
   ReturnType<typeof apiUpdateInterleavingBody.parse>["jsonSchema"]
 >;
-
-function payloadAffectingChanges(
-  existing: InterleavingInterface,
-  changes?: Partial<InterleavingInterface>,
-): (keyof InterleavingInterface)[] {
-  if (!changes) return [];
-  return PAYLOAD_AFFECTING_INTERLEAVING_FIELDS.filter(
-    (field) => field in changes && !isEqual(changes[field], existing[field]),
-  );
-}
 
 const trackingKeyCollisionMessage = (trackingKey: string) =>
   `Another interleaving experiment already reports as "${trackingKey}" in this Data Source. Set a different tracking key so their exposures can be told apart.`;
@@ -671,7 +664,7 @@ export class InterleavingModel extends BaseClass {
     updates: UpdateProps<InterleavingInterface>,
     newDoc: InterleavingInterface,
   ) {
-    if (!payloadAffectingChanges(existing, updates).length) return;
+    if (!payloadAffectingInterleavingChanges(existing, updates).length) return;
     this.refreshSDKPayload([existing, newDoc], "updated");
   }
 
@@ -760,23 +753,13 @@ export class InterleavingModel extends BaseClass {
     existing: InterleavingInterface,
     updated?: Partial<InterleavingInterface>,
   ): boolean {
-    const statusChanged =
-      updated?.status !== undefined && updated.status !== existing.status;
-    const envsChanged =
-      updated?.environmentSettings !== undefined &&
-      !isEqual(updated.environmentSettings, existing.environmentSettings);
-    // Live payload changes require the same permission as starting.
-    const servesNow =
-      (interleavingInSDKPayload(existing) ||
-        interleavingInSDKPayload({ ...existing, ...updated })) &&
-      payloadAffectingChanges(existing, updated).length > 0;
     const envs = interleavingEnvsForChange({
       existing,
       updated,
       environmentIds: this.context.environments,
     });
     if (
-      (statusChanged || envsChanged || servesNow) &&
+      interleavingUpdateNeedsRunPermission(existing, updated) &&
       envs.length > 0 &&
       !this.context.permissions.canRunInterleavingUpdate(
         existing,

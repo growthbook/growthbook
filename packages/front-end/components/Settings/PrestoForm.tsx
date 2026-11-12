@@ -14,7 +14,7 @@ const PrestoForm: FC<{
   existing: boolean;
   onParamChange: ChangeEventHandler<HTMLInputElement | HTMLSelectElement>;
   onManualParamChange: (name: string, value: string) => void;
-  setParams: (params: { [key: string]: string | boolean }) => void;
+  setParams: (params: { [key: string]: string | boolean | null }) => void;
   showAllowlist?: boolean;
 }> = ({
   params,
@@ -308,6 +308,9 @@ const PrestoForm: FC<{
         existing={existing}
         onParamChange={onParamChange}
         setSSL={(ssl) => setParams({ ssl })}
+        setCertRemoved={(name, removed) =>
+          setParams({ [name]: removed ? null : "" })
+        }
         value={{
           // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'boolean | undefined' is not assignable to ty... Remove this comment to see the full error message
           ssl: params.ssl,

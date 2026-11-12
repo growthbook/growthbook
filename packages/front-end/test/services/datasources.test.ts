@@ -113,6 +113,14 @@ describe("validateSQL", () => {
     it("does not throw when a semicolon appears mid-query", () => {
       expect(() => validateSQL("SELECT ';' AS delim FROM t", [])).not.toThrow();
     });
+
+    it("runs in linear time on a semicolon followed by many newlines", () => {
+      // The old `/;(\s|\n)*$/` backtracked exponentially here
+      const sql = "SELECT x FROM y;" + "\n".repeat(50000) + "z";
+      const start = performance.now();
+      expect(() => validateSQL(sql, [])).not.toThrow();
+      expect(performance.now() - start).toBeLessThan(500);
+    });
   });
 
   describe("required columns", () => {
@@ -721,12 +729,31 @@ describe("getInitialSettings", () => {
   });
 
   it("omits the project filter when the option is blank", () => {
+    for (const projectId of ["", "   "]) {
+      // @ts-expect-error minimal params for the test
+      const settings = getInitialSettings("langfuse", clickhouseParams, {
+        projectId,
+      });
+      for (const q of settings.queries.exposure) {
+        expect(q.query).not.toContain("project_id = '");
+      }
+    }
+  });
+
+  it("trims the project option before filtering", () => {
     // @ts-expect-error minimal params for the test
-    const settings = getInitialSettings("langfuse", clickhouseParams, {
-      projectId: "",
+    const langfuse = getInitialSettings("langfuse", clickhouseParams, {
+      projectId: " proj_1 ",
     });
-    for (const q of settings.queries.exposure) {
-      expect(q.query).not.toContain("project_id = '");
+    expect(langfuse.queries.exposure[0].query).toContain(
+      "project_id = 'proj_1'",
+    );
+    // @ts-expect-error minimal params for the test
+    const phoenix = getInitialSettings("phoenix", postgresParams, {
+      projectName: "  ",
+    });
+    for (const q of phoenix.queries.exposure) {
+      expect(q.query).not.toContain("p.name = '");
     }
   });
 });

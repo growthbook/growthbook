@@ -61,12 +61,19 @@ export class WatchModel extends BaseClass {
     ).map((watcher) => watcher.userId);
   }
 
-  // One atomic write, so concurrent creates for a member can't collide on the
-  // unique key or drop each other's additions.
+  // A re-watch writes nothing (FerretDB 2.x duplicates the array on a no-op
+  // $addToSet); a new item is one atomic upsert, so concurrent creates can't collide.
   public async upsertWatch({ userId, item, type }: UpdateWatchOptions) {
+    const collection = this._dangerousGetCollection();
+    const watcher = { organization: this.context.org.id, userId };
+    const watching = await collection.findOne(
+      { ...watcher, [type]: item },
+      { projection: { _id: 1 } },
+    );
+    if (watching) return;
     const now = new Date();
-    await this._dangerousGetCollection().updateOne(
-      { organization: this.context.org.id, userId },
+    await collection.updateOne(
+      watcher,
       {
         $addToSet: { [type]: item },
         $set: { dateUpdated: now },
