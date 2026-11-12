@@ -333,6 +333,19 @@ describe("buildDigestFromEditorUrl", () => {
     expect(await buildDigestFromEditorUrl("https://example.com/")).toBeNull();
   });
 
+  it("digests the top of a page cut off at the size cap", async () => {
+    // Cut mid-text, with the U+FFFD a split multi-byte character leaves.
+    const cut = SSR_PAGE.slice(0, SSR_PAGE.indexOf("Trusted by") + 7);
+    mockFetch.mockResolvedValue(respond({ body: `${cut}\uFFFD` }));
+    const digest = await buildDigestFromEditorUrl("https://example.com/");
+    expect(digest?.headings.map((h) => h.text)).toEqual([
+      "Ship faster with Acme",
+      "Join the beta",
+      "Trusted",
+    ]);
+    expect(JSON.stringify(digest)).not.toContain("\uFFFD");
+  });
+
   it("skips a page with almost no content", async () => {
     mockFetch.mockResolvedValue(
       respond({ body: "<html><body><h1>Hi</h1></body></html>" }),
@@ -358,13 +371,12 @@ describe("buildDigestFromEditorUrl", () => {
     expect(mockFetch).not.toHaveBeenCalled();
   });
 
-  it("requests the page without following redirects and with truncation fatal", async () => {
+  it("requests the page without following redirects", async () => {
     mockFetch.mockResolvedValue(respond({ body: SSR_PAGE }));
     await buildDigestFromEditorUrl("https://example.com/");
 
     const [, init, limits] = mockFetch.mock.calls[0];
     expect(init.redirect).toBe("manual");
-    expect(limits.throwOnTruncate).toBe(true);
     expect(limits.maxContentSize).toBeGreaterThan(0);
     expect(limits.maxTimeMs).toBeGreaterThan(0);
   });

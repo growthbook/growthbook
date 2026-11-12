@@ -45,7 +45,6 @@ const fetchOnce = (url: URL, maxTimeMs: number) =>
     {
       maxContentSize: MAX_HTML_BYTES,
       maxTimeMs,
-      throwOnTruncate: true,
     },
   );
 
@@ -94,10 +93,16 @@ export const fetchPageHtml = async (
     if (!HTML_CONTENT_TYPE.test(res.headers.get("content-type") ?? "")) {
       return null;
     }
-    // The body is decoded as UTF-8, so U+FFFD means another charset (or a
-    // corrupt page): its text and attribute selectors would be garbage.
-    if (stringBody.includes("\uFFFD")) return null;
-    return { url, html: stringBody };
+    // A page over the size cap arrives cut off, which is fine: the digest only
+    // needs the top of the page. The cut can split a multi-byte character,
+    // which decodes to one trailing U+FFFD.
+    const html = stringBody.endsWith("\uFFFD")
+      ? stringBody.slice(0, -1)
+      : stringBody;
+    // The body is decoded as UTF-8, so U+FFFD anywhere else means another
+    // charset (or a corrupt page): its text and selectors would be garbage.
+    if (html.includes("\uFFFD")) return null;
+    return { url, html };
   }
 
   return null;

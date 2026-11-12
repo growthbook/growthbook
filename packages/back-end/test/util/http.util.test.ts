@@ -76,7 +76,7 @@ describe("cancellableFetch truncation", () => {
     };
   }
 
-  it("resolves with the partial body by default", async () => {
+  it("resolves with the partial body", async () => {
     mockedFetch.mockResolvedValueOnce(oversizedResponse());
     const { stringBody } = await cancellableFetch(
       "https://example.com/big",
@@ -101,17 +101,6 @@ describe("cancellableFetch truncation", () => {
       { maxTimeMs: 1000, maxContentSize: 1000 },
     );
     expect(stringBody).toBe("日本語");
-  });
-
-  it("throws instead when throwOnTruncate is set", async () => {
-    mockedFetch.mockResolvedValueOnce(oversizedResponse());
-    await expect(
-      cancellableFetch(
-        "https://example.com/big",
-        {},
-        { maxTimeMs: 1000, maxContentSize: 5, throwOnTruncate: true },
-      ),
-    ).rejects.toThrow();
   });
 });
 

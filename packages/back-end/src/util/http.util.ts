@@ -41,9 +41,6 @@ export function validateWebhookTimeoutSeconds(timeoutSeconds?: number | null) {
 export type CancellableFetchCriteria = {
   maxContentSize: number;
   maxTimeMs: number;
-  // Default: return whatever bytes arrived. Set when a partial body is
-  // unusable — covers both the size cap and a timeout after headers.
-  throwOnTruncate?: boolean;
 };
 
 export type CancellableFetchReturn = {
@@ -121,13 +118,6 @@ export const cancellableFetch = async (
 
       if (received > abortOptions.maxContentSize) {
         abortController.abort();
-        // Size cap exits via break, not AbortError — throw here when a
-        // partial body is unusable.
-        if (abortOptions.throwOnTruncate) {
-          throw new Error(
-            `Response exceeded the max content size of ${abortOptions.maxContentSize} bytes`,
-          );
-        }
         break;
       }
     }
@@ -152,10 +142,6 @@ export const cancellableFetch = async (
     };
   } catch (e) {
     if (e.name === "AbortError" && response) {
-      if (abortOptions.throwOnTruncate) {
-        throw new Error(`Response truncated after ${received} bytes`);
-      }
-
       logger.warn(e, `Response aborted due to content size: ${received}`);
 
       return {
