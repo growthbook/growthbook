@@ -58,6 +58,7 @@ export const CONFIRM_ACTIONS = [
   "rampSchedule.other",
   "settings.approvals",
   "settings.dataSources",
+  "settings.webhooks",
   "settings.other",
   "access.members",
   "access.teams",

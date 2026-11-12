@@ -17,11 +17,13 @@ const baseValueValidator = z.object({
 });
 
 // Metrics
+// Product Analytics can't explore compound metrics, so drafts never carry them.
 export const draftExplorationMetricValidator = factMetricValidator.omit({
   id: true,
   organization: true,
   dateCreated: true,
   dateUpdated: true,
+  compoundSettings: true,
 });
 
 export const explorationPopulationValidator = componentSchema(

@@ -12,6 +12,9 @@ import Heading from "@/ui/Heading";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
 import Metadata from "@/ui/Metadata";
+import ExpandableText, {
+  ExpandableTextBody,
+} from "@/components/ExpandableText";
 import {
   customFieldDataListItems,
   renderCustomFieldValue,
@@ -90,8 +93,16 @@ const CustomFieldDisplay: FC<{
                     None
                   </Text>
                 ) : (
-                  <Box style={{ fontSize: "var(--font-size-1)" }}>
-                    {renderCustomFieldValue(field, value)}
+                  // Long values cut off as a description does; the row edits
+                  // wherever it's clicked, so only "… expand" opens the rest.
+                  <Box width="100%">
+                    <ExpandableText expandOnClick={false}>
+                      <ExpandableTextBody>
+                        <Box style={{ fontSize: "var(--font-size-1)" }}>
+                          {renderCustomFieldValue(field, value)}
+                        </Box>
+                      </ExpandableTextBody>
+                    </ExpandableText>
                   </Box>
                 )
               }

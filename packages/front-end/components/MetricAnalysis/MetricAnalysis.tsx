@@ -342,6 +342,10 @@ const MetricAnalysis: FC<MetricAnalysisProps> = ({
           <Callout status="warning" mt="2" mb="2">
             Standalone metric analysis not yet available for funnel metrics.
           </Callout>
+        ) : factMetric.metricType === "compound" ? (
+          <Callout status="warning" mt="2" mb="2">
+            Standalone metric analysis not yet available for compound metrics.
+          </Callout>
         ) : (
           <>
             <div
