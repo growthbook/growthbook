@@ -17,12 +17,16 @@
   height: var(--callout-line-height);
 }
 
+// Wide content stays inside the callout: min-width: 0 lets a code block or
+// table scroll in the body instead of widening it, and a long word or URL
+// breaks onto the next line.
 .body {
   flex: 1 1 0%;
+  min-width: 0;
+  overflow-wrap: break-word;
 }
 
 .bodyWithAction {
   flex-basis: 16rem;
-  min-width: 0;
   max-width: max-content;
 }
