@@ -24,6 +24,8 @@ export function RuleEditButton({ onClick }: { onClick: () => void }) {
       variant="ghost"
       size="sm"
       className={cornerStyles.actions}
+      // Wider than its label, so it's an easier target.
+      style={{ minWidth: "var(--space-7)" }}
       onClick={onClick}
     >
       Edit
