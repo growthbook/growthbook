@@ -109,11 +109,13 @@ function reachableResolvables(
   const constantsByKey = new Map(constants.map((c) => [c.key, c]));
   const configsByKey = new Map(configs.map((c) => [c.key, c]));
   const reached = { constants: new Set<string>(), configs: new Set<string>() };
-  const queue: [RefSource, string][] = [
-    ...roots.constants.map((k): [RefSource, string] => ["constant", k]),
-    ...roots.configs.map((k): [RefSource, string] => ["config", k]),
+  type Ref = [RefSource, string];
+  const queue: Ref[] = [
+    ...roots.constants.map((k): Ref => ["constant", k]),
+    ...roots.configs.map((k): Ref => ["config", k]),
   ];
-  const referencedBy = (
+  // Queues what a value references.
+  const follow = (
     value: string | undefined,
     environmentValues?: Record<string, string>,
   ) => {
@@ -133,12 +135,12 @@ function reachableResolvables(
       const constant = constantsByKey.get(key);
       if (!constant || reached.constants.has(key)) continue;
       reached.constants.add(key);
-      referencedBy(constant.value, constant.environmentValues);
+      follow(constant.value, constant.environmentValues);
     } else {
       const config = configsByKey.get(key);
       if (!config || reached.configs.has(key)) continue;
       reached.configs.add(key);
-      referencedBy(config.value);
+      follow(config.value);
       for (const base of getConfigBaseKeys(config)) {
         queue.push(["config", base]);
       }

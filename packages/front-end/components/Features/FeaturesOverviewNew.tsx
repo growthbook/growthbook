@@ -286,19 +286,16 @@ export default function FeaturesOverviewNew({
       feature.rules,
       feature.holdout,
     ]);
-    const keys = (pattern: string, extra: string[] = []) =>
-      [
-        ...new Set([
-          ...[...text.matchAll(new RegExp(pattern, "g"))].map((m) => m[1]),
-          ...extra,
-        ]),
-      ]
-        .sort()
-        .join(",");
+    const refs = (pattern: string) =>
+      [...text.matchAll(new RegExp(pattern, "g"))].map((m) => m[1]);
+    const list = (keys: string[]) => [...new Set(keys)].sort().join(",");
     const baseConfig = getFeatureBaseConfigKey(feature);
     return {
-      constants: keys(CONSTANT_REF_PATTERN),
-      configs: keys(CONFIG_REF_PATTERN, baseConfig ? [baseConfig] : []),
+      constants: list(refs(CONSTANT_REF_PATTERN)),
+      configs: list([
+        ...refs(CONFIG_REF_PATTERN),
+        ...(baseConfig ? [baseConfig] : []),
+      ]),
     };
   }, [feature]);
   const needsResolvables = !!(
