@@ -128,42 +128,33 @@ function PastDueBillingCallout({
   downgradeDate: string | null;
   canAddPaymentMethod: boolean;
 }) {
+  const nextStep = canAddPaymentMethod ? (
+    <>
+      Add a new card under <strong>Payment Methods</strong> below and make it
+      your default
+    </>
+  ) : (
+    <>
+      Contact{" "}
+      <Link href="mailto:support@growthbook.io">support@growthbook.io</Link> to
+      update your payment method
+    </>
+  );
+  // No date means this failure will not cancel the plan automatically.
+  const deadline = downgradeDate
+    ? ` by ${downgradeDate} to keep your Pro plan.`
+    : ".";
   const retry =
-    "We retry failed charges automatically, and this message goes away once one succeeds.";
-  const unpaidWarning =
-    "Your Pro plan may be canceled if the invoice stays unpaid.";
-  if (canAddPaymentMethod && downgradeDate) {
-    return (
-      <Callout status="warning" mb="3">
-        We couldn&apos;t charge your card. Add a new card under{" "}
-        <strong>Payment Methods</strong> below and make it your default by{" "}
-        {downgradeDate} to keep your Pro plan. {retry}
-      </Callout>
-    );
-  }
-  if (canAddPaymentMethod) {
-    return (
-      <Callout status="warning" mb="3">
-        We couldn&apos;t charge your card. Add a new card under{" "}
-        <strong>Payment Methods</strong> below and make it your default. {retry}{" "}
-        {unpaidWarning}
-      </Callout>
-    );
-  }
-  if (downgradeDate) {
-    return (
-      <Callout status="warning" mb="3">
-        We couldn&apos;t charge your card. Contact{" "}
-        <Link href="mailto:support@growthbook.io">support@growthbook.io</Link>{" "}
-        to update your payment method by {downgradeDate} to keep your Pro plan.
-      </Callout>
-    );
-  }
+    " We retry failed charges automatically, and this message goes away once one succeeds.";
+  const unpaidWarning = downgradeDate
+    ? ""
+    : " Your Pro plan may be canceled if the invoice stays unpaid.";
   return (
     <Callout status="warning" mb="3">
-      We couldn&apos;t charge your card. Contact{" "}
-      <Link href="mailto:support@growthbook.io">support@growthbook.io</Link> to
-      update your payment method. {unpaidWarning}
+      We couldn&apos;t charge your card. {nextStep}
+      {deadline}
+      {retry}
+      {unpaidWarning}
     </Callout>
   );
 }
