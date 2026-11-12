@@ -35,6 +35,13 @@ function useClampHeight(
       // Its own height, not its scroll height, which counts a hover tint
       // reaching past it.
       const full = el.offsetHeight;
+      const limit = lines * parseFloat(getComputedStyle(el).lineHeight);
+      // Within that many lines' height, it fits: no cut to find, so no layout
+      // forced to find one. Most do.
+      if (full <= limit + 1) {
+        setHeight(null);
+        return;
+      }
       // Clamped by lines for a moment, so the cut falls between two whatever
       // their heights; drawn that way, it would add its own ellipsis.
       const style = el.style.cssText;
@@ -44,8 +51,7 @@ function useClampHeight(
       // Laid out in rows rather than lines of text (flex, grid), it isn't
       // clamped by lines, so it's cut within as many lines' height, under the
       // lowest thing that still fits whole: between two rows.
-      const limit = lines * parseFloat(getComputedStyle(el).lineHeight);
-      if (clamped >= full - 1 && full > limit) {
+      if (clamped >= full - 1) {
         const top = el.getBoundingClientRect().top;
         clamped = 0;
         el.querySelectorAll("*").forEach((node) => {

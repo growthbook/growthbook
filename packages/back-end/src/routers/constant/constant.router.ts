@@ -29,7 +29,13 @@ draftStatesRouter.get("/", constantController.getConstantDraftStates);
 resolvablesRouter.get(
   "/",
   validateRequestMiddleware({
-    query: z.object({ project: z.string().optional() }).strict(),
+    query: z
+      .object({
+        project: z.string().optional(),
+        constants: z.string().optional(),
+        configs: z.string().optional(),
+      })
+      .strict(),
   }),
   constantController.getConstantResolvables,
 );

@@ -4,7 +4,7 @@ import {
   FeatureRule,
 } from "shared/types/feature";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
-import { useMemo, useState, useEffect, useRef } from "react";
+import { useCallback, useMemo, useState, useEffect, useRef } from "react";
 import { PiCaretRightBold, PiCaretDownBold } from "react-icons/pi";
 import {
   evalDeterministicPrereqValue,
@@ -21,6 +21,8 @@ import { canOfferEnvironmentToggle } from "shared/permissions";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { Box, Flex } from "@radix-ui/themes";
 import {
+  CONFIG_REF_PATTERN,
+  CONSTANT_REF_PATTERN,
   isActiveDraftStatus,
   SafeRolloutInterface,
   HoldoutInterface,
@@ -188,6 +190,7 @@ export default function FeaturesOverviewNew({
   stickyTop: number;
 }) {
   const settings = useOrgSettings();
+  const namespaces = settings?.namespaces;
   const [edit, setEdit] = useState(false);
   const [showInvalidPrereqs, setShowInvalidPrereqs] = useState(false);
   const [prerequisiteModal, setPrerequisiteModal] = useState<{
@@ -275,31 +278,39 @@ export default function FeaturesOverviewNew({
     environments: envs,
     enabled: prerequisiteIds.length > 0,
   });
-  // The constants and configs a config-backed flag, or one that references a
-  // constant, resolves its values with, as the payload does for its project.
-  const needsResolvables = useMemo(
-    () =>
-      getFeatureBaseConfigKey(feature) !== null ||
-      getFeatureBaseConfigKey(baseFeature) !== null ||
-      [feature, baseFeature].some((f) =>
-        JSON.stringify([f.defaultValue, f.rules, f.holdout]).includes(
-          "@const:",
-        ),
-      ),
-    [feature, baseFeature],
+  // The constants and configs the flag's values name, its own config among
+  // them; the server adds what those reach, as the payload resolves them.
+  const resolvableKeys = useMemo(() => {
+    const text = JSON.stringify([
+      feature.defaultValue,
+      feature.rules,
+      feature.holdout,
+    ]);
+    const keys = (pattern: string, extra: string[] = []) =>
+      [
+        ...new Set([
+          ...[...text.matchAll(new RegExp(pattern, "g"))].map((m) => m[1]),
+          ...extra,
+        ]),
+      ]
+        .sort()
+        .join(",");
+    const baseConfig = getFeatureBaseConfigKey(feature);
+    return {
+      constants: keys(CONSTANT_REF_PATTERN),
+      configs: keys(CONFIG_REF_PATTERN, baseConfig ? [baseConfig] : []),
+    };
+  }, [feature]);
+  const needsResolvables = !!(
+    resolvableKeys.constants || resolvableKeys.configs
   );
   const { data: resolvables, error: resolvablesError } = useApi<{
     constants: ResolvableInput[];
-  }>(`/constants-resolvables?project=${feature.project || ""}`, {
-    shouldRun: () => needsResolvables,
-  });
-  // Their lookups, built once per environment as the payload builds them.
-  const constants = useMemo(
-    () => ({
-      inputs: resolvables?.constants,
-      maps: new Map<string, ConstantValueMap>(),
-    }),
-    [resolvables],
+  }>(
+    `/constants-resolvables?project=${feature.project || ""}&constants=${
+      resolvableKeys.constants
+    }&configs=${resolvableKeys.configs}`,
+    { shouldRun: () => needsResolvables },
   );
   // The holdout's own experiment says how much of the traffic it holds back.
   const { experimentsMap: holdoutExperiments, loading: holdoutsLoading } =
@@ -499,28 +510,31 @@ export default function FeaturesOverviewNew({
   // it can't.
   const canChangeEnvironments = envs.some(canToggleEnvironment);
 
-  const prerequisiteResult = (
-    prerequisite: FeaturePrerequisite,
-    env: string,
-  ): PrerequisiteResult | null => {
-    if (prereqStates?.[env]?.state === "cyclic") return "cycle";
-    // Unknown until they load, or if they don't.
-    if (!parentStates) return null;
-    // A parent the states don't include (archived, deleted, or out of view)
-    // reaches the SDK as an unknown feature: null.
-    const parent = parentStates[prerequisite.id]?.states[env] ?? {
-      state: "deterministic" as const,
-      value: null,
-    };
-    if (parent.state === "cyclic") return "cycle";
-    if (parent.state === "conditional") return "varies";
-    return evalDeterministicPrereqValue(
-      parent.value ?? null,
-      prerequisite.condition,
-    ) === "pass"
-      ? "met"
-      : "unmet";
-  };
+  const prerequisiteResult = useCallback(
+    (
+      prerequisite: FeaturePrerequisite,
+      env: string,
+    ): PrerequisiteResult | null => {
+      if (prereqStates?.[env]?.state === "cyclic") return "cycle";
+      // Unknown until they load, or if they don't.
+      if (!parentStates) return null;
+      // A parent the states don't include (archived, deleted, or out of view)
+      // reaches the SDK as an unknown feature: null.
+      const parent = parentStates[prerequisite.id]?.states[env] ?? {
+        state: "deterministic" as const,
+        value: null,
+      };
+      if (parent.state === "cyclic") return "cycle";
+      if (parent.state === "conditional") return "varies";
+      return evalDeterministicPrereqValue(
+        parent.value ?? null,
+        prerequisite.condition,
+      ) === "pass"
+        ? "met"
+        : "unmet";
+    },
+    [prereqStates, parentStates],
+  );
   const prerequisiteState = (
     prerequisiteId: string,
     env: string,
@@ -552,139 +566,6 @@ export default function FeaturesOverviewNew({
       />
     );
   };
-  // The rules the rule list doesn't mark inactive or skipped.
-  const liveRules = (f: FeatureInterface, env: string): FeatureRule[] =>
-    getRules(f, env).filter(
-      (rule) =>
-        !isRuleInactive(rule, experimentsMap) &&
-        !isRuleSkipped({
-          rule,
-          linkedExperiment:
-            rule.type === "experiment-ref"
-              ? experimentsMap.get(rule.experimentId)
-              : undefined,
-          linkedContextualBandit:
-            rule.type === "contextual-bandit-ref"
-              ? contextualBanditsMap.get(rule.contextualBanditId)
-              : undefined,
-        }),
-    );
-  // A value as the SDK receives it in an environment. A config-backed flag's
-  // object values are patches over its config (or the descendant config they
-  // name), resolved per environment; a rule's lands on the resolved default.
-  const servedValue = (
-    f: FeatureInterface,
-    value: string,
-    env: string,
-    { sparse = false, arm = false } = {},
-  ): string => {
-    const { inputs } = constants;
-    // Built once per environment, as the payload builds it.
-    const mapFor = (resolvables: ResolvableInput[]) => {
-      let map = constants.maps.get(env);
-      if (!map) {
-        map = buildConstantValueMap(resolvables, env);
-        constants.maps.set(env, map);
-      }
-      return map;
-    };
-    const resolver = sdkValueResolver({
-      valueType: f.valueType,
-      baseConfig: f.baseConfig,
-      defaultValue: f.defaultValue,
-      resolveRefs: inputs
-        ? (v) =>
-            resolveConstantRefs(
-              v,
-              mapFor(inputs),
-              undefined,
-              undefined,
-              f.project || "",
-              env,
-            )
-        : undefined,
-    });
-    // As the payload decides it: a rule's value is a patch when the rule says
-    // so or the flag is config-backed; a safe rollout's or holdout's never is.
-    return sdkValueText(
-      f.valueType,
-      resolver.serve(value, arm && (sparse || resolver.configBacked)),
-    );
-  };
-  // The holdout's control group, then the live rules.
-  // The payload holds back traffic only while the holdout's experiment runs.
-  const holdoutExperiment = holdout
-    ? holdoutExperiments.get(holdout.experimentId)
-    : undefined;
-  const holdoutRunning =
-    holdoutExperiment?.status === "running" && !holdoutExperiment.archived;
-  const namespaceDefinitions = namespacesToMap(settings?.namespaces);
-  const trafficSteps = (f: FeatureInterface, env: string): TrafficStep[] => [
-    ...(holdout &&
-    holdoutRunning &&
-    f.holdout?.id === holdout.id &&
-    holdout.environmentSettings?.[env]?.enabled
-      ? [
-          holdoutTrafficStep(
-            servedValue(f, f.holdout.value, env),
-            holdoutExperiment,
-          ),
-        ]
-      : []),
-    ...liveRules(f, env).flatMap((rule) => {
-      // Dropped for connections outside the rule's own projects.
-      const reach = ruleProjectReach(rule, getTargetingProjectIds(f));
-      if (reach === "none") return [];
-      const experiment =
-        rule.type === "experiment-ref"
-          ? experimentsMap.get(rule.experimentId)
-          : undefined;
-      const phase = experiment?.phases.at(-1);
-      // As the payload settles a deterministic gate: met, it's dropped; unmet
-      // or circular, the rule is. One that varies stays as targeting.
-      const gates = [
-        ...(rule.prerequisites ?? []),
-        ...(phase?.prerequisites ?? []),
-      ];
-      const blocked = gates.some((p) => {
-        const result = prerequisiteResult(p, env);
-        return result === "unmet" || result === "cycle";
-      });
-      const unsettled = (list?: FeaturePrerequisite[]) =>
-        list?.filter((p) => prerequisiteResult(p, env) !== "met");
-      const step = ruleTrafficStep(
-        { ...rule, prerequisites: unsettled(rule.prerequisites) },
-        {
-          namespaces: namespaceDefinitions,
-          resolveValue: (value, options) => servedValue(f, value, env, options),
-          experiment:
-            experiment && phase
-              ? {
-                  ...experiment,
-                  phases: [
-                    ...experiment.phases.slice(0, -1),
-                    { ...phase, prerequisites: unsettled(phase.prerequisites) },
-                  ],
-                }
-              : experiment,
-          safeRollout:
-            rule.type === "safe-rollout"
-              ? safeRolloutsMap.get(rule.safeRolloutId)
-              : undefined,
-        },
-      );
-      if (blocked) {
-        return [
-          {
-            ...step,
-            traffic: { participation: 0, shares: step.traffic?.shares ?? [] },
-          },
-        ];
-      }
-      // Served to only some connections, what it serves depends on which.
-      return [{ ...step, targeted: step.targeted || reach === "some" }];
-    }),
-  ];
   const sameJson = (a: unknown, b: unknown) =>
     JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
   const livePrerequisites = baseFeature.prerequisites ?? [];
@@ -718,30 +599,183 @@ export default function FeaturesOverviewNew({
       text: `removed ${id}`,
     })),
   ];
-  // What a version of the flag serves in an environment; null until its
-  // prerequisites' states load.
-  const environmentStatus = (f: FeatureInterface, env: string) => {
-    const results = (f.prerequisites ?? []).map((p) => ({
-      id: p.id,
-      result: prerequisiteResult(p, env),
-    }));
-    if (results.some((p) => !p.result)) return null;
-    // Values aren't known until their constants and configs load; if that
-    // fails, they show as stored.
-    if (needsResolvables && !resolvables && !resolvablesError) return null;
-    // Nor whether a holdout runs until the holdouts load.
-    if (f.holdout && holdoutsLoading) return null;
-    return getEnvironmentStatus({
-      enabled: f.environmentSettings?.[env]?.enabled ?? false,
-      archived: !!f.archived,
-      prerequisites: results.flatMap((p) =>
-        p.result ? [{ id: p.id, result: p.result }] : [],
-      ),
-      steps: trafficSteps(f, env),
-      defaultValue: servedValue(f, f.defaultValue, env),
-      isBoolean: f.valueType === "boolean",
-    });
-  };
+  // What the flag serves in each environment, worked out again only when
+  // something it depends on changes; null until its prerequisites' states,
+  // constants and holdouts load.
+  const environmentStatuses = useMemo(() => {
+    // The rules the rule list doesn't mark inactive or skipped.
+    const liveRules = (env: string): FeatureRule[] =>
+      getRules(feature, env).filter(
+        (rule) =>
+          !isRuleInactive(rule, experimentsMap) &&
+          !isRuleSkipped({
+            rule,
+            linkedExperiment:
+              rule.type === "experiment-ref"
+                ? experimentsMap.get(rule.experimentId)
+                : undefined,
+            linkedContextualBandit:
+              rule.type === "contextual-bandit-ref"
+                ? contextualBanditsMap.get(rule.contextualBanditId)
+                : undefined,
+          }),
+      );
+    // A value as the SDK receives it in an environment. A config-backed flag's
+    // object values are patches over its config (or the descendant config they
+    // name), resolved per environment; a rule's lands on the resolved default.
+    // One resolver per environment, as the payload builds it, so the default
+    // is parsed and resolved once.
+    const inputs = resolvables?.constants;
+    const resolvers = new Map<string, ReturnType<typeof sdkValueResolver>>();
+    const servedValue = (
+      value: string,
+      env: string,
+      { sparse = false, arm = false } = {},
+    ): string => {
+      let resolver = resolvers.get(env);
+      if (!resolver) {
+        let map: ConstantValueMap | undefined;
+        resolver = sdkValueResolver({
+          valueType: feature.valueType,
+          baseConfig: feature.baseConfig,
+          defaultValue: feature.defaultValue,
+          resolveRefs: inputs
+            ? (v) =>
+                resolveConstantRefs(
+                  v,
+                  (map ??= buildConstantValueMap(inputs, env)),
+                  undefined,
+                  undefined,
+                  feature.project || "",
+                  env,
+                )
+            : undefined,
+        });
+        resolvers.set(env, resolver);
+      }
+      // As the payload decides it: a rule's value is a patch when the rule
+      // says so or the flag is config-backed; a safe rollout's or holdout's
+      // never is.
+      return sdkValueText(
+        feature.valueType,
+        resolver.serve(value, arm && (sparse || resolver.configBacked)),
+      );
+    };
+    // The holdout's control group, then the live rules.
+    // The payload holds back traffic only while the holdout's experiment runs.
+    const holdoutExperiment = holdout
+      ? holdoutExperiments.get(holdout.experimentId)
+      : undefined;
+    const holdoutRunning =
+      holdoutExperiment?.status === "running" && !holdoutExperiment.archived;
+    const namespaceDefinitions = namespacesToMap(namespaces);
+    const trafficSteps = (env: string): TrafficStep[] => [
+      ...(holdout &&
+      holdoutRunning &&
+      feature.holdout?.id === holdout.id &&
+      holdout.environmentSettings?.[env]?.enabled
+        ? [
+            holdoutTrafficStep(
+              servedValue(feature.holdout.value, env),
+              holdoutExperiment,
+            ),
+          ]
+        : []),
+      ...liveRules(env).flatMap((rule) => {
+        // Dropped for connections outside the rule's own projects.
+        const reach = ruleProjectReach(rule, getTargetingProjectIds(feature));
+        if (reach === "none") return [];
+        const experiment =
+          rule.type === "experiment-ref"
+            ? experimentsMap.get(rule.experimentId)
+            : undefined;
+        const phase = experiment?.phases.at(-1);
+        // As the payload settles a deterministic gate: met, it's dropped;
+        // unmet or circular, the rule is. One that varies stays as targeting.
+        const gates = [
+          ...(rule.prerequisites ?? []),
+          ...(phase?.prerequisites ?? []),
+        ];
+        const blocked = gates.some((p) => {
+          const result = prerequisiteResult(p, env);
+          return result === "unmet" || result === "cycle";
+        });
+        const unsettled = (list?: FeaturePrerequisite[]) =>
+          list?.filter((p) => prerequisiteResult(p, env) !== "met");
+        const step = ruleTrafficStep(
+          { ...rule, prerequisites: unsettled(rule.prerequisites) },
+          {
+            namespaces: namespaceDefinitions,
+            resolveValue: (value, options) => servedValue(value, env, options),
+            experiment:
+              experiment && phase
+                ? {
+                    ...experiment,
+                    phases: [
+                      ...experiment.phases.slice(0, -1),
+                      {
+                        ...phase,
+                        prerequisites: unsettled(phase.prerequisites),
+                      },
+                    ],
+                  }
+                : experiment,
+            safeRollout:
+              rule.type === "safe-rollout"
+                ? safeRolloutsMap.get(rule.safeRolloutId)
+                : undefined,
+          },
+        );
+        if (blocked) {
+          return [
+            {
+              ...step,
+              traffic: { participation: 0, shares: step.traffic?.shares ?? [] },
+            },
+          ];
+        }
+        // Served to only some connections, what it serves depends on which.
+        return [{ ...step, targeted: step.targeted || reach === "some" }];
+      }),
+    ];
+    const environmentStatus = (env: string) => {
+      const results = (feature.prerequisites ?? []).map((p) => ({
+        id: p.id,
+        result: prerequisiteResult(p, env),
+      }));
+      if (results.some((p) => !p.result)) return null;
+      // Values aren't known until their constants and configs load; if that
+      // fails, they show as stored.
+      if (needsResolvables && !resolvables && !resolvablesError) return null;
+      // Nor whether a holdout runs until the holdouts load.
+      if (feature.holdout && holdoutsLoading) return null;
+      return getEnvironmentStatus({
+        enabled: feature.environmentSettings?.[env]?.enabled ?? false,
+        archived: !!feature.archived,
+        prerequisites: results.flatMap((p) =>
+          p.result ? [{ id: p.id, result: p.result }] : [],
+        ),
+        steps: trafficSteps(env),
+        defaultValue: servedValue(feature.defaultValue, env),
+        isBoolean: feature.valueType === "boolean",
+      });
+    };
+    return new Map(environments.map((en) => [en.id, environmentStatus(en.id)]));
+  }, [
+    feature,
+    environments,
+    experimentsMap,
+    contextualBanditsMap,
+    safeRolloutsMap,
+    holdout,
+    holdoutExperiments,
+    holdoutsLoading,
+    namespaces,
+    prerequisiteResult,
+    needsResolvables,
+    resolvables,
+    resolvablesError,
+  ]);
   // The draft turning this environment on or off.
   const environmentChanges = (envId: string) => {
     const to = feature.environmentSettings?.[envId]?.enabled ?? false;
@@ -771,7 +805,7 @@ export default function FeaturesOverviewNew({
   const environmentCards: EnvironmentCard[] = environments.map((en) => {
     return {
       id: en.id,
-      status: environmentStatus(feature, en.id),
+      status: environmentStatuses.get(en.id) ?? null,
       prerequisites: prerequisites.map((p, index) => ({
         id: p.id,
         index,

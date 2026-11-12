@@ -83,17 +83,25 @@ export const getConstants = async (
   return res.status(200).json({ status: 200, constants });
 };
 
-// GET /constants-resolvables?project= — the constants and configs a value in
-// that project resolves its references with, so a page can show what the SDK
-// receives.
+// GET /constants-resolvables?project=&constants=&configs= — the constants and
+// configs resolving the given keys reaches in that project, so a page can show
+// what the SDK receives.
 export const getConstantResolvables = async (
-  req: AuthRequest<null, Record<string, never>, { project?: string }>,
+  req: AuthRequest<
+    null,
+    Record<string, never>,
+    { project?: string; constants?: string; configs?: string }
+  >,
   res: Response<{ status: 200; constants: ClientResolvable[] }>,
 ) => {
   const context = getContextFromReq(req);
   const constants = await getClientResolvables(
     context,
     req.query.project ?? "",
+    {
+      constants: parseIdsQuery(req.query.constants) ?? [],
+      configs: parseIdsQuery(req.query.configs) ?? [],
+    },
   );
   return res.status(200).json({ status: 200, constants });
 };

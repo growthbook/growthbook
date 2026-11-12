@@ -92,12 +92,21 @@ export default function VirtualizedCode({
   useRenderAfterParentRefs();
   const boxRef = useRef<HTMLDivElement>(null);
   const [metrics, setMetrics] = useState<Metrics | null>(null);
+  // Estimated once per box size: the virtualizer asks again for every line
+  // not yet measured whenever one is.
+  const estimates = useMemo(
+    () =>
+      lines.map(
+        (line) =>
+          (metrics?.rowHeight ?? ESTIMATED_LINE_HEIGHT) *
+          wrappedRows(line, metrics?.charsPerRow ?? null),
+      ),
+    [lines, metrics],
+  );
   const virtualizer = useVirtualizer({
     count: lines.length,
     getScrollElement: () => scrollRef.current,
-    estimateSize: (i) =>
-      (metrics?.rowHeight ?? ESTIMATED_LINE_HEIGHT) *
-      wrappedRows(lines[i], metrics?.charsPerRow ?? null),
+    estimateSize: (i) => estimates[i],
     overscan: 10,
   });
 

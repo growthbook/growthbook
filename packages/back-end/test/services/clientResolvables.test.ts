@@ -70,4 +70,48 @@ describe("getClientResolvables", () => {
     expect(plain).not.toHaveProperty("scopedOverrides");
     expect(flavored.scopedOverrides).toEqual(flavors);
   });
+
+  it("sends only what the given keys reach", async () => {
+    const resolvables = await getClientResolvables(
+      contextWith(
+        [
+          constant({
+            key: "a",
+            type: "json",
+            value: '{"$extends":["@const:b"]}',
+          }),
+          constant({ key: "b" }),
+          constant({ key: "flavored", type: "json", value: "{}" }),
+          constant({ key: "unused" }),
+        ],
+        [
+          config({
+            key: "child",
+            parent: "base",
+            extends: ["mixin"],
+            value: '{"$extends":["@const:a"]}',
+            scopedOverrides: [{ config: "child-prod" }],
+          }),
+          config({ key: "base" }),
+          config({ key: "mixin" }),
+          config({
+            key: "child-prod",
+            value: '{"$extends":["@const:flavored"]}',
+          }),
+          config({ key: "unrelated" }),
+        ],
+      ),
+      "",
+      { constants: [], configs: ["child"] },
+    );
+    expect(resolvables.map((r) => [r.source, r.key])).toEqual([
+      ["constant", "a"],
+      ["constant", "b"],
+      ["constant", "flavored"],
+      ["config", "child"],
+      ["config", "base"],
+      ["config", "mixin"],
+      ["config", "child-prod"],
+    ]);
+  });
 });
