@@ -150,12 +150,14 @@ function PastDueBillingCallout({
     ? ""
     : " Your Pro plan may be canceled if the invoice stays unpaid.";
   return (
-    <Callout status="warning" mb="3">
-      We couldn&apos;t charge your card. {nextStep}
-      {deadline}
-      {retry}
-      {unpaidWarning}
-    </Callout>
+    <Box maxWidth="550px" mb="3">
+      <Callout status="warning">
+        We couldn&apos;t charge your card. {nextStep}
+        {deadline}
+        {retry}
+        {unpaidWarning}
+      </Callout>
+    </Box>
   );
 }
 
