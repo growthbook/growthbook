@@ -543,7 +543,7 @@ export async function testQueryValidity(
     return undefined;
   }
 
-  // Dimensions and name columns aren't remappable, so they stay canonical
+  // Dimensions aren't remappable, so they stay canonical
   const requiredColumns = new Set([
     getExposureQueryExperimentIdColumn(query),
     getExposureQueryVariationIdColumn(query),

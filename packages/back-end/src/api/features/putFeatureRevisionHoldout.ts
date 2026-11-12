@@ -1,7 +1,10 @@
 import type { OrganizationInterface } from "shared/types/organization";
 import { putFeatureRevisionHoldoutValidator } from "shared/validators";
 import type { ApiReqContext } from "back-end/types/api";
-import { toApiRevision } from "back-end/src/services/features";
+import {
+  assertHoldoutValueValid,
+  toApiRevision,
+} from "back-end/src/services/features";
 import { recordRevisionUpdate } from "back-end/src/services/featureRevisionEvents";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { createApiRequestHandler } from "back-end/src/util/handler";
@@ -14,6 +17,7 @@ import {
   discardIfJustCreated,
   isDraftStatus,
   resolveOrCreateRevision,
+  withStagedSchema,
 } from "./validations";
 import { assertValidHoldout } from "./v2Shared";
 
@@ -50,6 +54,12 @@ export async function setRevisionHoldout(
         `Cannot edit a revision with status "${revision.status}"`,
       );
     }
+    // Judged by the schema this draft would publish.
+    assertHoldoutValueValid(
+      context,
+      withStagedSchema(feature, revision),
+      body.holdout,
+    );
 
     // Side effects (linking the feature/experiments to the holdout) run at
     // publish time via applyHoldoutSideEffects, not here.

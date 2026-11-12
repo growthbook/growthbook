@@ -8,7 +8,11 @@ import {
   draftExplorationMetricValidator,
 } from "shared/validators";
 import { DEFAULT_EXPLORE_STATE } from "shared/enterprise";
-import { isFactFunnelMetric } from "shared/experiments";
+import {
+  getFactMetricFactTableIds,
+  isFactCompoundMetric,
+  isFactFunnelMetric,
+} from "shared/experiments";
 import { funnelSettingsToFunnelDataset } from "shared/funnels";
 
 export function getMetricPreviewUnits(
@@ -16,9 +20,9 @@ export function getMetricPreviewUnits(
   getFactTable: (id: string) => Pick<FactTableDefinition, "userIdTypes"> | null,
 ): { numerator: string[]; denominator: string[] } {
   if (!metric) return { numerator: [], denominator: [] };
-  if (isFactFunnelMetric(metric)) {
-    const tables = metric.funnelSettings.steps.map((step) =>
-      getFactTable(step.factTableId),
+  if (isFactFunnelMetric(metric) || isFactCompoundMetric(metric)) {
+    const tables = getFactMetricFactTableIds(metric).map((id) =>
+      getFactTable(id),
     );
     const units = tables[0]?.userIdTypes ?? [];
     return {

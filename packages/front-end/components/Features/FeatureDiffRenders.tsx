@@ -30,6 +30,7 @@ import Text from "@/ui/Text";
 import Heading from "@/ui/Heading";
 import Link from "@/ui/Link";
 import Badge from "@/ui/Badge";
+import ScrollArea from "@/ui/ScrollArea";
 import { useExperiments } from "@/hooks/useExperiments";
 import VariationLabel from "@/ui/VariationLabel";
 import { featureStatusColors } from "@/components/Features/FeaturesOverview";
@@ -144,10 +145,11 @@ function ValueChangedField({
   return (
     <div className="mb-2">
       {label && <div className="font-weight-bold mb-1">{label}</div>}
-      <div
+      <ScrollArea
         ref={scrollRef}
+        edgeCue="fade"
         className="diff-wrapper diff-wrapper-compact"
-        style={{ maxHeight: 250, overflowY: "auto" }}
+        style={{ maxHeight: 250 }}
       >
         <LazyDiffViewer
           oldValue={pre ?? ""}
@@ -156,7 +158,7 @@ function ValueChangedField({
           styles={COMPACT_DIFF_STYLES}
           scrollRef={scrollRef}
         />
-      </div>
+      </ScrollArea>
     </div>
   );
 }
@@ -1913,12 +1915,15 @@ export function renderPrerequisites(
 function EnvEnabledIndicator({
   enabled,
   tone = "state",
+  besideApprovals,
 }: {
   enabled: boolean;
   tone?: "state" | "muted";
+  besideApprovals: boolean;
 }) {
-  // Teal, not green: a check beside approval verdicts reads as one.
-  const color = enabled ? "var(--teal-10)" : featureStatusColors.off;
+  // Teal, not green, beside approval verdicts: a green check reads as one.
+  const onColor = besideApprovals ? "var(--teal-10)" : featureStatusColors.on;
+  const color = enabled ? onColor : featureStatusColors.off;
   const label = enabled ? "On" : "Off";
   const Icon = enabled ? PiCheckCircleFill : PiXCircleFill;
   return (
@@ -1932,6 +1937,30 @@ function EnvEnabledIndicator({
         <VisuallyHidden>{label}</VisuallyHidden>
       </span>
     </UiTooltip>
+  );
+}
+
+// An environment's switch going from one state to the other.
+export function EnvironmentToggleChange({
+  from,
+  to,
+  besideApprovals = true,
+}: {
+  from: boolean;
+  to: boolean;
+  // Off the review page, "on" takes the feature page's green.
+  besideApprovals?: boolean;
+}) {
+  return (
+    <Flex align="center" gap="2">
+      <EnvEnabledIndicator
+        enabled={from}
+        tone="muted"
+        besideApprovals={besideApprovals}
+      />
+      <span className={styles.toggleArrow}>→</span>
+      <EnvEnabledIndicator enabled={to} besideApprovals={besideApprovals} />
+    </Flex>
   );
 }
 
@@ -1957,11 +1986,7 @@ export function renderEnvironmentToggles(
               </Text>
             </UiTooltip>
           </Box>
-          <Flex align="center" gap="2">
-            <EnvEnabledIndicator enabled={from} tone="muted" />
-            <span className={styles.toggleArrow}>→</span>
-            <EnvEnabledIndicator enabled={to} />
-          </Flex>
+          <EnvironmentToggleChange from={from} to={to} />
         </Box>
       ))}
     </Grid>

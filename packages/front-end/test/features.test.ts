@@ -3,6 +3,7 @@ import {
   AttributeData,
   condToJson,
   getDefaultOperator,
+  getHoldoutRuleId,
   jsonToConds,
 } from "@/services/features";
 
@@ -470,5 +471,14 @@ describe("getDefaultOperator", () => {
   });
   it("returns $eq for a plain string", () => {
     expect(getDefaultOperator(attr({}))).toBe("$eq");
+  });
+});
+
+describe("getHoldoutRuleId", () => {
+  it("matches the id the SDK payload gives a holdout rule", () => {
+    // md5("my-flag" + "hld_123"), as back-end util/features.ts builds it.
+    expect(getHoldoutRuleId("my-flag", "hld_123")).toBe(
+      "holdout_cbfe39c52d8cfeae7d02accf398a65ee",
+    );
   });
 });

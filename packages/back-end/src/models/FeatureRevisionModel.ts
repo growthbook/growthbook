@@ -1522,7 +1522,11 @@ export function computeRevisionUpdate(
         revision.status === "changes-requested"
       )
     ) {
-      throw new Error("Can only update draft revisions");
+      throw new Error(
+        revision.status === "pending-parent"
+          ? "This revision is held by a ramp schedule, so it can't be edited."
+          : "This draft was already published or discarded, so it can no longer be edited.",
+      );
     }
     // Reset changes-requested back to pending-review whenever any content changes.
     if (revision.status === "changes-requested") {

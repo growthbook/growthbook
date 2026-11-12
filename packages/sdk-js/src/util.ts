@@ -332,6 +332,13 @@ export function toString(input: any): string {
   return JSON.stringify(input);
 }
 
+// A loop, not `/\/*$/`: that regex is quadratic on long runs of slashes.
+export function trimTrailingSlashes(str: string): string {
+  let end = str.length;
+  while (end > 0 && str.charCodeAt(end - 1) === 47 /* "/" */) end--;
+  return str.slice(0, end);
+}
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function paddedVersionString(input: any): string {
   if (typeof input === "number") {
