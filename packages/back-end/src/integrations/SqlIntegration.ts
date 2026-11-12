@@ -3779,7 +3779,7 @@ export default abstract class SqlIntegration
           );
           const funnelPassthroughCols = getFunnelPassthroughColumns({
             baseIdType,
-            dimensionCols: allDimensionCols,
+            dimensionCols: analysisDimensionCols,
             includeVariationAndDimensions: isSource0,
             metricData,
             covariatePairs: localCovariatePairs.map((p) => ({
@@ -3882,7 +3882,7 @@ export default abstract class SqlIntegration
         const funnelWorkingCols = getFunnelWorkingColumns(multiFtFunnelMetrics);
         const funnelPassthroughCols = getFunnelPassthroughColumns({
           baseIdType,
-          dimensionCols: allDimensionCols,
+          dimensionCols: analysisDimensionCols,
           includeVariationAndDimensions: true,
           metricData,
           sourceIndex: null,
