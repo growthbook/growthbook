@@ -519,7 +519,8 @@ export function isRowFilterComplete(filter: RowFilter): boolean {
   const hasValues = (filter.values ?? []).some((v) => v !== "");
 
   if (filter.operator === "sql_expr" || filter.operator === "saved_filter") {
-    return hasValues;
+    // Only spaces would build an empty SQL expression or saved filter id.
+    return (filter.values ?? []).some((v) => v.trim() !== "");
   }
   if (
     (columnOnlyRowFilterOperators as readonly string[]).includes(

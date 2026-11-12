@@ -46,6 +46,7 @@ const events: PopulationRuleFactTable = {
   columns: [
     column("amount", "number"),
     column("country", "string"),
+    column("signup_date", "date"),
     column("props", "json", {
       jsonFields: {
         quantity: { datatype: "number" },
@@ -148,6 +149,25 @@ describe("getPopulationRuleViolations", () => {
       "Row filter 3 has no SQL expression.",
       "Row filter 4 needs a value.",
     ]);
+  });
+
+  it("reports a date filter whose values are all blank", () => {
+    expect(
+      getPopulationRuleViolations({
+        datasource: "ds_main",
+        userIdTypes: ["user_id"],
+        steps: [
+          {
+            ...step("ftb_events"),
+            rowFilters: [
+              { operator: "=", column: "signup_date", values: [" "] },
+              { operator: ">=", column: "signup_date", values: ["2026-01-01"] },
+            ],
+          },
+        ],
+        factTables: [events],
+      }),
+    ).toEqual(["Row filter 1 needs a value."]);
   });
 
   it("accepts a column filter with an empty value", () => {

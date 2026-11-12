@@ -144,7 +144,7 @@ export default function PopulationEditor({
   if (missing.factTable) missingFields.push("select a fact table");
   if (missing.identifierType) missingFields.push("select an identifier type");
   if (missing.rowFilters) {
-    missingFields.push("finish or remove the row filters");
+    missingFields.push("finish or remove unfinished row filters");
   }
   if (missing.comparison) missingFields.push("enter a threshold comparison");
   const missingMessage = missingFields.length

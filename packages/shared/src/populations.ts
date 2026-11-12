@@ -105,6 +105,7 @@ function getRowFilterViolations(
 
   steps.forEach((step, i) => {
     const label = stepLabel([i + 1], steps.length);
+    const stepFactTable = factTableMap.get(step.source.factTableId);
 
     step.rowFilters.forEach((filter, j) => {
       if (filter.operator === "sql_expr") {
@@ -118,14 +119,13 @@ function getRowFilterViolations(
           !(columnOnlyRowFilterOperators as readonly string[]).includes(
             filter.operator,
           ) &&
-          !filter.values?.length
+          !hasUsableValue(filter, stepFactTable)
         ) {
           violations.push(`Row filter ${j + 1} needs a value${label}.`);
         }
       }
     });
 
-    const stepFactTable = factTableMap.get(step.source.factTableId);
     const missingFilters = stepFactTable
       ? step.rowFilters
           .filter((f) => f.operator === "saved_filter")
@@ -140,6 +140,20 @@ function getRowFilterViolations(
   });
 
   return violations;
+}
+
+// The query builder ignores a filter with no values, and on a date column it
+// also ignores blank ones.
+function hasUsableValue(
+  filter: PopulationStep["rowFilters"][number],
+  factTable: PopulationRuleFactTable | undefined,
+): boolean {
+  const values = filter.values ?? [];
+  const isDate =
+    !!factTable &&
+    getSelectedColumnDatatype({ factTable, column: filter.column ?? "" }) ===
+      "date";
+  return isDate ? values.some((v) => v.trim() !== "") : values.length > 0;
 }
 
 function getAggregateFilterViolations(
