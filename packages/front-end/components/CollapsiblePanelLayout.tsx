@@ -2,6 +2,7 @@ import {
   PointerEvent as ReactPointerEvent,
   ReactNode,
   useEffect,
+  useLayoutEffect,
   useRef,
   useState,
 } from "react";
@@ -75,6 +76,24 @@ export default function CollapsiblePanelLayout({
     observer.observe(el);
     observer.observe(footerEl);
     return () => observer.disconnect();
+  }, []);
+  // Where the layout starts on the page, so it can reach the screen's bottom
+  // and no further. Moved by whatever above it grows, which grows the page.
+  const [layoutTop, setLayoutTop] = useState(0);
+  // Before paint, so the first frame isn't drawn a screen tall.
+  useLayoutEffect(() => {
+    const el = layout.current;
+    if (!el) return;
+    const measure = () =>
+      setLayoutTop(el.getBoundingClientRect().top + window.scrollY);
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(document.body);
+    window.addEventListener("resize", measure);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", measure);
+    };
   }, []);
   // Floating, the panel ends where the footer starts, so the footer stays whole.
   const footerClearance = overlay ? footerHeight : 0;
@@ -182,10 +201,11 @@ export default function CollapsiblePanelLayout({
       ref={layout}
       // The drag handle straddles the panel's edge, which reaches the window's
       // while it slides; clip, not hidden, so nothing inside stops sticking.
-      style={{ overflowX: "clip" }}
+      // To the bottom of the screen, so the footer starts there even under
+      // short content.
+      style={{ overflowX: "clip", minHeight: `calc(100vh - ${layoutTop}px)` }}
     >
-      {/* At least as tall as the panel, so the footer starts at the bottom of
-          the screen even under short content. */}
+      {/* As tall as the layout. */}
       <Flex
         direction="column"
         flexGrow="1"
@@ -205,10 +225,12 @@ export default function CollapsiblePanelLayout({
           width={`${currentWidth}px`}
           style={{
             top,
-            // Its stuck height throughout: resized as the page scrolled, it
-            // would lag the scroll. Until it sticks, its end runs past the
-            // window's.
-            height: `calc(100vh - ${top + footerClearance}px)`,
+            // As tall as the content beside it, up to its stuck height. Taller
+            // before it sticks, its end would run past the window's and make
+            // the page scroll. Its own contents don't size it.
+            alignSelf: "stretch",
+            contain: "size",
+            maxHeight: `calc(100vh - ${top + footerClearance}px)`,
             background: "var(--color-panel-solid)",
             // Matches the tab row's underline.
             borderLeft: shown ? "1px solid var(--gray-a5)" : "none",
