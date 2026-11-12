@@ -171,20 +171,21 @@ export default function ValueDisplay({
     [type, sparseMerge, value],
   );
   const differingKeys = useValueDiff(isFullscreen ? null : shown);
+  // Bolded or tinted keys each keep their own lines.
+  const keysOnOwnLines = !!sparseMerge || !!differingKeys?.size;
   const formatted = useMemo(() => {
     if (type === "boolean") return value;
     if (type === "number") return value || "null";
     if (type === "string") return '"' + value + '"';
     try {
       // Sparse rules display the expanded (merged) value, not the raw patch.
-      // Bolded or tinted keys each keep their own lines.
       return formatJsonValue(sparseMerge?.merged ?? JSON.parse(value), {
-        keysOnOwnLines: !!sparseMerge || !!differingKeys?.size,
+        keysOnOwnLines,
       });
     } catch (e) {
       return value;
     }
-  }, [value, type, sparseMerge, differingKeys]);
+  }, [value, type, sparseMerge, keysOnOwnLines]);
 
   // Long values highlight only the visible lines, inside a box that scrolls
   // even when the caller set no height limit
