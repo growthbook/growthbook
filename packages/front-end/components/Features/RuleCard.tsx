@@ -101,7 +101,8 @@ export default function RuleCard({
         <div className={clsx(styles.sideBar, styles[sideColor])} />
         <Flex align="start" justify="between" gap="2" p="1">
           <Box className={styles.handle}>{handle}</Box>
-          {indexBadge}
+          {/* On a line, as the title beside it is. */}
+          <Box>{indexBadge}</Box>
           <Box flexGrow="1" pr="2" minWidth="0">
             <Box mb="3">{header}</Box>
             {ribbon ? <Box mb="3">{ribbon}</Box> : null}

@@ -55,11 +55,14 @@ $body-inset: 28px;
   width: $handle-width;
 }
 
-// Centers the dots, rather than setting them on a line's baseline.
-.grab,
-.idleHandle {
-  display: flex;
-  align-items: center;
+// On the redesign's card, centers the dots on the header's height rather than
+// setting them on a line's baseline, as the page it's tested against does.
+.card {
+  .grab,
+  .idleHandle {
+    display: flex;
+    align-items: center;
+  }
 }
 
 .grab {
@@ -76,8 +79,9 @@ $body-inset: 28px;
 }
 
 // A header's title row and actions row, each a header's height, so a line
-// under the title (a rule's id) doesn't move them.
-.headerRow {
+// under the title (a rule's id) doesn't move them. Only on the redesign's
+// card, whose handle and number center on that height.
+.card .headerRow {
   min-height: $header-height;
 }
 
