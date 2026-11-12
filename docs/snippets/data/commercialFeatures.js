@@ -37,6 +37,10 @@ export default {
     plan: "pro",
     displayName: "Code References",
   },
+  "compound-metrics": {
+    plan: "pro",
+    displayName: "Compound Metrics",
+  },
   "contextual-bandits": {
     plan: "enterprise",
     displayName: "Contextual Bandits",

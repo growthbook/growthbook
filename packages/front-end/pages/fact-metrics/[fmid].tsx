@@ -164,9 +164,11 @@ export default function FactMetricPage() {
   const datasource = factMetric.datasource
     ? getDatasourceById(factMetric.datasource)
     : null;
-  const canOpenInExplorer = datasource
-    ? permissionsUtil.canRunMetricQueries(datasource)
-    : false;
+  // Product Analytics has no compound exploration.
+  const canOpenInExplorer =
+    datasource && factMetric?.metricType !== "compound"
+      ? permissionsUtil.canRunMetricQueries(datasource)
+      : false;
 
   return (
     <div className="pagecontents container-fluid">

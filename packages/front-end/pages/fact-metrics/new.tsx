@@ -3,6 +3,7 @@ import { useState } from "react";
 import { Flex } from "@radix-ui/themes";
 import { FactMetricInterface } from "shared/types/fact-table";
 import { isProjectListValidForProject } from "shared/util";
+import { getFactMetricPrimaryFactTableId } from "shared/experiments";
 import { CommercialFeature } from "shared/enterprise";
 import { getFactMetricCommercialFeature } from "@/services/factMetrics";
 import { duplicateFactMetric } from "@/services/metrics";
@@ -113,11 +114,7 @@ export default function NewFactMetricPage() {
   // header. The Add and Duplicate buttons that link here check the same.
   const seedFactTable =
     (duplicateSource &&
-      getFactTableById(
-        duplicateSource.metricType === "funnel"
-          ? (duplicateSource.funnelSettings?.steps[0]?.factTableId ?? "")
-          : (duplicateSource.numerator?.factTableId ?? ""),
-      )) ||
+      getFactTableById(getFactMetricPrimaryFactTableId(duplicateSource))) ||
     initialFactTable;
   const canCreate = permissionsUtil.canCreateFactMetric({
     projects: seedFactTable

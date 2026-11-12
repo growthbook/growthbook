@@ -1348,17 +1348,19 @@ function StandardFactMetricModal({
             windowSettings,
           })
         : null
-      : getPreviewSQL({
-          type,
-          quantileSettings,
-          windowSettings,
-          numerator,
-          denominator,
-          numeratorFactTable,
-          denominatorFactTable: getFactTableById(
-            denominator?.factTableId || "",
-          ),
-        });
+      : type === "compound"
+        ? null
+        : getPreviewSQL({
+            type,
+            quantileSettings,
+            windowSettings,
+            numerator,
+            denominator,
+            numeratorFactTable,
+            denominatorFactTable: getFactTableById(
+              denominator?.factTableId || "",
+            ),
+          });
 
   const setDatasource = (datasource: string) => {
     form.setValue("datasource", datasource);

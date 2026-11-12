@@ -99,6 +99,7 @@ export default function ResultMoreMenu({
   notebookUrl,
   notebookFilename,
   forceRefresh,
+  forceRefreshDisabledReason,
   results,
   metrics,
   variations,
@@ -119,6 +120,8 @@ export default function ResultMoreMenu({
   notebookUrl: string;
   notebookFilename: string;
   forceRefresh?: () => Promise<void>;
+  // When set, the "Re-run all queries" item is shown but disabled with this tooltip
+  forceRefreshDisabledReason?: string;
   results?: ExperimentReportResultDimension[];
   metrics?: string[];
   variations?: ExperimentReportVariation[];
@@ -387,6 +390,8 @@ export default function ResultMoreMenu({
           <DropdownMenuItem
             key="refresh"
             onClick={handleForceRefresh}
+            disabled={!!forceRefreshDisabledReason}
+            tooltip={forceRefreshDisabledReason}
             confirmation={
               runsIncrementalRefresh
                 ? {

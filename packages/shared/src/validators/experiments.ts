@@ -2702,6 +2702,7 @@ export const postExperimentSnapshotValidator = {
           "Zero-based phase index to snapshot, where 0 is the first experiment phase. Defaults to the latest phase.",
         )
         .optional(),
+      ignoreWarnings: ignoreWarningsBodyField,
     })
     .strict()
     .optional(),

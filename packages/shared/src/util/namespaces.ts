@@ -39,6 +39,19 @@ export function isMultiRangeNamespaceFormat(
   return "ranges" in namespace;
 }
 
+// Whether a namespace reaches the SDK as a filter (multi-range) rather than
+// the legacy tuple on the rule: the org's definition decides when there is
+// one, else the namespace's own shape.
+export function isMultiRangeInPayload(
+  namespace: NamespaceValue,
+  namespacesMap?: Map<string, { format?: "legacy" | "multiRange" }>,
+): boolean {
+  const definition = namespacesMap?.get(namespace.name);
+  return definition
+    ? definition.format === "multiRange"
+    : isMultiRangeNamespaceFormat(namespace);
+}
+
 /**
  * Get ranges from a namespace regardless of format
  */

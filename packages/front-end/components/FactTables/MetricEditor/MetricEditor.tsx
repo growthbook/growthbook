@@ -23,6 +23,7 @@ import DataList from "@/ui/DataList";
 import TagsInput from "@/components/Tags/TagsInput";
 import { RowFilterInput } from "@/components/FactTables/RowFilterInput";
 import FunnelStepsInput from "@/components/FactTables/FunnelStepsInput";
+import CompoundComponentsInput from "@/components/FactTables/CompoundComponentsInput";
 import MetricTypeSelect, {
   TYPE_LABELS,
 } from "@/components/FactTables/MetricEditor/MetricTypeSelect";
@@ -31,6 +32,7 @@ import MetricSlices from "@/components/FactTables/MetricEditor/MetricSlices";
 import FactTableLink from "@/components/FactTables/MetricEditor/FactTableLink";
 import FilterSummary from "@/components/FactTables/MetricEditor/FilterSummary";
 import FunnelStepsDisplay from "@/components/FactTables/MetricEditor/FunnelStepsDisplay";
+import CompoundComponentsDisplay from "@/components/FactTables/MetricEditor/CompoundComponentsDisplay";
 import DataSourcePicker from "@/components/DataSourcePicker";
 import PreviewPanel from "@/components/FactTables/MetricEditor/PreviewPanel";
 import MetricDescription from "@/components/FactTables/MetricEditor/MetricDescription";
@@ -96,6 +98,11 @@ export default function MetricEditor({
   const [showTags, setShowTags] = useState(false);
   const [showCappingConversionNotice, setShowCappingConversionNotice] =
     useState(false);
+  // Funnel steps and compound components only have row filters, so a
+  // threshold's aggregate comparison can't come along. It stays in the form's
+  // stale numerator and returns if the user switches back to threshold.
+  const [showThresholdDroppedNotice, setShowThresholdDroppedNotice] =
+    useState(false);
   const cappingSettings = form.watch("cappingSettings");
 
   const metricType = form.watch("metricType");
@@ -117,7 +124,9 @@ export default function MetricEditor({
       : { numerator: "", denominator: "" },
   );
   useEffect(() => {
-    if (!canEdit || metricType === "funnel") return;
+    if (!canEdit || metricType === "funnel" || metricType === "compound") {
+      return;
+    }
     for (const field of ["numerator", "denominator"] as const) {
       const ref = field === "numerator" ? numerator : denominator;
       if (field === "denominator" && metricType !== "ratio") continue;
@@ -134,6 +143,7 @@ export default function MetricEditor({
   const quantileSettings = form.watch("quantileSettings");
   const windowSettings = form.watch("windowSettings");
   const funnelSettings = form.watch("funnelSettings");
+  const compoundSettings = form.watch("compoundSettings");
   const datasourceId = form.watch("datasource");
   const datasource = getDatasourceById(datasourceId);
   const hasCountDistinctHLL = !!datasource?.properties?.hasCountDistinctHLL;
@@ -143,7 +153,9 @@ export default function MetricEditor({
   const primaryFactTableId =
     metricType === "funnel"
       ? (funnelSettings?.steps[0]?.factTableId ?? "")
-      : numerator.factTableId;
+      : metricType === "compound"
+        ? (compoundSettings?.components[0]?.factTableId ?? "")
+        : numerator.factTableId;
   // useDefinitions()'s own factTables/getFactTableById return the slimmed
   // definitions-endpoint shape (no jsonFields per column) - fine for the
   // Fact Table select's own options list, but every column/filter picker
@@ -182,6 +194,7 @@ export default function MetricEditor({
           })
         : null;
     }
+    if (metricType === "compound") return null;
     return getPreviewSQL({
       type: metricType,
       // Only meaningful for type === "quantile", where the form always sets
@@ -245,6 +258,7 @@ export default function MetricEditor({
         denominator,
         quantileSettings,
         funnelSettings,
+        compoundSettings,
         cappingSettings: form.watch("cappingSettings"),
         windowSettings: form.watch("windowSettings"),
       },
@@ -255,6 +269,10 @@ export default function MetricEditor({
     setShowCappingConversionNotice(
       previousCapping.type === "absolute" &&
         result.cappingSettings?.type === "percentile",
+    );
+    setShowThresholdDroppedNotice(
+      formType === "threshold" &&
+        (newFormType === "compound" || newFormType === "funnel"),
     );
     // One atomic reset instead of a pile of setValues - safe because nothing
     // reads form.formState.isDirty. numerator is carried over as the old
@@ -270,6 +288,7 @@ export default function MetricEditor({
       denominator: result.denominator ?? null,
       quantileSettings: result.quantileSettings ?? null,
       funnelSettings: result.funnelSettings ?? null,
+      compoundSettings: result.compoundSettings ?? null,
       ...(result.cappingSettings && {
         cappingSettings: result.cappingSettings,
       }),
@@ -323,14 +342,25 @@ export default function MetricEditor({
         })),
       });
     }
+    if (compoundSettings) {
+      form.setValue("compoundSettings", {
+        components: compoundSettings.components.map(() => ({
+          factTableId: "",
+          rowFilters: [],
+        })),
+      });
+    }
   }
   const hasChosenFactTable =
     !!numerator.factTableId ||
     !!denominator?.factTableId ||
-    !!funnelSettings?.steps.some((step) => step.factTableId);
+    !!funnelSettings?.steps.some((step) => step.factTableId) ||
+    !!compoundSettings?.components.some((c) => c.factTableId);
 
   const isFunnel = formType === "funnel";
-  const isRatioOrFunnel = formType === "ratio" || isFunnel;
+  const isCompound = formType === "compound";
+  // Types that pick their own fact tables instead of one primary table.
+  const isRatioOrFunnel = formType === "ratio" || isFunnel || isCompound;
   const primaryFactTableSelect = (
     <Select
       label="Fact table"
@@ -440,6 +470,7 @@ export default function MetricEditor({
               onChange={changeFormType}
               hasRetentionMetrics={hasCommercialFeature("retention-metrics")}
               hasFunnelMetrics={hasCommercialFeature("funnel-metrics")}
+              hasCompoundMetrics={hasCommercialFeature("compound-metrics")}
               hasQuantileMetrics={hasCommercialFeature("quantile-metrics")}
               quantileAvailableForDatasource={quantileAvailableForDatasource}
             />
@@ -470,6 +501,25 @@ export default function MetricEditor({
               percentile capping and reset the value to 0. Choose a percentile
               before saving in Advanced Settings → Analysis settings → &quot;Cap
               high values&quot; → &quot;Upper tail (ceiling percentile)&quot;.
+            </Callout>
+          )}
+
+        {canEdit &&
+          (formType === "compound" || formType === "funnel") &&
+          showThresholdDroppedNotice && (
+            <Callout
+              status="warning"
+              role="status"
+              action={
+                <Link onClick={() => setShowThresholdDroppedNotice(false)}>
+                  Dismiss
+                </Link>
+              }
+            >
+              Switching to {formType} dropped the threshold comparison. Each{" "}
+              {formType === "compound" ? "component" : "step"} counts a unit
+              that has at least one matching event; narrow it with row filters
+              instead.
             </Callout>
           )}
 
@@ -608,6 +658,20 @@ export default function MetricEditor({
                 />
               ))}
 
+            {isCompound &&
+              (canEdit ? (
+                <CompoundComponentsInput
+                  value={compoundSettings ?? { components: [] }}
+                  setValue={(v) => form.setValue("compoundSettings", v)}
+                  datasource={datasourceId}
+                  project={project}
+                />
+              ) : (
+                <CompoundComponentsDisplay
+                  compoundSettings={compoundSettings ?? { components: [] }}
+                />
+              ))}
+
             {windowOk(formType) &&
               (canEdit ? (
                 <MetricWindowSettingsForm
@@ -630,9 +694,12 @@ export default function MetricEditor({
               ))}
           </Flex>
         </Frame>
-        {!isFunnel && factTable && hasCommercialFeature("metric-slices") && (
-          <MetricSlices form={form} factTable={factTable} canEdit={canEdit} />
-        )}
+        {!isFunnel &&
+          !isCompound &&
+          factTable &&
+          hasCommercialFeature("metric-slices") && (
+            <MetricSlices form={form} factTable={factTable} canEdit={canEdit} />
+          )}
         <AdvancedSettings form={form} formType={formType} canEdit={canEdit} />
       </Flex>
 
