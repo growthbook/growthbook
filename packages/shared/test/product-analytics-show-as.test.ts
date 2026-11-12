@@ -153,6 +153,32 @@ describe("getShowAsChoice", () => {
     ).toEqual(none);
   });
 
+  it("treats a saved choice as a mean while the metric hasn't loaded", () => {
+    expect(
+      getShowAsChoice(
+        metricValue("loading", "per_unit"),
+        undefined,
+        getFactMetricById,
+      ),
+    ).toEqual(mean("per_unit"));
+    expect(
+      getShowAsChoice(metricValue("loading"), "per_unit", getFactMetricById),
+    ).toEqual(mean("per_unit"));
+  });
+
+  it("offers no choice for an unloaded value without a saved choice", () => {
+    expect(
+      getShowAsChoice(metricValue("loading"), undefined, getFactMetricById),
+    ).toEqual(none);
+    expect(
+      getShowAsChoice(
+        metricValue("", "per_unit"),
+        undefined,
+        getFactMetricById,
+      ),
+    ).toEqual(none);
+  });
+
   it("falls back to the deprecated config-level showAs", () => {
     expect(
       getShowAsChoice(

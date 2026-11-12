@@ -3,9 +3,9 @@ import type {
   FactTableDefinition,
 } from "shared/types/fact-table";
 import type { MetricValue } from "shared/validators";
-import { getFactMetricPrimaryFactTableId } from "shared/experiments";
 import {
   getChosenUnits,
+  getMetricIdentifierTypes,
   getMetricMixClass,
   metricSupportsUnitSelection,
 } from "shared/enterprise";
@@ -64,10 +64,8 @@ export function getUnitConflict(
   getFactTableById: (id: string) => FactTableDefinition | null,
 ): string | null {
   if (!lockedUnit || !metricSupportsUnitSelection(metric)) return null;
-  const userIdTypes =
-    getFactTableById(getFactMetricPrimaryFactTableId(metric))?.userIdTypes ??
-    [];
-  if (userIdTypes.includes(lockedUnit)) return null;
+  if (getMetricIdentifierTypes(metric, getFactTableById).includes(lockedUnit))
+    return null;
   return `This metric's Fact Table has no ${lockedUnit} identifier type. Change the identifier type below to use it.`;
 }
 
@@ -93,10 +91,7 @@ export function getMetricValuesUnitState(
   const unitsOfferedByEachMetric = values.flatMap((value) => {
     const metric = getFactMetricById(value.metricId);
     if (!metric || !metricSupportsUnitSelection(metric)) return [];
-    return [
-      getFactTableById(getFactMetricPrimaryFactTableId(metric))?.userIdTypes ??
-        [],
-    ];
+    return [getMetricIdentifierTypes(metric, getFactTableById)];
   });
   const [firstMetricUnits = [], ...otherMetricsUnits] =
     unitsOfferedByEachMetric;
@@ -137,19 +132,14 @@ export type UnitPicker = {
 /** The Identifier type picker for a metric chart, or null when no metric's unit can be chosen. */
 export function getUnitPicker(
   values: MetricValue[],
+  { unit, isMixed, options }: MetricValuesUnitState,
   getFactMetricById: (id: string) => FactMetricInterface | null,
-  getFactTableById: (id: string) => FactTableDefinition | null,
 ): UnitPicker | null {
   const someMetricSupportsUnitSelection = values.some((value) =>
     metricSupportsUnitSelection(getFactMetricById(value.metricId)),
   );
   if (!someMetricSupportsUnitSelection) return null;
 
-  const { unit, isMixed, options } = getMetricValuesUnitState(
-    values,
-    getFactMetricById,
-    getFactTableById,
-  );
   return {
     value: unit,
     placeholder: isMixed

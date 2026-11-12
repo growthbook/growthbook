@@ -1,3 +1,4 @@
+import { withIsProduction } from "shared/util";
 import { ApiReqContext } from "back-end/types/api";
 
 export const validatePayload = async (
@@ -9,6 +10,7 @@ export const validatePayload = async (
     toggleOnList = false,
     defaultState = false,
     parent,
+    isProduction,
   }: {
     id: string;
     description?: string;
@@ -16,6 +18,7 @@ export const validatePayload = async (
     toggleOnList?: boolean;
     defaultState?: boolean;
     parent?: string;
+    isProduction?: boolean;
   },
 ) => {
   if (id === "") throw Error("Environment ID cannot be empty!");
@@ -36,5 +39,13 @@ export const validatePayload = async (
     throw new Error("Environment inheritance requires an enterprise license");
   }
 
-  return { id, projects, description, toggleOnList, defaultState, parent };
+  return withIsProduction({
+    id,
+    projects,
+    description,
+    toggleOnList,
+    defaultState,
+    parent,
+    isProduction,
+  });
 };

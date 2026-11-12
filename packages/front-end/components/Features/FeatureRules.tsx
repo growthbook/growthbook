@@ -17,7 +17,7 @@ import RuleModal, {
   type RampToNewValueSeed,
 } from "@/components/Features/RuleModal/index";
 import RuleList from "@/components/Features/RuleList";
-import track from "@/services/track";
+import track, { entityTrackingHash } from "@/services/track";
 import {
   getRules,
   isRuleInactive,
@@ -361,7 +361,11 @@ export default function FeatureRules({
               minWidth: 0,
             }}
           >
-            <TabsList style={{ boxShadow: "none", flexWrap: "nowrap" }}>
+            {/* Its own overflow menu, as on main. */}
+            <TabsList
+              overflowMenu={false}
+              style={{ boxShadow: "none", flexWrap: "nowrap" }}
+            >
               <TabsTrigger
                 value={FEATURE_RULES_ALL_ENVS}
                 ref={setTriggerRef(FEATURE_RULES_ALL_ENVS)}
@@ -575,6 +579,7 @@ export default function FeatureRules({
                       mode: "create",
                     });
                     track("Viewed Rule Modal", {
+                      entity_id_hash: entityTrackingHash(feature.id),
                       source: "add-rule",
                       type: "force",
                     });

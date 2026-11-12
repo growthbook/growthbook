@@ -27,8 +27,19 @@ export function metricSupportsUnitSelection(
       return metric.numerator.column === "$$distinctUsers";
     case "quantile":
     case "funnel":
+    case "compound":
       return false;
   }
+}
+
+/** The identifier types a metric's unit can be: those of its primary fact table. */
+export function getMetricIdentifierTypes(
+  metric: FactMetricInterface,
+  getFactTableById: (id: string) => FactTableDefinition | null,
+): string[] {
+  return (
+    getFactTableById(getFactMetricPrimaryFactTableId(metric))?.userIdTypes ?? []
+  );
 }
 
 /**
@@ -131,12 +142,11 @@ export function fillMissingUnits(
     if (v.unit || !v.metricId) return v;
     const metric = getFactMetricById(v.metricId);
     if (!metric) return v;
-    const factTable = getFactTableById(getFactMetricPrimaryFactTableId(metric));
-    const userIdTypes = factTable?.userIdTypes ?? [];
+    const identifierTypes = getMetricIdentifierTypes(metric, getFactTableById);
     const defaultUnit =
-      sharedUnit && userIdTypes.includes(sharedUnit)
+      sharedUnit && identifierTypes.includes(sharedUnit)
         ? sharedUnit
-        : userIdTypes[0];
+        : identifierTypes[0];
     if (!defaultUnit) return v;
     changed = true;
     return { ...v, unit: defaultUnit };

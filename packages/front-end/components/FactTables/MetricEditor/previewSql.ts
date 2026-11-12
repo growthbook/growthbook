@@ -9,11 +9,10 @@ import {
 } from "shared/types/fact-table";
 import { DataSourceType } from "shared/types/datasource";
 import {
-  DEFAULT_IDENTIFIER_QUOTE,
   getAggregateFilters,
   getColumnRefWhereClause,
 } from "shared/experiments";
-import { createLikeStringMatchFn } from "shared/sql";
+import { createLikeStringMatchFn, DEFAULT_IDENTIFIER_QUOTE } from "shared/sql";
 import { getFunnelAnchorStepIndex } from "shared/funnels";
 
 // Illustrative, not real - ported from FactMetricModal.tsx's own (frozen,

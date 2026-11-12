@@ -106,8 +106,9 @@ export function inferShowAs(metric: ShowAsMetric | null): ShowAs {
 }
 
 /**
- * Returns the showAs options and selected mode for a metric value.
- *
+ * Returns the showAs options and selected mode for a metric value. A value
+ * whose metric hasn't resolved renders its saved choice, the one
+ * `normalizeShowAs` keeps for it, with the options that mode implies.
  */
 export function getShowAsChoice(
   value: ProductAnalyticsValue,
@@ -117,7 +118,21 @@ export function getShowAsChoice(
 ): ShowAsChoice {
   if (value.type !== "metric") return NO_SHOW_AS_CHOICE;
   const metric = getDraftOrSavedMetric(value, getFactMetricById);
-  const options = getShowAsOptions(metric?.metricType, hasPopulation);
+  if (metric === null) {
+    // Only mean metrics and proportions with a population keep a saved
+    // showAs, so infer which one from the saved mode until it loads.
+    const showAs = value.showAs ?? legacyShowAs;
+    if (value.metricId && showAs !== undefined) {
+      const metricType =
+        showAs === "percent_of_population" ? "proportion" : "mean";
+      return {
+        options: getShowAsOptions(metricType, hasPopulation),
+        showAs,
+      };
+    }
+    return NO_SHOW_AS_CHOICE;
+  }
+  const options = getShowAsOptions(metric.metricType, hasPopulation);
   if (!options.length) return NO_SHOW_AS_CHOICE;
   const showAs =
     [value.showAs, legacyShowAs, inferShowAs(metric)].find(

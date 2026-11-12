@@ -521,11 +521,8 @@ export default function AnalysisPlan({
   const hiddenDatasource =
     !!datasource && !selectedDatasource && !deletedDatasource;
   const hashAttributeIdentifierTypeMap = useMemo(
-    () =>
-      getHashAttributeIdentifierTypeMap(
-        selectedDatasource?.settings?.userIdTypes,
-      ),
-    [selectedDatasource?.settings?.userIdTypes],
+    () => getHashAttributeIdentifierTypeMap(selectedDatasource),
+    [selectedDatasource],
   );
   const resolution = resolveSelection(
     selectedDatasource,
@@ -1039,9 +1036,8 @@ function resolveSelection(
     query: settings?.queries?.exposure?.find((q) => q.id === exposureQueryId),
     identifierType,
     hashAttribute,
-    hashAttributeIdentifierTypeMap: getHashAttributeIdentifierTypeMap(
-      settings?.userIdTypes,
-    ),
+    hashAttributeIdentifierTypeMap:
+      getHashAttributeIdentifierTypeMap(datasource),
   });
 }
 

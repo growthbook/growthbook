@@ -52,6 +52,12 @@
   overflow-wrap: anywhere;
 }
 
+.plain {
+  font: inherit;
+  color: inherit;
+  overflow-wrap: anywhere;
+}
+
 .muted {
   color: var(--color-text-low);
 }

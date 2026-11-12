@@ -9,6 +9,7 @@ import {
   isDimensionPrecomputed,
   getFactMetricFactTableIds,
   getFactMetricPrimaryFactTableId,
+  isFactCompoundMetric,
   isFactFunnelMetric,
   parseFunnelStepMetricId,
   parseSliceMetricId,
@@ -450,6 +451,27 @@ export function getFiltersForHash(
 }
 
 /**
+ * Each compound component's fact table and saved filters, for change-detection
+ * hashes. A compound metric has no numerator, so `numeratorFactTable` only
+ * covers the first component's table. `undefined` for other metric types.
+ */
+export function getCompoundComponentFactTablesForHash(
+  factMetric: FactMetricInterface,
+  factTableMap?: Map<string, FactTableInterface>,
+) {
+  if (!isFactCompoundMetric(factMetric)) return undefined;
+  return factMetric.compoundSettings.components.map((component) => {
+    const factTable = factTableMap?.get(component.factTableId);
+    return {
+      factTableId: component.factTableId,
+      sql: factTable?.sql,
+      eventName: factTable?.eventName,
+      filters: getFiltersForHash(factTable, component),
+    };
+  });
+}
+
+/**
  * The id whose stored definition governs a metric. Funnel steps and slices are
  * derived from a parent and have no document of their own, so they hash against
  * the parent: an edit anywhere in the parent (another step's row filters, say)
@@ -493,6 +515,10 @@ export function getFactMetricDefinitionForHash(
         (id) => id !== numeratorFactTableId,
       )
     : [];
+  const compoundComponentFactTables = getCompoundComponentFactTablesForHash(
+    factMetric,
+    factTableMap,
+  );
 
   return {
     metricType: factMetric.metricType,
@@ -505,6 +531,11 @@ export function getFactMetricDefinitionForHash(
       : undefined,
     quantileSettings: factMetric.quantileSettings,
     funnelSettings: factMetric.funnelSettings,
+    // Only present for compound metrics, so other hashes are unchanged.
+    ...(isFactCompoundMetric(factMetric)
+      ? { compoundSettings: factMetric.compoundSettings }
+      : {}),
+    ...(compoundComponentFactTables ? { compoundComponentFactTables } : {}),
     numeratorFactTable: {
       sql: numeratorFactTable?.sql,
       eventName: numeratorFactTable?.eventName,

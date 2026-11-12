@@ -50,6 +50,7 @@ import {
   getFactTableIdColumnExpression,
   getAggregateFilters,
   getFactTableTimestampColumn,
+  isFactCompoundMetric,
   isFactFunnelMetric,
 } from "../../experiments/experiments";
 import { getCappingTailState, FunnelStep } from "../../validators/fact-table";
@@ -407,6 +408,11 @@ function getFactTableGroups({
           if (isFactFunnelMetric(originalMetric)) {
             throw new Error(
               `Metric ${value.metricId} is a funnel metric, which is not supported here. Use a funnel exploration instead.`,
+            );
+          }
+          if (isFactCompoundMetric(originalMetric)) {
+            throw new Error(
+              `Metric ${value.metricId} is a compound metric, which is not supported here.`,
             );
           }
 

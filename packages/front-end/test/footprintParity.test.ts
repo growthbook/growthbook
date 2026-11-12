@@ -6,6 +6,7 @@ import {
   canManageApiKeySecret,
   canSetApiKeyDisabled,
   featurePublishFootprint,
+  interleavingEnvsForChange,
   revertFootprint,
   serveFootprint,
   NO_ENVIRONMENT_BINDING,
@@ -406,5 +407,62 @@ describe("API key controls have no environment footprint", () => {
       ),
     ).toBe(true);
     expect(canApplyExpirationPolicy(tokensOnly, "pat")).toBe(true);
+  });
+});
+
+describe("interleaving serving footprint", () => {
+  const enabled = (...ids: string[]) => ({
+    environmentSettings: Object.fromEntries(
+      environmentIds.map((id) => [id, { enabled: ids.includes(id) }]),
+    ),
+  });
+
+  it("answers for the environments it currently serves", () => {
+    expect(
+      interleavingEnvsForChange({
+        existing: enabled("production"),
+        environmentIds,
+      }),
+    ).toEqual(["production"]);
+  });
+
+  it("answers for nothing when it serves nowhere", () => {
+    expect(
+      interleavingEnvsForChange({ existing: enabled(), environmentIds }),
+    ).toEqual([]);
+  });
+
+  it("unions both sides of a toggle so neither end is unguarded", () => {
+    expect(
+      interleavingEnvsForChange({
+        existing: enabled("dev"),
+        updated: enabled("production"),
+        environmentIds,
+      }).sort(),
+    ).toEqual(["dev", "production"]);
+  });
+
+  it("still answers for an environment being turned off", () => {
+    expect(
+      interleavingEnvsForChange({
+        existing: enabled("production"),
+        updated: enabled(),
+        environmentIds,
+      }),
+    ).toEqual(["production"]);
+  });
+
+  it("ignores environments the organization does not have", () => {
+    expect(
+      interleavingEnvsForChange({
+        existing: {
+          environmentSettings: {
+            production: { enabled: true },
+            ghost: { enabled: true },
+          },
+        },
+        environmentIds,
+      }),
+    ).toEqual(["production"]);
   });
 });

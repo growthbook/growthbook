@@ -71,7 +71,7 @@ export default function CommentComposer({
         placeholder={placeholder}
         size="sm"
         height={height}
-        autoGrow={!!maxHeight}
+        autoGrow
         maxHeight={maxHeight}
         autoFocus={autofocus}
         autoFocusAtEnd={autofocusAtEnd}

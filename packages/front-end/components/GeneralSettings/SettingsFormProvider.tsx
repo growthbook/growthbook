@@ -275,7 +275,10 @@ export function SettingsFormProvider({ children }: { children: ReactNode }) {
       banditScheduleUnit: "days",
       banditBurnInValue: 1,
       banditBurnInUnit: "days",
+      banditPeriodWeighting: false,
       requireExperimentTemplates: false,
+      disableResultsUpdateForStoppedExperiments: false,
+      disableResultsUpdateForStoppedExperimentGraceHours: 0,
       requireUniqueExperimentTrackingKeys: false,
       experimentKeyExample: "",
       experimentKeyRegexValidator: "",
@@ -284,6 +287,7 @@ export function SettingsFormProvider({ children }: { children: ReactNode }) {
       decisionFrameworkEnabled: DEFAULT_DECISION_FRAMEWORK_ENABLED,
       defaultDecisionCriteriaId: PRESET_DECISION_CRITERIA.id,
       blockFileUploads: false,
+      disablePublicSharing: false,
       requireProjectForFeatures: DEFAULT_REQUIRE_PROJECT_FOR_FEATURES,
       requireProjectForSdkConnections:
         DEFAULT_REQUIRE_PROJECT_FOR_SDK_CONNECTIONS,
