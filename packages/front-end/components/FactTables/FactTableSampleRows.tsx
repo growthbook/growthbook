@@ -128,7 +128,7 @@ export default function FactTableSampleRows({
             </>
           ) : (
             <Text size="sm" color="text-mid">
-              You don&apos;t have permission to run queries on this data source.
+              You don&apos;t have permission to run queries on this Data Source.
             </Text>
           )}
         </Flex>

@@ -183,10 +183,10 @@ export default function FactTableDetailsPage({
 
       <Flex gap="4" align="center" wrap="wrap" mb="4">
         <Metadata
-          label="Data source"
+          label="Data Source"
           value={
             <Link href={`/datasources/${factTable.datasource}`}>
-              {datasource?.name || "Unknown data source"}
+              {datasource?.name || "Unknown Data Source"}
             </Link>
           }
         />

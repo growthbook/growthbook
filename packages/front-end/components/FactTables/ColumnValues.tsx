@@ -206,7 +206,7 @@ export function ColumnValuesPanel({
       <Text size="sm" color="text-low">
         {`Top ${rows.length} values${showCounts ? " by row count" : ""} over the last ${lookbackDays} days.`}
         {showCounts
-          ? " Counts may be approximate on some data sources."
+          ? " Counts may be approximate on some Data Sources."
           : onLoad
             ? " Refresh to load row counts."
             : ""}

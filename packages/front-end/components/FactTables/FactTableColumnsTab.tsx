@@ -18,6 +18,7 @@ import Callout from "@/ui/Callout";
 import Badge from "@/ui/Badge";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
+import { TextField } from "@/ui/TextField";
 import Table, {
   TableBody,
   TableCell,
@@ -54,9 +55,12 @@ export default function FactTableColumnsTab({
   const [editOpen, setEditOpen] = useState<ColumnInterface | null>(null);
   const [newVirtualOpen, setNewVirtualOpen] = useState(false);
   // Auto Slice levels, JSON fields and the like stay in the full editor
-  const [advancedOpen, setAdvancedOpen] = useState<ColumnInterface | null>(
-    null,
-  );
+  // Stores the name, not the column, so a top values refresh in the editor
+  // reads the latest values
+  const [advancedOpen, setAdvancedOpen] = useState<string | null>(null);
+  const advancedColumn = advancedOpen
+    ? factTable.columns.find((c) => c.column === advancedOpen)
+    : undefined;
   const [refreshing, setRefreshing] = useState(false);
 
   // Virtual columns carry raw SQL, so they use the stricter gate
@@ -122,11 +126,11 @@ export default function FactTableColumnsTab({
           column={editOpen}
         />
       ) : null}
-      {advancedOpen && (
+      {advancedColumn && (
         <ColumnModal
           close={() => setAdvancedOpen(null)}
           factTable={factTable}
-          existing={advancedOpen}
+          existing={advancedColumn}
         />
       )}
       {newVirtualOpen && (
@@ -150,11 +154,7 @@ export default function FactTableColumnsTab({
         <ColumnsTable
           factTable={factTable}
           columns={physical}
-          toolbar={
-            <Flex justify="end" align="center" gap="3">
-              {refreshButton}
-            </Flex>
-          }
+          toolbar={refreshButton}
           renderDetail={(col) => (
             <>
               {col.name && col.name !== col.column ? (
@@ -201,7 +201,7 @@ export default function FactTableColumnsTab({
                   <Button
                     size="sm"
                     variant="ghost"
-                    onClick={() => setAdvancedOpen(col)}
+                    onClick={() => setAdvancedOpen(col.column)}
                   >
                     Advanced settings
                   </Button>
@@ -335,13 +335,16 @@ function ColumnsTable({
         : column.datatype,
   }));
 
-  const { items, SortableTableColumnHeader, pagination } = useSearch({
-    items: computed,
-    defaultSortField: "dateCreated",
-    localStorageKey: "factColumns",
-    searchFields: ["name^3", "description", "column^2"],
-    pageSize: 10,
-  });
+  const { items, searchInputProps, SortableTableColumnHeader, pagination } =
+    useSearch({
+      items: computed,
+      defaultSortField: "dateCreated",
+      localStorageKey: "factColumns",
+      searchFields: ["name^3", "description", "column^2"],
+      pageSize: 10,
+      // Several tables on this page search, so none of them owns ?q=
+      disableUrlSearchTerm: true,
+    });
 
   return (
     <>
@@ -355,7 +358,15 @@ function ColumnsTable({
         </Callout>
       )}
       <Flex direction="column" gap="3" mt="2">
-        {toolbar}
+        <Flex justify="between" align="center" gap="3">
+          <TextField
+            size="sm"
+            type="search"
+            placeholder={`Search ${columns.length} columns`}
+            {...searchInputProps}
+          />
+          {toolbar}
+        </Flex>
         <Table variant="list" roundedCorners>
           <TableHeader>
             <TableRow>

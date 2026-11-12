@@ -293,7 +293,7 @@ export default function FactTableEventsTab({
         <Text size="sm" color="text-low">
           Top {rows.length} events over the last {lookbackDays} days
           {showCounts
-            ? ". Counts may be approximate on some data sources."
+            ? ". Counts may be approximate on some Data Sources."
             : ""}
         </Text>
       ) : null}

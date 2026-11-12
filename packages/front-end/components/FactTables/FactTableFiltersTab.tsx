@@ -74,9 +74,11 @@ export default function FactTableFiltersTab({
     linkedRow.current?.scrollIntoView({ block: "center" });
     const query = { ...router.query };
     delete query.filter;
-    void router.replace({ pathname: router.pathname, query }, undefined, {
-      shallow: true,
-    });
+    void router.replace(
+      { pathname: router.pathname, query, hash: "filters" },
+      undefined,
+      { shallow: true },
+    );
   }, [linkedId, unpaginatedItems, page, setPage, router]);
 
   return (
