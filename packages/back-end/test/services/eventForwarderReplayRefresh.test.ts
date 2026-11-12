@@ -1,4 +1,5 @@
 import {
+  cacheMissedReplay,
   incrementalRefreshMissedReplay,
   sqlReferencesTable,
 } from "back-end/src/services/eventForwarder/replayRefresh";
@@ -144,5 +145,47 @@ describe("incrementalRefreshMissedReplay", () => {
         incrementalRefresh: stale,
       }),
     ).toBe(true);
+  });
+});
+
+// The rule an Aggregated Fact Table's run uses to restate instead of append.
+describe("cacheMissedReplay", () => {
+  const base = {
+    replay: {
+      earliestEventAt: "2026-11-09T08:00:00.000Z",
+      lastWriteAt: "2026-11-10T12:00:00.000Z",
+    },
+    forwarderTables: ["main.gb.gb_events"],
+    sql: "SELECT * FROM main.gb.gb_events",
+    watermark: new Date("2026-11-10T09:00:00.000Z"),
+    rebuiltAt: new Date("2026-11-01T00:00:00.000Z"),
+  };
+
+  it("flags a table built before the replay whose watermark is past it", () => {
+    expect(cacheMissedReplay(base)).toBe(true);
+    // Never recorded a rebuild: assume it predates the replay.
+    expect(cacheMissedReplay({ ...base, rebuiltAt: undefined })).toBe(true);
+  });
+
+  it("clears once a rebuild started after the replay's last write", () => {
+    expect(
+      cacheMissedReplay({
+        ...base,
+        rebuiltAt: new Date("2026-11-10T12:00:00.000Z"),
+      }),
+    ).toBe(false);
+  });
+
+  it("leaves alone a table that is empty, behind the replay, or on other tables", () => {
+    expect(cacheMissedReplay({ ...base, watermark: null })).toBe(false);
+    expect(
+      cacheMissedReplay({
+        ...base,
+        watermark: new Date("2026-11-09T07:59:59.000Z"),
+      }),
+    ).toBe(false);
+    expect(
+      cacheMissedReplay({ ...base, sql: "SELECT * FROM analytics.orders" }),
+    ).toBe(false);
   });
 });

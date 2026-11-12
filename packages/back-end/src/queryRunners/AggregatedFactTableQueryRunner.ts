@@ -577,6 +577,9 @@ export class AggregatedFactTableQueryRunner extends QueryRunner<
               firstEventDate: result.firstEventDate,
               lastEventDate: result.lastEventDate,
               inFlightExecutionId: null,
+              ...(this.model.mode === "restate"
+                ? { lastRestateStartedAt: this.model.dateCreated }
+                : {}),
             }
           : {};
 
