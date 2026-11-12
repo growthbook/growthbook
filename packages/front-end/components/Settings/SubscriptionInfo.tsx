@@ -130,6 +130,8 @@ function PastDueBillingCallout({
 }) {
   const retry =
     "We retry failed charges automatically, and this message goes away once one succeeds.";
+  const unpaidWarning =
+    "Your Pro plan may be canceled if the invoice stays unpaid.";
   if (canAddPaymentMethod && downgradeDate) {
     return (
       <Callout status="warning" mb="3">
@@ -144,7 +146,7 @@ function PastDueBillingCallout({
       <Callout status="warning" mb="3">
         We couldn&apos;t charge your card. Add a new card under{" "}
         <strong>Payment Methods</strong> below and make it your default. {retry}{" "}
-        Your Pro plan stays active.
+        {unpaidWarning}
       </Callout>
     );
   }
@@ -161,7 +163,7 @@ function PastDueBillingCallout({
     <Callout status="warning" mb="3">
       We couldn&apos;t charge your card. Contact{" "}
       <Link href="mailto:support@growthbook.io">support@growthbook.io</Link> to
-      update your payment method. Your Pro plan stays active.
+      update your payment method. {unpaidWarning}
     </Callout>
   );
 }

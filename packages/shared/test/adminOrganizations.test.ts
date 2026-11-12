@@ -1,7 +1,6 @@
 import {
   getAdminOrgSummary,
   isOrbPaymentPastDue,
-  orbPaymentFailureCancelAt,
 } from "../src/enterprise/adminOrganizations";
 
 const sub = (id: string, status: "active" | "past_due" | "canceled") =>
@@ -90,35 +89,5 @@ describe("getAdminOrgSummary", () => {
         seats: 20,
       } as never),
     ).toEqual({ plan: "enterprise", status: "trialing", seats: 20 });
-  });
-});
-
-describe("orbPaymentFailureCancelAt", () => {
-  const downgradeAt = "2026-11-19T00:00:00.000Z";
-
-  it("keeps the deadline when auto-cancel was not recorded", () => {
-    expect(orbPaymentFailureCancelAt({ downgradeAt })).toBe(downgradeAt);
-  });
-
-  it("keeps the deadline when auto-cancel is on", () => {
-    expect(
-      orbPaymentFailureCancelAt({
-        downgradeAt,
-        autoCancel: true,
-      }),
-    ).toBe(downgradeAt);
-  });
-
-  it("hides the deadline when this failure will not cancel the plan", () => {
-    expect(
-      orbPaymentFailureCancelAt({
-        downgradeAt,
-        autoCancel: false,
-      }),
-    ).toBeNull();
-  });
-
-  it("hides the deadline once the cancel time is cleared", () => {
-    expect(orbPaymentFailureCancelAt({ autoCancel: false })).toBeNull();
   });
 });

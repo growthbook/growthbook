@@ -22,7 +22,6 @@ const licenseSchema = new mongoose.Schema({
   paymentFailure: {
     invoiceId: String,
     downgradeAt: Date,
-    autoCancel: Boolean,
   },
   message: {
     text: String, // The text to show in the account notice

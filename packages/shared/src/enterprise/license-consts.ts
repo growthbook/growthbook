@@ -135,10 +135,8 @@ export interface LicenseInterface {
   // Open Orb Pro card failure. Absent once the invoice is paid or void, or the subscription ends.
   paymentFailure?: {
     invoiceId: string;
-    // Present while a cancellation is still scheduled.
+    // When the plan is canceled if the invoice stays unpaid. Missing means this failure will not cancel it.
     downgradeAt?: string;
-    // False when this failure will not cancel the plan. Missing means it will.
-    autoCancel?: boolean;
   };
   message?: {
     text: string; // The text to show in the account notice

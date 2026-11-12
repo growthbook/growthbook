@@ -150,8 +150,9 @@ export default function useAccountPlanNotices(): AppNotice[] {
         severity: className === "payment-failure" ? "warning" : "error",
         title: license.message.text,
         details: license.message.tooltipText,
+        // The cached license can lag a payment by up to a day, so Billing re-fetches it.
         ...(isPaymentFailure && canManageBilling
-          ? { href: "/settings/billing" }
+          ? { href: "/settings/billing?refreshLicense=true" }
           : {}),
       };
     }

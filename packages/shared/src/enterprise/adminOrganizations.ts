@@ -15,23 +15,6 @@ export type AdminOrgSummary = {
   seats: number | null;
 };
 
-// Cancel time for an open Orb payment failure. Absent when this failure will not cancel the plan.
-// A missing autoCancel still cancels, so failures recorded before that field existed keep their deadline.
-export function orbPaymentFailureCancelAt(
-  failure:
-    | Pick<
-        NonNullable<LicenseInterface["paymentFailure"]>,
-        "downgradeAt" | "autoCancel"
-      >
-    | null
-    | undefined,
-): string | null {
-  if (!failure?.downgradeAt || failure.autoCancel === false) return null;
-  const when = new Date(failure.downgradeAt);
-  if (Number.isNaN(when.getTime())) return null;
-  return when.toISOString();
-}
-
 // Orb keeps a declining subscription active; our open payment failure marks it past due.
 export function isOrbPaymentPastDue(
   license: Pick<LicenseInterface, "orbSubscription" | "paymentFailure"> | null,
