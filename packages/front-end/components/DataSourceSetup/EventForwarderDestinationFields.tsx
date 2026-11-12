@@ -26,8 +26,26 @@ export type EventForwarderDestination = {
   environment?: string;
 };
 
-export const ALL_ENVIRONMENTS_TAKEN_MESSAGE =
-  "Another Event Forwarder receives all environments. Set its environment first.";
+const ENVIRONMENT_HELP_TEXT =
+  "Only events from SDK Connections in this environment are forwarded. Each environment can go to only one Event Forwarder.";
+
+// Why no environment can be picked: another forwarder receives all of them.
+// - Names its Data Source when the viewer can read it (`datasources` is readable ones only)
+// - undefined when no other forwarder receives all
+export function allEnvironmentsTakenMessage(
+  claimed: { datasourceId: string; environment: string }[],
+  datasources: { id: string; name: string }[],
+  ownDatasourceId?: string,
+): string | undefined {
+  const other = claimed.find(
+    (e) => !e.environment && e.datasourceId !== ownDatasourceId,
+  );
+  if (!other) return undefined;
+  const name = datasources.find((d) => d.id === other.datasourceId)?.name;
+  return name
+    ? `The Event Forwarder on ${name} receives all environments. Set its environment first.`
+    : "An Event Forwarder you cannot access receives all environments. Ask an admin to set its environment first.";
+}
 
 // Environment whose events a forwarder receives; "" is all environments.
 // - `others`: environments held by the org's other forwarders ("" = all)
@@ -39,7 +57,8 @@ export function EventForwarderEnvironmentSelect({
   others,
   savedAll = false,
   disabled = false,
-  helpText = "Only events from SDK Connections in this environment are forwarded. Each environment can go to only one Event Forwarder.",
+  helpText = ENVIRONMENT_HELP_TEXT,
+  allTakenMessage = "Another Event Forwarder receives all environments. Set its environment first.",
 }: {
   value: string;
   onChange: (value: string) => void;
@@ -48,13 +67,14 @@ export function EventForwarderEnvironmentSelect({
   savedAll?: boolean;
   disabled?: boolean;
   helpText?: string;
+  allTakenMessage?: string;
 }) {
   const allowAll = !others.length || savedAll;
   return (
     <>
       {others.includes("") && !savedAll ? (
         <Callout status="warning" mb="3">
-          {ALL_ENVIRONMENTS_TAKEN_MESSAGE}
+          {allTakenMessage}
         </Callout>
       ) : null}
       <SelectField
@@ -96,7 +116,10 @@ export function EventForwarderEnvironmentField({
   disabled?: boolean;
 }) {
   const environments = useEnvironments();
-  const { eventForwarderEnvironments } = useDefinitions();
+  const { eventForwarderEnvironments, datasources } = useDefinitions();
+  const saved = eventForwarderEnvironments.find(
+    (e) => e.datasourceId === datasourceId,
+  );
   return (
     <EventForwarderEnvironmentSelect
       value={value}
@@ -106,9 +129,18 @@ export function EventForwarderEnvironmentField({
       others={eventForwarderEnvironments
         .filter((e) => e.datasourceId !== datasourceId)
         .map((e) => e.environment)}
-      savedAll={eventForwarderEnvironments.some(
-        (e) => e.datasourceId === datasourceId && !e.environment,
+      savedAll={!!saved && !saved.environment}
+      allTakenMessage={allEnvironmentsTakenMessage(
+        eventForwarderEnvironments,
+        datasources,
+        datasourceId,
       )}
+      // Moving a live forwarder to one environment drops the rest on save
+      helpText={
+        saved && value && value !== saved.environment
+          ? `${ENVIRONMENT_HELP_TEXT} Events from other environments stop being forwarded when you save.`
+          : undefined
+      }
     />
   );
 }
