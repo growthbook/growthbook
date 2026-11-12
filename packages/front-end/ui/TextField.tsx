@@ -128,6 +128,7 @@ export const TextField = forwardRef<
             `rt-r-size-${radixSize(size)}`,
             `rt-variant-${variant}`,
             styles.multiline,
+            "gb-field-indicator-host",
             className,
             inputClassName,
             statusClass,
@@ -156,7 +157,12 @@ export const TextField = forwardRef<
           type={type}
           size={radixSize(size)}
           variant={variant}
-          className={clsx(className, inputClassName, statusClass)}
+          className={clsx(
+            "gb-field-indicator-host",
+            className,
+            inputClassName,
+            statusClass,
+          )}
         >
           {prepend ? (
             <RadixTextField.Slot side="left">{prepend}</RadixTextField.Slot>

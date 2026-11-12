@@ -26,6 +26,7 @@ import {
   resolveConstantRefs,
 } from "shared/sdk-versioning";
 import { Revision } from "shared/enterprise";
+import type { FeatureValues } from "back-end/src/util/featureValues";
 import { Context } from "back-end/src/models/BaseModel";
 import { getResolvableValues } from "back-end/src/services/resolvableValues";
 import {
@@ -500,7 +501,7 @@ export function assertConfigBackedDefaultHasNoOverrides(
 // net and the constant schema-break guard so both see the same value set.
 export function collectFeatureConfigBackedValues(
   feature: Pick<FeatureInterface, "baseConfig">,
-  values: { defaultValue?: string; rules?: FeatureRule[] },
+  values: FeatureValues,
 ): { config: string; patch: string; label: string }[] {
   const backed: { config: string; patch: string; label: string }[] = [];
   const add = (raw: string | undefined, label: string) => {
@@ -510,6 +511,7 @@ export function collectFeatureConfigBackedValues(
     backed.push({ config, patch: getConfigBackingPatch(raw), label });
   };
   add(values.defaultValue, "Default value");
+  add(values.holdout?.value, "Holdout value");
   (values.rules ?? []).forEach((rule, ruleIndex) => {
     // Name the specific rule: the labels prefix validation errors AND feed the
     // schema-break guard's acknowledgment fingerprint, so two rules of the same
@@ -566,7 +568,7 @@ export function configCheckedRuleValues(
 async function collectConfigBackedSchemaInvariantErrors(
   context: Context,
   feature: Pick<FeatureInterface, "valueType" | "baseConfig" | "project">,
-  values: { defaultValue?: string; rules?: FeatureRule[] },
+  values: FeatureValues,
 ): Promise<string[]> {
   if (feature.valueType !== "json") return [];
 
@@ -693,7 +695,7 @@ async function collectConfigBackedSchemaInvariantErrors(
 export async function assertConfigBackedFeatureValuesValid(
   context: Context,
   feature: Pick<FeatureInterface, "valueType" | "baseConfig" | "project">,
-  values: { defaultValue?: string; rules?: FeatureRule[] },
+  values: FeatureValues,
 ): Promise<void> {
   assertConfigBackedDefaultHasNoOverrides(feature, values.defaultValue);
 
@@ -734,7 +736,7 @@ export async function assertConfigBackedFeatureValuesValid(
 export async function collectConfigBackedFeatureValueErrors(
   context: Context,
   feature: Pick<FeatureInterface, "valueType" | "baseConfig" | "project">,
-  values: { defaultValue?: string; rules?: FeatureRule[] },
+  values: FeatureValues,
 ): Promise<string[]> {
   return collectConfigBackedSchemaInvariantErrors(context, feature, values);
 }

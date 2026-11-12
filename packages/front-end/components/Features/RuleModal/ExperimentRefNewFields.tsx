@@ -39,6 +39,7 @@ import TargetingFieldsGroup from "@/components/Features/TargetingFieldsGroup";
 import { type RuleCyclicResult } from "@/components/Features/PrerequisiteInput";
 import NamespaceSelector from "@/components/Features/NamespaceSelector";
 import FeatureVariationsInput from "@/components/Features/FeatureVariationsInput";
+import { NewRuleTrafficFields } from "@/components/Features/RuleModal/NewRuleVariationsGrid";
 import SparsePatchToggle from "@/components/Features/SparsePatchToggle";
 import ScheduleInputs from "@/components/Features/LegacyScheduleInputs";
 import { SortableVariation } from "@/components/Features/SortableFeatureVariationRow";
@@ -280,6 +281,9 @@ export default function ExperimentRefNewFields({
     settings.requireExperimentTemplates &&
     availableTemplates.length >= 1;
 
+  // A new rule's variations, as the experiment page lays them out.
+  const usesRuleGrid = source === "rule" && !!feature && !isTemplate;
+
   return (
     <>
       {step === 0 ? (
@@ -344,13 +348,13 @@ export default function ExperimentRefNewFields({
             size="legacy"
             required={true}
             minLength={2}
-            label="Experiment Name"
+            label="Experiment name"
             {...form.register("name")}
           />
 
           <Field
             size="legacy"
-            label="Tracking Key"
+            label="Tracking key"
             {...form.register(`trackingKey`)}
             placeholder={feature?.id || ""}
             {...trackingKeyFormatProps}
@@ -396,7 +400,7 @@ export default function ExperimentRefNewFields({
               Assign Variation by Attribute
             </Text>
             <Text as="div" color="text-mid" mb="2">
-              Will be hashed together with the Tracking Key to determine which
+              Will be hashed together with the tracking key to determine which
               variation to assign
             </Text>
             <SelectField
@@ -446,7 +450,8 @@ export default function ExperimentRefNewFields({
             )}
           </div>
 
-          {feature &&
+          {!usesRuleGrid &&
+            feature &&
             feature.valueType === "json" &&
             parsePlainJSONObject(getFeatureDefaultValue(feature)) !== null && (
               <Flex align="center" gap="3" mb="2">
@@ -470,25 +475,35 @@ export default function ExperimentRefNewFields({
                 />
               </Flex>
             )}
-          <FeatureVariationsInput
-            label="Traffic Percent & Variations"
-            defaultValue={feature ? getFeatureDefaultValue(feature) : undefined}
-            valueType={feature?.valueType}
-            coverageLabel="Traffic included in this Experiment"
-            coverageTooltip={`Users not included in the Experiment will skip this ${source}`}
-            coverage={coverage}
-            setCoverage={setCoverage}
-            setWeight={setWeight}
-            variations={variations}
-            setVariations={setVariations}
-            feature={feature}
-            valueAsId={variationValuesAsIds}
-            hideVariationIds={hideVariationIds}
-            hideVariations={isTemplate}
-            disableVariations={isTemplate}
-            startEditingIndexes={startEditingIndexes}
-            sparse={!!form.watch("sparse")}
-          />
+          {usesRuleGrid && feature ? (
+            <NewRuleTrafficFields
+              kind="experiment"
+              feature={feature}
+              coverageTooltip={`Units not included in the experiment skip this ${source}`}
+            />
+          ) : (
+            <FeatureVariationsInput
+              label="Traffic Percent & Variations"
+              defaultValue={
+                feature ? getFeatureDefaultValue(feature) : undefined
+              }
+              valueType={feature?.valueType}
+              coverageLabel="Traffic included in this Experiment"
+              coverageTooltip={`Units not included in the experiment skip this ${source}`}
+              coverage={coverage}
+              setCoverage={setCoverage}
+              setWeight={setWeight}
+              variations={variations}
+              setVariations={setVariations}
+              feature={feature}
+              valueAsId={variationValuesAsIds}
+              hideVariationIds={hideVariationIds}
+              hideVariations={isTemplate}
+              disableVariations={isTemplate}
+              startEditingIndexes={startEditingIndexes}
+              sparse={!!form.watch("sparse")}
+            />
+          )}
 
           {!isTemplate && namespaces && namespaces.length > 0 && (
             <NamespaceSelector

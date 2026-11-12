@@ -26,7 +26,6 @@ import {
 import Button from "@/ui/Button";
 import Badge from "@/ui/Badge";
 import Switch from "@/ui/Switch";
-import Link from "@/ui/Link";
 import Text from "@/ui/Text";
 import Frame from "@/ui/Frame";
 import Heading from "@/ui/Heading";
@@ -39,6 +38,7 @@ import SelectField, {
   FormatOptionLabelType,
 } from "@/components/Forms/SelectField";
 import CodeTextArea from "@/components/Forms/CodeTextArea";
+import FormatJsonAction from "@/components/Features/FormatJsonAction";
 
 type Props = {
   invariants: ConfigInvariant[];
@@ -582,20 +582,8 @@ export default function ConfigInvariantsEditor({
           resizable
           showCopyButton
           showFullscreenButton
-          helpText={
-            <Flex justify="between" align="center">
-              <span>Raw rule — a boolean expression over the fields.</span>
-              <Link
-                onClick={(e) => {
-                  e.preventDefault();
-                  const p = safeParse(ruleText);
-                  if (p) setRuleText(JSON.stringify(p, null, 2));
-                }}
-              >
-                Format JSON
-              </Link>
-            </Flex>
-          }
+          actions={<FormatJsonAction value={ruleText} setValue={setRuleText} />}
+          helpText="Raw rule — a boolean expression over the fields."
         />
       ) : (
         builder

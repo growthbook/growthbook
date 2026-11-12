@@ -8,7 +8,7 @@ import {
 } from "shared/util";
 import { isInternalAttributeName } from "shared/constants";
 import { some } from "lodash";
-import { PiPlusCircleBold, PiXBold, PiTextAa } from "react-icons/pi";
+import { PiPlusCircleBold, PiXBold } from "react-icons/pi";
 import clsx from "clsx";
 import format from "date-fns/format";
 import { Box, Flex, IconButton, Separator } from "@radix-ui/themes";
@@ -45,6 +45,7 @@ import HelperText from "@/ui/HelperText";
 import Link from "@/ui/Link";
 import RadioGroup from "@/ui/RadioGroup";
 import RemoteGroupNotLoadedWarning from "@/components/SavedGroups/RemoteGroupNotLoadedWarning";
+import CaseInsensitiveToggle from "@/components/Features/CaseInsensitiveToggle";
 import SDKCapabilityWarning from "./SDKCapabilityWarning";
 import {
   OperatorOption,
@@ -1040,62 +1041,38 @@ function ConditionAndGroupInput({
             }
             attributeSlot={fieldSelector}
             operatorSlot={
-              <Flex gap="3" align="start">
-                <Box flexGrow="1">
-                  <SelectField
-                    size="legacy"
-                    disabled={disabled}
-                    value={getDisplayOperator(operator)}
-                    name="operator"
-                    options={operatorOptions}
-                    sort={false}
-                    formatOptionLabel={
-                      formatOperatorLabel as FormatOptionLabelType
-                    }
-                    onChange={(v) => {
-                      const newOperator = withOperatorCaseInsensitivity(
-                        v,
-                        isCaseInsensitiveOperator(operator),
-                      );
-                      handleCondsChange(newOperator, "operator");
-                    }}
-                  />
-                </Box>
-                {operatorSupportsCaseInsensitive(operator) &&
-                  datatypeSupportsCaseInsensitive(attribute?.datatype) && (
-                    <Tooltip
-                      content={`Case insensitive: ${isCaseInsensitiveOperator(operator) ? "ON" : "OFF"}`}
-                    >
-                      <IconButton
-                        type="button"
-                        disabled={disabled}
-                        variant={
-                          isCaseInsensitiveOperator(operator) ? "soft" : "ghost"
-                        }
-                        size="2"
-                        radius="medium"
-                        onClick={() => {
-                          const newOperator = withOperatorCaseInsensitivity(
-                            getDisplayOperator(operator),
-                            !isCaseInsensitiveOperator(operator),
-                          );
-                          handleCondsChange(newOperator, "operator");
-                        }}
-                        style={{
-                          width: 36,
-                          height: 36,
-                          padding: 0,
-                          flexShrink: 0,
-                          alignSelf: "center",
-                          marginLeft: -4,
-                          marginRight: -4,
-                        }}
-                      >
-                        <PiTextAa size={18} />
-                      </IconButton>
-                    </Tooltip>
-                  )}
-              </Flex>
+              <SelectField
+                size="legacy"
+                disabled={disabled}
+                value={getDisplayOperator(operator)}
+                name="operator"
+                options={operatorOptions}
+                sort={false}
+                formatOptionLabel={formatOperatorLabel as FormatOptionLabelType}
+                onChange={(v) => {
+                  const newOperator = withOperatorCaseInsensitivity(
+                    v,
+                    isCaseInsensitiveOperator(operator),
+                  );
+                  handleCondsChange(newOperator, "operator");
+                }}
+                extraIndicator={
+                  operatorSupportsCaseInsensitive(operator) &&
+                  datatypeSupportsCaseInsensitive(attribute?.datatype) ? (
+                    <CaseInsensitiveToggle
+                      on={isCaseInsensitiveOperator(operator)}
+                      disabled={disabled}
+                      onToggle={() => {
+                        const newOperator = withOperatorCaseInsensitivity(
+                          getDisplayOperator(operator),
+                          !isCaseInsensitiveOperator(operator),
+                        );
+                        handleCondsChange(newOperator, "operator");
+                      }}
+                    />
+                  ) : undefined
+                }
+              />
             }
             valueSlot={
               displayType === "select-only" ? undefined : (
