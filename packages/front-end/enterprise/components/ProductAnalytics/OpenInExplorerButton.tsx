@@ -26,7 +26,12 @@ export default function OpenInExplorerButton({
   if (disabledReason) {
     return (
       <Tooltip content={disabledReason}>
-        <span style={{ cursor: "not-allowed" }}>
+        {/* inline-flex: an inline span sits on the text baseline and drops the button a few px */}
+        {/* tabIndex: lets keyboard users focus it and read the reason */}
+        <span
+          tabIndex={0}
+          style={{ cursor: "not-allowed", display: "inline-flex" }}
+        >
           <Button
             {...buttonStyleProps}
             disabled
