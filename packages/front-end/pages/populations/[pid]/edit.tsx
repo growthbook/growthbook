@@ -47,6 +47,7 @@ export default function EditPopulationPage() {
       />
       {canEdit ? (
         <PopulationEditor
+          key={population.id}
           existing={population}
           onSaved={async () => {
             await refreshPopulations(population.id);

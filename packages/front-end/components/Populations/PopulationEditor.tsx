@@ -20,6 +20,7 @@ import Tooltip from "@/ui/Tooltip";
 import Field from "@/components/Forms/Field";
 import DataSourcePicker from "@/components/DataSourcePicker";
 import { RowFilterInput } from "@/components/FactTables/RowFilterInput";
+import { isRowFilterComplete } from "@/components/FactTables/rowFilterUtils";
 import ThresholdBasisRow from "@/components/FactTables/MetricEditor/typeFields/ThresholdBasisRow";
 import PopulationPreview from "@/components/Populations/PopulationPreview";
 import {
@@ -97,12 +98,13 @@ export default function PopulationEditor({
   const idTypeOptions = factTable
     ? [...new Set([...factTable.userIdTypes, ...values.userIdTypes])]
     : [];
-  // Every required field that is still empty, checked in one place.
   const missing = {
     name: !values.name.trim(),
     factTable: !values.factTableId,
     // Only asked for once a fact table is chosen, since choosing one fills it in.
     identifierType: !!values.factTableId && values.userIdTypes.length === 0,
+    // An unfinished filter adds no SQL, so the query would ignore it.
+    rowFilters: !values.rowFilters.every(isRowFilterComplete),
     // toStep drops a threshold with no comparison.
     comparison: showThreshold && !values.aggregateFilter.trim(),
   };
@@ -123,6 +125,7 @@ export default function PopulationEditor({
   const canPreview =
     !missing.factTable &&
     !missing.identifierType &&
+    !missing.rowFilters &&
     !missing.comparison &&
     problems.length === 0;
   const canSave = canPreview && !missing.name;
@@ -133,6 +136,9 @@ export default function PopulationEditor({
   if (missing.name) missingFields.push("enter a name");
   if (missing.factTable) missingFields.push("select a fact table");
   if (missing.identifierType) missingFields.push("select an identifier type");
+  if (missing.rowFilters) {
+    missingFields.push("finish or remove the row filters");
+  }
   if (missing.comparison) missingFields.push("enter a threshold comparison");
   const missingMessage = missingFields.length
     ? upperFirst(
@@ -192,7 +198,6 @@ export default function PopulationEditor({
   }
 
   async function save() {
-    if (!values.name.trim()) throw new Error("Name is required");
     const body = {
       name: values.name.trim(),
       description: values.description,
