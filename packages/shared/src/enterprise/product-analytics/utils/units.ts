@@ -27,6 +27,7 @@ export function metricSupportsUnitSelection(
       return metric.numerator.column === "$$distinctUsers";
     case "quantile":
     case "funnel":
+    case "compound":
       return false;
   }
 }
