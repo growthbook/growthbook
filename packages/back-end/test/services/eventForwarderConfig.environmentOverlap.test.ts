@@ -1,5 +1,8 @@
 import { EventForwarderConfigInterface } from "shared/validators";
-import { assertNoEventForwarderEnvironmentOverlap } from "back-end/src/services/eventForwarder/config";
+import {
+  assertNoEventForwarderEnvironmentOverlap,
+  getClaimedEventForwarderEnvironments,
+} from "back-end/src/services/eventForwarder/config";
 
 type Row = Partial<EventForwarderConfigInterface>;
 
@@ -107,5 +110,27 @@ describe("assertNoEventForwarderEnvironmentOverlap", () => {
     await expect(
       check(rows, "dev", { region: "us-east-1" }),
     ).resolves.toBeUndefined();
+  });
+});
+
+describe("getClaimedEventForwarderEnvironments", () => {
+  it("lists bound rows and live unbound ones, and skips unbound rows that never received events", () => {
+    expect(
+      getClaimedEventForwarderEnvironments([
+        row("a", { datasourceId: "ds_a", environment: "production" }),
+        row("b", { datasourceId: "ds_b" }),
+        row("c", { datasourceId: "ds_c", status: "unconfigured" }),
+        row("d", {
+          datasourceId: "ds_d",
+          status: "error",
+          connectorName: "",
+          environment: "dev",
+        }),
+      ]),
+    ).toEqual([
+      { datasourceId: "ds_a", environment: "production" },
+      { datasourceId: "ds_b", environment: "" },
+      { datasourceId: "ds_d", environment: "dev" },
+    ]);
   });
 });

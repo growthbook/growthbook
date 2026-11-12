@@ -106,6 +106,7 @@ export default function ConfigureEventForwarderStep({
         tablePrefix={destination.tablePrefix}
         zerobusEndpoint={destination.zerobusEndpoint}
         environment={destination.environment}
+        datasourceId={dataSource.id}
         onEnvironmentChange={(environment) =>
           setDestination((current) => ({ ...current, environment }))
         }

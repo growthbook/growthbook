@@ -10,7 +10,7 @@ import {
   MoreMenuTrigger,
 } from "@/ui/DropdownMenu";
 import HelperText from "@/ui/HelperText";
-import SelectField from "@/components/Forms/SelectField";
+import { EventForwarderEnvironmentSelect } from "@/components/DataSourceSetup/EventForwarderDestinationFields";
 import Text from "@/ui/Text";
 
 const SINK_TYPE_LABELS: Record<EventForwarderSinkType, string> = {
@@ -21,28 +21,24 @@ const SINK_TYPE_LABELS: Record<EventForwarderSinkType, string> = {
 
 // Own state: the confirmation content is rendered once and kept
 function MigrateEnvironmentField({
-  environments,
   initial,
   onChange,
+  ...props
 }: {
   environments: string[];
+  others: string[];
   initial: string;
   onChange: (value: string) => void;
 }) {
   const [value, setValue] = useState(initial);
   return (
-    <SelectField
-      size="md"
-      legacyLabelFormatting={false}
-      label="Environment"
+    <EventForwarderEnvironmentSelect
+      {...props}
       value={value}
       onChange={(v) => {
         setValue(v);
         onChange(v);
       }}
-      initialOption="All Environments"
-      options={environments.map((e) => ({ label: e, value: e }))}
-      helpText="Must not overlap another Event Forwarder in this organization."
     />
   );
 }
@@ -139,6 +135,18 @@ export default function EventForwarders({
                         </Text>
                         <MigrateEnvironmentField
                           environments={environments}
+                          // Same rule as the server: bound rows, plus live unbound ones
+                          others={data
+                            .filter(
+                              (r) =>
+                                r.id !== row.id &&
+                                (r.environment ||
+                                  !(
+                                    r.status === "unconfigured" ||
+                                    (r.status === "error" && !r.connectorName)
+                                  )),
+                            )
+                            .map((r) => r.environment ?? "")}
                           initial={row.environment ?? ""}
                           onChange={(v) => (migrateEnvironment.current = v)}
                         />

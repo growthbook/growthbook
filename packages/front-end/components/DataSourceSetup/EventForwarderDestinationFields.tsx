@@ -12,6 +12,8 @@ import { DatabricksConnectionParams } from "shared/types/integrations/databricks
 import { DocLink } from "@/components/DocLink";
 import SelectField from "@/components/Forms/SelectField";
 import { useEnvironments } from "@/services/features";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import Callout from "@/ui/Callout";
 import Frame from "@/ui/Frame";
 import Heading from "@/ui/Heading";
 import TextField from "@/ui/TextField";
@@ -24,28 +26,87 @@ export type EventForwarderDestination = {
   environment?: string;
 };
 
-// Environment whose events this forwarder receives; "" is all environments
+const ALL_ENVIRONMENTS_TAKEN_MESSAGE =
+  "Another Event Forwarder receives all environments. Set its environment first.";
+
+// Environment whose events a forwarder receives; "" is all environments.
+// - `others`: environments held by the org's other forwarders ("" = all)
+// - `savedAll`: this forwarder already receives all, so it may stay that way
+export function EventForwarderEnvironmentSelect({
+  value,
+  onChange,
+  environments,
+  others,
+  savedAll = false,
+  disabled = false,
+  helpText = "Only events from SDK Connections in this environment are forwarded. Each environment can go to only one Event Forwarder.",
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  environments: string[];
+  others: string[];
+  savedAll?: boolean;
+  disabled?: boolean;
+  helpText?: string;
+}) {
+  const allowAll = !others.length || savedAll;
+  return (
+    <>
+      {others.includes("") && !savedAll ? (
+        <Callout status="warning" mb="3">
+          {ALL_ENVIRONMENTS_TAKEN_MESSAGE}
+        </Callout>
+      ) : null}
+      <SelectField
+        size="md"
+        legacyLabelFormatting={false}
+        label="Environment"
+        value={value}
+        onChange={onChange}
+        disabled={disabled}
+        initialOption={allowAll ? "All Environments" : undefined}
+        placeholder="Select an environment"
+        options={environments.map((e) => {
+          const taken = others.includes(e);
+          return {
+            label: e,
+            value: e,
+            isDisabled: taken,
+            tooltip: taken ? "Used by another Event Forwarder" : undefined,
+          };
+        })}
+        helpText={helpText}
+      />
+    </>
+  );
+}
+
+// For the current organization; pass the Data Source once it exists
 export function EventForwarderEnvironmentField({
   value,
   onChange,
+  datasourceId,
   disabled = false,
 }: {
   value: string;
   onChange: (value: string) => void;
+  datasourceId?: string;
   disabled?: boolean;
 }) {
   const environments = useEnvironments();
+  const { eventForwarderEnvironments } = useDefinitions();
   return (
-    <SelectField
-      size="md"
-      legacyLabelFormatting={false}
-      label="Environment"
+    <EventForwarderEnvironmentSelect
       value={value}
       onChange={onChange}
       disabled={disabled}
-      initialOption="All Environments"
-      options={environments.map((e) => ({ label: e.id, value: e.id }))}
-      helpText="Only events from SDK Connections in this environment are forwarded."
+      environments={environments.map((e) => e.id)}
+      others={eventForwarderEnvironments
+        .filter((e) => e.datasourceId !== datasourceId)
+        .map((e) => e.environment)}
+      savedAll={eventForwarderEnvironments.some(
+        (e) => e.datasourceId === datasourceId && !e.environment,
+      )}
     />
   );
 }
@@ -135,6 +196,7 @@ export default function EventForwarderDestinationFields({
   onZerobusEndpointChange,
   environment = "",
   onEnvironmentChange,
+  datasourceId,
   disabled = false,
   embedded = false,
   schemaDefaultsToConnection = false,
@@ -149,6 +211,8 @@ export default function EventForwarderDestinationFields({
   onZerobusEndpointChange: (value: string) => void;
   environment?: string;
   onEnvironmentChange: (value: string) => void;
+  /** Absent while the Data Source is still being created. */
+  datasourceId?: string;
   disabled?: boolean;
   embedded?: boolean;
   /** Snowflake connect form fills an unedited schema from the connection. */
@@ -237,6 +301,7 @@ export default function EventForwarderDestinationFields({
         <EventForwarderEnvironmentField
           value={environment}
           onChange={onEnvironmentChange}
+          datasourceId={datasourceId}
           disabled={disabled}
         />
       </Box>

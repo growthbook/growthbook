@@ -187,6 +187,19 @@ function hasNeverReceivedEvents(c: EventForwarderConfigInterface): boolean {
   );
 }
 
+// What the overlap check holds against other forwarders; "" is all environments.
+// Org-wide (not sensitive), so the UI can rule choices out before a save.
+export function getClaimedEventForwarderEnvironments(
+  configs: EventForwarderConfigInterface[],
+): { datasourceId: string; environment: string }[] {
+  return configs
+    .filter((c) => c.environment || !hasNeverReceivedEvents(c))
+    .map((c) => ({
+      datasourceId: c.datasourceId,
+      environment: c.environment ?? "",
+    }));
+}
+
 const environmentTakenMessage = (environment: string) =>
   `Another Event Forwarder already receives the "${environment}" environment.`;
 

@@ -403,6 +403,73 @@ function EventForwarderConfirmButton({
   );
 }
 
+function DeleteEventForwarderSubmit({ disabled }: { disabled: boolean }) {
+  const { loading } = useModalForm();
+  return (
+    <Button type="submit" color="red" disabled={disabled} loading={loading}>
+      Delete
+    </Button>
+  );
+}
+
+// Delete stays disabled until "confirm" is typed, case sensitive
+function DeleteEventForwarderModal({
+  datasourceId,
+  onClose,
+  onRefresh,
+}: {
+  datasourceId: string;
+  onClose: () => void;
+  onRefresh: () => Promise<void>;
+}) {
+  const { apiCall } = useAuth();
+  const [confirmText, setConfirmText] = useState("");
+  return (
+    <Modal.Root
+      open={true}
+      onOpenChange={(open) => {
+        if (!open) onClose();
+      }}
+      size="md"
+      trackingEventModalType=""
+    >
+      <ModalForm
+        onSubmit={async () => {
+          await apiCall(`/datasource/${datasourceId}/event-forwarder`, {
+            method: "DELETE",
+          });
+          onClose();
+          await onRefresh();
+        }}
+      >
+        <Modal.Header>
+          <Modal.Title>Delete Event Forwarder?</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <Flex direction="column" gap="3">
+            <Text as="div">
+              Deleting an Event Forwarder without stopping ingestion will throw
+              a 400 for any new incoming events. Stop your ingestion first.
+            </Text>
+            <TextField
+              label={'Type "confirm" to delete (case sensitive)'}
+              value={confirmText}
+              onChange={(e) => setConfirmText(e.target.value)}
+              autoFocus
+            />
+          </Flex>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="ghost" onClick={onClose}>
+            Cancel
+          </Button>
+          <DeleteEventForwarderSubmit disabled={confirmText !== "confirm"} />
+        </Modal.Footer>
+      </ModalForm>
+    </Modal.Root>
+  );
+}
+
 function EventForwarderModal({
   dataSource,
   onCancel,
@@ -551,6 +618,7 @@ function EventForwarderModal({
             {eventForwarderConfig ? (
               <EventForwarderEnvironmentField
                 value={eventForwarderConfig.environment ?? ""}
+                datasourceId={dataSource.id}
                 onChange={(environment) =>
                   setEventForwarderConfig({
                     ...eventForwarderConfig,
@@ -703,7 +771,6 @@ export default function EventForwarder({
   const [showUpgrade, setShowUpgrade] = useState(false);
   const [pauseResumeLoading, setPauseResumeLoading] = useState(false);
   const [showDelete, setShowDelete] = useState(false);
-  const [deleteConfirmText, setDeleteConfirmText] = useState("");
   const { apiCall } = useAuth();
   const { effectiveAccountPlan, subscription, hasCommercialFeature, usage } =
     useUser();
@@ -845,10 +912,7 @@ export default function EventForwarder({
               color="red"
               icon={<PiTrash />}
               iconPosition="left"
-              onClick={() => {
-                setDeleteConfirmText("");
-                setShowDelete(true);
-              }}
+              onClick={() => setShowDelete(true)}
             >
               Delete
             </Button>
@@ -856,36 +920,10 @@ export default function EventForwarder({
         </Flex>
       ) : null}
       {showDelete ? (
-        <ConfirmDialog
-          title="Delete Event Forwarder?"
-          color="red"
-          yesText="Delete"
-          content={
-            <Flex direction="column" gap="3">
-              <Text as="div">
-                Deleting an Event Forwarder without stopping ingestion will
-                throw a 400 for any new incoming events. Stop your ingestion
-                first.
-              </Text>
-              <TextField
-                label={'Type "confirm" to delete'}
-                value={deleteConfirmText}
-                onChange={(e) => setDeleteConfirmText(e.target.value)}
-              />
-            </Flex>
-          }
-          onConfirm={async () => {
-            // Case sensitive
-            if (deleteConfirmText !== "confirm") {
-              throw new Error('Type "confirm" to delete.');
-            }
-            await apiCall(`/datasource/${dataSource.id}/event-forwarder`, {
-              method: "DELETE",
-            });
-            setShowDelete(false);
-            await onRefresh();
-          }}
-          onCancel={() => setShowDelete(false)}
+        <DeleteEventForwarderModal
+          datasourceId={dataSource.id}
+          onClose={() => setShowDelete(false)}
+          onRefresh={onRefresh}
         />
       ) : null}
 
