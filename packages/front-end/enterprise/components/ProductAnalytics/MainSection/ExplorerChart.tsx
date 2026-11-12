@@ -655,7 +655,11 @@ export default function ExplorerChart({
 
     const valueAxis = {
       type: "value" as const,
-      scale: false,
+      // Anchored to 0 unless a line chart opts out; `scale: true` lets ECharts
+      // fit the axis to the data range instead.
+      scale:
+        chartType === "line" &&
+        submittedExploreState.chartSettings?.anchorYAxisToZero === false,
       ...axisTitle(valueAxisName, valueNameMaxWidth),
       nameLocation: "middle" as const,
       nameTextStyle,

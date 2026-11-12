@@ -6,6 +6,7 @@ import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/Exp
 import { getDefaultValueAxisName } from "@/enterprise/components/ProductAnalytics/util";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Button from "@/ui/Button";
+import Checkbox from "@/ui/Checkbox";
 import Text from "@/ui/Text";
 import TextField from "@/ui/TextField";
 
@@ -23,11 +24,12 @@ const CHART_TYPES_WITH_AXES = new Set([
 export default function ChartSettingsSection() {
   const { draftExploreState, setDraftExploreState } = useExplorerContext();
   const { getFactMetricById } = useDefinitions();
-  // Open if axis labels are customized ("" = hidden, still custom).
+  // Open if any setting is customized ("" = hidden label, still custom).
   const [isCollapsed, setIsCollapsed] = useState(
     () =>
       draftExploreState.chartSettings?.categoryAxisLabel === undefined &&
-      draftExploreState.chartSettings?.valueAxisLabel === undefined,
+      draftExploreState.chartSettings?.valueAxisLabel === undefined &&
+      draftExploreState.chartSettings?.anchorYAxisToZero === undefined,
   );
 
   if (!CHART_TYPES_WITH_AXES.has(draftExploreState.chartType)) return null;
@@ -47,6 +49,7 @@ export default function ChartSettingsSection() {
     getFactMetricById,
   );
   const labels = draftExploreState.chartSettings;
+  const isLineChart = draftExploreState.chartType === "line";
 
   const updateAxisLabel = (key: AxisLabelKey, value: string) => {
     setDraftExploreState((prev) => ({
@@ -106,6 +109,21 @@ export default function ChartSettingsSection() {
             }
             onChange={(e) => updateAxisLabel(yAxisKey, e.target.value)}
           />
+          {isLineChart && (
+            <Checkbox
+              label="Anchor y-axis to zero"
+              value={labels?.anchorYAxisToZero ?? true}
+              setValue={(anchorYAxisToZero) =>
+                setDraftExploreState((prev) => ({
+                  ...prev,
+                  chartSettings: {
+                    ...prev.chartSettings,
+                    anchorYAxisToZero,
+                  },
+                }))
+              }
+            />
+          )}
         </Flex>
       </Collapsible>
     </Flex>
