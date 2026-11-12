@@ -1048,6 +1048,10 @@ export default function ConnectDataSourceLayout({
             location={eventDestination.location}
             tablePrefix={eventDestination.tablePrefix}
             zerobusEndpoint={eventDestination.zerobusEndpoint}
+            environment={eventDestination.environment}
+            onEnvironmentChange={(environment) =>
+              updateEventDestination({ environment })
+            }
             onLocationChange={(location) =>
               updateEventDestination({ location })
             }

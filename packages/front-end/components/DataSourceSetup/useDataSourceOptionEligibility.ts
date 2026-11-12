@@ -28,8 +28,8 @@ const CLOUD_ONLY: DataSourceOptionAvailability = {
   reason: "Only available on GrowthBook Cloud.",
 };
 
-// Managed Warehouse and Event Forwarder are limited to one per organization,
-// and both require usage-based billing.
+// - Both require usage-based billing
+// - Managed Warehouse is one per organization; Event Forwarders are one per environment
 function getEventPipelineAvailability({
   name,
   existingId,
@@ -63,13 +63,8 @@ export function useDataSourceOptionEligibility(): Record<
   DataSourceOptionKey,
   DataSourceOptionAvailability
 > {
-  const {
-    datasources,
-    project,
-    projects,
-    hasManagedWarehouse,
-    hasEventForwarder,
-  } = useDefinitions();
+  const { datasources, project, projects, hasManagedWarehouse } =
+    useDefinitions();
   const { effectiveAccountPlan, license, hasCommercialFeature } = useUser();
   const permissionsUtil = usePermissionsUtil();
 
@@ -96,8 +91,8 @@ export function useDataSourceOptionEligibility(): Record<
     }),
     "event-forwarder": getEventPipelineAvailability({
       name: "an Event Forwarder",
-      existingId: datasources.find((d) => d.eventForwarderConfig)?.id,
-      existsInOrg: hasEventForwarder,
+      existingId: undefined,
+      existsInOrg: false,
       canCreate,
       isLegacyProPlan,
       hasCommercialFeature: hasCommercialFeature("events-forwarder"),

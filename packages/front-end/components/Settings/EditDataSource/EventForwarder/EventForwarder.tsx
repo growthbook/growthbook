@@ -27,6 +27,7 @@ import {
   PiArrowClockwise,
   PiCaretRight,
   PiPause,
+  PiTrash,
   PiPencilSimple,
   PiPlay,
 } from "react-icons/pi";
@@ -45,6 +46,8 @@ import BigQueryEventForwarderForm from "@/components/Settings/BigQueryEventForwa
 import SnowflakeEventForwarderForm from "@/components/Settings/SnowflakeEventForwarderForm";
 import DatabricksEventForwarderForm from "@/components/Settings/DatabricksEventForwarderForm";
 import { useEventForwarderAccessTest } from "@/components/Settings/useEventForwarderAccessTest";
+import { EventForwarderEnvironmentField } from "@/components/DataSourceSetup/EventForwarderDestinationFields";
+import TextField from "@/ui/TextField";
 import Badge from "@/ui/Badge";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
@@ -540,6 +543,17 @@ function EventForwarderModal({
               />
             ) : null}
             {eventForwarderConfig ? (
+              <EventForwarderEnvironmentField
+                value={eventForwarderConfig.environment ?? ""}
+                onChange={(environment) =>
+                  setEventForwarderConfig({
+                    ...eventForwarderConfig,
+                    environment,
+                  })
+                }
+              />
+            ) : null}
+            {eventForwarderConfig ? (
               <SelectField
                 size="md"
                 legacyLabelFormatting={false}
@@ -682,6 +696,8 @@ export default function EventForwarder({
   const [showEditModal, setShowEditModal] = useState(false);
   const [showUpgrade, setShowUpgrade] = useState(false);
   const [pauseResumeLoading, setPauseResumeLoading] = useState(false);
+  const [showDelete, setShowDelete] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState("");
   const { apiCall } = useAuth();
   const { effectiveAccountPlan, subscription, hasCommercialFeature, usage } =
     useUser();
@@ -817,7 +833,54 @@ export default function EventForwarder({
               {actionButton.label}
             </Button>
           ) : null}
+          {canEdit && isPaused ? (
+            <Button
+              variant="outline"
+              color="red"
+              icon={<PiTrash />}
+              iconPosition="left"
+              onClick={() => {
+                setDeleteConfirmText("");
+                setShowDelete(true);
+              }}
+            >
+              Delete
+            </Button>
+          ) : null}
         </Flex>
+      ) : null}
+      {showDelete ? (
+        <ConfirmDialog
+          title="Delete Event Forwarder?"
+          color="red"
+          yesText="Delete"
+          content={
+            <Flex direction="column" gap="3">
+              <Text as="div">
+                Deleting an Event Forwarder without stopping ingestion will
+                throw a 400 for any new incoming events. Stop your ingestion
+                first.
+              </Text>
+              <TextField
+                label={'Type "confirm" to delete'}
+                value={deleteConfirmText}
+                onChange={(e) => setDeleteConfirmText(e.target.value)}
+              />
+            </Flex>
+          }
+          onConfirm={async () => {
+            // Case sensitive
+            if (deleteConfirmText !== "confirm") {
+              throw new Error('Type "confirm" to delete.');
+            }
+            await apiCall(`/datasource/${dataSource.id}/event-forwarder`, {
+              method: "DELETE",
+            });
+            setShowDelete(false);
+            await onRefresh();
+          }}
+          onCancel={() => setShowDelete(false)}
+        />
       ) : null}
 
       {eventForwarderConfig &&
@@ -959,6 +1022,10 @@ export default function EventForwarder({
               ) : null}
             </Flex>
             <Flex direction="column" gap="4">
+              <EventForwarderConfigField
+                label="Environment"
+                value={eventForwarderConfig.environment || "All Environments"}
+              />
               {eventForwarderConfig.sinkType === "bigquery" ? (
                 <>
                   <EventForwarderConfigField

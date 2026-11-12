@@ -91,18 +91,24 @@ export type EventForwarderConfigDraft =
       config: BigQueryEventForwarderConfigDraft;
       /** AWS region to provision the forwarder's Kafka/Confluent resources in. Set once at creation. */
       region?: "us-east-1" | "eu-west-1";
+      /** Environment whose events are forwarded; empty means all. */
+      environment?: string;
     }
   | {
       sinkType: "snowflake";
       config: SnowflakeEventForwarderConfigDraft;
       /** AWS region to provision the forwarder's Kafka/Confluent resources in. Set once at creation. */
       region?: "us-east-1" | "eu-west-1";
+      /** Environment whose events are forwarded; empty means all. */
+      environment?: string;
     }
   | {
       sinkType: "databricks";
       config: DatabricksEventForwarderConfigDraft;
       /** AWS region to provision the forwarder's Kafka/Confluent resources in. Set once at creation. */
       region?: "us-east-1" | "eu-west-1";
+      /** Environment whose events are forwarded; empty means all. */
+      environment?: string;
     };
 
 export type EventForwarderConfigWithMetadata = EventForwarderConfigDraft & {

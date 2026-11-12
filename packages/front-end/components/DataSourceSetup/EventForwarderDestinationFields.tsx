@@ -10,6 +10,8 @@ import {
 } from "shared/types/datasource";
 import { DatabricksConnectionParams } from "shared/types/integrations/databricks";
 import { DocLink } from "@/components/DocLink";
+import SelectField from "@/components/Forms/SelectField";
+import { useEnvironments } from "@/services/features";
 import Frame from "@/ui/Frame";
 import Heading from "@/ui/Heading";
 import TextField from "@/ui/TextField";
@@ -18,7 +20,35 @@ export type EventForwarderDestination = {
   location: string;
   tablePrefix: string;
   zerobusEndpoint: string;
+  /** Empty or absent means all environments. */
+  environment?: string;
 };
+
+// Environment whose events this forwarder receives; "" is all environments
+export function EventForwarderEnvironmentField({
+  value,
+  onChange,
+  disabled = false,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  disabled?: boolean;
+}) {
+  const environments = useEnvironments();
+  return (
+    <SelectField
+      size="md"
+      legacyLabelFormatting={false}
+      label="Environment"
+      value={value}
+      onChange={onChange}
+      disabled={disabled}
+      initialOption="All Environments"
+      options={environments.map((e) => ({ label: e.id, value: e.id }))}
+      helpText="Only events from SDK Connections in this environment are forwarded."
+    />
+  );
+}
 
 export function eventDestinationEntryHint(
   type: DataSourceType | undefined,
@@ -64,11 +94,15 @@ export function eventForwarderDestinationFromDatasource(
   datasource: Partial<DataSourceInterfaceWithParams>,
 ): EventForwarderDestination {
   const config = datasource.eventForwarderConfig;
+  const environment = config?.environment
+    ? { environment: config.environment }
+    : {};
   if (config?.sinkType === "bigquery") {
     return {
       location: config.config.dataset,
       tablePrefix: config.config.tablePrefix,
       zerobusEndpoint: "",
+      ...environment,
     };
   }
   if (config?.sinkType === "snowflake") {
@@ -76,6 +110,7 @@ export function eventForwarderDestinationFromDatasource(
       location: config.config.schema,
       tablePrefix: config.config.tablePrefix,
       zerobusEndpoint: "",
+      ...environment,
     };
   }
   if (config?.sinkType === "databricks") {
@@ -83,6 +118,7 @@ export function eventForwarderDestinationFromDatasource(
       location: config.config.schema,
       tablePrefix: config.config.tablePrefix,
       zerobusEndpoint: config.config.zerobusEndpoint,
+      ...environment,
     };
   }
   return defaultEventForwarderDestination(datasource.type || "bigquery");
@@ -97,6 +133,8 @@ export default function EventForwarderDestinationFields({
   onLocationChange,
   onTablePrefixChange,
   onZerobusEndpointChange,
+  environment = "",
+  onEnvironmentChange,
   disabled = false,
   embedded = false,
   schemaDefaultsToConnection = false,
@@ -109,6 +147,8 @@ export default function EventForwarderDestinationFields({
   onLocationChange: (value: string) => void;
   onTablePrefixChange: (value: string) => void;
   onZerobusEndpointChange: (value: string) => void;
+  environment?: string;
+  onEnvironmentChange: (value: string) => void;
   disabled?: boolean;
   embedded?: boolean;
   /** Snowflake connect form fills an unedited schema from the connection. */
@@ -193,6 +233,13 @@ export default function EventForwarderDestinationFields({
           />
         </Box>
       ) : null}
+      <Box mt="3">
+        <EventForwarderEnvironmentField
+          value={environment}
+          onChange={onEnvironmentChange}
+          disabled={disabled}
+        />
+      </Box>
     </>
   );
 

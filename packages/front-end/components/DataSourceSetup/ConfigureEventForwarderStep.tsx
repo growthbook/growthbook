@@ -105,6 +105,10 @@ export default function ConfigureEventForwarderStep({
         location={destination.location}
         tablePrefix={destination.tablePrefix}
         zerobusEndpoint={destination.zerobusEndpoint}
+        environment={destination.environment}
+        onEnvironmentChange={(environment) =>
+          setDestination((current) => ({ ...current, environment }))
+        }
         onLocationChange={(location) =>
           setDestination((current) => ({ ...current, location }))
         }
