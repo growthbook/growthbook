@@ -140,18 +140,30 @@ describe("getShowAsChoice", () => {
     ).toEqual(none);
   });
 
-  it("renders the saved choice while the metric hasn't loaded", () => {
-    const savedPerUnit = { options: [], showAs: "per_unit" };
+  it("treats a saved choice as a mean while the metric hasn't loaded", () => {
     expect(
       getShowAsChoice(
         metricValue("loading", "per_unit"),
         undefined,
         getFactMetricById,
       ),
-    ).toEqual(savedPerUnit);
+    ).toEqual(mean("per_unit"));
     expect(
       getShowAsChoice(metricValue("loading"), "per_unit", getFactMetricById),
-    ).toEqual(savedPerUnit);
+    ).toEqual(mean("per_unit"));
+  });
+
+  it("offers no choice for an unloaded value without a saved choice", () => {
+    expect(
+      getShowAsChoice(metricValue("loading"), undefined, getFactMetricById),
+    ).toEqual(none);
+    expect(
+      getShowAsChoice(
+        metricValue("", "per_unit"),
+        undefined,
+        getFactMetricById,
+      ),
+    ).toEqual(none);
   });
 
   it("falls back to the deprecated config-level showAs", () => {
