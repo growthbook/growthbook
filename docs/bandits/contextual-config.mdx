@@ -173,7 +173,7 @@ Unlike period weighting, this is set **per bandit**:
 
 1. On the bandit's page, open **Edit Analysis & Metrics**.
 2. Turn on **Increase Bandit exploration**.
-3. Set **Prior variation sample size** — the number of prior (pseudo) observations worth of shrinkage toward the shared mean. It must be a positive integer and defaults to 50.
+3. Set **Prior variation sample size** — the number of prior (pseudo) observations worth of shrinkage toward the shared mean. It defaults to 50.
 4. Save.
 
 You can change this while the bandit is running; it takes effect on the next refresh. Turning the setting back off (or setting the prior sample size to 0) returns to independent per-variation posteriors.
