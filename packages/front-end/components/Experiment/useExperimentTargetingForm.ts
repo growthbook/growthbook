@@ -5,6 +5,7 @@ import {
   ExperimentInterfaceStringDates,
   ExperimentPhaseStringDates,
   ExperimentTargetingData,
+  Variation,
 } from "shared/types/experiment";
 import {
   areVariationWeightsValid,
@@ -40,11 +41,15 @@ export interface UseExperimentTargetingFormResult {
   prerequisiteTargetingSdkIssues: boolean;
   setPrerequisiteTargetingSdkIssues: (v: boolean) => void;
   canSubmit: boolean;
-  /** Writes the form, or hands the validated payload to `stage` instead. */
+  /**
+   * Writes the form, or hands the validated payload to `stage` instead. An
+   * edited variation list is written with it.
+   */
   onSubmit: (
     mutate: () => void,
     scope?: ChangeType,
     stage?: StageTargeting,
+    variations?: Variation[] | null,
   ) => () => Promise<void>;
 }
 
@@ -94,8 +99,21 @@ export function useExperimentTargetingForm(
     mutate: () => void,
     scope: ChangeType = "advanced",
     stage?: StageTargeting,
+    edited?: Variation[] | null,
   ) =>
     form.handleSubmit(async (value) => {
+      // A blank key saves as the variation's position, as its placeholder shows.
+      const variations = edited?.map((v, i) => ({
+        ...v,
+        key: v.key.trim() || String(i),
+      }));
+      if (
+        variations &&
+        new Set(variations.map((v) => v.key)).size !== variations.length
+      ) {
+        throw new Error("Each variation needs its own key.");
+      }
+
       // Targeting fields (saved groups, condition, prerequisites) are only
       // editable from the targeting modal and the unscoped/advanced flow. Skip
       // their non-change-aware validation otherwise so a traffic- or
@@ -185,10 +203,14 @@ export function useExperimentTargetingForm(
       await apiCall(`/experiment/${experiment.id}/changes`, {
         method: "POST",
         body: JSON.stringify({
-          ...experimentFieldChanges(
-            opened.experiment,
-            changedTargeting(value, opened.targeting),
-          ),
+          ...experimentFieldChanges(opened.experiment, {
+            ...changedTargeting(value, opened.targeting),
+            // With the split, so both writes agree on the count.
+            ...(variations && {
+              variations,
+              variationWeights: value.variationWeights,
+            }),
+          }),
           release: { newPhase: value.newPhase, reseed: value.reseed },
         }),
       });

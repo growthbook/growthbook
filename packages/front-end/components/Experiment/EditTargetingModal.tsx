@@ -1,14 +1,20 @@
+import { useRef, useState } from "react";
 import {
   ExperimentInterfaceStringDates,
   ExperimentTargetingData,
   LinkedFeatureInfo,
+  Variation,
 } from "shared/types/experiment";
-import { hasAttributeCondition } from "shared/experiments";
+import {
+  getStorableVariations,
+  hasAttributeCondition,
+} from "shared/experiments";
 import { Box } from "@radix-ui/themes";
 import LinkHashAttributeCallout from "@/components/Experiment/LinkHashAttributeCallout";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useAttributeSchema, useEnvironments } from "@/services/features";
 import TargetingFieldsGroup from "@/components/Features/TargetingFieldsGroup";
+import FeatureVariationsInput from "@/components/Features/FeatureVariationsInput";
 import FallbackAttributeSelector from "@/components/Features/FallbackAttributeSelector";
 import { formatAttributeOptionLabel } from "@/components/Features/AttributeOptionTooltip";
 import SelectField from "@/components/Forms/SelectField";
@@ -16,6 +22,7 @@ import StickyBucketingToggle from "@/components/Experiment/StickyBucketingToggle
 import useOrgSettings from "@/hooks/useOrgSettings";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import HelperText from "@/ui/HelperText";
+import Callout from "@/ui/Callout";
 import {
   followAssignmentAttribute,
   getExposureQueriesInScope,
@@ -39,7 +46,13 @@ import { useExperimentTargetingForm } from "./useExperimentTargetingForm";
 import useHashAttributeOptions from "./useHashAttributeOptions";
 
 export interface Props {
-  section?: "targeting" | "namespace";
+  /**
+   * "changes" is targeting with traffic and variations in one form, saved as
+   * it's submitted, for a started experiment with nothing linked.
+   */
+  section?: "targeting" | "namespace" | "changes";
+  /** Opens the "changes" form scrolled to its traffic and variations. */
+  openAt?: "traffic";
   close: () => void;
   experiment: ExperimentInterfaceStringDates;
   linkedFeatures?: LinkedFeatureInfo[];
@@ -53,6 +66,7 @@ export interface Props {
 
 export default function EditTargetingModal({
   section = "targeting",
+  openAt,
   close,
   experiment,
   linkedFeatures,
@@ -61,6 +75,12 @@ export default function EditTargetingModal({
   stageChanges,
   draft,
 }: Props) {
+  const makesChanges = section === "changes";
+  const stage = makesChanges ? undefined : stageChanges;
+  // Null until the list is edited.
+  const [variations, setVariations] = useState<Variation[] | null>(null);
+  const shownVariations = variations ?? getStorableVariations(experiment);
+  const trafficRef = useRef<HTMLDivElement>(null);
   const { enforcement: enforcementScope, dropdown: dropdownScope } =
     getLinkedExperimentAttributeScopes(experiment.project, linkedFeatures);
 
@@ -131,7 +151,7 @@ export default function EditTargetingModal({
   // table and identifier type it's linked to, as the Data Source modal says.
   const hashAttribute = form.watch("hashAttribute");
   const followed =
-    stageChanges && datasource && hashAttribute !== experiment.hashAttribute
+    stage && datasource && hashAttribute !== experiment.hashAttribute
       ? followAssignmentAttribute({
           queries: getExposureQueriesInScope(datasource, experiment.project),
           hashAttribute,
@@ -171,22 +191,44 @@ export default function EditTargetingModal({
     );
   }
 
-  if (safeToEdit) {
+  if (safeToEdit || makesChanges) {
     return (
       <ModalStandard
-        trackingEventModalType="edit-targeting-modal"
+        trackingEventModalType={
+          makesChanges ? "make-changes" : "edit-targeting-modal"
+        }
         open={true}
         close={close}
-        header="Edit Targeting"
+        header={makesChanges ? "Make Experiment Changes" : "Edit Targeting"}
         ctaEnabled={canSubmit}
-        cta={stageChanges ? "Confirm" : "Save"}
+        cta={stage ? "Confirm" : "Save"}
         submit={async () => {
-          await onSubmit(mutate, "targeting", stageChanges)();
+          await onSubmit(
+            mutate,
+            makesChanges ? "advanced" : "targeting",
+            stage,
+            makesChanges ? variations : null,
+          )();
           trackAddedTargeting();
         }}
+        onOpenAutoFocus={
+          openAt === "traffic"
+            ? (e) => {
+                e.preventDefault();
+                (e.currentTarget as HTMLElement).focus({ preventScroll: true });
+                trafficRef.current?.scrollIntoView();
+              }
+            : undefined
+        }
         size="lg"
       >
         <div className="pt-2">
+          {makesChanges && (
+            <Callout status="info" mb="5">
+              No payload changes are linked to this experiment. These changes
+              are metadata only.
+            </Callout>
+          )}
           {experiment.hashVersion === 1 && (
             <SDKCapabilityWarning
               capability="bucketingV2"
@@ -292,6 +334,45 @@ export default function EditTargetingModal({
               }
             />
           </Box>
+          {makesChanges && (
+            <Box mt="6" ref={trafficRef}>
+              <FeatureVariationsInput
+                valueType="string"
+                valueAsId
+                startEditingIndexes
+                startEditingSplits
+                keepKeysOnReorder
+                coverage={form.watch("coverage")}
+                setCoverage={(coverage) => form.setValue("coverage", coverage)}
+                setWeight={(i, weight) =>
+                  form.setValue(`variationWeights.${i}`, weight)
+                }
+                variations={shownVariations.map((v, i) => ({
+                  value: v.key,
+                  name: v.name,
+                  weight: form.watch(`variationWeights.${i}`),
+                  id: v.id,
+                }))}
+                setVariations={(next) => {
+                  const shown = new Map(shownVariations.map((v) => [v.id, v]));
+                  setVariations(
+                    next.map((v) => ({
+                      description: "",
+                      screenshots: [],
+                      ...shown.get(v.id),
+                      id: v.id,
+                      key: v.value,
+                      name: v.name ?? "",
+                    })),
+                  );
+                  form.setValue(
+                    "variationWeights",
+                    next.map((v) => v.weight),
+                  );
+                }}
+              />
+            </Box>
+          )}
         </div>
       </ModalStandard>
     );

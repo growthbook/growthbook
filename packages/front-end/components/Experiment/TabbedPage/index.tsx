@@ -134,6 +134,8 @@ export interface Props {
   newPhase?: (() => void) | null;
   editPhases?: (() => void) | null;
   editTargeting?: (() => void) | null;
+  /** Opens the Make Changes form, set where it's the way to edit delivery. */
+  makeChanges?: ((openAt?: "traffic") => void) | null;
   /** Targeting confirmed in a modal but not yet written. */
   targetingDraft?: TargetingDraft;
   editTraffic?: (() => void) | null;
@@ -172,6 +174,7 @@ function TabbedPageContents({
   datasourceMissing = false,
   urlRedirects,
   editTargeting,
+  makeChanges,
   targetingDraft,
   editTraffic,
   canAddVariation,
@@ -743,6 +746,7 @@ function TabbedPageContents({
         mutateWatchers={mutateWatchers}
         editResult={editResult || undefined}
         editTargeting={editTargeting}
+        makeChanges={makeChanges ? () => makeChanges() : null}
         detailsOpen={detailsShown}
         setDetailsOpen={toggleDetailsPanel}
         start={start}
@@ -923,6 +927,7 @@ function TabbedPageContents({
                   visualChangesets={visualChangesets}
                   urlRedirects={urlRedirects}
                   editTargeting={editTargeting}
+                  makeChanges={makeChanges}
                   targetingDraft={targetingDraft}
                   analysisSettingsOpen={analysisSettingsOpen}
                   setAnalysisSettingsOpen={showAnalysisSettings}
