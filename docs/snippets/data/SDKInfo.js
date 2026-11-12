@@ -248,7 +248,7 @@ export default {
   },
   php: {
     name: "PHP SDK",
-    version: "3.0.0",
+    version: "3.0.1",
     github: "https://github.com/growthbook/growthbook-php",
     examples: [],
     packageRepos: [
@@ -819,7 +819,7 @@ export default {
   },
   kotlin: {
     name: "Kotlin SDK",
-    version: "10.0.0",
+    version: "10.1.0",
     github: "https://github.com/growthbook/growthbook-kotlin",
     examples: [],
     packageRepos: [
