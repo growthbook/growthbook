@@ -7,6 +7,7 @@ import type {
 } from "shared/validators";
 import {
   getPopulationRuleViolations,
+  getSinglePopulationStep,
   type PopulationRuleFactTable,
 } from "shared/populations";
 import type {
@@ -25,26 +26,25 @@ function isSupportedWithPopulation(
   return POPULATION_METRIC_TYPES.has(metric.metricType);
 }
 
-/** The parts of a saved Population an exploration reads. */
-export type ExplorationSavedPopulation = Pick<
-  PopulationInterface,
-  "id" | "datasource" | "userIdTypes" | "steps"
->;
+export type ParsedMetricExplorationPopulation =
+  | {
+      ok: true;
+      /** The saved Population's single step, counted by the chosen unit. */
+      population: ResolvedExplorationPopulation;
+    }
+  | {
+      ok: false;
+      /** Every problem at once, so an editor can show them together. */
+      violations: string[];
+    };
 
 /**
- * The definition an exploration runs for its Population: the saved
- * Population's single step, counted by the exploration's identifier type.
+ * Validates a metric exploration's Population against its saved definition
+ * and the request, and returns the definition the query runs. The Population
+ * applies to every metric in the request, so one incompatible metric rejects
+ * the request.
  */
-export function resolveExplorationPopulation(
-  population: ExplorationPopulation,
-  savedPopulation: ExplorationSavedPopulation,
-): ResolvedExplorationPopulation {
-  return { ...savedPopulation.steps[0], unit: population.unit };
-}
-
-// The population applies to every metric in the request, so one incompatible
-// metric rejects the request.
-export function getMetricPopulationViolations({
+export function parseMetricExplorationPopulation({
   population,
   savedPopulation,
   values,
@@ -55,30 +55,51 @@ export function getMetricPopulationViolations({
 }: {
   population: ExplorationPopulation;
   /** Null when no saved Population with `population.populationId` can be read. */
-  savedPopulation: ExplorationSavedPopulation | null;
+  savedPopulation: Pick<
+    PopulationInterface,
+    "datasource" | "userIdTypes" | "steps"
+  > | null;
   values: MetricDataset["values"];
   dimensions: ProductAnalyticsDimension[];
   datasource: string;
   metricMap: Map<string, FactMetricInterface>;
   factTableMap: Map<string, PopulationRuleFactTable>;
-}): string[] {
+}): ParsedMetricExplorationPopulation {
   if (!savedPopulation) {
-    return [`Population ${population.populationId} not found.`];
+    return {
+      ok: false,
+      violations: [`Population ${population.populationId} not found.`],
+    };
   }
   if (savedPopulation.datasource !== datasource) {
-    return ["The Population must use the same Data Source as the metrics."];
+    return {
+      ok: false,
+      violations: [
+        "The Population must use the same Data Source as the metrics.",
+      ],
+    };
   }
-  if (savedPopulation.steps.length !== 1) {
-    return [
-      "Only Populations with a single step can be combined with metrics.",
-    ];
+  const step = getSinglePopulationStep(savedPopulation);
+  if (!step) {
+    return {
+      ok: false,
+      violations: [
+        "Only Populations with a single step can be combined with metrics.",
+      ],
+    };
   }
   if (!savedPopulation.userIdTypes.includes(population.unit)) {
-    return [
-      `The Population doesn't support the identifier type "${population.unit}".`,
-    ];
+    return {
+      ok: false,
+      violations: [
+        `The Population doesn't support the identifier type "${population.unit}".`,
+      ],
+    };
   }
-  const resolved = resolveExplorationPopulation(population, savedPopulation);
+  const resolved: ResolvedExplorationPopulation = {
+    ...step,
+    unit: population.unit,
+  };
 
   const violations: string[] = [];
   if (values.some((value) => value.draftMetric)) {
@@ -114,14 +135,16 @@ export function getMetricPopulationViolations({
   if (!values.length) {
     violations.push("Populations require at least one metric.");
   }
+  // Check the Population's own rules only once the metrics fit it.
+  if (violations.length) return { ok: false, violations };
 
-  // return early if there are metric incompatibility violations
-  if (violations.length) return violations;
-
-  return getPopulationRuleViolations({
+  const ruleViolations = getPopulationRuleViolations({
     datasource,
     userIdTypes: [resolved.unit],
     steps: [resolved],
     factTables: [...factTableMap.values()],
   });
+  if (ruleViolations.length) return { ok: false, violations: ruleViolations };
+
+  return { ok: true, population: resolved };
 }

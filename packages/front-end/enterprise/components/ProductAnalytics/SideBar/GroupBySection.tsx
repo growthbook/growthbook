@@ -7,6 +7,7 @@ import type {
   ProductAnalyticsDynamicDimension,
   ProductAnalyticsStaticDimension,
 } from "shared/validators";
+import { configHasPopulation } from "shared/enterprise";
 import Button from "@/ui/Button";
 import {
   getMaxDimensions,
@@ -64,9 +65,7 @@ export default function GroupBySection() {
     getFullFactTableById,
   } = useExplorerContext();
   const { getFactMetricById } = useDefinitions();
-  const hasPopulation =
-    draftExploreState.dataset?.type === "metric" &&
-    draftExploreState.dataset.population !== undefined;
+  const hasPopulation = configHasPopulation(draftExploreState);
   const defaultMaxValues =
     draftExploreState.type === "journey" ? 3 : DEFAULT_MAX_VALUES;
   const [advancedSettingsOpen, setAdvancedSettingsOpen] = useState(

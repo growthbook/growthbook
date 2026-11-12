@@ -5,8 +5,10 @@ import {
   ProductAnalyticsExploration,
   productAnalyticsExplorationValidator,
   omitRenderOnlyFields,
+  PopulationInterface,
 } from "shared/validators";
 import md5 from "md5";
+import { getSinglePopulationStep } from "shared/populations";
 import {
   calculateProductAnalyticsDateRange,
   getDateGranularity,
@@ -179,6 +181,33 @@ const BaseClass = MakeModelClass({
   },
 });
 
+/**
+ * A metric exploration's Population as it appears in the cache key. Matches
+ * the inline definition explorations sent before they referenced saved
+ * Populations, field for field and in the same order, so results cached then
+ * still match.
+ */
+function getPopulationCacheKey(
+  savedPopulation: Pick<PopulationInterface, "steps">,
+  unit: string,
+): object {
+  const step = getSinglePopulationStep(savedPopulation);
+  // Multi-step Populations can't be saved yet; key on every step so one never
+  // collides with a single-step definition.
+  if (!step) return { steps: savedPopulation.steps, unit };
+  return {
+    source: { type: step.source.type, factTableId: step.source.factTableId },
+    rowFilters: step.rowFilters,
+    ...(step.aggregateFilter !== undefined
+      ? { aggregateFilter: step.aggregateFilter }
+      : {}),
+    ...(step.aggregateFilterColumn !== undefined
+      ? { aggregateFilterColumn: step.aggregateFilterColumn }
+      : {}),
+    unit,
+  };
+}
+
 export class AnalyticsExplorationModel extends BaseClass {
   // Every saved exploration in the org, ignoring the caller's read permissions.
   // Only for authoritative dependency scans (e.g. blocking deletion of a fact
@@ -192,9 +221,29 @@ export class AnalyticsExplorationModel extends BaseClass {
     return this._find({}, { bypassReadPermissionChecks: true });
   }
 
-  public getConfigHashes(config: ExplorationConfig) {
+  /**
+   * `savedPopulation` is the saved Population behind a metric dataset's
+   * `population`. Required when the config has one: the cache is keyed on its
+   * definition, so edits to it invalidate cached results and Populations with
+   * the same definition share them.
+   */
+  public getConfigHashes(
+    config: ExplorationConfig,
+    savedPopulation: Pick<PopulationInterface, "steps"> | null = null,
+  ) {
     const dataset = config.dataset;
     if (!dataset) return null;
+
+    let populationKey: object | null = null;
+    if (dataset.type === "metric" && dataset.population) {
+      if (!savedPopulation) {
+        throw new Error("The exploration's saved Population is required");
+      }
+      populationKey = getPopulationCacheKey(
+        savedPopulation,
+        dataset.population.unit,
+      );
+    }
 
     const dateRange = calculateProductAnalyticsDateRange(config.dateRange);
 
@@ -223,9 +272,7 @@ export class AnalyticsExplorationModel extends BaseClass {
         path: dataset.type === "data_source" ? dataset.path : null,
         sql: dataset.type === "sql" ? dataset.sql : null,
         rawTable: config.chartType === "rawTable",
-        ...(dataset.type === "metric" && dataset.population
-          ? { population: dataset.population }
-          : {}),
+        ...(populationKey ? { population: populationKey } : {}),
         timestampColumn:
           dataset.type === "data_source" || dataset.type === "sql"
             ? dataset.timestampColumn
@@ -314,12 +361,19 @@ export class AnalyticsExplorationModel extends BaseClass {
 
   public async findLatestByConfig(
     config: ExplorationConfig,
-    options?: { minUnusedLookahead?: number },
+    options?: {
+      minUnusedLookahead?: number;
+      /** See `getConfigHashes`. */
+      savedPopulation?: Pick<PopulationInterface, "steps"> | null;
+    },
   ) {
     const { dataset } = config;
     if (!dataset) return null;
 
-    const configHashes = this.getConfigHashes(config);
+    const configHashes = this.getConfigHashes(
+      config,
+      options?.savedPopulation ?? null,
+    );
     if (!configHashes) return null;
 
     const query = {
@@ -455,6 +509,8 @@ export class AnalyticsExplorationModel extends BaseClass {
   protected async beforeCreate(
     doc: ProductAnalyticsExploration,
   ): Promise<void> {
+    // Callers that key on a saved Population compute the hashes themselves.
+    if (doc.configHash) return;
     const configHashes = this.getConfigHashes(doc.config);
     if (!configHashes) return;
     doc.configHash = configHashes.generalSettingsHash;

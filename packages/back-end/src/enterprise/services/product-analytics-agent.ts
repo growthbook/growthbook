@@ -397,16 +397,19 @@ function buildResultCsv(
       return typeof raw === "number" ? String(raw) : raw;
     }
     if (raw == null) return "";
+    if (col.kind === "populationCount") return String(raw);
     if (col.sub === "numerator" || col.sub === "denominator") {
       return typeof raw === "number" ? String(raw) : String(raw);
     }
-    // value (ratio) and single: 4dp for ratios/per-unit, integer for totals.
+    // value (ratio) and single: 4dp for divided values (ratios, per unit,
+    // % of Population), integer for totals.
     if (typeof raw === "number") {
-      const isRatioOrPerUnit =
+      const showAs = renderOpts.values[col.metricIndex]?.showAs;
+      const isDividedValue =
         col.sub === "value" ||
-        renderOpts.values[col.metricIndex]?.showAs === "per_unit" ||
-        renderOpts.values[col.metricIndex]?.showAs === "percent_of_population";
-      return isRatioOrPerUnit ? raw.toFixed(4) : String(raw);
+        showAs === "per_unit" ||
+        showAs === "percent_of_population";
+      return isDividedValue ? raw.toFixed(4) : String(raw);
     }
     return String(raw);
   };

@@ -92,12 +92,21 @@ export function getDraftOrSavedMetric(
 }
 
 /**
- * The default `showAs` for a value without an explicit choice: `per_unit` for
- * mean metrics whose total is incoherent — numerator aggregation `max` (a sum
- * of per-unit maxes has no interpretation) or `count distinct` (double-counts
- * values shared across units) — otherwise `total`.
+ * The default `showAs` for a value without an explicit choice:
+ * - `per_unit` for mean metrics whose total is incoherent — numerator
+ *   aggregation `max` (a sum of per-unit maxes has no interpretation) or
+ *   `count distinct` (double-counts values shared across units).
+ * - `percent_of_population` for proportions when the dataset has a
+ *   population, since a share of its members is what a population is for.
+ * - Otherwise `total`.
  */
-export function inferShowAs(metric: ShowAsMetric | null): ShowAs {
+export function inferShowAs(
+  metric: ShowAsMetric | null,
+  hasPopulation: boolean,
+): ShowAs {
+  if (metric?.metricType === "proportion" && hasPopulation) {
+    return "percent_of_population";
+  }
   if (metric?.metricType === "mean") {
     const agg = metric.numerator?.aggregation ?? "sum";
     return agg === "max" || agg === "count distinct" ? "per_unit" : "total";
@@ -130,7 +139,7 @@ export function getShowAsChoice(
   const options = getShowAsOptions(metric.metricType, hasPopulation);
   if (!options.length) return NO_SHOW_AS_CHOICE;
   const showAs =
-    [value.showAs, legacyShowAs, inferShowAs(metric)].find(
+    [value.showAs, legacyShowAs, inferShowAs(metric, hasPopulation)].find(
       (candidate): candidate is ShowAs =>
         candidate !== undefined && options.includes(candidate),
     ) ?? options[0];

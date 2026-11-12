@@ -43332,7 +43332,9 @@ paths:
                                                 metric types. Omit to use the default
                                                 (`per_unit` for mean metrics with `max`
                                                 and `count distinct` aggregations,
-                                                otherwise `total`).
+                                                `percent_of_population` for proportion
+                                                metrics with a population, otherwise
+                                                `total`).
                                               type: string
                                               enum:
                                                 - total
@@ -46758,7 +46760,9 @@ paths:
                                                 metric types. Omit to use the default
                                                 (`per_unit` for mean metrics with `max`
                                                 and `count distinct` aggregations,
-                                                otherwise `total`).
+                                                `percent_of_population` for proportion
+                                                metrics with a population, otherwise
+                                                `total`).
                                               type: string
                                               enum:
                                                 - total
@@ -50379,7 +50383,9 @@ paths:
                                             metric types. Omit to use the default
                                             (`per_unit` for mean metrics with `max`
                                             and `count distinct` aggregations,
-                                            otherwise `total`).
+                                            `percent_of_population` for proportion
+                                            metrics with a population, otherwise
+                                            `total`).
                                           type: string
                                           enum:
                                             - total
@@ -54002,7 +54008,9 @@ paths:
                                             metric types. Omit to use the default
                                             (`per_unit` for mean metrics with `max`
                                             and `count distinct` aggregations,
-                                            otherwise `total`).
+                                            `percent_of_population` for proportion
+                                            metrics with a population, otherwise
+                                            `total`).
                                           type: string
                                           enum:
                                             - total
@@ -60096,8 +60104,9 @@ paths:
                               percentage (proportion metrics with a population
                               only). Ignored for other metric types. Omit to use
                               the default (`per_unit` for mean metrics with
-                              `max` and `count distinct` aggregations, otherwise
-                              `total`).
+                              `max` and `count distinct` aggregations,
+                              `percent_of_population` for proportion metrics
+                              with a population, otherwise `total`).
                             type: string
                             enum:
                               - total
@@ -60566,7 +60575,9 @@ paths:
                                             metric types. Omit to use the default
                                             (`per_unit` for mean metrics with `max`
                                             and `count distinct` aggregations,
-                                            otherwise `total`).
+                                            `percent_of_population` for proportion
+                                            metrics with a population, otherwise
+                                            `total`).
                                           type: string
                                           enum:
                                             - total
@@ -83844,7 +83855,9 @@ components:
                                     Ignored for other metric types. Omit to use
                                     the default (`per_unit` for mean metrics
                                     with `max` and `count distinct`
-                                    aggregations, otherwise `total`).
+                                    aggregations, `percent_of_population` for
+                                    proportion metrics with a population,
+                                    otherwise `total`).
                                   type: string
                                   enum:
                                     - total
@@ -87462,8 +87475,9 @@ components:
                               percentage (proportion metrics with a population
                               only). Ignored for other metric types. Omit to use
                               the default (`per_unit` for mean metrics with
-                              `max` and `count distinct` aggregations, otherwise
-                              `total`).
+                              `max` and `count distinct` aggregations,
+                              `percent_of_population` for proportion metrics
+                              with a population, otherwise `total`).
                             type: string
                             enum:
                               - total

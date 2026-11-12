@@ -1,7 +1,9 @@
 import {
   buildExplorationColumns,
+  getExplorationCellValue,
   getDefaultValueAxisName,
   getEffectiveMetricValue,
+  getSecondaryValueAxisName,
   getExplorationRenderOpts,
   getShowAsChoice,
   getShowAsOptions,
@@ -398,7 +400,9 @@ describe("getEffectiveMetricValue", () => {
     );
     const cell = { numerator: 100, denominator: 4 };
     expect(
-      [0, 1, 2].map((i) => getEffectiveMetricValue(cell, opts.values[i])),
+      [0, 1, 2].map((i) =>
+        getEffectiveMetricValue(cell, opts.values[i], undefined),
+      ),
     ).toEqual([100, 25, 100]);
   });
 });
@@ -418,7 +422,11 @@ describe("getEffectiveMetricValue for ratios", () => {
       getFactMetricById,
     ).values;
     expect(
-      getEffectiveMetricValue({ numerator: 100, denominator: 4 }, opts),
+      getEffectiveMetricValue(
+        { numerator: 100, denominator: 4 },
+        opts,
+        undefined,
+      ),
     ).toBe(25);
   });
 });
@@ -620,7 +628,8 @@ describe("proportions with a population", () => {
     expect(getShowAsOptions("mean", true)).toEqual(MEAN_OPTIONS);
   });
 
-  it("defaults to total", () => {
+  it("defaults to % of Population, keeping an explicit choice", () => {
+    const options = ["total", "percent_of_population"];
     expect(
       getShowAsChoice(
         metricValue("converted"),
@@ -628,7 +637,26 @@ describe("proportions with a population", () => {
         getFactMetricById,
         true,
       ),
-    ).toEqual({ options: ["total", "percent_of_population"], showAs: "total" });
+    ).toEqual({ options, showAs: "percent_of_population" });
+    expect(
+      getShowAsChoice(
+        metricValue("converted", "total"),
+        undefined,
+        getFactMetricById,
+        true,
+      ),
+    ).toEqual({ options, showAs: "total" });
+  });
+
+  it("defaults proportions to totals without a population", () => {
+    expect(
+      getShowAsChoice(
+        metricValue("converted"),
+        undefined,
+        getFactMetricById,
+        false,
+      ),
+    ).toEqual(none);
   });
 
   it("divides by the population count as a percentage", () => {
@@ -655,6 +683,59 @@ describe("proportions with a population", () => {
     expect(
       normalizeShowAs(withoutPopulation, getFactMetricById).dataset,
     ).toEqual({ type: "metric", values: [metricValue("converted")] });
+  });
+
+  it("adds the Population count as the last table column", () => {
+    const config = populationConfig([metricValue("converted")]);
+    const renderOpts = getExplorationRenderOpts(config, getFactMetricById);
+    const columns = buildExplorationColumns(config, renderOpts);
+    const lastColumn = columns[columns.length - 1];
+    expect(lastColumn).toEqual({
+      kind: "populationCount",
+      key: "__population_count__",
+      label: "Population count",
+    });
+    const row = {
+      dimensions: [],
+      values: [{ numerator: 25, denominator: 25 }],
+      populationCount: 200,
+    };
+    expect(getExplorationCellValue(row, lastColumn, renderOpts)).toBe(200);
+
+    const withoutPopulation = metricConfig([metricValue("converted")]);
+    const columnsWithoutPopulation = buildExplorationColumns(
+      withoutPopulation,
+      getExplorationRenderOpts(withoutPopulation, getFactMetricById),
+    );
+    for (const column of columnsWithoutPopulation) {
+      expect(column.kind).not.toBe("populationCount");
+    }
+  });
+
+  it("moves % of Population to a right-hand axis when mixed with totals", () => {
+    const renderOpts = getExplorationRenderOpts(
+      populationConfig([
+        metricValue("converted", "total"),
+        metricValue("converted", "percent_of_population"),
+      ]),
+      getFactMetricById,
+    );
+    expect(renderOpts.secondaryAxisValueIndexes).toEqual([1]);
+    expect(getDefaultValueAxisName(renderOpts)).toBe("Total");
+    expect(getSecondaryValueAxisName(renderOpts)).toBe("% of Population");
+  });
+
+  it("keeps one axis when every value is a % of Population", () => {
+    const renderOpts = getExplorationRenderOpts(
+      populationConfig([
+        metricValue("converted", "percent_of_population"),
+        metricValue("converted", "percent_of_population"),
+      ]),
+      getFactMetricById,
+    );
+    expect(renderOpts.secondaryAxisValueIndexes).toEqual([]);
+    expect(getSecondaryValueAxisName(renderOpts)).toBeNull();
+    expect(getDefaultValueAxisName(renderOpts)).toBe("% of Population");
   });
 
   it("titles the value axis", () => {
