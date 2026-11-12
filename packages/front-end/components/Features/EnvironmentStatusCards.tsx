@@ -202,7 +202,6 @@ function Attributes({ names }: { names: string[] }) {
       {names.map((name, i) => (
         <Fragment key={name}>
           {i ? " or " : null}
-          {/* A long name is cut short, with its whole on hover. */}
           <ClampedName
             name={name}
             className={`${styles.attribute} ${styles.clamped}`}
@@ -374,7 +373,6 @@ function StepFields({
               },
             ]
           : []),
-        // The SDK skips it for a user without the attribute.
         ...(bucketing
           ? [
               {

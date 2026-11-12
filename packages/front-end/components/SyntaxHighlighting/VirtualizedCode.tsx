@@ -128,10 +128,10 @@ export default function VirtualizedCode({
       measuredWidth = null;
       update();
     };
-    document.fonts?.addEventListener("loadingdone", remeasure);
+    document.fonts.addEventListener("loadingdone", remeasure);
     return () => {
       observer.disconnect();
-      document.fonts?.removeEventListener("loadingdone", remeasure);
+      document.fonts.removeEventListener("loadingdone", remeasure);
     };
   }, []);
   // New estimates apply to rows not yet measured. Clearing the stale ones
