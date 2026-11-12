@@ -1,7 +1,9 @@
 import { useDefinitions } from "@/services/DefinitionsContext";
+import { useEnvironments } from "@/services/features";
 import { isCloud } from "@/services/env";
 import { useUser } from "@/services/UserContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import { ALL_ENVIRONMENTS_TAKEN_MESSAGE } from "./EventForwarderDestinationFields";
 
 export type DataSourceOptionKey = "managed" | "event-forwarder" | "custom";
 
@@ -37,6 +39,7 @@ function getEventPipelineAvailability({
   canCreate,
   isLegacyProPlan,
   hasCommercialFeature,
+  unavailableReason,
 }: {
   name: string;
   existingId: string | undefined;
@@ -44,6 +47,8 @@ function getEventPipelineAvailability({
   canCreate: boolean;
   isLegacyProPlan: boolean;
   hasCommercialFeature: boolean;
+  // Another one cannot be added right now
+  unavailableReason?: string;
 }): DataSourceOptionAvailability {
   if (existingId) return { status: "already-set-up", datasourceId: existingId };
   if (existsInOrg) {
@@ -56,6 +61,9 @@ function getEventPipelineAvailability({
   if (!canCreate) return NO_PERMISSION;
   if (isLegacyProPlan) return LEGACY_PRO_PLAN;
   if (!hasCommercialFeature) return { status: "upgrade-required" };
+  if (unavailableReason) {
+    return { status: "unavailable", reason: unavailableReason };
+  }
   return { status: "available" };
 }
 
@@ -63,8 +71,24 @@ export function useDataSourceOptionEligibility(): Record<
   DataSourceOptionKey,
   DataSourceOptionAvailability
 > {
-  const { datasources, project, projects, hasManagedWarehouse } =
-    useDefinitions();
+  const {
+    datasources,
+    project,
+    projects,
+    hasManagedWarehouse,
+    eventForwarderEnvironments,
+  } = useDefinitions();
+  const environments = useEnvironments();
+  // No environment left for a new forwarder, so say so before the connection form
+  const noFreeEnvironmentReason = eventForwarderEnvironments.some(
+    (e) => !e.environment,
+  )
+    ? ALL_ENVIRONMENTS_TAKEN_MESSAGE
+    : environments.every((env) =>
+          eventForwarderEnvironments.some((e) => e.environment === env.id),
+        )
+      ? "Every environment already goes to an Event Forwarder."
+      : undefined;
   const { effectiveAccountPlan, license, hasCommercialFeature } = useUser();
   const permissionsUtil = usePermissionsUtil();
 
@@ -96,6 +120,7 @@ export function useDataSourceOptionEligibility(): Record<
       canCreate,
       isLegacyProPlan,
       hasCommercialFeature: hasCommercialFeature("events-forwarder"),
+      unavailableReason: noFreeEnvironmentReason,
     }),
     custom: canCreate ? { status: "available" } : NO_PERMISSION,
   };

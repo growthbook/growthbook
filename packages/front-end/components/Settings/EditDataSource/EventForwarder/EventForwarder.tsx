@@ -56,6 +56,7 @@ import Heading from "@/ui/Heading";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import UITooltip from "@/ui/Tooltip";
 import ConfirmDialog from "@/ui/ConfirmDialog";
 import Modal from "@/ui/Modal";
 import ModalForm, { useModalForm } from "@/ui/Modal/ModalForm";
@@ -910,10 +911,10 @@ export default function EventForwarder({
             ) : null}
             {/* Running forwarders show it disabled, so deletion is discoverable */}
             {canEdit && (isReady || isPaused) ? (
-              <Tooltip
-                body="Pause the Event Forwarder before deleting it."
-                shouldDisplay={!isPaused}
-                tipPosition="top"
+              <UITooltip
+                content="Pause the Event Forwarder before deleting it."
+                enabled={!isPaused}
+                side="top"
               >
                 <Button
                   variant="outline"
@@ -925,7 +926,7 @@ export default function EventForwarder({
                 >
                   Delete
                 </Button>
-              </Tooltip>
+              </UITooltip>
             ) : null}
           </Flex>
         </Flex>

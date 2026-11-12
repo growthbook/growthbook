@@ -26,7 +26,7 @@ export type EventForwarderDestination = {
   environment?: string;
 };
 
-const ALL_ENVIRONMENTS_TAKEN_MESSAGE =
+export const ALL_ENVIRONMENTS_TAKEN_MESSAGE =
   "Another Event Forwarder receives all environments. Set its environment first.";
 
 // Environment whose events a forwarder receives; "" is all environments.
@@ -66,13 +66,15 @@ export function EventForwarderEnvironmentSelect({
         disabled={disabled}
         initialOption={allowAll ? "All Environments" : undefined}
         placeholder="Select an environment"
+        required={!allowAll}
+        markRequired={!allowAll}
         options={environments.map((e) => {
           const taken = others.includes(e);
           return {
-            label: e,
+            // In the label: SelectField options have no working tooltip
+            label: taken ? `${e} (used by another Event Forwarder)` : e,
             value: e,
             isDisabled: taken,
-            tooltip: taken ? "Used by another Event Forwarder" : undefined,
           };
         })}
         helpText={helpText}
