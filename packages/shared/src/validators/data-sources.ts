@@ -72,6 +72,31 @@ export const apiDataSourceValidator = namedSchema(
             ),
         }),
       ),
+      featureUsageQueries: z
+        .array(
+          z.object({
+            id: z.string(),
+            description: z.string().max(MAX_DESCRIPTION_LENGTH),
+            sql: z.string(),
+            identifierTypes: z
+              .array(z.string())
+              .describe("Identifier types the query returns a column for"),
+            columnMapping: featureUsageQueryColumnMappingValidator
+              .optional()
+              .describe(
+                "The column `sql` returns for each role, where it isn't the standard name (`timestamp`, `feature_key`, `environment`, `value`, `rule_id`, `variation_id`, `source`, `revision`, or the identifier type's own name). An identifier can be a field inside a JSON column, like `attributes.customerId`. Roles not listed use the standard name.",
+              ),
+            managed: z
+              .boolean()
+              .describe(
+                "Generated and kept up to date by GrowthBook, for example by the Event Forwarder",
+              ),
+            error: z.string().optional(),
+          }),
+        )
+        .describe(
+          "Queries Feature Diagnostics reads flag evaluations from. Diagnostics uses the first one, or the managed one if there is one.",
+        ),
       identifierJoinQueries: z.array(
         z.object({
           identifierTypes: z.array(z.string()),

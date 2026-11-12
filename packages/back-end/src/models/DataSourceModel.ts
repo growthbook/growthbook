@@ -960,6 +960,15 @@ export function toDataSourceApiInterface(
       projects: q.projects || [],
       ...(q.columnMapping ? { columnMapping: q.columnMapping } : {}),
     })),
+    featureUsageQueries: (settings?.queries?.featureUsage || []).map((q) => ({
+      id: q.id,
+      description: q.description || "",
+      sql: q.query,
+      identifierTypes: q.userIdTypes || [],
+      ...(q.columnMapping ? { columnMapping: q.columnMapping } : {}),
+      managed: isEventForwarderManaged(q),
+      ...(q.error ? { error: q.error } : {}),
+    })),
     identifierJoinQueries: (settings?.queries?.identityJoins || []).map(
       (q) => ({
         identifierTypes: q.ids,
