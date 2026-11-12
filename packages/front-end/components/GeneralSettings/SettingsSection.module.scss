@@ -48,8 +48,8 @@
   background: var(--color-panel-solid);
   border-top: 1px solid var(--gray-a5);
   box-shadow:
-    0 -1px 2px rgba(0, 0, 0, 0.1),
-    0 -4px 4px rgba(0, 0, 0, 0.025);
+    0 -1px 2px var(--lift-shadow-near),
+    0 -4px 4px var(--lift-shadow-far);
 
   // Without the sub nav, the count lines up with the page content instead.
   @media (max-width: 1399px) {

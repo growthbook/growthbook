@@ -7,6 +7,7 @@ import LazyDiffViewer from "@/components/AuditHistoryExplorer/LazyDiffViewer";
 import ConditionDisplay from "@/components/Features/ConditionDisplay";
 import Text from "@/ui/Text";
 import Badge from "@/ui/Badge";
+import ScrollArea from "@/ui/ScrollArea";
 import {
   ChangeField,
   toConditionString,
@@ -48,30 +49,35 @@ function ValuesBox({
       >
         {marker}
       </Box>
-      <Box
+      <ScrollArea
+        edgeCue="fade"
         style={{
           flex: 1,
           border: "1px solid var(--gray-5)",
           borderRadius: "var(--radius-2)",
-          padding: "6px 10px",
           background: "var(--gray-2)",
           maxHeight: 120,
-          overflowY: "auto",
-          whiteSpace: "pre-wrap",
-          wordBreak: "break-word",
-          fontSize: "var(--font-size-1)",
-          lineHeight: 1.5,
-          fontFamily: "var(--code-font-family)",
         }}
       >
-        {values.length ? (
-          values.join("\n")
-        ) : (
-          <Text fontStyle="italic" color="text-low">
-            None
-          </Text>
-        )}
-      </Box>
+        <Box
+          style={{
+            padding: "6px 10px",
+            whiteSpace: "pre-wrap",
+            wordBreak: "break-word",
+            fontSize: "var(--font-size-1)",
+            lineHeight: 1.5,
+            fontFamily: "var(--code-font-family)",
+          }}
+        >
+          {values.length ? (
+            values.join("\n")
+          ) : (
+            <Text fontStyle="italic" color="text-low">
+              None
+            </Text>
+          )}
+        </Box>
+      </ScrollArea>
     </Flex>
   );
 }
@@ -133,9 +139,10 @@ function ValueChangedField({
           <Text weight="semibold">{label}</Text>
         </Box>
       )}
-      <Box
+      <ScrollArea
+        edgeCue="fade"
         className="diff-wrapper diff-wrapper-compact"
-        style={{ maxHeight: 250, overflowY: "auto" }}
+        style={{ maxHeight: 250 }}
       >
         <LazyDiffViewer
           oldValue={pre ?? ""}
@@ -143,7 +150,7 @@ function ValueChangedField({
           compareMethod={DiffMethod.LINES}
           styles={COMPACT_DIFF_STYLES}
         />
-      </Box>
+      </ScrollArea>
     </Box>
   );
 }

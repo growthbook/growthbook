@@ -10,6 +10,7 @@ import {
   liveRevisionFromFeature,
   buildEffectiveDraft,
   filterEnvironmentsByFeature,
+  killSwitchReviewScope,
 } from "shared/util";
 import Switch from "@/ui/Switch";
 import Text from "@/ui/Text";
@@ -357,13 +358,8 @@ export default function KillSwitchModal({
   };
 
   // Environments gated by kill-switch approval policy.
-  const gatedEnvSet: Set<string> | "all" | "none" = (() => {
-    if (rawRequireReviews === true) return "all";
-    if (!reviewSetting?.requireReviewOn) return "none";
-    if (reviewSetting.featureRequireEnvironmentReview === false) return "none";
-    const gatedEnvs = reviewSetting.environments ?? [];
-    return gatedEnvs.length === 0 ? "all" : new Set(gatedEnvs);
-  })();
+  const gatedEnvSet =
+    rawRequireReviews === true ? "all" : killSwitchReviewScope(reviewSetting);
 
   const liveEnvSettings = liveDoc.environmentSettings ?? {};
   const envIsGated =

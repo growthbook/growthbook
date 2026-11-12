@@ -341,7 +341,7 @@ export default function RevisionSummaryCard({
             <div
               style={{
                 width: "100%",
-                backgroundColor: "var(--color-background)",
+                backgroundColor: "var(--color-panel-solid)",
                 borderRadius: "var(--radius-3)",
                 overflow: "hidden",
                 maxWidth: bannerPinned ? 1280 : 1500,
