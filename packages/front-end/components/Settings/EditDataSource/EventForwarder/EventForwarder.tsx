@@ -880,43 +880,54 @@ export default function EventForwarder({
             )}
           </Flex>
 
-          {canToggle || canRestart ? (
-            <Button
-              variant="outline"
-              color={"color" in actionButton ? actionButton.color : undefined}
-              icon={actionButton.icon}
-              iconPosition="left"
-              loading={pauseResumeLoading}
-              onClick={async () => {
-                setError(null);
-                setPauseResumeLoading(true);
-                try {
-                  await apiCall(
-                    `/datasource/${dataSource.id}/event-forwarder/${action}`,
-                    { method: "POST" },
-                  );
-                  await onRefresh();
-                } catch (e) {
-                  setError(e instanceof Error ? e.message : "Action failed");
-                } finally {
-                  setPauseResumeLoading(false);
-                }
-              }}
-            >
-              {actionButton.label}
-            </Button>
-          ) : null}
-          {canEdit && isPaused ? (
-            <Button
-              variant="outline"
-              color="red"
-              icon={<PiTrash />}
-              iconPosition="left"
-              onClick={() => setShowDelete(true)}
-            >
-              Delete
-            </Button>
-          ) : null}
+          {/* One group, so the header's space-between keeps them together */}
+          <Flex align="center" gap="2">
+            {canToggle || canRestart ? (
+              <Button
+                variant="outline"
+                color={"color" in actionButton ? actionButton.color : undefined}
+                icon={actionButton.icon}
+                iconPosition="left"
+                loading={pauseResumeLoading}
+                onClick={async () => {
+                  setError(null);
+                  setPauseResumeLoading(true);
+                  try {
+                    await apiCall(
+                      `/datasource/${dataSource.id}/event-forwarder/${action}`,
+                      { method: "POST" },
+                    );
+                    await onRefresh();
+                  } catch (e) {
+                    setError(e instanceof Error ? e.message : "Action failed");
+                  } finally {
+                    setPauseResumeLoading(false);
+                  }
+                }}
+              >
+                {actionButton.label}
+              </Button>
+            ) : null}
+            {/* Running forwarders show it disabled, so deletion is discoverable */}
+            {canEdit && (isReady || isPaused) ? (
+              <Tooltip
+                body="Pause the Event Forwarder before deleting it."
+                shouldDisplay={!isPaused}
+                tipPosition="top"
+              >
+                <Button
+                  variant="outline"
+                  color="red"
+                  icon={<PiTrash />}
+                  iconPosition="left"
+                  disabled={!isPaused}
+                  onClick={() => setShowDelete(true)}
+                >
+                  Delete
+                </Button>
+              </Tooltip>
+            ) : null}
+          </Flex>
         </Flex>
       ) : null}
       {showDelete ? (
