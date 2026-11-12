@@ -1,12 +1,10 @@
 import { isEqual } from "lodash";
 import type { FactTableInterface } from "shared/types/fact-table";
 import type {
-  ExplorationConfig,
   JourneyDataset,
   JourneyPathStep,
   JourneyStepGroup,
   ProductAnalyticsDimension,
-  ProductAnalyticsExploration,
   ProductAnalyticsJourneyRow,
   ProductAnalyticsResultRow,
 } from "./validators/product-analytics";
@@ -681,48 +679,6 @@ export function journeyDisplayLookaheadDepth(
     }
   }
   return depth;
-}
-
-/** Overlay the requested path and collapse cached lookahead to the display frontier. */
-export function toClientJourneyExploration(
-  exploration: ProductAnalyticsExploration,
-  requested: ExplorationConfig,
-): ProductAnalyticsExploration {
-  if (exploration.config.type !== "journey" || requested.type !== "journey") {
-    return {
-      ...exploration,
-      config: {
-        ...exploration.config,
-        chartType: requested.chartType,
-        showAs: requested.showAs,
-        chartSettings: requested.chartSettings,
-        dateRange: requested.dateRange,
-      },
-    };
-  }
-  const cachedDataset = exploration.config.dataset;
-  const requestedDataset = requested.dataset;
-  const rows = projectJourneyRows({
-    cachedDataset,
-    cachedRows: exploration.result?.rows ?? [],
-    requestedDataset,
-  });
-  return {
-    ...exploration,
-    config: {
-      ...exploration.config,
-      chartType: requested.chartType,
-      showAs: requested.showAs,
-      chartSettings: requested.chartSettings,
-      dateRange: requested.dateRange,
-      dataset: {
-        ...cachedDataset,
-        path: requestedDataset.path,
-        optionsPerStep: requestedDataset.optionsPerStep,
-      },
-    },
-    result: { ...(exploration.result ?? { rows: [] }), rows },
-  };
 }
 
 export function journeyDimValueCount(

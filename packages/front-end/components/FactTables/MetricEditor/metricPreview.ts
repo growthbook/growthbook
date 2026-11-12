@@ -117,7 +117,6 @@ export function getMetricPreviewConfig(
     dateRange,
     type: "metric",
     chartType: "bar",
-    ...(metric.metricType === "mean" ? { showAs: "per_unit" as const } : {}),
     dataset: {
       type: "metric",
       values: [
@@ -129,6 +128,9 @@ export function getMetricPreviewConfig(
           rowFilters: [],
           unit,
           denominatorUnit,
+          ...(metric.metricType === "mean"
+            ? { showAs: "per_unit" as const }
+            : {}),
         },
       ],
     },

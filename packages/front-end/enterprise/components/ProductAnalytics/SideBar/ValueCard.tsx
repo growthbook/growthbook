@@ -17,6 +17,7 @@ import Button from "@/ui/Button";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
 import Text from "@/ui/Text";
+import Tooltip from "@/ui/Tooltip";
 import {
   factTableToColumnSource,
   columnTypesToColumnSource,
@@ -29,9 +30,15 @@ type RowFilter = z.infer<typeof rowFilterValidator>;
 export default function ValueCard({
   index,
   children,
+  filterActions,
+  readOnlyUnit = null,
 }: {
   index: number;
   children: React.ReactNode;
+  /** Rendered beside the add-filter buttons. */
+  filterActions?: React.ReactNode;
+  /** Metric charts saved with mixed units show each card's unit here. */
+  readOnlyUnit?: string | null;
 }) {
   const { draftExploreState, updateValueInDataset, deleteValueFromDataset } =
     useExplorerContext();
@@ -127,6 +134,8 @@ export default function ValueCard({
     });
   };
 
+  // Metric explorations pick one unit for the whole chart (MetricTabContent),
+  // so their cards only show the unit when an older config mixes them.
   let supportsUnitSelection = false;
 
   switch (draftExploreState.dataset.type) {
@@ -136,29 +145,10 @@ export default function ValueCard({
       supportsUnitSelection =
         draftExploreState.dataset.values[index].valueType === "unit_count";
       break;
-    case "metric": {
-      const factMetric = getFactMetricById(
-        draftExploreState.dataset.values[index].metricId ?? "",
-      );
-      if (
-        factMetric?.metricType === "mean" ||
-        factMetric?.metricType === "proportion" ||
-        factMetric?.metricType === "retention" ||
-        factMetric?.metricType === "dailyParticipation"
-      ) {
-        supportsUnitSelection = true;
-      } else if (
-        factMetric?.metricType === "ratio" &&
-        factMetric.numerator.column === "$$distinctUsers"
-      ) {
-        supportsUnitSelection = true;
-        // TODO: handle separate denominator unit selector
-      }
-      break;
-    }
     case "population":
       supportsUnitSelection = true;
       break;
+    case "metric":
     case "funnel":
     case "journey":
       break;
@@ -217,6 +207,16 @@ export default function ValueCard({
           )}
         </Flex>
         <Flex align="center" style={{ flexShrink: 0 }}>
+          {readOnlyUnit && (
+            <Tooltip content="Identifier type">
+              <Flex align="center" gap="1" mr="2">
+                <PiUserFill size={12} />
+                <Text size="sm" color="text-low">
+                  {readOnlyUnit}
+                </Text>
+              </Flex>
+            </Tooltip>
+          )}
           <Button
             variant="ghost"
             size="sm"
@@ -278,6 +278,7 @@ export default function ValueCard({
                     ))}
                   </DropdownMenu>
                 )}
+                {filterActions}
               </ExplorerRowFilterInput>
             </Box>
           )}
