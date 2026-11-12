@@ -145,6 +145,39 @@ This step can also be done via the REST API by:
 - Linking the feature flag to the contextual bandit via the [addContextualBanditLinkedFeature](/api/ContextualBandits/operation/addContextualBanditLinkedFeature) endpoint.
 - Starting the contextual bandit via the [startContextualBandit](/api/ContextualBandits/operation/startContextualBandit) endpoint.
 
+## Optional: results tuning
+
+Two optional settings change how GrowthBook updates variation weights. Both are off by default — reach for them only if the defaults don't fit your use case.
+
+### Turn on period weighting (weight results across update periods)
+
+As a bandit shifts traffic, each variation ends up with a different mix of early and recent users, which can make identical variations look different. **Period weighting** corrects for this: GrowthBook groups users into cohorts by their first exposure period, then weights the data by cohort shares. See [Weighting results across update periods](/bandits/overview#weighting-results-across-update-periods) for the full explanation.
+
+For contextual bandits this is a single organization-level toggle:
+
+1. Go to **Settings → General → Bandit Settings**.
+2. Enable **Weight results across update periods**.
+3. Save.
+
+A few things to know:
+
+- **It's organization-wide.** The toggle applies to every contextual bandit in your organization and can't be set per bandit. (Multi-armed bandits weight results across periods by default, independent of this setting.)
+- **It takes effect only when properly configured.** GrowthBook identifies each period by the `bandit_version` column, so your [Contextual Bandit Assignment Query](#4-create-a-contextual-bandit-assignment-query) must select `bandit_version`, and the bandit must have been created after this feature shipped. Eligible bandits pick up the change on their next refresh.
+- **It trades bias for variance.** Weighting reduces bias from shifting traffic but adds some variance to your decision-metric estimates.
+
+### Increase exploration with a prior sample size
+
+By default each variation's posterior is formed from its own data, so the bandit starts exploiting differences as soon as they appear. If you want the bandit to be more cautious and lean towards exploration, increase the **prior sample size**. The prior sample shrinks every variation's mean toward a shared mean, flattening the weights. Larger values explore more; a value of 0 recovers the independent-variation default. See [Prior sample size and exploration](/statistics/contextual-bandit-technical#prior-sample-size-and-exploration) for the underlying model.
+
+Unlike period weighting, this is set **per bandit**:
+
+1. On the bandit's page, open **Edit Analysis & Metrics**.
+2. Turn on **Increase Bandit exploration**.
+3. Set **Prior variation sample size** — the number of prior (pseudo) observations worth of shrinkage toward the shared mean. It must be a positive integer and defaults to 50.
+4. Save.
+
+You can change this while the bandit is running; it takes effect on the next refresh. Turning the setting back off (or setting the prior sample size to 0) returns to independent per-variation posteriors.
+
 ## Next steps
 
 - [Driving a Contextual Bandit via API](/bandits/contextual-via-api) — run the same lifecycle entirely from the REST API, including refreshing and reading results.
