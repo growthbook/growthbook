@@ -569,6 +569,22 @@ describe("getEnvironmentStatus", () => {
     ).toEqual({ kind: "varies" });
   });
 
+  it("lets whoever lacks a split's attribute past it to the default", () => {
+    const allTrue = {
+      ...experimentRule,
+      variations: [
+        { variationId: "v0", value: "true" },
+        { variationId: "v1", value: "true" },
+      ],
+    } as FeatureRule;
+    expect(
+      status([
+        ruleTrafficStep(force("true", '{"country":"US"}')),
+        ruleTrafficStep(allTrue, { experiment: experiment() }),
+      ]).value,
+    ).toEqual({ kind: "varies" });
+  });
+
   it("puts the holdout ahead of prerequisite targeting, as the SDK does", () => {
     const holdout = holdoutTrafficStep(
       "false",

@@ -590,7 +590,8 @@ export function getEnvironmentStatus({
           .filter((s) => s.share > EPSILON)
           .forEach((s) => values.add(s.value));
         rest.push(step);
-        if ((taken ?? 0) >= 1 - EPSILON) {
+        // One that buckets lets through whoever lacks its attribute.
+        if ((taken ?? 0) >= 1 - EPSILON && !step.hashAttribute) {
           open = false;
           break;
         }
