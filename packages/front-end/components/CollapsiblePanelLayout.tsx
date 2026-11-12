@@ -1,4 +1,5 @@
 import {
+  createContext,
   PointerEvent as ReactPointerEvent,
   ReactNode,
   useEffect,
@@ -20,6 +21,11 @@ const MAX_PANEL_SHARE = 2 / 3;
 const COLLAPSE_DELTA_PX = 60;
 const HANDLE_WIDTH_PX = 20;
 const SLIDE_MS = 160;
+
+// True while the panel slides open or shut, narrowing or widening the content
+// beside it each frame. What reflows in steps (a grid counting its columns)
+// can hold still until it's done, and lay out once.
+export const PanelSlidingContext = createContext(false);
 
 export interface Props {
   children: ReactNode;
@@ -163,6 +169,19 @@ export default function CollapsiblePanelLayout({
     return () => clearTimeout(timer);
   }, [showPanel]);
 
+  const [slidingFor, setSlidingFor] = useState(showPanel);
+  const [sliding, setSliding] = useState(false);
+  if (slidingFor !== showPanel) {
+    setSlidingFor(showPanel);
+    setSliding(true);
+  }
+  useEffect(() => {
+    if (!sliding) return;
+    // An open waits two frames before it starts.
+    const timer = setTimeout(() => setSliding(false), SLIDE_MS + 50);
+    return () => clearTimeout(timer);
+  }, [sliding, showPanel]);
+
   // Two frames: the browser must paint the zero width before it can animate
   // from it.
   useEffect(() => {
@@ -220,7 +239,9 @@ export default function CollapsiblePanelLayout({
         style={{ minWidth: 0, alignSelf: "stretch" }}
       >
         <Box ref={contentBox} flexGrow="1" aria-busy={busy}>
-          {children}
+          <PanelSlidingContext.Provider value={sliding}>
+            {children}
+          </PanelSlidingContext.Provider>
         </Box>
         <div ref={footerBox} className={styles.footer}>
           {footer}

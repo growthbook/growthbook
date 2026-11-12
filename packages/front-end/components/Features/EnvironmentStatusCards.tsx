@@ -2,6 +2,7 @@ import {
   Fragment,
   ReactNode,
   RefObject,
+  useContext,
   useLayoutEffect,
   useRef,
   useState,
@@ -33,6 +34,7 @@ import Link from "@/ui/Link";
 import Text from "@/ui/Text";
 import Tooltip from "@/ui/Tooltip";
 import { useIsOverflowingX } from "@/hooks/useIsOverflowing";
+import { PanelSlidingContext } from "@/components/CollapsiblePanelLayout";
 import ValueDisplay, { BooleanDot } from "./ValueDisplay";
 import StateIcon from "./StateIcon";
 import PrerequisiteTable from "./PrerequisiteTable";
@@ -742,7 +744,10 @@ export default function EnvironmentStatusCards({
   renderToggle: (environment: string) => ReactNode;
   prerequisiteState: PrerequisiteStateRenderer;
 }) {
-  // How many cards a row holds, as the grid lays them out.
+  // How many cards a row holds, as the grid lays them out. Held while the
+  // details panel slides, so cards don't wrap and regroup each frame; counted
+  // again once it stops.
+  const sliding = useContext(PanelSlidingContext);
   const ref = useRef<HTMLDivElement>(null);
   const [columns, setColumns] = useState<number | null>(null);
   useLayoutEffect(() => {
@@ -757,13 +762,21 @@ export default function EnvironmentStatusCards({
     const observer = new ResizeObserver(measure);
     observer.observe(grid);
     return () => observer.disconnect();
-  }, []);
+  }, [sliding]);
   // Past one row, the last place goes to the rest, but at least two show,
   // wrapping if they must. One left over shows in that place itself.
   const overflows = columns !== null && cards.length > Math.max(columns, 3);
   const shown = overflows ? Math.max(2, columns - 1) : cards.length;
   return (
-    <div ref={ref} className={styles.grid}>
+    <div
+      ref={ref}
+      className={styles.grid}
+      style={
+        sliding && columns !== null
+          ? { gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }
+          : undefined
+      }
+    >
       {cards.slice(0, shown).map((card) => (
         <Card
           key={card.id}
