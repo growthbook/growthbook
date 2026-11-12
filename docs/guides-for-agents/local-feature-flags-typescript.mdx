@@ -69,7 +69,7 @@ export const flags = {
         // On for everyone in dev and staging
         { condition: { env: { $in: ["dev", "staging"] } }, force: true },
         // Rolled out to 20% of users everywhere else
-        { force: true, coverage: 0.2 },
+        { force: true, coverage: 0.2, hashAttribute: "id" },
       ],
     },
     // Maximum upload size in MB
@@ -121,7 +121,7 @@ rules: [
   { condition: { plan: "premium" }, force: 20 }, // not one of the plans
   { condition: { paln: "pro" }, force: 20 }, // unknown attribute
   { condition: { plan: "pro" }, force: "20" }, // the flag is a number
-  { force: 20, coverage: 0.2, hashAttribute: "userId" }, // unknown attribute
+  { force: 20, coverage: 0.2, hashAttribute: "deviceId" }, // unknown attribute
 ];
 ```
 
@@ -160,10 +160,10 @@ The [Quick start](#quick-start) is the complete setup. Create the instance once 
 ### React and React Native
 
 ```bash
-npm install @growthbook/growthbook-react
+npm install @growthbook/growthbook @growthbook/growthbook-react
 ```
 
-In `flags.ts`, replace `@growthbook/growthbook` with `@growthbook/growthbook-react` in both the import and the `declare module` line. Then create the instance and use the hooks:
+Create the instance and use the hooks:
 
 ```tsx
 import { useMemo } from "react";
@@ -256,6 +256,59 @@ app.get("/upload", (req, res) => {
 });
 ```
 
+### Next.js
+
+A local `flags.ts` works the same under every rendering strategy. There's nothing to fetch, cache, or hydrate, because the server and the browser evaluate the same file. What changes is where the attributes come from.
+
+```bash
+npm install @growthbook/growthbook @growthbook/growthbook-react
+```
+
+- **Server Components, Route Handlers, Server Actions, and `getServerSideProps`.** Follow the Node.js section above. Create the `GrowthBookClient` once in a module, and create a scoped instance for each request with attributes from the session or cookies. Don't share a `GrowthBook` instance between requests, because it holds one user's attributes.
+- **Client Components.** Follow the React section above. Put `GrowthBookProvider` in a `"use client"` component, and pass it the user's attributes as props from a Server Component. The server and the browser then evaluate flags with the same attributes, so hydration matches.
+- **Statically rendered pages.** There's no user at build time, so a static page can't use per-user flags. Render the route dynamically, or read the flag in a Client Component once the attributes are set in the browser, and accept that the default value renders first.
+
+### Anonymous users
+
+A percentage rollout skips users who have no value for its `hashAttribute`. If that attribute is the logged-in user's ID, logged-out visitors never get a rolled-out feature.
+
+When a user can have more than one ID, don't put them in the same attribute. Give each ID its own attribute with an explicit name, such as `userId` and `anonymousId`, instead of a single `id`:
+
+```ts
+export type AppAttributes = {
+  userId?: string; // logged-in users only
+  anonymousId: string; // every visitor, logged in or not
+  plan: "free" | "pro";
+  env: "dev" | "staging" | "production";
+};
+```
+
+Then choose one for each rollout with `hashAttribute`:
+
+```ts
+// Rolled out to 20% of visitors
+{ force: true, coverage: 0.2, hashAttribute: "anonymousId" },
+```
+
+- **Use `anonymousId` for most rollouts.** Every visitor has one, and it doesn't change when they log in, so their assignment doesn't change either.
+- **Use `userId` only when the flag is read solely on authenticated pages and users often switch devices.** Each user then gets the same result on every device.
+
+Generate the anonymous ID once and store it:
+
+```ts
+function getAnonymousId(): string {
+  let id = localStorage.getItem("anonymousId");
+  if (!id) {
+    id = crypto.randomUUID();
+    localStorage.setItem("anonymousId", id);
+  }
+  return id;
+}
+```
+
+- When you render on the server, store the ID in a cookie instead, so that the server and the browser read the same value.
+- Storing an identifier in the browser can require the visitor's consent under laws such as GDPR. Tell the user before you add one.
+
 ## The flags.ts format
 
 Keep one `flags.ts` per project, with its three parts in this order.
@@ -287,12 +340,12 @@ Each entry in `features` is a flag definition:
 
 Each rule has these fields:
 
-| Field           | Type               | Description                                                                                              |
-| --------------- | ------------------ | -------------------------------------------------------------------------------------------------------- |
-| `force`         | the flag's type    | The value to serve when this rule matches. Required.                                                     |
-| `condition`     | object (see below) | Optional. Attribute targeting. The rule matches only users whose attributes pass the condition.          |
-| `coverage`      | number, 0–1        | Optional. Percentage rollout. Only this fraction of matching users gets `force`. `0.2` means 20%.        |
-| `hashAttribute` | attribute name     | Optional. The string or number attribute used to assign users in a percentage rollout. Defaults to `id`. |
+| Field           | Type               | Description                                                                                                              |
+| --------------- | ------------------ | ------------------------------------------------------------------------------------------------------------------------ |
+| `force`         | the flag's type    | The value to serve when this rule matches. Required.                                                                     |
+| `condition`     | object (see below) | Optional. Attribute targeting. The rule matches only users whose attributes pass the condition.                          |
+| `coverage`      | number, 0–1        | Optional. Percentage rollout. Only this fraction of matching users gets `force`. `0.2` means 20%.                        |
+| `hashAttribute` | attribute name     | Optional. The string or number attribute used to assign users in a percentage rollout. Required when setting `coverage`. |
 
 Put a comment above every flag and rule that says what it does and why.
 
