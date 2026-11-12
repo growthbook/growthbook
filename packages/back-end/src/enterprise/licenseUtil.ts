@@ -19,6 +19,7 @@ import {
   makeOrgLimits,
   DEFAULT_ORG_LIMITS,
   isOrbPaymentPastDue,
+  orbPaymentFailureCancelAt,
   OrgLimits,
   OrgLimitsAccessor,
   planTierFor,
@@ -87,9 +88,8 @@ export function getSubscriptionFromLicense(
     pendingCancelation: sub.status !== "canceled" && !!sub.cancel_at_period_end,
     isVercelIntegration: !!license.vercelInstallationId,
     stripeCustomerId: license.stripeCustomerId,
-    pastDueUntil: license.paymentFailure?.downgradeAt
-      ? new Date(license.paymentFailure.downgradeAt).toISOString()
-      : undefined,
+    pastDueUntil:
+      orbPaymentFailureCancelAt(license.paymentFailure) ?? undefined,
   };
 }
 

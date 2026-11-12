@@ -113,7 +113,7 @@ export type SubscriptionInfo = {
   pendingCancelation: boolean;
   isVercelIntegration: boolean;
   stripeCustomerId?: string;
-  // ISO time the Pro plan ends if the open invoice stays unpaid. Orb Pro only.
+  // ISO time the Pro plan ends if this open invoice will cancel it. Orb Pro only.
   pastDueUntil?: string;
 };
 
@@ -135,7 +135,10 @@ export interface LicenseInterface {
   // Open Orb Pro card failure. Absent once the invoice is paid or void, or the subscription ends.
   paymentFailure?: {
     invoiceId: string;
-    downgradeAt: string;
+    // Present while a cancellation is still scheduled.
+    downgradeAt?: string;
+    // False when this failure will not cancel the plan. Missing means it will.
+    autoCancel?: boolean;
   };
   message?: {
     text: string; // The text to show in the account notice

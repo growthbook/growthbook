@@ -121,6 +121,51 @@ function NextBillDateRow({
   );
 }
 
+function PastDueBillingCallout({
+  downgradeDate,
+  canAddPaymentMethod,
+}: {
+  downgradeDate: string | null;
+  canAddPaymentMethod: boolean;
+}) {
+  const retry =
+    "We retry failed charges automatically, and this message goes away once one succeeds.";
+  if (canAddPaymentMethod && downgradeDate) {
+    return (
+      <Callout status="warning" mb="3">
+        We couldn&apos;t charge your card. Add a new card under{" "}
+        <strong>Payment Methods</strong> below and make it your default by{" "}
+        {downgradeDate} to keep your Pro plan. {retry}
+      </Callout>
+    );
+  }
+  if (canAddPaymentMethod) {
+    return (
+      <Callout status="warning" mb="3">
+        We couldn&apos;t charge your card. Add a new card under{" "}
+        <strong>Payment Methods</strong> below and make it your default. {retry}{" "}
+        Your Pro plan stays active.
+      </Callout>
+    );
+  }
+  if (downgradeDate) {
+    return (
+      <Callout status="warning" mb="3">
+        We couldn&apos;t charge your card. Contact{" "}
+        <Link href="mailto:support@growthbook.io">support@growthbook.io</Link>{" "}
+        to update your payment method by {downgradeDate} to keep your Pro plan.
+      </Callout>
+    );
+  }
+  return (
+    <Callout status="warning" mb="3">
+      We couldn&apos;t charge your card. Contact{" "}
+      <Link href="mailto:support@growthbook.io">support@growthbook.io</Link> to
+      update your payment method. Your Pro plan stays active.
+    </Callout>
+  );
+}
+
 function BillingStatusSection({
   billing,
   actionLabel,
@@ -145,32 +190,13 @@ function BillingStatusSection({
           your billing period on {billing.pendingCancelDate}.
         </Callout>
       ) : null;
-    case "self_serve_past_due": {
-      const deadline = billing.downgradeDate
-        ? ` by ${billing.downgradeDate}`
-        : "";
+    case "self_serve_past_due":
       return (
-        <Callout status="warning" mb="3">
-          We couldn&apos;t charge your card.{" "}
-          {canAddPaymentMethod ? (
-            <>
-              Add a new card under <strong>Payment Methods</strong> below and
-              make it your default{deadline} to keep your Pro plan. We retry
-              failed charges automatically, and this message goes away once one
-              succeeds.
-            </>
-          ) : (
-            <>
-              Contact{" "}
-              <Link href="mailto:support@growthbook.io">
-                support@growthbook.io
-              </Link>{" "}
-              to update your payment method{deadline} to keep your Pro plan.
-            </>
-          )}
-        </Callout>
+        <PastDueBillingCallout
+          downgradeDate={billing.downgradeDate}
+          canAddPaymentMethod={canAddPaymentMethod}
+        />
       );
-    }
     case "self_serve_active":
     case "enterprise_active":
       return billing.nextBillDate ? (
