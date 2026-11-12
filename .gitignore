@@ -70,6 +70,9 @@ skills-src/*
 packages/back-end/agent-skills.local.json
 packages/back-end/generated/agent-skills/
 
+# Agent eval: summaries and transcripts stay local.
+packages/back-end/test/evals/.results/
+
 # SDKs
 packages/sdk-js/scripts/test-cases--typed.json
 
