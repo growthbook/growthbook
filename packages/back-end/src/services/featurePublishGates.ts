@@ -515,13 +515,18 @@ export async function collectFeaturePublishGates({
     return gates;
   }
 
-  const { proposedFeature, defaultToCheck, rulesToCheck, valueSchemaChanged } =
-    computeProposedFeatureForValidation(
-      context,
-      feature,
-      revision,
-      plan.mergeResult,
-    );
+  const {
+    proposedFeature,
+    defaultToCheck,
+    rulesToCheck,
+    holdoutToCheck,
+    valueSchemaChanged,
+  } = computeProposedFeatureForValidation(
+    context,
+    feature,
+    revision,
+    plan.mergeResult,
+  );
 
   gates.push(
     ...(await collectSavedGroupScopeGate(() =>
@@ -556,13 +561,15 @@ export async function collectFeaturePublishGates({
       {
         defaultValue: proposedFeature.defaultValue,
         rules: proposedFeature.rules,
+        holdout: proposedFeature.holdout,
       },
       valueSchemaChanged ? undefined : feature,
     ),
-    ...(defaultToCheck !== undefined || rulesToCheck.length
+    ...(defaultToCheck !== undefined || rulesToCheck.length || holdoutToCheck
       ? await collectConfigBackedFeatureValueErrors(context, proposedFeature, {
           defaultValue: defaultToCheck,
           rules: rulesToCheck,
+          holdout: holdoutToCheck,
         })
       : []),
   ];

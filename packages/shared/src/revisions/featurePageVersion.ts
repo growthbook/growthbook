@@ -17,7 +17,9 @@ export type FeaturePageRevisionSummary = {
   contributors?: string[];
 };
 
-function isOpenUserDraft(revision: FeaturePageRevisionSummary): boolean {
+export function isOpenUserDraft(
+  revision: Pick<FeaturePageRevisionSummary, "status" | "createdBy">,
+): boolean {
   const createdBy = revision.createdBy;
   // Drafts a ramp schedule makes for itself aren't anyone's work in progress
   if (createdBy?.type === "system" && createdBy.subtype === "ramp-schedule") {

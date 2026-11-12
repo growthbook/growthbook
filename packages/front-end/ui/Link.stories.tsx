@@ -1,4 +1,4 @@
-import { Box, Flex } from "@radix-ui/themes";
+import { Box, Flex, Text } from "@radix-ui/themes";
 import Link from "./Link";
 
 export default function LinkStories() {
@@ -39,6 +39,13 @@ export default function LinkStories() {
         </Link>
         .
       </Box>
+      <Text as="div" color="red">
+        Or{" "}
+        <Link href="#" color="inherit">
+          inherit the color
+        </Link>{" "}
+        of the text around it, until hovered.
+      </Text>
 
       <Box>
         Here&apos;s the Link without href where it{" "}
@@ -46,6 +53,14 @@ export default function LinkStories() {
           automatically adapts to a button
         </Link>{" "}
         while keeping the same style.
+      </Box>
+
+      <Box>
+        As a button it can also be{" "}
+        <Link disabled onClick={() => alert("Never called")}>
+          disabled
+        </Link>
+        : skipped by the keyboard, inert to clicks, and greyed out.
       </Box>
     </Flex>
   );

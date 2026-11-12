@@ -11,10 +11,13 @@ export default function CopyableCode({
   value,
   muted = false,
   framed = false,
+  plain = false,
 }: {
   value: string;
   muted?: boolean;
   framed?: boolean;
+  // In the surrounding text's font, wrapping rather than cut off.
+  plain?: boolean;
 }) {
   const [hovered, setHovered] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -41,7 +44,12 @@ export default function CopyableCode({
   if (!copySupported) {
     // With no clipboard, the whole value shows so it can be copied by hand.
     return (
-      <code className={clsx(styles.fullValue, muted && styles.muted)}>
+      <code
+        className={clsx(
+          plain ? styles.plain : styles.fullValue,
+          muted && styles.muted,
+        )}
+      >
         {value}
       </code>
     );
@@ -85,9 +93,9 @@ export default function CopyableCode({
             <code
               ref={codeRef}
               className={clsx(
-                styles.code,
+                plain ? styles.plain : styles.code,
                 muted && styles.muted,
-                overflowing && styles.overflowing,
+                overflowing && !plain && styles.overflowing,
               )}
             >
               {value}

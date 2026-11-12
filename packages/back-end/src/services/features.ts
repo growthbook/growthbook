@@ -154,7 +154,10 @@ import {
 import { measureSdkPayloadSize } from "shared/health";
 import { assertStorableFeatureValue } from "back-end/src/util/storableFeatureValue";
 import { armerActor } from "back-end/src/util/armingApiKeyId";
-import { mapChangedFeatureValues } from "back-end/src/util/featureValues";
+import {
+  FeatureValues,
+  mapChangedFeatureValues,
+} from "back-end/src/util/featureValues";
 import {
   FeatureDefinitionSources,
   getSafeRolloutIdsForFeatureDefinitions,
@@ -4029,8 +4032,8 @@ export function validateFeatureRuleValues(
 export function assertFeatureValuesValid(
   context: ReqContext | ApiReqContext,
   feature: Pick<FeatureInterface, "valueType" | "jsonSchema">,
-  values: { defaultValue?: string; rules?: FeatureRule[] },
-  previous?: { defaultValue?: string; rules?: FeatureRule[] },
+  values: FeatureValues,
+  previous?: FeatureValues,
 ): void {
   const valueFeature = context.canSkipSchemaValidationFor("feature")
     ? { valueType: feature.valueType }
@@ -4039,6 +4042,22 @@ export function assertFeatureValuesValid(
     values,
     (value, label) => assertStorableFeatureValue(valueFeature, value, label),
     previous,
+  );
+}
+
+// A holdout's value as written, checked as other values are; one it keeps
+// unchanged isn't re-checked.
+export function assertHoldoutValueValid(
+  context: ReqContext | ApiReqContext,
+  feature: Pick<FeatureInterface, "valueType" | "jsonSchema" | "holdout">,
+  holdout: FeatureInterface["holdout"] | null | undefined,
+): void {
+  if (!holdout) return;
+  assertFeatureValuesValid(
+    context,
+    feature,
+    { holdout },
+    { holdout: feature.holdout },
   );
 }
 
@@ -4054,8 +4073,8 @@ export function assertFeatureValuesValid(
 // the REST publish handler's gate collector.
 export function collectFeatureValueErrorsForPublish(
   feature: Pick<FeatureInterface, "valueType" | "jsonSchema">,
-  values: { defaultValue?: string; rules?: FeatureRule[] },
-  previous?: { defaultValue?: string; rules?: FeatureRule[] },
+  values: FeatureValues,
+  previous?: FeatureValues,
 ): string[] {
   const errors: string[] = [];
   mapChangedFeatureValues(
@@ -4076,8 +4095,8 @@ export function collectFeatureValueErrorsForPublish(
 export function assertFeatureValuesValidForPublish(
   context: ReqContext | ApiReqContext,
   feature: Pick<FeatureInterface, "valueType" | "jsonSchema">,
-  values: { defaultValue?: string; rules?: FeatureRule[] },
-  previous?: { defaultValue?: string; rules?: FeatureRule[] },
+  values: FeatureValues,
+  previous?: FeatureValues,
 ): void {
   const typeErrors = collectFeatureValueErrorsForPublish(
     { valueType: feature.valueType },

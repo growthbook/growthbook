@@ -513,6 +513,11 @@
       "count": 3
     }
   },
+  "packages/front-end/components/Features/EditFeatureInfoModalNew.tsx": {
+    "no-restricted-syntax": {
+      "count": 1
+    }
+  },
   "packages/front-end/components/Features/EditSchemaModal.tsx": {
     "no-restricted-syntax": {
       "count": 1
@@ -594,21 +599,6 @@
   "packages/front-end/components/Features/FeaturesOverview.tsx": {
     "no-restricted-syntax": {
       "count": 3
-    }
-  },
-  "packages/front-end/components/Features/HoldoutRule.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "packages/front-end/components/Features/HoldoutSummary.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "packages/front-end/components/Features/HoldoutValueModal.tsx": {
-    "no-restricted-imports": {
-      "count": 2
     }
   },
   "packages/front-end/components/Features/LegacyScheduleInputs.tsx": {
@@ -1143,7 +1133,7 @@
   },
   "packages/front-end/components/Reviews/RevisionStatusBadge.tsx": {
     "@typescript-eslint/switch-exhaustiveness-check": {
-      "count": 3
+      "count": 1
     }
   },
   "packages/front-end/components/Revision/CompareRevisionsModal.tsx": {
