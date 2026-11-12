@@ -8,10 +8,7 @@ import {
 import { ExperimentQaOverrideInterface } from "shared/types/experiment-qa-override";
 import { getLatestPhaseVariations } from "shared/experiments";
 import { date } from "shared/dates";
-import {
-  QA_OVERRIDE_WAITING_REASONS,
-  isProductionEnvironment,
-} from "shared/util";
+import { isProductionEnvironment } from "shared/util";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -29,10 +26,10 @@ import Button from "@/ui/Button";
 import Badge from "@/ui/Badge";
 import Callout from "@/ui/Callout";
 import Heading from "@/ui/Heading";
-import Link from "@/ui/Link";
 import Text from "@/ui/Text";
 import Tooltip from "@/ui/Tooltip";
 import VariationLabel from "@/ui/VariationLabel";
+import QaOverrideWaitingMessages from "./QaOverrideWaitingMessages";
 import useQaOverridePermissions from "./useQaOverridePermissions";
 import useQaOverrideForm, {
   QA_OVERRIDE_FILTER_META,
@@ -249,9 +246,12 @@ export default function QaOverrideModal({
       close={close}
       header={existing ? "Edit QA Override" : "Add QA Override"}
       subheader={
-        existing
-          ? `${getUserDisplay(existing.createdBy, true)} · ${date(existing.dateCreated)}`
-          : undefined
+        existing ? (
+          <Text size="sm" color="text-mid">
+            {getUserDisplay(existing.createdBy, true)} ·{" "}
+            {date(existing.dateCreated)}
+          </Text>
+        ) : undefined
       }
       cta={existing ? "Apply" : "Add Override"}
       ctaEnabled={canSave}
@@ -287,11 +287,22 @@ export default function QaOverrideModal({
                 setValue={setEnvironment}
                 placeholder="Select an environment…"
               >
-                {environmentOptions.map((e) => (
-                  <SelectItem key={e.id} value={e.id} disabled={e.isProduction}>
-                    {e.id}
-                  </SelectItem>
-                ))}
+                {environmentOptions.map((e) =>
+                  e.isProduction ? (
+                    <Tooltip
+                      key={e.id}
+                      content="QA overrides can't run in production environments."
+                    >
+                      <SelectItem value={e.id} disabled>
+                        {e.id}
+                      </SelectItem>
+                    </Tooltip>
+                  ) : (
+                    <SelectItem key={e.id} value={e.id}>
+                      {e.id}
+                    </SelectItem>
+                  ),
+                )}
               </Select>
               <Text size="sm" color="text-low">
                 Only non-production environments are selectable.
@@ -300,19 +311,10 @@ export default function QaOverrideModal({
           )}
           {waitingFeatures.length > 0 && (
             <Callout status="warning" size="sm" mt="1">
-              {waitingFeatures.map((w) => (
-                <Text as="p" size="sm" key={w.featureId} mb="0">
-                  <code>{w.featureId}</code>:{" "}
-                  {QA_OVERRIDE_WAITING_REASONS[w.reason]} in{" "}
-                  <Text size="sm" weight="medium">
-                    {values.environment}
-                  </Text>
-                  , so this override won&apos;t apply until that changes.{" "}
-                  <Link href={`/features/${w.featureId}`} size="sm">
-                    Open {w.featureId} →
-                  </Link>
-                </Text>
-              ))}
+              <QaOverrideWaitingMessages
+                waitingOn={waitingFeatures}
+                environment={values.environment}
+              />
             </Callout>
           )}
         </Flex>

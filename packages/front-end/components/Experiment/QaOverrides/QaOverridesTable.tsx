@@ -19,6 +19,7 @@ import useSortableItem from "@/hooks/useSortableItem";
 import FunnelStepDragHandle from "@/components/FactTables/FunnelStepDragHandle";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
+import VariationLabel from "@/ui/VariationLabel";
 import {
   DropdownMenu,
   DropdownMenuItem,
@@ -70,17 +71,21 @@ function VariationCell({ row }: { row: QaOverrideRow }) {
       </Text>
     );
   }
-  const variation = row.variations.find((v) => v.id === assignment.variationId);
-  if (!variation)
+  const index = row.variations.findIndex(
+    (v) => v.id === assignment.variationId,
+  );
+  if (index < 0)
     return (
       <Text size="inherit" color="text-low">
         Unknown variation
       </Text>
     );
   return (
-    <Text size="inherit" color="text-high">
-      {variation.name}
-    </Text>
+    <VariationLabel
+      number={index}
+      name={row.variations[index].name}
+      size="sm"
+    />
   );
 }
 

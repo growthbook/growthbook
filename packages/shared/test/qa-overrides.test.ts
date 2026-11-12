@@ -1,6 +1,7 @@
 import { LinkedFeatureInfo } from "shared/types/experiment";
 import {
   getQaOverrideWaitingFeatures,
+  getQaOverrideWaitingMessages,
   qaOverrideAppliesToConnection,
   qaOverrideFiltersAreEmpty,
   qaOverrideHasCondition,
@@ -112,5 +113,65 @@ describe("filter helpers", () => {
     const input = [a, b, c];
     expect(sortQaOverrides(input).map((o) => o.id)).toEqual(["b", "c", "a"]);
     expect(input.map((o) => o.id)).toEqual(["a", "b", "c"]);
+  });
+});
+
+describe("getQaOverrideWaitingMessages", () => {
+  it("explains the state and the action for one flag", () => {
+    expect(
+      getQaOverrideWaitingMessages(
+        [{ featureId: "checkout", reason: "disabled-env" }],
+        "staging",
+      ),
+    ).toEqual([
+      {
+        reason: "disabled-env",
+        featureIds: ["checkout"],
+        state:
+          "The `staging` environment is off for linked Feature Flag `checkout`.",
+        action: "Turn `staging` on in that flag to QA in this environment.",
+      },
+    ]);
+  });
+
+  it("groups flags with the same reason into one plural message", () => {
+    const messages = getQaOverrideWaitingMessages(
+      [
+        { featureId: "a", reason: "disabled-env" },
+        { featureId: "b", reason: "draft" },
+        { featureId: "c", reason: "disabled-env" },
+      ],
+      "dev",
+    );
+    expect(messages.map((m) => [m.reason, m.featureIds])).toEqual([
+      ["disabled-env", ["a", "c"]],
+      ["draft", ["b"]],
+    ]);
+    expect(messages[0].state).toBe(
+      "The `dev` environment is off for linked Feature Flags `a`, `c`.",
+    );
+    expect(messages[0].action).toBe(
+      "Turn `dev` on in those flags to QA in this environment.",
+    );
+    expect(messages[1].action).toBe("Publish the draft to QA it.");
+  });
+
+  it("has a message for every reason", () => {
+    const reasons = [
+      "draft",
+      "discarded",
+      "archived",
+      "missing",
+      "disabled-env",
+      "disabled-rule",
+    ] as const;
+    for (const reason of reasons) {
+      const [m] = getQaOverrideWaitingMessages(
+        [{ featureId: "f", reason }],
+        "dev",
+      );
+      expect(m.state).toContain("`f`");
+      expect(m.action.length).toBeGreaterThan(0);
+    }
   });
 });

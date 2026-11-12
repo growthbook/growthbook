@@ -62,6 +62,11 @@ export default function useQaOverrideForm({
     if (kind === "condition" && values.condition === "{}") {
       form.setValue("condition", JSON.stringify({ [hashAttribute]: "" }));
     }
+    // Same for saved groups: open on the picker, not an "Add" link. An empty
+    // group keeps the form incomplete until one is chosen.
+    if (kind === "savedGroups" && values.savedGroups.length === 0) {
+      form.setValue("savedGroups", [{ match: "any", ids: [] }]);
+    }
   };
   const removeFilter = (kind: QaOverrideFilterKind) => {
     form.setValue(

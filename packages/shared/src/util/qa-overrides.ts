@@ -1,8 +1,4 @@
-import {
-  LinkedFeatureEnvState,
-  LinkedFeatureInfo,
-  LinkedFeatureState,
-} from "shared/types/experiment";
+import { LinkedFeatureInfo } from "shared/types/experiment";
 import {
   QaOverrideFilters,
   QaOverrideWaitingFeature,
@@ -97,15 +93,79 @@ export function getQaOverrideWaitingFeatures(
   });
 }
 
-export const QA_OVERRIDE_WAITING_REASONS: Record<
-  | Exclude<LinkedFeatureState, "live">
-  | Exclude<LinkedFeatureEnvState, "active">,
-  string
-> = {
-  draft: "rule is still in a draft",
-  discarded: "rule draft was discarded",
-  archived: "Feature Flag is archived",
-  missing: "rule isn't in the live revision",
-  "disabled-env": "Feature Flag is off in this environment",
-  "disabled-rule": "rule is off in this environment",
+export type QaOverrideWaitingReason = QaOverrideWaitingFeature["reason"];
+
+// One message per reason: what's wrong, then what to do about it. Flag and
+// environment names are wrapped in backticks so the UI can show them as code.
+export type QaOverrideWaitingMessage = {
+  reason: QaOverrideWaitingReason;
+  featureIds: string[];
+  state: string;
+  action: string;
 };
+
+const code = (s: string) => `\`${s}\``;
+
+function waitingMessageText(
+  reason: QaOverrideWaitingReason,
+  featureIds: string[],
+  environment: string,
+): { state: string; action: string } {
+  const plural = featureIds.length > 1;
+  const flags = featureIds.map(code).join(", ");
+  const env = code(environment);
+  const linked = `linked Feature ${plural ? "Flags" : "Flag"} ${flags}`;
+  switch (reason) {
+    case "disabled-env":
+      return {
+        state: `The ${env} environment is off for ${linked}.`,
+        action: `Turn ${env} on in ${plural ? "those flags" : "that flag"} to QA in this environment.`,
+      };
+    case "disabled-rule":
+      return {
+        state: `This experiment's rule is off in ${env} for ${linked}.`,
+        action: `Turn the rule on in ${env} to QA in this environment.`,
+      };
+    case "draft":
+      return {
+        state: `This experiment's rule is still in a draft for ${linked}.`,
+        action: `Publish ${plural ? "the drafts" : "the draft"} to QA it.`,
+      };
+    case "missing":
+      return {
+        state: `The live ${plural ? "revisions" : "revision"} of ${linked} ${plural ? "don't" : "doesn't"} include this experiment's rule.`,
+        action: "Add the rule and publish to QA it.",
+      };
+    case "discarded":
+      return {
+        state: `The ${plural ? "drafts" : "draft"} linking Feature ${plural ? "Flags" : "Flag"} ${flags} to this experiment ${plural ? "were" : "was"} discarded.`,
+        action: `Link ${plural ? "the flags" : "the flag"} again to QA it.`,
+      };
+    case "archived":
+      return {
+        state: `Linked Feature ${plural ? "Flags" : "Flag"} ${flags} ${plural ? "are" : "is"} archived.`,
+        action: `Unarchive ${plural ? "them" : "it"} to QA.`,
+      };
+  }
+}
+
+/**
+ * Why an override isn't applying yet and how to fix it, with flags that share
+ * a reason grouped into one plural message, in first-seen order.
+ */
+export function getQaOverrideWaitingMessages(
+  waitingOn: QaOverrideWaitingFeature[],
+  environment: string,
+): QaOverrideWaitingMessage[] {
+  const byReason = new Map<QaOverrideWaitingReason, string[]>();
+  for (const { featureId, reason } of waitingOn) {
+    const ids = byReason.get(reason) ?? [];
+    if (!ids.includes(featureId)) ids.push(featureId);
+    byReason.set(reason, ids);
+  }
+  return [...byReason].map(([reason, featureIds]) => ({
+    reason,
+    featureIds,
+    ...waitingMessageText(reason, featureIds, environment),
+  }));
+}
