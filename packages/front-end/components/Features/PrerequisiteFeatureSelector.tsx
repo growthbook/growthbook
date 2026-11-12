@@ -1,10 +1,5 @@
 import React, { useMemo } from "react";
-import { FaExclamationCircle, FaRecycle } from "react-icons/fa";
-import {
-  FaRegCircleQuestion,
-  FaRegCircleCheck,
-  FaRegCircleXmark,
-} from "react-icons/fa6";
+import { FaRecycle } from "react-icons/fa";
 import clsx from "clsx";
 import { Box } from "@radix-ui/themes";
 import SelectField, {
@@ -23,6 +18,7 @@ import {
 } from "@/components/Features/OptionTooltipShell";
 import Text from "@/ui/Text";
 import { featureStatusColors } from "@/components/Features/FeaturesOverview";
+import StateIcon from "@/components/Features/StateIcon";
 
 export interface FeatureOptionMeta {
   conditional: boolean;
@@ -243,7 +239,7 @@ export default function PrerequisiteFeatureSelector({
                     alignItems: "center",
                   }}
                 >
-                  <FaRegCircleCheck style={{ color: featureStatusColors.on }} />
+                  <StateIcon state="on" />
                 </Tooltip>
               )}
               {meta?.deterministicNotLive && (
@@ -271,9 +267,7 @@ export default function PrerequisiteFeatureSelector({
                     alignItems: "center",
                   }}
                 >
-                  <FaRegCircleXmark
-                    style={{ color: featureStatusColors.offMuted }}
-                  />
+                  <StateIcon state="off" />
                 </Tooltip>
               )}
               {meta?.deterministicFalse && (
@@ -307,9 +301,7 @@ export default function PrerequisiteFeatureSelector({
                     alignItems: "center",
                   }}
                 >
-                  <FaRegCircleXmark
-                    style={{ color: featureStatusColors.offMuted }}
-                  />
+                  <StateIcon state="off" />
                 </Tooltip>
               )}
               {meta?.conditional && (
@@ -338,9 +330,7 @@ export default function PrerequisiteFeatureSelector({
                     alignItems: "center",
                   }}
                 >
-                  <FaRegCircleQuestion
-                    style={{ color: featureStatusColors.warning }}
-                  />
+                  <StateIcon state="varies" />
                 </Tooltip>
               )}
               {meta?.cyclic && (
@@ -358,9 +348,7 @@ export default function PrerequisiteFeatureSelector({
                     alignItems: "center",
                   }}
                 >
-                  <FaExclamationCircle
-                    style={{ color: featureStatusColors.danger }}
-                  />
+                  <StateIcon state="cycle" />
                 </Tooltip>
               )}
             </div>

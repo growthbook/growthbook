@@ -3,7 +3,11 @@ import Link from "next/link";
 import { flushSync } from "react-dom";
 import { date, datetime } from "shared/dates";
 import { isProjectListValidForProject } from "shared/util";
-import { getMetricLink, isFactMetricId } from "shared/experiments";
+import {
+  getFactMetricPrimaryFactTableId,
+  getMetricLink,
+  isFactMetricId,
+} from "shared/experiments";
 import { FactMetricInterface } from "shared/types/fact-table";
 import { useRouter } from "next/router";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
@@ -306,11 +310,7 @@ export function useCombinedMetrics({
     }),
     ...factMetrics.map((m) => {
       // Match /fact-metrics/new: the copy gets its fact table's Projects.
-      const seedTable = getFactTableById(
-        m.metricType === "funnel"
-          ? (m.funnelSettings?.steps[0]?.factTableId ?? "")
-          : (m.numerator?.factTableId ?? ""),
-      );
+      const seedTable = getFactTableById(getFactMetricPrimaryFactTableId(m));
       const canDuplicate = permissionsUtil.canCreateFactMetric({
         projects: seedTable ? seedTable.projects || [] : m.projects,
       });

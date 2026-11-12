@@ -25,6 +25,8 @@ export type TargetingProjectsFieldProps = {
   // (or duplicate) form passes nothing-yet, since the server judges the whole
   // set as an addition.
   baseline?: { allProjects: boolean; targetingProjects: string[] };
+  // Opted in from the start, where the editor is only for targeting.
+  startOpen?: boolean;
 } & MarginProps;
 
 export default function TargetingProjectsField({
@@ -35,12 +37,13 @@ export default function TargetingProjectsField({
   setTargetingProjects,
   entityLabel = "Feature Flag",
   baseline: baselineProp,
+  startOpen = false,
   ...marginProps
 }: TargetingProjectsFieldProps) {
   const { projects, targetingOptOutProjectIds } = useDefinitions();
   const permissionsUtil = usePermissionsUtil();
   const [enabled, setEnabled] = useState<boolean>(
-    () => allProjects || targetingProjects.length > 0,
+    () => startOpen || allProjects || targetingProjects.length > 0,
   );
   // What the editor opened with. Anything already targeted stays selectable
   // for the whole edit, so removing it can be undone without the permission

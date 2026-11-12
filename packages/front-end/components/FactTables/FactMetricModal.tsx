@@ -29,7 +29,7 @@ import {
   getSelectedColumnDatatype,
   reconcileInlineFilterPrompts,
 } from "shared/experiments";
-import { isCappableFactMetric, isExternallyManaged } from "shared/validators";
+import { isCappableFactMetric } from "shared/validators";
 import { createLikeStringMatchFn } from "shared/sql";
 import { getFunnelAnchorStepIndex } from "shared/funnels";
 import { PiArrowSquareOut, PiPlus } from "react-icons/pi";
@@ -76,7 +76,6 @@ import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 import { RowFilterInput } from "@/components/FactTables/RowFilterInput";
 import FunnelStepsInput from "@/components/FactTables/FunnelStepsInput";
 import { getAttributeFieldsExposedAsColumns } from "@/components/FactTables/rowFilterUtils";
-import { MANAGED_BY_ADMIN } from "@/components/Metrics/MetricForm";
 import { DocLink } from "@/components/DocLink";
 
 export interface Props {
@@ -1187,7 +1186,7 @@ function StandardFactMetricModal({
 
   const settings = useOrgSettings();
 
-  const { hasCommercialFeature, permissionsUtil } = useUser();
+  const { hasCommercialFeature } = useUser();
 
   const hasMetricSlicesFeature = hasCommercialFeature("metric-slices");
 
@@ -1349,17 +1348,19 @@ function StandardFactMetricModal({
             windowSettings,
           })
         : null
-      : getPreviewSQL({
-          type,
-          quantileSettings,
-          windowSettings,
-          numerator,
-          denominator,
-          numeratorFactTable,
-          denominatorFactTable: getFactTableById(
-            denominator?.factTableId || "",
-          ),
-        });
+      : type === "compound"
+        ? null
+        : getPreviewSQL({
+            type,
+            quantileSettings,
+            windowSettings,
+            numerator,
+            denominator,
+            numeratorFactTable,
+            denominatorFactTable: getFactTableById(
+              denominator?.factTableId || "",
+            ),
+          });
 
   const setDatasource = (datasource: string) => {
     form.setValue("datasource", datasource);
@@ -2450,22 +2451,6 @@ function StandardFactMetricModal({
                       </TabsContent>
                     </Box>
                   </Tabs>
-                  {permissionsUtil.canUpdateOfficialResources(
-                    { projects: form.watch("projects") },
-                    {},
-                  ) && hasCommercialFeature("manage-official-resources") ? (
-                    <Checkbox
-                      label="Mark as Official Metric"
-                      disabled={isExternallyManaged(form.watch("managedBy"))}
-                      disabledMessage="This Metric is managed by the API, so it can not be edited in the UI."
-                      description="Official Metrics can only be modified by Admins or users
-                      with the ManageOfficialResources policy."
-                      value={form.watch("managedBy") === MANAGED_BY_ADMIN}
-                      setValue={(value) => {
-                        form.setValue("managedBy", value ? "admin" : "");
-                      }}
-                    />
-                  ) : null}
                 </>
               )}
             </>

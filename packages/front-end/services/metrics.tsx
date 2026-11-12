@@ -4,6 +4,7 @@ import {
   ColumnRef,
   FactTableDefinition,
   FactMetricInterface,
+  CompoundSettings,
   FunnelSettings,
   RowFilter,
   StandardFactMetricInterface,
@@ -90,10 +91,12 @@ export type CreateStandardFactMetricProps =
 // (MetricWorkspace's handleSave), the same way FactMetricModal already does.
 export type CreateFactMetricFormProps = Omit<
   CreateStandardFactMetricProps,
-  "metricType" | "funnelSettings"
+  "metricType" | "funnelSettings" | "compoundSettings"
 > & {
   metricType: FactMetricInterface["metricType"];
   funnelSettings: FunnelSettings | null;
+  // Same treatment as funnelSettings; numerator is a stale placeholder.
+  compoundSettings: CompoundSettings | null;
 };
 
 export function getDefaultFactMetricProps({
@@ -156,6 +159,7 @@ export function getDefaultFactMetricProps({
     // steps in its own separate state and never reads this field.
     // MetricWorkspace overlays the real value from `existing` itself.
     funnelSettings: null,
+    compoundSettings: null,
     windowSettings: existing?.windowSettings || {
       type: DEFAULT_FACT_METRIC_WINDOW,
       windowUnit: "days",
@@ -292,7 +296,16 @@ export function fromFactMetricFormValues(
   // `col = ''` they would match almost no rows.
   const dropPlaceholders = (rowFilters: RowFilter[] | undefined) =>
     rowFilters?.filter((rf) => !isEmptyInlineFilterPlaceholder(rf));
-  if (type === "funnel") {
+  if (type === "compound") {
+    if (result.compoundSettings) {
+      result.compoundSettings = {
+        components: result.compoundSettings.components.map((component) => ({
+          ...component,
+          rowFilters: dropPlaceholders(component.rowFilters) ?? [],
+        })),
+      };
+    }
+  } else if (type === "funnel") {
     if (result.funnelSettings) {
       result.funnelSettings = {
         ...result.funnelSettings,
@@ -331,7 +344,11 @@ export function getFactMetricTrackProps(
   source: string,
   flow: "modal" | "page",
 ) {
-  if (values.metricType === "funnel" || !values.numerator) {
+  if (
+    values.metricType === "funnel" ||
+    values.metricType === "compound" ||
+    !values.numerator
+  ) {
     return { type: values.metricType, source, flow };
   }
   const agg = (ref: ColumnRef | null) =>
@@ -654,6 +671,7 @@ export function getExperimentMetricFormatter(
     case "proportion":
     case "retention":
     case "funnel":
+    case "compound":
       if (proportionFormat === "number") {
         return formatNumber;
       }
