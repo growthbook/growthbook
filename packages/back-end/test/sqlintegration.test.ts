@@ -2955,7 +2955,7 @@ describe("cluster experiment ratio analysis - bigquery", () => {
     expect(normalized).not.toMatch(/MIN\(dim_exp_browser\)/);
   });
 
-  it("resolves a cluster-keyed timed dimension at the cluster's first exposure for every sub-unit", () => {
+  it("resolves a cluster-keyed timed dimension at the cluster's first exposure", () => {
     const timedDimension = (
       id: string,
       userIdType: string,
@@ -2983,43 +2983,63 @@ describe("cluster experiment ratio analysis - bigquery", () => {
         regressionAdjustmentEnabled: false,
       });
 
-    // The units are built the same way for both metric grains
-    const queries = [
-      buildClusterSql(mean("fact_cluster_mean", "orders"), baseSettings, [
-        ...dimensions,
-      ]),
-      buildClusterSql(
-        mean("fact_region_spend", "region_spend"),
-        { ...baseSettings, clusterLevelMetricIds: ["fact_region_spend"] },
-        dimensions,
+    const subUnit = buildClusterSql(
+      mean("fact_cluster_mean", "orders"),
+      baseSettings,
+      dimensions,
+    )
+      .replace(/\s+/g, " ")
+      .trim();
+    const tierAt = subUnit.indexOf("__experimentUnitsTimed1 AS");
+    const planAt = subUnit.indexOf("__experimentUnits AS");
+    expect(tierAt).toBeGreaterThan(-1);
+    expect(planAt).toBeGreaterThan(tierAt);
+
+    // A sub-unit metric keeps one row per sub-unit, so every sub-unit resolves
+    // the cluster's dimension at the cluster's first exposure and the cluster
+    // never splits across values
+    const tier = subUnit.substring(tierAt, planAt);
+    expect(tier).toMatch(
+      /MIN\(u\.first_exposure_timestamp\) OVER \( ?PARTITION BY u\.region_id ?\) AS cluster_first_exposure_timestamp FROM __experimentUnitsCore u/,
+    );
+    expect(tier).toContain(
+      "__dim_unit_dim_tier.timestamp <= u.cluster_first_exposure_timestamp",
+    );
+
+    // A dimension keyed on the sub-unit still resolves per sub-unit
+    expect(
+      subUnit.substring(
+        planAt,
+        subUnit.indexOf("AS dim_unit_dim_plan", planAt),
       ),
-    ];
-    for (const sql of queries) {
-      const normalized = sql.replace(/\s+/g, " ").trim();
-      const tierAt = normalized.indexOf("__experimentUnitsTimed1 AS");
-      const planAt = normalized.indexOf("__experimentUnits AS");
-      expect(tierAt).toBeGreaterThan(-1);
-      expect(planAt).toBeGreaterThan(tierAt);
+    ).not.toContain("cluster_first_exposure_timestamp");
 
-      // The dimension is the cluster's, so every sub-unit resolves it at the
-      // cluster's first exposure: a sub-unit metric never splits the cluster,
-      // and the cluster-level collapse never sees its sub-units disagree
-      const tier = normalized.substring(tierAt, planAt);
-      expect(tier).toMatch(
-        /MIN\(u\.first_exposure_timestamp\) OVER \( ?PARTITION BY u\.region_id ?\) AS cluster_first_exposure_timestamp FROM __experimentUnitsCore u/,
-      );
-      expect(tier).toContain(
-        "__dim_unit_dim_tier.timestamp <= u.cluster_first_exposure_timestamp",
-      );
+    // A cluster-level metric collapses to the cluster first, then resolves
+    // the cluster's dimension once per cluster with no window
+    const cluster = buildClusterSql(
+      mean("fact_region_spend", "region_spend"),
+      { ...baseSettings, clusterLevelMetricIds: ["fact_region_spend"] },
+      dimensions,
+    )
+      .replace(/\s+/g, " ")
+      .trim();
+    expect(cluster).not.toContain("cluster_first_exposure_timestamp");
+    const collapseAt = cluster.indexOf("__clusterUnits AS");
+    expect(collapseAt).toBeGreaterThan(-1);
+    const beforeCollapse = cluster.substring(0, collapseAt);
+    expect(beforeCollapse).not.toContain("__dim_unit_dim_tier");
+    expect(beforeCollapse).toContain("AS dim_unit_dim_plan");
 
-      // A dimension keyed on the sub-unit still resolves per sub-unit
-      expect(
-        normalized.substring(
-          planAt,
-          normalized.indexOf("AS dim_unit_dim_plan", planAt),
-        ),
-      ).not.toContain("cluster_first_exposure_timestamp");
-    }
+    const resolved = cluster.substring(
+      collapseAt,
+      cluster.indexOf("__factTable as"),
+    );
+    expect(resolved).toContain(
+      "MIN(first_exposure_timestamp) AS first_exposure_timestamp",
+    );
+    expect(resolved).toMatch(
+      /__distinctUsers AS \(.*__dim_unit_dim_tier\.timestamp <= u\.first_exposure_timestamp.*FROM __clusterUnits u LEFT JOIN __dim_unit_dim_tier __dim_unit_dim_tier ON \( cast\(__dim_unit_dim_tier\.region_id as string\) = u\.region_id \) GROUP BY u\.region_id, u\.dim_unit_dim_plan, u\.variation,/,
+    );
   });
 
   it("joins a cluster-keyed segment through the cluster column, not the sub-unit", () => {
