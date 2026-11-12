@@ -141,6 +141,14 @@ describe("getMetricsForEvent", () => {
           steps: [{ factTableId: "ft", rowFilters: [purchase] }],
         } as FactMetricInterface["funnelSettings"],
       }),
+      metric("compound", {
+        compoundSettings: {
+          components: [
+            { factTableId: "ft", rowFilters: [] },
+            { factTableId: "ft", rowFilters: [purchase] },
+          ],
+        },
+      }),
       metric("other-table", { numerator: ref("ft2", [purchase]) }),
       metric("other-column", {
         numerator: ref("ft", [{ ...purchase, column: "path" }]),
@@ -151,7 +159,7 @@ describe("getMetricsForEvent", () => {
     ];
     expect(
       getMetricsForEvent(metrics, "ft", "event", "purchase").map((m) => m.id),
-    ).toEqual(["num", "den", "funnel"]);
+    ).toEqual(["num", "den", "funnel", "compound"]);
   });
 });
 
@@ -193,6 +201,23 @@ describe("getMetricEvents", () => {
     } as unknown as FactMetricInterface;
     expect(getMetricEvents(metric, "ft", ["event"])).toEqual([
       "add_to_cart",
+      "purchase, upgrade",
+    ]);
+  });
+
+  it("lists one entry per compound component on this table", () => {
+    const metric = {
+      metricType: "compound",
+      numerator: null,
+      compoundSettings: {
+        components: [
+          ref("ft", [ev("=", ["signup"])]),
+          ref("ft", [ev("in", ["purchase", "upgrade"])]),
+        ],
+      },
+    } as unknown as FactMetricInterface;
+    expect(getMetricEvents(metric, "ft", ["event"])).toEqual([
+      "signup",
       "purchase, upgrade",
     ]);
   });

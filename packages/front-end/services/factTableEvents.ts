@@ -40,7 +40,7 @@ export function getEventColumns(
 
 /**
  * Events a Fact Metric filters this Fact Table to with `=` or `in` on one of
- * `columns`: one entry per funnel step, otherwise the numerator's events and
+ * `columns`: one entry per funnel step or compound component, otherwise the numerator's events and
  * then the denominator's.
  */
 export function getMetricEvents(
@@ -60,8 +60,12 @@ export function getMetricEvents(
           )
           .flatMap((f) => f.values || [])
       : [];
-  if (metric.metricType === "funnel") {
-    return (metric.funnelSettings?.steps || [])
+  // Funnel steps and compound components are separate events, so keep each
+  if (metric.funnelSettings || metric.compoundSettings) {
+    return [
+      ...(metric.funnelSettings?.steps || []),
+      ...(metric.compoundSettings?.components || []),
+    ]
       .map((s) => events(s).join(", "))
       .filter(Boolean);
   }
@@ -72,7 +76,7 @@ export function getMetricEvents(
 
 /**
  * Fact Metrics that filter this Fact Table to one event: a numerator,
- * denominator, or funnel step on the table whose row filters match `event`
+ * denominator, funnel step, or compound component on the table whose row filters match `event`
  * on the Event Column with `=` or `in`.
  */
 export function getMetricsForEvent(
@@ -95,8 +99,9 @@ export function getMetricsForEvent(
         matches(m.numerator.factTableId, m.numerator.rowFilters)) ||
       (m.denominator &&
         matches(m.denominator.factTableId, m.denominator.rowFilters)) ||
-      m.funnelSettings?.steps?.some((s) =>
-        matches(s.factTableId, s.rowFilters),
-      ),
+      [
+        ...(m.funnelSettings?.steps || []),
+        ...(m.compoundSettings?.components || []),
+      ].some((s) => matches(s.factTableId, s.rowFilters)),
   );
 }

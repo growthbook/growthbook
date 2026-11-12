@@ -357,7 +357,7 @@ function ColumnsTable({
           <span>
             Could not detect the data type for some columns. You can manually
             specify data types below. Only numeric columns can be used to create
-            Metrics.
+            Fact Metrics.
           </span>
         </Callout>
       )}

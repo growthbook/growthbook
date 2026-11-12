@@ -161,7 +161,7 @@ export default function FactTableMetricsTab({
                   <OfficialBadge type="metric" managedBy={m.managedBy} />
                 </TableCell>
                 <TableCell>
-                  <FactMetricTypeDisplayName type={m.metricType} />
+                  <FactMetricTypeDisplayName metric={m} />
                 </TableCell>
                 {columns.length ? (
                   <TableCell>
