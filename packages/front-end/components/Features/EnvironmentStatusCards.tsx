@@ -21,7 +21,7 @@ import {
   StepStatus,
   stepBucketing,
   stepServes,
-  nullServedTo,
+  servesNull,
   stepTargets,
   TrafficStep,
 } from "@/services/environmentStatus";
@@ -546,12 +546,7 @@ function ServedAndEvaluated({
   status: EnvironmentStatus;
   valueType: FeatureValueType;
 }) {
-  const who = nullServedTo(status);
-  if (!who || valueType !== "boolean") return null;
-  const toWhom =
-    who === "unheld" ? (
-      <Text color="text-mid">to everyone the holdout doesn&apos;t hold</Text>
-    ) : null;
+  if (valueType !== "boolean" || !servesNull(status)) return null;
   return (
     <Row icon={null} label="Result">
       <Fields
@@ -562,12 +557,7 @@ function ServedAndEvaluated({
           },
           {
             label: "Serves",
-            value: (
-              <>
-                <ValueCode text="null" muted={false} />
-                {toWhom}
-              </>
-            ),
+            value: <ValueCode text="null" muted={false} />,
           },
         ]}
       />

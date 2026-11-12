@@ -7,7 +7,7 @@ import {
   EnvironmentStatus,
   EnvironmentValue,
   getEnvironmentStatus,
-  nullServedTo,
+  servesNull,
   prerequisitesSummary,
   reachedRules,
   reasonText,
@@ -811,24 +811,19 @@ describe("reasonText", () => {
   );
 });
 
-describe("nullServedTo", () => {
+describe("servesNull", () => {
   const unmet = { prerequisites: [{ id: "parent", result: "unmet" as const }] };
   const held = holdoutTrafficStep("false", experiment({}, { coverage: 0.1 }));
   it.each([
-    ["an environment that's off", status([], { enabled: false }), "everyone"],
-    ["an archived flag", status([], { archived: true }), "everyone"],
-    ["an unmet prerequisite", status([], unmet), "everyone"],
-    // Held back to false, it still reads as null on the card.
-    [
-      "a holdout ahead of an unmet prerequisite",
-      status([held], unmet),
-      "unheld",
-    ],
-    ["a served value", status([]), null],
-  ] as [string, EnvironmentStatus, string | null][])(
-    "says who gets null with %s",
-    (_, result, who) => {
-      expect(nullServedTo(result)).toBe(who);
+    ["an environment that's off", status([], { enabled: false }), true],
+    ["an archived flag", status([], { archived: true }), true],
+    ["an unmet prerequisite", status([], unmet), true],
+    ["a holdout ahead of an unmet prerequisite", status([held], unmet), true],
+    ["a served value", status([]), false],
+  ] as [string, EnvironmentStatus, boolean][])(
+    "says whether some get null with %s",
+    (_, result, expected) => {
+      expect(servesNull(result)).toBe(expected);
     },
   );
 });
