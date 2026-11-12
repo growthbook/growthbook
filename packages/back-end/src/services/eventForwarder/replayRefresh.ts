@@ -14,21 +14,22 @@ import { IS_CLOUD } from "back-end/src/util/secrets";
 import { logger } from "back-end/src/util/logger";
 
 const REPLAY_FULL_REFRESH_REASON =
-  "Backed-up Event Forwarder events were written after the last Full Refresh";
+  "Backed-up Event Forwarder events were written after the last full refresh";
 
-// Whether SQL reads a table, matched on its last path segment.
-// - Ignores case, identifier quoting, comments and string values.
+// Whether SQL names a table, matched on its last path segment.
+// - Ignores case and identifier quoting.
 // - `gb_events` does not match `gb_events_v2` or `my_gb_events`.
+// ponytail: searches the raw text, so a name in a comment or a string counts.
+// That costs one unneeded Full Refresh. Stripping them needs each dialect's
+// escaping rules, and getting those wrong hides a real read. Parse per dialect
+// if the false positives ever matter.
 export function sqlReferencesTable(sql: string, table: string): boolean {
   const unquote = (text: string) => text.toLowerCase().replace(/["`[\]]/g, "");
   const name = unquote(table).split(".").pop()?.trim();
   if (!name) return false;
   const escaped = name.replace(/[.*+?^${}()|\\]/g, "\\$&");
-  // One pass, so a quote inside a comment (or `--` inside a string) cannot
-  // swallow real SQL.
-  const code = sql.replace(/'(?:[^']|'')*'|--[^\n]*|\/\*[\s\S]*?\*\//g, " ");
   return new RegExp(`(^|[^a-z0-9_$])${escaped}([^a-z0-9_$]|$)`).test(
-    unquote(code),
+    unquote(sql),
   );
 }
 

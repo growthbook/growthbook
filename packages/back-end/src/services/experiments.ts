@@ -1926,7 +1926,7 @@ async function planSnapshotQueryRunner({
       );
       if (replayReason) {
         throw new ExperimentIncrementalPipelineRequiresFullRefreshError(
-          `${replayReason}. Please run a Full Refresh.`,
+          `${replayReason}. Please run a full refresh.`,
         );
       }
     }

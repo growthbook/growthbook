@@ -40,28 +40,19 @@ describe("sqlReferencesTable", () => {
     expect(sqlReferencesTable("SELECT 1", "")).toBe(false);
   });
 
-  it("ignores the name in a comment or a string value", () => {
+  it("never loses a real read to a quote or a comment marker", () => {
+    // Backslash-escaped quote (BigQuery, Databricks, Snowflake).
     expect(
       sqlReferencesTable(
-        "SELECT * FROM analytics.orders -- formerly gb_events",
-        "gb_events",
-      ),
-    ).toBe(false);
-    expect(
-      sqlReferencesTable(
-        "SELECT * /* gb_events */ FROM orders WHERE src = 'gb_events'",
-        "gb_events",
-      ),
-    ).toBe(false);
-    // A quote in a comment, or `--` in a string, must not hide a real read.
-    expect(
-      sqlReferencesTable(
-        "-- don't drop\nSELECT * FROM gb_events WHERE a = 'x--y' AND b = 'z'",
+        "SELECT 'don\\'t' AS label, * FROM gb_events WHERE e = 'purchase'",
         "gb_events",
       ),
     ).toBe(true);
     expect(
-      sqlReferencesTable("SELECT 'a--b' AS c FROM gb_events", "gb_events"),
+      sqlReferencesTable(
+        "-- don't drop\nSELECT 'a--b' AS c FROM gb_events",
+        "gb_events",
+      ),
     ).toBe(true);
   });
 });
