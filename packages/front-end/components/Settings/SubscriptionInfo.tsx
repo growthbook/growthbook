@@ -134,6 +134,14 @@ function BillingStatusSection({
           {billing.cancelationDate ? `${billing.cancelationDate}.` : ""}
         </Callout>
       );
+    case "past_due":
+      return (
+        <Callout status="error" mb="3">
+          We couldn&apos;t charge your payment method. Update it to keep your
+          plan. If the charge stays unpaid, the plan is canceled after the
+          automatic retries finish.
+        </Callout>
+      );
     case "self_serve_pending_cancel":
       return billing.pendingCancelDate ? (
         <Callout status="error" mb="3">

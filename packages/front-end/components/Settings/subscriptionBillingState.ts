@@ -3,6 +3,7 @@ import type { AccountPlan, SubscriptionInfo } from "shared/enterprise";
 
 export type SubscriptionBillingKind =
   | "canceled"
+  | "past_due"
   | "self_serve_pending_cancel"
   | "self_serve_active"
   | "enterprise_active"
@@ -32,6 +33,10 @@ export type SubscriptionBillingState =
   | (BillingBase & {
       kind: "canceled";
       cancelationDate: string | null;
+    })
+  | (BillingBase & {
+      kind: "past_due";
+      nextBillDate: string | null;
     })
   | (BillingBase & {
       kind: "self_serve_pending_cancel";
@@ -83,11 +88,14 @@ function getActions(
 ): BillingActions {
   const isOrb = subscription?.billingPlatform === "orb";
   const isActive = subscription?.status === "active";
+  const canUpdateOrbInvoice =
+    isOrb &&
+    (isActive || subscription?.status === "past_due") &&
+    !!subscription?.stripeCustomerId;
 
   return {
     showStripeManageButton: subscription?.billingPlatform === "stripe",
-    showUpdateInvoiceButton:
-      isOrb && isActive && !!subscription?.stripeCustomerId,
+    showUpdateInvoiceButton: canUpdateOrbInvoice,
     showRenewButton: subscription?.status === "canceled" && canSubscribe,
     showCancelButton:
       isOrb &&
@@ -113,6 +121,17 @@ export function getSubscriptionBillingState({
       kind: "canceled",
       isTrialing: false,
       cancelationDate: formatBillingDate(subscription.cancelationDate),
+      ...actions,
+    };
+  }
+
+  // The license server sets past_due only for accounts on the automatic
+  // cancellation path. High-value accounts stay active and are handled in Slack.
+  if (subscription?.status === "past_due") {
+    return {
+      kind: "past_due",
+      isTrialing: false,
+      nextBillDate: formatBillingDate(subscription.nextBillDate),
       ...actions,
     };
   }

@@ -38,6 +38,31 @@ describe("getSubscriptionBillingState", () => {
     expect(state.showCancelButton).toBe(true);
   });
 
+  it("past due: keeps the plan actions for updating the card and hides cancel", () => {
+    const state = getSubscriptionBillingState({
+      subscription: sub({ status: "past_due" }),
+      accountPlan: "pro",
+      canSubscribe: false,
+    });
+    expect(state.kind).toBe("past_due");
+    if (state.kind !== "past_due") return;
+    expect(state.showUpdateInvoiceButton).toBe(true);
+    expect(state.showCancelButton).toBe(false);
+    expect(state.showRenewButton).toBe(false);
+  });
+
+  it("past due enterprise: still offers invoice update and does not offer cancel", () => {
+    const state = getSubscriptionBillingState({
+      subscription: sub({ status: "past_due", hasPaymentMethod: false }),
+      accountPlan: "enterprise",
+      canSubscribe: false,
+    });
+    expect(state.kind).toBe("past_due");
+    if (state.kind !== "past_due") return;
+    expect(state.showUpdateInvoiceButton).toBe(true);
+    expect(state.showCancelButton).toBe(false);
+  });
+
   it("self-serve pending cancel: hides next bill, shows access-until date", () => {
     const state = getSubscriptionBillingState({
       subscription: sub({
