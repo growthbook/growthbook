@@ -470,7 +470,7 @@ export class GrowthBookClient<
     return this.evalFeature(key, userContext).off;
   }
 
-  // The fallback is optional for a feature with a default in the registered payload
+  // The fallback is optional when a fallback payload is registered
   public getFeatureValue<K extends BundledFeatureKey & keyof AppFeatures>(
     key: K,
     userContext: UserContext<AppAttributes>,

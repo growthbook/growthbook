@@ -1,4 +1,8 @@
-import { GrowthBook, GrowthBookClient } from "@growthbook/growthbook";
+import {
+  FallbackPayload,
+  GrowthBook,
+  GrowthBookClient,
+} from "@growthbook/growthbook";
 
 declare module "@growthbook/growthbook" {
   interface Register {
@@ -31,6 +35,29 @@ gb.updateAttributes({ plan: "enterprise" });
 export const id: string = gb.getAttributes().id;
 // @ts-expect-error unknown feature in a payload written in code
 gb.setPayload({ features: { nope: { defaultValue: 1 } } });
+
+// A fallback payload is checked against the registered features and attributes
+const fallbackPayload: FallbackPayload = {
+  features: {
+    dark_mode: { defaultValue: false },
+    price: {
+      defaultValue: 1,
+      rules: [{ condition: { plan: "pro" }, force: 2 }],
+    },
+  },
+};
+gb.init({ fallbackPayload });
+export const missing: FallbackPayload = {
+  // @ts-expect-error a registered feature is missing
+  features: { price: { defaultValue: 1 } },
+};
+export const unknownAttribute: FallbackPayload = {
+  features: {
+    dark_mode: { defaultValue: false },
+    // @ts-expect-error unknown attribute
+    price: { defaultValue: 1, rules: [{ condition: { nope: 1 }, force: 2 }] },
+  },
+};
 
 // Event names and properties are checked against the registered events
 gb.logEvent("start_checkout", { plan: "pro" });

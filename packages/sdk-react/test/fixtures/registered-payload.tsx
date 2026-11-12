@@ -1,6 +1,6 @@
 import * as React from "react";
 import {
-  FeatureApiResponse,
+  FallbackPayload,
   GrowthBook,
   GrowthBookProvider,
   useFeatureIsOn,
@@ -8,34 +8,41 @@ import {
   useGrowthBook,
 } from "@growthbook/growthbook-react";
 
-// A payload written in code, registered in place of `features`
-const payload = {
+// `satisfies` works as well as a type annotation
+const fallbackPayload = {
   features: {
     banner: { defaultValue: "control" },
     price: { defaultValue: 10 },
     dark_mode: { defaultValue: true },
-    no_default: { rules: [{ force: 1 }] },
+    nullable: { defaultValue: null },
   },
-} satisfies FeatureApiResponse;
+} satisfies FallbackPayload;
 
+// Registering a fallback payload that has every feature
 declare module "@growthbook/growthbook-react" {
   interface Register {
-    payload: typeof payload;
+    features: {
+      banner: string;
+      price: number;
+      dark_mode: boolean;
+      nullable: number | null;
+    };
+    fallbackPayload: typeof fallbackPayload;
   }
 }
 
-const gb = new GrowthBook().initSync({ payload });
+const gb = new GrowthBook().initSync({ payload: fallbackPayload });
 
 export function Component() {
-  // No fallback: the value type comes from each defaultValue
+  // No fallback: every feature has a default in the fallback payload
   const banner: string = useFeatureValue("banner");
   const price: number = useFeatureValue("price");
   const viaInstance: string = useGrowthBook().getFeatureValue("banner");
-  const withFallback: number = useFeatureValue("no_default", 2);
+  const withFallback: number = useFeatureValue("nullable", 2);
   // @ts-expect-error unknown feature
   useFeatureValue("nope");
-  // @ts-expect-error no defaultValue, so a fallback is still required
-  useFeatureValue("no_default");
+  // @ts-expect-error a feature that can be null still requires a fallback
+  useFeatureValue("nullable");
   // @ts-expect-error a boolean feature still requires a fallback (or isOn)
   useFeatureValue("dark_mode");
   const darkMode: boolean = useFeatureIsOn("dark_mode");

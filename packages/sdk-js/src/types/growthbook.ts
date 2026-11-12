@@ -6,7 +6,11 @@ import type {
   StickyBucketService,
   UserScopedGrowthBook,
 } from "..";
-import { ConditionInterface, ParentConditionInterface } from "./mongrule";
+import {
+  AttributePath,
+  ConditionInterface,
+  ParentConditionInterface,
+} from "./mongrule";
 
 declare global {
   interface Window {
@@ -20,16 +24,16 @@ export type VariationMeta = {
   name?: string;
 };
 
-export type FeatureRule<T = any> = {
+export type FeatureRule<T = any, A extends Attributes = any> = {
   id?: string;
-  condition?: ConditionInterface;
+  condition?: ConditionInterface<A>;
   parentConditions?: ParentConditionInterface[];
   force?: T;
   variations?: T[];
   weights?: number[];
   key?: string;
-  hashAttribute?: string;
-  fallbackAttribute?: string;
+  hashAttribute?: AttributeKey<A>;
+  fallbackAttribute?: AttributeKey<A>;
   hashVersion?: number;
   disableStickyBucketing?: boolean;
   bucketVersion?: number;
@@ -40,12 +44,12 @@ export type FeatureRule<T = any> = {
   namespace?: [string, number, number];
   ranges?: VariationRange[];
   meta?: VariationMeta[];
-  filters?: Filter[];
+  filters?: Filter<A>[];
   seed?: string;
   name?: string;
   phase?: string;
   tracks?: Array<{
-    experiment: Experiment<T>;
+    experiment: Experiment<T, A>;
     result: Result<T>;
   }>;
   contextualBanditRef?: string;
@@ -67,20 +71,23 @@ export type ContextualBanditDefinitions = Record<
   ContextualBanditDefinition
 >;
 
-export type InterleavingDefinition = {
+export type InterleavingDefinition<A extends Attributes = any> = {
   trackingKey: string;
   // Carried here, not read off the pseudo flag's rule: remote evaluation
   // replaces rules with a forced defaultValue, so the rule is gone client-side.
-  hashAttribute: string;
+  hashAttribute: AttributeKey<A>;
   seed: string;
   variations: { key: string; config: Record<string, unknown> }[];
 };
 
-export type InterleavingDefinitions = Record<string, InterleavingDefinition>;
+export type InterleavingDefinitions<A extends Attributes = any> = Record<
+  string,
+  InterleavingDefinition<A>
+>;
 
-export interface FeatureDefinition<T = any> {
+export interface FeatureDefinition<T = any, A extends Attributes = any> {
   defaultValue?: T;
-  rules?: FeatureRule<T>[];
+  rules?: FeatureRule<T, A>[];
   metadata?: PayloadMetadata;
 }
 
@@ -125,26 +132,26 @@ export type UrlTarget = {
   pattern: string;
 };
 
-export type Experiment<T> = {
+export type Experiment<T, A extends Attributes = any> = {
   key: string;
   variations: [T, T, ...T[]];
   ranges?: VariationRange[];
   meta?: VariationMeta[];
-  filters?: Filter[];
+  filters?: Filter<A>[];
   seed?: string;
   name?: string;
   phase?: string;
   urlPatterns?: UrlTarget[];
   weights?: number[];
-  condition?: ConditionInterface;
+  condition?: ConditionInterface<A>;
   parentConditions?: ParentConditionInterface[];
   coverage?: number;
   include?: () => boolean;
   /** @deprecated */
   namespace?: [string, number, number];
   force?: number;
-  hashAttribute?: string;
-  fallbackAttribute?: string;
+  hashAttribute?: AttributeKey<A>;
+  fallbackAttribute?: AttributeKey<A>;
   hashVersion?: number;
   disableStickyBucketing?: boolean;
   bucketVersion?: number;
@@ -162,7 +169,10 @@ export type Experiment<T> = {
 
 export type AutoExperimentChangeType = "redirect" | "visual" | "unknown";
 
-export type AutoExperiment<T = AutoExperimentVariation> = Experiment<T> & {
+export type AutoExperiment<
+  T = AutoExperimentVariation,
+  A extends Attributes = any,
+> = Experiment<T, A> & {
   changeId?: string;
   // If true, require the experiment to be manually triggered
   manual?: boolean;
@@ -207,6 +217,21 @@ export type CBContext = {
 };
 
 export type Attributes = Record<string, any>;
+// The types below that take attributes default to `any`, not `Attributes`, so
+// that one checked against an app's attributes is still assignable to the
+// unchecked type that `init`, `setPayload` and the rest accept.
+
+// The attributes a user can be hashed on: ones that can hold a string or a
+// number. Unlike conditions, hashing doesn't look inside object attributes.
+export type AttributeKey<A> = string extends keyof A
+  ? string
+  : {
+      [K in keyof A & string]: unknown extends A[K]
+        ? K
+        : [Extract<A[K], string | number>] extends [never]
+          ? never
+          : K;
+    }[keyof A & string];
 
 /**
  * Register your app's feature and attribute types once and every GrowthBook
@@ -219,14 +244,13 @@ export type Attributes = Record<string, any>;
  *     }
  *   }
  *
- * Or register a payload written in code (`payload: typeof payload`) in place
- * of `features`: feature types come from each `defaultValue`, and
- * `getFeatureValue` needs no fallback for a feature that has one, other than
- * a boolean (use `isOn`, or pass the fallback). With no fallback, a feature
- * with no value (missing, blocked by a prerequisite...) uses its
+ * Also register a fallback payload written in code that has every feature
+ * (`fallbackPayload: typeof fallbackPayload`, see `FallbackPayload`), and
+ * `getFeatureValue` needs no fallback, other than for a boolean (use `isOn`,
+ * or pass the fallback) or a feature that can be null. With no fallback, a
+ * feature with no value (missing, blocked by a prerequisite...) uses its
  * `defaultValue`: the one in the SDK's payload, else the one in the
  * `fallbackPayload` given to `init`. Pass a fallback to use a different value.
- * Registering a payload is a promise that one of the two has each feature.
  *
  * Register `events` (event name -> properties) to check `logEvent` calls:
  *
@@ -237,28 +261,19 @@ export type Attributes = Record<string, any>;
  */
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type
 export interface Register {}
-// Feature types taken from each defaultValue in a payload written in code
-export type PayloadFeatures<P> = P extends { features: infer F }
-  ? { [K in keyof F]: F[K] extends { defaultValue: infer V } ? V : unknown }
-  : Record<string, any>;
 export type RegisteredFeatures = Register extends { features: infer F }
   ? F
-  : Register extends { payload: infer P }
-    ? PayloadFeatures<P>
-    : Record<string, any>;
-// Features in the registered payload whose defaultValue can't be null, so
-// `getFeatureValue` can return it instead of requiring a fallback. Boolean
-// features are left out: `isOn` is false when there is no value, and a
-// `true` default here would disagree with it.
+  : Record<string, any>;
+// Features `getFeatureValue` can return with no fallback: the registered
+// fallback payload has every feature's default, so only one that can be null
+// still needs one. Boolean features are left out too: `isOn` is false when
+// there is no value, and a `true` default here would disagree with it.
 export type BundledFeatureKey = Register extends {
-  payload: { features: infer F };
+  features: infer F;
+  fallbackPayload: FallbackPayload;
 }
   ? {
-      [K in keyof F]: F[K] extends {
-        defaultValue: string | number | object;
-      }
-        ? K
-        : never;
+      [K in keyof F]: F[K] extends string | number | object ? K : never;
     }[keyof F] &
       string
   : never;
@@ -602,28 +617,52 @@ export type AutoExperimentVariation = {
 // (the default) any payload is accepted, as is one typed `FeatureApiResponse`.
 export type FeatureDefinitions<
   AppFeatures extends Record<string, any> = Record<string, any>,
+  AppAttributes extends Attributes = any,
 > = string extends keyof AppFeatures
-  ? Record<string, FeatureDefinition>
-  : { [K in keyof AppFeatures]?: FeatureDefinition<AppFeatures[K]> };
+  ? Record<string, FeatureDefinition<any, AppAttributes>>
+  : {
+      [K in keyof AppFeatures]?: FeatureDefinition<
+        AppFeatures[K],
+        AppAttributes
+      >;
+    };
 
 export type FeatureApiResponse<
   AppFeatures extends Record<string, any> = Record<string, any>,
+  AppAttributes extends Attributes = any,
 > = {
-  features?: FeatureDefinitions<AppFeatures>;
+  features?: FeatureDefinitions<AppFeatures, AppAttributes>;
   dateUpdated?: string;
   encryptedFeatures?: string;
-  experiments?: AutoExperiment[];
+  experiments?: AutoExperiment<AutoExperimentVariation, AppAttributes>[];
   encryptedExperiments?: string;
-  savedGroups?: SavedGroupsPayload;
+  savedGroups?: SavedGroupsPayload<AppAttributes>;
   encryptedSavedGroups?: string;
   contextualBandits?: ContextualBanditDefinitions;
   encryptedContextualBandits?: string;
-  interleavings?: InterleavingDefinitions;
+  interleavings?: InterleavingDefinitions<AppAttributes>;
   encryptedInterleavings?: string;
 };
 
 // Alias
 export type GrowthBookPayload = FeatureApiResponse;
+
+/**
+ * A fallback payload written in code, checked against your attributes and
+ * features. Targeting conditions, hash attributes and saved groups must use
+ * real attributes, with operators and values that fit each attribute's type.
+ * Every feature must be included, with a `defaultValue`.
+ *
+ *   const fallbackPayload: FallbackPayload<AppAttributes, AppFeatures> = {...};
+ *
+ * Uses the registered attributes and features when none are given.
+ */
+export type FallbackPayload<
+  AppAttributes extends Attributes = RegisteredAttributes,
+  AppFeatures extends Record<string, any> = RegisteredFeatures,
+> = FeatureApiResponse<AppFeatures, AppAttributes> & {
+  features: { [K in keyof AppFeatures]: { defaultValue: AppFeatures[K] } };
+};
 
 /** Each filter is an array, and any one of its values is enough */
 export type PayloadFilters = {
@@ -748,9 +787,9 @@ export type DestroyOptions = {
   destroyAllStreams?: boolean;
 };
 
-export interface Filter {
+export interface Filter<A extends Attributes = any> {
   // Override the hashAttribute used for this filter
-  attribute?: string;
+  attribute?: AttributeKey<A>;
   // The hash seed
   seed: string;
   // The hashing version to use
@@ -772,13 +811,17 @@ export interface StickyAssignmentsDocument {
 export type SavedGroupsValues = Record<string, (string | number)[]>;
 
 /** The savedGroupReferencesV2 shape of one saved group, of any type. */
-export type SavedGroupPayloadEntry =
-  | { type: "list"; attributeKey: string; values: (string | number)[] }
-  | { type: "condition"; condition: ConditionInterface }
+export type SavedGroupPayloadEntry<A extends Attributes = any> =
+  | {
+      type: "list";
+      attributeKey: AttributePath<A>;
+      values: (string | number)[];
+    }
+  | { type: "condition"; condition: ConditionInterface<A> }
   // IDs live outside the payload; see `SavedGroupResolver`
   | {
       type: "remote";
-      attributeKey: string;
+      attributeKey: AttributePath<A>;
       /**
        * Set on a derived group (ID `<group id>:<attribute>`): the remote group
        * whose IDs `attributeKey`'s value is looked up in.
@@ -804,9 +847,9 @@ export type SavedGroupResolver = (args: {
 }) => Promise<string[]>;
 
 /** The `savedGroups` payload field. Entries may use either shape above. */
-export type SavedGroupsPayload = Record<
+export type SavedGroupsPayload<A extends Attributes = any> = Record<
   string,
-  (string | number)[] | SavedGroupPayloadEntry
+  (string | number)[] | SavedGroupPayloadEntry<A>
 >;
 
 export type BaseLog = {

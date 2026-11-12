@@ -92,7 +92,7 @@ describe("typed features", () => {
   });
 
   describe("getFeatureValue without a fallback", () => {
-    // Only type-checks against a registered payload (see
+    // Only type-checks against a registered fallback payload (see
     // fixtures/registered-payload.ts), so these calls are untyped
     const getValue = (gb: unknown, ...args: unknown[]) =>
       (gb as { getFeatureValue: (...a: unknown[]) => unknown }).getFeatureValue(

@@ -94,7 +94,7 @@ export function useFeatureIsOn<
   return growthbook.isOn(id as string & keyof AppFeatures);
 }
 
-// The fallback is optional for a feature with a default in the registered payload
+// The fallback is optional when a fallback payload is registered
 export function useFeatureValue<K extends BundledFeatureKey & FeatureKey>(
   id: K,
 ): RegisteredFeatures[K];
