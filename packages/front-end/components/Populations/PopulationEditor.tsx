@@ -117,7 +117,14 @@ export default function PopulationEditor({
       : getPopulationRuleViolations({
           datasource: values.datasource,
           userIdTypes: values.userIdTypes,
-          steps: [toStep(values)],
+          // Unfinished filters already block Save through missing.rowFilters
+          // and get their own cue, so the rules only see finished ones.
+          steps: [
+            toStep({
+              ...values,
+              rowFilters: values.rowFilters.filter(isRowFilterComplete),
+            }),
+          ],
           factTables: factTable ? [factTable] : [],
         });
 
@@ -350,6 +357,11 @@ export default function PopulationEditor({
                         form.setValue("rowFilters", rowFilters)
                       }
                     />
+                    {missing.rowFilters && (
+                      <Text size="sm" color="text-mid" as="p">
+                        Finish or remove any unfinished filters.
+                      </Text>
+                    )}
                     {showThreshold ? (
                       <Flex direction="column" gap="1">
                         <Flex align="end" gap="3" wrap="wrap">

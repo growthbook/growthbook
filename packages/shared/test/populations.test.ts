@@ -140,10 +140,13 @@ describe("getPopulationRuleViolations", () => {
         { operator: "=", column: "country", values: ["US"] },
         { operator: "=", values: ["US"] },
         { operator: "sql_expr", values: ["  "] },
+        { operator: "in", column: "country", values: [] },
+        { operator: "is_null", column: "country" },
       ]),
     ).toEqual([
       "Row filter 2 needs a column.",
       "Row filter 3 has no SQL expression.",
+      "Row filter 4 needs a value.",
     ]);
   });
 

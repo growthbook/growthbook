@@ -1,5 +1,6 @@
 import type { PopulationStep } from "shared/validators";
 import type { FactTableInterface } from "shared/types/fact-table";
+import { columnOnlyRowFilterOperators } from "./validators/fact-table";
 import { getSelectedColumnDatatype } from "./experiments/experiments";
 import { parseAggregateFilter } from "./aggregate-filters";
 
@@ -110,8 +111,17 @@ function getRowFilterViolations(
         if (!filter.values?.[0]?.trim()) {
           violations.push(`Row filter ${j + 1} has no SQL expression${label}.`);
         }
-      } else if (filter.operator !== "saved_filter" && !filter.column) {
-        violations.push(`Row filter ${j + 1} needs a column${label}.`);
+      } else if (filter.operator !== "saved_filter") {
+        if (!filter.column) {
+          violations.push(`Row filter ${j + 1} needs a column${label}.`);
+        } else if (
+          !(columnOnlyRowFilterOperators as readonly string[]).includes(
+            filter.operator,
+          ) &&
+          !filter.values?.length
+        ) {
+          violations.push(`Row filter ${j + 1} needs a value${label}.`);
+        }
       }
     });
 
