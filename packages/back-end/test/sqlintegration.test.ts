@@ -2955,6 +2955,73 @@ describe("cluster experiment ratio analysis - bigquery", () => {
     expect(normalized).not.toMatch(/MIN\(dim_exp_browser\)/);
   });
 
+  it("resolves a cluster-keyed timed dimension at the cluster's first exposure for every sub-unit", () => {
+    const timedDimension = (
+      id: string,
+      userIdType: string,
+    ): DimensionInterface => ({
+      id,
+      organization: "org1",
+      owner: "",
+      datasource: "ds1",
+      userIdType,
+      name: id,
+      sql: `SELECT ${userIdType}, tier AS value, changed_at AS timestamp FROM tier_changes`,
+      timing: "rowTimestamp",
+      dateCreated: null,
+      dateUpdated: null,
+    });
+    const dimensions: Dimension[] = [
+      { type: "user", dimension: timedDimension("dim_tier", "region_id") },
+      { type: "user", dimension: timedDimension("dim_plan", "user_id") },
+    ];
+    const mean = (id: string, factTableId: string) =>
+      factMetricFactory.build({
+        id,
+        metricType: "mean",
+        numerator: { factTableId, column: "amount", aggregation: "sum" },
+        regressionAdjustmentEnabled: false,
+      });
+
+    // The units are built the same way for both metric grains
+    const queries = [
+      buildClusterSql(mean("fact_cluster_mean", "orders"), baseSettings, [
+        ...dimensions,
+      ]),
+      buildClusterSql(
+        mean("fact_region_spend", "region_spend"),
+        { ...baseSettings, clusterLevelMetricIds: ["fact_region_spend"] },
+        dimensions,
+      ),
+    ];
+    for (const sql of queries) {
+      const normalized = sql.replace(/\s+/g, " ").trim();
+      const tierAt = normalized.indexOf("__experimentUnitsTimed1 AS");
+      const planAt = normalized.indexOf("__experimentUnits AS");
+      expect(tierAt).toBeGreaterThan(-1);
+      expect(planAt).toBeGreaterThan(tierAt);
+
+      // The dimension is the cluster's, so every sub-unit resolves it at the
+      // cluster's first exposure: a sub-unit metric never splits the cluster,
+      // and the cluster-level collapse never sees its sub-units disagree
+      const tier = normalized.substring(tierAt, planAt);
+      expect(tier).toMatch(
+        /MIN\(u\.first_exposure_timestamp\) OVER \( ?PARTITION BY u\.region_id ?\) AS cluster_first_exposure_timestamp FROM __experimentUnitsCore u/,
+      );
+      expect(tier).toContain(
+        "__dim_unit_dim_tier.timestamp <= u.cluster_first_exposure_timestamp",
+      );
+
+      // A dimension keyed on the sub-unit still resolves per sub-unit
+      expect(
+        normalized.substring(
+          planAt,
+          normalized.indexOf("AS dim_unit_dim_plan", planAt),
+        ),
+      ).not.toContain("cluster_first_exposure_timestamp");
+    }
+  });
+
   it("joins a cluster-keyed segment through the cluster column, not the sub-unit", () => {
     const metric = factMetricFactory.build({
       id: "fact_cluster_mean",

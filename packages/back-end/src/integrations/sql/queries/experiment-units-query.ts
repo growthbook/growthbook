@@ -21,7 +21,11 @@ import { getConversionWindowClause } from "back-end/src/integrations/sql/clauses
 import { getDimensionCTE } from "back-end/src/integrations/sql/ctes/dimension-cte";
 import { getDimensionInStatement } from "back-end/src/integrations/sql/fact-metrics/dimension-in-statement";
 import { getDimensionValuePerUnit } from "back-end/src/integrations/sql/fact-metrics/dimension-value-per-unit";
-import { getTimedUnitDimensionValue } from "back-end/src/integrations/sql/fact-metrics/timed-unit-dimension-value";
+import {
+  CLUSTER_FIRST_EXPOSURE_COLUMN,
+  getTimedUnitDimensionValue,
+  withClusterFirstExposure,
+} from "back-end/src/integrations/sql/fact-metrics/timed-unit-dimension-value";
 import { getExperimentEndDate } from "back-end/src/integrations/sql/dates/experiment-end-date";
 import { getFirstVariationValuePerUnit } from "back-end/src/integrations/sql/columns/first-variation-value-per-unit";
 import { getIdentitiesCTE } from "back-end/src/integrations/sql/ctes/identities-cte";
@@ -222,7 +226,9 @@ export function getExperimentUnitsQuery(
     expr: getTimedUnitDimensionValue(
       dialect,
       d.dimension,
-      "u.first_exposure_timestamp",
+      isClusterKeyed(getUnitDimensionJoinIdType(d))
+        ? `u.${CLUSTER_FIRST_EXPOSURE_COLUMN}`
+        : "u.first_exposure_timestamp",
       `__dim_unit_${d.dimension.id}`,
     ),
     joinIdType: getUnitDimensionJoinIdType(d),
@@ -261,7 +267,11 @@ export function getExperimentUnitsQuery(
         ${carried.join("\n        , ")}
         , ${c.expr} AS ${c.alias}
       FROM
-        ${prevCte} u
+        ${
+          isClusterKeyed(c.joinIdType)
+            ? withClusterFirstExposure(prevCte, c.joinIdType)
+            : prevCte
+        } u
         LEFT JOIN __dim_unit_${c.dimensionId} __dim_unit_${c.dimensionId} ON (
           ${c.dimensionKey} = u.${c.joinIdType}
         )

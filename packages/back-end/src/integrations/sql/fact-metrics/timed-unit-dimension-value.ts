@@ -31,6 +31,22 @@ export function getTimedUnitDimensionCondition(
   }
 }
 
+// A dimension keyed on a cluster experiment's cluster is the cluster's, so
+// every sub-unit resolves it at the cluster's first exposure and a cluster
+// never splits across values. Wraps a one-row-per-sub-unit source to add it.
+export const CLUSTER_FIRST_EXPOSURE_COLUMN = "cluster_first_exposure_timestamp";
+export function withClusterFirstExposure(
+  source: string,
+  clusterColumn: string,
+): string {
+  return `(
+        SELECT
+          u.*
+          , MIN(u.first_exposure_timestamp) OVER (PARTITION BY u.${clusterColumn}) AS ${CLUSTER_FIRST_EXPOSURE_COLUMN}
+        FROM ${source} u
+      )`;
+}
+
 // 'YYYY-MM-DD HH:MM:SS'
 const TIMESTAMP_PREFIX_LENGTH = 19;
 

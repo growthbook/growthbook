@@ -175,7 +175,11 @@ import { getDimensionCol } from "back-end/src/integrations/sql/columns/dimension
 import { getDimensionInStatement } from "back-end/src/integrations/sql/fact-metrics/dimension-in-statement";
 import { getDimensionSlicesQuery as getDimensionSlicesQueryFromSql } from "back-end/src/integrations/sql/queries/dimension-slices-query";
 import { getDimensionValuePerUnit } from "back-end/src/integrations/sql/fact-metrics/dimension-value-per-unit";
-import { getTimedUnitDimensionValue } from "back-end/src/integrations/sql/fact-metrics/timed-unit-dimension-value";
+import {
+  CLUSTER_FIRST_EXPOSURE_COLUMN,
+  getTimedUnitDimensionValue,
+  withClusterFirstExposure,
+} from "back-end/src/integrations/sql/fact-metrics/timed-unit-dimension-value";
 import { getDropMetricSourceCovariateTableQuery } from "back-end/src/integrations/sql/queries/drop-metric-source-covariate-table-query";
 import { getCreateAggregatedFactTableQuery } from "back-end/src/integrations/sql/queries/create-aggregated-fact-table-query";
 import { getInsertAggregatedFactTableDataQuery } from "back-end/src/integrations/sql/queries/insert-aggregated-fact-table-data-query";
@@ -2899,6 +2903,13 @@ export default abstract class SqlIntegration
         ? exposureQuery.identifierType
         : null;
     const useClusterRollup = clusterIdColumn !== null;
+    // Units are built per sub-unit at either grain, as in a full refresh, so
+    // every dimension resolves per sub-unit; cluster-level queries then
+    // collapse to the cluster (see __experimentUnitsCluster)
+    const unitsIdType = clusterSubUnit ?? userIdType;
+    const unitsClusterColumn = clusterSubUnit
+      ? exposureQuery.identifierType
+      : null;
 
     // Multi-FT funnels flatten all sources into one table, so column refs
     // must use the bare `m` alias instead of per-source `m{i}`.
@@ -2969,15 +2980,12 @@ export default abstract class SqlIntegration
         `e.first_exposure_timestamp <= ${this.getSqlDialect().toTimestamp(unitsEndDate)}`,
       );
     }
-    const clusterColumnForDrop = isClusterLevelQuery
-      ? exposureQuery.identifierType
-      : clusterIdColumn;
-    if (clusterColumnForDrop) {
+    if (unitsClusterColumn) {
       // Drop sub-units that map to more than one cluster (marked '__multiple__'
       // at units build).
       unitsWhereConditions.push(
         getSingleClusterPerUnitCondition({
-          clusterIdColumn: clusterColumnForDrop,
+          clusterIdColumn: unitsClusterColumn,
           tableAlias: "e",
         }),
       );
@@ -2985,7 +2993,7 @@ export default abstract class SqlIntegration
       unitsWhereConditions.push(
         getConsistentClusterCondition({
           sourceTable: params.unitsSourceTableFullName,
-          clusterIdColumn: clusterColumnForDrop,
+          clusterIdColumn: unitsClusterColumn,
           tableAlias: "e",
         }),
       );
@@ -3056,25 +3064,40 @@ export default abstract class SqlIntegration
       params.activationMetric,
     );
 
+    // A dim keyed on the cluster joins through the units table's cluster column
+    // rather than an identity join
+    const getUnitDimensionJoinIdType = (
+      d: (typeof unitDimensions)[number],
+    ): string =>
+      unitsClusterColumn !== null &&
+      d.dimension.userIdType === unitsClusterColumn
+        ? unitsClusterColumn
+        : unitsIdType;
+
     const idTypeObjects = [
-      [userIdType],
-      ...unitDimensions.map((d) => [d.dimension.userIdType]),
+      [unitsIdType],
+      ...unitDimensions
+        .filter((d) => getUnitDimensionJoinIdType(d) === unitsIdType)
+        .map((d) => [d.dimension.userIdType]),
     ];
 
-    const { baseIdType, idJoinMap, idJoinSQL } = getIdentitiesCTE(
+    // Identity joins here only serve the dimension CTEs
+    const { idJoinMap, idJoinSQL } = getIdentitiesCTE(
       this.getSqlDialect(),
       this.datasource.settings,
       {
         objects: idTypeObjects,
         from: params.settings.startDate,
         to: params.settings.endDate,
-        forcedBaseIdType: userIdType,
+        forcedBaseIdType: unitsIdType,
         experimentId: params.settings.experimentId,
       },
     );
+    const baseIdType = userIdType;
 
-    // Static dims join inside __experimentUnits; timed dims carry a history
-    // per unit and resolve afterwards, one per CTE (see timedUnitsCtes)
+    // Static dims join inside __experimentUnits. A timed dim's query returns
+    // many rows per unit, so each one is reduced afterwards to the unit's
+    // single value at first exposure, in its own CTE (see getTimedUnitsChain)
     const staticUnitDimensions = unitDimensions.filter(
       (d) => !isTimedDimension(d.dimension),
     );
@@ -3138,44 +3161,40 @@ export default abstract class SqlIntegration
       : allDimensionCols;
 
     const unitDimensionJoinsSQL = staticUnitDimensions
-      .map(
-        (
-          d,
-        ) => `LEFT JOIN __dim_unit_${d.dimension.id} __dim_unit_${d.dimension.id} ON (
-          ${this.getSqlDialect().castToString(`__dim_unit_${d.dimension.id}.${baseIdType}`)} = e.${baseIdType}
-        )`,
-      )
+      .map((d) => {
+        const joinIdType = getUnitDimensionJoinIdType(d);
+        return `LEFT JOIN __dim_unit_${d.dimension.id} __dim_unit_${d.dimension.id} ON (
+          ${this.getSqlDialect().castToString(`__dim_unit_${d.dimension.id}.${joinIdType}`)} = e.${joinIdType}
+        )`;
+      })
       .join("\n");
 
-    // Timed dimensions resolve one at a time in a chain of one-row-per-unit
-    // CTEs on top of __experimentUnits. Each step reads the previous CTE once
-    // and joins a single history, so N histories cost |h1| + ... + |hN| rows
-    // per unit rather than their product, and no CTE is referenced twice.
-    const unitsBaseColumns = [
-      baseIdType,
-      ...(clusterIdColumn ? [clusterIdColumn] : []),
-      "variation",
-      "first_exposure_timestamp",
-      ...nonUnitDimensionCols.map((c) => c.alias),
-      ...unitDimensionCols.map((c) => c.alias),
-    ];
-    const timedUnitsCteName =
-      timedUnitDimensions.length > 0
-        ? "__experimentUnitsTimed"
-        : "__experimentUnits";
-    const timedUnitsCtes = timedUnitDimensions
-      .map((d, i) => {
-        const prevCte =
-          i === 0 ? "__experimentUnits" : `__experimentUnitsTimed${i}`;
-        const cteName =
-          i === timedUnitDimensions.length - 1
-            ? timedUnitsCteName
-            : `__experimentUnitsTimed${i + 1}`;
-        const carried = [
-          ...unitsBaseColumns,
-          ...timedUnitDimensionCols.slice(0, i).map((c) => c.alias),
-        ].map((alias) => `u.${alias}`);
-        return `, ${cteName} AS (
+    // Timed dimensions resolve one at a time in a chain of CTEs with one row
+    // per `rowIdType`. Each step reads the previous CTE once and joins a single
+    // history, so N histories cost |h1| + ... + |hN| rows per unit rather than
+    // their product, and no CTE is referenced twice.
+    const getTimedUnitsChain = (
+      dimensions: typeof timedUnitDimensions,
+      sourceCte: string,
+      rowIdType: string,
+      otherColumns: string[],
+      cteName: string,
+    ): { sql: string; cteName: string } => ({
+      cteName: dimensions.length > 0 ? cteName : sourceCte,
+      sql: dimensions
+        .map((d, i) => {
+          const carried = [
+            rowIdType,
+            ...otherColumns,
+            ...dimensions
+              .slice(0, i)
+              .map((prev) => getDimensionCol(this.getSqlDialect(), prev).alias),
+          ].map((alias) => `u.${alias}`);
+          const joinIdType = getUnitDimensionJoinIdType(d);
+          const prevCte = i === 0 ? sourceCte : `${cteName}${i}`;
+          // keyed on the cluster while the rows are its sub-units
+          const isClusterKeyed = joinIdType !== rowIdType;
+          return `, ${i === dimensions.length - 1 ? cteName : `${cteName}${i + 1}`} AS (
         -- Resolve ${d.dimension.name} against each unit's first exposure
         SELECT
           ${carried.join("\n          , ")}
@@ -3185,21 +3204,95 @@ export default abstract class SqlIntegration
             // the stored units table carries first_exposure_timestamp as a
             // native TIMESTAMP, so cast it to match the dimension CTE's
             // castUserDateCol'd timestamp columns (DATETIME on BigQuery)
-            this.getSqlDialect().castUserDateCol("u.first_exposure_timestamp"),
+            this.getSqlDialect().castUserDateCol(
+              isClusterKeyed
+                ? `u.${CLUSTER_FIRST_EXPOSURE_COLUMN}`
+                : "u.first_exposure_timestamp",
+            ),
             `__dim_unit_${d.dimension.id}`,
-          )} AS ${timedUnitDimensionCols[i].alias}
-        FROM ${prevCte} u
+          )} AS ${getDimensionCol(this.getSqlDialect(), d).alias}
+        FROM ${isClusterKeyed ? withClusterFirstExposure(prevCte, joinIdType) : prevCte} u
         LEFT JOIN __dim_unit_${d.dimension.id} __dim_unit_${d.dimension.id} ON (
-          ${this.getSqlDialect().castToString(`__dim_unit_${d.dimension.id}.${baseIdType}`)} = u.${baseIdType}
+          ${this.getSqlDialect().castToString(`__dim_unit_${d.dimension.id}.${joinIdType}`)} = u.${joinIdType}
         )
         GROUP BY
           ${carried.join(", ")}
       )`;
-      })
-      .join("\n");
+        })
+        .join("\n"),
+    });
+    // A cluster-level query resolves a timed dim keyed on the cluster once per
+    // cluster, after the collapse, where the cluster's first exposure is known;
+    // every other timed dim resolves per sub-unit before it
+    const clusterTimedDimensions = timedUnitDimensions.filter(
+      (d) =>
+        isClusterLevelQuery && getUnitDimensionJoinIdType(d) === baseIdType,
+    );
+    const clusterTimedAliases = new Set(
+      clusterTimedDimensions.map(
+        (d) => getDimensionCol(this.getSqlDialect(), d).alias,
+      ),
+    );
+    const subUnitTimedChain = getTimedUnitsChain(
+      timedUnitDimensions.filter((d) => !clusterTimedDimensions.includes(d)),
+      "__experimentUnits",
+      unitsIdType,
+      [
+        ...(unitsClusterColumn ? [unitsClusterColumn] : []),
+        "variation",
+        "first_exposure_timestamp",
+        ...nonUnitDimensionCols.map((c) => c.alias),
+        ...unitDimensionCols.map((c) => c.alias),
+      ],
+      "__experimentUnitsTimed",
+    );
+    const collapsedDimensionCols = allDimensionCols.filter(
+      (c) => !clusterTimedAliases.has(c.alias),
+    );
+    // Same collapse as a full refresh: a cluster whose sub-units disagree on a
+    // dimension has no single value for it
+    const clusterUnitsCte = isClusterLevelQuery
+      ? `, __experimentUnitsCluster AS (
+        SELECT
+          u.${baseIdType} AS ${baseIdType}
+          , ${this.getSqlDialect().ifElse(
+            "COUNT(DISTINCT u.variation) > 1",
+            "'__multiple__'",
+            "MAX(u.variation)",
+          )} AS variation
+          , MIN(u.first_exposure_timestamp) AS first_exposure_timestamp
+          ${collapsedDimensionCols
+            .map(
+              (d) =>
+                `, ${this.getSqlDialect().ifElse(
+                  `COUNT(DISTINCT u.${d.alias}) > 1`,
+                  "'__multiple__'",
+                  this.getSqlDialect().castToString(`MAX(u.${d.alias})`),
+                )} AS ${d.alias}`,
+            )
+            .join("")}
+        FROM ${subUnitTimedChain.cteName} u
+        GROUP BY
+          u.${baseIdType}
+      )`
+      : "";
+    const clusterTimedChain = getTimedUnitsChain(
+      clusterTimedDimensions,
+      "__experimentUnitsCluster",
+      baseIdType,
+      [
+        "variation",
+        "first_exposure_timestamp",
+        ...collapsedDimensionCols.map((c) => c.alias),
+      ],
+      "__experimentUnitsClusterTimed",
+    );
+    const resolvedUnitsCteName = isClusterLevelQuery
+      ? clusterTimedChain.cteName
+      : subUnitTimedChain.cteName;
     const unitsCteName = comboDimensionCol
       ? "__experimentUnitsFinal"
-      : timedUnitsCteName;
+      : resolvedUnitsCteName;
 
     // Source-index → alias suffix conventions: source 0 is "" (so its table
     // alias is `m` and CTE name is `__metricSourceData`/`__metricDataAggregated`),
@@ -3293,42 +3386,17 @@ export default abstract class SqlIntegration
           (d) =>
             `, __dim_unit_${d.dimension.id} AS (${getDimensionCTE(
               d.dimension,
-              baseIdType,
+              getUnitDimensionJoinIdType(d),
               idJoinMap,
               this.getSqlDialect(),
             )})`,
         )
         .join("\n")}
       , __experimentUnits AS (${
-        isClusterLevelQuery
+        unitDimensions.length > 0
           ? `SELECT
-          e.${baseIdType} AS ${baseIdType}
-          , ${this.getSqlDialect().ifElse(
-            "COUNT(DISTINCT e.variation) > 1",
-            "'__multiple__'",
-            "MAX(e.variation)",
-          )} AS variation
-          , MIN(e.first_exposure_timestamp) AS first_exposure_timestamp
-          ${unitDimensionCols.map((d) => `, ${d.value} AS ${d.alias}`).join("")}
-          ${nonUnitDimensionCols
-            .map(
-              (d) =>
-                `, ${this.getSqlDialect().ifElse(
-                  `COUNT(DISTINCT ${d.value}) > 1`,
-                  "'__multiple__'",
-                  `MAX(${d.value})`,
-                )} AS ${d.alias}`,
-            )
-            .join("")}
-        FROM ${params.unitsSourceTableFullName} e
-        ${unitDimensionJoinsSQL}
-        ${unitsWhere}
-        GROUP BY
-          e.${baseIdType}`
-          : unitDimensions.length > 0
-            ? `SELECT
-            e.${baseIdType} AS ${baseIdType}
-            ${clusterIdColumn ? `, MAX(e.${clusterIdColumn}) AS ${clusterIdColumn}` : ""}
+            e.${unitsIdType} AS ${unitsIdType}
+            ${unitsClusterColumn ? `, MAX(e.${unitsClusterColumn}) AS ${unitsClusterColumn}` : ""}
             , MIN(e.variation) AS variation
             , MIN(e.first_exposure_timestamp) AS first_exposure_timestamp
             ${unitDimensionCols.map((d) => `, ${d.value} AS ${d.alias}`).join("")}
@@ -3337,25 +3405,27 @@ export default abstract class SqlIntegration
           ${unitDimensionJoinsSQL}
           ${unitsWhere}
           GROUP BY
-            e.${baseIdType}
+            e.${unitsIdType}
       `
-            : `SELECT
-          e.${baseIdType} AS ${baseIdType}
-          ${clusterIdColumn ? `, e.${clusterIdColumn} AS ${clusterIdColumn}` : ""}
+          : `SELECT
+          e.${unitsIdType} AS ${unitsIdType}
+          ${unitsClusterColumn ? `, e.${unitsClusterColumn} AS ${unitsClusterColumn}` : ""}
           , e.variation AS variation
           , e.first_exposure_timestamp AS first_exposure_timestamp
           ${nonUnitDimensionCols.map((d) => `, ${d.value} AS ${d.alias}`).join("")}
         FROM ${params.unitsSourceTableFullName} e
         ${unitsWhere}`
       })
-      ${timedUnitsCtes}
+      ${subUnitTimedChain.sql}
+      ${clusterUnitsCte}
+      ${clusterTimedChain.sql}
       ${
         comboDimensionCol
           ? `, __experimentUnitsFinal AS (
         SELECT
           u.*
           , ${comboDimensionCol.value} AS ${comboDimensionCol.alias}
-        FROM ${timedUnitsCteName} u
+        FROM ${resolvedUnitsCteName} u
       )`
           : ""
       }

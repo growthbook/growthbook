@@ -1047,7 +1047,7 @@ describe("BigQuery KLL incremental refresh SQL generation (E2E)", () => {
     expect(sql).not.toContain("__clusterRollup");
     // The sub-unit-grained units cache is collapsed to one row per cluster.
     expect(sql).toMatch(
-      /__experimentUnits AS \([\s\S]*GROUP BY[\s\S]*region_id/,
+      /__experimentUnitsCluster AS \([\s\S]*GROUP BY[\s\S]*region_id/,
     );
     // Multi-cluster sub-units are dropped before the cluster rollup, so they
     // don't form a phantom cluster in the region-level analysis. The reference
@@ -1058,7 +1058,7 @@ describe("BigQuery KLL incremental refresh SQL generation (E2E)", () => {
     // '__multiple__' (dropped downstream) rather than counted in each arm.
     // This must match the non-incremental getExperimentFactMetricsQuery path.
     expect(sql).toMatch(
-      /CASE\s+WHEN COUNT\(DISTINCT e\.variation\) > 1[\s\S]*?THEN '__multiple__'[\s\S]*?ELSE MAX\(e\.variation\)[\s\S]*?END/i,
+      /CASE\s+WHEN COUNT\(DISTINCT u\.variation\) > 1[\s\S]*?THEN '__multiple__'[\s\S]*?ELSE MAX\(u\.variation\)[\s\S]*?END/i,
     );
     // The metric cache is aggregated on the cluster id.
     expect(sql).toMatch(
@@ -1117,8 +1117,8 @@ describe("BigQuery KLL incremental refresh SQL generation (E2E)", () => {
       lastMaxTimestamp: null,
     });
 
-    // The cluster-level __experimentUnits CTE spans from its definition to the
-    // first metric-data CTE that reads from it.
+    // The units CTEs span from __experimentUnits to the first metric-data CTE
+    // that reads from them.
     const unitsSection = sql.substring(
       sql.indexOf("__experimentUnits AS"),
       sql.indexOf("__metricDataAggregated"),
@@ -1128,11 +1128,165 @@ describe("BigQuery KLL incremental refresh SQL generation (E2E)", () => {
     expect(unitsSection).toContain(
       "LEFT JOIN __dim_unit_dim_u1 __dim_unit_dim_u1",
     );
-    // It is aggregated to one value per cluster and projected under its alias,
-    // which the downstream analysis groups on.
+    // It is resolved per sub-unit, collapsed to one value per cluster, and
+    // projected under its alias, which the downstream analysis groups on.
     expect(unitsSection).toContain("__dim_unit_dim_u1.value");
     expect(unitsSection).toContain("AS dim_unit_dim_u1");
     expect(unitsSection).toMatch(/GROUP BY[\s\S]*region_id/);
+  });
+
+  // Cluster experiment on region_id with user_id sub-units, one mean metric at
+  // the given grain, broken down by unit dimensions
+  const clusterDimension = (
+    id: string,
+    userIdType: string,
+    timed: boolean,
+  ): DimensionInterface => ({
+    id,
+    organization: "org1",
+    owner: "",
+    datasource: "ds_1",
+    userIdType,
+    name: id,
+    sql: `SELECT ${userIdType}, tier AS value, changed_at AS timestamp FROM tier_changes`,
+    ...(timed ? { timing: "rowTimestamp" } : {}),
+    dateCreated: null,
+    dateUpdated: null,
+  });
+  const clusterDimensionSql = (
+    clusterLevel: boolean,
+    dimensions: DimensionInterface[],
+  ): string => {
+    const factTable = factTableFactory.build({
+      id: "ft_dim",
+      name: "Events",
+      sql: "SELECT * FROM events",
+      userIdTypes: [clusterLevel ? "region_id" : "user_id"],
+    });
+    const metric = factMetricFactory.build({
+      id: "fact_dim",
+      metricType: "mean",
+      numerator: {
+        factTableId: "ft_dim",
+        column: "amount",
+        aggregation: "sum",
+      },
+    });
+    return integration
+      .getIncrementalRefreshStatisticsQuery({
+        settings: {
+          ...settings,
+          exposureQueryIdentifierType: "region_id",
+          isClusterExperiment: true,
+          clusterSubUnitIdentifier: "user_id",
+          clusterLevelMetricIds: clusterLevel ? ["fact_dim"] : [],
+        },
+        exposureQuery: { query: "*", identifierType: "region_id" },
+        activationMetric: null,
+        dimensionsForPrecomputation: [],
+        dimensionsForAnalysis: dimensions.map((dimension) => ({
+          type: "user",
+          dimension,
+        })),
+        factTableMap: new Map([["ft_dim", factTable]]),
+        metricSources: [
+          { factTableId: "ft_dim", tableFullName: "proj.ds.metric_source" },
+        ],
+        unitsSourceTableFullName: "proj.ds.units",
+        metrics: [metric],
+        lastMaxTimestamp: null,
+      })
+      .replace(/\s+/g, " ");
+  };
+
+  it("getIncrementalRefreshStatisticsQuery resolves sub-unit dimensions before the cluster collapse and cluster dimensions after it", () => {
+    const sql = clusterDimensionSql(true, [
+      clusterDimension("dim_tier", "region_id", true),
+      clusterDimension("dim_plan", "user_id", true),
+      clusterDimension("dim_seg", "user_id", false),
+    ]);
+
+    // Dimensions keyed on the cluster or the sub-unit join through the units
+    // table's own columns, so no identity join between the two is needed
+    expect(sql).not.toContain("__identities_");
+    const collapseAt = sql.indexOf("__experimentUnitsCluster AS");
+    const units = sql.substring(
+      sql.indexOf("__experimentUnits AS"),
+      collapseAt,
+    );
+    expect(units).toContain(
+      "cast(__dim_unit_dim_seg.user_id as string) = e.user_id",
+    );
+    expect(units).toMatch(/GROUP BY e\.user_id/);
+    expect(units).toContain(
+      "cast(__dim_unit_dim_plan.user_id as string) = u.user_id",
+    );
+    expect(units).not.toContain("COUNT(DISTINCT");
+    expect(units).not.toContain("dim_tier");
+
+    // Same collapse as getExperimentFactMetricsQuery: a cluster whose
+    // sub-units disagree on a dimension is bucketed as __multiple__
+    const clusterTimedAt = sql.indexOf("__experimentUnitsClusterTimed AS");
+    const collapse = sql.substring(collapseAt, clusterTimedAt);
+    expect(collapse).toContain("FROM __experimentUnitsTimed u");
+    expect(collapse).toContain(
+      "MIN(u.first_exposure_timestamp) AS first_exposure_timestamp",
+    );
+    for (const id of ["dim_plan", "dim_seg"]) {
+      expect(collapse).toContain(
+        `CASE WHEN COUNT(DISTINCT u.dim_unit_${id}) > 1 THEN '__multiple__' ELSE cast(MAX(u.dim_unit_${id}) as string) END`,
+      );
+    }
+    expect(collapse).toMatch(/GROUP BY u\.region_id \)/);
+
+    // The cluster's own dimension resolves once per cluster against the
+    // cluster's first exposure, so it needs no window and no collapse
+    const clusterTimed = sql.substring(
+      clusterTimedAt,
+      sql.indexOf("__metricDataAggregated"),
+    );
+    expect(clusterTimed).toContain("FROM __experimentUnitsCluster u");
+    expect(clusterTimed).toContain(
+      "cast(__dim_unit_dim_tier.region_id as string) = u.region_id",
+    );
+    expect(clusterTimed).toContain(
+      "GROUP BY u.region_id, u.variation, u.first_exposure_timestamp, u.dim_unit_dim_seg, u.dim_unit_dim_plan",
+    );
+    expect(sql).not.toContain("OVER (");
+    expect(sql).toContain(
+      "FROM __experimentUnitsClusterTimed u LEFT JOIN __metricDataAggregated",
+    );
+  });
+
+  it("getIncrementalRefreshStatisticsQuery joins cluster-keyed dimensions through the cluster column for sub-unit metrics", () => {
+    const sql = clusterDimensionSql(false, [
+      clusterDimension("dim_tier", "region_id", true),
+      clusterDimension("dim_zone", "region_id", false),
+    ]);
+
+    expect(sql).not.toContain("__identities_");
+    expect(sql).not.toContain("__experimentUnitsCluster");
+    const units = sql.substring(
+      sql.indexOf("__experimentUnits AS"),
+      sql.indexOf("__metricDataAggregated"),
+    );
+    // Constant across a cluster's sub-units, so the cluster is never split
+    expect(units).toContain(
+      "cast(__dim_unit_dim_zone.region_id as string) = e.region_id",
+    );
+    expect(units).toContain(
+      "cast(__dim_unit_dim_tier.region_id as string) = u.region_id",
+    );
+    // Every sub-unit resolves it at the cluster's first exposure
+    expect(units).toMatch(
+      /MIN\(u\.first_exposure_timestamp\) OVER \( ?PARTITION BY u\.region_id ?\) AS cluster_first_exposure_timestamp FROM __experimentUnits u/,
+    );
+    expect(units).toContain(
+      "__dim_unit_dim_tier.timestamp <= CAST(u.cluster_first_exposure_timestamp as DATETIME)",
+    );
+    expect(units).toMatch(
+      /GROUP BY u\.user_id, u\.region_id, u\.variation, u\.first_exposure_timestamp/,
+    );
   });
 
   it("keys the sub-unit cluster metric cache on the sub-unit id and joins units directly", () => {
