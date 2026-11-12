@@ -127,6 +127,42 @@ describe("getPopulationRuleViolations", () => {
     ]);
   });
 
+  it("reports row filters that would add no SQL", () => {
+    const check = (rowFilters: PopulationStep["rowFilters"]) =>
+      getPopulationRuleViolations({
+        datasource: "ds_main",
+        userIdTypes: ["user_id"],
+        steps: [{ ...step("ftb_events"), rowFilters }],
+        factTables: [events],
+      });
+    expect(
+      check([
+        { operator: "=", column: "country", values: ["US"] },
+        { operator: "=", values: ["US"] },
+        { operator: "sql_expr", values: ["  "] },
+      ]),
+    ).toEqual([
+      "Row filter 2 needs a column.",
+      "Row filter 3 has no SQL expression.",
+    ]);
+  });
+
+  it("accepts a column filter with an empty value", () => {
+    expect(
+      getPopulationRuleViolations({
+        datasource: "ds_main",
+        userIdTypes: ["user_id"],
+        steps: [
+          {
+            ...step("ftb_events"),
+            rowFilters: [{ operator: "=", column: "country", values: [""] }],
+          },
+        ],
+        factTables: [events],
+      }),
+    ).toEqual([]);
+  });
+
   it("reports a fact table from a different Data Source", () => {
     expect(
       getPopulationRuleViolations({

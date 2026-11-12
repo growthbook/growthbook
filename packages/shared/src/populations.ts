@@ -44,18 +44,23 @@ export function getPopulationRuleViolations({
   steps,
   factTables,
 }: PopulationRuleInput): string[] {
-  const violations: string[] = [];
+  const factTableMap: FactTableMap = new Map(factTables.map((f) => [f.id, f]));
+  return [
+    ...getFactTableViolations(steps, factTableMap, datasource, userIdTypes),
+    ...getRowFilterViolations(steps, factTableMap),
+    ...getAggregateFilterViolations(steps, factTableMap),
+  ];
+}
 
-  const halfAggregateSteps = steps
-    .map((step, i) =>
-      !!step.aggregateFilter !== !!step.aggregateFilterColumn ? i + 1 : null,
-    )
-    .filter((n): n is number => n !== null);
-  if (halfAggregateSteps.length) {
-    violations.push(
-      `Must specify both "aggregateFilter" and "aggregateFilterColumn" or neither${stepLabel(halfAggregateSteps, steps.length)}.`,
-    );
-  }
+type FactTableMap = Map<string, PopulationRuleFactTable>;
+
+function getFactTableViolations(
+  steps: PopulationStep[],
+  factTableMap: FactTableMap,
+  datasource: string,
+  userIdTypes: string[],
+): string[] {
+  const violations: string[] = [];
 
   const factTableIds = getPopulationFactTableIds(steps);
   if (factTableIds.length > MAX_POPULATION_FACT_TABLES) {
@@ -64,7 +69,6 @@ export function getPopulationRuleViolations({
     );
   }
 
-  const factTableMap = new Map(factTables.map((f) => [f.id, f]));
   for (const factTableId of factTableIds) {
     const factTable = factTableMap.get(factTableId);
     if (!factTable) {
@@ -87,9 +91,30 @@ export function getPopulationRuleViolations({
     }
   }
 
+  return violations;
+}
+
+// Each of these would be dropped from the SQL, silently widening the
+// population.
+function getRowFilterViolations(
+  steps: PopulationStep[],
+  factTableMap: FactTableMap,
+): string[] {
+  const violations: string[] = [];
+
   steps.forEach((step, i) => {
-    // An unknown saved filter would be dropped from the SQL, silently widening
-    // the population.
+    const label = stepLabel([i + 1], steps.length);
+
+    step.rowFilters.forEach((filter, j) => {
+      if (filter.operator === "sql_expr") {
+        if (!filter.values?.[0]?.trim()) {
+          violations.push(`Row filter ${j + 1} has no SQL expression${label}.`);
+        }
+      } else if (filter.operator !== "saved_filter" && !filter.column) {
+        violations.push(`Row filter ${j + 1} needs a column${label}.`);
+      }
+    });
+
     const stepFactTable = factTableMap.get(step.source.factTableId);
     const missingFilters = stepFactTable
       ? step.rowFilters
@@ -99,16 +124,39 @@ export function getPopulationRuleViolations({
       : [];
     if (missingFilters.length) {
       violations.push(
-        `Saved filter not found on Fact Table ${step.source.factTableId}: ${missingFilters.join(", ")}${stepLabel([i + 1], steps.length)}.`,
+        `Saved filter not found on Fact Table ${step.source.factTableId}: ${missingFilters.join(", ")}${label}.`,
       );
     }
+  });
 
+  return violations;
+}
+
+function getAggregateFilterViolations(
+  steps: PopulationStep[],
+  factTableMap: FactTableMap,
+): string[] {
+  const violations: string[] = [];
+
+  const halfAggregateSteps = steps
+    .map((step, i) =>
+      !!step.aggregateFilter !== !!step.aggregateFilterColumn ? i + 1 : null,
+    )
+    .filter((n): n is number => n !== null);
+  if (halfAggregateSteps.length) {
+    violations.push(
+      `Must specify both "aggregateFilter" and "aggregateFilterColumn" or neither${stepLabel(halfAggregateSteps, steps.length)}.`,
+    );
+  }
+
+  steps.forEach((step, i) => {
     const { aggregateFilter, aggregateFilterColumn } = step;
     if (!aggregateFilter || !aggregateFilterColumn) return;
+    const label = stepLabel([i + 1], steps.length);
 
     if (!isValidAggregateFilter(aggregateFilter)) {
       violations.push(
-        `Invalid aggregate filter "${aggregateFilter}"${stepLabel([i + 1], steps.length)}. Use comparisons such as ">=3" or ">=3,<10".`,
+        `Invalid aggregate filter "${aggregateFilter}"${label}. Use comparisons such as ">=3" or ">=3,<10".`,
       );
     }
 
@@ -121,7 +169,7 @@ export function getPopulationRuleViolations({
     });
     if (columnType !== "number") {
       violations.push(
-        `Aggregate filter column '${aggregateFilterColumn}' must be a numeric column or "$$count"${stepLabel([i + 1], steps.length)}.`,
+        `Aggregate filter column '${aggregateFilterColumn}' must be a numeric column or "$$count"${label}.`,
       );
     }
   });
