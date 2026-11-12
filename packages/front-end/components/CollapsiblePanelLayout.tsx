@@ -78,7 +78,7 @@ export default function CollapsiblePanelLayout({
     return () => observer.disconnect();
   }, []);
   // Where the layout starts on the page, so it can reach the screen's bottom
-  // and no further. Moved by whatever above it grows, which grows the page.
+  // and no further.
   const [layoutTop, setLayoutTop] = useState(0);
   // Before paint, so the first frame isn't drawn a screen tall.
   useLayoutEffect(() => {
@@ -87,7 +87,15 @@ export default function CollapsiblePanelLayout({
     const measure = () =>
       setLayoutTop(el.getBoundingClientRect().top + window.scrollY);
     measure();
+    // Moved by whatever above it changes size: what comes before it, and
+    // before each of its ancestors. A page held a screen tall wouldn't
+    // change size with them.
     const observer = new ResizeObserver(measure);
+    for (let node: Element | null = el; node && node !== document.body; ) {
+      for (let s = node.previousElementSibling; s; s = s.previousElementSibling)
+        observer.observe(s);
+      node = node.parentElement;
+    }
     observer.observe(document.body);
     window.addEventListener("resize", measure);
     return () => {
