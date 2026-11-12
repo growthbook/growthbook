@@ -413,14 +413,35 @@ describe("getCopySourceIdentifierType", () => {
 
 describe("getHashAttributeIdentifierTypeMap", () => {
   it("maps each attribute to every identifier type linked to it", () => {
-    const map = getHashAttributeIdentifierTypeMap([
-      { userIdType: "user_id", attributes: ["id", "email"] },
-      { userIdType: "device_id", attributes: ["id"] },
-      { userIdType: "anonymous_id" },
-    ]);
+    const map = getHashAttributeIdentifierTypeMap({
+      type: "postgres",
+      settings: {
+        userIdTypes: [
+          { userIdType: "user_id", attributes: ["id", "email"] },
+          { userIdType: "device_id", attributes: ["id"] },
+          { userIdType: "anonymous_id" },
+        ],
+      },
+    } as unknown as DataSourceInterfaceWithParams);
     expect(map.get("id")).toEqual(["user_id", "device_id"]);
     expect(map.get("email")).toEqual(["user_id"]);
     expect(map.has("anonymous_id")).toBe(false);
+  });
+
+  it("links managed warehouse attributes by their identifier mapping", () => {
+    const map = getHashAttributeIdentifierTypeMap({
+      type: "growthbook_clickhouse",
+      settings: {
+        userIdTypes: [
+          { userIdType: "user_id" },
+          { userIdType: "device_id" },
+          { userIdType: "session_id" },
+        ],
+      },
+    } as unknown as DataSourceInterfaceWithParams);
+    expect(map.get("session_id")).toEqual(["session_id"]);
+    expect(map.get("anonymous_id")).toEqual(["device_id"]);
+    expect(map.get("id")).toEqual(["device_id"]);
   });
 });
 

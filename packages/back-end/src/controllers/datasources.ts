@@ -12,6 +12,7 @@ import {
   assignServerIdsToAddedExposureQueries,
   getDataSourceSaveChanges,
   getSavedQueriesSharingId,
+  MANAGED_WAREHOUSE_RECREATABLE_TABLES,
 } from "shared/util";
 import {
   PIPELINE_MODE_SUPPORTED_DATA_SOURCE_TYPES,
@@ -87,6 +88,7 @@ import { detectEventForwarderWarehouseRegion } from "back-end/src/services/event
 import {
   pauseEventForwarderThroughLicenseServer,
   provisionEventForwarderThroughLicenseServer,
+  restartEventForwarderThroughLicenseServer,
   resumeEventForwarderThroughLicenseServer,
   syncEventForwarderStatusFromLicenseServer,
 } from "back-end/src/services/eventForwarder/connector";
@@ -125,7 +127,8 @@ import {
   removeManagedWarehouseLegacyIdentifier,
   setManagedWarehouseIdAttributeIdentifier,
 } from "back-end/src/services/clickhouse";
-import { dangerousRecreateClickhouseTables } from "back-end/src/services/licenseServerManagedClickhouse";
+import { requestManagedWarehouseRecreates } from "back-end/src/services/managedWarehouseRecreate";
+import { queueManagedWarehouseRecreate } from "back-end/src/jobs/recreateManagedWarehouseTables";
 import { UNITS_TABLE_PREFIX } from "back-end/src/queryRunners/ExperimentResultsQueryRunner";
 import { QUERY_CANCELLED_BY_USER_ERROR } from "back-end/src/queryRunners/QueryRunner";
 import { getExperimentsByTrackingKeys } from "back-end/src/models/ExperimentModel";
@@ -1282,6 +1285,57 @@ export async function postResumeEventForwarder(
   }
 }
 
+export async function postRestartEventForwarder(
+  req: AuthRequest<null, { id: string }>,
+  res: Response<
+    | { status: 200 }
+    | {
+        status: 400 | 403 | 404;
+        message: string;
+      }
+  >,
+) {
+  const context = getContextFromReq(req);
+  const datasource = await getDataSourceById(context, req.params.id);
+  if (!datasource) {
+    res.status(404).json({
+      status: 404,
+      message: "Cannot find Data Source",
+    });
+    return;
+  }
+
+  if (!context.permissions.canUpdateDataSourceSettings(datasource)) {
+    context.permissions.throwPermissionError();
+  }
+
+  const eventForwarderConfig = await getEventForwarderForDatasource(
+    context,
+    datasource.id,
+  );
+  if (!eventForwarderConfig) {
+    res.status(404).json({
+      status: 404,
+      message: "Cannot find event forwarder config",
+    });
+    return;
+  }
+
+  try {
+    await restartEventForwarderThroughLicenseServer(
+      context,
+      eventForwarderConfig,
+    );
+    res.status(200).json({ status: 200 });
+  } catch (e) {
+    req.log.error(e, "Failed to restart event forwarder");
+    res.status(400).json({
+      status: 400,
+      message: e.message || "An error occurred",
+    });
+  }
+}
+
 export async function getEventForwarderConnected(
   req: AuthRequest,
   res: Response<{ status: 200; hasEventForwarder: boolean }>,
@@ -2017,8 +2071,15 @@ export async function fetchBigQueryDatasets(
   });
 }
 
+const recreateManagedWarehouseBodyValidator = z
+  .object({
+    // Omit to recreate every table.
+    tables: z.array(z.enum(MANAGED_WAREHOUSE_RECREATABLE_TABLES)).min(1),
+  })
+  .partial();
+
 export async function postRecreateManagedWarehouse(
-  req: AuthRequest<null, { datasourceId: string }>,
+  req: AuthRequest<unknown, { datasourceId: string }>,
   res: Response,
 ) {
   const context = getContextFromReq(req);
@@ -2042,15 +2103,25 @@ export async function postRecreateManagedWarehouse(
     );
   }
 
-  const result = await dangerousRecreateClickhouseTables(context.org.id);
-  if (result === "already-running") {
+  const { tables } = recreateManagedWarehouseBodyValidator.parse(
+    req.body ?? {},
+  );
+
+  const created = await requestManagedWarehouseRecreates({
+    organizations: [context.org.id],
+    tables: tables ?? [...MANAGED_WAREHOUSE_RECREATABLE_TABLES],
+    requestedBy: context.userId,
+  });
+  if (!created) {
     res.status(409).json({
       status: 409,
       message:
-        "A recreate is already in progress for this Managed Warehouse. Please wait for it to finish before triggering another.",
+        "A recreate is already in progress for this Managed Warehouse, or it hasn't been set up yet.",
     });
     return;
   }
+  // Start now rather than on the next sweep
+  await queueManagedWarehouseRecreate(context.org.id);
 
   res.status(200).json({
     status: 200,

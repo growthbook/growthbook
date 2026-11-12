@@ -119,6 +119,7 @@ function makeCb(
       },
     ],
     banditVersion: 0,
+    periodWeightingEligible: true,
     linkedFeatures: [],
     ...overrides,
   } as unknown as ContextualBanditInterface;
@@ -258,9 +259,130 @@ describe("buildContextualBanditSnapshotSettings", () => {
       schema("country", "device"),
     );
 
-    expect(buildSnapshotSettingsForCb(cbSettings).experimentId).toBe(
+    expect(buildSnapshotSettingsForCb(cbSettings, '"').experimentId).toBe(
       "first_contextual_bandit",
     );
+  });
+
+  it("defaults periodWeighting to disabled and honors an explicit true", () => {
+    expect(
+      buildContextualBanditSnapshotSettings(
+        makeCb(),
+        makeExposureQuery(),
+        schema("country", "device"),
+      ).periodWeighting,
+    ).toBe(false);
+
+    expect(
+      buildContextualBanditSnapshotSettings(
+        makeCb(),
+        makeExposureQuery(),
+        schema("country", "device"),
+        true,
+      ).periodWeighting,
+    ).toBe(true);
+  });
+
+  it("disables period weighting for bandits that predate the feature (no eligibility flag)", () => {
+    // A bandit already running before period weighting shipped has no
+    // `periodWeightingEligible` field, so it lacks historical period data and
+    // weighting stays off even with the org setting on and the column present.
+    const legacyCb = makeCb({ periodWeightingEligible: undefined });
+    const withVersion = makeExposureQuery({
+      query: "SELECT user_id, timestamp, bandit_version FROM cb_assignments",
+    });
+
+    expect(
+      buildContextualBanditSnapshotSettings(
+        legacyCb,
+        withVersion,
+        schema("country", "device"),
+        true,
+      ).periodWeighting,
+    ).toBe(false);
+
+    expect(
+      buildSnapshotSettingsForCb(
+        buildContextualBanditSnapshotSettings(
+          legacyCb,
+          withVersion,
+          schema("country", "device"),
+          true,
+        ),
+        '"',
+      ).banditSettings?.periodWeighting,
+    ).toBe(false);
+  });
+
+  it("enables SQL period weighting only when on and the query emits bandit_version", () => {
+    const withVersion = makeExposureQuery({
+      query: "SELECT user_id, timestamp, bandit_version FROM cb_assignments",
+    });
+    const withoutVersion = makeExposureQuery({
+      query: "SELECT user_id, timestamp FROM cb_assignments",
+    });
+
+    expect(
+      buildSnapshotSettingsForCb(
+        buildContextualBanditSnapshotSettings(
+          makeCb(),
+          withVersion,
+          schema("country", "device"),
+          true,
+        ),
+        '"',
+      ).banditSettings?.periodWeighting,
+    ).toBe(true);
+
+    expect(
+      buildSnapshotSettingsForCb(
+        buildContextualBanditSnapshotSettings(
+          makeCb(),
+          withoutVersion,
+          schema("country", "device"),
+          true,
+        ),
+        '"',
+      ).banditSettings?.periodWeighting,
+    ).toBe(false);
+
+    expect(
+      buildSnapshotSettingsForCb(
+        buildContextualBanditSnapshotSettings(
+          makeCb(),
+          withVersion,
+          schema("country", "device"),
+          false,
+        ),
+        '"',
+      ).banditSettings?.periodWeighting,
+    ).toBe(false);
+  });
+
+  // Regression: a BigQuery source quotes identifiers with backticks. The
+  // period-weighting check must use the source's quote style, otherwise a
+  // backtick-quoted `bandit_version` is misread as a string literal and
+  // weighting is silently disabled despite the column being present.
+  it("honors the data source quote style when detecting bandit_version", () => {
+    const backtickQuoted = makeExposureQuery({
+      query: "SELECT user_id, timestamp, `bandit_version` FROM cb_assignments",
+    });
+    const cbSettings = buildContextualBanditSnapshotSettings(
+      makeCb(),
+      backtickQuoted,
+      schema("country", "device"),
+      true,
+    );
+
+    expect(
+      buildSnapshotSettingsForCb(cbSettings, "`").banditSettings
+        ?.periodWeighting,
+    ).toBe(true);
+
+    expect(
+      buildSnapshotSettingsForCb(cbSettings, '"').banditSettings
+        ?.periodWeighting,
+    ).toBe(false);
   });
 
   it("intersects CB, query, and global attributes and preserves query order", () => {

@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { Flex } from "@radix-ui/themes";
 import { FactMetricInterface } from "shared/types/fact-table";
+import { getFactMetricPrimaryFactTableId } from "shared/experiments";
 import {
   DefinitionsContext,
   useDefinitions,
@@ -54,9 +55,7 @@ export default function MetricPerformance({
       ? selectedDenominatorUnit
       : (units.denominator[0] ?? null);
   const numeratorFactTable = getFactTableById(
-    metric?.metricType === "funnel"
-      ? (metric.funnelSettings?.steps[0]?.factTableId ?? "")
-      : (metric?.numerator.factTableId ?? ""),
+    metric ? getFactMetricPrimaryFactTableId(metric) : "",
   );
   const denominatorFactTable = getFactTableById(
     metric?.denominator?.factTableId ?? "",
