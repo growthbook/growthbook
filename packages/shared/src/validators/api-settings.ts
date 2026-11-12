@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { selectableImplementationTypes } from "shared/constants";
 
 import { namedSchema, retiredRiskDefault } from "./openapi-helpers";
 
@@ -157,6 +158,9 @@ export const apiSettingsValidator = namedSchema(
       banditBurnInUnit: z.enum(["hours", "days"]),
       banditPeriodWeighting: z.boolean().optional(),
       experimentMinLengthDays: z.coerce.number(),
+      defaultExperimentImplementation: z
+        .enum(selectableImplementationTypes)
+        .optional(),
       experimentMaxLengthDays: z.coerce.number().nullable().optional(),
       preferredEnvironment: z.string().nullable().optional(),
       maxMetricSliceLevels: z.coerce.number().optional(),

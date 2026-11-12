@@ -35,6 +35,7 @@ import {
   StagedTargetingScope,
   TargetingScopedEntity,
 } from "./features";
+import { hasImplementationLinkages } from "./implementation-type";
 
 export * from "./strings";
 export * from "./units-query-settings";
@@ -54,6 +55,7 @@ export * from "./configs";
 export * from "./deep-merge";
 export * from "./config-schema";
 export * from "./managedWarehouse";
+export * from "./managed-experiments";
 export * from "./saved-groups";
 export * from "./metric-time-series";
 export * from "./ruleId";
@@ -64,6 +66,7 @@ export * from "./errors";
 export * from "./namespaces";
 export * from "./custom-fields";
 export * from "./holdouts";
+export * from "./implementation-type";
 export * from "./experiment-cleanup";
 export * from "./sortObjectKeys";
 export * from "./interleaving";
@@ -255,10 +258,24 @@ export function experimentHasLinkedChanges(
     "hasVisualChangesets" | "hasURLRedirects" | "linkedFeatures"
   >,
 ): boolean {
-  if (exp.hasVisualChangesets) return true;
-  if (exp.hasURLRedirects) return true;
-  if (exp.linkedFeatures && exp.linkedFeatures.length > 0) return true;
-  return false;
+  return hasImplementationLinkages(exp);
+}
+
+// A holdout change moves the experiment's own flag along; anything else linked
+// keeps the holdout it was published with.
+export function hasLinkedChangesBesidesManagedFlag(
+  exp: Pick<
+    ExperimentInterface,
+    "hasVisualChangesets" | "hasURLRedirects" | "linkedFeatures"
+  >,
+  managedFeatureId: string | null,
+): boolean {
+  return experimentHasLinkedChanges({
+    ...exp,
+    linkedFeatures: (exp.linkedFeatures ?? []).filter(
+      (id) => id !== managedFeatureId,
+    ),
+  });
 }
 
 export function hasPendingScheduledStart(exp: {

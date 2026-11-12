@@ -2,6 +2,7 @@ import { MemberRoleInfo, MetricDefaults } from "shared/types/organization";
 import {
   DEFAULT_CONFIDENCE_LEVEL,
   DEFAULT_EXPERIMENT_MAX_LENGTH_DAYS,
+  DEFAULT_EXPERIMENT_IMPLEMENTATION,
   DEFAULT_EXPERIMENT_MIN_LENGTH_DAYS,
   DEFAULT_METRIC_CAPPING,
   DEFAULT_METRIC_CAPPING_VALUE,
@@ -105,6 +106,7 @@ export default function genDefaultSettings(): Settings {
     banditPeriodWeighting: DEFAULT_BANDIT_PERIOD_WEIGHTING,
     banditBurnInUnit: DEFAULT_BANDIT_BURN_IN_UNIT,
     experimentMinLengthDays: DEFAULT_EXPERIMENT_MIN_LENGTH_DAYS,
+    defaultExperimentImplementation: DEFAULT_EXPERIMENT_IMPLEMENTATION,
     experimentMaxLengthDays: DEFAULT_EXPERIMENT_MAX_LENGTH_DAYS,
     maxMetricSliceLevels: DEFAULT_MAX_METRIC_SLICE_LEVELS,
     topValuesLookbackValue: DEFAULT_TOP_VALUES_LOOKBACK_VALUE,

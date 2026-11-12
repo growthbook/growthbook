@@ -7,14 +7,20 @@ import type { ChecklistTask } from "shared/types/experimentLaunchChecklist";
 import type { VisualChange } from "shared/types/visual-changeset";
 import {
   experimentHasLiveLinkedChanges,
+  getImplementationType,
+  getManagedValueProblems,
   hasPendingScheduledStart,
+  hasStartReadyManagedFlag,
   hasVisualChanges,
+  isManagedByExperiment,
   linkedDraftApproved,
+  type ManagedValueProblem,
 } from "../util";
 import {
   type BuiltInChecklistItemKey,
   getHiddenBuiltInChecklistItems,
   PENDING_APPROVAL_ITEM_PREFIX,
+  STALE_VALUES_ITEM_PREFIX,
 } from "../validators/experiment-launch-checklist";
 import { getLatestPhaseVariations } from "./variations";
 import { areVariationWeightsValid } from "./experiments";
@@ -35,6 +41,8 @@ export type LaunchChecklistItem = {
   revision?: number | null;
   // A custom task, by its place in the configured checklist.
   customTask?: { index: number; url?: string; propertyKey?: string };
+  // The managed flag's variations a values row is about.
+  valueProblems?: ManagedValueProblem[];
 };
 
 type ChecklistExperiment = ExperimentInterface | ExperimentInterfaceStringDates;
@@ -69,8 +77,10 @@ function flagItem(
   };
 }
 
+// With `experimentId`, its managed flag's row speaks of the variation values.
 export function mergeConflictItems(
   linkedFeatures: LinkedFeatureInfo[],
+  experimentId?: string,
 ): LaunchChecklistItem[] {
   return linkedFeatures
     .filter((f) => f.state === "draft" && f.hasMergeConflict)
@@ -78,7 +88,9 @@ export function mergeConflictItems(
       flagItem(
         f,
         "mergeConflict:",
-        `Resolve the merge conflict in ${f.feature.id}`,
+        experimentId && isManagedByExperiment(f.feature, experimentId)
+          ? "Resolve the merge conflict in this experiment's variation values"
+          : `Resolve the merge conflict in ${f.feature.id}`,
       ),
     );
 }
@@ -123,6 +135,46 @@ export function missingVariationValueItems(
         { hardBlock: false, revision: null },
       ),
     );
+}
+
+// What a start publishes for the managed flag: the draft's values, in its type.
+function managedValueItems(
+  f: LinkedFeatureInfo,
+  variations: { id: string; name: string }[],
+): LaunchChecklistItem[] {
+  const problems = getManagedValueProblems({
+    variations,
+    values: f.pendingDraft?.values ?? f.values,
+    valueType: f.pendingDraft?.valueType ?? f.feature.valueType,
+  });
+  const missing = problems.filter((p) => p.problem === "missing");
+  const malformed = problems.filter((p) => p.problem === "malformed");
+  const items: LaunchChecklistItem[] = [];
+  if (missing.length) {
+    items.push(
+      flagItem(
+        f,
+        "missingVariationValues:",
+        `Add a variation value for ${missing.map((p) => p.variationName).join(", ")}`,
+        { hardBlock: false, valueProblems: missing },
+      ),
+    );
+  }
+  if (malformed.length) {
+    items.push(
+      flagItem(
+        f,
+        "malformedVariationValues:",
+        `Fix the variation value for ${malformed
+          .map((p) =>
+            p.detail ? `${p.variationName} (${p.detail})` : p.variationName,
+          )
+          .join(", ")}`,
+        { valueProblems: malformed },
+      ),
+    );
+  }
+  return items;
 }
 
 function isTaskComplete(
@@ -217,6 +269,14 @@ export function getLaunchChecklistItems({
     }
   }
 
+  const isManaged = (f: LinkedFeatureInfo) =>
+    isManagedByExperiment(f.feature, experiment.id);
+  const implementationType = getImplementationType({
+    ...experiment,
+    hasManagedFlag: linkedFeatures.some(isManaged),
+  });
+  const valuesMode = implementationType === "values";
+
   const publishesLinkedFeature =
     !!publishingFeatureId &&
     linkedFeatures.some(
@@ -224,16 +284,23 @@ export function getLaunchChecklistItems({
     );
   const linkedChangesDone = isBandit
     ? experimentHasLiveLinkedChanges(experiment, linkedFeatures) ||
+      hasStartReadyManagedFlag(experiment.id, linkedFeatures) ||
       publishesLinkedFeature
     : linkedFeatures.some((f) => f.state === "live" || f.state === "draft") ||
       !!experiment.hasVisualChangesets ||
       !!experiment.hasURLRedirects;
-  pushBuiltIn("linkedChanges", {
-    label: `Add a${isBandit ? " live" : ""} linked Feature Flag, AI Visual Editor change, or URL redirect`,
-    status: complete(linkedChangesDone),
-    // A Bandit can't start without one; publishing a flag is how it gets one.
-    hardBlock: isBandit && !publishingFeatureId,
-  });
+  // Implemented outside GrowthBook, so there's nothing to link. A Bandit
+  // still needs one to shift traffic.
+  if (implementationType !== "none" || isBandit) {
+    pushBuiltIn("linkedChanges", {
+      label: valuesMode
+        ? "Add variation values"
+        : `Add a${isBandit ? " live" : ""} linked Feature Flag, AI Visual Editor change, or URL redirect`,
+      status: complete(linkedChangesDone),
+      // A Bandit can't start without one; publishing a flag is how it gets one.
+      hardBlock: isBandit && !publishingFeatureId,
+    });
+  }
 
   if (isBandit) {
     items.push({
@@ -247,8 +314,11 @@ export function getLaunchChecklistItems({
   }
 
   const armed = hasPendingScheduledStart(experiment);
+  const subject = (f: LinkedFeatureInfo) =>
+    isManaged(f) ? "this experiment's variation values" : f.feature.id;
+  const latestVariations = getLatestPhaseVariations(experiment);
   items.push(
-    ...mergeConflictItems(linkedFeatures),
+    ...mergeConflictItems(linkedFeatures, experiment.id),
     // A start publishes only drafts with the rule, so the live rule would serve.
     ...linkedFeatures.flatMap((f) =>
       f.pendingRemoval
@@ -269,8 +339,23 @@ export function getLaunchChecklistItems({
           f,
           "publishPermission:",
           armed
-            ? `Reschedule the start as someone who can publish ${f.feature.id}`
-            : `Have someone who can publish ${f.feature.id} start this ${isBandit ? "Bandit" : "experiment"}`,
+            ? `Reschedule the start as someone who can publish ${subject(f)}`
+            : `Have someone who can publish ${subject(f)} start this ${isBandit ? "Bandit" : "experiment"}`,
+        ),
+      ),
+    // A start won't publish the managed flag's draft while it's behind live.
+    ...linkedFeatures
+      .filter(
+        (f) =>
+          isManaged(f) &&
+          !!f.pendingDraft?.rebaseRequired &&
+          !f.pendingDraft.hasMergeConflict,
+      )
+      .map((f) =>
+        flagItem(
+          f,
+          STALE_VALUES_ITEM_PREFIX,
+          "Update the variation values from live",
         ),
       ),
     // Publishing a flag's own draft is what approves it.
@@ -285,15 +370,25 @@ export function getLaunchChecklistItems({
         ...flagItem(
           f,
           PENDING_APPROVAL_ITEM_PREFIX,
-          `Approve the Feature Flag draft for ${f.feature.id}`,
+          isManaged(f)
+            ? f.draftRevisionStatus === "draft"
+              ? "Request a review of the variation values"
+              : "Review and approve the variation values"
+            : `Approve the Feature Flag draft for ${f.feature.id}`,
         ),
         status: complete(linkedDraftApproved(f)),
       })),
     ...unrelatedDraftChangeItems(linkedFeatures, publishingFeatureId),
     ...missingVariationValueItems(
-      linkedFeatures,
-      getLatestPhaseVariations(experiment),
+      linkedFeatures.filter((f) => !isManaged(f)),
+      latestVariations,
     ),
+    ...linkedFeatures
+      .filter(
+        (f) =>
+          isManaged(f) && f.state !== "discarded" && f.state !== "archived",
+      )
+      .flatMap((f) => managedValueItems(f, latestVariations)),
   );
 
   const hasAnyVisualChanges = visualChangesets.some((vc) =>

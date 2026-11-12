@@ -41,6 +41,14 @@
   }
 }
 
+// Takes no width, so a centred row stays centred on its content.
+.spills {
+  display: flex;
+  align-items: center;
+  width: 0;
+  margin-left: calc(var(--space-2) - var(--space-3));
+}
+
 // Already framed as a field is, so it takes no row tint.
 .clickFrame {
   @include click-row;

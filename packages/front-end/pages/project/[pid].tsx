@@ -6,7 +6,11 @@ import { useForm } from "react-hook-form";
 import isEqual from "lodash/isEqual";
 import { ProjectInterface, ProjectSettings } from "shared/types/project";
 import { getScopedSettings } from "shared/settings";
-import { DEFAULT_CONFIDENCE_LEVEL } from "shared/constants";
+import {
+  DEFAULT_CONFIDENCE_LEVEL,
+  DEFAULT_EXPERIMENT_IMPLEMENTATION,
+  DEFAULT_P_VALUE_THRESHOLD,
+} from "shared/constants";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { ExperimentLaunchChecklistInterface } from "shared/types/experimentLaunchChecklist";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -20,10 +24,10 @@ import DeleteProjectModal from "@/components/Projects/DeleteProjectModal";
 import ProjectTeams from "@/components/Projects/ProjectTeams";
 import MemberList from "@/components/Settings/Team/MemberList";
 import StatsEngineSelect from "@/components/Settings/forms/StatsEngineSelect";
+import ImplementationTypeSelect from "@/components/Experiment/ImplementationTypeSelect";
 import { useUser } from "@/services/UserContext";
 import { useAuth } from "@/services/auth";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import Frame from "@/ui/Frame";
 import Badge from "@/ui/Badge";
 import Link from "@/ui/Link";
 import Heading from "@/ui/Heading";
@@ -43,8 +47,18 @@ import useApi from "@/hooks/useApi";
 import ExperimentCheckListModal from "@/components/Settings/ExperimentCheckListModal";
 import Metadata from "@/ui/Metadata";
 import CopyableCode from "@/components/Settings/CopyableCode";
-import ChanceToWinThresholdField from "@/components/GeneralSettings/ExperimentSettings/ChanceToWinThresholdField";
-import PValueThresholdField from "@/components/GeneralSettings/ExperimentSettings/PValueThresholdField";
+import {
+  getConfidenceLevelHighlight,
+  warningHighlight,
+} from "@/components/GeneralSettings/ExperimentSettings/ChanceToWinThresholdField";
+import { getPValueThresholdHighlight } from "@/components/GeneralSettings/ExperimentSettings/PValueThresholdField";
+import {
+  SettingsField,
+  SettingsGroup,
+  SettingsSubheading,
+} from "@/components/GeneralSettings/SettingsGroup";
+import Field from "@/components/Forms/Field";
+import HelperText from "@/ui/HelperText";
 import Callout from "@/ui/Callout";
 
 function emptyStringToUndefined(v: unknown): number | undefined {
@@ -110,6 +124,14 @@ const ProjectPage: FC = () => {
       setOriginalValue(newVal);
     }
   }, [form, settings]);
+
+  const confidence = getConfidenceLevelHighlight(form.watch("confidenceLevel"));
+  const pValue = getPValueThresholdHighlight(form.watch("pValueThreshold"));
+  const orgConfidence = Math.round(
+    (parentSettings.confidenceLevel.value ?? DEFAULT_CONFIDENCE_LEVEL) * 100,
+  );
+  const orgPValue =
+    parentSettings.pValueThreshold.value ?? DEFAULT_P_VALUE_THRESHOLD;
 
   const isValid = form.formState.isValid;
   const ctaEnabled = hasChanges(form.getValues(), originalValue) && isValid;
@@ -284,168 +306,164 @@ const ProjectPage: FC = () => {
             </TabsList>
             <Box pt="4">
               <TabsContent value="settings">
-                <Frame>
-                  <Flex gap="4">
-                    <Box width="220px" flexShrink="0">
-                      <Heading as="h4" size="md">
-                        Experiment Analysis
-                      </Heading>
+                <SettingsGroup
+                  id="project-stats-engine"
+                  title="Stats Engine"
+                  description="Experiments in this Project use the organization's settings. Leave a field blank to keep doing so."
+                >
+                  <SettingsField
+                    htmlFor="project-statsEngine"
+                    label="Stats engine"
+                  >
+                    <Box width="240px" maxWidth="100%">
+                      <StatsEngineSelect
+                        label={null}
+                        className=""
+                        containerClassName="mb-0"
+                        value={form.watch("statsEngine")}
+                        onChange={(v) => {
+                          form.setValue("statsEngine", v || undefined);
+                        }}
+                        parentSettings={parentSettings}
+                      />
                     </Box>
-                    <Flex align="start" direction="column" flexGrow="1">
-                      <Box
-                        className="form-group align-items-start"
-                        width="100%"
+                  </SettingsField>
+                  <SettingsSubheading>Bayesian</SettingsSubheading>
+                  <SettingsField
+                    htmlFor="project-confidenceLevel"
+                    label="Chance to win threshold"
+                    help={`A variation is a winner above this probability. Blank uses the organization's ${orgConfidence}%.`}
+                  >
+                    <Box width="150px">
+                      <Field
+                        id="project-confidenceLevel"
+                        size="md"
+                        type="number"
+                        step="any"
+                        min="70"
+                        max="99.9999"
+                        append="%"
+                        containerClassName="mb-0"
+                        style={warningHighlight(confidence.highlightColor)}
+                        placeholder={String(orgConfidence)}
+                        {...form.register("confidenceLevel", {
+                          setValueAs: emptyStringToUndefined,
+                          min: 70,
+                          max: 99.9999,
+                        })}
+                      />
+                    </Box>
+                    {confidence.warningMsg && (
+                      <HelperText status="warning" size="sm" mt="1">
+                        {confidence.warningMsg}
+                      </HelperText>
+                    )}
+                  </SettingsField>
+                  <SettingsSubheading>Frequentist</SettingsSubheading>
+                  <SettingsField
+                    htmlFor="project-pValueThreshold"
+                    label="P-value threshold"
+                    help={`A result is significant below this p-value. Blank uses the organization's ${orgPValue}.`}
+                  >
+                    <Box width="150px">
+                      <Field
+                        id="project-pValueThreshold"
+                        size="md"
+                        type="number"
+                        step="any"
+                        min="0"
+                        max="0.5"
+                        containerClassName="mb-0"
+                        style={warningHighlight(pValue.highlightColor)}
+                        placeholder={String(orgPValue)}
+                        {...form.register("pValueThreshold", {
+                          setValueAs: emptyStringToUndefined,
+                          validate: (v) =>
+                            v === undefined || (v > 0 && v <= 0.5),
+                        })}
+                      />
+                    </Box>
+                    {pValue.warningMsg && (
+                      <HelperText status="warning" size="sm" mt="1">
+                        {pValue.warningMsg}
+                      </HelperText>
+                    )}
+                  </SettingsField>
+                </SettingsGroup>
+                <SettingsGroup
+                  id="project-new-experiments"
+                  title="Defaults for New Experiments"
+                  description="Applied when someone creates an experiment in this Project."
+                >
+                  <SettingsField
+                    label="Implementation"
+                    help="Preselected when creating an experiment."
+                  >
+                    <Box width="320px" maxWidth="100%">
+                      <ImplementationTypeSelect
+                        label={null}
+                        value={form.watch("defaultExperimentImplementation")}
+                        setValue={(value) =>
+                          form.setValue(
+                            "defaultExperimentImplementation",
+                            value,
+                          )
+                        }
+                        inherited={
+                          parentSettings.defaultExperimentImplementation
+                            .value ?? DEFAULT_EXPERIMENT_IMPLEMENTATION
+                        }
+                      />
+                    </Box>
+                  </SettingsField>
+                </SettingsGroup>
+                <SettingsGroup
+                  id="project-launch"
+                  title="Launch Requirements"
+                  description="What experimenters must do before an experiment in this Project can launch."
+                >
+                  <SettingsField
+                    label={
+                      <PremiumTooltip
+                        commercialFeature="custom-launch-checklist"
+                        premiumText="Custom pre-launch checklists are available to Enterprise customers"
                       >
-                        <Heading as="h5" size="sm">
-                          Stats Engine Settings
-                        </Heading>
-                        <Box mb="3">
-                          Experiments use your organization settings by default.
-                          Leave the fields blank to use the organization
-                          default.
-                        </Box>
-                        <StatsEngineSelect
-                          value={form.watch("statsEngine")}
-                          onChange={(v) => {
-                            form.setValue("statsEngine", v || undefined);
-                          }}
-                          parentSettings={parentSettings}
-                        />
-
-                        <Box mt="3">
-                          <Tabs defaultValue="bayesian">
-                            <TabsList>
-                              <TabsTrigger value="bayesian">
-                                Bayesian
-                              </TabsTrigger>
-                              <TabsTrigger value="frequentist">
-                                Frequentist
-                              </TabsTrigger>
-                            </TabsList>
-                            <TabsContent value="bayesian" forceMount>
-                              <Box mt="4">
-                                <h4 className="mb-4 text-purple">
-                                  Bayesian Settings
-                                </h4>
-                                <div className="form-group mb-2 mr-2 form-inline">
-                                  <ChanceToWinThresholdField
-                                    form={form}
-                                    name="confidenceLevel"
-                                    value={form.watch("confidenceLevel")}
-                                    defaultValue={
-                                      (parentSettings.confidenceLevel.value ??
-                                        DEFAULT_CONFIDENCE_LEVEL) * 100
-                                    }
-                                    helpTextAppend={
-                                      <span className="ml-2">
-                                        (
-                                        {Math.round(
-                                          (parentSettings.confidenceLevel
-                                            .value ?? 0.95) * 100,
-                                        )}
-                                        % is your organization default)
-                                      </span>
-                                    }
-                                    rules={{
-                                      setValueAs: emptyStringToUndefined,
-                                    }}
-                                  />
-                                </div>
-                              </Box>
-                            </TabsContent>
-                            <TabsContent value="frequentist" forceMount>
-                              <Box mt="4">
-                                <h4 className="mb-4 text-purple">
-                                  Frequentist Settings
-                                </h4>
-                                <div className="form-group mb-2 mr-2 form-inline">
-                                  <PValueThresholdField
-                                    form={form}
-                                    name="pValueThreshold"
-                                    value={form.watch("pValueThreshold")}
-                                    defaultValue={
-                                      parentSettings.pValueThreshold.value ??
-                                      0.05
-                                    }
-                                    helpTextAppend={
-                                      <span className="ml-2">
-                                        (
-                                        {parentSettings.pValueThreshold.value ??
-                                          0.05}{" "}
-                                        is your organization default)
-                                      </span>
-                                    }
-                                    rules={{
-                                      setValueAs: emptyStringToUndefined,
-                                    }}
-                                  />
-                                </div>
-                              </Box>
-                            </TabsContent>
-                          </Tabs>
-                        </Box>
-                      </Box>
-                    </Flex>
-                  </Flex>
-                </Frame>
-                <Frame>
-                  <Flex gap="4" mb="4">
-                    <Box width="220px" flexShrink="0">
-                      <Heading as="h4" size="md">
-                        Experiment Settings
-                      </Heading>
-                    </Box>
-                    <Flex align="start" direction="column" flexGrow="1">
-                      <Box mb="3">
-                        <Flex>
-                          <PremiumTooltip
-                            commercialFeature="custom-launch-checklist"
-                            premiumText="Custom pre-launch checklists are available to Enterprise customers"
-                          >
-                            <Heading as="h5" size="sm">
-                              Experiment Pre-Launch Checklist
-                            </Heading>
-                          </PremiumTooltip>
-                        </Flex>
-                        <p className="pt-2">
-                          Configure required steps that need to be completed
-                          before an experiment can be launched. By default,
-                          experiments use your organization&apos;s default
-                          Pre-Launch Checklist. However, you can create a custom
-                          checklist for experiments in this project.
-                        </p>
-                        <RadixButton
-                          variant="soft"
-                          className="mr-2"
-                          disabled={
-                            !hasCommercialFeature("custom-launch-checklist")
-                          }
+                        Pre-launch checklist
+                      </PremiumTooltip>
+                    }
+                    help="Experiments use the organization's checklist unless this Project has its own."
+                  >
+                    <Flex align="center" gap="2">
+                      <RadixButton
+                        variant="soft"
+                        disabled={
+                          !hasCommercialFeature("custom-launch-checklist")
+                        }
+                        onClick={async () => {
+                          setEditChecklistOpen(true);
+                        }}
+                      >
+                        {checklist?.id ? "Edit" : "Create"} checklist
+                      </RadixButton>
+                      {checklist?.id ? (
+                        <DeleteButton
+                          displayName="Checklist"
+                          text="Delete checklist"
+                          deleteMessage="Once deleted, all experiments in this project will revert to using your organization's default Pre-Launch Checklist."
                           onClick={async () => {
-                            setEditChecklistOpen(true);
+                            await apiCall(
+                              `/experiments/launch-checklist/${checklist.id}`,
+                              {
+                                method: "DELETE",
+                              },
+                            );
+                            mutate();
                           }}
-                        >
-                          {checklist?.id ? "Edit" : "Create"} Checklist
-                        </RadixButton>
-                        {checklist?.id ? (
-                          <DeleteButton
-                            displayName="Checklist"
-                            text="Delete Checklist"
-                            deleteMessage="Once deleted, all experiments in this project will revert to using your organization's default Pre-Launch Checklist."
-                            onClick={async () => {
-                              await apiCall(
-                                `/experiments/launch-checklist/${checklist.id}`,
-                                {
-                                  method: "DELETE",
-                                },
-                              );
-                              mutate();
-                            }}
-                          />
-                        ) : null}
-                      </Box>
+                        />
+                      ) : null}
                     </Flex>
-                  </Flex>
-                </Frame>
+                  </SettingsField>
+                </SettingsGroup>
                 <Flex
                   justify="end"
                   align="center"

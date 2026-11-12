@@ -1,5 +1,8 @@
 import { bypassApprovalPermission } from "shared/permissions";
-import { PENDING_APPROVAL_ITEM_PREFIX } from "shared/validators";
+import {
+  PENDING_APPROVAL_ITEM_PREFIX,
+  STALE_VALUES_ITEM_PREFIX,
+} from "shared/validators";
 import {
   evaluatePublishGates,
   makeBlockingGate,
@@ -19,13 +22,22 @@ const FLAG_BLOCKERS: {
   prefix: string;
   type: string;
   action: string | null;
+  // The experiment's own flag, where that differs.
+  managedAction?: string;
 }[] = [
   {
     prefix: PENDING_APPROVAL_ITEM_PREFIX,
     type: "approval-required",
     action: "request-review",
   },
-  { prefix: "mergeConflict:", type: "merge-conflict", action: "rebase" },
+  // The managed flag's conflict has no merge to pick sides in; its draft goes.
+  {
+    prefix: "mergeConflict:",
+    type: "merge-conflict",
+    action: "rebase",
+    managedAction: "discard",
+  },
+  { prefix: STALE_VALUES_ITEM_PREFIX, type: "stale-values", action: "rebase" },
   {
     prefix: "unrelatedDraftChanges:",
     type: "unrelated-draft-changes",
@@ -51,6 +63,8 @@ export function startChecklistGates(
   experimentId: string,
   items: StartChecklistItemStatus[],
   draftVersions: Map<string, number>,
+  // Its flag routes refuse writes; the experiment's own resolve its rows.
+  managedFeatureId: string | null = null,
 ): StartGate[] {
   return items
     .filter((item) => item.status === "incomplete")
@@ -64,15 +78,24 @@ export function startChecklistGates(
           ...makeBlockingGate({
             type: blocker.type,
             messages: [item.reason],
+            // What a start's approval bypass also waives.
             requiresPermission:
-              blocker.type === "approval-required"
+              blocker.type === "approval-required" ||
+              blocker.type === "stale-values"
                 ? bypassApprovalPermission("feature")
                 : null,
-            resolution: draftRoute(
-              featureId,
-              draftVersions.get(featureId),
-              blocker.action,
-            ),
+            resolution:
+              featureId === managedFeatureId && blocker.action
+                ? {
+                    action: blocker.managedAction ?? blocker.action,
+                    method: "POST",
+                    path: `/experiments/${experimentId}/variation-values/${blocker.managedAction ?? blocker.action}`,
+                  }
+                : draftRoute(
+                    featureId,
+                    draftVersions.get(featureId),
+                    blocker.action,
+                  ),
           }),
           key: item.key,
           featureId,

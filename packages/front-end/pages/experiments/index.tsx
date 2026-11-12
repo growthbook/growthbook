@@ -13,7 +13,7 @@ import { useUser } from "@/services/UserContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
 import LinkButton from "@/ui/LinkButton";
-import CreateExperimentModal from "@/components/Experiment/CreateExperimentModal";
+import SimpleNewExperimentForm from "@/components/Experiment/SimpleNewExperimentForm";
 import {
   DropdownMenu,
   DropdownMenuItem,
@@ -29,6 +29,7 @@ import { useWatching } from "@/services/WatchProvider";
 import ExperimentSearchFilters from "@/components/Search/ExperimentSearchFilters";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
 import ExperimentsListTable from "@/components/Experiment/ExperimentsListTable";
+import { ManagedExperimentFlagsProvider } from "@/hooks/useManagedExperimentFlagStates";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import useURLHash from "@/hooks/useURLHash";
 
@@ -180,7 +181,8 @@ const ExperimentsPage = (): React.ReactElement => {
   );
 
   return (
-    <>
+    // Page-scoped, so the managed-flag cache doesn't outlive the page.
+    <ManagedExperimentFlagsProvider>
       <div className="contents experiments container-fluid pagecontents">
         <div className="my-3">
           <div className="filters md-form row align-items-center">
@@ -356,7 +358,7 @@ const ExperimentsPage = (): React.ReactElement => {
         </div>
       </div>
       {openNewExperimentModal && (
-        <CreateExperimentModal
+        <SimpleNewExperimentForm
           onClose={() => setOpenNewExperimentModal(false)}
           source="experiment-list"
         />
@@ -367,7 +369,7 @@ const ExperimentsPage = (): React.ReactElement => {
           source="experiment-list"
         />
       )}
-    </>
+    </ManagedExperimentFlagsProvider>
   );
 };
 

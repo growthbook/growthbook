@@ -266,6 +266,8 @@ const REVIEW_GATE_TYPES = new Set([
   "approval-required",
   "required-approvers-missing",
   "required-project-approvers-missing",
+  // A start's stale managed values: its publish waives them with approval.
+  "stale-values",
 ]);
 
 // The gates a request does NOT clear via a request-body flag: a gate is cleared

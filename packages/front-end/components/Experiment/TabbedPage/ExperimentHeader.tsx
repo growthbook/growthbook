@@ -10,6 +10,7 @@ import { useRouter } from "next/router";
 import {
   resolveAnalysisIdentifierType,
   getHoldoutStage,
+  isManagedByExperiment,
   canMaterializeLinkedChanges,
   getExperimentLinkageBlocker,
   type LinkedChangesResolution,
@@ -101,6 +102,7 @@ import {
   scheduledTime,
 } from "./statusSchedule";
 import { getStartTitle } from "./startActions";
+import { REVIEW_TAB_PATH } from "./useExperimentReviewRoute";
 import { ExperimentTab } from ".";
 
 export interface Props {
@@ -119,6 +121,8 @@ export interface Props {
   mutateWatchers: () => void;
   usersWatching: (string | undefined)[];
   start: StartExperiment;
+  /** The review is part of Setup: its tab stays selected, and clicking it leaves. */
+  reviewing: boolean;
   // The start popover; holdouts start from a modal.
   startOpen: boolean;
   setStartOpen: (open: boolean) => void;
@@ -213,6 +217,7 @@ export default function ExperimentHeader({
   editResult,
   editTargeting,
   start,
+  reviewing,
   startOpen,
   setStartOpen,
   editPhases,
@@ -292,15 +297,34 @@ export default function ExperimentHeader({
       setValue={(v) => setDeleteAcknowledged(!!v)}
     />
   );
-  // Visual changes and redirects also count by the experiment's own markers, as
-  // the linkage blocker does, so the acknowledgement shows whenever it's needed.
-  const linkedFlagIds = linkedFeatures
-    .filter((f) => f.state === "live" || f.state === "draft")
+  // Deleting the experiment archives the flag that existed only for it and
+  // strips its rule from every other linked flag. Visual changes and redirects
+  // also count by the experiment's own markers, as the linkage blocker does, so
+  // the acknowledgement shows whenever it's needed.
+  const managedFlagToArchive = linkedFeatures.find((f) =>
+    isManagedByExperiment(f.feature, experiment.id),
+  )?.feature.id;
+  const sharedLinkedFlags = linkedFeatures
+    .filter(
+      (f) =>
+        !isManagedByExperiment(f.feature, experiment.id) &&
+        (f.state === "live" || f.state === "draft"),
+    )
     .map((f) => f.feature.id);
   const visualCount = visualChangesets.length;
   const redirectCount = urlRedirects.length;
   const deleteConsequences = [
-    ...linkedFlagIds.map((id) => (
+    ...(managedFlagToArchive
+      ? [
+          <li key="managed">
+            Managed Feature Flag <strong>{managedFlagToArchive}</strong>{" "}
+            {materializing
+              ? "becomes an unmanaged Feature Flag serving the released variation."
+              : "will be archived."}
+          </li>,
+        ]
+      : []),
+    ...sharedLinkedFlags.map((id) => (
       <li key={id}>
         {materializing
           ? "A permanent rule replaces the experiment rule on Feature Flag "
@@ -1112,11 +1136,14 @@ export default function ExperimentHeader({
                       </Tooltip>
                     ) : experiment.status === "draft" &&
                       !experiment.archived &&
-                      !canRunExperiment ? (
+                      !canRunExperiment &&
+                      !reviewing ? (
                       <Tooltip content={RUN_PERMISSION_REASON}>
                         {startButton}
                       </Tooltip>
-                    ) : experiment.status === "draft" && canRunExperiment ? (
+                    ) : experiment.status === "draft" &&
+                      canRunExperiment &&
+                      !reviewing ? (
                       <Tooltip
                         enabled={!!editsBlocked}
                         content={editsBlocked}
@@ -1473,82 +1500,88 @@ export default function ExperimentHeader({
             <div className="position-relative container-fluid pagecontents px-4">
               <div className="d-flex align-items-center header-tabs">
                 <Tabs
-                  value={tab}
+                  // The review is a tab of its own, so no trigger is active,
+                  // and focus reaching one mustn't leave the review.
+                  value={reviewing ? REVIEW_TAB_PATH : tab}
+                  activationMode={reviewing ? "manual" : "automatic"}
                   onValueChange={setTab}
                   style={{ flex: 1, minWidth: 0 }}
                 >
                   <TabsList size="lg">
-                    <Flex align="center" className="flex-1" minWidth="0">
-                      <TabsTrigger value="overview">Setup</TabsTrigger>
-                      <TabsTrigger value="results">Results</TabsTrigger>
-                      {isBandit ? (
-                        <TabsTrigger value="explore">Explore</TabsTrigger>
-                      ) : null}
-                      {!isBandit && !isHoldout && (
-                        <TabsTrigger value="dashboards">Dashboard</TabsTrigger>
-                      )}
-                      {disableHealthTab ? (
-                        <DisabledHealthTabTooltip
-                          reason={
-                            !experiment.datasource
-                              ? "NO_DATASOURCE"
-                              : dataSource
-                                ? "UNSUPPORTED_DATASOURCE"
-                                : datasourceMissing
-                                  ? "DELETED_DATASOURCE"
-                                  : "RESTRICTED_DATASOURCE"
-                          }
-                        >
-                          <TabsTrigger disabled value="health">
-                            Health
-                          </TabsTrigger>
-                        </DisabledHealthTabTooltip>
-                      ) : (
-                        <TabsTrigger
-                          value="health"
-                          onClick={() => {
-                            track("Open health tab", { source: "tab-click" });
-                          }}
-                        >
+                    <TabsTrigger value="overview">Setup</TabsTrigger>
+                    <TabsTrigger value="results">Results</TabsTrigger>
+                    {isBandit ? (
+                      <TabsTrigger value="explore">Explore</TabsTrigger>
+                    ) : null}
+                    {!isBandit && !isHoldout && (
+                      <TabsTrigger value="dashboards">Dashboard</TabsTrigger>
+                    )}
+                    {disableHealthTab ? (
+                      <DisabledHealthTabTooltip
+                        reason={
+                          !experiment.datasource
+                            ? "NO_DATASOURCE"
+                            : dataSource
+                              ? "UNSUPPORTED_DATASOURCE"
+                              : datasourceMissing
+                                ? "DELETED_DATASOURCE"
+                                : "RESTRICTED_DATASOURCE"
+                        }
+                      >
+                        <TabsTrigger disabled value="health">
                           Health
-                          {healthNotificationCount > 0 ? (
-                            <Avatar size="sm" ml="2" color="red">
-                              {healthNotificationCount}
-                            </Avatar>
-                          ) : null}
                         </TabsTrigger>
-                      )}
-                      <div className="flex-1" />
-                      {/* One date item at a time: the phases, or the dates. */}
-                      {hasMultiplePhases ? (
-                        <Text size="md">
-                          <PhaseSelector
-                            phase={phase}
-                            phases={experiment.phases}
-                            isBandit={experiment.type === "multi-armed-bandit"}
-                            isHoldout={experiment.type === "holdout"}
-                            holdout={holdout}
-                            details={phaseDetails}
-                          />
-                        </Text>
-                      ) : (
-                        // Short of room, it ends in an ellipsis; its tooltip
-                        // has every date.
-                        <Box
-                          ref={datesBox}
-                          minWidth="0"
-                          style={{
-                            overflow: "hidden",
-                            textOverflow: "ellipsis",
-                            whiteSpace: "nowrap",
-                          }}
-                        >
-                          {datesLine(true)}
-                        </Box>
-                      )}
-                    </Flex>
+                      </DisabledHealthTabTooltip>
+                    ) : (
+                      <TabsTrigger
+                        value="health"
+                        onClick={() => {
+                          track("Open health tab", { source: "tab-click" });
+                        }}
+                      >
+                        Health
+                        {healthNotificationCount > 0 ? (
+                          <Avatar size="sm" ml="2" color="red">
+                            {healthNotificationCount}
+                          </Avatar>
+                        ) : null}
+                      </TabsTrigger>
+                    )}
                   </TabsList>
                 </Tabs>
+                {/* Beside the tab list, not in it: the list folds tabs that
+                    don't fit into its More menu. One date item at a time: the
+                    phases, or the dates. */}
+                {hasMultiplePhases ? (
+                  <Box flexShrink="0" ml="4">
+                    <Text size="md">
+                      <PhaseSelector
+                        phase={phase}
+                        phases={experiment.phases}
+                        isBandit={experiment.type === "multi-armed-bandit"}
+                        isHoldout={experiment.type === "holdout"}
+                        holdout={holdout}
+                        details={phaseDetails}
+                      />
+                    </Text>
+                  </Box>
+                ) : (
+                  // Short of room, it ends in an ellipsis, leaving the tabs
+                  // most of the row; its tooltip has every date.
+                  <Box
+                    ref={datesBox}
+                    ml="4"
+                    minWidth="0"
+                    style={{
+                      maxWidth: "40%",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {datesLine(true)}
+                  </Box>
+                )}
                 <DetailsPanelToggle
                   open={detailsOpen}
                   setOpen={setDetailsOpen}

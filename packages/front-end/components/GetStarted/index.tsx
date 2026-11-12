@@ -37,7 +37,7 @@ import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import Button from "@/ui/Button";
 import { useUser } from "@/services/UserContext";
 import AdvancedFeaturesCard from "@/components/GetStarted/AdvancedFeaturesCard";
-import CreateExperimentModal from "@/components/Experiment/CreateExperimentModal";
+import SimpleNewExperimentForm from "@/components/Experiment/SimpleNewExperimentForm";
 import FeatureModal from "@/components/Features/FeatureModal";
 import { isCloud } from "@/services/env";
 import { isExperimentationLeaning } from "@/services/onboarding";
@@ -216,7 +216,7 @@ const GetStartedAndHomePage = ({
         />
       )}
       {openNewExperimentModal && (
-        <CreateExperimentModal
+        <SimpleNewExperimentForm
           onClose={() => setOpenNewExperimentModal(false)}
           source="home-page"
         />

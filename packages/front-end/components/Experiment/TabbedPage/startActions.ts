@@ -14,6 +14,15 @@ export function getStartSchedule(
   return scheduledStartAt > now ? "future" : "past";
 }
 
+/** The review's title: a draft's variation values, or a running one's changes to them. */
+export function getExperimentReviewTitle(
+  experiment: Pick<ExperimentInterfaceStringDates, "status">,
+): string {
+  return experiment.status === "draft"
+    ? "Review variation values"
+    : "Review & publish value changes";
+}
+
 /**
  * What starting does: start now, or approve a future start. A button label in
  * sentence case, or with `heading`, the popover's Title Case heading.
@@ -71,7 +80,7 @@ export type StartActions = {
   // The one checkbox beside the button, offered once every remaining item is
   // one this viewer may go ahead without.
   bypassLabel: string | null;
-  // The bypass here also waives approval, as an admin's does.
+  // The bypass here also waives approval and stale values, as an admin's does.
   waivesApproval: boolean;
   // Left even after the bypass.
   hardBlocked: boolean;
@@ -98,7 +107,8 @@ function bypassLabel({
 }
 
 // Anyone who can start may skip soft items; an admin who may bypass flag
-// approvals may also skip approval. Loading never counts as done.
+// approvals may also skip approval and stale values. Loading never counts as
+// done.
 export function getStartActions({
   scheduledStartAt,
   now,

@@ -14,6 +14,11 @@ export function mergeChanges(
         base: { ...body.experiment?.base, ...part.experiment.base },
       };
     }
+    if (part.managedFlag) body.managedFlag = part.managedFlag;
+    if (part.renameManagedFlag) {
+      body.renameManagedFlag = part.renameManagedFlag;
+    }
+    if (part.deleteManagedFlag) body.deleteManagedFlag = true;
     if (part.allowUnscopedRules) body.allowUnscopedRules = true;
     for (const [key, value] of Object.entries(part)) {
       if (!Array.isArray(value)) continue;

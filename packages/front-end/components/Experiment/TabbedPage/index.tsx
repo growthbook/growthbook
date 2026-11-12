@@ -17,16 +17,13 @@ import {
   HoldoutMissingLinkage,
 } from "shared/validators";
 import { FeatureInterface } from "shared/types/feature";
-import { Box } from "@radix-ui/themes";
 import {
   getAvailableMetricsFilters,
   getAvailableMetricTags,
   getAvailableSliceTags,
 } from "@/services/experiments";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
-import CollapsiblePanelLayout, {
-  PANEL_WIDTH_PX,
-} from "@/components/CollapsiblePanelLayout";
+import { DetailsPanelLayout, useDetailsPanel } from "@/components/DetailsPanel";
 import FeatureFromExperimentModal from "@/components/Features/FeatureModal/FeatureFromExperimentModal";
 import Modal from "@/components/Modal";
 import {
@@ -50,26 +47,23 @@ import Callout from "@/ui/Callout";
 import Link from "@/ui/Link";
 import CompareExperimentEventsModal from "@/components/Experiment/CompareExperimentEventsModal";
 import { PreLaunchChecklistProvider } from "@/components/PreLaunchChecklist/PreLaunchChecklistProvider";
-import {
-  NARROW_LAYOUT_BREAKPOINT_PX,
-  TABS_BAR_HEIGHT_PX,
-  TABS_HEADER_HEIGHT_PX,
-} from "@/components/Layout/constants";
-import useMediaQuery from "@/hooks/useMediaQuery";
 import { useRunningExperimentStatus } from "@/hooks/useExperimentStatusIndicator";
 import type { AnalysisFormFocus } from "@/components/Experiment/AnalysisForm";
 import ConfirmDialog from "@/ui/ConfirmDialog";
+import { useManagedExperimentFlags } from "@/hooks/useManagedExperimentFlags";
+import { ManagedFlagRenameProvider } from "@/components/Experiment/ManagedFlagRename";
 import ExperimentHeader from "./ExperimentHeader";
 import useExperimentEditing from "./useExperimentEditing";
 import useStartExperiment from "./useStartExperiment";
-import ExperimentDetailsPanel, {
-  DetailsPanelTab,
-} from "./ExperimentDetailsPanel";
+import ExperimentDetailsPanel from "./ExperimentDetailsPanel";
 import {
   ExperimentEditsProvider,
+  experimentFieldChanges,
   HoldoutDraft,
+  ImplementationTypeDraft,
   useExperimentEdits,
   useExperimentFieldEdit,
+  useRegisterExperimentEdit,
   useStagedState,
 } from "./ExperimentEdits";
 import UnsavedEditsBar from "./UnsavedEditsBar";
@@ -95,6 +89,10 @@ import UnhealthyExperimentBanner, {
   showsUnhealthyBanner,
 } from "./UnhealthyExperimentBanner";
 import HealthTab from "./HealthTab";
+import useExperimentReviewRoute from "./useExperimentReviewRoute";
+import { ManagedFlagProvider } from "./ManagedFlagContext";
+import ExperimentReview from "./ExperimentReview";
+import { hasValuesReview } from "./valuesStatus";
 
 const experimentTabs = [
   "overview",
@@ -202,17 +200,15 @@ function TabbedPageContents({
   const edits = useExperimentEdits();
 
   const [compareModal, setCompareModal] = useState(false);
+  const tabName = tab.split("/")[0];
+  const onSetup = tabName === "overview";
   // Open state is remembered per experiment; width is a global preference.
-  const [detailsOpen, setDetailsOpen] = useLocalStorage(
-    `experiment-details-panel-open__${experiment.id}`,
-    true,
-  );
-  const [detailsWidth, setDetailsWidth] = useLocalStorage(
-    `experiment-details-panel-width`,
-    PANEL_WIDTH_PX,
-  );
-  // Up here because the panel unmounts whenever it closes.
-  const [detailsTab, setDetailsTab] = useState<DetailsPanelTab>("details");
+  const details = useDetailsPanel({
+    openKey: `experiment-details-panel-open__${experiment.id}`,
+    widthKey: "experiment-details-panel-width",
+    tab: tabName,
+    homeTab: "overview",
+  });
   // The pre-launch checklist and the details panel point at analysis fields.
   const [analysisSettingsOpen, setAnalysisSettingsOpen] = useState(false);
   const [analysisSettingsFocus, setAnalysisSettingsFocus] =
@@ -264,38 +260,69 @@ function TabbedPageContents({
     value: stagedHoldout,
     set: setStagedHoldout,
   };
+  // Staged like any other field; the save converts or deletes a managed flag
+  // to match, or creates one on the way into Values.
+  const [stagedType, setStagedType] = useStagedState<
+    ImplementationTypeDraft["value"]
+  >("implementationType", null);
+  useRegisterExperimentEdit("implementationType", !!stagedType, {
+    label: "Implementation type",
+    statusBound: true,
+    changes: () =>
+      stagedType
+        ? {
+            ...experimentFieldChanges(experiment, {
+              implementationType: stagedType.type,
+            }),
+            ...(stagedType.deletesManagedFlag && { deleteManagedFlag: true }),
+          }
+        : {},
+    discard: () => setStagedType(null),
+  });
+  const { managedFeature } = useManagedExperimentFlags({
+    experiment,
+    linkedFeatures,
+  });
+  // Keyed on `pendingDraft`, not `state`: a running experiment's unpublished
+  // edit still reports "live".
+  const managedFlagWithDraft = managedFeature?.pendingDraft
+    ? managedFeature
+    : null;
+  const valuesReview =
+    !!managedFlagWithDraft?.pendingDraft &&
+    hasValuesReview(managedFlagWithDraft.pendingDraft);
+  const reviewable =
+    !experiment.archived && experiment.type !== "holdout" && valuesReview;
+  const { reviewing, openReview } = useExperimentReviewRoute({
+    tab,
+    tabPath,
+    setTab,
+    setTabPath,
+    reviewable,
+  });
+  const managedFlagContext = useMemo(
+    () => ({
+      openReview: reviewable ? () => openReview("column") : null,
+      mutate,
+    }),
+    [reviewable, openReview, mutate],
+  );
+  const reviewingRef = useRef(reviewing);
+  reviewingRef.current = reviewing;
 
   const [healthNotificationCount, setHealthNotificationCount] = useState(0);
   const [showDashboardView, setShowDashboardView] = useState(
-    !!experiment.defaultDashboardId,
+    !!experiment.defaultDashboardId && !reviewing,
   );
-  // Every tab keeps the details rail; the dashboard view is a page of its own.
-  const showDetailsPanel = !showDashboardView;
-
-  // When narrow, the panel opens only on request, over the content; the stored
-  // choice is for a wide window, so narrowing never overwrites it.
-  const narrow = useMediaQuery(`(max-width: ${NARROW_LAYOUT_BREAKPOINT_PX}px)`);
-  const [openWhileNarrow, setOpenWhileNarrow] = useState(false);
-  useEffect(() => setOpenWhileNarrow(false), [narrow]);
-  // Off Setup the rail starts closed, and opening it there lasts until the
-  // tab changes; Setup keeps the stored choice.
-  const tabName = tab.split("/")[0];
-  const onSetup = tabName === "overview";
-  const [openOffSetup, setOpenOffSetup] = useState(false);
-  useEffect(() => setOpenOffSetup(false), [tabName]);
-  const [detailsShown, setDetailsShown]: [boolean, (open: boolean) => void] =
-    narrow
-      ? [openWhileNarrow, setOpenWhileNarrow]
-      : onSetup
-        ? [detailsOpen, setDetailsOpen]
-        : [openOffSetup, setOpenOffSetup];
-  const detailsPanelOpen = showDetailsPanel && detailsShown;
-
-  // The toggle is a fresh start: a width dragged out earlier is forgotten.
-  const toggleDetailsPanel = (open: boolean) => {
-    setDetailsWidth(PANEL_WIDTH_PX);
-    setDetailsShown(open);
-  };
+  // The review outranks a default dashboard, which would rewrite the hash.
+  const dashboardView = showDashboardView && !reviewing;
+  // Leaving the review lands on Setup, however it was entered.
+  useEffect(() => {
+    if (reviewing) setShowDashboardView(false);
+  }, [reviewing]);
+  // Every tab keeps the details rail; the dashboard view and the review are
+  // pages of their own.
+  const showDetailsPanel = !dashboardView && !reviewing;
 
   // Results tab filters
   const [analysisBarSettings, setAnalysisBarSettings] = useState<{
@@ -373,6 +400,8 @@ function TabbedPageContents({
 
   // If experiment now has a default dashboard, show the dashboard view
   useEffect(() => {
+    // Dashboards that load under the review must not reopen it on the way out.
+    if (reviewingRef.current) return;
     if (!experiment.defaultDashboardId) {
       setShowDashboardView(false);
       return;
@@ -532,6 +561,10 @@ function TabbedPageContents({
   });
   // Up here so the status modal can open the header's Start popover.
   const [startOpen, setStartOpen] = useState(false);
+  // The header's Start anchors it, and the review hides that.
+  useEffect(() => {
+    if (reviewing) setStartOpen(false);
+  }, [reviewing]);
 
   const persistTabPath = useCallback(
     (path: string) => {
@@ -637,410 +670,451 @@ function TabbedPageContents({
       editTargeting={editTargeting}
       editSchedule={editSchedule}
       openImplementation={() => setTabAndScroll("overview", IMPLEMENTATION_ID)}
+      // Its To Do shows only off the review, in the rail and the start popover.
+      // Before the values are sent, Setup's banner is where they go.
+      openManagedApproval={
+        reviewable
+          ? () => openReview("todo")
+          : managedFlagWithDraft
+            ? () => setTabAndScroll("overview")
+            : undefined
+      }
+      editVariationValues={() => setTabAndScroll("overview", IMPLEMENTATION_ID)}
       openAnalysisSettings={(focus) => {
         setTabAndScroll("overview");
         showAnalysisSettings(true, focus);
       }}
     >
-      {compareModal && (
-        <CompareExperimentEventsModal
-          experiment={experiment}
-          onClose={() => setCompareModal(false)}
-        />
-      )}
-      {watchersModal && (
-        <Modal
-          trackingEventModalType=""
-          open={true}
-          header="Experiment Watchers"
-          close={() => setWatchersModal(false)}
-          closeCta="Close"
-        >
-          <ul>
-            {usersWatching.map((u, i) => (
-              <li key={i}>{u}</li>
-            ))}
-          </ul>
-        </Modal>
-      )}
-      {visualEditorModal && (
-        <VisualChangesetModal
-          mode="add"
-          experiment={experiment}
-          mutate={mutate}
-          close={() => setVisualEditorModal(false)}
-          onCreate={async (vc) => {
-            // Try to immediately open the visual editor
-            await openVisualEditor({
-              vc,
-              apiCall,
-              browser,
-              deviceType,
-              beforeLeave: edits?.allowUnload,
-            });
-          }}
-          cta="Open AI Visual Editor"
-          source={trackSource}
-        />
-      )}
-      {statusModal && (
-        <EditStatusModal
-          experiment={experiment}
-          close={() => setStatusModal(false)}
-          mutate={mutate}
-          source={trackSource}
-          holdout={holdout}
-          openStart={isHoldout ? null : () => setStartOpen(true)}
-        />
-      )}
-      {featureModal && (
-        <FeatureFromExperimentModal
-          experiment={withStagedVariations(experiment, variationsDraft)}
-          stage={stagesFlags ? stageFlag : undefined}
-          saveWithStagedChanges={
-            !stagesFlags && variationsStaged && edits
-              ? edits.saveAll
-              : undefined
-          }
-          close={() => setFeatureModal(false)}
-          mutate={mutate}
-          source={trackSource}
-          reAddableFeatureIds={linkedFeatures
-            .filter((f) => f.state === "discarded")
-            .map((f) => f.feature.id)}
-        />
-      )}
-      {/* TODO: Update Experiment Header props to include redirect and pipe through to StartExperimentBanner */}
-
-      {pendingTab ? (
-        <ConfirmDialog
-          title="Leave without saving?"
-          content="You have unsaved changes to this experiment. Leaving Setup discards them."
-          // Staying is the primary action; leaving is the secondary one.
-          yesText="Keep editing"
-          noText="Leave Setup"
-          onConfirm={() => setPendingTab(null)}
-          onCancel={() => {
-            edits?.discardAll();
-            switchTab(pendingTab.tab, pendingTab.scrollToId);
-            setPendingTab(null);
-          }}
-          onDismiss={() => setPendingTab(null)}
-        />
-      ) : null}
-      <ExperimentHeader
+      <ManagedFlagRenameProvider
         experiment={experiment}
-        datasourceMissing={datasourceMissing}
-        holdout={holdout}
-        tab={tab}
-        setTab={setTabAndScroll}
-        mutate={mutate}
-        setCompareModal={setCompareModal}
-        setStatusModal={setStatusModal}
-        setWatchersModal={setWatchersModal}
-        duplicate={duplicate}
-        usersWatching={usersWatching}
-        mutateWatchers={mutateWatchers}
-        editResult={editResult || undefined}
-        editTargeting={editTargeting}
-        detailsOpen={detailsShown}
-        setDetailsOpen={toggleDetailsPanel}
-        start={start}
-        startOpen={startOpen}
-        setStartOpen={setStartOpen}
-        editPhases={editPhases}
-        healthNotificationCount={healthNotificationCount}
-        linkedFeatures={linkedFeatures}
-        visualChangesets={visualChangesets}
-        urlRedirects={urlRedirects}
-        showDashboardView={showDashboardView}
-        editSchedule={editSchedule}
-      />
-      <Box
-        mx="auto"
-        width="100%"
-        style={{ maxWidth: "var(--page-content-max-width)" }}
+        feature={managedFeature?.feature ?? null}
+        stagedType={stagedType?.type ?? null}
+        canEdit={canEditExperiment}
       >
-        <CollapsiblePanelLayout
-          open={detailsPanelOpen}
-          top={TABS_HEADER_HEIGHT_PX + TABS_BAR_HEIGHT_PX}
-          width={detailsWidth}
-          onWidthChange={setDetailsWidth}
-          onCollapse={() => setDetailsShown(false)}
-          // Only the content's edits stage; the panel's save as they're made.
-          footer={<UnsavedEditsBar />}
-          // So what a save judges as saved is what it sent.
-          busy={!!edits?.saving}
-          panel={
-            showDetailsPanel ? (
-              <ExperimentDetailsPanel
-                experiment={experiment}
-                datasourceMissing={datasourceMissing}
-                holdout={holdout}
-                mutate={mutate}
-                disableEditing={viewingOldPhase}
-                stagedHoldoutId={stagedHoldout}
-                tab={detailsTab}
-                setTab={setDetailsTab}
-              />
-            ) : null
-          }
-        >
-          <div className="experiment-column">
-            <div
-              className={clsx(
-                "container-fluid pagecontents px-4",
-                showDashboardView && "pt-0",
-              )}
+        <ManagedFlagProvider value={managedFlagContext}>
+          {compareModal && (
+            <CompareExperimentEventsModal
+              experiment={experiment}
+              onClose={() => setCompareModal(false)}
+            />
+          )}
+          {watchersModal && (
+            <Modal
+              trackingEventModalType=""
+              open={true}
+              header="Experiment Watchers"
+              close={() => setWatchersModal(false)}
+              closeCta="Close"
             >
-              {experiment.type !== "holdout" &&
-                tab !== "dashboards" &&
-                !showDashboardView && (
-                  <CustomMarkdown page={"experiment"} variables={variables} />
-                )}
-              {edits?.refreshFailed ? (
-                <Callout
-                  status="warning"
-                  action={
-                    <Link onClick={() => window.location.reload()}>Reload</Link>
-                  }
-                  {...bannerMargin}
-                >
-                  Your changes saved, but the page couldn&apos;t refresh to show
-                  them.
-                </Callout>
-              ) : null}
-              {showStoppedBanner && (
-                <StoppedExperimentBanner
+              <ul>
+                {usersWatching.map((u, i) => (
+                  <li key={i}>{u}</li>
+                ))}
+              </ul>
+            </Modal>
+          )}
+          {visualEditorModal && (
+            <VisualChangesetModal
+              mode="add"
+              experiment={experiment}
+              mutate={mutate}
+              close={() => setVisualEditorModal(false)}
+              onCreate={async (vc) => {
+                // Try to immediately open the visual editor
+                await openVisualEditor({
+                  vc,
+                  apiCall,
+                  browser,
+                  deviceType,
+                  beforeLeave: edits?.allowUnload,
+                });
+              }}
+              cta="Open AI Visual Editor"
+              source={trackSource}
+            />
+          )}
+          {statusModal && (
+            <EditStatusModal
+              experiment={experiment}
+              close={() => setStatusModal(false)}
+              mutate={mutate}
+              source={trackSource}
+              holdout={holdout}
+              openStart={
+                isHoldout
+                  ? null
+                  : () => {
+                      if (reviewing) setTabAndScroll("overview");
+                      setStartOpen(true);
+                    }
+              }
+            />
+          )}
+          {featureModal && (
+            <FeatureFromExperimentModal
+              experiment={withStagedVariations(experiment, variationsDraft)}
+              stage={stagesFlags ? stageFlag : undefined}
+              saveWithStagedChanges={
+                !stagesFlags && variationsStaged && edits
+                  ? edits.saveAll
+                  : undefined
+              }
+              close={() => setFeatureModal(false)}
+              mutate={mutate}
+              source={trackSource}
+              reAddableFeatureIds={linkedFeatures
+                .filter((f) => f.state === "discarded")
+                .map((f) => f.feature.id)}
+            />
+          )}
+          {/* TODO: Update Experiment Header props to include redirect and pipe through to StartExperimentBanner */}
+
+          {pendingTab ? (
+            <ConfirmDialog
+              title="Leave without saving?"
+              content="You have unsaved changes to this experiment. Leaving Setup discards them."
+              // Staying is the primary action; leaving is the secondary one.
+              yesText="Keep editing"
+              noText="Leave Setup"
+              onConfirm={() => setPendingTab(null)}
+              onCancel={() => {
+                edits?.discardAll();
+                switchTab(pendingTab.tab, pendingTab.scrollToId);
+                setPendingTab(null);
+              }}
+              onDismiss={() => setPendingTab(null)}
+            />
+          ) : null}
+          <ExperimentHeader
+            experiment={experiment}
+            datasourceMissing={datasourceMissing}
+            holdout={holdout}
+            tab={tab}
+            setTab={setTabAndScroll}
+            mutate={mutate}
+            setCompareModal={setCompareModal}
+            setStatusModal={setStatusModal}
+            setWatchersModal={setWatchersModal}
+            duplicate={duplicate}
+            usersWatching={usersWatching}
+            mutateWatchers={mutateWatchers}
+            editResult={editResult || undefined}
+            editTargeting={editTargeting}
+            detailsOpen={details.open}
+            setDetailsOpen={details.toggle}
+            start={start}
+            reviewing={reviewing}
+            startOpen={startOpen}
+            setStartOpen={setStartOpen}
+            editPhases={editPhases}
+            healthNotificationCount={healthNotificationCount}
+            linkedFeatures={linkedFeatures}
+            visualChangesets={visualChangesets}
+            urlRedirects={urlRedirects}
+            showDashboardView={dashboardView}
+            editSchedule={editSchedule}
+          />
+          <DetailsPanelLayout
+            details={details}
+            // Only the content's edits stage; the panel's save as they're made.
+            footer={<UnsavedEditsBar />}
+            // So what a save judges as saved is what it sent.
+            busy={!!edits?.saving}
+            panel={
+              showDetailsPanel ? (
+                <ExperimentDetailsPanel
                   experiment={experiment}
-                  linkedFeatures={linkedFeatures}
+                  datasourceMissing={datasourceMissing}
+                  holdout={holdout}
                   mutate={mutate}
-                  editResult={editResult || undefined}
-                  {...bannerMargin}
+                  disableEditing={viewingOldPhase}
+                  linkedFeatures={linkedFeatures}
+                  stagedImplementationType={stagedType?.type ?? null}
+                  stagedHoldoutId={stagedHoldout}
+                  tab={details.panelTab}
+                  setTab={details.setPanelTab}
                 />
-              )}
-              {showRunningBanners &&
-              tab !== "health" &&
-              showsUnhealthyBanner(experiment, runningExperimentStatus) ? (
-                <UnhealthyExperimentBanner
-                  status={runningExperimentStatus!}
-                  viewHealth={
-                    healthTabAvailable ? () => setTabAndScroll("health") : null
-                  }
-                  isClusterExperiment={!!experiment.isClusterExperiment}
-                  {...bannerMargin}
-                />
-              ) : null}
-              {showRunningBanners && runningExperimentStatus ? (
-                <RunningExperimentDecisionBanner
-                  experiment={experiment}
-                  runningExperimentStatus={runningExperimentStatus}
-                  decisionCriteria={decisionCriteria}
-                  makeDecision={editResult || undefined}
-                  {...bannerMargin}
-                />
-              ) : null}
-              {showRunningBanners && !isBandit ? (
-                <ScheduledEndPassedBanner
-                  experiment={experiment}
-                  runningExperimentStatus={runningExperimentStatus}
-                  editSchedule={
-                    canEditExperiment && editSchedule ? editSchedule : undefined
-                  }
-                  {...bannerMargin}
-                />
-              ) : null}
-              {viewingOldPhase &&
-                ((!isBandit && tab === "results") ||
-                  (isBandit && tab === "explore")) && (
+              ) : null
+            }
+          >
+            <div className="experiment-column">
+              <div
+                className={clsx(
+                  "container-fluid pagecontents px-4",
+                  dashboardView && "pt-0",
+                )}
+              >
+                {experiment.type !== "holdout" &&
+                  tab !== "dashboards" &&
+                  !dashboardView &&
+                  !reviewing && (
+                    <CustomMarkdown page={"experiment"} variables={variables} />
+                  )}
+                {edits?.refreshFailed ? (
                   <Callout
-                    status="info"
-                    contentAlign="center"
+                    status="warning"
                     action={
-                      <Link
-                        onClick={() => setPhase(experiment.phases.length - 1)}
-                      >
-                        {isHoldout
-                          ? "Switch to analysis phase"
-                          : "Switch to latest phase"}
+                      <Link onClick={() => window.location.reload()}>
+                        Reload
                       </Link>
                     }
                     {...bannerMargin}
                   >
-                    {isHoldout
-                      ? "You're viewing results for the whole holdout period. The analysis phase looks back from its own start date."
-                      : "You're viewing results from a previous phase."}
+                    Your changes saved, but the page couldn&apos;t refresh to
+                    show them.
                   </Callout>
-                )}
-
-              {showDashboardView && (
-                <DashboardsTab
-                  experiment={experiment}
-                  initialDashboardId={experiment.defaultDashboardId ?? ""}
-                  isTabActive
-                  showDashboardView
-                  switchToExperimentView={() => setShowDashboardView(false)}
-                  updateTabPath={persistTabPath}
-                />
-              )}
-              <div
-                className={clsx(
-                  "pt-2",
-                  // Hidden, never unmounted: staged edits live in Setup.
-                  tab === "overview" && !showDashboardView
-                    ? "d-block"
-                    : "d-none d-print-block",
-                )}
-              >
-                <ScheduledUpdateFailureCallout
-                  experiment={experiment}
-                  editSchedule={editSchedule}
-                />
-                <DraftReviewCallouts
-                  experiment={experiment}
-                  linkedFeatures={linkedFeatures}
-                />
-                <SetupTabOverview
-                  experiment={experiment}
-                  holdout={holdout}
-                  holdoutExperiments={holdoutExperiments}
-                  mutate={mutate}
-                  disableEditing={viewingOldPhase}
-                  editSchedule={editSchedule}
-                />
-                <Implementation
-                  experiment={experiment}
-                  datasourceMissing={datasourceMissing}
-                  holdoutDraft={holdoutDraft}
-                  disableEditing={viewingOldPhase}
-                  holdout={holdout}
-                  holdoutFeatures={holdoutFeatures}
-                  holdoutExperiments={holdoutExperiments}
-                  holdoutMissingLinkage={holdoutMissingLinkage}
-                  mutate={mutate}
-                  setFeatureModal={setFeatureModal}
-                  setVisualEditorModal={setVisualEditorModal}
-                  visualChangesets={visualChangesets}
-                  urlRedirects={urlRedirects}
-                  editTargeting={editTargeting}
-                  targetingDraft={targetingDraft}
-                  analysisSettingsOpen={analysisSettingsOpen}
-                  setAnalysisSettingsOpen={showAnalysisSettings}
-                  analysisSettingsFocus={analysisSettingsFocus}
-                  editTraffic={editTraffic}
-                  canAddVariation={canAddVariation}
-                  editNamespace={editNamespace}
-                  linkedFeatures={linkedFeatures}
-                  envs={envs}
-                  visualChangesetEnvStates={visualChangesetEnvStates}
-                  urlRedirectEnvStates={urlRedirectEnvStates}
-                />
-              </div>
-              {isBandit && !showDashboardView ? (
-                <div
-                  className={
-                    // todo: standardize explore & results tabs across experiment types
-                    isBandit && tab === "results"
-                      ? "container-fluid pagecontents px-4 py-4 d-block"
-                      : "d-none d-print-block"
-                  }
-                >
-                  <BanditSummaryResultsTab
+                ) : null}
+                {showStoppedBanner && (
+                  <StoppedExperimentBanner
                     experiment={experiment}
+                    linkedFeatures={linkedFeatures}
                     mutate={mutate}
-                    isTabActive={tab === "results"}
+                    editResult={editResult || undefined}
+                    {...bannerMargin}
+                  />
+                )}
+                {showRunningBanners &&
+                tab !== "health" &&
+                showsUnhealthyBanner(experiment, runningExperimentStatus) ? (
+                  <UnhealthyExperimentBanner
+                    status={runningExperimentStatus!}
+                    viewHealth={
+                      healthTabAvailable
+                        ? () => setTabAndScroll("health")
+                        : null
+                    }
+                    isClusterExperiment={!!experiment.isClusterExperiment}
+                    {...bannerMargin}
+                  />
+                ) : null}
+                {showRunningBanners && runningExperimentStatus ? (
+                  <RunningExperimentDecisionBanner
+                    experiment={experiment}
+                    runningExperimentStatus={runningExperimentStatus}
+                    decisionCriteria={decisionCriteria}
+                    makeDecision={editResult || undefined}
+                    {...bannerMargin}
+                  />
+                ) : null}
+                {showRunningBanners && !isBandit ? (
+                  <ScheduledEndPassedBanner
+                    experiment={experiment}
+                    runningExperimentStatus={runningExperimentStatus}
+                    editSchedule={
+                      canEditExperiment && editSchedule
+                        ? editSchedule
+                        : undefined
+                    }
+                    {...bannerMargin}
+                  />
+                ) : null}
+                {viewingOldPhase &&
+                  ((!isBandit && tab === "results") ||
+                    (isBandit && tab === "explore")) && (
+                    <Callout
+                      status="info"
+                      contentAlign="center"
+                      action={
+                        <Link
+                          onClick={() => setPhase(experiment.phases.length - 1)}
+                        >
+                          {isHoldout
+                            ? "Switch to analysis phase"
+                            : "Switch to latest phase"}
+                        </Link>
+                      }
+                      {...bannerMargin}
+                    >
+                      {isHoldout
+                        ? "You're viewing results for the whole holdout period. The analysis phase looks back from its own start date."
+                        : "You're viewing results from a previous phase."}
+                    </Callout>
+                  )}
+
+                {reviewing && managedFlagWithDraft ? (
+                  <ExperimentReview
+                    experiment={experiment}
+                    info={managedFlagWithDraft}
+                    mutate={mutate}
+                    exit={() => setTabAndScroll("overview")}
+                  />
+                ) : null}
+                {dashboardView && (
+                  <DashboardsTab
+                    experiment={experiment}
+                    initialDashboardId={experiment.defaultDashboardId ?? ""}
+                    isTabActive
+                    showDashboardView
+                    switchToExperimentView={() => setShowDashboardView(false)}
+                    updateTabPath={persistTabPath}
+                  />
+                )}
+                <div
+                  className={clsx(
+                    "pt-2",
+                    // Hidden, never unmounted: staged edits live in Setup.
+                    tab === "overview" && !dashboardView && !reviewing
+                      ? "d-block"
+                      : "d-none d-print-block",
+                  )}
+                >
+                  <ScheduledUpdateFailureCallout
+                    experiment={experiment}
+                    editSchedule={editSchedule}
+                  />
+                  <DraftReviewCallouts
+                    experiment={experiment}
+                    linkedFeatures={linkedFeatures}
+                    managedFeatureId={managedFeature?.feature.id ?? null}
+                    openReview={reviewable ? () => openReview("banner") : null}
+                    mutate={mutate}
+                  />
+                  <SetupTabOverview
+                    experiment={experiment}
+                    holdout={holdout}
+                    holdoutExperiments={holdoutExperiments}
+                    mutate={mutate}
+                    disableEditing={viewingOldPhase}
+                    editSchedule={editSchedule}
+                  />
+                  <Implementation
+                    experiment={experiment}
+                    datasourceMissing={datasourceMissing}
+                    holdoutDraft={holdoutDraft}
+                    implementationTypeDraft={{
+                      value: stagedType,
+                      set: setStagedType,
+                    }}
+                    disableEditing={viewingOldPhase}
+                    holdout={holdout}
+                    holdoutFeatures={holdoutFeatures}
+                    holdoutExperiments={holdoutExperiments}
+                    holdoutMissingLinkage={holdoutMissingLinkage}
+                    mutate={mutate}
+                    setFeatureModal={setFeatureModal}
+                    setVisualEditorModal={setVisualEditorModal}
+                    visualChangesets={visualChangesets}
+                    urlRedirects={urlRedirects}
+                    editTargeting={editTargeting}
+                    targetingDraft={targetingDraft}
+                    analysisSettingsOpen={analysisSettingsOpen}
+                    setAnalysisSettingsOpen={showAnalysisSettings}
+                    analysisSettingsFocus={analysisSettingsFocus}
+                    editTraffic={editTraffic}
+                    canAddVariation={canAddVariation}
+                    editNamespace={editNamespace}
+                    linkedFeatures={linkedFeatures}
+                    envs={envs}
+                    visualChangesetEnvStates={visualChangesetEnvStates}
+                    urlRedirectEnvStates={urlRedirectEnvStates}
                   />
                 </div>
-              ) : null}
+                {isBandit && !dashboardView ? (
+                  <div
+                    className={
+                      // todo: standardize explore & results tabs across experiment types
+                      isBandit && tab === "results"
+                        ? "container-fluid pagecontents px-4 py-4 d-block"
+                        : "d-none d-print-block"
+                    }
+                  >
+                    <BanditSummaryResultsTab
+                      experiment={experiment}
+                      mutate={mutate}
+                      isTabActive={tab === "results"}
+                    />
+                  </div>
+                ) : null}
+              </div>
+              <div
+                className={
+                  // todo: standardize explore & results tabs across experiment types
+                  ((!isBandit && tab === "results") ||
+                    (isBandit && tab === "explore")) &&
+                  !dashboardView
+                    ? "container-fluid pagecontents px-4 py-4 d-block"
+                    : "d-none d-print-block"
+                }
+              >
+                {showMetricGroupPromo() ? (
+                  <PremiumCallout
+                    commercialFeature="metric-groups"
+                    dismissible={true}
+                    id="metrics-list-metric-group-promo"
+                    docSection="metricGroups"
+                    mb="2"
+                  >
+                    <strong>Metric Groups</strong> help you organize and manage
+                    your metrics at scale.
+                  </PremiumCallout>
+                ) : null}
+                {/* TODO: Update ResultsTab props to include redirect and pipe through to StartExperimentBanner */}
+                <ResultsTab
+                  experiment={experiment}
+                  mutate={mutate}
+                  holdoutProjects={holdout?.projects}
+                  editMetrics={editMetrics}
+                  envs={envs}
+                  setTab={setTabAndScroll}
+                  isTabActive={tab === "results"}
+                  metricTagFilter={metricTagFilter}
+                  metricsFilter={metricsFilter}
+                  setMetricsFilter={setMetricsFilter}
+                  availableMetricsFilters={availableMetricsFilters}
+                  availableMetricTags={availableMetricTags}
+                  availableSliceTags={availableSliceTags}
+                  sliceTagsFilter={sliceTagsFilter}
+                  setSliceTagsFilter={setSliceTagsFilter}
+                  analysisBarSettings={analysisBarSettings}
+                  setAnalysisBarSettings={setAnalysisBarSettings}
+                  setMetricTagFilter={setMetricTagFilterWithPriority}
+                  sortBy={sortBy}
+                  setSortBy={setSortBy}
+                  sortDirection={sortDirection}
+                  setSortDirection={setSortDirection}
+                />
+              </div>
+              <div
+                className={
+                  tab === "dashboards" && !dashboardView
+                    ? "container-fluid pagecontents px-4 py-4 d-block"
+                    : "d-none d-print-block"
+                }
+              >
+                <DashboardsTab
+                  experiment={experiment}
+                  initialDashboardId={tabPath}
+                  isTabActive={tab === "dashboards"}
+                  mutateExperiment={mutate}
+                  updateTabPath={persistTabPath}
+                />
+              </div>
+              <div
+                className={
+                  tab === "health" && !dashboardView
+                    ? "container-fluid pagecontents px-4 py-4 d-block"
+                    : "d-none d-print-block"
+                }
+              >
+                <HealthTab
+                  experiment={experiment}
+                  onHealthNotify={handleIncrementHealthNotifications}
+                  onSnapshotUpdate={handleSnapshotChange}
+                  resetResultsSettings={() => {
+                    setAnalysisBarSettings({
+                      ...analysisBarSettings,
+                      baselineRow: 0,
+                      differenceType: "relative",
+                      variationFilter: [],
+                    });
+                  }}
+                  isTabActive={tab === "health"}
+                />
+              </div>
             </div>
-            <div
-              className={
-                // todo: standardize explore & results tabs across experiment types
-                ((!isBandit && tab === "results") ||
-                  (isBandit && tab === "explore")) &&
-                !showDashboardView
-                  ? "container-fluid pagecontents px-4 py-4 d-block"
-                  : "d-none d-print-block"
-              }
-            >
-              {showMetricGroupPromo() ? (
-                <PremiumCallout
-                  commercialFeature="metric-groups"
-                  dismissible={true}
-                  id="metrics-list-metric-group-promo"
-                  docSection="metricGroups"
-                  mb="2"
-                >
-                  <strong>Metric Groups</strong> help you organize and manage
-                  your metrics at scale.
-                </PremiumCallout>
-              ) : null}
-              {/* TODO: Update ResultsTab props to include redirect and pipe through to StartExperimentBanner */}
-              <ResultsTab
-                experiment={experiment}
-                mutate={mutate}
-                holdoutProjects={holdout?.projects}
-                editMetrics={editMetrics}
-                envs={envs}
-                setTab={setTabAndScroll}
-                isTabActive={tab === "results"}
-                metricTagFilter={metricTagFilter}
-                metricsFilter={metricsFilter}
-                setMetricsFilter={setMetricsFilter}
-                availableMetricsFilters={availableMetricsFilters}
-                availableMetricTags={availableMetricTags}
-                availableSliceTags={availableSliceTags}
-                sliceTagsFilter={sliceTagsFilter}
-                setSliceTagsFilter={setSliceTagsFilter}
-                analysisBarSettings={analysisBarSettings}
-                setAnalysisBarSettings={setAnalysisBarSettings}
-                setMetricTagFilter={setMetricTagFilterWithPriority}
-                sortBy={sortBy}
-                setSortBy={setSortBy}
-                sortDirection={sortDirection}
-                setSortDirection={setSortDirection}
-              />
-            </div>
-            <div
-              className={
-                tab === "dashboards" && !showDashboardView
-                  ? "container-fluid pagecontents px-4 py-4 d-block"
-                  : "d-none d-print-block"
-              }
-            >
-              <DashboardsTab
-                experiment={experiment}
-                initialDashboardId={tabPath}
-                isTabActive={tab === "dashboards"}
-                mutateExperiment={mutate}
-                updateTabPath={persistTabPath}
-              />
-            </div>
-            <div
-              className={
-                tab === "health" && !showDashboardView
-                  ? "container-fluid pagecontents px-4 py-4 d-block"
-                  : "d-none d-print-block"
-              }
-            >
-              <HealthTab
-                experiment={experiment}
-                onHealthNotify={handleIncrementHealthNotifications}
-                onSnapshotUpdate={handleSnapshotChange}
-                resetResultsSettings={() => {
-                  setAnalysisBarSettings({
-                    ...analysisBarSettings,
-                    baselineRow: 0,
-                    differenceType: "relative",
-                    variationFilter: [],
-                  });
-                }}
-                isTabActive={tab === "health"}
-              />
-            </div>
-          </div>
-        </CollapsiblePanelLayout>
-      </Box>
+          </DetailsPanelLayout>
+        </ManagedFlagProvider>
+      </ManagedFlagRenameProvider>
     </PreLaunchChecklistProvider>
   );
 }

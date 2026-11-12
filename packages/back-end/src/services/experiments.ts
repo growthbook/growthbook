@@ -22,6 +22,7 @@ import {
 } from "shared/constants";
 import { getScopedSettings, ScopedSettings } from "shared/settings";
 import {
+  getImplementationType,
   mergeResultHasChanges,
   draftHasChangesOutsideTargetRef,
   DRAFT_REVISION_STATUSES,
@@ -34,6 +35,7 @@ import {
   getMatchingRules,
   getRequireRegisteredAttributesSettings,
   getNamespaceRanges,
+  isManagedFeature,
   getSnapshotAnalysis,
   getSnapshotCutoffDate,
   hasPendingScheduledStart,
@@ -3712,6 +3714,7 @@ export async function toExperimentApiInterface(
     attributeScopeAllProjects: experiment.attributeScopeAllProjects || false,
     hasVisualChangesets: experiment.hasVisualChangesets || false,
     hasURLRedirects: experiment.hasURLRedirects || false,
+    implementationType: getImplementationType(experiment) ?? null,
     customFields: experiment.customFields ?? {},
     customMetricSlices: experiment.customMetricSlices ?? [],
     precomputedUnitDimensionIds: experiment.precomputedUnitDimensionIds ?? [],
@@ -5129,6 +5132,9 @@ export function postExperimentApiPayloadToInterface(
       : {}),
     name: payload.name || "",
     type: payload.type || "standard",
+    ...(payload.implementationType
+      ? { implementationType: payload.implementationType }
+      : {}),
     phases,
     tags: payload.tags || [],
     description: payload.description || "",
@@ -5453,6 +5459,7 @@ export function updateExperimentApiPayloadToInterface(
     minBucketVersion,
     name,
     type,
+    implementationType,
     tags,
     description,
     hypothesis,
@@ -5514,6 +5521,7 @@ export function updateExperimentApiPayloadToInterface(
     ...(minBucketVersion !== undefined ? { minBucketVersion } : {}),
     ...(name ? { name } : {}),
     ...(type ? { type } : {}),
+    ...(implementationType ? { implementationType } : {}),
     ...(tags ? { tags } : {}),
     ...(description !== undefined ? { description } : {}),
     ...(hypothesis !== undefined ? { hypothesis } : {}),
@@ -5862,7 +5870,10 @@ export async function getRefLinkedFeatureInfo({
         hasChanges: boolean;
         hasMergeConflict: boolean;
         hasUnrelatedDraftChanges: boolean;
+        // Also on a managed flag, where it isn't "unrelated".
+        changesOutsideRef: boolean;
         rebaseRequired: boolean;
+        staleApproval: boolean;
         // Not `revision.status`: an approved draft can still be short of a
         // required team or an environment.
         approval?: RevisionApprovalState;
@@ -5874,7 +5885,9 @@ export async function getRefLinkedFeatureInfo({
           hasChanges: true,
           hasMergeConflict: false,
           hasUnrelatedDraftChanges: false,
+          changesOutsideRef: false,
           rebaseRequired: false,
+          staleApproval: false,
         };
         try {
           const { live, base } = await getLiveAndBaseRevisionsForFeature({
@@ -5882,24 +5895,23 @@ export async function getRefLinkedFeatureInfo({
             feature,
             revision,
           });
-          const { mergeResult, rebaseRequired } = mergeDraftForAutoPublish(
-            context,
-            feature,
-            revision,
-            live,
-            base,
-          );
+          const { mergeResult, rebaseRequired, staleApproval } =
+            mergeDraftForAutoPublish(context, feature, revision, live, base);
           // The publish gate's own test.
           result.hasChanges = mergeResultHasChanges(mergeResult);
           result.rebaseRequired = rebaseRequired;
+          result.staleApproval = staleApproval;
           if (!mergeResult.success) {
             result.hasMergeConflict = true;
           } else {
-            result.hasUnrelatedDraftChanges = draftHasChangesOutsideTargetRef(
+            result.changesOutsideRef = draftHasChangesOutsideTargetRef(
               revision,
               liveRevisionFromFeature(live, feature),
               matchRule,
             );
+            // Guards a shared flag: a managed flag has nothing that isn't the experiment's.
+            result.hasUnrelatedDraftChanges =
+              !isManagedFeature(feature) && result.changesOutsideRef;
           }
           // Last: a failure here must not cost the conflict flags above.
           if (anyReviewRequired) {
@@ -6008,14 +6020,24 @@ export async function getRefLinkedFeatureInfo({
           allEnvironments: !!rule?.allEnvironments,
           title: revision.title,
           pendingApproval: !!draftFactsOf.approval?.requiresReview,
+          // A re-typed draft restates the default.
+          valueType: revision.metadata?.valueType ?? feature.valueType,
           defaultValue: revision.defaultValue,
           ...(draftFactsOf.approval && {
-            approval: { satisfied: draftFactsOf.approval.satisfied },
+            approval: {
+              satisfied: draftFactsOf.approval.satisfied,
+              footprint: draftFactsOf.approval.footprint,
+              unmetTeams: draftFactsOf.approval.requiredApproverTeams.unmet,
+              insufficientApprovers:
+                draftFactsOf.approval.insufficientApprovers,
+              hasCoveringApproval: draftFactsOf.approval.hasCoveringApproval,
+            },
           }),
           hasChanges: draftFactsOf.hasChanges,
           hasMergeConflict: draftFactsOf.hasMergeConflict,
           hasUnrelatedDraftChanges: draftFactsOf.hasUnrelatedDraftChanges,
           rebaseRequired: draftFactsOf.rebaseRequired,
+          staleApproval: draftFactsOf.staleApproval,
           // From the draft's matches: where the unpublished edit would run.
           environmentStates: buildEnvironmentStates(revisionMatches, revision),
           environmentInputs: buildEnvironmentInputs(revisionMatches, revision),
@@ -6074,7 +6096,7 @@ export async function getRefLinkedFeatureInfo({
         if (stagedDrafts.length > 0 && facts) {
           if (facts.hasMergeConflict) {
             stagedDrafts[0].hasMergeConflict = true;
-          } else if (facts.hasUnrelatedDraftChanges) {
+          } else if (facts.changesOutsideRef) {
             stagedDrafts[0].hasUnrelatedDraftChanges = true;
           }
         }

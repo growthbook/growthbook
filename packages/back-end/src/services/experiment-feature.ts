@@ -7,6 +7,7 @@ import {
   checkIfRevisionNeedsReview,
   getEffectiveRevisionHoldout,
   getMatchingRules,
+  isManagedByExperiment,
   isRevisionEditLockedBySchedule,
   liveRevisionFromFeature,
   MatchingRule,
@@ -21,6 +22,7 @@ import {
   ExperimentRefRule,
   ExperimentRefVariation,
   ExperimentRuleEnvironments,
+  FeatureValueType,
   FeatureInterface,
   FeatureRule,
 } from "shared/validators";
@@ -46,6 +48,7 @@ import {
 } from "back-end/src/models/FeatureModel";
 import {
   discardRevision,
+  getActiveDraft,
   getFeatureRevisionsByStatus,
   getLinkageSyncRevisionSummaries,
   getRevision,
@@ -60,6 +63,11 @@ import {
   draftTakesRuleOut,
   getLaunchDraftVersion,
 } from "back-end/src/util/featureExperimentSync";
+// Called, not read at load: managedFeatures imports this module too.
+import {
+  assertLoadedFeatureNotManaged,
+  discardDraftIfNoop,
+} from "back-end/src/services/managedFeatures";
 import {
   addLinkedFeatureToExperiment,
   addPendingFeatureDraftToExperiment,
@@ -95,7 +103,7 @@ import { assertConfigBackedFeatureValuesValid } from "back-end/src/services/conf
 import { assertScheduledStartAllows } from "back-end/src/services/experimentChanges/scheduledStartLock";
 import { assertFeatureNotLockedByRamp } from "back-end/src/services/rampSchedule";
 
-type ExperimentFeatureLinkResult = {
+export type ExperimentFeatureLinkResult = {
   version: number;
   published: boolean;
 };
@@ -111,6 +119,15 @@ type ExperimentFeatureLinkOptions = {
   draftVersion?: number;
   forceNewDraft?: boolean;
 };
+
+// Another experiment's managed flag serves only that experiment.
+export function assertNotManagedElsewhere(
+  feature: FeatureInterface,
+  experimentId: string,
+): void {
+  if (isManagedByExperiment(feature, experimentId)) return;
+  assertLoadedFeatureNotManaged(feature);
+}
 
 type ExperimentFeatureLinkCheck = Omit<
   ExperimentFeatureLinkOptions,
@@ -143,6 +160,8 @@ export async function assertFlagLinkable({
   ) {
     throw new Error("Invalid experiment rule");
   }
+
+  assertNotManagedElsewhere(feature, experiment.id);
 
   if (!environments.length) {
     throw new Error(
@@ -436,6 +455,8 @@ export type ExperimentLinkedFeatureValueUpdate = {
   // JSON only: values are partial objects merged onto the default. Omitted keeps
   // the rule's own sparse flag.
   sparse?: boolean;
+  // Managed flags only.
+  valueType?: FeatureValueType;
   // Omitted leaves the rule's environments as they are.
   environments?: ExperimentRuleEnvironments;
   // Omitted means all of the experiment's rules.
@@ -625,7 +646,11 @@ export async function validateExperimentFeatureUpdate({
         !sameRuleEnvironments(m.rule, update.environments))
     );
   });
-  if (!featureNeedsUpdate) return null;
+  // A type change counts even when every value reads the same under both types.
+  const typeChanging =
+    !!update.valueType &&
+    update.valueType !== (revision.metadata?.valueType ?? feature.valueType);
+  if (!featureNeedsUpdate && !typeChanging) return null;
 
   return {
     feature,
@@ -1207,7 +1232,7 @@ export function planExperimentRuleEnvironments({
   );
   if (!hasRule) {
     throw new BadRequestError(
-      `No experiment rule found on "${feature.id}" to re-scope. It may have been removed.`,
+      `No experiment rule found on "${feature.id}" to re-scope. It may have been removed; set variation values first to recreate it.`,
     );
   }
   // A rule in no environment serves nothing and drops off the experiment's page.
@@ -1229,6 +1254,67 @@ export function planExperimentRuleEnvironments({
       scopedEnvironments,
     ),
   };
+}
+
+export async function updateExperimentRuleEnvironments({
+  context,
+  experiment,
+  feature,
+  allEnvironments,
+  environments,
+  eventAudit,
+}: {
+  context: ReqContext | ApiReqContext;
+  experiment: ExperimentInterface;
+  feature: FeatureInterface;
+  allEnvironments: boolean;
+  environments: string[];
+  eventAudit: EventUser;
+}): Promise<{ version: number }> {
+  if (!context.permissions.canEditFeatureDrafts(feature)) {
+    context.permissions.throwPermissionError();
+  }
+
+  // Stages onto the open draft, or starts one.
+  const revision =
+    (await getActiveDraft(context, feature)) ??
+    (await getDraftRevision(context, feature, feature.version));
+
+  const { scopedEnvironments, ruleUpdate, environmentsEnabled } =
+    planExperimentRuleEnvironments({
+      feature,
+      revision,
+      experimentId: experiment.id,
+      orgEnvironments: context.environments,
+      scope: { allEnvironments, environments },
+    });
+  const nextRules = cloneDeep(revision.rules ?? []).map((rule) =>
+    experimentRuleFor(experiment.id)(rule)
+      ? { ...omit(rule, ["environments"]), ...ruleUpdate }
+      : rule,
+  );
+  const changes: Partial<FeatureRevisionInterface> = {
+    rules: nextRules,
+    ...(environmentsEnabled && { environmentsEnabled }),
+  };
+
+  const updated = await updateRevision(context, feature, revision, changes, {
+    user: eventAudit,
+    action: "update experiment environments",
+    subject: allEnvironments
+      ? "to all environments"
+      : `to ${scopedEnvironments.join(", ")}`,
+    value: JSON.stringify({
+      allEnvironments,
+      environments: scopedEnvironments,
+    }),
+  });
+
+  if (!updated) {
+    throw new Error(`Could not stage environment changes on "${feature.id}"`);
+  }
+
+  return { version: updated.version };
 }
 
 const experimentRuleFor =
@@ -1418,6 +1504,11 @@ export async function assertFlagRemovable(
   if (!context.permissions.canEditFeatureDrafts(feature)) {
     context.permissions.throwPermissionError();
   }
+  if (isManagedByExperiment(feature, experiment.id)) {
+    throw new BadRequestError(
+      "This Feature Flag is managed by the experiment. Eject it first to unlink it.",
+    );
+  }
   assertScheduledStartAllows(experiment, "linked Feature Flags");
   const refersToExperiment = experimentRuleFor(experiment.id);
   await assertDraftsWithRuleEditable(context, feature, refersToExperiment);
@@ -1525,23 +1616,6 @@ export async function removeFlagFromExperiment({
     );
   }
   await setPendingFeatureUnlink(context, experiment.id, featureId, true);
-}
-
-// An edit back to what serves must not leave an empty review behind.
-async function discardDraftIfNoop({
-  context,
-  feature,
-  revision,
-  eventAudit,
-}: {
-  context: ReqContext | ApiReqContext;
-  feature: FeatureInterface;
-  revision: FeatureRevisionInterface;
-  eventAudit: EventUser;
-}): Promise<void> {
-  const mergeResult = await mergeOntoLive(context, feature, revision);
-  if (!mergeResult.success || mergeResultHasChanges(mergeResult)) return;
-  await discardRevision(context, revision, eventAudit, feature.version);
 }
 
 // Undoes a pending removal. The draft the removal started is discarded once it

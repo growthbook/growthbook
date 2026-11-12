@@ -11,7 +11,7 @@ The Experiments section in GrowthBook is where you create experiments, configure
 
 Before [analyzing results](/app/experiment-results), you need to run the experiment. GrowthBook supports several ways to do this:
 
-- [Feature Flags](/features/feature-flag-experiments) (most common)
+- [Feature Flags](/features/feature-flag-experiments) (most common), either one the experiment manages for you through [variation values](#variation-values) or ones you link and manage yourself
 - Running an inline experiment directly with our [SDKs](/lib)
 - [URL Redirects](/app/url-redirects)
 - Our [AI Visual Editor](/app/visual)
@@ -28,6 +28,7 @@ To create a new experiment, go to the [**Experiments** <ExternalLink />](https:/
 - **Template** (optional, but recommended — see below)
 - **Holdout** (optional)
 - **Hypothesis**
+- **Implementation** — how the experiment reaches users (see [Choose an Implementation](#choose-an-implementation))
 - **Assignment Attribute** — the attribute hashed together with the tracking key to bucket users into variations
 - **Custom Fields** — optional [custom fields](/using/growthbook-best-practices#custom-fields) added by your organization to experiments
 
@@ -39,13 +40,26 @@ Templates are the fastest way to create a consistent experiment. Selecting a **T
 
 You can also require that all new experiments use a template under **Settings → General → Experiment Settings**. See the [Experiment Templates](/running-experiments/experiment-templates) guide for details.
 
+### Choose an Implementation
+
+The **Implementation** field sets how the experiment reaches users:
+
+- **Values** — GrowthBook creates a Feature Flag for the experiment, and you set each variation's value on the experiment page. See [Variation Values](#variation-values).
+- **Feature Flag** — link Feature Flags you manage yourself.
+- **AI Visual Editor** — no-code changes made with the browser extension.
+- **URL Redirect** — send each variation to its own URL.
+- **None** — decide later, or analyze an experiment implemented outside GrowthBook. A Bandit must choose one of the others before it can start.
+
+The field starts on your organization's default, set under **Settings → General → Experiment Settings → Defaults for New Experiments**. A Project can override it under its own **Experiment Settings** tab.
+
 ### Finish Setup With the Pre-Launch Checklist
 
 After creation, the **To Do** tab in the draft experiment's details panel holds a pre-launch checklist that guides you through the remaining steps, such as:
 
 - Selecting a data source and experiment assignment table
 - Adding at least one goal metric
-- Adding a linked [Feature Flag](/features/feature-flag-experiments), [AI Visual Editor](/app/visual) change, or [URL Redirect](/app/url-redirects)
+- Setting [variation values](#variation-values), or adding a linked [Feature Flag](/features/feature-flag-experiments), [AI Visual Editor](/app/visual) change, or [URL Redirect](/app/url-redirects)
+- Getting linked Feature Flag drafts reviewed and approved, where your organization requires it
 
 The pre-launch checklist can be configured by Enterprise customers, [read more here](/app/pre-launch-checklist).
 
@@ -58,6 +72,18 @@ Most configuration happens after creation, on the experiment's Overview tab. The
 ### Experiment Metadata
 
 On the experiment page in the "Overview" tab near the top of the page, you can see the experiment name, tags description, hypothesis, and variation metadata. You can edit these fields as you see fit to help describe and categorize your experiment.
+
+### Variation Values
+
+With the **Values** implementation, the experiment manages its own Feature Flag:
+
+- The flag is created when you save, keyed after the experiment's tracking key, and stays off until the experiment starts.
+- You set each variation's value, the value type, and the environments it runs in from the experiment's variations table. Changes are staged until you save.
+- The flag's own page is read-only, because its rule and values belong to the experiment. Value changes go through the flag's usual review and approval, opened from the experiment page. Starting a draft experiment publishes them, and on a running experiment you publish them from the review.
+- **Change implementation** switches a draft to an ordinary linked Feature Flag that you manage yourself, or replaces the values with AI Visual Editor changes or a URL Redirect, which deletes the flag when you save.
+- **Remove implementation**, in the values column's menu, deletes the flag and sets the experiment back to None. The same tracking key can manage a new flag later.
+
+Values can't be combined with other implementations. To add one, first convert the flag to an unmanaged Feature Flag.
 
 ### Experiment Targeting and Traffic
 

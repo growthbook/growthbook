@@ -2,19 +2,30 @@ import { ReactNode } from "react";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { Flex } from "@radix-ui/themes";
 import { date } from "shared/dates";
-import { PiLockSimple, PiWarning } from "react-icons/pi";
-import { HoldoutInterfaceStringDates } from "shared/validators";
+import { PiLockSimple } from "react-icons/pi";
+import {
+  HoldoutInterfaceStringDates,
+  ImplementationType,
+} from "shared/validators";
 import {
   getExposureQueryIdentifierTypes,
+  getImplementationType,
+  isAnalysisOnly,
   resolveAnalysisIdentifierType,
 } from "shared/util";
+import { IMPLEMENTATION_TYPE_OPTIONS } from "@/components/Experiment/ImplementationTypeSelect";
+import { ManagedFlagLink } from "@/components/Experiment/ManagedFlagName";
 import Text from "@/ui/Text";
-import SortedTags from "@/components/Tags/SortedTags";
-import { tagLinkProps } from "@/services/search";
+import {
+  CopyableKey,
+  EmptyValue,
+  OwnerField,
+  ProjectField,
+  TagsField,
+} from "@/components/DetailsPanelFields";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import UITooltip from "@/ui/Tooltip";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import Owner from "@/components/Avatar/Owner";
 import Metadata from "@/ui/Metadata";
 import Link from "@/ui/Link";
 import { useHoldouts } from "@/hooks/useHoldouts";
@@ -31,14 +42,6 @@ export type QuickEditField = "project" | "trackingKey" | "owner" | "tags";
 type FieldAction = ((field: QuickEditField) => ReactNode) | null;
 
 const toUTCDate = (dateValue: string | Date) => date(dateValue, "UTC");
-
-export function EmptyValue() {
-  return (
-    <Text weight="regular" color="text-mid" size="sm" fontStyle="italic">
-      None
-    </Text>
-  );
-}
 
 export function RestrictedValue() {
   return (
@@ -61,11 +64,17 @@ export function RestrictedValue() {
 export function ExperimentDataFields({
   experiment,
   datasourceMissing = false,
+  managedFlagId = null,
+  stagedImplementationType = null,
   stagedHoldoutId = null,
   fieldAction = null,
 }: {
   experiment: ExperimentInterfaceStringDates;
   datasourceMissing?: boolean;
+  managedFlagId?: string | null;
+  // An implementation type staged for the page's Save, shown in place of the
+  // stored one.
+  stagedImplementationType?: ImplementationType | null;
   // A staged holdout ("" to leave), shown in place of the stored one.
   stagedHoldoutId?: string | null;
   fieldAction?: FieldAction;
@@ -105,6 +114,9 @@ export function ExperimentDataFields({
     (q) => q.id === exposureQueryId,
   );
   const isHoldout = experiment.type === "holdout";
+  const implementationType =
+    stagedImplementationType ||
+    getImplementationType({ ...experiment, hasManagedFlag: !!managedFlagId });
 
   return (
     <Flex direction="column" gap="3">
@@ -114,9 +126,37 @@ export function ExperimentDataFields({
           stacked
           label="Experiment key"
           action={fieldAction?.("trackingKey")}
-          value={experiment.trackingKey || <EmptyValue />}
+          value={
+            experiment.trackingKey ? (
+              <CopyableKey value={experiment.trackingKey} />
+            ) : (
+              <EmptyValue />
+            )
+          }
         />
       )}
+      {!isHoldout && (
+        <Metadata
+          size="sm"
+          stacked
+          label="Implementation"
+          value={
+            implementationType ? (
+              IMPLEMENTATION_TYPE_OPTIONS[implementationType].header
+            ) : (
+              <EmptyValue label="Not set" />
+            )
+          }
+        />
+      )}
+      {!isHoldout && implementationType === "values" && managedFlagId ? (
+        <Metadata
+          size="sm"
+          stacked
+          label="Managed Feature Flag"
+          value={<ManagedFlagLink featureId={managedFlagId} />}
+        />
+      ) : null}
       <Metadata
         size="sm"
         stacked
@@ -192,7 +232,7 @@ export function ExperimentDataFields({
             : experiment.hashAttribute || "id"
         }
       />
-      {!isHoldout && useStickyBucketing ? (
+      {!isHoldout && useStickyBucketing && !isAnalysisOnly(experiment) ? (
         <Metadata
           size="sm"
           stacked
@@ -213,58 +253,9 @@ export default function ProjectTagBar({
   holdout?: HoldoutInterfaceStringDates;
   fieldAction?: FieldAction;
 }) {
-  const {
-    projects,
-    project: currentProject,
-    getProjectById,
-  } = useDefinitions();
-
-  const projectId = experiment.project;
-  const projectName = getProjectById(experiment.project || "")?.name || null;
-  const projectIsDeReferenced = projectId && !projectName;
-
-  const projectValue = projectIsDeReferenced ? (
-    <Tooltip
-      body={
-        <>
-          Project <code>{projectId}</code> not found
-        </>
-      }
-    >
-      <span className="text-danger">
-        <PiWarning /> Invalid project
-      </span>
-    </Tooltip>
-  ) : !projectId ? (
-    <EmptyValue />
-  ) : currentProject && currentProject !== experiment.project ? (
-    <Tooltip body={<>This experiment is not in your current project.</>}>
-      <strong>{projectName}</strong> <PiWarning className="text-warning" />
-    </Tooltip>
-  ) : (
-    <Text weight="regular" color="text-mid" size="sm">
-      {projectName}
-    </Text>
-  );
-
   return (
     <Flex direction="column" gap="3">
-      <Metadata
-        size="sm"
-        stacked
-        label="Owner"
-        action={fieldAction?.("owner")}
-        value={
-          <Owner
-            ownerId={experiment.owner}
-            gap="1"
-            size="xs"
-            textColor="text-mid"
-            textSize="sm"
-            truncate
-          />
-        }
-      />
+      <OwnerField owner={experiment.owner} action={fieldAction?.("owner")} />
       {holdout ? (
         <Metadata
           size="sm"
@@ -282,33 +273,16 @@ export default function ProjectTagBar({
             )
           }
         />
-      ) : projects.length > 0 || projectIsDeReferenced ? (
-        <Metadata
-          size="sm"
-          stacked
-          label="Project"
+      ) : (
+        <ProjectField
+          project={experiment.project}
           action={fieldAction?.("project")}
-          value={projectValue}
         />
-      ) : null}
-      <Metadata
-        size="sm"
-        stacked
-        label="Tags"
+      )}
+      <TagsField
+        tags={experiment.tags}
+        type="experiments"
         action={fieldAction?.("tags")}
-        value={
-          experiment.tags?.length > 0 ? (
-            <SortedTags
-              tags={experiment.tags}
-              size="xs"
-              useFlex
-              shouldShowEllipsis={false}
-              {...tagLinkProps("experiments")}
-            />
-          ) : (
-            <EmptyValue />
-          )
-        }
       />
     </Flex>
   );

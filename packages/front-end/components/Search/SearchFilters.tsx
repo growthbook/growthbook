@@ -82,13 +82,14 @@ export interface BaseSearchFiltersProps {
 export const FilterHeading: FC<{
   heading: string;
   open: boolean;
-}> = ({ heading, open }) => {
+  size?: "2" | "3";
+}> = ({ heading, open, size = "3" }) => {
   return (
     <IconButton
       variant="ghost"
       color="gray"
       radius="small"
-      size="3"
+      size={size}
       highContrast
     >
       <Flex gap="2" align="center">
@@ -133,6 +134,9 @@ export const FilterDropdown: FC<{
   updateQuery: (filter: SyntaxFilter) => void;
   operator?: string;
   heading?: string;
+  // The trigger's text in place of the heading, e.g. what's selected.
+  label?: string;
+  size?: "2" | "3";
   menuPlacement?: "start" | "center" | "end";
 }> = ({
   filter,
@@ -143,6 +147,8 @@ export const FilterDropdown: FC<{
   syntaxFilters,
   operator = "",
   heading,
+  label,
+  size,
   menuPlacement = "start",
 }) => {
   const [filterSearch, setFilterSearch] = useState<string>("");
@@ -178,8 +184,9 @@ export const FilterDropdown: FC<{
   return (
     <DropdownMenu
       trigger={FilterHeading({
-        heading: filterLabel,
+        heading: label ?? filterLabel,
         open: open === filter,
+        size,
       })}
       variant="soft"
       open={open === filter}

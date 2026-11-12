@@ -127,6 +127,10 @@ export const resolvers: Record<
   banditBurnInUnit: genDefaultResolver("banditBurnInUnit"),
   banditPeriodWeighting: genDefaultResolver("banditPeriodWeighting"),
   experimentMinLengthDays: genDefaultResolver("experimentMinLengthDays"),
+  defaultExperimentImplementation: genDefaultResolver(
+    "defaultExperimentImplementation",
+    { project: "settings.defaultExperimentImplementation" },
+  ),
   experimentMaxLengthDays: genDefaultResolver("experimentMaxLengthDays"),
   maxMetricSliceLevels: genDefaultResolver("maxMetricSliceLevels"),
   topValuesLookbackValue: genDefaultResolver("topValuesLookbackValue"),

@@ -175,6 +175,13 @@ export async function planLinkedChanges(
         "URL Redirects can only change while the experiment is a draft with no scheduled start.",
       );
     }
+    // Values is the whole implementation. Any other type lands first and the
+    // redirect's own write re-derives it from what's linked.
+    if (adds.length && changes.implementationType === "values") {
+      throw new BadRequestError(
+        "Switch to Values or add a URL Redirect, not both in one save.",
+      );
+    }
   }
   assertCanRunLinkedChanges(
     context,

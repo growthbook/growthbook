@@ -12,7 +12,11 @@ import {
 } from "shared/util";
 import { ReqContextClass } from "back-end/src/services/context";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
-import { getFeature, publishRevision } from "back-end/src/models/FeatureModel";
+import {
+  featureIdExists,
+  getFeature,
+  publishRevision,
+} from "back-end/src/models/FeatureModel";
 import { getRevision } from "back-end/src/models/FeatureRevisionModel";
 import { getLiveAndBaseRevisionsForFeature } from "back-end/src/services/features";
 import { getLinkedFeatureInfo } from "back-end/src/services/experiments";
@@ -175,6 +179,17 @@ function revisionDoc(version: number, date: Date) {
     dateUpdated: date,
     ...(version === 1 ? { datePublished: date } : {}),
   };
+}
+
+async function makeFlagManaged() {
+  await collection("experiments").updateOne(
+    { id: EXP },
+    { $set: { implementationType: "values" } },
+  );
+  await collection("features").updateOne(
+    { id: FLAG },
+    { $set: { managedBy: { type: "experiment", experimentId: EXP } } },
+  );
 }
 
 const LOADED = "2026-01-01T00:00:00.000Z";
@@ -373,6 +388,15 @@ describe("applyExperimentChanges", () => {
     ).rejects.toThrow("invalid_variation_weights");
   });
 
+  it("refuses a type change on a flag it doesn't manage", async () => {
+    await seed({ withDraft: true });
+    await expect(
+      run({
+        flagValues: [draftValues(arms("a", "draft"), { valueType: "number" })],
+      }),
+    ).rejects.toThrow(/only a Feature Flag managed by this experiment/);
+  });
+
   it("writes a sparse-only change", async () => {
     await seed({ withDraft: true });
     await run({
@@ -385,7 +409,7 @@ describe("applyExperimentChanges", () => {
     });
   });
 
-  it("repairs loose JSON instead of storing it malformed", async () => {
+  it("repairs loose JSON on a flag it doesn't manage instead of storing it malformed", async () => {
     await seed({ withDraft: true });
     await collection("features").updateOne(
       { id: FLAG },
@@ -687,6 +711,21 @@ describe("applyExperimentChanges", () => {
     });
   });
 
+  it("refuses to link a flag another experiment manages", async () => {
+    await seed({ withDraft: false });
+    await dropRule();
+    await collection("features").updateOne(
+      { id: FLAG },
+      {
+        $set: { managedBy: { type: "experiment", experimentId: "exp_other" } },
+      },
+    );
+    await expect(
+      run({ linkFeatures: [{ featureId: FLAG, variations: arms("p", "q") }] }),
+    ).rejects.toThrow(/managed/i);
+    expect(await refRules("draft")).toEqual([]);
+  });
+
   describe("removing a flag", () => {
     const publishDraft = async () => {
       const feature = await getFeature(context, FLAG);
@@ -848,6 +887,55 @@ describe("applyExperimentChanges", () => {
     expect(await refRules("draft")).toEqual([]);
   });
 
+  it("creates a Values experiment's missing flag with the values it was sent", async () => {
+    const date = new Date("2026-01-01T00:00:00Z");
+    await collection("experiments").insertOne({
+      id: "exp_flagless",
+      organization: ORG_ID,
+      project: "",
+      trackingKey: "flagless-values",
+      name: "flagless",
+      type: "standard",
+      implementationType: "values",
+      hypothesis: "",
+      description: "",
+      status: "draft",
+      archived: false,
+      variations: seededVariations(),
+      phases: seededPhases(date),
+      linkedFeatures: [],
+      dateCreated: date,
+      dateUpdated: date,
+    });
+    const experiment = await getExperimentById(context, "exp_flagless");
+    if (!experiment) throw new Error("missing experiment");
+
+    const result = await applyExperimentChanges({
+      context,
+      experiment,
+      body: {
+        managedFlag: { valueType: "string", variations: arms("x", "y") },
+      },
+      audit: async () => undefined,
+      eventAudit: { type: "api_key", apiKey: "key" },
+    });
+
+    const flag = await collection("features").findOne({
+      organization: ORG_ID,
+      "managedBy.experimentId": "exp_flagless",
+    });
+    expect(flag?.id).toBe("flagless-values");
+    expect(result.experiment.linkedFeatures).toEqual(["flagless-values"]);
+    const draft = await collection("featurerevisions").findOne({
+      featureId: "flagless-values",
+      status: "draft",
+    });
+    expect(
+      draft?.rules?.find((r: { type: string }) => r.type === "experiment-ref")
+        ?.variations,
+    ).toEqual(arms("x", "y"));
+  });
+
   it("refuses a holdout change once the experiment has something linked", async () => {
     await seed({ withDraft: false });
     await expect(
@@ -863,6 +951,134 @@ describe("applyExperimentChanges", () => {
     expect(
       (await collection("experiments").findOne({ id: EXP }))?.holdoutId,
     ).toBeUndefined();
+  });
+
+  it("moves a Values draft's own flag into its new holdout, live and in its draft", async () => {
+    await seed({ withDraft: true });
+    await makeFlagManaged();
+    await collection("holdouts").insertOne({
+      id: "hld_new",
+      organization: ORG_ID,
+      name: "New",
+      projects: [],
+      experimentId: "exp_hld_new",
+      linkedExperiments: {},
+      linkedFeatures: {},
+      environmentSettings: {},
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
+    });
+
+    await run({
+      experiment: {
+        changes: { holdoutId: "hld_new" },
+        base: { holdoutId: null },
+      },
+    });
+
+    const holdout = { id: "hld_new", value: "a" };
+    expect(
+      (await collection("features").findOne({ id: FLAG }))?.holdout,
+    ).toEqual(holdout);
+    expect((await storedRevision(2))?.holdout).toEqual(holdout);
+    const stored = await collection("holdouts").findOne({ id: "hld_new" });
+    expect(Object.keys(stored?.linkedFeatures ?? {})).toEqual([FLAG]);
+    expect(Object.keys(stored?.linkedExperiments ?? {})).toEqual([EXP]);
+  });
+
+  it("refuses leaving Values without consent to delete its flag, writing nothing", async () => {
+    await seed({ withDraft: true });
+    await makeFlagManaged();
+
+    await expect(
+      run({
+        experiment: {
+          changes: { implementationType: "none" },
+          base: { implementationType: "values" },
+        },
+      }),
+    ).rejects.toThrow("deletes the managed Feature Flag");
+    expect(await featureIdExists(context, FLAG)).toBe(true);
+    expect((await storedExperiment()).linkedFeatures).toEqual([FLAG]);
+  });
+
+  it("removes the implementation, deleting the flag so Values can take its key again", async () => {
+    await seed({ withDraft: true });
+    await makeFlagManaged();
+    await collection("experiments").updateOne(
+      { id: EXP },
+      { $set: { trackingKey: FLAG } },
+    );
+
+    const removed = await run({
+      experiment: {
+        changes: { implementationType: "none" },
+        base: { implementationType: "values" },
+      },
+      deleteManagedFlag: true,
+    });
+    expect(removed.experiment.implementationType).toBe("none");
+    expect(removed.experiment.linkedFeatures).toEqual([]);
+    expect(await featureIdExists(context, FLAG)).toBe(false);
+
+    await run({
+      experiment: {
+        changes: { implementationType: "values" },
+        base: { implementationType: "none" },
+      },
+    });
+    expect(
+      (
+        await collection("features").findOne({
+          "managedBy.experimentId": EXP,
+        })
+      )?.id,
+    ).toBe(FLAG);
+  });
+
+  it("refuses a switch to Values before writing when its flag can't be created", async () => {
+    await seed({ withDraft: false });
+    await setExperiment({ linkedFeatures: [], implementationType: "none" });
+    context = makeContext({ settings: { requireProjectForFeatures: true } });
+
+    await expect(
+      run({
+        experiment: {
+          changes: { implementationType: "values" },
+          base: { implementationType: "none" },
+        },
+      }),
+    ).rejects.toThrow("requires a Project on every Feature Flag");
+    expect((await storedExperiment()).implementationType).toBe("none");
+    expect(
+      await collection("features").findOne({ "managedBy.experimentId": EXP }),
+    ).toBeNull();
+  });
+
+  it("keeps the flag a racing save created instead of making a second", async () => {
+    await seed({ withDraft: false });
+    await setExperiment({
+      linkedFeatures: [],
+      implementationType: "values",
+      trackingKey: FLAG,
+    });
+    // The other save's flag, created but not linked yet.
+    await collection("features").updateOne(
+      { id: FLAG },
+      {
+        $set: {
+          managedBy: { type: "experiment", experimentId: EXP },
+          rules: [],
+        },
+      },
+    );
+
+    await run({ experiment: hypothesisChange("old") });
+
+    const managed = await collection("features")
+      .find({ "managedBy.experimentId": EXP })
+      .toArray();
+    expect(managed.map((f) => f.id)).toEqual([FLAG]);
   });
 
   describe("a save adding a variation", () => {
@@ -1183,6 +1399,246 @@ describe("applyExperimentChanges", () => {
     });
   });
 
+  it("converts a Values experiment's flag to unmanaged alongside another edit", async () => {
+    await seed({ withDraft: false });
+    await makeFlagManaged();
+
+    const result = await run({
+      experiment: {
+        changes: { implementationType: "feature", hypothesis: "new" },
+        base: { implementationType: "values", hypothesis: "old" },
+      },
+    });
+    expect(result.experiment.hypothesis).toBe("new");
+    expect(result.experiment.implementationType).toBe("feature");
+    expect(
+      (await collection("features").findOne({ id: FLAG }))?.managedBy,
+    ).toBeUndefined();
+  });
+
+  describe("renaming the managed flag", () => {
+    const NEW = "flag_renamed";
+
+    async function seedManaged() {
+      await seed({ withDraft: true });
+      await makeFlagManaged();
+      // A legacy revision whose id is built from the flag's id.
+      await collection("featurerevisions").updateOne(
+        { featureId: FLAG, version: 1 },
+        { $set: { id: `frev_1_${FLAG}` } },
+      );
+      await collection("featurerevisionlog").insertOne({
+        id: "frl_1",
+        organization: ORG_ID,
+        featureId: FLAG,
+        version: 2,
+      });
+      await collection("features").insertOne({
+        id: "dependent",
+        organization: ORG_ID,
+        valueType: "boolean",
+        defaultValue: "false",
+        rules: [
+          {
+            id: "fr_dep",
+            type: "force",
+            prerequisites: [{ id: FLAG, condition: "{}" }],
+          },
+        ],
+        environmentSettings: {},
+        prerequisites: [{ id: FLAG, condition: "{}" }],
+        dateCreated: new Date(),
+        dateUpdated: new Date(),
+      });
+      await collection("watches").insertOne({
+        id: "w1",
+        organization: ORG_ID,
+        userId: "u1",
+        features: [FLAG, "other"],
+        experiments: [],
+      });
+      // Linked later, so stored after FLAG; an all-digit key reads back first.
+      await collection("holdouts").insertOne({
+        id: "ho_1",
+        organization: ORG_ID,
+        linkedFeatures: { [FLAG]: { id: FLAG, dateAdded: new Date() } },
+        environmentSettings: {},
+        dateUpdated: new Date(),
+      });
+      await collection("holdouts").updateOne(
+        { id: "ho_1" },
+        {
+          $set: {
+            "linkedFeatures.1234": { id: "1234", dateAdded: new Date() },
+          },
+        },
+      );
+      await collection("discussions").insertOne({
+        id: "d1",
+        organization: ORG_ID,
+        parentType: "feature",
+        parentId: FLAG,
+        comments: [],
+      });
+    }
+
+    it("moves the flag and every reference to it", async () => {
+      await seedManaged();
+      const seededDependentDate = (
+        await collection("features").findOne({ id: "dependent" })
+      )?.dateUpdated;
+      const result = await run({ renameManagedFlag: { to: NEW } });
+
+      expect(result.experiment.linkedFeatures).toEqual([NEW]);
+      const flag = await collection("features").findOne({ id: NEW });
+      expect(flag?.previousIds).toEqual([FLAG]);
+      expect(flag?.renaming).toBeUndefined();
+      expect(await collection("features").findOne({ id: FLAG })).toBeNull();
+
+      const revisions = await collection("featurerevisions")
+        .find({ organization: ORG_ID })
+        .sort({ version: 1 })
+        .toArray();
+      expect(revisions.map((r) => [r.id, r.featureId])).toEqual([
+        [`frev_1_${NEW}`, NEW],
+        ["frev_2", NEW],
+      ]);
+      expect(
+        (await collection("featurerevisionlog").findOne({ id: "frl_1" }))
+          ?.featureId,
+      ).toBe(NEW);
+
+      const dependent = await collection("features").findOne({
+        id: "dependent",
+      });
+      // Advanced, so a writer holding the old value can't put it back.
+      expect(dependent?.dateUpdated.getTime()).toBeGreaterThan(
+        seededDependentDate.getTime(),
+      );
+      expect(dependent?.prerequisites).toEqual([{ id: NEW, condition: "{}" }]);
+      expect(dependent?.rules[0].prerequisites).toEqual([
+        { id: NEW, condition: "{}" },
+      ]);
+      expect(
+        (await collection("watches").findOne({ id: "w1" }))?.features,
+      ).toEqual([NEW, "other"]);
+      expect(
+        (await collection("discussions").findOne({ id: "d1" }))?.parentId,
+      ).toBe(NEW);
+      expect(
+        Object.keys(
+          (await collection("holdouts").findOne({ id: "ho_1" }))
+            ?.linkedFeatures ?? {},
+        ).sort(),
+      ).toEqual(["1234", NEW]);
+
+      // Webhooks hear of the new key, and of the dependent's prerequisites.
+      const updated = await collection("events")
+        .find({ organizationId: ORG_ID, event: "feature.updated" })
+        .toArray();
+      const byObject = new Map(updated.map((e) => [e.objectId, e.data.data]));
+      expect(byObject.get(NEW)?.previous_attributes.id).toBe(FLAG);
+      expect(byObject.get("dependent")?.object.prerequisites).toEqual([NEW]);
+      expect(
+        byObject.get("dependent")?.previous_attributes.prerequisites,
+      ).toEqual([FLAG]);
+    });
+
+    it("finishes a rename that stopped after the flag moved", async () => {
+      await seedManaged();
+      const claimedAt = new Date();
+      await collection("experiments").updateOne(
+        { id: EXP },
+        { $addToSet: { linkedFeatures: NEW } },
+      );
+      await collection("features").updateOne(
+        { id: FLAG },
+        {
+          $set: {
+            id: NEW,
+            renaming: { from: FLAG, to: NEW, claimedAt },
+          },
+          $addToSet: { previousIds: FLAG },
+        },
+      );
+
+      // One revision already moved before the stop, and one left by a
+      // deleted flag that held NEW: only the leftover is cleared.
+      await collection("featurerevisions").updateOne(
+        { featureId: FLAG, version: 2 },
+        { $set: { featureId: NEW, dateUpdated: new Date() } },
+      );
+      await collection("featurerevisions").insertOne({
+        id: "frev_leftover",
+        organization: ORG_ID,
+        featureId: NEW,
+        version: 7,
+        dateUpdated: new Date("2020-01-01"),
+      });
+
+      // Reserved while references still name it.
+      expect(await featureIdExists(context, FLAG)).toBe(true);
+
+      const result = await run({ experiment: hypothesisChange("old") });
+
+      expect(result.experiment.linkedFeatures).toEqual([NEW]);
+      expect(await featureIdExists(context, FLAG)).toBe(false);
+      expect(
+        (await collection("features").findOne({ id: NEW }))?.renaming,
+      ).toBeUndefined();
+      expect(
+        await collection("featurerevisions").countDocuments({
+          featureId: FLAG,
+        }),
+      ).toBe(0);
+      expect(
+        (
+          await collection("featurerevisions")
+            .find({ featureId: NEW })
+            .sort({ version: 1 })
+            .toArray()
+        ).map((r) => r.version),
+      ).toEqual([1, 2]);
+    });
+
+    it("refuses a taken key, a rename beside a type change or unlink, and a flag the experiment doesn't manage, before writing", async () => {
+      await seedManaged();
+      await expect(
+        run({
+          experiment: hypothesisChange("old"),
+          renameManagedFlag: { to: "dependent" },
+        }),
+      ).rejects.toThrow('Feature Flag "dependent" already exists.');
+      expect(
+        (await collection("experiments").findOne({ id: EXP }))?.hypothesis,
+      ).toBe("old");
+
+      await expect(
+        run({
+          experiment: {
+            changes: { implementationType: "none" },
+            base: { implementationType: "values" },
+          },
+          deleteManagedFlag: true,
+          renameManagedFlag: { to: NEW },
+        }),
+      ).rejects.toThrow("not both in one save");
+      await expect(
+        run({ unlinkFeatures: [FLAG], renameManagedFlag: { to: NEW } }),
+      ).rejects.toThrow("not both in one save");
+      expect(await collection("features").findOne({ id: FLAG })).not.toBeNull();
+
+      await collection("features").updateOne(
+        { id: FLAG },
+        { $unset: { managedBy: "" } },
+      );
+      await expect(run({ renameManagedFlag: { to: NEW } })).rejects.toThrow(
+        "This experiment does not manage a Feature Flag.",
+      );
+      expect(await collection("features").findOne({ id: NEW })).toBeNull();
+    });
+  });
+
   describe("URL Redirects and Visual Editor changes", () => {
     const A = "https://a.example.com";
     const B = "https://b.example.com";
@@ -1314,7 +1770,44 @@ describe("applyExperimentChanges", () => {
           destinationURLs: destinations(A),
         }),
       ]);
-      expect(result.experiment).toMatchObject({ hasURLRedirects: true });
+      expect(result.experiment).toMatchObject({
+        hasURLRedirects: true,
+        implementationType: "urlredirect",
+      });
+    });
+
+    it("replaces Values with a URL Redirect in one save, deleting its flag", async () => {
+      await seed({ withDraft: false });
+      await makeFlagManaged();
+
+      const result = await run({
+        experiment: {
+          changes: { implementationType: "none" },
+          base: { implementationType: "values" },
+        },
+        deleteManagedFlag: true,
+        addUrlRedirects: [staged(A)],
+      });
+
+      expect(await featureIdExists(context, FLAG)).toBe(false);
+      expect(await storedRedirects()).toEqual([
+        expect.objectContaining({ urlPattern: A }),
+      ]);
+      expect(result.experiment).toMatchObject({
+        linkedFeatures: [],
+        hasURLRedirects: true,
+        implementationType: "urlredirect",
+      });
+    });
+
+    it("adds no URL Redirect beside a Values experiment's own flag", async () => {
+      await seed({ withDraft: false });
+      await makeFlagManaged();
+
+      await expect(run({ addUrlRedirects: [staged(A)] })).rejects.toThrow(
+        "serves its variation values from",
+      );
+      expect(await storedRedirects()).toEqual([]);
     });
 
     it("adds no URL Redirect once the experiment started after it was loaded", async () => {
@@ -1473,6 +1966,17 @@ describe("applyExperimentChanges", () => {
           status: 400,
           message: "edits a variation this save removes",
         },
+      },
+      {
+        name: "a new URL Redirect beside a switch to Values",
+        body: {
+          experiment: {
+            changes: { implementationType: "values", hypothesis: "new" },
+            base: { implementationType: null, hypothesis: "old" },
+          },
+          addUrlRedirects: [staged(A)],
+        },
+        refusal: { status: 400, message: "not both in one save" },
       },
       {
         name: "a URL Redirect on a running experiment",

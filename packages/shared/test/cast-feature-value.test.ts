@@ -1,0 +1,174 @@
+import type { FeatureValueType } from "../src/validators/features";
+import { castFeatureValue, validateFeatureValue } from "../src/util/features";
+
+const cast = (
+  value: string,
+  from: FeatureValueType,
+  to: FeatureValueType,
+  index = 0,
+) => castFeatureValue({ value, from, to, index });
+
+describe("castFeatureValue", () => {
+  it("leaves a value alone when the type does not change", () => {
+    expect(cast("anything", "string", "string")).toBe("anything");
+    expect(cast("{bad json", "json", "json")).toBe("{bad json");
+  });
+
+  describe("to boolean", () => {
+    it.each([
+      ["true", "true"],
+      ["1", "true"],
+      ["  TRUE ", "true"],
+      ["false", "false"],
+      ["0", "false"],
+      ["False", "false"],
+      ["", "false"],
+      ["null", "false"],
+    ])("reads %j as %s", (value, expected) => {
+      expect(cast(value, "string", "boolean")).toBe(expected);
+    });
+
+    it("falls back to position when nothing about the value survives", () => {
+      expect(cast("control", "string", "boolean", 0)).toBe("false");
+      expect(cast("treatment", "string", "boolean", 1)).toBe("true");
+    });
+
+    it("reads through the JSON envelope", () => {
+      expect(cast('{"value": true}', "json", "boolean")).toBe("true");
+      expect(cast('{"value": "false"}', "json", "boolean")).toBe("false");
+    });
+  });
+
+  describe("to number", () => {
+    it("keeps a value that already reads as a number", () => {
+      expect(cast("42", "string", "number")).toBe("42");
+      expect(cast("-1.5", "string", "number")).toBe("-1.5");
+    });
+
+    it("falls back to position for a value with no numeric reading", () => {
+      expect(cast("false", "boolean", "number", 0)).toBe("0");
+      expect(cast("true", "boolean", "number", 1)).toBe("1");
+      expect(cast("treatment", "string", "number", 3)).toBe("3");
+    });
+
+    it("rejects the numeric readings JavaScript would otherwise allow", () => {
+      expect(cast("", "string", "number", 2)).toBe("2");
+      expect(cast("Infinity", "string", "number", 2)).toBe("2");
+    });
+  });
+
+  describe("to json", () => {
+    it("keeps numbers and booleans as JSON literals", () => {
+      expect(JSON.parse(cast("42", "number", "json"))).toEqual({ value: 42 });
+      expect(JSON.parse(cast("true", "boolean", "json"))).toEqual({
+        value: true,
+      });
+    });
+
+    it("escapes a string that would otherwise break the JSON", () => {
+      const out = cast('say "hi"\\nthen go', "string", "json");
+      expect(JSON.parse(out)).toEqual({ value: 'say "hi"\\nthen go' });
+    });
+  });
+
+  describe("to string", () => {
+    it("unwraps a value that was moved into JSON", () => {
+      expect(cast('"control"', "json", "string")).toBe("control");
+      expect(cast('{"value": "hello"}', "json", "string")).toBe("hello");
+      expect(cast('{"value": 42}', "json", "string")).toBe("42");
+    });
+
+    it("keeps JSON that is not the cast envelope intact", () => {
+      expect(cast('{"a": 1, "b": 2}', "json", "string")).toBe(
+        '{"a": 1, "b": 2}',
+      );
+      expect(cast("[1,2]", "json", "string")).toBe("[1,2]");
+    });
+
+    it("keeps unparseable JSON as written", () => {
+      expect(cast("{not json", "json", "string")).toBe("{not json");
+    });
+
+    it("passes booleans and numbers through as written", () => {
+      expect(cast("true", "boolean", "string")).toBe("true");
+      expect(cast("42", "number", "string")).toBe("42");
+    });
+  });
+
+  describe("text that already reads as JSON", () => {
+    it("uses an object as the value rather than encoding it again", () => {
+      expect(
+        JSON.parse(cast('{"foo": 1, "bar": 2}', "string", "json")),
+      ).toEqual({ foo: 1, bar: 2 });
+    });
+
+    it("uses an array as the value", () => {
+      expect(JSON.parse(cast("[1, 2]", "string", "json"))).toEqual([1, 2]);
+    });
+
+    it("survives switching types back and forth", () => {
+      const original = '{"foo": 1}';
+      let value = original;
+      for (let i = 0; i < 3; i++) {
+        value = cast(cast(value, "string", "json"), "json", "string");
+      }
+      expect(JSON.parse(value)).toEqual({ foo: 1 });
+    });
+
+    it("keeps the envelope for a scalar or unparseable text", () => {
+      expect(JSON.parse(cast("{not json", "string", "json"))).toEqual({
+        value: "{not json",
+      });
+      expect(JSON.parse(cast("7", "string", "json"))).toEqual({ value: "7" });
+    });
+  });
+
+  it.each([
+    ['control "A"', "string"],
+    ["7", "number"],
+    ["false", "boolean"],
+  ] as const)("returns %j unchanged through JSON as a %s", (value, type) => {
+    expect(cast(cast(value, type, "json"), "json", type)).toBe(value);
+  });
+
+  describe("every result is a value the field accepts", () => {
+    const TYPES = ["string", "number", "boolean", "json"] as const;
+    // Values a caller could plausibly already be serving, plus awkward ones.
+    const SAMPLES = [
+      "control",
+      "treatment",
+      "",
+      "0",
+      "1",
+      "true",
+      "false",
+      "-1.5",
+      "1e21",
+      "Infinity",
+      "NaN",
+      '{"value": "x"}',
+      '{"a": 1}',
+      "[1,2]",
+      "{not json",
+      'quote " and \\ backslash',
+      "0.00000001",
+      "99999999999999999999999",
+    ];
+
+    TYPES.forEach((from) => {
+      TYPES.forEach((to) => {
+        // `from === to` is a documented passthrough, so only a real move has to
+        // produce something the field will take.
+        if (from === to) return;
+        it(`${from} -> ${to}`, () => {
+          SAMPLES.forEach((value, i) => {
+            const out = castFeatureValue({ value, from, to, index: i % 3 });
+            expect(() =>
+              validateFeatureValue({ valueType: to }, out, value),
+            ).not.toThrow();
+          });
+        });
+      });
+    });
+  });
+});

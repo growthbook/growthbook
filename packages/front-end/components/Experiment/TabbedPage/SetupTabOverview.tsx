@@ -123,8 +123,8 @@ export default function SetupTabOverview({
       <ExperimentTextField
         experiment={experiment}
         field="description"
-        // A bandit has no hypothesis, so its description is what's written.
-        editable={isBandit && editInline}
+        // Without a hypothesis, the description is what's written.
+        editable={(isBandit || isHoldout) && editInline}
         canEdit={canEditExperiment}
       />
     </div>
