@@ -143,12 +143,16 @@ function getRowFilterViolations(
 }
 
 // The query builder ignores a filter with no values, and on a date column it
-// also ignores blank ones.
+// also ignores blank ones. A range reads only its two bounds and ignores blank
+// ones on any column.
 function hasUsableValue(
   filter: PopulationStep["rowFilters"][number],
   factTable: PopulationRuleFactTable | undefined,
 ): boolean {
   const values = filter.values ?? [];
+  if (filter.operator === "between" || filter.operator === "not_between") {
+    return values.slice(0, 2).some((v) => v.trim() !== "");
+  }
   const isDate =
     !!factTable &&
     getSelectedColumnDatatype({ factTable, column: filter.column ?? "" }) ===

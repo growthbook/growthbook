@@ -170,6 +170,31 @@ describe("getPopulationRuleViolations", () => {
     ).toEqual(["Row filter 1 needs a value."]);
   });
 
+  it("reports a range whose two bounds are blank on any column", () => {
+    expect(
+      getPopulationRuleViolations({
+        datasource: "ds_main",
+        userIdTypes: ["user_id"],
+        steps: [
+          {
+            ...step("ftb_events"),
+            rowFilters: [
+              { operator: "between", column: "country", values: [" ", ""] },
+              { operator: "not_between", column: "country", values: [" "] },
+              { operator: "between", column: "country", values: ["", "", "5"] },
+              { operator: "between", column: "country", values: ["", "M"] },
+            ],
+          },
+        ],
+        factTables: [events],
+      }),
+    ).toEqual([
+      "Row filter 1 needs a value.",
+      "Row filter 2 needs a value.",
+      "Row filter 3 needs a value.",
+    ]);
+  });
+
   it("accepts a column filter with an empty value", () => {
     expect(
       getPopulationRuleViolations({
