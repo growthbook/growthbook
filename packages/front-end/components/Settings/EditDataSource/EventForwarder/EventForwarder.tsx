@@ -449,8 +449,13 @@ function DeleteEventForwarderModal({
         <Modal.Body>
           <Flex direction="column" gap="3">
             <Text as="div">
-              Deleting an Event Forwarder without stopping ingestion will throw
-              a 400 for any new incoming events. Stop your ingestion first.
+              Once this Event Forwarder is deleted, events your SDKs keep
+              sending are no longer forwarded and may be rejected with an error.
+              Stop sending events from your SDKs first.
+            </Text>
+            <Text as="div">
+              The tables already in your warehouse and the queries on this Data
+              Source are kept.
             </Text>
             <TextField
               label={'Type "confirm" to delete (case sensitive)'}
