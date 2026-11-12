@@ -206,7 +206,9 @@ export default function PopulationEditor({
       keptIdTypes.length ? keptIdTypes : supportedIdTypes.slice(0, 1),
     );
     form.setValue("rowFilters", []);
-    form.setValue("aggregateFilterColumn", "");
+    // The threshold's column belongs to the old fact table, and keeping only
+    // its comparison would quietly turn it into a row count.
+    removeThreshold();
   }
 
   async function save() {
