@@ -153,28 +153,49 @@ describe("getShowAsChoice", () => {
     ).toEqual(none);
   });
 
-  it("treats a saved choice as a mean while the metric hasn't loaded", () => {
+  it("offers only the saved choice while the metric hasn't loaded", () => {
     expect(
       getShowAsChoice(
         metricValue("loading", "per_unit"),
         undefined,
         getFactMetricById,
+        false,
       ),
-    ).toEqual(mean("per_unit"));
+    ).toEqual({ options: ["per_unit"], showAs: "per_unit" });
     expect(
-      getShowAsChoice(metricValue("loading"), "per_unit", getFactMetricById),
-    ).toEqual(mean("per_unit"));
+      getShowAsChoice(
+        metricValue("loading"),
+        "per_unit",
+        getFactMetricById,
+        false,
+      ),
+    ).toEqual({ options: ["per_unit"], showAs: "per_unit" });
+    // A total could belong to a mean or a proportion with a population.
+    expect(
+      getShowAsChoice(
+        metricValue("loading", "total"),
+        undefined,
+        getFactMetricById,
+        true,
+      ),
+    ).toEqual({ options: ["total"], showAs: "total" });
   });
 
   it("offers no choice for an unloaded value without a saved choice", () => {
     expect(
-      getShowAsChoice(metricValue("loading"), undefined, getFactMetricById),
+      getShowAsChoice(
+        metricValue("loading"),
+        undefined,
+        getFactMetricById,
+        false,
+      ),
     ).toEqual(none);
     expect(
       getShowAsChoice(
         metricValue("", "per_unit"),
         undefined,
         getFactMetricById,
+        false,
       ),
     ).toEqual(none);
   });
@@ -208,6 +229,7 @@ describe("getShowAsChoice", () => {
         { ...metricValue(""), draftMetric: draft },
         undefined,
         () => null,
+        false,
       ),
     ).toEqual(mean("per_unit"));
   });
