@@ -115,3 +115,45 @@ export function prepareColumnUpdate(
 
   return { data, loadTopValues };
 }
+
+// Secondary filters: a value of this column → another column to prompt for
+export function toConditionalInlineFilters(
+  mappings: { value: string; column: string }[],
+): Record<string, string> {
+  return Object.fromEntries(
+    mappings.filter((m) => m.value && m.column).map((m) => [m.value, m.column]),
+  );
+}
+
+// Columns (or string/boolean JSON fields) a Secondary filter can prompt for
+export function getSecondaryFilterColumnOptions(
+  factTable: Pick<
+    FactTableInterface,
+    "userIdTypes" | "userIdColumns" | "timestampColumn" | "columns"
+  >,
+  column: string,
+): { label: string; value: string }[] {
+  const options: { label: string; value: string }[] = [];
+  factTable.columns.forEach((c) => {
+    if (c.deleted || c.column === column) return;
+    if (c.datatype === "json") {
+      Object.entries(c.jsonFields ?? {}).forEach(([field, f]) => {
+        if (
+          f.datatype === "string" ||
+          f.datatype === "boolean" ||
+          !f.datatype
+        ) {
+          options.push({
+            label: `${c.name || c.column}.${field}`,
+            value: `${c.column}.${field}`,
+          });
+        }
+      });
+      return;
+    }
+    if (canInlineFilterColumn(factTable, c.column)) {
+      options.push({ label: c.name || c.column, value: c.column });
+    }
+  });
+  return options;
+}

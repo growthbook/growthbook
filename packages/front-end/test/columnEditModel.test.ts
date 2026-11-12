@@ -2,7 +2,9 @@ import { ColumnInterface } from "shared/types/fact-table";
 import {
   getColumnEligibility,
   getColumnRole,
+  getSecondaryFilterColumnOptions,
   prepareColumnUpdate,
+  toConditionalInlineFilters,
 } from "@/services/columnEditModel";
 
 const column = (c: Partial<ColumnInterface>) =>
@@ -109,5 +111,41 @@ describe("prepareColumnUpdate", () => {
     });
     expect(boolean.loadTopValues).toBe(false);
     expect(boolean.data.autoSlices).toEqual(["true", "false"]);
+  });
+});
+
+describe("toConditionalInlineFilters", () => {
+  it("keeps only complete mappings", () => {
+    expect(
+      toConditionalInlineFilters([
+        { value: "purchase", column: "currency" },
+        { value: "view", column: "" },
+        { value: "", column: "page" },
+      ]),
+    ).toEqual({ purchase: "currency" });
+  });
+});
+
+describe("getSecondaryFilterColumnOptions", () => {
+  it("offers other filterable columns and string JSON fields", () => {
+    const table = factTable([
+      column({ column: "event" }),
+      column({ column: "country", name: "Country" }),
+      column({ column: "uid" }),
+      column({ column: "amount", datatype: "number" }),
+      column({ column: "old", deleted: true }),
+      column({
+        column: "props",
+        datatype: "json",
+        jsonFields: {
+          plan: { datatype: "string" },
+          price: { datatype: "number" },
+        },
+      }),
+    ]);
+    expect(getSecondaryFilterColumnOptions(table, "event")).toEqual([
+      { label: "Country", value: "country" },
+      { label: "props.plan", value: "props.plan" },
+    ]);
   });
 });

@@ -28,7 +28,6 @@ import Table, {
 } from "@/ui/Table";
 import { getColumnRole } from "@/services/columnEditModel";
 import EditColumnModal from "./EditColumnModal";
-import ColumnModal from "./ColumnModal";
 import VirtualColumnModal from "./VirtualColumnModal";
 import ColumnValues, { ColumnValuesPanel } from "./ColumnValues";
 import styles from "./FactTableDetailsPage.module.scss";
@@ -54,13 +53,6 @@ export default function FactTableColumnsTab({
   const permissionsUtil = usePermissionsUtil();
   const [editOpen, setEditOpen] = useState<ColumnInterface | null>(null);
   const [newVirtualOpen, setNewVirtualOpen] = useState(false);
-  // Auto Slice levels, JSON fields and the like stay in the full editor
-  // Stores the name, not the column, so a top values refresh in the editor
-  // reads the latest values
-  const [advancedOpen, setAdvancedOpen] = useState<string | null>(null);
-  const advancedColumn = advancedOpen
-    ? factTable.columns.find((c) => c.column === advancedOpen)
-    : undefined;
   const [refreshing, setRefreshing] = useState(false);
 
   // Virtual columns carry raw SQL, so they use the stricter gate
@@ -126,13 +118,6 @@ export default function FactTableColumnsTab({
           column={editOpen}
         />
       ) : null}
-      {advancedColumn && (
-        <ColumnModal
-          close={() => setAdvancedOpen(null)}
-          factTable={factTable}
-          existing={advancedColumn}
-        />
-      )}
       {newVirtualOpen && (
         <VirtualColumnModal
           close={() => setNewVirtualOpen(false)}
@@ -197,14 +182,7 @@ export default function FactTableColumnsTab({
                 )}
               </Box>
               {canEdit ? (
-                <Flex gap="2" flexShrink="0">
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => setAdvancedOpen(col.column)}
-                  >
-                    Advanced settings
-                  </Button>
+                <Box flexShrink="0">
                   <Button
                     size="sm"
                     variant="outline"
@@ -212,7 +190,7 @@ export default function FactTableColumnsTab({
                   >
                     Edit column
                   </Button>
-                </Flex>
+                </Box>
               ) : null}
             </Flex>
           )}
