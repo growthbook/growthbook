@@ -43290,6 +43290,11 @@ paths:
                                         type: string
                                       valueAxisLabel:
                                         type: string
+                                      anchorYAxisToZero:
+                                        description: >-
+                                          Line charts only: whether the y-axis
+                                          starts at 0. Defaults to true.
+                                        type: boolean
                                     additionalProperties: false
                                   type:
                                     type: string
@@ -43697,6 +43702,11 @@ paths:
                                         type: string
                                       valueAxisLabel:
                                         type: string
+                                      anchorYAxisToZero:
+                                        description: >-
+                                          Line charts only: whether the y-axis
+                                          starts at 0. Defaults to true.
+                                        type: boolean
                                     additionalProperties: false
                                   type:
                                     type: string
@@ -44102,6 +44112,11 @@ paths:
                                         type: string
                                       valueAxisLabel:
                                         type: string
+                                      anchorYAxisToZero:
+                                        description: >-
+                                          Line charts only: whether the y-axis
+                                          starts at 0. Defaults to true.
+                                        type: boolean
                                     additionalProperties: false
                                   type:
                                     type: string
@@ -44524,6 +44539,11 @@ paths:
                                         type: string
                                       valueAxisLabel:
                                         type: string
+                                      anchorYAxisToZero:
+                                        description: >-
+                                          Line charts only: whether the y-axis
+                                          starts at 0. Defaults to true.
+                                        type: boolean
                                     additionalProperties: false
                                   type:
                                     type: string
@@ -44946,6 +44966,11 @@ paths:
                                         type: string
                                       valueAxisLabel:
                                         type: string
+                                      anchorYAxisToZero:
+                                        description: >-
+                                          Line charts only: whether the y-axis
+                                          starts at 0. Defaults to true.
+                                        type: boolean
                                     additionalProperties: false
                                   type:
                                     type: string
@@ -46673,6 +46698,11 @@ paths:
                                         type: string
                                       valueAxisLabel:
                                         type: string
+                                      anchorYAxisToZero:
+                                        description: >-
+                                          Line charts only: whether the y-axis
+                                          starts at 0. Defaults to true.
+                                        type: boolean
                                     additionalProperties: false
                                   type:
                                     type: string
@@ -47072,6 +47102,11 @@ paths:
                                         type: string
                                       valueAxisLabel:
                                         type: string
+                                      anchorYAxisToZero:
+                                        description: >-
+                                          Line charts only: whether the y-axis
+                                          starts at 0. Defaults to true.
+                                        type: boolean
                                     additionalProperties: false
                                   type:
                                     type: string
@@ -47469,6 +47504,11 @@ paths:
                                         type: string
                                       valueAxisLabel:
                                         type: string
+                                      anchorYAxisToZero:
+                                        description: >-
+                                          Line charts only: whether the y-axis
+                                          starts at 0. Defaults to true.
+                                        type: boolean
                                     additionalProperties: false
                                   type:
                                     type: string
@@ -47883,6 +47923,11 @@ paths:
                                         type: string
                                       valueAxisLabel:
                                         type: string
+                                      anchorYAxisToZero:
+                                        description: >-
+                                          Line charts only: whether the y-axis
+                                          starts at 0. Defaults to true.
+                                        type: boolean
                                     additionalProperties: false
                                   type:
                                     type: string
@@ -48297,6 +48342,11 @@ paths:
                                         type: string
                                       valueAxisLabel:
                                         type: string
+                                      anchorYAxisToZero:
+                                        description: >-
+                                          Line charts only: whether the y-axis
+                                          starts at 0. Defaults to true.
+                                        type: boolean
                                     additionalProperties: false
                                   type:
                                     type: string
@@ -50253,6 +50303,11 @@ paths:
                                     type: string
                                   valueAxisLabel:
                                     type: string
+                                  anchorYAxisToZero:
+                                    description: >-
+                                      Line charts only: whether the y-axis
+                                      starts at 0. Defaults to true.
+                                    type: boolean
                                 additionalProperties: false
                               type:
                                 type: string
@@ -50651,6 +50706,11 @@ paths:
                                     type: string
                                   valueAxisLabel:
                                     type: string
+                                  anchorYAxisToZero:
+                                    description: >-
+                                      Line charts only: whether the y-axis
+                                      starts at 0. Defaults to true.
+                                    type: boolean
                                 additionalProperties: false
                               type:
                                 type: string
@@ -51048,6 +51108,11 @@ paths:
                                     type: string
                                   valueAxisLabel:
                                     type: string
+                                  anchorYAxisToZero:
+                                    description: >-
+                                      Line charts only: whether the y-axis
+                                      starts at 0. Defaults to true.
+                                    type: boolean
                                 additionalProperties: false
                               type:
                                 type: string
@@ -51462,6 +51527,11 @@ paths:
                                     type: string
                                   valueAxisLabel:
                                     type: string
+                                  anchorYAxisToZero:
+                                    description: >-
+                                      Line charts only: whether the y-axis
+                                      starts at 0. Defaults to true.
+                                    type: boolean
                                 additionalProperties: false
                               type:
                                 type: string
@@ -51876,6 +51946,11 @@ paths:
                                     type: string
                                   valueAxisLabel:
                                     type: string
+                                  anchorYAxisToZero:
+                                    description: >-
+                                      Line charts only: whether the y-axis
+                                      starts at 0. Defaults to true.
+                                    type: boolean
                                 additionalProperties: false
                               type:
                                 type: string
@@ -53843,6 +53918,11 @@ paths:
                                     type: string
                                   valueAxisLabel:
                                     type: string
+                                  anchorYAxisToZero:
+                                    description: >-
+                                      Line charts only: whether the y-axis
+                                      starts at 0. Defaults to true.
+                                    type: boolean
                                 additionalProperties: false
                               type:
                                 type: string
@@ -54241,6 +54321,11 @@ paths:
                                     type: string
                                   valueAxisLabel:
                                     type: string
+                                  anchorYAxisToZero:
+                                    description: >-
+                                      Line charts only: whether the y-axis
+                                      starts at 0. Defaults to true.
+                                    type: boolean
                                 additionalProperties: false
                               type:
                                 type: string
@@ -54638,6 +54723,11 @@ paths:
                                     type: string
                                   valueAxisLabel:
                                     type: string
+                                  anchorYAxisToZero:
+                                    description: >-
+                                      Line charts only: whether the y-axis
+                                      starts at 0. Defaults to true.
+                                    type: boolean
                                 additionalProperties: false
                               type:
                                 type: string
@@ -55052,6 +55142,11 @@ paths:
                                     type: string
                                   valueAxisLabel:
                                     type: string
+                                  anchorYAxisToZero:
+                                    description: >-
+                                      Line charts only: whether the y-axis
+                                      starts at 0. Defaults to true.
+                                    type: boolean
                                 additionalProperties: false
                               type:
                                 type: string
@@ -55466,6 +55561,11 @@ paths:
                                     type: string
                                   valueAxisLabel:
                                     type: string
+                                  anchorYAxisToZero:
+                                    description: >-
+                                      Line charts only: whether the y-axis
+                                      starts at 0. Defaults to true.
+                                    type: boolean
                                 additionalProperties: false
                               type:
                                 type: string
@@ -59907,6 +60007,11 @@ paths:
                       type: string
                     valueAxisLabel:
                       type: string
+                    anchorYAxisToZero:
+                      description: >-
+                        Line charts only: whether the y-axis starts at 0.
+                        Defaults to true.
+                      type: boolean
                   additionalProperties: false
                 type:
                   type: string
@@ -60355,6 +60460,11 @@ paths:
                                     type: string
                                   valueAxisLabel:
                                     type: string
+                                  anchorYAxisToZero:
+                                    description: >-
+                                      Line charts only: whether the y-axis
+                                      starts at 0. Defaults to true.
+                                    type: boolean
                                 additionalProperties: false
                               type:
                                 type: string
@@ -60692,6 +60802,11 @@ paths:
                       type: string
                     valueAxisLabel:
                       type: string
+                    anchorYAxisToZero:
+                      description: >-
+                        Line charts only: whether the y-axis starts at 0.
+                        Defaults to true.
+                      type: boolean
                   additionalProperties: false
                 type:
                   type: string
@@ -61141,6 +61256,11 @@ paths:
                                     type: string
                                   valueAxisLabel:
                                     type: string
+                                  anchorYAxisToZero:
+                                    description: >-
+                                      Line charts only: whether the y-axis
+                                      starts at 0. Defaults to true.
+                                    type: boolean
                                 additionalProperties: false
                               type:
                                 type: string
@@ -61477,6 +61597,11 @@ paths:
                       type: string
                     valueAxisLabel:
                       type: string
+                    anchorYAxisToZero:
+                      description: >-
+                        Line charts only: whether the y-axis starts at 0.
+                        Defaults to true.
+                      type: boolean
                   additionalProperties: false
                 type:
                   type: string
@@ -61943,6 +62068,11 @@ paths:
                                     type: string
                                   valueAxisLabel:
                                     type: string
+                                  anchorYAxisToZero:
+                                    description: >-
+                                      Line charts only: whether the y-axis
+                                      starts at 0. Defaults to true.
+                                    type: boolean
                                 additionalProperties: false
                               type:
                                 type: string
@@ -62296,6 +62426,11 @@ paths:
                       type: string
                     valueAxisLabel:
                       type: string
+                    anchorYAxisToZero:
+                      description: >-
+                        Line charts only: whether the y-axis starts at 0.
+                        Defaults to true.
+                      type: boolean
                   additionalProperties: false
                 type:
                   type: string
@@ -62765,6 +62900,11 @@ paths:
                                     type: string
                                   valueAxisLabel:
                                     type: string
+                                  anchorYAxisToZero:
+                                    description: >-
+                                      Line charts only: whether the y-axis
+                                      starts at 0. Defaults to true.
+                                    type: boolean
                                 additionalProperties: false
                               type:
                                 type: string
@@ -63121,6 +63261,11 @@ paths:
                       type: string
                     valueAxisLabel:
                       type: string
+                    anchorYAxisToZero:
+                      description: >-
+                        Line charts only: whether the y-axis starts at 0.
+                        Defaults to true.
+                      type: boolean
                   additionalProperties: false
                 type:
                   type: string
@@ -63583,6 +63728,11 @@ paths:
                                     type: string
                                   valueAxisLabel:
                                     type: string
+                                  anchorYAxisToZero:
+                                    description: >-
+                                      Line charts only: whether the y-axis
+                                      starts at 0. Defaults to true.
+                                    type: boolean
                                 additionalProperties: false
                               type:
                                 type: string
@@ -63932,6 +64082,11 @@ paths:
                       type: string
                     valueAxisLabel:
                       type: string
+                    anchorYAxisToZero:
+                      description: >-
+                        Line charts only: whether the y-axis starts at 0.
+                        Defaults to true.
+                      type: boolean
                   additionalProperties: false
                 type:
                   type: string
@@ -64416,6 +64571,11 @@ paths:
                                     type: string
                                   valueAxisLabel:
                                     type: string
+                                  anchorYAxisToZero:
+                                    description: >-
+                                      Line charts only: whether the y-axis
+                                      starts at 0. Defaults to true.
+                                    type: boolean
                                 additionalProperties: false
                               type:
                                 type: string
@@ -83604,6 +83764,11 @@ components:
                             type: string
                           valueAxisLabel:
                             type: string
+                          anchorYAxisToZero:
+                            description: >-
+                              Line charts only: whether the y-axis starts at 0.
+                              Defaults to true.
+                            type: boolean
                         additionalProperties: false
                       type:
                         type: string
@@ -84007,6 +84172,11 @@ components:
                             type: string
                           valueAxisLabel:
                             type: string
+                          anchorYAxisToZero:
+                            description: >-
+                              Line charts only: whether the y-axis starts at 0.
+                              Defaults to true.
+                            type: boolean
                         additionalProperties: false
                       type:
                         type: string
@@ -84410,6 +84580,11 @@ components:
                             type: string
                           valueAxisLabel:
                             type: string
+                          anchorYAxisToZero:
+                            description: >-
+                              Line charts only: whether the y-axis starts at 0.
+                              Defaults to true.
+                            type: boolean
                         additionalProperties: false
                       type:
                         type: string
@@ -84830,6 +85005,11 @@ components:
                             type: string
                           valueAxisLabel:
                             type: string
+                          anchorYAxisToZero:
+                            description: >-
+                              Line charts only: whether the y-axis starts at 0.
+                              Defaults to true.
+                            type: boolean
                         additionalProperties: false
                       type:
                         type: string
@@ -85253,6 +85433,11 @@ components:
                             type: string
                           valueAxisLabel:
                             type: string
+                          anchorYAxisToZero:
+                            description: >-
+                              Line charts only: whether the y-axis starts at 0.
+                              Defaults to true.
+                            type: boolean
                         additionalProperties: false
                       type:
                         type: string
@@ -87253,6 +87438,11 @@ components:
                       type: string
                     valueAxisLabel:
                       type: string
+                    anchorYAxisToZero:
+                      description: >-
+                        Line charts only: whether the y-axis starts at 0.
+                        Defaults to true.
+                      type: boolean
                   additionalProperties: false
                 type:
                   type: string
@@ -87537,6 +87727,11 @@ components:
                       type: string
                     valueAxisLabel:
                       type: string
+                    anchorYAxisToZero:
+                      description: >-
+                        Line charts only: whether the y-axis starts at 0.
+                        Defaults to true.
+                      type: boolean
                   additionalProperties: false
                 type:
                   type: string
@@ -87822,6 +88017,11 @@ components:
                       type: string
                     valueAxisLabel:
                       type: string
+                    anchorYAxisToZero:
+                      description: >-
+                        Line charts only: whether the y-axis starts at 0.
+                        Defaults to true.
+                      type: boolean
                   additionalProperties: false
                 type:
                   type: string
@@ -88124,6 +88324,11 @@ components:
                       type: string
                     valueAxisLabel:
                       type: string
+                    anchorYAxisToZero:
+                      description: >-
+                        Line charts only: whether the y-axis starts at 0.
+                        Defaults to true.
+                      type: boolean
                   additionalProperties: false
                 type:
                   type: string
@@ -88429,6 +88634,11 @@ components:
                       type: string
                     valueAxisLabel:
                       type: string
+                    anchorYAxisToZero:
+                      description: >-
+                        Line charts only: whether the y-axis starts at 0.
+                        Defaults to true.
+                      type: boolean
                   additionalProperties: false
                 type:
                   type: string
@@ -88727,6 +88937,11 @@ components:
                       type: string
                     valueAxisLabel:
                       type: string
+                    anchorYAxisToZero:
+                      description: >-
+                        Line charts only: whether the y-axis starts at 0.
+                        Defaults to true.
+                      type: boolean
                   additionalProperties: false
                 type:
                   type: string

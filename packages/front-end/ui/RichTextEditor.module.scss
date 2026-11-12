@@ -52,12 +52,45 @@
   background-color: var(--color-panel-solid);
 }
 
+// The text scrolls under the app's slim scrollbar. The area and its viewport
+// flex rather than take their parents' full height, so a control that grows
+// still stops at its cap.
+.scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  height: auto;
+
+  > :global(.rt-ScrollAreaViewport) {
+    flex: 1 1 auto;
+    min-height: 0;
+    height: auto;
+
+    // Columns down to the text, so it fills the area by flexing: no height
+    // above it is fixed, so a percentage would not resolve. Radix holds its
+    // own child to block with !important.
+    > * {
+      display: flex !important;
+      flex-direction: column;
+    }
+    > * > * {
+      flex: 1 1 auto;
+    }
+  }
+}
+
+// Fills the area, so a click anywhere in it lands in the text; the
+// placeholder sits over it.
+.scrollContent {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+}
+
 .editable {
   outline: none;
   cursor: text;
   flex: 1 1 auto;
-  min-height: 0;
-  overflow-y: auto;
   color: var(--gray-12);
   font-family: var(--default-font-family);
   tab-size: 2;

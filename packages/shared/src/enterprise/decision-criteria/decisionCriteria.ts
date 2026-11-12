@@ -599,6 +599,27 @@ function computeSrmAndMultipleExposuresUnhealthyData({
   return result;
 }
 
+// The summary is only rewritten when the latest phase gets a successful
+// snapshot, so after a new phase starts it still describes the previous one.
+// Summaries written before `phase` was recorded are assumed current. A
+// holdout's analysis phase continues the same population, so it keeps its
+// summary.
+export function getCurrentPhaseAnalysisSummary<
+  T extends { phase?: number },
+>(experiment: {
+  type?: string;
+  phases: unknown[];
+  analysisSummary?: T;
+}): T | undefined {
+  const summary = experiment.analysisSummary;
+  const phase = summary?.phase;
+  return phase === undefined ||
+    experiment.type === "holdout" ||
+    phase === experiment.phases.length - 1
+    ? summary
+    : undefined;
+}
+
 export function getExperimentResultStatus({
   experimentData,
   healthSettings,
@@ -613,8 +634,9 @@ export function getExperimentResultStatus({
   metricGroups: MetricGroupInterface[];
 }): ExperimentResultStatusData | undefined {
   const unhealthyData: ExperimentUnhealthyData = {};
-  const healthSummary = experimentData.analysisSummary?.health;
-  const resultsStatus = experimentData.analysisSummary?.resultsStatus;
+  const analysisSummary = getCurrentPhaseAnalysisSummary(experimentData);
+  const healthSummary = analysisSummary?.health;
+  const resultsStatus = analysisSummary?.resultsStatus;
   const type = experimentData.type === "holdout" ? "holdout" : "experiment";
   const lastPhase = experimentData.phases[experimentData.phases.length - 1];
   const beforeMinDuration =
