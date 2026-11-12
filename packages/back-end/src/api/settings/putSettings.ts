@@ -1,5 +1,4 @@
 import cronParser from "cron-parser";
-import type { RequestHandler } from "express";
 import { isEqual, isPlainObject, omit, omitBy, pick } from "lodash";
 import { getDefaultRole } from "shared/permissions";
 import {
@@ -26,7 +25,6 @@ import {
   validateOrgSettingsUpdate,
 } from "back-end/src/services/orgSettings";
 import { createApiRequestHandler } from "back-end/src/util/handler";
-import { ApiRequestLocals } from "back-end/types/api";
 import { toApiDefaultRole, toApiSettings } from "./getSettings";
 
 // Clients often GET the settings, change one field, and PUT the whole object back.
@@ -46,17 +44,12 @@ export function omitEchoedSettings(
   );
 }
 
-const dropEchoedSettings: RequestHandler = (req, res, next) => {
-  const { context } = req as unknown as ApiRequestLocals;
-  if (isPlainObject(req.body)) {
-    req.body = omitEchoedSettings(req.body, context.org);
-  }
-  next();
-};
-
 export const putSettings = createApiRequestHandler({
   ...putSettingsValidator,
-  middleware: [dropEchoedSettings],
+  prepareBody: (body, req) =>
+    isPlainObject(body)
+      ? omitEchoedSettings(body as Record<string, unknown>, req.context.org)
+      : body,
 })(async (req) => {
   const { context } = req;
   const org = context.org;

@@ -12,7 +12,8 @@ import { logger } from "back-end/src/util/logger";
  * REST API.
  *
  * Skipped vs. a real request: auth/rate-limit/CORS/body-parsing middleware and
- * per-route `middleware` arrays (only `getSdkPayload`'s preflight matters here).
+ * per-route `middleware` arrays. A route's `prepareBody` still runs (in
+ * `runApiHandler`), so body preparation matches HTTP.
  *
  * Fidelity gap: `query`/`params` are forwarded as-is, so callers should send
  * query values as strings to match how Zod validates real HTTP requests.

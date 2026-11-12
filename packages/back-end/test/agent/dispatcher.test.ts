@@ -1,5 +1,6 @@
 import type { ZodType } from "zod";
 import { z } from "zod";
+import { omit } from "lodash";
 import type { ReqContext } from "back-end/types/request";
 import type { OpenApiRoute } from "back-end/src/util/handler";
 import { MergeConflictError } from "back-end/src/util/errors";
@@ -59,7 +60,12 @@ function makeRoute(
   method: "get" | "post" | "put" | "patch" | "delete",
   path: string,
   rawHandler: (req: FakeReq) => unknown | Promise<unknown>,
-  schemas: { params?: ZodType; body?: ZodType; query?: ZodType } = {},
+  schemas: {
+    params?: ZodType;
+    body?: ZodType;
+    query?: ZodType;
+    prepareBody?: (body: unknown) => unknown;
+  } = {},
 ): OpenApiRoute {
   return {
     method,
@@ -153,6 +159,34 @@ describe("dispatchInternal", () => {
       query: { sort: "name" },
       body: { name: "x", count: 3 },
     });
+  });
+
+  it("runs the route's prepareBody before validating the body", async () => {
+    let received: unknown;
+    _setRoutesForTests([
+      makeRoute(
+        "put",
+        "/things",
+        (req) => {
+          received = req.body;
+          return { ok: true };
+        },
+        {
+          body: z.object({ name: z.string() }).strict(),
+          prepareBody: (body: unknown) =>
+            omit(body as Record<string, unknown>, "echoed"),
+        },
+      ),
+    ]);
+
+    const result = await dispatchInternal(makeCtx(), {
+      method: "PUT",
+      path: "/v1/things",
+      body: { name: "x", echoed: 1 },
+    });
+
+    expect(result).toEqual({ status: 200, body: { ok: true } });
+    expect(received).toEqual({ name: "x" });
   });
 
   it("translates a thrown handler error into a 400 (matching the REST wrapper)", async () => {
