@@ -124,7 +124,7 @@ describe("getPopulationRuleViolations", () => {
       });
     expect(check("flt_mobile")).toEqual([]);
     expect(check("flt_deleted")).toEqual([
-      "Saved filter not found on Fact Table ftb_events: flt_deleted.",
+      "Row filter 1 uses saved filter flt_deleted, which isn't on Fact Table ftb_events.",
     ]);
   });
 
@@ -195,7 +195,7 @@ describe("getPopulationRuleViolations", () => {
     ]);
   });
 
-  it("accepts a column filter with an empty value", () => {
+  it("reports the filters the editor leaves untouched", () => {
     expect(
       getPopulationRuleViolations({
         datasource: "ds_main",
@@ -203,12 +203,47 @@ describe("getPopulationRuleViolations", () => {
         steps: [
           {
             ...step("ftb_events"),
-            rowFilters: [{ operator: "=", column: "country", values: [""] }],
+            rowFilters: [
+              { operator: "=", column: "country", values: [""] },
+              { operator: "saved_filter", values: [""] },
+              { operator: "=", column: "country", values: [" "] },
+            ],
           },
         ],
         factTables: [events],
       }),
-    ).toEqual([]);
+    ).toEqual([
+      "Row filter 1 needs a value.",
+      "Row filter 2 has no saved filter.",
+    ]);
+  });
+
+  it("reports filters missing the parts getRowFilterSQL reads", () => {
+    expect(
+      getPopulationRuleViolations({
+        datasource: "ds_main",
+        userIdTypes: ["user_id"],
+        steps: [
+          {
+            ...step("ftb_events"),
+            rowFilters: [
+              { operator: "is_null" },
+              { operator: "sql_expr", values: [] },
+              { operator: "sql_expr", values: ["", "a = 1"] },
+              { operator: "saved_filter", values: ["  "] },
+              { operator: "saved_filter", values: ["", "flt_mobile"] },
+            ],
+          },
+        ],
+        factTables: [events],
+      }),
+    ).toEqual([
+      "Row filter 1 needs a column.",
+      "Row filter 2 has no SQL expression.",
+      "Row filter 3 has no SQL expression.",
+      "Row filter 4 has no saved filter.",
+      "Row filter 5 has no saved filter.",
+    ]);
   });
 
   it("reports a fact table from a different Data Source", () => {

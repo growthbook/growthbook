@@ -4,8 +4,12 @@ import { Flex, Grid } from "@radix-ui/themes";
 import { upperFirst } from "lodash";
 import { PiPlus } from "react-icons/pi";
 import { populationEndpoints } from "shared/api-endpoints";
-import { getPopulationRuleViolations } from "shared/populations";
+import {
+  getPopulationRuleViolations,
+  getRowFilterViolation,
+} from "shared/populations";
 import type { ApiPopulation } from "shared/validators";
+import type { RowFilter } from "shared/types/fact-table";
 import Badge from "@/ui/Badge";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
@@ -20,7 +24,6 @@ import Tooltip from "@/ui/Tooltip";
 import Field from "@/components/Forms/Field";
 import DataSourcePicker from "@/components/DataSourcePicker";
 import { RowFilterInput } from "@/components/FactTables/RowFilterInput";
-import { isRowFilterComplete } from "@/components/FactTables/rowFilterUtils";
 import ThresholdBasisRow from "@/components/FactTables/MetricEditor/typeFields/ThresholdBasisRow";
 import PopulationPreview from "@/components/Populations/PopulationPreview";
 import {
@@ -98,13 +101,15 @@ export default function PopulationEditor({
   const idTypeOptions = factTable
     ? [...new Set([...factTable.userIdTypes, ...values.userIdTypes])]
     : [];
+  const isFilterComplete = (filter: RowFilter) =>
+    getRowFilterViolation(filter, factTable ?? undefined) === null;
   const missing = {
     name: !values.name.trim(),
     factTable: !values.factTableId,
     // Only asked for once a fact table is chosen, since choosing one fills it in.
     identifierType: !!values.factTableId && values.userIdTypes.length === 0,
     // An unfinished filter adds no SQL, so the query would ignore it.
-    rowFilters: !values.rowFilters.every(isRowFilterComplete),
+    rowFilters: !values.rowFilters.every(isFilterComplete),
     // toStep drops a threshold with no comparison.
     comparison: showThreshold && !values.aggregateFilter.trim(),
   };
@@ -122,7 +127,7 @@ export default function PopulationEditor({
           steps: [
             toStep({
               ...values,
-              rowFilters: values.rowFilters.filter(isRowFilterComplete),
+              rowFilters: values.rowFilters.filter(isFilterComplete),
             }),
           ],
           factTables: factTable ? [factTable] : [],

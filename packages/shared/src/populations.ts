@@ -95,8 +95,6 @@ function getFactTableViolations(
   return violations;
 }
 
-// Each of these would be dropped from the SQL, silently widening the
-// population.
 function getRowFilterViolations(
   steps: PopulationStep[],
   factTableMap: FactTableMap,
@@ -105,59 +103,68 @@ function getRowFilterViolations(
 
   steps.forEach((step, i) => {
     const label = stepLabel([i + 1], steps.length);
-    const stepFactTable = factTableMap.get(step.source.factTableId);
+    const factTable = factTableMap.get(step.source.factTableId);
 
     step.rowFilters.forEach((filter, j) => {
-      if (filter.operator === "sql_expr") {
-        if (!filter.values?.[0]?.trim()) {
-          violations.push(`Row filter ${j + 1} has no SQL expression${label}.`);
-        }
-      } else if (filter.operator !== "saved_filter") {
-        if (!filter.column) {
-          violations.push(`Row filter ${j + 1} needs a column${label}.`);
-        } else if (
-          !(columnOnlyRowFilterOperators as readonly string[]).includes(
-            filter.operator,
-          ) &&
-          !hasUsableValue(filter, stepFactTable)
-        ) {
-          violations.push(`Row filter ${j + 1} needs a value${label}.`);
-        }
+      const violation = getRowFilterViolation(filter, factTable);
+      if (violation) {
+        violations.push(`Row filter ${j + 1} ${violation}${label}.`);
       }
     });
-
-    const missingFilters = stepFactTable
-      ? step.rowFilters
-          .filter((f) => f.operator === "saved_filter")
-          .map((f) => f.values?.[0] ?? "")
-          .filter((id) => !stepFactTable.filters.some((f) => f.id === id))
-      : [];
-    if (missingFilters.length) {
-      violations.push(
-        `Saved filter not found on Fact Table ${step.source.factTableId}: ${missingFilters.join(", ")}${label}.`,
-      );
-    }
   });
 
   return violations;
 }
 
-// The query builder ignores a filter with no values, and on a date column it
-// also ignores blank ones. A range reads only its two bounds and ignores blank
-// ones on any column.
-function hasUsableValue(
+/**
+ * Why a row filter can't be saved, or null when it can. Each of these would be
+ * dropped from the SQL, silently widening the population, or is an input the
+ * editor treats as untouched. The editor uses it to block the same filters the
+ * server rejects.
+ */
+export function getRowFilterViolation(
   filter: PopulationStep["rowFilters"][number],
   factTable: PopulationRuleFactTable | undefined,
-): boolean {
+): string | null {
   const values = filter.values ?? [];
+
+  // getRowFilterSQL reads only the first value of these two.
+  if (filter.operator === "sql_expr") {
+    return values[0]?.trim() ? null : "has no SQL expression";
+  }
+  if (filter.operator === "saved_filter") {
+    const id = values[0];
+    if (!id?.trim()) return "has no saved filter";
+    // A missing fact table is already its own violation.
+    if (factTable && !factTable.filters.some((f) => f.id === id)) {
+      return `uses saved filter ${id}, which isn't on Fact Table ${factTable.id}`;
+    }
+    return null;
+  }
+
+  if (!filter.column) return "needs a column";
+  if (
+    (columnOnlyRowFilterOperators as readonly string[]).includes(
+      filter.operator,
+    )
+  ) {
+    return null;
+  }
+
+  // An empty value is what an untouched input holds. getRowFilterSQL also
+  // ignores blank bounds on a range, which reads only its first two values,
+  // and blank values on a date column.
   if (filter.operator === "between" || filter.operator === "not_between") {
-    return values.slice(0, 2).some((v) => v.trim() !== "");
+    return values.slice(0, 2).some((v) => v.trim() !== "")
+      ? null
+      : "needs a value";
   }
   const isDate =
     !!factTable &&
-    getSelectedColumnDatatype({ factTable, column: filter.column ?? "" }) ===
-      "date";
-  return isDate ? values.some((v) => v.trim() !== "") : values.length > 0;
+    getSelectedColumnDatatype({ factTable, column: filter.column }) === "date";
+  return values.some((v) => (isDate ? v.trim() : v) !== "")
+    ? null
+    : "needs a value";
 }
 
 function getAggregateFilterViolations(
