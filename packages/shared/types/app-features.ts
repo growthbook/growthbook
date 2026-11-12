@@ -15,6 +15,9 @@
  *
  * Exception: "trace-ingest" gates the "Accept traces" SDK connection setting
  * and the traces usage notice. Target it by cloudOrgId.
+ *
+ * Exception: "feature-page-redesign-v1" tests the redesigned feature page
+ * against the one it replaces.
  */
 export type AppFeatures = {
   // Added ahead of the flag's creation in GrowthBook's own account
@@ -154,4 +157,5 @@ export type AppFeatures = {
   "trace-ingest": boolean;
   "new-metric-creation-flow": boolean;
   "interleave-exp": boolean;
+  "feature-page-redesign-v1": boolean;
 };

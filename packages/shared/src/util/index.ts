@@ -51,6 +51,7 @@ export * from "./draftConflict";
 export * from "./projectScopedRules";
 export * from "./featureDraftPurity";
 export * from "./configs";
+export * from "./sdk-value";
 export * from "./deep-merge";
 export * from "./config-schema";
 export * from "./managedWarehouse";

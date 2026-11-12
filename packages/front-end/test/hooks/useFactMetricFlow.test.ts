@@ -38,6 +38,7 @@ const metric: FactMetricInterface = {
   }),
   metricType: "mean",
   funnelSettings: null,
+  compoundSettings: null,
   id: "fact__revenue",
   organization: "org_1",
   dateCreated: new Date("2026-01-01"),

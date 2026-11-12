@@ -52,7 +52,7 @@ function CloseButton({
 
 export type Props = TrackingEventModalProps & {
   open: boolean;
-  header: string;
+  header: ReactNode;
   headerAction?: ReactNode;
   subheader?: ReactNode;
   cta?: string;

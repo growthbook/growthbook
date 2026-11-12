@@ -10,6 +10,7 @@ const STORED_TYPE_LABELS: Record<FactMetricType, string> = {
   proportion: "Proportion",
   retention: "Retention",
   funnel: "Funnel",
+  compound: "Compound",
   mean: "Mean",
   ratio: "Ratio",
   quantile: "Percentile",

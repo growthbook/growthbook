@@ -23,6 +23,7 @@ const PREMIUM_TOGGLES: [keyof OrganizationSettings, CommercialFeature][] = [
   ],
   ["aiEnabled", "ai-suggestions"],
   ["requireRebaseBeforePublish", "require-approvals"],
+  ["banditPeriodWeighting", "contextual-bandits"],
 ];
 
 const CUSTOM_MARKDOWN_KEYS = [

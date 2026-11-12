@@ -55,6 +55,7 @@ jest.mock("back-end/src/services/features", () => ({
   updateInterfaceEnvSettingsFromApiEnvSettings: jest.fn(),
   buildFeatureRulesFromApiEnvSettings: jest.fn(() => []),
   fromApiEnvSettingsRulesToFeatureEnvSettingsRules: jest.fn(() => []),
+  assertHoldoutValueValid: jest.fn(),
 }));
 
 // ---------------------------------------------------------------------------

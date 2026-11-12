@@ -21,6 +21,13 @@ const funnelSettings = {
   ],
 };
 
+const compoundSettings = {
+  components: [
+    { factTableId: "ft_1", rowFilters: [] },
+    { factTableId: "ft_2", rowFilters: [] },
+  ],
+};
+
 const parseBulk = (body: unknown) =>
   postBulkImportFactsValidator.bodySchema.safeParse(body);
 
@@ -29,14 +36,16 @@ const metricPayload = (
 ) =>
   metricType === "funnel"
     ? { name: "Checkout funnel", metricType, funnelSettings }
-    : {
-        name: "Test",
-        metricType,
-        numerator: { factTableId: "ft_1", column: "amount" },
-        ...(metricType === "ratio"
-          ? { denominator: { factTableId: "ft_1", column: "$$count" } }
-          : {}),
-      };
+    : metricType === "compound"
+      ? { name: "Viewed and purchased", metricType, compoundSettings }
+      : {
+          name: "Test",
+          metricType,
+          numerator: { factTableId: "ft_1", column: "amount" },
+          ...(metricType === "ratio"
+            ? { denominator: { factTableId: "ft_1", column: "$$count" } }
+            : {}),
+        };
 
 describe("postBulkImportFacts body", () => {
   it("accepts every metricType the single-metric create endpoint accepts", () => {

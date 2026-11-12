@@ -179,6 +179,11 @@ const writableSettingsFields = {
   banditScheduleUnit: timeUnit,
   banditBurnInValue: z.number().nonnegative(),
   banditBurnInUnit: timeUnit,
+  banditPeriodWeighting: z
+    .boolean()
+    .describe(
+      "Weight Contextual Bandit results across update periods by their traffic. Applies to future Contextual Bandits.",
+    ),
   maxMetricSliceLevels: nonNegativeInt,
   topValuesLookbackValue: z.number().int().min(1).max(365),
   topValuesLookbackUnit: z.enum(["days"]),

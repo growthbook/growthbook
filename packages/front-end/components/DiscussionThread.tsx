@@ -1,4 +1,4 @@
-import { FC, useState } from "react";
+import { FC, useEffect, useRef, useState } from "react";
 import {
   DiscussionParentType,
   DiscussionInterface,
@@ -11,7 +11,7 @@ import useApi from "@/hooks/useApi";
 import { useUser } from "@/services/UserContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Callout from "@/ui/Callout";
-import ScrollArea from "@/ui/ScrollArea";
+import ScrollArea, { pinnedTo } from "@/ui/ScrollArea";
 import Text from "@/ui/Text";
 import Heading from "@/ui/Heading";
 import {
@@ -21,6 +21,7 @@ import {
 } from "@/ui/DropdownMenu";
 import LoadingSpinner from "./LoadingSpinner";
 import CommentCard from "./Comments/CommentCard";
+import ExpandableText, { ExpandableTextBody } from "./ExpandableText";
 import CommentForm from "./CommentForm";
 import Markdown from "./Markdown/Markdown";
 
@@ -58,6 +59,41 @@ const DiscussionThread: FC<{
     `/discussion/${type}/${id}`,
   );
 
+  // Until a rail sticks, its composer sits over the thread's end, so the
+  // thread runs on past its last lines by as much: enough to scroll them
+  // clear, with its shadow for more below lasting until they are. Only the
+  // thread's scroll range follows the page's scroll, so a frame's lag shows
+  // nowhere but under the composer.
+  const threadScroller = useRef<HTMLDivElement>(null);
+  const composer = useRef<HTMLDivElement>(null);
+  const underComposer = useRef<HTMLDivElement>(null);
+  const composerOverThread = fillHeight && allowNewComments && !!data;
+  useEffect(() => {
+    const scroller = threadScroller.current;
+    const over = composer.current;
+    const room = underComposer.current;
+    if (!composerOverThread || !scroller || !over || !room) return;
+    const fit = () => {
+      const overlap =
+        scroller.getBoundingClientRect().bottom -
+        over.getBoundingClientRect().top;
+      room.style.height = `${Math.max(0, overlap)}px`;
+    };
+    fit();
+    window.addEventListener("scroll", fit, { passive: true });
+    window.addEventListener("resize", fit);
+    // A composer growing as it's typed in, or a rail dragged wider or
+    // narrower, moves the overlap too.
+    const observer = new ResizeObserver(fit);
+    observer.observe(over);
+    observer.observe(scroller);
+    return () => {
+      window.removeEventListener("scroll", fit);
+      window.removeEventListener("resize", fit);
+      observer.disconnect();
+    };
+  }, [composerOverThread]);
+
   if (error) {
     return <Callout status="error">{error.message}</Callout>;
   }
@@ -83,81 +119,86 @@ const DiscussionThread: FC<{
 
           return (
             <Flex key={i} align="start">
-              <Box flexGrow="1">
-                <CommentCard
-                  compact={compact}
-                  user={eventUser}
-                  metadata={`commented on ${datetime(comment.date)}`}
-                  metadataExtra={
-                    comment.edited && (
-                      <Text color="text-low" size="sm" fontStyle="italic">
-                        &bull; edited
-                      </Text>
-                    )
-                  }
-                  actions={
-                    edit === i
-                      ? null
-                      : comment.userId === userId && (
-                          <DropdownMenu
-                            trigger={
-                              <MoreMenuTrigger
-                                label="Comment actions"
-                                size="sm"
-                                // Undo the ghost variant's negative margin.
-                                style={{ margin: 0 }}
-                              />
-                            }
-                            variant="soft"
-                            menuPlacement="end"
-                          >
-                            <DropdownMenuItem onClick={() => setEdit(i)}>
-                              Edit
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              color="red"
-                              confirmation={{
-                                confirmationTitle: "Delete Comment",
-                                cta: "Delete",
-                                submit: async () => {
-                                  await apiCall(
-                                    `/discussion/${type}/${id}/${i}`,
-                                    { method: "DELETE" },
-                                  );
-                                  mutate();
-                                },
-                              }}
+              {/* Held to the thread's width, so a wide code block scrolls. */}
+              <Box flexGrow="1" minWidth="0">
+                <ExpandableText>
+                  <CommentCard
+                    compact={compact}
+                    user={eventUser}
+                    metadata={`commented on ${datetime(comment.date)}`}
+                    metadataExtra={
+                      comment.edited && (
+                        <Text color="text-low" size="sm" fontStyle="italic">
+                          &bull; edited
+                        </Text>
+                      )
+                    }
+                    actions={
+                      edit === i
+                        ? null
+                        : comment.userId === userId && (
+                            <DropdownMenu
+                              trigger={
+                                <MoreMenuTrigger
+                                  label="Comment actions"
+                                  size="sm"
+                                  // Undo the ghost variant's negative margin.
+                                  style={{ margin: 0 }}
+                                />
+                              }
+                              variant="soft"
+                              menuPlacement="end"
                             >
-                              Delete
-                            </DropdownMenuItem>
-                          </DropdownMenu>
-                        )
-                  }
-                  body={
-                    edit === i ? (
-                      <CommentForm
-                        cta="Save"
-                        onSave={() => {
-                          mutate();
-                          setEdit(null);
-                        }}
-                        index={i}
-                        id={id}
-                        type={type}
-                        compact={compact}
-                        initialValue={comment.content}
-                        autofocus={true}
-                        onCancel={() => setEdit(null)}
-                      />
-                    ) : (
-                      <Text as="div" size={compact ? "sm" : "md"}>
-                        <Markdown className="speech-bubble">
-                          {comment.content || ""}
-                        </Markdown>
-                      </Text>
-                    )
-                  }
-                />
+                              <DropdownMenuItem onClick={() => setEdit(i)}>
+                                Edit
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                color="red"
+                                confirmation={{
+                                  confirmationTitle: "Delete Comment",
+                                  cta: "Delete",
+                                  submit: async () => {
+                                    await apiCall(
+                                      `/discussion/${type}/${id}/${i}`,
+                                      { method: "DELETE" },
+                                    );
+                                    mutate();
+                                  },
+                                }}
+                              >
+                                Delete
+                              </DropdownMenuItem>
+                            </DropdownMenu>
+                          )
+                    }
+                    body={
+                      edit === i ? (
+                        <CommentForm
+                          cta="Save"
+                          onSave={() => {
+                            mutate();
+                            setEdit(null);
+                          }}
+                          index={i}
+                          id={id}
+                          type={type}
+                          compact={compact}
+                          initialValue={comment.content}
+                          autofocus={true}
+                          onCancel={() => setEdit(null)}
+                        />
+                      ) : (
+                        <Text as="div" size={compact ? "sm" : "md"}>
+                          <ExpandableTextBody>
+                            <Markdown className="speech-bubble">
+                              {comment.content || ""}
+                            </Markdown>
+                          </ExpandableTextBody>
+                        </Text>
+                      )
+                    }
+                  />
+                </ExpandableText>
               </Box>
             </Flex>
           );
@@ -178,10 +219,18 @@ const DiscussionThread: FC<{
       minHeight={fillHeight ? "0" : undefined}
     >
       {fillHeight ? (
-        // The thread scrolls in whatever height the composer leaves.
-        <ScrollArea style={{ flex: 1, minHeight: 0 }}>
-          <Box px="5" pt="4">
+        // The thread scrolls above the composer, which casts its shadow for
+        // more below.
+        <ScrollArea
+          ref={threadScroller}
+          edgeCue="deep-shadow"
+          skipEdges={["top", "bottom"]}
+          style={{ flex: 1, minHeight: 0 }}
+        >
+          {/* Less on the left, where the avatars already set the cards in. */}
+          <Box pl="4" pr="5" py="4">
             {thread}
+            <div ref={underComposer} />
           </Box>
         </ScrollArea>
       ) : (
@@ -189,17 +238,32 @@ const DiscussionThread: FC<{
       )}
       {allowNewComments && (
         <Box
-          mt="4"
+          ref={composer}
+          mt={fillHeight ? undefined : "4"}
+          pt={fillHeight ? "4" : undefined}
           px={fillHeight ? "5" : undefined}
           pb={fillHeight ? "5" : undefined}
           flexShrink={fillHeight ? "0" : undefined}
+          className={fillHeight ? pinnedTo.bottom : undefined}
+          // Held to the window's bottom, over the thread's end, while a rail
+          // still runs past it before sticking.
+          style={
+            fillHeight
+              ? {
+                  position: "sticky",
+                  bottom: 0,
+                  zIndex: 1,
+                  background: "var(--color-panel-solid)",
+                }
+              : undefined
+          }
         >
-          {!showTitle ? (
-            <Separator size="4" mb="4" />
-          ) : (
+          {showTitle ? (
             <Heading as="h4" size="sm" mb="3">
               {title}
             </Heading>
+          ) : fillHeight ? null : (
+            <Separator size="4" mb="4" />
           )}
           <CommentForm
             cta="Comment"
