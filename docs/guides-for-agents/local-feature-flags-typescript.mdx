@@ -15,11 +15,9 @@ When projects introduce feature flags, the requirements tend to start simple and
 5. Monitor guardrail metrics with auto-rollback
 6. Run A/B tests or Multi-arm Bandits and do statistical tests to measure impact
 
-GrowthBook is the most popular (and most advanced) open source feature flagging platform in the world and can meet you where you are and grow with you over time.
+This guide covers how to achieve the first 3 levels without introducing a ton of complexity to your project. No accounts, API keys, telemetry data, caching, or network calls. Just a local hard-coded `flags.ts` file and the open source GrowthBook SDK (MIT license). The SDK has no third-party dependencies and adds about 16 KB to a gzipped browser bundle.
 
-This guide covers how to use GrowthBook for those first 3 steps without introducing a ton of complexity to your project. No accounts, API keys, telemetry data, caching, or network calls. Just a local hard-coded `flags.ts` file and the open source GrowthBook SDK (MIT license).
-
-It also gives an easy off ramp to GrowthBook (Cloud or Self-Hosted) for when you need to advance to step 4 and beyond.
+If you end up needing more complexity later (levels 4+), there's an easy migration to the full GrowthBook platform (Cloud or Self-Hosted).
 
 _This guide is written for AI coding agents. If you're a person, give your agent the prompt below._
 
@@ -127,17 +125,17 @@ rules: [
 ];
 ```
 
-|                                            | Hand-rolled          | `flags.ts` + GrowthBook SDK               |
-| ------------------------------------------ | -------------------- | ----------------------------------------- |
-| Account, API key, or network call          | None                 | None                                      |
-| Versioned and reviewed with the code       | Yes                  | Yes                                       |
-| Target users by attribute                  | Hand-written `if`s   | Declarative `condition`                   |
-| Percentage rollouts with stable assignment | Hand-written hashing | `coverage`                                |
-| Typed values (string, number, object)      | Ad hoc parsing       | Inferred from `AppFeatures`               |
-| Typos in flag keys, attributes, and values | Runtime bugs         | Compile errors                            |
-| Removing a stale flag                      | Search and hope      | Compile error at every read               |
-| Battle-tested evaluation logic             | No                   | MIT-licensed, used in production at scale |
-| Upgrade path to a managed flag platform    | Rewrite              | Add a client key                          |
+|                                            | Hand-rolled          | `flags.ts` + GrowthBook SDK |
+| ------------------------------------------ | -------------------- | --------------------------- |
+| Account, API key, or network call          | None                 | None                        |
+| Versioned and reviewed with the code       | Yes                  | Yes                         |
+| Target users by attribute                  | Hand-written `if`s   | Declarative `condition`     |
+| Percentage rollouts with stable assignment | Hand-written hashing | `coverage`                  |
+| Typed values (string, number, object)      | Ad hoc parsing       | Inferred from `AppFeatures` |
+| Typos in flag keys, attributes, and values | Runtime bugs         | Compile errors              |
+| Removing a stale flag                      | Search and hope      | Compile error at every read |
+| Battle-tested evaluation logic             | No                   | Used in production at scale |
+| Upgrade path to a managed flag platform    | Rewrite              | Add a client key            |
 
 ## What you still give up
 
