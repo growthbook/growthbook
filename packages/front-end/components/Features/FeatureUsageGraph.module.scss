@@ -1,7 +1,6 @@
 .sparkTrigger {
   cursor: pointer;
   padding: 4px 4px 4px 6px;
-  margin-bottom: -10px;
   border-radius: var(--radius-3);
   border: none;
   background: transparent;
@@ -66,4 +65,9 @@
     transparent 4px,
     transparent 8px
   ) !important;
+}
+
+// In the page it's tested against, as there.
+.legacy {
+  margin-bottom: -10px;
 }

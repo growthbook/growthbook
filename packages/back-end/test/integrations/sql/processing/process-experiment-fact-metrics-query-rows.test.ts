@@ -79,6 +79,20 @@ describe("processExperimentFactMetricsQueryRows", () => {
     ]);
   });
 
+  it("keeps compound component unit counts", () => {
+    const [result] = processExperimentFactMetricsQueryRows([
+      {
+        variation: "0",
+        users: "10",
+        m0_id: "fact__compound",
+        m0_main_sum: "2",
+        m0_c0_units: "6",
+        m0_c1_units: "3",
+      },
+    ]);
+    expect(result).toMatchObject({ m0_c0_units: 6, m0_c1_units: 3 });
+  });
+
   it("returns only shared columns for a row without metrics", () => {
     expect(
       processExperimentFactMetricsQueryRows([{ variation: "0", users: "3" }]),

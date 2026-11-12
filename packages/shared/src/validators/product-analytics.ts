@@ -17,11 +17,13 @@ const baseValueValidator = z.object({
 });
 
 // Metrics
+// Product Analytics can't explore compound metrics, so drafts never carry them.
 export const draftExplorationMetricValidator = factMetricValidator.omit({
   id: true,
   organization: true,
   dateCreated: true,
   dateUpdated: true,
+  compoundSettings: true,
 });
 
 export const explorationPopulationValidator = componentSchema(
@@ -410,6 +412,13 @@ export type ExplorationDateRange = z.infer<
 const chartSettingsValidator = z.object({
   categoryAxisLabel: z.string().optional(),
   valueAxisLabel: z.string().optional(),
+  // Line charts only. Absent means anchored (the value axis starts at 0).
+  anchorYAxisToZero: z
+    .boolean()
+    .optional()
+    .describe(
+      "Line charts only: whether the y-axis starts at 0. Defaults to true.",
+    ),
 });
 export type ProductAnalyticsChartSettings = z.infer<
   typeof chartSettingsValidator

@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
-import { ACTIVE_DRAFT_STATUSES } from "shared/validators";
+import { isActiveDraftStatus } from "shared/validators";
+import { isRevisionEditLockedBySchedule } from "shared/enterprise";
 import { useFeatureRevisionsContext } from "@/contexts/FeatureRevisionsContext";
 import { isRampGenerated } from "@/components/Reviews/RevisionStatusBadge";
 import { DraftMode } from "@/components/DraftSelector";
@@ -24,7 +25,9 @@ export function useDefaultDraft(
         .filter(
           (r) =>
             !isRampGenerated(r) &&
-            (ACTIVE_DRAFT_STATUSES as readonly string[]).includes(r.status) &&
+            isActiveDraftStatus(r.status) &&
+            // A scheduled publish that locks edits rejects writes into it.
+            !isRevisionEditLockedBySchedule(r) &&
             (canWriteIntoDraft?.(r) ?? true),
         )
         .sort(
@@ -47,20 +50,26 @@ export function useDefaultDraft(
   }, [activeDrafts, ctx]);
 }
 
-// Initial draft mode + target for metadata-style edit modals. When the user
-// can't auto-publish and an active draft already exists, default to iterating on
-// that draft instead of spawning a fresh one on every save — which otherwise
-// leaves a pile of content-identical orphan drafts behind.
+// Initial draft mode + target for metadata-style edit modals. A draft being
+// viewed takes the edit, even from someone who could publish it directly.
+// Otherwise, when the user can't auto-publish and an active draft already
+// exists, default to iterating on that draft instead of spawning a fresh one on
+// every save — which otherwise leaves a pile of content-identical orphan drafts
+// behind.
 export function useDefaultDraftMode(
   revisionList: MinimalFeatureRevisionInterface[],
   canAutoPublish: boolean,
   canWriteIntoDraft?: (revision: MinimalFeatureRevisionInterface) => boolean,
 ): { mode: DraftMode; defaultDraft: number | null } {
+  const ctx = useFeatureRevisionsContext();
   const defaultDraft = useDefaultDraft(revisionList, canWriteIntoDraft);
-  const mode: DraftMode = canAutoPublish
-    ? "publish"
-    : defaultDraft !== null
-      ? "existing"
-      : "new";
+  const viewingDraft =
+    defaultDraft !== null && defaultDraft === ctx?.currentVersion;
+  const mode: DraftMode =
+    canAutoPublish && !viewingDraft
+      ? "publish"
+      : defaultDraft !== null
+        ? "existing"
+        : "new";
   return { mode, defaultDraft };
 }
