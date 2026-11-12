@@ -155,6 +155,8 @@ WHERE
   AND snapshot_date <= '{{ endDate }}'
 ```
 
+A `DATE` column is compared as midnight at the start of that day. If each partition holds values as of the **end** of its date, shift it forward a day (`snapshot_date + INTERVAL '1 day' as timestamp`); otherwise a user exposed mid-day picks up changes made later that day. The filter above covers the right partitions either way.
+
 **Validity ranges** fits a Type 2 slowly changing dimension (SCD2) table, where each row carries the period it was valid for and the current row has a `NULL` end:
 
 ```sql

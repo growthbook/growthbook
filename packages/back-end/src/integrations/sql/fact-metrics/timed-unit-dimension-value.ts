@@ -31,8 +31,23 @@ export function getTimedUnitDimensionCondition(
   }
 }
 
+// 'YYYY-MM-DD HH:MM:SS'
+const TIMESTAMP_PREFIX_LENGTH = 19;
+
+// Fixed-width sortable prefix. A DATE column formats shorter than a timestamp
+// on some engines (10 chars from to_iso8601 on Athena/Presto), so pad before
+// cutting; otherwise stripping the prefix would eat into the dimension value.
+// Zeros rather than spaces so whitespace normalization can't shrink the pad.
+function getTimestampPrefix(dialect: SqlDialect, column: string): string {
+  const padded = concatSql(
+    dialect.formatDateTimeString(column),
+    `'${"0".repeat(TIMESTAMP_PREFIX_LENGTH)}'`,
+  );
+  return `SUBSTRING(${padded}, 1, ${TIMESTAMP_PREFIX_LENGTH})`;
+}
+
 // Latest qualifying row wins: prefix each value with its formatted timestamp,
-// take the MAX, then strip the 19-char prefix (same trick as experiment dimensions).
+// take the MAX, then strip the prefix (same trick as experiment dimensions).
 export function getTimedUnitDimensionValue(
   dialect: SqlDialect,
   dimension: DimensionInterface,
@@ -47,7 +62,7 @@ export function getTimedUnitDimensionValue(
     getDimensionNullValue(dimension, NULL_DIMENSION_VALUE),
   )}'`;
   const keyed = concatSql(
-    `SUBSTRING(${dialect.formatDateTimeString(`${dimAlias}.${timestampColumn}`)}, 1, 19)`,
+    getTimestampPrefix(dialect, `${dimAlias}.${timestampColumn}`),
     `COALESCE(${dialect.castToString(`${dimAlias}.value`)}, ${nullValue})`,
   );
   return `COALESCE(
@@ -59,7 +74,7 @@ export function getTimedUnitDimensionValue(
               "NULL",
             )}
           ),
-          20,
+          ${TIMESTAMP_PREFIX_LENGTH + 1},
           99999
         ),
         ${nullValue}
