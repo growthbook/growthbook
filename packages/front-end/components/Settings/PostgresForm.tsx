@@ -1,6 +1,7 @@
 import { FC, ChangeEventHandler } from "react";
 import { PostgresConnectionParams } from "shared/types/integrations/postgres";
 import { KEEP_EXISTING_PLACEHOLDER } from "@/components/Forms/secretInput";
+import GeneratedPasswordNote from "./GeneratedPasswordNote";
 import HostWarning from "./HostWarning";
 import SSLConnectionFields from "./SSLConnectionFields";
 
@@ -8,12 +9,22 @@ const PostgresForm: FC<{
   params: Partial<PostgresConnectionParams>;
   existing: boolean;
   onParamChange: ChangeEventHandler<HTMLInputElement | HTMLSelectElement>;
-  setParams: (params: { [key: string]: string }) => void;
-}> = ({ params, existing, onParamChange, setParams }) => {
+  setParams: (params: { [key: string]: string | null }) => void;
+  generatedPassword?: boolean;
+  showAllowlist?: boolean;
+}> = ({
+  params,
+  existing,
+  onParamChange,
+  setParams,
+  generatedPassword,
+  showAllowlist,
+}) => {
   return (
     <>
       <HostWarning
         host={params.host}
+        showAllowlist={showAllowlist}
         setHost={(host) => {
           setParams({
             host,
@@ -77,6 +88,7 @@ const PostgresForm: FC<{
             onChange={onParamChange}
             placeholder={existing ? KEEP_EXISTING_PLACEHOLDER : ""}
           />
+          <GeneratedPasswordNote show={generatedPassword} />
         </div>
         <div className="form-group col-md-6">
           <label>Default Schema</label>
@@ -93,6 +105,9 @@ const PostgresForm: FC<{
           existing={existing}
           onParamChange={onParamChange}
           setSSL={(ssl) => setParams({ ssl: ssl ? "true" : "" })}
+          setCertRemoved={(name, removed) =>
+            setParams({ [name]: removed ? null : "" })
+          }
           value={{
             ssl: params.ssl === true || params.ssl === "true",
             caCert: params.caCert,

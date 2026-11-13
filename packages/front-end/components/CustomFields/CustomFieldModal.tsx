@@ -15,6 +15,7 @@ import MultiSelectField from "@/ui/MultiSelectField";
 import track from "@/services/track";
 import { useCustomFields } from "@/hooks/useCustomFields";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
+import { validatedSubmit } from "@/ui/Modal/validatedSubmit";
 import Field from "@/components/Forms/Field";
 import SelectField, {
   GroupedValue,
@@ -127,7 +128,7 @@ export default function CustomFieldModal({
       close={close}
       header={existing.id ? `Edit Custom Field` : "Create New Custom Field"}
       cta="Save"
-      submit={form.handleSubmit(async (value) => {
+      submit={validatedSubmit(form, async (value) => {
         if (value.type === "boolean") {
           // make sure the default value is a boolean
           value.defaultValue = !!value.defaultValue;

@@ -2,7 +2,7 @@ import mongoose from "mongoose";
 import { omit } from "lodash";
 import { QueryInterface, QueryStatistics, QueryType } from "shared/types/query";
 import { QueryLanguage } from "shared/types/datasource";
-import { ApiQuery } from "shared/validators";
+import { ApiQuery, queryStatusValidator } from "shared/validators";
 import { QUERY_CACHE_TTL_MINS } from "back-end/src/util/secrets";
 import { generateId } from "back-end/src/util/uuid";
 import { logger } from "back-end/src/util/logger";
@@ -114,11 +114,32 @@ export async function getQueryById(
   context: ReqContext | ApiReqContext,
   id: string,
 ) {
+  if (id && typeof id !== "string") return null;
   const doc = await QueryModel.findOne({
     organization: context.org.id,
     id: id,
   });
   return doc ? toInterface(doc) : null;
+}
+
+export async function getQueriesByDatasource(
+  organization: string,
+  datasource: string,
+  limit: number = 50,
+) {
+  // Results aren't returned and can be large
+  const docs = await QueryModel.find(
+    {
+      organization,
+      datasource,
+      // Every status, so the status-first index can merge-sort by createdAt
+      status: { $in: queryStatusValidator.options },
+    },
+    { result: 0, rawResult: 0 },
+  )
+    .limit(limit)
+    .sort({ createdAt: -1 });
+  return docs.map((doc) => toInterface(doc));
 }
 
 // Queries still in flight; querylogs only gets a row once a query finishes
@@ -407,15 +428,14 @@ export async function getStaleQueries(): Promise<
 
   const docs = await QueryModel.find(query, {
     _id: 1,
-    id: 1,
-    organization: 1,
   }).limit(20);
   if (!docs.length) return [];
 
+  const ids = docs.map((d) => d._id);
   await QueryModel.updateMany(
     {
       ...query,
-      _id: { $in: docs.map((d) => d._id) },
+      _id: { $in: ids },
     },
     {
       $set: {
@@ -425,7 +445,12 @@ export async function getStaleQueries(): Promise<
     },
   );
 
-  return docs.map((doc) => ({ id: doc.id, organization: doc.organization }));
+  const failed = await QueryModel.find(
+    { _id: { $in: ids }, status: "failed" },
+    { id: 1, organization: 1 },
+  );
+
+  return failed.map((doc) => ({ id: doc.id, organization: doc.organization }));
 }
 
 export async function createNewQuery({
@@ -590,7 +615,9 @@ export function toQueryApiInterface(query: QueryInterface): ApiQuery {
     queryType: query.queryType || "",
     createdAt: query.createdAt?.toISOString() || "",
     startedAt: query.startedAt?.toISOString() || "",
+    finishedAt: query.finishedAt?.toISOString() ?? null,
     status: query.status,
+    error: query.error || null,
     externalId: query.externalId ? query.externalId : "",
     dependencies: query.dependencies ? query.dependencies : [],
     runAtEnd: query.runAtEnd ? query.runAtEnd : false,

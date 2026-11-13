@@ -195,7 +195,10 @@ export function RowFilterSampleRowsModal({
           </TabsContent>
           <TabsContent value="where">
             <Box style={{ height: 300, overflowY: "auto" }}>
-              <Code code={`WHERE ${result?.where || ""}`} language="sql" />
+              <Code
+                code={result?.generatedSql ?? `WHERE ${result?.where || ""}`}
+                language="sql"
+              />
             </Box>
           </TabsContent>
         </Tabs>

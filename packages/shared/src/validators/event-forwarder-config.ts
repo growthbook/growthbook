@@ -7,6 +7,7 @@ const eventForwarderSinkTypeValidator = z.enum([
   "databricks",
 ]);
 const eventForwarderStatusValidator = z.enum([
+  "unconfigured",
   "pending",
   "ready",
   "paused",

@@ -84,8 +84,6 @@ const metricSchema = new mongoose.Schema({
     stddev: Number,
   },
   denominator: String,
-  winRisk: Number,
-  loseRisk: Number,
   maxPercentChange: Number,
   minPercentChange: Number,
   minSampleSize: Number,
@@ -493,6 +491,23 @@ export async function getMetricsByDatasource(
   return findMetrics(context, { datasource });
 }
 
+// Ignores read permissions, so a dependency check can't miss a hidden metric
+export async function datasourceHasMetrics(
+  context: ReqContext | ApiReqContext,
+  datasource: string,
+): Promise<boolean> {
+  if (
+    usingFileConfig() &&
+    getConfigMetrics(context).some((m) => m.datasource === datasource)
+  ) {
+    return true;
+  }
+  return !!(await getCollection(COLLECTION).findOne(
+    { organization: context.org.id, datasource },
+    { projection: { id: 1 } },
+  ));
+}
+
 export async function getSampleMetrics(context: ReqContext | ApiReqContext) {
   const docs = await getCollection(COLLECTION)
     .find({
@@ -510,6 +525,7 @@ export async function getMetricById(
   id: string,
   includeAnalysis: boolean = false,
 ) {
+  if (id && typeof id !== "string") return null;
   // If using config.yml, immediately return the from there if found
   if (usingFileConfig()) {
     const doc = getConfigMetrics(context).filter((m) => m.id === id)[0] || null;

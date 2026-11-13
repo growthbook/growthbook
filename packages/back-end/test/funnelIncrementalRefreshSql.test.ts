@@ -4,6 +4,7 @@ import {
   MetricFunnelStep,
 } from "shared/types/fact-table";
 import { ExperimentSnapshotSettings } from "shared/types/experiment-snapshot";
+import { Dimension } from "shared/types/integrations";
 import { buildUnitsQuerySettingsFromSnapshot } from "shared/util";
 import { bigQueryDialect } from "shared/dialects";
 import BigQuery from "back-end/src/integrations/BigQuery";
@@ -151,13 +152,16 @@ function insertSql(metrics: FunnelFactMetricInterface[]): string {
   });
 }
 
-function readSql(metrics: FunnelFactMetricInterface[]): string {
+function readSql(
+  metrics: FunnelFactMetricInterface[],
+  dimensionsForAnalysis: Dimension[] = [],
+): string {
   return integration.getIncrementalRefreshStatisticsQuery({
     settings,
     exposureQuery: resolvedExposureQuery,
     activationMetric: null,
     dimensionsForPrecomputation: [],
-    dimensionsForAnalysis: [],
+    dimensionsForAnalysis,
     factTableMap,
     metricSources: [
       { factTableId: "events", tableFullName: "proj.ds.metric_source" },
@@ -370,13 +374,13 @@ function multiFtInsertSql(factTableId: string): string {
   });
 }
 
-function multiFtReadSql(): string {
+function multiFtReadSql(dimensionsForAnalysis: Dimension[] = []): string {
   return integration.getIncrementalRefreshStatisticsQuery({
     settings,
     exposureQuery: resolvedExposureQuery,
     activationMetric: null,
     dimensionsForPrecomputation: [],
-    dimensionsForAnalysis: [],
+    dimensionsForAnalysis,
     factTableMap: multiFtFactTableMap,
     metricSources: [
       { factTableId: "events", tableFullName: "proj.ds.metric_source_events" },
@@ -449,6 +453,34 @@ describe("multifact funnel incremental refresh — read (flatten + resolve)", ()
     expect(sql).toContain("m0_step_0_sum");
     expect(sql).toContain("m0_step_1_sum");
   });
+});
+
+describe("funnel incremental refresh — combo dimension", () => {
+  const combo: Dimension[] = [
+    {
+      type: "combo",
+      dimensions: [
+        { type: "experiment", id: "country" },
+        { type: "experiment", id: "browser" },
+      ],
+    },
+  ];
+
+  // __joinedData only carries dim_combo, so the resolution chain must not
+  // pass the constituent columns through (and must not drop dim_combo).
+  it.each([
+    { name: "single-FT", build: () => readSql([scalarStep0Funnel], combo) },
+    { name: "multi-FT", build: () => multiFtReadSql(combo) },
+  ])(
+    "carries only the combined column through $name resolution",
+    ({ build }) => {
+      const sql = build();
+      const afterUnits = sql.substring(sql.indexOf("__joinedData"));
+      expect(afterUnits).toMatch(/r\.dim_combo/);
+      expect(afterUnits).not.toContain("dim_exp_country");
+      expect(afterUnits).not.toContain("dim_exp_browser");
+    },
+  );
 });
 
 describe("funnel incremental refresh — resolution parity with inline", () => {

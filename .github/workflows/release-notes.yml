@@ -4,6 +4,10 @@ on:
   release:
     types: [published]
 
+# Read-only by default; a job that needs more asks for it.
+permissions:
+  contents: read
+
 jobs:
   # Append the "Self-hosted build impact" notes of PRs that changed build files
   build-changes:
@@ -14,7 +18,7 @@ jobs:
       pull-requests: read
     steps:
       - name: Checkout code
-        uses: actions/checkout@v5
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
 

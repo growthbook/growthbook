@@ -63,6 +63,7 @@ type MyType = z.infer<typeof mySchema>;
 - Front-end: Define in `packages/front-end/pages/api/init.ts` and `packages/front-end/services/env.ts`
 - Use environment-specific `.env.local` files for local overrides
 - DO NOT reference `process.env` directly outside of the files above.
+- Standalone CLIs (such as `packages/dbt`) read their environment in their entry point only, never in library code.
 
 ## Code Quality Commands
 

@@ -8,6 +8,7 @@ import Callout from "@/ui/Callout";
 import Frame from "@/ui/Frame";
 import Heading from "@/ui/Heading";
 import Link from "@/ui/Link";
+import LinkButton from "@/ui/LinkButton";
 import Metadata from "@/ui/Metadata";
 import Text from "@/ui/Text";
 import { GBEdit } from "@/components/Icons";
@@ -19,6 +20,7 @@ import HistoryTable from "@/components/HistoryTable";
 import EditOwnerModal from "@/components/Owner/EditOwnerModal";
 import EditProjectsForm from "@/components/Projects/EditProjectsForm";
 import PopulationDefinition from "@/components/Populations/PopulationDefinition";
+import PopulationPreview from "@/components/Populations/PopulationPreview";
 import PopulationMoreMenu from "@/components/Populations/PopulationMoreMenu";
 import { usePopulation, useRefreshPopulations } from "@/hooks/usePopulations";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
@@ -116,7 +118,15 @@ export default function PopulationPage() {
         <Heading as="h1" size="xl" overflowWrap="anywhere" mb="0">
           {population.name}
         </Heading>
-        <Box pr="2">
+        <Flex align="center" gap="3" pr="2">
+          {canEdit && (
+            <LinkButton
+              variant="soft"
+              href={`/populations/${population.id}/edit`}
+            >
+              Edit
+            </LinkButton>
+          )}
           <PopulationMoreMenu
             population={population}
             onDuplicated={async (copy) => {
@@ -129,7 +139,7 @@ export default function PopulationPage() {
             }}
             onAuditLog={() => setAuditLogOpen(true)}
           />
-        </Box>
+        </Flex>
       </Flex>
 
       <Flex gap="4" align="center" wrap="wrap" mb="3">
@@ -223,13 +233,7 @@ export default function PopulationPage() {
           minWidth="0"
           style={{ flex: "999 1 600px" }}
         >
-          <Heading as="h2" size="md" mb="2">
-            Members
-          </Heading>
-          <Text size="sm" color="text-mid">
-            Member counts and the membership chart are coming soon. Membership
-            is calculated when the Population refreshes.
-          </Text>
+          <PopulationPreview key={population.id} population={population} />
         </Frame>
         <Frame px="5" py="5" mb="0" minWidth="0" style={{ flex: "1 1 280px" }}>
           <PopulationDefinition population={population} />

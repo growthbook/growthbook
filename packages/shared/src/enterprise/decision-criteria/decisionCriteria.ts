@@ -26,6 +26,7 @@ import {
 import { SnapshotVariation } from "shared/types/experiment-snapshot";
 import { OrganizationSettings } from "shared/types/organization";
 import {
+  DEFAULT_CLUSTER_ISSUE_THRESHOLD,
   DEFAULT_DECISION_FRAMEWORK_ENABLED,
   DEFAULT_EXPERIMENT_MIN_LENGTH_DAYS,
   DEFAULT_MULTIPLE_EXPOSURES_ENOUGH_DATA_THRESHOLD,
@@ -35,7 +36,11 @@ import {
   DEFAULT_SRM_THRESHOLD,
 } from "../../constants";
 import { daysBetween, getValidDate, hoursBetween } from "../../dates";
-import { getMultipleExposureHealthData, getSRMHealthData } from "../../health";
+import {
+  getClusterIssueHealthData,
+  getMultipleExposureHealthData,
+  getSRMHealthData,
+} from "../../health";
 import {
   PRESET_DECISION_CRITERIA,
   PRESET_DECISION_CRITERIAS,
@@ -289,6 +294,8 @@ export function getHealthSettings(
     multipleExposureMinPercent:
       settings?.multipleExposureMinPercent ??
       DEFAULT_MULTIPLE_EXPOSURES_THRESHOLD,
+    clusterIssueMinPercent:
+      settings?.clusterIssueMinPercent ?? DEFAULT_CLUSTER_ISSUE_THRESHOLD,
   };
 }
 
@@ -520,48 +527,97 @@ function getDaysLeftStatus({
   }
 }
 
+// A cluster experiment checks SRM on clusters and multiple exposures on
+// subunits; each check is skipped rather than run on the other grain's count.
 function computeSrmAndMultipleExposuresUnhealthyData({
   srm,
   multipleExposures,
   totalUsers,
+  srmTotalUnits,
+  subUnitMultipleExposures,
+  isClusterExperiment,
   numOfVariations,
   minUsersPerVariation,
   healthSettings,
 }: {
   srm: number;
   multipleExposures: number;
-  totalUsers: number;
+  totalUsers: number | null;
+  srmTotalUnits?: number | null;
+  subUnitMultipleExposures?: {
+    totalSubUnits: number;
+    multipleExposedSubUnits: number;
+  } | null;
+  isClusterExperiment: boolean;
   numOfVariations: number;
   minUsersPerVariation: number;
   healthSettings: ExperimentHealthSettings;
 }): Pick<ExperimentUnhealthyData, "srm" | "multipleExposures"> {
   const result: Pick<ExperimentUnhealthyData, "srm" | "multipleExposures"> = {};
 
-  const srmHealthData = getSRMHealthData({
-    srm,
-    srmThreshold: healthSettings.srmThreshold,
-    totalUsersCount: totalUsers,
-    numOfVariations,
-    minUsersPerVariation,
-  });
-  if (srmHealthData === "unhealthy") {
+  const srmUnits = isClusterExperiment
+    ? srmTotalUnits
+    : (srmTotalUnits ?? totalUsers);
+  if (
+    srmUnits &&
+    getSRMHealthData({
+      srm,
+      srmThreshold: healthSettings.srmThreshold,
+      totalUsersCount: srmUnits,
+      numOfVariations,
+      minUsersPerVariation,
+    }) === "unhealthy"
+  ) {
     result.srm = true;
   }
 
-  const multipleExposuresHealthData = getMultipleExposureHealthData({
-    multipleExposuresCount: multipleExposures,
-    totalUsersCount: totalUsers,
-    minCountThreshold: DEFAULT_MULTIPLE_EXPOSURES_ENOUGH_DATA_THRESHOLD,
-    minPercentThreshold: healthSettings.multipleExposureMinPercent,
-  });
-  if (multipleExposuresHealthData.status === "unhealthy") {
-    result.multipleExposures = {
-      rawDecimal: multipleExposuresHealthData.rawDecimal,
-      multipleExposedUsers: multipleExposures,
-    };
+  const exposures = isClusterExperiment
+    ? subUnitMultipleExposures
+      ? {
+          count: subUnitMultipleExposures.multipleExposedSubUnits,
+          total: subUnitMultipleExposures.totalSubUnits,
+        }
+      : null
+    : totalUsers
+      ? { count: multipleExposures, total: totalUsers }
+      : null;
+  if (exposures) {
+    const multipleExposuresHealthData = getMultipleExposureHealthData({
+      multipleExposuresCount: exposures.count,
+      totalUsersCount: exposures.total,
+      minCountThreshold: DEFAULT_MULTIPLE_EXPOSURES_ENOUGH_DATA_THRESHOLD,
+      minPercentThreshold: healthSettings.multipleExposureMinPercent,
+    });
+    if (multipleExposuresHealthData.status === "unhealthy") {
+      result.multipleExposures = {
+        rawDecimal: multipleExposuresHealthData.rawDecimal,
+        multipleExposedUsers: exposures.count,
+      };
+    }
   }
 
   return result;
+}
+
+// The summary is only rewritten when the latest phase gets a successful
+// snapshot, so after a new phase starts it still describes the previous one.
+// Summaries written before `phase` was recorded are assumed current. A
+// holdout's analysis phase continues the same population, so it keeps its
+// summary.
+export function getCurrentPhaseAnalysisSummary<
+  T extends { phase?: number },
+>(experiment: {
+  type?: string;
+  phases: unknown[];
+  analysisSummary?: T;
+}): T | undefined {
+  const summary = experiment.analysisSummary;
+  const phase = summary?.phase;
+  return phase === undefined ||
+    experiment.type === "holdout" ||
+    phase === experiment.phases.length - 1
+    ? summary
+    : undefined;
 }
 
 export function getExperimentResultStatus({
@@ -578,8 +634,9 @@ export function getExperimentResultStatus({
   metricGroups: MetricGroupInterface[];
 }): ExperimentResultStatusData | undefined {
   const unhealthyData: ExperimentUnhealthyData = {};
-  const healthSummary = experimentData.analysisSummary?.health;
-  const resultsStatus = experimentData.analysisSummary?.resultsStatus;
+  const analysisSummary = getCurrentPhaseAnalysisSummary(experimentData);
+  const healthSummary = analysisSummary?.health;
+  const resultsStatus = analysisSummary?.resultsStatus;
   const type = experimentData.type === "holdout" ? "holdout" : "experiment";
   const lastPhase = experimentData.phases[experimentData.phases.length - 1];
   const beforeMinDuration =
@@ -650,13 +707,27 @@ export function getExperimentResultStatus({
     ? getDaysLeftStatus({ daysNeeded })
     : undefined;
 
-  if (healthSummary?.totalUsers) {
+  const isClusterSummary = !!(
+    healthSummary?.clusterAssignment ||
+    healthSummary?.clusterSubUnitMapping ||
+    healthSummary?.subUnitMultipleExposures
+  );
+  // The summary alone can miss a cluster experiment whose cluster checks
+  // failed, and the flag alone can be newer than the summary.
+  const isClusterExperiment =
+    !!experimentData.isClusterExperiment || isClusterSummary;
+
+  if (healthSummary) {
     Object.assign(
       unhealthyData,
       computeSrmAndMultipleExposuresUnhealthyData({
         srm: healthSummary.srm,
         multipleExposures: healthSummary.multipleExposures,
         totalUsers: healthSummary.totalUsers,
+        srmTotalUnits: healthSummary.srmTotalUnits,
+        subUnitMultipleExposures:
+          healthSummary.subUnitMultipleExposures ?? null,
+        isClusterExperiment,
         numOfVariations: getLatestPhaseVariations(experimentData).length,
         minUsersPerVariation:
           experimentData.type === "multi-armed-bandit"
@@ -665,7 +736,9 @@ export function getExperimentResultStatus({
         healthSettings,
       }),
     );
+  }
 
+  if (healthSummary?.totalUsers) {
     if (healthSummary.covariateImbalance?.isImbalanced) {
       unhealthyData.covariateImbalance = true;
     }
@@ -687,11 +760,46 @@ export function getExperimentResultStatus({
     }
   }
 
+  if (healthSummary?.clusterAssignment) {
+    const { mixedClusters, totalClusters } = healthSummary.clusterAssignment;
+    const clusterAssignmentHealth = getClusterIssueHealthData({
+      affectedCount: mixedClusters,
+      totalCount: totalClusters,
+      minPercentThreshold: healthSettings.clusterIssueMinPercent,
+    });
+    if (clusterAssignmentHealth.status === "unhealthy") {
+      unhealthyData.clusterAssignment = {
+        rawDecimal: clusterAssignmentHealth.rawDecimal,
+        mixedClusters,
+      };
+    }
+  }
+
+  if (healthSummary?.clusterSubUnitMapping) {
+    const { multiClusterUnits, totalUnits } =
+      healthSummary.clusterSubUnitMapping;
+    const clusterMappingHealth = getClusterIssueHealthData({
+      affectedCount: multiClusterUnits,
+      totalCount: totalUnits,
+      minPercentThreshold: healthSettings.clusterIssueMinPercent,
+    });
+    if (clusterMappingHealth.status === "unhealthy") {
+      unhealthyData.clusterMapping = {
+        rawDecimal: clusterMappingHealth.rawDecimal,
+        multiClusterUnits,
+      };
+    }
+  }
+
   const unhealthyStatuses = [
     ...(unhealthyData.srm ? ["SRM"] : []),
-    ...(unhealthyData.multipleExposures ? ["Multiple exposures"] : []),
+    ...(unhealthyData.multipleExposures
+      ? [isClusterSummary ? "Subunit multiple exposures" : "Multiple exposures"]
+      : []),
     ...(unhealthyData.lowPowered ? ["Low powered"] : []),
     ...(unhealthyData.covariateImbalance ? ["Pre-exposure bias"] : []),
+    ...(unhealthyData.clusterAssignment ? ["Mixed cluster assignment"] : []),
+    ...(unhealthyData.clusterMapping ? ["Units in multiple clusters"] : []),
   ];
   // 1. Always show unhealthy status if they exist
   if (unhealthyStatuses.length > 0) {
@@ -1006,14 +1114,16 @@ export function getPresetDecisionCriteriaForOrg(
 // Pure mapping of a snapshot dimension's variations to their tiebreaker-metric
 // relative lift, keyed by the snapshot's own variation ids (index-aligned with
 // the analysis results). Callers own loading the snapshot/metric.
+// `variationIds` names each of `variations` as the decision status does;
+// `snapshotColumnVariationIds` gives them for a snapshot's columns.
 export function buildTiebreakerLiftMap({
   variations,
-  snapshotVariationIds,
+  variationIds,
   metricId,
   inverse,
 }: {
   variations: SnapshotVariation[];
-  snapshotVariationIds: string[];
+  variationIds: string[];
   metricId: string;
   inverse?: boolean;
 }): Record<string, number> | null {
@@ -1023,11 +1133,42 @@ export function buildTiebreakerLiftMap({
   const sign = inverse ? -1 : 1;
   const map: Record<string, number> = {};
   variations.forEach((dv, i) => {
-    const id = snapshotVariationIds[i];
+    const id = variationIds[i];
     const expected = dv?.metrics?.[metricId]?.expected;
     if (id && typeof expected === "number") map[id] = expected * sign;
   });
   return Object.keys(map).length > 0 ? map : null;
+}
+
+/**
+ * Of ship winners tied on the criteria, the one clearly ahead on a metric: its
+ * lift interval wholly above each other's (below, for a lower-is-better
+ * metric). Null when none is, or any lacks an interval.
+ */
+export function clearLeader({
+  variations,
+  variationIds,
+  tiedVariationIds,
+  metricId,
+  inverse,
+}: {
+  variations: SnapshotVariation[];
+  variationIds: string[];
+  tiedVariationIds: string[];
+  metricId: string;
+  inverse?: boolean;
+}): string | null {
+  const intervals = tiedVariationIds.flatMap((id) => {
+    const ci = variations[variationIds.indexOf(id)]?.metrics?.[metricId]?.ci;
+    return ci ? [{ id, ci: inverse ? [-ci[1], -ci[0]] : ci }] : [];
+  });
+  if (intervals.length < 2 || intervals.length < tiedVariationIds.length) {
+    return null;
+  }
+  const leader = intervals.find((v) =>
+    intervals.every((other) => other === v || v.ci[0] > other.ci[1]),
+  );
+  return leader?.id ?? null;
 }
 
 export type ScheduledShipDecision =

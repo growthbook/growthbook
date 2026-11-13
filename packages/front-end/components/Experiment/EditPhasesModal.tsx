@@ -1,14 +1,20 @@
 import { useState } from "react";
+import { useForm } from "react-hook-form";
 import {
   ExperimentInterfaceStringDates,
+  ExperimentPhaseStringDates,
   LinkedFeatureInfo,
 } from "shared/types/experiment";
 import { date, datetime } from "shared/dates";
 import { Box, Flex } from "@radix-ui/themes";
+import { PiCaretDown, PiCaretUp } from "react-icons/pi";
 import { phaseSummary } from "@/services/utils";
 import { useAuth } from "@/services/auth";
 import Button from "@/ui/Button";
+import Callout from "@/ui/Callout";
+import Text from "@/ui/Text";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
+import { validatedSubmit } from "@/ui/Modal/validatedSubmit";
 import Table, {
   TableBody,
   TableCell,
@@ -17,8 +23,10 @@ import Table, {
   TableRow,
 } from "@/ui/Table";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
+import Field from "@/components/Forms/Field";
+import DatePicker from "@/components/DatePicker";
+import { validateSavedGroupTargeting } from "@/components/Features/SavedGroupTargetingField";
 import { GBAddCircle } from "@/components/Icons";
-import EditPhaseModal from "./EditPhaseModal";
 import NewPhaseForm from "./NewPhaseForm";
 
 export interface Props {
@@ -43,7 +51,6 @@ export default function EditPhasesModal({
   const hasStoppedPhases = experiment.phases.some((p) => p.dateEnded);
   const hasLinkedChanges =
     !!experiment.linkedFeatures?.length || !!experiment.hasVisualChangesets;
-  const isHoldout = experiment.type === "holdout";
 
   const [editPhase, setEditPhase] = useState<number | null>(
     isDraft && !isMultiPhase ? 0 : null,
@@ -54,13 +61,7 @@ export default function EditPhasesModal({
   if (editPhase === -1) {
     return (
       <NewPhaseForm
-        close={() => {
-          if (isDraft && !isMultiPhase) {
-            close();
-          } else {
-            setEditPhase(null);
-          }
-        }}
+        close={() => setEditPhase(null)}
         experiment={experiment}
         linkedFeatures={linkedFeatures}
         mutate={mutateExperiment}
@@ -70,8 +71,7 @@ export default function EditPhasesModal({
 
   if (editPhase !== null) {
     return (
-      <EditPhaseModal
-        source="edit-phases-modal"
+      <EditPhaseStep
         close={() => {
           if (isDraft && !isMultiPhase) {
             close();
@@ -82,7 +82,7 @@ export default function EditPhasesModal({
         experiment={experiment}
         i={editPhase}
         mutate={mutateExperiment}
-        editTargeting={() => {
+        onMakeChanges={() => {
           editTargeting?.();
           close();
         }}
@@ -94,7 +94,7 @@ export default function EditPhasesModal({
       trackingEventModalType="edit-phases-modal"
       trackingEventModalSource={source}
       open={true}
-      header={!isHoldout ? "Edit Phases" : "Edit Holdout Period"}
+      header="Edit Phases"
       close={close}
       size="lg"
     >
@@ -105,9 +105,7 @@ export default function EditPhasesModal({
               <TableColumnHeader></TableColumnHeader>
               <TableColumnHeader>Name</TableColumnHeader>
               <TableColumnHeader>Dates (UTC)</TableColumnHeader>
-              {!isHoldout ? (
-                <TableColumnHeader>Traffic</TableColumnHeader>
-              ) : null}
+              <TableColumnHeader>Traffic</TableColumnHeader>
               {hasStoppedPhases ? (
                 <TableColumnHeader>Reason for Stopping</TableColumnHeader>
               ) : null}
@@ -136,14 +134,7 @@ export default function EditPhasesModal({
                     {phase.dateEnded ? date(phase.dateEnded, "UTC") : "now"}
                   </strong>
                 </TableCell>
-                {!isHoldout ? (
-                  <TableCell>
-                    {phaseSummary(
-                      phase,
-                      experiment.type === "multi-armed-bandit",
-                    )}
-                  </TableCell>
-                ) : null}
+                <TableCell>{phaseSummary(phase)}</TableCell>
                 {hasStoppedPhases ? (
                   <TableCell>
                     {phase.dateEnded ? (
@@ -163,8 +154,7 @@ export default function EditPhasesModal({
                     >
                       Edit
                     </Button>
-                    {!isHoldout &&
-                      (experiment.status !== "running" || !hasLinkedChanges) &&
+                    {(experiment.status !== "running" || !hasLinkedChanges) &&
                       experiment.phases.length > 1 && (
                         <DeleteButton
                           text="Delete"
@@ -187,7 +177,8 @@ export default function EditPhasesModal({
           </TableBody>
         </Table>
       </Box>
-      {!isHoldout && (experiment.status !== "running" || !hasLinkedChanges) && (
+      {/* A draft starts through its start flow, which the server requires. */}
+      {!isDraft && (experiment.status !== "running" || !hasLinkedChanges) && (
         <Button
           icon={<GBAddCircle />}
           onClick={() => {
@@ -197,6 +188,136 @@ export default function EditPhasesModal({
           New Phase
         </Button>
       )}
+    </ModalStandard>
+  );
+}
+
+function EditPhaseStep({
+  close,
+  i,
+  experiment,
+  mutate,
+  onMakeChanges,
+}: {
+  close: () => void;
+  i: number;
+  experiment: ExperimentInterfaceStringDates;
+  mutate: () => void;
+  onMakeChanges: () => void;
+}) {
+  const form = useForm<ExperimentPhaseStringDates>({
+    defaultValues: {
+      ...experiment.phases[i],
+      seed: experiment.phases[i]?.seed ?? experiment.trackingKey,
+      dateStarted: experiment.phases[i]?.dateStarted ?? "",
+      dateEnded: experiment.phases[i]?.dateEnded ?? "",
+    },
+  });
+  const [advancedOptionsOpen, setAdvancedOptionsOpen] = useState(false);
+
+  const { apiCall } = useAuth();
+
+  const isDraft = experiment.status === "draft";
+  const isMultiPhase = experiment.phases.length > 1;
+
+  return (
+    <ModalStandard
+      trackingEventModalType="edit-phase-modal"
+      trackingEventModalSource="edit-phases-modal"
+      open={true}
+      close={close}
+      header={`Edit Analysis Phase #${i + 1}`}
+      submit={validatedSubmit(form, async (value) => {
+        validateSavedGroupTargeting(value.savedGroups);
+
+        await apiCall(`/experiment/${experiment.id}/phase/${i}`, {
+          method: "PUT",
+          body: JSON.stringify(value),
+        });
+        mutate();
+      })}
+      size="lg"
+    >
+      <Field
+        size="legacy"
+        label="Phase Name"
+        {...form.register("name")}
+        required
+      />
+      <DatePicker
+        label="Start time"
+        timeZone="utc"
+        date={form.watch("dateStarted")}
+        setDate={(v) => {
+          form.setValue("dateStarted", v ? v.toISOString() : "");
+        }}
+        scheduleEndDate={form.watch("dateEnded")}
+        disableAfter={form.watch("dateEnded") || undefined}
+      />
+      {!(isDraft && !isMultiPhase) ? (
+        <>
+          <DatePicker
+            label="End time"
+            timeZone="utc"
+            date={form.watch("dateEnded")}
+            setDate={(v) => {
+              form.setValue("dateEnded", v ? v.toISOString() : "");
+            }}
+            scheduleStartDate={form.watch("dateStarted")}
+            disableBefore={form.watch("dateStarted") || undefined}
+            containerClassName=""
+            clearButton
+          />
+          <Text as="div" size="sm" color="text-mid" mt="1" mb="3">
+            Leave blank if still running.
+          </Text>
+          {form.watch("dateEnded") && (
+            <Field
+              size="legacy"
+              label="Reason for Stopping"
+              textarea
+              {...form.register("reason")}
+              placeholder="(optional)"
+            />
+          )}
+        </>
+      ) : null}
+
+      {!isDraft ? (
+        <Callout status="info" mt="4">
+          Trying to change targeting rules, traffic allocation, or start a new
+          phase? Use the{" "}
+          <a role="button" className="a" onClick={onMakeChanges}>
+            Make Changes
+          </a>{" "}
+          button instead.
+        </Callout>
+      ) : null}
+
+      {advancedOptionsOpen && (
+        <Field
+          size="legacy"
+          label="Seed"
+          type="input"
+          {...form.register("seed")}
+          helpText={
+            <>
+              <strong className="text-danger">Warning:</strong> Changing this
+              will re-randomize experiment traffic.
+            </>
+          }
+        />
+      )}
+      <span
+        className="ml-auto link-purple cursor-pointer"
+        onClick={(e) => {
+          e.preventDefault();
+          setAdvancedOptionsOpen(!advancedOptionsOpen);
+        }}
+      >
+        Advanced Options{" "}
+        {!advancedOptionsOpen ? <PiCaretDown /> : <PiCaretUp />}
+      </span>
     </ModalStandard>
   );
 }

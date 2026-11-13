@@ -1,7 +1,8 @@
-import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import { PiX } from "react-icons/pi";
 import { DOMMutation, VisualChange } from "shared/types/visual-changeset";
 import React, { FC, useCallback, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
+import FieldIndicator, { FieldIndicatorCorner } from "@/ui/FieldIndicator";
 import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
@@ -12,11 +13,11 @@ import Callout from "@/ui/Callout";
 const actionValues = ["append", "set", "remove"];
 
 const EditDOMMutationsModal: FC<{
-  experiment: ExperimentInterfaceStringDates;
+  owner: { status: string; noun: string };
   visualChange: VisualChange;
   close: () => void;
   onSave: (newVisualChange: VisualChange) => void;
-}> = ({ experiment, close, visualChange, onSave }) => {
+}> = ({ owner, close, visualChange, onSave }) => {
   const [newVisualChange, setNewVisualChange] =
     useState<VisualChange>(visualChange);
   const [useAdvanced, setUseAdvanced] = useState(false);
@@ -343,7 +344,7 @@ const EditDOMMutationsModal: FC<{
       size="lg"
       header="Edit Visual Changes"
       submit={onSubmit}
-      cta="Save"
+      cta="Apply"
       ctaEnabled={!newDOMMutationErrors.some((e) => e)}
       disabledMessage={
         newDOMMutationErrors.some((e) => e)
@@ -352,63 +353,61 @@ const EditDOMMutationsModal: FC<{
       }
     >
       <div>
-        {experiment.status === "running" && (
+        {owner.status === "running" && (
           <Callout status="warning">
-            <strong>Warning:</strong> This experiment is currently running. Any
-            changes made here may introduce unpredictable effects in your
-            experiment results.
+            <strong>Warning:</strong> This {owner.noun} is currently running.
+            Any changes made here may introduce unpredictable effects in your{" "}
+            {owner.noun} results.
           </Callout>
         )}
         <div className="mb-4">
-          <h4>
-            Global CSS
+          <h4>Global CSS</h4>
+          <div className="gb-field-indicator-host">
+            <Field
+              size="legacy"
+              textarea
+              minRows={5}
+              value={newVisualChange.css}
+              onChange={(e) => {
+                setNewVisualChange({
+                  ...newVisualChange,
+                  css: e.target.value,
+                });
+              }}
+            />
             {newVisualChange.css ? (
-              <small className="ml-2 float-right">
-                <a href="#" className="text-danger" onClick={deleteGlobalCSS}>
-                  clear
-                </a>
-              </small>
+              <FieldIndicatorCorner>
+                <FieldIndicator label="Clear" onClick={deleteGlobalCSS} reveal>
+                  <PiX />
+                </FieldIndicator>
+              </FieldIndicatorCorner>
             ) : null}
-          </h4>
-
-          <Field
-            size="legacy"
-            textarea
-            minRows={5}
-            value={newVisualChange.css}
-            onChange={(e) => {
-              setNewVisualChange({
-                ...newVisualChange,
-                css: e.target.value,
-              });
-            }}
-          />
+          </div>
         </div>
 
         <div className="mb-4">
-          <h4>
-            Custom JS
+          <h4>Custom JS</h4>
+          <div className="gb-field-indicator-host">
+            <Field
+              size="legacy"
+              textarea
+              minRows={5}
+              value={newVisualChange.js}
+              onChange={(e) => {
+                setNewVisualChange({
+                  ...newVisualChange,
+                  js: e.target.value,
+                });
+              }}
+            />
             {newVisualChange.js ? (
-              <small className="ml-2 float-right">
-                <a href="#" className="text-danger" onClick={deleteCustomJS}>
-                  clear
-                </a>
-              </small>
+              <FieldIndicatorCorner>
+                <FieldIndicator label="Clear" onClick={deleteCustomJS} reveal>
+                  <PiX />
+                </FieldIndicator>
+              </FieldIndicatorCorner>
             ) : null}
-          </h4>
-
-          <Field
-            size="legacy"
-            textarea
-            minRows={5}
-            value={newVisualChange.js}
-            onChange={(e) => {
-              setNewVisualChange({
-                ...newVisualChange,
-                js: e.target.value,
-              });
-            }}
-          />
+          </div>
         </div>
 
         <div className="mb-4">

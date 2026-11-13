@@ -5,6 +5,7 @@ import { SDKCapability } from "../types";
 import { createInlineStrategy } from "./strategy-inline";
 import { createReferencesV1Strategy } from "./strategy-references-v1";
 import { createReferencesV2Strategy } from "./strategy-references-v2";
+import { getRemoteGroupMode, withRemoteGroups } from "./remote";
 import { SavedGroupPayloadStrategy } from "./types";
 
 /**
@@ -135,20 +136,26 @@ export function getSavedGroupPayloadStrategy({
     canInline: !!organization,
   });
 
-  // Checking `organization` again is not needed, since `inline` only comes
-  // back when `canInline` was true. It is here so TypeScript can narrow the
-  // type without a cast.
-  if (format === "inline" && organization) {
-    return createInlineStrategy(groupMap, organization);
-  }
-  if (format === "referencesV2") {
-    return createReferencesV2Strategy(
-      groupMap,
-      capabilities ?? [],
-      organization,
-    );
-  }
-  return createReferencesV1Strategy(groupMap, organization);
+  return withRemoteGroups({
+    groupMap,
+    mode: getRemoteGroupMode(format, capabilities),
+    createStrategy: (groupMap) => {
+      // Checking `organization` again is not needed, since `inline` only comes
+      // back when `canInline` was true. It is here so TypeScript can narrow
+      // the type without a cast.
+      if (format === "inline" && organization) {
+        return createInlineStrategy(groupMap, organization);
+      }
+      if (format === "referencesV2") {
+        return createReferencesV2Strategy(
+          groupMap,
+          capabilities ?? [],
+          organization,
+        );
+      }
+      return createReferencesV1Strategy(groupMap, organization);
+    },
+  });
 }
 
 /**

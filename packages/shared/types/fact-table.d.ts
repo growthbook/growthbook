@@ -12,6 +12,7 @@ import {
   metricTypeValidator,
   factTableColumnTypeValidator,
   factTableTypeValidator,
+  factManagedByValidator,
   testFactFilterPropsValidator,
   testRowFiltersPropsValidator,
   testVirtualColumnPropsValidator,
@@ -28,6 +29,9 @@ import {
   aggregatedFactTableSettingsValidator,
   StandardFactMetric,
   FunnelFactMetric,
+  CompoundFactMetric,
+  compoundComponentValidator,
+  compoundSettingsValidator,
   conversionWindowValidator,
   funnelStepValidator,
   funnelOrderingValidator,
@@ -39,12 +43,15 @@ import { TestQueryRow } from "shared/types/integrations";
 
 export type FactTableColumnType = z.infer<typeof factTableColumnTypeValidator>;
 export type FactTableType = z.infer<typeof factTableTypeValidator>;
+export type FactManagedBy = z.infer<typeof factManagedByValidator>;
 
 // Funnel step / settings types (validators live in validators/fact-table).
 export type ConversionWindow = z.infer<typeof conversionWindowValidator>;
 export type FunnelStep = z.infer<typeof funnelStepValidator>;
 export type FunnelOrdering = z.infer<typeof funnelOrderingValidator>;
 export type FunnelSettings = z.infer<typeof funnelSettingsValidator>;
+export type CompoundComponent = z.infer<typeof compoundComponentValidator>;
+export type CompoundSettings = z.infer<typeof compoundSettingsValidator>;
 export type NumberFormat = z.infer<typeof numberFormatValidator>;
 
 export type JSONColumnFields = z.infer<typeof jsonColumnFieldsValidator>;
@@ -90,7 +97,7 @@ export interface FactFilterInterface {
 export interface FactTableInterface {
   organization: string;
   id: string;
-  managedBy?: "" | "api" | "admin";
+  managedBy?: FactManagedBy;
   dateCreated: Date | null;
   dateUpdated: Date | null;
   name: string;
@@ -175,10 +182,12 @@ export type MetricPriorSettings = z.infer<typeof priorSettingsValidator>;
 
 export type StandardFactMetricInterface = StandardFactMetric;
 export type FunnelFactMetricInterface = FunnelFactMetric;
+export type CompoundFactMetricInterface = CompoundFactMetric;
 
 export type FactMetricInterface =
   | StandardFactMetricInterface
-  | FunnelFactMetricInterface;
+  | FunnelFactMetricInterface
+  | CompoundFactMetricInterface;
 
 export type LegacyColumnRef = ColumnRef & {
   filters?: string[];
@@ -202,6 +211,8 @@ export type LegacyFactMetricInterface = Omit<
   hasConversionWindow?: boolean;
   conversionWindowValue?: number;
   conversionWindowUnit?: ConversionWindowUnit;
+  winRisk?: number;
+  loseRisk?: number;
 
   numerator: LegacyColumnRef;
   denominator: LegacyColumnRef | null;
@@ -234,11 +245,10 @@ export type CreateFactMetricProps = CreateProps<FactMetricInterface>;
 export type UpdateFactMetricProps = UpdateProps<FactMetricInterface>;
 
 /**
- * Columns detected by running a Fact Table's SQL, before anything is persisted.
- * Returned by the test-query endpoint so the create flow can show the columns
- * and their types, and post them back with the new Fact Table.
+ * Columns detected by running a SQL query (e.g. a Fact Table or Experiment
+ * Assignment Query), with their types. Returned by the test-query endpoint.
  */
-export type DetectedFactTableColumn = {
+export type DetectedColumn = {
   column: string;
   datatype: FactTableColumnType;
   jsonFields?: JSONColumnFields;
@@ -262,4 +272,6 @@ export type RowFilterTestResults = FactFilterTestResults & {
   // can see what their filters compile to. Only the dialect can build it, so it
   // comes back with the results rather than being derived on the front-end.
   where: string;
+  // The whole query, when the filters apply to SQL we generated
+  generatedSql?: string;
 };

@@ -14,6 +14,7 @@ import {
   buildSnapshotSettingsForCb,
   contextualBanditWeightsWereUpdated,
   getContextualBanditResultsForUi,
+  getContextualBanditStatusForUi,
   leafWeightsFromContextualBanditResult,
   persistContextualBanditEvent,
   runContextualBanditSnapshot,
@@ -118,6 +119,7 @@ function makeCb(
       },
     ],
     banditVersion: 0,
+    periodWeightingEligible: true,
     linkedFeatures: [],
     ...overrides,
   } as unknown as ContextualBanditInterface;
@@ -257,9 +259,130 @@ describe("buildContextualBanditSnapshotSettings", () => {
       schema("country", "device"),
     );
 
-    expect(buildSnapshotSettingsForCb(cbSettings).experimentId).toBe(
+    expect(buildSnapshotSettingsForCb(cbSettings, '"').experimentId).toBe(
       "first_contextual_bandit",
     );
+  });
+
+  it("defaults periodWeighting to disabled and honors an explicit true", () => {
+    expect(
+      buildContextualBanditSnapshotSettings(
+        makeCb(),
+        makeExposureQuery(),
+        schema("country", "device"),
+      ).periodWeighting,
+    ).toBe(false);
+
+    expect(
+      buildContextualBanditSnapshotSettings(
+        makeCb(),
+        makeExposureQuery(),
+        schema("country", "device"),
+        true,
+      ).periodWeighting,
+    ).toBe(true);
+  });
+
+  it("disables period weighting for bandits that predate the feature (no eligibility flag)", () => {
+    // A bandit already running before period weighting shipped has no
+    // `periodWeightingEligible` field, so it lacks historical period data and
+    // weighting stays off even with the org setting on and the column present.
+    const legacyCb = makeCb({ periodWeightingEligible: undefined });
+    const withVersion = makeExposureQuery({
+      query: "SELECT user_id, timestamp, bandit_version FROM cb_assignments",
+    });
+
+    expect(
+      buildContextualBanditSnapshotSettings(
+        legacyCb,
+        withVersion,
+        schema("country", "device"),
+        true,
+      ).periodWeighting,
+    ).toBe(false);
+
+    expect(
+      buildSnapshotSettingsForCb(
+        buildContextualBanditSnapshotSettings(
+          legacyCb,
+          withVersion,
+          schema("country", "device"),
+          true,
+        ),
+        '"',
+      ).banditSettings?.periodWeighting,
+    ).toBe(false);
+  });
+
+  it("enables SQL period weighting only when on and the query emits bandit_version", () => {
+    const withVersion = makeExposureQuery({
+      query: "SELECT user_id, timestamp, bandit_version FROM cb_assignments",
+    });
+    const withoutVersion = makeExposureQuery({
+      query: "SELECT user_id, timestamp FROM cb_assignments",
+    });
+
+    expect(
+      buildSnapshotSettingsForCb(
+        buildContextualBanditSnapshotSettings(
+          makeCb(),
+          withVersion,
+          schema("country", "device"),
+          true,
+        ),
+        '"',
+      ).banditSettings?.periodWeighting,
+    ).toBe(true);
+
+    expect(
+      buildSnapshotSettingsForCb(
+        buildContextualBanditSnapshotSettings(
+          makeCb(),
+          withoutVersion,
+          schema("country", "device"),
+          true,
+        ),
+        '"',
+      ).banditSettings?.periodWeighting,
+    ).toBe(false);
+
+    expect(
+      buildSnapshotSettingsForCb(
+        buildContextualBanditSnapshotSettings(
+          makeCb(),
+          withVersion,
+          schema("country", "device"),
+          false,
+        ),
+        '"',
+      ).banditSettings?.periodWeighting,
+    ).toBe(false);
+  });
+
+  // Regression: a BigQuery source quotes identifiers with backticks. The
+  // period-weighting check must use the source's quote style, otherwise a
+  // backtick-quoted `bandit_version` is misread as a string literal and
+  // weighting is silently disabled despite the column being present.
+  it("honors the data source quote style when detecting bandit_version", () => {
+    const backtickQuoted = makeExposureQuery({
+      query: "SELECT user_id, timestamp, `bandit_version` FROM cb_assignments",
+    });
+    const cbSettings = buildContextualBanditSnapshotSettings(
+      makeCb(),
+      backtickQuoted,
+      schema("country", "device"),
+      true,
+    );
+
+    expect(
+      buildSnapshotSettingsForCb(cbSettings, "`").banditSettings
+        ?.periodWeighting,
+    ).toBe(true);
+
+    expect(
+      buildSnapshotSettingsForCb(cbSettings, '"').banditSettings
+        ?.periodWeighting,
+    ).toBe(false);
   });
 
   it("intersects CB, query, and global attributes and preserves query order", () => {
@@ -1186,6 +1309,88 @@ describe("persistContextualBanditEvent — P3 stale-epoch guard", () => {
     expect(cbe).toEqual(expect.objectContaining({ id: "cbe_x" }));
     expect(applyWeightEpochUpdateMock).toHaveBeenCalledTimes(1);
     expect(warnMock).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("getContextualBanditStatusForUi", () => {
+  function makeStatusContext(
+    latestSnapshot: ContextualBanditSnapshotInterface | null,
+  ) {
+    const getLatestStatusForContextualBandit = jest
+      .fn()
+      .mockResolvedValue(latestSnapshot);
+    const getLatestForContextualBandit = jest.fn();
+    const getBySnapshotIdInOrg = jest.fn();
+    const getLatestEventForContextualBandit = jest.fn();
+    const context = {
+      models: {
+        contextualBanditSnapshots: {
+          getLatestStatusForContextualBandit,
+          getLatestForContextualBandit,
+          getBySnapshotIdInOrg,
+        },
+        contextualBanditEvents: {
+          getLatestForContextualBandit: getLatestEventForContextualBandit,
+        },
+      },
+    } as unknown as ReqContext;
+    return {
+      context,
+      getLatestStatusForContextualBandit,
+      getLatestForContextualBandit,
+      getBySnapshotIdInOrg,
+      getLatestEventForContextualBandit,
+    };
+  }
+
+  it("returns null when there is no snapshot yet", async () => {
+    const cb = makeCb();
+    const { context } = makeStatusContext(null);
+
+    expect(await getContextualBanditStatusForUi(context, cb)).toBeNull();
+  });
+
+  it("returns the mapped status summary for the latest snapshot", async () => {
+    const cb = makeCb();
+    const cbs = makeCbs({
+      id: "cbs_1",
+      // "partial" folds to "success" in the UI status summary.
+      status: "partial",
+      error: "",
+      queries: [
+        { name: "contextual-bandit-rows", query: "q_1", status: "succeeded" },
+      ],
+      runStarted: new Date("2025-01-03T00:00:00Z"),
+      multipleExposures: 7,
+      triggeredBy: "scheduled",
+    });
+    const { context } = makeStatusContext(cbs);
+
+    const summary = await getContextualBanditStatusForUi(context, cb);
+
+    expect(summary).toEqual(toContextualBanditSnapshotStatusSummary(cbs));
+    expect(summary?.status).toBe("success");
+  });
+
+  it("only reads the latest snapshot status, never events or full results", async () => {
+    const cb = makeCb();
+    const {
+      context,
+      getLatestStatusForContextualBandit,
+      getLatestForContextualBandit,
+      getBySnapshotIdInOrg,
+      getLatestEventForContextualBandit,
+    } = makeStatusContext(makeCbs({ id: "cbs_1", status: "running" }));
+
+    await getContextualBanditStatusForUi(context, cb);
+
+    expect(getLatestStatusForContextualBandit).toHaveBeenCalledTimes(1);
+    expect(getLatestStatusForContextualBandit).toHaveBeenCalledWith("cb_1");
+    // Status polling must stay cheap: use the projected status lookup, never
+    // the full-document latest read, an event read, or a heavy snapshot lookup.
+    expect(getLatestForContextualBandit).not.toHaveBeenCalled();
+    expect(getLatestEventForContextualBandit).not.toHaveBeenCalled();
+    expect(getBySnapshotIdInOrg).not.toHaveBeenCalled();
   });
 });
 

@@ -1,5 +1,6 @@
 import { evalCondition } from "../src/mongrule";
-import { paddedVersionString } from "../src/util";
+import { getApiHosts } from "../src/core";
+import { paddedVersionString, trimTrailingSlashes } from "../src/util";
 
 describe("paddedVersionString", () => {
   it("pads numeric parts and appends ~ to plain versions", () => {
@@ -69,5 +70,54 @@ describe("version comparison operators", () => {
     expect(
       evalCondition({ v: "1.2.3+z" }, { v: { $vgt: "1.2.3+a" } }, {}),
     ).toBe(false);
+  });
+});
+
+describe("trimTrailingSlashes", () => {
+  it("removes all trailing slashes and nothing else", () => {
+    expect(trimTrailingSlashes("https://cdn.example.com")).toBe(
+      "https://cdn.example.com",
+    );
+    expect(trimTrailingSlashes("https://cdn.example.com/")).toBe(
+      "https://cdn.example.com",
+    );
+    expect(trimTrailingSlashes("https://cdn.example.com/a//")).toBe(
+      "https://cdn.example.com/a",
+    );
+    expect(trimTrailingSlashes("///")).toBe("");
+    expect(trimTrailingSlashes("")).toBe("");
+  });
+
+  it("runs in linear time on long runs of slashes", () => {
+    const input = "/".repeat(200000) + "x";
+    const start = performance.now();
+    expect(trimTrailingSlashes(input)).toBe(input);
+    expect(performance.now() - start).toBeLessThan(500);
+  });
+});
+
+describe("getApiHosts", () => {
+  it("trims trailing slashes from the API and streaming hosts", () => {
+    expect(getApiHosts({ apiHost: "https://cdn.example.com//" })).toEqual(
+      expect.objectContaining({
+        apiHost: "https://cdn.example.com",
+        streamingHost: "https://cdn.example.com",
+      }),
+    );
+    expect(
+      getApiHosts({
+        apiHost: "https://cdn.example.com",
+        streamingHost: "https://sse.example.com/",
+      }),
+    ).toEqual(
+      expect.objectContaining({
+        apiHost: "https://cdn.example.com",
+        streamingHost: "https://sse.example.com",
+      }),
+    );
+  });
+
+  it("defaults to the GrowthBook CDN", () => {
+    expect(getApiHosts({}).apiHost).toBe("https://cdn.growthbook.io");
   });
 });

@@ -20,7 +20,8 @@
         "caseInsensitiveRegex",
         "caseInsensitiveMembership",
         "contextualBandits",
-        "savedGroupReferencesV2"
+        "savedGroupReferencesV2",
+        "contextualBanditsAuto"
       ]
     }
   ]

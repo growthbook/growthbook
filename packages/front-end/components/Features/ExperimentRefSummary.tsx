@@ -1,7 +1,9 @@
+import { ReactNode } from "react";
 import { ExperimentRefRule, FeatureInterface } from "shared/types/feature";
 import NextLink from "next/link";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import {
+  experimentHasLinkedChanges,
   getTempRolloutStaleReason,
   includeExperimentInPayload,
   calculateNamespaceCoverage,
@@ -13,23 +15,27 @@ import {
   getLatestPhaseVariations,
   hasTargetingConfigured,
 } from "shared/experiments";
-import { FaExclamationTriangle } from "react-icons/fa";
+import { PiWarningFill } from "react-icons/pi";
 import { Box, Flex } from "@radix-ui/themes";
 import Link from "@/ui/Link";
-import { getVariationColor } from "@/services/features";
 import ValidateValue from "@/components/Features/ValidateValue";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import Callout from "@/ui/Callout";
-import Badge from "@/ui/Badge";
 import HelperText from "@/ui/HelperText";
 import Text from "@/ui/Text";
-import Table, { TableBody, TableRow, TableCell } from "@/ui/Table";
-import ValueDisplay from "./ValueDisplay";
+import { coveragePercentFormatter } from "@/services/utils";
+import Tooltip from "@/ui/Tooltip";
+import ValueDisplay, { LISTED_VALUE_STYLE } from "./ValueDisplay";
 import ConfigBackedSummary from "./ConfigBackedSummary";
+import { ValueDiffProvider } from "./ValueDiffContext";
 import ExperimentSplitVisual from "./ExperimentSplitVisual";
 import ConditionDisplay from "./ConditionDisplay";
 import { AttributeBadge } from "./AttributeBadge";
+import { EntityBadge, PlainEntityBadge } from "./EntityBadge";
 import ForceSummary from "./ForceSummary";
+import RolloutRow from "./RolloutRow";
+import RuleField from "./RuleField";
+import RuleVariationsTable from "./RuleVariationsTable";
 
 const percentFormatter = new Intl.NumberFormat(undefined, {
   style: "percent",
@@ -38,14 +44,63 @@ const percentFormatter = new Intl.NumberFormat(undefined, {
 
 export function isExperimentRefRuleSkipped(
   experiment: ExperimentInterfaceStringDates,
-  isDraft: boolean,
 ) {
-  if (experiment.status === "draft" && !experiment.archived) {
-    // Draft experiments are published alongside feature drafts,
-    // so don't need to mark this as skipped if we're viewing a feature draft
-    return !isDraft;
-  }
+  // A draft's rule is left out of SDK payloads until it starts, unless a
+  // connection includes draft experiment rules.
+  if (experiment.status === "draft" && !experiment.archived) return true;
   return !includeExperimentInPayload(experiment);
+}
+
+// Why an experiment rule serves nothing, or null while it serves.
+export function experimentRefSkipReason(
+  experiment: ExperimentInterfaceStringDates | undefined,
+): ReactNode {
+  if (!experiment) return "The experiment could not be found.";
+  const isBandit = experiment.type === "multi-armed-bandit";
+  const noun = isBandit ? "Bandit" : "experiment";
+  const href = `/${isBandit ? "bandit" : "experiment"}/${experiment.id}`;
+  const view = <Link href={href}>View {noun}</Link>;
+  if (experiment.archived) {
+    return (
+      <>
+        This {noun} is archived. {view}
+      </>
+    );
+  }
+  if (!experimentHasLinkedChanges(experiment)) {
+    return (
+      <>
+        This {noun} has no linked changes. {view}
+      </>
+    );
+  }
+  if (!experiment.phases.length) {
+    return (
+      <>
+        This {noun} is not running. {view}
+      </>
+    );
+  }
+  if (
+    experiment.status === "stopped" &&
+    (experiment.excludeFromPayload || !experiment.releasedVariationId)
+  ) {
+    return (
+      <>
+        This {noun} is stopped without a temporary rollout.{" "}
+        <Link href={`${href}#results`}>View results</Link>
+      </>
+    );
+  }
+  if (experiment.status === "draft") {
+    return (
+      <>
+        This {noun} does not serve while in draft unless the SDK connection opts
+        in.
+      </>
+    );
+  }
+  return null;
 }
 
 export function TempRolloutCallout({
@@ -64,7 +119,7 @@ export function TempRolloutCallout({
     experiment.phases?.[experiment.phases.length - 1]?.dateEnded;
   const isOld = getTempRolloutStaleReason(experiment) === "old-temp-rollout";
   return (
-    <Callout status={isOld ? "warning" : "info"} size="sm" mt="3">
+    <Callout status={isOld ? "warning" : "info"} size="sm" mb="3">
       Temporary rollout from {isBandit ? "a Bandit" : "an experiment"} that
       stopped {lastPhaseEnded ? ago(lastPhaseEnded) : "earlier"}.{" "}
       {isOld
@@ -78,13 +133,11 @@ export default function ExperimentRefSummary({
   rule,
   experiment,
   feature,
-  isDraft,
   environment,
 }: {
   feature: FeatureInterface;
   experiment?: ExperimentInterfaceStringDates;
   rule: ExperimentRefRule;
-  isDraft: boolean;
   // Environment this rule is shown for, so config-backed arm values preview
   // their matching env flavor. Absent (all-environments view) = base value.
   environment?: string;
@@ -96,34 +149,10 @@ export default function ExperimentRefSummary({
 
   const isBandit = experiment?.type === "multi-armed-bandit";
 
-  if (!experiment) {
-    return <Callout status="error">The experiment could not be found.</Callout>;
-  }
-
-  if (experiment.archived) {
-    return (
-      <Callout status="info">
-        This {isBandit ? "Bandit" : "experiment"} is archived and will be
-        skipped.{" "}
-        <Link href={`/experiment/${experiment.id}`}>
-          View {isBandit ? "Bandit" : "experiment"}
-        </Link>
-      </Callout>
-    );
-  }
-
+  // The card's ribbon says why these serve nothing.
+  if (!experiment || experiment.archived) return null;
   const phase = experiment.phases[experiment.phases.length - 1];
-  if (!phase) {
-    return (
-      <Callout status="info">
-        This {isBandit ? "Bandit" : "experiment"} is not running and this rule
-        will be skipped.{" "}
-        <Link href={`/experiment/${experiment.id}`}>
-          View {isBandit ? "Bandit" : "experiment"}
-        </Link>
-      </Callout>
-    );
-  }
+  if (!phase) return null;
 
   const releasedValue =
     experiment.status === "stopped" && !experiment.excludeFromPayload
@@ -133,10 +162,14 @@ export default function ExperimentRefSummary({
       : null;
 
   if (experiment.status === "stopped" && !releasedValue) {
+    // The ribbon covers a stop without a rollout; this rule just predates the
+    // variation that was released.
+    if (experiment.excludeFromPayload || !experiment.releasedVariationId) {
+      return null;
+    }
     return (
-      <Callout status="info">
-        This {isBandit ? "Bandit" : "experiment"} is stopped and does not have a{" "}
-        temporary rollout enabled. This rule will be skipped.{" "}
+      <Callout status="warning">
+        This rule has no value for the released variation.{" "}
         <Link href={`/experiment/${experiment.id}#results`}>View results</Link>
       </Callout>
     );
@@ -154,89 +187,64 @@ export default function ExperimentRefSummary({
 
   return (
     <Box>
-      {experiment.status === "draft" && !isDraft && (
-        <Callout status="warning" mb="3">
-          This {isBandit ? "Bandit" : "experiment"} is in a{" "}
-          <strong>draft</strong> state and has not been started yet. This rule
-          will be skipped.
-        </Callout>
-      )}
       {hasCondition && (
-        <Flex direction="row" gap="2" mb="3">
-          <Text weight="medium">IF</Text>
-          <Box>
-            <ConditionDisplay
-              condition={phase.condition}
-              savedGroups={phase.savedGroups}
-              prerequisites={phase.prerequisites}
-            />
-          </Box>
-        </Flex>
+        <RuleField label="Targeting">
+          <ConditionDisplay
+            condition={phase.condition}
+            savedGroups={phase.savedGroups}
+            prerequisites={phase.prerequisites}
+          />
+        </RuleField>
       )}
 
-      <Flex direction="row" gap="2" mb="3">
-        <Text weight="medium">SPLIT</Text>
-        by
-        <AttributeBadge attributeId={experiment.hashAttribute || "id"} />
+      <RuleField label="Split by">
+        <Flex align="center" gap="2" wrap="wrap">
+          <AttributeBadge attributeId={experiment.hashAttribute || "id"} />
+          {hasNamespace && (
+            <>
+              in the namespace
+              <NextLink href={`/namespaces`}>
+                <EntityBadge
+                  label={
+                    <Text color="text-high">
+                      {namespaces?.find((n) => n.name === phase.namespace!.name)
+                        ?.label || (
+                        <Tooltip content="This namespace was not found">
+                          <span
+                            tabIndex={0}
+                            style={{
+                              color: "var(--red-11)",
+                              fontStyle: "italic",
+                            }}
+                          >
+                            <PiWarningFill /> {phase.namespace!.name}
+                          </span>
+                        </Tooltip>
+                      )}
+                    </Text>
+                  }
+                />
+              </NextLink>
+            </>
+          )}
+        </Flex>
+      </RuleField>
+      <RolloutRow coverage={effectiveCoverage}>
         {hasNamespace && (
           <>
-            in the namespace
-            <NextLink href={`/namespaces`}>
-              <Badge
-                color="gray"
-                label={
-                  <Text color="text-high">
-                    {namespaces?.find((n) => n.name === phase.namespace!.name)
-                      ?.label || (
-                      <span
-                        className="italic text-danger"
-                        title="this namespace is not found"
-                      >
-                        <FaExclamationTriangle /> {phase.namespace!.name}
-                      </span>
-                    )}
-                  </Text>
-                }
-              />
-            </NextLink>
-          </>
-        )}
-      </Flex>
-      <Flex direction="row" gap="2" mb="3">
-        <Text weight="medium">INCLUDE</Text>
-        <Badge
-          color="gray"
-          label={
-            <Text color="text-high">
-              {percentFormatter.format(effectiveCoverage)}
-            </Text>
-          }
-        />
-        of units in the {isBandit ? "Bandit" : "experiment"}
-        {hasNamespace && (
-          <>
+            {" "}
             (
-            <Badge
-              color="gray"
-              label={
-                <Text color="text-high">
-                  {percentFormatter.format(namespaceRange)}
-                </Text>
-              }
-            />
-            of the namespace and
-            <Badge
-              color="gray"
-              label={
-                <Text color="text-high">
-                  {percentFormatter.format(phase?.coverage ?? 1)}
-                </Text>
-              }
-            />
+            <PlainEntityBadge
+              label={percentFormatter.format(namespaceRange)}
+            />{" "}
+            of the namespace and{" "}
+            <PlainEntityBadge
+              label={coveragePercentFormatter.format(phase?.coverage ?? 1)}
+            />{" "}
             exposure)
           </>
         )}
-      </Flex>
+      </RolloutRow>
       {releasedValue ? (
         <ForceSummary
           feature={feature}
@@ -246,162 +254,127 @@ export default function ExperimentRefSummary({
         />
       ) : (
         <>
-          <Flex gap="2">
-            <Text weight="medium">SERVE</Text>
+          <RuleField label="Serve" align="start">
+            <Box>
+              <ValueDiffProvider>
+                <RuleVariationsTable
+                  rows={getLatestPhaseVariations(experiment).map(
+                    (variation, j) => {
+                      const variationEntry = variations.find(
+                        (v) => v.variationId === variation.id,
+                      );
+                      return {
+                        key: variation.id,
+                        name: variation.name,
+                        // A Bandit sets its own split.
+                        weight: isBandit
+                          ? undefined
+                          : phase.variationWeights?.[j] || 0,
+                        value:
+                          variationEntry === undefined ? (
+                            <HelperText status="warning">
+                              Define missing values
+                            </HelperText>
+                          ) : (
+                            <ExperimentRefVariationValue
+                              value={variationEntry.value}
+                              feature={feature}
+                              sparse={rule.sparse}
+                              environment={environment}
+                            />
+                          ),
+                      };
+                    },
+                  )}
+                />
+              </ValueDiffProvider>
+            </Box>
+            {/* A Bandit sets its own split. */}
+            {!isBandit && (
+              <Box mt="3">
+                <ExperimentSplitVisual
+                  values={getLatestPhaseVariations(experiment).map(
+                    (variation, j) => {
+                      return {
+                        name: variation.name,
+                        value:
+                          variations.find((v) => v.variationId === variation.id)
+                            ?.value ?? "",
+                        weight: phase.variationWeights?.[j] || 0,
+                      };
+                    },
+                  )}
+                  coverage={effectiveCoverage}
+                  condensed
+                  label="Traffic split"
+                  unallocated="Not included (skips this rule)"
+                  type={type}
+                  showValues={false}
+                  stackLeft={true}
+                  showPercentages={true}
+                />
+              </Box>
+            )}
+
             {useStickyBucketing ? (
-              <Text>
-                (Sticky Bucketing{" "}
-                {experiment.disableStickyBucketing ? "disabled" : "enabled"})
+              <Text as="div" mt="2">
+                Sticky Bucketing{" "}
+                {experiment.disableStickyBucketing ? "disabled" : "enabled"}
               </Text>
             ) : null}
-          </Flex>
+          </RuleField>
 
-          <Box
-            mt="3"
-            px="3"
-            style={{
-              border: "1px solid var(--gray-a5)",
-              borderRadius: "var(--radius-2)",
-            }}
-          >
-            <Table>
-              <TableBody>
-                {getLatestPhaseVariations(experiment).map((variation, j) => {
-                  const variationEntry = variations.find(
-                    (v) => v.variationId === variation.id,
-                  );
-                  const isMissing = variationEntry === undefined;
-                  const value = variationEntry?.value ?? "";
-
-                  const weight = phase.variationWeights?.[j] || 0;
-
-                  return (
-                    <TableRow
-                      key={j}
-                      style={{ color: "var(--color-text-high)" }}
-                    >
-                      <TableCell style={{ whiteSpace: "nowrap" }}>
-                        <Flex align="center" gap="2">
-                          <span
-                            style={{
-                              color: getVariationColor(j, true),
-                              borderColor: getVariationColor(j, true),
-                              fontSize: "14px",
-                              width: 20,
-                              height: 20,
-                              borderRadius: 20,
-                              borderWidth: 1,
-                              borderStyle: "solid",
-                              display: "inline-flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                              flexShrink: 0,
-                            }}
-                          >
-                            {j}
-                          </span>
-                          <Text weight="medium" whiteSpace="nowrap">
-                            {variation.name}
-                          </Text>
-                        </Flex>
-                      </TableCell>
-                      <TableCell width="100%">
-                        {isMissing ? (
-                          <HelperText status="warning">
-                            Define missing values
-                          </HelperText>
-                        ) : (
-                          (() => {
-                            // Config-backed arms render "SERVE ConfigName with
-                            // overrides" like force rules — never the raw
-                            // `@config:` directive. Only a config-backed
-                            // feature resolves configs.
-                            const baseConfigKey =
-                              getFeatureBaseConfigKey(feature);
-                            const configKey =
-                              baseConfigKey !== null
-                                ? (getConfigBackingKey(value) ?? baseConfigKey)
-                                : null;
-                            if (configKey !== null) {
-                              return (
-                                <ConfigBackedSummary
-                                  value={value}
-                                  configKey={configKey}
-                                  feature={feature}
-                                  sparse={rule.sparse}
-                                  environment={environment}
-                                />
-                              );
-                            }
-                            return (
-                              <>
-                                <ValueDisplay
-                                  value={value}
-                                  type={type}
-                                  showFullscreenButton={true}
-                                  sparse={rule.sparse}
-                                  defaultValue={feature.defaultValue}
-                                />
-                                <ValidateValue
-                                  value={value}
-                                  feature={feature}
-                                />
-                              </>
-                            );
-                          })()
-                        )}
-                      </TableCell>
-                      {!isBandit && (
-                        <TableCell
-                          style={{
-                            color: "var(--color-text-mid)",
-                            textAlign: "right",
-                          }}
-                        >
-                          {percentFormatter.format(weight)}
-                        </TableCell>
-                      )}
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-          </Box>
-          <Box mt="3">
-            {!isBandit && (
-              <ExperimentSplitVisual
-                values={getLatestPhaseVariations(experiment).map(
-                  (variation, j) => {
-                    return {
-                      name: variation.name,
-                      value:
-                        variations.find((v) => v.variationId === variation.id)
-                          ?.value ?? "",
-                      weight: phase.variationWeights?.[j] || 0,
-                    };
-                  },
-                )}
-                coverage={effectiveCoverage}
-                label="Traffic split"
-                unallocated="Not included (skips this rule)"
-                type={type}
-                showValues={false}
-                stackLeft={true}
-                showPercentages={true}
-              />
-            )}
-          </Box>
-
-          <Flex direction="row" gap="2" mb="3">
-            <Text weight="medium">TRACK</Text>
-            the result using the key
-            <Badge
-              color="gray"
-              label={<Text color="text-high">{experiment.trackingKey}</Text>}
-            />
-          </Flex>
+          <RuleField label="Tracking key" mb="0">
+            <PlainEntityBadge label={experiment.trackingKey} />
+          </RuleField>
         </>
       )}
     </Box>
+  );
+}
+
+// An arm's value. Config-backed arms show the config's name, never the raw
+// `@config:` directive; only a config-backed feature resolves configs.
+function ExperimentRefVariationValue({
+  value,
+  feature,
+  sparse,
+  environment,
+}: {
+  value: string;
+  feature: FeatureInterface;
+  sparse?: boolean;
+  environment?: string;
+}) {
+  const baseConfigKey = getFeatureBaseConfigKey(feature);
+  const configKey =
+    baseConfigKey !== null
+      ? (getConfigBackingKey(value) ?? baseConfigKey)
+      : null;
+  if (configKey !== null) {
+    return (
+      <ConfigBackedSummary
+        label={null}
+        value={value}
+        configKey={configKey}
+        feature={feature}
+        sparse={sparse}
+        environment={environment}
+      />
+    );
+  }
+  return (
+    <>
+      <ValueDisplay
+        value={value}
+        type={feature.valueType}
+        fullStyle={LISTED_VALUE_STYLE}
+        showFullscreenButton={true}
+        sparse={sparse}
+        defaultValue={feature.defaultValue}
+        actionsOverlay={{ inline: true }}
+      />
+      <ValidateValue value={value} feature={feature} />
+    </>
   );
 }

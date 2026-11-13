@@ -1,5 +1,8 @@
 import {
+  canBypassStartApproval,
   canCommentOnRevisionEntity,
+  canDiscardFeatureDraftControl,
+  canOfferEnvironmentToggle,
   canDeleteArchivedEntity,
   canLandArchiveToggle,
   canEnableEnvironmentOnCreate,
@@ -366,6 +369,31 @@ describe("holdsFeatureMoveDestination", () => {
   });
 });
 
+describe("canBypassStartApproval", () => {
+  // Bypass authority in project "a" only.
+  const util = {
+    canBypassFlagApprovalChecks: (obj: { project?: string }) =>
+      obj.project === "a",
+  } as Parameters<typeof canBypassStartApproval>[0];
+
+  it.each([
+    { experiment: "a", flag: "a", expected: true },
+    { experiment: "a", flag: "b", expected: false },
+    { experiment: "b", flag: "a", expected: false },
+  ])(
+    "an experiment in $experiment starting a flag in $flag: $expected",
+    ({ experiment, flag, expected }) => {
+      expect(
+        canBypassStartApproval(
+          util,
+          { project: experiment },
+          { project: flag },
+        ),
+      ).toBe(expected);
+    },
+  );
+});
+
 describe("canEnableEnvironmentOnCreate", () => {
   const util = (create: string[], publish: string[]) =>
     ({
@@ -415,5 +443,82 @@ describe("canReviewRevisionEntity", () => {
     ).toBe(true);
     // The live entity's project must not rescue (or block) the verdict.
     expect(canReviewRevisionEntity(util, "config", null, liveInB)).toBe(false);
+  });
+});
+
+describe("canOfferEnvironmentToggle", () => {
+  const util = (draft: boolean, publish: string[]) => ({
+    canEditFeatureDrafts: () => draft,
+    canPublishFeature: (_f: { project?: string }, envs: string[]) =>
+      envs.every((e) => publish.includes(e)),
+  });
+
+  it("offers every switch to someone who drafts", () => {
+    expect(canOfferEnvironmentToggle(util(true, []), {}, "prod")).toBe(true);
+  });
+
+  it("otherwise offers only the environments they publish", () => {
+    const u = util(false, ["dev"]);
+    expect(canOfferEnvironmentToggle(u, {}, "dev")).toBe(true);
+    expect(canOfferEnvironmentToggle(u, {}, "prod")).toBe(false);
+  });
+});
+
+describe("canDiscardFeatureDraftControl", () => {
+  const noDraft = { canEditFeatureDrafts: () => false };
+  const member = (id: string) => ({
+    type: "dashboard" as const,
+    id,
+    name: "",
+    email: "",
+  });
+
+  it("lets draft authority discard anyone's draft", () => {
+    expect(
+      canDiscardFeatureDraftControl({
+        permissions: { canEditFeatureDrafts: () => true },
+        feature: {},
+        draft: { createdBy: member("u_other") },
+        userId: "u_me",
+      }),
+    ).toBe(true);
+  });
+
+  it("lets an author or contributor discard without it", () => {
+    expect(
+      canDiscardFeatureDraftControl({
+        permissions: noDraft,
+        feature: {},
+        draft: { createdBy: member("u_me") },
+        userId: "u_me",
+      }),
+    ).toBe(true);
+    expect(
+      canDiscardFeatureDraftControl({
+        permissions: noDraft,
+        feature: {},
+        draft: { createdBy: member("u_other"), contributors: ["u_me"] },
+        userId: "u_me",
+      }),
+    ).toBe(true);
+  });
+
+  it("refuses someone else's draft, and anyone unidentified", () => {
+    expect(
+      canDiscardFeatureDraftControl({
+        permissions: noDraft,
+        feature: {},
+        draft: { createdBy: member("u_other") },
+        userId: "u_me",
+      }),
+    ).toBe(false);
+    expect(
+      canDiscardFeatureDraftControl({
+        permissions: noDraft,
+        feature: {},
+        draft: { createdBy: member("u_other") },
+        userId: null,
+      }),
+    ).toBe(false);
   });
 });

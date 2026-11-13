@@ -161,7 +161,7 @@ const ApiKeyExpirationField: FC<{
             <SelectField
               label="Expires"
               legacyLabelFormatting={false}
-              size="small"
+              size="md"
               maxMenuHeight={360}
               sort={false}
               isSearchable={false}

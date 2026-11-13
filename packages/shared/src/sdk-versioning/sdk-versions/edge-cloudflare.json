@@ -1,6 +1,15 @@
 {
   "versions": [
     {
+      "version": "0.3.0",
+      "capabilities": [
+        "contextualBandits",
+        "savedGroupReferencesV2",
+        "interleaving",
+        "contextualBanditsAuto"
+      ]
+    },
+    {
       "version": "0.2.9"
     },
     {

@@ -1,10 +1,13 @@
-import type { PopulationStep } from "shared/validators";
-import type { FactTableDefinition } from "shared/types/fact-table";
+import type {
+  ApiPopulation,
+  ExplorationConfig,
+  PopulationExplorationConfig,
+  PopulationStep,
+  ProductAnalyticsExploration,
+} from "shared/validators";
+import type { FactTableDefinition, RowFilter } from "shared/types/fact-table";
 import { getRowFilterDescription } from "@/components/FactTables/rowFilterUtils";
-
-function pluralize(n: number, unit: string): string {
-  return `${n} ${n === 1 ? unit.replace(/s$/, "") : unit}`;
-}
+import { getDailyBuckets } from "@/components/QueryPreview/activityChart";
 
 export type PopulationStepDescriptionSegment =
   | string
@@ -19,9 +22,7 @@ function getColumnDisplayName(
   );
 }
 
-// A one-line summary such as "Has Events matching country = US in the last
-// 1 week", as text and link segments so callers can render both text and links.
-// TODO: Describe conversion windows once Populations support multiple steps.
+// Returns text and link segments, e.g. "Has Events matching country = US".
 export function describePopulationStep({
   step,
   identifierTypes,
@@ -49,14 +50,9 @@ export function describePopulationStep({
     filtersDescriptions.push(aggregateFilterDescription);
   }
 
-  let conditionsDescriptions = filtersDescriptions.length
+  const conditionsDescriptions = filtersDescriptions.length
     ? ` matching ${filtersDescriptions.join(" and ")}`
     : "";
-
-  const { type, windowValue, windowUnit } = step.windowSettings;
-  if (type === "lookback") {
-    conditionsDescriptions += ` in the last ${pluralize(windowValue, windowUnit)}`;
-  }
 
   const { factTableId } = step.source;
   const factTableSegment: PopulationStepDescriptionSegment = factTable
@@ -69,4 +65,96 @@ export function describePopulationStep({
   return ["Has ", factTableSegment, conditionsDescriptions].filter(
     (segment) => segment !== "",
   );
+}
+
+// The preview query for a Population
+export function getPopulationPreviewConfig(
+  population: Pick<ApiPopulation, "datasource" | "steps">,
+  unit: string,
+  dateRange: ExplorationConfig["dateRange"],
+): PopulationExplorationConfig {
+  return {
+    type: "population",
+    datasource: population.datasource,
+    chartType: "bar",
+    dateRange,
+    dimensions: [
+      { dimensionType: "date", column: "date", dateGranularity: "day" },
+    ],
+    dataset: {
+      type: "population",
+      values: population.steps.map((step) => ({
+        type: "population",
+        name: "Members",
+        unit,
+        source: step.source,
+        rowFilters: step.rowFilters,
+        aggregateFilter: step.aggregateFilter,
+        aggregateFilterColumn: step.aggregateFilterColumn,
+      })),
+    },
+  };
+}
+
+export function getPopulationMemberCounts(
+  exploration: Pick<
+    ProductAnalyticsExploration,
+    "dateStart" | "dateEnd" | "result"
+  >,
+) {
+  const byDay = new Map(
+    (exploration.result?.rows ?? []).map((row) => [
+      row.dimensions[0]?.slice(0, 10),
+      row.values?.[0]?.numerator ?? 0,
+    ]),
+  );
+  const dailyValues = getDailyBuckets(exploration).map((day) => ({
+    day,
+    value: byDay.get(day) ?? 0,
+  }));
+  return {
+    dailyValues,
+    total: dailyValues.reduce((sum, { value }) => sum + value, 0),
+  };
+}
+
+export type PopulationFormValues = {
+  name: string;
+  description: string;
+  datasource: string;
+  userIdTypes: string[];
+  factTableId: string;
+  rowFilters: RowFilter[];
+  aggregateFilterColumn: string;
+  aggregateFilter: string;
+};
+
+// The MVP edits a single step, so the form flattens it into top-level fields.
+export function toFormValues(
+  existing: ApiPopulation | null,
+  defaultDatasource: string,
+): PopulationFormValues {
+  const step = existing?.steps[0];
+  return {
+    name: existing?.name ?? "",
+    description: existing?.description ?? "",
+    datasource: existing?.datasource ?? defaultDatasource,
+    userIdTypes: existing?.userIdTypes ?? [],
+    factTableId: step?.source.factTableId ?? "",
+    rowFilters: step?.rowFilters ?? [],
+    aggregateFilterColumn: step?.aggregateFilterColumn ?? "",
+    aggregateFilter: step?.aggregateFilter ?? "",
+  };
+}
+
+export function toStep(values: PopulationFormValues): PopulationStep {
+  const hasThreshold = values.aggregateFilter.trim() !== "";
+  return {
+    source: { type: "factTable", factTableId: values.factTableId },
+    rowFilters: values.rowFilters,
+    ...(hasThreshold && {
+      aggregateFilter: values.aggregateFilter.trim(),
+      aggregateFilterColumn: values.aggregateFilterColumn || "$$count",
+    }),
+  };
 }

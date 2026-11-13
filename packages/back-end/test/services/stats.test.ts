@@ -1,13 +1,19 @@
 import type {
   ExperimentSnapshotAnalysisSettings,
+  ExperimentSnapshotSettings,
   SnapshotSettingsVariation,
 } from "shared/types/experiment-snapshot";
 import type { ExperimentMetricAnalysis } from "shared/types/stats";
 import type { ExperimentReportVariation } from "shared/types/report";
+import type { QueryInterface } from "shared/types/query";
+import type { QueryMap } from "back-end/src/queryRunners/QueryRunner";
+import { getUnitDimQueryName } from "back-end/src/queryRunners/unitDimensionQueryNaming";
 import {
+  analyzeExperimentClusterHealth,
   analyzeExperimentTraffic,
   getAnalysisSettingsForStatsEngine,
   parseStatsEngineResult,
+  selectAnalysisQueryData,
 } from "back-end/src/services/stats";
 
 const analysisSettings: ExperimentSnapshotAnalysisSettings = {
@@ -70,6 +76,64 @@ const failedResult: ExperimentMetricAnalysis[number] = {
 };
 
 describe("parseStatsEngineResult", () => {
+  it("attaches compound component unit counts to the overall result only", () => {
+    const queryResults = [
+      {
+        metrics: ["survivor"],
+        rows: [
+          // Precomputed dimension slices are summed per variation.
+          {
+            variation: "control",
+            m0_id: "survivor",
+            m0_c0_units: 4,
+            m0_c1_units: 2,
+          },
+          {
+            variation: "control",
+            m0_id: "survivor",
+            m0_c0_units: 1,
+            m0_c1_units: 1,
+          },
+          {
+            variation: "treatment",
+            m0_id: "survivor",
+            m0_c0_units: 6,
+            m0_c1_units: 5,
+          },
+          {
+            variation: "__multiple__",
+            m0_id: "survivor",
+            m0_c0_units: 9,
+            m0_c1_units: 9,
+          },
+        ],
+      },
+    ];
+    const [overall, byDimension] = parseStatsEngineResult({
+      analysisSettings: [
+        analysisSettings,
+        { ...analysisSettings, dimensions: ["dim_exp_country"] },
+      ],
+      snapshotSettings: { variations },
+      queryResults,
+      unknownVariations: [],
+      result: [
+        {
+          ...survivorResult,
+          analyses: [survivorResult.analyses[0], survivorResult.analyses[0]],
+        },
+      ],
+    });
+
+    const units = (r: typeof overall) =>
+      r.dimensions[0].variations.map((v) => v.metrics.survivor.componentUnits);
+    expect(units(overall)).toEqual([
+      [5, 3],
+      [6, 5],
+    ]);
+    expect(units(byDimension)).toEqual([undefined, undefined]);
+  });
+
   it("attaches a failed metric to every surviving variation", () => {
     const [result] = parseStatsEngineResult({
       analysisSettings: [analysisSettings],
@@ -321,6 +385,124 @@ describe("analyzeExperimentTraffic", () => {
   });
 });
 
+describe("analyzeExperimentClusterHealth", () => {
+  const reliability = (
+    cluster_id: string,
+    variation: string,
+    units: number,
+    pct: number,
+  ) => ({
+    kind: "reliability" as const,
+    cluster_id,
+    variation,
+    metric_a: units,
+    metric_b: pct,
+  });
+  const assignment = (total: number, mixed: number) => ({
+    kind: "assignment" as const,
+    cluster_id: "",
+    variation: "",
+    metric_a: total,
+    metric_b: mixed,
+  });
+  const mapping = (total: number, multi: number) => ({
+    kind: "mapping" as const,
+    cluster_id: "",
+    variation: "",
+    metric_a: total,
+    metric_b: multi,
+  });
+  const exposures = (totalSubUnits: number, multiExposed: number) => ({
+    kind: "exposures" as const,
+    cluster_id: "",
+    variation: "",
+    metric_a: totalSubUnits,
+    metric_b: multiExposed,
+  });
+
+  it("splits reliability/assignment/mapping/exposures rows into the four results", () => {
+    const result = analyzeExperimentClusterHealth({
+      variations,
+      rows: [
+        reliability("region_a", "treatment", 500, 0.5),
+        reliability("region_b", "control", 300, 0.3),
+        reliability("region_c", "control", 200, 0.2),
+        assignment(100, 3),
+        mapping(1000, 7),
+        exposures(1000, 12),
+      ],
+    });
+
+    expect(result.clusterUnits.error).toBeUndefined();
+    expect(result.clusterUnits.clusters).toEqual([
+      { id: "region_a", variation: 1, units: 500, pct: 0.5 },
+      { id: "region_b", variation: 0, units: 300, pct: 0.3 },
+      { id: "region_c", variation: 0, units: 200, pct: 0.2 },
+    ]);
+    expect(result.clusterAssignment).toEqual({
+      totalClusters: 100,
+      mixedClusters: 3,
+    });
+    expect(result.clusterSubUnitMapping).toEqual({
+      totalUnits: 1000,
+      multiClusterUnits: 7,
+    });
+    expect(result.subUnitMultipleExposures).toEqual({
+      totalSubUnits: 1000,
+      multipleExposedSubUnits: 12,
+    });
+  });
+
+  it("uses -1 for unknown reliability variations", () => {
+    const result = analyzeExperimentClusterHealth({
+      variations,
+      rows: [reliability("region_a", "__unknown__", 10, 1)],
+    });
+    expect(result.clusterUnits.clusters[0].variation).toBe(-1);
+  });
+
+  it("defaults to zero when summary rows are absent", () => {
+    const result = analyzeExperimentClusterHealth({ variations, rows: [] });
+    expect(result.clusterUnits.clusters).toEqual([]);
+    expect(result.clusterAssignment).toEqual({
+      totalClusters: 0,
+      mixedClusters: 0,
+    });
+    expect(result.clusterSubUnitMapping).toEqual({
+      totalUnits: 0,
+      multiClusterUnits: 0,
+    });
+    expect(result.subUnitMultipleExposures).toEqual({
+      totalSubUnits: 0,
+      multipleExposedSubUnits: 0,
+    });
+  });
+
+  it("returns empty/zeroed results and the error when the query failed", () => {
+    const result = analyzeExperimentClusterHealth({
+      variations,
+      rows: [],
+      error: "boom",
+    });
+    expect(result.clusterUnits).toEqual({ clusters: [], error: "boom" });
+    expect(result.clusterAssignment).toEqual({
+      totalClusters: 0,
+      mixedClusters: 0,
+      error: "boom",
+    });
+    expect(result.clusterSubUnitMapping).toEqual({
+      totalUnits: 0,
+      multiClusterUnits: 0,
+      error: "boom",
+    });
+    expect(result.subUnitMultipleExposures).toEqual({
+      totalSubUnits: 0,
+      multipleExposedSubUnits: 0,
+      error: "boom",
+    });
+  });
+});
+
 describe("getAnalysisSettingsForStatsEngine", () => {
   const reportVariations: ExperimentReportVariation[] = [
     { id: "control", name: "Control", weight: 0.5, index: 0 },
@@ -350,5 +532,125 @@ describe("getAnalysisSettingsForStatsEngine", () => {
     expect(alphaFor({ statsEngine: "bayesian", pValueThreshold: 0.001 })).toBe(
       0.05,
     );
+  });
+
+  const postStratFor = (
+    settings: Partial<ExperimentSnapshotAnalysisSettings>,
+    isClusterExperiment?: boolean,
+  ): boolean =>
+    getAnalysisSettingsForStatsEngine(
+      { ...analysisSettings, ...settings },
+      reportVariations,
+      1,
+      14,
+      isClusterExperiment,
+    ).post_stratification_enabled;
+
+  it("passes through post-stratification for non-cluster experiments", () => {
+    expect(postStratFor({ postStratificationEnabled: true })).toBe(true);
+    expect(postStratFor({ postStratificationEnabled: false })).toBe(false);
+  });
+
+  it("forces post-stratification off for cluster experiments", () => {
+    expect(postStratFor({ postStratificationEnabled: true }, true)).toBe(false);
+    expect(postStratFor({ postStratificationEnabled: false }, true)).toBe(
+      false,
+    );
+  });
+});
+
+describe("selectAnalysisQueryData", () => {
+  const q = (id: string) => ({ id }) as unknown as QueryInterface;
+
+  const clusterSettings = {
+    isClusterExperiment: true,
+    clusterSubUnitIdentifier: "user_id",
+    dimensions: [{ id: "exp:browser" }],
+    precomputedUnitDimensionIds: [],
+  } as unknown as ExperimentSnapshotSettings;
+
+  // Distinct references so we can tell the parent bucket apart from the
+  // isolated bucket even though they share the bare key names.
+  const parentGroup = q("parent-group");
+  const parentMetric = q("parent-metric");
+  const isolatedGroup = q("isolated-group");
+  const isolatedMetric = q("isolated-metric");
+
+  const fullMap = (): QueryMap =>
+    new Map([
+      ["group_0", parentGroup],
+      ["met_revenue", parentMetric],
+      [getUnitDimQueryName("exp:browser", "group_0"), isolatedGroup],
+      [getUnitDimQueryName("exp:browser", "met_revenue"), isolatedMetric],
+    ]);
+
+  it("routes an isolated cluster sub-unit dimension to its isolated query map", () => {
+    const result = selectAnalysisQueryData(
+      fullMap(),
+      clusterSettings,
+      "exp:browser",
+    );
+    expect([...result.keys()].sort()).toEqual(["group_0", "met_revenue"]);
+    expect(result.get("group_0")).toBe(isolatedGroup);
+    expect(result.get("met_revenue")).toBe(isolatedMetric);
+  });
+
+  it("uses the dimensionless parent query map for the parent analysis", () => {
+    const result = selectAnalysisQueryData(fullMap(), clusterSettings, "");
+    expect([...result.keys()].sort()).toEqual(["group_0", "met_revenue"]);
+    expect(result.get("group_0")).toBe(parentGroup);
+    expect(result.get("met_revenue")).toBe(parentMetric);
+  });
+
+  it("falls through to the parent filter for a non-isolated dimension", () => {
+    const nonClusterSettings = {
+      isClusterExperiment: false,
+      clusterSubUnitIdentifier: null,
+      dimensions: [{ id: "exp:browser" }],
+      precomputedUnitDimensionIds: [],
+    } as unknown as ExperimentSnapshotSettings;
+
+    const result = selectAnalysisQueryData(
+      fullMap(),
+      nonClusterSettings,
+      "exp:browser",
+    );
+    expect(result.get("group_0")).toBe(parentGroup);
+    expect(result.get("met_revenue")).toBe(parentMetric);
+  });
+
+  it("throws when an isolated dimension has no unitdim: query results", () => {
+    // Routing now lives solely here, so a map missing the isolated dimension's
+    // `unitdim:` queries fails loud instead of silently falling back to the
+    // parent (overall) query, which would fail confusingly inside the stats
+    // engine.
+    const missingIsolated: QueryMap = new Map([
+      ["group_0", parentGroup],
+      ["met_revenue", parentMetric],
+    ]);
+    expect(() =>
+      selectAnalysisQueryData(missingIsolated, clusterSettings, "exp:browser"),
+    ).toThrow(/missing query results for dimension "exp:browser"/);
+  });
+
+  it("uses bare breakdown queries directly for a standalone breakdown snapshot", () => {
+    // Exploratory snapshots compute the isolated dimension in their own queries
+    // under bare names (no `unitdim:` namespace). They must use those directly
+    // rather than throwing for missing isolated queries.
+    const standaloneMap: QueryMap = new Map([
+      ["statistics_group_0", parentGroup],
+      ["statistics_multi_group_0__group_1", parentMetric],
+    ]);
+    const result = selectAnalysisQueryData(
+      standaloneMap,
+      clusterSettings,
+      "exp:browser",
+      { isStandaloneBreakdown: true },
+    );
+    expect([...result.keys()].sort()).toEqual([
+      "statistics_group_0",
+      "statistics_multi_group_0__group_1",
+    ]);
+    expect(result.get("statistics_group_0")).toBe(parentGroup);
   });
 });

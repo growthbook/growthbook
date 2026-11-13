@@ -1,7 +1,8 @@
 import mongoose from "mongoose";
 import uniqid from "uniqid";
-import { cloneDeep, isEqual } from "lodash";
+import { cloneDeep, isEqual, isNull, omitBy } from "lodash";
 import { MANAGED_WAREHOUSE_EVENTS_FACT_TABLE_ID } from "shared/constants";
+import { getDataSourceSqlDialect } from "shared/dialects";
 import {
   DataRegion,
   findEventForwarderManagedViolation,
@@ -12,7 +13,10 @@ import {
   isManagedWarehouseUnavailable,
   findNewDuplicateUserIdTypeName,
   getExposureQueryIdentifierTypes,
+  findColumnsNeedingQuotes,
+  getColumnsNeedingQuotesMessage,
   resolveAnalysisIdentifierType,
+  parseOptionalInt,
 } from "shared/util";
 import {
   DataSourceInterface,
@@ -99,6 +103,18 @@ const dataSourceSchema = new mongoose.Schema<DataSourceDocument>({
   settings: {},
 });
 dataSourceSchema.index({ id: 1, organization: 1 }, { unique: true });
+// Managed Warehouse recreate state isn't part of the datasource and is written
+// outside this schema: `recreateRequest` by super admins, `recreateStatus` and
+// the lock's `lockOwner` by the license server. Only the admin endpoints read
+// them (services/managedWarehouseRecreate).
+dataSourceSchema.set("toJSON", {
+  transform: (doc, ret) => {
+    delete ret.recreateRequest;
+    delete ret.recreateStatus;
+    delete ret.lockOwner;
+    return ret;
+  },
+});
 
 // At most one Managed Warehouse per org. Partial so other datasource types
 // stay unconstrained. exists() is the fast path; this index closes the race
@@ -254,6 +270,7 @@ export async function getDataSourceById(
   context: ReqContext | ApiReqContext,
   id: string,
 ) {
+  if (id && typeof id !== "string") return null;
   // If using config.yml, immediately return the from there
   if (usingFileConfig()) {
     return (
@@ -273,6 +290,18 @@ export async function getDataSourceById(
   return context.permissions.canReadMultiProjectResource(datasource.projects)
     ? datasource
     : null;
+}
+
+// Whether it exists at all, readable or not: a reference to a deleted one
+// shouldn't read as restricted.
+export async function dataSourceExists(
+  context: ReqContext | ApiReqContext,
+  id: string,
+): Promise<boolean> {
+  if (usingFileConfig()) {
+    return getConfigDatasources(context.org.id).some((d) => d.id === id);
+  }
+  return !!(await DataSourceModel.exists({ id, organization: context.org.id }));
 }
 
 export async function getDataSourcesByIds(
@@ -647,6 +676,17 @@ export async function validateExposureQueriesAndAddMissingIds(
             }" must declare at least one identifier type`,
           );
         }
+        const quotedColumns = findColumnsNeedingQuotes(
+          exposure,
+          getDataSourceSqlDialect(datasource.type)?.unquotedIdentifierFold,
+        );
+        if (quotedColumns.length) {
+          throw new Error(
+            `Experiment assignment query "${
+              exposure.name || exposure.id
+            }": ${getColumnsNeedingQuotesMessage(quotedColumns)}`,
+          );
+        }
         // The legacy identifier is frozen once the query exists, so ignore
         // whatever the client echoes back.
         exposure.userIdType =
@@ -892,6 +932,9 @@ export function toDataSourceApiInterface(
   datasource: DataSourceInterface,
 ): ApiDataSource {
   const settings = datasource.settings;
+  // As the query runner reads them; negatives are left out so a GET echo saves
+  const maxConcurrentQueries = parseOptionalInt(settings?.maxConcurrentQueries);
+  const queryCacheTTLMins = parseOptionalInt(settings?.queryCacheTTLMins);
   const obj: ApiDataSource = {
     id: datasource.id,
     dateCreated: datasource.dateCreated?.toISOString() || "",
@@ -916,6 +959,7 @@ export function toDataSourceApiInterface(
       dimensionColumns: q.dimensions,
       error: q.error,
       projects: q.projects || [],
+      ...(q.columnMapping ? { columnMapping: q.columnMapping } : {}),
     })),
     identifierJoinQueries: (settings?.queries?.identityJoins || []).map(
       (q) => ({
@@ -924,6 +968,21 @@ export function toDataSourceApiInterface(
       }),
     ),
     eventTracker: settings?.schemaFormat || "custom",
+    // Cleared form fields are stored as null, which an echoed PUT would reject
+    ...(settings?.pipelineSettings
+      ? {
+          pipelineSettings: omitBy(
+            settings.pipelineSettings,
+            isNull,
+          ) as DataSourcePipelineSettings,
+        }
+      : {}),
+    ...(maxConcurrentQueries !== undefined && maxConcurrentQueries >= 0
+      ? { maxConcurrentQueries }
+      : {}),
+    ...(queryCacheTTLMins !== undefined && queryCacheTTLMins >= 0
+      ? { queryCacheTTLMins }
+      : {}),
   };
 
   if (datasource.type === "mixpanel") {
