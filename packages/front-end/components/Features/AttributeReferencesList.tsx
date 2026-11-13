@@ -23,12 +23,14 @@ interface AttributeReferencesListProps {
   features?: FeatureRef[];
   experiments?: ExperimentRef[];
   conditionGroups?: SavedGroupRef[];
+  collapsed?: boolean;
 }
 
 const AttributeReferencesList: FC<AttributeReferencesListProps> = ({
   features = [],
   experiments = [],
   conditionGroups = [],
+  collapsed = false,
 }) => {
   const [featuresPage, setFeaturesPage] = useState(1);
   const [experimentsPage, setExperimentsPage] = useState(1);
@@ -72,7 +74,7 @@ const AttributeReferencesList: FC<AttributeReferencesListProps> = ({
                 <Badge radius="full" label={features.length.toString()} />
               </Flex>
             }
-            open={true}
+            open={!collapsed}
             transitionTime={100}
           >
             <ul
@@ -142,7 +144,7 @@ const AttributeReferencesList: FC<AttributeReferencesListProps> = ({
                 <Badge radius="full" label={experiments.length.toString()} />
               </Flex>
             }
-            open={true}
+            open={!collapsed}
             transitionTime={100}
           >
             <ul
@@ -222,7 +224,7 @@ const AttributeReferencesList: FC<AttributeReferencesListProps> = ({
                 />
               </Flex>
             }
-            open={true}
+            open={!collapsed}
             transitionTime={100}
           >
             <ul

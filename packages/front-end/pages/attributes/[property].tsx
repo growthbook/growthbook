@@ -14,6 +14,7 @@ import { useAttributeReferences } from "@/hooks/useAttributeReferences";
 import { useUser } from "@/services/UserContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import AttributeModal from "@/components/Features/AttributeModal";
+import IdentifierModal from "@/components/Features/IdentifierModal";
 import ProjectBadges from "@/components/ProjectBadges";
 import Modal from "@/components/Modal";
 import Callout from "@/ui/Callout";
@@ -31,6 +32,11 @@ import {
   DropdownMenuSeparator,
 } from "@/ui/DropdownMenu";
 import AttributeReferencesList from "@/components/Features/AttributeReferencesList";
+import {
+  ArchiveAttributeItem,
+  ConvertToAttributeItem,
+} from "@/components/Features/AttributeRowMenu";
+import { IDENTIFIER_DATA_TYPES } from "@/components/Features/AttributeFormLayout";
 import Tooltip from "@/components/Tooltip/Tooltip";
 
 export default function AttributeDetailPage() {
@@ -66,6 +72,7 @@ export default function AttributeDetailPage() {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [showReferencesModal, setShowReferencesModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showConvertModal, setShowConvertModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
 
   const attributeReferences = property ? references?.[property] : undefined;
@@ -121,13 +128,42 @@ export default function AttributeDetailPage() {
           />
         </Modal>
       )}
-      {showEditModal && (
-        <AttributeModal
-          close={() => {
-            setShowEditModal(false);
-            refreshOrganization();
+      {showEditModal &&
+        (attribute.hashAttribute ? (
+          <IdentifierModal
+            source="attribute-page"
+            existing={attribute}
+            close={() => setShowEditModal(false)}
+            onSave={(saved) => {
+              if (saved !== attribute.property) {
+                router.replace(`/attributes/${encodeURIComponent(saved)}`);
+              }
+            }}
+          />
+        ) : (
+          <AttributeModal
+            close={() => {
+              setShowEditModal(false);
+              refreshOrganization();
+            }}
+            attribute={attribute.property}
+            onSave={(saved) => {
+              if (saved !== attribute.property) {
+                router.replace(`/attributes/${encodeURIComponent(saved)}`);
+              }
+            }}
+          />
+        ))}
+      {showConvertModal && (
+        <IdentifierModal
+          source="attribute-page"
+          existing={attribute}
+          close={() => setShowConvertModal(false)}
+          onSave={(saved) => {
+            if (saved !== attribute.property) {
+              router.replace(`/attributes/${encodeURIComponent(saved)}`);
+            }
           }}
-          attribute={attribute.property}
         />
       )}
       {showDeleteModal && (
@@ -203,6 +239,25 @@ export default function AttributeDetailPage() {
                 >
                   Edit Information
                 </DropdownMenuItem>
+                {!attribute.archived &&
+                  !attribute.hashAttribute &&
+                  IDENTIFIER_DATA_TYPES.includes(attribute.datatype) && (
+                    <DropdownMenuItem
+                      onClick={() => {
+                        setShowConvertModal(true);
+                        setDropdownOpen(false);
+                      }}
+                    >
+                      Convert to Identifier
+                    </DropdownMenuItem>
+                  )}
+                {!attribute.archived && attribute.hashAttribute && (
+                  <ConvertToAttributeItem attribute={attribute} />
+                )}
+                <ArchiveAttributeItem
+                  attribute={attribute}
+                  onDone={() => setDropdownOpen(false)}
+                />
               </DropdownMenuGroup>
               <DropdownMenuSeparator />
               <DropdownMenuGroup>

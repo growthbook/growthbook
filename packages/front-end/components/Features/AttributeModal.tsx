@@ -5,63 +5,89 @@ import {
   SDKAttributeType,
 } from "shared/types/organization";
 import { getDefaultProjectsForNewResource } from "shared/demo-datasource";
-import { FaExclamationCircle, FaInfoCircle } from "react-icons/fa";
-import React from "react";
-import { Box } from "@radix-ui/themes";
+import { Flex } from "@radix-ui/themes";
 import { useAttributeSchema } from "@/services/features";
 import { useAttributeReferences } from "@/hooks/useAttributeReferences";
 import { useAuth } from "@/services/auth";
-import Modal from "@/components/Modal";
-import Field from "@/components/Forms/Field";
-import SelectField from "@/components/Forms/SelectField";
-import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import MultiSelectField from "@/ui/MultiSelectField";
 import { useUser } from "@/services/UserContext";
-import Tooltip from "@/components/Tooltip/Tooltip";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import useProjectOptions from "@/hooks/useProjectOptions";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
+import { validatedSubmit } from "@/ui/Modal/validatedSubmit";
+import TextField from "@/ui/TextField";
+import Text from "@/ui/Text";
+import Link from "@/ui/Link";
 import Callout from "@/ui/Callout";
-import Checkbox from "@/ui/Checkbox";
-import MarkdownInput from "@/components/Markdown/MarkdownInput";
+import HelperText from "@/ui/HelperText";
+import AttributeFormLayout, {
+  AdvancedSettings,
+  DescriptionField,
+  RenameWarning,
+  isSecureDatatype,
+  STRING_FORMATS,
+  StringFormatField,
+  ATTRIBUTE_DATA_TYPES,
+  DataTypeField,
+  IDENTIFIER_DATA_TYPES,
+} from "@/components/Features/AttributeFormLayout";
+import TagsInput from "@/components/Tags/TagsInput";
 import CustomFieldInput from "@/components/CustomFields/CustomFieldInput";
+import AddAttributeSnippet from "@/components/SyntaxHighlighting/Snippets/AddAttributeSnippet";
 import { useReconciledCustomFields } from "@/hooks/useReconciledCustomFields";
 import AttributeReferencesList from "./AttributeReferencesList";
-import SDKCapabilityWarning from "./SDKCapabilityWarning";
-import TagsField from "./FeatureModal/TagsField";
 
 export interface Props {
   close: () => void;
+  onSave?: (property: string) => void;
   attribute?: string;
   defaultHashAttribute?: boolean;
   defaultProjects?: string[];
+  // Shown when adding, for attributes that should be identifiers instead.
+  onAddIdentifier?: () => void;
 }
 
-const DATA_TYPE_TO_DESCRIPTION: Record<SDKAttributeType, string> = {
-  boolean: "true or false",
-  number: "Floats or integers",
-  string: "Freeform text",
-  enum: "For a small list of pre-defined values",
-  secureString: "Freeform text; values hashed before passing to the SDK",
-  "number[]": "Useful for multiple numeric values",
-  "string[]": 'Useful for things like "tags"',
-  "secureString[]": "Useful for passing multiple values securely",
-};
+const PLACEHOLDER_NAME = "country";
+
+function exampleValue(
+  datatype: SDKAttributeType,
+  format: string,
+  enumOptions: string[],
+): unknown {
+  switch (datatype) {
+    case "boolean":
+      return true;
+    case "number":
+      return 123;
+    case "number[]":
+      return [1, 2];
+    case "enum":
+      return enumOptions[0] ?? "foo";
+    case "string[]":
+    case "secureString[]":
+      return enumOptions.length ? enumOptions.slice(0, 2) : ["foo", "bar"];
+    case "string":
+    case "secureString":
+      return STRING_FORMATS.find((f) => f.value === format)?.example ?? "foo";
+  }
+}
+
 export default function AttributeModal({
   close,
+  onSave,
   attribute,
   defaultHashAttribute = false,
   defaultProjects,
+  onAddIdentifier,
 }: Props) {
   const { projects, project, datasources } = useDefinitions();
   const permissionsUtil = usePermissionsUtil();
   const { refreshOrganization } = useUser();
-
   const { apiCall, orgId } = useAuth();
 
   const schema = useAttributeSchema(true);
   const current = schema.find((s) => s.property === attribute);
-
   const form = useForm<SDKAttribute>({
     defaultValues: {
       property: attribute || "",
@@ -95,38 +121,36 @@ export default function AttributeModal({
       setValue: (value) => form.setValue("customFields", value),
     });
 
-  const title = attribute ? `Edit Attribute: ${attribute}` : `Create Attribute`;
-
+  const property = form.watch("property");
   const datatype = form.watch("datatype");
+  const format = form.watch("format") || "";
+  const enumValue = form.watch("enum") || "";
+  const enumOptions = enumValue
+    .split(",")
+    .map((v) => v.trim())
+    .filter(Boolean);
 
   // Attribute changes only affect warehouse analyses for JSON-column managed warehouses.
   const hasJsonManagedWarehouse = datasources.some(
     (d) => d.type === "growthbook_clickhouse" && d.settings.useJsonColumns,
   );
-  const propertyChanged = !!attribute && form.watch("property") !== attribute;
+  const propertyChanged = !!attribute && property !== attribute;
   const datatypeChanged = !!attribute && datatype !== current?.datatype;
 
   const isArrayDatatype = datatype.endsWith("[]");
   // Enum options constrain both scalar enums and array (list) attributes.
   const supportsEnumOptions = datatype === "enum" || isArrayDatatype;
-
-  const hashAttributeDataTypes: SDKAttributeType[] = [
-    "string",
-    "number",
-    "secureString",
-  ];
+  const canDisableEquality = datatype === "string" && !format;
 
   // Constraining an in-use attribute (converting to enum or a restricted list, or tightening
   // its allowed values) restricts how existing conditions can be edited, so surface
   // where it's referenced as a heads-up. Fires on both datatype and enum-value edits.
   const isConstrainedType =
-    datatype === "enum" || (isArrayDatatype && !!form.watch("enum"));
-  const enumChanged = (form.watch("enum") || "") !== (current?.enum || "");
+    datatype === "enum" || (isArrayDatatype && !!enumValue);
+  const enumChanged = enumValue !== (current?.enum || "");
   const constrainingChange =
     !!attribute && isConstrainedType && (datatypeChanged || enumChanged);
-  const { references } = useAttributeReferences(
-    constrainingChange && attribute ? [attribute] : [],
-  );
+  const { references } = useAttributeReferences(attribute ? [attribute] : []);
   const refs = attribute ? references?.[attribute] : undefined;
   const refCount = refs
     ? refs.features.length + refs.experiments.length + refs.savedGroups.length
@@ -156,27 +180,25 @@ export default function AttributeModal({
         { projects: selectedProjects },
       )
     : permissionsUtil.canCreateAttribute({ projects: selectedProjects });
-  let ctaDisabledMessage: string | undefined;
-  if (!hasProjectPermission) {
-    if (!selectedProjects.length && projectOptions.length > 0) {
-      ctaDisabledMessage = "Select a project to continue.";
-    } else {
-      ctaDisabledMessage = `You don't have permission to ${
-        attribute ? "update" : "create"
-      } attributes.`;
-    }
-  }
+
+  // Only describes the example value when the type alone doesn't.
+  const snippetHelp =
+    supportsEnumOptions && enumOptions.length
+      ? `One of: ${enumOptions.join(", ")}`
+      : datatype === "string"
+        ? STRING_FORMATS.find((f) => f.value === format)?.label
+        : undefined;
 
   return (
-    <Modal
-      trackingEventModalType=""
+    <ModalStandard
+      trackingEventModalType={attribute ? "edit-attribute" : "add-attribute"}
       open={true}
       close={close}
-      header={title}
-      cta="Save"
-      ctaEnabled={hasProjectPermission}
-      disabledMessage={ctaDisabledMessage}
-      submit={form.handleSubmit(async (value) => {
+      header={attribute ? "Edit Attribute" : "Add Attribute"}
+      cta={attribute ? "Save" : "Add Attribute"}
+      size="xl"
+      ctaEnabled={!!property.trim() && hasProjectPermission}
+      submit={validatedSubmit(form, async (value) => {
         if (value.datatype !== "string") {
           value.format = "";
           value.disableEqualityConditions = false;
@@ -185,7 +207,7 @@ export default function AttributeModal({
         if (value.datatype !== "enum" && !value.datatype.endsWith("[]")) {
           value.enum = "";
         }
-        if (!hashAttributeDataTypes.includes(value.datatype)) {
+        if (!IDENTIFIER_DATA_TYPES.includes(value.datatype)) {
           value.hashAttribute = false;
         }
 
@@ -229,243 +251,204 @@ export default function AttributeModal({
           method: attribute ? "PUT" : "POST",
           body: JSON.stringify(attributeObj),
         });
-        refreshOrganization();
+        // Awaited so a redirect to the renamed attribute finds it.
+        await refreshOrganization();
+        onSave?.(value.property);
       })}
     >
-      <Field
-        size="legacy"
-        label={
-          <>
-            Attribute{" "}
-            <Tooltip body={"This is the attribute name used in the SDK"} />
-          </>
+      <AttributeFormLayout
+        panel={
+          <Flex direction="column" gap="2">
+            <AddAttributeSnippet
+              property={property.trim() || PLACEHOLDER_NAME}
+              value={exampleValue(datatype, format, enumOptions)}
+              projects={selectedProjects}
+              nested
+              secure={isSecureDatatype(datatype)}
+            />
+            {snippetHelp && (
+              <Text size="sm" color="text-low">
+                {snippetHelp}
+              </Text>
+            )}
+          </Flex>
         }
-        required={true}
-        {...form.register("property")}
-      />
-      {propertyChanged ? (
-        <Callout status="warning">
-          Be careful changing the attribute name. Any existing targeting
-          conditions that use this attribute will NOT be updated automatically
-          and will still reference the old attribute name.
-          {hasJsonManagedWarehouse ? (
-            <span style={{ display: "block", marginTop: "var(--space-2)" }}>
-              Renaming doesn&apos;t migrate historical data. Events already sent
-              under the old name keep that name in the Managed Warehouse and
-              will read as null for this attribute; only events your SDK sends
-              under the new name will populate it going forward.
-            </span>
-          ) : null}
-        </Callout>
-      ) : null}
-      <div className="form-group">
-        <label>
-          Description <small className="text-muted">(optional)</small>
-        </label>
-        <MarkdownInput
+      >
+        {!attribute && onAddIdentifier && (
+          <Callout status="info" dismissible id="add-attribute-identifier-hint">
+            Using this to assign users in experiments or percentage rollouts?{" "}
+            <Link onClick={onAddIdentifier}>Add an identifier</Link> instead.
+          </Callout>
+        )}
+        {refCount > 0 && !constrainingChange && !propertyChanged && refs && (
+          <Callout status="info">
+            Used by{" "}
+            {new Intl.ListFormat("en").format(
+              [
+                [refs.features.length, "Feature Flag"],
+                [refs.experiments.length, "experiment"],
+                [refs.savedGroups.length, "Saved Group"],
+              ]
+                .filter(([count]) => count)
+                .map(
+                  ([count, noun]) =>
+                    `${count} ${noun}${count === 1 ? "" : "s"}`,
+                ),
+            )}
+            .
+          </Callout>
+        )}
+
+        <TextField
+          label="Name"
+          autoComplete="off"
+          data-1p-ignore
+          required
+          markRequired
+          autoFocus={!attribute}
+          placeholder="e.g. country"
+          value={property}
+          onChange={(e) => form.setValue("property", e.target.value)}
+          helpText="Must match the key your SDK passes in."
+        />
+        {propertyChanged && (
+          <RenameWarning
+            references={refs}
+            hasJsonManagedWarehouse={hasJsonManagedWarehouse}
+            secure={isSecureDatatype(current?.datatype)}
+          />
+        )}
+
+        <DescriptionField
           value={form.watch("description") || ""}
           setValue={(value) => form.setValue("description", value)}
+          placeholder="What this value means, e.g. the visitor's country from an IP lookup"
         />
-      </div>
-      <TagsField
-        value={form.watch("tags") || []}
-        onChange={(tags) => form.setValue("tags", tags)}
-      />
-      {projects?.length > 0 && (
-        <div className="form-group">
-          <MultiSelectField
-            legacyHeight
-            label={
-              <>
-                Projects{" "}
-                <Tooltip
-                  body={`The dropdown below has been filtered to only include projects where you have permission to ${
-                    attribute ? "update" : "create"
-                  } Attributes.`}
-                />
-              </>
-            }
-            placeholder={
-              canCreateWithoutProject ? "All Projects" : "Select projects..."
-            }
-            value={form.watch("projects") || []}
-            options={projectOptions}
-            onChange={(v) => form.setValue("projects", v)}
-            customClassName="label-overflow-ellipsis"
-            helpText="Assign this attribute to specific projects"
-          />
-        </div>
-      )}
-      {availableCustomFields.length > 0 && (
-        <CustomFieldInput
-          fields={availableCustomFields}
-          value={customFieldValues}
-          onChange={(value) => form.setValue("customFields", value)}
-        />
-      )}
-      <SelectField
-        size="legacy"
-        label="Data Type"
-        value={datatype}
-        onChange={(datatype: SDKAttributeType) =>
-          form.setValue("datatype", datatype)
-        }
-        sort={false}
-        options={[
-          { value: "boolean", label: "Boolean" },
-          { value: "number", label: "Number" },
-          { value: "string", label: "String" },
-          { value: "enum", label: "Enum" },
-          { value: "secureString", label: "Secure String" },
-          { value: "number[]", label: "Array of Numbers" },
-          { value: "string[]", label: "Array of Strings" },
-          {
-            value: "secureString[]",
-            label: "Array of Secure Strings",
-          },
-        ]}
-        formatOptionLabel={(value) => {
-          return (
-            <div className="d-flex">
-              <span className="pr-2">{value.label}</span>
-              <span className="ml-auto text-muted">
-                {DATA_TYPE_TO_DESCRIPTION[value.value]}
-              </span>
-            </div>
-          );
-        }}
-        helpText={
-          <>
-            {["secureString", "secureString[]"].includes(datatype) && (
-              <div className="text-muted">
-                <PremiumTooltip
-                  commercialFeature="hash-secure-attributes"
-                  tipPosition="bottom"
-                  body={
-                    <>
-                      <p>
-                        Feature targeting conditions referencing{" "}
-                        <code>secureString</code> attributes will be anonymized
-                        via SHA-256 hashing. When evaluating feature flags in a
-                        public or insecure environment (such as a browser),
-                        hashing provides an additional layer of security through
-                        obfuscation. This allows you to target users based on
-                        sensitive attributes.
-                      </p>
-                      <p>
-                        You must enable this feature in your SDK Connection for
-                        it to take effect.
-                      </p>
-                      <p className="mb-0 text-warning-orange small">
-                        <FaExclamationCircle /> When using an insecure
-                        environment, do not rely exclusively on hashing as a
-                        means of securing highly sensitive data. Hashing is an
-                        obfuscation technique that makes it very difficult, but
-                        not impossible, to extract sensitive data.
-                      </p>
-                    </>
-                  }
-                >
-                  How do secure attributes work? <FaInfoCircle />
-                </PremiumTooltip>
-              </div>
-            )}
-          </>
-        }
-      />
-      {hasJsonManagedWarehouse && datatypeChanged ? (
-        <Callout status="info" mt="2" mb="2">
-          Changing the data type won&apos;t break existing Managed Warehouse
-          analyses, but historical events whose value doesn&apos;t match the new
-          type are treated as null and dropped from results, so metrics may
-          shift.
-        </Callout>
-      ) : null}
-      {datatype === "string" && (
-        <>
-          <SelectField
-            size="legacy"
-            label="String Format"
-            value={form.watch(`format`) || ""}
-            onChange={(v) => form.setValue(`format`, v as SDKAttributeFormat)}
-            initialOption="None"
-            options={[
-              { value: "version", label: "Version string" },
-              { value: "date", label: "Date string (ISO)" },
-              { value: "isoCountryCode", label: "ISO Country Code (2 digit)" },
-            ]}
-            sort={false}
-            helpText="Affects the targeting attribute UI and string comparison logic. More formats coming soon."
-          />
-          {form.watch("format") === "version" && (
-            <SDKCapabilityWarning
-              capability="semverTargeting"
-              someMessage="Some of your SDK Connections do not support version string comparisons. Targeting conditions using this attribute may not work correctly for those connections."
-              noneMessage="None of your SDK Connections support version string comparisons. Do not use this format as it will break targeting conditions based on this attribute."
-            />
-          )}
 
-          {!form.watch("format") && (
-            <Checkbox
-              label="Disable Equality Comparisons"
-              description="This prevents users from targeting with exact string matches. Only regex and less than/greater than will be allowed. Useful for PII."
-              value={!!form.watch(`disableEqualityConditions`)}
-              setValue={(value) =>
-                form.setValue(`disableEqualityConditions`, value)
-              }
-              mb="4"
-            />
-          )}
-        </>
-      )}
-      {supportsEnumOptions && (
-        <Field
-          size="legacy"
-          label={datatype === "enum" ? "Enum Options" : "Allowed Values"}
-          textarea
-          minRows={1}
-          required={datatype === "enum"}
-          {...form.register(`enum`)}
-          helpText={
-            datatype === "enum"
-              ? "Comma-separated list of all possible values"
-              : "Optional. Restrict this list to a fixed set of values (comma-separated). Leave blank to allow any values."
-          }
-        />
-      )}
-      {constrainingChange ? (
-        <>
-          <Callout status="warning" mt="2" mb="2">
-            <strong>
-              Include every value already used in targeting before saving.
-            </strong>{" "}
-            Conditions referencing a value outside the list — or using an
-            operator no longer offered — keep running but become hard to edit.
-            <span style={{ display: "block", marginTop: "var(--space-2)" }}>
-              The change is applied in place: no new attribute is created,
-              existing conditions keep evaluating, and features are not updated
-              automatically.
-            </span>
+        <Flex direction="column" gap="2">
+          <DataTypeField
+            value={datatype}
+            setValue={(v) => form.setValue("datatype", v)}
+            options={ATTRIBUTE_DATA_TYPES}
+          />
+        </Flex>
+        {hasJsonManagedWarehouse && datatypeChanged ? (
+          <Callout status="info">
+            Changing the data type won&apos;t break existing Managed Warehouse
+            analyses, but historical events whose value doesn&apos;t match the
+            new type are treated as null and dropped from results, so metrics
+            may shift.
           </Callout>
-          {refCount > 0 && refs ? (
-            <Box mb="3">
+        ) : null}
+
+        {(datatype === "string" || supportsEnumOptions) && (
+          <Flex
+            direction="column"
+            gap="4"
+            pl="4"
+            style={{ borderLeft: "2px solid var(--gray-a5)" }}
+          >
+            {datatype === "string" && (
+              <StringFormatField
+                value={format}
+                setValue={(v) => form.setValue("format", v)}
+              />
+            )}
+            {supportsEnumOptions && (
+              <TextField
+                label={datatype === "enum" ? "Values" : "Allowed values"}
+                required={datatype === "enum"}
+                markRequired={datatype === "enum"}
+                placeholder={
+                  datatype === "number[]"
+                    ? "e.g. 1, 2, 3"
+                    : "e.g. free, pro, enterprise"
+                }
+                value={enumValue}
+                onChange={(e) => form.setValue("enum", e.target.value)}
+                helpText={
+                  datatype === "enum"
+                    ? "Comma-separated."
+                    : "Optional. Restrict this list to a fixed set of comma-separated values. Leave blank to allow any values."
+                }
+              />
+            )}
+          </Flex>
+        )}
+        {constrainingChange ? (
+          <>
+            <Callout status="warning">
+              <strong>
+                Include every value already used in targeting before saving.
+              </strong>{" "}
+              Conditions referencing a value outside the list — or using an
+              operator no longer offered — keep running but become hard to edit.
+              <span style={{ display: "block", marginTop: "var(--space-2)" }}>
+                The change is applied in place: no new attribute is created,
+                existing conditions keep evaluating, and features are not
+                updated automatically.
+              </span>
+            </Callout>
+            {refCount > 0 && refs && !propertyChanged ? (
               <AttributeReferencesList
                 features={refs.features}
                 experiments={refs.experiments}
                 conditionGroups={refs.savedGroups}
               />
-            </Box>
-          ) : null}
-        </>
-      ) : null}
-      {hashAttributeDataTypes.includes(datatype) && (
-        <Checkbox
-          label="Unique Identifier"
-          description="Allow attribute to be used for experiment assignment."
-          value={!!form.watch(`hashAttribute`)}
-          setValue={(value) => form.setValue(`hashAttribute`, value)}
+            ) : null}
+          </>
+        ) : null}
+
+        {projects?.length > 0 && (
+          <MultiSelectField
+            label="Projects"
+            size="md"
+            legacyLabelFormatting={false}
+            placeholder={
+              canCreateWithoutProject ? "All Projects" : "Select projects..."
+            }
+            value={selectedProjects}
+            options={projectOptions}
+            onChange={(v) => form.setValue("projects", v)}
+          />
+        )}
+        {!hasProjectPermission && (
+          <HelperText status="error">
+            {!selectedProjects.length && projectOptions.length > 0
+              ? "Select a Project to continue."
+              : `You don't have permission to ${
+                  attribute ? "update" : "create"
+                } attributes in these Projects.`}
+          </HelperText>
+        )}
+        <TagsInput
+          label="Tags"
+          size="md"
+          legacyLabelFormatting={false}
+          value={form.watch("tags") || []}
+          onChange={(tags) => form.setValue("tags", tags)}
+          autoFocus={false}
         />
-      )}
-    </Modal>
+        {availableCustomFields.length > 0 && (
+          <CustomFieldInput
+            fields={availableCustomFields}
+            mt="0"
+            value={customFieldValues}
+            onChange={(value) => form.setValue("customFields", value)}
+          />
+        )}
+
+        {canDisableEquality && (
+          <AdvancedSettings
+            disableEqualityConditions={
+              !!form.watch("disableEqualityConditions")
+            }
+            setDisableEqualityConditions={(value) =>
+              form.setValue("disableEqualityConditions", value)
+            }
+          />
+        )}
+      </AttributeFormLayout>
+    </ModalStandard>
   );
 }

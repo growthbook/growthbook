@@ -1,6 +1,7 @@
 import { FC } from "react";
 import { CustomField } from "shared/types/custom-fields";
 import { Flex, Box } from "@radix-ui/themes";
+import { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
 import MultiSelectField from "@/ui/MultiSelectField";
@@ -18,7 +19,8 @@ const CustomFieldInput: FC<{
   value: Record<string, string>;
   onChange: (customFields: Record<string, string>) => void;
   className?: string;
-}> = ({ fields, value, onChange, className }) => {
+  mt?: MarginProps["mt"];
+}> = ({ fields, value, onChange, className, mt = "4" }) => {
   const updateCustomField = (name: string, fieldValue: string) => {
     onChange({ ...value, [name]: fieldValue });
   };
@@ -49,7 +51,7 @@ const CustomFieldInput: FC<{
   };
 
   return (
-    <Flex direction="column" gap="4" mt="4" className={className}>
+    <Flex direction="column" gap="4" mt={mt} className={className}>
       {!fields.length ? (
         <Text align="center" color="text-low">
           No fields available for this experiment or project
