@@ -2,7 +2,10 @@ import { EventForwarderConfigInterface } from "shared/validators";
 import {
   buildEventForwarderFeatureUsageQuery,
   EventForwarderDatasourceParams,
+  getEventForwarderHashAttributes,
+  resolveEventForwarderManagedUserIdTypes,
 } from "shared/util";
+import { SDKAttributeSchema } from "shared/types/organization";
 import uniqid from "uniqid";
 import {
   getDataSourceById,
@@ -16,6 +19,7 @@ import { ReqContext } from "back-end/types/request";
 export async function ensureEventForwarderFeatureUsageQuery(
   context: ReqContext,
   eventForwarderConfig: EventForwarderConfigInterface,
+  attributeSchema: SDKAttributeSchema,
   datasourceParams?: EventForwarderDatasourceParams,
 ): Promise<string[]> {
   const datasource = await getDataSourceById(
@@ -54,9 +58,14 @@ export async function ensureEventForwarderFeatureUsageQuery(
     return [];
   }
 
+  // Same identifier types as the managed assignment queries
+  const { pairs } = resolveEventForwarderManagedUserIdTypes(
+    datasource.settings?.userIdTypes ?? [],
+    getEventForwarderHashAttributes(attributeSchema, datasource.projects),
+  );
   const managedQuery = {
     id: uniqid("fuq_"),
-    ...buildEventForwarderFeatureUsageQuery(sqlParams),
+    ...buildEventForwarderFeatureUsageQuery(sqlParams, pairs, attributeSchema),
   };
 
   await updateDataSource(

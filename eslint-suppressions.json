@@ -1322,11 +1322,6 @@
       "count": 1
     }
   },
-  "packages/front-end/components/Settings/EditDataSource/FeatureEvaluationQueries/FeatureEvaluationQueryModal.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/Settings/EditLicenseModal.tsx": {
     "no-restricted-imports": {
       "count": 1

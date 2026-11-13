@@ -14,6 +14,8 @@ import {
   findNewDuplicateUserIdTypeName,
   getExposureQueryIdentifierTypes,
   findColumnsNeedingQuotes,
+  findFeatureUsageColumnsNeedingQuotes,
+  getFeatureUsageJsonFieldError,
   getColumnsNeedingQuotesMessage,
   resolveAnalysisIdentifierType,
   parseOptionalInt,
@@ -743,6 +745,19 @@ export async function validateExposureQueriesAndAddMissingIds(
   if (updatesCopy.queries?.featureUsage) {
     await Promise.all(
       updatesCopy.queries.featureUsage.map(async (featureUsage) => {
+        const quotedColumns = findFeatureUsageColumnsNeedingQuotes(
+          featureUsage,
+          getDataSourceSqlDialect(datasource.type)?.unquotedIdentifierFold,
+        );
+        if (quotedColumns.length) {
+          throw new Error(
+            `Feature usage query: ${getColumnsNeedingQuotesMessage(quotedColumns)}`,
+          );
+        }
+        const jsonFieldError = getFeatureUsageJsonFieldError(featureUsage);
+        if (jsonFieldError) {
+          throw new Error(`Feature usage query: ${jsonFieldError}`);
+        }
         if (isManagedWarehouseUnavailable(datasource)) {
           featureUsage.error = undefined;
           return;
@@ -960,6 +975,15 @@ export function toDataSourceApiInterface(
       error: q.error,
       projects: q.projects || [],
       ...(q.columnMapping ? { columnMapping: q.columnMapping } : {}),
+    })),
+    featureUsageQueries: (settings?.queries?.featureUsage || []).map((q) => ({
+      id: q.id,
+      description: q.description || "",
+      sql: q.query,
+      identifierTypes: q.userIdTypes || [],
+      ...(q.columnMapping ? { columnMapping: q.columnMapping } : {}),
+      managed: isEventForwarderManaged(q),
+      ...(q.error ? { error: q.error } : {}),
     })),
     identifierJoinQueries: (settings?.queries?.identityJoins || []).map(
       (q) => ({

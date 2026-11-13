@@ -1,5 +1,6 @@
 import { getValidDate } from "shared/dates";
 import {
+  getActiveFeatureUsageQuery,
   getExposureQueryExperimentIdColumn,
   getExposureQueryIdentifierColumn,
   getExposureQueryTimestampColumn,
@@ -201,7 +202,10 @@ import { getExperimentResultsQuery } from "back-end/src/integrations/sql/queries
 import { getExperimentUnitsQuery as buildExperimentUnitsQuerySql } from "back-end/src/integrations/sql/queries/experiment-units-query";
 import { getFactMetricCTE } from "back-end/src/integrations/sql/ctes/fact-metric-cte";
 import { getExperimentExposuresQuery as getExperimentExposuresQueryFromSql } from "back-end/src/integrations/sql/queries/experiment-exposures-query";
-import { getFeatureEvalDiagnosticsQuery as getFeatureEvalDiagnosticsQueryFromSql } from "back-end/src/integrations/sql/queries/feature-eval-diagnostics-query";
+import {
+  getFeatureEvalDiagnosticsQuery as getFeatureEvalDiagnosticsQueryFromSql,
+  shapeFeatureEvalDiagnosticsRows,
+} from "back-end/src/integrations/sql/queries/feature-eval-diagnostics-query";
 import { getFilterColumnsClause } from "back-end/src/integrations/sql/clauses/filter-columns-clause";
 import { getFreeFormQuery } from "back-end/src/integrations/sql/queries/free-form-query";
 import { getIdentitiesCTE } from "back-end/src/integrations/sql/ctes/identities-cte";
@@ -1299,13 +1303,12 @@ export default abstract class SqlIntegration
     const truncated = rows.length === SQL_ROW_LIMIT;
 
     return {
-      rows: rows.map((row) => {
-        return {
-          timestamp: row.timestamp,
-          feature_key: row.feature_key,
-          ...row,
-        };
-      }),
+      rows: shapeFeatureEvalDiagnosticsRows(
+        rows,
+        getActiveFeatureUsageQuery(
+          this.datasource.settings?.queries?.featureUsage,
+        ),
+      ),
       statistics,
       truncated,
     };

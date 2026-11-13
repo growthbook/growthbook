@@ -38,6 +38,8 @@ import {
   getExposureQueryTimestampColumn,
   getExposureQueryVariationIdColumn,
   getExposureQueryVariationNameColumn,
+  getFeatureUsageRequiredColumns,
+  getFeatureUsageTimestampColumn,
 } from "shared/util";
 import { columnNamesMatch, determineColumnTypes } from "back-end/src/util/sql";
 import { detectColumnsFromQueryResult } from "back-end/src/util/factTable";
@@ -623,13 +625,13 @@ export async function testFeatureUsageQueryValidity(
     return undefined;
   }
 
-  const requiredColumns = new Set(["timestamp", "feature_key"]);
+  const requiredColumns = new Set(getFeatureUsageRequiredColumns(query));
 
   const sql = integration.getTestValidityQuery(
     query.query,
     testDays,
     undefined,
-    "timestamp",
+    getFeatureUsageTimestampColumn(query),
   );
   try {
     const results = await integration.runTestQuery(

@@ -1,152 +1,678 @@
-import React, { FC, useState } from "react";
+import { useMemo, useRef, useState } from "react";
+import { Box, Flex } from "@radix-ui/themes";
+import uniqId from "uniqid";
+import omit from "lodash/omit";
+import {
+  findFeatureUsageColumnsNeedingQuotes,
+  getColumnsNeedingQuotesMessage,
+  getFeatureUsageEnvironmentColumn,
+  getFeatureUsageFeatureKeyColumn,
+  getFeatureUsageIdentifierColumn,
+  getFeatureUsageJsonFieldError,
+  getFeatureUsageRevisionColumn,
+  getFeatureUsageRuleIdColumn,
+  getFeatureUsageSourceColumn,
+  getFeatureUsageTimestampColumn,
+  getFeatureUsageValueColumn,
+  getFeatureUsageVariationIdColumn,
+  FEATURE_USAGE_JSON_ROOT_TYPES,
+  splitFeatureUsageJsonField,
+} from "shared/util";
 import {
   DataSourceInterfaceWithParams,
   FeatureUsageQuery,
+  FeatureUsageQueryColumnMapping,
 } from "shared/types/datasource";
-import { useForm } from "react-hook-form";
-import cloneDeep from "lodash/cloneDeep";
-import uniqId from "uniqid";
-import { FaExternalLinkAlt } from "react-icons/fa";
-import { TestQueryRow } from "shared/types/integrations";
-import Code from "@/components/SyntaxHighlighting/Code";
-import Modal from "@/components/Modal";
-import EditSqlModal from "@/components/SchemaBrowser/EditSqlModal";
+import { DetectedColumn } from "shared/types/fact-table";
+import { getDataSourceSqlDialect } from "shared/dialects";
+import SourceStep from "@/components/SchemaBrowser/SourceStep";
+import { useSourceTable } from "@/components/SchemaBrowser/useSourceTable";
+import ColumnMappingRow, {
+  validColumn,
+} from "@/components/SchemaBrowser/ColumnMappingRow";
+import ColumnMappingSection from "@/components/SchemaBrowser/ColumnMappingSection";
+import PartitionMappingRow from "@/components/SchemaBrowser/PartitionMappingRow";
+import SourceSummary from "@/components/SchemaBrowser/SourceSummary";
+import {
+  findColumnByName,
+  getDefaultTimestampColumn,
+  getRemappedUserIdColumns,
+  isIdentifierCandidate,
+  isTimestampCandidate,
+  rematchColumn,
+  rematchUserIdColumns,
+  SourceTableTemplate,
+} from "@/services/factTables";
+import { useAttributeSchema } from "@/services/features";
+import PagedModal from "@/components/Modal/PagedModal";
+import Page from "@/components/Modal/Page";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Callout from "@/ui/Callout";
 
-type FeatureEvaluationQueryProps = {
-  featureUsageQuery?: FeatureUsageQuery;
-  dataSource: DataSourceInterfaceWithParams;
-  mode: "add" | "edit";
-  onSave: (featureUsageQuery: FeatureUsageQuery) => Promise<void>;
-  onCancel: () => void;
+const BODY_HEIGHT = "calc(93vh - 200px)";
+
+// Text columns with these names usually hold the SDK's attributes as JSON
+const ATTRIBUTE_COLUMN_NAMES = [
+  "attributes",
+  "context",
+  "context_json",
+  "properties",
+  "properties_json",
+];
+
+const isJsonRoot = (c: DetectedColumn, root: string) =>
+  c.column === root && FEATURE_USAGE_JSON_ROOT_TYPES.includes(c.datatype);
+
+// No known evaluation-table layouts to recognize yet
+const NO_TEMPLATES: SourceTableTemplate[] = [];
+
+const DEFAULT_QUERY = `SELECT\n  timestamp,\n  feature_key,\n  environment,\n  value\nFROM feature_usage`;
+
+// Standard columns other than the timestamp and identifiers, with their
+// standard names, the names a column is matched on, and what each enables
+const OPTIONAL_ROLES = [
+  {
+    key: "environment",
+    label: "Environment",
+    names: ["environment", "env"],
+    tooltip: "Lets you filter evaluations by environment",
+    getColumn: getFeatureUsageEnvironmentColumn,
+  },
+  {
+    key: "value",
+    label: "Value",
+    names: ["value"],
+    tooltip: "Lets you break down and filter evaluations by value",
+    getColumn: getFeatureUsageValueColumn,
+  },
+  {
+    key: "rule_id",
+    label: "Rule ID",
+    names: ["rule_id"],
+    tooltip: "Lets you see which rule served each evaluation",
+    getColumn: getFeatureUsageRuleIdColumn,
+  },
+  {
+    key: "variation_id",
+    label: "Variation ID",
+    names: ["variation_id"],
+    tooltip: "Lets you see which experiment variation was served",
+    getColumn: getFeatureUsageVariationIdColumn,
+  },
+  {
+    key: "source",
+    label: "Source",
+    names: ["source"],
+    tooltip:
+      "Lets you see why each value was served, like a rule or the default",
+    getColumn: getFeatureUsageSourceColumn,
+  },
+  {
+    key: "revision",
+    label: "Revision",
+    names: ["revision"],
+    tooltip: "Lets you see which revision of the flag was served",
+    getColumn: getFeatureUsageRevisionColumn,
+  },
+] as const;
+
+type OptionalRole = (typeof OPTIONAL_ROLES)[number]["key"];
+
+const MAPPING_KEYS: Record<
+  OptionalRole,
+  keyof Omit<FeatureUsageQueryColumnMapping, "userIdColumns">
+> = {
+  environment: "environmentColumn",
+  value: "valueColumn",
+  rule_id: "ruleIdColumn",
+  variation_id: "variationIdColumn",
+  source: "sourceColumn",
+  revision: "revisionColumn",
 };
 
-export const FeatureEvaluationQueryModal: FC<FeatureEvaluationQueryProps> = ({
+function getFeatureUsageColumnMappingError(
+  columns: DetectedColumn[],
+  fromTable?: boolean,
+): string | null {
+  if (!columns.some(isTimestampCandidate)) {
+    return fromTable
+      ? "Selected table does not have a timestamp column."
+      : "Your query must return a date column to use as the timestamp.";
+  }
+  if (!columns.some(isIdentifierCandidate)) {
+    return fromTable
+      ? "Selected table does not have a column for the feature key."
+      : "Your query must return a string column to use as the feature key.";
+  }
+  if (columns.length < 2) {
+    return fromTable
+      ? "Selected table must have separate timestamp and feature key columns."
+      : "Your query must return separate timestamp and feature key columns.";
+  }
+  return null;
+}
+
+// The column each standard column and identifier type reads from
+function getSavedRoleColumns(query: FeatureUsageQuery): Record<string, string> {
+  const mapping = query.columnMapping ?? {};
+  return {
+    timestamp: getFeatureUsageTimestampColumn(query),
+    feature_key: getFeatureUsageFeatureKeyColumn(query),
+    // An optional column is used when it's mapped, or when the query returns
+    // its standard name
+    ...Object.fromEntries(
+      OPTIONAL_ROLES.filter(
+        ({ key }) =>
+          !!mapping[MAPPING_KEYS[key]] ||
+          !!query.columns?.some((c) => c.column === key),
+      ).map(({ key, getColumn }) => [key, getColumn(query)]),
+    ),
+    ...Object.fromEntries(
+      (query.userIdTypes ?? []).map((type) => [
+        type,
+        getFeatureUsageIdentifierColumn(query, type),
+      ]),
+    ),
+  };
+}
+
+// Queries saved before detected columns were stored only tell us the columns
+// they use, and not their types, until the columns are refreshed.
+function getSavedColumns(query: FeatureUsageQuery): DetectedColumn[] {
+  if (query.columns?.length) return query.columns;
+  const timestamp = getFeatureUsageTimestampColumn(query);
+  const known = new Set([
+    timestamp,
+    getFeatureUsageFeatureKeyColumn(query),
+    ...(query.userIdTypes ?? []).map(
+      (type) =>
+        splitFeatureUsageJsonField(getFeatureUsageIdentifierColumn(query, type))
+          ?.root ?? getFeatureUsageIdentifierColumn(query, type),
+    ),
+  ]);
+  return [...known].map((column) => ({
+    column,
+    datatype: column === timestamp ? "date" : "",
+  }));
+}
+
+export const FeatureEvaluationQueryModal = ({
   featureUsageQuery,
   dataSource,
-  mode,
   onSave,
   onCancel,
+}: {
+  featureUsageQuery?: FeatureUsageQuery;
+  dataSource: DataSourceInterfaceWithParams;
+  onSave: (featureUsageQuery: FeatureUsageQuery) => Promise<void>;
+  onCancel: () => void;
 }) => {
-  const [uiMode, setUiMode] = useState<"view" | "sql">("view");
-  const modalTitle =
-    mode === "add" ? "Add a Feature Usage query" : `Edit Feature Usage query`;
+  const permissionsUtil = usePermissionsUtil();
+  const attributes = useAttributeSchema(false);
 
-  const defaultQuery = `SELECT\n  timestamp as timestamp,\n  feature_key as feature_key,\n  value as value\nFROM my_table`;
+  const savedRoleColumns = featureUsageQuery
+    ? getSavedRoleColumns(featureUsageQuery)
+    : {};
+  const savedUserIdTypes = featureUsageQuery?.userIdTypes ?? [];
 
-  const form = useForm<FeatureUsageQuery>({
-    defaultValues:
-      mode === "edit" && featureUsageQuery
-        ? cloneDeep<FeatureUsageQuery>(featureUsageQuery)
-        : {
-            id: uniqId("tbl_"),
-            query: defaultQuery,
-          },
-  });
+  // Editing starts on the mapping, since most edits don't touch the SQL.
+  const [step, setStep] = useState(featureUsageQuery ? 1 : 0);
+  const [sql, setSql] = useState(
+    () => featureUsageQuery?.query ?? DEFAULT_QUERY,
+  );
+  const [savedColumns] = useState(() =>
+    featureUsageQuery ? getSavedColumns(featureUsageQuery) : null,
+  );
 
-  const userEnteredQuery = form.watch("query");
+  const [timestampColumn, setTimestampColumn] = useState(
+    savedRoleColumns.timestamp ?? "",
+  );
+  const [featureKeyColumn, setFeatureKeyColumn] = useState(
+    savedRoleColumns.feature_key ?? "",
+  );
+  const [optionalColumns, setOptionalColumns] = useState<
+    Partial<Record<OptionalRole, string>>
+  >(() =>
+    Object.fromEntries(
+      OPTIONAL_ROLES.filter(({ key }) => savedRoleColumns[key]).map(
+        ({ key }) => [key, savedRoleColumns[key]],
+      ),
+    ),
+  );
+  const [userIdColumns, setUserIdColumns] = useState<Record<string, string>>(
+    () =>
+      Object.fromEntries(
+        savedUserIdTypes.map((idType) => [idType, savedRoleColumns[idType]]),
+      ),
+  );
+  const validateSql = useRef<(() => Promise<void>) | null>(null);
 
-  const handleSubmit = form.handleSubmit(async (value) => {
-    await onSave(value);
+  const identifierTypes = useMemo(
+    () => (dataSource.settings.userIdTypes || []).map((t) => t.userIdType),
+    [dataSource],
+  );
+  const canRunQueries = permissionsUtil.canRunTestQueries(dataSource);
 
-    form.reset({
-      id: undefined,
-      query: "",
-    });
-  });
-
-  const requiredColumns = new Set(["timestamp", "feature_key"]);
-
-  const saveEnabled = !!userEnteredQuery;
-
-  if (!featureUsageQuery && mode === "edit") {
-    console.error(
-      "ImplementationError: featureUsageQuery is required for Edit mode",
+  const remapColumns = (cols: DetectedColumn[]) => {
+    setTimestampColumn((prev) =>
+      rematchColumn(prev, cols, () => getDefaultTimestampColumn(cols)),
     );
-    return null;
-  }
-
-  const validateResponse = (result: TestQueryRow) => {
-    if (!result) return;
-
-    const requiredColumnsArray = Array.from(requiredColumns);
-    const missingColumns = requiredColumnsArray.filter(
-      (col) => !(col in result),
+    setFeatureKeyColumn((prev) =>
+      rematchColumn(
+        prev,
+        cols,
+        () =>
+          findColumnByName(cols, "feature_key") ||
+          findColumnByName(cols, "feature"),
+      ),
     );
-
-    if (missingColumns.length > 0) {
-      throw new Error(
-        `You are missing the following columns: ${missingColumns.join(", ")}`,
+    setOptionalColumns((prev) =>
+      Object.fromEntries(
+        OPTIONAL_ROLES.map(({ key, names }) => [
+          key,
+          rematchColumn(
+            prev[key] ?? "",
+            cols,
+            () =>
+              names.map((n) => findColumnByName(cols, n)).find(Boolean) ?? "",
+          ),
+        ]).filter(([, column]) => column),
+      ),
+    );
+    setUserIdColumns((prev) => {
+      const rematched = rematchUserIdColumns(prev, identifierTypes, cols);
+      // rematchUserIdColumns only keeps fields of JSON-typed columns; a field
+      // of a text column holding JSON survives too
+      const keptFields = Object.fromEntries(
+        Object.entries(prev).filter(([, column]) => {
+          const parts = splitFeatureUsageJsonField(column);
+          return parts && cols.some((c) => isJsonRoot(c, parts.root));
+        }),
       );
-    }
+      return { ...rematched, ...keptFields };
+    });
   };
 
-  return (
-    <>
-      {uiMode === "sql" && dataSource && (
-        <EditSqlModal
-          close={() => setUiMode("view")}
-          datasourceId={dataSource.id || ""}
-          requiredColumns={requiredColumns}
-          value={userEnteredQuery}
-          save={async (userEnteredQuery) => {
-            form.setValue("query", userEnteredQuery);
-          }}
-          validateResponseOverride={validateResponse}
-          sqlObjectInfo={{
-            objectType: "Feature Usage Query",
-          }}
-        />
-      )}
+  const source = useSourceTable({
+    datasource: dataSource,
+    // A saved query keeps only its SQL, so edits stay in SQL mode
+    tableModeAvailable: !featureUsageQuery,
+    templates: NO_TEMPLATES,
+    queryType: "featureUsageQueryTest",
+    sql,
+    setSql,
+    initialColumns: savedColumns,
+    getColumnMappingError: getFeatureUsageColumnMappingError,
+    onSelectTable: () => {
+      // Otherwise the previous table's mappings carry over
+      setTimestampColumn("");
+      setFeatureKeyColumn("");
+      setOptionalColumns({});
+      setUserIdColumns({});
+    },
+    onColumnsChanged: remapColumns,
+  });
+  const { mode, selectedTable, partition, detected, querySql } = source;
+  // False while editing a query saved before its columns were stored, whose
+  // columns are only guessed from its mapping
+  const columnsDetected =
+    !featureUsageQuery ||
+    !!featureUsageQuery.columns?.length ||
+    detected !== savedColumns;
 
-      <Modal
-        trackingEventModalType=""
-        open={true}
-        submit={handleSubmit}
-        close={onCancel}
-        size="lg"
-        header={modalTitle}
-        cta="Save"
-        ctaEnabled={saveEnabled}
+  const columns: DetectedColumn[] = detected || [];
+  const timestampOptions = columns.filter(
+    (c) => isTimestampCandidate(c) || c.column === savedRoleColumns.timestamp,
+  );
+  const stringOptions = columns.filter(isIdentifierCandidate);
+  // Columns a typed JSON field can be read from
+  const jsonRootNames = columns
+    .filter((c) => FEATURE_USAGE_JSON_ROOT_TYPES.includes(c.datatype))
+    .map((c) => c.column);
+  // Identifiers can also be a field inside a JSON column; the org's attributes
+  // are the fields the SDK sends. They're suggested for JSON columns and for
+  // text columns named like they hold attributes.
+  const suggestedRoots = columns
+    .filter(
+      (c) =>
+        c.datatype === "json" ||
+        (FEATURE_USAGE_JSON_ROOT_TYPES.includes(c.datatype) &&
+          ATTRIBUTE_COLUMN_NAMES.includes(c.column.toLowerCase())),
+    )
+    .map((c) => c.column);
+  const identifierOptions: DetectedColumn[] = [
+    ...stringOptions,
+    ...suggestedRoots.flatMap((root) =>
+      attributes
+        .map((a) => `${root}.${a.property}`)
+        // Attribute names that can't be read as a JSON field aren't offered
+        .filter(
+          (path) =>
+            !getFeatureUsageJsonFieldError({
+              columnMapping: { userIdColumns: { id: path } },
+              columns,
+            }),
+        )
+        .map((path) => ({ column: path, datatype: "string" as const })),
+    ),
+  ];
+
+  const isValidIdentifier = (value: string) =>
+    !!value &&
+    (!!validColumn(identifierOptions, value) ||
+      (!!splitFeatureUsageJsonField(value) &&
+        jsonRootNames.includes(value.split(".")[0])));
+  // A value that can't be used is flagged on its row rather than dropped on save
+  const identifierErrors: Record<string, string | null> = Object.fromEntries(
+    identifierTypes.map((t) => {
+      const value = userIdColumns[t] || "";
+      if (!value) return [t, null];
+      // JSON fields are checked even when suggested
+      if (value.includes(".")) {
+        return [
+          t,
+          getFeatureUsageJsonFieldError({
+            columnMapping: { userIdColumns: { [t]: value } },
+            columns,
+          }),
+        ];
+      }
+      if (validColumn(identifierOptions, value)) return [t, null];
+      if (value === savedRoleColumns[t]) {
+        return [t, `Your query no longer returns "${value}". Select a column.`];
+      }
+      return [
+        t,
+        jsonRootNames.length
+          ? suggestedRoots.length
+            ? `Enter a JSON field like "${suggestedRoots[0]}.${t}", or select a column.`
+            : "Enter a JSON field (column.field), or select a column."
+          : `Your query doesn't return "${value}". Select a column.`,
+      ];
+    }),
+  );
+  const identifierError = Object.values(identifierErrors).find(Boolean);
+  const mappedUserIdTypes = identifierTypes.filter(
+    (t) => isValidIdentifier(userIdColumns[t] || "") && !identifierErrors[t],
+  );
+
+  const mappingForChecks: FeatureUsageQueryColumnMapping = {
+    timestampColumn,
+    featureKeyColumn,
+    ...Object.fromEntries(
+      OPTIONAL_ROLES.map(({ key }) => [
+        MAPPING_KEYS[key],
+        optionalColumns[key] || undefined,
+      ]),
+    ),
+    userIdColumns: Object.fromEntries(
+      mappedUserIdTypes.map((t) => [t, userIdColumns[t]]),
+    ),
+  };
+  const columnsNeedingQuotes = findFeatureUsageColumnsNeedingQuotes(
+    { columnMapping: mappingForChecks },
+    getDataSourceSqlDialect(dataSource.type)?.unquotedIdentifierFold,
+  );
+
+  const missingColumns = featureUsageQuery
+    ? [
+        { role: "Timestamp", column: timestampColumn },
+        { role: "Feature key", column: featureKeyColumn },
+        ...OPTIONAL_ROLES.map(({ key, label }) => ({
+          role: label,
+          column: optionalColumns[key] || "",
+        })),
+        // Only saved identifier columns; a typed value is checked on its row,
+        // and JSON fields aren't result columns
+        ...identifierTypes.map((t) => {
+          const column = userIdColumns[t] || "";
+          return {
+            role: t,
+            column:
+              column === savedRoleColumns[t] && !column.includes(".")
+                ? column
+                : "",
+          };
+        }),
+      ].filter(
+        ({ column }) => column && !columns.some((c) => c.column === column),
+      )
+    : [];
+
+  async function submit() {
+    if (!detected) throw new Error("Test your SQL first");
+
+    const timestamp = validColumn(timestampOptions, timestampColumn);
+    const featureKey = validColumn(stringOptions, featureKeyColumn);
+    if (!timestamp) throw new Error("Select a timestamp column");
+    if (!featureKey) throw new Error("Select a feature key column");
+
+    const optional = Object.fromEntries(
+      OPTIONAL_ROLES.map(({ key }) => [
+        key,
+        validColumn(columns, optionalColumns[key] || ""),
+      ]).filter(([, column]) => column),
+    );
+
+    // The generated SQL can't tell columns apart when they share one
+    const mapped = [
+      timestamp,
+      featureKey,
+      ...Object.values(optional),
+      ...mappedUserIdTypes.map((t) => userIdColumns[t]),
+    ];
+    const duplicate = mapped.find((c, i) => mapped.indexOf(c) !== i);
+    if (duplicate) {
+      throw new Error(
+        `Column "${duplicate}" is mapped more than once. Map each column to one role.`,
+      );
+    }
+    if (columnsNeedingQuotes.length) {
+      throw new Error(getColumnsNeedingQuotesMessage(columnsNeedingQuotes));
+    }
+    if (identifierError) throw new Error(identifierError);
+
+    const remappedUserIds = getRemappedUserIdColumns(
+      mappedUserIdTypes,
+      userIdColumns,
+    );
+
+    // Only columns whose name isn't the standard one are stored
+    const columnMapping: FeatureUsageQueryColumnMapping = Object.fromEntries(
+      Object.entries({
+        timestampColumn: timestamp !== "timestamp" ? timestamp : undefined,
+        featureKeyColumn: featureKey !== "feature_key" ? featureKey : undefined,
+        ...Object.fromEntries(
+          OPTIONAL_ROLES.map(({ key }) => [
+            MAPPING_KEYS[key],
+            optional[key] && optional[key] !== key ? optional[key] : undefined,
+          ]),
+        ),
+        userIdColumns: Object.keys(remappedUserIds).length
+          ? remappedUserIds
+          : undefined,
+      }).filter(([, value]) => value !== undefined),
+    );
+
+    const saved: FeatureUsageQuery = {
+      // Keep fields this modal doesn't edit, but not a stale mapping.
+      ...omit(featureUsageQuery ?? {}, "columnMapping"),
+      id: featureUsageQuery?.id ?? uniqId("fuq_"),
+      query: querySql,
+      userIdTypes: mappedUserIdTypes,
+      ...(columnsDetected
+        ? {
+            columns: columns.map(({ column, datatype }) => ({
+              column,
+              datatype,
+            })),
+          }
+        : {}),
+      ...(Object.keys(columnMapping).length ? { columnMapping } : {}),
+    };
+
+    await onSave(saved);
+  }
+
+  return (
+    <PagedModal
+      trackingEventModalType={
+        featureUsageQuery
+          ? "edit-feature-usage-query"
+          : "new-feature-usage-query"
+      }
+      header={
+        featureUsageQuery
+          ? "Edit Feature Usage Query"
+          : "Add Feature Usage Query"
+      }
+      step={step}
+      setStep={setStep}
+      submit={submit}
+      close={onCancel}
+      cta={featureUsageQuery ? "Save" : "Add"}
+      size={step === 0 && mode === "sql" ? "max" : "lg"}
+      disabledMessage={
+        step === 0 && source.loadingColumns ? "Loading columns..." : undefined
+      }
+      ctaEnabled={step > 0 || source.canContinue}
+      overflowAuto={false}
+      autoFocusSelector=""
+      hideNav
+      bodyClassName="p-0"
+      backButton
+      onBackFirstStep={source.backToTableMode}
+    >
+      <Page
+        display="Write SQL"
+        validate={async () => {
+          await validateSql.current?.();
+        }}
       >
-        <div className="my-2 ml-3 mr-3">
-          <div className="row">
-            <div className="col-12">
-              <div className="form-group">
-                <label className="mr-5">Query</label>
-                {userEnteredQuery === defaultQuery && (
-                  <Callout status="info">
-                    The prefilled query below may require editing to fit your
-                    data structure.
+        <Box
+          p="2"
+          style={
+            mode === "sql"
+              ? { height: BODY_HEIGHT }
+              : { maxHeight: BODY_HEIGHT, overflowY: "auto" }
+          }
+        >
+          <SourceStep
+            key={mode}
+            source={source}
+            validateRef={validateSql}
+            placeholder={DEFAULT_QUERY}
+          />
+        </Box>
+      </Page>
+
+      <Page display="Configure">
+        <Box
+          px="4"
+          py="2"
+          style={{ maxHeight: BODY_HEIGHT, overflowY: "auto" }}
+        >
+          <Flex direction="column" gap="3">
+            <SourceSummary
+              table={mode === "table" ? (selectedTable?.path ?? null) : null}
+              sql={querySql}
+              onEdit={() => setStep(0)}
+            />
+
+            <ColumnMappingSection
+              source={source}
+              canRefresh={!!featureUsageQuery}
+              canRunQueries={canRunQueries}
+              columnsDetected={columnsDetected}
+              missingColumns={missingColumns}
+              messages={
+                columnsNeedingQuotes.length ? (
+                  <Callout status="warning" size="sm" mb="2">
+                    {getColumnsNeedingQuotesMessage(columnsNeedingQuotes)}
                   </Callout>
-                )}
-                {userEnteredQuery && (
-                  <Code
-                    language="sql"
-                    code={userEnteredQuery}
-                    expandable={true}
-                  />
-                )}
-                <div>
-                  <button
-                    className="btn btn-primary mt-2"
-                    type="button"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      setUiMode("sql");
-                    }}
-                  >
-                    <div className="d-flex align-items-center">
-                      Customize SQL
-                      <FaExternalLinkAlt className="ml-2" />
-                    </div>
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </Modal>
-    </>
+                ) : null
+              }
+            >
+              <ColumnMappingRow
+                label="Timestamp"
+                kind="timestamp"
+                tooltip="When the flag was evaluated"
+                value={timestampColumn}
+                options={timestampOptions}
+                setValue={setTimestampColumn}
+              />
+              <ColumnMappingRow
+                label="Feature key"
+                kind="feature"
+                value={featureKeyColumn}
+                options={stringOptions}
+                setValue={setFeatureKeyColumn}
+              />
+              {OPTIONAL_ROLES.slice(0, 2).map(({ key, label, tooltip }) => (
+                <ColumnMappingRow
+                  key={key}
+                  label={label}
+                  kind="detail"
+                  tooltip={tooltip}
+                  value={optionalColumns[key] || ""}
+                  options={columns}
+                  setValue={(v) =>
+                    setOptionalColumns((prev) => ({ ...prev, [key]: v }))
+                  }
+                  onRemove={() => setOptionalColumns((prev) => omit(prev, key))}
+                />
+              ))}
+              {identifierTypes.map((idType) => (
+                <ColumnMappingRow
+                  key={idType}
+                  label={idType}
+                  kind="identifier"
+                  tooltip="Lets you filter evaluations by user and chart metrics for users who got the flag. If apps send this id in different attributes, combine them in the SQL, for example with COALESCE."
+                  value={userIdColumns[idType] || ""}
+                  options={identifierOptions}
+                  setValue={(v) =>
+                    setUserIdColumns((prev) => ({ ...prev, [idType]: v }))
+                  }
+                  onRemove={() =>
+                    setUserIdColumns((prev) => omit(prev, idType))
+                  }
+                  error={identifierErrors[idType]}
+                  customValue={
+                    jsonRootNames.length
+                      ? {
+                          label: "Other JSON field...",
+                          placeholder: suggestedRoots.length
+                            ? `${suggestedRoots[0]}.field_name`
+                            : "column.field",
+                        }
+                      : undefined
+                  }
+                />
+              ))}
+              {OPTIONAL_ROLES.slice(2).map(({ key, label, tooltip }) => (
+                <ColumnMappingRow
+                  key={key}
+                  label={label}
+                  kind="detail"
+                  tooltip={tooltip}
+                  value={optionalColumns[key] || ""}
+                  options={columns}
+                  setValue={(v) =>
+                    setOptionalColumns((prev) => ({ ...prev, [key]: v }))
+                  }
+                  onRemove={() => setOptionalColumns((prev) => omit(prev, key))}
+                />
+              ))}
+              {mode === "table" ? (
+                <PartitionMappingRow
+                  partition={partition}
+                  tooltip="Only reads recent partitions, to limit data scanned"
+                />
+              ) : null}
+            </ColumnMappingSection>
+          </Flex>
+        </Box>
+      </Page>
+    </PagedModal>
   );
 };

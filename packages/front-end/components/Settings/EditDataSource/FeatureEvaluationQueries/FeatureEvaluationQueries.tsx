@@ -219,9 +219,8 @@ export const FeatureEvaluationQueries: FC<FeatureEvaluationQueriesProps> = ({
 
       {uiMode === "edit" || uiMode === "add" ? (
         <FeatureEvaluationQueryModal
-          featureUsageQuery={featureUsageQuery}
+          featureUsageQuery={uiMode === "edit" ? featureUsageQuery : undefined}
           dataSource={dataSource}
-          mode={uiMode}
           onSave={handleSave()}
           onCancel={() => setUiMode("view")}
         />

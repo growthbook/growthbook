@@ -1,6 +1,5 @@
 import { useMemo, useRef, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
-import { PiArrowClockwise, PiArrowLeft } from "react-icons/pi";
 import uniqId from "uniqid";
 import omit from "lodash/omit";
 import {
@@ -26,6 +25,9 @@ import { useSourceTable } from "@/components/SchemaBrowser/useSourceTable";
 import ColumnMappingRow, {
   validColumn,
 } from "@/components/SchemaBrowser/ColumnMappingRow";
+import ColumnMappingSection from "@/components/SchemaBrowser/ColumnMappingSection";
+import PartitionMappingRow from "@/components/SchemaBrowser/PartitionMappingRow";
+import SourceSummary from "@/components/SchemaBrowser/SourceSummary";
 import {
   findColumnByName,
   findEventTypeColumn,
@@ -42,24 +44,15 @@ import {
   getGA4ExposureTemplate,
   getStarterIdentifierTypes,
   getInitialExposureQuery,
-  validateSQL,
 } from "@/services/datasources";
-import { useAuth } from "@/services/auth";
 import PagedModal from "@/components/Modal/PagedModal";
 import Page from "@/components/Modal/Page";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import useProjectOptions from "@/hooks/useProjectOptions";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import Code from "@/components/SyntaxHighlighting/Code";
-import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
-import Link from "@/ui/Link";
-import { Select, SelectItem } from "@/ui/Select";
-import Text from "@/ui/Text";
-import UITooltip from "@/ui/Tooltip";
 import TextField from "@/ui/TextField";
 import MultiSelectField from "@/ui/MultiSelectField";
-import Table, { TableBody } from "@/ui/Table";
 
 const BODY_HEIGHT = "calc(93vh - 200px)";
 
@@ -154,7 +147,6 @@ export const ExperimentAssignmentQueryModal = ({
 }) => {
   const { projects: allProjects } = useDefinitions();
   const permissionsUtil = usePermissionsUtil();
-  const { apiCall } = useAuth();
 
   const savedRoleColumns = exposureQuery ? getRoleColumns(exposureQuery) : {};
   const savedUserIdTypes = exposureQuery
@@ -203,9 +195,6 @@ export const ExperimentAssignmentQueryModal = ({
   const [dimensions, setDimensions] = useState<string[]>(
     exposureQuery?.dimensions ?? [],
   );
-
-  const [refreshingColumns, setRefreshingColumns] = useState(false);
-  const [refreshError, setRefreshError] = useState<string | null>(null);
 
   const validateSql = useRef<(() => Promise<void>) | null>(null);
 
@@ -366,40 +355,12 @@ export const ExperimentAssignmentQueryModal = ({
         experiment_name: experimentNameColumn,
         variation_name: variationNameColumn,
         ...userIdColumns,
-      }).filter(
-        ([, column]) => column && !columns.some((c) => c.column === column),
-      )
+      })
+        .filter(
+          ([, column]) => column && !columns.some((c) => c.column === column),
+        )
+        .map(([role, column]) => ({ column, role: ROLE_LABELS[role] ?? role }))
     : [];
-
-  async function refreshColumns() {
-    setRefreshingColumns(true);
-    setRefreshError(null);
-    try {
-      validateSQL(sql, []);
-      const res = await apiCall<{ error?: string; columns?: DetectedColumn[] }>(
-        "/query/test",
-        {
-          method: "POST",
-          body: JSON.stringify({
-            query: sql,
-            datasourceId: dataSource.id,
-            limit: 0,
-            detectColumns: true,
-            queryType: "exposureQueryTest",
-          }),
-        },
-      );
-      if (res.error) throw new Error(res.error);
-      const cols = res.columns || [];
-      const error = getMappingError(cols);
-      if (error) throw new Error(error);
-      source.handleColumnsDetected(cols, sql);
-    } catch (e) {
-      setRefreshError(e.message);
-    } finally {
-      setRefreshingColumns(false);
-    }
-  }
 
   // Leaving the scope empty covers every Project the Data Source does.
   const canCoverAllProjects = permissionsUtil.canUpdateExposureQuery(
@@ -600,14 +561,13 @@ export const ExperimentAssignmentQueryModal = ({
           style={{ maxHeight: BODY_HEIGHT, overflowY: "auto" }}
         >
           <Flex direction="column" gap="3">
+            <SourceSummary
+              table={mode === "table" ? (selectedTable?.path ?? null) : null}
+              sql={querySql}
+              onEdit={() => setStep(0)}
+            />
             {mode === "table" && selectedTable ? (
               <>
-                <TextField
-                  label="Source table"
-                  value={selectedTable.path.replace(/`/g, "")}
-                  readOnly
-                  append={<Link onClick={() => setStep(0)}>Change</Link>}
-                />
                 {source.template ? (
                   <Callout status="info" size="sm">
                     GA4 events table detected. The{" "}
@@ -616,21 +576,7 @@ export const ExperimentAssignmentQueryModal = ({
                   </Callout>
                 ) : null}
               </>
-            ) : (
-              <Code
-                language="sql"
-                code={querySql}
-                expandable
-                collapsedLines={3}
-                filename={
-                  <Link onClick={() => setStep(0)}>
-                    <Flex align="center" gap="1">
-                      <PiArrowLeft /> Edit SQL
-                    </Flex>
-                  </Link>
-                }
-              />
-            )}
+            ) : null}
             <TextField
               label="Display name"
               value={name}
@@ -663,168 +609,103 @@ export const ExperimentAssignmentQueryModal = ({
               />
             )}
 
-            <Box>
-              <Flex align="center" justify="between" mb="2">
-                <Text as="div" weight="semibold">
-                  Column mapping
-                </Text>
-                {exposureQuery ? (
-                  <UITooltip
-                    content="You don't have permission to run test queries"
-                    enabled={!canRunQueries}
-                  >
-                    <span style={{ display: "inline-flex" }}>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        icon={<PiArrowClockwise />}
-                        onClick={refreshColumns}
-                        loading={refreshingColumns}
-                        disabled={!canRunQueries || !sql}
-                      >
-                        Refresh columns
-                      </Button>
-                    </span>
-                  </UITooltip>
-                ) : null}
-              </Flex>
-              {!columnsDetected ? (
-                <Callout status="info" mb="2">
-                  Only the columns this query already uses are listed.
-                  {canRunQueries
-                    ? " Refresh columns to see everything it returns."
-                    : ""}
-                </Callout>
-              ) : null}
-              {refreshError ? (
-                <Callout status="error" mb="2">
-                  {refreshError}
-                </Callout>
-              ) : null}
-              {missingRoleColumns.length > 0 ? (
-                <Callout status="warning" mb="2">
-                  {`Your query no longer returns ${missingRoleColumns
-                    .map(
-                      ([role, column]) =>
-                        `"${column}" (${ROLE_LABELS[role] ?? role})`,
-                    )
-                    .join(", ")}. Choose a new column for each.`}
-                </Callout>
-              ) : null}
-              <Table size="sm" variant="surface" layout="fixed" mb="2">
-                <TableBody>
-                  <ColumnMappingRow
-                    label="Experiment ID"
-                    kind="experiment"
-                    value={experimentIdColumn}
-                    options={columns}
-                    setValue={setExperimentIdColumn}
-                  />
-                  <ColumnMappingRow
-                    label="Variation ID"
-                    kind="variation"
-                    value={variationIdColumn}
-                    options={columns}
-                    setValue={setVariationIdColumn}
-                  />
-                  <ColumnMappingRow
-                    label="Timestamp"
-                    kind="timestamp"
-                    tooltip="When the unit was exposed to the experiment"
-                    value={timestampColumn}
-                    options={timestampOptions}
-                    setValue={setTimestampColumn}
-                  />
-                  {identifierTypes.map((idType) => (
-                    <ColumnMappingRow
-                      key={idType}
-                      label={idType}
-                      kind="identifier"
-                      value={userIdColumns[idType] || ""}
-                      options={identifierOptions}
-                      setValue={(v) =>
-                        setUserIdColumns((prev) => ({ ...prev, [idType]: v }))
-                      }
-                      onRemove={() =>
-                        setUserIdColumns((prev) => omit(prev, idType))
-                      }
-                    />
-                  ))}
-                  <ColumnMappingRow
-                    label="Experiment name"
-                    kind="experiment"
-                    tooltip="Display name for imported experiments. Map it with the variation name, or leave both empty."
-                    value={experimentNameColumn}
-                    options={columns}
-                    setValue={setExperimentNameColumn}
-                    onRemove={() => setExperimentNameColumn("")}
-                  />
-                  <ColumnMappingRow
-                    label="Variation name"
-                    kind="variation"
-                    tooltip="Display name for imported variations. Map it with the experiment name, or leave both empty."
-                    value={variationNameColumn}
-                    options={columns}
-                    setValue={setVariationNameColumn}
-                    onRemove={() => setVariationNameColumn("")}
-                  />
-                  {mode === "table" &&
-                  !source.template &&
-                  partition.available ? (
-                    <ColumnMappingRow
-                      kind="partition"
-                      label="Date partition"
-                      tooltip="Only reads partitions from the experiment's start date on, to limit data scanned"
-                      value={partition.column}
-                      options={partition.options}
-                      setValue={partition.setColumn}
-                      onRemove={() => partition.setColumn("")}
-                      append={
-                        partition.formats.length ? (
-                          <Select
-                            size="sm"
-                            mb="0"
-                            aria-label="Partition format"
-                            value={partition.format}
-                            setValue={partition.setFormat}
-                          >
-                            {partition.formats.map((f) => (
-                              <SelectItem key={f} value={f}>
-                                {f.toUpperCase()}
-                              </SelectItem>
-                            ))}
-                          </Select>
-                        ) : null
-                      }
-                    />
+            <ColumnMappingSection
+              source={source}
+              canRefresh={!!exposureQuery}
+              canRunQueries={canRunQueries}
+              columnsDetected={columnsDetected}
+              missingColumns={missingRoleColumns}
+              messages={
+                <>
+                  {columnsNeedingQuotes.length ? (
+                    <Callout status="warning" size="sm" mb="2">
+                      {getColumnsNeedingQuotesMessage(columnsNeedingQuotes)}
+                    </Callout>
                   ) : null}
-                </TableBody>
-              </Table>
-              {columnsNeedingQuotes.length ? (
-                <Callout status="warning" size="sm" mb="2">
-                  {getColumnsNeedingQuotesMessage(columnsNeedingQuotes)}
-                </Callout>
+                  {!experimentName !== !variationName ? (
+                    <Callout status="warning" size="sm" mb="2">
+                      Map both the experiment name and the variation name, or
+                      leave both empty.
+                    </Callout>
+                  ) : null}
+                  {removedIdentifierTypes.length > 0 ? (
+                    <Callout status="warning">
+                      {`Experiments analyzed on ${removedIdentifierTypes
+                        .map((idType) => `"${idType}"`)
+                        .join(
+                          ", ",
+                        )} won't be able to update results until they're switched to another identifier.${
+                        removesLegacyIdentifierType
+                          ? ` Experiments, reports, and safe rollouts created before this query declared multiple identifiers also analyze on "${exposureQuery?.userIdType}". Adding it back restores them.`
+                          : ""
+                      }`}
+                    </Callout>
+                  ) : null}
+                </>
+              }
+            >
+              <ColumnMappingRow
+                label="Experiment ID"
+                kind="experiment"
+                value={experimentIdColumn}
+                options={columns}
+                setValue={setExperimentIdColumn}
+              />
+              <ColumnMappingRow
+                label="Variation ID"
+                kind="variation"
+                value={variationIdColumn}
+                options={columns}
+                setValue={setVariationIdColumn}
+              />
+              <ColumnMappingRow
+                label="Timestamp"
+                kind="timestamp"
+                tooltip="When the unit was exposed to the experiment"
+                value={timestampColumn}
+                options={timestampOptions}
+                setValue={setTimestampColumn}
+              />
+              {identifierTypes.map((idType) => (
+                <ColumnMappingRow
+                  key={idType}
+                  label={idType}
+                  kind="identifier"
+                  value={userIdColumns[idType] || ""}
+                  options={identifierOptions}
+                  setValue={(v) =>
+                    setUserIdColumns((prev) => ({ ...prev, [idType]: v }))
+                  }
+                  onRemove={() =>
+                    setUserIdColumns((prev) => omit(prev, idType))
+                  }
+                />
+              ))}
+              <ColumnMappingRow
+                label="Experiment name"
+                kind="experiment"
+                tooltip="Display name for imported experiments. Map it with the variation name, or leave both empty."
+                value={experimentNameColumn}
+                options={columns}
+                setValue={setExperimentNameColumn}
+                onRemove={() => setExperimentNameColumn("")}
+              />
+              <ColumnMappingRow
+                label="Variation name"
+                kind="variation"
+                tooltip="Display name for imported variations. Map it with the experiment name, or leave both empty."
+                value={variationNameColumn}
+                options={columns}
+                setValue={setVariationNameColumn}
+                onRemove={() => setVariationNameColumn("")}
+              />
+              {mode === "table" && !source.template ? (
+                <PartitionMappingRow
+                  partition={partition}
+                  tooltip="Only reads partitions from the experiment's start date on, to limit data scanned"
+                />
               ) : null}
-              {!experimentName !== !variationName ? (
-                <Callout status="warning" size="sm" mb="2">
-                  Map both the experiment name and the variation name, or leave
-                  both empty.
-                </Callout>
-              ) : null}
-              {removedIdentifierTypes.length > 0 ? (
-                <Callout status="warning">
-                  {`Experiments analyzed on ${removedIdentifierTypes
-                    .map((idType) => `"${idType}"`)
-                    .join(
-                      ", ",
-                    )} won't be able to update results until they're switched to another identifier.${
-                    removesLegacyIdentifierType
-                      ? ` Experiments, reports, and safe rollouts created before this query declared multiple identifiers also analyze on "${exposureQuery?.userIdType}". Adding it back restores them.`
-                      : ""
-                  }`}
-                </Callout>
-              ) : null}
-            </Box>
+            </ColumnMappingSection>
 
             <MultiSelectField
               label="Dimension columns"

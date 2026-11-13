@@ -1,6 +1,7 @@
 import { z } from "zod";
 import type {
   exposureQueryColumnMappingValidator,
+  featureUsageQueryColumnMappingValidator,
   schemaFormatValidator,
 } from "shared/validators";
 import { AthenaConnectionParams } from "./integrations/athena";
@@ -199,6 +200,14 @@ export type ExposureQueryColumnMapping = z.infer<
   typeof exposureQueryColumnMappingValidator
 >;
 
+/**
+ * The columns a feature usage query's standard columns read from, for queries
+ * that don't alias them to the standard names.
+ */
+export type FeatureUsageQueryColumnMapping = z.infer<
+  typeof featureUsageQueryColumnMappingValidator
+>;
+
 export interface FeatureUsageQuery {
   id: string;
   query: string;
@@ -206,6 +215,14 @@ export interface FeatureUsageQuery {
   error?: string;
   /** Set to "api" for queries auto-created by Event Forwarder. */
   managedBy?: "" | "api";
+  /** Identifier types the query returns a column for. */
+  userIdTypes?: string[];
+  columnMapping?: FeatureUsageQueryColumnMapping;
+  /**
+   * Columns the query returned when it was last tested in the editor, so the
+   * column mapping can be edited without re-running the query.
+   */
+  columns?: Pick<DetectedColumn, "column" | "datatype">[];
 }
 
 export interface UserIdType {

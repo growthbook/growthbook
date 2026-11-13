@@ -77035,6 +77035,74 @@ components:
               - dimensionColumns
               - projects
             additionalProperties: false
+        featureUsageQueries:
+          description: >-
+            Queries Feature Diagnostics reads flag evaluations from. Diagnostics
+            uses the first one, or the managed one if there is one.
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+              description:
+                type: string
+                maxLength: 10000
+              sql:
+                type: string
+              identifierTypes:
+                description: Identifier types the query returns a column for
+                type: array
+                items:
+                  type: string
+              columnMapping:
+                description: >-
+                  The column `sql` returns for each role, where it isn't the
+                  standard name (`timestamp`, `feature_key`, `environment`,
+                  `value`, `rule_id`, `variation_id`, `source`, `revision`, or
+                  the identifier type's own name). An identifier can be a field
+                  inside a JSON column, like `attributes.customerId`. Roles not
+                  listed use the standard name.
+                type: object
+                properties:
+                  timestampColumn:
+                    type: string
+                  featureKeyColumn:
+                    type: string
+                  environmentColumn:
+                    type: string
+                  valueColumn:
+                    type: string
+                  ruleIdColumn:
+                    type: string
+                  variationIdColumn:
+                    type: string
+                  sourceColumn:
+                    type: string
+                  revisionColumn:
+                    type: string
+                  userIdColumns:
+                    description: Column for each identifier type, keyed by type
+                    type: object
+                    propertyNames:
+                      type: string
+                    additionalProperties:
+                      type: string
+                additionalProperties: false
+              managed:
+                description: >-
+                  Generated and kept up to date by GrowthBook, for example by
+                  the Event Forwarder
+                type: boolean
+              error:
+                type: string
+            required:
+              - id
+              - description
+              - sql
+              - identifierTypes
+              - managed
+            additionalProperties: false
         identifierJoinQueries:
           type: array
           items:
@@ -77123,6 +77191,7 @@ components:
         - eventTracker
         - identifierTypes
         - assignmentQueries
+        - featureUsageQueries
         - identifierJoinQueries
       additionalProperties: false
     InformationSchema:

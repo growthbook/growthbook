@@ -109,19 +109,10 @@ export function getColumnsNeedingQuotesMessage(columns: string[]): string {
 
 // Mapped columns are interpolated unquoted. On warehouses that fold unquoted
 // names to lowercase, a capital letter means the column was created quoted.
-export function findColumnsNeedingQuotes(
-  query: WithColumnMapping,
+export function findMappedColumnsNeedingQuotes(
+  mapped: (string | undefined)[],
   fold: UnquotedIdentifierFold | undefined,
 ): string[] {
-  const mapping = query.columnMapping ?? {};
-  const mapped = [
-    mapping.experimentIdColumn,
-    mapping.variationIdColumn,
-    mapping.timestampColumn,
-    mapping.experimentNameColumn,
-    mapping.variationNameColumn,
-    ...Object.values(mapping.userIdColumns ?? {}),
-  ];
   return [
     ...new Set(
       mapped.filter(
@@ -132,6 +123,24 @@ export function findColumnsNeedingQuotes(
       ),
     ),
   ];
+}
+
+export function findColumnsNeedingQuotes(
+  query: WithColumnMapping,
+  fold: UnquotedIdentifierFold | undefined,
+): string[] {
+  const mapping = query.columnMapping ?? {};
+  return findMappedColumnsNeedingQuotes(
+    [
+      mapping.experimentIdColumn,
+      mapping.variationIdColumn,
+      mapping.timestampColumn,
+      mapping.experimentNameColumn,
+      mapping.variationNameColumn,
+      ...Object.values(mapping.userIdColumns ?? {}),
+    ],
+    fold,
+  );
 }
 
 /**
