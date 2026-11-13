@@ -423,6 +423,7 @@
                 "group": "Guides for Agents",
                 "pages": [
                   "guides-for-agents/start-here",
+                  "guides-for-agents/local-feature-flags-typescript",
                   "guides-for-agents/nextjs-app-router-production-feature-flags",
                   "guides-for-agents/free-ab-test-javascript",
                   "guides-for-agents/migrate-diy-feature-flags",

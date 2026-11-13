@@ -257,10 +257,10 @@ fmt.Println("Features loaded successfully")
 
 ### Custom Integration
 
-Feature definitions are stored in the client's shared data. Normally, the data source will download them from the GrowthBook site, but you can provide an initial set during the `NewClient` call using the `WithFeatures`, `WithJsonFeatures`, or `WithEncryptedJsonFeature` options.
+Feature definitions are stored in the client's shared data. Normally, the data source will download them from the GrowthBook site, but you can provide an initial set during the `NewClient` call using the `WithFeatures`, `WithJsonFeatures`, or `WithEncryptedJsonFeatures` options.
 
 ```go
-// Load features from a local JSON file
+// Load a feature map, such as {"my-feature": {"defaultValue": true}}, from a local JSON file
 featuresJSON, err := os.ReadFile("features.json")
 if err != nil {
     log.Fatal(err)
@@ -268,7 +268,7 @@ if err != nil {
 
 client, err := gb.NewClient(
     context.Background(),
-    gb.WithJsonFeatures(featuresJSON),
+    gb.WithJsonFeatures(string(featuresJSON)),
 )
 if err != nil {
     log.Fatal(err)
@@ -279,7 +279,7 @@ It is also possible to update the shared feature definitions using the `SetXXXFe
 
 ```go
 // Update features dynamically
-newFeaturesJSON := []byte(`{"features": {...}}`)
+newFeaturesJSON := `{"features": {...}}`
 if err := client.UpdateFromApiResponseJSON(newFeaturesJSON); err != nil {
     log.Error("Failed to update features:", err)
 }
@@ -490,16 +490,13 @@ fmt.Println("Feature value:", result.Value)
 You can also load encrypted features directly from JSON:
 
 ```go
-// Encrypted features JSON from your API
-encryptedJSON := []byte(`{
-    "encryptedFeatures": "encrypted_payload_here...",
-    "status": 200
-}`)
+// The encryptedFeatures value from your SDK payload
+encryptedFeatures := "encrypted_payload_here..."
 
 client, err := gb.NewClient(
     context.Background(),
     gb.WithDecryptionKey("your_encryption_key_here"),
-    gb.WithEncryptedJsonFeature(encryptedJSON),
+    gb.WithEncryptedJsonFeatures(encryptedFeatures),
 )
 if err != nil {
     log.Fatal("Failed to create client:", err)
