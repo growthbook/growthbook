@@ -113,6 +113,8 @@ export default function SDKConnectionForm({
     "hash-secure-attributes",
   );
   const hasRemoteEvaluationFeature = hasCommercialFeature("remote-evaluation");
+  // The server keeps a premium setting that is already on after a downgrade.
+  const keepsRemoteEval = !!initialValue.remoteEvalEnabled;
 
   const hasLargeSavedGroupFeature = hasCommercialFeature("large-saved-groups");
   const showTraces =
@@ -401,7 +403,7 @@ export default function SDKConnectionForm({
       }
     } else if (selectedSecurityTab === "remote") {
       if (!hasRemoteEvaluationFeature) {
-        form.setValue("remoteEvalEnabled", false);
+        if (!keepsRemoteEval) form.setValue("remoteEvalEnabled", false);
         return;
       }
       form.setValue("remoteEvalEnabled", true);
@@ -412,7 +414,15 @@ export default function SDKConnectionForm({
     hasEncryptionFeature,
     hasSecureAttributesFeature,
     hasRemoteEvaluationFeature,
+    keepsRemoteEval,
   ]);
+
+  const keptSettingNote = (
+    <HelperText status="info" size="sm" mt="1">
+      Your plan no longer includes this. It stays on for this connection, but
+      you can&apos;t turn it back on after turning it off.
+    </HelperText>
+  );
 
   useEffect(() => {
     if (languages.length > 0 && languageError) {
@@ -838,7 +848,10 @@ export default function SDKConnectionForm({
                             setValue={(val) =>
                               form.setValue("encryptPayload", val)
                             }
-                            disabled={!hasEncryptionFeature}
+                            disabled={
+                              !hasEncryptionFeature &&
+                              !form.watch("encryptPayload")
+                            }
                             label={
                               <PremiumTooltip
                                 commercialFeature="encrypt-features-endpoint"
@@ -869,6 +882,9 @@ export default function SDKConnectionForm({
                               </PremiumTooltip>
                             }
                           />
+                          {!hasEncryptionFeature &&
+                            form.watch("encryptPayload") &&
+                            keptSettingNote}
                         </Box>
                       )}
 
@@ -879,7 +895,10 @@ export default function SDKConnectionForm({
                           setValue={(val) =>
                             form.setValue("hashSecureAttributes", val)
                           }
-                          disabled={!hasSecureAttributesFeature}
+                          disabled={
+                            !hasSecureAttributesFeature &&
+                            !form.watch("hashSecureAttributes")
+                          }
                           label={
                             <PremiumTooltip
                               commercialFeature="hash-secure-attributes"
@@ -911,6 +930,9 @@ export default function SDKConnectionForm({
                             </PremiumTooltip>
                           }
                         />
+                        {!hasSecureAttributesFeature &&
+                          form.watch("hashSecureAttributes") &&
+                          keptSettingNote}
                       </Box>
                     </Flex>
                   </Box>
@@ -1005,7 +1027,8 @@ export default function SDKConnectionForm({
                           if (val) setSelectedSecurityTab("remote");
                         }}
                         disabled={
-                          !hasRemoteEvaluationFeature ||
+                          (!hasRemoteEvaluationFeature &&
+                            !form.watch("remoteEvalEnabled")) ||
                           !latestSdkCapabilities.includes("remoteEval")
                         }
                         label={
@@ -1054,6 +1077,9 @@ export default function SDKConnectionForm({
                           </PremiumTooltip>
                         }
                       />
+                      {!hasRemoteEvaluationFeature &&
+                        form.watch("remoteEvalEnabled") &&
+                        keptSettingNote}
                     </Box>
                     {isCloud() && (
                       <Callout status="info" mb="0" mt="3">
