@@ -59,6 +59,10 @@ type PopoverProps = (ControlledPopoverProps | UncontrolledPopoverProps) & {
   onCloseAutoFocus?: React.ComponentProps<
     typeof RadixPopover.Content
   >["onCloseAutoFocus"];
+  /** Called on Escape. Call e.preventDefault() to keep the popover open. */
+  onEscapeKeyDown?: React.ComponentProps<
+    typeof RadixPopover.Content
+  >["onEscapeKeyDown"];
   // False pins the popover to `side` instead of flipping it when space runs out.
   avoidCollisions?: boolean;
   // Open on hover of the trigger (and stay open while hovering the content)
@@ -88,6 +92,7 @@ export function Popover({
   onInteractOutside,
   onOpenAutoFocus,
   onCloseAutoFocus,
+  onEscapeKeyDown,
   openOnHover = false,
   hoverDelay = 0,
   avoidCollisions,
@@ -232,7 +237,7 @@ export function Popover({
               }
               onCloseAutoFocus={onCloseAutoFocus}
               onEscapeKeyDown={
-                disableDismiss ? (e) => e.preventDefault() : undefined
+                disableDismiss ? (e) => e.preventDefault() : onEscapeKeyDown
               }
               onPointerDownOutside={
                 disableDismiss ? (e) => e.preventDefault() : undefined

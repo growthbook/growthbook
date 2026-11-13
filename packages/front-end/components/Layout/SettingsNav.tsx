@@ -45,6 +45,32 @@ export function useSettingsPages(): SidebarLinkProps[] {
   );
 }
 
+/**
+ * The one nav item that is current: an Organization page, or a General
+ * section. The importer pages belong to Import & Export, which links to them,
+ * unless this user has them as a page.
+ */
+export function useCurrentSettingsItem(): {
+  page: SidebarLinkProps | null;
+  section: (typeof SETTINGS_SECTIONS)[number] | null;
+} {
+  const { route } = useRouter();
+  const { activeSection } = useSettingsNav();
+  const page =
+    useSettingsPages().find((l) => l.path.test(route.substring(1))) ?? null;
+  const sectionId = page
+    ? null
+    : route === "/settings"
+      ? activeSection
+      : route.startsWith("/importing")
+        ? "import"
+        : null;
+  return {
+    page,
+    section: SETTINGS_SECTIONS.find((s) => s.id === sectionId) ?? null,
+  };
+}
+
 /** Cmd/Ctrl+/ searches settings; Cmd/Ctrl+K stays on the command palette. */
 export function useSettingsSearchShortcut(onShortcut: () => void) {
   const onShortcutRef = useRef(onShortcut);
@@ -72,13 +98,12 @@ export function SettingsNavBody({
   onNavigate?: () => void;
 }) {
   const router = useRouter();
-  const { query, setQuery, activeSection, counts, searchRef, pinSection } =
-    useSettingsNav();
+  const { query, setQuery, counts, searchRef, pinSection } = useSettingsNav();
   const { dirtySectionIds } = useSettingsForm();
   const permissionsUtils = usePermissionsUtil();
+  const current = useCurrentSettingsItem();
   const onGeneral = router.route === "/settings";
   const showGeneral = permissionsUtils.canManageOrgSettings();
-  const path = router.route.substr(1);
   const tokens = tokenizeSettingsQuery(query);
   const hasQuery = tokens.length > 0;
 
@@ -93,12 +118,6 @@ export function SettingsNavBody({
         tokens,
       ),
   );
-
-  // One sub-nav item is current. A listed page wins; otherwise the importer
-  // pages fall back to Import & Export, which links to them.
-  const activePage = pages.find((l) => l.path.test(path));
-  const fallbackSection =
-    !activePage && /^importing/.test(path) ? "import" : null;
 
   const cardTotal = Object.values(counts).reduce((a, b) => a + b, 0);
   const matchedSections = Object.values(counts).filter((n) => n > 0).length;
@@ -177,9 +196,7 @@ export function SettingsNavBody({
           <nav aria-label="General settings sections" className={styles.group}>
             <div className={styles.groupLabel}>General</div>
             {sections.map((s) => {
-              const active = onGeneral
-                ? s.id === activeSection
-                : s.id === fallbackSection;
+              const active = s.id === current.section?.id;
               return (
                 <button
                   key={s.id}
@@ -229,7 +246,7 @@ export function SettingsNavBody({
           <nav aria-label="Organization settings" className={styles.group}>
             <div className={styles.groupLabel}>Organization</div>
             {pages.map((l) => {
-              const active = l === activePage;
+              const active = l === current.page;
               return (
                 <Link
                   key={l.href}

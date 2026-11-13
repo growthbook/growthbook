@@ -55,13 +55,16 @@ body {
   );
   // Where General's section headings pin: under the header.
   --settings-section-top: 56px;
+  // General's column of cards, narrower than other Settings pages' content.
+  --settings-general-width: 920px;
 }
 // Matches the sub nav's breakpoint: without it, content only clears the sidebar.
 @media (max-width: 1399px) {
   :root {
     --settings-layout-left: var(--settings-sidebar-width);
-    // And under the pinned Settings jump menu, a 60px row.
-    --settings-section-top: calc(56px + 60px);
+    // And under the pinned Settings jump menu.
+    --settings-jump-bar-height: 56px;
+    --settings-section-top: calc(56px + var(--settings-jump-bar-height));
   }
 }
 .main {

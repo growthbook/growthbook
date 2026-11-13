@@ -1,41 +1,37 @@
 import { useRef, useState } from "react";
 import { useRouter } from "next/router";
-import { VisuallyHidden } from "@radix-ui/themes";
-import { PiCaretDownBold } from "react-icons/pi";
+import clsx from "clsx";
+import { PiCaretDown } from "react-icons/pi";
+import Button from "@/ui/Button";
 import Heading from "@/ui/Heading";
 import { Popover } from "@/ui/Popover";
-import { SETTINGS_SECTIONS } from "@/components/GeneralSettings/settingsSections";
 import {
   SettingsNavBody,
-  useSettingsPages,
+  useCurrentSettingsItem,
   useSettingsSearchShortcut,
 } from "./SettingsNav";
 import { useSettingsNav } from "./SettingsNavContext";
 import styles from "./SettingsJumpMenu.module.scss";
 
+/** Where the user is in Settings, and the search narrowing General, if any. */
 function useSettingsLocation(): string {
-  const router = useRouter();
-  const { activeSection } = useSettingsNav();
-  const page = useSettingsPages().find((l) =>
-    l.path.test(router.route.substring(1)),
-  );
-  if (page) return `Organization · ${page.name}`;
-  // The importer pages belong to Import & Export, which links to them.
-  const sectionId =
-    router.route === "/settings"
-      ? activeSection
-      : router.route.startsWith("/importing")
-        ? "import"
-        : null;
-  const section = SETTINGS_SECTIONS.find((s) => s.id === sectionId);
-  return section ? `General · ${section.title}` : "Settings";
+  const { page, section } = useCurrentSettingsItem();
+  const { query } = useSettingsNav();
+  const onGeneral = useRouter().route === "/settings";
+  const location = page
+    ? `Organization · ${page.name}`
+    : section
+      ? `General · ${section.title}`
+      : "Settings";
+  const search = query.trim();
+  return onGeneral && search ? `${location} · matching “${search}”` : location;
 }
 
 /** The Settings nav below SETTINGS_NAV_MIN_WIDTH_PX, opened from a button. */
 function SettingsJumpMenu() {
   const [open, setOpen] = useState(false);
   const location = useSettingsLocation();
-  const { searchRef } = useSettingsNav();
+  const { query, searchRef } = useSettingsNav();
   const menuRef = useRef<HTMLDivElement>(null);
   const toSearch = useRef(false);
   useSettingsSearchShortcut(() => {
@@ -61,29 +57,41 @@ function SettingsJumpMenu() {
       // phone's keyboard. Only the shortcut focuses search.
       onOpenAutoFocus={(e) => {
         e.preventDefault();
-        const menu = menuRef.current;
-        if (toSearch.current) {
-          toSearch.current = false;
-          searchRef.current?.focus();
-          return;
+        const search = toSearch.current;
+        toSearch.current = false;
+        // A frame later the popover has its height, so the list can scroll
+        // the current item into view.
+        requestAnimationFrame(() => {
+          if (search) {
+            searchRef.current?.focus();
+            return;
+          }
+          const menu = menuRef.current;
+          const item =
+            menu?.querySelector<HTMLElement>("[aria-current]") ??
+            menu?.querySelector<HTMLElement>("nav button, nav a");
+          item?.focus({ preventScroll: true });
+          item?.scrollIntoView({ block: "center" });
+        });
+      }}
+      // In the search field Escape clears the search first (SettingsNavBody).
+      onEscapeKeyDown={(e) => {
+        if (query && document.activeElement === searchRef.current) {
+          e.preventDefault();
         }
-        (
-          menu?.querySelector<HTMLElement>("[aria-current]") ??
-          menu?.querySelector<HTMLElement>("nav button, nav a")
-        )?.focus();
       }}
       trigger={
-        <button
-          type="button"
-          id="settings-jump-menu"
-          className={styles.trigger}
+        <Button
+          variant="outline"
+          color="gray"
+          icon={<PiCaretDown />}
+          iconPosition="right"
+          truncate
+          aria-label={`Settings: ${location}`}
+          style={{ width: "100%", justifyContent: "space-between" }}
         >
-          <span className={styles.label}>
-            <VisuallyHidden>Settings: </VisuallyHidden>
-            {location}
-          </span>
-          <PiCaretDownBold size={12} aria-hidden="true" />
-        </button>
+          {location}
+        </Button>
       }
       content={
         <div
@@ -102,6 +110,7 @@ function SettingsJumpMenu() {
 /** The top of every Settings page below SETTINGS_NAV_MIN_WIDTH_PX. */
 export function SettingsPageTop() {
   const { narrow } = useSettingsNav();
+  const onGeneral = useRouter().route === "/settings";
   if (!narrow) return null;
   return (
     <>
@@ -111,7 +120,7 @@ export function SettingsPageTop() {
           Settings
         </Heading>
       </div>
-      <div className={styles.pinned}>
+      <div className={clsx(styles.pinned, onGeneral && styles.general)}>
         <SettingsJumpMenu />
       </div>
     </>

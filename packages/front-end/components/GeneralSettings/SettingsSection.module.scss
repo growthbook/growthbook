@@ -43,8 +43,13 @@
   // Lines the count up with the sub nav's content.
   padding: var(--space-3) var(--space-3) var(--space-3)
     calc(var(--settings-nav-inset) + var(--space-3));
-  // Ends Save at the cards' right edge: 40px page padding plus the 920px column.
-  padding-right: max(40px, calc(100% - var(--settings-layout-left) - 960px));
+  // Ends Save at the cards' right edge: 40px page padding plus the column.
+  padding-right: max(
+    40px,
+    calc(
+      100% - var(--settings-layout-left) - 40px - var(--settings-general-width)
+    )
+  );
   background: var(--color-panel-solid);
   border-top: 1px solid var(--gray-a5);
   box-shadow:
@@ -58,7 +63,7 @@
   // The sidebar slides away here and the content starts at the window edge.
   @media (max-width: 1180px) {
     left: 0;
-    padding-right: max(40px, calc(100% - 960px));
+    padding-right: max(40px, calc(100% - 40px - var(--settings-general-width)));
   }
 }
 
@@ -122,7 +127,7 @@
 }
 
 .generalContent {
-  max-width: 920px;
+  max-width: var(--settings-general-width);
   padding-top: var(--space-3);
 
   // Under the jump menu, the first section starts where other Settings pages'
@@ -130,9 +135,12 @@
   @media (max-width: 1399px) {
     padding-top: 0;
 
-    .section:first-of-type,
-    .section:first-of-type .header {
+    .section:first-of-type {
       padding-top: 0;
+    }
+    // Pulled up by its own top padding, so it still pins like the others.
+    .section:first-of-type .header {
+      margin-top: -12px;
     }
   }
 }
