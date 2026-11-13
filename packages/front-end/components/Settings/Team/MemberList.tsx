@@ -435,7 +435,9 @@ const MemberList: FC<{
           )}
         </Flex>
         <Table
-          variant="surface"
+          variant="list"
+          stickyHeader={false}
+          stickyLastColumn
           layout="fixed"
           minTableWidth={MEMBER_TABLE_MIN_WIDTH}
         >
@@ -621,7 +623,7 @@ const MemberList: FC<{
                     })}
                   </TableCell>
 
-                  <TableCell justify="end">
+                  <TableCell justify="center" px="0">
                     {member.id !== userId && hasRowActions && (
                       <DropdownMenu
                         trigger={

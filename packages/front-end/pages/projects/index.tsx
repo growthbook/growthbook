@@ -177,7 +177,8 @@ const ProjectsPage: FC = () => {
               </Text>
             </Flex>
             <Table
-              variant="surface"
+              variant="list"
+              stickyHeader={false}
               layout="fixed"
               minTableWidth={PROJECTS_TABLE_MIN_WIDTH}
             >

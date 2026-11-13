@@ -141,7 +141,9 @@ const InviteList: FC<{
       {resending && <LoadingOverlay />}
       {resendMessage}
       <Table
-        variant="surface"
+        variant="list"
+        stickyHeader={false}
+        stickyLastColumn
         layout="fixed"
         minTableWidth={MEMBER_TABLE_MIN_WIDTH}
       >
@@ -189,7 +191,7 @@ const InviteList: FC<{
                   </TableCell>
                 )}
                 <TableCell />
-                <TableCell justify="end">
+                <TableCell justify="center" px="0">
                   <DropdownMenu
                     trigger={
                       <IconButton

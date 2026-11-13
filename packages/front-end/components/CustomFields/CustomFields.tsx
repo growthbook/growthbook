@@ -93,10 +93,11 @@ function CustomFieldsTable({
     <Table
       variant="list"
       stickyHeader={false}
+      stickyLastColumn
       roundedCorners
       layout="fixed"
       minTableWidth={CUSTOM_FIELDS_TABLE_MIN_WIDTH}
-      className="appbox"
+      mb="4"
     >
       <CustomFieldColGroup showRequired={showRequired} />
       <TableHeader>
