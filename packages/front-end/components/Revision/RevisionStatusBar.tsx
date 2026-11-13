@@ -1,4 +1,4 @@
-import { ReactNode, useState } from "react";
+import { ReactNode, useEffect, useState } from "react";
 import { Flex } from "@radix-ui/themes";
 import {
   PiArrowRight,
@@ -12,7 +12,9 @@ import { datetime } from "shared/dates";
 import {
   Revision,
   applyTopLevelPatchOps,
+  checkMergeConflicts,
   getRevisionNumberById,
+  getRevisionUpdatableFields,
   isScheduledPublishLockActive,
   isScheduledPublishPending,
 } from "shared/enterprise";
@@ -20,6 +22,7 @@ import { isActiveDraftStatus } from "shared/validators";
 import DiscardDraftModal from "@/components/Reviews/DiscardDraftModal";
 import RevisionStatusBarView from "@/components/Reviews/RevisionStatusBarView";
 import Button from "@/ui/Button";
+import HelperText from "@/ui/HelperText";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
@@ -45,6 +48,7 @@ export default function RevisionStatusBar<T>({
   canDiscard,
   onSelectRevision,
   onReviewPublish,
+  onPublish,
   onDiscard,
 }: {
   // The viewed revision; null while viewing live.
@@ -58,9 +62,14 @@ export default function RevisionStatusBar<T>({
   canDiscard: boolean;
   onSelectRevision: (revision: Revision | null) => void;
   onReviewPublish: () => void;
+  // Publishes a draft from the bar when it needs no approval; null while the
+  // viewer can't publish it.
+  onPublish: ((revisionId: string) => Promise<void>) | null;
   onDiscard: (revisionId: string) => Promise<void>;
 }) {
   const [confirmDiscard, setConfirmDiscard] = useState(false);
+  const [publishError, setPublishError] = useState<string | null>(null);
+  useEffect(() => setPublishError(null), [selectedRevision?.id]);
   const numbers = getRevisionNumberById(allRevisions);
   const numberOf = (r: Revision) => numbers.get(r.id) ?? 1;
 
@@ -78,6 +87,20 @@ export default function RevisionStatusBar<T>({
     diffConfig,
   );
   const changeCount = diffs.length;
+  // Straight from the bar only when publishing needs no review: no approval,
+  // something to publish, no conflicts. The server still checks the rest, such
+  // as rebasing first, and the bar says why it refused.
+  const publishable =
+    isDraft &&
+    !requiresApproval &&
+    changeCount > 0 &&
+    !isScheduledPublishPending(selectedRevision) &&
+    checkMergeConflicts(
+      selectedRevision.target.snapshot as unknown as Record<string, unknown>,
+      liveSnapshot as Record<string, unknown>,
+      selectedRevision.target.proposedChanges,
+      getRevisionUpdatableFields(selectedRevision.target.type),
+    ).success;
 
   const drafts = allRevisions.filter((r) => isActiveDraftStatus(r.status));
   const switchToLive = (
@@ -106,13 +129,23 @@ export default function RevisionStatusBar<T>({
         {canDiscard ? (
           <Link onClick={() => setConfirmDiscard(true)}>Discard</Link>
         ) : null}
-        <Button
-          icon={<PiArrowRight />}
-          iconPosition="right"
-          onClick={onReviewPublish}
-        >
-          Review &amp; publish
-        </Button>
+        {/* Once publishing fails, the review tab is where to see why. */}
+        {publishable && onPublish && !publishError ? (
+          <Button
+            onClick={() => onPublish(selectedRevision.id)}
+            setError={setPublishError}
+          >
+            Publish
+          </Button>
+        ) : (
+          <Button
+            icon={<PiArrowRight />}
+            iconPosition="right"
+            onClick={onReviewPublish}
+          >
+            Review &amp; publish
+          </Button>
+        )}
       </>
     );
     if (
@@ -213,6 +246,13 @@ export default function RevisionStatusBar<T>({
             : null
         }
         message={message}
+        error={
+          publishError ? (
+            <HelperText status="error" size="sm">
+              {publishError}
+            </HelperText>
+          ) : null
+        }
         actions={actions}
       />
       {confirmDiscard && selectedRevision ? (

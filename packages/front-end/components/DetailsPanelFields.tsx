@@ -68,6 +68,15 @@ export function CopyableKey({ value }: { value: string }) {
   );
 }
 
+// A row's value as text, as every value in a details panel reads.
+export function PanelText({ children }: { children: ReactNode }) {
+  return (
+    <Text weight="regular" color="text-mid" size="sm">
+      {children}
+    </Text>
+  );
+}
+
 export function EmptyValue({ label = "None" }: { label?: string }) {
   return (
     <Text weight="regular" color="text-mid" size="sm" fontStyle="italic">

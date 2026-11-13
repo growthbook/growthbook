@@ -6,6 +6,7 @@ import {
   EmptyValue,
   MarkdownValue,
   PanelEditButton,
+  PanelText,
   PersonValue,
 } from "@/components/DetailsPanelFields";
 import EditRevisionDescriptionModal from "@/components/Reviews/EditRevisionDescriptionModal";
@@ -107,7 +108,13 @@ export default function RevisionPanelSection({
               size="sm"
               stacked
               label={label}
-              value={value}
+              value={
+                typeof value === "string" ? (
+                  <PanelText>{value}</PanelText>
+                ) : (
+                  value
+                )
+              }
             />
           ),
         )}

@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { ProxyTestResult } from "shared/types/sdk-connection";
 import { PiArrowsClockwise } from "react-icons/pi";
 import { useAuth } from "@/services/auth";
-import Modal from "@/ui/Modal";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
 import Text from "@/ui/Text";
@@ -31,46 +31,34 @@ export default function ProxyTestButton({
   return (
     <>
       {proxyTestResult && (
-        <Modal.Root
+        <ModalStandard
           open={true}
-          onOpenChange={(open) => {
-            if (!open) setProxyTestResult(null);
-          }}
+          close={() => setProxyTestResult(null)}
+          header="Proxy Status"
+          closeCta="Close"
           trackingEventModalType=""
         >
-          <Modal.Header>
-            <Modal.Title>Proxy Status</Modal.Title>
-          </Modal.Header>
-          <Modal.Body>
-            {proxyTestResult.error ? (
-              <div>
-                {proxyTestResult.url && (
-                  <Text as="p" mb="2">
-                    GET <code>{proxyTestResult.url}</code>
-                  </Text>
-                )}
-                {proxyTestResult.status > 0 && (
-                  <Text as="p" mb="2">
-                    Status Code: <code>{proxyTestResult.status}</code>
-                  </Text>
-                )}
-                <Callout status="error">Error: {proxyTestResult.error}</Callout>
-              </div>
-            ) : (
-              <Callout status="success">
-                Successfully Connected. Proxy Server running version{" "}
-                <strong>{proxyTestResult.version}</strong>.
-              </Callout>
-            )}
-          </Modal.Body>
-          <Modal.Footer>
-            <Modal.Close>
-              <Button variant="soft" color="gray">
-                Close
-              </Button>
-            </Modal.Close>
-          </Modal.Footer>
-        </Modal.Root>
+          {proxyTestResult.error ? (
+            <div>
+              {proxyTestResult.url && (
+                <Text as="p" mb="2">
+                  GET <code>{proxyTestResult.url}</code>
+                </Text>
+              )}
+              {proxyTestResult.status > 0 && (
+                <Text as="p" mb="2">
+                  Status Code: <code>{proxyTestResult.status}</code>
+                </Text>
+              )}
+              <Callout status="error">Error: {proxyTestResult.error}</Callout>
+            </div>
+          ) : (
+            <Callout status="success">
+              Successfully Connected. Proxy Server running version{" "}
+              <strong>{proxyTestResult.version}</strong>.
+            </Callout>
+          )}
+        </ModalStandard>
       )}
       {showButton && (
         <Tooltip content="Test connection">

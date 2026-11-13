@@ -110,11 +110,21 @@ export default function SDKConnectionCredentialsCard({
             />
             {!hasProxy ? (
               <Tooltip content="Proxy was disabled for too many consecutive failures">
-                <Badge color="red" variant="solid" label="Disabled" />
+                <Badge
+                  color="red"
+                  variant="soft"
+                  radius="full"
+                  label="Disabled"
+                />
               </Tooltip>
             ) : null}
             {proxy?.connected ? (
-              <Badge color="green" variant="solid" label="Connected" />
+              <Badge
+                color="green"
+                variant="soft"
+                radius="full"
+                label="Connected"
+              />
             ) : proxyError !== undefined ? (
               <Tooltip
                 content={
@@ -128,10 +138,15 @@ export default function SDKConnectionCredentialsCard({
                   </>
                 }
               >
-                <Badge color="red" variant="soft" label="Error" />
+                <Badge color="red" variant="soft" radius="full" label="Error" />
               </Tooltip>
             ) : (
-              <Badge color="gray" variant="soft" label="Not connected" />
+              <Badge
+                color="gray"
+                variant="soft"
+                radius="full"
+                label="Not connected"
+              />
             )}
             {canUpdate && mutate && proxy?.host ? (
               <ProxyTestButton

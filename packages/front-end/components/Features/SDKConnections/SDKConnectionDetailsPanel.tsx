@@ -1,4 +1,3 @@
-import { ReactNode } from "react";
 import { Flex, Separator } from "@radix-ui/themes";
 import { Revision } from "shared/enterprise";
 import { date } from "shared/dates";
@@ -10,20 +9,12 @@ import DetailsPanel, {
 import {
   HiddenProject,
   PanelEditButton,
+  PanelText,
 } from "@/components/DetailsPanelFields";
 import SDKLanguageLogo from "@/components/Features/SDKConnections/SDKLanguageLogo";
 import RevisionPanelSection from "@/components/Revision/RevisionPanelSection";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Metadata from "@/ui/Metadata";
-import Text from "@/ui/Text";
-
-function Value({ children }: { children: ReactNode }) {
-  return (
-    <Text weight="regular" color="text-mid" size="sm">
-      {children}
-    </Text>
-  );
-}
 
 export default function SDKConnectionDetailsPanel({
   connection,
@@ -91,14 +82,14 @@ export default function SDKConnectionDetailsPanel({
           size="sm"
           stacked
           label="Environment"
-          value={<Value>{connection.environment}</Value>}
+          value={<PanelText>{connection.environment}</PanelText>}
         />
         <Metadata
           size="sm"
           stacked
           label="Projects"
           value={
-            <Value>
+            <PanelText>
               {projects.length
                 ? projects.map((id, i) => (
                     <span key={id}>
@@ -107,14 +98,14 @@ export default function SDKConnectionDetailsPanel({
                     </span>
                   ))
                 : "All Projects"}
-            </Value>
+            </PanelText>
           }
         />
         <Metadata
           size="sm"
           stacked
           label="Created"
-          value={<Value>{date(connection.dateCreated)}</Value>}
+          value={<PanelText>{date(connection.dateCreated)}</PanelText>}
         />
       </PanelSection>
       <Separator size="4" />
@@ -133,9 +124,9 @@ export default function SDKConnectionDetailsPanel({
             ) : null
           }
           value={
-            <Value>
+            <PanelText>
               {webhookCount} webhook{webhookCount === 1 ? "" : "s"}
-            </Value>
+            </PanelText>
           }
         />
         <Metadata
@@ -143,7 +134,9 @@ export default function SDKConnectionDetailsPanel({
           stacked
           label="Proxy"
           value={
-            <Value>{connection.proxy?.enabled ? "Enabled" : "Disabled"}</Value>
+            <PanelText>
+              {connection.proxy?.enabled ? "Enabled" : "Disabled"}
+            </PanelText>
           }
         />
       </PanelSection>

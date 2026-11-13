@@ -660,11 +660,26 @@ export default function SDKConnectionPage() {
         }
         badges={
           <>
+            {/* Set the first time anything fetches with the key; never reset. */}
             {connection.connected ? (
-              <Badge color="green" variant="solid" label="Connected" />
+              <Tooltip content="An SDK or proxy has fetched features with this connection's key at least once.">
+                <Badge
+                  color="green"
+                  variant="soft"
+                  radius="full"
+                  label="Connected"
+                />
+              </Tooltip>
             ) : (
               <>
-                <Badge color="gray" variant="soft" label="Not connected" />
+                <Tooltip content="Nothing has fetched features with this connection's key yet.">
+                  <Badge
+                    color="gray"
+                    variant="soft"
+                    radius="full"
+                    label="Not connected"
+                  />
+                </Tooltip>
                 {canUpdate && <Link onClick={() => mutate()}>Retry</Link>}
               </>
             )}
@@ -770,6 +785,7 @@ export default function SDKConnectionPage() {
                 canDiscard={canUpdate || selectedRevision?.authorId === userId}
                 onSelectRevision={selectFlow}
                 onReviewPublish={() => setTabAndScroll("review")}
+                onPublish={canUpdate ? handlePublish : null}
                 onDiscard={handleDiscard}
               />
             </div>

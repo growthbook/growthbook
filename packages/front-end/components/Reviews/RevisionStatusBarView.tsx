@@ -19,6 +19,7 @@ export default function RevisionStatusBarView({
   badge,
   message,
   actions,
+  error = null,
 }: {
   // Drafts are tinted amber, anything else gray.
   draft: boolean;
@@ -29,6 +30,8 @@ export default function RevisionStatusBarView({
   badge?: ReactNode;
   message: ReactNode;
   actions?: ReactNode;
+  // Why an action failed, on a row of its own under them.
+  error?: ReactNode;
 }) {
   const tint = draft ? "amber" : "gray";
   return (
@@ -42,7 +45,11 @@ export default function RevisionStatusBarView({
     >
       <div
         // The header's page column, so the two line up.
-        className={clsx("container-fluid pagecontents", styles.row)}
+        className={clsx(
+          "container-fluid pagecontents",
+          styles.row,
+          error && styles.withError,
+        )}
         style={{
           // Inset as the cards' content is below: the page gutter, a card's
           // padding, and a border as wide as the card's, which zoom rounds
@@ -73,6 +80,7 @@ export default function RevisionStatusBarView({
             {actions}
           </Flex>
         ) : null}
+        {error ? <div className={styles.error}>{error}</div> : null}
       </div>
     </div>
   );

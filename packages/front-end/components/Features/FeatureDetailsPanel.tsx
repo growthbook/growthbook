@@ -18,6 +18,7 @@ import {
   MarkdownValue,
   OwnerField,
   PanelEditButton,
+  PanelText,
   PersonValue,
   ProjectField,
   TagsField,
@@ -351,7 +352,13 @@ export default function FeatureDetailsPanel({
               size="sm"
               stacked
               label={label}
-              value={value}
+              value={
+                typeof value === "string" ? (
+                  <PanelText>{value}</PanelText>
+                ) : (
+                  value
+                )
+              }
             />
           ))}
         </PanelSection>
