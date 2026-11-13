@@ -6094,14 +6094,14 @@ describe("getRampRetry", () => {
     retryAt: new Date("2026-11-13T12:00:00.000Z"),
   };
 
-  it("reports the failure while the scheduler drives the schedule", () => {
-    for (const status of ["pending", "ready", "running"]) {
+  it("reports the failure until the schedule finishes", () => {
+    for (const status of ["pending", "ready", "running", "paused"]) {
       expect(getRampRetry({ status, stepFailure })).toBe(stepFailure);
     }
   });
 
-  it("reports nothing once the schedule is paused or finished", () => {
-    for (const status of ["paused", "completed", "rolled-back"]) {
+  it("reports nothing once the schedule is finished", () => {
+    for (const status of ["completed", "rolled-back"]) {
       expect(getRampRetry({ status, stepFailure })).toBeNull();
     }
   });

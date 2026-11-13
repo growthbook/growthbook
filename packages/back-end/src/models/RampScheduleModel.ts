@@ -99,12 +99,17 @@ const BaseClass = MakeModelClass({
     updateEvent: "rampSchedule.update",
     deleteEvent: "rampSchedule.delete",
   },
+  // Retry bookkeeping, written on every failed attempt.
+  skipAuditLogFields: ["stepFailure"],
+  skipDateUpdatedFields: ["stepFailure"],
   additionalIndexes: [
     // Agenda poller queries by nextProcessAt on every tick — must be indexed.
     // Intentionally omits the organization prefix because
     // dangerouslyFindAllDueSchedules is a cross-tenant query.
     // sparse: true matches the existing index (most documents have nextProcessAt: null).
     { fields: { nextProcessAt: 1 }, sparse: true },
+    // ...and by the retry time of a failed step.
+    { fields: { "stepFailure.retryAt": 1 }, sparse: true },
     // Every feature publish reads the feature's schedules (getAllByFeatureId).
     { fields: { organization: 1, entityId: 1 } },
   ],
@@ -1179,6 +1184,8 @@ export class RampScheduleModel extends BaseClass {
             // Ready schedules whose start is due are matched by startDate too,
             // so a deferred "start now" survives a clobbered nextProcessAt.
             { status: "ready", startDate: { $ne: null, $lte: now } },
+            // A failed step retries on its own clock, whatever drives the rest.
+            { "stepFailure.retryAt": { $ne: null, $lte: now } },
           ],
         },
         { projection: { id: 1, organization: 1, _id: 0 } },

@@ -451,17 +451,15 @@ export function isAwaitingApproval(schedule: {
   );
 }
 
-// The failed step the scheduler is retrying, while it still drives the
-// schedule; a pause or a finished schedule leaves nothing to retry.
+// The failed step the scheduler is retrying; a finished schedule has nothing
+// left to retry.
 export function getRampRetry<F>(schedule: {
   status: string;
   stepFailure?: F | null;
 }): F | null {
-  const drivenByScheduler =
-    schedule.status === "pending" ||
-    schedule.status === "ready" ||
-    schedule.status === "running";
-  return drivenByScheduler ? (schedule.stepFailure ?? null) : null;
+  const finished =
+    schedule.status === "completed" || schedule.status === "rolled-back";
+  return finished ? null : (schedule.stepFailure ?? null);
 }
 
 /**

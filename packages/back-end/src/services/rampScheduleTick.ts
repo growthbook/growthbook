@@ -4,6 +4,7 @@ import { isRampScheduleServing } from "shared/util";
 import type { ReqContext } from "back-end/types/request";
 import type { ApiReqContext } from "back-end/types/api";
 import { logger } from "back-end/src/util/logger";
+import { getContextForAgendaJobByOrgObject } from "back-end/src/services/organizations";
 import {
   appendRampEvent,
   applyRampStartActions,
@@ -74,8 +75,11 @@ export async function retryRampScheduleNow(
       "Cannot retry: the failed step cleared while the request was in flight",
     );
   }
-  await attemptRampScheduleTick(context, schedule, new Date(), heartbeat);
-  return (await context.models.rampSchedules.getById(schedule.id)) ?? schedule;
+  // Authorized as the caller; runs as the scheduler would, so a read the
+  // caller lacks can't refuse the step.
+  const system = getContextForAgendaJobByOrgObject(context.org);
+  await attemptRampScheduleTick(system, schedule, new Date(), heartbeat);
+  return (await system.models.rampSchedules.getById(schedule.id)) ?? schedule;
 }
 
 // A failure is recorded, backing off or pausing the schedule, and rethrown; a
@@ -90,7 +94,7 @@ async function attemptRampScheduleTick(
     await tickRampSchedule(context, schedule, now, heartbeat);
   } catch (e) {
     if (!(e instanceof RampAdvanceLockBusyError)) {
-      await recordRampStepFailure(context, schedule.id, e, now);
+      await recordRampStepFailure(context, schedule.id, e);
     }
     throw e;
   }

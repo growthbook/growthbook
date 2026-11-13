@@ -2228,6 +2228,7 @@ export async function rollbackToStep(
     nextSnapshotAt: null,
     stepApproval: null,
     healthHold: null,
+    stepFailure: null,
     pausedAt: newStatus === "paused" ? now : null,
     nextProcessAt: null,
     // Re-arm the approval gate: clear the marker so the -1 → 0 crossing
@@ -2304,6 +2305,7 @@ export async function pauseSchedule(
     status: "paused",
     pausedAt: now,
     nextSnapshotAt: null,
+    stepFailure: null,
     nextProcessAt: computeNextProcessAt({
       status: "paused",
       cutoffDate: schedule.cutoffDate,
@@ -2358,6 +2360,7 @@ export async function resumeSchedule(
   const resumeUpdates: Record<string, unknown> = {
     status: "running",
     pausedAt: null,
+    stepFailure: null,
     startedAt: newStartedAt,
     phaseStartedAt: newPhaseStartedAt,
     nextStepAt: pausedAtNoIntervalGate ? null : schedule.nextStepAt,
@@ -2481,6 +2484,7 @@ export async function restartSchedule(
     phaseStartedAt: null,
     pausedAt: null,
     healthHold: null,
+    stepFailure: null,
     nextStepAt: null,
     nextSnapshotAt: null,
     nextProcessAt: null,
@@ -2593,6 +2597,7 @@ export async function jumpSchedule(
         nextProcessAt: null,
         stepApproval: null,
         healthHold: null,
+        stepFailure: null,
       });
     }
   } else if (targetStepIndex > schedule.currentStepIndex) {
@@ -2607,6 +2612,7 @@ export async function jumpSchedule(
       nextProcessAt: null,
       stepApproval: null,
       healthHold: null,
+      stepFailure: null,
       ...(shouldResetMonitoringStartDate(schedule, targetStepIndex)
         ? { monitoringStartDate: now }
         : {}),
@@ -2777,8 +2783,8 @@ export async function recordRampStepFailure(
   ctx: ReqContext | ApiReqContext,
   scheduleId: string,
   error: unknown,
-  now: Date,
 ): Promise<Date | null> {
+  const now = new Date();
   const schedule = await ctx.models.rampSchedules.getById(scheduleId);
   if (!schedule) return null;
   if (typeof error === "object" && error !== null) {
@@ -2789,10 +2795,20 @@ export async function recordRampStepFailure(
   }
   const message = getErrorMessage(error);
   const attempts = (schedule.stepFailure?.attempts ?? 0) + 1;
-  const retryAt = isTerminalRampError(error)
+  const backoffAt = isTerminalRampError(error)
     ? null
     : getNextRetryAt(attempts, RAMP_STEP_MAX_ATTEMPTS, now);
+  // A retry never waits past a cutoff that is still ahead.
+  const cutoff = schedule.cutoffDate;
+  const retryAt =
+    backoffAt && cutoff && cutoff > now && cutoff < backoffAt
+      ? cutoff
+      : backoffAt;
   if (!retryAt) {
+    logger.error(
+      error,
+      `Ramp schedule ${scheduleId} paused after a failed step`,
+    );
     await errorPauseRampSchedule(
       ctx,
       scheduleId,
@@ -2804,8 +2820,8 @@ export async function recordRampStepFailure(
     stepFailure: { attempts, lastError: message, retryAt },
   });
   logger.warn(
-    { rampScheduleId: scheduleId, attempts, retryAt },
-    `Ramp schedule step failed; retrying: ${message}`,
+    error,
+    `Ramp schedule ${scheduleId} step failed (attempt ${attempts}); retrying at ${retryAt.toISOString()}`,
   );
   return retryAt;
 }
@@ -2868,7 +2884,7 @@ async function startOrRecordFailure(
     await advanceUntilBlocked(ctx, current, now);
   } catch (e) {
     if (!(e instanceof RampAdvanceLockBusyError)) {
-      await recordRampStepFailure(ctx, schedule.id, e, now);
+      await recordRampStepFailure(ctx, schedule.id, e);
     }
     throw e;
   }
@@ -2968,6 +2984,7 @@ export async function jumpAheadToStep(
     pausedAt: now,
     nextProcessAt: null,
     healthHold: null,
+    stepFailure: null,
     stepApproval: null,
     ...(shouldResetMonitoringStart ? { monitoringStartDate: now } : {}),
     eventHistory: appendRampEvent(schedule, "step-jumped", {
