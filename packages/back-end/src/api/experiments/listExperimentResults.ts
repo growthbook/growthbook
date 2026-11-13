@@ -4,6 +4,7 @@ import { getAllExperiments } from "back-end/src/models/ExperimentModel";
 import { getLatestSnapshotMultipleExperiments } from "back-end/src/models/ExperimentSnapshotModel";
 import {
   getExperimentMetricsByIds,
+  getHealthSettingsForOrg,
   toSnapshotApiInterface,
 } from "back-end/src/services/experiments";
 import {
@@ -11,6 +12,7 @@ import {
   createApiRequestHandler,
 } from "back-end/src/util/handler";
 import { getExposureQueriesForDatasource } from "back-end/src/services/assignmentQuerySelection";
+import { toApiResultHealth } from "./resultHealth";
 
 export const listExperimentResults = createApiRequestHandler(
   listExperimentResultsValidator,
@@ -71,6 +73,8 @@ export const listExperimentResults = createApiRequestHandler(
     ),
   );
 
+  const healthSettings = getHealthSettingsForOrg(req.context);
+
   // Preserve the experiment ordering from getAllExperiments and drop
   // experiments without a completed snapshot. `count` is overridden below so it
   // reflects the response array, not the page slice.
@@ -78,12 +82,15 @@ export const listExperimentResults = createApiRequestHandler(
     const snapshot = snapshotsByExperiment.get(experiment.id);
     return snapshot
       ? [
-          toSnapshotApiInterface(
-            experiment,
-            snapshot,
-            metricsById,
-            exposureQueriesByDatasource.get(experiment.datasource) ?? [],
-          ),
+          {
+            ...toSnapshotApiInterface(
+              experiment,
+              snapshot,
+              metricsById,
+              exposureQueriesByDatasource.get(experiment.datasource) ?? [],
+            ),
+            health: toApiResultHealth({ experiment, snapshot, healthSettings }),
+          },
         ]
       : [];
   });

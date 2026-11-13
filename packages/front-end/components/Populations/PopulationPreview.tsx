@@ -64,7 +64,7 @@ function MembersChart({
 export default function PopulationPreview({
   population,
 }: {
-  population: ApiPopulation;
+  population: Pick<ApiPopulation, "datasource" | "userIdTypes" | "steps">;
 }) {
   const { getDatasourceById, getFactTableById } = useDefinitions();
   const permissions = usePermissionsUtil();
@@ -74,9 +74,13 @@ export default function PopulationPreview({
       ? selectedUnit
       : population.userIdTypes[0];
   const dateRange = usePreviewDateRange();
+  const isDefinitionComplete = population.steps.length > 0;
   const config = useMemo(
-    () => getPopulationPreviewConfig(population, unit, dateRange),
-    [population, unit, dateRange],
+    () =>
+      isDefinitionComplete
+        ? getPopulationPreviewConfig(population, unit, dateRange)
+        : null,
+    [isDefinitionComplete, population, unit, dateRange],
   );
   const datasource = getDatasourceById(population.datasource);
   const step = population.steps[0];
@@ -103,6 +107,7 @@ export default function PopulationPreview({
           config={config}
           trackingSource="population-preview"
           emptyDescription="Run the query to see daily member counts for the last 7 complete days."
+          incompleteDescription="Complete the definition to preview members."
           warehouseUnavailableText="The preview will be available when the warehouse is ready."
           renderChart={({ exploration, submittedExploreState }) => (
             <MembersChart
