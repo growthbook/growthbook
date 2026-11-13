@@ -170,9 +170,9 @@ const revisionResponseWithWarnings = revisionResponse.extend({
 const mergeConflictSchema = z
   .object({
     field: z.string(),
-    baseValue: z.unknown(),
-    liveValue: z.unknown(),
-    proposedValue: z.unknown(),
+    baseValue: z.unknown().optional(),
+    liveValue: z.unknown().optional(),
+    proposedValue: z.unknown().optional(),
   })
   .strict();
 
@@ -620,6 +620,7 @@ export const putConfigRevisionPropertyValidator = {
         .describe("Name of the property to set in this config's own value."),
       value: z
         .unknown()
+        .optional()
         .describe("The property's new value. `null` sets it to null."),
       ...publishOverrideBodyFields,
     })

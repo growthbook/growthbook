@@ -1019,14 +1019,12 @@ curl https://api.growthbook.io/api/v1/features \
   // even if it was never referenced as a sub-schema of a response body.
   for (const [name, zodSchema] of namedSchemaRegistry) {
     if (!componentSchemas[name]) {
-      const {
-        $schema: _,
-        id: _id,
-        ...rest
-      } = z.toJSONSchema(zodSchema, {
-        unrepresentable: "any",
-      }) as Record<string, unknown>;
-      componentSchemas[name] = rewriteRefs(rest);
+      // zod 4.6 emits an id'd root as `$ref` + `$defs`, which toOpenApiSchema hoists into componentSchemas
+      const { id: _id, ...rest } = toOpenApiSchema(zodSchema) as Record<
+        string,
+        unknown
+      >;
+      componentSchemas[name] ??= rest;
     }
   }
 

@@ -11,7 +11,7 @@ export const sessionReplayRrwebEventSchema = z
   .object({
     type: z.number().int(),
     timestamp: z.number(),
-    data: z.unknown(),
+    data: z.unknown().optional(),
   })
   .loose();
 
@@ -27,7 +27,7 @@ export const featureEvalItemSchema = z.object({
   featureKey: z.string(),
   timestamp: z.number(),
   result: z.object({
-    value: z.unknown().nullable(),
+    value: z.unknown().nullish(),
     experimentKey: z.string().optional(),
   }),
 });
@@ -37,7 +37,7 @@ export const experimentEvalItemSchema = z.object({
   timestamp: z.number(),
   name: z.string().optional(),
   result: z.object({
-    value: z.unknown(),
+    value: z.unknown().optional(),
     variationId: z.number().int(),
     featureId: z.string().nullable(),
   }),

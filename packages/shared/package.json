@@ -34,7 +34,7 @@
     "shared": "workspace:*",
     "sql-formatter": "^15.9.0",
     "uniqid": "^5.4.0",
-    "zod": "^4.1.12"
+    "zod": "^4.6.6"
   },
   "devDependencies": {
     "@ephys/zod-to-ts": "^2.3.2",
