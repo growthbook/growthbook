@@ -12,6 +12,7 @@ import { datetime } from "shared/dates";
 import {
   Revision,
   applyTopLevelPatchOps,
+  landedOps,
   checkMergeConflicts,
   getRevisionNumberById,
   getRevisionUpdatableFields,
@@ -85,7 +86,11 @@ export default function RevisionStatusBar<T>({
     isDraft
       ? (applyTopLevelPatchOps(
           liveSnapshot as Record<string, unknown>,
-          selectedRevision.target.proposedChanges,
+          landedOps(
+            liveSnapshot as Record<string, unknown>,
+            selectedRevision.target.snapshot as Record<string, unknown>,
+            selectedRevision.target.proposedChanges,
+          ),
         ) as T)
       : liveSnapshot,
     diffConfig,

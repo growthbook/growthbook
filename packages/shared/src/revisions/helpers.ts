@@ -1151,3 +1151,38 @@ export const getSdkConnectionReviewRules = (
 export const orgHasAnySdkConnectionApproval = (
   approvalFlows: ApprovalFlowConfigurations | undefined,
 ): boolean => !!approvalFlows?.sdkConnections?.some((rule) => rule.required);
+
+// What a draft lands when it publishes over live: the changes it made since
+// its base, and nothing it left alone, so edits made to live meanwhile survive.
+// - An `add`/`replace` equal to the base value is no change, and is dropped.
+// - A `remove` of a field the base didn't have is dropped.
+// - A nested branch lands only the settings the draft changed inside it.
+// - `move`/`copy`/`test`, and fields outside `updatableFields` when given, are
+//   dropped.
+export function landedOps(
+  live: Record<string, unknown>,
+  baseSnapshot: Record<string, unknown>,
+  proposedChanges: unknown,
+  updatableFields?: ReadonlySet<string>,
+): JsonPatchOperation[] {
+  const landed: JsonPatchOperation[] = [];
+  for (const op of normalizeProposedChanges(proposedChanges)) {
+    const field = op.path.split("/")[1];
+    if (!field || (updatableFields && !updatableFields.has(field))) continue;
+    if (op.op === "remove") {
+      if (baseSnapshot[field] !== undefined) landed.push(op);
+      continue;
+    }
+    if (op.op !== "replace" && op.op !== "add") continue;
+    if (isEqual(op.value, baseSnapshot[field])) continue;
+    const nested = mergeNestedBranch(
+      field,
+      baseSnapshot[field],
+      live[field],
+      op.value,
+      "proposed",
+    );
+    landed.push(nested ? { ...op, value: nested.merged } : op);
+  }
+  return landed;
+}

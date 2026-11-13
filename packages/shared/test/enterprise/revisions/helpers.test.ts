@@ -22,6 +22,7 @@ import {
   getSdkConnectionReviewRules,
   isUserBlockedFromApproving,
   mergeNestedBranch,
+  landedOps,
 } from "../../../src/revisions/helpers";
 import { entityPublishFootprint } from "../../../src/revisions/entityPublishFootprint";
 import type {
@@ -1481,5 +1482,45 @@ describe("SDK connection review rules", () => {
       scope: "environments",
       environments: ["production", "staging"],
     });
+  });
+});
+
+describe("landedOps", () => {
+  const base = {
+    name: "Prod",
+    sdkConnection: { name: "Prod", encryptPayload: false, environment: "prod" },
+  };
+  // Since the draft was cut, live turned encryption on.
+  const live = {
+    name: "Prod",
+    sdkConnection: { name: "Prod", encryptPayload: true, environment: "prod" },
+  };
+
+  it("lands a nested branch's own changes and keeps what live changed since", () => {
+    const ops: JsonPatchOperation[] = [
+      {
+        op: "replace",
+        path: "/sdkConnection",
+        value: { ...base.sdkConnection, name: "Renamed" },
+      },
+    ];
+    expect(landedOps(live, base, ops)).toEqual([
+      {
+        op: "replace",
+        path: "/sdkConnection",
+        value: { name: "Renamed", encryptPayload: true, environment: "prod" },
+      },
+    ]);
+  });
+
+  it("drops what isn't a change, or isn't the entity's to write", () => {
+    const ops: JsonPatchOperation[] = [
+      { op: "replace", path: "/name", value: "Prod" },
+      { op: "remove", path: "/neverThere" },
+      { op: "replace", path: "/owner", value: "someone" },
+    ];
+    expect(landedOps(live, base, ops, new Set(["name"]))).toEqual([]);
+    // Without an allowlist, the real change stays.
+    expect(landedOps(live, base, ops)).toEqual([ops[2]]);
   });
 });

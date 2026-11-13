@@ -16,6 +16,7 @@ import { Box } from "@radix-ui/themes";
 import {
   Revision,
   applyTopLevelPatchOps,
+  landedOps,
   getLiveRevision,
   getRevisionNumberById,
   getSdkConnectionGoverningRules,
@@ -207,18 +208,21 @@ function buildDisplayedConnection(
   revision: Revision | null,
 ): SDKConnectionInterface {
   if (!revision) return connection;
-  const effective = applyTopLevelPatchOps(
-    revision.target.snapshot as Record<string, unknown>,
-    revision.target.proposedChanges,
+  const base = revision.target.snapshot as Record<string, unknown>;
+  const ops = revision.target.proposedChanges;
+  // A draft shows what publishing it would leave: its own changes over live.
+  // History shows what it was, and a setting it left out was off then.
+  const draft = isActiveDraftStatus(revision.status);
+  const live = flattenConnection(connection, []) as Record<string, unknown>;
+  const effective = (
+    draft
+      ? applyTopLevelPatchOps(live, landedOps(live, base, ops))
+      : applyTopLevelPatchOps(base, ops)
   ) as SDKConnectionRevisionSnapshot;
   const settings = (effective.sdkConnection ?? {}) as Record<string, unknown>;
-  // A setting history left out was off then, whatever live says now. A draft
-  // keeps live's, as publishing it would.
   return overlayFlattenedOnConnection(
     connection,
-    isActiveDraftStatus(revision.status)
-      ? settings
-      : withAbsentSettings(settings),
+    draft ? settings : withAbsentSettings(settings),
   );
 }
 

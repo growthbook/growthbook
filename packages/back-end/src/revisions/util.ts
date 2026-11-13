@@ -6,7 +6,7 @@ import {
   JsonPatchOperation,
   Revision,
   RevisionTargetType,
-  mergeNestedBranch,
+  landedOps,
   normalizeProposedChanges,
 } from "shared/enterprise";
 import { ReqContext } from "back-end/types/request";
@@ -114,48 +114,17 @@ export function isRevisionRequired(
 // Applying ops to live preserves out-of-band changes to fields the revision
 // did not touch.
 //
-// The op list is filtered to "effective" ops first:
-// - Drop ops whose top-level path isn't in `updatableFields` (the entity's
-// write allowlist).
-// - Drop `add`/`replace` ops whose value equals the baseline value (these
-// represent no real change vs the snapshot, so applying them to live
-// would overwrite legitimate live drift).
-// - Drop `remove` ops on fields the baseline didn't define.
-// - Drop `move` / `copy` / `test` ops outright (they're accepted by the
-// validator but not modelled by the rest of the revision pipeline).
+// Only the ops `landedOps` keeps are applied.
 export function buildMergeDesiredState<T extends Record<string, unknown>>(
   liveEntity: T,
   baseSnapshot: Record<string, unknown>,
   proposedChanges: JsonPatchOperation[] | unknown,
   updatableFields: ReadonlySet<string>,
 ): T {
-  const ops = normalizeProposedChanges(proposedChanges);
-  const effectiveOps = ops.filter((op) => {
-    const field = op.path.split("/")[1];
-    if (!field || !updatableFields.has(field)) return false;
-    if (op.op === "replace" || op.op === "add") {
-      return !isEqual(op.value, baseSnapshot[field]);
-    }
-    if (op.op === "remove") {
-      return baseSnapshot[field] !== undefined;
-    }
-    return false;
-  });
-  // A nested branch lands only what the draft changed in it, so unrelated live
-  // edits made since the draft's base survive.
-  const landedOps = effectiveOps.map((op) => {
-    if (op.op !== "replace" && op.op !== "add") return op;
-    const field = op.path.split("/")[1];
-    const nested = mergeNestedBranch(
-      field,
-      baseSnapshot[field],
-      liveEntity[field],
-      op.value,
-      "proposed",
-    );
-    return nested ? { ...op, value: nested.merged } : op;
-  });
-  return applyPatchToSnapshot(liveEntity, landedOps);
+  return applyPatchToSnapshot(
+    liveEntity,
+    landedOps(liveEntity, baseSnapshot, proposedChanges, updatableFields),
+  );
 }
 
 // Whether a merge changes the entity's project ownership. Covers both the

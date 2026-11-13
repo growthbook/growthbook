@@ -42,7 +42,10 @@ export default function StagedEditsBar({
         <Flex align="center" gap="3">
           {changes}
           <Box flexGrow="1" />
-          {notes}
+          {/* Set apart from the controls it sits beside. */}
+          <Flex align="center" gap="3" mr="3">
+            {notes}
+          </Flex>
           {target ? <Box mr="3">{target}</Box> : null}
           <Button
             variant="ghost"

@@ -21,7 +21,9 @@ import {
 import {
   Revision,
   JsonPatchOperation,
+  isPlainObject,
   normalizeProposedChanges,
+  sdkConnectionSettingsEqual,
 } from "shared/enterprise";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { ApiErrorResponse } from "back-end/types/api";
@@ -38,7 +40,11 @@ import {
   validateSdkConnectionChanges,
 } from "back-end/src/api/sdk-connections/validations";
 import { withReadablePayloadBreakdowns } from "back-end/src/services/sdkPayloadSize";
-import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
+import {
+  BadRequestError,
+  ChangesConflictError,
+  NotFoundError,
+} from "back-end/src/util/errors";
 import {
   assertCanChangeSdkWebhooks,
   ARCHIVE_BEFORE_DELETE,
@@ -238,6 +244,31 @@ export const putSDKConnection = async (
     settingsComparisonBase,
   );
 
+  // The values the caller's edits were made against. A setting someone else
+  // saved since is refused, for the caller to keep theirs or take the other.
+  const expected = (req.body as { expected?: unknown }).expected;
+  if (isPlainObject(expected)) {
+    const fields = Object.keys(fieldsToUpdate).filter(
+      (key) =>
+        key in expected &&
+        !sdkConnectionSettingsEqual(
+          { [key]: expected[key] },
+          { [key]: settingsComparisonBase[key] },
+        ),
+    );
+    if (fields.length) {
+      throw new ChangesConflictError(
+        {
+          fields,
+          featureIds: [],
+          urlRedirectIds: [],
+          visualChangesetIds: [],
+        },
+        "Someone else saved changes to what you edited. Keep yours or use theirs.",
+      );
+    }
+  }
+
   const forceCreateRevision = req.query.forceCreateRevision === "1";
   const bypassApproval = req.query.bypassApproval === "1";
   const autoPublish = req.query.autoPublish === "1";
@@ -394,11 +425,30 @@ export const putSDKConnection = async (
 
   await ensureLiveRevisionExists(context, "sdk-connection", entityWithWebhooks);
 
+  // An edit to an open draft is rebuilt from the row being written, so a save
+  // someone else made to it meanwhile keeps the settings this one didn't touch.
+  const opsFor = (row: Revision | null): JsonPatchOperation[] =>
+    patchOps.map((op) =>
+      row && op.path === "/sdkConnection"
+        ? {
+            ...op,
+            value: pickSettingsSnapshot({
+              ...currentState,
+              ...applyPatchToSnapshot(
+                row.target.snapshot as SDKConnectionRevisionSnapshot,
+                normalizeProposedChanges(row.target.proposedChanges),
+              ).sdkConnection,
+              ...fieldsToUpdate,
+            }),
+          }
+        : op,
+    );
+
   let revision = await createOrUpdateRevision(
     context,
     "sdk-connection",
     entityWithWebhooks,
-    patchOps,
+    editsExistingDraft ? opsFor : patchOps,
     {
       forceCreate: wantsMerge || forceCreateRevision,
       title,

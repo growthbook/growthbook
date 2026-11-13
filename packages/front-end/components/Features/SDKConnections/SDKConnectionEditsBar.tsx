@@ -20,6 +20,7 @@ import {
 } from "@/components/Features/SDKConnections/edit-modals/useSdkConnectionRevisionFlow";
 import { SdkConnectionStagedEdits } from "@/components/Features/SDKConnections/useSdkConnectionStagedEdits";
 import { useAuth } from "@/services/auth";
+import { ApiCallError } from "@/services/apiCallError";
 import HelperText from "@/ui/HelperText";
 import Text from "@/ui/Text";
 
@@ -71,6 +72,11 @@ export default function SDKConnectionEditsBar({
       staged.clear();
       return;
     }
+    // What someone else saved since is kept or dropped first, on its row.
+    if (staged.hasConflicts) {
+      setOpen(true);
+      return;
+    }
     const draftId = draft ? draft.id : target === NEW_DRAFT ? null : target;
     setSaving(true);
     setError(null);
@@ -80,6 +86,12 @@ export default function SDKConnectionEditsBar({
         apiCall,
         connection,
         body: pick(body, keys),
+        // Checked against what the edits land on: the viewed draft or live.
+        // Another draft picked from live has its own values, so it isn't.
+        expected:
+          draft || !draftId
+            ? pick(sdkConnectionBody(staged.based), keys)
+            : undefined,
         mode: draftId ? "existing" : "new",
         draftId,
         bypassApproval: false,
@@ -101,7 +113,13 @@ export default function SDKConnectionEditsBar({
         setOpen(false);
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : "The changes weren't saved.");
+      // Someone saved first: reload what they saved, and the rows show it.
+      if (e instanceof ApiCallError && e.code === "changes_conflict") {
+        await mutate();
+        setOpen(true);
+      } else {
+        setError(e instanceof Error ? e.message : "The changes weren't saved.");
+      }
     } finally {
       setSaving(false);
     }
@@ -125,7 +143,9 @@ export default function SDKConnectionEditsBar({
                 after: pick(staged.shown, staged.fieldsOf(row)),
               }}
               discard={() => staged.discardRow(row)}
-              keepMine={null}
+              keepMine={
+                staged.conflicts(row) ? () => staged.keepMine(row) : null
+              }
               incompatible={null}
               saving={saving}
             />
@@ -136,6 +156,11 @@ export default function SDKConnectionEditsBar({
         error ? (
           <HelperText status="error" size="sm">
             {error}
+          </HelperText>
+        ) : staged.hasConflicts ? (
+          <HelperText status="warning" size="sm">
+            Someone else saved changes to what you edited. Keep yours or use
+            theirs.
           </HelperText>
         ) : null
       }

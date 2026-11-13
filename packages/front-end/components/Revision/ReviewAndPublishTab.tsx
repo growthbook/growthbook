@@ -12,6 +12,7 @@ import {
   checkMergeConflicts,
   getRevisionUpdatableFields,
   applyTopLevelPatchOps,
+  landedOps,
   isUserBlockedFromApproving,
   isAutopublishOnApprovalEnabled,
   entityProjects,
@@ -421,9 +422,16 @@ function ReviewAndPublishRevision<T>({
   const baseSnapshot = isActiveDraft
     ? currentState
     : (revision.target.snapshot as T);
+  // A draft behind live lands only what it changed, as the server merges it.
   const proposedSnapshot = applyTopLevelPatchOps(
     baseSnapshot as Record<string, unknown>,
-    revision.target.proposedChanges,
+    isActiveDraft
+      ? landedOps(
+          currentState as Record<string, unknown>,
+          revision.target.snapshot as Record<string, unknown>,
+          revision.target.proposedChanges,
+        )
+      : revision.target.proposedChanges,
   ) as T;
   const { diffs, badges, customRenderGroups } = useRevisionDiff<T>(
     baseSnapshot,

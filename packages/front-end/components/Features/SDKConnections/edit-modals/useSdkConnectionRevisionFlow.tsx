@@ -47,6 +47,7 @@ export async function saveSdkConnectionChanges({
   mode,
   draftId,
   bypassApproval,
+  expected,
   onRevisionCreated,
   onSelectRevision,
   mutate,
@@ -54,6 +55,9 @@ export async function saveSdkConnectionChanges({
   apiCall: ReturnType<typeof useAuth>["apiCall"];
   connection: SDKConnectionInterface;
   body: Record<string, unknown>;
+  // The values the changes were made against; the server refuses to save
+  // over one that has changed since.
+  expected?: Record<string, unknown>;
   mode: DraftMode;
   draftId: string | null;
   // Publishing past an approval rule.
@@ -91,7 +95,7 @@ export async function saveSdkConnectionChanges({
     revision?: Revision;
   }>(`/sdk-connections/${connection.id}?${params.toString()}`, {
     method: "PUT",
-    body: JSON.stringify(changed),
+    body: JSON.stringify(expected ? { ...changed, expected } : changed),
   });
 
   const revision = res?.revision ?? null;

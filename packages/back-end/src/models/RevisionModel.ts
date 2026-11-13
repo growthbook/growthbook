@@ -1829,6 +1829,9 @@ export class RevisionModel extends BaseClass {
       // guard fields so a same-status edit trips the CAS retry. Conflicts throw
       // ConflictError so callers can tell a lost race from an infra failure.
       expected?: { status: string; dateUpdated: Date };
+      // What a draft published behind live actually lands, recorded in place
+      // of what it proposed, so history shows the state that went live.
+      landed?: Pick<Revision["target"], "snapshot" | "proposedChanges">;
     },
   ) {
     // Whether a schedule was armed on the winning CAS read — decides whether the
@@ -1884,6 +1887,9 @@ export class RevisionModel extends BaseClass {
           : base;
         return {
           status: "merged",
+          ...(options?.landed && {
+            target: { ...existing.target, ...options.landed },
+          }),
           // Publishing disarms any pending schedule and releases the lock-others
           // partial index (which keys on autoPublishOnApproval:true).
           autoPublishOnApproval: false,
@@ -1989,6 +1995,8 @@ export class RevisionModel extends BaseClass {
     const now = new Date();
     const buildSet = (lockOthers: boolean): Record<string, unknown> => ({
       status: prior.status,
+      // The merge may have recorded what it was landing in place of the draft.
+      target: prior.target,
       dateUpdated: now,
       autoPublishOnApproval: !!prior.autoPublishOnApproval,
       ...(prior.autoPublishEnabledBy
