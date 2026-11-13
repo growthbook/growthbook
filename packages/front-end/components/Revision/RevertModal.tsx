@@ -99,6 +99,9 @@ export interface Props<T extends RevertableEntity> {
   // Reshapes the restored fields for an endpoint whose body differs from the
   // snapshot (an SDK connection's settings are nested in its snapshot).
   toRequestBody?: (changes: Record<string, unknown>) => Record<string, unknown>;
+  // Fills what a stored snapshot leaves out, applied to both sides so the
+  // preview, the button and the request agree on what changes.
+  normalizeState?: (state: T) => T;
 }
 
 export default function RevertModal<T extends RevertableEntity>({
@@ -123,6 +126,7 @@ export default function RevertModal<T extends RevertableEntity>({
   close,
   onRevisionCreated,
   toRequestBody,
+  normalizeState,
 }: Props<T>) {
   const { apiCall } = useAuth();
   const { getUserDisplay } = useUser();
@@ -156,17 +160,20 @@ export default function RevertModal<T extends RevertableEntity>({
   const targetRevision =
     targetRevisions.find((r) => r.id === targetId) ?? revision;
 
-  const targetState = useMemo(
-    () =>
-      applyTopLevelPatchOps(
-        targetRevision.target.snapshot as unknown as T,
-        targetRevision.target.proposedChanges,
-      ) as unknown as T,
-    [targetRevision],
+  const targetState = useMemo(() => {
+    const state = applyTopLevelPatchOps(
+      targetRevision.target.snapshot as unknown as T,
+      targetRevision.target.proposedChanges,
+    ) as unknown as T;
+    return normalizeState ? normalizeState(state) : state;
+  }, [targetRevision, normalizeState]);
+  const liveState = useMemo(
+    () => (normalizeState ? normalizeState(liveEntity) : liveEntity),
+    [liveEntity, normalizeState],
   );
 
   const { diffs, badges, customRenderGroups } = useRevisionDiff<T>(
-    liveEntity,
+    liveState,
     targetState,
     diffConfig,
   );
@@ -295,7 +302,7 @@ export default function RevertModal<T extends RevertableEntity>({
         const revertChanges: Record<string, unknown> = {};
         revertableFields.forEach((key) => {
           const targetValue = targetState[key];
-          const currentValue = liveEntity[key];
+          const currentValue = liveState[key];
           if (JSON.stringify(targetValue) === JSON.stringify(currentValue)) {
             return;
           }

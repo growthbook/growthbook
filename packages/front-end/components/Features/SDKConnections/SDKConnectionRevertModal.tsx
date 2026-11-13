@@ -3,7 +3,10 @@ import { SDKConnectionRevisionSnapshot } from "shared/validators";
 import RevisionDraftSelectorForChanges from "@/components/Revision/RevisionDraftSelectorForChanges";
 import { RevisionDiffConfig } from "@/components/Revision/useRevisionDiff";
 import RevertModal from "@/components/Revision/RevertModal";
-import { withAbsentSettings } from "@/components/Features/SDKConnections/sdkConnectionRules";
+import {
+  snapshotWithAbsentSettings,
+  withAbsentSettings,
+} from "@/components/Features/SDKConnections/sdkConnectionRules";
 
 type LiveSnapshot = SDKConnectionRevisionSnapshot & { id: string };
 
@@ -55,6 +58,7 @@ export default function SDKConnectionRevertModal({
       revertableFields={REVERTABLE_FIELDS}
       apiPathBase="/sdk-connections"
       toRequestBody={toRequestBody}
+      normalizeState={snapshotWithAbsentSettings}
       revision={revision}
       allRevisions={allRevisions}
       // The diff reads only the snapshot; `id` is there for the endpoint path.

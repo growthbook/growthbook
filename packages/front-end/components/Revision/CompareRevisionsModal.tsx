@@ -871,6 +871,16 @@ export default function CompareRevisionsModal<
   const previewDraftRev =
     previewDraftId !== null ? revisionById.get(previewDraftId) || null : null;
 
+  // A draft's state is what publishing it would make of live.
+  const { proposedStateFor } = diffConfig;
+  const draftState = useCallback(
+    (rev: Revision): T =>
+      proposedStateFor
+        ? proposedStateFor(rev, liveEntity)
+        : (applyTopLevelPatchOps(liveEntity, rev.target.proposedChanges) as T),
+    [proposedStateFor, liveEntity],
+  );
+
   // Calculate snapshots for all three diff scenarios at the top level
   const previewDraftSnapshots = useMemo(() => {
     if (!previewDraftRev) return null;
@@ -878,12 +888,15 @@ export default function CompareRevisionsModal<
       previewDraftRev.status === "merged"
         ? (previewDraftRev.target.snapshot as unknown as T)
         : liveEntity;
-    const proposedSnapshot = applyTopLevelPatchOps(
-      baseSnapshot,
-      previewDraftRev.target.proposedChanges,
-    ) as T;
+    const proposedSnapshot =
+      previewDraftRev.status === "merged"
+        ? (applyTopLevelPatchOps(
+            baseSnapshot,
+            previewDraftRev.target.proposedChanges,
+          ) as T)
+        : draftState(previewDraftRev);
     return { baseSnapshot, proposedSnapshot };
-  }, [previewDraftRev, liveEntity]);
+  }, [previewDraftRev, liveEntity, draftState]);
 
   const stepDiffSnapshots = useMemo(() => {
     if (!stepRevB) return null;
@@ -896,12 +909,15 @@ export default function CompareRevisionsModal<
       stepRevB.status === "merged"
         ? (stepRevB.target.snapshot as unknown as T)
         : liveEntity;
-    const proposedSnapshot = applyTopLevelPatchOps(
-      baseSnapshot,
-      stepRevB.target.proposedChanges,
-    ) as T;
+    const proposedSnapshot =
+      stepRevB.status === "merged"
+        ? (applyTopLevelPatchOps(
+            baseSnapshot,
+            stepRevB.target.proposedChanges,
+          ) as T)
+        : draftState(stepRevB);
     return { baseSnapshot, proposedSnapshot };
-  }, [stepRevB, liveEntity]);
+  }, [stepRevB, liveEntity, draftState]);
 
   const singleDiffSnapshots = useMemo(() => {
     if (!singleRevLast) return null;
@@ -921,12 +937,9 @@ export default function CompareRevisionsModal<
             singleRevLast.target.snapshot as unknown as T,
             singleRevLast.target.proposedChanges,
           ) as T)
-        : (applyTopLevelPatchOps(
-            liveEntity,
-            singleRevLast.target.proposedChanges,
-          ) as T);
+        : draftState(singleRevLast);
     return { baseSnapshot, proposedSnapshot };
-  }, [singleRevFirst, singleRevLast, liveEntity]);
+  }, [singleRevFirst, singleRevLast, liveEntity, draftState]);
 
   // Snapshots for the "log entry" drill-down. For content-changing activity
   // entries (created / updated / rebased) that were recorded with

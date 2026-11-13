@@ -17,6 +17,10 @@ import { PAYLOAD_FORMAT_LABELS } from "@/components/Features/SDKConnections/SdkW
 import { TRACES_TITLE } from "@/components/Features/SDKConnections/SDKConnectionAdvancedSettings";
 import type { DiffBadge } from "@/components/AuditHistoryExplorer/types";
 import { RevisionDiffConfig } from "@/components/Revision/useRevisionDiff";
+import {
+  draftLandedState,
+  snapshotWithAbsentSettings,
+} from "@/components/Features/SDKConnections/sdkConnectionRules";
 
 type Pre = Partial<SDKConnectionRevisionSnapshot> | null;
 type Post = Partial<SDKConnectionRevisionSnapshot>;
@@ -690,6 +694,9 @@ export function getSDKConnectionWebhookBadges(
 // own fields are unchanged.
 export const REVISION_SDK_CONNECTION_DIFF_CONFIG: RevisionDiffConfig<SDKConnectionRevisionSnapshot> =
   {
+    // Rows skip a setting the newer side lacks, so fill both sides first.
+    normalizeSnapshot: snapshotWithAbsentSettings,
+    proposedStateFor: draftLandedState,
     sections: [
       {
         label: "Connection",

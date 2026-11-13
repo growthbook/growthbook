@@ -8,6 +8,8 @@ import {
   getLatestSDKVersion,
   savedGroupFormatFromConnection,
 } from "shared/sdk-versioning";
+import { SDKConnectionRevisionSnapshot } from "shared/validators";
+import { applyTopLevelPatchOps, landedOps } from "shared/enterprise";
 
 export type SDKCapability = ReturnType<
   typeof getConnectionSDKCapabilities
@@ -208,4 +210,37 @@ export function withAbsentSettings(
     if (filled[key] === undefined) filled[key] = value;
   }
   return filled;
+}
+
+export const ABSENT_SETTING_KEYS = Object.keys(ABSENT_SETTING_VALUES);
+
+// A snapshot as the payload reads it, so a setting one side left out still
+// diffs against the other.
+export function snapshotWithAbsentSettings<
+  T extends Partial<SDKConnectionRevisionSnapshot>,
+>(snapshot: T): T {
+  if (!snapshot.sdkConnection) return snapshot;
+  return {
+    ...snapshot,
+    sdkConnection: withAbsentSettings(
+      snapshot.sdkConnection,
+    ) as T["sdkConnection"],
+  };
+}
+
+// What publishing a draft lands: its settings op replaces the whole object, but
+// the server merges it per setting, so live's later changes it never touched
+// are kept.
+export function draftLandedState<T extends Record<string, unknown>>(
+  revision: { target: { snapshot: unknown; proposedChanges: unknown } },
+  live: T,
+): T {
+  return applyTopLevelPatchOps(
+    live,
+    landedOps(
+      live,
+      revision.target.snapshot as Record<string, unknown>,
+      revision.target.proposedChanges,
+    ),
+  );
 }
