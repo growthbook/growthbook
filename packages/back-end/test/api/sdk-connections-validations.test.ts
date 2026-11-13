@@ -255,6 +255,28 @@ describe("sdk-connections validations", () => {
         validatePremiumFeatures(context, { encryptPayload: true });
       }).not.toThrow();
     });
+
+    it("Allows keeping a feature the existing connection already has on", () => {
+      expect(() => {
+        validatePremiumFeatures(
+          context,
+          { hashSecureAttributes: true, remoteEvalEnabled: true },
+          { hashSecureAttributes: true, remoteEvalEnabled: true },
+        );
+      }).not.toThrow();
+    });
+
+    it("Fails turning on a feature the existing connection has off", () => {
+      expect(() => {
+        validatePremiumFeatures(
+          context,
+          { hashSecureAttributes: true },
+          { hashSecureAttributes: false },
+        );
+      }).toThrow(
+        "Feature hash-secure-attributes requires premium subscription!",
+      );
+    });
   });
 
   describe("sdk version validation", () => {
