@@ -1,6 +1,10 @@
 import cloneDeep from "lodash/cloneDeep";
 import { isFunnelSupportedDatasourceType } from "shared/enterprise";
-import { getUserIdTypes, isFactFunnelMetric } from "shared/experiments";
+import {
+  getUserIdTypes,
+  isFactCompoundMetric,
+  isFactFunnelMetric,
+} from "shared/experiments";
 import { format } from "shared/sql";
 import type { DataSourceInterface } from "shared/types/datasource";
 import type {
@@ -42,6 +46,10 @@ import {
   funnelStepResolvedTsColumn,
   funnelStepTimestampColumn,
 } from "back-end/src/integrations/sql/fact-metrics/funnel-columns";
+import {
+  compoundComponentColumn,
+  compoundCovariateComponentColumn,
+} from "back-end/src/integrations/sql/fact-metrics/compound-columns";
 import { getFactMetricPercentileData } from "back-end/src/integrations/sql/columns/fact-metric-percentile-data";
 import { getFactMetricQuantileData } from "back-end/src/integrations/sql/columns/fact-metric-quantile-data";
 import { getFactTablesForMetrics } from "back-end/src/integrations/sql/fact-metrics/fact-tables-for-metrics";
@@ -49,7 +57,10 @@ import { getIdentitiesCTE } from "back-end/src/integrations/sql/ctes/identities-
 import { getMetricData } from "back-end/src/integrations/sql/fact-metrics/metric-data";
 import { processActivationMetric } from "back-end/src/integrations/sql/processing/process-activation-metric";
 import { processDimensions } from "back-end/src/integrations/sql/processing/process-dimensions";
-import { appendContextualBanditTargetingAttributeCols } from "back-end/src/integrations/sql/ctes/contextual-bandit-experiment-units-cte";
+import {
+  appendContextualBanditTargetingAttributeCols,
+  CONTEXTUAL_BANDIT_UNIT_BANDIT_VERSION_COLUMN,
+} from "back-end/src/integrations/sql/ctes/contextual-bandit-experiment-units-cte";
 import { getQuantileGridColumns } from "back-end/src/integrations/sql/columns/quantile-grid-columns";
 import { getQuantileSketchGridColumns } from "back-end/src/integrations/sql/columns/quantile-sketch-grid-columns";
 
@@ -134,12 +145,17 @@ export function getExperimentFactMetricsQuery(
       : null;
 
   const banditDates = getBanditDates(settings.banditSettings);
+  const cbPeriodWeighting =
+    !!settings.banditSettings?.contextualBandit &&
+    !!settings.banditSettings?.periodWeighting &&
+    (settings.banditSettings?.targetingAttributeColumns?.length ?? 0) > 0;
+  const useBanditPeriods = !!banditDates?.length || cbPeriodWeighting;
   const hasFunnelMetrics = metricsWithIndices.some((m) =>
     isFactFunnelMetric(m.metric),
   );
   // The bandit statistics CTE has no funnel handling; the UI blocks the
   // combination, this is the backstop.
-  if (hasFunnelMetrics && banditDates?.length) {
+  if (hasFunnelMetrics && useBanditPeriods) {
     throw new Error("Funnel metrics are not supported in Bandit experiments");
   }
   // Funnel steps can only be windowed against each other once every candidate
@@ -218,17 +234,17 @@ export function getExperimentFactMetricsQuery(
   const dimensionCols: DimensionColumnData[] = params.dimensions.map((d) =>
     getDimensionCol(dialect, d),
   );
+  appendContextualBanditTargetingAttributeCols(dimensionCols, settings);
+
   // if bandit and there is no dimension column, we need to create a dummy column to make some of the joins
   // work later on. `"dimension"` is a special column that gbstats can handle if there is no dimension
   // column specified. See `BANDIT_DIMENSION` in gbstats.py.
-  if (banditDates?.length && dimensionCols.length === 0) {
+  if (useBanditPeriods && dimensionCols.length === 0) {
     dimensionCols.push({
       alias: "dimension",
       value: dialect.castToString("'All'"),
     });
   }
-
-  appendContextualBanditTargetingAttributeCols(dimensionCols, settings);
 
   const computeOnActivatedUsersOnly =
     activationMetric !== null &&
@@ -321,6 +337,9 @@ export function getExperimentFactMetricsQuery(
   const regressionAdjustedTableIndices = new Set<number>();
   regressionAdjustedMetrics.forEach((m) => {
     regressionAdjustedTableIndices.add(m.numeratorSourceIndex);
+    m.compoundComponentSourceIndices.forEach((i) =>
+      regressionAdjustedTableIndices.add(i),
+    );
     if (m.ratioMetric && m.denominatorSourceIndex !== m.numeratorSourceIndex) {
       regressionAdjustedTableIndices.add(m.denominatorSourceIndex);
     }
@@ -337,6 +356,17 @@ export function getExperimentFactMetricsQuery(
         ? [{ metric: d.metric, alias: d.alias, stepIndices }]
         : [];
     });
+
+  // Funnel and compound metrics have no `_value` column of their own.
+  const hasValueColumn = (data: (typeof metricData)[number]) =>
+    !isFactFunnelMetric(data.metric) && !isFactCompoundMetric(data.metric);
+  const compoundComponentsForSource = (
+    data: (typeof metricData)[number],
+    sourceIndex: number,
+  ): number[] =>
+    data.compoundComponentSourceIndices.flatMap((componentSourceIndex, k) =>
+      componentSourceIndex === sourceIndex ? [k] : [],
+    );
 
   const kllMergeMetricsForSource = (sourceIndex: number) =>
     metricData.filter(
@@ -361,7 +391,7 @@ export function getExperimentFactMetricsQuery(
         });
       } else if (
         data.numeratorSourceIndex === sourceIndex &&
-        !isFactFunnelMetric(data.metric)
+        hasValueColumn(data)
       ) {
         columns.push({
           name: `${data.alias}_value`,
@@ -375,6 +405,11 @@ export function getExperimentFactMetricsQuery(
           }),
         });
       }
+
+      compoundComponentsForSource(data, sourceIndex).forEach((k) => {
+        const col = compoundComponentColumn(data.alias, k);
+        columns.push({ name: col, expr: `SUM(umj.${col})` });
+      });
 
       if (data.ratioMetric && data.denominatorSourceIndex === sourceIndex) {
         columns.push({
@@ -409,7 +444,14 @@ export function getExperimentFactMetricsQuery(
 
     if (regressionAdjustedTableIndices.has(sourceIndex)) {
       regressionAdjustedMetrics.forEach((metric) => {
-        if (metric.numeratorSourceIndex === sourceIndex) {
+        compoundComponentsForSource(metric, sourceIndex).forEach((k) => {
+          const col = compoundCovariateComponentColumn(metric.alias, k);
+          columns.push({ name: col, expr: `SUM(umj.${col})` });
+        });
+        if (
+          metric.numeratorSourceIndex === sourceIndex &&
+          hasValueColumn(metric)
+        ) {
           columns.push({
             name: `${metric.alias}_covariate_value`,
             expr: metric.covariateNumeratorAggFns.fullAggregationFunction(
@@ -517,7 +559,13 @@ export function getExperimentFactMetricsQuery(
         , variation
         , ${timestampColumn} AS timestamp
         , ${dialect.dateTrunc("first_exposure_timestamp", "day")} AS first_exposure_date
-        ${banditDates?.length ? getBanditCaseWhen(dialect, banditDates) : ""}
+        ${
+          banditDates?.length
+            ? getBanditCaseWhen(dialect, banditDates)
+            : cbPeriodWeighting
+              ? `, ${CONTEXTUAL_BANDIT_UNIT_BANDIT_VERSION_COLUMN} AS bandit_period`
+              : ""
+        }
     ${raMetricSettings
       .map(
         ({ alias, hours, minDelay }) => `
@@ -632,7 +680,7 @@ export function getExperimentFactMetricsQuery(
             ${dimensionCols
               .map((c) => `, umj.${c.alias} AS ${c.alias}`)
               .join("")}
-            ${banditDates?.length ? `, umj.bandit_period` : ""}
+            ${useBanditPeriods ? `, umj.bandit_period` : ""}
             , umj.${baseIdType}
             ${
               clusterIdColumn && f.index === 0
@@ -666,7 +714,7 @@ export function getExperimentFactMetricsQuery(
           GROUP BY
             umj.variation
             ${dimensionCols.map((c) => `, umj.${c.alias}`).join("")}
-            ${banditDates?.length ? `, umj.bandit_period` : ""}
+            ${useBanditPeriods ? `, umj.bandit_period` : ""}
             , umj.${baseIdType}
             ${
               clusterIdColumn && f.index === 0 ? `, umj.${clusterIdColumn}` : ""
@@ -785,7 +833,7 @@ export function getExperimentFactMetricsQuery(
               : ""
           }
           ${dimensionCols.map((c) => `, d.${c.alias} AS ${c.alias}`).join("")}
-          ${banditDates?.length ? `, d.bandit_period AS bandit_period` : ""}
+          ${useBanditPeriods ? `, d.bandit_period AS bandit_period` : ""}
           , d.${baseIdType} AS ${baseIdType}
           ${
             clusterIdColumn && f.index === 0
@@ -796,8 +844,7 @@ export function getExperimentFactMetricsQuery(
             .map(
               (data) =>
                 `${
-                  data.numeratorSourceIndex === f.index &&
-                  !isFactFunnelMetric(data.metric)
+                  data.numeratorSourceIndex === f.index && hasValueColumn(data)
                     ? `, ${addCaseWhenTimeFilter(dialect, {
                         col: `m.${data.alias}_value`,
                         metric: data.metric,
@@ -874,6 +921,19 @@ export function getExperimentFactMetricsQuery(
                         .join("\n")
                     : ""
                 }
+                ${compoundComponentsForSource(data, f.index)
+                  .map((k) => {
+                    const col = compoundComponentColumn(data.alias, k);
+                    return `, ${addCaseWhenTimeFilter(dialect, {
+                      col: `m.${col}`,
+                      metric: data.metric,
+                      overrideConversionWindows: data.overrideConversionWindows,
+                      endDate: settings.endDate,
+                      metricTimestampColExpr: "m.timestamp",
+                      exposureTimestampColExpr: "d.timestamp",
+                    })} as ${col}`;
+                  })
+                  .join("\n")}
                 `,
             )
             .join("\n")}
@@ -885,8 +945,18 @@ export function getExperimentFactMetricsQuery(
               ? regressionAdjustedMetrics
                   .map(
                     (metric) =>
-                      `${
-                        metric.numeratorSourceIndex === f.index
+                      `${compoundComponentsForSource(metric, f.index)
+                        .map(
+                          (k) =>
+                            `, ${dialect.ifElse(
+                              `m.timestamp >= d.${metric.alias}_preexposure_start AND m.timestamp < d.${metric.alias}_preexposure_end`,
+                              `m.${compoundComponentColumn(metric.alias, k)}`,
+                              "NULL",
+                            )} AS ${compoundCovariateComponentColumn(metric.alias, k)}`,
+                        )
+                        .join("")}${
+                        metric.numeratorSourceIndex === f.index &&
+                        hasValueColumn(metric)
                           ? `, ${dialect.ifElse(
                               `m.timestamp >= d.${metric.alias}_preexposure_start AND m.timestamp < d.${metric.alias}_preexposure_end`,
                               `m.${metric.alias}_value`,
@@ -971,7 +1041,7 @@ export function getExperimentFactMetricsQuery(
         : ""
     }
     ${
-      banditDates?.length
+      useBanditPeriods
         ? getBanditStatisticsFactMetricCTE(dialect, {
             baseIdType,
             metricData,

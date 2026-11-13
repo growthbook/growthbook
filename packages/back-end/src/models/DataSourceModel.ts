@@ -1,6 +1,6 @@
 import mongoose from "mongoose";
 import uniqid from "uniqid";
-import { cloneDeep, isEqual } from "lodash";
+import { cloneDeep, isEqual, isNull, omitBy } from "lodash";
 import { MANAGED_WAREHOUSE_EVENTS_FACT_TABLE_ID } from "shared/constants";
 import { getDataSourceSqlDialect } from "shared/dialects";
 import {
@@ -17,6 +17,7 @@ import {
   getColumnsNeedingQuotesMessage,
   getReadableExposureQueries,
   resolveAnalysisIdentifierType,
+  parseOptionalInt,
 } from "shared/util";
 import {
   DataSourceInterface,
@@ -933,6 +934,9 @@ export function toDataSourceApiInterface(
   datasource: DataSourceInterface,
 ): ApiDataSource {
   const settings = datasource.settings;
+  // As the query runner reads them; negatives are left out so a GET echo saves
+  const maxConcurrentQueries = parseOptionalInt(settings?.maxConcurrentQueries);
+  const queryCacheTTLMins = parseOptionalInt(settings?.queryCacheTTLMins);
   const obj: ApiDataSource = {
     id: datasource.id,
     dateCreated: datasource.dateCreated?.toISOString() || "",
@@ -970,6 +974,21 @@ export function toDataSourceApiInterface(
       }),
     ),
     eventTracker: settings?.schemaFormat || "custom",
+    // Cleared form fields are stored as null, which an echoed PUT would reject
+    ...(settings?.pipelineSettings
+      ? {
+          pipelineSettings: omitBy(
+            settings.pipelineSettings,
+            isNull,
+          ) as DataSourcePipelineSettings,
+        }
+      : {}),
+    ...(maxConcurrentQueries !== undefined && maxConcurrentQueries >= 0
+      ? { maxConcurrentQueries }
+      : {}),
+    ...(queryCacheTTLMins !== undefined && queryCacheTTLMins >= 0
+      ? { queryCacheTTLMins }
+      : {}),
   };
 
   if (datasource.type === "mixpanel") {

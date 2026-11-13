@@ -627,7 +627,12 @@ export default function FeaturesHeader({
           <div className="container-fluid pagecontents px-3">
             <div className="header-tabs">
               <Tabs value={tab} onValueChange={setTab}>
-                <TabsList size="lg" style={{ width: "100%" }}>
+                {/* Unfolded, as on main. */}
+                <TabsList
+                  size="lg"
+                  overflowMenu={false}
+                  style={{ width: "100%" }}
+                >
                   <TabsTrigger value="overview">Overview</TabsTrigger>
                   <TabsTrigger value="review">
                     Review &amp; Publish

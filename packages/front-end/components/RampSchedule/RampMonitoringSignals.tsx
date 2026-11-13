@@ -153,7 +153,7 @@ export function isHoldingNow(rampSchedule: RampScheduleInterface): boolean {
 }
 
 // Returns true when we're past `threshold` (0–1) of the current step's
-// interval. Used to suppress "Awaiting Sample" noise early in a long step —
+// interval. Used to suppress "Awaiting sample" noise early in a long step —
 // only surface it once there's reason to be concerned about pace.
 export function isNearingStepEnd(
   rampSchedule: RampScheduleInterface,
@@ -476,7 +476,7 @@ function signalToBadge(
         <Badge
           color={actionColor("amber", action)}
           variant="soft"
-          label={`No Traffic${actionSuffix(action)}`}
+          label={`No traffic${actionSuffix(action)}`}
           radius="full"
         />
       );
@@ -485,7 +485,7 @@ function signalToBadge(
         <Badge
           color="blue"
           variant="soft"
-          label="Awaiting Sample"
+          label="Awaiting sample"
           radius="full"
         />
       );
@@ -1009,7 +1009,7 @@ export function RampMonitoringCTAs({
     conservativeAction === "rollback" || conservativeAction === "hold";
 
   // When the monitored step is actively held by a signal *and* ready for
-  // approval, show a compound "Approve & Continue" button paired with
+  // approval, show a compound "Approve & continue" button paired with
   // Rollback. This fires both actions so the user doesn't have to click twice.
   if (
     onMonitored &&
@@ -1030,7 +1030,7 @@ export function RampMonitoringCTAs({
             await onAdvance();
           }}
         >
-          Approve & Continue
+          Approve & continue
         </Button>
         {rollbackButton("outline")}
       </div>
@@ -1078,7 +1078,7 @@ export function RampMonitoringCTAs({
   if (onApproveStep && approvalReady && !monitoredBlocksApproval) {
     return (
       <Button size={size} variant="solid" onClick={onApproveStep}>
-        Approve Step
+        Approve step
       </Button>
     );
   }

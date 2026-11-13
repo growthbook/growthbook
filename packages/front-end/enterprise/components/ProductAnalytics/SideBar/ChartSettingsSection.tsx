@@ -3,9 +3,13 @@ import { Flex } from "@radix-ui/themes";
 import { PiCaretDown, PiCaretUp } from "react-icons/pi";
 import Collapsible from "react-collapsible";
 import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
-import { getDefaultValueAxisName } from "@/enterprise/components/ProductAnalytics/util";
+import {
+  getDefaultValueAxisName,
+  getExplorationRenderOpts,
+} from "@/enterprise/components/ProductAnalytics/util";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Button from "@/ui/Button";
+import Switch from "@/ui/Switch";
 import Text from "@/ui/Text";
 import TextField from "@/ui/TextField";
 
@@ -23,11 +27,15 @@ const CHART_TYPES_WITH_AXES = new Set([
 export default function ChartSettingsSection() {
   const { draftExploreState, setDraftExploreState } = useExplorerContext();
   const { getFactMetricById } = useDefinitions();
-  // Open if axis labels are customized ("" = hidden, still custom).
+  // Open if any visible setting is customized ("" = hidden label, still
+  // custom). anchorYAxisToZero persists across chart types but only shows for
+  // line charts, so it only counts there.
   const [isCollapsed, setIsCollapsed] = useState(
     () =>
       draftExploreState.chartSettings?.categoryAxisLabel === undefined &&
-      draftExploreState.chartSettings?.valueAxisLabel === undefined,
+      draftExploreState.chartSettings?.valueAxisLabel === undefined &&
+      (draftExploreState.chartType !== "line" ||
+        draftExploreState.chartSettings?.anchorYAxisToZero === undefined),
   );
 
   if (!CHART_TYPES_WITH_AXES.has(draftExploreState.chartType)) return null;
@@ -43,10 +51,10 @@ export default function ChartSettingsSection() {
     : "valueAxisLabel";
 
   const defaultValueAxisLabel = getDefaultValueAxisName(
-    draftExploreState,
-    getFactMetricById,
+    getExplorationRenderOpts(draftExploreState, getFactMetricById),
   );
   const labels = draftExploreState.chartSettings;
+  const isLineChart = draftExploreState.chartType === "line";
 
   const updateAxisLabel = (key: AxisLabelKey, value: string) => {
     setDraftExploreState((prev) => ({
@@ -106,6 +114,22 @@ export default function ChartSettingsSection() {
             }
             onChange={(e) => updateAxisLabel(yAxisKey, e.target.value)}
           />
+          {isLineChart && (
+            <Switch
+              label="Anchor y-axis to zero"
+              description="Turn off to fit the axis to the data range."
+              value={labels?.anchorYAxisToZero ?? true}
+              onChange={(anchorYAxisToZero) =>
+                setDraftExploreState((prev) => ({
+                  ...prev,
+                  chartSettings: {
+                    ...prev.chartSettings,
+                    anchorYAxisToZero,
+                  },
+                }))
+              }
+            />
+          )}
         </Flex>
       </Collapsible>
     </Flex>
