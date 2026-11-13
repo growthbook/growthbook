@@ -95,6 +95,13 @@ const rule = (r: Rule) => r;
 const savedGroup = (g: SavedGroup) => g;
 const interleaving = (i: Interleavings[string]) => i;
 
+// null matches a missing attribute, so every attribute can be compared to it
+condition({ plan: { $ne: null }, name: { $eq: null }, tags: { $ne: null } });
+condition({ plan: { $in: [null, "free"] }, age: { $nin: [null, 1] } });
+condition({ tags: { $in: [null, "a"] }, name: { $ini: [null, "a"] } });
+
+// @ts-expect-error still checked against the attribute's type
+condition({ age: { $ne: "18" } });
 // @ts-expect-error unknown attribute
 condition({ nope: 1 });
 // @ts-expect-error unknown nested attribute

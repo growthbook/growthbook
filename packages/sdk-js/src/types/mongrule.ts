@@ -189,16 +189,16 @@ export type AttributeOperators<V> = {
   $exists?: boolean;
   $type?: VarType;
   $not?: AttributeConditionValue<V>;
-} & OperatorsFor<
-  Extract<V, Scalar>,
-  { $eq?: Extract<V, Scalar>; $ne?: Extract<V, Scalar> }
-> &
+  // A missing attribute is null, so any attribute can be compared to null
+  $eq?: Extract<V, Scalar> | null;
+  $ne?: Extract<V, Scalar> | null;
+} &
   // An array attribute matches when any of its elements is in the list
   OperatorsFor<
     Extract<V | ElementOf<V>, Scalar>,
     {
-      $in?: Extract<V | ElementOf<V>, Scalar>[];
-      $nin?: Extract<V | ElementOf<V>, Scalar>[];
+      $in?: (Extract<V | ElementOf<V>, Scalar> | null)[];
+      $nin?: (Extract<V | ElementOf<V>, Scalar> | null)[];
       $inGroup?: string;
       $notInGroup?: string;
     }
@@ -206,8 +206,8 @@ export type AttributeOperators<V> = {
   OperatorsFor<
     Extract<V | ElementOf<V>, string>,
     {
-      $ini?: Extract<V | ElementOf<V>, string>[];
-      $nini?: Extract<V | ElementOf<V>, string>[];
+      $ini?: (Extract<V | ElementOf<V>, string> | null)[];
+      $nini?: (Extract<V | ElementOf<V>, string> | null)[];
     }
   > &
   OperatorsFor<
