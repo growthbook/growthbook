@@ -1,5 +1,8 @@
 import { z } from "zod";
-import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
+import {
+  DIMENSION_NULL_LABEL_MAX_LENGTH,
+  MAX_DESCRIPTION_LENGTH,
+} from "shared/constants";
 import { ownerEmailField, ownerField, ownerInputField } from "./owner-field";
 import { apiPaginationFieldsValidator, paginationQueryFields } from "./shared";
 
@@ -39,7 +42,7 @@ export const apiDimensionValidator = namedSchema(
         .optional(),
       nullLabel: z
         .string()
-        .max(100)
+        .max(DIMENSION_NULL_LABEL_MAX_LENGTH)
         .describe(DIMENSION_NULL_LABEL_DESCRIPTION)
         .optional(),
       managedBy: z
@@ -76,7 +79,7 @@ const postDimensionBody = z
       .optional(),
     nullLabel: z
       .string()
-      .max(100)
+      .max(DIMENSION_NULL_LABEL_MAX_LENGTH)
       .describe(DIMENSION_NULL_LABEL_DESCRIPTION)
       .optional(),
     managedBy: z

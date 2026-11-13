@@ -1123,13 +1123,11 @@ describe("BigQuery KLL incremental refresh SQL generation (E2E)", () => {
       sql.indexOf("__experimentUnits AS"),
       sql.indexOf("__metricDataAggregated"),
     );
-    // The per-unit dimension CTE is joined onto the exposure rows here (rather
-    // than dropped), so the analysis dimension column resolves.
-    expect(unitsSection).toContain(
-      "LEFT JOIN __dim_unit_dim_u1 __dim_unit_dim_u1",
+    // The cluster's dimension joins once per cluster, after the collapse, and
+    // is projected under its alias, which the downstream analysis groups on.
+    expect(unitsSection).toMatch(
+      /__experimentUnitsClusterDims AS \([\s\S]*FROM\s+__experimentUnitsCluster u\s+LEFT JOIN __dim_unit_dim_u1 __dim_unit_dim_u1/,
     );
-    // It is resolved per sub-unit, collapsed to one value per cluster, and
-    // projected under its alias, which the downstream analysis groups on.
     expect(unitsSection).toContain("__dim_unit_dim_u1.value");
     expect(unitsSection).toContain("AS dim_unit_dim_u1");
     expect(unitsSection).toMatch(/GROUP BY[\s\S]*region_id/);
@@ -1204,6 +1202,7 @@ describe("BigQuery KLL incremental refresh SQL generation (E2E)", () => {
       clusterDimension("dim_tier", "region_id", true),
       clusterDimension("dim_plan", "user_id", true),
       clusterDimension("dim_seg", "user_id", false),
+      clusterDimension("dim_zone", "region_id", false),
     ]);
 
     // Dimensions keyed on the cluster or the sub-unit join through the units
@@ -1223,11 +1222,12 @@ describe("BigQuery KLL incremental refresh SQL generation (E2E)", () => {
     );
     expect(units).not.toContain("COUNT(DISTINCT");
     expect(units).not.toContain("dim_tier");
+    expect(units).not.toContain("dim_zone");
 
     // Same collapse as getExperimentFactMetricsQuery: a cluster whose
     // sub-units disagree on a dimension is bucketed as __multiple__
-    const clusterTimedAt = sql.indexOf("__experimentUnitsClusterTimed AS");
-    const collapse = sql.substring(collapseAt, clusterTimedAt);
+    const clusterDimsAt = sql.indexOf("__experimentUnitsClusterDims1 AS");
+    const collapse = sql.substring(collapseAt, clusterDimsAt);
     expect(collapse).toContain("FROM __experimentUnitsTimed u");
     expect(collapse).toContain(
       "MIN(u.first_exposure_timestamp) AS first_exposure_timestamp",
@@ -1239,22 +1239,25 @@ describe("BigQuery KLL incremental refresh SQL generation (E2E)", () => {
     }
     expect(collapse).toMatch(/GROUP BY u\.region_id \)/);
 
-    // The cluster's own dimension resolves once per cluster against the
-    // cluster's first exposure, so it needs no window and no collapse
-    const clusterTimed = sql.substring(
-      clusterTimedAt,
+    // The cluster's own dimensions join once per cluster, the timed one
+    // against the cluster's first exposure, so they need no window or collapse
+    const clusterDims = sql.substring(
+      clusterDimsAt,
       sql.indexOf("__metricDataAggregated"),
     );
-    expect(clusterTimed).toContain("FROM __experimentUnitsCluster u");
-    expect(clusterTimed).toContain(
+    expect(clusterDims).toContain("FROM __experimentUnitsCluster u");
+    expect(clusterDims).toContain(
       "cast(__dim_unit_dim_tier.region_id as string) = u.region_id",
     );
-    expect(clusterTimed).toContain(
-      "GROUP BY u.region_id, u.variation, u.first_exposure_timestamp, u.dim_unit_dim_seg, u.dim_unit_dim_plan",
+    expect(clusterDims).toContain(
+      "GROUP BY u.region_id, u.variation, u.first_exposure_timestamp, u.dim_unit_dim_seg, u.dim_unit_dim_plan )",
+    );
+    expect(clusterDims).toContain(
+      "FROM __experimentUnitsClusterDims1 u LEFT JOIN __dim_unit_dim_zone __dim_unit_dim_zone ON ( cast(__dim_unit_dim_zone.region_id as string) = u.region_id ) GROUP BY u.region_id, u.variation, u.first_exposure_timestamp, u.dim_unit_dim_seg, u.dim_unit_dim_plan, u.dim_unit_dim_tier )",
     );
     expect(sql).not.toContain("OVER (");
     expect(sql).toContain(
-      "FROM __experimentUnitsClusterTimed u LEFT JOIN __metricDataAggregated",
+      "FROM __experimentUnitsClusterDims u LEFT JOIN __metricDataAggregated",
     );
   });
 

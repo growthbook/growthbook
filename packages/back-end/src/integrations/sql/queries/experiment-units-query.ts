@@ -21,11 +21,7 @@ import { getConversionWindowClause } from "back-end/src/integrations/sql/clauses
 import { getDimensionCTE } from "back-end/src/integrations/sql/ctes/dimension-cte";
 import { getDimensionInStatement } from "back-end/src/integrations/sql/fact-metrics/dimension-in-statement";
 import { getDimensionValuePerUnit } from "back-end/src/integrations/sql/fact-metrics/dimension-value-per-unit";
-import {
-  CLUSTER_FIRST_EXPOSURE_COLUMN,
-  getTimedUnitDimensionValue,
-  withClusterFirstExposure,
-} from "back-end/src/integrations/sql/fact-metrics/timed-unit-dimension-value";
+import { getUnitDimensionChain } from "back-end/src/integrations/sql/fact-metrics/timed-unit-dimension-value";
 import { getExperimentEndDate } from "back-end/src/integrations/sql/dates/experiment-end-date";
 import { getFirstVariationValuePerUnit } from "back-end/src/integrations/sql/columns/first-variation-value-per-unit";
 import { getIdentitiesCTE } from "back-end/src/integrations/sql/ctes/identities-cte";
@@ -221,65 +217,21 @@ export function getExperimentUnitsQuery(
     ...contextualBanditRawColumns,
     ...contextualBanditVersionColumns,
   ];
-  const timedColumns = timedUnitDimensions.map((d) => ({
-    alias: `dim_unit_${d.dimension.id}`,
-    expr: getTimedUnitDimensionValue(
-      dialect,
-      d.dimension,
-      isClusterKeyed(getUnitDimensionJoinIdType(d))
-        ? `u.${CLUSTER_FIRST_EXPOSURE_COLUMN}`
-        : "u.first_exposure_timestamp",
-      `__dim_unit_${d.dimension.id}`,
-    ),
-    joinIdType: getUnitDimensionJoinIdType(d),
-    // The core CTE stores the cluster key as a string (see coreColumns), so a
-    // cluster-keyed dimension's raw key must be cast to match
-    dimensionKey: isClusterKeyed(getUnitDimensionJoinIdType(d))
-      ? dialect.castToString(
-          `__dim_unit_${d.dimension.id}.${getUnitDimensionJoinIdType(d)}`,
-        )
-      : `__dim_unit_${d.dimension.id}.${getUnitDimensionJoinIdType(d)}`,
-    dimensionId: d.dimension.id,
-    name: d.dimension.name,
-  }));
   const unitsColumnAliases = [
     ...coreColumns.map((c) => c.alias),
-    ...timedColumns.map((c) => c.alias),
+    ...timedUnitDimensions.map((d) => `dim_unit_${d.dimension.id}`),
   ];
-
-  // Timed dimensions resolve one at a time in a chain of one-row-per-unit
-  // CTEs. Each step reads the previous CTE once and joins a single history,
-  // so N histories cost |h1| + ... + |hN| rows per unit rather than their
-  // product, and no CTE is referenced twice (BigQuery may re-evaluate those).
-  const timedUnitsCte = timedColumns
-    .map((c, i) => {
-      const prevCte = i === 0 ? coreCteName : `__experimentUnitsTimed${i}`;
-      const cteName =
-        i === timedColumns.length - 1
-          ? unitsCteName
-          : `__experimentUnitsTimed${i + 1}`;
-      const carried = unitsColumnAliases
-        .slice(0, coreColumns.length + i)
-        .map((alias) => `u.${alias}`);
-      return `, ${cteName} AS (
-      -- Resolve ${c.name} against each unit's first exposure
-      SELECT
-        ${carried.join("\n        , ")}
-        , ${c.expr} AS ${c.alias}
-      FROM
-        ${
-          isClusterKeyed(c.joinIdType)
-            ? withClusterFirstExposure(prevCte, c.joinIdType)
-            : prevCte
-        } u
-        LEFT JOIN __dim_unit_${c.dimensionId} __dim_unit_${c.dimensionId} ON (
-          ${c.dimensionKey} = u.${c.joinIdType}
-        )
-      GROUP BY
-        ${carried.join(", ")}
-    )`;
-    })
-    .join("\n");
+  const timedUnitsCte = getUnitDimensionChain(dialect, {
+    dimensions: timedUnitDimensions,
+    getJoinIdType: getUnitDimensionJoinIdType,
+    sourceCte: coreCteName,
+    cteName: unitsCteName,
+    stepPrefix: "__experimentUnitsTimed",
+    rowIdType: baseIdType,
+    carriedColumns: coreColumns.map((c) => c.alias),
+    stringIds: false,
+    castExposure: false,
+  }).sql;
 
   // The bandit CTEs replace the raw attribute columns with bucketed ones
   const contextualBanditRawAliases = new Set(

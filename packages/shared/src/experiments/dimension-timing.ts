@@ -4,7 +4,6 @@ export const DIMENSION_TIMESTAMP_COLUMN = "timestamp";
 export const DIMENSION_START_TIMESTAMP_COLUMN = "start_timestamp";
 export const DIMENSION_END_TIMESTAMP_COLUMN = "end_timestamp";
 
-export const DIMENSION_NULL_LABEL_MAX_LENGTH = 100;
 export const DEFAULT_DIMENSION_TIMING: DimensionTiming = "none";
 
 export function getDimensionNullValue(

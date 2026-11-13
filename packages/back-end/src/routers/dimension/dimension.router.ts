@@ -1,7 +1,7 @@
 import express from "express";
 import { z } from "zod";
 import { dimensionTimingValidator } from "shared/validators";
-import { DIMENSION_NULL_LABEL_MAX_LENGTH } from "shared/experiments";
+import { DIMENSION_NULL_LABEL_MAX_LENGTH } from "shared/constants";
 import { wrapController } from "back-end/src/routers/wrapController";
 import { validateRequestMiddleware } from "back-end/src/routers/utils/validateRequestMiddleware";
 import * as rawDimensionController from "./dimension.controller";

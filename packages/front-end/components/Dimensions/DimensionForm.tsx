@@ -2,10 +2,12 @@ import { FC, useMemo, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import { useForm } from "react-hook-form";
 import { DimensionInterface } from "shared/types/dimension";
-import { NULL_DIMENSION_VALUE } from "shared/constants";
-import type { DimensionTiming } from "shared/validators";
 import {
   DIMENSION_NULL_LABEL_MAX_LENGTH,
+  NULL_DIMENSION_VALUE,
+} from "shared/constants";
+import type { DimensionTiming } from "shared/validators";
+import {
   getDimensionRequiredColumns,
   getDimensionTiming,
 } from "shared/experiments";

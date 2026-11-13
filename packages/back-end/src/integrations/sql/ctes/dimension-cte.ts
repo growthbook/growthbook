@@ -9,17 +9,14 @@ export function getDimensionCTE(
   dimension: DimensionInterface,
   baseIdType: string,
   idJoinMap: Record<string, string>,
-  dialect?: SqlDialect,
+  dialect: SqlDialect,
 ): string {
   const userIdType = dimension.userIdType || "user_id";
   const timestampColumns = getDimensionTimestampColumns(
     getDimensionTiming(dimension),
   );
   const extraCols = timestampColumns
-    .map(
-      (col) =>
-        `,\n        ${dialect ? dialect.castUserDateCol(`d.${col}`) : `d.${col}`} AS ${col}`,
-    )
+    .map((col) => `,\n        ${dialect.castUserDateCol(`d.${col}`)} AS ${col}`)
     .join("");
 
   // Need to use an identity join table
