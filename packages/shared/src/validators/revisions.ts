@@ -76,13 +76,13 @@ export const jsonPatchOperationValidator = z.discriminatedUnion("op", [
   z.object({
     op: z.literal("add"),
     path: topLevelPatchPath,
-    value: z.unknown().optional(),
+    value: z.unknown(),
   }),
   z.object({ op: z.literal("remove"), path: topLevelPatchPath }),
   z.object({
     op: z.literal("replace"),
     path: topLevelPatchPath,
-    value: z.unknown().optional(),
+    value: z.unknown(),
   }),
   z.object({
     op: z.literal("move"),
@@ -97,7 +97,7 @@ export const jsonPatchOperationValidator = z.discriminatedUnion("op", [
   z.object({
     op: z.literal("test"),
     path: topLevelPatchPath,
-    value: z.unknown().optional(),
+    value: z.unknown(),
   }),
 ]);
 export type JsonPatchOperation = z.infer<typeof jsonPatchOperationValidator>;

@@ -620,7 +620,6 @@ export const putConfigRevisionPropertyValidator = {
         .describe("Name of the property to set in this config's own value."),
       value: z
         .unknown()
-        .optional()
         .describe("The property's new value. `null` sets it to null."),
       ...publishOverrideBodyFields,
     })

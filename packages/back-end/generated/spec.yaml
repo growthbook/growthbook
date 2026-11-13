@@ -29927,6 +29927,7 @@ paths:
                   type: boolean
               required:
                 - property
+                - value
               additionalProperties: false
       responses:
         '200':
@@ -75237,6 +75238,7 @@ components:
                 required:
                   - op
                   - path
+                  - value
                 additionalProperties: false
               - type: object
                 properties:
@@ -75262,6 +75264,7 @@ components:
                 required:
                   - op
                   - path
+                  - value
                 additionalProperties: false
               - type: object
                 properties:
@@ -75307,6 +75310,7 @@ components:
                 required:
                   - op
                   - path
+                  - value
                 additionalProperties: false
       required:
         - id
@@ -75405,6 +75409,7 @@ components:
                 required:
                   - op
                   - path
+                  - value
                 additionalProperties: false
               - type: object
                 properties:
@@ -75430,6 +75435,7 @@ components:
                 required:
                   - op
                   - path
+                  - value
                 additionalProperties: false
               - type: object
                 properties:
@@ -75475,6 +75481,7 @@ components:
                 required:
                   - op
                   - path
+                  - value
                 additionalProperties: false
         targetSnapshot: {}
         dateCreated:
@@ -75922,6 +75929,7 @@ components:
                 required:
                   - op
                   - path
+                  - value
                 additionalProperties: false
               - type: object
                 properties:
@@ -75947,6 +75955,7 @@ components:
                 required:
                   - op
                   - path
+                  - value
                 additionalProperties: false
               - type: object
                 properties:
@@ -75992,6 +76001,7 @@ components:
                 required:
                   - op
                   - path
+                  - value
                 additionalProperties: false
       required:
         - id
@@ -76090,6 +76100,7 @@ components:
                 required:
                   - op
                   - path
+                  - value
                 additionalProperties: false
               - type: object
                 properties:
@@ -76115,6 +76126,7 @@ components:
                 required:
                   - op
                   - path
+                  - value
                 additionalProperties: false
               - type: object
                 properties:
@@ -76160,6 +76172,7 @@ components:
                 required:
                   - op
                   - path
+                  - value
                 additionalProperties: false
         targetSnapshot: {}
         dateCreated:
@@ -76674,6 +76687,7 @@ components:
                 required:
                   - op
                   - path
+                  - value
                 additionalProperties: false
               - type: object
                 properties:
@@ -76699,6 +76713,7 @@ components:
                 required:
                   - op
                   - path
+                  - value
                 additionalProperties: false
               - type: object
                 properties:
@@ -76744,6 +76759,7 @@ components:
                 required:
                   - op
                   - path
+                  - value
                 additionalProperties: false
       required:
         - id
@@ -76842,6 +76858,7 @@ components:
                 required:
                   - op
                   - path
+                  - value
                 additionalProperties: false
               - type: object
                 properties:
@@ -76867,6 +76884,7 @@ components:
                 required:
                   - op
                   - path
+                  - value
                 additionalProperties: false
               - type: object
                 properties:
@@ -76912,6 +76930,7 @@ components:
                 required:
                   - op
                   - path
+                  - value
                 additionalProperties: false
         targetSnapshot: {}
         dateCreated:
