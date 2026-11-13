@@ -57,6 +57,7 @@ export type AppFeatures = {
   "ff_embedded-payment-form": boolean;
   ff_num: number;
   "ff_payment-info": boolean;
+  "flag-imports": boolean;
   "gb-ax10-bandit": boolean;
   "gb-ax5-bandit": boolean;
   "gbdemo-checkout-layout": boolean;
