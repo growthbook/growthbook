@@ -44,6 +44,9 @@ import FactTableSampleRows from "./FactTableSampleRows";
 import styles from "./FactTableDetailsPage.module.scss";
 import FactTableRowsPerDay from "./FactTableRowsPerDay";
 
+const POLL_INTERVAL_MS = 3000;
+const POLL_TIMEOUT_MS = 60000;
+
 // One line of SQL with SELECT lists shortened, colored like the full SQL view
 function SqlSummary({
   sql,
@@ -92,7 +95,7 @@ export default function FactTableDetailsPage({
 
   const permissionsUtil = usePermissionsUtil();
   const { getOwnerDisplay } = useUser();
-  const { getProjectById, projects } = useDefinitions();
+  const { getProjectById, projects, mutateDefinitions } = useDefinitions();
 
   const valueCounts = useColumnValueCounts(factTable.id);
   // The tab lives in the URL hash so links like #metrics keep working
@@ -104,6 +107,21 @@ export default function FactTableDetailsPage({
   } | null>(null);
   // Set by an event's metric button; marks that row on the Metrics tab
   const [highlightMetric, setHighlightMetric] = useState<string | null>(null);
+
+  // Poll while columns refresh in the background. Lives here, not on the
+  // Columns tab, so the Events tab picks up the results too.
+  useEffect(() => {
+    if (!factTable.columnRefreshPending) return;
+    const startTime = Date.now();
+    const interval = setInterval(async () => {
+      if (Date.now() - startTime > POLL_TIMEOUT_MS) {
+        clearInterval(interval);
+        return;
+      }
+      await mutateDefinitions();
+    }, POLL_INTERVAL_MS);
+    return () => clearInterval(interval);
+  }, [factTable.columnRefreshPending, mutateDefinitions]);
 
   // `?filter=<id>` links to one Saved Filter, which that tab highlights
   const router = useRouter();

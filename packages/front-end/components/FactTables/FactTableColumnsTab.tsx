@@ -1,5 +1,5 @@
 import { ColumnInterface, FactTableInterface } from "shared/types/fact-table";
-import { Fragment, ReactNode, useEffect, useMemo, useState } from "react";
+import { Fragment, ReactNode, useMemo, useState } from "react";
 import {
   PiArrowClockwise,
   PiCaretRightBold,
@@ -32,9 +32,6 @@ import VirtualColumnModal from "./VirtualColumnModal";
 import ColumnValues, { ColumnValuesPanel } from "./ColumnValues";
 import styles from "./FactTableDetailsPage.module.scss";
 
-const POLL_INTERVAL_MS = 3000;
-const POLL_TIMEOUT_MS = 60000;
-
 type Row = ColumnInterface & { jsonFieldParent?: string };
 
 export default function FactTableColumnsTab({
@@ -58,20 +55,6 @@ export default function FactTableColumnsTab({
   // Virtual columns carry raw SQL, so they use the stricter gate
   const canManageVirtual =
     permissionsUtil.canManageFactTableVirtualColumn(factTable);
-
-  // Silently poll for updates when columns are being refreshed in background
-  useEffect(() => {
-    if (!factTable.columnRefreshPending) return;
-    const startTime = Date.now();
-    const interval = setInterval(async () => {
-      if (Date.now() - startTime > POLL_TIMEOUT_MS) {
-        clearInterval(interval);
-        return;
-      }
-      await mutateDefinitions();
-    }, POLL_INTERVAL_MS);
-    return () => clearInterval(interval);
-  }, [factTable.columnRefreshPending, mutateDefinitions]);
 
   async function refreshColumns() {
     setRefreshing(true);
