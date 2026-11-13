@@ -78,14 +78,16 @@ function webhookHeaderViewer(context: Context, connectionId: string) {
       connectionId,
       (async () => {
         const connection = await findSDKConnectionById(context, connectionId);
+        // Both, as reading the webhook itself takes both.
         if (
           !connection ||
-          !context.permissions.canUpdateSDKWebhook(connection)
+          !context.permissions.canUpdateSDKWebhook(connection) ||
+          !context.permissions.canManageLegacySDKWebhooks()
         ) {
           return () => false;
         }
         const live =
-          await context.models.sdkWebhooks.findAllSdkWebhooksByConnectionIds([
+          await context.models.sdkWebhooks.findLiveSdkWebhooksForRevision([
             connectionId,
           ]);
         const editable =
@@ -261,7 +263,7 @@ export const sdkConnectionAdapter: EntityRevisionAdapter<SDKConnectionRevisionSn
           const conn = await findSDKConnectionById(context, id);
           if (!conn) return null;
           const webhooks =
-            await context.models.sdkWebhooks.findAllSdkWebhooksByConnectionIds([
+            await context.models.sdkWebhooks.findLiveSdkWebhooksForRevision([
               id,
             ]);
           return toLiveSnapshot(conn, webhooks.map(toWebhookSnapshot));
@@ -527,7 +529,7 @@ export const sdkConnectionAdapter: EntityRevisionAdapter<SDKConnectionRevisionSn
           });
         if (touchedIds.length) {
           const rows =
-            await context.models.sdkWebhooks.findAllSdkWebhooksByConnectionIds([
+            await context.models.sdkWebhooks.findLiveSdkWebhooksForRevision([
               entity.sdkConnection.id,
             ]);
           rows

@@ -143,6 +143,7 @@ function makeContext(overrides: {
     canUpdateSDKConnection: () => true,
     canBypassSDKConnectionApprovalChecks: () => true,
     canRevisionAction: () => true,
+    canManageLegacySDKWebhooks: () => true,
     canCreateSDKWebhook: () => true,
     canUpdateSDKWebhook: () => true,
     canDeleteSDKWebhook: () => true,
@@ -179,7 +180,7 @@ function makeContext(overrides: {
     userId: "user-1",
     models: {
       sdkWebhooks: {
-        findAllSdkWebhooksByConnectionIds: jest.fn(async () => []),
+        findLiveSdkWebhooksForRevision: jest.fn(async () => []),
         countSdkWebhooksByOrg: jest.fn(async () => overrides.webhookCount ?? 0),
         getDefaultCreateProps: (id: string) => ({ sdks: [id] }),
         create: jest.fn(async () => ({})),
@@ -297,7 +298,7 @@ describe("sdkConnectionAdapter", () => {
   describe("getModel", () => {
     it("getById returns the composite with the live root fields", async () => {
       const ctx = makeContext({});
-      webhooksModel(ctx).findAllSdkWebhooksByConnectionIds.mockResolvedValue([
+      webhooksModel(ctx).findLiveSdkWebhooksForRevision.mockResolvedValue([
         { ...baseWebhook, signingKey: "secret" },
       ]);
       const entity = await sdkConnectionAdapter.getModel(ctx)!.getById("sdk-1");
@@ -836,7 +837,7 @@ describe("sdkConnectionAdapter", () => {
     it("refuses changing or removing a webhook other connections use", async () => {
       const entity = snapshotWith({}, [baseWebhook]);
       const ctx = makeContext({ premiumFeatures: ["multiple-sdk-webhooks"] });
-      webhooksModel(ctx).findAllSdkWebhooksByConnectionIds.mockResolvedValue([
+      webhooksModel(ctx).findLiveSdkWebhooksForRevision.mockResolvedValue([
         { id: "wh-1", sdks: [entity.sdkConnection.id, "sdk-other"] },
       ]);
       const edited = [
@@ -853,7 +854,7 @@ describe("sdkConnectionAdapter", () => {
     it("lets a draft change a webhook only this connection uses", async () => {
       const entity = snapshotWith({}, [baseWebhook]);
       const ctx = makeContext({ premiumFeatures: ["multiple-sdk-webhooks"] });
-      webhooksModel(ctx).findAllSdkWebhooksByConnectionIds.mockResolvedValue([
+      webhooksModel(ctx).findLiveSdkWebhooksForRevision.mockResolvedValue([
         { id: "wh-1", sdks: [entity.sdkConnection.id] },
       ]);
       await expect(
@@ -1150,6 +1151,18 @@ describe("sdkConnectionAdapter", () => {
       expect(webhooksModel(ctx).create).not.toHaveBeenCalled();
     });
 
+    it("refuses a webhook change from someone who can't write webhooks at all", async () => {
+      const ctx = makeContext({
+        permissions: { canManageLegacySDKWebhooks: () => false },
+      });
+      await expect(
+        sdkConnectionAdapter.applyChanges(ctx, liveEntity, {
+          sdkWebhooks: [baseWebhook],
+        }),
+      ).rejects.toThrow("permission denied");
+      expect(webhooksModel(ctx).create).not.toHaveBeenCalled();
+    });
+
     it("checks only the permission for the webhook change being made", async () => {
       const ctx = makeContext({
         permissions: {
@@ -1249,7 +1262,7 @@ describe("webhook headers in revisions", () => {
 
     // Live, but not editable on every connection it fires for.
     const shared = makeContext({});
-    webhooksModel(shared).findAllSdkWebhooksByConnectionIds.mockResolvedValue([
+    webhooksModel(shared).findLiveSdkWebhooksForRevision.mockResolvedValue([
       { id: live.id },
     ]);
     const seen = await scrubRevisionForViewer(shared, revision());

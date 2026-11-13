@@ -58,7 +58,7 @@ export const putSdkConnection = createApiRequestHandler(
   }
 
   const liveWebhooks =
-    await req.context.models.sdkWebhooks.findAllSdkWebhooksByConnectionIds([
+    await req.context.models.sdkWebhooks.findLiveSdkWebhooksForRevision([
       sdkConnection.id,
     ]);
   const liveEntity = { ...sdkConnection, _webhooks: liveWebhooks };
