@@ -3,10 +3,10 @@ import { useCallback, useRef, useSyncExternalStore } from "react";
 /** Keep in sync with --header-height in global.scss. */
 const HEADER_HEIGHT_PX = 56;
 
-// Bars pinned under the app header (the getting-started bar, the demo data
-// banner) push down what sticks or fills the window below them. Their
-// tallest is --pinned-bar-height; with the header's height it makes
-// --page-top-offset (global.scss).
+// A bar pinned under the app header (the getting-started bar) pushes down
+// what sticks or fills the window below it. The tallest is
+// --pinned-bar-height; with the header's height it makes --page-top-offset
+// (global.scss). The demo data banner isn't one: it overlaps what pins there.
 const barHeights = new Map<Element, number>();
 const listeners = new Set<() => void>();
 let barHeight = 0;
