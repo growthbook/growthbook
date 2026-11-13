@@ -4,6 +4,7 @@ const { getFeaturesPublic } = featuresController;
 import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
 import { findSDKConnectionByKey } from "back-end/src/models/SdkConnectionModel";
 import { getFeatureDefinitions } from "back-end/src/services/features";
+import { getSDKPayloadCacheLocation } from "back-end/src/models/SdkConnectionCacheModel";
 
 jest.mock("back-end/src/services/python", () => ({
   createPool: jest.fn(() => ({
@@ -282,5 +283,94 @@ describe("getFeaturesPublic test holdout", () => {
     expect(responseData.features).not.toHaveProperty(
       "$holdout:hld_test_holdout",
     );
+  });
+});
+
+describe("getFeaturesPublic with cache enabled", () => {
+  const send = jest.fn();
+  const type = jest.fn().mockReturnValue({ send });
+  const json = jest.fn();
+  const status = jest.fn().mockReturnValue({ type, json });
+  const getById = jest.fn();
+  const upsert = jest.fn().mockResolvedValue(undefined);
+
+  const callGetFeaturesPublic = () =>
+    getFeaturesPublic(
+      { params: { key: "sdk-test-key" }, body: {} } as unknown as Request,
+      { status, set: jest.fn() } as unknown as Response,
+    );
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    (getSDKPayloadCacheLocation as jest.Mock).mockReturnValue("mongo");
+    (getContextForAgendaJobByOrgId as jest.Mock).mockResolvedValue({
+      org: { id: "test-org-id" },
+      models: { sdkConnectionCache: { getById, upsert } },
+    });
+    (findSDKConnectionByKey as jest.Mock).mockResolvedValue({
+      key: "sdk-test-key",
+      organization: "test-org-id",
+      environment: "production",
+      projects: [],
+      languages: ["javascript"],
+      sdkVersion: "1.0.0",
+      remoteEvalEnabled: false,
+      connected: true,
+    });
+  });
+
+  afterEach(() => {
+    (getSDKPayloadCacheLocation as jest.Mock).mockReturnValue("none");
+  });
+
+  it("serves the cached payload string with status spliced in", async () => {
+    const payload = {
+      features: { "my-feature": { defaultValue: 'a"b<é>' } },
+      experiments: [],
+      dateUpdated: "2023-01-01T00:00:00.000Z",
+    };
+    getById.mockResolvedValue({ contents: JSON.stringify(payload) });
+
+    await callGetFeaturesPublic();
+
+    expect(getById).toHaveBeenCalledWith("sdk-test-key");
+    expect(getFeatureDefinitions).not.toHaveBeenCalled();
+    expect(status).toHaveBeenCalledWith(200);
+    expect(type).toHaveBeenCalledWith("json");
+    expect(send).toHaveBeenCalledWith(
+      JSON.stringify({ status: 200, ...payload }),
+    );
+  });
+
+  it("reads the cache once on a miss before regenerating", async () => {
+    const payload = { features: {}, experiments: [], dateUpdated: "x" };
+    getById.mockResolvedValue(null);
+    (getFeatureDefinitions as jest.Mock).mockResolvedValue(payload);
+
+    await callGetFeaturesPublic();
+
+    expect(getById).toHaveBeenCalledTimes(1);
+    expect(getFeatureDefinitions).toHaveBeenCalledTimes(1);
+    expect(upsert).toHaveBeenCalledWith(
+      "sdk-test-key",
+      JSON.stringify(payload),
+      expect.anything(),
+    );
+    expect(json).toHaveBeenCalledWith({ status: 200, ...payload });
+  });
+
+  it("regenerates instead of serving truncated cached contents", async () => {
+    const payload = { features: {}, experiments: [], dateUpdated: "x" };
+    getById.mockResolvedValue({
+      contents: JSON.stringify(payload).slice(0, -1),
+    });
+    (getFeatureDefinitions as jest.Mock).mockResolvedValue(payload);
+
+    await callGetFeaturesPublic();
+
+    expect(send).not.toHaveBeenCalled();
+    expect(getFeatureDefinitions).toHaveBeenCalledTimes(1);
+    expect(upsert).toHaveBeenCalled();
+    expect(json).toHaveBeenCalledWith({ status: 200, ...payload });
   });
 });

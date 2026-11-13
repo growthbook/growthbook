@@ -663,6 +663,15 @@ export async function getPayloadParamsFromApiKey(
   }
 }
 
+async function getCachedSDKPayloadJSON(
+  context: ReqContext | ApiReqContext,
+  key: string,
+): Promise<string | null> {
+  if (getSDKPayloadCacheLocation() === "none") return null;
+  const cached = await context.models.sdkConnectionCache.getById(key);
+  return cached?.contents ?? null;
+}
+
 // Get feature definitions with cache-first strategy.
 // Falls back to JIT generation on cache miss/corruption, with write-back to populate cache.
 // Accepts: SDKPayloadParams - either a full SDKConnectionInterface object or a subset via API key lookup.
@@ -673,18 +682,26 @@ export async function getFeatureDefinitionsWithCache({
   context: ReqContext | ApiReqContext;
   params: SDKPayloadParams;
 }): Promise<FeatureDefinitionSDKPayload> {
+  return getFeatureDefinitionsFromCachedJSON(
+    context,
+    params,
+    await getCachedSDKPayloadJSON(context, params.key),
+  );
+}
+
+async function getFeatureDefinitionsFromCachedJSON(
+  context: ReqContext | ApiReqContext,
+  params: SDKPayloadParams,
+  cachedJSON: string | null,
+): Promise<FeatureDefinitionSDKPayload> {
   let defs: FeatureDefinitionSDKPayload | undefined;
   const storageLocation = getSDKPayloadCacheLocation();
 
-  // Try cache first
-  if (storageLocation !== "none") {
-    const cached = await context.models.sdkConnectionCache.getById(params.key);
-    if (cached) {
-      try {
-        defs = JSON.parse(cached.contents);
-      } catch (e) {
-        logger.warn(e, "Failed to parse cached SDK payload, regenerating");
-      }
+  if (cachedJSON) {
+    try {
+      defs = JSON.parse(cachedJSON);
+    } catch (e) {
+      logger.warn(e, "Failed to parse cached SDK payload, regenerating");
     }
   }
 
@@ -780,10 +797,16 @@ export async function getFeaturesPublic(req: Request, res: Response) {
       );
     }
 
-    const defs = await getFeatureDefinitionsWithCache({
-      context,
-      params,
-    });
+    // On a cache hit, splice in the stored JSON to skip a parse/stringify round trip
+    const cachedJSON = await getCachedSDKPayloadJSON(context, params.key);
+    const cachedBody =
+      cachedJSON?.startsWith('{"') && cachedJSON.endsWith("}")
+        ? `{"status":200,${cachedJSON.slice(1)}`
+        : null;
+    const defs =
+      cachedBody === null
+        ? await getFeatureDefinitionsFromCachedJSON(context, params, cachedJSON)
+        : null;
 
     // The default is Cache for 30 seconds, serve stale up to 1 hour (10 hours if origin is down)
     res.set(
@@ -804,10 +827,14 @@ export async function getFeaturesPublic(req: Request, res: Response) {
       res.set("Surrogate-Key", surrogateKeys.join(" "));
     }
 
-    res.status(200).json({
-      status: 200,
-      ...defs,
-    });
+    if (cachedBody !== null) {
+      res.status(200).type("json").send(cachedBody);
+    } else {
+      res.status(200).json({
+        status: 200,
+        ...defs,
+      });
+    }
   } catch (e) {
     // We don't want to expose internal errors like Mongo Connections to users, so default to a generic message
     let error = "Failed to get features";
