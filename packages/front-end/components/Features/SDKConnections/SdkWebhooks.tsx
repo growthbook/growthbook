@@ -146,6 +146,8 @@ export default function SdkWebhooks({
     ).map((wh) => wh.id),
   );
 
+  const draftIds = new Set(draftWebhookSnapshots?.map((wh) => wh.id));
+
   const rows: WebhookRow[] = pastRevision
     ? (draftWebhookSnapshots ?? []).map((snapshot) => ({
         snapshot,
@@ -403,7 +405,10 @@ export default function SdkWebhooks({
           </TableCell>
           <TableCell>{renderStatus(live)}</TableCell>
           <TableCell>
-            {!pastRevision && staged !== "removed" && (live || !managedBy) ? (
+            {/* Only what the draft holds can change in it. */}
+            {!pastRevision &&
+            (!draftWebhookSnapshots || draftIds.has(snapshot.id)) &&
+            (live || !managedBy) ? (
               <DropdownMenu
                 trigger={
                   <MoreMenuTrigger

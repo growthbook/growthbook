@@ -19,15 +19,31 @@ export function isSdkConnectionGated(
 
 // The webhook endpoints write live directly, so under an approval rule the
 // change has to go through a draft of the connection instead.
+// REST callers pass `restBypass`, the org's REST setting, and may also bypass
+// with their own permission, as the REST settings endpoint allows.
 export function assertSdkWebhooksEditableDirectly(
   context: Context,
   connections: SDKConnectionInterface[],
+  restBypass?: boolean,
 ): void {
-  if (connections.some((c) => isSdkConnectionGated(context, c))) {
-    throw new BadRequestError(
-      "This SDK connection requires approval. Change its webhooks in a draft revision.",
-    );
+  const gated = connections.filter((c) => isSdkConnectionGated(context, c));
+  if (!gated.length) return;
+  if (
+    restBypass !== undefined &&
+    (restBypass ||
+      gated.every((c) =>
+        (c.projects.length ? c.projects : [""]).every((project) =>
+          context.permissions.canBypassSDKConnectionApprovalChecks({
+            project,
+          }),
+        ),
+      ))
+  ) {
+    return;
   }
+  throw new BadRequestError(
+    "This SDK connection requires approval. Change its webhooks in a draft revision.",
+  );
 }
 
 // Each webhook change takes only its own permission, as on the direct

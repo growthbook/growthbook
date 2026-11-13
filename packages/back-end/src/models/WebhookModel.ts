@@ -30,6 +30,7 @@ import {
 import { fireSdkWebhook } from "back-end/src/jobs/sdkWebhooks";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { assertSdkWebhooksEditableDirectly } from "back-end/src/services/sdkConnectionApprovals";
+import { canUseRestApiBypassSetting } from "back-end/src/api/features/reviewBypass";
 import { MakeModelClass } from "./BaseModel";
 import {
   assertCanUseSDKConnections,
@@ -79,17 +80,25 @@ const BaseClass = MakeModelClass({
           req.context.models.sdkWebhooks.apiCreateForConnection(
             req.params.id,
             req.body,
+            canUseRestApiBypassSetting(req),
           ),
       }),
       defineCustomApiHandler({
         ...putSdkWebhookEndpoint,
         reqHandler: (req): Promise<ApiSdkWebhookReturn> =>
-          req.context.models.sdkWebhooks.apiUpdate(req.params.id, req.body),
+          req.context.models.sdkWebhooks.apiUpdate(
+            req.params.id,
+            req.body,
+            canUseRestApiBypassSetting(req),
+          ),
       }),
       defineCustomApiHandler({
         ...deleteSdkWebhookEndpoint,
         reqHandler: (req): Promise<{ deletedId: string }> =>
-          req.context.models.sdkWebhooks.apiDelete(req.params.id),
+          req.context.models.sdkWebhooks.apiDelete(
+            req.params.id,
+            canUseRestApiBypassSetting(req),
+          ),
       }),
       defineCustomApiHandler({
         ...postSdkWebhookTestEndpoint,
@@ -167,7 +176,11 @@ export class SdkWebhookModel extends BaseClass {
   private async getWebhookForApiUpdate(
     id: string,
     can: (conn: SDKConnectionInterface) => boolean,
-    { allowOrphan = false, changes = true } = {},
+    // Gated as a change only when given the REST bypass setting.
+    {
+      allowOrphan = false,
+      restBypass,
+    }: { allowOrphan?: boolean; restBypass?: boolean } = {},
   ) {
     const webhook = await this.getById(id);
     if (!webhook)
@@ -179,8 +192,9 @@ export class SdkWebhookModel extends BaseClass {
       );
     }
     if (!conns.every(can)) this.context.permissions.throwPermissionError();
-    // Under an approval rule, changes go through a draft in the app.
-    if (changes) assertSdkWebhooksEditableDirectly(this.context, conns);
+    if (restBypass !== undefined) {
+      assertSdkWebhooksEditableDirectly(this.context, conns, restBypass);
+    }
     return webhook;
   }
 
@@ -232,13 +246,14 @@ export class SdkWebhookModel extends BaseClass {
   public async apiCreateForConnection(
     connectionId: string,
     body: PostSdkWebhookBody,
+    restBypass: boolean,
   ): Promise<ApiSdkWebhookReturn> {
     const { context } = this;
     const conn = await this.getConnectionForApi(connectionId);
     if (!context.permissions.canCreateSDKWebhook(conn)) {
       context.permissions.throwPermissionError();
     }
-    assertSdkWebhooksEditableDirectly(context, [conn]);
+    assertSdkWebhooksEditableDirectly(context, [conn], restBypass);
     this.assertHeadersJson(body.headers);
 
     const count = await this.countSdkWebhooksByOrg();
@@ -265,11 +280,12 @@ export class SdkWebhookModel extends BaseClass {
   public async apiUpdate(
     id: string,
     body: PutSdkWebhookBody,
+    restBypass: boolean,
   ): Promise<ApiSdkWebhookReturn> {
     const { context } = this;
     const can = (c: SDKConnectionInterface) =>
       context.permissions.canUpdateSDKWebhook(c);
-    const webhook = await this.getWebhookForApiUpdate(id, can);
+    const webhook = await this.getWebhookForApiUpdate(id, can, { restBypass });
     this.assertNotManaged(webhook);
     const { sdkConnections: sent, ...updates } = body;
     const sdkConnections = sent && uniq(sent);
@@ -291,6 +307,7 @@ export class SdkWebhookModel extends BaseClass {
       assertSdkWebhooksEditableDirectly(
         context,
         await assertCanUseSDKConnections(context, added, can),
+        restBypass,
       );
       // Stale ids may round-trip, but a narrowed list must keep a live connection
       const removed = webhook.sdks.some((id) => !sdkConnections.includes(id));
@@ -322,11 +339,14 @@ export class SdkWebhookModel extends BaseClass {
     return { sdkWebhook: this.toApiInterface(updated) };
   }
 
-  public async apiDelete(id: string): Promise<{ deletedId: string }> {
+  public async apiDelete(
+    id: string,
+    restBypass: boolean,
+  ): Promise<{ deletedId: string }> {
     const webhook = await this.getWebhookForApiUpdate(
       id,
       (c) => this.context.permissions.canDeleteSDKWebhook(c),
-      { allowOrphan: true },
+      { allowOrphan: true, restBypass },
     );
     this.assertNotManaged(webhook);
     await this.deleteById(id);
@@ -334,10 +354,8 @@ export class SdkWebhookModel extends BaseClass {
   }
 
   public async apiTest(id: string): Promise<ApiSdkWebhookReturn> {
-    const webhook = await this.getWebhookForApiUpdate(
-      id,
-      (c) => this.context.permissions.canUpdateSDKWebhook(c),
-      { changes: false },
+    const webhook = await this.getWebhookForApiUpdate(id, (c) =>
+      this.context.permissions.canUpdateSDKWebhook(c),
     );
     await fireSdkWebhook(this.context, webhook).catch(() => {
       // The outcome is recorded on the webhook
