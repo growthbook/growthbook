@@ -47,6 +47,7 @@ export async function getOrCreateInformationSchemaTable(
     informationSchema &&
     (await getDataSourceById(context, informationSchema.datasourceId));
   if (!informationSchema || !datasource) throw notFound;
+  // The warehouse read is gated by canRunSchemaQueries inside fetchTableData
   const created = await createInformationSchemaTableFromWarehouse(
     context as ReqContext,
     datasource,

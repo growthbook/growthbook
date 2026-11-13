@@ -22804,7 +22804,28 @@ paths:
                   items:
                     type: string
                 eventTracker:
+                  description: '`eventForwarder` is only accepted unchanged'
                   type: string
+                  enum:
+                    - segment
+                    - snowplow
+                    - jitsu
+                    - freshpaint
+                    - ga4
+                    - fullstory
+                    - matomo
+                    - heap
+                    - rudderstack
+                    - amplitude
+                    - mparticle
+                    - mixpanel
+                    - firebase
+                    - keen
+                    - clevertap
+                    - langfuse
+                    - phoenix
+                    - eventForwarder
+                    - custom
                 identifierTypes:
                   description: >-
                     Replaces the list. An entry matching an existing id keeps

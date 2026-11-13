@@ -6,6 +6,28 @@ import { apiInformationSchemaTableValidator } from "./information-schema-tables"
 import { namedSchema } from "./openapi-helpers";
 import { PROJECTS_DESCRIPTION } from "./api-field-descriptions";
 
+export const schemaFormatValidator = z.enum([
+  "segment",
+  "snowplow",
+  "jitsu",
+  "freshpaint",
+  "ga4",
+  "fullstory",
+  "matomo",
+  "heap",
+  "rudderstack",
+  "amplitude",
+  "mparticle",
+  "mixpanel",
+  "firebase",
+  "keen",
+  "clevertap",
+  "langfuse",
+  "phoenix",
+  "eventForwarder",
+  "custom",
+]);
+
 // Only remapped roles are stored; the rest use their canonical names
 export const exposureQueryColumnMappingValidator = z.object({
   experimentIdColumn: z.string().optional(),
@@ -151,7 +173,9 @@ export const getDataSourceValidator = {
 
 // Same names as the GET response, so a read can be edited and sent back.
 const dataSourceSettingsInput = {
-  eventTracker: z.string().optional(),
+  eventTracker: schemaFormatValidator
+    .optional()
+    .describe("`eventForwarder` is only accepted unchanged"),
   identifierTypes: z
     .array(
       z.object({

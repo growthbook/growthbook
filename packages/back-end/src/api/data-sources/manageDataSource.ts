@@ -10,7 +10,6 @@ import {
   DataSourcePipelineSettings,
   DataSourceSettings,
   ExposureQuery,
-  SchemaFormat,
   UserIdType,
 } from "shared/types/datasource";
 import {
@@ -50,7 +49,16 @@ export function applyApiDataSourceSettings(
   };
 
   if (input.eventTracker !== undefined) {
-    settings.schemaFormat = input.eventTracker as SchemaFormat;
+    // Only the Event Forwarder setup flow turns a data source into one
+    if (
+      input.eventTracker === "eventForwarder" &&
+      existing.schemaFormat !== "eventForwarder"
+    ) {
+      throw new BadRequestError(
+        "eventTracker can't be set to `eventForwarder`; set up an Event Forwarder in the app instead.",
+      );
+    }
+    settings.schemaFormat = input.eventTracker;
   }
   if (input.identifierTypes) {
     const prev = new Map(
