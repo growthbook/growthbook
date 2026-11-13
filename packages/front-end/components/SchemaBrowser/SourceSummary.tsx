@@ -4,10 +4,6 @@ import Code from "@/components/SyntaxHighlighting/Code";
 import Link from "@/ui/Link";
 import TextField from "@/ui/TextField";
 
-/**
- * The source a query modal's Configure step reads from: the picked table with
- * a Change link, or the SQL with an Edit SQL link.
- */
 export default function SourceSummary({
   table,
   sql,

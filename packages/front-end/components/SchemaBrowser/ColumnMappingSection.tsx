@@ -8,10 +8,6 @@ import Table, { TableBody } from "@/ui/Table";
 import Text from "@/ui/Text";
 import UITooltip from "@/ui/Tooltip";
 
-/**
- * The "Column mapping" header, Refresh columns button and messages around a
- * query modal's mapping rows.
- */
 export default function ColumnMappingSection({
   source,
   canRefresh,

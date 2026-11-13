@@ -2,11 +2,6 @@ import type { SourceTable } from "@/components/SchemaBrowser/useSourceTable";
 import ColumnMappingRow from "@/components/SchemaBrowser/ColumnMappingRow";
 import { Select, SelectItem } from "@/ui/Select";
 
-/**
- * The "Date partition" mapping row, with a format picker when the column's
- * type has more than one way to read it. Renders nothing when the table has
- * no partition column to offer.
- */
 export default function PartitionMappingRow({
   partition,
   tooltip,
