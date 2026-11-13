@@ -413,6 +413,7 @@ export interface OrganizationSettings {
   experimentKeyRegexValidator?: string; // Enforced on user-entered keys only; system-generated keys are exempt
   experimentMinLengthDays?: number;
   experimentMaxLengthDays?: number;
+  maxGoalMetricsPerExperiment?: number;
   decisionFrameworkEnabled?: boolean;
   defaultDecisionCriteriaId?: string;
   disableLegacyMetricCreation?: boolean;

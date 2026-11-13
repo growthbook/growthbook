@@ -134,6 +134,7 @@ const SECTION_FIELDS: Record<string, string[]> = {
     "experimentKeyRegexValidator",
     "experimentMinLengthDays",
     "experimentMaxLengthDays",
+    "maxGoalMetricsPerExperiment",
     "decisionFrameworkEnabled",
     "defaultDecisionCriteriaId",
     "disablePublicSharing",

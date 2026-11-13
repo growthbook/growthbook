@@ -16,6 +16,7 @@ import {
   getAllMetricIdsFromExperiment,
   getAllVariations,
   canEditContextualBanditVisualChanges,
+  validateMaxGoalMetrics,
 } from "shared/experiments";
 import {
   CLUSTER_BANDIT_NOT_SUPPORTED_MESSAGE,
@@ -1238,6 +1239,8 @@ export async function postExperiments(
       section: "experiment",
       project: data.project,
     });
+
+    validateMaxGoalMetrics(org.settings, data.goalMetrics, data.type);
 
     result = await validateExperimentData(context, data);
   } catch (e) {

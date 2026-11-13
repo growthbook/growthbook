@@ -2,6 +2,7 @@ import { omit } from "lodash";
 import {
   datasourceChangeDrops,
   getAllMetricIdsFromExperiment,
+  validateMaxGoalMetrics,
 } from "shared/experiments";
 import { getScopedSettings } from "shared/settings";
 import {
@@ -611,6 +612,14 @@ export const updateExperiment = createApiRequestHandler(
       goalMetrics: changes.goalMetrics ?? experiment.goalMetrics,
       incoming: payload.statusUpdateSchedule,
     });
+  }
+
+  if (changes.goalMetrics !== undefined) {
+    validateMaxGoalMetrics(
+      req.organization.settings,
+      changes.goalMetrics,
+      changes.type ?? experiment.type,
+    );
   }
 
   const isStartingFromDraft =

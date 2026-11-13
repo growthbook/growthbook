@@ -10,6 +10,7 @@ import {
 import {
   generateTrackingKey,
   getLatestPhaseVariations,
+  validateMaxGoalMetrics,
 } from "shared/experiments";
 import { v4 as uuidv4 } from "uuid";
 import {
@@ -982,6 +983,7 @@ export async function createExperiment({
   assertValidExperimentPhases(data.phases ?? []);
   assertValidReleasedVariationId(data);
   assertValidBucketVersions(data);
+  validateMaxGoalMetrics(context.org.settings, data.goalMetrics, data.type);
 
   const experimentToCreate = {
     id: uniqid("exp_"),
@@ -1120,6 +1122,13 @@ export async function updateExperiment({
   }
   assertValidReleasedVariationId({ ...experiment, ...allChanges }, experiment);
   assertValidBucketVersions({ ...experiment, ...allChanges }, experiment);
+  if (allChanges.goalMetrics !== undefined) {
+    validateMaxGoalMetrics(
+      context.org.settings,
+      allChanges.goalMetrics,
+      allChanges.type ?? experiment.type,
+    );
+  }
 
   const remindersToReset = getExperimentReminderResets(experiment, {
     ...experiment,

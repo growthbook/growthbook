@@ -284,6 +284,7 @@ export function SettingsFormProvider({ children }: { children: ReactNode }) {
       experimentKeyRegexValidator: "",
       experimentMinLengthDays: DEFAULT_EXPERIMENT_MIN_LENGTH_DAYS,
       experimentMaxLengthDays: DEFAULT_EXPERIMENT_MAX_LENGTH_DAYS,
+      maxGoalMetricsPerExperiment: undefined,
       decisionFrameworkEnabled: DEFAULT_DECISION_FRAMEWORK_ENABLED,
       defaultDecisionCriteriaId: PRESET_DECISION_CRITERIA.id,
       blockFileUploads: false,
@@ -525,6 +526,13 @@ export function SettingsFormProvider({ children }: { children: ReactNode }) {
         preferredEnvironment: value.preferredEnvironment || null,
         // A cleared number input yields NaN — normalize to 0 (cap disabled)
         maxConcurrentDrafts: value.maxConcurrentDrafts || 0,
+        // A cleared input yields NaN — save null (unlimited)
+        maxGoalMetricsPerExperiment:
+          value.maxGoalMetricsPerExperiment &&
+          !Number.isNaN(value.maxGoalMetricsPerExperiment) &&
+          value.maxGoalMetricsPerExperiment > 0
+            ? value.maxGoalMetricsPerExperiment
+            : null,
         approvalFlows: applyApprovalFlowEntitlements(
           value.approvalFlows,
           hasRequireApprovals,
