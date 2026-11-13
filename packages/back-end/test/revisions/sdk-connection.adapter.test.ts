@@ -728,7 +728,7 @@ describe("sdkConnectionAdapter", () => {
       const added = [{ ...baseWebhook, id: "wh-new" }];
       await expect(
         assert(makeContext({ webhookCount: 1 }), { sdkWebhooks: added }),
-      ).rejects.toThrow("webhook limit");
+      ).rejects.toThrow("one SDK webhook");
       await expect(
         assert(makeContext({ webhookCount: 0 }), { sdkWebhooks: added }),
       ).resolves.toBeUndefined();

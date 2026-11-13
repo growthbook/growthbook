@@ -345,6 +345,13 @@ export default function SdkWebhooks({
   const renderTableRows = () => {
     return rows.map(({ snapshot, live, staged }) => {
       const managedBy = live?.managedBy?.type;
+      // Only what the draft holds can change in it; Test reaches live either way.
+      const notInDraftReason =
+        !draftWebhookSnapshots || draftIds.has(snapshot.id)
+          ? undefined
+          : staged === "removed"
+            ? "Removed in this draft."
+            : "Added after this draft was created. Switch to the live version to change it.";
       const hidden = (
         <Text color="text-mid" fontStyle="italic">
           hidden
@@ -400,9 +407,7 @@ export default function SdkWebhooks({
           </TableCell>
           <TableCell>{renderStatus(live)}</TableCell>
           <TableCell>
-            {/* Only what the draft holds can change in it. */}
             {!pastRevision &&
-            (!draftWebhookSnapshots || draftIds.has(snapshot.id)) &&
             ((live && canTestWebhook) ||
               (!managedBy && (canUpdateWebhook || canDeleteWebhook))) ? (
               <DropdownMenu
@@ -429,6 +434,8 @@ export default function SdkWebhooks({
                 ) : null}
                 {!managedBy && canUpdateWebhook ? (
                   <DropdownMenuItem
+                    disabled={!!notInDraftReason}
+                    tooltip={notInDraftReason}
                     onClick={() =>
                       setEditWebhookData({
                         id: snapshot.id,
@@ -447,6 +454,8 @@ export default function SdkWebhooks({
                 ) : null}
                 {!managedBy && canDeleteWebhook ? (
                   <DropdownMenuItem
+                    disabled={!!notInDraftReason}
+                    tooltip={notInDraftReason}
                     color="red"
                     confirmation={{
                       confirmationTitle: "Delete SDK Webhook",

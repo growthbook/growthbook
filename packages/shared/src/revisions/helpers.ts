@@ -996,6 +996,14 @@ const isAbsentSdkSetting = (value: unknown): boolean =>
 const sdkSettingsFieldEqual = (a: unknown, b: unknown): boolean =>
   isEqual(a, b) || (isAbsentSdkSetting(a) && isAbsentSdkSetting(b));
 
+export const sdkConnectionSettingsEqual = (
+  a: Record<string, unknown>,
+  b: Record<string, unknown>,
+): boolean =>
+  Object.keys({ ...a, ...b }).every((key) =>
+    sdkSettingsFieldEqual(a[key], b[key]),
+  );
+
 // Settings are stored as one `replace /sdkConnection` op, so diff field by
 // field against the baseline. Null when the shape is anything else.
 const sdkConnectionChangedSettingKeys = (

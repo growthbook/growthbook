@@ -158,12 +158,17 @@ export function validateSdkCapabilities(
   });
 }
 
+// Gates turning a setting on; one already on still saves after a plan lapses.
 export function validatePremiumFeatures(
   context: ApiReqContext,
   payload: CreateSdkConnectionPayload | UpdateSdkConnectionPayload,
+  current?: SDKConnectionInterface,
 ) {
   premiumFeatures.forEach(([feature, param]) => {
     if (!payload[param]) return;
+    const alreadyOn =
+      param === "proxyEnabled" ? current?.proxy?.enabled : current?.[param];
+    if (alreadyOn) return;
 
     if (premiumOverrides[feature]) return;
 
@@ -326,7 +331,7 @@ export async function validatePutPayload(
 
   validateSdkCapabilities(payload, language, sdkVersion, latestSdkVersion);
 
-  validatePremiumFeatures(context, payload);
+  validatePremiumFeatures(context, payload, sdkConnection);
 
   return payload;
 }

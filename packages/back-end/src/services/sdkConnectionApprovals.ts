@@ -6,6 +6,7 @@ import {
 import type { ApprovalFlowConfiguration } from "shared/types/organization";
 import type { SDKConnectionRevisionSnapshot } from "shared/validators";
 import type { SDKConnectionInterface } from "shared/types/sdk-connection";
+import type { WebhookInterface } from "shared/types/webhook";
 import type { Context } from "back-end/src/models/BaseModel";
 import { BadRequestError } from "back-end/src/util/errors";
 
@@ -35,6 +36,50 @@ export function sdkConnectionReviewRules(
     snapshot,
     proposedChanges,
   );
+}
+
+// The Vercel integration owns its webhooks and their payload format.
+export function assertSdkWebhookNotManaged(
+  webhook: Pick<WebhookInterface, "managedBy" | "payloadFormat"> | null,
+  payloadFormat?: string,
+): void {
+  if (webhook?.managedBy?.type === "vercel") {
+    throw new BadRequestError(
+      "This SDK webhook is managed by the Vercel integration",
+    );
+  }
+  if (
+    payloadFormat === "vercelNativeIntegration" &&
+    webhook?.payloadFormat !== "vercelNativeIntegration"
+  ) {
+    throw new BadRequestError(
+      "payloadFormat vercelNativeIntegration is managed by the Vercel integration",
+    );
+  }
+}
+
+// Another draft's "lock other drafts" schedule holds back direct landings from
+// anyone who can't bypass approval.
+export async function assertNoLockingScheduledDraft(
+  context: Context,
+  baseline: SDKConnectionRevisionSnapshot,
+  connectionId: string,
+): Promise<void> {
+  if (
+    await context.models.revisions.hasPublishLockingScheduledSibling(
+      {
+        type: "sdk-connection",
+        id: connectionId,
+        snapshot: baseline,
+        proposedChanges: [],
+      },
+      "",
+    )
+  ) {
+    throw new BadRequestError(
+      "Another draft of this SDK connection has a scheduled publish that locks other drafts. Cancel that schedule to publish this change.",
+    );
+  }
 }
 
 // The webhook endpoints write live directly, so under an approval rule the

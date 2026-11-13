@@ -37,8 +37,10 @@ import {
   findSDKConnectionById,
   findSDKConnectionsByIds,
 } from "back-end/src/models/SdkConnectionModel";
+import { PlanDoesNotAllowError } from "back-end/src/util/errors";
 import {
   assertCanChangeSdkWebhooks,
+  assertSdkWebhookNotManaged,
   sdkConnectionReviewRules,
 } from "back-end/src/services/sdkConnectionApprovals";
 
@@ -395,7 +397,9 @@ export const sdkConnectionAdapter: EntityRevisionAdapter<SDKConnectionRevisionSn
           const existing =
             await context.models.sdkWebhooks.countSdkWebhooksByOrg();
           if (existing - removed + added > 1) {
-            throw new Error("your webhook limit has been reached");
+            throw new PlanDoesNotAllowError(
+              "Your plan only supports one SDK webhook.",
+            );
           }
         }
         // Only the API can attach a webhook to several connections, and one
@@ -406,11 +410,22 @@ export const sdkConnectionAdapter: EntityRevisionAdapter<SDKConnectionRevisionSn
             return !next || !isEqual(next, old);
           })
           .map((w) => w.id);
+        webhooks
+          .filter((w) => !baselineIds.has(w.id) || touchedIds.includes(w.id))
+          .forEach((w) =>
+            assertSdkWebhookNotManaged(
+              entity.sdkWebhooks.find((old) => old.id === w.id) ?? null,
+              w.payloadFormat,
+            ),
+          );
         if (touchedIds.length) {
           const rows =
             await context.models.sdkWebhooks.findAllSdkWebhooksByConnectionIds([
               entity.sdkConnection.id,
             ]);
+          rows
+            .filter((row) => touchedIds.includes(row.id))
+            .forEach((row) => assertSdkWebhookNotManaged(row));
           const shared = rows.some(
             (row) =>
               touchedIds.includes(row.id) &&

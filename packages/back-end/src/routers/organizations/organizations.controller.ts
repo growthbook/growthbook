@@ -45,7 +45,10 @@ import {
 } from "shared/types/organization";
 import { ExperimentRule, NamespaceValue } from "shared/types/feature";
 import { TeamInterface } from "shared/types/team";
-import { assertSdkWebhooksEditableDirectly } from "back-end/src/services/sdkConnectionApprovals";
+import {
+  assertSdkWebhookNotManaged,
+  assertSdkWebhooksEditableDirectly,
+} from "back-end/src/services/sdkConnectionApprovals";
 import { getApproverRoles } from "back-end/src/revisions/approverRoles";
 import { ApiKeyModel } from "back-end/src/models/ApiKeyModel";
 import {
@@ -2392,6 +2395,15 @@ export async function putSDKWebhook(
   assertSdkWebhooksEditableDirectly(context, conns);
 
   const parsedUpdates = updateSdkWebhookValidator.parse(req.body);
+  assertSdkWebhookNotManaged(webhook, parsedUpdates.payloadFormat);
+  if (
+    parsedUpdates.sdks &&
+    !(await findSDKConnectionsByIds(context, parsedUpdates.sdks)).length
+  ) {
+    throw new BadRequestError(
+      "sdks must include at least one existing SDK Connection",
+    );
+  }
   const added = parsedUpdates.sdks
     ? await assertCanUseSDKConnections(
         context,
@@ -2462,6 +2474,7 @@ export async function deleteSDKWebhook(
     context.permissions.throwPermissionError();
   }
   assertSdkWebhooksEditableDirectly(context, conns);
+  assertSdkWebhookNotManaged(webhook);
 
   await context.models.sdkWebhooks.deleteById(id);
   await touchSDKConnections(

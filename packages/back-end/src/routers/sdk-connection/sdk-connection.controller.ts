@@ -40,11 +40,12 @@ import {
 } from "back-end/src/models/SdkConnectionModel";
 import { validateRequireProjectForSdkConnections } from "back-end/src/api/sdk-connections/validations";
 import { withReadablePayloadBreakdowns } from "back-end/src/services/sdkPayloadSize";
-import { queueSDKPayloadRefresh } from "back-end/src/services/features";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import {
   assertCanChangeSdkWebhooks,
+  assertSdkWebhookNotManaged,
   assertSdkWebhooksEditableDirectly,
+  assertNoLockingScheduledDraft,
   isSdkConnectionGated,
   sdkConnectionReviewRules,
 } from "back-end/src/services/sdkConnectionApprovals";
@@ -54,11 +55,7 @@ import {
   ensureLiveRevisionExists,
 } from "back-end/src/revisions/util";
 import { getAdapter } from "back-end/src/revisions";
-import type { ApplyChangesResult } from "back-end/src/revisions/EntityRevisionAdapter";
-import {
-  compensateFailedLanding,
-  runGuardedWrite,
-} from "back-end/src/revisions/landingSequence";
+import { publishRevision } from "back-end/src/revisions/revisionActions";
 import type { SDKConnectionLiveSnapshot } from "back-end/src/revisions/adapters/sdk-connection.adapter";
 
 const SETTINGS_SNAPSHOT_KEYS = Object.keys(
@@ -133,17 +130,6 @@ export const postSDKConnection = async (
     hashSecureAttributes,
     remoteEvalEnabled,
     organization: org.id,
-  });
-
-  queueSDKPayloadRefresh({
-    context,
-    payloadKeys: [],
-    sdkConnections: [doc],
-    auditContext: {
-      event: "created",
-      model: "sdkconnection",
-      id: doc.id,
-    },
   });
 
   // Baseline for history and later edits; a new connection has no webhooks.
@@ -446,21 +432,11 @@ export const putSDKConnection = async (
 
   // Another draft's "lock other drafts" schedule blocks this landing unless the
   // caller can bypass.
-  if (
-    wantsMerge &&
-    !canBypass &&
-    (await context.models.revisions.hasPublishLockingScheduledSibling(
-      {
-        type: "sdk-connection",
-        id: connection.id,
-        snapshot: baselineSnapshot,
-        proposedChanges: [],
-      },
-      "",
-    ))
-  ) {
-    throw new BadRequestError(
-      "Another draft of this SDK connection has a scheduled publish that locks other drafts. Cancel that schedule to publish this change.",
+  if (wantsMerge && !canBypass) {
+    await assertNoLockingScheduledDraft(
+      context,
+      baselineSnapshot,
+      connection.id,
     );
   }
 
@@ -490,55 +466,18 @@ export const putSDKConnection = async (
     });
   }
 
-  // Claim the merge before the live write so a concurrent discard can't orphan
-  // a half-applied change; reopen if the write fails.
-  const priorRevision = revision;
-  revision = await context.models.revisions.merge(revision.id, context.userId, {
-    bypass: needsApproval,
-  });
-
-  // The guarded write is conditioned on the stamp the diff was computed
-  // against, so the landing entity carries the live root fields.
+  // Lands as the Publish button does: merge claimed first, a guarded write on
+  // the stamp the diff was computed against, and a failed write restored from
+  // what it persisted.
   const landingEntity: SDKConnectionLiveSnapshot = {
     ...baselineSnapshot,
     id: connection.id,
-    projects: connection.projects ?? [],
+    projects: connection.projects,
     dateUpdated: connection.dateUpdated,
   };
-  let applied: ApplyChangesResult | undefined;
-  try {
-    await runGuardedWrite("sdk-connection", connection.id, () =>
-      adapter.applyChanges(context, landingEntity, desiredChanges, {
-        guarded: true,
-        onPersisted: (result) => {
-          applied = result;
-        },
-      }),
-    );
-  } catch (e) {
-    try {
-      // Compensation judges ownership per composite key, so pass the landing's
-      // own shape rather than the flat connection the adapter wrote.
-      const settingsWritten = applied !== undefined && applied.written !== null;
-      await compensateFailedLanding({
-        context,
-        entityType: "sdk-connection",
-        entity: { id: connection.id, ...baselineSnapshot },
-        persisted: settingsWritten ? desiredChanges : null,
-        changes: desiredChanges,
-        unmerge: () =>
-          context.models.revisions.reopenAfterFailedApply(
-            revision.id,
-            context.userId,
-            priorRevision,
-            revision.dateUpdated,
-          ),
-      });
-    } catch {
-      // ignore — surface the original apply error
-    }
-    throw e;
-  }
+  revision = await publishRevision(context, revision, landingEntity, {
+    bypass: needsApproval,
+  });
 
   return res.status(200).json({ status: 200, revision });
 };
@@ -699,12 +638,18 @@ export async function postSDKConnectionWebhook(
     "multiple-sdk-webhooks",
   );
   if (!canAddMultipleSdkWebhooks && webhookcount > 0) {
-    throw new Error("your webhook limit has been reached");
+    context.throwPlanDoesNotAllowError(
+      "Your plan only supports one SDK webhook.",
+    );
   }
 
+  const body = createSdkWebhookValidator
+    .omit({ managedBy: true })
+    .parse(req.body);
+  assertSdkWebhookNotManaged(null, body.payloadFormat);
   const webhook = await context.models.sdkWebhooks.create({
     ...context.models.sdkWebhooks.getDefaultCreateProps(id),
-    ...createSdkWebhookValidator.parse(req.body),
+    ...body,
   });
   await touchSDKConnections(context, [id]);
   return res.status(200).json({

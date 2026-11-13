@@ -29,7 +29,10 @@ import {
 } from "back-end/src/api/specs/sdk-webhook.spec";
 import { fireSdkWebhook } from "back-end/src/jobs/sdkWebhooks";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
-import { assertSdkWebhooksEditableDirectly } from "back-end/src/services/sdkConnectionApprovals";
+import {
+  assertSdkWebhookNotManaged,
+  assertSdkWebhooksEditableDirectly,
+} from "back-end/src/services/sdkConnectionApprovals";
 import { canUseRestApiBypassSetting } from "back-end/src/api/features/reviewBypass";
 import { MakeModelClass } from "./BaseModel";
 import {
@@ -200,14 +203,6 @@ export class SdkWebhookModel extends BaseClass {
   }
 
   // The Vercel integration recreates and rewrites its webhooks, so REST leaves them alone
-  private assertNotManaged(webhook: WebhookInterface) {
-    if (webhook.managedBy?.type === "vercel") {
-      this.context.throwBadRequestError(
-        "This SDK webhook is managed by the Vercel integration",
-      );
-    }
-  }
-
   public async apiListForConnection(
     connectionId: string,
   ): Promise<ApiSdkWebhookListReturn> {
@@ -288,20 +283,12 @@ export class SdkWebhookModel extends BaseClass {
     const can = (c: SDKConnectionInterface) =>
       context.permissions.canUpdateSDKWebhook(c);
     const webhook = await this.getWebhookForApiUpdate(id, can, { restBypass });
-    this.assertNotManaged(webhook);
+    assertSdkWebhookNotManaged(webhook, body.payloadFormat);
     const { sdkConnections: sent, ...updates } = body;
     const sdkConnections = sent && uniq(sent);
     // Only changed values are checked, so an echoed GET response still saves
     if (updates.headers !== (webhook.headers ?? "")) {
       this.assertHeadersJson(updates.headers);
-    }
-    if (
-      updates.payloadFormat === "vercelNativeIntegration" &&
-      webhook.payloadFormat !== "vercelNativeIntegration"
-    ) {
-      context.throwBadRequestError(
-        "payloadFormat vercelNativeIntegration is managed by the Vercel integration",
-      );
     }
 
     if (sdkConnections) {
@@ -354,7 +341,7 @@ export class SdkWebhookModel extends BaseClass {
       (c) => this.context.permissions.canDeleteSDKWebhook(c),
       { allowOrphan: true, restBypass },
     );
-    this.assertNotManaged(webhook);
+    assertSdkWebhookNotManaged(webhook);
     await this.deleteById(id);
     await touchSDKConnections(this.context, webhook.sdks);
     return { deletedId: id };

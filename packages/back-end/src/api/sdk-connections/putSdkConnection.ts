@@ -1,5 +1,8 @@
-import { isEqual, isUndefined, omitBy } from "lodash";
-import { JsonPatchOperation } from "shared/enterprise";
+import { isUndefined, omitBy } from "lodash";
+import {
+  JsonPatchOperation,
+  sdkConnectionSettingsEqual,
+} from "shared/enterprise";
 import {
   SDKConnectionRevisionSnapshot,
   putSdkConnectionValidator,
@@ -18,7 +21,10 @@ import { landDirectChange } from "back-end/src/revisions/revertActions";
 import { runGuardedWrite } from "back-end/src/revisions/landingSequence";
 import type { BypassedGate } from "back-end/src/revisions/publishGates";
 import { canUseRestApiBypassSetting } from "back-end/src/api/features/reviewBypass";
-import { sdkConnectionReviewRules } from "back-end/src/services/sdkConnectionApprovals";
+import {
+  assertNoLockingScheduledDraft,
+  sdkConnectionReviewRules,
+} from "back-end/src/services/sdkConnectionApprovals";
 import { validatePutPayload } from "./validations";
 
 export const putSdkConnection = createApiRequestHandler(
@@ -72,7 +78,7 @@ export const putSdkConnection = createApiRequestHandler(
     }) as SDKConnectionRevisionSnapshot
   ).sdkConnection;
 
-  if (isEqual(proposedSettings, baseline.sdkConnection)) {
+  if (sdkConnectionSettingsEqual(proposedSettings, baseline.sdkConnection)) {
     return { sdkConnection: toApiSDKConnectionInterface(sdkConnection) };
   }
 
@@ -84,6 +90,15 @@ export const putSdkConnection = createApiRequestHandler(
   const approvalRequired =
     sdkConnectionReviewRules(req.context, baseline, patchOps).length > 0;
 
+  // A move needs bypass authority in the destination scope too.
+  const canBypass =
+    canUseRestApiBypassSetting(req) ||
+    (adapter.canBypassApproval(req.context, baseline) &&
+      adapter.canBypassApproval(req.context, {
+        sdkConnection: proposedSettings,
+        sdkWebhooks: [],
+      }));
+
   const bypassedGates: BypassedGate[] = [];
   if (approvalRequired) {
     if (!bypassApproval) {
@@ -93,14 +108,6 @@ export const putSdkConnection = createApiRequestHandler(
           'or pass `{ "bypassApproval": true }` if you have the `bypassApprovalSDKConnections` permission.',
       );
     }
-    // A move needs bypass authority in the destination scope too.
-    const canBypass =
-      canUseRestApiBypassSetting(req) ||
-      (adapter.canBypassApproval(req.context, baseline) &&
-        adapter.canBypassApproval(req.context, {
-          sdkConnection: proposedSettings,
-          sdkWebhooks: [],
-        }));
     if (!canBypass) {
       req.context.permissions.throwPermissionError();
     }
@@ -111,6 +118,14 @@ export const putSdkConnection = createApiRequestHandler(
         ? "restApiBypassesReviews"
         : "bypassApprovalPermission",
     });
+  }
+
+  if (!canBypass) {
+    await assertNoLockingScheduledDraft(
+      req.context,
+      baseline,
+      sdkConnection.id,
+    );
   }
 
   await ensureLiveRevisionExists(req.context, "sdk-connection", liveEntity);

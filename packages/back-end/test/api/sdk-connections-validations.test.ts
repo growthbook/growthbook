@@ -1,3 +1,4 @@
+import type { SDKConnectionInterface } from "shared/types/sdk-connection";
 import { getSDKCapabilities, getSDKVersions } from "shared/sdk-versioning";
 import {
   validateEnvironment,
@@ -248,6 +249,14 @@ describe("sdk-connections validations", () => {
       }).toThrow(
         "Feature hash-secure-attributes requires premium subscription!",
       );
+    });
+
+    it("Lets an unpurchased feature that's already on save again", () => {
+      expect(() => {
+        validatePremiumFeatures(context, { hashSecureAttributes: true }, {
+          hashSecureAttributes: true,
+        } as SDKConnectionInterface);
+      }).not.toThrow();
     });
 
     it("Allows available features", () => {

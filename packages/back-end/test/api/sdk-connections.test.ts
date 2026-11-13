@@ -20,6 +20,7 @@ import {
   validatePostPayload,
 } from "back-end/src/api/sdk-connections/validations";
 import { sdkConnectionFactory } from "back-end/test/factories/SdkConnection.factory";
+import { ensureLiveRevisionExists } from "back-end/src/revisions/util";
 import { setupApp } from "./api.setup";
 
 jest.mock("back-end/src/api/sdk-connections/validations", () => ({
@@ -34,6 +35,14 @@ const originalValidatePutPayload = jest.requireActual(
 const originalValidatePostPayload = jest.requireActual(
   "back-end/src/api/sdk-connections/validations",
 ).validatePostPayload;
+
+jest.mock("back-end/src/revisions/util", () => {
+  const actual = jest.requireActual("back-end/src/revisions/util");
+  return {
+    ...actual,
+    ensureLiveRevisionExists: jest.fn(actual.ensureLiveRevisionExists),
+  };
+});
 
 jest.mock("back-end/src/models/SdkConnectionModel", () => ({
   toApiSDKConnectionInterface: jest.fn(),
@@ -153,6 +162,7 @@ describe("sdk-connections API", () => {
 
   it("can create new sdk-connections", async () => {
     setReqContext({ org, permissions: { canCreateSDKConnection: () => true } });
+    jest.mocked(ensureLiveRevisionExists).mockResolvedValueOnce(undefined);
 
     let created;
 
@@ -177,6 +187,7 @@ describe("sdk-connections API", () => {
     expect(response.body).toEqual({
       sdkConnection: mockApiSDKConnectionInterface(created),
     });
+    expect(ensureLiveRevisionExists).toHaveBeenCalled();
   });
 
   it("checks permission when creating new sdk-connections", async () => {
@@ -271,6 +282,7 @@ describe("sdk-connections API", () => {
   });
 
   it("checks for premium features overrides when creating new sdk-connections", async () => {
+    jest.mocked(ensureLiveRevisionExists).mockResolvedValueOnce(undefined);
     const hasPremiumFeatureMock = jest.fn(() => false);
     getLatestSDKVersion.mockReturnValue("latest-version");
     getSDKCapabilities.mockReturnValue(["encryption"]);
