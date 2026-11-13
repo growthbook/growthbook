@@ -460,6 +460,21 @@ export class SdkWebhookModel extends BaseClass {
     });
   }
 
+  // What is live, whoever asks: a revision's snapshot, the comparison a publish
+  // makes against it and the ownership of a webhook's headers all need the real
+  // list. Read through `findAllSdkWebhooksByConnectionIds`, someone without the
+  // webhook permission gets none, which records a connection as having no
+  // webhooks and lands a webhook change as nothing. Never returned as is: what
+  // a viewer may see is decided where it is sent.
+  public async findLiveSdkWebhooksForRevision(
+    sdkConnectionIds: string[],
+  ): Promise<WebhookInterface[]> {
+    return await this._find(
+      { sdks: { $in: sdkConnectionIds } },
+      { bypassReadPermissionChecks: true },
+    );
+  }
+
   public async findAllSdkWebhooksByPayloadFormat(
     payloadFormat: string,
   ): Promise<WebhookInterface[]> {

@@ -14,6 +14,7 @@ import {
   isAutopublishOnApprovalEnabled,
   normalizeProposedChanges,
   sdkConnectionPublishFootprint,
+  sdkConnectionSettingsAfter,
 } from "shared/enterprise";
 import {
   SDKConnectionRevisionSnapshot,
@@ -77,14 +78,16 @@ function webhookHeaderViewer(context: Context, connectionId: string) {
       connectionId,
       (async () => {
         const connection = await findSDKConnectionById(context, connectionId);
+        // Both, as reading the webhook itself takes both.
         if (
           !connection ||
-          !context.permissions.canUpdateSDKWebhook(connection)
+          !context.permissions.canUpdateSDKWebhook(connection) ||
+          !context.permissions.canManageLegacySDKWebhooks()
         ) {
           return () => false;
         }
         const live =
-          await context.models.sdkWebhooks.findAllSdkWebhooksByConnectionIds([
+          await context.models.sdkWebhooks.findLiveSdkWebhooksForRevision([
             connectionId,
           ]);
         const editable =
@@ -260,7 +263,7 @@ export const sdkConnectionAdapter: EntityRevisionAdapter<SDKConnectionRevisionSn
           const conn = await findSDKConnectionById(context, id);
           if (!conn) return null;
           const webhooks =
-            await context.models.sdkWebhooks.findAllSdkWebhooksByConnectionIds([
+            await context.models.sdkWebhooks.findLiveSdkWebhooksForRevision([
               id,
             ]);
           return toLiveSnapshot(conn, webhooks.map(toWebhookSnapshot));
@@ -371,8 +374,20 @@ export const sdkConnectionAdapter: EntityRevisionAdapter<SDKConnectionRevisionSn
     canBypassApproval(
       context: Context,
       snapshot: SDKConnectionRevisionSnapshot,
+      proposedChanges?: unknown,
     ): boolean {
-      return canBypassAcrossProjects(context, snapshot);
+      if (!canBypassAcrossProjects(context, snapshot)) return false;
+      if (proposedChanges === undefined) return true;
+      // A draft that moves the connection needs bypass in the Projects it
+      // moves into, as the direct save paths require.
+      const after = sdkConnectionSettingsAfter(snapshot, proposedChanges);
+      return canBypassAcrossProjects(context, {
+        ...snapshot,
+        sdkConnection: {
+          ...snapshot.sdkConnection,
+          projects: after.projects ?? [],
+        },
+      });
     },
 
     // The defaults resolve the org's toggles by project alone; these honor the
@@ -514,7 +529,7 @@ export const sdkConnectionAdapter: EntityRevisionAdapter<SDKConnectionRevisionSn
           });
         if (touchedIds.length) {
           const rows =
-            await context.models.sdkWebhooks.findAllSdkWebhooksByConnectionIds([
+            await context.models.sdkWebhooks.findLiveSdkWebhooksForRevision([
               entity.sdkConnection.id,
             ]);
           rows

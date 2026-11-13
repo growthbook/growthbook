@@ -736,7 +736,13 @@ async function publishRevisionInner(
   // the schedule's bypass flag with the armer's fire-time role. Re-deriving from
   // role here force-published an admin's ordinary non-bypass schedule unapproved.
   const canBypass =
-    bypass || (!deferred && adapter.canBypassApproval(context, entity));
+    bypass ||
+    (!deferred &&
+      adapter.canBypassApproval(
+        context,
+        entity,
+        revision.target.proposedChanges,
+      ));
 
   // Coverage, not just status: an approval given when the change was narrower
   // does not sanction what it would land now.
@@ -1346,7 +1352,11 @@ export async function maybePublishScheduledRevision(
     const adapter = getAdapter(revision.target.type);
     const bypass =
       !!revision.scheduledPublishBypassApproval &&
-      adapter.canBypassApproval(enablerContext, entity);
+      adapter.canBypassApproval(
+        enablerContext,
+        entity,
+        revision.target.proposedChanges,
+      );
 
     return await publishRevision(enablerContext, revision, entity, {
       bypass,

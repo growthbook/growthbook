@@ -179,7 +179,7 @@ export const putSDKConnection = async (
   }
 
   const liveWebhooks =
-    await context.models.sdkWebhooks.findAllSdkWebhooksByConnectionIds([id]);
+    await context.models.sdkWebhooks.findLiveSdkWebhooksForRevision([id]);
 
   const currentState: Record<string, unknown> = {
     ...connection,
