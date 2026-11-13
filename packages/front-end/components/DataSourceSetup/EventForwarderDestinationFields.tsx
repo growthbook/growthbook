@@ -43,13 +43,14 @@ export function allEnvironmentsTakenMessage(
   if (!other) return undefined;
   const name = datasources.find((d) => d.id === other.datasourceId)?.name;
   return name
-    ? `The Event Forwarder on ${name} receives all environments. Set its environment first.`
-    : "An Event Forwarder you cannot access receives all environments. Ask an admin to set its environment first.";
+    ? `The Event Forwarder on ${name} receives all environments. Set it to one environment first, so events are not sent twice.`
+    : "An Event Forwarder you cannot access receives all environments. Ask an admin to set it to one environment first, so events are not sent twice.";
 }
 
 // Environment whose events a forwarder receives; "" is all environments.
 // - `others`: environments held by the org's other forwarders ("" = all)
 // - `savedAll`: this forwarder already receives all, so it may stay that way
+// - All is otherwise a choice only for the organization's only forwarder
 export function EventForwarderEnvironmentSelect({
   value,
   onChange,
@@ -58,7 +59,7 @@ export function EventForwarderEnvironmentSelect({
   savedAll = false,
   disabled = false,
   helpText = ENVIRONMENT_HELP_TEXT,
-  allTakenMessage = "Another Event Forwarder receives all environments. Set its environment first.",
+  allTakenMessage = "Another Event Forwarder receives all environments. Set it to one environment first, so events are not sent twice.",
 }: {
   value: string;
   onChange: (value: string) => void;
@@ -100,6 +101,20 @@ export function EventForwarderEnvironmentSelect({
         helpText={helpText}
       />
     </>
+  );
+}
+
+// Whether a forwarder on this Data Source must pick one: another forwarder
+// holds an environment, and this one does not already receive all
+export function useEventForwarderEnvironmentRequired(
+  datasourceId?: string,
+): boolean {
+  const { eventForwarderEnvironments } = useDefinitions();
+  return (
+    eventForwarderEnvironments.some((e) => e.datasourceId !== datasourceId) &&
+    !eventForwarderEnvironments.some(
+      (e) => e.datasourceId === datasourceId && !e.environment,
+    )
   );
 }
 

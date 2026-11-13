@@ -2290,7 +2290,7 @@ export async function postMigrateEventForwarder(
         await assertNoEventForwarderEnvironmentOverlap(
           context,
           previous.environment || undefined,
-          { current: migrated, adding: true },
+          { current: migrated },
         );
         environment = previous.environment ?? "";
       } catch (overlapError) {

@@ -27,6 +27,7 @@ function MigrateEnvironmentField({
 }: {
   environments: string[];
   others: string[];
+  savedAll: boolean;
   initial: string;
   onChange: (value: string) => void;
 }) {
@@ -147,6 +148,7 @@ export default function EventForwarders({
                                   )),
                             )
                             .map((r) => r.environment ?? "")}
+                          savedAll={!row.environment}
                           initial={row.environment ?? ""}
                           onChange={(v) => (migrateEnvironment.current = v)}
                         />

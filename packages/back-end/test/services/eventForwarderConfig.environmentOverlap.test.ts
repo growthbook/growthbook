@@ -39,6 +39,20 @@ describe("assertNoEventForwarderEnvironmentOverlap", () => {
     await expect(check([], "production")).resolves.toBeUndefined();
   });
 
+  it("lets a lone forwarder go back to all environments", async () => {
+    const current = row("a", { environment: "production" });
+    await expect(
+      check([current], undefined, { current }),
+    ).resolves.toBeUndefined();
+  });
+
+  it("lets a forwarder that already receives all environments keep them", async () => {
+    const current = row("a");
+    await expect(
+      check([current], undefined, { current }),
+    ).resolves.toBeUndefined();
+  });
+
   it("allows one forwarder per environment", async () => {
     const rows = [row("a", { environment: "production" })];
     await expect(check(rows, "staging")).resolves.toBeUndefined();

@@ -84,6 +84,7 @@ import EventForwarderDestinationFields, {
   eventDestinationEntryHint,
   eventDestinationWithConnectionSchema,
   eventForwarderDestinationFromDatasource,
+  useEventForwarderEnvironmentRequired,
 } from "./EventForwarderDestinationFields";
 import {
   generateSnowflakeKeyPair,
@@ -176,6 +177,7 @@ export default function ConnectDataSourceLayout({
   const [ga4Exports, setGA4Exports] = useState<string[]>([]);
   const [ga4Table, setGA4Table] = useState<string | null>(null);
   const [ga4Enabled, setGA4Enabled] = useState(true);
+  const environmentRequired = useEventForwarderEnvironmentRequired();
   const [eventDestinationDraft, setEventDestination] = useState(() =>
     defaultEventForwarderDestination(initial.type || "bigquery"),
   );
@@ -714,6 +716,8 @@ export default function ConnectDataSourceLayout({
   // us-east-1, because it cannot be changed later.
   const needsEventForwarderRegion =
     !existing && setup === "event_forwarder" && !eventForwarderRegion;
+  const needsEventForwarderEnvironment =
+    checksWrite && environmentRequired && !eventDestination.environment;
   const noCreatableProjects =
     !existing &&
     definitionsReady &&
@@ -732,6 +736,7 @@ export default function ConnectDataSourceLayout({
     !needsProjectSelection &&
     !needsEventForwarderRegion &&
     (!checksWrite || !!eventForwarderDraft) &&
+    !needsEventForwarderEnvironment &&
     (!needsSuccessfulTest || testStatus === "passed") &&
     (existing ? dirty : true);
 
@@ -750,6 +755,9 @@ export default function ConnectDataSourceLayout({
     }
     if (regionBlockedMessage) {
       return "The EU ingestor is not enabled for this organization";
+    }
+    if (needsEventForwarderEnvironment) {
+      return "Select an environment to continue";
     }
     if (needsSuccessfulTest && !connectionInputsReady) {
       return missingTestInputsHint;

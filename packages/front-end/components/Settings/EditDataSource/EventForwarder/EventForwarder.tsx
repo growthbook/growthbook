@@ -622,16 +622,18 @@ function EventForwarderModal({
               />
             ) : null}
             {eventForwarderConfig ? (
-              <EventForwarderEnvironmentField
-                value={eventForwarderConfig.environment ?? ""}
-                datasourceId={dataSource.id}
-                onChange={(environment) =>
-                  setEventForwarderConfig({
-                    ...eventForwarderConfig,
-                    environment,
-                  })
-                }
-              />
+              <Box mb="3">
+                <EventForwarderEnvironmentField
+                  value={eventForwarderConfig.environment ?? ""}
+                  datasourceId={dataSource.id}
+                  onChange={(environment) =>
+                    setEventForwarderConfig({
+                      ...eventForwarderConfig,
+                      environment,
+                    })
+                  }
+                />
+              </Box>
             ) : null}
             {eventForwarderConfig ? (
               <SelectField

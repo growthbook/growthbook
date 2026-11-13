@@ -225,7 +225,7 @@ async function claimingEnvironment<T>(
 }
 
 // - No two forwarders may receive the same environment (events and usage would double)
-// - No environment means all environments
+// - No environment means all environments, which only a lone forwarder may have
 // - Rows that never received events only conflict on the same environment (unique index)
 // - All forwarders share one data region, since SDK setup snippets use one ingestor host
 // - Org-wide, so forwarders on unreadable Projects count
@@ -240,7 +240,7 @@ export async function assertNoEventForwarderEnvironmentOverlap(
   }: {
     // Row being updated or migrated
     current?: EventForwarderConfigInterface | null;
-    // Starts receiving events on the shared path (create or migrate)
+    // Starts receiving events with this save (new, or never set up before)
     adding?: boolean;
     // Environment is picked later (unconfigured row)
     allowUnset?: boolean;
@@ -268,13 +268,14 @@ export async function assertNoEventForwarderEnvironmentOverlap(
   if (environment && all.some((c) => c.environment === environment)) {
     throw new Error(environmentTakenMessage(environment));
   }
+  // Alone, a forwarder may receive all environments
   const others = all.filter((c) => !hasNeverReceivedEvents(c));
   if (!others.length) return;
 
   if (adding) {
     if (others.some((c) => !c.environment)) {
       throw new Error(
-        "Another Event Forwarder receives all environments. Set its environment first.",
+        "Another Event Forwarder receives all environments. Set it to one environment first, so events are not sent twice.",
       );
     }
     if (!environment && !allowUnset) {
@@ -815,9 +816,10 @@ export async function migrateEventForwarderToInHouseConsumer(
   if (isInHouseConsumerTopic(existing.topic, existing.sinkType)) {
     throw new Error("Event forwarder is already on the in-house consumer");
   }
+  // Same forwarder on a new transport, so the rules for an edit apply:
+  // it may keep all environments, or be narrowed to a free one
   await assertNoEventForwarderEnvironmentOverlap(context, environment, {
     current: existing,
-    adding: true,
   });
   let previous = existing;
   // All checks run on the freshly read row inside the CAS, guarded on the
