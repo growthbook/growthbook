@@ -8,6 +8,8 @@ import { logger } from "back-end/src/util/logger";
 const QUEUE_CB_RESULTS_UPDATES = "queueContextualBanditUpdates";
 const UPDATE_SINGLE_CB = "updateSingleContextualBandit";
 
+const UNLICENSED_BACKOFF_MS = 24 * 60 * 60 * 1000;
+
 type UpdateSingleCBJobData = {
   organization: string;
   contextualBanditId: string;
@@ -47,7 +49,7 @@ export default async function (agenda: Agenda) {
   }
 }
 
-const updateSingleContextualBandit = async (job: UpdateSingleCBJob) => {
+export const updateSingleContextualBandit = async (job: UpdateSingleCBJob) => {
   const cbId = job.attrs.data?.contextualBanditId;
   const orgId = job.attrs.data?.organization;
   if (!cbId || !orgId) return;
@@ -58,6 +60,20 @@ const updateSingleContextualBandit = async (job: UpdateSingleCBJob) => {
   if (!cb) return;
 
   try {
+    // A lapsed plan makes every gated write below throw, which would leave
+    // nextSnapshotAttempt in the past and re-queue the bandit every cron tick.
+    if (!context.hasPremiumFeature("contextual-bandits")) {
+      await context.models.contextualBandits.dangerousUpdateBypassPermission(
+        cb,
+        { nextSnapshotAttempt: new Date(Date.now() + UNLICENSED_BACKOFF_MS) },
+      );
+      logger.warn(
+        "Skipping scheduled contextual bandit update, plan does not allow it: " +
+          cbId,
+      );
+      return;
+    }
+
     // Advance nextSnapshotAttempt to the next scheduled window BEFORE starting
     // the run (mirrors createSafeRolloutSnapshot) so a failed or long-running
     // snapshot isn't re-queued on every cron tick. If the run reaches
