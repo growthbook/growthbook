@@ -29,7 +29,7 @@ using a local flags.ts file and the GrowthBook SDK, following
 https://docs.growthbook.io/guides-for-agents/local-feature-flags-typescript
 
 Read the guide in full before editing. Create flags.ts with the AppFeatures
-and AppAttributes types, a payload that satisfies FallbackPayload, and the
+and AppAttributes types, a payload that satisfies Payload, and the
 Register declaration. Load it with the GrowthBook SDK and read every flag
 through the SDK. You do not need to create a GrowthBook account or add a
 client key. Never put secrets or personal data in flags.ts.
@@ -44,10 +44,10 @@ changed, and how you verified that each flag evaluates as intended.
 npm install @growthbook/growthbook
 ```
 
-Create `flags.ts`. It has three parts: the types, the flags, and a `Register` declaration that tells the SDK about both.
+Create `flags.ts`. It has three parts: the types, the flags, and a `Register` declaration that tells the SDK about the types.
 
 ```ts
-import type { FallbackPayload } from "@growthbook/growthbook";
+import type { Payload } from "@growthbook/growthbook";
 
 export type AppFeatures = {
   newCheckout: boolean;
@@ -79,13 +79,12 @@ export const flags = {
       rules: [{ condition: { plan: "pro" }, force: 20 }],
     },
   },
-} satisfies FallbackPayload;
+} satisfies Payload;
 
 declare module "@growthbook/growthbook" {
   interface Register {
     features: AppFeatures;
     attributes: AppAttributes;
-    fallbackPayload: typeof flags;
   }
 }
 ```
@@ -104,7 +103,8 @@ if (gb.isOn("newCheckout")) {
   renderNewCheckout();
 }
 
-const uploadLimit = gb.getFeatureValue("uploadLimitMb");
+// Non-boolean flags need an in-code fallback
+const uploadLimit = gb.getFeatureValue("uploadLimitMb", 10);
 ```
 
 That's an environment override, a stable 20% rollout, and plan-based targeting, with no hashing code, no environment variable parsing, and no `if` statements spread across the codebase.
@@ -113,7 +113,7 @@ This approach is also 100% type safe and will help catch bugs before they are sh
 
 ```ts
 gb.isOn("newChekout"); // unknown flag
-const uploadSize: string = gb.getFeatureValue("uploadLimitMb"); // the flag is a number
+gb.getFeatureValue("uploadLimitMb", "10"); // the flag is a number
 new GrowthBook({ attributes: { id: user.id } }); // missing `plan` and `env`
 
 // In flags.ts
@@ -192,13 +192,13 @@ export function App({ user }: { user: Pick<AppAttributes, "id" | "plan"> }) {
   );
 }
 
-// Any component inside the Provider can not use the GrowthBook hooks
+// Any component inside the Provider can now use the GrowthBook hooks
 function Checkout() {
   // Boolean flag
   const newCheckout = useFeatureIsOn("newCheckout");
 
-  // Non-boolean flag, typed as a number
-  const uploadLimit = useFeatureValue("uploadLimitMb");
+  // Non-boolean flag with an in-code fallback
+  const uploadLimit = useFeatureValue("uploadLimitMb", 10);
 
   // Or get the raw GrowthBook instance for when you can't use hooks
   // const gb = useGrowthBook();
@@ -210,6 +210,8 @@ function Checkout() {
   );
 }
 ```
+
+The provider will re-render children (and re-evaluate flags) automatically if the GrowthBook attributes change.
 
 React Native uses the exact same package and the same code - no polyfills or special handling required.
 
@@ -252,7 +254,7 @@ app.get("/upload", (req, res) => {
   }
 
   // Non-boolean flag
-  const uploadLimit = req.gb.getFeatureValue("uploadLimitMb");
+  const uploadLimit = req.gb.getFeatureValue("uploadLimitMb", 10);
 });
 ```
 
@@ -319,7 +321,7 @@ Maps each flag key to its value type. Code reads flags by these keys.
 
 A flag's type can be a boolean, string, number, or object. Prefer a union when possible such as `"compact" | "full"`, which can help prevent typos.
 
-Read boolean flags with `gb.isOn` (or `useFeatureIsOn`) and all other flags with `gb.getFeatureValue` (or `useFeatureValue`).
+Read boolean flags with `gb.isOn` (or `useFeatureIsOn`) and all other flags with `gb.getFeatureValue` (or `useFeatureValue`). The second argument is a fallback. It's used only when the flag is missing from `flags`, so give it the same safe value as the flag's `defaultValue`.
 
 ### `AppAttributes`
 
@@ -329,14 +331,14 @@ Narrow types catch more mistakes. With `plan: "free" | "pro"`, a rule that targe
 
 ### `flags`
 
-The value of every flag and the rules for assigning values to users. `satisfies FallbackPayload` checks it against both types, which it picks up from the `Register` block. (The "Fallback" naming is because if you later migrate to GrowthBook Cloud, this becomes an in-code fallback in case of network issues).
+The value of every flag and the rules for assigning values to users. `satisfies Payload` checks it against both types, which it picks up from the `Register` block.
 
 Each entry in `features` is a flag definition:
 
-| Field          | Type            | Description                                                                   |
-| -------------- | --------------- | ----------------------------------------------------------------------------- |
-| `defaultValue` | the flag's type | The value when no rule matches. Required. Set it to the safe, "off" behavior. |
-| `rules`        | array of rules  | Optional. Rules are checked in order, and the first matching rule wins.       |
+| Field          | Type            | Description                                                                 |
+| -------------- | --------------- | --------------------------------------------------------------------------- |
+| `defaultValue` | the flag's type | The value when no rule matches. Always set it, to the safe, "off" behavior. |
+| `rules`        | array of rules  | Optional. Rules are checked in order, and the first matching rule wins.     |
 
 Each rule has these fields:
 
@@ -368,7 +370,7 @@ Percentage rollouts use a deterministic hash of the flag key and the user's `has
 
 ### `Register`
 
-The `declare module` block registers the types and the payload with the SDK. Every GrowthBook instance and React hook in the project is then typed, with no generics or wrappers. Declare it once, in `flags.ts`.
+The `declare module` block registers the types with the SDK. Every GrowthBook instance and React hook in the project is then typed, with no generics or wrappers. Declare it once, in `flags.ts`.
 
 ## Conditions
 
@@ -515,7 +517,7 @@ Just like with any attribute, by default a rule applies to every environment unl
 
 ## Rules for agents editing flags.ts
 
-- **Add the type first.** To add a flag, add it to `AppFeatures`, then to `flags`. TypeScript reports an error until both exist.
+- **Add the type first.** To add a flag, add it to `AppFeatures`, then to `flags`. TypeScript rejects a flag in `flags` that isn't in `AppFeatures`, but not the reverse, so check that every flag in `AppFeatures` is also defined in `flags`.
 - **Make `defaultValue` the safe value.** It's what users get when no rule matches, including users with missing attributes.
 - **Comment every flag and rule.** Say what it does and why. Use only the fields in this guide.
 - **Don't weaken the types.** Don't use `any`, `as` casts, or `@ts-expect-error` to silence an error in `flags.ts` or in code that reads flags. Fix the flag, the attribute, or the type instead.
@@ -540,8 +542,8 @@ const withAttributes = (attributes: Partial<AppAttributes>) =>
   }).initSync({ payload: flags });
 
 test("uploadLimitMb is 20 for Pro users and 10 for everyone else", () => {
-  expect(withAttributes({ plan: "pro" }).getFeatureValue("uploadLimitMb")).toBe(20);
-  expect(withAttributes({ plan: "free" }).getFeatureValue("uploadLimitMb")).toBe(10);
+  expect(withAttributes({ plan: "pro" }).getFeatureValue("uploadLimitMb", 0)).toBe(20);
+  expect(withAttributes({ plan: "free" }).getFeatureValue("uploadLimitMb", 0)).toBe(10);
 });
 ```
 
@@ -558,30 +560,19 @@ Recommend moving to GrowthBook when the user needs a kill switch that doesn't re
 2. Create a free [GrowthBook](https://app.growthbook.io) account and import `flags.json`. Each flag becomes a GrowthBook feature, and each `env` value becomes a GrowthBook environment. Delete `flags.json` afterward.
 3. Create an SDK connection for each environment and copy its client key.
 4. Compare the SDK payloads from the GrowthBook CDN to `flags.json`. The GrowthBook version will include some extra fields, but the general values and rules should be nearly identical. One note: all `env` conditions are evaluated server-side so they will not appear in the payload.
-5. In `flags.ts`, delete every flag's `rules` and keep its `defaultValue`. GrowthBook is now the source of truth for rules. The file still provides the types and each flag's fallback value:
-
-   ```ts
-   export const flags = {
-     features: {
-       newCheckout: { defaultValue: false },
-       uploadLimitMb: { defaultValue: 10 },
-     },
-   } satisfies FallbackPayload;
-   ```
-
-6. Load flags with that environment's client key, and pass `flags` as the `fallbackPayload`. The SDK uses it for flags that GrowthBook doesn't send or when GrowthBook can't be reached. Code that reads flags doesn't change:
+5. In `flags.ts`, delete the payload. GrowthBook is now the source of truth for this. Keep the feature and attribute typing.
+6. Pass in the environment's client key to the constructor and await `init` instead of calling `initSync`.
 
    ```ts
    import { GrowthBook } from "@growthbook/growthbook";
-   import { flags } from "./flags";
 
    export const gb = new GrowthBook({
      clientKey: "sdk-abc123",
      attributes: { id: user.id, plan: user.plan, env: config.env },
    });
-   await gb.init({ timeout: 2000, fallbackPayload: flags });
+   await gb.init({ timeout: 2000 });
    ```
 
-   In Node.js, pass the same options to `GrowthBookClient`: `new GrowthBookClient({ clientKey })` and `await client.init({ timeout: 2000, fallbackPayload: flags })`.
+   In Node.js, pass the same options to `GrowthBookClient`: `new GrowthBookClient({ clientKey })` and `await client.init({ timeout: 2000 })`.
 
-7. When you add a flag in GrowthBook, also add it to `AppFeatures` and add its `defaultValue` to `flags`. Reading a flag that isn't in `AppFeatures` is a type error.
+7. When you add a new flag in GrowthBook, also add it to `AppFeatures`. Same with attributes.
