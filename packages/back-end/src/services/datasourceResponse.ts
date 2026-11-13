@@ -11,6 +11,7 @@ import {
 } from "shared/util";
 import type { DataSourceParamsForType } from "shared/util";
 import { ReqContext } from "back-end/types/request";
+import { ApiReqContext } from "back-end/types/api";
 import {
   getNonSensitiveParams,
   getSourceIntegrationObject,
@@ -36,8 +37,9 @@ type DataSourceResponse<T extends DataSourceType> = Omit<
   eventForwarderConfig: EventForwarderConfigWithMetadata | null;
 };
 
-function withReadableExposureQueries(
-  context: ReqContext,
+/** The settings as the user is shown them: without unreadable assignment queries. */
+export function withReadableExposureQueries(
+  context: ReqContext | ApiReqContext,
   datasource: DataSourceInterface,
 ): DataSourceInterface["settings"] {
   const { settings } = datasource;

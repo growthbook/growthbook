@@ -516,6 +516,11 @@ export function getReadableExposureQueries<
  * is matched in order, as in getChangedExposureQueries, so an unchanged visible
  * list gives back the saved list. Returns `submitted` itself when there are
  * none.
+ *
+ * An unreadable query isn't put back when the submitted list uses its id more
+ * times than the readable saved queries do. The submitted list then stands in
+ * for it, so the change checks see it changed or removed and refuse the save,
+ * and a list that already holds it isn't given a second copy.
  */
 export function withUnreadableExposureQueries<
   Q extends Pick<ExposureQuery, "id" | "projects">,
@@ -534,21 +539,35 @@ export function withUnreadableExposureQueries<
       return `${n}:${id}`;
     };
   };
+  const isReadable = (q: Q) =>
+    canReadProjects(getExposureQueryProjects(q, datasourceProjects));
   const submittedKeys = new Set<string>();
+  const submittedCounts = new Map<string, number>();
   const nextSubmitted = occurrences();
   for (const q of submitted) {
-    if (q.id) submittedKeys.add(nextSubmitted(q.id));
+    if (!q.id) continue;
+    submittedKeys.add(nextSubmitted(q.id));
+    submittedCounts.set(q.id, (submittedCounts.get(q.id) ?? 0) + 1);
   }
+  const readableCounts = new Map<string, number>();
+  for (const q of saved) {
+    if (q.id && isReadable(q)) {
+      readableCounts.set(q.id, (readableCounts.get(q.id) ?? 0) + 1);
+    }
+  }
+  const isNamedBySubmitted = (id: string) =>
+    (submittedCounts.get(id) ?? 0) > (readableCounts.get(id) ?? 0);
   // Unreadable queries keyed by the occurrence they follow; null means first.
   const after = new Map<string | null, Q[]>();
   let anchor: string | null = null;
   const nextSaved = occurrences();
   for (const q of saved) {
-    if (canReadProjects(getExposureQueryProjects(q, datasourceProjects))) {
+    if (isReadable(q)) {
       const key = q.id ? nextSaved(q.id) : null;
       if (key !== null && submittedKeys.has(key)) anchor = key;
       continue;
     }
+    if (q.id && isNamedBySubmitted(q.id)) continue;
     const group = after.get(anchor);
     if (group) group.push(q);
     else after.set(anchor, [q]);

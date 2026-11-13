@@ -9,7 +9,6 @@ import {
   buildManagedWarehouseExposureQueries,
   getManagedWarehouseUserIdTypeSettings,
   getSavedQueriesSharingId,
-  withUnreadableExposureQueries,
   MANAGED_WAREHOUSE_RECREATABLE_TABLES,
 } from "shared/util";
 import {
@@ -46,7 +45,6 @@ import type { ClickHouseConnectionParams } from "shared/types/integrations/click
 import { SDKAttributeSchema } from "shared/types/organization";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { getContextFromReq } from "back-end/src/services/organizations";
-import { ReqContext } from "back-end/types/request";
 import {
   getSourceIntegrationObject,
   mergeParams,
@@ -112,6 +110,7 @@ import {
   deleteDataSourceWithChecks,
   assertCanUpdateDataSource,
   updateDataSourceWithChecks,
+  withSavedUnreadableExposureQueries,
 } from "back-end/src/services/datasourceChanges";
 import { IS_CLOUD } from "back-end/src/util/secrets";
 import {
@@ -389,30 +388,6 @@ type PutDataSourceBody = {
   eventForwarderConfig?: EventForwarderConfigDraft | null;
 };
 
-// Responses leave out assignment queries the user can't read, so the client
-// can't send them back. Restoring them before the permission checks means a
-// save can't delete them.
-function withSavedUnreadableExposureQueries(
-  context: ReqContext,
-  datasource: DataSourceInterface,
-  body: PutDataSourceBody,
-): PutDataSourceBody {
-  const { settings } = body;
-  if (!settings) return body;
-  const submitted = settings.queries?.exposure ?? [];
-  const exposure = withUnreadableExposureQueries(
-    datasource.settings?.queries?.exposure ?? [],
-    submitted,
-    datasource.projects,
-    context.permissions.canReadMultiProjectResource,
-  );
-  if (exposure === submitted) return body;
-  return {
-    ...body,
-    settings: { ...settings, queries: { ...settings.queries, exposure } },
-  };
-}
-
 // Tests credentials without saving anything. Connection failures come back as a
 // 400 with the driver's message, the same as a failed save. When asked, a new
 // BigQuery connection also reports any GA4 exports, so setup can offer them.
@@ -544,6 +519,7 @@ export async function putDataSource(
     description,
     type,
     params,
+    settings,
     projects,
     metricsToCreate,
     eventForwarderConfig,
@@ -558,16 +534,13 @@ export async function putDataSource(
     return;
   }
 
-  // Restored first, so a save can't delete assignment queries the user can't read
-  const body = withSavedUnreadableExposureQueries(
-    context,
-    datasource,
-    req.body,
-  );
-  const { settings } = body;
-
-  // The whole body, so metricsToCreate still needs data source-wide permission
-  assertCanUpdateDataSource(context, datasource, body);
+  // The whole body, so metricsToCreate still needs data source-wide permission.
+  // The service restores unreadable assignment queries itself; this check
+  // needs them too, or a save would look like it deletes them.
+  assertCanUpdateDataSource(context, datasource, {
+    ...req.body,
+    settings: withSavedUnreadableExposureQueries(context, datasource, settings),
+  });
 
   try {
     const { integration, eventForwarderWarning } =

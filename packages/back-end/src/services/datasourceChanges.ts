@@ -7,6 +7,7 @@ import {
   getEventForwarderDatasourceParams,
   getSavedQueriesSharingId,
   getEventForwarderEventsFactTableId,
+  withUnreadableExposureQueries,
 } from "shared/util";
 import {
   DataSourceInterface,
@@ -173,8 +174,32 @@ export function assertCanUpdateDataSource(
 }
 
 /**
+ * Responses leave out assignment queries the user can't read, so a client
+ * can't send them back. Restoring them before the permission checks means a
+ * save can't delete them, while one that reuses a hidden query's id is still
+ * checked against that query (see withUnreadableExposureQueries).
+ */
+export function withSavedUnreadableExposureQueries(
+  context: Context,
+  datasource: DataSourceInterface,
+  settings: DataSourceSettings | undefined,
+): DataSourceSettings | undefined {
+  const submitted = settings?.queries?.exposure;
+  if (!settings || !submitted) return settings;
+  const exposure = withUnreadableExposureQueries(
+    datasource.settings?.queries?.exposure ?? [],
+    submitted,
+    datasource.projects,
+    context.permissions.canReadMultiProjectResource,
+  );
+  if (exposure === submitted) return settings;
+  return { ...settings, queries: { ...settings.queries, exposure } };
+}
+
+/**
  * Connection params need more permission than query settings, and are
- * re-tested before they're saved.
+ * re-tested before they're saved. `changes.settings` is the user's view of the
+ * settings, without the assignment queries they can't read.
  */
 export async function updateDataSourceWithChecks(
   context: Context,
@@ -182,20 +207,25 @@ export async function updateDataSourceWithChecks(
   changes: DataSourceChanges,
 ) {
   const { name, type, params, projects, eventForwarderConfig } = changes;
-  const settings = changes.settings?.queries?.exposure
+  const submitted = withSavedUnreadableExposureQueries(
+    context,
+    datasource,
+    changes.settings,
+  );
+  const settings = submitted?.queries?.exposure
     ? {
-        ...changes.settings,
+        ...submitted,
         queries: {
-          ...changes.settings.queries,
+          ...submitted.queries,
           exposure: assignServerIdsToAddedExposureQueries(
             datasource.settings?.queries?.exposure ?? [],
-            changes.settings.queries.exposure,
+            submitted.queries.exposure,
             context.permissions.canUpdateDataSourceSettings(datasource),
             () => uniqid("exq_"),
           ),
         },
       }
-    : changes.settings;
+    : submitted;
 
   assertCanUpdateDataSource(
     context,

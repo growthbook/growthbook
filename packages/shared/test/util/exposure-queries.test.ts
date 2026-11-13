@@ -945,6 +945,71 @@ describe("assignment query read access", () => {
       ),
     ).toEqual([own, inherited]);
   });
+
+  it("leaves a hidden query out when the submitted list reuses its id", () => {
+    const overwrite = { ...other, projects: ["prj_a"], name: "mine" };
+    const merged = withUnreadableExposureQueries(
+      [own, other],
+      [own, overwrite],
+      [],
+      canRead,
+    );
+    expect(merged).toEqual([own, overwrite]);
+    // So the change is checked against the hidden query it would replace
+    expect(getChangedExposureQueries([own, other], merged)).toEqual([
+      { previous: other, next: overwrite },
+    ]);
+  });
+
+  it("checks every query sharing a hidden id when one is added after it", () => {
+    const saved = [other, own];
+    const added = { ...other, projects: ["prj_a"], name: "added" };
+    const merged = withUnreadableExposureQueries(
+      saved,
+      [own, added],
+      [],
+      canRead,
+    );
+    const changes = getChangedExposureQueries(saved, merged);
+    expect(changes).toEqual([{ previous: other, next: added }]);
+    expect(getSavedQueriesSharingId(saved, changes[0].previous?.id)).toEqual([
+      other,
+    ]);
+  });
+
+  it("keeps a legacy repeated id's hidden copy when only the visible one is resent", () => {
+    const visible = { id: "eq_dup", name: "A", projects: ["prj_a"] };
+    const hidden = { id: "eq_dup", name: "H", projects: ["prj_b"] };
+    expect(
+      withUnreadableExposureQueries([hidden, visible], [visible], [], canRead),
+    ).toEqual([hidden, visible]);
+    const edited = { ...visible, name: "A2" };
+    const merged = withUnreadableExposureQueries(
+      [visible, hidden],
+      [edited, { ...visible, name: "extra" }],
+      [],
+      canRead,
+    );
+    // A second copy names the hidden one, so it isn't restored
+    expect(merged).toEqual([edited, { ...visible, name: "extra" }]);
+  });
+
+  it("doesn't add a second copy to a list that already holds the hidden queries", () => {
+    const saved = [own, other, shared];
+    const restored = withUnreadableExposureQueries(
+      saved,
+      [own, shared],
+      [],
+      canRead,
+    );
+    expect(restored).toEqual(saved);
+    expect(withUnreadableExposureQueries(saved, restored, [], canRead)).toEqual(
+      saved,
+    );
+    expect(withUnreadableExposureQueries(saved, saved, [], canRead)).toBe(
+      saved,
+    );
+  });
 });
 
 describe("assignment query project scope", () => {
