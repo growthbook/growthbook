@@ -142,6 +142,17 @@ describe("buildStringRefInsertion", () => {
     );
   });
 
+  it("adds a quoted value where one can start", () => {
+    expect(run('{ "a": | }', "name")).toBe('{ "a": "{{ @const:name }}" }');
+    expect(run('{\n  "a": |\n}', "name")).toBe(
+      '{\n  "a": "{{ @const:name }}"\n}',
+    );
+    expect(run('[ "x", | ]', "name")).toBe('[ "x", "{{ @const:name }}" ]');
+    // A key goes here, and a value is already there.
+    expect(run('{ "a": 1, | }', "name")).toBe(null);
+    expect(run('{ "a": |   12 }', "name")).toBe(null);
+  });
+
   it("returns null when no string is within reach", () => {
     expect(run("{ |}", "name")).toBe(null);
     expect(run('{ "a": 12345|6 }', "name")).toBe(null);

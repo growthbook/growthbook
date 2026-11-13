@@ -93,23 +93,51 @@ export function addJsonConstantExtends(
   return formatJsonMultilineObjects({ [CONSTANT_EXTENDS_KEY]: refs, ...rest });
 }
 
-// Build the edit for inserting a string constant reference into a string
-// literal (a keyval value or a string array entry). Forgiving: if the cursor
-// isn't strictly inside a string but sits within 2 characters of one (e.g. just
-// past a closing quote, as in `"foo",|`), it snaps into that nearest string.
-// Returns null when no string is in reach.
+// Where a reference goes in a string literal (a keyval value or a string
+// array entry). Forgiving: if the cursor isn't strictly inside a string but
+// sits within 2 characters of one (e.g. just past a closing quote, as in
+// `"foo",|`), it snaps into that nearest string. Null when none is in reach.
+function stringInsertIndex(text: string, offset: number): number | null {
+  // Prefer the exact caret, then the closest positions within 2 chars (back
+  // before forward) that land inside a string.
+  for (const p of [offset, offset - 1, offset + 1, offset - 2, offset + 2]) {
+    if (p < 0 || p > text.length) continue;
+    if (getJsonInsertContext(text, p) === "string") return p;
+  }
+  return null;
+}
+
+// Whether a new value can start at `offset`: after a key's colon or at an
+// array element, with nothing there yet.
+function isEmptyValueSlot(text: string, offset: number): boolean {
+  const context = getJsonInsertContext(text, offset);
+  const before = text.slice(0, offset).trimEnd().slice(-1);
+  const after = text.slice(offset).trimStart()[0];
+  const opens =
+    context === "object"
+      ? before === ":"
+      : context === "array" && (before === "[" || before === ",");
+  return opens && (after === undefined || ",}]".includes(after));
+}
+
+// The edit that puts `ref` in a string: inside the one at the cursor, or as a
+// new quoted value where one can start (`"auth": |`).
+export function buildRefInsertion(
+  text: string,
+  offset: number,
+  ref: string,
+): ConstantInsertion | null {
+  const index = stringInsertIndex(text, offset);
+  if (index !== null) return { index, text: ref };
+  return isEmptyValueSlot(text, offset)
+    ? { index: offset, text: `"${ref}"` }
+    : null;
+}
+
 export function buildStringRefInsertion(
   text: string,
   offset: number,
   key: string,
 ): ConstantInsertion | null {
-  // Prefer the exact caret, then the closest positions within 2 chars (back
-  // before forward) that land inside a string.
-  for (const p of [offset, offset - 1, offset + 1, offset - 2, offset + 2]) {
-    if (p < 0 || p > text.length) continue;
-    if (getJsonInsertContext(text, p) === "string") {
-      return { index: p, text: `{{ @const:${key} }}` };
-    }
-  }
-  return null;
+  return buildRefInsertion(text, offset, `{{ @const:${key} }}`);
 }

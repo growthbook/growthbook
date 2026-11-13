@@ -14,10 +14,10 @@ import { PiArrowSquareOut } from "react-icons/pi";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import { isCloud } from "@/services/env";
-import CodeTextArea from "@/components/Forms/CodeTextArea";
 import { DocLink } from "@/components/DocLink";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import WebhookSecretModal from "@/components/EventWebHooks/WebhookSecretModal";
+import WebhookHeadersField from "@/components/EventWebHooks/WebhookHeadersField";
 import {
   timeoutError,
   timeoutSecondsFromInput,
@@ -432,35 +432,15 @@ export function CreateSDKWebhookModal({
                 key="http_method"
               />
 
-              <CodeTextArea
-                label="Headers"
-                language="json"
-                minLines={3}
-                maxLines={6}
+              <WebhookHeadersField
                 containerStyle={NO_MARGIN}
                 value={form.watch("headers")}
                 setValue={(headers) => {
                   validateHeaders(headers);
                   form.setValue("headers", headers);
                 }}
-                helpText={
-                  <>
-                    {!validHeaders ? (
-                      <Callout status="error" mr="auto">
-                        Invalid JSON
-                      </Callout>
-                    ) : (
-                      <div>
-                        JSON format for headers. Supports{" "}
-                        <DocLink docSection="webhookSecrets">
-                          webhook secrets
-                        </DocLink>
-                        .
-                      </div>
-                    )}
-                  </>
-                }
-                key="http_headers"
+                valid={validHeaders}
+                endpoint={form.watch("endpoint")}
               />
 
               {form.watch("httpMethod") !== "GET" && (
@@ -680,28 +660,15 @@ const EditSDKWebhooksModal: FC<{
           sort={false}
         />
 
-        <CodeTextArea
-          label="Headers"
-          language="json"
-          minLines={3}
-          maxLines={6}
+        <WebhookHeadersField
           containerStyle={NO_MARGIN}
           value={form.watch("headers")}
           setValue={(headers) => {
             validateHeaders(headers);
             form.setValue("headers", headers);
           }}
-          helpText={
-            <>
-              {!validHeaders ? (
-                <Callout status="error" mr="auto">
-                  Invalid JSON
-                </Callout>
-              ) : (
-                <div>JSON format for headers.</div>
-              )}
-            </>
-          }
+          valid={validHeaders}
+          endpoint={form.watch("endpoint")}
         />
 
         {form.watch("httpMethod") !== "GET" && (
