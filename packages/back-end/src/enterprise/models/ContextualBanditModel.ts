@@ -1046,6 +1046,15 @@ export class ContextualBanditModel extends BaseClass<WriteOptions> {
   ): Promise<ContextualBanditInterface[]> {
     return this._find({ contextualBanditQueryId });
   }
+
+  public getByContextualBanditQueryIds(
+    contextualBanditQueryIds: string[],
+  ): Promise<ContextualBanditInterface[]> {
+    if (!contextualBanditQueryIds.length) return Promise.resolve([]);
+    return this._find({
+      contextualBanditQueryId: { $in: contextualBanditQueryIds },
+    });
+  }
 }
 
 /** Cross-org auto-snapshot agenda query; bypasses BaseModel in-org protections because the job has no org context. */
