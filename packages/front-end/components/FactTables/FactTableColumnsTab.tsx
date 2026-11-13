@@ -356,6 +356,7 @@ function ColumnsTable({
                 <Fragment key={col.column}>
                   <TableRow
                     align="center"
+                    className={isOpen ? styles.openRow : undefined}
                     onClick={expandable ? toggle : undefined}
                     style={expandable ? { cursor: "pointer" } : undefined}
                   >
@@ -429,8 +430,10 @@ function ColumnsTable({
                     </TableCell>
                   </TableRow>
                   {isOpen ? (
-                    <TableRow>
-                      <TableCell colSpan={5}>{renderExpanded(col)}</TableCell>
+                    // Starts under the name so it reads as part of the row
+                    <TableRow data-no-hover>
+                      <TableCell />
+                      <TableCell colSpan={4}>{renderExpanded(col)}</TableCell>
                     </TableRow>
                   ) : null}
                 </Fragment>

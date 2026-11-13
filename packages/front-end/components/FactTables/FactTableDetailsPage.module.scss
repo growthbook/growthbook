@@ -70,6 +70,11 @@
   overflow-wrap: anywhere;
 }
 
+// No separator between an expanded row and its panel, so they read as one
+.openRow > :global(.rt-TableCell) {
+  box-shadow: none;
+}
+
 // The metric picked from the Events tab
 .highlightRow td {
   background: var(--violet-a3);

@@ -166,6 +166,7 @@ export default function FactTableEventsTab({
                 <Fragment key={r.value}>
                   <TableRow
                     align="center"
+                    className={isOpen ? columnStyles.openRow : undefined}
                     style={{ cursor: "pointer" }}
                     onClick={() => setOpen(isOpen ? null : r.value)}
                   >
@@ -197,9 +198,11 @@ export default function FactTableEventsTab({
                     <TableCell>{eventMetrics.length || "—"}</TableCell>
                   </TableRow>
                   {isOpen ? (
-                    <TableRow>
-                      <TableCell colSpan={showCounts ? 5 : 3}>
-                        <Flex gap="5" py="3" px="4" align="start">
+                    // Starts under the event name so it reads as part of the row
+                    <TableRow data-no-hover>
+                      <TableCell />
+                      <TableCell colSpan={showCounts ? 4 : 2}>
+                        <Flex gap="5" py="3" align="start">
                           <Box flexGrow="1" minWidth="0">
                             <Text
                               as="div"
