@@ -713,7 +713,7 @@ export default function EventForwarder({
     await onRefresh();
   }, [onRefresh]);
 
-  const { isProvisioning, isError, pollTimedOut, taskErrors } =
+  const { isProvisioning, isError, pollTimedOut, taskErrors, backlogCount } =
     useEventForwarderProvisioningPoll({
       datasourceId: dataSource.id,
       status: eventForwarderConfig?.status,
@@ -749,6 +749,10 @@ export default function EventForwarder({
     !isProvisioning &&
     eventForwarderConfig?.status === "error" &&
     !!eventForwarderConfig.connectorName;
+  const hasBacklog = backlogCount > 0;
+  const backlogEvents = `${backlogCount.toLocaleString()} ${
+    backlogCount === 1 ? "event is" : "events are"
+  }`;
   const action = canRestart ? "restart" : isReady ? "pause" : "resume";
   const actionButton = {
     restart: { label: "Restart", icon: <PiArrowClockwise /> },
@@ -828,6 +832,18 @@ export default function EventForwarder({
             key={primaryConnectorErrorMessage}
             message={primaryConnectorErrorMessage}
           />
+          {hasBacklog && eventForwarderConfig.status === "error" ? (
+            <Box mt="2">
+              {backlogEvents} backed up and will be written to your warehouse
+              when you restart. Backed-up events are deleted after 90 days.
+            </Box>
+          ) : null}
+        </Callout>
+      ) : null}
+
+      {hasBacklog && isReady && !isProvisioning ? (
+        <Callout status="info" mb="3">
+          {backlogEvents} still backed up and being written to your warehouse.
         </Callout>
       ) : null}
 

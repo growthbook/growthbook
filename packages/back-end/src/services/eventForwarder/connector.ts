@@ -81,6 +81,7 @@ export function buildEventForwarderStatusResponse(
     message: connectorStatus.message,
     confluentState: connectorStatus.confluentState,
     taskErrors: connectorStatus.taskErrors,
+    backlogCount: connectorStatus.backlogCount,
   };
 }
 
@@ -674,7 +675,8 @@ export async function resumeEventForwarderThroughLicenseServer(
 
 /**
  * Restarts an errored event forwarder after the user fixed the destination.
- * - Confluent: restarts the connector. In-house consumer: clears its error.
+ * - Confluent: restarts the connector.
+ * - In-house consumer: retries writes and replays parked events.
  * - Back to pending so the status poll re-reads the outcome.
  */
 export async function restartEventForwarderThroughLicenseServer(

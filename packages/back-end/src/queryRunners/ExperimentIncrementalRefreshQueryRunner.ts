@@ -1689,7 +1689,13 @@ export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
           .updateByExperimentIdIfCurrentExecution(
             this.model.experiment,
             this.model.id,
-            { materializedBySnapshotId: this.model.id },
+            {
+              materializedBySnapshotId: this.model.id,
+              // From the saved kind, so a recovered run records it too.
+              ...(this.model.runnerKind === "incremental-full"
+                ? { fullRefreshStartedAt: this.model.dateCreated }
+                : {}),
+            },
           )
           .catch((e) =>
             this.context.logger.warn(

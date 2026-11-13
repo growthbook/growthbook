@@ -16,7 +16,7 @@ export default function FullRefreshRequiredDialog({
     <ModalStandard
       open={true}
       header="Unable to incrementally update"
-      subheader="Settings have changed, requiring a Full Refresh."
+      subheader="A full refresh is required."
       cta="Run full refresh"
       trackingEventModalType="incremental-pipeline-full-refresh"
       submit={controller.onConfirm}
@@ -24,7 +24,7 @@ export default function FullRefreshRequiredDialog({
     >
       <Text size="md" color="text-high" as="p">
         A full refresh can take longer to update, as it rebuilds the incremental
-        pipeline with the new settings applied:
+        pipeline. It is needed because:
       </Text>
       <ul style={{ paddingLeft: "13px" }}>
         {controller.reasons.map((reason) => (
