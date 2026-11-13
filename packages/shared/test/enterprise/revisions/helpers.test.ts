@@ -23,6 +23,7 @@ import {
   isUserBlockedFromApproving,
   mergeNestedBranch,
   landedOps,
+  sdkConnectionDraftSettingsAfterSave,
 } from "../../../src/revisions/helpers";
 import { entityPublishFootprint } from "../../../src/revisions/entityPublishFootprint";
 import type {
@@ -1408,6 +1409,101 @@ describe("SDK connection nested merges", () => {
 
   it("ignores fields that aren't nested branches", () => {
     expect(mergeNestedBranch("values", [], [], [], "proposed")).toBeNull();
+  });
+
+  describe("webhook saves into a draft", () => {
+    const merge = (b: unknown, theirs: unknown, mine: unknown) =>
+      mergeNestedBranch("sdkWebhooks", b, theirs, mine, "proposed");
+
+    it("keeps a webhook someone else added while this edit adds another", () => {
+      expect(
+        merge(
+          [wh("w1", "one")],
+          [wh("w1", "one"), wh("w2", "two")],
+          [wh("w1", "one"), wh("w3", "three")],
+        ),
+      ).toEqual({
+        merged: [wh("w1", "one"), wh("w2", "two"), wh("w3", "three")],
+        conflicts: [],
+      });
+    });
+
+    it("conflicts when both edited the same webhook differently", () => {
+      expect(
+        merge([wh("w1", "one")], [wh("w1", "theirs")], [wh("w1", "mine")])
+          ?.conflicts,
+      ).toEqual(["w1"]);
+    });
+
+    it("leaves a webhook they deleted deleted when this edit didn't touch it", () => {
+      expect(
+        merge(
+          [wh("w1", "one"), wh("w2", "two")],
+          [wh("w1", "one")],
+          [wh("w1", "one renamed"), wh("w2", "two")],
+        ),
+      ).toEqual({ merged: [wh("w1", "one renamed")], conflicts: [] });
+    });
+  });
+});
+
+describe("sdkConnectionDraftSettingsAfterSave", () => {
+  it("doesn't take a setting from live that the draft doesn't hold", () => {
+    // Live picked up an event tracker after the draft was made; the draft
+    // only renamed.
+    const base = { name: "A", includeRuleIds: false };
+    const draft = { name: "B", includeRuleIds: false };
+    expect(
+      sdkConnectionDraftSettingsAfterSave(base, draft, { name: "C" }),
+    ).toEqual({ name: "C", includeRuleIds: false });
+  });
+
+  it("doesn't propose archiving a draft because live was archived", () => {
+    const base = { name: "A", archived: false };
+    const draft = { name: "B", archived: false };
+    expect(
+      sdkConnectionDraftSettingsAfterSave(base, draft, { name: "C" }),
+    ).toEqual({ name: "C", archived: false });
+  });
+
+  it("keeps a setting cleared in the draft when live has since set it", () => {
+    // The draft is shown with live's tracker, so clearing it there is a
+    // choice, not a return to where the draft started.
+    const base = { name: "A" };
+    const draft = { name: "B" };
+    const live = { name: "A", eventTracker: "GA4" };
+    expect(
+      sdkConnectionDraftSettingsAfterSave(
+        base,
+        draft,
+        { eventTracker: "" },
+        live,
+      ),
+    ).toEqual({ name: "B", eventTracker: "" });
+  });
+
+  it("leaves no change after a setting is turned on then off", () => {
+    const base = { name: "A" };
+    const on = sdkConnectionDraftSettingsAfterSave(base, base, {
+      includeDraftExperimentRefs: true,
+    });
+    expect(on).toEqual({ name: "A", includeDraftExperimentRefs: true });
+    expect(
+      sdkConnectionDraftSettingsAfterSave(base, on, {
+        includeDraftExperimentRefs: false,
+      }),
+    ).toEqual(base);
+  });
+
+  it("keeps the base's form for a setting set back to it", () => {
+    const base = { name: "A", projects: [], tags: false };
+    expect(
+      sdkConnectionDraftSettingsAfterSave(
+        base,
+        { name: "A", projects: ["p1"] },
+        { projects: [] },
+      ),
+    ).toEqual(base);
   });
 });
 

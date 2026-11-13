@@ -1004,6 +1004,36 @@ export const sdkConnectionSettingsEqual = (
     sdkSettingsFieldEqual(a[key], b[key]),
   );
 
+// A draft's settings after a save into it: its own settings with the saved
+// fields over them, never live's, so a setting the draft doesn't hold stays
+// out. A setting equal to the base's (absent counts as empty) takes the base's
+// form, so turning one on then off again leaves no change behind. Not where
+// live has since moved off the base's value: the draft is shown with live's
+// there, so setting it back is a choice the draft has to hold.
+export const sdkConnectionDraftSettingsAfterSave = (
+  baseSettings: Record<string, unknown>,
+  draftSettings: Record<string, unknown>,
+  fieldsToUpdate: Record<string, unknown>,
+  liveSettings: Record<string, unknown> = baseSettings,
+): Record<string, unknown> => {
+  const next: Record<string, unknown> = { ...draftSettings, ...fieldsToUpdate };
+  for (const key of new Set([
+    ...Object.keys(next),
+    ...Object.keys(baseSettings),
+  ])) {
+    if (!sdkSettingsFieldEqual(next[key], baseSettings[key])) continue;
+    if (
+      key in fieldsToUpdate &&
+      !sdkSettingsFieldEqual(liveSettings[key], baseSettings[key])
+    ) {
+      continue;
+    }
+    if (baseSettings[key] === undefined) delete next[key];
+    else next[key] = baseSettings[key];
+  }
+  return next;
+};
+
 // Settings are stored as one `replace /sdkConnection` op, so diff field by
 // field against the baseline. Null when the shape is anything else.
 const sdkConnectionChangedSettingKeys = (

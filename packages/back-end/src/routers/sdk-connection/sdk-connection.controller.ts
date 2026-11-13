@@ -22,7 +22,9 @@ import {
   Revision,
   JsonPatchOperation,
   isPlainObject,
+  mergeNestedBranch,
   normalizeProposedChanges,
+  sdkConnectionDraftSettingsAfterSave,
   sdkConnectionSettingsEqual,
 } from "shared/enterprise";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
@@ -192,9 +194,9 @@ export const putSDKConnection = async (
   const revisionId = req.query.revisionId;
   let settingsComparisonBase = { ...currentState };
   let draftWebhookSnapshots: SDKWebhookRevisionSnapshot[] | null = null;
+  let targetRevision: Revision | null = null;
   if (revisionId) {
-    const targetRevision =
-      await context.models.revisions.getByIdReadable(revisionId);
+    targetRevision = await context.models.revisions.getByIdReadable(revisionId);
     if (!targetRevision) {
       throw new NotFoundError("Revision not found");
     }
@@ -358,20 +360,34 @@ export const putSDKConnection = async (
     );
   }
 
+  // Editing a draft replaces its op even when the result matches live, or a
+  // setting reset back to live would keep the draft's old value.
+  const editsExistingDraft = !!revisionId && !explicitPublish;
+  // A draft's object is its own: live fills in nothing it doesn't hold.
+  const draftSettingsAfterSave = (row: Revision) =>
+    pickSettingsSnapshot(
+      sdkConnectionDraftSettingsAfterSave(
+        (row.target.snapshot as SDKConnectionRevisionSnapshot).sdkConnection,
+        applyPatchToSnapshot(
+          row.target.snapshot as SDKConnectionRevisionSnapshot,
+          normalizeProposedChanges(row.target.proposedChanges),
+        ).sdkConnection,
+        fieldsToUpdate,
+        pickSettingsSnapshot(currentState),
+      ),
+    );
+
   // The op replaces the whole settings object, layered on the state being
   // edited (the draft's, if any); merges look inside it per setting.
   const currentSettingsSnapshot = pickSettingsSnapshot(currentState);
-  const proposedSettingsSnapshot = pickSettingsSnapshot({
-    ...settingsComparisonBase,
-    ...fieldsToUpdate,
-  });
+  const proposedSettingsSnapshot =
+    editsExistingDraft && targetRevision
+      ? draftSettingsAfterSave(targetRevision)
+      : pickSettingsSnapshot({ ...settingsComparisonBase, ...fieldsToUpdate });
 
   const patchOps: JsonPatchOperation[] = [];
   // What landing this request writes, keyed like the composite snapshot.
   const desiredChanges: Record<string, unknown> = {};
-  // Editing a draft replaces its op even when the result matches live, or a
-  // setting reset back to live would keep the draft's old value.
-  const editsExistingDraft = !!revisionId && !explicitPublish;
   if (
     !isEqual(proposedSettingsSnapshot, currentSettingsSnapshot) ||
     (editsExistingDraft && Object.keys(fieldsToUpdate).length > 0)
@@ -452,23 +468,38 @@ export const putSDKConnection = async (
   await ensureLiveRevisionExists(context, "sdk-connection", entityWithWebhooks);
 
   // An edit to an open draft is rebuilt from the row being written, so a save
-  // someone else made to it meanwhile keeps the settings this one didn't touch.
+  // someone else made to it meanwhile keeps what this one didn't touch.
   const opsFor = (row: Revision | null): JsonPatchOperation[] =>
-    patchOps.map((op) =>
-      row && op.path === "/sdkConnection"
-        ? {
-            ...op,
-            value: pickSettingsSnapshot({
-              ...currentState,
-              ...applyPatchToSnapshot(
-                row.target.snapshot as SDKConnectionRevisionSnapshot,
-                normalizeProposedChanges(row.target.proposedChanges),
-              ).sdkConnection,
-              ...fieldsToUpdate,
-            }),
-          }
-        : op,
-    );
+    patchOps.map((op) => {
+      if (!row) return op;
+      if (op.path === "/sdkConnection") {
+        return { ...op, value: draftSettingsAfterSave(row) };
+      }
+      if (op.path !== "/sdkWebhooks") return op;
+      // Per webhook, against the list this edit was made from.
+      const nested = mergeNestedBranch(
+        "sdkWebhooks",
+        draftWebhookSnapshots ?? [],
+        applyPatchToSnapshot(
+          row.target.snapshot as SDKConnectionRevisionSnapshot,
+          normalizeProposedChanges(row.target.proposedChanges),
+        ).sdkWebhooks ?? [],
+        incomingWebhooks,
+        "proposed",
+      );
+      if (nested?.conflicts.length) {
+        throw new ChangesConflictError(
+          {
+            fields: ["sdkWebhooks"],
+            featureIds: [],
+            urlRedirectIds: [],
+            visualChangesetIds: [],
+          },
+          "Someone else changed the same webhook in this draft. Reload to see theirs, then make your change again.",
+        );
+      }
+      return nested ? { ...op, value: nested.merged } : op;
+    });
 
   let revision = await createOrUpdateRevision(
     context,
