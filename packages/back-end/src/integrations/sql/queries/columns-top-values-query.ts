@@ -3,7 +3,10 @@ import {
   getFactTableTimestampColumn,
 } from "shared/experiments";
 import { format } from "shared/sql";
-import type { ColumnTopValuesParams } from "shared/types/integrations";
+import type {
+  ColumnTopValuesParams,
+  ColumnTopValuesResponseRow,
+} from "shared/types/integrations";
 import type { SqlDialect } from "shared/types/sql";
 import { ColumnInterface } from "shared/types/fact-table";
 import { compileSqlTemplate } from "back-end/src/util/sql";
@@ -17,6 +20,7 @@ export function getColumnsTopValuesQuery(
     lookbackDays,
     maxValueLength,
     searchTerm,
+    needsCounts,
   }: ColumnTopValuesParams,
 ): string {
   if (columns.length === 0) {
@@ -34,6 +38,11 @@ export function getColumnsTopValuesQuery(
   start.setDate(start.getDate() - lookbackDays);
 
   const timestampColumn = getFactTableTimestampColumn(factTable);
+  // An approximate body without counts orders by its own rank column
+  const orderBy =
+    dialect.approxTopValuesCTEBody && !needsCounts
+      ? (dialect.approxTopValuesRankColumn ?? "count")
+      : "count";
 
   return format(
     `
@@ -59,10 +68,11 @@ __topValues AS (
     maxValueLength,
     searchTerm,
     timestampColumn,
+    needsCounts,
   })}
 )
-SELECT column_name, value FROM __topValues
-ORDER BY column_name, count DESC
+SELECT column_name, value, count FROM __topValues
+ORDER BY column_name, ${orderBy} DESC
   `,
     dialect.formatDialect,
   );
@@ -76,6 +86,7 @@ type TopValuesCTEBodyParams = {
   maxValueLength?: number;
   searchTerm?: string;
   timestampColumn: string;
+  needsCounts?: boolean;
 };
 
 function getTopValuesCTEBody(
@@ -88,6 +99,7 @@ function getTopValuesCTEBody(
     maxValueLength,
     searchTerm,
     timestampColumn,
+    needsCounts,
   }: TopValuesCTEBodyParams,
 ): string {
   const pairs = columns.map((c) => {
@@ -116,7 +128,7 @@ function getTopValuesCTEBody(
 
   // When the dialect has a native approximate top-k aggregate use it
   // for better performance.
-  if (dialect.approxTopValuesCTEBody) {
+  if (dialect.approxTopValuesCTEBody && !needsCounts) {
     return dialect.approxTopValuesCTEBody({
       pairs,
       fromTable: "__factTable",
@@ -162,4 +174,20 @@ function getTopValuesCTEBody(
     ) __topValuesAgg
   ) __topValuesRanked
   WHERE row_num <= ${limit}`;
+}
+
+// A count is kept only when the warehouse returned a real number: an
+// approximate query without frequencies leaves it NULL, and Number(null) is 0
+export function parseColumnTopValuesRows(
+  rows: Record<string, unknown>[],
+): ColumnTopValuesResponseRow[] {
+  return rows.map((r) => {
+    const count =
+      r.count === null || r.count === undefined ? NaN : Number(r.count);
+    return {
+      column: r.column_name + "",
+      value: r.value + "",
+      ...(Number.isFinite(count) && { count }),
+    };
+  });
 }

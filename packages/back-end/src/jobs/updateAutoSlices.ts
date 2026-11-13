@@ -1,21 +1,21 @@
 import Agenda, { Job } from "agenda";
 import chunk from "lodash/chunk";
 import { canInlineFilterColumn } from "shared/experiments";
-import { DEFAULT_MAX_METRIC_SLICE_LEVELS } from "shared/constants";
 import { ColumnInterface, FactTableInterface } from "shared/types/fact-table";
 import { DataSourceInterface } from "shared/types/datasource";
 import { ReqContext } from "back-end/types/request";
 import {
   getAllFactTablesWithAutoSliceUpdatesEnabled,
   getFactTable,
-  updateFactTableColumns,
+  updateColumnsTopValues,
 } from "back-end/src/models/FactTableModel";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
 import { logger } from "back-end/src/util/logger";
 import { AUTO_SLICE_UPDATE_FREQUENCY_HOURS } from "back-end/src/util/secrets";
+import { type TopValuesUpdate } from "back-end/src/util/topValues";
 import {
-  runColumnsTopValuesQuery,
+  runColumnsTopValueCountsQuery,
   TOP_VALUES_CHUNK_SIZE,
 } from "back-end/src/services/factTableColumns";
 
@@ -85,18 +85,14 @@ const updateSingleFactTableAutoSlices = async (
   if (!datasource) return;
 
   try {
-    const updatedColumns = await updateAutoSlicesForColumns(
+    const updates = await updateAutoSlicesForColumns(
       context,
       datasource,
       factTable,
     );
 
-    if (updatedColumns.length > 0) {
-      await updateFactTableColumns(
-        factTable,
-        { columns: updatedColumns },
-        context,
-      );
+    if (updates.length > 0) {
+      await updateColumnsTopValues({ context, factTable, updates });
       logger.info(
         `Updated auto-slices for fact table ${factTableId} in organization ${organization}`,
       );
@@ -113,12 +109,9 @@ async function updateAutoSlicesForColumns(
   context: ReqContext,
   datasource: DataSourceInterface,
   factTable: FactTableInterface,
-): Promise<ColumnInterface[]> {
-  const columns = [...factTable.columns];
-  const maxSliceLevels =
-    context.org.settings?.maxMetricSliceLevels ??
-    DEFAULT_MAX_METRIC_SLICE_LEVELS;
-
+): Promise<TopValuesUpdate[]> {
+  const columns = factTable.columns;
+  const updates: TopValuesUpdate[] = [];
   // Collect columns that need auto-slice updates
   const columnsNeedingUpdates: ColumnInterface[] = [];
   for (const col of columns) {
@@ -142,7 +135,7 @@ async function updateAutoSlicesForColumns(
 
     for (const columnChunk of columnChunks) {
       try {
-        const topValuesByColumn = await runColumnsTopValuesQuery(
+        const countsByColumn = await runColumnsTopValueCountsQuery(
           context,
           datasource,
           factTable,
@@ -151,28 +144,16 @@ async function updateAutoSlicesForColumns(
 
         // Process results for each column
         for (const col of columnChunk) {
-          const topValues = topValuesByColumn[col.column];
-
-          // Persist topValues and topValuesDate
-          col.topValues = topValues;
-          col.topValuesDate = new Date();
-
-          // Skip autoSlices update if no top values.
-          // (empty response may be transient, not worth losing the slices)
-          if (!topValues?.length) continue;
-
-          // Update autoSlices with locked levels + new top values
-          const lockedLevels = col.lockedAutoSlices || [];
-          const autoSlices: string[] = [...lockedLevels];
-          for (const value of topValues) {
-            if (autoSlices.length >= maxSliceLevels) break;
-            if (!autoSlices.includes(value)) {
-              autoSlices.push(value);
-            }
-          }
-
-          col.autoSlices = autoSlices;
-          col.dateUpdated = new Date();
+          // An empty response may be transient, not worth losing the slices,
+          // so "refill" leaves them alone when there are no top values
+          updates.push({
+            column: col.column,
+            snapshot: {
+              values: countsByColumn[col.column] ?? [],
+              refreshedAt: new Date(),
+            },
+            slices: "refill",
+          });
         }
       } catch (e) {
         logger.error(
@@ -187,7 +168,7 @@ async function updateAutoSlicesForColumns(
     }
   }
 
-  return columns;
+  return updates;
 }
 
 async function getAllFactTablesToUpdate(): Promise<FactTableInterface[]> {

@@ -366,7 +366,6 @@ export function mergeEventForwarderFactTableColumnFromDesired(
     dateCreated: existing?.dateCreated ?? now,
     dateUpdated: now,
     deleted: false,
-    topValues: existing?.topValues ?? [],
     autoSlices: existing?.autoSlices ?? [],
     lockedAutoSlices: existing?.lockedAutoSlices ?? [],
     ...(existing?.alwaysInlineFilter !== undefined && {
@@ -374,9 +373,6 @@ export function mergeEventForwarderFactTableColumnFromDesired(
     }),
     ...(existing?.isAutoSliceColumn !== undefined && {
       isAutoSliceColumn: existing.isAutoSliceColumn,
-    }),
-    ...(existing?.topValuesDate !== undefined && {
-      topValuesDate: existing.topValuesDate,
     }),
   };
 }

@@ -1,16 +1,17 @@
 import chunk from "lodash/chunk";
 import cloneDeep from "lodash/cloneDeep";
-import {
-  canInlineFilterColumn,
-  getFactTableTimestampColumn,
-} from "shared/experiments";
+import { getFactTableTimestampColumn } from "shared/experiments";
 import {
   DEFAULT_MAX_METRIC_SLICE_LEVELS,
   DEFAULT_TOP_VALUES_LOOKBACK_VALUE,
   DEFAULT_TOP_VALUES_LOOKBACK_UNIT,
 } from "shared/constants";
 import { OrganizationSettings } from "shared/types/organization";
-import { ColumnInterface, FactTableInterface } from "shared/types/fact-table";
+import {
+  ColumnInterface,
+  FactTableInterface,
+  TopValuesSnapshot,
+} from "shared/types/fact-table";
 import { DataSourceInterface } from "shared/types/datasource";
 import { ReqContext } from "back-end/types/request";
 import {
@@ -23,6 +24,10 @@ import {
   buildColumnTypeMaps,
   normalizePersistedColumn,
 } from "back-end/src/util/factTable";
+import {
+  canHaveTopValues,
+  type TopValuesUpdate,
+} from "back-end/src/util/topValues";
 import { logger } from "back-end/src/util/logger";
 
 export const MAX_COLUMNS_WITH_TOP_VALUES = 50;
@@ -71,15 +76,8 @@ export function selectColumnsForTopValues({
   maxColumns?: number;
 }): ColumnInterface[] {
   const factTableLike = { columns, userIdTypes, userIdColumns };
-
-  const eligible = columns.filter(
-    (col) =>
-      col.datatype === "string" &&
-      !col.deleted &&
-      // Virtual columns aren't real columns in the SQL, so a top-values query
-      // keyed on their name would be invalid.
-      !col.isVirtual &&
-      canInlineFilterColumn(factTableLike, col.column),
+  const eligible = columns.filter((col) =>
+    canHaveTopValues(factTableLike, col),
   );
 
   const alwaysCaptured = eligible.filter(
@@ -94,7 +92,21 @@ export function selectColumnsForTopValues({
   return [...alwaysCaptured, ...newlyCaptured];
 }
 
+type RankedValue = TopValuesSnapshot["values"][number];
+
 export async function runColumnsTopValuesQuery(
+  ...args: Parameters<typeof runColumnsTopValueCountsQuery>
+): Promise<Record<string, string[]>> {
+  const counts = await runColumnsTopValueCountsQuery(...args);
+  return Object.fromEntries(
+    Object.entries(counts).map(([column, rows]) => [
+      column,
+      rows.map((r) => r.value),
+    ]),
+  );
+}
+
+export async function runColumnsTopValueCountsQuery(
   context: ReqContext,
   datasource: DataSourceInterface,
   factTable: Pick<
@@ -108,8 +120,10 @@ export async function runColumnsTopValuesQuery(
   options?: {
     limit?: number;
     searchTerm?: string;
+    // Runs the exact aggregate instead of an approximate query, for counts
+    needsCounts?: boolean;
   },
-): Promise<Record<string, string[]>> {
+): Promise<Record<string, RankedValue[]>> {
   if (!context.permissions.canRunFactQueries(datasource)) {
     context.permissions.throwPermissionError();
   }
@@ -145,93 +159,20 @@ export async function runColumnsTopValuesQuery(
     ),
     maxValueLength: MAX_TOP_VALUE_LENGTH,
     searchTerm: options?.searchTerm,
+    needsCounts: options?.needsCounts,
   });
   const result = await integration.runColumnsTopValuesQuery(sql, factTable.id);
 
   // Group results by column name
-  const columnValues: Record<string, string[]> = {};
+  const columnValues: Record<string, RankedValue[]> = {};
   for (const row of result.rows) {
     if (!columnValues[row.column]) {
       columnValues[row.column] = [];
     }
-    columnValues[row.column].push(row.value);
+    columnValues[row.column].push({ value: row.value, count: row.count });
   }
 
   return columnValues;
-}
-
-export function populateAutoSlices(
-  col: ColumnInterface,
-  topValues: string[],
-  maxValues?: number,
-): string[] {
-  if (col.datatype === "boolean") {
-    return ["true", "false"];
-  }
-
-  // Use existing autoSlices if they exist, otherwise use topValues up to the max
-  if (col.autoSlices && col.autoSlices.length > 0) {
-    return col.autoSlices;
-  }
-  const maxSliceLevels = maxValues ?? DEFAULT_MAX_METRIC_SLICE_LEVELS;
-  const autoSlices: string[] = [];
-  for (const value of topValues) {
-    if (autoSlices.length >= maxSliceLevels) break;
-    if (!autoSlices.includes(value)) {
-      autoSlices.push(value);
-    }
-  }
-
-  return autoSlices;
-}
-
-export function mergeRefreshedTopValues({
-  currentColumns,
-  currentUserIdTypes,
-  currentUserIdColumns,
-  refreshedColumns,
-}: {
-  currentColumns: ColumnInterface[];
-  currentUserIdTypes: string[];
-  currentUserIdColumns?: Record<string, string>;
-  refreshedColumns: ColumnInterface[];
-}): ColumnInterface[] {
-  const refreshedColumnsById = new Map(
-    refreshedColumns.map((column) => [column.column, column]),
-  );
-  const eligibleCurrentColumnIds = new Set(
-    selectColumnsForTopValues({
-      columns: currentColumns,
-      userIdTypes: currentUserIdTypes,
-      userIdColumns: currentUserIdColumns,
-    }).map((column) => column.column),
-  );
-
-  return currentColumns.map((currentColumn) => {
-    if (!eligibleCurrentColumnIds.has(currentColumn.column)) {
-      return currentColumn;
-    }
-
-    const refreshedColumn = refreshedColumnsById.get(currentColumn.column);
-    if (!refreshedColumn) {
-      return currentColumn;
-    }
-
-    const updatedColumn = {
-      ...currentColumn,
-      topValues: refreshedColumn.topValues,
-      topValuesDate: refreshedColumn.topValuesDate,
-    };
-
-    if (currentColumn.isAutoSliceColumn) {
-      updatedColumn.autoSlices =
-        currentColumn.autoSlices && currentColumn.autoSlices.length > 0
-          ? currentColumn.autoSlices
-          : refreshedColumn.autoSlices;
-    }
-
-    return updatedColumn;
-  });
 }
 
 export async function runColumnDetectionQuery(
@@ -243,6 +184,9 @@ export async function runColumnDetectionQuery(
   > & {
     id: string | null;
   },
+  // The columns to merge the detected types onto, read once the query is
+  // done; defaults to factTable.columns
+  loadColumns?: () => Promise<ColumnInterface[]>,
 ): Promise<ColumnInterface[]> {
   if (!context.permissions.canRunFactQueries(datasource)) {
     context.permissions.throwPermissionError();
@@ -277,7 +221,9 @@ export async function runColumnDetectionQuery(
 
   const { jsonMap, warehouseTypeMap, datatypes } = buildColumnTypeMaps(result);
 
-  const columns = cloneDeep(factTable.columns || []);
+  const columns = cloneDeep(
+    (await loadColumns?.()) ?? (factTable.columns || []),
+  );
 
   // Update existing column
   columns.forEach((col) => {
@@ -372,8 +318,9 @@ export async function runColumnDetectionQuery(
 }
 
 /**
- * Runs the top-values query for a fact table's eligible columns and mutates
- * the supplied columns with the results, returning those enriched successfully.
+ * Runs the top-values query for a fact table's eligible columns and returns
+ * an update for each column queried successfully. It doesn't change
+ * `detectedColumns`; callers save the updates with `updateColumnsTopValues`.
  */
 export async function refreshColumnTopValues(
   context: ReqContext,
@@ -385,8 +332,8 @@ export async function refreshColumnTopValues(
     id: string | null;
   },
   detectedColumns: ColumnInterface[],
-): Promise<ColumnInterface[]> {
-  const refreshedColumns: ColumnInterface[] = [];
+): Promise<TopValuesUpdate[]> {
+  const updates: TopValuesUpdate[] = [];
   const columnsNeedingTopValues = selectColumnsForTopValues({
     columns: detectedColumns,
     userIdTypes: factTable.userIdTypes,
@@ -401,7 +348,7 @@ export async function refreshColumnTopValues(
 
     for (const columnChunk of columnChunks) {
       try {
-        const topValuesByColumn = await runColumnsTopValuesQuery(
+        const countsByColumn = await runColumnsTopValueCountsQuery(
           context,
           datasource,
           // The query needs a column list to resolve JSON paths and virtual
@@ -413,18 +360,12 @@ export async function refreshColumnTopValues(
 
         // Process results for each column
         for (const col of columnChunk) {
-          const topValues = topValuesByColumn[col.column] || [];
-          col.topValues = topValues;
-          col.topValuesDate = new Date();
-
-          if (col.isAutoSliceColumn) {
-            col.autoSlices = populateAutoSlices(
-              col,
-              topValues,
-              context.org.settings?.maxMetricSliceLevels,
-            );
-          }
-          refreshedColumns.push(col);
+          const values = countsByColumn[col.column] || [];
+          updates.push({
+            column: col.column,
+            snapshot: { values, refreshedAt: new Date() },
+            slices: "fill",
+          });
         }
       } catch (e) {
         logger.error(
@@ -438,5 +379,5 @@ export async function refreshColumnTopValues(
     }
   }
 
-  return refreshedColumns;
+  return updates;
 }

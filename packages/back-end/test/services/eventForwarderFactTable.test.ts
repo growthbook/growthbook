@@ -694,7 +694,6 @@ describe("mergeEventForwarderFactTableColumnFromDesired", () => {
       dateCreated: existing.dateCreated,
       dateUpdated: now,
       deleted: false,
-      topValues: ["a"],
       autoSlices: ["a"],
       lockedAutoSlices: [],
     });

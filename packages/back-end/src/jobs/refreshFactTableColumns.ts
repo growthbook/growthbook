@@ -2,13 +2,13 @@ import Agenda, { Job } from "agenda";
 import { ColumnInterface, FactTableInterface } from "shared/types/fact-table";
 import {
   getFactTable,
+  updateColumnsTopValues,
   updateFactTableColumns,
 } from "back-end/src/models/FactTableModel";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
 import { deriveUserIdTypesFromColumns } from "back-end/src/util/factTable";
 import {
-  mergeRefreshedTopValues,
   refreshColumnTopValues,
   runColumnDetectionQuery,
 } from "back-end/src/services/factTableColumns";
@@ -49,10 +49,16 @@ const refreshFactTableColumns = async (job: RefreshFactTableColumnsJob) => {
   let detectedColumns: ColumnInterface[] | null = null;
 
   try {
+    // The query can be slow, so the detected types go onto the columns as
+    // they are now, not as loaded: edits and Auto Slice refills made while it
+    // ran survive
     detectedColumns = await runColumnDetectionQuery(
       context,
       datasource,
       factTable,
+      async () =>
+        (await getFactTable(context, factTableId))?.columns ??
+        factTable.columns,
     );
     columnDetectionChanges.columns = detectedColumns;
     columnDetectionChanges.columnsError = null;
@@ -73,28 +79,16 @@ const refreshFactTableColumns = async (job: RefreshFactTableColumnsJob) => {
   // Top values can take minutes on large tables. Run
   // and persist them after column detection is complete.
   if (detectedColumns) {
-    const refreshedColumns = await refreshColumnTopValues(
+    await updateColumnsTopValues({
       context,
-      datasource,
       factTable,
-      detectedColumns,
-    );
-    if (refreshedColumns.length === 0) return;
-
-    const currentFactTable = await getFactTable(context, factTableId);
-    if (!currentFactTable) return;
-
-    const updatedColumns = mergeRefreshedTopValues({
-      currentColumns: currentFactTable.columns,
-      currentUserIdTypes: currentFactTable.userIdTypes,
-      currentUserIdColumns: currentFactTable.userIdColumns,
-      refreshedColumns,
+      updates: await refreshColumnTopValues(
+        context,
+        datasource,
+        factTable,
+        detectedColumns,
+      ),
     });
-    await updateFactTableColumns(
-      currentFactTable,
-      { columns: updatedColumns },
-      context,
-    );
   }
 };
 

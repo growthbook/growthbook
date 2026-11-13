@@ -150,13 +150,13 @@ if(
   stringLength: (column: string) => `length(${column})`,
 
   // topK(k)(expr) returns the k most frequent values in descending-frequency
-  // order with NO counts. Since the outer query sorts by `count DESC`, we
-  // synthesize a `count` from the inverse array position (`limit - i + 1`) to
-  // preserve topK's ordering; it's an internal sort key, never projected out.
+  // order with NO counts, so `count` is NULL and the outer query orders by
+  // `rank`, the inverse array position (`limit - i + 1`).
   //
   // One aggregation row holds an array of (column_name, topK-array) tuples;
   // aggregation and ARRAY JOIN live in separate query levels so the aggregate
   // runs once before unnesting. topK skips NULLs.
+  approxTopValuesRankColumn: "rank",
   approxTopValuesCTEBody: ({
     pairs,
     fromTable,
@@ -178,7 +178,8 @@ if(
   SELECT
     column_name,
     tupleElement(__valueCount, 1) AS value,
-    tupleElement(__valueCount, 2) AS count
+    CAST(NULL AS Nullable(Int64)) AS count,
+    tupleElement(__valueCount, 2) AS rank
   FROM (
     SELECT
       tupleElement(__col, 1) AS column_name,
@@ -193,7 +194,7 @@ if(
     ARRAY JOIN __cols AS __col
   )
   ARRAY JOIN arrayMap(
-    -- (value, synthetic count): inverse array position, NOT a real frequency
+    -- (value, rank): inverse array position, NOT a frequency
     (v, i) -> (v, toInt64(${limit}) - i + 1),
     __values,
     arrayEnumerate(__values)
