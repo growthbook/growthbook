@@ -23,11 +23,14 @@ import {
 import { TextField } from "@/ui/TextField";
 import SelectField from "@/components/Forms/SelectField";
 import MultiSelectField from "@/ui/MultiSelectField";
-import Checkbox from "@/ui/Checkbox";
+import Switch from "@/ui/Switch";
+import HelperText from "@/ui/HelperText";
+import { DocLink } from "@/components/DocLink";
 import Button from "@/ui/Button";
 import Collapse, { CollapseTrigger } from "@/ui/Collapse";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Text from "@/ui/Text";
+import SecondaryFiltersField from "./SecondaryFiltersField";
 
 const JSON_FIELD_DATATYPE_OPTIONS = COLUMN_DATATYPE_OPTIONS.filter(
   (o) => o.value !== "json",
@@ -59,7 +62,6 @@ export default function EditColumnModal({
   const [filter, setFilter] = useState(!!column.alwaysInlineFilter);
   const [autoSlice, setAutoSlice] = useState(!!column.isAutoSliceColumn);
 
-  const [advancedOpen, setAdvancedOpen] = useState(false);
   const [name, setName] = useState(
     column.name && column.name !== column.column ? column.name : "",
   );
@@ -75,6 +77,13 @@ export default function EditColumnModal({
   const [jsonFields, setJsonFields] = useState<JSONColumnFields>(
     column.jsonFields || {},
   );
+  // Open when the column already has advanced values to review
+  const [advancedOpen, setAdvancedOpen] = useState(
+    (column.datatype === "string" && !!column.autoSlices?.length) ||
+      mappings.length > 0 ||
+      Object.keys(jsonFields).length > 0,
+  );
+  const [levelLimitHit, setLevelLimitHit] = useState(false);
   const [newJsonField, setNewJsonField] = useState<{
     key: string;
     datatype: FactTableColumnType;
@@ -188,17 +197,17 @@ export default function EditColumnModal({
         ) : null}
 
         {canFilter && (
-          <Checkbox
+          <Switch
             label="Filter: always ask for a value when creating metrics"
             value={filter}
-            setValue={(v) => setFilter(v === true)}
+            onChange={setFilter}
           />
         )}
         {canAutoSlice && (
-          <Checkbox
+          <Switch
             label="Auto Slice: break experiment results down by this column"
             value={autoSlice}
-            setValue={(v) => setAutoSlice(v === true)}
+            onChange={setAutoSlice}
           />
         )}
 
@@ -214,40 +223,64 @@ export default function EditColumnModal({
             <Collapse open={advancedOpen}>
               <Flex direction="column" gap="4" pt="3">
                 {showLevels && (
-                  <MultiSelectField
-                    label="Auto Slice levels"
-                    helpText={`Up to ${maxLevels}. Leave empty to use the column's top values.`}
-                    value={levels}
-                    options={[...new Set([...topValues, ...levels])].map(
-                      (v) => ({
-                        label: v,
-                        value: v,
-                      }),
-                    )}
-                    creatable
-                    placeholder="Select or enter levels..."
-                    onChange={(values) => {
-                      const next = values.slice(0, maxLevels);
-                      // Scheduled updates drop levels that aren't top values
-                      // unless they're locked
-                      if (factTable.autoSliceUpdatesEnabled) {
-                        const added = next.filter(
-                          (v) => !levels.includes(v) && !topValues.includes(v),
-                        );
-                        setLockedLevels([...lockedLevels, ...added]);
+                  <Box>
+                    <MultiSelectField
+                      label="Auto Slice levels"
+                      helpText={
+                        <>
+                          Up to {maxLevels}. Leave empty to use the
+                          column&apos;s top values.{" "}
+                          <DocLink docSection="autoSlices">Learn more</DocLink>
+                        </>
                       }
-                      setLevels(next);
-                    }}
-                    containerClassName="mb-0"
-                  />
+                      value={levels}
+                      options={[...new Set([...topValues, ...levels])].map(
+                        (v) => ({ label: v, value: v }),
+                      )}
+                      creatable
+                      placeholder="Select or enter levels..."
+                      onChange={(values) => {
+                        setLevelLimitHit(values.length > maxLevels);
+                        const next = values.slice(0, maxLevels);
+                        // Scheduled updates drop levels that aren't top values
+                        // unless they're locked
+                        if (factTable.autoSliceUpdatesEnabled) {
+                          const added = next.filter(
+                            (v) =>
+                              !levels.includes(v) && !topValues.includes(v),
+                          );
+                          setLockedLevels([...lockedLevels, ...added]);
+                        }
+                        setLevels(next);
+                      }}
+                      containerClassName="mb-0"
+                    />
+                    {levelLimitHit && (
+                      <HelperText status="warning" mt="1">
+                        Limit {maxLevels} levels
+                      </HelperText>
+                    )}
+                  </Box>
                 )}
                 {showLevels && factTable.autoSliceUpdatesEnabled && (
                   <MultiSelectField
                     label="Locked levels"
-                    helpText="Kept when scheduled Auto Slice updates run."
+                    helpText="Kept when scheduled Auto Slice updates run. Unlocking a level that isn't a top value removes it."
                     value={lockedLevels.filter((l) => levels.includes(l))}
-                    options={levels.map((v) => ({ label: v, value: v }))}
-                    onChange={setLockedLevels}
+                    options={levels.map((v) => ({
+                      label: topValues.includes(v)
+                        ? v
+                        : `${v} (not a top value)`,
+                      value: v,
+                    }))}
+                    onChange={(values) => {
+                      // A scheduled update would drop it, so drop it now
+                      const unlocked = lockedLevels.filter(
+                        (l) => !values.includes(l) && !topValues.includes(l),
+                      );
+                      setLevels(levels.filter((l) => !unlocked.includes(l)));
+                      setLockedLevels(values);
+                    }}
                     containerClassName="mb-0"
                   />
                 )}
@@ -261,82 +294,12 @@ export default function EditColumnModal({
                       When certain values are chosen, ask for an additional
                       filter.
                     </Text>
-                    <Flex direction="column" gap="2">
-                      {mappings.map((m, i) => (
-                        <Flex key={i} gap="2" align="center">
-                          <SelectField
-                            containerStyle={{ flex: 1, minWidth: 0 }}
-                            containerClassName="mb-0"
-                            value={m.value}
-                            createable
-                            onChange={(value) =>
-                              setMappings((prev) =>
-                                // A value maps once; a duplicate would overwrite on save
-                                prev.some(
-                                  (x, j) => j !== i && x.value === value,
-                                )
-                                  ? prev
-                                  : prev.map((x, j) =>
-                                      j === i ? { ...x, value } : x,
-                                    ),
-                              )
-                            }
-                            options={topValues
-                              .filter(
-                                (v) =>
-                                  v === m.value ||
-                                  !mappings.some((x) => x.value === v),
-                              )
-                              .map((v) => ({ label: v, value: v }))}
-                            placeholder="Value..."
-                          />
-                          <Text>→</Text>
-                          <SelectField
-                            containerStyle={{ flex: 1, minWidth: 0 }}
-                            containerClassName="mb-0"
-                            value={m.column}
-                            onChange={(value) =>
-                              setMappings((prev) =>
-                                prev.map((x, j) =>
-                                  j === i ? { ...x, column: value } : x,
-                                ),
-                              )
-                            }
-                            options={mappingColumnOptions}
-                            placeholder="Filter on..."
-                          />
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            aria-label="Remove"
-                            onClick={() =>
-                              setMappings((prev) =>
-                                prev.filter((_, j) => j !== i),
-                              )
-                            }
-                          >
-                            <PiX />
-                          </Button>
-                        </Flex>
-                      ))}
-                      {mappings.every((m) => m.value && m.column) && (
-                        <Flex>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            icon={<PiPlus />}
-                            onClick={() =>
-                              setMappings((prev) => [
-                                ...prev,
-                                { value: "", column: "" },
-                              ])
-                            }
-                          >
-                            Add value
-                          </Button>
-                        </Flex>
-                      )}
-                    </Flex>
+                    <SecondaryFiltersField
+                      mappings={mappings}
+                      setMappings={setMappings}
+                      topValues={topValues}
+                      columnOptions={mappingColumnOptions}
+                    />
                   </Box>
                 )}
 
@@ -391,6 +354,7 @@ export default function EditColumnModal({
                           />
                         </Box>
                         <SelectField
+                          aria-label="New JSON field data type"
                           containerStyle={{ minWidth: 140 }}
                           containerClassName="mb-0"
                           value={newJsonField.datatype}
@@ -404,8 +368,9 @@ export default function EditColumnModal({
                           options={JSON_FIELD_DATATYPE_OPTIONS}
                         />
                         <Button
-                          variant="outline"
+                          variant="ghost"
                           size="sm"
+                          icon={<PiPlus />}
                           disabled={!newJsonField.key.trim()}
                           onClick={addJsonField}
                         >
