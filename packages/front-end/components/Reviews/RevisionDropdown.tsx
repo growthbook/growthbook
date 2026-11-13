@@ -128,6 +128,7 @@ export default function RevisionDropdown({
   paginate = true,
   windowFromSelection = true,
   initialPageSize = 5,
+  disabled = false,
 }: {
   rows: RevisionDropdownRow[];
   selectedKey: string | null;
@@ -153,6 +154,7 @@ export default function RevisionDropdown({
   // the selected row sits (the feature published-only / drafts-only modes).
   windowFromSelection?: boolean;
   initialPageSize?: number;
+  disabled?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [extraShown, setExtraShown] = useState(0);
@@ -196,7 +198,8 @@ export default function RevisionDropdown({
   const trigger = (
     <Flex align="center" style={{ width: triggerWidth, overflow: "hidden" }}>
       <DetailsOnHover
-        details={open ? undefined : selectedRow?.details}
+        // Open, the menu covers it; disabled, the lock's reason shows instead.
+        details={open || disabled ? undefined : selectedRow?.details}
         side="bottom"
       >
         <Flex align="center" justify="between" gap="3" width="100%">
@@ -254,6 +257,7 @@ export default function RevisionDropdown({
       }
       menuWidth="full"
       menuPlacement={menuPlacement}
+      disabled={disabled}
     >
       {toggles}
       {shown.map((row) => (

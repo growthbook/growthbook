@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { ReactNode, useEffect } from "react";
 import { PiInfo } from "react-icons/pi";
 import { SDKLanguage } from "shared/types/sdk-connection";
 import {
@@ -13,7 +13,8 @@ import HelperText from "@/ui/HelperText";
 import Link from "@/ui/Link";
 import RadioGroup from "@/ui/RadioGroup";
 import Text from "@/ui/Text";
-import Tooltip from "@/components/Tooltip/Tooltip";
+import Tooltip from "@/ui/Tooltip";
+import { GBInfo } from "@/components/Icons";
 import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { isCloud } from "@/services/env";
@@ -22,6 +23,15 @@ import {
   DeliveryMode,
   shouldShowPayloadSecurity,
 } from "@/components/Features/SDKConnections/sdkConnectionRules";
+import {
+  SETTING_PREMIUM_TIP,
+  RemoteCipherOptionsLabel,
+  SETTING_TIP,
+  WithInfoIcon,
+} from "@/components/Features/SDKConnections/sdkConnectionSettingLabels";
+
+export const CIPHER_OPTIONS_TITLE = "Cipher Options";
+export const REMOTE_EVAL_OPTIONS_TITLE = "Remote Eval Options";
 
 export type PayloadSecurityValue = {
   delivery: DeliveryMode;
@@ -30,6 +40,279 @@ export type PayloadSecurityValue = {
   includeExperimentNames: boolean;
 };
 
+type FieldProps = {
+  value: PayloadSecurityValue;
+  onChange: (patch: Partial<PayloadSecurityValue>) => void;
+  languages: SDKLanguage[];
+  sdkVersion?: string;
+  // Rows that supply their own label.
+  hideLabel?: boolean;
+  // Read-only: the caller can't edit this connection.
+  disabled?: boolean;
+};
+
+function usePayloadSecurity(languages: SDKLanguage[], sdkVersion?: string) {
+  const { hasCommercialFeature } = useUser();
+  const currentCaps = getConnectionSDKCapabilities(
+    { languages, sdkVersion },
+    "min-ver-intersection",
+  );
+  const singleLanguage = languages.length === 1 ? languages[0] : undefined;
+  return {
+    allowed: shouldShowPayloadSecurity(languages),
+    hasEncryptionFeature: hasCommercialFeature("encrypt-features-endpoint"),
+    hasSecureAttributesFeature: hasCommercialFeature("hash-secure-attributes"),
+    hasRemoteEvaluationFeature: hasCommercialFeature("remote-evaluation"),
+    encryptionSupported: currentCaps.includes("encryption"),
+    remoteEvalSupported: currentCaps.includes("remoteEval"),
+    singleLanguage,
+    encryptionVersion: singleLanguage
+      ? getSDKCapabilityVersion(singleLanguage, "encryption")
+      : undefined,
+  };
+}
+
+function FieldLabel({ children }: { children: ReactNode }) {
+  return (
+    <Text as="div" weight="semibold" mb="2">
+      {children}
+    </Text>
+  );
+}
+
+const remoteEvalTooltip = (
+  <>
+    <Text as="p" mb="2">
+      <strong>Remote Evaluation</strong> fully secures your SDK by evaluating
+      feature flags exclusively on a private server instead of within a
+      front-end environment. This ensures that any sensitive information within
+      targeting rules or unused feature variations are never seen by the client.
+    </Text>
+    <Text as="p" mb="2">
+      Remote evaluation provides the same security benefits as a backend SDK.
+      However, remote evaluation is neither needed nor supported for backend
+      SDKs.
+    </Text>
+    <Text as="div" mb="2">
+      Remote evaluation does come with a few cost considerations:
+      <Flex asChild direction="column" gap="2" pl="4" mt="2">
+        <ol>
+          <li>
+            It will increase network traffic. Evaluated payloads cannot be
+            shared across different users; therefore CDN cache misses will
+            increase.
+          </li>
+          <li>
+            Any connections using Streaming Updates will incur a slight delay.
+            An additional network hop is required to retrieve the evaluated
+            payload from the server.
+          </li>
+        </ol>
+      </Flex>
+    </Text>
+  </>
+);
+
+type CipherOption = Pick<
+  Partial<PayloadSecurityValue>,
+  "encryptPayload" | "hashSecureAttributes"
+>;
+
+// Encrypting the payload and hashing secure attributes, wherever they're
+// offered.
+function CipherCheckboxes({
+  value,
+  setOption,
+  languages,
+  sdkVersion,
+  disabled,
+}: {
+  value: PayloadSecurityValue;
+  setOption: (patch: CipherOption) => void;
+  languages: SDKLanguage[];
+  sdkVersion?: string;
+  disabled: boolean;
+}) {
+  const {
+    hasEncryptionFeature,
+    hasSecureAttributesFeature,
+    encryptionSupported,
+    singleLanguage,
+    encryptionVersion,
+  } = usePayloadSecurity(languages, sdkVersion);
+  return (
+    <>
+      {encryptionSupported && (
+        <Checkbox
+          weight="regular"
+          value={value.encryptPayload}
+          disabled={disabled || !hasEncryptionFeature}
+          setValue={(v) => setOption({ encryptPayload: v })}
+          label={
+            <PremiumTooltip
+              commercialFeature="encrypt-features-endpoint"
+              {...SETTING_PREMIUM_TIP}
+              body={
+                <>
+                  <p>
+                    SDK payloads will be encrypted via the AES encryption
+                    algorithm. When evaluating feature flags in a public or
+                    insecure environment (such as a browser), encryption
+                    provides an additional layer of security through
+                    obfuscation. This allows you to target users based on
+                    sensitive attributes.
+                  </p>
+                  <HelperText status="warning" size="sm">
+                    When using an insecure environment, do not rely exclusively
+                    on payload encryption as a means of securing highly
+                    sensitive data. Because the client performs the decryption,
+                    the unencrypted payload may be extracted with sufficient
+                    effort.
+                  </HelperText>
+                </>
+              }
+            >
+              <WithInfoIcon>Encrypt payload</WithInfoIcon>
+            </PremiumTooltip>
+          }
+        />
+      )}
+      <Checkbox
+        weight="regular"
+        value={value.hashSecureAttributes}
+        disabled={disabled || !hasSecureAttributesFeature}
+        setValue={(v) => setOption({ hashSecureAttributes: v })}
+        label={
+          <PremiumTooltip
+            commercialFeature="hash-secure-attributes"
+            {...SETTING_PREMIUM_TIP}
+            body={
+              <>
+                <p>
+                  Feature targeting conditions referencing{" "}
+                  <code>secureString</code> attributes will be anonymized via
+                  SHA-256 hashing. When evaluating feature flags in a public or
+                  insecure environment (such as a browser), hashing provides an
+                  additional layer of security through obfuscation. This allows
+                  you to target users based on sensitive attributes.
+                </p>
+                <HelperText status="warning" size="sm">
+                  When using an insecure environment, do not rely exclusively on
+                  hashing as a means of securing highly sensitive data. Hashing
+                  is an obfuscation technique that makes it very difficult, but
+                  not impossible, to extract sensitive data.
+                </HelperText>
+              </>
+            }
+          >
+            <WithInfoIcon>Hash secure attributes</WithInfoIcon>
+          </PremiumTooltip>
+        }
+      />
+      {value.encryptPayload && !encryptionSupported && (
+        <Callout status="warning" size="sm">
+          Payload decryption may not be available in your current SDK.
+          {singleLanguage && encryptionVersion ? (
+            <>
+              {" "}
+              It was introduced in SDK version <code>{encryptionVersion}</code>.
+              The SDK version specified in this connection is{" "}
+              <code>{sdkVersion || getDefaultSDKVersion(singleLanguage)}</code>.
+            </>
+          ) : null}
+        </Callout>
+      )}
+    </>
+  );
+}
+
+// What a ciphered payload obscures.
+export function CipherOptionsField({
+  value,
+  onChange,
+  languages,
+  sdkVersion,
+  hideLabel = false,
+  disabled = false,
+}: FieldProps) {
+  if (!shouldShowPayloadSecurity(languages) || value.delivery !== "ciphered") {
+    return null;
+  }
+
+  // With neither option left, the payload is plain.
+  const setOption = (patch: CipherOption) => {
+    const next = { ...value, ...patch };
+    onChange(
+      next.encryptPayload || next.hashSecureAttributes
+        ? patch
+        : { ...patch, delivery: "plain" },
+    );
+  };
+
+  return (
+    <Box>
+      {!hideLabel && <FieldLabel>{CIPHER_OPTIONS_TITLE}</FieldLabel>}
+      <Flex direction="column" gap="3">
+        <CipherCheckboxes
+          value={value}
+          setOption={setOption}
+          languages={languages}
+          sdkVersion={sdkVersion}
+          disabled={disabled}
+        />
+      </Flex>
+    </Box>
+  );
+}
+
+// A remotely evaluated payload can still be encrypted or hashed on its way to
+// the service that evaluates it, though it rarely needs to be.
+export function RemoteEvalOptionsField({
+  value,
+  onChange,
+  languages,
+  sdkVersion,
+  hideLabel = false,
+  disabled = false,
+}: FieldProps) {
+  if (!shouldShowPayloadSecurity(languages) || value.delivery !== "remote") {
+    return null;
+  }
+
+  return (
+    <Box>
+      {!hideLabel && <FieldLabel>{REMOTE_EVAL_OPTIONS_TITLE}</FieldLabel>}
+      <Flex direction="column" gap="3">
+        {/* As a field's label above its control. */}
+        <Text as="div" size="md" weight="semibold">
+          <RemoteCipherOptionsLabel />
+        </Text>
+        <CipherCheckboxes
+          value={value}
+          setOption={onChange}
+          languages={languages}
+          sdkVersion={sdkVersion}
+          disabled={disabled}
+        />
+        {isCloud() && (
+          <Callout status="info" size="sm">
+            Cloud customers must self-host a remote evaluation service such as{" "}
+            <Link
+              href="https://github.com/growthbook/growthbook-proxy"
+              external
+            >
+              GrowthBook Proxy
+            </Link>{" "}
+            or a CDN edge worker.
+          </Callout>
+        )}
+      </Flex>
+    </Box>
+  );
+}
+
+// How the payload is delivered. Its cipher and remote evaluation options are
+// their own fields, beneath it.
 export default function PayloadSecurityField({
   value,
   onChange,
@@ -37,40 +320,15 @@ export default function PayloadSecurityField({
   sdkVersion,
   hideLabel = false,
   disabled = false,
-}: {
-  value: PayloadSecurityValue;
-  onChange: (patch: Partial<PayloadSecurityValue>) => void;
-  languages: SDKLanguage[];
-  sdkVersion?: string;
-  hideLabel?: boolean;
-  // Read-only: the caller can't edit this connection.
-  disabled?: boolean;
-}) {
-  const { hasCommercialFeature } = useUser();
-  const hasEncryptionFeature = hasCommercialFeature(
-    "encrypt-features-endpoint",
-  );
-  const hasSecureAttributesFeature = hasCommercialFeature(
-    "hash-secure-attributes",
-  );
-  const hasRemoteEvaluationFeature = hasCommercialFeature("remote-evaluation");
+}: FieldProps) {
+  const {
+    allowed,
+    hasEncryptionFeature,
+    hasSecureAttributesFeature,
+    hasRemoteEvaluationFeature,
+    remoteEvalSupported,
+  } = usePayloadSecurity(languages, sdkVersion);
 
-  const currentCaps = getConnectionSDKCapabilities(
-    { languages, sdkVersion },
-    "min-ver-intersection",
-  );
-  const encryptionSupported = currentCaps.includes("encryption");
-  const remoteEvalSupported = currentCaps.includes("remoteEval");
-  const remoteEvalLatestSupported = getConnectionSDKCapabilities(
-    { languages, sdkVersion },
-    "max-ver-intersection",
-  ).includes("remoteEval");
-  const singleLanguage = languages.length === 1 ? languages[0] : undefined;
-  const encryptionVersion = singleLanguage
-    ? getSDKCapabilityVersion(singleLanguage, "encryption")
-    : undefined;
-
-  const allowed = shouldShowPayloadSecurity(languages);
   useEffect(() => {
     if (
       !allowed &&
@@ -93,170 +351,6 @@ export default function PayloadSecurityField({
   ]);
   if (!allowed) return null;
 
-  const cipherOptions = (
-    <Box>
-      <Text as="div" size="md" weight="medium" mb="2">
-        Cipher Options
-      </Text>
-      <Flex direction="column" gap="3">
-        {encryptionSupported && (
-          <Checkbox
-            weight="regular"
-            value={value.encryptPayload}
-            disabled={disabled || !hasEncryptionFeature}
-            setValue={(v) => onChange({ encryptPayload: v })}
-            label={
-              <PremiumTooltip
-                commercialFeature="encrypt-features-endpoint"
-                body={
-                  <>
-                    <p>
-                      SDK payloads will be encrypted via the AES encryption
-                      algorithm. When evaluating feature flags in a public or
-                      insecure environment (such as a browser), encryption
-                      provides an additional layer of security through
-                      obfuscation. This allows you to target users based on
-                      sensitive attributes.
-                    </p>
-                    <HelperText status="warning" size="sm">
-                      When using an insecure environment, do not rely
-                      exclusively on payload encryption as a means of securing
-                      highly sensitive data. Because the client performs the
-                      decryption, the unencrypted payload may be extracted with
-                      sufficient effort.
-                    </HelperText>
-                  </>
-                }
-              >
-                Encrypt payload <PiInfo />
-              </PremiumTooltip>
-            }
-          />
-        )}
-        <Checkbox
-          weight="regular"
-          value={value.hashSecureAttributes}
-          disabled={disabled || !hasSecureAttributesFeature}
-          setValue={(v) => onChange({ hashSecureAttributes: v })}
-          label={
-            <PremiumTooltip
-              commercialFeature="hash-secure-attributes"
-              body={
-                <>
-                  <p>
-                    Feature targeting conditions referencing{" "}
-                    <code>secureString</code> attributes will be anonymized via
-                    SHA-256 hashing. When evaluating feature flags in a public
-                    or insecure environment (such as a browser), hashing
-                    provides an additional layer of security through
-                    obfuscation. This allows you to target users based on
-                    sensitive attributes.
-                  </p>
-                  <HelperText status="warning" size="sm">
-                    When using an insecure environment, do not rely exclusively
-                    on hashing as a means of securing highly sensitive data.
-                    Hashing is an obfuscation technique that makes it very
-                    difficult, but not impossible, to extract sensitive data.
-                  </HelperText>
-                </>
-              }
-            >
-              Hash secure attributes <PiInfo />
-            </PremiumTooltip>
-          }
-        />
-        {value.encryptPayload && !encryptionSupported && (
-          <Callout status="warning" size="sm">
-            Payload decryption may not be available in your current SDK.
-            {singleLanguage && encryptionVersion ? (
-              <>
-                {" "}
-                It was introduced in SDK version{" "}
-                <code>{encryptionVersion}</code>. The SDK version specified in
-                this connection is{" "}
-                <code>
-                  {sdkVersion || getDefaultSDKVersion(singleLanguage)}
-                </code>
-                .
-              </>
-            ) : null}
-          </Callout>
-        )}
-      </Flex>
-    </Box>
-  );
-
-  const remoteEvalTooltip = (
-    <>
-      <Text as="p" mb="2">
-        <strong>Remote Evaluation</strong> fully secures your SDK by evaluating
-        feature flags exclusively on a private server instead of within a
-        front-end environment. This ensures that any sensitive information
-        within targeting rules or unused feature variations are never seen by
-        the client.
-      </Text>
-      <Text as="p" mb="2">
-        Remote evaluation provides the same security benefits as a backend SDK.
-        However, remote evaluation is neither needed nor supported for backend
-        SDKs.
-      </Text>
-      <Text as="div" mb="2">
-        Remote evaluation does come with a few cost considerations:
-        <ol style={{ paddingLeft: "1rem", marginTop: "0.5rem" }}>
-          <li style={{ marginBottom: "0.5rem" }}>
-            It will increase network traffic. Evaluated payloads cannot be
-            shared across different users; therefore CDN cache misses will
-            increase.
-          </li>
-          <li>
-            Any connections using Streaming Updates will incur a slight delay.
-            An additional network hop is required to retrieve the evaluated
-            payload from the server.
-          </li>
-        </ol>
-      </Text>
-    </>
-  );
-
-  const remoteOptions = remoteEvalSupported ? (
-    <Box>
-      <Text as="div" size="md" weight="medium" mb="2">
-        Remote Evaluation Options
-      </Text>
-      <Checkbox
-        weight="regular"
-        value={value.delivery === "remote"}
-        disabled={
-          disabled || !hasRemoteEvaluationFeature || !remoteEvalLatestSupported
-        }
-        setValue={(v) =>
-          onChange({
-            delivery: v
-              ? "remote"
-              : value.encryptPayload || value.hashSecureAttributes
-                ? "ciphered"
-                : "plain",
-          })
-        }
-        label={
-          <PremiumTooltip
-            commercialFeature="remote-evaluation"
-            tipMinWidth="600px"
-            body={remoteEvalTooltip}
-          >
-            Use remote evaluation <PiInfo />
-          </PremiumTooltip>
-        }
-      />
-    </Box>
-  ) : null;
-
-  const activeCipherOptions = [
-    value.encryptPayload && "Encrypt payload",
-    value.hashSecureAttributes && "Hash secure attributes",
-    !value.includeExperimentNames && "Hide experiment and variation names",
-  ].filter(Boolean) as string[];
-
   const options = [
     {
       value: "plain",
@@ -264,15 +358,17 @@ export default function PayloadSecurityField({
         <Flex as="span" align="center" gap="1">
           Plain Text
           <Tooltip
-            body={
-              <p>
-                Full feature definitions, including targeting conditions and
-                experiment variations, are viewable by anyone with the Client
-                Key.
-              </p>
-            }
+            content="Full feature definitions, including targeting conditions and experiment variations, are viewable by anyone with the Client Key."
+            {...SETTING_TIP}
           >
-            <PiInfo />
+            <Box
+              as="span"
+              display="inline-block"
+              tabIndex={0}
+              aria-label="More information"
+            >
+              <PiInfo />
+            </Box>
           </Tooltip>
         </Flex>
       ),
@@ -285,16 +381,17 @@ export default function PayloadSecurityField({
           <Flex as="span" align="center" gap="1">
             Ciphered
             <Tooltip
-              body={
-                <p>
-                  Full feature definitions are encrypted and sensitive targeting
-                  conditions are hashed to help avoid leaking business logic to
-                  client-side apps. Not 100% secure, but will stop most prying
-                  eyes.
-                </p>
-              }
+              content="Full feature definitions are encrypted and sensitive targeting conditions are hashed to help avoid leaking business logic to client-side apps. Not 100% secure, but will stop most prying eyes."
+              {...SETTING_TIP}
             >
-              <PiInfo />
+              <Box
+                as="span"
+                display="inline-block"
+                tabIndex={0}
+                aria-label="More information"
+              >
+                <PiInfo />
+              </Box>
             </Tooltip>
           </Flex>
           {!hasEncryptionFeature && (
@@ -303,12 +400,6 @@ export default function PayloadSecurityField({
         </Flex>
       ),
       description: "Adds obfuscation while remaining cacheable",
-      renderOnSelect: (
-        <Flex direction="column" gap="3" mt="2">
-          {cipherOptions}
-          {remoteOptions}
-        </Flex>
-      ),
     },
     ...(remoteEvalSupported
       ? [
@@ -317,42 +408,15 @@ export default function PayloadSecurityField({
             label: (
               <PremiumTooltip
                 commercialFeature="remote-evaluation"
+                {...SETTING_PREMIUM_TIP}
                 tipMinWidth="600px"
                 body={remoteEvalTooltip}
               >
-                Remote Evaluated <PiInfo />
+                <WithInfoIcon>Remote Evaluated</WithInfoIcon>
               </PremiumTooltip>
             ),
             description: "Completely hides business logic from users",
             disabled: !hasRemoteEvaluationFeature,
-            renderOnSelect: (
-              <Flex direction="column" gap="3" mt="2">
-                {cipherOptions}
-                {remoteOptions}
-                {isCloud() && (
-                  <Callout status="info" size="sm">
-                    Cloud customers must self-host a remote evaluation service
-                    such as{" "}
-                    <Link
-                      href="https://github.com/growthbook/growthbook-proxy"
-                      external
-                    >
-                      GrowthBook Proxy
-                    </Link>{" "}
-                    or a CDN edge worker.
-                  </Callout>
-                )}
-                {activeCipherOptions.length > 0 && (
-                  <Callout status="warning" size="sm">
-                    <strong>{activeCipherOptions.join(", ")}</strong>{" "}
-                    {activeCipherOptions.length === 1 ? "is" : "are"} not
-                    recommended for most remote evaluation configurations and{" "}
-                    {activeCipherOptions.length === 1 ? "is" : "are"} a more
-                    advanced use case.
-                  </Callout>
-                )}
-              </Flex>
-            ),
           },
         ]
       : []),
@@ -363,7 +427,19 @@ export default function PayloadSecurityField({
       {!hideLabel && (
         <Flex align="center" gap="1" mb="2">
           <Text weight="semibold">Payload Security</Text>
-          <Tooltip body="How much of the feature definition the SDK receives, and whether it can be cached." />
+          <Tooltip
+            content="How much of the feature definition the SDK receives, and whether it can be cached."
+            {...SETTING_TIP}
+          >
+            <Box
+              as="span"
+              display="inline-block"
+              tabIndex={0}
+              aria-label="More information about Payload Security"
+            >
+              <GBInfo />
+            </Box>
+          </Tooltip>
         </Flex>
       )}
       <RadioGroup

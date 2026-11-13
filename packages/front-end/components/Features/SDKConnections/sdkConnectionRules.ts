@@ -52,6 +52,8 @@ export type SDKConnectionAdvancedValue = {
   // GrowthBook Proxy
   proxyEnabled: boolean;
   proxyHost: string;
+  // Traces
+  tracesEnabled: boolean;
 };
 
 export function advancedValueFromConnection(
@@ -73,6 +75,7 @@ export function advancedValueFromConnection(
     includeDraftExperiments: !!c?.includeDraftExperiments,
     proxyEnabled: !!c?.proxy?.enabled,
     proxyHost: c?.proxy?.host ?? "",
+    tracesEnabled: !!c?.tracesEnabled,
   };
 }
 
@@ -138,5 +141,6 @@ export function sanitizeAdvancedForSave(
     proxyEnabled: v.proxyEnabled,
     // Kept while the proxy is off so re-enabling it doesn't mean retyping it.
     proxyHost: v.proxyHost,
+    tracesEnabled: v.tracesEnabled,
   };
 }

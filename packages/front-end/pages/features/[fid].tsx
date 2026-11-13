@@ -30,9 +30,8 @@ import { FeatureRevisionsContext } from "@/contexts/FeatureRevisionsContext";
 import { DetailsPanelLayout, useDetailsPanel } from "@/components/DetailsPanel";
 import FeatureDetailsPanel from "@/components/Features/FeatureDetailsPanel";
 import { SCHEDULE_EDIT_LOCK_REASON } from "@/components/Features/ScheduleLock";
-import RevisionStatusBar, {
-  REVISION_STATUS_BAR_HEIGHT_PX,
-} from "@/components/Features/RevisionStatusBar";
+import RevisionStatusBar from "@/components/Features/RevisionStatusBar";
+import { REVISION_STATUS_BAR_HEIGHT_PX } from "@/components/Reviews/RevisionStatusBarView";
 import { getRevisionStatus } from "@/services/revisionStatus";
 import {
   TABS_BAR_HEIGHT_PX,
@@ -398,7 +397,7 @@ export default function FeaturePage() {
           />
         }
       >
-        <div className="feature-column">
+        <div className="details-column">
           {tab === "overview" && (
             <FeaturesOverviewNew
               baseFeature={baseFeature}

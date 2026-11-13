@@ -53,7 +53,8 @@ export default function SavedGroupFormatField({
 
   return (
     <SelectField
-      size="sm"
+      size="md"
+      containerStyle={{ marginBottom: 0 }}
       label={
         hideLabel ? undefined : (
           <SavedGroupReferencesLabel remoteEvalEnabled={remoteEvalEnabled} />

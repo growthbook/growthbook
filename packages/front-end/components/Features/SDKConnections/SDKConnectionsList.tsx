@@ -18,6 +18,7 @@ import Badge from "@/ui/Badge";
 import Button from "@/ui/Button";
 import { capitalizeFirstLetter } from "@/services/utils";
 import Callout from "@/ui/Callout";
+import Heading from "@/ui/Heading";
 import { Popover } from "@/ui/Popover";
 import Tooltip from "@/ui/Tooltip";
 import { ExperimentDot } from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
@@ -74,8 +75,10 @@ export default function SDKConnectionsList() {
       )}
 
       <Flex align="center" justify="between" gap="3" mt="4" mb="2">
-        <Box style={{ flex: 1 }}>
-          <h1>SDK Connections</h1>
+        <Box flexGrow="1">
+          <Heading as="h1" size="xl">
+            SDK Connections
+          </Heading>
         </Box>
         {canCreateSDKConnections && connections.length > 0 ? (
           <Button onClick={() => setModalOpen(true)}>Add SDK Connection</Button>

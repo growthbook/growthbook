@@ -1,15 +1,21 @@
-import { ReactNode, useEffect, useId, useRef, useState } from "react";
-import { PiCaretDown } from "react-icons/pi";
-import { SavedGroupFormat, SDKLanguage } from "shared/types/sdk-connection";
+import { ReactNode, useId, useState } from "react";
+import { useFeatureIsOn } from "@growthbook/growthbook-react";
+import {
+  SavedGroupFormat,
+  SDKConnectionInterface,
+  SDKLanguage,
+} from "shared/types/sdk-connection";
+import type { AppFeatures } from "shared/types/app-features";
 import { getConnectionSDKCapabilities } from "shared/sdk-versioning";
 import { Box, Flex } from "@radix-ui/themes";
 import Checkbox from "@/ui/Checkbox";
 import Heading from "@/ui/Heading";
 import MultiSelectField from "@/ui/MultiSelectField";
 import Text from "@/ui/Text";
-import TextField from "@/ui/TextField";
+import Field from "@/components/Forms/Field";
 import { useCustomFields } from "@/hooks/useCustomFields";
 import { isCloud } from "@/services/env";
+import AdvancedSection from "@/components/AdvancedSection";
 import { SDKConnectionAdvancedValue } from "@/components/Features/SDKConnections/sdkConnectionRules";
 import SavedGroupFormatField from "@/components/Features/SDKConnections/SavedGroupFormatField";
 import {
@@ -108,6 +114,10 @@ export function MetadataSettings({ value, onChange, disabled }: GroupProps) {
   const customFields = useCustomFields();
   return (
     <>
+      {/* As a field's label above its control. */}
+      <Text as="div" size="md" weight="semibold">
+        {SETTING_TITLES.includeMetadata}
+      </Text>
       <Checkbox
         weight="regular"
         disabled={disabled}
@@ -206,6 +216,30 @@ export function ObservabilitySettings({
   );
 }
 
+export const TRACES_TITLE = "Accept traces";
+
+// Shown while its flag is on, or wherever traces are already accepted.
+export function useShowTraces(
+  connection?: Pick<SDKConnectionInterface, "tracesEnabled">,
+): boolean {
+  return (
+    useFeatureIsOn<AppFeatures>("trace-ingest") || !!connection?.tracesEnabled
+  );
+}
+
+export function TracesSettings({ value, onChange, disabled }: GroupProps) {
+  return (
+    <Checkbox
+      weight="regular"
+      disabled={disabled}
+      value={value.tracesEnabled}
+      setValue={(v) => onChange({ tracesEnabled: v })}
+      label={TRACES_TITLE}
+      description="Lets OpenTelemetry exporters send traces to GrowthBook with this connection's client key. Client keys aren't secret, so anyone with this one can send traces."
+    />
+  );
+}
+
 // Self-hosted configures the proxy via env vars, so this is cloud-only.
 export function ProxySettings({ value, onChange, disabled }: GroupProps) {
   const proxyHostId = useId();
@@ -219,9 +253,10 @@ export function ProxySettings({ value, onChange, disabled }: GroupProps) {
         setValue={(v) => onChange({ proxyEnabled: v })}
       />
       {value.proxyEnabled && (
-        <TextField
+        <Field
           id={proxyHostId}
           type="url"
+          containerStyle={{ marginBottom: 0 }}
           placeholder="https://"
           disabled={disabled}
           value={value.proxyHost}
@@ -257,34 +292,8 @@ export default function SDKConnectionAdvancedSettings({
   storedSavedGroupFormat?: SavedGroupFormat;
 }) {
   const { showSavedGroups } = useCapabilities(languages, sdkVersion);
-
+  const showTraces = useShowTraces();
   const [open, setOpen] = useState(false);
-  const panelId = useId();
-  const ref = useRef<HTMLDivElement>(null);
-  // Scrolls only the modal's scroll viewport: `scrollIntoView` also scrolls the
-  // scroll area's clipped root, shifting the viewport and leaving a blank band.
-  useEffect(() => {
-    const panel = ref.current;
-    const viewport = panel?.closest<HTMLElement>(
-      "[data-radix-scroll-area-viewport]",
-    );
-    if (!open || !panel || !viewport) return;
-    const p = panel.getBoundingClientRect();
-    const v = viewport.getBoundingClientRect();
-    const overflow = p.bottom - v.bottom;
-    if (overflow <= 0) return;
-    viewport.scrollBy({
-      top: Math.min(overflow, p.top - v.top - 8),
-      behavior: "smooth",
-    });
-  }, [open]);
-
-  const categories = [
-    CATEGORY_TITLES.experiments,
-    ...(showSavedGroups ? [CATEGORY_TITLES.savedGroups] : []),
-    CATEGORY_TITLES.payloadMetadata,
-    CATEGORY_TITLES.observability,
-  ];
 
   return (
     <>
@@ -294,101 +303,50 @@ export default function SDKConnectionAdvancedSettings({
         </Category>
       )}
 
-      <Box
-        ref={ref}
-        style={{
-          border: "1px solid var(--gray-a5)",
-          borderRadius: 8,
-          overflow: "hidden",
-          scrollMarginTop: 8,
-        }}
-      >
-        <Flex
-          align="center"
-          justify="between"
-          gap="2"
-          px="3"
-          py="3"
-          onClick={() => setOpen((v) => !v)}
-          role="button"
-          aria-expanded={open}
-          aria-controls={panelId}
-          tabIndex={0}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" || e.key === " ") {
-              e.preventDefault();
-              setOpen((v) => !v);
-            }
-          }}
-          style={{
-            cursor: "pointer",
-            userSelect: "none",
-            background: "var(--gray-a2)",
-            borderBottom: open ? "1px solid var(--gray-a5)" : undefined,
-          }}
-        >
-          <Flex align="center" gap="2" wrap="wrap">
-            <Text size="md" weight="medium">
-              Advanced settings
-            </Text>
-            {!open && (
-              <Text size="sm" color="text-mid">
-                {categories.join(" · ")}
-              </Text>
-            )}
-          </Flex>
-          <PiCaretDown
-            size={16}
-            style={{
-              color: "var(--gray-11)",
-              transition: "transform 180ms ease",
-              transform: open ? "rotate(180deg)" : "rotate(0deg)",
-              flexShrink: 0,
-            }}
-          />
+      <AdvancedSection open={open} setOpen={setOpen}>
+        <Flex direction="column" gap="5">
+          <Category title={CATEGORY_TITLES.experiments}>
+            <ExperimentSettings
+              value={value}
+              onChange={onChange}
+              languages={languages}
+              sdkVersion={sdkVersion}
+            />
+          </Category>
+
+          {showSavedGroups && (
+            <Category title={CATEGORY_TITLES.savedGroups}>
+              <SavedGroupFormatField
+                value={value.savedGroupFormat}
+                onChange={(savedGroupFormat) => onChange({ savedGroupFormat })}
+                languages={languages}
+                sdkVersion={sdkVersion}
+                remoteEvalEnabled={remoteEvalEnabled}
+                storedFormat={storedSavedGroupFormat}
+              />
+            </Category>
+          )}
+
+          <Category title={CATEGORY_TITLES.payloadMetadata}>
+            <MetadataSettings value={value} onChange={onChange} />
+          </Category>
+
+          <Category title={CATEGORY_TITLES.observability}>
+            <ObservabilitySettings
+              value={value}
+              onChange={onChange}
+              languages={languages}
+              sdkVersion={sdkVersion}
+            />
+          </Category>
+
+          {showTraces && (
+            <Category title="Traces">
+              <TracesSettings value={value} onChange={onChange} />
+            </Category>
+          )}
         </Flex>
-        {/* Kept mounted so the aria-controls target always exists. */}
-        <Box id={panelId} p="3" hidden={!open}>
-          <Flex direction="column" gap="5">
-            <Category title={CATEGORY_TITLES.experiments}>
-              <ExperimentSettings
-                value={value}
-                onChange={onChange}
-                languages={languages}
-                sdkVersion={sdkVersion}
-              />
-            </Category>
-
-            {showSavedGroups && (
-              <Category title={CATEGORY_TITLES.savedGroups}>
-                <SavedGroupFormatField
-                  value={value.savedGroupFormat}
-                  onChange={(savedGroupFormat) =>
-                    onChange({ savedGroupFormat })
-                  }
-                  languages={languages}
-                  sdkVersion={sdkVersion}
-                  remoteEvalEnabled={remoteEvalEnabled}
-                  storedFormat={storedSavedGroupFormat}
-                />
-              </Category>
-            )}
-
-            <Category title={CATEGORY_TITLES.payloadMetadata}>
-              <MetadataSettings value={value} onChange={onChange} />
-            </Category>
-
-            <Category title={CATEGORY_TITLES.observability}>
-              <ObservabilitySettings
-                value={value}
-                onChange={onChange}
-                languages={languages}
-                sdkVersion={sdkVersion}
-              />
-            </Category>
-          </Flex>
-        </Box>
-      </Box>
+      </AdvancedSection>
     </>
   );
 }

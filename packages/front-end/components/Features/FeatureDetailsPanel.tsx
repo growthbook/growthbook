@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Box, Flex, Separator } from "@radix-ui/themes";
+import { Flex, Separator } from "@radix-ui/themes";
 import { FeatureInterface } from "shared/types/feature";
 import {
   FeatureRevisionInterface,
@@ -15,22 +15,19 @@ import {
   CustomFieldRows,
   EmptyValue,
   HiddenProject,
+  MarkdownValue,
   OwnerField,
   PanelEditButton,
   PersonValue,
   ProjectField,
   TagsField,
 } from "@/components/DetailsPanelFields";
-import ExpandableText, {
-  ExpandableTextBody,
-} from "@/components/ExpandableText";
 import EditFeatureDescriptionModal from "@/components/Features/EditFeatureDescriptionModal";
 import EditFeatureInfoModal, {
   FeatureInfoSection,
   SECTION_HEADERS,
 } from "@/components/Features/EditFeatureInfoModalNew";
 import FeatureValueTypeDisplay from "@/components/Features/FeatureValueTypeDisplay";
-import Markdown from "@/components/Markdown/Markdown";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useAuth } from "@/services/auth";
 import EditRevisionDescriptionModal from "@/components/Reviews/EditRevisionDescriptionModal";
@@ -360,22 +357,5 @@ export default function FeatureDetailsPanel({
         </PanelSection>
       </DetailsPanel>
     </>
-  );
-}
-
-// Markdown cut off after its first lines. The row edits wherever it's
-// clicked, so only its "… expand" opens the rest.
-function MarkdownValue({ markdown }: { markdown?: string }) {
-  if (!markdown) return <EmptyValue />;
-  return (
-    <Box width="100%">
-      <ExpandableText expandOnClick={false}>
-        <ExpandableTextBody>
-          <Text as="div" size="sm" color="text-mid">
-            <Markdown>{markdown}</Markdown>
-          </Text>
-        </ExpandableTextBody>
-      </ExpandableText>
-    </Box>
   );
 }

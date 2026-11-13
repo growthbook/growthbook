@@ -1,8 +1,9 @@
 import { PiCheck, PiCopy } from "react-icons/pi";
-import clsx from "clsx";
-import { VisuallyHidden } from "@radix-ui/themes";
+import { Box, Flex, VisuallyHidden } from "@radix-ui/themes";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import { SimpleTooltip } from "@/components/SimpleTooltip/SimpleTooltip";
+import Text from "@/ui/Text";
+import Tooltip from "@/ui/Tooltip";
 
 type Props = {
   compact?: boolean;
@@ -24,51 +25,51 @@ export default function ClickToCopy({
   });
   const iconRight = iconPosition === "right";
   const copyButton = copySupported ? (
-    <button
-      type="button"
-      onClick={(e) => {
-        e.preventDefault();
-        if (valueToCopy) {
-          performCopy(valueToCopy);
-        } else if (children) {
-          performCopy(children);
-        }
-      }}
-      title="Copy to clipboard"
-      aria-label="Copy to clipboard"
-      style={{
-        display: "inline-flex",
-        padding: 0,
-        border: 0,
-        background: "none",
-        color: "var(--gray-11)",
-        fontSize: compact ? ".95rem" : "1rem",
-        cursor: "pointer",
-        ...(iconRight ? { marginLeft: 6 } : {}),
-      }}
-    >
-      {copySuccess ? <PiCheck /> : <PiCopy />}
-    </button>
+    <Tooltip content="Copy to clipboard">
+      <button
+        type="button"
+        onClick={(e) => {
+          e.preventDefault();
+          if (valueToCopy) {
+            performCopy(valueToCopy);
+          } else if (children) {
+            performCopy(children);
+          }
+        }}
+        aria-label="Copy to clipboard"
+        style={{
+          display: "inline-flex",
+          padding: 0,
+          border: 0,
+          background: "none",
+          color: "var(--gray-11)",
+          fontSize: compact ? ".95rem" : "1rem",
+          cursor: "pointer",
+          ...(iconRight ? { marginLeft: 6 } : {}),
+        }}
+      >
+        {copySuccess ? <PiCheck /> : <PiCopy />}
+      </button>
+    </Tooltip>
   ) : null;
   return (
-    <div
-      className={clsx("d-flex align-items-center position-relative", className)}
-    >
+    <Flex align="center" position="relative" className={className}>
       {!iconRight ? copyButton : null}
       {children ? (
-        <span
-          className={compact || iconRight ? "" : "ml-2"}
-          style={
-            compact ? { marginLeft: iconRight ? 0 : 2, lineHeight: 1.1 } : {}
-          }
+        <Box
+          as="span"
+          ml={iconRight ? undefined : compact ? "2px" : "2"}
+          style={compact ? { lineHeight: 1.1, fontSize: ".7rem" } : undefined}
         >
-          <code
-            className="text-main text-break"
-            style={compact ? { fontSize: ".7rem" } : {}}
+          <Text
+            mono
+            size={compact ? "inherit" : "sm"}
+            color="text-high"
+            overflowWrap="anywhere"
           >
             {children}
-          </code>
-        </span>
+          </Text>
+        </Box>
       ) : null}
       {iconRight ? copyButton : null}
 
@@ -78,6 +79,6 @@ export default function ClickToCopy({
       {copySuccess ? (
         <SimpleTooltip position="left">Copied to clipboard!</SimpleTooltip>
       ) : null}
-    </div>
+    </Flex>
   );
 }

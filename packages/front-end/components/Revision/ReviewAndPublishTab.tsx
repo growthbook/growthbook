@@ -6,7 +6,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { Box, Flex, IconButton } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import {
   Revision,
   checkMergeConflicts,
@@ -36,7 +36,6 @@ import {
   proposedArchivedValue,
 } from "shared/util";
 import { datetime } from "shared/dates";
-import { BsThreeDotsVertical } from "react-icons/bs";
 import { PiCaretDownBold, PiGitMergeBold, PiLockSimple } from "react-icons/pi";
 import { useUser } from "@/services/UserContext";
 import { useEnvironments } from "@/services/features";
@@ -55,6 +54,7 @@ import {
   DropdownMenu,
   DropdownMenuGroup,
   DropdownMenuItem,
+  MoreMenuTrigger,
 } from "@/ui/DropdownMenu";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import DiscardDraftModal from "@/components/Reviews/DiscardDraftModal";
@@ -1229,16 +1229,7 @@ function ReviewAndPublishRevision<T>({
           <Box ml="auto" style={{ marginRight: -6 }}>
             <DropdownMenu
               trigger={
-                <IconButton
-                  variant="ghost"
-                  color="gray"
-                  radius="full"
-                  size="2"
-                  highContrast
-                  style={{ margin: 0 }}
-                >
-                  <BsThreeDotsVertical size={16} />
-                </IconButton>
+                <MoreMenuTrigger label="Draft actions" style={{ margin: 0 }} />
               }
               open={actionsDropdownOpen}
               onOpenChange={setActionsDropdownOpen}
@@ -1289,10 +1280,7 @@ function ReviewAndPublishRevision<T>({
 
   // ── Read-only actions column (merged / discarded) ──
   const readonlyActionsColumn = (
-    <Box
-      className="appbox"
-      style={{ position: "sticky", top: 90, overflow: "hidden" }}
-    >
+    <Box className="appbox" style={{ overflow: "hidden" }}>
       {actionsColumnHeader}
       <Box p="4">
         {peopleSection}
@@ -1396,10 +1384,7 @@ function ReviewAndPublishRevision<T>({
 
   // ── Active-draft actions column ──
   const draftActionsColumn = (
-    <Box
-      className="appbox"
-      style={{ position: "sticky", top: 90, overflow: "hidden" }}
-    >
+    <Box className="appbox" style={{ overflow: "hidden" }}>
       {actionsColumnHeader}
       <Box p="4">
         {peopleSection}

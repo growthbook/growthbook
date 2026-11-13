@@ -5,19 +5,22 @@ import {
   getSDKCapabilityVersion,
 } from "shared/sdk-versioning";
 import {
+  isActiveDraftStatus,
   parseSdkWebhookSnapshot,
   SDKConnectionRevisionSnapshot,
   SDKConnectionSettingsRevisionSnapshot,
 } from "shared/validators";
 import { useRouter } from "next/router";
 import React, { useEffect, useMemo, useState } from "react";
-import { PiDotsThreeVertical } from "react-icons/pi";
-import { Box, Flex, IconButton } from "@radix-ui/themes";
+import { Box } from "@radix-ui/themes";
 import {
   Revision,
   applyTopLevelPatchOps,
+  getLiveRevision,
+  getRevisionNumberById,
   getSdkConnectionGoverningRules,
   getSdkConnectionReviewRules,
+  isScheduledPublishLockActive,
   sdkConnectionSettingsAfter,
 } from "shared/enterprise";
 import LoadingOverlay from "@/components/LoadingOverlay";
@@ -26,7 +29,6 @@ import CreateSDKConnectionModal from "@/components/Features/SDKConnections/Creat
 import SDKConnectionArchiveModal from "@/components/Features/SDKConnections/SDKConnectionArchiveModal";
 import CompareRevisionsModal from "@/components/Revision/CompareRevisionsModal";
 import SDKConnectionRevertModal from "@/components/Features/SDKConnections/SDKConnectionRevertModal";
-import CodeSnippetModal from "@/components/Features/CodeSnippetModal";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import useApi from "@/hooks/useApi";
 import { useSDKConnectionRevision } from "@/hooks/useSDKConnectionRevision";
@@ -35,21 +37,29 @@ import SdkWebhooks from "@/components/Features/SDKConnections/SdkWebhooks";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useUser } from "@/services/UserContext";
-import SDKConnectionCredentialsCard from "@/components/Features/SDKConnections/SDKConnectionCredentialsCard";
-import SDKConnectionSetup from "@/components/Features/SDKConnections/SDKConnectionSetup";
-import SDKConnectionDetailsRail from "@/components/Features/SDKConnections/SDKConnectionDetailsRail";
+import SDKConnectionOverview from "@/components/Features/SDKConnections/SDKConnectionOverview";
+import SDKConnectionDetailsPanel from "@/components/Features/SDKConnections/SDKConnectionDetailsPanel";
+import SDKConnectionEditsBar from "@/components/Features/SDKConnections/SDKConnectionEditsBar";
+import { useSdkConnectionStagedEdits } from "@/components/Features/SDKConnections/useSdkConnectionStagedEdits";
+import Tooltip from "@/ui/Tooltip";
+import SDKConnectionEditModal from "@/components/Features/SDKConnections/SDKConnectionEditModal";
 import { canBypassSdkConnectionApproval } from "@/components/Features/SDKConnections/edit-modals/useSdkConnectionRevisionFlow";
 import Badge from "@/ui/Badge";
 import Callout from "@/ui/Callout";
-import Heading from "@/ui/Heading";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/ui/Tabs";
-import ConfirmDialog from "@/ui/ConfirmDialog";
+import { TabsTrigger } from "@/ui/Tabs";
 import RevisionDropdown from "@/components/Revision/RevisionDropdown";
-import RevisionSummaryCard from "@/components/Revision/RevisionSummaryCard";
+import RevisionStatusBar, {
+  hasRevisionStatus,
+} from "@/components/Revision/RevisionStatusBar";
 import ReviewAndPublishTab from "@/components/Revision/ReviewAndPublishTab";
+import { getStatusBadge } from "@/components/Revision/revisionUtils";
+import RevisionLabel from "@/components/Reviews/RevisionLabel";
+import NewDraftButton from "@/components/Reviews/NewDraftButton";
+import { REVISION_STATUS_BAR_HEIGHT_PX } from "@/components/Reviews/RevisionStatusBarView";
+import { SCHEDULE_EDIT_LOCK_REASON } from "@/components/Features/ScheduleLock";
 import { REVISION_SDK_CONNECTION_DIFF_CONFIG } from "@/components/Features/SDKConnections/SDKConnectionDiffRenders";
 import {
-  DropdownMenu,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuSeparator,
 } from "@/ui/DropdownMenu";
@@ -59,17 +69,23 @@ import { docUrl } from "@/components/DocLink";
 import { languageMapping } from "@/components/Features/SDKConnections/SDKLanguageLogo";
 import { PayloadSizeCallout } from "@/components/Features/SDKConnections/PayloadSizeNotices";
 import { capitalizeFirstLetter } from "@/services/utils";
-import CollapsiblePanelLayout, {
-  DetailsPanelToggle,
-  PANEL_WIDTH_PX,
-} from "@/components/CollapsiblePanelLayout";
+import { DetailsPanelLayout, useDetailsPanel } from "@/components/DetailsPanel";
 import {
-  NARROW_LAYOUT_BREAKPOINT_PX,
+  DetailsPageActions,
+  DetailsPageMenu,
+  DetailsPageTabs,
+  DetailsPageTitleBar,
+  REVISION_SELECTOR_WIDTH_PX,
+  ReviewTabCount,
+  TabCount,
+} from "@/components/Layout/DetailsPageHeader";
+import {
+  TABS_BAR_HEIGHT_PX,
   TABS_HEADER_HEIGHT_PX,
 } from "@/components/Layout/constants";
-import ScrollArea from "@/ui/ScrollArea";
-import { useLocalStorage } from "@/hooks/useLocalStorage";
-import useMediaQuery from "@/hooks/useMediaQuery";
+
+const SDK_CONNECTION_TABS = ["overview", "webhooks", "review"] as const;
+type SDKConnectionTab = (typeof SDK_CONNECTION_TABS)[number];
 
 // Webhooks are required: an empty list reads as "every webhook was added" and
 // flags a false conflict.
@@ -130,6 +146,9 @@ function flattenConnection(
     }),
     ...(connection.remoteEvalEnabled !== undefined && {
       remoteEvalEnabled: connection.remoteEvalEnabled,
+    }),
+    ...(connection.tracesEnabled !== undefined && {
+      tracesEnabled: connection.tracesEnabled,
     }),
     ...(connection.savedGroupReferencesEnabled !== undefined && {
       savedGroupReferencesEnabled: connection.savedGroupReferencesEnabled,
@@ -208,43 +227,56 @@ export default function SDKConnectionPage() {
 
   const { apiCall } = useAuth();
   const permissionsUtil = usePermissionsUtil();
-  const { user, hasCommercialFeature } = useUser();
+  const { user, userId, hasCommercialFeature } = useUser();
   const settings = useOrgSettings();
 
   const [duplicateSource, setDuplicateSource] =
     useState<SDKConnectionInterface | null>(null);
   const [dropdownOpen, setDropdownOpen] = useState(false);
-  const [confirmNewDraft, setConfirmNewDraft] = useState(false);
   const [showArchiveModal, setShowArchiveModal] = useState(false);
   const [showCompareModal, setShowCompareModal] = useState(false);
   const [revisionToRevert, setRevisionToRevert] = useState<Revision | null>(
     null,
   );
-  const [activeTab, setActiveTab] = useState<string>("overview");
-  // As on the experiment page: open state and width are remembered, and when
-  // narrow the panel opens only on request, over the content.
-  // The layout's footer, which the Setup rows' save bar renders into.
-  const [saveBarSlot, setSaveBarSlot] = useState<HTMLDivElement | null>(null);
-  const [detailsOpen, setDetailsOpen] = useLocalStorage(
-    "sdk-connection-details-panel-open",
-    true,
-  );
-  const [detailsWidth, setDetailsWidth] = useLocalStorage(
-    "sdk-connection-details-panel-width",
-    PANEL_WIDTH_PX,
-  );
-  const narrow = useMediaQuery(`(max-width: ${NARROW_LAYOUT_BREAKPOINT_PX}px)`);
-  const [openWhileNarrow, setOpenWhileNarrow] = useState(false);
-  useEffect(() => setOpenWhileNarrow(false), [narrow]);
-  const [detailsShown, setDetailsShown]: [boolean, (open: boolean) => void] =
-    narrow
-      ? [openWhileNarrow, setOpenWhileNarrow]
-      : [detailsOpen, setDetailsOpen];
-  // The toggle is a fresh start: a width dragged out earlier is forgotten.
-  const toggleDetailsPanel = (open: boolean) => {
-    setDetailsWidth(PANEL_WIDTH_PX);
-    setDetailsShown(open);
+  const [renaming, setRenaming] = useState(false);
+
+  const [tab, setTab] = useState<SDKConnectionTab>("overview");
+  const setTabAndScroll = (next: SDKConnectionTab) => {
+    setTab(next);
+    void router.push(
+      { pathname: router.pathname, query: router.query, hash: next },
+      undefined,
+      { shallow: true },
+    );
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
+  useEffect(() => {
+    const hash = new URL(router.asPath, "http://x").hash.slice(1);
+    const next = SDK_CONNECTION_TABS.find((t) => t === hash);
+    if (next) setTab(next);
+  }, [router.asPath]);
+
+  // Open state is remembered per connection; width is a global preference.
+  const details = useDetailsPanel({
+    openKey: `sdk-connection-details-panel-open__${sdkid}`,
+    widthKey: "sdk-connection-details-panel-width",
+    tab,
+    homeTab: ["overview", "webhooks"],
+  });
+
+  // Its message wraps, so what sticks beneath it reads its real height.
+  const [statusBarEl, setStatusBarEl] = useState<HTMLDivElement | null>(null);
+  const [statusBarHeight, setStatusBarHeight] = useState(
+    REVISION_STATUS_BAR_HEIGHT_PX,
+  );
+  useEffect(() => {
+    if (!statusBarEl) return;
+    const observer = new ResizeObserver(([entry]) =>
+      setStatusBarHeight(entry.borderBoxSize[0].blockSize),
+    );
+    observer.observe(statusBarEl);
+    return () => observer.disconnect();
+  }, [statusBarEl]);
 
   const connection: SDKConnectionInterface | undefined =
     data?.connections?.find((conn) => conn.id === sdkid);
@@ -269,11 +301,6 @@ export default function SDKConnectionPage() {
     mutateWebhooks();
   };
 
-  const revisionState = useSDKConnectionRevision(
-    connection?.id,
-    mutateLive,
-    connection,
-  );
   const {
     selectedApprovalFlow: selectedRevision,
     selectedApprovalFlowId: selectedRevisionId,
@@ -285,9 +312,10 @@ export default function SDKConnectionPage() {
     handlePublish,
     handleReopen,
     mutateApprovalFlows: mutateRevisions,
-  } = revisionState;
+  } = useSDKConnectionRevision(connection?.id, mutateLive, connection);
 
   const hasRevisions = allRevisions.length > 0;
+  const liveRevision = getLiveRevision(allRevisions) ?? null;
 
   // Same rules the server checks: the live and destination scopes, minus
   // exemptions.
@@ -336,20 +364,15 @@ export default function SDKConnectionPage() {
           : [],
       ));
 
-  const displayRevision = useMemo(() => {
-    if (selectedRevision) return selectedRevision;
-    return [...allRevisions]
-      .filter((r) => r.status === "merged")
-      .sort(
-        (a, b) =>
-          new Date(b.dateUpdated).getTime() - new Date(a.dateUpdated).getTime(),
-      )[0];
-  }, [selectedRevision, allRevisions]);
-
   const displayedConnection = useMemo(() => {
     if (!connection) return undefined;
     return buildDisplayedConnection(connection, selectedRevision ?? null);
   }, [connection, selectedRevision]);
+
+  const staged = useSdkConnectionStagedEdits(
+    displayedConnection,
+    selectedRevisionId,
+  );
 
   const liveSnapshot = useMemo(
     () =>
@@ -359,30 +382,21 @@ export default function SDKConnectionPage() {
     [connection, webhookData],
   );
 
-  const saveRevisionTitle = async (title: string) => {
-    if (!selectedRevision) return;
-    await apiCall(`/revision/${selectedRevision.id}/title`, {
-      method: "PATCH",
-      body: JSON.stringify({ title }),
-    });
-    await mutateRevisions();
-  };
-
   if (error) {
     return (
-      <div className="contents container pagecontents">
+      <Box className="contents container-fluid pagecontents" pt="4">
         <Callout status="error">{error.message}</Callout>
-      </div>
+      </Box>
     );
   }
   if (!data) {
     return <LoadingOverlay />;
   }
-  if (!connection) {
+  if (!connection || !liveSnapshot || !staged) {
     return (
-      <div className="contents container pagecontents">
+      <Box className="contents container-fluid pagecontents" pt="4">
         <Callout status="error">Invalid SDK Connection id</Callout>
-      </div>
+      </Box>
     );
   }
 
@@ -393,13 +407,18 @@ export default function SDKConnectionPage() {
     !connection.managedBy?.type;
   const isExternallyManaged = !!connection.managedBy?.type;
 
-  const showRevisionUI = hasRevisions;
-
-  const displayedConn = showRevisionUI
-    ? (displayedConnection ?? connection)
-    : connection;
-  const displayedName = displayedConn.name;
-  const displayedArchived = !!displayedConn.archived;
+  const displayedConn = displayedConnection ?? connection;
+  const viewingDraft =
+    !!selectedRevision && isActiveDraftStatus(selectedRevision.status);
+  // Edits land on an open draft, or on a new one cut from live; any other
+  // revision (discarded or superseded) is history.
+  const isReadOnly = !!selectedRevision && !viewingDraft;
+  const editBlockedReason =
+    viewingDraft &&
+    isScheduledPublishLockActive(selectedRevision) &&
+    selectedRevision.scheduledPublishLockEdits
+      ? SCHEDULE_EDIT_LOCK_REASON
+      : null;
 
   const supportsBucketingV2 =
     getConnectionSDKCapabilities(displayedConn).includes("bucketingV2");
@@ -411,25 +430,159 @@ export default function SDKConnectionPage() {
     ? languageMapping[displayedConn.languages[0]]?.docs
     : undefined;
 
-  const revisionCard = (
-    <RevisionSummaryCard
-      allRevisions={allRevisions}
-      selectedRevision={selectedRevision}
+  const revisionNumbers = getRevisionNumberById(allRevisions);
+  const panelRevision = selectedRevision ?? liveRevision;
+
+  const showsStatusBar =
+    tab === "overview" &&
+    hasRevisionStatus(selectedRevision, liveRevision, allRevisions);
+  const stickyTop =
+    TABS_HEADER_HEIGHT_PX +
+    TABS_BAR_HEIGHT_PX +
+    (showsStatusBar ? statusBarHeight : 0);
+
+  const revisionProps = {
+    onRevisionCreated,
+    openRevisions,
+    allRevisions,
+    selectedRevision,
+    onSelectRevision: selectFlow,
+    approvalRequired,
+    canAutoPublish,
+    metadataReviewRequired,
+  };
+
+  const newDraft = canUpdate ? (
+    <NewDraftButton
       entityNoun="SDK Connection"
-      hasRevisions={hasRevisions}
-      canEditTitle={canUpdate}
-      canEditDescription={canUpdate}
-      fallbackOwnerId=""
-      fallbackDateCreated={new Date(connection.dateCreated)}
-      onSelectRevision={selectFlow}
-      onTitleCommit={saveRevisionTitle}
-      onNewDraft={canUpdate ? () => setConfirmNewDraft(true) : undefined}
-      onReviewPublish={() => setActiveTab("review")}
+      activeDraftCount={openRevisions.length}
+      nextVersion={
+        Math.max(
+          0,
+          ...allRevisions.map((r) => revisionNumbers.get(r.id) ?? 0),
+        ) + 1
+      }
+      basedOn={
+        liveRevision ? (
+          <>
+            <Text as="span" size="inherit" weight="semibold" color="text-high">
+              <RevisionLabel
+                version={revisionNumbers.get(liveRevision.id) ?? 1}
+                title={liveRevision.title}
+                numbered={!!liveRevision.title}
+                minWidth={0}
+                numberSize="inherit"
+              />
+            </Text>{" "}
+            {getStatusBadge("live", approvalRequired)}
+          </>
+        ) : (
+          <>the live SDK Connection</>
+        )
+      }
+      create={async ({ title, comment }) => {
+        const res = await apiCall<{ revision?: Revision }>(
+          `/sdk-connections/${connection.id}?forceCreateRevision=1`,
+          { method: "PUT", body: JSON.stringify({}) },
+        );
+        const revision = res?.revision;
+        if (!revision) return;
+        if (title) {
+          await apiCall(`/revision/${revision.id}/title`, {
+            method: "PATCH",
+            body: JSON.stringify({ title }),
+          });
+        }
+        if (comment) {
+          await apiCall(`/revision/${revision.id}/description`, {
+            method: "PATCH",
+            body: JSON.stringify({ description: comment }),
+          });
+        }
+        await Promise.all([mutateRevisions(), mutate()]);
+        selectFlow(revision);
+      }}
     />
-  );
+  ) : null;
+
+  const menu =
+    canUpdate || canDuplicate || canDelete || allRevisions.length >= 2 ? (
+      <DetailsPageMenu
+        open={dropdownOpen}
+        onOpenChange={setDropdownOpen}
+        disabledReason={
+          staged.dirty ? "Save or discard your changes first." : null
+        }
+      >
+        {allRevisions.length >= 2 && (
+          <>
+            <DropdownMenuGroup>
+              <DropdownMenuItem
+                onClick={() => {
+                  setShowCompareModal(true);
+                  setDropdownOpen(false);
+                }}
+              >
+                Compare revisions
+              </DropdownMenuItem>
+            </DropdownMenuGroup>
+            <DropdownMenuSeparator />
+          </>
+        )}
+        <DropdownMenuGroup>
+          {canDuplicate && (
+            <DropdownMenuItem
+              onClick={() => {
+                setDuplicateSource(connection);
+                setDropdownOpen(false);
+              }}
+            >
+              Duplicate
+            </DropdownMenuItem>
+          )}
+          {canUpdate && !isExternallyManaged && (
+            <DropdownMenuItem
+              onClick={() => {
+                setDropdownOpen(false);
+                setShowArchiveModal(true);
+              }}
+            >
+              {connection.archived ? "Unarchive" : "Archive"}
+            </DropdownMenuItem>
+          )}
+        </DropdownMenuGroup>
+        {/* Under an approval rule, live must be archived before deleting. */}
+        {canDelete && (connection.archived || !approvalRequired) && (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuGroup>
+              <DropdownMenuItem
+                color="red"
+                confirmation={{
+                  confirmationTitle: "Delete SDK Connection",
+                  cta: "Delete",
+                  getConfirmationContent: async () =>
+                    "Are you sure? This will permanently delete the SDK connection and any associated session recordings will no longer be accessible.",
+                  submit: async () => {
+                    await apiCall(`/sdk-connections/${connection.id}`, {
+                      method: "DELETE",
+                    });
+                    mutate();
+                    router.push(`/sdks`);
+                  },
+                  closeDropdown: () => setDropdownOpen(false),
+                }}
+              >
+                Delete
+              </DropdownMenuItem>
+            </DropdownMenuGroup>
+          </>
+        )}
+      </DetailsPageMenu>
+    ) : null;
 
   return (
-    <div className="contents container pagecontents">
+    <>
       {duplicateSource && (
         <CreateSDKConnectionModal
           close={() => setDuplicateSource(null)}
@@ -452,12 +605,9 @@ export default function SDKConnectionPage() {
         />
       )}
 
-      {revisionToRevert && liveSnapshot && (
+      {revisionToRevert && (
         <SDKConnectionRevertModal
-          liveSnapshot={{
-            ...(liveSnapshot as SDKConnectionRevisionSnapshot),
-            id: connection.id,
-          }}
+          liveSnapshot={{ ...liveSnapshot, id: connection.id }}
           revision={revisionToRevert}
           allRevisions={allRevisions}
           diffConfig={REVISION_SDK_CONNECTION_DIFF_CONFIG}
@@ -474,7 +624,7 @@ export default function SDKConnectionPage() {
 
       {showCompareModal && (
         <CompareRevisionsModal<SDKConnectionRevisionSnapshot>
-          liveEntity={liveSnapshot as SDKConnectionRevisionSnapshot}
+          liveEntity={liveSnapshot}
           entityId={connection.id}
           diffConfig={REVISION_SDK_CONNECTION_DIFF_CONFIG}
           currentRevisionId={selectedRevisionId}
@@ -484,275 +634,229 @@ export default function SDKConnectionPage() {
         />
       )}
 
-      {confirmNewDraft && (
-        <ConfirmDialog
-          title="Create New Draft"
-          content="Create a new draft to make changes to this SDK connection. The live version stays unchanged until the draft is published."
-          yesText="Create Draft"
-          onCancel={() => setConfirmNewDraft(false)}
-          onConfirm={async () => {
-            const res = await apiCall<{
-              status: number;
-              requiresApproval?: boolean;
-              revision?: Revision;
-            }>(`/sdk-connections/${connection.id}?forceCreateRevision=1`, {
-              method: "PUT",
-              body: JSON.stringify({}),
-            });
-            if (res?.revision) {
-              await Promise.all([mutateRevisions(), mutate()]);
-              selectFlow(res.revision);
-            }
-            setConfirmNewDraft(false);
-          }}
+      {renaming && (
+        <SDKConnectionEditModal
+          connection={displayedConn}
+          mutate={mutate}
+          close={() => setRenaming(false)}
+          {...revisionProps}
         />
       )}
 
       <PageHead
         breadcrumb={[
           { display: "SDK Connections", href: "/sdks" },
-          { display: displayedName },
+          { display: displayedConn.name },
         ]}
       />
 
-      {connection.managedBy?.type ? (
-        <div className="mb-2">
-          <Badge
-            label={`Managed by ${capitalizeFirstLetter(
-              connection.managedBy.type,
-            )}`}
+      <DetailsPageTitleBar
+        title={displayedConn.name}
+        onRename={canUpdate && !isReadOnly ? () => setRenaming(true) : null}
+        renameBlockedReason={
+          staged.dirty
+            ? "Save or discard your changes first."
+            : editBlockedReason
+        }
+        badges={
+          <>
+            {connection.connected ? (
+              <Badge color="green" variant="solid" label="Connected" />
+            ) : (
+              <>
+                <Badge color="gray" variant="soft" label="Not connected" />
+                {canUpdate && <Link onClick={() => mutate()}>Retry</Link>}
+              </>
+            )}
+            {connection.managedBy?.type ? (
+              <Badge
+                label={`Managed by ${capitalizeFirstLetter(
+                  connection.managedBy.type,
+                )}`}
+              />
+            ) : null}
+          </>
+        }
+        actions={
+          <DetailsPageActions
+            // A draft's way to review is on the status bar under the tabs,
+            // and staged edits have their own way to a draft.
+            newDraft={viewingDraft || staged.dirty ? null : newDraft}
+            menu={menu}
           />
-        </div>
-      ) : null}
-
-      <Flex align="start" justify="between" gap="2" mb="2">
-        <Flex align="center" gap="3" style={{ marginTop: "-4px" }}>
-          <Heading size="xl" as="h1" mb="0">
-            {displayedName}
-          </Heading>
-          {connection.connected ? (
-            <Badge color="green" variant="solid" label="Connected" />
-          ) : (
-            <>
-              <Badge color="gray" variant="soft" label="Not connected" />
-              {canUpdate && <Link onClick={() => mutate()}>Retry</Link>}
-            </>
-          )}
-          {displayedArchived && <Badge label="Archived" color="gray" />}
-        </Flex>
-        <Flex align="center" gap="4" pr="2">
-          {showRevisionUI && (
-            <RevisionDropdown
-              entityId={connection.id}
-              allRevisions={allRevisions}
-              selectedRevisionId={selectedRevisionId}
-              onSelectRevision={selectFlow}
-              requiresApproval={approvalRequired}
-              context="header"
-            />
-          )}
-          {(canUpdate || canDuplicate || canDelete) && (
-            <DropdownMenu
-              trigger={
-                <IconButton
-                  variant="ghost"
-                  color="gray"
-                  radius="full"
-                  size="2"
-                  highContrast
-                >
-                  <PiDotsThreeVertical size={16} />
-                </IconButton>
-              }
-              menuPlacement="end"
-              open={dropdownOpen}
-              onOpenChange={setDropdownOpen}
+        }
+      >
+        {connection.archived ? (
+          <Callout status="info" mt="3">
+            <strong>This SDK Connection is archived.</strong> It serves no
+            payload.
+          </Callout>
+        ) : displayedConn.archived ? (
+          <Callout status="warning" mt="3">
+            <strong>This draft will archive the SDK Connection.</strong> Once
+            published it will serve no payload.
+          </Callout>
+        ) : null}
+        <PayloadSizeCallout connection={connection} mt="3" mb="0" />
+        {!supportsBucketingV2 && (
+          <Callout status="warning" mt="3">
+            <Text weight="semibold">
+              Upgrade to {bucketingV2IntroducedVersion}+ for V2 hashing.
+            </Text>{" "}
+            Until then, new experiments in this connection&apos;s projects fall
+            back to V1.{" "}
+            <Link
+              href={docUrl(sdkDocSection ?? "sdks")}
+              target="_blank"
+              rel="noopener noreferrer"
             >
-              {canDuplicate && (
-                <>
-                  <DropdownMenuItem
-                    onClick={() => {
-                      setDuplicateSource(connection);
-                      setDropdownOpen(false);
-                    }}
-                  >
-                    Duplicate
-                  </DropdownMenuItem>
-                </>
-              )}
-              {canUpdate && !isExternallyManaged && (
-                <>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem
-                    onClick={() => {
-                      setDropdownOpen(false);
-                      setShowArchiveModal(true);
-                    }}
-                  >
-                    {connection.archived ? "Unarchive" : "Archive"}
-                  </DropdownMenuItem>
-                </>
-              )}
-              {/* Under an approval rule, LIVE must be archived before deleting. */}
-              {canDelete && (connection.archived || !approvalRequired) && (
-                <DropdownMenuItem
-                  color="red"
-                  confirmation={{
-                    confirmationTitle: "Delete SDK Connection",
-                    cta: "Delete",
-                    getConfirmationContent: async () =>
-                      "Are you sure? This will permanently delete the SDK connection and any associated session recordings will no longer be accessible.",
-                    submit: async () => {
-                      await apiCall(`/sdk-connections/${connection.id}`, {
-                        method: "DELETE",
-                      });
-                      mutate();
-                      router.push(`/sdks`);
-                    },
-                    closeDropdown: () => setDropdownOpen(false),
-                  }}
-                >
-                  Delete
-                </DropdownMenuItem>
-              )}
-            </DropdownMenu>
-          )}
-        </Flex>
-      </Flex>
+              View docs
+            </Link>
+          </Callout>
+        )}
+      </DetailsPageTitleBar>
 
-      <PayloadSizeCallout connection={connection} mt="3" mb="0" />
-      {!supportsBucketingV2 && (
-        <Callout status="warning" mt="3">
-          <Text weight="semibold">
-            Upgrade to {bucketingV2IntroducedVersion}+ for V2 hashing.
-          </Text>{" "}
-          Until then, new experiments in this connection&apos;s projects fall
-          back to V1.{" "}
-          <Link
-            href={docUrl(sdkDocSection ?? "sdks")}
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            View docs
-          </Link>
-        </Callout>
-      )}
-
-      <Tabs value={activeTab} onValueChange={setActiveTab} mt="4">
-        <Flex align="center">
-          <Box flexGrow="1" minWidth="0">
-            <TabsList>
-              <TabsTrigger value="overview">Overview</TabsTrigger>
-              <TabsTrigger value="webhooks">Webhooks</TabsTrigger>
-              <TabsTrigger value="implementation">Implementation</TabsTrigger>
-              {showRevisionUI && (
-                <TabsTrigger value="review">Review &amp; Publish</TabsTrigger>
-              )}
-            </TabsList>
-          </Box>
-          {activeTab === "overview" && (
-            <DetailsPanelToggle
-              open={detailsShown}
-              setOpen={toggleDetailsPanel}
-            />
-          )}
-        </Flex>
-        {/* The Review & Publish tab renders its own revision header, and
-            Overview puts it beside the details panel. */}
-        {showRevisionUI &&
-          activeTab !== "review" &&
-          activeTab !== "overview" && <Box mt="4">{revisionCard}</Box>}
-        {/* Through the container's padding, so the panel meets the window's
-            edge and stays stuck to the bottom, and the layout's clip leaves
-            room for the cards' shadows. */}
-        <TabsContent
-          value="overview"
-          style={{ marginLeft: -15, marginRight: -15, marginBottom: -15 }}
-        >
-          <CollapsiblePanelLayout
-            open={detailsShown}
-            top={TABS_HEADER_HEIGHT_PX}
-            width={detailsWidth}
-            onWidthChange={setDetailsWidth}
-            onCollapse={() => setDetailsShown(false)}
-            footer={<div ref={setSaveBarSlot} />}
-            panel={
-              <ScrollArea fill style={{ height: "100%" }}>
-                <Box px="5" py="2">
-                  <SDKConnectionDetailsRail
-                    connection={displayedConn}
-                    webhookCount={webhookData?.webhooks?.length ?? 0}
-                    onOpenWebhooks={() => setActiveTab("webhooks")}
-                  />
-                </Box>
-              </ScrollArea>
-            }
-          >
-            {/* No wrapper around the card: its draft banner sticks within this
-                column, so it stays pinned the whole way down. */}
-            <Box
-              pt={showRevisionUI ? "4" : "0"}
-              pb="6"
-              // The container's padding, given back where the panel isn't.
-              style={{
-                paddingLeft: 15,
-                paddingRight: detailsShown ? "var(--space-5)" : 15,
-              }}
+      <DetailsPageTabs
+        value={tab}
+        onValueChange={(value) => setTabAndScroll(value as SDKConnectionTab)}
+        triggers={
+          <>
+            <TabsTrigger value="overview">Overview</TabsTrigger>
+            <TabsTrigger value="webhooks">
+              Webhooks
+              <TabCount count={webhookData?.webhooks?.length ?? 0} />
+            </TabsTrigger>
+            <TabsTrigger value="review">
+              Review &amp; Publish
+              <ReviewTabCount statuses={allRevisions.map((r) => r.status)} />
+            </TabsTrigger>
+          </>
+        }
+        revisionPicker={
+          hasRevisions ? (
+            // Held while edits are staged, which belong to the viewed revision.
+            <Tooltip
+              content="Save or discard your changes first."
+              enabled={staged.dirty}
             >
-              {showRevisionUI && revisionCard}
-              <Box mt="5">
-                <Heading size="lg" as="h2" mb="3">
-                  Keys
-                </Heading>
-                <SDKConnectionCredentialsCard
-                  connection={displayedConn}
-                  canUpdate={canUpdate}
-                  mutate={mutate}
-                />
-              </Box>
-              <Box mt="6">
-                <SDKConnectionSetup
-                  // Starts over from the viewed state when the revision or the
-                  // saved connection changes.
-                  key={`${selectedRevisionId ?? "live"}-${String(displayedConn.dateUpdated)}`}
-                  connection={displayedConn}
-                  mutate={mutate}
-                  canUpdate={canUpdate}
-                  saveBarSlot={saveBarSlot}
-                  onRevisionCreated={onRevisionCreated}
-                  openRevisions={openRevisions}
+              <div>
+                <RevisionDropdown
+                  entityId={connection.id}
                   allRevisions={allRevisions}
-                  selectedRevision={selectedRevision}
+                  selectedRevisionId={selectedRevisionId}
                   onSelectRevision={selectFlow}
-                  approvalRequired={approvalRequired}
-                  canAutoPublish={canAutoPublish}
-                  metadataReviewRequired={metadataReviewRequired}
+                  requiresApproval={approvalRequired}
+                  context="header"
+                  width={REVISION_SELECTOR_WIDTH_PX}
+                  disabled={staged.dirty}
                 />
-              </Box>
-            </Box>
-          </CollapsiblePanelLayout>
-        </TabsContent>
-        <TabsContent value="webhooks">
-          <Box mt="4">
-            <SdkWebhooks
-              connection={connection}
-              approvalRequired={
-                approvalRequired || selectedRevisionRequiresApproval
-              }
-              onRevisionCreated={onRevisionCreated}
-              selectedRevision={showRevisionUI ? selectedRevision : null}
-            />
-          </Box>
-        </TabsContent>
-        {showRevisionUI && (
-          <TabsContent value="review">
-            <Box mt="4">
-              <ReviewAndPublishTab<SDKConnectionRevisionSnapshot>
-                revision={selectedRevision ?? displayRevision ?? null}
+              </div>
+            </Tooltip>
+          ) : null
+        }
+        detailsOpen={details.open}
+        setDetailsOpen={details.toggle}
+        statusBar={
+          showsStatusBar ? (
+            <div ref={setStatusBarEl}>
+              <RevisionStatusBar<SDKConnectionRevisionSnapshot>
+                selectedRevision={selectedRevision}
+                liveRevision={liveRevision}
                 allRevisions={allRevisions}
-                currentState={liveSnapshot as SDKConnectionRevisionSnapshot}
+                liveSnapshot={liveSnapshot}
                 diffConfig={REVISION_SDK_CONNECTION_DIFF_CONFIG}
-                entityName={displayedName}
+                entityNoun="SDK Connection"
+                requiresApproval={selectedRevisionRequiresApproval}
+                canDiscard={canUpdate || selectedRevision?.authorId === userId}
+                onSelectRevision={selectFlow}
+                onReviewPublish={() => setTabAndScroll("review")}
+                onDiscard={handleDiscard}
+              />
+            </div>
+          ) : null
+        }
+      />
+
+      <DetailsPanelLayout
+        details={details}
+        stickyTop={stickyTop}
+        footer={
+          staged.dirty && canUpdate && !isReadOnly ? (
+            <SDKConnectionEditsBar
+              connection={displayedConn}
+              staged={staged}
+              draft={viewingDraft ? selectedRevision : null}
+              openRevisions={openRevisions}
+              allRevisions={allRevisions}
+              onRevisionCreated={onRevisionCreated}
+              onSelectRevision={selectFlow}
+              mutate={async () => {
+                await Promise.all([mutateRevisions(), mutate()]);
+              }}
+            />
+          ) : null
+        }
+        panel={
+          <SDKConnectionDetailsPanel
+            connection={displayedConn}
+            webhookCount={webhookData?.webhooks?.length ?? 0}
+            onEditWebhooks={
+              canUpdate ? () => setTabAndScroll("webhooks") : null
+            }
+            editWebhooksBlockedReason={
+              staged.dirty ? "Save or discard your changes first." : null
+            }
+            revision={panelRevision}
+            allRevisions={allRevisions}
+            isLive={!selectedRevision}
+            requiresApproval={approvalRequired}
+            canEditRevision={canUpdate}
+            onRenameRevision={async (title) => {
+              if (!selectedRevision) return;
+              await apiCall(`/revision/${selectedRevision.id}/title`, {
+                method: "PATCH",
+                body: JSON.stringify({ title }),
+              });
+              await mutateRevisions();
+            }}
+            onDescribeRevision={async (description) => {
+              if (!selectedRevision) return;
+              await apiCall(`/revision/${selectedRevision.id}/description`, {
+                method: "PATCH",
+                body: JSON.stringify({ description }),
+              });
+              await mutateRevisions();
+            }}
+            tab={details.panelTab}
+            setTab={details.setPanelTab}
+          />
+        }
+      >
+        <div className="details-column">
+          <Box className="contents container-fluid pagecontents">
+            {tab === "overview" && (
+              <SDKConnectionOverview
+                // Starts over from what's saved when the viewed revision changes.
+                key={selectedRevisionId ?? "live"}
+                connection={displayedConn}
+                staged={staged}
+                canEdit={canUpdate && !isReadOnly}
+                blockedReason={editBlockedReason}
+                connections={data.connections.map((c) =>
+                  c.id === displayedConn.id ? displayedConn : c,
+                )}
+                mutate={async () => {
+                  await Promise.all([mutateRevisions(), mutate()]);
+                }}
+              />
+            )}
+            {tab === "review" && (
+              <ReviewAndPublishTab<SDKConnectionRevisionSnapshot>
+                revision={selectedRevision ?? liveRevision}
+                allRevisions={allRevisions}
+                currentState={liveSnapshot}
+                diffConfig={REVISION_SDK_CONNECTION_DIFF_CONFIG}
+                entityName={displayedConn.name}
                 entityNoun="SDK Connection"
                 requiresApproval={selectedRevisionRequiresApproval}
                 reviewRules={selectedRevisionReviewRules}
@@ -772,22 +876,20 @@ export default function SDKConnectionPage() {
                   ]);
                 }}
               />
-            </Box>
-          </TabsContent>
-        )}
-        <TabsContent value="implementation">
-          <Box mt="4">
-            <CodeSnippetModal
-              connections={data.connections.map((c) =>
-                c.id === displayedConn.id ? displayedConn : c,
-              )}
-              mutateConnections={mutate}
-              sdkConnection={displayedConn}
-              inline={true}
-            />
+            )}
+            {tab === "webhooks" && (
+              <SdkWebhooks
+                connection={connection}
+                approvalRequired={
+                  approvalRequired || selectedRevisionRequiresApproval
+                }
+                onRevisionCreated={onRevisionCreated}
+                selectedRevision={selectedRevision}
+              />
+            )}
           </Box>
-        </TabsContent>
-      </Tabs>
-    </div>
+        </div>
+      </DetailsPanelLayout>
+    </>
   );
 }

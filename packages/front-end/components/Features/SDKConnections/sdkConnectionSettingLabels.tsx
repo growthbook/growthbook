@@ -1,7 +1,9 @@
+import { ReactNode } from "react";
 import { PiInfo } from "react-icons/pi";
+import { Box } from "@radix-ui/themes";
 import { SavedGroupFormat } from "shared/types/sdk-connection";
 import HelperText from "@/ui/HelperText";
-import Tooltip from "@/components/Tooltip/Tooltip";
+import Tooltip from "@/ui/Tooltip";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { DocLink } from "@/components/DocLink";
 
@@ -21,11 +23,15 @@ export const SETTING_TITLES = {
   urlRedirect: "Enable URL Redirect experiments",
   hideNames: "Hide names from payload",
   savedGroupReferences: "Pass Saved Groups by reference",
+  passByReference: "Pass by reference",
   prerequisites: "Always include prerequisite Feature Flags",
-  projectIds: "Include Project IDs",
-  customFields: "Include Custom Fields",
-  tags: "Include tags",
-  scheduleDates: "Include experiment schedule dates",
+  remoteCipherOptions: "Advanced",
+  // Under an "Include" label.
+  includeMetadata: "Include",
+  projectIds: "Project IDs",
+  customFields: "Custom Fields",
+  tags: "Tags",
+  scheduleDates: "Experiment schedule dates",
   ruleIds: "Include feature rule IDs in payload",
   draftRules: "Include draft Experiment rules in feature definitions",
   draftExperiments: "Include draft Visual Editor and URL Redirect experiments",
@@ -38,6 +44,55 @@ export const SAVED_GROUP_FORMAT_LABELS: Record<SavedGroupFormat, string> = {
   referencesV1: "ID Lists only",
   referencesV2: "All Saved Groups",
 };
+
+// A setting's tips open beside it and close as the pointer leaves, so moving
+// down the form reaches the next one.
+export const SETTING_TIP = {
+  side: "right",
+  disableHoverableContent: true,
+} as const;
+export const SETTING_PREMIUM_TIP = {
+  tipPosition: "right",
+  popperStyle: { pointerEvents: "none" },
+} as const;
+
+// A label and its info icon as one run of text, spaced as words are whatever
+// lays out what holds it (a PremiumTooltip's row gaps its children).
+export function WithInfoIcon({ children }: { children: ReactNode }) {
+  return (
+    <span>
+      {children}{" "}
+      <Box as="span" display="inline-block">
+        <PiInfo />
+      </Box>
+    </span>
+  );
+}
+
+function InfoTooltip({ content }: { content: ReactNode }) {
+  return (
+    <Tooltip content={content} {...SETTING_TIP}>
+      <Box
+        as="span"
+        display="inline-block"
+        tabIndex={0}
+        aria-label="More information"
+      >
+        <PiInfo />
+      </Box>
+    </Tooltip>
+  );
+}
+
+// Over the cipher options a remotely evaluated payload can still have.
+export function RemoteCipherOptionsLabel() {
+  return (
+    <>
+      {SETTING_TITLES.remoteCipherOptions}{" "}
+      <InfoTooltip content="Rarely needed with remote evaluation, since the full payload never reaches the client." />
+    </>
+  );
+}
 
 export function VisualEditorLabel() {
   return (
@@ -61,8 +116,8 @@ export function HideNamesLabel() {
   return (
     <>
       {SETTING_TITLES.hideNames}{" "}
-      <Tooltip
-        body={
+      <InfoTooltip
+        content={
           <>
             <p>
               Strips every <code>experiment.name</code> and per-variation{" "}
@@ -81,9 +136,7 @@ export function HideNamesLabel() {
             </p>
           </>
         }
-      >
-        <PiInfo />
-      </Tooltip>
+      />
     </>
   );
 }
@@ -96,6 +149,7 @@ export function SavedGroupReferencesLabel({
   return (
     <PremiumTooltip
       commercialFeature="large-saved-groups"
+      {...SETTING_PREMIUM_TIP}
       body={
         <>
           <p>
@@ -114,7 +168,7 @@ export function SavedGroupReferencesLabel({
         </>
       }
     >
-      {SETTING_TITLES.savedGroupReferences} <PiInfo />
+      <WithInfoIcon>{SETTING_TITLES.passByReference}</WithInfoIcon>
     </PremiumTooltip>
   );
 }
@@ -123,17 +177,7 @@ export function PrerequisitesLabel() {
   return (
     <>
       {SETTING_TITLES.prerequisites}{" "}
-      <Tooltip
-        body={
-          <p className="mb-0">
-            Deliver prerequisite Feature Flags that target other Projects.
-            Without them, the Feature Flags they gate are always off. Only
-            applies when this connection filters by Project.
-          </p>
-        }
-      >
-        <PiInfo />
-      </Tooltip>
+      <InfoTooltip content="Deliver prerequisite Feature Flags that target other Projects. Without them, the Feature Flags they gate are always off. Only applies when this connection filters by Project." />
     </>
   );
 }
@@ -142,8 +186,8 @@ export function ProjectIdsLabel() {
   return (
     <>
       {SETTING_TITLES.projectIds}{" "}
-      <Tooltip
-        body={
+      <InfoTooltip
+        content={
           <>
             <p>
               When enabled, each feature and experiment in the SDK payload will
@@ -157,9 +201,7 @@ export function ProjectIdsLabel() {
             </p>
           </>
         }
-      >
-        <PiInfo />
-      </Tooltip>
+      />
     </>
   );
 }
@@ -168,17 +210,15 @@ export function CustomFieldsLabel() {
   return (
     <>
       {SETTING_TITLES.customFields}{" "}
-      <Tooltip
-        body={
+      <InfoTooltip
+        content={
           <p>
             Select specific custom field values to include in the{" "}
             <code>metadata.customFields</code> object for each feature and
             experiment.
           </p>
         }
-      >
-        <PiInfo />
-      </Tooltip>
+      />
     </>
   );
 }
@@ -187,17 +227,15 @@ export function TagsLabel() {
   return (
     <>
       {SETTING_TITLES.tags}{" "}
-      <Tooltip
-        body={
+      <InfoTooltip
+        content={
           <>
             When enabled, all feature tags will be included in the{" "}
             <code>metadata.tags</code> array for each feature in the SDK
             payload.
           </>
         }
-      >
-        <PiInfo />
-      </Tooltip>
+      />
     </>
   );
 }
@@ -206,17 +244,15 @@ export function ScheduleDatesLabel() {
   return (
     <>
       {SETTING_TITLES.scheduleDates}{" "}
-      <Tooltip
-        body={
+      <InfoTooltip
+        content={
           <>
             When enabled, an experiment&apos;s scheduled start/end are included
             as <code>metadata.startDate</code> and <code>metadata.endDate</code>{" "}
             on its experiment-ref rules in the SDK payload.
           </>
         }
-      >
-        <PiInfo />
-      </Tooltip>
+      />
     </>
   );
 }
@@ -225,17 +261,15 @@ export function DraftRulesLabel() {
   return (
     <>
       {SETTING_TITLES.draftRules}{" "}
-      <Tooltip
-        body={
+      <InfoTooltip
+        content={
           <p>
             When enabled, experiment-ref rules linked to draft experiments will
             be included in the SDK payload. We recommend only enabling this for
             non-production environments.
           </p>
         }
-      >
-        <PiInfo />
-      </Tooltip>
+      />
     </>
   );
 }
@@ -244,8 +278,8 @@ export function DraftExperimentsLabel() {
   return (
     <>
       {SETTING_TITLES.draftExperiments}{" "}
-      <Tooltip
-        body={
+      <InfoTooltip
+        content={
           <>
             <p>
               In-development auto experiments will be sent to the SDK. We
@@ -253,21 +287,19 @@ export function DraftExperimentsLabel() {
             </p>
             <p>
               To force into a variation, use a URL query string such as{" "}
-              <code style={{ display: "block" }}>?my-experiment-key=2</code>
+              <code>?my-experiment-key=2</code>
             </p>
           </>
         }
-      >
-        <PiInfo />
-      </Tooltip>
+      />
     </>
   );
 }
 
 export function ProxyHostTooltip() {
   return (
-    <Tooltip
-      body={
+    <InfoTooltip
+      content={
         <>
           <p>
             Optionally add your proxy&apos;s public URL to enable faster
@@ -280,8 +312,6 @@ export function ProxyHostTooltip() {
           </p>
         </>
       }
-    >
-      <PiInfo />
-    </Tooltip>
+    />
   );
 }

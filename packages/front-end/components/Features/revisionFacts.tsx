@@ -12,7 +12,22 @@ import {
 import EventUser from "@/components/Avatar/EventUser";
 import Text from "@/ui/Text";
 
-type RevisionFact = { label: string; value: ReactNode };
+export type RevisionFact = { label: string; value: ReactNode };
+
+// A member as revision details draw people; a key acting as itself by its name.
+export function revisionActorValue(
+  user: EventUserType,
+  person: (id: string) => ReactNode,
+): ReactNode {
+  const personId = eventUserPersonId(user);
+  return personId ? (
+    person(personId)
+  ) : (
+    <Text size="sm" color="text-mid">
+      <EventUser user={user} display="avatar-name" size="xs" />
+    </Text>
+  );
+}
 
 // What a revision's details say about it, in order, wherever they're listed.
 export function revisionFacts(
@@ -35,17 +50,7 @@ export function revisionFacts(
     });
   }
 
-  // A member as the list draws people; a key acting as itself by its name.
-  const actor = (user: EventUserType) => {
-    const personId = eventUserPersonId(user);
-    return personId ? (
-      person(personId)
-    ) : (
-      <Text size="sm" color="text-mid">
-        <EventUser user={user} display="avatar-name" size="xs" />
-      </Text>
-    );
-  };
+  const actor = (user: EventUserType) => revisionActorValue(user, person);
 
   const createdBy = revision.createdBy;
   if (createdBy?.type === "dashboard" || createdBy?.type === "api_key") {

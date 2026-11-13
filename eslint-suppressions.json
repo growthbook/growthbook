@@ -172,9 +172,6 @@
     }
   },
   "packages/front-end/components/EventWebHooks/WebhookSecretModal.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    },
     "no-restricted-syntax": {
       "count": 3
     }
@@ -493,14 +490,6 @@
     },
     "no-restricted-syntax": {
       "count": 4
-    }
-  },
-  "packages/front-end/components/Features/CodeSnippetModal.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    },
-    "no-restricted-syntax": {
-      "count": 1
     }
   },
   "packages/front-end/components/Features/ConditionInput.tsx": {
@@ -1427,14 +1416,6 @@
       "count": 2
     }
   },
-  "packages/front-end/components/Settings/WebhooksModal.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    },
-    "no-restricted-syntax": {
-      "count": 20
-    }
-  },
   "packages/front-end/components/Settings/forms/StatsEngineSelect.tsx": {
     "no-restricted-syntax": {
       "count": 1
@@ -1466,11 +1447,6 @@
   },
   "packages/front-end/components/StaleFeatureIcon.tsx": {
     "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "packages/front-end/components/SyntaxHighlighting/Snippets/EventTrackerSelector.tsx": {
-    "no-restricted-syntax": {
       "count": 1
     }
   },

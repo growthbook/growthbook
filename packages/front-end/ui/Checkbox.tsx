@@ -95,7 +95,13 @@ export default forwardRef<HTMLLabelElement, Props>(function Checkbox(
         ) : (
           checkboxEl
         )}
-        <Flex direction="column" gap="1">
+        {/* Its baseline is the label's first line, not the box's bottom edge,
+            so a label beside it lines up. Centred labels keep their place. */}
+        <Flex
+          direction="column"
+          gap="1"
+          style={align === "center" ? undefined : { alignSelf: "baseline" }}
+        >
           <Text weight={weight}>{label}</Text>
           {description && (
             <Text weight="regular" style={{ color: "var(--color-text-mid)" }}>

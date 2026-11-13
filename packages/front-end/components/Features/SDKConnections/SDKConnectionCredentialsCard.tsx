@@ -1,41 +1,35 @@
 import { ReactNode } from "react";
 import { SDKConnectionInterface } from "shared/types/sdk-connection";
-import { Box, Flex, Grid, Separator } from "@radix-ui/themes";
-import { PiInfo } from "react-icons/pi";
+import { PiArrowSquareOut } from "react-icons/pi";
+import { Flex } from "@radix-ui/themes";
 import { getApiBaseUrl } from "@/components/Features/CodeSnippetModal";
 import ProxyTestButton from "@/components/Features/SDKConnections/ProxyTestButton";
-import ClickToCopy from "@/components/Settings/ClickToCopy";
-import ClickToReveal from "@/components/Settings/ClickToReveal";
-import Tooltip from "@/components/Tooltip/Tooltip";
+import { languageMapping } from "@/components/Features/SDKConnections/SDKLanguageLogo";
+import CopyableCode from "@/components/Settings/CopyableCode";
+import SetupFieldRow from "@/components/Experiment/TabbedPage/SetupFieldRow";
+import Tooltip from "@/ui/Tooltip";
+import LinkButton from "@/ui/LinkButton";
 import Badge from "@/ui/Badge";
 import Callout from "@/ui/Callout";
-import Frame from "@/ui/Frame";
 import Text from "@/ui/Text";
 
-const COLUMNS = { initial: "1", sm: "minmax(0, 2fr) minmax(0, 1fr)" };
+const PROXIED = "Requests are routed through your GrowthBook Proxy.";
 
-function Field({
-  label,
-  tooltip,
-  children,
-}: {
-  label: string;
-  tooltip?: string;
-  children: ReactNode;
-}) {
+// What an SDK's configuration names it, as the implementation instructions do.
+export function configSettingsTitle(connection: SDKConnectionInterface) {
+  const language = connection.languages?.[0];
+  const mapping = language ? languageMapping[language] : undefined;
+  return `${mapping ? mapping.docLabel || mapping.label : "SDK"} Config Settings`;
+}
+
+// The values an SDK is configured with, as the implementation instructions
+// list them.
+// A value and what goes with it. In a flex row, not a line of text, so it
+// shares the label's baseline exactly.
+function Value({ children }: { children: ReactNode }) {
   return (
-    <Flex direction="column" minWidth="0">
-      <Text color="text-high" weight="semibold" mb="2">
-        {label}
-        {tooltip ? (
-          <Tooltip body={tooltip}>
-            <Text ml="1" size="lg">
-              <PiInfo style={{ color: "var(--violet-11)" }} />
-            </Text>
-          </Tooltip>
-        ) : null}
-      </Text>
-      <Box minWidth="0">{children}</Box>
+    <Flex align="center" gap="3" wrap="wrap">
+      {children}
     </Flex>
   );
 }
@@ -53,95 +47,103 @@ export default function SDKConnectionCredentialsCard({
   const hasProxy = !!proxy?.enabled;
   const apiHost = getApiBaseUrl(connection);
   const clientKey = connection.key;
-  const proxyHost = proxy?.host || proxy?.hostExternal;
+  const endpoint = `${apiHost}/api/features/${clientKey}`;
+  const encryptionKey = connection.encryptPayload
+    ? connection.encryptionKey
+    : undefined;
   const proxyError = proxy?.error;
   // Either currently enabled or was enabled but had too many failures.
   const showProxy =
     hasProxy || (!!proxy?.host && !!proxy?.consecutiveFailures && !!proxyError);
-  const showDecryptionKey = !!(
-    connection.encryptPayload && connection.encryptionKey
-  );
 
   return (
-    <Frame mb="0">
-      <Grid columns={COLUMNS} gapX="6" gapY="5">
-        <Field
-          label="Full API Endpoint"
-          tooltip={
-            hasProxy
-              ? "Requests are routed through your GrowthBook Proxy."
-              : undefined
-          }
-        >
-          <ClickToCopy
-            compact
+    <>
+      <SetupFieldRow
+        label="Full API Endpoint"
+        content="text"
+        tooltip={hasProxy ? PROXIED : undefined}
+      >
+        <Value>
+          <CopyableCode value={endpoint} />
+          <LinkButton
+            href={endpoint}
+            external
+            variant="outline"
+            size="sm"
+            icon={<PiArrowSquareOut />}
             iconPosition="right"
-          >{`${apiHost}/api/features/${clientKey}`}</ClickToCopy>
-        </Field>
-        <Field label="Client Key">
-          <ClickToCopy compact iconPosition="right">
-            {clientKey}
-          </ClickToCopy>
-        </Field>
-      </Grid>
-      {showDecryptionKey || showProxy ? (
-        <>
-          <Separator size="4" my="5" />
-          <Grid columns={COLUMNS} gapX="6" gapY="5">
-            {showDecryptionKey ? (
-              <Field label="Decryption Key">
-                <ClickToReveal
-                  valueWhenHidden="decryption_key_hidden"
-                  getValue={async () => connection.encryptionKey}
-                />
-              </Field>
-            ) : null}
-            {showProxy ? (
-              <Field label="Proxy Host">
-                <Flex align="center" gap="2" wrap="wrap">
-                  <ClickToCopy compact iconPosition="right">
-                    {proxyHost || "https://proxy.yoursite.io"}
-                  </ClickToCopy>
-                  {!hasProxy ? (
-                    <Tooltip body="Proxy was disabled for too many consecutive failures">
-                      <Badge color="red" variant="solid" label="Disabled" />
-                    </Tooltip>
-                  ) : null}
-                  {proxy?.connected ? (
-                    <Badge color="green" variant="solid" label="Connected" />
-                  ) : proxyError !== undefined ? (
-                    <Tooltip
-                      usePortal={true}
-                      body={
-                        <>
-                          <Text as="p" mb="2">
-                            Encountered an error while trying to connect:
-                          </Text>
-                          <Callout status="error">
-                            {proxyError || <em>Unknown error</em>}
-                          </Callout>
-                        </>
-                      }
-                    >
-                      <Badge color="red" variant="soft" label="Error" />
-                    </Tooltip>
-                  ) : (
-                    <Badge color="gray" variant="soft" label="Not connected" />
-                  )}
-                  {canUpdate && mutate && proxy?.host ? (
-                    <ProxyTestButton
-                      host={proxy.host}
-                      id={connection.id}
-                      mutate={mutate}
-                      showButton={true}
-                    />
-                  ) : null}
-                </Flex>
-              </Field>
-            ) : null}
-          </Grid>
-        </>
+          >
+            Open
+          </LinkButton>
+        </Value>
+      </SetupFieldRow>
+      <SetupFieldRow
+        label="API Host"
+        content="text"
+        tooltip={hasProxy ? PROXIED : undefined}
+      >
+        <Value>
+          <CopyableCode value={apiHost} />
+        </Value>
+      </SetupFieldRow>
+      <SetupFieldRow label="Client Key" content="text">
+        <Value>
+          <CopyableCode value={clientKey} />
+        </Value>
+      </SetupFieldRow>
+      {encryptionKey ? (
+        <SetupFieldRow label="Decryption Key" content="text">
+          <Value>
+            <CopyableCode value={encryptionKey} />
+          </Value>
+        </SetupFieldRow>
       ) : null}
-    </Frame>
+      {showProxy ? (
+        <SetupFieldRow label="Proxy Host" content="text">
+          <Value>
+            <CopyableCode
+              value={
+                proxy?.host ||
+                proxy?.hostExternal ||
+                "https://proxy.yoursite.io"
+              }
+            />
+            {!hasProxy ? (
+              <Tooltip content="Proxy was disabled for too many consecutive failures">
+                <Badge color="red" variant="solid" label="Disabled" />
+              </Tooltip>
+            ) : null}
+            {proxy?.connected ? (
+              <Badge color="green" variant="solid" label="Connected" />
+            ) : proxyError !== undefined ? (
+              <Tooltip
+                content={
+                  <>
+                    <Text as="p" mb="2">
+                      Encountered an error while trying to connect:
+                    </Text>
+                    <Callout status="error">
+                      {proxyError || <em>Unknown error</em>}
+                    </Callout>
+                  </>
+                }
+              >
+                <Badge color="red" variant="soft" label="Error" />
+              </Tooltip>
+            ) : (
+              <Badge color="gray" variant="soft" label="Not connected" />
+            )}
+            {canUpdate && mutate && proxy?.host ? (
+              <ProxyTestButton
+                host={proxy.host}
+                id={connection.id}
+                mutate={mutate}
+                showButton={true}
+              />
+            ) : null}
+          </Value>
+        </SetupFieldRow>
+      ) : null}
+    </>
   );
 }

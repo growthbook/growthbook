@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
 import { ProxyTestResult } from "shared/types/sdk-connection";
-import { BsArrowRepeat } from "react-icons/bs";
+import { PiArrowsClockwise } from "react-icons/pi";
 import { useAuth } from "@/services/auth";
 import Modal from "@/ui/Modal";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
 import Text from "@/ui/Text";
+import Tooltip from "@/ui/Tooltip";
 
 export default function ProxyTestButton({
   host,
@@ -72,26 +73,27 @@ export default function ProxyTestButton({
         </Modal.Root>
       )}
       {showButton && (
-        <Button
-          variant="ghost"
-          size="sm"
-          title="Test connection"
-          icon={<BsArrowRepeat />}
-          onClick={async () => {
-            const res = await apiCall<{
-              result: ProxyTestResult;
-            }>(`/sdk-connections/${id}/check-proxy`, {
-              method: "POST",
-            });
-            mutate();
+        <Tooltip content="Test connection">
+          <Button
+            variant="ghost"
+            size="sm"
+            icon={<PiArrowsClockwise />}
+            onClick={async () => {
+              const res = await apiCall<{
+                result: ProxyTestResult;
+              }>(`/sdk-connections/${id}/check-proxy`, {
+                method: "POST",
+              });
+              mutate();
 
-            if (res.result) {
-              setProxyTestResult(res.result);
-            }
-          }}
-        >
-          Re-check
-        </Button>
+              if (res.result) {
+                setProxyTestResult(res.result);
+              }
+            }}
+          >
+            Re-check
+          </Button>
+        </Tooltip>
       )}
     </>
   );

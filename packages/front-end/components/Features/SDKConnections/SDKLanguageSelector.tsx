@@ -1,7 +1,10 @@
 import { SDKLanguage } from "shared/types/sdk-connection";
 import { useState } from "react";
-import { Box } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
+import Button from "@/ui/Button";
+import Link from "@/ui/Link";
+import Text from "@/ui/Text";
 import SDKLanguageLogo, {
   getLanguagesByFilter,
   LanguageFilter,
@@ -26,22 +29,15 @@ export function SDKLanguageOption({
   onClick: () => void;
 }) {
   return (
-    <div
-      className={`hover-highlight d-inline-flex align-items-center cursor-pointer border rounded ${
-        selected ? "bg-light" : ""
-      }`}
-      style={{
-        height: 50,
-        padding: "0 10px",
-        boxShadow: selected ? "0 0 0 1px var(--text-color-primary)" : "",
-      }}
-      onClick={(e) => {
-        e.preventDefault();
-        onClick();
-      }}
+    <Button
+      variant={selected ? "soft" : "outline"}
+      color={selected ? "violet" : "gray"}
+      size="lg"
+      aria-pressed={selected}
+      onClick={onClick}
     >
       <SDKLanguageLogo language={language} showLabel={true} size={30} />
-    </div>
+    </Button>
   );
 }
 
@@ -159,10 +155,7 @@ export default function SDKLanguageSelector({
 
         {Object.keys(tabs).map((tab) => (
           <TabsContent key={tab} value={tab}>
-            <div
-              className="d-flex flex-wrap pb-3"
-              style={{ rowGap: "1em", columnGap: "0.6em" }}
-            >
+            <Flex wrap="wrap" gap="3" pb="4">
               {languages.map((l) => (
                 <SDKLanguageOption
                   key={l}
@@ -171,28 +164,37 @@ export default function SDKLanguageSelector({
                   selected={selected.has(l)}
                 />
               ))}
-            </div>
+            </Flex>
           </TabsContent>
         ))}
       </Tabs>
     );
   }
 
+  const groups: { label: string; languages: SDKLanguage[] }[] = [
+    { label: "Back-end", languages: backEnd },
+    { label: "Front-end", languages: frontEnd },
+    { label: "Mobile", languages: mobile },
+    { label: "Edge", languages: edge },
+    { label: "No/Low Code Platform", languages: nocode },
+  ];
+  if (includeOther && (!limitLanguages || limitLanguages.includes("other"))) {
+    groups.push({ label: "Other", languages: ["other"] });
+  }
+
   return (
-    <div>
-      <div className="row">
-        {backEnd.length > 0 && (
-          <div className="col-auto mb-1">
+    <Flex wrap="wrap" gapX="5">
+      {groups
+        .filter((group) => group.languages.length > 0)
+        .map((group) => (
+          <Box key={group.label} mb="1">
             {renderLabels && (
-              <div className="small mb-2">
-                <strong>Back-end</strong>
-              </div>
+              <Text as="div" size="sm" weight="semibold" mb="2">
+                {group.label}
+              </Text>
             )}
-            <div
-              className="d-flex flex-wrap pb-3"
-              style={{ rowGap: "1em", columnGap: "0.6em" }}
-            >
-              {backEnd.map((l) => (
+            <Flex wrap="wrap" gap="3" pb="4">
+              {group.languages.map((l) => (
                 <SDKLanguageOption
                   key={l}
                   language={l}
@@ -200,126 +202,17 @@ export default function SDKLanguageSelector({
                   selected={selected.has(l)}
                 />
               ))}
-            </div>
-          </div>
-        )}
-        {frontEnd.length > 0 && (
-          <div className="col-auto mb-1">
-            {renderLabels && (
-              <div className="small mb-2">
-                <strong>Front-end</strong>
-              </div>
-            )}
-            <div
-              className="d-flex flex-wrap pb-3"
-              style={{ rowGap: "1em", columnGap: "0.6em" }}
-            >
-              {frontEnd.map((l) => (
-                <SDKLanguageOption
-                  key={l}
-                  language={l}
-                  onClick={() => handleLanguageOptionClick(l)}
-                  selected={selected.has(l)}
-                />
-              ))}
-            </div>
-          </div>
-        )}
-        {mobile.length > 0 && (
-          <div className="col-auto mb-1">
-            {renderLabels && (
-              <div className="small mb-2">
-                <strong>Mobile</strong>
-              </div>
-            )}
-            <div
-              className="d-flex flex-wrap pb-3"
-              style={{ rowGap: "1em", columnGap: "0.6em" }}
-            >
-              {mobile.map((l) => (
-                <SDKLanguageOption
-                  key={l}
-                  language={l}
-                  onClick={() => handleLanguageOptionClick(l)}
-                  selected={selected.has(l)}
-                />
-              ))}
-            </div>
-          </div>
-        )}
-        {edge.length > 0 && (
-          <div className="col-auto mb-1">
-            {renderLabels && (
-              <div className="small mb-2">
-                <strong>Edge</strong>
-              </div>
-            )}
-            <div
-              className="d-flex flex-wrap pb-3"
-              style={{ rowGap: "1em", columnGap: "0.6em" }}
-            >
-              {edge.map((l) => (
-                <SDKLanguageOption
-                  key={l}
-                  language={l}
-                  onClick={() => handleLanguageOptionClick(l)}
-                  selected={selected.has(l)}
-                />
-              ))}
-            </div>
-          </div>
-        )}
-        {nocode.length > 0 && (
-          <div className="col-auto mb-1">
-            {renderLabels && (
-              <div className="small mb-2">
-                <strong>No/Low Code Platform</strong>
-              </div>
-            )}
-            <div
-              className="d-flex flex-wrap pb-3"
-              style={{ rowGap: "1em", columnGap: "0.6em" }}
-            >
-              {nocode.map((l) => (
-                <SDKLanguageOption
-                  key={l}
-                  language={l}
-                  onClick={() => handleLanguageOptionClick(l)}
-                  selected={selected.has(l)}
-                />
-              ))}
-            </div>
-          </div>
-        )}
-        {includeOther &&
-          (!limitLanguages || limitLanguages.includes("other")) && (
-            <div className="col-auto mb-1">
-              {renderLabels && (
-                <div className="small mb-2">
-                  <strong>Other</strong>
-                </div>
-              )}
-              <SDKLanguageOption
-                language={"other"}
-                onClick={() => handleLanguageOptionClick("other")}
-                selected={selected.has("other")}
-              />
-            </div>
-          )}
-        {!includeAll && limitLanguages && !hideShowAllLanguages && (
-          <div className="col-auto align-self-center" style={{ marginTop: 10 }}>
-            <a
-              href="#"
-              onClick={(e) => {
-                e.preventDefault();
-                setIncludeAll(true);
-              }}
-            >
-              Show All Languages
-            </a>
-          </div>
-        )}
-      </div>
-    </div>
+            </Flex>
+          </Box>
+        ))}
+      {!includeAll && limitLanguages && !hideShowAllLanguages && (
+        // Level with the tiles beside it, which are as tall as an lg button.
+        <Box mb="1" style={{ alignSelf: "flex-end" }}>
+          <Flex align="center" height="40px" mb="4">
+            <Link onClick={() => setIncludeAll(true)}>Show all languages</Link>
+          </Flex>
+        </Box>
+      )}
+    </Flex>
   );
 }

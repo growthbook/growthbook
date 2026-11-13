@@ -1,4 +1,4 @@
-// Keep both heights in sync with `.experiment-tabs` and `.feature-tabs.redesign`
+// Keep both heights in sync with `.experiment-tabs` and `.details-tabs`
 // in global.scss.
 export const TABS_HEADER_HEIGHT_PX = 55;
 export const TABS_BAR_HEIGHT_PX = 45;

@@ -1,9 +1,14 @@
 import { ReactNode } from "react";
 import { PiWarning } from "react-icons/pi";
+import { Box } from "@radix-ui/themes";
 import { CustomField, CustomFieldSection } from "shared/types/custom-fields";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { FeatureInterface } from "shared/types/feature";
 import CustomFieldDisplay from "@/components/CustomFields/CustomFieldDisplay";
+import ExpandableText, {
+  ExpandableTextBody,
+} from "@/components/ExpandableText";
+import Markdown from "@/components/Markdown/Markdown";
 import CopyableCode from "@/components/Settings/CopyableCode";
 import Owner from "@/components/Avatar/Owner";
 import QuickEditButton from "@/components/Experiment/TabbedPage/QuickEditButton";
@@ -68,6 +73,23 @@ export function EmptyValue({ label = "None" }: { label?: string }) {
     <Text weight="regular" color="text-mid" size="sm" fontStyle="italic">
       {label}
     </Text>
+  );
+}
+
+// Markdown cut off after its first lines. The row edits wherever it's
+// clicked, so only its "… expand" opens the rest.
+export function MarkdownValue({ markdown }: { markdown?: string }) {
+  if (!markdown) return <EmptyValue />;
+  return (
+    <Box width="100%">
+      <ExpandableText expandOnClick={false}>
+        <ExpandableTextBody>
+          <Text as="div" size="sm" color="text-mid">
+            <Markdown>{markdown}</Markdown>
+          </Text>
+        </ExpandableTextBody>
+      </ExpandableText>
+    </Box>
   );
 }
 

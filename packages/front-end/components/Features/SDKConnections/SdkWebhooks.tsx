@@ -1,10 +1,10 @@
 import React, { ReactElement, useState } from "react";
-import { Flex, IconButton } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import {
   PiCheck,
-  PiDotsThreeVertical,
-  PiInfo,
+  PiPlusBold,
   PiWarningFill,
+  PiWebhooksLogo,
 } from "react-icons/pi";
 import {
   WebhookInterface,
@@ -24,18 +24,22 @@ import EditSDKWebhooksModal, {
   CreateSDKWebhookModal,
 } from "@/components/Settings/WebhooksModal";
 import { useAuth } from "@/services/auth";
-import Tooltip from "@/components/Tooltip/Tooltip";
+import Tooltip from "@/ui/Tooltip";
 import { useUser } from "@/services/UserContext";
 import Button from "@/ui/Button";
-import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
+import {
+  DropdownMenu,
+  DropdownMenuItem,
+  MoreMenuTrigger,
+} from "@/ui/DropdownMenu";
 import { DocLink } from "@/components/DocLink";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import ClickToReveal from "@/components/Settings/ClickToReveal";
 import Badge from "@/ui/Badge";
 import { capitalizeFirstLetter } from "@/services/utils";
-import Callout from "@/ui/Callout";
 import { Popover } from "@/ui/Popover";
 import Text from "@/ui/Text";
+import EmptyStateMessage from "@/components/EmptyStateMessage";
 import Table, {
   TableHeader,
   TableBody,
@@ -44,6 +48,8 @@ import Table, {
   TableCell,
 } from "@/ui/Table";
 import { isDraftRevision } from "@/components/Features/SDKConnections/edit-modals/useSdkConnectionRevisionFlow";
+import { DraftChangeMark } from "@/components/Features/DraftChangesPopover";
+import SectionFrame from "@/components/SectionFrame";
 import WebhookErrorDetails from "./WebhookErrorDetails";
 
 const payloadFormatLabels: Record<string, string | ReactElement> = {
@@ -73,7 +79,7 @@ function toSnapshot(wh: WebhookInterface): SDKWebhookRevisionSnapshot {
 type WebhookRow = {
   snapshot: SDKWebhookRevisionSnapshot;
   live?: WebhookInterface;
-  staged: "added" | "changed" | null;
+  staged: "added" | "edited" | null;
 };
 
 export default function SdkWebhooks({
@@ -135,7 +141,7 @@ export default function SdkWebhooks({
             ? "added"
             : isEqual(snapshot, toSnapshot(live))
               ? null
-              : "changed",
+              : "edited",
         };
       })
     : liveWebhooks.map((live) => ({
@@ -305,57 +311,45 @@ export default function SdkWebhooks({
   const renderTableRows = () => {
     return rows.map(({ snapshot, live, staged }) => {
       const managedBy = live?.managedBy?.type;
+      const hidden = (
+        <Text color="text-mid" fontStyle="italic">
+          hidden
+        </Text>
+      );
       return (
-        <TableRow key={snapshot.id}>
-          <TableCell style={{ minWidth: 150 }}>
-            <div>
-              {snapshot.name}
+        <TableRow key={snapshot.id} align="start">
+          <TableCell minWidth="150px">
+            <Flex direction="column" align="start" gap="1">
+              <Flex align="center" gap="2" wrap="wrap">
+                <Text>{snapshot.name}</Text>
+                {staged ? <DraftChangeMark change={staged} spelled /> : null}
+              </Flex>
               {managedBy ? (
-                <div>
-                  <Badge
-                    label={`Managed by ${capitalizeFirstLetter(managedBy)}`}
-                  />
-                </div>
+                <Badge
+                  label={`Managed by ${capitalizeFirstLetter(managedBy)}`}
+                />
               ) : null}
-              {staged ? (
-                <div>
-                  <Badge
-                    label={
-                      staged === "added" ? "Added in draft" : "Changed in draft"
-                    }
-                    color="violet"
-                    variant="soft"
-                  />
-                </div>
-              ) : null}
-            </div>
-          </TableCell>
-          <TableCell
-            style={{
-              wordBreak: "break-word",
-              overflowWrap: "anywhere",
-            }}
-          >
-            {managedBy ? (
-              <em className="text-muted">hidden</em>
-            ) : (
-              <code className="text-main small">{snapshot.endpoint}</code>
-            )}
+            </Flex>
           </TableCell>
           <TableCell>
             {managedBy ? (
-              <em className="text-muted">hidden</em>
+              hidden
             ) : (
-              <span className="small">{snapshot.httpMethod}</span>
+              <Text size="sm" mono overflowWrap="anywhere">
+                {snapshot.endpoint}
+              </Text>
             )}
           </TableCell>
           <TableCell>
+            {managedBy ? hidden : <Text size="sm">{snapshot.httpMethod}</Text>}
+          </TableCell>
+          <TableCell>
             {managedBy ? (
-              <em className="text-muted">hidden</em>
+              hidden
             ) : (
-              <span className="small">
+              <Text size="sm">
                 {payloadFormatLabels?.[snapshot.payloadFormat ?? "standard"]}
-              </span>
+              </Text>
             )}
           </TableCell>
           <TableCell>
@@ -365,7 +359,7 @@ export default function SdkWebhooks({
                 getValue={async () => live.signingKey}
               />
             ) : (
-              <em className="text-muted">hidden</em>
+              hidden
             )}
           </TableCell>
           <TableCell>{renderStatus(live)}</TableCell>
@@ -373,15 +367,11 @@ export default function SdkWebhooks({
             {live || !managedBy ? (
               <DropdownMenu
                 trigger={
-                  <IconButton
-                    variant="ghost"
-                    color="gray"
-                    radius="full"
-                    size="2"
-                    highContrast
-                  >
-                    <PiDotsThreeVertical size={16} />
-                  </IconButton>
+                  <MoreMenuTrigger
+                    label="Webhook actions"
+                    // Centred on the row's first line of text: (28 - 20) / 2.
+                    style={{ marginBlock: -4 }}
+                  />
                 }
                 menuPlacement="end"
               >
@@ -445,84 +435,66 @@ export default function SdkWebhooks({
       );
     });
   };
-  const renderAddWebhookButton = () => (
-    <>
-      <div className="text-muted mb-3">
-        Refer to the{" "}
-        <DocLink useRadix={false} docSection="sdkWebhooks">
-          documentation
-        </DocLink>{" "}
-        for setup instructions
-      </div>
-      {canCreateWebhooks ? (
-        <div className="d-flex align-items-center">
-          <Tooltip
-            body={
-              disableWebhookCreate
-                ? "You can only have one webhook per SDK Connection in the free plan"
-                : ""
-            }
-          >
-            <Button
-              disabled={disableWebhookCreate}
-              onClick={() => setCreateWebhookModalOpen(true)}
-            >
-              Add Webhook
-            </Button>
-          </Tooltip>
-          <Tooltip
-            body={
-              <div style={{ lineHeight: 1.5 }}>
-                <p className="mb-0">
-                  <strong>SDK Webhooks</strong> will automatically notify any
-                  changes affecting this SDK. For instance, modifying a feature
-                  or AB test will prompt the webhook to fire.
-                </p>
-              </div>
-            }
-          >
-            <span className="text-muted ml-2" style={{ fontSize: "0.75rem" }}>
-              What is this? <PiInfo />
-            </span>
-          </Tooltip>
-        </div>
-      ) : null}
-    </>
-  );
 
-  const renderTable = () => {
-    return (
-      <div className="mb-2">
-        <Table variant="list">
-          <TableHeader>
-            <TableRow>
-              <TableColumnHeader>Webhook</TableColumnHeader>
-              <TableColumnHeader>Endpoint</TableColumnHeader>
-              <TableColumnHeader>Method</TableColumnHeader>
-              <TableColumnHeader style={{ width: 130 }}>
-                Format
-              </TableColumnHeader>
-              <TableColumnHeader>Shared Secret</TableColumnHeader>
-              <TableColumnHeader style={{ width: 125 }}>
-                Last Success
-              </TableColumnHeader>
-              <TableColumnHeader style={{ width: 35 }} />
-            </TableRow>
-          </TableHeader>
-          <TableBody>{renderTableRows()}</TableBody>
-        </Table>
-      </div>
-    );
-  };
   return (
-    <div className="gb-sdk-connections-webhooks mb-5">
-      <h2 className="mb-2">SDK Webhooks</h2>
-      {selectedDraft && (
-        <Callout status="info" mb="3">
-          Showing the webhooks as staged in this draft. Changes here are added
-          to the draft and apply when it is published.
-        </Callout>
-      )}
+    <>
+      <SectionFrame
+        title="SDK Webhooks"
+        actions={
+          canCreateWebhooks ? (
+            <Tooltip
+              content="You can only have one webhook per SDK Connection in the free plan"
+              enabled={disableWebhookCreate}
+            >
+              <Button
+                disabled={disableWebhookCreate}
+                onClick={() => setCreateWebhookModalOpen(true)}
+                icon={<PiPlusBold />}
+              >
+                Add webhook
+              </Button>
+            </Tooltip>
+          ) : null
+        }
+      >
+        {hasWebhooks ? (
+          <Table
+            variant="ghost"
+            scrollX
+            stickyLastColumn
+            style={{ minWidth: 900 }}
+          >
+            <TableHeader>
+              <TableRow>
+                <TableColumnHeader>Webhook</TableColumnHeader>
+                <TableColumnHeader>Endpoint</TableColumnHeader>
+                <TableColumnHeader>Method</TableColumnHeader>
+                <TableColumnHeader width="130px">Format</TableColumnHeader>
+                <TableColumnHeader>Shared secret</TableColumnHeader>
+                <TableColumnHeader width="125px">
+                  Last success
+                </TableColumnHeader>
+                <TableColumnHeader width="35px" />
+              </TableRow>
+            </TableHeader>
+            <TableBody>{renderTableRows()}</TableBody>
+          </Table>
+        ) : (
+          <Box py="6">
+            <EmptyStateMessage
+              icon={<PiWebhooksLogo size={20} />}
+              title="No webhooks yet"
+              description={
+                <>
+                  Webhooks fire on any change affecting this SDK Connection,
+                  such as editing a feature or experiment.{" "}
+                  <DocLink docSection="sdkWebhooks">Learn more</DocLink>
+                </>
+              }
+            />
+          </Box>
+        )}
+      </SectionFrame>
       {editWebhookData && (
         <EditSDKWebhooksModal
           close={() => setEditWebhookData(null)}
@@ -544,8 +516,6 @@ export default function SdkWebhooks({
           }
         />
       )}
-      {hasWebhooks && renderTable()}
-      {renderAddWebhookButton()}
-    </div>
+    </>
   );
 }

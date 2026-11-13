@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Revision, getSdkConnectionGoverningRules } from "shared/enterprise";
 import { SDKConnectionInterface } from "shared/types/sdk-connection";
 import { draftValuesEqual } from "shared/util";
@@ -17,19 +17,6 @@ export type SdkConnectionRevisionProps = {
   approvalRequired?: boolean;
   canAutoPublish?: boolean;
   metadataReviewRequired?: boolean;
-};
-
-export type SaveDestination = {
-  mode: DraftMode;
-  drafts: { id: string; label: string }[];
-  selectedDraftId: string | null;
-  selectedDraftLabel: string | null;
-  canAutoPublish: boolean;
-  approvalRequired: boolean;
-  metadataOnly: boolean;
-  // Only a new draft is possible, so there is nothing to choose.
-  singleOption: boolean;
-  choose: (mode: DraftMode, draftId?: string | null) => void;
 };
 
 export type SdkConnectionScope = {
@@ -72,14 +59,81 @@ function seededValue(connection: SDKConnectionInterface, key: string): unknown {
   return (connection as unknown as Record<string, unknown>)[key];
 }
 
-// As on the server, approval applies when the live OR proposed scope matches.
+// Sends only what differs from the saved connection, to an open draft, a new
+// one, or live.
+export async function saveSdkConnectionChanges({
+  apiCall,
+  connection,
+  body,
+  mode,
+  draftId,
+  bypassApproval,
+  onRevisionCreated,
+  onSelectRevision,
+  mutate,
+}: {
+  apiCall: ReturnType<typeof useAuth>["apiCall"];
+  connection: SDKConnectionInterface;
+  body: Record<string, unknown>;
+  mode: DraftMode;
+  draftId: string | null;
+  // Publishing past an approval rule.
+  bypassApproval: boolean;
+  onRevisionCreated?: (revision: Revision) => void;
+  onSelectRevision?: (revision: Revision | null) => void;
+  mutate: () => Promise<unknown> | void;
+}) {
+  const changed: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(body)) {
+    const absentDefault = typeof value === "boolean" ? false : undefined;
+    if (!draftValuesEqual(value, seededValue(connection, key), absentDefault)) {
+      changed[key] = value;
+    }
+  }
+  // A no-op save must not mint an empty draft.
+  if (Object.keys(changed).length === 0) {
+    await mutate();
+    return;
+  }
+
+  const params = new URLSearchParams();
+  if (mode === "publish") {
+    params.set("autoPublish", "1");
+    if (bypassApproval) params.set("bypassApproval", "1");
+  } else if (mode === "existing" && draftId) {
+    params.set("revisionId", draftId);
+  } else {
+    params.set("forceCreateRevision", "1");
+  }
+
+  const res = await apiCall<{
+    status: number;
+    requiresApproval?: boolean;
+    revision?: Revision;
+  }>(`/sdk-connections/${connection.id}?${params.toString()}`, {
+    method: "PUT",
+    body: JSON.stringify(changed),
+  });
+
+  const revision = res?.revision ?? null;
+  if (revision) onRevisionCreated?.(revision);
+  await mutate();
+  // Selected once the revisions have reloaded: before then the page can't
+  // find a new draft (one whose first save also wrote live's revision) and
+  // falls back to live. A merged revision is live, where it already is.
+  if (revision && revision.status !== "merged") {
+    onSelectRevision?.(revision);
+  }
+}
+
+// Where an edit lands: an open draft, a new one, or live. As on the server,
+// approval applies when the live OR proposed scope matches a rule.
 export function useSdkConnectionRevisionFlow({
   connection,
   mutate,
   proposedScope,
   onRevisionCreated,
   openRevisions,
-  allRevisions,
   selectedRevision,
   onSelectRevision,
   approvalRequired,
@@ -89,26 +143,14 @@ export function useSdkConnectionRevisionFlow({
   connection: SDKConnectionInterface;
   mutate: () => Promise<unknown> | void;
   proposedScope?: SdkConnectionScope;
-} & SdkConnectionRevisionProps): {
-  revisionAware: boolean;
-  destination: SaveDestination;
-  save: (body: Record<string, unknown>) => Promise<void>;
-} {
+} & SdkConnectionRevisionProps) {
   const { apiCall } = useAuth();
   const { user, hasCommercialFeature } = useUser();
   const settings = useOrgSettings();
   const permissionsUtil = usePermissionsUtil();
 
-  const revisionAware =
-    !!connection.id &&
-    (approvalRequired !== undefined || onRevisionCreated !== undefined);
-
-  const selectedDraft = isDraftRevision(selectedRevision)
-    ? selectedRevision
-    : null;
-
   const proposedRules =
-    revisionAware && proposedScope && hasCommercialFeature("require-approvals")
+    proposedScope && hasCommercialFeature("require-approvals")
       ? getSdkConnectionGoverningRules(settings.approvalFlows, proposedScope)
       : [];
   const effectiveApprovalRequired =
@@ -130,13 +172,13 @@ export function useSdkConnectionRevisionFlow({
   // Prefer the draft being viewed, then the user's own open draft. Never
   // default to publishing while a draft is selected.
   const [selectedDraftId, setSelectedDraftId] = useState<string | null>(() => {
-    if (selectedDraft) return selectedDraft.id;
+    if (isDraftRevision(selectedRevision)) return selectedRevision.id;
     const myDraft = (openRevisions ?? []).find(
       (r) => isDraftRevision(r) && r.authorId === user?.id,
     );
     return myDraft?.id ?? null;
   });
-  const [draftMode, setDraftMode] = useState<DraftMode>(() =>
+  const [mode, setMode] = useState<DraftMode>(() =>
     selectedDraftId
       ? "existing"
       : effectiveApprovalRequired
@@ -144,113 +186,29 @@ export function useSdkConnectionRevisionFlow({
         : "publish",
   );
 
-  const metadataOnlyRevisionFlow =
-    effectiveApprovalRequired && !effectiveMetadataReviewRequired;
-
-  const activeDrafts = (openRevisions ?? []).filter(isDraftRevision);
-  // Drafts are named as in the revision dropdown: title, else their position.
-  const draftLabel = (revision: Revision) =>
-    revision.title ||
-    `Revision ${
-      (allRevisions ?? []).filter(
-        (r) => new Date(r.dateCreated) <= new Date(revision.dateCreated),
-      ).length
-    }`;
-  const singleOption = !effectiveCanAutoPublish && activeDrafts.length === 0;
-
-  // Keep the destination valid as permissions and drafts change.
-  useEffect(() => {
-    if (singleOption && draftMode !== "new") {
-      setSelectedDraftId(null);
-      setDraftMode("new");
-    } else if (draftMode === "publish" && !effectiveCanAutoPublish) {
-      setSelectedDraftId(null);
-      setDraftMode("new");
-    }
-  }, [singleOption, draftMode, effectiveCanAutoPublish]);
-
-  const selectedDraftRevision =
-    draftMode === "existing" && selectedDraftId
-      ? ([...(allRevisions ?? []), ...(openRevisions ?? [])].find(
-          (r) => r.id === selectedDraftId,
-        ) ?? null)
-      : null;
-
-  const destination: SaveDestination = {
-    mode: draftMode,
-    drafts: activeDrafts.map((r) => ({ id: r.id, label: draftLabel(r) })),
-    selectedDraftId: draftMode === "existing" ? selectedDraftId : null,
-    selectedDraftLabel: selectedDraftRevision
-      ? draftLabel(selectedDraftRevision)
-      : null,
-    canAutoPublish: effectiveCanAutoPublish,
-    approvalRequired: effectiveApprovalRequired,
-    metadataOnly: metadataOnlyRevisionFlow,
-    singleOption,
-    choose: (mode, draftId = null) => {
-      setDraftMode(mode);
-      setSelectedDraftId(draftId);
-    },
-  };
-
-  const save = async (body: Record<string, unknown>) => {
-    const changed: Record<string, unknown> = {};
-    for (const [key, value] of Object.entries(body)) {
-      const absentDefault = typeof value === "boolean" ? false : undefined;
-      if (
-        !draftValuesEqual(value, seededValue(connection, key), absentDefault)
-      ) {
-        changed[key] = value;
-      }
-    }
-
-    // Safety net: never publish where the scope forbids it.
-    const mode: DraftMode =
-      draftMode === "publish" && !effectiveCanAutoPublish ? "new" : draftMode;
-
-    // A no-op save must not mint an empty draft either.
-    if (Object.keys(changed).length === 0) {
-      await mutate();
-      return;
-    }
-
-    const params = new URLSearchParams();
-    if (revisionAware) {
-      if (mode === "publish") {
-        params.set("autoPublish", "1");
-        if (effectiveApprovalRequired) {
-          params.set("bypassApproval", "1");
-        }
-      } else if (mode === "existing" && selectedDraftId) {
-        params.set("revisionId", selectedDraftId);
-      } else {
-        params.set("forceCreateRevision", "1");
-      }
-    }
-    const queryString = params.toString();
-    const url = `/sdk-connections/${connection.id}${
-      queryString ? `?${queryString}` : ""
-    }`;
-
-    const res = await apiCall<{
-      status: number;
-      requiresApproval?: boolean;
-      revision?: Revision;
-    }>(url, {
-      method: "PUT",
-      body: JSON.stringify(changed),
+  const save = async (body: Record<string, unknown>) =>
+    saveSdkConnectionChanges({
+      apiCall,
+      connection,
+      body,
+      // Never publish where the scope forbids it.
+      mode: mode === "publish" && !effectiveCanAutoPublish ? "new" : mode,
+      draftId: selectedDraftId,
+      bypassApproval: effectiveApprovalRequired,
+      onRevisionCreated,
+      onSelectRevision,
+      mutate,
     });
 
-    if (res?.revision) {
-      // A merged (auto-published) revision is the new live version, which
-      // onRevisionCreated already navigates to.
-      onRevisionCreated?.(res.revision);
-      if (res.revision.status !== "merged") {
-        onSelectRevision?.(res.revision);
-      }
-    }
-    await mutate();
+  return {
+    mode,
+    setMode,
+    selectedDraftId,
+    setSelectedDraftId,
+    approvalRequired: effectiveApprovalRequired,
+    canAutoPublish: effectiveCanAutoPublish,
+    // Approval required, but not for metadata: the draft is just a revision.
+    metadataOnly: effectiveApprovalRequired && !effectiveMetadataReviewRequired,
+    save,
   };
-
-  return { revisionAware, destination, save };
 }

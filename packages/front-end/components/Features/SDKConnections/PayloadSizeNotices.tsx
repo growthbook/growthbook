@@ -21,7 +21,7 @@ import Callout from "@/ui/Callout";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
 import HelperText from "@/ui/HelperText";
-import Tooltip from "@/components/Tooltip/Tooltip";
+import Tooltip from "@/ui/Tooltip";
 import { useUser } from "@/services/UserContext";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { AppNotice } from "@/components/Notices/notices";
@@ -44,13 +44,13 @@ export function PayloadSizeRowWarning({
     // Its own line, but only as wide as its text, so the hover area is the label
     <Box mt="1">
       <Tooltip
-        body={
+        content={
           <Box className={styles["notice-tooltip"]}>
             <PayloadSizeAdvice connection={connection} size={size} />
           </Box>
         }
       >
-        <Box display="inline-block">
+        <Box display="inline-block" tabIndex={0}>
           <HelperText status={isSevere(level) ? "error" : "warning"} size="sm">
             {level === "over-limit" ? "Over max size" : "Nearing max size"} ·{" "}
             {share}%

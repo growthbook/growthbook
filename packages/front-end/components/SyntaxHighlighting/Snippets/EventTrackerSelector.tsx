@@ -58,7 +58,6 @@ const EventTrackerSelector: React.FC<{
   return (
     <div className="form-inline mb-3">
       <SelectField
-        size="legacy"
         label="Event tracking system"
         labelClassName="mr-2"
         options={options}

@@ -24,6 +24,7 @@ const allOn: SDKConnectionAdvancedValue = {
   includeDraftExperiments: true,
   proxyEnabled: true,
   proxyHost: "https://proxy.example.com",
+  tracesEnabled: true,
 };
 
 const fullyCapable: Parameters<typeof sanitizeAdvancedForSave>[1] = {
@@ -75,6 +76,7 @@ describe("advancedValueFromConnection", () => {
       includeDraftExperiments: false,
       proxyEnabled: false,
       proxyHost: "",
+      tracesEnabled: false,
     });
   });
 

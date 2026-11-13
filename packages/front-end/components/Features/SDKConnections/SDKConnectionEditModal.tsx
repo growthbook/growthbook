@@ -1,0 +1,143 @@
+import { useState } from "react";
+import isEqual from "lodash/isEqual";
+import { SDKConnectionInterface } from "shared/types/sdk-connection";
+import { getConnectionSDKCapabilities } from "shared/sdk-versioning";
+import RevisionDraftSelectorForChanges from "@/components/Revision/RevisionDraftSelectorForChanges";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
+import Field from "@/components/Forms/Field";
+import { SDKConnectionFieldsValue } from "@/components/Features/SDKConnections/SDKConnectionFields";
+import {
+  advancedValueFromConnection,
+  deliveryModeFromConnection,
+  sanitizeAdvancedForSave,
+  SDKConnectionAdvancedValue,
+} from "@/components/Features/SDKConnections/sdkConnectionRules";
+import {
+  SdkConnectionRevisionProps,
+  useSdkConnectionRevisionFlow,
+} from "@/components/Features/SDKConnections/edit-modals/useSdkConnectionRevisionFlow";
+import { useUser } from "@/services/UserContext";
+
+export type SDKConnectionFormValue = SDKConnectionFieldsValue &
+  SDKConnectionAdvancedValue;
+
+export function valueFromConnection(
+  connection: SDKConnectionInterface,
+): SDKConnectionFormValue {
+  return {
+    name: connection.name,
+    languages: connection.languages ?? [],
+    sdkVersion: connection.sdkVersion,
+    environment: connection.environment,
+    projects: connection.projects ?? [],
+    includeReferencedPrerequisites: !!connection.includeReferencedPrerequisites,
+    delivery: deliveryModeFromConnection(connection),
+    encryptPayload: !!connection.encryptPayload,
+    hashSecureAttributes: !!connection.hashSecureAttributes,
+    ...advancedValueFromConnection(connection),
+  };
+}
+
+// What a form value saves as, gated as the server gates it.
+export function useSDKConnectionBody() {
+  const { hasCommercialFeature } = useUser();
+  return (v: SDKConnectionFormValue): Record<string, unknown> => {
+    const caps = { languages: v.languages, sdkVersion: v.sdkVersion };
+    const latestCapabilities = getConnectionSDKCapabilities(
+      caps,
+      "max-ver-intersection",
+    );
+    const currentCapabilities = getConnectionSDKCapabilities(
+      caps,
+      "min-ver-intersection",
+    );
+    const plain = v.delivery === "plain";
+    return {
+      name: v.name,
+      languages: v.languages,
+      sdkVersion: v.sdkVersion,
+      environment: v.environment,
+      projects: v.projects,
+      includeReferencedPrerequisites: v.includeReferencedPrerequisites,
+      encryptPayload: plain ? false : v.encryptPayload,
+      hashSecureAttributes: plain ? false : v.hashSecureAttributes,
+      remoteEvalEnabled:
+        v.delivery === "remote" &&
+        latestCapabilities.includes("remoteEval") &&
+        hasCommercialFeature("remote-evaluation"),
+      ...sanitizeAdvancedForSave(v, {
+        latestCapabilities,
+        currentCapabilities,
+      }),
+    };
+  };
+}
+
+// The saved settings two bodies differ in.
+export function changedKeys(
+  before: Record<string, unknown>,
+  after: Record<string, unknown>,
+): string[] {
+  return Object.keys(after).filter(
+    (k) => !isEqual(after[k] ?? null, before[k] ?? null),
+  );
+}
+
+// The connection's name, the one setting not edited in place, saved into a
+// draft or published as the feature page's row modals are.
+export default function SDKConnectionEditModal({
+  connection,
+  mutate,
+  close,
+  ...revisionProps
+}: {
+  // As viewed: the selected draft's changes over live.
+  connection: SDKConnectionInterface;
+  mutate: () => Promise<unknown> | void;
+  close: () => void;
+} & SdkConnectionRevisionProps) {
+  const [name, setName] = useState(connection.name);
+  const flow = useSdkConnectionRevisionFlow({
+    connection,
+    mutate,
+    proposedScope: {
+      projects: connection.projects,
+      environment: connection.environment,
+    },
+    ...revisionProps,
+  });
+
+  return (
+    <ModalStandard
+      trackingEventModalType="edit-sdk-connection-name"
+      header="Edit Name"
+      open={true}
+      close={close}
+      size="md"
+      cta={flow.mode === "publish" ? "Save" : "Save to draft"}
+      ctaEnabled={!!name.trim() && name.trim() !== connection.name}
+      submit={async () => {
+        await flow.save({ name: name.trim() });
+      }}
+    >
+      <RevisionDraftSelectorForChanges
+        entityId={connection.id}
+        openRevisions={revisionProps.openRevisions ?? []}
+        allRevisions={revisionProps.allRevisions ?? []}
+        mode={flow.mode}
+        setMode={flow.setMode}
+        selectedDraftId={flow.selectedDraftId}
+        setSelectedDraftId={flow.setSelectedDraftId}
+        canAutoPublish={flow.canAutoPublish}
+        approvalRequired={flow.approvalRequired}
+        metadataOnly={flow.metadataOnly}
+      />
+      <Field
+        label="Name"
+        autoFocus
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+      />
+    </ModalStandard>
+  );
+}
