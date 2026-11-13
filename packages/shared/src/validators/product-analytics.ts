@@ -418,6 +418,13 @@ export type ExplorationDateRange = z.infer<
 const chartSettingsValidator = z.object({
   categoryAxisLabel: z.string().optional(),
   valueAxisLabel: z.string().optional(),
+  // Line charts only. Absent means anchored (the value axis starts at 0).
+  anchorYAxisToZero: z
+    .boolean()
+    .optional()
+    .describe(
+      "Line charts only: whether the y-axis starts at 0. Defaults to true.",
+    ),
 });
 export type ProductAnalyticsChartSettings = z.infer<
   typeof chartSettingsValidator

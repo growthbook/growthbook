@@ -2116,6 +2116,41 @@ describe("getExperimentResultStatus schedule-driven states", () => {
     expect(result?.status).toBe("unhealthy");
   });
 
+  it("ignores a summary from an earlier phase", () => {
+    // A two-phase experiment whose summary fails SRM.
+    const statusFor = (
+      phase: number | undefined,
+      type: ExperimentDataForStatus["type"] = "standard",
+    ) => {
+      const experimentData = makeExperimentData({
+        analysisSummary: {
+          snapshotId: "snap-1",
+          ...(phase !== undefined ? { phase } : {}),
+          health: { srm: 0.0001, multipleExposures: 0, totalUsers: 1_000_000 },
+        },
+      });
+      return getExperimentResultStatus({
+        experimentData: {
+          ...experimentData,
+          type,
+          phases: [experimentData.phases[0], experimentData.phases[0]],
+        },
+        healthSettings: baseHealthSettings,
+        decisionCriteria: PRESET_DECISION_CRITERIA,
+        metricGroups: [],
+      })?.status;
+    };
+
+    expect(statusFor(1)).toBe("unhealthy");
+    // Summaries written before the phase was recorded are assumed current.
+    expect(statusFor(undefined)).toBe("unhealthy");
+    expect(statusFor(0, "holdout")).toBe("unhealthy");
+
+    expect(statusFor(0)).toBeUndefined();
+    // The summary's phase was deleted.
+    expect(statusFor(-1)).toBeUndefined();
+  });
+
   it("flags cluster assignment and mapping issues at the cluster threshold", () => {
     const result = getExperimentResultStatus({
       experimentData: makeExperimentData({

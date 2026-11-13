@@ -73,8 +73,9 @@ export default function SectionFrame({
           justify="between"
           gap="4"
           px="5"
-          pt="2"
-          // Tighter over tabs, which bring their own height.
+          // Over tabs, roomier on top and tighter below, where the tabs bring
+          // their own height.
+          pt={tabs ? "3" : "2"}
           pb={tabs ? "1" : "2"}
         >
           {/* As tall as an action button, so headers match whatever they hold

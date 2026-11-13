@@ -888,6 +888,10 @@ function cleanChartSettings(
   if (chartSettings.valueAxisLabel !== undefined) {
     next.valueAxisLabel = chartSettings.valueAxisLabel.trim();
   }
+  // Only persist the non-default: anchored to zero is the default.
+  if (chartSettings.anchorYAxisToZero === false) {
+    next.anchorYAxisToZero = false;
+  }
   return Object.keys(next).length ? next : undefined;
 }
 
@@ -1518,6 +1522,46 @@ export function formatDurationMs(ms: number | null | undefined): string {
   const days = Math.floor(totalHr / 24);
   const hr = totalHr % 24;
   return hr ? `${days}d ${hr}h` : `${days}d`;
+}
+
+type FunnelCounts = { counts: number[] };
+
+// Share of step-1 users who reached `stepIdx`; null when step 1 is empty.
+export function fromStartRate(
+  s: FunnelCounts | undefined,
+  stepIdx: number,
+): number | null {
+  const first = s?.counts[0] ?? 0;
+  return first > 0 ? (s?.counts[stepIdx] ?? 0) / first : null;
+}
+
+// Share of the previous step's users who reached `stepIdx`.
+export function fromPrevRate(
+  s: FunnelCounts | undefined,
+  stepIdx: number,
+): number | null {
+  const prev = stepIdx > 0 ? (s?.counts[stepIdx - 1] ?? 0) : 0;
+  return prev > 0 ? (s?.counts[stepIdx] ?? 0) / prev : null;
+}
+
+// Rounds to 1 decimal; `|| 0` folds -0 into 0.
+export const round1 = (d: number) => Math.round(d * 10) / 10 || 0;
+
+// Funnel compare change for one bar:
+// - step 1: % change in users
+// - later steps: change in conversion from start, in pp
+export function stepChange(
+  cur: FunnelCounts,
+  prev: FunnelCounts | undefined,
+  stepIdx: number,
+): number | null {
+  if (stepIdx === 0) {
+    const p = prev?.counts[0] ?? 0;
+    return p > 0 ? round1(((cur.counts[0] ?? 0) / p - 1) * 100) : null;
+  }
+  const a = fromStartRate(cur, stepIdx);
+  const b = fromStartRate(prev, stepIdx);
+  return a === null || b === null ? null : round1((a - b) * 100);
 }
 
 export function getRefreshInterval(elapsedSeconds: number): number {
