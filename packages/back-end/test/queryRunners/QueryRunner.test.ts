@@ -10,6 +10,10 @@ import {
   getQueryFailureError,
   getQueryFailureCause,
 } from "back-end/src/queryRunners/QueryRunner";
+import {
+  getActiveRunnerIds,
+  untrackActiveRunner,
+} from "back-end/src/queryRunners/activeRunners";
 import { SourceIntegrationInterface } from "back-end/src/types/Integration";
 import {
   countRunningQueries,
@@ -1251,6 +1255,64 @@ describe("QueryRunner", () => {
         jest.advanceTimersByTime(120000);
         expect(runner.onHeartbeatSpy).toHaveBeenCalledTimes(0);
       } finally {
+        jest.clearAllTimers();
+        jest.useRealTimers();
+      }
+    });
+
+    it("is an active runner from running until it finishes", async () => {
+      jest.useFakeTimers();
+      const runner = new HeartbeatTestQueryRunner(
+        mockContext,
+        {
+          id: "active-model",
+          organization: "test-org",
+          queries: [],
+          runStarted: new Date(),
+        },
+        mockIntegration,
+      );
+      try {
+        expect(getActiveRunnerIds()).not.toContain("active-model");
+
+        await runner.startAnalysis({ pointers: runningPointers });
+        expect(runner.status).toBe("running");
+        expect(getActiveRunnerIds()).toContain("active-model");
+
+        await runner.cancelQueries();
+        expect(runner.status).toBe("finished");
+        expect(getActiveRunnerIds()).not.toContain("active-model");
+      } finally {
+        untrackActiveRunner(runner);
+        jest.clearAllTimers();
+        jest.useRealTimers();
+      }
+    });
+
+    it("is never an active runner when it finishes immediately (cached)", async () => {
+      jest.useFakeTimers();
+      const runner = new HeartbeatTestQueryRunner(
+        mockContext,
+        {
+          id: "cached-model",
+          organization: "test-org",
+          queries: [],
+          runStarted: new Date(),
+        },
+        mockIntegration,
+      );
+      try {
+        (getQueriesByIds as jest.Mock).mockResolvedValue([
+          createMockQuery("qry_a", "succeeded"),
+        ]);
+        await runner.startAnalysis({
+          pointers: [{ name: "a", query: "qry_a", status: "succeeded" }],
+        });
+
+        expect(runner.status).toBe("finished");
+        expect(getActiveRunnerIds()).not.toContain("cached-model");
+      } finally {
+        untrackActiveRunner(runner);
         jest.clearAllTimers();
         jest.useRealTimers();
       }

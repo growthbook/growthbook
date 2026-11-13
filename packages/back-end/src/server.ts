@@ -7,6 +7,7 @@ import { logger } from "./util/logger";
 import { getAgendaInstance } from "./services/queueing";
 import { uploadsInit } from "./init/uploads";
 import {
+  GRACEFUL_SHUTDOWN_TIMEOUT_MS,
   KEEP_ALIVE_TIMEOUT_MS,
   OAUTH_AS_ENABLED,
   OAUTH_ISSUER,
@@ -15,6 +16,11 @@ import {
   initializeGrowthBookClient,
   destroyGrowthBookClient,
 } from "./services/growthbook";
+import { drainWithDeadline } from "./util/shutdown";
+import {
+  getActiveRunnerIds,
+  waitForActiveRunners,
+} from "./queryRunners/activeRunners";
 
 // Initialize GrowthBook singleton before starting server
 initializeGrowthBookClient().catch((error) => {
@@ -56,30 +62,59 @@ process.on("uncaughtException", (err: Error) => {
   logger.error(err, "Uncaught Exception");
 });
 
-process.on("SIGTERM", async () => {
-  logger.info("SIGTERM signal received");
-  onClose();
-});
-process.on("SIGINT", async () => {
-  logger.info("SIGINT signal received");
-  onClose();
-});
-function onClose() {
-  // stop Express server
-  server.close(async () => {
-    logger.info("HTTP server closed");
-
-    // Cleanup GrowthBook client
-    destroyGrowthBookClient();
-
-    // Gracefully close Agenda
-    const agenda = getAgendaInstance();
-    await agenda.stop();
-    logger.info("Agenda closed");
-    process.exit(0);
+let shuttingDown = false;
+function onSignal(signal: NodeJS.Signals) {
+  if (shuttingDown) {
+    logger.warn(`${signal} signal received during shutdown, exiting now`);
+    process.exit(1);
+  }
+  shuttingDown = true;
+  logger.info(
+    `${signal} signal received, draining for up to ${GRACEFUL_SHUTDOWN_TIMEOUT_MS}ms`,
+  );
+  shutdown().catch((e) => {
+    logger.error(e, "Graceful shutdown failed");
+    process.exit(1);
   });
+}
+process.on("SIGTERM", onSignal);
+process.on("SIGINT", onSignal);
 
+async function shutdown() {
+  // Stop polling before anything else so no new job starts during the drain.
+  const agenda = getAgendaInstance();
+  const agendaJobs = agenda.drain();
+
+  const httpRequests = new Promise<void>((resolve) =>
+    server.close(() => resolve()),
+  );
   // close() only reaps sockets that are already idle; one that goes idle after
   // its in-flight request finishes would hold the server open for keepAliveTimeout
   setInterval(() => server.closeIdleConnections(), 250).unref();
+
+  // Jobs and requests are what start runners, so the runner set can briefly be
+  // empty while either is still running.
+  const queryRunners = Promise.all([agendaJobs, httpRequests]).then(() =>
+    waitForActiveRunners(),
+  );
+
+  const pending = await drainWithDeadline(
+    { agendaJobs, httpRequests, queryRunners },
+    GRACEFUL_SHUTDOWN_TIMEOUT_MS,
+  );
+  if (pending.length) {
+    logger.warn(
+      { pending, activeQueryRunners: getActiveRunnerIds() },
+      "Graceful shutdown timed out; exiting with work in flight",
+    );
+  } else {
+    logger.info("In-flight work drained");
+  }
+
+  destroyGrowthBookClient();
+  // Releases the job locks this process still holds so other processes can
+  // pick those jobs up.
+  await agenda.stop();
+  logger.info("Agenda closed");
+  process.exit(0);
 }
