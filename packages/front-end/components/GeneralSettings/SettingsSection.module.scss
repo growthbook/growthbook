@@ -141,10 +141,10 @@
       margin-top: calc(-1 * var(--settings-page-pad-top));
     }
 
-    .section:first-of-type {
+    .section:first-child {
       padding-top: 0;
     }
-    .section:first-of-type .header {
+    .section:first-child .header {
       margin-top: calc(-1 * var(--header-pad-top));
     }
   }
