@@ -13,6 +13,7 @@ import {
 } from "back-end/src/services/experiments";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getExposureQueriesForDatasource } from "back-end/src/services/assignmentQuerySelection";
+import { resolveOwnerEmail } from "back-end/src/services/owner";
 import { toEnhancedExperimentApiResponse } from "./enhancedExperimentResponse";
 import { toApiResultHealth } from "./resultHealth";
 
@@ -39,13 +40,15 @@ export const getExperimentResults = createApiRequestHandler(
   }
 
   const [apiExperiment, metricsById, exposureQueries] = await Promise.all([
-    // Holdouts have no enhanced status.
-    experiment.type === "holdout"
-      ? toExperimentApiInterface(req.context, experiment)
+    // Holdouts have no enhanced status, and it describes the latest phase, so
+    // it would mislead next to an older phase's results.
+    experiment.type === "holdout" || phase !== latestPhase
+      ? toExperimentApiInterface(req.context, experiment).then((apiDoc) =>
+          resolveOwnerEmail(apiDoc, req.context),
+        )
       : toEnhancedExperimentApiResponse(
           req.context,
           experiment as ExperimentInterfaceExcludingHoldouts,
-          phase === latestPhase,
         ),
     getMetricMapForExperiment(req.context, experiment),
     getExposureQueriesForDatasource(req.context, experiment.datasource),

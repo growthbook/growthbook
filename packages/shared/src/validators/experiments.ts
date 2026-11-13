@@ -3068,7 +3068,7 @@ export const getExperimentResultsValidator = {
         .string()
         .optional()
         .describe(
-          "Phase index, defaulting to the latest phase. `experiment.enhancedStatus.decision` describes the latest phase, so it is omitted for any other phase.",
+          "Phase index, defaulting to the latest phase. `experiment.enhancedStatus` describes the latest phase, so it is omitted for any other phase.",
         ),
       dimension: z.string().optional(),
     })

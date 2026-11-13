@@ -13,7 +13,6 @@ export const getExperiment = createApiRequestHandler(getExperimentValidator)(
     const apiExperiment = await toEnhancedExperimentApiResponse(
       req.context,
       experiment as ExperimentInterfaceExcludingHoldouts,
-      true,
     );
     return {
       experiment: apiExperiment,

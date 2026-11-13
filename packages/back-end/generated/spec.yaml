@@ -68931,14 +68931,13 @@ components:
       name: phase
       in: query
       description: >-
-        Phase index, defaulting to the latest phase.
-        `experiment.enhancedStatus.decision` describes the latest phase, so it
-        is omitted for any other phase.
+        Phase index, defaulting to the latest phase. `experiment.enhancedStatus`
+        describes the latest phase, so it is omitted for any other phase.
       schema:
         description: >-
           Phase index, defaulting to the latest phase.
-          `experiment.enhancedStatus.decision` describes the latest phase, so it
-          is omitted for any other phase.
+          `experiment.enhancedStatus` describes the latest phase, so it is
+          omitted for any other phase.
         type: string
     dimension:
       name: dimension

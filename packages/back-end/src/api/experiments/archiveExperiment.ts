@@ -47,7 +47,6 @@ export const postExperimentArchive = createApiRequestHandler(
     experiment: await toEnhancedExperimentApiResponse(
       req.context,
       updated as ExperimentInterfaceExcludingHoldouts,
-      true,
     ),
   };
 });
@@ -79,7 +78,6 @@ export const postExperimentUnarchive = createApiRequestHandler(
     experiment: await toEnhancedExperimentApiResponse(
       req.context,
       updated as ExperimentInterfaceExcludingHoldouts,
-      true,
     ),
   };
 });
