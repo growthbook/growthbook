@@ -103,6 +103,11 @@ export default function PopulationEditor({
     : [];
   const isFilterComplete = (filter: RowFilter) =>
     getRowFilterViolation(filter, factTable ?? undefined) === null;
+  // A saved filter deleted from the fact table still looks filled in, so the
+  // cue says where to look.
+  const hasUnfinishedSavedFilter = values.rowFilters.some(
+    (filter) => filter.operator === "saved_filter" && !isFilterComplete(filter),
+  );
   const missing = {
     name: !values.name.trim(),
     factTable: !values.factTableId,
@@ -367,6 +372,8 @@ export default function PopulationEditor({
                     {missing.rowFilters && (
                       <Text size="sm" color="text-mid" as="p">
                         Finish or remove any unfinished filters.
+                        {hasUnfinishedSavedFilter &&
+                          " Select a saved filter, or check whether the selected one was deleted from the fact table."}
                       </Text>
                     )}
                     {showThreshold ? (
