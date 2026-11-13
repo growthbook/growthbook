@@ -3,7 +3,7 @@ import dataclasses
 import re
 import traceback
 import copy
-from typing import Any, Dict, List, Optional, Set, Tuple, Union
+from typing import Any, Dict, List, Optional, Set, Tuple, TypeVar, Union
 
 import pandas as pd
 
@@ -84,7 +84,9 @@ from gbstats.models.statistics import (
 )
 from gbstats.utils import check_srm
 
-from gbstats.models.tests import EffectMomentsResult
+from gbstats.models.tests import BaseABTest, EffectMomentsResult
+
+TestT = TypeVar("TestT", bound=BaseABTest)
 
 
 SUM_COLS = [
@@ -185,6 +187,7 @@ def get_dimension_column_name(dimension: str) -> str:
 @dataclass
 class InitialMetricDataStrata:
     total_units: int
+    total_sub_units: int
     data: Dict[str, Dict[str, Any]]
 
 
@@ -192,6 +195,7 @@ class InitialMetricDataStrata:
 class DimensionMetricData:
     dimension: str
     total_units: int
+    total_sub_units: int
     data: pd.DataFrame
 
 
@@ -231,6 +235,7 @@ def get_metric_dfs(
         if dim not in dimensions:
             dimensions[dim] = InitialMetricDataStrata(
                 total_units=0,
+                total_sub_units=0,
                 data={},
             )
         if strata not in dimensions[dim].data:
@@ -253,6 +258,7 @@ def get_metric_dfs(
         if key in var_id_map:
             i = var_id_map[key]
             dimensions[dim].total_units += getattr(row, "users", 0)
+            dimensions[dim].total_sub_units += getattr(row, "sub_count", 0)
             prefix = f"v{i}" if i > 0 else "baseline"
 
             # Sum here in case multiple rows per dimension
@@ -276,6 +282,7 @@ def get_metric_dfs(
         DimensionMetricData(
             dimension=dimension,
             total_units=dimension_data.total_units,
+            total_sub_units=dimension_data.total_sub_units,
             data=pd.DataFrame([s for s in dimension_data.data.values()]),
         )
         for dimension, dimension_data in dimensions.items()
@@ -307,6 +314,7 @@ def reduce_dimensionality(
             current.data["dimension"] = "(other)"
             dimension.data["dimension"] = "(other)"
             current.total_units += dimension.total_units
+            current.total_sub_units += dimension.total_sub_units
             for v in range(num_variations):
                 prefix = f"v{v}" if v > 0 else "baseline"
                 if combine_strata:
@@ -327,6 +335,7 @@ def get_configured_test(
     analysis: AnalysisSettingsForStatsEngine,
     metric: MetricSettingsForStatsEngine,
     post_stratify: bool = False,
+    total_sub_units: int = 0,
 ) -> StatisticalTests:
 
     base_config = {
@@ -336,6 +345,15 @@ def get_configured_test(
         "difference_type": analysis.difference_type,
         "post_stratify": post_stratify,
     }
+
+    # Sub-unit cluster scaled-impact inputs are set on the test instance after
+    # construction rather than on the (public) Config classes, so their
+    # constructor signatures stay backward-compatible.
+    def with_scaling_settings(test: TestT) -> TestT:
+        test.total_sub_units = total_sub_units
+        test.scale_by_sub_unit_count = metric.scale_by_sub_unit_count
+        return test
+
     if analysis.use_covariate_as_response:
         num_variations = len(analysis.var_names)
         # if there are no goal metrics, just use 1 as the number of tests
@@ -356,15 +374,19 @@ def get_configured_test(
             )
             if analysis.one_sided_intervals:
                 if metric.inverse:
-                    return SequentialOneSidedTreatmentGreaterTTest(
-                        stats, sequential_config
+                    return with_scaling_settings(
+                        SequentialOneSidedTreatmentGreaterTTest(
+                            stats, sequential_config
+                        )
                     )
                 else:
-                    return SequentialOneSidedTreatmentLesserTTest(
-                        stats, sequential_config
+                    return with_scaling_settings(
+                        SequentialOneSidedTreatmentLesserTTest(stats, sequential_config)
                     )
             else:
-                return SequentialTwoSidedTTest(stats, sequential_config)
+                return with_scaling_settings(
+                    SequentialTwoSidedTTest(stats, sequential_config)
+                )
         else:
             config = FrequentistConfig(
                 **base_config,
@@ -372,11 +394,15 @@ def get_configured_test(
             )
             if analysis.one_sided_intervals:
                 if metric.inverse:
-                    return OneSidedTreatmentGreaterTTest(stats, config)
+                    return with_scaling_settings(
+                        OneSidedTreatmentGreaterTTest(stats, config)
+                    )
                 else:
-                    return OneSidedTreatmentLesserTTest(stats, config)
+                    return with_scaling_settings(
+                        OneSidedTreatmentLesserTTest(stats, config)
+                    )
             else:
-                return TwoSidedTTest(stats, config)
+                return with_scaling_settings(TwoSidedTTest(stats, config))
     else:
         if analysis.use_covariate_as_response:
             prior = GaussianPrior(
@@ -390,15 +416,17 @@ def get_configured_test(
                 variance=pow(metric.prior_stddev, 2),
                 proper=metric.prior_proper,
             )
-        return EffectBayesianABTest(
-            stats,
-            EffectBayesianConfig(
-                **base_config,
-                inverse=metric.inverse,
-                prior_effect=prior,
-                prior_type="relative",
-                alpha=alpha,
-            ),
+        return with_scaling_settings(
+            EffectBayesianABTest(
+                stats,
+                EffectBayesianConfig(
+                    **base_config,
+                    inverse=metric.inverse,
+                    prior_effect=prior,
+                    prior_type="relative",
+                    alpha=alpha,
+                ),
+            )
         )
 
 
@@ -637,6 +665,7 @@ def analyze_metric_df(
                 analysis=analysis,
                 metric=metric,
                 post_stratify=post_stratify,
+                total_sub_units=dimensionData.total_sub_units,
             )
             res = test.compute_result()
             realized_settings = test.realized_settings

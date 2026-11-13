@@ -28,7 +28,7 @@ interface Props
   showUnadjustedPValue?: boolean;
   className?: string;
   hideScaledImpact?: boolean;
-  noScaledImpactMessage?: string;
+  scaledImpactMessage?: string;
   // Props for popover
   metric?: ExperimentMetricDefinition;
   pValueThreshold: number;
@@ -49,7 +49,7 @@ export default function PValueColumn({
   showUnadjustedPValue = false,
   className,
   hideScaledImpact = false,
-  noScaledImpactMessage,
+  scaledImpactMessage,
   metric,
   pValueThreshold,
   differenceType,
@@ -92,7 +92,7 @@ export default function PValueColumn({
     }
 
     if (hideScaledImpact) {
-      return <NoScaledImpact message={noScaledImpactMessage} />;
+      return <NoScaledImpact message={scaledImpactMessage} />;
     }
 
     if (statusType === "notEnoughData") {

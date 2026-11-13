@@ -15,6 +15,7 @@ from gbstats.bayesian.tests import (
 
 from gbstats.models.statistics import (
     ProportionStatistic,
+    RatioStatistic,
     SampleMeanStatistic,
     QuantileStatistic,
 )
@@ -276,6 +277,54 @@ class TestGetRiskNumericalStability(TestCase):
         self.assertEqual(
             [round(x, 10) for x in EffectBayesianABTest.get_risk(mu, sigma)], expected
         )
+
+
+class TestScaledImpactSubUnitCluster(TestCase):
+    """Bayesian scaled impact for sub-unit cluster ratio metrics uses the
+    sub-unit count rather than the cluster count."""
+
+    def setUp(self):
+        # baseline mean = 200/500 = 0.4, variation mean = 260/520 = 0.5
+        self.stat_a = RatioStatistic(
+            n=100,
+            m_statistic=SampleMeanStatistic(n=100, sum=200, sum_squares=600),
+            d_statistic=SampleMeanStatistic(n=100, sum=500, sum_squares=3000),
+            m_d_sum_of_products=1200,
+        )
+        self.stat_b = RatioStatistic(
+            n=100,
+            m_statistic=SampleMeanStatistic(n=100, sum=260, sum_squares=900),
+            d_statistic=SampleMeanStatistic(n=100, sum=520, sum_squares=3200),
+            m_d_sum_of_products=1500,
+        )
+        self.total_users = 200  # clusters
+        self.total_sub_units = 1020  # sub-units (500 + 520)
+
+    def _result(self, difference_type, scale_by_sub_unit_count=True):
+        config = EffectBayesianConfig(
+            difference_type=difference_type,
+            total_users=self.total_users,
+            traffic_percentage=1.0,
+            phase_length_days=1.0,
+        )
+        test = EffectBayesianABTest([(self.stat_a, self.stat_b)], config)
+        test.total_sub_units = self.total_sub_units
+        test.scale_by_sub_unit_count = scale_by_sub_unit_count
+        return test.compute_result()
+
+    def test_scales_by_sub_unit_count(self):
+        absolute = self._result("absolute")
+        scaled = self._result("scaled")
+        self.assertIsNone(scaled.errorMessage)
+        self.assertAlmostEqual(absolute.expected, 0.1)
+        self.assertAlmostEqual(
+            scaled.expected, absolute.expected * self.total_sub_units
+        )
+        self.assertNotAlmostEqual(scaled.expected, absolute.expected * self.total_users)
+
+    def test_errors_when_flag_not_set(self):
+        scaled = self._result("scaled", scale_by_sub_unit_count=False)
+        self.assertIsNotNone(scaled.errorMessage)
 
 
 if __name__ == "__main__":
