@@ -80,6 +80,7 @@ import {
   parseDimensionId,
   parseFunnelStepMetricId,
   parseSliceMetricId,
+  quantileMetricType,
   setAdjustedCIs,
   setAdjustedPValuesOnResults,
   getAllVariations,
@@ -877,6 +878,16 @@ export function getSnapshotSettings({
       return metric?.windowSettings?.type !== "conversion";
     });
     guardrailMetrics = [];
+  }
+
+  // The bandit statistics CTE only computes means, so a quantile would be reported as a mean.
+  if (experiment.type === "multi-armed-bandit") {
+    const isQuantile = (id: string) => {
+      const metric = metricMap.get(id);
+      return !!metric && !!quantileMetricType(metric);
+    };
+    secondaryMetrics = secondaryMetrics.filter((m) => !isQuantile(m));
+    guardrailMetrics = guardrailMetrics.filter((m) => !isQuantile(m));
   }
 
   // Lookback windows are counted back from the analysis end date, so they are
