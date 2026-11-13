@@ -1,6 +1,8 @@
 import type { ContextualBanditSnapshot } from "shared/types/stats";
 import {
   buildContextualBanditResultsView,
+  classifyUnknownVariation,
+  classifyUnknownVariations,
   resolveSnapshotVariations,
 } from "../src/experiments/contextual-bandit-results";
 
@@ -308,5 +310,124 @@ describe("resolveSnapshotVariations", () => {
     expect(
       resolveSnapshotVariations([], [{ id: "v0", name: "Control" }]),
     ).toEqual([]);
+  });
+});
+
+describe("classifyUnknownVariation", () => {
+  const keyed = [
+    { id: "var_abc", key: "control" },
+    { id: "var_def", key: "treatment" },
+  ];
+
+  it("flags an empty value so dropped units are reported rather than ignored", () => {
+    expect(classifyUnknownVariation("", keyed)).toEqual({
+      kind: "empty",
+      value: "",
+    });
+  });
+
+  it("flags a case-only difference and names the expected key", () => {
+    expect(classifyUnknownVariation("Control", keyed)).toEqual({
+      kind: "caseOrWhitespace",
+      value: "Control",
+      expectedKey: "control",
+    });
+  });
+
+  it("flags a whitespace-only difference", () => {
+    expect(classifyUnknownVariation(" treatment ", keyed)).toEqual({
+      kind: "caseOrWhitespace",
+      value: " treatment ",
+      expectedKey: "treatment",
+    });
+  });
+
+  it("recognizes an exact GrowthBook variation id and names its key", () => {
+    expect(classifyUnknownVariation("var_def", keyed)).toEqual({
+      kind: "growthbookId",
+      value: "var_def",
+      expectedKey: "treatment",
+    });
+  });
+
+  it("recognizes a var_ id that matches no current variation", () => {
+    expect(classifyUnknownVariation("var_stale", keyed)).toEqual({
+      kind: "growthbookId",
+      value: "var_stale",
+    });
+  });
+
+  it("flags an in-range numeric value as a 0-based index", () => {
+    expect(classifyUnknownVariation("1", keyed)).toEqual({
+      kind: "index",
+      value: "1",
+      expectedKey: "treatment",
+    });
+  });
+
+  it("does not treat an out-of-range number as an index", () => {
+    expect(classifyUnknownVariation("7", keyed)).toEqual({
+      kind: "unrecognized",
+      value: "7",
+    });
+  });
+
+  it("resolves a numeric index against active arms, skipping pending/deactivated", () => {
+    // SDK numbers only active arms, so index "2" over [A, B, X(pending),
+    // Y(active)] is Y — not X, which sits at position 2 of the full list.
+    const withPending = [
+      { id: "var_a", key: "alpha", status: "active" as const },
+      { id: "var_b", key: "beta", status: "active" as const },
+      { id: "var_x", key: "xray", status: "pending" as const },
+      { id: "var_y", key: "yankee", status: "active" as const },
+    ];
+    expect(classifyUnknownVariation("2", withPending)).toEqual({
+      kind: "index",
+      value: "2",
+      expectedKey: "yankee",
+    });
+  });
+
+  it("treats an index past the active arm count as unrecognized", () => {
+    // Three active arms (indices 0-2); "3" only exists in the full list.
+    const withDeactivated = [
+      { id: "var_a", key: "alpha", status: "active" as const },
+      { id: "var_b", key: "beta", status: "deactivated" as const },
+      { id: "var_c", key: "gamma", status: "active" as const },
+      { id: "var_d", key: "delta", status: "active" as const },
+    ];
+    expect(classifyUnknownVariation("3", withDeactivated)).toEqual({
+      kind: "unrecognized",
+      value: "3",
+    });
+  });
+
+  it("falls back to unrecognized for an unrelated value (e.g. a campaign id)", () => {
+    expect(classifyUnknownVariation("19782307", keyed)).toEqual({
+      kind: "unrecognized",
+      value: "19782307",
+    });
+  });
+
+  it("prefers the GrowthBook id classification over a numeric index", () => {
+    // A numeric key means a bare number is a real id collision risk; the exact
+    // id match must still win over the positional-index heuristic.
+    const numericKeyed = [
+      { id: "1", key: "control" },
+      { id: "2", key: "treatment" },
+    ];
+    expect(classifyUnknownVariation("1", numericKeyed)).toEqual({
+      kind: "growthbookId",
+      value: "1",
+      expectedKey: "control",
+    });
+  });
+
+  it("classifies a list preserving input order", () => {
+    expect(
+      classifyUnknownVariations(["Control", "var_def", "9"], keyed).map(
+        (c) => c.kind,
+      ),
+    ).toEqual(["caseOrWhitespace", "growthbookId", "unrecognized"]);
   });
 });

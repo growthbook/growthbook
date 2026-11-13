@@ -35,6 +35,7 @@ import { hasUsableContextualBanditTargeting } from "back-end/src/integrations/sq
 import { logger } from "back-end/src/util/logger";
 import {
   ContextualBanditResult,
+  detectUnknownContextualVariations,
   runContextualStatsEngine,
 } from "back-end/src/enterprise/services/contextualBanditStats";
 import { QueryMap, QueryRunner } from "back-end/src/queryRunners/QueryRunner";
@@ -63,6 +64,7 @@ export type ContextualBanditQueryRunResult = ContextualBanditResult & {
   srm?: ContextualBanditSrmResult;
   multipleExposures?: number;
   traffic?: ExperimentSnapshotTraffic;
+  unknownVariations?: string[];
 };
 
 /** Name of the decision-metric sub-query; shared by `startQueries` and `runAnalysis`. */
@@ -360,7 +362,12 @@ export class ContextualBanditResultsQueryRunner extends QueryRunner<
       phaseLengthDays: windowLengthDays,
     });
 
-    return { ...analysis, srm, multipleExposures, traffic };
+    const unknownVariations = detectUnknownContextualVariations(
+      rows,
+      cb.variations,
+    );
+
+    return { ...analysis, srm, multipleExposures, traffic, unknownVariations };
   }
 
   private extractTraffic(
@@ -535,6 +542,8 @@ export class ContextualBanditResultsQueryRunner extends QueryRunner<
         effectiveStatus === "partially-succeeded") &&
       result
     ) {
+      updates.unknownVariations = result.unknownVariations ?? [];
+
       const latest = await this.getLatestModel();
       if (!latest.contextualBanditEventId) {
         const cbe = await persistContextualBanditEvent(
