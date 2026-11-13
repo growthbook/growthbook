@@ -5,6 +5,7 @@ import { baseDialect } from "./base";
 
 export const mssqlDialect: SqlDialect = {
   ...baseDialect,
+  bracketIdentifiers: true,
   formatDialect: "tsql",
   selectStarLimit: (
     from: string,

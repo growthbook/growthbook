@@ -9,6 +9,8 @@ export const baseDialect: Omit<SqlDialect, "unpivotLabeledPairs"> = {
   // Standard SQL quotes identifiers with double quotes. MySQL and BigQuery
   // override this with a backtick.
   identifierQuote: '"',
+  bracketIdentifiers: false,
+  eStrings: false,
 
   escapeStringLiteral: baseEscapeStringLiteral,
 
