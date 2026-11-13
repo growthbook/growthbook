@@ -26,6 +26,7 @@ import {
   deleteDataSourceWithChecks,
   updateDataSourceWithChecks,
 } from "back-end/src/services/datasourceChanges";
+import { withReadableExposureQueries } from "back-end/src/services/datasourceResponse";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { ApiReqContext } from "back-end/types/api";
 import { createApiRequestHandler } from "back-end/src/util/handler";
@@ -241,15 +242,20 @@ export const updateDataSource = createApiRequestHandler(
     {
       name,
       projects: projectIds,
+      // Built from what GET shows, so ids only match queries the user can
+      // read; the hidden ones are restored when it's saved
       settings: hasSettings
-        ? applyApiDataSourceSettings(settingsInput, datasource.settings)
+        ? applyApiDataSourceSettings(
+            settingsInput,
+            withReadableExposureQueries(context, datasource),
+          )
         : undefined,
       ...(description !== undefined ? { description } : {}),
     },
   );
   const saved = await getDataSource(context, datasource.id);
   return {
-    dataSource: toDataSourceApiInterface(saved),
+    dataSource: toDataSourceApiInterface(context, saved),
     ...(eventForwarderWarning ? { eventForwarderWarning } : {}),
   };
 });

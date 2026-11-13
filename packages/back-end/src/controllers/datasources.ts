@@ -110,6 +110,7 @@ import {
   deleteDataSourceWithChecks,
   assertCanUpdateDataSource,
   updateDataSourceWithChecks,
+  withSavedUnreadableExposureQueries,
 } from "back-end/src/services/datasourceChanges";
 import { IS_CLOUD } from "back-end/src/util/secrets";
 import {
@@ -533,8 +534,13 @@ export async function putDataSource(
     return;
   }
 
-  // The whole body, so metricsToCreate still needs data source-wide permission
-  assertCanUpdateDataSource(context, datasource, req.body);
+  // The whole body, so metricsToCreate still needs data source-wide permission.
+  // The service restores unreadable assignment queries itself; this check
+  // needs them too, or a save would look like it deletes them.
+  assertCanUpdateDataSource(context, datasource, {
+    ...req.body,
+    settings: withSavedUnreadableExposureQueries(context, datasource, settings),
+  });
 
   try {
     const { integration, eventForwarderWarning } =

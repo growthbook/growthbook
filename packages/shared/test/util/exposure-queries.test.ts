@@ -15,6 +15,8 @@ import {
   getExposureQueryProjectScopeViolations,
   getExposureQueryProjectScopeError,
   isExposureQueryAvailableForProjects,
+  getReadableExposureQueries,
+  withUnreadableExposureQueries,
   getIdentifierTypeForSettingsHash,
   getPastExperimentQueryName,
   withKeptIdentifierType,
@@ -801,6 +803,212 @@ describe("isExposureQueryAvailableForProjects", () => {
         { holdoutProjects: ["prj_b"], datasourceProjects: dsProjects },
       ),
     ).toBe(true);
+  });
+});
+
+describe("assignment query read access", () => {
+  const canRead = (projects: string[]) =>
+    !projects.length || projects.includes("prj_a");
+  const own = { id: "eq_a", projects: ["prj_a"] };
+  const other = { id: "eq_b", projects: ["prj_b"] };
+  const shared = { id: "eq_ab", projects: ["prj_a", "prj_b"] };
+  const inherited = { id: "eq_inherit", projects: [] };
+
+  it("keeps queries in a project the user can read", () => {
+    expect(
+      getReadableExposureQueries([own, other, shared, inherited], [], canRead),
+    ).toEqual([own, shared, inherited]);
+  });
+
+  it("applies the data source's projects to an unscoped query", () => {
+    expect(
+      getReadableExposureQueries([own, inherited], ["prj_b"], canRead),
+    ).toEqual([own]);
+    expect(
+      getReadableExposureQueries([inherited], ["prj_a", "prj_b"], canRead),
+    ).toEqual([inherited]);
+  });
+
+  it("puts unreadable queries back at their saved positions", () => {
+    const third = { id: "eq_a2", projects: ["prj_a"] };
+    const saved = [other, own, shared, third];
+    expect(
+      withUnreadableExposureQueries(saved, [own, shared, third], [], canRead),
+    ).toEqual(saved);
+  });
+
+  it("keeps unreadable queries when visible ones are removed or added", () => {
+    const added = { id: "eq_new", projects: ["prj_a"] };
+    expect(
+      withUnreadableExposureQueries([own, other], [], [], canRead),
+    ).toEqual([other]);
+    expect(
+      withUnreadableExposureQueries([own, other], [own, added], [], canRead),
+    ).toEqual([own, other, added]);
+  });
+
+  it("keeps an unreadable query after the visible one before it when an earlier one is deleted", () => {
+    const third = { id: "eq_a2", projects: ["prj_a"] };
+    expect(
+      withUnreadableExposureQueries([own, other, third], [third], [], canRead),
+    ).toEqual([other, third]);
+  });
+
+  it("keeps an unreadable query at the end", () => {
+    const third = { id: "eq_a2", projects: ["prj_a"] };
+    expect(
+      withUnreadableExposureQueries(
+        [own, third, other],
+        [own, third],
+        [],
+        canRead,
+      ),
+    ).toEqual([own, third, other]);
+    expect(
+      withUnreadableExposureQueries([own, third, other], [own], [], canRead),
+    ).toEqual([own, other]);
+  });
+
+  it("keeps consecutive unreadable queries together in their saved order", () => {
+    const other2 = { id: "eq_b2", projects: ["prj_b"] };
+    const third = { id: "eq_a2", projects: ["prj_a"] };
+    expect(
+      withUnreadableExposureQueries(
+        [own, other, other2, third],
+        [third],
+        [],
+        canRead,
+      ),
+    ).toEqual([other, other2, third]);
+    expect(
+      withUnreadableExposureQueries(
+        [own, other, other2, third],
+        [own, third],
+        [],
+        canRead,
+      ),
+    ).toEqual([own, other, other2, third]);
+  });
+
+  it("moves an unreadable query with the visible one before it on reorder", () => {
+    const third = { id: "eq_a2", projects: ["prj_a"] };
+    expect(
+      withUnreadableExposureQueries(
+        [own, other, third],
+        [third, own],
+        [],
+        canRead,
+      ),
+    ).toEqual([third, own, other]);
+  });
+
+  it("keeps the saved order of legacy queries that repeat an id", () => {
+    const a = { id: "eq_dup", name: "A", projects: ["prj_a"] };
+    const b = { id: "eq_dup", name: "B", projects: ["prj_a"] };
+    const hidden = { id: "eq_dup", name: "H", projects: ["prj_b"] };
+    const saved = [a, b, hidden];
+    const merged = withUnreadableExposureQueries(saved, [a, b], [], canRead);
+    expect(merged).toEqual(saved);
+    expect(getChangedExposureQueries(saved, merged)).toEqual([]);
+    expect(
+      withUnreadableExposureQueries([a, hidden, b], [a, b], [], canRead),
+    ).toEqual([a, hidden, b]);
+    // With fewer submitted than saved, the hidden query follows the last
+    // visible occurrence that was submitted again.
+    expect(withUnreadableExposureQueries(saved, [a], [], canRead)).toEqual([
+      a,
+      hidden,
+    ]);
+  });
+
+  it("does not anchor unreadable queries to added queries without a saved id", () => {
+    const added = { id: "", projects: ["prj_a"] };
+    expect(
+      withUnreadableExposureQueries([own, other], [added], [], canRead),
+    ).toEqual([other, added]);
+  });
+
+  it("returns the submitted list when every saved query is readable", () => {
+    const submitted = [shared];
+    expect(
+      withUnreadableExposureQueries([own, shared], submitted, [], canRead),
+    ).toBe(submitted);
+  });
+
+  it("uses the data source's projects to judge unscoped saved queries", () => {
+    expect(
+      withUnreadableExposureQueries(
+        [own, inherited],
+        [own],
+        ["prj_b"],
+        canRead,
+      ),
+    ).toEqual([own, inherited]);
+  });
+
+  it("leaves a hidden query out when the submitted list reuses its id", () => {
+    const overwrite = { ...other, projects: ["prj_a"], name: "mine" };
+    const merged = withUnreadableExposureQueries(
+      [own, other],
+      [own, overwrite],
+      [],
+      canRead,
+    );
+    expect(merged).toEqual([own, overwrite]);
+    // So the change is checked against the hidden query it would replace
+    expect(getChangedExposureQueries([own, other], merged)).toEqual([
+      { previous: other, next: overwrite },
+    ]);
+  });
+
+  it("checks every query sharing a hidden id when one is added after it", () => {
+    const saved = [other, own];
+    const added = { ...other, projects: ["prj_a"], name: "added" };
+    const merged = withUnreadableExposureQueries(
+      saved,
+      [own, added],
+      [],
+      canRead,
+    );
+    const changes = getChangedExposureQueries(saved, merged);
+    expect(changes).toEqual([{ previous: other, next: added }]);
+    expect(getSavedQueriesSharingId(saved, changes[0].previous?.id)).toEqual([
+      other,
+    ]);
+  });
+
+  it("keeps a legacy repeated id's hidden copy when only the visible one is resent", () => {
+    const visible = { id: "eq_dup", name: "A", projects: ["prj_a"] };
+    const hidden = { id: "eq_dup", name: "H", projects: ["prj_b"] };
+    expect(
+      withUnreadableExposureQueries([hidden, visible], [visible], [], canRead),
+    ).toEqual([hidden, visible]);
+    const edited = { ...visible, name: "A2" };
+    const merged = withUnreadableExposureQueries(
+      [visible, hidden],
+      [edited, { ...visible, name: "extra" }],
+      [],
+      canRead,
+    );
+    // A second copy names the hidden one, so it isn't restored
+    expect(merged).toEqual([edited, { ...visible, name: "extra" }]);
+  });
+
+  it("doesn't add a second copy to a list that already holds the hidden queries", () => {
+    const saved = [own, other, shared];
+    const restored = withUnreadableExposureQueries(
+      saved,
+      [own, shared],
+      [],
+      canRead,
+    );
+    expect(restored).toEqual(saved);
+    expect(withUnreadableExposureQueries(saved, restored, [], canRead)).toEqual(
+      saved,
+    );
+    expect(withUnreadableExposureQueries(saved, saved, [], canRead)).toBe(
+      saved,
+    );
   });
 });
 

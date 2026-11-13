@@ -26,7 +26,7 @@ export const listDataSources = createApiRequestHandler(
 
   return {
     dataSources: filtered.map((dataSource) =>
-      toDataSourceApiInterface(dataSource),
+      toDataSourceApiInterface(req.context, dataSource),
     ),
     ...returnFields,
   };

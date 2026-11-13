@@ -15,6 +15,7 @@ import {
   getExposureQueryIdentifierTypes,
   findColumnsNeedingQuotes,
   getColumnsNeedingQuotesMessage,
+  getReadableExposureQueries,
   resolveAnalysisIdentifierType,
   parseOptionalInt,
 } from "shared/util";
@@ -929,6 +930,7 @@ export async function _dangerousGetAllDatasources(): Promise<
 }
 
 export function toDataSourceApiInterface(
+  context: ReqContext | ApiReqContext,
   datasource: DataSourceInterface,
 ): ApiDataSource {
   const settings = datasource.settings;
@@ -947,7 +949,11 @@ export function toDataSourceApiInterface(
       id: identifier.userIdType,
       description: identifier.description || "",
     })),
-    assignmentQueries: (settings?.queries?.exposure || []).map((q) => ({
+    assignmentQueries: getReadableExposureQueries(
+      settings?.queries?.exposure || [],
+      datasource.projects,
+      context.permissions.canReadMultiProjectResource,
+    ).map((q) => ({
       id: q.id,
       name: q.name,
       description: q.description || "",

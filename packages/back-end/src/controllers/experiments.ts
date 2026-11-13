@@ -152,6 +152,7 @@ import {
 import { ApiReqContext, PrivateApiErrorResponse } from "back-end/types/api";
 import {
   PastExperimentsQueryRunner,
+  getReadablePastExperiments,
   withCountedIdentifierTypes,
 } from "back-end/src/queryRunners/PastExperimentsQueryRunner";
 import { getFactTableMap } from "back-end/src/models/FactTableModel";
@@ -3045,8 +3046,14 @@ export async function getPastExperimentsList(
     });
   });
 
+  const readableRows = getReadablePastExperiments(
+    pastExperiments.experiments ?? [],
+    datasource,
+    context.permissions.canReadMultiProjectResource,
+  );
+
   const trackingKeyMap: Record<string, string | null> = {};
-  (pastExperiments.experiments || []).forEach((e) => {
+  readableRows.forEach((e) => {
     const keys = [e.trackingKey, e.trackingKey + "::" + e.exposureQueryId];
     keys.forEach((key) => {
       const id = experimentMap.get(key);
@@ -3061,7 +3068,7 @@ export async function getPastExperimentsList(
     experiments: {
       ...pastExperiments,
       experiments: withCountedIdentifierTypes(
-        pastExperiments.experiments ?? [],
+        readableRows,
         datasource.settings?.queries?.exposure ?? [],
       ),
     },
