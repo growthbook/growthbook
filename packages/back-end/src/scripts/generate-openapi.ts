@@ -358,6 +358,11 @@ function toOpenApiSchema(schema: z.ZodType): z.core.JSONSchema.BaseSchema {
       ) {
         delete (jsonSchema as Record<string, unknown>).pattern;
       }
+      // zod 4.6 drops a $ref's description when it equals the target's; keep it so property docs still render
+      const description = z.globalRegistry.get(ctx.zodSchema)?.description;
+      if (jsonSchema.$ref && description && !jsonSchema.description) {
+        jsonSchema.description = description;
+      }
     },
   }) as Record<string, unknown>;
   if ($defs && typeof $defs === "object") {
