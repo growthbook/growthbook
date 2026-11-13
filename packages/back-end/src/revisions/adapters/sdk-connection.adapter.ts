@@ -1,4 +1,4 @@
-import { isEqual } from "lodash";
+import { isEqual, omit } from "lodash";
 import { z } from "zod";
 import {
   EditSDKConnectionParams,
@@ -60,6 +60,55 @@ const SETTINGS_ALLOWED_KEYS = Object.keys(
 export const CONNECTION_UPDATABLE_FIELDS: ReadonlySet<string> = new Set(
   Object.keys(sdkConnectionUpdatableFieldsSchema.shape),
 );
+
+// Who may see a webhook's headers, as the live webhook list decides it: someone
+// who could update the webhook on every connection it fires for. Looked up
+// once per request and connection.
+const headerViewers = new WeakMap<
+  Context,
+  Map<string, Promise<(webhookId: string) => boolean>>
+>();
+function webhookHeaderViewer(context: Context, connectionId: string) {
+  const byConnection = headerViewers.get(context) ?? new Map();
+  headerViewers.set(context, byConnection);
+  if (!byConnection.has(connectionId)) {
+    byConnection.set(
+      connectionId,
+      (async () => {
+        const connection = await findSDKConnectionById(context, connectionId);
+        if (
+          !connection ||
+          !context.permissions.canUpdateSDKWebhook(connection)
+        ) {
+          return () => false;
+        }
+        const live =
+          await context.models.sdkWebhooks.findAllSdkWebhooksByConnectionIds([
+            connectionId,
+          ]);
+        const editable =
+          await context.models.sdkWebhooks.getEditableWebhookIds(live);
+        const liveIds = new Set(live.map((w) => w.id));
+        // One only a draft or history holds fires for this connection alone.
+        return (id: string) => !liveIds.has(id) || editable.has(id);
+      })(),
+    );
+  }
+  return byConnection.get(connectionId)!;
+}
+
+// Headers a client left out, having never been shown them, stay as they were.
+export function restoreWebhookHeaders(
+  base: SDKWebhookRevisionSnapshot[],
+  incoming: SDKWebhookRevisionSnapshot[],
+): SDKWebhookRevisionSnapshot[] {
+  const kept = new Map(base.map((w) => [w.id, w.headers]));
+  return incoming.map((w) =>
+    w.headers === undefined && kept.get(w.id) !== undefined
+      ? { ...w, headers: kept.get(w.id) }
+      : w,
+  );
+}
 
 const UPDATABLE_FIELDS: ReadonlySet<string> = new Set([
   "sdkConnection",
@@ -348,6 +397,29 @@ export const sdkConnectionAdapter: EntityRevisionAdapter<SDKConnectionRevisionSn
         [],
         snapshot,
       );
+    },
+
+    async scrubForViewer(context, target, fragment) {
+      const rows = fragment.sdkWebhooks;
+      if (!Array.isArray(rows) || !rows.some((w) => w?.headers !== undefined)) {
+        return fragment;
+      }
+      const canSee = await webhookHeaderViewer(context, target.id);
+      return {
+        ...fragment,
+        sdkWebhooks: rows.map((w) => (canSee(w.id) ? w : omit(w, "headers"))),
+      };
+    },
+
+    restoreScrubbed(base, incoming) {
+      if (!Array.isArray(incoming.sdkWebhooks)) return incoming;
+      return {
+        ...incoming,
+        sdkWebhooks: restoreWebhookHeaders(
+          base.sdkWebhooks ?? [],
+          incoming.sdkWebhooks,
+        ),
+      };
     },
 
     // For the generic publish paths that skip the PUT controller. Runs before

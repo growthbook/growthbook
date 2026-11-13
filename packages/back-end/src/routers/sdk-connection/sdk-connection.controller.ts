@@ -56,6 +56,7 @@ import { publishRevision } from "back-end/src/revisions/revisionActions";
 import {
   CONNECTION_UPDATABLE_FIELDS,
   pickSettingsSnapshot,
+  restoreWebhookHeaders,
   SDKConnectionLiveSnapshot,
 } from "back-end/src/revisions/adapters/sdk-connection.adapter";
 
@@ -268,7 +269,14 @@ export const putSDKConnection = async (
     });
   };
 
-  const incomingWebhooks = parseIncomingWebhooks(req.body.sdkWebhooks);
+  const sentWebhooks = parseIncomingWebhooks(req.body.sdkWebhooks);
+  // Headers the client was never shown stay as they are in the state it edited.
+  const incomingWebhooks =
+    sentWebhooks &&
+    restoreWebhookHeaders(
+      draftWebhookSnapshots ?? liveWebhookSnapshots,
+      sentWebhooks,
+    );
   // Against the draft being edited, so setting a webhook back to live sticks.
   const hasWebhookChanges =
     incomingWebhooks !== null &&
@@ -549,13 +557,15 @@ export const getSDKConnectionWebhooks = async (
   const webhooks =
     await context.models.sdkWebhooks.findAllSdkWebhooksByConnection(id);
 
-  // Blank the shared secret and headers unless the user can edit every connection the webhook covers
+  // The shared secret and headers go only to someone who can edit every
+  // connection the webhook covers. Headers are left out, not blanked, so
+  // sending the row back keeps them.
   const editable =
     await context.models.sdkWebhooks.getEditableWebhookIds(webhooks);
   webhooks.forEach((w) => {
     if (!editable.has(w.id)) {
       w.signingKey = "";
-      w.headers = "";
+      delete w.headers;
     }
   });
 

@@ -77,6 +77,7 @@ import {
   runGuardedWrite,
   withBufferedPayloadRefreshes,
 } from "back-end/src/revisions/landingSequence";
+import { scrubConflictsForViewer } from "back-end/src/revisions/scrub";
 
 export type RevisionActionKind =
   | "draft"
@@ -778,7 +779,11 @@ async function publishRevisionInner(
   if (!conflictResult.success) {
     throw new MergeConflictError(
       "Merge conflicts exist — rebase before publishing",
-      conflictResult.conflicts,
+      await scrubConflictsForViewer(
+        context,
+        revision.target,
+        conflictResult.conflicts,
+      ),
     );
   }
 
@@ -1600,7 +1605,7 @@ export async function rebaseRevision({
     ) {
       throw new MergeConflictError(
         `Please resolve conflict for field: ${conflict.field}`,
-        conflicts,
+        await scrubConflictsForViewer(context, revision.target, conflicts),
       );
     }
   }
@@ -1662,7 +1667,16 @@ export async function rebaseRevision({
       const custom = customValues?.[field];
       let resolvedValue: unknown;
       if (custom !== undefined) {
-        resolvedValue = custom;
+        // What the caller was never shown stays as the draft, else live, had it.
+        const { restoreScrubbed } = getAdapter(revision.target.type);
+        const from = (incoming: unknown, base: unknown) =>
+          restoreScrubbed
+            ? restoreScrubbed({ [field]: base }, { [field]: incoming })[field]
+            : incoming;
+        resolvedValue = from(
+          from(custom, conflict.proposedValue),
+          conflict.liveValue,
+        );
       } else if (
         Array.isArray(conflict.liveValue) &&
         Array.isArray(conflict.proposedValue)

@@ -1,3 +1,4 @@
+import { omit } from "lodash";
 import type { Revision, JsonPatchOperation } from "shared/enterprise";
 import {
   type SDKConnectionRevisionSnapshot,
@@ -7,6 +8,11 @@ import type { SDKConnectionInterface } from "shared/types/sdk-connection";
 import { CasConflictError, type Context } from "back-end/src/models/BaseModel";
 import { sdkConnectionAdapter } from "back-end/src/revisions/adapters/sdk-connection.adapter";
 import { getAdapter } from "back-end/src/revisions/index";
+import {
+  restoreScrubbedOps,
+  scrubConflictsForViewer,
+  scrubRevisionForViewer,
+} from "back-end/src/revisions/scrub";
 import {
   editSDKConnection,
   findSDKConnectionById,
@@ -180,6 +186,8 @@ function makeContext(overrides: {
         applyEdit: jest.fn(async () => ({})),
         delete: jest.fn(async () => undefined),
         getById: jest.fn(async (id: string) => ({ id })),
+        // Nothing live is editable unless a test says so.
+        getEditableWebhookIds: jest.fn(async () => new Set<string>()),
       },
     },
   } as unknown as Context;
@@ -1109,6 +1117,107 @@ describe("sdkConnectionAdapter.archivedState", () => {
         { op: "replace", path: "/sdkWebhooks", value: [] },
       ]),
     ).toEqual({ current: false, proposed: undefined });
+  });
+});
+
+describe("webhook headers in revisions", () => {
+  const secret = '{"Authorization":"Bearer abc"}';
+  const live = { ...baseWebhook, headers: secret };
+  const added = { ...baseWebhook, id: "temp_2", headers: secret };
+  const revision = () =>
+    buildRevision(
+      [{ op: "replace", path: "/sdkWebhooks", value: [live, added] }],
+      snapshotWith({}, [live]),
+      {
+        activityLog: [
+          {
+            proposedChangesSnapshot: [
+              { op: "replace", path: "/sdkWebhooks", value: [live] },
+            ],
+            targetSnapshot: snapshotWith({}, [live]),
+          },
+        ] as unknown as Revision["activityLog"],
+      },
+    );
+  const headersIn = (r: Revision) => JSON.stringify(r).includes("Bearer abc");
+
+  it("leaves them out for a viewer who can't edit the webhooks", async () => {
+    const ctx = makeContext({
+      permissions: { canUpdateSDKWebhook: () => false },
+    });
+    const seen = await scrubRevisionForViewer(ctx, revision());
+    expect(headersIn(seen)).toBe(false);
+    // Absent, not blank, in the snapshot, the changes and the activity log.
+    expect(seen.target.snapshot).toEqual(
+      snapshotWith({}, [omit(live, "headers")]),
+    );
+    expect(seen.target.proposedChanges[0]).toMatchObject({
+      value: [omit(live, "headers"), omit(added, "headers")],
+    });
+    // Everything else is as stored.
+    expect(seen.target.snapshot).toMatchObject({
+      sdkConnection: baseSnapshot.sdkConnection,
+    });
+  });
+
+  it("shows them to an editor, except on a webhook another connection shares", async () => {
+    const ctx = makeContext({});
+    const model = webhooksModel(ctx);
+    expect(headersIn(await scrubRevisionForViewer(ctx, revision()))).toBe(true);
+
+    // Live, but not editable on every connection it fires for.
+    const shared = makeContext({});
+    webhooksModel(shared).findAllSdkWebhooksByConnectionIds.mockResolvedValue([
+      { id: live.id },
+    ]);
+    const seen = await scrubRevisionForViewer(shared, revision());
+    expect(seen.target.proposedChanges[0]).toMatchObject({
+      value: [omit(live, "headers"), added],
+    });
+    expect(model.getEditableWebhookIds).toHaveBeenCalledTimes(1);
+  });
+
+  it("scrubs conflict values the same way", async () => {
+    const ctx = makeContext({
+      permissions: { canUpdateSDKWebhook: () => false },
+    });
+    const [conflict] = await scrubConflictsForViewer(ctx, revision().target, [
+      {
+        field: "sdkWebhooks",
+        baseValue: [live],
+        liveValue: [live],
+        proposedValue: [live, added],
+      },
+    ]);
+    expect(JSON.stringify(conflict)).not.toContain("Bearer abc");
+  });
+
+  it("keeps headers a client sends back without, and clears ones it sends empty", () => {
+    const [op] = restoreScrubbedOps("sdk-connection", { sdkWebhooks: [live] }, [
+      {
+        op: "replace",
+        path: "/sdkWebhooks",
+        value: [
+          omit(live, "headers"),
+          { ...baseWebhook, id: "temp_3", name: "New" },
+        ],
+      },
+    ]);
+    expect(op).toMatchObject({
+      value: [live, { ...baseWebhook, id: "temp_3", name: "New" }],
+    });
+    const [cleared] = restoreScrubbedOps(
+      "sdk-connection",
+      { sdkWebhooks: [live] },
+      [
+        {
+          op: "replace",
+          path: "/sdkWebhooks",
+          value: [{ ...live, headers: "" }],
+        },
+      ],
+    );
+    expect(cleared).toMatchObject({ value: [{ ...live, headers: "" }] });
   });
 });
 

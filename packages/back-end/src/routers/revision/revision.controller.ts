@@ -6,6 +6,7 @@ import {
   RevisionTargetType,
   Conflict,
   ReviewDecision,
+  applyTopLevelPatchOps,
   checkMergeConflicts,
   JsonPatchOperation,
   normalizeProposedChanges,
@@ -23,6 +24,10 @@ import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { ReqContext } from "back-end/types/request";
 import { ApiErrorResponse } from "back-end/types/api";
 import { ConflictError, MergeConflictError } from "back-end/src/util/errors";
+import {
+  restoreScrubbedOps,
+  scrubConflictsForViewer,
+} from "back-end/src/revisions/scrub";
 import { getContextFromReq } from "back-end/src/services/organizations";
 import { ArmAcknowledgments } from "back-end/src/services/armGuards";
 import {
@@ -281,7 +286,11 @@ export const postRevision = async (
     type: entityType,
     id: entityId,
     snapshot: originalEntity as Record<string, unknown>,
-    proposedChanges,
+    proposedChanges: restoreScrubbedOps(
+      entityType,
+      originalEntity as Record<string, unknown>,
+      proposedChanges,
+    ),
   });
 
   await getRevisionWebhookAdapter(revision.target.type)?.dispatch(
@@ -833,7 +842,14 @@ export const putProposedChanges = async (
 
   const revision = await revisionModel.updateProposedChanges(
     id,
-    proposedChanges,
+    restoreScrubbedOps(
+      existingRevision.target.type,
+      applyTopLevelPatchOps(
+        existingRevision.target.snapshot as Record<string, unknown>,
+        existingRevision.target.proposedChanges,
+      ),
+      proposedChanges,
+    ),
     userId,
     advanceAuthorityOnRow(context),
   );
@@ -1237,7 +1253,11 @@ export const postApproveAndPublish = async (
   if (!conflictResult.success) {
     throw new MergeConflictError(
       "Merge conflicts exist — rebase before publishing",
-      conflictResult.conflicts,
+      await scrubConflictsForViewer(
+        context,
+        revision.target,
+        conflictResult.conflicts,
+      ),
     );
   }
 
@@ -1961,7 +1981,11 @@ export const getConflicts = async (
   res.status(200).json({
     status: 200,
     hasConflicts: !result.success,
-    conflicts: result.conflicts,
+    conflicts: await scrubConflictsForViewer(
+      context,
+      revision.target,
+      result.conflicts,
+    ),
     canAutoMerge: result.canAutoMerge,
   });
 };

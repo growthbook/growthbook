@@ -285,6 +285,24 @@ export interface EntityRevisionAdapter<
     },
   ): Promise<ApplyChangesResult>;
 
+  // Values this viewer may not see are DELETED from what leaves the server, so
+  // a client can't mistake a placeholder for the real value. Stored revisions
+  // are never changed: publish, revert and rebase read them whole. A fragment
+  // holds top-level snapshot keys, so one hook covers snapshots, op values and
+  // conflicts.
+  scrubForViewer?(
+    context: Context,
+    target: { id: string },
+    fragment: Partial<TSnapshot>,
+  ): Promise<Partial<TSnapshot>>;
+
+  // The write-side counterpart: a value a client left out, having never
+  // received it, is carried over from `base`. Sending it empty still clears it.
+  restoreScrubbed?(
+    base: Partial<TSnapshot>,
+    incoming: Partial<TSnapshot>,
+  ): Partial<TSnapshot>;
+
   // Validate what a merge would apply BEFORE the merge is claimed: throwing here leaves
   // the revision open and editable, instead of stranding it "merged" and relying on a
   // post-merge reopen. Runs on every internal publish path — bypass skips approval, not
