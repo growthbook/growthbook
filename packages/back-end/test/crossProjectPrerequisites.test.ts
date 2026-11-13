@@ -74,17 +74,21 @@ const mapOf = (features: FeatureInterface[]) =>
 describe("getPrerequisiteIdsInFeatures", () => {
   it("collects top-level prerequisites", () => {
     expect(
-      getPrerequisiteIdsInFeatures([
-        feature("child", "prj_b", { prerequisites: ["root"] }),
-      ]),
+      getPrerequisiteIdsInFeatures({
+        features: [feature("child", "prj_b", { prerequisites: ["root"] })],
+        environment: null,
+      }),
     ).toEqual(["root"]);
   });
 
   it("collects rule-level prerequisites", () => {
     expect(
-      getPrerequisiteIdsInFeatures([
-        feature("child", "prj_b", { rules: [{ prerequisites: ["root"] }] }),
-      ]),
+      getPrerequisiteIdsInFeatures({
+        features: [
+          feature("child", "prj_b", { rules: [{ prerequisites: ["root"] }] }),
+        ],
+        environment: null,
+      }),
     ).toEqual(["root"]);
   });
 
@@ -96,31 +100,58 @@ describe("getPrerequisiteIdsInFeatures", () => {
       ["exp_a", experimentWithPhasePrereq("exp_a", "root")],
     ]);
 
-    expect(getPrerequisiteIdsInFeatures(features, experimentMap)).toEqual([
-      "root",
-    ]);
+    expect(
+      getPrerequisiteIdsInFeatures({
+        features,
+        experimentMap,
+        environment: null,
+      }),
+    ).toEqual(["root"]);
   });
 
   it("skips disabled rules, which never render", () => {
     expect(
-      getPrerequisiteIdsInFeatures([
-        feature("child", "prj_b", {
-          rules: [{ prerequisites: ["root"], enabled: false }],
-        }),
-      ]),
+      getPrerequisiteIdsInFeatures({
+        features: [
+          feature("child", "prj_b", {
+            rules: [{ prerequisites: ["root"], enabled: false }],
+          }),
+        ],
+        environment: null,
+      }),
     ).toEqual([]);
   });
 
   it("dedupes a prerequisite reached more than one way", () => {
     expect(
-      getPrerequisiteIdsInFeatures([
-        feature("child", "prj_b", {
-          prerequisites: ["root"],
-          rules: [{ prerequisites: ["root"] }],
-        }),
-        feature("other", "prj_b", { prerequisites: ["root"] }),
-      ]),
+      getPrerequisiteIdsInFeatures({
+        features: [
+          feature("child", "prj_b", {
+            prerequisites: ["root"],
+            rules: [{ prerequisites: ["root"] }],
+          }),
+          feature("other", "prj_b", { prerequisites: ["root"] }),
+        ],
+        environment: null,
+      }),
     ).toEqual(["root"]);
+  });
+
+  // Payload refresh widening isn't keyed by environment, so it reads them all.
+  it("collects every environment's gates when the environment is null", () => {
+    const features = [
+      feature("child", "prj_a", {
+        enabledEnvironments: ["development"],
+        rules: [{ prerequisites: ["root"], environments: ["development"] }],
+      }),
+    ];
+
+    expect(
+      getPrerequisiteIdsInFeatures({ features, environment: null }),
+    ).toEqual(["root"]);
+    expect(
+      getPrerequisiteIdsInFeatures({ features, environment: "production" }),
+    ).toEqual([]);
   });
 });
 
@@ -130,10 +161,11 @@ describe("featuresWithPrerequisiteClosure", () => {
     const child = feature("child", "prj_b", { prerequisites: ["root"] });
     const root = feature("root", "prj_a");
 
-    const result = featuresWithPrerequisiteClosure(
-      [child],
-      mapOf([child, root]),
-    );
+    const result = featuresWithPrerequisiteClosure({
+      features: [child],
+      featuresMap: mapOf([child, root]),
+      environment: "production",
+    });
 
     expect(result.features.map((f) => f.id).sort()).toEqual(["child", "root"]);
     expect([...result.carried]).toEqual(["root"]);
@@ -144,10 +176,11 @@ describe("featuresWithPrerequisiteClosure", () => {
     const parent = feature("parent", "prj_a", { prerequisites: ["grandpa"] });
     const grandpa = feature("grandpa", "prj_a");
 
-    const result = featuresWithPrerequisiteClosure(
-      [child],
-      mapOf([child, parent, grandpa]),
-    );
+    const result = featuresWithPrerequisiteClosure({
+      features: [child],
+      featuresMap: mapOf([child, parent, grandpa]),
+      environment: "production",
+    });
 
     expect(result.features.map((f) => f.id).sort()).toEqual([
       "child",
@@ -161,10 +194,11 @@ describe("featuresWithPrerequisiteClosure", () => {
     const child = feature("child", "prj_b", { prerequisites: ["root"] });
     const root = feature("root", "prj_b");
 
-    const result = featuresWithPrerequisiteClosure(
-      [child, root],
-      mapOf([child, root]),
-    );
+    const result = featuresWithPrerequisiteClosure({
+      features: [child, root],
+      featuresMap: mapOf([child, root]),
+      environment: "production",
+    });
 
     expect(result.carried.size).toBe(0);
     expect(result.features).toHaveLength(2);
@@ -173,7 +207,11 @@ describe("featuresWithPrerequisiteClosure", () => {
   it("ignores a dangling prerequisite", () => {
     const child = feature("child", "prj_b", { prerequisites: ["gone"] });
 
-    const result = featuresWithPrerequisiteClosure([child], mapOf([child]));
+    const result = featuresWithPrerequisiteClosure({
+      features: [child],
+      featuresMap: mapOf([child]),
+      environment: "production",
+    });
 
     expect(result.carried.size).toBe(0);
     expect(result.features.map((f) => f.id)).toEqual(["child"]);
@@ -185,12 +223,12 @@ describe("featuresWithPrerequisiteClosure", () => {
     const unrelated = feature("unrelated", "prj_b");
     const root = feature("root", "prj_a");
 
-    const result = featuresWithPrerequisiteClosure(
-      [unrelated],
-      mapOf([unrelated, root]),
-      undefined,
-      ["root"],
-    );
+    const result = featuresWithPrerequisiteClosure({
+      features: [unrelated],
+      featuresMap: mapOf([unrelated, root]),
+      seedIds: ["root"],
+      environment: "production",
+    });
 
     expect(result.features.map((f) => f.id).sort()).toEqual([
       "root",
@@ -204,12 +242,12 @@ describe("featuresWithPrerequisiteClosure", () => {
     const parent = feature("parent", "prj_a", { prerequisites: ["grandpa"] });
     const grandpa = feature("grandpa", "prj_a");
 
-    const result = featuresWithPrerequisiteClosure(
-      [child],
-      mapOf([child, parent, grandpa]),
-      undefined,
-      ["parent"],
-    );
+    const result = featuresWithPrerequisiteClosure({
+      features: [child],
+      featuresMap: mapOf([child, parent, grandpa]),
+      seedIds: ["parent"],
+      environment: "production",
+    });
 
     expect(result.features.map((f) => f.id).sort()).toEqual([
       "child",
@@ -222,12 +260,12 @@ describe("featuresWithPrerequisiteClosure", () => {
   it("ignores a dangling seed", () => {
     const unrelated = feature("unrelated", "prj_b");
 
-    const result = featuresWithPrerequisiteClosure(
-      [unrelated],
-      mapOf([unrelated]),
-      undefined,
-      ["gone"],
-    );
+    const result = featuresWithPrerequisiteClosure({
+      features: [unrelated],
+      featuresMap: mapOf([unrelated]),
+      seedIds: ["gone"],
+      environment: "production",
+    });
 
     expect(result.carried.size).toBe(0);
     expect(result.features.map((f) => f.id)).toEqual(["unrelated"]);
@@ -236,12 +274,12 @@ describe("featuresWithPrerequisiteClosure", () => {
   it("does not carry a seed that is already delivered", () => {
     const child = feature("child", "prj_b");
 
-    const result = featuresWithPrerequisiteClosure(
-      [child],
-      mapOf([child]),
-      undefined,
-      ["child"],
-    );
+    const result = featuresWithPrerequisiteClosure({
+      features: [child],
+      featuresMap: mapOf([child]),
+      seedIds: ["child"],
+      environment: "production",
+    });
 
     expect(result.carried.size).toBe(0);
     expect(result.features).toEqual([child]);
@@ -251,7 +289,11 @@ describe("featuresWithPrerequisiteClosure", () => {
     const a = feature("a", "prj_b", { prerequisites: ["b"] });
     const b = feature("b", "prj_a", { prerequisites: ["a"] });
 
-    const result = featuresWithPrerequisiteClosure([a], mapOf([a, b]));
+    const result = featuresWithPrerequisiteClosure({
+      features: [a],
+      featuresMap: mapOf([a, b]),
+      environment: "production",
+    });
 
     expect(result.features.map((f) => f.id).sort()).toEqual(["a", "b"]);
     expect([...result.carried]).toEqual(["b"]);
@@ -268,13 +310,11 @@ describe("featuresWithPrerequisiteClosure with an environment", () => {
     });
     const root = feature("root", "prj_b");
 
-    const result = featuresWithPrerequisiteClosure(
-      [child],
-      mapOf([child, root]),
-      undefined,
-      [],
-      "production",
-    );
+    const result = featuresWithPrerequisiteClosure({
+      features: [child],
+      featuresMap: mapOf([child, root]),
+      environment: "production",
+    });
 
     expect(result.carried.size).toBe(0);
     expect(ids(result.features)).toEqual(["child"]);
@@ -287,13 +327,11 @@ describe("featuresWithPrerequisiteClosure with an environment", () => {
     });
     const root = feature("root", "prj_b");
 
-    const result = featuresWithPrerequisiteClosure(
-      [child],
-      mapOf([child, root]),
-      undefined,
-      [],
-      "production",
-    );
+    const result = featuresWithPrerequisiteClosure({
+      features: [child],
+      featuresMap: mapOf([child, root]),
+      environment: "production",
+    });
 
     expect([...result.carried]).toEqual(["root"]);
   });
@@ -304,13 +342,11 @@ describe("featuresWithPrerequisiteClosure with an environment", () => {
     });
     const root = feature("root", "prj_b");
 
-    const result = featuresWithPrerequisiteClosure(
-      [child],
-      mapOf([child, root]),
-      undefined,
-      [],
-      "production",
-    );
+    const result = featuresWithPrerequisiteClosure({
+      features: [child],
+      featuresMap: mapOf([child, root]),
+      environment: "production",
+    });
 
     expect([...result.carried]).toEqual(["root"]);
   });
@@ -324,13 +360,11 @@ describe("featuresWithPrerequisiteClosure with an environment", () => {
     const root = feature("root", "prj_b");
     const other = feature("other", "prj_b");
 
-    const result = featuresWithPrerequisiteClosure(
-      [child],
-      mapOf([child, root, other]),
-      undefined,
-      [],
-      "production",
-    );
+    const result = featuresWithPrerequisiteClosure({
+      features: [child],
+      featuresMap: mapOf([child, root, other]),
+      environment: "production",
+    });
 
     expect(result.carried.size).toBe(0);
   });
@@ -339,13 +373,11 @@ describe("featuresWithPrerequisiteClosure with an environment", () => {
     const child = feature("child", "prj_a", { prerequisites: ["root"] });
     const root = feature("root", "prj_b");
 
-    const result = featuresWithPrerequisiteClosure(
-      [child],
-      mapOf([child, root]),
-      undefined,
-      [],
-      "production",
-    );
+    const result = featuresWithPrerequisiteClosure({
+      features: [child],
+      featuresMap: mapOf([child, root]),
+      environment: "production",
+    });
 
     expect([...result.carried]).toEqual(["root"]);
   });
@@ -358,29 +390,13 @@ describe("featuresWithPrerequisiteClosure with an environment", () => {
     });
     const c = feature("c", "prj_c");
 
-    const result = featuresWithPrerequisiteClosure(
-      [a],
-      mapOf([a, b, c]),
-      undefined,
-      [],
-      "production",
-    );
+    const result = featuresWithPrerequisiteClosure({
+      features: [a],
+      featuresMap: mapOf([a, b, c]),
+      environment: "production",
+    });
 
     expect([...result.carried]).toEqual(["b"]);
-  });
-
-  it("keeps carrying every environment's parents when no environment is given", () => {
-    const child = feature("child", "prj_a", {
-      rules: [{ prerequisites: ["root"], environments: ["development"] }],
-    });
-    const root = feature("root", "prj_b");
-
-    const result = featuresWithPrerequisiteClosure(
-      [child],
-      mapOf([child, root]),
-    );
-
-    expect([...result.carried]).toEqual(["root"]);
   });
 });
 

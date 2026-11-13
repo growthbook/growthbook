@@ -20,7 +20,6 @@ import {
   isMultiRangeInPayload,
   namespacesToMap,
   recursiveWalk,
-  ruleAppliesToEnv,
   ruleFootprint,
   ruleProjectScope,
   ruleServedToConnection,
@@ -708,17 +707,22 @@ export function experimentMapForFeatures(
 
 // Gates live in three places — the feature, its rules, and the phases of any
 // experiment those rules reference — and all three become `parentConditions`.
-// With an `environment`, only gates a payload for that environment can render count.
-export function getPrerequisiteIdsInFeatures(
-  features: FeatureInterface[],
-  experimentMap?: Map<string, ExperimentInterface>,
-  environment?: string,
-): string[] {
+// With an `environment`, only gates a payload for that environment can render
+// count; `null` collects every environment's.
+export function getPrerequisiteIdsInFeatures({
+  features,
+  experimentMap,
+  environment,
+}: {
+  features: FeatureInterface[];
+  experimentMap?: Map<string, ExperimentInterface>;
+  environment: string | null;
+}): string[] {
   const ids = new Set<string>();
 
   features.forEach((feature) => {
     if (
-      environment !== undefined &&
+      environment !== null &&
       !feature.environmentSettings?.[environment]?.enabled
     ) {
       return;
@@ -726,12 +730,13 @@ export function getPrerequisiteIdsInFeatures(
 
     (feature.prerequisites ?? []).forEach((p) => p?.id && ids.add(p.id));
 
-    (feature.rules ?? []).forEach((rule) => {
+    const rules =
+      environment === null
+        ? (feature.rules ?? [])
+        : getRulesForEnvironment(feature.rules, environment);
+    rules.forEach((rule) => {
       if (!rule || typeof rule !== "object") return;
       if (rule.enabled === false) return;
-      if (environment !== undefined && !ruleAppliesToEnv(rule, environment)) {
-        return;
-      }
 
       (rule.prerequisites ?? []).forEach((p) => p?.id && ids.add(p.id));
 
@@ -798,19 +803,25 @@ export function getVisualExperimentPrerequisiteIds(
 
 // A gate whose parent is absent from the payload can never pass, so a delivered
 // feature's prerequisites travel with it even when they target other projects.
-export function featuresWithPrerequisiteClosure(
-  features: FeatureInterface[],
-  featuresMap: Map<string, FeatureInterface>,
-  experimentMap?: Map<string, ExperimentInterface>,
-  seedIds: string[] = [],
-  environment?: string,
-): { features: FeatureInterface[]; carried: Set<string> } {
+export function featuresWithPrerequisiteClosure({
+  features,
+  featuresMap,
+  experimentMap,
+  seedIds = [],
+  environment,
+}: {
+  features: FeatureInterface[];
+  featuresMap: Map<string, FeatureInterface>;
+  experimentMap?: Map<string, ExperimentInterface>;
+  seedIds?: string[];
+  environment: string;
+}): { features: FeatureInterface[]; carried: Set<string> } {
   const carried = new Set<string>();
   const present = new Set(features.map((f) => f.id));
 
   let wanted = [
     ...seedIds,
-    ...getPrerequisiteIdsInFeatures(features, experimentMap, environment),
+    ...getPrerequisiteIdsInFeatures({ features, experimentMap, environment }),
   ];
   while (wanted.length) {
     const next: FeatureInterface[] = [];
@@ -822,7 +833,11 @@ export function featuresWithPrerequisiteClosure(
       carried.add(id);
       next.push(parent);
     }
-    wanted = getPrerequisiteIdsInFeatures(next, experimentMap, environment);
+    wanted = getPrerequisiteIdsInFeatures({
+      features: next,
+      experimentMap,
+      environment,
+    });
   }
 
   return {
@@ -873,7 +888,11 @@ export function buildPrerequisiteProjectReach(
     // filter unless treatEmptyProjectAsGlobal.
     linkParents(
       getTargetingProjectIds(dependent) ?? allProjectIds,
-      getPrerequisiteIdsInFeatures([dependent], experimentMap),
+      getPrerequisiteIdsInFeatures({
+        features: [dependent],
+        experimentMap,
+        environment: null,
+      }),
     );
   }
   for (const { projects, prerequisiteIds } of otherDependents) {
