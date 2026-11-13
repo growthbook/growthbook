@@ -34,8 +34,11 @@ import {
   languageMapping,
 } from "./SDKConnections/SDKLanguageLogo";
 
+// A loop, not `/\/*$/`: that regex is quadratic on long runs of slashes.
 function trimTrailingSlash(str: string): string {
-  return str.replace(/\/*$/, "");
+  let end = str.length;
+  while (end > 0 && str.charCodeAt(end - 1) === 47 /* "/" */) end--;
+  return str.slice(0, end);
 }
 
 export function getApiBaseUrl(connection?: SDKConnectionInterface): string {

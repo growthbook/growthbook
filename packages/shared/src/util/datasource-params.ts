@@ -79,6 +79,15 @@ const CLICKHOUSE_FAMILY = {
   password: "secret",
   database: "public",
   maxExecutionTime: "public",
+  ssl: "public",
+  caCert: "secret",
+  clientCert: "secret",
+  clientKey: "secret",
+  // Paths, not contents, so they stay visible and a blank clears them
+  caCertPath: "public",
+  clientCertPath: "public",
+  clientKeyPath: "public",
+  clientCertChainPath: "public",
 } satisfies ParamClassification<DataSourceParamsForType<"clickhouse">>;
 
 const DATA_SOURCE_PARAM_SENSITIVITY = {
@@ -288,7 +297,9 @@ function mergeRecord(
 
     const sensitivity = classification[key];
     if (sensitivity === "secret") {
-      if (value) merged[key] = value;
+      // Blank keeps the stored secret; an explicit null removes it
+      if (value === null) delete merged[key];
+      else if (value) merged[key] = value;
       return;
     }
     if (sensitivity === "public") {

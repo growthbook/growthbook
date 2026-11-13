@@ -2,12 +2,14 @@ import md5 from "md5";
 import {
   getAllExpandedMetricIdsFromExperiment,
   getAllMetricIdsFromExperiment,
+  getClusterSubUnit,
   isFactMetricId,
   expandDerivedMetricsInMap,
   getLatestPhaseVariations,
   isDimensionPrecomputed,
   getFactMetricFactTableIds,
   getFactMetricPrimaryFactTableId,
+  isFactCompoundMetric,
   isFactFunnelMetric,
   parseFunnelStepMetricId,
   parseSliceMetricId,
@@ -296,6 +298,7 @@ export async function updateExperimentAnalysisTimeSeries({
           ),
           factMetrics,
           factTableMap,
+          experimentSnapshot.settings,
         ),
         singleDataPoint: {
           date: experimentSnapshot.dateCreated,
@@ -401,6 +404,13 @@ function getExperimentSettingsHash(
       snapshotSettings.exposureQueryIdentifierType,
       exposureQueries,
     ),
+    // Only present for cluster experiments, so non-cluster hashes are unchanged.
+    ...(snapshotSettings.isClusterExperiment
+      ? {
+          isClusterExperiment: true,
+          clusterSubUnitIdentifier: snapshotSettings.clusterSubUnitIdentifier,
+        }
+      : {}),
     startDate: snapshotSettings.startDate,
     regressionAdjustmentEnabled: snapshotSettings.regressionAdjustmentEnabled,
     experimentId: snapshotSettings.experimentId,
@@ -438,6 +448,27 @@ export function getFiltersForHash(
       name: it.name,
       value: it.value,
     }));
+}
+
+/**
+ * Each compound component's fact table and saved filters, for change-detection
+ * hashes. A compound metric has no numerator, so `numeratorFactTable` only
+ * covers the first component's table. `undefined` for other metric types.
+ */
+export function getCompoundComponentFactTablesForHash(
+  factMetric: FactMetricInterface,
+  factTableMap?: Map<string, FactTableInterface>,
+) {
+  if (!isFactCompoundMetric(factMetric)) return undefined;
+  return factMetric.compoundSettings.components.map((component) => {
+    const factTable = factTableMap?.get(component.factTableId);
+    return {
+      factTableId: component.factTableId,
+      sql: factTable?.sql,
+      eventName: factTable?.eventName,
+      filters: getFiltersForHash(factTable, component),
+    };
+  });
 }
 
 /**
@@ -484,6 +515,10 @@ export function getFactMetricDefinitionForHash(
         (id) => id !== numeratorFactTableId,
       )
     : [];
+  const compoundComponentFactTables = getCompoundComponentFactTablesForHash(
+    factMetric,
+    factTableMap,
+  );
 
   return {
     metricType: factMetric.metricType,
@@ -496,6 +531,11 @@ export function getFactMetricDefinitionForHash(
       : undefined,
     quantileSettings: factMetric.quantileSettings,
     funnelSettings: factMetric.funnelSettings,
+    // Only present for compound metrics, so other hashes are unchanged.
+    ...(isFactCompoundMetric(factMetric)
+      ? { compoundSettings: factMetric.compoundSettings }
+      : {}),
+    ...(compoundComponentFactTables ? { compoundComponentFactTables } : {}),
     numeratorFactTable: {
       sql: numeratorFactTable?.sql,
       eventName: numeratorFactTable?.eventName,
@@ -530,17 +570,39 @@ export function getMetricSettingsHash(
   metricSettings?: MetricForSnapshot,
   factMetrics?: FactMetricInterface[],
   factTableMap?: Map<string, FactTableInterface>,
+  clusterSettings?: Pick<
+    ExperimentSnapshotSettings,
+    "isClusterExperiment" | "clusterSubUnitIdentifier" | "clusterLevelMetricIds"
+  >,
 ): string {
+  // A fact table's identifiers decide whether a metric is analyzed per
+  // sub-unit or per cluster, which changes what its values mean. Only cluster
+  // experiments record it, so other hashes are unchanged.
   const definitionMetricId = getDefinitionMetricId(metricId);
+  const clusterLevelMetricIds = clusterSettings?.clusterLevelMetricIds ?? [];
+  const clusterLevel =
+    clusterSettings && getClusterSubUnit(clusterSettings) !== null
+      ? {
+          clusterAnalysisLevel:
+            clusterLevelMetricIds.includes(metricId) ||
+            clusterLevelMetricIds.includes(definitionMetricId)
+              ? "cluster"
+              : "subunit",
+        }
+      : {};
   const factMetric = factMetrics?.find(
     (metric) => metric.id === definitionMetricId,
   );
   if (!factMetric) {
-    return hashObject(metricSettings ?? { id: metricId });
+    return hashObject({
+      ...(metricSettings ?? { id: metricId }),
+      ...clusterLevel,
+    });
   }
   return hashObject({
     ...metricSettings,
     ...getFactMetricDefinitionForHash(factMetric, factTableMap),
+    ...clusterLevel,
   });
 }
 

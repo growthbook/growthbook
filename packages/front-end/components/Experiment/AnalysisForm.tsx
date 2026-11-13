@@ -16,7 +16,10 @@ import {
   isProjectListValidForProject,
 } from "shared/util";
 import { getScopedSettings, getUnsetAnalysisSettings } from "shared/settings";
-import { getLatestPhaseVariations } from "shared/experiments";
+import {
+  getClusterSubUnit,
+  getLatestPhaseVariations,
+} from "shared/experiments";
 import { Box, Flex, Separator } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -30,6 +33,10 @@ import {
 import useOrgSettings from "@/hooks/useOrgSettings";
 import AssignmentQueryFields, {
   AssignmentQueryDriftWarning,
+  ClusterExperimentFields,
+  CLUSTER_OFF_FOR_DATASOURCE_MESSAGE,
+  getClusterChangeAfterLaunch,
+  POST_STRATIFICATION_CLUSTER_MESSAGE,
   useAssignmentQuerySelection,
 } from "@/components/Experiment/AssignmentQueryFields";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
@@ -44,9 +51,11 @@ import UpgradeMessage from "@/components/Marketing/UpgradeMessage";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import BanditSettings from "@/components/GeneralSettings/BanditSettings";
 import HelperText from "@/ui/HelperText";
+import Callout from "@/ui/Callout";
 import DatePicker from "@/components/DatePicker";
 import {
   datasourceHasWritableEphemeralPipeline,
+  getIneligibleClusterMetrics,
   getIsExperimentIncludedInIncrementalRefresh,
 } from "@/services/experiments";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
@@ -62,7 +71,6 @@ import {
   getDefaultMetricOverridesFormValue,
 } from "./EditMetricsForm";
 import ActivationMetricRow from "./ActivationMetricRow";
-import { DATASOURCE_CHANGE_NOTE } from "./TabbedPage/AnalysisPlan";
 import {
   AdvancedSection,
   ConversionWindowsRow,
@@ -75,6 +83,33 @@ import BanditDecisionMetricSettings from "./BanditDecisionMetricSettings";
 import ExperimentMetricsSelector from "./ExperimentMetricsSelector";
 
 export type AnalysisFormFocus = "datasource" | "exposureQuery" | "goalMetrics";
+
+export const DATASOURCE_CHANGE_NOTE =
+  "Metrics and segments that aren't from the new Data Source are removed.";
+
+const getIneligibleGroupsMessage = (groupNames: string[]) =>
+  `Remove these metric groups before saving. They include metrics that cluster experiments can't analyze: ${groupNames.join(", ")}.`;
+
+export function IneligibleClusterMetricsCallouts({
+  ineligible,
+}: {
+  ineligible: ReturnType<typeof getIneligibleClusterMetrics>;
+}) {
+  return (
+    <>
+      {ineligible.droppedNames.length > 0 && (
+        <Callout status="warning" mb="3">
+          {`Saving will remove metrics that cluster experiments can't analyze: ${ineligible.droppedNames.join(", ")}.`}
+        </Callout>
+      )}
+      {ineligible.groupNames.length > 0 && (
+        <Callout status="warning" mb="3">
+          {getIneligibleGroupsMessage(ineligible.groupNames)}
+        </Callout>
+      )}
+    </>
+  );
+}
 
 const AnalysisForm: FC<{
   experiment: ExperimentInterfaceStringDates;
@@ -113,6 +148,8 @@ const AnalysisForm: FC<{
     getSegmentById,
     datasources,
     dimensions,
+    getFactTableById,
+    metricGroups,
   } = useDefinitions();
 
   const { organization, hasCommercialFeature } = useUser();
@@ -190,9 +227,8 @@ const AnalysisForm: FC<{
               )
             : [],
         ),
-        hashAttributeIdentifierTypeMap: getHashAttributeIdentifierTypeMap(
-          initialDatasourceSettings?.userIdTypes,
-        ),
+        hashAttributeIdentifierTypeMap:
+          getHashAttributeIdentifierTypeMap(initialDatasource),
         hashAttribute: experiment.hashAttribute,
       });
 
@@ -202,6 +238,8 @@ const AnalysisForm: FC<{
       datasource: experiment.datasource || "",
       exposureQueryId: initialExposureQuery?.id || "",
       exposureQueryIdentifierType: initialIdentifierType,
+      isClusterExperiment: !!experiment.isClusterExperiment,
+      clusterSubUnitIdentifier: experiment.clusterSubUnitIdentifier ?? "",
       activationMetric: experiment.activationMetric || "",
       segment: experiment.segment || "",
       queryFilter: experiment.queryFilter || "",
@@ -336,6 +374,46 @@ const AnalysisForm: FC<{
   const isBandit = type === "multi-armed-bandit";
   const isHoldout = type === "holdout";
 
+  const supportsClusterExperiments = !!datasource?.properties?.exposureQueries;
+  const isClusterExperiment =
+    supportsClusterExperiments && form.watch("isClusterExperiment");
+  const clusterSubUnitIdentifier = form.watch("clusterSubUnitIdentifier");
+  const goalMetrics = form.watch("goalMetrics");
+  const secondaryMetrics = form.watch("secondaryMetrics");
+  const guardrailMetrics = form.watch("guardrailMetrics");
+  // Same inputs as the metric pickers, so both agree on what's eligible.
+  const ineligibleClusterMetrics = useMemo(() => {
+    const clusterSubUnit = getClusterSubUnit({
+      isClusterExperiment,
+      clusterSubUnitIdentifier,
+    });
+    return getIneligibleClusterMetrics(
+      clusterSubUnit && exposureQuery
+        ? [...goalMetrics, ...secondaryMetrics, ...guardrailMetrics]
+        : [],
+      {
+        clusterIdentifier: exposureQueryIdentifierType,
+        clusterSubUnitIdentifier: clusterSubUnit,
+        getFactTable: getFactTableById,
+        datasourceSettings: datasource?.settings,
+        metricGroups,
+        getExperimentMetricById,
+      },
+    );
+  }, [
+    isClusterExperiment,
+    exposureQueryIdentifierType,
+    clusterSubUnitIdentifier,
+    goalMetrics,
+    secondaryMetrics,
+    guardrailMetrics,
+    metricGroups,
+    getFactTableById,
+    exposureQuery,
+    datasource,
+    getExperimentMetricById,
+  ]);
+
   const isExperimentIncludedInIncrementalRefresh =
     getIsExperimentIncludedInIncrementalRefresh(
       datasource ?? undefined,
@@ -458,6 +536,25 @@ const AnalysisForm: FC<{
 
         fixMetricOverridesBeforeSaving(body.metricOverrides || []);
 
+        const { droppedIds, groupNames } = ineligibleClusterMetrics;
+        if (groupNames.length) {
+          throw new Error(getIneligibleGroupsMessage(groupNames));
+        }
+        if (droppedIds.size) {
+          const keep = (ids?: string[]) =>
+            ids?.filter((id) => !droppedIds.has(id));
+          body.goalMetrics = keep(body.goalMetrics);
+          body.secondaryMetrics = keep(body.secondaryMetrics);
+          body.guardrailMetrics = keep(body.guardrailMetrics);
+        }
+
+        if (!supportsClusterExperiments) {
+          body.isClusterExperiment = false;
+        }
+        if (!body.isClusterExperiment) {
+          delete body.clusterSubUnitIdentifier;
+        }
+
         if (experiment.status === "stopped") {
           body.phaseEndDate = dateEnded;
         }
@@ -554,6 +651,16 @@ const AnalysisForm: FC<{
                         {exposureQueryIdentifierType || <em>Choose...</em>}
                       </Text>
                     </SetupFieldRow>
+                    {isClusterExperiment && (
+                      <SetupFieldRow
+                        label="Subunit identifier type"
+                        content="text"
+                      >
+                        <Text color="text-high">
+                          {clusterSubUnitIdentifier || <em>Choose...</em>}
+                        </Text>
+                      </SetupFieldRow>
+                    )}
                     <SetupFieldRow label="Assignment query" content="text">
                       <Text color="text-high">
                         {exposureQuery?.name || <em>Choose...</em>}
@@ -613,9 +720,7 @@ const AnalysisForm: FC<{
                             : [],
                         ),
                         hashAttributeIdentifierTypeMap:
-                          getHashAttributeIdentifierTypeMap(
-                            ds?.settings?.userIdTypes,
-                          ),
+                          getHashAttributeIdentifierTypeMap(ds),
                         hashAttribute: experiment.hashAttribute,
                       }),
                     );
@@ -677,6 +782,13 @@ const AnalysisForm: FC<{
                   experiment.datasource ? DATASOURCE_CHANGE_NOTE : undefined
                 }
               />
+              {experiment.isClusterExperiment &&
+              datasource &&
+              !supportsClusterExperiments ? (
+                <HelperText status="warning" size="sm" mt="2">
+                  {CLUSTER_OFF_FOR_DATASOURCE_MESSAGE}
+                </HelperText>
+              ) : null}
             </SetupFieldRow>
             {datasource?.properties?.exposureQueries && (
               <AssignmentQueryFields
@@ -685,6 +797,32 @@ const AnalysisForm: FC<{
                 placeholder="Choose..."
                 autoFocus={focus === "exposureQuery"}
                 disabled={isBandit && experiment.status !== "draft"}
+              />
+            )}
+            {supportsClusterExperiments && !isBandit && !isHoldout && (
+              <ClusterExperimentFields
+                asRows
+                exposureQuery={exposureQuery}
+                identifierType={
+                  exposureQuery
+                    ? resolveAnalysisIdentifierType(
+                        exposureQuery,
+                        exposureQueryIdentifierType,
+                      )
+                    : undefined
+                }
+                isClusterExperiment={isClusterExperiment}
+                subUnitIdentifier={clusterSubUnitIdentifier}
+                setIsClusterExperiment={(value) =>
+                  form.setValue("isClusterExperiment", value)
+                }
+                setSubUnitIdentifier={(value) =>
+                  form.setValue("clusterSubUnitIdentifier", value)
+                }
+                changedAfterLaunch={getClusterChangeAfterLaunch(experiment, {
+                  isClusterExperiment,
+                  clusterSubUnitIdentifier,
+                })}
               />
             )}
             {datasource && !isHoldout && (
@@ -783,7 +921,7 @@ const AnalysisForm: FC<{
         </SetupFieldRow>
         {!isHoldout && (
           <SetupFieldRow label="Variance reduction" content="text">
-            <Flex direction="column" gap="2">
+            <Flex direction="column" gap="2" align="start">
               <Checkbox
                 label={
                   <PremiumTooltip commercialFeature="regression-adjustment">
@@ -806,13 +944,19 @@ const AnalysisForm: FC<{
               {!orgSettings.disablePrecomputedDimensions ? (
                 <Checkbox
                   label={
-                    <PremiumTooltip commercialFeature="post-stratification">
-                      Post-stratification
-                    </PremiumTooltip>
+                    // Upgrading wouldn't enable it, so only the cluster reason shows.
+                    isClusterExperiment ? (
+                      "Post-stratification"
+                    ) : (
+                      <PremiumTooltip commercialFeature="post-stratification">
+                        Post-stratification
+                      </PremiumTooltip>
+                    )
                   }
                   weight="regular"
                   value={
                     hasPostStratificationFeature &&
+                    !isClusterExperiment &&
                     !!form.watch("postStratificationEnabled")
                   }
                   setValue={(v) =>
@@ -820,7 +964,13 @@ const AnalysisForm: FC<{
                   }
                   disabled={
                     !hasPostStratificationFeature ||
+                    isClusterExperiment ||
                     (isBandit && experiment.status !== "draft")
+                  }
+                  disabledMessage={
+                    isClusterExperiment
+                      ? POST_STRATIFICATION_CLUSTER_MESSAGE
+                      : undefined
                   }
                 />
               ) : null}
@@ -832,7 +982,7 @@ const AnalysisForm: FC<{
           !isBandit &&
           !isHoldout && (
             <SetupFieldRow label="Corrections" content="text">
-              <Flex direction="column" gap="2">
+              <Flex direction="column" gap="2" align="start">
                 <Checkbox
                   label={
                     <PremiumTooltip commercialFeature="sequential-testing">
@@ -889,6 +1039,9 @@ const AnalysisForm: FC<{
                 {experiment.status !== "draft" && <Separator my="5" size="4" />}
               </>
             )}
+            <IneligibleClusterMetricsCallouts
+              ineligible={ineligibleClusterMetrics}
+            />
             <ExperimentMetricsSelector
               asRows
               autoFocus={focus === "goalMetrics"}
@@ -919,6 +1072,8 @@ const AnalysisForm: FC<{
               goalDisabled={isBandit && experiment.status !== "draft"}
               experimentId={experiment.id}
               experimentType={experiment.type}
+              isClusterExperiment={isClusterExperiment}
+              clusterSubUnitIdentifier={clusterSubUnitIdentifier}
             />
 
             {!!datasource && !isBandit && !isHoldout && (
@@ -930,6 +1085,7 @@ const AnalysisForm: FC<{
                 value={form.watch("activationMetric")}
                 onChange={(metric) => form.setValue("activationMetric", metric)}
                 incrementalRefresh={isExperimentIncludedInIncrementalRefresh}
+                isClusterExperiment={isClusterExperiment}
               />
             )}
 

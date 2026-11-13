@@ -1,7 +1,9 @@
 import {
+  isSubUnitClusterMetric,
   eligibleForUncappedMetric,
   ExperimentMetricInterface,
   getFactMetricPrimaryFactTableId,
+  isFactCompoundMetric,
   isFactFunnelMetric,
   isFactMetric,
   isUpperPercentileCappedMetric,
@@ -28,6 +30,11 @@ import { getMetricEnd } from "back-end/src/integrations/sql/dates/metric-end";
 import { getMetricMinDelay } from "back-end/src/integrations/sql/dates/metric-min-delay";
 import { getMetricStart } from "back-end/src/integrations/sql/dates/metric-start";
 import { getRaMetricPhaseStartSettings } from "back-end/src/integrations/sql/dates/ra-metric-phase-start-settings";
+import {
+  compoundComponentColumn,
+  compoundCovariateComponentColumn,
+  compoundPassExpression,
+} from "back-end/src/integrations/sql/fact-metrics/compound-columns";
 
 export function getMetricRegressionAdjustmentData(
   metric: FactMetricInterface,
@@ -55,6 +62,9 @@ export function getMetricData(
     | "attributionModel"
     | "regressionAdjustmentEnabled"
     | "startDate"
+    | "isClusterExperiment"
+    | "clusterSubUnitIdentifier"
+    | "clusterLevelMetricIds"
     | "endDateIsCutoff"
   > & { endDate?: Date },
   activationMetric: ExperimentMetricInterface | null,
@@ -68,6 +78,10 @@ export function getMetricData(
   flattenSources: boolean = false,
 ): FactMetricData {
   const { metric, index: metricIndex } = metricWithIndex;
+  const isClusterMetric = isSubUnitClusterMetric(metric, settings);
+  const isClusterRatioConversion =
+    isClusterMetric &&
+    ["mean", "proportion", "retention", "compound"].includes(metric.metricType);
   const ratioMetric = isRatioMetric(metric);
   const funnelMetric = isFactFunnelMetric(metric);
   const quantileMetric = funnelMetric ? "" : quantileMetricType(metric);
@@ -108,6 +122,11 @@ export function getMetricData(
         sourceIndexForFactTable(step.factTableId),
       )
     : [];
+  const compoundComponentSourceIndices = isFactCompoundMetric(metric)
+    ? metric.compoundSettings.components.map((component) =>
+        sourceIndexForFactTable(component.factTableId),
+      )
+    : [];
   const numeratorAlias = `${numeratorSourceIndex === 0 ? "" : numeratorSourceIndex}`;
   const denominatorAlias = `${denominatorSourceIndex === 0 ? "" : denominatorSourceIndex}`;
   // Cap values stay per-source even when the value columns do not: each source
@@ -146,6 +165,30 @@ export function getMetricData(
     lowerCapValueCol: `${alias}_denominator_cap_lower`,
     columnRef: metric.denominator,
   });
+  // A compound metric's value is checking whether the unit passed every component, so it's a
+  // a test over per-component counts that may each sit on a different source.
+  // Therefore the `value` needs to repeat that `compoundPassExpression` for each source.
+  const valueAliasForSource = (sourceIndex: number) =>
+    flattenSources || sourceIndex === 0 ? "" : `${sourceIndex}`;
+  const compoundRefs = (
+    tableAlias: string,
+    column: typeof compoundComponentColumn,
+  ) =>
+    compoundComponentSourceIndices.map(
+      (sourceIndex, k) =>
+        `${tableAlias}${valueAliasForSource(sourceIndex)}.${column(alias, k)}`,
+    );
+  const compoundComponentRefs = compoundRefs("m", compoundComponentColumn);
+  const compoundValue = compoundComponentRefs.length
+    ? compoundPassExpression(dialect, compoundComponentRefs)
+    : null;
+  const compoundCovariate = compoundComponentRefs.length
+    ? compoundPassExpression(
+        dialect,
+        compoundRefs(covariateTableAlias, compoundCovariateComponentColumn),
+      )
+    : null;
+
   const uncappedMetric = {
     ...metric,
     cappingSettings: {
@@ -266,6 +309,7 @@ export function getMetricData(
     metric,
     metricIndex,
     ratioMetric,
+    isClusterRatioConversion,
     funnelMetric,
     quantileMetric,
     metricQuantileSettings,
@@ -278,17 +322,19 @@ export function getMetricData(
     numeratorSourceIndex,
     denominatorSourceIndex,
     funnelStepSourceIndices,
-    capCoalesceMetric,
+    compoundComponentSourceIndices,
+    compoundComponentRefs,
+    capCoalesceMetric: compoundValue ?? capCoalesceMetric,
     capCoalesceDenominator,
-    capCoalesceCovariate,
+    capCoalesceCovariate: compoundCovariate ?? capCoalesceCovariate,
     capCoalesceDenominatorCovariate,
     numeratorAggFns,
     denominatorAggFns,
     covariateNumeratorAggFns,
     covariateDenominatorAggFns,
-    uncappedCoalesceMetric,
+    uncappedCoalesceMetric: compoundValue ?? uncappedCoalesceMetric,
     uncappedCoalesceDenominator,
-    uncappedCoalesceCovariate,
+    uncappedCoalesceCovariate: compoundCovariate ?? uncappedCoalesceCovariate,
     uncappedCoalesceDenominatorCovariate,
     minMetricDelay,
     raMetricFirstExposureSettings,

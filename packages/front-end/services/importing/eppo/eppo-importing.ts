@@ -1013,6 +1013,7 @@ type MetricDefinition = Pick<
   | "denominator"
   | "quantileSettings"
   | "funnelSettings"
+  | "compoundSettings"
   | "cappingSettings"
   | "lowerCappingSettings"
   | "windowSettings"
@@ -1027,6 +1028,7 @@ function getMetricDefinition(
     denominator: null,
     quantileSettings: null,
     funnelSettings: null,
+    compoundSettings: null,
     cappingSettings: NO_CAP,
     lowerCappingSettings: NO_CAP,
     windowSettings: NO_WINDOW,
@@ -1157,6 +1159,7 @@ export function toMetricUpdate(metric: FactMetricPayload) {
       "denominator",
       "quantileSettings",
       "funnelSettings",
+      "compoundSettings",
       "cappingSettings",
       "lowerCappingSettings",
       "windowSettings",

@@ -11,19 +11,21 @@ import {
 import type { Ace } from "ace-builds";
 import type { IAceEditorProps } from "react-ace";
 import clsx from "clsx";
-import { Flex, IconButton } from "@radix-ui/themes";
+import { Flex } from "@radix-ui/themes";
 import Button from "@/ui/Button";
 import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
 import { CursorData } from "@/components/Segments/SegmentForm";
-import Tooltip from "@/components/Tooltip/Tooltip";
-import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import {
   CODE_FONT_SIZE,
   getAceCodeCss,
   getCodeTheme,
 } from "@/components/SyntaxHighlighting/codeTheme";
 import { darkCss } from "@/components/SyntaxHighlighting/darkColors";
-import { CopyIcon, FullscreenIcon } from "@/ui/ActionIcons";
+import { FullscreenIcon } from "@/ui/ActionIcons";
+import FieldIndicator, {
+  CopyFieldIndicator,
+  FieldIndicatorCorner,
+} from "@/ui/FieldIndicator";
 import Field, { FieldProps } from "./Field";
 import styles from "./CodeTextArea.module.scss";
 
@@ -310,7 +312,8 @@ function hasLongLine(text: string): boolean {
   return false;
 }
 
-// An icon button in the editor's corner, beside copy and fullscreen.
+// An icon button in the editor's corner, beside copy and fullscreen: a text
+// field's indicator, shown while the editor is hovered or focused.
 export function EditorAction({
   label,
   icon,
@@ -321,22 +324,9 @@ export function EditorAction({
   onClick: () => void;
 }) {
   return (
-    <Tooltip body={label}>
-      <IconButton
-        type="button"
-        radius="full"
-        variant="ghost"
-        aria-label={label}
-        onClick={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          onClick();
-        }}
-        style={{ position: "relative", zIndex: 1000 }}
-      >
-        {icon}
-      </IconButton>
-    </Tooltip>
+    <FieldIndicator label={label} onClick={onClick} reveal>
+      {icon}
+    </FieldIndicator>
   );
 }
 
@@ -382,10 +372,6 @@ export default function CodeTextArea({
   const editorUid = useId();
   const editorScope = `[data-editor-uid="${editorUid}"]`;
   const codeTheme = getCodeTheme(theme);
-
-  const { performCopy, copySuccess } = useCopyToClipboard({
-    timeout: 800,
-  });
 
   // Throttle cursor updates to avoid excessive re-renders
   const cursorUpdateTimeoutRef = useRef<NodeJS.Timeout>();
@@ -552,6 +538,7 @@ export default function CodeTextArea({
                 ref={containerRef}
                 className={clsx(
                   "position-relative border rounded",
+                  "gb-field-indicator-host",
                   wrapperClassName,
                   {
                     "h-100": fullHeight,
@@ -562,7 +549,8 @@ export default function CodeTextArea({
                   ...(resizable && !isFullscreen
                     ? {
                         resize: "vertical",
-                        overflow: "auto",
+                        // Only so it resizes; the editor scrolls itself.
+                        overflow: "hidden",
                         height: !fullHeight ? defaultHeight : undefined,
                       }
                     : {}),
@@ -631,25 +619,11 @@ export default function CodeTextArea({
                   }}
                 />
                 {(actions || showCopyButton || showFullscreenButton) && (
-                  <Flex
-                    align="center"
-                    gap="3"
-                    style={{
-                      position: "absolute",
-                      bottom: 0,
-                      // A value display's buttons sit 16px in.
-                      right: matchValueDisplay ? 16 : 14,
-                    }}
-                  >
+                  // A value display's buttons sit 16px in.
+                  <FieldIndicatorCorner right={matchValueDisplay ? 16 : 14}>
                     {actions}
                     {showCopyButton && (
-                      <EditorAction
-                        label={copySuccess ? "Copied" : "Copy to clipboard"}
-                        icon={<CopyIcon copied={copySuccess} size="sm" />}
-                        onClick={() => {
-                          if (!copySuccess) performCopy(value);
-                        }}
-                      />
+                      <CopyFieldIndicator value={value} reveal />
                     )}
                     {showFullscreenButton && (
                       <EditorAction
@@ -669,7 +643,7 @@ export default function CodeTextArea({
                         }}
                       />
                     )}
-                  </Flex>
+                  </FieldIndicatorCorner>
                 )}
               </div>
             </div>

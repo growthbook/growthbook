@@ -3,6 +3,8 @@ import {
   ExperimentUnitsQuerySettings,
   ResolvedExposureQuery,
 } from "shared/types/integrations";
+import type { SqlIdentifierQuote } from "shared/types/sql";
+import { queryHasContextualBanditVersionColumn } from "../validators/exposure-query-targeting-attribute-columns";
 import { ContextualBanditSnapshotSettings } from "../validators/contextual-bandit-snapshot";
 
 export function buildUnitsQuerySettingsFromSnapshot(
@@ -12,6 +14,8 @@ export function buildUnitsQuerySettingsFromSnapshot(
   return {
     experimentId: settings.experimentId,
     exposureQuery,
+    isClusterExperiment: settings.isClusterExperiment,
+    clusterSubUnitIdentifier: settings.clusterSubUnitIdentifier,
     startDate: settings.startDate,
     endDate: settings.endDate,
     endDateIsCutoff: settings.endDateIsCutoff,
@@ -28,6 +32,7 @@ export function buildUnitsQuerySettingsFromSnapshot(
 
 export function buildUnitsQuerySettingsFromCb(
   cbSettings: ContextualBanditSnapshotSettings,
+  identifierQuote: SqlIdentifierQuote,
 ): ExperimentUnitsQuerySettings {
   const decisionMetric = cbSettings.decisionMetric;
   return {
@@ -54,6 +59,14 @@ export function buildUnitsQuerySettingsFromCb(
       seed: cbSettings.banditWeightsSeed,
       currentWeights: cbSettings.variations.map((v) => v.weight),
       historicalWeights: [],
+      // Period weighting groups on the assignment query's `bandit_version`
+      // column, so only enable it when the query actually emits that column.
+      periodWeighting:
+        cbSettings.periodWeighting === true &&
+        queryHasContextualBanditVersionColumn(
+          cbSettings.query,
+          identifierQuote,
+        ),
     },
   };
 }

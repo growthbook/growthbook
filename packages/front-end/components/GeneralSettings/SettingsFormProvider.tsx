@@ -32,6 +32,7 @@ import {
   DEFAULT_REQUIRE_PROJECT_FOR_SDK_CONNECTIONS,
   DEFAULT_POST_STRATIFICATION_ENABLED,
   DEFAULT_LEARNING_STATUSES,
+  DEFAULT_CLUSTER_ISSUE_THRESHOLD,
   FEATURE_KEY_PATTERN,
 } from "shared/constants";
 import {
@@ -220,6 +221,7 @@ export function SettingsFormProvider({ children }: { children: ReactNode }) {
       runHealthTrafficQuery: false,
       srmThreshold: DEFAULT_SRM_THRESHOLD,
       multipleExposureMinPercent: 1,
+      clusterIssueMinPercent: toPercent(DEFAULT_CLUSTER_ISSUE_THRESHOLD),
       confidenceLevel: 95,
       pValueThreshold: DEFAULT_P_VALUE_THRESHOLD,
       pValueCorrection: null,
@@ -273,7 +275,10 @@ export function SettingsFormProvider({ children }: { children: ReactNode }) {
       banditScheduleUnit: "days",
       banditBurnInValue: 1,
       banditBurnInUnit: "days",
+      banditPeriodWeighting: false,
       requireExperimentTemplates: false,
+      disableResultsUpdateForStoppedExperiments: false,
+      disableResultsUpdateForStoppedExperimentGraceHours: 0,
       requireUniqueExperimentTrackingKeys: false,
       experimentKeyExample: "",
       experimentKeyRegexValidator: "",
@@ -282,6 +287,7 @@ export function SettingsFormProvider({ children }: { children: ReactNode }) {
       decisionFrameworkEnabled: DEFAULT_DECISION_FRAMEWORK_ENABLED,
       defaultDecisionCriteriaId: PRESET_DECISION_CRITERIA.id,
       blockFileUploads: false,
+      disablePublicSharing: false,
       requireProjectForFeatures: DEFAULT_REQUIRE_PROJECT_FOR_FEATURES,
       requireProjectForSdkConnections:
         DEFAULT_REQUIRE_PROJECT_FOR_SDK_CONNECTIONS,
@@ -394,6 +400,11 @@ export function SettingsFormProvider({ children }: { children: ReactNode }) {
           newVal.approvalFlows = applyApprovalFlowEntitlements(
             settings?.approvalFlows,
             hasRequireApprovals,
+          );
+        } else if (k === "clusterIssueMinPercent") {
+          // Saved as a fraction; the default is already a percent.
+          newVal.clusterIssueMinPercent = toPercent(
+            settings.clusterIssueMinPercent ?? DEFAULT_CLUSTER_ISSUE_THRESHOLD,
           );
         } else {
           // A saved false, 0 or empty string wins over the default.
@@ -508,6 +519,9 @@ export function SettingsFormProvider({ children }: { children: ReactNode }) {
         confidenceLevel: (value.confidenceLevel ?? 0.95) / 100,
         multipleExposureMinPercent:
           (value.multipleExposureMinPercent ?? 0.01) / 100,
+        clusterIssueMinPercent:
+          (value.clusterIssueMinPercent ??
+            toPercent(DEFAULT_CLUSTER_ISSUE_THRESHOLD)) / 100,
         preferredEnvironment: value.preferredEnvironment || null,
         // A cleared number input yields NaN — normalize to 0 (cap disabled)
         maxConcurrentDrafts: value.maxConcurrentDrafts || 0,

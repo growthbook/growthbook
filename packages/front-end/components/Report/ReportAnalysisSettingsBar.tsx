@@ -9,7 +9,7 @@ import { ago, date, datetime } from "shared/dates";
 import React, { RefObject, useMemo, useState } from "react";
 import { PiEye } from "react-icons/pi";
 import { Box, Text } from "@radix-ui/themes";
-import { startCase } from "lodash";
+import { getUnitDisplayName } from "@/services/experiments";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import RunQueriesButton from "@/components/Queries/RunQueriesButton";
 import DimensionChooser from "@/components/Dimensions/DimensionChooser";
@@ -80,10 +80,7 @@ export default function ReportAnalysisSettingsBar({
     return totalUsers;
   }, [analysis?.results]);
 
-  // Convert userIdType to display name (e.g. "user_id" -> "User Ids")
-  const unitDisplayName = userIdType
-    ? startCase(userIdType.split("_").join(" ")) + "s"
-    : "Units";
+  const unitDisplayName = getUnitDisplayName(userIdType);
 
   const hasData = (analysis?.results?.[0]?.variations?.length ?? 0) > 0;
   const hasMetrics =

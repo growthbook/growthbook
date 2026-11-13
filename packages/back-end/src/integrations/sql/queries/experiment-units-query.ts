@@ -1,4 +1,8 @@
-import { getDelayWindowHours, getUserIdTypes } from "shared/experiments";
+import {
+  getClusterSubUnit,
+  getDelayWindowHours,
+  getUserIdTypes,
+} from "shared/experiments";
 import {
   getExposureQueryExperimentIdColumn,
   getExposureQueryIdentifierColumn,
@@ -11,6 +15,7 @@ import type { ExperimentUnitsQueryParams } from "shared/types/integrations";
 import type { SqlDialect } from "shared/types/sql";
 import { compileSqlTemplate } from "back-end/src/util/sql";
 
+import { MULTIPLE_CLUSTER_SENTINEL } from "back-end/src/integrations/sql/clauses/cluster-assignment-filter";
 import { getConversionWindowClause } from "back-end/src/integrations/sql/clauses/conversion-window-clause";
 import { getDimensionCTE } from "back-end/src/integrations/sql/ctes/dimension-cte";
 import { getDimensionInStatement } from "back-end/src/integrations/sql/fact-metrics/dimension-in-statement";
@@ -29,6 +34,7 @@ import {
   getContextualBanditUnitsBaseSelectCols,
   getContextualBanditUnitsCTEs,
   getContextualBanditUnitsSqlConfig,
+  CONTEXTUAL_BANDIT_UNIT_BANDIT_VERSION_COLUMN,
 } from "back-end/src/integrations/sql/ctes/contextual-bandit-experiment-units-cte";
 
 type ExperimentUnitsQueryContextualBanditStrings = {
@@ -64,22 +70,45 @@ export function getExperimentUnitsQuery(
 
   const exposureQuery = unitsSettings.exposureQuery;
 
+  const clusterSubUnit = getClusterSubUnit(unitsSettings);
+  const clusterIdColumn = clusterSubUnit ? exposureQuery.identifierType : null;
+  const effectiveBaseIdType = clusterSubUnit ?? exposureQuery.identifierType;
+
+  // Dimensions and segments keyed on the cluster column (e.g. region_id) join
+  // through the exposure rows directly, so they need no identity join table.
+  const isClusterKeyed = (idType: string) => idType === clusterIdColumn;
+  const getUnitDimensionIdType = (d: (typeof unitDimensions)[number]) =>
+    d.dimension.userIdType || "user_id";
+  const segmentIdType = segment ? segment.userIdType || "user_id" : null;
+
   const { baseIdType, idJoinMap, idJoinSQL } = getIdentitiesCTE(
     dialect,
     datasource.settings,
     {
       objects: [
-        [exposureQuery.identifierType],
+        [effectiveBaseIdType],
         activationMetric ? getUserIdTypes(activationMetric, factTableMap) : [],
-        ...unitDimensions.map((d) => [d.dimension.userIdType || "user_id"]),
-        segment ? [segment.userIdType || "user_id"] : [],
+        ...unitDimensions
+          .map(getUnitDimensionIdType)
+          .filter((idType) => !isClusterKeyed(idType))
+          .map((idType) => [idType]),
+        segmentIdType && !isClusterKeyed(segmentIdType) ? [segmentIdType] : [],
       ],
       from: unitsSettings.startDate,
       to: unitsSettings.endDate,
-      forcedBaseIdType: exposureQuery.identifierType,
+      forcedBaseIdType: effectiveBaseIdType,
       experimentId: unitsSettings.experimentId,
     },
   );
+
+  const getUnitDimensionJoinIdType = (
+    d: (typeof unitDimensions)[number],
+  ): string => {
+    const idType = getUnitDimensionIdType(d);
+    return isClusterKeyed(idType) ? idType : baseIdType;
+  };
+  const segmentJoinIdType =
+    segmentIdType && isClusterKeyed(segmentIdType) ? segmentIdType : baseIdType;
 
   const startDate: Date = unitsSettings.startDate;
   const endDate: Date = getExperimentEndDate(unitsSettings, 0);
@@ -116,11 +145,13 @@ export function getExperimentUnitsQuery(
     ? {
         contextualExposureSelectCols: getContextualBanditExposureSelectCols(
           contextualBanditCfg.aliases,
+          contextualBanditCfg.periodWeighting,
         ),
         contextualUnitsBaseSelectCols: getContextualBanditUnitsBaseSelectCols(
           dialect,
           contextualBanditCfg.aliases,
           timestampColumn,
+          contextualBanditCfg.periodWeighting,
         ),
         unitsCteName: "__experimentUnitsBase",
         unitsBaseColumnRefs: [
@@ -130,6 +161,9 @@ export function getExperimentUnitsQuery(
           ...unitDimensions.map((d) => `u.dim_unit_${d.dimension.id}`),
           ...experimentDimensions.map((d) => `u.dim_exp_${d.id}`),
           ...(activationMetric ? ["u.first_activation_timestamp"] : []),
+          ...(contextualBanditCfg.periodWeighting
+            ? [`u.${CONTEXTUAL_BANDIT_UNIT_BANDIT_VERSION_COLUMN}`]
+            : []),
         ].join("\n,"),
       }
     : {
@@ -170,6 +204,14 @@ export function getExperimentUnitsQuery(
           `e.${getExposureQueryVariationIdColumn(exposureQuery)}`,
         )} as variation
         , ${dialect.castUserDateCol(rawTimestampColumn)} as timestamp
+        ${
+          clusterIdColumn
+            ? `, e.${getExposureQueryIdentifierColumn(
+                exposureQuery,
+                clusterIdColumn,
+              )} as ${clusterIdColumn}`
+            : ""
+        }
         ${contextualExposureSelectCols}
         ${experimentDimensions
           .map((d) => {
@@ -231,7 +273,7 @@ export function getExperimentUnitsQuery(
         ? `, __segment as (${getSegmentCTE(
             dialect,
             segment,
-            baseIdType,
+            segmentJoinIdType,
             idJoinMap,
             factTableMap,
             {
@@ -249,7 +291,7 @@ export function getExperimentUnitsQuery(
         (d) =>
           `, __dim_unit_${d.dimension.id} as (${getDimensionCTE(
             d.dimension,
-            baseIdType,
+            getUnitDimensionJoinIdType(d),
             idJoinMap,
           )})`,
       )
@@ -260,6 +302,15 @@ export function getExperimentUnitsQuery(
         e.${baseIdType} AS ${baseIdType}
         , ${variationValuePerUnit} AS variation
         , MIN(${timestampColumn}) AS first_exposure_timestamp
+        ${
+          clusterIdColumn
+            ? `, ${dialect.ifElse(
+                `count(distinct e.${clusterIdColumn}) > 1`,
+                `'${MULTIPLE_CLUSTER_SENTINEL}'`,
+                dialect.castToString(`max(e.${clusterIdColumn})`),
+              )} AS ${clusterIdColumn}`
+            : ""
+        }
         ${unitDimensions
           .map(
             (d) => `
@@ -294,17 +345,18 @@ export function getExperimentUnitsQuery(
         __experimentExposures e
         ${
           segment
-            ? `JOIN __segment s ON (s.${baseIdType} = e.${baseIdType})`
+            ? `JOIN __segment s ON (s.${segmentJoinIdType} = e.${segmentJoinIdType})`
             : ""
         }
         ${unitDimensions
-          .map(
-            (d) => `
+          .map((d) => {
+            const joinIdType = getUnitDimensionJoinIdType(d);
+            return `
             LEFT JOIN __dim_unit_${d.dimension.id} __dim_unit_${d.dimension.id} ON (
-              __dim_unit_${d.dimension.id}.${baseIdType} = e.${baseIdType}
+              __dim_unit_${d.dimension.id}.${joinIdType} = e.${joinIdType}
             )
-          `,
-          )
+          `;
+          })
           .join("\n")}
         ${
           activationMetric

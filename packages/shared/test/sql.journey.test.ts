@@ -1,6 +1,7 @@
 import {
   buildJourneySql,
   transformJourneyRowsToResult,
+  withRequestedDisplayConfig,
 } from "shared/enterprise";
 import {
   canIncreaseJourneyOptions,
@@ -10,7 +11,6 @@ import {
   journeyResultCanServe,
   journeyDisplayLookaheadDepth,
   projectJourneyRows,
-  toClientJourneyExploration,
   journeyResultToStepValues,
   maxJourneyPathRows,
   validateJourneyDataset,
@@ -1011,7 +1011,7 @@ describe("projectJourneyRows", () => {
       result: { rows: threeLevelRows },
       status: "success",
     } as unknown as import("shared/validators").ProductAnalyticsExploration;
-    const client = toClientJourneyExploration(exploration, requested);
+    const client = withRequestedDisplayConfig(exploration, requested);
     if (client.config.dataset.type !== "journey") {
       throw new Error("expected journey");
     }

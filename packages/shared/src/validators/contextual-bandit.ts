@@ -110,6 +110,8 @@ export const contextualBanditValidator = baseSchema
     currentLeafWeights: z.array(leafWeightValidator),
     banditVersion: z.number().int().nonnegative(),
 
+    periodWeightingEligible: z.boolean().optional(),
+
     contextualAttributes: z.array(z.string()),
 
     decisionMetric: z.string().optional(),

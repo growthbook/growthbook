@@ -1,0 +1,215 @@
+// One size for every value type: as many as fit at the minimum, stretched to
+// fill the row. A long value wraps or cuts short inside it.
+.grid {
+  display: grid;
+  gap: var(--space-3);
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+}
+
+.card {
+  all: unset;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+  // Less below: the value's line already leaves room under its text.
+  padding: 10px var(--space-3) 7px;
+  border: 1px solid var(--gray-a5);
+  border-radius: var(--radius-3);
+  background: var(--color-panel-solid);
+  cursor: pointer;
+
+  // As the rule modal's option cards: tinted on hover, and outlined over
+  // their edge while open.
+  &:hover {
+    border-color: var(--gray-a7);
+    background:
+      linear-gradient(var(--violet-a2), var(--violet-a2)),
+      var(--color-panel-solid);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--violet-8);
+    outline-offset: 2px;
+  }
+
+  &[data-state="open"] {
+    outline: 2px solid var(--violet-9);
+    outline-offset: -1px;
+  }
+}
+
+// What it serves and why, each beside its label. The labels' column is one
+// width on every card, so their values line up across the row.
+.fields {
+  display: grid;
+  grid-template-columns: 52px minmax(0, 1fr);
+  align-items: baseline;
+  column-gap: var(--space-2);
+  row-gap: 2px;
+  min-width: 0;
+}
+
+// The environments past the first few, in their dropdown.
+.moreList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  width: 284px;
+  padding: var(--space-3);
+}
+
+.line {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  min-width: 0;
+  white-space: nowrap;
+}
+
+// The value keeps its room.
+.value {
+  // The platform's code font, at the size booleans read.
+  font-family: var(--code-font-family);
+  font-size: var(--font-size-2);
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+// In the drilldown, a long value is cut short rather than widening it.
+.rows .value {
+  max-width: 200px;
+}
+
+.reason {
+  display: flex;
+  min-width: 0;
+}
+
+// An attribute's name in a reason, set apart from the words around it.
+.attribute {
+  font-family: var(--code-font-family);
+}
+
+// Something the draft changes: an environment it turns on or off, or the
+// prerequisites it edits.
+.changed {
+  text-decoration: underline;
+  text-decoration-color: var(--amber-9);
+  text-decoration-thickness: 2px;
+  text-underline-offset: 3px;
+}
+
+.rows {
+  display: grid;
+  grid-template-columns: 20px max-content minmax(0, 1fr);
+  // A value over several lines keeps its icon and label by its first.
+  align-items: start;
+  column-gap: var(--space-3);
+  row-gap: var(--space-1);
+  min-width: 320px;
+  max-width: 440px;
+}
+
+// One step of the evaluation, spanning the grid's columns.
+.row {
+  display: contents;
+}
+
+// Each a line tall, as every line of a value is.
+.icon,
+.label {
+  display: flex;
+  align-items: center;
+  min-height: 28px;
+}
+
+.icon {
+  justify-content: center;
+}
+
+.wide {
+  grid-column: 2 / -1;
+}
+
+// One prerequisite, under the Prerequisites row.
+.subRow {
+  // In line with the values beside the labels.
+  grid-column: 3 / -1;
+  padding-left: var(--space-3);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  min-height: 28px;
+}
+
+// A long id truncates rather than widening the pinned column.
+.prerequisiteName {
+  min-width: 0;
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+// A name of any length, cut short with an ellipsis.
+.clamped {
+  display: inline-block;
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: bottom;
+}
+
+// A group of rows, labeled above them.
+.section {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-top: var(--space-2);
+
+  .icon {
+    width: 20px;
+    min-height: 0;
+  }
+}
+
+// A section's rows, on the popover's columns, indented under its label and
+// set a little closer together than the rows around them.
+.group {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: subgrid;
+  row-gap: 0;
+
+  > .row {
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: subgrid;
+    align-items: start;
+
+    > .label {
+      padding-left: var(--space-4);
+    }
+  }
+}
+
+// Its first line level with the row's label.
+.stepFields {
+  // Its labels at full size and on one line, as wide as the longest.
+  grid-template-columns: minmax(76px, max-content) minmax(0, 1fr);
+  padding-block: 4px;
+}
+
+// A prerequisite's menu, at the end of its name's cell.
+.actions {
+  display: flex;
+  margin-left: auto;
+}

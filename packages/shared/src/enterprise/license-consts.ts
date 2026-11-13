@@ -54,6 +54,7 @@ export type CommercialFeature =
   | "quantile-metrics"
   | "retention-metrics"
   | "funnel-metrics"
+  | "compound-metrics"
   | "custom-markdown"
   | "experiment-impact"
   | "metric-populations"
@@ -77,7 +78,6 @@ export type CommercialFeature =
   | "learnings"
   | "dashboards"
   | "product-analytics-dashboards"
-  | "share-product-analytics-dashboards"
   | "precomputed-dimensions"
   | "custom-hooks"
   | "metric-slices"
@@ -90,6 +90,7 @@ export type CommercialFeature =
   | "releases"
   | "contextual-bandits"
   | "interleaving"
+  | "cluster-experiments"
   | "human-in-the-loop";
 
 export type CommercialFeaturesMap = Record<AccountPlan, Set<CommercialFeature>>;
@@ -237,6 +238,7 @@ const commercialFeaturesPro: CommercialFeature[] = [
   "quantile-metrics",
   "retention-metrics",
   "funnel-metrics",
+  "compound-metrics",
   "metric-populations",
   "multi-armed-bandits",
   "historical-power",
@@ -248,6 +250,7 @@ const commercialFeaturesPro: CommercialFeature[] = [
   "saveSqlExplorerQueries",
   "precomputed-dimensions",
   "product-analytics-dashboards",
+  "cluster-experiments",
 ];
 
 const commercialFeaturesProSso: CommercialFeature[] = [
@@ -291,7 +294,6 @@ const commercialFeaturesEnterpriseOnly: CommercialFeature[] = [
   "custom-hooks",
   "metric-slices",
   "manage-official-resources",
-  "share-product-analytics-dashboards",
   "incremental-refresh",
   "adv-presentations",
   "contextual-bandits",

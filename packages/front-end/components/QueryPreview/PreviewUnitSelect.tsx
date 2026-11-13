@@ -5,7 +5,7 @@ import styles from "./PreviewUnitSelect.module.scss";
 type UnitLabelFactTable = Parameters<typeof getPreviewUnitLabel>[1];
 
 // Picks the identifier a preview counts by. Options show the unit's display
-// name over its column; the trigger shows the name only.
+// name and its column on one line; the trigger shows the name only.
 export default function PreviewUnitSelect({
   units,
   value,
@@ -33,12 +33,7 @@ export default function PreviewUnitSelect({
       {units.map((id) => {
         const { label, column } = getPreviewUnitLabel(id, factTable);
         return (
-          <SelectItem
-            key={id}
-            value={id}
-            textValue={label}
-            className={styles.item}
-          >
+          <SelectItem key={id} value={id} textValue={label}>
             <span className={styles.option}>
               <span>{label}</span>
               <span className={styles.descriptor}>{column}</span>

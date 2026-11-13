@@ -27,7 +27,7 @@ export default function SparseTabbedEditor({
   defaultHeight,
   condensed = false,
   headerLeft,
-  headerRight,
+  actions,
   onEditorLoad,
   usedConstantTags,
 }: {
@@ -43,9 +43,10 @@ export default function SparseTabbedEditor({
   // Tighter layout for embedded contexts like ramp step editors: smaller tabs
   // and a shorter default editor height.
   condensed?: boolean;
-  // Rendered on the tab row, either side of the tabs.
+  // Rendered on the tab row, before the tabs.
   headerLeft?: ReactNode;
-  headerRight?: ReactNode;
+  // More `EditorAction`s, before Format JSON.
+  actions?: ReactNode;
   // Exposes the Edit-tab Ace editor so a parent's constant picker can insert at
   // the cursor (the Edit tab is force-mounted so this stays valid on Preview).
   onEditorLoad?: (editor: Ace.Editor) => void;
@@ -122,9 +123,6 @@ export default function SparseTabbedEditor({
             <TabsTrigger value="preview">Preview</TabsTrigger>
           </TabsList>
         </Flex>
-        {!fullscreen && headerRight ? (
-          <Box flexShrink="0">{headerRight}</Box>
-        ) : null}
         {fullscreen ? (
           <Button
             type="button"
@@ -152,7 +150,10 @@ export default function SparseTabbedEditor({
             helpText={fullscreen ? undefined : usedConstantTags}
             actions={
               disabled ? null : (
-                <FormatJsonAction value={value} setValue={setValue} />
+                <>
+                  {actions}
+                  <FormatJsonAction value={value} setValue={setValue} />
+                </>
               )
             }
             placeholder={placeholder}

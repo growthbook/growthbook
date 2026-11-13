@@ -13,12 +13,14 @@ export function getIdentitiesCTE(
     to,
     forcedBaseIdType,
     experimentId,
+    tableNamePrefix = "__identities_",
   }: {
     objects: string[][];
     from: Date;
     to?: Date;
     forcedBaseIdType?: string;
     experimentId?: string;
+    tableNamePrefix?: string;
   },
 ): {
   baseIdType: string;
@@ -36,7 +38,7 @@ export function getIdentitiesCTE(
 
   // Generate table names and SQL for each of the required joins
   joinsRequired.forEach((idType) => {
-    const table = `__identities_${idType.replace(/[^a-zA-Z0-9_]/g, "")}`;
+    const table = `${tableNamePrefix}${idType.replace(/[^a-zA-Z0-9_]/g, "")}`;
     idJoinMap[idType] = table;
     joins.push(
       `${table} as (

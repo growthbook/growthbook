@@ -76,7 +76,14 @@
                     "pages": [
                       "features/rules",
                       "features/targeting",
-                      "features/remote-saved-groups",
+                      {
+                        "group": "Remote Groups",
+                        "root": "features/remote-saved-groups",
+                        "pages": [
+                          "features/remote-saved-groups-proxy",
+                          "features/remote-saved-groups-custom"
+                        ]
+                      },
                       "features/safe-rollouts",
                       "features/ramp-schedules",
                       "features/prerequisites",
@@ -150,6 +157,7 @@
                     "root": "app/metrics",
                     "pages": [
                       "app/metrics",
+                      "app/metrics/compound",
                       "app/metrics/funnel",
                       "app/metrics/examples",
                       "app/metrics/legacy"
@@ -312,7 +320,11 @@
                   {
                     "group": "Slack",
                     "root": "integrations/slack",
-                    "pages": ["integrations/slack/legacy-webhooks"]
+                    "pages": [
+                      "integrations/slack/ai-assistant",
+                      "integrations/slack/self-hosted",
+                      "integrations/slack/legacy-webhooks"
+                    ]
                   },
                   "integrations/discord",
                   "integrations/datadog",
@@ -640,7 +652,10 @@
                 "pages": [
                   "api/data-sources/operation/listDataSources",
                   "api/data-sources/operation/getDataSource",
+                  "api/data-sources/operation/updateDataSource",
+                  "api/data-sources/operation/deleteDataSource",
                   "api/data-sources/operation/getInformationSchema",
+                  "api/data-sources/operation/postDataSourceInformationSchemaRefresh",
                   "api/data-sources/operation/searchWarehouseTables",
                   "api/data-sources/operation/getWarehouseTableSchema",
                   "api/data-sources/operation/previewWarehouseColumnValues",
@@ -960,6 +975,26 @@
                 ]
               },
               {
+                "group": "Event Webhooks",
+                "pages": [
+                  "api/event-webhooks/operation/listEventWebhooks",
+                  "api/event-webhooks/operation/postEventWebhook",
+                  "api/event-webhooks/operation/getEventWebhook",
+                  "api/event-webhooks/operation/putEventWebhook",
+                  "api/event-webhooks/operation/deleteEventWebhook",
+                  "api/event-webhooks/operation/listEventWebhookLogs",
+                  "api/event-webhooks/operation/postEventWebhookTest"
+                ]
+              },
+              {
+                "group": "Audit Logs",
+                "pages": [
+                  "api/audits/operation/listAudits",
+                  "api/audits/operation/listEvents",
+                  "api/audits/operation/getEvent"
+                ]
+              },
+              {
                 "group": "Code References",
                 "pages": [
                   "api/code-references/operation/listCodeRefs",
@@ -979,7 +1014,11 @@
               },
               {
                 "group": "Queries",
-                "pages": ["api/queries/operation/getQuery"]
+                "pages": [
+                  "api/queries/operation/getQuery",
+                  "api/queries/operation/listDataSourceQueries",
+                  "api/queries/operation/postQueryCancel"
+                ]
               },
               {
                 "group": "Settings",
@@ -1035,6 +1074,12 @@
                   "api/ContextualBandits/operation/cancelContextualBandit",
                   "api/ContextualBandits/operation/listContextualBanditVisualChangesets",
                   "api/ContextualBandits/operation/postContextualBanditVisualChangesets"
+                ]
+              },
+              {
+                "group": "information-schema-tables",
+                "pages": [
+                  "api/information-schema-tables/operation/postInformationSchemaTableRefresh"
                 ]
               },
               {
@@ -1198,6 +1243,24 @@
                   "api/Populations/operation/updatePopulation",
                   "api/Populations/operation/deletePopulation"
                 ]
+              },
+              {
+                "group": "Webhook Secrets",
+                "pages": [
+                  "api/WebhookSecrets/operation/getWebhookSecret",
+                  "api/WebhookSecrets/operation/deleteWebhookSecret",
+                  "api/WebhookSecrets/operation/listWebhookSecrets"
+                ]
+              },
+              {
+                "group": "SDK Webhooks",
+                "pages": [
+                  "api/SdkWebhooks/operation/listSdkConnectionWebhooks",
+                  "api/SdkWebhooks/operation/postSdkConnectionWebhook",
+                  "api/SdkWebhooks/operation/putSdkWebhook",
+                  "api/SdkWebhooks/operation/deleteSdkWebhook",
+                  "api/SdkWebhooks/operation/postSdkWebhookTest"
+                ]
               }
             ]
           },
@@ -1208,6 +1271,7 @@
               "api/AnalyticsExploration_model",
               "api/Archetype_model",
               "api/Attribute_model",
+              "api/Audit_model",
               "api/AutoRun_model",
               "api/CodeRef_model",
               "api/Config_model",
@@ -1238,7 +1302,10 @@
               "api/DataSource_model",
               "api/Dimension_model",
               "api/Environment_model",
+              "api/Event_model",
               "api/EventUser_model",
+              "api/EventWebhook_model",
+              "api/EventWebhookLog_model",
               "api/Experiment_model",
               "api/Experiment Rule_model",
               "api/ExperimentAnalysisSettings_model",
@@ -1314,6 +1381,7 @@
               "api/ScheduledStopPlan_model",
               "api/SdkConnection_model",
               "api/SdkConnectionApprovalRule_model",
+              "api/SdkWebhook_model",
               "api/Segment_model",
               "api/Settings_model",
               "api/Targeting Rule_model",
@@ -1321,7 +1389,8 @@
               "api/Team_model",
               "api/VisualChange_model",
               "api/VisualChangeset_model",
-              "api/VisualEditorCbExperimentStub_model"
+              "api/VisualEditorCbExperimentStub_model",
+              "api/WebhookSecret_model"
             ]
           }
         ]
@@ -1330,10 +1399,6 @@
     "global": {
       "anchors": []
     }
-  },
-  "banner": {
-    "content": "**New:** See what we've shipped lately on our [Product Updates](https://growthbook.io/product-updates) page.",
-    "dismissible": true
   },
   "navbar": {
     "links": [
@@ -1346,11 +1411,15 @@
         "label": "Github",
         "type": "github",
         "href": "https://github.com/growthbook/growthbook"
+      },
+      {
+        "label": "Open App",
+        "href": "https://app.growthbook.io/"
       }
     ],
     "primary": {
       "type": "button",
-      "label": "Open App",
+      "label": "Start For Free",
       "href": "https://app.growthbook.io/"
     }
   },

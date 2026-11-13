@@ -1,7 +1,11 @@
 import { useMemo, ReactNode } from "react";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { MemberRoleWithProjects } from "shared/types/organization";
-import { getRoleDisplayName, holdsGlobalAdmin } from "shared/permissions";
+import {
+  getRoleDisplayName,
+  holdsGlobalAdmin,
+  roleSupportsEnvLimit,
+} from "shared/permissions";
 import { PiTrash, PiInfo, PiPlus, PiPlusBold } from "react-icons/pi";
 import { useUser } from "@/services/UserContext";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -83,7 +87,19 @@ export default function RoleRulesTable({
   const WIDTHS = showFrom ? WITH_FROM : WITHOUT_FROM;
   const columnCount = showFrom ? 6 : 5;
 
-  const commit = (next: RoleRule[]) => setValue(fromRules(next, value));
+  // Drop env limits a role can't hold (e.g. left over after switching to Admin);
+  // the Environments cell hides them, so they can't be cleared by hand.
+  const commit = (next: RoleRule[]) =>
+    setValue(
+      fromRules(
+        next.map((r) =>
+          roleSupportsEnvLimit(r.role, organization)
+            ? r
+            : { ...r, environments: [], limitAccessByEnvironment: false },
+        ),
+        value,
+      ),
+    );
   const patch = (key: string, changes: Partial<RoleRule>) =>
     commit(rules.map((r) => (r.key === key ? { ...r, ...changes } : r)));
 
@@ -307,13 +323,21 @@ export default function RoleRulesTable({
       {groups.map(renderGroup)}
       <Flex align="center" gap="3">
         {unusedProjects.length > 0 && hasAdvancedPermissions && (
-          <Button
-            variant="soft"
-            icon={<PiPlus />}
-            onClick={() => addRule(unusedProjects[0].id)}
+          <Tooltip
+            content="Project overrides have no effect for a global Admin."
+            enabled={adminEverywhere}
           >
-            Add Project override
-          </Button>
+            <span tabIndex={adminEverywhere ? 0 : undefined}>
+              <Button
+                variant="soft"
+                icon={<PiPlus />}
+                disabled={adminEverywhere}
+                onClick={() => addRule(unusedProjects[0].id)}
+              >
+                Add Project override
+              </Button>
+            </span>
+          </Tooltip>
         )}
         {footerEnd && <Box ml="auto">{footerEnd}</Box>}
       </Flex>

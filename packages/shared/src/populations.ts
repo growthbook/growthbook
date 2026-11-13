@@ -10,7 +10,7 @@ export const MAX_POPULATION_FACT_TABLES = 5;
 
 export type PopulationRuleFactTable = Pick<
   FactTableInterface,
-  "id" | "datasource" | "userIdTypes" | "columns"
+  "id" | "datasource" | "userIdTypes" | "columns" | "filters"
 >;
 
 // Unlike fact metrics, a filter with no comparisons (such as ",") is invalid:
@@ -82,6 +82,21 @@ export function getPopulationRuleViolations({
   }
 
   steps.forEach((step, i) => {
+    // An unknown saved filter would be dropped from the SQL, silently widening
+    // the population.
+    const stepFactTable = factTableMap.get(step.source.factTableId);
+    const missingFilters = stepFactTable
+      ? step.rowFilters
+          .filter((f) => f.operator === "saved_filter")
+          .map((f) => f.values?.[0] ?? "")
+          .filter((id) => !stepFactTable.filters.some((f) => f.id === id))
+      : [];
+    if (missingFilters.length) {
+      violations.push(
+        `Saved filter not found on Fact Table ${step.source.factTableId}: ${missingFilters.join(", ")} (step ${i + 1}).`,
+      );
+    }
+
     const { aggregateFilter, aggregateFilterColumn } = step;
     if (!aggregateFilter || !aggregateFilterColumn) return;
 

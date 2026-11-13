@@ -225,7 +225,8 @@ export default function ExperimentHeader({
   editSchedule,
 }: Props) {
   const { apiCall } = useAuth();
-  const { hasCommercialFeature } = useUser();
+  const { hasCommercialFeature, settings } = useUser();
+  const publicSharingDisabled = !!settings?.disablePublicSharing;
   const { watchedExperiments, refreshWatching } = useWatching();
   const router = useRouter();
   const permissionsUtil = usePermissionsUtil();
@@ -388,6 +389,7 @@ export default function ExperimentHeader({
   const disableHealthTab = !hasHealthData(dataSource);
 
   const isBandit = experiment.type === "multi-armed-bandit";
+  const clusterBlocksBandit = !isBandit && !!experiment.isClusterExperiment;
   const isHoldout = experiment.type === "holdout";
   const holdoutStage = holdout
     ? getHoldoutStage(holdout, experiment)
@@ -461,7 +463,8 @@ export default function ExperimentHeader({
   ]);
 
   const shareLinkButton =
-    experiment.shareLevel !== "public" ? null : copySuccess ? (
+    experiment.shareLevel !== "public" ||
+    publicSharingDisabled ? null : copySuccess ? (
       <Button style={{ width: 130 }} icon={<PiCheck />}>
         Link copied
       </Button>
@@ -488,7 +491,10 @@ export default function ExperimentHeader({
   const showShareableReportButton =
     permissionsUtil.canCreateReport(experiment) && snapshot;
 
-  const showShareButton = canEditExperiment;
+  // Kept for an already-public experiment so its link can be revoked.
+  const showShareButton =
+    canEditExperiment &&
+    (!publicSharingDisabled || experiment.shareLevel === "public");
 
   const showSaveAsTemplateButton = canCreateTemplate && !isBandit;
 
@@ -652,6 +658,7 @@ export default function ExperimentHeader({
           header={`Convert to ${isBandit ? "Experiment" : "Bandit"}`}
           submit={async () => {
             if (!isBandit && !hasMultiArmedBanditFeature) return;
+            if (clusterBlocksBandit) return;
             try {
               await apiCall(`/experiment/${experiment.id}`, {
                 method: "POST",
@@ -677,65 +684,78 @@ export default function ExperimentHeader({
               </PremiumTooltip>
             )
           }
-          ctaEnabled={isBandit || hasMultiArmedBanditFeature}
+          ctaEnabled={
+            (isBandit || hasMultiArmedBanditFeature) && !clusterBlocksBandit
+          }
         >
           <div>
-            <p>
-              Are you sure you want to convert this{" "}
-              {!isBandit ? "Experiment" : "Bandit"} to a{" "}
-              <strong>{isBandit ? "Experiment" : "Bandit"}</strong>?
-            </p>
-            {!isBandit && experiment.goalMetrics.length > 0 && (
+            {clusterBlocksBandit ? (
               <Callout status="warning">
-                <Collapsible
-                  trigger={
-                    <Flex justify="between" gap="1">
-                      Some of your experiment settings may be altered.{" "}
-                      <Box>
-                        <FaAngleRight className="chevron" />
-                      </Box>
-                    </Flex>
-                  }
-                  transitionTime={100}
-                >
-                  <ul className="ml-0 pl-3 mt-3">
-                    <li>
-                      A <strong>single decision metric</strong> will be
-                      automatically assigned. You may change this before running
-                      the experiment.
-                    </li>
-                    <li>
-                      Experiment variations will begin with{" "}
-                      <strong>equal weights</strong> (
-                      {(() => {
-                        const variations = getLatestPhaseVariations(experiment);
-                        return variations
-                          .map((_, i) =>
-                            i < 3
-                              ? formatPercent(1 / variations.length)
-                              : i === 3
-                                ? "..."
-                                : null,
-                          )
-                          .filter(Boolean)
-                          .join(", ");
-                      })()}
-                      ).
-                    </li>
-                    <li>
-                      The stats engine will be locked to{" "}
-                      <strong>Bayesian</strong>.
-                    </li>
-                    <li>
-                      Any <strong>Activation Metric</strong>,{" "}
-                      <strong>Segments</strong>,{" "}
-                      <strong>Conversion Window overrides</strong>,{" "}
-                      <strong>Custom SQL Filters</strong>, or{" "}
-                      <strong>Metric Overrides</strong> will be removed.
-                    </li>
-                  </ul>
-                </Collapsible>
+                {
+                  "Cluster experiments can't be run as Bandits. To convert this one, first turn off cluster experiment in the Analysis Plan's Data Source settings."
+                }
               </Callout>
+            ) : (
+              <>
+                <p>
+                  Are you sure you want to convert this{" "}
+                  {!isBandit ? "Experiment" : "Bandit"} to a{" "}
+                  <strong>{isBandit ? "Experiment" : "Bandit"}</strong>?
+                </p>
+                {!isBandit && experiment.goalMetrics.length > 0 && (
+                  <Callout status="warning">
+                    <Collapsible
+                      trigger={
+                        <Flex justify="between" gap="1">
+                          Some of your experiment settings may be altered.{" "}
+                          <Box>
+                            <FaAngleRight className="chevron" />
+                          </Box>
+                        </Flex>
+                      }
+                      transitionTime={100}
+                    >
+                      <ul className="ml-0 pl-3 mt-3">
+                        <li>
+                          A <strong>single decision metric</strong> will be
+                          automatically assigned. You may change this before
+                          running the experiment.
+                        </li>
+                        <li>
+                          Experiment variations will begin with{" "}
+                          <strong>equal weights</strong> (
+                          {(() => {
+                            const variations =
+                              getLatestPhaseVariations(experiment);
+                            return variations
+                              .map((_, i) =>
+                                i < 3
+                                  ? formatPercent(1 / variations.length)
+                                  : i === 3
+                                    ? "..."
+                                    : null,
+                              )
+                              .filter(Boolean)
+                              .join(", ");
+                          })()}
+                          ).
+                        </li>
+                        <li>
+                          The stats engine will be locked to{" "}
+                          <strong>Bayesian</strong>.
+                        </li>
+                        <li>
+                          Any <strong>Activation Metric</strong>,{" "}
+                          <strong>Segments</strong>,{" "}
+                          <strong>Conversion Window overrides</strong>,{" "}
+                          <strong>Custom SQL Filters</strong>, or{" "}
+                          <strong>Metric Overrides</strong> will be removed.
+                        </li>
+                      </ul>
+                    </Collapsible>
+                  </Callout>
+                )}
+              </>
             )}
           </div>
         </Modal>
@@ -917,9 +937,15 @@ export default function ExperimentHeader({
             ) : shareLevel === "public" ? (
               <>
                 <Callout status="warning" size="sm">
-                  Anyone with the link can view this{" "}
-                  {isBandit ? "Bandit" : "Experiment"}, even those outside your
-                  organization.
+                  {publicSharingDisabled ? (
+                    'Public sharing is turned off for your organization, so this link doesn\'t work right now. It will work again if sharing is turned back on. To revoke it, set View access to "Only organization members".'
+                  ) : (
+                    <>
+                      Anyone with the link can view this{" "}
+                      {isBandit ? "Bandit" : "Experiment"}, even those outside
+                      your organization.
+                    </>
+                  )}
                 </Callout>
               </>
             ) : null}
@@ -935,7 +961,9 @@ export default function ExperimentHeader({
             disabled={!hasUpdatePermissions}
             options={[
               { value: "organization", label: "Only organization members" },
-              { value: "public", label: "Anyone with the link" },
+              ...(publicSharingDisabled && experiment.shareLevel !== "public"
+                ? []
+                : [{ value: "public", label: "Anyone with the link" }]),
             ]}
           />
           <div className="mb-1" style={{ height: 24 }}>
@@ -1028,6 +1056,10 @@ export default function ExperimentHeader({
               gapX="4"
               gapY="2"
               flexGrow="1"
+              // Ends where the feature page's revision picker does: into the
+              // menu button's gap, then back by a border as wide as a card's,
+              // which zoom rounds the same way.
+              style={{ marginRight: -10, borderRight: "1px solid transparent" }}
             >
               {/* Unwrapped, so the column never narrows past the buttons. */}
               <Flex
@@ -1126,7 +1158,7 @@ export default function ExperimentHeader({
                     ) : null}
                     {experiment.status === "stopped" && experiment.results ? (
                       <>
-                        {canEditExperiment ? (
+                        {showShareButton ? (
                           <Button onClick={() => setShareModalOpen(true)}>
                             Share...
                           </Button>
@@ -1144,7 +1176,14 @@ export default function ExperimentHeader({
             <Flex align="center" height="var(--space-6)">
               <DropdownMenu
                 trigger={
-                  <MoreMenuTrigger label="More actions" size="lg" ml="2" />
+                  <MoreMenuTrigger
+                    label="More actions"
+                    size="lg"
+                    // Above the details toggle, past the row's end. Inline,
+                    // not margin props: a ghost button adds its own offset to
+                    // those.
+                    style={{ marginLeft: 8, marginRight: -17 }}
+                  />
                 }
                 open={dropdownOpen}
                 onOpenChange={(o) => {
@@ -1447,7 +1486,14 @@ export default function ExperimentHeader({
                 <Tabs
                   value={tab}
                   onValueChange={setTab}
-                  style={{ flex: 1, minWidth: 0 }}
+                  // Its dates end under the actions above: into the toggle's
+                  // margin, then back by a border as wide as a card's.
+                  style={{
+                    flex: 1,
+                    minWidth: 0,
+                    marginRight: -12,
+                    borderRight: "1px solid transparent",
+                  }}
                 >
                   <TabsList size="lg">
                     <Flex align="center" className="flex-1" minWidth="0">
