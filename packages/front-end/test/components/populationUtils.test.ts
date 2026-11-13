@@ -8,6 +8,9 @@ import {
   describePopulationStep,
   getPopulationMemberCounts,
   getPopulationPreviewConfig,
+  type PopulationFormValues,
+  toFormValues,
+  toStep,
 } from "@/components/Populations/populationUtils";
 
 function column(
@@ -274,5 +277,79 @@ describe("getPopulationMemberCounts", () => {
       ],
       total: 20,
     });
+  });
+});
+
+describe("toStep", () => {
+  const values: PopulationFormValues = {
+    name: "Buyers",
+    description: "",
+    datasource: "ds_1",
+    userIdTypes: ["user_id"],
+    factTableId: "ftb_events",
+    rowFilters: [{ operator: "=", column: "country", values: ["US"] }],
+    aggregateFilterColumn: "",
+    aggregateFilter: "",
+  };
+
+  it("leaves out the threshold when there is no comparison", () => {
+    expect(toStep({ ...values, aggregateFilter: "   " })).toEqual({
+      source: { type: "factTable", factTableId: "ftb_events" },
+      rowFilters: values.rowFilters,
+    });
+  });
+
+  it("trims the comparison and counts rows when no column is chosen", () => {
+    expect(toStep({ ...values, aggregateFilter: " >=3 " })).toMatchObject({
+      aggregateFilter: ">=3",
+      aggregateFilterColumn: "$$count",
+    });
+  });
+
+  it("keeps a chosen column", () => {
+    expect(
+      toStep({
+        ...values,
+        aggregateFilter: ">=100",
+        aggregateFilterColumn: "amount",
+      }),
+    ).toMatchObject({ aggregateFilterColumn: "amount" });
+  });
+});
+
+describe("toFormValues", () => {
+  it("starts a new Population empty, in the default Data Source", () => {
+    expect(toFormValues(null, "ds_1")).toEqual({
+      name: "",
+      description: "",
+      datasource: "ds_1",
+      userIdTypes: [],
+      factTableId: "",
+      rowFilters: [],
+      aggregateFilterColumn: "",
+      aggregateFilter: "",
+    });
+  });
+
+  it("gives back the saved step when an existing Population is saved unchanged", () => {
+    const savedStep: PopulationStep = {
+      source: { type: "factTable", factTableId: "ftb_events" },
+      rowFilters: [{ operator: "=", column: "country", values: ["US"] }],
+      aggregateFilter: ">=3",
+      aggregateFilterColumn: "amount",
+    };
+    const existing = {
+      id: "pop_1",
+      dateCreated: "",
+      dateUpdated: "",
+      projects: [],
+      owner: "u_1",
+      name: "Buyers",
+      description: "",
+      datasource: "ds_1",
+      userIdTypes: ["user_id"],
+      steps: [savedStep],
+    };
+    expect(toStep(toFormValues(existing, "ds_other"))).toEqual(savedStep);
   });
 });

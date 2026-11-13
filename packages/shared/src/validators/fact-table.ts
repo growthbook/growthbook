@@ -304,6 +304,14 @@ export const rowFilterOperators = [
   "saved_filter",
 ] as const;
 
+/** Operators that check the column itself and take no values. */
+export const columnOnlyRowFilterOperators = [
+  "is_true",
+  "is_false",
+  "is_null",
+  "not_null",
+] as const;
+
 /**
  * The operators that compare a column against plain string values. Every one is
  * safe to accept from an untrusted caller: the column is an identifier the
