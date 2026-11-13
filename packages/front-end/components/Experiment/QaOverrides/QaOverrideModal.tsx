@@ -428,22 +428,11 @@ export default function QaOverrideModal({
                 setValue={setEnvironment}
                 placeholder="Select an environment…"
               >
-                {environmentOptions.map((e) =>
-                  e.isProduction ? (
-                    <Tooltip
-                      key={e.id}
-                      content="QA overrides can't run in production environments."
-                    >
-                      <SelectItem value={e.id} disabled>
-                        {e.id}
-                      </SelectItem>
-                    </Tooltip>
-                  ) : (
-                    <SelectItem key={e.id} value={e.id}>
-                      {e.id}
-                    </SelectItem>
-                  ),
-                )}
+                {environmentOptions.map((e) => (
+                  <SelectItem key={e.id} value={e.id} disabled={e.isProduction}>
+                    {e.id}
+                  </SelectItem>
+                ))}
               </Select>
               <Text size="sm" color="text-low">
                 Only non-production environments are selectable.
