@@ -244,14 +244,6 @@ export type AttributeKey<A> = string extends keyof A
  *     }
  *   }
  *
- * Also register a fallback payload written in code that has every feature
- * (`fallbackPayload: typeof fallbackPayload`, see `FallbackPayload`), and
- * `getFeatureValue` needs no fallback, other than for a boolean (use `isOn`,
- * or pass the fallback) or a feature that can be null. With no fallback, a
- * feature with no value (missing, blocked by a prerequisite...) uses its
- * `defaultValue`: the one in the SDK's payload, else the one in the
- * `fallbackPayload` given to `init`. Pass a fallback to use a different value.
- *
  * Register `events` (event name -> properties) to check `logEvent` calls:
  *
  *   events: {
@@ -264,19 +256,6 @@ export interface Register {}
 export type RegisteredFeatures = Register extends { features: infer F }
   ? F
   : Record<string, any>;
-// Features `getFeatureValue` can return with no fallback: the registered
-// fallback payload has every feature's default, so only one that can be null
-// still needs one. Boolean features are left out too: `isOn` is false when
-// there is no value, and a `true` default here would disagree with it.
-export type BundledFeatureKey = Register extends {
-  features: infer F;
-  fallbackPayload: FallbackPayload;
-}
-  ? {
-      [K in keyof F]: F[K] extends string | number | object ? K : never;
-    }[keyof F] &
-      string
-  : never;
 export type RegisteredAttributes = Register extends { attributes: infer A }
   ? A
   : Attributes;
@@ -648,21 +627,19 @@ export type FeatureApiResponse<
 export type GrowthBookPayload = FeatureApiResponse;
 
 /**
- * A fallback payload written in code, checked against your attributes and
- * features. Targeting conditions, hash attributes and saved groups must use
- * real attributes, with operators and values that fit each attribute's type.
- * Every feature must be included, with a `defaultValue`.
+ * A payload written in code, such as the `fallbackPayload` given to `init`,
+ * checked against your attributes as well as your features. Targeting
+ * conditions, hash attributes and saved groups must use real attributes, with
+ * operators and values that fit each attribute's type.
  *
- *   const fallbackPayload: FallbackPayload<AppAttributes, AppFeatures> = {...};
+ *   const fallbackPayload: Payload<AppAttributes, AppFeatures> = {...};
  *
  * Uses the registered attributes and features when none are given.
  */
-export type FallbackPayload<
+export type Payload<
   AppAttributes extends Attributes = RegisteredAttributes,
   AppFeatures extends Record<string, any> = RegisteredFeatures,
-> = FeatureApiResponse<AppFeatures, AppAttributes> & {
-  features: { [K in keyof AppFeatures]: { defaultValue: AppFeatures[K] } };
-};
+> = FeatureApiResponse<AppFeatures, AppAttributes>;
 
 /** Each filter is an array, and any one of its values is enough */
 export type PayloadFilters = {

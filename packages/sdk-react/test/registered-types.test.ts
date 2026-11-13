@@ -54,8 +54,4 @@ describe("registered types", () => {
   it("types hooks and components from the Register interface", () => {
     expect(compileFixture("registered.tsx")).toEqual([]);
   }, 60000);
-
-  it("needs no fallback values with a registered fallback payload", () => {
-    expect(compileFixture("registered-payload.tsx")).toEqual([]);
-  }, 60000);
 });

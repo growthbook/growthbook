@@ -1,7 +1,7 @@
 import {
   FeatureApiResponse,
   GrowthBook,
-  FallbackPayload,
+  Payload,
 } from "@growthbook/growthbook";
 
 type AppAttributes = {
@@ -18,7 +18,7 @@ type AppAttributes = {
 type AppFeatures = { dark_mode: boolean; price: number };
 
 // Everything a payload can hold, using real attributes
-const payload: FallbackPayload<AppAttributes> = {
+const payload: Payload<AppAttributes> = {
   features: {
     dark_mode: {
       defaultValue: false,
@@ -85,15 +85,11 @@ gb.initSync({ payload });
 gb.setPayload(payload);
 export const untyped: FeatureApiResponse = payload;
 
-type Features = NonNullable<FallbackPayload<AppAttributes>["features"]>;
+type Features = NonNullable<Payload<AppAttributes>["features"]>;
 type Rule = NonNullable<Features[string]["rules"]>[number];
 type Condition = NonNullable<Rule["condition"]>;
-type SavedGroup = NonNullable<
-  FallbackPayload<AppAttributes>["savedGroups"]
->[string];
-type Interleavings = NonNullable<
-  FallbackPayload<AppAttributes>["interleavings"]
->;
+type SavedGroup = NonNullable<Payload<AppAttributes>["savedGroups"]>[string];
+type Interleavings = NonNullable<Payload<AppAttributes>["interleavings"]>;
 const condition = (c: Condition) => c;
 const rule = (r: Rule) => r;
 const savedGroup = (g: SavedGroup) => g;
@@ -164,35 +160,34 @@ savedGroup({ type: "list", attributeKey: "nope", values: [] });
 savedGroup({ type: "condition", condition: { nope: 1 } });
 // @ts-expect-error unknown hash attribute
 interleaving({ trackingKey: "", hashAttribute: "x", seed: "", variations: [] });
-export const badExperiment: FallbackPayload<AppAttributes> = {
-  features: {},
+export const badExperiment: Payload<AppAttributes> = {
   // @ts-expect-error unknown attribute in an auto experiment's condition
   experiments: [{ key: "a", variations: [{}, {}], condition: { nope: 1 } }],
 };
 
-// The second generic checks feature keys and values, and that none is missing
-type Typed = FallbackPayload<AppAttributes, AppFeatures>;
-const price = { defaultValue: 1 };
-const dark_mode = { defaultValue: false };
+// The second generic checks feature keys and values as well
+type Typed = Payload<AppAttributes, AppFeatures>;
 export const both: Typed = {
   features: {
     price: { defaultValue: 1, rules: [{ condition: { age: 1 }, force: 2 }] },
     dark_mode: { defaultValue: false, rules: [{ variations: [true, false] }] },
   },
 };
-// @ts-expect-error a feature is missing
-export const missingFeature: Typed = { features: { price } };
-// @ts-expect-error no features at all
+// Features can be left out, and a feature doesn't need a defaultValue
+export const partial: Typed = {
+  features: { price: { rules: [{ force: 1 }] } },
+};
 export const noFeatures: Typed = {};
 export const unknownFeature: Typed = {
   // @ts-expect-error unknown feature
-  features: { price, dark_mode, nope: { defaultValue: 1 } },
+  features: { nope: { defaultValue: 1 } },
 };
-// @ts-expect-error wrong value type
-export const wrongValue: Typed = { features: { price: dark_mode, dark_mode } };
+export const wrongValue: Typed = {
+  // @ts-expect-error wrong value type
+  features: { price: { defaultValue: "1" } },
+};
 export const wrongForce: Typed = {
   features: {
-    price,
     // @ts-expect-error a rule's value must match the feature's type
     dark_mode: { defaultValue: false, rules: [{ force: "yes" }] },
   },
@@ -201,32 +196,12 @@ export const wrongVariation: Typed = {
   features: {
     // @ts-expect-error a variation must match the feature's type
     price: { defaultValue: 1, rules: [{ variations: [1, "2"] }] },
-    dark_mode,
-  },
-};
-export const noDefault: Typed = {
-  features: {
-    // @ts-expect-error no defaultValue
-    price: { rules: [{ force: 1 }] },
-    dark_mode,
-  },
-};
-
-// Without feature types, every feature still needs a defaultValue (or null)
-export const defaults: FallbackPayload<AppAttributes> = {
-  features: {
-    nullable: { defaultValue: null },
-    // @ts-expect-error no defaultValue
-    missing: { rules: [{ force: 1 }] },
   },
 };
 
 // With no types at all, any feature and any condition is accepted
-export const loose: FallbackPayload = {
+export const loose: Payload = {
   features: {
-    f: {
-      defaultValue: 1,
-      rules: [{ condition: { anything: { $gt: 1 } }, hashAttribute: "x" }],
-    },
+    f: { rules: [{ condition: { anything: { $gt: 1 } }, hashAttribute: "x" }] },
   },
 };

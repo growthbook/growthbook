@@ -6,7 +6,7 @@ gb.isOn("any-feature");
 gb.setAttributes({ other: true });
 gb.updateAttributes({ more: "x" });
 export const value: string = gb.getFeatureValue("any-feature", "fallback");
-// @ts-expect-error a fallback is required without a registered payload
+// @ts-expect-error a fallback is required
 gb.getFeatureValue("any-feature");
 export const attribute: unknown = gb.getAttributes().anything;
 gb.setPayload({ features: { whatever: { defaultValue: 1 } } });

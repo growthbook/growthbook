@@ -414,30 +414,7 @@ declare module "@growthbook/growthbook" {
 
 Instead of writing any of this by hand, you can auto-generate both types and the registration from your GrowthBook account using the [GrowthBook CLI](https://docs.growthbook.io/tools/cli#generating-typescript-types).
 
-A fallback payload written in code can be checked by typing it as `FallbackPayload<AppAttributes, AppFeatures>` (or just `FallbackPayload` with registered types). Every feature must be included with a `defaultValue`. Targeting conditions, hash attributes and saved groups must use real attributes, with operators and values that fit the attribute's type: `{ age: { $regex: "..." } }` is an error for a numeric `age`.
-
-Register the fallback payload as well, and `getFeatureValue` needs no fallback:
-
-```ts
-const fallbackPayload: FallbackPayload = {
-  features: {
-    "button-color": { defaultValue: "blue" },
-  },
-};
-
-declare module "@growthbook/growthbook" {
-  interface Register {
-    features: AppFeatures;
-    fallbackPayload: typeof fallbackPayload;
-  }
-}
-
-const gb = new GrowthBook({ clientKey: "sdk-abc123" });
-await gb.init({ fallbackPayload });
-
-// Type is `string`
-const color = gb.getFeatureValue("button-color");
-```
+A payload written in code, such as the `fallbackPayload` given to `init`, can be checked against your attributes as well by typing it as `Payload<AppAttributes, AppFeatures>` (or just `Payload` with registered types). Targeting conditions, hash attributes and saved groups must use real attributes, with operators and values that fit the attribute's type: `{ age: { $regex: "..." } }` is an error for a numeric `age`.
 
 ## GrowthBook Instance (reference)
 

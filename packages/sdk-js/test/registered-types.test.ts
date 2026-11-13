@@ -47,16 +47,8 @@ describe("registered types", () => {
     expect(compileFixture("registered.ts")).toEqual([]);
   }, 60000);
 
-  it("needs no fallback values with a registered fallback payload", () => {
-    expect(compileFixture("registered-payload.ts")).toEqual([]);
-  }, 60000);
-
-  it("still needs fallback values when the registered payload may be partial", () => {
-    expect(compileFixture("registered-partial-payload.ts")).toEqual([]);
-  }, 60000);
-
-  it("checks a fallback payload against attributes and features", () => {
-    expect(compileFixture("fallback-payload.ts")).toEqual([]);
+  it("checks a payload written in code against attributes and features", () => {
+    expect(compileFixture("typed-payload.ts")).toEqual([]);
   }, 60000);
 
   it("stays loosely typed when nothing is registered", () => {

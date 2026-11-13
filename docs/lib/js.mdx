@@ -704,12 +704,12 @@ gb.initSync({
 
 Features can be left out. A payload that was fetched or imported from JSON is typed `FeatureApiResponse` and isn't checked.
 
-A fallback payload written in code can be checked more strictly by typing it as `FallbackPayload` (SDK version 2.1.0+). Every feature must be included with a `defaultValue`, and targeting conditions, hash attributes, and saved groups are checked against your attributes:
+A payload written in code can be checked against your attributes as well by typing it as `Payload` (SDK version 2.1.0+). Targeting conditions, hash attributes, and saved groups then have to use real attributes, with operators and values that fit each attribute's type:
 
 ```ts
-import type { FallbackPayload } from "@growthbook/growthbook";
+import type { Payload } from "@growthbook/growthbook";
 
-const fallbackPayload: FallbackPayload = {
+const fallbackPayload: Payload = {
   features: {
     "button-color": {
       defaultValue: "blue",
@@ -725,15 +725,13 @@ const fallbackPayload: FallbackPayload = {
         { hashAttribute: "loggedIn", variations: ["blue", "red"] }, // can't hash a boolean
       ],
     },
-    "font-size": { rules: [{ force: 12 }] }, // no defaultValue
-    // "newForm" is missing
   },
 };
 
 await gb.init({ fallbackPayload });
 ```
 
-Use dot paths for attributes inside an object (`"company.plan"`). Without registered types, pass them in: `FallbackPayload<AppAttributes, AppFeatures>`.
+Use dot paths for attributes inside an object (`"company.plan"`). Without registered types, pass them in: `Payload<AppAttributes, AppFeatures>`.
 
 If you'd rather not register types globally, pass them to a single instance instead:
 
@@ -747,17 +745,24 @@ Instead of writing any of this by hand, you can [generate both types and the reg
 
 ### Features Defined in Code
 
-You can use the SDK without a GrowthBook account by writing the payload in code. Type it as `FallbackPayload`, so that every feature has to be included, and register it alongside your features. `getFeatureValue` then needs no fallback (SDK version 2.1.0+):
+You can use the SDK without a GrowthBook account by writing the payload in code and passing it to `initSync`:
 
 ```ts
-import { GrowthBook, type FallbackPayload } from "@growthbook/growthbook";
+import { GrowthBook, type Payload } from "@growthbook/growthbook";
 
 interface AppFeatures {
   "button-color": string;
   "new-form": boolean;
 }
 
-const payload: FallbackPayload = {
+declare module "@growthbook/growthbook" {
+  interface Register {
+    features: AppFeatures;
+  }
+}
+
+// Checked against your registered features and attributes
+const payload: Payload = {
   features: {
     "button-color": { defaultValue: "blue" },
     "new-form": {
@@ -767,31 +772,17 @@ const payload: FallbackPayload = {
   },
 };
 
-declare module "@growthbook/growthbook" {
-  interface Register {
-    features: AppFeatures;
-    fallbackPayload: typeof payload;
-  }
-}
-
 const gb = new GrowthBook().initSync({ payload });
 
-// No fallback needed. Type is `string`
-const color = gb.getFeatureValue("button-color");
-
-// Boolean features use `isOn`
 const newForm = gb.isOn("new-form");
+const color = gb.getFeatureValue("button-color", "blue");
 ```
 
-A feature whose type includes `null` still needs a fallback. This works the same way with [generated types](/tools/cli#generating-typescript-types): register your fallback payload and `getFeatureValue` needs no fallback.
-
-When you connect a GrowthBook account later, pass the same payload as the `fallbackPayload`. A feature that's missing from the payload GrowthBook sends then uses its `defaultValue` from code:
+When you connect a GrowthBook account later, pass the same payload as the `fallbackPayload`. It's then used whenever features can't be downloaded:
 
 ```ts
 const gb = new GrowthBook({ clientKey: "sdk-abc123" });
 await gb.init({ fallbackPayload: payload });
-
-const color = gb.getFeatureValue("button-color");
 ```
 
 ## Updating

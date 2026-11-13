@@ -1,8 +1,4 @@
-import {
-  FallbackPayload,
-  GrowthBook,
-  GrowthBookClient,
-} from "@growthbook/growthbook";
+import { Payload, GrowthBook, GrowthBookClient } from "@growthbook/growthbook";
 
 declare module "@growthbook/growthbook" {
   interface Register {
@@ -37,7 +33,7 @@ export const id: string = gb.getAttributes().id;
 gb.setPayload({ features: { nope: { defaultValue: 1 } } });
 
 // A fallback payload is checked against the registered features and attributes
-const fallbackPayload: FallbackPayload = {
+const fallbackPayload: Payload = {
   features: {
     dark_mode: { defaultValue: false },
     price: {
@@ -47,11 +43,17 @@ const fallbackPayload: FallbackPayload = {
   },
 };
 gb.init({ fallbackPayload });
-export const missing: FallbackPayload = {
-  // @ts-expect-error a registered feature is missing
+// Features can be left out
+export const partial: Payload = {
   features: { price: { defaultValue: 1 } },
 };
-export const unknownAttribute: FallbackPayload = {
+export const unknownFeature: Payload = {
+  // @ts-expect-error unknown feature
+  features: { nope: { defaultValue: 1 } },
+};
+// @ts-expect-error a fallback is always required
+gb.getFeatureValue("price");
+export const unknownAttribute: Payload = {
   features: {
     dark_mode: { defaultValue: false },
     // @ts-expect-error unknown attribute

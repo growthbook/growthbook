@@ -33,7 +33,6 @@ import type {
   RegisteredFeatures,
   EventArgs,
   NoInferType,
-  BundledFeatureKey,
 } from "./types/growthbook";
 import { loadSDKVersion } from "./util";
 import {
@@ -78,7 +77,6 @@ export class GrowthBookClient<
   private _experiments: AutoExperiment[];
   private _payload: FeatureApiResponse | undefined;
   private _decryptedPayload: FeatureApiResponse | undefined;
-  private _fallbackFeatures: FeatureApiResponse["features"];
   private _destroyed?: boolean;
 
   constructor(options?: ClientOptions<NoInferType<AppAttributes>>) {
@@ -157,10 +155,6 @@ export class GrowthBookClient<
 
   public async init(options?: InitOptions<AppFeatures>): Promise<InitResponse> {
     options = options || {};
-    // For getFeatureValue calls with no fallback (not read if encrypted)
-    this._fallbackFeatures = (
-      options.fallbackPayload as FeatureApiResponse | undefined
-    )?.features;
 
     if (options.cacheSettings) {
       configureCache(options.cacheSettings);
@@ -470,11 +464,6 @@ export class GrowthBookClient<
     return this.evalFeature(key, userContext).off;
   }
 
-  // The fallback is optional when a fallback payload is registered
-  public getFeatureValue<K extends BundledFeatureKey & keyof AppFeatures>(
-    key: K,
-    userContext: UserContext<AppAttributes>,
-  ): AppFeatures[K];
   public getFeatureValue<
     V extends AppFeatures[K],
     K extends string & keyof AppFeatures = string,
@@ -482,19 +471,12 @@ export class GrowthBookClient<
     key: K,
     defaultValue: V,
     userContext: UserContext<AppAttributes>,
-  ): WidenPrimitives<V>;
-  public getFeatureValue(key: string, ...args: unknown[]): unknown {
-    // The user context is last, after the fallback if there is one
-    const userContext = args[args.length - 1] as UserContext<AppAttributes>;
-    const value = _evalFeature(key, this._getEvalContext(userContext)).value;
-    if (value !== null) return value;
-    // A fallback that was passed in is always used, even `undefined`
-    if (args.length > 1) return args[0];
-    // No fallback: the feature's default, whatever the reason for the null
-    return (
-      this._features[key]?.defaultValue ??
-      this._fallbackFeatures?.[key]?.defaultValue
-    );
+  ): WidenPrimitives<V> {
+    const value = this.evalFeature<WidenPrimitives<V>, K>(
+      key,
+      userContext,
+    ).value;
+    return value === null ? (defaultValue as WidenPrimitives<V>) : value;
   }
 
   public evalFeature<
@@ -597,18 +579,11 @@ export class UserScopedGrowthBook<
     return this._gb.isOff(key, this._userContext);
   }
 
-  public getFeatureValue<K extends BundledFeatureKey & keyof AppFeatures>(
-    key: K,
-  ): AppFeatures[K];
   public getFeatureValue<
     V extends AppFeatures[K],
     K extends string & keyof AppFeatures = string,
-  >(key: K, defaultValue: V): WidenPrimitives<V>;
-  public getFeatureValue(key: string, ...fallback: unknown[]): unknown {
-    // Passed through as given, so the client can tell if there is a fallback
-    return (
-      this._gb as { getFeatureValue(...args: unknown[]): unknown }
-    ).getFeatureValue(key, ...fallback, this._userContext);
+  >(key: K, defaultValue: V): WidenPrimitives<V> {
+    return this._gb.getFeatureValue(key, defaultValue, this._userContext);
   }
 
   public evalFeature<
