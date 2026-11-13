@@ -1774,14 +1774,26 @@ export default function ReviewAndPublish({
           </ModalStandard>
         )}
         {readonlyHeader}
-        <Flex gap="5" align="start">
-          <Box style={{ flex: 1, minWidth: 0 }}>
+        <Flex
+          gap="5"
+          align="start"
+          direction={{ initial: "column", md: "row" }}
+        >
+          <Box
+            width={{ initial: "100%", md: "auto" }}
+            flexGrow={{ initial: "0", md: "1" }}
+            style={{ minWidth: 0 }}
+          >
             {renderLeftColumn(readonlyDiffs, {
               before: readonlyBeforeInput,
               after: readonlyAfterInput,
             })}
           </Box>
-          <Box style={{ width: 360, minWidth: 360, flexShrink: 0 }}>
+          <Box
+            width={{ initial: "100%", md: "360px" }}
+            minWidth={{ initial: "0", md: "360px" }}
+            flexShrink="0"
+          >
             {readonlyActionsColumn}
           </Box>
         </Flex>
@@ -3478,9 +3490,19 @@ export default function ReviewAndPublish({
           ReviewHeader hides the sub-tabs (hideSubTabs) so the step reads as a
           focused flow. */}
       {mergeHeader}
-      <Flex gap="5" align="start">
-        <Box style={{ flex: 1, minWidth: 0 }}>{changesColumn}</Box>
-        <Box style={{ width: 360, minWidth: 360, flexShrink: 0 }}>
+      <Flex gap="5" align="start" direction={{ initial: "column", md: "row" }}>
+        <Box
+          width={{ initial: "100%", md: "auto" }}
+          flexGrow={{ initial: "0", md: "1" }}
+          style={{ minWidth: 0 }}
+        >
+          {changesColumn}
+        </Box>
+        <Box
+          width={{ initial: "100%", md: "360px" }}
+          minWidth={{ initial: "0", md: "360px" }}
+          flexShrink="0"
+        >
           {actionsColumn}
         </Box>
       </Flex>

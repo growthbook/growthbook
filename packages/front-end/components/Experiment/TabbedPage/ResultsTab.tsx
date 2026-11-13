@@ -221,7 +221,7 @@ export default function ResultsTab({
       ) : null}
 
       <Box>
-        <Flex direction="row" align="start" gap="3" mx="1" mb="4">
+        <Flex direction="row" align="start" gap="3" mx="1" mb="4" wrap="wrap">
           {!(
             experiment.type === "multi-armed-bandit" &&
             experiment.status === "running"

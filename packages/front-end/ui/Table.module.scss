@@ -347,3 +347,14 @@
     outline: none;
   }
 }
+
+// Phones zoom the whole app out when a list table widens the page.
+@media (max-width: 767px) {
+  .wrapper[data-table-list]:not([data-scroll-x="true"]) {
+    overflow-x: auto;
+
+    :global(.rt-TableHeader) {
+      position: static;
+    }
+  }
+}
