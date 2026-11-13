@@ -39,6 +39,7 @@ import { getIsExperimentIncludedInIncrementalRefresh } from "@/services/experime
 import { useIncrementalPipelineUnsupportedReason } from "@/hooks/useIncrementalPipelineUnsupportedReason";
 import { useRunningExperimentStatus } from "@/hooks/useExperimentStatusIndicator";
 import { hasHealthData } from "@/components/HealthTab/constants";
+import { getPhaseFromUrl } from "@/components/Experiment/phaseUrl";
 import { ExperimentTab } from "./TabbedPage";
 import { showsUnhealthyBanner } from "./TabbedPage/UnhealthyExperimentBanner";
 
@@ -130,7 +131,10 @@ const Results: FC<{
   const queryStrings = latest?.queries?.map((q) => q.query) || [];
 
   useEffect(() => {
-    setPhase(experiment.phases.length - 1);
+    setPhase(
+      getPhaseFromUrl(window.location.search, experiment.phases.length) ??
+        experiment.phases.length - 1,
+    );
   }, [experiment.phases.length, setPhase]);
 
   const permissionsUtil = usePermissionsUtil();
