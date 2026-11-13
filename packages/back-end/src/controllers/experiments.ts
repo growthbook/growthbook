@@ -1526,7 +1526,14 @@ export async function postExperiments(
     if (originalUrlRedirects.length) {
       const served = await context.models.urlRedirects.getServedRedirects();
       for (const urlRedirect of originalUrlRedirects) {
-        assertNoRedirectLoop(urlRedirect, served);
+        try {
+          assertNoRedirectLoop(urlRedirect, served);
+        } catch (e) {
+          if (!(e instanceof BadRequestError)) throw e;
+          throw new BadRequestError(
+            `This experiment's URL Redirects can't be copied. ${e.message}`,
+          );
+        }
       }
     }
 
