@@ -681,11 +681,21 @@ export async function getFeatureDefinitionsWithCache({
   context: ReqContext | ApiReqContext;
   params: SDKPayloadParams;
 }): Promise<FeatureDefinitionSDKPayload> {
+  return getFeatureDefinitionsFromCachedJSON(
+    context,
+    params,
+    await getCachedSDKPayloadJSON(context, params.key),
+  );
+}
+
+async function getFeatureDefinitionsFromCachedJSON(
+  context: ReqContext | ApiReqContext,
+  params: SDKPayloadParams,
+  cachedJSON: string | null,
+): Promise<FeatureDefinitionSDKPayload> {
   let defs: FeatureDefinitionSDKPayload | undefined;
   const storageLocation = getSDKPayloadCacheLocation();
 
-  // Try cache first
-  const cachedJSON = await getCachedSDKPayloadJSON(context, params.key);
   if (cachedJSON) {
     try {
       defs = JSON.parse(cachedJSON);
@@ -793,7 +803,7 @@ export async function getFeaturesPublic(req: Request, res: Response) {
       : null;
     const defs =
       cachedBody === null
-        ? await getFeatureDefinitionsWithCache({ context, params })
+        ? await getFeatureDefinitionsFromCachedJSON(context, params, cachedJSON)
         : null;
 
     // The default is Cache for 30 seconds, serve stale up to 1 hour (10 hours if origin is down)

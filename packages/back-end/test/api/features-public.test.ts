@@ -286,26 +286,26 @@ describe("getFeaturesPublic test holdout", () => {
   });
 });
 
-describe("getFeaturesPublic cache hit", () => {
-  beforeEach(() => jest.clearAllMocks());
+describe("getFeaturesPublic with cache enabled", () => {
+  const send = jest.fn();
+  const type = jest.fn().mockReturnValue({ send });
+  const json = jest.fn();
+  const status = jest.fn().mockReturnValue({ type, json });
+  const getById = jest.fn();
+  const upsert = jest.fn().mockResolvedValue(undefined);
 
-  afterEach(() => {
-    (getSDKPayloadCacheLocation as jest.Mock).mockReturnValue("none");
-  });
+  const callGetFeaturesPublic = () =>
+    getFeaturesPublic(
+      { params: { key: "sdk-test-key" }, body: {} } as unknown as Request,
+      { status, set: jest.fn() } as unknown as Response,
+    );
 
-  it("serves the cached payload string with status spliced in", async () => {
-    const payload = {
-      features: { "my-feature": { defaultValue: 'a"b<é>' } },
-      experiments: [],
-      dateUpdated: "2023-01-01T00:00:00.000Z",
-    };
-    const getById = jest
-      .fn()
-      .mockResolvedValue({ contents: JSON.stringify(payload) });
+  beforeEach(() => {
+    jest.clearAllMocks();
     (getSDKPayloadCacheLocation as jest.Mock).mockReturnValue("mongo");
     (getContextForAgendaJobByOrgId as jest.Mock).mockResolvedValue({
       org: { id: "test-org-id" },
-      models: { sdkConnectionCache: { getById } },
+      models: { sdkConnectionCache: { getById, upsert } },
     });
     (findSDKConnectionByKey as jest.Mock).mockResolvedValue({
       key: "sdk-test-key",
@@ -317,14 +317,21 @@ describe("getFeaturesPublic cache hit", () => {
       remoteEvalEnabled: false,
       connected: true,
     });
+  });
 
-    const send = jest.fn();
-    const type = jest.fn().mockReturnValue({ send });
-    const status = jest.fn().mockReturnValue({ type, json: jest.fn() });
-    await getFeaturesPublic(
-      { params: { key: "sdk-test-key" }, body: {} } as unknown as Request,
-      { status, set: jest.fn() } as unknown as Response,
-    );
+  afterEach(() => {
+    (getSDKPayloadCacheLocation as jest.Mock).mockReturnValue("none");
+  });
+
+  it("serves the cached payload string with status spliced in", async () => {
+    const payload = {
+      features: { "my-feature": { defaultValue: 'a"b<é>' } },
+      experiments: [],
+      dateUpdated: "2023-01-01T00:00:00.000Z",
+    };
+    getById.mockResolvedValue({ contents: JSON.stringify(payload) });
+
+    await callGetFeaturesPublic();
 
     expect(getById).toHaveBeenCalledWith("sdk-test-key");
     expect(getFeatureDefinitions).not.toHaveBeenCalled();
@@ -333,5 +340,22 @@ describe("getFeaturesPublic cache hit", () => {
     expect(send).toHaveBeenCalledWith(
       JSON.stringify({ status: 200, ...payload }),
     );
+  });
+
+  it("reads the cache once on a miss before regenerating", async () => {
+    const payload = { features: {}, experiments: [], dateUpdated: "x" };
+    getById.mockResolvedValue(null);
+    (getFeatureDefinitions as jest.Mock).mockResolvedValue(payload);
+
+    await callGetFeaturesPublic();
+
+    expect(getById).toHaveBeenCalledTimes(1);
+    expect(getFeatureDefinitions).toHaveBeenCalledTimes(1);
+    expect(upsert).toHaveBeenCalledWith(
+      "sdk-test-key",
+      JSON.stringify(payload),
+      expect.anything(),
+    );
+    expect(json).toHaveBeenCalledWith({ status: 200, ...payload });
   });
 });
