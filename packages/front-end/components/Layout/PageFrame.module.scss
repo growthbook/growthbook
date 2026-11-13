@@ -45,6 +45,9 @@
 // Settings pages start past the Settings nav too, so their padding is worked
 // out from what's left beside it.
 .settings {
+  // Under the pinned Settings select too, where there is one, so what sticks
+  // in the page (a table's header) doesn't cover it.
+  --page-sticky-top: var(--settings-section-top);
   --page-nav-width: var(--settings-layout-left);
   --page-area-width: calc(100vw - var(--page-nav-width));
   --page-padding: max(

@@ -3351,7 +3351,10 @@ html {
       font-size: 13px;
     }
     .rt-TableBody .rt-TableRow:hover {
-      background-color: var(--slate-a2);
+      // Also a variable: a pinned cell is opaque, so it paints the row's
+      // tint itself (ui/Table.module.scss).
+      --table-row-hover-tint: var(--slate-a2);
+      background-color: var(--table-row-hover-tint);
     }
   }
 }
