@@ -36,7 +36,6 @@ import { isManagedWarehouseUnavailable } from "shared/util";
 import {
   cleanConfigForSubmission,
   compareConfig,
-  explorationPollDelayMs,
   createEmptyDataset,
   createEmptyValue,
   ExplorerDraftConfig,
@@ -63,6 +62,7 @@ import track from "@/services/track";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { SqlEditorProvider } from "@/enterprise/components/ProductAnalytics/SqlEditorContext";
 import { useExploreData, CacheOption } from "./useExploreData";
+import useExplorationRunner from "./useExplorationRunner";
 
 const MAX_TRACKED_ERROR_LENGTH = 500;
 
@@ -196,7 +196,8 @@ export function ExplorerProvider({
   onRunComplete,
   trackingSource,
 }: ExplorerProviderProps) {
-  const { loading, fetchData, fetchExplorationById } = useExploreData();
+  const { loading, fetchData } = useExploreData();
+  const { begin: beginRun, cancel: cancelRun } = useExplorationRunner();
   const {
     getFactTableById,
     getFactMetricById,
@@ -249,13 +250,6 @@ export function ExplorerProvider({
   // True while polling a still-running exploration for completion (B4). Folded
   // into the exposed `loading` so the UI keeps showing a loading state.
   const [polling, setPolling] = useState(false);
-  const pollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  // Stop polling if the provider unmounts mid-flight.
-  useEffect(() => {
-    return () => {
-      if (pollTimerRef.current) clearTimeout(pollTimerRef.current);
-    };
-  }, []);
   const [comparisonExploration, setComparisonExploration] =
     useState<ProductAnalyticsExploration | null>(initialComparisonExploration);
   const [comparisonQuery, setComparisonQuery] = useState<QueryInterface | null>(
@@ -267,7 +261,6 @@ export function ExplorerProvider({
   const hasEverFetchedRef = useRef(hasExistingResults);
   const skipNextAutoSubmitRef = useRef(false);
   const consumeFunnelAutoSubmitRef = useRef(autoSubmitOnLoad);
-  const submitRequestIdRef = useRef(0);
   const funnelAnalyzeCollapseRef = useRef<(() => void) | null>(null);
 
   const draftExploreState: ExplorerDraftConfig = explorerState.draftState;
@@ -504,15 +497,10 @@ export function ExplorerProvider({
         cache = "required";
       }
       hasEverFetchedRef.current = true;
-      const requestId = ++submitRequestIdRef.current;
-
-      // Supersede any in-flight poll here rather than only on the paths that
-      // reach finalize(): the poll's own id guard makes it return silently, so
-      // anything short of finalize would otherwise strand `polling` at true.
-      if (pollTimerRef.current) {
-        clearTimeout(pollTimerRef.current);
-        pollTimerRef.current = null;
-      }
+      // Supersedes any in-flight run and its poll. Reset polling here rather
+      // than only on paths that reach finalize(), or a superseded poll would
+      // strand `polling` at true.
+      const run = beginRun();
       setPolling(false);
 
       setExplorerState((prev) => ({
@@ -537,7 +525,7 @@ export function ExplorerProvider({
       });
 
       // Ignore out-of-order responses from older in-flight requests.
-      if (requestId !== submitRequestIdRef.current) return;
+      if (!run.isCurrent()) return;
 
       // A failed automatic preview refresh must keep the last successful graph.
       if (
@@ -583,7 +571,7 @@ export function ExplorerProvider({
             }
           : null,
       ) => {
-        if (requestId !== submitRequestIdRef.current) return;
+        if (!run.isCurrent()) return;
         setPolling(false);
         const nextError = resultError || result?.error || null;
         const failedWithoutRows =
@@ -687,50 +675,32 @@ export function ExplorerProvider({
         setComparisonError(comparison?.error ?? null);
         setPolling(true);
 
-        let latestPrimary = fetchResult;
-        let latestPrimaryQuery = query;
-        let latestPrimaryError = fetchError;
-        let latestComparison = comparisonResult;
-        let latestComparisonQuery = comparison?.query ?? null;
+        void run
+          .pollUntilDone(
+            [
+              { data: fetchResult, query, error: fetchError },
+              comparisonResult
+                ? {
+                    data: comparisonResult,
+                    query: comparison?.query ?? null,
+                    error: null,
+                  }
+                : null,
+            ],
+            startTime,
+          )
+          .then((outcome) => {
+            if (!outcome) return;
+            const [primary, comparisonPoll] = outcome.results;
+            const latestPrimary = primary?.data ?? null;
+            const latestPrimaryQuery = primary?.query ?? null;
+            const latestPrimaryError = primary?.error ?? null;
+            const latestComparison = comparisonPoll?.data ?? null;
+            const latestComparisonQuery = comparisonPoll?.query ?? null;
 
-        const poll = async () => {
-          pollTimerRef.current = null;
-          if (requestId !== submitRequestIdRef.current) return;
-
-          const primaryPoll =
-            latestPrimary?.status === "running" && latestPrimary.id
-              ? fetchExplorationById(latestPrimary.id)
-              : Promise.resolve(null);
-          const comparisonPoll =
-            latestComparison?.status === "running" && latestComparison.id
-              ? fetchExplorationById(latestComparison.id)
-              : Promise.resolve(null);
-          const [polledPrimary, polledComparison] = await Promise.all([
-            primaryPoll,
-            comparisonPoll,
-          ]);
-
-          if (polledPrimary) {
-            latestPrimary = polledPrimary.data;
-            latestPrimaryQuery = polledPrimary.query;
-            latestPrimaryError = polledPrimary.error;
-          }
-
-          if (polledComparison) {
-            latestComparison = polledComparison.data;
-            latestComparisonQuery = polledComparison.query;
-          }
-
-          if (requestId !== submitRequestIdRef.current) return;
-
-          const primaryStillRunning =
-            !latestPrimaryError && latestPrimary?.status === "running";
-          const comparisonStillRunning = latestComparison?.status === "running";
-          if (primaryStillRunning || comparisonStillRunning) {
-            const delay = explorationPollDelayMs(
-              Math.floor((Date.now() - startTime) / 1000),
-            );
-            if (delay <= 0) {
+            if (outcome.timedOut) {
+              const primaryStillRunning =
+                !latestPrimaryError && latestPrimary?.status === "running";
               if (primaryStillRunning) {
                 finalize(
                   null,
@@ -752,41 +722,38 @@ export function ExplorerProvider({
               }
               return;
             }
-            pollTimerRef.current = setTimeout(poll, delay);
-            return;
-          }
 
-          const finalComparisonPayload =
-            latestPrimary && previousForRequest
-              ? computeExplorationComparisonPayload(
-                  latestPrimary,
-                  latestComparison,
-                  configToSubmit,
-                  previousForRequest,
-                  (id) => getFactMetricById(id) ?? null,
-                  // Same strategy as the sync path; the default calendar-year
-                  // probe pairs weekday-shifted modes one bucket off.
-                  getComparisonAlignmentStrategy(
-                    modeForRequest ?? "previousPeriod",
-                  ),
-                )
-              : null;
-          finalize(
-            latestPrimary,
-            latestPrimaryQuery,
-            latestPrimaryError,
-            finalComparisonPayload?.exploration ?? latestComparison,
-            latestComparisonQuery,
-            finalComparisonPayload
-              ? {
-                  bigNumberTrends: finalComparisonPayload.bigNumberTrends,
-                  tableTrendsByRow: finalComparisonPayload.tableTrendsByRow,
-                  previousPeriod: finalComparisonPayload.previousPeriod,
-                }
-              : null,
-          );
-        };
-        pollTimerRef.current = setTimeout(poll, explorationPollDelayMs(0));
+            const finalComparisonPayload =
+              latestPrimary && previousForRequest
+                ? computeExplorationComparisonPayload(
+                    latestPrimary,
+                    latestComparison,
+                    configToSubmit,
+                    previousForRequest,
+                    (id) => getFactMetricById(id) ?? null,
+                    // Same strategy as the sync path; the default
+                    // calendar-year probe pairs weekday-shifted modes one
+                    // bucket off.
+                    getComparisonAlignmentStrategy(
+                      modeForRequest ?? "previousPeriod",
+                    ),
+                  )
+                : null;
+            finalize(
+              latestPrimary,
+              latestPrimaryQuery,
+              latestPrimaryError,
+              finalComparisonPayload?.exploration ?? latestComparison,
+              latestComparisonQuery,
+              finalComparisonPayload
+                ? {
+                    bigNumberTrends: finalComparisonPayload.bigNumberTrends,
+                    tableTrendsByRow: finalComparisonPayload.tableTrendsByRow,
+                    previousPeriod: finalComparisonPayload.previousPeriod,
+                  }
+                : null,
+            );
+          });
         return;
       }
 
@@ -799,7 +766,7 @@ export function ExplorerProvider({
       submittedComparisonMode,
       setSubmittedExploreState,
       fetchData,
-      fetchExplorationById,
+      beginRun,
       onRunComplete,
       isManagedWarehouse,
       managedWarehouseUnavailable,
@@ -1145,11 +1112,7 @@ export function ExplorerProvider({
 
   const clearJourneyAnchor = useCallback(() => {
     // Ignore pending results from the path that is being cleared.
-    submitRequestIdRef.current += 1;
-    if (pollTimerRef.current) {
-      clearTimeout(pollTimerRef.current);
-      pollTimerRef.current = null;
-    }
+    cancelRun();
     setPolling(false);
     setIsStale(false);
     hasEverFetchedRef.current = false;
@@ -1171,7 +1134,7 @@ export function ExplorerProvider({
         query: null,
       };
     });
-  }, []);
+  }, [cancelRun]);
 
   const popJourneyPath = useCallback(
     (index: number) => {
