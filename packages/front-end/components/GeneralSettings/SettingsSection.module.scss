@@ -1,17 +1,17 @@
 .section {
   padding-top: 28px;
-  // Clears the fixed top nav when scrolled to.
-  scroll-margin-top: 64px;
+  // Clears what pins above it when scrolled to.
+  scroll-margin-top: calc(var(--settings-section-top) + 8px);
 
   // Anchors inside a section also clear its sticky header.
   [id] {
-    scroll-margin-top: 112px;
+    scroll-margin-top: calc(var(--settings-section-top) + 56px);
   }
 }
 
 .header {
   position: sticky;
-  top: 56px;
+  top: var(--settings-section-top);
   z-index: 6;
   background: var(--color-background);
   padding: 12px 0 6px;
@@ -124,16 +124,26 @@
 .generalContent {
   max-width: 920px;
   padding-top: var(--space-3);
+
+  // Under the jump menu, the first section starts where other Settings pages'
+  // titles do.
+  @media (max-width: 1399px) {
+    padding-top: 0;
+
+    .section:first-of-type,
+    .section:first-of-type .header {
+      padding-top: 0;
+    }
+  }
 }
 
-// The Settings nav title stands in for it from 1400px; screen readers still get the h1.
-@media (min-width: 1400px) {
-  .wideHidden {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    clip-path: inset(50%);
-    white-space: nowrap;
-  }
+// The Settings title above the nav or the jump menu stands in for it; screen
+// readers still get the h1.
+.visuallyHidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
