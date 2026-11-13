@@ -68,6 +68,8 @@ export type BackEndApiEndpointSpec<
   ResponseSchema,
 > = ApiEndpointSpec<ParamsSchema, BodySchema, QuerySchema, ResponseSchema> & {
   middleware?: RequestHandler[];
+  // Runs before body validation, on HTTP and in-process dispatch alike
+  prepareBody?: (body: unknown, req: ApiRequestLocals) => unknown;
   exampleRequest?: ExampleRequest<
     z.infer<ParamsSchema>,
     z.infer<BodySchema>,
@@ -203,6 +205,7 @@ export async function runApiHandler(
     params?: ZodType;
     body?: ZodType;
     query?: ZodType;
+    prepareBody?: (body: unknown, req: ApiRequestLocals) => unknown;
   },
   handler: (req: never) => Promise<unknown>,
 ): Promise<{
@@ -230,6 +233,12 @@ export async function runApiHandler(
     }
   }
   if (schemas.body && !(schemas.body instanceof ZodNever)) {
+    if (schemas.prepareBody) {
+      req.body = schemas.prepareBody(
+        req.body,
+        req as unknown as ApiRequestLocals,
+      );
+    }
     const validated = validate(schemas.body, req.body);
     if (!validated.success) {
       allErrors.push(`Request body: ` + validated.errors.join(", "));
@@ -381,6 +390,7 @@ export type OpenApiRoute<
     body?: BodySchema;
     query?: QuerySchema;
     response?: ResponseSchema;
+    prepareBody?: (body: unknown, req: ApiRequestLocals) => unknown;
   };
   exampleRequest?: ExampleRequest<
     z.infer<ParamsSchema>,
@@ -420,6 +430,7 @@ export function createApiRequestHandler<
     method,
     path,
     middleware,
+    prepareBody,
     excludeFromSpec,
     version,
     deprecated,
@@ -472,6 +483,7 @@ export function createApiRequestHandler<
             params: paramsSchema,
             body: bodySchema,
             query: querySchema,
+            prepareBody,
           },
           handler,
         );
@@ -515,6 +527,7 @@ export function createApiRequestHandler<
         body: bodySchema,
         query: querySchema,
         response: responseSchema,
+        prepareBody,
       },
       handler: wrappedHandler,
       rawHandler: handler,
