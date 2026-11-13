@@ -15,9 +15,8 @@ import { requireUserAuth } from "./requireUserAuth";
 
 // Token-equivalent cost per generated image, charged against the org's
 // daily AI budget. Matches Gemini's published ~1290 tokens/image; other
-// supported providers (DALL-E 3, Imagen 4, gpt-image-1 standard, Grok)
-// are roughly the same order of magnitude. Revisit if a much pricier
-// model (e.g. gpt-image-1 `high`) is added.
+// supported providers (GPT Image 1 Mini, Grok) are roughly the same order
+// of magnitude. Revisit if a much pricier model is added.
 const IMAGE_GEN_TOKEN_COST_PER_IMAGE = 1290;
 
 // Base64 bytes rather than a URL — no SSRF surface; the back-end never

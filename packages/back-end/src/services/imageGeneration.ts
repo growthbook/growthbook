@@ -102,7 +102,7 @@ function mimeToExt(mime: string): string {
   return "bin";
 }
 
-// Image-endpoint path: Imagen / DALL-E / GPT Image / Grok Image
+// Image-endpoint path: GPT Image / Grok Image
 async function generateViaImageEndpoint(
   params: GenerateImagesParams,
   meta: AIImageModelMeta,
