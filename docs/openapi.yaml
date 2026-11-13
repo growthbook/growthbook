@@ -360,36 +360,40 @@ info:
 
 
     | Flag                      | Where        | Gets
-    past                                                                                                   
+    past                                                                                                                  
     |
 
     | ------------------------- | ------------ |
-    ------------------------------------------------------------------------------------------------------------
+    ---------------------------------------------------------------------------------------------------------------------------
     |
 
     | `ignoreWarnings`          | Body         | Warnings
-    (`422`)                                                                                            
+    (`422`)                                                                                                           
     |
 
     | `skipSchemaValidation`    | Body         | Schema and invariant failures,
     with **Bypass draft approvals**
-    access                                        |
+    access                                                       |
 
     | `skipHooks`               | Body         | Custom Hook
-    rejections                                                                                      
+    rejections                                                                                                     
     |
 
     | `skipChecklist`           | Body         | An experiment start's
     incomplete launch checklist items (`409` `checklist_incomplete`), but not
-    its blockers |
+    its blockers                |
 
     | `allowUnscopedRules`      | Body         | A rule for All Environments and
-    All Projects where the organization requires a scope (`422` `unscoped_rule`)
-    |
+    All Projects where the organization requires a scope (`422`
+    `unscoped_rule`)                |
 
     | `overrideDraftLimit=true` | Query string | Creating a draft past the draft
-    limit                                                                       
+    limit                                                                                      
     |
+
+    | `bypassApproval`          | Body         | A direct write to a resource
+    that requires approval, with **Bypass draft approvals** access or the REST
+    API approval bypass |
 servers:
   - url: https://api.growthbook.io/api
     description: GrowthBook Cloud
@@ -22489,6 +22493,11 @@ paths:
                   type: boolean
                 includeExperimentScheduleInMetadata:
                   type: boolean
+                tracesEnabled:
+                  description: >-
+                    Send SDK evaluation traces to GrowthBook. Only available to
+                    organizations with tracing enabled.
+                  type: boolean
                 proxyEnabled:
                   type: boolean
                 proxyHost:
@@ -22570,10 +22579,9 @@ paths:
       description: >-
         Applies the change immediately and records it as a published revision,
         so it appears in the connection's history. When the organization
-        requires approvals for this connection's projects and environment, open
-        a draft from the SDK connection page instead, or pass `bypassApproval`
-        with the bypass permission. Set `archived` to archive or restore the
-        connection.
+        requires approvals for this connection's Projects and environment, open
+        a draft from the SDK Connection page instead, or pass `bypassApproval`.
+        Set `archived` to archive or restore the connection.
       tags:
         - sdk-connections
       parameters:
@@ -22629,6 +22637,11 @@ paths:
                   type: boolean
                 includeExperimentScheduleInMetadata:
                   type: boolean
+                tracesEnabled:
+                  description: >-
+                    Send SDK evaluation traces to GrowthBook. Only available to
+                    organizations with tracing enabled.
+                  type: boolean
                 proxyEnabled:
                   type: boolean
                 proxyHost:
@@ -22660,12 +22673,11 @@ paths:
                   type: boolean
                 bypassApproval:
                   description: >-
-                    Set to true to update the live SDK connection without
-                    approval. The caller must have the
-                    `bypassApprovalSDKConnections` permission, or the
-                    organization must enable 'REST API always bypasses approval
-                    requirements'. This field has no effect when approval is not
-                    required.
+                    Set to true to write directly to the live SDK Connection
+                    without approval. The caller must have Bypass draft
+                    approvals access in the SDK Connection's Projects, unless
+                    the organization enables the REST API approval bypass. This
+                    field has no effect when approval is not required.
                   type: boolean
               additionalProperties: false
       responses:
@@ -22701,14 +22713,30 @@ paths:
       operationId: deleteSdkConnection
       summary: Deletes a single SDK connection
       description: >-
-        A live connection can only be deleted when the organization enables
-        'REST API always bypasses approval requirements'. Otherwise archive it
-        first (`PUT /sdk-connections/{id}` with `archived: true`), then delete
-        it.
+        When the organization requires approvals for this connection's Projects
+        and environment, archive it first (`PUT /sdk-connections/{id}` with
+        `archived: true`), then delete it. To delete a live connection in one
+        step, pass `bypassApproval`.
       tags:
         - sdk-connections
       parameters:
         - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                bypassApproval:
+                  description: >-
+                    Set to true to write directly to the live SDK Connection
+                    without approval. The caller must have Bypass draft
+                    approvals access in the SDK Connection's Projects, unless
+                    the organization enables the REST API approval bypass. This
+                    field has no effect when approval is not required.
+                  type: boolean
+              additionalProperties: false
       responses:
         '200':
           description: Resource deleted
@@ -22719,6 +22747,14 @@ paths:
                 properties:
                   deletedId:
                     type: string
+                  bypassedGates:
+                    description: >-
+                      Gates that would have blocked this publish but were
+                      bypassed by the caller's authority. Present only when at
+                      least one gate was bypassed.
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/bypassedGates'
                 required:
                   - deletedId
                 additionalProperties: false
@@ -36551,9 +36587,9 @@ paths:
       summary: Update approval settings
       description: >-
         Replace the approval requirements for feature flags, configs and
-        constants, for saved groups, and the Targeting Projects review mode.
-        Each family is replaced wholesale when supplied; omit one to leave it
-        unchanged.
+        constants, for saved groups, for SDK connections, and the Targeting
+        Projects review mode. Each family is replaced wholesale when supplied;
+        omit one to leave it unchanged.
       tags:
         - settings
       requestBody:
@@ -68891,6 +68927,9 @@ paths:
       description: >-
         Called whenever the connection's payload changes. `httpMethod` defaults
         to POST. More than one webhook per organization requires a paid plan.
+        When the organization requires approvals for the connection, change its
+        webhooks in a draft from the SDK Connection page instead, or pass
+        `bypassApproval`.
       tags:
         - SdkWebhooks
       parameters:
@@ -68944,6 +68983,14 @@ paths:
                     - type: integer
                       minimum: 1
                     - type: 'null'
+                bypassApproval:
+                  description: >-
+                    Set to true to write directly to the live SDK Connection
+                    without approval. The caller must have Bypass draft
+                    approvals access in the SDK Connection's Projects, unless
+                    the organization enables the REST API approval bypass. This
+                    field has no effect when approval is not required.
+                  type: boolean
               required:
                 - name
                 - endpoint
@@ -68958,6 +69005,14 @@ paths:
                 properties:
                   sdkWebhook:
                     $ref: '#/components/schemas/SdkWebhook'
+                  bypassedGates:
+                    description: >-
+                      Gates that would have blocked this publish but were
+                      bypassed by the caller's authority. Present only when at
+                      least one gate was bypassed.
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/bypassedGates'
                 required:
                   - sdkWebhook
                 additionalProperties: false
@@ -68975,7 +69030,9 @@ paths:
       summary: Update an SDK webhook
       description: >-
         The webhook fires once after an update. Webhooks managed by the Vercel
-        integration can't be changed.
+        integration can't be changed. When the organization requires approvals
+        for a connection the webhook fires for, change it in a draft from the
+        SDK Connection page instead, or pass `bypassApproval`.
       tags:
         - SdkWebhooks
       parameters:
@@ -69032,6 +69089,14 @@ paths:
                     - type: integer
                       minimum: 1
                     - type: 'null'
+                bypassApproval:
+                  description: >-
+                    Set to true to write directly to the live SDK Connection
+                    without approval. The caller must have Bypass draft
+                    approvals access in the SDK Connection's Projects, unless
+                    the organization enables the REST API approval bypass. This
+                    field has no effect when approval is not required.
+                  type: boolean
                 sdkConnections:
                   description: Replaces the SDK Connections this webhook fires for
                   minItems: 1
@@ -69049,6 +69114,14 @@ paths:
                 properties:
                   sdkWebhook:
                     $ref: '#/components/schemas/SdkWebhook'
+                  bypassedGates:
+                    description: >-
+                      Gates that would have blocked this publish but were
+                      bypassed by the caller's authority. Present only when at
+                      least one gate was bypassed.
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/bypassedGates'
                 required:
                   - sdkWebhook
                 additionalProperties: false
@@ -69062,7 +69135,11 @@ paths:
     delete:
       operationId: deleteSdkWebhook
       summary: Delete an SDK webhook
-      description: Webhooks managed by the Vercel integration can't be deleted here.
+      description: >-
+        Webhooks managed by the Vercel integration can't be deleted here. When
+        the organization requires approvals for a connection the webhook fires
+        for, remove it in a draft from the SDK Connection page instead, or pass
+        `bypassApproval`.
       tags:
         - SdkWebhooks
       parameters:
@@ -69072,6 +69149,22 @@ paths:
           description: ''
           schema:
             type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                bypassApproval:
+                  description: >-
+                    Set to true to write directly to the live SDK Connection
+                    without approval. The caller must have Bypass draft
+                    approvals access in the SDK Connection's Projects, unless
+                    the organization enables the REST API approval bypass. This
+                    field has no effect when approval is not required.
+                  type: boolean
+              additionalProperties: false
       responses:
         '200':
           description: Resource deleted
@@ -69082,6 +69175,14 @@ paths:
                 properties:
                   deletedId:
                     type: string
+                  bypassedGates:
+                    description: >-
+                      Gates that would have blocked this publish but were
+                      bypassed by the caller's authority. Present only when at
+                      least one gate was bypassed.
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/bypassedGates'
                 required:
                   - deletedId
                 additionalProperties: false
@@ -69117,6 +69218,14 @@ paths:
                 properties:
                   sdkWebhook:
                     $ref: '#/components/schemas/SdkWebhook'
+                  bypassedGates:
+                    description: >-
+                      Gates that would have blocked this publish but were
+                      bypassed by the caller's authority. Present only when at
+                      least one gate was bypassed.
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/bypassedGates'
                 required:
                   - sdkWebhook
                 additionalProperties: false
@@ -76419,6 +76528,11 @@ components:
           type: boolean
         includeExperimentScheduleInMetadata:
           type: boolean
+        tracesEnabled:
+          description: >-
+            Send SDK evaluation traces to GrowthBook. Only available to
+            organizations with tracing enabled.
+          type: boolean
         key:
           type: string
         proxyEnabled:
@@ -80823,7 +80937,8 @@ components:
         environments:
           description: >-
             Environment IDs this rule applies to. Omitted or empty means every
-            environment.
+            environment. Unlike the other fields, a Project rule does not
+            inherit this from the all-Projects rule.
           type: array
           items:
             type: string

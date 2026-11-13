@@ -1,4 +1,5 @@
 import { isEqual } from "lodash";
+import { z } from "zod";
 import {
   getSdkConnectionGoverningRules,
   getSdkConnectionReviewRules,
@@ -8,7 +9,11 @@ import type { SDKConnectionRevisionSnapshot } from "shared/validators";
 import type { SDKConnectionInterface } from "shared/types/sdk-connection";
 import type { WebhookInterface } from "shared/types/webhook";
 import type { Context } from "back-end/src/models/BaseModel";
-import { BadRequestError } from "back-end/src/util/errors";
+import {
+  BadRequestError,
+  PlanDoesNotAllowError,
+} from "back-end/src/util/errors";
+import type { BypassedGate } from "back-end/src/revisions/publishGates";
 
 export function isSdkConnectionGated(
   context: Context,
@@ -82,31 +87,103 @@ export async function assertNoLockingScheduledDraft(
   }
 }
 
-// The webhook endpoints write live directly, so under an approval rule the
-// change has to go through a draft of the connection instead.
-// REST callers pass `restBypass`, the org's REST setting, and may also bypass
-// with their own permission, as the REST settings endpoint allows.
-export function assertSdkWebhooksEditableDirectly(
+// How a REST caller lands a direct write on a connection under approval: it
+// asks, and holds the bypass permission or the org's REST setting. The app has
+// no such path and makes the change in a draft.
+export type DirectWriteBypass = {
+  bypassApproval?: boolean;
+  restBypass: boolean;
+};
+
+export const ARCHIVE_BEFORE_DELETE =
+  "This SDK connection requires approval, so it must be archived before it can be deleted.";
+
+export function assertDirectWriteAllowed(
   context: Context,
   connections: SDKConnectionInterface[],
-  restBypass?: boolean,
-): void {
+  bypass?: DirectWriteBypass,
+  refusal = "This SDK connection requires approval. Change its webhooks in a draft revision.",
+): BypassedGate[] {
   const gated = connections.filter((c) => isSdkConnectionGated(context, c));
-  if (!gated.length) return;
-  if (
-    restBypass !== undefined &&
-    (restBypass ||
-      gated.every((c) =>
-        context.permissions.canBypassSDKConnectionApprovalChecks({
-          projects: c.projects,
-        }),
-      ))
-  ) {
-    return;
+  if (!gated.length) return [];
+  if (!bypass) throw new BadRequestError(refusal);
+  if (!bypass.bypassApproval) {
+    throw new BadRequestError(
+      `${refusal} Or pass \`{ "bypassApproval": true }\` if you have Bypass draft approvals access.`,
+    );
   }
-  throw new BadRequestError(
-    "This SDK connection requires approval. Change its webhooks in a draft revision.",
-  );
+  if (
+    !bypass.restBypass &&
+    !gated.every((c) =>
+      context.permissions.canBypassSDKConnectionApprovalChecks({
+        projects: c.projects,
+      }),
+    )
+  ) {
+    context.permissions.throwPermissionError();
+  }
+  return [
+    {
+      type: "approval-required",
+      outcome: "bypassed",
+      via: bypass.restBypass
+        ? "restApiBypassesReviews"
+        : "bypassApprovalPermission",
+    },
+  ];
+}
+
+// Free plans get one SDK webhook. A draft that swaps it for another still fits.
+export async function assertSdkWebhookPlanLimit(
+  context: Context,
+  added: number,
+  removed = 0,
+): Promise<void> {
+  if (added <= 0 || context.hasPremiumFeature("multiple-sdk-webhooks")) return;
+  const existing = await context.models.sdkWebhooks.countSdkWebhooksByOrg();
+  if (existing - removed + added > 1) {
+    throw new PlanDoesNotAllowError("Your plan only supports one SDK webhook.");
+  }
+}
+
+// Checked wherever a webhook's endpoint or headers change.
+export function assertSdkWebhookFields({
+  endpoint,
+  headers,
+}: {
+  endpoint?: string;
+  headers?: string;
+}): void {
+  if (endpoint !== undefined && !z.string().url().safeParse(endpoint).success) {
+    throw new BadRequestError("endpoint must be a URL");
+  }
+  if (!headers) return;
+  let parsed: unknown = null;
+  try {
+    parsed = JSON.parse(headers);
+  } catch {
+    // Refused below.
+  }
+  if (!z.record(z.string(), z.string()).safeParse(parsed).success) {
+    throw new BadRequestError(
+      "headers must be a JSON-encoded object of strings",
+    );
+  }
+}
+
+// What an edit writes: a new endpoint starts with a clean failure record.
+export function sdkWebhookEditUpdates<T extends { endpoint?: string }>(
+  webhook: { endpoint: string },
+  updates: T,
+) {
+  return {
+    ...updates,
+    ...(updates.endpoint &&
+      updates.endpoint !== webhook.endpoint && {
+        consecutiveFailures: 0,
+        disabled: false,
+      }),
+  };
 }
 
 // Each webhook change takes only its own permission, as on the direct

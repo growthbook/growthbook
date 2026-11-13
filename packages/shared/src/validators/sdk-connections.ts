@@ -3,6 +3,7 @@ import {
   apiPaginationFieldsValidator,
   paginationQueryFields,
   publishBypassedGatesField,
+  sdkConnectionBypassApprovalBodyField,
 } from "./shared";
 import { namedSchema } from "./openapi-helpers";
 import {
@@ -67,6 +68,12 @@ export const apiSdkConnectionValidator = namedSchema(
       allowedCustomFieldsInMetadata: z.array(z.string()).optional(),
       includeTagsInMetadata: z.boolean().optional(),
       includeExperimentScheduleInMetadata: z.boolean().optional(),
+      tracesEnabled: z
+        .boolean()
+        .optional()
+        .describe(
+          "Send SDK evaluation traces to GrowthBook. Only available to organizations with tracing enabled.",
+        ),
       key: z.string(),
       proxyEnabled: z.boolean(),
       proxyHost: z.string(),
@@ -213,6 +220,12 @@ const postSdkConnectionBody = z
     allowedCustomFieldsInMetadata: z.array(z.string()).optional(),
     includeTagsInMetadata: z.boolean().optional(),
     includeExperimentScheduleInMetadata: z.boolean().optional(),
+    tracesEnabled: z
+      .boolean()
+      .optional()
+      .describe(
+        "Send SDK evaluation traces to GrowthBook. Only available to organizations with tracing enabled.",
+      ),
     proxyEnabled: z.boolean().optional(),
     proxyHost: z.string().optional(),
     hashSecureAttributes: z.boolean().optional(),
@@ -241,12 +254,7 @@ const putSdkConnectionBody = postSdkConnectionBody
       .describe(
         "Archive (true) or restore (false) the connection. Archiving takes the same authority as deleting it; restoring takes publish authority.",
       ),
-    bypassApproval: z
-      .boolean()
-      .describe(
-        "Set to true to update the live SDK connection without approval. The caller must have the `bypassApprovalSDKConnections` permission, or the organization must enable 'REST API always bypasses approval requirements'. This field has no effect when approval is not required.",
-      )
-      .optional(),
+    bypassApproval: sdkConnectionBypassApprovalBodyField,
   })
   .strict();
 
@@ -326,8 +334,12 @@ export const putSdkConnectionValidator = {
     .strict(),
   summary: "Update a single sdk connection",
   description:
-    "Applies the change immediately and records it as a published revision, so it appears in the connection's history. When the organization requires approvals for this connection's projects and environment, open a draft from the SDK connection page instead, or pass `bypassApproval` with the bypass permission. Set `archived` to archive or restore the connection.",
-  confirmation: ["sdkConnection.edit"] as const,
+    "Applies the change immediately and records it as a published revision, so it appears in the connection's history. When the organization requires approvals for this connection's Projects and environment, open a draft from the SDK Connection page instead, or pass `bypassApproval`. Set `archived` to archive or restore the connection.",
+  confirmation: [
+    "sdkConnection.edit",
+    "override.bypassApproval",
+    "override.restBypassesReviews",
+  ] as const,
   operationId: "putSdkConnection",
   tags: ["sdk-connections"],
   method: "put" as const,
@@ -335,18 +347,25 @@ export const putSdkConnectionValidator = {
 };
 
 export const deleteSdkConnectionValidator = {
-  bodySchema: z.never(),
+  bodySchema: z
+    .object({ bypassApproval: sdkConnectionBypassApprovalBodyField })
+    .strict(),
   querySchema: z.never(),
   paramsSchema: idParams,
   responseSchema: z
     .object({
       deletedId: z.string(),
+      bypassedGates: publishBypassedGatesField,
     })
     .strict(),
   summary: "Deletes a single SDK connection",
   description:
-    "A live connection can only be deleted when the organization enables 'REST API always bypasses approval requirements'. Otherwise archive it first (`PUT /sdk-connections/{id}` with `archived: true`), then delete it.",
-  confirmation: ["sdkConnection.delete"] as const,
+    "When the organization requires approvals for this connection's Projects and environment, archive it first (`PUT /sdk-connections/{id}` with `archived: true`), then delete it. To delete a live connection in one step, pass `bypassApproval`.",
+  confirmation: [
+    "sdkConnection.delete",
+    "override.bypassApproval",
+    "override.restBypassesReviews",
+  ] as const,
   operationId: "deleteSdkConnection",
   tags: ["sdk-connections"],
   method: "delete" as const,

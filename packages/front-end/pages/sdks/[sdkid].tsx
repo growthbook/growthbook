@@ -850,10 +850,8 @@ export default function SDKConnectionPage() {
                 canEditEntity={canUpdate}
                 canBypassApproval={canBypassSelectedRevision}
                 selectRevision={selectFlow}
-                onPublish={async (id) => {
-                  if (staged.dirty) throw new Error(EDITS_BLOCKED_REASON);
-                  await handlePublish(id);
-                }}
+                publishBlockedReason={stagedBlockedReason ?? undefined}
+                onPublish={handlePublish}
                 onDiscard={async (id) => {
                   if (staged.dirty) throw new Error(EDITS_BLOCKED_REASON);
                   await handleDiscard(id);

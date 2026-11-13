@@ -5,8 +5,11 @@ import { WebhookInterface } from "shared/types/webhook";
 import { SDKConnectionInterface } from "shared/types/sdk-connection";
 import { UpdateProps } from "shared/types/base-model";
 import {
+  apiSdkWebhookDeleteReturn,
   apiSdkWebhookListReturn,
   apiSdkWebhookReturn,
+  CreateSdkWebhookProps,
+  UpdateSdkWebhookProps,
   apiSdkWebhookValidator,
   postSdkConnectionWebhookValidator,
   putSdkWebhookValidator,
@@ -28,11 +31,15 @@ import {
   sdkWebhookApiSpec,
 } from "back-end/src/api/specs/sdk-webhook.spec";
 import { fireSdkWebhook } from "back-end/src/jobs/sdkWebhooks";
-import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import {
+  assertDirectWriteAllowed,
+  assertSdkWebhookFields,
   assertSdkWebhookNotManaged,
-  assertSdkWebhooksEditableDirectly,
+  assertSdkWebhookPlanLimit,
+  DirectWriteBypass,
+  sdkWebhookEditUpdates,
 } from "back-end/src/services/sdkConnectionApprovals";
+import type { BypassedGate } from "back-end/src/revisions/publishGates";
 import { canUseRestApiBypassSetting } from "back-end/src/api/features/reviewBypass";
 import { MakeModelClass } from "./BaseModel";
 import {
@@ -45,6 +52,7 @@ import {
 type ApiSdkWebhook = z.infer<typeof apiSdkWebhookValidator>;
 type ApiSdkWebhookReturn = z.infer<typeof apiSdkWebhookReturn>;
 type ApiSdkWebhookListReturn = z.infer<typeof apiSdkWebhookListReturn>;
+type ApiSdkWebhookDeleteReturn = z.infer<typeof apiSdkWebhookDeleteReturn>;
 type PostSdkWebhookBody = z.infer<
   typeof postSdkConnectionWebhookValidator.bodySchema
 >;
@@ -98,9 +106,10 @@ const BaseClass = MakeModelClass({
       }),
       defineCustomApiHandler({
         ...deleteSdkWebhookEndpoint,
-        reqHandler: (req): Promise<{ deletedId: string }> =>
+        reqHandler: (req): Promise<ApiSdkWebhookDeleteReturn> =>
           req.context.models.sdkWebhooks.apiDelete(
             req.params.id,
+            req.body?.bypassApproval,
             canUseRestApiBypassSetting(req),
           ),
       }),
@@ -154,37 +163,18 @@ export class SdkWebhookModel extends BaseClass {
     };
   }
 
-  private async getConnectionForApi(id: string) {
+  private async getConnectionForWrite(id: string) {
     const conn = await findSDKConnectionById(this.context, id);
     if (!conn)
       this.context.throwNotFoundError(`SDK Connection not found: ${id}`);
     return conn;
   }
 
-  private assertHeadersJson(headers?: string) {
-    if (!headers) return;
-    let parsed: unknown;
-    try {
-      parsed = JSON.parse(headers);
-    } catch (e) {
-      parsed = null;
-    }
-    if (!z.record(z.string(), z.string()).safeParse(parsed).success) {
-      this.context.throwBadRequestError(
-        "headers must be a JSON-encoded object of strings",
-      );
-    }
-  }
-
-  // Every connection must allow the action; as in the app, only delete may act on an orphan
-  private async getWebhookForApiUpdate(
+  // Every connection must allow the action; only delete may act on an orphan
+  private async getWebhookForWrite(
     id: string,
     can: (conn: SDKConnectionInterface) => boolean,
-    // Gated as a change only when given the REST bypass setting.
-    {
-      allowOrphan = false,
-      restBypass,
-    }: { allowOrphan?: boolean; restBypass?: boolean } = {},
+    { allowOrphan = false }: { allowOrphan?: boolean } = {},
   ) {
     const webhook = await this.getById(id);
     if (!webhook)
@@ -196,24 +186,7 @@ export class SdkWebhookModel extends BaseClass {
       );
     }
     if (!conns.every(can)) this.context.permissions.throwPermissionError();
-    if (restBypass !== undefined) {
-      assertSdkWebhooksEditableDirectly(this.context, conns, restBypass);
-    }
-    return webhook;
-  }
-
-  // The Vercel integration recreates and rewrites its webhooks, so REST leaves them alone
-  public async apiListForConnection(
-    connectionId: string,
-  ): Promise<ApiSdkWebhookListReturn> {
-    const conn = await this.getConnectionForApi(connectionId);
-    const webhooks = await this.findAllSdkWebhooksByConnection(conn.id);
-    const editable = await this.getEditableWebhookIds(webhooks);
-    return {
-      sdkWebhooks: webhooks.map((w) =>
-        this.toApiInterface(w, editable.has(w.id)),
-      ),
-    };
+    return { webhook, conns };
   }
 
   // Secrets go to whoever could update the webhook: every live connection it covers must allow it
@@ -239,123 +212,180 @@ export class SdkWebhookModel extends BaseClass {
     );
   }
 
-  public async apiCreateForConnection(
+  // The direct writes a person or key makes, shared by the app and REST.
+  // Status and integration writes use the base methods. `bypass` is REST's way
+  // past an approval rule; the app changes a gated connection's webhooks in a
+  // draft.
+  public async createForConnection(
     connectionId: string,
-    body: PostSdkWebhookBody,
-    restBypass: boolean,
-  ): Promise<ApiSdkWebhookReturn> {
+    props: Omit<CreateSdkWebhookProps, "managedBy">,
+    bypass?: DirectWriteBypass,
+  ) {
     const { context } = this;
-    const conn = await this.getConnectionForApi(connectionId);
+    const conn = await this.getConnectionForWrite(connectionId);
     if (!context.permissions.canCreateSDKWebhook(conn)) {
       context.permissions.throwPermissionError();
     }
-    assertSdkWebhooksEditableDirectly(context, [conn], restBypass);
-    this.assertHeadersJson(body.headers);
-
-    const count = await this.countSdkWebhooksByOrg();
-    if (
-      count > 0 &&
-      !orgHasPremiumFeature(context.org, "multiple-sdk-webhooks")
-    ) {
-      context.throwPlanDoesNotAllowError(
-        "Your plan only supports one SDK webhook.",
-      );
-    }
+    const bypassedGates = assertDirectWriteAllowed(context, [conn], bypass);
+    assertSdkWebhookNotManaged(null, props.payloadFormat);
+    await assertSdkWebhookPlanLimit(context, 1);
 
     const webhook = await this.create({
       ...this.getDefaultCreateProps(conn.id),
-      ...body,
-      headers: body.headers ?? "",
-      // Stored explicitly: a missing format reads back as legacy no-payload
-      httpMethod: body.httpMethod ?? "POST",
-      payloadFormat: body.payloadFormat ?? "standard",
+      ...props,
     });
     await touchSDKConnections(context, [conn.id]);
-    return { sdkWebhook: this.toApiInterface(webhook) };
+    return { webhook, bypassedGates };
+  }
+
+  public async updateDirect(
+    id: string,
+    { sdks: sent, ...updates }: UpdateSdkWebhookProps,
+    bypass?: DirectWriteBypass,
+  ) {
+    const { context } = this;
+    const can = (c: SDKConnectionInterface) =>
+      context.permissions.canUpdateSDKWebhook(c);
+    const { webhook, conns } = await this.getWebhookForWrite(id, can);
+    assertSdkWebhookNotManaged(webhook, updates.payloadFormat);
+
+    const sdks = sent && uniq(sent);
+    const added = (sdks ?? []).filter((id) => !webhook.sdks.includes(id));
+    // Attaching it to a connection under approval is a change to that one too.
+    const bypassedGates = assertDirectWriteAllowed(
+      context,
+      [...conns, ...(await assertCanUseSDKConnections(context, added, can))],
+      bypass,
+    );
+    // Stale ids may round-trip, but a narrowed list must keep a live connection
+    if (
+      sdks &&
+      !added.length &&
+      webhook.sdks.some((id) => !sdks.includes(id)) &&
+      !(await findSDKConnectionsByIds(context, sdks)).length
+    ) {
+      context.throwBadRequestError(
+        "A webhook must keep at least one existing SDK Connection",
+      );
+    }
+
+    const updated = await this.applyEdit(webhook, {
+      ...updates,
+      ...(sdks ? { sdks } : {}),
+    });
+    await touchSDKConnections(context, uniq([...webhook.sdks, ...added]));
+    return { webhook: updated, bypassedGates };
+  }
+
+  public async deleteDirect(id: string, bypass?: DirectWriteBypass) {
+    const { context } = this;
+    const { webhook, conns } = await this.getWebhookForWrite(
+      id,
+      (c) => context.permissions.canDeleteSDKWebhook(c),
+      { allowOrphan: true },
+    );
+    const bypassedGates = assertDirectWriteAllowed(context, conns, bypass);
+    assertSdkWebhookNotManaged(webhook);
+    await this.delete(webhook);
+    await touchSDKConnections(context, webhook.sdks);
+    return { bypassedGates };
+  }
+
+  // Fires it now; the outcome is recorded on the webhook.
+  public async testDirect(id: string): Promise<WebhookInterface> {
+    const { webhook } = await this.getWebhookForWrite(id, (c) =>
+      this.context.permissions.canUpdateSDKWebhook(c),
+    );
+    await fireSdkWebhook(this.context, webhook).catch(() => undefined);
+    return (await this.getById(webhook.id)) ?? webhook;
+  }
+
+  // A person's edit, direct or landed from a draft: sent once it's saved.
+  public async applyEdit(
+    webhook: WebhookInterface,
+    updates: UpdateProps<WebhookInterface>,
+  ): Promise<WebhookInterface> {
+    const updated = await this.update(
+      webhook,
+      sdkWebhookEditUpdates(webhook, updates),
+    );
+    fireSdkWebhook(this.context, updated).catch(() => undefined);
+    return updated;
+  }
+
+  // The Vercel integration recreates and rewrites its webhooks, so REST leaves them alone
+  public async apiListForConnection(
+    connectionId: string,
+  ): Promise<ApiSdkWebhookListReturn> {
+    const conn = await this.getConnectionForWrite(connectionId);
+    const webhooks = await this.findAllSdkWebhooksByConnection(conn.id);
+    const editable = await this.getEditableWebhookIds(webhooks);
+    return {
+      sdkWebhooks: webhooks.map((w) =>
+        this.toApiInterface(w, editable.has(w.id)),
+      ),
+    };
+  }
+
+  public async apiCreateForConnection(
+    connectionId: string,
+    { bypassApproval, ...body }: PostSdkWebhookBody,
+    restBypass: boolean,
+  ): Promise<ApiSdkWebhookReturn> {
+    const { webhook, bypassedGates } = await this.createForConnection(
+      connectionId,
+      {
+        ...body,
+        headers: body.headers ?? "",
+        // Stored explicitly: a missing format reads back as legacy no-payload
+        httpMethod: body.httpMethod ?? "POST",
+        payloadFormat: body.payloadFormat ?? "standard",
+      },
+      { bypassApproval, restBypass },
+    );
+    return this.toApiReturn(webhook, bypassedGates);
   }
 
   public async apiUpdate(
     id: string,
-    body: PutSdkWebhookBody,
+    { bypassApproval, sdkConnections, ...updates }: PutSdkWebhookBody,
     restBypass: boolean,
   ): Promise<ApiSdkWebhookReturn> {
-    const { context } = this;
-    const can = (c: SDKConnectionInterface) =>
-      context.permissions.canUpdateSDKWebhook(c);
-    const webhook = await this.getWebhookForApiUpdate(id, can, { restBypass });
-    assertSdkWebhookNotManaged(webhook, body.payloadFormat);
-    const { sdkConnections: sent, ...updates } = body;
-    const sdkConnections = sent && uniq(sent);
-    // Only changed values are checked, so an echoed GET response still saves
-    if (updates.headers !== (webhook.headers ?? "")) {
-      this.assertHeadersJson(updates.headers);
-    }
-
-    if (sdkConnections) {
-      const added = sdkConnections.filter((id) => !webhook.sdks.includes(id));
-      assertSdkWebhooksEditableDirectly(
-        context,
-        await assertCanUseSDKConnections(context, added, can),
-        restBypass,
-      );
-      // Stale ids may round-trip, but a narrowed list must keep a live connection
-      const removed = webhook.sdks.some((id) => !sdkConnections.includes(id));
-      if (
-        !added.length &&
-        removed &&
-        !(await findSDKConnectionsByIds(context, sdkConnections)).length
-      ) {
-        context.throwBadRequestError(
-          "sdkConnections must include at least one existing SDK Connection",
-        );
-      }
-    }
-
-    // Reset failure state when the endpoint changes, as the app does
-    const resetFields =
-      updates.endpoint && updates.endpoint !== webhook.endpoint
-        ? { consecutiveFailures: 0, disabled: false }
-        : {};
-    const updated = await this.update(webhook, {
-      ...updates,
-      ...(sdkConnections ? { sdks: sdkConnections } : {}),
-      ...resetFields,
-    });
-    await touchSDKConnections(
-      context,
-      uniq([...webhook.sdks, ...(sdkConnections ?? [])]),
+    const { webhook, bypassedGates } = await this.updateDirect(
+      id,
+      { ...updates, ...(sdkConnections ? { sdks: sdkConnections } : {}) },
+      { bypassApproval, restBypass },
     );
-
-    fireSdkWebhook(context, updated).catch(() => {
-      // Already logged on the webhook
-    });
-    return { sdkWebhook: this.toApiInterface(updated) };
+    return this.toApiReturn(webhook, bypassedGates);
   }
 
   public async apiDelete(
     id: string,
+    bypassApproval: boolean | undefined,
     restBypass: boolean,
-  ): Promise<{ deletedId: string }> {
-    const webhook = await this.getWebhookForApiUpdate(
-      id,
-      (c) => this.context.permissions.canDeleteSDKWebhook(c),
-      { allowOrphan: true, restBypass },
-    );
-    assertSdkWebhookNotManaged(webhook);
-    await this.deleteById(id);
-    await touchSDKConnections(this.context, webhook.sdks);
-    return { deletedId: id };
+  ): Promise<ApiSdkWebhookDeleteReturn> {
+    const { bypassedGates } = await this.deleteDirect(id, {
+      bypassApproval,
+      restBypass,
+    });
+    return {
+      deletedId: id,
+      ...(bypassedGates.length ? { bypassedGates } : {}),
+    };
   }
 
   public async apiTest(id: string): Promise<ApiSdkWebhookReturn> {
-    const webhook = await this.getWebhookForApiUpdate(id, (c) =>
-      this.context.permissions.canUpdateSDKWebhook(c),
-    );
-    await fireSdkWebhook(this.context, webhook).catch(() => {
-      // The outcome is recorded on the webhook
-    });
-    const after = (await this.getById(webhook.id)) ?? webhook;
-    return { sdkWebhook: this.toApiInterface(after) };
+    return this.toApiReturn(await this.testDirect(id));
+  }
+
+  private toApiReturn(
+    webhook: WebhookInterface,
+    bypassedGates: BypassedGate[] = [],
+  ): ApiSdkWebhookReturn {
+    return {
+      sdkWebhook: this.toApiInterface(webhook),
+      ...(bypassedGates.length ? { bypassedGates } : {}),
+    };
   }
 
   protected async customValidation(
@@ -367,6 +397,13 @@ export class SdkWebhookModel extends BaseClass {
     if (doc.timeoutSeconds !== previousDoc?.timeoutSeconds) {
       validateWebhookTimeoutSeconds(doc.timeoutSeconds);
     }
+    // Legacy webhooks keep whatever they were saved with.
+    if (!doc.useSdkMode) return;
+    assertSdkWebhookFields({
+      endpoint:
+        doc.endpoint !== previousDoc?.endpoint ? doc.endpoint : undefined,
+      headers: doc.headers !== previousDoc?.headers ? doc.headers : undefined,
+    });
   }
 
   protected static migrate(doc: unknown): WebhookInterface {

@@ -5,6 +5,7 @@ import {
   apiSdkWebhookReturn,
   apiSdkWebhookValidator,
   apiUpdateSdkWebhookBody,
+  deleteSdkWebhookValidator,
   listSdkConnectionWebhooksValidator,
   postSdkConnectionWebhookValidator,
   putSdkWebhookValidator,
@@ -25,37 +26,49 @@ export const listSdkConnectionWebhooksEndpoint = {
 export const postSdkConnectionWebhookEndpoint = {
   pathFragment: "/sdk-connections/:id/webhooks",
   verb: "post" as const,
-  confirmation: ["sdkConnection.edit"] as const,
+  confirmation: [
+    "sdkConnection.edit",
+    "override.bypassApproval",
+    "override.restBypassesReviews",
+  ] as const,
   operationId: "postSdkConnectionWebhook",
   validator: postSdkConnectionWebhookValidator,
   zodReturnObject: apiSdkWebhookReturn,
   summary: "Add a webhook to an SDK Connection",
   description:
-    "Called whenever the connection's payload changes. `httpMethod` defaults to POST. More than one webhook per organization requires a paid plan.",
+    "Called whenever the connection's payload changes. `httpMethod` defaults to POST. More than one webhook per organization requires a paid plan. When the organization requires approvals for the connection, change its webhooks in a draft from the SDK Connection page instead, or pass `bypassApproval`.",
 };
 
 export const putSdkWebhookEndpoint = {
   pathFragment: "/sdk-webhooks/:id",
   verb: "put" as const,
-  confirmation: ["sdkConnection.edit"] as const,
+  confirmation: [
+    "sdkConnection.edit",
+    "override.bypassApproval",
+    "override.restBypassesReviews",
+  ] as const,
   operationId: "putSdkWebhook",
   validator: putSdkWebhookValidator,
   zodReturnObject: apiSdkWebhookReturn,
   summary: "Update an SDK webhook",
   description:
-    "The webhook fires once after an update. Webhooks managed by the Vercel integration can't be changed.",
+    "The webhook fires once after an update. Webhooks managed by the Vercel integration can't be changed. When the organization requires approvals for a connection the webhook fires for, change it in a draft from the SDK Connection page instead, or pass `bypassApproval`.",
 };
 
 export const deleteSdkWebhookEndpoint = {
   pathFragment: "/sdk-webhooks/:id",
   verb: "delete" as const,
-  confirmation: ["sdkConnection.edit"] as const,
+  confirmation: [
+    "sdkConnection.edit",
+    "override.bypassApproval",
+    "override.restBypassesReviews",
+  ] as const,
   operationId: "deleteSdkWebhook",
-  validator: sdkWebhookIdValidator,
+  validator: deleteSdkWebhookValidator,
   zodReturnObject: apiSdkWebhookDeleteReturn,
   summary: "Delete an SDK webhook",
   description:
-    "Webhooks managed by the Vercel integration can't be deleted here.",
+    "Webhooks managed by the Vercel integration can't be deleted here. When the organization requires approvals for a connection the webhook fires for, remove it in a draft from the SDK Connection page instead, or pass `bypassApproval`.",
 };
 
 // A successful test clears `disabled`, which resumes delivery

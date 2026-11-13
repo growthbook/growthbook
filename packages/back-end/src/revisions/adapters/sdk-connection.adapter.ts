@@ -37,10 +37,11 @@ import {
   findSDKConnectionById,
   findSDKConnectionsByIds,
 } from "back-end/src/models/SdkConnectionModel";
-import { PlanDoesNotAllowError } from "back-end/src/util/errors";
 import {
   assertCanChangeSdkWebhooks,
+  assertSdkWebhookFields,
   assertSdkWebhookNotManaged,
+  assertSdkWebhookPlanLimit,
   sdkConnectionReviewRules,
 } from "back-end/src/services/sdkConnectionApprovals";
 
@@ -56,7 +57,7 @@ const SETTINGS_ALLOWED_KEYS = Object.keys(
   sdkConnectionSettingsSnapshotValidator.shape,
 );
 
-const CONNECTION_UPDATABLE_FIELDS: ReadonlySet<string> = new Set(
+export const CONNECTION_UPDATABLE_FIELDS: ReadonlySet<string> = new Set(
   Object.keys(sdkConnectionUpdatableFieldsSchema.shape),
 );
 
@@ -64,14 +65,6 @@ const UPDATABLE_FIELDS: ReadonlySet<string> = new Set([
   "sdkConnection",
   "sdkWebhooks",
 ]);
-
-// Only the off→on transition is gated, so a connection that kept a setting from
-// a lapsed plan stays editable.
-const PREMIUM_SETTINGS = [
-  ["encryptPayload", "encrypt-features-endpoint"],
-  ["hashSecureAttributes", "hash-secure-attributes"],
-  ["remoteEvalEnabled", "remote-evaluation"],
-] as const;
 
 const webhookListValidator = z.array(sdkWebhookSnapshotValidator);
 
@@ -83,23 +76,29 @@ export type SDKConnectionLiveSnapshot = SDKConnectionRevisionSnapshot & {
   dateUpdated?: Date;
 };
 
-// Secrets and system fields are dropped by the key whitelist.
-function toConnectionSettingsSnapshot(
-  entity: Record<string, unknown>,
+// The settings a revision holds, from a connection flattened to them. Secrets
+// and system fields are dropped by the key whitelist.
+export function pickSettingsSnapshot(
+  flat: Record<string, unknown>,
 ): SDKConnectionSettingsRevisionSnapshot {
-  const proxy = entity.proxy as ProxyConnection | undefined;
-  const source: Record<string, unknown> = {
-    ...entity,
-    proxyEnabled: proxy ? proxy.enabled : entity.proxyEnabled,
-    proxyHost: proxy ? proxy.host : entity.proxyHost,
-  };
   const settings: Record<string, unknown> = {};
   for (const key of SETTINGS_ALLOWED_KEYS) {
-    const value = source[key];
+    const value = flat[key];
     if (value === null || value === undefined) continue;
     settings[key] = value;
   }
   return settings as unknown as SDKConnectionSettingsRevisionSnapshot;
+}
+
+function toConnectionSettingsSnapshot(
+  entity: Record<string, unknown>,
+): SDKConnectionSettingsRevisionSnapshot {
+  const proxy = entity.proxy as ProxyConnection | undefined;
+  return pickSettingsSnapshot({
+    ...entity,
+    proxyEnabled: proxy ? proxy.enabled : entity.proxyEnabled,
+    proxyHost: proxy ? proxy.host : entity.proxyHost,
+  });
 }
 
 function toWebhookSnapshot(wh: WebhookInterface): SDKWebhookRevisionSnapshot {
@@ -367,21 +366,19 @@ export const sdkConnectionAdapter: EntityRevisionAdapter<SDKConnectionRevisionSn
           entity.sdkConnection,
           CONNECTION_UPDATABLE_FIELDS,
         );
-        if ("projects" in changes) {
-          const { validateRequireProjectForSdkConnections } =
-            await loadValidations();
-          validateRequireProjectForSdkConnections(
-            context.org,
-            changes.projects as string[],
-            entity.sdkConnection.projects,
+        const { premiumSettingsWithoutPlan, validateSdkConnectionChanges } =
+          await loadValidations();
+        await validateSdkConnectionChanges(
+          context,
+          changes,
+          entity.sdkConnection,
+        );
+        // `changes` holds only what differs, so true means turned on.
+        const [blocked] = premiumSettingsWithoutPlan(context, changes);
+        if (blocked) {
+          throw new Error(
+            `Enabling ${blocked[1]} requires the "${blocked[0]}" premium feature`,
           );
-        }
-        for (const [field, feature] of PREMIUM_SETTINGS) {
-          if (changes[field] === true && !context.hasPremiumFeature(feature)) {
-            throw new Error(
-              `Enabling ${field} requires the "${feature}" premium feature`,
-            );
-          }
         }
       }
 
@@ -389,19 +386,11 @@ export const sdkConnectionAdapter: EntityRevisionAdapter<SDKConnectionRevisionSn
         const webhooks = webhookListValidator.parse(desiredState.sdkWebhooks);
         const proposedIds = new Set(webhooks.map((w) => w.id));
         const baselineIds = new Set(entity.sdkWebhooks.map((w) => w.id));
-        const added = webhooks.filter((w) => !baselineIds.has(w.id)).length;
-        if (added > 0 && !context.hasPremiumFeature("multiple-sdk-webhooks")) {
-          const removed = entity.sdkWebhooks.filter(
-            (w) => !proposedIds.has(w.id),
-          ).length;
-          const existing =
-            await context.models.sdkWebhooks.countSdkWebhooksByOrg();
-          if (existing - removed + added > 1) {
-            throw new PlanDoesNotAllowError(
-              "Your plan only supports one SDK webhook.",
-            );
-          }
-        }
+        await assertSdkWebhookPlanLimit(
+          context,
+          webhooks.filter((w) => !baselineIds.has(w.id)).length,
+          entity.sdkWebhooks.filter((w) => !proposedIds.has(w.id)).length,
+        );
         // Only the API can attach a webhook to several connections, and one
         // connection's draft doesn't speak for the others.
         const touchedIds = entity.sdkWebhooks
@@ -410,14 +399,17 @@ export const sdkConnectionAdapter: EntityRevisionAdapter<SDKConnectionRevisionSn
             return !next || !isEqual(next, old);
           })
           .map((w) => w.id);
+        // Refused here, before the merge is claimed, not partway through landing.
         webhooks
           .filter((w) => !baselineIds.has(w.id) || touchedIds.includes(w.id))
-          .forEach((w) =>
-            assertSdkWebhookNotManaged(
-              entity.sdkWebhooks.find((old) => old.id === w.id) ?? null,
-              w.payloadFormat,
-            ),
-          );
+          .forEach((w) => {
+            const old = entity.sdkWebhooks.find((o) => o.id === w.id) ?? null;
+            assertSdkWebhookNotManaged(old, w.payloadFormat);
+            assertSdkWebhookFields({
+              endpoint: w.endpoint !== old?.endpoint ? w.endpoint : undefined,
+              headers: w.headers !== old?.headers ? w.headers : undefined,
+            });
+          });
         if (touchedIds.length) {
           const rows =
             await context.models.sdkWebhooks.findAllSdkWebhooksByConnectionIds([
@@ -597,30 +589,14 @@ export const sdkConnectionAdapter: EntityRevisionAdapter<SDKConnectionRevisionSn
             newWh.id,
           );
           if (liveWebhook) {
-            const updatedWebhook = await context.models.sdkWebhooks.update(
-              liveWebhook,
-              {
-                name: newWh.name,
-                endpoint: newWh.endpoint,
-                httpMethod: newWh.httpMethod,
-                headers: newWh.headers,
-                payloadFormat: newWh.payloadFormat,
-                payloadKey: newWh.payloadKey,
-                timeoutSeconds: newWh.timeoutSeconds ?? null,
-                // A new endpoint gets a fresh start, as on the direct edit path.
-                ...(newWh.endpoint !== liveWebhook.endpoint && {
-                  consecutiveFailures: 0,
-                  disabled: false,
-                }),
-              },
-            );
-            // Fire the webhook now that it has changed, as the direct edit does.
-            // Loaded at call time: the jobs module cycles back to this adapter.
-            const { fireSdkWebhook } = await import(
-              "back-end/src/jobs/sdkWebhooks"
-            );
-            fireSdkWebhook(context, updatedWebhook).catch(() => {
-              // Do nothing, already being logged in Mongo
+            await context.models.sdkWebhooks.applyEdit(liveWebhook, {
+              name: newWh.name,
+              endpoint: newWh.endpoint,
+              httpMethod: newWh.httpMethod,
+              headers: newWh.headers,
+              payloadFormat: newWh.payloadFormat,
+              payloadKey: newWh.payloadKey,
+              timeoutSeconds: newWh.timeoutSeconds ?? null,
             });
           }
           current = current.map((w) => (w.id === newWh.id ? newWh : w));

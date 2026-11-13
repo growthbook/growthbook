@@ -876,6 +876,7 @@ export function toApiSDKConnectionInterface(
     includeTagsInMetadata: connection.includeTagsInMetadata,
     includeExperimentScheduleInMetadata:
       connection.includeExperimentScheduleInMetadata,
+    tracesEnabled: connection.tracesEnabled,
     key: connection.key,
     proxyEnabled: connection.proxy.enabled,
     proxyHost: connection.proxy.host,

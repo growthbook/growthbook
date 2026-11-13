@@ -12,10 +12,6 @@ import {
   findSDKConnectionById,
 } from "back-end/src/models/SdkConnectionModel";
 
-const mockFireSdkWebhook = jest.fn(async () => undefined);
-jest.mock("back-end/src/jobs/sdkWebhooks", () => ({
-  fireSdkWebhook: (...args: unknown[]) => mockFireSdkWebhook(...args),
-}));
 jest.mock("back-end/src/models/SdkConnectionModel", () => ({
   editSDKConnection: jest.fn(),
   findSDKConnectionById: jest.fn(),
@@ -181,7 +177,7 @@ function makeContext(overrides: {
         countSdkWebhooksByOrg: jest.fn(async () => overrides.webhookCount ?? 0),
         getDefaultCreateProps: (id: string) => ({ sdks: [id] }),
         create: jest.fn(async () => ({})),
-        update: jest.fn(async () => ({})),
+        applyEdit: jest.fn(async () => ({})),
         delete: jest.fn(async () => undefined),
         getById: jest.fn(async (id: string) => ({ id })),
       },
@@ -193,7 +189,6 @@ const webhooksModel = (ctx: Context) =>
   ctx.models.sdkWebhooks as unknown as Record<string, jest.Mock>;
 
 beforeEach(() => {
-  mockFireSdkWebhook.mockClear();
   mockedEdit.mockReset();
   mockedFind.mockReset();
   mockedFind.mockResolvedValue(baseConnection);
@@ -979,10 +974,11 @@ describe("sdkConnectionAdapter", () => {
         sdks: ["sdk-1"],
         name: "Three",
       });
-      expect(model.update).toHaveBeenCalledTimes(1);
-      expect(model.update.mock.calls[0][1]).toMatchObject({ name: "Renamed" });
-      // Only the edited webhook fires, as on the direct edit path.
-      expect(mockFireSdkWebhook).toHaveBeenCalledTimes(1);
+      // Only the edited webhook is saved (and so fired) as an edit.
+      expect(model.applyEdit).toHaveBeenCalledTimes(1);
+      expect(model.applyEdit.mock.calls[0][1]).toMatchObject({
+        name: "Renamed",
+      });
       expect(model.delete).toHaveBeenCalledTimes(1);
       expect(model.delete.mock.calls[0][0]).toEqual({ id: "wh-2" });
       expect(mockedEdit).not.toHaveBeenCalled();
@@ -1002,7 +998,7 @@ describe("sdkConnectionAdapter", () => {
       model.getById.mockImplementation(async (id: string) =>
         id.startsWith("wh_") ? null : { id },
       );
-      model.update.mockRejectedValue(new Error("boom"));
+      model.applyEdit.mockRejectedValue(new Error("boom"));
       const onPersisted = jest.fn();
       await expect(
         sdkConnectionAdapter.applyChanges(
@@ -1022,25 +1018,6 @@ describe("sdkConnectionAdapter", () => {
       expect(last.written.sdkWebhooks.map((w: { id: string }) => w.id)).toEqual(
         [baseWebhook.id, "wh_sdk-1_4"],
       );
-    });
-
-    it("clears a webhook's failure state when its endpoint changes", async () => {
-      const ctx = makeContext({});
-      const model = webhooksModel(ctx);
-      model.getById.mockResolvedValue({
-        id: baseWebhook.id,
-        endpoint: baseWebhook.endpoint,
-      });
-      await sdkConnectionAdapter.applyChanges(
-        ctx,
-        { ...liveEntity, sdkWebhooks: [baseWebhook] },
-        { sdkWebhooks: [{ ...baseWebhook, endpoint: "https://new.example" }] },
-      );
-      expect(model.update.mock.calls[0][1]).toMatchObject({
-        endpoint: "https://new.example",
-        consecutiveFailures: 0,
-        disabled: false,
-      });
     });
 
     it("skips draft webhooks a failed earlier landing already created", async () => {

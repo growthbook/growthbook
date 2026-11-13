@@ -45,10 +45,6 @@ import {
 } from "shared/types/organization";
 import { ExperimentRule, NamespaceValue } from "shared/types/feature";
 import { TeamInterface } from "shared/types/team";
-import {
-  assertSdkWebhookNotManaged,
-  assertSdkWebhooksEditableDirectly,
-} from "back-end/src/services/sdkConnectionApprovals";
 import { getApproverRoles } from "back-end/src/revisions/approverRoles";
 import { ApiKeyModel } from "back-end/src/models/ApiKeyModel";
 import {
@@ -166,17 +162,11 @@ import {
   canReadApiKeyHistory,
   getApiKeyIdsHiddenFromKeyViewers,
 } from "back-end/src/services/apiKeyHistory";
-import { fireSdkWebhook } from "back-end/src/jobs/sdkWebhooks";
 import {
   getInstallationName,
   getLicenseMetaData,
   getUserCodesForOrg,
 } from "back-end/src/services/licenseData";
-import {
-  assertCanUseSDKConnections,
-  findSDKConnectionsByIds,
-  touchSDKConnections,
-} from "back-end/src/models/SdkConnectionModel";
 import {
   getLicense,
   licenseInit,
@@ -2347,26 +2337,8 @@ export async function testSDKWebhook(
   req: AuthRequest<Record<string, unknown>, { id: string }>,
   res: Response,
 ) {
-  const webhookId = req.params.id;
-
   const context = getContextFromReq(req);
-  const webhook = await context.models.sdkWebhooks.getById(webhookId);
-  if (!webhook) {
-    throw new Error("Could not find webhook");
-  }
-
-  const conns = await findSDKConnectionsByIds(context, webhook.sdks);
-  if (!conns.length) {
-    throw new Error("Could not find any SDK connection tied to this webhook");
-  }
-
-  if (!conns.every((c) => context.permissions.canUpdateSDKWebhook(c))) {
-    context.permissions.throwPermissionError();
-  }
-
-  await fireSdkWebhook(context, webhook).catch(() => {
-    // Do nothing, already being logged in Mongo
-  });
+  await context.models.sdkWebhooks.testDirect(req.params.id);
   res.status(200).json({
     status: 200,
   });
@@ -2377,66 +2349,13 @@ export async function putSDKWebhook(
   res: Response,
 ) {
   const context = getContextFromReq(req);
-
-  const { id } = req.params;
-  const webhook = await context.models.sdkWebhooks.getById(id);
-  if (!webhook) {
-    throw new Error("Could not find webhook");
-  }
-
-  const conns = await findSDKConnectionsByIds(context, webhook.sdks);
-  if (!conns.length) {
-    throw new Error("Could not find any SDK connection tied to this webhook");
-  }
-
-  if (!conns.every((c) => context.permissions.canUpdateSDKWebhook(c))) {
-    context.permissions.throwPermissionError();
-  }
-  assertSdkWebhooksEditableDirectly(context, conns);
-
-  const parsedUpdates = updateSdkWebhookValidator.parse(req.body);
-  assertSdkWebhookNotManaged(webhook, parsedUpdates.payloadFormat);
-  if (
-    parsedUpdates.sdks &&
-    !(await findSDKConnectionsByIds(context, parsedUpdates.sdks)).length
-  ) {
-    throw new BadRequestError(
-      "sdks must include at least one existing SDK Connection",
-    );
-  }
-  const added = parsedUpdates.sdks
-    ? await assertCanUseSDKConnections(
-        context,
-        parsedUpdates.sdks.filter((sdk) => !webhook.sdks.includes(sdk)),
-        (c) => context.permissions.canUpdateSDKWebhook(c),
-      )
-    : [];
-  // Attaching it to a connection under approval takes that connection's
-  // draft, as editing it does.
-  assertSdkWebhooksEditableDirectly(context, added);
-
-  // Reset failure state when endpoint changes
-  const resetFields =
-    parsedUpdates.endpoint && parsedUpdates.endpoint !== webhook.endpoint
-      ? { consecutiveFailures: 0, disabled: false }
-      : {};
-
-  const updatedWebhook = await context.models.sdkWebhooks.update(webhook, {
-    ...parsedUpdates,
-    ...resetFields,
-  });
-  await touchSDKConnections(context, [
-    ...conns.map((c) => c.id),
-    ...added.map((c) => c.id),
-  ]);
-
-  // Fire the webhook now that it has changed
-  fireSdkWebhook(context, updatedWebhook).catch(() => {
-    // Do nothing, already being logged in Mongo
-  });
+  const { webhook } = await context.models.sdkWebhooks.updateDirect(
+    req.params.id,
+    updateSdkWebhookValidator.parse(req.body),
+  );
   res.status(200).json({
     status: 200,
-    webhook: updatedWebhook,
+    webhook,
   });
 }
 
@@ -2462,26 +2381,7 @@ export async function deleteSDKWebhook(
   res: Response,
 ) {
   const context = getContextFromReq(req);
-  const { id } = req.params;
-
-  const webhook = await context.models.sdkWebhooks.getById(id);
-  // It's ok if conns is empty here
-  // We still want to allow deleting orphaned webhooks
-  const conns = webhook
-    ? await findSDKConnectionsByIds(context, webhook.sdks)
-    : [];
-  if (!conns.every((c) => context.permissions.canDeleteSDKWebhook(c))) {
-    context.permissions.throwPermissionError();
-  }
-  assertSdkWebhooksEditableDirectly(context, conns);
-  assertSdkWebhookNotManaged(webhook);
-
-  await context.models.sdkWebhooks.deleteById(id);
-  await touchSDKConnections(
-    context,
-    conns.map((c) => c.id),
-  );
-
+  await context.models.sdkWebhooks.deleteDirect(req.params.id);
   res.status(200).json({
     status: 200,
   });

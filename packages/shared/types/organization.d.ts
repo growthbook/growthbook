@@ -249,8 +249,7 @@ export type ApprovalFlowConfiguration = {
   blockSelfApproval?: boolean;
   autopublishOnApproval?: boolean;
   resetReviewOnChange?: boolean;
-  // Empty or omitted means all.
-  projects?: string[];
+  // SDK connections only. Empty or omitted means all.
   environments?: string[];
 };
 

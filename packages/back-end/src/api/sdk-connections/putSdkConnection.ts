@@ -13,7 +13,7 @@ import {
   editSDKConnection,
 } from "back-end/src/models/SdkConnectionModel";
 import { createApiRequestHandler } from "back-end/src/util/handler";
-import { BadRequestError } from "back-end/src/util/errors";
+import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { getAdapter } from "back-end/src/revisions";
 import { canLandArchivedState } from "back-end/src/revisions/archiveTransition";
 import { ensureLiveRevisionExists } from "back-end/src/revisions/util";
@@ -32,7 +32,7 @@ export const putSdkConnection = createApiRequestHandler(
 )(async (req) => {
   const sdkConnection = await findSDKConnectionById(req.context, req.params.id);
   if (!sdkConnection) {
-    throw new Error("Could not find sdkConnection with that id");
+    throw new NotFoundError("Could not find sdkConnection with that id");
   }
 
   const { bypassApproval, ...body } = req.body;

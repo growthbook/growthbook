@@ -755,7 +755,7 @@ describe("sdk-connections API", () => {
     expect(deleteSDKConnectionModel).toHaveBeenCalledWith(context, existing);
   });
 
-  it("refuses to delete a live sdk-connection under an approval rule", async () => {
+  it("deletes a live sdk-connection under an approval rule only with a bypass", async () => {
     setReqContext(
       buildContext({
         settings: {
@@ -786,8 +786,24 @@ describe("sdk-connections API", () => {
       .set("Authorization", "Bearer foo");
 
     expect(response.status).toBe(400);
-    expect(response.body.message).toMatch(/Archive the SDK connection/);
+    expect(response.body.message).toMatch(/must be archived/);
+    expect(response.body.message).toMatch(/bypassApproval/);
     expect(deleteSDKConnectionModel).not.toHaveBeenCalled();
+
+    const bypassed = await request(app)
+      .delete(`/api/v1/sdk-connections/${existing.id}`)
+      .send({ bypassApproval: true })
+      .set("Authorization", "Bearer foo");
+
+    expect(bypassed.status).toBe(200);
+    expect(bypassed.body.bypassedGates).toEqual([
+      {
+        type: "approval-required",
+        outcome: "bypassed",
+        via: "bypassApprovalPermission",
+      },
+    ]);
+    expect(deleteSDKConnectionModel).toHaveBeenCalled();
   });
 
   it("checks for permissions when deleting sdk-connections", async () => {

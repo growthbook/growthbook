@@ -13,12 +13,9 @@ import {
 } from "shared/types/webhook";
 import {
   createSdkWebhookValidator,
-  sdkConnectionSettingsSnapshotValidator,
-  sdkConnectionUpdatableFieldsSchema,
   parseSdkWebhookSnapshot,
   sdkWebhookStableId,
   SDKConnectionRevisionSnapshot,
-  SDKConnectionSettingsRevisionSnapshot,
   SDKWebhookRevisionSnapshot,
 } from "shared/validators";
 import {
@@ -26,7 +23,6 @@ import {
   JsonPatchOperation,
   normalizeProposedChanges,
 } from "shared/enterprise";
-import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { ApiErrorResponse } from "back-end/types/api";
 import { getContextFromReq } from "back-end/src/services/organizations";
@@ -34,19 +30,20 @@ import {
   createSDKConnection,
   deleteSDKConnectionModel,
   findSDKConnectionById,
-  touchSDKConnections,
   findSDKConnectionsByOrganization,
   testProxyConnection,
 } from "back-end/src/models/SdkConnectionModel";
-import { validateRequireProjectForSdkConnections } from "back-end/src/api/sdk-connections/validations";
+import {
+  premiumSettingsWithoutPlan,
+  validateSdkConnectionChanges,
+} from "back-end/src/api/sdk-connections/validations";
 import { withReadablePayloadBreakdowns } from "back-end/src/services/sdkPayloadSize";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import {
   assertCanChangeSdkWebhooks,
-  assertSdkWebhookNotManaged,
-  assertSdkWebhooksEditableDirectly,
+  ARCHIVE_BEFORE_DELETE,
+  assertDirectWriteAllowed,
   assertNoLockingScheduledDraft,
-  isSdkConnectionGated,
   sdkConnectionReviewRules,
 } from "back-end/src/services/sdkConnectionApprovals";
 import {
@@ -56,23 +53,11 @@ import {
 } from "back-end/src/revisions/util";
 import { getAdapter } from "back-end/src/revisions";
 import { publishRevision } from "back-end/src/revisions/revisionActions";
-import type { SDKConnectionLiveSnapshot } from "back-end/src/revisions/adapters/sdk-connection.adapter";
-
-const SETTINGS_SNAPSHOT_KEYS = Object.keys(
-  sdkConnectionSettingsSnapshotValidator.shape,
-);
-
-// Expects proxyEnabled/proxyHost already flattened.
-function buildSettingsSnapshotValue(
-  flatState: Record<string, unknown>,
-): Record<string, unknown> {
-  const result: Record<string, unknown> = {};
-  for (const key of SETTINGS_SNAPSHOT_KEYS) {
-    const val = flatState[key];
-    if (val !== null && val !== undefined) result[key] = val;
-  }
-  return result;
-}
+import {
+  CONNECTION_UPDATABLE_FIELDS,
+  pickSettingsSnapshot,
+  SDKConnectionLiveSnapshot,
+} from "back-end/src/revisions/adapters/sdk-connection.adapter";
 
 export const getSDKConnections = async (
   req: AuthRequest,
@@ -107,28 +92,18 @@ export const postSDKConnection = async (
     context.permissions.throwPermissionError();
   }
 
-  validateRequireProjectForSdkConnections(org, params.projects);
-
-  let encryptPayload = false;
-  if (orgHasPremiumFeature(org, "encrypt-features-endpoint")) {
-    encryptPayload = params.encryptPayload;
-  }
-
-  let hashSecureAttributes = false;
-  if (orgHasPremiumFeature(org, "hash-secure-attributes")) {
-    hashSecureAttributes = params.hashSecureAttributes;
-  }
-
-  let remoteEvalEnabled = false;
-  if (orgHasPremiumFeature(org, "remote-evaluation")) {
-    remoteEvalEnabled = params.remoteEvalEnabled || false;
-  }
+  await validateSdkConnectionChanges(context, params);
+  // A premium setting the plan doesn't cover is left off, not refused.
+  const withoutPlan = Object.fromEntries(
+    premiumSettingsWithoutPlan(context, params).map(([, param]) => [
+      param,
+      false,
+    ]),
+  );
 
   const doc = await createSDKConnection(context, {
     ...params,
-    encryptPayload,
-    hashSecureAttributes,
-    remoteEvalEnabled,
+    ...withoutPlan,
     organization: org.id,
   });
 
@@ -175,58 +150,26 @@ export const putSDKConnection = async (
   res: Response<PutSDKConnectionResponse | ApiErrorResponse>,
 ) => {
   const context = getContextFromReq(req);
-  const { org } = context;
   const { id } = req.params;
   const connection = await findSDKConnectionById(context, id);
 
   if (!connection) {
-    throw new Error("Could not find SDK Connection");
+    throw new NotFoundError("Could not find SDK Connection");
   }
 
   if (!context.permissions.canUpdateSDKConnection(connection, req.body)) {
     context.permissions.throwPermissionError();
   }
 
-  validateRequireProjectForSdkConnections(
-    org,
-    req.body.projects,
-    connection.projects,
-  );
-
-  // Gate premium settings before diffing so they can't be enabled without the plan.
+  // A premium setting the plan doesn't cover is left off, not refused.
   const proposed: Record<string, unknown> = { ...req.body };
-
-  if (req.body.encryptPayload !== undefined) {
-    let encryptPayload = req.body.encryptPayload;
-    const changingFromUnencryptedToEncrypted =
-      !connection.encryptPayload && encryptPayload;
-    if (
-      changingFromUnencryptedToEncrypted &&
-      !orgHasPremiumFeature(org, "encrypt-features-endpoint")
-    ) {
-      encryptPayload = false;
-    }
-    proposed.encryptPayload = encryptPayload;
+  for (const [, param] of premiumSettingsWithoutPlan(
+    context,
+    req.body,
+    connection,
+  )) {
+    proposed[param] = false;
   }
-  // Only turning these on needs the plan; a lapsed plan keeps what's on.
-  if (
-    req.body.hashSecureAttributes === true &&
-    !connection.hashSecureAttributes &&
-    !orgHasPremiumFeature(org, "hash-secure-attributes")
-  ) {
-    proposed.hashSecureAttributes = false;
-  }
-  if (
-    req.body.remoteEvalEnabled === true &&
-    !connection.remoteEvalEnabled &&
-    !orgHasPremiumFeature(org, "remote-evaluation")
-  ) {
-    proposed.remoteEvalEnabled = false;
-  }
-
-  const connectionSettingsUpdatableFields = new Set(
-    Object.keys(sdkConnectionUpdatableFieldsSchema.shape),
-  );
 
   const liveWebhooks =
     await context.models.sdkWebhooks.findAllSdkWebhooksByConnectionIds([id]);
@@ -283,11 +226,16 @@ export const putSDKConnection = async (
 
   const fieldsToUpdate: Record<string, unknown> = {};
   for (const key of Object.keys(proposed)) {
-    if (!connectionSettingsUpdatableFields.has(key)) continue;
+    if (!CONNECTION_UPDATABLE_FIELDS.has(key)) continue;
     if (hasChanged(proposed[key], settingsComparisonBase[key])) {
       fieldsToUpdate[key] = proposed[key];
     }
   }
+  await validateSdkConnectionChanges(
+    context,
+    fieldsToUpdate,
+    settingsComparisonBase,
+  );
 
   const forceCreateRevision = req.query.forceCreateRevision === "1";
   const bypassApproval = req.query.bypassApproval === "1";
@@ -347,13 +295,11 @@ export const putSDKConnection = async (
 
   // The op replaces the whole settings object, layered on the state being
   // edited (the draft's, if any); merges look inside it per setting.
-  const currentSettingsSnapshot = buildSettingsSnapshotValue(
-    currentState,
-  ) as SDKConnectionSettingsRevisionSnapshot;
-  const proposedSettingsSnapshot = buildSettingsSnapshotValue({
+  const currentSettingsSnapshot = pickSettingsSnapshot(currentState);
+  const proposedSettingsSnapshot = pickSettingsSnapshot({
     ...settingsComparisonBase,
     ...fieldsToUpdate,
-  }) as SDKConnectionSettingsRevisionSnapshot;
+  });
 
   const patchOps: JsonPatchOperation[] = [];
   // What landing this request writes, keyed like the composite snapshot.
@@ -491,7 +437,7 @@ export const deleteSDKConnection = async (
 
   const connection = await findSDKConnectionById(context, id);
   if (!connection) {
-    throw new Error("Could not find SDK Connection");
+    throw new NotFoundError("Could not find SDK Connection");
   }
 
   if (!context.permissions.canDeleteSDKConnection(connection)) {
@@ -500,8 +446,13 @@ export const deleteSDKConnection = async (
 
   // Under an approval rule, archiving is the reviewable step, so the hard
   // delete requires it first.
-  if (!connection.archived && isSdkConnectionGated(context, connection)) {
-    throw new Error("SDK connection must be archived before it can be deleted");
+  if (!connection.archived) {
+    assertDirectWriteAllowed(
+      context,
+      [connection],
+      undefined,
+      ARCHIVE_BEFORE_DELETE,
+    );
   }
 
   await deleteSDKConnectionModel(context, connection);
@@ -523,7 +474,7 @@ export const checkSDKConnectionProxyStatus = async (
   const connection = await findSDKConnectionById(context, id);
 
   if (!connection) {
-    throw new Error("Could not find SDK Connection");
+    throw new NotFoundError("Could not find SDK Connection");
   }
 
   if (!context.permissions.canUpdateSDKConnection(connection, {})) {
@@ -592,7 +543,7 @@ export const getSDKConnectionWebhooks = async (
 
   const conn = await findSDKConnectionById(context, id);
   if (!conn) {
-    throw new Error("Could not find SDK connection");
+    throw new NotFoundError("Could not find SDK Connection");
   }
 
   const webhooks =
@@ -619,39 +570,10 @@ export async function postSDKConnectionWebhook(
   res: Response,
 ) {
   const context = getContextFromReq(req);
-  const { org } = context;
-
-  const { id } = req.params;
-  const connection = await findSDKConnectionById(context, id);
-  if (!connection) {
-    throw new Error("Could not find SDK Connection");
-  }
-
-  if (!context.permissions.canCreateSDKWebhook(connection)) {
-    context.permissions.throwPermissionError();
-  }
-  assertSdkWebhooksEditableDirectly(context, [connection]);
-
-  const webhookcount = await context.models.sdkWebhooks.countSdkWebhooksByOrg();
-  const canAddMultipleSdkWebhooks = orgHasPremiumFeature(
-    org,
-    "multiple-sdk-webhooks",
+  const { webhook } = await context.models.sdkWebhooks.createForConnection(
+    req.params.id,
+    createSdkWebhookValidator.omit({ managedBy: true }).parse(req.body),
   );
-  if (!canAddMultipleSdkWebhooks && webhookcount > 0) {
-    context.throwPlanDoesNotAllowError(
-      "Your plan only supports one SDK webhook.",
-    );
-  }
-
-  const body = createSdkWebhookValidator
-    .omit({ managedBy: true })
-    .parse(req.body);
-  assertSdkWebhookNotManaged(null, body.payloadFormat);
-  const webhook = await context.models.sdkWebhooks.create({
-    ...context.models.sdkWebhooks.getDefaultCreateProps(id),
-    ...body,
-  });
-  await touchSDKConnections(context, [id]);
   return res.status(200).json({
     status: 200,
     webhook,
