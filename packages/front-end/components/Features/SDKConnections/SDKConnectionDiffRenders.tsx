@@ -439,19 +439,32 @@ export function renderSDKConnectionName(
   const p0 = preConn(pre);
   const p1 = postConn(post);
   if (!p1) return null;
+  const rows: ReactNode[] = [];
   if (!isEqual(p0?.name, p1.name) && p1.name !== undefined) {
-    return (
-      <Box mt="1">
-        <ChangeField
-          label="Name"
-          changed
-          oldNode={strDisplay(p0?.name)}
-          newNode={strDisplay(p1.name)}
-        />
-      </Box>
+    rows.push(
+      <ChangeField
+        key="name"
+        label="Name"
+        changed
+        oldNode={strDisplay(p0?.name)}
+        newNode={strDisplay(p1.name)}
+      />,
     );
   }
-  return null;
+  // Picked in the code snippet modal; without a row its revisions read as
+  // empty and a draft behind it never shows as behind.
+  if ((p0?.eventTracker ?? "") !== (p1.eventTracker ?? "")) {
+    rows.push(
+      <ChangeField
+        key="eventTracker"
+        label="Event tracker"
+        changed
+        oldNode={strDisplay(p0?.eventTracker)}
+        newNode={strDisplay(p1.eventTracker)}
+      />,
+    );
+  }
+  return rows.length ? <Box mt="1">{rows}</Box> : null;
 }
 
 export function getSDKConnectionNameBadges(pre: Pre, post: Post): DiffBadge[] {
