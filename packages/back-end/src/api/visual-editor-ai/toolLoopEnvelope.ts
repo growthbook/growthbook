@@ -30,7 +30,7 @@ export const toolLoopEnvelopeSchema = z.object({
       z
         .object({
           role: z.enum(["assistant", "tool"]),
-          content: z.unknown(),
+          content: z.unknown().optional(),
         })
         .passthrough(),
     )
@@ -65,7 +65,7 @@ export interface PendingToolCall {
 export interface ClientToolResult {
   toolCallId: string;
   toolName: string;
-  result: unknown;
+  result?: unknown;
 }
 
 const canonical = (

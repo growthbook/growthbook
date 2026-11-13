@@ -14,8 +14,8 @@ const updateSchema = z.object({
         z
           .object({
             key: z.string().min(1),
-            oldValue: z.unknown(),
-            newValue: z.unknown(),
+            oldValue: z.unknown().optional(),
+            newValue: z.unknown().optional(),
           })
           .strict(),
       ),
