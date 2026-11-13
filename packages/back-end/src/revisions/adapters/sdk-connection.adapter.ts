@@ -37,6 +37,7 @@ import {
   findSDKConnectionById,
   findSDKConnectionsByIds,
 } from "back-end/src/models/SdkConnectionModel";
+import { ConflictError } from "back-end/src/util/errors";
 import {
   assertCanChangeSdkWebhooks,
   assertSdkWebhookFields,
@@ -428,7 +429,26 @@ export const sdkConnectionAdapter: EntityRevisionAdapter<SDKConnectionRevisionSn
       context: Context,
       entity: SDKConnectionRevisionSnapshot,
       desiredState: Record<string, unknown>,
+      revision: Revision,
     ): Promise<void> {
+      // A draft cut before the connection moved was judged against the rules
+      // of where it used to be, so it takes on the new scope first. A claimed
+      // merge is past rebasing and still has to be recoverable.
+      const drafted = (
+        revision.target.snapshot as SDKConnectionRevisionSnapshot
+      ).sdkConnection;
+      const live = entity.sdkConnection;
+      if (
+        revision.status !== "merged" &&
+        isSdkConnectionApprovalRequired(context) &&
+        (drafted.environment !== live.environment ||
+          !isEqual([...drafted.projects].sort(), [...live.projects].sort()))
+      ) {
+        throw new ConflictError(
+          "This SDK connection's environment or Projects changed after this draft was created. Update the draft from live, then publish it.",
+        );
+      }
+
       if (desiredState.sdkConnection !== undefined) {
         const settings = sdkConnectionSettingsSnapshotValidator.parse(
           desiredState.sdkConnection,

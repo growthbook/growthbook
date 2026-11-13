@@ -675,6 +675,22 @@ describe("sdkConnectionAdapter", () => {
         revision,
       );
 
+    it("makes a draft cut before a scope move rebase, where approvals exist", async () => {
+      const moved = {
+        ...liveEntity,
+        sdkConnection: settings({ environment: "staging" }),
+      };
+      const message = "changed after this draft was created";
+      await expect(
+        assert(makeContext({ approvalRequired: true }), {}, moved),
+      ).rejects.toThrow(message);
+      // Nothing to re-judge without approval rules, or once it's rebased.
+      await expect(assert(makeContext({}), {}, moved)).resolves.toBeUndefined();
+      await expect(
+        assert(makeContext({ approvalRequired: true }), {}),
+      ).resolves.toBeUndefined();
+    });
+
     it.each([
       ["encryptPayload", "encrypt-features-endpoint"],
       ["hashSecureAttributes", "hash-secure-attributes"],
