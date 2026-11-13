@@ -32,6 +32,27 @@
   background: var(--color-background);
 }
 
+.trigger.trigger {
+  color: var(--gray-12);
+  background-color: var(--color-surface);
+  box-shadow: inset 0 0 0 1px var(--gray-a7);
+
+  @media (hover: hover) {
+    &:hover {
+      box-shadow: inset 0 0 0 1px var(--gray-a8);
+    }
+  }
+
+  &[data-state="open"] {
+    outline: 2px solid var(--focus-8);
+    outline-offset: -1px;
+  }
+
+  :global(.rt-Text) {
+    font-weight: var(--font-weight-regular);
+  }
+}
+
 .pinned.general {
   max-width: calc(
     var(--settings-general-width) + 2 * var(--settings-page-pad-x)

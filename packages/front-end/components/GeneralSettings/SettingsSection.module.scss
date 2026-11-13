@@ -137,6 +137,10 @@
   @media (max-width: 1399px) {
     padding-top: 0;
 
+    .searchSummary {
+      margin-top: calc(-1 * var(--settings-page-pad-top));
+    }
+
     .section:first-of-type {
       padding-top: 0;
     }

@@ -83,6 +83,7 @@ function SettingsJumpMenu() {
           icon={<PiCaretDown />}
           iconPosition="right"
           truncate
+          className={styles.trigger}
           aria-label={`Settings: ${location}`}
           style={{ width: "100%", justifyContent: "space-between" }}
         >
