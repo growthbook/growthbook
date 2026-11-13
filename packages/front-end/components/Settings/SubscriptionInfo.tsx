@@ -7,8 +7,10 @@ import { type Team, useUser } from "@/services/UserContext";
 import { planNameFromAccountPlan } from "@/services/utils";
 import { useForceLicenseRefresh } from "@/hooks/useForceLicenseRefresh";
 import { StripeProvider } from "@/enterprise/components/Billing/StripeProvider";
+import { useCanShowPaymentInfo } from "@/enterprise/components/Billing/PaymentInfo";
 import Callout from "@/ui/Callout";
 import Button from "@/ui/Button";
+import Link from "@/ui/Link";
 import Modal from "@/components/Modal";
 import UpgradeModal from "./UpgradeModal";
 import UpdateOrbSubscriptionModal from "./UpdateOrbSubscriptionModal";
@@ -119,12 +121,54 @@ function NextBillDateRow({
   );
 }
 
+function PastDueBillingCallout({
+  downgradeDate,
+  canAddPaymentMethod,
+}: {
+  downgradeDate: string | null;
+  canAddPaymentMethod: boolean;
+}) {
+  const nextStep = canAddPaymentMethod ? (
+    <>
+      Add a new card under <strong>Payment Methods</strong> below and make it
+      your default
+    </>
+  ) : (
+    <>
+      Contact{" "}
+      <Link href="mailto:support@growthbook.io">support@growthbook.io</Link> to
+      update your payment method
+    </>
+  );
+  // No date means this failure will not cancel the plan automatically.
+  const deadline = downgradeDate
+    ? ` by ${downgradeDate} to keep your Pro plan.`
+    : ".";
+  const retry =
+    " We retry failed charges automatically, and this message goes away once one succeeds.";
+  const unpaidWarning = downgradeDate
+    ? ""
+    : " Your Pro plan may be canceled if the invoice stays unpaid.";
+  return (
+    <Box maxWidth="550px" mb="3">
+      <Callout status="warning">
+        We couldn&apos;t charge your card. {nextStep}
+        {deadline}
+        {retry}
+        {unpaidWarning}
+      </Callout>
+    </Box>
+  );
+}
+
 function BillingStatusSection({
   billing,
   actionLabel,
+  canAddPaymentMethod,
 }: {
   billing: SubscriptionBillingState;
   actionLabel: string;
+  canAddPaymentMethod: boolean;
 }) {
   switch (billing.kind) {
     case "canceled":
@@ -141,6 +185,13 @@ function BillingStatusSection({
           your billing period on {billing.pendingCancelDate}.
         </Callout>
       ) : null;
+    case "self_serve_past_due":
+      return (
+        <PastDueBillingCallout
+          downgradeDate={billing.downgradeDate}
+          canAddPaymentMethod={canAddPaymentMethod}
+        />
+      );
     case "self_serve_active":
     case "enterprise_active":
       return billing.nextBillDate ? (
@@ -227,6 +278,7 @@ export default function SubscriptionInfo() {
   const addPaymentMethodActionLabel = billing.showUpdateInvoiceButton
     ? "Update Invoice Details"
     : "View Plan Details";
+  const canAddPaymentMethod = useCanShowPaymentInfo();
 
   return (
     <div className="p-3">
@@ -348,13 +400,18 @@ export default function SubscriptionInfo() {
       <BillingStatusSection
         billing={billing}
         actionLabel={addPaymentMethodActionLabel}
+        canAddPaymentMethod={canAddPaymentMethod}
       />
-      {billing.invoiceBlocked ? (
+      {/* The past-due callout already gives the next step. */}
+      {billing.invoiceBlocked && billing.kind !== "self_serve_past_due" ? (
         <Box maxWidth="550px" mt="4" mb="3">
           <Callout status="info">
             To make changes to your subscription, please contact your account
             executive or{" "}
-            <a href="mailto:support@growthbook.io">support@growthbook.io</a>.
+            <Link href="mailto:support@growthbook.io">
+              support@growthbook.io
+            </Link>
+            .
           </Callout>
         </Box>
       ) : null}

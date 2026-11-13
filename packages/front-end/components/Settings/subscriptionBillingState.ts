@@ -4,6 +4,7 @@ import type { AccountPlan, SubscriptionInfo } from "shared/enterprise";
 export type SubscriptionBillingKind =
   | "canceled"
   | "self_serve_pending_cancel"
+  | "self_serve_past_due"
   | "self_serve_active"
   | "enterprise_active"
   | "enterprise_contract_ending";
@@ -36,6 +37,10 @@ export type SubscriptionBillingState =
   | (BillingBase & {
       kind: "self_serve_pending_cancel";
       pendingCancelDate: string | null;
+    })
+  | (BillingBase & {
+      kind: "self_serve_past_due";
+      downgradeDate: string | null;
     })
   | (BillingBase & {
       kind: "self_serve_active";
@@ -83,11 +88,13 @@ function getActions(
 ): BillingActions {
   const isOrb = subscription?.billingPlatform === "orb";
   const isActive = subscription?.status === "active";
+  const canUpdateOrbInvoice =
+    isOrb && (isActive || subscription?.status === "past_due");
 
   return {
     showStripeManageButton: subscription?.billingPlatform === "stripe",
     showUpdateInvoiceButton:
-      isOrb && isActive && !!subscription?.stripeCustomerId,
+      canUpdateOrbInvoice && !!subscription?.stripeCustomerId,
     showRenewButton: subscription?.status === "canceled" && canSubscribe,
     showCancelButton:
       isOrb &&
@@ -95,7 +102,7 @@ function getActions(
       !!parseBillingDate(subscription?.nextBillDate) &&
       !subscription?.pendingCancelation &&
       !isEnterprise,
-    invoiceBlocked: isOrb && isActive && !subscription?.stripeCustomerId,
+    invoiceBlocked: canUpdateOrbInvoice && !subscription?.stripeCustomerId,
   };
 }
 
@@ -113,6 +120,17 @@ export function getSubscriptionBillingState({
       kind: "canceled",
       isTrialing: false,
       cancelationDate: formatBillingDate(subscription.cancelationDate),
+      ...actions,
+    };
+  }
+
+  if (!isEnterprise && subscription?.status === "past_due") {
+    return {
+      kind: "self_serve_past_due",
+      isTrialing: false,
+      downgradeDate: subscription.pastDueUntil
+        ? date(subscription.pastDueUntil, "UTC")
+        : null,
       ...actions,
     };
   }
