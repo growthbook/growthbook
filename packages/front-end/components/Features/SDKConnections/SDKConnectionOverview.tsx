@@ -1,3 +1,4 @@
+import type { Revision } from "shared/enterprise";
 import { ReactNode, useState } from "react";
 import { Box, Flex, Separator } from "@radix-ui/themes";
 import { SDKConnectionInterface } from "shared/types/sdk-connection";
@@ -60,6 +61,8 @@ export default function SDKConnectionOverview({
   blockedReason,
   connections,
   mutate,
+  viewingLive,
+  onRevisionCreated,
 }: {
   // As viewed: the selected revision's changes over live.
   connection: SDKConnectionInterface;
@@ -71,6 +74,9 @@ export default function SDKConnectionOverview({
   // Every connection, as the implementation instructions take them.
   connections: SDKConnectionInterface[];
   mutate: () => Promise<unknown>;
+  // Whether what's shown is the live connection, not a draft or history.
+  viewingLive: boolean;
+  onRevisionCreated: (revision: Revision) => void;
 }) {
   const { getProjectById } = useDefinitions();
   const customFields = useCustomFields();
@@ -125,6 +131,10 @@ export default function SDKConnectionOverview({
           connections={connections}
           mutateConnections={mutate}
           sdkConnection={connection}
+          saveEventTracker={viewingLive}
+          onEventTrackerSaved={(revision) => {
+            if (revision) onRevisionCreated(revision);
+          }}
         />
       ) : null}
 

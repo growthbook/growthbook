@@ -20,6 +20,7 @@ import {
 } from "@/components/Features/SDKConnections/edit-modals/useSdkConnectionRevisionFlow";
 import { SdkConnectionStagedEdits } from "@/components/Features/SDKConnections/useSdkConnectionStagedEdits";
 import { useAuth } from "@/services/auth";
+import { useUser } from "@/services/UserContext";
 import { ApiCallError } from "@/services/apiCallError";
 import HelperText from "@/ui/HelperText";
 import Text from "@/ui/Text";
@@ -56,11 +57,13 @@ export default function SDKConnectionEditsBar({
     .filter(isDraftRevision)
     .sort((a, b) => (numbers.get(b.id) ?? 0) - (numbers.get(a.id) ?? 0));
   const [chosen, setChosen] = useState<string | null>(null);
-  // The first draft unless another was picked; a new one if there's none.
+  // Your own newest draft unless another was picked, and a new one if you
+  // have none: a teammate's draft, which may be approved, is theirs to offer.
+  const { user } = useUser();
   const target =
     chosen && (chosen === NEW_DRAFT || drafts.some((d) => d.id === chosen))
       ? chosen
-      : (drafts[0]?.id ?? NEW_DRAFT);
+      : (drafts.find((d) => d.authorId === user?.id)?.id ?? NEW_DRAFT);
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);

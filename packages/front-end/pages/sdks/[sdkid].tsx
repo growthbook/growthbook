@@ -407,7 +407,10 @@ export default function SDKConnectionPage() {
     selectedRevision.scheduledPublishLockEdits
       ? SCHEDULE_EDIT_LOCK_REASON
       : null;
-  const stagedBlockedReason = staged.dirty ? EDITS_BLOCKED_REASON : null;
+  // Edits staged on a revision that has since been discarded or superseded
+  // have nowhere to be saved or discarded from, so they hold nothing.
+  const hasUnsavedEdits = staged.dirty && !isReadOnly;
+  const stagedBlockedReason = hasUnsavedEdits ? EDITS_BLOCKED_REASON : null;
 
   const supportsBucketingV2 =
     getConnectionSDKCapabilities(displayedConn).includes("bucketingV2");
@@ -679,7 +682,7 @@ export default function SDKConnectionPage() {
           <DetailsPageActions
             // A draft's way to review is on the status bar under the tabs,
             // and staged edits have their own way to a draft.
-            newDraft={viewingDraft || staged.dirty ? null : newDraft}
+            newDraft={viewingDraft || hasUnsavedEdits ? null : newDraft}
             menu={menu}
           />
         }
@@ -733,7 +736,7 @@ export default function SDKConnectionPage() {
         revisionPicker={
           hasRevisions ? (
             // Held while edits are staged, which belong to the viewed revision.
-            <Tooltip content={EDITS_BLOCKED_REASON} enabled={staged.dirty}>
+            <Tooltip content={EDITS_BLOCKED_REASON} enabled={hasUnsavedEdits}>
               <div>
                 <RevisionDropdown
                   entityId={connection.id}
@@ -743,7 +746,7 @@ export default function SDKConnectionPage() {
                   requiresApproval={approvalRequired}
                   context="header"
                   width={REVISION_SELECTOR_WIDTH_PX}
-                  disabled={staged.dirty}
+                  disabled={hasUnsavedEdits}
                 />
               </div>
             </Tooltip>
@@ -778,7 +781,7 @@ export default function SDKConnectionPage() {
         details={details}
         stickyTop={stickyTop}
         footer={
-          staged.dirty && canUpdate && !isReadOnly ? (
+          hasUnsavedEdits && canUpdate ? (
             <SDKConnectionEditsBar
               connection={displayedConn}
               staged={staged}
@@ -839,6 +842,10 @@ export default function SDKConnectionPage() {
                   c.id === displayedConn.id ? displayedConn : c,
                 )}
                 mutate={refreshAll}
+                viewingLive={
+                  !selectedRevision || selectedRevision.id === liveRevision?.id
+                }
+                onRevisionCreated={onRevisionCreated}
               />
             )}
             {tab === "review" && (
@@ -855,9 +862,10 @@ export default function SDKConnectionPage() {
                 canBypassApproval={canBypassSelectedRevision}
                 selectRevision={selectFlow}
                 publishBlockedReason={stagedBlockedReason ?? undefined}
+                reviewBlockedReason={stagedBlockedReason ?? undefined}
                 onPublish={handlePublish}
                 onDiscard={async (id) => {
-                  if (staged.dirty) throw new Error(EDITS_BLOCKED_REASON);
+                  if (hasUnsavedEdits) throw new Error(EDITS_BLOCKED_REASON);
                   await handleDiscard(id);
                 }}
                 onReopen={handleReopen}

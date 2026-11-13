@@ -13,12 +13,17 @@ import {
 } from "shared/types/webhook";
 import { ago } from "shared/dates";
 import { SDKConnectionInterface } from "shared/types/sdk-connection";
-import { Revision, patchOpsToPartial } from "shared/enterprise";
+import {
+  Revision,
+  isScheduledPublishLockActive,
+  patchOpsToPartial,
+} from "shared/enterprise";
 import {
   parseSdkWebhookSnapshot,
   SDKWebhookRevisionSnapshot,
 } from "shared/validators";
 import isEqual from "lodash/isEqual";
+import { SCHEDULE_EDIT_LOCK_REASON } from "@/components/Features/ScheduleLock";
 import useApi from "@/hooks/useApi";
 import EditSDKWebhooksModal, {
   CreateSDKWebhookModal,
@@ -131,9 +136,17 @@ export default function SdkWebhooks({
   const canEditDraft = permissionsUtil.canUpdateSDKConnection(connection, {});
   const canCreateWebhooks =
     canEditDraft && permissionsUtil.canCreateSDKWebhook(connection);
-  const canUpdateWebhook = canEditDraft && canTestWebhook;
+  // A draft locked for its scheduled publish takes no edits, as the server
+  // refuses them.
+  const lockedDraft =
+    !!selectedDraft &&
+    isScheduledPublishLockActive(selectedDraft) &&
+    !!selectedDraft.scheduledPublishLockEdits;
+  const canUpdateWebhook = canEditDraft && canTestWebhook && !lockedDraft;
   const canDeleteWebhook =
-    canEditDraft && permissionsUtil.canDeleteSDKWebhook(connection);
+    canEditDraft &&
+    !lockedDraft &&
+    permissionsUtil.canDeleteSDKWebhook(connection);
 
   const liveWebhooks = data?.webhooks ?? [];
   const liveById = new Map(liveWebhooks.map((wh) => [wh.id, wh]));
@@ -203,6 +216,7 @@ export default function SdkWebhooks({
   const keepsWebhook = rows.some((row) => row.staged !== "removed");
   const disableWebhookCreate =
     !!pastRevision ||
+    lockedDraft ||
     (keepsWebhook && !hasCommercialFeature("multiple-sdk-webhooks"));
 
   const flow = useSdkConnectionRevisionFlow({
@@ -519,7 +533,9 @@ export default function SdkWebhooks({
               content={
                 pastRevision
                   ? "Switch to live or a draft to change webhooks."
-                  : "You can only have one webhook per SDK Connection in the free plan"
+                  : lockedDraft
+                    ? SCHEDULE_EDIT_LOCK_REASON
+                    : "You can only have one webhook per SDK Connection in the free plan"
               }
               enabled={disableWebhookCreate}
             >

@@ -1,3 +1,4 @@
+import type { Revision } from "shared/enterprise";
 import React, {
   useState,
   useEffect,
@@ -110,6 +111,8 @@ export default function CodeSnippetModal({
   includeCheck,
   allowChangingConnection,
   quickStart = false,
+  saveEventTracker = true,
+  onEventTrackerSaved,
 }: {
   close?: () => void;
   feature?: FeatureInterface;
@@ -125,6 +128,12 @@ export default function CodeSnippetModal({
   allowChangingConnection?: boolean;
   // Opens on installing and setting up the SDK, with the rest a click away.
   quickStart?: boolean;
+  // Whether picking an event tracker is saved to the connection. Off where the
+  // connection is shown as a draft or an earlier revision: the pick still
+  // changes the snippet, and live is left alone.
+  saveEventTracker?: boolean;
+  // The revision a saved pick published, for a page that follows live.
+  onEventTrackerSaved?: (revision: Revision | undefined) => void;
 }) {
   const [currentConnectionId, setCurrentConnectionId] = useState("");
   const { apiCall } = useAuth();
@@ -169,13 +178,17 @@ export default function CodeSnippetModal({
         // The snippet follows the selection even if the write is refused.
         setEventTracker(value);
         setEventTrackerSaveError(null);
-        if (canUpdate && currentConnectionId) {
-          await apiCall(`/sdk-connections/${currentConnectionId}`, {
-            method: "PUT",
-            body: JSON.stringify({
-              eventTracker: value,
-            }),
-          });
+        if (canUpdate && currentConnectionId && saveEventTracker) {
+          const res = await apiCall<{ revision?: Revision }>(
+            `/sdk-connections/${currentConnectionId}`,
+            {
+              method: "PUT",
+              body: JSON.stringify({
+                eventTracker: value,
+              }),
+            },
+          );
+          onEventTrackerSaved?.(res?.revision);
         }
       } catch (e) {
         setEventTrackerSaveError(
@@ -183,7 +196,15 @@ export default function CodeSnippetModal({
         );
       }
     },
-    [apiCall, canUpdate, currentConnection, currentConnectionId, eventTracker],
+    [
+      apiCall,
+      canUpdate,
+      currentConnection,
+      currentConnectionId,
+      eventTracker,
+      saveEventTracker,
+      onEventTrackerSaved,
+    ],
   );
   useEffect(() => {
     if (!currentConnection) return;
