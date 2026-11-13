@@ -42,6 +42,7 @@ import { purgeCDNCache } from "back-end/src/util/cdn.util";
 import { getSDKPayloadCacheLocation } from "back-end/src/models/SdkConnectionCacheModel";
 import { queueSDKPayloadRefresh } from "back-end/src/services/features";
 import { createModelAuditLogger } from "back-end/src/services/audit";
+import { sdkConnectionAuditDetails } from "back-end/src/models/AuditModel";
 import { CasConflictError } from "back-end/src/models/BaseModel";
 import {
   getBackendFeatureValue,
@@ -57,6 +58,7 @@ const audit = createModelAuditLogger({
   createEvent: "sdk-connection.create",
   updateEvent: "sdk-connection.update",
   deleteEvent: "sdk-connection.delete",
+  toAuditDetails: sdkConnectionAuditDetails,
 });
 
 const sdkConnectionSchema = new mongoose.Schema({

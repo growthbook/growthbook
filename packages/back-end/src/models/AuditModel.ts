@@ -1,4 +1,5 @@
 import mongoose, { FilterQuery, QueryOptions } from "mongoose";
+import { omit } from "lodash";
 import { AuditInterface, EntityType } from "shared/types/audit";
 import {
   removeMongooseFields,
@@ -77,11 +78,69 @@ type AuditDocument = mongoose.Document & AuditInterface;
 
 const AuditModel = mongoose.model<AuditInterface>("Audit", auditSchema);
 
+// Revision audits keep who, what and when, never contents: a revision's
+// snapshot and changes are read-gated by its entity, and audit history isn't.
+const REVISION_AUDIT_FIELDS = [
+  "id",
+  "organization",
+  "authorId",
+  "version",
+  "status",
+  "revertedFrom",
+  "reviewCycle",
+  "resolution",
+  "dateCreated",
+  "dateUpdated",
+];
+
+export function revisionAuditDetails(doc: object): object {
+  const source = doc as Record<string, unknown>;
+  const details: Record<string, unknown> = {};
+  REVISION_AUDIT_FIELDS.forEach((key) => {
+    if (key in source) details[key] = source[key];
+  });
+  const target = source.target as { type?: string; id?: string } | undefined;
+  if (target) details.target = { type: target.type, id: target.id };
+  return details;
+}
+
+// An SDK connection's audit entry, without the keys that decrypt its payload
+// and sign its proxy requests.
+export function sdkConnectionAuditDetails(doc: object): object {
+  const { proxy, ...rest } = omit(doc as { proxy?: object }, "encryptionKey");
+  return proxy ? { ...rest, proxy: omit(proxy, "signingKey") } : rest;
+}
+
+// What each entity's audit entries may hold. Applied as entries are written
+// and again as they're read, which covers the ones stored before it existed.
+const AUDIT_DETAILS: Record<string, (doc: object) => object> = {
+  revision: revisionAuditDetails,
+  "sdk-connection": sdkConnectionAuditDetails,
+};
+
+export function scrubAuditDetails(entity: string, details: string): string {
+  const project = AUDIT_DETAILS[entity];
+  if (!project || !details) return details;
+  try {
+    const parsed = JSON.parse(details) as Record<string, unknown>;
+    for (const side of ["pre", "post"]) {
+      const doc = parsed[side];
+      if (doc && typeof doc === "object") parsed[side] = project(doc);
+    }
+    return JSON.stringify(parsed);
+  } catch {
+    return "";
+  }
+}
+
 const toInterface: ToInterface<AuditInterface> = (doc) => {
   const audit = removeMongooseFields(doc);
   // Legacy audit docs may be missing the user field entirely
   if (!audit.user) {
     audit.user = { id: "", email: "", name: "Unknown" };
+  }
+  if (audit.entity?.object && audit.details) {
+    audit.details = scrubAuditDetails(audit.entity.object, audit.details);
   }
   return audit;
 };

@@ -37,6 +37,7 @@ import {
 } from "back-end/src/services/armGuards";
 import { getAdapter } from "back-end/src/revisions/index";
 import { ConflictError } from "back-end/src/util/errors";
+import { revisionAuditDetails } from "back-end/src/models/AuditModel";
 import {
   canCommentOnRevision,
   canTouchRevision,
@@ -121,6 +122,7 @@ const BaseClass = MakeModelClass({
     createEvent: "revision.create",
     updateEvent: "revision.update",
     deleteEvent: "revision.delete",
+    toAuditDetails: revisionAuditDetails,
   },
   globallyUniquePrimaryKeys: true,
   // Operational / scheduling fields are timeline-tracked via the activity log
