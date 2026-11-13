@@ -1451,9 +1451,10 @@ const TEARDOWN_ORDER: AutoRunArtifact["kind"][] = [
 export const wasCreated = (a: ApiAutoRun["artifacts"][number]) =>
   a.action === "created" || (!a.action && a.detail === "Created from Eppo");
 
+// Only what a run can take back: an attribute or SDK Connection it created stays.
 export function createdByRun(run: ApiAutoRun): ApiAutoRun["artifacts"] {
   return run.artifacts
-    .filter(wasCreated)
+    .filter((a) => wasCreated(a) && TEARDOWN_ORDER.includes(a.kind))
     .sort(
       (a, b) => TEARDOWN_ORDER.indexOf(a.kind) - TEARDOWN_ORDER.indexOf(b.kind),
     );

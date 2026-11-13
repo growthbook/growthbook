@@ -89,6 +89,54 @@ const typeLabel = (a: Pick<Artifact, "kind" | "id">) =>
     ? "Metric"
     : NOUN[a.kind][0];
 
+// An import's report: the same page, worded for where the items came from.
+const IMPORT_REPORTS: Partial<
+  Record<
+    ApiAutoRun["source"],
+    {
+      title: string;
+      breadcrumb: { display: string; href?: string }[];
+      retry: string;
+      importedTitle: string;
+      importedDescription: string;
+      failedDescription: string;
+      deletedDescription: string;
+    }
+  >
+> = {
+  "eppo-import": {
+    title: "Eppo Import Report",
+    breadcrumb: [
+      { display: "Import Your Data", href: "/importing" },
+      { display: "Eppo Importer", href: "/importing/eppo" },
+      { display: "Eppo Import Report" },
+    ],
+    retry:
+      "Fetch from Eppo again to retry; imported items update in place instead of being created twice.",
+    importedTitle: "Imported From Eppo",
+    importedDescription:
+      "Open an item to review its settings. Importing again updates created and updated items instead of creating duplicates.",
+    failedDescription:
+      "Why each item couldn't be imported. Fix the cause and import again.",
+    deletedDescription:
+      "Removed from GrowthBook. The next import creates them again.",
+  },
+  "flags-import": {
+    title: "Flags Import Report",
+    breadcrumb: [
+      { display: "Get Started", href: "/getstarted" },
+      { display: "Flags Import Report" },
+    ],
+    retry:
+      "Fix them in your code and send the flags again; Feature Flags that already exist are left as they are.",
+    importedTitle: "Imported From Your Code",
+    importedDescription: "Open an item to review its settings.",
+    failedDescription:
+      "Why each item couldn't be imported. Fix the cause in your code and send the flags again.",
+    deletedDescription: "Removed from GrowthBook.",
+  },
+};
+
 function kindList(artifacts: Artifact[]): string {
   const counts = new Map<ArtifactKind, number>();
   artifacts.forEach((a) => counts.set(a.kind, (counts.get(a.kind) ?? 0) + 1));
@@ -368,9 +416,11 @@ export default function AutoRunPage() {
   const failing = run.checks.filter((c) => !c.ok && c.required);
   const environment = autoRunMetaString(run.metadata, "environment");
 
-  if (run.source === "eppo-import") {
-    const failed = run.metadata.failed;
+  const report = IMPORT_REPORTS[run.source];
+  if (report) {
     const failedItems = run.artifacts.filter((a) => a.action === "failed");
+    const failed =
+      run.source === "eppo-import" ? run.metadata.failed : failedItems.length;
     const deletedItems = run.artifacts.filter((a) => a.action === "deleted");
     const existingItems = run.artifacts.filter((a) => a.action === "existing");
     const imported = run.artifacts.filter(
@@ -385,16 +435,10 @@ export default function AutoRunPage() {
         px={{ initial: "2", xs: "4", sm: "7" }}
         py={{ initial: "1", xs: "3", sm: "6" }}
       >
-        <PageHead
-          breadcrumb={[
-            { display: "Import Your Data", href: "/importing" },
-            { display: "Eppo Importer", href: "/importing/eppo" },
-            { display: "Eppo Import Report" },
-          ]}
-        />
+        <PageHead breadcrumb={report.breadcrumb} />
         <Box mt="4" mb="5">
           <Heading as="h1" size="2xl" mb="0">
-            Eppo Import Report
+            {report.title}
           </Heading>
         </Box>
         {typeof failed === "number" && failed > 0 && (
@@ -402,14 +446,13 @@ export default function AutoRunPage() {
             {failed === 1
               ? "1 item failed to import"
               : `${failed} items failed to import`}
-            . Fetch from Eppo again to retry; imported items update in place
-            instead of being created twice.
+            . {report.retry}
           </Callout>
         )}
         {imported.length > 0 ? (
           <Section
-            title="Imported From Eppo"
-            description="Open an item to review its settings. Importing again updates created and updated items instead of creating duplicates."
+            title={report.importedTitle}
+            description={report.importedDescription}
           >
             <SetUpTable artifacts={imported} />
           </Section>
@@ -429,16 +472,13 @@ export default function AutoRunPage() {
         {failedItems.length > 0 && (
           <Section
             title="Failed to Import"
-            description="Why each item couldn't be imported. Fix the cause and import again."
+            description={report.failedDescription}
           >
             <SetUpTable artifacts={failedItems} review={false} />
           </Section>
         )}
         {deletedItems.length > 0 && (
-          <Section
-            title="Deleted"
-            description="Removed from GrowthBook. The next import creates them again."
-          >
+          <Section title="Deleted" description={report.deletedDescription}>
             <SetUpTable artifacts={deletedItems} review={false} />
           </Section>
         )}

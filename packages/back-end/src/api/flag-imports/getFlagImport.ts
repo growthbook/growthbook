@@ -3,7 +3,7 @@ import { getFlagImportValidator } from "shared/validators";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import {
   assertFlagImportsEnabled,
-  getFlagImportByToken,
+  getFlagImportStatusByToken,
 } from "back-end/src/services/flagImports";
 
 // Room for the claim page and an agent polling, per address and per replica.
@@ -21,5 +21,5 @@ export const getFlagImport = createApiRequestHandler({
   middleware: [statusRateLimit],
 })(async (req) => {
   assertFlagImportsEnabled();
-  return { flagImport: await getFlagImportByToken(req.params.token) };
+  return { flagImport: await getFlagImportStatusByToken(req.params.token) };
 });

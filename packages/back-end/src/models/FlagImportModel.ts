@@ -1,9 +1,11 @@
 import crypto from "crypto";
 import mongoose from "mongoose";
 import {
+  FLAG_IMPORT_CLAIMED_LIFETIME_DAYS,
   FLAG_IMPORT_LIFETIME_HOURS,
   FlagImportFlag,
   FlagImportResult,
+  FlagImportStatus,
   FlagImportSummary,
   FlagImportWarning,
 } from "shared/validators";
@@ -11,20 +13,25 @@ import {
 export type FlagImportInterface = {
   id: string;
   tokenHash: string;
-  // Null once claimed.
+  // Null once imported.
   file: string | null;
   name: string | null;
   agent: string | null;
   summary: FlagImportSummary;
   flags: FlagImportFlag[];
   warnings: FlagImportWarning[];
-  status: "pending" | "claimed";
+  status: FlagImportStatus;
   dateCreated: Date;
   expiresAt: Date;
   claimed: {
     at: Date;
     userId: string | null;
     organization: string;
+  } | null;
+  imported: {
+    at: Date;
+    userId: string | null;
+    autoRunId: string | null;
     results: FlagImportResult[];
   } | null;
 };
@@ -45,6 +52,7 @@ const flagImportSchema = new mongoose.Schema({
   dateCreated: Date,
   expiresAt: Date,
   claimed: {},
+  imported: {},
 });
 flagImportSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
 
@@ -73,6 +81,7 @@ function toInterface(doc: FlagImportInterface): FlagImportInterface {
     dateCreated: doc.dateCreated,
     expiresAt: doc.expiresAt,
     claimed: doc.claimed ?? null,
+    imported: doc.imported ?? null,
   };
 }
 
@@ -95,6 +104,7 @@ export async function createFlagImport(
       now.getTime() + FLAG_IMPORT_LIFETIME_HOURS * 60 * 60 * 1000,
     ),
     claimed: null,
+    imported: null,
   };
   await FlagImportModel.create(flagImport);
   return { token, flagImport };
@@ -116,18 +126,60 @@ export async function countPendingFlagImports(): Promise<number> {
   return FlagImportModel.countDocuments({ status: "pending" });
 }
 
-// One guarded update, so two people opening the same link cannot both import.
-// Resolves to the upload as it was, file included, or null when it was taken.
+// Uploads a workspace has claimed and not yet imported.
+export async function countClaimedFlagImports(
+  organization: string,
+): Promise<number> {
+  return FlagImportModel.countDocuments({
+    status: "claimed",
+    "claimed.organization": organization,
+    expiresAt: { $gt: new Date() },
+  });
+}
+
+// One guarded update, so two workspaces opening the same link cannot both
+// take it. Claiming gives the workspace longer to import. Resolves to the
+// claimed upload, or null when another request got there first.
 export async function claimFlagImport(
   id: string,
   by: { userId: string | null; organization: string },
 ): Promise<FlagImportInterface | null> {
+  const now = new Date();
   const doc = await FlagImportModel.findOneAndUpdate(
-    { id, status: "pending", expiresAt: { $gt: new Date() } },
+    { id, status: "pending", expiresAt: { $gt: now } },
     {
       $set: {
         status: "claimed",
-        claimed: { at: new Date(), ...by, results: [] },
+        claimed: { at: now, ...by },
+        expiresAt: new Date(
+          now.getTime() +
+            FLAG_IMPORT_CLAIMED_LIFETIME_DAYS * 24 * 60 * 60 * 1000,
+        ),
+      },
+    },
+    { new: true },
+  ).lean();
+  return doc ? toInterface(doc) : null;
+}
+
+// One guarded update, so pressing Import twice cannot create things twice.
+// Resolves to the upload as it was, file included, or null when it was taken.
+export async function beginFlagImport(
+  id: string,
+  by: { userId: string | null; organization: string },
+): Promise<FlagImportInterface | null> {
+  const now = new Date();
+  const doc = await FlagImportModel.findOneAndUpdate(
+    {
+      id,
+      status: "claimed",
+      "claimed.organization": by.organization,
+      expiresAt: { $gt: now },
+    },
+    {
+      $set: {
+        status: "imported",
+        imported: { at: now, userId: by.userId, autoRunId: null, results: [] },
       },
     },
   ).lean();
@@ -136,11 +188,17 @@ export async function claimFlagImport(
 
 export async function finishFlagImport(
   id: string,
-  results: FlagImportResult[],
+  outcome: { results: FlagImportResult[]; autoRunId: string | null },
 ): Promise<FlagImportInterface | null> {
   const doc = await FlagImportModel.findOneAndUpdate(
     { id },
-    { $set: { "claimed.results": results, file: null } },
+    {
+      $set: {
+        "imported.results": outcome.results,
+        "imported.autoRunId": outcome.autoRunId,
+        file: null,
+      },
+    },
     { new: true },
   ).lean();
   return doc ? toInterface(doc) : null;

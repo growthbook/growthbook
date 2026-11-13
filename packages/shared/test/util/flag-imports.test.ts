@@ -2,7 +2,10 @@ import {
   buildFlagImportExperimentBody,
   buildFlagImportFeatureBody,
   getFlagImportFlags,
+  mapFlagImportEnvironments,
   planFlagImport,
+  previewFlagImport,
+  selectFlagImportFlags,
 } from "../../src/util/flag-imports";
 import { FlagsJson, flagsJsonValidator } from "../../src/validators";
 
@@ -583,5 +586,186 @@ describe("buildFlagImportExperimentBody", () => {
         },
       ],
     });
+  });
+});
+
+describe("choices made before importing", () => {
+  const file = flagsJsonValidator.parse({
+    features: {
+      legacyGate: {
+        defaultValue: false,
+        rules: [
+          { condition: { env: { $ne: "production" } }, force: true },
+          { condition: { plan: "enterprise" }, force: true },
+        ],
+      },
+      gated: {
+        defaultValue: false,
+        rules: [{ force: true, namespace: ["ns", 0, 0.5] }],
+      },
+      buttonCta: {
+        defaultValue: "Buy now",
+        rules: [{ variations: ["Buy now", "Get started"] }],
+      },
+      newCheckout: guideExample.features.newCheckout,
+    },
+  });
+  const preview = (overrides = {}) =>
+    Object.fromEntries(
+      previewFlagImport(file, overrides).map((flag) => [flag.key, flag]),
+    );
+
+  it("previews every rule, and says which problems choosing environments fixes", () => {
+    const { legacyGate, gated, buttonCta, newCheckout } = preview();
+
+    expect(legacyGate.importable).toBe(false);
+    expect(legacyGate.rules).toEqual([
+      {
+        index: 0,
+        type: "force",
+        condition: '{"env":{"$ne":"production"}}',
+        environments: [],
+        value: "true",
+        coverage: null,
+        hashAttribute: null,
+        experiment: null,
+        issue: "Rule 1 must match env with a plain value, $eq or $in",
+        fixable: true,
+      },
+      {
+        index: 1,
+        type: "force",
+        condition: '{"plan":"enterprise"}',
+        environments: null,
+        value: "true",
+        coverage: null,
+        hashAttribute: null,
+        experiment: null,
+        issue: null,
+        fixable: false,
+      },
+    ]);
+
+    expect(gated.importable).toBe(false);
+    expect(gated.rules[0]).toMatchObject({ fixable: false });
+    expect(gated.rules[0].issue).toContain("namespaces");
+
+    expect(newCheckout.importable).toBe(true);
+    expect(newCheckout.rules).toMatchObject([
+      { type: "force", environments: ["dev", "staging"], condition: "" },
+      {
+        type: "rollout",
+        environments: null,
+        coverage: 0.2,
+        hashAttribute: "id",
+      },
+    ]);
+
+    expect(buttonCta.rules[0]).toMatchObject({
+      type: "experiment",
+      hashAttribute: "id",
+      coverage: 1,
+      experiment: {
+        trackingKey: "buttonCta",
+        variations: [
+          { name: "Control", value: "Buy now", weight: 0.5 },
+          { name: "Variation 1", value: "Get started", weight: 0.5 },
+        ],
+      },
+    });
+  });
+
+  it("imports a rule in the environments chosen for it", () => {
+    const overrides = {
+      rules: { legacyGate: { "0": { environments: ["dev", "staging"] } } },
+    };
+    const flag = planFlagImport(file, overrides).flags.find(
+      (f) => f.key === "legacyGate",
+    );
+    expect(flag?.unsupported).toEqual([]);
+    expect(flag?.rules[0]).toEqual({
+      type: "force",
+      value: "true",
+      condition: "",
+      environments: ["dev", "staging"],
+    });
+    expect(preview(overrides).legacyGate).toMatchObject({
+      importable: true,
+      reason: null,
+    });
+  });
+
+  it("imports the rest of a flag once the rule in the way is removed", () => {
+    const overrides = {
+      rules: {
+        legacyGate: { "0": { remove: true as const } },
+        gated: { "0": { remove: true as const } },
+      },
+    };
+    const planned = planFlagImport(file, overrides);
+    const legacyGate = planned.flags.find((f) => f.key === "legacyGate");
+    expect(legacyGate).toMatchObject({ unsupported: [], ruleCount: 1 });
+    expect(legacyGate?.rules).toEqual([
+      {
+        type: "force",
+        value: "true",
+        condition: '{"plan":"enterprise"}',
+        environments: null,
+      },
+    ]);
+    expect(planned.flags.find((f) => f.key === "gated")).toMatchObject({
+      unsupported: [],
+      rules: [],
+    });
+    // The rule keeps its position in the file, so a later fix still finds it.
+    expect(preview(overrides).legacyGate.rules.map((r) => r.index)).toEqual([
+      1,
+    ]);
+  });
+
+  it("does not let chosen environments paper over another problem", () => {
+    const flag = planFlagImport(file, {
+      rules: { gated: { "0": { environments: ["dev"] } } },
+    }).flags.find((f) => f.key === "gated");
+    expect(flag?.unsupported).toHaveLength(1);
+  });
+
+  it("treats names like constructor as ordinary keys", () => {
+    const odd = flagsJsonValidator.parse({
+      features: {
+        toString: {
+          defaultValue: false,
+          rules: [{ condition: { env: "constructor" }, force: true }],
+        },
+      },
+    });
+    // No fix and no mapping were given, so nothing may change.
+    const planned = mapFlagImportEnvironments(
+      planFlagImport(odd, { rules: {} }),
+      {},
+    );
+    expect(planned.flags[0].unsupported).toEqual([]);
+    expect(planned.flags[0].rules[0].environments).toEqual(["constructor"]);
+    expect(planned.environments).toEqual(["constructor"]);
+  });
+
+  it("plans only the Feature Flags that were chosen", () => {
+    const chosen = selectFlagImportFlags(file, ["newCheckout", "missing"]);
+    expect(Object.keys(chosen.features)).toEqual(["newCheckout"]);
+    const planned = planFlagImport(chosen);
+    expect(planned.experiments).toEqual([]);
+    expect(planned.attributes.map((a) => a.property)).toEqual(["id"]);
+    expect(selectFlagImportFlags(file)).toBe(file);
+  });
+
+  it("swaps environment names for the workspace's own", () => {
+    const mapped = mapFlagImportEnvironments(
+      planFlagImport(selectFlagImportFlags(file, ["newCheckout"])),
+      { dev: "development", staging: "development" },
+    );
+    expect(mapped.environments).toEqual(["development"]);
+    expect(mapped.summary.environments).toEqual(["development"]);
+    expect(mapped.flags[0].rules[0].environments).toEqual(["development"]);
+    expect(mapped.flags[0].rules[1].environments).toBeNull();
   });
 });
