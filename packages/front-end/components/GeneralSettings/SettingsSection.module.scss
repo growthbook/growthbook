@@ -1,20 +1,20 @@
 .section {
   padding-top: 28px;
-  // Clears the fixed top nav when scrolled to.
-  scroll-margin-top: 64px;
+  scroll-margin-top: calc(var(--settings-section-top) + 8px);
 
   // Anchors inside a section also clear its sticky header.
   [id] {
-    scroll-margin-top: 112px;
+    scroll-margin-top: calc(var(--settings-section-top) + 56px);
   }
 }
 
 .header {
   position: sticky;
-  top: 56px;
+  top: var(--settings-section-top);
   z-index: 6;
   background: var(--color-background);
-  padding: 12px 0 6px;
+  --header-pad-top: 12px;
+  padding: var(--header-pad-top) 0 6px;
   border-bottom: 1px solid var(--slate-a4);
 }
 
@@ -43,8 +43,14 @@
   // Lines the count up with the sub nav's content.
   padding: var(--space-3) var(--space-3) var(--space-3)
     calc(var(--settings-nav-inset) + var(--space-3));
-  // Ends Save at the cards' right edge: 40px page padding plus the 920px column.
-  padding-right: max(40px, calc(100% - var(--settings-layout-left) - 960px));
+  padding-right: max(
+    var(--settings-page-pad-x),
+    calc(
+      100% - var(--settings-layout-left) - var(--settings-page-pad-x) - var(
+          --settings-general-width
+        )
+    )
+  );
   background: var(--color-panel-solid);
   border-top: 1px solid var(--gray-a5);
   box-shadow:
@@ -53,12 +59,15 @@
 
   // Without the sub nav, the count lines up with the page content instead.
   @media (max-width: 1399px) {
-    padding-left: 40px;
+    padding-left: var(--settings-page-pad-x);
   }
   // The sidebar slides away here and the content starts at the window edge.
   @media (max-width: 1180px) {
     left: 0;
-    padding-right: max(40px, calc(100% - 960px));
+    padding-right: max(
+      var(--settings-page-pad-x),
+      calc(100% - var(--settings-page-pad-x) - var(--settings-general-width))
+    );
   }
 }
 
@@ -122,18 +131,30 @@
 }
 
 .generalContent {
-  max-width: 920px;
+  max-width: var(--settings-general-width);
   padding-top: var(--space-3);
+
+  @media (max-width: 1399px) {
+    padding-top: 0;
+
+    .searchSummary {
+      margin-top: calc(-1 * var(--settings-page-pad-top));
+    }
+
+    .section:first-child {
+      padding-top: 0;
+    }
+    .section:first-child .header {
+      margin-top: calc(-1 * var(--header-pad-top));
+    }
+  }
 }
 
-// The Settings nav title stands in for it from 1400px; screen readers still get the h1.
-@media (min-width: 1400px) {
-  .wideHidden {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    clip-path: inset(50%);
-    white-space: nowrap;
-  }
+.visuallyHidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }

@@ -168,7 +168,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
       <SettingsPage
         title="General Settings"
         description="Organization-wide defaults. Projects can override some of these."
-        headerClassName={sectionStyles.wideHidden}
+        headerClassName={sectionStyles.visuallyHidden}
         breadcrumb={[
           { display: "General", href: "/settings" },
           ...(activeTitle ? [{ display: activeTitle }] : []),
@@ -179,7 +179,13 @@ const GeneralSettingsPage = (): React.ReactElement => {
         <style>{SEARCH_HIGHLIGHT_CSS}</style>
         <div ref={pageRef}>
           {hasQuery && total > 0 && (
-            <Flex align="center" gap="3" mt="3" wrap="wrap">
+            <Flex
+              align="center"
+              gap="3"
+              mt="3"
+              wrap="wrap"
+              className={sectionStyles.searchSummary}
+            >
               <Box flexGrow="1" aria-live="polite">
                 <Text size="sm" color="text-mid">
                   {`${total} match${total === 1 ? "" : "es"} for "${query.trim()}" in ${matchedSections} section${matchedSections === 1 ? "" : "s"}.`}

@@ -45,6 +45,7 @@ import { SidebarOpenProvider } from "@/components/Layout/SidebarOpenProvider";
 import { SettingsNavProvider } from "@/components/Layout/SettingsNavContext";
 import { SettingsFormProvider } from "@/components/GeneralSettings/SettingsFormProvider";
 import { isSettingsRoute } from "@/components/Layout/sidebarNav";
+import { SettingsPageTop } from "@/components/Layout/SettingsJumpMenu";
 import { HoverTooltipProvider } from "@/hooks/useHoverTooltip";
 import { FeatureHealthStatesProvider } from "@/hooks/useFeatureHealthStates";
 import { CommandPaletteLauncher } from "@/components/CommandPalette/CommandPalette";
@@ -264,12 +265,17 @@ function App({
                                             <OrgPageContent>
                                               <GuidedGetStartedBar />
                                               <DefinitionsGuard>
-                                                <Component
-                                                  {...{
-                                                    ...pageProps,
-                                                    envReady: ready,
-                                                  }}
-                                                />
+                                                <>
+                                                  {inSettings ? (
+                                                    <SettingsPageTop />
+                                                  ) : null}
+                                                  <Component
+                                                    {...{
+                                                      ...pageProps,
+                                                      envReady: ready,
+                                                    }}
+                                                  />
+                                                </>
                                               </DefinitionsGuard>
                                             </OrgPageContent>
                                           </main>

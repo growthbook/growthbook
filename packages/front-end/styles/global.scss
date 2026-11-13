@@ -53,11 +53,18 @@ body {
     var(--settings-sidebar-width) + var(--settings-nav-width) +
       var(--settings-nav-inset)
   );
+  --settings-section-top: 56px;
+  --settings-general-width: 920px;
+  --settings-page-width: 1240px;
+  --settings-page-pad-top: 28px;
+  --settings-page-pad-x: 40px;
 }
 // Matches the sub nav's breakpoint: without it, content only clears the sidebar.
 @media (max-width: 1399px) {
   :root {
     --settings-layout-left: var(--settings-sidebar-width);
+    --settings-jump-bar-height: 56px;
+    --settings-section-top: calc(56px + var(--settings-jump-bar-height));
   }
 }
 .main {
@@ -3239,8 +3246,8 @@ html {
 .main.settings-layout {
   .container-fluid.pagecontents {
     margin-left: 0;
-    max-width: 1240px;
-    padding: 28px 40px;
+    max-width: var(--settings-page-width);
+    padding: var(--settings-page-pad-top) var(--settings-page-pad-x);
   }
   .appbox {
     border-radius: 8px;
