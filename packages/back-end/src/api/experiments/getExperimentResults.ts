@@ -40,8 +40,9 @@ export const getExperimentResults = createApiRequestHandler(
   }
 
   const [apiExperiment, metricsById, exposureQueries] = await Promise.all([
-    // Holdouts have no enhanced status, and it describes the latest phase, so
-    // it would mislead next to an older phase's results.
+    // Holdouts have no enhanced status. Non-holdout requests do have enhanced status
+    // but we should not return it if the user requested data from an older phase
+    // where that enhanced status does not apply.
     experiment.type === "holdout" || phase !== latestPhase
       ? toExperimentApiInterface(req.context, experiment).then((apiDoc) =>
           resolveOwnerEmail(apiDoc, req.context),
