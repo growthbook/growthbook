@@ -24,13 +24,11 @@ import {
 import {
   Revision,
   JsonPatchOperation,
-  getSdkConnectionReviewRules,
   normalizeProposedChanges,
 } from "shared/enterprise";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { ApiErrorResponse } from "back-end/types/api";
-import { ReqContext } from "back-end/types/request";
 import { getContextFromReq } from "back-end/src/services/organizations";
 import {
   createSDKConnection,
@@ -48,6 +46,7 @@ import {
   assertCanChangeSdkWebhooks,
   assertSdkWebhooksEditableDirectly,
   isSdkConnectionGated,
+  sdkConnectionReviewRules,
 } from "back-end/src/services/sdkConnectionApprovals";
 import {
   createOrUpdateRevision,
@@ -184,22 +183,6 @@ type PutSDKConnectionResponse =
       requiresApproval: boolean;
       revision: Revision;
     };
-
-// Answers before a revision exists, so a refused publish leaves no draft behind.
-function isApprovalRequiredForChange(
-  context: ReqContext,
-  baseline: SDKConnectionRevisionSnapshot,
-  patchOps: JsonPatchOperation[],
-): boolean {
-  if (!context.hasPremiumFeature("require-approvals")) return false;
-  return (
-    getSdkConnectionReviewRules(
-      context.org.settings?.approvalFlows,
-      baseline,
-      patchOps,
-    ).length > 0
-  );
-}
 
 export const putSDKConnection = async (
   req: PutSDKConnectionRequest,
@@ -367,7 +350,7 @@ export const putSDKConnection = async (
   }
 
   // Checked up front so nothing is minted for a caller the apply would refuse.
-  if (hasWebhookChanges && incomingWebhooks) {
+  if (hasWebhookChanges) {
     assertCanChangeSdkWebhooks(
       context,
       { projects: connection.projects, environment: connection.environment },
@@ -403,7 +386,7 @@ export const putSDKConnection = async (
     });
     desiredChanges.sdkConnection = proposedSettingsSnapshot;
   }
-  if (hasWebhookChanges && incomingWebhooks) {
+  if (hasWebhookChanges) {
     patchOps.push({
       op: "replace",
       path: "/sdkWebhooks",
@@ -417,11 +400,9 @@ export const putSDKConnection = async (
     sdkWebhooks: liveWebhookSnapshots,
   };
   const adapter = getAdapter("sdk-connection");
-  const needsApproval = isApprovalRequiredForChange(
-    context,
-    baselineSnapshot,
-    patchOps,
-  );
+  // Answers before a revision exists, so a refused publish leaves no draft behind.
+  const needsApproval =
+    sdkConnectionReviewRules(context, baselineSnapshot, patchOps).length > 0;
   // A move needs bypass authority in the destination scope too.
   const canBypass =
     adapter.canBypassApproval(context, baselineSnapshot) &&

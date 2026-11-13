@@ -23,6 +23,10 @@ import Field from "@/components/Forms/Field";
 import Tooltip from "@/ui/Tooltip";
 import SDKLanguageSelector from "@/components/Features/SDKConnections/SDKLanguageSelector";
 import {
+  languagesPatch,
+  versionedLanguage,
+} from "@/components/Features/SDKConnections/sdkConnectionRules";
+import {
   getPackageRepositoryName,
   LanguageFilter,
   languageMapping,
@@ -82,11 +86,8 @@ export function SDKVersionField({
   hideLabel,
   disabled,
 }: FieldsProps) {
-  const singleLanguage =
-    value.languages.length === 1 ? value.languages[0] : undefined;
-  if (!singleLanguage || /^(other|nocode-.*)$/.test(singleLanguage)) {
-    return null;
-  }
+  const singleLanguage = versionedLanguage(value.languages);
+  if (!singleLanguage) return null;
   const latestVersion = getLatestSDKVersion(singleLanguage);
   const usingLatestVersion = !isSDKOutdated(singleLanguage, value.sdkVersion);
 
@@ -329,8 +330,6 @@ export default function SDKConnectionFields({
   setLanguageFilter,
   languageError,
   environmentError,
-  edit,
-  managedByVercel = false,
   requireProjectSelection = false,
 }: {
   value: SDKConnectionFieldsValue;
@@ -339,14 +338,9 @@ export default function SDKConnectionFields({
   setLanguageFilter: (f: LanguageFilter) => void;
   languageError?: string | null;
   environmentError?: string | null;
-  edit: boolean;
-  managedByVercel?: boolean;
   requireProjectSelection?: boolean;
 }) {
-  const singleLanguage =
-    value.languages.length === 1 ? value.languages[0] : undefined;
-  const showVersionPicker =
-    !!singleLanguage && !/^(other|nocode-.*)$/.test(singleLanguage);
+  const showVersionPicker = !!versionedLanguage(value.languages);
 
   return (
     <Flex direction="column" gap="4">
@@ -371,16 +365,7 @@ export default function SDKConnectionFields({
         ) : null}
         <SDKLanguageSelector
           value={value.languages}
-          setValue={(langs) =>
-            onChange(
-              langs.length === 1
-                ? {
-                    languages: langs,
-                    sdkVersion: getLatestSDKVersion(langs[0]),
-                  }
-                : { languages: langs },
-            )
-          }
+          setValue={(langs) => onChange(languagesPatch(langs))}
           multiple={value.languages.length > 1}
           includeOther={true}
           skipLabel={value.languages.length <= 1}
@@ -400,7 +385,6 @@ export default function SDKConnectionFields({
           value={value}
           onChange={onChange}
           error={environmentError}
-          managedByVercel={managedByVercel}
         />
       </Grid>
 
@@ -408,8 +392,7 @@ export default function SDKConnectionFields({
         <ProjectsField
           value={value}
           onChange={onChange}
-          edit={edit}
-          managedByVercel={managedByVercel}
+          edit={false}
           requireProjectSelection={requireProjectSelection}
         />
         <Box mt="3">

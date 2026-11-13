@@ -1,11 +1,7 @@
 import { ReactNode, useState } from "react";
-import isEqual from "lodash/isEqual";
 import { Box, Flex, Separator } from "@radix-ui/themes";
 import { SDKConnectionInterface } from "shared/types/sdk-connection";
-import {
-  getConnectionSDKCapabilities,
-  savedGroupFormatFromConnection,
-} from "shared/sdk-versioning";
+import { savedGroupFormatFromConnection } from "shared/sdk-versioning";
 import SectionFrame from "@/components/SectionFrame";
 import SetupFieldRow from "@/components/Experiment/TabbedPage/SetupFieldRow";
 import { HiddenProject } from "@/components/DetailsPanelFields";
@@ -13,8 +9,8 @@ import SDKConnectionCredentialsCard, {
   configSettingsTitle,
 } from "@/components/Features/SDKConnections/SDKConnectionCredentialsCard";
 import CodeSnippetModal from "@/components/Features/CodeSnippetModal";
-import { SDKConnectionFormValue } from "@/components/Features/SDKConnections/SDKConnectionEditModal";
 import { SdkConnectionStagedEdits } from "@/components/Features/SDKConnections/useSdkConnectionStagedEdits";
+import { connectionCapabilities } from "@/components/Features/SDKConnections/sdkConnectionRules";
 import { useShowTraces } from "@/components/Features/SDKConnections/SDKConnectionAdvancedSettings";
 import {
   CONNECTION_ROWS,
@@ -30,7 +26,7 @@ import { isCloud } from "@/services/env";
 import Button from "@/ui/Button";
 import Tooltip from "@/ui/Tooltip";
 
-// A setting, marked when the viewed draft changes it. Its label shares a
+// A setting, marked while a staged edit changes it. Its label shares a
 // baseline with the first line of what it labels: an option, a field's value.
 function Row({
   label,
@@ -83,14 +79,9 @@ export default function SDKConnectionOverview({
   const { stage } = staged;
   // Staged edits only show where they can still be saved.
   const shown = canEdit ? staged.shown : staged.saved;
-  // Unsaved: what the staged edits change from the viewed draft or live.
-  const changed = (...keys: (keyof SDKConnectionFormValue)[]) =>
-    keys.some((k) => !isEqual(shown[k], staged.saved[k]));
 
-  const caps = { languages: shown.languages, sdkVersion: shown.sdkVersion };
   const ctx: SettingRowContext = {
-    latestCaps: getConnectionSDKCapabilities(caps, "max-ver-intersection"),
-    currentCaps: getConnectionSDKCapabilities(caps, "min-ver-intersection"),
+    ...connectionCapabilities(shown),
     customFieldName: (id) => customFields?.find((f) => f.id === id)?.name ?? id,
     projectName: (id) => getProjectById(id)?.name || <HiddenProject id={id} />,
     showTraces,
@@ -98,7 +89,7 @@ export default function SDKConnectionOverview({
     managedByVercel: connection.managedBy?.type === "vercel",
     requireProjectSelection:
       !!settings.requireProjectForSdkConnections &&
-      (connection.projects?.length ?? 0) > 0,
+      connection.projects.length > 0,
     cloud: isCloud(),
   };
   const [showSnippet, setShowSnippet] = useState(false);
@@ -110,7 +101,7 @@ export default function SDKConnectionOverview({
         <Row
           key={row.key}
           label={row.label}
-          changed={changed(...staged.fieldsOf(row))}
+          changed={canEdit && staged.stagedRows.includes(row)}
         >
           {canEdit ? (
             <Tooltip content={blockedReason} enabled={!!blockedReason}>

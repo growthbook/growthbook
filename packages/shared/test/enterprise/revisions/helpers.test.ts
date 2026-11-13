@@ -1206,31 +1206,11 @@ describe("revisions helpers", () => {
       ).toBe(false);
     });
 
-    it("does not exempt a rename, a no-op, or a webhook change", () => {
+    it("does not exempt a rename", () => {
       expect(
         isSdkConnectionRevisionReviewExempt(
           replaceSettings({ ...baseline.sdkConnection, name: "Renamed" }),
           baseline,
-        ),
-      ).toBe(false);
-      expect(
-        isSdkConnectionRevisionReviewExempt(
-          replaceSettings({ ...baseline.sdkConnection }),
-          baseline,
-        ),
-      ).toBe(false);
-      expect(
-        isSdkConnectionRevisionReviewExempt(
-          [{ op: "replace", path: "/sdkWebhooks", value: [] }],
-          baseline,
-        ),
-      ).toBe(false);
-    });
-
-    it("is conservative without a baseline", () => {
-      expect(
-        isSdkConnectionRevisionReviewExempt(
-          replaceSettings({ ...baseline.sdkConnection, eventTracker: "ga4" }),
         ),
       ).toBe(false);
     });

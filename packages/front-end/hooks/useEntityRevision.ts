@@ -37,14 +37,11 @@ export function useEntityRevision<T extends RevisableEntity>({
   const initializedDefaultSelectionFor = useRef<string | null>(null);
 
   // Selected revision lives in the URL via `?v=<n>`.
-  const urlVersion = router.isReady
-    ? (() => {
-        const raw = router.query.v;
-        if (typeof raw !== "string" || !/^\d+$/.test(raw)) return null;
-        const n = Number(raw);
-        return Number.isInteger(n) ? n : null;
-      })()
-    : null;
+  const rawV = router.query.v;
+  const urlVersion =
+    router.isReady && typeof rawV === "string" && /^\d+$/.test(rawV)
+      ? Number(rawV)
+      : null;
 
   const { data, mutate: mutateRevisions } = useApi<{
     revisions: Revision[];
@@ -60,17 +57,8 @@ export function useEntityRevision<T extends RevisableEntity>({
     [data?.revisions],
   );
 
-  // The "live" version is the version of the most-recently-merged revision —
-  // i.e., the merge that actually produced the current on-disk state. This
-  // intentionally tracks merge order (`dateUpdated` for merged revisions,
-  // which is frozen at merge time since `canUpdate` rejects merged docs)
-  // rather than version number, because drafts can be merged out of creation
-  // order (an older draft left open while newer ones are merged, then
-  // merged later). In that case the highest-numbered merged revision is
-  // *not* what's on disk, and using it caused the header dropdown — which
-  // already derives its "live" badge from the most-recently-merged
-  // revision — to silently snap the user back to a different revision when
-  // they tried to select a higher-numbered, locked/merged revision.
+  // Live is the most recently merged revision, not the highest-numbered:
+  // drafts can merge out of order.
   const liveVersion = useMemo<number | null>(() => {
     let latest: { version: number; dateUpdated: number } | null = null;
     for (const r of data?.revisions ?? []) {
@@ -98,13 +86,13 @@ export function useEntityRevision<T extends RevisableEntity>({
   // treat it as the live view (no revision selected).
   const selectedRevision = useMemo(() => {
     const revisions = data?.revisions ?? [];
-    if ((urlVersion ?? null) === null) return null;
+    if (urlVersion === null) return null;
     if (urlVersion === liveVersion) return null;
     return revisions.find((f) => f.version === urlVersion) ?? null;
   }, [urlVersion, liveVersion, data?.revisions]);
 
   const selectedRevisionId = selectedRevision?.id ?? null;
-  const hasSelectionInUrl = (urlVersion ?? null) !== null;
+  const hasSelectionInUrl = urlVersion !== null;
 
   // Single URL-update helper. Uses routerRef (empty deps) to guarantee stability
   // so effects that depend on it don't re-run every time the router refreshes.
@@ -128,7 +116,7 @@ export function useEntityRevision<T extends RevisableEntity>({
       };
       delete query.v;
       const versionToUse = revision?.version ?? liveVersionRef.current;
-      if ((versionToUse ?? null) !== null) {
+      if (versionToUse !== null) {
         query.v = String(versionToUse);
       }
       const hash = new URL(r.asPath, "http://x").hash.slice(1) || undefined;
@@ -223,8 +211,7 @@ export function useEntityRevision<T extends RevisableEntity>({
   const handlePublish = useCallback(
     async (revisionId: string) => {
       await apiCall(`/revision/${revisionId}/merge`, { method: "POST" });
-      // Wait for the revisions list to update before rewriting the URL so the
-      // "live version" (max merged version) reflects the newly merged revision.
+      // Refetch first so the URL lands on the newly live revision.
       const updated = await mutateRevisions();
       entityMutate(); // refresh live entity data after merge
       const merged = (updated?.revisions ?? data?.revisions ?? []).find(
@@ -258,15 +245,6 @@ export function useEntityRevision<T extends RevisableEntity>({
     },
     [apiCall, mutateRevisions, data?.revisions, updateUrl],
   );
-
-  // Derive whether the current user already has an open revision on this resource
-  const userOpenRevision = useMemo(
-    () => openRevisions.find((f) => f.authorId === userId) ?? null,
-    [openRevisions, userId],
-  );
-
-  const hasRealRevisions =
-    data !== undefined && (data.revisions?.length ?? 0) > 0;
 
   // When no real revisions exist yet, synthesize a dummy "Revision 1" representing
   // the initial saved state. This is frontend-only and never persisted.
@@ -317,13 +295,11 @@ export function useEntityRevision<T extends RevisableEntity>({
     selectedApprovalFlowId: selectedRevisionId,
     openApprovalFlows: openRevisions,
     allApprovalFlows: allRevisions,
-    hasRealRevisions,
     selectFlow,
     onApprovalFlowCreated: onRevisionCreated,
     handlePublish,
     handleDiscard,
     handleReopen,
     mutateApprovalFlows: mutateRevisions,
-    userOpenFlow: userOpenRevision,
   };
 }

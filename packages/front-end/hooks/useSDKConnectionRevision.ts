@@ -11,7 +11,5 @@ export function useSDKConnectionRevision(
     entityId: sdkConnectionId,
     entityMutate: sdkConnectionMutate,
     entity: connection,
-    // SDK connections have no owner.
-    ownerId: "",
   });
 }

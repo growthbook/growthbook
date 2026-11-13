@@ -5,10 +5,39 @@ import {
 } from "shared/types/sdk-connection";
 import {
   getConnectionSDKCapabilities,
+  getLatestSDKVersion,
   savedGroupFormatFromConnection,
 } from "shared/sdk-versioning";
 
-type SDKCapability = ReturnType<typeof getConnectionSDKCapabilities>[number];
+export type SDKCapability = ReturnType<
+  typeof getConnectionSDKCapabilities
+>[number];
+
+// What the oldest SDK version supports now, and what upgrading could unlock.
+export function connectionCapabilities(c: {
+  languages: SDKLanguage[];
+  sdkVersion?: string;
+}) {
+  return {
+    currentCaps: getConnectionSDKCapabilities(c, "min-ver-intersection"),
+    latestCaps: getConnectionSDKCapabilities(c, "max-ver-intersection"),
+  };
+}
+
+// The one SDK a connection pins a version of, if it has one.
+export function versionedLanguage(
+  languages: SDKLanguage[],
+): SDKLanguage | null {
+  const language = languages.length === 1 ? languages[0] : null;
+  return language && !/^(other|nocode-.*)$/.test(language) ? language : null;
+}
+
+// A new single SDK starts on its latest version.
+export function languagesPatch(languages: SDKLanguage[]) {
+  return languages.length === 1
+    ? { languages, sdkVersion: getLatestSDKVersion(languages[0]) }
+    : { languages };
+}
 
 // Next.js caching can't read a ciphered or remotely-evaluated payload.
 export function shouldShowPayloadSecurity(

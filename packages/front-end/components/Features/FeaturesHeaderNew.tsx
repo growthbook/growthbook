@@ -415,7 +415,7 @@ export default function FeaturesHeaderNew({
       </DetailsPageTitleBar>
       <DetailsPageTabs
         value={tab}
-        onValueChange={(value) => setTab(value as FeatureTab)}
+        onValueChange={setTab}
         triggers={
           <>
             <TabsTrigger value="overview">Overview</TabsTrigger>

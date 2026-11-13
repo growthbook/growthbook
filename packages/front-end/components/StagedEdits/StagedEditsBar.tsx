@@ -4,6 +4,8 @@ import useBottomBarClearance from "@/hooks/useBottomBarClearance";
 import Button from "@/ui/Button";
 import styles from "./StagedEditsBar.module.scss";
 
+export const EDITS_BLOCKED_REASON = "Save or discard your changes first.";
+
 /** Appears once something on the page is edited, and is the only way to write it. */
 export default function StagedEditsBar({
   columnClassName,

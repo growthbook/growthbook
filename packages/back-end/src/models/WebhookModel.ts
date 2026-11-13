@@ -36,6 +36,7 @@ import {
   assertCanUseSDKConnections,
   findSDKConnectionById,
   findSDKConnectionsByIds,
+  touchSDKConnections,
 } from "./SdkConnectionModel";
 
 type ApiSdkWebhook = z.infer<typeof apiSdkWebhookValidator>;
@@ -274,6 +275,7 @@ export class SdkWebhookModel extends BaseClass {
       httpMethod: body.httpMethod ?? "POST",
       payloadFormat: body.payloadFormat ?? "standard",
     });
+    await touchSDKConnections(context, [conn.id]);
     return { sdkWebhook: this.toApiInterface(webhook) };
   }
 
@@ -332,6 +334,10 @@ export class SdkWebhookModel extends BaseClass {
       ...(sdkConnections ? { sdks: sdkConnections } : {}),
       ...resetFields,
     });
+    await touchSDKConnections(
+      context,
+      uniq([...webhook.sdks, ...(sdkConnections ?? [])]),
+    );
 
     fireSdkWebhook(context, updated).catch(() => {
       // Already logged on the webhook
@@ -350,6 +356,7 @@ export class SdkWebhookModel extends BaseClass {
     );
     this.assertNotManaged(webhook);
     await this.deleteById(id);
+    await touchSDKConnections(this.context, webhook.sdks);
     return { deletedId: id };
   }
 

@@ -25,6 +25,7 @@ import {
   type ExperimentRuleEnvironments,
 } from "shared/validators";
 import { Flex } from "@radix-ui/themes";
+import { EDITS_BLOCKED_REASON } from "@/components/StagedEdits/StagedEditsBar";
 import { useAuth } from "@/services/auth";
 import { ApiCallError } from "@/services/apiCallError";
 import useUnsavedChangesGuard from "@/hooks/useUnsavedChangesGuard";
@@ -787,7 +788,7 @@ export function useExperimentFieldEdit(
 
 export function useEditsBlockedReason(): string | null {
   const ctx = useContext(ExperimentEditsContext);
-  return ctx?.dirty ? "Save or discard your changes first." : null;
+  return ctx?.dirty ? EDITS_BLOCKED_REASON : null;
 }
 
 // An upload writes to the stored variation at an index staged variation edits

@@ -20,7 +20,7 @@ export type SdkConnectionRevisionProps = {
   metadataReviewRequired?: boolean;
 };
 
-export type SdkConnectionScope = {
+type SdkConnectionScope = {
   projects?: string[];
   environment?: string;
 };
@@ -48,8 +48,8 @@ export function canBypassSdkConnectionApproval(
 }
 
 function seededValue(connection: SDKConnectionInterface, key: string): unknown {
-  if (key === "proxyEnabled") return connection.proxy?.enabled;
-  if (key === "proxyHost") return connection.proxy?.host;
+  if (key === "proxyEnabled") return connection.proxy.enabled;
+  if (key === "proxyHost") return connection.proxy.host;
   return (connection as unknown as Record<string, unknown>)[key];
 }
 
@@ -160,7 +160,7 @@ export function useSdkConnectionRevisionFlow({
         canBypassSdkConnectionApproval(
           permissionsUtil,
           user?.role,
-          proposedScope?.projects ?? connection.projects ?? [],
+          proposedScope?.projects ?? connection.projects,
         )));
 
   // Prefer the draft being viewed, then the user's own open draft. Never

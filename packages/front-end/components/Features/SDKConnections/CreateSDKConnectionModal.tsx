@@ -1,24 +1,22 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/router";
 import { SDKConnectionInterface } from "shared/types/sdk-connection";
-import {
-  getConnectionSDKCapabilities,
-  getDefaultSDKVersion,
-} from "shared/sdk-versioning";
+import { getDefaultSDKVersion } from "shared/sdk-versioning";
 import { Flex } from "@radix-ui/themes";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
-import SDKConnectionFields, {
-  SDKConnectionFieldsValue,
-} from "@/components/Features/SDKConnections/SDKConnectionFields";
+import SDKConnectionFields from "@/components/Features/SDKConnections/SDKConnectionFields";
+import {
+  sdkConnectionBody,
+  SDKConnectionFormValue,
+} from "@/components/Features/SDKConnections/SDKConnectionEditModal";
 import SDKConnectionAdvancedSettings from "@/components/Features/SDKConnections/SDKConnectionAdvancedSettings";
 import { getConnectionLanguageFilter } from "@/components/Features/SDKConnections/SDKLanguageLogo";
 import type { LanguageFilter } from "@/components/Features/SDKConnections/SDKLanguageLogo";
 import {
   advancedValueFromConnection,
+  connectionCapabilities,
   defaultSavedGroupFormat,
   deliveryModeFromConnection,
-  sanitizeAdvancedForSave,
-  SDKConnectionAdvancedValue,
 } from "@/components/Features/SDKConnections/sdkConnectionRules";
 import { useAuth } from "@/services/auth";
 import { useEnvironments } from "@/services/features";
@@ -26,8 +24,6 @@ import useOrgSettings from "@/hooks/useOrgSettings";
 import { useUser } from "@/services/UserContext";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import track from "@/services/track";
-
-type FormValue = SDKConnectionFieldsValue & SDKConnectionAdvancedValue;
 
 export default function CreateSDKConnectionModal({
   close,
@@ -51,7 +47,7 @@ export default function CreateSDKConnectionModal({
   const { hasCommercialFeature } = useUser();
   const hasLargeSavedGroupFeature = hasCommercialFeature("large-saved-groups");
 
-  const [value, setValue] = useState<FormValue>(() => ({
+  const [value, setValue] = useState<SDKConnectionFormValue>(() => ({
     name: initialValue?.name ?? "",
     languages: initialValue?.languages ?? [],
     sdkVersion:
@@ -73,7 +69,7 @@ export default function CreateSDKConnectionModal({
   // The Saved Groups default follows the chosen SDK until someone picks an
   // option themselves.
   const savedGroupFormatChosen = useRef(false);
-  const onChange = (patch: Partial<FormValue>) => {
+  const onChange = (patch: Partial<SDKConnectionFormValue>) => {
     if (patch.savedGroupFormat !== undefined) {
       savedGroupFormatChosen.current = true;
     }
@@ -89,16 +85,9 @@ export default function CreateSDKConnectionModal({
     getConnectionLanguageFilter(initialValue?.languages ?? []),
   );
 
-  const currentCapabilities = getConnectionSDKCapabilities(
-    { languages: value.languages, sdkVersion: value.sdkVersion },
-    "min-ver-intersection",
-  );
-  const latestCapabilities = getConnectionSDKCapabilities(
-    { languages: value.languages, sdkVersion: value.sdkVersion },
-    "max-ver-intersection",
-  );
-  const showVisualEditorSettings = latestCapabilities.includes("visualEditor");
-  const showRedirectSettings = latestCapabilities.includes("redirects");
+  const { latestCaps } = connectionCapabilities(value);
+  const showVisualEditorSettings = latestCaps.includes("visualEditor");
+  const showRedirectSettings = latestCaps.includes("redirects");
 
   useEffect(() => {
     setValue((v) => ({
@@ -112,10 +101,10 @@ export default function CreateSDKConnectionModal({
   useEffect(() => {
     if (savedGroupFormatChosen.current) return;
     const savedGroupFormat = defaultSavedGroupFormat({
-      currentCapabilities: getConnectionSDKCapabilities(
-        { languages: value.languages, sdkVersion: value.sdkVersion },
-        "min-ver-intersection",
-      ),
+      currentCapabilities: connectionCapabilities({
+        languages: value.languages,
+        sdkVersion: value.sdkVersion,
+      }).currentCaps,
       hasLargeSavedGroupFeature,
     });
     setValue((v) => ({ ...v, savedGroupFormat }));
@@ -149,25 +138,7 @@ export default function CreateSDKConnectionModal({
           throw new Error("Please select an environment");
         }
         setEnvironmentError(null);
-        const plain = value.delivery === "plain";
-        const body = {
-          name: value.name,
-          languages: value.languages,
-          sdkVersion: value.sdkVersion,
-          environment: value.environment,
-          projects: value.projects,
-          includeReferencedPrerequisites: value.includeReferencedPrerequisites,
-          encryptPayload: plain ? false : value.encryptPayload,
-          hashSecureAttributes: plain ? false : value.hashSecureAttributes,
-          remoteEvalEnabled:
-            value.delivery === "remote" &&
-            latestCapabilities.includes("remoteEval") &&
-            hasCommercialFeature("remote-evaluation"),
-          ...sanitizeAdvancedForSave(value, {
-            latestCapabilities,
-            currentCapabilities,
-          }),
-        };
+        const body = sdkConnectionBody(value);
 
         const res = await apiCall<{ connection: SDKConnectionInterface }>(
           `/sdk-connections`,
@@ -197,7 +168,6 @@ export default function CreateSDKConnectionModal({
           setLanguageFilter={setLanguageFilter}
           languageError={languageError}
           environmentError={environmentError}
-          edit={false}
           requireProjectSelection={requireProjectSelection}
         />
 

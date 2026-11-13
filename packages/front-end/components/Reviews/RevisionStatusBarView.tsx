@@ -1,4 +1,4 @@
-import { ReactNode } from "react";
+import { ReactNode, useEffect, useState } from "react";
 import { Flex } from "@radix-ui/themes";
 import clsx from "clsx";
 import Text from "@/ui/Text";
@@ -7,6 +7,24 @@ import styles from "./RevisionStatusBarView.module.scss";
 // Room for a normal-sized button with even padding. A message that wraps
 // grows it.
 export const REVISION_STATUS_BAR_HEIGHT_PX = 48;
+
+// Its message wraps, so what sticks beneath it reads its real height.
+export function useRevisionStatusBarHeight(): [
+  (el: HTMLDivElement | null) => void,
+  number,
+] {
+  const [el, setEl] = useState<HTMLDivElement | null>(null);
+  const [height, setHeight] = useState(REVISION_STATUS_BAR_HEIGHT_PX);
+  useEffect(() => {
+    if (!el) return;
+    const observer = new ResizeObserver(([entry]) =>
+      setHeight(entry.borderBoxSize[0].blockSize),
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [el]);
+  return [setEl, height];
+}
 
 /**
  * The viewed revision's state, fixed under the page's tabs: what it is, what

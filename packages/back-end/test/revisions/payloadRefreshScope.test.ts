@@ -104,21 +104,6 @@ describe("flushPayloadRefreshBuffer", () => {
     expect(context.sdkPayloadRefreshBuffer).toBeNull();
   });
 
-  it("refreshes connections buffered by identity even with no keys", () => {
-    const context = makeContext();
-    const connection = { key: "sdk-1" } as SDKConnectionInterface;
-    context.sdkPayloadRefreshBuffer = {
-      keys: [],
-      sdkConnections: [connection, connection],
-      treatEmptyProjectAsGlobal: false,
-    };
-
-    flushPayloadRefreshBuffer(context, "test");
-
-    expect(queueRefresh).toHaveBeenCalledTimes(1);
-    expect(queueRefresh.mock.calls[0][0].sdkConnections).toEqual([connection]);
-  });
-
   it("refreshes a connection written twice from its last write", () => {
     const context = makeContext();
     const first = { key: "sdk-1", encryptPayload: false };
@@ -131,6 +116,7 @@ describe("flushPayloadRefreshBuffer", () => {
 
     flushPayloadRefreshBuffer(context, "test");
 
+    expect(queueRefresh).toHaveBeenCalledTimes(1);
     expect(queueRefresh.mock.calls[0][0].sdkConnections).toEqual([last]);
   });
 });

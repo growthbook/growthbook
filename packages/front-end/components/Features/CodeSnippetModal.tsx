@@ -237,7 +237,7 @@ export default function CodeSnippetModal({
   }
 
   const hasLanguageChoice =
-    (currentConnection?.languages?.length ?? 0) > 1 ||
+    currentConnection.languages.length > 1 ||
     (connections.length > 1 && !!allowChangingConnection);
   const picker = (
     <Flex gap="5" wrap="wrap" align="start">

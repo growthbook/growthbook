@@ -16,7 +16,11 @@ export const CATEGORY_TITLES = {
   proxy: "GrowthBook Proxy",
 } as const;
 
-export type SDKConnectionSettingsCategory = keyof typeof CATEGORY_TITLES;
+export const DELIVERY_LABELS = {
+  plain: "Plain Text",
+  ciphered: "Ciphered",
+  remote: "Remote Evaluated",
+} as const;
 
 export const SETTING_TITLES = {
   visualEditor: "Enable Visual Editor experiments",
@@ -47,7 +51,7 @@ export const SAVED_GROUP_FORMAT_LABELS: Record<SavedGroupFormat, string> = {
 
 // A setting's tips open beside it and close as the pointer leaves, so moving
 // down the form reaches the next one.
-export const SETTING_TIP = {
+const SETTING_TIP = {
   side: "right",
   disableHoverableContent: true,
 } as const;

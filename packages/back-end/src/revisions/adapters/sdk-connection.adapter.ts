@@ -11,8 +11,7 @@ import {
   PublishFootprint,
   Revision,
   orgHasAnySdkConnectionApproval,
-  getSdkConnectionGoverningRules,
-  getSdkConnectionReviewRules,
+  isAutopublishOnApprovalEnabled,
   normalizeProposedChanges,
   sdkConnectionPublishFootprint,
 } from "shared/enterprise";
@@ -38,7 +37,10 @@ import {
   findSDKConnectionById,
   findSDKConnectionsByIds,
 } from "back-end/src/models/SdkConnectionModel";
-import { assertCanChangeSdkWebhooks } from "back-end/src/services/sdkConnectionApprovals";
+import {
+  assertCanChangeSdkWebhooks,
+  sdkConnectionReviewRules,
+} from "back-end/src/services/sdkConnectionApprovals";
 
 // Loaded at call time: the validations module pulls in the services graph,
 // which cycles back through revisions/index to this adapter.
@@ -116,10 +118,8 @@ function toWebhookSnapshot(wh: WebhookInterface): SDKWebhookRevisionSnapshot {
 // Callers may attach pre-fetched webhooks to the entity as `_webhooks`.
 function toSnapshot(
   entity: Record<string, unknown>,
-  webhooks?: WebhookInterface[],
 ): SDKConnectionRevisionSnapshot {
-  const preloaded = entity._webhooks as WebhookInterface[] | undefined;
-  const whs = webhooks ?? preloaded ?? [];
+  const whs = (entity._webhooks as WebhookInterface[] | undefined) ?? [];
   return {
     sdkConnection: toConnectionSettingsSnapshot(entity),
     sdkWebhooks: whs.map(toWebhookSnapshot),
@@ -180,11 +180,8 @@ function sdkConnectionReviewRequirement(
   context: Context,
   revision: Revision,
 ): SdkConnectionReviewRequirement {
-  if (!context.hasPremiumFeature("require-approvals")) {
-    return { required: false, rules: [] };
-  }
-  const rules = getSdkConnectionReviewRules(
-    context.org.settings?.approvalFlows,
+  const rules = sdkConnectionReviewRules(
+    context,
     revision.target.snapshot as SDKConnectionRevisionSnapshot,
     revision.target.proposedChanges,
   );
@@ -228,7 +225,7 @@ export const sdkConnectionAdapter: EntityRevisionAdapter<SDKConnectionRevisionSn
       // Must be idempotent: `RevisionModel.createRequest` re-runs buildSnapshot
       // on an already-built (composite) snapshot. The live root fields are
       // dropped on purpose.
-      if (raw && typeof raw === "object" && "sdkConnection" in raw) {
+      if ("sdkConnection" in raw) {
         return {
           sdkConnection: toConnectionSettingsSnapshot(
             (raw.sdkConnection ?? {}) as Record<string, unknown>,
@@ -302,7 +299,7 @@ export const sdkConnectionAdapter: EntityRevisionAdapter<SDKConnectionRevisionSn
         proposed = (op.value as SDKConnectionSettingsRevisionSnapshot | null)
           ?.archived;
       }
-      return { current: snapshot.sdkConnection?.archived, proposed };
+      return { current: snapshot.sdkConnection.archived, proposed };
     },
 
     isApprovalRequired(context: Context): boolean {
@@ -344,11 +341,12 @@ export const sdkConnectionAdapter: EntityRevisionAdapter<SDKConnectionRevisionSn
       snapshot: SDKConnectionRevisionSnapshot,
     ): boolean {
       if (!context.hasPremiumFeature("require-approvals")) return false;
-      const rules = getSdkConnectionGoverningRules(
-        context.org.settings?.approvalFlows,
-        snapshot.sdkConnection,
+      return isAutopublishOnApprovalEnabled(
+        context.org.settings,
+        "sdk-connection",
+        [],
+        snapshot,
       );
-      return rules.length > 0 && rules.every((r) => !!r.autopublishOnApproval);
     },
 
     // For the generic publish paths that skip the PUT controller. Runs before

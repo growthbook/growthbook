@@ -123,7 +123,7 @@ export default function RevisionStatusBar<T>({
   let label: string | null = null;
   let message: ReactNode;
   let actions: ReactNode = null;
-  if (selectedRevision && isDraft) {
+  if (isDraft) {
     actions = (
       <>
         {canDiscard ? (
@@ -241,7 +241,7 @@ export default function RevisionStatusBar<T>({
         icon={icon}
         label={label}
         badge={
-          selectedRevision && isDraft && selectedRevision.status !== "draft"
+          isDraft && selectedRevision.status !== "draft"
             ? getStatusBadge(selectedRevision.status, requiresApproval)
             : null
         }

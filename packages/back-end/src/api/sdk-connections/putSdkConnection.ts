@@ -1,5 +1,5 @@
 import { isEqual, isUndefined, omitBy } from "lodash";
-import { JsonPatchOperation, Revision } from "shared/enterprise";
+import { JsonPatchOperation } from "shared/enterprise";
 import {
   SDKConnectionRevisionSnapshot,
   putSdkConnectionValidator,
@@ -18,6 +18,7 @@ import { landDirectChange } from "back-end/src/revisions/revertActions";
 import { runGuardedWrite } from "back-end/src/revisions/landingSequence";
 import type { BypassedGate } from "back-end/src/revisions/publishGates";
 import { canUseRestApiBypassSetting } from "back-end/src/api/features/reviewBypass";
+import { sdkConnectionReviewRules } from "back-end/src/services/sdkConnectionApprovals";
 import { validatePutPayload } from "./validations";
 
 export const putSdkConnection = createApiRequestHandler(
@@ -80,11 +81,8 @@ export const putSdkConnection = createApiRequestHandler(
   ];
 
   // Judged per scope on baseline and proposed state, not org-wide.
-  const approvalRequired = adapter.isApprovalRequiredForRevision
-    ? adapter.isApprovalRequiredForRevision(req.context, {
-        target: { snapshot: baseline, proposedChanges: patchOps },
-      } as unknown as Revision)
-    : adapter.isApprovalRequired(req.context);
+  const approvalRequired =
+    sdkConnectionReviewRules(req.context, baseline, patchOps).length > 0;
 
   const bypassedGates: BypassedGate[] = [];
   if (approvalRequired) {

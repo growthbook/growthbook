@@ -10,6 +10,7 @@ import RevisionDraftSelectorForChanges from "@/components/Revision/RevisionDraft
 import useOrgSettings from "@/hooks/useOrgSettings";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useUser } from "@/services/UserContext";
+import { canBypassSdkConnectionApproval } from "@/components/Features/SDKConnections/edit-modals/useSdkConnectionRevisionFlow";
 
 interface SDKConnectionArchiveModalProps {
   connection: SDKConnectionInterface;
@@ -32,17 +33,15 @@ export default function SDKConnectionArchiveModal({
 }: SDKConnectionArchiveModalProps) {
   const settings = useOrgSettings();
   const permissionsUtil = usePermissionsUtil();
-  const { hasCommercialFeature, userId } = useUser();
+  const { hasCommercialFeature, userId, user } = useUser();
 
   const isArchived = !!connection.archived;
 
-  const canBypass = connection.projects?.length
-    ? connection.projects.every((p) =>
-        permissionsUtil.canBypassSDKConnectionApprovalChecks({
-          project: p,
-        }),
-      )
-    : permissionsUtil.canBypassSDKConnectionApprovalChecks({ project: "" });
+  const canBypass = canBypassSdkConnectionApproval(
+    permissionsUtil,
+    user?.role,
+    connection.projects,
+  );
 
   const approvalRequired =
     hasCommercialFeature("require-approvals") &&

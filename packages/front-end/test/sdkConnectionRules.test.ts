@@ -161,19 +161,12 @@ describe("sanitizeAdvancedForSave", () => {
     );
   });
 
-  it("clears the dependants of switched-off options", () => {
+  it("clears custom-field dependants but keeps the typed proxy host", () => {
     const result = sanitizeAdvancedForSave(
       { ...allOn, includeCustomFieldsInMetadata: false, proxyEnabled: false },
       fullyCapable,
     );
     expect(result.allowedCustomFieldsInMetadata).toEqual([]);
-  });
-
-  it("keeps the typed proxy host while the proxy is off", () => {
-    const result = sanitizeAdvancedForSave(
-      { ...allOn, proxyEnabled: false },
-      fullyCapable,
-    );
     expect(result.proxyHost).toBe(allOn.proxyHost);
   });
 });

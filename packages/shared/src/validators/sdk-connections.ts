@@ -154,8 +154,6 @@ export type SDKWebhookRevisionSnapshot = z.infer<
   typeof sdkWebhookSnapshotValidator
 >;
 
-// A null timeout means "use the default", same as an absent one; dropping it
-// keeps the two from diffing as a change.
 // Drafts mint `temp_` ids client-side; the landed webhook takes a stable id
 // derived from it, so history, retries and later diffs all agree.
 export function sdkWebhookStableId(connectionId: string, id: string): string {
@@ -164,6 +162,8 @@ export function sdkWebhookStableId(connectionId: string, id: string): string {
     : id;
 }
 
+// A null timeout means "use the default", same as an absent one; dropping it
+// keeps the two from diffing as a change.
 export function parseSdkWebhookSnapshot(
   value: unknown,
 ): SDKWebhookRevisionSnapshot {
@@ -182,35 +182,7 @@ export type SDKConnectionRevisionSnapshot = z.infer<
 
 // The fields a revision may write to the live connection.
 export const sdkConnectionUpdatableFieldsSchema =
-  sdkConnectionSettingsSnapshotValidator.pick({
-    name: true,
-    eventTracker: true,
-    languages: true,
-    sdkVersion: true,
-    environment: true,
-    projects: true,
-    encryptPayload: true,
-    hashSecureAttributes: true,
-    includeVisualExperiments: true,
-    includeDraftExperiments: true,
-    includeDraftExperimentRefs: true,
-    includeExperimentNames: true,
-    includeRedirectExperiments: true,
-    includeRuleIds: true,
-    includeProjectIdInMetadata: true,
-    includeCustomFieldsInMetadata: true,
-    allowedCustomFieldsInMetadata: true,
-    includeTagsInMetadata: true,
-    includeExperimentScheduleInMetadata: true,
-    remoteEvalEnabled: true,
-    tracesEnabled: true,
-    savedGroupReferencesEnabled: true,
-    savedGroupFormat: true,
-    includeReferencedPrerequisites: true,
-    proxyEnabled: true,
-    proxyHost: true,
-    archived: true,
-  });
+  sdkConnectionSettingsSnapshotValidator.omit({ id: true, organization: true });
 
 // Corresponds to payload-schemas/PostSdkConnectionPayload.yaml
 const postSdkConnectionBody = z

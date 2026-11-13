@@ -594,13 +594,10 @@ describe("sdk-connections API", () => {
 
       const response = await request(app)
         .put(`/api/v1/sdk-connections/${existing.id}`)
-        .send({ name: "my-new-connection" })
+        .send({ name: "my-new-connection", bypassApproval: true })
         .set("Authorization", "Bearer foo");
 
-      expect(response.status).toBe(400);
-      expect(response.body.message).toMatch(
-        /This organization requires approvals on SDK connections/,
-      );
+      expect(response.status).toBe(403);
       expect(editSDKConnection).not.toHaveBeenCalled();
     });
 

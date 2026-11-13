@@ -1,12 +1,10 @@
 import { ReactNode, useId, useState } from "react";
 import { useFeatureIsOn } from "@growthbook/growthbook-react";
 import {
-  SavedGroupFormat,
   SDKConnectionInterface,
   SDKLanguage,
 } from "shared/types/sdk-connection";
 import type { AppFeatures } from "shared/types/app-features";
-import { getConnectionSDKCapabilities } from "shared/sdk-versioning";
 import { Box, Flex } from "@radix-ui/themes";
 import Checkbox from "@/ui/Checkbox";
 import Heading from "@/ui/Heading";
@@ -16,7 +14,10 @@ import Field from "@/components/Forms/Field";
 import { useCustomFields } from "@/hooks/useCustomFields";
 import { isCloud } from "@/services/env";
 import AdvancedSection from "@/components/AdvancedSection";
-import { SDKConnectionAdvancedValue } from "@/components/Features/SDKConnections/sdkConnectionRules";
+import {
+  connectionCapabilities,
+  SDKConnectionAdvancedValue,
+} from "@/components/Features/SDKConnections/sdkConnectionRules";
 import SavedGroupFormatField from "@/components/Features/SDKConnections/SavedGroupFormatField";
 import {
   CustomFieldsLabel,
@@ -53,14 +54,10 @@ type GroupProps = {
 };
 
 function useCapabilities(languages: SDKLanguage[], sdkVersion?: string) {
-  const currentCaps = getConnectionSDKCapabilities(
-    { languages, sdkVersion },
-    "min-ver-intersection",
-  );
-  const latestCaps = getConnectionSDKCapabilities(
-    { languages, sdkVersion },
-    "max-ver-intersection",
-  );
+  const { currentCaps, latestCaps } = connectionCapabilities({
+    languages,
+    sdkVersion,
+  });
   return {
     showVisualEditor: latestCaps.includes("visualEditor"),
     showRedirects: latestCaps.includes("redirects"),
@@ -282,14 +279,12 @@ export default function SDKConnectionAdvancedSettings({
   languages,
   sdkVersion,
   remoteEvalEnabled,
-  storedSavedGroupFormat,
 }: {
   value: SDKConnectionAdvancedValue;
   onChange: (patch: Partial<SDKConnectionAdvancedValue>) => void;
   languages: SDKLanguage[];
   sdkVersion?: string;
   remoteEvalEnabled: boolean;
-  storedSavedGroupFormat?: SavedGroupFormat;
 }) {
   const { showSavedGroups } = useCapabilities(languages, sdkVersion);
   const showTraces = useShowTraces();
@@ -322,7 +317,6 @@ export default function SDKConnectionAdvancedSettings({
                 languages={languages}
                 sdkVersion={sdkVersion}
                 remoteEvalEnabled={remoteEvalEnabled}
-                storedFormat={storedSavedGroupFormat}
               />
             </Category>
           )}

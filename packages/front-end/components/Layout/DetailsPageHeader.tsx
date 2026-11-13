@@ -207,7 +207,9 @@ export function ReviewTabCount({ statuses }: { statuses: string[] }) {
   if (!total) return null;
   return (
     <Tooltip content={draftStatusTooltip(counts)}>
-      <TabCount count={total} attention />
+      <span>
+        <TabCount count={total} attention />
+      </span>
     </Tooltip>
   );
 }

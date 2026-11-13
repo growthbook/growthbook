@@ -1,10 +1,6 @@
 import { ReactNode } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import { SavedGroupFormat, SDKLanguage } from "shared/types/sdk-connection";
-import {
-  getConnectionSDKCapabilities,
-  getLatestSDKVersion,
-} from "shared/sdk-versioning";
 import Text from "@/ui/Text";
 import SelectField from "@/components/Forms/SelectField";
 import MultiSelectField from "@/ui/MultiSelectField";
@@ -33,10 +29,16 @@ import {
   TRACES_TITLE,
   TracesSettings,
 } from "@/components/Features/SDKConnections/SDKConnectionAdvancedSettings";
-import { shouldShowPayloadSecurity } from "@/components/Features/SDKConnections/sdkConnectionRules";
+import {
+  languagesPatch,
+  SDKCapability,
+  shouldShowPayloadSecurity,
+  versionedLanguage,
+} from "@/components/Features/SDKConnections/sdkConnectionRules";
 import {
   CATEGORY_TITLES,
   CustomFieldsLabel,
+  DELIVERY_LABELS,
   DraftExperimentsLabel,
   DraftRulesLabel,
   HideNamesLabel,
@@ -52,7 +54,6 @@ import {
 } from "@/components/Features/SDKConnections/sdkConnectionSettingLabels";
 import type { SDKConnectionFormValue } from "@/components/Features/SDKConnections/SDKConnectionEditModal";
 
-type SDKCapability = ReturnType<typeof getConnectionSDKCapabilities>[number];
 type OnChange = (patch: Partial<SDKConnectionFormValue>) => void;
 
 export type SettingRowContext = {
@@ -91,13 +92,7 @@ export function rowFields(row: SettingRow, v: SDKConnectionFormValue) {
 
 const CIPHER_FIELDS: Fields = ["encryptPayload", "hashSecureAttributes"];
 
-const DELIVERY_LABELS = {
-  plain: "Plain Text",
-  ciphered: "Ciphered",
-  remote: "Remote Evaluated",
-} as const;
-
-export function NoneValue() {
+function NoneValue() {
   return (
     <Text color="text-mid" fontStyle="italic">
       None
@@ -106,7 +101,7 @@ export function NoneValue() {
 }
 
 // The settings that are on, one per line, each as its checkbox labels it.
-export function EnabledList({ items }: { items: ReactNode[] }) {
+function EnabledList({ items }: { items: ReactNode[] }) {
   const on = items.filter((i) => !!i);
   if (!on.length) return <NoneValue />;
   return (
@@ -131,16 +126,14 @@ function Control({ children }: { children: ReactNode }) {
   return <Box style={{ maxWidth: 560 }}>{children}</Box>;
 }
 
-export function LanguageField({
+function LanguageField({
   value,
   onChange,
   disabled = false,
-  error = null,
 }: {
   value: SDKLanguage[];
   onChange: OnChange;
   disabled?: boolean;
-  error?: string | null;
 }) {
   const options = Object.keys(languageMapping) as SDKLanguage[];
   // Connections created with several SDKs keep them; new picks are one SDK.
@@ -151,14 +144,7 @@ export function LanguageField({
         aria-label="SDK"
         disabled={disabled}
         value={value}
-        onChange={(langs) =>
-          onChange({
-            languages: langs as SDKLanguage[],
-            ...(langs.length === 1 && {
-              sdkVersion: getLatestSDKVersion(langs[0] as SDKLanguage),
-            }),
-          })
-        }
+        onChange={(langs) => onChange(languagesPatch(langs as SDKLanguage[]))}
         options={options.map((l) => ({
           value: l,
           label: languageMapping[l].label,
@@ -175,15 +161,9 @@ export function LanguageField({
       size="lg"
       aria-label="SDK"
       disabled={disabled}
-      error={error ?? undefined}
       placeholder="Choose an SDK..."
       value={value[0]}
-      onChange={(lang) =>
-        onChange({
-          languages: [lang as SDKLanguage],
-          sdkVersion: getLatestSDKVersion(lang as SDKLanguage),
-        })
-      }
+      onChange={(lang) => onChange(languagesPatch([lang as SDKLanguage]))}
       options={options.map((lang) => ({
         label: languageMapping[lang].label,
         value: lang,
@@ -238,8 +218,7 @@ export const CONNECTION_ROWS: SettingRow[] = [
     key: "version",
     label: "SDK version",
     fields: ["sdkVersion"],
-    shown: (v) =>
-      v.languages.length === 1 && !/^(other|nocode-.*)$/.test(v.languages[0]),
+    shown: (v) => !!versionedLanguage(v.languages),
     read: (v) => (v.sdkVersion ? <Text>{v.sdkVersion}</Text> : <NoneValue />),
     edit: (v, onChange, disabled) => (
       <Control>
@@ -326,6 +305,17 @@ export const CONNECTION_ROWS: SettingRow[] = [
 ];
 
 // How the payload is secured, and that choice's options.
+const readCipherOptions: SettingRow["read"] = (v, { currentCaps }) => (
+  <EnabledList
+    items={[
+      currentCaps.includes("encryption") &&
+        v.encryptPayload &&
+        "Encrypt payload",
+      v.hashSecureAttributes && "Hash secure attributes",
+    ]}
+  />
+);
+
 export const SECURITY_ROWS: SettingRow[] = [
   {
     key: "security",
@@ -352,16 +342,7 @@ export const SECURITY_ROWS: SettingRow[] = [
     fields: (v) => (v.delivery === "ciphered" ? CIPHER_FIELDS : []),
     shown: (v) =>
       v.delivery === "ciphered" && shouldShowPayloadSecurity(v.languages),
-    read: (v, { currentCaps }) => (
-      <EnabledList
-        items={[
-          currentCaps.includes("encryption") &&
-            v.encryptPayload &&
-            "Encrypt payload",
-          v.hashSecureAttributes && "Hash secure attributes",
-        ]}
-      />
-    ),
+    read: readCipherOptions,
     edit: (v, onChange, disabled) => (
       <Checkboxes>
         <CipherOptionsField
@@ -381,16 +362,7 @@ export const SECURITY_ROWS: SettingRow[] = [
     fields: (v) => (v.delivery === "remote" ? CIPHER_FIELDS : []),
     shown: (v) =>
       v.delivery === "remote" && shouldShowPayloadSecurity(v.languages),
-    read: (v, { currentCaps }) => (
-      <EnabledList
-        items={[
-          currentCaps.includes("encryption") &&
-            v.encryptPayload &&
-            "Encrypt payload",
-          v.hashSecureAttributes && "Hash secure attributes",
-        ]}
-      />
-    ),
+    read: readCipherOptions,
     edit: (v, onChange, disabled) => (
       <RemoteEvalOptionsField
         value={v}

@@ -17,7 +17,7 @@ const PROXIED = "Requests are routed through your GrowthBook Proxy.";
 
 // What an SDK's configuration names it, as the implementation instructions do.
 export function configSettingsTitle(connection: SDKConnectionInterface) {
-  const language = connection.languages?.[0];
+  const language = connection.languages[0];
   const mapping = language ? languageMapping[language] : undefined;
   return `${mapping ? mapping.docLabel || mapping.label : "SDK"} Config Settings`;
 }
@@ -36,25 +36,25 @@ function Value({ children }: { children: ReactNode }) {
 // list them.
 export default function SDKConnectionCredentialsCard({
   connection,
-  canUpdate = false,
+  canUpdate,
   mutate,
 }: {
   connection: SDKConnectionInterface;
-  canUpdate?: boolean;
-  mutate?: () => void;
+  canUpdate: boolean;
+  mutate: () => void;
 }) {
   const proxy = connection.proxy;
-  const hasProxy = !!proxy?.enabled;
+  const hasProxy = !!proxy.enabled;
   const apiHost = getApiBaseUrl(connection);
   const clientKey = connection.key;
   const endpoint = `${apiHost}/api/features/${clientKey}`;
   const encryptionKey = connection.encryptPayload
     ? connection.encryptionKey
     : undefined;
-  const proxyError = proxy?.error;
+  const proxyError = proxy.error;
   // Either currently enabled or was enabled but had too many failures.
   const showProxy =
-    hasProxy || (!!proxy?.host && !!proxy?.consecutiveFailures && !!proxyError);
+    hasProxy || (!!proxy.host && !!proxy.consecutiveFailures && !!proxyError);
 
   return (
     <>
@@ -103,9 +103,7 @@ export default function SDKConnectionCredentialsCard({
           <Value>
             <CopyableCode
               value={
-                proxy?.host ||
-                proxy?.hostExternal ||
-                "https://proxy.yoursite.io"
+                proxy.host || proxy.hostExternal || "https://proxy.yoursite.io"
               }
             />
             {!hasProxy ? (
@@ -118,23 +116,21 @@ export default function SDKConnectionCredentialsCard({
                 />
               </Tooltip>
             ) : null}
-            {proxy?.connected ? (
+            {proxy.connected ? (
               <Badge
                 color="green"
                 variant="soft"
                 radius="full"
                 label="Connected"
               />
-            ) : proxyError !== undefined ? (
+            ) : proxyError ? (
               <Tooltip
                 content={
                   <>
                     <Text as="p" mb="2">
                       Encountered an error while trying to connect:
                     </Text>
-                    <Callout status="error">
-                      {proxyError || <em>Unknown error</em>}
-                    </Callout>
+                    <Callout status="error">{proxyError}</Callout>
                   </>
                 }
               >
@@ -148,7 +144,7 @@ export default function SDKConnectionCredentialsCard({
                 label="Not connected"
               />
             )}
-            {canUpdate && mutate && proxy?.host ? (
+            {canUpdate && proxy.host ? (
               <ProxyTestButton
                 host={proxy.host}
                 id={connection.id}

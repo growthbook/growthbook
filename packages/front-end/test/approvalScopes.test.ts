@@ -116,6 +116,7 @@ describe("what an override scope inherits", () => {
   it("has nothing to inherit at the all-projects scope", () => {
     expect(inheritedFlagRule([], ALL_PROJECTS_SCOPE)).toBeUndefined();
     expect(inheritedSavedGroupRule([], ALL_PROJECTS_SCOPE)).toBeUndefined();
+    expect(inheritedSdkConnectionRule([], ALL_PROJECTS_SCOPE)).toBeUndefined();
   });
 
   it("inherits a legacy saved-group row that predates the projects field", () => {
@@ -180,7 +181,6 @@ describe("SDK connection rules", () => {
     const inherited = inheritedSdkConnectionRule([base], "prj_a");
     expect(inherited?.required).toBe(true);
     expect(inherited?.environments).toEqual(["production"]);
-    expect(inheritedSdkConnectionRule([], ALL_PROJECTS_SCOPE)).toBeUndefined();
   });
 
   it("clones the base into a fresh scope, re-pointed at that scope", () => {

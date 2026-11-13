@@ -1,5 +1,10 @@
 import { isEqual } from "lodash";
-import { getSdkConnectionGoverningRules } from "shared/enterprise";
+import {
+  getSdkConnectionGoverningRules,
+  getSdkConnectionReviewRules,
+} from "shared/enterprise";
+import type { ApprovalFlowConfiguration } from "shared/types/organization";
+import type { SDKConnectionRevisionSnapshot } from "shared/validators";
 import type { SDKConnectionInterface } from "shared/types/sdk-connection";
 import type { Context } from "back-end/src/models/BaseModel";
 import { BadRequestError } from "back-end/src/util/errors";
@@ -14,6 +19,21 @@ export function isSdkConnectionGated(
       projects: connection.projects,
       environment: connection.environment,
     }).length > 0
+  );
+}
+
+// The rules a change to a connection must clear, judged on its baseline and
+// proposed scopes.
+export function sdkConnectionReviewRules(
+  context: Context,
+  snapshot: SDKConnectionRevisionSnapshot,
+  proposedChanges: unknown,
+): ApprovalFlowConfiguration[] {
+  if (!context.hasPremiumFeature("require-approvals")) return [];
+  return getSdkConnectionReviewRules(
+    context.org.settings?.approvalFlows,
+    snapshot,
+    proposedChanges,
   );
 }
 
@@ -32,11 +52,9 @@ export function assertSdkWebhooksEditableDirectly(
     restBypass !== undefined &&
     (restBypass ||
       gated.every((c) =>
-        (c.projects.length ? c.projects : [""]).every((project) =>
-          context.permissions.canBypassSDKConnectionApprovalChecks({
-            project,
-          }),
-        ),
+        context.permissions.canBypassSDKConnectionApprovalChecks({
+          projects: c.projects,
+        }),
       ))
   ) {
     return;

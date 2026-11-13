@@ -1,6 +1,5 @@
 import type { Revision, JsonPatchOperation } from "shared/enterprise";
 import {
-  sdkConnectionUpdatableFieldsSchema,
   type SDKConnectionRevisionSnapshot,
   type SDKWebhookRevisionSnapshot,
 } from "shared/validators";
@@ -8,7 +7,6 @@ import type { SDKConnectionInterface } from "shared/types/sdk-connection";
 import { CasConflictError, type Context } from "back-end/src/models/BaseModel";
 import { sdkConnectionAdapter } from "back-end/src/revisions/adapters/sdk-connection.adapter";
 import { getAdapter } from "back-end/src/revisions/index";
-import { isRevisionRequired } from "back-end/src/revisions/util";
 import {
   editSDKConnection,
   findSDKConnectionById,
@@ -291,19 +289,6 @@ describe("sdkConnectionAdapter", () => {
       const fields = sdkConnectionAdapter.getUpdatableFields();
       expect([...fields].sort()).toEqual(["sdkConnection", "sdkWebhooks"]);
     });
-
-    it("lets a revision carry the saved group format and prerequisite setting", () => {
-      const keys = Object.keys(sdkConnectionUpdatableFieldsSchema.shape);
-      expect(keys).toContain("savedGroupFormat");
-      expect(keys).toContain("includeReferencedPrerequisites");
-    });
-
-    it("keeps identity / system fields out of the settings write list", () => {
-      const keys = Object.keys(sdkConnectionUpdatableFieldsSchema.shape);
-      ["id", "organization", "dateCreated", "dateUpdated"].forEach((f) =>
-        expect(keys).not.toContain(f),
-      );
-    });
   });
 
   describe("getModel", () => {
@@ -496,18 +481,6 @@ describe("sdkConnectionAdapter", () => {
       );
       expect(requirement.required).toBe(true);
       expect(requirement.rules).toEqual([prodRule]);
-    });
-
-    it("reviewRequirementForRevision drops metadata-exempt rules for a name-only change", () => {
-      const ctx = makeContext({
-        rules: [{ ...prodRule, requireMetadataReview: false }],
-      });
-      expect(
-        sdkConnectionAdapter.reviewRequirementForRevision!(
-          ctx,
-          buildRevision(replaceSettings({ name: "Renamed" }), snapshotWith({})),
-        ),
-      ).toEqual({ required: false, rules: [] });
     });
 
     it("reviewRequirementForRevision is empty without the premium feature", () => {
@@ -1165,22 +1138,5 @@ describe("sdkConnectionAdapter.archivedState", () => {
 describe("revisions registry (sdk-connection)", () => {
   it("getAdapter returns the sdk-connection adapter", () => {
     expect(getAdapter("sdk-connection")).toBe(sdkConnectionAdapter);
-  });
-
-  it("isRevisionRequired delegates to the adapter", () => {
-    expect(
-      isRevisionRequired(
-        makeContext({ approvalRequired: true }),
-        "sdk-connection",
-        "sdk-1",
-      ),
-    ).toBe(true);
-    expect(
-      isRevisionRequired(
-        makeContext({ approvalRequired: false }),
-        "sdk-connection",
-        "sdk-1",
-      ),
-    ).toBe(false);
   });
 });

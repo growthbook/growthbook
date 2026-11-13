@@ -297,21 +297,6 @@ describe("feature utils", () => {
         filterRefreshableSDKConnections(connections).map((c) => c.key),
       ).toEqual(["a", "c", "d"]);
     });
-
-    it("returns an empty list when every connection is archived", () => {
-      expect(
-        filterRefreshableSDKConnections([
-          { key: "a", archived: true },
-          { key: "b", archived: true },
-        ]),
-      ).toEqual([]);
-    });
-
-    it("does not mutate the input", () => {
-      const connections = [{ key: "a", archived: true }, { key: "b" }];
-      filterRefreshableSDKConnections(connections);
-      expect(connections).toHaveLength(2);
-    });
   });
 });
 

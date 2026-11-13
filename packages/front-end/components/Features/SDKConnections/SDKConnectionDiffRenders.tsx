@@ -71,6 +71,21 @@ function boolRows(
   return rows;
 }
 
+// A boolean setting that changed, as an on or off badge.
+function toggleBadge(
+  p0: Partial<SDKConnectionSettingsRevisionSnapshot> | null,
+  p1: Partial<SDKConnectionSettingsRevisionSnapshot>,
+  key: keyof SDKConnectionSettingsRevisionSnapshot,
+  on: string,
+  off: string,
+): DiffBadge[] {
+  const v = p1[key];
+  if (v === undefined || isEqual(p0?.[key], v)) return [];
+  return [
+    v ? { label: on, action: "added" } : { label: off, action: "removed" },
+  ];
+}
+
 function strDisplay(v: string | undefined | null): ReactNode {
   if ((v ?? null) === null || v === "") return <em>—</em>;
   return v;
@@ -141,23 +156,18 @@ export function renderSDKConnectionScope(
     );
   }
 
-  if (
-    !isEqual(
-      p0?.includeReferencedPrerequisites,
-      p1.includeReferencedPrerequisites,
-    ) &&
-    p1.includeReferencedPrerequisites !== undefined
-  ) {
-    rows.push(
-      <ChangeField
-        key="includeReferencedPrerequisites"
-        label={SETTING_TITLES.prerequisites}
-        changed
-        oldNode={boolDisplay(p0?.includeReferencedPrerequisites)}
-        newNode={boolDisplay(p1.includeReferencedPrerequisites)}
-      />,
-    );
-  }
+  rows.push(
+    ...boolRows(
+      [
+        {
+          key: "includeReferencedPrerequisites",
+          label: SETTING_TITLES.prerequisites,
+        },
+      ],
+      p0,
+      p1,
+    ),
+  );
 
   return rows.length ? <Box mt="1">{rows}</Box> : null;
 }
@@ -202,19 +212,15 @@ export function getSDKConnectionScopeBadges(pre: Pre, post: Post): DiffBadge[] {
     badges.push({ label: "Edit SDK version", action: "edit SDK version" });
   }
 
-  if (
-    p1.includeReferencedPrerequisites !== undefined &&
-    !isEqual(
-      p0?.includeReferencedPrerequisites,
-      p1.includeReferencedPrerequisites,
-    )
-  ) {
-    badges.push(
-      p1.includeReferencedPrerequisites
-        ? { label: "Prerequisite flags included", action: "added" }
-        : { label: "Prerequisite flags excluded", action: "removed" },
-    );
-  }
+  badges.push(
+    ...toggleBadge(
+      p0,
+      p1,
+      "includeReferencedPrerequisites",
+      "Prerequisite flags included",
+      "Prerequisite flags excluded",
+    ),
+  );
 
   return badges;
 }
@@ -226,44 +232,14 @@ export function renderSDKConnectionSecurity(
   const p0 = preConn(pre);
   const p1 = postConn(post);
   if (!p1) return null;
-  const rows: ReactNode[] = [];
-
-  if (
-    !isEqual(p0?.encryptPayload, p1.encryptPayload) &&
-    p1.encryptPayload !== undefined
-  ) {
-    rows.push(
-      <ChangeField
-        key="encryptPayload"
-        label="Encrypt payload"
-        changed
-        oldNode={boolDisplay(p0?.encryptPayload)}
-        newNode={boolDisplay(p1.encryptPayload)}
-      />,
-    );
-  }
-
-  if (
-    !isEqual(p0?.hashSecureAttributes, p1.hashSecureAttributes) &&
-    p1.hashSecureAttributes !== undefined
-  ) {
-    rows.push(
-      <ChangeField
-        key="hashSecureAttributes"
-        label="Hash secure attributes"
-        changed
-        oldNode={boolDisplay(p0?.hashSecureAttributes)}
-        newNode={boolDisplay(p1.hashSecureAttributes)}
-      />,
-    );
-  }
-
-  rows.push(
-    ...boolRows(
-      [{ key: "remoteEvalEnabled", label: "Remote evaluation" }],
-      p0,
-      p1,
-    ),
+  const rows = boolRows(
+    [
+      { key: "encryptPayload", label: "Encrypt payload" },
+      { key: "hashSecureAttributes", label: "Hash secure attributes" },
+      { key: "remoteEvalEnabled", label: "Remote evaluation" },
+    ],
+    p0,
+    p1,
   );
 
   return rows.length ? <Box mt="1">{rows}</Box> : null;
@@ -276,31 +252,22 @@ export function getSDKConnectionSecurityBadges(
   const p0 = preConn(pre);
   const p1 = postConn(post);
   if (!p1) return [];
-  const badges: DiffBadge[] = [];
-
-  if (
-    p1.encryptPayload !== undefined &&
-    !isEqual(p0?.encryptPayload, p1.encryptPayload)
-  ) {
-    badges.push(
-      p1.encryptPayload
-        ? { label: "Encrypt payload enabled", action: "added" }
-        : { label: "Encrypt payload disabled", action: "removed" },
-    );
-  }
-
-  if (
-    p1.hashSecureAttributes !== undefined &&
-    !isEqual(p0?.hashSecureAttributes, p1.hashSecureAttributes)
-  ) {
-    badges.push(
-      p1.hashSecureAttributes
-        ? { label: "Hash secure attributes enabled", action: "added" }
-        : { label: "Hash secure attributes disabled", action: "removed" },
-    );
-  }
-
-  return badges;
+  return [
+    ...toggleBadge(
+      p0,
+      p1,
+      "encryptPayload",
+      "Encrypt payload enabled",
+      "Encrypt payload disabled",
+    ),
+    ...toggleBadge(
+      p0,
+      p1,
+      "hashSecureAttributes",
+      "Hash secure attributes enabled",
+      "Hash secure attributes disabled",
+    ),
+  ];
 }
 
 export function renderSDKConnectionExperiments(
@@ -427,22 +394,11 @@ export function renderSDKConnectionProxy(
   const p0 = preConn(pre);
   const p1 = postConn(post);
   if (!p1) return null;
-  const rows: ReactNode[] = [];
-
-  if (
-    !isEqual(p0?.proxyEnabled, p1.proxyEnabled) &&
-    p1.proxyEnabled !== undefined
-  ) {
-    rows.push(
-      <ChangeField
-        key="proxyEnabled"
-        label="GrowthBook Proxy"
-        changed
-        oldNode={boolDisplay(p0?.proxyEnabled)}
-        newNode={boolDisplay(p1.proxyEnabled)}
-      />,
-    );
-  }
+  const rows = boolRows(
+    [{ key: "proxyEnabled", label: "GrowthBook Proxy" }],
+    p0,
+    p1,
+  );
 
   if (!isEqual(p0?.proxyHost, p1.proxyHost) && p1.proxyHost !== undefined) {
     rows.push(
@@ -465,16 +421,9 @@ export function getSDKConnectionProxyBadges(pre: Pre, post: Post): DiffBadge[] {
   if (!p1) return [];
   const badges: DiffBadge[] = [];
 
-  if (
-    p1.proxyEnabled !== undefined &&
-    !isEqual(p0?.proxyEnabled, p1.proxyEnabled)
-  ) {
-    badges.push(
-      p1.proxyEnabled
-        ? { label: "Proxy enabled", action: "added" }
-        : { label: "Proxy disabled", action: "removed" },
-    );
-  }
+  badges.push(
+    ...toggleBadge(p0, p1, "proxyEnabled", "Proxy enabled", "Proxy disabled"),
+  );
 
   if (p1.proxyHost !== undefined && !isEqual(p0?.proxyHost, p1.proxyHost)) {
     badges.push({ label: "Edit proxy host", action: "edit proxy host" });

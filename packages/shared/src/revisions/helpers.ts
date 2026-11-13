@@ -699,7 +699,7 @@ const NESTED_MERGE_BRANCHES: Record<string, "byKey" | "byId"> = {
   sdkWebhooks: "byId",
 };
 
-const isPlainObject = (v: unknown): v is Record<string, unknown> =>
+export const isPlainObject = (v: unknown): v is Record<string, unknown> =>
   !!v && typeof v === "object" && !Array.isArray(v);
 
 const byId = (v: unknown): Map<string, unknown> | null => {
@@ -1012,19 +1012,12 @@ const sdkConnectionChangedSettingKeys = (
     | undefined;
   if (!baseline) return null;
 
-  const proposed = ("value" in connOp ? connOp.value : undefined) as
-    | Record<string, unknown>
-    | undefined;
-  if (!proposed || typeof proposed !== "object" || Array.isArray(proposed)) {
-    return null;
-  }
+  const proposed = connOp.value;
+  if (!isPlainObject(proposed)) return null;
 
-  const systemKeys = new Set(["dateUpdated", "dateCreated"]);
   const allKeys = new Set([...Object.keys(proposed), ...Object.keys(baseline)]);
   return [...allKeys].filter(
-    (key) =>
-      !systemKeys.has(key) &&
-      !sdkSettingsFieldEqual(proposed[key], baseline[key]),
+    (key) => !sdkSettingsFieldEqual(proposed[key], baseline[key]),
   );
 };
 

@@ -1,4 +1,4 @@
-import { ReactNode, useEffect } from "react";
+import { ReactNode } from "react";
 import { SDKLanguage } from "shared/types/sdk-connection";
 import {
   getConnectionSDKCapabilities,
@@ -21,6 +21,8 @@ import {
   shouldShowPayloadSecurity,
 } from "@/components/Features/SDKConnections/sdkConnectionRules";
 import {
+  CATEGORY_TITLES,
+  DELIVERY_LABELS,
   InfoTooltip,
   RemoteCipherOptionsLabel,
   SETTING_PREMIUM_TIP,
@@ -34,7 +36,6 @@ export type PayloadSecurityValue = {
   delivery: DeliveryMode;
   encryptPayload: boolean;
   hashSecureAttributes: boolean;
-  includeExperimentNames: boolean;
 };
 
 type FieldProps = {
@@ -325,27 +326,6 @@ export default function PayloadSecurityField({
     hasRemoteEvaluationFeature,
     remoteEvalSupported,
   } = usePayloadSecurity(languages, sdkVersion);
-
-  useEffect(() => {
-    if (
-      !allowed &&
-      (value.delivery !== "plain" ||
-        value.encryptPayload ||
-        value.hashSecureAttributes)
-    ) {
-      onChange({
-        delivery: "plain",
-        encryptPayload: false,
-        hashSecureAttributes: false,
-      });
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    allowed,
-    value.delivery,
-    value.encryptPayload,
-    value.hashSecureAttributes,
-  ]);
   if (!allowed) return null;
 
   const options = [
@@ -353,7 +333,7 @@ export default function PayloadSecurityField({
       value: "plain",
       label: (
         <Flex as="span" align="center" gap="1">
-          Plain Text
+          {DELIVERY_LABELS.plain}
           <InfoTooltip content="Full feature definitions, including targeting conditions and experiment variations, are viewable by anyone with the Client Key." />
         </Flex>
       ),
@@ -364,7 +344,7 @@ export default function PayloadSecurityField({
       label: (
         <Flex as="span" align="center" gap="2">
           <Flex as="span" align="center" gap="1">
-            Ciphered
+            {DELIVERY_LABELS.ciphered}
             <InfoTooltip content="Full feature definitions are encrypted and sensitive targeting conditions are hashed to help avoid leaking business logic to client-side apps. Not 100% secure, but will stop most prying eyes." />
           </Flex>
           {!hasEncryptionFeature && (
@@ -385,7 +365,7 @@ export default function PayloadSecurityField({
                 tipMinWidth="600px"
                 body={remoteEvalTooltip}
               >
-                <WithInfoIcon>Remote Evaluated</WithInfoIcon>
+                <WithInfoIcon>{DELIVERY_LABELS.remote}</WithInfoIcon>
               </PremiumTooltip>
             ),
             description: "Completely hides business logic from users",
@@ -399,7 +379,7 @@ export default function PayloadSecurityField({
     <Box>
       {!hideLabel && (
         <Flex align="center" gap="1" mb="2">
-          <Text weight="semibold">Payload Security</Text>
+          <Text weight="semibold">{CATEGORY_TITLES.payloadSecurity}</Text>
           <InfoTooltip content="How much of the feature definition the SDK receives, and whether it can be cached." />
         </Flex>
       )}

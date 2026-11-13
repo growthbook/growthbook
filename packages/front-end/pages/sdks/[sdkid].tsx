@@ -55,7 +55,8 @@ import ReviewAndPublishTab from "@/components/Revision/ReviewAndPublishTab";
 import { getStatusBadge } from "@/components/Revision/revisionUtils";
 import RevisionLabel from "@/components/Reviews/RevisionLabel";
 import NewDraftButton from "@/components/Reviews/NewDraftButton";
-import { REVISION_STATUS_BAR_HEIGHT_PX } from "@/components/Reviews/RevisionStatusBarView";
+import { useRevisionStatusBarHeight } from "@/components/Reviews/RevisionStatusBarView";
+import { EDITS_BLOCKED_REASON } from "@/components/StagedEdits/StagedEditsBar";
 import { SCHEDULE_EDIT_LOCK_REASON } from "@/components/Features/ScheduleLock";
 import { REVISION_SDK_CONNECTION_DIFF_CONFIG } from "@/components/Features/SDKConnections/SDKConnectionDiffRenders";
 import {
@@ -227,7 +228,7 @@ export default function SDKConnectionPage() {
 
   const { apiCall } = useAuth();
   const permissionsUtil = usePermissionsUtil();
-  const { user, userId, hasCommercialFeature } = useUser();
+  const { user, userId } = useUser();
   const settings = useOrgSettings();
 
   const [duplicateSource, setDuplicateSource] =
@@ -264,32 +265,17 @@ export default function SDKConnectionPage() {
     homeTab: ["overview", "webhooks"],
   });
 
-  // Its message wraps, so what sticks beneath it reads its real height.
-  const [statusBarEl, setStatusBarEl] = useState<HTMLDivElement | null>(null);
-  const [statusBarHeight, setStatusBarHeight] = useState(
-    REVISION_STATUS_BAR_HEIGHT_PX,
-  );
-  useEffect(() => {
-    if (!statusBarEl) return;
-    const observer = new ResizeObserver(([entry]) =>
-      setStatusBarHeight(entry.borderBoxSize[0].blockSize),
-    );
-    observer.observe(statusBarEl);
-    return () => observer.disconnect();
-  }, [statusBarEl]);
+  const [setStatusBarEl, statusBarHeight] = useRevisionStatusBarHeight();
 
   const connection: SDKConnectionInterface | undefined =
     data?.connections?.find((conn) => conn.id === sdkid);
 
-  const hasApprovalsFeature = hasCommercialFeature("require-approvals");
-
-  const liveRules =
-    hasApprovalsFeature && connection
-      ? getSdkConnectionGoverningRules(settings.approvalFlows, {
-          projects: connection.projects,
-          environment: connection.environment,
-        })
-      : [];
+  const liveRules = connection
+    ? getSdkConnectionGoverningRules(settings.approvalFlows, {
+        projects: connection.projects,
+        environment: connection.environment,
+      })
+    : [];
   const approvalRequired = liveRules.length > 0;
   const metadataReviewRequired = liveRules.some(
     (r) => r.requireMetadataReview !== false,
@@ -313,6 +299,9 @@ export default function SDKConnectionPage() {
     handleReopen,
     mutateApprovalFlows: mutateRevisions,
   } = useSDKConnectionRevision(connection?.id, mutateLive, connection);
+  const refreshAll = async () => {
+    await Promise.all([mutateRevisions(), mutate()]);
+  };
 
   const hasRevisions = allRevisions.length > 0;
   const liveRevision = getLiveRevision(allRevisions) ?? null;
@@ -321,38 +310,33 @@ export default function SDKConnectionPage() {
   // exemptions.
   const selectedRevisionReviewRules = useMemo(
     () =>
-      selectedRevision && hasApprovalsFeature
+      selectedRevision
         ? getSdkConnectionReviewRules(
             settings.approvalFlows,
             selectedRevision.target.snapshot as SDKConnectionRevisionSnapshot,
             selectedRevision.target.proposedChanges,
           )
         : [],
-    [selectedRevision, hasApprovalsFeature, settings.approvalFlows],
+    [selectedRevision, settings.approvalFlows],
   );
   const selectedRevisionRequiresApproval =
     selectedRevisionReviewRules.length > 0;
 
-  const canAdminPublish =
-    approvalRequired &&
+  const canBypassLive =
     !!connection &&
     canBypassSdkConnectionApproval(
       permissionsUtil,
       user?.role,
-      connection.projects ?? [],
+      connection.projects,
     );
+  const canAdminPublish = approvalRequired && canBypassLive;
   const canAutoPublish = !approvalRequired || canAdminPublish;
 
   // Bypass for the selected draft needs authority in both the live projects
   // and the ones the draft moves the connection into.
   const canBypassSelectedRevision =
     !selectedRevisionRequiresApproval ||
-    (!!connection &&
-      canBypassSdkConnectionApproval(
-        permissionsUtil,
-        user?.role,
-        connection.projects ?? [],
-      ) &&
+    (canBypassLive &&
       canBypassSdkConnectionApproval(
         permissionsUtil,
         user?.role,
@@ -366,7 +350,7 @@ export default function SDKConnectionPage() {
 
   const displayedConnection = useMemo(() => {
     if (!connection) return undefined;
-    return buildDisplayedConnection(connection, selectedRevision ?? null);
+    return buildDisplayedConnection(connection, selectedRevision);
   }, [connection, selectedRevision]);
 
   const staged = useSdkConnectionStagedEdits(
@@ -419,6 +403,7 @@ export default function SDKConnectionPage() {
     selectedRevision.scheduledPublishLockEdits
       ? SCHEDULE_EDIT_LOCK_REASON
       : null;
+  const stagedBlockedReason = staged.dirty ? EDITS_BLOCKED_REASON : null;
 
   const supportsBucketingV2 =
     getConnectionSDKCapabilities(displayedConn).includes("bucketingV2");
@@ -456,12 +441,7 @@ export default function SDKConnectionPage() {
     <NewDraftButton
       entityNoun="SDK Connection"
       activeDraftCount={openRevisions.length}
-      nextVersion={
-        Math.max(
-          0,
-          ...allRevisions.map((r) => revisionNumbers.get(r.id) ?? 0),
-        ) + 1
-      }
+      nextVersion={Math.max(0, ...revisionNumbers.values()) + 1}
       basedOn={
         liveRevision ? (
           <>
@@ -499,7 +479,7 @@ export default function SDKConnectionPage() {
             body: JSON.stringify({ description: comment }),
           });
         }
-        await Promise.all([mutateRevisions(), mutate()]);
+        await refreshAll();
         selectFlow(revision);
       }}
     />
@@ -510,9 +490,7 @@ export default function SDKConnectionPage() {
       <DetailsPageMenu
         open={dropdownOpen}
         onOpenChange={setDropdownOpen}
-        disabledReason={
-          staged.dirty ? "Save or discard your changes first." : null
-        }
+        disabledReason={stagedBlockedReason}
       >
         {allRevisions.length >= 2 && (
           <>
@@ -597,9 +575,7 @@ export default function SDKConnectionPage() {
           close={() => setShowArchiveModal(false)}
           openRevisions={openRevisions}
           allRevisions={allRevisions}
-          mutate={async () => {
-            await Promise.all([mutateRevisions(), mutate()]);
-          }}
+          mutate={refreshAll}
           onRevisionCreated={onRevisionCreated}
           selectFlow={selectFlow}
         />
@@ -619,10 +595,7 @@ export default function SDKConnectionPage() {
             onRevisionCreated(rev);
             setRevisionToRevert(null);
             // Published straight away, it changes what live reads.
-            if (rev.status === "merged") {
-              mutate();
-              mutateWebhooks();
-            }
+            if (rev.status === "merged") mutateLive();
           }}
         />
       )}
@@ -658,11 +631,7 @@ export default function SDKConnectionPage() {
       <DetailsPageTitleBar
         title={displayedConn.name}
         onRename={canUpdate && !isReadOnly ? () => setRenaming(true) : null}
-        renameBlockedReason={
-          staged.dirty
-            ? "Save or discard your changes first."
-            : editBlockedReason
-        }
+        renameBlockedReason={stagedBlockedReason ?? editBlockedReason}
         badges={
           <>
             {/* Set the first time anything fetches with the key; never reset. */}
@@ -743,7 +712,7 @@ export default function SDKConnectionPage() {
 
       <DetailsPageTabs
         value={tab}
-        onValueChange={(value) => setTabAndScroll(value as SDKConnectionTab)}
+        onValueChange={setTabAndScroll}
         triggers={
           <>
             <TabsTrigger value="overview">Overview</TabsTrigger>
@@ -760,10 +729,7 @@ export default function SDKConnectionPage() {
         revisionPicker={
           hasRevisions ? (
             // Held while edits are staged, which belong to the viewed revision.
-            <Tooltip
-              content="Save or discard your changes first."
-              enabled={staged.dirty}
-            >
+            <Tooltip content={EDITS_BLOCKED_REASON} enabled={staged.dirty}>
               <div>
                 <RevisionDropdown
                   entityId={connection.id}
@@ -819,9 +785,7 @@ export default function SDKConnectionPage() {
               allRevisions={allRevisions}
               onRevisionCreated={onRevisionCreated}
               onSelectRevision={selectFlow}
-              mutate={async () => {
-                await Promise.all([mutateRevisions(), mutate()]);
-              }}
+              mutate={refreshAll}
             />
           ) : null
         }
@@ -832,9 +796,7 @@ export default function SDKConnectionPage() {
             onEditWebhooks={
               canUpdate ? () => setTabAndScroll("webhooks") : null
             }
-            editWebhooksBlockedReason={
-              staged.dirty ? "Save or discard your changes first." : null
-            }
+            editWebhooksBlockedReason={stagedBlockedReason}
             revision={panelRevision}
             allRevisions={allRevisions}
             isLive={!selectedRevision}
@@ -874,14 +836,12 @@ export default function SDKConnectionPage() {
                 connections={data.connections.map((c) =>
                   c.id === displayedConn.id ? displayedConn : c,
                 )}
-                mutate={async () => {
-                  await Promise.all([mutateRevisions(), mutate()]);
-                }}
+                mutate={refreshAll}
               />
             )}
             {tab === "review" && (
               <ReviewAndPublishTab<SDKConnectionRevisionSnapshot>
-                revision={selectedRevision ?? liveRevision}
+                revision={panelRevision}
                 allRevisions={allRevisions}
                 currentState={liveSnapshot}
                 diffConfig={REVISION_SDK_CONNECTION_DIFF_CONFIG}

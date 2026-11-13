@@ -64,7 +64,9 @@ export const PAYLOAD_FORMAT_LABELS: Record<string, string> = {
 
 // Rows predating `httpMethod` default to POST, and a default timeout is
 // omitted, both as the server snapshots them.
-function toSnapshot(wh: WebhookInterface): SDKWebhookRevisionSnapshot {
+function toSnapshot(
+  wh: WebhookInterface | SDKWebhookRevisionSnapshot,
+): SDKWebhookRevisionSnapshot {
   return parseSdkWebhookSnapshot({
     ...wh,
     httpMethod: wh.httpMethod ?? "POST",
@@ -127,30 +129,24 @@ export default function SdkWebhooks({
   const liveWebhooks = data?.webhooks ?? [];
   const liveById = new Map(liveWebhooks.map((wh) => [wh.id, wh]));
 
+  const baselineWebhooks =
+    (
+      viewedRevision?.target.snapshot as
+        | { sdkWebhooks?: SDKWebhookRevisionSnapshot[] }
+        | undefined
+    )?.sdkWebhooks ?? [];
+
   const draftWebhookSnapshots = ((): SDKWebhookRevisionSnapshot[] | null => {
     if (!viewedRevision) return null;
     const proposed = patchOpsToPartial(
       viewedRevision.target.proposedChanges,
     ) as { sdkWebhooks?: SDKWebhookRevisionSnapshot[] };
-    const baseline = viewedRevision.target.snapshot as {
-      sdkWebhooks?: SDKWebhookRevisionSnapshot[];
-    };
-    return (proposed.sdkWebhooks ?? baseline?.sdkWebhooks ?? []).map((wh) =>
-      parseSdkWebhookSnapshot({ ...wh, httpMethod: wh.httpMethod ?? "POST" }),
-    );
+    return (proposed.sdkWebhooks ?? baselineWebhooks).map(toSnapshot);
   })();
 
   // What the draft started from: a live webhook it lacks was removed by it
   // only if it was there to begin with. One added to live since is kept.
-  const draftBaseIds = new Set(
-    (
-      (
-        viewedRevision?.target.snapshot as {
-          sdkWebhooks?: SDKWebhookRevisionSnapshot[];
-        } | null
-      )?.sdkWebhooks ?? []
-    ).map((wh) => wh.id),
-  );
+  const draftBaseIds = new Set(baselineWebhooks.map((wh) => wh.id));
 
   const draftIds = new Set(draftWebhookSnapshots?.map((wh) => wh.id));
 
@@ -175,9 +171,7 @@ export default function SdkWebhooks({
           }),
           // Live webhooks the draft deletes stay in view until it publishes.
           ...liveWebhooks
-            .filter(
-              (live) => !draftWebhookSnapshots.some((s) => s.id === live.id),
-            )
+            .filter((live) => !draftIds.has(live.id))
             .map(
               (live): WebhookRow => ({
                 snapshot: toSnapshot(live),
@@ -255,10 +249,6 @@ export default function SdkWebhooks({
     id: string | undefined,
   ): Promise<void> => {
     const currentSnapshots = currentWebhookSnapshots();
-    if (!id) {
-      await handleCreateViaRevision(formData as CreateSdkWebhookProps);
-      return;
-    }
     if (!currentSnapshots.some((s) => s.id === id)) {
       throw new Error(
         "This webhook is not part of the selected draft, so the edit cannot be staged there. Switch to the live version or another draft and try again.",

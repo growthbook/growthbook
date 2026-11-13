@@ -1,13 +1,13 @@
 import { useState } from "react";
 import isEqual from "lodash/isEqual";
 import { SDKConnectionInterface } from "shared/types/sdk-connection";
-import { getConnectionSDKCapabilities } from "shared/sdk-versioning";
 import RevisionDraftSelectorForChanges from "@/components/Revision/RevisionDraftSelectorForChanges";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Field from "@/components/Forms/Field";
 import { SDKConnectionFieldsValue } from "@/components/Features/SDKConnections/SDKConnectionFields";
 import {
   advancedValueFromConnection,
+  connectionCapabilities,
   deliveryModeFromConnection,
   sanitizeAdvancedForSave,
   SDKConnectionAdvancedValue,
@@ -26,10 +26,10 @@ export function valueFromConnection(
 ): SDKConnectionFormValue {
   return {
     name: connection.name,
-    languages: connection.languages ?? [],
+    languages: connection.languages,
     sdkVersion: connection.sdkVersion,
     environment: connection.environment,
-    projects: connection.projects ?? [],
+    projects: connection.projects,
     includeReferencedPrerequisites: !!connection.includeReferencedPrerequisites,
     delivery: deliveryModeFromConnection(connection),
     encryptPayload: !!connection.encryptPayload,
@@ -42,15 +42,8 @@ export function valueFromConnection(
 export function sdkConnectionBody(
   v: SDKConnectionFormValue,
 ): Record<string, unknown> {
-  const caps = { languages: v.languages, sdkVersion: v.sdkVersion };
-  const latestCapabilities = getConnectionSDKCapabilities(
-    caps,
-    "max-ver-intersection",
-  );
-  const currentCapabilities = getConnectionSDKCapabilities(
-    caps,
-    "min-ver-intersection",
-  );
+  const { latestCaps: latestCapabilities, currentCaps: currentCapabilities } =
+    connectionCapabilities(v);
   // An SDK that can't read a secured payload gets a plain one, whatever
   // was chosen before it was picked.
   const plain =

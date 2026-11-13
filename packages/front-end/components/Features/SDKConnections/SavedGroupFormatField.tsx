@@ -1,9 +1,9 @@
 import { SavedGroupFormat, SDKLanguage } from "shared/types/sdk-connection";
-import { getConnectionSDKCapabilities } from "shared/sdk-versioning";
 import { Flex } from "@radix-ui/themes";
 import SelectField from "@/components/Forms/SelectField";
 import Text from "@/ui/Text";
 import { useUser } from "@/services/UserContext";
+import { connectionCapabilities } from "@/components/Features/SDKConnections/sdkConnectionRules";
 import {
   SAVED_GROUP_FORMAT_LABELS,
   SavedGroupReferencesLabel,
@@ -16,7 +16,6 @@ export default function SavedGroupFormatField({
   sdkVersion,
   remoteEvalEnabled,
   storedFormat,
-  hideLabel = false,
   disabled = false,
 }: {
   value: SavedGroupFormat;
@@ -25,21 +24,15 @@ export default function SavedGroupFormatField({
   sdkVersion?: string;
   remoteEvalEnabled: boolean;
   storedFormat?: SavedGroupFormat;
-  // Inline rows supply their own label.
-  hideLabel?: boolean;
   disabled?: boolean;
 }) {
   const { hasCommercialFeature } = useUser();
   const hasLargeSavedGroupFeature = hasCommercialFeature("large-saved-groups");
 
-  const currentCaps = getConnectionSDKCapabilities(
-    { languages, sdkVersion },
-    "min-ver-intersection",
-  );
-  const latestCaps = getConnectionSDKCapabilities(
-    { languages, sdkVersion },
-    "max-ver-intersection",
-  );
+  const { currentCaps, latestCaps } = connectionCapabilities({
+    languages,
+    sdkVersion,
+  });
   // v2 covers every Saved Group type. v1 covers ID Lists only, so Condition
   // Groups keep shipping inline until the SDK is upgraded.
   const supportsAllSavedGroupTypes = currentCaps.includes(
@@ -56,9 +49,7 @@ export default function SavedGroupFormatField({
       size="md"
       containerStyle={{ marginBottom: 0 }}
       label={
-        hideLabel ? undefined : (
-          <SavedGroupReferencesLabel remoteEvalEnabled={remoteEvalEnabled} />
-        )
+        <SavedGroupReferencesLabel remoteEvalEnabled={remoteEvalEnabled} />
       }
       aria-label="Pass Saved Groups by reference"
       disabled={disabled}

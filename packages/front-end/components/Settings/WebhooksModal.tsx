@@ -430,7 +430,7 @@ export function CreateSDKWebhookModal({
                 language="json"
                 minLines={3}
                 maxLines={6}
-                containerStyle={{ marginBottom: 0 }}
+                containerStyle={NO_MARGIN}
                 value={form.watch("headers")}
                 setValue={(headers) => {
                   validateHeaders(headers);
@@ -667,7 +667,7 @@ const EditSDKWebhooksModal: FC<{
           language="json"
           minLines={3}
           maxLines={6}
-          containerStyle={{ marginBottom: 0 }}
+          containerStyle={NO_MARGIN}
           value={form.watch("headers")}
           setValue={(headers) => {
             validateHeaders(headers);

@@ -50,7 +50,7 @@ export default function SDKConnectionDetailsPanel({
   setTab: (tab: DetailsPanelTab) => void;
 }) {
   const { getProjectById } = useDefinitions();
-  const projects = connection.projects ?? [];
+  const projects = connection.projects;
 
   return (
     <DetailsPanel tab={tab} setTab={setTab}>
@@ -61,7 +61,7 @@ export default function SDKConnectionDetailsPanel({
           label="SDK"
           value={
             <Flex align="center" gap="3" wrap="wrap">
-              {(connection.languages ?? []).map((language) => (
+              {connection.languages.map((language) => (
                 <SDKLanguageLogo
                   key={language}
                   language={language}
@@ -135,7 +135,7 @@ export default function SDKConnectionDetailsPanel({
           label="Proxy"
           value={
             <PanelText>
-              {connection.proxy?.enabled ? "Enabled" : "Disabled"}
+              {connection.proxy.enabled ? "Enabled" : "Disabled"}
             </PanelText>
           }
         />

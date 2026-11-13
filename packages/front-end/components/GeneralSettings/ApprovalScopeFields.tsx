@@ -274,7 +274,6 @@ export function FlagApprovalFields({
 const APPROVAL_FLOW_COPY: Record<
   ApprovalFlowFamily,
   {
-    idInfix: string;
     requireId: string;
     requireLabel: string;
     contentId: string;
@@ -283,7 +282,6 @@ const APPROVAL_FLOW_COPY: Record<
   }
 > = {
   "saved-group": {
-    idInfix: "saved-group",
     requireId: "require-approvals-saved-groups",
     requireLabel: "Require approval to modify Saved Groups",
     contentId: "values-conditions",
@@ -291,7 +289,6 @@ const APPROVAL_FLOW_COPY: Record<
     metadataHelp: "Description, owner, Project, tags, and similar.",
   },
   "sdk-connection": {
-    idInfix: "sdk-connection",
     requireId: "require-approvals-sdk-connections",
     requireLabel: "Require approval to modify SDK Connections",
     contentId: "settings",
@@ -330,7 +327,7 @@ export function ApprovalFlowRuleFields({
           {family === "sdk-connection" && (
             <CollapsibleMultiSelect
               revealLabel="For specific environments"
-              id={`${idPrefix}-${copy.idInfix}-environments`}
+              id={`${idPrefix}-${family}-environments`}
               label="Specific environments"
               options={environments.map((e) => ({ value: e.id, label: e.id }))}
               placeholder="All environments (leave blank to gate all)"
@@ -343,7 +340,7 @@ export function ApprovalFlowRuleFields({
           )}
           <CollapsibleMultiSelect
             revealLabel="Require approval from specific teams"
-            id={`${idPrefix}-${copy.idInfix}-required-approver-teams`}
+            id={`${idPrefix}-${family}-required-approver-teams`}
             label="Required approver teams"
             options={(teams ?? []).map((t) => ({ value: t.id, label: t.name }))}
             placeholder="Anyone who can review (leave blank)"
@@ -354,7 +351,7 @@ export function ApprovalFlowRuleFields({
             readOnly={readOnly}
           />
           <HelpCheckbox
-            id={`${idPrefix}-${copy.idInfix}-reset-review-on-change`}
+            id={`${idPrefix}-${family}-reset-review-on-change`}
             label="Reset review on changes"
             help="A new edit after approval needs to be approved again."
             value={!!value.resetReviewOnChange}
@@ -362,7 +359,7 @@ export function ApprovalFlowRuleFields({
             readOnly={readOnly}
           />
           <HelpCheckbox
-            id={`${idPrefix}-${copy.idInfix}-block-self-approval`}
+            id={`${idPrefix}-${family}-block-self-approval`}
             label="Block contributors from self-approving"
             help="Anyone who edited the draft can't approve it."
             value={!!value.blockSelfApproval}
@@ -370,7 +367,7 @@ export function ApprovalFlowRuleFields({
             readOnly={readOnly}
           />
           <HelpCheckbox
-            id={`${idPrefix}-${copy.idInfix}-autopublish-on-approval`}
+            id={`${idPrefix}-${family}-autopublish-on-approval`}
             label="Allow approve & publish in one step"
             help="Reviewers can approve and publish with a single action."
             value={!!value.autopublishOnApproval}
@@ -383,7 +380,7 @@ export function ApprovalFlowRuleFields({
             </Text>
             <Flex direction="column" gap="2" align="start">
               <HelpCheckbox
-                id={`${idPrefix}-${copy.idInfix}-${copy.contentId}`}
+                id={`${idPrefix}-${family}-${copy.contentId}`}
                 label={copy.contentLabel}
                 help="Always included."
                 value={true}
@@ -392,7 +389,7 @@ export function ApprovalFlowRuleFields({
                 setValue={() => undefined}
               />
               <HelpCheckbox
-                id={`${idPrefix}-${copy.idInfix}-metadata-review`}
+                id={`${idPrefix}-${family}-metadata-review`}
                 label="Metadata changes"
                 help={copy.metadataHelp}
                 value={value.requireMetadataReview !== false}
