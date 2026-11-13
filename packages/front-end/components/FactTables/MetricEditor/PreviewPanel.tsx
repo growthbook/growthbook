@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import { FactMetricInterface } from "shared/types/fact-table";
 import { CreateFactMetricFormProps } from "@/services/metrics";
@@ -8,38 +8,16 @@ import Text from "@/ui/Text";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/ui/Tabs";
 import Callout from "@/ui/Callout";
 import Code from "@/components/SyntaxHighlighting/Code";
+import useDebouncedValue from "@/hooks/useDebouncedValue";
 import { MetricPreviewSql } from "@/components/FactTables/MetricEditor/previewSql";
 import MetricPerformance from "@/enterprise/components/ProductAnalytics/MetricPerformance";
+import styles from "./PreviewPanel.module.scss";
+import { getPreviewDraftMetric } from "./metricPreview";
 import {
   getMetricPreviewUnavailableReason,
   getDraftMetricPreview,
   getMetricPreviewCaveat,
 } from "./draftMetricPreview";
-import { getPreviewDraftMetric } from "./metricPreview";
-import styles from "./PreviewPanel.module.scss";
-
-const PREVIEW_DEBOUNCE_MS = 500;
-
-// The form hands over a new draft object on every keystroke. Only publish a
-// new preview metric once its query-relevant fields change and then settle,
-// so typing doesn't fire a cache lookup per key.
-function useSettledPreviewMetric(
-  live: FactMetricInterface | null,
-): FactMetricInterface | null {
-  const key = live ? JSON.stringify(getPreviewDraftMetric(live)) : "";
-  const liveRef = useRef(live);
-  liveRef.current = live;
-  const [settled, setSettled] = useState({ key, metric: live });
-  useEffect(() => {
-    if (key === settled.key) return;
-    const timer = setTimeout(
-      () => setSettled({ key, metric: liveRef.current }),
-      PREVIEW_DEBOUNCE_MS,
-    );
-    return () => clearTimeout(timer);
-  }, [key, settled.key]);
-  return settled.metric;
-}
 
 export default function PreviewPanel({
   draft,
@@ -52,11 +30,17 @@ export default function PreviewPanel({
 }) {
   const [view, setView] = useState<"preview" | "sql">("preview");
   const liveDraftMetric = draft ? getDraftMetricPreview(draft) : null;
-  const settledDraftMetric = useSettledPreviewMetric(liveDraftMetric);
+  // Only the query-relevant fields count as a change.
+  const debouncedDraftMetric = useDebouncedValue(
+    liveDraftMetric
+      ? JSON.stringify(getPreviewDraftMetric(liveDraftMetric))
+      : "",
+    liveDraftMetric,
+  );
   // An incomplete draft disables the preview at once instead of after the
-  // debounce, so a half-filled filter can't run the last settled query.
+  // delay, so a half-filled filter can't run the query from before the edit.
   const previewMetric = draft
-    ? liveDraftMetric && settledDraftMetric
+    ? liveDraftMetric && debouncedDraftMetric
     : (metric ?? null);
   const currentMetric = draft ?? metric;
   const caveatMetric = draft ? liveDraftMetric : (metric ?? null);
