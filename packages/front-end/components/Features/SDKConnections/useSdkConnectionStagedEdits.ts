@@ -2,6 +2,8 @@ import isEqual from "lodash/isEqual";
 import omit from "lodash/omit";
 import { SDKConnectionInterface } from "shared/types/sdk-connection";
 import useSessionStagedState from "@/hooks/useSessionStagedState";
+import useOrgSettings from "@/hooks/useOrgSettings";
+import { isCloud } from "@/services/env";
 import {
   SDKConnectionFormValue,
   valueFromConnection,
@@ -13,8 +15,28 @@ import {
   SECURITY_ROWS,
   SettingRow,
 } from "@/components/Features/SDKConnections/sdkConnectionSettingRows";
+import { proxyHostError } from "@/components/Features/SDKConnections/SDKConnectionAdvancedSettings";
 
 type Patch = Partial<SDKConnectionFormValue>;
+
+// What the connection form refused to submit, checked before every save.
+function invalidReason(
+  next: SDKConnectionFormValue,
+  saved: SDKConnectionFormValue,
+  requireProject: boolean,
+): string | null {
+  if (!next.languages.length) return "Please select an SDK language";
+  // Only a connection that already has projects must keep one.
+  if (requireProject && saved.projects.length > 0 && !next.projects.length) {
+    return "Your organization requires SDK Connections to belong to at least one project.";
+  }
+  // The proxy host is only offered on cloud.
+  if (isCloud()) {
+    const proxyError = proxyHostError(next);
+    if (proxyError) return `Proxy host: ${proxyError}`;
+  }
+  return null;
+}
 
 // Only what differs from what's saved. A plain payload has no cipher options.
 function diff(next: SDKConnectionFormValue, saved: SDKConnectionFormValue) {
@@ -47,6 +69,7 @@ export function useSdkConnectionStagedEdits(
       : null,
     NOTHING_STAGED,
   );
+  const { requireProjectForSdkConnections } = useOrgSettings();
   if (!connection) return null;
   const saved = valueFromConnection(connection);
   const savedValue = (field: string) =>
@@ -85,6 +108,12 @@ export function useSdkConnectionStagedEdits(
     // The form as the staged edits found it.
     based: { ...saved, ...base } as SDKConnectionFormValue,
     dirty: Object.keys(patch).length > 0,
+    // Why the staged edits can't be saved, if they can't.
+    invalidReason: invalidReason(
+      shown,
+      saved,
+      !!requireProjectForSdkConnections,
+    ),
     stagedRows,
     fieldsOf,
     // Someone else saved a change to one of its settings since it was edited.

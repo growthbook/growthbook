@@ -67,12 +67,20 @@ export default function SDKConnectionEditsBar({
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Shown once a save is tried, and only while it still applies.
+  const [triedSave, setTriedSave] = useState(false);
+  const invalid = triedSave ? staged.invalidReason : null;
 
   const save = async () => {
     const body = sdkConnectionBody(staged.shown);
     const keys = changedKeys(sdkConnectionBody(staged.saved), body);
     if (!keys.length) {
       staged.clear();
+      return;
+    }
+    if (staged.invalidReason) {
+      setError(null);
+      setTriedSave(true);
       return;
     }
     // What someone else saved since is kept or dropped first, on its row.
@@ -156,9 +164,9 @@ export default function SDKConnectionEditsBar({
         </StagedChangesPopover>
       }
       notes={
-        error ? (
+        (error ?? invalid) ? (
           <HelperText status="error" size="sm">
-            {error}
+            {error ?? invalid}
           </HelperText>
         ) : staged.hasConflicts ? (
           <HelperText status="warning" size="sm">
@@ -207,6 +215,7 @@ export default function SDKConnectionEditsBar({
       onDiscard={() => {
         staged.clear();
         setError(null);
+        setTriedSave(false);
         setOpen(false);
       }}
       onSave={save}

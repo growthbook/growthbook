@@ -24,7 +24,6 @@ import {
   CATEGORY_TITLES,
   DELIVERY_LABELS,
   InfoTooltip,
-  RemoteCipherOptionsLabel,
   SETTING_PREMIUM_TIP,
   WithInfoIcon,
 } from "@/components/Features/SDKConnections/sdkConnectionSettingLabels";
@@ -263,35 +262,28 @@ export function CipherOptionsField({
   );
 }
 
-// A remotely evaluated payload can still be encrypted or hashed on its way to
-// the service that evaluates it, though it rarely needs to be.
+// Remote evaluation offers no cipher options. One saved before is kept, and
+// warned about as the connection form did.
 export function RemoteEvalOptionsField({
   value,
-  onChange,
   languages,
-  sdkVersion,
+  includeExperimentNames = true,
   hideLabel = false,
-  disabled = false,
-}: FieldProps) {
+}: FieldProps & { includeExperimentNames?: boolean }) {
   if (!shouldShowPayloadSecurity(languages) || value.delivery !== "remote") {
     return null;
   }
+  const active = [
+    value.encryptPayload && "Encrypt payload",
+    value.hashSecureAttributes && "Hash secure attributes",
+    !includeExperimentNames && "Hide experiment and variation names",
+  ].filter((a): a is string => !!a);
+  if (!isCloud() && !active.length) return null;
 
   return (
     <Box>
       {!hideLabel && <FieldLabel>{REMOTE_EVAL_OPTIONS_TITLE}</FieldLabel>}
       <Flex direction="column" gap="3">
-        {/* As a field's label above its control. */}
-        <Text as="div" size="md" weight="semibold">
-          <RemoteCipherOptionsLabel />
-        </Text>
-        <CipherCheckboxes
-          value={value}
-          setOption={onChange}
-          languages={languages}
-          sdkVersion={sdkVersion}
-          disabled={disabled}
-        />
         {isCloud() && (
           <Callout status="info" size="sm">
             Cloud customers must self-host a remote evaluation service such as{" "}
@@ -302,6 +294,14 @@ export function RemoteEvalOptionsField({
               GrowthBook Proxy
             </Link>{" "}
             or a CDN edge worker.
+          </Callout>
+        )}
+        {active.length > 0 && (
+          <Callout status="warning" size="sm">
+            <strong>{active.join(", ")}</strong>{" "}
+            {active.length === 1 ? "is" : "are"} not recommended for most remote
+            evaluation configurations and {active.length === 1 ? "is" : "are"} a
+            more advanced use case.
           </Callout>
         )}
       </Flex>

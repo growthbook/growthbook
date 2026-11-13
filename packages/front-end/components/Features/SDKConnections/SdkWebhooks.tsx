@@ -409,7 +409,12 @@ export default function SdkWebhooks({
 
   const renderTableRows = () => {
     return rows.map(({ snapshot, live, staged }) => {
-      const managedBy = live?.managedBy?.type;
+      // History rows have no live row and snapshots drop `managedBy`, so take
+      // it from the live webhook, or from the connection when it's managed.
+      const managedBy = pastRevision
+        ? (liveById.get(snapshot.id)?.managedBy?.type ??
+          connection.managedBy?.type)
+        : live?.managedBy?.type;
       // Only what the draft holds can change in it; Test reaches live either way.
       const notInDraftReason =
         !draftWebhookSnapshots || draftIds.has(snapshot.id)

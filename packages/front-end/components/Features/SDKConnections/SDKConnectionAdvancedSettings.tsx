@@ -237,6 +237,23 @@ export function TracesSettings({ value, onChange, disabled }: GroupProps) {
   );
 }
 
+// The host is optional, but one that's given must be a URL.
+export function proxyHostError({
+  proxyEnabled,
+  proxyHost,
+}: Pick<SDKConnectionAdvancedValue, "proxyEnabled" | "proxyHost">):
+  | string
+  | null {
+  if (!proxyEnabled || !proxyHost) return null;
+  try {
+    const { protocol } = new URL(proxyHost);
+    if (protocol === "http:" || protocol === "https:") return null;
+  } catch {
+    // Not a URL.
+  }
+  return "Enter a valid http:// or https:// URL";
+}
+
 // Self-hosted configures the proxy via env vars, so this is cloud-only.
 export function ProxySettings({ value, onChange, disabled }: GroupProps) {
   const proxyHostId = useId();
@@ -258,6 +275,7 @@ export function ProxySettings({ value, onChange, disabled }: GroupProps) {
           disabled={disabled}
           value={value.proxyHost}
           onChange={(e) => onChange({ proxyHost: e.target.value })}
+          error={proxyHostError(value)}
           label={
             <Text as="label" htmlFor={proxyHostId} weight="semibold">
               {SETTING_TITLES.proxyHost}{" "}

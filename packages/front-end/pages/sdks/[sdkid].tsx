@@ -390,6 +390,19 @@ export default function SDKConnectionPage() {
 
   const canDuplicate = permissionsUtil.canCreateSDKConnection(connection);
   const canUpdate = permissionsUtil.canUpdateSDKConnection(connection, {});
+  // Publishing or approving a draft that moves the connection also takes
+  // update rights where it lands, as the server checks.
+  const holdsDestinationOf = (revision: Revision | null) => {
+    if (!revision) return true;
+    const { projects, environment } = sdkConnectionSettingsAfter(
+      revision.target.snapshot as SDKConnectionRevisionSnapshot,
+      revision.target.proposedChanges,
+    );
+    return permissionsUtil.canUpdateSDKConnection(connection, {
+      ...(projects !== undefined && { projects }),
+      ...(environment !== undefined && { environment }),
+    });
+  };
   const canDelete =
     permissionsUtil.canDeleteSDKConnection(connection) &&
     !connection.managedBy?.type;
@@ -424,6 +437,8 @@ export default function SDKConnectionPage() {
 
   const revisionNumbers = getRevisionNumberById(allRevisions);
   const panelRevision = selectedRevision ?? liveRevision;
+  const holdsSelectedDestination = holdsDestinationOf(selectedRevision);
+  const holdsPanelDestination = holdsDestinationOf(panelRevision);
 
   const showsStatusBar =
     tab === "overview" &&
@@ -768,7 +783,9 @@ export default function SDKConnectionPage() {
                 canDiscard={canUpdate || selectedRevision?.authorId === userId}
                 onSelectRevision={selectFlow}
                 onReviewPublish={() => setTabAndScroll("review")}
-                onPublish={canUpdate ? handlePublish : null}
+                onPublish={
+                  canUpdate && holdsSelectedDestination ? handlePublish : null
+                }
                 onDiscard={handleDiscard}
                 blockedReason={stagedBlockedReason}
               />
@@ -859,6 +876,8 @@ export default function SDKConnectionPage() {
                 requiresApproval={selectedRevisionRequiresApproval}
                 reviewRules={selectedRevisionReviewRules}
                 canEditEntity={canUpdate}
+                canReviewEntity={canUpdate && holdsPanelDestination}
+                holdsLandingDestination={holdsPanelDestination}
                 canBypassApproval={canBypassSelectedRevision}
                 selectRevision={selectFlow}
                 publishBlockedReason={stagedBlockedReason ?? undefined}

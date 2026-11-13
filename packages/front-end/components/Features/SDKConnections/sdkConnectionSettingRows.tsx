@@ -360,8 +360,12 @@ export const SECURITY_ROWS: SettingRow[] = [
     key: "remoteOptions",
     label: REMOTE_EVAL_OPTIONS_TITLE,
     fields: (v) => (v.delivery === "remote" ? CIPHER_FIELDS : []),
-    shown: (v) =>
-      v.delivery === "remote" && shouldShowPayloadSecurity(v.languages),
+    // Only where it has something to say: the cloud notice or a cipher
+    // option saved before.
+    shown: (v, { cloud }) =>
+      v.delivery === "remote" &&
+      shouldShowPayloadSecurity(v.languages) &&
+      (cloud || v.encryptPayload || v.hashSecureAttributes),
     read: readCipherOptions,
     edit: (v, onChange, disabled) => (
       <RemoteEvalOptionsField
@@ -369,6 +373,7 @@ export const SECURITY_ROWS: SettingRow[] = [
         onChange={onChange}
         languages={v.languages}
         sdkVersion={v.sdkVersion}
+        includeExperimentNames={v.includeExperimentNames}
         hideLabel
         disabled={disabled}
       />
