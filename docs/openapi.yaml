@@ -17791,7 +17791,7 @@ paths:
                 type: object
                 properties:
                   experiment:
-                    $ref: '#/components/schemas/Experiment'
+                    $ref: '#/components/schemas/ExperimentWithEnhancedStatus'
                   result:
                     $ref: '#/components/schemas/ExperimentResults'
                 required:
@@ -69563,8 +69563,14 @@ components:
     phase:
       name: phase
       in: query
-      description: ''
+      description: >-
+        Phase index, defaulting to the latest phase. `experiment.enhancedStatus`
+        describes the latest phase, so it is omitted for any other phase.
       schema:
+        description: >-
+          Phase index, defaulting to the latest phase.
+          `experiment.enhancedStatus` describes the latest phase, so it is
+          omitted for any other phase.
         type: string
     dimension:
       name: dimension
@@ -75171,6 +75177,317 @@ components:
           type: array
           items:
             type: string
+        health:
+          description: >-
+            Health checks for the snapshot as a whole, with the same verdicts
+            the app shows. They are not broken down by dimension value.
+          type: object
+          properties:
+            srm:
+              description: >-
+                Sample ratio mismatch check for the experiment as a whole. It
+                comes from the traffic query, or from the overall result when
+                that query did not run or failed. null when neither is
+                available, for example on some dimension breakdowns.
+              anyOf:
+                - type: object
+                  properties:
+                    pValue:
+                      description: Sample ratio mismatch p-value.
+                      type: number
+                    status:
+                      description: >-
+                        `unhealthy` when the check fails the organization's
+                        threshold. `not-enough-traffic` when there are too few
+                        units to judge.
+                      type: string
+                      enum:
+                        - healthy
+                        - unhealthy
+                        - not-enough-traffic
+                    threshold:
+                      description: >-
+                        The organization's SRM p-value threshold. The check is
+                        `unhealthy` when `pValue` is below it.
+                      type: number
+                    totalUnits:
+                      description: >-
+                        Units the p-value was computed on: clusters for cluster
+                        experiments, otherwise the randomization unit.
+                      anyOf:
+                        - type: number
+                        - type: 'null'
+                    variationUnits:
+                      description: >-
+                        Units per variation, in the experiment's variation
+                        order.
+                      anyOf:
+                        - type: array
+                          items:
+                            type: number
+                        - type: 'null'
+                  required:
+                    - pValue
+                    - status
+                    - threshold
+                    - totalUnits
+                    - variationUnits
+                  additionalProperties: false
+                - type: 'null'
+            multipleExposures:
+              description: >-
+                Multiple exposures check. For cluster experiments it counts
+                sub-units. null when the snapshot has no unit total to measure
+                against, for example on dimension breakdowns whose traffic query
+                did not run or failed.
+              anyOf:
+                - type: object
+                  properties:
+                    count:
+                      description: >-
+                        Units exposed to more than one variation. They are
+                        excluded from the analysis.
+                      type: number
+                    totalUnits:
+                      description: Units `percent` is measured against.
+                      type: number
+                    percent:
+                      description: >-
+                        `count` divided by `totalUnits`, as a fraction from 0 to
+                        1.
+                      type: number
+                    status:
+                      description: >-
+                        `unhealthy` when the check fails the organization's
+                        threshold. `not-enough-traffic` when there are too few
+                        units to judge.
+                      type: string
+                      enum:
+                        - healthy
+                        - unhealthy
+                        - not-enough-traffic
+                    threshold:
+                      description: >-
+                        The organization's threshold, as a fraction from 0 to 1.
+                        The check is `unhealthy` when `percent` reaches or
+                        exceeds it.
+                      type: number
+                  required:
+                    - count
+                    - totalUnits
+                    - percent
+                    - status
+                    - threshold
+                  additionalProperties: false
+                - type: 'null'
+            unknownVariations:
+              description: >-
+                Variation IDs found in the exposure data that match none of the
+                experiment's variations. A non-empty list usually means the
+                tracked variation IDs are misconfigured.
+              type: array
+              items:
+                type: string
+            power:
+              description: >-
+                Mid-experiment power estimate. null when the snapshot did not
+                compute one or the calculation failed.
+              anyOf:
+                - type: object
+                  properties:
+                    isLowPowered:
+                      description: >-
+                        Whether the experiment is unlikely to detect its target
+                        effect by the end of its planned run.
+                      type: boolean
+                    additionalDaysNeeded:
+                      description: >-
+                        Estimated extra days needed to reach the target power.
+                        null when the experiment is not expected to reach it at
+                        the current traffic.
+                      anyOf:
+                        - type: number
+                        - type: 'null'
+                  required:
+                    - isLowPowered
+                    - additionalDaysNeeded
+                  additionalProperties: false
+                - type: 'null'
+            covariateImbalance:
+              description: >-
+                Pre-exposure bias check. null when the snapshot did not compute
+                one.
+              anyOf:
+                - type: object
+                  properties:
+                    isImbalanced:
+                      description: >-
+                        Whether variations already differed on the experiment's
+                        metrics before exposure (pre-exposure bias).
+                      type: boolean
+                    numGoalMetricsImbalanced:
+                      type: number
+                    numGuardrailMetricsImbalanced:
+                      type: number
+                    numSecondaryMetricsImbalanced:
+                      type: number
+                  required:
+                    - isImbalanced
+                    - numGoalMetricsImbalanced
+                    - numGuardrailMetricsImbalanced
+                    - numSecondaryMetricsImbalanced
+                  additionalProperties: false
+                - type: 'null'
+            cluster:
+              description: Cluster experiment checks. Omitted for other experiments.
+              type: object
+              properties:
+                mixedAssignment:
+                  anyOf:
+                    - type: object
+                      properties:
+                        totalClusters:
+                          type: number
+                        mixedClusters:
+                          description: >-
+                            Clusters whose sub-units saw more than one
+                            variation.
+                          type: number
+                        percent:
+                          type: number
+                        status:
+                          description: >-
+                            `unhealthy` when the check fails the organization's
+                            threshold. `not-enough-traffic` when there are too
+                            few units to judge.
+                          type: string
+                          enum:
+                            - healthy
+                            - unhealthy
+                            - not-enough-traffic
+                      required:
+                        - totalClusters
+                        - mixedClusters
+                        - percent
+                        - status
+                      additionalProperties: false
+                    - type: 'null'
+                unitsInMultipleClusters:
+                  anyOf:
+                    - type: object
+                      properties:
+                        totalUnits:
+                          type: number
+                        multiClusterUnits:
+                          description: Sub-units that appear in more than one cluster.
+                          type: number
+                        percent:
+                          type: number
+                        status:
+                          description: >-
+                            `unhealthy` when the check fails the organization's
+                            threshold. `not-enough-traffic` when there are too
+                            few units to judge.
+                          type: string
+                          enum:
+                            - healthy
+                            - unhealthy
+                            - not-enough-traffic
+                      required:
+                        - totalUnits
+                        - multiClusterUnits
+                        - percent
+                        - status
+                      additionalProperties: false
+                    - type: 'null'
+                reliability:
+                  description: >-
+                    Whether there are enough clusters, evenly sized enough, to
+                    trust the results. `unhealthy` when either `tooFewClusters`
+                    or `oversizedCluster` is set. The app shows it as a warning
+                    on the results; it is not part of `enhancedStatus.decision`.
+                    null when the snapshot has no cluster counts.
+                  anyOf:
+                    - type: object
+                      properties:
+                        status:
+                          type: string
+                          enum:
+                            - healthy
+                            - unhealthy
+                        minClustersPerVariation:
+                          description: >-
+                            Recommended minimum number of clusters per
+                            variation.
+                          type: number
+                        maxClusterShare:
+                          description: >-
+                            Share of sub-units, as a fraction from 0 to 1, that
+                            no single cluster should reach.
+                          type: number
+                        tooFewClusters:
+                          description: >-
+                            The variation with the fewest clusters, when it has
+                            fewer than `minClustersPerVariation`.
+                            `variationIndex` and `variationKey` come from the
+                            snapshot; `variationId` is the current variation
+                            with that key, omitted when none matches.
+                          anyOf:
+                            - type: object
+                              properties:
+                                variationIndex:
+                                  type: number
+                                variationKey:
+                                  type: string
+                                variationId:
+                                  type: string
+                                clusters:
+                                  type: number
+                              required:
+                                - variationIndex
+                                - variationKey
+                                - clusters
+                              additionalProperties: false
+                            - type: 'null'
+                        oversizedCluster:
+                          description: >-
+                            The largest cluster, when its share reaches
+                            `maxClusterShare`.
+                          anyOf:
+                            - type: object
+                              properties:
+                                id:
+                                  type: string
+                                percent:
+                                  description: >-
+                                    The cluster's share of sub-units, as a
+                                    fraction from 0 to 1.
+                                  type: number
+                              required:
+                                - id
+                                - percent
+                              additionalProperties: false
+                            - type: 'null'
+                      required:
+                        - status
+                        - minClustersPerVariation
+                        - maxClusterShare
+                        - tooFewClusters
+                        - oversizedCluster
+                      additionalProperties: false
+                    - type: 'null'
+              required:
+                - mixedAssignment
+                - unitsInMultipleClusters
+                - reliability
+              additionalProperties: false
+          required:
+            - srm
+            - multipleExposures
+            - unknownVariations
+            - power
+            - covariateImbalance
+          additionalProperties: false
         results:
           type: array
           items:
@@ -75184,6 +75501,12 @@ components:
                 type: object
                 properties:
                   srm:
+                    description: >-
+                      Sample ratio mismatch p-value for this row's units.
+                      `health.srm` is the experiment-wide check with a verdict;
+                      the two can differ slightly as this comes from the metric
+                      query and the other comes from the traffic query. If they
+                      disagree, rely on the `health.srm` value.
                     type: number
                 required:
                   - srm
@@ -75673,6 +75996,124 @@ components:
                     - Archived
                 detailedStatus:
                   type: string
+                needsAttention:
+                  description: Whether the app flags this experiment as needing attention.
+                  type: boolean
+                decision:
+                  description: >-
+                    The decision behind `detailedStatus` for a running
+                    experiment, based on the latest successful standard snapshot
+                    of the latest phase. Omitted when there is nothing to report
+                    yet.
+                  type: object
+                  properties:
+                    category:
+                      description: >-
+                        What `status` asks of you. `ready-for-action`: the
+                        results are ready to act on (`ship-now`, `rollback-now`,
+                        `ready-for-review`, `scheduled-end-review`).
+                        `has-issue`: something needs fixing before the results
+                        can be trusted (`unhealthy`, `data-incomplete`,
+                        `no-data`). `collecting-data`: keep the experiment
+                        running (`days-left`, `before-min-duration`).
+                      type: string
+                      enum:
+                        - ready-for-action
+                        - has-issue
+                        - collecting-data
+                    status:
+                      description: >-
+                        `ship-now`, `rollback-now` and `ready-for-review` are
+                        recommendations from the Experiment Decision Framework
+                        and are only rendered if the Decision Framework is
+                        enabled for your organization. `unhealthy` means a
+                        health check is failing (see `healthIssues`).
+                        `data-incomplete` means some metrics could not be
+                        computed (see `erroredMetricIds`). `days-left` and
+                        `before-min-duration` mean the experiment should keep
+                        running. `scheduled-end-review` means the scheduled end
+                        date passed without a recommendation.
+                      type: string
+                      enum:
+                        - ship-now
+                        - rollback-now
+                        - ready-for-review
+                        - scheduled-end-review
+                        - days-left
+                        - before-min-duration
+                        - no-data
+                        - unhealthy
+                        - data-incomplete
+                    reason:
+                      description: Explanation of the status, as shown in the app.
+                      type: string
+                    daysLeft:
+                      description: >-
+                        Days until the scheduled end date or, without one, until
+                        the experiment is expected to reach its target power.
+                        Set when `status` is `days-left`. null when the
+                        experiment is not expected to reach its target power at
+                        the current traffic.
+                      anyOf:
+                        - type: number
+                        - type: 'null'
+                    variations:
+                      description: >-
+                        Variations the recommendation applies to. Set for
+                        `ship-now`, `rollback-now` and `ready-for-review`.
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          variationId:
+                            type: string
+                          action:
+                            description: >-
+                              Action the decision criteria reached for this
+                              variation. null when no rule applied.
+                            anyOf:
+                              - type: string
+                                enum:
+                                  - ship
+                                  - rollback
+                                  - review
+                              - type: 'null'
+                        required:
+                          - variationId
+                          - action
+                        additionalProperties: false
+                    healthIssues:
+                      description: >-
+                        What is wrong with the experiment. Set when `status` is
+                        `unhealthy`. The results endpoint has the numbers behind
+                        each one under `result.health`: `sample-ratio-mismatch`
+                        in `srm`, `multiple-exposures` in `multipleExposures`,
+                        `low-power` in `power`, `covariate-imbalance` in
+                        `covariateImbalance`, `mixed-cluster-assignment` in
+                        `cluster.mixedAssignment` and
+                        `units-in-multiple-clusters` in
+                        `cluster.unitsInMultipleClusters`.
+                      type: array
+                      items:
+                        type: string
+                        enum:
+                          - sample-ratio-mismatch
+                          - multiple-exposures
+                          - low-power
+                          - covariate-imbalance
+                          - mixed-cluster-assignment
+                          - units-in-multiple-clusters
+                    erroredMetricIds:
+                      description: >-
+                        Metrics that could not be computed. Set when `status` is
+                        `data-incomplete`.
+                      type: array
+                      items:
+                        type: string
+                  required:
+                    - category
+                    - status
+                  additionalProperties: false
               required:
                 - status
               additionalProperties: false

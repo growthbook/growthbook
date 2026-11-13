@@ -16,11 +16,15 @@ import {
   ExperimentSnapshotInterface,
   SnapshotMetric,
 } from "shared/types/experiment-snapshot";
-import { ExperimentInterface } from "shared/types/experiment";
+import {
+  ExperimentHealthSettings,
+  ExperimentInterface,
+} from "shared/types/experiment";
 import { ExposureQuery } from "shared/types/datasource";
 import { ExperimentReportResultDimension } from "shared/types/report";
 import { DifferenceType, StatsEngine } from "shared/types/stats";
 import { safeFloatOrNull } from "back-end/src/services/experiments";
+import { toApiResultHealth } from "./resultHealth";
 
 export function buildExperimentBulkResultId(
   snapshotId: string,
@@ -262,9 +266,12 @@ export function toExperimentSnapshotBulkResultsApiInterface(
   snapshot: ExperimentSnapshotInterface,
   metricsById: Map<string, ExperimentMetricInterface>,
   exposureQueries: ExposureQuery[],
+  healthSettings: ExperimentHealthSettings,
 ): ApiExperimentBulkResult[] {
   const defaultAnalysis = snapshot.analyses[0];
   if (!defaultAnalysis || defaultAnalysis.status !== "success") return [];
+
+  const health = toApiResultHealth({ experiment, snapshot, healthSettings });
 
   const phase = experiment.phases[snapshot.phase];
 
@@ -435,6 +442,7 @@ export function toExperimentSnapshotBulkResultsApiInterface(
           ? { pValueThreshold: baseAnalysis.settings.pValueThreshold }
           : null),
       },
+      health,
       results: (baseAnalysis.results || []).map((s) => {
         return {
           dimensionValue: s.name,

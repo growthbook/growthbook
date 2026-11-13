@@ -2034,6 +2034,48 @@ describe("getExperimentResultStatus schedule-driven states", () => {
     } as unknown as ExperimentDataForStatus;
   }
 
+  it("gives each running verdict a category that agrees with needsAttention", () => {
+    const indicatorFor = (experimentData: ExperimentDataForStatus) =>
+      getStatusIndicatorData({
+        experimentData,
+        skipArchived: false,
+        healthSettings: baseHealthSettings,
+        decisionCriteria: PRESET_DECISION_CRITERIA,
+        metricGroups: [],
+      });
+
+    const review = indicatorFor(
+      makeExperimentData({
+        stopAt: daysAgo(1),
+        goalMetrics: [],
+        secondaryMetrics: ["secondary-1"],
+      }),
+    );
+    const unhealthy = indicatorFor(
+      makeExperimentData({
+        analysisSummary: {
+          snapshotId: "snap-1",
+          health: { srm: 0.0001, multipleExposures: 0, totalUsers: 1_000_000 },
+        },
+      }),
+    );
+    const daysLeft = indicatorFor(
+      makeExperimentData({ stopAt: hoursFromNow(72) }),
+    );
+
+    expect(review.resultStatus?.status).toBe("scheduled-end-review");
+    expect(review.decisionCategory).toBe("ready-for-action");
+    expect(unhealthy.resultStatus?.status).toBe("unhealthy");
+    expect(unhealthy.decisionCategory).toBe("has-issue");
+    expect(daysLeft.resultStatus?.status).toBe("days-left");
+    expect(daysLeft.decisionCategory).toBe("collecting-data");
+    for (const indicator of [review, unhealthy, daysLeft]) {
+      expect(!!indicator.needsAttention).toBe(
+        indicator.decisionCategory !== "collecting-data",
+      );
+    }
+  });
+
   it("returns scheduled-end-review when the scheduled end passed with no goal metrics", () => {
     const result = getExperimentResultStatus({
       experimentData: makeExperimentData({
