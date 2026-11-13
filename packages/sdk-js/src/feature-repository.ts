@@ -105,7 +105,13 @@ export const helpers: Helpers = {
 };
 
 try {
-  if (globalThis.localStorage) {
+  // Node 25+ prints an ExperimentalWarning as soon as the global localStorage
+  // getter is read, so only pick it up automatically in browsers.
+  if (
+    typeof window !== "undefined" &&
+    typeof document !== "undefined" &&
+    globalThis.localStorage
+  ) {
     polyfills.localStorage = globalThis.localStorage;
   }
 } catch (e) {
