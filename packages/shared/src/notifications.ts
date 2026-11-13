@@ -103,13 +103,25 @@ export const notificationEventMetadata = {
   "feature.rampSchedule.actions.errorPaused": {
     label: "Ramp schedule paused on error",
     description:
-      "Triggered when a feature ramp schedule pauses because a step could not be applied: right away for a plan the engine refuses, or after its retries run out for other failures; `reason` says why",
+      "Triggered when a feature ramp schedule pauses because a step could not be applied: right away for a plan the engine refuses, or after its retries run out for other failures; `reason` says why. Fix the cause, then resume the schedule (`POST /api/v1/ramp-schedules/{id}/actions/resume`)",
     preview: true,
   },
   "feature.rampSchedule.actions.stepHeld": {
     label: "Ramp step held by a health check",
     description:
       "Triggered when a monitored ramp step is held by a health check (SRM, multiple exposures, no traffic, a guardrail metric that failed to compute, an unhealthy signal metric). Sent once per check per step; `reason` says why",
+    preview: true,
+  },
+  "feature.rampSchedule.actions.stepRetrying": {
+    label: "Ramp step retrying",
+    description:
+      "Triggered when a ramp step fails for a reason that may clear on its own, such as a database timeout. The schedule holds at its current step and retries on its own; `nextAttemptAt` says when. Sent once per failure streak, followed by `stepRecovered` when a retry succeeds or `errorPaused` after `maxAttempts`. Retry now with `POST /api/v1/ramp-schedules/{id}/actions/retry`",
+    preview: true,
+  },
+  "feature.rampSchedule.actions.stepRecovered": {
+    label: "Ramp step recovered",
+    description:
+      "Triggered when a ramp step succeeds after failed attempts; the schedule continues as planned",
     preview: true,
   },
   "feature.rampSchedule.actions.paused": {
@@ -801,6 +813,8 @@ export const notificationCategoryGroups: Record<
             "feature.rampSchedule.actions.startApproved",
             "feature.rampSchedule.actions.errorPaused",
             "feature.rampSchedule.actions.stepHeld",
+            "feature.rampSchedule.actions.stepRetrying",
+            "feature.rampSchedule.actions.stepRecovered",
             "feature.rampSchedule.actions.paused",
             "feature.rampSchedule.actions.resumed",
           ],

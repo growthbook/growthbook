@@ -2816,9 +2816,24 @@ export async function recordRampStepFailure(
     );
     return null;
   }
-  await ctx.models.rampSchedules.updateById(scheduleId, {
+  const updated = await ctx.models.rampSchedules.updateById(scheduleId, {
     stepFailure: { attempts, lastError: message, retryAt },
   });
+  if (attempts === 1) {
+    await dispatchRampEvent(ctx, updated, "rampSchedule.actions.stepRetrying", {
+      object: {
+        rampScheduleId: updated.id,
+        rampName: updated.name,
+        orgId: ctx.org.id,
+        currentStepIndex: updated.currentStepIndex,
+        status: updated.status,
+        reason: message,
+        attempts,
+        maxAttempts: RAMP_STEP_MAX_ATTEMPTS,
+        nextAttemptAt: retryAt.toISOString(),
+      },
+    });
+  }
   logger.warn(
     error,
     `Ramp schedule ${scheduleId} step failed (attempt ${attempts}); retrying at ${retryAt.toISOString()}`,

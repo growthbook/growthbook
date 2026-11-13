@@ -10,6 +10,7 @@ import {
   applyRampStartActions,
   completeRollout,
   computeNextProcessAt,
+  dispatchRampEvent,
   ensureRampStartActions,
   ensureSafeRolloutForMonitoredRamp,
   onActivatingRevisionPublished,
@@ -99,9 +100,25 @@ async function attemptRampScheduleTick(
     throw e;
   }
   if (schedule.stepFailure) {
-    await context.models.rampSchedules.updateById(schedule.id, {
-      stepFailure: null,
-    });
+    const recovered = await context.models.rampSchedules.updateById(
+      schedule.id,
+      { stepFailure: null },
+    );
+    await dispatchRampEvent(
+      context,
+      recovered,
+      "rampSchedule.actions.stepRecovered",
+      {
+        object: {
+          rampScheduleId: recovered.id,
+          rampName: recovered.name,
+          orgId: context.org.id,
+          currentStepIndex: recovered.currentStepIndex,
+          status: recovered.status,
+          attempts: schedule.stepFailure.attempts,
+        },
+      },
+    );
   }
 }
 
