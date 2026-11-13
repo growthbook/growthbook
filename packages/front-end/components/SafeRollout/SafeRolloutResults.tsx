@@ -139,7 +139,7 @@ const SafeRolloutResults: FC<{
         weight="medium"
         onClick={() => setIsAnalysisExpanded(!isAnalysisExpanded)}
       >
-        {isAnalysisExpanded ? <FaCaretDown /> : <FaCaretRight />} View Results{" "}
+        {isAnalysisExpanded ? <FaCaretDown /> : <FaCaretRight />} View results{" "}
         {(showHealthWarning || showGuardrailWarning) && <WarningIcon />}
       </Link>
 

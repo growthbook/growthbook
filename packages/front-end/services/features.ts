@@ -1,4 +1,5 @@
 import isEqual from "lodash/isEqual";
+import md5 from "md5";
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import {
   Environment,
@@ -37,6 +38,8 @@ import {
   formatJsonMultilineObjects,
   parseLooseJSON,
   getTargetingProjectIds,
+  getReviewSetting,
+  killSwitchReviewScope,
   type MergeResultChanges,
   type RequireRegisteredAttributesSettings,
 } from "shared/util";
@@ -1836,4 +1839,24 @@ export function getAttributesWithVersionStringMismatches(
   return mismatchedAttributes.size > 0
     ? Array.from(mismatchedAttributes)
     : null;
+}
+
+// Environments where flipping a feature's kill switch needs review before it
+// can publish.
+export function getKillSwitchGatedEnvs(
+  requireReviews: OrganizationSettings["requireReviews"],
+  feature: FeatureInterface,
+): Set<string> | "all" | "none" {
+  if (requireReviews === true) return "all";
+  return killSwitchReviewScope(
+    Array.isArray(requireReviews)
+      ? getReviewSetting(requireReviews, feature)
+      : null,
+  );
+}
+
+// The id the SDK payload gives a feature's holdout rule (back-end
+// `util/features.ts`), derived rather than stored like a rule's own.
+export function getHoldoutRuleId(featureId: string, holdoutId: string) {
+  return `holdout_${md5(featureId + holdoutId)}`;
 }

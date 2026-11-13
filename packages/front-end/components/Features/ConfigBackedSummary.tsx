@@ -1,23 +1,15 @@
 import { FeatureInterface, SchemaField } from "shared/types/feature";
-import { ConstantInterface } from "shared/types/constant";
-import {
-  getConfigBackingPatch,
-  setConfigBacking,
-  validateJSONFeatureValue,
-  deepMergePatch,
-} from "shared/util";
-import {
-  buildConstantValueMap,
-  resolveConstantRefs,
-  ConstantSource,
-} from "shared/sdk-versioning";
+import { getConfigBackingPatch, validateJSONFeatureValue } from "shared/util";
 import { Box, Flex } from "@radix-ui/themes";
 import { ReactNode, useMemo } from "react";
 import { isEqual } from "lodash";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import useApi from "@/hooks/useApi";
-import Text from "@/ui/Text";
+import {
+  ResolvableInput,
+  resolveConfigBackedValue,
+} from "@/services/configBackedValue";
 import Callout from "@/ui/Callout";
 import Link from "@/ui/Link";
 import ValueDisplay from "./ValueDisplay";
@@ -26,53 +18,27 @@ import {
   ConfigEnvironmentsBadge,
   ConfigOverridesBadge,
 } from "./ConfigValueBadges";
+import RuleField from "./RuleField";
 
-// Shared "SERVE ConfigName" header. The name links to the config detail page;
-// the internal `@config:` directive is never surfaced.
+// The config a value serves. The name links to the config detail page; the
+// internal `@config:` directive is never surfaced.
 function ServeConfigHeader({
   configKey,
   name,
   badges,
-  label,
 }: {
   configKey: string;
   name: string;
   badges: ReactNode;
-  label: string | null;
 }) {
   return (
-    <Flex direction="row" gap="4" align="center">
-      {label !== null && <Text weight="medium">{label}</Text>}
-      <Flex align="center" gap="2" wrap="wrap">
-        <Link href={`/configs/${configKey}`} target="_blank" rel="noreferrer">
-          {name}
-        </Link>
-        {badges}
-      </Flex>
+    <Flex align="center" gap="2" wrap="wrap">
+      <Link href={`/configs/${configKey}`} target="_blank" rel="noreferrer">
+        {name}
+      </Link>
+      {badges}
     </Flex>
   );
-}
-
-// Value-map inputs from the config "resolved" endpoint (constants + configs,
-// each tagged with its namespace source).
-type ResolvableInput = Pick<
-  ConstantInterface,
-  "key" | "type" | "value" | "project" | "archived"
-> & {
-  source: ConstantSource;
-  // A config's env/project flavor selection, so the resolver can swap in the
-  // matching flavor for the environment being previewed.
-  scopedOverrides?: {
-    config: string;
-    environments?: string[];
-    projects?: string[];
-  }[];
-};
-
-function toObject(v: unknown): Record<string, unknown> | null {
-  return v && typeof v === "object" && !Array.isArray(v)
-    ? (v as Record<string, unknown>)
-    : null;
 }
 
 // A config-backed value renders as "SERVE <icon> ConfigName" plus its resolved
@@ -91,7 +57,7 @@ export default function ConfigBackedSummary({
   sparse = false,
   isDefault = false,
   environment,
-  label = "SERVE",
+  label = "Serve",
   lineHeight,
   actionsOverlay,
 }: {
@@ -122,51 +88,30 @@ export default function ConfigBackedSummary({
 
   const resolved = useMemo(() => {
     if (!data?.constants) return null;
-    // Keep undefined undefined: the resolver's env-agnostic mode (base only, no
-    // flavors) is the all-environments contract — coercing to "" would apply
-    // wildcard/project-only overrides in the all-envs view.
-    const env = environment;
-    const map = buildConstantValueMap(data.constants, env ?? "");
     const project = feature.project || "";
-    // Resolve the config base — this flattens the constants the config itself
-    // references (and its lineage). Passing `env` applies the config's matching
-    // env flavor (scopedOverrides) so the preview matches the per-env payload.
-    const base = resolveConstantRefs(
-      JSON.parse(setConfigBacking(configKey, "{}")),
-      map,
-      undefined,
-      undefined,
-      project,
-      env,
-    );
-    let patch: Record<string, unknown> = {};
-    try {
-      patch = (JSON.parse(getConfigBackingPatch(value)) ?? {}) as Record<
-        string,
-        unknown
-      >;
-    } catch {
-      patch = {};
-    }
+    const resolve = (v: string) =>
+      resolveConfigBackedValue({
+        inputs: data.constants,
+        configKey,
+        value: v,
+        project,
+        environment,
+      });
+    const merged = resolve(value);
     // The fields this value sets on top of the config — its own patch, NOT
-    // whatever happens to differ from the feature default. Read from the raw
-    // patch, before its own references are resolved. `$` keys like `$extends`
-    // are directives, not fields.
-    const overrideFields = Object.keys(patch).filter((k) => !k.startsWith("$"));
-    // Resolve the patch's own `@const:` refs too, so the preview matches what
-    // the SDK ships (the config base above is already resolved).
-    const resolvedPatch =
-      toObject(
-        resolveConstantRefs(patch, map, undefined, undefined, project, env),
-      ) ?? patch;
-    const baseObj = toObject(base);
-    // Deep (targeted) patch onto the resolved base, matching SDK resolution —
-    // the patch restates only the leaves it changes. `deepMergePatch` returns
-    // the patch as-is when there's no object base to merge onto.
-    const merged = deepMergePatch(baseObj, resolvedPatch) as Record<
-      string,
-      unknown
-    >;
+    // whatever happens to differ from the feature default. `$` keys like
+    // `$extends` are directives, not fields.
+    let overrideFields: string[] = [];
+    try {
+      overrideFields = Object.keys(
+        (JSON.parse(getConfigBackingPatch(value)) ?? {}) as Record<
+          string,
+          unknown
+        >,
+      ).filter((k) => !k.startsWith("$"));
+    } catch {
+      overrideFields = [];
+    }
 
     if (!sparse) {
       return { merged, diffKeys: null as Set<string> | null, overrideFields };
@@ -175,32 +120,10 @@ export default function ConfigBackedSummary({
     // Diff against the resolved feature default so a rule shows only what it
     // changes (bold) over the inherited base (muted). The default is itself
     // config-backed and stored as a bare patch (base config) or a layer, so
-    // resolve its PATCH onto the SAME config base as `merged` — diffing against
+    // resolve its patch onto the SAME config base as `merged` — diffing against
     // the raw default value would omit the base and flag every inherited field
     // as changed.
-    let defaultObj: Record<string, unknown> = {};
-    try {
-      const defaultPatch = (JSON.parse(
-        getConfigBackingPatch(feature.defaultValue),
-      ) ?? {}) as Record<string, unknown>;
-      const resolvedDefaultPatch =
-        toObject(
-          resolveConstantRefs(
-            defaultPatch,
-            map,
-            undefined,
-            undefined,
-            project,
-            env,
-          ),
-        ) ?? defaultPatch;
-      defaultObj = deepMergePatch(baseObj, resolvedDefaultPatch) as Record<
-        string,
-        unknown
-      >;
-    } catch {
-      defaultObj = {};
-    }
+    const defaultObj = resolve(feature.defaultValue);
     const diffKeys = new Set(
       Object.keys(merged).filter((k) => !isEqual(merged[k], defaultObj[k])),
     );
@@ -249,10 +172,9 @@ export default function ConfigBackedSummary({
     maxWidth: "100%",
   };
 
-  return (
+  const content = (
     <>
       <ServeConfigHeader
-        label={label}
         configKey={configKey}
         name={config?.name ?? configKey}
         badges={
@@ -310,5 +232,13 @@ export default function ConfigBackedSummary({
         </Callout>
       )}
     </>
+  );
+
+  return label !== null ? (
+    <RuleField label={label} mb="0">
+      {content}
+    </RuleField>
+  ) : (
+    content
   );
 }

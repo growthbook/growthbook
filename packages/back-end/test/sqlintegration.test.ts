@@ -12,7 +12,7 @@ import {
   FeatureUsageQueryColumnMapping,
 } from "shared/types/datasource";
 import { DimensionInterface } from "shared/types/dimension";
-import { Dimension } from "shared/types/integrations";
+import { Dimension, UserDimension } from "shared/types/integrations";
 import { SegmentInterface } from "shared/types/segment";
 import { SqlDialect } from "shared/types/sql";
 import { getRowFilterSQL } from "shared/experiments";
@@ -2527,6 +2527,122 @@ describe("custom dimensions (cutoff & combo) - bigquery", () => {
     expect(sql).toContain("'Browser: '");
     expect(sql).toContain("'__NULL_DIMENSION'");
   });
+
+  it("snapshots a fact metric query with one of each timed unit dimension", () => {
+    const rowTimestampDimension: DimensionInterface = {
+      id: "dim_plan_changes",
+      organization: "org1",
+      owner: "",
+      datasource: "ds1",
+      userIdType: "user_id",
+      name: "Plan (change log)",
+      sql: "SELECT user_id, plan AS value, changed_at AS timestamp FROM plan_changes",
+      timing: "rowTimestamp",
+      nullLabel: "No plan",
+      dateCreated: null,
+      dateUpdated: null,
+    };
+    const validityRangeDimension: DimensionInterface = {
+      id: "dim_region_history",
+      organization: "org1",
+      owner: "",
+      datasource: "ds1",
+      userIdType: "user_id",
+      name: "Region (SCD2)",
+      sql: "SELECT user_id, region AS value, valid_from AS start_timestamp, valid_to AS end_timestamp FROM dim_user_region",
+      timing: "validityRange",
+      dateCreated: null,
+      dateUpdated: null,
+    };
+    const sql = buildSql([
+      { type: "user", dimension: rowTimestampDimension },
+      { type: "user", dimension: validityRangeDimension },
+    ]);
+
+    const normalizedSql = sql.replace(/\s+/g, " ").trim();
+
+    // Histories resolve in a chain: the first step reads the core CTE, the
+    // second reads the first, and each joins exactly one history
+    expect(normalizedSql).toMatch(
+      /__experimentUnitsTimed1 AS \(.*FROM __experimentUnitsCore u LEFT JOIN __dim_unit_dim_plan_changes [^)]*\) GROUP BY u\.user_id, u\.variation, u\.first_exposure_timestamp \)/,
+    );
+    expect(normalizedSql).toMatch(
+      /__experimentUnits AS \(.*u\.dim_unit_dim_plan_changes, .*FROM __experimentUnitsTimed1 u LEFT JOIN __dim_unit_dim_region_history [^)]*\) GROUP BY u\.user_id, u\.variation, u\.first_exposure_timestamp, u\.dim_unit_dim_plan_changes \)/,
+    );
+    expect(normalizedSql.match(/FROM __experimentUnitsCore u/g)).toHaveLength(
+      1,
+    );
+
+    expect(format(normalizedSql, "bigquery")).toMatchSnapshot();
+  });
+
+  it("keeps static user dimensions inside the units GROUP BY with no wrapper CTE", () => {
+    const userDimension: DimensionInterface = {
+      id: "dim_u1",
+      organization: "org1",
+      owner: "",
+      datasource: "ds1",
+      userIdType: "user_id",
+      name: "Browser",
+      sql: "SELECT user_id, browser AS value FROM users",
+      dateCreated: null,
+      dateUpdated: null,
+    };
+    const sql = buildSql([{ type: "user", dimension: userDimension }]);
+
+    expect(sql).not.toContain("__experimentUnitsCore");
+    expect(sql).toContain("MAX(cast(__dim_unit_dim_u1.value as string))");
+  });
+
+  it("resolves a validityRange user dimension against first exposure in a wrapper CTE", () => {
+    const userDimension: DimensionInterface = {
+      id: "dim_plan",
+      organization: "org1",
+      owner: "",
+      datasource: "ds1",
+      userIdType: "user_id",
+      name: "Plan",
+      sql: "SELECT user_id, plan AS value, valid_from AS start_timestamp, valid_to AS end_timestamp FROM plan_history",
+      timing: "validityRange",
+      dateCreated: null,
+      dateUpdated: null,
+    };
+    const sql = buildSql([{ type: "user", dimension: userDimension }]);
+
+    // Core CTE is today's units query without the timed dimension
+    const coreSection = sql.substring(
+      sql.indexOf("__experimentUnitsCore AS"),
+      sql.indexOf("__experimentUnits AS"),
+    );
+    expect(coreSection).not.toContain("__dim_unit_dim_plan");
+    expect(coreSection).toContain("first_exposure_timestamp");
+
+    // Wrapper joins the dimension on the id only and checks validity in the aggregate
+    const wrapperSection = sql.substring(
+      sql.indexOf("__experimentUnits AS"),
+      sql.indexOf("__distinctUsers"),
+    );
+    expect(wrapperSection).toMatch(
+      /LEFT JOIN __dim_unit_dim_plan __dim_unit_dim_plan ON \(\s*__dim_unit_dim_plan\.user_id = u\.user_id\s*\)/,
+    );
+    expect(wrapperSection).toContain(
+      "__dim_unit_dim_plan.start_timestamp <= u.first_exposure_timestamp",
+    );
+    expect(wrapperSection).toContain(
+      "__dim_unit_dim_plan.end_timestamp IS NULL",
+    );
+    expect(wrapperSection).toContain("AS dim_unit_dim_plan");
+    expect(wrapperSection).toMatch(/FROM\s+__experimentUnitsCore u/);
+    expect(wrapperSection).toMatch(
+      /GROUP BY\s+u\.user_id,\s+u\.variation,\s+u\.first_exposure_timestamp/,
+    );
+    // A single timed dimension needs no intermediate CTE
+    expect(sql).not.toContain("__experimentUnitsTimed");
+
+    // The dimension CTE normalizes the range columns
+    expect(sql).toContain("AS start_timestamp");
+    expect(sql).toContain("AS end_timestamp");
+  });
 });
 
 // Cluster experiment: randomize on the cluster (region_id) but run the
@@ -2604,6 +2720,7 @@ describe("cluster experiment ratio analysis - bigquery", () => {
     settings: typeof baseSettings & {
       clusterLevelMetricIds?: string[];
     } = baseSettings,
+    dimensions: Dimension[] = [],
   ): string =>
     getExperimentFactMetricsQuery(
       bigQueryDialect,
@@ -2616,7 +2733,7 @@ describe("cluster experiment ratio analysis - bigquery", () => {
           identifierType: "region_id",
         }),
         activationMetric: null,
-        dimensions: [],
+        dimensions,
         segment: null,
         metrics: [metric],
         factTableMap,
@@ -2687,6 +2804,44 @@ describe("cluster experiment ratio analysis - bigquery", () => {
     expect(normalized).not.toContain("m0_covariate_sum");
 
     expect(format(normalized, "bigquery")).toMatchSnapshot();
+  });
+
+  it("casts a cluster-keyed timed dimension's key to match the stringified cluster id", () => {
+    const metric = factMetricFactory.build({
+      id: "fact_cluster_mean",
+      metricType: "mean",
+      numerator: {
+        factTableId: "orders",
+        column: "amount",
+        aggregation: "sum",
+      },
+    });
+    const regionTier: DimensionInterface = {
+      id: "dim_region_tier",
+      organization: "org1",
+      owner: "",
+      datasource: "ds1",
+      userIdType: "region_id",
+      name: "Region tier",
+      sql: "SELECT region_id, tier AS value, changed_at AS timestamp FROM region_tiers",
+      timing: "rowTimestamp",
+      dateCreated: null,
+      dateUpdated: null,
+    };
+
+    const sql = buildClusterSql(metric, baseSettings, [
+      { type: "user", dimension: regionTier },
+    ]);
+    const normalized = sql.replace(/\s+/g, " ").trim();
+
+    // __experimentUnitsCore emits region_id as a string, so the raw dimension
+    // key is cast before the join and the result is still one row per sub-unit
+    expect(normalized).toContain(
+      "LEFT JOIN __dim_unit_dim_region_tier __dim_unit_dim_region_tier ON ( cast(__dim_unit_dim_region_tier.region_id as string) = u.region_id )",
+    );
+    expect(normalized).toMatch(
+      /__experimentUnits AS \(.*GROUP BY u\.user_id, u\.variation, u\.first_exposure_timestamp, u\.region_id \)/,
+    );
   });
 
   it("rolls a native ratio metric up to the cluster by summing capped per-sub-unit numerator and denominator", () => {
@@ -2909,6 +3064,156 @@ describe("cluster experiment ratio analysis - bigquery", () => {
       /CASE WHEN COUNT\(DISTINCT dim_exp_browser\) > 1 THEN '__multiple__' ELSE cast\(MAX\(dim_exp_browser\) as string\) END\s*\)\s*AS dim_exp_browser/,
     );
     expect(normalized).not.toMatch(/MIN\(dim_exp_browser\)/);
+  });
+
+  const timedDimension = (id: string, userIdType: string): UserDimension => ({
+    type: "user",
+    dimension: {
+      id,
+      organization: "org1",
+      owner: "",
+      datasource: "ds1",
+      userIdType,
+      name: id,
+      sql: `SELECT ${userIdType}, tier AS value, changed_at AS timestamp FROM tier_changes`,
+      timing: "rowTimestamp",
+      dateCreated: null,
+      dateUpdated: null,
+    },
+  });
+  const mean = (id: string, factTableId: string) =>
+    factMetricFactory.build({
+      id,
+      metricType: "mean",
+      numerator: { factTableId, column: "amount", aggregation: "sum" },
+      regressionAdjustmentEnabled: false,
+    });
+  const buildClusterLevelSql = (dimensions: Dimension[]): string =>
+    buildClusterSql(
+      mean("fact_region_spend", "region_spend"),
+      { ...baseSettings, clusterLevelMetricIds: ["fact_region_spend"] },
+      dimensions,
+    )
+      .replace(/\s+/g, " ")
+      .trim();
+
+  it("builds a cluster-level combo after the cluster collapse", () => {
+    const sql = buildClusterLevelSql([
+      {
+        type: "combo",
+        dimensions: [
+          timedDimension("dim_tier", "region_id"),
+          timedDimension("dim_plan", "user_id"),
+        ],
+      },
+    ]);
+    expect(sql).not.toContain("cluster_first_exposure_timestamp");
+
+    // The sub-unit constituent collapses on its own; the cluster's resolves
+    // afterwards, and only then is the combo concatenated
+    const collapseAt = sql.indexOf("__clusterUnits AS");
+    const beforeCollapse = sql.substring(0, collapseAt);
+    expect(beforeCollapse).not.toContain("__dim_unit_dim_tier");
+    expect(beforeCollapse).not.toContain("dim_combo");
+    const afterCollapse = sql.substring(collapseAt, sql.indexOf("__factTable"));
+    expect(afterCollapse).toContain("COUNT(DISTINCT dim_unit_dim_plan) > 1");
+    expect(afterCollapse).toMatch(
+      /__clusterUnitsDims1 AS \(.*AS dim_unit_dim_tier FROM __clusterUnits u/,
+    );
+    expect(afterCollapse).toMatch(
+      /__distinctUsers AS \( SELECT u\.\*, .*'dim_tier: '.*'dim_plan: '.* AS dim_combo FROM __clusterUnitsDims1 u \)/,
+    );
+
+    // With no cluster-keyed constituent the combo is still built after the
+    // collapse, so a cluster is only __multiple__ on the constituents its
+    // sub-units disagree on
+    const subUnitCombo = buildClusterLevelSql([
+      {
+        type: "combo",
+        dimensions: [
+          timedDimension("dim_plan", "user_id"),
+          { type: "experiment", id: "browser" },
+        ],
+      },
+    ]);
+    expect(subUnitCombo).not.toContain("COUNT(DISTINCT dim_combo)");
+    for (const col of ["dim_unit_dim_plan", "dim_exp_browser"]) {
+      expect(subUnitCombo).toContain(`COUNT(DISTINCT ${col}) > 1`);
+    }
+    expect(subUnitCombo).toMatch(
+      /__distinctUsers AS \( SELECT u\.\*, .* AS dim_combo FROM __clusterUnits u \)/,
+    );
+  });
+
+  it("resolves a cluster-keyed timed dimension at the cluster's first exposure", () => {
+    const dimensions: Dimension[] = [
+      timedDimension("dim_tier", "region_id"),
+      timedDimension("dim_plan", "user_id"),
+    ];
+
+    const subUnit = buildClusterSql(
+      mean("fact_cluster_mean", "orders"),
+      baseSettings,
+      dimensions,
+    )
+      .replace(/\s+/g, " ")
+      .trim();
+    const tierAt = subUnit.indexOf("__experimentUnitsTimed1 AS");
+    const planAt = subUnit.indexOf("__experimentUnits AS");
+    expect(tierAt).toBeGreaterThan(-1);
+    expect(planAt).toBeGreaterThan(tierAt);
+
+    // A sub-unit metric keeps one row per sub-unit, so every sub-unit resolves
+    // the cluster's dimension at the cluster's first exposure and the cluster
+    // never splits across values
+    const tier = subUnit.substring(tierAt, planAt);
+    expect(tier).toMatch(
+      /MIN\(u\.first_exposure_timestamp\) OVER \( ?PARTITION BY u\.region_id ?\) AS cluster_first_exposure_timestamp FROM __experimentUnitsCore u/,
+    );
+    expect(tier).toContain(
+      "__dim_unit_dim_tier.timestamp <= u.cluster_first_exposure_timestamp",
+    );
+
+    // A dimension keyed on the sub-unit still resolves per sub-unit
+    expect(
+      subUnit.substring(
+        planAt,
+        subUnit.indexOf("AS dim_unit_dim_plan", planAt),
+      ),
+    ).not.toContain("cluster_first_exposure_timestamp");
+
+    // A cluster-level metric collapses to the cluster first, then resolves
+    // the cluster's dimension once per cluster with no window
+    const cluster = buildClusterLevelSql(dimensions);
+    expect(cluster).not.toContain("cluster_first_exposure_timestamp");
+    const collapseAt = cluster.indexOf("__clusterUnits AS");
+    expect(collapseAt).toBeGreaterThan(-1);
+    const beforeCollapse = cluster.substring(0, collapseAt);
+    expect(beforeCollapse).not.toContain("__dim_unit_dim_tier");
+    expect(beforeCollapse).toContain("AS dim_unit_dim_plan");
+
+    const resolved = cluster.substring(
+      collapseAt,
+      cluster.indexOf("__factTable as"),
+    );
+    expect(resolved).toContain(
+      "MIN(first_exposure_timestamp) AS first_exposure_timestamp",
+    );
+    expect(resolved).toMatch(
+      /__distinctUsers AS \(.*__dim_unit_dim_tier\.timestamp <= u\.first_exposure_timestamp.*FROM __clusterUnits u LEFT JOIN __dim_unit_dim_tier __dim_unit_dim_tier ON \( cast\(__dim_unit_dim_tier\.region_id as string\) = u\.region_id \) GROUP BY u\.region_id, u\.dim_unit_dim_plan, u\.variation,/,
+    );
+
+    // A static dimension keyed on the cluster joins after the collapse too
+    const zone = timedDimension("dim_zone", "region_id");
+    const staticCluster = buildClusterLevelSql([
+      { ...zone, dimension: { ...zone.dimension, timing: undefined } },
+    ]);
+    expect(
+      staticCluster.substring(0, staticCluster.indexOf("__clusterUnits AS")),
+    ).not.toContain("__dim_unit_dim_zone");
+    expect(staticCluster).toMatch(
+      /__distinctUsers AS \(.*MAX\(cast\(__dim_unit_dim_zone\.value as string\)\).*FROM __clusterUnits u LEFT JOIN __dim_unit_dim_zone __dim_unit_dim_zone ON \( cast\(__dim_unit_dim_zone\.region_id as string\) = u\.region_id \) GROUP BY u\.region_id, u\.variation,/,
+    );
   });
 
   it("joins a cluster-keyed segment through the cluster column, not the sub-unit", () => {

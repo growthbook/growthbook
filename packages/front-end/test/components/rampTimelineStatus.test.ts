@@ -30,7 +30,7 @@ describe("rampTimelineStatus", () => {
   it("resolves an awaiting-approval active step to orange with a gray outgoing edge", () => {
     const v = resolveNodeStatus("active", approvalReady, false);
     expect(v.token).toBe("awaiting-approval");
-    expect(v.label).toBe("Needs Approval");
+    expect(v.label).toBe("Needs approval");
     expect(v.dotColor).toBe("var(--orange-9)");
     expect(v.labelColor).toBe("var(--orange-11)");
     expect(v.connectorColor).toBe("var(--ramp-future-connector)");

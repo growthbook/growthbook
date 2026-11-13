@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { FeatureInterface } from "shared/types/feature";
 import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
-import { ACTIVE_DRAFT_STATUSES } from "shared/validators";
+import { isActiveDraftStatus } from "shared/validators";
 import {
   getDraftAffectedEnvironments,
   liveRevisionFromFeature,
@@ -74,9 +74,7 @@ export default function DraftSelectorForChanges({
   const activeDrafts = useMemo(
     () =>
       revisionList.filter(
-        (r) =>
-          !isRampGenerated(r) &&
-          (ACTIVE_DRAFT_STATUSES as readonly string[]).includes(r.status),
+        (r) => !isRampGenerated(r) && isActiveDraftStatus(r.status),
       ),
     [revisionList],
   );
@@ -166,7 +164,7 @@ export default function DraftSelectorForChanges({
     ? revisionList.filter(
         (r) =>
           r.version === selectedDraft ||
-          !(ACTIVE_DRAFT_STATUSES as readonly string[]).includes(r.status) ||
+          !isActiveDraftStatus(r.status) ||
           canWriteIntoDraft(r),
       )
     : revisionList;

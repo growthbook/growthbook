@@ -404,6 +404,7 @@ export interface OrganizationSettings {
   banditScheduleUnit?: "hours" | "days";
   banditBurnInValue?: number;
   banditBurnInUnit?: "hours" | "days";
+  banditPeriodWeighting?: boolean;
   requireExperimentTemplates?: boolean;
   disableResultsUpdateForStoppedExperiments?: boolean;
   disableResultsUpdateForStoppedExperimentGraceHours?: number;
@@ -416,6 +417,8 @@ export interface OrganizationSettings {
   defaultDecisionCriteriaId?: string;
   disableLegacyMetricCreation?: boolean;
   blockFileUploads?: boolean;
+  // Kill switch: public links stop resolving; shareLevel is left as-is.
+  disablePublicSharing?: boolean;
   savedGroupSizeLimit?: number;
   // Opt-in validation of Saved Group scope at consuming Feature Flags.
   enforceSavedGroupProjectScope?: boolean;

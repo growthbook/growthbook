@@ -213,6 +213,7 @@ export async function prepareNewFeature(
   assertFeatureValuesValid(context, feature, {
     defaultValue: feature.defaultValue,
     rules: feature.rules,
+    holdout: feature.holdout,
   });
 
   return feature;

@@ -2,6 +2,7 @@ import { z } from "zod";
 import type {
   exposureQueryColumnMappingValidator,
   featureUsageQueryColumnMappingValidator,
+  schemaFormatValidator,
 } from "shared/validators";
 import { AthenaConnectionParams } from "./integrations/athena";
 import { BigQueryConnectionParams } from "./integrations/bigquery";
@@ -52,26 +53,7 @@ export type DataSourceParams =
 
 export type QueryLanguage = "sql" | "javascript" | "json" | "none";
 
-export type SchemaFormat =
-  | "segment"
-  | "snowplow"
-  | "jitsu"
-  | "freshpaint"
-  | "ga4"
-  | "fullstory"
-  | "matomo"
-  | "heap"
-  | "rudderstack"
-  | "amplitude"
-  | "mparticle"
-  | "mixpanel"
-  | "firebase"
-  | "keen"
-  | "clevertap"
-  | "langfuse"
-  | "phoenix"
-  | "eventForwarder"
-  | "custom";
+export type SchemaFormat = z.infer<typeof schemaFormatValidator>;
 
 export type AutoFactTableSchemas = "segment" | "rudderstack" | "amplitude";
 

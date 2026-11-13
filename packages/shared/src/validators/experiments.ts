@@ -436,6 +436,9 @@ export type ExperimentAnalysisSummaryResultsStatus = z.infer<
 export const experimentAnalysisSummary = z
   .object({
     snapshotId: z.string(),
+    // Phase index of the snapshot. Missing on summaries written before it was
+    // recorded; -1 once that phase has been deleted.
+    phase: z.number().optional(),
     health: experimentAnalysisSummaryHealth.optional(),
     resultsStatus: experimentAnalysisSummaryResultsStatus.optional(),
     precomputedDimensions: z.array(z.string()).optional(),
@@ -1133,6 +1136,95 @@ export const apiExperimentValidator = namedSchema(
 
 export type ApiExperiment = z.infer<typeof apiExperimentValidator>;
 
+const apiExperimentDecisionValidator = z
+  .object({
+    category: z
+      .enum(["ready-for-action", "has-issue", "collecting-data"])
+      .describe(
+        "What `status` asks of you. `ready-for-action`: the results are ready to act on (`ship-now`, `rollback-now`, `ready-for-review`, `scheduled-end-review`). `has-issue`: something needs fixing before the results can be trusted (`unhealthy`, `data-incomplete`, `no-data`). `collecting-data`: keep the experiment running (`days-left`, `before-min-duration`).",
+      ),
+    status: z
+      .enum([
+        "ship-now",
+        "rollback-now",
+        "ready-for-review",
+        "scheduled-end-review",
+        "days-left",
+        "before-min-duration",
+        "no-data",
+        "unhealthy",
+        "data-incomplete",
+      ])
+      .describe(
+        "`ship-now`, `rollback-now` and `ready-for-review` are recommendations from the Experiment Decision Framework and are only rendered if the Decision Framework is enabled for your organization. `unhealthy` means a health check is failing (see `healthIssues`). `data-incomplete` means some metrics could not be computed (see `erroredMetricIds`). `days-left` and `before-min-duration` mean the experiment should keep running. `scheduled-end-review` means the scheduled end date passed without a recommendation.",
+      ),
+    reason: z
+      .string()
+      .optional()
+      .describe("Explanation of the status, as shown in the app."),
+    daysLeft: z
+      .number()
+      .nullable()
+      .optional()
+      .describe(
+        "Days until the scheduled end date or, without one, until the experiment is expected to reach its target power. Set when `status` is `days-left`. null when the experiment is not expected to reach its target power at the current traffic.",
+      ),
+    variations: z
+      .array(
+        z.object({
+          variationId: z.string(),
+          action: z
+            .enum(["ship", "rollback", "review"])
+            .nullable()
+            .describe(
+              "Action the decision criteria reached for this variation. null when no rule applied.",
+            ),
+        }),
+      )
+      .optional()
+      .describe(
+        "Variations the recommendation applies to. Set for `ship-now`, `rollback-now` and `ready-for-review`.",
+      ),
+    healthIssues: z
+      .array(
+        z.enum([
+          "sample-ratio-mismatch",
+          "multiple-exposures",
+          "low-power",
+          "covariate-imbalance",
+          "mixed-cluster-assignment",
+          "units-in-multiple-clusters",
+        ]),
+      )
+      .optional()
+      .describe(
+        "What is wrong with the experiment. Set when `status` is `unhealthy`. The results endpoint has the numbers behind each one under `result.health`: `sample-ratio-mismatch` in `srm`, `multiple-exposures` in `multipleExposures`, `low-power` in `power`, `covariate-imbalance` in `covariateImbalance`, `mixed-cluster-assignment` in `cluster.mixedAssignment` and `units-in-multiple-clusters` in `cluster.unitsInMultipleClusters`.",
+      ),
+    erroredMetricIds: z
+      .array(z.string())
+      .optional()
+      .describe(
+        "Metrics that could not be computed. Set when `status` is `data-incomplete`.",
+      ),
+  })
+  .describe(
+    "The decision behind `detailedStatus` for a running experiment, based on the latest successful standard snapshot of the latest phase. Omitted when there is nothing to report yet.",
+  );
+
+export type ApiExperimentDecision = z.infer<
+  typeof apiExperimentDecisionValidator
+>;
+
+const apiExperimentEnhancedStatusValidator = z.object({
+  status: z.enum(["Running", "Stopped", "Draft", "Scheduled", "Archived"]),
+  detailedStatus: z.string().optional(),
+  needsAttention: z
+    .boolean()
+    .optional()
+    .describe("Whether the app flags this experiment as needing attention."),
+  decision: apiExperimentDecisionValidator.optional(),
+});
+
 // Corresponds to schemas/ExperimentWithEnhancedStatus.yaml (allOf Experiment + enhancedStatus)
 // Uses the non-strict shape so z.intersection can add enhancedStatus.
 export const apiExperimentWithEnhancedStatus = namedSchema(
@@ -1140,18 +1232,7 @@ export const apiExperimentWithEnhancedStatus = namedSchema(
   z.intersection(
     apiExperimentShape,
     z.object({
-      enhancedStatus: z
-        .object({
-          status: z.enum([
-            "Running",
-            "Stopped",
-            "Draft",
-            "Scheduled",
-            "Archived",
-          ]),
-          detailedStatus: z.string().optional(),
-        })
-        .optional(),
+      enhancedStatus: apiExperimentEnhancedStatusValidator.optional(),
     }),
   ),
 );
@@ -1166,6 +1247,180 @@ export const apiExperimentSnapshotValidator = namedSchema(
   "ExperimentSnapshot",
   apiExperimentSnapshotShape.strict(),
 );
+
+const apiHealthCheckStatus = z
+  .enum(["healthy", "unhealthy", "not-enough-traffic"])
+  .describe(
+    "`unhealthy` when the check fails the organization's threshold. `not-enough-traffic` when there are too few units to judge.",
+  );
+
+const apiExperimentResultHealthValidator = z
+  .object({
+    srm: z
+      .object({
+        pValue: z.number().describe("Sample ratio mismatch p-value."),
+        status: apiHealthCheckStatus,
+        threshold: z
+          .number()
+          .describe(
+            "The organization's SRM p-value threshold. The check is `unhealthy` when `pValue` is below it.",
+          ),
+        totalUnits: z
+          .number()
+          .nullable()
+          .describe(
+            "Units the p-value was computed on: clusters for cluster experiments, otherwise the randomization unit.",
+          ),
+        variationUnits: z
+          .array(z.number())
+          .nullable()
+          .describe(
+            "Units per variation, in the experiment's variation order.",
+          ),
+      })
+      .nullable()
+      .describe(
+        "Sample ratio mismatch check for the experiment as a whole. It comes from the traffic query, or from the overall result when that query did not run or failed. null when neither is available, for example on some dimension breakdowns.",
+      ),
+    multipleExposures: z
+      .object({
+        count: z
+          .number()
+          .describe(
+            "Units exposed to more than one variation. They are excluded from the analysis.",
+          ),
+        totalUnits: z.number().describe("Units `percent` is measured against."),
+        percent: z
+          .number()
+          .describe(
+            "`count` divided by `totalUnits`, as a fraction from 0 to 1.",
+          ),
+        status: apiHealthCheckStatus,
+        threshold: z
+          .number()
+          .describe(
+            "The organization's threshold, as a fraction from 0 to 1. The check is `unhealthy` when `percent` reaches or exceeds it.",
+          ),
+      })
+      .nullable()
+      .describe(
+        "Multiple exposures check. For cluster experiments it counts sub-units. null when the snapshot has no unit total to measure against, for example on dimension breakdowns whose traffic query did not run or failed.",
+      ),
+    unknownVariations: z
+      .array(z.string())
+      .describe(
+        "Variation IDs found in the exposure data that match none of the experiment's variations. A non-empty list usually means the tracked variation IDs are misconfigured.",
+      ),
+    power: z
+      .object({
+        isLowPowered: z
+          .boolean()
+          .describe(
+            "Whether the experiment is unlikely to detect its target effect by the end of its planned run.",
+          ),
+        additionalDaysNeeded: z
+          .number()
+          .nullable()
+          .describe(
+            "Estimated extra days needed to reach the target power. null when the experiment is not expected to reach it at the current traffic.",
+          ),
+      })
+      .nullable()
+      .describe(
+        "Mid-experiment power estimate. null when the snapshot did not compute one or the calculation failed.",
+      ),
+    covariateImbalance: z
+      .object({
+        isImbalanced: z
+          .boolean()
+          .describe(
+            "Whether variations already differed on the experiment's metrics before exposure (pre-exposure bias).",
+          ),
+        numGoalMetricsImbalanced: z.number(),
+        numGuardrailMetricsImbalanced: z.number(),
+        numSecondaryMetricsImbalanced: z.number(),
+      })
+      .nullable()
+      .describe(
+        "Pre-exposure bias check. null when the snapshot did not compute one.",
+      ),
+    cluster: z
+      .object({
+        mixedAssignment: z
+          .object({
+            totalClusters: z.number(),
+            mixedClusters: z
+              .number()
+              .describe(
+                "Clusters whose sub-units saw more than one variation.",
+              ),
+            percent: z.number(),
+            status: apiHealthCheckStatus,
+          })
+          .nullable(),
+        unitsInMultipleClusters: z
+          .object({
+            totalUnits: z.number(),
+            multiClusterUnits: z
+              .number()
+              .describe("Sub-units that appear in more than one cluster."),
+            percent: z.number(),
+            status: apiHealthCheckStatus,
+          })
+          .nullable(),
+        reliability: z
+          .object({
+            status: z.enum(["healthy", "unhealthy"]),
+            minClustersPerVariation: z
+              .number()
+              .describe(
+                "Recommended minimum number of clusters per variation.",
+              ),
+            maxClusterShare: z
+              .number()
+              .describe(
+                "Share of sub-units, as a fraction from 0 to 1, that no single cluster should reach.",
+              ),
+            tooFewClusters: z
+              .object({
+                variationIndex: z.number(),
+                variationKey: z.string(),
+                variationId: z.string().optional(),
+                clusters: z.number(),
+              })
+              .nullable()
+              .describe(
+                "The variation with the fewest clusters, when it has fewer than `minClustersPerVariation`. `variationIndex` and `variationKey` come from the snapshot; `variationId` is the current variation with that key, omitted when none matches.",
+              ),
+            oversizedCluster: z
+              .object({
+                id: z.string(),
+                percent: z
+                  .number()
+                  .describe(
+                    "The cluster's share of sub-units, as a fraction from 0 to 1.",
+                  ),
+              })
+              .nullable()
+              .describe(
+                "The largest cluster, when its share reaches `maxClusterShare`.",
+              ),
+          })
+          .nullable()
+          .describe(
+            "Whether there are enough clusters, evenly sized enough, to trust the results. `unhealthy` when either `tooFewClusters` or `oversizedCluster` is set. The app shows it as a warning on the results; it is not part of `enhancedStatus.decision`. null when the snapshot has no cluster counts.",
+          ),
+      })
+      .optional()
+      .describe("Cluster experiment checks. Omitted for other experiments."),
+  })
+  .describe(
+    "Health checks for the snapshot as a whole, with the same verdicts the app shows. They are not broken down by dimension value.",
+  );
+
+export type ApiExperimentResultHealth = z.infer<
+  typeof apiExperimentResultHealthValidator
+>;
 
 // Corresponds to schemas/ExperimentResults.yaml
 export const apiExperimentResultsValidator = namedSchema(
@@ -1188,12 +1443,18 @@ export const apiExperimentResultsValidator = namedSchema(
       }),
       settings: apiExperimentAnalysisSettingsValidator,
       queryIds: z.array(z.string()),
+      // Set by the experiment results endpoints; report results have none.
+      health: apiExperimentResultHealthValidator.optional(),
       results: z.array(
         z.object({
           dimension: z.string(),
           totalUsers: z.coerce.number(),
           checks: z.object({
-            srm: z.coerce.number(),
+            srm: z.coerce
+              .number()
+              .describe(
+                "Sample ratio mismatch p-value for this row's units. `health.srm` is the experiment-wide check with a verdict; the two can differ slightly as this comes from the metric query and the other comes from the traffic query. If they disagree, rely on the `health.srm` value.",
+              ),
           }),
           metrics: z.array(
             z.object({
@@ -1370,6 +1631,8 @@ export const apiExperimentBulkResultValidator = componentSchema(
           .optional(),
       }),
       settings: apiBulkResultSettings,
+      // Snapshot-wide, so repeated on every item expanded from the snapshot.
+      health: apiExperimentResultHealthValidator,
       results: z.array(
         z.object({
           dimensionValue: z.string(),
@@ -2801,14 +3064,19 @@ export const getExperimentResultsValidator = {
   bodySchema: z.never(),
   querySchema: z
     .object({
-      phase: z.string().optional(),
+      phase: z
+        .string()
+        .optional()
+        .describe(
+          "Phase index, defaulting to the latest phase. `experiment.enhancedStatus` describes the latest phase, so it is omitted for any other phase.",
+        ),
       dimension: z.string().optional(),
     })
     .strict(),
   paramsSchema: idParams,
   responseSchema: z
     .object({
-      experiment: apiExperimentValidator,
+      experiment: apiExperimentWithEnhancedStatus,
       result: apiExperimentResultsValidator,
     })
     .strict(),

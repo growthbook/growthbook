@@ -7,6 +7,8 @@ import Avatar from "./Avatar";
 
 export default function RadioCardsStories() {
   const [radioCardSelected, setRadioCardSelected] = useState("");
+  const [ruleType, setRuleType] = useState("experiment");
+  const [experimentSource, setExperimentSource] = useState("new");
   const [radioCardColumns, setRadioCardColumns] = useState<
     "1" | "2" | "3" | "4" | "5" | "6"
   >("1");
@@ -120,6 +122,40 @@ export default function RadioCardsStories() {
                 multiple paragraphs, links, or inline formatting that should
                 wrap across several lines.
               </>
+            ),
+          },
+        ]}
+      />
+      <Text weight="medium">
+        Follow-up choice in the selected card (selectedContent)
+      </Text>
+      <RadioCards
+        width="400px"
+        value={ruleType}
+        setValue={setRuleType}
+        options={[
+          {
+            value: "rollout",
+            label: "Rollout",
+            description: "Release to a percent of users.",
+          },
+          {
+            value: "experiment",
+            label: "Experiment",
+            description: "Measure the impact of each variation.",
+            selectedContent: (
+              <RadioCards
+                columns="2"
+                width="100%"
+                labelSize="md"
+                labelWeight="medium"
+                value={experimentSource}
+                setValue={setExperimentSource}
+                options={[
+                  { value: "new", label: "Create new" },
+                  { value: "existing", label: "Add existing" },
+                ]}
+              />
             ),
           },
         ]}

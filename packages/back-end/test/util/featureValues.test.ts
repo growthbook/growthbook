@@ -10,7 +10,9 @@ import {
 import {
   assertFeatureValuesValid,
   assertFeatureValuesValidForPublish,
+  assertHoldoutValueValid,
 } from "back-end/src/services/features";
+import { collectFeatureConfigBackedValues } from "back-end/src/services/configValidation";
 import { getJSONValue } from "back-end/src/util/features";
 
 const jsonFeature: Pick<FeatureInterface, "valueType" | "jsonSchema"> = {
@@ -497,6 +499,70 @@ describe("schema validation overrides", () => {
         defaultValue: "{}",
       }),
     ).not.toThrow();
+  });
+});
+
+describe("holdout values", () => {
+  const context = {
+    canSkipSchemaValidationFor: () => false,
+    ignoreWarnings: false,
+    org: { settings: {} },
+  } as unknown as ReqContext;
+  const holdout = (value: string) => ({ id: "hld_1", value });
+
+  it.each([
+    ["loose JSON", { valueType: "json" as const }, "{ answer: 42 }"],
+    ["a non-number", { valueType: "number" as const }, "abc"],
+    ["a value outside the schema", jsonFeature, "{}"],
+  ])("rejects %s on write", (_, feature, value) => {
+    expect(() =>
+      assertHoldoutValueValid(context, feature, holdout(value)),
+    ).toThrow(/Holdout value/);
+  });
+
+  it("passes the stored value through unchanged, but not a new one", () => {
+    const stored = { valueType: "json" as const, holdout: holdout("{ a: 1 }") };
+    expect(() =>
+      assertHoldoutValueValid(context, stored, holdout("{ a: 1 }")),
+    ).not.toThrow();
+    expect(() =>
+      assertHoldoutValueValid(context, stored, holdout("{ b: 2 }")),
+    ).toThrow(/Holdout value/);
+  });
+
+  it.each([null, undefined])("ignores a %s holdout", (value) => {
+    expect(() =>
+      assertHoldoutValueValid(context, jsonFeature, value),
+    ).not.toThrow();
+  });
+
+  it("is repaired with the other values when a write is normalized", () => {
+    const result = normalizeFeatureJSONValues(
+      { valueType: "json" },
+      { holdout: holdout("{ answer: 42 }") },
+    );
+    expect(getJSONValue("json", result.holdout?.value ?? "")).toEqual({
+      answer: 42,
+    });
+  });
+
+  it("is re-checked at publish", () => {
+    expect(() =>
+      assertFeatureValuesValidForPublish(context, jsonFeature, {
+        holdout: holdout("{}"),
+      }),
+    ).toThrow(/Holdout value/);
+  });
+
+  it("is checked against a config-backed flag's config", () => {
+    expect(
+      collectFeatureConfigBackedValues(
+        { baseConfig: "theme" },
+        { holdout: holdout('{"color":"red"}') },
+      ),
+    ).toEqual([
+      { config: "theme", patch: '{"color":"red"}', label: "Holdout value" },
+    ]);
   });
 });
 

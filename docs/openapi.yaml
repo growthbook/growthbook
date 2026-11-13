@@ -598,6 +598,16 @@ tags:
   - name: members
     x-displayName: Members
     description: Members are users who have been invited to an organization.
+  - name: event-webhooks
+    x-displayName: Event Webhooks
+    description: >-
+      Send GrowthBook events (feature, experiment and other changes) to your own
+      endpoint.
+  - name: audits
+    x-displayName: Audit Logs
+    description: >-
+      Audit history of who changed what, and the event log that drives event
+      webhooks. Requires permission to view audit logs.
   - name: code-references
     x-displayName: Code References
     description: >-
@@ -627,6 +637,9 @@ tags:
       version-skew checks.
   - name: ContextualBandits
     x-displayName: Contextual Bandits
+    description: ''
+  - name: information-schema-tables
+    x-displayName: information-schema-tables
     description: ''
   - name: Dashboards
     x-displayName: Dashboards
@@ -680,6 +693,16 @@ tags:
 
       Populations define a set of units by the steps they must complete, such as
       appearing in a fact table. Populations are not yet used in analysis.
+  - name: WebhookSecrets
+    x-displayName: Webhook Secrets
+    description: >-
+      Secrets substituted into webhook URLs and headers at send time. Values are
+      set in the app and never returned.
+  - name: SdkWebhooks
+    x-displayName: SDK Webhooks
+    description: >-
+      Webhooks that fire when an SDK Connection's payload changes. Signing keys
+      and headers are only returned by GET.
   - name: AggregatedFactTable_model
     x-displayName: Aggregated Fact Table
     description: <SchemaDefinition schemaRef="#/components/schemas/AggregatedFactTable" />
@@ -692,6 +715,9 @@ tags:
   - name: Attribute_model
     x-displayName: Attribute
     description: <SchemaDefinition schemaRef="#/components/schemas/Attribute" />
+  - name: Audit_model
+    x-displayName: Audit
+    description: <SchemaDefinition schemaRef="#/components/schemas/Audit" />
   - name: AutoRun_model
     x-displayName: Auto Run
     description: <SchemaDefinition schemaRef="#/components/schemas/AutoRun" />
@@ -790,9 +816,18 @@ tags:
   - name: Environment_model
     x-displayName: Environment
     description: <SchemaDefinition schemaRef="#/components/schemas/Environment" />
+  - name: Event_model
+    x-displayName: Event
+    description: <SchemaDefinition schemaRef="#/components/schemas/Event" />
   - name: EventUser_model
     x-displayName: Event User
     description: <SchemaDefinition schemaRef="#/components/schemas/EventUser" />
+  - name: EventWebhook_model
+    x-displayName: Event Webhook
+    description: <SchemaDefinition schemaRef="#/components/schemas/EventWebhook" />
+  - name: EventWebhookLog_model
+    x-displayName: Event Webhook Log
+    description: <SchemaDefinition schemaRef="#/components/schemas/EventWebhookLog" />
   - name: Experiment_model
     x-displayName: Experiment
     description: <SchemaDefinition schemaRef="#/components/schemas/Experiment" />
@@ -1057,6 +1092,9 @@ tags:
   - name: SdkConnection_model
     x-displayName: Sdk Connection
     description: <SchemaDefinition schemaRef="#/components/schemas/SdkConnection" />
+  - name: SdkWebhook_model
+    x-displayName: Sdk Webhook
+    description: <SchemaDefinition schemaRef="#/components/schemas/SdkWebhook" />
   - name: Segment_model
     x-displayName: Segment
     description: <SchemaDefinition schemaRef="#/components/schemas/Segment" />
@@ -1083,6 +1121,9 @@ tags:
     description: >-
       <SchemaDefinition
       schemaRef="#/components/schemas/VisualEditorCbExperimentStub" />
+  - name: WebhookSecret_model
+    x-displayName: Webhook Secret
+    description: <SchemaDefinition schemaRef="#/components/schemas/WebhookSecret" />
 security:
   - bearerAuth: []
   - basicAuth: []
@@ -17750,7 +17791,7 @@ paths:
                 type: object
                 properties:
                   experiment:
-                    $ref: '#/components/schemas/Experiment'
+                    $ref: '#/components/schemas/ExperimentWithEnhancedStatus'
                   result:
                     $ref: '#/components/schemas/ExperimentResults'
                 required:
@@ -21460,6 +21501,28 @@ paths:
                 query:
                   description: SQL query or equivalent for the dimension
                   type: string
+                timing:
+                  description: >-
+                    What the query returns and how the value at a unit's first
+                    exposure is resolved. `none` (default): one value per unit,
+                    resolved with MAX(value). `rowTimestamp`: timestamped rows;
+                    the query also returns a `timestamp` column and the latest
+                    row at or before first exposure is used. `validityRange`:
+                    validity ranges; the query also returns `start_timestamp`
+                    and `end_timestamp` (NULL = still valid) columns and the row
+                    valid at first exposure is used. Only supported for SQL Data
+                    Sources.
+                  type: string
+                  enum:
+                    - none
+                    - rowTimestamp
+                    - validityRange
+                nullLabel:
+                  description: >-
+                    Label used in experiment results for units with no dimension
+                    value. Leave empty to use the default null label.
+                  type: string
+                  maxLength: 100
                 managedBy:
                   description: >-
                     Where this dimension must be managed from. If not set (empty
@@ -21559,6 +21622,28 @@ paths:
                 query:
                   description: SQL query or equivalent for the dimension
                   type: string
+                timing:
+                  description: >-
+                    What the query returns and how the value at a unit's first
+                    exposure is resolved. `none` (default): one value per unit,
+                    resolved with MAX(value). `rowTimestamp`: timestamped rows;
+                    the query also returns a `timestamp` column and the latest
+                    row at or before first exposure is used. `validityRange`:
+                    validity ranges; the query also returns `start_timestamp`
+                    and `end_timestamp` (NULL = still valid) columns and the row
+                    valid at first exposure is used. Only supported for SQL Data
+                    Sources.
+                  type: string
+                  enum:
+                    - none
+                    - rowTimestamp
+                    - validityRange
+                nullLabel:
+                  description: >-
+                    Label used in experiment results for units with no dimension
+                    value. Leave empty to use the default null label.
+                  type: string
+                  maxLength: 100
                 managedBy:
                   description: >-
                     Where this dimension must be managed from. If not set (empty
@@ -22734,6 +22819,288 @@ paths:
           source: |-
             curl -X GET 'https://api.growthbook.io/api/v1/data-sources/{id}' \
               -H 'Authorization: Bearer YOUR_API_KEY'
+    post:
+      operationId: updateDataSource
+      summary: Update a data source
+      description: >-
+        Fields left out keep their current values. To clear one, send an
+        explicit empty value (`[]`, `""` or `false`). Connection settings are
+        changed in the app.
+      tags:
+        - data-sources
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  minLength: 1
+                description:
+                  type: string
+                  maxLength: 10000
+                projectIds:
+                  type: array
+                  items:
+                    type: string
+                eventTracker:
+                  description: '`eventForwarder` is only accepted unchanged'
+                  type: string
+                  enum:
+                    - segment
+                    - snowplow
+                    - jitsu
+                    - freshpaint
+                    - ga4
+                    - fullstory
+                    - matomo
+                    - heap
+                    - rudderstack
+                    - amplitude
+                    - mparticle
+                    - mixpanel
+                    - firebase
+                    - keen
+                    - clevertap
+                    - langfuse
+                    - phoenix
+                    - eventForwarder
+                    - custom
+                identifierTypes:
+                  description: >-
+                    Replaces the list. An entry matching an existing id keeps
+                    its description if left out; send `""` to clear it.
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                      description:
+                        type: string
+                        maxLength: 10000
+                    required:
+                      - id
+                    additionalProperties: false
+                assignmentQueries:
+                  description: >-
+                    Replaces the list. An entry with an existing `id` keeps
+                    `description`, `identifierTypes`, `includesNameColumns`,
+                    `dimensionColumns`, `projects` and `columnMapping` if left
+                    out; clear the others with `""`, `false` or `[]`. Each query
+                    is validated against the warehouse.
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      id:
+                        description: Omit to create a new query
+                        type: string
+                      name:
+                        type: string
+                      description:
+                        type: string
+                        maxLength: 10000
+                      identifierTypes:
+                        description: Required for a new query unless identifierType is set
+                        minItems: 1
+                        type: array
+                        items:
+                          type: string
+                      identifierType:
+                        description: >-
+                          Deprecated: use identifierTypes, which wins if both
+                          are set
+                        deprecated: true
+                        type: string
+                      sql:
+                        type: string
+                      includesNameColumns:
+                        type: boolean
+                      dimensionColumns:
+                        type: array
+                        items:
+                          type: string
+                      projects:
+                        description: >-
+                          Project IDs that can use this. An empty list means all
+                          Projects. Projects control access and availability, so
+                          don't use them as labels.
+                        type: array
+                        items:
+                          type: string
+                      columnMapping:
+                        description: >-
+                          Columns `sql` returns under a non-canonical name, by
+                          role. Replaces the stored mapping; send `{}` to clear
+                          it.
+                        type: object
+                        properties:
+                          experimentIdColumn:
+                            type: string
+                          variationIdColumn:
+                            type: string
+                          timestampColumn:
+                            type: string
+                          userIdColumns:
+                            description: Column for each identifier type, keyed by type
+                            type: object
+                            propertyNames:
+                              type: string
+                            additionalProperties:
+                              type: string
+                          experimentNameColumn:
+                            type: string
+                          variationNameColumn:
+                            type: string
+                        additionalProperties: false
+                    required:
+                      - name
+                      - sql
+                    additionalProperties: false
+                identifierJoinQueries:
+                  description: Replaces the list
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      identifierTypes:
+                        type: array
+                        items:
+                          type: string
+                      sql:
+                        type: string
+                    required:
+                      - identifierTypes
+                      - sql
+                    additionalProperties: false
+                mixpanelSettings:
+                  type: object
+                  properties:
+                    viewedExperimentEventName:
+                      type: string
+                    experimentIdProperty:
+                      type: string
+                    variationIdProperty:
+                      type: string
+                    extraUserIdProperty:
+                      type: string
+                  additionalProperties: false
+                pipelineSettings:
+                  description: >-
+                    Merged into the stored settings: fields left out keep their
+                    values, but any change must leave `allowWriting`, `mode`,
+                    `writeDataset` and `unitsTableRetentionHours` set, with a
+                    non-empty `writeDataset` when `allowWriting` is true. Send
+                    `[]` to clear `excludedExperimentIds` or
+                    `incrementalOptInExperimentIds`, and `includedExperimentIds:
+                    null` to apply the mode to every experiment again (`[]`
+                    applies it to none).
+                  type: object
+                  properties:
+                    allowWriting:
+                      description: >-
+                        Let GrowthBook write temporary tables to speed up
+                        analysis
+                      type: boolean
+                    mode:
+                      type: string
+                      enum:
+                        - ephemeral
+                        - incremental
+                    writeDatabase:
+                      type: string
+                    writeDataset:
+                      description: Schema (or dataset) to write tables to
+                      type: string
+                    unitsTableRetentionHours:
+                      type: number
+                      exclusiveMinimum: 0
+                    unitsTableDeletion:
+                      type: boolean
+                    includedExperimentIds:
+                      anyOf:
+                        - type: array
+                          items:
+                            type: string
+                        - type: 'null'
+                    excludedExperimentIds:
+                      type: array
+                      items:
+                        type: string
+                    incrementalOptInExperimentIds:
+                      type: array
+                      items:
+                        type: string
+                  additionalProperties: false
+                maxConcurrentQueries:
+                  type: integer
+                  minimum: 0
+                queryCacheTTLMins:
+                  type: integer
+                  minimum: 0
+              additionalProperties: false
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  dataSource:
+                    $ref: '#/components/schemas/DataSource'
+                  eventForwarderWarning:
+                    description: >-
+                      Set if the update saved but syncing the Event Forwarder
+                      failed
+                    type: string
+                required:
+                  - dataSource
+                additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X POST 'https://api.growthbook.io/api/v1/data-sources/{id}' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+    delete:
+      operationId: deleteDataSource
+      summary: Delete a data source
+      description: >-
+        Refused while it's the organization default, metrics, fact metrics, fact
+        tables, segments or dimensions still use it, or it has an Event
+        Forwarder.
+      tags:
+        - data-sources
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          description: Resource deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  deletedId:
+                    type: string
+                required:
+                  - deletedId
+                additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X DELETE 'https://api.growthbook.io/api/v1/data-sources/{id}'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
   /v1/data-sources/{dataSourceId}/information-schema:
     get:
       operationId: getInformationSchema
@@ -22765,6 +23132,42 @@ paths:
           source: >-
             curl -X GET
             'https://api.growthbook.io/api/v1/data-sources/{dataSourceId}/information-schema'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/data-sources/{id}/information-schema/refresh:
+    post:
+      operationId: postDataSourceInformationSchemaRefresh
+      summary: Refresh a data source's information schema
+      description: >-
+        Queues a background job that re-reads the warehouse's tables, creating
+        the schema if there isn't one yet. A table already read before is only
+        re-read when its column count changed; refresh it on its own to pick up
+        renamed or retyped columns.
+      tags:
+        - data-sources
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  queued:
+                    type: boolean
+                    const: true
+                required:
+                  - queued
+                additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/data-sources/{id}/information-schema/refresh'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
   /v1/data-sources/{id}/sql/search-tables:
@@ -32984,6 +33387,7 @@ paths:
                     - ratio
                     - dailyParticipation
                     - funnel
+                    - compound
                 numerator:
                   anyOf:
                     - type: object
@@ -33381,6 +33785,85 @@ paths:
                       minimum: 0
                   required:
                     - steps
+                  additionalProperties: false
+                compoundSettings:
+                  description: >-
+                    Compound metric settings (required when metricType is
+                    "compound")
+                  type: object
+                  properties:
+                    components:
+                      description: >-
+                        A unit passes when it has at least one matching event
+                        for every component, in any order. Minimum 2 components
+                        required.
+                      minItems: 2
+                      maxItems: 20
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          factTableId:
+                            description: The fact table this component draws events from
+                            type: string
+                          rowFilters:
+                            description: >-
+                              Filters that decide whether an event row counts
+                              for this component
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                operator:
+                                  type: string
+                                  enum:
+                                    - '='
+                                    - '!='
+                                    - '>'
+                                    - <
+                                    - '>='
+                                    - <=
+                                    - between
+                                    - not_between
+                                    - in
+                                    - not_in
+                                    - is_null
+                                    - not_null
+                                    - is_true
+                                    - is_false
+                                    - contains
+                                    - not_contains
+                                    - matches_pattern
+                                    - not_matches_pattern
+                                    - starts_with
+                                    - ends_with
+                                    - sql_expr
+                                    - saved_filter
+                                values:
+                                  description: >-
+                                    Not required for is_null, not_null, is_true,
+                                    is_false operators. The between and
+                                    not_between operators take at most two
+                                    values, a lower and an upper bound in that
+                                    order; leave a bound as an empty string for
+                                    an open-ended range.
+                                  type: array
+                                  items:
+                                    type: string
+                                column:
+                                  description: >-
+                                    Required for all operators except sql_expr
+                                    and saved_filter.
+                                  type: string
+                              required:
+                                - operator
+                              additionalProperties: false
+                        required:
+                          - factTableId
+                          - rowFilters
+                        additionalProperties: false
+                  required:
+                    - components
                   additionalProperties: false
                 cappingSettings:
                   description: >-
@@ -33713,6 +34196,7 @@ paths:
                     - ratio
                     - dailyParticipation
                     - funnel
+                    - compound
                 numerator:
                   anyOf:
                     - type: object
@@ -34110,6 +34594,85 @@ paths:
                       minimum: 0
                   required:
                     - steps
+                  additionalProperties: false
+                compoundSettings:
+                  description: >-
+                    Compound metric settings (required when metricType is
+                    "compound")
+                  type: object
+                  properties:
+                    components:
+                      description: >-
+                        A unit passes when it has at least one matching event
+                        for every component, in any order. Minimum 2 components
+                        required.
+                      minItems: 2
+                      maxItems: 20
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          factTableId:
+                            description: The fact table this component draws events from
+                            type: string
+                          rowFilters:
+                            description: >-
+                              Filters that decide whether an event row counts
+                              for this component
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                operator:
+                                  type: string
+                                  enum:
+                                    - '='
+                                    - '!='
+                                    - '>'
+                                    - <
+                                    - '>='
+                                    - <=
+                                    - between
+                                    - not_between
+                                    - in
+                                    - not_in
+                                    - is_null
+                                    - not_null
+                                    - is_true
+                                    - is_false
+                                    - contains
+                                    - not_contains
+                                    - matches_pattern
+                                    - not_matches_pattern
+                                    - starts_with
+                                    - ends_with
+                                    - sql_expr
+                                    - saved_filter
+                                values:
+                                  description: >-
+                                    Not required for is_null, not_null, is_true,
+                                    is_false operators. The between and
+                                    not_between operators take at most two
+                                    values, a lower and an upper bound in that
+                                    order; leave a bound as an empty string for
+                                    an open-ended range.
+                                  type: array
+                                  items:
+                                    type: string
+                                column:
+                                  description: >-
+                                    Required for all operators except sql_expr
+                                    and saved_filter.
+                                  type: string
+                              required:
+                                - operator
+                              additionalProperties: false
+                        required:
+                          - factTableId
+                          - rowFilters
+                        additionalProperties: false
+                  required:
+                    - components
                   additionalProperties: false
                 cappingSettings:
                   description: >-
@@ -34760,6 +35323,7 @@ paths:
                               - ratio
                               - dailyParticipation
                               - funnel
+                              - compound
                           numerator:
                             anyOf:
                               - type: object
@@ -35175,6 +35739,87 @@ paths:
                                 minimum: 0
                             required:
                               - steps
+                            additionalProperties: false
+                          compoundSettings:
+                            description: >-
+                              Compound metric settings (required when metricType
+                              is "compound")
+                            type: object
+                            properties:
+                              components:
+                                description: >-
+                                  A unit passes when it has at least one
+                                  matching event for every component, in any
+                                  order. Minimum 2 components required.
+                                minItems: 2
+                                maxItems: 20
+                                type: array
+                                items:
+                                  type: object
+                                  properties:
+                                    factTableId:
+                                      description: >-
+                                        The fact table this component draws
+                                        events from
+                                      type: string
+                                    rowFilters:
+                                      description: >-
+                                        Filters that decide whether an event row
+                                        counts for this component
+                                      type: array
+                                      items:
+                                        type: object
+                                        properties:
+                                          operator:
+                                            type: string
+                                            enum:
+                                              - '='
+                                              - '!='
+                                              - '>'
+                                              - <
+                                              - '>='
+                                              - <=
+                                              - between
+                                              - not_between
+                                              - in
+                                              - not_in
+                                              - is_null
+                                              - not_null
+                                              - is_true
+                                              - is_false
+                                              - contains
+                                              - not_contains
+                                              - matches_pattern
+                                              - not_matches_pattern
+                                              - starts_with
+                                              - ends_with
+                                              - sql_expr
+                                              - saved_filter
+                                          values:
+                                            description: >-
+                                              Not required for is_null, not_null,
+                                              is_true, is_false operators. The between
+                                              and not_between operators take at most
+                                              two values, a lower and an upper bound
+                                              in that order; leave a bound as an empty
+                                              string for an open-ended range.
+                                            type: array
+                                            items:
+                                              type: string
+                                          column:
+                                            description: >-
+                                              Required for all operators except
+                                              sql_expr and saved_filter.
+                                            type: string
+                                        required:
+                                          - operator
+                                        additionalProperties: false
+                                  required:
+                                    - factTableId
+                                    - rowFilters
+                                  additionalProperties: false
+                            required:
+                              - components
                             additionalProperties: false
                           cappingSettings:
                             description: >-
@@ -35813,6 +36458,73 @@ paths:
           source: |-
             curl -X GET 'https://api.growthbook.io/api/v1/queries/abc123' \
               -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/data-sources/{id}/queries:
+    get:
+      operationId: listDataSourceQueries
+      summary: Get a data source's 50 most recent queries
+      tags:
+        - queries
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: The data source id
+          schema:
+            description: The data source id
+            type: string
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  queries:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Query'
+                required:
+                  - queries
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X GET
+            'https://api.growthbook.io/api/v1/data-sources/{id}/queries' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/queries/{id}/cancel:
+    post:
+      operationId: postQueryCancel
+      summary: Cancel a running query
+      description: >-
+        Also asks the warehouse to stop it where the integration supports that.
+        Needs permission to run queries on the data source.
+      tags:
+        - queries
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  query:
+                    $ref: '#/components/schemas/Query'
+                required:
+                  - query
+                additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST 'https://api.growthbook.io/api/v1/queries/{id}/cancel'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
   /v1/settings:
     get:
       operationId: getSettings
@@ -35976,8 +36688,10 @@ paths:
       summary: Get a single Information Schema Table by id
       description: >-
         Returns cached metadata for a specific table in the Data Source,
-        including columns and their data types. Not all data source types
-        support information schemas.
+        including columns and their data types. The first request for a table
+        listed in the information schema reads its columns from the warehouse,
+        which needs permission to run queries. Not all data source types support
+        information schemas.
       tags:
         - data-sources
       parameters:
@@ -36000,6 +36714,45 @@ paths:
           source: >-
             curl -X GET
             'https://api.growthbook.io/api/v1/information-schema-tables/{tableId}'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/information-schema-tables/{tableId}/refresh:
+    post:
+      operationId: postInformationSchemaTableRefresh
+      summary: Refresh one table's columns
+      description: >-
+        Re-reads the table's columns from the warehouse and returns the updated
+        table. A failed read returns an error and leaves the stored columns as
+        they were.
+      tags:
+        - information-schema-tables
+      parameters:
+        - name: tableId
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  informationSchemaTable:
+                    $ref: '#/components/schemas/InformationSchemaTable'
+                required:
+                  - informationSchemaTable
+                additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/information-schema-tables/{tableId}/refresh'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
   /v1/ramp-schedules:
@@ -40499,6 +41252,483 @@ paths:
             curl -X POST
             'https://api.growthbook.io/api/v1/namespaces/ns-abc123/rotateSeed' \
               -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/event-webhooks:
+    get:
+      operationId: listEventWebhooks
+      summary: Get all event webhooks
+      tags:
+        - event-webhooks
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  eventWebhooks:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/EventWebhook'
+                required:
+                  - eventWebhooks
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X GET 'https://api.growthbook.io/api/v1/event-webhooks' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+    post:
+      operationId: postEventWebhook
+      summary: Create an event webhook
+      description: >-
+        The URL and header values can reference webhook secrets as `{{ KEY }}`,
+        which are filled in at send time.
+      tags:
+        - event-webhooks
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                events:
+                  minItems: 1
+                  type: array
+                  items:
+                    type: string
+                projects:
+                  type: array
+                  items:
+                    type: string
+                tags:
+                  type: array
+                  items:
+                    type: string
+                environments:
+                  type: array
+                  items:
+                    type: string
+                url:
+                  type: string
+                  format: uri
+                name:
+                  type: string
+                  minLength: 2
+                enabled:
+                  type: boolean
+                payloadType:
+                  type: string
+                  enum:
+                    - raw
+                    - json
+                    - slack
+                    - discord
+                method:
+                  type: string
+                  enum:
+                    - POST
+                    - PUT
+                    - PATCH
+                headers:
+                  type: object
+                  propertyNames:
+                    type: string
+                  additionalProperties:
+                    type: string
+                timeoutSeconds:
+                  description: >-
+                    Request timeout in seconds, up to the server maximum (120
+                    unless configured). Null uses the default.
+                  anyOf:
+                    - type: integer
+                      minimum: 1
+                    - type: 'null'
+              required:
+                - events
+                - url
+                - name
+                - enabled
+                - payloadType
+              additionalProperties: false
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  eventWebhook:
+                    $ref: '#/components/schemas/EventWebhook'
+                required:
+                  - eventWebhook
+                additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X POST 'https://api.growthbook.io/api/v1/event-webhooks' \
+              -H 'Authorization: Bearer YOUR_API_KEY' \
+              -H 'Content-Type: application/json' \
+              -d '{"name":"Feature changes to Datadog","url":"https://example.com/growthbook-events","enabled":true,"events":["feature.*"],"payloadType":"json"}'
+  /v1/event-webhooks/{id}:
+    get:
+      operationId: getEventWebhook
+      summary: Get a single event webhook
+      tags:
+        - event-webhooks
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  eventWebhook:
+                    $ref: '#/components/schemas/EventWebhook'
+                required:
+                  - eventWebhook
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X GET 'https://api.growthbook.io/api/v1/event-webhooks/{id}' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+    put:
+      operationId: putEventWebhook
+      summary: Update an event webhook
+      tags:
+        - event-webhooks
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                events:
+                  minItems: 1
+                  type: array
+                  items:
+                    type: string
+                projects:
+                  type: array
+                  items:
+                    type: string
+                tags:
+                  type: array
+                  items:
+                    type: string
+                environments:
+                  type: array
+                  items:
+                    type: string
+                url:
+                  type: string
+                  format: uri
+                name:
+                  type: string
+                  minLength: 2
+                enabled:
+                  type: boolean
+                payloadType:
+                  type: string
+                  enum:
+                    - raw
+                    - json
+                    - slack
+                    - discord
+                method:
+                  type: string
+                  enum:
+                    - POST
+                    - PUT
+                    - PATCH
+                headers:
+                  type: object
+                  propertyNames:
+                    type: string
+                  additionalProperties:
+                    type: string
+                timeoutSeconds:
+                  description: >-
+                    Request timeout in seconds, up to the server maximum (120
+                    unless configured). Null uses the default.
+                  anyOf:
+                    - type: integer
+                      minimum: 1
+                    - type: 'null'
+              additionalProperties: false
+      responses:
+        '200':
+          description: Resource updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  eventWebhook:
+                    $ref: '#/components/schemas/EventWebhook'
+                required:
+                  - eventWebhook
+                additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X PUT 'https://api.growthbook.io/api/v1/event-webhooks/{id}' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+    delete:
+      operationId: deleteEventWebhook
+      summary: Delete an event webhook
+      tags:
+        - event-webhooks
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Resource deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  deletedId:
+                    type: string
+                required:
+                  - deletedId
+                additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X DELETE
+            'https://api.growthbook.io/api/v1/event-webhooks/{id}' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/event-webhooks/{id}/logs:
+    get:
+      operationId: listEventWebhookLogs
+      summary: Get the 50 most recent deliveries for an event webhook
+      tags:
+        - event-webhooks
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  logs:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/EventWebhookLog'
+                required:
+                  - logs
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X GET
+            'https://api.growthbook.io/api/v1/event-webhooks/{id}/logs' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/event-webhooks/{id}/test:
+    post:
+      operationId: postEventWebhookTest
+      summary: Send a test event to an event webhook
+      description: Delivery is asynchronous; check the webhook's logs for the result.
+      tags:
+        - event-webhooks
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  queued:
+                    type: boolean
+                    const: true
+                required:
+                  - queued
+                additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/event-webhooks/{id}/test' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/audits:
+    get:
+      operationId: listAudits
+      summary: Get audit history for an entity or entity type
+      description: >-
+        Includes changes to child entities (e.g. a feature's revisions). Newest
+        first. Requires permission to view audit logs.
+      tags:
+        - audits
+      parameters:
+        - $ref: '#/components/parameters/entityType'
+        - $ref: '#/components/parameters/entityId'
+        - name: limit
+          in: query
+          description: Defaults to 50
+          schema:
+            description: Defaults to 50
+            type: integer
+            minimum: 1
+            maximum: 100
+        - $ref: '#/components/parameters/before'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  audits:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Audit'
+                  nextCursor:
+                    description: >-
+                      Pass as `before` to get the next page. Null when there are
+                      no older entries
+                    anyOf:
+                      - type: string
+                      - type: 'null'
+                required:
+                  - audits
+                  - nextCursor
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X GET 'https://api.growthbook.io/api/v1/audits' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/events:
+    get:
+      operationId: listEvents
+      summary: Get the organization's event log
+      description: >-
+        The events that drive event webhooks and notifications. Newest first.
+        Requires permission to view audit logs.
+      tags:
+        - audits
+      parameters:
+        - $ref: '#/components/parameters/events'
+        - $ref: '#/components/parameters/after'
+        - name: limit
+          in: query
+          description: Defaults to 50
+          schema:
+            description: Defaults to 50
+            type: integer
+            minimum: 1
+            maximum: 100
+        - $ref: '#/components/parameters/before'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  events:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Event'
+                  nextCursor:
+                    description: >-
+                      Pass as `before` to get the next page. Null when there are
+                      no older entries
+                    anyOf:
+                      - type: string
+                      - type: 'null'
+                required:
+                  - events
+                  - nextCursor
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X GET 'https://api.growthbook.io/api/v1/events' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/events/{id}:
+    get:
+      operationId: getEvent
+      summary: Get a single event
+      tags:
+        - audits
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  event:
+                    $ref: '#/components/schemas/Event'
+                required:
+                  - event
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X GET 'https://api.growthbook.io/api/v1/events/{id}' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
   /v1/transform-copy:
     post:
       operationId: postCopyTransform
@@ -42478,6 +43708,10 @@ paths:
                                       - predefined
                                     additionalProperties: false
                                   showAs:
+                                    description: >-
+                                      Deprecated: use `showAs` on each metric
+                                      value.
+                                    deprecated: true
                                     type: string
                                     enum:
                                       - total
@@ -42489,6 +43723,11 @@ paths:
                                         type: string
                                       valueAxisLabel:
                                         type: string
+                                      anchorYAxisToZero:
+                                        description: >-
+                                          Line charts only: whether the y-axis
+                                          starts at 0. Defaults to true.
+                                        type: boolean
                                     additionalProperties: false
                                   type:
                                     type: string
@@ -42558,6 +43797,19 @@ paths:
                                               anyOf:
                                                 - type: string
                                                 - type: 'null'
+                                            showAs:
+                                              description: >-
+                                                How a mean metric renders: `total` sums
+                                                the numerator, `per_unit` divides it by
+                                                the unit count. Ignored for other metric
+                                                types. Omit to use the default
+                                                (`per_unit` for `max` and `count
+                                                distinct` aggregations, otherwise
+                                                `total`).
+                                              type: string
+                                              enum:
+                                                - total
+                                                - per_unit
                                           required:
                                             - name
                                             - rowFilters
@@ -42885,6 +44137,10 @@ paths:
                                       - predefined
                                     additionalProperties: false
                                   showAs:
+                                    description: >-
+                                      Deprecated: use `showAs` on each metric
+                                      value.
+                                    deprecated: true
                                     type: string
                                     enum:
                                       - total
@@ -42896,6 +44152,11 @@ paths:
                                         type: string
                                       valueAxisLabel:
                                         type: string
+                                      anchorYAxisToZero:
+                                        description: >-
+                                          Line charts only: whether the y-axis
+                                          starts at 0. Defaults to true.
+                                        type: boolean
                                     additionalProperties: false
                                   type:
                                     type: string
@@ -43290,6 +44551,10 @@ paths:
                                       - predefined
                                     additionalProperties: false
                                   showAs:
+                                    description: >-
+                                      Deprecated: use `showAs` on each metric
+                                      value.
+                                    deprecated: true
                                     type: string
                                     enum:
                                       - total
@@ -43301,6 +44566,11 @@ paths:
                                         type: string
                                       valueAxisLabel:
                                         type: string
+                                      anchorYAxisToZero:
+                                        description: >-
+                                          Line charts only: whether the y-axis
+                                          starts at 0. Defaults to true.
+                                        type: boolean
                                     additionalProperties: false
                                   type:
                                     type: string
@@ -43712,6 +44982,10 @@ paths:
                                       - predefined
                                     additionalProperties: false
                                   showAs:
+                                    description: >-
+                                      Deprecated: use `showAs` on each metric
+                                      value.
+                                    deprecated: true
                                     type: string
                                     enum:
                                       - total
@@ -43723,6 +44997,11 @@ paths:
                                         type: string
                                       valueAxisLabel:
                                         type: string
+                                      anchorYAxisToZero:
+                                        description: >-
+                                          Line charts only: whether the y-axis
+                                          starts at 0. Defaults to true.
+                                        type: boolean
                                     additionalProperties: false
                                   type:
                                     type: string
@@ -44134,6 +45413,10 @@ paths:
                                       - predefined
                                     additionalProperties: false
                                   showAs:
+                                    description: >-
+                                      Deprecated: use `showAs` on each metric
+                                      value.
+                                    deprecated: true
                                     type: string
                                     enum:
                                       - total
@@ -44145,6 +45428,11 @@ paths:
                                         type: string
                                       valueAxisLabel:
                                         type: string
+                                      anchorYAxisToZero:
+                                        description: >-
+                                          Line charts only: whether the y-axis
+                                          starts at 0. Defaults to true.
+                                        type: boolean
                                     additionalProperties: false
                                   type:
                                     type: string
@@ -45861,6 +47149,10 @@ paths:
                                       - predefined
                                     additionalProperties: false
                                   showAs:
+                                    description: >-
+                                      Deprecated: use `showAs` on each metric
+                                      value.
+                                    deprecated: true
                                     type: string
                                     enum:
                                       - total
@@ -45872,6 +47164,11 @@ paths:
                                         type: string
                                       valueAxisLabel:
                                         type: string
+                                      anchorYAxisToZero:
+                                        description: >-
+                                          Line charts only: whether the y-axis
+                                          starts at 0. Defaults to true.
+                                        type: boolean
                                     additionalProperties: false
                                   type:
                                     type: string
@@ -45941,6 +47238,19 @@ paths:
                                               anyOf:
                                                 - type: string
                                                 - type: 'null'
+                                            showAs:
+                                              description: >-
+                                                How a mean metric renders: `total` sums
+                                                the numerator, `per_unit` divides it by
+                                                the unit count. Ignored for other metric
+                                                types. Omit to use the default
+                                                (`per_unit` for `max` and `count
+                                                distinct` aggregations, otherwise
+                                                `total`).
+                                              type: string
+                                              enum:
+                                                - total
+                                                - per_unit
                                           required:
                                             - name
                                             - rowFilters
@@ -46260,6 +47570,10 @@ paths:
                                       - predefined
                                     additionalProperties: false
                                   showAs:
+                                    description: >-
+                                      Deprecated: use `showAs` on each metric
+                                      value.
+                                    deprecated: true
                                     type: string
                                     enum:
                                       - total
@@ -46271,6 +47585,11 @@ paths:
                                         type: string
                                       valueAxisLabel:
                                         type: string
+                                      anchorYAxisToZero:
+                                        description: >-
+                                          Line charts only: whether the y-axis
+                                          starts at 0. Defaults to true.
+                                        type: boolean
                                     additionalProperties: false
                                   type:
                                     type: string
@@ -46657,6 +47976,10 @@ paths:
                                       - predefined
                                     additionalProperties: false
                                   showAs:
+                                    description: >-
+                                      Deprecated: use `showAs` on each metric
+                                      value.
+                                    deprecated: true
                                     type: string
                                     enum:
                                       - total
@@ -46668,6 +47991,11 @@ paths:
                                         type: string
                                       valueAxisLabel:
                                         type: string
+                                      anchorYAxisToZero:
+                                        description: >-
+                                          Line charts only: whether the y-axis
+                                          starts at 0. Defaults to true.
+                                        type: boolean
                                     additionalProperties: false
                                   type:
                                     type: string
@@ -47071,6 +48399,10 @@ paths:
                                       - predefined
                                     additionalProperties: false
                                   showAs:
+                                    description: >-
+                                      Deprecated: use `showAs` on each metric
+                                      value.
+                                    deprecated: true
                                     type: string
                                     enum:
                                       - total
@@ -47082,6 +48414,11 @@ paths:
                                         type: string
                                       valueAxisLabel:
                                         type: string
+                                      anchorYAxisToZero:
+                                        description: >-
+                                          Line charts only: whether the y-axis
+                                          starts at 0. Defaults to true.
+                                        type: boolean
                                     additionalProperties: false
                                   type:
                                     type: string
@@ -47485,6 +48822,10 @@ paths:
                                       - predefined
                                     additionalProperties: false
                                   showAs:
+                                    description: >-
+                                      Deprecated: use `showAs` on each metric
+                                      value.
+                                    deprecated: true
                                     type: string
                                     enum:
                                       - total
@@ -47496,6 +48837,11 @@ paths:
                                         type: string
                                       valueAxisLabel:
                                         type: string
+                                      anchorYAxisToZero:
+                                        description: >-
+                                          Line charts only: whether the y-axis
+                                          starts at 0. Defaults to true.
+                                        type: boolean
                                     additionalProperties: false
                                   type:
                                     type: string
@@ -49441,6 +50787,8 @@ paths:
                                   - predefined
                                 additionalProperties: false
                               showAs:
+                                description: 'Deprecated: use `showAs` on each metric value.'
+                                deprecated: true
                                 type: string
                                 enum:
                                   - total
@@ -49452,6 +50800,11 @@ paths:
                                     type: string
                                   valueAxisLabel:
                                     type: string
+                                  anchorYAxisToZero:
+                                    description: >-
+                                      Line charts only: whether the y-axis
+                                      starts at 0. Defaults to true.
+                                    type: boolean
                                 additionalProperties: false
                               type:
                                 type: string
@@ -49521,6 +50874,19 @@ paths:
                                           anyOf:
                                             - type: string
                                             - type: 'null'
+                                        showAs:
+                                          description: >-
+                                            How a mean metric renders: `total` sums
+                                            the numerator, `per_unit` divides it by
+                                            the unit count. Ignored for other metric
+                                            types. Omit to use the default
+                                            (`per_unit` for `max` and `count
+                                            distinct` aggregations, otherwise
+                                            `total`).
+                                          type: string
+                                          enum:
+                                            - total
+                                            - per_unit
                                       required:
                                         - name
                                         - rowFilters
@@ -49839,6 +51205,8 @@ paths:
                                   - predefined
                                 additionalProperties: false
                               showAs:
+                                description: 'Deprecated: use `showAs` on each metric value.'
+                                deprecated: true
                                 type: string
                                 enum:
                                   - total
@@ -49850,6 +51218,11 @@ paths:
                                     type: string
                                   valueAxisLabel:
                                     type: string
+                                  anchorYAxisToZero:
+                                    description: >-
+                                      Line charts only: whether the y-axis
+                                      starts at 0. Defaults to true.
+                                    type: boolean
                                 additionalProperties: false
                               type:
                                 type: string
@@ -50236,6 +51609,8 @@ paths:
                                   - predefined
                                 additionalProperties: false
                               showAs:
+                                description: 'Deprecated: use `showAs` on each metric value.'
+                                deprecated: true
                                 type: string
                                 enum:
                                   - total
@@ -50247,6 +51622,11 @@ paths:
                                     type: string
                                   valueAxisLabel:
                                     type: string
+                                  anchorYAxisToZero:
+                                    description: >-
+                                      Line charts only: whether the y-axis
+                                      starts at 0. Defaults to true.
+                                    type: boolean
                                 additionalProperties: false
                               type:
                                 type: string
@@ -50650,6 +52030,8 @@ paths:
                                   - predefined
                                 additionalProperties: false
                               showAs:
+                                description: 'Deprecated: use `showAs` on each metric value.'
+                                deprecated: true
                                 type: string
                                 enum:
                                   - total
@@ -50661,6 +52043,11 @@ paths:
                                     type: string
                                   valueAxisLabel:
                                     type: string
+                                  anchorYAxisToZero:
+                                    description: >-
+                                      Line charts only: whether the y-axis
+                                      starts at 0. Defaults to true.
+                                    type: boolean
                                 additionalProperties: false
                               type:
                                 type: string
@@ -51064,6 +52451,8 @@ paths:
                                   - predefined
                                 additionalProperties: false
                               showAs:
+                                description: 'Deprecated: use `showAs` on each metric value.'
+                                deprecated: true
                                 type: string
                                 enum:
                                   - total
@@ -51075,6 +52464,11 @@ paths:
                                     type: string
                                   valueAxisLabel:
                                     type: string
+                                  anchorYAxisToZero:
+                                    description: >-
+                                      Line charts only: whether the y-axis
+                                      starts at 0. Defaults to true.
+                                    type: boolean
                                 additionalProperties: false
                               type:
                                 type: string
@@ -53031,6 +54425,8 @@ paths:
                                   - predefined
                                 additionalProperties: false
                               showAs:
+                                description: 'Deprecated: use `showAs` on each metric value.'
+                                deprecated: true
                                 type: string
                                 enum:
                                   - total
@@ -53042,6 +54438,11 @@ paths:
                                     type: string
                                   valueAxisLabel:
                                     type: string
+                                  anchorYAxisToZero:
+                                    description: >-
+                                      Line charts only: whether the y-axis
+                                      starts at 0. Defaults to true.
+                                    type: boolean
                                 additionalProperties: false
                               type:
                                 type: string
@@ -53111,6 +54512,19 @@ paths:
                                           anyOf:
                                             - type: string
                                             - type: 'null'
+                                        showAs:
+                                          description: >-
+                                            How a mean metric renders: `total` sums
+                                            the numerator, `per_unit` divides it by
+                                            the unit count. Ignored for other metric
+                                            types. Omit to use the default
+                                            (`per_unit` for `max` and `count
+                                            distinct` aggregations, otherwise
+                                            `total`).
+                                          type: string
+                                          enum:
+                                            - total
+                                            - per_unit
                                       required:
                                         - name
                                         - rowFilters
@@ -53429,6 +54843,8 @@ paths:
                                   - predefined
                                 additionalProperties: false
                               showAs:
+                                description: 'Deprecated: use `showAs` on each metric value.'
+                                deprecated: true
                                 type: string
                                 enum:
                                   - total
@@ -53440,6 +54856,11 @@ paths:
                                     type: string
                                   valueAxisLabel:
                                     type: string
+                                  anchorYAxisToZero:
+                                    description: >-
+                                      Line charts only: whether the y-axis
+                                      starts at 0. Defaults to true.
+                                    type: boolean
                                 additionalProperties: false
                               type:
                                 type: string
@@ -53826,6 +55247,8 @@ paths:
                                   - predefined
                                 additionalProperties: false
                               showAs:
+                                description: 'Deprecated: use `showAs` on each metric value.'
+                                deprecated: true
                                 type: string
                                 enum:
                                   - total
@@ -53837,6 +55260,11 @@ paths:
                                     type: string
                                   valueAxisLabel:
                                     type: string
+                                  anchorYAxisToZero:
+                                    description: >-
+                                      Line charts only: whether the y-axis
+                                      starts at 0. Defaults to true.
+                                    type: boolean
                                 additionalProperties: false
                               type:
                                 type: string
@@ -54240,6 +55668,8 @@ paths:
                                   - predefined
                                 additionalProperties: false
                               showAs:
+                                description: 'Deprecated: use `showAs` on each metric value.'
+                                deprecated: true
                                 type: string
                                 enum:
                                   - total
@@ -54251,6 +55681,11 @@ paths:
                                     type: string
                                   valueAxisLabel:
                                     type: string
+                                  anchorYAxisToZero:
+                                    description: >-
+                                      Line charts only: whether the y-axis
+                                      starts at 0. Defaults to true.
+                                    type: boolean
                                 additionalProperties: false
                               type:
                                 type: string
@@ -54654,6 +56089,8 @@ paths:
                                   - predefined
                                 additionalProperties: false
                               showAs:
+                                description: 'Deprecated: use `showAs` on each metric value.'
+                                deprecated: true
                                 type: string
                                 enum:
                                   - total
@@ -54665,6 +56102,11 @@ paths:
                                     type: string
                                   valueAxisLabel:
                                     type: string
+                                  anchorYAxisToZero:
+                                    description: >-
+                                      Line charts only: whether the y-axis
+                                      starts at 0. Defaults to true.
+                                    type: boolean
                                 additionalProperties: false
                               type:
                                 type: string
@@ -59095,6 +60537,8 @@ paths:
                     - predefined
                   additionalProperties: false
                 showAs:
+                  description: 'Deprecated: use `showAs` on each metric value.'
+                  deprecated: true
                   type: string
                   enum:
                     - total
@@ -59106,6 +60550,11 @@ paths:
                       type: string
                     valueAxisLabel:
                       type: string
+                    anchorYAxisToZero:
+                      description: >-
+                        Line charts only: whether the y-axis starts at 0.
+                        Defaults to true.
+                      type: boolean
                   additionalProperties: false
                 type:
                   type: string
@@ -59175,6 +60624,17 @@ paths:
                             anyOf:
                               - type: string
                               - type: 'null'
+                          showAs:
+                            description: >-
+                              How a mean metric renders: `total` sums the
+                              numerator, `per_unit` divides it by the unit
+                              count. Ignored for other metric types. Omit to use
+                              the default (`per_unit` for `max` and `count
+                              distinct` aggregations, otherwise `total`).
+                            type: string
+                            enum:
+                              - total
+                              - per_unit
                         required:
                           - name
                           - rowFilters
@@ -59543,6 +61003,8 @@ paths:
                                   - predefined
                                 additionalProperties: false
                               showAs:
+                                description: 'Deprecated: use `showAs` on each metric value.'
+                                deprecated: true
                                 type: string
                                 enum:
                                   - total
@@ -59554,6 +61016,11 @@ paths:
                                     type: string
                                   valueAxisLabel:
                                     type: string
+                                  anchorYAxisToZero:
+                                    description: >-
+                                      Line charts only: whether the y-axis
+                                      starts at 0. Defaults to true.
+                                    type: boolean
                                 additionalProperties: false
                               type:
                                 type: string
@@ -59623,6 +61090,19 @@ paths:
                                           anyOf:
                                             - type: string
                                             - type: 'null'
+                                        showAs:
+                                          description: >-
+                                            How a mean metric renders: `total` sums
+                                            the numerator, `per_unit` divides it by
+                                            the unit count. Ignored for other metric
+                                            types. Omit to use the default
+                                            (`per_unit` for `max` and `count
+                                            distinct` aggregations, otherwise
+                                            `total`).
+                                          type: string
+                                          enum:
+                                            - total
+                                            - per_unit
                                       required:
                                         - name
                                         - rowFilters
@@ -59880,6 +61360,8 @@ paths:
                     - predefined
                   additionalProperties: false
                 showAs:
+                  description: 'Deprecated: use `showAs` on each metric value.'
+                  deprecated: true
                   type: string
                   enum:
                     - total
@@ -59891,6 +61373,11 @@ paths:
                       type: string
                     valueAxisLabel:
                       type: string
+                    anchorYAxisToZero:
+                      description: >-
+                        Line charts only: whether the y-axis starts at 0.
+                        Defaults to true.
+                      type: boolean
                   additionalProperties: false
                 type:
                   type: string
@@ -60329,6 +61816,8 @@ paths:
                                   - predefined
                                 additionalProperties: false
                               showAs:
+                                description: 'Deprecated: use `showAs` on each metric value.'
+                                deprecated: true
                                 type: string
                                 enum:
                                   - total
@@ -60340,6 +61829,11 @@ paths:
                                     type: string
                                   valueAxisLabel:
                                     type: string
+                                  anchorYAxisToZero:
+                                    description: >-
+                                      Line charts only: whether the y-axis
+                                      starts at 0. Defaults to true.
+                                    type: boolean
                                 additionalProperties: false
                               type:
                                 type: string
@@ -60665,6 +62159,8 @@ paths:
                     - predefined
                   additionalProperties: false
                 showAs:
+                  description: 'Deprecated: use `showAs` on each metric value.'
+                  deprecated: true
                   type: string
                   enum:
                     - total
@@ -60676,6 +62172,11 @@ paths:
                       type: string
                     valueAxisLabel:
                       type: string
+                    anchorYAxisToZero:
+                      description: >-
+                        Line charts only: whether the y-axis starts at 0.
+                        Defaults to true.
+                      type: boolean
                   additionalProperties: false
                 type:
                   type: string
@@ -61131,6 +62632,8 @@ paths:
                                   - predefined
                                 additionalProperties: false
                               showAs:
+                                description: 'Deprecated: use `showAs` on each metric value.'
+                                deprecated: true
                                 type: string
                                 enum:
                                   - total
@@ -61142,6 +62645,11 @@ paths:
                                     type: string
                                   valueAxisLabel:
                                     type: string
+                                  anchorYAxisToZero:
+                                    description: >-
+                                      Line charts only: whether the y-axis
+                                      starts at 0. Defaults to true.
+                                    type: boolean
                                 additionalProperties: false
                               type:
                                 type: string
@@ -61484,6 +62992,8 @@ paths:
                     - predefined
                   additionalProperties: false
                 showAs:
+                  description: 'Deprecated: use `showAs` on each metric value.'
+                  deprecated: true
                   type: string
                   enum:
                     - total
@@ -61495,6 +63005,11 @@ paths:
                       type: string
                     valueAxisLabel:
                       type: string
+                    anchorYAxisToZero:
+                      description: >-
+                        Line charts only: whether the y-axis starts at 0.
+                        Defaults to true.
+                      type: boolean
                   additionalProperties: false
                 type:
                   type: string
@@ -61953,6 +63468,8 @@ paths:
                                   - predefined
                                 additionalProperties: false
                               showAs:
+                                description: 'Deprecated: use `showAs` on each metric value.'
+                                deprecated: true
                                 type: string
                                 enum:
                                   - total
@@ -61964,6 +63481,11 @@ paths:
                                     type: string
                                   valueAxisLabel:
                                     type: string
+                                  anchorYAxisToZero:
+                                    description: >-
+                                      Line charts only: whether the y-axis
+                                      starts at 0. Defaults to true.
+                                    type: boolean
                                 additionalProperties: false
                               type:
                                 type: string
@@ -62309,6 +63831,8 @@ paths:
                     - predefined
                   additionalProperties: false
                 showAs:
+                  description: 'Deprecated: use `showAs` on each metric value.'
+                  deprecated: true
                   type: string
                   enum:
                     - total
@@ -62320,6 +63844,11 @@ paths:
                       type: string
                     valueAxisLabel:
                       type: string
+                    anchorYAxisToZero:
+                      description: >-
+                        Line charts only: whether the y-axis starts at 0.
+                        Defaults to true.
+                      type: boolean
                   additionalProperties: false
                 type:
                   type: string
@@ -62771,6 +64300,8 @@ paths:
                                   - predefined
                                 additionalProperties: false
                               showAs:
+                                description: 'Deprecated: use `showAs` on each metric value.'
+                                deprecated: true
                                 type: string
                                 enum:
                                   - total
@@ -62782,6 +64313,11 @@ paths:
                                     type: string
                                   valueAxisLabel:
                                     type: string
+                                  anchorYAxisToZero:
+                                    description: >-
+                                      Line charts only: whether the y-axis
+                                      starts at 0. Defaults to true.
+                                    type: boolean
                                 additionalProperties: false
                               type:
                                 type: string
@@ -63120,6 +64656,8 @@ paths:
                     - predefined
                   additionalProperties: false
                 showAs:
+                  description: 'Deprecated: use `showAs` on each metric value.'
+                  deprecated: true
                   type: string
                   enum:
                     - total
@@ -63131,6 +64669,11 @@ paths:
                       type: string
                     valueAxisLabel:
                       type: string
+                    anchorYAxisToZero:
+                      description: >-
+                        Line charts only: whether the y-axis starts at 0.
+                        Defaults to true.
+                      type: boolean
                   additionalProperties: false
                 type:
                   type: string
@@ -63604,6 +65147,8 @@ paths:
                                   - predefined
                                 additionalProperties: false
                               showAs:
+                                description: 'Deprecated: use `showAs` on each metric value.'
+                                deprecated: true
                                 type: string
                                 enum:
                                   - total
@@ -63615,6 +65160,11 @@ paths:
                                     type: string
                                   valueAxisLabel:
                                     type: string
+                                  anchorYAxisToZero:
+                                    description: >-
+                                      Line charts only: whether the y-axis
+                                      starts at 0. Defaults to true.
+                                    type: boolean
                                 additionalProperties: false
                               type:
                                 type: string
@@ -67209,6 +68759,375 @@ paths:
           source: |-
             curl -X DELETE 'https://api.growthbook.io/api/v1/populations/{id}' \
               -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/webhook-secrets/{id}:
+    get:
+      operationId: getWebhookSecret
+      summary: Get a single webhookSecret
+      tags:
+        - WebhookSecrets
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  webhookSecret:
+                    $ref: '#/components/schemas/WebhookSecret'
+                required:
+                  - webhookSecret
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X GET 'https://api.growthbook.io/api/v1/webhook-secrets/{id}'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+    delete:
+      operationId: deleteWebhookSecret
+      summary: Delete a single webhookSecret
+      tags:
+        - WebhookSecrets
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Resource deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  deletedId:
+                    type: string
+                required:
+                  - deletedId
+                additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X DELETE
+            'https://api.growthbook.io/api/v1/webhook-secrets/{id}' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/webhook-secrets:
+    get:
+      operationId: listWebhookSecrets
+      summary: Get all webhookSecrets
+      tags:
+        - WebhookSecrets
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  webhookSecrets:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/WebhookSecret'
+                required:
+                  - webhookSecrets
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X GET 'https://api.growthbook.io/api/v1/webhook-secrets' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/sdk-connections/{id}/webhooks:
+    get:
+      operationId: listSdkConnectionWebhooks
+      summary: Get the webhooks for an SDK Connection
+      tags:
+        - SdkWebhooks
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: The SDK Connection id
+          schema:
+            description: The SDK Connection id
+            type: string
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  sdkWebhooks:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/SdkWebhook'
+                required:
+                  - sdkWebhooks
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X GET
+            'https://api.growthbook.io/api/v1/sdk-connections/{id}/webhooks' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+    post:
+      operationId: postSdkConnectionWebhook
+      summary: Add a webhook to an SDK Connection
+      description: >-
+        Called whenever the connection's payload changes. `httpMethod` defaults
+        to POST. More than one webhook per organization requires a paid plan.
+      tags:
+        - SdkWebhooks
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: The SDK Connection id
+          schema:
+            description: The SDK Connection id
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                endpoint:
+                  type: string
+                  format: uri
+                httpMethod:
+                  type: string
+                  enum:
+                    - GET
+                    - POST
+                    - PUT
+                    - DELETE
+                    - PATCH
+                    - PURGE
+                payloadFormat:
+                  type: string
+                  enum:
+                    - standard
+                    - standard-no-payload
+                    - sdkPayload
+                    - edgeConfig
+                    - edgeConfigUnescaped
+                    - none
+                payloadKey:
+                  type: string
+                headers:
+                  description: 'JSON-encoded object, e.g. "{\"X-Token\": \"abc\"}"'
+                  type: string
+                timeoutSeconds:
+                  description: >-
+                    Request timeout in seconds, up to the server maximum (120
+                    unless configured). Null uses the default.
+                  anyOf:
+                    - type: integer
+                      minimum: 1
+                    - type: 'null'
+              required:
+                - name
+                - endpoint
+              additionalProperties: false
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  sdkWebhook:
+                    $ref: '#/components/schemas/SdkWebhook'
+                required:
+                  - sdkWebhook
+                additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/sdk-connections/{id}/webhooks' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/sdk-webhooks/{id}:
+    put:
+      operationId: putSdkWebhook
+      summary: Update an SDK webhook
+      description: >-
+        The webhook fires once after an update. Webhooks managed by the Vercel
+        integration can't be changed.
+      tags:
+        - SdkWebhooks
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                endpoint:
+                  type: string
+                  format: uri
+                httpMethod:
+                  type: string
+                  enum:
+                    - GET
+                    - POST
+                    - PUT
+                    - DELETE
+                    - PATCH
+                    - PURGE
+                payloadFormat:
+                  description: >-
+                    `vercelNativeIntegration` is accepted only on webhooks that
+                    already use it
+                  type: string
+                  enum:
+                    - standard
+                    - standard-no-payload
+                    - sdkPayload
+                    - edgeConfig
+                    - edgeConfigUnescaped
+                    - vercelNativeIntegration
+                    - none
+                payloadKey:
+                  type: string
+                headers:
+                  description: 'JSON-encoded object, e.g. "{\"X-Token\": \"abc\"}"'
+                  type: string
+                timeoutSeconds:
+                  description: >-
+                    Request timeout in seconds, up to the server maximum (120
+                    unless configured). Null uses the default.
+                  anyOf:
+                    - type: integer
+                      minimum: 1
+                    - type: 'null'
+                sdkConnections:
+                  description: Replaces the SDK Connections this webhook fires for
+                  minItems: 1
+                  type: array
+                  items:
+                    type: string
+              additionalProperties: false
+      responses:
+        '200':
+          description: Resource updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  sdkWebhook:
+                    $ref: '#/components/schemas/SdkWebhook'
+                required:
+                  - sdkWebhook
+                additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X PUT 'https://api.growthbook.io/api/v1/sdk-webhooks/{id}' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+    delete:
+      operationId: deleteSdkWebhook
+      summary: Delete an SDK webhook
+      description: Webhooks managed by the Vercel integration can't be deleted here.
+      tags:
+        - SdkWebhooks
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Resource deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  deletedId:
+                    type: string
+                required:
+                  - deletedId
+                additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X DELETE 'https://api.growthbook.io/api/v1/sdk-webhooks/{id}'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/sdk-webhooks/{id}/test:
+    post:
+      operationId: postSdkWebhookTest
+      summary: Fire an SDK webhook now
+      description: Returns the webhook with the outcome in `error` / `lastSuccess`.
+      tags:
+        - SdkWebhooks
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  sdkWebhook:
+                    $ref: '#/components/schemas/SdkWebhook'
+                required:
+                  - sdkWebhook
+                additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/sdk-webhooks/{id}/test' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
 components:
   parameters:
     limit:
@@ -67644,8 +69563,14 @@ components:
     phase:
       name: phase
       in: query
-      description: ''
+      description: >-
+        Phase index, defaulting to the latest phase. `experiment.enhancedStatus`
+        describes the latest phase, so it is omitted for any other phase.
       schema:
+        description: >-
+          Phase index, defaulting to the latest phase.
+          `experiment.enhancedStatus` describes the latest phase, so it is
+          omitted for any other phase.
         type: string
     dimension:
       name: dimension
@@ -68026,6 +69951,107 @@ components:
           Used when the body has no `reason`, for tools whose payload can't be
           changed.
         type: string
+    entityType:
+      name: entityType
+      in: query
+      required: true
+      description: ''
+      schema:
+        type: string
+        enum:
+          - agreement
+          - approvalFlow
+          - revision
+          - aiPrompt
+          - aiCredential
+          - attribute
+          - experiment
+          - project
+          - environment
+          - feature
+          - featureRevisionLog
+          - urlRedirect
+          - metric
+          - metricAnalysis
+          - metricGroup
+          - populationData
+          - population
+          - datasource
+          - comment
+          - sdk-connection
+          - user
+          - organization
+          - apiKey
+          - oauthAuthCode
+          - oauthGrant
+          - oauthRefreshToken
+          - installation
+          - savedGroup
+          - constant
+          - config
+          - segment
+          - archetype
+          - team
+          - vercelNativeIntegration
+          - factTable
+          - customField
+          - autoRun
+          - experimentTemplate
+          - safeRollout
+          - decisionCriteria
+          - execReport
+          - holdout
+          - savedQuery
+          - dashboard
+          - dashboardTemplate
+          - incrementalRefresh
+          - vector
+          - customHook
+          - ssoConnection
+          - sqlResultChunk
+          - rampSchedule
+          - rampScheduleTemplate
+          - learning
+          - contextualBandit
+          - interleaving
+          - eventForwarderConfig
+    entityId:
+      name: entityId
+      in: query
+      description: Omit for every entity of this type
+      schema:
+        description: Omit for every entity of this type
+        type: string
+    before:
+      name: before
+      in: query
+      description: >-
+        Only return entries older than this date-time. To page back, pass the
+        previous page's `nextCursor` instead.
+      schema:
+        description: >-
+          Only return entries older than this date-time. To page back, pass the
+          previous page's `nextCursor` instead.
+        type: string
+    events:
+      name: events
+      in: query
+      description: >-
+        Comma-separated exact event names, e.g. "feature.updated". Wildcards
+        like "feature.*" are not supported.
+      schema:
+        description: >-
+          Comma-separated exact event names, e.g. "feature.updated". Wildcards
+          like "feature.*" are not supported.
+        type: string
+    after:
+      name: after
+      in: query
+      description: Only events at or after this time
+      schema:
+        description: Only events at or after this time
+        type: string
+        format: date-time
     index:
       name: index
       in: query
@@ -73151,6 +75177,317 @@ components:
           type: array
           items:
             type: string
+        health:
+          description: >-
+            Health checks for the snapshot as a whole, with the same verdicts
+            the app shows. They are not broken down by dimension value.
+          type: object
+          properties:
+            srm:
+              description: >-
+                Sample ratio mismatch check for the experiment as a whole. It
+                comes from the traffic query, or from the overall result when
+                that query did not run or failed. null when neither is
+                available, for example on some dimension breakdowns.
+              anyOf:
+                - type: object
+                  properties:
+                    pValue:
+                      description: Sample ratio mismatch p-value.
+                      type: number
+                    status:
+                      description: >-
+                        `unhealthy` when the check fails the organization's
+                        threshold. `not-enough-traffic` when there are too few
+                        units to judge.
+                      type: string
+                      enum:
+                        - healthy
+                        - unhealthy
+                        - not-enough-traffic
+                    threshold:
+                      description: >-
+                        The organization's SRM p-value threshold. The check is
+                        `unhealthy` when `pValue` is below it.
+                      type: number
+                    totalUnits:
+                      description: >-
+                        Units the p-value was computed on: clusters for cluster
+                        experiments, otherwise the randomization unit.
+                      anyOf:
+                        - type: number
+                        - type: 'null'
+                    variationUnits:
+                      description: >-
+                        Units per variation, in the experiment's variation
+                        order.
+                      anyOf:
+                        - type: array
+                          items:
+                            type: number
+                        - type: 'null'
+                  required:
+                    - pValue
+                    - status
+                    - threshold
+                    - totalUnits
+                    - variationUnits
+                  additionalProperties: false
+                - type: 'null'
+            multipleExposures:
+              description: >-
+                Multiple exposures check. For cluster experiments it counts
+                sub-units. null when the snapshot has no unit total to measure
+                against, for example on dimension breakdowns whose traffic query
+                did not run or failed.
+              anyOf:
+                - type: object
+                  properties:
+                    count:
+                      description: >-
+                        Units exposed to more than one variation. They are
+                        excluded from the analysis.
+                      type: number
+                    totalUnits:
+                      description: Units `percent` is measured against.
+                      type: number
+                    percent:
+                      description: >-
+                        `count` divided by `totalUnits`, as a fraction from 0 to
+                        1.
+                      type: number
+                    status:
+                      description: >-
+                        `unhealthy` when the check fails the organization's
+                        threshold. `not-enough-traffic` when there are too few
+                        units to judge.
+                      type: string
+                      enum:
+                        - healthy
+                        - unhealthy
+                        - not-enough-traffic
+                    threshold:
+                      description: >-
+                        The organization's threshold, as a fraction from 0 to 1.
+                        The check is `unhealthy` when `percent` reaches or
+                        exceeds it.
+                      type: number
+                  required:
+                    - count
+                    - totalUnits
+                    - percent
+                    - status
+                    - threshold
+                  additionalProperties: false
+                - type: 'null'
+            unknownVariations:
+              description: >-
+                Variation IDs found in the exposure data that match none of the
+                experiment's variations. A non-empty list usually means the
+                tracked variation IDs are misconfigured.
+              type: array
+              items:
+                type: string
+            power:
+              description: >-
+                Mid-experiment power estimate. null when the snapshot did not
+                compute one or the calculation failed.
+              anyOf:
+                - type: object
+                  properties:
+                    isLowPowered:
+                      description: >-
+                        Whether the experiment is unlikely to detect its target
+                        effect by the end of its planned run.
+                      type: boolean
+                    additionalDaysNeeded:
+                      description: >-
+                        Estimated extra days needed to reach the target power.
+                        null when the experiment is not expected to reach it at
+                        the current traffic.
+                      anyOf:
+                        - type: number
+                        - type: 'null'
+                  required:
+                    - isLowPowered
+                    - additionalDaysNeeded
+                  additionalProperties: false
+                - type: 'null'
+            covariateImbalance:
+              description: >-
+                Pre-exposure bias check. null when the snapshot did not compute
+                one.
+              anyOf:
+                - type: object
+                  properties:
+                    isImbalanced:
+                      description: >-
+                        Whether variations already differed on the experiment's
+                        metrics before exposure (pre-exposure bias).
+                      type: boolean
+                    numGoalMetricsImbalanced:
+                      type: number
+                    numGuardrailMetricsImbalanced:
+                      type: number
+                    numSecondaryMetricsImbalanced:
+                      type: number
+                  required:
+                    - isImbalanced
+                    - numGoalMetricsImbalanced
+                    - numGuardrailMetricsImbalanced
+                    - numSecondaryMetricsImbalanced
+                  additionalProperties: false
+                - type: 'null'
+            cluster:
+              description: Cluster experiment checks. Omitted for other experiments.
+              type: object
+              properties:
+                mixedAssignment:
+                  anyOf:
+                    - type: object
+                      properties:
+                        totalClusters:
+                          type: number
+                        mixedClusters:
+                          description: >-
+                            Clusters whose sub-units saw more than one
+                            variation.
+                          type: number
+                        percent:
+                          type: number
+                        status:
+                          description: >-
+                            `unhealthy` when the check fails the organization's
+                            threshold. `not-enough-traffic` when there are too
+                            few units to judge.
+                          type: string
+                          enum:
+                            - healthy
+                            - unhealthy
+                            - not-enough-traffic
+                      required:
+                        - totalClusters
+                        - mixedClusters
+                        - percent
+                        - status
+                      additionalProperties: false
+                    - type: 'null'
+                unitsInMultipleClusters:
+                  anyOf:
+                    - type: object
+                      properties:
+                        totalUnits:
+                          type: number
+                        multiClusterUnits:
+                          description: Sub-units that appear in more than one cluster.
+                          type: number
+                        percent:
+                          type: number
+                        status:
+                          description: >-
+                            `unhealthy` when the check fails the organization's
+                            threshold. `not-enough-traffic` when there are too
+                            few units to judge.
+                          type: string
+                          enum:
+                            - healthy
+                            - unhealthy
+                            - not-enough-traffic
+                      required:
+                        - totalUnits
+                        - multiClusterUnits
+                        - percent
+                        - status
+                      additionalProperties: false
+                    - type: 'null'
+                reliability:
+                  description: >-
+                    Whether there are enough clusters, evenly sized enough, to
+                    trust the results. `unhealthy` when either `tooFewClusters`
+                    or `oversizedCluster` is set. The app shows it as a warning
+                    on the results; it is not part of `enhancedStatus.decision`.
+                    null when the snapshot has no cluster counts.
+                  anyOf:
+                    - type: object
+                      properties:
+                        status:
+                          type: string
+                          enum:
+                            - healthy
+                            - unhealthy
+                        minClustersPerVariation:
+                          description: >-
+                            Recommended minimum number of clusters per
+                            variation.
+                          type: number
+                        maxClusterShare:
+                          description: >-
+                            Share of sub-units, as a fraction from 0 to 1, that
+                            no single cluster should reach.
+                          type: number
+                        tooFewClusters:
+                          description: >-
+                            The variation with the fewest clusters, when it has
+                            fewer than `minClustersPerVariation`.
+                            `variationIndex` and `variationKey` come from the
+                            snapshot; `variationId` is the current variation
+                            with that key, omitted when none matches.
+                          anyOf:
+                            - type: object
+                              properties:
+                                variationIndex:
+                                  type: number
+                                variationKey:
+                                  type: string
+                                variationId:
+                                  type: string
+                                clusters:
+                                  type: number
+                              required:
+                                - variationIndex
+                                - variationKey
+                                - clusters
+                              additionalProperties: false
+                            - type: 'null'
+                        oversizedCluster:
+                          description: >-
+                            The largest cluster, when its share reaches
+                            `maxClusterShare`.
+                          anyOf:
+                            - type: object
+                              properties:
+                                id:
+                                  type: string
+                                percent:
+                                  description: >-
+                                    The cluster's share of sub-units, as a
+                                    fraction from 0 to 1.
+                                  type: number
+                              required:
+                                - id
+                                - percent
+                              additionalProperties: false
+                            - type: 'null'
+                      required:
+                        - status
+                        - minClustersPerVariation
+                        - maxClusterShare
+                        - tooFewClusters
+                        - oversizedCluster
+                      additionalProperties: false
+                    - type: 'null'
+              required:
+                - mixedAssignment
+                - unitsInMultipleClusters
+                - reliability
+              additionalProperties: false
+          required:
+            - srm
+            - multipleExposures
+            - unknownVariations
+            - power
+            - covariateImbalance
+          additionalProperties: false
         results:
           type: array
           items:
@@ -73164,6 +75501,12 @@ components:
                 type: object
                 properties:
                   srm:
+                    description: >-
+                      Sample ratio mismatch p-value for this row's units.
+                      `health.srm` is the experiment-wide check with a verdict;
+                      the two can differ slightly as this comes from the metric
+                      query and the other comes from the traffic query. If they
+                      disagree, rely on the `health.srm` value.
                     type: number
                 required:
                   - srm
@@ -73653,6 +75996,124 @@ components:
                     - Archived
                 detailedStatus:
                   type: string
+                needsAttention:
+                  description: Whether the app flags this experiment as needing attention.
+                  type: boolean
+                decision:
+                  description: >-
+                    The decision behind `detailedStatus` for a running
+                    experiment, based on the latest successful standard snapshot
+                    of the latest phase. Omitted when there is nothing to report
+                    yet.
+                  type: object
+                  properties:
+                    category:
+                      description: >-
+                        What `status` asks of you. `ready-for-action`: the
+                        results are ready to act on (`ship-now`, `rollback-now`,
+                        `ready-for-review`, `scheduled-end-review`).
+                        `has-issue`: something needs fixing before the results
+                        can be trusted (`unhealthy`, `data-incomplete`,
+                        `no-data`). `collecting-data`: keep the experiment
+                        running (`days-left`, `before-min-duration`).
+                      type: string
+                      enum:
+                        - ready-for-action
+                        - has-issue
+                        - collecting-data
+                    status:
+                      description: >-
+                        `ship-now`, `rollback-now` and `ready-for-review` are
+                        recommendations from the Experiment Decision Framework
+                        and are only rendered if the Decision Framework is
+                        enabled for your organization. `unhealthy` means a
+                        health check is failing (see `healthIssues`).
+                        `data-incomplete` means some metrics could not be
+                        computed (see `erroredMetricIds`). `days-left` and
+                        `before-min-duration` mean the experiment should keep
+                        running. `scheduled-end-review` means the scheduled end
+                        date passed without a recommendation.
+                      type: string
+                      enum:
+                        - ship-now
+                        - rollback-now
+                        - ready-for-review
+                        - scheduled-end-review
+                        - days-left
+                        - before-min-duration
+                        - no-data
+                        - unhealthy
+                        - data-incomplete
+                    reason:
+                      description: Explanation of the status, as shown in the app.
+                      type: string
+                    daysLeft:
+                      description: >-
+                        Days until the scheduled end date or, without one, until
+                        the experiment is expected to reach its target power.
+                        Set when `status` is `days-left`. null when the
+                        experiment is not expected to reach its target power at
+                        the current traffic.
+                      anyOf:
+                        - type: number
+                        - type: 'null'
+                    variations:
+                      description: >-
+                        Variations the recommendation applies to. Set for
+                        `ship-now`, `rollback-now` and `ready-for-review`.
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          variationId:
+                            type: string
+                          action:
+                            description: >-
+                              Action the decision criteria reached for this
+                              variation. null when no rule applied.
+                            anyOf:
+                              - type: string
+                                enum:
+                                  - ship
+                                  - rollback
+                                  - review
+                              - type: 'null'
+                        required:
+                          - variationId
+                          - action
+                        additionalProperties: false
+                    healthIssues:
+                      description: >-
+                        What is wrong with the experiment. Set when `status` is
+                        `unhealthy`. The results endpoint has the numbers behind
+                        each one under `result.health`: `sample-ratio-mismatch`
+                        in `srm`, `multiple-exposures` in `multipleExposures`,
+                        `low-power` in `power`, `covariate-imbalance` in
+                        `covariateImbalance`, `mixed-cluster-assignment` in
+                        `cluster.mixedAssignment` and
+                        `units-in-multiple-clusters` in
+                        `cluster.unitsInMultipleClusters`.
+                      type: array
+                      items:
+                        type: string
+                        enum:
+                          - sample-ratio-mismatch
+                          - multiple-exposures
+                          - low-power
+                          - covariate-imbalance
+                          - mixed-cluster-assignment
+                          - units-in-multiple-clusters
+                    erroredMetricIds:
+                      description: >-
+                        Metrics that could not be computed. Set when `status` is
+                        `data-incomplete`.
+                      type: array
+                      items:
+                        type: string
+                  required:
+                    - category
+                    - status
+                  additionalProperties: false
               required:
                 - status
               additionalProperties: false
@@ -74178,6 +76639,27 @@ components:
           maxLength: 10000
         query:
           type: string
+        timing:
+          description: >-
+            What the query returns and how the value at a unit's first exposure
+            is resolved. `none` (default): one value per unit, resolved with
+            MAX(value). `rowTimestamp`: timestamped rows; the query also returns
+            a `timestamp` column and the latest row at or before first exposure
+            is used. `validityRange`: validity ranges; the query also returns
+            `start_timestamp` and `end_timestamp` (NULL = still valid) columns
+            and the row valid at first exposure is used. Only supported for SQL
+            Data Sources.
+          type: string
+          enum:
+            - none
+            - rowTimestamp
+            - validityRange
+        nullLabel:
+          description: >-
+            Label used in experiment results for units with no dimension value.
+            Leave empty to use the default null label.
+          type: string
+          maxLength: 100
         managedBy:
           description: >-
             Where this dimension must be managed from. If not set (empty
@@ -74539,6 +77021,9 @@ components:
                   variationNameColumn:
                     type: string
                 additionalProperties: false
+              error:
+                description: Why the last validation of this query failed
+                type: string
             required:
               - id
               - name
@@ -74650,6 +77135,51 @@ components:
             - variationIdProperty
             - extraUserIdProperty
           additionalProperties: false
+        pipelineSettings:
+          type: object
+          properties:
+            allowWriting:
+              description: Let GrowthBook write temporary tables to speed up analysis
+              type: boolean
+            mode:
+              type: string
+              enum:
+                - ephemeral
+                - incremental
+            writeDatabase:
+              type: string
+            writeDataset:
+              description: Schema (or dataset) to write tables to
+              type: string
+            unitsTableRetentionHours:
+              type: number
+              exclusiveMinimum: 0
+            unitsTableDeletion:
+              type: boolean
+            includedExperimentIds:
+              type: array
+              items:
+                type: string
+            excludedExperimentIds:
+              type: array
+              items:
+                type: string
+            incrementalOptInExperimentIds:
+              type: array
+              items:
+                type: string
+          required:
+            - allowWriting
+            - mode
+            - writeDataset
+            - unitsTableRetentionHours
+          additionalProperties: false
+        maxConcurrentQueries:
+          type: integer
+          minimum: 0
+        queryCacheTTLMins:
+          type: integer
+          minimum: 0
       required:
         - id
         - dateCreated
@@ -77607,6 +80137,7 @@ components:
             - ratio
             - dailyParticipation
             - funnel
+            - compound
         numerator:
           type: object
           properties:
@@ -77955,6 +80486,81 @@ components:
               minimum: 0
           required:
             - steps
+          additionalProperties: false
+        compoundSettings:
+          description: Compound metric settings (required when metricType is "compound")
+          type: object
+          properties:
+            components:
+              description: >-
+                A unit passes when it has at least one matching event for every
+                component, in any order. Minimum 2 components required.
+              minItems: 2
+              maxItems: 20
+              type: array
+              items:
+                type: object
+                properties:
+                  factTableId:
+                    description: The fact table this component draws events from
+                    type: string
+                  rowFilters:
+                    description: >-
+                      Filters that decide whether an event row counts for this
+                      component
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        operator:
+                          type: string
+                          enum:
+                            - '='
+                            - '!='
+                            - '>'
+                            - <
+                            - '>='
+                            - <=
+                            - between
+                            - not_between
+                            - in
+                            - not_in
+                            - is_null
+                            - not_null
+                            - is_true
+                            - is_false
+                            - contains
+                            - not_contains
+                            - matches_pattern
+                            - not_matches_pattern
+                            - starts_with
+                            - ends_with
+                            - sql_expr
+                            - saved_filter
+                        values:
+                          description: >-
+                            Not required for is_null, not_null, is_true,
+                            is_false operators. The between and not_between
+                            operators take at most two values, a lower and an
+                            upper bound in that order; leave a bound as an empty
+                            string for an open-ended range.
+                          type: array
+                          items:
+                            type: string
+                        column:
+                          description: >-
+                            Required for all operators except sql_expr and
+                            saved_filter.
+                          type: string
+                      required:
+                        - operator
+                      additionalProperties: false
+                required:
+                  - factTableId
+                  - rowFilters
+                additionalProperties: false
+          required:
+            - components
           additionalProperties: false
         cappingSettings:
           description: Controls how outliers are handled
@@ -78380,6 +80986,10 @@ components:
           type: string
         startedAt:
           type: string
+        finishedAt:
+          anyOf:
+            - type: string
+            - type: 'null'
         status:
           type: string
           enum:
@@ -78388,6 +80998,11 @@ components:
             - failed
             - partially-succeeded
             - succeeded
+        error:
+          description: Why the query failed
+          anyOf:
+            - type: string
+            - type: 'null'
         externalId:
           type: string
         dependencies:
@@ -78405,7 +81020,9 @@ components:
         - queryType
         - createdAt
         - startedAt
+        - finishedAt
         - status
+        - error
         - externalId
         - dependencies
         - runAtEnd
@@ -78598,6 +81215,8 @@ components:
           enum:
             - hours
             - days
+        banditPeriodWeighting:
+          type: boolean
         experimentMinLengthDays:
           type: number
         experimentMaxLengthDays:
@@ -78825,6 +81444,8 @@ components:
                   - rampSchedule.delete
                   - rampSchedule.other
                   - settings.approvals
+                  - settings.dataSources
+                  - settings.webhooks
                   - settings.other
                   - access.members
                   - access.teams
@@ -80142,6 +82763,257 @@ components:
         - trackingKey
         - status
         - ranges
+      additionalProperties: false
+    EventWebhook:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        url:
+          type: string
+        enabled:
+          type: boolean
+        events:
+          description: Event names or wildcards such as "feature.*"
+          type: array
+          items:
+            type: string
+        projects:
+          type: array
+          items:
+            type: string
+        tags:
+          type: array
+          items:
+            type: string
+        environments:
+          type: array
+          items:
+            type: string
+        payloadType:
+          type: string
+          enum:
+            - raw
+            - json
+            - slack
+            - discord
+        method:
+          type: string
+          enum:
+            - POST
+            - PUT
+            - PATCH
+        headers:
+          description: Only returned by GET
+          type: object
+          propertyNames:
+            type: string
+          additionalProperties:
+            type: string
+        timeoutSeconds:
+          description: >-
+            Request timeout in seconds, up to the server maximum (120 unless
+            configured). Null uses the default.
+          anyOf:
+            - type: integer
+              minimum: 1
+            - type: 'null'
+        signingKey:
+          description: >-
+            Used to verify the signature header on each request. Only returned
+            by GET.
+          type: string
+        lastRunAt:
+          anyOf:
+            - format: date-time
+              type: string
+            - type: 'null'
+        lastState:
+          type: string
+          enum:
+            - none
+            - success
+            - error
+        lastResponseBody:
+          anyOf:
+            - type: string
+            - type: 'null'
+        dateCreated:
+          format: date-time
+          type: string
+        dateUpdated:
+          format: date-time
+          type: string
+      required:
+        - id
+        - name
+        - url
+        - enabled
+        - events
+        - projects
+        - tags
+        - environments
+        - payloadType
+        - method
+        - timeoutSeconds
+        - lastRunAt
+        - lastState
+        - lastResponseBody
+        - dateCreated
+        - dateUpdated
+      additionalProperties: false
+    EventWebhookLog:
+      type: object
+      properties:
+        id:
+          type: string
+        event:
+          type: string
+        url:
+          type: string
+        method:
+          type: string
+          enum:
+            - POST
+            - PUT
+            - PATCH
+        result:
+          type: string
+          enum:
+            - success
+            - error
+        responseCode:
+          anyOf:
+            - type: number
+            - type: 'null'
+        responseBody:
+          anyOf:
+            - type: string
+            - type: 'null'
+        payload:
+          type: object
+          propertyNames:
+            type: string
+          additionalProperties: {}
+        dateCreated:
+          format: date-time
+          type: string
+      required:
+        - id
+        - result
+        - responseCode
+        - responseBody
+        - payload
+        - dateCreated
+      additionalProperties: false
+    Audit:
+      type: object
+      properties:
+        id:
+          type: string
+        event:
+          description: e.g. "feature.update"
+          type: string
+        entity:
+          type: object
+          properties:
+            object:
+              type: string
+            id:
+              type: string
+            name:
+              type: string
+          required:
+            - object
+            - id
+          additionalProperties: false
+        parent:
+          type: object
+          properties:
+            object:
+              type: string
+            id:
+              type: string
+          required:
+            - object
+            - id
+          additionalProperties: false
+        user:
+          description: 'Who made the change: a member, an API key, or the system'
+          type: object
+          properties:
+            id:
+              type: string
+            email:
+              type: string
+            name:
+              type: string
+            apiKey:
+              description: Id of the API key that made the change
+              type: string
+            requestedBy:
+              description: The member named with `X-GrowthBook-Requested-By`
+              type: object
+              properties:
+                id:
+                  type: string
+                name:
+                  type: string
+                email:
+                  type: string
+              required:
+                - id
+                - name
+                - email
+              additionalProperties: false
+            assumedRole:
+              description: Whether the key assumed the named member's role
+              type: boolean
+            system:
+              type: boolean
+          additionalProperties: false
+        reason:
+          type: string
+        details:
+          description: JSON-encoded, usually `pre`, `post` and `context`
+          type: string
+        dateCreated:
+          format: date-time
+          type: string
+      required:
+        - id
+        - event
+        - entity
+        - user
+        - dateCreated
+      additionalProperties: false
+    Event:
+      type: object
+      properties:
+        id:
+          type: string
+        event:
+          description: e.g. "feature.updated"
+          type: string
+        version:
+          description: Absent on legacy events
+          type: number
+        data:
+          description: The same payload event webhooks receive
+          type: object
+          propertyNames:
+            type: string
+          additionalProperties: {}
+        dateCreated:
+          format: date-time
+          type: string
+      required:
+        - id
+        - event
+        - data
+        - dateCreated
       additionalProperties: false
     Dashboard:
       type: object
@@ -82040,6 +84912,8 @@ components:
                           - predefined
                         additionalProperties: false
                       showAs:
+                        description: 'Deprecated: use `showAs` on each metric value.'
+                        deprecated: true
                         type: string
                         enum:
                           - total
@@ -82051,6 +84925,11 @@ components:
                             type: string
                           valueAxisLabel:
                             type: string
+                          anchorYAxisToZero:
+                            description: >-
+                              Line charts only: whether the y-axis starts at 0.
+                              Defaults to true.
+                            type: boolean
                         additionalProperties: false
                       type:
                         type: string
@@ -82120,6 +84999,18 @@ components:
                                   anyOf:
                                     - type: string
                                     - type: 'null'
+                                showAs:
+                                  description: >-
+                                    How a mean metric renders: `total` sums the
+                                    numerator, `per_unit` divides it by the unit
+                                    count. Ignored for other metric types. Omit
+                                    to use the default (`per_unit` for `max` and
+                                    `count distinct` aggregations, otherwise
+                                    `total`).
+                                  type: string
+                                  enum:
+                                    - total
+                                    - per_unit
                               required:
                                 - name
                                 - rowFilters
@@ -82443,6 +85334,8 @@ components:
                           - predefined
                         additionalProperties: false
                       showAs:
+                        description: 'Deprecated: use `showAs` on each metric value.'
+                        deprecated: true
                         type: string
                         enum:
                           - total
@@ -82454,6 +85347,11 @@ components:
                             type: string
                           valueAxisLabel:
                             type: string
+                          anchorYAxisToZero:
+                            description: >-
+                              Line charts only: whether the y-axis starts at 0.
+                              Defaults to true.
+                            type: boolean
                         additionalProperties: false
                       type:
                         type: string
@@ -82846,6 +85744,8 @@ components:
                           - predefined
                         additionalProperties: false
                       showAs:
+                        description: 'Deprecated: use `showAs` on each metric value.'
+                        deprecated: true
                         type: string
                         enum:
                           - total
@@ -82857,6 +85757,11 @@ components:
                             type: string
                           valueAxisLabel:
                             type: string
+                          anchorYAxisToZero:
+                            description: >-
+                              Line charts only: whether the y-axis starts at 0.
+                              Defaults to true.
+                            type: boolean
                         additionalProperties: false
                       type:
                         type: string
@@ -83266,6 +86171,8 @@ components:
                           - predefined
                         additionalProperties: false
                       showAs:
+                        description: 'Deprecated: use `showAs` on each metric value.'
+                        deprecated: true
                         type: string
                         enum:
                           - total
@@ -83277,6 +86184,11 @@ components:
                             type: string
                           valueAxisLabel:
                             type: string
+                          anchorYAxisToZero:
+                            description: >-
+                              Line charts only: whether the y-axis starts at 0.
+                              Defaults to true.
+                            type: boolean
                         additionalProperties: false
                       type:
                         type: string
@@ -83689,6 +86601,8 @@ components:
                           - predefined
                         additionalProperties: false
                       showAs:
+                        description: 'Deprecated: use `showAs` on each metric value.'
+                        deprecated: true
                         type: string
                         enum:
                           - total
@@ -83700,6 +86614,11 @@ components:
                             type: string
                           valueAxisLabel:
                             type: string
+                          anchorYAxisToZero:
+                            description: >-
+                              Line charts only: whether the y-axis starts at 0.
+                              Defaults to true.
+                            type: boolean
                         additionalProperties: false
                       type:
                         type: string
@@ -85689,6 +88608,8 @@ components:
                     - predefined
                   additionalProperties: false
                 showAs:
+                  description: 'Deprecated: use `showAs` on each metric value.'
+                  deprecated: true
                   type: string
                   enum:
                     - total
@@ -85700,6 +88621,11 @@ components:
                       type: string
                     valueAxisLabel:
                       type: string
+                    anchorYAxisToZero:
+                      description: >-
+                        Line charts only: whether the y-axis starts at 0.
+                        Defaults to true.
+                      type: boolean
                   additionalProperties: false
                 type:
                   type: string
@@ -85769,6 +88695,17 @@ components:
                             anyOf:
                               - type: string
                               - type: 'null'
+                          showAs:
+                            description: >-
+                              How a mean metric renders: `total` sums the
+                              numerator, `per_unit` divides it by the unit
+                              count. Ignored for other metric types. Omit to use
+                              the default (`per_unit` for `max` and `count
+                              distinct` aggregations, otherwise `total`).
+                            type: string
+                            enum:
+                              - total
+                              - per_unit
                         required:
                           - name
                           - rowFilters
@@ -85973,6 +88910,8 @@ components:
                     - predefined
                   additionalProperties: false
                 showAs:
+                  description: 'Deprecated: use `showAs` on each metric value.'
+                  deprecated: true
                   type: string
                   enum:
                     - total
@@ -85984,6 +88923,11 @@ components:
                       type: string
                     valueAxisLabel:
                       type: string
+                    anchorYAxisToZero:
+                      description: >-
+                        Line charts only: whether the y-axis starts at 0.
+                        Defaults to true.
+                      type: boolean
                   additionalProperties: false
                 type:
                   type: string
@@ -86258,6 +89202,8 @@ components:
                     - predefined
                   additionalProperties: false
                 showAs:
+                  description: 'Deprecated: use `showAs` on each metric value.'
+                  deprecated: true
                   type: string
                   enum:
                     - total
@@ -86269,6 +89215,11 @@ components:
                       type: string
                     valueAxisLabel:
                       type: string
+                    anchorYAxisToZero:
+                      description: >-
+                        Line charts only: whether the y-axis starts at 0.
+                        Defaults to true.
+                      type: boolean
                   additionalProperties: false
                 type:
                   type: string
@@ -86560,6 +89511,8 @@ components:
                     - predefined
                   additionalProperties: false
                 showAs:
+                  description: 'Deprecated: use `showAs` on each metric value.'
+                  deprecated: true
                   type: string
                   enum:
                     - total
@@ -86571,6 +89524,11 @@ components:
                       type: string
                     valueAxisLabel:
                       type: string
+                    anchorYAxisToZero:
+                      description: >-
+                        Line charts only: whether the y-axis starts at 0.
+                        Defaults to true.
+                      type: boolean
                   additionalProperties: false
                 type:
                   type: string
@@ -86865,6 +89823,8 @@ components:
                     - predefined
                   additionalProperties: false
                 showAs:
+                  description: 'Deprecated: use `showAs` on each metric value.'
+                  deprecated: true
                   type: string
                   enum:
                     - total
@@ -86876,6 +89836,11 @@ components:
                       type: string
                     valueAxisLabel:
                       type: string
+                    anchorYAxisToZero:
+                      description: >-
+                        Line charts only: whether the y-axis starts at 0.
+                        Defaults to true.
+                      type: boolean
                   additionalProperties: false
                 type:
                   type: string
@@ -87163,6 +90128,8 @@ components:
                     - predefined
                   additionalProperties: false
                 showAs:
+                  description: 'Deprecated: use `showAs` on each metric value.'
+                  deprecated: true
                   type: string
                   enum:
                     - total
@@ -87174,6 +90141,11 @@ components:
                       type: string
                     valueAxisLabel:
                       type: string
+                    anchorYAxisToZero:
+                      description: >-
+                        Line charts only: whether the y-axis starts at 0.
+                        Defaults to true.
+                      type: boolean
                   additionalProperties: false
                 type:
                   type: string
@@ -88260,6 +91232,117 @@ components:
         - userIdTypes
         - steps
       additionalProperties: false
+    WebhookSecret:
+      type: object
+      properties:
+        id:
+          type: string
+        dateCreated:
+          type: string
+          format: date-time
+        dateUpdated:
+          type: string
+          format: date-time
+        key:
+          type: string
+        description:
+          type: string
+        allowedOrigins:
+          description: Origins the secret may be sent to. Empty allows any.
+          type: array
+          items:
+            type: string
+      required:
+        - id
+        - dateCreated
+        - dateUpdated
+        - key
+      additionalProperties: false
+    SdkWebhook:
+      type: object
+      properties:
+        id:
+          type: string
+        dateCreated:
+          type: string
+          format: date-time
+        dateUpdated:
+          type: string
+          format: date-time
+        name:
+          type: string
+        endpoint:
+          type: string
+        sdkConnections:
+          type: array
+          items:
+            type: string
+        httpMethod:
+          type: string
+          enum:
+            - GET
+            - PUT
+            - POST
+            - DELETE
+            - PURGE
+            - PATCH
+        payloadFormat:
+          type: string
+          enum:
+            - standard
+            - standard-no-payload
+            - sdkPayload
+            - edgeConfig
+            - edgeConfigUnescaped
+            - vercelNativeIntegration
+            - none
+        payloadKey:
+          type: string
+        headers:
+          description: >-
+            JSON-encoded object of extra headers. Only returned by GET, to
+            callers who can edit the webhook.
+          type: string
+        signingKey:
+          description: >-
+            Used to verify the signature header. Only returned by GET, to
+            callers who can edit the webhook.
+          type: string
+        lastSuccess:
+          anyOf:
+            - format: date-time
+              type: string
+            - type: 'null'
+        error:
+          type: string
+        consecutiveFailures:
+          type: number
+        disabled:
+          description: Set after repeated failures; changing the endpoint clears it
+          type: boolean
+        timeoutSeconds:
+          description: >-
+            Request timeout in seconds, up to the server maximum (120 unless
+            configured). Null uses the default.
+          anyOf:
+            - type: integer
+              minimum: 1
+            - type: 'null'
+      required:
+        - id
+        - dateCreated
+        - dateUpdated
+        - name
+        - endpoint
+        - sdkConnections
+        - httpMethod
+        - payloadFormat
+        - lastSuccess
+        - error
+        - consecutiveFailures
+        - disabled
+        - timeoutSeconds
+      additionalProperties: false
     ConfirmationHeld:
       type: object
       properties:
@@ -88341,6 +91424,8 @@ components:
                       - rampSchedule.delete
                       - rampSchedule.other
                       - settings.approvals
+                      - settings.dataSources
+                      - settings.webhooks
                       - settings.other
                       - access.members
                       - access.teams
@@ -91803,6 +94888,8 @@ x-tagGroups:
       - custom-hooks
       - organizations
       - members
+      - event-webhooks
+      - audits
       - code-references
       - archetypes
       - queries
@@ -91811,6 +94898,7 @@ x-tagGroups:
       - usage
       - meta
       - ContextualBandits
+      - information-schema-tables
       - Dashboards
       - ContextualBanditQueries
       - InterleavingExposureQueries
@@ -91825,12 +94913,15 @@ x-tagGroups:
       - Holdouts
       - AutoRuns
       - Populations
+      - WebhookSecrets
+      - SdkWebhooks
   - name: Models
     tags:
       - AggregatedFactTable_model
       - AnalyticsExploration_model
       - Archetype_model
       - Attribute_model
+      - Audit_model
       - AutoRun_model
       - CodeRef_model
       - Config_model
@@ -91861,7 +94952,10 @@ x-tagGroups:
       - DataSource_model
       - Dimension_model
       - Environment_model
+      - Event_model
       - EventUser_model
+      - EventWebhook_model
+      - EventWebhookLog_model
       - Experiment_model
       - Experiment Rule_model
       - ExperimentAnalysisSettings_model
@@ -91936,6 +95030,7 @@ x-tagGroups:
       - ScheduleRule_model
       - ScheduledStopPlan_model
       - SdkConnection_model
+      - SdkWebhook_model
       - Segment_model
       - Settings_model
       - Targeting Rule_model
@@ -91944,3 +95039,4 @@ x-tagGroups:
       - VisualChange_model
       - VisualChangeset_model
       - VisualEditorCbExperimentStub_model
+      - WebhookSecret_model

@@ -6,6 +6,7 @@ import {
 import {
   getFactMetricFactTableIds,
   isBinomialMetric,
+  isFactCompoundMetric,
   isFactFunnelMetric,
   isFactMetricJoinable,
   isMetricJoinable,
@@ -30,6 +31,7 @@ export type MetricOption = {
   isBinomial: boolean;
   isConversionWindowMetric: boolean;
   isFactFunnelMetric: boolean;
+  isFactCompoundMetric: boolean;
 };
 
 const MetricSelector: FC<
@@ -43,6 +45,7 @@ const MetricSelector: FC<
     availableIds?: string[];
     onlyBinomial?: boolean;
     filterConversionWindowMetrics?: boolean;
+    /** Hides funnel and compound fact metrics (not valid activation metrics). */
     filterFactFunnelMetrics?: boolean;
     sortMetrics?: (a: MetricOption, b: MetricOption) => number;
     filterMetrics?: (m: MetricOption) => boolean;
@@ -125,6 +128,7 @@ const MetricSelector: FC<
             ),
       isBinomial: isBinomialMetric(m) && !m.denominator,
       isFactFunnelMetric: isFactFunnelMetric(m),
+      isFactCompoundMetric: false,
       isConversionWindowMetric: m?.windowSettings?.type === "conversion",
     })),
     ...(includeFacts
@@ -148,6 +152,7 @@ const MetricSelector: FC<
               ),
           isBinomial: isBinomialMetric(m),
           isFactFunnelMetric: isFactFunnelMetric(m),
+          isFactCompoundMetric: isFactCompoundMetric(m),
           isConversionWindowMetric: m?.windowSettings?.type === "conversion",
         }))
       : []),
@@ -162,7 +167,11 @@ const MetricSelector: FC<
     .filter((m) => !availableIds || availableIds.includes(m.id))
     .filter((m) => (datasource ? m.datasource === datasource : true))
     .filter((m) => !onlyBinomial || m.isBinomial)
-    .filter((m) => !filterFactFunnelMetrics || !m.isFactFunnelMetric)
+    .filter(
+      (m) =>
+        !filterFactFunnelMetrics ||
+        (!m.isFactFunnelMetric && !m.isFactCompoundMetric),
+    )
     .filter((m) => m.joinable)
     .filter((m) => {
       if (projects && !project) {

@@ -529,7 +529,8 @@ function getDaysLeftStatus({
 
 // A cluster experiment checks SRM on clusters and multiple exposures on
 // subunits; each check is skipped rather than run on the other grain's count.
-function computeSrmAndMultipleExposuresUnhealthyData({
+// `multipleExposures` is null when there are no units at its grain to judge.
+export function getSrmAndMultipleExposuresHealth({
   srm,
   multipleExposures,
   totalUsers,
@@ -552,24 +553,10 @@ function computeSrmAndMultipleExposuresUnhealthyData({
   numOfVariations: number;
   minUsersPerVariation: number;
   healthSettings: ExperimentHealthSettings;
-}): Pick<ExperimentUnhealthyData, "srm" | "multipleExposures"> {
-  const result: Pick<ExperimentUnhealthyData, "srm" | "multipleExposures"> = {};
-
-  const srmUnits = isClusterExperiment
-    ? srmTotalUnits
-    : (srmTotalUnits ?? totalUsers);
-  if (
-    srmUnits &&
-    getSRMHealthData({
-      srm,
-      srmThreshold: healthSettings.srmThreshold,
-      totalUsersCount: srmUnits,
-      numOfVariations,
-      minUsersPerVariation,
-    }) === "unhealthy"
-  ) {
-    result.srm = true;
-  }
+}) {
+  const srmUnits =
+    (isClusterExperiment ? srmTotalUnits : (srmTotalUnits ?? totalUsers)) ??
+    null;
 
   const exposures = isClusterExperiment
     ? subUnitMultipleExposures
@@ -581,22 +568,56 @@ function computeSrmAndMultipleExposuresUnhealthyData({
     : totalUsers
       ? { count: multipleExposures, total: totalUsers }
       : null;
-  if (exposures) {
-    const multipleExposuresHealthData = getMultipleExposureHealthData({
-      multipleExposuresCount: exposures.count,
-      totalUsersCount: exposures.total,
-      minCountThreshold: DEFAULT_MULTIPLE_EXPOSURES_ENOUGH_DATA_THRESHOLD,
-      minPercentThreshold: healthSettings.multipleExposureMinPercent,
-    });
-    if (multipleExposuresHealthData.status === "unhealthy") {
-      result.multipleExposures = {
-        rawDecimal: multipleExposuresHealthData.rawDecimal,
-        multipleExposedUsers: exposures.count,
-      };
-    }
-  }
 
-  return result;
+  return {
+    srm: {
+      status: srmUnits
+        ? getSRMHealthData({
+            srm,
+            srmThreshold: healthSettings.srmThreshold,
+            totalUsersCount: srmUnits,
+            numOfVariations,
+            minUsersPerVariation,
+          })
+        : ("not-enough-traffic" as const),
+      totalUnits: srmUnits,
+    },
+    multipleExposures:
+      exposures && exposures.total > 0
+        ? {
+            ...getMultipleExposureHealthData({
+              multipleExposuresCount: exposures.count,
+              totalUsersCount: exposures.total,
+              minCountThreshold:
+                DEFAULT_MULTIPLE_EXPOSURES_ENOUGH_DATA_THRESHOLD,
+              minPercentThreshold: healthSettings.multipleExposureMinPercent,
+            }),
+            count: exposures.count,
+            totalUnits: exposures.total,
+          }
+        : null,
+  };
+}
+
+// The summary is only rewritten when the latest phase gets a successful
+// snapshot, so after a new phase starts it still describes the previous one.
+// Summaries written before `phase` was recorded are assumed current. A
+// holdout's analysis phase continues the same population, so it keeps its
+// summary.
+export function getCurrentPhaseAnalysisSummary<
+  T extends { phase?: number },
+>(experiment: {
+  type?: string;
+  phases: unknown[];
+  analysisSummary?: T;
+}): T | undefined {
+  const summary = experiment.analysisSummary;
+  const phase = summary?.phase;
+  return phase === undefined ||
+    experiment.type === "holdout" ||
+    phase === experiment.phases.length - 1
+    ? summary
+    : undefined;
 }
 
 export function getExperimentResultStatus({
@@ -613,8 +634,9 @@ export function getExperimentResultStatus({
   metricGroups: MetricGroupInterface[];
 }): ExperimentResultStatusData | undefined {
   const unhealthyData: ExperimentUnhealthyData = {};
-  const healthSummary = experimentData.analysisSummary?.health;
-  const resultsStatus = experimentData.analysisSummary?.resultsStatus;
+  const analysisSummary = getCurrentPhaseAnalysisSummary(experimentData);
+  const healthSummary = analysisSummary?.health;
+  const resultsStatus = analysisSummary?.resultsStatus;
   const type = experimentData.type === "holdout" ? "holdout" : "experiment";
   const lastPhase = experimentData.phases[experimentData.phases.length - 1];
   const beforeMinDuration =
@@ -696,24 +718,29 @@ export function getExperimentResultStatus({
     !!experimentData.isClusterExperiment || isClusterSummary;
 
   if (healthSummary) {
-    Object.assign(
-      unhealthyData,
-      computeSrmAndMultipleExposuresUnhealthyData({
-        srm: healthSummary.srm,
-        multipleExposures: healthSummary.multipleExposures,
-        totalUsers: healthSummary.totalUsers,
-        srmTotalUnits: healthSummary.srmTotalUnits,
-        subUnitMultipleExposures:
-          healthSummary.subUnitMultipleExposures ?? null,
-        isClusterExperiment,
-        numOfVariations: getLatestPhaseVariations(experimentData).length,
-        minUsersPerVariation:
-          experimentData.type === "multi-armed-bandit"
-            ? DEFAULT_SRM_BANDIT_MINIMINUM_COUNT_PER_VARIATION
-            : DEFAULT_SRM_MINIMINUM_COUNT_PER_VARIATION,
-        healthSettings,
-      }),
-    );
+    const { srm, multipleExposures } = getSrmAndMultipleExposuresHealth({
+      srm: healthSummary.srm,
+      multipleExposures: healthSummary.multipleExposures,
+      totalUsers: healthSummary.totalUsers,
+      srmTotalUnits: healthSummary.srmTotalUnits,
+      subUnitMultipleExposures: healthSummary.subUnitMultipleExposures ?? null,
+      isClusterExperiment,
+      numOfVariations: getLatestPhaseVariations(experimentData).length,
+      minUsersPerVariation:
+        experimentData.type === "multi-armed-bandit"
+          ? DEFAULT_SRM_BANDIT_MINIMINUM_COUNT_PER_VARIATION
+          : DEFAULT_SRM_MINIMINUM_COUNT_PER_VARIATION,
+      healthSettings,
+    });
+    if (srm.status === "unhealthy") {
+      unhealthyData.srm = true;
+    }
+    if (multipleExposures?.status === "unhealthy") {
+      unhealthyData.multipleExposures = {
+        rawDecimal: multipleExposures.rawDecimal,
+        multipleExposedUsers: multipleExposures.count,
+      };
+    }
   }
 
   if (healthSummary?.totalUsers) {

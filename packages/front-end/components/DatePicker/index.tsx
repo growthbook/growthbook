@@ -15,10 +15,11 @@ import React, {
 import { getValidDate, getValidDateOffsetByUTC } from "shared/dates";
 import { Flex, VisuallyHidden } from "@radix-ui/themes";
 import clsx from "clsx";
+import { PiX } from "react-icons/pi";
 import { debounce } from "lodash";
 import Field from "@/components/Forms/Field";
 import { RadixTheme } from "@/services/RadixTheme";
-import Button from "@/ui/Button";
+import FieldIndicator from "@/ui/FieldIndicator";
 import Text from "@/ui/Text";
 import HelperText from "@/ui/HelperText";
 import { localAsUtc, utcAsLocal } from "@/utils/date";
@@ -423,11 +424,16 @@ export default function DatePicker({
               ) : null}
               <Flex align="center" gap="2">
                 <div
-                  className={clsx("form-control p-0", styles.field, {
-                    [styles.open]: open,
-                    "form-control--error": !!error,
-                  })}
+                  className={clsx(
+                    "form-control p-0 gb-field-indicator-host",
+                    styles.field,
+                    {
+                      [styles.open]: open,
+                      "form-control--error": !!error,
+                    },
+                  )}
                   style={{
+                    position: "relative",
                     flex: 1,
                     minWidth: 0,
                     height: fixedHeight ? inputHeight : undefined,
@@ -505,6 +511,30 @@ export default function DatePicker({
                       setOpen(true);
                     }}
                   />
+                  {/* TODO: Support clearing date ranges as well. */}
+                  {clearButton && !isRange && !disabled && bufferedDate ? (
+                    <Flex
+                      align="center"
+                      style={{
+                        position: "absolute",
+                        right: 8,
+                        top: 0,
+                        bottom: 0,
+                        zIndex: 1,
+                      }}
+                    >
+                      <FieldIndicator
+                        label="Clear"
+                        reveal
+                        onClick={() => {
+                          setBufferedDate("");
+                          setDate(undefined);
+                        }}
+                      >
+                        <PiX />
+                      </FieldIndicator>
+                    </Flex>
+                  ) : null}
                 </div>
                 {/* Without a label to suffix, the zone sits after the field. */}
                 {zone && !fieldLabel ? (
@@ -512,21 +542,6 @@ export default function DatePicker({
                     ({zone.abbr})
                   </Text>
                 ) : null}
-                {/* TODO: Support clearing date ranges as well. Clear button is meant to be a stop gap until we can add a clear button within the field itself */}
-                {clearButton && !isRange && (
-                  <Button
-                    color="red"
-                    disabled={disabled || !bufferedDate}
-                    variant="ghost"
-                    size="md"
-                    onClick={() => {
-                      setBufferedDate("");
-                      setDate(undefined);
-                    }}
-                  >
-                    Clear
-                  </Button>
-                )}
               </Flex>
             </div>
           </Flex>

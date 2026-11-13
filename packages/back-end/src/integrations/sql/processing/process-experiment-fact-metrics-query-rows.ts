@@ -9,6 +9,7 @@ import {
 
 import { getQuantileBoundsFromQueryResponse } from "back-end/src/integrations/sql/columns/quantile-bounds-from-query-response";
 import { parseFunnelStepSumColumn } from "back-end/src/integrations/sql/fact-metrics/funnel-columns";
+import { isCompoundComponentUnitsColumn } from "back-end/src/integrations/sql/fact-metrics/compound-columns";
 
 const METRIC_COLUMN_RE = /^(m\d+)_(.+)$/;
 
@@ -19,14 +20,17 @@ export function processExperimentFactMetricsQueryRows(
   return rows.map((row) => {
     // Index columns by metric once per row; probing every name per metric is quadratic on wide rows.
     const columnsByMetric: Record<string, Record<string, unknown>> = {};
-    const funnelStepKeys: Record<string, string[]> = {};
+    const dynamicKeysByMetric: Record<string, string[]> = {};
     Object.keys(row).forEach((key) => {
       const match = key.match(METRIC_COLUMN_RE);
       if (match) (columnsByMetric[match[1]] ??= {})[match[2]] = row[key];
       // TODO(funnel): clean-up with alias helper to solidify
       // the column alias throughout the code
       const alias = parseFunnelStepSumColumn(key)?.alias;
-      if (alias) (funnelStepKeys[alias] ??= []).push(key);
+      if (alias) (dynamicKeysByMetric[alias] ??= []).push(key);
+      if (match && isCompoundComponentUnitsColumn(key)) {
+        (dynamicKeysByMetric[match[1]] ??= []).push(key);
+      }
     });
 
     const metricData: {
@@ -44,8 +48,9 @@ export function processExperimentFactMetricsQueryRows(
         }
       });
 
-      // Funnel metrics emit one sum per step, so their columns aren't in a static list.
-      funnelStepKeys[`m${i}`]?.forEach((key) => {
+      // Funnel and compound metrics emit one sum per step / component, so their
+      // columns aren't in a static list.
+      dynamicKeysByMetric[`m${i}`]?.forEach((key) => {
         metricData[key] = parseFloat(row[key]) || 0;
       });
 

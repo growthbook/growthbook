@@ -674,6 +674,38 @@ export async function resumeEventForwarderThroughLicenseServer(
 }
 
 /**
+ * Restarts an errored event forwarder after the user fixed the destination.
+ * - Confluent: restarts the connector. In-house consumer: clears its error.
+ * - Back to pending so the status poll re-reads the outcome.
+ */
+export async function restartEventForwarderThroughLicenseServer(
+  context: ReqContext,
+  eventForwarderConfig: EventForwarderConfigInterface,
+): Promise<void> {
+  if (eventForwarderConfig.status !== "error") {
+    throw new Error("Only errored event forwarders can be restarted");
+  }
+
+  const connectorName = eventForwarderConfig.connectorName?.trim();
+  if (!connectorName) {
+    throw new Error(
+      "Cannot restart event forwarder without a connector name. Edit the Event Forwarder to retry setup.",
+    );
+  }
+
+  await postRestartEventForwarderToLicenseServer({
+    organizationId: context.org.id,
+    datasourceId: eventForwarderConfig.datasourceId,
+    connectorName,
+  });
+
+  await context.models.eventForwarderConfigs.update(eventForwarderConfig, {
+    status: "pending",
+    lastProvisioningError: "",
+  });
+}
+
+/**
  * Tears down Confluent resources via the license server (after Mongo cleanup).
  */
 export async function teardownEventForwarderInfrastructureRemote(snapshot: {

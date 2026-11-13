@@ -13,9 +13,11 @@ import {
   getClusterSubUnit,
   getFactMetricFactTableIds,
   getFactTableTemplateVariables,
+  isFactCompoundMetric,
   isFactFunnelMetric,
   isRatioMetric,
   quantileMetricType,
+  isTimedDimension,
 } from "shared/experiments";
 import {
   DEFAULT_TEST_QUERY_DAYS,
@@ -160,6 +162,10 @@ import {
   funnelStepResolvedTsColumn,
 } from "back-end/src/integrations/sql/fact-metrics/funnel-columns";
 import {
+  compoundComponentColumn,
+  compoundCovariateComponentColumn,
+} from "back-end/src/integrations/sql/fact-metrics/compound-columns";
+import {
   getFunnelResolutionCTEs,
   type FunnelMetricForResolution,
 } from "back-end/src/integrations/sql/ctes/funnel-resolution-cte";
@@ -170,6 +176,7 @@ import { getDimensionCol } from "back-end/src/integrations/sql/columns/dimension
 import { getDimensionInStatement } from "back-end/src/integrations/sql/fact-metrics/dimension-in-statement";
 import { getDimensionSlicesQuery as getDimensionSlicesQueryFromSql } from "back-end/src/integrations/sql/queries/dimension-slices-query";
 import { getDimensionValuePerUnit } from "back-end/src/integrations/sql/fact-metrics/dimension-value-per-unit";
+import { getUnitDimensionChain } from "back-end/src/integrations/sql/fact-metrics/timed-unit-dimension-value";
 import { getDropMetricSourceCovariateTableQuery } from "back-end/src/integrations/sql/queries/drop-metric-source-covariate-table-query";
 import { getCreateAggregatedFactTableQuery } from "back-end/src/integrations/sql/queries/create-aggregated-fact-table-query";
 import { getInsertAggregatedFactTableDataQuery } from "back-end/src/integrations/sql/queries/insert-aggregated-fact-table-data-query";
@@ -271,17 +278,15 @@ function getFunnelPassthroughColumns({
   dimensionCols,
   includeVariationAndDimensions,
   metricData,
-  metricColumnFilter,
   covariatePairs,
+  sourceIndex,
 }: {
   baseIdType: string;
   dimensionCols: { alias: string }[];
   includeVariationAndDimensions: boolean;
   metricData: FactMetricData[];
-  metricColumnFilter?: (data: FactMetricData) => {
-    numerator: boolean;
-    denominator: boolean;
-  };
+  /** Only the metric columns hosted by this source; `null` for every source. */
+  sourceIndex: number | null;
   covariatePairs?: {
     data: FactMetricData;
     includeNumerator: boolean;
@@ -293,16 +298,30 @@ function getFunnelPassthroughColumns({
     cols.push("variation", ...dimensionCols.map((d) => d.alias));
   }
   cols.push("first_exposure_timestamp");
+  const inSource = (index: number) =>
+    sourceIndex === null || index === sourceIndex;
   for (const data of metricData) {
     if (isFactFunnelMetric(data.metric)) continue;
-    const filter = metricColumnFilter?.(data);
-    const hasNumerator = filter ? filter.numerator : true;
-    const hasDenominator = filter ? filter.denominator : data.ratioMetric;
-    if (hasNumerator) {
+    if (isFactCompoundMetric(data.metric)) {
+      const hasCovariate = covariatePairs
+        ? covariatePairs.some((p) => p.data === data)
+        : data.regressionAdjusted;
+      data.compoundComponentSourceIndices.forEach((componentSource, k) => {
+        if (!inSource(componentSource)) return;
+        cols.push(compoundComponentColumn(data.alias, k));
+        if (hasCovariate) {
+          cols.push(compoundCovariateComponentColumn(data.alias, k));
+        }
+      });
+      continue;
+    }
+    if (inSource(data.numeratorSourceIndex)) {
       cols.push(`${data.alias}_value`);
       if (data.quantileMetric === "event") cols.push(`${data.alias}_n_events`);
     }
-    if (hasDenominator) cols.push(`${data.alias}_denominator`);
+    if (data.ratioMetric && inSource(data.denominatorSourceIndex)) {
+      cols.push(`${data.alias}_denominator`);
+    }
   }
   if (covariatePairs) {
     for (const {
@@ -315,6 +334,16 @@ function getFunnelPassthroughColumns({
     }
   }
   return cols;
+}
+
+/** Compound components (by index) whose events live in source `sourceIndex`. */
+function compoundComponentsForSource(
+  data: FactMetricData,
+  sourceIndex: number,
+): number[] {
+  return data.compoundComponentSourceIndices.flatMap((componentSource, k) =>
+    componentSource === sourceIndex ? [k] : [],
+  );
 }
 
 const MAX_LOG_ERROR_LENGTH = 100;
@@ -2622,6 +2651,29 @@ export default abstract class SqlIntegration
                     })
                     .join("\n");
                 }
+                if (isFactCompoundMetric(data.metric)) {
+                  return data.metric.compoundSettings.components
+                    .flatMap((component, k) => {
+                      if (component.factTableId !== params.factTableId) {
+                        return [];
+                      }
+                      const col = compoundComponentColumn(data.alias, k);
+                      return [
+                        `, ${addCaseWhenTimeFilter(this.getSqlDialect(), {
+                          col: `m.${col}`,
+                          metric: data.metric,
+                          overrideConversionWindows:
+                            data.overrideConversionWindows,
+                          endDate: params.settings.endDate,
+                          metricTimestampColExpr:
+                            castToTimestamp("m.timestamp"),
+                          exposureTimestampColExpr:
+                            "d.first_exposure_timestamp",
+                        })} AS ${col}`,
+                      ];
+                    })
+                    .join("\n");
+                }
                 // For each metric, project only the columns this cache owns.
                 // Cross-FT ratio metrics fan into a numerator-only insert
                 // against the numerator FT and a denominator-only insert
@@ -2709,6 +2761,18 @@ export default abstract class SqlIntegration
                     })
                     .join("\n");
                 }
+                if (isFactCompoundMetric(m.metric)) {
+                  const prefix = encodeMetricIdForColumnName(m.id);
+                  return m.metric.compoundSettings.components
+                    .flatMap((component, k) =>
+                      component.factTableId === params.factTableId
+                        ? [
+                            `, SUM(${compoundComponentColumn(m.alias, k)}) AS ${compoundComponentColumn(prefix, k)}`,
+                          ]
+                        : [],
+                    )
+                    .join("\n");
+                }
                 // Use partial aggregation function since we are
                 // aggregating at the user-date level, not the user level
                 const aggfunction =
@@ -2758,6 +2822,18 @@ export default abstract class SqlIntegration
                         : funnelStepArrayColumn(prefix, stepIndex);
                     return `, ${outCol} AS ${outCol}`;
                   })
+                  .join("\n");
+              }
+              if (isFactCompoundMetric(m.metric)) {
+                const prefix = encodeMetricIdForColumnName(m.id);
+                return m.metric.compoundSettings.components
+                  .flatMap((component, k) =>
+                    component.factTableId === params.factTableId
+                      ? [
+                          `, ${compoundComponentColumn(prefix, k)} AS ${compoundComponentColumn(prefix, k)}`,
+                        ]
+                      : [],
+                  )
                   .join("\n");
               }
               const numeratorCol = includesNumerator(m.metric)
@@ -2826,6 +2902,13 @@ export default abstract class SqlIntegration
         ? exposureQuery.identifierType
         : null;
     const useClusterRollup = clusterIdColumn !== null;
+    // Units are built per sub-unit at either grain, as in a full refresh;
+    // cluster-level queries then collapse to the cluster (see
+    // __experimentUnitsCluster) and join the cluster's own dimensions there
+    const unitsIdType = clusterSubUnit ?? userIdType;
+    const unitsClusterColumn = clusterSubUnit
+      ? exposureQuery.identifierType
+      : null;
 
     // Multi-FT funnels flatten all sources into one table, so column refs
     // must use the bare `m` alias instead of per-source `m{i}`.
@@ -2896,15 +2979,12 @@ export default abstract class SqlIntegration
         `e.first_exposure_timestamp <= ${this.getSqlDialect().toTimestamp(unitsEndDate)}`,
       );
     }
-    const clusterColumnForDrop = isClusterLevelQuery
-      ? exposureQuery.identifierType
-      : clusterIdColumn;
-    if (clusterColumnForDrop) {
+    if (unitsClusterColumn) {
       // Drop sub-units that map to more than one cluster (marked '__multiple__'
       // at units build).
       unitsWhereConditions.push(
         getSingleClusterPerUnitCondition({
-          clusterIdColumn: clusterColumnForDrop,
+          clusterIdColumn: unitsClusterColumn,
           tableAlias: "e",
         }),
       );
@@ -2912,7 +2992,7 @@ export default abstract class SqlIntegration
       unitsWhereConditions.push(
         getConsistentClusterCondition({
           sourceTable: params.unitsSourceTableFullName,
-          clusterIdColumn: clusterColumnForDrop,
+          clusterIdColumn: unitsClusterColumn,
           tableAlias: "e",
         }),
       );
@@ -2931,6 +3011,7 @@ export default abstract class SqlIntegration
         const needsCovariateCache = regressionAdjustedMetrics.some(
           (data) =>
             data.metric.numerator?.factTableId === s.factTable.id ||
+            compoundComponentsForSource(data, s.index).length > 0 ||
             (data.ratioMetric &&
               data.metric.denominator?.factTableId === s.factTable.id),
         );
@@ -2982,29 +3063,68 @@ export default abstract class SqlIntegration
       params.activationMetric,
     );
 
+    // A dim keyed on the cluster joins through the units table's cluster column
+    // rather than an identity join
+    const getUnitDimensionJoinIdType = (
+      d: (typeof unitDimensions)[number],
+    ): string =>
+      unitsClusterColumn !== null &&
+      d.dimension.userIdType === unitsClusterColumn
+        ? unitsClusterColumn
+        : unitsIdType;
+
     const idTypeObjects = [
-      [userIdType],
-      ...unitDimensions.map((d) => [d.dimension.userIdType]),
+      [unitsIdType],
+      ...unitDimensions
+        .filter((d) => getUnitDimensionJoinIdType(d) === unitsIdType)
+        .map((d) => [d.dimension.userIdType]),
     ];
 
-    const { baseIdType, idJoinMap, idJoinSQL } = getIdentitiesCTE(
+    // Identity joins here only serve the dimension CTEs
+    const { idJoinMap, idJoinSQL } = getIdentitiesCTE(
       this.getSqlDialect(),
       this.datasource.settings,
       {
         objects: idTypeObjects,
         from: params.settings.startDate,
         to: params.settings.endDate,
-        forcedBaseIdType: userIdType,
+        forcedBaseIdType: unitsIdType,
         experimentId: params.settings.experimentId,
       },
     );
+    const baseIdType = userIdType;
 
-    const unitDimensionCols = unitDimensions.map((d) => ({
-      // override value with the a MAX statement that will get one
-      // value per unit
+    // A cluster-level query resolves a dim keyed on the cluster once per
+    // cluster, after the collapse, where the cluster's first exposure is known;
+    // every other dim resolves per sub-unit before it
+    const clusterUnitDimensions = unitDimensions.filter(
+      (d) =>
+        isClusterLevelQuery && getUnitDimensionJoinIdType(d) === baseIdType,
+    );
+    const subUnitDimensions = unitDimensions.filter(
+      (d) => !clusterUnitDimensions.includes(d),
+    );
+    // Static dims join inside __experimentUnits. A timed dim's query returns
+    // many rows per unit, so each one is reduced afterwards to the unit's
+    // single value at first exposure, in its own CTE (see getUnitDimensionChain)
+    const staticUnitDimensions = subUnitDimensions.filter(
+      (d) => !isTimedDimension(d.dimension),
+    );
+    const timedUnitDimensions = subUnitDimensions.filter((d) =>
+      isTimedDimension(d.dimension),
+    );
+    const unitDimensionCols = staticUnitDimensions.map((d) => ({
+      // override value with an aggregate that will get one value per unit
       value: getDimensionValuePerUnit(this.getSqlDialect(), d),
       alias: getDimensionCol(this.getSqlDialect(), d).alias,
     }));
+    const chainedUnitDimensionCols = [
+      ...timedUnitDimensions,
+      ...clusterUnitDimensions,
+    ].map((d) => {
+      const alias = getDimensionCol(this.getSqlDialect(), d).alias;
+      return { value: alias, alias };
+    });
 
     const experimentDimensionCols = experimentDimensions.map((d) =>
       getDimensionCol(this.getSqlDialect(), d),
@@ -3041,25 +3161,104 @@ export default abstract class SqlIntegration
       ...(dateCutoffDimensionCol ? [dateCutoffDimensionCol] : []),
       ...precomputedDimensionCols,
     ];
-    const allDimensionCols = [...nonUnitDimensionCols, ...unitDimensionCols];
+    const allDimensionCols = [
+      ...nonUnitDimensionCols,
+      ...unitDimensionCols,
+      ...chainedUnitDimensionCols,
+    ];
     // When analyzing a combo, its constituents exist only to be materialized
-    // in __experimentUnits; the analysis groups by the combined column alone
+    // in the units CTEs; the analysis groups by the combined column alone
     const analysisDimensionCols = comboDimensionCol
       ? [{ value: comboDimensionCol.alias, alias: comboDimensionCol.alias }]
       : allDimensionCols;
 
-    const unitDimensionJoinsSQL = unitDimensions
-      .map(
-        (
-          d,
-        ) => `LEFT JOIN __dim_unit_${d.dimension.id} __dim_unit_${d.dimension.id} ON (
-          ${this.getSqlDialect().castToString(`__dim_unit_${d.dimension.id}.${baseIdType}`)} = e.${baseIdType}
-        )`,
-      )
+    const unitDimensionJoinsSQL = staticUnitDimensions
+      .map((d) => {
+        const joinIdType = getUnitDimensionJoinIdType(d);
+        return `LEFT JOIN __dim_unit_${d.dimension.id} __dim_unit_${d.dimension.id} ON (
+          ${this.getSqlDialect().castToString(`__dim_unit_${d.dimension.id}.${joinIdType}`)} = e.${joinIdType}
+        )`;
+      })
       .join("\n");
+
+    // The stored units table keeps its ids as strings and its
+    // first_exposure_timestamp as a native TIMESTAMP
+    const unitsTableChain = {
+      getJoinIdType: getUnitDimensionJoinIdType,
+      stringIds: true,
+      castExposure: true,
+    };
+    const subUnitTimedChain = getUnitDimensionChain(this.getSqlDialect(), {
+      ...unitsTableChain,
+      dimensions: timedUnitDimensions,
+      sourceCte: "__experimentUnits",
+      cteName: "__experimentUnitsTimed",
+      stepPrefix: "__experimentUnitsTimed",
+      rowIdType: unitsIdType,
+      carriedColumns: [
+        unitsIdType,
+        ...(unitsClusterColumn ? [unitsClusterColumn] : []),
+        "variation",
+        "first_exposure_timestamp",
+        ...nonUnitDimensionCols.map((c) => c.alias),
+        ...unitDimensionCols.map((c) => c.alias),
+      ],
+    });
+    const clusterDimensionAliases = new Set(
+      clusterUnitDimensions.map(
+        (d) => getDimensionCol(this.getSqlDialect(), d).alias,
+      ),
+    );
+    const collapsedDimensionCols = allDimensionCols.filter(
+      (c) => !clusterDimensionAliases.has(c.alias),
+    );
+    // Same collapse as a full refresh: a cluster whose sub-units disagree on a
+    // dimension has no single value for it
+    const clusterUnitsCte = isClusterLevelQuery
+      ? `, __experimentUnitsCluster AS (
+        SELECT
+          u.${baseIdType} AS ${baseIdType}
+          , ${this.getSqlDialect().ifElse(
+            "COUNT(DISTINCT u.variation) > 1",
+            "'__multiple__'",
+            "MAX(u.variation)",
+          )} AS variation
+          , MIN(u.first_exposure_timestamp) AS first_exposure_timestamp
+          ${collapsedDimensionCols
+            .map(
+              (d) =>
+                `, ${this.getSqlDialect().ifElse(
+                  `COUNT(DISTINCT u.${d.alias}) > 1`,
+                  "'__multiple__'",
+                  this.getSqlDialect().castToString(`MAX(u.${d.alias})`),
+                )} AS ${d.alias}`,
+            )
+            .join("")}
+        FROM ${subUnitTimedChain.cteName} u
+        GROUP BY
+          u.${baseIdType}
+      )`
+      : "";
+    const clusterDimensionChain = getUnitDimensionChain(this.getSqlDialect(), {
+      ...unitsTableChain,
+      dimensions: clusterUnitDimensions,
+      sourceCte: "__experimentUnitsCluster",
+      cteName: "__experimentUnitsClusterDims",
+      stepPrefix: "__experimentUnitsClusterDims",
+      rowIdType: baseIdType,
+      carriedColumns: [
+        baseIdType,
+        "variation",
+        "first_exposure_timestamp",
+        ...collapsedDimensionCols.map((c) => c.alias),
+      ],
+    });
+    const resolvedUnitsCteName = isClusterLevelQuery
+      ? clusterDimensionChain.cteName
+      : subUnitTimedChain.cteName;
     const unitsCteName = comboDimensionCol
       ? "__experimentUnitsFinal"
-      : "__experimentUnits";
+      : resolvedUnitsCteName;
 
     // Source-index → alias suffix conventions: source 0 is "" (so its table
     // alias is `m` and CTE name is `__metricSourceData`/`__metricDataAggregated`),
@@ -3082,9 +3281,19 @@ export default abstract class SqlIntegration
             // A cluster-ratio conversion denominator is computed in
             // __clusterRollup.
             (data.ratioMetric && data.denominatorSourceIndex === i) ||
-            data.funnelStepSourceIndices.includes(i),
+            data.funnelStepSourceIndices.includes(i) ||
+            data.compoundComponentSourceIndices.includes(i),
         )
         .map((data) => {
+          if (isFactCompoundMetric(data.metric)) {
+            const prefix = encodeMetricIdForColumnName(data.metric.id);
+            return compoundComponentsForSource(data, i)
+              .map(
+                (k) =>
+                  `, SUM(umj.${compoundComponentColumn(prefix, k)}) AS ${compoundComponentColumn(prefix, k)}`,
+              )
+              .join("\n");
+          }
           if (isFactFunnelMetric(data.metric)) {
             const prefix = encodeMetricIdForColumnName(data.metric.id);
             const alias = data.alias;
@@ -3143,41 +3352,17 @@ export default abstract class SqlIntegration
           (d) =>
             `, __dim_unit_${d.dimension.id} AS (${getDimensionCTE(
               d.dimension,
-              baseIdType,
+              getUnitDimensionJoinIdType(d),
               idJoinMap,
+              this.getSqlDialect(),
             )})`,
         )
         .join("\n")}
       , __experimentUnits AS (${
-        isClusterLevelQuery
+        staticUnitDimensions.length > 0
           ? `SELECT
-          e.${baseIdType} AS ${baseIdType}
-          , ${this.getSqlDialect().ifElse(
-            "COUNT(DISTINCT e.variation) > 1",
-            "'__multiple__'",
-            "MAX(e.variation)",
-          )} AS variation
-          , MIN(e.first_exposure_timestamp) AS first_exposure_timestamp
-          ${unitDimensionCols.map((d) => `, ${d.value} AS ${d.alias}`).join("")}
-          ${nonUnitDimensionCols
-            .map(
-              (d) =>
-                `, ${this.getSqlDialect().ifElse(
-                  `COUNT(DISTINCT ${d.value}) > 1`,
-                  "'__multiple__'",
-                  `MAX(${d.value})`,
-                )} AS ${d.alias}`,
-            )
-            .join("")}
-        FROM ${params.unitsSourceTableFullName} e
-        ${unitDimensionJoinsSQL}
-        ${unitsWhere}
-        GROUP BY
-          e.${baseIdType}`
-          : unitDimensions.length > 0
-            ? `SELECT
-            e.${baseIdType} AS ${baseIdType}
-            ${clusterIdColumn ? `, MAX(e.${clusterIdColumn}) AS ${clusterIdColumn}` : ""}
+            e.${unitsIdType} AS ${unitsIdType}
+            ${unitsClusterColumn ? `, MAX(e.${unitsClusterColumn}) AS ${unitsClusterColumn}` : ""}
             , MIN(e.variation) AS variation
             , MIN(e.first_exposure_timestamp) AS first_exposure_timestamp
             ${unitDimensionCols.map((d) => `, ${d.value} AS ${d.alias}`).join("")}
@@ -3186,24 +3371,27 @@ export default abstract class SqlIntegration
           ${unitDimensionJoinsSQL}
           ${unitsWhere}
           GROUP BY
-            e.${baseIdType}
+            e.${unitsIdType}
       `
-            : `SELECT
-          e.${baseIdType} AS ${baseIdType}
-          ${clusterIdColumn ? `, e.${clusterIdColumn} AS ${clusterIdColumn}` : ""}
+          : `SELECT
+          e.${unitsIdType} AS ${unitsIdType}
+          ${unitsClusterColumn ? `, e.${unitsClusterColumn} AS ${unitsClusterColumn}` : ""}
           , e.variation AS variation
           , e.first_exposure_timestamp AS first_exposure_timestamp
           ${nonUnitDimensionCols.map((d) => `, ${d.value} AS ${d.alias}`).join("")}
         FROM ${params.unitsSourceTableFullName} e
         ${unitsWhere}`
       })
+      ${subUnitTimedChain.sql}
+      ${clusterUnitsCte}
+      ${clusterDimensionChain.sql}
       ${
         comboDimensionCol
           ? `, __experimentUnitsFinal AS (
         SELECT
           u.*
           , ${comboDimensionCol.value} AS ${comboDimensionCol.alias}
-        FROM __experimentUnits u
+        FROM ${resolvedUnitsCteName} u
       )`
           : ""
       }
@@ -3292,8 +3480,27 @@ export default abstract class SqlIntegration
               const denominatorHere =
                 data.ratioMetric && data.denominatorSourceIndex === i;
               const funnelStepHere = data.funnelStepSourceIndices.includes(i);
-              if (!numeratorHere && !denominatorHere && !funnelStepHere)
+              const compoundComponentsHere = compoundComponentsForSource(
+                data,
+                i,
+              );
+              if (
+                !numeratorHere &&
+                !denominatorHere &&
+                !funnelStepHere &&
+                !compoundComponentsHere.length
+              )
                 return "";
+
+              if (isFactCompoundMetric(data.metric)) {
+                const prefix = encodeMetricIdForColumnName(data.metric.id);
+                return compoundComponentsHere
+                  .map(
+                    (k) =>
+                      `, ${localAlias}.${compoundComponentColumn(prefix, k)} AS ${compoundComponentColumn(data.alias, k)}`,
+                  )
+                  .join("\n");
+              }
 
               if (isFactFunnelMetric(data.metric)) {
                 const alias = data.alias;
@@ -3387,35 +3594,69 @@ export default abstract class SqlIntegration
               const denominatorHere =
                 data.ratioMetric &&
                 data.metric.denominator?.factTableId === sourceFactTableId;
+              const compoundComponentsHere = compoundComponentsForSource(
+                data,
+                i,
+              );
               return {
                 data,
                 numeratorHere,
                 denominatorHere,
-                hasAnything: numeratorHere || denominatorHere,
+                compoundComponentsHere,
+                hasAnything:
+                  numeratorHere ||
+                  denominatorHere ||
+                  compoundComponentsHere.length > 0,
               };
             })
             .filter((p) => p.hasAnything);
           const covariateColumns = localCovariatePairs
-            .map(({ data, numeratorHere, denominatorHere }) => {
-              const numeratorCol = numeratorHere
-                ? `, c.${data.alias}_covariate_value AS ${data.alias}_covariate_value`
-                : "";
-              const denominatorCol = denominatorHere
-                ? `, c.${data.alias}_covariate_denominator AS ${data.alias}_covariate_denominator`
-                : "";
-              return `${numeratorCol}${denominatorCol}`;
-            })
+            .map(
+              ({
+                data,
+                numeratorHere,
+                denominatorHere,
+                compoundComponentsHere,
+              }) => {
+                const compoundCols = compoundComponentsHere
+                  .map((k) => {
+                    const col = compoundCovariateComponentColumn(data.alias, k);
+                    return `, c.${col} AS ${col}`;
+                  })
+                  .join("");
+                const numeratorCol = numeratorHere
+                  ? `, c.${data.alias}_covariate_value AS ${data.alias}_covariate_value`
+                  : "";
+                const denominatorCol = denominatorHere
+                  ? `, c.${data.alias}_covariate_denominator AS ${data.alias}_covariate_denominator`
+                  : "";
+                return `${compoundCols}${numeratorCol}${denominatorCol}`;
+              },
+            )
             .join("\n");
           const covariateInnerColumns = localCovariatePairs
-            .map(({ data, numeratorHere, denominatorHere }) => {
-              const numeratorCol = numeratorHere
-                ? `, MAX(${encodeMetricIdForColumnName(data.id)}_value) AS ${data.alias}_covariate_value`
-                : "";
-              const denominatorCol = denominatorHere
-                ? `, MAX(${encodeMetricIdForColumnName(data.id)}_denominator_value) AS ${data.alias}_covariate_denominator`
-                : "";
-              return `${numeratorCol}${denominatorCol}`;
-            })
+            .map(
+              ({
+                data,
+                numeratorHere,
+                denominatorHere,
+                compoundComponentsHere,
+              }) => {
+                const compoundCols = compoundComponentsHere
+                  .map(
+                    (k) =>
+                      `, MAX(${compoundComponentColumn(encodeMetricIdForColumnName(data.id), k)}) AS ${compoundCovariateComponentColumn(data.alias, k)}`,
+                  )
+                  .join("");
+                const numeratorCol = numeratorHere
+                  ? `, MAX(${encodeMetricIdForColumnName(data.id)}_value) AS ${data.alias}_covariate_value`
+                  : "";
+                const denominatorCol = denominatorHere
+                  ? `, MAX(${encodeMetricIdForColumnName(data.id)}_denominator_value) AS ${data.alias}_covariate_denominator`
+                  : "";
+                return `${compoundCols}${numeratorCol}${denominatorCol}`;
+              },
+            )
             .join("\n");
           const covariateJoin =
             covariateTable && localCovariatePairs.length > 0
@@ -3504,20 +3745,15 @@ export default abstract class SqlIntegration
           );
           const funnelPassthroughCols = getFunnelPassthroughColumns({
             baseIdType,
-            dimensionCols: allDimensionCols,
+            dimensionCols: analysisDimensionCols,
             includeVariationAndDimensions: isSource0,
             metricData,
-            metricColumnFilter: (data) => ({
-              numerator: data.numeratorSourceIndex === i,
-              denominator: !!(
-                data.ratioMetric && data.denominatorSourceIndex === i
-              ),
-            }),
             covariatePairs: localCovariatePairs.map((p) => ({
               data: p.data,
               includeNumerator: p.numeratorHere,
               includeDenominator: !!p.denominatorHere,
             })),
+            sourceIndex: i,
           });
 
           return (
@@ -3550,7 +3786,17 @@ export default abstract class SqlIntegration
         // Collect output columns from sources >0 for the flattened join.
         const sourceColumnsByIndex = new Map<number, string[]>();
         for (const data of metricData) {
-          if (!isFactFunnelMetric(data.metric)) {
+          if (isFactCompoundMetric(data.metric)) {
+            data.compoundComponentSourceIndices.forEach((sourceIdx, k) => {
+              if (sourceIdx === 0) return; // source 0 comes via m.*
+              const existing = sourceColumnsByIndex.get(sourceIdx) ?? [];
+              existing.push(compoundComponentColumn(data.alias, k));
+              if (data.regressionAdjusted) {
+                existing.push(compoundCovariateComponentColumn(data.alias, k));
+              }
+              sourceColumnsByIndex.set(sourceIdx, existing);
+            });
+          } else if (!isFactFunnelMetric(data.metric)) {
             // Non-funnel metrics: value/denominator columns
             const addCol = (sourceIdx: number, col: string) => {
               const existing = sourceColumnsByIndex.get(sourceIdx) ?? [];
@@ -3602,9 +3848,10 @@ export default abstract class SqlIntegration
         const funnelWorkingCols = getFunnelWorkingColumns(multiFtFunnelMetrics);
         const funnelPassthroughCols = getFunnelPassthroughColumns({
           baseIdType,
-          dimensionCols: allDimensionCols,
+          dimensionCols: analysisDimensionCols,
           includeVariationAndDimensions: true,
           metricData,
+          sourceIndex: null,
         });
 
         const resolutionCtes = getFunnelResolutionCTEs(this.getSqlDialect(), {

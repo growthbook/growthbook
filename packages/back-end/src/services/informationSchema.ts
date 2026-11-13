@@ -16,11 +16,14 @@ import {
   updateDataSource,
 } from "back-end/src/models/DataSourceModel";
 import {
+  createInformationSchemaTable,
+  getInformationSchemaTableById,
   removeDeletedInformationSchemaTables,
   updateInformationSchemaTableById,
 } from "back-end/src/models/InformationSchemaTablesModel";
 import { queueUpdateStaleInformationSchemaTable } from "back-end/src/jobs/updateStaleInformationSchemaTable";
 import { promiseAllChunks } from "back-end/src/util/promise";
+import { isDuplicateKeyError } from "back-end/src/util/mongo.util";
 import { ApiReqContext } from "back-end/types/api";
 import { ReqContext } from "back-end/types/request";
 import { usingFileConfig } from "back-end/src/init/config";
@@ -251,6 +254,39 @@ export async function refreshInformationSchemaTable(
   };
   await updateInformationSchemaTableById(context.org.id, table.id, updates);
   return { ...table, ...updates };
+}
+
+// Tables are only cached once someone first asks for their columns
+export async function createInformationSchemaTableFromWarehouse(
+  context: ReqContext,
+  datasource: DataSourceInterface,
+  informationSchema: InformationSchemaInterface,
+  tableId: string,
+): Promise<InformationSchemaTablesInterface> {
+  const { tableData, refreshMS, databaseName, tableSchema, tableName } =
+    await fetchTableData(context, datasource, informationSchema, tableId);
+  if (!tableData) throw new Error("Unable to retrieve table data.");
+
+  try {
+    return await createInformationSchemaTable({
+      organization: context.org.id,
+      tableName,
+      tableSchema,
+      databaseName,
+      columns: getInformationSchemaColumns(tableData),
+      refreshMS,
+      datasourceId: datasource.id,
+      informationSchemaId: informationSchema.id,
+      id: tableId,
+    });
+  } catch (e) {
+    // A concurrent request cached it first
+    const existing =
+      isDuplicateKeyError(e) &&
+      (await getInformationSchemaTableById(context.org.id, tableId));
+    if (existing) return existing;
+    throw e;
+  }
 }
 
 export async function generateInformationSchema(

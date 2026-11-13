@@ -115,6 +115,7 @@ const BaseClass = MakeModelClass({
     banditModelVersion: 1,
     currentLeafWeights: [],
     banditVersion: 0,
+    periodWeightingEligible: true,
   },
   auditLog: {
     entity: "contextualBandit",
