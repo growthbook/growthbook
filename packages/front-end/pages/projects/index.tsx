@@ -158,7 +158,7 @@ const ProjectsPage: FC = () => {
         </ModalStandard>
       )}
 
-      <Box mb="5">
+      <Box>
         {projects.length > 0 ? (
           <>
             <Flex align="center" gap="3" mb="3">

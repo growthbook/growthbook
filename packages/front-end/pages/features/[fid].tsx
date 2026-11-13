@@ -371,7 +371,6 @@ export default function FeaturePage() {
       <DetailsPanelLayout
         details={details}
         stickyTop={stickyTop}
-        className="feature-layout"
         panel={
           <FeatureDetailsPanel
             feature={feature}

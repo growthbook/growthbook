@@ -566,7 +566,7 @@ const DataSourcePage: FC = () => {
               display: "flex",
               flexDirection: "column",
               // The window under the header and any bar pinned there, less
-              // the page wrapper's padding above and below (global.scss).
+              // the page frame's spacing above and below.
               height:
                 pageHeight ??
                 "calc(100vh - var(--page-top-offset) - var(--page-top-padding) - var(--space-6))",

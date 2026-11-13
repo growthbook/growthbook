@@ -115,7 +115,7 @@ const ExperimentGuide = (): React.ReactElement => {
       : false;
 
   return (
-    <div className="container pagecontents p-4">
+    <div className="container pagecontents">
       <PageHead
         breadcrumb={[
           { display: "Get Started", href: "/getstarted" },

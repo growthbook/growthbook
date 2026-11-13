@@ -208,7 +208,8 @@ export default function Table({
         } as React.CSSProperties
       }
       data-table-list
-      data-sticky-header={useStickyHeader ? "true" : "false"}
+      // A scroll box (autoScroll) can't let its header stick to the window.
+      data-sticky-header={useStickyHeader && !autoScroll ? "true" : "false"}
       data-scroll-x={scrollX ? "true" : undefined}
       data-sticky-last-column={scrollX && stickyLastColumn ? "true" : undefined}
       data-overflow-x={overflowX ? "true" : undefined}

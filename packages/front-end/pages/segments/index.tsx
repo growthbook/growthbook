@@ -183,7 +183,7 @@ const SegmentPage: FC = () => {
 
   if (!hasValidDataSources) {
     return (
-      <div className="p-3 container-fluid pagecontents">
+      <div className="container-fluid pagecontents">
         <div className="row mb-3">
           <div className="col d-flex">
             <h1>Segments</h1>
@@ -200,7 +200,7 @@ const SegmentPage: FC = () => {
   }
 
   return (
-    <div className="p-3 container-fluid pagecontents">
+    <div className="container-fluid pagecontents">
       {segmentForm && (
         <SegmentForm close={() => setSegmentForm(null)} current={segmentForm} />
       )}
@@ -236,7 +236,7 @@ const SegmentPage: FC = () => {
             </p>
             <div style={{ overflowX: "auto" }}>
               <table
-                className={clsx("table appbox gbtable", {
+                className={clsx("table appbox gbtable mb-0", {
                   "table-hover": !hasFileConfig(),
                 })}
               >

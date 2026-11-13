@@ -1,0 +1,29 @@
+// Reaches past the page frame's padding to the side nav, the window's right
+// edge and its bottom: the panel sits flush against the window, and the
+// footer spans the working area.
+.layout {
+  margin: 0 calc(-1 * var(--page-padding)) calc(-1 * var(--page-bottom-padding));
+}
+
+// The working area beside the panel. It keeps the page's left edge and its
+// padding at the right and bottom, so the page never moves when the panel
+// opens: the panel takes its room from the working area's right.
+.column {
+  // Its own formatting context, so the margin below stays inside it.
+  display: flow-root;
+  padding-left: var(--page-padding);
+  padding-right: max(var(--space-5), var(--page-padding));
+
+  // A margin, which the last item's own bottom margin collapses into
+  // (PageFrame.module.scss).
+  &::after {
+    content: "";
+    display: block;
+    margin-top: var(--page-bottom-padding);
+  }
+}
+
+// Docked, the working area runs to the panel.
+:global([data-panel-docked]) .column {
+  padding-right: var(--space-5);
+}

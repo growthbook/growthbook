@@ -81,6 +81,7 @@ import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import usePinnedHeader from "@/hooks/usePinnedHeader";
 import { useIsOverflowingX } from "@/hooks/useIsOverflowing";
 import { DetailsPanelToggle } from "@/components/CollapsiblePanelLayout";
+import { PageBleed } from "@/components/Layout/PageFrame";
 import { hasHealthData } from "@/components/HealthTab/constants";
 import ExperimentActionButtons from "./ExperimentActionButtons";
 import QuickEditButton, { revealsQuickEdit } from "./QuickEditButton";
@@ -994,10 +995,9 @@ export default function ExperimentHeader({
         />
       ) : null}
 
-      <div className="container-fluid pagecontents position-relative px-4 pt-3 pb-2">
+      <div className="container-fluid pagecontents position-relative pb-2">
         <Flex direction="row" align="start" justify="between" gap="5">
-          {/* Raised so the name's x-height centres on the buttons' text. */}
-          <Box className={revealsQuickEdit} mt="-3px">
+          <Box className={revealsQuickEdit}>
             <Heading
               as="h1"
               size="2xl"
@@ -1476,8 +1476,8 @@ export default function ExperimentHeader({
               pointerEvents: "none",
             }}
           />
-          <div
-            className={clsx("experiment-tabs page-bleed d-print-none", {
+          <PageBleed
+            className={clsx("experiment-tabs d-print-none", {
               pinned: headerPinned,
             })}
           >
@@ -1573,7 +1573,7 @@ export default function ExperimentHeader({
                 />
               </div>
             </div>
-          </div>
+          </PageBleed>
         </>
       )}
     </>

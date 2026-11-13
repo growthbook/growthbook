@@ -1,0 +1,63 @@
+// The page's spacing: --page-padding at the sides, --page-top-padding under
+// the header and --page-bottom-padding under the last item (global.scss).
+.frame {
+  // Its own formatting context, so the two margins below stay inside it.
+  display: flow-root;
+  padding: 0 var(--page-padding);
+
+  // The space above and below is a margin, not padding. A page's first top
+  // margin and last bottom margin collapse into it instead of adding to it,
+  // so a page that ends with a card's own margin still ends 32px under the
+  // card.
+  &::before,
+  &::after {
+    content: "";
+    display: block;
+  }
+  &::before {
+    margin-bottom: var(--page-top-padding);
+  }
+  &::after {
+    margin-top: var(--page-bottom-padding);
+  }
+
+  // The containers pages were laid out with before the frame (Bootstrap's,
+  // .pagecontents, .contents) pad and cap the page themselves. In the frame
+  // they don't: no side padding or width cap, and no top or bottom padding
+  // where they start or end the page. One further down (a feature's tab
+  // content, under its header and tabs) keeps its spacing to what's above it.
+  $container: ":global(:is(.container, .container-fluid, .pagecontents, .contents))";
+  & > #{$container} {
+    max-width: none;
+    padding-left: 0;
+    padding-right: 0;
+  }
+  // A page's <style> tag can come first.
+  & > #{$container}:is(:first-child, style:first-child + *) {
+    padding-top: 0;
+  }
+  // Hidden items after it (print-only) don't count.
+  & > #{$container}:not(:has(~ :not(:global(.d-none)))) {
+    padding-bottom: 0;
+  }
+}
+
+// Settings pages start past the Settings nav too, so their padding is worked
+// out from what's left beside it.
+.settings {
+  --page-nav-width: var(--settings-layout-left);
+  --page-area-width: calc(100vw - var(--page-nav-width));
+  --page-padding: max(
+    var(--page-padding-step),
+    (var(--page-area-width) - var(--page-max-width)) / 2
+  );
+}
+
+// Reaches past the frame's side padding to the page's edges (backgrounds,
+// borders, sticky bars), keeping what's inside in line with the page.
+.bleed {
+  margin-left: calc(-1 * var(--page-padding));
+  margin-right: calc(-1 * var(--page-padding));
+  padding-left: var(--page-padding);
+  padding-right: var(--page-padding);
+}

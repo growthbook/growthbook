@@ -431,7 +431,7 @@ const MetricPage: FC = () => {
       <ReplacedByCallout metricId={metric.id} />
 
       <Flex align="start" justify="between" gap="2" mb="2">
-        <Flex align="center" gap="3" style={{ marginTop: "-4px" }}>
+        <Flex align="center" gap="3">
           <Heading size="xl" as="h1" overflowWrap="anywhere" mb="0">
             <MetricName id={metric.id} />
           </Heading>
@@ -446,7 +446,7 @@ const MetricPage: FC = () => {
                 size="2"
                 highContrast
                 // Within the title row, level with the title, which starts
-                // --page-top-padding under the header (global.scss).
+                // --page-top-padding under the header.
                 style={{ marginTop: 0, marginBottom: 0 }}
               >
                 <BsThreeDotsVertical size={16} />
@@ -949,7 +949,7 @@ const MetricPage: FC = () => {
           </Tabs>
         </div>
         <div className="col-12 col-md-4 mt-md-5">
-          <div className="appbox p-3" style={{ marginTop: "7px" }}>
+          <div className="appbox p-3 mb-0" style={{ marginTop: "7px" }}>
             <RightRailSection
               title="Owner"
               open={() => setEditOwnerModal(true)}

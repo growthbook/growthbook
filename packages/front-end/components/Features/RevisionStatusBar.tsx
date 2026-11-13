@@ -1,6 +1,5 @@
 import { ReactNode, useMemo, useState } from "react";
 import { Flex } from "@radix-ui/themes";
-import clsx from "clsx";
 import {
   PiArrowRight,
   PiCaretDown,
@@ -25,6 +24,7 @@ import {
   filterEnvironmentsByFeature,
   liveRevisionFromFeature,
 } from "shared/util";
+import { PageBleed } from "@/components/Layout/PageFrame";
 import {
   featureToFeatureRevisionDiffInput,
   mergeResultToDiffInput,
@@ -265,9 +265,9 @@ export default function RevisionStatusBar({
 
   return (
     <>
-      <div
+      <PageBleed
         // From the side nav to the window, past the tab row's padding.
-        className={clsx("page-bleed", styles.bar)}
+        className={styles.bar}
         style={{
           backgroundColor: `var(--${tint}-a3)`,
           // The tab row's underline, above it.
@@ -315,7 +315,7 @@ export default function RevisionStatusBar({
             </Flex>
           ) : null}
         </div>
-      </div>
+      </PageBleed>
       {confirmDiscard ? (
         <DiscardDraftModal
           trackingEventModalType="discard-feature-revision"

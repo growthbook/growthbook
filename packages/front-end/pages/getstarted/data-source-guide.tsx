@@ -74,7 +74,7 @@ const DataSourceGuide = (): React.ReactElement => {
     : datasources.some((d) => !d.projects?.includes(demoProjectId));
 
   return (
-    <div className="container pagecontents p-4">
+    <div className="container pagecontents">
       <PageHead
         breadcrumb={[
           { display: "Get Started", href: "/getstarted" },
@@ -94,6 +94,7 @@ const DataSourceGuide = (): React.ReactElement => {
           sm: `minmax(0, 1fr) ${DOCUMENTATION_SIDEBAR_WIDTH}`,
         }}
         gapX="4"
+        gapY="3"
         mt="4"
       >
         <Box style={{ minWidth: 500 }}>
@@ -103,7 +104,7 @@ const DataSourceGuide = (): React.ReactElement => {
               <DataSourceDiagram />
             </div>
           </Frame>
-          <div className="appbox p-4">
+          <div className="appbox p-4 mb-0">
             <div className="row">
               <div className="col-sm-auto">
                 {hasDatasource ? (

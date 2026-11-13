@@ -15,6 +15,7 @@ import {
   HoldoutInterface,
 } from "shared/validators";
 import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
+import { PageBleed } from "@/components/Layout/PageFrame";
 import Heading from "@/ui/Heading";
 import Badge from "@/ui/Badge";
 import { useUser } from "@/services/UserContext";
@@ -427,11 +428,12 @@ export default function FeaturesHeaderNew({
   // from the side nav to the window, its content on the page's edges.
   return (
     <>
-      <Box
-        className="page-bleed"
-        position="relative"
+      <PageBleed
         style={{
+          position: "relative",
           background: "var(--color-panel-solid)",
+          // From the app header down: it holds the page's top padding itself.
+          marginTop: "calc(-1 * var(--page-top-padding))",
           paddingTop: "var(--page-top-padding)",
           paddingBottom: "var(--space-2)",
         }}
@@ -475,7 +477,7 @@ export default function FeaturesHeaderNew({
             </Callout>
           ) : null}
         </Box>
-      </Box>
+      </PageBleed>
       <>
         <div
           ref={tabsPinSentinelRef}
@@ -488,8 +490,8 @@ export default function FeaturesHeaderNew({
             background: "var(--color-panel-solid)",
           }}
         />
-        <div
-          className={clsx("feature-tabs redesign page-bleed d-print-none", {
+        <PageBleed
+          className={clsx("feature-tabs redesign d-print-none", {
             pinned: headerPinned,
           })}
         >
@@ -549,7 +551,7 @@ export default function FeaturesHeaderNew({
             </Flex>
           </Box>
           {statusBar}
-        </div>
+        </PageBleed>
       </>
       {auditModal && (
         <CompareFeatureEventsModal

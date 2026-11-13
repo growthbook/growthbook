@@ -161,7 +161,7 @@ export default function DesignSystemPage() {
   );
 
   return (
-    // Not in the page wrapper (a pre-sign-in page), so it takes the wrapper's
+    // Not in the page frame (a pre-sign-in page), so it takes the frame's
     // top padding itself, for its sidebar to stick where it sits.
     <div className="pb-3" style={{ paddingTop: "var(--page-top-padding)" }}>
       <Flex gap="6">

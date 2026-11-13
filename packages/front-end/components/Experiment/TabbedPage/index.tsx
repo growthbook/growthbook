@@ -720,7 +720,6 @@ function TabbedPageContents({
       />
       <DetailsPanelLayout
         details={details}
-        className="experiment-layout"
         // Only the content's edits stage; the panel's save as they're made.
         footer={<UnsavedEditsBar />}
         // So what a save judges as saved is what it sent.
@@ -743,7 +742,7 @@ function TabbedPageContents({
         <div className="experiment-column">
           <div
             className={clsx(
-              "container-fluid pagecontents px-4",
+              "container-fluid pagecontents px-0",
               showDashboardView && "pt-0",
             )}
           >

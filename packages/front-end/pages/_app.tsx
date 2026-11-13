@@ -45,7 +45,7 @@ import { SidebarOpenProvider } from "@/components/Layout/SidebarOpenProvider";
 import { SettingsNavProvider } from "@/components/Layout/SettingsNavContext";
 import { SettingsFormProvider } from "@/components/GeneralSettings/SettingsFormProvider";
 import { isSettingsRoute } from "@/components/Layout/sidebarNav";
-import { SettingsPageTop } from "@/components/Layout/SettingsJumpMenu";
+import PageFrame from "@/components/Layout/PageFrame";
 import { HoverTooltipProvider } from "@/hooks/useHoverTooltip";
 import { FeatureHealthStatesProvider } from "@/hooks/useFeatureHealthStates";
 import { CommandPaletteLauncher } from "@/components/CommandPalette/CommandPalette";
@@ -77,9 +77,6 @@ type ModAppProps = AppProps & {
     progressiveAuthTopNav?: boolean;
     noLoadingOverlay?: boolean;
     mainClassName?: string;
-    // Lays itself out to the window (canvases, its own scrolling or save
-    // bar): no page wrapper (global.scss) and its padding. Pages without the
-    // side nav (liteLayout) don't get one either.
     noPageWrapper?: boolean;
   };
 };
@@ -278,17 +275,16 @@ function App({
                                                     }}
                                                   />
                                                 ) : (
-                                                  <div className="page-wrapper">
-                                                    {inSettings ? (
-                                                      <SettingsPageTop />
-                                                    ) : null}
+                                                  <PageFrame
+                                                    settings={inSettings}
+                                                  >
                                                     <Component
                                                       {...{
                                                         ...pageProps,
                                                         envReady: ready,
                                                       }}
                                                     />
-                                                  </div>
+                                                  </PageFrame>
                                                 )}
                                               </DefinitionsGuard>
                                             </OrgPageContent>

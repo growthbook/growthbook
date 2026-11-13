@@ -126,7 +126,7 @@ export default function UnsavedChangesBar() {
                         color="gray"
                         icon={<PiCaretUp />}
                         iconPosition="right"
-                        className={styles.unsavedSummary}
+                        truncate
                       >
                         {describeUnsavedChanges(dirtyCount, dirtySectionIds)}
                       </Button>

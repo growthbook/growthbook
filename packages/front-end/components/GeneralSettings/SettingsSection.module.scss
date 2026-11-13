@@ -28,11 +28,6 @@
   text-align: center;
 }
 
-// Lets the last section reach the top of the viewport so scroll spy can select it.
-.spacer {
-  height: 45vh;
-}
-
 // Spans from the main sidebar to the window edge, over the sub nav.
 .unsavedBar {
   // Where the bar starts, which its left padding is measured from.
@@ -68,23 +63,6 @@
   // content instead.
   @media (max-width: 1023px) {
     padding-left: var(--page-padding);
-  }
-}
-
-// The bar's summary, cut short with an ellipsis where space runs out (the
-// label is Button's Text).
-.unsavedSummary {
-  max-width: 100%;
-
-  :global(.rt-Text) {
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  svg {
-    flex-shrink: 0;
   }
 }
 

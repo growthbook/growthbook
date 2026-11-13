@@ -1,8 +1,15 @@
+// Runs from the side nav to the details panel, or to the window's edge
+// without it. Its content sits on the page's edges, or 16px from the bar's
+// when the panel is docked beside it.
 .bar {
-  padding: var(--space-2) var(--space-4);
+  padding: var(--space-2) var(--page-padding);
   border-top: 1px solid var(--gray-a5);
   background-color: var(--color-panel-solid);
   box-shadow:
     0 -1px 2px var(--lift-shadow-near),
     0 -4px 4px var(--lift-shadow-far);
+}
+
+:global([data-panel-docked]) .bar {
+  padding: var(--space-2) var(--space-4);
 }

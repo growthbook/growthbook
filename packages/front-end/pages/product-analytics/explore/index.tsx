@@ -25,15 +25,14 @@ export default function ExplorePage() {
 
   return (
     <Box
-      // Full height, so not in the page wrapper, but with its side padding.
-      className="position-relative page-sides"
+      // Full height, so not in the page frame, but with its side and top
+      // padding.
+      className="position-relative"
       style={{
         display: "flex",
         flex: 1,
         flexDirection: "column",
-        // The wrapper's top padding under the header, as on pages in it.
-        paddingTop: "var(--page-top-padding)",
-        paddingBottom: "var(--space-4)",
+        padding: "var(--page-top-padding) var(--page-padding) var(--space-4)",
       }}
     >
       <Box

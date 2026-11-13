@@ -128,7 +128,7 @@ export default function NewDashboardPage() {
 
   if (!hasCommercialFeature("product-analytics-dashboards")) {
     return (
-      <div className="p-3 container-fluid pagecontents">
+      <div className="container-fluid pagecontents">
         <PremiumCallout
           id="product-analytics-new-dashboard"
           dismissible={false}

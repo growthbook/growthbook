@@ -334,7 +334,7 @@ const GetStartedAndHomePage = ({
               </Flex>
               <AutoRunCallout />
               {!showGettingStarted && (
-                <Callout status="info" size="md" mb="4">
+                <Callout status="info" size="md">
                   <Text size="2">
                     Customize your account setup and learn how to get started
                     with GrowthBook.

@@ -13,6 +13,7 @@ import { BsThreeDotsVertical } from "react-icons/bs";
 import { PiEye, PiWarning } from "react-icons/pi";
 import { REVIEW_REQUESTED_STATUSES, HoldoutInterface } from "shared/validators";
 import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
+import { PageBleed } from "@/components/Layout/PageFrame";
 import Text from "@/ui/Text";
 import FeatureValueTypeDisplay from "@/components/Features/FeatureValueTypeDisplay";
 import Heading from "@/ui/Heading";
@@ -619,8 +620,8 @@ export default function FeaturesHeader({
             pointerEvents: "none",
           }}
         />
-        <div
-          className={clsx("feature-tabs page-bleed d-print-none", {
+        <PageBleed
+          className={clsx("feature-tabs d-print-none", {
             pinned: headerPinned,
           })}
         >
@@ -662,7 +663,7 @@ export default function FeaturesHeader({
               </TabsList>
             </Tabs>
           </div>
-        </div>
+        </PageBleed>
       </>
       {auditModal && (
         <CompareFeatureEventsModal

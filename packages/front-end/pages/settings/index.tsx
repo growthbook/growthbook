@@ -277,8 +277,6 @@ const GeneralSettingsPage = (): React.ReactElement => {
           <SettingsSection id="markdown">
             <CustomMarkdownSettings />
           </SettingsSection>
-
-          <div className={sectionStyles.spacer} />
         </div>
         <UnsavedChangesBar />
       </SettingsPage>

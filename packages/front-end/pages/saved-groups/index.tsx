@@ -141,7 +141,7 @@ export default function SavedGroupsPage() {
   if (!data && !error) return <LoadingOverlay />;
 
   return (
-    <div className="p-3 container-fluid pagecontents">
+    <div className="container-fluid pagecontents">
       <Flex align="center" justify="between" mb="3">
         <Heading size="7" as="h1">
           Saved Groups

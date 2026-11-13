@@ -79,7 +79,7 @@ const TemplatePage: FC = () => {
           { display: template.templateMetadata.name },
         ]}
       />
-      <div className="container-fluid pagecontents p-3">
+      <div className="container-fluid pagecontents">
         <Box mb="5" mt="3">
           <Flex mt="2" mb="1" justify="between" align="center">
             <h1>{template?.templateMetadata.name}</h1>

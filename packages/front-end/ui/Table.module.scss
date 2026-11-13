@@ -23,21 +23,18 @@ $scroll-fade-width: 12px;
   min-width: var(--table-min-width, 0);
 }
 
-// A scroll box can't let its header stick to the window, so it doesn't.
-// The outline moves onto the box, so it stays whole as the table scrolls.
+// A scroll box can't let its header stick to the window, so Table.tsx doesn't
+// mark it sticky. The outline moves onto the box, so it stays whole as the
+// table scrolls.
 .wrapper[data-table-list][data-auto-scroll="true"] {
   overflow-x: auto;
   overflow-y: hidden;
-  border: 1px solid var(--slate-a5, rgba(0, 9, 50, 0.12)) !important;
+  border: 1px solid var(--slate-a5, rgba(0, 9, 50, 0.12));
   border-radius: var(--radius-4);
 
   :global(.rt-TableRootTable) {
     border: none;
     border-radius: 0;
-  }
-
-  :global(.rt-TableHeader) {
-    position: static !important;
   }
 
   :global(.rt-TableHeader .rt-TableRow .rt-TableColumnHeaderCell) {
@@ -50,7 +47,7 @@ $scroll-fade-width: 12px;
   max-width: 100%;
   overflow: visible;
   background-color: transparent;
-  border: none !important;
+  border: none;
   border-radius: 0;
 
   :global(.rt-TableRoot).tableList {

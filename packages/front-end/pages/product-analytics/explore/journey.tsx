@@ -6,15 +6,13 @@ import PageHead from "@/components/Layout/PageHead";
 export default function JourneyExplorePage() {
   return (
     <Box
-      className="position-relative page-sides"
-      // The page's side padding, less the explorer's own 8px inside, and the
-      // wrapper's top padding from the header to the explorer's first row
-      // (with the explorer's own 8px), as on pages in the wrapper.
+      className="position-relative"
+      // The page frame's side and top padding, less the explorer's own 8px
+      // inside, so it lines up with pages in the frame.
       style={{
-        paddingTop: "calc(var(--page-top-padding) - var(--space-2))",
-        paddingBottom: "8px",
+        padding:
+          "calc(var(--page-top-padding) - var(--space-2)) calc(var(--page-padding) - var(--space-2)) 8px",
         ...({
-          "--page-sides-inset": "var(--space-2)",
           "--explorer-frame-y": "var(--page-top-padding)",
         } as React.CSSProperties),
       }}
