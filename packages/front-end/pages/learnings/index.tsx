@@ -30,6 +30,7 @@ import FindLearningsModal from "@/components/Learnings/FindLearningsModal";
 import SavedLearningsList from "@/components/Learnings/SavedLearningsList";
 import EditLearningModal from "@/components/Learnings/EditLearningModal";
 import RefreshLearningsModal from "@/components/Learnings/RefreshLearningsModal";
+import { docUrl } from "@/components/DocLink";
 
 const LearningsPage = (): React.ReactElement => {
   const router = useRouter();
@@ -126,7 +127,7 @@ const LearningsPage = (): React.ReactElement => {
           title="Experiment Learnings"
           description="Capture what you have learned across experiments and let AI surface cross-experiment patterns worth reusing."
           commercialFeature="learnings"
-          learnMoreLink="https://docs.growthbook.io/app/experiment-learnings"
+          learnMoreLink={docUrl("learnings")}
         />
       </div>
     );

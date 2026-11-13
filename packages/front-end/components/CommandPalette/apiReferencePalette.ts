@@ -1,11 +1,14 @@
+import { docUrl } from "@/components/DocLink";
+
 /**
- * Rows for Cmd+K: deep links into the Redoc REST API reference at docs.growthbook.io/api.
- * Each `tag` must match a top-level `id="tag/…"` on that page (Redoc fragment: #tag/{tag}).
+ * Rows for Cmd+K: deep links into the REST API reference.
+ * Each `tag` was a top-level `id="tag/…"` on the old Redoc reference (fragment: #tag/{tag}).
  * Most tags are kebab-case from OpenAPI; a few published tags use PascalCase (see below).
  *
- * Re-verify after docs deploys: `curl -sL https://docs.growthbook.io/api | grep -oE 'id="tag/[^"]+"'`
+ * The reference is now served by Mintlify (one page per operation under /api/{tag}/operation/…),
+ * which has no #tag/… anchors, so tag rows currently land on the top of the introduction page.
  */
-const API_REFERENCE_BASE = "https://docs.growthbook.io/api";
+const API_REFERENCE_BASE = docUrl("apiIntroduction");
 
 export interface ApiReferencePaletteRow {
   id: string;

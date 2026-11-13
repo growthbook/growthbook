@@ -30,6 +30,7 @@ import ContextualBanditAnalysisMetricsModal from "@/components/ContextualBandit/
 import ContextualBanditTrafficTargetingModal from "@/components/ContextualBandit/ContextualBanditTrafficTargetingModal";
 import ContextualBanditVariationsModal from "@/components/ContextualBandit/ContextualBanditVariationsModal";
 import LinkFeatureToContextualBanditModal from "@/components/Features/FeatureModal/LinkFeatureToContextualBanditModal";
+import { docUrl } from "@/components/DocLink";
 import VisualChangesetModal from "@/components/Experiment/VisualChangesetModal";
 import {
   getBrowserDevice,
@@ -92,7 +93,7 @@ const ContextualBanditPage = (): ReactElement => {
           title="Run Context-Aware Adaptive Experiments with Contextual Bandits"
           description="Contextual Bandits automatically guide more traffic to better variants based on user context."
           commercialFeature="contextual-bandits"
-          learnMoreLink="https://docs.growthbook.io/bandits/overview"
+          learnMoreLink={docUrl("bandits")}
         />
       </div>
     );

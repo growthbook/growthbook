@@ -10,8 +10,8 @@ import { useUser } from "@/services/UserContext";
 import { useHoldouts } from "@/hooks/useHoldouts";
 import PremiumCallout from "@/ui/PremiumCallout";
 import Callout from "@/ui/Callout";
-import Link from "@/ui/Link";
 import HelperText from "@/ui/HelperText";
+import { DocLink } from "@/components/DocLink";
 
 /** The holdouts an experiment in `project` can join: running, and open to that project. */
 export function selectableHoldouts<H extends HoldoutInterface>(
@@ -146,9 +146,9 @@ export const HoldoutSelect = ({
       >
         Use <strong>Holdouts</strong> to isolate units and measure the
         cumulative impact of changes.{" "}
-        <Link target="_blank" href="https://docs.growthbook.io/app/holdouts">
+        <DocLink docSection="holdouts">
           Show me how <PiArrowSquareOut size={15} />
-        </Link>
+        </DocLink>
       </Callout>
     );
   }
