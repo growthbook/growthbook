@@ -519,14 +519,7 @@ export const postRampScheduleAction = async (
       updated = await runControlledRampScheduleAction(
         context,
         schedule.id,
-        (fresh, heartbeat) => {
-          if (!getRampRetry(fresh)) {
-            throw new ConflictError(
-              "Cannot retry: the failed step cleared while the request was in flight",
-            );
-          }
-          return retryRampScheduleNow(context, fresh, heartbeat);
-        },
+        (fresh, heartbeat) => retryRampScheduleNow(context, fresh, heartbeat),
       );
       break;
     }

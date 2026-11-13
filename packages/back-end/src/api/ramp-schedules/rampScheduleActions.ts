@@ -231,14 +231,7 @@ export const retryRampSchedule = createApiRequestHandler({
   const updated = await runControlledRampScheduleAction(
     req.context,
     schedule.id,
-    (fresh, heartbeat) => {
-      if (!getRampRetry(fresh)) {
-        throw new ConflictError(
-          "Cannot retry: the failed step cleared while the request was in flight",
-        );
-      }
-      return retryRampScheduleNow(req.context, fresh, heartbeat);
-    },
+    (fresh, heartbeat) => retryRampScheduleNow(req.context, fresh, heartbeat),
   );
 
   return { rampSchedule: rampScheduleToApiInterface(req.context, updated) };
