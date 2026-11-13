@@ -605,7 +605,7 @@ let gbFirebase = GrowthBookBuilder(
   trackingCallback: { experiment, result in
     Analytics.logEvent("gb_exposure", parameters: [
       "experiment_key": experiment.key,
-      "variation_id": result.variationId
+      "variation_id": result.key
     ])
   }
 ).initializer()
