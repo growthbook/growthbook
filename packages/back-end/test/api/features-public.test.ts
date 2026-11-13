@@ -4,6 +4,7 @@ const { getFeaturesPublic } = featuresController;
 import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
 import { findSDKConnectionByKey } from "back-end/src/models/SdkConnectionModel";
 import { getFeatureDefinitions } from "back-end/src/services/features";
+import { getSDKPayloadCacheLocation } from "back-end/src/models/SdkConnectionCacheModel";
 
 jest.mock("back-end/src/services/python", () => ({
   createPool: jest.fn(() => ({
@@ -281,6 +282,56 @@ describe("getFeaturesPublic test holdout", () => {
     // Verify the holdout feature flag is not in the payload
     expect(responseData.features).not.toHaveProperty(
       "$holdout:hld_test_holdout",
+    );
+  });
+});
+
+describe("getFeaturesPublic cache hit", () => {
+  beforeEach(() => jest.clearAllMocks());
+
+  afterEach(() => {
+    (getSDKPayloadCacheLocation as jest.Mock).mockReturnValue("none");
+  });
+
+  it("serves the cached payload string with status spliced in", async () => {
+    const payload = {
+      features: { "my-feature": { defaultValue: 'a"b<é>' } },
+      experiments: [],
+      dateUpdated: "2023-01-01T00:00:00.000Z",
+    };
+    const getById = jest
+      .fn()
+      .mockResolvedValue({ contents: JSON.stringify(payload) });
+    (getSDKPayloadCacheLocation as jest.Mock).mockReturnValue("mongo");
+    (getContextForAgendaJobByOrgId as jest.Mock).mockResolvedValue({
+      org: { id: "test-org-id" },
+      models: { sdkConnectionCache: { getById } },
+    });
+    (findSDKConnectionByKey as jest.Mock).mockResolvedValue({
+      key: "sdk-test-key",
+      organization: "test-org-id",
+      environment: "production",
+      projects: [],
+      languages: ["javascript"],
+      sdkVersion: "1.0.0",
+      remoteEvalEnabled: false,
+      connected: true,
+    });
+
+    const send = jest.fn();
+    const type = jest.fn().mockReturnValue({ send });
+    const status = jest.fn().mockReturnValue({ type, json: jest.fn() });
+    await getFeaturesPublic(
+      { params: { key: "sdk-test-key" }, body: {} } as unknown as Request,
+      { status, set: jest.fn() } as unknown as Response,
+    );
+
+    expect(getById).toHaveBeenCalledWith("sdk-test-key");
+    expect(getFeatureDefinitions).not.toHaveBeenCalled();
+    expect(status).toHaveBeenCalledWith(200);
+    expect(type).toHaveBeenCalledWith("json");
+    expect(send).toHaveBeenCalledWith(
+      JSON.stringify({ status: 200, ...payload }),
     );
   });
 });
