@@ -43,7 +43,6 @@ import SDKConnectionEditsBar from "@/components/Features/SDKConnections/SDKConne
 import { useSdkConnectionStagedEdits } from "@/components/Features/SDKConnections/useSdkConnectionStagedEdits";
 import Tooltip from "@/ui/Tooltip";
 import SDKConnectionEditModal from "@/components/Features/SDKConnections/SDKConnectionEditModal";
-import { canBypassSdkConnectionApproval } from "@/components/Features/SDKConnections/edit-modals/useSdkConnectionRevisionFlow";
 import { withAbsentSettings } from "@/components/Features/SDKConnections/sdkConnectionRules";
 import Badge from "@/ui/Badge";
 import Callout from "@/ui/Callout";
@@ -234,7 +233,7 @@ export default function SDKConnectionPage() {
 
   const { apiCall } = useAuth();
   const permissionsUtil = usePermissionsUtil();
-  const { user, userId } = useUser();
+  const { userId } = useUser();
   const settings = useOrgSettings();
 
   const [duplicateSource, setDuplicateSource] =
@@ -330,11 +329,9 @@ export default function SDKConnectionPage() {
 
   const canBypassLive =
     !!connection &&
-    canBypassSdkConnectionApproval(
-      permissionsUtil,
-      user?.role,
-      connection.projects,
-    );
+    permissionsUtil.canBypassSDKConnectionApprovalChecks({
+      projects: connection.projects,
+    });
   const canAdminPublish = approvalRequired && canBypassLive;
   const canAutoPublish = !approvalRequired || canAdminPublish;
 
@@ -343,16 +340,14 @@ export default function SDKConnectionPage() {
   const canBypassSelectedRevision =
     !selectedRevisionRequiresApproval ||
     (canBypassLive &&
-      canBypassSdkConnectionApproval(
-        permissionsUtil,
-        user?.role,
-        selectedRevision
+      permissionsUtil.canBypassSDKConnectionApprovalChecks({
+        projects: selectedRevision
           ? (sdkConnectionSettingsAfter(
               selectedRevision.target.snapshot as SDKConnectionRevisionSnapshot,
               selectedRevision.target.proposedChanges,
             ).projects ?? [])
           : [],
-      ));
+      }));
 
   const displayedConnection = useMemo(() => {
     if (!connection) return undefined;

@@ -32,21 +32,6 @@ export function isDraftRevision(
   return !!revision && isActiveDraftStatus(revision.status);
 }
 
-export function canBypassSdkConnectionApproval(
-  permissionsUtil: ReturnType<typeof usePermissionsUtil>,
-  role: string | undefined,
-  projects: string[],
-): boolean {
-  if (role === "admin") return true;
-  return projects.length
-    ? projects.every((p) =>
-        permissionsUtil.canBypassSDKConnectionApprovalChecks({
-          project: p,
-        }),
-      )
-    : permissionsUtil.canBypassSDKConnectionApprovalChecks({ project: "" });
-}
-
 function seededValue(connection: SDKConnectionInterface, key: string): unknown {
   if (key === "proxyEnabled") return connection.proxy.enabled;
   if (key === "proxyHost") return connection.proxy.host;
@@ -157,11 +142,9 @@ export function useSdkConnectionRevisionFlow({
     !effectiveApprovalRequired ||
     ((canAutoPublish ?? true) &&
       (!proposedRules.length ||
-        canBypassSdkConnectionApproval(
-          permissionsUtil,
-          user?.role,
-          proposedScope?.projects ?? connection.projects,
-        )));
+        permissionsUtil.canBypassSDKConnectionApprovalChecks({
+          projects: proposedScope?.projects ?? connection.projects,
+        })));
 
   // Prefer the draft being viewed, then the user's own open draft. Never
   // default to publishing while a draft is selected.
