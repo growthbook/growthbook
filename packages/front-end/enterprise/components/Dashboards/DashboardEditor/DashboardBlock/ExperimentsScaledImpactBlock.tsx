@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   ExperimentsScaledImpactBlockInterface,
   getEffectiveExperimentBlock,
@@ -8,6 +8,7 @@ import ExecExperimentImpact from "@/enterprise/components/ExecReports/ExecExperi
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import Callout from "@/ui/Callout";
+import track from "@/services/track";
 import { useCompletedExperiments } from "./completedExperiments";
 import { BlockProps } from ".";
 
@@ -24,8 +25,30 @@ export default function ExperimentsScaledImpactBlock({
     globalControls: dashboardGlobalControls,
   });
   const { experiments, loading, filters } = useCompletedExperiments(block);
+  const hasExperimentImpact = hasCommercialFeature("experiment-impact");
+  const unavailableState = !hasExperimentImpact
+    ? "not_entitled"
+    : !block.metricId
+      ? "metric_required"
+      : null;
 
-  if (!hasCommercialFeature("experiment-impact")) {
+  useEffect(() => {
+    if (!unavailableState) return;
+    track("Experiment Impact Availability Evaluated", {
+      surface: "dashboard-block",
+      entitled: hasExperimentImpact,
+      state: unavailableState,
+      ...(block.metricId ? { metricId: block.metricId } : {}),
+      experimentCount: experiments.length,
+    });
+  }, [
+    block.metricId,
+    experiments.length,
+    hasExperimentImpact,
+    unavailableState,
+  ]);
+
+  if (!hasExperimentImpact) {
     return (
       <Callout status="info">
         <PremiumTooltip commercialFeature="experiment-impact">

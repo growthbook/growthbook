@@ -17,6 +17,7 @@ import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import Callout from "@/ui/Callout";
 import ExecExperimentImpact from "@/enterprise/components/ExecReports/ExecExperimentImpact";
 import { formatDateForURL, parseDateFromURL } from "@/utils/date";
+import track from "@/services/track";
 import ExperimentSearchFilters from "@/components/Search/ExperimentSearchFilters";
 import Field from "@/components/Forms/Field";
 import ExperimentWinRate from "./ExperimentWinRate";
@@ -56,6 +57,7 @@ export default function ExecReport() {
   );
 
   const { hasCommercialFeature } = useUser();
+  const hasExperimentImpact = hasCommercialFeature("experiment-impact");
 
   const {
     experiments: allExperiments,
@@ -136,6 +138,29 @@ export default function ExecReport() {
   // user's filters (project, owner, tag, metric, etc.) apply here too.
   // ExperimentList filters internally to status === "running".
   const allExpInProject = filteredExperiments;
+  const experimentImpactUnavailableState = loading
+    ? null
+    : items.length === 0
+      ? "no_completed_experiments"
+      : !hasExperimentImpact
+        ? "not_entitled"
+        : null;
+
+  useEffect(() => {
+    if (!experimentImpactUnavailableState) return;
+    track("Experiment Impact Availability Evaluated", {
+      surface: "executive-dashboard",
+      entitled: hasExperimentImpact,
+      state: experimentImpactUnavailableState,
+      ...(selectedMetric ? { metricId: selectedMetric } : {}),
+      experimentCount: items.length,
+    });
+  }, [
+    experimentImpactUnavailableState,
+    hasExperimentImpact,
+    items.length,
+    selectedMetric,
+  ]);
 
   // Update URL query string when state changes
   useEffect(() => {
@@ -308,7 +333,7 @@ export default function ExecReport() {
       </Flex>
       {items.length > 0 ? (
         <>
-          {hasCommercialFeature("experiment-impact") ? (
+          {hasExperimentImpact ? (
             <Box className="appbox" p="4" px="4" mb="4">
               <ExecExperimentImpact
                 allExperiments={items}

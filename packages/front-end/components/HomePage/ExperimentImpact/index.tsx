@@ -28,6 +28,7 @@ import {
   getStandardErrorFromLargestSample,
   jamesSteinAdjustment,
 } from "./JamesSteinAdjustment";
+import { getRelativeEffectTelemetry } from "./telemetry";
 import ExperimentImpactTab from "./ExperimentImpactTab";
 
 export function NoExperimentsForImpactBanner() {
@@ -67,10 +68,14 @@ export function formatImpact(
 export type ExperimentImpactType = "winner" | "loser" | "other";
 type ExperimentWithImpact = {
   experiment: ExperimentInterfaceStringDates;
+  snapshotId?: string;
+  analysisKey?: string;
   variationImpact: {
     scaledImpact: number;
     scaledImpactAdjusted?: number;
     se: number;
+    relativeEffect?: number;
+    relativeEffectStandardError?: number;
     selected: boolean;
   }[];
   type: ExperimentImpactType;
@@ -123,6 +128,8 @@ export function scaleImpactAndSetMissingExperiments({
   summaryObj: ExperimentImpactSummary | null;
   nExpsUsedForAdjustment: number;
   experimentsWithNoImpact: string[];
+  estimatedShrinkageFactor: number;
+  appliedShrinkageFactor: number;
 } {
   // experiments that fit the filter
   const exps = experiments
@@ -166,6 +173,8 @@ export function scaleImpactAndSetMissingExperiments({
     );
 
   let nExpsUsedForAdjustment = 0;
+  let estimatedShrinkageFactor = 0;
+  let appliedShrinkageFactor = 0;
   const experimentsWithNoImpact: string[] = [];
   const experimentImpacts = new Map<string, ExperimentWithImpact>();
   let summaryObj: ExperimentImpactSummary | null = null;
@@ -193,8 +202,15 @@ export function scaleImpactAndSetMissingExperiments({
       };
 
       if (s) {
+        ei.snapshotId = s.id;
         const defaultAnalysis = getSnapshotAnalysis(s);
         const defaultSettings = defaultAnalysis?.settings;
+        const relativeAnalysis = defaultSettings
+          ? getSnapshotAnalysis(s, {
+              ...defaultSettings,
+              differenceType: "relative",
+            })
+          : null;
         const scaledAnalysis = defaultSettings
           ? getSnapshotAnalysis(s, {
               ...defaultSettings,
@@ -203,6 +219,7 @@ export function scaleImpactAndSetMissingExperiments({
           : null;
 
         if (scaledAnalysis && scaledAnalysis.results.length) {
+          ei.analysisKey = scaledAnalysis.analysisKey;
           // count experiments used for James-Stein adjustment
           nExpsUsedForAdjustment += 1;
 
@@ -212,10 +229,13 @@ export function scaleImpactAndSetMissingExperiments({
             if (i !== 0) {
               const se = v?.metrics[metric]?.uplift?.stddev ?? 0;
               const impact = v?.metrics[metric]?.expected ?? 0;
+              const relativeMetric =
+                relativeAnalysis?.results[0]?.variations[i]?.metrics[metric];
               ei.variationImpact.push({
                 scaledImpact: impact,
                 selected: e.winner === i,
                 se: se,
+                ...getRelativeEffectTelemetry(relativeMetric),
               });
 
               allScaledImpacts.push(impact);
@@ -245,6 +265,8 @@ export function scaleImpactAndSetMissingExperiments({
     const adjustment = jamesSteinAdjustment(allScaledImpacts, overallSE ?? 0);
 
     const applyAdjustment = adjusted && nExpsUsedForAdjustment >= 5;
+    estimatedShrinkageFactor = adjustment.adjustment;
+    appliedShrinkageFactor = applyAdjustment ? adjustment.adjustment : 0;
     summaryObj = {
       winners: {
         totalAdjustedImpact: 0,
@@ -327,6 +349,8 @@ export function scaleImpactAndSetMissingExperiments({
     summaryObj,
     nExpsUsedForAdjustment,
     experimentsWithNoImpact,
+    estimatedShrinkageFactor,
+    appliedShrinkageFactor,
   };
 }
 
