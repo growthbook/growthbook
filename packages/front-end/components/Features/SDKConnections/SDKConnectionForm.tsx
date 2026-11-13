@@ -114,7 +114,13 @@ export default function SDKConnectionForm({
   );
   const hasRemoteEvaluationFeature = hasCommercialFeature("remote-evaluation");
   // The server keeps a premium setting that is already on after a downgrade.
+  const keepsEncryption = !!initialValue.encryptPayload;
+  const keepsSecureAttributes = !!initialValue.hashSecureAttributes;
   const keepsRemoteEval = !!initialValue.remoteEvalEnabled;
+  const canEncrypt = hasEncryptionFeature || keepsEncryption;
+  const canHashSecureAttributes =
+    hasSecureAttributesFeature || keepsSecureAttributes;
+  const canRemoteEval = hasRemoteEvaluationFeature || keepsRemoteEval;
 
   const hasLargeSavedGroupFeature = hasCommercialFeature("large-saved-groups");
   const showTraces =
@@ -392,35 +398,28 @@ export default function SDKConnectionForm({
       form.setValue("encryptPayload", false);
       form.setValue("hashSecureAttributes", false);
     } else if (selectedSecurityTab === "ciphered") {
-      const enableEncryption = hasEncryptionFeature;
-      const enableSecureAttributes = hasSecureAttributesFeature;
       form.setValue("remoteEvalEnabled", false);
       if (
         !(form.watch("encryptPayload") || form.watch("hashSecureAttributes"))
       ) {
-        form.setValue("encryptPayload", enableEncryption);
-        form.setValue("hashSecureAttributes", enableSecureAttributes);
+        form.setValue("encryptPayload", canEncrypt);
+        form.setValue("hashSecureAttributes", canHashSecureAttributes);
       }
     } else if (selectedSecurityTab === "remote") {
-      if (!hasRemoteEvaluationFeature) {
-        if (!keepsRemoteEval) form.setValue("remoteEvalEnabled", false);
-        return;
-      }
-      form.setValue("remoteEvalEnabled", true);
+      form.setValue("remoteEvalEnabled", canRemoteEval);
     }
   }, [
     selectedSecurityTab,
     form,
-    hasEncryptionFeature,
-    hasSecureAttributesFeature,
-    hasRemoteEvaluationFeature,
-    keepsRemoteEval,
+    canEncrypt,
+    canHashSecureAttributes,
+    canRemoteEval,
   ]);
 
   const keptSettingNote = (
     <HelperText status="info" size="sm" mt="1">
       Your plan no longer includes this. It stays on for this connection, but
-      you can&apos;t turn it back on after turning it off.
+      you can&apos;t turn it back on after saving with it off.
     </HelperText>
   );
 
@@ -848,10 +847,7 @@ export default function SDKConnectionForm({
                             setValue={(val) =>
                               form.setValue("encryptPayload", val)
                             }
-                            disabled={
-                              !hasEncryptionFeature &&
-                              !form.watch("encryptPayload")
-                            }
+                            disabled={!canEncrypt}
                             label={
                               <PremiumTooltip
                                 commercialFeature="encrypt-features-endpoint"
@@ -883,7 +879,7 @@ export default function SDKConnectionForm({
                             }
                           />
                           {!hasEncryptionFeature &&
-                            form.watch("encryptPayload") &&
+                            keepsEncryption &&
                             keptSettingNote}
                         </Box>
                       )}
@@ -895,10 +891,7 @@ export default function SDKConnectionForm({
                           setValue={(val) =>
                             form.setValue("hashSecureAttributes", val)
                           }
-                          disabled={
-                            !hasSecureAttributesFeature &&
-                            !form.watch("hashSecureAttributes")
-                          }
+                          disabled={!canHashSecureAttributes}
                           label={
                             <PremiumTooltip
                               commercialFeature="hash-secure-attributes"
@@ -931,7 +924,7 @@ export default function SDKConnectionForm({
                           }
                         />
                         {!hasSecureAttributesFeature &&
-                          form.watch("hashSecureAttributes") &&
+                          keepsSecureAttributes &&
                           keptSettingNote}
                       </Box>
                     </Flex>
@@ -1027,8 +1020,7 @@ export default function SDKConnectionForm({
                           if (val) setSelectedSecurityTab("remote");
                         }}
                         disabled={
-                          (!hasRemoteEvaluationFeature &&
-                            !form.watch("remoteEvalEnabled")) ||
+                          !canRemoteEval ||
                           !latestSdkCapabilities.includes("remoteEval")
                         }
                         label={
@@ -1078,7 +1070,7 @@ export default function SDKConnectionForm({
                         }
                       />
                       {!hasRemoteEvaluationFeature &&
-                        form.watch("remoteEvalEnabled") &&
+                        keepsRemoteEval &&
                         keptSettingNote}
                     </Box>
                     {isCloud() && (
