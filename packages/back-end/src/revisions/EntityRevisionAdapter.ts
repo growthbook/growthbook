@@ -215,8 +215,17 @@ export interface EntityRevisionAdapter<
     revision: Revision,
   ): ReviewRequirement;
 
-  /** Whether the current user can bypass the approval requirement. */
-  canBypassApproval(context: Context, snapshot: TSnapshot): boolean;
+  /**
+   * Whether the current user can bypass the approval requirement. Pass the
+   * revision's `proposedChanges` whenever there is one: a change that moves the
+   * entity needs bypass where it lands too, and only the adapter can read a
+   * move out of its own snapshot shape.
+   */
+  canBypassApproval(
+    context: Context,
+    snapshot: TSnapshot,
+    proposedChanges?: unknown,
+  ): boolean;
 
   // Whether a write to an *approved* revision sends it back to pending-review.
   // `before` is the revision as approved and `after` is what the write makes

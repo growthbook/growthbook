@@ -1267,6 +1267,7 @@ export const postApproveAndPublish = async (
     const canBypass = adapter.canBypassApproval(
       context,
       entity as Record<string, unknown>,
+      revision.target.proposedChanges,
     );
     if (!canBypass) {
       const diverged = isRevisionDiverged(

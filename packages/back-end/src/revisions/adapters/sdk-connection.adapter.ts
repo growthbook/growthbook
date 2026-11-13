@@ -14,6 +14,7 @@ import {
   isAutopublishOnApprovalEnabled,
   normalizeProposedChanges,
   sdkConnectionPublishFootprint,
+  sdkConnectionSettingsAfter,
 } from "shared/enterprise";
 import {
   SDKConnectionRevisionSnapshot,
@@ -371,8 +372,20 @@ export const sdkConnectionAdapter: EntityRevisionAdapter<SDKConnectionRevisionSn
     canBypassApproval(
       context: Context,
       snapshot: SDKConnectionRevisionSnapshot,
+      proposedChanges?: unknown,
     ): boolean {
-      return canBypassAcrossProjects(context, snapshot);
+      if (!canBypassAcrossProjects(context, snapshot)) return false;
+      if (proposedChanges === undefined) return true;
+      // A draft that moves the connection needs bypass in the Projects it
+      // moves into, as the direct save paths require.
+      const after = sdkConnectionSettingsAfter(snapshot, proposedChanges);
+      return canBypassAcrossProjects(context, {
+        ...snapshot,
+        sdkConnection: {
+          ...snapshot.sdkConnection,
+          projects: after.projects ?? [],
+        },
+      });
     },
 
     // The defaults resolve the org's toggles by project alone; these honor the

@@ -644,6 +644,38 @@ describe("sdkConnectionAdapter", () => {
       ).toBe(false);
     });
 
+    it("canBypassApproval needs bypass where a draft moves the connection", () => {
+      const sourceOnly = jest.fn(
+        ({ project }: { project: string }) => project === "prj-1",
+      );
+      const ctx = makeContext({
+        permissions: { canBypassSDKConnectionApprovalChecks: sourceOnly },
+      });
+      const live = snapshotWith({ projects: ["prj-1"] });
+      const moveTo = (projects: string[]) => [
+        {
+          op: "replace" as const,
+          path: "/sdkConnection",
+          value: { ...live.sdkConnection, projects },
+        },
+      ];
+      expect(sdkConnectionAdapter.canBypassApproval(ctx, live)).toBe(true);
+      expect(
+        sdkConnectionAdapter.canBypassApproval(ctx, live, moveTo(["prj-2"])),
+      ).toBe(false);
+      expect(
+        sdkConnectionAdapter.canBypassApproval(
+          ctx,
+          live,
+          moveTo(["prj-1", "prj-2"]),
+        ),
+      ).toBe(false);
+      // A draft that leaves the scope alone asks nothing more.
+      expect(
+        sdkConnectionAdapter.canBypassApproval(ctx, live, moveTo(["prj-1"])),
+      ).toBe(true);
+    });
+
     it("canBypassApproval treats no-projects as the empty global project", () => {
       const canBypassSDKConnectionApprovalChecks = jest.fn(() => true);
       const ctx = makeContext({
