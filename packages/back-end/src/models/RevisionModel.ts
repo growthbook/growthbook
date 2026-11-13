@@ -2311,7 +2311,7 @@ export class RevisionModel extends BaseClass {
   // awaiting approval — status "approved" (approval flow) or "draft"
   // (no-approval flow). Used by publishRevision before merging.
   async hasPublishLockingScheduledSibling(
-    target: Revision["target"],
+    target: Pick<Revision["target"], "type" | "id">,
     excludeId: string,
   ): Promise<boolean> {
     const doc = await this._dangerousGetCollection().findOne(

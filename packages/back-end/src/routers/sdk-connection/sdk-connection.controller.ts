@@ -387,11 +387,7 @@ export const putSDKConnection = async (
   // Another draft's "lock other drafts" schedule blocks this landing unless the
   // caller can bypass.
   if (wantsMerge && !canBypass) {
-    await assertNoLockingScheduledDraft(
-      context,
-      baselineSnapshot,
-      connection.id,
-    );
+    await assertNoLockingScheduledDraft(context, connection.id);
   }
 
   const entityWithWebhooks = { ...connection, _webhooks: liveWebhooks };

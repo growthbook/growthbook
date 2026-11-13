@@ -491,6 +491,16 @@ export const sdkConnectionAdapter: EntityRevisionAdapter<SDKConnectionRevisionSn
             return !next || !isEqual(next, old);
           })
           .map((w) => w.id);
+        // A restored webhook whose row now fires only for other connections
+        // would be skipped by the landing as already there.
+        for (const w of webhooks.filter((w) => !baselineIds.has(w.id))) {
+          const row = await context.models.sdkWebhooks.getById(w.id);
+          if (row?.sdks && !row.sdks.includes(entity.sdkConnection.id)) {
+            throw new Error(
+              `The webhook "${w.name}" now belongs to another SDK connection, so this one can't bring it back. Remove it from the draft, or move it back through the API.`,
+            );
+          }
+        }
         // Refused here, before the merge is claimed, not partway through landing.
         webhooks
           .filter((w) => !baselineIds.has(w.id) || touchedIds.includes(w.id))

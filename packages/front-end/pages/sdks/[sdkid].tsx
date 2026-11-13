@@ -44,6 +44,7 @@ import { useSdkConnectionStagedEdits } from "@/components/Features/SDKConnection
 import Tooltip from "@/ui/Tooltip";
 import SDKConnectionEditModal from "@/components/Features/SDKConnections/SDKConnectionEditModal";
 import { canBypassSdkConnectionApproval } from "@/components/Features/SDKConnections/edit-modals/useSdkConnectionRevisionFlow";
+import { withAbsentSettings } from "@/components/Features/SDKConnections/sdkConnectionRules";
 import Badge from "@/ui/Badge";
 import Callout from "@/ui/Callout";
 import { TabsTrigger } from "@/ui/Tabs";
@@ -211,9 +212,14 @@ function buildDisplayedConnection(
     revision.target.snapshot as Record<string, unknown>,
     revision.target.proposedChanges,
   ) as SDKConnectionRevisionSnapshot;
+  const settings = (effective.sdkConnection ?? {}) as Record<string, unknown>;
+  // A setting history left out was off then, whatever live says now. A draft
+  // keeps live's, as publishing it would.
   return overlayFlattenedOnConnection(
     connection,
-    (effective.sdkConnection ?? {}) as Record<string, unknown>,
+    isActiveDraftStatus(revision.status)
+      ? settings
+      : withAbsentSettings(settings),
   );
 }
 

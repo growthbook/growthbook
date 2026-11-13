@@ -67,17 +67,11 @@ export function assertSdkWebhookNotManaged(
 // anyone who can't bypass approval.
 export async function assertNoLockingScheduledDraft(
   context: Context,
-  baseline: SDKConnectionRevisionSnapshot,
   connectionId: string,
 ): Promise<void> {
   if (
     await context.models.revisions.hasPublishLockingScheduledSibling(
-      {
-        type: "sdk-connection",
-        id: connectionId,
-        snapshot: baseline,
-        proposedChanges: [],
-      },
+      { type: "sdk-connection", id: connectionId },
       "",
     )
   ) {

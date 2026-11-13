@@ -66,10 +66,9 @@ export function revisionActionHooks<TSnapshot extends Record<string, unknown>>({
       envsOf ? envsOf(context, snapshot) : NO_ENVIRONMENT_BINDING,
     );
   return {
-    canManageDrafts: (context, snapshot) =>
-      context.permissions.canRevisionAction(model, "draft", {
-        projects: projectsOf(snapshot),
-      }),
+    // Scoped like the rest: an env-scoped draft atom with no environments
+    // would pass for someone limited to other environments.
+    canManageDrafts: (context, snapshot) => scoped("draft", context, snapshot),
     // `environments` is the caller's change-aware footprint; falling back to
     // envsOf keeps callers that cannot compute one working.
     canReview: (context, snapshot, environments) =>

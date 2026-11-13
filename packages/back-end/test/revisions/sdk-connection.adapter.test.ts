@@ -675,6 +675,26 @@ describe("sdkConnectionAdapter", () => {
         revision,
       );
 
+    it("refuses bringing back a webhook that now belongs to another connection", async () => {
+      const ctx = makeContext({ premiumFeatures: ["multiple-sdk-webhooks"] });
+      const restored = { ...baseWebhook, id: "wh-old" };
+      webhooksModel(ctx).getById.mockResolvedValue({
+        id: "wh-old",
+        sdks: ["sdk-2"],
+      });
+      await expect(assert(ctx, { sdkWebhooks: [restored] })).rejects.toThrow(
+        "now belongs to another SDK connection",
+      );
+      // One an earlier attempt at this landing created is fine.
+      webhooksModel(ctx).getById.mockResolvedValue({
+        id: "wh-old",
+        sdks: ["sdk-1"],
+      });
+      await expect(
+        assert(ctx, { sdkWebhooks: [restored] }),
+      ).resolves.toBeUndefined();
+    });
+
     it("makes a draft cut before a scope move rebase, where approvals exist", async () => {
       const moved = {
         ...liveEntity,
@@ -1133,6 +1153,20 @@ describe("sdkConnectionAdapter.archivedState", () => {
         { op: "replace", path: "/sdkWebhooks", value: [] },
       ]),
     ).toEqual({ current: false, proposed: undefined });
+  });
+});
+
+describe("draft authority", () => {
+  it("carries the connection's environment, so other environments' editors don't pass", () => {
+    const canRevisionAction = jest.fn(() => true);
+    const ctx = makeContext({ permissions: { canRevisionAction } });
+    sdkConnectionAdapter.canManageDrafts!(ctx, baseSnapshot);
+    expect(canRevisionAction).toHaveBeenCalledWith(
+      "sdk-connection",
+      "draft",
+      { projects: baseSnapshot.sdkConnection.projects },
+      [baseSnapshot.sdkConnection.environment],
+    );
   });
 });
 

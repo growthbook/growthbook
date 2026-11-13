@@ -121,11 +121,7 @@ export const putSdkConnection = createApiRequestHandler(
   }
 
   if (!canBypass) {
-    await assertNoLockingScheduledDraft(
-      req.context,
-      baseline,
-      sdkConnection.id,
-    );
+    await assertNoLockingScheduledDraft(req.context, sdkConnection.id);
   }
 
   await ensureLiveRevisionExists(req.context, "sdk-connection", liveEntity);

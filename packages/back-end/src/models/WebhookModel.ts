@@ -33,6 +33,7 @@ import {
 import { fireSdkWebhook } from "back-end/src/jobs/sdkWebhooks";
 import {
   assertDirectWriteAllowed,
+  assertNoLockingScheduledDraft,
   assertSdkWebhookFields,
   assertSdkWebhookNotManaged,
   assertSdkWebhookPlanLimit,
@@ -212,6 +213,24 @@ export class SdkWebhookModel extends BaseClass {
     );
   }
 
+  // A draft scheduled to publish with other drafts locked holds direct writes
+  // too, from anyone who couldn't bypass approval.
+  private async assertNotScheduleLocked(
+    conns: SDKConnectionInterface[],
+    bypass?: DirectWriteBypass,
+  ) {
+    if (bypass?.restBypass) return;
+    for (const conn of conns) {
+      if (
+        !this.context.permissions.canBypassSDKConnectionApprovalChecks({
+          projects: conn.projects,
+        })
+      ) {
+        await assertNoLockingScheduledDraft(this.context, conn.id);
+      }
+    }
+  }
+
   // The direct writes a person or key makes, shared by the app and REST.
   // Status and integration writes use the base methods. `bypass` is REST's way
   // past an approval rule; the app changes a gated connection's webhooks in a
@@ -227,6 +246,7 @@ export class SdkWebhookModel extends BaseClass {
       context.permissions.throwPermissionError();
     }
     const bypassedGates = assertDirectWriteAllowed(context, [conn], bypass);
+    await this.assertNotScheduleLocked([conn], bypass);
     assertSdkWebhookNotManaged(null, props.payloadFormat);
     await assertSdkWebhookPlanLimit(context, 1);
 
@@ -257,6 +277,7 @@ export class SdkWebhookModel extends BaseClass {
       [...conns, ...(await assertCanUseSDKConnections(context, added, can))],
       bypass,
     );
+    await this.assertNotScheduleLocked(conns, bypass);
     // Stale ids may round-trip, but a narrowed list must keep a live connection
     if (
       sdks &&
@@ -285,6 +306,7 @@ export class SdkWebhookModel extends BaseClass {
       { allowOrphan: true },
     );
     const bypassedGates = assertDirectWriteAllowed(context, conns, bypass);
+    await this.assertNotScheduleLocked(conns, bypass);
     assertSdkWebhookNotManaged(webhook);
     await this.delete(webhook);
     await touchSDKConnections(context, webhook.sdks);
