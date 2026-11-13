@@ -32,6 +32,29 @@ import Link from "@/ui/Link";
 import Text from "@/ui/Text";
 import Callout from "@/ui/Callout";
 
+// In a Text, since a field's own help text is a size smaller.
+function endpointHelp(method: string) {
+  return (
+    <Text color="text-mid">
+      Must accept <code>{method}</code> requests
+      {isCloud() ? (
+        <>
+          {" "}
+          from <code>{CLOUD_EGRESS_IP}</code>
+        </>
+      ) : null}
+      . Supports <DocLink docSection="webhookSecrets">webhook secrets</DocLink>.
+    </Text>
+  );
+}
+
+const EDGE_CONFIG_KEY_HELP = (
+  <Text color="text-mid">
+    The name of the key you want to update within your Edge Config. Defaults to{" "}
+    <code>gb_payload</code>.
+  </Text>
+);
+
 const PAYLOAD_FORMAT_LABEL = (
   <Flex as="span" display="inline-flex" align="center" gap="1">
     Payload format
@@ -400,24 +423,7 @@ export function CreateSDKWebhookModal({
                 label="Endpoint URL"
                 placeholder="https://example.com"
                 {...form.register("endpoint")}
-                helpText={
-                  <>
-                    Must accept <code>{form.watch("httpMethod")}</code> requests
-                    {isCloud() ? (
-                      <>
-                        {" "}
-                        from <code>{CLOUD_EGRESS_IP}</code>
-                      </>
-                    ) : (
-                      ""
-                    )}
-                    . Supports{" "}
-                    <DocLink docSection="webhookSecrets">
-                      webhook secrets
-                    </DocLink>
-                    .
-                  </>
-                }
+                helpText={endpointHelp(form.watch("httpMethod"))}
                 key="http_endpoint_url"
               />
               {form.watch("endpoint").match(/localhost/) && (
@@ -486,12 +492,7 @@ export function CreateSDKWebhookModal({
                       label="Edge Config key"
                       placeholder="gb_payload"
                       {...form.register("key")}
-                      helpText={
-                        <>
-                          The name of the key you want to update within your
-                          Edge Config. Defaults to <code>gb_payload</code>.
-                        </>
-                      }
+                      helpText={EDGE_CONFIG_KEY_HELP}
                       key="http_payload_key"
                     />
                   )}
@@ -619,20 +620,7 @@ const EditSDKWebhooksModal: FC<{
           label="Endpoint URL"
           placeholder="https://example.com"
           {...form.register("endpoint")}
-          helpText={
-            <>
-              Must accept <code>{form.watch("httpMethod")}</code> requests
-              {isCloud() ? (
-                <>
-                  {" "}
-                  from <code>{CLOUD_EGRESS_IP}</code>
-                </>
-              ) : (
-                ""
-              )}
-              .
-            </>
-          }
+          helpText={endpointHelp(form.watch("httpMethod"))}
         />
         {form.watch("endpoint").match(/localhost/) && (
           <Callout status="error">
@@ -703,12 +691,7 @@ const EditSDKWebhooksModal: FC<{
                 label="Edge Config key"
                 placeholder="gb_payload"
                 {...form.register("payloadKey")}
-                helpText={
-                  <>
-                    The name of the key you want to update within your Edge
-                    Config. Defaults to <code>gb_payload</code>.
-                  </>
-                }
+                helpText={EDGE_CONFIG_KEY_HELP}
               />
             )}
           </>
