@@ -18,6 +18,8 @@ import {
   PreLaunchChecklistPanel,
 } from "@/components/PreLaunchChecklist/PreLaunchChecklist";
 import { usePreLaunchChecklist } from "@/components/PreLaunchChecklist/PreLaunchChecklistProvider";
+import useExperimentQaOverrides from "@/hooks/useExperimentQaOverrides";
+import { qaOverridesCountLabel } from "@/components/Experiment/QaOverrides/QaOverridesStartNote";
 import { StartExperiment } from "./useStartExperiment";
 import useStartGate from "./useStartGate";
 import { getStartTitle } from "./startActions";
@@ -126,6 +128,11 @@ function StartContent({
     setBypassed(false);
   }
   const editsBlocked = useEditsBlockedReason();
+  // Only drafts can have QA overrides; starting deletes them.
+  const { data: qaData } = useExperimentQaOverrides(
+    experiment.status === "draft" ? experiment.id : undefined,
+  );
+  const qaOverrideCount = qaData?.overrides.length ?? 0;
   const end = scheduledEnd(experiment.statusUpdateSchedule);
   const [error, setError] = useState<string | null>(null);
 
@@ -265,7 +272,13 @@ function StartContent({
             {error}
           </Callout>
         ) : null}
-        <Flex justify="end" align="center" gap="3">
+        <Flex justify="between" align="center" gap="3">
+          {/* Starting ends QA: the overrides go with the draft. */}
+          <Text size="sm" color="text-mid">
+            {qaOverrideCount > 0
+              ? `Deletes ${qaOverridesCountLabel(qaOverrideCount)}`
+              : ""}
+          </Text>
           <Tooltip content={blockedReason} enabled={!!blockedReason}>
             <Button
               onClick={async () => {

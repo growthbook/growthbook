@@ -86,6 +86,8 @@ export * from "./population-data";
 export * from "./population";
 export * from "./presentation-theme";
 export * from "./url-redirects";
+export * from "./qa-overrides";
+export * from "./experiment-qa-overrides";
 export * from "./sdk-connection-cache";
 export * from "./session-replay";
 export * from "./metric-group";

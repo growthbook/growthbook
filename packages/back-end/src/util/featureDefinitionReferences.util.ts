@@ -15,6 +15,8 @@ export type FeatureDefinitionSources = {
   bandits?: Iterable<TargetingSource>;
   // Interleavings target their `$interleave:` pseudo flag.
   interleavings?: Iterable<TargetingSource>;
+  // QA override filters (`override.filters`) narrow a draft's QA rule.
+  qaOverrides?: Iterable<TargetingSource>;
 };
 
 export type TargetingSource = {
@@ -94,6 +96,9 @@ export function getSavedGroupIdsForFeatureDefinitions(
     }
   }
   getSavedGroupIdsInTargeting(sources.bandits ?? []).forEach((id) =>
+    ids.add(id),
+  );
+  getSavedGroupIdsInTargeting(sources.qaOverrides ?? []).forEach((id) =>
     ids.add(id),
   );
   getSavedGroupIdsInTargeting(sources.interleavings ?? []).forEach((id) =>

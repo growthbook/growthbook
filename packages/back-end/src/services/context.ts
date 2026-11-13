@@ -58,6 +58,7 @@ import { insertAudit } from "back-end/src/models/AuditModel";
 import { logger } from "back-end/src/util/logger";
 import { encodeArmingApiKeyId } from "back-end/src/util/armingApiKeyId";
 import { UrlRedirectModel } from "back-end/src/models/UrlRedirectModel";
+import { ExperimentQaOverrideModel } from "back-end/src/models/ExperimentQaOverrideModel";
 import { getExperimentsByIds } from "back-end/src/models/ExperimentModel";
 import {
   dangerouslyGetDataSourceByIdBypassPermission,
@@ -141,6 +142,7 @@ export type ModelName =
   | "featureRevisionLogs"
   | "projects"
   | "urlRedirects"
+  | "experimentQaOverrides"
   | "metricAnalysis"
   | "populationData"
   | "populations"
@@ -209,6 +211,7 @@ export const modelClasses = {
   featureRevisionLogs: FeatureRevisionLogModel,
   projects: ProjectModel,
   urlRedirects: UrlRedirectModel,
+  experimentQaOverrides: ExperimentQaOverrideModel,
   metricAnalysis: MetricAnalysisModel,
   populationData: PopulationDataModel,
   populations: PopulationModel,
@@ -400,6 +403,7 @@ export class ReqContextClass {
       featureRevisionLogs: new FeatureRevisionLogModel(this),
       projects: new ProjectModel(this),
       urlRedirects: new UrlRedirectModel(this),
+      experimentQaOverrides: new ExperimentQaOverrideModel(this),
       metricAnalysis: new MetricAnalysisModel(this),
       populationData: new PopulationDataModel(this),
       populations: new PopulationModel(this),

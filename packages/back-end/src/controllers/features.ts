@@ -557,6 +557,7 @@ export type SDKPayloadParams = Pick<
   Partial<Pick<SDKConnectionInterface, "organization">> & {
     // Extend languages to allow "legacy" for old API keys
     languages: SDKLanguage[] | ["legacy"];
+    sdkConnectionId?: string;
   };
 
 export async function getPayloadParamsFromApiKey(
@@ -589,6 +590,7 @@ export async function getPayloadParamsFromApiKey(
 
     return {
       key: connection.key,
+      sdkConnectionId: connection.id,
       organization: connection.organization,
       environment: connection.environment,
       projects: connection.projects,
@@ -734,6 +736,11 @@ export async function getFeatureDefinitionsWithCache({
       // it, so filtering here too would only make the two disagree.
       savedGroupFormat: params.savedGroupFormat,
       includeReferencedPrerequisites: params.includeReferencedPrerequisites,
+      // Callers pass either the params built by getPayloadParamsFromApiKey
+      // or a full SDKConnectionInterface (proxy updates, SDK webhooks).
+      sdkConnectionId:
+        params.sdkConnectionId ??
+        (params as Partial<SDKConnectionInterface>).id,
     });
 
     // Write back to cache to populate it for future reads (fire and forget)

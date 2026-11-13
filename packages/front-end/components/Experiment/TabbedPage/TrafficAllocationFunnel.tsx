@@ -85,6 +85,8 @@ export interface Props {
   canEditFlagValues: boolean;
   implementationColumns: ImplementationColumn[];
   addImplementation: ReactNode;
+  /** The QA Overrides card, at the bottom of the panel on drafts. */
+  qaOverrides?: ReactNode;
   canEditExperiment: boolean;
   safeToEdit: boolean;
   /** Targeting confirmed in a modal but not yet written. */
@@ -233,6 +235,7 @@ export default function TrafficAllocationFunnel({
   canEditFlagValues,
   implementationColumns,
   addImplementation,
+  qaOverrides,
   canEditExperiment,
   safeToEdit,
   targetingDraft,
@@ -608,34 +611,37 @@ export default function TrafficAllocationFunnel({
           />
         ) : null}
 
-        <VariationValuesTable
-          experiment={experiment}
-          linkedFeatures={linkedFeatures}
-          canEditFlagValues={canEditFlagValues}
-          flagEnvironments={flagEnvironments}
-          draftPicks={draftPicks}
-          split={variationWeights}
-          onChangeSplit={
-            editDeliveryInline && !isBandit
-              ? (weights) => stagePatch({ variationWeights: weights })
-              : null
-          }
-          splitNote={isBandit ? "Managed by Bandit" : null}
-          onEditKeys={
-            canEditExperiment && !variationsLocked
-              ? editVariationKeys
-              : undefined
-          }
-          onRemoveVariation={
-            canRestructure && numVariations > 2 ? removeVariation : undefined
-          }
-          onReorder={canRestructure ? () => setReordering(true) : undefined}
-          onAddVariation={
-            canStageVariations && canAddVariation ? addVariation : undefined
-          }
-          implementationColumns={implementationColumns}
-          addImplementation={addImplementation}
-        />
+        <Box className={styles.tableColumn}>
+          <VariationValuesTable
+            experiment={experiment}
+            linkedFeatures={linkedFeatures}
+            canEditFlagValues={canEditFlagValues}
+            flagEnvironments={flagEnvironments}
+            draftPicks={draftPicks}
+            split={variationWeights}
+            onChangeSplit={
+              editDeliveryInline && !isBandit
+                ? (weights) => stagePatch({ variationWeights: weights })
+                : null
+            }
+            splitNote={isBandit ? "Managed by Bandit" : null}
+            onEditKeys={
+              canEditExperiment && !variationsLocked
+                ? editVariationKeys
+                : undefined
+            }
+            onRemoveVariation={
+              canRestructure && numVariations > 2 ? removeVariation : undefined
+            }
+            onReorder={canRestructure ? () => setReordering(true) : undefined}
+            onAddVariation={
+              canStageVariations && canAddVariation ? addVariation : undefined
+            }
+            implementationColumns={implementationColumns}
+            addImplementation={addImplementation}
+          />
+          {qaOverrides}
+        </Box>
       </Flex>
     </Frame>
   );

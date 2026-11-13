@@ -123,7 +123,9 @@ describe("environments API", () => {
   });
 
   it("can delete environments", async () => {
+    const deleteByEnvironment = jest.fn().mockResolvedValue([]);
     setReqContext({
+      models: { experimentQaOverrides: { deleteByEnvironment } },
       org: {
         id: "org1",
         settings: {
@@ -154,6 +156,9 @@ describe("environments API", () => {
     expect(response.body).toEqual({ deletedId: "env1" });
     expect(updateOrganization).toHaveBeenCalledWith("org1", {
       settings: { environments: [{ id: "env2" }] },
+    });
+    expect(deleteByEnvironment).toHaveBeenCalledWith("env1", {
+      skipSDKRefresh: true,
     });
     expect(removeEnvironmentFromSlackIntegration).toHaveBeenCalledWith({
       organizationId: "org1",

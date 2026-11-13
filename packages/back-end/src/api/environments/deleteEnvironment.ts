@@ -33,7 +33,7 @@ export const deleteEnvironment = createApiRequestHandler(
   };
 
   await updateOrganization(org.id, updates);
-  await cleanupDeletedEnvironment(org.id, id);
+  await cleanupDeletedEnvironment(req.context, id);
 
   await req.audit({
     event: "environment.delete",

@@ -1,7 +1,11 @@
 import type { Response } from "express";
 import { z } from "zod";
 import { isEqual } from "lodash";
-import { DEFAULT_ENVIRONMENT_IDS, withIsProduction } from "shared/util";
+import {
+  DEFAULT_ENVIRONMENT_IDS,
+  isProductionEnvironment,
+  withIsProduction,
+} from "shared/util";
 import { EventUserForResponseLocals } from "shared/types/events/event-types";
 import { Environment } from "shared/types/organization";
 import {
@@ -31,6 +35,18 @@ import {
   assertEnvironmentDeletable,
   cleanupDeletedEnvironment,
 } from "back-end/src/services/environments";
+
+// QA overrides only serve non-production environments, so flipping one to
+// production clears them (the model refreshes the environment's payloads).
+async function clearQaOverridesIfNowProduction(
+  context: ReturnType<typeof getContextFromReq>,
+  previous: Environment,
+  updated: Environment,
+) {
+  if (!isProductionEnvironment(previous) && isProductionEnvironment(updated)) {
+    await context.models.experimentQaOverrides.deleteByEnvironment(updated.id);
+  }
+}
 
 type UpdateEnvOrderProps = z.infer<typeof updateEnvOrderValidator>;
 
@@ -144,6 +160,13 @@ export const putEnvironments = async (
       },
     });
 
+    for (const updated of updatedEnvironments) {
+      const previous = existingEnvs.find((e) => e.id === updated.id);
+      if (previous) {
+        await clearQaOverridesIfNowProduction(context, previous, updated);
+      }
+    }
+
     await req.audit({
       event: "environment.update",
       entity: {
@@ -206,6 +229,12 @@ export const putEnvironment = async (
         environments: updatedEnvs,
       },
     });
+
+    await clearQaOverridesIfNowProduction(
+      context,
+      envsArr[existingEnvIndex],
+      updatedEnv,
+    );
 
     if (environment.projects) {
       const existingProjects = envsArr[existingEnvIndex].projects || [];
@@ -357,7 +386,7 @@ export const deleteEnvironment = async (
         environments: existingEnvs.filter((env) => env.id !== id),
       },
     });
-    await cleanupDeletedEnvironment(org.id, id);
+    await cleanupDeletedEnvironment(context, id);
 
     await req.audit({
       event: "environment.delete",
