@@ -23,7 +23,7 @@ interface Props
   stats: SnapshotMetric;
   rowResults: Pick<
     RowResults,
-    "directionalStatus" | "enoughData" | "hasScaledImpact"
+    "directionalStatus" | "enoughData" | "scaledImpactEligible"
   >;
   statsEngine: StatsEngine;
   showPlusMinus?: boolean;
@@ -70,7 +70,7 @@ export default function ChangeColumn({
     ...(differenceType === "relative" ? { maximumFractionDigits: 1 } : {}),
     ...(differenceType === "scaled" ? { notation: "compact" } : {}),
   };
-  if (!rowResults.hasScaledImpact && differenceType === "scaled") {
+  if (!rowResults.scaledImpactEligible && differenceType === "scaled") {
     return null;
   }
 

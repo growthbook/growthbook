@@ -1232,6 +1232,33 @@ export function isSubUnitClusterMetric(
   );
 }
 
+const CLUSTER_EXPERIMENT_ALLOWED_METRIC_TYPES = [
+  "proportion",
+  "compound",
+  "retention",
+  "mean",
+  "ratio",
+] as const;
+
+const SCALABLE_CLUSTER_SUBUNIT_METRIC_TYPES =
+  CLUSTER_EXPERIMENT_ALLOWED_METRIC_TYPES.filter((type) => type !== "ratio");
+
+export function isScalableClusterSubUnitMetric(
+  m: ExperimentMetricDefinition,
+  settings: Pick<
+    ExperimentSnapshotSettings,
+    "isClusterExperiment" | "clusterSubUnitIdentifier" | "clusterLevelMetricIds"
+  >,
+): boolean {
+  return (
+    isSubUnitClusterMetric(m, settings) &&
+    isFactMetric(m) &&
+    (SCALABLE_CLUSTER_SUBUNIT_METRIC_TYPES as readonly string[]).includes(
+      m.metricType,
+    )
+  );
+}
+
 export type ClusterMetricAnalysisLevel = "subunit" | "cluster";
 
 // Aggregations that collapse to a single scalar per sub-unit, so the rollup can
@@ -1298,14 +1325,6 @@ export function quantileMetricType(
   }
   return "";
 }
-
-const CLUSTER_EXPERIMENT_ALLOWED_METRIC_TYPES = [
-  "proportion",
-  "compound",
-  "retention",
-  "mean",
-  "ratio",
-] as const;
 
 // Picker labels for the types that reach the unsupported-type message.
 const UNSUPPORTED_CLUSTER_METRIC_TYPE_NAMES: Record<string, string> = {

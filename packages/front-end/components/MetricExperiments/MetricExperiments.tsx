@@ -358,7 +358,7 @@ function MetricExperimentResultTab({
             rowResults={{
               enoughData: true,
               directionalStatus: e.directionalStatus ?? "losing",
-              hasScaledImpact: true,
+              scaledImpactEligible: true,
               significant: e.significant ?? false,
               resultsStatus:
                 (e.resultsStatus as RowResults["resultsStatus"]) ?? "",
