@@ -237,7 +237,7 @@ import {
   getFeature,
   getFeaturesByIds,
 } from "back-end/src/models/FeatureModel";
-import { findSDKConnectionsByOrganization } from "back-end/src/models/SdkConnectionModel";
+import { findServingSDKConnections } from "back-end/src/models/SdkConnectionModel";
 import {
   getRevision,
   getActiveDraftMetadataByFeatureIds,
@@ -6265,7 +6265,7 @@ export async function getLinkedChangeEnvironmentStates(
   urlRedirectEnvStates: LinkedChangeEnvStates;
 }> {
   const environments = getEnvironmentIdsFromOrg(context.org);
-  const connections = await findSDKConnectionsByOrganization(context);
+  const connections = await findServingSDKConnections(context);
 
   const visualChangesetEnvStates: Record<string, LinkedChangeEnvState> = {};
   const urlRedirectEnvStates: Record<string, LinkedChangeEnvState> = {};

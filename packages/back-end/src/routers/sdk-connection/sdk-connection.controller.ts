@@ -51,6 +51,7 @@ import {
   assertDirectWriteAllowed,
   assertNoLockingScheduledDraft,
   sdkConnectionReviewRules,
+  isSdkConnectionGated,
 } from "back-end/src/services/sdkConnectionApprovals";
 import {
   createOrUpdateRevision,
@@ -535,7 +536,11 @@ export const checkSDKConnectionProxyStatus = async (
     context.permissions.throwPermissionError();
   }
 
-  const result = await testProxyConnection(context, connection, true);
+  // Under an approval rule the proxy switch changes through a draft, and an
+  // archived connection serves nothing to switch on.
+  const reenable =
+    !connection.archived && !isSdkConnectionGated(context, connection);
+  const result = await testProxyConnection(context, connection, true, reenable);
 
   res.status(200).json({
     status: 200,

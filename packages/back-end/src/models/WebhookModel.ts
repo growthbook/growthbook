@@ -271,13 +271,14 @@ export class SdkWebhookModel extends BaseClass {
 
     const sdks = sent && uniq(sent);
     const added = (sdks ?? []).filter((id) => !webhook.sdks.includes(id));
-    // Attaching it to a connection under approval is a change to that one too.
-    const bypassedGates = assertDirectWriteAllowed(
-      context,
-      [...conns, ...(await assertCanUseSDKConnections(context, added, can))],
-      bypass,
-    );
-    await this.assertNotScheduleLocked(conns, bypass);
+    // Attaching it to a connection is a change to that one too: its approval
+    // rule and its scheduled-publish lock both apply.
+    const affected = [
+      ...conns,
+      ...(await assertCanUseSDKConnections(context, added, can)),
+    ];
+    const bypassedGates = assertDirectWriteAllowed(context, affected, bypass);
+    await this.assertNotScheduleLocked(affected, bypass);
     // Stale ids may round-trip, but a narrowed list must keep a live connection
     if (
       sdks &&
