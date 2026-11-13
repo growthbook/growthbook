@@ -22,8 +22,6 @@ export function configSettingsTitle(connection: SDKConnectionInterface) {
   return `${mapping ? mapping.docLabel || mapping.label : "SDK"} Config Settings`;
 }
 
-// The values an SDK is configured with, as the implementation instructions
-// list them.
 // A value and what goes with it. In a flex row, not a line of text, so it
 // shares the label's baseline exactly.
 function Value({ children }: { children: ReactNode }) {
@@ -34,6 +32,8 @@ function Value({ children }: { children: ReactNode }) {
   );
 }
 
+// The values an SDK is configured with, as the implementation instructions
+// list them.
 export default function SDKConnectionCredentialsCard({
   connection,
   canUpdate = false,

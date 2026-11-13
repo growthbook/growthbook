@@ -80,7 +80,9 @@ export default function SDKConnectionOverview({
   const customFields = useCustomFields();
   const settings = useOrgSettings();
   const showTraces = useShowTraces(connection);
-  const { shown, stage } = staged;
+  const { stage } = staged;
+  // Staged edits only show where they can still be saved.
+  const shown = canEdit ? staged.shown : staged.saved;
   // Unsaved: what the staged edits change from the viewed draft or live.
   const changed = (...keys: (keyof SDKConnectionFormValue)[]) =>
     keys.some((k) => !isEqual(shown[k], staged.saved[k]));

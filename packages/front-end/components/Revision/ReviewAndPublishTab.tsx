@@ -1280,7 +1280,10 @@ function ReviewAndPublishRevision<T>({
 
   // ── Read-only actions column (merged / discarded) ──
   const readonlyActionsColumn = (
-    <Box className="appbox" style={{ overflow: "hidden" }}>
+    <Box
+      className="appbox"
+      style={{ position: "sticky", top: 90, overflow: "hidden" }}
+    >
       {actionsColumnHeader}
       <Box p="4">
         {peopleSection}
@@ -1384,7 +1387,10 @@ function ReviewAndPublishRevision<T>({
 
   // ── Active-draft actions column ──
   const draftActionsColumn = (
-    <Box className="appbox" style={{ overflow: "hidden" }}>
+    <Box
+      className="appbox"
+      style={{ position: "sticky", top: 90, overflow: "hidden" }}
+    >
       {actionsColumnHeader}
       <Box p="4">
         {peopleSection}

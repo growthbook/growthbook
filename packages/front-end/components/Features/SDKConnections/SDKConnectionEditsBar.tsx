@@ -12,7 +12,7 @@ import { revisionLabelText } from "@/components/Reviews/RevisionLabel";
 import SelectField from "@/components/Forms/SelectField";
 import {
   changedKeys,
-  useSDKConnectionBody,
+  sdkConnectionBody,
 } from "@/components/Features/SDKConnections/SDKConnectionEditModal";
 import {
   isDraftRevision,
@@ -49,7 +49,6 @@ export default function SDKConnectionEditsBar({
   mutate: () => Promise<unknown>;
 }) {
   const { apiCall } = useAuth();
-  const bodyFor = useSDKConnectionBody();
   const numbers = getRevisionNumberById(allRevisions);
   // Newest first, as the revision selector lists them.
   const drafts = openRevisions
@@ -66,8 +65,8 @@ export default function SDKConnectionEditsBar({
   const [error, setError] = useState<string | null>(null);
 
   const save = async () => {
-    const body = bodyFor(staged.shown);
-    const keys = changedKeys(bodyFor(staged.saved), body);
+    const body = sdkConnectionBody(staged.shown);
+    const keys = changedKeys(sdkConnectionBody(staged.saved), body);
     if (!keys.length) {
       staged.clear();
       return;
@@ -93,6 +92,9 @@ export default function SDKConnectionEditsBar({
         onSelectRevision,
         mutate,
       });
+      // A save the server finds unchanged returns no revision.
+      staged.clear();
+      setOpen(false);
     } catch (e) {
       setError(e instanceof Error ? e.message : "The changes weren't saved.");
     } finally {

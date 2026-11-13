@@ -17,7 +17,6 @@ import {
   SdkConnectionRevisionProps,
   useSdkConnectionRevisionFlow,
 } from "@/components/Features/SDKConnections/edit-modals/useSdkConnectionRevisionFlow";
-import { useUser } from "@/services/UserContext";
 
 export type SDKConnectionFormValue = SDKConnectionFieldsValue &
   SDKConnectionAdvancedValue;
@@ -39,42 +38,42 @@ export function valueFromConnection(
   };
 }
 
-// What a form value saves as, gated as the server gates it.
-export function useSDKConnectionBody() {
-  const { hasCommercialFeature } = useUser();
-  return (v: SDKConnectionFormValue): Record<string, unknown> => {
-    const caps = { languages: v.languages, sdkVersion: v.sdkVersion };
-    const latestCapabilities = getConnectionSDKCapabilities(
-      caps,
-      "max-ver-intersection",
-    );
-    const currentCapabilities = getConnectionSDKCapabilities(
-      caps,
-      "min-ver-intersection",
-    );
-    // An SDK that can't read a secured payload gets a plain one, whatever
-    // was chosen before it was picked.
-    const plain =
-      v.delivery === "plain" || !shouldShowPayloadSecurity(v.languages);
-    return {
-      name: v.name,
-      languages: v.languages,
-      sdkVersion: v.sdkVersion,
-      environment: v.environment,
-      projects: v.projects,
-      includeReferencedPrerequisites: v.includeReferencedPrerequisites,
-      encryptPayload: plain ? false : v.encryptPayload,
-      hashSecureAttributes: plain ? false : v.hashSecureAttributes,
-      remoteEvalEnabled:
-        !plain &&
-        v.delivery === "remote" &&
-        latestCapabilities.includes("remoteEval") &&
-        hasCommercialFeature("remote-evaluation"),
-      ...sanitizeAdvancedForSave(v, {
-        latestCapabilities,
-        currentCapabilities,
-      }),
-    };
+// What a form value saves as.
+export function sdkConnectionBody(
+  v: SDKConnectionFormValue,
+): Record<string, unknown> {
+  const caps = { languages: v.languages, sdkVersion: v.sdkVersion };
+  const latestCapabilities = getConnectionSDKCapabilities(
+    caps,
+    "max-ver-intersection",
+  );
+  const currentCapabilities = getConnectionSDKCapabilities(
+    caps,
+    "min-ver-intersection",
+  );
+  // An SDK that can't read a secured payload gets a plain one, whatever
+  // was chosen before it was picked.
+  const plain =
+    v.delivery === "plain" || !shouldShowPayloadSecurity(v.languages);
+  return {
+    name: v.name,
+    languages: v.languages,
+    sdkVersion: v.sdkVersion,
+    environment: v.environment,
+    projects: v.projects,
+    includeReferencedPrerequisites: v.includeReferencedPrerequisites,
+    encryptPayload: plain ? false : v.encryptPayload,
+    hashSecureAttributes: plain ? false : v.hashSecureAttributes,
+    // The server refuses turning it on without the plan; turning it off
+    // must still go through after the plan lapses.
+    remoteEvalEnabled:
+      !plain &&
+      v.delivery === "remote" &&
+      latestCapabilities.includes("remoteEval"),
+    ...sanitizeAdvancedForSave(v, {
+      latestCapabilities,
+      currentCapabilities,
+    }),
   };
 }
 

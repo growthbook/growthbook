@@ -102,9 +102,7 @@ export default function SdkWebhooks({
   const permissionsUtil = usePermissionsUtil();
   const { hasCommercialFeature } = useUser();
 
-  const canCreateWebhooks = permissionsUtil.canCreateSDKWebhook(connection);
-  const canUpdateWebhook = permissionsUtil.canUpdateSDKWebhook(connection);
-  const canDeleteWebhook = permissionsUtil.canDeleteSDKWebhook(connection);
+  const canTestWebhook = permissionsUtil.canUpdateSDKWebhook(connection);
 
   const selectedDraft = isDraftRevision(selectedRevision)
     ? selectedRevision
@@ -117,6 +115,14 @@ export default function SdkWebhooks({
   const viewedRevision = selectedDraft ?? pastRevision;
   // Writing straight to live while viewing a draft would diverge from it.
   const useRevisionFlow = !!approvalRequired || !!selectedDraft;
+  // A draft change is a connection change too.
+  const canEditDraft =
+    !useRevisionFlow || permissionsUtil.canUpdateSDKConnection(connection, {});
+  const canCreateWebhooks =
+    canEditDraft && permissionsUtil.canCreateSDKWebhook(connection);
+  const canUpdateWebhook = canEditDraft && canTestWebhook;
+  const canDeleteWebhook =
+    canEditDraft && permissionsUtil.canDeleteSDKWebhook(connection);
 
   const liveWebhooks = data?.webhooks ?? [];
   const liveById = new Map(liveWebhooks.map((wh) => [wh.id, wh]));
@@ -190,7 +196,6 @@ export default function SdkWebhooks({
   // One the draft removes no longer counts toward the plan's limit.
   const keepsWebhook = rows.some((row) => row.staged !== "removed");
   const disableWebhookCreate =
-    !canCreateWebhooks ||
     !!pastRevision ||
     (keepsWebhook && !hasCommercialFeature("multiple-sdk-webhooks"));
 
@@ -408,7 +413,8 @@ export default function SdkWebhooks({
             {/* Only what the draft holds can change in it. */}
             {!pastRevision &&
             (!draftWebhookSnapshots || draftIds.has(snapshot.id)) &&
-            (live || !managedBy) ? (
+            ((live && canTestWebhook) ||
+              (!managedBy && (canUpdateWebhook || canDeleteWebhook))) ? (
               <DropdownMenu
                 trigger={
                   <MoreMenuTrigger
@@ -419,9 +425,8 @@ export default function SdkWebhooks({
                 }
                 menuPlacement="end"
               >
-                {live ? (
+                {live && canTestWebhook ? (
                   <DropdownMenuItem
-                    disabled={!canUpdateWebhook}
                     onClick={async () => {
                       await apiCall(`/sdk-webhooks/${live.id}/test`, {
                         method: "post",

@@ -239,14 +239,17 @@ export const putSDKConnection = async (
     }
     proposed.encryptPayload = encryptPayload;
   }
+  // Only turning these on needs the plan; a lapsed plan keeps what's on.
   if (
-    req.body.hashSecureAttributes !== undefined &&
+    req.body.hashSecureAttributes === true &&
+    !connection.hashSecureAttributes &&
     !orgHasPremiumFeature(org, "hash-secure-attributes")
   ) {
     proposed.hashSecureAttributes = false;
   }
   if (
-    req.body.remoteEvalEnabled !== undefined &&
+    req.body.remoteEvalEnabled === true &&
+    !connection.remoteEvalEnabled &&
     !orgHasPremiumFeature(org, "remote-evaluation")
   ) {
     proposed.remoteEvalEnabled = false;

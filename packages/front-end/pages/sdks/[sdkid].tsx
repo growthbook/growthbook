@@ -251,7 +251,7 @@ export default function SDKConnectionPage() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
   useEffect(() => {
-    const hash = new URL(router.asPath, "http://x").hash.slice(1);
+    const hash = new URL(router.asPath, "http://x").hash.slice(1).split(",")[0];
     const next = SDK_CONNECTION_TABS.find((t) => t === hash);
     if (next) setTab(next);
   }, [router.asPath]);
@@ -792,10 +792,13 @@ export default function SDKConnectionPage() {
                 diffConfig={REVISION_SDK_CONNECTION_DIFF_CONFIG}
                 entityNoun="SDK Connection"
                 requiresApproval={selectedRevisionRequiresApproval}
-                canDiscard={canUpdate || selectedRevision?.authorId === userId}
+                canDiscard={
+                  !staged.dirty &&
+                  (canUpdate || selectedRevision?.authorId === userId)
+                }
                 onSelectRevision={selectFlow}
                 onReviewPublish={() => setTabAndScroll("review")}
-                onPublish={canUpdate ? handlePublish : null}
+                onPublish={canUpdate && !staged.dirty ? handlePublish : null}
                 onDiscard={handleDiscard}
               />
             </div>

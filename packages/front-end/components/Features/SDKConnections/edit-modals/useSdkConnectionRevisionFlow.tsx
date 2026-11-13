@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Revision, getSdkConnectionGoverningRules } from "shared/enterprise";
 import { SDKConnectionInterface } from "shared/types/sdk-connection";
 import { draftValuesEqual } from "shared/util";
+import { isActiveDraftStatus } from "shared/validators";
 import { DraftMode } from "@/components/DraftSelector";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
@@ -24,18 +25,11 @@ export type SdkConnectionScope = {
   environment?: string;
 };
 
-const DRAFT_STATUSES: ReadonlySet<Revision["status"]> = new Set([
-  "draft",
-  "pending-review",
-  "changes-requested",
-  "approved",
-]);
-
 // Merged/discarded revisions are viewable but never sent as `revisionId`.
 export function isDraftRevision(
   revision: Revision | null | undefined,
 ): revision is Revision {
-  return !!revision && DRAFT_STATUSES.has(revision.status);
+  return !!revision && isActiveDraftStatus(revision.status);
 }
 
 export function canBypassSdkConnectionApproval(

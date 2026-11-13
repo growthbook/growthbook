@@ -575,7 +575,11 @@ myAttributes = myAttributes.map(attribute => sha256(salt + attribute));`}
       trackingEventModalType=""
       header="Implementation Instructions"
       size="max"
-      close={close ?? (() => undefined)}
+      // The event tracker saves as it is picked; refresh once, on the way out.
+      close={() => {
+        mutateConnections();
+        close?.();
+      }}
       closeCta={quickStart ? "Close" : undefined}
       cta={cta}
       secondaryAction={secondaryCTA}

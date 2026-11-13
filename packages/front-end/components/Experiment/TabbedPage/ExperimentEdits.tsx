@@ -51,8 +51,6 @@ type PendingEdit = {
   changes: (options: { dryRun: boolean }) => ExperimentChangesBody;
 };
 
-export type { StagedReview };
-
 // Each experiment field against its value in the share's base; anything else
 // counts as added.
 function reviewFromChanges(body: ExperimentChangesBody): StagedReview {

@@ -62,7 +62,10 @@ export function advancedValueFromConnection(
   return {
     includeVisualExperiments: !!c?.includeVisualExperiments,
     includeRedirectExperiments: !!c?.includeRedirectExperiments,
-    includeExperimentNames: c?.includeExperimentNames ?? true,
+    // A saved connection without it serves no names; a new one defaults on.
+    includeExperimentNames: c?.id
+      ? !!c.includeExperimentNames
+      : (c?.includeExperimentNames ?? true),
     savedGroupFormat: c ? savedGroupFormatFromConnection(c) : "inline",
     includeProjectIdInMetadata: !!c?.includeProjectIdInMetadata,
     includeCustomFieldsInMetadata: !!c?.includeCustomFieldsInMetadata,
