@@ -110,6 +110,7 @@ import {
   findVisualChangesetsByExperiment,
   updateVisualChangeset,
 } from "back-end/src/models/VisualChangesetModel";
+import { assertNoRedirectLoop } from "back-end/src/models/UrlRedirectModel";
 import {
   findSnapshotById,
   getLatestSuccessfulSnapshot,
@@ -1520,6 +1521,20 @@ export async function postExperiments(
     // Copied redirects and changesets serve everywhere; checked before any write.
     if (originalVisualChangesets.length || originalUrlRedirects.length) {
       assertCanRunLinkedChanges(context, obj);
+    }
+    // Copies keep the original's origins, so check them like a new redirect.
+    if (originalUrlRedirects.length) {
+      const served = await context.models.urlRedirects.getServedRedirects();
+      for (const urlRedirect of originalUrlRedirects) {
+        try {
+          assertNoRedirectLoop(urlRedirect, served);
+        } catch (e) {
+          if (!(e instanceof BadRequestError)) throw e;
+          throw new BadRequestError(
+            `This experiment's URL Redirects can't be copied. ${e.message}`,
+          );
+        }
+      }
     }
 
     const experiment = await createExperiment({
