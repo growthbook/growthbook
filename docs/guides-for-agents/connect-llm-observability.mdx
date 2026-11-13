@@ -1,0 +1,1787 @@
+---
+title: "Connect Langfuse or Phoenix traces to a GrowthBook experiment"
+description: "Give a coding agent a verified local path from GrowthBook assignment to root-trace tags, then connect a self-hosted tracing database and prove experiment measurement."
+sidebarTitle: "Connect LLM observability"
+last_verified: "2026-11-06"
+last_verified_growthbook_commit: "e43a8ef36ec71c71d4789cecbd4f0f0c93a8191a"
+tested_stack:
+  - "@growthbook/growthbook 2.0.0"
+  - "Node.js 24.12.0"
+  - "TypeScript 5.9.3"
+  - "@langfuse/otel and @langfuse/tracing 5.14.0"
+  - "@arizeai/phoenix-otel 2.2.0"
+  - "@arizeai/openinference-core 2.8.0"
+  - "@opentelemetry/api 1.9.1"
+  - "@opentelemetry/sdk-trace-node 2.12.0"
+  - "tsx 4.23.15"
+---
+
+## TL;DR
+
+Connect an existing, self-hosted Langfuse v3 or Postgres-backed Arize Phoenix installation to one GrowthBook experiment. GrowthBook assigns a reviewed prompt or configuration; the application adds that assignment to the root trace; GrowthBook queries the tracing database for exposures and outcomes. The implementation preserves the current behavior as a local fallback and keeps each user's assignment separate from concurrent requests.
+
+Start with the complete local fixture below. It uses the actual SDKs, synthetic requests, and an in-memory trace exporter, with no model bill or remote data writes. Then obtain the operator's authorization to configure an isolated staging experiment, export traces, and connect the database. A passing local test is the foundation; the integration is operationally verified only after a fresh staging trace and its metric appear in GrowthBook, failure handling and rollback work, and production measurement has a clean data boundary.
+
+_This guide is optimized for AI coding agents, and it is recommended that you hand it off to your agent of choice for implementation._
+
+## Guide map
+
+| Phase                             | What the agent completes                                                                                                | Evidence to return                                                                             |
+| --------------------------------- | ----------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| 0 — Build without changing users  | Inspect the repository; choose identity and versions; run the offline fixture; preserve control                         | Dependency versions, tests, root attributes, isolation and fallback results                    |
+| 1 — Prove the staging integration | Create a staging-only experiment with approval; send a fresh trace; connect its database; verify an exposure and metric | SDK payload, exact trace ID, read-only query output, matching GrowthBook result                |
+| 100 — Operate deliberately        | Separate production data; review metrics; exercise rollback; assign ownership                                           | Production boundaries, rollout authorization, health checks, rollback receipt and cleanup plan |
+
+## Give this guide to your coding agent
+
+Replace `REPLACE_WITH_REPOSITORY` with your repository path or name and `REPLACE_WITH_GUIDE_URL` with the full URL of this guide. If you are supplying a local file, replace the latter with its path. Other placeholders below identify a real SDK connection, host, project, prompt, or synthetic trace discovered during preflight. They are not example credentials to copy into production.
+
+```text
+You are working in REPLACE_WITH_REPOSITORY.
+Connect our existing self-hosted Langfuse v3 or Postgres-backed Arize Phoenix
+traces to one GrowthBook experiment, preserving current production behavior.
+
+Read REPLACE_WITH_GUIDE_URL in full before editing. Read repository-local
+instructions. Operator instructions and repository truth take priority;
+recheck current official documentation and the installed SDK contracts.
+Do not proceed from the TL;DR alone. If the URL cannot be fetched, stop and
+request the complete Markdown version.
+
+Start in a branch, worktree, or disposable fixture. Complete local code,
+type checks, tests, and an in-memory synthetic trace before external writes.
+Do not invent identity, credentials, infrastructure, prompt labels, metrics,
+or business decisions. An unsupported stack is a valid reject decision.
+
+Do not create database roles, GrowthBook resources, tracing projects, remote
+traces or scores, deploy, or expose production users without authorization
+for those actions. Prepare concrete operator steps for anything inaccessible.
+Never print secrets or send real prompts or personal data in test receipts.
+
+Return files changed; exact package versions; commands and test outcomes;
+control, assignment, root-tag, failure and rollback evidence; deviations;
+and remaining operator steps. Distinguish offline tests, remote staging
+verification and production verification. Stop at the last verified state.
+```
+
+## Task and scope
+
+The bounded job is to connect an existing traced Node.js service to GrowthBook's experiment analysis. It is not an instruction to install an observability platform, migrate a database, or redesign an LLM application. The canonical implementation uses TypeScript, one shared `GrowthBookClient`, one scoped instance per request, and either a Langfuse or Phoenix root adapter. Preserve the service's existing authentication, provider integration, retry policy and instrumentation when adapting it.
+
+The observable chain is:
+
+```text
+Stable application identity
+  -> GrowthBook experiment assignment
+  -> root trace tagged gb.exp:<experimentKey>=<variationKey>
+  -> trace/observation/annotation rows in the tracing database
+  -> GrowthBook exposure query and fact metrics
+```
+
+GrowthBook reads the tracing database; this path does not populate raw trace tables inside GrowthBook. The built-in trackers are beta and target vendor database schemas. Treat an upgrade of either tracing platform as a reason to retest generated SQL, even when application instrumentation has not changed. See the [LLM tracing integration](/integrations/llm-tracing), [Langfuse tracker](/event-trackers/langfuse), and [Phoenix tracker](/event-trackers/phoenix).
+
+## Use this guide when
+
+- Langfuse is self-hosted on the v3 server schema, with its ClickHouse database available for authorized read-only queries; or Phoenix stores traces in Postgres.
+- Your application already has a stable opaque user identifier, an existing control behavior, and a working tracing path.
+- An operator can create an isolated staging experiment and give GrowthBook read access to the required tracing tables.
+- You can record at least one meaningful outcome and preserve the same identifier semantics from assignment through analysis.
+
+Langfuse's server version and its JavaScript SDK version are different version lines. In particular, the [SDK v5-to-v6 migration](https://langfuse.com/docs/observability/sdk/upgrade-path/js-v5-to-v6) requires a newer Langfuse server for SDK v6. Do not install unpinned current SDKs into a v3 server integration. Use the exact tested package versions in the fixture and recheck compatibility against your server before updating them.
+
+Langfuse Cloud has a separate route: [export to blob storage](https://langfuse.com/docs/api-and-data-platform/features/export-to-blob-storage), load or expose those objects in your own supported warehouse, and adapt the fact-table SQL. Export is not itself the warehouse-loading step. That route, Langfuse server v4, Phoenix on SQLite, hosted Phoenix/Arize AX, Braintrust, and LangSmith are outside this implementation. Report the discovered stack and the missing implementation path instead of improvising a migration. This scope statement does not claim those tools can never work with GrowthBook.
+
+## End state and authority boundary
+
+The local implementation is complete when actual SDK tests show stable assignment, correct root attributes, no cross-request tags, no false exposure on the local control bypass, and closed error spans. The staging integration is complete when a fresh request made inside the analysis window is visible both in the tracing database and in the right GrowthBook variation, with a known outcome metric attached.
+
+Production readiness additionally needs reviewed goal/guardrail definitions, an isolated production dataset, a tested control switch, and an owner for schema and SDK upgrades. One synthetic request proves data flow, not statistical power, measured lift, or the accuracy of a model evaluator.
+
+Approval is action-specific. An authorization to edit this repository does not create database roles or launch a production experiment. Prepare the resource names, environment/project filters, proposed changes and readback steps for the operator. Human-only UI steps are legitimate parts of the workflow; identify exactly what evidence the operator must return before continuing.
+
+## Inspect the repository and choose the contract
+
+Run discovery in the application repository, not a guessed project directory. These commands inspect files and dependencies; they do not reveal environment values:
+
+```bash
+node --version
+npm --version
+npm ls --depth=0
+rg -n 'GrowthBookClient|createScopedInstance|tracingPlugin|trackingCallback' src test tests
+rg -n 'startActiveObservation|startActiveSpan|LangfuseSpanProcessor|phoenix-otel|OITracer' src
+```
+
+Use the repository's actual source directories and package manager when they differ. Missing directories are discovery findings, not a reason to create a second application. Inspect variable _names_ in the configuration schema and secret manager references. Never print an environment dump or paste connection strings into a receipt.
+
+Record the tracing server version, database backend, Node/runtime constraints, installed SDK versions, existing OpenTelemetry provider, root-span creation point and exporter shutdown behavior. Find the authenticated opaque user and conversation IDs already used by the tracer. Determine whether HTTP auto-instrumentation starts a root span before your handler and which span the tracing backend persists as the root.
+
+Both fixture adapters start a separate LLM trace from `ROOT_CONTEXT`. Use that boundary when the LLM workflow should have its own trace and its own measurement root. If your service needs to keep the LLM work in an existing HTTP or distributed trace, preserve that context and adapt the instrumentation to attach identity and assignment tags to the root that the tracing backend actually persists. Changing the parent context alone leaves the tags on the handler's child span. Confirm the tagged root in the tracing backend and the assignment query.
+
+Choose one randomization unit before implementing. This reference uses `user_id`, with the identical value in GrowthBook attributes and the tracer's user field. A session-based experiment must instead evaluate with a stable session attribute and choose the matching assignment query. Per-trace assignment needs a trace ID established before evaluation. Do not change units halfway through a phase, and do not infer a logged-in user ID from an email address or invent an anonymous ID for the example.
+
+Write a small contract in the implementation PR: feature key, experiment tracking key, variation keys, prompt/config values, assignment attribute, tracer project, analysis data source, and local fallback. These are different identifiers. The feature key can select a prompt label while the experiment key names the assignment recorded in a trace. Do not assume that the string feature value and variation key are equal.
+
+Keep experiment keys free of `=`. The tracing plugin skips such keys. Validate the complete final tag and opaque identifiers against the tracer's documented limits: [Langfuse tags](https://langfuse.com/docs/observability/features/tags) and its [attribute API](https://js.reference.langfuse.com/interfaces/_langfuse_tracing.PropagateAttributesParams.html) specify 200-character limits for tags, user IDs and session IDs. Keep baggage propagation off unless the application's cross-service header policy explicitly permits it. A missing tag can be an input-validation problem as well as a tracing problem.
+
+### Choose where the metrics will live
+
+A GrowthBook experiment reads its metrics from one data source. If business events and tracing tables are queryable from the same database, add the tracker resources to that existing data source. If they live in separate databases that cannot query one another, decide whether this experiment measures tracing outcomes alone or needs a separate warehouse integration. Do not imply GrowthBook will join arbitrary data sources during experiment analysis.
+
+Exposure inferred from traces includes only requests that produced those traces. If a treatment changes whether tracing or the LLM call happens, the resulting population may depend on assignment. Sampling, dropped exports and provider retries can also change the observed population. Establish equivalent collection behavior across variations and compare source requests with observed traces before using the results for a product decision.
+
+### Choose the prompt and fallback boundary
+
+Keep current behavior as the local default. The reference fixture maps a small set of reviewed labels to synthetic prompts; no prompt registry or model service is required to prove instrumentation. In your service, the selected value can retrieve a versioned prompt from the existing registry or select a reviewed configuration in code.
+
+Validate the experiment payload and allowed values before launch. By default, the fixture serves `production` when an assigned value is invalid or an assignment tag exceeds 200 characters. It keeps valid tags from the original assignment and omits oversized tags. This preserves an identifiable experiment assignment when the request serves control. An omitted assignment tag leaves a gap in trace-derived exposures, so monitor that gap alongside fallback counts before interpreting experiment results.
+
+The receipt records the served label as `value`, a recognized assigned label as `assignedValue` when available, and valid original tags as `tags`. A `fallback` carries a fixed `reason` and `missingTraceExposure` flag. The root trace records sanitized diagnostics in `growthbook.configuration_error`, `growthbook.control_fallback`, and `growthbook.trace_exposure_missing`, with `ERROR` status for the configuration fault. The model span reports the actual provider outcome. Keep raw feature values, oversized tags, and provider errors out of these diagnostics.
+
+Set `failOnInvalidConfiguration: true` on `runObservedRequest` when an invalid assignment should fail the request during validation. On a configuration failure in this mode, the fixture closes the diagnostic root before reaching the model call. Prompt retrieval and provider failures follow the application's normal error handling.
+
+The local rollback switch must bypass experiment evaluation before collecting tags. A warm SDK can still contain previously loaded rules during a connection outage; a fetch timeout alone does not guarantee that a running process switches to control. Prove both cold-start fallback and the local bypass with a cached experiment present. Use the [Node SDK lifecycle](/lib/node) when adapting refresh and shutdown behavior.
+
+## Build and run the local reference
+
+Reconstruct the reference fixture under `examples/llm-observability/` using the complete implementation below. The code blocks include the package manifest, TypeScript configuration, source files, and tests. Use a new directory for the fixture; do not replace an application's package manifest or lockfile. When adapting an existing service, integrate the modules into its package manager and testing conventions.
+
+```text
+examples/llm-observability/
+  package.json
+  package-lock.json
+  tsconfig.json
+  src/
+    experiment.ts
+    telemetry.ts
+    adapters.ts
+    application.ts
+    cli.ts
+    remote-bootstrap.ts
+    remote-smoke.ts
+  test/
+    reference.test.ts
+```
+
+After saving all reference files below, run `npm install --ignore-scripts --no-audit --no-fund` once to generate `package-lock.json`. Retain that lockfile, then use `npm ci` and the following commands for repeat runs. The direct dependencies are pinned; the newly generated lockfile records your resolved transitive dependencies.
+
+```bash
+npm ci
+npm run typecheck
+npm test
+npm run demo:langfuse
+npm run demo:phoenix
+```
+
+These checks use an in-memory exporter and synthetic providers. They require no GrowthBook account, tracing server, API key, or database. Dependencies are real SDK packages; the test feature payload is local. The tests exercise the assignment and tracing behavior rather than mocking the entire GrowthBook decision.
+
+### Complete reference files
+
+The fixture's package pins are the verified development combination, not a claim that every newer server or SDK is compatible. Preserve the distinction between the Langfuse server v3 schema and its separately versioned client libraries.
+
+The local fixture was rechecked on Node.js `24.12.0` with a retained lockfile. The direct package versions below are pinned in the embedded `package.json`; reconstructing the fixture generates a new lockfile whose transitive dependency resolution may differ. The fixture declares Node.js 22 or newer, but this receipt does not claim a separate Node.js 22 run.
+
+| Package                  | Tested package version |
+| ------------------------ | ---------------------- |
+| `@growthbook/growthbook` | `2.0.0`                |
+| `@langfuse/tracing`      | `5.14.0`               |
+| `@langfuse/otel`         | `5.14.0`               |
+| `@arizeai/phoenix-otel`  | `2.2.0`                |
+| `@opentelemetry/api`     | `1.9.1`                |
+
+#### `package.json`
+
+```json
+{
+  "name": "growthbook-llm-observability-reference",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "tsx --test --test-concurrency=1 test/*.test.ts",
+    "demo:langfuse": "tsx src/cli.ts langfuse",
+    "demo:phoenix": "tsx src/cli.ts phoenix",
+    "smoke:remote": "tsx src/remote-smoke.ts",
+    "check": "npm run typecheck && npm test && npm run demo:langfuse && npm run demo:phoenix"
+  },
+  "dependencies": {
+    "@arizeai/openinference-core": "2.8.0",
+    "@arizeai/phoenix-otel": "2.2.0",
+    "@growthbook/growthbook": "2.0.0",
+    "@langfuse/otel": "5.14.0",
+    "@langfuse/tracing": "5.14.0",
+    "@opentelemetry/api": "1.9.1",
+    "@opentelemetry/context-async-hooks": "2.12.0",
+    "@opentelemetry/core": "2.12.0",
+    "@opentelemetry/exporter-trace-otlp-http": "0.223.0",
+    "@opentelemetry/sdk-trace-base": "2.12.0",
+    "@opentelemetry/sdk-trace-node": "2.12.0"
+  },
+  "devDependencies": {
+    "@types/node": "22.20.5",
+    "tsx": "4.23.15",
+    "typescript": "5.9.3"
+  }
+}
+```
+
+#### `tsconfig.json`
+
+```json
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "strict": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "types": ["node"]
+  },
+  "include": ["src/**/*.ts", "test/**/*.ts"]
+}
+```
+
+#### `src/experiment.ts`
+
+```ts
+import {
+  GrowthBookClient,
+  type FeatureApiResponse,
+} from "@growthbook/growthbook";
+import { getTracingTags, tracingPlugin } from "@growthbook/growthbook/plugins";
+
+export const FEATURE_KEY = "support-prompt";
+export const STAGING_EXPERIMENT_KEY = "llm-observability-staging-v1";
+export type Treatment = "production" | "candidate";
+export const STAGING_VARIATION_KEYS = {
+  production: "0",
+  candidate: "1",
+} as const;
+export type FeatureSchema = { "support-prompt": Treatment };
+export type ExperimentClient = GrowthBookClient<FeatureSchema>;
+
+// One client per process. The CLI sets an offline payload; real services call init once.
+export function createExperimentClient(
+  options: {
+    apiHost?: string;
+    clientKey?: string;
+  } = {},
+): ExperimentClient {
+  return new GrowthBookClient<FeatureSchema>({
+    ...options,
+    plugins: [tracingPlugin()],
+  });
+}
+
+export function requireIdentifier(value: string, name: string): void {
+  if (!value || value.trim() !== value || value.length > 200) {
+    throw new Error(
+      `${name} must be an existing nonempty identifier of at most 200 characters`,
+    );
+  }
+}
+
+export function selectTreatment(
+  client: ExperimentClient,
+  userId: string,
+  experimentsEnabled: boolean,
+): {
+  value: Treatment;
+  tags: string[];
+  source: string;
+  validationError?: string;
+} {
+  requireIdentifier(userId, "userId");
+  // This bypass works even if a cached remote payload still contains the experiment.
+  if (!experimentsEnabled)
+    return { value: "production", tags: [], source: "local-bypass" };
+  const scoped = client.createScopedInstance({
+    attributes: { user_id: userId },
+  });
+  const result = scoped.evalFeature(FEATURE_KEY);
+  if (result.value !== "production" && result.value !== "candidate") {
+    if (result.source === "experiment") {
+      // Keep the assignment and surface the invalid config inside the tagged root.
+      // Do not erase failed treatment requests from the experiment denominator.
+      return {
+        value: "production",
+        tags: [...getTracingTags(scoped)],
+        source: "invalid-assigned-value",
+        validationError: "invalid_assigned_value",
+      };
+    }
+    return {
+      value: "production",
+      tags: [],
+      source: "invalid-or-missing-value",
+    };
+  }
+  return {
+    value: result.value,
+    tags: [...getTracingTags(scoped)],
+    source: result.source,
+  };
+}
+
+// Synthetic SDK response, not a REST API creation payload. Never publish this fixture.
+export function makeTestPayload(
+  weights: [number, number] = [0.5, 0.5],
+): FeatureApiResponse {
+  return {
+    features: {
+      [FEATURE_KEY]: {
+        defaultValue: "production",
+        rules: [
+          {
+            key: STAGING_EXPERIMENT_KEY,
+            hashAttribute: "user_id",
+            variations: ["production", "candidate"],
+            weights,
+            coverage: 1,
+            hashVersion: 2,
+            meta: [
+              { key: STAGING_VARIATION_KEYS.production },
+              { key: STAGING_VARIATION_KEYS.candidate },
+            ],
+          },
+        ],
+      },
+    },
+  };
+}
+```
+
+#### `src/telemetry.ts`
+
+```ts
+import { context, trace } from "@opentelemetry/api";
+import { AsyncLocalStorageContextManager } from "@opentelemetry/context-async-hooks";
+import { InMemorySpanExporter } from "@opentelemetry/sdk-trace-base";
+import { LangfuseSpanProcessor } from "@langfuse/otel";
+import { NodeTracerProvider } from "@opentelemetry/sdk-trace-node";
+import { setLangfuseTracerProvider } from "@langfuse/tracing";
+
+export function startOfflineTelemetry() {
+  const exporter = new InMemorySpanExporter();
+  // The real processor copies Langfuse propagated attributes onto spans. A plain
+  // SimpleSpanProcessor would export Langfuse roots without the tags under test.
+  const processor = new LangfuseSpanProcessor({
+    exporter,
+    exportMode: "immediate",
+    mediaUploadEnabled: false,
+    shouldExportSpan: () => true,
+    environment: "offline-synthetic",
+  });
+  const provider = new NodeTracerProvider({ spanProcessors: [processor] });
+  const contextManager = new AsyncLocalStorageContextManager();
+  provider.register({ contextManager });
+  setLangfuseTracerProvider(provider);
+  return {
+    exporter,
+    provider,
+    async shutdown() {
+      await provider.forceFlush();
+      await provider.shutdown();
+      contextManager.disable();
+      context.disable();
+      trace.disable();
+    },
+  };
+}
+```
+
+#### `src/adapters.ts`
+
+```ts
+import {
+  context,
+  ROOT_CONTEXT,
+  SpanStatusCode,
+  trace,
+} from "@opentelemetry/api";
+import { propagateAttributes, startActiveObservation } from "@langfuse/tracing";
+import {
+  getAttributesFromContext,
+  setSession,
+  setTags,
+  setUser,
+} from "@arizeai/phoenix-otel";
+
+export type TraceIdentity = {
+  userId: string;
+  sessionId: string;
+  tags: string[];
+};
+export type CompletionResult = {
+  text: string;
+  model: string;
+  synthetic?: boolean;
+  inputTokens?: number;
+  outputTokens?: number;
+};
+export interface RootAdapter {
+  runRoot<T>(identity: TraceIdentity, work: () => Promise<T>): Promise<T>;
+  runModel(work: () => Promise<CompletionResult>): Promise<CompletionResult>;
+}
+
+export class LangfuseRootAdapter implements RootAdapter {
+  runModel(work: () => Promise<CompletionResult>): Promise<CompletionResult> {
+    return startActiveObservation(
+      "model-call",
+      async (generation) => {
+        try {
+          const result = await work();
+          generation.update({
+            model: result.model,
+            metadata: { synthetic: result.synthetic ?? false },
+            usageDetails: {
+              ...(result.inputTokens === undefined
+                ? {}
+                : { input: result.inputTokens }),
+              ...(result.outputTokens === undefined
+                ? {}
+                : { output: result.outputTokens }),
+            },
+          });
+          return result;
+        } catch (error) {
+          generation.update({ level: "ERROR", statusMessage: "model_failed" });
+          trace
+            .getActiveSpan()
+            ?.setStatus({
+              code: SpanStatusCode.ERROR,
+              message: "model_failed",
+            });
+          throw error;
+        } finally {
+          generation.end();
+        }
+      },
+      { asType: "generation", endOnExit: false },
+    );
+  }
+
+  runRoot<T>(identity: TraceIdentity, work: () => Promise<T>): Promise<T> {
+    // This boundary intentionally creates a separate LLM trace, not a child of HTTP spans.
+    return context.with(ROOT_CONTEXT, () =>
+      propagateAttributes(identity, () =>
+        startActiveObservation(
+          "support-reply",
+          async (observation) => {
+            try {
+              return await work();
+            } catch (error) {
+              observation.update({
+                level: "ERROR",
+                statusMessage: "request_failed",
+              });
+              const span = trace.getActiveSpan();
+              span?.setStatus({
+                code: SpanStatusCode.ERROR,
+                message: "request_failed",
+              });
+              // Avoid copying arbitrary provider errors, credentials, or user input into telemetry.
+              span?.recordException(new Error("request_failed"));
+              throw error;
+            } finally {
+              observation.end();
+            }
+          },
+          { endOnExit: false },
+        ),
+      ),
+    );
+  }
+}
+
+export class PhoenixRootAdapter implements RootAdapter {
+  runModel(work: () => Promise<CompletionResult>): Promise<CompletionResult> {
+    return trace.getTracer("growthbook-llm-reference").startActiveSpan(
+      "model-call",
+      {
+        attributes: {
+          ...getAttributesFromContext(context.active()),
+          "openinference.span.kind": "LLM",
+        },
+      },
+      async (span) => {
+        try {
+          const result = await work();
+          span.setAttributes({
+            "llm.model_name": result.model,
+            metadata: JSON.stringify({ synthetic: result.synthetic ?? false }),
+            "llm.token_count.prompt": result.inputTokens,
+            "llm.token_count.completion": result.outputTokens,
+          });
+          if (
+            result.inputTokens !== undefined &&
+            result.outputTokens !== undefined
+          ) {
+            span.setAttribute(
+              "llm.token_count.total",
+              result.inputTokens + result.outputTokens,
+            );
+          }
+          return result;
+        } catch (error) {
+          span.setStatus({
+            code: SpanStatusCode.ERROR,
+            message: "model_failed",
+          });
+          throw error;
+        } finally {
+          span.end();
+        }
+      },
+    );
+  }
+
+  runRoot<T>(identity: TraceIdentity, work: () => Promise<T>): Promise<T> {
+    let ctx = setUser(ROOT_CONTEXT, { userId: identity.userId });
+    ctx = setSession(ctx, { sessionId: identity.sessionId });
+    ctx = setTags(ctx, identity.tags);
+    return context.with(ctx, () =>
+      trace.getTracer("growthbook-llm-reference").startActiveSpan(
+        "support-reply",
+        {
+          // A plain OTel tracer does not automatically copy OpenInference context attributes.
+          attributes: {
+            ...getAttributesFromContext(ctx),
+            "openinference.span.kind": "CHAIN",
+          },
+        },
+        async (span) => {
+          try {
+            return await work();
+          } catch (error) {
+            span.setStatus({
+              code: SpanStatusCode.ERROR,
+              message: "request_failed",
+            });
+            span.recordException(new Error("request_failed"));
+            throw error;
+          } finally {
+            span.end();
+          }
+        },
+      ),
+    );
+  }
+}
+```
+
+#### `src/application.ts`
+
+```ts
+import { SpanStatusCode, trace } from "@opentelemetry/api";
+import {
+  type ExperimentClient,
+  requireIdentifier,
+  selectTreatment,
+  type Treatment,
+} from "./experiment.js";
+import type { CompletionResult, RootAdapter } from "./adapters.js";
+
+export interface PromptResolver {
+  resolve(label: Treatment): Promise<string>;
+}
+export interface ModelProvider {
+  complete(input: {
+    prompt: string;
+    requestId: string;
+  }): Promise<CompletionResult>;
+}
+
+export async function runObservedRequest(input: {
+  client: ExperimentClient;
+  adapter: RootAdapter;
+  prompts: PromptResolver;
+  model: ModelProvider;
+  userId: string;
+  sessionId: string;
+  requestId: string;
+  experimentsEnabled: boolean;
+  failOnInvalidConfiguration?: boolean;
+}) {
+  requireIdentifier(input.sessionId, "sessionId");
+  const selection = selectTreatment(
+    input.client,
+    input.userId,
+    input.experimentsEnabled,
+  );
+  // Keep valid assignment tags intact. Changing an overlong tag would change
+  // the experiment or variation key used in analysis.
+  const tags = selection.tags.filter((tag) => tag.length <= 200);
+  const omittedAssignmentTag = tags.length < selection.tags.length;
+  const reason =
+    selection.validationError ??
+    (omittedAssignmentTag
+      ? "experiment_tag_exceeds_200_characters"
+      : undefined);
+  const fallback = reason
+    ? {
+        reason,
+        missingTraceExposure: omittedAssignmentTag || tags.length === 0,
+      }
+    : undefined;
+  const value = fallback ? "production" : selection.value;
+  // Evaluation and the tag snapshot happen before opening the actual LLM root.
+  const result = await input.adapter.runRoot(
+    {
+      userId: input.userId,
+      sessionId: input.sessionId,
+      tags,
+    },
+    async () => {
+      if (fallback) {
+        const root = trace.getActiveSpan();
+        root?.setAttributes({
+          "growthbook.configuration_error": fallback.reason,
+          "growthbook.control_fallback": !input.failOnInvalidConfiguration,
+          "growthbook.trace_exposure_missing": fallback.missingTraceExposure,
+        });
+        root?.setStatus({
+          code: SpanStatusCode.ERROR,
+          message: fallback.reason,
+        });
+        if (input.failOnInvalidConfiguration) throw new Error(fallback.reason);
+      }
+      const prompt = await input.prompts.resolve(value);
+      return input.adapter.runModel(() =>
+        input.model.complete({ prompt, requestId: input.requestId }),
+      );
+    },
+  );
+  // These are safe diagnostic fields, not an exposure event or an experiment result.
+  return {
+    value,
+    assignedValue:
+      selection.source === "experiment" ? selection.value : undefined,
+    tags,
+    source: selection.source,
+    fallback,
+    userId: input.userId,
+    sessionId: input.sessionId,
+    text: result.text,
+  };
+}
+
+// Explicit test doubles. Token values are arbitrary fixtures, not real usage or cost.
+export const syntheticPrompts: PromptResolver = {
+  async resolve(label) {
+    return `synthetic-${label}`;
+  },
+};
+export const syntheticModel: ModelProvider = {
+  async complete({ prompt }) {
+    return {
+      text: `synthetic reply for ${prompt}`,
+      model: "synthetic-model",
+      synthetic: true,
+      inputTokens: 3,
+      outputTokens: 5,
+    };
+  },
+};
+```
+
+#### `src/cli.ts`
+
+```ts
+import assert from "node:assert/strict";
+import { LangfuseRootAdapter, PhoenixRootAdapter } from "./adapters.js";
+import {
+  runObservedRequest,
+  syntheticModel,
+  syntheticPrompts,
+} from "./application.js";
+import { createExperimentClient, makeTestPayload } from "./experiment.js";
+import { startOfflineTelemetry } from "./telemetry.js";
+
+const name = process.argv[2];
+if (name !== "langfuse" && name !== "phoenix")
+  throw new Error("Choose langfuse or phoenix");
+const telemetry = startOfflineTelemetry();
+const client = createExperimentClient();
+try {
+  await client.setPayload(makeTestPayload([0, 1]));
+  const receipt = await runObservedRequest({
+    client,
+    adapter:
+      name === "langfuse"
+        ? new LangfuseRootAdapter()
+        : new PhoenixRootAdapter(),
+    prompts: syntheticPrompts,
+    model: syntheticModel,
+    userId: "synthetic-user-1",
+    sessionId: "synthetic-session-1",
+    requestId: "synthetic-request-1",
+    experimentsEnabled: true,
+  });
+  await telemetry.provider.forceFlush();
+  const finished = telemetry.exporter.getFinishedSpans();
+  const roots = finished.filter((span) => !span.parentSpanContext);
+  assert.equal(roots.length, 1, "Expected exactly one finished root");
+  const rootTags =
+    name === "langfuse"
+      ? roots[0].attributes["langfuse.trace.tags"]
+      : JSON.parse(String(roots[0].attributes["tag.tags"]));
+  assert.deepEqual(rootTags, receipt.tags);
+  assert.equal(roots[0].attributes["user.id"], receipt.userId);
+  console.log(
+    JSON.stringify(
+      {
+        mode: "offline-synthetic",
+        adapter: name,
+        receipt,
+        roots: roots.map((span) => ({
+          name: span.name,
+          parent: null,
+          traceId: span.spanContext().traceId,
+          spanId: span.spanContext().spanId,
+          attributes: span.attributes,
+          status: span.status,
+        })),
+        modelSpans: finished
+          .filter((span) => span.name === "model-call")
+          .map((span) => ({
+            name: span.name,
+            traceId: span.spanContext().traceId,
+            spanId: span.spanContext().spanId,
+            parentSpanId: span.parentSpanContext?.spanId,
+            attributes: span.attributes,
+            status: span.status,
+          })),
+      },
+      null,
+      2,
+    ),
+  );
+} finally {
+  client.destroy();
+  await telemetry.shutdown();
+}
+```
+
+#### `src/remote-bootstrap.ts`
+
+```ts
+// Only the approved smoke command imports these connection helpers.
+import { LangfuseSpanProcessor } from "@langfuse/otel";
+import { setLangfuseTracerProvider } from "@langfuse/tracing";
+import { NodeTracerProvider } from "@opentelemetry/sdk-trace-node";
+import { register } from "@arizeai/phoenix-otel";
+import { createExperimentClient } from "./experiment.js";
+
+export async function initializeRemoteGrowthBook(
+  config: {
+    apiHost: string;
+    clientKey: string;
+  },
+  options: { streaming?: boolean } = {},
+) {
+  const client = createExperimentClient(config);
+  const result = await client.init({ timeout: 2000, ...options });
+  // A failed initial load still has the code default; report/alert source and error locally.
+  return { client, result };
+}
+
+export function startApprovedLangfuse(config: {
+  baseUrl: string;
+  publicKey: string;
+  secretKey: string;
+}) {
+  const processor = new LangfuseSpanProcessor(config);
+  const provider = new NodeTracerProvider({ spanProcessors: [processor] });
+  provider.register();
+  setLangfuseTracerProvider(provider);
+  return provider;
+}
+
+export function startApprovedPhoenix(config: {
+  url: string;
+  projectName: string;
+  apiKey?: string;
+}) {
+  return register({ ...config, batch: true });
+}
+```
+
+#### `src/remote-smoke.ts`
+
+```ts
+// EXTERNAL READ/WRITE: this opt-in command is never run by npm run check.
+import { randomUUID } from "node:crypto";
+import { trace } from "@opentelemetry/api";
+import { LangfuseRootAdapter, PhoenixRootAdapter } from "./adapters.js";
+import {
+  runObservedRequest,
+  syntheticModel,
+  syntheticPrompts,
+} from "./application.js";
+import {
+  type ExperimentClient,
+  FEATURE_KEY,
+  selectTreatment,
+  STAGING_EXPERIMENT_KEY,
+  STAGING_VARIATION_KEYS,
+} from "./experiment.js";
+import {
+  initializeRemoteGrowthBook,
+  startApprovedLangfuse,
+  startApprovedPhoenix,
+} from "./remote-bootstrap.js";
+
+// Only our fixed validation messages are safe to print; library errors may contain URLs or keys.
+class SetupError extends Error {}
+
+function required(name: string): string {
+  const value = process.env[name];
+  if (!value || value.includes("REPLACE_ME"))
+    throw new SetupError(
+      `Set a reviewed ${name} before running the remote smoke test`,
+    );
+  return value;
+}
+function selfHostedUrl(name: string, description: string): string {
+  const value = required(name);
+  const invalidUrl = () =>
+    new SetupError(
+      `${name} must be the reviewed self-hosted ${description} without URL credentials`,
+    );
+  let url: URL;
+  try {
+    url = new URL(value);
+  } catch {
+    throw invalidUrl();
+  }
+  if (
+    url.username ||
+    url.password ||
+    !["http:", "https:"].includes(url.protocol) ||
+    /(^|\.)cloud\.langfuse\.com$/.test(url.hostname) ||
+    /(^|\.)arize\.com$/.test(url.hostname)
+  ) {
+    throw invalidUrl();
+  }
+  return value;
+}
+
+function verifyStagingRule(client: ExperimentClient) {
+  const feature = client.getFeatures()[FEATURE_KEY];
+  const rules = feature?.rules?.filter(
+    (rule) => rule.key === STAGING_EXPERIMENT_KEY,
+  );
+  const rule = rules?.[0];
+  if (
+    feature?.defaultValue !== "production" ||
+    rules?.length !== 1 ||
+    rule?.hashAttribute !== "user_id" ||
+    rule.variations?.length !== 2 ||
+    !(["production", "candidate"] as const).every(
+      (value, index) =>
+        rule.variations?.[index] === value &&
+        (!rule.meta || !!rule.meta[index]) &&
+        (rule.meta?.[index]?.key || String(index)) ===
+          STAGING_VARIATION_KEYS[value],
+    )
+  ) {
+    throw new SetupError(
+      `Expected the isolated ${FEATURE_KEY} rule ${STAGING_EXPERIMENT_KEY} with a production default, user_id assignment, and variation keys production=0, candidate=1. Check the staging SDK payload and variation order.`,
+    );
+  }
+}
+
+async function main() {
+  if (
+    process.env.ALLOW_REMOTE_TRACING !== "true" ||
+    process.env.REMOTE_TARGET_ENV !== "staging"
+  ) {
+    throw new SetupError(
+      "Remote smoke requires explicit ALLOW_REMOTE_TRACING=true and REMOTE_TARGET_ENV=staging; obtain approval first",
+    );
+  }
+  const name = required("TRACE_ADAPTER");
+  if (name !== "langfuse" && name !== "phoenix")
+    throw new SetupError("TRACE_ADAPTER must be langfuse or phoenix");
+  // Validate all configuration before any external action. Keys are never printed.
+  const growthbookConfig = {
+    apiHost: required("GROWTHBOOK_API_HOST"),
+    clientKey: required("GROWTHBOOK_CLIENT_KEY"),
+  };
+  const langfuseConfig =
+    name === "langfuse"
+      ? {
+          baseUrl: selfHostedUrl(
+            "LANGFUSE_BASE_URL",
+            "Langfuse instance base URL",
+          ),
+          publicKey: required("LANGFUSE_PUBLIC_KEY"),
+          secretKey: required("LANGFUSE_SECRET_KEY"),
+        }
+      : undefined;
+  const phoenixConfig =
+    name === "phoenix"
+      ? {
+          url: selfHostedUrl(
+            "PHOENIX_COLLECTOR_ENDPOINT",
+            "Phoenix OTLP collector endpoint",
+          ),
+          projectName: required("PHOENIX_PROJECT_NAME"),
+          apiKey: process.env.PHOENIX_API_KEY
+            ? required("PHOENIX_API_KEY")
+            : undefined,
+        }
+      : undefined;
+  // Use one fetched snapshot for validation and execution of this one-shot request.
+  const { client, result } = await initializeRemoteGrowthBook(
+    growthbookConfig,
+    {
+      streaming: false,
+    },
+  );
+  let provider: ReturnType<typeof startApprovedPhoenix> | undefined;
+  try {
+    if (!result.success)
+      throw new SetupError(
+        "The staging GrowthBook SDK payload did not load; inspect operational logs without printing secrets",
+      );
+    verifyStagingRule(client);
+    const userId = `synthetic-${randomUUID()}`;
+    const sessionId = `synthetic-${randomUUID()}`;
+    const requestId = `synthetic-${randomUUID()}`;
+    const selection = selectTreatment(client, userId, true);
+    const expectedTag = `gb.exp:${STAGING_EXPERIMENT_KEY}=${STAGING_VARIATION_KEYS[selection.value]}`;
+    if (
+      selection.validationError ||
+      selection.source !== "experiment" ||
+      selection.tags.length !== 1 ||
+      selection.tags[0] !== expectedTag
+    ) {
+      throw new SetupError(
+        `The synthetic user was not assigned by ${STAGING_EXPERIMENT_KEY} as production=0 or candidate=1. Check staging rule eligibility and SDK configuration.`,
+      );
+    }
+    provider =
+      name === "langfuse"
+        ? startApprovedLangfuse(langfuseConfig!)
+        : startApprovedPhoenix(phoenixConfig!);
+    let rootContext: { traceId: string; spanId: string } | undefined;
+    const receipt = await runObservedRequest({
+      client,
+      adapter:
+        name === "langfuse"
+          ? new LangfuseRootAdapter()
+          : new PhoenixRootAdapter(),
+      prompts: {
+        async resolve(label) {
+          const active = trace.getActiveSpan()?.spanContext();
+          if (!active)
+            throw new Error("No active root span for remote receipt");
+          rootContext = { traceId: active.traceId, spanId: active.spanId };
+          return syntheticPrompts.resolve(label);
+        },
+      },
+      model: syntheticModel,
+      userId,
+      sessionId,
+      requestId,
+      experimentsEnabled: true,
+      failOnInvalidConfiguration: true,
+    });
+    await provider.forceFlush();
+    console.log(
+      JSON.stringify(
+        {
+          mode: "approved-remote-synthetic",
+          adapter: name,
+          ...rootContext,
+          userId,
+          sessionId,
+          requestId,
+          value: receipt.value,
+          tags: receipt.tags,
+          warning:
+            "Flush is not proof of database ingestion or GrowthBook analysis; verify this exact trace ID in the isolated project",
+        },
+        null,
+        2,
+      ),
+    );
+  } finally {
+    client.destroy();
+    if (provider) {
+      await provider.forceFlush();
+      await provider.shutdown();
+    }
+  }
+}
+
+main().catch((error: unknown) => {
+  console.error(
+    error instanceof SetupError
+      ? error.message
+      : "Remote smoke failed; inspect sanitized operational logs without copying credentials",
+  );
+  process.exitCode = 1;
+});
+```
+
+#### `test/reference.test.ts`
+
+```ts
+import assert from "node:assert/strict";
+import { after, before, beforeEach, test } from "node:test";
+import { spawnSync } from "node:child_process";
+import { SpanStatusCode, trace } from "@opentelemetry/api";
+import {
+  configureCache,
+  setPolyfills,
+  type FeatureApiResponse,
+} from "@growthbook/growthbook";
+import type { ReadableSpan } from "@opentelemetry/sdk-trace-base";
+import {
+  LangfuseRootAdapter,
+  PhoenixRootAdapter,
+  type RootAdapter,
+} from "../src/adapters.js";
+import {
+  runObservedRequest,
+  syntheticModel,
+  syntheticPrompts,
+} from "../src/application.js";
+import {
+  createExperimentClient,
+  FEATURE_KEY,
+  makeTestPayload,
+  selectTreatment,
+  STAGING_EXPERIMENT_KEY,
+} from "../src/experiment.js";
+import { startOfflineTelemetry } from "../src/telemetry.js";
+
+let telemetry: ReturnType<typeof startOfflineTelemetry>;
+const originalGlobalFetch = globalThis.fetch;
+let unexpectedNetworkCalls = 0;
+before(() => {
+  globalThis.fetch = async () => {
+    unexpectedNetworkCalls++;
+    throw new Error("offline fixture must not use the network");
+  };
+  telemetry = startOfflineTelemetry();
+  configureCache({ disableCache: true });
+});
+beforeEach(() => telemetry.exporter.reset());
+after(async () => {
+  await telemetry.shutdown();
+  globalThis.fetch = originalGlobalFetch;
+});
+
+function tags(span: ReadableSpan, adapterName: string): string[] {
+  const value =
+    span.attributes[
+      adapterName === "langfuse" ? "langfuse.trace.tags" : "tag.tags"
+    ];
+  return typeof value === "string"
+    ? JSON.parse(value)
+    : ((value ?? []) as string[]);
+}
+function request(
+  client: ReturnType<typeof createExperimentClient>,
+  adapter: RootAdapter,
+  userId = "synthetic-user",
+) {
+  return {
+    client,
+    adapter,
+    userId,
+    sessionId: `session-${userId}`,
+    requestId: `request-${userId}`,
+    experimentsEnabled: true,
+    prompts: syntheticPrompts,
+    model: syntheticModel,
+  };
+}
+function spans() {
+  return telemetry.exporter.getFinishedSpans();
+}
+function exportedDetails() {
+  return JSON.stringify(
+    spans().map(({ name, attributes, events, status }) => ({
+      name,
+      attributes,
+      events,
+      status,
+    })),
+  );
+}
+
+for (const [name, adapter] of [
+  ["langfuse", new LangfuseRootAdapter()],
+  ["phoenix", new PhoenixRootAdapter()],
+] as const) {
+  test(`${name}: actual SDK assignments become root and generation tags for both variations`, async () => {
+    const client = createExperimentClient();
+    try {
+      for (const [weights, value, key] of [
+        [[1, 0], "production", "0"],
+        [[0, 1], "candidate", "1"],
+      ] as const) {
+        telemetry.exporter.reset();
+        await client.setPayload(makeTestPayload([...weights]));
+        const receipt = await runObservedRequest(request(client, adapter));
+        await telemetry.provider.forceFlush();
+        const expected = [`gb.exp:${STAGING_EXPERIMENT_KEY}=${key}`];
+        assert.equal(receipt.value, value);
+        assert.deepEqual(receipt.tags, expected);
+        const root = spans().find((span) => !span.parentSpanContext)!;
+        const child = spans().find((span) => span.name === "model-call")!;
+        assert.ok(root && child);
+        assert.equal(root.attributes["user.id"], receipt.userId);
+        assert.equal(root.attributes["session.id"], receipt.sessionId);
+        assert.deepEqual(tags(root, name), expected);
+        assert.deepEqual(tags(child, name), expected);
+        assert.equal(
+          child.parentSpanContext?.spanId,
+          root.spanContext().spanId,
+        );
+        assert.equal(child.spanContext().traceId, root.spanContext().traceId);
+        assert.equal(
+          child.attributes[
+            name === "langfuse"
+              ? "langfuse.observation.type"
+              : "openinference.span.kind"
+          ],
+          name === "langfuse" ? "generation" : "LLM",
+        );
+        assert.ok(!JSON.stringify(root.attributes).includes("synthetic reply"));
+      }
+    } finally {
+      client.destroy();
+    }
+  });
+
+  test(`${name}: defaults, forced feature values, and unloaded/malformed configuration have no experiment tags`, async () => {
+    const client = createExperimentClient();
+    try {
+      const payloads: FeatureApiResponse[] = [
+        { features: {} },
+        { features: { [FEATURE_KEY]: { defaultValue: "production" } } },
+        {
+          features: {
+            [FEATURE_KEY]: {
+              defaultValue: "production",
+              rules: [{ force: "candidate" }],
+            },
+          },
+        },
+        { features: { [FEATURE_KEY]: { defaultValue: { invalid: true } } } },
+      ];
+      for (const payload of payloads) {
+        telemetry.exporter.reset();
+        await client.setPayload(payload);
+        const receipt = await runObservedRequest(request(client, adapter));
+        assert.deepEqual(receipt.tags, []);
+        const root = spans().find((span) => !span.parentSpanContext)!;
+        assert.deepEqual(tags(root, name), []);
+        assert.equal(spans().length, 2);
+      }
+    } finally {
+      client.destroy();
+    }
+  });
+
+  test(`${name}: independent local bypass overrides cached candidate and produces no exposure`, async () => {
+    const client = createExperimentClient();
+    try {
+      await client.setPayload(makeTestPayload([0, 1]));
+      const receipt = await runObservedRequest({
+        ...request(client, adapter),
+        experimentsEnabled: false,
+      });
+      assert.equal(receipt.value, "production");
+      assert.equal(receipt.source, "local-bypass");
+      assert.deepEqual(receipt.tags, []);
+      assert.deepEqual(
+        tags(spans().find((span) => !span.parentSpanContext)!, name),
+        [],
+      );
+    } finally {
+      client.destroy();
+    }
+  });
+
+  test(`${name}: concurrent request identities, sessions, and assignments remain isolated`, async () => {
+    const client = createExperimentClient();
+    try {
+      await client.setPayload(makeTestPayload());
+      const expected = new Map(
+        Array.from({ length: 20 }, (_, i) => {
+          const id = `synthetic-user-${i}`;
+          return [id, selectTreatment(client, id, true)];
+        }),
+      );
+      await Promise.all(
+        [...expected.keys()].map((id, i) =>
+          runObservedRequest({
+            ...request(client, adapter, id),
+            model: {
+              async complete(input) {
+                await new Promise((resolve) =>
+                  setTimeout(resolve, (i % 3) + 1),
+                );
+                return syntheticModel.complete(input);
+              },
+            },
+          }),
+        ),
+      );
+      const roots = spans().filter((span) => !span.parentSpanContext);
+      assert.equal(roots.length, 20);
+      for (const root of roots) {
+        const id = root.attributes["user.id"] as string;
+        assert.ok(expected.has(id));
+        assert.equal(root.attributes["session.id"], `session-${id}`);
+        assert.deepEqual(tags(root, name), expected.get(id)!.tags);
+      }
+    } finally {
+      client.destroy();
+    }
+  });
+
+  test(`${name}: failed prompt lookup ends and marks the root without calling the model`, async () => {
+    const client = createExperimentClient();
+    try {
+      await client.setPayload(makeTestPayload());
+      await assert.rejects(
+        runObservedRequest({
+          ...request(client, adapter),
+          prompts: {
+            async resolve() {
+              throw new Error("private prompt error");
+            },
+          },
+          model: {
+            async complete() {
+              assert.fail("model must not be called");
+            },
+          },
+        }),
+        /private prompt error/,
+      );
+      assert.equal(spans().length, 1);
+      assert.equal(spans()[0].status.code, SpanStatusCode.ERROR);
+      assert.ok(!exportedDetails().includes("private prompt error"));
+    } finally {
+      client.destroy();
+    }
+  });
+
+  test(`${name}: failed model ends both spans and preserves an error rather than a synthetic success`, async () => {
+    const client = createExperimentClient();
+    try {
+      await client.setPayload(makeTestPayload());
+      await assert.rejects(
+        runObservedRequest({
+          ...request(client, adapter),
+          model: {
+            async complete() {
+              throw new Error("private provider error");
+            },
+          },
+        }),
+        /private provider error/,
+      );
+      assert.equal(spans().length, 2);
+      assert.ok(
+        spans().every((span) => span.status.code === SpanStatusCode.ERROR),
+      );
+      assert.ok(!exportedDetails().includes("private provider error"));
+    } finally {
+      client.destroy();
+    }
+  });
+
+  test(`${name}: a preexisting HTTP parent does not turn the LLM root into a child`, async () => {
+    const client = createExperimentClient();
+    try {
+      await client.setPayload(makeTestPayload());
+      await trace
+        .getTracer("http-test")
+        .startActiveSpan("existing-http", async (parent) => {
+          try {
+            await runObservedRequest(request(client, adapter));
+          } finally {
+            parent.end();
+          }
+        });
+      const root = spans().find((span) => span.name === "support-reply")!;
+      assert.equal(root.parentSpanContext, undefined);
+      assert.ok(
+        root.spanContext().traceId !==
+          spans()
+            .find((span) => span.name === "existing-http")!
+            .spanContext().traceId,
+      );
+    } finally {
+      client.destroy();
+    }
+  });
+
+  test(`${name}: invalid assigned treatment serves control and keeps its original assignment`, async () => {
+    const client = createExperimentClient();
+    try {
+      const payload = makeTestPayload([0, 1]);
+      payload.features![FEATURE_KEY].rules![0].variations = [
+        "production",
+        "invalid-label",
+      ];
+      await client.setPayload(payload);
+      const receipt = await runObservedRequest(request(client, adapter));
+      const expectedTags = [`gb.exp:${STAGING_EXPERIMENT_KEY}=1`];
+      assert.equal(receipt.value, "production");
+      assert.equal(receipt.assignedValue, undefined);
+      assert.equal(receipt.text, "synthetic reply for synthetic-production");
+      assert.deepEqual(receipt.tags, expectedTags);
+      assert.deepEqual(receipt.fallback, {
+        reason: "invalid_assigned_value",
+        missingTraceExposure: false,
+      });
+      const root = spans().find((span) => span.name === "support-reply")!;
+      const child = spans().find((span) => span.name === "model-call")!;
+      assert.equal(root.status.code, SpanStatusCode.ERROR);
+      assert.equal(
+        root.attributes["growthbook.configuration_error"],
+        "invalid_assigned_value",
+      );
+      assert.equal(root.attributes["growthbook.control_fallback"], true);
+      assert.equal(root.attributes["growthbook.trace_exposure_missing"], false);
+      assert.deepEqual(tags(root, name), expectedTags);
+      assert.notEqual(child.status.code, SpanStatusCode.ERROR);
+      assert.ok(!exportedDetails().includes("invalid-label"));
+    } finally {
+      client.destroy();
+    }
+  });
+
+  test(`${name}: oversized shared tracking key serves control for both assignments without inventing exposure`, async () => {
+    const client = createExperimentClient();
+    const overlongKey = "x".repeat(201);
+    try {
+      for (const [weights, assignedValue] of [
+        [[1, 0], "production"],
+        [[0, 1], "candidate"],
+      ] as const) {
+        telemetry.exporter.reset();
+        const payload = makeTestPayload([...weights]);
+        payload.features![FEATURE_KEY].rules![0].key = overlongKey;
+        await client.setPayload(payload);
+        const receipt = await runObservedRequest(request(client, adapter));
+        assert.equal(receipt.assignedValue, assignedValue);
+        assert.equal(receipt.value, "production");
+        assert.equal(receipt.text, "synthetic reply for synthetic-production");
+        assert.deepEqual(receipt.tags, []);
+        assert.deepEqual(receipt.fallback, {
+          reason: "experiment_tag_exceeds_200_characters",
+          missingTraceExposure: true,
+        });
+        const root = spans().find((span) => span.name === "support-reply")!;
+        const child = spans().find((span) => span.name === "model-call")!;
+        assert.equal(root.status.code, SpanStatusCode.ERROR);
+        assert.equal(
+          root.attributes["growthbook.configuration_error"],
+          "experiment_tag_exceeds_200_characters",
+        );
+        assert.equal(root.attributes["growthbook.control_fallback"], true);
+        assert.equal(
+          root.attributes["growthbook.trace_exposure_missing"],
+          true,
+        );
+        assert.deepEqual(tags(root, name), []);
+        assert.deepEqual(tags(child, name), []);
+        assert.notEqual(child.status.code, SpanStatusCode.ERROR);
+        assert.ok(!exportedDetails().includes(overlongKey));
+      }
+    } finally {
+      client.destroy();
+    }
+  });
+
+  test(`${name}: strict configuration mode rejects before a model call and closes a diagnostic root`, async () => {
+    const client = createExperimentClient();
+    const invalidValue = makeTestPayload([0, 1]);
+    invalidValue.features![FEATURE_KEY].rules![0].variations = [
+      "production",
+      "invalid-label",
+    ];
+    const oversizedKey = makeTestPayload([1, 0]);
+    oversizedKey.features![FEATURE_KEY].rules![0].key = "x".repeat(201);
+    try {
+      for (const [payload, reason, expectedTags] of [
+        [
+          invalidValue,
+          "invalid_assigned_value",
+          [`gb.exp:${STAGING_EXPERIMENT_KEY}=1`],
+        ],
+        [oversizedKey, "experiment_tag_exceeds_200_characters", []],
+      ] as const) {
+        telemetry.exporter.reset();
+        await client.setPayload(payload);
+        await assert.rejects(
+          runObservedRequest({
+            ...request(client, adapter),
+            failOnInvalidConfiguration: true,
+            model: {
+              async complete() {
+                assert.fail(
+                  "strict configuration failure must not call the model",
+                );
+              },
+            },
+          }),
+          { message: reason },
+        );
+        assert.equal(spans().length, 1);
+        const [root] = spans();
+        assert.equal(root.status.code, SpanStatusCode.ERROR);
+        assert.equal(root.attributes["growthbook.configuration_error"], reason);
+        assert.equal(root.attributes["growthbook.control_fallback"], false);
+        assert.equal(
+          root.attributes["growthbook.trace_exposure_missing"],
+          expectedTags.length === 0,
+        );
+        assert.deepEqual(tags(root, name), expectedTags);
+      }
+    } finally {
+      client.destroy();
+    }
+  });
+}
+
+test("initial configuration fetch failure uses control and does not invent exposure", async () => {
+  const client = createExperimentClient({
+    apiHost: "https://offline.invalid",
+    clientKey: "sdk_OFFLINE_FIXTURE",
+  });
+  const originalFetch = globalThis.fetch;
+  let fetchAttempts = 0;
+  setPolyfills({
+    fetch: (async () => {
+      fetchAttempts++;
+      throw new Error("simulated network unavailable");
+    }) as typeof fetch,
+  });
+  try {
+    const init = await client.init({ timeout: 50 });
+    assert.equal(init.success, false);
+    assert.ok(fetchAttempts >= 1);
+    const receipt = await runObservedRequest(
+      request(client, new PhoenixRootAdapter()),
+    );
+    assert.equal(receipt.value, "production");
+    assert.deepEqual(receipt.tags, []);
+    assert.equal(spans().length, 2);
+  } finally {
+    client.destroy();
+    setPolyfills({ fetch: originalFetch });
+  }
+});
+
+test("stable hash assignment is repeatable; missing identities are rejected before a model call", async () => {
+  const client = createExperimentClient();
+  try {
+    await client.setPayload(makeTestPayload());
+    assert.deepEqual(
+      selectTreatment(client, "existing-user-1", true),
+      selectTreatment(client, "existing-user-1", true),
+    );
+    assert.throws(
+      () => selectTreatment(client, "", true),
+      /existing nonempty identifier/,
+    );
+    await assert.rejects(
+      runObservedRequest({
+        ...request(client, new PhoenixRootAdapter()),
+        sessionId: "",
+      }),
+      /sessionId/,
+    );
+    assert.equal(spans().length, 0);
+  } finally {
+    client.destroy();
+  }
+});
+
+test("collector exporter failure does not change the model response", async () => {
+  const client = createExperimentClient();
+  const originalExport = telemetry.exporter.export;
+  telemetry.exporter.export = (_spans, callback) =>
+    callback({ code: 1, error: new Error("simulated collector failure") });
+  try {
+    await client.setPayload(makeTestPayload());
+    const receipt = await runObservedRequest(
+      request(client, new PhoenixRootAdapter()),
+    );
+    assert.ok(receipt.text.startsWith("synthetic reply"));
+    assert.equal(spans().length, 0);
+  } finally {
+    telemetry.exporter.export = originalExport;
+    client.destroy();
+  }
+});
+
+test("offline fixture performed no real configuration, collector, prompt, or model network calls", () => {
+  assert.equal(unexpectedNetworkCalls, 0);
+});
+
+test("remote smoke refuses execution without the explicit external-write opt-in", () => {
+  const result = spawnSync(
+    process.execPath,
+    ["--import", "tsx", "src/remote-smoke.ts"],
+    {
+      cwd: new URL("..", import.meta.url),
+      env: { ...process.env, ALLOW_REMOTE_TRACING: "false" },
+      encoding: "utf8",
+    },
+  );
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /ALLOW_REMOTE_TRACING=true/);
+  assert.equal(result.stdout, "");
+});
+```
+
+### What to inspect in the local receipt
+
+The demo receipt must include the synthetic user/session, served value, assigned label, experiment tag, trace ID and exported root attributes. The SDK supplies the variation key in the tag. In a fallback drill, compare the served label with the original assignment and inspect the configuration diagnostic and missing-exposure flag. Inspect the child model span as well to verify the model's outcome independently of the root diagnostic.
+
+For Phoenix, setting context alone is insufficient when using a plain OpenTelemetry tracer. The implementation explicitly copies OpenInference context attributes onto the root. A test must inspect the exported span's `user.id`, `session.id` and `tag.tags`; inspecting only the active context would miss the original draft's failure mode. Follow the [Phoenix OpenTelemetry context documentation](https://arize-ai.github.io/phoenix/modules/_arizeai_phoenix-otel.html).
+
+For Langfuse, propagate the assignment before creating the root observation and verify the exported trace attributes. The fixture uses synthetic prompt resolution. A deployed integration installs the compatible span processor in the service's existing OpenTelemetry lifecycle. See the [Langfuse SDK setup](https://langfuse.com/docs/observability/sdk/overview).
+
+Every manually managed span ends in `finally`, including failures during prompt retrieval. Record exceptions and error status without exporting secrets or raw user content. A span that ends only after a successful provider call is not sufficient for error-rate or latency measurement.
+
+The synthetic fixture creates its own model-operation span because its provider has no instrumentation. In an already traced service, use the provider's existing generation/LLM span instead of wrapping it in a second counted model span. Verify one counted generation/LLM row per actual provider attempt, with one set of usage values; retries are separate attempts when the provider instrumentation records them that way. A duplicate wrapper can inflate calls and tokens even when root assignment tags are correct. Additional non-LLM workflow spans are fine when the generated metric filters exclude them.
+
+## Prove the staging integration
+
+<Warning>
+**End-to-end staging verification is pending.** The fixture passed offline SDK tests and the smoke command passed HTTP transport checks against local mock endpoints. A real collector, tracing-database queries, and a matching exposure and numeric metric in GrowthBook still need verification in staging. Do not report the integration complete from local tests or a successful exporter flush alone.
+</Warning>
+
+Obtain approval for the named staging resources first. Use a dedicated tracing project and a distinct experiment tracking key. A non-production SDK environment controls rule delivery; it does not automatically filter all SQL fact tables by environment. A dedicated project is the simplest defensible boundary for this test.
+
+For the fixture, use a string feature named `support-prompt` with default value `production`. Create a staging-only Experiment rule with tracking key `llm-observability-staging-v1` and hash on the stable `user_id` attribute. Put `production` first and `candidate` second. The fixture expects the default SDK variation keys `0` for `production` and `1` for `candidate`. Use a dedicated staging rule with this mapping and preserve the keys of any existing experiment. Keep the production environment on control. Follow [feature-flag experiments](/features/feature-flag-experiments) for the current UI and creation workflow.
+
+Read back the staging SDK payload using the connection's normal authenticated configuration path. Confirm the experiment key, assignment attribute, ordered values, variation keys and weights. Make sure the rule admits synthetic UUID users and both variations can receive traffic for the metric check. Then verify the staging rule is absent from the production payload. Report only the relevant sanitized rule.
+
+The plugin emits assignment tags when an experiment is evaluated. Loading features or evaluating a default-only feature does not manufacture an experiment exposure. Keep a default-only check in the test matrix so this distinction remains visible after future SDK changes.
+
+### Connect the existing tracer lifecycle
+
+The fixture's default exporter is intentionally local. In staging, adapt its root behavior to the service's existing OpenTelemetry provider. Initialize instrumentation before request modules load. Configure the reviewed Langfuse instance base URL or Phoenix collector endpoint and preserve the service's existing resource and project identity.
+
+For Langfuse, use the compatible span processor and its flush/shutdown lifecycle. For Phoenix, use the existing `register`/provider setup and the configured tracing project. The root must carry assignment and identity before child operations begin. When a framework already creates the root, attach or propagate the attributes at that boundary and inspect the _database root_, not only the child your handler created.
+
+Use approved synthetic inputs for the first exported request. Retain its exact trace ID and expected variation. A successful local flush only proves the exporter accepted the batch; it does not prove database persistence. Inspect the trace in the tool and then query that exact synthetic trace in the backing database.
+
+### Run the approved remote smoke command
+
+The reference fixture's `smoke:remote` command connects the bootstrap to a synthetic request. It reads the staging SDK payload and writes synthetic spans to the chosen tracing platform using the fixture's synthetic prompt and model. Loopback tests verified that both variations produced the expected root and child spans over HTTP for each adapter. They used a mock SDK endpoint and mock trace receivers, so they do not verify ingestion by either tracing platform.
+
+Provide `GROWTHBOOK_API_HOST` and `GROWTHBOOK_CLIENT_KEY` through existing secret and configuration management. For Langfuse, select `TRACE_ADAPTER=langfuse` and provide the self-hosted instance base URL as `LANGFUSE_BASE_URL` plus `LANGFUSE_PUBLIC_KEY` and `LANGFUSE_SECRET_KEY` for the staging project. The Langfuse processor appends `/api/public/otel/v1/traces` to the base URL. For Phoenix, select `TRACE_ADAPTER=phoenix` and provide the reviewed self-hosted OTLP endpoint as `PHOENIX_COLLECTOR_ENDPOINT`, the `PHOENIX_PROJECT_NAME`, and `PHOENIX_API_KEY` when required. Load the values into the command's process environment through your existing configuration tooling.
+
+Read back the actual SDK environment and tracing-project settings before setting `ALLOW_REMOTE_TRACING=true` and `REMOTE_TARGET_ENV=staging`. Use those variables to opt in after confirming isolation. The command validates the rule and evaluates a synthetic UUID user from the same fetched SDK payload. It checks the exact `production` → `0`, `candidate` → `1` mapping before initializing the exporter.
+
+If the command reports `Expected the isolated support-prompt rule`, check the feature default, experiment tracking key, assignment attribute, and variation order in the staging SDK payload. If it reports `The synthetic user was not assigned`, check environment and rule eligibility for that user. Report the fixed setup message and a sanitized description of the relevant rule. After approval for those exact targets, run the command below.
+
+```bash
+npm run smoke:remote
+```
+
+Expect `mode: approved-remote-synthetic` with a trace ID, root span ID, synthetic identities, served value and matching assignment tag. The smoke command requires an assignment that can be traced without falling back. The process flushes and shuts down its provider. Verify that exact trace in the database before claiming ingestion. Keep the synthetic token values outside production analysis. Run the command again after starting the staging analysis when proving the metric window below.
+
+### Connect GrowthBook to the database
+
+Have the operator or database owner create a dedicated read-only principal. For Phoenix, it needs database connection, schema usage and `SELECT` on the tables referenced by the reviewed generated queries. For Langfuse, scope `SELECT` to the required ClickHouse database/tables. Do not grant schema mutation or reuse the application's write credentials for this connection. Verify the configured principal with a read-only query before saving it in GrowthBook.
+
+If an existing compatible data source can query the trace tables, open its **Settings** tab and find **LLM Tracing**. With edit access, choose **Add Langfuse** for ClickHouse or **Add Arize Phoenix** for Postgres. When creating a new data source, select the matching event tracker in the setup wizard. Enter the dedicated staging project ID for Langfuse or project name for Phoenix. A blank project field includes every project. Confirm the setup and review the generated assignment queries on **Queries** and the fact tables and starter Fact Metrics on **Connected Resources**. Check the project filters in both. See the [existing data source setup](/integrations/llm-tracing#using-an-existing-data-source).
+
+The trackers generate identifier types, assignment queries and fact tables. Langfuse has trace, observation and score tables; Phoenix has trace, span and annotation tables. Review their actual SQL before running it against your installation. A schema inspection and the operator's successful query preview establish the physical schema; the source draft's example SQL alone does not.
+
+For example, after the operator confirms the schema, these queries inspect only the known synthetic trace. Replace the trace-ID placeholders with the actual receipt. The Phoenix query follows the draft's schema shape and must be adapted if the installed schema differs. These are operator verification examples, not locally executed database receipts.
+
+```sql
+-- Langfuse v3 / ClickHouse: run using the dedicated read-only principal.
+SELECT id, user_id, session_id, tags
+FROM traces FINAL
+WHERE id = 'REPLACE_WITH_LANGFUSE_TRACE_ID'
+  AND project_id = 'REPLACE_WITH_LANGFUSE_PROJECT_ID'
+  AND user_id = 'REPLACE_WITH_SYNTHETIC_USER_ID'
+  AND has(tags, 'REPLACE_WITH_EXPECTED_ASSIGNMENT_TAG')
+LIMIT 1;
+```
+
+```sql
+-- Phoenix / Postgres: confirm column names and JSON shape first.
+SELECT t.trace_id,
+       root.attributes->'user'->>'id' AS user_id,
+       root.attributes->'session'->>'id' AS session_id,
+       root.attributes->'tag'->'tags' AS raw_tags
+FROM traces t
+JOIN spans root ON root.trace_rowid = t.id
+WHERE root.parent_id IS NULL
+  AND t.trace_id = 'REPLACE_WITH_PHOENIX_TRACE_ID';
+```
+
+Expect exactly the request's opaque user and session IDs and its assignment tag on the root. Phoenix may store tags as a JSON array or a JSON-encoded string depending on the SDK; GrowthBook's generated queries normalize those shapes. If the root is missing attributes, repair instrumentation before changing the exposure query to mask the problem.
+
+Preview the assignment query matching the chosen unit. Inspect the resulting identifier, timestamp, experiment ID and variation ID. They must match the trace and experiment contract. An exposure row in a different project, outside the intended time window, or under an unexpected variation is a failed verification even when the SQL returned rows.
+
+### Prove one metric after the experiment starts
+
+Add a goal metric before starting the staging analysis. For a named eval score, create a ratio metric on Langfuse Scores or Phoenix Annotations: sum the numeric score in the numerator and count matching scored rows in the denominator. Apply the same score/annotation-name filter to both, excluding null numeric scores on both sides when the source can contain them. A mean of per-user totals answers a different question from an average score per scored observation. See [metrics and fact tables](/app/metrics).
+
+A score metric can contain several model calls or annotations per user. Define the scoring population, handle missing scores deliberately, and monitor score coverage alongside the score itself. Do not interpret unscored requests as successful requests. For binary user-level outcomes, choose a proportion metric when the question is the share of units with at least one matching event.
+
+Open the experiment linked to the staging feature rule. Select the tracing data source you just verified and its assignment query for `user_id`, or the matching identifier type if you deliberately chose another unit. Read back the selected source/query and review project predicates on both assignment and metric queries. A successful data-source preview does not select those resources for the experiment automatically.
+
+Start the staging analysis with approval while its rule remains staging-only. Record the analysis start time, data source and project filter. **Now generate new synthetic requests**, including both variations, and record a known test score using the tracing tool's approved scoring path. For Phoenix, annotate a known root or model **span** with a numeric score; the generated tracker excludes trace-level annotations. For Langfuse, use a numeric score attached to the known trace or observation. This removes the ambiguity of expecting a pre-start trace inside a newly started analysis window. Refresh after the collector/database has persisted the rows and confirm the expected users and metric.
+
+For an average-score smoke test, use a tiny, explicitly synthetic scored set whose arithmetic you know. Generate distinct synthetic users until both variations are represented, record their observed assignments, and attach one score to a selected trace/span in each group. Other unscored requests remain visible in exposure counts; do not mistake scored-row counts for the experiment's total sample size.
+
+| Smoke-test field                               | Control example                                                  | Candidate example                                                |
+| ---------------------------------------------- | ---------------------------------------------------------------- | ---------------------------------------------------------------- |
+| Score or annotation name                       | `oneshot_smoke_score`                                            | `oneshot_smoke_score`                                            |
+| Numeric value                                  | `0.25`                                                           | `0.75`                                                           |
+| Subject                                        | Recorded trace/observation in Langfuse; recorded span in Phoenix | Recorded trace/observation in Langfuse; recorded span in Phoenix |
+| Expected filtered score sum / scored-row count | `0.25 / 1`                                                       | `0.75 / 1`                                                       |
+
+Use the score/annotation action in your installed tool, select the exact receipt's trace/span, enter the name and numeric value above, and read it back before refreshing GrowthBook. Preview the score fact-table rows: Langfuse should expose that name/value as `score_name`/`score_value`, Phoenix as `annotation_name`/`annotation_score`. If no supported scoring action is available, return the missing step to the operator instead of claiming the eval path passed. The resulting ratio should be `0.25` and `0.75` for this selected scored set, subject to the reviewed source and time filters. These deliberately invented scores check joins and arithmetic; they cannot establish a quality difference or a trustworthy experiment result.
+
+Inspect cost, latency, token and error metrics separately. A synthetic provider's token values or elapsed time are test data. Null cost may mean missing model pricing or unavailable Phoenix cost tables, not a free model call. If a metric's source is absent, mark that metric unverified and repair collection before making it a production guardrail. Older Phoenix schemas may require removing the unavailable `span_costs` join and cost column from the generated span fact table.
+
+## Establish a clean production measurement boundary
+
+Finish staging before proposing production changes. Preserve its receipt and use a new production experiment tracking key with a production-only tracing project/filter. This is clearer than reusing the staging key and attempting to remember which synthetic observations should be excluded. Keep goal definitions stable and review any source-specific filters in both numerator and denominator.
+
+Create the production rule only after the operator reviews the hypothesis, eligible population, assignment unit, primary outcome, guardrails, intended duration and stopping rule. Confirm the current [experiment configuration](/app/experiment-configuration) and [result interpretation](/app/experiment-results) against the team's analysis method. An experiment can be technically connected while still lacking enough data for a decision.
+
+A small approved canary should prove delivery and tracing without broad treatment exposure. Compare the source request count, unique assigned users, root traces and observed metric coverage. Investigate unexpected missingness or users in multiple variations before ramping. Distinguish deliberate retries and multiple requests from identity or cross-request assignment leakage.
+
+Keep failures observable. A treatment prompt lookup, provider timeout or malformed response should produce a closed root and a correctly classified child operation when one began. A failed export should remain visible in the application's existing telemetry-health system. Do not recursively create more tracing work to report a collector failure or allow a blocked exporter to hold a user response indefinitely.
+
+## Failure injection and troubleshooting
+
+Run these drills in the local fixture or isolated staging system. Capture actual output and the last verified boundary; a checklist with unchecked assertions is not an execution receipt.
+
+| Drill                                | Expected observation                                                          | Do not conclude                                               |
+| ------------------------------------ | ----------------------------------------------------------------------------- | ------------------------------------------------------------- |
+| No experiment/default-only payload   | Control behavior, normal trace, no assignment tag                             | That the tracker can infer an experiment from a default value |
+| Cold configuration fetch failure     | Local control with no invented assignment                                     | That a warm cached treatment disappears automatically         |
+| Local bypass with cached rules       | Control, no experiment evaluation/tag                                         | That stopping analysis alone changed SDK traffic              |
+| Two users concurrently               | Each root has only its own tag and identity                                   | That a global mutable tag list is safe                        |
+| Invalid assigned value               | Control response, original valid assignment and configuration diagnostic      | That the assigned treatment ran                               |
+| Oversized assignment tag             | Control response and missing-exposure diagnostic. The oversized tag is absent | That the tracker can recover the omitted assignment           |
+| Strict validation failure            | Closed diagnostic root and no model call                                      | That production requests use strict validation by default     |
+| Missing prompt or provider rejection | Ended error root; failure preserved                                           | That missing failed spans mean zero error rate                |
+| Missing root attributes              | Database and exposure checks fail visibly                                     | That a correctly tagged child is sufficient                   |
+| Export/collector outage              | Application behavior bounded; export failure visible                          | That local span completion means database persistence         |
+| Database schema upgrade              | Query previews rerun before trusting metrics                                  | That a successful SDK test validates SQL compatibility        |
+
+If no exposure rows appear, inspect the actual root and experiment evaluation first, including fallback diagnostics that report a missing tag. Then check the project predicate, query window and parser. If exposure exists without metrics, verify identity, event or annotation timestamps, metric filters and missing-score coverage. If a tool upgrade breaks SQL, compare the installed schema with the target schema and fix the affected query.
+
+Large Langfuse tables may need a reviewed deduplication strategy instead of `FINAL`. Treat performance tuning as a database-specific query change: verify that it still selects the intended latest row for the correct project before accepting faster results. Changing tracker options after generation does not necessarily rewrite existing SQL; inspect saved queries and read them back after any edit.
+
+## Rollback and verify the control
+
+There are two controls to document. The local bypass chooses known-good behavior before experiment evaluation, independent of a stale payload. The remote feature rule controls future assignment after the service receives an updated payload. Use the local bypass first when an incident needs immediate application control, following the service's approved configuration/deployment process.
+
+In GrowthBook, disable or remove the production Experiment rule and retain the reviewed control default. Publish only that authorized feature/environment change. Then verify the SDK payload and the running service's received revision. Stopping or archiving the analysis is not, by itself, proof that a cached SDK stopped assigning treatments.
+
+Run one approved post-rollback request. Check the actual prompt/config value, root trace, and absence of a new experiment tag when the bypass is active. Verify that normal tracing and error reporting continue. Retain evidence from the failed treatment and its historical exposure; rollback does not undo model responses already delivered, reverse provider charges, delete traces or make prior assignments disappear.
+
+For a telemetry-only regression, restore the previous exporter/adapter configuration or revert the bounded instrumentation change through the normal release process. Do not remove an entire shared OpenTelemetry provider or change another service's tracer project. Database privileges and generated resources can be removed later by their owner after confirming that no other experiment depends on them.
+
+## Operations, ownership and cleanup
+
+Assign one application owner and one measurement/database owner. The application owner maintains identity, SDK versions, provider failure policy and the local bypass. The measurement owner maintains project predicates, metric definitions, schema compatibility, score coverage and the reliability of query refreshes. If one person holds both roles, record both responsibilities.
+
+Monitor configuration age, control fallbacks, missing trace exposures, exporter errors, ingestion delay, exposure volume, variant contamination, scoring coverage and query failures. Set thresholds from the application's actual traffic and collection delay. Preserve the initial staging receipt so an upgrade can be compared against known expected rows.
+
+After a ship/rollback decision, remove the temporary experiment branch only through normal code review. Keep the selected production behavior and ordinary tracing intact. Remove stale feature references, staged prompt versions and temporary synthetic scoring jobs when their owners confirm they are unused. Historical analysis and traces follow the organization's retention policy; cleanup is not permission to erase evidence.
+
+## DIY versus GrowthBook
+
+A short offline comparison or a small internal prototype can reasonably use a local script and existing trace exports. That is often enough to find malformed prompts or measure one request's latency. Keep that smaller path when stable user assignment, ongoing experimentation and production rollout control are not requirements.
+
+Once a team needs consistent assignment across services, repeatable exposure queries, shared metrics, guardrails and audited decisions, the homegrown responsibilities expand. GrowthBook standardizes assignment and analysis, while Langfuse or Phoenix remains responsible for recording and scoring model behavior. The integration still needs correct identity, reliable exports, maintained SQL, reviewed outcomes and engineering ownership. A platform does not remove those responsibilities or guarantee an experiment win.
+
+## Python adaptation
+
+<Warning>
+**The Python adaptation has not been executed.** The TypeScript test results do not verify this example. Before using it, check the installed Python SDK contracts and run the same request-isolation, root-tag, failure, and staging trace-to-metric checks described above.
+</Warning>
+
+The executable fixture above is Node/TypeScript. A Python application uses the experiment-viewed callback described in the [Python tracing example](/integrations/llm-tracing#python), with a list scoped to one request. In particular, load features, **evaluate the feature**, then propagate the populated tags before opening the traced workflow. Loading features alone never invokes the assignment callback.
+
+This small adaptation illustrates that ordering; it is not a separately executed Python fixture. Keep the tracing platform's existing Python initialization and reproduce the same concurrency, failure and root-attribute tests before claiming Python verification.
+
+```python
+from growthbook import GrowthBook
+
+def select_prompt(user_id: str, api_host: str, client_key: str):
+    tags: list[str] = []
+
+    def on_experiment_viewed(experiment, result, user_context):
+        if "=" in experiment.key:
+            return
+        prefix = f"gb.exp:{experiment.key}="
+        tags[:] = [t for t in tags if not t.startswith(prefix)]
+        tags.append(prefix + result.key)
+
+    gb = GrowthBook(
+        api_host=api_host,
+        client_key=client_key,
+        attributes={"user_id": user_id},
+        on_experiment_viewed=on_experiment_viewed,
+    )
+    gb.load_features()
+    prompt_label = gb.get_feature_value("support-prompt", "production")
+    return gb, prompt_label, tags
+```
+
+Keep `gb` request-scoped and call `gb.destroy()` after the workflow, including its failure path. Use `propagate_attributes` for Langfuse or OpenInference's `using_attributes` for Phoenix around the root operation. Never promote this list to module state in a multi-user server. If Python is your primary stack, treat the missing independently tested Python reference as an explicit remaining task.
+
+## Definition of done
+
+Return a compact receipt with these fields and actual evidence:
+
+- **Fit:** tracer server/backend, SDK versions, supported path or reject reason.
+- **Contract:** feature key, experiment key, variation keys/values, identity unit, tracer project and data source.
+- **Local:** files, package lock, type-check and test commands, root attributes, isolation, fallback and strict-validation results, and local-bypass evidence.
+- **Staging:** approved changes, sanitized payload, analysis start time, fresh trace IDs, database readback, assignment-query rows and metric arithmetic.
+- **Production:** separate key/project filters, reviewed outcomes/guardrails, authorized rollout and owner; or explicitly pending.
+- **Rollback:** exact bypass/rule action and the observed control/trace result.
+- **Limits:** unexecuted SQL, untested language/framework paths, missing cost/eval collection, unresolved schema/version questions and remaining operator steps.
+
+Do not describe a local test as a completed remote integration. Do not describe a successful staging query as a verified production experiment. Preserve the last independently observed state so the next engineer can resume without repeating assumptions as facts.
+
+## Source map and freshness contract
+
+Last verified November 6, 2026 against the [GrowthBook JavaScript SDK source at `e43a8ef36ec71c71d4789cecbd4f0f0c93a8191a`](https://github.com/growthbook/growthbook/tree/e43a8ef36ec71c71d4789cecbd4f0f0c93a8191a/packages/sdk-js), the source commit identified by the published `2.0.0` package. TypeScript checks, 25 offline tests, and both synthetic tracing demos passed. Six loopback smoke checks verified both variations on both exporters and confirmed that incorrect keys or swapped mappings stopped before export. The verification date and commit cover those local checks and source review. Collector ingestion, tracing-database queries, GrowthBook exposure and metric results, and the Python adaptation remain unverified end to end.
+
+- [GrowthBook LLM tracing](/integrations/llm-tracing): assignment tags, integration model and caveats.
+- [GrowthBook Langfuse tracker](/event-trackers/langfuse): ClickHouse schema, generated resources and project option.
+- [GrowthBook Phoenix tracker](/event-trackers/phoenix): Postgres resources, annotations and schema caveats.
+- [GrowthBook Node SDK](/lib/node): shared/scoped lifecycle and configuration delivery.
+- [GrowthBook JavaScript tracing](/lib/js#tracing): plugin contract and assignment tags.
+- [GrowthBook feature-flag experiments](/features/feature-flag-experiments): rules and environment delivery.
+- [GrowthBook metrics](/app/metrics): metric grain and interpretation.
+- [Phoenix OpenTelemetry API](https://arize-ai.github.io/phoenix/modules/_arizeai_phoenix-otel.html): propagated context versus manual span attributes.
+- [OpenTelemetry JavaScript instrumentation](https://opentelemetry.io/docs/languages/js/instrumentation/): span completion, errors and SDK lifecycle.
+- [Langfuse SDK setup](https://langfuse.com/docs/observability/sdk/overview) and [v5-to-v6 compatibility](https://langfuse.com/docs/observability/sdk/upgrade-path/js-v5-to-v6): exporter initialization and server/client version boundary.
+- [Langfuse blob export](https://langfuse.com/docs/api-and-data-platform/features/export-to-blob-storage): separate object-storage route outside this implementation.
+
+Revalidate after a GrowthBook SDK/plugin change, Langfuse server or SDK major upgrade, Phoenix schema/SDK change, OpenTelemetry context/exporter change, prompt-registry API change, or modification to assignment, filters, retries, metrics or privacy settings. Rerun the local tests and the staging trace-to-result proof for the affected boundary. MDX parsing alone does not revalidate application runtime or warehouse SQL.

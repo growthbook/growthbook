@@ -427,7 +427,8 @@
                   "guides-for-agents/free-ab-test-javascript",
                   "guides-for-agents/migrate-diy-feature-flags",
                   "guides-for-agents/test-llm-prompt-model-change",
-                  "guides-for-agents/self-host-growthbook-kubernetes"
+                  "guides-for-agents/self-host-growthbook-kubernetes",
+                  "guides-for-agents/connect-llm-observability"
                 ]
               }
             ]
