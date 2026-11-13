@@ -148,7 +148,14 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
           />
         </Flex>
       )}
-      <Table variant="surface" layout="fixed" minTableWidth={950} mb="3">
+      <Table
+        variant="list"
+        stickyHeader={false}
+        stickyLastColumn={hasActions}
+        layout="fixed"
+        minTableWidth={950}
+        mb="3"
+      >
         <TableHeader>
           <TableRow style={{ whiteSpace: "nowrap" }}>
             <TableColumnHeader>Name</TableColumnHeader>

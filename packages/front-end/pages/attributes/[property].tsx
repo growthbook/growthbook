@@ -91,7 +91,7 @@ export default function AttributeDetailPage() {
             { display: property },
           ]}
         />
-        <div className="p-3 container-fluid pagecontents">
+        <div className="container-fluid pagecontents">
           <Callout status="error">
             Attribute &quot;{property}&quot; not found. It may have been deleted
             or you may not have access.{" "}
@@ -172,7 +172,7 @@ export default function AttributeDetailPage() {
           { display: attribute.property },
         ]}
       />
-      <div className="p-3 container-fluid pagecontents">
+      <div className="container-fluid pagecontents">
         <Flex align="center" justify="between" mb="4">
           <Heading as="h1" size="xl" overflowWrap="anywhere">
             {attribute.property}

@@ -15,6 +15,7 @@ import {
   HoldoutInterface,
 } from "shared/validators";
 import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
+import { PageBleed } from "@/components/Layout/PageFrame";
 import Heading from "@/ui/Heading";
 import Badge from "@/ui/Badge";
 import { useUser } from "@/services/UserContext";
@@ -423,16 +424,18 @@ export default function FeaturesHeaderNew({
     </Flex>
   );
 
-  // White over the page's violet, which only the content column below shows.
+  // White over the page's violet, which only the content column below shows,
+  // from the side nav to the window, its content on the page's edges.
   return (
     <>
-      {/* Padding inline: container-fluid's own outranks Radix's props. */}
-      <Box
-        className="container-fluid pagecontents"
-        position="relative"
+      <PageBleed
         style={{
+          position: "relative",
           background: "var(--color-panel-solid)",
-          padding: "var(--space-4) var(--space-5) var(--space-2)",
+          // From the app header down: it holds the page's top padding itself.
+          marginTop: "calc(-1 * var(--page-top-padding))",
+          paddingTop: "var(--page-top-padding)",
+          paddingBottom: "var(--space-2)",
         }}
       >
         <Box>
@@ -474,7 +477,7 @@ export default function FeaturesHeaderNew({
             </Callout>
           ) : null}
         </Box>
-      </Box>
+      </PageBleed>
       <>
         <div
           ref={tabsPinSentinelRef}
@@ -487,16 +490,12 @@ export default function FeaturesHeaderNew({
             background: "var(--color-panel-solid)",
           }}
         />
-        <div
+        <PageBleed
           className={clsx("feature-tabs redesign d-print-none", {
             pinned: headerPinned,
           })}
         >
-          <Box
-            className="container-fluid pagecontents"
-            position="relative"
-            style={{ paddingInline: "var(--space-5)" }}
-          >
+          <Box position="relative">
             <Flex align="center" className="header-tabs">
               <Tabs
                 value={tab}
@@ -552,7 +551,7 @@ export default function FeaturesHeaderNew({
             </Flex>
           </Box>
           {statusBar}
-        </div>
+        </PageBleed>
       </>
       {auditModal && (
         <CompareFeatureEventsModal

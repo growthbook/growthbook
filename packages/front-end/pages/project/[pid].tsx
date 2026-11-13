@@ -46,6 +46,10 @@ import CopyableCode from "@/components/Settings/CopyableCode";
 import ChanceToWinThresholdField from "@/components/GeneralSettings/ExperimentSettings/ChanceToWinThresholdField";
 import PValueThresholdField from "@/components/GeneralSettings/ExperimentSettings/PValueThresholdField";
 import Callout from "@/ui/Callout";
+import TruncatedText from "@/ui/TruncatedText";
+
+// An ID row item, free to shrink: its value gives way, not its label.
+const ID_ROW_ITEM: React.CSSProperties = { minWidth: 0 };
 
 function emptyStringToUndefined(v: unknown): number | undefined {
   if (v === "" || v === null || v === undefined) return undefined;
@@ -133,7 +137,7 @@ const ProjectPage: FC = () => {
 
   if (!canEditSettings) {
     return (
-      <div className="container pagecontents">
+      <div className="container-fluid pagecontents">
         <Callout status="error">
           You do not have access to view this page.
         </Callout>
@@ -142,7 +146,7 @@ const ProjectPage: FC = () => {
   }
   if (error) {
     return (
-      <div className="container pagecontents">
+      <div className="container-fluid pagecontents">
         <Callout status="error">{error}</Callout>
       </div>
     );
@@ -152,7 +156,7 @@ const ProjectPage: FC = () => {
   }
   if (!p) {
     return (
-      <div className="container pagecontents">
+      <div className="container-fluid pagecontents">
         <Callout status="error">
           Project{" "}
           <Text as="span" size="inherit" mono>
@@ -203,12 +207,17 @@ const ProjectPage: FC = () => {
             />
           </Box>
         ) : null}
-        <Flex align="center" justify="between" width="100%">
-          <Flex align="start" direction="column">
-            <Flex align="center" gap="3" mb="2">
-              <Heading size="xl" as="h1" overflowWrap="anywhere">
-                {p.name}
-              </Heading>
+        <Flex align="center" justify="between" gap="3" width="100%">
+          {/* Shrinks beside the actions menu, so a long name or ID is cut
+              short rather than running off the page. */}
+          <Flex align="start" direction="column" flexGrow="1" minWidth="0">
+            <Flex align="center" gap="3" mb="2" maxWidth="100%">
+              {/* One line, with the whole name in a tooltip when it's cut. */}
+              <Box minWidth="0">
+                <Heading size="xl" as="h1">
+                  <TruncatedText text={p.name} />
+                </Heading>
+              </Box>
               {p.restrictAccess ? (
                 <Badge
                   color="amber"
@@ -221,12 +230,21 @@ const ProjectPage: FC = () => {
                 />
               ) : null}
             </Flex>
-            <Flex gap="6" mb="4">
-              <Metadata label="ID" value={<CopyableCode value={p.id} />} />
+            {/* Labels on one line. The IDs wrap below each other first, then
+                a value cut short fades out (CopyableCode). */}
+            <Flex gapX="6" gapY="2" wrap="wrap" mb="4" maxWidth="100%">
+              <Metadata
+                label="ID"
+                noWrapLabel
+                value={<CopyableCode value={p.id} />}
+                style={ID_ROW_ITEM}
+              />
               {p.publicId && (
                 <Metadata
                   label="Public ID (SDK payloads)"
+                  noWrapLabel
                   value={<CopyableCode value={p.publicId} muted />}
+                  style={ID_ROW_ITEM}
                 />
               )}
             </Flex>

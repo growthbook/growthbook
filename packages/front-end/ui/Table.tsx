@@ -1,12 +1,8 @@
-import React, { forwardRef, useEffect, useRef } from "react";
-import { Table as RadixTable } from "@radix-ui/themes";
+import React, { forwardRef, useEffect, useRef, useState } from "react";
+import { Box, Table as RadixTable } from "@radix-ui/themes";
 import clsx from "clsx";
-import { useIsOverflowingX } from "@/hooks/useIsOverflowing";
 import { radixSize, Size } from "@/ui/sizes";
 import styles from "./Table.module.scss";
-
-/** Standard top offset (px) for sticky table headers. Must be >= top nav height (56px) so the header's top border isn't covered. */
-export const DEFAULT_STICKY_TOP_OFFSET_PX = 56;
 
 export type TableProps = Omit<
   React.ComponentProps<typeof RadixTable.Root>,
@@ -17,7 +13,7 @@ export type TableProps = Omit<
   size?: Size<"sm" | "md" | "lg">;
   /** When true (or when variant="list"), header row is sticky; when false, list variant keeps styling but header does not stick */
   stickyHeader?: boolean;
-  /** Top offset in px for sticky header (default DEFAULT_STICKY_TOP_OFFSET_PX). Used as CSS var --table-sticky-top. */
+  /** Top offset in px for sticky header (default: under the app header and whatever the page pins there, --page-sticky-top). Used as CSS var --table-sticky-top. */
   stickyTopOffset?: number;
   /** When true (or when variant="list"), first header row gets rounded top corners */
   roundedCorners?: boolean;
@@ -28,7 +24,7 @@ export type TableProps = Omit<
    * overflow-x can't scroll without overflow-y doing the same.
    */
   scrollX?: boolean;
-  /** Pins the last column to the right edge while the rest scrolls under it. */
+  /** Pins the last column to the right edge while the rest scrolls under it, in a `scrollX` region or once the table is too wide for the page. */
   stickyLastColumn?: boolean;
   /**
    * Height cap for the `scrollX` region, e.g. 480 or "60vh". Without it the
@@ -49,33 +45,126 @@ export default function Table({
   variant,
   size,
   stickyHeader,
-  stickyTopOffset = DEFAULT_STICKY_TOP_OFFSET_PX,
+  stickyTopOffset,
   roundedCorners,
   scrollX,
   stickyLastColumn,
   maxHeight,
   minTableWidth,
   className,
+  m,
+  mx,
+  my,
+  mt,
+  mr,
+  mb,
+  ml,
   ...props
 }: TableProps) {
+  const margins = { m, mx, my, mt, mr, mb, ml };
   const isListVariant =
     variant === "list" || stickyHeader === true || roundedCorners === true;
   const useStickyHeader =
     (variant === "list" && stickyHeader !== false) || stickyHeader === true;
 
   const wrapperRef = useRef<HTMLDivElement>(null);
-  // A pinned column only earns its divider once there is something behind it.
-  const overflowX = useIsOverflowingX(
-    wrapperRef,
-    !!scrollX && !!stickyLastColumn,
-  );
+  // Too wide for the page, the table scrolls sideways in its own box. Not
+  // with scrollX, already a scroll region.
+  const [autoScroll, setAutoScroll] = useState(false);
+  useEffect(() => {
+    const wrapper = wrapperRef.current;
+    const table = wrapper?.querySelector("table");
+    if (!isListVariant || scrollX || !wrapper || !table) {
+      setAutoScroll(false);
+      return;
+    }
+    const check = () =>
+      setAutoScroll(table.offsetWidth > wrapper.clientWidth + 1);
+    check();
+    const observer = new ResizeObserver(check);
+    observer.observe(wrapper);
+    observer.observe(table);
+    return () => observer.disconnect();
+  }, [isListVariant, scrollX]);
+
+  // Flags each edge of a scroll box with columns hidden past it, for the edge
+  // shadows. Written to the DOM directly, so scrolling doesn't re-render.
+  const isScrollBox = !!scrollX || autoScroll;
+  useEffect(() => {
+    const wrapper = wrapperRef.current;
+    if (!isScrollBox || !wrapper) return;
+    const update = () => {
+      const hidden = wrapper.scrollWidth - wrapper.clientWidth;
+      wrapper.toggleAttribute("data-more-start", wrapper.scrollLeft > 1);
+      wrapper.toggleAttribute("data-more-end", hidden - wrapper.scrollLeft > 1);
+      wrapper.style.setProperty(
+        "--table-scroll-height",
+        `${wrapper.clientHeight}px`,
+      );
+      wrapper.style.setProperty(
+        "--table-box-height",
+        `${wrapper.getBoundingClientRect().height}px`,
+      );
+    };
+    update();
+    wrapper.addEventListener("scroll", update, { passive: true });
+    const observer = new ResizeObserver(update);
+    observer.observe(wrapper);
+    const table = wrapper.querySelector("table");
+    if (table) observer.observe(table);
+    return () => {
+      wrapper.removeEventListener("scroll", update);
+      observer.disconnect();
+      wrapper.removeAttribute("data-more-start");
+      wrapper.removeAttribute("data-more-end");
+      wrapper.style.removeProperty("--table-scroll-height");
+      wrapper.style.removeProperty("--table-box-height");
+    };
+  }, [isScrollBox]);
+
+  // A sideways scroll box can't let its header stick to the window, so the
+  // header is moved down the box as the page scrolls instead. CSS does that
+  // with a scroll-driven animation (Table.module.scss); this is for browsers
+  // without one.
+  useEffect(() => {
+    const wrapper = wrapperRef.current;
+    if (!autoScroll || !useStickyHeader || !wrapper) return;
+    if (CSS.supports("animation-timeline: view()")) return;
+    let frame = 0;
+    const update = () => {
+      frame = 0;
+      const box = wrapper.getBoundingClientRect();
+      // Resolved from --table-sticky-top.
+      const stickTop = parseFloat(getComputedStyle(wrapper).scrollMarginTop);
+      // The header starts under the box's 1px border.
+      const shift = Math.min(box.height, Math.max(0, stickTop - 1 - box.top));
+      wrapper.style.setProperty("--table-header-shift", `${shift}px`);
+    };
+    const onScroll = () => {
+      if (!frame) frame = requestAnimationFrame(update);
+    };
+    update();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", onScroll);
+    return () => {
+      cancelAnimationFrame(frame);
+      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", onScroll);
+      wrapper.style.removeProperty("--table-header-shift");
+    };
+  }, [autoScroll, useStickyHeader]);
 
   useEffect(() => {
     if (!isListVariant || !useStickyHeader) return;
     const wrapper = wrapperRef.current;
     if (!wrapper) return;
     // In a scroll region the header is always stuck to the region's top, so
-    // there is no unstuck state to detect.
+    // there is no unstuck state to detect. In a sideways scroll box
+    // (autoScroll) the box keeps its corners while the header moves in it.
+    if (autoScroll) {
+      wrapper.removeAttribute("data-sticky-active");
+      return;
+    }
     if (scrollX) {
       wrapper.setAttribute("data-sticky-active", "true");
       return;
@@ -85,7 +174,9 @@ export default function Table({
 
     const check = () => {
       const top = (header as HTMLElement).getBoundingClientRect().top;
-      const isSticky = Math.abs(top - stickyTopOffset) < 2;
+      // Where it sticks, resolved from --table-sticky-top.
+      const topOffset = parseFloat(getComputedStyle(header).top);
+      const isSticky = Math.abs(top - topOffset) < 2;
       if (isSticky) {
         wrapper.setAttribute("data-sticky-active", "true");
       } else {
@@ -96,13 +187,15 @@ export default function Table({
     check();
     window.addEventListener("scroll", check, { passive: true });
     return () => window.removeEventListener("scroll", check);
-  }, [isListVariant, useStickyHeader, stickyTopOffset, scrollX]);
+  }, [isListVariant, useStickyHeader, stickyTopOffset, scrollX, autoScroll]);
 
   const radixVariant = variant === "list" ? "surface" : variant;
 
   const tableElement = (
     <RadixTable.Root
       {...props}
+      // The list wrapper carries the margins instead, outside its outline.
+      {...(isListVariant ? {} : margins)}
       // The list wrapper carries the floor instead, where a drag-resize moves it.
       style={
         !isListVariant && minTableWidth
@@ -125,13 +218,17 @@ export default function Table({
   }
 
   return (
-    <div
+    <Box
+      {...margins}
       ref={wrapperRef}
       className={styles.wrapper}
       style={
         {
           ...(useStickyHeader && {
-            "--table-sticky-top": `${stickyTopOffset}px`,
+            "--table-sticky-top":
+              stickyTopOffset !== undefined
+                ? `${stickyTopOffset}px`
+                : "var(--page-sticky-top, var(--page-top-offset))",
           }),
           ...(minTableWidth && { "--table-min-width": `${minTableWidth}px` }),
           ...(maxHeight !== undefined && {
@@ -143,11 +240,13 @@ export default function Table({
       data-table-list
       data-sticky-header={useStickyHeader ? "true" : "false"}
       data-scroll-x={scrollX ? "true" : undefined}
-      data-sticky-last-column={scrollX && stickyLastColumn ? "true" : undefined}
-      data-overflow-x={overflowX ? "true" : undefined}
+      data-sticky-last-column={
+        isScrollBox && stickyLastColumn ? "true" : undefined
+      }
+      data-auto-scroll={autoScroll ? "true" : undefined}
     >
       {tableElement}
-    </div>
+    </Box>
   );
 }
 

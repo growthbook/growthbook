@@ -118,7 +118,7 @@ const IdeaPage = (): ReactElement => {
   const datasource = getDatasourceById(metric?.datasource || "");
 
   return (
-    <div className="container-fluid pagecontents pt-3">
+    <div className="container-fluid pagecontents">
       {project &&
         project !== idea.project &&
         canEdit &&

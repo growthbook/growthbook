@@ -48,7 +48,7 @@ const IdeasPage = (): React.ReactElement => {
 
   if (!data.ideas.length) {
     return (
-      <div className="container p-4">
+      <div className="container">
         <h1>Ideas</h1>
         <p>This is a space to gather and prioritize experiment ideas.</p>
         <p>

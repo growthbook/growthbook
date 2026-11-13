@@ -34,10 +34,8 @@ import RevisionStatusBar, {
   REVISION_STATUS_BAR_HEIGHT_PX,
 } from "@/components/Features/RevisionStatusBar";
 import { getRevisionStatus } from "@/services/revisionStatus";
-import {
-  TABS_BAR_HEIGHT_PX,
-  TABS_HEADER_HEIGHT_PX,
-} from "@/components/Layout/constants";
+import { TABS_BAR_HEIGHT_PX } from "@/components/Layout/constants";
+import { useTabsTop } from "@/components/Layout/pageTopOffset";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 
 const featureTabs = [
@@ -169,6 +167,7 @@ export default function FeaturePage() {
     homeTab: "overview",
   });
 
+  const tabsTop = useTabsTop();
   // Its message wraps, so what sticks beneath it reads its real height.
   const [statusBarEl, setStatusBarEl] = useState<HTMLDivElement | null>(null);
   const [statusBarHeight, setStatusBarHeight] = useState(
@@ -203,9 +202,7 @@ export default function FeaturePage() {
       revisionList: data.revisionList || [],
     }) !== null;
   const stickyTop =
-    TABS_HEADER_HEIGHT_PX +
-    TABS_BAR_HEIGHT_PX +
-    (showsStatusBar ? statusBarHeight : 0);
+    tabsTop + TABS_BAR_HEIGHT_PX + (showsStatusBar ? statusBarHeight : 0);
   // Edits land on an open draft, or on a new one cut from live; any other
   // revision (discarded, superseded, or held by a ramp schedule) is history.
   const isReadOnly = !viewingDraft && !viewingLive;

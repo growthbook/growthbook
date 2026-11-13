@@ -1,5 +1,5 @@
 import { RefObject, useEffect, useRef, useState } from "react";
-import { TABS_HEADER_HEIGHT_PX } from "@/components/Layout/constants";
+import { useTabsTop } from "@/components/Layout/pageTopOffset";
 
 // Whether the tab bar has scrolled up under the fixed page header. Place the
 // returned ref on a zero-height sentinel just above the tab bar.
@@ -8,6 +8,7 @@ export default function usePinnedHeader(
 ): [RefObject<HTMLDivElement>, boolean] {
   const sentinelRef = useRef<HTMLDivElement>(null);
   const [pinned, setPinned] = useState(false);
+  const tabsTop = useTabsTop();
 
   useEffect(() => {
     if (!enabled) return;
@@ -17,13 +18,13 @@ export default function usePinnedHeader(
       ([entry]) => setPinned(!entry.isIntersecting),
       {
         root: null,
-        rootMargin: `-${TABS_HEADER_HEIGHT_PX}px 0px 0px 0px`,
+        rootMargin: `-${tabsTop}px 0px 0px 0px`,
         threshold: 0,
       },
     );
     observer.observe(el);
     return () => observer.disconnect();
-  }, [enabled]);
+  }, [enabled, tabsTop]);
 
   return [sentinelRef, pinned];
 }

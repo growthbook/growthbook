@@ -135,7 +135,10 @@ export function PowerCard({
         : renderLowPowerRecommendations();
 
   return (
-    <div id="power-card" style={{ scrollMarginTop: "100px" }}>
+    <div
+      id="power-card"
+      style={{ scrollMarginTop: "calc(var(--tabs-bottom) + var(--space-1))" }}
+    >
       <div className="appbox container-fluid mb-4 pl-3 py-3">
         <Flex justify="between" mb="2">
           <Flex align="center" gap="2">

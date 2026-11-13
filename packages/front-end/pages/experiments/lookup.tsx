@@ -43,7 +43,7 @@ export default function ExperimentLookupPage() {
   }
 
   return (
-    <div className="container-fluid pagecontents pt-4">
+    <div className="container-fluid pagecontents">
       <Callout status="error">Experiment not found</Callout>
       <div className="mt-3 px-3">
         <Link href="/experiments" size="lg">

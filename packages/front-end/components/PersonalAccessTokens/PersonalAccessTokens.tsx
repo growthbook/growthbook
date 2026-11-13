@@ -107,21 +107,19 @@ export const PersonalAccessTokens: FC<PersonalAccessTokensProps> = ({
       </div>
 
       {canManageTokens && (
-        <div className="mb-5">
-          <Callout status="info">
-            {canManageApiKeys ? (
-              <>
-                Administrators can create userless keys for an organization on
-                the <Link href="/settings/keys">API Keys</Link> page, and review
-                or disable
-              </>
-            ) : (
-              <>Administrators can review or disable</>
-            )}{" "}
-            members&apos; tokens under{" "}
-            <Link href="/settings/personal-access-tokens">Manage PATs</Link>.
-          </Callout>
-        </div>
+        <Callout status="info">
+          {canManageApiKeys ? (
+            <>
+              Administrators can create userless keys for an organization on the{" "}
+              <Link href="/settings/keys">API Keys</Link> page, and review or
+              disable
+            </>
+          ) : (
+            <>Administrators can review or disable</>
+          )}{" "}
+          members&apos; tokens under{" "}
+          <Link href="/settings/personal-access-tokens">Manage PATs</Link>.
+        </Callout>
       )}
     </div>
   );

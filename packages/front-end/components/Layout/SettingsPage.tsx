@@ -97,7 +97,7 @@ export default function SettingsPage({
           breadcrumb ?? [root, ...(parent ? [parent] : []), { display: title }]
         }
       />
-      <Box className="container-fluid pagecontents" mb="4">
+      <Box className="container-fluid pagecontents">
         {!hideHeader && (
           <SettingsPageHeader
             title={title}
@@ -106,9 +106,7 @@ export default function SettingsPage({
             className={headerClassName}
           />
         )}
-        <Box className={contentClassName} pb="5">
-          {children}
-        </Box>
+        <Box className={contentClassName}>{children}</Box>
       </Box>
     </>
   );

@@ -1125,7 +1125,7 @@ export default function EditSavedGroupPage() {
       />
       <div className="container-fluid pagecontents">
         <Flex align="start" justify="between" gap="2">
-          <Flex align="center" mb="2" gap="3" style={{ marginTop: "-4px" }}>
+          <Flex align="center" mb="2" gap="3">
             <Heading size="2xl" as="h1" overflowWrap="anywhere" mb="0">
               {displayedSavedGroup?.groupName || savedGroup.groupName}
             </Heading>

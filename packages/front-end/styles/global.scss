@@ -10,8 +10,86 @@
 // Bootstrap theme overrides must be loaded AFTER Bootstrap
 @import "_bootstrap-theme-overrides";
 
+// The app shell's sizes, read by the shell, the page frame
+// (components/Layout/PageFrame) and whatever pins under the header or fills
+// the window.
+:root {
+  // Keep in sync with HEADER_HEIGHT_PX in components/Layout/pageTopOffset.ts.
+  --header-height: 56px;
+  --sidebar-width: 240px;
+  // The header plus any bar pinned under it (--pinned-bar-height,
+  // pageTopOffset.ts): where sticky bars pin and what full-window pages
+  // leave room for.
+  --page-top-offset: calc(var(--header-height) + var(--pinned-bar-height, 0px));
+
+  // Sticky page tabs pin 1px under the header and any bar under it, to cover
+  // its edge. Keep in sync with components/Layout/pageTopOffset.ts.
+  --tabs-top: calc(var(--page-top-offset) - 1px);
+  // The experiment page's and the redesigned feature page's tab rows.
+  --tabs-bar-height: 45px;
+  --tabs-bottom: calc(var(--tabs-top) + var(--tabs-bar-height));
+
+  // The page's side padding steps with the window's width; past a 1680px page
+  // (beside the side nav) the content centers. Computed, not a container
+  // query: containment would trap the fixed overlays inside. Classic
+  // scrollbars count toward the widths.
+  --page-nav-width: var(--sidebar-width);
+  --page-area-width: calc(100vw - var(--page-nav-width));
+  // 16px, then 24px from a 768px and 32px from a 1180px window.
+  --page-padding-step: calc(
+    16px + clamp(0px, (100vw - 767px) * 1000, 8px) +
+      clamp(0px, (100vw - 1179px) * 1000, 8px)
+  );
+  // Content stops at 1616px, a 1680px page with its 32px sides, so a 1728px
+  // window (a 16" MacBook) never centers; past that the padding grows and
+  // centers it.
+  --page-max-width: 1616px;
+  --page-padding: max(
+    var(--page-padding-step),
+    (var(--page-area-width) - var(--page-max-width)) / 2
+  );
+  // From the header to a page's first item. Things that line up with that
+  // first item (the design system's and the config page's sidebars) read it
+  // too. 20px is the design's: Radix's scale has no step between 16px
+  // (--space-4) and 24px (--space-5), so it's a raw value.
+  --page-top-padding: 20px;
+  // Under a page's last item (Radix's --space-6, which :root can't read).
+  --page-bottom-padding: 32px;
+  // Page content looks odd when very wide. Components that frame page content
+  // read this too.
+  --page-content-max-width: 1340px;
+
+  --settings-nav-width: 256px;
+  --settings-nav-inset: 12px;
+  // The Settings nav's text on the page's left content edge, as every other
+  // page's, its items' fills hanging 8px outside it. The page starts past it.
+  --settings-nav-left: calc(
+    var(--page-nav-width) + var(--page-padding) - var(--settings-nav-inset)
+  );
+  --settings-layout-left: calc(
+    var(--settings-nav-left) + var(--settings-nav-width)
+  );
+  // Where General's section headings pin.
+  --settings-section-top: var(--page-top-offset);
+}
+// The side nav is a drawer from here down.
+@media (max-width: 1180px) {
+  :root {
+    --page-nav-width: 0px;
+  }
+}
+// The narrow Settings layout: the nav is a select at the page's top
+// (SettingsPageTop), pinned under the header as a 60px row, so the page
+// starts at the window's edge.
+@media (max-width: 1023px) {
+  :root {
+    --settings-section-top: calc(var(--page-top-offset) + 60px);
+    --settings-layout-left: 0px;
+  }
+}
+
 main {
-  padding-top: 56px;
+  padding-top: var(--header-height);
 }
 
 body {
@@ -45,23 +123,8 @@ body {
   z-index: 990;
 }
 
-:root {
-  --settings-sidebar-width: 240px;
-  --settings-nav-width: 256px;
-  --settings-nav-inset: 12px;
-  --settings-layout-left: calc(
-    var(--settings-sidebar-width) + var(--settings-nav-width) +
-      var(--settings-nav-inset)
-  );
-}
-// Matches the sub nav's breakpoint: without it, content only clears the sidebar.
-@media (max-width: 1399px) {
-  :root {
-    --settings-layout-left: var(--settings-sidebar-width);
-  }
-}
 .main {
-  padding-left: 240px;
+  padding-left: var(--sidebar-width);
   &.settings-layout {
     padding-left: var(--settings-layout-left);
   }
@@ -87,13 +150,9 @@ body {
     padding: 15px;
   }
 }
+
 .contents {
   padding: 15px;
-}
-:root {
-  // Page content looks odd when very wide. Components that frame page content
-  // read this too.
-  --page-content-max-width: 1340px;
 }
 .pagecontents {
   max-width: var(--page-content-max-width);
@@ -540,15 +599,35 @@ pre {
   min-height: 100vh;
   // Runs the window's full width: every page-width limit inside reads this.
   --page-content-max-width: none;
-  // Beside the details panel, the content caps and centers once there's room.
   .experiment-column,
   .feature-column {
-    --page-content-max-width: 1600px;
+    // Select menus match their field, as wide as it and no wider, so they
+    // don't run over the details panel or off the window (the app's menus
+    // otherwise size to their longest option, react-select.scss).
+    .gb-select__menu,
+    .gb-multi-select__menu {
+      width: auto !important;
+    }
   }
-  // The tabs' gutter, matching the header and tab bar above them.
+  // The column beside the details panel carries the tabs' gutter
+  // (DetailsPanel.module.scss), so a tab's own container adds none.
   .feature-column .contents {
-    padding-left: 1.5rem;
-    padding-right: 1.5rem;
+    padding-left: 0;
+    padding-right: 0;
+  }
+  // Nor under it, where the column's own bottom spacing starts.
+  .feature-column > .contents:last-child {
+    padding-bottom: 0;
+  }
+}
+
+// The page's background, which the page and anything pinned over it read.
+// Experiment pages are white (the panel color, dark in dark mode).
+.radix-themes {
+  --page-bg: var(--color-background);
+  &:has(> .main:is(.experiment, .bandit, .holdout)),
+  &:has(.public:is(.experiment, .bandit, .holdout)) {
+    --page-bg: var(--color-panel-solid);
   }
 }
 
@@ -565,7 +644,7 @@ pre {
 .public.experiment,
 .public.bandit,
 .public.holdout {
-  background-color: var(--color-panel-solid);
+  background-color: var(--page-bg);
   .experiment-header {
     .border {
       border-bottom: 1px solid var(--border-color-200);
@@ -573,11 +652,10 @@ pre {
   }
   .experiment-tabs {
     // Sticky, so it has to match the page it scrolls over.
-    background-color: var(--color-panel-solid);
-    // NB: Keep top and height in sync with components/Layout/constants.ts
-    // also, make sure shared reports & shared experiments look good
-    top: 55px;
-    height: 45px;
+    background-color: var(--page-bg);
+    // NB: make sure shared reports & shared experiments look good
+    top: var(--tabs-top);
+    height: var(--tabs-bar-height);
     transition: 150ms all;
     // The underline belongs to the whole row, so it runs the page's full
     // width, past the tab list and under anything beside it.
@@ -662,8 +740,8 @@ pre {
 }
 .feature-tabs {
   background-color: var(--color-background);
-  // NB: Keep top and height in sync with components/Layout/constants.ts
-  top: 55px;
+  top: var(--tabs-top);
+  // The original feature page's row; the redesign's is --tabs-bar-height.
   height: 40px;
   transition: 150ms all;
 
@@ -827,7 +905,7 @@ pre {
     &.axis-col {
       &:not(.noStickyHeader) {
         position: sticky;
-        top: 100px;
+        top: var(--tabs-bottom);
         // A scrolling wrapper would pin it to the wrapper, not the page.
         .overflowing & {
           position: static;
@@ -962,12 +1040,7 @@ pre {
 main.main {
   &.report {
     .experiment-results th.axis-col {
-      top: 55px;
-    }
-  }
-  &.public.experiment {
-    .experiment-results th.axis-col {
-      top: 100px;
+      top: calc(var(--page-top-offset) - 1px);
     }
   }
   .select-dropdown-underline {
@@ -1294,7 +1367,10 @@ main.main {
 
 .pagination-area {
   border-top: 1px solid var(--border-color-300);
-  padding: 10px;
+  // The space under the links is a margin, so a bar that ends the page
+  // collapses into the page's bottom spacing instead of adding to it.
+  padding: 10px 10px 0;
+  margin-bottom: 10px;
 
   .pagination {
     .page-item {
@@ -3237,10 +3313,11 @@ html {
 }
 // Settings pages: card and table styling from the design.
 .main.settings-layout {
+  // The page frame pads Settings pages, so their container only caps them.
   .container-fluid.pagecontents {
     margin-left: 0;
     max-width: 1240px;
-    padding: 28px 40px;
+    padding: 0;
   }
   .appbox {
     border-radius: 8px;
@@ -3274,16 +3351,17 @@ html {
       font-size: 13px;
     }
     .rt-TableBody .rt-TableRow:hover {
-      background-color: var(--slate-a2);
+      // Also a variable: a pinned cell is opaque, so it paints the row's
+      // tint itself (ui/Table.module.scss).
+      --table-row-hover-tint: var(--slate-a2);
+      background-color: var(--table-row-hover-tint);
     }
   }
 }
 
 @media (max-width: 1180px) {
-  .main,
-  .main.settings-layout {
+  .main {
     padding-left: 0;
-    padding-top: 60px;
   }
   .sidebar.open {
     left: 0;

@@ -1,3 +1,21 @@
+// Where columns scroll under an edge (the pinned last column, a scroll box's
+// own edges), they fade into the table's surface over 12px instead of being
+// cut off. The same fade as content scrolling under the app header.
+$scroll-fade-width: 12px;
+@function scroll-fade($toward) {
+  @return linear-gradient(to $toward, transparent, var(--color-panel-solid));
+}
+
+// What a hovered row's cells show over the table's surface: the list
+// variant's tint on the cell, over the tint a page may give the row
+// (--table-row-hover-tint). A pinned cell is opaque, so it paints both.
+$pinned-hover-tints:
+  linear-gradient(var(--accent-a2), var(--accent-a2)),
+  linear-gradient(
+    var(--table-row-hover-tint, transparent),
+    var(--table-row-hover-tint, transparent)
+  );
+
 :global(.rt-TableRootTable .rt-TableColumnHeaderCell) {
   font-weight: 500;
 }
@@ -15,12 +33,33 @@
   min-width: var(--table-min-width, 0);
 }
 
+// Too wide for the page, the table scrolls sideways in its own box. The
+// outline moves onto the box, so it stays whole as the table scrolls.
+.wrapper[data-table-list][data-auto-scroll="true"] {
+  overflow-x: auto;
+  overflow-y: hidden;
+  border: 1px solid var(--slate-a5, rgba(0, 9, 50, 0.12));
+  border-radius: var(--radius-4);
+  // Not for scrolling to: it resolves --table-sticky-top to pixels for
+  // Table.tsx.
+  scroll-margin-top: var(--table-sticky-top, 0px);
+
+  :global(.rt-TableRootTable) {
+    border: none;
+    border-radius: 0;
+  }
+
+  :global(.rt-TableHeader .rt-TableRow .rt-TableColumnHeaderCell) {
+    box-shadow: inset 0 -1px 0 0 var(--slate-a5, rgba(0, 9, 50, 0.12));
+  }
+}
+
 // List table variant: sticky header, row hover (use same solid surface as surface variant)
 .wrapper[data-table-list] {
   max-width: 100%;
   overflow: visible;
   background-color: transparent;
-  border: none !important;
+  border: none;
   border-radius: 0;
 
   :global(.rt-TableRoot).tableList {
@@ -197,6 +236,40 @@
     border-top-right-radius: 0;
   }
 
+  // A sideways scroll box is its header's scroll container, so the header
+  // can't stick to the window. It's moved down the box instead, as far as the
+  // box has scrolled under the line it would stick to: the same place, so it
+  // looks stuck. Driven by the page's scroll itself (the box's view timeline)
+  // where the browser can, so it doesn't trail the scroll; Table.tsx sets
+  // --table-header-shift where it can't.
+  &[data-auto-scroll="true"][data-sticky-header="true"] {
+    :global(.rt-TableHeader) {
+      position: relative;
+      top: auto;
+      translate: 0 var(--table-header-shift, 0px);
+    }
+
+    @supports ((animation-timeline: view()) and (animation-range: 0% 100%)) {
+      view-timeline: --table-box block;
+      // The line the header sticks to, in place of the window's top. 1px up:
+      // the header starts under the box's border.
+      view-timeline-inset: calc(var(--table-sticky-top, 0px) - 1px) 0px;
+
+      :global(.rt-TableHeader) {
+        animation: header-follows-window linear both;
+        animation-timeline: --table-box;
+        // From the box's top crossing that line to its bottom crossing it.
+        animation-range: exit-crossing 0% exit-crossing 100%;
+      }
+    }
+
+    :global(.rt-TableCell .rt-TableHeader) {
+      position: unset;
+      translate: none;
+      animation: none;
+    }
+  }
+
   // Opt-in bounded scroll region for wide tables. overflow-x can't scroll
   // without overflow-y doing the same, so the header sticks to this region
   // rather than to the viewport.
@@ -207,7 +280,7 @@
     // so the body scrolls instead of pushing what follows off screen.
     max-height: var(
       --table-max-height,
-      calc(100vh - var(--table-sticky-top, 56px) - 24px)
+      calc(100vh - var(--table-sticky-top, var(--page-top-offset)) - 24px)
     );
     // The frame moves onto the scroll container, so it stays put while the
     // content scrolls under it. No top edge: the header draws its own, as in
@@ -226,7 +299,7 @@
     }
 
     // Widths are authoritative here, so content clips at the column edge rather
-    // than spilling into its neighbour. The pinned last column keeps its shadow.
+    // than spilling into its neighbour. The pinned last column keeps its fade.
     :global(.rt-TableRow > :not(:last-child)) {
       overflow: hidden !important;
       text-overflow: ellipsis;
@@ -240,6 +313,11 @@
       position: sticky;
       right: 0;
       z-index: 1;
+    }
+
+    // Opaque, so what scrolls under it doesn't show through. The header cell
+    // already is, in the header's own color.
+    :global(.rt-TableBody .rt-TableRow > *:last-child:not([colspan])) {
       background-color: var(--color-panel-solid);
     }
 
@@ -247,36 +325,58 @@
       z-index: 2;
     }
 
+    // A header that doesn't stick has no layer of its own, so the pinned
+    // cells under it would cover its shadow.
+    &[data-sticky-header="false"] :global(.rt-TableHeader) {
+      position: relative;
+      z-index: 2;
+    }
+
+    &[data-sticky-header="false"] :global(.rt-TableCell .rt-TableHeader) {
+      position: unset;
+    }
+
     // The row-hover rule sets a translucent background-color on every cell and
     // outranks the opaque one above, so restate it here and layer the tint on
     // top as an image. Otherwise scrolled content shows through the hovered row.
+    // Under it, the tint a page gives the row itself (Settings does), which
+    // the other cells let through.
     :global(
       .rt-TableBody
         .rt-TableRow:not([data-no-hover]):hover
         > *:last-child:not([colspan])
     ) {
       background-color: var(--color-panel-solid);
-      background-image: linear-gradient(var(--accent-a2), var(--accent-a2));
+      background-image: $pinned-hover-tints;
     }
 
-    // Only once something is actually hidden behind it. A soft shadow rather
-    // than a rule: the neighbouring column's resize handle is already a crisp
-    // line, and two of those side by side read as a double border.
-    &[data-overflow-x="true"]
+    // Only while columns are hidden behind it (data-more-end, Table.tsx):
+    // scrolled to the end, there's nothing to hint at. A fade rather than a
+    // rule: the neighbouring column's resize handle is already a crisp line,
+    // and two of those side by side read as a double border. Drawn as the
+    // cell's own color through a mask, so a hovered row fades in its tint and
+    // the header in its own color.
+    &[data-more-end]
       :global(.rt-TableRow > *:last-child:not([colspan]))::before {
       content: "";
       position: absolute;
       top: 0;
       bottom: 0;
       left: 0;
-      // Narrow: the peak sets how dark the edge is, the width how much tint is
-      // laid down overall — too wide and it reads as a wash, not a shadow.
-      width: 6px;
+      width: $scroll-fade-width;
       transform: translateX(-100%);
       pointer-events: none;
-      // The same slate-alpha family as the table's own borders: it inverts for
-      // dark mode, where black leaves no cue and neutral grey doesn't blend.
-      background: linear-gradient(to right, transparent, var(--slate-a3));
+      background-color: inherit;
+      mask-image: linear-gradient(to right, transparent, #000);
+    }
+
+    &[data-more-end]
+      :global(
+        .rt-TableBody
+          .rt-TableRow:not([data-no-hover]):hover
+          > *:last-child:not([colspan])
+      )::before {
+      background-image: $pinned-hover-tints;
     }
 
     // The pinned column's own edge, drawn like a resize handle's line.
@@ -290,6 +390,42 @@
       border-radius: 1px;
       background-color: var(--gray-a5);
       pointer-events: none;
+    }
+  }
+
+  // A scroll box fades each edge that has columns hidden behind it, like the
+  // pinned column. Table.tsx sets the data-more-* flags and the box's
+  // visible height. Sticky, so it stays put while the table scrolls under it.
+  // The negative margin gives back its height, so it takes no room.
+  &[data-scroll-x="true"],
+  &[data-auto-scroll="true"] {
+    // Its header and fades stack inside the box, so they stay under what
+    // floats over the page (the Help launcher).
+    isolation: isolate;
+
+    &::before {
+      content: "";
+      display: block;
+      position: sticky;
+      top: 0;
+      left: 0;
+      // Above the sticky header (900).
+      z-index: 901;
+      height: var(--table-scroll-height, 0px);
+      margin-bottom: calc(-1 * var(--table-scroll-height, 0px));
+      pointer-events: none;
+      background:
+        scroll-fade(left) left / var(--table-fade-start, 0px) 100% no-repeat,
+        scroll-fade(right) right / var(--table-fade-end, 0px) 100% no-repeat;
+    }
+
+    &[data-more-start] {
+      --table-fade-start: #{$scroll-fade-width};
+    }
+
+    // A pinned last column draws its own fade on this side.
+    &[data-more-end]:not([data-sticky-last-column="true"]) {
+      --table-fade-end: #{$scroll-fade-width};
     }
   }
 
@@ -345,5 +481,13 @@
 
   &:focus-visible {
     outline: none;
+  }
+}
+
+// Over that range the box scrolls up by its own height, and its header down
+// it by as much.
+@keyframes header-follows-window {
+  to {
+    translate: 0 var(--table-box-height, 0px);
   }
 }

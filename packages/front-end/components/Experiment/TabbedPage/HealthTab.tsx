@@ -586,7 +586,10 @@ function HealthSnapshotCards({
         }
         disableDimensionSRM={isClusterExperiment}
       />
-      <div id="balanceCheck" style={{ scrollMarginTop: "100px" }}>
+      <div
+        id="balanceCheck"
+        style={{ scrollMarginTop: "calc(var(--tabs-bottom) + var(--space-1))" }}
+      >
         {isBandit ? (
           <BanditSRMCard
             experiment={experiment}
@@ -618,7 +621,12 @@ function HealthSnapshotCards({
         )}
       </div>
       {!isBandit && snapshot.settings.regressionAdjustmentEnabled && (
-        <div id="covariateBalanceCheck" style={{ scrollMarginTop: "100px" }}>
+        <div
+          id="covariateBalanceCheck"
+          style={{
+            scrollMarginTop: "calc(var(--tabs-bottom) + var(--space-1))",
+          }}
+        >
           <CovariateImbalanceCard
             experiment={experiment}
             variations={variations}
@@ -628,7 +636,12 @@ function HealthSnapshotCards({
         </div>
       )}
       {showMultipleExposures && (
-        <div id="multipleExposures" style={{ scrollMarginTop: "100px" }}>
+        <div
+          id="multipleExposures"
+          style={{
+            scrollMarginTop: "calc(var(--tabs-bottom) + var(--space-1))",
+          }}
+        >
           <MultipleExposuresCard
             totalUsers={multipleExposuresTotalUnits}
             onNotify={handleHealthNotification}

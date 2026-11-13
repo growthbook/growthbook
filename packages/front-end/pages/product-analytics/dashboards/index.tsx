@@ -249,7 +249,7 @@ export default function DashboardsPage() {
           dashboardId={selectedDashboard.id}
         />
       )}
-      <div className="p-3 container-fluid pagecontents">
+      <div className="container-fluid pagecontents">
         <Flex justify="between" align="center">
           <Flex align="center">
             <h1>Product Analytics Dashboards</h1>

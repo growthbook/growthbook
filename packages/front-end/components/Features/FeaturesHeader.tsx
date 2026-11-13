@@ -13,6 +13,7 @@ import { BsThreeDotsVertical } from "react-icons/bs";
 import { PiEye, PiWarning } from "react-icons/pi";
 import { REVIEW_REQUESTED_STATUSES, HoldoutInterface } from "shared/validators";
 import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
+import { PageBleed } from "@/components/Layout/PageFrame";
 import Text from "@/ui/Text";
 import FeatureValueTypeDisplay from "@/components/Features/FeatureValueTypeDisplay";
 import Heading from "@/ui/Heading";
@@ -463,7 +464,7 @@ export default function FeaturesHeader({
       <Box className="features-header contents container-fluid pagecontents pb-0">
         <Box>
           <Flex align="start" justify="between" gap="2">
-            <Flex align="center" mb="2" gap="3" style={{ marginTop: "-4px" }}>
+            <Flex align="center" mb="2" gap="3">
               <Heading size="xl" as="h1" overflowWrap="anywhere" mb="0">
                 {feature.id}
               </Heading>
@@ -619,52 +620,50 @@ export default function FeaturesHeader({
             pointerEvents: "none",
           }}
         />
-        <div
+        <PageBleed
           className={clsx("feature-tabs d-print-none", {
             pinned: headerPinned,
           })}
         >
-          <div className="container-fluid pagecontents px-3">
-            <div className="header-tabs">
-              <Tabs value={tab} onValueChange={setTab}>
-                {/* Unfolded, as on main. */}
-                <TabsList
-                  size="lg"
-                  overflowMenu={false}
-                  style={{ width: "100%" }}
-                >
-                  <TabsTrigger value="overview">Overview</TabsTrigger>
-                  <TabsTrigger value="review">
-                    Review &amp; Publish
-                    {activeDraftCount > 0 && (
-                      <Tooltip body={draftStatusTooltip(draftStatusCounts)}>
-                        <Badge
-                          label={String(activeDraftCount)}
-                          color="red"
-                          variant="solid"
-                          radius="full"
-                          ml="2"
-                          style={{ minWidth: 18, height: 18 }}
-                        />
-                      </Tooltip>
-                    )}
-                  </TabsTrigger>
-                  <TabsTrigger value="test">Simulate</TabsTrigger>
-                  <TabsTrigger value="stats">Code Refs</TabsTrigger>
-                  <TabsTrigger value="diagnostics">Diagnostics</TabsTrigger>
-                  {/* Hooks are self-hosted only and boolean flags have no schema, so Cloud booleans have nothing to validate */}
-                  {!(isCloud() && feature.valueType === "boolean") && (
-                    <TabsTrigger value="validation">Validation</TabsTrigger>
+          <div className="header-tabs">
+            <Tabs value={tab} onValueChange={setTab}>
+              {/* Unfolded, as on main. */}
+              <TabsList
+                size="lg"
+                overflowMenu={false}
+                style={{ width: "100%" }}
+              >
+                <TabsTrigger value="overview">Overview</TabsTrigger>
+                <TabsTrigger value="review">
+                  Review &amp; Publish
+                  {activeDraftCount > 0 && (
+                    <Tooltip body={draftStatusTooltip(draftStatusCounts)}>
+                      <Badge
+                        label={String(activeDraftCount)}
+                        color="red"
+                        variant="solid"
+                        radius="full"
+                        ml="2"
+                        style={{ minWidth: 18, height: 18 }}
+                      />
+                    </Tooltip>
                   )}
-                  {/* Slot: revisionAndSettingsGroup portal mounts here when scrolled */}
-                  <Box style={{ marginLeft: "auto", alignSelf: "center" }}>
-                    <div ref={tabsSlotRef} />
-                  </Box>
-                </TabsList>
-              </Tabs>
-            </div>
+                </TabsTrigger>
+                <TabsTrigger value="test">Simulate</TabsTrigger>
+                <TabsTrigger value="stats">Code Refs</TabsTrigger>
+                <TabsTrigger value="diagnostics">Diagnostics</TabsTrigger>
+                {/* Hooks are self-hosted only and boolean flags have no schema, so Cloud booleans have nothing to validate */}
+                {!(isCloud() && feature.valueType === "boolean") && (
+                  <TabsTrigger value="validation">Validation</TabsTrigger>
+                )}
+                {/* Slot: revisionAndSettingsGroup portal mounts here when scrolled */}
+                <Box style={{ marginLeft: "auto", alignSelf: "center" }}>
+                  <div ref={tabsSlotRef} />
+                </Box>
+              </TabsList>
+            </Tabs>
           </div>
-        </div>
+        </PageBleed>
       </>
       {auditModal && (
         <CompareFeatureEventsModal

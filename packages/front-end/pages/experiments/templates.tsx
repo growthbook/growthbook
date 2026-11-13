@@ -29,7 +29,7 @@ const ExperimentTemplatesPage: React.FC = () => {
     <>
       <Box className="contents experiments container-fluid pagecontents">
         <Flex mb="4" mt="2" align="center" justify="between">
-          <Heading as="h1" mb="0">
+          <Heading as="h1" mb="2">
             Experiment Templates
           </Heading>
           <Button

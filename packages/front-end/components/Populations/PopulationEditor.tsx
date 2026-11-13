@@ -439,7 +439,11 @@ export default function PopulationEditor({
             py="5"
             mb="0"
             minWidth="0"
-            style={{ position: "sticky", top: 72, alignSelf: "start" }}
+            style={{
+              position: "sticky",
+              top: "calc(var(--page-top-offset) + 16px)",
+              alignSelf: "start",
+            }}
           >
             <PopulationPreview population={draft} />
           </Frame>

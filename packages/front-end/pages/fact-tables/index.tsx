@@ -218,7 +218,7 @@ export default function FactTablesPage() {
       )}
       <PageHead breadcrumb={[{ display: "Fact Tables" }]} />
       <Flex align="center" justify="between" gap="3" mb="4">
-        <Heading as="h1" size="xl" mb="0">
+        <Heading as="h1" size="xl" mb="2">
           Fact Tables
         </Heading>
         {filteredFactTables.length > 0 && hasDatasource ? (
@@ -438,7 +438,12 @@ export default function FactTablesPage() {
       ) : (
         <Box>
           <Flex justify="between" mb="3" gap="3" align="center" wrap="wrap">
-            <Box className="relative" width={{ initial: "100%", sm: "40%" }}>
+            <Box
+              className="relative"
+              width={{ initial: "100%", sm: "40%" }}
+              // No narrower than 160px when space is short.
+              style={{ minWidth: 160 }}
+            >
               <Field
                 placeholder="Search..."
                 type="search"

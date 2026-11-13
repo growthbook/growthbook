@@ -60,7 +60,7 @@ const LearningPage = (): React.ReactElement => {
 
   if (error) {
     return (
-      <div className="container-fluid pagecontents p-4">
+      <div className="container-fluid pagecontents">
         <Callout status="error">{error.message}</Callout>
       </div>
     );
@@ -83,7 +83,7 @@ const LearningPage = (): React.ReactElement => {
     .map((u) => getOwnerDisplay(u) || "Unknown");
 
   return (
-    <div className="container-fluid pagecontents p-4">
+    <div className="container-fluid pagecontents">
       <Box mb="3">
         <Link href="/learnings#saved">
           <Flex align="center" gap="1" display="inline-flex">

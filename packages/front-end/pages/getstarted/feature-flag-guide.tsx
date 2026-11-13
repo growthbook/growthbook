@@ -52,7 +52,7 @@ const CreateFeatureFlagsGuide = (): React.ReactElement => {
     : features.some((f) => f.project !== demoProjectId);
 
   return (
-    <div className="container pagecontents p-4">
+    <div className="container pagecontents">
       <PageHead
         breadcrumb={[
           { display: "Get Started", href: "/getstarted" },

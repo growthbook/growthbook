@@ -45,6 +45,7 @@ import { SidebarOpenProvider } from "@/components/Layout/SidebarOpenProvider";
 import { SettingsNavProvider } from "@/components/Layout/SettingsNavContext";
 import { SettingsFormProvider } from "@/components/GeneralSettings/SettingsFormProvider";
 import { isSettingsRoute } from "@/components/Layout/sidebarNav";
+import PageFrame from "@/components/Layout/PageFrame";
 import { HoverTooltipProvider } from "@/hooks/useHoverTooltip";
 import { FeatureHealthStatesProvider } from "@/hooks/useFeatureHealthStates";
 import { CommandPaletteLauncher } from "@/components/CommandPalette/CommandPalette";
@@ -76,6 +77,7 @@ type ModAppProps = AppProps & {
     progressiveAuthTopNav?: boolean;
     noLoadingOverlay?: boolean;
     mainClassName?: string;
+    noPageWrapper?: boolean;
   };
 };
 
@@ -264,12 +266,26 @@ function App({
                                             <OrgPageContent>
                                               <GuidedGetStartedBar />
                                               <DefinitionsGuard>
-                                                <Component
-                                                  {...{
-                                                    ...pageProps,
-                                                    envReady: ready,
-                                                  }}
-                                                />
+                                                {Component.noPageWrapper ||
+                                                liteLayout ? (
+                                                  <Component
+                                                    {...{
+                                                      ...pageProps,
+                                                      envReady: ready,
+                                                    }}
+                                                  />
+                                                ) : (
+                                                  <PageFrame
+                                                    settings={inSettings}
+                                                  >
+                                                    <Component
+                                                      {...{
+                                                        ...pageProps,
+                                                        envReady: ready,
+                                                      }}
+                                                    />
+                                                  </PageFrame>
+                                                )}
                                               </DefinitionsGuard>
                                             </OrgPageContent>
                                           </main>

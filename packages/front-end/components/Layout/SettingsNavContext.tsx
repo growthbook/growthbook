@@ -11,7 +11,9 @@ import {
   useState,
 } from "react";
 import { useRouter } from "next/router";
+import useMediaQuery from "@/hooks/useMediaQuery";
 import { isSettingsRoute } from "./sidebarNav";
+import { SETTINGS_NAV_MIN_WIDTH_PX } from "./constants";
 
 type SettingsNavContextValue = {
   query: string;
@@ -24,17 +26,29 @@ type SettingsNavContextValue = {
   counts: Record<string, number>;
   setCount: (sectionId: string, count: number | null) => void;
   searchRef: RefObject<HTMLInputElement>;
+  /**
+   * The narrow layout: the nav as a select at the page's top
+   * (SettingsPageTop) and stacked cards, below SETTINGS_NAV_MIN_WIDTH_PX.
+   */
+  narrow: boolean;
 };
 
 const SettingsNavContext = createContext<SettingsNavContextValue | null>(null);
 
 export function SettingsNavProvider({ children }: { children: ReactNode }) {
   const [query, setQuery] = useState("");
-  // Clears on leaving Settings, not when the nav hides below 1400px.
+  // Clears on leaving Settings, not when the nav switches to the jump menu.
   const inSettings = isSettingsRoute(useRouter().route);
   useEffect(() => {
     if (!inSettings) setQuery("");
   }, [inSettings]);
+
+  // CSS takes the narrow layout from its own media queries (global.scss),
+  // from the first paint.
+  const narrow = useMediaQuery(
+    `(max-width: ${SETTINGS_NAV_MIN_WIDTH_PX - 1}px)`,
+  );
+
   const [activeSection, setActiveSection] = useState("");
   const [counts, setCounts] = useState<Record<string, number>>({});
   const searchRef = useRef<HTMLInputElement>(null);
@@ -65,8 +79,9 @@ export function SettingsNavProvider({ children }: { children: ReactNode }) {
       counts,
       setCount,
       searchRef,
+      narrow,
     }),
-    [query, activeSection, counts, setCount, pinSection],
+    [query, activeSection, counts, setCount, pinSection, narrow],
   );
 
   return (

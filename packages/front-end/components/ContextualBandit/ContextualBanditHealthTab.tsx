@@ -140,7 +140,12 @@ export default function ContextualBanditHealthTab({
           </Callout>
         ) : (
           <>
-            <div id="balanceCheck" style={{ scrollMarginTop: "100px" }}>
+            <div
+              id="balanceCheck"
+              style={{
+                scrollMarginTop: "calc(var(--tabs-bottom) + var(--space-1))",
+              }}
+            >
               <ContextualBanditSRMCard
                 srm={health?.srm?.pValue ?? null}
                 variations={variations}
@@ -150,7 +155,12 @@ export default function ContextualBanditHealthTab({
               />
             </div>
 
-            <div id="multipleExposures" style={{ scrollMarginTop: "100px" }}>
+            <div
+              id="multipleExposures"
+              style={{
+                scrollMarginTop: "calc(var(--tabs-bottom) + var(--space-1))",
+              }}
+            >
               <MultipleExposuresCard
                 totalUsers={totalUsers}
                 multipleExposures={health?.multipleExposures ?? 0}
