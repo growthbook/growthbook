@@ -26,7 +26,6 @@ import { settingsNavLink } from "./sidebarNav";
 import { useSettingsNav } from "./SettingsNavContext";
 import styles from "./SettingsNav.module.scss";
 
-/** The Organization pages this user may open. */
 export function useSettingsPages(): SidebarLinkProps[] {
   const { permissions, superAdmin } = useUser();
   const { project, segments } = useDefinitions();
@@ -45,11 +44,12 @@ export function useSettingsPages(): SidebarLinkProps[] {
   );
 }
 
-/**
- * The one nav item that is current: an Organization page, or a General
- * section. The importer pages belong to Import & Export, which links to them,
- * unless this user has them as a page.
- */
+function sectionIdForRoute(route: string, activeSection: string) {
+  if (route === "/settings") return activeSection;
+  if (route.startsWith("/importing")) return "import";
+  return null;
+}
+
 export function useCurrentSettingsItem(): {
   page: SidebarLinkProps | null;
   section: (typeof SETTINGS_SECTIONS)[number] | null;
@@ -58,20 +58,13 @@ export function useCurrentSettingsItem(): {
   const { activeSection } = useSettingsNav();
   const page =
     useSettingsPages().find((l) => l.path.test(route.substring(1))) ?? null;
-  const sectionId = page
-    ? null
-    : route === "/settings"
-      ? activeSection
-      : route.startsWith("/importing")
-        ? "import"
-        : null;
+  const sectionId = page ? null : sectionIdForRoute(route, activeSection);
   return {
     page,
     section: SETTINGS_SECTIONS.find((s) => s.id === sectionId) ?? null,
   };
 }
 
-/** Cmd/Ctrl+/ searches settings; Cmd/Ctrl+K stays on the command palette. */
 export function useSettingsSearchShortcut(onShortcut: () => void) {
   const onShortcutRef = useRef(onShortcut);
   onShortcutRef.current = onShortcut;
@@ -87,16 +80,7 @@ export function useSettingsSearchShortcut(onShortcut: () => void) {
   }, []);
 }
 
-/**
- * The search and the General and Organization lists, in the Settings nav's
- * column and in SettingsJumpMenu.
- */
-export function SettingsNavBody({
-  onNavigate,
-}: {
-  /** Runs after an item is chosen. */
-  onNavigate?: () => void;
-}) {
+export function SettingsNavBody({ onNavigate }: { onNavigate?: () => void }) {
   const router = useRouter();
   const { query, setQuery, counts, searchRef, pinSection } = useSettingsNav();
   const { dirtySectionIds } = useSettingsForm();
@@ -266,7 +250,6 @@ export function SettingsNavBody({
   );
 }
 
-/** A column beside the sidebar, from SETTINGS_NAV_MIN_WIDTH_PX. */
 export default function SettingsNav() {
   const { searchRef } = useSettingsNav();
   useSettingsSearchShortcut(() => {

@@ -1,6 +1,5 @@
 .section {
   padding-top: 28px;
-  // Clears what pins above it when scrolled to.
   scroll-margin-top: calc(var(--settings-section-top) + 8px);
 
   // Anchors inside a section also clear its sticky header.
@@ -14,7 +13,8 @@
   top: var(--settings-section-top);
   z-index: 6;
   background: var(--color-background);
-  padding: 12px 0 6px;
+  --header-pad-top: 12px;
+  padding: var(--header-pad-top) 0 6px;
   border-bottom: 1px solid var(--slate-a4);
 }
 
@@ -43,11 +43,12 @@
   // Lines the count up with the sub nav's content.
   padding: var(--space-3) var(--space-3) var(--space-3)
     calc(var(--settings-nav-inset) + var(--space-3));
-  // Ends Save at the cards' right edge: 40px page padding plus the column.
   padding-right: max(
-    40px,
+    var(--settings-page-pad-x),
     calc(
-      100% - var(--settings-layout-left) - 40px - var(--settings-general-width)
+      100% - var(--settings-layout-left) - var(--settings-page-pad-x) - var(
+          --settings-general-width
+        )
     )
   );
   background: var(--color-panel-solid);
@@ -58,12 +59,15 @@
 
   // Without the sub nav, the count lines up with the page content instead.
   @media (max-width: 1399px) {
-    padding-left: 40px;
+    padding-left: var(--settings-page-pad-x);
   }
   // The sidebar slides away here and the content starts at the window edge.
   @media (max-width: 1180px) {
     left: 0;
-    padding-right: max(40px, calc(100% - 40px - var(--settings-general-width)));
+    padding-right: max(
+      var(--settings-page-pad-x),
+      calc(100% - var(--settings-page-pad-x) - var(--settings-general-width))
+    );
   }
 }
 
@@ -130,23 +134,18 @@
   max-width: var(--settings-general-width);
   padding-top: var(--space-3);
 
-  // Under the jump menu, the first section starts where other Settings pages'
-  // titles do.
   @media (max-width: 1399px) {
     padding-top: 0;
 
     .section:first-of-type {
       padding-top: 0;
     }
-    // Pulled up by its own top padding, so it still pins like the others.
     .section:first-of-type .header {
-      margin-top: -12px;
+      margin-top: calc(-1 * var(--header-pad-top));
     }
   }
 }
 
-// The Settings title above the nav or the jump menu stands in for it; screen
-// readers still get the h1.
 .visuallyHidden {
   position: absolute;
   width: 1px;

@@ -73,7 +73,6 @@ const Button = forwardRef<HTMLButtonElement, Props>(
   ) => {
     const [_internalLoading, setLoading] = useState(false);
     const loading = _externalLoading || _internalLoading;
-    // Truncating, only the label gives way: the icon keeps its size.
     const iconNode =
       icon && truncate ? (
         <span style={{ display: "inline-flex", flexShrink: 0 }}>{icon}</span>
@@ -127,7 +126,6 @@ const Button = forwardRef<HTMLButtonElement, Props>(
         <Text
           weight="medium"
           truncate={truncate}
-          // A flex item only shrinks under its text with this.
           style={truncate ? { minWidth: 0 } : undefined}
         >
           {children}

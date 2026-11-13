@@ -74,9 +74,7 @@ const Layout = (): React.ReactElement => {
 
   // hacky:
   const router = useRouter();
-  // Narrower, SettingsJumpMenu stands in for the Settings nav, and for the
-  // sidebar's Settings links.
-  const { narrow: settingsNarrow } = useSettingsNav();
+  const { navMode: settingsNavMode } = useSettingsNav();
   const path = router.route.substr(1);
   // don't show the nav for presentations
   if (path.match(/^present\//)) {
@@ -109,7 +107,8 @@ const Layout = (): React.ReactElement => {
   });
 
   const build = getGrowthBookBuild();
-  const showSettingsNav = isSettingsRoute(router.route) && !settingsNarrow;
+  const showSettingsNav =
+    isSettingsRoute(router.route) && settingsNavMode === "column";
 
   return (
     <>

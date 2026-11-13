@@ -26,22 +26,22 @@ type SettingsNavContextValue = {
   counts: Record<string, number>;
   setCount: (sectionId: string, count: number | null) => void;
   searchRef: RefObject<HTMLInputElement>;
-  /** Below SETTINGS_NAV_MIN_WIDTH_PX: the nav is SettingsJumpMenu, not a column. */
-  narrow: boolean;
+  navMode: "column" | "jumpMenu";
 };
 
 const SettingsNavContext = createContext<SettingsNavContextValue | null>(null);
 
 export function SettingsNavProvider({ children }: { children: ReactNode }) {
   const [query, setQuery] = useState("");
-  // Clears on leaving Settings, not when the nav switches to the jump menu.
   const inSettings = isSettingsRoute(useRouter().route);
   useEffect(() => {
     if (!inSettings) setQuery("");
   }, [inSettings]);
-  const narrow = useMediaQuery(
+  const navMode: SettingsNavContextValue["navMode"] = useMediaQuery(
     `(max-width: ${SETTINGS_NAV_MIN_WIDTH_PX - 1}px)`,
-  );
+  )
+    ? "jumpMenu"
+    : "column";
 
   const [activeSection, setActiveSection] = useState("");
   const [counts, setCounts] = useState<Record<string, number>>({});
@@ -73,9 +73,9 @@ export function SettingsNavProvider({ children }: { children: ReactNode }) {
       counts,
       setCount,
       searchRef,
-      narrow,
+      navMode,
     }),
-    [query, activeSection, counts, setCount, pinSection, narrow],
+    [query, activeSection, counts, setCount, pinSection, navMode],
   );
 
   return (

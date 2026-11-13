@@ -1,11 +1,9 @@
-// As wide as the trigger on a phone; a wider trigger doesn't stretch it.
 .popover {
   width: var(--radix-popover-trigger-width);
   max-width: min(360px, calc(100vw - 16px));
 }
 
 .menu {
-  --settings-nav-end: var(--space-3);
   display: flex;
   flex-direction: column;
   max-height: calc(
@@ -15,16 +13,12 @@
   font-size: 13px;
 }
 
-// Settings pages' content box, which these sit beside: 1240px wide with 28px
-// above and 40px at the sides (.main.settings-layout in global.scss).
 .title {
   box-sizing: border-box;
-  max-width: 1240px;
-  padding: 28px 40px 0;
+  max-width: var(--settings-page-width);
+  padding: var(--settings-page-pad-top) var(--settings-page-pad-x) 0;
 }
 
-// Opaque, so what scrolls under it stays hidden. Over General's section
-// headings (6), which pin right below it.
 .pinned {
   box-sizing: border-box;
   position: sticky;
@@ -32,13 +26,14 @@
   z-index: 7;
   display: flex;
   align-items: center;
-  max-width: 1240px;
+  max-width: var(--settings-page-width);
   height: var(--settings-jump-bar-height);
-  padding: 0 40px;
+  padding: 0 var(--settings-page-pad-x);
   background: var(--color-background);
 }
 
-// On General the trigger ends where its cards do.
 .pinned.general {
-  max-width: calc(var(--settings-general-width) + 80px);
+  max-width: calc(
+    var(--settings-general-width) + 2 * var(--settings-page-pad-x)
+  );
 }

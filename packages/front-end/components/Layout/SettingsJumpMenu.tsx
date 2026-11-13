@@ -13,7 +13,6 @@ import {
 import { useSettingsNav } from "./SettingsNavContext";
 import styles from "./SettingsJumpMenu.module.scss";
 
-/** Where the user is in Settings, and the search narrowing General, if any. */
 function useSettingsLocation(): string {
   const { page, section } = useCurrentSettingsItem();
   const { query } = useSettingsNav();
@@ -27,7 +26,6 @@ function useSettingsLocation(): string {
   return onGeneral && search ? `${location} · matching “${search}”` : location;
 }
 
-/** The Settings nav below SETTINGS_NAV_MIN_WIDTH_PX, opened from a button. */
 function SettingsJumpMenu() {
   const [open, setOpen] = useState(false);
   const location = useSettingsLocation();
@@ -53,8 +51,7 @@ function SettingsJumpMenu() {
       showArrow={false}
       contentClassName={styles.popover}
       contentStyle={{ padding: 0 }}
-      // Focus the current item, not the search field, which would raise a
-      // phone's keyboard. Only the shortcut focuses search.
+      // Radix would focus the search field, which raises a phone's keyboard.
       onOpenAutoFocus={(e) => {
         e.preventDefault();
         const search = toSearch.current;
@@ -74,7 +71,6 @@ function SettingsJumpMenu() {
           item?.scrollIntoView({ block: "center" });
         });
       }}
-      // In the search field Escape clears the search first (SettingsNavBody).
       onEscapeKeyDown={(e) => {
         if (query && document.activeElement === searchRef.current) {
           e.preventDefault();
@@ -107,14 +103,12 @@ function SettingsJumpMenu() {
   );
 }
 
-/** The top of every Settings page below SETTINGS_NAV_MIN_WIDTH_PX. */
 export function SettingsPageTop() {
-  const { narrow } = useSettingsNav();
+  const { navMode } = useSettingsNav();
   const onGeneral = useRouter().route === "/settings";
-  if (!narrow) return null;
+  if (navMode !== "jumpMenu") return null;
   return (
     <>
-      {/* The page's own h1 heads it, and the menu's name starts with "Settings". */}
       <div aria-hidden="true" className={styles.title}>
         <Heading as="h2" size="2xl" mb="2">
           Settings
