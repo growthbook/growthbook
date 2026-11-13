@@ -416,12 +416,8 @@ export default function SDKConnectionForm({
     canRemoteEval,
   ]);
 
-  const keptSettingNote = (
-    <HelperText status="info" size="sm" mt="1">
-      Your plan no longer includes this. It stays on for this connection, but
-      you can&apos;t turn it back on after saving with it off.
-    </HelperText>
-  );
+  const keptSettingNote =
+    "Your plan no longer includes this setting. It stays on for this SDK Connection, but if you turn it off and save, you'll need to upgrade to turn it back on.";
 
   useEffect(() => {
     if (languages.length > 0 && languageError) {
@@ -848,6 +844,12 @@ export default function SDKConnectionForm({
                               form.setValue("encryptPayload", val)
                             }
                             disabled={!canEncrypt}
+                            error={
+                              !hasEncryptionFeature && keepsEncryption
+                                ? keptSettingNote
+                                : undefined
+                            }
+                            errorLevel="warning"
                             label={
                               <PremiumTooltip
                                 commercialFeature="encrypt-features-endpoint"
@@ -877,10 +879,7 @@ export default function SDKConnectionForm({
                                 Encrypt payload <PiInfo />
                               </PremiumTooltip>
                             }
-                          />
-                          {!hasEncryptionFeature &&
-                            keepsEncryption &&
-                            keptSettingNote}
+                          />{" "}
                         </Box>
                       )}
 
@@ -892,6 +891,12 @@ export default function SDKConnectionForm({
                             form.setValue("hashSecureAttributes", val)
                           }
                           disabled={!canHashSecureAttributes}
+                          error={
+                            !hasSecureAttributesFeature && keepsSecureAttributes
+                              ? keptSettingNote
+                              : undefined
+                          }
+                          errorLevel="warning"
                           label={
                             <PremiumTooltip
                               commercialFeature="hash-secure-attributes"
@@ -922,10 +927,7 @@ export default function SDKConnectionForm({
                               Hash secure attributes <PiInfo />
                             </PremiumTooltip>
                           }
-                        />
-                        {!hasSecureAttributesFeature &&
-                          keepsSecureAttributes &&
-                          keptSettingNote}
+                        />{" "}
                       </Box>
                     </Flex>
                   </Box>
@@ -1023,6 +1025,12 @@ export default function SDKConnectionForm({
                           !canRemoteEval ||
                           !latestSdkCapabilities.includes("remoteEval")
                         }
+                        error={
+                          !hasRemoteEvaluationFeature && keepsRemoteEval
+                            ? keptSettingNote
+                            : undefined
+                        }
+                        errorLevel="warning"
                         label={
                           <PremiumTooltip
                             commercialFeature="remote-evaluation"
@@ -1068,10 +1076,7 @@ export default function SDKConnectionForm({
                             Use remote evaluation <PiInfo />
                           </PremiumTooltip>
                         }
-                      />
-                      {!hasRemoteEvaluationFeature &&
-                        keepsRemoteEval &&
-                        keptSettingNote}
+                      />{" "}
                     </Box>
                     {isCloud() && (
                       <Callout status="info" mb="0" mt="3">
