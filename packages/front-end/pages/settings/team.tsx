@@ -115,7 +115,7 @@ const TeamPage: FC = () => {
             ) : (
               <PremiumEmptyState
                 title="Custom Roles"
-                description="Custom roles allows you to adjust permissions and assign those roles to members or teams"
+                description="Custom roles allow you to adjust permissions and assign those roles to members or teams"
                 commercialFeature="custom-roles"
                 learnMoreLink="https://docs.growthbook.io/account/user-permissions#custom-roles"
               />

@@ -567,14 +567,16 @@ export function MetricSection({
 
   return (
     <Box>
-      <Text as="div" weight="medium" size="md" mb="1">
+      <Text as="div" weight="medium" size="md" color="text-high" mb="1">
         {title}
       </Text>
       <Text as="div" size="sm" color="text-low" mb="2">
         {subtitle}
       </Text>
 
-      <div style={{ overflowX: "auto" }}>
+      {/* Padded, and pulled back by as much, so a hovered row's shadow isn't
+          cut off by the scroll box. */}
+      <div style={{ overflowX: "auto", padding: 8, margin: -8 }}>
         <div style={{ minWidth: 600 }}>
           <table className="experiment-results table-sm">
             <thead>
@@ -638,13 +640,14 @@ export function MetricSection({
                       hasData ? () => setDrilldownRowIndex(i) : undefined
                     }
                   >
-                    <td style={{ width: 280 }}>
+                    {/* Inset as its header is. */}
+                    <td style={{ width: 280, paddingLeft: 10 }}>
                       <div
                         className="d-flex align-items-center"
                         style={{ minHeight: ROW_HEIGHT }}
                       >
                         <span
-                          className="font-weight-bold metric-label text-ellipsis"
+                          className="metric-label text-ellipsis"
                           style={{
                             overflow: "hidden",
                             whiteSpace: "nowrap",

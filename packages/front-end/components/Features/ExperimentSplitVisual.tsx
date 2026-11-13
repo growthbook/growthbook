@@ -25,6 +25,8 @@ export interface Props {
   type: FeatureValueType;
   stackLeft?: boolean;
   showPercentages?: boolean;
+  // Just a slim bar, for where a Rollout row already says what's included.
+  condensed?: boolean;
 }
 export default function ExperimentSplitVisual({
   label = "Traffic split preview",
@@ -35,6 +37,7 @@ export default function ExperimentSplitVisual({
   type,
   stackLeft = false,
   showPercentages = true,
+  condensed = false,
 }: Props) {
   const totalWeights = parseFloat(
     values.reduce((partialSum, v) => partialSum + v.weight, 0).toFixed(3),
@@ -79,30 +82,34 @@ export default function ExperimentSplitVisual({
   ) : null;
 
   return (
-    <Box>
+    <Box className={condensed ? styles.condensed : undefined}>
       {totalWeights !== 1 ? (
         <Callout status="error" size="sm" mb="3">
           Please adjust weights to sum to 100%.
         </Callout>
       ) : null}
-      <Flex align="center" gap="4">
-        <Box flexGrow="1">
-          <Text size="md" weight="semibold">
-            {label}
-          </Text>{" "}
-          <Text as="span" size="md" color="text-mid">
-            ({coveragePercentFormatter.format(coverageVal)} included)
-          </Text>
-        </Box>
-        {coverage < 1 && (
-          <Flex align="center" gap="2">
-            <Box className={styles.legend_box} />
-            <Text size="sm" color="text-mid">
-              {unallocated}
-            </Text>
+      {condensed ? null : (
+        <>
+          <Flex align="center" gap="4">
+            <Box flexGrow="1">
+              <Text size="md" weight="semibold">
+                {label}
+              </Text>{" "}
+              <Text as="span" size="md" color="text-mid">
+                ({coveragePercentFormatter.format(coverageVal)} included)
+              </Text>
+            </Box>
+            {coverage < 1 && (
+              <Flex align="center" gap="2">
+                <Box className={styles.legend_box} />
+                <Text size="sm" color="text-mid">
+                  {unallocated}
+                </Text>
+              </Flex>
+            )}
           </Flex>
-        )}
-      </Flex>
+        </>
+      )}
       <Box className={styles.bar_wrapper}>
         <div className={styles.bar_holder}>
           {segments.map(({ i, left, width, gap, name }) => {

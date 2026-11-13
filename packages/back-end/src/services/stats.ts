@@ -89,6 +89,7 @@ import {
   CLUSTER_HEALTH_KIND_RELIABILITY,
 } from "back-end/src/integrations/sql/queries/experiment-cluster-health-query";
 import { splitFunnelMetricBlock } from "back-end/src/services/experimentQueries/funnelMetricBlock";
+import { sumCompoundComponentUnits } from "back-end/src/integrations/sql/fact-metrics/compound-columns";
 import { applyMetricOverrides } from "back-end/src/util/integration";
 import { statsServerPool } from "back-end/src/services/python";
 import { metrics } from "back-end/src/util/metrics";
@@ -589,6 +590,10 @@ export function parseStatsEngineResult({
   result: ExperimentMetricAnalysis;
 }): ExperimentReportResults[] {
   let unknownVariationsCopy = [...unknownVariations];
+  const compoundComponentUnits = sumCompoundComponentUnits(
+    queryResults,
+    snapshotSettings.variations.map((v) => v.id),
+  );
 
   const experimentReportResults: ExperimentReportResults[] = [];
   // Fallback when there is no traffic query; see analyzeExperimentTraffic.
@@ -701,6 +706,19 @@ export function parseStatsEngineResult({
     }
 
     const dimensions = Array.from(dimensionMap.values());
+    // Overall result only; see sumCompoundComponentUnits.
+    if (!analysisSettings[analysisIndex].dimensions[0]) {
+      dimensions.forEach((dim) =>
+        dim.variations.forEach((variation, v) => {
+          for (const [metricId, byVariation] of compoundComponentUnits) {
+            const metric = variation.metrics[metricId];
+            if (metric && byVariation[v]) {
+              metric.componentUnits = byVariation[v];
+            }
+          }
+        }),
+      );
+    }
     const hasFailedMetrics = Object.keys(failedMetrics).length > 0;
     if (dimensions.length === 0) {
       dimensions.push({

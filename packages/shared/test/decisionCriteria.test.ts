@@ -2034,6 +2034,48 @@ describe("getExperimentResultStatus schedule-driven states", () => {
     } as unknown as ExperimentDataForStatus;
   }
 
+  it("gives each running verdict a category that agrees with needsAttention", () => {
+    const indicatorFor = (experimentData: ExperimentDataForStatus) =>
+      getStatusIndicatorData({
+        experimentData,
+        skipArchived: false,
+        healthSettings: baseHealthSettings,
+        decisionCriteria: PRESET_DECISION_CRITERIA,
+        metricGroups: [],
+      });
+
+    const review = indicatorFor(
+      makeExperimentData({
+        stopAt: daysAgo(1),
+        goalMetrics: [],
+        secondaryMetrics: ["secondary-1"],
+      }),
+    );
+    const unhealthy = indicatorFor(
+      makeExperimentData({
+        analysisSummary: {
+          snapshotId: "snap-1",
+          health: { srm: 0.0001, multipleExposures: 0, totalUsers: 1_000_000 },
+        },
+      }),
+    );
+    const daysLeft = indicatorFor(
+      makeExperimentData({ stopAt: hoursFromNow(72) }),
+    );
+
+    expect(review.resultStatus?.status).toBe("scheduled-end-review");
+    expect(review.decisionCategory).toBe("ready-for-action");
+    expect(unhealthy.resultStatus?.status).toBe("unhealthy");
+    expect(unhealthy.decisionCategory).toBe("has-issue");
+    expect(daysLeft.resultStatus?.status).toBe("days-left");
+    expect(daysLeft.decisionCategory).toBe("collecting-data");
+    for (const indicator of [review, unhealthy, daysLeft]) {
+      expect(!!indicator.needsAttention).toBe(
+        indicator.decisionCategory !== "collecting-data",
+      );
+    }
+  });
+
   it("returns scheduled-end-review when the scheduled end passed with no goal metrics", () => {
     const result = getExperimentResultStatus({
       experimentData: makeExperimentData({
@@ -2114,6 +2156,41 @@ describe("getExperimentResultStatus schedule-driven states", () => {
     });
 
     expect(result?.status).toBe("unhealthy");
+  });
+
+  it("ignores a summary from an earlier phase", () => {
+    // A two-phase experiment whose summary fails SRM.
+    const statusFor = (
+      phase: number | undefined,
+      type: ExperimentDataForStatus["type"] = "standard",
+    ) => {
+      const experimentData = makeExperimentData({
+        analysisSummary: {
+          snapshotId: "snap-1",
+          ...(phase !== undefined ? { phase } : {}),
+          health: { srm: 0.0001, multipleExposures: 0, totalUsers: 1_000_000 },
+        },
+      });
+      return getExperimentResultStatus({
+        experimentData: {
+          ...experimentData,
+          type,
+          phases: [experimentData.phases[0], experimentData.phases[0]],
+        },
+        healthSettings: baseHealthSettings,
+        decisionCriteria: PRESET_DECISION_CRITERIA,
+        metricGroups: [],
+      })?.status;
+    };
+
+    expect(statusFor(1)).toBe("unhealthy");
+    // Summaries written before the phase was recorded are assumed current.
+    expect(statusFor(undefined)).toBe("unhealthy");
+    expect(statusFor(0, "holdout")).toBe("unhealthy");
+
+    expect(statusFor(0)).toBeUndefined();
+    // The summary's phase was deleted.
+    expect(statusFor(-1)).toBeUndefined();
   });
 
   it("flags cluster assignment and mapping issues at the cluster threshold", () => {

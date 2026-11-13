@@ -28,6 +28,7 @@ import {
   SqlDataset,
   MAX_JOURNEY_STEP_COLUMNS,
   datasetHasValues,
+  omitRenderOnlyFields,
 } from "shared/validators";
 import {
   applyStepGroups,
@@ -39,7 +40,6 @@ import type { AIChatMention } from "shared/ai-chat";
 import { createParser } from "nuqs";
 import {
   canInlineFilterColumn,
-  getFactMetricPrimaryFactTableId,
   getInlineFilterPromptColumns,
 } from "shared/experiments";
 import {
@@ -48,12 +48,12 @@ import {
   calculateProductAnalyticsDateRange,
   getValidDateGranularities,
   mapDatabaseTypeToEnum,
-  getMetricMixClass,
   hasTimestampColumn,
   hasTimeAxis,
   sanitizeDimensions,
   getRelevantFactTableIds,
-  clearInapplicableShowAs,
+  normalizeShowAs,
+  fillMissingUnits,
 } from "shared/enterprise";
 import type { DimensionFactTable } from "shared/enterprise";
 import {
@@ -68,17 +68,16 @@ export {
   getMetricMixClass,
   getMaxDimensions,
   getValidDateGranularities,
-  getEffectiveShowAs,
-  clearInapplicableShowAs,
+  getShowAsChoice,
   getEffectiveMetricValue,
-  getSharedUnit,
+  getExplorationRenderOpts,
   getDefaultValueAxisName,
-  showAsAppliesTo,
-  getIsRatioByIndex,
+  getValueAxisName,
   buildExplorationColumns,
   getExplorationCellValue,
   computeDimensionTotals,
   sortExplorationRows,
+  fillMissingUnits,
 } from "shared/enterprise";
 export type { MetricMixClass, ExplorationColumn } from "shared/enterprise";
 export type RenderOpts = import("shared/enterprise").ExplorationRenderOpts;
@@ -766,8 +765,8 @@ export function validateDimensions(
 /**
  * Composes the normalization pipeline applied to every draft config the
  * Explorer produces or receives (a fresh mount, a manual edit, or definitions
- * resolving after initial render): backfill missing units, strip an
- * inapplicable `showAs`, and — once the full (jsonFields-complete) fact
+ * resolving after initial render): backfill missing units, normalize
+ * per-value `showAs`, and — once the full (jsonFields-complete) fact
  * tables the dimensions depend on have loaded — sanitize the dimension list.
  * Before that data is ready (e.g. at initial mount, where the full-fact-table
  * resolver doesn't exist yet), pass `fullFactTablesLoadedFor: () => false` so
@@ -795,7 +794,7 @@ export function normalizeExplorerDraft(
     getFactMetricById,
   );
   const showAsNormalized = normalizeTimelessSqlConfig(
-    clearInapplicableShowAs(withUnits, getFactMetricById),
+    normalizeShowAs(withUnits, getFactMetricById),
   );
   const ready = fullFactTablesLoadedFor(
     getRelevantFactTableIds(showAsNormalized.dataset, getFactMetricById),
@@ -808,84 +807,6 @@ export function normalizeExplorerDraft(
       )
     : showAsNormalized;
   return validated as ExplorerDraftConfig;
-}
-
-/**
- * Fills in a default `unit` for metric values that have a resolved metric but
- * no unit selected. Defaults to the numerator fact table's first userIdType.
- *
- * Without a unit, the SQL layer doesn't emit a denominator column, which breaks
- * the per_unit branch of the showAs toggle and silently degrades ratio-like
- * metrics. Applied when loading a config from any source (URL, AI agent, saved
- * exploration) so users don't end up in that state.
- *
- * Skips:
- * - fact_table / data_source datasets (their unit semantics are user-driven).
- * - Metric values whose unit is already set.
- * - Metric values whose metricId is empty or can't be resolved.
- * - Metrics whose fact table has no userIdTypes (nothing to default to).
- */
-export function fillMissingUnits(
-  config: ExplorationConfig,
-  getFactTableById: (id: string) => FactTableDefinition | null,
-  getFactMetricById: (id: string) => FactMetricInterface | null,
-): ExplorationConfig {
-  if (!config.dataset) return config;
-
-  if (config.dataset.type === "funnel") {
-    // Funnels store unit at the dataset level (not per-step). Default to the
-    // first userIdType that exists on every step's fact table.
-    if (config.dataset.unit) return config;
-    const steps = config.dataset.steps;
-    if (!steps.length) return config;
-    const factTables = steps
-      .map((s) => (s.factTableId ? getFactTableById(s.factTableId) : null))
-      .filter((ft): ft is FactTableDefinition => !!ft);
-    if (factTables.length !== steps.length) return config;
-    const intersection = factTables.reduce<string[] | null>((acc, ft) => {
-      const ids = ft.userIdTypes ?? [];
-      if (acc === null) return [...ids];
-      return acc.filter((id) => ids.includes(id));
-    }, null);
-    const defaultUnit = intersection?.[0];
-    if (!defaultUnit) return config;
-    return {
-      ...config,
-      dataset: { ...config.dataset, unit: defaultUnit },
-    } as ExplorationConfig;
-  }
-
-  // Narrow on config.type, not config.dataset.type — only the former
-  // discriminates ExplorationConfig, so the spread below stays type-safe
-  // instead of needing an `as ExplorationConfig`.
-  if (config.type === "journey") {
-    const current = config.dataset;
-    if (current.unit || !current.factTableId) return config;
-    const unit =
-      getFactTableById(current.factTableId)?.userIdTypes?.[0] ?? null;
-    if (unit === current.unit) return config;
-    return { ...config, dataset: { ...current, unit } };
-  }
-
-  if (config.dataset.type !== "metric") return config;
-
-  let changed = false;
-  const newValues = config.dataset.values.map((v) => {
-    if (v.unit || !v.metricId) return v;
-    const metric = getFactMetricById(v.metricId);
-    if (!metric) return v;
-    const factTable = getFactTableById(getFactMetricPrimaryFactTableId(metric));
-    const defaultUnit = factTable?.userIdTypes?.[0];
-    if (!defaultUnit) return v;
-    changed = true;
-    return { ...v, unit: defaultUnit };
-  });
-
-  if (!changed) return config;
-  return {
-    ...config,
-    dataset: { ...config.dataset, values: newValues },
-  } as ExplorationConfig;
 }
 
 /** Removes incomplete (partially configured) row filters from a value. */
@@ -967,18 +888,22 @@ function cleanChartSettings(
   if (chartSettings.valueAxisLabel !== undefined) {
     next.valueAxisLabel = chartSettings.valueAxisLabel.trim();
   }
+  // Only persist the non-default: anchored to zero is the default.
+  if (chartSettings.anchorYAxisToZero === false) {
+    next.anchorYAxisToZero = false;
+  }
   return Object.keys(next).length ? next : undefined;
 }
 
 /** Dataset fields the inferred value-axis label depends on. */
 function getValueAxisLabelSource(config: ExplorerDraftConfig) {
-  const { dataset, showAs } = config;
+  const { dataset } = config;
   if (!datasetHasValues(dataset)) {
-    return { type: dataset.type, showAs };
+    return { type: dataset.type };
   }
+  // Includes each value's `showAs`, which drives the "Total" / "Per unit" title.
   return {
     type: dataset.type,
-    showAs,
     values: dataset.values.map((v) => omit(v, ["name", "rowFilters"])),
   };
 }
@@ -1270,7 +1195,7 @@ export function toFetchKey(
       chartType: getChartCategory(base.chartType),
       dataset: {
         ...omit(base.dataset, "hiddenColumns"),
-        values: base.dataset.values.map((value) => omit(value, "name")),
+        values: base.dataset.values.map(omitRenderOnlyFields),
       },
     };
   }
@@ -1305,7 +1230,7 @@ export function toFetchKey(
       ...(base.dataset.type === "sql"
         ? omit(base.dataset, "hiddenColumns")
         : base.dataset),
-      values: base.dataset.values.map((value) => omit(value, "name")),
+      values: base.dataset.values.map(omitRenderOnlyFields),
     },
   };
 }
@@ -1599,6 +1524,46 @@ export function formatDurationMs(ms: number | null | undefined): string {
   return hr ? `${days}d ${hr}h` : `${days}d`;
 }
 
+type FunnelCounts = { counts: number[] };
+
+// Share of step-1 users who reached `stepIdx`; null when step 1 is empty.
+export function fromStartRate(
+  s: FunnelCounts | undefined,
+  stepIdx: number,
+): number | null {
+  const first = s?.counts[0] ?? 0;
+  return first > 0 ? (s?.counts[stepIdx] ?? 0) / first : null;
+}
+
+// Share of the previous step's users who reached `stepIdx`.
+export function fromPrevRate(
+  s: FunnelCounts | undefined,
+  stepIdx: number,
+): number | null {
+  const prev = stepIdx > 0 ? (s?.counts[stepIdx - 1] ?? 0) : 0;
+  return prev > 0 ? (s?.counts[stepIdx] ?? 0) / prev : null;
+}
+
+// Rounds to 1 decimal; `|| 0` folds -0 into 0.
+export const round1 = (d: number) => Math.round(d * 10) / 10 || 0;
+
+// Funnel compare change for one bar:
+// - step 1: % change in users
+// - later steps: change in conversion from start, in pp
+export function stepChange(
+  cur: FunnelCounts,
+  prev: FunnelCounts | undefined,
+  stepIdx: number,
+): number | null {
+  if (stepIdx === 0) {
+    const p = prev?.counts[0] ?? 0;
+    return p > 0 ? round1(((cur.counts[0] ?? 0) / p - 1) * 100) : null;
+  }
+  const a = fromStartRate(cur, stepIdx);
+  const b = fromStartRate(prev, stepIdx);
+  return a === null || b === null ? null : round1((a - b) * 100);
+}
+
 export function getRefreshInterval(elapsedSeconds: number): number {
   if (elapsedSeconds < 60) return 10_000; // 0-59s: update every 10s
   if (elapsedSeconds < 3600) return 60_000; // 1-59m: update every 60s
@@ -1737,23 +1702,6 @@ export function explorerMainPresentation({
   const showStaleToast = isStale || loading;
 
   return { showChart, showTable, showStaleToast, emptyState: null };
-}
-
-/**
- * Given the other already-selected metrics in the dataset (excluding the slot
- * being edited), return the class any newly selected metric must match — or
- * null if any class is allowed.
- *
- * Unknown/unselected slots are ignored.
- */
-export function getLockedMixClass(
-  otherMetricTypes: (string | null | undefined)[],
-): "ratio" | "quantile" | "standard" | null {
-  for (const t of otherMetricTypes) {
-    const c = getMetricMixClass(t);
-    if (c !== "unknown") return c;
-  }
-  return null;
 }
 
 export type DecodeConfigResult =

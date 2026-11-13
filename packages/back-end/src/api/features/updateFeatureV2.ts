@@ -33,6 +33,7 @@ import {
 import {
   addIdsToFlatRules,
   assertFeatureValuesValid,
+  assertHoldoutValueValid,
   getApiFeatureObjV2,
   getFeatureDefinitionLookups,
   inheritStoredRolloutSeeds,
@@ -269,6 +270,7 @@ export const updateFeatureV2 = createApiRequestHandler(
       req.body.project ?? feature.project,
     );
   }
+  assertHoldoutValueValid(req.context, effectiveFeature, req.body.holdout);
 
   // Block a config-backed default value coexisting with an enabled JSON schema
   // (either inbound or already on the flag), using the effective post-update

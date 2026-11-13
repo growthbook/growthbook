@@ -50,6 +50,8 @@
 .previewBar {
   position: relative;
   height: 100%;
+  // A segment squeezed to nothing still shows as a line.
+  min-width: 0.5px;
   background-image: linear-gradient(
     to bottom,
     var(--esv-segment-shadow-top) 0px,
@@ -76,4 +78,13 @@
   line-height: var(--line-height-1);
   color: var(--color-text-low);
   white-space: nowrap;
+}
+
+.condensed {
+  .bar_wrapper {
+    margin-top: 0;
+  }
+  .bar_holder {
+    height: 18px;
+  }
 }

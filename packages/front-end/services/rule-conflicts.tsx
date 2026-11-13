@@ -8,7 +8,6 @@ import { ruleProjectScope } from "shared/util";
 import Callout from "@/ui/Callout";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
-import { getRadixColor, RadixColor, RadixStatusIcon } from "@/ui/HelperText";
 import { getUpcomingScheduleRule } from "@/services/scheduleRules";
 import { isRuleInactive } from "@/services/features";
 
@@ -1572,40 +1571,6 @@ function joinEnvNames(names: string[]): ReactElement {
   );
 }
 
-// The status badge for a rule's conflicts, mirroring the colour + icon of the
-// callout it summarizes so the top-right pill and the detail banner can never
-// disagree. Unreachable is the strongest tier (orange + the error/octagon icon);
-// any lesser conflict ("will not reach" / "may not reach") is an amber warning.
-// Returns null when the rule has no conflicts (no badge).
-export type ConflictBadge = {
-  color: RadixColor;
-  icon: ReactElement;
-  label: string;
-  title: string;
-};
-
-export function getConflictBadge(
-  banners: ConflictBanner[] | undefined,
-): ConflictBadge | null {
-  if (!banners?.length) return null;
-  if (banners.some((b) => b.isUnreachable)) {
-    return {
-      // Sourced from the "attention" status so the badge and the
-      // ConflictCallout always share the same orange + octagon icon.
-      color: getRadixColor("attention"),
-      icon: <RadixStatusIcon status="attention" size="sm" />,
-      label: "Unreachable",
-      title: "No matching traffic will reach this rule",
-    };
-  }
-  return {
-    color: "amber",
-    icon: <RadixStatusIcon status="warning" size="sm" />,
-    label: "Conflict",
-    title: "Some matching traffic may not reach this rule",
-  };
-}
-
 // Generic warning that some/all targeted traffic won't (or may not) reach this
 // rule, with an expandable explanation of which rule(s) consume it. In the
 // all-environments view `environments` / `allEnvironments` scope the banner to
@@ -1629,10 +1594,10 @@ export function ConflictCallout({
   const hasHard = conflicts.hard.length > 0;
   const hasSoft = conflicts.soft.length > 0;
   const base = isUnreachable
-    ? "No matching traffic will reach this rule"
+    ? "no matching traffic will reach this rule"
     : hasHard
-      ? "Some matching traffic will not reach this rule"
-      : "Some matching traffic may not reach this rule";
+      ? "some matching traffic will not reach this rule"
+      : "some matching traffic may not reach this rule";
   const envSuffix = allEnvironments ? (
     <> in all environments</>
   ) : environments.length > 0 ? (
@@ -1650,15 +1615,14 @@ export function ConflictCallout({
     ) : null;
   const headline = (
     <span>
-      {base}
+      <strong>{isUnreachable ? "Unreachable" : "Conflict"}</strong>: {base}
       {envSuffix}
       {projectSuffix}.
     </span>
   );
   const hasDetails = hasHard || hasSoft;
   // Unreachable uses the orange "attention" status (orange + the error octagon
-  // icon + alert role) so the banner matches its status badge; lesser conflicts
-  // stay amber "warning".
+  // icon + alert role); lesser conflicts stay amber "warning".
   const status = isUnreachable ? "attention" : "warning";
   return (
     <Callout status={status} size="sm">

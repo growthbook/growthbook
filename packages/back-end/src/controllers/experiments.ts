@@ -944,6 +944,11 @@ export async function getExperimentPublic(
   }
 
   const context = await getContextForAgendaJobByOrgId(experiment.organization);
+  if (context.org.settings?.disablePublicSharing) {
+    return res.status(401).json({
+      message: "Unauthorized",
+    });
+  }
   const phase = experiment.phases.length - 1;
 
   const snapshot =
@@ -1568,6 +1573,8 @@ export async function postExperiments(
           dimension: "",
           phase: 0,
           useCache: true,
+          // Imported experiments may already be stopped but have no results yet
+          bypassResultsUpdateDisabled: true,
         });
       } catch (e) {
         logger.error(e, "Failed to auto-refresh imported experiment");
@@ -2101,6 +2108,16 @@ export async function deleteExperimentPhase(
 
   // Remove an element from an array without mutating the original
   changes.phases = experiment.phases.filter((phase, i) => i !== phaseIndex);
+
+  // The summary names its phase by index, which this delete shifts or removes.
+  const summary = experiment.analysisSummary;
+  const summaryPhase = summary?.phase;
+  if (summary && summaryPhase !== undefined && summaryPhase >= phaseIndex) {
+    changes.analysisSummary = {
+      ...summary,
+      phase: summaryPhase === phaseIndex ? -1 : summaryPhase - 1,
+    };
+  }
 
   if (!changes.phases.length) {
     changes.status = "draft";

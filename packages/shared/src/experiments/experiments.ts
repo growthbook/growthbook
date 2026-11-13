@@ -26,6 +26,7 @@ import {
   FactTableMap,
   FunnelFactMetricInterface,
   FunnelStep,
+  CompoundFactMetricInterface,
   MetricQuantileSettings,
   MetricWindowSettings,
   RowFilter,
@@ -69,6 +70,7 @@ import {
   TemplateVariables,
 } from "shared/types/sql";
 import { stringToBoolean } from "../util";
+import { DEFAULT_IDENTIFIER_QUOTE, replaceSqlIdentifiers } from "../sql";
 import {
   getCappingTailState,
   isCappableFactMetric,
@@ -215,196 +217,6 @@ export function reconcileInlineFilterPrompts(
     }
   }
   return result;
-}
-
-// Standard SQL quotes identifiers with double quotes; only MySQL, BigQuery,
-// and Databricks (Spark) use backticks. When the active data source's dialect
-// is unknown we assume the standard, which is correct for every dialect except
-// those three.
-export const DEFAULT_IDENTIFIER_QUOTE: SqlIdentifierQuote = '"';
-
-function isBareIdentifierChar(c: string): boolean {
-  return (
-    (c >= "a" && c <= "z") ||
-    (c >= "A" && c <= "Z") ||
-    (c >= "0" && c <= "9") ||
-    c === "_"
-  );
-}
-
-// Walk a SQL string and rewrite bare or quoted references to any of `names`,
-// correctly skipping spans where a matching token must NOT be treated as a
-// column reference:
-//   - single-quoted string literals ('' escapes a quote),
-//   - `--` line comments and `/* */` block comments,
-//   - dollar-quoted string bodies ($tag$...$tag$, Postgres),
-//   - and, depending on the dialect, the "other" quote character: whichever of
-//     " or ` is NOT the dialect's identifier quote delimits string literals.
-//
-// `identifierQuote` says which quote character delimits identifiers for the
-// active data source. A span in that quote is a *quoted identifier* (so
-// `"margin_vc"` / `` `margin_vc` `` can reference a column); a span in the
-// opposite quote is a string literal and is left alone. This matters because
-// e.g. `"margin_vc"` is a quoted identifier in Postgres but a string literal
-// in MySQL.
-//
-// `replacer(name, quoted)` returns the replacement for a matched identifier;
-// `quoted` tells it whether the match came from a quoted-identifier span so it
-// can re-quote when qualifying. Identifiers preceded by `.` (ignoring
-// whitespace, so `m.price` and `m . price` both count) are skipped so
-// already-qualified names are not re-qualified. Single
-// pass — inserted replacement text is never re-scanned, so an inserted
-// `m.price` is never re-qualified into `m.m.price`.
-function replaceSqlIdentifiers(
-  sql: string,
-  names: string[],
-  replacer: (name: string, quoted: boolean) => string,
-  identifierQuote: SqlIdentifierQuote = DEFAULT_IDENTIFIER_QUOTE,
-  // When `matchQualified` is true, identifiers preceded by `.` (e.g. `e.price`)
-  // are matched too.
-  { matchQualified = false }: { matchQualified?: boolean } = {},
-): string {
-  if (!names.length) return sql;
-  const nameSet = new Set(names);
-  // Whichever quote is not the identifier quote delimits string literals.
-  const stringQuote = identifierQuote === '"' ? "`" : '"';
-
-  let out = "";
-  let i = 0;
-  const n = sql.length;
-
-  // Consume a quote-delimited span starting at `i` (which is the opening
-  // quote), honoring doubled-quote escapes. Returns the end index (exclusive)
-  // and the unescaped inner text, plus whether a closing quote was found.
-  const readQuoted = (quote: string) => {
-    let j = i + 1;
-    let inner = "";
-    let closed = false;
-    while (j < n) {
-      if (sql[j] === quote) {
-        if (sql[j + 1] === quote) {
-          inner += quote;
-          j += 2;
-          continue;
-        }
-        j++;
-        closed = true;
-        break;
-      }
-      inner += sql[j];
-      j++;
-    }
-    return { end: j, inner, closed };
-  };
-
-  // Whether the identifier about to be emitted is already qualified by a
-  // preceding `.`. SQL allows whitespace around the dot (`m . price`), so skip
-  // any trailing whitespace before looking for the qualifier.
-  const isAlreadyQualified = () => {
-    let k = out.length - 1;
-    while (k >= 0 && /\s/.test(out[k])) k--;
-    return k >= 0 && out[k] === ".";
-  };
-
-  while (i < n) {
-    const c = sql[i];
-
-    // Single-quoted string literal.
-    if (c === "'") {
-      const { end } = readQuoted("'");
-      out += sql.slice(i, end);
-      i = end;
-      continue;
-    }
-
-    // Line comment: -- ... to end of line.
-    if (c === "-" && sql[i + 1] === "-") {
-      let j = i + 2;
-      while (j < n && sql[j] !== "\n") j++;
-      out += sql.slice(i, j);
-      i = j;
-      continue;
-    }
-
-    // Block comment: /* ... */.
-    if (c === "/" && sql[i + 1] === "*") {
-      let j = i + 2;
-      while (j < n && !(sql[j] === "*" && sql[j + 1] === "/")) j++;
-      j = Math.min(n, j + 2);
-      out += sql.slice(i, j);
-      i = j;
-      continue;
-    }
-
-    // Dollar-quoted string ($tag$...$tag$). Only treated as a string when a
-    // valid closing delimiter exists; otherwise `$` is an ordinary character
-    // (e.g. a positional parameter or `col$1`).
-    if (c === "$") {
-      const open = sql.slice(i).match(/^\$([A-Za-z_][A-Za-z0-9_]*)?\$/);
-      if (open) {
-        const delim = open[0];
-        const close = sql.indexOf(delim, i + delim.length);
-        if (close !== -1) {
-          const end = close + delim.length;
-          out += sql.slice(i, end);
-          i = end;
-          continue;
-        }
-      }
-      out += c;
-      i++;
-      continue;
-    }
-
-    // Quoted identifier in the dialect's identifier quote.
-    if (c === identifierQuote) {
-      const { end, inner, closed } = readQuoted(identifierQuote);
-      if (
-        closed &&
-        (matchQualified || !isAlreadyQualified()) &&
-        nameSet.has(inner)
-      ) {
-        out += replacer(inner, true);
-      } else {
-        out += sql.slice(i, end);
-      }
-      i = end;
-      continue;
-    }
-
-    // A span in the opposite quote is a string literal for this dialect; skip.
-    if (c === stringQuote) {
-      const { end } = readQuoted(stringQuote);
-      out += sql.slice(i, end);
-      i = end;
-      continue;
-    }
-
-    // Bare identifier run.
-    if (isBareIdentifierChar(c)) {
-      let j = i;
-      while (j < n && isBareIdentifierChar(sql[j])) j++;
-      const token = sql.slice(i, j);
-      // A run starting with a digit is a numeric literal, not an identifier.
-      const startsWithDigit = c >= "0" && c <= "9";
-      if (
-        !startsWithDigit &&
-        (matchQualified || !isAlreadyQualified()) &&
-        nameSet.has(token)
-      ) {
-        out += replacer(token, false);
-      } else {
-        out += token;
-      }
-      i = j;
-      continue;
-    }
-
-    out += c;
-    i++;
-  }
-
-  return out;
 }
 
 // A virtual column's expression is inlined into generated SQL as `(<sql>)`, so
@@ -593,50 +405,6 @@ export function expandVirtualColumnsInSql(
 }
 
 // Whether a SQL expression references a given column identifier. String
-// literals and comments are skipped, so a name inside a string literal (e.g.
-// `status = 'margin_vc'`) does not count as a reference, while a quoted
-// identifier (per `identifierQuote`) does. Computed on demand — no dependency
-// state is persisted.
-export function sqlReferencesColumn(
-  sql: string,
-  column: string,
-  identifierQuote: SqlIdentifierQuote = DEFAULT_IDENTIFIER_QUOTE,
-): boolean {
-  let found = false;
-  replaceSqlIdentifiers(
-    sql,
-    [column],
-    (name) => {
-      found = true;
-      return name;
-    },
-    identifierQuote,
-  );
-  return found;
-}
-
-// Like `sqlReferencesColumn`, but also matches qualified references such as
-// `e.bandit_version`. Use this when detecting whether a SELECT exposes an
-// output column (which is typically table-aliased), rather than when deciding
-// whether a bare column from the current table is depended upon.
-export function sqlReferencesColumnAllowingQualified(
-  sql: string,
-  column: string,
-  identifierQuote: SqlIdentifierQuote = DEFAULT_IDENTIFIER_QUOTE,
-): boolean {
-  let found = false;
-  replaceSqlIdentifiers(
-    sql,
-    [column],
-    (name) => {
-      found = true;
-      return name;
-    },
-    identifierQuote,
-    { matchQualified: true },
-  );
-  return found;
-}
 
 export function getColumnExpression(
   column: string,
@@ -1333,20 +1101,27 @@ export function isCappableMetricType(m: ExperimentMetricDefinition) {
 
 export function isBinomialMetric(m: ExperimentMetricDefinition) {
   if (isFactMetric(m))
-    return ["proportion", "retention", "funnel"].includes(m.metricType);
+    return ["proportion", "retention", "funnel", "compound"].includes(
+      m.metricType,
+    );
   return m.type === "binomial";
 }
 
 /**
  * Fact table the metric's primary events come from: the numerator's for most
- * metric types, the first step's for funnels (which have no numerator).
+ * metric types, the first step's / component's for funnels and compound
+ * metrics (which have no numerator).
  */
 export function getFactMetricPrimaryFactTableId(
   m: FactMetricInterface,
 ): string {
-  return isFactFunnelMetric(m)
-    ? (m.funnelSettings.steps[0]?.factTableId ?? "")
-    : m.numerator.factTableId;
+  if (isFactFunnelMetric(m)) {
+    return m.funnelSettings.steps[0]?.factTableId ?? "";
+  }
+  if (isFactCompoundMetric(m)) {
+    return m.compoundSettings.components[0]?.factTableId ?? "";
+  }
+  return m.numerator.factTableId;
 }
 
 /**
@@ -1358,12 +1133,14 @@ export function getFactMetricPrimaryFactTableId(
 export function getFactMetricFactTableIds(m: FactMetricInterface): string[] {
   const ids = isFactFunnelMetric(m)
     ? m.funnelSettings.steps.map((step) => step.factTableId)
-    : [
-        m.numerator.factTableId,
-        ...(isRatioMetric(m) && m.denominator?.factTableId
-          ? [m.denominator.factTableId]
-          : []),
-      ];
+    : isFactCompoundMetric(m)
+      ? m.compoundSettings.components.map((c) => c.factTableId)
+      : [
+          m.numerator.factTableId,
+          ...(isRatioMetric(m) && m.denominator?.factTableId
+            ? [m.denominator.factTableId]
+            : []),
+        ];
   return Array.from(new Set(ids.filter((id) => !!id)));
 }
 
@@ -1385,7 +1162,7 @@ export function getFactTableIdsForMetrics(
 export function getMetricAutoSliceFactTableIds(
   m: FactMetricInterface,
 ): string[] {
-  return isFactFunnelMetric(m)
+  return isFactFunnelMetric(m) || isFactCompoundMetric(m)
     ? getFactMetricFactTableIds(m)
     : [getFactMetricPrimaryFactTableId(m)].filter((id) => !!id);
 }
@@ -1401,6 +1178,13 @@ export function getFactMetricColumnRefs(m: FactMetricInterface): ColumnRef[] {
       factTableId: step.factTableId,
       column: "",
       rowFilters: step.rowFilters,
+    }));
+  }
+  if (isFactCompoundMetric(m)) {
+    return m.compoundSettings.components.map((c) => ({
+      factTableId: c.factTableId,
+      column: "",
+      rowFilters: c.rowFilters,
     }));
   }
   return m.denominator ? [m.numerator, m.denominator] : [m.numerator];
@@ -1450,6 +1234,7 @@ export function isSubUnitClusterMetric(
 
 const CLUSTER_EXPERIMENT_ALLOWED_METRIC_TYPES = [
   "proportion",
+  "compound",
   "retention",
   "mean",
   "ratio",
@@ -1632,6 +1417,16 @@ export function isFactFunnelMetric(
   m: ExperimentMetricDefinition,
 ): m is FunnelFactMetricInterface {
   return isFactMetric(m) && m.metricType === "funnel";
+}
+
+/**
+ * Compound fact metric: a unit passes when it matched every component, in any
+ * order. Statistically a proportion.
+ */
+export function isFactCompoundMetric(
+  m: ExperimentMetricDefinition,
+): m is CompoundFactMetricInterface {
+  return isFactMetric(m) && m.metricType === "compound";
 }
 
 export function isRegressionAdjusted(
@@ -2857,13 +2652,13 @@ export function getMetricAutoSliceColumns({
   });
 }
 
-// Same rule, for callers holding draft funnel settings rather than a saved
-// metric (the metric modal, create/update validation).
+// Same rule, for callers holding draft funnel steps or compound components
+// rather than a saved metric (the metric modal, create/update validation).
 export function getCompatibleFunnelAutoSliceColumns({
   steps,
   getFactTable,
 }: {
-  steps: FunnelStep[];
+  steps: Pick<FunnelStep, "factTableId">[];
   getFactTable: GetSliceFactTable;
 }): MetricAutoSliceColumn[] {
   return getAutoSliceColumnsForFactTables({
@@ -3007,7 +2802,7 @@ export function getAutoSliceMetrics({
   metric: FactMetricInterface;
   factTable: FactTableDefinition;
 }): FactMetricInterface[] {
-  if (isFactFunnelMetric(metric)) return [];
+  if (isFactFunnelMetric(metric) || isFactCompoundMetric(metric)) return [];
 
   return createAutoSliceDataForMetric({
     parentMetric: metric,

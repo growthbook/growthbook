@@ -3,8 +3,8 @@ import uniqid from "uniqid";
 import {
   getFactMetricColumnRefs,
   getMetricAutoSliceFactTableIds,
-  sqlReferencesColumn,
 } from "shared/experiments";
+import { sqlReferencesColumn } from "shared/sql";
 import { explorationConfigReferencesColumn } from "shared/enterprise";
 import { SqlIdentifierQuote } from "shared/types/sql";
 import { isEqual, omit } from "lodash";
@@ -1249,6 +1249,19 @@ export async function projectHasFactTables(
   return !!(await FactTableModel.exists({
     organization: context.org.id,
     projects: [projectId],
+  }));
+}
+
+// Ignores read permissions, so a dependency check can't miss a hidden table
+export async function datasourceHasFactTables(
+  context: ReqContext | ApiReqContext,
+  datasourceId: string,
+  ignoreIds: string[] = [],
+): Promise<boolean> {
+  return !!(await FactTableModel.exists({
+    organization: context.org.id,
+    datasource: datasourceId,
+    id: { $nin: ignoreIds },
   }));
 }
 
