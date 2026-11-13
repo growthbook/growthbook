@@ -54,6 +54,9 @@ jest.mock("back-end/src/models/SdkConnectionModel", () => ({
 }));
 
 jest.mock("shared/sdk-versioning", () => ({
+  // The real one: it decides what a save records.
+  withLegacySavedGroupFlag: jest.requireActual("shared/sdk-versioning")
+    .withLegacySavedGroupFlag,
   getLatestSDKVersion: jest.fn(),
   getSDKCapabilities: jest.fn(),
   getSDKVersions: jest.fn(),

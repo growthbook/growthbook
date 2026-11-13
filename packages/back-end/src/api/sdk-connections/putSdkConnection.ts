@@ -12,6 +12,7 @@ import {
   toApiSDKConnectionInterface,
   editSDKConnection,
 } from "back-end/src/models/SdkConnectionModel";
+import { withLegacySavedGroupFlag } from "shared/sdk-versioning";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { getAdapter } from "back-end/src/revisions";
@@ -74,7 +75,9 @@ export const putSdkConnection = createApiRequestHandler(
   const proposedSettings = (
     adapter.buildSnapshot({
       ...baseline.sdkConnection,
-      ...changes,
+      // As the model saves it, so the revision records what goes live: the
+      // deprecated saved-group flag and the format are kept in step there.
+      ...withLegacySavedGroupFlag(changes, sdkConnection),
     }) as SDKConnectionRevisionSnapshot
   ).sdkConnection;
 
@@ -139,13 +142,25 @@ export const putSdkConnection = createApiRequestHandler(
     },
     patchOps,
     bypass: approvalRequired,
+    // Without these a conflict found after the write removed the revision and
+    // left the change live with no record of it.
+    changes: { sdkConnection: proposedSettings },
     write: () =>
       runGuardedWrite("sdk-connection", sdkConnection.id, () =>
         editSDKConnection(req.context, sdkConnection, changes, {
           casOnDateUpdated: sdkConnection.dateUpdated ?? null,
         }),
       ),
-    persistedFrom: (written) => written as unknown as Record<string, unknown>,
+    // In the landing's own shape, which is what ownership is judged against.
+    persistedFrom: (written) => ({
+      id: written.id,
+      projects: written.projects ?? [],
+      dateUpdated: written.dateUpdated,
+      ...(adapter.buildSnapshot({
+        ...written,
+        _webhooks: liveWebhooks,
+      }) as SDKConnectionRevisionSnapshot),
+    }),
   });
 
   return {
