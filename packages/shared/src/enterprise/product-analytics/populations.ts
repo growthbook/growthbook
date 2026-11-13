@@ -1,13 +1,18 @@
 import type {
   ExplorationPopulation,
   MetricDataset,
+  PopulationInterface,
   ProductAnalyticsDimension,
+  ResolvedExplorationPopulation,
 } from "shared/validators";
-import { getPopulationRuleViolations } from "shared/populations";
+import {
+  getPopulationRuleViolations,
+  getSinglePopulationStep,
+  type PopulationRuleFactTable,
+} from "shared/populations";
 import type {
   FactMetricInterface,
   FactMetricType,
-  FactTableInterface,
   StandardFactMetricInterface,
 } from "shared/types/fact-table";
 
@@ -21,10 +26,27 @@ function isSupportedWithPopulation(
   return POPULATION_METRIC_TYPES.has(metric.metricType);
 }
 
-// The population applies to every metric in the request, so one incompatible
-// metric rejects the request.
-export function getMetricPopulationViolations({
+export type ParsedMetricExplorationPopulation =
+  | {
+      ok: true;
+      /** The saved Population's single step, counted by the chosen unit. */
+      population: ResolvedExplorationPopulation;
+    }
+  | {
+      ok: false;
+      /** Every problem at once, so an editor can show them together. */
+      violations: string[];
+    };
+
+/**
+ * Validates a metric exploration's Population against its saved definition
+ * and the request, and returns the definition the query runs. The Population
+ * applies to every metric in the request, so one incompatible metric rejects
+ * the request.
+ */
+export function parseMetricExplorationPopulation({
   population,
+  savedPopulation,
   values,
   dimensions,
   datasource,
@@ -32,12 +54,53 @@ export function getMetricPopulationViolations({
   factTableMap,
 }: {
   population: ExplorationPopulation;
+  /** Null when no saved Population with `population.populationId` can be read. */
+  savedPopulation: Pick<
+    PopulationInterface,
+    "datasource" | "userIdTypes" | "steps"
+  > | null;
   values: MetricDataset["values"];
   dimensions: ProductAnalyticsDimension[];
   datasource: string;
   metricMap: Map<string, FactMetricInterface>;
-  factTableMap: Map<string, FactTableInterface>;
-}): string[] {
+  factTableMap: Map<string, PopulationRuleFactTable>;
+}): ParsedMetricExplorationPopulation {
+  if (!savedPopulation) {
+    return {
+      ok: false,
+      violations: [`Population ${population.populationId} not found.`],
+    };
+  }
+  if (savedPopulation.datasource !== datasource) {
+    return {
+      ok: false,
+      violations: [
+        "The Population must use the same Data Source as the metrics.",
+      ],
+    };
+  }
+  const step = getSinglePopulationStep(savedPopulation);
+  if (!step) {
+    return {
+      ok: false,
+      violations: [
+        "Only Populations with a single step can be combined with metrics.",
+      ],
+    };
+  }
+  if (!savedPopulation.userIdTypes.includes(population.unit)) {
+    return {
+      ok: false,
+      violations: [
+        `The Population doesn't support the identifier type "${population.unit}".`,
+      ],
+    };
+  }
+  const resolved: ResolvedExplorationPopulation = {
+    ...step,
+    unit: population.unit,
+  };
+
   const violations: string[] = [];
   if (values.some((value) => value.draftMetric)) {
     violations.push("Metrics with populations require a saved metric.");
@@ -58,7 +121,7 @@ export function getMetricPopulationViolations({
       );
       continue;
     }
-    if (metric.numerator.factTableId !== population.source.factTableId) {
+    if (metric.numerator.factTableId !== resolved.source.factTableId) {
       violations.push(
         `Metric "${metric.name}" must use the same Fact Table as the Population.`,
       );
@@ -72,14 +135,16 @@ export function getMetricPopulationViolations({
   if (!values.length) {
     violations.push("Populations require at least one metric.");
   }
+  // Check the Population's own rules only once the metrics fit it.
+  if (violations.length) return { ok: false, violations };
 
-  // return early if there are metric incompatibility violations
-  if (violations.length) return violations;
-
-  return getPopulationRuleViolations({
+  const ruleViolations = getPopulationRuleViolations({
     datasource,
-    userIdTypes: [population.unit],
-    steps: [population],
+    userIdTypes: [resolved.unit],
+    steps: [resolved],
     factTables: [...factTableMap.values()],
   });
+  if (ruleViolations.length) return { ok: false, violations: ruleViolations };
+
+  return { ok: true, population: resolved };
 }

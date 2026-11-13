@@ -77,7 +77,10 @@ export default function MetricPreviewChart({
   const days = getDailyBuckets(exploration);
   const dailyValue = (day: string) => {
     const cell = cellsByDay.get(day);
-    return cell ? getEffectiveMetricValue(cell, renderOpts.values[0]) : 0;
+    // Metric editor previews never have a Population.
+    return cell
+      ? getEffectiveMetricValue(cell, renderOpts.values[0], undefined)
+      : 0;
   };
 
   return (

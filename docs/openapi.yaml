@@ -43716,6 +43716,7 @@ paths:
                                     enum:
                                       - total
                                       - per_unit
+                                      - percent_of_population
                                   chartSettings:
                                     type: object
                                     properties:
@@ -43799,17 +43800,24 @@ paths:
                                                 - type: 'null'
                                             showAs:
                                               description: >-
-                                                How a mean metric renders: `total` sums
-                                                the numerator, `per_unit` divides it by
-                                                the unit count. Ignored for other metric
-                                                types. Omit to use the default
-                                                (`per_unit` for `max` and `count
-                                                distinct` aggregations, otherwise
+                                                How a metric renders: `total` sums the
+                                                numerator, `per_unit` divides it by the
+                                                unit count (mean metrics only), and
+                                                `percent_of_population` divides it by
+                                                the population's member count as a
+                                                percentage (proportion metrics with a
+                                                population only). Ignored for other
+                                                metric types. Omit to use the default
+                                                (`per_unit` for mean metrics with `max`
+                                                and `count distinct` aggregations,
+                                                `percent_of_population` for proportion
+                                                metrics with a population, otherwise
                                                 `total`).
                                               type: string
                                               enum:
                                                 - total
                                                 - per_unit
+                                                - percent_of_population
                                           required:
                                             - name
                                             - rowFilters
@@ -43822,9 +43830,9 @@ paths:
                                         description: >-
                                           **Beta** — this field is new and may
                                           change in backwards-incompatible ways. A
-                                          population applied to every metric in
-                                          the request. Only proportion metrics on
-                                          the population's Fact Table are
+                                          saved Population applied to every metric
+                                          in the request. Only proportion metrics
+                                          on the Population's Fact Table are
                                           supported; the request is rejected if
                                           any metric is incompatible.
                                         $ref: >-
@@ -44145,6 +44153,7 @@ paths:
                                     enum:
                                       - total
                                       - per_unit
+                                      - percent_of_population
                                   chartSettings:
                                     type: object
                                     properties:
@@ -44559,6 +44568,7 @@ paths:
                                     enum:
                                       - total
                                       - per_unit
+                                      - percent_of_population
                                   chartSettings:
                                     type: object
                                     properties:
@@ -44990,6 +45000,7 @@ paths:
                                     enum:
                                       - total
                                       - per_unit
+                                      - percent_of_population
                                   chartSettings:
                                     type: object
                                     properties:
@@ -45421,6 +45432,7 @@ paths:
                                     enum:
                                       - total
                                       - per_unit
+                                      - percent_of_population
                                   chartSettings:
                                     type: object
                                     properties:
@@ -47157,6 +47169,7 @@ paths:
                                     enum:
                                       - total
                                       - per_unit
+                                      - percent_of_population
                                   chartSettings:
                                     type: object
                                     properties:
@@ -47240,17 +47253,24 @@ paths:
                                                 - type: 'null'
                                             showAs:
                                               description: >-
-                                                How a mean metric renders: `total` sums
-                                                the numerator, `per_unit` divides it by
-                                                the unit count. Ignored for other metric
-                                                types. Omit to use the default
-                                                (`per_unit` for `max` and `count
-                                                distinct` aggregations, otherwise
+                                                How a metric renders: `total` sums the
+                                                numerator, `per_unit` divides it by the
+                                                unit count (mean metrics only), and
+                                                `percent_of_population` divides it by
+                                                the population's member count as a
+                                                percentage (proportion metrics with a
+                                                population only). Ignored for other
+                                                metric types. Omit to use the default
+                                                (`per_unit` for mean metrics with `max`
+                                                and `count distinct` aggregations,
+                                                `percent_of_population` for proportion
+                                                metrics with a population, otherwise
                                                 `total`).
                                               type: string
                                               enum:
                                                 - total
                                                 - per_unit
+                                                - percent_of_population
                                           required:
                                             - name
                                             - rowFilters
@@ -47263,9 +47283,9 @@ paths:
                                         description: >-
                                           **Beta** — this field is new and may
                                           change in backwards-incompatible ways. A
-                                          population applied to every metric in
-                                          the request. Only proportion metrics on
-                                          the population's Fact Table are
+                                          saved Population applied to every metric
+                                          in the request. Only proportion metrics
+                                          on the Population's Fact Table are
                                           supported; the request is rejected if
                                           any metric is incompatible.
                                         $ref: >-
@@ -47578,6 +47598,7 @@ paths:
                                     enum:
                                       - total
                                       - per_unit
+                                      - percent_of_population
                                   chartSettings:
                                     type: object
                                     properties:
@@ -47984,6 +48005,7 @@ paths:
                                     enum:
                                       - total
                                       - per_unit
+                                      - percent_of_population
                                   chartSettings:
                                     type: object
                                     properties:
@@ -48407,6 +48429,7 @@ paths:
                                     enum:
                                       - total
                                       - per_unit
+                                      - percent_of_population
                                   chartSettings:
                                     type: object
                                     properties:
@@ -48830,6 +48853,7 @@ paths:
                                     enum:
                                       - total
                                       - per_unit
+                                      - percent_of_population
                                   chartSettings:
                                     type: object
                                     properties:
@@ -50793,6 +50817,7 @@ paths:
                                 enum:
                                   - total
                                   - per_unit
+                                  - percent_of_population
                               chartSettings:
                                 type: object
                                 properties:
@@ -50876,17 +50901,24 @@ paths:
                                             - type: 'null'
                                         showAs:
                                           description: >-
-                                            How a mean metric renders: `total` sums
-                                            the numerator, `per_unit` divides it by
-                                            the unit count. Ignored for other metric
-                                            types. Omit to use the default
-                                            (`per_unit` for `max` and `count
-                                            distinct` aggregations, otherwise
+                                            How a metric renders: `total` sums the
+                                            numerator, `per_unit` divides it by the
+                                            unit count (mean metrics only), and
+                                            `percent_of_population` divides it by
+                                            the population's member count as a
+                                            percentage (proportion metrics with a
+                                            population only). Ignored for other
+                                            metric types. Omit to use the default
+                                            (`per_unit` for mean metrics with `max`
+                                            and `count distinct` aggregations,
+                                            `percent_of_population` for proportion
+                                            metrics with a population, otherwise
                                             `total`).
                                           type: string
                                           enum:
                                             - total
                                             - per_unit
+                                            - percent_of_population
                                       required:
                                         - name
                                         - rowFilters
@@ -50899,10 +50931,10 @@ paths:
                                     description: >-
                                       **Beta** — this field is new and may
                                       change in backwards-incompatible ways. A
-                                      population applied to every metric in the
-                                      request. Only proportion metrics on the
-                                      population's Fact Table are supported; the
-                                      request is rejected if any metric is
+                                      saved Population applied to every metric
+                                      in the request. Only proportion metrics on
+                                      the Population's Fact Table are supported;
+                                      the request is rejected if any metric is
                                       incompatible.
                                     $ref: '#/components/schemas/ExplorationPopulation'
                                 required:
@@ -51211,6 +51243,7 @@ paths:
                                 enum:
                                   - total
                                   - per_unit
+                                  - percent_of_population
                               chartSettings:
                                 type: object
                                 properties:
@@ -51615,6 +51648,7 @@ paths:
                                 enum:
                                   - total
                                   - per_unit
+                                  - percent_of_population
                               chartSettings:
                                 type: object
                                 properties:
@@ -52036,6 +52070,7 @@ paths:
                                 enum:
                                   - total
                                   - per_unit
+                                  - percent_of_population
                               chartSettings:
                                 type: object
                                 properties:
@@ -52457,6 +52492,7 @@ paths:
                                 enum:
                                   - total
                                   - per_unit
+                                  - percent_of_population
                               chartSettings:
                                 type: object
                                 properties:
@@ -54431,6 +54467,7 @@ paths:
                                 enum:
                                   - total
                                   - per_unit
+                                  - percent_of_population
                               chartSettings:
                                 type: object
                                 properties:
@@ -54514,17 +54551,24 @@ paths:
                                             - type: 'null'
                                         showAs:
                                           description: >-
-                                            How a mean metric renders: `total` sums
-                                            the numerator, `per_unit` divides it by
-                                            the unit count. Ignored for other metric
-                                            types. Omit to use the default
-                                            (`per_unit` for `max` and `count
-                                            distinct` aggregations, otherwise
+                                            How a metric renders: `total` sums the
+                                            numerator, `per_unit` divides it by the
+                                            unit count (mean metrics only), and
+                                            `percent_of_population` divides it by
+                                            the population's member count as a
+                                            percentage (proportion metrics with a
+                                            population only). Ignored for other
+                                            metric types. Omit to use the default
+                                            (`per_unit` for mean metrics with `max`
+                                            and `count distinct` aggregations,
+                                            `percent_of_population` for proportion
+                                            metrics with a population, otherwise
                                             `total`).
                                           type: string
                                           enum:
                                             - total
                                             - per_unit
+                                            - percent_of_population
                                       required:
                                         - name
                                         - rowFilters
@@ -54537,10 +54581,10 @@ paths:
                                     description: >-
                                       **Beta** — this field is new and may
                                       change in backwards-incompatible ways. A
-                                      population applied to every metric in the
-                                      request. Only proportion metrics on the
-                                      population's Fact Table are supported; the
-                                      request is rejected if any metric is
+                                      saved Population applied to every metric
+                                      in the request. Only proportion metrics on
+                                      the Population's Fact Table are supported;
+                                      the request is rejected if any metric is
                                       incompatible.
                                     $ref: '#/components/schemas/ExplorationPopulation'
                                 required:
@@ -54849,6 +54893,7 @@ paths:
                                 enum:
                                   - total
                                   - per_unit
+                                  - percent_of_population
                               chartSettings:
                                 type: object
                                 properties:
@@ -55253,6 +55298,7 @@ paths:
                                 enum:
                                   - total
                                   - per_unit
+                                  - percent_of_population
                               chartSettings:
                                 type: object
                                 properties:
@@ -55674,6 +55720,7 @@ paths:
                                 enum:
                                   - total
                                   - per_unit
+                                  - percent_of_population
                               chartSettings:
                                 type: object
                                 properties:
@@ -56095,6 +56142,7 @@ paths:
                                 enum:
                                   - total
                                   - per_unit
+                                  - percent_of_population
                               chartSettings:
                                 type: object
                                 properties:
@@ -60543,6 +60591,7 @@ paths:
                   enum:
                     - total
                     - per_unit
+                    - percent_of_population
                 chartSettings:
                   type: object
                   properties:
@@ -60626,15 +60675,21 @@ paths:
                               - type: 'null'
                           showAs:
                             description: >-
-                              How a mean metric renders: `total` sums the
-                              numerator, `per_unit` divides it by the unit
-                              count. Ignored for other metric types. Omit to use
-                              the default (`per_unit` for `max` and `count
-                              distinct` aggregations, otherwise `total`).
+                              How a metric renders: `total` sums the numerator,
+                              `per_unit` divides it by the unit count (mean
+                              metrics only), and `percent_of_population` divides
+                              it by the population's member count as a
+                              percentage (proportion metrics with a population
+                              only). Ignored for other metric types. Omit to use
+                              the default (`per_unit` for mean metrics with
+                              `max` and `count distinct` aggregations,
+                              `percent_of_population` for proportion metrics
+                              with a population, otherwise `total`).
                             type: string
                             enum:
                               - total
                               - per_unit
+                              - percent_of_population
                         required:
                           - name
                           - rowFilters
@@ -60646,10 +60701,10 @@ paths:
                     population:
                       description: >-
                         **Beta** — this field is new and may change in
-                        backwards-incompatible ways. A population applied to
-                        every metric in the request. Only proportion metrics on
-                        the population's Fact Table are supported; the request
-                        is rejected if any metric is incompatible.
+                        backwards-incompatible ways. A saved Population applied
+                        to every metric in the request. Only proportion metrics
+                        on the Population's Fact Table are supported; the
+                        request is rejected if any metric is incompatible.
                       $ref: '#/components/schemas/ExplorationPopulation'
                   required:
                     - type
@@ -61009,6 +61064,7 @@ paths:
                                 enum:
                                   - total
                                   - per_unit
+                                  - percent_of_population
                               chartSettings:
                                 type: object
                                 properties:
@@ -61092,17 +61148,24 @@ paths:
                                             - type: 'null'
                                         showAs:
                                           description: >-
-                                            How a mean metric renders: `total` sums
-                                            the numerator, `per_unit` divides it by
-                                            the unit count. Ignored for other metric
-                                            types. Omit to use the default
-                                            (`per_unit` for `max` and `count
-                                            distinct` aggregations, otherwise
+                                            How a metric renders: `total` sums the
+                                            numerator, `per_unit` divides it by the
+                                            unit count (mean metrics only), and
+                                            `percent_of_population` divides it by
+                                            the population's member count as a
+                                            percentage (proportion metrics with a
+                                            population only). Ignored for other
+                                            metric types. Omit to use the default
+                                            (`per_unit` for mean metrics with `max`
+                                            and `count distinct` aggregations,
+                                            `percent_of_population` for proportion
+                                            metrics with a population, otherwise
                                             `total`).
                                           type: string
                                           enum:
                                             - total
                                             - per_unit
+                                            - percent_of_population
                                       required:
                                         - name
                                         - rowFilters
@@ -61115,10 +61178,10 @@ paths:
                                     description: >-
                                       **Beta** — this field is new and may
                                       change in backwards-incompatible ways. A
-                                      population applied to every metric in the
-                                      request. Only proportion metrics on the
-                                      population's Fact Table are supported; the
-                                      request is rejected if any metric is
+                                      saved Population applied to every metric
+                                      in the request. Only proportion metrics on
+                                      the Population's Fact Table are supported;
+                                      the request is rejected if any metric is
                                       incompatible.
                                     $ref: '#/components/schemas/ExplorationPopulation'
                                 required:
@@ -61366,6 +61429,7 @@ paths:
                   enum:
                     - total
                     - per_unit
+                    - percent_of_population
                 chartSettings:
                   type: object
                   properties:
@@ -61822,6 +61886,7 @@ paths:
                                 enum:
                                   - total
                                   - per_unit
+                                  - percent_of_population
                               chartSettings:
                                 type: object
                                 properties:
@@ -62165,6 +62230,7 @@ paths:
                   enum:
                     - total
                     - per_unit
+                    - percent_of_population
                 chartSettings:
                   type: object
                   properties:
@@ -62638,6 +62704,7 @@ paths:
                                 enum:
                                   - total
                                   - per_unit
+                                  - percent_of_population
                               chartSettings:
                                 type: object
                                 properties:
@@ -62998,6 +63065,7 @@ paths:
                   enum:
                     - total
                     - per_unit
+                    - percent_of_population
                 chartSettings:
                   type: object
                   properties:
@@ -63474,6 +63542,7 @@ paths:
                                 enum:
                                   - total
                                   - per_unit
+                                  - percent_of_population
                               chartSettings:
                                 type: object
                                 properties:
@@ -63837,6 +63906,7 @@ paths:
                   enum:
                     - total
                     - per_unit
+                    - percent_of_population
                 chartSettings:
                   type: object
                   properties:
@@ -64306,6 +64376,7 @@ paths:
                                 enum:
                                   - total
                                   - per_unit
+                                  - percent_of_population
                               chartSettings:
                                 type: object
                                 properties:
@@ -64662,6 +64733,7 @@ paths:
                   enum:
                     - total
                     - per_unit
+                    - percent_of_population
                 chartSettings:
                   type: object
                   properties:
@@ -65153,6 +65225,7 @@ paths:
                                 enum:
                                   - total
                                   - per_unit
+                                  - percent_of_population
                               chartSettings:
                                 type: object
                                 properties:
@@ -84408,6 +84481,7 @@ components:
                         enum:
                           - total
                           - per_unit
+                          - percent_of_population
                       chartSettings:
                         type: object
                         properties:
@@ -84491,16 +84565,23 @@ components:
                                     - type: 'null'
                                 showAs:
                                   description: >-
-                                    How a mean metric renders: `total` sums the
+                                    How a metric renders: `total` sums the
                                     numerator, `per_unit` divides it by the unit
-                                    count. Ignored for other metric types. Omit
-                                    to use the default (`per_unit` for `max` and
-                                    `count distinct` aggregations, otherwise
-                                    `total`).
+                                    count (mean metrics only), and
+                                    `percent_of_population` divides it by the
+                                    population's member count as a percentage
+                                    (proportion metrics with a population only).
+                                    Ignored for other metric types. Omit to use
+                                    the default (`per_unit` for mean metrics
+                                    with `max` and `count distinct`
+                                    aggregations, `percent_of_population` for
+                                    proportion metrics with a population,
+                                    otherwise `total`).
                                   type: string
                                   enum:
                                     - total
                                     - per_unit
+                                    - percent_of_population
                               required:
                                 - name
                                 - rowFilters
@@ -84512,11 +84593,11 @@ components:
                           population:
                             description: >-
                               **Beta** — this field is new and may change in
-                              backwards-incompatible ways. A population applied
-                              to every metric in the request. Only proportion
-                              metrics on the population's Fact Table are
-                              supported; the request is rejected if any metric
-                              is incompatible.
+                              backwards-incompatible ways. A saved Population
+                              applied to every metric in the request. Only
+                              proportion metrics on the Population's Fact Table
+                              are supported; the request is rejected if any
+                              metric is incompatible.
                             $ref: '#/components/schemas/ExplorationPopulation'
                         required:
                           - type
@@ -84830,6 +84911,7 @@ components:
                         enum:
                           - total
                           - per_unit
+                          - percent_of_population
                       chartSettings:
                         type: object
                         properties:
@@ -85240,6 +85322,7 @@ components:
                         enum:
                           - total
                           - per_unit
+                          - percent_of_population
                       chartSettings:
                         type: object
                         properties:
@@ -85667,6 +85750,7 @@ components:
                         enum:
                           - total
                           - per_unit
+                          - percent_of_population
                       chartSettings:
                         type: object
                         properties:
@@ -86097,6 +86181,7 @@ components:
                         enum:
                           - total
                           - per_unit
+                          - percent_of_population
                       chartSettings:
                         type: object
                         properties:
@@ -86261,77 +86346,16 @@ components:
     ExplorationPopulation:
       type: object
       properties:
-        source:
-          anyOf:
-            - type: object
-              properties:
-                type:
-                  type: string
-                  const: factTable
-                factTableId:
-                  type: string
-              required:
-                - type
-                - factTableId
-              additionalProperties: false
-        rowFilters:
-          default: []
-          type: array
-          items:
-            type: object
-            properties:
-              operator:
-                type: string
-                enum:
-                  - '='
-                  - '!='
-                  - <
-                  - <=
-                  - '>'
-                  - '>='
-                  - between
-                  - not_between
-                  - in
-                  - not_in
-                  - contains
-                  - not_contains
-                  - matches_pattern
-                  - not_matches_pattern
-                  - starts_with
-                  - ends_with
-                  - is_null
-                  - not_null
-                  - is_true
-                  - is_false
-                  - sql_expr
-                  - saved_filter
-              column:
-                type: string
-              values:
-                type: array
-                items:
-                  type: string
-            required:
-              - operator
-            additionalProperties: false
-        aggregateFilter:
-          description: >-
-            Conditions on each unit's total within the queried date range, such
-            as ">=3" or ">=3,<10". Requires aggregateFilterColumn
-          type: string
-        aggregateFilterColumn:
-          description: >-
-            Numeric column to total, or "$$count" to count rows. Requires
-            aggregateFilter
+        populationId:
+          description: ID of the saved Population
           type: string
         unit:
           description: >-
             Identifier type that defines population membership. Every metric's
-            unit must match it.
+            unit must match it, and the Population must support it.
           type: string
       required:
-        - source
-        - rowFilters
+        - populationId
         - unit
       additionalProperties: false
     ContextualBandit:
@@ -88104,6 +88128,7 @@ components:
                   enum:
                     - total
                     - per_unit
+                    - percent_of_population
                 chartSettings:
                   type: object
                   properties:
@@ -88187,15 +88212,21 @@ components:
                               - type: 'null'
                           showAs:
                             description: >-
-                              How a mean metric renders: `total` sums the
-                              numerator, `per_unit` divides it by the unit
-                              count. Ignored for other metric types. Omit to use
-                              the default (`per_unit` for `max` and `count
-                              distinct` aggregations, otherwise `total`).
+                              How a metric renders: `total` sums the numerator,
+                              `per_unit` divides it by the unit count (mean
+                              metrics only), and `percent_of_population` divides
+                              it by the population's member count as a
+                              percentage (proportion metrics with a population
+                              only). Ignored for other metric types. Omit to use
+                              the default (`per_unit` for mean metrics with
+                              `max` and `count distinct` aggregations,
+                              `percent_of_population` for proportion metrics
+                              with a population, otherwise `total`).
                             type: string
                             enum:
                               - total
                               - per_unit
+                              - percent_of_population
                         required:
                           - name
                           - rowFilters
@@ -88207,10 +88238,10 @@ components:
                     population:
                       description: >-
                         **Beta** — this field is new and may change in
-                        backwards-incompatible ways. A population applied to
-                        every metric in the request. Only proportion metrics on
-                        the population's Fact Table are supported; the request
-                        is rejected if any metric is incompatible.
+                        backwards-incompatible ways. A saved Population applied
+                        to every metric in the request. Only proportion metrics
+                        on the Population's Fact Table are supported; the
+                        request is rejected if any metric is incompatible.
                       $ref: '#/components/schemas/ExplorationPopulation'
                   required:
                     - type
@@ -88406,6 +88437,7 @@ components:
                   enum:
                     - total
                     - per_unit
+                    - percent_of_population
                 chartSettings:
                   type: object
                   properties:
@@ -88698,6 +88730,7 @@ components:
                   enum:
                     - total
                     - per_unit
+                    - percent_of_population
                 chartSettings:
                   type: object
                   properties:
@@ -89007,6 +89040,7 @@ components:
                   enum:
                     - total
                     - per_unit
+                    - percent_of_population
                 chartSettings:
                   type: object
                   properties:
@@ -89319,6 +89353,7 @@ components:
                   enum:
                     - total
                     - per_unit
+                    - percent_of_population
                 chartSettings:
                   type: object
                   properties:
@@ -89624,6 +89659,7 @@ components:
                   enum:
                     - total
                     - per_unit
+                    - percent_of_population
                 chartSettings:
                   type: object
                   properties:

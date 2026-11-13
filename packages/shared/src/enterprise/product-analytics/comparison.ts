@@ -964,10 +964,12 @@ export function computeExplorationComparisonPayload(
     const currentValue = getEffectiveMetricValue(
       currCell,
       renderOpts.values[metricIndex],
+      primary.result.rows[0]?.populationCount,
     );
     const previousValue = getEffectiveMetricValue(
       prevCell,
       renderOpts.values[metricIndex],
+      exploration.result.rows[0]?.populationCount,
     );
 
     if (previousValue === 0) {

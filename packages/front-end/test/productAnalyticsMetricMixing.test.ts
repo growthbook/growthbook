@@ -10,6 +10,7 @@ import {
   getLockedMixClass,
   getMetricValuesUnitState,
   getMixClassConflict,
+  getPopulationFactTableId,
   getUnitConflict,
   setMetricValuesUnit,
 } from "@/enterprise/components/ProductAnalytics/metricMixing";
@@ -202,5 +203,49 @@ describe("setMetricValuesUnit", () => {
         getFactMetricById,
       ).map((v) => v.unit),
     ).toEqual(["user_id", "device_id"]);
+  });
+});
+
+describe("getPopulationFactTableId", () => {
+  const populationMetrics = new Map(
+    [
+      makeMetric("signups", "proportion", "users_only"),
+      makeMetric("purchases", "proportion", "users_only"),
+      makeMetric("installs", "proportion", "devices_only"),
+      makeMetric("revenue", "mean", "users_only"),
+    ].map((m) => [m.id, m]),
+  );
+  const getMetric = (id: string) => populationMetrics.get(id) ?? null;
+
+  it("returns the Fact Table every proportion metric shares", () => {
+    expect(
+      getPopulationFactTableId(
+        [value("signups", "user_id"), value("purchases", "user_id")],
+        getMetric,
+      ),
+    ).toBe("users_only");
+  });
+
+  it("returns null when a metric isn't a proportion", () => {
+    expect(
+      getPopulationFactTableId(
+        [value("signups", "user_id"), value("revenue", "user_id")],
+        getMetric,
+      ),
+    ).toBeNull();
+  });
+
+  it("returns null when the metrics use different Fact Tables", () => {
+    expect(
+      getPopulationFactTableId(
+        [value("signups", "user_id"), value("installs", "device_id")],
+        getMetric,
+      ),
+    ).toBeNull();
+  });
+
+  it("returns null when there are no metrics or a slot is empty", () => {
+    expect(getPopulationFactTableId([], getMetric)).toBeNull();
+    expect(getPopulationFactTableId([value("", null)], getMetric)).toBeNull();
   });
 });

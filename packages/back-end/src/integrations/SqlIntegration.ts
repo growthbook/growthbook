@@ -130,7 +130,10 @@ import {
   FactMetricInterface,
   MetricQuantileSettings,
 } from "shared/types/fact-table";
-import { ExplorationConfig } from "shared/validators";
+import {
+  ExplorationConfig,
+  ResolvedExplorationPopulation,
+} from "shared/validators";
 import {
   AdditionalQueryMetadata,
   QueryType,
@@ -3967,9 +3970,11 @@ export default abstract class SqlIntegration
     {
       factTableMap,
       metricMap,
+      population,
     }: {
       factTableMap: FactTableMap;
       metricMap: Map<string, FactMetricInterface>;
+      population: ResolvedExplorationPopulation | null;
     },
   ): {
     sql: string;
@@ -4010,6 +4015,7 @@ export default abstract class SqlIntegration
       metricMap,
       dialect,
       this.datasource,
+      population,
     );
 
     return {

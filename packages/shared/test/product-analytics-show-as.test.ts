@@ -1,7 +1,9 @@
 import {
   buildExplorationColumns,
+  getExplorationCellValue,
   getDefaultValueAxisName,
   getEffectiveMetricValue,
+  getSecondaryValueAxisName,
   getExplorationRenderOpts,
   getShowAsChoice,
   getShowAsOptions,
@@ -80,7 +82,7 @@ const mean = (showAs: ShowAs) => ({ options: MEAN_OPTIONS, showAs });
 
 describe("getShowAsOptions", () => {
   it("offers total and per unit for mean metrics only", () => {
-    expect(getShowAsOptions("mean")).toEqual(MEAN_OPTIONS);
+    expect(getShowAsOptions("mean", false)).toEqual(MEAN_OPTIONS);
     for (const type of [
       "proportion",
       "retention",
@@ -88,9 +90,9 @@ describe("getShowAsOptions", () => {
       "ratio",
       "quantile",
     ] as const) {
-      expect(getShowAsOptions(type)).toEqual([]);
+      expect(getShowAsOptions(type, false)).toEqual([]);
     }
-    expect(getShowAsOptions(undefined)).toEqual([]);
+    expect(getShowAsOptions(undefined, false)).toEqual([]);
   });
 });
 
@@ -101,6 +103,7 @@ describe("getShowAsChoice", () => {
         metricValue("revenue", "per_unit"),
         undefined,
         getFactMetricById,
+        false,
       ),
     ).toEqual(mean("per_unit"));
     expect(
@@ -108,16 +111,27 @@ describe("getShowAsChoice", () => {
         metricValue("revenue", "total"),
         undefined,
         getFactMetricById,
+        false,
       ),
     ).toEqual(mean("total"));
   });
 
   it("infers the default from each metric's own aggregation", () => {
     expect(
-      getShowAsChoice(metricValue("revenue"), undefined, getFactMetricById),
+      getShowAsChoice(
+        metricValue("revenue"),
+        undefined,
+        getFactMetricById,
+        false,
+      ),
     ).toEqual(mean("total"));
     expect(
-      getShowAsChoice(metricValue("maxOrder"), undefined, getFactMetricById),
+      getShowAsChoice(
+        metricValue("maxOrder"),
+        undefined,
+        getFactMetricById,
+        false,
+      ),
     ).toEqual(mean("per_unit"));
   });
 
@@ -127,48 +141,75 @@ describe("getShowAsChoice", () => {
         metricValue("converted", "per_unit"),
         undefined,
         getFactMetricById,
+        false,
       ),
     ).toEqual(none);
     expect(
-      getShowAsChoice(metricValue("aov"), undefined, getFactMetricById),
+      getShowAsChoice(metricValue("aov"), undefined, getFactMetricById, false),
     ).toEqual(none);
   });
 
   it("offers no options for a slot with no metric selected", () => {
     expect(
-      getShowAsChoice(metricValue(""), undefined, getFactMetricById),
+      getShowAsChoice(metricValue(""), undefined, getFactMetricById, false),
     ).toEqual(none);
   });
 
-  it("treats a saved choice as a mean while the metric hasn't loaded", () => {
+  it("offers only the saved choice while the metric hasn't loaded", () => {
     expect(
       getShowAsChoice(
         metricValue("loading", "per_unit"),
         undefined,
         getFactMetricById,
+        false,
       ),
-    ).toEqual(mean("per_unit"));
+    ).toEqual({ options: ["per_unit"], showAs: "per_unit" });
     expect(
-      getShowAsChoice(metricValue("loading"), "per_unit", getFactMetricById),
-    ).toEqual(mean("per_unit"));
+      getShowAsChoice(
+        metricValue("loading"),
+        "per_unit",
+        getFactMetricById,
+        false,
+      ),
+    ).toEqual({ options: ["per_unit"], showAs: "per_unit" });
+    // A total could belong to a mean or a proportion with a population.
+    expect(
+      getShowAsChoice(
+        metricValue("loading", "total"),
+        undefined,
+        getFactMetricById,
+        true,
+      ),
+    ).toEqual({ options: ["total"], showAs: "total" });
   });
 
   it("offers no choice for an unloaded value without a saved choice", () => {
     expect(
-      getShowAsChoice(metricValue("loading"), undefined, getFactMetricById),
+      getShowAsChoice(
+        metricValue("loading"),
+        undefined,
+        getFactMetricById,
+        false,
+      ),
     ).toEqual(none);
     expect(
       getShowAsChoice(
         metricValue("", "per_unit"),
         undefined,
         getFactMetricById,
+        false,
       ),
     ).toEqual(none);
   });
 
   it("falls back to the deprecated config-level showAs", () => {
     expect(
-      getShowAsChoice(metricValue("revenue"), "per_unit", getFactMetricById),
+      getShowAsChoice(
+        metricValue("revenue"),
+        "per_unit",
+        getFactMetricById,
+        false,
+      ),
     ).toEqual(mean("per_unit"));
   });
 
@@ -178,6 +219,7 @@ describe("getShowAsChoice", () => {
         metricValue("revenue", "total"),
         "per_unit",
         getFactMetricById,
+        false,
       ),
     ).toEqual(mean("total"));
   });
@@ -189,6 +231,7 @@ describe("getShowAsChoice", () => {
         { ...metricValue(""), draftMetric: draft },
         undefined,
         () => null,
+        false,
       ),
     ).toEqual(mean("per_unit"));
   });
@@ -203,7 +246,7 @@ describe("getShowAsChoice", () => {
       rowFilters: [],
     };
     expect(
-      getShowAsChoice(factTableValue, undefined, getFactMetricById),
+      getShowAsChoice(factTableValue, undefined, getFactMetricById, false),
     ).toEqual(none);
   });
 });
@@ -357,7 +400,9 @@ describe("getEffectiveMetricValue", () => {
     );
     const cell = { numerator: 100, denominator: 4 };
     expect(
-      [0, 1, 2].map((i) => getEffectiveMetricValue(cell, opts.values[i])),
+      [0, 1, 2].map((i) =>
+        getEffectiveMetricValue(cell, opts.values[i], undefined),
+      ),
     ).toEqual([100, 25, 100]);
   });
 });
@@ -377,7 +422,11 @@ describe("getEffectiveMetricValue for ratios", () => {
       getFactMetricById,
     ).values;
     expect(
-      getEffectiveMetricValue({ numerator: 100, denominator: 4 }, opts),
+      getEffectiveMetricValue(
+        { numerator: 100, denominator: 4 },
+        opts,
+        undefined,
+      ),
     ).toBe(25);
   });
 });
@@ -558,5 +607,142 @@ describe("buildExplorationColumns", () => {
       "maxOrder (total)",
       "converted (total)",
     ]);
+  });
+});
+
+describe("proportions with a population", () => {
+  const population = { populationId: "pop_1", unit: "user_id" };
+  function populationConfig(values: MetricValue[]): ExplorationConfig {
+    const config = metricConfig(values);
+    if (config.dataset.type === "metric")
+      config.dataset.population = population;
+    return config;
+  }
+
+  it("offers total and percent of population only with a population", () => {
+    expect(getShowAsOptions("proportion", true)).toEqual([
+      "total",
+      "percent_of_population",
+    ]);
+    expect(getShowAsOptions("proportion", false)).toEqual([]);
+    expect(getShowAsOptions("mean", true)).toEqual(MEAN_OPTIONS);
+  });
+
+  it("defaults to % of Population, keeping an explicit choice", () => {
+    const options = ["total", "percent_of_population"];
+    expect(
+      getShowAsChoice(
+        metricValue("converted"),
+        undefined,
+        getFactMetricById,
+        true,
+      ),
+    ).toEqual({ options, showAs: "percent_of_population" });
+    expect(
+      getShowAsChoice(
+        metricValue("converted", "total"),
+        undefined,
+        getFactMetricById,
+        true,
+      ),
+    ).toEqual({ options, showAs: "total" });
+  });
+
+  it("defaults proportions to totals without a population", () => {
+    expect(
+      getShowAsChoice(
+        metricValue("converted"),
+        undefined,
+        getFactMetricById,
+        false,
+      ),
+    ).toEqual(none);
+  });
+
+  it("divides by the population count as a percentage", () => {
+    const [opts] = getExplorationRenderOpts(
+      populationConfig([metricValue("converted", "percent_of_population")]),
+      getFactMetricById,
+    ).values;
+    const cell = { numerator: 25, denominator: 25 };
+    expect(getEffectiveMetricValue(cell, opts, 200)).toBe(12.5);
+    expect(getEffectiveMetricValue(cell, opts, 0)).toBe(0);
+    expect(getEffectiveMetricValue(cell, opts, undefined)).toBe(0);
+  });
+
+  it("strips percent of population once the population is removed", () => {
+    const withPopulation = populationConfig([
+      metricValue("converted", "percent_of_population"),
+    ]);
+    expect(normalizeShowAs(withPopulation, getFactMetricById)).toBe(
+      withPopulation,
+    );
+    const withoutPopulation = metricConfig([
+      metricValue("converted", "percent_of_population"),
+    ]);
+    expect(
+      normalizeShowAs(withoutPopulation, getFactMetricById).dataset,
+    ).toEqual({ type: "metric", values: [metricValue("converted")] });
+  });
+
+  it("adds the Population count as the last table column", () => {
+    const config = populationConfig([metricValue("converted")]);
+    const renderOpts = getExplorationRenderOpts(config, getFactMetricById);
+    const columns = buildExplorationColumns(config, renderOpts);
+    const lastColumn = columns[columns.length - 1];
+    expect(lastColumn).toEqual({
+      kind: "populationCount",
+      key: "__population_count__",
+      label: "Population count",
+    });
+    const row = {
+      dimensions: [],
+      values: [{ numerator: 25, denominator: 25 }],
+      populationCount: 200,
+    };
+    expect(getExplorationCellValue(row, lastColumn, renderOpts)).toBe(200);
+
+    const withoutPopulation = metricConfig([metricValue("converted")]);
+    const columnsWithoutPopulation = buildExplorationColumns(
+      withoutPopulation,
+      getExplorationRenderOpts(withoutPopulation, getFactMetricById),
+    );
+    for (const column of columnsWithoutPopulation) {
+      expect(column.kind).not.toBe("populationCount");
+    }
+  });
+
+  it("moves % of Population to a right-hand axis when mixed with totals", () => {
+    const renderOpts = getExplorationRenderOpts(
+      populationConfig([
+        metricValue("converted", "total"),
+        metricValue("converted", "percent_of_population"),
+      ]),
+      getFactMetricById,
+    );
+    expect(renderOpts.secondaryAxisValueIndexes).toEqual([1]);
+    expect(getDefaultValueAxisName(renderOpts)).toBe("Total");
+    expect(getSecondaryValueAxisName(renderOpts)).toBe("% of Population");
+  });
+
+  it("keeps one axis when every value is a % of Population", () => {
+    const renderOpts = getExplorationRenderOpts(
+      populationConfig([
+        metricValue("converted", "percent_of_population"),
+        metricValue("converted", "percent_of_population"),
+      ]),
+      getFactMetricById,
+    );
+    expect(renderOpts.secondaryAxisValueIndexes).toEqual([]);
+    expect(getSecondaryValueAxisName(renderOpts)).toBeNull();
+    expect(getDefaultValueAxisName(renderOpts)).toBe("% of Population");
+  });
+
+  it("titles the value axis", () => {
+    const renderOpts = getExplorationRenderOpts(
+      populationConfig([metricValue("converted", "percent_of_population")]),
+      getFactMetricById,
+    );
+    expect(getDefaultValueAxisName(renderOpts)).toBe("% of Population");
   });
 });

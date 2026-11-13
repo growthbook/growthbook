@@ -4,14 +4,14 @@ import {
   transformProductAnalyticsRowsToResult,
   encodeExplorationConfig,
   decodeExplorationConfigJson,
-  getMetricPopulationViolations,
+  parseMetricExplorationPopulation,
 } from "shared/enterprise";
 import { createLikeStringMatchFn } from "shared/sql";
 import {
   ExplorationDateRange,
   MetricExplorationConfig,
-  ExplorationPopulation,
   ProductAnalyticsDimension,
+  ResolvedExplorationPopulation,
   explorationPopulationValidator,
   metricTypeValidator,
   explorationConfigValidator,
@@ -151,8 +151,8 @@ const ALL_METRICS = [
 ];
 
 const mobileUsers = (
-  extra: Partial<ExplorationPopulation> = {},
-): ExplorationPopulation => ({
+  extra: Partial<ResolvedExplorationPopulation> = {},
+): ResolvedExplorationPopulation => ({
   source: { type: "factTable", factTableId: "events" },
   rowFilters: [{ column: "device_type", operator: "=", values: ["mobile"] }],
   unit: "user_id",
@@ -172,6 +172,14 @@ const SEPT_1_TO_3: ExplorationDateRange = {
   endDate: "2026-09-03",
 };
 
+// Configs only reference a saved Population by id. Each test's resolved
+// definition is kept here, as the server would load it.
+const resolvedPopulations = new WeakMap<
+  MetricExplorationConfig,
+  ResolvedExplorationPopulation
+>();
+const POPULATION_ID = "pop_mobile";
+
 function explore({
   metrics,
   population,
@@ -181,13 +189,13 @@ function explore({
   unit = "user_id",
 }: {
   metrics: FactMetricInterface[];
-  population?: ExplorationPopulation;
+  population?: ResolvedExplorationPopulation;
   overall?: boolean;
   dimensions?: ProductAnalyticsDimension[];
   dateRange?: ExplorationDateRange;
   unit?: string | null;
 }): MetricExplorationConfig {
-  return {
+  const config: MetricExplorationConfig = {
     type: "metric",
     datasource: "ds",
     chartType: overall ? "bigNumber" : "line",
@@ -204,8 +212,23 @@ function explore({
         denominatorUnit: m.metricType === "ratio" ? unit : null,
         rowFilters: [],
       })),
-      population,
+      ...(population
+        ? { population: { populationId: POPULATION_ID, unit: population.unit } }
+        : {}),
     },
+  };
+  if (population) resolvedPopulations.set(config, population);
+  return config;
+}
+
+// The saved Population a resolved definition came from.
+function savedPopulationFor(population: ResolvedExplorationPopulation) {
+  const { unit, ...step } = population;
+  return {
+    id: POPULATION_ID,
+    datasource: "ds",
+    userIdTypes: [unit],
+    steps: [step],
   };
 }
 
@@ -245,15 +268,18 @@ function violations(
   metrics: FactMetricInterface[] = ALL_METRICS,
 ) {
   const { population, values } = config.dataset;
-  if (!population) throw new Error("Expected a population");
-  return getMetricPopulationViolations({
+  const resolved = resolvedPopulations.get(config);
+  if (!population || !resolved) throw new Error("Expected a population");
+  const parsed = parseMetricExplorationPopulation({
     population,
+    savedPopulation: savedPopulationFor(resolved),
     values,
     dimensions: config.dimensions,
     datasource: config.datasource,
     metricMap: new Map(metrics.map((m) => [m.id, m])),
     factTableMap: new Map([[table.id, table]]),
-  }).join(" ");
+  });
+  return parsed.ok ? "" : parsed.violations.join(" ");
 }
 
 function generate(config: MetricExplorationConfig) {
@@ -263,6 +289,7 @@ function generate(config: MetricExplorationConfig) {
     new Map(ALL_METRICS.map((m) => [m.id, m])),
     dialect,
     {},
+    resolvedPopulations.get(config) ?? null,
   );
 }
 
@@ -534,6 +561,52 @@ describe("metric explorations with a population", () => {
       ).toBe("Metric purchasers not found.");
     });
 
+    describe("the saved Population", () => {
+      const config = explore({
+        metrics: [purchasers],
+        population: mobileUsers(),
+      });
+      const saved = savedPopulationFor(mobileUsers());
+      const check = (savedPopulation: typeof saved | null) =>
+        parseMetricExplorationPopulation({
+          population: { populationId: POPULATION_ID, unit: "user_id" },
+          savedPopulation,
+          values: config.dataset.values,
+          dimensions: config.dimensions,
+          datasource: config.datasource,
+          metricMap: new Map(ALL_METRICS.map((m) => [m.id, m])),
+          factTableMap: new Map([[table.id, table]]),
+        });
+
+      it("returns the definition to run when it fits the request", () => {
+        expect(check(saved)).toEqual({ ok: true, population: mobileUsers() });
+      });
+
+      it.each<[string, typeof saved | null, string]>([
+        ["a missing one", null, "Population pop_mobile not found."],
+        [
+          "one on another Data Source",
+          { ...saved, datasource: "other" },
+          "The Population must use the same Data Source as the metrics.",
+        ],
+        [
+          "one with several steps",
+          { ...saved, steps: [...saved.steps, ...saved.steps] },
+          "Only Populations with a single step can be combined with metrics.",
+        ],
+        [
+          "one without the chart's identifier type",
+          { ...saved, userIdTypes: ["anonymous_id"] },
+          'The Population doesn\'t support the identifier type "user_id".',
+        ],
+      ])("rejects %s", (_, savedPopulation, message) => {
+        expect(check(savedPopulation)).toEqual({
+          ok: false,
+          violations: [message],
+        });
+      });
+    });
+
     it("rejects a population with no metrics", () => {
       expect(
         violations(explore({ metrics: [], population: mobileUsers() })),
@@ -575,28 +648,25 @@ describe("metric explorations with a population", () => {
       ).toEqual(config);
     });
 
-    it("defaults omitted row filters to an empty list", () => {
+    it("accepts a saved Population id and identifier type", () => {
       expect(
         explorationPopulationValidator.parse({
-          source: mobileRevenueOver10.source,
+          populationId: POPULATION_ID,
           unit: "user_id",
         }),
-      ).toEqual({
-        source: mobileRevenueOver10.source,
-        rowFilters: [],
-        unit: "user_id",
-      });
+      ).toEqual({ populationId: POPULATION_ID, unit: "user_id" });
     });
 
     it.each<[string, Record<string, unknown>]>([
       ["a missing unit", { unit: undefined }],
-      ["a name", { name: "Mobile users" }],
-      ["window settings", { windowSettings: { type: "lookback" } }],
-      ["steps", { steps: [] }],
+      ["a missing Population id", { populationId: undefined }],
+      ["an inline definition", { source: mobileRevenueOver10.source }],
+      ["row filters", { rowFilters: [] }],
     ])("rejects %s", (_, change) => {
       expect(
         explorationPopulationValidator.safeParse({
-          ...mobileRevenueOver10,
+          populationId: POPULATION_ID,
+          unit: "user_id",
           ...change,
         }).success,
       ).toBe(false);

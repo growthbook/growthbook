@@ -5,6 +5,19 @@ import { parseAggregateFilter } from "./aggregate-filters";
 
 // Multi-step populations aren't supported yet.
 export const MAX_POPULATION_STEPS = 1;
+
+/**
+ * A Population's only step. Null for any other number of steps, so callers
+ * reject or skip a multi-step Population instead of reading just its first
+ * step. Every single-step assumption goes through here; revisit each caller
+ * when multi-step Populations are supported.
+ */
+export function getSinglePopulationStep(population: {
+  steps: PopulationStep[];
+}): PopulationStep | null {
+  if (population.steps.length !== 1) return null;
+  return population.steps[0];
+}
 /** Distinct fact tables a population's steps may read from. */
 export const MAX_POPULATION_FACT_TABLES = 5;
 

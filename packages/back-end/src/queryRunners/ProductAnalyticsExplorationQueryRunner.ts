@@ -2,6 +2,7 @@ import { ProductAnalyticsExplorationParams } from "shared/types/integrations";
 import {
   ProductAnalyticsExploration,
   ProductAnalyticsResult,
+  ResolvedExplorationPopulation,
 } from "shared/validators";
 import { FactMetricInterface, FactTableMap } from "shared/types/fact-table";
 import { Queries, QueryStatus } from "shared/types/query";
@@ -18,6 +19,7 @@ export class ProductAnalyticsExplorationQueryRunner extends QueryRunner<
 > {
   private factTableMap?: FactTableMap;
   private factMetricMap?: Map<string, FactMetricInterface>;
+  private population: ResolvedExplorationPopulation | null = null;
 
   checkPermissions(): boolean {
     const datasetType = this.model.config?.dataset?.type;
@@ -33,6 +35,7 @@ export class ProductAnalyticsExplorationQueryRunner extends QueryRunner<
   ): Promise<Queries> {
     this.factTableMap = params.factTableMap;
     this.factMetricMap = params.factMetricMap;
+    this.population = params.population;
 
     if (!(this.integration instanceof SqlIntegration)) {
       throw new Error("Product Analytics only supports SQL data sources");
@@ -43,6 +46,7 @@ export class ProductAnalyticsExplorationQueryRunner extends QueryRunner<
       {
         factTableMap: this.factTableMap,
         metricMap: this.factMetricMap,
+        population: this.population,
       },
     );
     return [
@@ -82,6 +86,7 @@ export class ProductAnalyticsExplorationQueryRunner extends QueryRunner<
     ).getProductAnalyticsQuery(this.model.config, {
       factTableMap: this.factTableMap as FactTableMap,
       metricMap: this.factMetricMap as Map<string, FactMetricInterface>,
+      population: this.population,
     });
 
     const resp = transformProductAnalyticsRowsToResult(

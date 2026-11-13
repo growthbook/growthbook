@@ -7,7 +7,11 @@ import type {
   ProductAnalyticsValue,
   ShowAs,
 } from "../../../validators/product-analytics";
-import { getDraftOrSavedMetric, getShowAsChoice } from "./show-as";
+import {
+  configHasPopulation,
+  getDraftOrSavedMetric,
+  getShowAsChoice,
+} from "./show-as";
 import { getSharedUnit } from "./units";
 
 // ---- showAs inference & applicability ---------------------------------------
@@ -18,16 +22,25 @@ import { getSharedUnit } from "./units";
 // drift between what the chart renders and what the agent sees in its CSV.
 
 /**
- * Value-axis title when no custom `valueAxisLabel` is set. Empty unless every
- * value on the axis renders the same way (see `sharedShowAs`).
+ * Title of the (left) value axis when no custom `valueAxisLabel` is set. Empty
+ * unless every value on that axis renders the same way.
  */
 export function getDefaultValueAxisName({
-  sharedShowAs,
+  primaryAxisShowAs,
   sharedUnit,
 }: ExplorationRenderOpts): string {
-  if (sharedShowAs === null) return "";
-  if (sharedShowAs === "total") return "Total";
+  if (primaryAxisShowAs === null) return "";
+  if (primaryAxisShowAs === "total") return "Total";
+  if (primaryAxisShowAs === "percent_of_population") return "% of Population";
   return sharedUnit ? `Per ${sharedUnit}` : "Per unit";
+}
+
+/** Title of the right-hand value axis, or null when the chart has one axis. */
+export function getSecondaryValueAxisName(
+  renderOpts: ExplorationRenderOpts,
+): string | null {
+  if (!renderOpts.secondaryAxisValueIndexes.length) return null;
+  return "% of Population";
 }
 
 /**
@@ -62,6 +75,7 @@ function getAnnotatedName(
 ): string {
   const name = getValueName(value, index);
   if (showAs === "total") return `${name} (total)`;
+  if (showAs === "percent_of_population") return `${name} (% of Population)`;
   const unit =
     ("unit" in value && typeof value.unit === "string" ? value.unit : null) ||
     sharedUnit ||
@@ -74,10 +88,15 @@ function getAnnotatedName(
  * the effective showAs and whether the underlying metric is a ratio. Ratios
  * always render as N/D regardless of showAs. Without render settings (no
  * dataset value at that index) the raw numerator is used.
+ *
+ * `populationCount` is the result row's population member count, undefined
+ * when the request has no population. Required so no caller can forget it and
+ * render every "% of Population" value as 0.
  */
 export function getEffectiveMetricValue(
   v: { numerator: number | null; denominator: number | null },
   opts: Pick<ValueRenderOpts, "showAs" | "isRatio"> | undefined,
+  populationCount: number | undefined,
 ): number {
   const num = v.numerator ?? 0;
   if (opts?.isRatio) {
@@ -85,6 +104,11 @@ export function getEffectiveMetricValue(
   }
   if (opts?.showAs === "per_unit") {
     return v.denominator ? num / v.denominator : num;
+  }
+  if (opts?.showAs === "percent_of_population") {
+    if (!populationCount) return 0;
+    const shareOfPopulation = num / populationCount;
+    return shareOfPopulation * 100;
   }
   return num;
 }
@@ -116,6 +140,13 @@ export type ExplorationRenderOpts = {
   sharedShowAs: ShowAs | null;
   /** Some values render as totals and others per unit. */
   modesAreMixed: boolean;
+  /**
+   * Values drawn on a second, right-hand axis: "% of Population" values when
+   * other values use another mode. Empty when the chart has one value axis.
+   */
+  secondaryAxisValueIndexes: number[];
+  /** The mode every value on the left axis renders in; null when they differ. */
+  primaryAxisShowAs: ShowAs | null;
   /** See `getSharedUnit`. */
   sharedUnit: string | null;
 };
@@ -124,6 +155,8 @@ const NO_VALUES_RENDER_OPTS: ExplorationRenderOpts = {
   values: [],
   sharedShowAs: null,
   modesAreMixed: false,
+  secondaryAxisValueIndexes: [],
+  primaryAxisShowAs: null,
   sharedUnit: null,
 };
 
@@ -137,8 +170,9 @@ export function getExplorationRenderOpts(
 ): ExplorationRenderOpts {
   if (!datasetHasValues(config?.dataset)) return NO_VALUES_RENDER_OPTS;
   const { values } = config.dataset;
+  const hasPopulation = configHasPopulation(config);
   const choices = values.map((v) =>
-    getShowAsChoice(v, config.showAs, getFactMetricById),
+    getShowAsChoice(v, config.showAs, getFactMetricById, hasPopulation),
   );
   const someValueOffersShowAs = choices.some(
     (choice) => choice.options.length > 0,
@@ -149,12 +183,32 @@ export function getExplorationRenderOpts(
   const modesAreMixed = someValueOffersShowAs && sharedShowAs === null;
   const sharedUnit = getSharedUnit(config, getFactMetricById);
 
+  // "% of Population" is on a different scale from every other mode, so when
+  // it's mixed with them it moves to its own axis. Then each axis keeps a title.
+  const percentIndexes: number[] = [];
+  const otherModes = new Set<ShowAs>();
+  for (let i = 0; i < choices.length; i++) {
+    if (choices[i].showAs === "percent_of_population") {
+      percentIndexes.push(i);
+    } else {
+      otherModes.add(choices[i].showAs);
+    }
+  }
+  const hasSecondAxis = percentIndexes.length > 0 && otherModes.size > 0;
+  const secondaryAxisValueIndexes = hasSecondAxis ? percentIndexes : [];
+  let primaryAxisShowAs = sharedShowAs;
+  if (hasSecondAxis) {
+    primaryAxisShowAs = otherModes.size === 1 ? [...otherModes][0] : null;
+  }
+
   // Annotate series names when the axis title can't tell readers how the
   // values are calculated.
   const hasCustomAxisTitle = config.chartSettings?.valueAxisLabel !== undefined;
   const axisTitleNamesTheUnit = !hasCustomAxisTitle && sharedUnit !== null;
   const annotateNames =
-    modesAreMixed || (sharedShowAs === "per_unit" && !axisTitleNamesTheUnit);
+    modesAreMixed ||
+    (sharedShowAs === "per_unit" && !axisTitleNamesTheUnit) ||
+    (sharedShowAs === "percent_of_population" && hasCustomAxisTitle);
 
   return {
     values: values.map((v, i) => ({
@@ -166,6 +220,8 @@ export function getExplorationRenderOpts(
     })),
     sharedShowAs,
     modesAreMixed,
+    secondaryAxisValueIndexes,
+    primaryAxisShowAs,
     sharedUnit,
   };
 }
@@ -197,6 +253,12 @@ export type ExplorationColumn =
        * - "single": one column whose value respects the effective showAs.
        */
       sub: "numerator" | "denominator" | "value" | "single";
+    }
+  | {
+      /** Each row's Population member count, last when the chart has one. */
+      kind: "populationCount";
+      key: string;
+      label: string;
     };
 
 /**
@@ -277,8 +339,11 @@ export function buildExplorationColumns(
       return;
     }
 
-    // A plain header means total, unless per-unit columns sit beside it.
-    const annotate = showAs === "per_unit" || modesAreMixed;
+    // A plain header means total, unless other modes' columns sit beside it.
+    const annotate =
+      showAs === "per_unit" ||
+      showAs === "percent_of_population" ||
+      modesAreMixed;
     const singleLabel = annotate
       ? getAnnotatedName(v, metricIndex, showAs, sharedUnit)
       : name;
@@ -290,6 +355,14 @@ export function buildExplorationColumns(
       sub: "single",
     });
   });
+
+  if (configHasPopulation(config)) {
+    cols.push({
+      kind: "populationCount",
+      key: "__population_count__",
+      label: "Population count",
+    });
+  }
 
   return cols;
 }
@@ -308,12 +381,16 @@ export function getExplorationCellValue(
     // shared schema for funnels is dimension-only (no metric columns), so
     // values is always undefined for funnel callers and treated as empty.
     values?: { numerator: number | null; denominator: number | null }[];
+    populationCount?: number;
   },
   col: ExplorationColumn,
   renderOpts: ExplorationRenderOpts,
 ): string | number | null {
   if (col.kind === "dimension") {
     return row.dimensions[col.dimIndex] ?? null;
+  }
+  if (col.kind === "populationCount") {
+    return row.populationCount ?? null;
   }
   const v = row.values?.[col.metricIndex];
   if (!v) return null;
@@ -325,7 +402,11 @@ export function getExplorationCellValue(
     return null;
   }
   if (v.numerator == null) return null;
-  return getEffectiveMetricValue(v, renderOpts.values[col.metricIndex]);
+  return getEffectiveMetricValue(
+    v,
+    renderOpts.values[col.metricIndex],
+    row.populationCount,
+  );
 }
 
 function getRowTotal(
@@ -333,7 +414,8 @@ function getRowTotal(
   opts: ExplorationRenderOpts,
 ): number {
   return (row.values ?? []).reduce(
-    (sum, v, i) => sum + getEffectiveMetricValue(v, opts.values[i]),
+    (sum, v, i) =>
+      sum + getEffectiveMetricValue(v, opts.values[i], row.populationCount),
     0,
   );
 }

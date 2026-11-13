@@ -4,7 +4,10 @@ import { Flex } from "@radix-ui/themes";
 import { PiPlus } from "react-icons/pi";
 import type { FactMetricInterface } from "shared/types/fact-table";
 import type { MetricValue } from "shared/validators";
-import { getMetricIdentifierTypes } from "shared/enterprise";
+import {
+  configHasPopulation,
+  getMetricIdentifierTypes,
+} from "shared/enterprise";
 import SelectField, {
   GroupedValue,
   SingleValue,
@@ -32,6 +35,7 @@ import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/Exp
 import Text from "@/ui/Text";
 import Tooltip from "@/ui/Tooltip";
 import { useUser } from "@/services/UserContext";
+import PopulationPicker from "./PopulationPicker";
 import ShowAsInput from "./ShowAsInput";
 import ValueCard from "./ValueCard";
 import styles from "./ValueCard.module.scss";
@@ -51,6 +55,7 @@ export default function MetricTabContent() {
     draftExploreState.dataset?.type === "metric"
       ? draftExploreState.dataset.values
       : [];
+  const hasPopulation = configHasPopulation(draftExploreState);
   const unitState = getMetricValuesUnitState(
     values,
     getFactMetricById,
@@ -123,21 +128,20 @@ export default function MetricTabContent() {
     getUnitConflict(metric, lockedUnit, getFactTableById);
 
   const handleUnitChange = (unit: string) =>
-    setDraftExploreState((prev) =>
-      prev.type === "metric"
-        ? {
-            ...prev,
-            dataset: {
-              ...prev.dataset,
-              values: setMetricValuesUnit(
-                prev.dataset.values,
-                unit,
-                getFactMetricById,
-              ),
-            },
-          }
-        : prev,
-    );
+    setDraftExploreState((prev) => {
+      if (prev.type !== "metric") return prev;
+      const nextValues = setMetricValuesUnit(
+        prev.dataset.values,
+        unit,
+        getFactMetricById,
+      );
+      // The Population counts members by the chart's identifier type.
+      const nextDataset = { ...prev.dataset, values: nextValues };
+      if (prev.dataset.population) {
+        nextDataset.population = { ...prev.dataset.population, unit };
+      }
+      return { ...prev, dataset: nextDataset };
+    });
 
   return (
     <Flex direction="column" gap="4">
@@ -160,6 +164,7 @@ export default function MetricTabContent() {
           v,
           draftExploreState.showAs,
           getFactMetricById,
+          hasPopulation,
         );
         return (
           <ValueCard
@@ -282,6 +287,7 @@ export default function MetricTabContent() {
             backgroundColor: "var(--color-panel-translucent)",
           }}
         >
+          <PopulationPicker unit={unitPicker.value} />
           <Select
             label="Identifier type"
             labelWeight="medium"
