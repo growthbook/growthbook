@@ -81,7 +81,11 @@ import {
 import { scrubConflictsForViewer } from "back-end/src/revisions/scrub";
 
 export type RevisionActionKind =
-  "draft" | "review" | "revert" | "publish" | "delete";
+  | "draft"
+  | "review"
+  | "revert"
+  | "publish"
+  | "delete";
 
 // The publish footprint of the same change: you cannot approve what you could
 // not publish. `[]` binds no environment, which the review branch fails closed.
