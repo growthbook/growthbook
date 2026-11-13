@@ -5,6 +5,7 @@ import {
   GlobMatchFn,
   SqlDialect,
   SqlIdentifierQuote,
+  SqlStringRules,
   StringMatchFn,
 } from "../types/sql";
 import { FormatError } from "../types/error";
@@ -180,9 +181,37 @@ export function format(
  * like `";" + "/**\/".repeat(n) + "x"`, and this runs on user-supplied SQL.
  *
  * Everything from the last `;` that is followed only by whitespace, `--` line
- * comments and terminated block comments is removed.
+ * comments and terminated block comments is removed. Quoted text is read
+ * with the dialect's `rules` (see `getSqlStringRules`), so a `;` or `--`
+ * inside a string or quoted identifier is left alone. If a quote is never
+ * closed, quotes are ignored instead.
  */
-export function stripTrailingSemicolon(sql: string): string {
+export function stripTrailingSemicolon(
+  sql: string,
+  rules: SqlStringRules,
+): string {
+  let cut = trailingSemicolonIndex(sql, rules);
+  if (cut === sql.length) {
+    // No terminator found, so look again without reading quotes. A `;` inside
+    // a string or a block comment has that span's closing delimiter after it,
+    // in any dialect. With none in the rest of the SQL, the `;` is a real
+    // terminator or sits in a trailing line comment, where dropping it changes
+    // nothing.
+    const unquotedCut = trailingSemicolonIndex(sql, null);
+    if (!CLOSING_DELIMITER.test(sql.slice(unquotedCut + 1))) cut = unquotedCut;
+  }
+  return sql.slice(0, cut).trim();
+}
+
+// Any character that can end a string, a quoted identifier or a block comment
+const CLOSING_DELIMITER = /['"`\]$]|\*\//;
+
+// Index of the terminating `;`, or `sql.length` if there is none. With
+// `rules` null, quotes are ignored.
+function trailingSemicolonIndex(
+  sql: string,
+  rules: SqlStringRules | null,
+): number {
   // Index of the most recent `;` that has only trivia after it so far.
   let cut = -1;
   // Once a `/*` has no closing `*/` anywhere after it, no later one can either.
@@ -190,17 +219,23 @@ export function stripTrailingSemicolon(sql: string): string {
   let i = 0;
   while (i < sql.length) {
     const ch = sql[i];
+    const quoteEnd = rules ? quotedSpanEnd(sql, i, rules) : null;
     if (ch === ";") {
       cut = i;
       i++;
-    } else if (cut === -1) {
+    } else if (quoteEnd !== null) {
+      // Quoted text is never trivia
+      if (quoteEnd === -1) return trailingSemicolonIndex(sql, null);
+      cut = -1;
+      i = quoteEnd + 1;
+    } else if (!rules && cut === -1) {
       // Not (yet) in a trailing run, so nothing here can be trivia.
       i++;
     } else if (/\s/.test(ch)) {
       i++;
     } else if (ch === "-" && sql[i + 1] === "-") {
-      const newline = sql.indexOf("\n", i + 2);
-      i = newline === -1 ? sql.length : newline + 1;
+      i += 2;
+      while (i < sql.length && sql[i] !== "\n" && sql[i] !== "\r") i++;
     } else if (ch === "/" && sql[i + 1] === "*" && !noMoreBlockCommentEnds) {
       const end = sql.indexOf("*/", i + 2);
       if (end === -1) {
@@ -217,7 +252,7 @@ export function stripTrailingSemicolon(sql: string): string {
       i++;
     }
   }
-  return (cut === -1 ? sql : sql.slice(0, cut)).trim();
+  return cut === -1 ? sql.length : cut;
 }
 
 // Any template variable built on startDate, e.g. {{startDate}} or
@@ -226,10 +261,14 @@ export function hasStartDateFilter(sql: string): boolean {
   return /\{\{[^}]*startDate/.test(sql);
 }
 
-export function ensureLimit(sql: string, limit: number): string {
+export function ensureLimit(
+  sql: string,
+  limit: number,
+  rules: SqlStringRules,
+): string {
   if (limit <= 0) throw new Error("Limit must be a positive integer");
 
-  sql = stripTrailingSemicolon(sql);
+  sql = stripTrailingSemicolon(sql, rules);
 
   // Case 1: Has both LIMIT and OFFSET clauses
   const limitOffsetMatch = sql.match(/LIMIT\s+(\d+)\s+OFFSET\s+(\d+)$/i);
@@ -271,8 +310,15 @@ export function ensureLimit(sql: string, limit: number): string {
   return `${sql}\nLIMIT ${limit}`;
 }
 
+// Only the first keyword is read, so the quoting rules barely matter here
+const FIRST_KEYWORD_RULES: SqlStringRules = {
+  backslashEscapes: true,
+  bracketIdentifiers: false,
+  eStrings: false,
+};
+
 export function isReadOnlySQL(sql: string) {
-  const { strippedSql } = stripCommentsAndStrings(sql, true);
+  const { strippedSql } = stripCommentsAndStrings(sql, FIRST_KEYWORD_RULES);
 
   // Check the first keyword (e.g. "select", "with", etc.)
   return !!strippedSql.match(/^\s*(with|select|explain|show|describe|desc)\b/i);
@@ -283,6 +329,11 @@ const MAX_AGENT_SQL_LENGTH = 100_000;
 const DML_DDL_DENY_LIST =
   /\b(INSERT|UPDATE|DELETE|DROP|ALTER|CREATE|TRUNCATE|MERGE|GRANT|REVOKE|CALL|EXEC|EXECUTE)\b/i;
 
+// `$$` or `$tag$`, not preceded by an identifier character (`a$b$` is a name).
+// Postgres counts every non-ASCII character as an identifier character.
+const DOLLAR_QUOTE_OPENER =
+  /(?<![\w$\u0080-\uffff])\$(?:[A-Za-z_\u0080-\uffff][\w\u0080-\uffff]*)?\$/;
+
 const DIALECT_ESCAPE_HATCHES =
   /\b(INTO\s+OUTFILE|INTO\s+DUMPFILE|COPY\s+.{1,200}\s+TO|pg_read_file|pg_read_binary_file|LOAD_FILE|EXECUTE\s+IMMEDIATE)\b|(?<!\w)(file|url|s3)\s*\(/i;
 
@@ -291,15 +342,30 @@ const DIALECT_ESCAPE_HATCHES =
  * `isReadOnlySQL` (first-keyword only), this scans the entire stripped
  * statement for DML/DDL keywords, multi-statement boundaries, and
  * dialect-specific escape hatches. Throws on violation.
+ *
+ * `rules` must match the data source's dialect (see `getSqlStringRules`):
+ * reading `'C:\'`, `E'\''` or `[it's]` with the wrong rules puts the end of a
+ * string in the wrong place, which hides the SQL after it from the checks.
  */
-export function assertSafeReadOnlySQL(sql: string): void {
+export function assertSafeReadOnlySQL(
+  sql: string,
+  rules: SqlStringRules,
+): void {
   if (sql.length > MAX_AGENT_SQL_LENGTH) {
     throw new Error(
       `Query exceeds the ${MAX_AGENT_SQL_LENGTH}-character safety limit`,
     );
   }
 
-  const { strippedSql, parseError } = stripCommentsAndStrings(sql, true);
+  const { strippedSql, parseError } = stripCommentsAndStrings(sql, rules);
+
+  // Looking at the stripped SQL leaves a `$$` inside a string or comment
+  // alone.
+  if (DOLLAR_QUOTE_OPENER.test(strippedSql)) {
+    throw new Error(
+      "Dollar-quoted strings are not allowed. Use single-quoted strings instead.",
+    );
+  }
 
   if (parseError) {
     throw new Error(
@@ -323,15 +389,18 @@ export function assertSafeReadOnlySQL(sql: string): void {
     throw new Error(`Disallowed expression: ${escapeMatch[0].trim()}`);
   }
 
-  // SELECT INTO (but not INTO OUTFILE/DUMPFILE — caught above)
-  if (/\bSELECT\s+.*\bINTO\b/i.test(strippedSql)) {
-    throw new Error("SELECT INTO is not allowed");
-  }
-
-  // DML/DDL deny-list anywhere in the stripped SQL
+  // DML/DDL deny-list anywhere in the stripped SQL. Checked before INTO so
+  // INSERT INTO and MERGE INTO report the statement, not SELECT INTO.
   const dmlMatch = strippedSql.match(DML_DDL_DENY_LIST);
   if (dmlMatch) {
     throw new Error(`Disallowed keyword: ${dmlMatch[0].toUpperCase()}`);
+  }
+
+  // SELECT INTO (but not INTO OUTFILE/DUMPFILE — caught above). The query
+  // starts with SELECT or WITH, strings are emptied and comments become a
+  // space, so any INTO left is a write, on whichever line it appears.
+  if (/\bINTO\b/i.test(strippedSql)) {
+    throw new Error("SELECT INTO is not allowed");
   }
 }
 
@@ -341,15 +410,97 @@ export function usesBackslashStringEscapes(
   return dialect.escapeStringLiteral("\\") !== "\\";
 }
 
-export function isMultiStatementSQL(sql: string, backslashEscapes: boolean) {
-  const { strippedSql, parseError } = stripCommentsAndStrings(
-    sql,
-    backslashEscapes,
-  );
+export function getSqlStringRules(
+  dialect: Pick<
+    SqlDialect,
+    "escapeStringLiteral" | "bracketIdentifiers" | "eStrings"
+  >,
+): SqlStringRules {
+  return {
+    backslashEscapes: usesBackslashStringEscapes(dialect),
+    bracketIdentifiers: dialect.bracketIdentifiers,
+    eStrings: dialect.eStrings,
+  };
+}
+
+// Whether the `'` at `sql[i]` opens an `E'...'` string: the `e` before it must
+// be a word of its own, not the end of a longer one (`date'2026-01-01'`).
+function opensEString(sql: string, i: number): boolean {
+  const prefix = sql[i - 1];
+  if (prefix !== "e" && prefix !== "E") return false;
+  const before = sql[i - 2];
+  return before === undefined || !/[\w$\u0080-\uffff]/.test(before);
+}
+
+// Postgres joins two strings separated by a line break into one, and the
+// second part keeps the first part's escapes (`E'a'\n'\''`). If the string
+// closed just before `sql[from]` continues that way, the index of the quote
+// that opens the next part. -1 otherwise.
+function continuedStringStart(sql: string, from: number): number {
+  let lineBreak = false;
+  let k = from;
+  while (k < sql.length) {
+    const ch = sql[k];
+    if (ch === "\n" || ch === "\r") {
+      lineBreak = true;
+      k++;
+    } else if (ch === " " || ch === "\t" || ch === "\f" || ch === "\v") {
+      k++;
+    } else if (ch === "-" && sql[k + 1] === "-") {
+      // A line comment may sit between the parts
+      while (k < sql.length && sql[k] !== "\n" && sql[k] !== "\r") k++;
+    } else {
+      break;
+    }
+  }
+  return lineBreak && sql[k] === "'" ? k : -1;
+}
+
+// If `sql[i]` opens a string or quoted identifier under `rules`, the index of
+// the character that closes it, or -1 if it is never closed. Null otherwise.
+function quotedSpanEnd(
+  sql: string,
+  i: number,
+  rules: SqlStringRules,
+): number | null {
+  const open = sql[i];
+  let close: string;
+  if (open === "'" || open === '"' || open === "`") close = open;
+  else if (open === "[" && rules.bracketIdentifiers) close = "]";
+  else return null;
+  const eString = rules.eStrings && open === "'" && opensEString(sql, i);
+  // A backslash escapes only inside strings, never inside identifiers
+  const backslash =
+    (rules.backslashEscapes && (open === "'" || open === '"')) || eString;
+  let j = i + 1;
+  while (j < sql.length) {
+    if (backslash && sql[j] === "\\") {
+      j += 2;
+    } else if (sql[j] !== close) {
+      j++;
+    } else if (sql[j + 1] === close) {
+      // A doubled closing character (`''`, `""`, `]]`) is an escaped one. The
+      // span must not end here: an `E'...'` string that reopened after `''`
+      // would lose its backslash escapes.
+      j += 2;
+    } else {
+      // Only an E-string needs its continuation read as part of the span: it
+      // is the one case where the next part's escapes differ from a new
+      // string's.
+      const next = eString ? continuedStringStart(sql, j + 1) : -1;
+      if (next === -1) return j;
+      j = next + 1;
+    }
+  }
+  return -1;
+}
+
+export function isMultiStatementSQL(sql: string, rules: SqlStringRules) {
+  const { strippedSql, parseError } = stripCommentsAndStrings(sql, rules);
   if (parseError) {
     // Parse failed, so string boundaries are unknown. Stay conservative and
     // treat any non-trailing semicolon as a statement separator.
-    return stripTrailingSemicolon(sql).includes(";");
+    return stripTrailingSemicolon(sql, rules).includes(";");
   }
   // Otherwise, search the stripped SQL for semicolons
   else {
@@ -357,95 +508,56 @@ export function isMultiStatementSQL(sql: string, backslashEscapes: boolean) {
   }
 }
 
+// Empties strings and quoted identifiers (keeping their delimiters) and
+// replaces comments with a space, so what is left is only the SQL's own
+// keywords and punctuation.
 function stripCommentsAndStrings(
   sql: string,
-  backslashEscapes: boolean,
+  rules: SqlStringRules,
 ): {
   strippedSql: string;
   parseError: boolean;
 } {
-  let state:
-    | "singleQuote"
-    | "doubleQuote"
-    | "backtickQuote"
-    | "lineComment"
-    | "blockComment"
-    | null = null;
-
   const n = sql.length;
-
   let strippedSql = "";
+  let parseError = false;
 
-  for (let i = 0; i < n; i++) {
+  let i = 0;
+  while (i < n) {
     const char = sql[i];
-    const nextChar = i + 1 < n ? sql[i + 1] : null;
-
-    if (state === "singleQuote") {
-      if (backslashEscapes && char === "\\") {
-        // Skip escaped character (e.g. \' or \\)
-        i++;
-      } else if (char === "'") {
-        strippedSql += char;
-        state = null;
+    const nextChar = sql[i + 1];
+    const quoteEnd = quotedSpanEnd(sql, i, rules);
+    if (quoteEnd !== null) {
+      strippedSql += char;
+      if (quoteEnd === -1) {
+        parseError = true;
+        break;
       }
-    } else if (state === "doubleQuote") {
-      if (backslashEscapes && char === "\\") {
-        // Skip escaped character (e.g. \" or \\)
-        i++;
-      } else if (char === '"') {
-        strippedSql += char;
-        state = null;
+      strippedSql += sql[quoteEnd];
+      i = quoteEnd + 1;
+    } else if (char === "-" && nextChar === "-") {
+      // A comment separates tokens like whitespace, so keep a space:
+      // `INTO/**/t` must still read as `INTO t`, not `INTOt`.
+      strippedSql += " ";
+      i += 2;
+      while (i < n && sql[i] !== "\n" && sql[i] !== "\r") i++;
+      i++; // Skip the line break that ends the comment
+    } else if (char === "/" && nextChar === "*") {
+      strippedSql += " ";
+      const end = sql.indexOf("*/", i + 2);
+      if (end === -1) {
+        parseError = true;
+        break;
       }
-    } else if (state === "backtickQuote") {
-      if (char === "`") {
-        strippedSql += char;
-        state = null;
-      }
-    } else if (state === "lineComment") {
-      if (char === "\n" || char === "\r") {
-        state = null; // End of line comment
-      }
-    } else if (state === "blockComment") {
-      if (char === "*" && nextChar === "/") {
-        state = null; // End of block comment
-        i++; // Skip the '/'
-      }
+      i = end + 2;
     } else {
-      // Not in any special state
-      if (char === "'") {
-        strippedSql += char;
-        state = "singleQuote";
-      } else if (char === '"') {
-        strippedSql += char;
-        state = "doubleQuote";
-      } else if (char === "`") {
-        strippedSql += char;
-        state = "backtickQuote";
-      } else if (char === "-" && nextChar === "-") {
-        state = "lineComment";
-        i++; // Skip the second '-'
-      } else if (char === "/" && nextChar === "*") {
-        state = "blockComment";
-        i++; // Skip the '*'
-      } else {
-        strippedSql += char;
-      }
+      strippedSql += char;
+      i++;
     }
   }
 
   // Removing trailing semicolon and spaces
   strippedSql = strippedSql.replace(/;\s*$/, "").trim();
-
-  // See if we ended in an invalid state
-  let parseError = false;
-  if (
-    state === "singleQuote" ||
-    state === "doubleQuote" ||
-    state === "backtickQuote" ||
-    state === "blockComment"
-  ) {
-    parseError = true;
-  }
 
   return {
     strippedSql,

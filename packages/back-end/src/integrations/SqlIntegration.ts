@@ -29,7 +29,7 @@ import {
   format,
   isMultiStatementSQL,
   SQL_ROW_LIMIT,
-  usesBackslashStringEscapes,
+  getSqlStringRules,
 } from "shared/sql";
 import { TemplateVariables, SqlDialect } from "shared/types/sql";
 import { getDataSourceSqlDialect } from "shared/dialects";
@@ -359,12 +359,7 @@ export default abstract class SqlIntegration
       setExternalId: ExternalIdCallback | undefined,
       metadata: RunQueryMetadata,
     ) => {
-      if (
-        isMultiStatementSQL(
-          sql,
-          usesBackslashStringEscapes(this.getSqlDialect()),
-        )
-      ) {
+      if (isMultiStatementSQL(sql, getSqlStringRules(this.getSqlDialect()))) {
         throw new Error("Multi-statement queries are not supported");
       }
       metadata = {
@@ -527,7 +522,7 @@ export default abstract class SqlIntegration
   columnNamesAreCaseSensitive = false;
 
   ensureMaxLimit(sql: string, limit: number): string {
-    return ensureLimit(sql, limit);
+    return ensureLimit(sql, limit, getSqlStringRules(this.getSqlDialect()));
   }
 
   getCurrentTimestamp(): string {
