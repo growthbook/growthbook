@@ -16,6 +16,7 @@ import js from "@eslint/js";
 import { FlatCompat } from "@eslint/eslintrc";
 import noAlertClassname from "./eslint-rules/no-alert-classname.mjs";
 import restrictedQueryTypes from "./eslint-rules/restricted-query-types.mjs";
+import { suggestFixInSuppressedFiles } from "./eslint-rules/suggest-fix-in-suppressed-files.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -27,6 +28,17 @@ const compat = new FlatCompat({
 // Strip invalid "name" property from Next.js flat config (ESLint 9 rejects it)
 const { name: _nextName, ...nextRecommendedConfig } =
   nextEslintPluginNext.configs.recommended;
+
+// Until #7586 clears their suppressions, keep `eslint --fix` from rewriting the
+// imports of every file a commit touches. Patched in place because FlatCompat
+// loads this same plugin object for the recommended configs.
+for (const name of ["consistent-type-imports", "no-import-type-side-effects"]) {
+  typescriptEslint.rules[name] = suggestFixInSuppressedFiles(
+    typescriptEslint.rules[name],
+    `@typescript-eslint/${name}`,
+    __dirname,
+  );
+}
 
 export default defineConfig([
   includeIgnoreFile(path.join(__dirname, ".gitignore")),
@@ -666,6 +678,20 @@ export default defineConfig([
       "import/export": "off",
       "import/namespace": "off",
       "import/no-unresolved": "off",
+    },
+  },
+  {
+    // Type-only imports must say so, so tooling can tell which imports are
+    // erased at runtime. Existing violations live in eslint-suppressions.json
+    // until #7586 lands.
+    files: ["./packages/**/*.{ts,tsx}"],
+
+    rules: {
+      "@typescript-eslint/consistent-type-imports": [
+        "error",
+        { fixStyle: "inline-type-imports" },
+      ],
+      "@typescript-eslint/no-import-type-side-effects": "error",
     },
   },
   {
