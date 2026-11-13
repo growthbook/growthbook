@@ -15,6 +15,7 @@ import {
   initializeGrowthBookClient,
   destroyGrowthBookClient,
 } from "./services/growthbook";
+import { shutdownIngestorTraces } from "./services/ingestorTraces";
 
 // Initialize GrowthBook singleton before starting server
 initializeGrowthBookClient().catch((error) => {
@@ -76,6 +77,8 @@ function onClose() {
     const agenda = getAgendaInstance();
     await agenda.stop();
     logger.info("Agenda closed");
+
+    await shutdownIngestorTraces();
     process.exit(0);
   });
 

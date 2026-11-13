@@ -336,6 +336,12 @@ export const CRON_ENABLED = !stringToBoolean(process.env.CRON_DISABLED);
 
 export const SENTRY_DSN = process.env.SENTRY_DSN || "";
 
+// OTLP traces of the app's own AI calls and jobs, e.g. GrowthBook's /v1/traces.
+export const INGESTOR_TRACES_ENDPOINT =
+  process.env.INGESTOR_TRACES_ENDPOINT || "";
+export const INGESTOR_TRACES_CLIENT_KEY =
+  process.env.INGESTOR_TRACES_CLIENT_KEY || "";
+
 export const STORE_SEGMENTS_IN_MONGO = stringToBoolean(
   process.env.STORE_SEGMENTS_IN_MONGO,
 );
