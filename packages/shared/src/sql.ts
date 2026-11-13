@@ -190,14 +190,21 @@ export function stripTrailingSemicolon(
   sql: string,
   rules: SqlStringRules,
 ): string {
-  const cut = trailingSemicolonIndex(sql, rules);
-  if (cut < sql.length) return sql.slice(0, cut).trim();
-  // No terminator found. A `;` that ends the SQL cannot be inside a string or
-  // a block comment in any dialect, since both need a closing delimiter after
-  // it, so it is safe to drop.
-  const trimmed = sql.trimEnd();
-  return (trimmed.endsWith(";") ? trimmed.slice(0, -1) : trimmed).trim();
+  let cut = trailingSemicolonIndex(sql, rules);
+  if (cut === sql.length) {
+    // No terminator found, so look again without reading quotes. A `;` inside
+    // a string or a block comment has that span's closing delimiter after it,
+    // in any dialect. With none in the rest of the SQL, the `;` is a real
+    // terminator or sits in a trailing line comment, where dropping it changes
+    // nothing.
+    const unquotedCut = trailingSemicolonIndex(sql, null);
+    if (!CLOSING_DELIMITER.test(sql.slice(unquotedCut + 1))) cut = unquotedCut;
+  }
+  return sql.slice(0, cut).trim();
 }
+
+// Any character that can end a string, a quoted identifier or a block comment
+const CLOSING_DELIMITER = /['"`\]$]|\*\//;
 
 // Index of the terminating `;`, or `sql.length` if there is none. With
 // `rules` null, quotes are ignored.
@@ -425,6 +432,30 @@ function opensEString(sql: string, i: number): boolean {
   return before === undefined || !/[\w$\u0080-\uffff]/.test(before);
 }
 
+// Postgres joins two strings separated by a line break into one, and the
+// second part keeps the first part's escapes (`E'a'\n'\''`). If the string
+// closed just before `sql[from]` continues that way, the index of the quote
+// that opens the next part. -1 otherwise.
+function continuedStringStart(sql: string, from: number): number {
+  let lineBreak = false;
+  let k = from;
+  while (k < sql.length) {
+    const ch = sql[k];
+    if (ch === "\n" || ch === "\r") {
+      lineBreak = true;
+      k++;
+    } else if (ch === " " || ch === "\t" || ch === "\f" || ch === "\v") {
+      k++;
+    } else if (ch === "-" && sql[k + 1] === "-") {
+      // A line comment may sit between the parts
+      while (k < sql.length && sql[k] !== "\n" && sql[k] !== "\r") k++;
+    } else {
+      break;
+    }
+  }
+  return lineBreak && sql[k] === "'" ? k : -1;
+}
+
 // If `sql[i]` opens a string or quoted identifier under `rules`, the index of
 // the character that closes it, or -1 if it is never closed. Null otherwise.
 function quotedSpanEnd(
@@ -437,10 +468,10 @@ function quotedSpanEnd(
   if (open === "'" || open === '"' || open === "`") close = open;
   else if (open === "[" && rules.bracketIdentifiers) close = "]";
   else return null;
+  const eString = rules.eStrings && open === "'" && opensEString(sql, i);
   // A backslash escapes only inside strings, never inside identifiers
   const backslash =
-    (rules.backslashEscapes && (open === "'" || open === '"')) ||
-    (rules.eStrings && open === "'" && opensEString(sql, i));
+    (rules.backslashEscapes && (open === "'" || open === '"')) || eString;
   let j = i + 1;
   while (j < sql.length) {
     if (backslash && sql[j] === "\\") {
@@ -453,7 +484,12 @@ function quotedSpanEnd(
       // would lose its backslash escapes.
       j += 2;
     } else {
-      return j;
+      // Only an E-string needs its continuation read as part of the span: it
+      // is the one case where the next part's escapes differ from a new
+      // string's.
+      const next = eString ? continuedStringStart(sql, j + 1) : -1;
+      if (next === -1) return j;
+      j = next + 1;
     }
   }
   return -1;

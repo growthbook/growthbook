@@ -330,6 +330,12 @@ describe("stripTrailingSemicolon", () => {
     ["SELECT E'it''s \\'' AS a; -- it's", "SELECT E'it''s \\'' AS a"],
     // `date` ends in `e`, but the string after it is a plain one
     ["SELECT date'C:\\' AS p; -- it's", "SELECT date'C:\\' AS p"],
+    // A string continued on the next line keeps the E-string's escapes
+    ["SELECT E'a'\n'\\'' AS b; -- it's", "SELECT E'a'\n'\\'' AS b"],
+    [
+      "SELECT E'a' -- c\n  '\\'' AS b; -- it's",
+      "SELECT E'a' -- c\n  '\\'' AS b",
+    ],
   ])("with E-strings: %j", (sql, expected) => {
     expect(stripTrailingSemicolon(sql, POSTGRES)).toBe(expected);
   });
@@ -340,10 +346,14 @@ describe("stripTrailingSemicolon", () => {
     );
   });
 
-  // A `;` that ends the SQL is removed whatever precedes it
+  // A terminator is removed whatever precedes it, as long as nothing after
+  // it could close a string or a block comment
   describe.each(ALL_RULES)("final semicolon, $name rules", ({ rules }) => {
     it.each([
       ["SELECT $t$a--b$t$;", "SELECT $t$a--b$t$"],
+      ["SELECT $$--$$ AS a; -- note", "SELECT $$--$$ AS a"],
+      ["SELECT 5--3 AS a; -- note\n-- more\n", "SELECT 5--3 AS a"],
+      ["SELECT 1 -- a; -- b", "SELECT 1 -- a"],
       [
         "SELECT $$it's$$ AS a, $$it's -- x$$ AS c;\n",
         "SELECT $$it's$$ AS a, $$it's -- x$$ AS c",
@@ -353,6 +363,16 @@ describe("stripTrailingSemicolon", () => {
       ["SELECT 1 -- note;", "SELECT 1 -- note"],
     ])("%j", (sql, expected) => {
       expect(stripTrailingSemicolon(sql, rules)).toBe(expected);
+    });
+
+    // The text after the `;` could close a string or a comment that holds it
+    it.each([
+      "SELECT ';--' AS value",
+      'SELECT 1 AS ";--"',
+      "SELECT 1 AS `a;--b`",
+      "SELECT 1 /* a; -- b */",
+    ])("keeps %j", (sql) => {
+      expect(stripTrailingSemicolon(sql, rules)).toBe(sql);
     });
   });
 
@@ -638,6 +658,26 @@ describe("isMultiStatementSQL — Postgres E-strings", () => {
     expect(isMultiStatementSQL("SELECT E'a''\\'; b' AS c", POSTGRES)).toBe(
       false,
     );
+  });
+
+  it("keeps reading an E-string continued on the next line", () => {
+    const sql = "SELECT E'a'\n'\\''; DROP TABLE x; SELECT 1 --'";
+    expect(isMultiStatementSQL(sql, POSTGRES)).toBe(true);
+    const commented = "SELECT E'a' -- c\n\t'\\''; DROP TABLE x; SELECT 1 --'";
+    expect(isMultiStatementSQL(commented, POSTGRES)).toBe(true);
+    expect(isMultiStatementSQL("SELECT E'a'\n'\\'; b' AS c", POSTGRES)).toBe(
+      false,
+    );
+  });
+
+  it("reads a plain string continued on the next line as a plain string", () => {
+    const sql = "SELECT 'a'\n'C:\\' AS p; DROP TABLE x --'";
+    expect(isMultiStatementSQL(sql, POSTGRES)).toBe(true);
+  });
+
+  it("does not continue an E-string on the same line", () => {
+    const sql = "SELECT E'a' AS x, 'C:\\' AS p; DROP TABLE x --'";
+    expect(isMultiStatementSQL(sql, POSTGRES)).toBe(true);
   });
 
   it("reads the string after an identifier ending in e as a plain string", () => {
@@ -1076,6 +1116,8 @@ describe("assertSafeReadOnlySQL", () => {
     ["SELECT E'\\'' AS a; DROP TABLE x; SELECT 1 --'", "Multi-statement"],
     ["SELECT E'\\'' AS a, 1 INTO t FROM x --'", "SELECT INTO"],
     ["SELECT E'a''\\'' AS a, 1 INTO t FROM x --'", "SELECT INTO"],
+    ["SELECT E'a'\n'\\'' AS a, 1 INTO t FROM x --'", "SELECT INTO"],
+    ["SELECT E'a' -- c\n'\\'' AS a, 1 INTO t FROM x --'", "SELECT INTO"],
   ])("rejects a write hidden by a Postgres E-string: %j", (sql, error) => {
     expect(() => assertSafeReadOnlySQL(sql, POSTGRES)).toThrow(error);
   });
