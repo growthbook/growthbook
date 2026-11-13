@@ -85,6 +85,67 @@ Every option, return field, and fallback path is documented in the [API referenc
 
 With the multi-user [`GrowthBookClient`](/lib/node), register the plugin on the client and call `interleave()` with the user-scoped instance from `createScopedInstance()`. In React, register the plugin on the `GrowthBook` instance you pass to `GrowthBookProvider` and call `interleave()` with the instance from `useGrowthBook()`.
 
+### Pre-computing rankings
+
+Some rankers are too expensive to run on the request hot path, or are cheaper to run in
+batch. If yours only changes every few hours, run both rankers ahead of time in a
+background job and have `getList()` read from your cache.
+
+`getActiveRankingConfigs()` returns the ranker configs for every interleaving experiment
+in the SDK payload, so the job never has to hardcode a key or walk the payload itself.
+`getActiveRankingConfigsForKey()` returns them for one experiment, and takes a type
+argument so your config shape stays typed.
+
+`getList()` receives only the config, so derive your cache key from the config on both
+sides:
+
+```ts
+import { getActiveRankingConfigs } from "@growthbook/growthbook/plugins";
+
+const cacheKey = (userId: string, config: RankerConfig) =>
+  `${userId}:${JSON.stringify(config)}`;
+```
+
+```ts
+// Background job — refresh the cache on whatever cadence your model allows
+await gb.init();
+
+for (const rankers of Object.values(getActiveRankingConfigs(gb))) {
+  for (const { config } of rankers) {
+    // Your batch API call, 1000 users at a time
+    const lists = await rankingService.rankBatch(allUserIds, config);
+    for (const userId of allUserIds) {
+      rankingCache.set(cacheKey(userId, config as RankerConfig), lists[userId]);
+    }
+  }
+}
+```
+
+```ts
+// Request time — interleave() is unchanged, getList just hits the cache
+const { result, trackingProps } = await interleave<Product, RankerConfig>(gb, {
+  key: "search-ranking",
+  getList: (config) => rankingCache.get(cacheKey(user.id, config)),
+  fallbackConfig: { algorithmVersion: "v1" },
+});
+```
+
+Each entry also carries the ranker's `key` — the same value that shows up as `variation`
+on exposures — which is useful for logging and for reporting which rankers your job
+warmed. Use `getActiveRankingConfigsForKey<RankerConfig>(gb, "search-ranking")` when you
+only care about one experiment and want the configs typed.
+
+Two things to know:
+
+- **These accessors do not evaluate targeting.** They return every config that _could_ be
+  served to someone, which is what a batch job needs — it has no user yet. Only
+  `interleave()` decides what a given user sees.
+- **Always keep a real `getList()` fallback.** A cache miss should fall back to calling
+  the ranker, since a config can change the moment someone edits the experiment.
+
+Both read the SDK payload, so call them after `init()` has resolved. When an experiment
+is stopped or archived it leaves the payload and stops being returned.
+
 ## Step 2: Track exposures
 
 The plugin's `onExposure` callback fires once per interleaved impression. Send it to your warehouse the same way you send "Experiment Viewed" events, keeping `items` as a JSON array in one column.
@@ -470,5 +531,48 @@ export type InterleaveTrackingProps = {
   experiment_id?: string;
   /** Required on events for paired analysis. */
   ranking_id?: string;
+};
+
+// ---------------------------------------------------------------------------
+// Reading ranker configs ahead of request time
+// ---------------------------------------------------------------------------
+
+/**
+ * Every ranker config in the SDK payload, keyed by the experiment's `key`.
+ *
+ * For pre-computing rankings in a background job. Targeting is NOT evaluated:
+ * this returns every config that could be served to someone, not what a given
+ * user gets. Only `interleave()` decides that.
+ *
+ * Reads the payload, so call it after `init()` has resolved; returns `{}`
+ * before then. Only running, non-archived experiments enabled for the SDK
+ * connection's environment are in the payload. Works on any instance type,
+ * including a `GrowthBookClient` with no user attached.
+ *
+ * The arrays are copies, so mutating them cannot affect what `interleave()`
+ * serves. The `config` objects themselves are the same ones `getList()`
+ * receives; treat them as read-only.
+ */
+export function getActiveRankingConfigs(
+  gb: GrowthBook | GrowthBookClient | UserScopedGrowthBook,
+): Record<string, InterleaveRanker[]>;
+
+/**
+ * The same, for a single experiment. Returns `[]` when the experiment is not
+ * in the payload.
+ *
+ * `C` is your ranker config shape and is unchecked, exactly like the `C` on
+ * `interleave()` — the payload only knows `Record<string, unknown>`.
+ */
+export function getActiveRankingConfigsForKey<C extends object = InterleaveConfig>(
+  gb: GrowthBook | GrowthBookClient | UserScopedGrowthBook,
+  key: string,
+): InterleaveRanker<C>[];
+
+export type InterleaveRanker<C extends object = InterleaveConfig> = {
+  /** The ranker's key. Same value as `variation` on an exposure's items. */
+  key: string;
+  /** The config `interleave()` would hand to `getList` for this ranker. */
+  config: C;
 };
 ```
