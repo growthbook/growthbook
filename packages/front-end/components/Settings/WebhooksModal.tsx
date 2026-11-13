@@ -1,4 +1,4 @@
-import { FC, useEffect, useState } from "react";
+import { FC, ReactNode, useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import {
   CreateSdkWebhookProps,
@@ -135,6 +135,8 @@ export function CreateSDKWebhookModal({
   close,
   onSave,
   onOverrideCreate,
+  destination,
+  cta,
 }: {
   sdkConnectionId: string;
   sdkConnectionKey: string;
@@ -142,6 +144,9 @@ export function CreateSDKWebhookModal({
   close: () => void;
   onSave: () => void;
   onOverrideCreate?: (data: CreateSdkWebhookProps) => Promise<void>;
+  // Where the change lands, chosen above the fields.
+  destination?: ReactNode;
+  cta?: string;
 }) {
   const { apiCall } = useAuth();
   const { webhookSecrets } = useDefinitions();
@@ -235,6 +240,7 @@ export function CreateSDKWebhookModal({
         header="Create SDK Webhook"
         open={true}
         size="lg"
+        cta={cta}
         ctaEnabled={!timeoutError(form.watch("timeoutSeconds"))}
         submit={validatedSubmit(form, async (inputs) => {
           if (!webhookType) {
@@ -278,6 +284,7 @@ export function CreateSDKWebhookModal({
         })}
       >
         <Flex direction="column" gap="4">
+          {destination}
           <Field
             containerStyle={NO_MARGIN}
             label="Display name"
@@ -534,7 +541,17 @@ const EditSDKWebhooksModal: FC<{
     data: UpdateSdkWebhookProps,
     id: string | undefined,
   ) => Promise<void>;
-}> = ({ close, onSave, current, sdkConnectionId, onOverrideSubmit }) => {
+  destination?: ReactNode;
+  cta?: string;
+}> = ({
+  close,
+  onSave,
+  current,
+  sdkConnectionId,
+  onOverrideSubmit,
+  destination,
+  cta,
+}) => {
   const { apiCall } = useAuth();
   const [validHeaders, setValidHeaders] = useState(true);
 
@@ -608,10 +625,11 @@ const EditSDKWebhooksModal: FC<{
       open={true}
       submit={onSubmit}
       ctaEnabled={validHeaders && !timeoutError(form.watch("timeoutSeconds"))}
-      cta={current.id ? "Update" : "Create"}
+      cta={cta ?? (current.id ? "Update" : "Create")}
       size="lg"
     >
       <Flex direction="column" gap="4">
+        {destination}
         <Field
           containerStyle={NO_MARGIN}
           label="Display name"

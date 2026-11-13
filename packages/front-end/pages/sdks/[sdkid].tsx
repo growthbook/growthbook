@@ -876,12 +876,9 @@ export default function SDKConnectionPage() {
             {tab === "webhooks" && (
               <SdkWebhooks
                 connection={connection}
-                approvalRequired={
-                  approvalRequired || selectedRevisionRequiresApproval
-                }
-                onRevisionCreated={onRevisionCreated}
-                selectedRevision={selectedRevision}
                 liveRevisionId={liveRevision?.id ?? null}
+                refresh={refreshAll}
+                {...revisionProps}
               />
             )}
           </Box>

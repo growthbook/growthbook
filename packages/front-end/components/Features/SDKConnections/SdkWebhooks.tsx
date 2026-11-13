@@ -34,6 +34,13 @@ import {
 } from "@/ui/DropdownMenu";
 import { DocLink } from "@/components/DocLink";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
+import RevisionDraftSelectorForChanges from "@/components/Revision/RevisionDraftSelectorForChanges";
+import {
+  isDraftRevision,
+  SdkConnectionRevisionProps,
+  useSdkConnectionRevisionFlow,
+} from "@/components/Features/SDKConnections/edit-modals/useSdkConnectionRevisionFlow";
 import ClickToReveal from "@/components/Settings/ClickToReveal";
 import Badge from "@/ui/Badge";
 import { capitalizeFirstLetter } from "@/services/utils";
@@ -47,7 +54,6 @@ import Table, {
   TableColumnHeader,
   TableCell,
 } from "@/ui/Table";
-import { isDraftRevision } from "@/components/Features/SDKConnections/edit-modals/useSdkConnectionRevisionFlow";
 import { DraftChangeMark } from "@/components/Features/DraftChangesPopover";
 import SectionFrame from "@/components/SectionFrame";
 import WebhookErrorDetails from "./WebhookErrorDetails";
@@ -81,17 +87,20 @@ type WebhookRow = {
 
 export default function SdkWebhooks({
   connection,
-  approvalRequired,
-  onRevisionCreated,
-  selectedRevision,
   liveRevisionId = null,
+  refresh,
+  ...revisionProps
 }: {
   connection: SDKConnectionInterface;
-  approvalRequired?: boolean;
-  onRevisionCreated?: (revision: Revision) => void;
-  selectedRevision?: Revision | null;
   liveRevisionId?: string | null;
-}) {
+  // Reloads the connection and its revisions after a change lands.
+  refresh: () => Promise<unknown>;
+} & SdkConnectionRevisionProps) {
+  const {
+    selectedRevision,
+    openRevisions = [],
+    allRevisions = [],
+  } = revisionProps;
   const { data, mutate } = useApi<{ webhooks?: WebhookInterface[] }>(
     `/sdk-connections/${connection.id}/webhooks`,
   );
@@ -100,6 +109,8 @@ export default function SdkWebhooks({
 
   const [editWebhookData, setEditWebhookData] =
     useState<null | Partial<WebhookInterface>>(null);
+  const [deleteWebhook, setDeleteWebhook] =
+    useState<SDKWebhookRevisionSnapshot | null>(null);
   const { apiCall } = useAuth();
   const permissionsUtil = usePermissionsUtil();
   const { hasCommercialFeature } = useUser();
@@ -115,11 +126,9 @@ export default function SdkWebhooks({
       ? selectedRevision
       : null;
   const viewedRevision = selectedDraft ?? pastRevision;
-  // Writing straight to live while viewing a draft would diverge from it.
-  const useRevisionFlow = !!approvalRequired || !!selectedDraft;
-  // A draft change is a connection change too.
-  const canEditDraft =
-    !useRevisionFlow || permissionsUtil.canUpdateSDKConnection(connection, {});
+  // Every webhook change is a change to the connection, saved to a draft or
+  // published as one of its revisions.
+  const canEditDraft = permissionsUtil.canUpdateSDKConnection(connection, {});
   const canCreateWebhooks =
     canEditDraft && permissionsUtil.canCreateSDKWebhook(connection);
   const canUpdateWebhook = canEditDraft && canTestWebhook;
@@ -136,13 +145,16 @@ export default function SdkWebhooks({
         | undefined
     )?.sdkWebhooks ?? [];
 
-  const draftWebhookSnapshots = ((): SDKWebhookRevisionSnapshot[] | null => {
-    if (!viewedRevision) return null;
-    const proposed = patchOpsToPartial(
-      viewedRevision.target.proposedChanges,
-    ) as { sdkWebhooks?: SDKWebhookRevisionSnapshot[] };
-    return (proposed.sdkWebhooks ?? baselineWebhooks).map(toSnapshot);
-  })();
+  // A revision's webhooks: the ones it proposes, else the ones it started from.
+  const webhooksOf = (revision: Revision): SDKWebhookRevisionSnapshot[] => {
+    type Held = { sdkWebhooks?: SDKWebhookRevisionSnapshot[] };
+    const proposed = patchOpsToPartial(revision.target.proposedChanges) as Held;
+    const started = (revision.target.snapshot as Held).sdkWebhooks ?? [];
+    return (proposed.sdkWebhooks ?? started).map(toSnapshot);
+  };
+  const draftWebhookSnapshots = viewedRevision
+    ? webhooksOf(viewedRevision)
+    : null;
 
   // What the draft started from: a live webhook it lacks was removed by it
   // only if it was there to begin with. One added to live since is kept.
@@ -193,32 +205,42 @@ export default function SdkWebhooks({
     !!pastRevision ||
     (keepsWebhook && !hasCommercialFeature("multiple-sdk-webhooks"));
 
-  function buildRevisionUrl() {
-    if (selectedDraft) {
-      return `/sdk-connections/${connection.id}?revisionId=${selectedDraft.id}`;
-    }
-    return `/sdk-connections/${connection.id}?forceCreateRevision=1`;
-  }
+  const flow = useSdkConnectionRevisionFlow({
+    connection,
+    mutate: () => Promise.all([mutate(), refresh()]),
+    proposedScope: {
+      projects: connection.projects,
+      environment: connection.environment,
+    },
+    ...revisionProps,
+  });
+  // Chosen in each modal: an open draft, a new one, or publishing now.
+  const destination = (
+    <RevisionDraftSelectorForChanges
+      entityId={connection.id}
+      openRevisions={openRevisions}
+      allRevisions={allRevisions}
+      mode={flow.mode}
+      setMode={flow.setMode}
+      selectedDraftId={flow.selectedDraftId}
+      setSelectedDraftId={flow.setSelectedDraftId}
+      canAutoPublish={flow.canAutoPublish}
+      approvalRequired={flow.approvalRequired}
+    />
+  );
+  const draftCta = flow.mode === "publish" ? undefined : "Save to draft";
 
-  async function submitWebhookRevision(
-    newSnapshots: SDKWebhookRevisionSnapshot[],
-  ) {
-    const res = await apiCall<{
-      status: number;
-      requiresApproval?: boolean;
-      revision?: Revision;
-    }>(buildRevisionUrl(), {
-      method: "PUT",
-      body: JSON.stringify({ sdkWebhooks: newSnapshots }),
-    });
-    if (res?.revision) {
-      onRevisionCreated?.(res.revision);
-    }
-    await mutate();
-  }
+  const submitWebhookRevision = (newSnapshots: SDKWebhookRevisionSnapshot[]) =>
+    flow.save({ sdkWebhooks: newSnapshots });
 
-  const currentWebhookSnapshots = (): SDKWebhookRevisionSnapshot[] =>
-    draftWebhookSnapshots ?? liveWebhooks.map(toSnapshot);
+  // The webhooks the change is made to: the chosen draft's, or live's.
+  const currentWebhookSnapshots = (): SDKWebhookRevisionSnapshot[] => {
+    const target =
+      flow.mode === "existing"
+        ? openRevisions.find((r) => r.id === flow.selectedDraftId)
+        : null;
+    return target ? webhooksOf(target) : liveWebhooks.map(toSnapshot);
+  };
 
   const handleCreateViaRevision = async (
     formData: CreateSdkWebhookProps,
@@ -251,7 +273,7 @@ export default function SdkWebhooks({
     const currentSnapshots = currentWebhookSnapshots();
     if (!currentSnapshots.some((s) => s.id === id)) {
       throw new Error(
-        "This webhook is not part of the selected draft, so the edit cannot be staged there. Switch to the live version or another draft and try again.",
+        "This webhook isn't part of where you're saving to. Pick the draft that has it, or switch to the live version.",
       );
     }
     const updated = currentSnapshots.map((s) => {
@@ -457,26 +479,7 @@ export default function SdkWebhooks({
                     disabled={!!notInDraftReason}
                     tooltip={notInDraftReason}
                     color="red"
-                    confirmation={{
-                      confirmationTitle: "Delete SDK Webhook",
-                      // In a draft it's only removed once the draft publishes.
-                      getConfirmationContent: useRevisionFlow
-                        ? async () =>
-                            "This is saved to a draft. The webhook keeps firing until the draft is published."
-                        : undefined,
-                      cta: "Delete",
-                      ctaColor: "red",
-                      submit: async () => {
-                        if (useRevisionFlow) {
-                          await handleDeleteViaRevision(snapshot.id);
-                        } else {
-                          await apiCall(`/sdk-webhooks/${snapshot.id}`, {
-                            method: "DELETE",
-                          });
-                          mutate();
-                        }
-                      },
-                    }}
+                    onClick={() => setDeleteWebhook(snapshot)}
                   >
                     Delete
                   </DropdownMenuItem>
@@ -562,7 +565,9 @@ export default function SdkWebhooks({
           onSave={mutate}
           current={editWebhookData}
           sdkConnectionId={connection.id}
-          onOverrideSubmit={useRevisionFlow ? handleEditViaRevision : undefined}
+          onOverrideSubmit={handleEditViaRevision}
+          destination={destination}
+          cta={draftCta}
         />
       )}
       {createWebhookModalOpen && (
@@ -572,10 +577,31 @@ export default function SdkWebhooks({
           sdkConnectionId={connection.id}
           sdkConnectionKey={connection.key}
           language={connection.languages?.[0]}
-          onOverrideCreate={
-            useRevisionFlow ? handleCreateViaRevision : undefined
-          }
+          onOverrideCreate={handleCreateViaRevision}
+          destination={destination}
+          cta={draftCta}
         />
+      )}
+      {deleteWebhook && (
+        <ModalStandard
+          open={true}
+          trackingEventModalType=""
+          header="Delete SDK Webhook"
+          size="md"
+          close={() => setDeleteWebhook(null)}
+          cta={draftCta ?? "Delete"}
+          ctaColor={flow.mode === "publish" ? "red" : "violet"}
+          submit={() => handleDeleteViaRevision(deleteWebhook.id)}
+        >
+          <Flex direction="column" gap="4">
+            {destination}
+            <Text>
+              {flow.mode === "publish"
+                ? `"${deleteWebhook.name}" stops firing as soon as it's deleted.`
+                : `"${deleteWebhook.name}" keeps firing until the draft is published.`}
+            </Text>
+          </Flex>
+        </ModalStandard>
       )}
     </>
   );
