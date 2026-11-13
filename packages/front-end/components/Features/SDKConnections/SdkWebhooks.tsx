@@ -215,7 +215,11 @@ export default function SdkWebhooks({
   const hasWebhooks = rows.length > 0;
   // One the draft removes no longer counts toward the plan's limit.
   const keepsWebhook = rows.some((row) => row.staged !== "removed");
+  // Until the webhooks have loaded there is no list to add one to: saving
+  // then would be refused as built from the wrong webhooks.
+  const webhooksLoaded = !!data;
   const disableWebhookCreate =
+    !webhooksLoaded ||
     !!pastRevision ||
     lockedDraft ||
     (keepsWebhook && !hasCommercialFeature("multiple-sdk-webhooks"));
@@ -566,7 +570,7 @@ export default function SdkWebhooks({
                     ? SCHEDULE_EDIT_LOCK_REASON
                     : "You can only have one webhook per SDK Connection in the free plan"
               }
-              enabled={disableWebhookCreate}
+              enabled={disableWebhookCreate && webhooksLoaded}
             >
               <Button
                 disabled={disableWebhookCreate}
