@@ -198,6 +198,16 @@ export async function findSDKConnectionsByOrganization(
   return readableConnections(context, docs);
 }
 
+// The connections that serve a payload: an archived one can't satisfy a launch
+// check or count toward what SDKs support.
+export async function findServingSDKConnections(
+  context: ReqContext | ApiReqContext,
+) {
+  return (await findSDKConnectionsByOrganization(context)).filter(
+    (c) => !c.archived,
+  );
+}
+
 function readableConnections(
   context: ReqContext | ApiReqContext,
   docs: SDKConnectionDocument[],
@@ -755,6 +765,9 @@ export async function testProxyConnection(
   context: ReqContext | ApiReqContext,
   connection: SDKConnectionInterface,
   updateDB: boolean = true,
+  // Whether a healthy proxy is switched back on. Off where that switch is a
+  // reviewed setting, which a test must not change.
+  reenable: boolean = true,
 ): Promise<ProxyTestResult | undefined> {
   const proxy = connection.proxy;
   if (!proxy) {
@@ -824,7 +837,7 @@ export async function testProxyConnection(
             "proxy.version": version,
             "proxy.error": "",
             "proxy.consecutiveFailures": 0,
-            "proxy.enabled": true,
+            ...(reenable ? { "proxy.enabled": true } : {}),
           },
         },
       );

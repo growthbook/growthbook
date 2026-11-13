@@ -227,7 +227,9 @@ export default function SDKConnectionPage() {
   const router = useRouter();
   const { sdkid } = router.query;
 
-  const { data, mutate, error } = useSDKConnections();
+  const { data, mutate, error } = useSDKConnections({
+    includeArchived: true,
+  });
   const { data: webhookData, mutate: mutateWebhooks } = useApi<{
     webhooks?: WebhookInterface[];
   }>(`/sdk-connections/${sdkid}/webhooks`, { shouldRun: () => !!sdkid });

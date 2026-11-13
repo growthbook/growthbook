@@ -38,7 +38,9 @@ import { PayloadSizeRowWarning } from "./PayloadSizeNotices";
 const webhookCount = (n: number) => `${n} webhook${n === 1 ? "" : "s"}`;
 
 export default function SDKConnectionsList() {
-  const { data, mutate, error } = useSDKConnections();
+  const { data, mutate, error } = useSDKConnections({
+    includeArchived: true,
+  });
   const { data: webhooksData, mutate: mutateWebhooks } = useSDKWebhooks();
   const connections = [...(data?.connections ?? [])].sort(
     (a, b) => Number(!!a.archived) - Number(!!b.archived),
