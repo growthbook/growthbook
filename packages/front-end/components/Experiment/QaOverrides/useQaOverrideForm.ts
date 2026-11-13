@@ -19,7 +19,7 @@ export const QA_OVERRIDE_FILTER_META: Record<
 > = {
   condition: {
     label: "Attribute",
-    description: "Users with a specific id or email",
+    description: "Users with a specific id, email, country…",
   },
   savedGroups: {
     label: "Saved Groups",

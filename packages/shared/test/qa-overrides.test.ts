@@ -117,7 +117,7 @@ describe("filter helpers", () => {
 });
 
 describe("getQaOverrideWaitingMessages", () => {
-  it("explains the state and the action for one flag", () => {
+  it("gives the problem, the detail and the fix for a flag that is off", () => {
     expect(
       getQaOverrideWaitingMessages(
         [{ featureId: "checkout", reason: "disabled-env" }],
@@ -125,35 +125,43 @@ describe("getQaOverrideWaitingMessages", () => {
       ),
     ).toEqual([
       {
+        featureId: "checkout",
         reason: "disabled-env",
-        featureIds: ["checkout"],
-        state:
-          "The `staging` environment is off for linked Feature Flag `checkout`.",
-        action: "Turn `staging` on in that flag to QA in this environment.",
+        title: "`checkout` is off in staging",
+        description:
+          "The override starts applying as soon as the flag is on in staging.",
+        action: "Turn on flag",
+        note: "`checkout` is off in staging, so this override won't apply until the flag is on.",
       },
     ]);
   });
 
-  it("groups flags with the same reason into one plural message", () => {
+  it("returns one message per flag, in order", () => {
     const messages = getQaOverrideWaitingMessages(
       [
         { featureId: "a", reason: "disabled-env" },
-        { featureId: "b", reason: "draft" },
-        { featureId: "c", reason: "disabled-env" },
+        { featureId: "b", reason: "draft", draftVersion: 7 },
       ],
       "dev",
     );
-    expect(messages.map((m) => [m.reason, m.featureIds])).toEqual([
-      ["disabled-env", ["a", "c"]],
-      ["draft", ["b"]],
+    expect(messages.map((m) => [m.featureId, m.action])).toEqual([
+      ["a", "Turn on flag"],
+      ["b", "Review and publish draft"],
     ]);
-    expect(messages[0].state).toBe(
-      "The `dev` environment is off for linked Feature Flags `a`, `c`.",
+    expect(messages[1].draftVersion).toBe(7);
+  });
+
+  it("treats a discarded draft like a missing rule", () => {
+    const [discarded] = getQaOverrideWaitingMessages(
+      [{ featureId: "f", reason: "discarded" }],
+      "dev",
     );
-    expect(messages[0].action).toBe(
-      "Turn `dev` on in those flags to QA in this environment.",
+    const [missing] = getQaOverrideWaitingMessages(
+      [{ featureId: "f", reason: "missing" }],
+      "dev",
     );
-    expect(messages[1].action).toBe("Publish the draft to QA it.");
+    expect(discarded.title).toBe(missing.title);
+    expect(discarded.action).toBe("Add experiment rule");
   });
 
   it("has a message for every reason", () => {
@@ -170,8 +178,24 @@ describe("getQaOverrideWaitingMessages", () => {
         [{ featureId: "f", reason }],
         "dev",
       );
-      expect(m.state).toContain("`f`");
+      expect(m.title.length).toBeGreaterThan(0);
+      expect(m.note).toContain("`f`");
       expect(m.action.length).toBeGreaterThan(0);
     }
+  });
+});
+
+describe("getQaOverrideWaitingFeatures draft version", () => {
+  it("carries the draft's version so the UI can link to it", () => {
+    expect(
+      getQaOverrideWaitingFeatures({ environment: "dev" }, [
+        {
+          feature: { id: "f" },
+          state: "draft",
+          environmentStates: {},
+          draftRevisionVersion: 12,
+        } as unknown as Parameters<typeof getQaOverrideWaitingFeatures>[1][0],
+      ]),
+    ).toEqual([{ featureId: "f", reason: "draft", draftVersion: 12 }]);
   });
 });

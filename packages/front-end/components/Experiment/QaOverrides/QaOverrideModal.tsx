@@ -1,6 +1,6 @@
-import { useMemo } from "react";
+import { Fragment, useMemo } from "react";
 import { Box, Flex, Separator } from "@radix-ui/themes";
-import { PiCaretDownBold, PiPlusBold } from "react-icons/pi";
+import { PiCaretDownBold, PiLockBold, PiPlusBold } from "react-icons/pi";
 import {
   ExperimentInterfaceStringDates,
   LinkedFeatureInfo,
@@ -13,7 +13,11 @@ import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import useSDKConnections from "@/hooks/useSDKConnections";
-import { QaOverrideFilterKind } from "@/services/qaOverrides";
+import {
+  QaOverrideFilterKind,
+  completeQaOverrideFilters,
+} from "@/services/qaOverrides";
+import ConditionDisplay from "@/components/Features/ConditionDisplay";
 import ConditionInput from "@/components/Features/ConditionInput";
 import SavedGroupTargetingField from "@/components/Features/SavedGroupTargetingField";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
@@ -29,7 +33,11 @@ import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
 import Tooltip from "@/ui/Tooltip";
 import VariationLabel from "@/ui/VariationLabel";
-import QaOverrideWaitingMessages from "./QaOverrideWaitingMessages";
+import QaOverrideAudience, {
+  QaOverrideAnd,
+  useQaOverrideNameLookups,
+} from "./QaOverrideAudience";
+import { QaOverrideWaitingNote } from "./QaOverrideWaitingMessages";
 import useQaOverridePermissions from "./useQaOverridePermissions";
 import useQaOverrideForm, {
   QA_OVERRIDE_FILTER_META,
@@ -45,6 +53,99 @@ function SectionHeading({ children }: { children: React.ReactNode }) {
     <Heading as="h3" size="sm" mb="0">
       {children}
     </Heading>
+  );
+}
+
+const CARD_STYLE = {
+  backgroundColor: "var(--gray-a2)",
+  border: "1px solid var(--gray-a3)",
+  borderRadius: "var(--radius-3)",
+} as const;
+
+// Between cards under "Who sees it": every one of them has to match.
+function AndDivider() {
+  const line = (
+    <Box flexGrow="1" style={{ height: 1, background: "var(--gray-a4)" }} />
+  );
+  return (
+    <Flex align="center" gap="2" aria-hidden>
+      {line}
+      <QaOverrideAnd />
+      {line}
+    </Flex>
+  );
+}
+
+const percent = (n: number) => `${+(n * 100).toFixed(1)}%`;
+
+/**
+ * Read-only: what "Test the experiment as configured" takes from the
+ * experiment itself. Filters added below it only narrow this audience.
+ */
+function ExperimentTargetingCard({
+  experiment,
+}: {
+  experiment: QaOverrideModalExperiment;
+}) {
+  const phase = experiment.phases[experiment.phases.length - 1];
+  const variations = getLatestPhaseVariations(experiment);
+  const hasTargeting =
+    (!!phase?.condition && phase.condition !== "{}") ||
+    !!phase?.savedGroups?.length ||
+    !!phase?.prerequisites?.length;
+  const rows: [string, React.ReactNode][] = [
+    [
+      "Targeting",
+      hasTargeting ? (
+        <ConditionDisplay
+          condition={phase?.condition}
+          savedGroups={phase?.savedGroups}
+          prerequisites={phase?.prerequisites}
+        />
+      ) : (
+        "Everyone"
+      ),
+    ],
+    ["Traffic", percent(phase?.coverage ?? 1)],
+    [
+      "Split",
+      variations
+        .map(
+          (v, i) => `${v.name} (${percent(phase?.variationWeights?.[i] ?? 0)})`,
+        )
+        .join(" · "),
+    ],
+  ];
+  return (
+    <Box
+      role="group"
+      aria-label="From the experiment (read-only)"
+      style={{ ...CARD_STYLE, padding: "10px 12px 12px" }}
+    >
+      <Flex align="center" gap="2" mb="2">
+        <Text weight="semibold">From the experiment</Text>
+        <PiLockBold size={12} color="var(--color-text-mid)" />
+      </Flex>
+      <Box
+        style={{
+          display: "grid",
+          gridTemplateColumns: "90px 1fr",
+          rowGap: 6,
+          alignItems: "baseline",
+        }}
+      >
+        {rows.map(([label, value]) => (
+          <Fragment key={label}>
+            <Text size="sm" color="text-mid">
+              {label}
+            </Text>
+            <Text as="div" size="sm">
+              {value}
+            </Text>
+          </Fragment>
+        ))}
+      </Box>
+    </Box>
   );
 }
 
@@ -85,6 +186,7 @@ export default function QaOverrideModal({
   const { getUserDisplay } = useUser();
   const { projects } = useDefinitions();
   const { data: connectionData } = useSDKConnections();
+  const lookups = useQaOverrideNameLookups();
   const { environments, eligibleEnvironments, canEditIn } =
     useQaOverridePermissions(experiment);
 
@@ -181,15 +283,7 @@ export default function QaOverrideModal({
       </Flex>
     );
     return (
-      <Box
-        key={kind}
-        style={{
-          backgroundColor: "var(--gray-a2)",
-          border: "1px solid var(--gray-a3)",
-          borderRadius: "var(--radius-3)",
-          padding: "10px 12px 14px",
-        }}
-      >
+      <Box key={kind} style={{ ...CARD_STYLE, padding: "10px 12px 14px" }}>
         {kind === "condition" && (
           <ConditionInput
             label={QA_OVERRIDE_FILTER_META.condition.label}
@@ -198,7 +292,6 @@ export default function QaOverrideModal({
             onChange={(v) => form.setValue("condition", v)}
             project={experiment.project || ""}
             emptyText=""
-            identifiersOnly
           />
         )}
         {kind === "savedGroups" && (
@@ -240,6 +333,8 @@ export default function QaOverrideModal({
     );
   };
 
+  const testing = values.assignmentType === "random";
+
   return (
     <ModalStandard
       open={true}
@@ -274,6 +369,52 @@ export default function QaOverrideModal({
       })}
     >
       <Flex direction="column" gap="5">
+        <Flex direction="column" gap="2">
+          <SectionHeading>What do you want to do?</SectionHeading>
+          <RadioGroup
+            gap="3"
+            value={values.assignmentType}
+            setValue={(v) =>
+              form.setValue("assignmentType", v as "random" | "forced")
+            }
+            options={[
+              {
+                value: "forced",
+                label: "Force a variation",
+                description:
+                  "Show one variation to people you choose. Ignores the experiment\u2019s targeting.",
+                // A dropdown can't sit inside the radio's label.
+                renderOutsideItem: true,
+                renderOnSelect: (
+                  <Box ml="5">
+                    <Select
+                      aria-label="Variation"
+                      style={{ width: 280 }}
+                      value={values.forcedVariationId || undefined}
+                      setValue={(v) => form.setValue("forcedVariationId", v)}
+                      placeholder="Select a variation…"
+                    >
+                      {variations.map((v, i) => (
+                        <SelectItem key={v.id} value={v.id} textValue={v.name}>
+                          <VariationLabel number={i} name={v.name} />
+                        </SelectItem>
+                      ))}
+                    </Select>
+                  </Box>
+                ),
+              },
+              {
+                value: "random",
+                label: "Test the experiment as configured",
+                description:
+                  "Run it in this environment with its own targeting and split.",
+              },
+            ]}
+          />
+        </Flex>
+
+        <Separator size="4" />
+
         <Flex direction="column" gap="2" align="start">
           <SectionHeading>Environment</SectionHeading>
           {existing ? (
@@ -311,7 +452,7 @@ export default function QaOverrideModal({
           )}
           {waitingFeatures.length > 0 && (
             <Callout status="warning" size="sm" mt="1">
-              <QaOverrideWaitingMessages
+              <QaOverrideWaitingNote
                 waitingOn={waitingFeatures}
                 environment={values.environment}
               />
@@ -323,10 +464,7 @@ export default function QaOverrideModal({
 
         <Flex direction="column" gap="2">
           <Flex align="center" gap="2">
-            <SectionHeading>Filters</SectionHeading>
-            <Text size="sm" color="text-low">
-              Optional
-            </Text>
+            <SectionHeading>Who sees it</SectionHeading>
             <Box flexGrow="1" />
             {availableFilters.length === 0 ? (
               <Tooltip content="Every filter type has been added.">
@@ -336,69 +474,25 @@ export default function QaOverrideModal({
               addFilterMenu
             )}
           </Flex>
-          {values.filters.length === 0 ? (
-            <Box
-              py="3"
-              px="4"
-              style={{
-                border: "1px solid var(--gray-a4)",
-                borderRadius: "var(--radius-2)",
-              }}
-            >
-              <Text as="p" size="sm" color="text-low" align="center" mb="0">
-                No filters. Everyone in the selected environment gets this
-                override.
-              </Text>
-            </Box>
-          ) : (
-            <Flex direction="column" gap="2">
-              {values.filters.map(filterCard)}
+          <QaOverrideAudience
+            variant="sentence"
+            filters={completeQaOverrideFilters(values)}
+            order={values.filters}
+            environment={values.environment}
+            usesExperimentTargeting={testing}
+            lookups={lookups}
+          />
+          {(testing || values.filters.length > 0) && (
+            <Flex direction="column" gap="2" mt="1">
+              {testing && <ExperimentTargetingCard experiment={experiment} />}
+              {values.filters.map((kind, i) => (
+                <Fragment key={kind}>
+                  {(testing || i > 0) && <AndDivider />}
+                  {filterCard(kind)}
+                </Fragment>
+              ))}
             </Flex>
           )}
-        </Flex>
-
-        <Separator size="4" />
-
-        <Flex direction="column" gap="2">
-          <SectionHeading>Variation</SectionHeading>
-          <RadioGroup
-            gap="3"
-            value={values.assignmentType}
-            setValue={(v) =>
-              form.setValue("assignmentType", v as "random" | "forced")
-            }
-            options={[
-              {
-                value: "random",
-                label: "Random",
-                description:
-                  "Split like the live experiment, using its targeting and traffic.",
-              },
-              {
-                value: "forced",
-                label: "Force a variation",
-                description:
-                  "Everyone who matches your filters sees the variation you pick.",
-                renderOnSelect: (
-                  <Box mt="1">
-                    <Select
-                      aria-label="Variation"
-                      style={{ width: 280 }}
-                      value={values.forcedVariationId || undefined}
-                      setValue={(v) => form.setValue("forcedVariationId", v)}
-                      placeholder="Select a variation…"
-                    >
-                      {variations.map((v, i) => (
-                        <SelectItem key={v.id} value={v.id} textValue={v.name}>
-                          <VariationLabel number={i} name={v.name} />
-                        </SelectItem>
-                      ))}
-                    </Select>
-                  </Box>
-                ),
-              },
-            ]}
-          />
         </Flex>
       </Flex>
     </ModalStandard>

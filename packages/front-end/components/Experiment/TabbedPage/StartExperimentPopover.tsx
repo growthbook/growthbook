@@ -19,6 +19,7 @@ import {
 } from "@/components/PreLaunchChecklist/PreLaunchChecklist";
 import { usePreLaunchChecklist } from "@/components/PreLaunchChecklist/PreLaunchChecklistProvider";
 import useExperimentQaOverrides from "@/hooks/useExperimentQaOverrides";
+import { qaOverridesCountLabel } from "@/components/Experiment/QaOverrides/QaOverridesStartNote";
 import { StartExperiment } from "./useStartExperiment";
 import useStartGate from "./useStartGate";
 import { getStartTitle } from "./startActions";
@@ -157,15 +158,6 @@ function StartContent({
 
       <StartFailures failures={start.pendingDraftFailures} />
       <StartChecklistFailures items={start.checklistFailures} />
-      {qaOverrideCount > 0 ? (
-        <Callout status="info" size="sm">
-          Starting removes this experiment&apos;s{" "}
-          {qaOverrideCount === 1
-            ? "QA override"
-            : `${qaOverrideCount} QA overrides`}
-          .
-        </Callout>
-      ) : null}
       {pastSchedule ? (
         <Callout status="warning" size="sm">
           The scheduled start date{" "}
@@ -280,7 +272,13 @@ function StartContent({
             {error}
           </Callout>
         ) : null}
-        <Flex justify="end" align="center" gap="3">
+        <Flex justify="between" align="center" gap="3">
+          {/* Starting ends QA: the overrides go with the draft. */}
+          <Text size="sm" color="text-mid">
+            {qaOverrideCount > 0
+              ? `Deletes ${qaOverridesCountLabel(qaOverrideCount)}`
+              : ""}
+          </Text>
           <Tooltip content={blockedReason} enabled={!!blockedReason}>
             <Button
               onClick={async () => {

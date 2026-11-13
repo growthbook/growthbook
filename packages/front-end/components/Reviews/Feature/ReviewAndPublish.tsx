@@ -83,6 +83,7 @@ import {
 } from "@/services/features";
 import { getFutureScheduledStartDate } from "@/services/experiments";
 import Frame from "@/ui/Frame";
+import QaOverridesStartNote from "@/components/Experiment/QaOverrides/QaOverridesStartNote";
 import {
   SummaryGrid,
   SummaryRow,
@@ -2669,6 +2670,7 @@ export default function ReviewAndPublish({
                 </SummaryGrid>
               }
             />
+            <QaOverridesStartNote experiment={experiment} mt="3" />
           </Frame>
         );
       })}

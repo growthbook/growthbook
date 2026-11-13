@@ -45,6 +45,8 @@ export type QaOverrideWaitingFeature = {
   reason:
     | Exclude<LinkedFeatureState, "live">
     | Exclude<LinkedFeatureEnvState, "active">;
+  /** The open draft holding the rule, while `reason` is "draft". */
+  draftVersion?: number;
 };
 
 // What the API returns: the stored override plus whether its linked Feature

@@ -6,14 +6,20 @@ import {
   qaOverrideBodyEquals,
   qaOverrideFormDefaults,
   qaOverridesNeedGrouping,
-  summarizeQaOverrideFilters,
+  completeQaOverrideFilters,
+  qaOverrideAudienceSentence,
+  summarizeQaOverrideAudience,
 } from "@/services/qaOverrides";
 
 const lookups = {
-  savedGroupName: (id: string) => ({ g1: "QA team", g2: "Internal" })[id] ?? id,
-  sdkConnectionName: (id: string) => ({ c1: "Local dev" })[id] ?? id,
-  projectName: (id: string) => ({ p1: "Checkout" })[id] ?? id,
-  operatorText: (op: string) => (op === "$eq" ? "=" : op.replace("$", "")),
+  savedGroupName: (id: string) =>
+    ({ g1: "QA team", g2: "Beta testers" })[id] ?? id,
+  sdkConnectionName: (id: string) =>
+    ({ c1: "Local dev (React)", c2: "Staging (iOS)", c3: "QA Android" })[id] ??
+    id,
+  projectName: (id: string) => ({ p1: "Checkout", p2: "Growth" })[id] ?? id,
+  operatorText: (op: string) =>
+    ({ $eq: "=", $ne: "≠", $in: "is any of" })[op] ?? op.replace("$", ""),
 };
 
 function override(
@@ -69,53 +75,143 @@ describe("groupQaOverrides", () => {
   });
 });
 
-describe("summarizeQaOverrideFilters", () => {
-  it("turns simple conditions into one chip per clause", () => {
-    const s = summarizeQaOverrideFilters(
-      { condition: JSON.stringify({ id: "123" }) },
-      lookups,
+// Every row of the design's "Who sees it · summary sentence" scenarios.
+describe("the who-sees-it summary", () => {
+  const sentence = (
+    filters: Parameters<typeof summarizeQaOverrideAudience>[0],
+    opts: { environment?: string; usesExperimentTargeting?: boolean } = {
+      environment: "dev",
+    },
+    order?: Parameters<typeof summarizeQaOverrideAudience>[2],
+  ) =>
+    qaOverrideAudienceSentence({
+      segments: summarizeQaOverrideAudience(filters, lookups, order),
+      ...opts,
+    });
+  const cond = (c: unknown) => ({ condition: JSON.stringify(c) });
+
+  it("says everyone when there are no filters", () => {
+    expect(sentence({}, {})).toBe("Everyone in the selected environment.");
+    expect(sentence({})).toBe("Everyone in dev.");
+  });
+
+  it("names a single filter's value without a type label", () => {
+    expect(sentence(cond({ id: "123" }))).toBe("Anyone matching id = 123.");
+    expect(sentence({ savedGroups: [{ match: "any", ids: ["g1"] }] })).toBe(
+      "Anyone matching QA team.",
     );
-    expect(s.chips).toEqual([{ kind: "condition", label: "id = 123" }]);
-    expect(s.hidden).toBe(0);
+    expect(sentence({ sdkConnections: ["c1"] })).toBe(
+      "Anyone matching Local dev (React).",
+    );
+    expect(sentence({ projects: ["p1"] })).toBe("Anyone matching Checkout.");
   });
 
-  it("collapses OR groups and advanced JSON into a custom chip", () => {
+  it("separates several values of one type with commas, never AND", () => {
     expect(
-      summarizeQaOverrideFilters(
-        { condition: JSON.stringify({ $or: [{ id: "1" }, { id: "2" }] }) },
-        lookups,
-      ).chips[0],
-    ).toMatchObject({ label: "Custom condition", custom: true });
-    expect(
-      summarizeQaOverrideFilters(
-        { condition: JSON.stringify({ $nor: [{ id: "1" }] }) },
-        lookups,
-      ).chips[0],
-    ).toMatchObject({ custom: true });
+      sentence({ savedGroups: [{ match: "any", ids: ["g1", "g2"] }] }),
+    ).toBe("Anyone matching QA team, Beta testers.");
+    expect(sentence({ sdkConnections: ["c1", "c2"] })).toBe(
+      "Anyone matching Local dev (React), Staging (iOS).",
+    );
+    expect(sentence({ projects: ["p1", "p2"] })).toBe(
+      "Anyone matching Checkout, Growth.",
+    );
   });
 
-  it("names groups, connections and projects, and counts the overflow", () => {
-    const s = summarizeQaOverrideFilters(
-      {
-        condition: JSON.stringify({ country: "CA" }),
+  it("shows three values of a long list, then a count", () => {
+    expect(sentence({ sdkConnections: ["c1", "c2", "c3", "c4", "c5"] })).toBe(
+      "Anyone matching Local dev (React), Staging (iOS), QA Android +2 more.",
+    );
+  });
+
+  it("joins filter types with AND, in the order of the filter cards", () => {
+    expect(sentence({ ...cond({ id: "123" }), sdkConnections: ["c1"] })).toBe(
+      "Anyone matching id = 123 AND Local dev (React).",
+    );
+    const all = {
+      ...cond({ id: "123" }),
+      savedGroups: [{ match: "any" as const, ids: ["g1"] }],
+      sdkConnections: ["c1"],
+      projects: ["p1"],
+    };
+    expect(sentence(all)).toBe(
+      "Anyone matching id = 123 AND QA team AND Local dev (React) AND Checkout.",
+    );
+    expect(
+      sentence(all, { environment: "dev" }, ["projects", "condition"]),
+    ).toBe(
+      "Anyone matching Checkout AND id = 123 AND QA team AND Local dev (React).",
+    );
+    expect(
+      sentence({
         savedGroups: [{ match: "any", ids: ["g1", "g2"] }],
-        sdkConnections: ["c1"],
-        projects: ["p1"],
-      },
-      lookups,
+        sdkConnections: ["c1", "c2"],
+      }),
+    ).toBe(
+      "Anyone matching QA team, Beta testers AND Local dev (React), Staging (iOS).",
     );
-    expect(s.chips.map((c) => c.label)).toEqual([
-      "country = CA",
-      "Group: QA team, Internal",
-      "SDK: Local dev",
-      "Project: Checkout",
-    ]);
-    expect(s.visible).toHaveLength(2);
-    expect(s.hidden).toBe(2);
   });
 
-  it("is empty when there are no filters", () => {
-    expect(summarizeQaOverrideFilters({}, lookups).chips).toEqual([]);
+  it("puts attribute conditions into words", () => {
+    expect(sentence(cond({ id: "123", country: "US" }))).toBe(
+      "Anyone matching id = 123 and country = US.",
+    );
+    expect(sentence(cond({ $or: [{ id: "123" }, { id: "456" }] }))).toBe(
+      "Anyone matching id = 123 or id = 456.",
+    );
+    expect(sentence(cond({ id: { $ne: "123" } }))).toBe(
+      "Anyone matching id ≠ 123.",
+    );
+    expect(sentence(cond({ country: { $in: ["US", "CA"] } }))).toBe(
+      "Anyone matching country is any of US, CA.",
+    );
+  });
+
+  it("falls back to a custom condition for advanced JSON", () => {
+    const segments = summarizeQaOverrideAudience(
+      cond({ $nor: [{ id: "1" }] }),
+      lookups,
+    );
+    expect(segments).toEqual([
+      { kind: "condition", text: "a custom condition", custom: true },
+    ]);
+    expect(qaOverrideAudienceSentence({ segments, environment: "dev" })).toBe(
+      "Anyone matching a custom condition.",
+    );
+  });
+
+  it("ignores filters that were added but not filled in", () => {
+    const base = qaOverrideFormDefaults(undefined, "dev");
+    const emptyAttribute = completeQaOverrideFilters({
+      ...base,
+      filters: ["condition"],
+      condition: JSON.stringify({ id: "" }),
+    });
+    expect(sentence(emptyAttribute)).toBe("Everyone in dev.");
+    const oneFilled = completeQaOverrideFilters({
+      ...base,
+      filters: ["condition", "sdkConnections"],
+      condition: JSON.stringify({ id: "123" }),
+    });
+    expect(sentence(oneFilled)).toBe("Anyone matching id = 123.");
+  });
+
+  it("leads with the experiment's targeting in Test mode", () => {
+    const test = { environment: "dev", usesExperimentTargeting: true };
+    expect(sentence({}, test)).toBe(
+      "Anyone matching the experiment's targeting.",
+    );
+    expect(
+      sentence(
+        {
+          savedGroups: [{ match: "any", ids: ["g1"] }],
+          sdkConnections: ["c1"],
+        },
+        test,
+      ),
+    ).toBe(
+      "Anyone matching the experiment's targeting AND QA team AND Local dev (React).",
+    );
   });
 });
 

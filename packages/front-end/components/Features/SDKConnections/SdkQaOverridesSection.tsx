@@ -20,7 +20,7 @@ import QaOverrideModal from "@/components/Experiment/QaOverrides/QaOverrideModal
 import QaOverridesTable, {
   QaOverrideRow,
 } from "@/components/Experiment/QaOverrides/QaOverridesTable";
-import { useQaOverrideNameLookups } from "@/components/Experiment/QaOverrides/QaOverrideFilterChips";
+import { useQaOverrideNameLookups } from "@/components/Experiment/QaOverrides/QaOverrideAudience";
 
 const ABOUT =
   "Draft experiments served to this connection's environment that reach it. " +

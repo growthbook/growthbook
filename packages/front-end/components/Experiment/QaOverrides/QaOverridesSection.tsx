@@ -22,12 +22,15 @@ import Link from "@/ui/Link";
 import Callout from "@/ui/Callout";
 import QaOverrideModal from "./QaOverrideModal";
 import QaOverridesTable, { QaOverrideRow } from "./QaOverridesTable";
-import { useQaOverrideNameLookups } from "./QaOverrideFilterChips";
+import { useQaOverrideNameLookups } from "./QaOverrideAudience";
+import { QA_OVERRIDES_SECTION_ID } from "./QaActiveChip";
 import useQaOverridePermissions from "./useQaOverridePermissions";
 
 // Takes the width of the variations table above it instead of widening the
 // column to fit its own content (see `.tableColumn` in the funnel).
 const MATCH_TABLE_WIDTH = { contain: "inline-size" } as const;
+// Clears the pinned header when the "QA active" chip scrolls here.
+const SCROLL_TARGET = { scrollMarginTop: "100px" } as const;
 
 const ABOUT =
   "Serve this draft to yourself or your team in a non-production environment. " +
@@ -112,7 +115,13 @@ export default function QaOverridesSection({
     return (
       <>
         <Separator size="4" my="5" />
-        <Frame py="5" px="6" mb="0" style={MATCH_TABLE_WIDTH}>
+        <Frame
+          id={QA_OVERRIDES_SECTION_ID}
+          py="5"
+          px="6"
+          mb="0"
+          style={{ ...MATCH_TABLE_WIDTH, ...SCROLL_TARGET }}
+        >
           <Flex direction="column" align="center" gap="2">
             <Heading as="h4" size="sm" mb="0">
               QA Overrides
@@ -159,10 +168,11 @@ export default function QaOverridesSection({
       <Separator size="4" my="5" />
       {/* The table runs to the card's edges, so the padding is on the header. */}
       <Frame
+        id={QA_OVERRIDES_SECTION_ID}
         px="0"
         py="0"
         mb="0"
-        style={{ ...MATCH_TABLE_WIDTH, overflow: "hidden" }}
+        style={{ ...MATCH_TABLE_WIDTH, ...SCROLL_TARGET, overflow: "hidden" }}
       >
         {modal && (
           <QaOverrideModal

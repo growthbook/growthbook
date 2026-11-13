@@ -1,14 +1,14 @@
 import { Flex } from "@radix-ui/themes";
+import { PiWarningBold } from "react-icons/pi";
 import { ExperimentQaOverrideWithStatus } from "shared/types/experiment-qa-override";
 import Badge from "@/ui/Badge";
-import Text from "@/ui/Text";
 import { Popover } from "@/ui/Popover";
-import QaOverrideWaitingMessages from "./QaOverrideWaitingMessages";
+import { QaOverrideWaitingPopoverContent } from "./QaOverrideWaitingMessages";
 
 /**
- * Active, or Waiting with a hover popover naming the Feature Flag that isn't
- * serving the override yet and a link to it. A popover rather than a tooltip
- * so the link can be clicked.
+ * Active, or Not applied with a hover popover that says what's in the way on
+ * the Feature Flag and links to where to fix it. A popover rather than a
+ * tooltip so the link can be clicked.
  */
 export default function QaOverrideStatusBadge({
   override,
@@ -26,27 +26,33 @@ export default function QaOverrideStatusBadge({
       openOnHover
       side="top"
       align="start"
+      contentStyle={{ padding: 0 }}
       trigger={
-        <span
-          tabIndex={0}
-          style={{
-            display: "inline-flex",
-            cursor: "help",
-            textDecoration: "underline dotted var(--amber-11)",
-            textUnderlineOffset: 3,
-          }}
-        >
-          <Badge label="Waiting" color="amber" variant="soft" />
+        <span tabIndex={0} style={{ display: "inline-flex", cursor: "help" }}>
+          <Badge
+            color="amber"
+            variant="soft"
+            label={
+              <Flex align="center" gap="1" style={{ whiteSpace: "nowrap" }}>
+                <PiWarningBold size={12} style={{ flexShrink: 0 }} />
+                <span
+                  style={{
+                    textDecoration: "underline dotted var(--amber-11)",
+                    textUnderlineOffset: 3,
+                  }}
+                >
+                  Not applied
+                </span>
+              </Flex>
+            }
+          />
         </span>
       }
       content={
-        <Flex direction="column" gap="2" style={{ maxWidth: 320 }}>
-          <Text weight="semibold">Waiting for Feature Flag</Text>
-          <QaOverrideWaitingMessages
-            waitingOn={override.waitingOn}
-            environment={override.environment}
-          />
-        </Flex>
+        <QaOverrideWaitingPopoverContent
+          waitingOn={override.waitingOn}
+          environment={override.environment}
+        />
       }
     />
   );

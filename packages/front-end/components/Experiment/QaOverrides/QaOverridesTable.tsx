@@ -33,7 +33,7 @@ import Table, {
   TableRow,
   TableRowHeaderCell,
 } from "@/ui/Table";
-import QaOverrideFilterChips from "./QaOverrideFilterChips";
+import QaOverrideAudience from "./QaOverrideAudience";
 import QaOverrideStatusBadge from "./QaOverrideStatusBadge";
 import styles from "./QaOverridesTable.module.scss";
 
@@ -67,7 +67,7 @@ function VariationCell({ row }: { row: QaOverrideRow }) {
   if (assignment.type === "random") {
     return (
       <Text size="inherit" color="text-mid">
-        Random
+        Set by experiment
       </Text>
     );
   }
@@ -144,8 +144,11 @@ function RowCells({
         </TableCell>
       )}
       <TableCell>
-        <QaOverrideFilterChips
+        <QaOverrideAudience
+          variant="inline"
           filters={row.override.filters}
+          environment={row.override.environment}
+          usesExperimentTargeting={row.override.assignment.type === "random"}
           lookups={lookups}
         />
       </TableCell>
