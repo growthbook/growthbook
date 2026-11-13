@@ -8,6 +8,7 @@ import {
 import { format } from "shared/sql";
 import type { DataSourceInterface } from "shared/types/datasource";
 import type {
+  Dimension,
   DimensionColumnData,
   ExperimentFactMetricsQueryParams,
 } from "shared/types/integrations";
@@ -26,6 +27,8 @@ import {
 } from "back-end/src/integrations/sql/clauses/cluster-assignment-filter";
 import { resolveClusterMetricGrain } from "back-end/src/integrations/sql/fact-metrics/cluster-metric-grain";
 import { getDimensionCol } from "back-end/src/integrations/sql/columns/dimension-col";
+import { getDimensionCTE } from "back-end/src/integrations/sql/ctes/dimension-cte";
+import { getUnitDimensionChain } from "back-end/src/integrations/sql/fact-metrics/timed-unit-dimension-value";
 import { getExperimentEndDate } from "back-end/src/integrations/sql/dates/experiment-end-date";
 import { getExperimentFactMetricStatisticsCTE } from "back-end/src/integrations/sql/ctes/experiment-fact-metric-statistics-cte";
 import { getExperimentUnitsQuery } from "back-end/src/integrations/sql/queries/experiment-units-query";
@@ -96,7 +99,7 @@ export function getExperimentFactMetricsQuery(
     applyMetricOverrides(m.metric, settings);
   });
   // Replace any placeholders in the user defined dimension SQL
-  const { unitDimensions } = processDimensions(
+  const { unitDimensions, comboDimension } = processDimensions(
     dialect,
     params.dimensions,
     settings,
@@ -205,10 +208,13 @@ export function getExperimentFactMetricsQuery(
   // A cluster-level query's units CTE stays keyed on the sub-unit, so it emits
   // its own identity joins against that base.
   if (params.unitsSource === "exposureQuery" && !isClusterLevelQuery) {
-    // A cluster-keyed segment joins through the exposure rows instead.
+    // Cluster-keyed dimensions and segments join through the exposure rows instead.
     const segmentIdType = segment ? segment.userIdType || "user_id" : null;
     idTypeObjects.push(
-      ...unitDimensions.map((d) => [d.dimension.userIdType || "user_id"]),
+      ...unitDimensions
+        .map((d) => d.dimension.userIdType || "user_id")
+        .filter((idType) => idType !== clusterIdColumn)
+        .map((idType) => [idType]),
       segmentIdType && segmentIdType !== clusterIdColumn ? [segmentIdType] : [],
       activationMetric ? getUserIdTypes(activationMetric, factTableMap) : [],
     );
@@ -245,6 +251,62 @@ export function getExperimentFactMetricsQuery(
       value: dialect.castToString("'All'"),
     });
   }
+
+  // A cluster-level query joins a dimension keyed on the cluster once per
+  // cluster, after the sub-unit collapse, rather than once per sub-unit
+  const clusterDimensions = (
+    isClusterLevelQuery && params.unitsSource === "exposureQuery"
+      ? unitDimensions
+      : []
+  ).filter((d) => (d.dimension.userIdType || "user_id") === baseIdType);
+  const clusterDimensionAliases = new Set(
+    clusterDimensions.map((d) => getDimensionCol(dialect, d).alias),
+  );
+  const isClusterDimension = (d: Dimension) =>
+    clusterDimensionAliases.has(getDimensionCol(dialect, d).alias);
+  // A cluster's combo is built after the collapse too, so each constituent
+  // collapses to the cluster on its own
+  const clusterComboDimension = isClusterLevelQuery ? comboDimension : null;
+  const clusterComboCol = clusterComboDimension
+    ? getDimensionCol(dialect, clusterComboDimension)
+    : null;
+  const subUnitDimensionCols = [
+    ...dimensionCols.filter(
+      (c) =>
+        !clusterDimensionAliases.has(c.alias) &&
+        c.alias !== clusterComboCol?.alias,
+    ),
+    ...(clusterComboDimension?.dimensions ?? [])
+      .filter((d) => !isClusterDimension(d))
+      .map((d) => getDimensionCol(dialect, d)),
+  ].filter((c, i, all) => all.findIndex((o) => o.alias === c.alias) === i);
+  const clusterDimensionChain = getUnitDimensionChain(dialect, {
+    dimensions: clusterDimensions,
+    getJoinIdType: () => baseIdType,
+    sourceCte: "__clusterUnits",
+    cteName: clusterComboCol
+      ? `__clusterUnitsDims${clusterDimensions.length}`
+      : "__distinctUsers",
+    stepPrefix: "__clusterUnitsDims",
+    rowIdType: baseIdType,
+    // Must list every column of the cluster collapse (__clusterUnits) below
+    carriedColumns: [
+      baseIdType,
+      ...subUnitDimensionCols.map((c) => c.alias),
+      "variation",
+      "timestamp",
+      "first_exposure_date",
+      ...(banditDates?.length ? ["bandit_period"] : []),
+      ...raMetricSettings.flatMap(({ alias }) => [
+        `${alias}_preexposure_end`,
+        `${alias}_preexposure_start`,
+      ]),
+      "first_exposure_timestamp",
+    ],
+    // the units query stores the cluster key as a string
+    stringIds: true,
+    castExposure: false,
+  });
 
   const computeOnActivatedUsersOnly =
     activationMetric !== null &&
@@ -545,6 +607,18 @@ export function getExperimentFactMetricsQuery(
       params.unitsSource === "exposureQuery"
         ? `${getExperimentUnitsQuery(dialect, datasource, {
             ...params,
+            dimensions: params.dimensions
+              .filter((d) => !isClusterDimension(d))
+              .map((d) =>
+                d.type === "combo"
+                  ? {
+                      ...d,
+                      dimensions: d.dimensions.filter(
+                        (c) => !isClusterDimension(c),
+                      ),
+                    }
+                  : d,
+              ),
             includeIdJoins: isClusterLevelQuery,
           })},`
         : params.unitsSource === "otherQuery"
@@ -555,9 +629,10 @@ export function getExperimentFactMetricsQuery(
       SELECT
         ${baseIdType}
         ${clusterIdColumn ? `, ${clusterIdColumn}` : ""}
-        ${dimensionCols.map((c) => `, ${c.value} AS ${c.alias}`).join("")}
+        ${subUnitDimensionCols.map((c) => `, ${c.value} AS ${c.alias}`).join("")}
         , variation
         , ${timestampColumn} AS timestamp
+        ${clusterDimensions.length ? ", first_exposure_timestamp" : ""}
         , ${dialect.dateTrunc("first_exposure_timestamp", "day")} AS first_exposure_date
         ${
           banditDates?.length
@@ -594,10 +669,10 @@ export function getExperimentFactMetricsQuery(
     )
     ${
       isClusterLevelQuery
-        ? `, __distinctUsers AS (
+        ? `, ${clusterDimensions.length || clusterComboCol ? "__clusterUnits" : "__distinctUsers"} AS (
       SELECT
         ${baseIdType}
-        ${dimensionCols
+        ${subUnitDimensionCols
           .map(
             (c) =>
               `, ${dialect.ifElse(
@@ -622,10 +697,37 @@ export function getExperimentFactMetricsQuery(
         , MIN(${alias}_preexposure_start) AS ${alias}_preexposure_start`,
           )
           .join("")}
+        ${
+          clusterDimensions.length
+            ? ", MIN(first_exposure_timestamp) AS first_exposure_timestamp"
+            : ""
+        }
       FROM __clusterSubUnitRows
       GROUP BY
         ${baseIdType}
+    )
+    ${clusterDimensions
+      .map(
+        (d) =>
+          `, __dim_unit_${d.dimension.id} AS (${getDimensionCTE(
+            d.dimension,
+            baseIdType,
+            idJoinMap,
+            dialect,
+          )})`,
+      )
+      .join("\n")}
+    ${clusterDimensionChain.sql}
+    ${
+      clusterComboCol
+        ? `, __distinctUsers AS (
+      SELECT
+        u.*
+        , ${clusterComboCol.value} AS ${clusterComboCol.alias}
+      FROM ${clusterDimensionChain.cteName} u
     )`
+        : ""
+    }`
         : ""
     }
     ${factTablesWithIndices

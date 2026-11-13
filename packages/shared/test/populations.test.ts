@@ -1,5 +1,6 @@
 import {
   apiCreatePopulationBody,
+  apiUpdatePopulationBody,
   type PopulationStep,
   populationValidator,
 } from "shared/validators";
@@ -45,6 +46,7 @@ const events: PopulationRuleFactTable = {
   columns: [
     column("amount", "number"),
     column("country", "string"),
+    column("signup_date", "date"),
     column("props", "json", {
       jsonFields: {
         quantity: { datatype: "number" },
@@ -122,7 +124,125 @@ describe("getPopulationRuleViolations", () => {
       });
     expect(check("flt_mobile")).toEqual([]);
     expect(check("flt_deleted")).toEqual([
-      "Saved filter not found on Fact Table ftb_events: flt_deleted (step 1).",
+      "Row filter 1 uses saved filter flt_deleted, which isn't on Fact Table ftb_events.",
+    ]);
+  });
+
+  it("reports row filters that would add no SQL", () => {
+    const check = (rowFilters: PopulationStep["rowFilters"]) =>
+      getPopulationRuleViolations({
+        datasource: "ds_main",
+        userIdTypes: ["user_id"],
+        steps: [{ ...step("ftb_events"), rowFilters }],
+        factTables: [events],
+      });
+    expect(
+      check([
+        { operator: "=", column: "country", values: ["US"] },
+        { operator: "=", values: ["US"] },
+        { operator: "sql_expr", values: ["  "] },
+        { operator: "in", column: "country", values: [] },
+        { operator: "is_null", column: "country" },
+      ]),
+    ).toEqual([
+      "Row filter 2 needs a column.",
+      "Row filter 3 has no SQL expression.",
+      "Row filter 4 needs a value.",
+    ]);
+  });
+
+  it("reports a date filter whose values are all blank", () => {
+    expect(
+      getPopulationRuleViolations({
+        datasource: "ds_main",
+        userIdTypes: ["user_id"],
+        steps: [
+          {
+            ...step("ftb_events"),
+            rowFilters: [
+              { operator: "=", column: "signup_date", values: [" "] },
+              { operator: ">=", column: "signup_date", values: ["2026-01-01"] },
+            ],
+          },
+        ],
+        factTables: [events],
+      }),
+    ).toEqual(["Row filter 1 needs a value."]);
+  });
+
+  it("reports a range whose two bounds are blank on any column", () => {
+    expect(
+      getPopulationRuleViolations({
+        datasource: "ds_main",
+        userIdTypes: ["user_id"],
+        steps: [
+          {
+            ...step("ftb_events"),
+            rowFilters: [
+              { operator: "between", column: "country", values: [" ", ""] },
+              { operator: "not_between", column: "country", values: [" "] },
+              { operator: "between", column: "country", values: ["", "", "5"] },
+              { operator: "between", column: "country", values: ["", "M"] },
+            ],
+          },
+        ],
+        factTables: [events],
+      }),
+    ).toEqual([
+      "Row filter 1 needs a value.",
+      "Row filter 2 needs a value.",
+      "Row filter 3 needs a value.",
+    ]);
+  });
+
+  it("reports the filters the editor leaves untouched", () => {
+    expect(
+      getPopulationRuleViolations({
+        datasource: "ds_main",
+        userIdTypes: ["user_id"],
+        steps: [
+          {
+            ...step("ftb_events"),
+            rowFilters: [
+              { operator: "=", column: "country", values: [""] },
+              { operator: "saved_filter", values: [""] },
+              { operator: "=", column: "country", values: [" "] },
+            ],
+          },
+        ],
+        factTables: [events],
+      }),
+    ).toEqual([
+      "Row filter 1 needs a value.",
+      "Row filter 2 has no saved filter.",
+    ]);
+  });
+
+  it("reports filters missing the parts getRowFilterSQL reads", () => {
+    expect(
+      getPopulationRuleViolations({
+        datasource: "ds_main",
+        userIdTypes: ["user_id"],
+        steps: [
+          {
+            ...step("ftb_events"),
+            rowFilters: [
+              { operator: "is_null" },
+              { operator: "sql_expr", values: [] },
+              { operator: "sql_expr", values: ["", "a = 1"] },
+              { operator: "saved_filter", values: ["  "] },
+              { operator: "saved_filter", values: ["", "flt_mobile"] },
+            ],
+          },
+        ],
+        factTables: [events],
+      }),
+    ).toEqual([
+      "Row filter 1 needs a column.",
+      "Row filter 2 has no SQL expression.",
+      "Row filter 3 has no SQL expression.",
+      "Row filter 4 has no saved filter.",
+      "Row filter 5 has no saved filter.",
     ]);
   });
 
@@ -302,7 +422,7 @@ describe("getPopulationRuleViolations", () => {
           factTables: [slimEvents],
         }),
       ).toEqual([
-        `Aggregate filter column 'props.quantity' must be a numeric column or "$$count" (step 1).`,
+        `Aggregate filter column 'props.quantity' must be a numeric column or "$$count".`,
       ]);
     });
 
@@ -353,6 +473,22 @@ describe("population step limits in validators", () => {
       apiCreatePopulationBody.safeParse(createBody(MAX_POPULATION_STEPS + 1))
         .success,
     ).toBe(false);
+  });
+
+  it("trims the name and rejects one that is only spaces", () => {
+    const parsed = apiCreatePopulationBody.parse({
+      ...createBody(1),
+      name: "  Purchasers  ",
+    });
+    expect(parsed.name).toBe("Purchasers");
+    expect(
+      apiCreatePopulationBody.safeParse({ ...createBody(1), name: "   " })
+        .success,
+    ).toBe(false);
+    expect(apiUpdatePopulationBody.safeParse({ name: "   " }).success).toBe(
+      false,
+    );
+    expect(apiUpdatePopulationBody.safeParse({}).success).toBe(true);
   });
 
   it("caps steps on the stored document", () => {

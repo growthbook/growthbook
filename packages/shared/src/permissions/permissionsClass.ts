@@ -976,6 +976,20 @@ export class Permissions {
     return this.canCreateFactTable({ projects: project ? [project] : [] });
   };
 
+  // Frontend helper to gate "Add Population" UI. Like
+  // canViewCreateFactTableModal, "All Projects" allows it when the user can
+  // create in at least one Project.
+  public canViewCreatePopulation = (
+    project: string,
+    allProjects: { id: string }[],
+  ): boolean => {
+    if (project) return this.canCreatePopulation({ projects: [project] });
+    return (
+      this.canCreatePopulation({ projects: [] }) ||
+      allProjects.some((p) => this.canCreatePopulation({ projects: [p.id] }))
+    );
+  };
+
   public canCreateFactTable = (
     factTable: Pick<FactTableInterface, "projects" | "managedBy">,
   ): boolean => {

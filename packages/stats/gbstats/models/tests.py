@@ -250,6 +250,8 @@ class BaseABTest(ABC):
         self.scaled = config.difference_type == "scaled"
         self.traffic_percentage = config.traffic_percentage
         self.total_users = config.total_users
+        self.total_sub_units: Optional[int] = None
+        self.scale_by_sub_unit_count: bool = False
         self.phase_length_days = config.phase_length_days
         self.moments_result = self.compute_moments_result()
         self.realized_settings = RealizedSettings(
@@ -292,9 +294,23 @@ class BaseABTest(ABC):
 
     @property
     def scaled_impact_eligible(self) -> bool:
+        if self.scale_by_sub_unit_count:
+            eligible_types = (RatioStatistic, RegressionAdjustedRatioStatistic)
+            return isinstance_union(self.stat_a, eligible_types) and isinstance_union(
+                self.stat_b, eligible_types
+            )
         return isinstance_union(
             self.stat_a, ScaledImpactStatistic
         ) and isinstance_union(self.stat_b, ScaledImpactStatistic)
+
+    @property
+    def scaled_impact_count(self) -> Optional[int]:
+        count = (
+            self.total_sub_units if self.scale_by_sub_unit_count else self.total_users
+        )
+        if not count:
+            return None
+        return count
 
     @abstractmethod
     def compute_result(self) -> TestResult:

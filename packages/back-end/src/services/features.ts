@@ -2183,11 +2183,12 @@ export async function buildSDKPayloadForConnection(
     includeReferencedPrerequisites &&
     canEvaluatePrerequisites &&
     projectList.length > 0
-      ? featuresWithPrerequisiteClosure(
-          scopedFeatures,
-          data.featuresMap ?? new Map(data.features.map((f) => [f.id, f])),
-          data.experimentMap,
-          [
+      ? featuresWithPrerequisiteClosure({
+          features: scopedFeatures,
+          featuresMap:
+            data.featuresMap ?? new Map(data.features.map((f) => [f.id, f])),
+          experimentMap: data.experimentMap,
+          seedIds: [
             ...getVisualExperimentPrerequisiteIds(
               servedAutoExperiments(filteredExperimentMap.values(), {
                 includeVisualExperiments,
@@ -2203,7 +2204,8 @@ export async function buildSDKPayloadForConnection(
                 )
               : []),
           ],
-        )
+          environment,
+        })
       : { features: scopedFeatures, carried: new Set<string>() };
 
   const featureExperimentMap = experimentMapForFeatures(
@@ -2404,16 +2406,25 @@ const MAX_PREREQUISITE_LOAD_ROUNDS = 10;
 // A project-filtered load can't see a prerequisite targeting other projects, so
 // closure would find nothing to carry. Costs no extra query when nothing crosses
 // a project boundary.
-async function loadMissingPrerequisites(
-  context: ReqContext | ApiReqContext,
-  features: FeatureInterface[],
-  seedIds: string[] = [],
-): Promise<FeatureInterface[]> {
+async function loadMissingPrerequisites({
+  context,
+  features,
+  seedIds = [],
+  environment,
+}: {
+  context: ReqContext | ApiReqContext;
+  features: FeatureInterface[];
+  seedIds?: string[];
+  environment: string;
+}): Promise<FeatureInterface[]> {
   const present = new Set(features.map((f) => f.id));
   const out = [...features];
 
   let wanted = [
-    ...new Set([...getPrerequisiteIdsInFeatures(features), ...seedIds]),
+    ...new Set([
+      ...getPrerequisiteIdsInFeatures({ features, environment }),
+      ...seedIds,
+    ]),
   ].filter((id) => !present.has(id));
 
   for (
@@ -2427,9 +2438,10 @@ async function loadMissingPrerequisites(
       present.add(f.id);
       out.push(f);
     });
-    wanted = getPrerequisiteIdsInFeatures(loaded).filter(
-      (id) => !present.has(id),
-    );
+    wanted = getPrerequisiteIdsInFeatures({
+      features: loaded,
+      environment,
+    }).filter((id) => !present.has(id));
   }
 
   return out;
@@ -2449,11 +2461,16 @@ export async function getFeatureDefinitions(
     ? await getAllCbVisualExperiments(context)
     : [];
   if (projectFilter && args.includeReferencedPrerequisites) {
-    allFeatures = await loadMissingPrerequisites(
+    allFeatures = await loadMissingPrerequisites({
       context,
-      allFeatures,
-      interleavingPrerequisiteIds(interleavings, environment, projectFilter),
-    );
+      features: allFeatures,
+      seedIds: interleavingPrerequisiteIds(
+        interleavings,
+        environment,
+        projectFilter,
+      ),
+      environment,
+    });
   }
   let experimentMap = await getAllPayloadExperiments(
     context,
@@ -2468,13 +2485,22 @@ export async function getFeatureDefinitions(
       args.capabilities,
     );
     for (let round = 0; round < MAX_PREREQUISITE_LOAD_ROUNDS; round++) {
-      const expanded = await loadMissingPrerequisites(context, allFeatures, [
-        ...getPrerequisiteIdsInFeatures(allFeatures, experimentMap),
-        ...getVisualExperimentPrerequisiteIds(
-          servedAutoExperiments(experimentMap.values(), args),
-        ),
-        ...cbSeeds,
-      ]);
+      const expanded = await loadMissingPrerequisites({
+        context,
+        features: allFeatures,
+        seedIds: [
+          ...getPrerequisiteIdsInFeatures({
+            features: allFeatures,
+            experimentMap,
+            environment,
+          }),
+          ...getVisualExperimentPrerequisiteIds(
+            servedAutoExperiments(experimentMap.values(), args),
+          ),
+          ...cbSeeds,
+        ],
+        environment,
+      });
       if (expanded.length === allFeatures.length) break;
       allFeatures = expanded;
       const referenced = getReferenceIdsInFeatures(
