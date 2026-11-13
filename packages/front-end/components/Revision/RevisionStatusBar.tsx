@@ -26,6 +26,7 @@ import HelperText from "@/ui/HelperText";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
+import Tooltip from "@/ui/Tooltip";
 import { getStatusBadge } from "@/components/Revision/revisionUtils";
 import {
   RevisionDiffConfig,
@@ -50,6 +51,7 @@ export default function RevisionStatusBar<T>({
   onReviewPublish,
   onPublish,
   onDiscard,
+  blockedReason = null,
 }: {
   // The viewed revision; null while viewing live.
   selectedRevision: Revision | null;
@@ -66,6 +68,8 @@ export default function RevisionStatusBar<T>({
   // viewer can't publish it.
   onPublish: ((revisionId: string) => Promise<void>) | null;
   onDiscard: (revisionId: string) => Promise<void>;
+  // Why publishing and discarding have to wait, as the rest of the page says.
+  blockedReason?: string | null;
 }) {
   const [confirmDiscard, setConfirmDiscard] = useState(false);
   const [publishError, setPublishError] = useState<string | null>(null);
@@ -127,16 +131,26 @@ export default function RevisionStatusBar<T>({
     actions = (
       <>
         {canDiscard ? (
-          <Link onClick={() => setConfirmDiscard(true)}>Discard</Link>
+          <Tooltip content={blockedReason} enabled={!!blockedReason}>
+            <Link
+              disabled={!!blockedReason}
+              onClick={() => setConfirmDiscard(true)}
+            >
+              Discard
+            </Link>
+          </Tooltip>
         ) : null}
         {/* Once publishing fails, the review tab is where to see why. */}
         {publishable && onPublish && !publishError ? (
-          <Button
-            onClick={() => onPublish(selectedRevision.id)}
-            setError={setPublishError}
-          >
-            Publish
-          </Button>
+          <Tooltip content={blockedReason} enabled={!!blockedReason}>
+            <Button
+              disabled={!!blockedReason}
+              onClick={() => onPublish(selectedRevision.id)}
+              setError={setPublishError}
+            >
+              Publish
+            </Button>
+          </Tooltip>
         ) : (
           <Button
             icon={<PiArrowRight />}

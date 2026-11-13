@@ -758,14 +758,12 @@ export default function SDKConnectionPage() {
                 diffConfig={REVISION_SDK_CONNECTION_DIFF_CONFIG}
                 entityNoun="SDK Connection"
                 requiresApproval={selectedRevisionRequiresApproval}
-                canDiscard={
-                  !staged.dirty &&
-                  (canUpdate || selectedRevision?.authorId === userId)
-                }
+                canDiscard={canUpdate || selectedRevision?.authorId === userId}
                 onSelectRevision={selectFlow}
                 onReviewPublish={() => setTabAndScroll("review")}
-                onPublish={canUpdate && !staged.dirty ? handlePublish : null}
+                onPublish={canUpdate ? handlePublish : null}
                 onDiscard={handleDiscard}
+                blockedReason={stagedBlockedReason}
               />
             </div>
           ) : null
@@ -852,8 +850,14 @@ export default function SDKConnectionPage() {
                 canEditEntity={canUpdate}
                 canBypassApproval={canBypassSelectedRevision}
                 selectRevision={selectFlow}
-                onPublish={handlePublish}
-                onDiscard={handleDiscard}
+                onPublish={async (id) => {
+                  if (staged.dirty) throw new Error(EDITS_BLOCKED_REASON);
+                  await handlePublish(id);
+                }}
+                onDiscard={async (id) => {
+                  if (staged.dirty) throw new Error(EDITS_BLOCKED_REASON);
+                  await handleDiscard(id);
+                }}
                 onReopen={handleReopen}
                 onRevert={setRevisionToRevert}
                 onCompareRevisions={() => setShowCompareModal(true)}

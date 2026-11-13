@@ -74,6 +74,7 @@ export default function SDKConnectionEditsBar({
     const draftId = draft ? draft.id : target === NEW_DRAFT ? null : target;
     setSaving(true);
     setError(null);
+    let landed = false;
     try {
       await saveSdkConnectionChanges({
         apiCall,
@@ -85,6 +86,7 @@ export default function SDKConnectionEditsBar({
         // Cleared before the view moves to the draft, while the edits are
         // still the ones on screen.
         onRevisionCreated: (revision) => {
+          landed = true;
           staged.clear();
           setOpen(false);
           onRevisionCreated(revision);
@@ -92,9 +94,12 @@ export default function SDKConnectionEditsBar({
         onSelectRevision,
         mutate,
       });
-      // A save the server finds unchanged returns no revision.
-      staged.clear();
-      setOpen(false);
+      // A save the server finds unchanged returns no revision and stays put.
+      // After a landing, `clear` would reach the draft now in view.
+      if (!landed) {
+        staged.clear();
+        setOpen(false);
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : "The changes weren't saved.");
     } finally {
