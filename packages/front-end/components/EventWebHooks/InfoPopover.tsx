@@ -20,15 +20,24 @@ export default function InfoPopover({
       trigger={
         // Flex, so the icon centres on the text beside it rather than sitting
         // on a text line of its own.
-        <span
-          style={{ display: "inline-flex" }}
-          tabIndex={0}
+        <button
+          type="button"
           aria-label={label}
-          // In a field's label, a click would focus the field.
-          onClick={(e) => e.preventDefault()}
+          style={{
+            display: "inline-flex",
+            padding: 0,
+            border: 0,
+            background: "none",
+            color: "inherit",
+          }}
+          // Hover already shows it, so a mouse click would only shut it. A
+          // click from the keyboard (no `detail`) is what opens it there.
+          onClick={(e) => {
+            if (e.detail) e.preventDefault();
+          }}
         >
           <PiInfo />
-        </span>
+        </button>
       }
       content={
         <Flex direction="column" gap="2">

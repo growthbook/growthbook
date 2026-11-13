@@ -171,11 +171,15 @@ export function useSdkConnectionRevisionFlow({
     setMode(defaultMode(draftId));
   };
 
-  const save = async (body: Record<string, unknown>) =>
+  const save = async (
+    body: Record<string, unknown>,
+    expected?: Record<string, unknown>,
+  ) =>
     saveSdkConnectionChanges({
       apiCall,
       connection,
       body,
+      expected,
       // Never publish where the scope forbids it.
       mode: mode === "publish" && !effectiveCanAutoPublish ? "new" : mode,
       draftId: selectedDraftId,

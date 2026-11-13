@@ -29,6 +29,7 @@ import EditSDKWebhooksModal, {
   CreateSDKWebhookModal,
 } from "@/components/Settings/WebhooksModal";
 import { useAuth } from "@/services/auth";
+import { ApiCallError } from "@/services/apiCallError";
 import Tooltip from "@/ui/Tooltip";
 import { useUser } from "@/services/UserContext";
 import Button from "@/ui/Button";
@@ -244,8 +245,25 @@ export default function SdkWebhooks({
   );
   const draftCta = flow.mode === "publish" ? undefined : "Save to draft";
 
-  const submitWebhookRevision = (newSnapshots: SDKWebhookRevisionSnapshot[]) =>
-    flow.save({ sdkWebhooks: newSnapshots });
+  // `from` is the list the change was made to. The server refuses the save
+  // if a webhook was added or removed since, which this list would undo.
+  const submitWebhookRevision = async (
+    newSnapshots: SDKWebhookRevisionSnapshot[],
+    from: SDKWebhookRevisionSnapshot[],
+  ) => {
+    try {
+      await flow.save(
+        { sdkWebhooks: newSnapshots },
+        { sdkWebhookIds: from.map((wh) => wh.id) },
+      );
+    } catch (e) {
+      // Reloaded, so trying again starts from what's there now.
+      if (e instanceof ApiCallError && e.code === "changes_conflict") {
+        await Promise.all([mutate(), refresh()]);
+      }
+      throw e;
+    }
+  };
 
   // The webhooks the change is made to: the chosen draft's, or live's.
   const currentWebhookSnapshots = (): SDKWebhookRevisionSnapshot[] => {
@@ -288,14 +306,18 @@ export default function SdkWebhooks({
         timeoutSeconds: formData.timeoutSeconds,
       }),
     };
-    await submitWebhookRevision([...currentSnapshots, newSnapshot]);
+    await submitWebhookRevision(
+      [...currentSnapshots, newSnapshot],
+      currentSnapshots,
+    );
   };
 
   const handleEditViaRevision = async (
     formData: UpdateSdkWebhookProps,
     id: string | undefined,
   ): Promise<void> => {
-    const updated = snapshotsWith(id).map((s) => {
+    const from = snapshotsWith(id);
+    const updated = from.map((s) => {
       if (s.id !== id) return s;
       // A blank timeout (null) clears it back to the default.
       const { timeoutSeconds: currentTimeout, ...rest } = s;
@@ -320,12 +342,14 @@ export default function SdkWebhooks({
         ...((timeoutSeconds ?? null) !== null && { timeoutSeconds }),
       };
     });
-    await submitWebhookRevision(updated);
+    await submitWebhookRevision(updated, from);
   };
 
   const handleDeleteViaRevision = async (webhookId: string): Promise<void> => {
+    const from = snapshotsWith(webhookId);
     await submitWebhookRevision(
-      snapshotsWith(webhookId).filter((s) => s.id !== webhookId),
+      from.filter((s) => s.id !== webhookId),
+      from,
     );
   };
 
@@ -398,7 +422,7 @@ export default function SdkWebhooks({
       const editBlockedReason =
         notInDraftReason ??
         (live?.signingKey === ""
-          ? "This webhook also fires for SDK Connections you can't edit."
+          ? "This webhook also fires for SDK Connections you can't edit. Someone with access to all of them can change it."
           : undefined);
       const hidden = (
         <Text color="text-mid" fontStyle="italic">

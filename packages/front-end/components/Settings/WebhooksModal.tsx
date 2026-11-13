@@ -1,5 +1,7 @@
 import { FC, ReactNode, useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
+import isEqual from "lodash/isEqual";
+import pickBy from "lodash/pickBy";
 import {
   CreateSdkWebhookProps,
   UpdateSdkWebhookProps,
@@ -540,19 +542,19 @@ const EditSDKWebhooksModal: FC<{
 }) => {
   const { apiCall } = useAuth();
 
-  const form = useForm({
-    defaultValues: {
-      name: current.name || "My Webhook",
-      endpoint: current.endpoint || "",
-      useSdkMode: true,
-      payloadFormat: current?.payloadFormat || "standard",
-      payloadKey: current?.payloadKey || "",
-      httpMethod: current?.httpMethod || "POST",
-      headers: current?.headers || "{}",
-      timeoutSeconds: current?.timeoutSeconds ?? null,
-      sdkid: sdkConnectionId,
-    },
-  });
+  // What the form opened with, to tell which fields were changed in it.
+  const opened = {
+    name: current.name || "My Webhook",
+    endpoint: current.endpoint || "",
+    useSdkMode: true,
+    payloadFormat: current?.payloadFormat || "standard",
+    payloadKey: current?.payloadKey || "",
+    httpMethod: current?.httpMethod || "POST",
+    headers: current?.headers || "{}",
+    timeoutSeconds: current?.timeoutSeconds ?? null,
+    sdkid: sdkConnectionId,
+  };
+  const form = useForm({ defaultValues: opened });
 
   const onSubmit = validatedSubmit(form, async (value) => {
     if (value.endpoint.match(/localhost/g)) {
@@ -579,7 +581,12 @@ const EditSDKWebhooksModal: FC<{
     };
 
     if (onOverrideSubmit) {
-      await onOverrideSubmit(data, current.id);
+      // Only what was changed here, so an edit saved to a draft keeps the
+      // draft's own changes to the same webhook.
+      await onOverrideSubmit(
+        pickBy(data, (v, key) => !isEqual(v, opened[key as keyof typeof data])),
+        current.id,
+      );
     } else if (current.id) {
       await apiCall(`/sdk-webhooks/${current.id}`, {
         method: "PUT",

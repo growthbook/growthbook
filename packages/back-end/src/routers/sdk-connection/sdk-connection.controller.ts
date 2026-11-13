@@ -309,6 +309,31 @@ export const putSDKConnection = async (
       draftWebhookSnapshots ?? liveWebhookSnapshots,
       sentWebhooks,
     );
+  // The webhooks the caller's list was built from. One added or removed
+  // since would be undone by it, so the save is refused.
+  const expectedWebhookIds = isPlainObject(expected)
+    ? expected.sdkWebhookIds
+    : undefined;
+  if (sentWebhooks && Array.isArray(expectedWebhookIds)) {
+    const baseIds = (draftWebhookSnapshots ?? liveWebhookSnapshots).map(
+      (wh) => wh.id,
+    );
+    const seenIds = expectedWebhookIds.map((id) =>
+      sdkWebhookStableId(connection.id, String(id)),
+    );
+    if (!isEqual([...baseIds].sort(), [...seenIds].sort())) {
+      throw new ChangesConflictError(
+        {
+          fields: ["sdkWebhooks"],
+          featureIds: [],
+          urlRedirectIds: [],
+          visualChangesetIds: [],
+        },
+        "This SDK connection's webhooks changed since the page loaded them. Reload and try again.",
+      );
+    }
+  }
+
   // Against the draft being edited, so setting a webhook back to live sticks.
   const hasWebhookChanges =
     incomingWebhooks !== null &&
