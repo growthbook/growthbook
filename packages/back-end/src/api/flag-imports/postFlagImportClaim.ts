@@ -2,7 +2,7 @@ import { postFlagImportClaimValidator } from "shared/validators";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import {
   assertFlagImportsEnabled,
-  claimFlagImportIntoWorkspace,
+  claimFlagImportForWorkspace,
 } from "back-end/src/services/flagImports";
 
 export const postFlagImportClaim = createApiRequestHandler(
@@ -10,10 +10,9 @@ export const postFlagImportClaim = createApiRequestHandler(
 )(async (req) => {
   assertFlagImportsEnabled();
   return {
-    flagImport: await claimFlagImportIntoWorkspace(
+    flagImport: await claimFlagImportForWorkspace(
       req.context,
       req.params.token,
-      req.body,
     ),
   };
 });

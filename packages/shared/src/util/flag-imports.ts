@@ -92,6 +92,17 @@ const UNSUPPORTED_RULE_FIELDS: [keyof FlagsJsonRule, string][] = [
   ["minBucketVersion", "sticky bucketing"],
 ];
 
+// Keys here come from the upload, so "constructor" or "toString" must read
+// as a missing entry, not as the object's inherited property.
+function ownEntry<T>(
+  record: Record<string, T> | undefined,
+  key: string,
+): T | undefined {
+  return record && Object.prototype.hasOwnProperty.call(record, key)
+    ? record[key]
+    : undefined;
+}
+
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
@@ -210,40 +221,96 @@ function noteHashAttribute(
   });
 }
 
+export type FlagImportRuleFix = { remove: true } | { environments: string[] };
+
+// What a person changes before importing, keyed by Feature Flag key and then
+// by the rule's position in the file.
+export type FlagImportOverrides = {
+  rules?: Record<string, Record<string, FlagImportRuleFix>>;
+};
+
+export type FlagImportPreviewRule = {
+  // Position in the file, so a fix can name it.
+  index: number;
+  type: "force" | "rollout" | "experiment";
+  condition: string;
+  // null means every environment
+  environments: string[] | null;
+  value: string | null;
+  coverage: number | null;
+  hashAttribute: string | null;
+  experiment: {
+    trackingKey: string;
+    name: string;
+    variations: { name: string; value: string; weight: number }[];
+  } | null;
+  issue: string | null;
+  // Choosing the rule's environments resolves the issue.
+  fixable: boolean;
+};
+
+export type FlagImportPreviewFlag = {
+  key: string;
+  valueType: ValueType;
+  defaultValue: string;
+  rules: FlagImportPreviewRule[];
+  importable: boolean;
+  reason: string | null;
+};
+
 type PlannedRule = {
   rule: FlagImportRule;
   experiment: FlagImportExperiment | null;
 };
+
+type RuleFailure = { error: string; fixable: boolean };
 
 function planRule(
   flagKey: string,
   rule: FlagsJsonRule,
   index: number,
   valueType: ValueType,
-): PlannedRule | string {
+  environmentsFix?: string[],
+): PlannedRule | RuleFailure {
   const label = `Rule ${index + 1}`;
+  const fail = (message: string, fixable = false): RuleFailure => ({
+    error: `${label} ${message}`,
+    fixable,
+  });
 
   const unsupported = UNSUPPORTED_RULE_FIELDS.find(
     ([field]) => rule[field] !== undefined,
   );
   if (unsupported) {
-    return `${label} uses ${unsupported[1]}, which this import does not support yet`;
+    return fail(
+      `uses ${unsupported[1]}, which this import does not support yet`,
+    );
   }
 
   const condition = { ...(rule.condition ?? {}) };
   let environments: string[] | null = null;
-  if (ENV_ATTRIBUTE in condition) {
+  if (environmentsFix) {
+    environments = [...environmentsFix];
+    delete condition[ENV_ATTRIBUTE];
+  } else if (ENV_ATTRIBUTE in condition) {
     environments = readEnvironments(condition[ENV_ATTRIBUTE]);
     if (!environments) {
-      return `${label} must match ${ENV_ATTRIBUTE} with a plain value, $eq or $in`;
+      return fail(
+        `must match ${ENV_ATTRIBUTE} with a plain value, $eq or $in`,
+        true,
+      );
     }
     delete condition[ENV_ATTRIBUTE];
   }
   if (mentionsKey(condition, [ENV_ATTRIBUTE])) {
-    return `${label} nests ${ENV_ATTRIBUTE} inside another operator. Put it at the top of the condition`;
+    return fail(
+      `nests ${ENV_ATTRIBUTE} inside another operator. Put it at the top of the condition`,
+    );
   }
   if (mentionsKey(condition, ["$inGroup", "$notInGroup"])) {
-    return `${label} targets a Saved Group, which this import does not support yet`;
+    return fail(
+      "targets a Saved Group, which this import does not support yet",
+    );
   }
 
   const base: RuleBase = {
@@ -253,13 +320,15 @@ function planRule(
   const hasForce = rule.force !== undefined;
 
   if (rule.variations) {
-    if (hasForce) return `${label} has both force and variations`;
+    if (hasForce) return fail("has both force and variations");
     const count = rule.variations.length;
     if (rule.weights && rule.weights.length !== count) {
-      return `${label} has ${rule.weights.length} weights for ${count} variations`;
+      return fail(`has ${rule.weights.length} weights for ${count} variations`);
     }
     if (rule.meta?.some((m) => m.passthrough)) {
-      return `${label} uses passthrough variations, which this import does not support yet`;
+      return fail(
+        "uses passthrough variations, which this import does not support yet",
+      );
     }
     const trackingKey = rule.key ?? flagKey;
     return {
@@ -290,7 +359,7 @@ function planRule(
     };
   }
 
-  if (!hasForce) return `${label} has neither force nor variations`;
+  if (!hasForce) return fail("has neither force nor variations");
   const value = toStoredValue(rule.force, valueType);
   if (rule.coverage === undefined || rule.coverage >= 1) {
     return { rule: { ...base, type: "force", value }, experiment: null };
@@ -311,22 +380,37 @@ function planRule(
   };
 }
 
+type RuleOutcome = {
+  index: number;
+  source: FlagsJsonRule;
+  planned: PlannedRule | null;
+  failure: RuleFailure | null;
+};
+
 type PlannedFlagWithExperiments = FlagImportPlannedFlag & {
   experiments: FlagImportExperiment[];
   mixedTypes: boolean;
+  outcomes: RuleOutcome[];
 };
 
 function planFlag(
   key: string,
   feature: FlagsJsonFeature,
+  fixes: Record<string, FlagImportRuleFix> = {},
 ): PlannedFlagWithExperiments {
-  const rules = feature.rules ?? [];
+  const rules = (feature.rules ?? [])
+    .map((source, index) => ({
+      source,
+      index,
+      fix: ownEntry(fixes, String(index)),
+    }))
+    .filter(({ fix }) => !(fix && "remove" in fix));
   const kinds = new Set(
     [
       feature.defaultValue,
-      ...rules.flatMap((rule) => [
-        ...(rule.force !== undefined ? [rule.force] : []),
-        ...(rule.variations ?? []),
+      ...rules.flatMap(({ source }) => [
+        ...(source.force !== undefined ? [source.force] : []),
+        ...(source.variations ?? []),
       ]),
     ].map(valueKind),
   );
@@ -335,23 +419,35 @@ function planFlag(
   const unsupported: string[] = [];
   const planned: FlagImportRule[] = [];
   const experiments: FlagImportExperiment[] = [];
-  rules.forEach((rule, i) => {
-    const result = planRule(key, rule, i, valueType);
-    if (typeof result === "string") {
-      unsupported.push(result);
+  const outcomes: RuleOutcome[] = [];
+  rules.forEach(({ source, index, fix }) => {
+    const result = planRule(
+      key,
+      source,
+      index,
+      valueType,
+      fix && "environments" in fix ? fix.environments : undefined,
+    );
+    if ("error" in result) {
+      unsupported.push(result.error);
+      outcomes.push({ index, source, planned: null, failure: result });
       return;
     }
     planned.push(result.rule);
-    if (!result.experiment) return;
-    if (
-      experiments.some((e) => e.trackingKey === result.experiment?.trackingKey)
-    ) {
-      unsupported.push(
-        `Rule ${i + 1} reuses the experiment key ${result.experiment.trackingKey} from an earlier rule`,
-      );
+    const reused =
+      result.experiment &&
+      experiments.some((e) => e.trackingKey === result.experiment?.trackingKey);
+    if (result.experiment && reused) {
+      const failure = {
+        error: `Rule ${index + 1} reuses the experiment key ${result.experiment.trackingKey} from an earlier rule`,
+        fixable: false,
+      };
+      unsupported.push(failure.error);
+      outcomes.push({ index, source, planned: result, failure });
       return;
     }
-    experiments.push(result.experiment);
+    outcomes.push({ index, source, planned: result, failure: null });
+    if (result.experiment) experiments.push(result.experiment);
   });
 
   return {
@@ -363,17 +459,91 @@ function planFlag(
     unsupported,
     experiments,
     mixedTypes: kinds.size > 1,
+    outcomes,
   };
 }
 
-export function planFlagImport(file: FlagsJson): FlagImportPlan {
+function previewRule(
+  valueType: ValueType,
+  { index, source, planned, failure }: RuleOutcome,
+): FlagImportPreviewRule {
+  const issue = { issue: failure?.error ?? null, fixable: !!failure?.fixable };
+  if (!planned) {
+    // Shown as written, since it could not be read as a GrowthBook rule.
+    return {
+      index,
+      type: source.variations
+        ? "experiment"
+        : source.coverage !== undefined && source.coverage < 1
+          ? "rollout"
+          : "force",
+      condition:
+        source.condition && Object.keys(source.condition).length
+          ? JSON.stringify(source.condition)
+          : "",
+      environments: [],
+      value:
+        source.force !== undefined
+          ? toStoredValue(source.force, valueType)
+          : null,
+      coverage: source.coverage ?? null,
+      hashAttribute: source.hashAttribute ?? null,
+      experiment: null,
+      ...issue,
+    };
+  }
+  const { rule, experiment } = planned;
+  if (rule.type === "experiment") {
+    return {
+      index,
+      type: "experiment",
+      condition: experiment?.condition ?? "",
+      environments: rule.environments,
+      value: null,
+      coverage: experiment?.coverage ?? 1,
+      hashAttribute: experiment?.hashAttribute ?? DEFAULT_HASH_ATTRIBUTE,
+      experiment: {
+        trackingKey: rule.trackingKey,
+        name: experiment?.name ?? rule.trackingKey,
+        variations: rule.values.map((value, i) => ({
+          name: experiment?.variations[i]?.name ?? `Variation ${i}`,
+          value,
+          weight: experiment?.weights[i] ?? 0,
+        })),
+      },
+      ...issue,
+    };
+  }
+  return {
+    index,
+    type: rule.type,
+    condition: rule.condition,
+    environments: rule.environments,
+    value: rule.value,
+    coverage: rule.type === "rollout" ? rule.coverage : null,
+    hashAttribute: rule.type === "rollout" ? rule.hashAttribute : null,
+    experiment: null,
+    ...issue,
+  };
+}
+
+function planAll(
+  file: FlagsJson,
+  overrides: FlagImportOverrides,
+): { plan: FlagImportPlan; previews: FlagImportPreviewFlag[] } {
   const warnings: FlagImportWarning[] = [];
   const experiments = new Map<string, FlagImportExperiment>();
   const environments = new Set<string>();
   const attributes = new Map<string, FlagImportAttribute>();
+  const previews: FlagImportPreviewFlag[] = [];
 
   const flags = Object.entries(file.features).map(([key, feature]) => {
-    const { experiments: own, mixedTypes, ...flag } = planFlag(key, feature);
+    const {
+      experiments: own,
+      mixedTypes,
+      outcomes,
+      ...flag
+    } = planFlag(key, feature, ownEntry(overrides.rules, key));
     const path = `features.${key}`;
 
     // One experiment can sit behind several flags, but only as one definition.
@@ -386,6 +556,14 @@ export function planFlagImport(file: FlagsJson): FlagImportPlan {
         `The experiment key ${conflict.trackingKey} is used elsewhere in the file with different settings`,
       );
     }
+    previews.push({
+      key,
+      valueType: flag.valueType,
+      defaultValue: flag.defaultValue,
+      rules: outcomes.map((outcome) => previewRule(flag.valueType, outcome)),
+      importable: !flag.unsupported.length,
+      reason: flag.unsupported.join(". ") || null,
+    });
     if (flag.unsupported.length) {
       flag.unsupported.forEach((message) => warnings.push({ path, message }));
       return flag;
@@ -424,18 +602,74 @@ export function planFlagImport(file: FlagsJson): FlagImportPlan {
   );
 
   return {
-    flags,
-    experiments: [...experiments.values()],
-    environments: [...environments],
-    attributes: [...attributes.values()],
-    warnings,
-    summary: {
-      flags: flags.length,
-      rules: flags.reduce((total, flag) => total + flag.ruleCount, 0),
-      experiments: experiments.size + (file.experiments?.length ?? 0),
+    previews,
+    plan: {
+      flags,
+      experiments: [...experiments.values()],
       environments: [...environments],
-      attributes: [...attributes.keys()],
+      attributes: [...attributes.values()],
+      warnings,
+      summary: {
+        flags: flags.length,
+        rules: flags.reduce((total, flag) => total + flag.ruleCount, 0),
+        experiments: experiments.size + (file.experiments?.length ?? 0),
+        environments: [...environments],
+        attributes: [...attributes.keys()],
+      },
     },
+  };
+}
+
+export function planFlagImport(
+  file: FlagsJson,
+  overrides: FlagImportOverrides = {},
+): FlagImportPlan {
+  return planAll(file, overrides).plan;
+}
+
+// Every Feature Flag in the file as the claim page shows it, importable or not.
+export function previewFlagImport(
+  file: FlagsJson,
+  overrides: FlagImportOverrides = {},
+): FlagImportPreviewFlag[] {
+  return planAll(file, overrides).previews;
+}
+
+export function selectFlagImportFlags(
+  file: FlagsJson,
+  keys?: string[],
+): FlagsJson {
+  if (!keys) return file;
+  const wanted = new Set(keys);
+  return {
+    ...file,
+    features: Object.fromEntries(
+      Object.entries(file.features).filter(([key]) => wanted.has(key)),
+    ),
+  };
+}
+
+// Swaps environment names from the file for the workspace's own.
+export function mapFlagImportEnvironments(
+  plan: FlagImportPlan,
+  map: Record<string, string> = {},
+): FlagImportPlan {
+  const rename = (envs: string[]) => [
+    ...new Set(envs.map((env) => ownEntry(map, env) || env)),
+  ];
+  const environments = rename(plan.environments);
+  return {
+    ...plan,
+    flags: plan.flags.map((flag) => ({
+      ...flag,
+      rules: flag.rules.map((rule) =>
+        rule.environments
+          ? { ...rule, environments: rename(rule.environments) }
+          : rule,
+      ),
+    })),
+    environments,
+    summary: { ...plan.summary, environments },
   };
 }
 

@@ -7,6 +7,10 @@ export const FLAG_IMPORT_MAX_RULES_PER_FLAG = 100;
 export const FLAG_IMPORT_MAX_EXPERIMENTS = 100;
 export const FLAG_IMPORT_MAX_BYTES = 256 * 1024;
 export const FLAG_IMPORT_LIFETIME_HOURS = 24;
+// Once claimed, an upload waits this long to be imported.
+export const FLAG_IMPORT_CLAIMED_LIFETIME_DAYS = 7;
+// Claimed uploads a workspace can hold before it has to import one.
+export const FLAG_IMPORT_MAX_CLAIMED_PER_WORKSPACE = 20;
 
 const flagsJsonCondition = z.record(z.string(), z.unknown());
 
@@ -179,23 +183,73 @@ export const flagImportResult = z
   })
   .strict();
 
+export const flagImportStatuses = ["pending", "claimed", "imported"] as const;
+
+// What anyone holding the link can see: nothing from the upload, and nothing
+// about the workspace that took it.
+export const apiFlagImportStatus = z
+  .object({
+    status: z.enum(flagImportStatuses),
+    expiresAt: z.string(),
+  })
+  .strict();
+
+// What the workspace that claimed it can see.
 export const apiFlagImport = z
   .object({
-    status: z.enum(["pending", "claimed"]),
+    status: z.enum(flagImportStatuses),
     name: z.string().nullable(),
     agent: z.string().nullable(),
     dateCreated: z.string(),
     expiresAt: z.string(),
-    summary: flagImportSummary,
-    flags: z.array(flagImportFlag),
-    warnings: z.array(flagImportWarning),
-    claimed: z
+    file: flagsJsonValidator
+      .nullable()
+      .describe("The uploaded flags. Null once they have been imported."),
+    existingFlags: z
+      .array(z.string())
+      .describe("Keys in the upload that this workspace already has."),
+    imported: z
       .object({
         at: z.string(),
         results: z.array(flagImportResult),
+        autoRunUrl: z
+          .string()
+          .nullable()
+          .describe("The report page for this import."),
       })
       .strict()
       .nullable(),
+  })
+  .strict();
+
+export const flagImportRuleFix = z.union([
+  z.object({ remove: z.literal(true) }).strict(),
+  z
+    .object({ environments: z.array(z.string().min(1)).min(1).max(50) })
+    .strict(),
+]);
+
+export const flagImportChoices = z
+  .object({
+    flags: z
+      .array(z.string())
+      .max(FLAG_IMPORT_MAX_FLAGS)
+      .describe(
+        "Keys of the Feature Flags to import. Leave out to import every one that can be.",
+      )
+      .optional(),
+    environments: z
+      .record(z.string(), z.string().min(1))
+      .describe(
+        "Maps an environment named in the upload to the workspace environment to use in its place.",
+      )
+      .optional(),
+    rules: z
+      .record(z.string(), z.record(z.string(), flagImportRuleFix))
+      .describe(
+        "Fixes for rules that cannot be imported as written, keyed by Feature Flag key and then by the rule's position in the upload, starting at 0. A fix either removes the rule or sets the environments it applies to.",
+      )
+      .optional(),
   })
   .strict();
 
@@ -203,7 +257,10 @@ export type FlagImportSummary = z.infer<typeof flagImportSummary>;
 export type FlagImportWarning = z.infer<typeof flagImportWarning>;
 export type FlagImportFlag = z.infer<typeof flagImportFlag>;
 export type FlagImportResult = z.infer<typeof flagImportResult>;
+export type FlagImportStatus = (typeof flagImportStatuses)[number];
+export type ApiFlagImportStatus = z.infer<typeof apiFlagImportStatus>;
 export type ApiFlagImport = z.infer<typeof apiFlagImport>;
+export type FlagImportChoices = z.infer<typeof flagImportChoices>;
 
 const tokenParams = z
   .object({
@@ -242,7 +299,7 @@ export const postFlagImportValidator = {
     .strict(),
   summary: "Upload flags defined in code for someone to claim, with no account",
   description:
-    "Send the SDK payload as JSON in the request body. For flags kept in a local `flags.ts`, that is `JSON.stringify(flags)`. The upload is checked and kept for 24 hours, and the response has a claim link. Whoever opens the link signs up or signs in and imports the Feature Flags into their workspace. No API key is needed. A top-level `env` in a rule's condition becomes the environments that rule applies to. A rule with `variations` becomes a draft experiment linked to its Feature Flag.",
+    "Send the SDK payload as JSON in the request body. For flags kept in a local `flags.ts`, that is `JSON.stringify(flags)`. The upload is checked and kept for 24 hours, and the response has a claim link. Whoever opens the link signs up or signs in, claims the upload for their workspace and chooses what to import. No API key is needed. A top-level `env` in a rule's condition becomes the environments that rule applies to. A rule with `variations` becomes a draft experiment linked to its Feature Flag.",
   operationId: "postFlagImport",
   tags: ["flag-imports"],
   method: "post" as const,
@@ -269,10 +326,10 @@ export const getFlagImportValidator = {
   bodySchema: z.never(),
   querySchema: z.never(),
   paramsSchema: tokenParams,
-  responseSchema: z.object({ flagImport: apiFlagImport }).strict(),
-  summary: "Check whether uploaded flags have been claimed",
+  responseSchema: z.object({ flagImport: apiFlagImportStatus }).strict(),
+  summary: "Check whether uploaded flags have been claimed or imported",
   description:
-    "The token is the only credential. Once claimed, `claimed.results` lists what was created.",
+    "The token is the only credential, and the answer says nothing about what was uploaded or what was created: only whether it is pending, claimed or imported.",
   operationId: "getFlagImport",
   tags: ["flag-imports"],
   method: "get" as const,
@@ -281,8 +338,38 @@ export const getFlagImportValidator = {
 };
 
 export const postFlagImportClaimValidator = {
-  bodySchema: z
-    .object({
+  bodySchema: z.never(),
+  querySchema: z.never(),
+  paramsSchema: tokenParams,
+  responseSchema: z.object({ flagImport: apiFlagImport }).strict(),
+  summary: "Claim uploaded flags for your workspace",
+  description:
+    "Ties the upload to the caller's workspace and returns it. Nothing is created. One workspace can claim an upload, and it then has 7 days to import it. Calling this again from the same workspace returns the upload.",
+  operationId: "postFlagImportClaim",
+  tags: ["flag-imports"],
+  method: "post" as const,
+  path: "/flag-imports/:token/claim",
+  confirmation: [] as const,
+  confirmationInHandler: true,
+};
+
+export const getFlagImportDetailsValidator = {
+  bodySchema: z.never(),
+  querySchema: z.never(),
+  paramsSchema: tokenParams,
+  responseSchema: z.object({ flagImport: apiFlagImport }).strict(),
+  summary: "Get uploaded flags your workspace has claimed",
+  description:
+    "Returns the upload to the workspace that claimed it, with the keys it already has. Any other workspace gets a 403.",
+  operationId: "getFlagImportDetails",
+  tags: ["flag-imports"],
+  method: "get" as const,
+  path: "/flag-imports/:token/details",
+};
+
+export const postFlagImportImportValidator = {
+  bodySchema: flagImportChoices
+    .extend({
       project: z
         .string()
         .describe("ID of the Project to create the Feature Flags in.")
@@ -293,13 +380,13 @@ export const postFlagImportClaimValidator = {
   querySchema: z.never(),
   paramsSchema: tokenParams,
   responseSchema: z.object({ flagImport: apiFlagImport }).strict(),
-  summary: "Import uploaded flags into your workspace",
+  summary: "Import claimed flags into your workspace",
   description:
-    "Creates each Feature Flag in the upload with the caller's own permissions, the same way `POST /v2/features` does. A Feature Flag whose key already exists is skipped, never overwritten. An upload can be claimed once. An API key that needs a person's confirmation for these writes is refused: open the claim link instead.",
-  operationId: "postFlagImportClaim",
+    "Creates each chosen Feature Flag with the caller's own permissions, the same way `POST /v2/features` does, and records the import as an Auto Run. A Feature Flag whose key already exists is skipped, never overwritten. An upload can be imported once. An API key that needs a person's confirmation for these writes is refused: open the claim link instead.",
+  operationId: "postFlagImportImport",
   tags: ["flag-imports"],
   method: "post" as const,
-  path: "/flag-imports/:token/claim",
+  path: "/flag-imports/:token/import",
   confirmation: [] as const,
   confirmationInHandler: true,
 };

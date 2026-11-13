@@ -2,7 +2,12 @@ import { z } from "zod";
 import { baseSchema, apiBaseSchema } from "./base-model";
 import { namedSchema } from "./openapi-helpers";
 
-export const autoRunSources = ["cli-wizard", "skill", "eppo-import"] as const;
+export const autoRunSources = [
+  "cli-wizard",
+  "skill",
+  "eppo-import",
+  "flags-import",
+] as const;
 export const MAX_AUTO_RUN_ARTIFACTS = 5000;
 export const autoRunArtifactActions = [
   "created",

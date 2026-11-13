@@ -2,11 +2,11 @@ import { ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/router";
 import useSWR from "swr";
 import { Box, Flex } from "@radix-ui/themes";
-import { ago, date } from "shared/dates";
+import { date } from "shared/dates";
 import {
   ApiFlagImport,
-  FlagImportFlag,
-  FlagImportResult,
+  ApiFlagImportStatus,
+  getFlagImportDetailsValidator,
   getFlagImportValidator,
   postFlagImportClaimValidator,
 } from "shared/validators";
@@ -25,39 +25,21 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import { getApiHost, isCloud } from "@/services/env";
 import track, { trackPageView } from "@/services/track";
 import { useRestApiCall } from "@/services/restApi";
-import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import Welcome from "@/components/Auth/Welcome";
-import Badge from "@/ui/Badge";
+import ImportFlow, {
+  ImportDone,
+  ImportHero,
+} from "@/components/FlagImport/ImportFlow";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
 import Frame from "@/ui/Frame";
-import Heading from "@/ui/Heading";
-import Link from "@/ui/Link";
 import LinkButton from "@/ui/LinkButton";
 import { Select, SelectItem } from "@/ui/Select";
 import Text from "@/ui/Text";
 import TextField from "@/ui/TextField";
 
-const NO_PROJECT = "__none__";
-
-const VALUE_TYPE_LABEL: Record<FlagImportFlag["valueType"], string> = {
-  boolean: "Boolean",
-  string: "String",
-  number: "Number",
-  json: "JSON",
-};
-
-const RESULT_GROUPS: { status: FlagImportResult["status"]; label: string }[] = [
-  { status: "created", label: "Created" },
-  { status: "exists", label: "Already existed" },
-  { status: "skipped", label: "Skipped" },
-  { status: "failed", label: "Failed" },
-];
-
-const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
-
-async function fetchFlagImport(token: string): Promise<ApiFlagImport | null> {
+async function fetchStatus(token: string): Promise<ApiFlagImportStatus | null> {
   const res = await fetch(
     `${getApiHost()}/api/v1/flag-imports/${encodeURIComponent(token)}`,
   );
@@ -73,94 +55,25 @@ async function fetchFlagImport(token: string): Promise<ApiFlagImport | null> {
   return getFlagImportValidator.responseSchema.parse(json).flagImport;
 }
 
-function Page({ children }: { children: ReactNode }) {
+function Page({
+  children,
+  narrow = false,
+}: {
+  children: ReactNode;
+  narrow?: boolean;
+}) {
   return (
-    <Box maxWidth="520px" mx="auto" my="5" px="4">
-      <Frame>{children}</Frame>
+    <Box maxWidth={narrow ? "520px" : "760px"} mx="auto" px="4" pt="6" pb="8">
+      {narrow ? <Frame>{children}</Frame> : children}
     </Box>
   );
 }
 
-function Row({ label, children }: { label: ReactNode; children: ReactNode }) {
+function LinkNote({ expiresAt }: { expiresAt: string }) {
   return (
-    <Flex gap="3" justify="between" align="start">
-      <Box minWidth="0">{label}</Box>
-      <Box flexShrink="0">{children}</Box>
-    </Flex>
-  );
-}
-
-function FlagRow({ flag }: { flag: FlagImportFlag }) {
-  const meta = [VALUE_TYPE_LABEL[flag.valueType]];
-  if (flag.rules > 0) meta.push(plural(flag.rules, "rule"));
-  return (
-    <Box>
-      <Row
-        label={
-          <Text mono overflowWrap="anywhere">
-            {flag.key}
-          </Text>
-        }
-      >
-        {flag.importable ? (
-          <Text color="text-mid">{meta.join(" · ")}</Text>
-        ) : (
-          <Badge label="Not imported" color="gray" />
-        )}
-      </Row>
-      {!flag.importable && flag.reason && (
-        <Text as="div" color="text-mid">
-          {flag.reason}
-        </Text>
-      )}
-    </Box>
-  );
-}
-
-function ClaimedResults({ results }: { results: FlagImportResult[] }) {
-  const main = results.filter(
-    (r) => r.kind === "feature" || r.kind === "experiment",
-  );
-  const extras = results
-    .filter(
-      (r) =>
-        (r.kind === "environment" || r.kind === "attribute") &&
-        r.status === "created",
-    )
-    .map((r) => `${r.kind} ${r.key}`);
-  return (
-    <Flex direction="column" gap="4" mb="4">
-      {RESULT_GROUPS.map(({ status, label }) => {
-        const rows = main.filter((r) => r.status === status);
-        if (!rows.length) return null;
-        return (
-          <Box key={status}>
-            <Text as="div" weight="medium" mb="1">
-              {label}
-            </Text>
-            <Flex direction="column" gap="1">
-              {rows.map((r) => (
-                <Box key={`${r.kind}:${r.key}`}>
-                  <Text as="div" mono overflowWrap="anywhere">
-                    {r.key}
-                  </Text>
-                  {r.message && (
-                    <Text as="div" color="text-mid">
-                      {r.message}
-                    </Text>
-                  )}
-                </Box>
-              ))}
-            </Flex>
-          </Box>
-        );
-      })}
-      {extras.length > 0 && (
-        <Text as="p" color="text-mid">
-          Also created: {extras.join(", ")}
-        </Text>
-      )}
-    </Flex>
+    <Text as="p" size="sm" color="text-mid" align="center" mt="5" mb="0">
+      This link works once · Expires {date(expiresAt)}
+    </Text>
   );
 }
 
@@ -177,45 +90,60 @@ const ClaimPage = (): React.ReactElement => {
     organizations = [],
   } = useAuth();
   const { ready: userReady, organization, updateUser } = useUser();
-  const { ready: definitionsReady, projects } = useDefinitions();
-  const permissionsUtil = usePermissionsUtil();
+  const { ready: definitionsReady } = useDefinitions();
   const restApiCall = useRestApiCall();
 
   const [showLogin, setShowLogin] = useState<{
     newInstallation: boolean;
   } | null>(null);
   const [authError, setAuthError] = useState<string | null>(null);
-  const [projectChoice, setProjectChoice] = useState<string | null>(null);
   const [workspaceName, setWorkspaceName] = useState("");
   const [claimError, setClaimError] = useState<string | null>(null);
-  const [claimedOrgId, setClaimedOrgId] = useState<string | null>(null);
+  const [namingWorkspace, setNamingWorkspace] = useState(false);
+  const [claimed, setClaimed] = useState<{
+    orgId: string;
+    flagImport: ApiFlagImport;
+  } | null>(null);
 
   useEffect(() => {
     trackPageView("/claim");
   }, []);
 
   const {
-    data: flagImport,
+    data: status,
     error: loadError,
     isLoading,
-    mutate,
-  } = useSWR<ApiFlagImport | null, Error>(
+    mutate: mutateStatus,
+  } = useSWR<ApiFlagImportStatus | null, Error>(
     token ? `flag-import::${token}` : null,
-    () => fetchFlagImport(token),
+    () => fetchStatus(token),
     { revalidateOnFocus: false },
   );
 
-  const claim = useCallback(
-    async (project?: string) => {
-      const res = await restApiCall(postFlagImportClaimValidator, {
-        params: { token },
-        body: project ? { project } : {},
-      });
-      setClaimedOrgId(orgId);
-      await mutate(res.flagImport, { revalidate: false });
-    },
-    [restApiCall, token, orgId, mutate],
+  const orgLoaded = !!orgId && organization?.id === orgId && definitionsReady;
+  const {
+    data: fetched,
+    error: detailsError,
+    isLoading: detailsLoading,
+  } = useSWR<ApiFlagImport, Error>(
+    isAuthenticated && orgLoaded && status && status.status !== "pending"
+      ? `flag-import-details::${token}::${orgId}`
+      : null,
+    async () =>
+      (await restApiCall(getFlagImportDetailsValidator, { params: { token } }))
+        .flagImport,
+    { revalidateOnFocus: false, shouldRetryOnError: false },
   );
+  const flagImport =
+    claimed && claimed.orgId === orgId ? claimed.flagImport : fetched;
+
+  const claim = useCallback(async () => {
+    const res = await restApiCall(postFlagImportClaimValidator, {
+      params: { token },
+    });
+    if (orgId) setClaimed({ orgId, flagImport: res.flagImport });
+    await mutateStatus();
+  }, [restApiCall, token, orgId, mutateStatus]);
 
   // A new workspace's claim waits until its id reaches the request headers
   const pendingClaim = useRef<{
@@ -252,6 +180,8 @@ const ClaimPage = (): React.ReactElement => {
 
   const createWorkspaceAndClaim = async () => {
     const body: CreateOrganizationPostBody = { company: workspaceName.trim() };
+    // Keeps this step on screen while the new workspace loads.
+    setNamingWorkspace(true);
     const res = await apiCall<{ orgId: string }>("/organization", {
       method: "POST",
       body: JSON.stringify(body),
@@ -262,6 +192,19 @@ const ClaimPage = (): React.ReactElement => {
       pendingClaim.current = { orgId: res.orgId, resolve, reject };
       setOrgId?.(res.orgId);
     });
+  };
+
+  const goToFlags = () => {
+    if (!orgId) {
+      router.push("/features");
+      return;
+    }
+    try {
+      localStorage.setItem("gb-last-picked-org", JSON.stringify(orgId));
+    } catch {
+      // the org query param still switches the workspace
+    }
+    window.location.assign(`/features?org=${encodeURIComponent(orgId)}`);
   };
 
   if (showLogin) {
@@ -279,225 +222,169 @@ const ClaimPage = (): React.ReactElement => {
 
   if (loadError) {
     return (
-      <Page>
+      <Page narrow>
         <Callout status="error">{loadError.message}</Callout>
       </Page>
     );
   }
 
-  if (!flagImport) {
+  if (!status) {
     return (
-      <Page>
-        <Heading as="h1" size="lg" mb="2">
-          This Link Has Expired
-        </Heading>
-        <Text as="p" color="text-mid" mb="4">
+      <Page narrow>
+        <ImportHero title="This link has expired">
           Uploads are kept for 24 hours. Send the file again to get a new link.
-        </Text>
-        <Link href="/">Go to GrowthBook</Link>
-      </Page>
-    );
-  }
-
-  if (flagImport.status === "claimed") {
-    return (
-      <Page>
-        <Heading as="h1" size="lg" mb="1">
-          Feature Flags Imported
-        </Heading>
-        <Text as="p" color="text-mid" mb="4">
-          {[
-            flagImport.name,
-            flagImport.claimed ? `Imported ${ago(flagImport.claimed.at)}` : "",
-          ]
-            .filter(Boolean)
-            .join(" · ")}
-        </Text>
-        <ClaimedResults results={flagImport.claimed?.results ?? []} />
-        <Flex justify="end">
-          {claimedOrgId ? (
-            <Button
-              onClick={() => {
-                try {
-                  localStorage.setItem(
-                    "gb-last-picked-org",
-                    JSON.stringify(claimedOrgId),
-                  );
-                } catch {
-                  // the org query param still switches the workspace
-                }
-                window.location.assign(
-                  `/features?org=${encodeURIComponent(claimedOrgId)}`,
-                );
-              }}
-            >
-              Go to Feature Flags
-            </Button>
-          ) : (
-            <LinkButton href="/features">Go to Feature Flags</LinkButton>
-          )}
+        </ImportHero>
+        <Flex justify="center">
+          <LinkButton href="/">Go to GrowthBook</LinkButton>
         </Flex>
       </Page>
     );
   }
 
-  if (isAuthenticated && !userReady) {
+  const pending = status.status === "pending";
+
+  if (!isAuthenticated) {
+    return (
+      <Page narrow>
+        <ImportHero
+          title={
+            pending
+              ? "Your Feature Flags are ready"
+              : "This link was already claimed"
+          }
+        >
+          {pending
+            ? "Sign in or create a free account to bring them into GrowthBook."
+            : "If you claimed it, sign in to pick up where you left off."}
+        </ImportHero>
+        {authError ? (
+          <Callout status="error" mb="3">
+            {authError}
+          </Callout>
+        ) : null}
+        <Flex justify="center" align="center" gap="3" wrap="wrap">
+          {pending && isCloud() ? (
+            <>
+              <Button setError={setAuthError} onClick={() => startAuth(true)}>
+                Sign up to claim
+              </Button>
+              <Button
+                variant="ghost"
+                setError={setAuthError}
+                onClick={() => startAuth(false)}
+              >
+                Sign in
+              </Button>
+            </>
+          ) : (
+            <Button setError={setAuthError} onClick={() => startAuth(false)}>
+              {pending ? "Sign in to claim" : "Sign in"}
+            </Button>
+          )}
+        </Flex>
+        {pending ? <LinkNote expiresAt={status.expiresAt} /> : null}
+      </Page>
+    );
+  }
+
+  if (!userReady) {
     return <LoadingOverlay />;
   }
 
-  const importable = flagImport.flags.filter((f) => f.importable).length;
-  const experimentWarnings = [
-    ...new Set(
-      flagImport.warnings
-        .filter((w) => w.path.startsWith("experiments["))
-        .map((w) => w.message),
-    ),
-  ];
-  const meta = [
-    flagImport.name,
-    `Sent ${ago(flagImport.dateCreated)}${
-      flagImport.agent ? ` by ${flagImport.agent}` : ""
-    }`,
-    `Expires ${date(flagImport.expiresAt)}`,
-  ].filter(Boolean);
+  if (flagImport?.status === "imported") {
+    return (
+      <Page>
+        <ImportDone flagImport={flagImport} onGoToFlags={goToFlags} />
+      </Page>
+    );
+  }
 
-  const orgLoaded = !!orgId && organization?.id === orgId && definitionsReady;
-  const projectOptions = orgLoaded
-    ? projects.filter((p) => permissionsUtil.canViewFeatureModal(p.id))
-    : [];
-  const allowNoProject = permissionsUtil.canViewFeatureModal();
-  const project =
-    projectChoice && projectOptions.some((p) => p.id === projectChoice)
-      ? projectChoice
-      : allowNoProject
-        ? NO_PROJECT
-        : (projectOptions[0]?.id ?? NO_PROJECT);
-  const importLabel = `Import ${plural(importable, "Feature Flag")}`;
+  if (flagImport?.status === "claimed" && flagImport.file) {
+    return (
+      <Page>
+        <ImportFlow
+          token={token}
+          flagImport={flagImport}
+          file={flagImport.file}
+          onImported={(imported) => {
+            if (orgId) setClaimed({ orgId, flagImport: imported });
+            mutateStatus();
+          }}
+        />
+      </Page>
+    );
+  }
 
-  return (
-    <Page>
-      <Heading as="h1" size="lg" mb="1">
-        Import {plural(flagImport.flags.length, "Feature Flag")}
-      </Heading>
-      <Text as="p" color="text-mid" mb="4">
-        {meta.join(" · ")}
-      </Text>
-      <Flex direction="column" gap="2" mb="4">
-        {flagImport.flags.map((flag) => (
-          <FlagRow key={flag.key} flag={flag} />
-        ))}
-        {flagImport.summary.environments.length > 0 && (
-          <Row label={<Text color="text-mid">Environments</Text>}>
-            <Text>{flagImport.summary.environments.join(", ")}</Text>
-          </Row>
-        )}
-      </Flex>
-      {experimentWarnings.map((message) => (
-        <Callout key={message} status="warning" mb="4">
-          {message}
-        </Callout>
+  const workspaceSelect = (
+    <Select
+      label="Workspace"
+      value={orgId ?? undefined}
+      setValue={(id) => setOrgId?.(id)}
+    >
+      {organizations.map((o) => (
+        <SelectItem key={o.id} value={o.id}>
+          {o.name}
+        </SelectItem>
       ))}
+    </Select>
+  );
 
-      {!isAuthenticated ? (
-        <>
-          {authError && (
-            <Callout status="error" mb="3">
-              {authError}
-            </Callout>
-          )}
-          <Flex justify="end" align="center" gap="3">
-            {isCloud() ? (
-              <>
-                <Button
-                  variant="ghost"
-                  setError={setAuthError}
-                  onClick={() => startAuth(false)}
-                >
-                  Sign in
-                </Button>
-                <Button setError={setAuthError} onClick={() => startAuth(true)}>
-                  Sign up to import
-                </Button>
-              </>
-            ) : (
-              <Button setError={setAuthError} onClick={() => startAuth(false)}>
-                Sign in to import
-              </Button>
-            )}
-          </Flex>
-        </>
-      ) : (
-        <>
-          {organizations.length > 0 ? (
-            <Flex direction="column" gap="3" mb="4">
-              <Select
-                label="Workspace"
-                value={orgId ?? undefined}
-                setValue={(id) => {
-                  setProjectChoice(null);
-                  setOrgId?.(id);
-                }}
-              >
-                {organizations.map((o) => (
-                  <SelectItem key={o.id} value={o.id}>
-                    {o.name}
-                  </SelectItem>
-                ))}
-              </Select>
-              {projectOptions.length > 0 && (
-                <Select
-                  label="Project"
-                  value={project}
-                  setValue={setProjectChoice}
-                >
-                  {allowNoProject && (
-                    <SelectItem value={NO_PROJECT}>None</SelectItem>
-                  )}
-                  {projectOptions.map((p) => (
-                    <SelectItem key={p.id} value={p.id}>
-                      {p.name}
-                    </SelectItem>
-                  ))}
-                </Select>
-              )}
-            </Flex>
-          ) : (
-            <TextField
-              label="Workspace name"
-              autoFocus
-              value={workspaceName}
-              onChange={(e) => setWorkspaceName(e.target.value)}
-              mb="4"
-            />
-          )}
-          {claimError && (
-            <Callout status="error" mb="3">
-              {claimError}
-            </Callout>
-          )}
-          <Flex justify="end">
-            {organizations.length > 0 ? (
-              <Button
-                setError={setClaimError}
-                disabled={!importable || !orgLoaded}
-                onClick={() =>
-                  claim(project === NO_PROJECT ? undefined : project)
-                }
-              >
-                {importLabel}
-              </Button>
-            ) : (
-              <Button
-                setError={setClaimError}
-                disabled={!importable || !workspaceName.trim()}
-                onClick={createWorkspaceAndClaim}
-              >
-                {importLabel}
-              </Button>
-            )}
-          </Flex>
-        </>
-      )}
+  if (pending) {
+    const hasWorkspace = organizations.length > 0 && !namingWorkspace;
+    return (
+      <Page narrow>
+        <ImportHero
+          title={hasWorkspace ? "Where should they go?" : "Name your workspace"}
+        />
+        {hasWorkspace ? (
+          workspaceSelect
+        ) : (
+          <TextField
+            label="Workspace name"
+            autoFocus
+            value={workspaceName}
+            onChange={(e) => setWorkspaceName(e.target.value)}
+          />
+        )}
+        {claimError ? (
+          <Callout status="error" mt="3">
+            {claimError}
+          </Callout>
+        ) : null}
+        <Flex direction="column" mt="4">
+          <Button
+            setError={setClaimError}
+            disabled={hasWorkspace ? !orgLoaded : !workspaceName.trim()}
+            onClick={hasWorkspace ? claim : createWorkspaceAndClaim}
+          >
+            Claim your Feature Flags
+          </Button>
+        </Flex>
+        <LinkNote expiresAt={status.expiresAt} />
+      </Page>
+    );
+  }
+
+  if (detailsLoading || (!!orgId && !orgLoaded)) {
+    return <LoadingOverlay />;
+  }
+
+  // Claimed, but not by the workspace that's open.
+  const elsewhere =
+    !detailsError || /another workspace/i.test(detailsError.message);
+  return (
+    <Page narrow>
+      <ImportHero title="This link was already claimed">
+        {organizations.length > 1
+          ? "Switch to the workspace that claimed it to continue."
+          : null}
+      </ImportHero>
+      {organizations.length > 1 ? workspaceSelect : null}
+      {!elsewhere && detailsError ? (
+        <Callout status="error" mt="3">
+          {detailsError.message}
+        </Callout>
+      ) : null}
     </Page>
   );
 };

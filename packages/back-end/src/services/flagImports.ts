@@ -4,20 +4,28 @@ import {
   buildFlagImportFeatureBody,
   FlagImportPlan,
   getFlagImportFlags,
+  mapFlagImportEnvironments,
   matchConfirmRules,
   planFlagImport,
+  selectFlagImportFlags,
 } from "shared/util";
 import {
   ApiFlagImport,
+  ApiFlagImportStatus,
+  AutoRunArtifact,
   ConfirmAction,
   FLAG_IMPORT_MAX_BYTES,
+  FLAG_IMPORT_MAX_CLAIMED_PER_WORKSPACE,
+  FlagImportChoices,
   FlagImportResult,
   FlagsJson,
   flagsJsonValidator,
   postFlagImportValidator,
 } from "shared/validators";
 import {
+  beginFlagImport,
   claimFlagImport,
+  countClaimedFlagImports,
   countPendingFlagImports,
   createFlagImport,
   findFlagImportByToken,
@@ -25,7 +33,7 @@ import {
   FlagImportInterface,
 } from "back-end/src/models/FlagImportModel";
 import { findOrganizationById } from "back-end/src/models/OrganizationModel";
-import { getFeature } from "back-end/src/models/FeatureModel";
+import { getFeature, getFeaturesByIds } from "back-end/src/models/FeatureModel";
 import { dispatchInternal } from "back-end/src/agent/dispatcher";
 import { getBackendFeatureValue } from "back-end/src/services/growthbook";
 import { getEnvironments } from "back-end/src/services/organizations";
@@ -59,18 +67,45 @@ export function assertFlagImportsEnabled(): void {
   if (!isFlagImportsEnabled()) throw new FlagImportError(404, "Not found");
 }
 
-function toApiFlagImport(doc: FlagImportInterface): ApiFlagImport {
+type Artifact = Omit<AutoRunArtifact, "dateCreated">;
+
+const REPORT_ORDER: Artifact["kind"][] = [
+  "feature",
+  "experiment",
+  "environment",
+  "attribute",
+];
+
+const EXPIRED = "This link has expired or does not exist.";
+
+function toApiStatus(doc: FlagImportInterface): ApiFlagImportStatus {
+  return { status: doc.status, expiresAt: doc.expiresAt.toISOString() };
+}
+
+async function toApiFlagImport(
+  context: ApiReqContext,
+  doc: FlagImportInterface,
+): Promise<ApiFlagImport> {
+  const file = doc.file ? flagsJsonValidator.parse(JSON.parse(doc.file)) : null;
+  const existing = file
+    ? await getFeaturesByIds(context, Object.keys(file.features))
+    : [];
   return {
     status: doc.status,
     name: doc.name,
     agent: doc.agent,
     dateCreated: doc.dateCreated.toISOString(),
     expiresAt: doc.expiresAt.toISOString(),
-    summary: doc.summary,
-    flags: doc.flags,
-    warnings: doc.warnings,
-    claimed: doc.claimed
-      ? { at: doc.claimed.at.toISOString(), results: doc.claimed.results }
+    file,
+    existingFlags: existing.map((feature) => feature.id),
+    imported: doc.imported
+      ? {
+          at: doc.imported.at.toISOString(),
+          results: doc.imported.results,
+          autoRunUrl: doc.imported.autoRunId
+            ? `${APP_ORIGIN}/auto-runs/${doc.imported.autoRunId}?org=${encodeURIComponent(context.org.id)}`
+            : null,
+        }
       : null,
   };
 }
@@ -128,9 +163,9 @@ export async function createFlagImportFromFile({
     summary: plan.summary,
     warnings: plan.warnings,
     howToUse: [
-      "Give claimUrl to your user and repeat it in your last message: opening it and signing in creates these Feature Flags in their GrowthBook workspace.",
+      "Give claimUrl to your user and repeat it in your last message: opening it and signing in lets them import these Feature Flags into their GrowthBook workspace.",
       `The link works once and stops on ${expiresAt}.`,
-      "GET /api/v1/flag-imports/{token} says when it has been claimed and what was created.",
+      "GET /api/v1/flag-imports/{token} says when it has been claimed and when it has been imported.",
       ...(plan.warnings.length
         ? [
             "Anything listed in warnings will not be imported as the file stands.",
@@ -140,14 +175,12 @@ export async function createFlagImportFromFile({
   };
 }
 
-export async function getFlagImportByToken(
+export async function getFlagImportStatusByToken(
   token: string,
-): Promise<ApiFlagImport> {
+): Promise<ApiFlagImportStatus> {
   const doc = await findFlagImportByToken(token);
-  if (!doc) {
-    throw new FlagImportError(404, "This link has expired or does not exist.");
-  }
-  return toApiFlagImport(doc);
+  if (!doc) throw new FlagImportError(404, EXPIRED);
+  return toApiStatus(doc);
 }
 
 const createdExperiment = z.object({
@@ -174,10 +207,23 @@ async function createMissingSettings(
   context: ApiReqContext,
   plan: FlagImportPlan,
   results: FlagImportResult[],
+  artifacts: Artifact[],
 ): Promise<void> {
   const existingEnvs = new Set(getEnvironments(context.org).map((e) => e.id));
   for (const env of plan.environments) {
-    if (existingEnvs.has(env)) continue;
+    const artifact = (action: Artifact["action"], detail: string | null) =>
+      artifacts.push({
+        kind: "environment",
+        id: env,
+        label: env,
+        by: "growthbook",
+        detail,
+        action,
+      });
+    if (existingEnvs.has(env)) {
+      artifact("existing", null);
+      continue;
+    }
     const { status, body } = await dispatchInternal(context, {
       method: "POST",
       path: "/api/v1/environments",
@@ -190,6 +236,10 @@ async function createMissingSettings(
       status: created ? "created" : "failed",
       message: created ? null : errorMessage(body),
     });
+    artifact(
+      created ? "created" : "failed",
+      created ? null : errorMessage(body),
+    );
     if (created) await reloadOrganization(context);
   }
 
@@ -197,7 +247,19 @@ async function createMissingSettings(
     (context.org.settings?.attributeSchema ?? []).map((a) => a.property),
   );
   for (const attribute of plan.attributes) {
-    if (existingAttributes.has(attribute.property)) continue;
+    const artifact = (action: Artifact["action"], detail: string | null) =>
+      artifacts.push({
+        kind: "attribute",
+        id: attribute.property,
+        label: attribute.property,
+        by: "growthbook",
+        detail,
+        action,
+      });
+    if (existingAttributes.has(attribute.property)) {
+      artifact("existing", null);
+      continue;
+    }
     const { status, body } = await dispatchInternal(context, {
       method: "POST",
       path: "/api/v1/attributes",
@@ -215,6 +277,10 @@ async function createMissingSettings(
       status: created ? "created" : "failed",
       message: created ? null : errorMessage(body),
     });
+    artifact(
+      created ? "created" : "failed",
+      created ? attribute.datatype : errorMessage(body),
+    );
     if (created) await reloadOrganization(context);
   }
 }
@@ -234,8 +300,9 @@ async function importFlags(
   plan: FlagImportPlan,
   { project, owner }: { project?: string; owner?: string },
   results: FlagImportResult[],
+  artifacts: Artifact[],
 ): Promise<void> {
-  await createMissingSettings(context, plan, results);
+  await createMissingSettings(context, plan, results, artifacts);
   const environmentIds = getEnvironments(context.org).map((e) => e.id);
 
   // Keyed by tracking key; a string is why it could not be created.
@@ -270,6 +337,17 @@ async function importFlags(
           }
         : errorMessage(body);
     experiments.set(trackingKey, outcome);
+    artifacts.push({
+      kind: "experiment",
+      id: typeof outcome === "string" ? trackingKey : outcome.id,
+      label: experiment.name,
+      by: "developer",
+      detail:
+        typeof outcome === "string"
+          ? outcome
+          : `Draft, ${experiment.variations.length} variations`,
+      action: typeof outcome === "string" ? "failed" : "created",
+    });
     results.push({
       kind: "experiment",
       key: trackingKey,
@@ -286,7 +364,25 @@ async function importFlags(
     const result = (
       status: FlagImportResult["status"],
       message: string | null,
-    ) => results.push({ kind: "feature", key: flag.key, status, message });
+    ) => {
+      results.push({ kind: "feature", key: flag.key, status, message });
+      artifacts.push({
+        kind: "feature",
+        id: flag.key,
+        label: flag.key,
+        by: "developer",
+        detail:
+          status === "created"
+            ? `${flag.valueType}, ${flag.ruleCount} ${flag.ruleCount === 1 ? "rule" : "rules"}`
+            : message,
+        action:
+          status === "created"
+            ? "created"
+            : status === "exists"
+              ? "existing"
+              : "failed",
+      });
+    };
 
     if (flag.unsupported.length) {
       result("skipped", flag.unsupported.join(". "));
@@ -335,23 +431,129 @@ async function importFlags(
   }
 }
 
-// Runs every create as the caller, through the same REST handlers a direct
-// request would hit, so permissions, plan limits and audit entries match.
-export async function claimFlagImportIntoWorkspace(
+function assertClaimedBy(
+  context: ApiReqContext,
+  doc: FlagImportInterface,
+): void {
+  if (doc.claimed?.organization !== context.org.id) {
+    throw new FlagImportError(
+      403,
+      "This upload was claimed in another workspace.",
+    );
+  }
+}
+
+// Ties the upload to the caller's workspace. Nothing is created yet.
+export async function claimFlagImportForWorkspace(
   context: ApiReqContext,
   token: string,
-  options: { project?: string; owner?: string },
 ): Promise<ApiFlagImport> {
-  const pending = await findFlagImportByToken(token);
-  if (!pending) {
-    throw new FlagImportError(404, "This link has expired or does not exist.");
+  const found = await findFlagImportByToken(token);
+  if (!found) throw new FlagImportError(404, EXPIRED);
+
+  let doc = found;
+  if (doc.status === "pending") {
+    // Claimed uploads are outside the cap on unclaimed ones, so bound them here.
+    if (
+      (await countClaimedFlagImports(context.org.id)) >=
+      FLAG_IMPORT_MAX_CLAIMED_PER_WORKSPACE
+    ) {
+      throw new FlagImportError(
+        429,
+        "This workspace has as many claimed uploads waiting as it can hold. Import one, or wait for one to expire.",
+      );
+    }
+    const claimed = await claimFlagImport(doc.id, {
+      userId: context.userId || null,
+      organization: context.org.id,
+    });
+    // Someone else took it between the two calls: see who.
+    const current = claimed ?? (await findFlagImportByToken(token));
+    if (!current) throw new FlagImportError(404, EXPIRED);
+    doc = current;
   }
-  if (pending.status === "claimed") {
-    throw new FlagImportError(409, "This upload was already claimed.");
+  assertClaimedBy(context, doc);
+  return toApiFlagImport(context, doc);
+}
+
+export async function getFlagImportDetails(
+  context: ApiReqContext,
+  token: string,
+): Promise<ApiFlagImport> {
+  const doc = await findFlagImportByToken(token);
+  if (!doc) throw new FlagImportError(404, EXPIRED);
+  if (doc.status === "pending") {
+    throw new FlagImportError(409, "This upload has not been claimed yet.");
+  }
+  assertClaimedBy(context, doc);
+  return toApiFlagImport(context, doc);
+}
+
+async function recordAutoRun(
+  context: ApiReqContext,
+  doc: FlagImportInterface,
+  results: FlagImportResult[],
+  artifacts: Artifact[],
+): Promise<string | null> {
+  const created = results.some((r) => r.status === "created");
+  const failed = results.some(
+    (r) => r.status === "failed" || r.status === "skipped",
+  );
+  try {
+    const now = new Date();
+    const run = await context.models.autoRuns.create({
+      source: "flags-import",
+      agent: doc.agent?.slice(0, 50) ?? null,
+      createdBy: context.userId || null,
+      metadata: {
+        flagImportId: doc.id,
+        ...(doc.name ? { appName: doc.name } : {}),
+      },
+      // The report lists them in this order: what the person brought first.
+      artifacts: [...artifacts]
+        .sort(
+          (a, b) => REPORT_ORDER.indexOf(a.kind) - REPORT_ORDER.indexOf(b.kind),
+        )
+        .map((artifact) => ({
+          ...artifact,
+          detail: artifact.detail?.slice(0, 500) ?? null,
+          dateCreated: now,
+        })),
+      checks: [],
+      outcome: !failed ? "completed" : created ? "partial" : "failed",
+      failureReason: null,
+      dateCompleted: now,
+    });
+    return run.id;
+  } catch (e) {
+    context.logger.error(e, "A flag import could not be recorded as a run");
+    return null;
+  }
+}
+
+// Runs every create as the caller, through the same REST handlers a direct
+// request would hit, so permissions, plan limits and audit entries match.
+export async function importClaimedFlags(
+  context: ApiReqContext,
+  token: string,
+  {
+    project: chosenProject,
+    owner,
+    ...choices
+  }: FlagImportChoices & { project?: string; owner?: string },
+): Promise<ApiFlagImport> {
+  const claimed = await findFlagImportByToken(token);
+  if (!claimed) throw new FlagImportError(404, EXPIRED);
+  if (claimed.status === "pending") {
+    throw new FlagImportError(409, "This upload has not been claimed yet.");
+  }
+  assertClaimedBy(context, claimed);
+  if (claimed.status === "imported") {
+    throw new FlagImportError(409, "This upload was already imported.");
   }
 
-  // Checked before the upload is spent, so a refusal leaves it claimable.
-  const project = options.project || undefined;
+  // Checked before the upload is spent, so a refusal leaves it importable.
+  const project = chosenProject || undefined;
   if (project && !(await context.models.projects.getById(project))) {
     throw new FlagImportError(400, `Project ${project} does not exist.`);
   }
@@ -385,25 +587,26 @@ export async function claimFlagImportIntoWorkspace(
     );
   }
 
-  const claimed = await claimFlagImport(pending.id, {
+  const begun = await beginFlagImport(claimed.id, {
     userId: context.userId || null,
     organization: context.org.id,
   });
-  if (!claimed?.file) {
-    throw new FlagImportError(409, "This upload was already claimed.");
+  if (!begun?.file) {
+    throw new FlagImportError(409, "This upload was already imported.");
   }
 
   const results: FlagImportResult[] = [];
+  const artifacts: Artifact[] = [];
   try {
-    const plan = planFlagImport(
-      flagsJsonValidator.parse(JSON.parse(claimed.file)),
+    const file = selectFlagImportFlags(
+      flagsJsonValidator.parse(JSON.parse(begun.file)),
+      choices.flags,
     );
-    await importFlags(
-      context,
-      plan,
-      { project, owner: options.owner },
-      results,
+    const plan = mapFlagImportEnvironments(
+      planFlagImport(file, { rules: choices.rules }),
+      choices.environments,
     );
+    await importFlags(context, plan, { project, owner }, results, artifacts);
   } catch (e) {
     context.logger.error(e, "A flag import stopped part way through");
     results.push({
@@ -414,16 +617,18 @@ export async function claimFlagImportIntoWorkspace(
     });
   }
 
-  const finished = await finishFlagImport(claimed.id, results);
+  const autoRunId = await recordAutoRun(context, begun, results, artifacts);
+  const finished = await finishFlagImport(begun.id, { results, autoRunId });
   return toApiFlagImport(
+    context,
     finished ?? {
-      ...claimed,
+      ...begun,
       file: null,
-      status: "claimed",
-      claimed: {
+      status: "imported",
+      imported: {
         at: new Date(),
         userId: context.userId || null,
-        organization: context.org.id,
+        autoRunId,
         results,
       },
     },
