@@ -136,6 +136,22 @@ describe("toApiResultHealth", () => {
     });
   });
 
+  it("does not report a failed traffic query's placeholders", () => {
+    const health = toApiResultHealth({
+      experiment,
+      snapshot: makeSnapshot({
+        multipleExposures: 3,
+        health: {
+          traffic: { ...makeTraffic(1, [0, 0]), error: "TOO_MANY_ROWS" },
+        },
+      }),
+      healthSettings,
+    });
+
+    expect(health.srm).toBeNull();
+    expect(health.multipleExposures).toBeNull();
+  });
+
   it("tests SRM on clusters and multiple exposures on sub-units", () => {
     const base = makeSnapshot();
     const health = toApiResultHealth({

@@ -194,6 +194,13 @@ export function getSRMHealthData({
   }
 }
 
+// A failed traffic query still stores a p-value of 1 and zero counts, which
+// are placeholders rather than measurements.
+function getUnitTraffic(snapshot: Pick<ExperimentSnapshotInterface, "health">) {
+  const traffic = snapshot.health?.traffic;
+  return traffic && !traffic.error ? traffic : undefined;
+}
+
 /**
  * SRM lookup for multi-armed-bandit experiments. Reads only top-level
  * snapshot fields, so callers that only have a status summary (e.g.
@@ -204,7 +211,7 @@ export function getSRMHealthData({
 export function getBanditSRMValue(
   snapshot: Pick<ExperimentSnapshotInterface, "banditResult" | "health">,
 ): number | undefined {
-  return snapshot.banditResult?.srm ?? snapshot.health?.traffic?.overall?.srm;
+  return snapshot.banditResult?.srm ?? getUnitTraffic(snapshot)?.overall?.srm;
 }
 
 // Only standard snapshots with a single non-dimension-split result have a
@@ -228,7 +235,7 @@ export function getExperimentSRMTraffic(
     const clusterTraffic = snapshot.health?.clusterTraffic;
     return clusterTraffic && !clusterTraffic.error ? clusterTraffic : undefined;
   }
-  return snapshot.health?.traffic;
+  return getUnitTraffic(snapshot);
 }
 
 /**
@@ -256,7 +263,7 @@ export function getExperimentSRMValue(
 export function getExperimentVariationUnitsFromHealth(
   snapshot: ExperimentSnapshotInterface,
 ): number[] | undefined {
-  const healthUnits = snapshot.health?.traffic?.overall?.variationUnits;
+  const healthUnits = getUnitTraffic(snapshot)?.overall?.variationUnits;
   if (healthUnits?.length) {
     return healthUnits;
   }

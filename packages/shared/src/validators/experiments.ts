@@ -1280,7 +1280,7 @@ const apiExperimentResultHealthValidator = z
       })
       .nullable()
       .describe(
-        "Sample ratio mismatch check for the experiment as a whole. null when the snapshot has no experiment-wide SRM, for example on some dimension breakdowns.",
+        "Sample ratio mismatch check for the experiment as a whole. It comes from the traffic query, or from the overall result when that query did not run or failed. null when neither is available, for example on some dimension breakdowns.",
       ),
     multipleExposures: z
       .object({
@@ -1304,7 +1304,7 @@ const apiExperimentResultHealthValidator = z
       })
       .nullable()
       .describe(
-        "Multiple exposures check. For cluster experiments it counts sub-units. null when the snapshot has no unit total to measure against, for example on dimension breakdowns.",
+        "Multiple exposures check. For cluster experiments it counts sub-units. null when the snapshot has no unit total to measure against, for example on dimension breakdowns whose traffic query did not run or failed.",
       ),
     unknownVariations: z
       .array(z.string())
