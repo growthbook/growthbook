@@ -70,9 +70,9 @@
   overflow-wrap: anywhere;
 }
 
-// No separator between an expanded row and its panel, so they read as one
+// An expanded row keeps its hover tint; its panel below stays untinted
 .openRow > :global(.rt-TableCell) {
-  box-shadow: none;
+  background-color: var(--accent-a2);
 }
 
 // The metric picked from the Events tab
