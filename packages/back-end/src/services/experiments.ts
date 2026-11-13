@@ -1928,6 +1928,30 @@ async function planSnapshotQueryRunner({
   }
 }
 
+/**
+ * Runs `next` in the background once the snapshot succeeds. Failed or
+ * cancelled snapshots skip it, since anything chained after an Overall update
+ * expects that update's results.
+ */
+export function runAfterSnapshotSucceeds(
+  queryRunner: Pick<ExperimentSnapshotQueryRunner, "model" | "waitForResults">,
+  next: () => Promise<unknown>,
+): void {
+  const snapshotId = queryRunner.model.id;
+  queryRunner
+    .waitForResults()
+    .then(async () => {
+      if (queryRunner.model.status !== "success") return;
+      await next();
+    })
+    .catch((e) => {
+      logger.warn(
+        e,
+        `Skipped follow-up work after snapshot ${snapshotId}: ${getErrorMessage(e)}`,
+      );
+    });
+}
+
 export type PlannedExperimentSnapshot = {
   snapshot: ExperimentSnapshotInterface & {
     runnerKind: SnapshotQueryRunnerKind;
@@ -2428,21 +2452,23 @@ export async function createSnapshotFromPlan({
         throw new Error("Snapshot is missing its default analysis settings");
       }
 
-      updateExperimentDashboards({
-        context,
-        experiment,
-        mainSnapshot: runningSnapshot,
-        statsEngine: defaultAnalysisSettings.statsEngine,
-        regressionAdjustmentEnabled:
-          defaultAnalysisSettings.regressionAdjusted ??
-          DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
-        postStratificationEnabled:
-          defaultAnalysisSettings.postStratificationEnabled ??
-          DEFAULT_POST_STRATIFICATION_ENABLED,
-        settingsForSnapshotMetrics: plan.settingsForSnapshotMetrics,
-        metricMap,
-        factTableMap,
-      });
+      runAfterSnapshotSucceeds(queryRunner, () =>
+        updateExperimentDashboards({
+          context,
+          experiment,
+          mainSnapshot: runningSnapshot,
+          statsEngine: defaultAnalysisSettings.statsEngine,
+          regressionAdjustmentEnabled:
+            defaultAnalysisSettings.regressionAdjusted ??
+            DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
+          postStratificationEnabled:
+            defaultAnalysisSettings.postStratificationEnabled ??
+            DEFAULT_POST_STRATIFICATION_ENABLED,
+          settingsForSnapshotMetrics: plan.settingsForSnapshotMetrics,
+          metricMap,
+          factTableMap,
+        }),
+      );
     }
 
     return queryRunner;

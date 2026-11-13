@@ -14,6 +14,7 @@ import { ProductAnalyticsExploration, SavedQuery } from "shared/validators";
 import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
 import { MetricAnalysisInterface } from "shared/types/metric-analysis";
 import { ExperimentInterface } from "shared/types/experiment";
+import { DataSourceInterface } from "shared/types/datasource";
 import {
   AuthRequest,
   ResponseWithStatusAndError,
@@ -22,8 +23,11 @@ import { getContextFromReq } from "back-end/src/services/organizations";
 import {
   createExperimentSnapshot,
   createExperimentSnapshotFromPlan,
+  ExperimentSnapshotQueryRunner,
   planExperimentSnapshot,
+  runAfterSnapshotSucceeds,
 } from "back-end/src/services/experiments";
+import { ReqContext } from "back-end/types/request";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { findSnapshotsByIds } from "back-end/src/models/ExperimentSnapshotModel";
@@ -199,9 +203,39 @@ export async function deleteDashboard(
   return res.status(200).json({ status: 200 });
 }
 
+async function createDimensionBlockSnapshots({
+  context,
+  experiment,
+  datasource,
+  dimensionsByBlocks,
+}: {
+  context: ReqContext;
+  experiment: ExperimentInterface;
+  datasource: DataSourceInterface;
+  dimensionsByBlocks: Record<string, string[]>;
+}): Promise<Map<string, string>> {
+  const snapshotIdByBlockId = new Map<string, string>();
+  for (const [dimensionId, blockIds] of Object.entries(dimensionsByBlocks)) {
+    const { snapshot } = await createExperimentSnapshot({
+      context,
+      experiment,
+      dimension: dimensionId,
+      datasource,
+      phase: experiment.phases.length - 1,
+      useCache: false,
+      triggeredBy: "manual-dashboard",
+      type: "exploratory",
+    });
+    blockIds.forEach((blockId) =>
+      snapshotIdByBlockId.set(blockId, snapshot.id),
+    );
+  }
+  return snapshotIdByBlockId;
+}
+
 export async function refreshDashboardData(
   req: AuthRequest<never, { id: string }, never>,
-  res: ResponseWithStatusAndError,
+  res: ResponseWithStatusAndError<{ dimensionRefreshPending?: boolean }>,
 ) {
   const context = getContextFromReq(req);
   const { id } = req.params;
@@ -242,13 +276,6 @@ export async function refreshDashboardData(
       mainSnapshotUsed = true;
       return { ...block, snapshotId: mainSnapshot.id };
     });
-    if (mainSnapshotUsed) {
-      await createExperimentSnapshotFromPlan({
-        plan: plannedExperimentMainSnapshot,
-        context,
-        experiment,
-      });
-    }
 
     const dimensionBlockPairs = dashboard.blocks
       .map<[string, string] | undefined>((block) => {
@@ -272,21 +299,56 @@ export async function refreshDashboardData(
       ]),
     );
 
-    for (const [dimensionId, blockIds] of Object.entries(dimensionsByBlocks)) {
-      const { snapshot } = await createExperimentSnapshot({
+    const dimensionIds = Object.keys(dimensionsByBlocks);
+    // Dimension breakdowns are slices of Overall Results. When the incremental
+    // Overall update holds the pipeline lock, chain the breakdowns after it so
+    // they read the rebuilt caches instead of colliding with the lock.
+    const mainHoldsPipelineLock =
+      mainSnapshotUsed &&
+      plannedExperimentMainSnapshot.snapshot.runnerKind !== "results";
+    const dimensionsWaitForOverall =
+      dimensionIds.length > 0 && mainHoldsPipelineLock;
+
+    let mainQueryRunner: ExperimentSnapshotQueryRunner | null = null;
+    if (mainSnapshotUsed) {
+      ({ queryRunner: mainQueryRunner } =
+        await createExperimentSnapshotFromPlan({
+          plan: plannedExperimentMainSnapshot,
+          context,
+          experiment,
+        }));
+    }
+
+    if (dimensionsWaitForOverall && mainQueryRunner) {
+      runAfterSnapshotSucceeds(mainQueryRunner, async () => {
+        const snapshotIdByBlockId = await createDimensionBlockSnapshots({
+          context,
+          experiment,
+          datasource,
+          dimensionsByBlocks,
+        });
+        const latest = await context.models.dashboards.getById(dashboard.id);
+        if (!latest) return;
+        await context.models.dashboards.dangerousUpdateBypassPermission(
+          latest,
+          {
+            blocks: latest.blocks.map((block) => {
+              const snapshotId = snapshotIdByBlockId.get(block.id);
+              return snapshotId ? { ...block, snapshotId } : block;
+            }),
+          },
+        );
+      });
+    } else if (dimensionIds.length > 0) {
+      const snapshotIdByBlockId = await createDimensionBlockSnapshots({
         context,
         experiment,
-        dimension: dimensionId,
         datasource,
-        phase: experiment.phases.length - 1,
-        useCache: false,
-        triggeredBy: "manual-dashboard",
-        type: "exploratory",
+        dimensionsByBlocks,
       });
       newBlocks.forEach((block) => {
-        if (blockIds.includes(block.id)) {
-          block.snapshotId = snapshot.id;
-        }
+        const snapshotId = snapshotIdByBlockId.get(block.id);
+        if (snapshotId) block.snapshotId = snapshotId;
       });
     }
 
@@ -298,10 +360,12 @@ export async function refreshDashboardData(
     await context.models.dashboards.dangerousUpdateBypassPermission(dashboard, {
       blocks: newBlocks,
     });
-  } else {
-    await updateNonExperimentDashboard(context, dashboard);
+    return res
+      .status(200)
+      .json({ status: 200, dimensionRefreshPending: dimensionsWaitForOverall });
   }
 
+  await updateNonExperimentDashboard(context, dashboard);
   return res.status(200).json({ status: 200 });
 }
 
