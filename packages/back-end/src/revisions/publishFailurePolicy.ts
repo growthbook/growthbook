@@ -1,4 +1,5 @@
 import { isTerminalPublishError } from "back-end/src/util/errors";
+import { getNextRetryAt } from "back-end/src/util/retryBackoff";
 
 // Shared policy for how the scheduled-publish poller reacts to a failed publish
 // attempt. Kept as pure functions (no I/O, `now` injected) so the decision logic
@@ -8,16 +9,10 @@ import { isTerminalPublishError } from "back-end/src/util/errors";
 // feature path) use this, so retry/give-up behavior stays identical across them.
 
 // A transient failure retries up to this many attempts before the poller gives
-// up (parks the draft + fires `revision.publishFailed`). A terminal failure
-// gives up on the first attempt regardless of this cap.
-export const SCHEDULED_PUBLISH_MAX_ATTEMPTS = 10;
-
-// Exponential backoff between transient retries, capped. The poller ticks about
-// once a minute; without backoff a stuck schedule retries (and error-logs) every
-// tick. Backoff spaces out doomed retries while still clearing quickly once the
-// blocking condition (merge conflict, sibling lock) resolves.
-export const SCHEDULED_PUBLISH_BACKOFF_BASE_MINUTES = 1;
-export const SCHEDULED_PUBLISH_BACKOFF_MAX_MINUTES = 30;
+// up (parks the draft + fires `revision.publishFailed`), about two and a half
+// hours after the first failure. A terminal failure gives up on the first
+// attempt regardless of this cap.
+export const SCHEDULED_PUBLISH_MAX_ATTEMPTS = 13;
 
 export type PublishFailureClassification = "terminal" | "transient";
 
@@ -32,21 +27,11 @@ export function classifyPublishFailure(
   return isTerminalPublishError(error) ? "terminal" : "transient";
 }
 
-// Minutes to wait before the next transient retry, given the attempt count so
-// far (1 = the first failure). Exponential, clamped to the max.
-export function getScheduledPublishBackoffMinutes(attempts: number): number {
-  const safeAttempts = Math.max(1, Math.floor(attempts));
-  const minutes =
-    SCHEDULED_PUBLISH_BACKOFF_BASE_MINUTES * 2 ** (safeAttempts - 1);
-  return Math.min(minutes, SCHEDULED_PUBLISH_BACKOFF_MAX_MINUTES);
-}
-
 export type ScheduledPublishOutcome =
   | {
       action: "retry";
       classification: "transient";
       attempts: number;
-      backoffMinutes: number;
       nextAttemptAt: Date;
     }
   | {
@@ -76,16 +61,14 @@ export function decideScheduledPublishOutcome({
     return { action: "give-up", classification: "terminal", attempts };
   }
 
-  if (attempts >= maxAttempts) {
+  const nextAttemptAt = getNextRetryAt(attempts, maxAttempts, now);
+  if (!nextAttemptAt) {
     return { action: "give-up", classification: "transient", attempts };
   }
-
-  const backoffMinutes = getScheduledPublishBackoffMinutes(attempts);
   return {
     action: "retry",
     classification: "transient",
     attempts,
-    backoffMinutes,
-    nextAttemptAt: new Date(now.getTime() + backoffMinutes * 60_000),
+    nextAttemptAt,
   };
 }

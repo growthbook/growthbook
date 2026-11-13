@@ -23,6 +23,7 @@ import type {
 } from "shared/validators";
 import type { FeatureInterface, FeatureRule } from "shared/types/feature";
 import {
+  getRampRetry,
   isAwaitingApproval,
   isReadyForApproval,
   isAwaitingStartApproval,
@@ -65,6 +66,7 @@ import {
   rampStartValuesOf,
   forceMatchesValueType,
   remapTemplateActions,
+  isTerminalRampError,
 } from "back-end/src/services/rampSchedule";
 
 // ---------------------------------------------------------------------------
@@ -125,7 +127,9 @@ import {
 } from "back-end/src/models/FeatureRevisionModel";
 import { createEvent } from "back-end/src/models/EventModel";
 import {
+  BadRequestError,
   ConflictError,
+  NotFoundError,
   RampAdvanceLockBusyError,
 } from "back-end/src/util/errors";
 
@@ -4646,7 +4650,7 @@ describe("startReadyScheduleNow", () => {
       ],
     });
     (validateRampPlanPatches as jest.Mock).mockRejectedValueOnce(
-      new Error("step refused"),
+      new BadRequestError("step refused"),
     );
 
     await expect(startReadyScheduleNow(ctx as never, schedule)).rejects.toThrow(
@@ -4666,6 +4670,40 @@ describe("startReadyScheduleNow", () => {
     );
     expect(mockCreateEvent.mock.calls.map(([e]) => e.event)).toContain(
       "rampSchedule.actions.errorPaused",
+    );
+  });
+
+  it("a first step that fails for another reason stays running and retries", async () => {
+    const { ctx, schedule, updateById } = makeStartNowCtx({
+      steps: [
+        {
+          interval: 60,
+          actions: [
+            {
+              targetType: "feature-rule",
+              targetId: TARGET_ID,
+              patch: { ruleId: RULE_ID, coverage: 0.5 },
+            },
+          ],
+        },
+      ],
+    });
+    (validateRampPlanPatches as jest.Mock).mockRejectedValueOnce(
+      new Error("connection pool cleared"),
+    );
+
+    await expect(startReadyScheduleNow(ctx as never, schedule)).rejects.toThrow(
+      "connection pool cleared",
+    );
+    expect(updateById).toHaveBeenCalledWith(schedule.id, {
+      stepFailure: expect.objectContaining({
+        attempts: 1,
+        lastError: "connection pool cleared",
+      }),
+    });
+    expect(updateById).not.toHaveBeenCalledWith(
+      schedule.id,
+      expect.objectContaining({ status: "paused" }),
     );
   });
 });
@@ -6015,5 +6053,61 @@ describe("applyRampBaseStateSync / restoreRampBaseStates", () => {
         reason: "Base state updated by publishing revision 4: r1: value",
       }),
     ).toBeNull();
+  });
+});
+
+describe("isTerminalRampError", () => {
+  const withStatus = (status: number) =>
+    Object.assign(new Error("x"), { status });
+
+  it("pauses at once on refusals no retry gets past", () => {
+    expect(isTerminalRampError(new BadRequestError("invalid step"))).toBe(true);
+    expect(isTerminalRampError(new NotFoundError("rule deleted"))).toBe(true);
+    expect(isTerminalRampError(withStatus(403))).toBe(true);
+  });
+
+  it("retries conflicts, rate limits and server errors", () => {
+    expect(isTerminalRampError(new ConflictError("raced"))).toBe(false);
+    expect(isTerminalRampError(new RampAdvanceLockBusyError("busy"))).toBe(
+      false,
+    );
+    expect(isTerminalRampError(withStatus(429))).toBe(false);
+    expect(isTerminalRampError(withStatus(500))).toBe(false);
+  });
+
+  it("retries errors without a status, such as database failovers", () => {
+    const failover = Object.assign(new Error("not primary"), {
+      name: "MongoServerError",
+      code: 10107,
+    });
+    expect(isTerminalRampError(failover)).toBe(false);
+    expect(isTerminalRampError(new Error("buffering timed out"))).toBe(false);
+    expect(isTerminalRampError("blip")).toBe(false);
+    expect(isTerminalRampError(null)).toBe(false);
+  });
+});
+
+describe("getRampRetry", () => {
+  const stepFailure = {
+    attempts: 2,
+    lastError: "timed out",
+    retryAt: new Date("2026-11-13T12:00:00.000Z"),
+  };
+
+  it("reports the failure while the scheduler drives the schedule", () => {
+    for (const status of ["pending", "ready", "running"]) {
+      expect(getRampRetry({ status, stepFailure })).toBe(stepFailure);
+    }
+  });
+
+  it("reports nothing once the schedule is paused or finished", () => {
+    for (const status of ["paused", "completed", "rolled-back"]) {
+      expect(getRampRetry({ status, stepFailure })).toBeNull();
+    }
+  });
+
+  it("reports nothing without a failure", () => {
+    expect(getRampRetry({ status: "running" })).toBeNull();
+    expect(getRampRetry({ status: "running", stepFailure: null })).toBeNull();
   });
 });

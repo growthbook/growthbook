@@ -1,5 +1,6 @@
 import type { Response } from "express";
 import {
+  getRampRetry,
   RampScheduleInterface,
   isAwaitingStartApproval,
 } from "shared/validators";
@@ -38,6 +39,7 @@ import {
   rampStartValuesOf,
 } from "back-end/src/services/rampSchedule";
 import { assertCanRefreshRampMonitoring } from "back-end/src/services/rampMonitoringAuthority";
+import { retryRampScheduleNow } from "back-end/src/services/rampScheduleTick";
 import { createSafeRolloutSnapshot } from "back-end/src/services/safeRolloutSnapshots";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { getFeature } from "back-end/src/models/FeatureModel";
@@ -502,6 +504,28 @@ export const postRampScheduleAction = async (
             );
           }
           return resumeSchedule(context, fresh, heartbeat);
+        },
+      );
+      break;
+    }
+
+    case "retry": {
+      if (!getRampRetry(schedule)) {
+        return res.status(400).json({
+          status: 400,
+          message: "This ramp has no failed step to retry",
+        });
+      }
+      updated = await runControlledRampScheduleAction(
+        context,
+        schedule.id,
+        (fresh, heartbeat) => {
+          if (!getRampRetry(fresh)) {
+            throw new ConflictError(
+              "Cannot retry: the failed step cleared while the request was in flight",
+            );
+          }
+          return retryRampScheduleNow(context, fresh, heartbeat);
         },
       );
       break;

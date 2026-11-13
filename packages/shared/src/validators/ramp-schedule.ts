@@ -288,6 +288,15 @@ export const rampScheduleValidator = baseSchema
         ]),
       })
       .nullish(),
+    // Failed attempts since the last clean scheduler tick; the scheduler waits
+    // until `retryAt` between them and pauses the schedule once they run out.
+    stepFailure: z
+      .object({
+        attempts: z.number().int(),
+        lastError: z.string(),
+        retryAt: z.date(),
+      })
+      .nullish(),
 
     lockdownConfig: lockdownConfigSchema.optional(),
 
@@ -440,6 +449,19 @@ export function isAwaitingApproval(schedule: {
     !!step?.holdConditions?.requiresApproval &&
     schedule.stepApproval?.stepIndex !== schedule.currentStepIndex
   );
+}
+
+// The failed step the scheduler is retrying, while it still drives the
+// schedule; a pause or a finished schedule leaves nothing to retry.
+export function getRampRetry<F>(schedule: {
+  status: string;
+  stepFailure?: F | null;
+}): F | null {
+  const drivenByScheduler =
+    schedule.status === "pending" ||
+    schedule.status === "ready" ||
+    schedule.status === "running";
+  return drivenByScheduler ? (schedule.stepFailure ?? null) : null;
 }
 
 /**
@@ -730,6 +752,21 @@ export const apiRampScheduleInterface = namedSchema(
       ),
     lastRollbackAt: z.iso.datetime().nullish(),
     lastRollbackReason: z.string().nullish(),
+    stepFailure: z
+      .object({
+        attempts: z
+          .number()
+          .int()
+          .describe("Failed attempts since the last clean pass."),
+        lastError: z.string().describe("The most recent attempt's error."),
+        retryAt: z.iso
+          .datetime()
+          .describe("When the scheduler makes the next attempt."),
+      })
+      .nullish()
+      .describe(
+        "Set while the scheduler is retrying a failed step. The schedule holds at its current step and pauses once the retries run out. Use `/actions/retry` to make the next attempt now.",
+      ),
     monitoringStatus: z
       .object({
         safeRolloutId: z.string().nullish(),

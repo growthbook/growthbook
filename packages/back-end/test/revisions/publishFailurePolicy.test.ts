@@ -7,8 +7,6 @@ import {
 import {
   classifyPublishFailure,
   decideScheduledPublishOutcome,
-  getScheduledPublishBackoffMinutes,
-  SCHEDULED_PUBLISH_BACKOFF_MAX_MINUTES,
   SCHEDULED_PUBLISH_MAX_ATTEMPTS,
 } from "back-end/src/revisions/publishFailurePolicy";
 
@@ -49,26 +47,6 @@ describe("classifyPublishFailure", () => {
   });
 });
 
-describe("getScheduledPublishBackoffMinutes", () => {
-  it("grows exponentially from the first attempt", () => {
-    expect(getScheduledPublishBackoffMinutes(1)).toBe(1);
-    expect(getScheduledPublishBackoffMinutes(2)).toBe(2);
-    expect(getScheduledPublishBackoffMinutes(3)).toBe(4);
-    expect(getScheduledPublishBackoffMinutes(4)).toBe(8);
-  });
-
-  it("clamps to the max", () => {
-    expect(getScheduledPublishBackoffMinutes(100)).toBe(
-      SCHEDULED_PUBLISH_BACKOFF_MAX_MINUTES,
-    );
-  });
-
-  it("treats attempts below 1 as the first attempt", () => {
-    expect(getScheduledPublishBackoffMinutes(0)).toBe(1);
-    expect(getScheduledPublishBackoffMinutes(-5)).toBe(1);
-  });
-});
-
 describe("decideScheduledPublishOutcome", () => {
   const now = new Date("2026-07-10T12:00:00.000Z");
 
@@ -94,8 +72,7 @@ describe("decideScheduledPublishOutcome", () => {
     expect(outcome.action).toBe("retry");
     if (outcome.action !== "retry") throw new Error("expected retry");
     expect(outcome.classification).toBe("transient");
-    expect(outcome.backoffMinutes).toBe(4);
-    expect(outcome.nextAttemptAt).toEqual(new Date(now.getTime() + 4 * 60_000));
+    expect(outcome.nextAttemptAt).toEqual(new Date(now.getTime() + 30_000));
   });
 
   it("gives up on a transient failure once the cap is reached", () => {

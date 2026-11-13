@@ -4,6 +4,7 @@ import { PiCheckBold } from "react-icons/pi";
 import { format } from "date-fns";
 import { abbreviateAgo } from "shared/dates";
 import {
+  getRampRetry,
   isReadyForApproval,
   isAwaitingStartApproval,
   RampScheduleInterface,
@@ -706,6 +707,9 @@ interface Props {
 // ─── Exported helpers (used by parent pages to build header rows) ─────────────
 
 export function getRampStatusLabel(rs: RampScheduleInterface): string {
+  if (getRampRetry(rs)) {
+    return "Retrying";
+  }
   if (rs.status === "ready") {
     return "Scheduled";
   }
@@ -731,8 +735,10 @@ export function getRampBadgeColor(
     | "stepApproval"
     | "nextStepAt"
     | "currentStepEnteredAt"
+    | "stepFailure"
   >,
 ): "amber" | "green" | "orange" | "gray" | "red" {
+  if (getRampRetry(rs)) return "amber";
   if (isReadyForApproval(rs)) return "orange";
   const colors: Record<
     RampScheduleStatus,

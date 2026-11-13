@@ -44,6 +44,7 @@ import {
 import { format as formatTimeZone } from "date-fns-tz";
 import {
   ApiContextualBanditInterface,
+  getRampRetry,
   isReadyForApproval,
   isAwaitingStartApproval,
   SafeRolloutInterface,
@@ -54,6 +55,7 @@ import Link from "@/ui/Link";
 import { LockedRowMenu } from "@/components/Features/ScheduleLock";
 import Heading from "@/ui/Heading";
 import RampScheduleBadge from "@/components/RampSchedule/RampScheduleBadge";
+import { withDummyStepFailure } from "@/components/RampSchedule/dummyMonitoringData";
 import SafeRolloutRuleDashboard from "@/components/RampSchedule/SafeRolloutRuleDashboard";
 import RampTimeline, {
   getRampStepsCompleted,
@@ -352,7 +354,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
       isDraft,
       holdout,
       revisionList,
-      rampSchedule,
+      rampSchedule: rampScheduleProp,
       hasAnyEnvRampSchedule,
       liveRule,
       liveRampSchedule,
@@ -372,6 +374,11 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
     const redesign = useFeaturePageRedesign();
     const { hasCommercialFeature } = useUser();
     const canUseRampSchedules = hasCommercialFeature("ramp-schedules");
+    const router = useRouter();
+    const useDummyData = router.query["dummy"] === "true";
+    const rampSchedule = useDummyData
+      ? withDummyStepFailure(rampScheduleProp)
+      : rampScheduleProp;
 
     // A scheduled-publish edit lock leaves ramp runtime controls interactive;
     // other lock reasons (old/discarded revisions) still disable them.
@@ -384,6 +391,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
     const [dropdownOpen, setDropdownOpen] = useState(false);
     const [showDeleteRuleModal, setShowDeleteRuleModal] = useState(false);
     const [rampApproveLoading, setRampApproveLoading] = useState(false);
+    const [rampRetryLoading, setRampRetryLoading] = useState(false);
     const [rampActionError, setRampActionError] = useState("");
     useApprovalTimerTick(rampSchedule);
     const rollbackToStart = async (reason = "rolled back to start") => {
@@ -468,8 +476,6 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
       rule.type === "experiment-ref" && experimentsMap.get(rule.experimentId);
 
     const permissionsUtil = usePermissionsUtil();
-    const router = useRouter();
-    const useDummyData = router.query["dummy"] === "true";
 
     const canEdit = permissionsUtil.canEditFeatureDrafts(feature);
     // RuleModal has no `contextual-bandit-ref` form, and a second rule for one
@@ -586,6 +592,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
     // only repeat it.
     const simpleScheduleDone =
       isSimpleSchedule && rampSchedule?.status === "completed";
+    const rampRetry = rampSchedule ? getRampRetry(rampSchedule) : null;
     const hasMonitoringStatusRow =
       !!rampSchedule?.safeRolloutId &&
       rampSchedule.steps.some((s) => s.monitored);
@@ -649,7 +656,10 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
       }
     }
 
-    if (useDummyData && hasMonitoringStatusRow) {
+    if (
+      useDummyData &&
+      (hasMonitoringStatusRow || rampSchedule !== rampScheduleProp)
+    ) {
       ruleTags.push(
         <Badge
           key="demo-badge"
@@ -1892,6 +1902,45 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                     }
                   >
                     {rampActionError}
+                  </Callout>
+                )}
+                {rampRetry && (
+                  <Callout
+                    status="warning"
+                    mb="2"
+                    action={
+                      canControlRamp && !rampControlsLocked ? (
+                        <Button
+                          size="sm"
+                          color="inherit"
+                          loading={rampRetryLoading}
+                          onClick={async () => {
+                            setRampActionError("");
+                            setRampRetryLoading(true);
+                            try {
+                              await apiCall(
+                                `/ramp-schedule/${rampSchedule.id}/actions/retry`,
+                                { method: "POST" },
+                              );
+                            } catch (e) {
+                              setRampActionError(
+                                e instanceof Error ? e.message : String(e),
+                              );
+                            } finally {
+                              await mutate();
+                              setRampRetryLoading(false);
+                            }
+                          }}
+                        >
+                          Retry now
+                        </Button>
+                      ) : undefined
+                    }
+                  >
+                    <Text weight="semibold">Retrying a failed step:</Text>{" "}
+                    {rampRetry.lastError} — attempt {rampRetry.attempts} failed.
+                    The ramp holds at its current step and pauses if retries
+                    keep failing.
                   </Callout>
                 )}
                 {rampSchedule.status === "rolled-back" &&

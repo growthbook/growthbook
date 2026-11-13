@@ -103,7 +103,7 @@ export const notificationEventMetadata = {
   "feature.rampSchedule.actions.errorPaused": {
     label: "Ramp schedule paused on error",
     description:
-      "Triggered when a feature ramp schedule pauses because a step could not be applied, for example a plan the engine refuses; `reason` says why",
+      "Triggered when a feature ramp schedule pauses because a step could not be applied: right away for a plan the engine refuses, or after its retries run out for other failures; `reason` says why",
     preview: true,
   },
   "feature.rampSchedule.actions.stepHeld": {

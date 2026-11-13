@@ -625,6 +625,7 @@
                   "api/ramp-schedules/operation/startRampSchedule",
                   "api/ramp-schedules/operation/pauseRampSchedule",
                   "api/ramp-schedules/operation/resumeRampSchedule",
+                  "api/ramp-schedules/operation/retryRampSchedule",
                   "api/ramp-schedules/operation/rollbackRampSchedule",
                   "api/ramp-schedules/operation/restartRampSchedule",
                   "api/ramp-schedules/operation/jumpRampSchedule",

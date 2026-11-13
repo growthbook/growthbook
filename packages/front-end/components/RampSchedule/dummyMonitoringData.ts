@@ -1,3 +1,5 @@
+import type { RampScheduleInterface } from "shared/validators";
+
 export type DummyScenario = "passing" | "failing" | "nodata";
 
 export type DummyIssueProfile = {
@@ -141,4 +143,20 @@ export function buildDummyScenarios(
     scenarios[0] = "failing";
   }
   return scenarios;
+}
+
+// A running ramp mid-retry, for previewing the retrying state.
+export function withDummyStepFailure(
+  rs: RampScheduleInterface | undefined,
+): RampScheduleInterface | undefined {
+  if (!rs || rs.status !== "running" || rs.stepFailure) return rs;
+  return {
+    ...rs,
+    stepFailure: {
+      attempts: 3,
+      lastError:
+        "Operation `featurerevisions.findOne()` buffering timed out after 10000ms",
+      retryAt: new Date(Date.now() + 30_000),
+    },
+  };
 }

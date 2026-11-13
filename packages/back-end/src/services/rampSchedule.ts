@@ -80,9 +80,11 @@ import { logger } from "back-end/src/util/logger";
 import {
   BadRequestError,
   ConflictError,
+  getErrorMessage,
   NotFoundError,
   RampAdvanceLockBusyError,
 } from "back-end/src/util/errors";
+import { getNextRetryAt } from "back-end/src/util/retryBackoff";
 
 const LOCKDOWN_ACTIVE_STATUSES = ["running"] as const;
 
@@ -1336,7 +1338,7 @@ export const featureEntityHandler: EntityHandler = {
         const ref =
           `id "${ruleId}"` +
           (environment ? ` in environment "${environment}"` : "");
-        throw new Error(
+        throw new NotFoundError(
           `Ramp target rule ${ref} not found — it may have been deleted`,
         );
       }
@@ -2034,6 +2036,7 @@ export async function advanceStep(
     currentStepEnteredAt: now,
     stepApproval: null,
     healthHold: null,
+    stepFailure: null,
     ...(shouldResetMonitoringStart ? { monitoringStartDate: now } : {}),
     nextStepAt,
     nextSnapshotAt,
@@ -2745,27 +2748,55 @@ export async function advanceScheduleManually(
   }
 }
 
-// Transient errors are retried on the next scheduler tick; structural ones
-// pause the schedule so they surface in the UI.
-export function isTransientRampError(e: unknown): boolean {
-  if (e instanceof RampAdvanceLockBusyError) return true;
-  // Mongo network / topology errors surface as generic Errors whose name or
-  // message contains well-known driver strings.
-  if (e instanceof Error) {
-    const name = e.name ?? "";
-    const msg = e.message ?? "";
-    if (
-      name.includes("MongoNetwork") ||
-      name.includes("MongoTopology") ||
-      name.includes("MongoServerSelection") ||
-      msg.includes("ECONNRESET") ||
-      msg.includes("ETIMEDOUT") ||
-      msg.includes("connection timed out")
-    ) {
-      return true;
-    }
+// Failed attempts a schedule retries before it pauses: about an hour.
+const RAMP_STEP_MAX_ATTEMPTS = 10;
+
+// A refusal no retry gets past: an invalid step, a missing rule, a permission.
+// Conflicts, rate limits and errors without a status can clear on their own.
+export function isTerminalRampError(e: unknown): boolean {
+  const status =
+    e !== null && typeof e === "object" && "status" in e ? e.status : null;
+  return (
+    typeof status === "number" &&
+    status >= 400 &&
+    status < 500 &&
+    status !== 409 &&
+    status !== 429
+  );
+}
+
+// Holds the schedule at its current step and retries after the shared backoff;
+// a refusal, or the last allowed attempt, pauses it with the reason. Returns
+// when the next attempt is due, or null once paused.
+export async function recordRampStepFailure(
+  ctx: ReqContext | ApiReqContext,
+  scheduleId: string,
+  error: unknown,
+  now: Date,
+): Promise<Date | null> {
+  const schedule = await ctx.models.rampSchedules.getById(scheduleId);
+  if (!schedule) return null;
+  const message = getErrorMessage(error);
+  const attempts = (schedule.stepFailure?.attempts ?? 0) + 1;
+  const retryAt = isTerminalRampError(error)
+    ? null
+    : getNextRetryAt(attempts, RAMP_STEP_MAX_ATTEMPTS, now);
+  if (!retryAt) {
+    await errorPauseRampSchedule(
+      ctx,
+      scheduleId,
+      attempts > 1 ? `${message} (after ${attempts} attempts)` : message,
+    );
+    return null;
   }
-  return false;
+  await ctx.models.rampSchedules.updateById(scheduleId, {
+    stepFailure: { attempts, lastError: message, retryAt },
+  });
+  logger.warn(
+    { rampScheduleId: scheduleId, attempts, retryAt },
+    `Ramp schedule step failed; retrying: ${message}`,
+  );
+  return retryAt;
 }
 
 // Pause a schedule the engine cannot advance and record why, so the next tick
@@ -2782,6 +2813,7 @@ export async function errorPauseRampSchedule(
     pausedAt: new Date(),
     nextSnapshotAt: null,
     nextProcessAt: null,
+    stepFailure: null,
     eventHistory: appendRampEvent(schedule, "error-paused", {
       stepIndex: schedule.currentStepIndex,
       status: "paused",
@@ -2809,9 +2841,9 @@ export async function errorPauseRampSchedule(
   });
 }
 
-// A refused first step must not leave the schedule running for the poller to
-// retry: pause it with the reason, then rethrow.
-async function advanceOrErrorPause(
+// A failed first step is left to the scheduler's retries, or paused on a
+// refusal; the caller still sees the error.
+async function advanceOrRecordFailure(
   ctx: ReqContext | ApiReqContext,
   schedule: RampScheduleInterface,
   now: Date,
@@ -2819,12 +2851,8 @@ async function advanceOrErrorPause(
   try {
     await advanceUntilBlocked(ctx, schedule, now);
   } catch (e) {
-    if (!isTransientRampError(e)) {
-      await errorPauseRampSchedule(
-        ctx,
-        schedule.id,
-        e instanceof Error ? e.message : String(e),
-      );
+    if (!(e instanceof RampAdvanceLockBusyError)) {
+      await recordRampStepFailure(ctx, schedule.id, e, now);
     }
     throw e;
   }
@@ -2859,7 +2887,7 @@ export async function startSchedule(
   await applyRampStartActions(ctx, current);
   current = await ensureSafeRolloutForMonitoredRamp(ctx, current);
   await heartbeat?.();
-  await advanceOrErrorPause(ctx, current, now);
+  await advanceOrRecordFailure(ctx, current, now);
   current = (await ctx.models.rampSchedules.getById(schedule.id)) ?? current;
   await syncLinkedSafeRolloutForRampState(ctx, current);
 
@@ -3198,7 +3226,7 @@ export async function onActivatingRevisionPublished(
 
     // Always advance — for 0-step schedules this is the entry point to the
     // auto-complete check; for multi-step ramps it fires due steps.
-    await advanceOrErrorPause(ctx, current, now);
+    await advanceOrRecordFailure(ctx, current, now);
     current = (await ctx.models.rampSchedules.getById(current.id)) ?? current;
     await syncLinkedSafeRolloutForRampState(ctx, current);
 
@@ -3343,7 +3371,7 @@ async function startReadyScheduleNowLocked(
 
   await applyRampStartActions(ctx, current);
   current = await ensureSafeRolloutForMonitoredRamp(ctx, current);
-  await advanceOrErrorPause(ctx, current, now);
+  await advanceOrRecordFailure(ctx, current, now);
   current = (await ctx.models.rampSchedules.getById(current.id)) ?? current;
   await syncLinkedSafeRolloutForRampState(ctx, current);
 

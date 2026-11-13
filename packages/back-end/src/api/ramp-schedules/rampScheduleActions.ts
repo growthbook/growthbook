@@ -4,6 +4,7 @@ import { PermissionError, isRampScheduleServing } from "shared/util";
 import {
   apiRampScheduleInterface,
   apiRampMonitoringConfigInput,
+  getRampRetry,
   DEFAULT_NO_TRAFFIC_GRACE_PERIOD_HOURS,
   lockdownConfigSchema,
   stepHoldConditions,
@@ -44,6 +45,7 @@ import {
   assertCanControlRampSchedule,
 } from "back-end/src/services/rampSchedule";
 import { assertCanRefreshRampMonitoring } from "back-end/src/services/rampMonitoringAuthority";
+import { retryRampScheduleNow } from "back-end/src/services/rampScheduleTick";
 import { evaluateCurrentStep } from "back-end/src/services/rampScheduleEvaluator";
 import { getFeature } from "back-end/src/models/FeatureModel";
 import { rampScheduleToApiInterface } from "back-end/src/models/RampScheduleModel";
@@ -198,6 +200,44 @@ export const resumeRampSchedule = createApiRequestHandler({
         );
       }
       return resumeSchedule(req.context, fresh, heartbeat);
+    },
+  );
+
+  return { rampSchedule: rampScheduleToApiInterface(req.context, updated) };
+});
+
+export const retryRampSchedule = createApiRequestHandler({
+  paramsSchema: actionParamsSchema,
+  bodySchema: z.never(),
+  responseSchema: rampScheduleResponse,
+  method: "post" as const,
+  path: "/ramp-schedules/:id/actions/retry",
+  confirmation: ["rampSchedule.progression"] as const,
+  operationId: "retryRampSchedule",
+  summary: "Retry a ramp schedule's failed step",
+  description:
+    "When a step fails for a reason that may clear on its own, such as a\ndatabase timeout or a concurrent edit, the schedule holds at its current step\nand retries on a backoff: 5s, 10s, 30s, 1m, then doubling up to 30m. After 10\nfailed attempts it pauses. `stepFailure` on the schedule shows the attempt\ncount, the last error and when the next attempt is due.\n\nThis runs the next attempt now instead of waiting. It applies the same hold\nconditions the scheduler would — use `/actions/advance` to bypass them. A\nfailed attempt counts toward the limit and returns its error.\n",
+  tags: ["ramp-schedules"],
+})(async (req) => {
+  const schedule = await req.context.models.rampSchedules.getById(
+    req.params.id,
+  );
+  if (!schedule) throw new Error("Ramp schedule not found");
+  await assertCanControlRampSchedule(req.context, schedule);
+  if (!getRampRetry(schedule)) {
+    throw new Error("This ramp schedule has no failed step to retry");
+  }
+
+  const updated = await runControlledRampScheduleAction(
+    req.context,
+    schedule.id,
+    (fresh, heartbeat) => {
+      if (!getRampRetry(fresh)) {
+        throw new ConflictError(
+          "Cannot retry: the failed step cleared while the request was in flight",
+        );
+      }
+      return retryRampScheduleNow(req.context, fresh, heartbeat);
     },
   );
 

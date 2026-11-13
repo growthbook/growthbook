@@ -1,5 +1,6 @@
 import { ReactNode } from "react";
 import {
+  getRampRetry,
   isReadyForApproval,
   isAwaitingStartApproval,
   RampScheduleInterface,
@@ -55,6 +56,7 @@ export default function RampScheduleBadge({
   }
 
   const now = new Date();
+  const retry = getRampRetry(rs);
   const startAt = rs.startDate ? new Date(rs.startDate) : null;
   const futureStart = startAt && startAt > now;
   // Surface "Starts in …" only while the schedule is genuinely waiting to
@@ -80,12 +82,14 @@ export default function RampScheduleBadge({
       completed: "Schedule completed",
       "rolled-back": "Rolled back",
     };
-    const displayLabel = isAwaitingStartApproval(rs)
-      ? "Awaiting approval"
-      : isReadyForApproval(rs)
-        ? "Schedule needs approval"
-        : (statusLabels[rs.status] ??
-          `Schedule ${getRampStatusLabel(rs).toLowerCase()}`);
+    const displayLabel = retry
+      ? "Schedule retrying"
+      : isAwaitingStartApproval(rs)
+        ? "Awaiting approval"
+        : isReadyForApproval(rs)
+          ? "Schedule needs approval"
+          : (statusLabels[rs.status] ??
+            `Schedule ${getRampStatusLabel(rs).toLowerCase()}`);
 
     const endAt = rs.cutoffDate ? new Date(rs.cutoffDate) : null;
     const futureEnd = endAt && endAt > now;
@@ -97,9 +101,12 @@ export default function RampScheduleBadge({
       timingLabel = `Disables ${dateNoYear(endAt)}`;
     }
     const { start, end } = rampScheduleDates(rs, now);
-    const tooltipRows = [start, end]
-      .filter((d): d is ScheduleDate => d !== null)
-      .map(({ label, date }) => dateRow(label, date));
+    const tooltipRows = [
+      ...(retry ? [dateRow("Next attempt", new Date(retry.retryAt))] : []),
+      ...[start, end]
+        .filter((d): d is ScheduleDate => d !== null)
+        .map(({ label, date }) => dateRow(label, date)),
+    ];
 
     const badge = (
       <Badge
@@ -155,11 +162,14 @@ export default function RampScheduleBadge({
     completed: "Ramp completed",
     "rolled-back": "Rolled back",
   };
-  let featureContextLabel = isAwaitingStartApproval(rs)
-    ? "Awaiting approval"
-    : isReadyForApproval(rs)
-      ? "Ramp needs approval"
-      : (featureContextLabels[rs.status] ?? `Ramp ${baseLabel.toLowerCase()}`);
+  let featureContextLabel = retry
+    ? "Ramp retrying"
+    : isAwaitingStartApproval(rs)
+      ? "Awaiting approval"
+      : isReadyForApproval(rs)
+        ? "Ramp needs approval"
+        : (featureContextLabels[rs.status] ??
+          `Ramp ${baseLabel.toLowerCase()}`);
   if (allStepsDone && futureEnd) {
     featureContextLabel = "Ramp completed";
   }
@@ -183,6 +193,15 @@ export default function RampScheduleBadge({
     rs.status === "rolled-back" && rs.lastRollbackAt
       ? new Date(rs.lastRollbackAt)
       : null;
+  const retryLine = retry && (
+    <div>
+      <div>
+        <span className="text-muted">Failed attempts: </span>
+        {retry.attempts}
+      </div>
+      {dateRow("Next attempt", new Date(retry.retryAt))}
+    </div>
+  );
   const statusLine =
     rs.status === "completed" ? (
       <div>
@@ -209,7 +228,12 @@ export default function RampScheduleBadge({
       dateRow("Paused", pausedAt)
     ) : null;
 
-  const hasTooltip = !!(contextLine || statusLine || timingTooltip);
+  const hasTooltip = !!(
+    contextLine ||
+    retryLine ||
+    statusLine ||
+    timingTooltip
+  );
   if (!hasTooltip) return badge;
 
   return (
@@ -217,6 +241,7 @@ export default function RampScheduleBadge({
       content={
         <>
           {contextLine}
+          {retryLine}
           {statusLine}
           {timingTooltip && <div>{timingTooltip}</div>}
         </>

@@ -9,6 +9,7 @@ import {
   RampStepAction,
   RampTarget,
   StepHoldConditions,
+  getRampRetry,
   isAwaitingStartApproval,
   isReadyForApproval,
   rampScheduleValidator,
@@ -252,6 +253,7 @@ export function rampScheduleToApiInterface(
   context: ReqContext | ApiReqContext,
   doc: RampScheduleInterface,
 ): ApiRampScheduleInterface {
+  const stepFailure = getRampRetry(doc);
   const monitoringConfig = doc.monitoringConfig
     ? {
         ...monitoringConfigToApi(
@@ -322,6 +324,9 @@ export function rampScheduleToApiInterface(
     monitoringStartDate: dateToIso(doc.monitoringStartDate),
     lastRollbackAt: dateToIso(doc.lastRollbackAt),
     lastRollbackReason: doc.lastRollbackReason,
+    stepFailure: stepFailure
+      ? { ...stepFailure, retryAt: stepFailure.retryAt.toISOString() }
+      : null,
     monitoringStatus: doc.monitoringConfig
       ? (() => {
           const autoUpdateState = getEffectiveRampAutoUpdateState(doc);
