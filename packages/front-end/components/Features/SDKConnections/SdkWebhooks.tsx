@@ -445,6 +445,7 @@ export default function SdkWebhooks({
             ((live && canTestWebhook) ||
               (!managedBy && (canUpdateWebhook || canDeleteWebhook))) ? (
               <DropdownMenu
+                variant="soft"
                 trigger={
                   <MoreMenuTrigger
                     label="Webhook actions"

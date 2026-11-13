@@ -176,12 +176,10 @@ const FilterLabel = ({
 const EventWebHookAddEditSettings = ({
   form,
   handleFormValidation,
-  validHeaders,
   forcedParams,
 }: {
   form: Form;
   handleFormValidation: () => void;
-  validHeaders: boolean;
   forcedParams?: {
     method: EventWebHookMethod;
     headers: string;
@@ -312,7 +310,6 @@ const EventWebHookAddEditSettings = ({
       {isDetailedWebhook && (
         <Box mt="4">
           <WebhookHeadersField
-            label="Headers (JSON)"
             minLines={forcedParams ? 1 : 3}
             value={forcedParams?.headers || form.watch("headers")}
             disabled={!!forcedParams}
@@ -320,7 +317,6 @@ const EventWebHookAddEditSettings = ({
               form.setValue("headers", headers);
               handleFormValidation();
             }}
-            valid={validHeaders}
             endpoint={form.watch("url")}
           />
         </Box>
@@ -520,16 +516,13 @@ export const EventWebHookAddEditModal: FC<EventWebHookAddEditModalProps> = ({
 }) => {
   const permissionsUtil = usePermissionsUtil();
   const [submitEnabled, setSubmitEnabled] = useState(false);
-  const [validHeaders, setValidHeaders] = useState(true);
   const [step, setStep] = useState<Step>(mode.mode);
 
   const validateHeaders = (headers: string) => {
     try {
       JSON.parse(headers);
-      setValidHeaders(true);
       return true;
     } catch (error) {
-      setValidHeaders(false);
       return false;
     }
   };
@@ -663,7 +656,6 @@ export const EventWebHookAddEditModal: FC<EventWebHookAddEditModalProps> = ({
           <EventWebHookAddEditSettings
             form={form}
             handleFormValidation={handleFormValidation}
-            validHeaders={validHeaders}
             forcedParams={forcedParams}
           />
         </>

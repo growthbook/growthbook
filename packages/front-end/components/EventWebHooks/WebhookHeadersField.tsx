@@ -1,44 +1,60 @@
-import { CSSProperties, useRef, useState } from "react";
+import { CSSProperties, forwardRef, useRef, useState } from "react";
 import type { Ace } from "ace-builds";
-import { PiKey } from "react-icons/pi";
+import { PiInfo, PiKey } from "react-icons/pi";
 import { Box, Flex } from "@radix-ui/themes";
 import { WebhookSecretFrontEndInterface } from "shared/validators";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import { formatJSON } from "@/services/features";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import CodeTextArea from "@/components/Forms/CodeTextArea";
 import { DocLink } from "@/components/DocLink";
-import { buildRefInsertion } from "@/components/Constants/jsonConstantInsert";
+import { insertRefAtCursor } from "@/components/Constants/jsonConstantInsert";
 import FormatJsonAction from "@/components/Features/FormatJsonAction";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import Badge from "@/ui/Badge";
 import Button from "@/ui/Button";
 import HelperText from "@/ui/HelperText";
+import Link from "@/ui/Link";
+import { Popover } from "@/ui/Popover";
 import Text from "@/ui/Text";
 
 // `{{ KEY }}` or `{{[KEY]}}`, as the server reads them.
 const SECRET_REF_RE = /\{\{\s*\[?([^\]{}]+?)\]?\s*\}\}/g;
 
-// Puts a secret's reference into the string at the editor's cursor, as the
-// constants button does for a feature value. False when it has nowhere to go.
-function insertSecret(editor: Ace.Editor | null, key: string): boolean {
-  if (!editor) return false;
+function isJson(value: string): boolean {
   try {
-    const insertion = buildRefInsertion(
-      editor.getValue(),
-      editor.session.doc.positionToIndex(editor.getCursorPosition()),
-      `{{ ${key} }}`,
-    );
-    if (!insertion) return false;
-    editor.session.insert(
-      editor.session.doc.indexToPosition(insertion.index, 0),
-      insertion.text,
-    );
-    editor.focus();
+    JSON.parse(value);
     return true;
   } catch {
-    // The editor can be torn down under an open menu.
     return false;
   }
 }
+
+// For a form's submit: broken JSON is repaired into the field for another
+// look, as a feature value is, or refused when it can't be.
+export function checkHeadersOnSubmit(
+  value: string,
+  setValue: (value: string) => void,
+) {
+  if (isJson(value)) return;
+  const fixed = formatJSON(value);
+  if (!fixed) throw new Error("Headers must be valid JSON.");
+  setValue(fixed);
+  throw new Error(
+    "We fixed some errors in the headers. If they look correct, submit again.",
+  );
+}
+
+const InsertSecretButton = forwardRef<
+  HTMLButtonElement,
+  { disabled?: boolean }
+>(function InsertSecretButton(props, ref) {
+  return (
+    <Button ref={ref} variant="ghost" size="sm" icon={<PiKey />} {...props}>
+      Insert secret
+    </Button>
+  );
+});
 
 function InsertSecretMenu({
   secrets,
@@ -78,11 +94,7 @@ function InsertSecretMenu({
         setOpen(o);
         setFailed(false);
       }}
-      trigger={
-        <Button variant="ghost" size="sm" icon={<PiKey />} disabled={disabled}>
-          Insert secret
-        </Button>
-      }
+      trigger={<InsertSecretButton disabled={disabled} />}
     >
       {[...secrets]
         .sort((a, b) => a.key.localeCompare(b.key))
@@ -126,25 +138,22 @@ function InsertSecretMenu({
 // A webhook's headers as JSON, with the org's secrets to insert above it and
 // the ones it references listed below, as a feature value lists its constants.
 export default function WebhookHeadersField({
-  label = "Headers",
   value,
   setValue,
-  valid,
   endpoint,
   disabled,
   minLines = 3,
   containerStyle,
 }: {
-  label?: string;
   value: string;
   setValue: (value: string) => void;
-  valid: boolean;
   endpoint: string;
   disabled?: boolean;
   minLines?: number;
   containerStyle?: CSSProperties;
 }) {
   const { webhookSecrets } = useDefinitions();
+  const canManageSecrets = usePermissionsUtil().canManageWebhookSecrets();
   const editor = useRef<Ace.Editor | null>(null);
 
   const referenced = new Set(
@@ -156,16 +165,108 @@ export default function WebhookHeadersField({
     <Box>
       <Flex align="center" justify="between" gap="3" mb="1">
         <Text as="label" weight="semibold" mb="0">
-          {label}
+          Headers{" "}
+          <Text color="text-mid" weight="regular">
+            (JSON)
+          </Text>
         </Text>
-        {webhookSecrets.length > 0 && (
-          <InsertSecretMenu
-            secrets={webhookSecrets}
-            endpoint={endpoint}
-            disabled={disabled}
-            onInsert={(key) => insertSecret(editor.current, key)}
+        <Flex align="center" gap="1">
+          {webhookSecrets.length > 0 ? (
+            <InsertSecretMenu
+              secrets={webhookSecrets}
+              endpoint={endpoint}
+              disabled={disabled}
+              // As the constants button does for a feature value.
+              onInsert={(key) => {
+                try {
+                  return (
+                    !!editor.current &&
+                    insertRefAtCursor(editor.current, `{{ ${key} }}`)
+                  );
+                } catch {
+                  // The editor can be torn down under an open menu.
+                  return false;
+                }
+              }}
+            />
+          ) : (
+            <Popover
+              openOnHover
+              side="bottom"
+              contentStyle={{ maxWidth: 320 }}
+              trigger={
+                // A disabled button doesn't report the pointer.
+                <span style={{ display: "inline-flex" }}>
+                  <InsertSecretButton disabled />
+                </span>
+              }
+              content={
+                <Text>
+                  There are no webhook secrets yet.{" "}
+                  {canManageSecrets ? (
+                    <>
+                      <Link
+                        href="/settings/webhooks"
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        Add one
+                      </Link>{" "}
+                      to insert it here.
+                    </>
+                  ) : (
+                    "Someone who manages webhooks can add one in Settings."
+                  )}
+                </Text>
+              }
+            />
+          )}
+          <Popover
+            openOnHover
+            side="bottom"
+            contentStyle={{ maxWidth: 320 }}
+            trigger={
+              <Box
+                as="span"
+                display="inline-block"
+                tabIndex={0}
+                aria-label="About webhook secrets"
+              >
+                <PiInfo />
+              </Box>
+            }
+            content={
+              <Flex direction="column" gap="2">
+                <Text>
+                  A secret keeps a credential out of the webhook&apos;s
+                  settings.
+                </Text>
+                <Text>
+                  Reference one as{" "}
+                  <code style={{ whiteSpace: "nowrap" }}>{"{{ KEY }}"}</code>{" "}
+                  and its value is filled in when the webhook fires.
+                </Text>
+                <Text>
+                  <DocLink docSection="webhookSecrets">Learn more</DocLink>
+                  {canManageSecrets && (
+                    <>
+                      {" "}
+                      or{" "}
+                      <Link
+                        href="/settings/webhooks"
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        manage secrets
+                      </Link>
+                    </>
+                  )}
+                  .
+                </Text>
+              </Flex>
+            }
           />
-        )}
+        </Flex>
       </Flex>
       <CodeTextArea
         language="json"
@@ -181,29 +282,39 @@ export default function WebhookHeadersField({
             <FormatJsonAction value={value} setValue={setValue} />
           )
         }
-        error={valid ? undefined : "Invalid JSON"}
+        error={isJson(value) ? undefined : "Invalid JSON"}
         helpText={
           <Box style={{ minWidth: 0 }}>
-            <Text>
-              JSON format for headers.
-              {/* Without secrets to pick, the docs say how to add one. */}
-              {!webhookSecrets.length && (
-                <>
-                  {" "}
-                  Supports{" "}
-                  <DocLink docSection="webhookSecrets">webhook secrets</DocLink>
-                  .
-                </>
-              )}
-            </Text>
             {used.length > 0 && (
               <Flex align="center" wrap="wrap" gap="2">
                 <Text size="sm" color="text-low" weight="medium">
                   Secrets used:
                 </Text>
-                {used.map((s) => (
-                  <Badge key={s.id} variant="soft" color="gray" label={s.key} />
-                ))}
+                {used.map((s) => {
+                  const badge = (
+                    <Badge
+                      key={s.id}
+                      variant="soft"
+                      color="gray"
+                      label={s.key}
+                    />
+                  );
+                  // Where secrets are edited, for someone who can.
+                  return canManageSecrets ? (
+                    <Link
+                      key={s.id}
+                      href="/settings/webhooks"
+                      target="_blank"
+                      rel="noreferrer"
+                      underline="hover"
+                      style={{ display: "inline-flex" }}
+                    >
+                      {badge}
+                    </Link>
+                  ) : (
+                    badge
+                  );
+                })}
               </Flex>
             )}
           </Box>

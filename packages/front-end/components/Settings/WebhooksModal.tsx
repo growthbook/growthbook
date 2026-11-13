@@ -17,7 +17,9 @@ import { isCloud } from "@/services/env";
 import { DocLink } from "@/components/DocLink";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import WebhookSecretModal from "@/components/EventWebHooks/WebhookSecretModal";
-import WebhookHeadersField from "@/components/EventWebHooks/WebhookHeadersField";
+import WebhookHeadersField, {
+  checkHeadersOnSubmit,
+} from "@/components/EventWebHooks/WebhookHeadersField";
 import {
   timeoutError,
   timeoutSecondsFromInput,
@@ -160,16 +162,6 @@ export function CreateSDKWebhookModal({
         : "http",
   );
 
-  const [validHeaders, setValidHeaders] = useState(true);
-  const validateHeaders = (headers: string) => {
-    try {
-      JSON.parse(headers);
-      setValidHeaders(true);
-    } catch (error) {
-      setValidHeaders(false);
-    }
-  };
-
   const form = useForm<SdkWebhookInputs>({
     defaultValues: {
       name: "My Webhook",
@@ -253,6 +245,11 @@ export function CreateSDKWebhookModal({
 
           if (timeoutError(inputs.timeoutSeconds)) {
             throw new Error(timeoutError(inputs.timeoutSeconds));
+          }
+          if (webhookType === "http") {
+            checkHeadersOnSubmit(inputs.headers, (headers) =>
+              form.setValue("headers", headers),
+            );
           }
 
           const data: CreateSdkWebhookProps = {
@@ -435,11 +432,7 @@ export function CreateSDKWebhookModal({
               <WebhookHeadersField
                 containerStyle={NO_MARGIN}
                 value={form.watch("headers")}
-                setValue={(headers) => {
-                  validateHeaders(headers);
-                  form.setValue("headers", headers);
-                }}
-                valid={validHeaders}
+                setValue={(headers) => form.setValue("headers", headers)}
                 endpoint={form.watch("endpoint")}
               />
 
@@ -533,7 +526,6 @@ const EditSDKWebhooksModal: FC<{
   cta,
 }) => {
   const { apiCall } = useAuth();
-  const [validHeaders, setValidHeaders] = useState(true);
 
   const form = useForm({
     defaultValues: {
@@ -559,6 +551,9 @@ const EditSDKWebhooksModal: FC<{
     if (timeoutError(value.timeoutSeconds)) {
       throw new Error(timeoutError(value.timeoutSeconds));
     }
+    checkHeadersOnSubmit(value.headers, (headers) =>
+      form.setValue("headers", headers),
+    );
 
     const data: UpdateSdkWebhookProps = {
       name: value.name,
@@ -588,15 +583,6 @@ const EditSDKWebhooksModal: FC<{
     onSave();
   });
 
-  const validateHeaders = (headers: string) => {
-    try {
-      JSON.parse(headers);
-      setValidHeaders(true);
-    } catch (error) {
-      setValidHeaders(false);
-    }
-  };
-
   return (
     <ModalStandard
       trackingEventModalType=""
@@ -604,7 +590,7 @@ const EditSDKWebhooksModal: FC<{
       header={current.id ? "Edit SDK Webhook" : "Create SDK Webhook"}
       open={true}
       submit={onSubmit}
-      ctaEnabled={validHeaders && !timeoutError(form.watch("timeoutSeconds"))}
+      ctaEnabled={!timeoutError(form.watch("timeoutSeconds"))}
       cta={cta ?? (current.id ? "Update" : "Create")}
       size="lg"
     >
@@ -663,11 +649,7 @@ const EditSDKWebhooksModal: FC<{
         <WebhookHeadersField
           containerStyle={NO_MARGIN}
           value={form.watch("headers")}
-          setValue={(headers) => {
-            validateHeaders(headers);
-            form.setValue("headers", headers);
-          }}
-          valid={validHeaders}
+          setValue={(headers) => form.setValue("headers", headers)}
           endpoint={form.watch("endpoint")}
         />
 
