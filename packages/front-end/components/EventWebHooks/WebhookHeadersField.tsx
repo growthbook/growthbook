@@ -1,12 +1,13 @@
 import { CSSProperties, forwardRef, useRef, useState } from "react";
 import type { Ace } from "ace-builds";
-import { PiInfo, PiKey } from "react-icons/pi";
+import { PiKey } from "react-icons/pi";
 import { Box, Flex } from "@radix-ui/themes";
 import { WebhookSecretFrontEndInterface } from "shared/validators";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { formatJSON } from "@/services/features";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import CodeTextArea from "@/components/Forms/CodeTextArea";
+import InfoPopover from "@/components/EventWebHooks/InfoPopover";
 import { DocLink } from "@/components/DocLink";
 import { insertRefAtCursor } from "@/components/Constants/jsonConstantInsert";
 import FormatJsonAction from "@/components/Features/FormatJsonAction";
@@ -221,51 +222,28 @@ export default function WebhookHeadersField({
               }
             />
           )}
-          <Popover
-            openOnHover
-            side="bottom"
-            contentStyle={{ maxWidth: 320 }}
-            trigger={
-              <Box
-                as="span"
-                display="inline-block"
-                tabIndex={0}
-                aria-label="About webhook secrets"
-              >
-                <PiInfo />
-              </Box>
-            }
-            content={
-              <Flex direction="column" gap="2">
-                <Text>
-                  A secret keeps a credential out of the webhook&apos;s
-                  settings.
-                </Text>
-                <Text>
-                  Reference one as{" "}
-                  <code style={{ whiteSpace: "nowrap" }}>{"{{ KEY }}"}</code>{" "}
-                  and its value is filled in when the webhook fires.
-                </Text>
-                <Text>
-                  <DocLink docSection="webhookSecrets">Learn more</DocLink>
-                  {canManageSecrets && (
-                    <>
-                      {" "}
-                      or{" "}
-                      <Link
-                        href="/settings/webhooks"
-                        target="_blank"
-                        rel="noreferrer"
-                      >
-                        manage secrets
-                      </Link>
-                    </>
-                  )}
-                  .
-                </Text>
-              </Flex>
-            }
-          />
+          <InfoPopover label="About webhook secrets">
+            <Text>
+              A secret keeps a credential out of the webhook&apos;s settings.
+            </Text>
+            <Text>
+              Reference one as{" "}
+              <code style={{ whiteSpace: "nowrap" }}>{"{{ KEY }}"}</code> and
+              its value is filled in when the webhook fires.
+            </Text>
+            <Flex justify="between" gap="3">
+              <DocLink docSection="webhookSecrets">Learn more</DocLink>
+              {canManageSecrets && (
+                <Link
+                  href="/settings/webhooks"
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  Manage secrets
+                </Link>
+              )}
+            </Flex>
+          </InfoPopover>
         </Flex>
       </Flex>
       <CodeTextArea

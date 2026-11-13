@@ -10,13 +10,13 @@ import {
 import { SDKLanguage } from "shared/types/sdk-connection";
 import { CLOUD_EGRESS_IP } from "shared/constants";
 import { Box, Flex } from "@radix-ui/themes";
-import { PiArrowSquareOut } from "react-icons/pi";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import { isCloud } from "@/services/env";
 import { DocLink } from "@/components/DocLink";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import WebhookSecretModal from "@/components/EventWebHooks/WebhookSecretModal";
+import InfoPopover from "@/components/EventWebHooks/InfoPopover";
 import WebhookHeadersField, {
   checkHeadersOnSubmit,
 } from "@/components/EventWebHooks/WebhookHeadersField";
@@ -29,7 +29,24 @@ import { validatedSubmit } from "@/ui/Modal/validatedSubmit";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
 import Link from "@/ui/Link";
+import Text from "@/ui/Text";
 import Callout from "@/ui/Callout";
+
+const PAYLOAD_FORMAT_LABEL = (
+  <Flex as="span" display="inline-flex" align="center" gap="1">
+    Payload format
+    <InfoPopover label="About payload formats">
+      <Text>The body sent with the webhook, for every method but GET.</Text>
+      <Text>
+        Standard follows the Standard Webhooks specification, with the SDK
+        payload JSON-encoded in <code>data.payload</code>.
+      </Text>
+      <Text>
+        <DocLink docSection="sdkWebhooks#payload-format">Learn more</DocLink>
+      </Text>
+    </InfoPopover>
+  </Flex>
+);
 
 // The modal spaces its fields; theirs would double it.
 const NO_MARGIN = { marginBottom: 0 };
@@ -440,7 +457,7 @@ export function CreateSDKWebhookModal({
                 <>
                   <SelectField
                     key="http_payload_format"
-                    label="Payload format"
+                    label={PAYLOAD_FORMAT_LABEL}
                     containerStyle={NO_MARGIN}
                     value={form.watch("payloadFormat")}
                     onChange={(v) =>
@@ -460,11 +477,6 @@ export function CreateSDKWebhookModal({
                       { label: "None", value: "none" },
                     ]}
                     sort={false}
-                    helpText={
-                      <DocLink docSection="sdkWebhooks#payload-format">
-                        Learn more <PiArrowSquareOut />
-                      </DocLink>
-                    }
                   />
 
                   {(form.watch("payloadFormat") === "edgeConfig" ||
@@ -656,7 +668,7 @@ const EditSDKWebhooksModal: FC<{
         {form.watch("httpMethod") !== "GET" && (
           <>
             <SelectField
-              label="Payload format"
+              label={PAYLOAD_FORMAT_LABEL}
               containerStyle={NO_MARGIN}
               value={form.watch("payloadFormat")}
               onChange={(v) =>
@@ -682,11 +694,6 @@ const EditSDKWebhooksModal: FC<{
                 { label: "None", value: "none" },
               ]}
               sort={false}
-              helpText={
-                <DocLink docSection="sdkWebhooks#payload-format">
-                  Learn more <PiArrowSquareOut />
-                </DocLink>
-              }
             />
 
             {(form.watch("payloadFormat") === "edgeConfig" ||
