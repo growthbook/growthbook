@@ -3,10 +3,13 @@ import { dangerousFindContextualBanditsToUpdate } from "back-end/src/enterprise/
 import { runContextualBanditSnapshot } from "back-end/src/enterprise/services/contextualBandits";
 import { determineNextContextualBanditSchedule } from "back-end/src/services/contextualBanditSchedule";
 import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
+import { PlanDoesNotAllowError } from "back-end/src/util/errors";
 import { logger } from "back-end/src/util/logger";
 
 const QUEUE_CB_RESULTS_UPDATES = "queueContextualBanditUpdates";
 const UPDATE_SINGLE_CB = "updateSingleContextualBandit";
+// Used when the bandit's schedule can't be computed (e.g. unset settings).
+const SCHEDULE_FALLBACK_DELAY_MS = 60 * 60 * 1000;
 
 type UpdateSingleCBJobData = {
   organization: string;
@@ -47,7 +50,7 @@ export default async function (agenda: Agenda) {
   }
 }
 
-const updateSingleContextualBandit = async (job: UpdateSingleCBJob) => {
+export const updateSingleContextualBandit = async (job: UpdateSingleCBJob) => {
   const cbId = job.attrs.data?.contextualBanditId;
   const orgId = job.attrs.data?.organization;
   if (!cbId || !orgId) return;
@@ -57,19 +60,63 @@ const updateSingleContextualBandit = async (job: UpdateSingleCBJob) => {
   const cb = await context.models.contextualBandits.getById(cbId);
   if (!cb) return;
 
+  const logContext = { organization: orgId, contextualBanditId: cbId };
+
+  // The run can never succeed without the feature, so pause rather than
+  // re-queue every tick. Re-enabling auto-updates is manual.
+  if (!context.hasPremiumFeature("contextual-bandits")) {
+    try {
+      await context.models.contextualBandits.dangerousUpdateBypassPermission(
+        cb,
+        { autoSnapshots: false },
+      );
+      logger.warn(
+        logContext,
+        "Paused scheduled updates for contextual bandit, plan does not allow it: " +
+          cbId,
+      );
+    } catch (e) {
+      logger.error(
+        { ...logContext, err: e },
+        "Failed to pause contextual bandit: " + cbId,
+      );
+    }
+    return;
+  }
+
+  let nextSnapshotAttempt: Date;
+  // The run re-derives the same schedule and would throw too, so skip it.
+  let scheduleInvalid = false;
   try {
-    // Advance nextSnapshotAttempt to the next scheduled window BEFORE starting
-    // the run (mirrors createSafeRolloutSnapshot) so a failed or long-running
-    // snapshot isn't re-queued on every cron tick. If the run reaches
-    // runContextualBanditSnapshot, the schedule (and any explore -> exploit
-    // stage transition) gets re-derived and persisted again there; this is
-    // just a safety net for failures that happen before that point (e.g. a
-    // missing datasource/query).
-    await context.models.contextualBandits.update(cb, {
-      nextSnapshotAttempt: determineNextContextualBanditSchedule(cb),
+    nextSnapshotAttempt = determineNextContextualBanditSchedule(cb);
+  } catch (e) {
+    nextSnapshotAttempt = new Date(Date.now() + SCHEDULE_FALLBACK_DELAY_MS);
+    scheduleInvalid = true;
+    logger.warn(
+      { ...logContext, err: e },
+      "Could not compute next schedule for contextual bandit, retrying later: " +
+        cbId,
+    );
+  }
+
+  try {
+    // Advance BEFORE the run so a failing or slow snapshot isn't re-queued
+    // every tick; runContextualBanditSnapshot re-derives the schedule itself.
+    // Bypasses the premium gate so this safety net can't fail on it.
+    await context.models.contextualBandits.dangerousUpdateBypassPermission(cb, {
+      nextSnapshotAttempt,
       lastSnapshotAttempt: new Date(),
     });
+  } catch (e) {
+    logger.error(
+      { ...logContext, err: e },
+      "Failed to advance schedule for contextual bandit: " + cbId,
+    );
+    return;
+  }
+  if (scheduleInvalid) return;
 
+  try {
     logger.info("Refreshing results for contextual bandit " + cbId);
     await runContextualBanditSnapshot(context, cb, {
       triggeredBy: "scheduled",
@@ -77,6 +124,16 @@ const updateSingleContextualBandit = async (job: UpdateSingleCBJob) => {
     });
     logger.info("Successfully refreshed results for contextual bandit " + cbId);
   } catch (e) {
-    logger.error(e, "Failed to update contextual bandit: " + cbId);
+    if (e instanceof PlanDoesNotAllowError) {
+      logger.warn(
+        { ...logContext, err: e },
+        "Skipped contextual bandit update, plan does not allow it: " + cbId,
+      );
+      return;
+    }
+    logger.error(
+      { ...logContext, err: e },
+      "Failed to update contextual bandit: " + cbId,
+    );
   }
 };
