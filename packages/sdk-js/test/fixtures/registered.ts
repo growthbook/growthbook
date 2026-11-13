@@ -21,6 +21,12 @@ gb.updateAttributes({ plan: "free" });
 gb.isOn("dark_mod");
 // @ts-expect-error wrong fallback type
 gb.getFeatureValue("price", "1");
+// A null fallback is allowed for any feature, and the result can then be null
+export const orNull: number | null = gb.getFeatureValue("price", null);
+// @ts-expect-error the result can be null
+export const notNull: number = gb.getFeatureValue("price", null);
+// @ts-expect-error unknown feature
+gb.getFeatureValue("nope", null);
 // @ts-expect-error missing required attribute
 gb.setAttributes({ plan: "pro" });
 // @ts-expect-error unknown attribute
@@ -92,6 +98,15 @@ scoped.logEvent("page_view");
 scoped.logEvent("nope");
 // @ts-expect-error missing required properties
 scoped.logEvent("button_click");
+export const clientOrNull: number | null = client.getFeatureValue(
+  "price",
+  null,
+  { attributes: { id: "1" } },
+);
+export const scopedOrNull: number | null = scoped.getFeatureValue(
+  "price",
+  null,
+);
 client.isOn("dark_mode", { attributes: { id: "1" } });
 // @ts-expect-error unknown feature
 client.isOn("nope", { attributes: { id: "1" } });

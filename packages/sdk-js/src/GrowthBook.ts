@@ -21,7 +21,7 @@ import type {
   ExperimentViewedSubCallback,
   TrackingCallback,
   TrackingData,
-  WidenPrimitives,
+  FeatureValueOrFallback,
   EvalContext,
   InitOptions,
   InitResponse,
@@ -1017,11 +1017,14 @@ export class GrowthBook<
   }
 
   public getFeatureValue<
-    V extends AppFeatures[K],
+    V extends AppFeatures[K] | null,
     K extends string & keyof AppFeatures = string,
-  >(key: K, defaultValue: V): WidenPrimitives<V> {
-    const value = this.evalFeature<WidenPrimitives<V>, K>(key).value;
-    return value === null ? (defaultValue as WidenPrimitives<V>) : value;
+  >(key: K, defaultValue: V): FeatureValueOrFallback<V, AppFeatures[K]> {
+    const value = this.evalFeature(key).value;
+    return (value === null ? defaultValue : value) as FeatureValueOrFallback<
+      V,
+      AppFeatures[K]
+    >;
   }
 
   /**

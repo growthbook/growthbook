@@ -58,6 +58,7 @@ export type {
   UrlTarget,
   UrlTargetType,
   WidenPrimitives,
+  FeatureValueOrFallback,
   GrowthBookPayload,
   Payload,
   InitSyncOptions,

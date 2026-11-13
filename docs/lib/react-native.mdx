@@ -632,6 +632,9 @@ const price = useFeatureValue("donut_price", 1.5);
 useFeatureIsOn("dark_mod");
 useFeatureValue("donut_price", "1.50");
 
+// A `null` fallback is always allowed. Typed as `number | null`
+const maybePrice = useFeatureValue("donut_price", null);
+
 // The instance is typed too, including attributes
 const growthbook = useGrowthBook();
 growthbook.setAttributes({ id: "123" }); // missing "loggedIn"

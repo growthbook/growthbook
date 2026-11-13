@@ -38,6 +38,7 @@ export type {
   SubscriptionFunction,
   LocalStorageCompat,
   WidenPrimitives,
+  FeatureValueOrFallback,
   VariationMeta,
   Filter,
   VariationRange,

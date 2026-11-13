@@ -26,7 +26,7 @@ import type {
   TrackingCallback,
   TrackingCallbackWithUser,
   UserContext,
-  WidenPrimitives,
+  FeatureValueOrFallback,
   SavedGroupResolver,
   RegisteredAttributes,
   RegisteredEvents,
@@ -465,18 +465,18 @@ export class GrowthBookClient<
   }
 
   public getFeatureValue<
-    V extends AppFeatures[K],
+    V extends AppFeatures[K] | null,
     K extends string & keyof AppFeatures = string,
   >(
     key: K,
     defaultValue: V,
     userContext: UserContext<AppAttributes>,
-  ): WidenPrimitives<V> {
-    const value = this.evalFeature<WidenPrimitives<V>, K>(
-      key,
-      userContext,
-    ).value;
-    return value === null ? (defaultValue as WidenPrimitives<V>) : value;
+  ): FeatureValueOrFallback<V, AppFeatures[K]> {
+    const value = this.evalFeature(key, userContext).value;
+    return (value === null ? defaultValue : value) as FeatureValueOrFallback<
+      V,
+      AppFeatures[K]
+    >;
   }
 
   public evalFeature<
@@ -580,9 +580,9 @@ export class UserScopedGrowthBook<
   }
 
   public getFeatureValue<
-    V extends AppFeatures[K],
+    V extends AppFeatures[K] | null,
     K extends string & keyof AppFeatures = string,
-  >(key: K, defaultValue: V): WidenPrimitives<V> {
+  >(key: K, defaultValue: V): FeatureValueOrFallback<V, AppFeatures[K]> {
     return this._gb.getFeatureValue(key, defaultValue, this._userContext);
   }
 

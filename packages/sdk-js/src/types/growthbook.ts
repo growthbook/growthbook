@@ -574,6 +574,12 @@ export type WidenPrimitives<T> = T extends string
       ? boolean
       : T;
 
+// What `getFeatureValue` returns: the fallback's type, or with a `null`
+// fallback, the feature's type or null
+export type FeatureValueOrFallback<V, T> = [V] extends [null]
+  ? T | null
+  : WidenPrimitives<V>;
+
 export type DOMMutation = {
   selector: string;
   action: string;

@@ -655,6 +655,10 @@ const feature = gb.evalFeature("font-size");
 // Typos will cause compile-time errors
 gb.isOn("buton-color"); // "buton" instead of "button"
 
+// A fallback must match the feature's type, or be `null`
+gb.getFeatureValue("font-size", "large"); // must be a number
+const size = gb.getFeatureValue("font-size", null); // `number | null`
+
 // So will missing, unknown, or mistyped attributes
 gb.setAttributes({ id: "123" }); // missing "loggedIn"
 gb.setAttributes({ id: "123", loggedIn: true, plan: "pro" }); // unknown "plan"

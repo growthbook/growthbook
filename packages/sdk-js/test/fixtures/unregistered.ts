@@ -6,6 +6,10 @@ gb.isOn("any-feature");
 gb.setAttributes({ other: true });
 gb.updateAttributes({ more: "x" });
 export const value: string = gb.getFeatureValue("any-feature", "fallback");
+// With an explicit type, a null fallback keeps that type
+export const typedOrNull: { a: number } | null = gb.getFeatureValue<{
+  a: number;
+} | null>("any-feature", null);
 // @ts-expect-error a fallback is required
 gb.getFeatureValue("any-feature");
 export const attribute: unknown = gb.getAttributes().anything;

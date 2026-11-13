@@ -7,7 +7,7 @@ import type {
   JSONValue,
   FeatureDefinition,
   Context,
-  WidenPrimitives,
+  FeatureValueOrFallback,
   Attributes,
   RegisteredFeatures,
   RegisteredAttributes,
@@ -94,9 +94,9 @@ export function useFeatureIsOn<
 }
 
 export function useFeatureValue<
-  V extends RegisteredFeatures[K],
+  V extends RegisteredFeatures[K] | null,
   K extends FeatureKey = FeatureKey,
->(id: K, fallback: V): WidenPrimitives<V> {
+>(id: K, fallback: V): FeatureValueOrFallback<V, RegisteredFeatures[K]> {
   const growthbook = useGrowthBook();
   return growthbook.getFeatureValue<V, K>(id, fallback);
 }

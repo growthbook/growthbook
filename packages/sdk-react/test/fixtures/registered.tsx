@@ -30,6 +30,10 @@ export function Component() {
   useFeatureIsOn("dark_mod");
   // @ts-expect-error wrong fallback type
   useFeatureValue("price", "1");
+  // A null fallback is allowed, and the result can then be null
+  const orNull: number | null = useFeatureValue("price", null);
+  // @ts-expect-error the result can be null
+  const notNull: number = useFeatureValue("price", null);
   // @ts-expect-error unknown feature
   useFeature("nope");
   // @ts-expect-error missing required attribute
@@ -53,6 +57,8 @@ export function Component() {
           {price}
           {String(on)}
           {value}
+          {orNull}
+          {notNull}
         </IfFeatureEnabled>
         {/* @ts-expect-error unknown feature */}
         <IfFeatureEnabled feature="nope">x</IfFeatureEnabled>
