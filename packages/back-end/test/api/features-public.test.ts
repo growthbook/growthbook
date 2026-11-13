@@ -358,4 +358,19 @@ describe("getFeaturesPublic with cache enabled", () => {
     );
     expect(json).toHaveBeenCalledWith({ status: 200, ...payload });
   });
+
+  it("regenerates instead of serving truncated cached contents", async () => {
+    const payload = { features: {}, experiments: [], dateUpdated: "x" };
+    getById.mockResolvedValue({
+      contents: JSON.stringify(payload).slice(0, -1),
+    });
+    (getFeatureDefinitions as jest.Mock).mockResolvedValue(payload);
+
+    await callGetFeaturesPublic();
+
+    expect(send).not.toHaveBeenCalled();
+    expect(getFeatureDefinitions).toHaveBeenCalledTimes(1);
+    expect(upsert).toHaveBeenCalled();
+    expect(json).toHaveBeenCalledWith({ status: 200, ...payload });
+  });
 });

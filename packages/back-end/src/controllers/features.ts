@@ -798,9 +798,10 @@ export async function getFeaturesPublic(req: Request, res: Response) {
 
     // On a cache hit, splice in the stored JSON to skip a parse/stringify round trip
     const cachedJSON = await getCachedSDKPayloadJSON(context, params.key);
-    const cachedBody = cachedJSON?.startsWith('{"')
-      ? `{"status":200,${cachedJSON.slice(1)}`
-      : null;
+    const cachedBody =
+      cachedJSON?.startsWith('{"') && cachedJSON.endsWith("}")
+        ? `{"status":200,${cachedJSON.slice(1)}`
+        : null;
     const defs =
       cachedBody === null
         ? await getFeatureDefinitionsFromCachedJSON(context, params, cachedJSON)
