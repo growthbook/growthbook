@@ -1930,10 +1930,10 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                       ) : undefined
                     }
                   >
-                    <Text weight="semibold">Retrying a failed step:</Text>{" "}
-                    {rampRetry.lastError} — attempt {rampRetry.attempts} failed.
-                    The ramp holds at its current step and pauses if retries
-                    keep failing.
+                    <Text weight="semibold">Retrying a failed step.</Text> The
+                    ramp holds at its current step and pauses if retries keep
+                    failing. Attempt {rampRetry.attempts} failed:{" "}
+                    {rampRetry.lastError}
                   </Callout>
                 )}
                 {rampSchedule.status === "rolled-back" &&

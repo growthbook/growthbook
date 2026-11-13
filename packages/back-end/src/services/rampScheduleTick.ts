@@ -124,6 +124,14 @@ async function tickRampSchedule(
     // below in the same tick, so we don't need to wait another scheduler
     // tick to pick it up. Pending->running may already have done this inline
     // via onActivatingRevisionPublished.
+  } else if (
+    current.status === "running" &&
+    current.steps.length === 0 &&
+    current.stepFailure
+  ) {
+    // A schedule without steps enables its rule with its start actions, after
+    // it is already running; a failed start is retried here.
+    await applyRampStartActions(context, current);
   }
 
   if (

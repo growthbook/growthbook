@@ -77,9 +77,11 @@ export const advanceSingleRampSchedule = async (
   try {
     const screened = await context.models.rampSchedules.getById(rampScheduleId);
     if (!screened) return;
-    // A failed step waits out its backoff; the poll keeps finding it due.
+    // A failed step waits out its backoff, unless a cutoff falls due; the poll
+    // keeps finding it due.
     const backoffUntil = screened.stepFailure?.retryAt;
-    if (backoffUntil && backoffUntil > now) {
+    const cutoffDue = !!screened.cutoffDate && screened.cutoffDate <= now;
+    if (backoffUntil && backoffUntil > now && !cutoffDue) {
       job.schedule(backoffUntil);
       return;
     }

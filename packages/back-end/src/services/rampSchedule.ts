@@ -20,6 +20,7 @@ import {
   RampStepAction,
   RevisionRampDetachAction,
   SafeRolloutInterface,
+  getRampRetry,
   isAwaitingStartApproval,
   startApprovalPending,
 } from "shared/validators";
@@ -2765,6 +2766,10 @@ export function isTerminalRampError(e: unknown): boolean {
   );
 }
 
+// Failures already counted, so an error rethrown through an outer catch is
+// recorded once.
+const recordedRampFailures = new WeakSet<object>();
+
 // Holds the schedule at its current step and retries after the shared backoff;
 // a refusal, or the last allowed attempt, pauses it with the reason. Returns
 // when the next attempt is due, or null once paused.
@@ -2776,6 +2781,12 @@ export async function recordRampStepFailure(
 ): Promise<Date | null> {
   const schedule = await ctx.models.rampSchedules.getById(scheduleId);
   if (!schedule) return null;
+  if (typeof error === "object" && error !== null) {
+    if (recordedRampFailures.has(error)) {
+      return getRampRetry(schedule)?.retryAt ?? null;
+    }
+    recordedRampFailures.add(error);
+  }
   const message = getErrorMessage(error);
   const attempts = (schedule.stepFailure?.attempts ?? 0) + 1;
   const retryAt = isTerminalRampError(error)
@@ -2841,15 +2852,20 @@ export async function errorPauseRampSchedule(
   });
 }
 
-// A failed first step is left to the scheduler's retries, or paused on a
-// refusal; the caller still sees the error.
-async function advanceOrRecordFailure(
+// Applies a just-started schedule's start actions and first steps. A failure
+// is left to the scheduler's retries, or paused on a refusal; the caller still
+// sees the error.
+async function startOrRecordFailure(
   ctx: ReqContext | ApiReqContext,
   schedule: RampScheduleInterface,
   now: Date,
+  heartbeat?: () => Promise<void>,
 ): Promise<void> {
   try {
-    await advanceUntilBlocked(ctx, schedule, now);
+    await applyRampStartActions(ctx, schedule);
+    const current = await ensureSafeRolloutForMonitoredRamp(ctx, schedule);
+    await heartbeat?.();
+    await advanceUntilBlocked(ctx, current, now);
   } catch (e) {
     if (!(e instanceof RampAdvanceLockBusyError)) {
       await recordRampStepFailure(ctx, schedule.id, e, now);
@@ -2884,10 +2900,7 @@ export async function startSchedule(
     }),
   });
 
-  await applyRampStartActions(ctx, current);
-  current = await ensureSafeRolloutForMonitoredRamp(ctx, current);
-  await heartbeat?.();
-  await advanceOrRecordFailure(ctx, current, now);
+  await startOrRecordFailure(ctx, current, now, heartbeat);
   current = (await ctx.models.rampSchedules.getById(schedule.id)) ?? current;
   await syncLinkedSafeRolloutForRampState(ctx, current);
 
@@ -3221,12 +3234,9 @@ export async function onActivatingRevisionPublished(
       }),
     });
 
-    await applyRampStartActions(ctx, current);
-    current = await ensureSafeRolloutForMonitoredRamp(ctx, current);
-
     // Always advance — for 0-step schedules this is the entry point to the
     // auto-complete check; for multi-step ramps it fires due steps.
-    await advanceOrRecordFailure(ctx, current, now);
+    await startOrRecordFailure(ctx, current, now);
     current = (await ctx.models.rampSchedules.getById(current.id)) ?? current;
     await syncLinkedSafeRolloutForRampState(ctx, current);
 
@@ -3369,9 +3379,7 @@ async function startReadyScheduleNowLocked(
     }),
   });
 
-  await applyRampStartActions(ctx, current);
-  current = await ensureSafeRolloutForMonitoredRamp(ctx, current);
-  await advanceOrRecordFailure(ctx, current, now);
+  await startOrRecordFailure(ctx, current, now);
   current = (await ctx.models.rampSchedules.getById(current.id)) ?? current;
   await syncLinkedSafeRolloutForRampState(ctx, current);
 

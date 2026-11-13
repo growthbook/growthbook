@@ -196,7 +196,7 @@ export default function RampScheduleBadge({
   const retryLine = retry && (
     <div>
       <div>
-        <span className="text-muted">Failed attempts: </span>
+        <span style={TOOLTIP_LABEL_STYLE}>Failed attempts: </span>
         {retry.attempts}
       </div>
       {dateRow("Next attempt", new Date(retry.retryAt))}
