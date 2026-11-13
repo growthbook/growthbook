@@ -127,10 +127,12 @@ async function tickRampSchedule(
   } else if (
     current.status === "running" &&
     current.steps.length === 0 &&
-    current.stepFailure
+    current.stepFailure &&
+    !(current.cutoffDate && current.cutoffDate <= now)
   ) {
     // A schedule without steps enables its rule with its start actions, after
-    // it is already running; a failed start is retried here.
+    // it is already running; a failed start is retried here, unless its window
+    // has already closed.
     await applyRampStartActions(context, current);
   }
 
