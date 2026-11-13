@@ -31,7 +31,7 @@ describe("getTimedUnitDimensionCondition", () => {
         "u.first_exposure_timestamp",
         "d",
       ),
-    ).toBe("d.timestamp <= u.first_exposure_timestamp");
+    ).toBe("d.matched = 1 AND d.timestamp <= u.first_exposure_timestamp");
   });
 
   it("checks the validity range with an open-ended NULL end", () => {
@@ -42,7 +42,7 @@ describe("getTimedUnitDimensionCondition", () => {
         "d",
       ),
     ).toBe(
-      "d.start_timestamp <= u.first_exposure_timestamp AND (d.end_timestamp IS NULL OR u.first_exposure_timestamp < d.end_timestamp)",
+      "d.matched = 1 AND d.start_timestamp <= u.first_exposure_timestamp AND (d.end_timestamp IS NULL OR u.first_exposure_timestamp < d.end_timestamp)",
     );
   });
 

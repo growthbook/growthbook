@@ -11,6 +11,7 @@ import type { DimensionInterface } from "shared/types/dimension";
 import type { UserDimension } from "shared/types/integrations";
 import type { SqlDialect } from "shared/types/sql";
 import { getDimensionCol } from "back-end/src/integrations/sql/columns/dimension-col";
+import { DIMENSION_MATCHED_COLUMN } from "back-end/src/integrations/sql/ctes/dimension-cte";
 import { getDimensionValuePerUnit } from "back-end/src/integrations/sql/fact-metrics/dimension-value-per-unit";
 import { concatSql } from "back-end/src/integrations/sql/primitives/concat";
 
@@ -23,11 +24,14 @@ export function getTimedUnitDimensionCondition(
   exposure: string,
   dimAlias: string,
 ): string {
+  // A unit with no dimension row must fail the check, but on ClickHouse its
+  // joined timestamps are the epoch, which is before any exposure
+  const matched = `${dimAlias}.${DIMENSION_MATCHED_COLUMN} = 1`;
   switch (getDimensionTiming(dimension)) {
     case "rowTimestamp":
-      return `${dimAlias}.${DIMENSION_TIMESTAMP_COLUMN} <= ${exposure}`;
+      return `${matched} AND ${dimAlias}.${DIMENSION_TIMESTAMP_COLUMN} <= ${exposure}`;
     case "validityRange":
-      return `${dimAlias}.${DIMENSION_START_TIMESTAMP_COLUMN} <= ${exposure} AND (${dimAlias}.${DIMENSION_END_TIMESTAMP_COLUMN} IS NULL OR ${exposure} < ${dimAlias}.${DIMENSION_END_TIMESTAMP_COLUMN})`;
+      return `${matched} AND ${dimAlias}.${DIMENSION_START_TIMESTAMP_COLUMN} <= ${exposure} AND (${dimAlias}.${DIMENSION_END_TIMESTAMP_COLUMN} IS NULL OR ${exposure} < ${dimAlias}.${DIMENSION_END_TIMESTAMP_COLUMN})`;
     case "none":
       throw new Error(
         `Dimension ${dimension.id} has no time-aware timing setting`,
@@ -37,7 +41,13 @@ export function getTimedUnitDimensionCondition(
 
 // A dimension keyed on a cluster experiment's cluster is the cluster's, so
 // every sub-unit resolves it at the cluster's first exposure and a cluster
-// never splits across values. Wraps a one-row-per-sub-unit source to add it.
+// never splits across values.
+// This is needed for all cluster experiment analyses at the sub-unit level
+// because those need to stay at the sub-unit level while materializing one
+// dimension per cluster.
+// It is also needed for cluster experiments in ephemeral pipeline mode.
+// This is because we need to maintain one sub-unit level exposure table for
+// all analyses and we need to compute the cluster dimension before doing so.
 const CLUSTER_FIRST_EXPOSURE_COLUMN = "cluster_first_exposure_timestamp";
 function withClusterFirstExposure(
   source: string,
