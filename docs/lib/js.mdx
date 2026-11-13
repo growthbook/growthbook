@@ -735,7 +735,7 @@ const fallbackPayload: Payload = {
 await gb.init({ fallbackPayload });
 ```
 
-Use dot paths for attributes inside an object (`"company.plan"`). Without registered types, pass them in: `Payload<AppAttributes, AppFeatures>`.
+Use dot paths for attributes inside an object (`"company.plan"`). Without registered types, pass them in: `Payload<AppFeatures, AppAttributes>`.
 
 If you'd rather not register types globally, pass them to a single instance instead:
 

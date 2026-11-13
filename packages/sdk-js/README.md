@@ -414,7 +414,7 @@ declare module "@growthbook/growthbook" {
 
 Instead of writing any of this by hand, you can auto-generate both types and the registration from your GrowthBook account using the [GrowthBook CLI](https://docs.growthbook.io/tools/cli#generating-typescript-types).
 
-A payload written in code, such as the `fallbackPayload` given to `init`, can be checked against your attributes as well by typing it as `Payload<AppAttributes, AppFeatures>` (or just `Payload` with registered types). Targeting conditions, hash attributes and saved groups must use real attributes, with operators and values that fit the attribute's type: `{ age: { $regex: "..." } }` is an error for a numeric `age`.
+A payload written in code, such as the `fallbackPayload` given to `init`, can be checked against your attributes as well by typing it as `Payload<AppFeatures, AppAttributes>` (or just `Payload` with registered types). Targeting conditions, hash attributes and saved groups must use real attributes, with operators and values that fit the attribute's type: `{ age: { $regex: "..." } }` is an error for a numeric `age`.
 
 ## GrowthBook Instance (reference)
 

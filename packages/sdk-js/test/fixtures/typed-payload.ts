@@ -16,9 +16,12 @@ type AppAttributes = {
   custom: unknown;
 };
 type AppFeatures = { dark_mode: boolean; price: number };
+// Checks attributes only, leaving feature keys and values open
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type AttributesOnly = Payload<Record<string, any>, AppAttributes>;
 
 // Everything a payload can hold, using real attributes
-const payload: Payload<AppAttributes> = {
+const payload: AttributesOnly = {
   features: {
     dark_mode: {
       defaultValue: false,
@@ -85,11 +88,11 @@ gb.initSync({ payload });
 gb.setPayload(payload);
 export const untyped: FeatureApiResponse = payload;
 
-type Features = NonNullable<Payload<AppAttributes>["features"]>;
+type Features = NonNullable<AttributesOnly["features"]>;
 type Rule = NonNullable<Features[string]["rules"]>[number];
 type Condition = NonNullable<Rule["condition"]>;
-type SavedGroup = NonNullable<Payload<AppAttributes>["savedGroups"]>[string];
-type Interleavings = NonNullable<Payload<AppAttributes>["interleavings"]>;
+type SavedGroup = NonNullable<AttributesOnly["savedGroups"]>[string];
+type Interleavings = NonNullable<AttributesOnly["interleavings"]>;
 const condition = (c: Condition) => c;
 const rule = (r: Rule) => r;
 const savedGroup = (g: SavedGroup) => g;
@@ -167,13 +170,13 @@ savedGroup({ type: "list", attributeKey: "nope", values: [] });
 savedGroup({ type: "condition", condition: { nope: 1 } });
 // @ts-expect-error unknown hash attribute
 interleaving({ trackingKey: "", hashAttribute: "x", seed: "", variations: [] });
-export const badExperiment: Payload<AppAttributes> = {
+export const badExperiment: AttributesOnly = {
   // @ts-expect-error unknown attribute in an auto experiment's condition
   experiments: [{ key: "a", variations: [{}, {}], condition: { nope: 1 } }],
 };
 
-// The second generic checks feature keys and values as well
-type Typed = Payload<AppAttributes, AppFeatures>;
+// With a features type, feature keys and values are checked as well
+type Typed = Payload<AppFeatures, AppAttributes>;
 export const both: Typed = {
   features: {
     price: { defaultValue: 1, rules: [{ condition: { age: 1 }, force: 2 }] },

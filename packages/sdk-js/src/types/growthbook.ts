@@ -638,13 +638,13 @@ export type GrowthBookPayload = FeatureApiResponse;
  * conditions, hash attributes and saved groups must use real attributes, with
  * operators and values that fit each attribute's type.
  *
- *   const fallbackPayload: Payload<AppAttributes, AppFeatures> = {...};
+ *   const fallbackPayload: Payload<AppFeatures, AppAttributes> = {...};
  *
- * Uses the registered attributes and features when none are given.
+ * Uses the registered features and attributes when none are given.
  */
 export type Payload<
-  AppAttributes extends Attributes = RegisteredAttributes,
   AppFeatures extends Record<string, any> = RegisteredFeatures,
+  AppAttributes extends Attributes = RegisteredAttributes,
 > = FeatureApiResponse<AppFeatures, AppAttributes>;
 
 /** Each filter is an array, and any one of its values is enough */
