@@ -444,6 +444,11 @@ tags:
 
       **These are v1 endpoints.** New integrations should use the v2 Feature
       Revisions endpoints.
+  - name: flag-imports
+    x-displayName: Flag Imports
+    description: >-
+      Upload flags defined in code, as the SDK payload in JSON, with no account.
+      Then claim them into a workspace through the link that comes back.
   - name: ramp-schedules
     x-displayName: Ramp Schedules
     description: >-
@@ -41765,6 +41770,320 @@ paths:
           source: |-
             curl -X POST 'https://api.growthbook.io/api/v1/transform-copy' \
               -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/flag-imports:
+    post:
+      operationId: postFlagImport
+      summary: Upload flags defined in code for someone to claim, with no account
+      description: >-
+        Send the SDK payload as JSON in the request body. For flags kept in a
+        local `flags.ts`, that is `JSON.stringify(flags)`. The upload is checked
+        and kept for 24 hours, and the response has a claim link. Whoever opens
+        the link signs up or signs in and imports the Feature Flags into their
+        workspace. No API key is needed. A top-level `env` in a rule's condition
+        becomes the environments that rule applies to. A rule with `variations`
+        becomes a draft experiment linked to its Feature Flag.
+      security: []
+      tags:
+        - flag-imports
+      parameters:
+        - $ref: '#/components/parameters/name'
+        - $ref: '#/components/parameters/agent'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                features:
+                  description: Map of Feature Flag key to its definition.
+                  type: object
+                  propertyNames:
+                    type: string
+                    pattern: ^[a-zA-Z0-9_.:\|\-]+$
+                  additionalProperties:
+                    type: object
+                    properties:
+                      defaultValue:
+                        description: The value when no rule matches. Any JSON value.
+                      rules:
+                        description: Checked in order. The first matching rule wins.
+                        maxItems: 100
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            id:
+                              type: string
+                            condition:
+                              type: object
+                              propertyNames:
+                                type: string
+                              additionalProperties: {}
+                            parentConditions:
+                              type: array
+                              items:
+                                type: object
+                                properties:
+                                  id:
+                                    type: string
+                                  condition:
+                                    type: object
+                                    propertyNames:
+                                      type: string
+                                    additionalProperties: {}
+                                  gate:
+                                    type: boolean
+                                required:
+                                  - id
+                                  - condition
+                                additionalProperties: false
+                            force: {}
+                            variations:
+                              minItems: 2
+                              type: array
+                              items: {}
+                            weights:
+                              type: array
+                              items:
+                                type: number
+                                minimum: 0
+                                maximum: 1
+                            key:
+                              type: string
+                            name:
+                              type: string
+                            phase:
+                              type: string
+                            meta:
+                              type: array
+                              items:
+                                type: object
+                                properties:
+                                  key:
+                                    type: string
+                                  name:
+                                    type: string
+                                  passthrough:
+                                    type: boolean
+                                additionalProperties: false
+                            coverage:
+                              type: number
+                              minimum: 0
+                              maximum: 1
+                            hashAttribute:
+                              type: string
+                            fallbackAttribute:
+                              type: string
+                            hashVersion:
+                              anyOf:
+                                - type: number
+                                  const: 1
+                                - type: number
+                                  const: 2
+                            seed:
+                              type: string
+                            disableStickyBucketing:
+                              type: boolean
+                            bucketVersion:
+                              type: integer
+                              minimum: 0
+                            minBucketVersion:
+                              type: integer
+                              minimum: 0
+                            namespace:
+                              type: array
+                              prefixItems:
+                                - type: string
+                                - type: number
+                                - type: number
+                            range:
+                              type: array
+                              prefixItems:
+                                - type: number
+                                - type: number
+                            ranges:
+                              type: array
+                              items:
+                                type: array
+                                prefixItems:
+                                  - type: number
+                                  - type: number
+                            filters:
+                              type: array
+                              items:
+                                type: object
+                                propertyNames:
+                                  type: string
+                                additionalProperties: {}
+                            tracks:
+                              type: array
+                              items: {}
+                            contextualBanditRef:
+                              type: string
+                            contextualVariations:
+                              type: array
+                              items: {}
+                            metadata: {}
+                          additionalProperties: false
+                      metadata: {}
+                    required:
+                      - defaultValue
+                    additionalProperties: false
+                experiments:
+                  maxItems: 100
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      key:
+                        type: string
+                      variations:
+                        minItems: 2
+                        type: array
+                        items: {}
+                      name:
+                        type: string
+                    required:
+                      - key
+                      - variations
+                    additionalProperties: {}
+                savedGroups:
+                  type: object
+                  propertyNames:
+                    type: string
+                  additionalProperties: {}
+                dateUpdated:
+                  type: string
+                status:
+                  type: number
+              required:
+                - features
+              additionalProperties: false
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token:
+                    type: string
+                  claimUrl:
+                    description: Give this link to the person who will own the flags.
+                    type: string
+                  expiresAt:
+                    type: string
+                  summary:
+                    $ref: '#/components/schemas/summary'
+                  warnings:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/warnings'
+                  howToUse:
+                    type: string
+                required:
+                  - token
+                  - claimUrl
+                  - expiresAt
+                  - summary
+                  - warnings
+                  - howToUse
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X POST 'https://api.growthbook.io/api/v1/flag-imports' \
+              -H 'Authorization: Bearer YOUR_API_KEY' \
+              -H 'Content-Type: application/json' \
+              -d '{"features":{"newCheckout":{"defaultValue":false,"rules":[{"condition":{"env":{"$in":["dev","staging"]}},"force":true},{"force":true,"coverage":0.2,"hashAttribute":"id"}]}}}'
+  /v1/flag-imports/{token}:
+    get:
+      operationId: getFlagImport
+      summary: Check whether uploaded flags have been claimed
+      description: >-
+        The token is the only credential. Once claimed, `claimed.results` lists
+        what was created.
+      security: []
+      tags:
+        - flag-imports
+      parameters:
+        - $ref: '#/components/parameters/token'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  flagImport:
+                    $ref: '#/components/schemas/flagImport'
+                required:
+                  - flagImport
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X GET 'https://api.growthbook.io/api/v1/flag-imports/{token}'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/flag-imports/{token}/claim:
+    post:
+      operationId: postFlagImportClaim
+      summary: Import uploaded flags into your workspace
+      description: >-
+        Creates each Feature Flag in the upload with the caller's own
+        permissions, the same way `POST /v2/features` does. A Feature Flag whose
+        key already exists is skipped, never overwritten. An upload can be
+        claimed once. An API key that needs a person's confirmation for these
+        writes is refused: open the claim link instead.
+      tags:
+        - flag-imports
+      parameters:
+        - $ref: '#/components/parameters/token'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                project:
+                  description: ID of the Project to create the Feature Flags in.
+                  type: string
+                owner:
+                  description: >-
+                    The userId or email address of the owner. If an email
+                    address is provided, it will be used to look up the userId
+                    of the matching organization member. If an ID is provided,
+                    it will be validated as existing in the organization. When
+                    omitted, it defaults to the requesting member: a personal
+                    access token's owner, or the member an organization API key
+                    assumes. An organization API key acting as itself must send
+                    it, or the request fails with a 400.
+                  type: string
+              additionalProperties: false
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  flagImport:
+                    $ref: '#/components/schemas/flagImport'
+                required:
+                  - flagImport
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/flag-imports/{token}/claim' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
   /v1/dashboards/{id}:
     get:
       operationId: getDashboard
@@ -70052,6 +70371,30 @@ components:
         description: Only events at or after this time
         type: string
         format: date-time
+    name:
+      name: name
+      in: query
+      description: The app or repository name, shown on the claim page.
+      schema:
+        description: The app or repository name, shown on the claim page.
+        type: string
+        maxLength: 100
+    agent:
+      name: agent
+      in: query
+      description: The coding agent sending the flags, e.g. claude-code.
+      schema:
+        description: The coding agent sending the flags, e.g. claude-code.
+        type: string
+        maxLength: 100
+    token:
+      name: token
+      in: path
+      required: true
+      description: The token from the end of the claim link.
+      schema:
+        description: The token from the end of the claim link.
+        type: string
     index:
       name: index
       in: query
@@ -94556,6 +94899,186 @@ components:
       required:
         - mode
       additionalProperties: false
+    summary:
+      type: object
+      properties:
+        flags:
+          type: number
+        rules:
+          type: number
+        experiments:
+          type: number
+        environments:
+          description: The `env` values the rules target.
+          type: array
+          items:
+            type: string
+        attributes:
+          type: array
+          items:
+            type: string
+      required:
+        - flags
+        - rules
+        - experiments
+        - environments
+        - attributes
+      additionalProperties: false
+    warnings:
+      type: object
+      properties:
+        path:
+          type: string
+        message:
+          type: string
+      required:
+        - path
+        - message
+      additionalProperties: false
+    flagImport:
+      type: object
+      properties:
+        status:
+          type: string
+          enum:
+            - pending
+            - claimed
+        name:
+          anyOf:
+            - type: string
+            - type: 'null'
+        agent:
+          anyOf:
+            - type: string
+            - type: 'null'
+        dateCreated:
+          type: string
+        expiresAt:
+          type: string
+        summary:
+          type: object
+          properties:
+            flags:
+              type: number
+            rules:
+              type: number
+            experiments:
+              type: number
+            environments:
+              description: The `env` values the rules target.
+              type: array
+              items:
+                type: string
+            attributes:
+              type: array
+              items:
+                type: string
+          required:
+            - flags
+            - rules
+            - experiments
+            - environments
+            - attributes
+          additionalProperties: false
+        flags:
+          type: array
+          items:
+            type: object
+            properties:
+              key:
+                type: string
+              valueType:
+                type: string
+                enum:
+                  - boolean
+                  - string
+                  - number
+                  - json
+              rules:
+                type: number
+              experiments:
+                type: number
+              importable:
+                type: boolean
+              reason:
+                description: Why the Feature Flag will not be imported, when it will not.
+                anyOf:
+                  - type: string
+                  - type: 'null'
+            required:
+              - key
+              - valueType
+              - rules
+              - experiments
+              - importable
+              - reason
+            additionalProperties: false
+        warnings:
+          type: array
+          items:
+            type: object
+            properties:
+              path:
+                type: string
+              message:
+                type: string
+            required:
+              - path
+              - message
+            additionalProperties: false
+        claimed:
+          anyOf:
+            - type: object
+              properties:
+                at:
+                  type: string
+                results:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      kind:
+                        type: string
+                        enum:
+                          - feature
+                          - experiment
+                          - environment
+                          - attribute
+                      key:
+                        type: string
+                      status:
+                        type: string
+                        enum:
+                          - created
+                          - exists
+                          - skipped
+                          - failed
+                      message:
+                        anyOf:
+                          - type: string
+                          - type: 'null'
+                    required:
+                      - kind
+                      - key
+                      - status
+                      - message
+                    additionalProperties: false
+              required:
+                - at
+                - results
+              additionalProperties: false
+            - type: 'null'
+      required:
+        - status
+        - name
+        - agent
+        - dateCreated
+        - expiresAt
+        - summary
+        - flags
+        - warnings
+        - claimed
+      additionalProperties: false
     featureDraftPublishFailures:
       type: object
       properties:
@@ -94796,6 +95319,7 @@ x-tagGroups:
       - feature-revisions-v2
       - features
       - feature-revisions
+      - flag-imports
       - ramp-schedules
       - data-sources
       - fact-tables

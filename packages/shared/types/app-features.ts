@@ -144,6 +144,7 @@ export type AppFeatures = {
   "oe-general-agent-gate": boolean;
   "ai-visual-editor-callout": boolean;
   "nps-survey": boolean;
+  "flag-imports": boolean;
   "home-marketing-banner": Record<string, unknown>;
   "visual-editor-free-access": boolean;
   "contextual-bandits": boolean;

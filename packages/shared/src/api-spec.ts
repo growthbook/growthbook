@@ -48,4 +48,6 @@ export type ApiEndpointSpec<
   confirmation?: readonly ConfirmAction[];
   /** The handler holds the request itself, once it knows what changes. */
   confirmationInHandler?: boolean;
+  /** Mounted before API authentication: no key, no `req.context`. */
+  unauthenticated?: boolean;
 };
