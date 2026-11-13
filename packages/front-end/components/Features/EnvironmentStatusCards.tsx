@@ -2,6 +2,7 @@ import {
   Fragment,
   ReactNode,
   RefObject,
+  useContext,
   useLayoutEffect,
   useRef,
   useState,
@@ -21,6 +22,7 @@ import {
   StepStatus,
   stepBucketing,
   stepServes,
+  servesNull,
   stepTargets,
   TrafficStep,
 } from "@/services/environmentStatus";
@@ -32,6 +34,7 @@ import Link from "@/ui/Link";
 import Text from "@/ui/Text";
 import Tooltip from "@/ui/Tooltip";
 import { useIsOverflowingX } from "@/hooks/useIsOverflowing";
+import { PanelSlidingContext } from "@/components/CollapsiblePanelLayout";
 import ValueDisplay, { BooleanDot } from "./ValueDisplay";
 import StateIcon from "./StateIcon";
 import PrerequisiteTable from "./PrerequisiteTable";
@@ -322,7 +325,9 @@ function Fields({ fields }: { fields: { label: string; value: ReactNode }[] }) {
     <span className={`${styles.fields} ${styles.stepFields}`}>
       {fields.map(({ label, value }) => (
         <Fragment key={label}>
-          <Text color="text-low">{label}:</Text>
+          <Text color="text-low" whiteSpace="nowrap">
+            {label}:
+          </Text>
           <span className={styles.line}>{value}</span>
         </Fragment>
       ))}
@@ -529,7 +534,36 @@ function Drilldown({
           />
         )}
       </Row>
+      <ServedAndEvaluated status={status} valueType={valueType} />
     </div>
+  );
+}
+
+// A boolean flag serving null reads as false, as isOn() reads it, but isn't
+// served false: getFeatureValue() returns the caller's fallback.
+function ServedAndEvaluated({
+  status,
+  valueType,
+}: {
+  status: EnvironmentStatus;
+  valueType: FeatureValueType;
+}) {
+  if (valueType !== "boolean" || !servesNull(status)) return null;
+  return (
+    <Row icon={null} label="Result">
+      <Fields
+        fields={[
+          {
+            label: "Evaluates to",
+            value: <ValueDisplay value="false" type="boolean" />,
+          },
+          {
+            label: "Serves",
+            value: <ValueCode text="null" muted={false} />,
+          },
+        ]}
+      />
+    </Row>
   );
 }
 
@@ -574,7 +608,7 @@ function Card({
           </Flex>
           <span className={styles.fields}>
             <Text size="sm" color="text-low">
-              Serves:
+              Evals to:
             </Text>
             {!status ? (
               <span className={styles.line}>
@@ -710,7 +744,10 @@ export default function EnvironmentStatusCards({
   renderToggle: (environment: string) => ReactNode;
   prerequisiteState: PrerequisiteStateRenderer;
 }) {
-  // How many cards a row holds, as the grid lays them out.
+  // How many cards a row holds, as the grid lays them out. Held while the
+  // details panel slides, so cards don't wrap and regroup each frame; counted
+  // again once it stops.
+  const sliding = useContext(PanelSlidingContext);
   const ref = useRef<HTMLDivElement>(null);
   const [columns, setColumns] = useState<number | null>(null);
   useLayoutEffect(() => {
@@ -725,13 +762,21 @@ export default function EnvironmentStatusCards({
     const observer = new ResizeObserver(measure);
     observer.observe(grid);
     return () => observer.disconnect();
-  }, []);
+  }, [sliding]);
   // Past one row, the last place goes to the rest, but at least two show,
   // wrapping if they must. One left over shows in that place itself.
   const overflows = columns !== null && cards.length > Math.max(columns, 3);
   const shown = overflows ? Math.max(2, columns - 1) : cards.length;
   return (
-    <div ref={ref} className={styles.grid}>
+    <div
+      ref={ref}
+      className={styles.grid}
+      style={
+        sliding && columns !== null
+          ? { gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }
+          : undefined
+      }
+    >
       {cards.slice(0, shown).map((card) => (
         <Card
           key={card.id}

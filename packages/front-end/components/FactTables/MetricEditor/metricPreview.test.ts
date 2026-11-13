@@ -290,6 +290,6 @@ it("uses the per-unit scale for mean metric charts", () => {
       unit: "user_id",
       denominatorUnit: null,
       dateRange: getPreviewDateRange(),
-    }).showAs,
-  ).toBe("per_unit");
+    }).dataset,
+  ).toMatchObject({ values: [{ showAs: "per_unit" }] });
 });

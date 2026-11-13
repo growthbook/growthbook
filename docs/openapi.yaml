@@ -638,6 +638,9 @@ tags:
   - name: ContextualBandits
     x-displayName: Contextual Bandits
     description: ''
+  - name: information-schema-tables
+    x-displayName: information-schema-tables
+    description: ''
   - name: Dashboards
     x-displayName: Dashboards
     description: ''
@@ -21498,6 +21501,28 @@ paths:
                 query:
                   description: SQL query or equivalent for the dimension
                   type: string
+                timing:
+                  description: >-
+                    What the query returns and how the value at a unit's first
+                    exposure is resolved. `none` (default): one value per unit,
+                    resolved with MAX(value). `rowTimestamp`: timestamped rows;
+                    the query also returns a `timestamp` column and the latest
+                    row at or before first exposure is used. `validityRange`:
+                    validity ranges; the query also returns `start_timestamp`
+                    and `end_timestamp` (NULL = still valid) columns and the row
+                    valid at first exposure is used. Only supported for SQL Data
+                    Sources.
+                  type: string
+                  enum:
+                    - none
+                    - rowTimestamp
+                    - validityRange
+                nullLabel:
+                  description: >-
+                    Label used in experiment results for units with no dimension
+                    value. Leave empty to use the default null label.
+                  type: string
+                  maxLength: 100
                 managedBy:
                   description: >-
                     Where this dimension must be managed from. If not set (empty
@@ -21597,6 +21622,28 @@ paths:
                 query:
                   description: SQL query or equivalent for the dimension
                   type: string
+                timing:
+                  description: >-
+                    What the query returns and how the value at a unit's first
+                    exposure is resolved. `none` (default): one value per unit,
+                    resolved with MAX(value). `rowTimestamp`: timestamped rows;
+                    the query also returns a `timestamp` column and the latest
+                    row at or before first exposure is used. `validityRange`:
+                    validity ranges; the query also returns `start_timestamp`
+                    and `end_timestamp` (NULL = still valid) columns and the row
+                    valid at first exposure is used. Only supported for SQL Data
+                    Sources.
+                  type: string
+                  enum:
+                    - none
+                    - rowTimestamp
+                    - validityRange
+                nullLabel:
+                  description: >-
+                    Label used in experiment results for units with no dimension
+                    value. Leave empty to use the default null label.
+                  type: string
+                  maxLength: 100
                 managedBy:
                   description: >-
                     Where this dimension must be managed from. If not set (empty
@@ -22772,6 +22819,288 @@ paths:
           source: |-
             curl -X GET 'https://api.growthbook.io/api/v1/data-sources/{id}' \
               -H 'Authorization: Bearer YOUR_API_KEY'
+    post:
+      operationId: updateDataSource
+      summary: Update a data source
+      description: >-
+        Fields left out keep their current values. To clear one, send an
+        explicit empty value (`[]`, `""` or `false`). Connection settings are
+        changed in the app.
+      tags:
+        - data-sources
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  minLength: 1
+                description:
+                  type: string
+                  maxLength: 10000
+                projectIds:
+                  type: array
+                  items:
+                    type: string
+                eventTracker:
+                  description: '`eventForwarder` is only accepted unchanged'
+                  type: string
+                  enum:
+                    - segment
+                    - snowplow
+                    - jitsu
+                    - freshpaint
+                    - ga4
+                    - fullstory
+                    - matomo
+                    - heap
+                    - rudderstack
+                    - amplitude
+                    - mparticle
+                    - mixpanel
+                    - firebase
+                    - keen
+                    - clevertap
+                    - langfuse
+                    - phoenix
+                    - eventForwarder
+                    - custom
+                identifierTypes:
+                  description: >-
+                    Replaces the list. An entry matching an existing id keeps
+                    its description if left out; send `""` to clear it.
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                      description:
+                        type: string
+                        maxLength: 10000
+                    required:
+                      - id
+                    additionalProperties: false
+                assignmentQueries:
+                  description: >-
+                    Replaces the list. An entry with an existing `id` keeps
+                    `description`, `identifierTypes`, `includesNameColumns`,
+                    `dimensionColumns`, `projects` and `columnMapping` if left
+                    out; clear the others with `""`, `false` or `[]`. Each query
+                    is validated against the warehouse.
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      id:
+                        description: Omit to create a new query
+                        type: string
+                      name:
+                        type: string
+                      description:
+                        type: string
+                        maxLength: 10000
+                      identifierTypes:
+                        description: Required for a new query unless identifierType is set
+                        minItems: 1
+                        type: array
+                        items:
+                          type: string
+                      identifierType:
+                        description: >-
+                          Deprecated: use identifierTypes, which wins if both
+                          are set
+                        deprecated: true
+                        type: string
+                      sql:
+                        type: string
+                      includesNameColumns:
+                        type: boolean
+                      dimensionColumns:
+                        type: array
+                        items:
+                          type: string
+                      projects:
+                        description: >-
+                          Project IDs that can use this. An empty list means all
+                          Projects. Projects control access and availability, so
+                          don't use them as labels.
+                        type: array
+                        items:
+                          type: string
+                      columnMapping:
+                        description: >-
+                          Columns `sql` returns under a non-canonical name, by
+                          role. Replaces the stored mapping; send `{}` to clear
+                          it.
+                        type: object
+                        properties:
+                          experimentIdColumn:
+                            type: string
+                          variationIdColumn:
+                            type: string
+                          timestampColumn:
+                            type: string
+                          userIdColumns:
+                            description: Column for each identifier type, keyed by type
+                            type: object
+                            propertyNames:
+                              type: string
+                            additionalProperties:
+                              type: string
+                          experimentNameColumn:
+                            type: string
+                          variationNameColumn:
+                            type: string
+                        additionalProperties: false
+                    required:
+                      - name
+                      - sql
+                    additionalProperties: false
+                identifierJoinQueries:
+                  description: Replaces the list
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      identifierTypes:
+                        type: array
+                        items:
+                          type: string
+                      sql:
+                        type: string
+                    required:
+                      - identifierTypes
+                      - sql
+                    additionalProperties: false
+                mixpanelSettings:
+                  type: object
+                  properties:
+                    viewedExperimentEventName:
+                      type: string
+                    experimentIdProperty:
+                      type: string
+                    variationIdProperty:
+                      type: string
+                    extraUserIdProperty:
+                      type: string
+                  additionalProperties: false
+                pipelineSettings:
+                  description: >-
+                    Merged into the stored settings: fields left out keep their
+                    values, but any change must leave `allowWriting`, `mode`,
+                    `writeDataset` and `unitsTableRetentionHours` set, with a
+                    non-empty `writeDataset` when `allowWriting` is true. Send
+                    `[]` to clear `excludedExperimentIds` or
+                    `incrementalOptInExperimentIds`, and `includedExperimentIds:
+                    null` to apply the mode to every experiment again (`[]`
+                    applies it to none).
+                  type: object
+                  properties:
+                    allowWriting:
+                      description: >-
+                        Let GrowthBook write temporary tables to speed up
+                        analysis
+                      type: boolean
+                    mode:
+                      type: string
+                      enum:
+                        - ephemeral
+                        - incremental
+                    writeDatabase:
+                      type: string
+                    writeDataset:
+                      description: Schema (or dataset) to write tables to
+                      type: string
+                    unitsTableRetentionHours:
+                      type: number
+                      exclusiveMinimum: 0
+                    unitsTableDeletion:
+                      type: boolean
+                    includedExperimentIds:
+                      anyOf:
+                        - type: array
+                          items:
+                            type: string
+                        - type: 'null'
+                    excludedExperimentIds:
+                      type: array
+                      items:
+                        type: string
+                    incrementalOptInExperimentIds:
+                      type: array
+                      items:
+                        type: string
+                  additionalProperties: false
+                maxConcurrentQueries:
+                  type: integer
+                  minimum: 0
+                queryCacheTTLMins:
+                  type: integer
+                  minimum: 0
+              additionalProperties: false
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  dataSource:
+                    $ref: '#/components/schemas/DataSource'
+                  eventForwarderWarning:
+                    description: >-
+                      Set if the update saved but syncing the Event Forwarder
+                      failed
+                    type: string
+                required:
+                  - dataSource
+                additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X POST 'https://api.growthbook.io/api/v1/data-sources/{id}' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+    delete:
+      operationId: deleteDataSource
+      summary: Delete a data source
+      description: >-
+        Refused while it's the organization default, metrics, fact metrics, fact
+        tables, segments or dimensions still use it, or it has an Event
+        Forwarder.
+      tags:
+        - data-sources
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          description: Resource deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  deletedId:
+                    type: string
+                required:
+                  - deletedId
+                additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X DELETE 'https://api.growthbook.io/api/v1/data-sources/{id}'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
   /v1/data-sources/{dataSourceId}/information-schema:
     get:
       operationId: getInformationSchema
@@ -22803,6 +23132,42 @@ paths:
           source: >-
             curl -X GET
             'https://api.growthbook.io/api/v1/data-sources/{dataSourceId}/information-schema'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/data-sources/{id}/information-schema/refresh:
+    post:
+      operationId: postDataSourceInformationSchemaRefresh
+      summary: Refresh a data source's information schema
+      description: >-
+        Queues a background job that re-reads the warehouse's tables, creating
+        the schema if there isn't one yet. A table already read before is only
+        re-read when its column count changed; refresh it on its own to pick up
+        renamed or retyped columns.
+      tags:
+        - data-sources
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  queued:
+                    type: boolean
+                    const: true
+                required:
+                  - queued
+                additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/data-sources/{id}/information-schema/refresh'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
   /v1/data-sources/{id}/sql/search-tables:
@@ -36093,6 +36458,73 @@ paths:
           source: |-
             curl -X GET 'https://api.growthbook.io/api/v1/queries/abc123' \
               -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/data-sources/{id}/queries:
+    get:
+      operationId: listDataSourceQueries
+      summary: Get a data source's 50 most recent queries
+      tags:
+        - queries
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: The data source id
+          schema:
+            description: The data source id
+            type: string
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  queries:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Query'
+                required:
+                  - queries
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X GET
+            'https://api.growthbook.io/api/v1/data-sources/{id}/queries' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/queries/{id}/cancel:
+    post:
+      operationId: postQueryCancel
+      summary: Cancel a running query
+      description: >-
+        Also asks the warehouse to stop it where the integration supports that.
+        Needs permission to run queries on the data source.
+      tags:
+        - queries
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  query:
+                    $ref: '#/components/schemas/Query'
+                required:
+                  - query
+                additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST 'https://api.growthbook.io/api/v1/queries/{id}/cancel'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
   /v1/settings:
     get:
       operationId: getSettings
@@ -36256,8 +36688,10 @@ paths:
       summary: Get a single Information Schema Table by id
       description: >-
         Returns cached metadata for a specific table in the Data Source,
-        including columns and their data types. Not all data source types
-        support information schemas.
+        including columns and their data types. The first request for a table
+        listed in the information schema reads its columns from the warehouse,
+        which needs permission to run queries. Not all data source types support
+        information schemas.
       tags:
         - data-sources
       parameters:
@@ -36280,6 +36714,45 @@ paths:
           source: >-
             curl -X GET
             'https://api.growthbook.io/api/v1/information-schema-tables/{tableId}'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/information-schema-tables/{tableId}/refresh:
+    post:
+      operationId: postInformationSchemaTableRefresh
+      summary: Refresh one table's columns
+      description: >-
+        Re-reads the table's columns from the warehouse and returns the updated
+        table. A failed read returns an error and leaves the stored columns as
+        they were.
+      tags:
+        - information-schema-tables
+      parameters:
+        - name: tableId
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  informationSchemaTable:
+                    $ref: '#/components/schemas/InformationSchemaTable'
+                required:
+                  - informationSchemaTable
+                additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/information-schema-tables/{tableId}/refresh'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
   /v1/ramp-schedules:
@@ -43235,6 +43708,10 @@ paths:
                                       - predefined
                                     additionalProperties: false
                                   showAs:
+                                    description: >-
+                                      Deprecated: use `showAs` on each metric
+                                      value.
+                                    deprecated: true
                                     type: string
                                     enum:
                                       - total
@@ -43320,6 +43797,19 @@ paths:
                                               anyOf:
                                                 - type: string
                                                 - type: 'null'
+                                            showAs:
+                                              description: >-
+                                                How a mean metric renders: `total` sums
+                                                the numerator, `per_unit` divides it by
+                                                the unit count. Ignored for other metric
+                                                types. Omit to use the default
+                                                (`per_unit` for `max` and `count
+                                                distinct` aggregations, otherwise
+                                                `total`).
+                                              type: string
+                                              enum:
+                                                - total
+                                                - per_unit
                                           required:
                                             - name
                                             - rowFilters
@@ -43647,6 +44137,10 @@ paths:
                                       - predefined
                                     additionalProperties: false
                                   showAs:
+                                    description: >-
+                                      Deprecated: use `showAs` on each metric
+                                      value.
+                                    deprecated: true
                                     type: string
                                     enum:
                                       - total
@@ -44057,6 +44551,10 @@ paths:
                                       - predefined
                                     additionalProperties: false
                                   showAs:
+                                    description: >-
+                                      Deprecated: use `showAs` on each metric
+                                      value.
+                                    deprecated: true
                                     type: string
                                     enum:
                                       - total
@@ -44484,6 +44982,10 @@ paths:
                                       - predefined
                                     additionalProperties: false
                                   showAs:
+                                    description: >-
+                                      Deprecated: use `showAs` on each metric
+                                      value.
+                                    deprecated: true
                                     type: string
                                     enum:
                                       - total
@@ -44911,6 +45413,10 @@ paths:
                                       - predefined
                                     additionalProperties: false
                                   showAs:
+                                    description: >-
+                                      Deprecated: use `showAs` on each metric
+                                      value.
+                                    deprecated: true
                                     type: string
                                     enum:
                                       - total
@@ -46643,6 +47149,10 @@ paths:
                                       - predefined
                                     additionalProperties: false
                                   showAs:
+                                    description: >-
+                                      Deprecated: use `showAs` on each metric
+                                      value.
+                                    deprecated: true
                                     type: string
                                     enum:
                                       - total
@@ -46728,6 +47238,19 @@ paths:
                                               anyOf:
                                                 - type: string
                                                 - type: 'null'
+                                            showAs:
+                                              description: >-
+                                                How a mean metric renders: `total` sums
+                                                the numerator, `per_unit` divides it by
+                                                the unit count. Ignored for other metric
+                                                types. Omit to use the default
+                                                (`per_unit` for `max` and `count
+                                                distinct` aggregations, otherwise
+                                                `total`).
+                                              type: string
+                                              enum:
+                                                - total
+                                                - per_unit
                                           required:
                                             - name
                                             - rowFilters
@@ -47047,6 +47570,10 @@ paths:
                                       - predefined
                                     additionalProperties: false
                                   showAs:
+                                    description: >-
+                                      Deprecated: use `showAs` on each metric
+                                      value.
+                                    deprecated: true
                                     type: string
                                     enum:
                                       - total
@@ -47449,6 +47976,10 @@ paths:
                                       - predefined
                                     additionalProperties: false
                                   showAs:
+                                    description: >-
+                                      Deprecated: use `showAs` on each metric
+                                      value.
+                                    deprecated: true
                                     type: string
                                     enum:
                                       - total
@@ -47868,6 +48399,10 @@ paths:
                                       - predefined
                                     additionalProperties: false
                                   showAs:
+                                    description: >-
+                                      Deprecated: use `showAs` on each metric
+                                      value.
+                                    deprecated: true
                                     type: string
                                     enum:
                                       - total
@@ -48287,6 +48822,10 @@ paths:
                                       - predefined
                                     additionalProperties: false
                                   showAs:
+                                    description: >-
+                                      Deprecated: use `showAs` on each metric
+                                      value.
+                                    deprecated: true
                                     type: string
                                     enum:
                                       - total
@@ -50248,6 +50787,8 @@ paths:
                                   - predefined
                                 additionalProperties: false
                               showAs:
+                                description: 'Deprecated: use `showAs` on each metric value.'
+                                deprecated: true
                                 type: string
                                 enum:
                                   - total
@@ -50333,6 +50874,19 @@ paths:
                                           anyOf:
                                             - type: string
                                             - type: 'null'
+                                        showAs:
+                                          description: >-
+                                            How a mean metric renders: `total` sums
+                                            the numerator, `per_unit` divides it by
+                                            the unit count. Ignored for other metric
+                                            types. Omit to use the default
+                                            (`per_unit` for `max` and `count
+                                            distinct` aggregations, otherwise
+                                            `total`).
+                                          type: string
+                                          enum:
+                                            - total
+                                            - per_unit
                                       required:
                                         - name
                                         - rowFilters
@@ -50651,6 +51205,8 @@ paths:
                                   - predefined
                                 additionalProperties: false
                               showAs:
+                                description: 'Deprecated: use `showAs` on each metric value.'
+                                deprecated: true
                                 type: string
                                 enum:
                                   - total
@@ -51053,6 +51609,8 @@ paths:
                                   - predefined
                                 additionalProperties: false
                               showAs:
+                                description: 'Deprecated: use `showAs` on each metric value.'
+                                deprecated: true
                                 type: string
                                 enum:
                                   - total
@@ -51472,6 +52030,8 @@ paths:
                                   - predefined
                                 additionalProperties: false
                               showAs:
+                                description: 'Deprecated: use `showAs` on each metric value.'
+                                deprecated: true
                                 type: string
                                 enum:
                                   - total
@@ -51891,6 +52451,8 @@ paths:
                                   - predefined
                                 additionalProperties: false
                               showAs:
+                                description: 'Deprecated: use `showAs` on each metric value.'
+                                deprecated: true
                                 type: string
                                 enum:
                                   - total
@@ -53863,6 +54425,8 @@ paths:
                                   - predefined
                                 additionalProperties: false
                               showAs:
+                                description: 'Deprecated: use `showAs` on each metric value.'
+                                deprecated: true
                                 type: string
                                 enum:
                                   - total
@@ -53948,6 +54512,19 @@ paths:
                                           anyOf:
                                             - type: string
                                             - type: 'null'
+                                        showAs:
+                                          description: >-
+                                            How a mean metric renders: `total` sums
+                                            the numerator, `per_unit` divides it by
+                                            the unit count. Ignored for other metric
+                                            types. Omit to use the default
+                                            (`per_unit` for `max` and `count
+                                            distinct` aggregations, otherwise
+                                            `total`).
+                                          type: string
+                                          enum:
+                                            - total
+                                            - per_unit
                                       required:
                                         - name
                                         - rowFilters
@@ -54266,6 +54843,8 @@ paths:
                                   - predefined
                                 additionalProperties: false
                               showAs:
+                                description: 'Deprecated: use `showAs` on each metric value.'
+                                deprecated: true
                                 type: string
                                 enum:
                                   - total
@@ -54668,6 +55247,8 @@ paths:
                                   - predefined
                                 additionalProperties: false
                               showAs:
+                                description: 'Deprecated: use `showAs` on each metric value.'
+                                deprecated: true
                                 type: string
                                 enum:
                                   - total
@@ -55087,6 +55668,8 @@ paths:
                                   - predefined
                                 additionalProperties: false
                               showAs:
+                                description: 'Deprecated: use `showAs` on each metric value.'
+                                deprecated: true
                                 type: string
                                 enum:
                                   - total
@@ -55506,6 +56089,8 @@ paths:
                                   - predefined
                                 additionalProperties: false
                               showAs:
+                                description: 'Deprecated: use `showAs` on each metric value.'
+                                deprecated: true
                                 type: string
                                 enum:
                                   - total
@@ -59952,6 +60537,8 @@ paths:
                     - predefined
                   additionalProperties: false
                 showAs:
+                  description: 'Deprecated: use `showAs` on each metric value.'
+                  deprecated: true
                   type: string
                   enum:
                     - total
@@ -60037,6 +60624,17 @@ paths:
                             anyOf:
                               - type: string
                               - type: 'null'
+                          showAs:
+                            description: >-
+                              How a mean metric renders: `total` sums the
+                              numerator, `per_unit` divides it by the unit
+                              count. Ignored for other metric types. Omit to use
+                              the default (`per_unit` for `max` and `count
+                              distinct` aggregations, otherwise `total`).
+                            type: string
+                            enum:
+                              - total
+                              - per_unit
                         required:
                           - name
                           - rowFilters
@@ -60405,6 +61003,8 @@ paths:
                                   - predefined
                                 additionalProperties: false
                               showAs:
+                                description: 'Deprecated: use `showAs` on each metric value.'
+                                deprecated: true
                                 type: string
                                 enum:
                                   - total
@@ -60490,6 +61090,19 @@ paths:
                                           anyOf:
                                             - type: string
                                             - type: 'null'
+                                        showAs:
+                                          description: >-
+                                            How a mean metric renders: `total` sums
+                                            the numerator, `per_unit` divides it by
+                                            the unit count. Ignored for other metric
+                                            types. Omit to use the default
+                                            (`per_unit` for `max` and `count
+                                            distinct` aggregations, otherwise
+                                            `total`).
+                                          type: string
+                                          enum:
+                                            - total
+                                            - per_unit
                                       required:
                                         - name
                                         - rowFilters
@@ -60747,6 +61360,8 @@ paths:
                     - predefined
                   additionalProperties: false
                 showAs:
+                  description: 'Deprecated: use `showAs` on each metric value.'
+                  deprecated: true
                   type: string
                   enum:
                     - total
@@ -61201,6 +61816,8 @@ paths:
                                   - predefined
                                 additionalProperties: false
                               showAs:
+                                description: 'Deprecated: use `showAs` on each metric value.'
+                                deprecated: true
                                 type: string
                                 enum:
                                   - total
@@ -61542,6 +62159,8 @@ paths:
                     - predefined
                   additionalProperties: false
                 showAs:
+                  description: 'Deprecated: use `showAs` on each metric value.'
+                  deprecated: true
                   type: string
                   enum:
                     - total
@@ -62013,6 +62632,8 @@ paths:
                                   - predefined
                                 additionalProperties: false
                               showAs:
+                                description: 'Deprecated: use `showAs` on each metric value.'
+                                deprecated: true
                                 type: string
                                 enum:
                                   - total
@@ -62371,6 +62992,8 @@ paths:
                     - predefined
                   additionalProperties: false
                 showAs:
+                  description: 'Deprecated: use `showAs` on each metric value.'
+                  deprecated: true
                   type: string
                   enum:
                     - total
@@ -62845,6 +63468,8 @@ paths:
                                   - predefined
                                 additionalProperties: false
                               showAs:
+                                description: 'Deprecated: use `showAs` on each metric value.'
+                                deprecated: true
                                 type: string
                                 enum:
                                   - total
@@ -63206,6 +63831,8 @@ paths:
                     - predefined
                   additionalProperties: false
                 showAs:
+                  description: 'Deprecated: use `showAs` on each metric value.'
+                  deprecated: true
                   type: string
                   enum:
                     - total
@@ -63673,6 +64300,8 @@ paths:
                                   - predefined
                                 additionalProperties: false
                               showAs:
+                                description: 'Deprecated: use `showAs` on each metric value.'
+                                deprecated: true
                                 type: string
                                 enum:
                                   - total
@@ -64027,6 +64656,8 @@ paths:
                     - predefined
                   additionalProperties: false
                 showAs:
+                  description: 'Deprecated: use `showAs` on each metric value.'
+                  deprecated: true
                   type: string
                   enum:
                     - total
@@ -64516,6 +65147,8 @@ paths:
                                   - predefined
                                 additionalProperties: false
                               showAs:
+                                description: 'Deprecated: use `showAs` on each metric value.'
+                                deprecated: true
                                 type: string
                                 enum:
                                   - total
@@ -75565,6 +76198,27 @@ components:
           maxLength: 10000
         query:
           type: string
+        timing:
+          description: >-
+            What the query returns and how the value at a unit's first exposure
+            is resolved. `none` (default): one value per unit, resolved with
+            MAX(value). `rowTimestamp`: timestamped rows; the query also returns
+            a `timestamp` column and the latest row at or before first exposure
+            is used. `validityRange`: validity ranges; the query also returns
+            `start_timestamp` and `end_timestamp` (NULL = still valid) columns
+            and the row valid at first exposure is used. Only supported for SQL
+            Data Sources.
+          type: string
+          enum:
+            - none
+            - rowTimestamp
+            - validityRange
+        nullLabel:
+          description: >-
+            Label used in experiment results for units with no dimension value.
+            Leave empty to use the default null label.
+          type: string
+          maxLength: 100
         managedBy:
           description: >-
             Where this dimension must be managed from. If not set (empty
@@ -75926,6 +76580,9 @@ components:
                   variationNameColumn:
                     type: string
                 additionalProperties: false
+              error:
+                description: Why the last validation of this query failed
+                type: string
             required:
               - id
               - name
@@ -75969,6 +76626,51 @@ components:
             - variationIdProperty
             - extraUserIdProperty
           additionalProperties: false
+        pipelineSettings:
+          type: object
+          properties:
+            allowWriting:
+              description: Let GrowthBook write temporary tables to speed up analysis
+              type: boolean
+            mode:
+              type: string
+              enum:
+                - ephemeral
+                - incremental
+            writeDatabase:
+              type: string
+            writeDataset:
+              description: Schema (or dataset) to write tables to
+              type: string
+            unitsTableRetentionHours:
+              type: number
+              exclusiveMinimum: 0
+            unitsTableDeletion:
+              type: boolean
+            includedExperimentIds:
+              type: array
+              items:
+                type: string
+            excludedExperimentIds:
+              type: array
+              items:
+                type: string
+            incrementalOptInExperimentIds:
+              type: array
+              items:
+                type: string
+          required:
+            - allowWriting
+            - mode
+            - writeDataset
+            - unitsTableRetentionHours
+          additionalProperties: false
+        maxConcurrentQueries:
+          type: integer
+          minimum: 0
+        queryCacheTTLMins:
+          type: integer
+          minimum: 0
       required:
         - id
         - dateCreated
@@ -79774,6 +80476,10 @@ components:
           type: string
         startedAt:
           type: string
+        finishedAt:
+          anyOf:
+            - type: string
+            - type: 'null'
         status:
           type: string
           enum:
@@ -79782,6 +80488,11 @@ components:
             - failed
             - partially-succeeded
             - succeeded
+        error:
+          description: Why the query failed
+          anyOf:
+            - type: string
+            - type: 'null'
         externalId:
           type: string
         dependencies:
@@ -79799,7 +80510,9 @@ components:
         - queryType
         - createdAt
         - startedAt
+        - finishedAt
         - status
+        - error
         - externalId
         - dependencies
         - runAtEnd
@@ -80221,6 +80934,7 @@ components:
                   - rampSchedule.delete
                   - rampSchedule.other
                   - settings.approvals
+                  - settings.dataSources
                   - settings.webhooks
                   - settings.other
                   - access.members
@@ -83688,6 +84402,8 @@ components:
                           - predefined
                         additionalProperties: false
                       showAs:
+                        description: 'Deprecated: use `showAs` on each metric value.'
+                        deprecated: true
                         type: string
                         enum:
                           - total
@@ -83773,6 +84489,18 @@ components:
                                   anyOf:
                                     - type: string
                                     - type: 'null'
+                                showAs:
+                                  description: >-
+                                    How a mean metric renders: `total` sums the
+                                    numerator, `per_unit` divides it by the unit
+                                    count. Ignored for other metric types. Omit
+                                    to use the default (`per_unit` for `max` and
+                                    `count distinct` aggregations, otherwise
+                                    `total`).
+                                  type: string
+                                  enum:
+                                    - total
+                                    - per_unit
                               required:
                                 - name
                                 - rowFilters
@@ -84096,6 +84824,8 @@ components:
                           - predefined
                         additionalProperties: false
                       showAs:
+                        description: 'Deprecated: use `showAs` on each metric value.'
+                        deprecated: true
                         type: string
                         enum:
                           - total
@@ -84504,6 +85234,8 @@ components:
                           - predefined
                         additionalProperties: false
                       showAs:
+                        description: 'Deprecated: use `showAs` on each metric value.'
+                        deprecated: true
                         type: string
                         enum:
                           - total
@@ -84929,6 +85661,8 @@ components:
                           - predefined
                         additionalProperties: false
                       showAs:
+                        description: 'Deprecated: use `showAs` on each metric value.'
+                        deprecated: true
                         type: string
                         enum:
                           - total
@@ -85357,6 +86091,8 @@ components:
                           - predefined
                         additionalProperties: false
                       showAs:
+                        description: 'Deprecated: use `showAs` on each metric value.'
+                        deprecated: true
                         type: string
                         enum:
                           - total
@@ -87362,6 +88098,8 @@ components:
                     - predefined
                   additionalProperties: false
                 showAs:
+                  description: 'Deprecated: use `showAs` on each metric value.'
+                  deprecated: true
                   type: string
                   enum:
                     - total
@@ -87447,6 +88185,17 @@ components:
                             anyOf:
                               - type: string
                               - type: 'null'
+                          showAs:
+                            description: >-
+                              How a mean metric renders: `total` sums the
+                              numerator, `per_unit` divides it by the unit
+                              count. Ignored for other metric types. Omit to use
+                              the default (`per_unit` for `max` and `count
+                              distinct` aggregations, otherwise `total`).
+                            type: string
+                            enum:
+                              - total
+                              - per_unit
                         required:
                           - name
                           - rowFilters
@@ -87651,6 +88400,8 @@ components:
                     - predefined
                   additionalProperties: false
                 showAs:
+                  description: 'Deprecated: use `showAs` on each metric value.'
+                  deprecated: true
                   type: string
                   enum:
                     - total
@@ -87941,6 +88692,8 @@ components:
                     - predefined
                   additionalProperties: false
                 showAs:
+                  description: 'Deprecated: use `showAs` on each metric value.'
+                  deprecated: true
                   type: string
                   enum:
                     - total
@@ -88248,6 +89001,8 @@ components:
                     - predefined
                   additionalProperties: false
                 showAs:
+                  description: 'Deprecated: use `showAs` on each metric value.'
+                  deprecated: true
                   type: string
                   enum:
                     - total
@@ -88558,6 +89313,8 @@ components:
                     - predefined
                   additionalProperties: false
                 showAs:
+                  description: 'Deprecated: use `showAs` on each metric value.'
+                  deprecated: true
                   type: string
                   enum:
                     - total
@@ -88861,6 +89618,8 @@ components:
                     - predefined
                   additionalProperties: false
                 showAs:
+                  description: 'Deprecated: use `showAs` on each metric value.'
+                  deprecated: true
                   type: string
                   enum:
                     - total
@@ -90155,6 +90914,7 @@ components:
                       - rampSchedule.delete
                       - rampSchedule.other
                       - settings.approvals
+                      - settings.dataSources
                       - settings.webhooks
                       - settings.other
                       - access.members
@@ -93628,6 +94388,7 @@ x-tagGroups:
       - usage
       - meta
       - ContextualBandits
+      - information-schema-tables
       - Dashboards
       - ContextualBanditQueries
       - InterleavingExposureQueries

@@ -23,8 +23,7 @@ import {
 import type { HeaderStructure } from "@/components/Settings/DisplayTestQueryResults";
 import {
   sortExplorationRows,
-  getIsRatioByIndex,
-  getEffectiveShowAs,
+  getExplorationRenderOpts,
   buildExplorationColumns,
   getExplorationCellValue,
   formatDateByGranularity,
@@ -519,19 +518,13 @@ export default function useExplorationTableData(
   }, [exploration, submittedExploreState]);
 
   const renderOpts: RenderOpts = useMemo(
-    () => ({
-      showAs: getEffectiveShowAs(submittedExploreState, getFactMetricById),
-      isRatioByIndex: getIsRatioByIndex(
-        submittedExploreState,
-        getFactMetricById,
-      ),
-    }),
+    () => getExplorationRenderOpts(submittedExploreState, getFactMetricById),
     [submittedExploreState, getFactMetricById],
   );
 
   const columns = useMemo(
-    () => buildExplorationColumns(submittedExploreState, getFactMetricById),
-    [submittedExploreState, getFactMetricById],
+    () => buildExplorationColumns(submittedExploreState, renderOpts),
+    [submittedExploreState, renderOpts],
   );
 
   const hasAnyRatio = useMemo(
@@ -607,14 +600,9 @@ export default function useExplorationTableData(
         if (col.kind === "dimension") {
           labels.push(col.label);
         } else if (col.sub === "single") {
-          const metricName =
-            (submittedExploreState.dataset?.type !== "funnel" &&
-            submittedExploreState.dataset?.type !== "journey"
-              ? submittedExploreState.dataset?.values?.[col.metricIndex]?.name
-              : undefined) ?? col.label;
           labels.push(
-            `${metricName} — ${currHeading}`,
-            `${metricName} — ${prevHeading}`,
+            `${col.label} — ${currHeading}`,
+            `${col.label} — ${prevHeading}`,
           );
         }
         if (i === 0 && firstDimensionIsDate) {
@@ -647,12 +635,7 @@ export default function useExplorationTableData(
         if (col.kind === "dimension") {
           row1.push({ label: col.label, rowSpan: 2 });
         } else if (col.sub === "single") {
-          const metricName =
-            (submittedExploreState.dataset?.type !== "funnel" &&
-            submittedExploreState.dataset?.type !== "journey"
-              ? submittedExploreState.dataset?.values?.[col.metricIndex]?.name
-              : undefined) ?? col.label;
-          row1.push({ label: metricName, colSpan: 2 });
+          row1.push({ label: col.label, colSpan: 2 });
           row2Labels.push(currHeading, prevHeading);
         }
         // Dedicated previous-date column, mirroring orderedColumnKeys.
