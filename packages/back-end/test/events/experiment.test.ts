@@ -277,6 +277,72 @@ describe("experiments events", () => {
     );
   });
 
+  describe("decision criteria", () => {
+    const logCreated = async (
+      settings: { defaultDecisionCriteriaId?: string },
+      experiment = experimentSnapshot,
+    ) => {
+      let rawPayload;
+      jest.spyOn(EventModel, "create").mockImplementation(({ data }) => {
+        rawPayload = data;
+        return { toJSON: () => "" };
+      });
+      await logExperimentCreated(
+        {
+          org: { ...org, settings },
+          userId: "aabb",
+          email: "user@mail.com",
+          userName: "User Name",
+          auditUser: {
+            type: "dashboard",
+            id: "aabb",
+            email: "user@mail.com",
+            name: "User Name",
+          },
+        },
+        experiment,
+      );
+      return rawPayload;
+    };
+
+    const withDecisionFrameworkSettings = (settings: object) =>
+      expect.objectContaining({
+        data: expect.objectContaining({
+          object: expect.objectContaining({
+            settings: expect.objectContaining({
+              decisionFrameworkSettings: settings,
+            }),
+          }),
+        }),
+      });
+
+    it("falls back to the org default", async () => {
+      expect(
+        await logCreated({ defaultDecisionCriteriaId: "deccrit_org" }),
+      ).toEqual(
+        withDecisionFrameworkSettings({ decisionCriteriaId: "deccrit_org" }),
+      );
+    });
+
+    it("keeps the experiment's own criteria over the org default", async () => {
+      expect(
+        await logCreated(
+          { defaultDecisionCriteriaId: "deccrit_org" },
+          {
+            ...experimentSnapshot,
+            decisionFrameworkSettings: { decisionCriteriaId: "deccrit_exp" },
+          },
+        ),
+      ).toEqual(
+        withDecisionFrameworkSettings({ decisionCriteriaId: "deccrit_exp" }),
+      );
+    });
+
+    it("leaves it unset when the org has no default", async () => {
+      expect(await logCreated({})).toEqual(withDecisionFrameworkSettings({}));
+    });
+  });
+
   it("dispatches experiment.updated event on experiment update", async () => {
     let rawPayload;
 

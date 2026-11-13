@@ -1661,6 +1661,17 @@ const toExperimentEventPayload = async (
     context,
     experiment as ExperimentInterfaceExcludingHoldouts,
   );
+  // Report the effective criteria. The REST API keeps the stored value so a
+  // GET → POST round-trip doesn't pin the experiment to the org default.
+  const decisionCriteriaId =
+    apiExperiment.settings.decisionFrameworkSettings?.decisionCriteriaId ??
+    context.org.settings?.defaultDecisionCriteriaId;
+  if (decisionCriteriaId) {
+    apiExperiment.settings.decisionFrameworkSettings = {
+      ...apiExperiment.settings.decisionFrameworkSettings,
+      decisionCriteriaId,
+    };
+  }
   const ownerEmail = await getOwnerEmail(apiExperiment.owner, context);
   return ownerEmail ? { ...apiExperiment, ownerEmail } : apiExperiment;
 };
