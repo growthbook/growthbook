@@ -13,12 +13,7 @@ import {
 } from "shared/types/webhook";
 import { ago } from "shared/dates";
 import { SDKConnectionInterface } from "shared/types/sdk-connection";
-import {
-  Revision,
-  applyTopLevelPatchOps,
-  landedOps,
-  patchOpsToPartial,
-} from "shared/enterprise";
+import { Revision, patchOpsToPartial } from "shared/enterprise";
 import {
   parseSdkWebhookSnapshot,
   SDKWebhookRevisionSnapshot,
@@ -238,24 +233,24 @@ export default function SdkWebhooks({
   const submitWebhookRevision = (newSnapshots: SDKWebhookRevisionSnapshot[]) =>
     flow.save({ sdkWebhooks: newSnapshots });
 
-  // The webhooks the change is made to: live's, or the chosen draft's over
-  // live's, as the server reads a draft that's behind live. One added to live
-  // since the draft was made is kept, not dropped from the list sent.
+  // The webhooks the change is made to: the chosen draft's, or live's.
   const currentWebhookSnapshots = (): SDKWebhookRevisionSnapshot[] => {
-    const live = { sdkWebhooks: liveWebhooks.map(toSnapshot) };
     const target =
       flow.mode === "existing"
         ? openRevisions.find((r) => r.id === flow.selectedDraftId)
         : null;
-    if (!target) return live.sdkWebhooks;
-    return applyTopLevelPatchOps(
-      live,
-      landedOps(
-        live,
-        target.target.snapshot as Record<string, unknown>,
-        target.target.proposedChanges,
-      ),
-    ).sdkWebhooks.map(toSnapshot);
+    return target ? webhooksOf(target) : liveWebhooks.map(toSnapshot);
+  };
+  // A webhook can be changed only where it exists: one a draft added isn't
+  // on live, and one added to live since isn't in an older draft.
+  const snapshotsWith = (id: string | undefined) => {
+    const snapshots = currentWebhookSnapshots();
+    if (!snapshots.some((s) => s.id === id)) {
+      throw new Error(
+        "This webhook isn't in the version you're saving to. Pick another one above.",
+      );
+    }
+    return snapshots;
   };
 
   const handleCreateViaRevision = async (
@@ -286,13 +281,7 @@ export default function SdkWebhooks({
     formData: UpdateSdkWebhookProps,
     id: string | undefined,
   ): Promise<void> => {
-    const currentSnapshots = currentWebhookSnapshots();
-    if (!currentSnapshots.some((s) => s.id === id)) {
-      throw new Error(
-        "This webhook isn't part of where you're saving to. Pick the draft that has it, or switch to the live version.",
-      );
-    }
-    const updated = currentSnapshots.map((s) => {
+    const updated = snapshotsWith(id).map((s) => {
       if (s.id !== id) return s;
       // A blank timeout (null) clears it back to the default.
       const { timeoutSeconds: currentTimeout, ...rest } = s;
@@ -322,7 +311,7 @@ export default function SdkWebhooks({
 
   const handleDeleteViaRevision = async (webhookId: string): Promise<void> => {
     await submitWebhookRevision(
-      currentWebhookSnapshots().filter((s) => s.id !== webhookId),
+      snapshotsWith(webhookId).filter((s) => s.id !== webhookId),
     );
   };
 
@@ -390,6 +379,13 @@ export default function SdkWebhooks({
           : staged === "removed"
             ? "Removed in this draft."
             : "Added after this draft was created. Switch to the live version to change it.";
+      // Headers are withheld from someone who can't edit every connection
+      // the webhook fires for, and an edit would save over them.
+      const editBlockedReason =
+        notInDraftReason ??
+        (live?.signingKey === ""
+          ? "This webhook also fires for SDK Connections you can't edit."
+          : undefined);
       const hidden = (
         <Text color="text-mid" fontStyle="italic">
           hidden
@@ -472,9 +468,10 @@ export default function SdkWebhooks({
                 ) : null}
                 {!managedBy && canUpdateWebhook ? (
                   <DropdownMenuItem
-                    disabled={!!notInDraftReason}
-                    tooltip={notInDraftReason}
-                    onClick={() =>
+                    disabled={!!editBlockedReason}
+                    tooltip={editBlockedReason}
+                    onClick={() => {
+                      flow.reset();
                       setEditWebhookData({
                         id: snapshot.id,
                         name: snapshot.name,
@@ -484,8 +481,8 @@ export default function SdkWebhooks({
                         payloadFormat: snapshot.payloadFormat,
                         payloadKey: snapshot.payloadKey,
                         timeoutSeconds: snapshot.timeoutSeconds ?? null,
-                      })
-                    }
+                      });
+                    }}
                   >
                     Edit
                   </DropdownMenuItem>
@@ -495,7 +492,10 @@ export default function SdkWebhooks({
                     disabled={!!notInDraftReason}
                     tooltip={notInDraftReason}
                     color="red"
-                    onClick={() => setDeleteWebhook(snapshot)}
+                    onClick={() => {
+                      flow.reset();
+                      setDeleteWebhook(snapshot);
+                    }}
                   >
                     Delete
                   </DropdownMenuItem>
@@ -524,7 +524,10 @@ export default function SdkWebhooks({
             >
               <Button
                 disabled={disableWebhookCreate}
-                onClick={() => setCreateWebhookModalOpen(true)}
+                onClick={() => {
+                  flow.reset();
+                  setCreateWebhookModalOpen(true);
+                }}
                 icon={<PiPlusBold />}
               >
                 Add webhook

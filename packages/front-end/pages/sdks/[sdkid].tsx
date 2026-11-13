@@ -16,7 +16,6 @@ import { Box } from "@radix-ui/themes";
 import {
   Revision,
   applyTopLevelPatchOps,
-  landedOps,
   getLiveRevision,
   getRevisionNumberById,
   getSdkConnectionGoverningRules,
@@ -208,21 +207,19 @@ function buildDisplayedConnection(
   revision: Revision | null,
 ): SDKConnectionInterface {
   if (!revision) return connection;
-  const base = revision.target.snapshot as Record<string, unknown>;
-  const ops = revision.target.proposedChanges;
-  // A draft shows what publishing it would leave: its own changes over live.
-  // History shows what it was, and a setting it left out was off then.
-  const draft = isActiveDraftStatus(revision.status);
-  const live = flattenConnection(connection, []) as Record<string, unknown>;
-  const effective = (
-    draft
-      ? applyTopLevelPatchOps(live, landedOps(live, base, ops))
-      : applyTopLevelPatchOps(base, ops)
+  // A draft shows what it holds: its own changes over where it started.
+  const effective = applyTopLevelPatchOps(
+    revision.target.snapshot as Record<string, unknown>,
+    revision.target.proposedChanges,
   ) as SDKConnectionRevisionSnapshot;
   const settings = (effective.sdkConnection ?? {}) as Record<string, unknown>;
+  // A setting history left out was off then, whatever live says now. A draft
+  // keeps live's, as publishing it would.
   return overlayFlattenedOnConnection(
     connection,
-    draft ? settings : withAbsentSettings(settings),
+    isActiveDraftStatus(revision.status)
+      ? settings
+      : withAbsentSettings(settings),
   );
 }
 
@@ -875,9 +872,6 @@ export default function SDKConnectionPage() {
             )}
             {tab === "webhooks" && (
               <SdkWebhooks
-                // Where a change goes by default follows the revision in view
-                // and the drafts that are open.
-                key={`${selectedRevisionId ?? "live"}:${openRevisions.length}`}
                 connection={connection}
                 liveRevisionId={liveRevision?.id ?? null}
                 refresh={refreshAll}

@@ -445,7 +445,7 @@ export const sdkConnectionAdapter: EntityRevisionAdapter<SDKConnectionRevisionSn
           !isEqual([...drafted.projects].sort(), [...live.projects].sort()))
       ) {
         throw new ConflictError(
-          "This SDK connection's environment or Projects changed after this draft was created. Update the draft from live, then publish it.",
+          "This SDK connection's environment or Projects changed after this draft was created. Rebase the draft with live, then publish it.",
         );
       }
 

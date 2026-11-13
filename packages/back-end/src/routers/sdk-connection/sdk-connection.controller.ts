@@ -13,7 +13,6 @@ import {
 } from "shared/types/webhook";
 import {
   createSdkWebhookValidator,
-  isActiveDraftStatus,
   parseSdkWebhookSnapshot,
   sdkWebhookStableId,
   SDKConnectionRevisionSnapshot,
@@ -23,7 +22,6 @@ import {
   Revision,
   JsonPatchOperation,
   isPlainObject,
-  landedOps,
   normalizeProposedChanges,
   sdkConnectionSettingsEqual,
 } from "shared/enterprise";
@@ -58,13 +56,9 @@ import {
   createOrUpdateRevision,
   applyPatchToSnapshot,
   ensureLiveRevisionExists,
-  isRevisionDiverged,
 } from "back-end/src/revisions/util";
 import { getAdapter } from "back-end/src/revisions";
-import {
-  publishRevision,
-  rebaseRevision,
-} from "back-end/src/revisions/revisionActions";
+import { publishRevision } from "back-end/src/revisions/revisionActions";
 import {
   CONNECTION_UPDATABLE_FIELDS,
   pickSettingsSnapshot,
@@ -193,29 +187,10 @@ export const putSDKConnection = async (
     proxyHost: connection.proxy?.host,
   };
 
-  // Rows predating `httpMethod` lack it, but the snapshot schema requires it.
-  const liveWebhookSnapshots = liveWebhooks.map((wh) =>
-    parseSdkWebhookSnapshot({
-      ...wh,
-      httpMethod: wh.httpMethod ?? "POST",
-    }),
-  );
-  // Live as the revision engine reads it.
-  const liveEntity: SDKConnectionLiveSnapshot = {
-    sdkConnection: pickSettingsSnapshot(currentState),
-    sdkWebhooks: liveWebhookSnapshots,
-    id: connection.id,
-    projects: connection.projects,
-    dateUpdated: connection.dateUpdated,
-  };
-
   // When updating a draft, diff against the draft's state, not the live connection.
   const revisionId = req.query.revisionId;
   let settingsComparisonBase = { ...currentState };
   let draftWebhookSnapshots: SDKWebhookRevisionSnapshot[] | null = null;
-  // A draft behind live reads, on the page and here, as its own changes over
-  // live. An edit to it is made against that, so the draft takes on live first.
-  let draftBehindLive: Revision | null = null;
   if (revisionId) {
     const targetRevision =
       await context.models.revisions.getByIdReadable(revisionId);
@@ -232,25 +207,10 @@ export const putSDKConnection = async (
         "Revision does not belong to this SDK connection",
       );
     }
-    const draftBase = targetRevision.target
-      .snapshot as SDKConnectionRevisionSnapshot;
-    const behind =
-      isActiveDraftStatus(targetRevision.status) &&
-      isRevisionDiverged(getAdapter("sdk-connection"), draftBase, liveEntity);
-    if (behind) draftBehindLive = targetRevision;
-    const patchedSnapshot = behind
-      ? applyPatchToSnapshot(
-          liveEntity as SDKConnectionRevisionSnapshot,
-          landedOps(
-            liveEntity,
-            draftBase,
-            targetRevision.target.proposedChanges,
-          ),
-        )
-      : applyPatchToSnapshot(
-          draftBase,
-          normalizeProposedChanges(targetRevision.target.proposedChanges),
-        );
+    const patchedSnapshot = applyPatchToSnapshot(
+      targetRevision.target.snapshot,
+      normalizeProposedChanges(targetRevision.target.proposedChanges),
+    );
     settingsComparisonBase = {
       ...currentState,
       ...patchedSnapshot.sdkConnection,
@@ -321,6 +281,14 @@ export const putSDKConnection = async (
   // No draft-intent flag is an implicit publish: the change lands now or the
   // request is refused. It never becomes a draft the caller didn't ask for.
   const wantsMerge = explicitPublish || !wantsDraft;
+
+  // Rows predating `httpMethod` lack it, but the snapshot schema requires it.
+  const liveWebhookSnapshots = liveWebhooks.map((wh) =>
+    parseSdkWebhookSnapshot({
+      ...wh,
+      httpMethod: wh.httpMethod ?? "POST",
+    }),
+  );
 
   const parseIncomingWebhooks = (
     value: unknown,
@@ -476,16 +444,6 @@ export const putSDKConnection = async (
         : op,
     );
 
-  if (editsExistingDraft && draftBehindLive) {
-    await rebaseRevision({
-      context,
-      entityType: "sdk-connection",
-      entity: liveEntity,
-      revision: draftBehindLive,
-      strategies: {},
-    });
-  }
-
   let revision = await createOrUpdateRevision(
     context,
     "sdk-connection",
@@ -511,7 +469,13 @@ export const putSDKConnection = async (
   // Lands as the Publish button does: merge claimed first, a guarded write on
   // the stamp the diff was computed against, and a failed write restored from
   // what it persisted.
-  revision = await publishRevision(context, revision, liveEntity, {
+  const landingEntity: SDKConnectionLiveSnapshot = {
+    ...baselineSnapshot,
+    id: connection.id,
+    projects: connection.projects,
+    dateUpdated: connection.dateUpdated,
+  };
+  revision = await publishRevision(context, revision, landingEntity, {
     bypass: needsApproval,
   });
 

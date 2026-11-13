@@ -152,20 +152,24 @@ export function useSdkConnectionRevisionFlow({
 
   // Prefer the draft being viewed, then the user's own open draft. Never
   // default to publishing while a draft is selected.
-  const [selectedDraftId, setSelectedDraftId] = useState<string | null>(() => {
+  const defaultDraftId = () => {
     if (isDraftRevision(selectedRevision)) return selectedRevision.id;
     const myDraft = (openRevisions ?? []).find(
       (r) => isDraftRevision(r) && r.authorId === user?.id,
     );
     return myDraft?.id ?? null;
-  });
-  const [mode, setMode] = useState<DraftMode>(() =>
-    selectedDraftId
-      ? "existing"
-      : effectiveApprovalRequired
-        ? "new"
-        : "publish",
-  );
+  };
+  const defaultMode = (draftId: string | null): DraftMode =>
+    draftId ? "existing" : effectiveApprovalRequired ? "new" : "publish";
+  const [selectedDraftId, setSelectedDraftId] = useState(defaultDraftId);
+  const [mode, setMode] = useState(() => defaultMode(selectedDraftId));
+  // For a caller that outlives one edit: back to the defaults for the
+  // revision now in view.
+  const reset = () => {
+    const draftId = defaultDraftId();
+    setSelectedDraftId(draftId);
+    setMode(defaultMode(draftId));
+  };
 
   const save = async (body: Record<string, unknown>) =>
     saveSdkConnectionChanges({
@@ -186,6 +190,7 @@ export function useSdkConnectionRevisionFlow({
     setMode,
     selectedDraftId,
     setSelectedDraftId,
+    reset,
     approvalRequired: effectiveApprovalRequired,
     canAutoPublish: effectiveCanAutoPublish,
     // Approval required, but not for metadata: the draft is just a revision.
