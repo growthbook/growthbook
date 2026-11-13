@@ -139,7 +139,9 @@ export default function QaOverridesSection({
               <Box mt="2">
                 <Button
                   variant="outline"
-                  icon={<PiPlusBold />}
+                  icon={<PiPlusBold size={12} />}
+                  // The design's empty-state button: md height, 13px text.
+                  style={{ fontSize: 13, paddingInline: 14, gap: 6 }}
                   onClick={() => setModal({ mode: "create" })}
                 >
                   Add Override
@@ -196,7 +198,9 @@ export default function QaOverridesSection({
             <Button
               variant="outline"
               size="sm"
-              icon={<PiPlusBold />}
+              icon={<PiPlusBold size={12} />}
+              // Sized to the design, between the sm and md steps.
+              style={{ height: 30, fontSize: 13, paddingInline: 12, gap: 6 }}
               onClick={() => setModal({ mode: "create" })}
             >
               Add Override

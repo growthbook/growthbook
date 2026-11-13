@@ -237,8 +237,17 @@ export default function QaOverrideModal({
   const addFilterMenu = (
     <DropdownMenu
       trigger={
-        <Button variant="outline" size="sm" icon={<PiPlusBold />}>
-          Add Filter <PiCaretDownBold size={10} />
+        // Sized to the design, between the sm and md steps: 28px tall, 13px
+        // text, 12px icons.
+        <Button
+          variant="outline"
+          size="sm"
+          icon={<PiPlusBold size={12} />}
+          style={{ height: 28, fontSize: 13, paddingInline: 10, gap: 6 }}
+        >
+          <Flex as="span" align="center" style={{ gap: 6 }}>
+            Add Filter <PiCaretDownBold size={12} />
+          </Flex>
         </Button>
       }
       menuPlacement="end"
