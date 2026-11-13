@@ -9,7 +9,6 @@ import {
 } from "shared/types/fact-table";
 import { useForm } from "react-hook-form";
 import React, { useState, useEffect } from "react";
-import { canInlineFilterColumn } from "shared/experiments";
 import { getValidDate, abbreviateAgo, datetime, ago } from "shared/dates";
 import {
   PiPlus,
@@ -28,7 +27,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
-import SelectField, { SingleValue } from "@/components/Forms/SelectField";
+import SelectField from "@/components/Forms/SelectField";
 import MultiSelectField from "@/ui/MultiSelectField";
 import MarkdownInput from "@/components/Markdown/MarkdownInput";
 import Checkbox from "@/ui/Checkbox";
@@ -40,7 +39,9 @@ import useSaveFactTableColumn from "@/hooks/useSaveFactTableColumn";
 import {
   COLUMN_DATATYPE_OPTIONS,
   getColumnEligibility,
+  getSecondaryFilterColumnOptions,
   NUMBER_FORMAT_OPTIONS,
+  toConditionalInlineFilters,
 } from "@/services/columnEditModel";
 import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 import track from "@/services/track";
@@ -51,6 +52,7 @@ import {
 import { DocLink } from "@/components/DocLink";
 import Callout from "@/ui/Callout";
 import Frame from "@/ui/Frame";
+import SecondaryFiltersField from "./SecondaryFiltersField";
 
 export interface Props {
   factTable: FactTableInterface;
@@ -69,14 +71,6 @@ function toPersistedJSONFields(
       field,
       { ...value, datatype: value.datatype ?? "" },
     ]),
-  );
-}
-
-function toConditionalInlineFilters(
-  mappings: { value: string; column: string }[],
-): Record<string, string> {
-  return Object.fromEntries(
-    mappings.filter((m) => m.value && m.column).map((m) => [m.value, m.column]),
   );
 }
 
@@ -290,30 +284,10 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
   };
   const eligibility = getColumnEligibility(factTable, updatedColumn);
 
-  // Other string columns a conditional prompt can key off.
-  // Columns (or JSON fields) that can be prompted for alongside this one
-  const mappingColumnOptions: SingleValue[] = [];
-  factTable.columns.forEach((c) => {
-    if (c.deleted || c.column === existing?.column) return;
-    if (c.datatype === "json") {
-      Object.entries(c.jsonFields ?? {}).forEach(([field, f]) => {
-        if (
-          f.datatype === "string" ||
-          f.datatype === "boolean" ||
-          !f.datatype
-        ) {
-          mappingColumnOptions.push({
-            label: `${c.name || c.column}.${field}`,
-            value: `${c.column}.${field}`,
-          });
-        }
-      });
-      return;
-    }
-    if (canInlineFilterColumn(factTable, c.column)) {
-      mappingColumnOptions.push({ label: c.name || c.column, value: c.column });
-    }
-  });
+  const mappingColumnOptions = getSecondaryFilterColumnOptions(
+    factTable,
+    existing?.column ?? "",
+  );
 
   return (
     <Modal
@@ -971,86 +945,12 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
                   When certain values are chosen, prompt for an additional
                   filter.
                 </Text>
-                <Flex direction="column" gap="2">
-                  {valueMappings.map((m, i) => (
-                    <Flex key={i} gap="2" align="center">
-                      <SelectField
-                        containerStyle={{
-                          flex: 1,
-                          minWidth: 0,
-                          marginBottom: 0,
-                        }}
-                        value={m.value}
-                        createable
-                        onChange={(value) =>
-                          setValueMappings((prev) =>
-                            // A value maps once; a duplicate would overwrite on save
-                            prev.some((x, j) => j !== i && x.value === value)
-                              ? prev
-                              : prev.map((x, j) =>
-                                  j === i ? { ...x, value } : x,
-                                ),
-                          )
-                        }
-                        options={topValues
-                          .filter(
-                            (v) =>
-                              v === m.value ||
-                              !valueMappings.some((x) => x.value === v),
-                          )
-                          .map((v) => ({ label: v, value: v }))}
-                        placeholder="Value..."
-                      />
-                      <Text>→</Text>
-                      <SelectField
-                        containerStyle={{
-                          flex: 1,
-                          minWidth: 0,
-                          marginBottom: 0,
-                        }}
-                        value={m.column}
-                        onChange={(column) =>
-                          setValueMappings((prev) =>
-                            prev.map((x, j) =>
-                              j === i ? { ...x, column } : x,
-                            ),
-                          )
-                        }
-                        options={mappingColumnOptions}
-                        placeholder="Filter on..."
-                      />
-                      <RadixButton
-                        variant="ghost"
-                        size="sm"
-                        aria-label="Remove"
-                        onClick={() =>
-                          setValueMappings((prev) =>
-                            prev.filter((_, j) => j !== i),
-                          )
-                        }
-                      >
-                        <PiX size={14} />
-                      </RadixButton>
-                    </Flex>
-                  ))}
-                  {valueMappings.every((m) => m.value && m.column) && (
-                    <Flex>
-                      <RadixButton
-                        variant="ghost"
-                        size="sm"
-                        icon={<PiPlus size={14} />}
-                        onClick={() =>
-                          setValueMappings((prev) => [
-                            ...prev,
-                            { value: "", column: "" },
-                          ])
-                        }
-                      >
-                        Add value
-                      </RadixButton>
-                    </Flex>
-                  )}
-                </Flex>
+                <SecondaryFiltersField
+                  mappings={valueMappings}
+                  setMappings={setValueMappings}
+                  topValues={topValues}
+                  columnOptions={mappingColumnOptions}
+                />
               </Frame>
             )}
         </div>

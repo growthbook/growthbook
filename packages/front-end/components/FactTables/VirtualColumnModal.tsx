@@ -8,6 +8,7 @@ import { validateVirtualColumnExpression } from "shared/experiments";
 import { useForm } from "react-hook-form";
 import { useEffect, useRef, useState } from "react";
 import { PiPlay, PiCaretDown, PiCaretRight } from "react-icons/pi";
+import { Flex } from "@radix-ui/themes";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
@@ -16,6 +17,7 @@ import SelectField from "@/components/Forms/SelectField";
 import MarkdownInput from "@/components/Markdown/MarkdownInput";
 import DisplayTestQueryResults from "@/components/Settings/DisplayTestQueryResults";
 import InlineCode from "@/components/SyntaxHighlighting/InlineCode";
+import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import Button from "@/ui/Button";
 import Checkbox from "@/ui/Checkbox";
 import Callout from "@/ui/Callout";
@@ -26,6 +28,7 @@ import FactTableSchema from "./FactTableSchema";
 export interface Props {
   factTable: FactTableInterface;
   existing?: ColumnInterface;
+  canDelete?: boolean;
   close: () => void;
 }
 
@@ -50,6 +53,7 @@ function toColumnId(name: string): string {
 export default function VirtualColumnModal({
   existing,
   factTable,
+  canDelete = false,
   close,
 }: Props) {
   const { apiCall } = useAuth();
@@ -205,11 +209,28 @@ export default function VirtualColumnModal({
         mutateDefinitions();
       })}
       secondaryAction={
-        <Checkbox
-          value={testBeforeSave}
-          setValue={(v) => setTestBeforeSave(v === true)}
-          label="Test before saving"
-        />
+        <Flex align="center" gap="4">
+          {existing && canDelete ? (
+            <DeleteButton
+              displayName="Virtual Column"
+              text="Delete"
+              deleteMessage="This will remove the virtual column. Metrics or filters that reference it will need to be updated."
+              onClick={async () => {
+                await apiCall(
+                  `/fact-tables/${factTable.id}/column/${existing.column}`,
+                  { method: "DELETE" },
+                );
+                mutateDefinitions();
+                close();
+              }}
+            />
+          ) : null}
+          <Checkbox
+            value={testBeforeSave}
+            setValue={(v) => setTestBeforeSave(v === true)}
+            label="Test before saving"
+          />
+        </Flex>
       }
     >
       <div className="row">

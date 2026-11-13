@@ -1,0 +1,81 @@
+.sqlLine {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--code-font-family);
+  font-size: var(--font-size-1);
+  color: var(--gray-12);
+}
+
+.keyword {
+  color: var(--violet-11);
+  font-weight: 600;
+}
+
+.string {
+  color: var(--green-11);
+}
+
+.variable {
+  color: var(--orange-11);
+}
+
+.cast {
+  color: var(--blue-11);
+}
+
+.muted {
+  color: var(--gray-11);
+}
+
+// Inline code: neutral chip instead of Bootstrap's pink text. Leaves
+// highlighted SQL blocks (pre > code) alone.
+.page :not(pre) > code {
+  padding: 1px var(--space-1);
+  border-radius: var(--radius-1);
+  background: var(--gray-a3);
+  color: var(--color-text-high);
+  font-size: 0.9em;
+}
+
+// Ghost IconButtons carry a negative margin that pulls them off-center
+.iconCell {
+  text-align: center;
+
+  > button {
+    margin: 0;
+  }
+}
+
+.mono {
+  font-family: var(--code-font-family);
+  // Monospace runs large next to the UI font
+  font-size: 0.9em;
+}
+
+// Table cells default to a muted color
+.name {
+  color: var(--color-text-high);
+}
+
+.expression {
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--gray-a5);
+  border-radius: var(--radius-2);
+  background: var(--color-panel-solid);
+  font-family: var(--code-font-family);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+// No separator between an expanded row and its panel, so they read as one
+.openRow > :global(.rt-TableCell) {
+  box-shadow: none;
+}
+
+// The metric picked from the Events tab
+.highlightRow td {
+  background: var(--violet-a3);
+}
