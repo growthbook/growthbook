@@ -6,7 +6,9 @@ import { trackEventForContext } from "back-end/src/services/growthbook";
 
 // "reviewRequested" -> "Revision Review Requested": an event per action, so a
 // metric on one is just its name.
-export function revisionActivityEventName(action: string): string {
+export function revisionActivityEventName(
+  action: string,
+): `Revision ${string}` {
   const words = action.replace(/([A-Z])/g, " $1");
   return `Revision ${words.charAt(0).toUpperCase()}${words.slice(1)}`;
 }

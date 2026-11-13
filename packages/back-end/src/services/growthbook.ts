@@ -1,15 +1,12 @@
 import { createHash } from "crypto";
-import {
-  EventProperties,
-  GrowthBookClient,
-  setPolyfills,
-} from "@growthbook/growthbook";
+import { GrowthBookClient, setPolyfills } from "@growthbook/growthbook";
 import { growthbookTrackingPlugin } from "@growthbook/growthbook/plugins";
 import { EventSource } from "eventsource";
 import { NextFunction, Request, Response } from "express";
 import { GROWTHBOOK_SECURE_ATTRIBUTE_SALT } from "shared/constants";
 import { AppFeatures } from "shared/types/app-features";
 import { OrganizationInterface } from "shared/types/organization";
+import { AppEventName, AppEvents } from "back-end/src/types/app-events";
 import { getEffectiveAccountPlan } from "back-end/src/enterprise";
 import { logger } from "back-end/src/util/logger";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
@@ -27,11 +24,11 @@ import {
 // Set up Node.js polyfills for streaming support
 setPolyfills({ EventSource });
 
-let gbClient: GrowthBookClient<AppFeatures> | null = null;
+let gbClient: GrowthBookClient | null = null;
 let initPromise: Promise<void> | null = null;
 
-function createGrowthBookClient(): GrowthBookClient<AppFeatures> {
-  const client = new GrowthBookClient<AppFeatures>({
+function createGrowthBookClient(): GrowthBookClient {
+  const client = new GrowthBookClient({
     apiHost: "https://cdn.growthbook.io",
     clientKey: GB_SDK_ID,
     globalAttributes: {
@@ -46,7 +43,7 @@ function createGrowthBookClient(): GrowthBookClient<AppFeatures> {
         debug: isGrowthBookTelemetryDebug(),
         eventFilter: (event) => {
           // Wait for account plan to load before sending events
-          if (event.attributes.accountPlan === "loading") return false;
+          if (event.attributes.accountPlan === null) return false;
           return true;
         },
         dedupeKeyAttributes: ["id", "organizationId"],
@@ -245,7 +242,7 @@ export function trackMcpRequestCompletion(
     res.removeListener("finish", onComplete);
     res.removeListener("close", onComplete);
     try {
-      const properties: EventProperties = {
+      const properties: AppEvents["MCP Request"] = {
         tool,
         mcpVersion: getMcpHeader(req, MCP_VERSION_HEADER),
         transport: getMcpHeader(req, MCP_TRANSPORT_HEADER),
@@ -360,7 +357,7 @@ export function trackAIUsage({
   }
 }
 
-function ensureGrowthBookClient(): GrowthBookClient<AppFeatures> | null {
+function ensureGrowthBookClient(): GrowthBookClient | null {
   if (!gbClient) {
     gbClient = createGrowthBookClient();
   }
@@ -373,7 +370,7 @@ function ensureGrowthBookClient(): GrowthBookClient<AppFeatures> | null {
  * This provides 3x performance improvement over creating new instances per request
  * by reusing the same core instance across all requests
  */
-export function getGrowthBookClient(): GrowthBookClient<AppFeatures> | null {
+export function getGrowthBookClient(): GrowthBookClient | null {
   const client = ensureGrowthBookClient();
 
   if (!initPromise) {
@@ -460,10 +457,10 @@ export function getTrustedOrgAttributes(
  * Sets org attributes so the accountPlan filter doesn't drop the event, and
  * never throws — callers fire these inside business-logic try/catch blocks.
  */
-export function trackEventForOrganization(
+export function trackEventForOrganization<K extends AppEventName>(
   org: OrganizationInterface,
-  eventName: string,
-  properties: EventProperties = {},
+  eventName: K,
+  properties: AppEvents[K],
 ): void {
   try {
     const client = getGrowthBookClient();
@@ -477,15 +474,15 @@ export function trackEventForOrganization(
   }
 }
 
-export function trackEventForContext(
+export function trackEventForContext<K extends AppEventName>(
   context: ReqContext,
-  eventName: string,
-  properties: EventProperties = {},
+  eventName: K,
+  properties: AppEvents[K],
 ): void {
   const gb = (context.req as AuthRequest | undefined)?.gb;
   if (gb) {
     try {
-      gb.logEvent(eventName, properties);
+      gb.logEvent<AppEventName>(eventName, properties);
     } catch (e) {
       logger.warn({ err: e, eventName }, "Failed to log GrowthBook event");
     }

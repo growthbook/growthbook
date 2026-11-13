@@ -159,7 +159,7 @@ function App({
       eventFilter: (event) => {
         // Wait for account plan to load before sending events
         // When the plan does load, the app will re-render, so no events will be lost
-        if (event.attributes.accountPlan === "loading") return false;
+        if (event.attributes.accountPlan === null) return false;
         return true;
       },
       dedupeKeyAttributes: ["id", "organizationId"],

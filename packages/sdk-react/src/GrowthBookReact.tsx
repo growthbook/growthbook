@@ -7,7 +7,10 @@ import type {
   JSONValue,
   FeatureDefinition,
   Context,
-  WidenPrimitives,
+  FeatureValueOrFallback,
+  Attributes,
+  RegisteredFeatures,
+  RegisteredAttributes,
 } from "@growthbook/growthbook";
 import { GrowthBook } from "@growthbook/growthbook";
 
@@ -68,38 +71,47 @@ export function useExperiment<T>(exp: Experiment<T>): Result<T> {
   return growthbook.run(exp);
 }
 
-export function useFeature<T extends JSONValue = any>(
-  id: string,
-): FeatureResult<T | null> {
-  const growthbook = useGrowthBook();
-  return growthbook.evalFeature<T>(id);
+// Feature keys default to the types registered on the SDK's `Register` interface
+type FeatureKey = string & keyof RegisteredFeatures;
+// Stops `id` from being used to infer AppFeatures, which would accept any key
+type NoInferType<T> = [T][T extends unknown ? 0 : never];
+
+// `useFeature<number>("key")` still works; without the generic, the registered type is used
+export function useFeature<
+  V extends JSONValue = never,
+  K extends FeatureKey = FeatureKey,
+>(
+  id: K,
+): FeatureResult<([V] extends [never] ? RegisteredFeatures[K] : V) | null> {
+  return useGrowthBook().evalFeature(id);
 }
 
 export function useFeatureIsOn<
-  AppFeatures extends Record<string, any> = Record<string, any>,
->(id: string & keyof AppFeatures): boolean {
+  AppFeatures extends Record<string, any> = RegisteredFeatures,
+>(id: string & keyof NoInferType<AppFeatures>): boolean {
   const growthbook = useGrowthBook<AppFeatures>();
-  return growthbook.isOn(id);
+  return growthbook.isOn(id as string & keyof AppFeatures);
 }
 
-export function useFeatureValue<T extends JSONValue = any>(
-  id: string,
-  fallback: T,
-): WidenPrimitives<T> {
+export function useFeatureValue<
+  V extends RegisteredFeatures[K] | null,
+  K extends FeatureKey = FeatureKey,
+>(id: K, fallback: V): FeatureValueOrFallback<V, RegisteredFeatures[K]> {
   const growthbook = useGrowthBook();
-  return growthbook.getFeatureValue(id, fallback);
+  return growthbook.getFeatureValue<V, K>(id, fallback);
 }
 
 export function useGrowthBook<
-  AppFeatures extends Record<string, any> = Record<string, any>,
->(): GrowthBook<AppFeatures> {
+  AppFeatures extends Record<string, any> = RegisteredFeatures,
+  AppAttributes extends Attributes = RegisteredAttributes,
+>(): GrowthBook<AppFeatures, AppAttributes> {
   const { growthbook } = React.useContext(GrowthBookContext);
 
   if (!growthbook) {
     throw new Error("Missing or invalid GrowthBookProvider");
   }
 
-  return growthbook as GrowthBook<AppFeatures>;
+  return growthbook as GrowthBook<AppFeatures, AppAttributes>;
 }
 
 export function FeaturesReady({
@@ -135,14 +147,14 @@ export function IfFeatureEnabled({
   feature,
 }: {
   children: React.ReactNode;
-  feature: string;
+  feature: FeatureKey;
 }): React.ReactElement | null {
   return useFeature(feature).on ? <>{children}</> : null;
 }
 
 export function FeatureString(props: {
   default: string;
-  feature: string;
+  feature: FeatureKey;
 }): React.ReactElement {
   const value = useFeature(props.feature).value;
 
@@ -174,7 +186,9 @@ withRunExperiment.displayName = "WithRunExperiment";
 
 export const GrowthBookProvider: React.FC<
   React.PropsWithChildren<{
-    growthbook: GrowthBook;
+    // Any instance, so one typed with its own generics still works when
+    // different types are registered
+    growthbook: GrowthBook<any, any>;
   }>
 > = ({ children, growthbook }) => {
   // Tell growthbook how to re-render our app (for dev mode integration)

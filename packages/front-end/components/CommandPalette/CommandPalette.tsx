@@ -13,7 +13,6 @@ import {
 } from "react-icons/bs";
 import { PiFolderDuotone, PiFlask, PiUsersThree } from "react-icons/pi";
 import { getMetricLink } from "shared/experiments";
-import { AppFeatures } from "shared/types/app-features";
 import Portal from "@/components/Modal/Portal";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
@@ -188,7 +187,7 @@ const CommandPalette: FC<{ onClose: () => void }> = ({ onClose }) => {
   const { permissions, superAdmin } = useUser();
   const { project, segments, metrics, factMetrics, metricGroups, savedGroups } =
     useDefinitions();
-  const growthbook = useGrowthBook<AppFeatures>();
+  const growthbook = useGrowthBook();
   const permissionsUtils = usePermissionsUtil();
 
   const { features } = useFeatureMetaInfo();

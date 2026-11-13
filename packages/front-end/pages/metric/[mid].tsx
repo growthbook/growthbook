@@ -17,7 +17,6 @@ import { formatAIRateLimitRetryMessage } from "shared/ai";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { isBinomialMetric } from "shared/experiments";
 import { useGrowthBook } from "@growthbook/growthbook-react";
-import { AppFeatures } from "shared/types/app-features";
 import Link from "@/ui/Link";
 import Callout from "@/ui/Callout";
 import Text from "@/ui/Text";
@@ -86,7 +85,7 @@ const MetricPage: FC = () => {
   } = useDefinitions();
   const settings = useOrgSettings();
   const { getOwnerDisplay } = useUser();
-  const gb = useGrowthBook<AppFeatures>();
+  const gb = useGrowthBook();
 
   const [editModalOpen, setEditModalOpen] = useState<boolean | number>(false);
   const [duplicateModalOpen, setDuplicateModalOpen] = useState<boolean>(false);

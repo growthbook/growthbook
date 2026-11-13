@@ -1661,6 +1661,61 @@ describe("feature-repo", () => {
     cleanup();
   });
 
+  it("uses fallbackPayload when the fetch times out or fails", async () => {
+    await clearCache();
+    const fallbackPayload = { features: { foo: { defaultValue: "bundled" } } };
+    const payload = { features: { foo: { defaultValue: "api" } } };
+
+    // Timeout: the late response only updates the cache, same as without a fallback
+    const [, cleanup] = mockApi(payload, false, 100);
+    const growthbook = new GrowthBook({
+      apiHost: "https://fakeapi.sample.io",
+      clientKey: "qwerty1234",
+    });
+    const res = await growthbook.init({ timeout: 20, fallbackPayload });
+    expect(res.success).toEqual(false);
+    expect(res.source).toEqual("timeout");
+    expect(growthbook.getFeatureValue("foo", "")).toEqual("bundled");
+    await sleep(200);
+    expect(growthbook.getFeatureValue("foo", "")).toEqual("bundled");
+    growthbook.destroy();
+    cleanup();
+    await clearCache();
+
+    // Error, for both client types
+    const [, cleanup2] = mockApi(null);
+    const growthbook2 = new GrowthBook({
+      apiHost: "https://fakeapi.sample.io",
+      clientKey: "qwerty1234",
+    });
+    const res2 = await growthbook2.init({ fallbackPayload });
+    expect(res2.source).toEqual("error");
+    expect(growthbook2.getFeatureValue("foo", "")).toEqual("bundled");
+    growthbook2.destroy();
+
+    const client = new GrowthBookClient({
+      apiHost: "https://fakeapi.sample.io",
+      clientKey: "qwerty1234",
+    });
+    await client.init({ fallbackPayload });
+    expect(client.getFeatureValue("foo", "", {})).toEqual("bundled");
+    client.destroy();
+    cleanup2();
+    await clearCache();
+
+    // Network success: fallback is ignored
+    const [, cleanup3] = mockApi(payload);
+    const growthbook3 = new GrowthBook({
+      apiHost: "https://fakeapi.sample.io",
+      clientKey: "qwerty1234",
+    });
+    const res3 = await growthbook3.init({ fallbackPayload });
+    expect(res3.source).toEqual("network");
+    expect(growthbook3.getFeatureValue("foo", "")).toEqual("api");
+    growthbook3.destroy();
+    cleanup3();
+  });
+
   it("handles errors with init", async () => {
     const [f, cleanup] = mockApi(null);
 

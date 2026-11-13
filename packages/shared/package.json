@@ -19,7 +19,7 @@
     "gen-event-webhook-for-docs": "pnpm exec tsx ./scripts/gen-event-webhook-doc.ts",
     "gen-sdk-resources-for-docs": "pnpm build && pnpm exec tsx ./scripts/gen-sdk-resources.ts",
     "gen-commercial-features-for-docs": "pnpm build && pnpm exec tsx ./scripts/gen-commercial-features-for-docs.ts",
-    "type-gen": "growthbook features generate-types --output ./types --profile growthbook"
+    "type-gen": "growthbook generate-types --output ./types --profile growthbook"
   },
   "dependencies": {
     "@growthbook/growthbook": "^2.0.0",

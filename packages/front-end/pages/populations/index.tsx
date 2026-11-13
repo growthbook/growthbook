@@ -1,7 +1,6 @@
 import { useRouter } from "next/router";
 import { date, datetime } from "shared/dates";
 import { useGrowthBook } from "@growthbook/growthbook-react";
-import { AppFeatures } from "shared/types/app-features";
 import { truncateString } from "shared/util";
 import { Box, Flex } from "@radix-ui/themes";
 import Heading from "@/ui/Heading";
@@ -39,7 +38,7 @@ const CREATE_POPULATION_DOCS =
 
 export default function PopulationsPage() {
   const router = useRouter();
-  const gb = useGrowthBook<AppFeatures>();
+  const gb = useGrowthBook();
   const populationsEnabled = !!gb?.isOn("populations");
   const { project, projects, getDatasourceById, getProjectById } =
     useDefinitions();

@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { useFeatureValue } from "@growthbook/growthbook-react";
+import { useFeature } from "@growthbook/growthbook-react";
 import {
   DEFAULT_ORG_LIMITS,
   PRICING_PHASE_1_FLAG_KEY,
@@ -14,7 +14,7 @@ import { useUser } from "@/services/UserContext";
 export default function useOrgLimits(): OrgLimitsAccessor {
   const { organization, license, effectiveAccountPlan } = useUser();
 
-  const flagValue = useFeatureValue(PRICING_PHASE_1_FLAG_KEY, null);
+  const flagValue = useFeature(PRICING_PHASE_1_FLAG_KEY).value;
   const limitsDisabled = isLimitsFlagDisabled(flagValue);
 
   return useMemo(() => {

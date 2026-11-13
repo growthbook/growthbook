@@ -11,6 +11,7 @@ import { Popover } from "@/ui/Popover";
 import Button from "@/ui/Button";
 import Text from "@/ui/Text";
 import track from "@/services/track";
+import { AIFeedbackEventName } from "@/types/app-events";
 import aiChatPrimitives from "./AIChatPrimitives.module.scss";
 
 const FEEDBACK_BTN_STYLE: React.CSSProperties = {
@@ -37,7 +38,7 @@ interface AIChatFeedbackProps {
     comment: string,
   ) => void;
   /** Defaults to "AI Chat Feedback" (PA). General agent passes "AI Assistant Feedback". */
-  trackingEventName?: string;
+  trackingEventName?: AIFeedbackEventName;
   /** Copied onto Radix's popper wrapper, which is what actually stacks. */
   popoverZIndex?: number;
 }

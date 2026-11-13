@@ -4,7 +4,6 @@ import { useGrowthBook } from "@growthbook/growthbook-react";
 import { BsStars } from "react-icons/bs";
 import { PiCaretRight } from "react-icons/pi";
 import { formatAIRateLimitRetryMessage } from "shared/ai";
-import { AppFeatures } from "shared/types/app-features";
 import Field from "@/components/Forms/Field";
 import OptInModal from "@/components/License/OptInModal";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -40,7 +39,7 @@ export default function AiSqlGenerator({
   const { apiCall } = useAuth();
   const { hasCommercialFeature } = useUser();
   const { aiEnabled, aiAgreedTo } = useAISettings();
-  const gb = useGrowthBook<AppFeatures>();
+  const gb = useGrowthBook();
   const [isOpen, setIsOpen] = useState(false);
   const [input, setInput] = useState("");
   const [error, setError] = useState<string | null>(null);

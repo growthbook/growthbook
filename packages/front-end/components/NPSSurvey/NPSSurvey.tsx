@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useFeatureValue } from "@growthbook/growthbook-react";
+import { useFeature } from "@growthbook/growthbook-react";
 import { Flex, IconButton, TextArea } from "@radix-ui/themes";
 import { PiArrowLeft, PiX } from "react-icons/pi";
 import { useForm } from "react-hook-form";
@@ -126,7 +126,7 @@ function CheckMark() {
 export default function NPSSurvey() {
   // Tunable in GrowthBook without a deploy; parseSurveyConfig documents the
   // accepted shapes.
-  const surveyConfig: unknown = useFeatureValue("nps-survey", 0);
+  const surveyConfig: unknown = useFeature("nps-survey").value ?? 0;
   const { rate: sampleRate, minTenureDays } = parseSurveyConfig(surveyConfig);
   const { apiCall } = useAuth();
   const {
