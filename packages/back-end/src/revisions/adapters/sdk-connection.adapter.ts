@@ -605,22 +605,39 @@ export const sdkConnectionAdapter: EntityRevisionAdapter<SDKConnectionRevisionSn
       const baselineStamp = (entity as Partial<SDKConnectionLiveSnapshot>)
         .dateUpdated;
 
+      // Every check runs before the first write, so a refused publish leaves
+      // nothing live to compensate for.
+      // The generic move guards read the source scope only, so authorize the
+      // destination here.
+      if (
+        Object.keys(settingsChanges).length > 0 &&
+        !context.permissions.canUpdateSDKConnection(connection, {
+          ...(settingsChanges.projects !== undefined && {
+            projects: settingsChanges.projects as string[],
+          }),
+          ...(settingsChanges.environment !== undefined && {
+            environment: settingsChanges.environment as string,
+          }),
+        })
+      ) {
+        context.permissions.throwPermissionError();
+      }
+      if (webhooksChanged) {
+        // The model's hooks only check the global manageEventWebhooks, not the
+        // env-scoped SDK-webhook permissions.
+        assertCanChangeSdkWebhooks(
+          context,
+          {
+            projects: entity.sdkConnection.projects,
+            environment: entity.sdkConnection.environment,
+          },
+          entity.sdkWebhooks,
+          newWebhooks,
+        );
+      }
+
       let liveConnection: SDKConnectionInterface = connection;
       if (Object.keys(settingsChanges).length > 0) {
-        // The generic move guards read the source scope only, so authorize the
-        // destination here.
-        if (
-          !context.permissions.canUpdateSDKConnection(connection, {
-            ...(settingsChanges.projects !== undefined && {
-              projects: settingsChanges.projects as string[],
-            }),
-            ...(settingsChanges.environment !== undefined && {
-              environment: settingsChanges.environment as string,
-            }),
-          })
-        ) {
-          context.permissions.throwPermissionError();
-        }
         liveConnection = await editSDKConnection(
           context,
           connection,
@@ -647,18 +664,6 @@ export const sdkConnectionAdapter: EntityRevisionAdapter<SDKConnectionRevisionSn
       }
 
       if (webhooksChanged) {
-        // The model's hooks only check the global manageEventWebhooks, not the
-        // env-scoped SDK-webhook permissions.
-        assertCanChangeSdkWebhooks(
-          context,
-          {
-            projects: entity.sdkConnection.projects,
-            environment: entity.sdkConnection.environment,
-          },
-          entity.sdkWebhooks,
-          newWebhooks,
-        );
-
         const oldById = new Map(entity.sdkWebhooks.map((w) => [w.id, w]));
         const newById = new Map(newWebhooks.map((w) => [w.id, w]));
 

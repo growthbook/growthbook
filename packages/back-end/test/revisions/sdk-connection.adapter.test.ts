@@ -1151,6 +1151,27 @@ describe("sdkConnectionAdapter", () => {
       expect(webhooksModel(ctx).create).not.toHaveBeenCalled();
     });
 
+    it("refuses a webhook change before writing the settings that come with it", async () => {
+      const ctx = makeContext({
+        permissions: { canCreateSDKWebhook: () => false },
+      });
+      const onPersisted = jest.fn();
+      await expect(
+        sdkConnectionAdapter.applyChanges(
+          ctx,
+          liveEntity,
+          {
+            sdkConnection: settings({ name: "New Name", archived: true }),
+            sdkWebhooks: [baseWebhook],
+          },
+          { onPersisted },
+        ),
+      ).rejects.toThrow("permission denied");
+      expect(mockedEdit).not.toHaveBeenCalled();
+      expect(webhooksModel(ctx).create).not.toHaveBeenCalled();
+      expect(onPersisted).not.toHaveBeenCalled();
+    });
+
     it("refuses a webhook change from someone who can't write webhooks at all", async () => {
       const ctx = makeContext({
         permissions: { canManageLegacySDKWebhooks: () => false },
