@@ -10,11 +10,35 @@ const UNHEALTHY_CHECKS = [
   "clusterMapping",
 ] as const;
 
+function getDecisionCategory(
+  status: ExperimentResultStatusData["status"],
+): ApiExperimentDecision["category"] {
+  switch (status) {
+    case "ship-now":
+    case "rollback-now":
+    case "ready-for-review":
+    case "scheduled-end-review":
+      return "ready-for-action";
+    case "unhealthy":
+    case "data-incomplete":
+    case "no-data":
+      return "has-issue";
+    case "days-left":
+    case "before-min-duration":
+      return "collecting-data";
+    default: {
+      const unhandled: never = status;
+      return unhandled;
+    }
+  }
+}
+
 export function toApiExperimentDecision(
   resultStatus: ExperimentResultStatusData,
   reason: string | undefined,
 ): ApiExperimentDecision {
   return {
+    category: getDecisionCategory(resultStatus.status),
     status: resultStatus.status,
     ...(reason ? { reason } : null),
     ...(resultStatus.status === "days-left"

@@ -12,8 +12,9 @@ import { toApiExperimentDecision } from "./experimentDecision";
 export async function toEnhancedExperimentApiResponse(
   context: ReqContext,
   experiment: ExperimentInterfaceExcludingHoldouts,
-  // The decision describes the latest phase, so callers returning another
-  // phase's results leave it out.
+  // Remove decision if fetching an experiment to go alongside
+  // results from an old phase that doesn't match the current
+  // decision
   includeDecision = true,
 ) {
   const healthSettings = getHealthSettingsForOrg(context);

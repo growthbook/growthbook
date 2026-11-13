@@ -305,6 +305,7 @@ describe("toApiExperimentDecision", () => {
         "SRM, Multiple exposures",
       ),
     ).toEqual({
+      category: "issue",
       status: "unhealthy",
       reason: "SRM, Multiple exposures",
       unhealthyChecks: ["srm", "multipleExposures"],
@@ -329,6 +330,7 @@ describe("toApiExperimentDecision", () => {
         undefined,
       ),
     ).toEqual({
+      category: "action-recommended",
       status: "ship-now",
       variations: [{ variationId: "var_1", action: "ship" }],
       powerReached: true,
@@ -340,18 +342,31 @@ describe("toApiExperimentDecision", () => {
   it("returns days left and errored metrics for their statuses", () => {
     expect(
       toApiExperimentDecision({ status: "days-left", daysLeft: 12 }, "why"),
-    ).toEqual({ status: "days-left", reason: "why", daysLeft: 12 });
+    ).toEqual({
+      category: "collecting-data",
+      status: "days-left",
+      reason: "why",
+      daysLeft: 12,
+    });
     expect(
       toApiExperimentDecision(
         { status: "days-left", daysLeft: Infinity },
         undefined,
       ),
-    ).toEqual({ status: "days-left", daysLeft: null });
+    ).toEqual({
+      category: "collecting-data",
+      status: "days-left",
+      daysLeft: null,
+    });
     expect(
       toApiExperimentDecision(
         { status: "data-incomplete", erroredMetrics: ["met_1"] },
         undefined,
       ),
-    ).toEqual({ status: "data-incomplete", erroredMetricIds: ["met_1"] });
+    ).toEqual({
+      category: "issue",
+      status: "data-incomplete",
+      erroredMetricIds: ["met_1"],
+    });
   });
 });

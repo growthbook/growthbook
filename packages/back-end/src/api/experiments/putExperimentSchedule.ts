@@ -58,6 +58,7 @@ export const putExperimentSchedule = createApiRequestHandler(
   const apiExperiment = await toEnhancedExperimentApiResponse(
     req.context,
     updated as ExperimentInterfaceExcludingHoldouts,
+    true,
   );
   return {
     experiment: apiExperiment,

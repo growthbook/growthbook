@@ -1138,6 +1138,11 @@ export type ApiExperiment = z.infer<typeof apiExperimentValidator>;
 
 const apiExperimentDecisionValidator = z
   .object({
+    category: z
+      .enum(["ready-for-action", "has-issue", "collecting-data"])
+      .describe(
+        "What `status` asks of you. `ready-for-action`: the results are ready to act on (`ship-now`, `rollback-now`, `ready-for-review`, `scheduled-end-review`). `has-issue`: something needs fixing before the results can be trusted (`unhealthy`, `data-incomplete`, `no-data`). `collecting-data`: keep the experiment running (`days-left`, `before-min-duration`).",
+      ),
     status: z
       .enum([
         "ship-now",
@@ -1460,7 +1465,7 @@ export const apiExperimentResultsValidator = namedSchema(
             srm: z.coerce
               .number()
               .describe(
-                "Sample ratio mismatch p-value for this row's units. `health.srm` is the experiment-wide check with a verdict; the two can differ slightly on the overall row because they are computed from different queries.",
+                "Sample ratio mismatch p-value for this row's units. `health.srm` is the experiment-wide check with a verdict; the two can differ slightly as this comes from the metric query and the other comes from the traffic query. If they disagree, rely on the `health.srm` value.",
               ),
           }),
           metrics: z.array(

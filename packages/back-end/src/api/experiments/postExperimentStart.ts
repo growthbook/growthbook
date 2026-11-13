@@ -137,6 +137,7 @@ export const postExperimentStart = createApiRequestHandler(
     const apiExperiment = await toEnhancedExperimentApiResponse(
       req.context,
       updated as ExperimentInterfaceExcludingHoldouts,
+      true,
     );
 
     return {
@@ -179,6 +180,7 @@ export const postExperimentStart = createApiRequestHandler(
   const apiExperiment = await toEnhancedExperimentApiResponse(
     req.context,
     updated as ExperimentInterfaceExcludingHoldouts,
+    true,
   );
   return {
     experiment: apiExperiment,
