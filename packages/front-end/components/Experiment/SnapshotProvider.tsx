@@ -14,6 +14,7 @@ import {
 import { getSnapshotAnalysis } from "shared/util";
 import useApi from "@/hooks/useApi";
 import { useAuth } from "@/services/auth";
+import { getPhaseFromUrl } from "@/components/Experiment/phaseUrl";
 import {
   useCoherentLatest,
   useRefetchHeavyOnStatusSuccess,
@@ -158,7 +159,11 @@ export default function SnapshotProvider({
   experiment: ExperimentInterfaceStringDates;
   children: ReactNode;
 }) {
-  const [phase, setPhase] = useState(experiment.phases?.length - 1 || 0);
+  const [phase, setPhase] = useState(
+    () =>
+      getPhaseFromUrl(window.location.search, experiment.phases?.length ?? 0) ??
+      (experiment.phases?.length - 1 || 0),
+  );
   const [dimension, setDimension] = useState("");
   const [snapshotType, setSnapshotType] = useState<SnapshotType | undefined>(
     undefined,
