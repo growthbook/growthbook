@@ -1,6 +1,8 @@
 import { ExperimentSnapshotSettings } from "shared/types/experiment-snapshot";
 import { ExposureQuery } from "shared/types/datasource";
+import { buildUnitsQuerySettingsFromSnapshot } from "shared/util";
 import BigQuery from "back-end/src/integrations/BigQuery";
+import { getIncrementalMetricScanEnd } from "back-end/src/services/experiments";
 import { factTableFactory } from "../factories/FactTable.factory";
 import { factMetricFactory } from "../factories/FactMetric.factory";
 
@@ -158,6 +160,32 @@ describe("incremental refresh metric source scan end", () => {
     expect(cte).not.toContain("2024-01-20");
   });
 
+  it("bounds a running phase's scan at a lagged analysis end date", () => {
+    // Scheduled run at 03:00 analyzing through midnight. Scanning to 03:00
+    // would move the watermark past users exposed after midnight, who aren't
+    // in the units table yet, and the next refresh would skip their rows.
+    const sql = buildSql({
+      settings: baseSettings,
+      metric: conversionWindowMetric,
+      incrementalRefreshStartTime: getIncrementalMetricScanEnd(
+        {},
+        baseSettings,
+        new Date("2024-01-15T03:00:00Z"),
+      ),
+    });
+    const cte = factTableCte(sql);
+    expect(cte).toMatch(/m\.timestamp\s*<=\s*'2024-01-15 00:00:00'/);
+    expect(cte).not.toContain("03:00:00");
+  });
+
+  it("scans an ended phase to the refresh start time", () => {
+    const endDate = new Date("2024-01-10T00:00:00Z");
+    const now = new Date("2024-01-20T00:00:00Z");
+    expect(
+      getIncrementalMetricScanEnd({ dateEnded: endDate }, { endDate }, now),
+    ).toEqual(now);
+  });
+
   it("keeps the snapshot end date for a metric without a conversion window", () => {
     const sql = buildSql({
       settings: baseSettings,
@@ -167,5 +195,72 @@ describe("incremental refresh metric source scan end", () => {
     const cte = factTableCte(sql);
     expect(cte).toMatch(/m\.timestamp\s*<=\s*'2024-01-15 00:00:00'/);
     expect(cte).not.toContain("00:05:00");
+  });
+});
+
+describe("regular experiment query scan end", () => {
+  // Scheduled run 3 hours after its cutoff (baseSettings.endDate).
+  const runTime = new Date("2024-01-15T03:00:00Z");
+  let integration: BigQuery;
+
+  beforeEach(() => {
+    jest.useFakeTimers().setSystemTime(runTime);
+    // @ts-expect-error -- context not needed for this unit test
+    integration = new BigQuery("", {
+      type: "bigquery",
+      settings: { queries: { exposure: [exposureQuery] } },
+    });
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  function buildSql(settings: ExperimentSnapshotSettings) {
+    return integration.getExperimentFactMetricsQuery({
+      settings,
+      activationMetric: null,
+      dimensions: [],
+      segment: null,
+      factTableMap,
+      metrics: [conversionWindowMetric],
+      unitsSource: "exposureQuery",
+      unitsSettings: buildUnitsQuerySettingsFromSnapshot(
+        settings,
+        resolvedExposureQuery,
+      ),
+    });
+  }
+
+  it("extends the scan by the conversion window past the end date", () => {
+    const sql = buildSql(baseSettings);
+    expect(sql).toContain("ts <= '2024-01-22 00:00:00'");
+    expect(sql).toMatch(/m\.timestamp\s*<=\s*'2024-01-22 00:00:00'/);
+  });
+
+  it("stops the scan at a cutoff end date", () => {
+    const sql = buildSql({ ...baseSettings, endDateIsCutoff: true });
+    expect(sql).toContain("ts <= '2024-01-15 00:00:00'");
+    expect(sql).toMatch(/m\.timestamp\s*<=\s*'2024-01-15 00:00:00'/);
+    expect(sql).not.toContain("2024-01-22");
+  });
+
+  it("judges in-progress conversions against the run time without a cutoff", () => {
+    const sql = buildSql({ ...baseSettings, skipPartialData: true });
+    expect(sql).toMatch(
+      /first_exposure_timestamp\s*<=\s*'2024-01-08 03:00:00'/,
+    );
+  });
+
+  it("judges in-progress conversions against a cutoff end date", () => {
+    const sql = buildSql({
+      ...baseSettings,
+      skipPartialData: true,
+      endDateIsCutoff: true,
+    });
+    expect(sql).toMatch(
+      /first_exposure_timestamp\s*<=\s*'2024-01-08 00:00:00'/,
+    );
+    expect(sql).not.toContain("2024-01-08 03:00:00");
   });
 });

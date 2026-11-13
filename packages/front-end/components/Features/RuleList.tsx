@@ -50,6 +50,8 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { Rule, SortableRule } from "./Rule";
 import { HoldoutRule } from "./HoldoutRule";
+import cornerStyles from "./CornerActions.module.scss";
+import { useFeaturePageRedesign } from "./FeaturePageRedesign";
 
 type CommonProps = {
   feature: FeatureInterface;
@@ -70,6 +72,7 @@ type CommonProps = {
   lockedBySchedule?: boolean;
   experimentsMap: Map<string, ExperimentInterfaceStringDates>;
   hideInactive?: boolean;
+  showRuleIds?: boolean;
   isDraft: boolean;
   safeRolloutsMap: Map<string, SafeRolloutInterface>;
   holdout: HoldoutInterface | undefined;
@@ -102,6 +105,7 @@ type RuleListProps = CommonProps &
   );
 
 export default function RuleList(props: RuleListProps) {
+  const redesign = useFeaturePageRedesign();
   const {
     feature,
     baseFeature,
@@ -113,6 +117,7 @@ export default function RuleList(props: RuleListProps) {
     lockedBySchedule,
     experimentsMap,
     hideInactive,
+    showRuleIds,
     isDraft,
     safeRolloutsMap,
     holdout,
@@ -457,7 +462,7 @@ export default function RuleList(props: RuleListProps) {
   }
 
   return (
-    <Flex direction="column" gap="4">
+    <Flex direction="column" gap={redesign ? "5" : "4"}>
       <DndContext
         sensors={sensors}
         collisionDetection={closestCenter}
@@ -495,7 +500,9 @@ export default function RuleList(props: RuleListProps) {
             revisionList={revisionList}
             setVersion={setVersion}
             isLocked={locked}
+            lockedBySchedule={lockedBySchedule}
             currentEnvironment={allEnvsView ? undefined : props.environment}
+            showRuleIds={showRuleIds}
           />
         )}
         <SortableContext items={items} strategy={verticalListSortingStrategy}>
@@ -560,6 +567,7 @@ export default function RuleList(props: RuleListProps) {
                 lockedBySchedule={lockedBySchedule}
                 experimentsMap={experimentsMap}
                 hideInactive={hideInactive}
+                showRuleIds={showRuleIds}
                 isDraft={isDraft}
                 safeRolloutsMap={safeRolloutsMap}
                 holdout={holdout}
@@ -598,7 +606,7 @@ export default function RuleList(props: RuleListProps) {
             );
           })}
         </SortableContext>
-        <DragOverlay>
+        <DragOverlay className={cornerStyles.showActions}>
           {activeRule ? (
             <Rule
               i={flatIndexOf(
@@ -616,6 +624,7 @@ export default function RuleList(props: RuleListProps) {
               lockedBySchedule={lockedBySchedule}
               experimentsMap={experimentsMap}
               hideInactive={hideInactive}
+              showRuleIds={showRuleIds}
               unreachable={isUnreachable(activeId as string)}
               conflictBanners={ruleConflictBanners(activeId as string)}
               isDraft={isDraft}

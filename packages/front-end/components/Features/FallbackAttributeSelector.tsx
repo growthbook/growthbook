@@ -1,5 +1,5 @@
 import { UseFormReturn } from "react-hook-form";
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { FaInfoCircle, FaQuestionCircle } from "react-icons/fa";
 import { FaGear } from "react-icons/fa6";
 import { getConnectionsSDKCapabilities } from "shared/sdk-versioning";
@@ -22,6 +22,70 @@ import {
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import SDKCapabilityWarning from "./SDKCapabilityWarning";
 
+// Its options, and a reset that keeps it off the assignment attribute; the
+// current value stays selectable when archived or out of scope, with its
+// tooltip metadata.
+export function useFallbackAttributeOptions({
+  attributeSchema,
+  hashAttribute,
+  fallbackAttribute,
+  setFallbackAttribute,
+}: {
+  attributeSchema: SDKAttribute[];
+  hashAttribute: string | undefined;
+  fallbackAttribute: string | undefined;
+  setFallbackAttribute?: (v: string) => void;
+}) {
+  const allAttributeSchema = useAttributeSchema(true);
+
+  useEffect(() => {
+    if (hashAttribute && hashAttribute === fallbackAttribute) {
+      setFallbackAttribute?.("");
+    }
+  }, [hashAttribute, fallbackAttribute, setFallbackAttribute]);
+
+  const hasHashAttributes = attributeSchema.some((x) => x.hashAttribute);
+  const options = [
+    { label: "none", value: "" },
+    ...attributeSchema
+      .filter((s) => !hasHashAttributes || s.hashAttribute)
+      .filter((s) => s.property !== hashAttribute)
+      .map(toAttributeOption),
+  ];
+  if (
+    fallbackAttribute &&
+    !options.some((o) => o.value === fallbackAttribute)
+  ) {
+    const full = allAttributeSchema.find(
+      (s) => s.property === fallbackAttribute,
+    );
+    options.push({
+      label: fallbackAttribute,
+      value: fallbackAttribute,
+      description: full?.description,
+      tags: full?.tags,
+      datatype: full?.datatype,
+      hashAttribute: full?.hashAttribute,
+      projects: full?.projects,
+    });
+  }
+  return options;
+}
+
+export function formatFallbackAttributeLabel(
+  o: { label: string; value: string },
+  meta: { context: string },
+) {
+  if (!o.value) {
+    return (
+      <Text fontStyle="italic" color="text-low">
+        {o.label}
+      </Text>
+    );
+  }
+  return formatAttributeOptionLabel(o, meta);
+}
+
 export interface Props {
   // eslint-disable-next-line
   form: UseFormReturn<any>;
@@ -41,8 +105,6 @@ export default function FallbackAttributeSelector({
 
   const permissionsUtil = usePermissionsUtil();
   const settings = useOrgSettings();
-  // Unfiltered (incl. archived) for keep-current tooltip metadata below.
-  const allAttributeSchema = useAttributeSchema(true);
   const orgStickyBucketing = settings.useStickyBucketing;
   const orgFallbackAttribute = settings.useFallbackAttributes;
   const hasStickyBucketFeature = hasCommercialFeature("sticky-bucketing");
@@ -52,18 +114,19 @@ export default function FallbackAttributeSelector({
     connections: sdkConnectionsData?.connections || [],
   }).includes("stickyBucketing");
 
-  const hasHashAttributes =
-    attributeSchema.filter((x) => x.hashAttribute).length > 0;
-
   const hashAttribute = form.watch("hashAttribute");
   const fallbackAttribute = form.watch("fallbackAttribute");
   const disableStickyBucketing = !!form.watch("disableStickyBucketing");
-
-  useEffect(() => {
-    if (hashAttribute && hashAttribute === fallbackAttribute) {
-      form.setValue("fallbackAttribute", "");
-    }
-  }, [hashAttribute, fallbackAttribute, form]);
+  const setFallbackAttribute = useCallback(
+    (v: string) => form.setValue("fallbackAttribute", v),
+    [form],
+  );
+  const fallbackAttributeOptions = useFallbackAttributeOptions({
+    attributeSchema,
+    hashAttribute,
+    fallbackAttribute,
+    setFallbackAttribute,
+  });
 
   useEffect(() => {
     if (disableStickyBucketing && fallbackAttribute) {
@@ -87,34 +150,6 @@ export default function FallbackAttributeSelector({
     return null;
   }
 
-  const fallbackAttributeOptions = [
-    { label: "none", value: "" },
-    ...attributeSchema
-      .filter((s) => !hasHashAttributes || s.hashAttribute)
-      .filter((s) => s.property !== form.watch("hashAttribute"))
-      .map(toAttributeOption),
-  ];
-
-  // Keep the current fallbackAttribute selectable (archived or out-of-scope),
-  // with metadata from the unfiltered schema so its tooltip stays populated.
-  if (
-    fallbackAttribute &&
-    !fallbackAttributeOptions.find((o) => o.value === fallbackAttribute)
-  ) {
-    const full = allAttributeSchema.find(
-      (s) => s.property === fallbackAttribute,
-    );
-    fallbackAttributeOptions.push({
-      label: fallbackAttribute,
-      value: fallbackAttribute,
-      description: full?.description,
-      tags: full?.tags,
-      datatype: full?.datatype,
-      hashAttribute: full?.hashAttribute,
-      projects: full?.projects,
-    });
-  }
-
   return (
     <Flex direction="column" flexGrow="1" mt="4">
       <Text as="label" color="text-high" weight="semibold" mb="1">
@@ -129,21 +164,14 @@ export default function FallbackAttributeSelector({
         withRadixThemedPortal
         extraIndicator={extraIndicator}
         options={fallbackAttributeOptions}
-        formatOptionLabel={(o, meta) => {
-          if (!o.value) {
-            return <em className="text-muted">{o.label}</em>;
-          }
-          return formatAttributeOptionLabel(o, meta);
-        }}
+        formatOptionLabel={formatFallbackAttributeLabel}
         sort={false}
         value={
           orgStickyBucketing && !disableStickyBucketing
             ? form.watch("fallbackAttribute") || ""
             : ""
         }
-        onChange={(v) => {
-          form.setValue("fallbackAttribute", v);
-        }}
+        onChange={setFallbackAttribute}
         disabled={!orgStickyBucketing || disableStickyBucketing}
         helpText={
           <>

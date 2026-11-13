@@ -4,7 +4,7 @@ import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { CustomFieldSection } from "shared/types/custom-fields";
 import { FeatureInterface } from "shared/types/feature";
 import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
-import { ACTIVE_DRAFT_STATUSES } from "shared/validators";
+import { isActiveDraftStatus } from "shared/validators";
 import { useAuth } from "@/services/auth";
 import { useCustomFields } from "@/hooks/useCustomFields";
 import {
@@ -12,6 +12,7 @@ import {
   reconcileCustomFieldValues,
 } from "@/services/customFields";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
+import { validatedSubmit } from "@/ui/Modal/validatedSubmit";
 import DraftSelectorForChanges, {
   DraftMode,
 } from "@/components/Features/DraftSelectorForChanges";
@@ -41,9 +42,7 @@ const CustomFieldEditModal: FC<{
   const latestActiveDraft = useMemo(
     () =>
       (draftInfo?.revisionList ?? [])
-        .filter((r) =>
-          (ACTIVE_DRAFT_STATUSES as readonly string[]).includes(r.status),
-        )
+        .filter((r) => isActiveDraftStatus(r.status))
         .sort((a, b) => b.version - a.version)[0] ?? null,
     [draftInfo],
   );
@@ -116,7 +115,7 @@ const CustomFieldEditModal: FC<{
       open={true}
       close={close}
       size="lg"
-      submit={form.handleSubmit(async (value) => {
+      submit={validatedSubmit(form, async (value) => {
         await submitForm(value);
       })}
       cta={

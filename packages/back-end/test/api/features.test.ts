@@ -55,6 +55,7 @@ jest.mock("back-end/src/services/features", () => ({
   updateInterfaceEnvSettingsFromApiEnvSettings: jest.fn(),
   buildFeatureRulesFromApiEnvSettings: jest.fn(() => []),
   fromApiEnvSettingsRulesToFeatureEnvSettingsRules: jest.fn(() => []),
+  assertHoldoutValueValid: jest.fn(),
 }));
 
 // ---------------------------------------------------------------------------
@@ -257,6 +258,23 @@ describe("features API", () => {
       entity: { id: "id", object: "feature" },
       event: "feature.create",
     });
+  });
+
+  it("refuses a default value that is JSON only after repair", async () => {
+    defaultContext();
+    const response = await request(app)
+      .post("/api/v1/features")
+      .send({
+        id: "loose",
+        owner: testUser.id,
+        valueType: "json",
+        defaultValue: '{"a": 1,}',
+      })
+      .set("Authorization", "Bearer foo");
+    expect(response.status).toBe(400);
+    expect(response.body.message).toMatch(
+      /Default value: invalid JSON\. Did you mean/,
+    );
   });
 
   // Regression: client payloads arrive with `id: ""` on new rules; if the POST

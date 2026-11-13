@@ -29,6 +29,7 @@ export default function DateRangeTriggerPopover({
   fullWidth = false,
   align = "end",
   triggerClassName,
+  panelWidth = 640,
   children,
 }: {
   open: boolean;
@@ -44,6 +45,7 @@ export default function DateRangeTriggerPopover({
   align?: "start" | "center" | "end";
   /** Extra trigger styling for surfaces with their own control treatment. */
   triggerClassName?: string;
+  panelWidth?: number;
   /** The panel rendered inside the popover. */
   children: ReactNode;
 }) {
@@ -69,7 +71,7 @@ export default function DateRangeTriggerPopover({
       }}
       contentStyle={{
         padding: 0,
-        width: 640,
+        width: panelWidth,
         // The panel can outgrow the viewport and nothing scrolls it, so Apply
         // was unreachable. Cap to the room Radix measured; the panel scrolls
         // its own body and keeps the footer pinned.

@@ -5,11 +5,11 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import { SavedGroupBadge } from "@/components/Features/SavedGroupBadge";
 import { PlainEntityBadge } from "@/components/Features/EntityBadge";
 import Text from "@/ui/Text";
+import ValueGroup from "@/components/Features/ValueGroup";
 
 export interface Props {
   savedGroups?: SavedGroupTargeting[];
   initialAnd?: boolean;
-  groupClassName?: string;
   prefix?: ReactNode;
 }
 
@@ -27,7 +27,6 @@ function getDescription({ match, ids }: SavedGroupTargeting): string {
 export default function SavedGroupTargetingDisplay({
   savedGroups,
   initialAnd = false,
-  groupClassName = "",
   prefix,
 }: Props) {
   const { getSavedGroupById } = useDefinitions();
@@ -36,17 +35,11 @@ export default function SavedGroupTargetingDisplay({
     <>
       {savedGroups?.map((s, i) => {
         return (
-          <Flex
-            wrap="wrap"
-            gap="2"
-            className={i === 0 && prefix ? undefined : groupClassName}
-            key={"savedGroup-" + i}
-          >
+          <Flex wrap="wrap" gap="2" key={"savedGroup-" + i}>
             {i === 0 && prefix}
             {i || initialAnd ? <Text weight="medium">AND</Text> : null}
             <Text>{getDescription(s)}</Text>
-            <Flex wrap="wrap" gap="2">
-              {s.ids.length > 1 && "("}
+            <ValueGroup parens={s.ids.length > 1}>
               {s.ids.map((id) => {
                 const group = getSavedGroupById(id);
                 if (!group) {
@@ -60,8 +53,7 @@ export default function SavedGroupTargetingDisplay({
                   />
                 );
               })}
-              {s.ids.length > 1 && ")"}
-            </Flex>
+            </ValueGroup>
           </Flex>
         );
       })}

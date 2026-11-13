@@ -7,13 +7,12 @@ import React, {
 } from "react";
 import { ConstantInterface, ConstantWithoutValue } from "shared/types/constant";
 import { CONSTANT_REF_PATTERN } from "shared/validators";
-import { Box, Flex, IconButton } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import useApi from "@/hooks/useApi";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import { Popover } from "@/ui/Popover";
-import Button from "@/ui/Button";
-import Tooltip from "@/ui/Tooltip";
+import FieldIndicator from "@/ui/FieldIndicator";
 import Badge from "@/ui/Badge";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
@@ -162,10 +161,12 @@ export function UsedConstantTags({
   value,
   valueType,
   project,
+  compact = false,
 }: {
   value: string;
   valueType: "string" | "json";
   project?: string;
+  compact?: boolean;
 }) {
   const { constants } = useDefinitions();
 
@@ -194,10 +195,21 @@ export function UsedConstantTags({
   if (!used.length) return null;
 
   return (
-    <Flex align="center" wrap="wrap" gap="2">
-      <Text size="sm" color="text-low" weight="medium">
-        Constants used:
-      </Text>
+    <Flex
+      align="center"
+      wrap="wrap"
+      gap={compact ? "1" : "2"}
+      style={compact ? { marginTop: -2 } : undefined}
+    >
+      <span style={compact ? { fontSize: 11, lineHeight: "16px" } : undefined}>
+        <Text
+          size={compact ? "inherit" : "sm"}
+          color="text-low"
+          weight="medium"
+        >
+          Constants used:
+        </Text>
+      </span>
       {used.map((c) => (
         <ConstantValuePreview key={c.id} constant={c}>
           <Link
@@ -211,6 +223,7 @@ export function UsedConstantTags({
               variant="soft"
               color={c.type === "json" ? "violet" : "gray"}
               label={c.key}
+              size={compact ? "xs" : undefined}
             />
           </Link>
         </ConstantValuePreview>
@@ -225,7 +238,6 @@ export default function InsertConstantButton({
   onInsert,
   disabled,
   excludeKeys,
-  iconOnly = false,
 }: {
   valueType: "string" | "json";
   project?: string;
@@ -234,8 +246,6 @@ export default function InsertConstantButton({
   disabled?: boolean;
   // Keys to scrub from the options (self + cycle prevention).
   excludeKeys?: string[];
-  // Compact icon-only trigger for inline (beside-the-field) layouts.
-  iconOnly?: boolean;
 }) {
   const { constants } = useDefinitions();
 
@@ -266,37 +276,21 @@ export default function InsertConstantButton({
   // Hide only when the org has no constants; otherwise show an empty-state menu.
   if (!hasConstants) return null;
 
-  const glyph = (
-    <span style={{ fontFamily: "monospace", fontWeight: 500 }}>
-      {"{"}
-      <span style={{ color: "var(--ruby-11)" }}>@</span>
-      {"}"}
-    </span>
-  );
-
-  // Tooltip wraps only the icon so it doesn't interfere with the menu.
-  const trigger = iconOnly ? (
-    <IconButton
-      type="button"
-      size="2"
-      variant="ghost"
-      color="gray"
-      disabled={disabled}
-      ml="1"
-      mt="2"
-    >
-      <Tooltip content="Insert Constant">
-        <Flex align="center" justify="center">
-          {glyph}
-        </Flex>
-      </Tooltip>
-    </IconButton>
-  ) : (
-    <Button variant="ghost" size="sm" disabled={disabled}>
-      <Flex align="center" gap="1">
-        {glyph} Insert constant
-      </Flex>
-    </Button>
+  const trigger = (
+    <FieldIndicator label="Insert Constant" disabled={disabled} reveal>
+      <span
+        style={{
+          fontFamily: "var(--code-font-family)",
+          fontWeight: 500,
+          fontSize: "10px",
+          letterSpacing: "-0.05em",
+        }}
+      >
+        {"{"}
+        <span className="gb-field-indicator__accent">@</span>
+        {"}"}
+      </span>
+    </FieldIndicator>
   );
 
   return (

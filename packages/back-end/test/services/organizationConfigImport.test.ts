@@ -249,6 +249,25 @@ describe("organization config import", () => {
     },
   );
 
+  it("rejects an update schedule whose time of day the scheduled job can't read", async () => {
+    await expect(
+      importConfig(getContextForAgendaJobByOrgObject(organization), {
+        organization: {
+          settings: {
+            updateSchedule: {
+              type: "cron",
+              cron: "0 3 * * *",
+              analysisEndDateMode: "fixedTime",
+              analysisEndDateTime: 300,
+            },
+          },
+        },
+      } as unknown as ConfigFile),
+    ).rejects.toThrow(/HH:MM/);
+
+    expect(updateOrganization).not.toHaveBeenCalled();
+  });
+
   it("refreshes every connection using saved settings, including removed environments", async () => {
     const context = getContextForAgendaJobByOrgObject(organization);
     const connections: SDKConnectionInterface[] = ["production", "staging"].map(

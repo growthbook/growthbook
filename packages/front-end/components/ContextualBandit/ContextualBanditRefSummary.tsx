@@ -1,3 +1,4 @@
+import { ReactNode } from "react";
 import {
   ApiContextualBanditInterface,
   ContextualBanditRefRule,
@@ -9,40 +10,54 @@ import { hasTargetingConfigured } from "shared/experiments";
 import { useContextualBandits } from "@/hooks/useContextualBandits";
 import Link from "@/ui/Link";
 import Callout from "@/ui/Callout";
-import Badge from "@/ui/Badge";
-import Table, { TableBody, TableRow, TableCell } from "@/ui/Table";
-import Text from "@/ui/Text";
-import ValueDisplay from "@/components/Features/ValueDisplay";
-import VariationLabel from "@/ui/VariationLabel";
+import ValueDisplay, {
+  LISTED_VALUE_STYLE,
+} from "@/components/Features/ValueDisplay";
+import RuleField from "@/components/Features/RuleField";
+import RolloutRow from "@/components/Features/RolloutRow";
 import ConfigBackedSummary from "@/components/Features/ConfigBackedSummary";
+import { ValueDiffProvider } from "@/components/Features/ValueDiffContext";
 import ConditionDisplay from "@/components/Features/ConditionDisplay";
 import { AttributeBadge } from "@/components/Features/AttributeBadge";
+import RuleVariationsTable from "@/components/Features/RuleVariationsTable";
 
-const percentFormatter = new Intl.NumberFormat(undefined, {
-  style: "percent",
-  maximumFractionDigits: 2,
-});
-
+// A draft's rule is left out of SDK payloads until it starts.
 export function isContextualBanditRefRuleSkipped(
   cb: ApiContextualBanditInterface,
-  isDraft: boolean,
 ): boolean {
-  if (cb.archived) return true;
-  if (cb.status === "stopped") return true;
-  if (cb.status === "draft") return !isDraft;
-  return false;
+  return cb.archived || cb.status === "stopped" || cb.status === "draft";
+}
+
+// Why a Contextual Bandit rule serves nothing, or null while it serves.
+export function contextualBanditSkipReason(
+  cb: ApiContextualBanditInterface,
+): ReactNode {
+  const view = (
+    <Link href={`/contextual-bandit/${cb.id}`}>View Contextual Bandit</Link>
+  );
+  if (cb.archived) return <>This Contextual Bandit is archived. {view}</>;
+  if (cb.status === "stopped") {
+    return <>This Contextual Bandit is stopped. {view}</>;
+  }
+  if (cb.status === "draft") {
+    return (
+      <>
+        This Contextual Bandit is a <strong>draft</strong> and hasn&apos;t
+        started.
+      </>
+    );
+  }
+  return null;
 }
 
 export default function ContextualBanditRefSummary({
   rule,
   feature,
   environment,
-  isDraft,
 }: {
   rule: ContextualBanditRefRule;
   feature: FeatureInterface;
   environment?: string;
-  isDraft?: boolean;
 }) {
   const { contextualBanditsMap, loading } = useContextualBandits();
   const cb: ApiContextualBanditInterface | undefined =
@@ -60,140 +75,83 @@ export default function ContextualBanditRefSummary({
     );
   }
 
-  const detailHref = `/contextual-bandit/${cb.id}`;
+  // The card's ribbon says why these serve nothing.
+  if (cb.archived || cb.status === "stopped") return null;
 
-  if (cb.archived) {
-    return (
-      <Callout status="info">
-        This Contextual Bandit is archived and will be skipped.{" "}
-        <Link href={detailHref}>View Contextual Bandit</Link>
-      </Callout>
+  const defaultConfigKey = getFeatureBaseConfigKey(feature);
+  const variationValue = (value: string) => {
+    const configKey =
+      defaultConfigKey !== null
+        ? (getConfigBackingKey(value) ?? defaultConfigKey)
+        : null;
+    return configKey !== null ? (
+      <ConfigBackedSummary
+        label={null}
+        value={value}
+        configKey={configKey}
+        feature={feature}
+        sparse
+        environment={environment}
+      />
+    ) : (
+      <ValueDisplay value={value} type={type} fullStyle={LISTED_VALUE_STYLE} />
     );
-  }
-
-  if (cb.status === "stopped") {
-    return (
-      <Callout status="info">
-        This Contextual Bandit is stopped and will be skipped.{" "}
-        <Link href={detailHref}>View Contextual Bandit</Link>
-      </Callout>
-    );
-  }
+  };
 
   return (
     <Box>
-      {cb.status === "draft" && !isDraft && (
-        <Callout status="warning" mb="3">
-          This Contextual Bandit is in a <strong>draft</strong> state and has
-          not been started yet. This rule will be skipped.
-        </Callout>
-      )}
       {hasTargetingConfigured({
         condition: cb.condition,
         savedGroups: cb.savedGroups,
         prerequisites: cb.prerequisites,
       }) && (
-        <Flex direction="row" gap="2" mb="3">
-          <Text weight="medium">IF</Text>
-          <Box>
-            <ConditionDisplay
-              condition={cb.condition || ""}
-              savedGroups={cb.savedGroups}
-              prerequisites={cb.prerequisites}
-            />
-          </Box>
-        </Flex>
+        <RuleField label="Targeting">
+          <ConditionDisplay
+            condition={cb.condition || ""}
+            savedGroups={cb.savedGroups}
+            prerequisites={cb.prerequisites}
+          />
+        </RuleField>
       )}
 
-      <Flex direction="row" gap="2" mb="3">
-        <Text weight="medium">SPLIT</Text>
-        by
+      <RuleField label="Split by">
         <AttributeBadge attributeId={cb.hashAttribute || "id"} />
-      </Flex>
+      </RuleField>
 
-      <Flex direction="row" gap="2" mb="3">
-        <Text weight="medium">INCLUDE</Text>
-        <Badge
-          color="gray"
-          label={
-            <Text color="text-high">
-              {percentFormatter.format(cb.coverage ?? 1)}
-            </Text>
-          }
-        />
-        of units in the Contextual Bandit
-      </Flex>
+      <RolloutRow coverage={cb.coverage ?? 1} />
 
       {cb.contextualAttributes.length > 0 && (
-        <Flex direction="row" gap="2" mb="3" wrap="wrap" align="center">
-          <Text weight="medium">CONTEXT</Text>
-          {cb.contextualAttributes.map((a) => (
-            <AttributeBadge key={a} attributeId={a} />
-          ))}
-        </Flex>
+        <RuleField label="Context">
+          <Flex gap="2" wrap="wrap" align="center">
+            {cb.contextualAttributes.map((a) => (
+              <AttributeBadge key={a} attributeId={a} />
+            ))}
+          </Flex>
+        </RuleField>
       )}
 
-      <Flex gap="2">
-        <Text weight="medium">SERVE</Text>
-      </Flex>
-
-      <Box
-        mt="3"
-        px="3"
-        style={{
-          border: "1px solid var(--gray-a5)",
-          borderRadius: "var(--radius-2)",
-        }}
-      >
-        <Table>
-          <TableBody>
-            {cb.variations.map((v, i) => {
-              const ruleVariation = rule.variations.find(
-                (rv) => rv.variationId === v.id,
-              );
-              return (
-                <TableRow
-                  key={v.id}
-                  style={{ color: "var(--color-text-high)" }}
-                >
-                  <TableCell style={{ whiteSpace: "nowrap" }}>
-                    <VariationLabel number={i} name={v.name || v.key} />
-                  </TableCell>
-                  <TableCell width="100%">
-                    {ruleVariation ? (
-                      (() => {
-                        const defaultConfigKey =
-                          getFeatureBaseConfigKey(feature);
-                        const configKey =
-                          defaultConfigKey !== null
-                            ? (getConfigBackingKey(ruleVariation.value) ??
-                              defaultConfigKey)
-                            : null;
-                        return configKey !== null ? (
-                          <ConfigBackedSummary
-                            value={ruleVariation.value}
-                            configKey={configKey}
-                            feature={feature}
-                            sparse={defaultConfigKey !== null}
-                            environment={environment}
-                          />
-                        ) : (
-                          <ValueDisplay
-                            value={ruleVariation.value}
-                            type={type}
-                          />
-                        );
-                      })()
-                    ) : (
-                      <em>not set</em>
-                    )}
-                  </TableCell>
-                </TableRow>
-              );
-            })}
-          </TableBody>
-        </Table>
-      </Box>
+      <RuleField label="Serve" mb="0" align="start">
+        <Box>
+          <ValueDiffProvider>
+            <RuleVariationsTable
+              rows={cb.variations.map((v) => {
+                const ruleVariation = rule.variations.find(
+                  (rv) => rv.variationId === v.id,
+                );
+                return {
+                  key: v.id,
+                  name: v.name || v.key,
+                  value: ruleVariation ? (
+                    variationValue(ruleVariation.value)
+                  ) : (
+                    <em>not set</em>
+                  ),
+                };
+              })}
+            />
+          </ValueDiffProvider>
+        </Box>
+      </RuleField>
     </Box>
   );
 }

@@ -3,13 +3,20 @@ import { ExposureQuery } from "shared/types/datasource";
 import { DimensionInterface } from "shared/types/dimension";
 import { Dimension } from "shared/types/integrations";
 import { buildUnitsQuerySettingsFromSnapshot } from "shared/util";
+import type { BigQuery as BigQueryClient } from "@google-cloud/bigquery";
 import BigQuery from "back-end/src/integrations/BigQuery";
+import { createBigQueryClient } from "back-end/src/services/bigqueryClient";
 import { getAggregationMetadata } from "back-end/src/integrations/sql/fact-metrics/aggregation-metadata";
 import { getQuantileSketchGridColumns } from "back-end/src/integrations/sql/columns/quantile-sketch-grid-columns";
 import { N_STAR_VALUES } from "back-end/src/services/experimentQueries/constants";
 import { getFactTableTypeFromBigQueryType } from "back-end/src/services/bigquery";
 import { factTableFactory } from "../factories/FactTable.factory";
 import { factMetricFactory } from "../factories/FactMetric.factory";
+
+// Only the GA4 export tests use this. The other tests replace getClient.
+jest.mock("back-end/src/services/bigqueryClient", () => ({
+  createBigQueryClient: jest.fn(),
+}));
 
 type MockBigQueryJob = {
   id: string;
@@ -937,6 +944,466 @@ describe("BigQuery KLL incremental refresh SQL generation (E2E)", () => {
     expect(joinedPos).toBeGreaterThan(gridPos);
   });
 
+  it("getIncrementalRefreshStatisticsQuery rolls sub-unit cluster metrics up to the cluster", () => {
+    const subUnitFactTable = factTableFactory.build({
+      id: "ft_subunit",
+      name: "Sub-unit events",
+      sql: "SELECT * FROM events",
+      userIdTypes: ["user_id"],
+    });
+    const meanMetric = factMetricFactory.build({
+      id: "fact_mean_su",
+      metricType: "mean",
+      numerator: {
+        factTableId: "ft_subunit",
+        column: "amount",
+        aggregation: "sum",
+      },
+    });
+    const sql = integration.getIncrementalRefreshStatisticsQuery({
+      settings: {
+        ...settings,
+        exposureQueryIdentifierType: "region_id",
+        isClusterExperiment: true,
+        clusterSubUnitIdentifier: "user_id",
+      },
+      exposureQuery: { query: "*", identifierType: "region_id" },
+      activationMetric: null,
+      dimensionsForPrecomputation: [],
+      dimensionsForAnalysis: [],
+      factTableMap: new Map([["ft_subunit", subUnitFactTable]]),
+      metricSources: [
+        {
+          factTableId: "ft_subunit",
+          tableFullName: "proj.ds.metric_source_su",
+        },
+      ],
+      unitsSourceTableFullName: "proj.ds.units",
+      metrics: [meanMetric],
+      lastMaxTimestamp: null,
+    });
+
+    // Per-sub-unit values are capped and summed to one row per cluster.
+    expect(sql).toContain("__clusterRollup");
+    expect(sql).toMatch(/m\.region_id/);
+    // Multi-cluster sub-units are dropped from the units cache before rollup.
+    // The reference is qualified with the units alias so an incremental
+    // breakdown by a cluster-keyed dimension can't make the column ambiguous.
+    expect(sql).toContain("e.region_id <> '__multiple__'");
+    // The metric cache is joined and re-aggregated on the sub-unit.
+    expect(sql).toMatch(/__metricDataAggregated[\s\S]*GROUP BY[\s\S]*user_id/);
+    // Units carry the cluster id from the sub-unit-grained cache.
+    expect(sql).toMatch(/e\.region_id AS region_id/);
+    // A cluster-ratio-conversion metric (mean) has no `_denominator_value`
+    // cache column — reading one would reference a column the metric-source
+    // cache never materializes and fail at the warehouse. Its denominator is
+    // a per-sub-unit COUNT(*) in __clusterRollup instead (one input row per
+    // sub-unit, so COUNT(*) == COUNT(DISTINCT sub_unit)).
+    expect(sql).not.toMatch(/_denominator_value/);
+    expect(sql).toMatch(/COUNT\(\*\)\s+AS\s+\w+_denominator\b/);
+  });
+
+  it("getIncrementalRefreshStatisticsQuery analyzes cluster-level metrics at the cluster grain", () => {
+    const clusterFactTable = factTableFactory.build({
+      id: "ft_cluster",
+      name: "Cluster events",
+      sql: "SELECT * FROM region_events",
+      userIdTypes: ["region_id"],
+    });
+    const clusterMetric = factMetricFactory.build({
+      id: "fact_cluster",
+      metricType: "mean",
+      numerator: {
+        factTableId: "ft_cluster",
+        column: "amount",
+        aggregation: "sum",
+      },
+    });
+    const sql = integration.getIncrementalRefreshStatisticsQuery({
+      settings: {
+        ...settings,
+        exposureQueryIdentifierType: "region_id",
+        isClusterExperiment: true,
+        clusterSubUnitIdentifier: "user_id",
+        clusterLevelMetricIds: ["fact_cluster"],
+      },
+      exposureQuery: { query: "*", identifierType: "region_id" },
+      activationMetric: null,
+      dimensionsForPrecomputation: [],
+      dimensionsForAnalysis: [],
+      factTableMap: new Map([["ft_cluster", clusterFactTable]]),
+      metricSources: [
+        {
+          factTableId: "ft_cluster",
+          tableFullName: "proj.ds.metric_source_cluster",
+        },
+      ],
+      unitsSourceTableFullName: "proj.ds.units",
+      metrics: [clusterMetric],
+      lastMaxTimestamp: null,
+    });
+
+    // Cluster-level metrics treat the cluster as the unit — no sub-unit rollup.
+    expect(sql).not.toContain("__clusterRollup");
+    // The sub-unit-grained units cache is collapsed to one row per cluster.
+    expect(sql).toMatch(
+      /__experimentUnitsCluster AS \([\s\S]*GROUP BY[\s\S]*region_id/,
+    );
+    // Multi-cluster sub-units are dropped before the cluster rollup, so they
+    // don't form a phantom cluster in the region-level analysis. The reference
+    // is qualified with the units alias so an incremental breakdown by a
+    // cluster-keyed dimension can't make the column ambiguous.
+    expect(sql).toContain("e.region_id <> '__multiple__'");
+    // A cluster whose sub-units span multiple variations is flagged
+    // '__multiple__' (dropped downstream) rather than counted in each arm.
+    // This must match the non-incremental getExperimentFactMetricsQuery path.
+    expect(sql).toMatch(
+      /CASE\s+WHEN COUNT\(DISTINCT u\.variation\) > 1[\s\S]*?THEN '__multiple__'[\s\S]*?ELSE MAX\(u\.variation\)[\s\S]*?END/i,
+    );
+    // The metric cache is aggregated on the cluster id.
+    expect(sql).toMatch(
+      /__metricDataAggregated[\s\S]*GROUP BY[\s\S]*region_id/,
+    );
+  });
+
+  it("getIncrementalRefreshStatisticsQuery projects unit dimensions at the cluster grain for cluster-level metrics", () => {
+    const clusterFactTable = factTableFactory.build({
+      id: "ft_cluster",
+      name: "Cluster events",
+      sql: "SELECT * FROM region_events",
+      userIdTypes: ["region_id"],
+    });
+    const clusterMetric = factMetricFactory.build({
+      id: "fact_cluster",
+      metricType: "mean",
+      numerator: {
+        factTableId: "ft_cluster",
+        column: "amount",
+        aggregation: "sum",
+      },
+    });
+    const userDimension: DimensionInterface = {
+      id: "dim_u1",
+      organization: "org1",
+      owner: "",
+      datasource: "ds_1",
+      userIdType: "region_id",
+      name: "Region tier",
+      sql: "SELECT region_id, tier AS value FROM regions",
+      dateCreated: null,
+      dateUpdated: null,
+    };
+    const sql = integration.getIncrementalRefreshStatisticsQuery({
+      settings: {
+        ...settings,
+        exposureQueryIdentifierType: "region_id",
+        isClusterExperiment: true,
+        clusterSubUnitIdentifier: "user_id",
+        clusterLevelMetricIds: ["fact_cluster"],
+      },
+      exposureQuery: { query: "*", identifierType: "region_id" },
+      activationMetric: null,
+      dimensionsForPrecomputation: [],
+      dimensionsForAnalysis: [{ type: "user", dimension: userDimension }],
+      factTableMap: new Map([["ft_cluster", clusterFactTable]]),
+      metricSources: [
+        {
+          factTableId: "ft_cluster",
+          tableFullName: "proj.ds.metric_source_cluster",
+        },
+      ],
+      unitsSourceTableFullName: "proj.ds.units",
+      metrics: [clusterMetric],
+      lastMaxTimestamp: null,
+    });
+
+    // The units CTEs span from __experimentUnits to the first metric-data CTE
+    // that reads from them.
+    const unitsSection = sql.substring(
+      sql.indexOf("__experimentUnits AS"),
+      sql.indexOf("__metricDataAggregated"),
+    );
+    // The cluster's dimension joins once per cluster, after the collapse, and
+    // is projected under its alias, which the downstream analysis groups on.
+    expect(unitsSection).toMatch(
+      /__experimentUnitsClusterDims AS \([\s\S]*FROM\s+__experimentUnitsCluster u\s+LEFT JOIN __dim_unit_dim_u1 __dim_unit_dim_u1/,
+    );
+    expect(unitsSection).toContain("__dim_unit_dim_u1.value");
+    expect(unitsSection).toContain("AS dim_unit_dim_u1");
+    expect(unitsSection).toMatch(/GROUP BY[\s\S]*region_id/);
+  });
+
+  // Cluster experiment on region_id with user_id sub-units, one mean metric at
+  // the given grain, broken down by unit dimensions
+  const clusterDimension = (
+    id: string,
+    userIdType: string,
+    timed: boolean,
+  ): DimensionInterface => ({
+    id,
+    organization: "org1",
+    owner: "",
+    datasource: "ds_1",
+    userIdType,
+    name: id,
+    sql: `SELECT ${userIdType}, tier AS value, changed_at AS timestamp FROM tier_changes`,
+    ...(timed ? { timing: "rowTimestamp" } : {}),
+    dateCreated: null,
+    dateUpdated: null,
+  });
+  const clusterDimensionSql = (
+    clusterLevel: boolean,
+    dimensions: DimensionInterface[],
+  ): string => {
+    const factTable = factTableFactory.build({
+      id: "ft_dim",
+      name: "Events",
+      sql: "SELECT * FROM events",
+      userIdTypes: [clusterLevel ? "region_id" : "user_id"],
+    });
+    const metric = factMetricFactory.build({
+      id: "fact_dim",
+      metricType: "mean",
+      numerator: {
+        factTableId: "ft_dim",
+        column: "amount",
+        aggregation: "sum",
+      },
+    });
+    return integration
+      .getIncrementalRefreshStatisticsQuery({
+        settings: {
+          ...settings,
+          exposureQueryIdentifierType: "region_id",
+          isClusterExperiment: true,
+          clusterSubUnitIdentifier: "user_id",
+          clusterLevelMetricIds: clusterLevel ? ["fact_dim"] : [],
+        },
+        exposureQuery: { query: "*", identifierType: "region_id" },
+        activationMetric: null,
+        dimensionsForPrecomputation: [],
+        dimensionsForAnalysis: dimensions.map((dimension) => ({
+          type: "user",
+          dimension,
+        })),
+        factTableMap: new Map([["ft_dim", factTable]]),
+        metricSources: [
+          { factTableId: "ft_dim", tableFullName: "proj.ds.metric_source" },
+        ],
+        unitsSourceTableFullName: "proj.ds.units",
+        metrics: [metric],
+        lastMaxTimestamp: null,
+      })
+      .replace(/\s+/g, " ");
+  };
+
+  it("getIncrementalRefreshStatisticsQuery resolves sub-unit dimensions before the cluster collapse and cluster dimensions after it", () => {
+    const sql = clusterDimensionSql(true, [
+      clusterDimension("dim_tier", "region_id", true),
+      clusterDimension("dim_plan", "user_id", true),
+      clusterDimension("dim_seg", "user_id", false),
+      clusterDimension("dim_zone", "region_id", false),
+    ]);
+
+    // Dimensions keyed on the cluster or the sub-unit join through the units
+    // table's own columns, so no identity join between the two is needed
+    expect(sql).not.toContain("__identities_");
+    const collapseAt = sql.indexOf("__experimentUnitsCluster AS");
+    const units = sql.substring(
+      sql.indexOf("__experimentUnits AS"),
+      collapseAt,
+    );
+    expect(units).toContain(
+      "cast(__dim_unit_dim_seg.user_id as string) = e.user_id",
+    );
+    expect(units).toMatch(/GROUP BY e\.user_id/);
+    expect(units).toContain(
+      "cast(__dim_unit_dim_plan.user_id as string) = u.user_id",
+    );
+    expect(units).not.toContain("COUNT(DISTINCT");
+    expect(units).not.toContain("dim_tier");
+    expect(units).not.toContain("dim_zone");
+
+    // Same collapse as getExperimentFactMetricsQuery: a cluster whose
+    // sub-units disagree on a dimension is bucketed as __multiple__
+    const clusterDimsAt = sql.indexOf("__experimentUnitsClusterDims1 AS");
+    const collapse = sql.substring(collapseAt, clusterDimsAt);
+    expect(collapse).toContain("FROM __experimentUnitsTimed u");
+    expect(collapse).toContain(
+      "MIN(u.first_exposure_timestamp) AS first_exposure_timestamp",
+    );
+    for (const id of ["dim_plan", "dim_seg"]) {
+      expect(collapse).toContain(
+        `CASE WHEN COUNT(DISTINCT u.dim_unit_${id}) > 1 THEN '__multiple__' ELSE cast(MAX(u.dim_unit_${id}) as string) END`,
+      );
+    }
+    expect(collapse).toMatch(/GROUP BY u\.region_id \)/);
+
+    // The cluster's own dimensions join once per cluster, the timed one
+    // against the cluster's first exposure, so they need no window or collapse
+    const clusterDims = sql.substring(
+      clusterDimsAt,
+      sql.indexOf("__metricDataAggregated"),
+    );
+    expect(clusterDims).toContain("FROM __experimentUnitsCluster u");
+    expect(clusterDims).toContain(
+      "cast(__dim_unit_dim_tier.region_id as string) = u.region_id",
+    );
+    expect(clusterDims).toContain(
+      "GROUP BY u.region_id, u.variation, u.first_exposure_timestamp, u.dim_unit_dim_seg, u.dim_unit_dim_plan )",
+    );
+    expect(clusterDims).toContain(
+      "FROM __experimentUnitsClusterDims1 u LEFT JOIN __dim_unit_dim_zone __dim_unit_dim_zone ON ( cast(__dim_unit_dim_zone.region_id as string) = u.region_id ) GROUP BY u.region_id, u.variation, u.first_exposure_timestamp, u.dim_unit_dim_seg, u.dim_unit_dim_plan, u.dim_unit_dim_tier )",
+    );
+    expect(sql).not.toContain("OVER (");
+    expect(sql).toContain(
+      "FROM __experimentUnitsClusterDims u LEFT JOIN __metricDataAggregated",
+    );
+  });
+
+  it("getIncrementalRefreshStatisticsQuery joins cluster-keyed dimensions through the cluster column for sub-unit metrics", () => {
+    const sql = clusterDimensionSql(false, [
+      clusterDimension("dim_tier", "region_id", true),
+      clusterDimension("dim_zone", "region_id", false),
+    ]);
+
+    expect(sql).not.toContain("__identities_");
+    expect(sql).not.toContain("__experimentUnitsCluster");
+    const units = sql.substring(
+      sql.indexOf("__experimentUnits AS"),
+      sql.indexOf("__metricDataAggregated"),
+    );
+    // Constant across a cluster's sub-units, so the cluster is never split
+    expect(units).toContain(
+      "cast(__dim_unit_dim_zone.region_id as string) = e.region_id",
+    );
+    expect(units).toContain(
+      "cast(__dim_unit_dim_tier.region_id as string) = u.region_id",
+    );
+    // Every sub-unit resolves it at the cluster's first exposure
+    expect(units).toMatch(
+      /MIN\(u\.first_exposure_timestamp\) OVER \( ?PARTITION BY u\.region_id ?\) AS cluster_first_exposure_timestamp FROM __experimentUnits u/,
+    );
+    expect(units).toContain(
+      "__dim_unit_dim_tier.timestamp <= CAST(u.cluster_first_exposure_timestamp as DATETIME)",
+    );
+    expect(units).toMatch(
+      /GROUP BY u\.user_id, u\.region_id, u\.variation, u\.first_exposure_timestamp/,
+    );
+  });
+
+  it("keys the sub-unit cluster metric cache on the sub-unit id and joins units directly", () => {
+    const subUnitFactTable = factTableFactory.build({
+      id: "ft_subunit",
+      name: "Sub-unit events",
+      sql: "SELECT * FROM events",
+      userIdTypes: ["user_id"],
+    });
+    const meanMetric = factMetricFactory.build({
+      id: "fact_mean_su",
+      metricType: "mean",
+      numerator: {
+        factTableId: "ft_subunit",
+        column: "amount",
+        aggregation: "sum",
+      },
+    });
+    const clusterSettings: ExperimentSnapshotSettings = {
+      ...settings,
+      exposureQueryIdentifierType: "region_id",
+      isClusterExperiment: true,
+      clusterSubUnitIdentifier: "user_id",
+    };
+    const factTableMap = new Map([["ft_subunit", subUnitFactTable]]);
+
+    const createSql = integration.getCreateMetricSourceTableQuery({
+      settings: clusterSettings,
+      exposureQuery: { query: "*", identifierType: "region_id" },
+      factTableId: "ft_subunit",
+      metrics: [meanMetric],
+      factTableMap,
+      metricSourceTableFullName: "proj.ds.metric_source_su",
+    });
+    // Cache table is keyed on the sub-unit id, not the cluster (exposure) id.
+    expect(createSql).toContain("user_id");
+    expect(createSql).not.toContain("region_id");
+
+    const insertSql = integration.getInsertMetricSourceDataQuery({
+      settings: clusterSettings,
+      exposureQuery: { query: "*", identifierType: "region_id" },
+      activationMetric: null,
+      factTableMap,
+      factTableId: "ft_subunit",
+      metricSourceTableFullName: "proj.ds.metric_source_su",
+      unitsSourceTableFullName: "proj.ds.units",
+      metrics: [meanMetric],
+      lastMaxTimestamp: null,
+      incrementalRefreshStartTime: new Date("2024-01-31T00:00:00Z"),
+    });
+    // Units are joined directly on the sub-unit id (no cluster collapse).
+    expect(insertSql).toMatch(/d\.user_id = m\.user_id/);
+    expect(insertSql).not.toMatch(/GROUP BY\s+region_id/);
+    // Daily values are aggregated per sub-unit.
+    expect(insertSql).toMatch(/__newDailyValues[\s\S]*GROUP BY[\s\S]*user_id/);
+  });
+
+  it("keys the cluster-level metric cache on the cluster id and collapses units to the cluster", () => {
+    const clusterFactTable = factTableFactory.build({
+      id: "ft_cluster",
+      name: "Cluster events",
+      sql: "SELECT * FROM region_events",
+      userIdTypes: ["region_id"],
+    });
+    const clusterMetric = factMetricFactory.build({
+      id: "fact_cluster",
+      metricType: "mean",
+      numerator: {
+        factTableId: "ft_cluster",
+        column: "amount",
+        aggregation: "sum",
+      },
+    });
+    const clusterSettings: ExperimentSnapshotSettings = {
+      ...settings,
+      exposureQueryIdentifierType: "region_id",
+      isClusterExperiment: true,
+      clusterSubUnitIdentifier: "user_id",
+      clusterLevelMetricIds: ["fact_cluster"],
+    };
+    const factTableMap = new Map([["ft_cluster", clusterFactTable]]);
+
+    const createSql = integration.getCreateMetricSourceTableQuery({
+      settings: clusterSettings,
+      exposureQuery: { query: "*", identifierType: "region_id" },
+      factTableId: "ft_cluster",
+      metrics: [clusterMetric],
+      factTableMap,
+      metricSourceTableFullName: "proj.ds.metric_source_cluster",
+    });
+    // Cluster-level cache is keyed on the cluster id.
+    expect(createSql).toContain("region_id");
+    expect(createSql).not.toContain("user_id");
+
+    const insertSql = integration.getInsertMetricSourceDataQuery({
+      settings: clusterSettings,
+      exposureQuery: { query: "*", identifierType: "region_id" },
+      activationMetric: null,
+      factTableMap,
+      factTableId: "ft_cluster",
+      metricSourceTableFullName: "proj.ds.metric_source_cluster",
+      unitsSourceTableFullName: "proj.ds.units",
+      metrics: [clusterMetric],
+      lastMaxTimestamp: null,
+      incrementalRefreshStartTime: new Date("2024-01-31T00:00:00Z"),
+    });
+    // The sub-unit-grained units cache is collapsed to one row per cluster
+    // before the join so cluster-level rows don't fan out.
+    expect(insertSql).toMatch(
+      /SELECT[\s\S]*region_id[\s\S]*MIN\(first_exposure_timestamp\)[\s\S]*FROM\s+proj\.ds\.units[\s\S]*GROUP BY\s+region_id/,
+    );
+    expect(insertSql).toMatch(/d\.region_id = m\.region_id/);
+  });
+
   it("getExperimentFactMetricsQuery uses kll grid extraction and post-aggregation rank recovery for 'kll merge' event quantiles", () => {
     const prebuiltSketchMetric = factMetricFactory.build({
       id: "fact_eq_sketch_xp",
@@ -1823,5 +2290,130 @@ describe("BigQuery incremental refresh statistics query with custom dimensions",
     const statsSection = sql.substring(sql.indexOf("__joinedData"));
     expect(statsSection).toContain("dim_combo");
     expect(statsSection).not.toContain("dim_exp_country");
+  });
+
+  it("resolves a rowTimestamp user dimension against the stored first exposure in a wrapper CTE", () => {
+    const userDimension: DimensionInterface = {
+      id: "dim_plan",
+      organization: "org1",
+      owner: "",
+      datasource: "ds_1",
+      userIdType: "user_id",
+      name: "Plan",
+      sql: "SELECT user_id, plan AS value, changed_at AS timestamp FROM plan_changes",
+      timing: "rowTimestamp",
+      dateCreated: null,
+      dateUpdated: null,
+    };
+    const sql = buildSql([{ type: "user", dimension: userDimension }]);
+
+    // __experimentUnits collapses the stored units table to one row per unit
+    // without touching the history
+    const unitsSection = sql.substring(
+      sql.indexOf("__experimentUnits AS"),
+      sql.indexOf("__experimentUnitsTimed AS"),
+    );
+    expect(unitsSection).toMatch(/FROM\s+proj\.ds\.units e/);
+    expect(unitsSection).not.toContain("__dim_unit_dim_plan");
+
+    // The wrapper joins the history onto that, casting the stored TIMESTAMP
+    // to DATETIME to match the dimension CTE's castUserDateCol'd column
+    const wrapperSection = sql.substring(
+      sql.indexOf("__experimentUnitsTimed AS"),
+      sql.indexOf("__metricDataAggregated"),
+    );
+    expect(wrapperSection).toMatch(/FROM\s+__experimentUnits u/);
+    expect(wrapperSection).toMatch(
+      /LEFT JOIN __dim_unit_dim_plan __dim_unit_dim_plan ON \(\s*cast\(__dim_unit_dim_plan\.user_id as string\) = u\.user_id\s*\)/,
+    );
+    expect(wrapperSection).toContain(
+      "__dim_unit_dim_plan.timestamp <= CAST(u.first_exposure_timestamp as DATETIME)",
+    );
+    expect(wrapperSection).toContain("AS dim_unit_dim_plan");
+    expect(wrapperSection).toMatch(
+      /GROUP BY\s+u\.user_id,\s+u\.variation,\s+u\.first_exposure_timestamp/,
+    );
+
+    // Downstream reads the wrapper, not __experimentUnits
+    expect(sql).toMatch(/FROM\s+__experimentUnitsTimed\s+u/);
+    expect(sql).not.toContain("__experimentUnitsCore");
+  });
+});
+
+describe("BigQuery listGoogleAnalytics4Exports", () => {
+  function dataset(id: string, tables: string[] | Error) {
+    return {
+      id,
+      getTables: jest.fn(async () => {
+        if (tables instanceof Error) throw tables;
+        return [tables.map((tableId) => ({ id: tableId }))];
+      }),
+    };
+  }
+
+  const getDatasets = jest.fn();
+
+  function withDatasets(
+    datasets: ReturnType<typeof dataset>[],
+    params: { projectId?: string; defaultProject?: string } = {
+      projectId: "proj",
+    },
+  ) {
+    getDatasets.mockResolvedValue([datasets]);
+    jest.mocked(createBigQueryClient).mockReturnValue({
+      getDatasets,
+    } as unknown as BigQueryClient);
+    // @ts-expect-error -- context/datasource not needed for this unit test
+    const integration = new BigQuery("", { type: "bigquery" });
+    integration.params = { ...integration.params, ...params };
+    return integration;
+  }
+
+  it("returns analytics datasets that have daily or intraday event shards", async () => {
+    const integration = withDatasets([
+      dataset("analytics_1", ["events_20240101"]),
+      dataset("analytics_2", ["events_intraday_20240101"]),
+      dataset("analytics_3", ["pseudonymous_users_20240101"]),
+      dataset("marketing", ["events_20240101"]),
+    ]);
+    await expect(integration.listGoogleAnalytics4Exports()).resolves.toEqual([
+      "`proj.analytics_1.events_*`",
+      "`proj.analytics_2.events_*`",
+    ]);
+  });
+
+  it("looks in the project GrowthBook queries, not the key's project", async () => {
+    const integration = withDatasets(
+      [dataset("analytics_1", ["events_20240101"])],
+      {
+        projectId: "key-project",
+        defaultProject: "data-project",
+      },
+    );
+    await expect(integration.listGoogleAnalytics4Exports()).resolves.toEqual([
+      "`data-project.analytics_1.events_*`",
+    ]);
+    expect(getDatasets).toHaveBeenCalledWith({ projectId: "data-project" });
+  });
+
+  it("checks at most 25 analytics datasets", async () => {
+    const datasets = Array.from({ length: 30 }, (_, i) =>
+      dataset(`analytics_${i}`, ["events_20240101"]),
+    );
+    const integration = withDatasets(datasets);
+    await expect(
+      integration.listGoogleAnalytics4Exports(),
+    ).resolves.toHaveLength(25);
+    expect(datasets[29].getTables).not.toHaveBeenCalled();
+  });
+
+  it("keeps the other exports when one dataset can't be read", async () => {
+    const integration = withDatasets([
+      dataset("analytics_1", new Error("Access Denied")),
+      dataset("analytics_2", ["events_20240101"]),
+    ]);
+    await expect(integration.listGoogleAnalytics4Exports()).resolves.toEqual([
+      "`proj.analytics_2.events_*`",
+    ]);
   });
 });

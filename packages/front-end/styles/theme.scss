@@ -119,6 +119,18 @@
   --step-completed-background: #218358;
   --step-completed-color: #fbfefc;
   --step-color: #6550b9;
+
+  // A bar or card lifted off what's under it: a tight shadow, then a soft one.
+  --lift-shadow-near: rgba(0, 0, 0, 0.1);
+  --lift-shadow-far: rgba(0, 0, 0, 0.025);
+  // A card resting on the page, a touch firmer than a pinned bar's soft layer.
+  --card-shadow: rgba(0, 0, 0, 0.03);
+  // Over a scroll area's edge with more past it.
+  --edge-shadow: var(--gray-a2);
+  --edge-shadow-deep: var(--gray-a4);
+
+  // Halfway between Radix's gray-a2 and gray-a3, which has no step there.
+  --gray-a2-5: color-mix(in srgb, var(--gray-a2), var(--gray-a3));
 }
 
 @mixin dark-theme {
@@ -153,7 +165,7 @@
 
   --form-input-group-background: #{colors.$gray-800};
   --form-input-group-color: #{colors.$gray6};
-  --form-multivalue-background-color: var(--slate-3);
+  --form-multivalue-background-color: var(--slate-5);
   --form-switch-background-active: #{colors.$highlight-purple};
 
   --markdown-code-background: #05054920;
@@ -247,6 +259,17 @@
   --step-completed-background: #3dd68c;
   --step-completed-color: #0e1512;
   --step-color: #baa7ff;
+
+  // Black, and stronger than in light, to show on dark surfaces; the gray
+  // alphas lighten here, which reads as a glow rather than a shadow.
+  --lift-shadow-near: rgba(0, 0, 0, 0.2);
+  --lift-shadow-far: rgba(0, 0, 0, 0.25);
+  --card-shadow: var(--lift-shadow-far);
+  --edge-shadow: var(--black-a5);
+  --edge-shadow-deep: var(--black-a7);
+
+  // Halfway between Radix's gray-a2 and gray-a3, which has no step there.
+  --gray-a2-5: color-mix(in srgb, var(--gray-a2), var(--gray-a3));
 }
 
 .light-theme {

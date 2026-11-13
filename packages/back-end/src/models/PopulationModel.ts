@@ -29,13 +29,6 @@ function withStepDefaults(
   return steps.map((step) => ({
     ...step,
     rowFilters: step.rowFilters ?? [],
-    windowSettings: step.windowSettings ?? {
-      type: "",
-      delayValue: 0,
-      delayUnit: "days",
-      windowValue: 0,
-      windowUnit: "days",
-    },
   }));
 }
 

@@ -8,6 +8,7 @@ import authenticateApiRequestMiddleware from "back-end/src/middleware/authentica
 import { DashboardModel } from "back-end/src/enterprise/models/DashboardModel";
 import { ContextualBanditModel } from "back-end/src/enterprise/models/ContextualBanditModel";
 import { ContextualBanditQueryModel } from "back-end/src/enterprise/models/ContextualBanditQueryModel";
+import { InterleavingExposureQueryModel } from "back-end/src/enterprise/models/InterleavingExposureQueryModel";
 import { InterleavingModel } from "back-end/src/enterprise/models/InterleavingModel";
 import { CustomFieldModel } from "back-end/src/models/CustomFieldModel";
 import { MetricGroupModel } from "back-end/src/models/MetricGroupModel";
@@ -20,6 +21,8 @@ import { LearningModel } from "back-end/src/models/LearningModel";
 import { HoldoutModel } from "back-end/src/models/HoldoutModel";
 import { AutoRunModel } from "back-end/src/models/AutoRunModel";
 import { PopulationModel } from "back-end/src/models/PopulationModel";
+import { WebhookSecretDataModel } from "back-end/src/models/WebhookSecretModel";
+import { SdkWebhookModel } from "back-end/src/models/WebhookModel";
 import { ModelClass } from "back-end/src/services/context";
 import { getBuild } from "back-end/src/util/build";
 import { ApiRequestLocals } from "back-end/types/api";
@@ -36,6 +39,7 @@ import {
   getApiRateLimitBucket,
 } from "back-end/src/util/apiRateLimit";
 import { trackMcpRequestCompletion } from "back-end/src/services/growthbook";
+import { getSavedGroupUploadFile } from "./saved-groups/getSavedGroupUploadFile";
 import { featureRoutes } from "./features/features.router";
 import { featureV2Routes } from "./features/features.v2.router";
 import { experimentsRoutes } from "./experiments/experiments.router";
@@ -74,12 +78,15 @@ import { informationSchemaTablesRoutes } from "./information-schema-tables/infor
 import { rampSchedulesRoutes } from "./ramp-schedules/ramp-schedules.router";
 import { reportRoutes } from "./reports/reports.router";
 import { namespacesRoutes } from "./namespaces/namespaces.router";
+import { eventWebhooksRoutes } from "./event-webhooks/event-webhooks.router";
+import { auditsRoutes } from "./audits/audits.router";
 import { getOpenApiRoutesForApiConfig } from "./apiModelHandlers";
 
 const API_MODELS: ModelClass[] = [
   DashboardModel,
   ContextualBanditModel,
   ContextualBanditQueryModel,
+  InterleavingExposureQueryModel,
   InterleavingModel,
   CustomFieldModel,
   MetricGroupModel,
@@ -92,6 +99,8 @@ const API_MODELS: ModelClass[] = [
   HoldoutModel,
   AutoRunModel,
   PopulationModel,
+  WebhookSecretDataModel,
+  SdkWebhookModel,
 ];
 
 const router = Router();
@@ -230,6 +239,8 @@ export const allRoutes = [
   ...rampSchedulesRoutes,
   ...reportRoutes,
   ...namespacesRoutes,
+  ...eventWebhooksRoutes,
+  ...auditsRoutes,
   ...openaiRoutes,
   ...visualEditorAiRoutes,
 ];
@@ -254,6 +265,13 @@ API_MODELS.forEach((modelClass) => {
     description: spec.navDescription ?? "",
   };
 });
+
+// Not JSON, so it can't use createApiRequestHandler. Documented on
+// postSavedGroupUpload.
+router.get(
+  "/v1/saved-groups/:id/uploads/:version/file",
+  getSavedGroupUploadFile,
+);
 
 allRoutes.forEach((route) => {
   if (!route.method) {

@@ -1,9 +1,12 @@
 import { getEqualWeights } from "shared/experiments";
 import {
+  capTypedPercent,
   decimalToPercent,
   floatRound,
+  isEqualSplit,
   percentToDecimal,
   rebalance,
+  variationWeightsTotalPercent,
 } from "@/services/utils";
 
 describe("variation weighting functions", () => {
@@ -56,6 +59,20 @@ describe("variation weighting functions", () => {
     expect(decimalToPercent(0.869584, 3)).toEqual(87);
   });
 
+  it("cuts a typed weight to the decimals it keeps", () => {
+    expect(capTypedPercent("33.33333", 2)).toBe("33.33");
+    expect(capTypedPercent("33.33333", 3)).toBe("33.333");
+    expect(capTypedPercent("1000", 2)).toBe("100");
+    expect(capTypedPercent("12.", 2)).toBe("12.");
+    expect(capTypedPercent("", 2)).toBe("");
+  });
+
+  it("reads a pasted exponent whole before cutting its decimals", () => {
+    expect(capTypedPercent("1e-2", 4)).toBe("0.01");
+    expect(capTypedPercent("2.5E1", 2)).toBe("25");
+    expect(capTypedPercent("1.23456e-1", 4)).toBe("0.1235");
+  });
+
   it("rebalances weights", () => {
     expect(rebalance([0.3334, 0.3333, 0.3333], 1, 0.3406, 4)).toEqual([
       0.3334, 0.3406, 0.326,
@@ -76,5 +93,25 @@ describe("variation weighting functions", () => {
     expect(floatRound(0.546859483, 3)).toEqual(0.547);
     expect(floatRound(0.546859483, 4)).toEqual(0.5469);
     expect(floatRound(0.546859483, 5)).toEqual(0.54686);
+  });
+});
+
+describe("isEqualSplit", () => {
+  it("treats getEqualWeights as equal, including uneven counts", () => {
+    [2, 3, 6, 7].forEach((n) => {
+      expect(isEqualSplit(getEqualWeights(n))).toBe(true);
+    });
+  });
+
+  it("rejects splits that differ by more than one step", () => {
+    expect(isEqualSplit([0.5001, 0.4999])).toBe(false);
+  });
+});
+
+describe("variationWeightsTotalPercent", () => {
+  it("totals the weights as a whole percent, without normalizing", () => {
+    expect(variationWeightsTotalPercent([0.33, 0.4, 0.3])).toBe(103);
+    expect(variationWeightsTotalPercent([0.3334, 0.3333, 0.3333])).toBe(100);
+    expect(variationWeightsTotalPercent([0.005, 0.005])).toBe(1);
   });
 });

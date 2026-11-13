@@ -1,6 +1,7 @@
 import dynamic from "next/dynamic";
 import {
   type ComponentType,
+  type ReactNode,
   useEffect,
   useState,
   useRef,
@@ -10,14 +11,23 @@ import {
 import type { Ace } from "ace-builds";
 import type { IAceEditorProps } from "react-ace";
 import clsx from "clsx";
-import { Flex, IconButton } from "@radix-ui/themes";
-import { PiCornersOut, PiCornersIn, PiCopy, PiCheck } from "react-icons/pi";
+import { Flex } from "@radix-ui/themes";
 import Button from "@/ui/Button";
 import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
 import { CursorData } from "@/components/Segments/SegmentForm";
-import Tooltip from "@/components/Tooltip/Tooltip";
-import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
+import {
+  CODE_FONT_SIZE,
+  getAceCodeCss,
+  getCodeTheme,
+} from "@/components/SyntaxHighlighting/codeTheme";
+import { darkCss } from "@/components/SyntaxHighlighting/darkColors";
+import { FullscreenIcon } from "@/ui/ActionIcons";
+import FieldIndicator, {
+  CopyFieldIndicator,
+  FieldIndicatorCorner,
+} from "@/ui/FieldIndicator";
 import Field, { FieldProps } from "./Field";
+import styles from "./CodeTextArea.module.scss";
 
 export type AceCompletion = {
   caption: string;
@@ -33,12 +43,32 @@ interface AceEditorProps extends IAceEditorProps {
 interface AceModule {
   config: { setModuleUrl: (path: string, url: string) => void };
   require: (path: string) => unknown;
+  define: (
+    name: string,
+    deps: string[],
+    factory: (
+      require: (path: string) => unknown,
+      exports: Record<string, unknown>,
+    ) => void,
+  ) => void;
+}
+
+interface AceTheme {
+  cssClass: string;
+  cssText: string;
+}
+
+interface AceDom {
+  importCssString: (cssText: string, id: string, target?: boolean) => void;
 }
 
 interface LangTools {
   setCompleters: (completers: unknown[]) => void;
   addCompleter: (completer: unknown) => void;
 }
+
+const LIGHT_THEME = "textmate";
+const DARK_THEME = "textmate_dark";
 
 const AceEditor = dynamic(
   async () => {
@@ -69,7 +99,6 @@ const AceEditor = dynamic(
       import("ace-builds/src-min-noconflict/mode-golang"),
       import("ace-builds/src-min-noconflict/mode-rust"),
       import("ace-builds/src-min-noconflict/theme-textmate"),
-      import("ace-builds/src-min-noconflict/theme-tomorrow_night"),
     ]);
 
     // Workers: raw-loader gives us source; create blob: URLs for Ace
@@ -97,6 +126,28 @@ const AceEditor = dynamic(
     ).Tokenizer.prototype.$setMaxTokenCount(100_000);
 
     const langTools = aceTyped.require("ace/ext/language_tools") as LangTools;
+
+    // Dark is the light theme inverted, not a theme of its own.
+    const light = aceTyped.require(`ace/theme/${LIGHT_THEME}`) as AceTheme;
+    const darkClass = `${light.cssClass}-dark`;
+    const darkCssText = darkCss(light.cssText).replaceAll(
+      `.${light.cssClass}`,
+      `.${darkClass}`,
+    );
+    aceTyped.define(
+      `ace/theme/${DARK_THEME}`,
+      ["require", "exports", "ace/lib/dom"],
+      (require, exports) => {
+        exports.isDark = true;
+        exports.cssClass = darkClass;
+        exports.cssText = darkCssText;
+        (require("ace/lib/dom") as AceDom).importCssString(
+          darkCssText,
+          darkClass,
+          false,
+        );
+      },
+    );
 
     // Return a wrapper component that handles completions
     const AceEditorWithCompletions = (props: AceEditorProps) => {
@@ -218,9 +269,6 @@ export type Props = CodeTextAreaFieldProps & {
   minLines?: number;
   maxLines?: number;
   paddingTop?: number;
-  // Editor font size (Ace accepts px number or any CSS size). Smaller values
-  // also shrink line height, so a fixed line count takes less vertical space.
-  fontSize?: string | number;
   // Hide the fold-widget caret so the line-number gutter is as narrow as
   // possible — useful for cramped inline editors (e.g. feature/config values).
   slimGutter?: boolean;
@@ -239,10 +287,55 @@ export type Props = CodeTextAreaFieldProps & {
   // Exposes the underlying Ace editor once loaded, so a parent can do cursor-
   // aware edits (e.g. inserting a token at the cursor).
   onEditorLoad?: (editor: Ace.Editor) => void;
+  // A value's editor: framed like the value's display, with quieter chrome (no
+  // print margin, cursor line only while focused, scrollbars only on hover).
+  matchValueDisplay?: boolean;
+  // 1-based lines to highlight, marking fields that differ from sibling values.
+  highlightLines?: number[];
+  // More `EditorAction`s, shown before copy and fullscreen.
+  actions?: ReactNode;
 };
 
-const LIGHT_THEME = "textmate";
-const DARK_THEME = "tomorrow_night";
+// Ace re-wraps a line on every edit, so wrapping one this long (minified JSON)
+// makes typing lag; such text scrolls sideways instead.
+const MAX_WRAPPED_LINE = 10_000;
+
+function hasLongLine(text: string): boolean {
+  if (text.length <= MAX_WRAPPED_LINE) return false;
+  let start = 0;
+  while (start < text.length) {
+    const end = text.indexOf("\n", start);
+    const stop = end === -1 ? text.length : end;
+    if (stop - start > MAX_WRAPPED_LINE) return true;
+    start = stop + 1;
+  }
+  return false;
+}
+
+// An icon button in the editor's corner, beside copy and fullscreen: a text
+// field's indicator, shown while the editor is hovered or focused.
+export function EditorAction({
+  label,
+  icon,
+  onClick,
+}: {
+  label: string;
+  icon: ReactNode;
+  onClick: () => void;
+}) {
+  return (
+    <FieldIndicator label={label} onClick={onClick} reveal>
+      {icon}
+    </FieldIndicator>
+  );
+}
+
+type AceRange = new (
+  startRow: number,
+  startColumn: number,
+  endRow: number,
+  endColumn: number,
+) => Ace.Range;
 
 export default function CodeTextArea({
   language,
@@ -252,7 +345,6 @@ export default function CodeTextArea({
   minLines = 10,
   maxLines = 50,
   paddingTop = 0,
-  fontSize = "1em",
   slimGutter = false,
   setCursorData,
   fullHeight,
@@ -266,6 +358,9 @@ export default function CodeTextArea({
   showFullscreenButton = false,
   onRequestFullscreen,
   onEditorLoad,
+  matchValueDisplay = false,
+  highlightLines,
+  actions,
   containerClassName,
   ...otherProps
 }: Props) {
@@ -275,10 +370,8 @@ export default function CodeTextArea({
   const [isFullscreen, setIsFullscreen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const editorUid = useId();
-
-  const { performCopy, copySuccess } = useCopyToClipboard({
-    timeout: 800,
-  });
+  const editorScope = `[data-editor-uid="${editorUid}"]`;
+  const codeTheme = getCodeTheme(theme);
 
   // Throttle cursor updates to avoid excessive re-renders
   const cursorUpdateTimeoutRef = useRef<NodeJS.Timeout>();
@@ -317,6 +410,21 @@ export default function CodeTextArea({
   useEffect(() => {
     editor?.renderer.setScrollMargin(paddingTop, 0, 0, 0);
   }, [editor, paddingTop]);
+
+  useEffect(() => {
+    if (!editor || !highlightLines?.length) return;
+    const ace = (window as unknown as { ace: AceModule }).ace;
+    const { Range } = ace.require("ace/range") as { Range: AceRange };
+    const session = editor.session;
+    const markers = highlightLines.map((line) =>
+      session.addMarker(
+        new Range(line - 1, 0, line - 1, 1),
+        styles.highlightedLine,
+        "fullLine",
+      ),
+    );
+    return () => markers.forEach((id) => session.removeMarker(id));
+  }, [editor, highlightLines]);
 
   // Auto-resize editor when container size changes
   useEffect(() => {
@@ -398,11 +506,13 @@ export default function CodeTextArea({
                 flex: 1;
                 overflow: hidden;
               }
+              ${getAceCodeCss(editorScope, codeTheme, language)}
             `}</style>
             <div
               id={editorUid}
               data-editor-uid={editorUid}
               className={clsx({
+                [styles.valueEditor]: matchValueDisplay,
                 "ace-editor-disabled": fieldProps.disabled,
                 "h-100": fullHeight && !isFullscreen,
                 "code-editor-fullscreen": isFullscreen,
@@ -428,6 +538,7 @@ export default function CodeTextArea({
                 ref={containerRef}
                 className={clsx(
                   "position-relative border rounded",
+                  "gb-field-indicator-host",
                   wrapperClassName,
                   {
                     "h-100": fullHeight,
@@ -438,7 +549,8 @@ export default function CodeTextArea({
                   ...(resizable && !isFullscreen
                     ? {
                         resize: "vertical",
-                        overflow: "auto",
+                        // Only so it resizes; the editor scrolls itself.
+                        overflow: "hidden",
                         height: !fullHeight ? defaultHeight : undefined,
                       }
                     : {}),
@@ -478,11 +590,12 @@ export default function CodeTextArea({
                   value={value}
                   onChange={(newValue) => setValue(newValue)}
                   placeholder={placeholder}
-                  fontSize={fontSize}
+                  fontSize={CODE_FONT_SIZE}
                   completions={completions}
                   {...heightProps}
                   setOptions={{
-                    wrap: true,
+                    wrap: !hasLongLine(value),
+                    ...(matchValueDisplay ? { showPrintMargin: false } : {}),
                     ...(slimGutter ? { showFoldWidgets: false } : {}),
                     ...(language === "sql"
                       ? {
@@ -505,72 +618,32 @@ export default function CodeTextArea({
                     }, 150);
                   }}
                 />
-                {(showCopyButton || showFullscreenButton) && (
-                  <Flex
-                    align="center"
-                    gap="3"
-                    style={{
-                      position: "absolute",
-                      bottom: 0,
-                      right: 14,
-                    }}
-                  >
+                {(actions || showCopyButton || showFullscreenButton) && (
+                  // A value display's buttons sit 16px in.
+                  <FieldIndicatorCorner right={matchValueDisplay ? 16 : 14}>
+                    {actions}
                     {showCopyButton && (
-                      <Tooltip
-                        body={copySuccess ? "Copied" : "Copy to clipboard"}
-                      >
-                        <IconButton
-                          type="button"
-                          radius="full"
-                          variant="ghost"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            if (!copySuccess) performCopy(value);
-                          }}
-                          style={{ position: "relative", zIndex: 1000 }}
-                        >
-                          {copySuccess ? (
-                            <PiCheck size={isFullscreen ? 16 : 12} />
-                          ) : (
-                            <PiCopy size={isFullscreen ? 14 : 12} />
-                          )}
-                        </IconButton>
-                      </Tooltip>
+                      <CopyFieldIndicator value={value} reveal />
                     )}
                     {showFullscreenButton && (
-                      <Tooltip
+                      <EditorAction
                         key={isFullscreen ? "exit" : "enter"}
-                        body={
+                        label={
                           isFullscreen
                             ? "Exit full screen (ESC)"
                             : "Edit in full screen"
                         }
-                      >
-                        <IconButton
-                          type="button"
-                          radius="full"
-                          variant="ghost"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            if (onRequestFullscreen) {
-                              onRequestFullscreen();
-                            } else {
-                              setIsFullscreen(!isFullscreen);
-                            }
-                          }}
-                          style={{ position: "relative", zIndex: 1000 }}
-                        >
-                          {isFullscreen ? (
-                            <PiCornersIn size={isFullscreen ? 16 : 12} />
-                          ) : (
-                            <PiCornersOut size={isFullscreen ? 16 : 12} />
-                          )}
-                        </IconButton>
-                      </Tooltip>
+                        icon={<FullscreenIcon exit={isFullscreen} size="sm" />}
+                        onClick={() => {
+                          if (onRequestFullscreen) {
+                            onRequestFullscreen();
+                          } else {
+                            setIsFullscreen(!isFullscreen);
+                          }
+                        }}
+                      />
                     )}
-                  </Flex>
+                  </FieldIndicatorCorner>
                 )}
               </div>
             </div>

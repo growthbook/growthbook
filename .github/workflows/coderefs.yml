@@ -5,19 +5,23 @@ on:
       - main
     paths:
       - "packages/**"
+# Read-only by default; a job that needs more asks for it.
+permissions:
+  contents: read
+
 jobs:
   codeRefs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           # This value must be set if the lookback configuration option is
           # defined for find-code-refs. Read more: 
           # https://github.com/growthbook/gb-find-code-refs#searching-for-unused-flags-extinctions
           fetch-depth: 11 
       - name: GrowthBook Code References
-        uses: growthbook/coderefs-action@2.11.6-1
+        uses: growthbook/coderefs-action@0e1670c4656cb6607332848237a68f11c30860e1 # 2.11.6-1
         with:
           apiKey: ${{ secrets.GB_API_TOKEN }}
           apiHost: ${{ secrets.GB_API_HOST }}

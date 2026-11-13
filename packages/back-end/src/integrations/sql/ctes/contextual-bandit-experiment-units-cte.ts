@@ -14,8 +14,12 @@ import type { SqlDialect } from "shared/types/sql";
 import {
   formatMalformedTargetingAttributeColumnMessages,
   isSafeSqlIdentifier,
+  CONTEXTUAL_BANDIT_EAQ_BANDIT_VERSION_COLUMN,
 } from "shared/validators";
 import { concatSql } from "back-end/src/integrations/sql/primitives/concat";
+
+export const CONTEXTUAL_BANDIT_UNIT_BANDIT_VERSION_COLUMN =
+  "__cb_bandit_version";
 
 type ContextualBanditTargetingSettings = Pick<
   ExperimentUnitsQuerySettings,
@@ -54,6 +58,7 @@ export function assertSafeTargetingSqlIdentifiers(columns: string[]): string[] {
 export type ContextualBanditUnitsSqlConfig = {
   aliases: string[];
   maxRankedContexts: number;
+  periodWeighting: boolean;
 };
 
 export function getContextualBanditUnitsSqlConfig(
@@ -73,7 +78,11 @@ export function getContextualBanditUnitsSqlConfig(
     1,
     Math.floor(MAX_CONTEXTUAL_BANDIT_CONTEXTS / k) - 1,
   );
-  return { aliases, maxRankedContexts };
+  return {
+    aliases,
+    maxRankedContexts,
+    periodWeighting: !!bs.periodWeighting,
+  };
 }
 
 /** True when the CB has at least one targeting column and can segment users into distinct contexts. */
@@ -90,8 +99,14 @@ export function hasUsableContextualBanditTargeting(
 /** Pass-through columns from __rawExperiment for contextual bandit targeting attributes. */
 export function getContextualBanditExposureSelectCols(
   aliases: string[],
+  periodWeighting = false,
 ): string {
-  return aliases.map((a) => `, e.${a}`).join("");
+  return (
+    aliases.map((a) => `, e.${a}`).join("") +
+    (periodWeighting
+      ? `, e.${CONTEXTUAL_BANDIT_EAQ_BANDIT_VERSION_COLUMN}`
+      : "")
+  );
 }
 
 /** First-exposure targeting attribute on __experimentUnitsBase (same pattern as experiment dimensions). */
@@ -114,21 +129,30 @@ export function getAttributeValuePerUnit(
       )`;
 }
 
-export function getContextualBanditUnitsBaseSelectCols(
+export function getContextualBanditUnitsBaseColumns(
   dialect: SqlDialect,
   aliases: string[],
   timestampColumn: string,
-): string {
-  return aliases
-    .map(
-      (a) =>
-        `, ${getAttributeValuePerUnit(
-          dialect,
-          a,
-          timestampColumn,
-        )} AS ${contextualBanditRawAttrCol(a)}`,
-    )
-    .join("");
+): { alias: string; expr: string }[] {
+  return aliases.map((a) => ({
+    alias: contextualBanditRawAttrCol(a),
+    expr: getAttributeValuePerUnit(dialect, a, timestampColumn),
+  }));
+}
+
+/** First-exposure bandit_version becomes each unit's period (bandit_period). */
+export function getContextualBanditUnitVersionColumn(
+  dialect: SqlDialect,
+  timestampColumn: string,
+): { alias: string; expr: string } {
+  return {
+    alias: CONTEXTUAL_BANDIT_UNIT_BANDIT_VERSION_COLUMN,
+    expr: getAttributeValuePerUnit(
+      dialect,
+      CONTEXTUAL_BANDIT_EAQ_BANDIT_VERSION_COLUMN,
+      timestampColumn,
+    ),
+  };
 }
 
 /** CTEs after __experimentUnitsBase: context-tuple counts, top-N bucketing, final __experimentUnits. */

@@ -3,6 +3,7 @@ import type { QueryRunnerFailureCause } from "shared/types/query";
 import {
   ExperimentMetricInterface,
   getFactMetricFactTableIds,
+  isFactCompoundMetric,
   isFactFunnelMetric,
   isFactMetric,
   isRatioMetric,
@@ -251,7 +252,7 @@ export const startExperimentIncrementalRefreshExploratoryQueries = async (
     // data is fully present in this FT. Cross-FT ratios and multifact
     // funnels are handled in dedicated passes below.
     const sameFtMetrics = group.metrics.filter((m) => {
-      if (isFactFunnelMetric(m)) {
+      if (isFactFunnelMetric(m) || isFactCompoundMetric(m)) {
         const ftIds = [...new Set(getFactMetricFactTableIds(m))];
         return ftIds.length === 1;
       }
@@ -468,7 +469,12 @@ export class ExperimentIncrementalRefreshExploratoryQueryRunner extends QueryRun
       this.context,
       {
         ...params,
-        asOf: this.model.sourceSnapshotDateCreated,
+        // Judge in-progress conversions against the same data end as the
+        // Overall Results; breakdowns older than the field fall back to its
+        // run time.
+        asOf:
+          this.model.sourceSnapshotEndDate ??
+          this.model.sourceSnapshotDateCreated,
       },
       this.integration,
       this.startQuery.bind(this),
@@ -484,6 +490,7 @@ export class ExperimentIncrementalRefreshExploratoryQueryRunner extends QueryRun
         analysisSettings: this.model.analyses.map((a) => a.settings),
         variationNames: this.variationNames,
         metricMap: this.metricMap,
+        isStandaloneBreakdown: true,
       });
 
     const result: SnapshotResult = {

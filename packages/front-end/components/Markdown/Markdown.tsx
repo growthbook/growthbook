@@ -1,13 +1,25 @@
 import { DetailedHTMLProps, FC, HTMLAttributes, useMemo } from "react";
 import Link from "next/link";
 import clsx from "clsx";
-import ReactMarkdown from "react-markdown";
+import ReactMarkdown, { Options } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import AuthorizedImage from "@/components/AuthorizedImage";
 import MarkdownCodeBlock from "@/components/SyntaxHighlighting/MarkdownCodeBlock";
 import styles from "./Markdown.module.scss";
 
 const imageCache = {};
+
+// An indented line reads as it would without the indent, never as code: the
+// rich text editor writes a nested list item that way.
+const noIndentedCode: NonNullable<Options["remarkPlugins"]>[number] =
+  function () {
+    // Where remark-parse, whose types aren't a dependency here, reads its
+    // micromark extensions from.
+    const data = this.data() as { micromarkExtensions?: unknown[] };
+    (data.micromarkExtensions ??= []).push({
+      disable: { null: ["codeIndented"] },
+    });
+  };
 
 interface MarkdownProps
   extends DetailedHTMLProps<HTMLAttributes<HTMLDivElement>, HTMLDivElement> {
@@ -82,7 +94,7 @@ const Markdown: FC<MarkdownProps> = ({
   return (
     <div {...props} className={clsx(className, styles.markdown)}>
       <ReactMarkdown
-        remarkPlugins={[remarkGfm]}
+        remarkPlugins={[remarkGfm, noIndentedCode]}
         urlTransform={(url) => {
           // even though we're on 9.0.0, the URL sanitization in our version is
           // messing up & in urls. This code come from the latest version of react-markdown

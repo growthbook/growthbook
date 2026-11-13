@@ -4,7 +4,7 @@ import {
   ExperimentReportVariation,
 } from "shared/types/report";
 import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
-import { getSRMHealthData } from "shared/health";
+import { getExperimentSRMTraffic, getSRMHealthData } from "shared/health";
 import {
   DEFAULT_SRM_THRESHOLD,
   DEFAULT_SRM_MINIMINUM_COUNT_PER_VARIATION,
@@ -40,7 +40,7 @@ const DataQualityWarning: FC<{
     return null;
   }
 
-  const traffic = snapshot?.health?.traffic;
+  const traffic = snapshot ? getExperimentSRMTraffic(snapshot) : undefined;
   const trafficResults =
     traffic && !traffic.error && traffic.overall.variationUnits.length
       ? traffic.overall

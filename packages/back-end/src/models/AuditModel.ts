@@ -5,6 +5,11 @@ import {
   ToInterface,
 } from "back-end/src/util/mongo.util";
 import { generateId } from "back-end/src/util/uuid";
+import {
+  DateCursor,
+  dateCursorFilter,
+  getNextDateCursor,
+} from "back-end/src/util/dateCursor";
 
 const auditSchema = new mongoose.Schema({
   id: {
@@ -84,7 +89,7 @@ const toInterface: ToInterface<AuditInterface> = (doc) => {
 export type AuditHistoryFilters = {
   auditId?: string;
   event?: string;
-  before?: Date;
+  before?: DateCursor | null;
   excludeIds?: string[];
 };
 
@@ -104,18 +109,20 @@ function historyQuery(
     organization,
     [`${side}.object`]: type,
     ...(Object.keys(idMatch).length ? { [`${side}.id`]: idMatch } : {}),
-    ...(auditId ? { id: auditId } : {}),
+    ...(auditId ? { id: { $eq: auditId } } : {}),
     ...(event ? { event } : {}),
-    ...(before ? { dateCreated: { $lt: before } } : {}),
+    ...dateCursorFilter(before),
   };
 }
 
 export async function insertAudit(
   data: Omit<AuditInterface, "id">,
+  // A fixed id makes the insert idempotent: a repeat fails as a duplicate key.
+  id: string = generateId("aud_"),
 ): Promise<AuditInterface> {
   const auditDoc = await AuditModel.create({
     ...data,
-    id: generateId("aud_"),
+    id,
   });
   return toInterface(auditDoc);
 }
@@ -246,6 +253,6 @@ export async function getAuditHistory(
   return {
     events,
     total: entityCount + parentCount,
-    nextCursor: events.length ? events[events.length - 1].dateCreated : null,
+    nextCursor: getNextDateCursor(events, limit, filters.before),
   };
 }

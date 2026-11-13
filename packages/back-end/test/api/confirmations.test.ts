@@ -659,6 +659,36 @@ describe("confirmations", () => {
     });
   });
 
+  it("refuses a review request with nothing to review before asking anyone", async () => {
+    await seed("production");
+    setReqContext(asKey(pat));
+    const unchanged = await auth(
+      request(app).post(`/api/v2/features/${FLAG}/revisions`),
+    ).send({});
+    expect(unchanged.status).toBe(200);
+
+    setReqContext(asKey({ ...pat, ...everything }));
+    const requestReview = (version: number) =>
+      auth(
+        request(app).post(
+          `/api/v2/features/${FLAG}/revisions/${version}/request-review`,
+        ),
+      ).send({});
+
+    const refused = await requestReview(unchanged.body.revision.version);
+    expect(refused.status).toBe(400);
+    expect(refused.body.message).toMatch(/no changes detected/);
+    expect(
+      await mongoose.connection.collection("confirmations").countDocuments(),
+    ).toBe(0);
+
+    const held = await requestReview(2);
+    expect(held.status).toBe(202);
+    expect(held.body.confirmation.actions).toEqual([
+      { action: "feature.draft", environments: [] },
+    ]);
+  });
+
   it("holds a request that asks to skip a check, even on a draft", async () => {
     await seed("production");
     setReqContext(
@@ -746,6 +776,44 @@ describe("confirmations", () => {
     ).toMatchObject({
       notices: [{ severity: "warning", via: "ignoreWarnings" }],
     });
+  });
+
+  it("doesn't show a try at something missing as a check the retry skips", async () => {
+    await seed("production");
+    setReqContext(asKey({ ...pat, ...everything }));
+    const LATER = "hitl_later";
+    // Skipping a check, so the hold looks for what the last try said.
+    const createDraft = () =>
+      auth(
+        request(app).post(
+          `/api/v2/features/${LATER}/revisions?overrideDraftLimit=true`,
+        ),
+      ).send({});
+
+    expect((await createDraft()).status).toBe(404);
+    const flag = await mongoose.connection
+      .collection("features")
+      .findOne({ id: FLAG }, { projection: { _id: 0 } });
+    await mongoose.connection
+      .collection("features")
+      .insertOne({ ...flag, id: LATER });
+    const live = await mongoose.connection
+      .collection("featurerevisions")
+      .findOne({ featureId: FLAG, version: 1 }, { projection: { _id: 0 } });
+    await mongoose.connection
+      .collection("featurerevisions")
+      .insertOne({ ...live, featureId: LATER });
+
+    const held = await createDraft();
+    expect(held.status).toBe(202);
+    expect(held.body.confirmation.actions).toContainEqual({
+      action: "override.draftLimit",
+      environments: [],
+    });
+    const stored = await mongoose.connection
+      .collection("confirmations")
+      .findOne({ id: held.body.confirmation.id });
+    expect(stored?.notices ?? []).toEqual([]);
   });
 
   it("refuses a draft past the cap first, then shows why when the retry skips it", async () => {
@@ -1043,7 +1111,7 @@ describe("confirmations", () => {
     ).toBe(202);
   });
 
-  it("holds starting a draft by update as skipping its launch checklist", async () => {
+  it("refuses starting by update past its checklist unless asked, then holds naming what it skips", async () => {
     await seed("production");
     await seedExperiment();
     setReqContext(
@@ -1052,12 +1120,134 @@ describe("confirmations", () => {
         confirmRules: [{ actions: ["override.skipChecklist"] }],
       }),
     );
-    const held = await auth(
+    const refused = await auth(
       request(app).post(`/api/v1/experiments/${EXP}`),
     ).send({ status: "running" });
+    expect(refused.status).toBe(409);
+    expect(refused.body.code).toBe("checklist_incomplete");
+    expect(refused.body.gates).toContainEqual(
+      expect.objectContaining({ key: "datasource", override: "skipChecklist" }),
+    );
+
+    const held = await auth(
+      request(app).post(`/api/v1/experiments/${EXP}`),
+    ).send({ status: "running", skipChecklist: true });
     expect(held.status).toBe(202);
     expect(held.body.confirmation.actions).toEqual([
       { action: "override.skipChecklist", environments: [] },
+    ]);
+    const stored = await mongoose.connection
+      .collection("confirmations")
+      .findOne({ id: held.body.confirmation.id });
+    expect(stored?.notices).toContainEqual({
+      severity: "warning",
+      messages: ["Select a Data Source"],
+      via: "skipChecklist",
+    });
+  });
+
+  it("holds archiving a live experiment as POST /archive does, and unarchiving as its start", async () => {
+    await seed("production");
+    await seedExperiment();
+    const experiments = mongoose.connection.collection("experiments");
+    await experiments.updateOne({ id: EXP }, { $set: { status: "running" } });
+    setReqContext(
+      asKey({
+        ...bot,
+        confirmRules: [{ actions: ["experiment.stop", "experiment.start"] }],
+      }),
+    );
+    const archive = await auth(
+      request(app).post(`/api/v1/experiments/${EXP}`),
+    ).send({ archived: true });
+    expect(archive.status).toBe(202);
+    expect(archive.body.confirmation.actions).toEqual([
+      { action: "experiment.stop", environments: [] },
+    ]);
+
+    await experiments.updateOne({ id: EXP }, { $set: { archived: true } });
+    const unarchive = await auth(
+      request(app).post(`/api/v1/experiments/${EXP}/unarchive`),
+    ).send({});
+    expect(unarchive.status).toBe(202);
+    expect(unarchive.body.confirmation.actions).toEqual([
+      { action: "experiment.start", environments: [] },
+    ]);
+
+    await experiments.updateOne({ id: EXP }, { $set: { archived: false } });
+    // As POST /archive holds it, since keeping a rollout publishes its flags.
+    setReqContext(
+      asKey({ ...bot, confirmRules: [{ actions: ["feature.publish"] }] }),
+    );
+    const publishHeld = await auth(
+      request(app).post(`/api/v1/experiments/${EXP}`),
+    ).send({ archived: true });
+    expect(publishHeld.status).toBe(202);
+    expect(publishHeld.body.confirmation.actions).toEqual([
+      { action: "feature.publish", environments: [] },
+    ]);
+  });
+
+  it("holds ticking manual checklist items only for a key that opts in, naming them", async () => {
+    await seed("production");
+    await seedExperiment();
+    const checklists = mongoose.connection.collection(
+      "experimentlaunchchecklists",
+    );
+    await checklists.deleteMany({});
+    await checklists.insertOne({
+      id: "elc_1",
+      organizationId: ORG_ID,
+      projectId: "",
+      tasks: [{ task: "Legal reviewed", completionType: "manual" }],
+    });
+    const tick = () =>
+      auth(
+        request(app).post(
+          `/api/v1/experiments/${EXP}/start-checklist/manual/complete`,
+        ),
+      ).send({ keys: ["Legal reviewed"] });
+
+    setReqContext(
+      asKey({ ...bot, confirmRules: [{ actions: ["experiment.checklist"] }] }),
+    );
+    const held = await tick();
+    expect(held.status).toBe(202);
+    expect(held.body.confirmation.actions).toEqual([
+      { action: "experiment.checklist", environments: [] },
+    ]);
+    expect(held.body.confirmation.summary).toContain("Legal reviewed");
+
+    // Recommended leaves it to the key: generated items still gate a start.
+    setReqContext(asKey(recommended));
+    expect((await tick()).status).toBe(200);
+    await checklists.deleteMany({});
+  });
+
+  it("holds unarchiving a draft with an armed start as the start it restores", async () => {
+    await seed("production");
+    await seedExperiment();
+    await mongoose.connection.collection("experiments").updateOne(
+      { id: EXP },
+      {
+        $set: {
+          archived: true,
+          nextScheduledStatusUpdate: {
+            type: "start",
+            date: new Date(Date.now() + 86_400_000),
+          },
+        },
+      },
+    );
+    setReqContext(
+      asKey({ ...bot, confirmRules: [{ actions: ["feature.publish"] }] }),
+    );
+    const unarchive = await auth(
+      request(app).post(`/api/v1/experiments/${EXP}/unarchive`),
+    ).send({});
+    expect(unarchive.status).toBe(202);
+    expect(unarchive.body.confirmation.actions).toEqual([
+      { action: "feature.publish", environments: [] },
     ]);
   });
 

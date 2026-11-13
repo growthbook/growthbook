@@ -7,6 +7,7 @@ import {
   ExperimentDataForStatus,
   ExperimentHealthSettings,
 } from "shared/types/experiment";
+import { SnapshotVariation } from "shared/types/experiment-snapshot";
 import {
   getDecisionFrameworkStatus,
   evaluateDecisionRuleOnVariation,
@@ -14,6 +15,7 @@ import {
   getEarlyStoppingVariationDecisions,
   getContextualBanditResultStatus,
   resolveScheduledShipDecision,
+  clearLeader,
   getExperimentResultStatus,
   getSafeRolloutResultStatus,
 } from "../src/enterprise/decision-criteria/decisionCriteria";
@@ -65,6 +67,7 @@ describe("getSafeRolloutResultStatus with errored guardrails", () => {
     experimentMinLengthDays: 7,
     srmThreshold: 0.001,
     multipleExposureMinPercent: 0.01,
+    clusterIssueMinPercent: 0.01,
   };
 
   function makeSafeRollout(
@@ -1984,6 +1987,7 @@ describe("getExperimentResultStatus schedule-driven states", () => {
     decisionFrameworkEnabled: true,
     srmThreshold: 0.001,
     multipleExposureMinPercent: 0.01,
+    clusterIssueMinPercent: 0.01,
     experimentMinLengthDays: 7,
   };
 
@@ -2000,6 +2004,7 @@ describe("getExperimentResultStatus schedule-driven states", () => {
     guardrailMetrics = [],
     analysisSummary,
     status = "running",
+    isClusterExperiment,
   }: {
     stopAt?: Date;
     dateStarted?: Date;
@@ -2008,6 +2013,7 @@ describe("getExperimentResultStatus schedule-driven states", () => {
     guardrailMetrics?: string[];
     analysisSummary?: ExperimentDataForStatus["analysisSummary"];
     status?: ExperimentDataForStatus["status"];
+    isClusterExperiment?: boolean;
   } = {}): ExperimentDataForStatus {
     return {
       type: "standard",
@@ -2024,8 +2030,51 @@ describe("getExperimentResultStatus schedule-driven states", () => {
       datasource: "ds_1",
       ...(stopAt ? { statusUpdateSchedule: { stopAt } } : {}),
       ...(analysisSummary ? { analysisSummary } : {}),
+      ...(isClusterExperiment ? { isClusterExperiment } : {}),
     } as unknown as ExperimentDataForStatus;
   }
+
+  it("gives each running verdict a category that agrees with needsAttention", () => {
+    const indicatorFor = (experimentData: ExperimentDataForStatus) =>
+      getStatusIndicatorData({
+        experimentData,
+        skipArchived: false,
+        healthSettings: baseHealthSettings,
+        decisionCriteria: PRESET_DECISION_CRITERIA,
+        metricGroups: [],
+      });
+
+    const review = indicatorFor(
+      makeExperimentData({
+        stopAt: daysAgo(1),
+        goalMetrics: [],
+        secondaryMetrics: ["secondary-1"],
+      }),
+    );
+    const unhealthy = indicatorFor(
+      makeExperimentData({
+        analysisSummary: {
+          snapshotId: "snap-1",
+          health: { srm: 0.0001, multipleExposures: 0, totalUsers: 1_000_000 },
+        },
+      }),
+    );
+    const daysLeft = indicatorFor(
+      makeExperimentData({ stopAt: hoursFromNow(72) }),
+    );
+
+    expect(review.resultStatus?.status).toBe("scheduled-end-review");
+    expect(review.decisionCategory).toBe("ready-for-action");
+    expect(unhealthy.resultStatus?.status).toBe("unhealthy");
+    expect(unhealthy.decisionCategory).toBe("has-issue");
+    expect(daysLeft.resultStatus?.status).toBe("days-left");
+    expect(daysLeft.decisionCategory).toBe("collecting-data");
+    for (const indicator of [review, unhealthy, daysLeft]) {
+      expect(!!indicator.needsAttention).toBe(
+        indicator.decisionCategory !== "collecting-data",
+      );
+    }
+  });
 
   it("returns scheduled-end-review when the scheduled end passed with no goal metrics", () => {
     const result = getExperimentResultStatus({
@@ -2107,6 +2156,276 @@ describe("getExperimentResultStatus schedule-driven states", () => {
     });
 
     expect(result?.status).toBe("unhealthy");
+  });
+
+  it("ignores a summary from an earlier phase", () => {
+    // A two-phase experiment whose summary fails SRM.
+    const statusFor = (
+      phase: number | undefined,
+      type: ExperimentDataForStatus["type"] = "standard",
+    ) => {
+      const experimentData = makeExperimentData({
+        analysisSummary: {
+          snapshotId: "snap-1",
+          ...(phase !== undefined ? { phase } : {}),
+          health: { srm: 0.0001, multipleExposures: 0, totalUsers: 1_000_000 },
+        },
+      });
+      return getExperimentResultStatus({
+        experimentData: {
+          ...experimentData,
+          type,
+          phases: [experimentData.phases[0], experimentData.phases[0]],
+        },
+        healthSettings: baseHealthSettings,
+        decisionCriteria: PRESET_DECISION_CRITERIA,
+        metricGroups: [],
+      })?.status;
+    };
+
+    expect(statusFor(1)).toBe("unhealthy");
+    // Summaries written before the phase was recorded are assumed current.
+    expect(statusFor(undefined)).toBe("unhealthy");
+    expect(statusFor(0, "holdout")).toBe("unhealthy");
+
+    expect(statusFor(0)).toBeUndefined();
+    // The summary's phase was deleted.
+    expect(statusFor(-1)).toBeUndefined();
+  });
+
+  it("flags cluster assignment and mapping issues at the cluster threshold", () => {
+    const result = getExperimentResultStatus({
+      experimentData: makeExperimentData({
+        analysisSummary: {
+          snapshotId: "snap-1",
+          health: {
+            srm: 0.5,
+            multipleExposures: 0,
+            totalUsers: 50_000,
+            clusterAssignment: { totalClusters: 25, mixedClusters: 1 },
+            clusterSubUnitMapping: {
+              totalUnits: 50_000,
+              multiClusterUnits: 400,
+            },
+          },
+        },
+      }),
+      healthSettings: baseHealthSettings,
+      decisionCriteria: PRESET_DECISION_CRITERIA,
+      metricGroups: [],
+    });
+
+    // 1 of 25 clusters (4%) is over 1%; 400 of 50,000 units (0.8%) is not.
+    expect(result).toEqual({
+      status: "unhealthy",
+      unhealthyData: {
+        clusterAssignment: { rawDecimal: 0.04, mixedClusters: 1 },
+      },
+      tooltip: "Mixed cluster assignment",
+    });
+  });
+
+  it("flags cluster assignment and mapping issues even when the filter leaves zero units", () => {
+    // Every cluster is mixed and every sub-unit maps to several clusters, so
+    // the consistency filter removes all traffic and totalUsers is 0. The
+    // assignment/mapping problem that erased the data must still surface as
+    // unhealthy rather than collapsing to a bare "no data" status.
+    const result = getExperimentResultStatus({
+      experimentData: makeExperimentData({
+        analysisSummary: {
+          snapshotId: "snap-1",
+          health: {
+            srm: 1,
+            multipleExposures: 0,
+            totalUsers: 0,
+            clusterAssignment: { totalClusters: 25, mixedClusters: 25 },
+            clusterSubUnitMapping: {
+              totalUnits: 1000,
+              multiClusterUnits: 1000,
+            },
+          },
+        },
+      }),
+      healthSettings: baseHealthSettings,
+      decisionCriteria: PRESET_DECISION_CRITERIA,
+      metricGroups: [],
+    });
+
+    expect(result).toEqual({
+      status: "unhealthy",
+      unhealthyData: {
+        clusterAssignment: { rawDecimal: 1, mixedClusters: 25 },
+        clusterMapping: { rawDecimal: 1, multiClusterUnits: 1000 },
+      },
+      tooltip: "Mixed cluster assignment, Units in multiple clusters",
+    });
+  });
+
+  it("flags sub-unit multiple exposures from the sub-unit grain for cluster experiments", () => {
+    const result = getExperimentResultStatus({
+      experimentData: makeExperimentData({
+        analysisSummary: {
+          snapshotId: "snap-1",
+          health: {
+            srm: 0.5,
+            // Cluster-grained multiple exposures is always 0 (the
+            // cluster-consistency filter removes multi-variation sub-units).
+            multipleExposures: 0,
+            // totalUsers is cluster-grained (e.g. 100 clusters).
+            totalUsers: 100,
+            // Present (so this is a cluster summary) but healthy, isolating the
+            // multiple-exposures label from "Mixed cluster assignment".
+            clusterAssignment: { totalClusters: 100, mixedClusters: 0 },
+            // The real signal: measured at the sub-unit grain with its own
+            // denominator. 200 / 10,000 = 2% > 1% threshold -> unhealthy.
+            subUnitMultipleExposures: {
+              totalSubUnits: 10_000,
+              multipleExposedSubUnits: 200,
+            },
+          },
+        },
+      }),
+      healthSettings: baseHealthSettings,
+      decisionCriteria: PRESET_DECISION_CRITERIA,
+      metricGroups: [],
+    });
+
+    // For a cluster experiment, a sub-unit seeing multiple variations is a
+    // distinct signal from "Mixed cluster assignment", so it is labeled as such
+    // and driven by the sub-unit count/denominator rather than the (always-0)
+    // cluster-grained figures.
+    expect(result).toEqual({
+      status: "unhealthy",
+      unhealthyData: {
+        multipleExposures: {
+          rawDecimal: 0.02,
+          multipleExposedUsers: 200,
+        },
+      },
+      tooltip: "Subunit multiple exposures",
+    });
+  });
+
+  it("flags sub-unit multiple exposures even when the traffic query leaves zero units", () => {
+    const result = getExperimentResultStatus({
+      experimentData: makeExperimentData({
+        analysisSummary: {
+          snapshotId: "snap-1",
+          health: {
+            srm: 1,
+            multipleExposures: 0,
+            totalUsers: 0,
+            // Present but healthy, so this is a cluster summary and the only
+            // unhealthy signal is the sub-unit multiple exposures.
+            clusterAssignment: { totalClusters: 100, mixedClusters: 0 },
+            // 200 / 10,000 = 2% > 1% threshold -> unhealthy.
+            subUnitMultipleExposures: {
+              totalSubUnits: 10_000,
+              multipleExposedSubUnits: 200,
+            },
+          },
+        },
+      }),
+      healthSettings: baseHealthSettings,
+      decisionCriteria: PRESET_DECISION_CRITERIA,
+      metricGroups: [],
+    });
+
+    expect(result).toEqual({
+      status: "unhealthy",
+      unhealthyData: {
+        multipleExposures: {
+          rawDecimal: 0.02,
+          multipleExposedUsers: 200,
+        },
+      },
+      tooltip: "Subunit multiple exposures",
+    });
+  });
+
+  it("does not flag sub-unit multiple exposures below the threshold for cluster experiments", () => {
+    const result = getExperimentResultStatus({
+      experimentData: makeExperimentData({
+        analysisSummary: {
+          snapshotId: "snap-1",
+          health: {
+            srm: 0.5,
+            multipleExposures: 0,
+            totalUsers: 100,
+            clusterAssignment: { totalClusters: 100, mixedClusters: 0 },
+            // 10 / 10,000 = 0.1% < 1% threshold -> healthy.
+            subUnitMultipleExposures: {
+              totalSubUnits: 10_000,
+              multipleExposedSubUnits: 10,
+            },
+          },
+        },
+      }),
+      healthSettings: baseHealthSettings,
+      decisionCriteria: PRESET_DECISION_CRITERIA,
+      metricGroups: [],
+    });
+
+    expect(result?.tooltip ?? "").not.toContain("multiple exposures");
+    expect(
+      result?.status === "unhealthy" &&
+        !!result.unhealthyData.multipleExposures,
+    ).not.toBe(true);
+  });
+
+  it("flags SRM from cluster counts when the sub-unit traffic total is missing", () => {
+    const result = getExperimentResultStatus({
+      experimentData: makeExperimentData({
+        analysisSummary: {
+          snapshotId: "snap-1",
+          health: {
+            srm: 0.0001,
+            multipleExposures: 0,
+            totalUsers: 0,
+            srmTotalUnits: 1_000,
+            clusterAssignment: { totalClusters: 1_000, mixedClusters: 0 },
+          },
+        },
+      }),
+      healthSettings: baseHealthSettings,
+      decisionCriteria: PRESET_DECISION_CRITERIA,
+      metricGroups: [],
+    });
+
+    expect(result).toEqual({
+      status: "unhealthy",
+      unhealthyData: { srm: true },
+      tooltip: "SRM",
+    });
+  });
+
+  it("never checks a cluster experiment's SRM or multiple exposures on sub-unit counts", () => {
+    const result = getExperimentResultStatus({
+      experimentData: makeExperimentData({
+        isClusterExperiment: true,
+        analysisSummary: {
+          snapshotId: "snap-1",
+          health: {
+            srm: 0.0001,
+            multipleExposures: 500,
+            // Sub-unit totals only: the cluster SRM count and the sub-unit
+            // multiple exposures check are both missing.
+            totalUsers: 10_000,
+            srmTotalUnits: null,
+          },
+        },
+      }),
+      healthSettings: baseHealthSettings,
+      decisionCriteria: PRESET_DECISION_CRITERIA,
+      metricGroups: [],
+    });
+
+    expect(
+      result?.status === "unhealthy" ? result.unhealthyData : {},
+    ).not.toHaveProperty("srm");
+    expect(
+      result?.status === "unhealthy" ? result.unhealthyData : {},
+    ).not.toHaveProperty("multipleExposures");
   });
 
   it("uses the scheduled end date for days-left even when power reports a different estimate", () => {
@@ -2349,5 +2668,56 @@ describe("getStatusIndicatorData for contextual Bandits", () => {
     });
     expect(status.detailedStatus).toBe("Unhealthy");
     expect(status.tooltip).toBe("SRM");
+  });
+});
+
+describe("clearLeader", () => {
+  const snapshot = (cis: ([number, number] | undefined)[]) => ({
+    variations: cis.map((ci) => ({
+      users: 0,
+      metrics: ci ? { m: { value: 0, cr: 0, users: 0, ci } } : {},
+    })) as unknown as SnapshotVariation[],
+    variationIds: cis.map((_, i) => String(i)),
+  });
+
+  it("picks the variation whose interval clears every other tied one", () => {
+    expect(
+      clearLeader({
+        ...snapshot([undefined, [0.01, 0.03], [0.04, 0.08]]),
+        tiedVariationIds: ["1", "2"],
+        metricId: "m",
+      }),
+    ).toBe("2");
+  });
+
+  it("finds none while the intervals overlap", () => {
+    expect(
+      clearLeader({
+        ...snapshot([undefined, [0.01, 0.05], [0.04, 0.08]]),
+        tiedVariationIds: ["1", "2"],
+        metricId: "m",
+      }),
+    ).toBeNull();
+  });
+
+  it("reads a lower-is-better metric the other way", () => {
+    expect(
+      clearLeader({
+        ...snapshot([undefined, [-0.08, -0.04], [-0.03, -0.01]]),
+        tiedVariationIds: ["1", "2"],
+        metricId: "m",
+        inverse: true,
+      }),
+    ).toBe("1");
+  });
+
+  it("finds none when a tied variation has no interval", () => {
+    expect(
+      clearLeader({
+        ...snapshot([undefined, [0.04, 0.08], undefined]),
+        tiedVariationIds: ["1", "2"],
+        metricId: "m",
+      }),
+    ).toBeNull();
   });
 });

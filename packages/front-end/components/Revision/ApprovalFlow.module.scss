@@ -8,7 +8,7 @@
 }
 
 .diffContainer {
-  font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+  font-family: var(--code-font-family);
   font-size: 12px;
 
   .diffRemoved {

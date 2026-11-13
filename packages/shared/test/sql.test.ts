@@ -8,6 +8,8 @@ import {
   hasStartDateFilter,
   isMultiStatementSQL,
   isReadOnlySQL,
+  sqlReferencesColumn,
+  sqlReferencesColumnAllowingQualified,
   stripTrailingSemicolon,
   usesBackslashStringEscapes,
 } from "../src/sql";
@@ -1067,4 +1069,128 @@ it("compiles a glob to the same LIKE clause as the equivalent operator", () => {
       matchers.stringMatch("url", operator as "starts_with", value),
     );
   }
+});
+
+describe("sqlReferencesColumn", () => {
+  it("detects a bare identifier reference", () => {
+    expect(sqlReferencesColumn("margin_vc / price", "margin_vc")).toBe(true);
+  });
+
+  it("does not match a name inside a string literal", () => {
+    expect(sqlReferencesColumn("status = 'margin_vc'", "margin_vc")).toBe(
+      false,
+    );
+  });
+
+  it("does not match a partial identifier", () => {
+    expect(sqlReferencesColumn("gross_margin_vc + 1", "margin_vc")).toBe(false);
+  });
+
+  it("does not match an already-qualified identifier", () => {
+    expect(sqlReferencesColumn("m.price", "price")).toBe(false);
+  });
+
+  it("does not match a qualified identifier with whitespace around the dot", () => {
+    expect(sqlReferencesColumn("m . price", "price")).toBe(false);
+    expect(sqlReferencesColumn("m.\n  price", "price")).toBe(false);
+    expect(sqlReferencesColumn('m . "price"', "price")).toBe(false);
+    expect(sqlReferencesColumn("`m` . `price`", "price", "`")).toBe(false);
+  });
+
+  it("matches a double-quoted identifier in the default dialect", () => {
+    expect(sqlReferencesColumn('"margin_vc" / 2', "margin_vc")).toBe(true);
+  });
+
+  it("treats a double-quoted span as a string literal in a backtick dialect", () => {
+    expect(sqlReferencesColumn('label = "margin_vc"', "margin_vc", "`")).toBe(
+      false,
+    );
+  });
+
+  it("matches a backtick-quoted identifier in a backtick dialect", () => {
+    expect(sqlReferencesColumn("`margin_vc` / 2", "margin_vc", "`")).toBe(true);
+  });
+
+  it("does not match a name inside a line comment", () => {
+    expect(sqlReferencesColumn("price -- margin_vc\n + 1", "margin_vc")).toBe(
+      false,
+    );
+  });
+
+  it("does not match a name inside a block comment", () => {
+    expect(sqlReferencesColumn("price /* margin_vc */ + 1", "margin_vc")).toBe(
+      false,
+    );
+  });
+
+  it("does not match a name inside a dollar-quoted string", () => {
+    expect(sqlReferencesColumn("$$margin_vc$$", "margin_vc")).toBe(false);
+    expect(sqlReferencesColumn("$tag$margin_vc$tag$", "margin_vc")).toBe(false);
+  });
+
+  it("still matches around a lone dollar sign with no closing delimiter", () => {
+    expect(sqlReferencesColumn("margin_vc + $1", "margin_vc")).toBe(true);
+  });
+});
+
+describe("sqlReferencesColumnAllowingQualified", () => {
+  it("detects a bare identifier reference", () => {
+    expect(
+      sqlReferencesColumnAllowingQualified("margin_vc / price", "margin_vc"),
+    ).toBe(true);
+  });
+
+  it("detects a table-qualified reference", () => {
+    expect(
+      sqlReferencesColumnAllowingQualified(
+        "SELECT e.bandit_version FROM exposures e",
+        "bandit_version",
+      ),
+    ).toBe(true);
+  });
+
+  it("detects a qualified reference with whitespace around the dot", () => {
+    expect(sqlReferencesColumnAllowingQualified("e . price", "price")).toBe(
+      true,
+    );
+    expect(sqlReferencesColumnAllowingQualified("e.\n  price", "price")).toBe(
+      true,
+    );
+    expect(sqlReferencesColumnAllowingQualified('e . "price"', "price")).toBe(
+      true,
+    );
+    expect(
+      sqlReferencesColumnAllowingQualified("`e` . `price`", "price", "`"),
+    ).toBe(true);
+  });
+
+  it("does not match a name inside a string literal", () => {
+    expect(
+      sqlReferencesColumnAllowingQualified(
+        "status = 'bandit_version'",
+        "bandit_version",
+      ),
+    ).toBe(false);
+  });
+
+  it("does not match a partial identifier", () => {
+    expect(
+      sqlReferencesColumnAllowingQualified("e.gross_margin_vc", "margin_vc"),
+    ).toBe(false);
+  });
+
+  it("does not match a name inside a comment", () => {
+    expect(
+      sqlReferencesColumnAllowingQualified(
+        "e.price -- e.margin_vc\n",
+        "margin_vc",
+      ),
+    ).toBe(false);
+    expect(
+      sqlReferencesColumnAllowingQualified(
+        "e.price /* e.margin_vc */",
+        "margin_vc",
+      ),
+    ).toBe(false);
+  });
 });

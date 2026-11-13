@@ -174,8 +174,7 @@ export default function VariationChooserColumnLabel({
     triggerContent = (
       <Box
         style={{
-          width: labelMaxWidth + 20,
-          maxWidth: "100%",
+          maxWidth: `min(${labelMaxWidth + 20}px, 100%)`,
           minWidth: 0,
           marginLeft: -4,
         }}
@@ -185,13 +184,14 @@ export default function VariationChooserColumnLabel({
           name={selectedVariation.name}
           size="sm"
           disableTooltip
+          fadeOverflow
         />
       </Box>
     );
   } else {
     // Multiple selected or all selected - show plain "Variation" text
     triggerContent = (
-      <Text style={{ color: "var(--color-text-mid)", fontSize: "12px" }}>
+      <Text size="1" style={{ color: "var(--color-text-mid)" }}>
         Variation
       </Text>
     );

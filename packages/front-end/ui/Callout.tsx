@@ -36,6 +36,8 @@ export default forwardRef<
     style?: React.CSSProperties;
     icon?: ReactNode | null;
     action?: ReactNode;
+    // "center" aligns icon, body and action on the middle, not the first line.
+    contentAlign?: "start" | "center";
     role?: string;
   } & (DismissibleProps | UndismissibleProps) &
     MarginProps
@@ -47,6 +49,7 @@ export default forwardRef<
     style,
     icon,
     action,
+    contentAlign = "start",
     dismissible = false,
     id,
     renderWhenDismissed,
@@ -74,6 +77,8 @@ export default forwardRef<
     return <RadixStatusIcon status={status} size={size} />;
   })();
 
+  const slotClass =
+    contentAlign === "center" ? styles.centeredSlot : styles.firstLineSlot;
   const lineHeight =
     size === "sm" ? "var(--line-height-1)" : "var(--line-height-2)";
 
@@ -99,13 +104,20 @@ export default forwardRef<
       variant="soft"
     >
       {renderedIcon ? (
-        <RadixCallout.Icon style={{ height: lineHeight, flexShrink: 0 }}>
+        // Centred: shrink to the glyph so flexbox can centre it.
+        <RadixCallout.Icon
+          style={
+            contentAlign === "center"
+              ? { height: "auto", alignSelf: "center", flexShrink: 0 }
+              : { height: lineHeight, flexShrink: 0 }
+          }
+        >
           {renderedIcon}
         </RadixCallout.Icon>
       ) : null}
       <Flex
         wrap="wrap"
-        align="start"
+        align={contentAlign}
         gapX="3"
         gapY="3"
         flexGrow="1"
@@ -121,10 +133,10 @@ export default forwardRef<
         >
           {children}
         </Text>
-        {action ? <Box className={styles.firstLineSlot}>{action}</Box> : null}
+        {action ? <Box className={slotClass}>{action}</Box> : null}
       </Flex>
       {dismissible && id ? (
-        <Box className={styles.firstLineSlot}>
+        <Box className={slotClass}>
           <Tooltip content="Dismiss">
             <IconButton
               variant="ghost"

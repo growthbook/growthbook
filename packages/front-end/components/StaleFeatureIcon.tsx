@@ -335,7 +335,7 @@ export default function StaleFeatureIcon({
                           (info.reason === "toggled-off" || !valueType) && (
                             <span
                               style={{
-                                fontFamily: "monospace",
+                                fontFamily: "var(--code-font-family)",
                                 fontSize: "0.85em",
                               }}
                             >

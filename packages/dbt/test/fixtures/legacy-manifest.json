@@ -1,0 +1,713 @@
+{
+  "metadata": {
+    "dbt_schema_version": "https://schemas.getdbt.com/dbt/manifest/v12.json"
+  },
+  "nodes": {
+    "model.jaffle.orders": {
+      "name": "orders",
+      "resource_type": "model",
+      "relation_name": "\"analytics\".\"jaffle\".\"orders\"",
+      "config": { "meta": {}, "tags": [] }
+    },
+    "model.jaffle.customers": {
+      "name": "customers",
+      "resource_type": "model",
+      "relation_name": "\"analytics\".\"jaffle\".\"customers\"",
+      "config": { "meta": {}, "tags": [] }
+    },
+    "model.jaffle.page_views": {
+      "name": "page_views",
+      "resource_type": "model",
+      "relation_name": "\"analytics\".\"jaffle\".\"page_views\"",
+      "config": {
+        "tags": ["web"],
+        "meta": {
+          "growthbook": {
+            "userIdTypes": ["anonymous_id"],
+            "timestampColumn": "viewed_at",
+            "columns": [{ "column": "viewed_at", "datatype": "date" }],
+            "metrics": [
+              {
+                "id": "page_views_per_user",
+                "name": "Page views per user",
+                "metricType": "mean",
+                "numerator": { "column": "$$count" }
+              },
+              {
+                "id": "viewed_any_page",
+                "name": "Viewed any page",
+                "metricType": "proportion",
+                "numerator": {}
+              }
+            ]
+          }
+        }
+      }
+    },
+    "model.jaffle.staging_only": {
+      "name": "staging_only",
+      "resource_type": "model",
+      "relation_name": "\"analytics\".\"jaffle\".\"staging_only\"",
+      "config": { "meta": {}, "tags": [] }
+    }
+  },
+  "semantic_models": {
+    "semantic_model.jaffle.orders": {
+      "name": "orders",
+      "label": "Orders",
+      "description": "One row per order",
+      "node_relation": {
+        "alias": "orders",
+        "schema_name": "jaffle",
+        "database": "analytics",
+        "relation_name": "\"analytics\".\"jaffle\".\"orders\""
+      },
+      "defaults": { "agg_time_dimension": "ordered_at" },
+      "primary_entity": null,
+      "entities": [
+        { "name": "order_id", "type": "primary", "expr": null },
+        { "name": "customer", "type": "foreign", "expr": "customer_id" },
+        { "name": "location", "type": "foreign", "expr": "location_id" }
+      ],
+      "dimensions": [
+        {
+          "name": "ordered_at",
+          "type": "time",
+          "expr": null,
+          "type_params": { "time_granularity": "day" }
+        },
+        {
+          "name": "delivered_at",
+          "type": "time",
+          "expr": null,
+          "type_params": { "time_granularity": "day" }
+        },
+        { "name": "is_food_order", "type": "categorical", "expr": null },
+        { "name": "order_status", "type": "categorical", "expr": "status" },
+        { "name": "item_count", "type": "categorical", "expr": null },
+        { "name": "channel", "type": "categorical", "expr": "lower(source)" }
+      ],
+      "measures": [
+        {
+          "name": "order_total",
+          "agg": "sum",
+          "expr": null,
+          "create_metric": true,
+          "agg_params": null,
+          "non_additive_dimension": null,
+          "agg_time_dimension": null
+        },
+        { "name": "order_count", "agg": "count", "expr": "order_id" },
+        {
+          "name": "customers_with_orders",
+          "agg": "count_distinct",
+          "expr": "customer_id"
+        },
+        { "name": "avg_order_value", "agg": "average", "expr": "order_total" },
+        {
+          "name": "large_orders",
+          "agg": "sum_boolean",
+          "expr": "order_total > 50"
+        },
+        {
+          "name": "order_total_p90",
+          "agg": "percentile",
+          "expr": "order_total",
+          "agg_params": {
+            "percentile": 0.9,
+            "use_discrete_percentile": false,
+            "use_approximate_percentile": false
+          }
+        },
+        { "name": "min_order_total", "agg": "min", "expr": "order_total" },
+        {
+          "name": "distinct_order_totals",
+          "agg": "count_distinct",
+          "expr": "order_total"
+        },
+        { "name": "order_cost", "agg": "sum", "expr": "cost_amount" },
+        {
+          "name": "net_revenue",
+          "agg": "sum",
+          "expr": "order_total - discount_amount"
+        },
+        {
+          "name": "orders_with_discount",
+          "agg": "sum",
+          "expr": "discount_amount",
+          "non_additive_dimension": {
+            "name": "ordered_at",
+            "window_choice": "min",
+            "window_groupings": []
+          }
+        },
+        {
+          "name": "order_total_by_delivery",
+          "agg": "sum",
+          "expr": "order_total",
+          "agg_time_dimension": "delivered_at"
+        }
+      ],
+      "config": { "meta": { "growthbook": { "projects": ["prj_abc"] } } },
+      "tags": ["core"]
+    },
+    "semantic_model.jaffle.customers": {
+      "name": "customers",
+      "label": "Customers",
+      "node_relation": {
+        "relation_name": "\"analytics\".\"jaffle\".\"customers\""
+      },
+      "defaults": { "agg_time_dimension": "first_ordered_at" },
+      "primary_entity": null,
+      "entities": [
+        { "name": "customer", "type": "primary", "expr": "customer_id" }
+      ],
+      "dimensions": [
+        {
+          "name": "first_ordered_at",
+          "type": "time",
+          "expr": null,
+          "type_params": { "time_granularity": "day" }
+        },
+        { "name": "region", "type": "categorical", "expr": null },
+        { "name": "key", "type": "categorical", "expr": "account_key" },
+        {
+          "name": "country",
+          "type": "categorical",
+          "expr": "upper(country_code)"
+        }
+      ],
+      "measures": [],
+      "config": { "meta": {} },
+      "tags": []
+    },
+    "semantic_model.jaffle.visits": {
+      "name": "visits",
+      "node_relation": {
+        "relation_name": "\"analytics\".\"jaffle\".\"visits\""
+      },
+      "defaults": { "agg_time_dimension": "visited_at" },
+      "primary_entity": null,
+      "entities": [
+        { "name": "visit_id", "type": "primary", "expr": null },
+        { "name": "user", "type": "foreign", "expr": "user_id" }
+      ],
+      "dimensions": [
+        {
+          "name": "visited_at",
+          "type": "time",
+          "expr": null,
+          "type_params": { "time_granularity": "day" }
+        },
+        { "name": "referrer", "type": "categorical", "expr": null },
+        { "name": "product", "type": "categorical", "expr": null }
+      ],
+      "measures": [
+        { "name": "visits", "agg": "count", "expr": "visit_id" },
+        { "name": "buys", "agg": "count", "expr": "purchase_id" }
+      ],
+      "config": { "meta": {} },
+      "tags": []
+    },
+    "semantic_model.jaffle.refunds": {
+      "name": "refunds",
+      "node_relation": {
+        "relation_name": "\"analytics\".\"jaffle\".\"refunds\""
+      },
+      "defaults": { "agg_time_dimension": "refunded_at" },
+      "primary_entity": null,
+      "entities": [
+        { "name": "refund_id", "type": "primary", "expr": null },
+        { "name": "customer", "type": "foreign", "expr": "customer_id" }
+      ],
+      "dimensions": [
+        {
+          "name": "refunded_at",
+          "type": "time",
+          "expr": null,
+          "type_params": { "time_granularity": "day" }
+        }
+      ],
+      "measures": [
+        { "name": "refund_count", "agg": "count", "expr": "refund_id" }
+      ],
+      "config": { "meta": { "growthbook": { "enabled": false } } },
+      "tags": []
+    }
+  },
+  "metrics": {
+    "metric.jaffle.order_total": {
+      "name": "order_total",
+      "label": "Order total",
+      "description": "Sum of order totals",
+      "type": "simple",
+      "type_params": {
+        "measure": { "name": "order_total", "filter": null, "alias": null }
+      },
+      "filter": null,
+      "config": {
+        "meta": {
+          "growthbook": {
+            "cappingSettings": { "type": "percentile", "value": 0.99 }
+          }
+        }
+      },
+      "tags": ["finance"]
+    },
+    "metric.jaffle.order_count": {
+      "name": "order_count",
+      "label": "Orders",
+      "type": "simple",
+      "type_params": { "measure": { "name": "order_count" } },
+      "filter": null,
+      "config": { "meta": {} },
+      "tags": []
+    },
+    "metric.jaffle.food_orders": {
+      "name": "food_orders",
+      "label": "Food orders",
+      "type": "simple",
+      "type_params": {
+        "measure": {
+          "name": "order_count",
+          "filter": {
+            "where_filters": [
+              {
+                "where_sql_template": "{{ Dimension('order_id__is_food_order') }} = true"
+              }
+            ]
+          }
+        }
+      },
+      "filter": null,
+      "config": { "meta": {} },
+      "tags": []
+    },
+    "metric.jaffle.completed_orders": {
+      "name": "completed_orders",
+      "type": "simple",
+      "type_params": { "measure": { "name": "order_count" } },
+      "filter": {
+        "where_filters": [
+          {
+            "where_sql_template": "{{ Dimension('order_id__order_status') }} = 'completed'"
+          }
+        ]
+      },
+      "config": { "meta": {} },
+      "tags": []
+    },
+    "metric.jaffle.orders_from_west": {
+      "name": "orders_from_west",
+      "type": "simple",
+      "type_params": { "measure": { "name": "order_count" } },
+      "filter": {
+        "where_filters": [
+          {
+            "where_sql_template": "{{ Dimension('customer__region') }} = 'west'"
+          }
+        ]
+      },
+      "config": { "meta": {} },
+      "tags": []
+    },
+    "metric.jaffle.west_food_revenue": {
+      "name": "west_food_revenue",
+      "type": "simple",
+      "type_params": { "measure": { "name": "order_total" } },
+      "filter": {
+        "where_filters": [
+          {
+            "where_sql_template": "{{ Dimension('customer__region') }} = 'west'"
+          },
+          {
+            "where_sql_template": "{{ Dimension('order_id__is_food_order') }} = true"
+          }
+        ]
+      },
+      "config": { "meta": {} },
+      "tags": []
+    },
+    "metric.jaffle.keyed_revenue": {
+      "name": "keyed_revenue",
+      "type": "simple",
+      "type_params": { "measure": { "name": "order_total" } },
+      "filter": {
+        "where_filters": [
+          { "where_sql_template": "{{ Dimension('customer__key') }} = 'k1'" }
+        ]
+      },
+      "config": { "meta": {} },
+      "tags": []
+    },
+    "metric.jaffle.us_revenue": {
+      "name": "us_revenue",
+      "type": "simple",
+      "type_params": { "measure": { "name": "order_total" } },
+      "filter": {
+        "where_filters": [
+          {
+            "where_sql_template": "{{ Dimension('customer__country') }} = 'US'"
+          }
+        ]
+      },
+      "config": { "meta": {} },
+      "tags": []
+    },
+    "metric.jaffle.customers_with_orders": {
+      "name": "customers_with_orders",
+      "type": "simple",
+      "type_params": { "measure": { "name": "customers_with_orders" } },
+      "filter": null,
+      "config": { "meta": {} },
+      "tags": []
+    },
+    "metric.jaffle.avg_order_value": {
+      "name": "avg_order_value",
+      "label": "Average order value",
+      "type": "simple",
+      "type_params": { "measure": { "name": "avg_order_value" } },
+      "filter": null,
+      "config": { "meta": {} },
+      "tags": []
+    },
+    "metric.jaffle.large_orders": {
+      "name": "large_orders",
+      "type": "simple",
+      "type_params": { "measure": { "name": "large_orders" } },
+      "filter": null,
+      "config": { "meta": {} },
+      "tags": []
+    },
+    "metric.jaffle.order_total_p90": {
+      "name": "order_total_p90",
+      "type": "simple",
+      "type_params": { "measure": { "name": "order_total_p90" } },
+      "filter": null,
+      "config": { "meta": {} },
+      "tags": []
+    },
+    "metric.jaffle.min_order_total": {
+      "name": "min_order_total",
+      "type": "simple",
+      "type_params": { "measure": { "name": "min_order_total" } },
+      "filter": null,
+      "config": { "meta": {} },
+      "tags": []
+    },
+    "metric.jaffle.net_revenue": {
+      "name": "net_revenue",
+      "type": "simple",
+      "type_params": { "measure": { "name": "net_revenue" } },
+      "filter": null,
+      "config": { "meta": {} },
+      "tags": []
+    },
+    "metric.jaffle.orders_with_discount": {
+      "name": "orders_with_discount",
+      "type": "simple",
+      "type_params": { "measure": { "name": "orders_with_discount" } },
+      "filter": null,
+      "config": { "meta": {} },
+      "tags": []
+    },
+    "metric.jaffle.order_total_by_delivery": {
+      "name": "order_total_by_delivery",
+      "type": "simple",
+      "type_params": { "measure": { "name": "order_total_by_delivery" } },
+      "filter": null,
+      "config": { "meta": {} },
+      "tags": []
+    },
+    "metric.jaffle.food_order_share": {
+      "name": "food_order_share",
+      "label": "Food order share",
+      "type": "ratio",
+      "type_params": {
+        "numerator": { "name": "food_orders" },
+        "denominator": { "name": "order_count" }
+      },
+      "filter": null,
+      "config": { "meta": {} },
+      "tags": []
+    },
+    "metric.jaffle.revenue_7d": {
+      "name": "revenue_7d",
+      "label": "Revenue, trailing 7 days",
+      "type": "cumulative",
+      "type_params": {
+        "measure": { "name": "order_total" },
+        "window": { "count": 7, "granularity": "day" }
+      },
+      "filter": null,
+      "config": { "meta": {} },
+      "tags": []
+    },
+    "metric.jaffle.revenue_3m": {
+      "name": "revenue_3m",
+      "type": "cumulative",
+      "type_params": {
+        "measure": { "name": "order_total" },
+        "cumulative_type_params": {
+          "window": { "count": 3, "granularity": "month" },
+          "grain_to_date": null,
+          "period_agg": "first"
+        }
+      },
+      "filter": null,
+      "config": { "meta": {} },
+      "tags": []
+    },
+    "metric.jaffle.revenue_mtd": {
+      "name": "revenue_mtd",
+      "type": "cumulative",
+      "type_params": {
+        "measure": { "name": "order_total" },
+        "grain_to_date": "month"
+      },
+      "filter": null,
+      "config": { "meta": {} },
+      "tags": []
+    },
+    "metric.jaffle.revenue_all_time": {
+      "name": "revenue_all_time",
+      "type": "cumulative",
+      "type_params": { "measure": { "name": "order_total" } },
+      "filter": null,
+      "config": { "meta": {} },
+      "tags": []
+    },
+    "metric.jaffle.visit_to_buy_7d": {
+      "name": "visit_to_buy_7d",
+      "label": "Visit to buy (7d)",
+      "type": "conversion",
+      "type_params": {
+        "conversion_type_params": {
+          "base_measure": {
+            "name": "visits",
+            "filter": {
+              "where_filters": [
+                {
+                  "where_sql_template": "{{ Dimension('visit_id__referrer') }} = 'facebook'"
+                }
+              ]
+            }
+          },
+          "conversion_measure": { "name": "buys" },
+          "entity": "user",
+          "calculation": "conversion_rate",
+          "window": { "count": 7, "granularity": "day" },
+          "constant_properties": null
+        }
+      },
+      "filter": null,
+      "config": { "meta": {} },
+      "tags": []
+    },
+    "metric.jaffle.distinct_order_totals": {
+      "name": "distinct_order_totals",
+      "type": "simple",
+      "type_params": { "measure": { "name": "distinct_order_totals" } },
+      "filter": null,
+      "config": { "meta": {} },
+      "tags": []
+    },
+    "metric.jaffle.visit_to_buy_by_visit": {
+      "name": "visit_to_buy_by_visit",
+      "type": "conversion",
+      "type_params": {
+        "conversion_type_params": {
+          "base_measure": { "name": "visits" },
+          "conversion_measure": { "name": "buys" },
+          "entity": "visit_id",
+          "calculation": "conversion_rate",
+          "window": { "count": 1, "granularity": "hour" },
+          "constant_properties": null
+        }
+      },
+      "filter": null,
+      "config": { "meta": {} },
+      "tags": []
+    },
+    "metric.jaffle.visit_to_buy_same_product": {
+      "name": "visit_to_buy_same_product",
+      "type": "conversion",
+      "type_params": {
+        "conversion_type_params": {
+          "base_measure": { "name": "visits" },
+          "conversion_measure": { "name": "buys" },
+          "entity": "user",
+          "calculation": "conversions",
+          "window": { "count": 1, "granularity": "week" },
+          "constant_properties": [
+            { "base_property": "product", "conversion_property": "product" }
+          ]
+        }
+      },
+      "filter": null,
+      "config": { "meta": {} },
+      "tags": []
+    },
+    "metric.jaffle.gross_profit": {
+      "name": "gross_profit",
+      "type": "derived",
+      "type_params": {
+        "expr": "revenue - cost",
+        "metrics": [
+          { "name": "order_total", "alias": "revenue" },
+          { "name": "order_cost_metric", "alias": "cost" }
+        ]
+      },
+      "filter": null,
+      "config": { "meta": {} },
+      "tags": []
+    },
+    "metric.jaffle.order_cost_metric": {
+      "name": "order_cost_metric",
+      "type": "simple",
+      "type_params": { "measure": { "name": "order_cost" } },
+      "filter": null,
+      "config": { "meta": {} },
+      "tags": []
+    },
+    "metric.jaffle.cost_ratio": {
+      "name": "cost_ratio",
+      "type": "derived",
+      "type_params": {
+        "expr": "cost / revenue",
+        "metrics": [
+          { "name": "order_total", "alias": "revenue" },
+          { "name": "order_cost_metric", "alias": "cost" }
+        ]
+      },
+      "filter": null,
+      "config": { "meta": {} },
+      "tags": []
+    },
+    "metric.jaffle.wau": {
+      "name": "wau",
+      "type": "simple",
+      "type_params": { "measure": { "name": "order_count" } },
+      "filter": {
+        "where_filters": [
+          {
+            "where_sql_template": "{{ TimeDimension('order_id__ordered_at', 'week') }} >= '2024-01-01'"
+          }
+        ]
+      },
+      "config": { "meta": {} },
+      "tags": []
+    },
+    "metric.jaffle.orders_by_country": {
+      "name": "orders_by_country",
+      "type": "simple",
+      "type_params": { "measure": { "name": "order_count" } },
+      "filter": {
+        "where_filters": [
+          {
+            "where_sql_template": "{{ Dimension('location__country') }} = 'US'"
+          }
+        ]
+      },
+      "config": { "meta": {} },
+      "tags": []
+    },
+    "metric.jaffle.refund_count": {
+      "name": "refund_count",
+      "type": "simple",
+      "type_params": { "measure": { "name": "refund_count" } },
+      "filter": null,
+      "config": { "meta": {} },
+      "tags": []
+    },
+    "metric.jaffle.refund_rate": {
+      "name": "refund_rate",
+      "type": "ratio",
+      "type_params": {
+        "numerator": { "name": "refund_count" },
+        "denominator": { "name": "order_count" }
+      },
+      "filter": null,
+      "config": { "meta": {} },
+      "tags": []
+    },
+    "metric.jaffle.disabled_metric": {
+      "name": "disabled_metric",
+      "type": "simple",
+      "type_params": { "measure": { "name": "order_count" } },
+      "filter": null,
+      "config": { "meta": { "growthbook": { "enabled": false } } },
+      "tags": []
+    },
+    "metric.jaffle.multi_item_orders": {
+      "name": "multi_item_orders",
+      "type": "simple",
+      "type_params": { "measure": { "name": "order_count" } },
+      "filter": {
+        "where_filters": [
+          {
+            "where_sql_template": "{{ Dimension('order_id__item_count') }} > 1"
+          }
+        ]
+      },
+      "config": { "meta": {} },
+      "tags": []
+    },
+    "metric.jaffle.priority_orders": {
+      "name": "priority_orders",
+      "type": "simple",
+      "type_params": { "measure": { "name": "order_count" } },
+      "filter": {
+        "where_filters": [
+          {
+            "where_sql_template": "{{ Dimension('order_id__order_status') }} IN ('rush', 'it''s urgent')"
+          },
+          {
+            "where_sql_template": "{{ Dimension('order_id__is_food_order') }} != true"
+          }
+        ]
+      },
+      "config": { "meta": {} },
+      "tags": []
+    },
+    "metric.jaffle.unshipped_orders": {
+      "name": "unshipped_orders",
+      "type": "simple",
+      "type_params": { "measure": { "name": "order_count" } },
+      "filter": {
+        "where_filters": [
+          {
+            "where_sql_template": "{{ Dimension('order_id__delivered_at') }} IS NULL"
+          }
+        ]
+      },
+      "config": { "meta": {} },
+      "tags": []
+    },
+    "metric.jaffle.web_or_food_orders": {
+      "name": "web_or_food_orders",
+      "type": "simple",
+      "type_params": { "measure": { "name": "order_count" } },
+      "filter": {
+        "where_filters": [
+          {
+            "where_sql_template": "{{ Dimension('order_id__channel') }} = 'web' OR {{ Dimension('order_id__is_food_order') }} = true"
+          },
+          {
+            "where_sql_template": "{{ Dimension('order_id__channel') }} = 'web'"
+          }
+        ]
+      },
+      "config": { "meta": {} },
+      "tags": []
+    },
+    "metric.jaffle.tagged_metric": {
+      "name": "tagged_metric",
+      "type": "simple",
+      "type_params": { "measure": { "name": "order_count" } },
+      "filter": null,
+      "config": { "meta": {} },
+      "tags": ["growthbook"]
+    }
+  }
+}
