@@ -28,6 +28,11 @@
   text-align: center;
 }
 
+// Lets the last section reach the top of the viewport so scroll spy can select it.
+.spacer {
+  height: 45vh;
+}
+
 // Spans from the main sidebar to the window edge, over the sub nav.
 .unsavedBar {
   // Where the bar starts, which its left padding is measured from.

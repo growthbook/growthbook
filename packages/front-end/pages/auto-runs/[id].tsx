@@ -333,7 +333,7 @@ export default function AutoRunPage() {
   // which makes it impossible to tell a failed request from a missing record.
   if (error) {
     return (
-      <Container size="3" py={{ initial: "1", xs: "3", sm: "6" }}>
+      <Container size="3">
         <Callout status="error">
           Couldn&apos;t load this setup report: {error.message}
           {/not found/i.test(error.message)
@@ -346,7 +346,7 @@ export default function AutoRunPage() {
   if (!router.isReady || isLoading) return <LoadingOverlay />;
   if (!run) {
     return (
-      <Container size="3" py={{ initial: "1", xs: "3", sm: "6" }}>
+      <Container size="3">
         <Callout status="warning">
           No setup run found with ID <code>{String(id)}</code>. It may belong to
           another organization.
@@ -372,7 +372,7 @@ export default function AutoRunPage() {
         a.action !== "existing",
     );
     return (
-      <Container size="3" py={{ initial: "1", xs: "3", sm: "6" }}>
+      <Container size="3">
         <PageHead
           breadcrumb={[
             { display: "Import Your Data", href: "/importing" },
@@ -469,11 +469,7 @@ export default function AutoRunPage() {
   }
 
   return (
-    <Container
-      size="3"
-      px={{ initial: "2", xs: "4", sm: "7" }}
-      py={{ initial: "1", xs: "3", sm: "6" }}
-    >
+    <Container size="3">
       <PageHead
         breadcrumb={[{ display: "Get Started", href: "/getstarted" }]}
       />

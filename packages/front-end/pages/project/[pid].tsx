@@ -137,7 +137,7 @@ const ProjectPage: FC = () => {
 
   if (!canEditSettings) {
     return (
-      <div className="container pagecontents">
+      <div className="container-fluid pagecontents">
         <Callout status="error">
           You do not have access to view this page.
         </Callout>
@@ -146,7 +146,7 @@ const ProjectPage: FC = () => {
   }
   if (error) {
     return (
-      <div className="container pagecontents">
+      <div className="container-fluid pagecontents">
         <Callout status="error">{error}</Callout>
       </div>
     );
@@ -156,7 +156,7 @@ const ProjectPage: FC = () => {
   }
   if (!p) {
     return (
-      <div className="container pagecontents">
+      <div className="container-fluid pagecontents">
         <Callout status="error">
           Project{" "}
           <Text as="span" size="inherit" mono>
