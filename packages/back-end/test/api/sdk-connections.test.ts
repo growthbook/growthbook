@@ -283,6 +283,9 @@ describe("sdk-connections API", () => {
 
   it("checks for premium features overrides when creating new sdk-connections", async () => {
     jest.mocked(ensureLiveRevisionExists).mockResolvedValueOnce(undefined);
+    createSDKConnection.mockImplementation((c, v) =>
+      sdkConnectionFactory.build(v),
+    );
     const hasPremiumFeatureMock = jest.fn(() => false);
     getLatestSDKVersion.mockReturnValue("latest-version");
     getSDKCapabilities.mockReturnValue(["encryption"]);
