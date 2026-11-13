@@ -1,4 +1,5 @@
 import {
+  allEnvironmentsTakenMessage,
   defaultEventForwarderDestination,
   eventDestinationWithConnectionSchema,
   eventForwarderDestinationFromDatasource,
@@ -160,5 +161,34 @@ describe("eventForwarderDestinationFromDatasource", () => {
     expect(eventForwarderDestinationFromDatasource({})).toEqual(
       defaultEventForwarderDestination("bigquery"),
     );
+  });
+});
+
+describe("allEnvironmentsTakenMessage", () => {
+  const datasources = [{ id: "ds_a", name: "Warehouse A" }];
+
+  it("is undefined when no other forwarder receives all environments", () => {
+    const claimed = [
+      { datasourceId: "ds_a", environment: "production" },
+      { datasourceId: "ds_own", environment: "" },
+    ];
+    expect(
+      allEnvironmentsTakenMessage(claimed, datasources, "ds_own"),
+    ).toBeUndefined();
+  });
+
+  it("names the Data Source when it is readable, and says to ask an admin when it is not", () => {
+    expect(
+      allEnvironmentsTakenMessage(
+        [{ datasourceId: "ds_a", environment: "" }],
+        datasources,
+      ),
+    ).toContain("The Event Forwarder on Warehouse A receives");
+    expect(
+      allEnvironmentsTakenMessage(
+        [{ datasourceId: "ds_hidden", environment: "" }],
+        datasources,
+      ),
+    ).toContain("Ask an admin");
   });
 });

@@ -27,6 +27,7 @@ import {
   PiArrowClockwise,
   PiCaretRight,
   PiPause,
+  PiTrash,
   PiPencilSimple,
   PiPlay,
 } from "react-icons/pi";
@@ -45,6 +46,8 @@ import BigQueryEventForwarderForm from "@/components/Settings/BigQueryEventForwa
 import SnowflakeEventForwarderForm from "@/components/Settings/SnowflakeEventForwarderForm";
 import DatabricksEventForwarderForm from "@/components/Settings/DatabricksEventForwarderForm";
 import { useEventForwarderAccessTest } from "@/components/Settings/useEventForwarderAccessTest";
+import { EventForwarderEnvironmentField } from "@/components/DataSourceSetup/EventForwarderDestinationFields";
+import TextField from "@/ui/TextField";
 import Badge from "@/ui/Badge";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
@@ -53,6 +56,7 @@ import Heading from "@/ui/Heading";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import UITooltip from "@/ui/Tooltip";
 import ConfirmDialog from "@/ui/ConfirmDialog";
 import Modal from "@/ui/Modal";
 import ModalForm, { useModalForm } from "@/ui/Modal/ModalForm";
@@ -149,10 +153,14 @@ function getEventForwarderDraft(
   dataSource: DataSourceInterfaceWithParams,
 ): EventForwarderConfigDraft | null {
   const existing = dataSource.eventForwarderConfig;
+  const environment = existing?.environment
+    ? { environment: existing.environment }
+    : {};
   if (existing?.sinkType === "bigquery") {
     return {
       sinkType: "bigquery",
       region: existing.region,
+      ...environment,
       config: {
         projectId: existing.config.projectId,
         dataset: existing.config.dataset,
@@ -165,6 +173,7 @@ function getEventForwarderDraft(
     return {
       sinkType: "snowflake",
       region: existing.region,
+      ...environment,
       config: {
         database: existing.config.database,
         schema: existing.config.schema,
@@ -179,6 +188,7 @@ function getEventForwarderDraft(
     return {
       sinkType: "databricks",
       region: existing.region,
+      ...environment,
       config: {
         catalog: existing.config.catalog,
         schema: existing.config.schema,
@@ -394,6 +404,78 @@ function EventForwarderConfirmButton({
   );
 }
 
+function DeleteEventForwarderSubmit({ disabled }: { disabled: boolean }) {
+  const { loading } = useModalForm();
+  return (
+    <Button type="submit" color="red" disabled={disabled} loading={loading}>
+      Delete
+    </Button>
+  );
+}
+
+// Delete stays disabled until "confirm" is typed, case sensitive
+function DeleteEventForwarderModal({
+  datasourceId,
+  onClose,
+  onRefresh,
+}: {
+  datasourceId: string;
+  onClose: () => void;
+  onRefresh: () => Promise<void>;
+}) {
+  const { apiCall } = useAuth();
+  const [confirmText, setConfirmText] = useState("");
+  return (
+    <Modal.Root
+      open={true}
+      onOpenChange={(open) => {
+        if (!open) onClose();
+      }}
+      size="md"
+      trackingEventModalType=""
+    >
+      <ModalForm
+        onSubmit={async () => {
+          await apiCall(`/datasource/${datasourceId}/event-forwarder`, {
+            method: "DELETE",
+          });
+          onClose();
+          await onRefresh();
+        }}
+      >
+        <Modal.Header>
+          <Modal.Title>Delete Event Forwarder?</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <Flex direction="column" gap="3">
+            <Text as="div">
+              Once this Event Forwarder is deleted, events your SDKs keep
+              sending are no longer forwarded and may be rejected with an error.
+              Stop sending events from your SDKs first.
+            </Text>
+            <Text as="div">
+              The tables already in your warehouse and the queries on this Data
+              Source are kept.
+            </Text>
+            <TextField
+              label={'Type "confirm" to delete (case sensitive)'}
+              value={confirmText}
+              onChange={(e) => setConfirmText(e.target.value)}
+              autoFocus
+            />
+          </Flex>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="ghost" onClick={onClose}>
+            Cancel
+          </Button>
+          <DeleteEventForwarderSubmit disabled={confirmText !== "confirm"} />
+        </Modal.Footer>
+      </ModalForm>
+    </Modal.Root>
+  );
+}
+
 function EventForwarderModal({
   dataSource,
   onCancel,
@@ -540,6 +622,20 @@ function EventForwarderModal({
               />
             ) : null}
             {eventForwarderConfig ? (
+              <Box mb="3">
+                <EventForwarderEnvironmentField
+                  value={eventForwarderConfig.environment ?? ""}
+                  datasourceId={dataSource.id}
+                  onChange={(environment) =>
+                    setEventForwarderConfig({
+                      ...eventForwarderConfig,
+                      environment,
+                    })
+                  }
+                />
+              </Box>
+            ) : null}
+            {eventForwarderConfig ? (
               <SelectField
                 size="md"
                 legacyLabelFormatting={false}
@@ -682,6 +778,7 @@ export default function EventForwarder({
   const [showEditModal, setShowEditModal] = useState(false);
   const [showUpgrade, setShowUpgrade] = useState(false);
   const [pauseResumeLoading, setPauseResumeLoading] = useState(false);
+  const [showDelete, setShowDelete] = useState(false);
   const { apiCall } = useAuth();
   const { effectiveAccountPlan, subscription, hasCommercialFeature, usage } =
     useUser();
@@ -791,33 +888,62 @@ export default function EventForwarder({
             )}
           </Flex>
 
-          {canToggle || canRestart ? (
-            <Button
-              variant="outline"
-              color={"color" in actionButton ? actionButton.color : undefined}
-              icon={actionButton.icon}
-              iconPosition="left"
-              loading={pauseResumeLoading}
-              onClick={async () => {
-                setError(null);
-                setPauseResumeLoading(true);
-                try {
-                  await apiCall(
-                    `/datasource/${dataSource.id}/event-forwarder/${action}`,
-                    { method: "POST" },
-                  );
-                  await onRefresh();
-                } catch (e) {
-                  setError(e instanceof Error ? e.message : "Action failed");
-                } finally {
-                  setPauseResumeLoading(false);
-                }
-              }}
-            >
-              {actionButton.label}
-            </Button>
-          ) : null}
+          {/* One group, so the header's space-between keeps them together */}
+          <Flex align="center" gap="2">
+            {canToggle || canRestart ? (
+              <Button
+                variant="outline"
+                color={"color" in actionButton ? actionButton.color : undefined}
+                icon={actionButton.icon}
+                iconPosition="left"
+                loading={pauseResumeLoading}
+                onClick={async () => {
+                  setError(null);
+                  setPauseResumeLoading(true);
+                  try {
+                    await apiCall(
+                      `/datasource/${dataSource.id}/event-forwarder/${action}`,
+                      { method: "POST" },
+                    );
+                    await onRefresh();
+                  } catch (e) {
+                    setError(e instanceof Error ? e.message : "Action failed");
+                  } finally {
+                    setPauseResumeLoading(false);
+                  }
+                }}
+              >
+                {actionButton.label}
+              </Button>
+            ) : null}
+            {/* Running forwarders show it disabled, so deletion is discoverable */}
+            {canEdit && (isReady || isPaused) ? (
+              <UITooltip
+                content="Pause the Event Forwarder before deleting it."
+                enabled={!isPaused}
+                side="top"
+              >
+                <Button
+                  variant="outline"
+                  color="red"
+                  icon={<PiTrash />}
+                  iconPosition="left"
+                  disabled={!isPaused}
+                  onClick={() => setShowDelete(true)}
+                >
+                  Delete
+                </Button>
+              </UITooltip>
+            ) : null}
+          </Flex>
         </Flex>
+      ) : null}
+      {showDelete ? (
+        <DeleteEventForwarderModal
+          datasourceId={dataSource.id}
+          onClose={() => setShowDelete(false)}
+          onRefresh={onRefresh}
+        />
       ) : null}
 
       {eventForwarderConfig &&
@@ -959,6 +1085,10 @@ export default function EventForwarder({
               ) : null}
             </Flex>
             <Flex direction="column" gap="4">
+              <EventForwarderConfigField
+                label="Environment"
+                value={eventForwarderConfig.environment || "All Environments"}
+              />
               {eventForwarderConfig.sinkType === "bigquery" ? (
                 <>
                   <EventForwarderConfigField

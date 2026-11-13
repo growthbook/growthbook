@@ -31,7 +31,12 @@ export function buildEventForwarderConnectDraft({
   region: DataRegion | null;
 }): EventForwarderConfigDraft | null {
   if (!isEventForwarderSink(type)) return null;
-  const regionField = region ? { region } : {};
+  const regionField = {
+    ...(region ? { region } : {}),
+    ...(destination.environment
+      ? { environment: destination.environment }
+      : {}),
+  };
 
   if (type === "bigquery") {
     const bigQuery = (params || {}) as Partial<BigQueryConnectionParams>;

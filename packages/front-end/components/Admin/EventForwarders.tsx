@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import useSWR from "swr";
 import { Flex } from "@radix-ui/themes";
 import { EventForwarderSinkType } from "shared/types/event-forwarder";
@@ -10,6 +10,7 @@ import {
   MoreMenuTrigger,
 } from "@/ui/DropdownMenu";
 import HelperText from "@/ui/HelperText";
+import { EventForwarderEnvironmentSelect } from "@/components/DataSourceSetup/EventForwarderDestinationFields";
 import Text from "@/ui/Text";
 
 const SINK_TYPE_LABELS: Record<EventForwarderSinkType, string> = {
@@ -18,9 +19,41 @@ const SINK_TYPE_LABELS: Record<EventForwarderSinkType, string> = {
   databricks: "Databricks",
 };
 
+// Own state: the confirmation content is rendered once and kept
+function MigrateEnvironmentField({
+  initial,
+  onChange,
+  ...props
+}: {
+  environments: string[];
+  others: string[];
+  savedAll: boolean;
+  initial: string;
+  onChange: (value: string) => void;
+}) {
+  const [value, setValue] = useState(initial);
+  return (
+    <EventForwarderEnvironmentSelect
+      {...props}
+      value={value}
+      onChange={(v) => {
+        setValue(v);
+        onChange(v);
+      }}
+    />
+  );
+}
+
 // Lists an organization's event forwarders with their actions. Every call runs
 // inside that organization, so the caller must be able to get in.
-export default function EventForwarders({ orgId }: { orgId: string }) {
+export default function EventForwarders({
+  orgId,
+  environments,
+}: {
+  orgId: string;
+  environments: string[];
+}) {
+  const migrateEnvironment = useRef("");
   const { apiCall } = useAuth();
   // Not useApi, which can only fetch for the current organization
   const { data, error, mutate } = useSWR(
@@ -40,11 +73,12 @@ export default function EventForwarders({ orgId }: { orgId: string }) {
   );
 
   const run =
-    (datasourceId: string, action: string, method = "POST") =>
+    (datasourceId: string, action: string, method = "POST", body?: object) =>
     async () => {
       await apiCall(`/datasource/${datasourceId}/event-forwarder${action}`, {
         method,
         headers: { "X-Organization": orgId },
+        ...(body ? { body: JSON.stringify(body) } : {}),
       });
       await mutate();
     };
@@ -70,7 +104,8 @@ export default function EventForwarders({ orgId }: { orgId: string }) {
           <Flex direction="column" flexGrow="1" minWidth="0">
             <Text>{row.name}</Text>
             <Text color="text-mid" size="sm">
-              {SINK_TYPE_LABELS[row.sinkType]}
+              {SINK_TYPE_LABELS[row.sinkType]} ·{" "}
+              {row.environment || "All Environments"}
               {row.status === "paused" ? " · Paused" : ""}
             </Text>
           </Flex>
@@ -88,9 +123,38 @@ export default function EventForwarders({ orgId }: { orgId: string }) {
                 confirmation={{
                   confirmationTitle: "Migrate to in-house consumer?",
                   cta: "Migrate",
-                  submit: run(row.id, "/migrate"),
-                  getConfirmationContent: async () =>
-                    `New events for ${row.name} go to the in-house consumer right away. Events already queued still go through the Confluent connector. Tear it down manually once it has drained. This cannot be undone from the UI.`,
+                  submit: () =>
+                    run(row.id, "/migrate", "POST", {
+                      environment: migrateEnvironment.current,
+                    })(),
+                  getConfirmationContent: async () => {
+                    migrateEnvironment.current = row.environment ?? "";
+                    return (
+                      <Flex direction="column" gap="3">
+                        <Text>
+                          {`New events for ${row.name} go to the in-house consumer right away. Events already queued still go through the Confluent connector. Tear it down manually once it has drained. This cannot be undone from the UI.`}
+                        </Text>
+                        <MigrateEnvironmentField
+                          environments={environments}
+                          // Same rule as the server: bound rows, plus live unbound ones
+                          others={data
+                            .filter(
+                              (r) =>
+                                r.id !== row.id &&
+                                (r.environment ||
+                                  !(
+                                    r.status === "unconfigured" ||
+                                    (r.status === "error" && !r.connectorName)
+                                  )),
+                            )
+                            .map((r) => r.environment ?? "")}
+                          savedAll={!row.environment}
+                          initial={row.environment ?? ""}
+                          onChange={(v) => (migrateEnvironment.current = v)}
+                        />
+                      </Flex>
+                    );
+                  },
                 }}
               >
                 Migrate to in-house consumer

@@ -12,6 +12,7 @@ import EventForwarderDestinationFields, {
   defaultEventForwarderDestination,
   eventDestinationEntryHint,
   eventForwarderDestinationFromDatasource,
+  useEventForwarderEnvironmentRequired,
 } from "./EventForwarderDestinationFields";
 
 export default function ConfigureEventForwarderStep({
@@ -72,8 +73,14 @@ export default function ConfigureEventForwarderStep({
     !destination.tablePrefix.trim() ||
     (dataSource.type === "databricks" && !destination.zerobusEndpoint.trim());
 
+  const environmentRequired = useEventForwarderEnvironmentRequired(
+    dataSource.id,
+  );
+  const missingEnvironment = environmentRequired && !destination.environment;
+
   const configure = async () => {
-    if (!draft || missingDestination || phase !== "idle") return;
+    if (!draft || missingDestination || missingEnvironment || phase !== "idle")
+      return;
     setError(null);
     setPhase("testing");
     try {
@@ -105,6 +112,11 @@ export default function ConfigureEventForwarderStep({
         location={destination.location}
         tablePrefix={destination.tablePrefix}
         zerobusEndpoint={destination.zerobusEndpoint}
+        environment={destination.environment}
+        datasourceId={dataSource.id}
+        onEnvironmentChange={(environment) =>
+          setDestination((current) => ({ ...current, environment }))
+        }
         onLocationChange={(location) =>
           setDestination((current) => ({ ...current, location }))
         }
@@ -124,7 +136,12 @@ export default function ConfigureEventForwarderStep({
       <Flex mt="3" align="center" gap="3" wrap="wrap">
         <Button
           onClick={configure}
-          disabled={!canEdit || missingDestination || phase !== "idle"}
+          disabled={
+            !canEdit ||
+            missingDestination ||
+            missingEnvironment ||
+            phase !== "idle"
+          }
           loading={phase !== "idle"}
         >
           {phase === "testing"
@@ -136,6 +153,10 @@ export default function ConfigureEventForwarderStep({
         {missingDestination ? (
           <Text size="sm" color="text-mid">
             {eventDestinationEntryHint(dataSource.type, "continue")}
+          </Text>
+        ) : missingEnvironment ? (
+          <Text size="sm" color="text-mid">
+            Select an environment to continue.
           </Text>
         ) : null}
       </Flex>

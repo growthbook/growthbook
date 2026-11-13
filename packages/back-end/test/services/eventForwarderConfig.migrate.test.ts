@@ -56,7 +56,12 @@ function mockContext(stored?: EventForwarderConfigInterface | null) {
   return {
     context: {
       org: { id: "org1" },
-      models: { eventForwarderConfigs: { updateWithCas: update } },
+      models: {
+        eventForwarderConfigs: {
+          updateWithCas: update,
+          getAllBypassingReadPermissions: async () => [],
+        },
+      },
     } as never,
     update,
   };

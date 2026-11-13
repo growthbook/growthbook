@@ -882,7 +882,17 @@ function OrganizationDetail({
                   ? [
                       {
                         label: "Event forwarders",
-                        value: <EventForwarders orgId={org.id} />,
+                        value: (
+                          <EventForwarders
+                            orgId={org.id}
+                            environments={
+                              // Same default as the back-end's getEnvironments
+                              settings.environments?.length
+                                ? settings.environments.map((e) => e.id)
+                                : ["dev", "production"]
+                            }
+                          />
+                        ),
                       },
                     ]
                   : []),

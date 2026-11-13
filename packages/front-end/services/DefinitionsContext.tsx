@@ -62,6 +62,8 @@ type Definitions = {
   // Org-wide, including ones the viewer cannot read.
   hasManagedWarehouse: boolean;
   hasEventForwarder: boolean;
+  // Environments claimed by Event Forwarders; "" is all environments.
+  eventForwarderEnvironments: { datasourceId: string; environment: string }[];
 };
 
 type DefinitionContextValue = Definitions & {
@@ -125,6 +127,7 @@ const defaultValue: DefinitionContextValue = {
   webhookSecrets: [],
   hasManagedWarehouse: false,
   hasEventForwarder: false,
+  eventForwarderEnvironments: [],
   getMetricById: () => null,
   getDatasourceById: () => null,
   getDimensionById: () => null,
@@ -418,6 +421,7 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
       eventIngestorRegion: data.eventIngestorRegion,
       hasManagedWarehouse: data.hasManagedWarehouse ?? false,
       hasEventForwarder: data.hasEventForwarder ?? false,
+      eventForwarderEnvironments: data.eventForwarderEnvironments ?? [],
       setProject,
       getMetricById,
       getDatasourceById,

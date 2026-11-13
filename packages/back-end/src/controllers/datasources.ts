@@ -58,7 +58,7 @@ import {
   findGoogleAnalytics4Exports,
 } from "back-end/src/services/datasource";
 import {
-  assertNoEventForwarderInOrg,
+  assertNoEventForwarderEnvironmentOverlap,
   createUnconfiguredEventForwarderConfig,
   recordEventForwarderCreateFailure,
   getEventForwarderForDatasource,
@@ -227,7 +227,16 @@ export async function postDataSources(
       eventForwarderRegion === "us-east-1" ||
       eventForwarderRegion === "eu-west-1"
     ) {
-      await assertNoEventForwarderInOrg(context);
+      await assertNoEventForwarderEnvironmentOverlap(
+        context,
+        eventForwarderConfig?.environment,
+        {
+          allowUnset: !eventForwarderConfig,
+          region:
+            eventForwarderConfig?.region ??
+            (eventForwarderConfig ? "us-east-1" : eventForwarderRegion),
+        },
+      );
     }
     datasource = await createDataSource(
       context,
@@ -778,6 +787,16 @@ export async function deleteEventForwarderForDataSource(
     !context.permissions.canDeleteEventForwarderConfig(eventForwarderConfig)
   ) {
     context.permissions.throwPermissionError();
+  }
+  // Super admins skip this to clean up from the admin page
+  if (
+    eventForwarderConfig.status === "ready" &&
+    !hasSuperAdminPermission(context.superAdmin, "provision")
+  ) {
+    return res.status(400).json({
+      status: 400,
+      message: "Pause the Event Forwarder before deleting it.",
+    });
   }
 
   try {
@@ -1975,7 +1994,7 @@ function getManagedWarehouseJsonSettings(
 // Super admin only: moves a Confluent-connector forwarder onto the in-house
 // consumer and provisions it. Confluent resources are torn down manually later.
 export async function postMigrateEventForwarder(
-  req: AuthRequest<null, { id: string }>,
+  req: AuthRequest<{ environment?: string } | null, { id: string }>,
   res: Response<{ status: 200 } | { status: 400 | 404; message: string }>,
 ) {
   const context = getContextFromReq(req);
@@ -2004,6 +2023,9 @@ export async function postMigrateEventForwarder(
       context,
       existing,
       datasourceParams,
+      typeof req.body?.environment === "string"
+        ? req.body.environment
+        : undefined,
     );
     try {
       await provisionEventForwarderThroughLicenseServer(
@@ -2014,9 +2036,26 @@ export async function postMigrateEventForwarder(
     } catch (e) {
       // Restore the pre-migrate row so the Confluent connector keeps serving it
       // and Migrate can be retried; lastProvisioningError keeps the cause.
+      // - Environment goes back only if that no longer overlaps: another
+      //   forwarder may have been added while this one was narrowed
+      let environment = migrated.environment ?? "";
+      try {
+        await assertNoEventForwarderEnvironmentOverlap(
+          context,
+          previous.environment || undefined,
+          { current: migrated },
+        );
+        environment = previous.environment ?? "";
+      } catch (overlapError) {
+        req.log.warn(
+          { err: overlapError, datasourceId: previous.datasourceId },
+          "Keeping the migrated environment on revert",
+        );
+      }
       const ids = {
         topic: previous.topic,
         status: previous.status,
+        environment,
         schemaId: previous.schemaId,
         connectorName: previous.connectorName,
         connectorId: previous.connectorId,
