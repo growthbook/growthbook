@@ -875,6 +875,9 @@ export default function SDKConnectionPage() {
             )}
             {tab === "webhooks" && (
               <SdkWebhooks
+                // Where a change goes by default follows the revision in view
+                // and the drafts that are open.
+                key={`${selectedRevisionId ?? "live"}:${openRevisions.length}`}
                 connection={connection}
                 liveRevisionId={liveRevision?.id ?? null}
                 refresh={refreshAll}

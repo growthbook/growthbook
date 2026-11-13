@@ -13,7 +13,12 @@ import {
 } from "shared/types/webhook";
 import { ago } from "shared/dates";
 import { SDKConnectionInterface } from "shared/types/sdk-connection";
-import { Revision, patchOpsToPartial } from "shared/enterprise";
+import {
+  Revision,
+  applyTopLevelPatchOps,
+  landedOps,
+  patchOpsToPartial,
+} from "shared/enterprise";
 import {
   parseSdkWebhookSnapshot,
   SDKWebhookRevisionSnapshot,
@@ -233,13 +238,24 @@ export default function SdkWebhooks({
   const submitWebhookRevision = (newSnapshots: SDKWebhookRevisionSnapshot[]) =>
     flow.save({ sdkWebhooks: newSnapshots });
 
-  // The webhooks the change is made to: the chosen draft's, or live's.
+  // The webhooks the change is made to: live's, or the chosen draft's over
+  // live's, as the server reads a draft that's behind live. One added to live
+  // since the draft was made is kept, not dropped from the list sent.
   const currentWebhookSnapshots = (): SDKWebhookRevisionSnapshot[] => {
+    const live = { sdkWebhooks: liveWebhooks.map(toSnapshot) };
     const target =
       flow.mode === "existing"
         ? openRevisions.find((r) => r.id === flow.selectedDraftId)
         : null;
-    return target ? webhooksOf(target) : liveWebhooks.map(toSnapshot);
+    if (!target) return live.sdkWebhooks;
+    return applyTopLevelPatchOps(
+      live,
+      landedOps(
+        live,
+        target.target.snapshot as Record<string, unknown>,
+        target.target.proposedChanges,
+      ),
+    ).sdkWebhooks.map(toSnapshot);
   };
 
   const handleCreateViaRevision = async (

@@ -1,3 +1,4 @@
+import { isEqual } from "lodash";
 import {
   isUserBlockedFromApproving,
   revisionValidator,
@@ -1780,6 +1781,9 @@ export class RevisionModel extends BaseClass {
     newProposedChanges: JsonPatchOperation[],
     userId: string,
     authority: CasAuthority<Revision>,
+    // The revision the new changes were worked out from. If its contents were
+    // saved over since, they'd erase that save, so the rebase is refused.
+    basedOn?: Revision,
   ) {
     const existing = await this.getById(id);
     if (!existing) throw new Error("Revision not found");
@@ -1788,26 +1792,33 @@ export class RevisionModel extends BaseClass {
       newSnapshot as Record<string, unknown>,
     );
 
-    return this.writeContentEdit(id, userId, authority, (row) => ({
-      target: {
-        ...row.target,
-        snapshot: cleanedSnapshot as typeof row.target.snapshot,
-        proposedChanges: newProposedChanges,
-      } as Revision["target"],
-      entry: {
-        id: uniqid("act_"),
-        user: this.context.auditUser,
-        userId,
-        action: "updated" as const,
-        description: "Rebased revision on current live state",
-        dateCreated: new Date(),
-        // Rebase shifts both the baseline snapshot and the proposed changes.
-        // Persist both so the UI can reconstruct the state on either side of the
-        // rebase for a meaningful per-entry diff.
-        proposedChangesSnapshot: newProposedChanges,
-        targetSnapshot: cleanedSnapshot,
-      },
-    }));
+    return this.writeContentEdit(id, userId, authority, (row) => {
+      if (basedOn && !isEqual(row.target, basedOn.target)) {
+        throw new ConflictError(
+          "This draft was changed while it was being updated from live. Try again.",
+        );
+      }
+      return {
+        target: {
+          ...row.target,
+          snapshot: cleanedSnapshot as typeof row.target.snapshot,
+          proposedChanges: newProposedChanges,
+        } as Revision["target"],
+        entry: {
+          id: uniqid("act_"),
+          user: this.context.auditUser,
+          userId,
+          action: "updated" as const,
+          description: "Rebased revision on current live state",
+          dateCreated: new Date(),
+          // Rebase shifts both the baseline snapshot and the proposed changes.
+          // Persist both so the UI can reconstruct the state on either side of the
+          // rebase for a meaningful per-entry diff.
+          proposedChangesSnapshot: newProposedChanges,
+          targetSnapshot: cleanedSnapshot,
+        },
+      };
+    });
   }
 
   // Merge / close / reopen

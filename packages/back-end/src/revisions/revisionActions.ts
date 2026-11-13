@@ -1742,6 +1742,7 @@ export async function rebaseRevision({
     newOps,
     context.actorId,
     advanceAuthorityOnRow(context),
+    revision,
   );
   await getRevisionWebhookAdapter(entityType)?.dispatch(context, updated, {
     type: "rebased",
