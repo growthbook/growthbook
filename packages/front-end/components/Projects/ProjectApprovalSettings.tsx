@@ -10,9 +10,11 @@ import Callout from "@/ui/Callout";
 import Link from "@/ui/Link";
 import { ApprovalScopeSections } from "@/components/GeneralSettings/ApprovalScopeFields";
 import {
+  clonedSdkConnectionRule,
   flagRuleDefaults,
   flagRulesFromSettings,
   savedGroupRuleDefaults,
+  scopeKey,
 } from "@/components/GeneralSettings/approvalScopes";
 
 // Read-only on purpose: a rule can govern several Projects, so editing it here
@@ -42,10 +44,11 @@ export default function ProjectApprovalSettings({
   const savedGroupRule =
     getApprovalFlowRules(settings.approvalFlows, "saved-group", [project])[0] ??
     savedGroupRuleDefaults(project);
-  const sdkConnectionRule =
-    getApprovalFlowRules(settings.approvalFlows, "sdk-connection", [
-      project,
-    ])[0] ?? savedGroupRuleDefaults(project);
+  // As the organization editor shows this Project's scope.
+  const sdkConnectionRule = clonedSdkConnectionRule(
+    sdkConnectionRules,
+    scopeKey([project]),
+  );
 
   const naming = [
     ...flagRules.filter((r) => r.projects?.includes(project)),

@@ -242,8 +242,9 @@ export default function RevertModal<T extends RevertableEntity>({
   // picker shows a plain "Publish now" instead of the red "Bypass approvals and
   // publish now". Mirrors the feature revert's `effectiveApprovalsRequired`.
   const effectiveApprovalRequired = approvalRequired && !revertsBypassApproval;
+  // Under approval, bypassing is a choice to make, not the default.
   const [mode, setMode] = useState<DraftMode>(
-    canPublishNow ? "publish" : "new",
+    canPublishNow && !effectiveApprovalRequired ? "publish" : "new",
   );
 
   const [comment, setComment] = useState("");

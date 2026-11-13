@@ -788,6 +788,42 @@ describe("sdkConnectionAdapter", () => {
         assert(makeContext({}), { sdkWebhooks: [{ id: "wh-x" }] }),
       ).rejects.toThrow();
     });
+
+    it("refuses changing or removing a webhook other connections use", async () => {
+      const entity = snapshotWith({}, [baseWebhook]);
+      const ctx = makeContext({ premiumFeatures: ["multiple-sdk-webhooks"] });
+      webhooksModel(ctx).findAllSdkWebhooksByConnectionIds.mockResolvedValue([
+        { id: "wh-1", sdks: [entity.sdkConnection.id, "sdk-other"] },
+      ]);
+      const edited = [
+        { ...baseWebhook, endpoint: "https://hooks.example.com/2" },
+      ];
+      await expect(
+        assert(ctx, { sdkWebhooks: edited }, entity),
+      ).rejects.toThrow("other SDK connections");
+      await expect(assert(ctx, { sdkWebhooks: [] }, entity)).rejects.toThrow(
+        "other SDK connections",
+      );
+    });
+
+    it("lets a draft change a webhook only this connection uses", async () => {
+      const entity = snapshotWith({}, [baseWebhook]);
+      const ctx = makeContext({ premiumFeatures: ["multiple-sdk-webhooks"] });
+      webhooksModel(ctx).findAllSdkWebhooksByConnectionIds.mockResolvedValue([
+        { id: "wh-1", sdks: [entity.sdkConnection.id] },
+      ]);
+      await expect(
+        assert(
+          ctx,
+          {
+            sdkWebhooks: [
+              { ...baseWebhook, endpoint: "https://hooks.example.com/2" },
+            ],
+          },
+          entity,
+        ),
+      ).resolves.toBeUndefined();
+    });
   });
 
   describe("applyChanges", () => {

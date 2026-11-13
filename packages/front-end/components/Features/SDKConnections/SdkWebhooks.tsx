@@ -134,6 +134,18 @@ export default function SdkWebhooks({
     );
   })();
 
+  // What the draft started from: a live webhook it lacks was removed by it
+  // only if it was there to begin with. One added to live since is kept.
+  const draftBaseIds = new Set(
+    (
+      (
+        viewedRevision?.target.snapshot as {
+          sdkWebhooks?: SDKWebhookRevisionSnapshot[];
+        } | null
+      )?.sdkWebhooks ?? []
+    ).map((wh) => wh.id),
+  );
+
   const rows: WebhookRow[] = pastRevision
     ? (draftWebhookSnapshots ?? []).map((snapshot) => ({
         snapshot,
@@ -153,7 +165,7 @@ export default function SdkWebhooks({
                   : "edited",
             };
           }),
-          // Live webhooks the draft deletes, kept in view until it publishes.
+          // Live webhooks the draft deletes stay in view until it publishes.
           ...liveWebhooks
             .filter(
               (live) => !draftWebhookSnapshots.some((s) => s.id === live.id),
@@ -162,7 +174,7 @@ export default function SdkWebhooks({
               (live): WebhookRow => ({
                 snapshot: toSnapshot(live),
                 live,
-                staged: "removed",
+                staged: draftBaseIds.has(live.id) ? "removed" : null,
               }),
             ),
         ]

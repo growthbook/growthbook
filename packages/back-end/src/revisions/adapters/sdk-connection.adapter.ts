@@ -400,6 +400,30 @@ export const sdkConnectionAdapter: EntityRevisionAdapter<SDKConnectionRevisionSn
             throw new Error("your webhook limit has been reached");
           }
         }
+        // Only the API can attach a webhook to several connections, and one
+        // connection's draft doesn't speak for the others.
+        const touchedIds = entity.sdkWebhooks
+          .filter((old) => {
+            const next = webhooks.find((w) => w.id === old.id);
+            return !next || !isEqual(next, old);
+          })
+          .map((w) => w.id);
+        if (touchedIds.length) {
+          const rows =
+            await context.models.sdkWebhooks.findAllSdkWebhooksByConnectionIds([
+              entity.sdkConnection.id,
+            ]);
+          const shared = rows.some(
+            (row) =>
+              touchedIds.includes(row.id) &&
+              row.sdks.some((id) => id !== entity.sdkConnection.id),
+          );
+          if (shared) {
+            throw new Error(
+              "A webhook used by other SDK connections can't be changed from this one. Change it through the API.",
+            );
+          }
+        }
       }
     },
 
