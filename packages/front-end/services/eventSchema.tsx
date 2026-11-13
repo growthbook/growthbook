@@ -110,7 +110,7 @@ export const eventSchemas: eventSchema[] = [
     logo: "/images/3rd-party-logos/snowplow.png",
     popular: true,
     helpLink:
-      "https://docs.snowplowanalytics.com/docs/pipeline-components-and-applications/loaders-storage-targets/",
+      "https://docs.snowplow.io/docs/destinations/warehouses-lakes/querying-data/",
   },
   {
     value: "amplitude",
