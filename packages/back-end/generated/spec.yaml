@@ -75393,7 +75393,7 @@ components:
                         recommendations from the Experiment Decision Framework
                         and are only rendered if the Decision Framework is
                         enabled for your organization. `unhealthy` means a
-                        health check is failing (see `unhealthyChecks`).
+                        health check is failing (see `healthIssues`).
                         `data-incomplete` means some metrics could not be
                         computed (see `erroredMetricIds`). `days-left` and
                         `before-min-duration` mean the experiment should keep
@@ -75448,29 +75448,27 @@ components:
                           - variationId
                           - action
                         additionalProperties: false
-                    powerReached:
-                      description: Whether the experiment reached its target power.
-                      type: boolean
-                    sequentialUsed:
-                      description: Whether the recommendation relied on sequential testing.
-                      type: boolean
-                    scheduledEndPassed:
-                      description: Whether the experiment's scheduled end date has passed.
-                      type: boolean
-                    unhealthyChecks:
+                    healthIssues:
                       description: >-
-                        Health checks that are failing. Set when `status` is
-                        `unhealthy`.
+                        What is wrong with the experiment. Set when `status` is
+                        `unhealthy`. The results endpoint has the numbers behind
+                        each one under `result.health`: `sample-ratio-mismatch`
+                        in `srm`, `multiple-exposures` in `multipleExposures`,
+                        `low-power` in `power`, `covariate-imbalance` in
+                        `covariateImbalance`, `mixed-cluster-assignment` in
+                        `cluster.mixedAssignment` and
+                        `units-in-multiple-clusters` in
+                        `cluster.unitsInMultipleClusters`.
                       type: array
                       items:
                         type: string
                         enum:
-                          - srm
-                          - multipleExposures
-                          - lowPowered
-                          - covariateImbalance
-                          - clusterAssignment
-                          - clusterMapping
+                          - sample-ratio-mismatch
+                          - multiple-exposures
+                          - low-power
+                          - covariate-imbalance
+                          - mixed-cluster-assignment
+                          - units-in-multiple-clusters
                     erroredMetricIds:
                       description: >-
                         Metrics that could not be computed. Set when `status` is

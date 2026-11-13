@@ -302,13 +302,14 @@ describe("toApiExperimentDecision", () => {
             multipleExposures: { rawDecimal: 0.02, multipleExposedUsers: 20 },
           },
         },
+        "has-issue",
         "SRM, Multiple exposures",
       ),
     ).toEqual({
-      category: "issue",
+      category: "has-issue",
       status: "unhealthy",
       reason: "SRM, Multiple exposures",
-      unhealthyChecks: ["srm", "multipleExposures"],
+      healthIssues: ["sample-ratio-mismatch", "multiple-exposures"],
     });
   });
 
@@ -327,21 +328,23 @@ describe("toApiExperimentDecision", () => {
           sequentialUsed: false,
           scheduledEndPassed: false,
         },
+        "ready-for-action",
         undefined,
       ),
     ).toEqual({
-      category: "action-recommended",
+      category: "ready-for-action",
       status: "ship-now",
       variations: [{ variationId: "var_1", action: "ship" }],
-      powerReached: true,
-      sequentialUsed: false,
-      scheduledEndPassed: false,
     });
   });
 
   it("returns days left and errored metrics for their statuses", () => {
     expect(
-      toApiExperimentDecision({ status: "days-left", daysLeft: 12 }, "why"),
+      toApiExperimentDecision(
+        { status: "days-left", daysLeft: 12 },
+        "collecting-data",
+        "why",
+      ),
     ).toEqual({
       category: "collecting-data",
       status: "days-left",
@@ -351,6 +354,7 @@ describe("toApiExperimentDecision", () => {
     expect(
       toApiExperimentDecision(
         { status: "days-left", daysLeft: Infinity },
+        "collecting-data",
         undefined,
       ),
     ).toEqual({
@@ -361,10 +365,11 @@ describe("toApiExperimentDecision", () => {
     expect(
       toApiExperimentDecision(
         { status: "data-incomplete", erroredMetrics: ["met_1"] },
+        "has-issue",
         undefined,
       ),
     ).toEqual({
-      category: "issue",
+      category: "has-issue",
       status: "data-incomplete",
       erroredMetricIds: ["met_1"],
     });

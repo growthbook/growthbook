@@ -1,3 +1,4 @@
+import { ApiExperimentDecision } from "shared/validators";
 import {
   ExperimentDataForStatusStringDates,
   ExperimentHealthSettings,
@@ -18,6 +19,8 @@ export type StatusIndicatorData = {
   status: "Running" | "Stopped" | "Draft" | "Scheduled" | "Archived";
   detailedStatus?: string;
   needsAttention?: boolean;
+  // What a running status with a verdict asks for; a finer needsAttention.
+  decisionCategory?: ApiExperimentDecision["category"];
   tooltip?: string;
   // More actionable statuses sort first.
   sortOrder: number;
@@ -182,7 +185,8 @@ export function getStatusIndicatorData({
 function getDetailedRunningStatusIndicatorData(
   decisionData: ExperimentResultStatusData,
   resolveMetricName?: MetricNameResolver,
-): StatusIndicatorData {
+): StatusIndicatorData &
+  Required<Pick<StatusIndicatorData, "decisionCategory">> {
   switch (decisionData.status) {
     case "rollback-now":
       return {
@@ -191,6 +195,7 @@ function getDetailedRunningStatusIndicatorData(
         detailedStatus: "Roll back now",
         tooltip: decisionData.tooltip,
         needsAttention: true,
+        decisionCategory: "ready-for-action",
         sortOrder: 13,
       };
     case "ship-now":
@@ -200,6 +205,7 @@ function getDetailedRunningStatusIndicatorData(
         detailedStatus: "Ship now",
         tooltip: decisionData.tooltip,
         needsAttention: true,
+        decisionCategory: "ready-for-action",
         sortOrder: 12,
       };
     case "ready-for-review":
@@ -209,6 +215,7 @@ function getDetailedRunningStatusIndicatorData(
         detailedStatus: "Ready for review",
         tooltip: decisionData.tooltip,
         needsAttention: true,
+        decisionCategory: "ready-for-action",
         sortOrder: 11,
       };
     case "scheduled-end-review":
@@ -218,6 +225,7 @@ function getDetailedRunningStatusIndicatorData(
         detailedStatus: "Ready for review",
         tooltip: decisionData.tooltip,
         needsAttention: true,
+        decisionCategory: "ready-for-action",
         sortOrder: 10.5,
       };
     case "no-data":
@@ -227,6 +235,7 @@ function getDetailedRunningStatusIndicatorData(
         detailedStatus: "No data",
         tooltip: decisionData.tooltip,
         needsAttention: true,
+        decisionCategory: "has-issue",
         sortOrder: 10,
       };
     case "data-incomplete": {
@@ -242,6 +251,7 @@ function getDetailedRunningStatusIndicatorData(
         detailedStatus: "Data incomplete",
         tooltip: `${subject} could not be computed, so ship and review recommendations are paused. Roll back recommendations still apply.`,
         needsAttention: true,
+        decisionCategory: "has-issue",
         sortOrder: 9.5,
       };
     }
@@ -252,6 +262,7 @@ function getDetailedRunningStatusIndicatorData(
         detailedStatus: "Unhealthy",
         tooltip: decisionData.tooltip,
         needsAttention: true,
+        decisionCategory: "has-issue",
         sortOrder: 9,
       };
     case "days-left": {
@@ -272,6 +283,7 @@ function getDetailedRunningStatusIndicatorData(
         tooltip: decisionData.tooltip
           ? decisionData.tooltip
           : `The experiment needs more data to reliably detect the target minimum detectable effect for all goal metrics. At recent traffic levels, the experiment will take ~${decisionData.daysLeft} more days to collect enough data.`,
+        decisionCategory: "collecting-data",
         sortOrder: 8 + sortOrderDecimal,
       };
     }
@@ -280,6 +292,7 @@ function getDetailedRunningStatusIndicatorData(
         color: "indigo",
         status: "Running",
         tooltip: decisionData.tooltip,
+        decisionCategory: "collecting-data",
         sortOrder: 7,
       };
   }

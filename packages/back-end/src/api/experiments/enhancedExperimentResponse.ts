@@ -27,20 +27,33 @@ export async function toEnhancedExperimentApiResponse(
   );
   const metricGroups = await context.models.metricGroups.getAll();
 
-  const { status, detailedStatus, needsAttention, tooltip, resultStatus } =
-    getStatusIndicatorData({
-      experimentData: experiment,
-      skipArchived: false,
-      healthSettings,
-      decisionCriteria,
-      metricGroups,
-    });
+  const {
+    status,
+    detailedStatus,
+    needsAttention,
+    decisionCategory,
+    tooltip,
+    resultStatus,
+  } = getStatusIndicatorData({
+    experimentData: experiment,
+    skipArchived: false,
+    healthSettings,
+    decisionCriteria,
+    metricGroups,
+  });
   const enhancedStatus = {
     status,
     detailedStatus,
     needsAttention: !!needsAttention,
-    ...(resultStatus && includeDecision
-      ? { decision: toApiExperimentDecision(resultStatus, tooltip) }
+    // A result status always comes with its category.
+    ...(resultStatus && decisionCategory && includeDecision
+      ? {
+          decision: toApiExperimentDecision(
+            resultStatus,
+            decisionCategory,
+            tooltip,
+          ),
+        }
       : null),
   };
 

@@ -1156,7 +1156,7 @@ const apiExperimentDecisionValidator = z
         "data-incomplete",
       ])
       .describe(
-        "`ship-now`, `rollback-now` and `ready-for-review` are recommendations from the Experiment Decision Framework and are only rendered if the Decision Framework is enabled for your organization. `unhealthy` means a health check is failing (see `unhealthyChecks`). `data-incomplete` means some metrics could not be computed (see `erroredMetricIds`). `days-left` and `before-min-duration` mean the experiment should keep running. `scheduled-end-review` means the scheduled end date passed without a recommendation.",
+        "`ship-now`, `rollback-now` and `ready-for-review` are recommendations from the Experiment Decision Framework and are only rendered if the Decision Framework is enabled for your organization. `unhealthy` means a health check is failing (see `healthIssues`). `data-incomplete` means some metrics could not be computed (see `erroredMetricIds`). `days-left` and `before-min-duration` mean the experiment should keep running. `scheduled-end-review` means the scheduled end date passed without a recommendation.",
       ),
     reason: z
       .string()
@@ -1185,32 +1185,20 @@ const apiExperimentDecisionValidator = z
       .describe(
         "Variations the recommendation applies to. Set for `ship-now`, `rollback-now` and `ready-for-review`.",
       ),
-    powerReached: z
-      .boolean()
-      .optional()
-      .describe("Whether the experiment reached its target power."),
-    sequentialUsed: z
-      .boolean()
-      .optional()
-      .describe("Whether the recommendation relied on sequential testing."),
-    scheduledEndPassed: z
-      .boolean()
-      .optional()
-      .describe("Whether the experiment's scheduled end date has passed."),
-    unhealthyChecks: z
+    healthIssues: z
       .array(
         z.enum([
-          "srm",
-          "multipleExposures",
-          "lowPowered",
-          "covariateImbalance",
-          "clusterAssignment",
-          "clusterMapping",
+          "sample-ratio-mismatch",
+          "multiple-exposures",
+          "low-power",
+          "covariate-imbalance",
+          "mixed-cluster-assignment",
+          "units-in-multiple-clusters",
         ]),
       )
       .optional()
       .describe(
-        "Health checks that are failing. Set when `status` is `unhealthy`.",
+        "What is wrong with the experiment. Set when `status` is `unhealthy`. The results endpoint has the numbers behind each one under `result.health`: `sample-ratio-mismatch` in `srm`, `multiple-exposures` in `multipleExposures`, `low-power` in `power`, `covariate-imbalance` in `covariateImbalance`, `mixed-cluster-assignment` in `cluster.mixedAssignment` and `units-in-multiple-clusters` in `cluster.unitsInMultipleClusters`.",
       ),
     erroredMetricIds: z
       .array(z.string())

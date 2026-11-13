@@ -1,44 +1,31 @@
 import { ApiExperimentDecision } from "shared/validators";
-import { ExperimentResultStatusData } from "shared/types/experiment";
+import {
+  ExperimentResultStatusData,
+  ExperimentUnhealthyData,
+} from "shared/types/experiment";
 
-const UNHEALTHY_CHECKS = [
-  "srm",
-  "multipleExposures",
-  "lowPowered",
-  "covariateImbalance",
-  "clusterAssignment",
-  "clusterMapping",
-] as const;
+type HealthIssue = NonNullable<ApiExperimentDecision["healthIssues"]>[number];
 
-function getDecisionCategory(
-  status: ExperimentResultStatusData["status"],
-): ApiExperimentDecision["category"] {
-  switch (status) {
-    case "ship-now":
-    case "rollback-now":
-    case "ready-for-review":
-    case "scheduled-end-review":
-      return "ready-for-action";
-    case "unhealthy":
-    case "data-incomplete":
-    case "no-data":
-      return "has-issue";
-    case "days-left":
-    case "before-min-duration":
-      return "collecting-data";
-    default: {
-      const unhandled: never = status;
-      return unhandled;
-    }
-  }
-}
+// Keyed by the app's checks, so a new check needs a public name to compile.
+const HEALTH_ISSUES: Record<keyof ExperimentUnhealthyData, HealthIssue> = {
+  srm: "sample-ratio-mismatch",
+  multipleExposures: "multiple-exposures",
+  lowPowered: "low-power",
+  covariateImbalance: "covariate-imbalance",
+  clusterAssignment: "mixed-cluster-assignment",
+  clusterMapping: "units-in-multiple-clusters",
+};
+const HEALTH_CHECKS = Object.keys(
+  HEALTH_ISSUES,
+) as (keyof ExperimentUnhealthyData)[];
 
 export function toApiExperimentDecision(
   resultStatus: ExperimentResultStatusData,
+  category: ApiExperimentDecision["category"],
   reason: string | undefined,
 ): ApiExperimentDecision {
   return {
-    category: getDecisionCategory(resultStatus.status),
+    category,
     status: resultStatus.status,
     ...(reason ? { reason } : null),
     ...(resultStatus.status === "days-left"
@@ -55,16 +42,13 @@ export function toApiExperimentDecision(
             variationId: v.variationId,
             action: v.decidingRule?.action ?? null,
           })),
-          powerReached: resultStatus.powerReached,
-          sequentialUsed: resultStatus.sequentialUsed,
-          scheduledEndPassed: resultStatus.scheduledEndPassed,
         }
       : null),
     ...(resultStatus.status === "unhealthy"
       ? {
-          unhealthyChecks: UNHEALTHY_CHECKS.filter(
+          healthIssues: HEALTH_CHECKS.filter(
             (check) => !!resultStatus.unhealthyData[check],
-          ),
+          ).map((check) => HEALTH_ISSUES[check]),
         }
       : null),
     ...(resultStatus.status === "data-incomplete"
