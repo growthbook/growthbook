@@ -9,9 +9,12 @@ import {
 import Text from "@/ui/Text";
 import { ChangeField } from "@/components/AuditHistoryExplorer/DiffRenderUtils";
 import {
+  CATEGORY_TITLES,
   SAVED_GROUP_FORMAT_LABELS,
   SETTING_TITLES,
 } from "@/components/Features/SDKConnections/sdkConnectionSettingLabels";
+import { PAYLOAD_FORMAT_LABELS } from "@/components/Features/SDKConnections/SdkWebhooks";
+import { TRACES_TITLE } from "@/components/Features/SDKConnections/SDKConnectionAdvancedSettings";
 import type { DiffBadge } from "@/components/AuditHistoryExplorer/types";
 import { RevisionDiffConfig } from "@/components/Revision/useRevisionDiff";
 
@@ -29,9 +32,43 @@ function postConn(
   return post.sdkConnection ?? null;
 }
 
+// On/Off, as the settings cards read.
 function boolDisplay(v: boolean | undefined | null): ReactNode {
   if ((v ?? null) === null) return <em>—</em>;
-  return v ? "Yes" : "No";
+  return v ? "On" : "Off";
+}
+
+type BoolField = {
+  key: keyof SDKConnectionSettingsRevisionSnapshot;
+  label: string;
+  // Shown the other way round, as its setting is worded.
+  inverted?: boolean;
+};
+
+// The boolean settings that changed, one row each.
+function boolRows(
+  fields: BoolField[],
+  p0: Partial<SDKConnectionSettingsRevisionSnapshot> | null,
+  p1: Partial<SDKConnectionSettingsRevisionSnapshot>,
+): ReactNode[] {
+  const rows: ReactNode[] = [];
+  for (const { key, label, inverted } of fields) {
+    const preVal = p0?.[key] as boolean | undefined;
+    const postVal = p1[key] as boolean | undefined;
+    if (isEqual(preVal, postVal) || postVal === undefined) continue;
+    const flip = (v: boolean | undefined) =>
+      inverted && v !== undefined ? !v : v;
+    rows.push(
+      <ChangeField
+        key={key}
+        label={label}
+        changed
+        oldNode={boolDisplay(flip(preVal))}
+        newNode={boolDisplay(flip(postVal))}
+      />,
+    );
+  }
+  return rows;
 }
 
 function strDisplay(v: string | undefined | null): ReactNode {
@@ -221,6 +258,14 @@ export function renderSDKConnectionSecurity(
     );
   }
 
+  rows.push(
+    ...boolRows(
+      [{ key: "remoteEvalEnabled", label: "Remote evaluation" }],
+      p0,
+      p1,
+    ),
+  );
+
   return rows.length ? <Box mt="1">{rows}</Box> : null;
 }
 
@@ -265,37 +310,42 @@ export function renderSDKConnectionExperiments(
   const p0 = preConn(pre);
   const p1 = postConn(post);
   if (!p1) return null;
+  const rows = boolRows(
+    [
+      { key: "includeVisualExperiments", label: SETTING_TITLES.visualEditor },
+      { key: "includeRedirectExperiments", label: SETTING_TITLES.urlRedirect },
+      {
+        key: "includeExperimentNames",
+        label: SETTING_TITLES.hideNames,
+        inverted: true,
+      },
+    ],
+    p0,
+    p1,
+  );
+  return rows.length ? <Box mt="1">{rows}</Box> : null;
+}
 
-  const fields: Array<{
-    key: keyof SDKConnectionSettingsRevisionSnapshot;
-    label: string;
-  }> = [
-    { key: "includeVisualExperiments", label: "Visual Editor experiments" },
-    { key: "includeDraftExperiments", label: "Draft experiments" },
-    { key: "includeDraftExperimentRefs", label: "Draft experiment rules" },
-    { key: "includeExperimentNames", label: "Experiment names" },
-    { key: "includeRedirectExperiments", label: "Redirect experiments" },
-    { key: "includeRuleIds", label: "Rule IDs" },
-  ];
-
-  const rows: ReactNode[] = [];
-
-  for (const { key, label } of fields) {
-    const preVal = p0?.[key] as boolean | undefined;
-    const postVal = p1[key] as boolean | undefined;
-    if (!isEqual(preVal, postVal) && postVal !== undefined) {
-      rows.push(
-        <ChangeField
-          key={key}
-          label={label}
-          changed
-          oldNode={boolDisplay(preVal)}
-          newNode={boolDisplay(postVal)}
-        />,
-      );
-    }
-  }
-
+export function renderSDKConnectionObservability(
+  pre: Pre,
+  post: Post,
+): ReactNode | null {
+  const p0 = preConn(pre);
+  const p1 = postConn(post);
+  if (!p1) return null;
+  const rows = boolRows(
+    [
+      { key: "includeRuleIds", label: SETTING_TITLES.ruleIds },
+      { key: "includeDraftExperimentRefs", label: SETTING_TITLES.draftRules },
+      {
+        key: "includeDraftExperiments",
+        label: SETTING_TITLES.draftExperiments,
+      },
+      { key: "tracesEnabled", label: TRACES_TITLE },
+    ],
+    p0,
+    p1,
+  );
   return rows.length ? <Box mt="1">{rows}</Box> : null;
 }
 
@@ -306,39 +356,27 @@ export function renderSDKConnectionMetadata(
   const p0 = preConn(pre);
   const p1 = postConn(post);
   if (!p1) return null;
-  const rows: ReactNode[] = [];
-
-  const boolFields: Array<{
-    key: keyof SDKConnectionSettingsRevisionSnapshot;
-    label: string;
-  }> = [
-    { key: "includeProjectIdInMetadata", label: "Include project ID" },
-    { key: "includeCustomFieldsInMetadata", label: "Include custom fields" },
-    { key: "includeTagsInMetadata", label: "Include tags" },
-    {
-      key: "includeExperimentScheduleInMetadata",
-      label: "Include experiment schedule dates",
-    },
-    // Still diffed for API callers that write the deprecated boolean.
-    { key: "savedGroupReferencesEnabled", label: "Saved group references" },
-    { key: "remoteEvalEnabled", label: "Remote evaluation" },
-  ];
-
-  for (const { key, label } of boolFields) {
-    const preVal = p0?.[key] as boolean | undefined;
-    const postVal = p1[key] as boolean | undefined;
-    if (!isEqual(preVal, postVal) && postVal !== undefined) {
-      rows.push(
-        <ChangeField
-          key={key}
-          label={label}
-          changed
-          oldNode={boolDisplay(preVal)}
-          newNode={boolDisplay(postVal)}
-        />,
-      );
-    }
-  }
+  const rows = boolRows(
+    [
+      { key: "includeProjectIdInMetadata", label: SETTING_TITLES.projectIds },
+      {
+        key: "includeCustomFieldsInMetadata",
+        label: SETTING_TITLES.customFields,
+      },
+      { key: "includeTagsInMetadata", label: SETTING_TITLES.tags },
+      {
+        key: "includeExperimentScheduleInMetadata",
+        label: SETTING_TITLES.scheduleDates,
+      },
+      // Still diffed for API callers that write the deprecated boolean.
+      {
+        key: "savedGroupReferencesEnabled",
+        label: SETTING_TITLES.savedGroupReferences,
+      },
+    ],
+    p0,
+    p1,
+  );
 
   if (
     !isEqual(p0?.savedGroupFormat, p1.savedGroupFormat) &&
@@ -553,7 +591,8 @@ const WEBHOOK_DIFF_FIELDS: {
   {
     key: "payloadFormat",
     label: "payload format",
-    display: (v) => strDisplay(v as string),
+    display: (v) =>
+      strDisplay(PAYLOAD_FORMAT_LABELS[v as string] ?? (v as string)),
   },
   {
     key: "payloadKey",
@@ -568,9 +607,23 @@ const WEBHOOK_DIFF_FIELDS: {
   {
     key: "headers",
     label: "headers",
-    display: (v) => (v ? <em>hidden</em> : <em>none</em>),
+    display: (v) => {
+      const names = headerNames(v);
+      return names.length ? names.join(", ") : <em>none</em>;
+    },
   },
 ];
+
+// A webhook's header names, never their values.
+function headerNames(headers: unknown): string[] {
+  if (typeof headers !== "string" || !headers.trim()) return [];
+  try {
+    const parsed: unknown = JSON.parse(headers);
+    return parsed && typeof parsed === "object" ? Object.keys(parsed) : [];
+  } catch {
+    return [];
+  }
+}
 
 export function renderSDKConnectionWebhooks(
   pre: Pre,
@@ -604,13 +657,18 @@ export function renderSDKConnectionWebhooks(
     if (!old || isEqual(old, wh)) continue;
     for (const { key, label, display } of WEBHOOK_DIFF_FIELDS) {
       if (isEqual(old[key] ?? null, wh[key] ?? null)) continue;
+      // Same header names with new values: say so, without the values.
+      const valuesOnly =
+        key === "headers" &&
+        headerNames(old.headers).length > 0 &&
+        isEqual(headerNames(old.headers), headerNames(wh.headers));
       rows.push(
         <ChangeField
           key={`${key}-${wh.id}`}
           label={`${webhookLabel(wh)} ${label}`}
           changed
           oldNode={display(old[key])}
-          newNode={display(wh[key])}
+          newNode={valuesOnly ? <em>values changed</em> : display(wh[key])}
         />,
       );
     }
@@ -684,20 +742,25 @@ export const REVISION_SDK_CONNECTION_DIFF_CONFIG: RevisionDiffConfig<SDKConnecti
         getBadges: getSDKConnectionScopeBadges,
       },
       {
-        label: "Payload Security",
+        label: CATEGORY_TITLES.payloadSecurity,
         keys: ["sdkConnection"],
         render: renderSDKConnectionSecurity,
         getBadges: getSDKConnectionSecurityBadges,
       },
       {
-        label: "Experiment Inclusion",
+        label: CATEGORY_TITLES.experiments,
         keys: ["sdkConnection"],
         render: renderSDKConnectionExperiments,
       },
       {
-        label: "Payload Metadata",
+        label: CATEGORY_TITLES.payloadMetadata,
         keys: ["sdkConnection"],
         render: renderSDKConnectionMetadata,
+      },
+      {
+        label: CATEGORY_TITLES.observability,
+        keys: ["sdkConnection"],
+        render: renderSDKConnectionObservability,
       },
       {
         label: "Proxy",

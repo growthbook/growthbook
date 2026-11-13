@@ -187,6 +187,7 @@ export function CreateSDKWebhookModal({
     <Box key={key}>
       <SelectField
         label={label}
+        required
         placeholder="Select..."
         containerStyle={NO_MARGIN}
         value={form.watch("webhookSecretKey")}
@@ -286,6 +287,7 @@ export function CreateSDKWebhookModal({
 
           <SelectField
             label="Webhook type"
+            required
             containerStyle={NO_MARGIN}
             value={webhookType || ""}
             onChange={(v) => {

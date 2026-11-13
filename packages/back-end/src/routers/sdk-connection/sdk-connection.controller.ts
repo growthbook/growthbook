@@ -168,6 +168,7 @@ type PutSDKConnectionRequest = AuthRequest<
     revisionId?: string;
     forceCreateRevision?: string;
     title?: string;
+    comment?: string;
     revertedFrom?: string;
   }
 >;
@@ -320,6 +321,7 @@ export const putSDKConnection = async (
   const bypassApproval = req.query.bypassApproval === "1";
   const autoPublish = req.query.autoPublish === "1";
   const title = req.query.title;
+  const comment = req.query.comment;
   const revertedFrom = req.query.revertedFrom;
 
   const wantsDraft = !!revisionId || forceCreateRevision;
@@ -490,6 +492,7 @@ export const putSDKConnection = async (
     {
       forceCreate: wantsMerge || forceCreateRevision,
       title,
+      comment,
       revertedFrom,
       revisionId: wantsDraft && !explicitPublish ? revisionId : undefined,
     },

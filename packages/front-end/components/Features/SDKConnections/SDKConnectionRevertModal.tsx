@@ -3,6 +3,7 @@ import { SDKConnectionRevisionSnapshot } from "shared/validators";
 import RevisionDraftSelectorForChanges from "@/components/Revision/RevisionDraftSelectorForChanges";
 import { RevisionDiffConfig } from "@/components/Revision/useRevisionDiff";
 import RevertModal from "@/components/Revision/RevertModal";
+import { withAbsentSettings } from "@/components/Features/SDKConnections/sdkConnectionRules";
 
 type LiveSnapshot = SDKConnectionRevisionSnapshot & { id: string };
 
@@ -17,7 +18,9 @@ function toRequestBody(
   changes: Record<string, unknown>,
 ): Record<string, unknown> {
   const { sdkConnection, sdkWebhooks } = changes as Partial<LiveSnapshot>;
-  const settings: Record<string, unknown> = { ...(sdkConnection ?? {}) };
+  const settings: Record<string, unknown> = sdkConnection
+    ? withAbsentSettings(sdkConnection)
+    : {};
   delete settings.archived;
   return {
     ...settings,

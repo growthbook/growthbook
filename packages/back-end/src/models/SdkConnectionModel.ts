@@ -261,6 +261,7 @@ export async function assertCanUseSDKConnections(
     context.throwBadRequestError("Unknown SDK Connection id");
   }
   if (!conns.every(can)) context.permissions.throwPermissionError();
+  return conns;
 }
 
 // Not org-scoped — authenticated callers must scope to their own org.

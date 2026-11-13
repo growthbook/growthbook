@@ -2392,13 +2392,16 @@ export async function putSDKWebhook(
   assertSdkWebhooksEditableDirectly(context, conns);
 
   const parsedUpdates = updateSdkWebhookValidator.parse(req.body);
-  if (parsedUpdates.sdks) {
-    await assertCanUseSDKConnections(
-      context,
-      parsedUpdates.sdks.filter((sdk) => !webhook.sdks.includes(sdk)),
-      (c) => context.permissions.canUpdateSDKWebhook(c),
-    );
-  }
+  const added = parsedUpdates.sdks
+    ? await assertCanUseSDKConnections(
+        context,
+        parsedUpdates.sdks.filter((sdk) => !webhook.sdks.includes(sdk)),
+        (c) => context.permissions.canUpdateSDKWebhook(c),
+      )
+    : [];
+  // Attaching it to a connection under approval takes that connection's
+  // draft, as editing it does.
+  assertSdkWebhooksEditableDirectly(context, added);
 
   // Reset failure state when endpoint changes
   const resetFields =
@@ -2410,10 +2413,10 @@ export async function putSDKWebhook(
     ...parsedUpdates,
     ...resetFields,
   });
-  await touchSDKConnections(
-    context,
-    conns.map((c) => c.id),
-  );
+  await touchSDKConnections(context, [
+    ...conns.map((c) => c.id),
+    ...added.map((c) => c.id),
+  ]);
 
   // Fire the webhook now that it has changed
   fireSdkWebhook(context, updatedWebhook).catch(() => {

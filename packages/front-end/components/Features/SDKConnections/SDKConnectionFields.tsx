@@ -21,7 +21,6 @@ import Link from "@/ui/Link";
 import Text from "@/ui/Text";
 import Field from "@/components/Forms/Field";
 import Tooltip from "@/ui/Tooltip";
-import { GBInfo } from "@/components/Icons";
 import SDKLanguageSelector from "@/components/Features/SDKConnections/SDKLanguageSelector";
 import {
   getPackageRepositoryName,
@@ -34,8 +33,8 @@ import PayloadSecurityField, {
   RemoteEvalOptionsField,
 } from "@/components/Features/SDKConnections/PayloadSecurityField";
 import {
+  InfoTooltip,
   PrerequisitesLabel,
-  SETTING_TIP,
 } from "@/components/Features/SDKConnections/sdkConnectionSettingLabels";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import useProjectOptions from "@/hooks/useProjectOptions";
@@ -261,21 +260,11 @@ export function ProjectsField({
           hideLabel ? undefined : (
             <Flex align="center" gap="1" as="span">
               Filter by Projects
-              <Tooltip
-                {...SETTING_TIP}
+              <InfoTooltip
                 content={`The dropdown below has been filtered to only include projects where you have permission to ${
                   edit ? "update" : "create"
                 } SDK Connections.`}
-              >
-                <Box
-                  as="span"
-                  display="inline-block"
-                  tabIndex={0}
-                  aria-label="More information about project filtering"
-                >
-                  <GBInfo />
-                </Box>
-              </Tooltip>
+              />
             </Flex>
           )
         }
@@ -373,7 +362,7 @@ export default function SDKConnectionFields({
 
       <Box>
         <Text as="div" weight="semibold" mb="2">
-          SDK Language
+          SDK language
         </Text>
         {languageError ? (
           <HelperText status="error" mb="2">

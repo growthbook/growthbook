@@ -618,6 +618,11 @@ export default function SDKConnectionPage() {
           onRevisionCreated={(rev) => {
             onRevisionCreated(rev);
             setRevisionToRevert(null);
+            // Published straight away, it changes what live reads.
+            if (rev.status === "merged") {
+              mutate();
+              mutateWebhooks();
+            }
           }}
         />
       )}
@@ -663,22 +668,27 @@ export default function SDKConnectionPage() {
             {/* Set the first time anything fetches with the key; never reset. */}
             {connection.connected ? (
               <Tooltip content="An SDK or proxy has fetched features with this connection's key at least once.">
-                <Badge
-                  color="green"
-                  variant="soft"
-                  radius="full"
-                  label="Connected"
-                />
+                {/* Focusable, so the explanation opens from the keyboard too. */}
+                <Box as="span" display="inline-block" tabIndex={0}>
+                  <Badge
+                    color="green"
+                    variant="soft"
+                    radius="full"
+                    label="Connected"
+                  />
+                </Box>
               </Tooltip>
             ) : (
               <>
                 <Tooltip content="Nothing has fetched features with this connection's key yet.">
-                  <Badge
-                    color="gray"
-                    variant="soft"
-                    radius="full"
-                    label="Not connected"
-                  />
+                  <Box as="span" display="inline-block" tabIndex={0}>
+                    <Badge
+                      color="gray"
+                      variant="soft"
+                      radius="full"
+                      label="Not connected"
+                    />
+                  </Box>
                 </Tooltip>
                 {canUpdate && <Link onClick={() => mutate()}>Retry</Link>}
               </>
@@ -901,6 +911,7 @@ export default function SDKConnectionPage() {
                 }
                 onRevisionCreated={onRevisionCreated}
                 selectedRevision={selectedRevision}
+                liveRevisionId={liveRevision?.id ?? null}
               />
             )}
           </Box>

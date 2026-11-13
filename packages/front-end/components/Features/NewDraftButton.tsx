@@ -25,7 +25,7 @@ export default function NewDraftButton({
 
   return (
     <SharedNewDraftButton
-      entityNoun="feature"
+      entityNoun="Feature Flag"
       activeDraftCount={
         revisionList.filter((r) => isActiveDraftStatus(r.status)).length
       }

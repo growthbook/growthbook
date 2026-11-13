@@ -144,3 +144,36 @@ export function sanitizeAdvancedForSave(
     tracesEnabled: v.tracesEnabled,
   };
 }
+
+// How the payload reads a setting a snapshot leaves out. A revert sends these
+// for what the older snapshot lacked, so options added since are turned back
+// off rather than kept. The legacy saved-group boolean is left out: sent on its
+// own it would switch the format to inline.
+const ABSENT_SETTING_VALUES: Record<string, unknown> = {
+  hashSecureAttributes: false,
+  includeVisualExperiments: false,
+  includeDraftExperiments: false,
+  includeDraftExperimentRefs: false,
+  includeExperimentNames: false,
+  includeRedirectExperiments: false,
+  includeRuleIds: false,
+  includeProjectIdInMetadata: false,
+  includeCustomFieldsInMetadata: false,
+  allowedCustomFieldsInMetadata: [],
+  includeTagsInMetadata: false,
+  includeExperimentScheduleInMetadata: false,
+  remoteEvalEnabled: false,
+  tracesEnabled: false,
+  includeReferencedPrerequisites: false,
+  proxyEnabled: false,
+};
+
+export function withAbsentSettings(
+  settings: Record<string, unknown>,
+): Record<string, unknown> {
+  const filled = { ...settings };
+  for (const [key, value] of Object.entries(ABSENT_SETTING_VALUES)) {
+    if (filled[key] === undefined) filled[key] = value;
+  }
+  return filled;
+}

@@ -11,7 +11,7 @@ import TextField from "@/ui/TextField";
 import Tooltip from "@/ui/Tooltip";
 
 export type NewDraftButtonProps = {
-  // What the cap message calls the entity, e.g. "feature".
+  // What the cap message calls the entity, e.g. "Feature Flag".
   entityNoun: string;
   activeDraftCount: number;
   // Soft per-entity draft cap; 0 means none. Purely advisory: a warning dot

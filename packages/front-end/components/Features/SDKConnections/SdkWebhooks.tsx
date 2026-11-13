@@ -1,4 +1,4 @@
-import React, { ReactElement, useState } from "react";
+import React, { useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import {
   PiCheck,
@@ -52,19 +52,14 @@ import { DraftChangeMark } from "@/components/Features/DraftChangesPopover";
 import SectionFrame from "@/components/SectionFrame";
 import WebhookErrorDetails from "./WebhookErrorDetails";
 
-const payloadFormatLabels: Record<string, string | ReactElement> = {
+// As the webhook editor names them; the review diff shows them too.
+export const PAYLOAD_FORMAT_LABELS: Record<string, string> = {
   standard: "Standard",
-  "standard-no-payload": (
-    <>
-      Standard
-      <br />
-      (no SDK Payload)
-    </>
-  ),
+  "standard-no-payload": "Standard (no SDK Payload)",
   sdkPayload: "SDK Payload only",
   edgeConfig: "Vercel Edge Config (stringified payload)",
   edgeConfigUnescaped: "Vercel Edge Config",
-  none: "none",
+  none: "None",
 };
 
 // Rows predating `httpMethod` default to POST, and a default timeout is
@@ -79,7 +74,7 @@ function toSnapshot(wh: WebhookInterface): SDKWebhookRevisionSnapshot {
 type WebhookRow = {
   snapshot: SDKWebhookRevisionSnapshot;
   live?: WebhookInterface;
-  staged: "added" | "edited" | null;
+  staged: "added" | "edited" | "removed" | null;
 };
 
 export default function SdkWebhooks({
@@ -87,11 +82,13 @@ export default function SdkWebhooks({
   approvalRequired,
   onRevisionCreated,
   selectedRevision,
+  liveRevisionId = null,
 }: {
   connection: SDKConnectionInterface;
   approvalRequired?: boolean;
   onRevisionCreated?: (revision: Revision) => void;
   selectedRevision?: Revision | null;
+  liveRevisionId?: string | null;
 }) {
   const { data, mutate } = useApi<{ webhooks?: WebhookInterface[] }>(
     `/sdk-connections/${connection.id}/webhooks`,
@@ -112,6 +109,12 @@ export default function SdkWebhooks({
   const selectedDraft = isDraftRevision(selectedRevision)
     ? selectedRevision
     : null;
+  // An earlier revision shows what it published or proposed, read-only.
+  const pastRevision =
+    selectedRevision && !selectedDraft && selectedRevision.id !== liveRevisionId
+      ? selectedRevision
+      : null;
+  const viewedRevision = selectedDraft ?? pastRevision;
   // Writing straight to live while viewing a draft would diverge from it.
   const useRevisionFlow = !!approvalRequired || !!selectedDraft;
 
@@ -119,11 +122,11 @@ export default function SdkWebhooks({
   const liveById = new Map(liveWebhooks.map((wh) => [wh.id, wh]));
 
   const draftWebhookSnapshots = ((): SDKWebhookRevisionSnapshot[] | null => {
-    if (!selectedDraft) return null;
+    if (!viewedRevision) return null;
     const proposed = patchOpsToPartial(
-      selectedDraft.target.proposedChanges,
+      viewedRevision.target.proposedChanges,
     ) as { sdkWebhooks?: SDKWebhookRevisionSnapshot[] };
-    const baseline = selectedDraft.target.snapshot as {
+    const baseline = viewedRevision.target.snapshot as {
       sdkWebhooks?: SDKWebhookRevisionSnapshot[];
     };
     return (proposed.sdkWebhooks ?? baseline?.sdkWebhooks ?? []).map((wh) =>
@@ -131,29 +134,51 @@ export default function SdkWebhooks({
     );
   })();
 
-  const rows: WebhookRow[] = draftWebhookSnapshots
-    ? draftWebhookSnapshots.map((snapshot) => {
-        const live = liveById.get(snapshot.id);
-        return {
-          snapshot,
-          live,
-          staged: !live
-            ? "added"
-            : isEqual(snapshot, toSnapshot(live))
-              ? null
-              : "edited",
-        };
-      })
-    : liveWebhooks.map((live) => ({
-        snapshot: toSnapshot(live),
-        live,
+  const rows: WebhookRow[] = pastRevision
+    ? (draftWebhookSnapshots ?? []).map((snapshot) => ({
+        snapshot,
         staged: null,
-      }));
+      }))
+    : draftWebhookSnapshots
+      ? [
+          ...draftWebhookSnapshots.map((snapshot): WebhookRow => {
+            const live = liveById.get(snapshot.id);
+            return {
+              snapshot,
+              live,
+              staged: !live
+                ? "added"
+                : isEqual(snapshot, toSnapshot(live))
+                  ? null
+                  : "edited",
+            };
+          }),
+          // Live webhooks the draft deletes, kept in view until it publishes.
+          ...liveWebhooks
+            .filter(
+              (live) => !draftWebhookSnapshots.some((s) => s.id === live.id),
+            )
+            .map(
+              (live): WebhookRow => ({
+                snapshot: toSnapshot(live),
+                live,
+                staged: "removed",
+              }),
+            ),
+        ]
+      : liveWebhooks.map((live) => ({
+          snapshot: toSnapshot(live),
+          live,
+          staged: null,
+        }));
 
   const hasWebhooks = rows.length > 0;
+  // One the draft removes no longer counts toward the plan's limit.
+  const keepsWebhook = rows.some((row) => row.staged !== "removed");
   const disableWebhookCreate =
     !canCreateWebhooks ||
-    (hasWebhooks && !hasCommercialFeature("multiple-sdk-webhooks"));
+    !!pastRevision ||
+    (keepsWebhook && !hasCommercialFeature("multiple-sdk-webhooks"));
 
   function buildRevisionUrl() {
     if (selectedDraft) {
@@ -321,7 +346,9 @@ export default function SdkWebhooks({
           <TableCell minWidth="150px">
             <Flex direction="column" align="start" gap="1">
               <Flex align="center" gap="2" wrap="wrap">
-                <Text>{snapshot.name}</Text>
+                <Text color={staged === "removed" ? "text-mid" : undefined}>
+                  {snapshot.name}
+                </Text>
                 {staged ? <DraftChangeMark change={staged} spelled /> : null}
               </Flex>
               {managedBy ? (
@@ -348,7 +375,7 @@ export default function SdkWebhooks({
               hidden
             ) : (
               <Text size="sm">
-                {payloadFormatLabels?.[snapshot.payloadFormat ?? "standard"]}
+                {PAYLOAD_FORMAT_LABELS[snapshot.payloadFormat ?? "standard"]}
               </Text>
             )}
           </TableCell>
@@ -364,7 +391,7 @@ export default function SdkWebhooks({
           </TableCell>
           <TableCell>{renderStatus(live)}</TableCell>
           <TableCell>
-            {live || !managedBy ? (
+            {!pastRevision && staged !== "removed" && (live || !managedBy) ? (
               <DropdownMenu
                 trigger={
                   <MoreMenuTrigger
@@ -411,6 +438,11 @@ export default function SdkWebhooks({
                     color="red"
                     confirmation={{
                       confirmationTitle: "Delete SDK Webhook",
+                      // In a draft it's only removed once the draft publishes.
+                      getConfirmationContent: useRevisionFlow
+                        ? async () =>
+                            "This is saved to a draft. The webhook keeps firing until the draft is published."
+                        : undefined,
                       cta: "Delete",
                       ctaColor: "red",
                       submit: async () => {
@@ -443,7 +475,11 @@ export default function SdkWebhooks({
         actions={
           canCreateWebhooks ? (
             <Tooltip
-              content="You can only have one webhook per SDK Connection in the free plan"
+              content={
+                pastRevision
+                  ? "Switch to live or a draft to change webhooks."
+                  : "You can only have one webhook per SDK Connection in the free plan"
+              }
               enabled={disableWebhookCreate}
             >
               <Button
@@ -483,7 +519,11 @@ export default function SdkWebhooks({
           <Box py="6">
             <EmptyStateMessage
               icon={<PiWebhooksLogo size={20} />}
-              title="No webhooks yet"
+              title={
+                pastRevision
+                  ? "No webhooks in this revision"
+                  : "No webhooks yet"
+              }
               description={
                 <>
                   Webhooks fire on any change affecting this SDK Connection,

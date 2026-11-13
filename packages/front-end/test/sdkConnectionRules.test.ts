@@ -7,6 +7,7 @@ import {
   sanitizeSavedGroupFormat,
   SDKConnectionAdvancedValue,
   shouldShowPayloadSecurity,
+  withAbsentSettings,
 } from "@/components/Features/SDKConnections/sdkConnectionRules";
 
 const allOn: SDKConnectionAdvancedValue = {
@@ -224,5 +225,37 @@ describe("defaultSavedGroupFormat", () => {
         hasLargeSavedGroupFeature: false,
       }),
     ).toBe("inline");
+  });
+});
+
+describe("withAbsentSettings", () => {
+  it("fills what a snapshot left out as the payload reads it", () => {
+    const filled = withAbsentSettings({ name: "Web", encryptPayload: true });
+    expect(filled).toMatchObject({
+      name: "Web",
+      encryptPayload: true,
+      includeDraftExperiments: false,
+      includeExperimentNames: false,
+      allowedCustomFieldsInMetadata: [],
+      proxyEnabled: false,
+    });
+  });
+
+  it("keeps values the snapshot has", () => {
+    expect(
+      withAbsentSettings({
+        includeExperimentNames: true,
+        allowedCustomFieldsInMetadata: ["cf_1"],
+      }),
+    ).toMatchObject({
+      includeExperimentNames: true,
+      allowedCustomFieldsInMetadata: ["cf_1"],
+    });
+  });
+
+  it("leaves the legacy saved-group flag and the format alone", () => {
+    const filled = withAbsentSettings({});
+    expect(filled).not.toHaveProperty("savedGroupReferencesEnabled");
+    expect(filled).not.toHaveProperty("savedGroupFormat");
   });
 });

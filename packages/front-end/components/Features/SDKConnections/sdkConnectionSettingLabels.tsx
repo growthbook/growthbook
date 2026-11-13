@@ -69,7 +69,8 @@ export function WithInfoIcon({ children }: { children: ReactNode }) {
   );
 }
 
-function InfoTooltip({ content }: { content: ReactNode }) {
+// Every setting's info icon, so they all look and behave alike.
+export function InfoTooltip({ content }: { content: ReactNode }) {
   return (
     <Tooltip content={content} {...SETTING_TIP}>
       <Box

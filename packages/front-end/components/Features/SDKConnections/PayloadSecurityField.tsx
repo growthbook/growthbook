@@ -1,5 +1,4 @@
 import { ReactNode, useEffect } from "react";
-import { PiInfo } from "react-icons/pi";
 import { SDKLanguage } from "shared/types/sdk-connection";
 import {
   getConnectionSDKCapabilities,
@@ -13,8 +12,6 @@ import HelperText from "@/ui/HelperText";
 import Link from "@/ui/Link";
 import RadioGroup from "@/ui/RadioGroup";
 import Text from "@/ui/Text";
-import Tooltip from "@/ui/Tooltip";
-import { GBInfo } from "@/components/Icons";
 import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { isCloud } from "@/services/env";
@@ -24,9 +21,9 @@ import {
   shouldShowPayloadSecurity,
 } from "@/components/Features/SDKConnections/sdkConnectionRules";
 import {
-  SETTING_PREMIUM_TIP,
+  InfoTooltip,
   RemoteCipherOptionsLabel,
-  SETTING_TIP,
+  SETTING_PREMIUM_TIP,
   WithInfoIcon,
 } from "@/components/Features/SDKConnections/sdkConnectionSettingLabels";
 
@@ -357,19 +354,7 @@ export default function PayloadSecurityField({
       label: (
         <Flex as="span" align="center" gap="1">
           Plain Text
-          <Tooltip
-            content="Full feature definitions, including targeting conditions and experiment variations, are viewable by anyone with the Client Key."
-            {...SETTING_TIP}
-          >
-            <Box
-              as="span"
-              display="inline-block"
-              tabIndex={0}
-              aria-label="More information"
-            >
-              <PiInfo />
-            </Box>
-          </Tooltip>
+          <InfoTooltip content="Full feature definitions, including targeting conditions and experiment variations, are viewable by anyone with the Client Key." />
         </Flex>
       ),
       description: "Highly cacheable, but may leak sensitive info to users",
@@ -380,19 +365,7 @@ export default function PayloadSecurityField({
         <Flex as="span" align="center" gap="2">
           <Flex as="span" align="center" gap="1">
             Ciphered
-            <Tooltip
-              content="Full feature definitions are encrypted and sensitive targeting conditions are hashed to help avoid leaking business logic to client-side apps. Not 100% secure, but will stop most prying eyes."
-              {...SETTING_TIP}
-            >
-              <Box
-                as="span"
-                display="inline-block"
-                tabIndex={0}
-                aria-label="More information"
-              >
-                <PiInfo />
-              </Box>
-            </Tooltip>
+            <InfoTooltip content="Full feature definitions are encrypted and sensitive targeting conditions are hashed to help avoid leaking business logic to client-side apps. Not 100% secure, but will stop most prying eyes." />
           </Flex>
           {!hasEncryptionFeature && (
             <PaidFeatureBadge commercialFeature="encrypt-features-endpoint" />
@@ -427,19 +400,7 @@ export default function PayloadSecurityField({
       {!hideLabel && (
         <Flex align="center" gap="1" mb="2">
           <Text weight="semibold">Payload Security</Text>
-          <Tooltip
-            content="How much of the feature definition the SDK receives, and whether it can be cached."
-            {...SETTING_TIP}
-          >
-            <Box
-              as="span"
-              display="inline-block"
-              tabIndex={0}
-              aria-label="More information about Payload Security"
-            >
-              <GBInfo />
-            </Box>
-          </Tooltip>
+          <InfoTooltip content="How much of the feature definition the SDK receives, and whether it can be cached." />
         </Flex>
       )}
       <RadioGroup

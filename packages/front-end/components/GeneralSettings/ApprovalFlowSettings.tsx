@@ -210,7 +210,7 @@ export default function ApprovalFlowSettings() {
       <SettingsGroup
         id="ap-flows"
         title="Approval Flows"
-        description="Every change to flags, Configs, Constants, and Saved Groups is saved as a revision. Approval adds a review step before it goes live."
+        description="Every change to flags, Configs, Constants, Saved Groups, and SDK Connections is saved as a revision. Approval adds a review step before it goes live."
         keywords="approval review publish"
       >
         <PremiumCallout
@@ -218,7 +218,7 @@ export default function ApprovalFlowSettings() {
           id="settings-approval-flows"
         >
           Approval Flows add a review step before changes to flags, Configs,
-          Constants, and Saved Groups go live.
+          Constants, Saved Groups, and SDK Connections go live.
         </PremiumCallout>
       </SettingsGroup>
     );

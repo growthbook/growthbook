@@ -160,10 +160,7 @@ export default function SDKConnectionsList() {
               const webhooksWithErrors = webhooks?.filter((w) => w.error);
 
               return (
-                <TableRow
-                  key={connection.id}
-                  style={connection.archived ? { opacity: 0.65 } : undefined}
-                >
+                <TableRow key={connection.id}>
                   <TableCell>
                     <Tooltip content={connectionStatus}>
                       <Flex
@@ -177,9 +174,14 @@ export default function SDKConnectionsList() {
                     </Tooltip>
                   </TableCell>
                   <TableCell style={{ wordBreak: "break-word" }}>
+                    {/* Archived reads muted, beside a badge kept at full contrast. */}
                     <Link
                       href={`/sdks/${connection.id}`}
-                      style={{ color: "var(--gray-12)" }}
+                      style={{
+                        color: connection.archived
+                          ? "var(--gray-11)"
+                          : "var(--gray-12)",
+                      }}
                     >
                       {connection.name}
                     </Link>

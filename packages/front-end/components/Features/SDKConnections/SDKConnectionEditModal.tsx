@@ -11,6 +11,7 @@ import {
   deliveryModeFromConnection,
   sanitizeAdvancedForSave,
   SDKConnectionAdvancedValue,
+  shouldShowPayloadSecurity,
 } from "@/components/Features/SDKConnections/sdkConnectionRules";
 import {
   SdkConnectionRevisionProps,
@@ -51,7 +52,10 @@ export function useSDKConnectionBody() {
       caps,
       "min-ver-intersection",
     );
-    const plain = v.delivery === "plain";
+    // An SDK that can't read a secured payload gets a plain one, whatever
+    // was chosen before it was picked.
+    const plain =
+      v.delivery === "plain" || !shouldShowPayloadSecurity(v.languages);
     return {
       name: v.name,
       languages: v.languages,
@@ -62,6 +66,7 @@ export function useSDKConnectionBody() {
       encryptPayload: plain ? false : v.encryptPayload,
       hashSecureAttributes: plain ? false : v.hashSecureAttributes,
       remoteEvalEnabled:
+        !plain &&
         v.delivery === "remote" &&
         latestCapabilities.includes("remoteEval") &&
         hasCommercialFeature("remote-evaluation"),
