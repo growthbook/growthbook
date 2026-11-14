@@ -468,6 +468,18 @@ const COMPARE_OVERLAY_BAR_GAP = "-100%";
  * series are placed on two overlaid category axes that each center their own bars
  * — see the axis wiring in ExplorerChart.
  */
+/**
+ * How far the previous period extends past the current bar on each side, in px:
+ * a share of the bar width, kept within [minPx, maxPx].
+ */
+export function compareBarFramePx(
+  barWidth: number,
+  minPx: number,
+  maxPx: number,
+  fraction: number,
+): number {
+  return Math.max(minPx, Math.min(maxPx, Math.round(barWidth * fraction)));
+}
 /** Base opacity for the previous-period bar (kept soft, behind current). */
 const COMPARE_OVERLAY_PREVIOUS_BAR_BASE_OPACITY = 0.48;
 /** Current bar dims to this on hover so the previous bar shows through behind it. */

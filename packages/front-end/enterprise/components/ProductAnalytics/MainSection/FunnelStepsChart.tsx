@@ -1,4 +1,4 @@
-import React, { useMemo, useRef } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import EChartsReact from "echarts-for-react";
 import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
@@ -15,6 +15,9 @@ import {
   getChartThemeColors,
 } from "@/components/DataViz/chart-theme";
 import Text from "@/ui/Text";
+import { compareBarFramePx } from "@/enterprise/components/ProductAnalytics/comparison-chart";
+
+const COMPARE_GRID = { left: 56, right: 24, top: 72, bottom: 36 };
 
 /** Convert a `#rrggbb` hex into `rgba(…)` with the given alpha. Used to
  *  paint the drop-off ghost bar in the same hue as its main series at a
@@ -86,6 +89,10 @@ export default function FunnelStepsChart({
   const { textColor, tooltipBackgroundColor, gridLineColor } =
     getChartThemeColors(theme);
 
+  // Measured, so compare mode can size bars and their markers in px
+  const boxRef = useRef<HTMLDivElement>(null);
+  const [boxWidth, setBoxWidth] = useState(0);
+
   const option = useMemo(() => {
     if (!series.length || !stepLabels.length) return null;
 
@@ -110,9 +117,28 @@ export default function FunnelStepsChart({
       animation: animate,
       animationDuration: animate ? 300 : 0,
     };
+    // Compare mode fixes the bar width in px (what the gaps below would give),
+    // so the marker can overhang it by a few px per side, as the comparison bar
+    // chart frames its bars. Until measured, the marker falls back to a percentage.
+    const barPx =
+      comparison && boxWidth
+        ? Math.max(
+            1,
+            Math.round(
+              (((boxWidth - COMPARE_GRID.left - COMPARE_GRID.right) /
+                stepLabels.length) *
+                0.8) /
+                (series.length + (series.length - 1) * 0.3),
+            ),
+          )
+        : null;
     // Bars and previous-period markers are laid out per series type, so both
     // need the same gaps to line up.
-    const barLayout = { barGap: "30%", barCategoryGap: "20%" };
+    const barLayout = {
+      barGap: "30%",
+      barCategoryGap: "20%",
+      ...(barPx ? { barWidth: barPx } : {}),
+    };
 
     // Each series renders as two stacked bars per step:
     //   - the main (solid) bar with the step's count
@@ -185,7 +211,10 @@ export default function FunnelStepsChart({
         name: s.label,
         type: "pictorialBar" as const,
         symbol: "rect",
-        symbolSize: ["116%", 2],
+        symbolSize: [
+          barPx ? barPx + 2 * compareBarFramePx(barPx, 1, 5, 0.08) : "104%",
+          2,
+        ],
         symbolPosition: "end" as const,
         itemStyle: { color: textColor },
         z: 3,
@@ -429,7 +458,7 @@ export default function FunnelStepsChart({
         ...(comparison ? { right: 8, width: "45%" } : {}),
       },
       grid: comparison
-        ? { left: 56, right: 24, top: 72, bottom: 36 }
+        ? COMPARE_GRID
         : {
             left: "8%",
             right: "5%",
@@ -472,6 +501,7 @@ export default function FunnelStepsChart({
     animate,
     yAxisScale,
     colors,
+    boxWidth,
   ]);
 
   // Mirror legend toggles onto the matching low-opacity drop-off ghost so
@@ -500,6 +530,15 @@ export default function FunnelStepsChart({
     [series],
   );
 
+  const hasChart = !!option;
+  useEffect(() => {
+    const el = boxRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => setBoxWidth(el.clientWidth));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [hasChart]);
+
   // `option` is null exactly when there are no steps or no series, so this
   // one guard both renders the empty state and narrows `option` below.
   if (!option) {
@@ -518,7 +557,7 @@ export default function FunnelStepsChart({
   }
 
   return (
-    <Box style={{ flex: 1, minHeight: 0, position: "relative" }}>
+    <Box ref={boxRef} style={{ flex: 1, minHeight: 0, position: "relative" }}>
       <EChartsReact
         ref={chartRef}
         key={JSON.stringify(option)}
