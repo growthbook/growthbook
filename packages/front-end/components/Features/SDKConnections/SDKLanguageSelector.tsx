@@ -10,7 +10,7 @@ import SDKLanguageLogo, {
   LanguageFilter,
 } from "./SDKLanguageLogo";
 
-const tabs: Record<LanguageFilter, string> = {
+export const LANGUAGE_FILTER_LABELS: Record<LanguageFilter, string> = {
   popular: "Popular",
   all: "All",
   browser: "Browser",
@@ -141,19 +141,19 @@ export default function SDKLanguageSelector({
       >
         <Box mb="3">
           <TabsList>
-            {Object.keys(tabs).map((tab) => (
+            {Object.keys(LANGUAGE_FILTER_LABELS).map((tab) => (
               <TabsTrigger key={tab} value={tab}>
                 <span
                   className={tab === languageFilter ? "text-main" : undefined}
                 >
-                  {tabs[tab]}
+                  {LANGUAGE_FILTER_LABELS[tab]}
                 </span>
               </TabsTrigger>
             ))}
           </TabsList>
         </Box>
 
-        {Object.keys(tabs).map((tab) => (
+        {Object.keys(LANGUAGE_FILTER_LABELS).map((tab) => (
           <TabsContent key={tab} value={tab}>
             <Flex wrap="wrap" gap="3" pb="4">
               {languages.map((l) => (

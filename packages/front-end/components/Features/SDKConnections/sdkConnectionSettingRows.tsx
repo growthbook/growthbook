@@ -5,8 +5,11 @@ import Text from "@/ui/Text";
 import SelectField from "@/components/Forms/SelectField";
 import MultiSelectField from "@/ui/MultiSelectField";
 import SDKLanguageLogo, {
+  LanguageFilter,
+  getLanguagesByFilter,
   languageMapping,
 } from "@/components/Features/SDKConnections/SDKLanguageLogo";
+import { LANGUAGE_FILTER_LABELS } from "@/components/Features/SDKConnections/SDKLanguageSelector";
 import {
   EnvironmentField,
   PrerequisitesField,
@@ -126,6 +129,36 @@ function Control({ children }: { children: ReactNode }) {
   return <Box style={{ maxWidth: 560 }}>{children}</Box>;
 }
 
+const languageOption = (language: SDKLanguage) => ({
+  value: language,
+  label: languageMapping[language].label,
+});
+// The SDK picker's categories, where an SDK can sit in several. "Popular" and
+// "All" only repeat the others.
+const LANGUAGE_CATEGORIES: LanguageFilter[] = [
+  "browser",
+  "server",
+  "mobile",
+  "edge",
+];
+const LANGUAGE_OPTIONS = [
+  ...LANGUAGE_CATEGORIES.map((category) => ({
+    label: LANGUAGE_FILTER_LABELS[category],
+    options: getLanguagesByFilter(category).map(languageOption),
+  })),
+  {
+    label: "Other",
+    options: (Object.keys(languageMapping) as SDKLanguage[])
+      .filter(
+        (language) =>
+          !LANGUAGE_CATEGORIES.some((category) =>
+            languageMapping[language].filters.includes(category),
+          ),
+      )
+      .map(languageOption),
+  },
+];
+
 function LanguageField({
   value,
   onChange,
@@ -135,7 +168,6 @@ function LanguageField({
   onChange: OnChange;
   disabled?: boolean;
 }) {
-  const options = Object.keys(languageMapping) as SDKLanguage[];
   // Connections created with several SDKs keep them; new picks are one SDK.
   if (value.length > 1) {
     return (
@@ -145,10 +177,7 @@ function LanguageField({
         disabled={disabled}
         value={value}
         onChange={(langs) => onChange(languagesPatch(langs as SDKLanguage[]))}
-        options={options.map((l) => ({
-          value: l,
-          label: languageMapping[l].label,
-        }))}
+        options={LANGUAGE_OPTIONS}
         formatOptionLabel={({ value: l }) => (
           <SDKLanguageLogo language={l as SDKLanguage} showLabel size={20} />
         )}
@@ -164,10 +193,7 @@ function LanguageField({
       placeholder="Choose an SDK..."
       value={value[0]}
       onChange={(lang) => onChange(languagesPatch([lang as SDKLanguage]))}
-      options={options.map((lang) => ({
-        label: languageMapping[lang].label,
-        value: lang,
-      }))}
+      options={LANGUAGE_OPTIONS}
       sort={false}
       formatOptionLabel={({ value: lang }) => (
         <SDKLanguageLogo
