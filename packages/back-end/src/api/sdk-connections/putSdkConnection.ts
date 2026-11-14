@@ -7,12 +7,12 @@ import {
   SDKConnectionRevisionSnapshot,
   putSdkConnectionValidator,
 } from "shared/validators";
+import { withLegacySavedGroupFlag } from "shared/sdk-versioning";
 import {
   findSDKConnectionById,
   toApiSDKConnectionInterface,
   editSDKConnection,
 } from "back-end/src/models/SdkConnectionModel";
-import { withLegacySavedGroupFlag } from "shared/sdk-versioning";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { getAdapter } from "back-end/src/revisions";
