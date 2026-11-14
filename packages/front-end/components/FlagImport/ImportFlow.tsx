@@ -615,6 +615,10 @@ export default function ImportFlow({
   );
 }
 
+// An upload can be imported once, so what was left behind needs a new one.
+// Sending the same file is safe: Feature Flags that exist are left alone.
+const RETRY = "To try again, send the file again to get a new link.";
+
 export function ImportDone({
   flagImport,
   onGoToFlags,
@@ -640,24 +644,28 @@ export function ImportDone({
 
   return (
     <>
-      {created.length ? (
-        <ImportHero
-          eyebrow={<Badge label="Imported" color="green" />}
-          title={`${plural(created.length, "Feature Flag")} Imported`}
-        >
-          {stopped
-            ? "The import stopped before it finished. The reason is listed below."
-            : leftOut.length
-              ? `${created.length} of ${attempted} were imported. The rest are listed below.`
-              : "They have the same rules as your code."}
-        </ImportHero>
-      ) : (
+      {!created.length ? (
         <ImportHero
           eyebrow={<Badge label="Not imported" color="red" />}
           title="No Feature Flags Were Imported"
         >
-          The reasons are listed below. To try again, send the file again to get
-          a new link.
+          {`The reasons are listed below. ${RETRY}`}
+        </ImportHero>
+      ) : leftOut.length ? (
+        <ImportHero
+          eyebrow={<Badge label="Partly imported" color="amber" />}
+          title={`${plural(created.length, "Feature Flag")} Imported`}
+        >
+          {stopped
+            ? `The import stopped before it finished. The reason is listed below. ${RETRY}`
+            : `${created.length} of ${attempted} were imported. The rest are listed below.`}
+        </ImportHero>
+      ) : (
+        <ImportHero
+          eyebrow={<Badge label="Imported" color="green" />}
+          title={`${plural(created.length, "Feature Flag")} Imported`}
+        >
+          They have the same rules as your code.
         </ImportHero>
       )}
       {created.length ? (
