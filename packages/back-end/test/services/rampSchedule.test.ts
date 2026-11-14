@@ -23,6 +23,7 @@ import type {
 } from "shared/validators";
 import type { FeatureInterface, FeatureRule } from "shared/types/feature";
 import {
+  getRampRetry,
   isAwaitingApproval,
   isReadyForApproval,
   isAwaitingStartApproval,
@@ -65,6 +66,8 @@ import {
   rampStartValuesOf,
   forceMatchesValueType,
   remapTemplateActions,
+  isTerminalRampError,
+  shiftRampTimersForHold,
 } from "back-end/src/services/rampSchedule";
 
 // ---------------------------------------------------------------------------
@@ -125,7 +128,9 @@ import {
 } from "back-end/src/models/FeatureRevisionModel";
 import { createEvent } from "back-end/src/models/EventModel";
 import {
+  BadRequestError,
   ConflictError,
+  NotFoundError,
   RampAdvanceLockBusyError,
 } from "back-end/src/util/errors";
 
@@ -4646,7 +4651,7 @@ describe("startReadyScheduleNow", () => {
       ],
     });
     (validateRampPlanPatches as jest.Mock).mockRejectedValueOnce(
-      new Error("step refused"),
+      new BadRequestError("step refused"),
     );
 
     await expect(startReadyScheduleNow(ctx as never, schedule)).rejects.toThrow(
@@ -4666,6 +4671,40 @@ describe("startReadyScheduleNow", () => {
     );
     expect(mockCreateEvent.mock.calls.map(([e]) => e.event)).toContain(
       "rampSchedule.actions.errorPaused",
+    );
+  });
+
+  it("a first step that fails for another reason stays running and retries", async () => {
+    const { ctx, schedule, updateById } = makeStartNowCtx({
+      steps: [
+        {
+          interval: 60,
+          actions: [
+            {
+              targetType: "feature-rule",
+              targetId: TARGET_ID,
+              patch: { ruleId: RULE_ID, coverage: 0.5 },
+            },
+          ],
+        },
+      ],
+    });
+    (validateRampPlanPatches as jest.Mock).mockRejectedValueOnce(
+      new Error("connection pool cleared"),
+    );
+
+    await expect(startReadyScheduleNow(ctx as never, schedule)).rejects.toThrow(
+      "connection pool cleared",
+    );
+    expect(updateById).toHaveBeenCalledWith(schedule.id, {
+      stepFailure: expect.objectContaining({
+        attempts: 1,
+        lastError: "connection pool cleared",
+      }),
+    });
+    expect(updateById).not.toHaveBeenCalledWith(
+      schedule.id,
+      expect.objectContaining({ status: "paused" }),
     );
   });
 });
@@ -6014,6 +6053,122 @@ describe("applyRampBaseStateSync / restoreRampBaseStates", () => {
       await restoredWith({
         reason: "Base state updated by publishing revision 4: r1: value",
       }),
+    ).toBeNull();
+  });
+});
+
+describe("isTerminalRampError", () => {
+  const withStatus = (status: number) =>
+    Object.assign(new Error("x"), { status });
+
+  it("pauses at once on refusals no retry gets past", () => {
+    expect(isTerminalRampError(new BadRequestError("invalid step"))).toBe(true);
+    expect(isTerminalRampError(new NotFoundError("rule deleted"))).toBe(true);
+    expect(isTerminalRampError(withStatus(403))).toBe(true);
+  });
+
+  it("retries conflicts, rate limits and server errors", () => {
+    expect(isTerminalRampError(new ConflictError("raced"))).toBe(false);
+    expect(isTerminalRampError(new RampAdvanceLockBusyError("busy"))).toBe(
+      false,
+    );
+    expect(isTerminalRampError(withStatus(429))).toBe(false);
+    expect(isTerminalRampError(withStatus(500))).toBe(false);
+  });
+
+  it("retries errors without a status, such as database failovers", () => {
+    const failover = Object.assign(new Error("not primary"), {
+      name: "MongoServerError",
+      code: 10107,
+    });
+    expect(isTerminalRampError(failover)).toBe(false);
+    expect(isTerminalRampError(new Error("buffering timed out"))).toBe(false);
+    expect(isTerminalRampError("blip")).toBe(false);
+    expect(isTerminalRampError(null)).toBe(false);
+  });
+});
+
+describe("getRampRetry", () => {
+  const stepFailure = {
+    attempts: 2,
+    lastError: "timed out",
+    retryAt: new Date("2026-11-13T12:00:00.000Z"),
+  };
+
+  it("reports the failure until the schedule finishes", () => {
+    for (const status of ["pending", "ready", "running", "paused"]) {
+      expect(getRampRetry({ status, stepFailure })).toBe(stepFailure);
+    }
+  });
+
+  it("reports nothing once the schedule is finished", () => {
+    for (const status of ["completed", "rolled-back"]) {
+      expect(getRampRetry({ status, stepFailure })).toBeNull();
+    }
+  });
+
+  it("reports nothing without a failure", () => {
+    expect(getRampRetry({ status: "running" })).toBeNull();
+    expect(getRampRetry({ status: "running", stepFailure: null })).toBeNull();
+  });
+});
+
+describe("shiftRampTimersForHold", () => {
+  const t = (minutes: number) =>
+    new Date(Date.UTC(2026, 10, 13, 12, 0) + minutes * 60_000);
+  const failing = (heldSince: Date) => ({
+    attempts: 2,
+    lastError: "timed out",
+    retryAt: t(30),
+    heldSince,
+  });
+
+  it("pushes the step timers back by the time held and restarts the hold", () => {
+    expect(
+      shiftRampTimersForHold(
+        {
+          phaseStartedAt: t(0),
+          nextStepAt: t(10),
+          stepFailure: failing(t(10)),
+        },
+        t(40),
+      ),
+    ).toEqual({
+      phaseStartedAt: t(30),
+      nextStepAt: t(40),
+      stepFailure: failing(t(40)),
+    });
+  });
+
+  it("applies each stretch of the hold once", () => {
+    const first = shiftRampTimersForHold(
+      { phaseStartedAt: t(0), nextStepAt: t(10), stepFailure: failing(t(10)) },
+      t(15),
+    );
+    const second = shiftRampTimersForHold(
+      {
+        phaseStartedAt: first?.phaseStartedAt,
+        nextStepAt: first?.nextStepAt ?? null,
+        stepFailure: first?.stepFailure,
+      },
+      t(40),
+    );
+    expect(second?.phaseStartedAt).toEqual(t(30));
+    expect(second?.nextStepAt).toEqual(t(40));
+  });
+
+  it("leaves unset timers unset and does nothing without a failure", () => {
+    expect(
+      shiftRampTimersForHold(
+        { phaseStartedAt: null, nextStepAt: null, stepFailure: failing(t(0)) },
+        t(5),
+      ),
+    ).toEqual({ stepFailure: failing(t(5)) });
+    expect(
+      shiftRampTimersForHold(
+        { phaseStartedAt: t(0), nextStepAt: t(10), stepFailure: null },
+        t(5),
+      ),
     ).toBeNull();
   });
 });

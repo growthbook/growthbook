@@ -79,6 +79,8 @@ export const RAMP_EVENT_LABELS: Record<string, string> = {
   "rampSchedule.actions.step.approvalRequired": "Ramp step awaiting approval",
   "rampSchedule.actions.errorPaused": "Ramp schedule paused on error",
   "rampSchedule.actions.stepHeld": "Ramp step held by a health check",
+  "rampSchedule.actions.stepRetrying": "Ramp step retrying",
+  "rampSchedule.actions.stepRecovered": "Ramp step recovered",
   "rampSchedule.actions.paused": "Ramp schedule paused",
   "rampSchedule.actions.resumed": "Ramp schedule resumed",
 };

@@ -44,6 +44,7 @@ import {
 import { format as formatTimeZone } from "date-fns-tz";
 import {
   ApiContextualBanditInterface,
+  getRampRetry,
   isReadyForApproval,
   isAwaitingStartApproval,
   SafeRolloutInterface,
@@ -384,6 +385,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
     const [dropdownOpen, setDropdownOpen] = useState(false);
     const [showDeleteRuleModal, setShowDeleteRuleModal] = useState(false);
     const [rampApproveLoading, setRampApproveLoading] = useState(false);
+    const [rampRetryLoading, setRampRetryLoading] = useState(false);
     const [rampActionError, setRampActionError] = useState("");
     useApprovalTimerTick(rampSchedule);
     const rollbackToStart = async (reason = "rolled back to start") => {
@@ -586,6 +588,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
     // only repeat it.
     const simpleScheduleDone =
       isSimpleSchedule && rampSchedule?.status === "completed";
+    const rampRetry = rampSchedule ? getRampRetry(rampSchedule) : null;
     const hasMonitoringStatusRow =
       !!rampSchedule?.safeRolloutId &&
       rampSchedule.steps.some((s) => s.monitored);
@@ -1892,6 +1895,45 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                     }
                   >
                     {rampActionError}
+                  </Callout>
+                )}
+                {rampRetry && (
+                  <Callout
+                    status="warning"
+                    mb="2"
+                    action={
+                      canControlRamp && !rampControlsLocked ? (
+                        <Button
+                          size="sm"
+                          color="inherit"
+                          loading={rampRetryLoading}
+                          onClick={async () => {
+                            setRampActionError("");
+                            setRampRetryLoading(true);
+                            try {
+                              await apiCall(
+                                `/ramp-schedule/${rampSchedule.id}/actions/retry`,
+                                { method: "POST" },
+                              );
+                            } catch (e) {
+                              setRampActionError(
+                                e instanceof Error ? e.message : String(e),
+                              );
+                            } finally {
+                              await mutate();
+                              setRampRetryLoading(false);
+                            }
+                          }}
+                        >
+                          Retry now
+                        </Button>
+                      ) : undefined
+                    }
+                  >
+                    <Text weight="semibold">Retrying a failed step.</Text> The
+                    ramp holds at its current step and pauses if retries keep
+                    failing. Attempt {rampRetry.attempts} failed:{" "}
+                    {rampRetry.lastError}
                   </Callout>
                 )}
                 {rampSchedule.status === "rolled-back" &&

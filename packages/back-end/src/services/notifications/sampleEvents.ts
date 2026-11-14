@@ -353,6 +353,25 @@ const sampleEvents = {
       },
     },
   }),
+  "feature.rampSchedule.actions.stepRetrying": () => ({
+    event: "feature.rampSchedule.actions.stepRetrying",
+    object: "feature",
+    data: {
+      object: {
+        ...sampleRamp(),
+        reason:
+          "Operation `featurerevisions.findOne()` buffering timed out after 10000ms",
+        attempts: 1,
+        maxAttempts: 10,
+        nextAttemptAt: "2026-01-01T00:00:05.000Z",
+      },
+    },
+  }),
+  "feature.rampSchedule.actions.stepRecovered": () => ({
+    event: "feature.rampSchedule.actions.stepRecovered",
+    object: "feature",
+    data: { object: { ...sampleRamp(), attempts: 3 } },
+  }),
   "feature.rampSchedule.actions.paused": () => ({
     event: "feature.rampSchedule.actions.paused",
     object: "feature",

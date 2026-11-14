@@ -37499,6 +37499,63 @@ paths:
             'https://api.growthbook.io/api/v1/ramp-schedules/{id}/actions/resume'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/ramp-schedules/{id}/actions/retry:
+    post:
+      operationId: retryRampSchedule
+      summary: Retry a ramp schedule's failed step
+      description: >
+        When a step fails for a reason that may clear on its own, such as a
+
+        database timeout or a concurrent edit, the schedule holds at its current
+        step
+
+        and retries on a backoff: 5s, 10s, 30s, 1m, then doubling up to 30m.
+        After 10
+
+        failed attempts it pauses. `stepFailure` on the schedule shows the
+        attempt
+
+        count, the last error and when the next attempt is due.
+
+
+        This runs the next attempt now instead of waiting. It applies the same
+        hold
+
+        conditions the scheduler would — use `/actions/advance` to bypass them.
+        A
+
+        failed attempt counts toward the limit and returns its error.
+      tags:
+        - ramp-schedules
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  rampSchedule:
+                    $ref: '#/components/schemas/RampSchedule'
+                required:
+                  - rampSchedule
+                additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/ramp-schedules/{id}/actions/retry'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
   /v1/ramp-schedules/{id}/actions/rollback:
     post:
       operationId: rollbackRampSchedule
@@ -38483,6 +38540,31 @@ paths:
                     anyOf:
                       - type: string
                       - type: 'null'
+                  stepFailure:
+                    description: >-
+                      Set while the scheduler is retrying a failed step. The
+                      schedule holds at its current step and pauses once the
+                      retries run out. Use `/actions/retry` to make the next
+                      attempt now.
+                    anyOf:
+                      - type: object
+                        properties:
+                          attempts:
+                            description: Failed attempts since the last clean pass.
+                            type: integer
+                          lastError:
+                            description: The most recent attempt's error.
+                            type: string
+                          retryAt:
+                            description: When the scheduler makes the next attempt.
+                            type: string
+                            format: date-time
+                        required:
+                          - attempts
+                          - lastError
+                          - retryAt
+                        additionalProperties: false
+                      - type: 'null'
                   monitoringStatus:
                     description: >-
                       Read-only monitoring status. Present when monitoringConfig
@@ -38899,6 +38981,31 @@ paths:
                   lastRollbackReason:
                     anyOf:
                       - type: string
+                      - type: 'null'
+                  stepFailure:
+                    description: >-
+                      Set while the scheduler is retrying a failed step. The
+                      schedule holds at its current step and pauses once the
+                      retries run out. Use `/actions/retry` to make the next
+                      attempt now.
+                    anyOf:
+                      - type: object
+                        properties:
+                          attempts:
+                            description: Failed attempts since the last clean pass.
+                            type: integer
+                          lastError:
+                            description: The most recent attempt's error.
+                            type: string
+                          retryAt:
+                            description: When the scheduler makes the next attempt.
+                            type: string
+                            format: date-time
+                        required:
+                          - attempts
+                          - lastError
+                          - retryAt
+                        additionalProperties: false
                       - type: 'null'
                   monitoringStatus:
                     description: >-
@@ -39407,6 +39514,31 @@ paths:
                     anyOf:
                       - type: string
                       - type: 'null'
+                  stepFailure:
+                    description: >-
+                      Set while the scheduler is retrying a failed step. The
+                      schedule holds at its current step and pauses once the
+                      retries run out. Use `/actions/retry` to make the next
+                      attempt now.
+                    anyOf:
+                      - type: object
+                        properties:
+                          attempts:
+                            description: Failed attempts since the last clean pass.
+                            type: integer
+                          lastError:
+                            description: The most recent attempt's error.
+                            type: string
+                          retryAt:
+                            description: When the scheduler makes the next attempt.
+                            type: string
+                            format: date-time
+                        required:
+                          - attempts
+                          - lastError
+                          - retryAt
+                        additionalProperties: false
+                      - type: 'null'
                   monitoringStatus:
                     description: >-
                       Read-only monitoring status. Present when monitoringConfig
@@ -39826,6 +39958,31 @@ paths:
                   lastRollbackReason:
                     anyOf:
                       - type: string
+                      - type: 'null'
+                  stepFailure:
+                    description: >-
+                      Set while the scheduler is retrying a failed step. The
+                      schedule holds at its current step and pauses once the
+                      retries run out. Use `/actions/retry` to make the next
+                      attempt now.
+                    anyOf:
+                      - type: object
+                        properties:
+                          attempts:
+                            description: Failed attempts since the last clean pass.
+                            type: integer
+                          lastError:
+                            description: The most recent attempt's error.
+                            type: string
+                          retryAt:
+                            description: When the scheduler makes the next attempt.
+                            type: string
+                            format: date-time
+                        required:
+                          - attempts
+                          - lastError
+                          - retryAt
+                        additionalProperties: false
                       - type: 'null'
                   monitoringStatus:
                     description: >-
@@ -82199,6 +82356,30 @@ components:
         lastRollbackReason:
           anyOf:
             - type: string
+            - type: 'null'
+        stepFailure:
+          description: >-
+            Set while the scheduler is retrying a failed step. The schedule
+            holds at its current step and pauses once the retries run out. Use
+            `/actions/retry` to make the next attempt now.
+          anyOf:
+            - type: object
+              properties:
+                attempts:
+                  description: Failed attempts since the last clean pass.
+                  type: integer
+                lastError:
+                  description: The most recent attempt's error.
+                  type: string
+                retryAt:
+                  description: When the scheduler makes the next attempt.
+                  type: string
+                  format: date-time
+              required:
+                - attempts
+                - lastError
+                - retryAt
+              additionalProperties: false
             - type: 'null'
         monitoringStatus:
           description: Read-only monitoring status. Present when monitoringConfig is set.

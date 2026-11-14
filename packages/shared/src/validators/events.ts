@@ -26,6 +26,8 @@ import {
   rampScheduleRolledBackPayload,
   rampScheduleErrorPausedPayload,
   rampScheduleStepHeldPayload,
+  rampScheduleStepRetryingPayload,
+  rampScheduleStepRecoveredPayload,
   rampSchedulePausedPayload,
   rampScheduleResumedPayload,
   rampScheduleCreatedPayload,
@@ -234,6 +236,12 @@ export const notificationEvents = {
     },
     "rampSchedule.actions.stepHeld": {
       schema: rampScheduleStepHeldPayload,
+    },
+    "rampSchedule.actions.stepRetrying": {
+      schema: rampScheduleStepRetryingPayload,
+    },
+    "rampSchedule.actions.stepRecovered": {
+      schema: rampScheduleStepRecoveredPayload,
     },
     "rampSchedule.actions.paused": {
       schema: rampSchedulePausedPayload,

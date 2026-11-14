@@ -1,24 +1,12 @@
 import Agenda, { Job } from "agenda";
 import { isAwaitingStartApproval } from "shared/validators";
-import { isRampScheduleServing } from "shared/util";
 import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
 import { logger } from "back-end/src/util/logger";
+import { withRampScheduleAdvanceLock } from "back-end/src/services/rampSchedule";
 import {
-  appendRampEvent,
-  applyRampStartActions,
-  completeRollout,
-  computeNextProcessAt,
-  ensureRampStartActions,
-  ensureSafeRolloutForMonitoredRamp,
-  errorPauseRampSchedule,
-  isTransientRampError,
-  onActivatingRevisionPublished,
-  withRampScheduleAdvanceLock,
-} from "back-end/src/services/rampSchedule";
-import {
-  applyRampEvaluationDecision,
-  evaluateCurrentStep,
-} from "back-end/src/services/rampScheduleEvaluator";
+  getActivatingVersion,
+  runRampScheduleTick,
+} from "back-end/src/services/rampScheduleTick";
 import { RampAdvanceLockBusyError } from "back-end/src/util/errors";
 import { getFeature } from "back-end/src/models/FeatureModel";
 import { RampScheduleModel } from "back-end/src/models/RampScheduleModel";
@@ -72,17 +60,6 @@ export default async function addRampScheduleJob(agenda: Agenda) {
   await job.save();
 }
 
-function getActivatingVersion(schedule: {
-  targets: { activatingRevisionVersion?: number | null }[];
-}): number | null {
-  const v = schedule.targets.find(
-    (t) =>
-      t.activatingRevisionVersion !== undefined &&
-      t.activatingRevisionVersion !== null,
-  )?.activatingRevisionVersion;
-  return v ?? null;
-}
-
 export const advanceSingleRampSchedule = async (
   job: AdvanceSingleRampScheduleJob,
 ) => {
@@ -100,6 +77,12 @@ export const advanceSingleRampSchedule = async (
   try {
     const screened = await context.models.rampSchedules.getById(rampScheduleId);
     if (!screened) return;
+    // A failed step waits out its backoff; the poll keeps finding it due.
+    const backoffUntil = screened.stepFailure?.retryAt;
+    if (backoffUntil && backoffUntil > now) {
+      job.schedule(backoffUntil);
+      return;
+    }
     // A ready schedule held for start approval never advances from a poll (it
     // waits for the approve action). Skip it here so a held schedule that still
     // carries a past startDate isn't lock-cycled every tick. A *pending*
@@ -107,7 +90,11 @@ export const advanceSingleRampSchedule = async (
     // revision transition (which is what establishes the hold), so let it fall
     // through to the pending-recovery block below — otherwise a publish hook
     // that deferred to the scheduler leaves it stuck pending forever.
-    if (screened.status !== "pending" && isAwaitingStartApproval(screened)) {
+    if (
+      screened.status !== "pending" &&
+      isAwaitingStartApproval(screened) &&
+      !screened.stepFailure
+    ) {
       return;
     }
     if (screened.status === "pending") {
@@ -128,13 +115,13 @@ export const advanceSingleRampSchedule = async (
 
   // If another advance holds the lock, skip this tick — the schedule's
   // nextProcessAt keeps it queued for a retry.
+  let retryAt: Date | null;
   try {
-    await withRampScheduleAdvanceLock(
+    retryAt = await withRampScheduleAdvanceLock(
       context,
       rampScheduleId,
-      async (heartbeat) => {
-        await runRampScheduleTick(context, rampScheduleId, now, heartbeat);
-      },
+      (heartbeat) =>
+        runRampScheduleTick(context, rampScheduleId, now, heartbeat),
     );
   } catch (e) {
     if (e instanceof RampAdvanceLockBusyError) {
@@ -146,108 +133,7 @@ export const advanceSingleRampSchedule = async (
     }
     throw e;
   }
+  // The poll runs once a minute; rescheduling this job lets the first retries
+  // land seconds apart.
+  if (retryAt && retryAt > new Date()) job.schedule(retryAt);
 };
-
-async function runRampScheduleTick(
-  context: Awaited<ReturnType<typeof getContextForAgendaJobByOrgId>>,
-  rampScheduleId: string,
-  now: Date,
-  heartbeat: () => Promise<void>,
-) {
-  try {
-    const schedule = await context.models.rampSchedules.getById(rampScheduleId);
-    if (!schedule) return;
-
-    let current = schedule;
-
-    if (current.status === "pending") {
-      const activatingVersion = getActivatingVersion(current);
-      if (activatingVersion !== null) {
-        const feature = current.entityId
-          ? await getFeature(context, current.entityId)
-          : undefined;
-        if ((feature?.version ?? -1) >= activatingVersion) {
-          // Activation runs start actions + a catch-up publish — refresh the
-          // lease before this potentially slow multi-publish phase.
-          await heartbeat();
-          await onActivatingRevisionPublished(context, current);
-          current =
-            (await context.models.rampSchedules.getById(current.id)) ?? current;
-        }
-      }
-      if (current.status === "pending") return;
-    }
-
-    current = await ensureRampStartActions(context, current);
-
-    if (
-      current.status === "ready" &&
-      current.startDate &&
-      current.startDate <= now &&
-      // An approval-gated schedule holds even past its startDate until approved.
-      !isAwaitingStartApproval(current)
-    ) {
-      const initialNextStepAt = current.steps.length > 0 ? now : null;
-      current = await context.models.rampSchedules.updateById(current.id, {
-        status: "running",
-        startedAt: now,
-        phaseStartedAt: now,
-        monitoringStartDate: null,
-        nextStepAt: initialNextStepAt,
-        nextProcessAt: computeNextProcessAt({
-          status: "running",
-          nextStepAt: initialNextStepAt,
-          cutoffDate: current.cutoffDate,
-        }),
-        eventHistory: appendRampEvent(current, "started", {
-          stepIndex: -1,
-          status: "running",
-          previousStatus: current.status,
-          reason: "Scheduled start",
-        }),
-      });
-      await applyRampStartActions(context, current);
-      // For ready->running, SR creation/sync happens in the "running" block
-      // below in the same tick, so we don't need to wait another scheduler
-      // tick to pick it up. Pending->running may already have done this inline
-      // via onActivatingRevisionPublished.
-    }
-
-    if (
-      current.cutoffDate &&
-      current.cutoffDate <= now &&
-      isRampScheduleServing(current)
-    ) {
-      await completeRollout(context, current, {
-        disableActiveTargets: true,
-      });
-      return;
-    }
-
-    if (current.status !== "running") return;
-
-    current = await ensureSafeRolloutForMonitoredRamp(context, current);
-
-    const decision = await evaluateCurrentStep(context, current, now);
-    // Refresh the lease between the slow evaluation and slow publish phases.
-    await heartbeat();
-    await applyRampEvaluationDecision(context, current, decision, now);
-  } catch (e) {
-    // Transient errors (network blips, lock contention) — log and let the
-    // next scheduler tick retry.
-    if (isTransientRampError(e)) {
-      logger.info(
-        { rampScheduleId },
-        `Transient error advancing ramp schedule — will retry next tick: ${e instanceof Error ? e.message : String(e)}`,
-      );
-      return;
-    }
-
-    logger.error(e, `Error advancing ramp schedule ${rampScheduleId}`);
-    await errorPauseRampSchedule(
-      context,
-      rampScheduleId,
-      e instanceof Error ? e.message : String(e),
-    );
-  }
-}
