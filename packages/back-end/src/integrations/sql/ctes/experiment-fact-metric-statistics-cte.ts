@@ -25,6 +25,7 @@ import {
   funnelStepSumColumn,
   funnelStepValueColumn,
 } from "back-end/src/integrations/sql/fact-metrics/funnel-columns";
+import { compoundComponentUnitsColumn } from "back-end/src/integrations/sql/fact-metrics/compound-columns";
 
 type StatisticColumnRefs = {
   capMain: string;
@@ -268,8 +269,19 @@ export function getExperimentFactMetricStatisticsCTE(
                     : "",
                 ].join("")
               : "";
+            // Descriptive only: units matching each compound component, out of
+            // the units the metric analyzes. The cluster rollup has already
+            // collapsed the per-unit counts.
+            const compoundComponentUnits = useClusterRollup
+              ? ""
+              : data.compoundComponentRefs
+                  .map(
+                    (ref, k) => `
+            , SUM(${eligible(`CASE WHEN ${ref} >= 1 THEN 1 ELSE 0 END`)}) AS ${compoundComponentUnitsColumn(data.alias, k)}`,
+                  )
+                  .join("");
             return `
-           , ${dialect.castToString(`'${data.id}'`)} as ${data.alias}_id
+           , ${dialect.castToString(`'${data.id}'`)} as ${data.alias}_id${compoundComponentUnits}
             ${usersColumnMarker(data.alias)}
             ${
               data.computeUncappedMetric

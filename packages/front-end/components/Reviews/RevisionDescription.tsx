@@ -1,6 +1,6 @@
 import { ReactNode, useEffect, useRef, useState } from "react";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
-import { PiPencilSimpleFill } from "react-icons/pi";
+import { PiPencilSimple } from "react-icons/pi";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
 import Link from "@/ui/Link";
@@ -93,7 +93,7 @@ export default function RevisionDescription({
               onClick={() => setEditing(true)}
               aria-label="Edit description"
             >
-              <PiPencilSimpleFill />
+              <PiPencilSimple />
             </IconButton>
           )}
         </Flex>

@@ -1,6 +1,6 @@
 import mongoose from "mongoose";
 import uniqid from "uniqid";
-import { cloneDeep, isEqual } from "lodash";
+import { cloneDeep, isEqual, isNull, omitBy } from "lodash";
 import { MANAGED_WAREHOUSE_EVENTS_FACT_TABLE_ID } from "shared/constants";
 import { getDataSourceSqlDialect } from "shared/dialects";
 import {
@@ -16,6 +16,7 @@ import {
   findColumnsNeedingQuotes,
   getColumnsNeedingQuotesMessage,
   resolveAnalysisIdentifierType,
+  parseOptionalInt,
 } from "shared/util";
 import {
   DataSourceInterface,
@@ -102,6 +103,18 @@ const dataSourceSchema = new mongoose.Schema<DataSourceDocument>({
   settings: {},
 });
 dataSourceSchema.index({ id: 1, organization: 1 }, { unique: true });
+// Managed Warehouse recreate state isn't part of the datasource and is written
+// outside this schema: `recreateRequest` by super admins, `recreateStatus` and
+// the lock's `lockOwner` by the license server. Only the admin endpoints read
+// them (services/managedWarehouseRecreate).
+dataSourceSchema.set("toJSON", {
+  transform: (doc, ret) => {
+    delete ret.recreateRequest;
+    delete ret.recreateStatus;
+    delete ret.lockOwner;
+    return ret;
+  },
+});
 
 // At most one Managed Warehouse per org. Partial so other datasource types
 // stay unconstrained. exists() is the fast path; this index closes the race
@@ -919,6 +932,9 @@ export function toDataSourceApiInterface(
   datasource: DataSourceInterface,
 ): ApiDataSource {
   const settings = datasource.settings;
+  // As the query runner reads them; negatives are left out so a GET echo saves
+  const maxConcurrentQueries = parseOptionalInt(settings?.maxConcurrentQueries);
+  const queryCacheTTLMins = parseOptionalInt(settings?.queryCacheTTLMins);
   const obj: ApiDataSource = {
     id: datasource.id,
     dateCreated: datasource.dateCreated?.toISOString() || "",
@@ -952,6 +968,21 @@ export function toDataSourceApiInterface(
       }),
     ),
     eventTracker: settings?.schemaFormat || "custom",
+    // Cleared form fields are stored as null, which an echoed PUT would reject
+    ...(settings?.pipelineSettings
+      ? {
+          pipelineSettings: omitBy(
+            settings.pipelineSettings,
+            isNull,
+          ) as DataSourcePipelineSettings,
+        }
+      : {}),
+    ...(maxConcurrentQueries !== undefined && maxConcurrentQueries >= 0
+      ? { maxConcurrentQueries }
+      : {}),
+    ...(queryCacheTTLMins !== undefined && queryCacheTTLMins >= 0
+      ? { queryCacheTTLMins }
+      : {}),
   };
 
   if (datasource.type === "mixpanel") {

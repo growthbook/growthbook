@@ -8,6 +8,7 @@ import {
   isRegressionAdjusted,
   quantileMetricType,
   eligibleForUncappedMetric,
+  isFactCompoundMetric,
   isFactFunnelMetric,
   getFactMetricFactTableIds,
   parseFunnelStepMetricId,
@@ -82,6 +83,7 @@ export function getNonQuantileNonFunnelFloatColumns({
     switch (metric.metricType) {
       case "mean":
       case "proportion":
+      case "compound":
       case "dailyParticipation":
       case "retention":
         return BASE_METRIC_FLOAT_COLS;
@@ -99,6 +101,7 @@ export function getNonQuantileNonFunnelFloatColumns({
     switch (metric.metricType) {
       case "mean":
       case "proportion":
+      case "compound":
       case "dailyParticipation":
       case "retention":
         return BASE_METRIC_CUPED_FLOAT_COLS;
@@ -121,6 +124,7 @@ export function getNonQuantileNonFunnelFloatColumns({
       switch (metric.metricType) {
         case "mean":
         case "proportion":
+        case "compound":
         case "dailyParticipation":
         case "retention":
           cols.push(...BASE_METRIC_PERCENTILE_CAPPING_FLOAT_COLS);
@@ -139,6 +143,7 @@ export function getNonQuantileNonFunnelFloatColumns({
       switch (metric.metricType) {
         case "mean":
         case "proportion":
+        case "compound":
         case "dailyParticipation":
         case "retention":
           cols.push(...BASE_METRIC_LOWER_PERCENTILE_CAPPING_FLOAT_COLS);
@@ -162,6 +167,7 @@ export function getNonQuantileNonFunnelFloatColumns({
     }
     switch (metric.metricType) {
       case "proportion":
+      case "compound":
       case "retention":
       case "quantile":
       case "dailyParticipation":
@@ -217,6 +223,10 @@ export function maxColumnsNeededForMetric({
     // account for those additional columns.
     return boilerplateCols + metric.funnelSettings.steps.length;
   }
+  // Compound metrics add one descriptive unit count per component.
+  const compoundCols = isFactCompoundMetric(metric)
+    ? metric.compoundSettings.components.length
+    : 0;
 
   const floatCols = getNonQuantileNonFunnelFloatColumns({
     metric,
@@ -226,10 +236,11 @@ export function maxColumnsNeededForMetric({
   switch (metric.metricType) {
     case "mean":
     case "proportion":
+    case "compound":
     case "dailyParticipation":
     case "retention":
     case "ratio":
-      return boilerplateCols + floatCols.length;
+      return boilerplateCols + floatCols.length + compoundCols;
     case "quantile":
       return (
         boilerplateCols +

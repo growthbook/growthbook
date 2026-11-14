@@ -9,7 +9,7 @@ const PostgresForm: FC<{
   params: Partial<PostgresConnectionParams>;
   existing: boolean;
   onParamChange: ChangeEventHandler<HTMLInputElement | HTMLSelectElement>;
-  setParams: (params: { [key: string]: string }) => void;
+  setParams: (params: { [key: string]: string | null }) => void;
   generatedPassword?: boolean;
   showAllowlist?: boolean;
 }> = ({
@@ -105,6 +105,9 @@ const PostgresForm: FC<{
           existing={existing}
           onParamChange={onParamChange}
           setSSL={(ssl) => setParams({ ssl: ssl ? "true" : "" })}
+          setCertRemoved={(name, removed) =>
+            setParams({ [name]: removed ? null : "" })
+          }
           value={{
             ssl: params.ssl === true || params.ssl === "true",
             caCert: params.caCert,

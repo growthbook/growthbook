@@ -1,0 +1,127 @@
+// A header row is as tall as its actions menu button; the handle and number
+// center on it.
+$header-height: 28px;
+$handle-width: 14px;
+$side-bar-width: 4px;
+// The body's inset from either edge of the card.
+$body-inset: 28px;
+
+// A rule's badges, a shade darker than elsewhere, so they hold up on the card.
+.badges {
+  --entity-badge-background: var(--gray-a2-5);
+}
+
+// Doubled to outrank Radix's card padding.
+.card.card {
+  // The row inside sets it, so the header sits snug.
+  padding: 0;
+  // A soft layer, with a tight one under it so the card reads as lifted.
+  // Each is pulled in by its blur, so it shows only below the card, and
+  // dropped by as much, so its bottom edge stays 4px and 1px down.
+  box-shadow:
+    0 8px 4px -4px var(--card-shadow),
+    0 3px 2px -2px var(--card-shadow);
+}
+
+.sideBar {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: $side-bar-width;
+}
+
+.active {
+  background-color: var(--green-9);
+}
+.skipped {
+  background-color: var(--amber-7);
+}
+.disabled {
+  background-color: var(--gray-5);
+}
+.unreachable {
+  background-color: var(--orange-7);
+}
+.removed {
+  background-color: var(--red-7);
+}
+
+.leading {
+  height: $header-height;
+}
+
+.handle {
+  width: $handle-width;
+}
+
+// On the redesign's card, centers the dots on the header's height rather than
+// setting them on a line's baseline, as the page it's tested against does.
+.card {
+  .grab,
+  .idleHandle {
+    display: flex;
+    align-items: center;
+  }
+}
+
+.grab {
+  cursor: grab;
+}
+
+// Holds the column when the rule can't move.
+.idleHandle {
+  opacity: 0.25;
+}
+
+.index {
+  min-width: 20px;
+}
+
+// A header's title row and actions row, each a header's height, so a line
+// under the title (a rule's id) doesn't move them. Only on the redesign's
+// card, whose handle and number center on that height.
+.card .headerRow {
+  min-height: $header-height;
+}
+
+.header {
+  min-height: $header-height;
+}
+
+// A header's ⋮, snug against what's before it. Doubled to outrank the ghost
+// button's own margin.
+.rowMenu.rowMenu {
+  margin: 0 0 0 calc(-1 * var(--space-2));
+}
+
+// Across the card from beside the side bar, as a section box's is.
+.divider {
+  height: 1px;
+  margin: 0 calc(-1 * var(--space-2)) var(--space-3) (-$side-bar-width);
+  background-color: var(--gray-a5);
+}
+
+.body {
+  padding-inline: calc(#{$body-inset} - var(--space-2));
+}
+
+// A rule's callouts run edge to edge under its header, as a modal's warning
+// strip does: square, the icon under the index badge.
+.ribbon {
+  margin: 0 calc(-1 * var(--space-2)) var(--space-3) (-$side-bar-width);
+
+  :global(.rt-CalloutRoot) {
+    border-radius: 0;
+    // Over the theme's !important padding for small callouts.
+    padding: var(--space-2) var(--space-2) var(--space-2)
+      calc(
+        var(--space-2) + #{$handle-width} + var(--space-1) - #{$side-bar-width}
+      ) !important;
+    // A step lighter than a callout's fill, banded in its own color.
+    background-color: var(--accent-a2);
+    box-shadow:
+      inset 0 1px 0 var(--accent-a4),
+      inset 0 -1px 0 var(--accent-a4);
+  }
+}

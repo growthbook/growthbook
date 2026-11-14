@@ -1,6 +1,5 @@
 import { ReactNode, useState } from "react";
-import { Box, Flex } from "@radix-ui/themes";
-import { PiCaretDown, PiCaretRight } from "react-icons/pi";
+import { Box } from "@radix-ui/themes";
 import {
   ExperimentInterfaceStringDates,
   ExperimentTargetingData,
@@ -14,9 +13,9 @@ import useOrgSettings from "@/hooks/useOrgSettings";
 import ChangesTable, {
   ChangesTableRow,
 } from "@/components/Reviews/ChangesTable";
-import Link from "@/ui/Link";
 import Text from "@/ui/Text";
 import { useTargetingDefaults } from "@/components/Experiment/useExperimentTargetingForm";
+import TargetingDetailsLink from "./TargetingDetailsLink";
 import SetupFieldRow, { SetupFieldGroup } from "./SetupFieldRow";
 
 function formatRanges(ranges: [number, number][]): string {
@@ -134,32 +133,6 @@ function useTargetingFields(
         hashVersion === 1 ? "V1 (Legacy)" : "V2 (Preferred)",
     },
   ];
-}
-
-function Disclosure({
-  open,
-  onToggle,
-  children,
-}: {
-  open: boolean;
-  onToggle: () => void;
-  children: string;
-}) {
-  return (
-    <Link
-      size="sm"
-      aria-expanded={open}
-      onClick={(e) => {
-        e.preventDefault();
-        onToggle();
-      }}
-    >
-      <Flex align="center" gap="1">
-        {children}
-        {open ? <PiCaretDown /> : <PiCaretRight />}
-      </Flex>
-    </Link>
-  );
 }
 
 /** Who the experiment includes now. */
@@ -293,21 +266,21 @@ export function TargetingChanges({
           key: "release",
           rows: releaseRows,
           footer: releaseRows.some((row) => row.details) ? (
-            <Disclosure
+            <TargetingDetailsLink
               open={showDetails}
-              onToggle={() => setShowDetails(!showDetails)}
+              onOpenChange={setShowDetails}
             >
               {showDetails ? "Hide details" : "Show details"}
-            </Disclosure>
+            </TargetingDetailsLink>
           ) : undefined,
         },
         {
           key: "targeting",
           rows: targetingRows,
           footer: (
-            <Disclosure open={showAll} onToggle={() => setShowAll(!showAll)}>
+            <TargetingDetailsLink open={showAll} onOpenChange={setShowAll}>
               {showAll ? "Show changes only" : "Show full targeting"}
-            </Disclosure>
+            </TargetingDetailsLink>
           ),
         },
       ]}

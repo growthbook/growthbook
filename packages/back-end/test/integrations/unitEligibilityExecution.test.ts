@@ -1,5 +1,6 @@
 import { DatabaseSync } from "node:sqlite";
 import type { DataSourceInterface } from "shared/types/datasource";
+import type { CompoundFactMetricInterface } from "shared/types/fact-table";
 import type { SqlDialect } from "shared/types/sql";
 import { baseDialect, postgresDialect } from "shared/dialects";
 import { buildUnitsQuerySettingsFromSnapshot } from "shared/util";
@@ -144,6 +145,80 @@ describe("unit eligibility execution (SQL math)", () => {
         m3_main_sum: 1,
         m3_main_sum_squares: 1,
       },
+    ]);
+  });
+
+  it("counts a trimmed compound metric's component units over the units it analyzes", () => {
+    const compound: CompoundFactMetricInterface = {
+      ...buildMetric("compound", 1),
+      metricType: "compound",
+      numerator: null,
+      funnelSettings: null,
+      compoundSettings: {
+        components: [
+          { factTableId: "orders", rowFilters: [] },
+          {
+            factTableId: "orders",
+            rowFilters: [{ column: "amount", operator: ">", values: ["0"] }],
+          },
+        ],
+      },
+    };
+    const compoundData = getMetricData(
+      dialect,
+      { metric: compound, index: 0 },
+      settings,
+      null,
+      factTablesWithIndices,
+      "m",
+      "m0",
+      false,
+    );
+    // [hours exposed before ASOF, matched component 0, matched component 1]
+    const compoundFixture = [
+      [240, 1, 1],
+      [36, 1, 0],
+      [6, 1, 1],
+    ]
+      .map(
+        ([hoursAgo, c0, c1]) =>
+          `SELECT '0' AS variation, ${dialect.toTimestamp(
+            new Date(ASOF.getTime() - hoursAgo * 3600 * 1000),
+          )} AS timestamp, ${c0} AS m0_c0, ${c1} AS m0_c1`,
+      )
+      .join("\n      UNION ALL ");
+
+    const db = new DatabaseSync(":memory:");
+    const rows = db
+      .prepare(
+        `WITH __userMetricAgg AS (
+      ${compoundFixture}
+    )
+    ${getExperimentFactMetricStatisticsCTE(dialect, {
+      dimensionCols: [],
+      metricData: [compoundData],
+      eventQuantileData: [],
+      baseIdType: "user_id",
+      joinedMetricTableName: "__userMetricAgg",
+      eventQuantileTableName: "__eventQuantileMetric",
+      capValueTableName: "__capValue",
+      factTablesWithIndices,
+      percentileTableIndices: new Set<number>(),
+      unitEligibility,
+    })}`,
+      )
+      .all();
+    db.close();
+
+    // The unit exposed 6 hours ago matched both components but is left out
+    expect(processExperimentFactMetricsQueryRows(rows)).toEqual([
+      expect.objectContaining({
+        users: 3,
+        m0_users: 2,
+        m0_main_sum: 1,
+        m0_c0_units: 2,
+        m0_c1_units: 1,
+      }),
     ]);
   });
 

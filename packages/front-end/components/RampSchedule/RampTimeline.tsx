@@ -25,6 +25,11 @@ import {
   NodeState,
   resolveNodeStatus,
 } from "@/components/RampSchedule/rampTimelineStatus";
+import {
+  rampScheduleDates,
+  rampStepReachedAt,
+  ScheduleDate,
+} from "@/services/scheduleRules";
 import styles from "./RampTimeline.module.scss";
 
 // ─── helpers ────────────────────────────────────────────────────────────────
@@ -304,7 +309,8 @@ function PopoverPatchDisplay({
   const items: ReactNode[] = [
     ...coverageItems,
     ...(afterCoverage ? [<Box key="cov-cta">{afterCoverage}</Box>] : []),
-    ...(hasAdditional
+    // Headed only to set them apart from the rollout rows above.
+    ...(hasAdditional && (coverageItems.length > 0 || afterCoverage)
       ? [
           <Text
             key="additional-header"
@@ -315,11 +321,11 @@ function PopoverPatchDisplay({
             mb="2"
             size="sm"
           >
-            Additional Effects
+            Additional effects
           </Text>,
-          ...additionalItems,
         ]
       : []),
+    ...additionalItems,
   ];
 
   if (items.length === 0) {
@@ -345,7 +351,8 @@ interface NodePopoverContentProps {
   // Step's time gate in seconds (null = no time gate). null is also used for
   // start/end synthetic nodes that aren't backed by a step.
   interval: number | null;
-  triggerLabel: ReactNode;
+  // When this node happened, or will.
+  dates?: ScheduleDate[];
   actions: RampStepAction[];
   syntheticEnabled?: boolean;
   monitored?: boolean;
@@ -364,7 +371,7 @@ function NodePopoverContent({
   heading,
   nodeState,
   interval,
-  triggerLabel,
+  dates = [],
   actions,
   syntheticEnabled,
   monitored,
@@ -446,19 +453,14 @@ function NodePopoverContent({
         </Flex>
       )}
 
-      {stepIndex === "start" ? (
-        triggerLabel && (
-          <Box mb="2">
-            <PopoverEffectRow label="Starts">{triggerLabel}</PopoverEffectRow>
-          </Box>
-        )
-      ) : stepIndex === "end" ? (
-        triggerLabel && (
-          <Box mb="2">
-            <PopoverEffectRow label="Ends">{triggerLabel}</PopoverEffectRow>
-          </Box>
-        )
-      ) : (
+      {dates.map(({ label, date }) => (
+        <Box mb="2" key={label}>
+          <PopoverEffectRow label={label}>
+            {formatScheduledDate(date, { inline: true })}
+          </PopoverEffectRow>
+        </Box>
+      ))}
+      {stepIndex === "start" || stepIndex === "end" ? null : (
         <>
           {interval !== null && interval !== undefined && (
             <Box mb="2">
@@ -619,6 +621,7 @@ function Node({
   labelColor: string;
   pulse: boolean;
 }) {
+  const showSublabel = !!node.sublabel && state !== "completed";
   const nodeContent = (
     <Flex direction="column" align="center" className={styles.nodeInner}>
       {/* Dot */}
@@ -636,13 +639,13 @@ function Node({
         <span style={{ color: labelColor }}>
           <Text
             as="div"
-            mb="2"
+            mb={showSublabel ? "2" : "0"}
             weight={state === "active" ? "medium" : "regular"}
           >
             {node.label}
           </Text>
         </span>
-        {node.sublabel && state !== "completed" && (
+        {showSublabel && (
           <span className={styles.nodeSublabel}>{node.sublabel}</span>
         )}
       </Flex>
@@ -707,10 +710,10 @@ export function getRampStatusLabel(rs: RampScheduleInterface): string {
     return "Scheduled";
   }
   if (isReadyForApproval(rs)) {
-    return "Needs Approval";
+    return "Needs approval";
   }
   const labels: Partial<Record<RampScheduleStatus, string>> = {
-    pending: "Schedule Start is Pending",
+    pending: "Schedule start is pending",
     running: "Running",
     paused: "Paused",
     completed: "Completed",
@@ -795,9 +798,11 @@ export default function RampTimeline({
   const showStartDate =
     !!startDate && (status === "pending" || status === "ready");
   const startSublabel = showStartDate ? formatScheduledDate(startDate!) : null;
-  const startInline = showStartDate
-    ? formatScheduledDate(startDate!, { inline: true })
-    : null;
+  const scheduleDates = rampScheduleDates(rs);
+  const stepReached = (i: number): ScheduleDate[] => {
+    const at = getState(i + 1) === "future" ? null : rampStepReachedAt(rs, i);
+    return at ? [{ label: "Reached", date: at }] : [];
+  };
   const nodes: NodeMeta[] = [
     {
       key: "start",
@@ -808,8 +813,12 @@ export default function RampTimeline({
           heading="Start"
           nodeState={getState(0)}
           interval={null}
-          triggerLabel={startInline}
+          dates={scheduleDates.start ? [scheduleDates.start] : []}
           actions={rs.startActions ?? []}
+          // A start date or approval holds the rule off until the start.
+          syntheticEnabled={
+            startDate || rs.requiresStartApproval ? true : undefined
+          }
           stepIndex="start"
           isActive={getState(0) === "active"}
           rs={rs}
@@ -845,7 +854,7 @@ export default function RampTimeline({
             heading={`Step ${i + 1}`}
             nodeState={state}
             interval={step.interval}
-            triggerLabel={formatStepGate(step.interval, step.holdConditions)}
+            dates={stepReached(i)}
             actions={step.actions}
             monitored={step.monitored}
             holdConditions={step.holdConditions}
@@ -882,7 +891,6 @@ export default function RampTimeline({
                 heading="End"
                 nodeState={getState(rampEndIdx)}
                 interval={null}
-                triggerLabel={null}
                 actions={rs.endActions ?? []}
                 stepIndex="end"
                 isActive={getState(rampEndIdx) === "active"}
@@ -901,10 +909,9 @@ export default function RampTimeline({
                 heading="Disable"
                 nodeState={getState(cutoffIdx)}
                 interval={null}
-                triggerLabel={formatScheduledDate(rs.cutoffDate!, {
-                  inline: true,
-                })}
+                dates={scheduleDates.end ? [scheduleDates.end] : []}
                 actions={[]}
+                syntheticEnabled={false}
                 stepIndex="end"
                 isActive={getState(cutoffIdx) === "active"}
                 rs={rs}
@@ -920,6 +927,11 @@ export default function RampTimeline({
       const singleDate = rs.cutoffDate ?? null;
       const hasDisableDate = !!singleDate;
       const endNodeIndex = steps.length + 1;
+      // A schedule that only enables the rule is done once it starts; an end
+      // node would change nothing.
+      if (steps.length === 0 && !hasDisableDate && !rs.endActions?.length) {
+        return [];
+      }
       return [
         {
           key: "end",
@@ -931,12 +943,9 @@ export default function RampTimeline({
               heading={hasDisableDate ? "Disable" : "End"}
               nodeState={getState(endNodeIndex)}
               interval={null}
-              triggerLabel={
-                singleDate
-                  ? formatScheduledDate(singleDate, { inline: true })
-                  : null
-              }
+              dates={scheduleDates.end ? [scheduleDates.end] : []}
               actions={rs.endActions ?? []}
+              syntheticEnabled={hasDisableDate ? false : undefined}
               stepIndex="end"
               isActive={getState(endNodeIndex) === "active"}
               rs={rs}
