@@ -2,7 +2,7 @@ import { DatabaseSync } from "node:sqlite";
 import type { DataSourceInterface } from "shared/types/datasource";
 import type { CompoundFactMetricInterface } from "shared/types/fact-table";
 import type { SqlDialect } from "shared/types/sql";
-import { baseDialect, postgresDialect } from "shared/dialects";
+import { baseDialect, mysqlDialect, postgresDialect } from "shared/dialects";
 import { buildUnitsQuerySettingsFromSnapshot } from "shared/util";
 import { getExperimentFactMetricStatisticsCTE } from "back-end/src/integrations/sql/ctes/experiment-fact-metric-statistics-cte";
 import { getExperimentFactMetricsQuery } from "back-end/src/integrations/sql/queries/experiment-fact-metrics-query";
@@ -242,6 +242,33 @@ describe("unit eligibility execution (SQL math)", () => {
 
     // u3 has the largest value but was exposed 6 hours ago
     expect(rows).toEqual([{ m0_cap: 4, m1_cap: 2 }]);
+  });
+
+  it("keeps the units left out as NULL from moving MySQL's percentile cap", () => {
+    const db = new DatabaseSync(":memory:");
+    const rows = db
+      .prepare(
+        `WITH capSource AS (
+          SELECT 10 AS v UNION ALL SELECT 20 UNION ALL SELECT 100
+          UNION ALL SELECT NULL UNION ALL SELECT NULL
+        )
+        ${mysqlDialect.percentileCapSelectClause(
+          [
+            {
+              valueCol: "v",
+              outputCol: "v_cap",
+              percentile: 0.5,
+              ignoreZeros: false,
+              sourceIndex: 0,
+            },
+          ],
+          "capSource",
+        )}`,
+      )
+      .all();
+    db.close();
+
+    expect(rows).toEqual([{ v_cap: 20 }]);
   });
 
   it("reads the per-unit table directly when no capped metric is trimmed", () => {

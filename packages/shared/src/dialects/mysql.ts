@@ -70,12 +70,14 @@ export const mysqlDialect: SqlDialect = {
       );
     }
 
-    let whereClause = where;
-    if (values[0].ignoreZeros) {
-      whereClause = whereClause
-        ? `${whereClause} AND ${values[0].valueCol} != 0`
-        : `WHERE ${values[0].valueCol} != 0`;
-    }
+    // PERCENT_RANK ranks NULLs lowest, where the percentile functions of the
+    // other dialects skip them.
+    const condition = `${values[0].valueCol} IS NOT NULL${
+      values[0].ignoreZeros ? ` AND ${values[0].valueCol} != 0` : ""
+    }`;
+    const whereClause = where
+      ? `${where} AND ${condition}`
+      : `WHERE ${condition}`;
 
     return `
     SELECT DISTINCT FIRST_VALUE(${values[0].valueCol}) OVER (
