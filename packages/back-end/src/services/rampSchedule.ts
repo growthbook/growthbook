@@ -2302,6 +2302,8 @@ export async function pauseSchedule(
 ): Promise<RampScheduleInterface> {
   const now = new Date();
   const updated = await ctx.models.rampSchedules.updateById(schedule.id, {
+    // Credit time already spent retrying before the pause takes over.
+    ...shiftRampTimersForHold(schedule, now),
     status: "paused",
     pausedAt: now,
     nextSnapshotAt: null,
@@ -2881,9 +2883,11 @@ export async function errorPauseRampSchedule(
 ): Promise<void> {
   const schedule = await ctx.models.rampSchedules.getById(scheduleId);
   if (!schedule) return;
+  const now = new Date();
   const updated = await ctx.models.rampSchedules.updateById(scheduleId, {
+    ...shiftRampTimersForHold(schedule, now),
     status: "paused",
-    pausedAt: new Date(),
+    pausedAt: now,
     nextSnapshotAt: null,
     nextProcessAt: null,
     stepFailure: null,
