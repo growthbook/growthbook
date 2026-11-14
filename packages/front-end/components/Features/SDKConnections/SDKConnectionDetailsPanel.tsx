@@ -61,18 +61,19 @@ export default function SDKConnectionDetailsPanel({
           value={
             <Flex align="center" gap="3" wrap="wrap">
               {connection.languages.map((language) => (
-                <SDKLanguageLogo
-                  key={language}
-                  language={language}
-                  showLabel
-                  size={14}
-                  hideExtra
-                  version={
-                    connection.languages.length === 1
-                      ? connection.sdkVersion
-                      : undefined
-                  }
-                />
+                <PanelText key={language}>
+                  <SDKLanguageLogo
+                    language={language}
+                    showLabel
+                    size={16}
+                    hideExtra
+                    version={
+                      connection.languages.length === 1
+                        ? connection.sdkVersion
+                        : undefined
+                    }
+                  />
+                </PanelText>
               ))}
             </Flex>
           }
@@ -122,16 +123,14 @@ export default function SDKConnectionDetailsPanel({
             </PanelText>
           }
         />
-        <Metadata
-          size="sm"
-          stacked
-          label="Proxy"
-          value={
-            <PanelText>
-              {connection.proxy.enabled ? "Enabled" : "Disabled"}
-            </PanelText>
-          }
-        />
+        {connection.proxy.enabled ? (
+          <Metadata
+            size="sm"
+            stacked
+            label="Proxy"
+            value={<PanelText>Enabled</PanelText>}
+          />
+        ) : null}
       </PanelSection>
       {revision ? (
         <>
