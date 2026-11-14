@@ -1,6 +1,5 @@
 import { Flex, Separator } from "@radix-ui/themes";
 import { Revision } from "shared/enterprise";
-import { date } from "shared/dates";
 import { SDKConnectionInterface } from "shared/types/sdk-connection";
 import DetailsPanel, {
   DetailsPanelTab,
@@ -100,12 +99,6 @@ export default function SDKConnectionDetailsPanel({
                 : "All Projects"}
             </PanelText>
           }
-        />
-        <Metadata
-          size="sm"
-          stacked
-          label="Created"
-          value={<PanelText>{date(connection.dateCreated)}</PanelText>}
         />
       </PanelSection>
       <Separator size="4" />
