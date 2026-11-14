@@ -246,29 +246,32 @@ describe("unit eligibility execution (SQL math)", () => {
 
   it("keeps the units left out as NULL from moving MySQL's percentile cap", () => {
     const db = new DatabaseSync(":memory:");
-    const rows = db
-      .prepare(
-        `WITH capSource AS (
-          SELECT 10 AS v UNION ALL SELECT 20 UNION ALL SELECT 100
-          UNION ALL SELECT NULL UNION ALL SELECT NULL
+    const cap = (source: string) =>
+      db
+        .prepare(
+          `WITH capSource AS (${source})
+          ${mysqlDialect.percentileCapSelectClause(
+            [
+              {
+                valueCol: "v",
+                outputCol: "v_cap",
+                percentile: 0.5,
+                ignoreZeros: false,
+                sourceIndex: 0,
+              },
+            ],
+            "capSource",
+          )}`,
         )
-        ${mysqlDialect.percentileCapSelectClause(
-          [
-            {
-              valueCol: "v",
-              outputCol: "v_cap",
-              percentile: 0.5,
-              ignoreZeros: false,
-              sourceIndex: 0,
-            },
-          ],
-          "capSource",
-        )}`,
-      )
-      .all();
-    db.close();
+        .all();
+    const eligible = "SELECT 10 AS v UNION ALL SELECT 20 UNION ALL SELECT 100";
+    const leftOut = "SELECT NULL AS v UNION ALL SELECT NULL";
 
-    expect(rows).toEqual([{ v_cap: 20 }]);
+    expect(cap(`${eligible} UNION ALL ${leftOut}`)).toEqual([{ v_cap: 20 }]);
+    // Still one row when every unit is left out: the statistics cross join
+    // the cap, so no row would drop every metric in the query
+    expect(cap(leftOut)).toEqual([{ v_cap: null }]);
+    db.close();
   });
 
   it("reads the per-unit table directly when no capped metric is trimmed", () => {

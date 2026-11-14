@@ -79,17 +79,22 @@ export const mysqlDialect: SqlDialect = {
       ? `${where} AND ${condition}`
       : `WHERE ${condition}`;
 
+    // MAX keeps this to one row, a NULL cap, when the filter leaves no values:
+    // the statistics cross join the cap, so no row would drop all their rows.
     return `
-    SELECT DISTINCT FIRST_VALUE(${values[0].valueCol}) OVER (
-      ORDER BY CASE WHEN p <= ${values[0].percentile} THEN p END DESC
-    ) AS ${values[0].outputCol}
+    SELECT MAX(${values[0].outputCol}) AS ${values[0].outputCol}
     FROM (
-      SELECT
-        ${values[0].valueCol},
-        PERCENT_RANK() OVER (ORDER BY ${values[0].valueCol}) p
-      FROM ${metricTable}
-      ${whereClause}
-    ) t`;
+      SELECT DISTINCT FIRST_VALUE(${values[0].valueCol}) OVER (
+        ORDER BY CASE WHEN p <= ${values[0].percentile} THEN p END DESC
+      ) AS ${values[0].outputCol}
+      FROM (
+        SELECT
+          ${values[0].valueCol},
+          PERCENT_RANK() OVER (ORDER BY ${values[0].valueCol}) p
+        FROM ${metricTable}
+        ${whereClause}
+      ) t
+    ) c`;
   },
   jsonExtract: (jsonCol: string, path: string, isNumeric: boolean) => {
     const raw = `JSON_EXTRACT(${jsonCol}, '$.${path}')`;
