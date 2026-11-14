@@ -146,8 +146,9 @@ const LANGUAGE_OPTIONS = [
     label: LANGUAGE_FILTER_LABELS[category],
     options: getLanguagesByFilter(category).map(languageOption),
   })),
+  // Uncategorized, under a separator: a group with no label draws only its rule.
   {
-    label: "Other",
+    label: "",
     options: (Object.keys(languageMapping) as SDKLanguage[])
       .filter(
         (language) =>
