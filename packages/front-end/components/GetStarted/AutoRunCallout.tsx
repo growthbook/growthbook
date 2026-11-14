@@ -24,11 +24,13 @@ export default function AutoRunCallout() {
 
   const body = (
     <Text size="md">
-      {unfinished
-        ? `Your GrowthBook setup${where} has ${unfinished} required check${
-            unfinished === 1 ? "" : "s"
-          } to review.`
-        : `Review the results of your GrowthBook setup${where}.`}{" "}
+      {run.source === "flags-import"
+        ? `Review the results of your Feature Flag import${appName ? ` from ${appName}` : ""}.`
+        : unfinished
+          ? `Your GrowthBook setup${where} has ${unfinished} required check${
+              unfinished === 1 ? "" : "s"
+            } to review.`
+          : `Review the results of your GrowthBook setup${where}.`}{" "}
       <Link href={`/auto-runs/${run.id}`}>View report</Link>
     </Text>
   );

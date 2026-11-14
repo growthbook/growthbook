@@ -202,7 +202,7 @@ export function AnalyzeExperimentFeatureCard() {
 }
 
 // Internal components
-function ActionArrow() {
+export function ActionArrow() {
   return (
     <Flex
       className={styles.actionArrow}
@@ -224,7 +224,7 @@ type CardLinkProps = {
   compact?: boolean;
 } & ({ href: string; onClick?: never } | { href?: never; onClick: () => void });
 
-function CardLink({
+export function CardLink({
   children,
   href,
   onClick,

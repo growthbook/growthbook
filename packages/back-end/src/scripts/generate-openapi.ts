@@ -53,6 +53,7 @@ const openApiTags = [
   "feature-revisions-v2",
   "features",
   "feature-revisions",
+  "flag-imports",
   "ramp-schedules",
   "data-sources",
   "fact-tables",
@@ -109,6 +110,11 @@ const tags: Record<OpenApiTag, { display: string; description: string }> = {
     display: "Feature Revisions (legacy)",
     description:
       "Draft revisions for feature flags, including rules, scheduling, and approval workflows.\n\n**These are v1 endpoints.** New integrations should use the v2 Feature Revisions endpoints.",
+  },
+  "flag-imports": {
+    display: "Flag Imports",
+    description:
+      "Upload flags defined in code, as the SDK payload in JSON, with no account. Then claim them into a workspace through the link that comes back.",
   },
   "features-v2": {
     display: "Feature Flags",
@@ -714,6 +720,7 @@ curl https://api.growthbook.io/api/v1/features \
       deprecated,
       possibleErrors,
       confirmation,
+      unauthenticated,
     } = route;
 
     if (!path || !method || !operationId) {
@@ -981,6 +988,7 @@ curl https://api.growthbook.io/api/v1/features \
       summary,
       ...(description !== undefined && { description }),
       ...(deprecated && { deprecated: true }),
+      ...(unauthenticated && { security: [] }),
       tags,
       ...(parameters.length > 0 && { parameters }),
       ...(requestBody !== undefined && { requestBody }),

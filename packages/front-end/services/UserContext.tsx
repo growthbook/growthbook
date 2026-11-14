@@ -64,7 +64,11 @@ import {
 import useApi from "@/hooks/useApi";
 import { useAuth, UserOrganizations } from "@/services/auth";
 import { ApiCallError } from "@/services/apiCallError";
-import { getJitsuClient, trackPageView } from "@/services/track";
+import {
+  getJitsuClient,
+  maskClaimToken,
+  trackPageView,
+} from "@/services/track";
 import { getOrGeneratePageId, growthbook } from "@/services/utils";
 
 export interface PermissionFunctions {
@@ -459,7 +463,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
 
   // Page GrowthBook attributes
   useEffect(() => {
-    growthbook.setURL(window.location.href);
+    growthbook.setURL(maskClaimToken(window.location.href));
     growthbook.updateAttributes({
       url: router?.pathname || "",
       page_id: getOrGeneratePageId(),

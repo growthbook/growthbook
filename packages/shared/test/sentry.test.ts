@@ -37,6 +37,24 @@ describe("scrubSentryEvent", () => {
 
     expect(
       scrubSentryEvent({
+        request: { url: "https://app.growthbook.io/claim/tok_abc" },
+      }).request?.url,
+    ).toBe("https://app.growthbook.io/claim/[Redacted]");
+
+    expect(
+      scrubSentryEvent({
+        request: { url: "/api/v1/flag-imports/tok_abc/claim" },
+      }).request?.url,
+    ).toBe("/api/v1/flag-imports/[Redacted]/claim");
+
+    expect(
+      scrubSentryEvent({
+        request: { url: "/api/v1/flag-imports?name=acme-web" },
+      }).request?.url,
+    ).toBe("/api/v1/flag-imports?name=acme-web");
+
+    expect(
+      scrubSentryEvent({
         request: { url: "/reset-password?foo=1&token=rt_abc123#x" },
       }).request?.url,
     ).toBe("/reset-password?foo=1&token=[Redacted]#x");

@@ -618,6 +618,16 @@
                 ]
               },
               {
+                "group": "Flag Imports",
+                "pages": [
+                  "api/flag-imports/operation/postFlagImport",
+                  "api/flag-imports/operation/getFlagImport",
+                  "api/flag-imports/operation/postFlagImportClaim",
+                  "api/flag-imports/operation/getFlagImportDetails",
+                  "api/flag-imports/operation/postFlagImportImport"
+                ]
+              },
+              {
                 "group": "Ramp Schedules",
                 "pages": [
                   "api/ramp-schedules/operation/listRampSchedules",

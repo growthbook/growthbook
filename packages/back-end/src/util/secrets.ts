@@ -18,6 +18,21 @@ export const LOG_LEVEL = process.env.LOG_LEVEL;
 export const IS_CLOUD = stringToBoolean(process.env.IS_CLOUD);
 export const IS_MULTI_ORG = stringToBoolean(process.env.IS_MULTI_ORG);
 
+/**
+ * Lets a coding agent upload flags defined in code with no account
+ * (POST /api/v1/flag-imports) for a person to claim. Off unless set; the
+ * "flag-imports" app flag is the runtime kill switch once it is on.
+ */
+export const FLAG_IMPORTS_ENABLED = stringToBoolean(
+  process.env.FLAG_IMPORTS_ENABLED,
+);
+/** Unclaimed uploads allowed at once before an upload answers 429. */
+export const FLAG_IMPORTS_MAX_PENDING = parseEnvInt(
+  process.env.FLAG_IMPORTS_MAX_PENDING,
+  5000,
+  { name: "FLAG_IMPORTS_MAX_PENDING", min: 0 },
+);
+
 /** Enable GrowthBook OAuth 2.1 Authorization Server endpoints (MCP / CLI login). Default on. */
 export const OAUTH_AS_ENABLED = stringToBoolean(
   process.env.OAUTH_AS_ENABLED,

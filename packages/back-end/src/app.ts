@@ -14,6 +14,7 @@ import asyncHandler from "express-async-handler";
 import compression from "compression";
 import * as Sentry from "@sentry/node";
 import { parseEnvInt, stringToBoolean } from "shared/util";
+import { FLAG_IMPORT_MAX_BYTES } from "shared/validators";
 import { AI_PROVIDERS } from "shared/ai";
 import { populationDataRouter } from "back-end/src/routers/population-data/population-data.router";
 import decisionCriteriaRouter from "back-end/src/enterprise/routers/decision-criteria/decision-criteria.router";
@@ -332,7 +333,7 @@ app.get("/js/:key.js", getExperimentsScript);
 app.use("/integrations/slack", slackActionsRouter);
 
 // 2mb default; 10mb for screenshot upload and the visual-editor AI routes
-// that accept base64-encoded images.
+// that accept base64-encoded images; 256kb for the keyless flags upload.
 app.use((req, res, next) => {
   const isScreenshotUpload =
     req.method === "POST" &&
@@ -354,7 +355,16 @@ app.use((req, res, next) => {
     isVisualEditorImageGen ||
     isVisualEditorFigmaToVariant ||
     isVisualEditorEdit;
-  bodyParser.json({ limit: needsLargeBody ? "10mb" : "2mb" })(req, res, next);
+  // Takes no API key, so it reads no more than a flags file can be.
+  const isFlagImportUpload =
+    req.method === "POST" && req.path === "/api/v1/flag-imports";
+  bodyParser.json({
+    limit: needsLargeBody
+      ? "10mb"
+      : isFlagImportUpload
+        ? FLAG_IMPORT_MAX_BYTES
+        : "2mb",
+  })(req, res, next);
 });
 
 // Public API routes (does not require JWT, does require cors with origin = *)
