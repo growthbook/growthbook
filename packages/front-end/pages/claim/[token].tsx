@@ -235,7 +235,7 @@ const ClaimPage = (): React.ReactElement => {
   if (!status) {
     return (
       <Page narrow>
-        <ImportHero title="This link has expired">
+        <ImportHero title="This Link Has Expired">
           Uploads are kept for 24 hours. Send the file again to get a new link.
         </ImportHero>
         <Flex justify="center">
@@ -253,8 +253,8 @@ const ClaimPage = (): React.ReactElement => {
         <ImportHero
           title={
             pending
-              ? "Your Feature Flags are ready"
-              : "This link was already claimed"
+              ? "Your Feature Flags Are Ready"
+              : "This Link Was Already Claimed"
           }
         >
           {pending
@@ -338,7 +338,7 @@ const ClaimPage = (): React.ReactElement => {
     return (
       <Page narrow>
         <ImportHero
-          title={hasWorkspace ? "Where should they go?" : "Name your workspace"}
+          title={hasWorkspace ? "Where Should They Go?" : "Name Your Workspace"}
         />
         {hasWorkspace ? (
           workspaceSelect
@@ -378,12 +378,18 @@ const ClaimPage = (): React.ReactElement => {
     !detailsError || /another workspace/i.test(detailsError.message);
   return (
     <Page narrow>
-      <ImportHero title="This link was already claimed">
+      <ImportHero title="This Link Was Already Claimed">
         {organizations.length > 1
           ? "Switch to the workspace that claimed it to continue."
-          : null}
+          : "Another workspace claimed it. Send the file again to get a new link."}
       </ImportHero>
-      {organizations.length > 1 ? workspaceSelect : null}
+      {organizations.length > 1 ? (
+        workspaceSelect
+      ) : (
+        <Flex justify="center">
+          <LinkButton href="/">Go to GrowthBook</LinkButton>
+        </Flex>
+      )}
       {!elsewhere && detailsError ? (
         <Callout status="error" mt="3">
           {detailsError.message}

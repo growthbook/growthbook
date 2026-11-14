@@ -286,7 +286,7 @@ describe("planFlagImport", () => {
             seed: "s1",
             hashVersion: 2,
           },
-          { force: true, coverage: 1 },
+          { force: true },
         ],
       },
     });
@@ -297,6 +297,44 @@ describe("planFlagImport", () => {
       hashVersion: 2,
     });
     expect(flags[0].rules[1].type).toBe("force");
+  });
+
+  it("keeps a 100% rollout a rollout, and says who it now reaches", () => {
+    const result = planFlagImport(
+      flagsJsonValidator.parse({
+        features: {
+          a: {
+            defaultValue: false,
+            rules: [
+              { force: true, coverage: 1, hashAttribute: "deviceId" },
+              { force: true },
+            ],
+          },
+        },
+      }),
+    );
+    expect(result.flags[0].unsupported).toEqual([]);
+    expect(result.flags[0].rules).toEqual([
+      {
+        type: "rollout",
+        condition: "",
+        environments: null,
+        value: "true",
+        coverage: 1,
+        hashAttribute: "deviceId",
+        seed: "a",
+        hashVersion: 1,
+      },
+      { type: "force", condition: "", environments: null, value: "true" },
+    ]);
+    expect(result.attributes.map((a) => a.property)).toEqual(["deviceId"]);
+    expect(result.warnings).toEqual([
+      {
+        path: "features.a",
+        message:
+          "It has a 100% rollout. In code that skips visitors with no deviceId; GrowthBook serves a 100% rollout to everyone",
+      },
+    ]);
   });
 
   it("turns a rule with variations into an experiment", () => {

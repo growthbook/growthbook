@@ -22,6 +22,8 @@ export type FlagImportInterface = {
     userId: string | null;
     organization: string;
   } | null;
+  // Set while an import runs, so a second one can't start beside it.
+  importingSince: Date | null;
   imported: {
     at: Date;
     userId: string | null;
@@ -43,6 +45,7 @@ const flagImportSchema = new mongoose.Schema({
   dateCreated: Date,
   expiresAt: Date,
   claimed: {},
+  importingSince: Date,
   imported: {},
 });
 flagImportSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
@@ -69,6 +72,7 @@ function toInterface(doc: FlagImportInterface): FlagImportInterface {
     dateCreated: doc.dateCreated,
     expiresAt: doc.expiresAt,
     claimed: doc.claimed ?? null,
+    importingSince: doc.importingSince ?? null,
     imported: doc.imported ?? null,
   };
 }
@@ -89,6 +93,7 @@ export async function createFlagImport(
       now.getTime() + FLAG_IMPORT_LIFETIME_HOURS * 60 * 60 * 1000,
     ),
     claimed: null,
+    importingSince: null,
     imported: null,
   };
   await FlagImportModel.create(flagImport);
@@ -147,11 +152,24 @@ export async function claimFlagImport(
   return doc ? toInterface(doc) : null;
 }
 
-// One guarded update, so pressing Import twice cannot create things twice.
-// Resolves to the upload as it was, file included, or null when it was taken.
+// An import still running after this long is taken to have died with its
+// server, and the upload can be imported again.
+const IMPORT_TIMEOUT_MS = 15 * 60 * 1000;
+
+export function isFlagImportRunning(doc: FlagImportInterface): boolean {
+  return (
+    !!doc.importingSince &&
+    doc.importingSince.getTime() > Date.now() - IMPORT_TIMEOUT_MS
+  );
+}
+
+// One guarded update, so pressing Import twice cannot create things twice. The
+// upload stays claimed until the import finishes, so nobody reads it as
+// imported before its results exist. Resolves to the upload, file included, or
+// null when another import holds it.
 export async function beginFlagImport(
   id: string,
-  by: { userId: string | null; organization: string },
+  by: { organization: string },
 ): Promise<FlagImportInterface | null> {
   const now = new Date();
   const doc = await FlagImportModel.findOneAndUpdate(
@@ -160,28 +178,38 @@ export async function beginFlagImport(
       status: "claimed",
       "claimed.organization": by.organization,
       expiresAt: { $gt: now },
+      $or: [
+        { importingSince: null },
+        {
+          importingSince: { $lt: new Date(now.getTime() - IMPORT_TIMEOUT_MS) },
+        },
+      ],
     },
-    {
-      $set: {
-        status: "imported",
-        imported: { at: now, userId: by.userId, autoRunId: null, results: [] },
-      },
-    },
+    { $set: { importingSince: now } },
+    { new: true },
   ).lean();
   return doc ? toInterface(doc) : null;
 }
 
+// Marks the upload imported together with its results. Null when this import
+// no longer holds it: it ran past the timeout and another took over.
 export async function finishFlagImport(
   id: string,
-  outcome: { results: FlagImportResult[]; autoRunId: string | null },
+  startedAt: Date,
+  outcome: {
+    userId: string | null;
+    results: FlagImportResult[];
+    autoRunId: string | null;
+  },
 ): Promise<FlagImportInterface | null> {
   const doc = await FlagImportModel.findOneAndUpdate(
-    { id },
+    { id, status: "claimed", importingSince: startedAt },
     {
       $set: {
-        "imported.results": outcome.results,
-        "imported.autoRunId": outcome.autoRunId,
+        status: "imported",
+        imported: { at: new Date(), ...outcome },
         file: null,
+        importingSince: null,
       },
     },
     { new: true },

@@ -41773,15 +41773,18 @@ paths:
   /v1/flag-imports:
     post:
       operationId: postFlagImport
-      summary: Upload flags defined in code for someone to claim, with no account
+      summary: >-
+        Upload Feature Flags defined in code for someone to claim, with no
+        account
       description: >-
-        Send the SDK payload as JSON in the request body. For flags kept in a
-        local `flags.ts`, that is `JSON.stringify(flags)`. The upload is checked
-        and kept for 24 hours, and the response has a claim link. Whoever opens
-        the link signs up or signs in, claims the upload for their workspace and
-        chooses what to import. No API key is needed. A top-level `env` in a
-        rule's condition becomes the environments that rule applies to. A rule
-        with `variations` becomes a draft experiment linked to its Feature Flag.
+        Send the SDK payload as JSON in the request body. For Feature Flags kept
+        in a local `flags.ts`, that is `JSON.stringify(flags)`. The upload is
+        checked and kept for 24 hours, and the response has a claim link.
+        Whoever opens the link signs up or signs in, claims the upload for their
+        workspace and chooses what to import. No API key is needed. A top-level
+        `env` in a rule's condition becomes the environments that rule applies
+        to. A rule with `variations` becomes a draft experiment linked to its
+        Feature Flag.
       security: []
       tags:
         - flag-imports
@@ -42009,7 +42012,7 @@ paths:
   /v1/flag-imports/{token}:
     get:
       operationId: getFlagImport
-      summary: Check whether uploaded flags have been claimed or imported
+      summary: Check whether uploaded Feature Flags have been claimed or imported
       description: >-
         The token is the only credential, and the answer says nothing about what
         was uploaded or what was created: only whether it is pending, claimed or
@@ -42041,7 +42044,7 @@ paths:
   /v1/flag-imports/{token}/claim:
     post:
       operationId: postFlagImportClaim
-      summary: Claim uploaded flags for your workspace
+      summary: Claim uploaded Feature Flags for your workspace
       description: >-
         Ties the upload to the caller's workspace and returns it. Nothing is
         created. One workspace can claim an upload, and it then has 7 days to
@@ -42081,7 +42084,9 @@ paths:
                       expiresAt:
                         type: string
                       file:
-                        description: The uploaded flags. Null once they have been imported.
+                        description: >-
+                          The uploaded Feature Flags. Null once they have been
+                          imported.
                         anyOf:
                           - type: object
                             properties:
@@ -42338,7 +42343,7 @@ paths:
   /v1/flag-imports/{token}/details:
     get:
       operationId: getFlagImportDetails
-      summary: Get uploaded flags your workspace has claimed
+      summary: Get uploaded Feature Flags your workspace has claimed
       description: >-
         Returns the upload to the workspace that claimed it, with the keys it
         already has. Any other workspace gets a 403.
@@ -42376,7 +42381,9 @@ paths:
                       expiresAt:
                         type: string
                       file:
-                        description: The uploaded flags. Null once they have been imported.
+                        description: >-
+                          The uploaded Feature Flags. Null once they have been
+                          imported.
                         anyOf:
                           - type: object
                             properties:
@@ -42633,7 +42640,7 @@ paths:
   /v1/flag-imports/{token}/import:
     post:
       operationId: postFlagImportImport
-      summary: Import claimed flags into your workspace
+      summary: Import claimed Feature Flags into your workspace
       description: >-
         Creates each chosen Feature Flag with the caller's own permissions, the
         same way `POST /v2/features` does, and records the import as an Auto
@@ -42752,7 +42759,9 @@ paths:
                       expiresAt:
                         type: string
                       file:
-                        description: The uploaded flags. Null once they have been imported.
+                        description: >-
+                          The uploaded Feature Flags. Null once they have been
+                          imported.
                         anyOf:
                           - type: object
                             properties:
