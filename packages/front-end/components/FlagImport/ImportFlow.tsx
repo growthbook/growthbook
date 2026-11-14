@@ -538,19 +538,18 @@ export default function ImportFlow({
               </Box>
             ) : null}
           </SectionFrame>
-          {newAttributes.length ? (
-            <Text as="p" color="text-mid" align="center" mt="4" mb="0">
-              {newAttributes.length === 1
-                ? "The attribute "
-                : "The attributes "}
-              <Text mono weight="medium">
-                {newAttributes.join(", ")}
-              </Text>
-              {" will be added too."}
-            </Text>
-          ) : null}
         </>
       )}
+
+      {(step === 2 || !hasSecondStep) && newAttributes.length ? (
+        <Text as="p" color="text-mid" align="center" mt="4" mb="0">
+          {newAttributes.length === 1 ? "The attribute " : "The attributes "}
+          <Text mono weight="medium">
+            {newAttributes.join(", ")}
+          </Text>
+          {" will be added too."}
+        </Text>
+      ) : null}
 
       {error ? (
         <Callout status="error" mt="4">
@@ -611,7 +610,7 @@ export function ImportDone({
         They have the same rules as your code.
       </ImportHero>
       {created.length ? (
-        <SectionFrame title="Feature Flags">
+        <SectionFrame title="Feature Flags" mb="4">
           {created.map((r, i) => (
             <Flex
               key={r.key}

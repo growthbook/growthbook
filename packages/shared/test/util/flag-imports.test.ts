@@ -1,13 +1,18 @@
 import {
   buildFlagImportExperimentBody,
   buildFlagImportFeatureBody,
-  getFlagImportFlags,
+  getFlagImportLimitProblems,
   mapFlagImportEnvironments,
   planFlagImport,
   previewFlagImport,
   selectFlagImportFlags,
 } from "../../src/util/flag-imports";
-import { FlagsJson, flagsJsonValidator } from "../../src/validators";
+import {
+  findFlagsJsonProblems,
+  FLAG_IMPORT_MAX_PROBLEMS,
+  FlagsJson,
+  flagsJsonValidator,
+} from "../../src/validators";
 
 // The Quick start flags from the local flags.ts guide, as JSON.
 const guideExample = {
@@ -172,7 +177,7 @@ describe("planFlagImport", () => {
 
     expect(result.warnings).toEqual([]);
     expect(
-      getFlagImportFlags(result).map((f) => [f.key, f.valueType, f.importable]),
+      result.flags.map((f) => [f.key, f.valueType, !f.unsupported.length]),
     ).toEqual([
       ["dark_mode", "boolean", true],
       ["donut_price", "number", true],
@@ -237,7 +242,7 @@ describe("planFlagImport", () => {
       { path: "features.a", message: result.flags[0].unsupported[0] },
     ]);
     expect(result.environments).toEqual([]);
-    expect(getFlagImportFlags(result).map((f) => f.importable)).toEqual([
+    expect(result.flags.map((f) => !f.unsupported.length)).toEqual([
       false,
       true,
     ]);
@@ -767,5 +772,308 @@ describe("choices made before importing", () => {
     expect(mapped.summary.environments).toEqual(["development"]);
     expect(mapped.flags[0].rules[0].environments).toEqual(["development"]);
     expect(mapped.flags[0].rules[1].environments).toBeNull();
+  });
+});
+
+describe("findFlagsJsonProblems", () => {
+  const paths = (problems: string[]) =>
+    problems.map((line) => line.slice(1, line.indexOf("]")));
+
+  it("finds nothing wrong with the examples", () => {
+    expect(findFlagsJsonProblems(guideExample)).toEqual([]);
+    expect(findFlagsJsonProblems(sdkExample)).toEqual([]);
+  });
+
+  it("lists each problem with its path, as the full check does", () => {
+    expect(
+      findFlagsJsonProblems({
+        features: {
+          "bad key": { defaultValue: true },
+          b: { rules: [{ force: true, coverage: 2 }] },
+        },
+      }),
+    ).toEqual([
+      "[features.bad key] Feature keys can only include letters, numbers, and the characters _, -, ., :, and |.",
+      "[features.b.defaultValue] defaultValue is required",
+      "[features.b.rules.0.coverage] Too big: expected number to be <=1",
+    ]);
+  });
+
+  it.each<[string, unknown]>([
+    ["not an object", "flags"],
+    ["no features", {}],
+    ["an empty upload", { features: {} }],
+    ["a field the payload does not have", { features: {}, owner: "me" }],
+    ["a flag that is not an object", { features: { a: true } }],
+    ["a missing default value", { features: { a: { rules: [] } } }],
+    [
+      "a rule that is not an object",
+      { features: { a: { defaultValue: 1, rules: [0] } } },
+    ],
+    [
+      "a rule field the payload does not have",
+      { features: { a: { defaultValue: 1, rules: [{ percent: 10 }] } } },
+    ],
+    [
+      "a hash version that does not exist",
+      { features: { a: { defaultValue: 1, rules: [{ hashVersion: 3 }] } } },
+    ],
+    [
+      "too many rules",
+      { features: { a: { defaultValue: 1, rules: Array(101).fill({}) } } },
+    ],
+    [
+      "too many variations",
+      {
+        features: {
+          a: { defaultValue: 1, rules: [{ variations: Array(101).fill(1) }] },
+        },
+      },
+    ],
+    [
+      "too many Feature Flags",
+      {
+        features: Object.fromEntries(
+          Array.from({ length: 201 }, (_, i) => [`f${i}`, { defaultValue: 1 }]),
+        ),
+      },
+    ],
+    [
+      "a visual experiment with one variation",
+      { features: {}, experiments: [{ key: "a", variations: [{}] }] },
+    ],
+    [
+      "too many visual experiments",
+      {
+        features: { a: { defaultValue: 1 } },
+        experiments: Array(101).fill({ key: "a", variations: [{}, {}] }),
+      },
+    ],
+  ])("refuses what the full check refuses: %s", (_, file) => {
+    expect(flagsJsonValidator.safeParse(file).success).toBe(false);
+    expect(findFlagsJsonProblems(file).length).toBeGreaterThan(0);
+  });
+
+  it("refuses a file nested deeper than anything reads it", () => {
+    const nest = (levels: number) => {
+      let value: unknown = 1;
+      for (let i = 0; i < levels; i++) value = { a: value };
+      return value;
+    };
+    const file = (condition: unknown) => ({
+      features: {
+        a: { defaultValue: false, rules: [{ force: true, condition }] },
+      },
+    });
+    expect(findFlagsJsonProblems(file(nest(20)))).toEqual([]);
+    expect(flagsJsonValidator.safeParse(file(nest(20))).success).toBe(true);
+
+    expect(findFlagsJsonProblems(file(nest(30000)))).toEqual([
+      "[] The file nests more than 50 levels deep",
+    ]);
+    expect(flagsJsonValidator.safeParse(file(nest(60))).success).toBe(false);
+  });
+
+  it("names the rule field a bad union value is in", () => {
+    expect(
+      paths(
+        findFlagsJsonProblems({
+          features: { a: { defaultValue: 1, rules: [{ hashVersion: 3 }] } },
+        }),
+      ),
+    ).toEqual(["features.a.rules.0.hashVersion"]);
+  });
+
+  it.each<[string, unknown]>([
+    [
+      "every rule a number",
+      {
+        features: {
+          a: { defaultValue: 1, rules: Array(110000).fill(0) },
+          b: { defaultValue: 1, rules: Array(110000).fill(0) },
+        },
+      },
+    ],
+    [
+      "bad rules in every Feature Flag, within every limit",
+      {
+        features: Object.fromEntries(
+          Array.from({ length: 200 }, (_, i) => [
+            `f${i}`,
+            { defaultValue: 1, rules: Array(100).fill(0) },
+          ]),
+        ),
+      },
+    ],
+    [
+      "one rule with a list of bad weights",
+      {
+        features: {
+          a: {
+            defaultValue: 1,
+            rules: [{ variations: [0, 1], weights: Array(60000).fill("x") }],
+          },
+        },
+      },
+    ],
+    [
+      "one rule with every list full of bad entries",
+      {
+        features: {
+          a: {
+            defaultValue: 1,
+            rules: [
+              {
+                meta: Array(100).fill({ key: 1, name: 2, passthrough: 3 }),
+                weights: Array(100).fill("x"),
+                ranges: Array(100).fill(["a", "b"]),
+                filters: Array(100).fill(0),
+                parentConditions: Array(100).fill({ id: 1, condition: 2 }),
+              },
+            ],
+          },
+        },
+      },
+    ],
+    [
+      "thousands of bad keys",
+      {
+        features: Object.fromEntries(
+          Array.from({ length: 30000 }, (_, i) => [`bad key ${i}!`, 0]),
+        ),
+      },
+    ],
+    [
+      "thousands of bad visual experiments",
+      { experiments: Array(50000).fill(0) },
+    ],
+    [
+      "thousands of fields the payload does not have",
+      Object.fromEntries(Array.from({ length: 20000 }, (_, i) => [`x${i}`, 0])),
+    ],
+  ])("stops early on a file built to fail everywhere: %s", (_, file) => {
+    const problems = findFlagsJsonProblems(file);
+    expect(problems.length).toBeGreaterThan(0);
+    expect(problems.length).toBeLessThanOrEqual(FLAG_IMPORT_MAX_PROBLEMS + 1);
+    expect(
+      Math.max(...problems.map((line) => line.length)),
+    ).toBeLessThanOrEqual(300);
+  });
+
+  it("says when there were more problems than it lists", () => {
+    const problems = findFlagsJsonProblems({
+      features: { a: { defaultValue: 1, rules: Array(100).fill(0) } },
+    });
+    expect(problems).toHaveLength(FLAG_IMPORT_MAX_PROBLEMS + 1);
+    expect(problems[FLAG_IMPORT_MAX_PROBLEMS]).toBe(
+      `Only the first ${FLAG_IMPORT_MAX_PROBLEMS} problems are listed.`,
+    );
+  });
+});
+
+describe("what one import may add", () => {
+  const plan = (features: FlagsJson["features"]) =>
+    planFlagImport(flagsJsonValidator.parse({ features }));
+
+  it("asks where a rule runs when its environment could not be created", () => {
+    const file = flagsJsonValidator.parse({
+      features: {
+        a: {
+          defaultValue: false,
+          rules: [{ condition: { env: "my env!" }, force: true }],
+        },
+      },
+    });
+    const [flag] = previewFlagImport(file);
+    expect(flag.importable).toBe(false);
+    expect(flag.rules[0]).toMatchObject({
+      fixable: true,
+      issue: 'Rule 1 names an environment GrowthBook cannot create: "my env!"',
+    });
+
+    const fixed = planFlagImport(file, {
+      rules: { a: { "0": { environments: ["production"] } } },
+    });
+    expect(fixed.flags[0].unsupported).toEqual([]);
+    expect(fixed.environments).toEqual(["production"]);
+  });
+
+  it("keeps out a rule whose attribute name has no end", () => {
+    const long = "a".repeat(101);
+    const planned = plan({
+      a: {
+        defaultValue: false,
+        rules: [{ condition: { [long]: 1 }, force: true }],
+      },
+      b: {
+        defaultValue: false,
+        rules: [{ force: true, coverage: 0.5, hashAttribute: long }],
+      },
+    });
+    expect(planned.flags.map((flag) => flag.unsupported)).toEqual([
+      ["Rule 1 uses an attribute name longer than 100 characters"],
+      ["Rule 1 uses an attribute name longer than 100 characters"],
+    ]);
+    expect(planned.attributes).toEqual([]);
+  });
+
+  it("allows the examples", () => {
+    expect(
+      getFlagImportLimitProblems(
+        planFlagImport(flagsJsonValidator.parse(guideExample)),
+      ),
+    ).toEqual([]);
+  });
+
+  it("refuses a plan that adds more than one import may", () => {
+    const list = (n: number, prefix: string) =>
+      Array.from({ length: n }, (_, i) => `${prefix}${i}`);
+
+    expect(
+      getFlagImportLimitProblems(
+        plan({
+          a: {
+            defaultValue: false,
+            rules: list(21, "env").map((env) => ({
+              condition: { env },
+              force: true,
+            })),
+          },
+        }),
+      ),
+    ).toEqual(["It would add 21 environments. One import can add at most 20."]);
+
+    expect(
+      getFlagImportLimitProblems(
+        plan({
+          a: {
+            defaultValue: false,
+            rules: [
+              {
+                condition: Object.fromEntries(
+                  list(101, "attr").map((name) => [name, 1]),
+                ),
+                force: true,
+              },
+            ],
+          },
+        }),
+      ),
+    ).toEqual(["It would add 101 attributes. One import can add at most 100."]);
+
+    expect(
+      getFlagImportLimitProblems(
+        plan(
+          Object.fromEntries(
+            list(101, "flag").map((key) => [
+              key,
+              { defaultValue: "a", rules: [{ variations: ["a", "b"] }] },
+            ]),
+          ),
+        ),
+      ),
+    ).toEqual([
+      "It would add 101 experiments. One import can add at most 100.",
+    ]);
   });
 });

@@ -23,7 +23,8 @@ import {
 import { useUser } from "@/services/UserContext";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { getApiHost, isCloud } from "@/services/env";
-import track, { trackPageView } from "@/services/track";
+import track, { maskClaimToken, trackPageView } from "@/services/track";
+import { growthbook } from "@/services/utils";
 import { useRestApiCall } from "@/services/restApi";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import Welcome from "@/components/Auth/Welcome";
@@ -106,7 +107,10 @@ const ClaimPage = (): React.ReactElement => {
   } | null>(null);
 
   useEffect(() => {
-    trackPageView("/claim");
+    // Until it is given a URL the SDK reports the address bar, token included.
+    growthbook
+      .setURL(maskClaimToken(window.location.href))
+      .then(() => trackPageView("/claim"));
   }, []);
 
   const {

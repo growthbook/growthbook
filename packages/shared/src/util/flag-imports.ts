@@ -1,8 +1,14 @@
 import { z } from "zod";
 import type { postFeatureBodyV2 } from "../validators/features-v2";
 import type { postExperimentValidator } from "../validators/experiments";
+import {
+  FLAG_IMPORT_MAX_ATTRIBUTES,
+  FLAG_IMPORT_MAX_ENVIRONMENTS,
+  FLAG_IMPORT_MAX_EXPERIMENTS,
+  FLAG_IMPORT_MAX_NAME_LENGTH,
+  flagImportEnvironmentId,
+} from "../validators/flag-imports";
 import type {
-  FlagImportFlag,
   FlagImportSummary,
   FlagImportWarning,
   FlagsJson,
@@ -310,6 +316,28 @@ function planRule(
   if (mentionsKey(condition, ["$inGroup", "$notInGroup"])) {
     return fail(
       "targets a Saved Group, which this import does not support yet",
+    );
+  }
+  // Importing creates the environments and attributes a rule names, so both
+  // have to be names GrowthBook would accept from a person.
+  const unusable = environments?.find(
+    (env) => !flagImportEnvironmentId.safeParse(env).success,
+  );
+  if (unusable !== undefined) {
+    return fail(
+      `names an environment GrowthBook cannot create: ${JSON.stringify(unusable.slice(0, 40))}`,
+      true,
+    );
+  }
+  const named = new Map<string, FlagImportAttribute>();
+  collectAttributes(condition, named);
+  if (
+    [...named.keys(), rule.hashAttribute ?? ""].some(
+      (name) => name.length > FLAG_IMPORT_MAX_NAME_LENGTH,
+    )
+  ) {
+    return fail(
+      `uses an attribute name longer than ${FLAG_IMPORT_MAX_NAME_LENGTH} characters`,
     );
   }
 
@@ -627,6 +655,28 @@ export function planFlagImport(
   return planAll(file, overrides).plan;
 }
 
+// Why a plan is refused whole: it would add more to a workspace than one
+// import may, however few Feature Flags it holds.
+export function getFlagImportLimitProblems(plan: FlagImportPlan): string[] {
+  const over = (count: number, max: number, things: string) =>
+    count > max
+      ? [`It would add ${count} ${things}. One import can add at most ${max}.`]
+      : [];
+  return [
+    ...over(
+      plan.environments.length,
+      FLAG_IMPORT_MAX_ENVIRONMENTS,
+      "environments",
+    ),
+    ...over(plan.attributes.length, FLAG_IMPORT_MAX_ATTRIBUTES, "attributes"),
+    ...over(
+      plan.experiments.length,
+      FLAG_IMPORT_MAX_EXPERIMENTS,
+      "experiments",
+    ),
+  ];
+}
+
 // Every Feature Flag in the file as the claim page shows it, importable or not.
 export function previewFlagImport(
   file: FlagsJson,
@@ -671,17 +721,6 @@ export function mapFlagImportEnvironments(
     environments,
     summary: { ...plan.summary, environments },
   };
-}
-
-export function getFlagImportFlags(plan: FlagImportPlan): FlagImportFlag[] {
-  return plan.flags.map((flag) => ({
-    key: flag.key,
-    valueType: flag.valueType,
-    rules: flag.ruleCount,
-    experiments: flag.rules.filter((rule) => rule.type === "experiment").length,
-    importable: !flag.unsupported.length,
-    reason: flag.unsupported.join(". ") || null,
-  }));
 }
 
 export function buildFlagImportExperimentBody(

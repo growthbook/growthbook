@@ -1,16 +1,36 @@
-import { z } from "zod";
+import { z, core, ZodType } from "zod";
 import { FEATURE_KEY_PATTERN, FEATURE_KEY_PATTERN_ERROR } from "../constants";
 import { requiredUnlessPersonOwnerInputField } from "./owner-field";
 
 export const FLAG_IMPORT_MAX_FLAGS = 200;
 export const FLAG_IMPORT_MAX_RULES_PER_FLAG = 100;
 export const FLAG_IMPORT_MAX_EXPERIMENTS = 100;
+// Entries in any one list on a rule: variations, weights and the rest.
+export const FLAG_IMPORT_MAX_RULE_LIST = 100;
+// What one import may add to a workspace besides the Feature Flags.
+export const FLAG_IMPORT_MAX_ENVIRONMENTS = 20;
+export const FLAG_IMPORT_MAX_ATTRIBUTES = 100;
+export const FLAG_IMPORT_MAX_NAME_LENGTH = 100;
+// Problems listed when an upload is refused.
+export const FLAG_IMPORT_MAX_PROBLEMS = 50;
+// Objects and lists inside one another. Flag values and conditions stay far
+// below this; reading a file walks every level.
+export const FLAG_IMPORT_MAX_DEPTH = 50;
 export const FLAG_IMPORT_MAX_BYTES = 256 * 1024;
 export const FLAG_IMPORT_LIFETIME_HOURS = 24;
 // Once claimed, an upload waits this long to be imported.
 export const FLAG_IMPORT_CLAIMED_LIFETIME_DAYS = 7;
 // Claimed uploads a workspace can hold before it has to import one.
 export const FLAG_IMPORT_MAX_CLAIMED_PER_WORKSPACE = 20;
+
+// What the Environments page accepts for a new environment's id.
+export const flagImportEnvironmentId = z
+  .string()
+  .max(FLAG_IMPORT_MAX_NAME_LENGTH)
+  .regex(
+    /^[A-Za-z][A-Za-z0-9_-]*$/,
+    "An environment id starts with a letter and has only letters, numbers, hyphens and underscores",
+  );
 
 const flagsJsonCondition = z.record(z.string(), z.unknown());
 
@@ -32,10 +52,18 @@ export const flagsJsonRule = z
           })
           .strict(),
       )
+      .max(FLAG_IMPORT_MAX_RULE_LIST)
       .optional(),
     force: z.unknown().optional(),
-    variations: z.array(z.unknown()).min(2).optional(),
-    weights: z.array(z.number().min(0).max(1)).optional(),
+    variations: z
+      .array(z.unknown())
+      .min(2)
+      .max(FLAG_IMPORT_MAX_RULE_LIST)
+      .optional(),
+    weights: z
+      .array(z.number().min(0).max(1))
+      .max(FLAG_IMPORT_MAX_RULE_LIST)
+      .optional(),
     key: z.string().optional(),
     name: z.string().optional(),
     phase: z.string().optional(),
@@ -49,6 +77,7 @@ export const flagsJsonRule = z
           })
           .strict(),
       )
+      .max(FLAG_IMPORT_MAX_RULE_LIST)
       .optional(),
     coverage: z.number().min(0).max(1).optional(),
     hashAttribute: z.string().optional(),
@@ -60,11 +89,17 @@ export const flagsJsonRule = z
     minBucketVersion: z.number().int().min(0).optional(),
     namespace: z.tuple([z.string(), z.number(), z.number()]).optional(),
     range: flagsJsonRange.optional(),
-    ranges: z.array(flagsJsonRange).optional(),
-    filters: z.array(z.record(z.string(), z.unknown())).optional(),
-    tracks: z.array(z.unknown()).optional(),
+    ranges: z.array(flagsJsonRange).max(FLAG_IMPORT_MAX_RULE_LIST).optional(),
+    filters: z
+      .array(z.record(z.string(), z.unknown()))
+      .max(FLAG_IMPORT_MAX_RULE_LIST)
+      .optional(),
+    tracks: z.array(z.unknown()).max(FLAG_IMPORT_MAX_RULE_LIST).optional(),
     contextualBanditRef: z.string().optional(),
-    contextualVariations: z.array(z.unknown()).optional(),
+    contextualVariations: z
+      .array(z.unknown())
+      .max(FLAG_IMPORT_MAX_RULE_LIST)
+      .optional(),
     metadata: z.unknown().optional(),
   })
   .strict();
@@ -92,7 +127,7 @@ export const flagsJsonExperiment = z.looseObject({
   name: z.string().optional(),
 });
 
-export const flagsJsonValidator = z
+const flagsJsonObject = z
   .object({
     features: z
       .record(
@@ -114,28 +149,171 @@ export const flagsJsonValidator = z
     dateUpdated: z.string().optional(),
     status: z.number().optional(),
   })
-  .strict()
-  .superRefine((file, ctx) => {
-    const keys = Object.keys(file.features);
-    if (keys.length > FLAG_IMPORT_MAX_FLAGS) {
-      ctx.addIssue({
-        code: "custom",
-        message: `An upload can hold at most ${FLAG_IMPORT_MAX_FLAGS} Feature Flags`,
-        path: ["features"],
-      });
-    }
-    if (!keys.length && !file.experiments?.length) {
-      ctx.addIssue({
-        code: "custom",
-        message: "The upload has no Feature Flags",
-        path: ["features"],
-      });
-    }
-  });
+  .strict();
+
+const TOO_MANY_FLAGS = `An upload can hold at most ${FLAG_IMPORT_MAX_FLAGS} Feature Flags`;
+const NO_FLAGS = "The upload has no Feature Flags";
+const TOO_DEEP = `The file nests more than ${FLAG_IMPORT_MAX_DEPTH} levels deep`;
+
+// Walked with its own stack: a file can nest deeper than a function can recurse.
+function nestsDeeperThan(value: unknown, max: number): boolean {
+  const open: { node: object; depth: number }[] = [];
+  const visit = (node: unknown, depth: number) => {
+    if (typeof node === "object" && node !== null) open.push({ node, depth });
+  };
+  visit(value, 1);
+  for (let next = open.pop(); next; next = open.pop()) {
+    if (next.depth > max) return true;
+    for (const child of Object.values(next.node)) visit(child, next.depth + 1);
+  }
+  return false;
+}
+
+export const flagsJsonValidator = flagsJsonObject.superRefine((file, ctx) => {
+  if (nestsDeeperThan(file, FLAG_IMPORT_MAX_DEPTH)) {
+    ctx.addIssue({ code: "custom", message: TOO_DEEP, path: [] });
+  }
+  const keys = Object.keys(file.features);
+  if (keys.length > FLAG_IMPORT_MAX_FLAGS) {
+    ctx.addIssue({
+      code: "custom",
+      message: TOO_MANY_FLAGS,
+      path: ["features"],
+    });
+  }
+  if (!keys.length && !file.experiments?.length) {
+    ctx.addIssue({ code: "custom", message: NO_FLAGS, path: ["features"] });
+  }
+});
 
 export type FlagsJson = z.infer<typeof flagsJsonValidator>;
 export type FlagsJsonFeature = z.infer<typeof flagsJsonFeature>;
 export type FlagsJsonRule = z.infer<typeof flagsJsonRule>;
+
+// The same shapes with their lists left unread, so entries are checked one at
+// a time.
+const flagsJsonShell = flagsJsonObject.extend({
+  features: z.record(z.string(), z.unknown()),
+  experiments: z.array(z.unknown()).optional(),
+});
+const flagsJsonFeatureShell = flagsJsonFeature.extend({
+  rules: z.array(z.unknown()).optional(),
+});
+const RULE_LISTS = [
+  "parentConditions",
+  "variations",
+  "weights",
+  "meta",
+  "ranges",
+  "filters",
+  "tracks",
+  "contextualVariations",
+];
+const FEATURE_KEY = new RegExp(FEATURE_KEY_PATTERN);
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+// A union's own message is only "Invalid input": report the branch that came
+// closest instead.
+function issueLines(
+  issue: core.$ZodIssue,
+  prefix: PropertyKey[],
+): { path: PropertyKey[]; message: string }[] {
+  const path = [...prefix, ...issue.path];
+  if (issue.code === "invalid_union" && issue.errors.length) {
+    return issue.errors
+      .reduce((best, branch) => (branch.length < best.length ? branch : best))
+      .flatMap((inner) => issueLines(inner, path));
+  }
+  return [{ path, message: issue.message }];
+}
+
+// What is wrong with an upload, as `[path] message` lines. It reads the file a
+// piece at a time and stops once it has enough to report, so a file built to
+// fail everywhere costs no more to refuse than one that fails once. Nothing
+// here is stricter or looser than flagsJsonValidator.
+export function findFlagsJsonProblems(
+  body: unknown,
+  limit = FLAG_IMPORT_MAX_PROBLEMS,
+): string[] {
+  const problems: string[] = [];
+  const note = (path: PropertyKey[], message: string) => {
+    problems.push(`[${path.map(String).join(".")}] ${message}`.slice(0, 300));
+  };
+  const check = (schema: ZodType, value: unknown, path: PropertyKey[]) => {
+    const result = schema.safeParse(value);
+    if (result.success) return;
+    result.error.issues
+      .flatMap((issue) => issueLines(issue, path))
+      .forEach((line) => note(line.path, line.message));
+  };
+  // A list too long to read is one problem, not one for each entry.
+  const tooLong = (list: unknown, max: number, path: PropertyKey[]) => {
+    if (!Array.isArray(list) || list.length <= max) return false;
+    note(path, `Too big: expected array to have <=${max} items`);
+    return true;
+  };
+  const done = () => {
+    if (problems.length <= limit) return problems;
+    return [
+      ...problems.slice(0, limit),
+      `Only the first ${limit} problems are listed.`,
+    ];
+  };
+
+  if (nestsDeeperThan(body, FLAG_IMPORT_MAX_DEPTH)) {
+    note([], TOO_DEEP);
+    return done();
+  }
+  check(flagsJsonShell, body, []);
+  if (!isRecord(body)) return done();
+
+  const features = isRecord(body.features) ? body.features : {};
+  const keys = Object.keys(features);
+  if (keys.length > FLAG_IMPORT_MAX_FLAGS) {
+    note(["features"], TOO_MANY_FLAGS);
+    return done();
+  }
+  const experiments = Array.isArray(body.experiments) ? body.experiments : [];
+  if (!keys.length && !experiments.length && isRecord(body.features)) {
+    note(["features"], NO_FLAGS);
+  }
+
+  for (const key of keys) {
+    if (problems.length > limit) break;
+    const path = ["features", key];
+    if (!FEATURE_KEY.test(key)) note(path, FEATURE_KEY_PATTERN_ERROR);
+    const feature = features[key];
+    check(flagsJsonFeatureShell, feature, path);
+    const rules = isRecord(feature) ? feature.rules : undefined;
+    if (!Array.isArray(rules)) continue;
+    if (tooLong(rules, FLAG_IMPORT_MAX_RULES_PER_FLAG, [...path, "rules"])) {
+      continue;
+    }
+    for (let i = 0; i < rules.length && problems.length <= limit; i++) {
+      const rule = rules[i];
+      const rulePath = [...path, "rules", i];
+      const long = isRecord(rule)
+        ? RULE_LISTS.filter((field) =>
+            tooLong(rule[field], FLAG_IMPORT_MAX_RULE_LIST, [
+              ...rulePath,
+              field,
+            ]),
+          )
+        : [];
+      if (!long.length) check(flagsJsonRule, rule, rulePath);
+    }
+  }
+
+  if (!tooLong(experiments, FLAG_IMPORT_MAX_EXPERIMENTS, ["experiments"])) {
+    for (let i = 0; i < experiments.length && problems.length <= limit; i++) {
+      check(flagsJsonExperiment, experiments[i], ["experiments", i]);
+    }
+  }
+  return done();
+}
 
 export const flagImportValueTypes = [
   "boolean",
@@ -158,20 +336,6 @@ export const flagImportSummary = z
 
 export const flagImportWarning = z
   .object({ path: z.string(), message: z.string() })
-  .strict();
-
-export const flagImportFlag = z
-  .object({
-    key: z.string(),
-    valueType: z.enum(flagImportValueTypes),
-    rules: z.number(),
-    experiments: z.number(),
-    importable: z.boolean(),
-    reason: z
-      .string()
-      .nullable()
-      .describe("Why the Feature Flag will not be imported, when it will not."),
-  })
   .strict();
 
 export const flagImportResult = z
@@ -225,7 +389,12 @@ export const apiFlagImport = z
 export const flagImportRuleFix = z.union([
   z.object({ remove: z.literal(true) }).strict(),
   z
-    .object({ environments: z.array(z.string().min(1)).min(1).max(50) })
+    .object({
+      environments: z
+        .array(flagImportEnvironmentId)
+        .min(1)
+        .max(FLAG_IMPORT_MAX_ENVIRONMENTS),
+    })
     .strict(),
 ]);
 
@@ -239,7 +408,7 @@ export const flagImportChoices = z
       )
       .optional(),
     environments: z
-      .record(z.string(), z.string().min(1))
+      .record(z.string(), flagImportEnvironmentId)
       .describe(
         "Maps an environment named in the upload to the workspace environment to use in its place.",
       )
@@ -255,7 +424,6 @@ export const flagImportChoices = z
 
 export type FlagImportSummary = z.infer<typeof flagImportSummary>;
 export type FlagImportWarning = z.infer<typeof flagImportWarning>;
-export type FlagImportFlag = z.infer<typeof flagImportFlag>;
 export type FlagImportResult = z.infer<typeof flagImportResult>;
 export type FlagImportStatus = (typeof flagImportStatuses)[number];
 export type ApiFlagImportStatus = z.infer<typeof apiFlagImportStatus>;

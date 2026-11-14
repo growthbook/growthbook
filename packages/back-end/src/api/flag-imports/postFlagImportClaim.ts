@@ -4,10 +4,12 @@ import {
   assertFlagImportsEnabled,
   claimFlagImportForWorkspace,
 } from "back-end/src/services/flagImports";
+import { requireFlagImports } from "./flag-imports.middleware";
 
-export const postFlagImportClaim = createApiRequestHandler(
-  postFlagImportClaimValidator,
-)(async (req) => {
+export const postFlagImportClaim = createApiRequestHandler({
+  ...postFlagImportClaimValidator,
+  middleware: [requireFlagImports],
+})(async (req) => {
   assertFlagImportsEnabled();
   return {
     flagImport: await claimFlagImportForWorkspace(
