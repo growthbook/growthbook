@@ -187,12 +187,12 @@ export function getExperimentFactMetricsQuery(
   const useClusterRollup = clusterIdColumn !== null;
 
   // Metrics with `skipPartialData` are trimmed in the statistics CTE, which
-  // then needs each unit's exposure timestamp on its source table.
+  // then needs each unit's exposure (or activation) timestamp on its source
+  // table.
   const unitEligibility = metricData.some(
-    (d) =>
-      getUnitEligibilityHours(d.metric, settings, activationMetric) !== null,
+    (d) => getUnitEligibilityHours(d.metric, settings) !== null,
   )
-    ? { timestampColumn: "timestamp", settings, activationMetric }
+    ? { timestampColumn: "timestamp", settings }
     : undefined;
 
   // TODO(sql): Separate metric start by fact table

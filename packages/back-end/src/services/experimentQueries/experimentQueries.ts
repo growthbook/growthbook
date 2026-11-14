@@ -312,7 +312,7 @@ export function getFactMetricGroup(
   // exclude users who haven't had a full conversion window to convert.
   // Add the conversion window to the group key to keep same-window metrics grouped together
   const conversionWindowKey = skipPartialData
-    ? `_cw${getMaxHoursToConvert(false, [metric], null)}`
+    ? `_cw${getMaxHoursToConvert(false, [metric])}`
     : "";
 
   // Metrics group on the exact set of fact tables they read from — a ratio's
@@ -419,7 +419,7 @@ export function getFactMetricGroups(
               settings.regressionAdjustmentEnabled,
           };
         }),
-        ({ metric }) => getUnitEligibilityHours(metric, settings, null) ?? -1,
+        ({ metric }) => getUnitEligibilityHours(metric, settings) ?? -1,
       ),
       maxColumnsPerQuery: sourceProps.maxColumns,
       isBandit: !!settings.banditSettings,

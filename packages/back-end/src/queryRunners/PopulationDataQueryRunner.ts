@@ -327,7 +327,7 @@ export class PopulationDataQueryRunner extends QueryRunner<
               denominator,
               usersColumn:
                 this.snapshotSettings &&
-                getMetricUsersColumn(metric, this.snapshotSettings, null),
+                getMetricUsersColumn(metric, this.snapshotSettings),
             });
             metrics.push(res.metric);
 

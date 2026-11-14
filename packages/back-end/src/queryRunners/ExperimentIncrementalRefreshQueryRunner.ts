@@ -1148,7 +1148,6 @@ const startExperimentIncrementalRefreshQueries = async (
       const partitions = partitionMetricsByConversionWindow(
         sameFtMetrics,
         snapshotSettings.skipPartialData,
-        activationMetric,
       );
       for (const partition of partitions) {
         // Quantiles only run overall stats. Recheck per partition so a mixed
@@ -1227,11 +1226,7 @@ const startExperimentIncrementalRefreshQueries = async (
     getWindowKey: (m) =>
       snapshotSettings.skipPartialData
         ? conversionWindowMinutesKey(
-            getOverriddenMetricConversionWindowHours(
-              m,
-              activationMetric,
-              snapshotSettings,
-            ),
+            getOverriddenMetricConversionWindowHours(m, snapshotSettings),
           )
         : null,
   });

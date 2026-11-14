@@ -64,7 +64,7 @@ describe("getMaxHoursToConvert for fact funnel metrics", () => {
         buildStep("Purchase", { value: 30, unit: "minutes" }),
       ],
     });
-    expect(getMaxHoursToConvert(false, [metric], null)).toEqual(2);
+    expect(getMaxHoursToConvert(false, [metric])).toEqual(2);
   });
 
   it("caps at the metric window when every step is windowed but the sum is longer", () => {
@@ -77,7 +77,7 @@ describe("getMaxHoursToConvert for fact funnel metrics", () => {
         buildStep("Purchase", { value: 10, unit: "days" }),
       ],
     });
-    expect(getMaxHoursToConvert(false, [metric], null)).toEqual(7 * 24);
+    expect(getMaxHoursToConvert(false, [metric])).toEqual(7 * 24);
   });
 
   it("falls back to the metric window when any step lacks a conversion window", () => {
@@ -90,7 +90,7 @@ describe("getMaxHoursToConvert for fact funnel metrics", () => {
         buildStep("Purchase", { value: 30, unit: "minutes" }),
       ],
     });
-    expect(getMaxHoursToConvert(false, [metric], null)).toEqual(72);
+    expect(getMaxHoursToConvert(false, [metric])).toEqual(72);
   });
 
   it("includes the metric delay on top of the funnel completion bound", () => {
@@ -102,7 +102,7 @@ describe("getMaxHoursToConvert for fact funnel metrics", () => {
         buildStep("Purchase", { value: 1, unit: "hours" }),
       ],
     });
-    expect(getMaxHoursToConvert(false, [metric], null)).toEqual(6);
+    expect(getMaxHoursToConvert(false, [metric])).toEqual(6);
   });
 
   describe("without a metric conversion window", () => {
@@ -118,7 +118,7 @@ describe("getMaxHoursToConvert for fact funnel metrics", () => {
         delayValueHours: 4,
         steps: windowedSteps,
       });
-      expect(getMaxHoursToConvert(false, [metric], null)).toEqual(5.5);
+      expect(getMaxHoursToConvert(false, [metric])).toEqual(5.5);
     });
 
     it("is unbounded when any step lacks a conversion window", () => {
@@ -128,7 +128,7 @@ describe("getMaxHoursToConvert for fact funnel metrics", () => {
         delayValueHours: 4,
         steps: [...windowedSteps, buildStep("Refund")],
       });
-      expect(getMaxHoursToConvert(false, [metric], null)).toEqual(0);
+      expect(getMaxHoursToConvert(false, [metric])).toEqual(0);
     });
 
     it("ignores step windows for lookback windows", () => {
@@ -138,7 +138,7 @@ describe("getMaxHoursToConvert for fact funnel metrics", () => {
         delayValueHours: 4,
         steps: windowedSteps,
       });
-      expect(getMaxHoursToConvert(false, [metric], null)).toEqual(0);
+      expect(getMaxHoursToConvert(false, [metric])).toEqual(0);
     });
   });
 });
@@ -160,27 +160,23 @@ describe("getMaxHoursToConvert for retention metrics", () => {
     });
 
   it("uses the delay when retention has no end", () => {
-    expect(
-      getMaxHoursToConvert(false, [buildRetentionMetric("")], null),
-    ).toEqual(7 * 24);
+    expect(getMaxHoursToConvert(false, [buildRetentionMetric("")])).toEqual(
+      7 * 24,
+    );
   });
 
   it("adds the window when retention has an end", () => {
     expect(
-      getMaxHoursToConvert(false, [buildRetentionMetric("conversion")], null),
+      getMaxHoursToConvert(false, [buildRetentionMetric("conversion")]),
     ).toEqual(10 * 24);
   });
 
   it("ignores lookback retention and delays on other unwindowed metrics", () => {
     expect(
-      getMaxHoursToConvert(false, [buildRetentionMetric("lookback")], null),
+      getMaxHoursToConvert(false, [buildRetentionMetric("lookback")]),
     ).toEqual(0);
     expect(
-      getMaxHoursToConvert(
-        false,
-        [buildRetentionMetric("", "proportion")],
-        null,
-      ),
+      getMaxHoursToConvert(false, [buildRetentionMetric("", "proportion")]),
     ).toEqual(0);
   });
 });

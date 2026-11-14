@@ -27,8 +27,9 @@ type UnitEligibilitySettings = Pick<
 >;
 
 /**
- * Hours since exposure a unit needs before a metric with `skipPartialData`
- * analyzes it, or null when the metric analyzes every unit in the query.
+ * Hours a unit needs since its exposure, or its activation in an experiment
+ * with an activation metric, before a metric with `skipPartialData` analyzes
+ * it. Null when the metric analyzes every unit in the query.
  *
  * A snapshot records the hours of its metrics (`recordUnitEligibility`), so
  * its results are read the way its queries were written whatever the metric
@@ -39,13 +40,12 @@ export function getUnitEligibilityHours(
   metric: ExperimentMetricInterface,
   settings: UnitEligibilitySettings &
     Pick<ExperimentSnapshotSettings, "metricSettings">,
-  activationMetric: ExperimentMetricInterface | null,
 ): number | null {
   const recorded = settings.metricSettings.find(
     (s) => s.id === metric.id,
   )?.computedSettings;
   if (recorded) return recorded.unitEligibilityHours ?? null;
-  return computeUnitEligibilityHours(metric, settings, activationMetric);
+  return computeUnitEligibilityHours(metric, settings);
 }
 
 /**
@@ -54,26 +54,18 @@ export function getUnitEligibilityHours(
  */
 export function recordUnitEligibility(
   settings: UnitEligibilitySettings &
-    Pick<ExperimentSnapshotSettings, "metricSettings" | "activationMetric">,
+    Pick<ExperimentSnapshotSettings, "metricSettings">,
   metricMap: Map<string, ExperimentMetricInterface>,
 ): void {
-  // The metric with the window the snapshot analyzes it over, which an
-  // experiment can override.
-  const withSnapshotWindow = (id: string) => {
-    const metric = metricMap.get(id);
-    const windowSettings = settings.metricSettings.find((s) => s.id === id)
-      ?.computedSettings?.windowSettings;
-    if (!metric) return null;
-    return windowSettings ? { ...metric, windowSettings } : metric;
-  };
-  const activationMetric = withSnapshotWindow(settings.activationMetric ?? "");
   settings.metricSettings.forEach(({ id, computedSettings }) => {
-    const metric = withSnapshotWindow(id);
+    const metric = metricMap.get(id);
     if (!metric || !computedSettings) return;
+    // The window the snapshot analyzes the metric over, which an experiment
+    // can override.
+    const { windowSettings } = computedSettings;
     const hours = computeUnitEligibilityHours(
-      metric,
+      windowSettings ? { ...metric, windowSettings } : metric,
       settings,
-      activationMetric,
     );
     // Left unset otherwise so existing metric hashes stay unchanged.
     if (hours !== null) computedSettings.unitEligibilityHours = hours;
@@ -83,7 +75,6 @@ export function recordUnitEligibility(
 function computeUnitEligibilityHours(
   metric: ExperimentMetricInterface,
   settings: UnitEligibilitySettings,
-  activationMetric: ExperimentMetricInterface | null,
 ): number | null {
   // The experiment-level setting already trims the units of every metric.
   if (settings.skipPartialData) return null;
@@ -115,11 +106,11 @@ function computeUnitEligibilityHours(
         }
       : metric;
 
-  const isFunnel = isFactFunnelMetric(effectiveMetric);
-  // No bound on the metric itself means every unit is already complete, even
-  // when the activation metric has a window.
-  if (getMaxHoursToConvert(isFunnel, [effectiveMetric], null) <= 0) return null;
-  return getMaxHoursToConvert(isFunnel, [effectiveMetric], activationMetric);
+  const hours = getMaxHoursToConvert(isFactFunnelMetric(effectiveMetric), [
+    effectiveMetric,
+  ]);
+  // No bound on the metric means every unit is already complete.
+  return hours > 0 ? hours : null;
 }
 
 export const ELIGIBLE_USERS_COLUMN_PREFIX = "users_cw";
@@ -141,14 +132,13 @@ export function getMetricUsersColumn(
 }
 
 export type UnitEligibility = {
-  /** Exposure timestamp column on the per-unit tables. */
+  /** Column on the per-unit tables with the timestamp a unit's wait runs from. */
   timestampColumn: string;
   settings: UnitEligibilitySettings &
     Pick<
       ExperimentSnapshotSettings,
       "metricSettings" | "endDate" | "endDateIsCutoff"
     >;
-  activationMetric: ExperimentMetricInterface | null;
   /** Data freshness the cutoff counts back from; defaults to now. */
   asOf?: Date;
 };
@@ -157,9 +147,9 @@ export type UnitEligibility = {
 export function getUnitEligibilityCutoff(
   dialect: Pick<SqlDialect, "toTimestamp">,
   metric: ExperimentMetricInterface,
-  { settings, activationMetric, asOf }: UnitEligibility,
+  { settings, asOf }: UnitEligibility,
 ): { hours: number; cutoff: string } | null {
-  const hours = getUnitEligibilityHours(metric, settings, activationMetric);
+  const hours = getUnitEligibilityHours(metric, settings);
   if (hours === null) return null;
   return {
     hours,

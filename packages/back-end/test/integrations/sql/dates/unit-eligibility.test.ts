@@ -54,7 +54,7 @@ function buildMetric(
 
 describe("getUnitEligibilityHours", () => {
   it("is the delay plus the conversion window", () => {
-    expect(getUnitEligibilityHours(buildMetric(), settings, null)).toEqual(5.5);
+    expect(getUnitEligibilityHours(buildMetric(), settings)).toEqual(5.5);
   });
 
   it("is null unless the metric opts in", () => {
@@ -62,42 +62,26 @@ describe("getUnitEligibilityHours", () => {
       getUnitEligibilityHours(
         buildMetric({}, { skipPartialData: false }),
         settings,
-        null,
       ),
     ).toBeNull();
   });
 
   it("is null when the experiment already excludes in-progress conversions", () => {
     expect(
-      getUnitEligibilityHours(
-        buildMetric(),
-        { ...settings, skipPartialData: true },
-        null,
-      ),
+      getUnitEligibilityHours(buildMetric(), {
+        ...settings,
+        skipPartialData: true,
+      }),
     ).toBeNull();
   });
 
-  it("is null for a metric with no bound, even with a windowed activation metric", () => {
+  it("is null for a metric with no bound", () => {
     expect(
-      getUnitEligibilityHours(
-        buildMetric({ type: "" }),
-        settings,
-        buildMetric(),
-      ),
+      getUnitEligibilityHours(buildMetric({ type: "" }), settings),
     ).toBeNull();
     expect(
-      getUnitEligibilityHours(
-        buildMetric({ type: "lookback" }),
-        settings,
-        null,
-      ),
+      getUnitEligibilityHours(buildMetric({ type: "lookback" }), settings),
     ).toBeNull();
-  });
-
-  it("adds the activation metric's window to a bounded metric", () => {
-    expect(
-      getUnitEligibilityHours(buildMetric(), settings, buildMetric()),
-    ).toEqual(11);
   });
 
   it("is the delay for retention with no end", () => {
@@ -105,7 +89,6 @@ describe("getUnitEligibilityHours", () => {
       getUnitEligibilityHours(
         buildMetric({ type: "" }, { metricType: "retention" }),
         settings,
-        null,
       ),
     ).toEqual(2);
   });
@@ -125,7 +108,6 @@ describe("getUnitEligibilityHours", () => {
           },
         ),
         settings,
-        null,
       ),
     ).toBeNull();
   });
@@ -139,21 +121,13 @@ describe("getUnitEligibilityHours", () => {
       historicalWeights: [],
     };
     expect(
-      getUnitEligibilityHours(
-        buildMetric(),
-        { ...settings, banditSettings },
-        null,
-      ),
+      getUnitEligibilityHours(buildMetric(), { ...settings, banditSettings }),
     ).toBeNull();
     expect(
-      getUnitEligibilityHours(
-        buildMetric(),
-        {
-          ...settings,
-          banditSettings: { ...banditSettings, contextualBandit: true },
-        },
-        null,
-      ),
+      getUnitEligibilityHours(buildMetric(), {
+        ...settings,
+        banditSettings: { ...banditSettings, contextualBandit: true },
+      }),
     ).toBeNull();
   });
 
@@ -164,47 +138,42 @@ describe("getUnitEligibilityHours", () => {
       isClusterExperiment: true,
       clusterSubUnitIdentifier: "user_id",
     };
-    expect(getUnitEligibilityHours(metric, clusterSettings, null)).toBeNull();
+    expect(getUnitEligibilityHours(metric, clusterSettings)).toBeNull();
     expect(
-      getUnitEligibilityHours(
-        metric,
-        { ...clusterSettings, clusterLevelMetricIds: [metric.id] },
-        null,
-      ),
+      getUnitEligibilityHours(metric, {
+        ...clusterSettings,
+        clusterLevelMetricIds: [metric.id],
+      }),
     ).toEqual(5.5);
     // A cluster experiment with no sub-unit analyzes the cluster directly
     expect(
-      getUnitEligibilityHours(
-        metric,
-        { ...settings, isClusterExperiment: true },
-        null,
-      ),
+      getUnitEligibilityHours(metric, {
+        ...settings,
+        isClusterExperiment: true,
+      }),
     ).toEqual(5.5);
   });
 
   it("follows the experiment's conversion window override", () => {
     // Ignoring conversion windows leaves a plain metric unbounded...
     expect(
-      getUnitEligibilityHours(
-        buildMetric(),
-        { ...settings, attributionModel: "experimentDuration" },
-        null,
-      ),
+      getUnitEligibilityHours(buildMetric(), {
+        ...settings,
+        attributionModel: "experimentDuration",
+      }),
     ).toBeNull();
     // ...but retention keeps its delay
     expect(
-      getUnitEligibilityHours(
-        buildMetric({}, { metricType: "retention" }),
-        { ...settings, attributionModel: "experimentDuration" },
-        null,
-      ),
+      getUnitEligibilityHours(buildMetric({}, { metricType: "retention" }), {
+        ...settings,
+        attributionModel: "experimentDuration",
+      }),
     ).toEqual(2);
     expect(
-      getUnitEligibilityHours(
-        buildMetric(),
-        { ...settings, attributionModel: "lookbackOverride" },
-        null,
-      ),
+      getUnitEligibilityHours(buildMetric(), {
+        ...settings,
+        attributionModel: "lookbackOverride",
+      }),
     ).toBeNull();
   });
 });
@@ -214,20 +183,15 @@ describe("unit eligibility recorded on a snapshot", () => {
     const metric = buildMetric();
     // Recorded as analyzing every unit; the metric has since opted in
     expect(
-      getUnitEligibilityHours(
-        metric,
-        {
-          ...settings,
-          metricSettings: [snapshotEntry(metric.id, metric.windowSettings)],
-        },
-        null,
-      ),
+      getUnitEligibilityHours(metric, {
+        ...settings,
+        metricSettings: [snapshotEntry(metric.id, metric.windowSettings)],
+      }),
     ).toBeNull();
 
     // Recorded at 5.5 hours; the metric has since opted out with a new window
     const snapshot = {
       ...settings,
-      activationMetric: null,
       metricSettings: [snapshotEntry(metric.id, metric.windowSettings)],
     };
     recordUnitEligibility(snapshot, new Map([[metric.id, metric]]));
@@ -238,7 +202,6 @@ describe("unit eligibility recorded on a snapshot", () => {
           { id: metric.id, skipPartialData: false },
         ),
         snapshot,
-        null,
       ),
     ).toEqual(5.5);
   });
@@ -248,29 +211,26 @@ describe("unit eligibility recorded on a snapshot", () => {
     const overridden = buildMetric();
     const untrimmed = buildMetric({}, { skipPartialData: false });
     const activation = buildMetric();
-    const record = (activationMetric: string | null) => {
-      const snapshot = {
-        ...settings,
-        activationMetric,
-        metricSettings: [
-          snapshotEntry(trimmed.id, trimmed.windowSettings),
-          snapshotEntry(overridden.id, {
-            ...overridden.windowSettings,
-            windowValue: 10,
-          }),
-          snapshotEntry(untrimmed.id, untrimmed.windowSettings),
-        ],
-      };
-      recordUnitEligibility(
-        snapshot,
-        new Map(
-          [trimmed, overridden, untrimmed, activation].map((m) => [m.id, m]),
-        ),
-      );
-      return snapshot.metricSettings.map((s) => s.computedSettings);
+    const snapshot = {
+      ...settings,
+      // Activated units wait from their activation, so its window adds nothing
+      activationMetric: activation.id,
+      metricSettings: [
+        snapshotEntry(trimmed.id, trimmed.windowSettings),
+        snapshotEntry(overridden.id, {
+          ...overridden.windowSettings,
+          windowValue: 10,
+        }),
+        snapshotEntry(untrimmed.id, untrimmed.windowSettings),
+      ],
     };
-
-    const recorded = record(null);
+    recordUnitEligibility(
+      snapshot,
+      new Map(
+        [trimmed, overridden, untrimmed, activation].map((m) => [m.id, m]),
+      ),
+    );
+    const recorded = snapshot.metricSettings.map((s) => s.computedSettings);
     expect(recorded.map((s) => s?.unitEligibilityHours)).toEqual([
       5.5,
       12,
@@ -280,12 +240,6 @@ describe("unit eligibility recorded on a snapshot", () => {
     expect(recorded[2]).not.toHaveProperty("unitEligibilityHours");
     // The metric documents keep their own windows
     expect(overridden.windowSettings.windowValue).toEqual(3.5);
-
-    expect(record(activation.id).map((s) => s?.unitEligibilityHours)).toEqual([
-      11,
-      17.5,
-      undefined,
-    ]);
   });
 });
 

@@ -111,7 +111,6 @@ describe("partitionMetricsByConversionWindow", () => {
     const partitions = partitionMetricsByConversionWindow(
       [shortWindowMetric, longWindowMetric, halfHourMetric],
       false,
-      null,
     );
     expect(partitions).toHaveLength(1);
     expect(partitions[0].window).toBeNull();
@@ -126,7 +125,6 @@ describe("partitionMetricsByConversionWindow", () => {
     const partitions = partitionMetricsByConversionWindow(
       [longWindowMetric, shortWindowMetric],
       true,
-      null,
     );
     expect(partitions).toHaveLength(2);
     expect(partitions.map((p) => p.window)).toEqual([
@@ -149,7 +147,6 @@ describe("partitionMetricsByConversionWindow", () => {
     const partitions = partitionMetricsByConversionWindow(
       [longWindowMetric, anotherLong],
       true,
-      null,
     );
     expect(partitions).toHaveLength(1);
     expect(partitions[0].window).toEqual({ hours: 96, key: "5760m" });
@@ -163,7 +160,6 @@ describe("partitionMetricsByConversionWindow", () => {
     const partitions = partitionMetricsByConversionWindow(
       [halfHourMetric, shortWindowMetric],
       true,
-      null,
     );
     expect(partitions).toHaveLength(2);
     expect(partitions[0].window).toEqual({ hours: 0.5, key: "30m" });
@@ -180,59 +176,22 @@ describe("partitionMetricsByConversionWindow", () => {
         buildStep("Purchase", { value: 30, unit: "minutes" }),
       ],
     });
-    const expected = getMaxHoursToConvert(
-      isFactFunnelMetric(funnel),
-      [funnel],
-      null,
-    );
+    const expected = getMaxHoursToConvert(isFactFunnelMetric(funnel), [funnel]);
     expect(expected).toBe(2);
-    const partitions = partitionMetricsByConversionWindow([funnel], true, null);
+    const partitions = partitionMetricsByConversionWindow([funnel], true);
     expect(partitions).toHaveLength(1);
     expect(partitions[0].window?.hours).toBe(expected);
-    expect(getMetricConversionWindowHours(funnel, null)).toBe(expected);
-  });
-
-  it("includes the activation metric in the window the same way the CTE does", () => {
-    const activation = factMetricFactory.build({
-      id: "activation",
-      metricType: "mean",
-      numerator: {
-        factTableId: "ft_events",
-        column: "amount",
-        aggregation: "sum",
-      },
-      windowSettings: {
-        type: "conversion",
-        delayValue: 0,
-        delayUnit: "hours",
-        windowValue: 2,
-        windowUnit: "hours",
-      },
-    });
-    const partitions = partitionMetricsByConversionWindow(
-      [shortWindowMetric, longWindowMetric],
-      true,
-      activation,
-    );
-    expect(partitions.map((p) => p.window?.hours)).toEqual([26, 98]);
-    expect(partitions[0].window?.hours).toBe(
-      getMaxHoursToConvert(false, [shortWindowMetric], activation),
-    );
-    expect(partitions[1].window?.hours).toBe(
-      getMaxHoursToConvert(false, [longWindowMetric], activation),
-    );
+    expect(getMetricConversionWindowHours(funnel)).toBe(expected);
   });
 
   it("assigns unique, stable minute keys regardless of input order", () => {
     const forward = partitionMetricsByConversionWindow(
       [longWindowMetric, shortWindowMetric, halfHourMetric],
       true,
-      null,
     );
     const reverse = partitionMetricsByConversionWindow(
       [halfHourMetric, shortWindowMetric, longWindowMetric],
       true,
-      null,
     );
     expect(forward.map((p) => p.window)).toEqual([
       { hours: 0.5, key: "30m" },
@@ -271,9 +230,9 @@ describe("getOverriddenMetricConversionWindowHours", () => {
   };
 
   it("returns the overridden window, matching what the stats CTE asserts on", () => {
-    expect(getMetricConversionWindowHours(longWindowMetric, null)).toBe(96);
+    expect(getMetricConversionWindowHours(longWindowMetric)).toBe(96);
     expect(
-      getOverriddenMetricConversionWindowHours(longWindowMetric, null, {
+      getOverriddenMetricConversionWindowHours(longWindowMetric, {
         metricSettings: [shortWindowOverride],
       }),
     ).toBe(24);
@@ -281,14 +240,14 @@ describe("getOverriddenMetricConversionWindowHours", () => {
 
   it("falls back to the raw window when no override targets the metric", () => {
     expect(
-      getOverriddenMetricConversionWindowHours(longWindowMetric, null, {
+      getOverriddenMetricConversionWindowHours(longWindowMetric, {
         metricSettings: [],
       }),
     ).toBe(96);
   });
 
   it("does not mutate the input metric", () => {
-    getOverriddenMetricConversionWindowHours(longWindowMetric, null, {
+    getOverriddenMetricConversionWindowHours(longWindowMetric, {
       metricSettings: [shortWindowOverride],
     });
     expect(longWindowMetric.windowSettings.windowValue).toBe(3);

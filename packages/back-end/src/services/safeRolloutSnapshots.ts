@@ -371,7 +371,6 @@ export function getSafeRolloutSnapshotSettings({
   recordUnitEligibility(
     {
       metricSettings,
-      activationMetric: null,
       attributionModel: "firstExposure",
       skipPartialData: false,
     },

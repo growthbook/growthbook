@@ -202,9 +202,7 @@ export const startExperimentIncrementalRefreshExploratoryQueries = async (
     snapshotSettings.skipPartialData ||
     metricSourceGroups.some((group) =>
       group.metrics.some(
-        (m) =>
-          getUnitEligibilityHours(m, snapshotSettings, activationMetric) !==
-          null,
+        (m) => getUnitEligibilityHours(m, snapshotSettings) !== null,
       ),
     );
   if (trimsUnits && !asOf) {
@@ -288,7 +286,6 @@ export const startExperimentIncrementalRefreshExploratoryQueries = async (
     const partitions = partitionMetricsByConversionWindow(
       sameFtMetrics,
       snapshotSettings.skipPartialData,
-      activationMetric,
     );
     for (const partition of partitions) {
       const statisticsQuery = await startQuery({
@@ -347,11 +344,7 @@ export const startExperimentIncrementalRefreshExploratoryQueries = async (
     getWindowKey: (m) =>
       snapshotSettings.skipPartialData
         ? conversionWindowMinutesKey(
-            getOverriddenMetricConversionWindowHours(
-              m,
-              activationMetric,
-              snapshotSettings,
-            ),
+            getOverriddenMetricConversionWindowHours(m, snapshotSettings),
           )
         : null,
   });
