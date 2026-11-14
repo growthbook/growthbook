@@ -2,6 +2,7 @@ import {
   ExperimentMetricInterface,
   isFactFunnelMetric,
   isFactMetric,
+  parseFunnelStepMetricId,
   quantileMetricType,
 } from "shared/experiments";
 import { ExperimentSnapshotSettings } from "shared/types/experiment-snapshot";
@@ -68,7 +69,8 @@ export function recordUnitEligibility(
   };
   const activationMetric = withSnapshotWindow(settings.activationMetric ?? "");
   settings.metricSettings.forEach(({ id, computedSettings }) => {
-    const metric = withSnapshotWindow(id);
+    // Use parent metric for eligibility for each step in a funnel
+    const metric = withSnapshotWindow(parseFunnelStepMetricId(id).baseMetricId);
     if (!metric || !computedSettings) return;
     const hours = computeUnitEligibilityHours(
       metric,

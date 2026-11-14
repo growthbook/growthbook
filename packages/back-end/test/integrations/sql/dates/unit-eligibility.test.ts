@@ -1,5 +1,9 @@
+import { getFunnelStepMetrics } from "shared/experiments";
 import type { MetricForSnapshot } from "shared/types/experiment-snapshot";
-import type { MetricWindowSettings } from "shared/types/fact-table";
+import type {
+  FunnelFactMetricInterface,
+  MetricWindowSettings,
+} from "shared/types/fact-table";
 
 import {
   getEligibleUsersColumn,
@@ -286,6 +290,42 @@ describe("unit eligibility recorded on a snapshot", () => {
       17.5,
       undefined,
     ]);
+  });
+
+  it("records a funnel's hours on its steps, which have no step windows of their own", () => {
+    const record = (skipPartialData: boolean) => {
+      const funnel: FunnelFactMetricInterface = {
+        ...buildMetric({ type: "" }, { skipPartialData }),
+        metricType: "funnel",
+        numerator: null,
+        funnelSettings: {
+          concurrencyWindowSeconds: 0,
+          steps: [60, 30].map((minutes, i) => ({
+            name: `Step ${i}`,
+            factTableId: "events",
+            rowFilters: [],
+            optional: false,
+            conversionWindow: { value: minutes, unit: "minutes" as const },
+          })),
+        },
+      };
+      const metrics = [funnel, ...getFunnelStepMetrics(funnel)];
+      const snapshot = {
+        ...settings,
+        activationMetric: null,
+        metricSettings: metrics.map((m) =>
+          snapshotEntry(m.id, m.windowSettings),
+        ),
+      };
+      recordUnitEligibility(snapshot, new Map(metrics.map((m) => [m.id, m])));
+      return snapshot.metricSettings.map(
+        (s) => s.computedSettings?.unitEligibilityHours,
+      );
+    };
+
+    // The 2 hour delay plus both step windows, on the funnel and each step
+    expect(record(true)).toEqual([3.5, 3.5, 3.5]);
+    expect(record(false)).toEqual([undefined, undefined, undefined]);
   });
 });
 
