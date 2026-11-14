@@ -196,14 +196,6 @@ export function assertCanChangeSdkWebhooks<T extends { id: string }>(
     return !!old && !isEqual(old, w);
   });
   const deletes = before.some((w) => !afterIds.has(w.id));
-  // The webhook model's own writes take this too. Asked here, a publish is
-  // refused before anything is claimed, not partway through landing.
-  if (
-    (creates || updates || deletes) &&
-    !context.permissions.canManageLegacySDKWebhooks()
-  ) {
-    context.permissions.throwPermissionError();
-  }
   if (
     (creates && !context.permissions.canCreateSDKWebhook(scope)) ||
     (updates && !context.permissions.canUpdateSDKWebhook(scope)) ||

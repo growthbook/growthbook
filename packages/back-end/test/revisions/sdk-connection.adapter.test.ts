@@ -143,7 +143,6 @@ function makeContext(overrides: {
     canUpdateSDKConnection: () => true,
     canBypassSDKConnectionApprovalChecks: () => true,
     canRevisionAction: () => true,
-    canManageLegacySDKWebhooks: () => true,
     canCreateSDKWebhook: () => true,
     canUpdateSDKWebhook: () => true,
     canDeleteSDKWebhook: () => true,
@@ -1170,18 +1169,6 @@ describe("sdkConnectionAdapter", () => {
       expect(mockedEdit).not.toHaveBeenCalled();
       expect(webhooksModel(ctx).create).not.toHaveBeenCalled();
       expect(onPersisted).not.toHaveBeenCalled();
-    });
-
-    it("refuses a webhook change from someone who can't write webhooks at all", async () => {
-      const ctx = makeContext({
-        permissions: { canManageLegacySDKWebhooks: () => false },
-      });
-      await expect(
-        sdkConnectionAdapter.applyChanges(ctx, liveEntity, {
-          sdkWebhooks: [baseWebhook],
-        }),
-      ).rejects.toThrow("permission denied");
-      expect(webhooksModel(ctx).create).not.toHaveBeenCalled();
     });
 
     it("checks only the permission for the webhook change being made", async () => {

@@ -78,11 +78,9 @@ function webhookHeaderViewer(context: Context, connectionId: string) {
       connectionId,
       (async () => {
         const connection = await findSDKConnectionById(context, connectionId);
-        // Both, as reading the webhook itself takes both.
         if (
           !connection ||
-          !context.permissions.canUpdateSDKWebhook(connection) ||
-          !context.permissions.canManageLegacySDKWebhooks()
+          !context.permissions.canUpdateSDKWebhook(connection)
         ) {
           return () => false;
         }
@@ -623,8 +621,8 @@ export const sdkConnectionAdapter: EntityRevisionAdapter<SDKConnectionRevisionSn
         context.permissions.throwPermissionError();
       }
       if (webhooksChanged) {
-        // The model's hooks only check the global manageEventWebhooks, not the
-        // env-scoped SDK-webhook permissions.
+        // The model's hooks can't see the connection, so its scope is checked
+        // here, before the first write.
         assertCanChangeSdkWebhooks(
           context,
           {

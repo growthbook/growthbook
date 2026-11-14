@@ -1893,9 +1893,9 @@ export class Permissions {
     );
   };
 
+  // Legacy webhooks belong to no SDK Connection, so they have no scope to
+  // check: they take the event webhook permission org-wide.
   public canManageLegacySDKWebhooks = (): boolean => {
-    // These webhooks are deprecated
-    // Restrict access to admins by using the event webhooks permission
     return this.hasPermission("manageEventWebhooks", "");
   };
 
@@ -1922,11 +1922,9 @@ export class Permissions {
     return this.canManageEventWebhook(webhook);
   };
 
-  // Gates the event webhooks page: true if any Project grants the permission, in any environment.
+  // Gates the event webhooks page.
   public canManageSomeEventWebhooks = (): boolean => {
-    return ["", ...Object.keys(this.userPermissions.projects)].some((project) =>
-      this.hasPermission("manageEventWebhooks", project),
-    );
+    return this.holdsSomewhere("manageEventWebhooks");
   };
 
   // Secrets are shared by every webhook, so managing them needs authority over all of them.
@@ -1945,6 +1943,12 @@ export class Permissions {
       "manageEventWebhooks",
     );
   }
+
+  // The floor under every SDK webhook read and write. Which webhooks it opens
+  // is decided per SDK Connection, by the three checks below.
+  public canManageSomeSDKWebhooks = (): boolean => {
+    return this.holdsSomewhere("manageSDKWebhooks");
+  };
 
   public canCreateSDKWebhook = (
     sdkConnection: Pick<SDKConnectionInterface, "projects" | "environment">,
@@ -2213,6 +2217,13 @@ export class Permissions {
       updatedObj,
       updatedObj.environment ? [updatedObj.environment] : [],
       permission,
+    );
+  }
+
+  // True if any Project grants the permission, in any environment.
+  private holdsSomewhere(permission: Permission): boolean {
+    return ["", ...Object.keys(this.userPermissions.projects)].some((project) =>
+      this.hasPermission(permission, project),
     );
   }
 

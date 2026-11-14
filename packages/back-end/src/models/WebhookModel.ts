@@ -124,18 +124,25 @@ const BaseClass = MakeModelClass({
 });
 
 export class SdkWebhookModel extends BaseClass {
-  protected canCreate(): boolean {
-    return this.context.permissions.canManageLegacySDKWebhooks();
+  // An SDK webhook's projects and environment are its connections', which
+  // these hooks can't load. This is the floor; the methods that take a
+  // person's read or write check each connection.
+  private canManage(webhook: WebhookInterface): boolean {
+    return webhook.useSdkMode
+      ? this.context.permissions.canManageSomeSDKWebhooks()
+      : this.context.permissions.canManageLegacySDKWebhooks();
   }
-  protected canRead(): boolean {
-    return this.context.permissions.canManageLegacySDKWebhooks();
+  protected canCreate(webhook: WebhookInterface): boolean {
+    return this.canManage(webhook);
   }
-  protected canUpdate(): boolean {
-    return this.context.permissions.canManageLegacySDKWebhooks();
+  protected canRead(webhook: WebhookInterface): boolean {
+    return this.canManage(webhook);
   }
-
-  protected canDelete(): boolean {
-    return this.context.permissions.canManageLegacySDKWebhooks();
+  protected canUpdate(webhook: WebhookInterface): boolean {
+    return this.canManage(webhook);
+  }
+  protected canDelete(webhook: WebhookInterface): boolean {
+    return this.canManage(webhook);
   }
 
   // Writes omit secrets: a held write's response is shown on its confirmation
