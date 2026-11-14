@@ -171,7 +171,6 @@ export function getExperimentFactMetricsQuery(
   // then needs each unit's exposure timestamp on its source table.
   const unitEligibility =
     !useClusterRollup &&
-    !banditDates?.length &&
     metricData.some(
       (d) =>
         getUnitEligibilityHours(d.metric, settings, activationMetric) !== null,

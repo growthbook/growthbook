@@ -505,6 +505,8 @@ export function getFactMetricDefinitionForHash(
       : undefined,
     quantileSettings: factMetric.quantileSettings,
     funnelSettings: factMetric.funnelSettings,
+    // Omit when off so existing metric hashes stay unchanged.
+    skipPartialData: factMetric.skipPartialData || undefined,
     numeratorFactTable: {
       sql: numeratorFactTable?.sql,
       eventName: numeratorFactTable?.eventName,

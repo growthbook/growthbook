@@ -23,13 +23,16 @@ export function getUnitEligibilityHours(
   metric: ExperimentMetricInterface,
   settings: Pick<
     ExperimentSnapshotSettings,
-    "skipPartialData" | "attributionModel"
+    "skipPartialData" | "attributionModel" | "banditSettings"
   >,
   activationMetric: ExperimentMetricInterface | null,
 ): number | null {
   // The experiment-level setting already trims the units of every metric.
   if (settings.skipPartialData) return null;
   if (!isFactMetric(metric) || !metric.skipPartialData) return null;
+  // ponytail: Bandits are not trimmed. Their statistics read one shared unit
+  // count per row; trimming needs per-metric counts in the bandit CTEs.
+  if (settings.banditSettings) return null;
   // ponytail: quantile metrics are not trimmed. Their quantiles are computed
   // outside the per-unit sums this setting filters; trimming them needs the
   // eligibility filter pushed into the quantile CTEs.
@@ -65,7 +68,11 @@ export type UnitEligibility = {
   timestampColumn: string;
   settings: Pick<
     ExperimentSnapshotSettings,
-    "skipPartialData" | "attributionModel" | "endDate" | "endDateIsCutoff"
+    | "skipPartialData"
+    | "attributionModel"
+    | "banditSettings"
+    | "endDate"
+    | "endDateIsCutoff"
   >;
   activationMetric: ExperimentMetricInterface | null;
   /** Data freshness the cutoff counts back from; defaults to now. */

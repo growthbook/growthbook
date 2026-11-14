@@ -142,8 +142,8 @@ export function getExperimentFactMetricStatisticsCTE(
      * of eligible units shared by every metric needing the same hours.
      *
      * ponytail: omitted (so the metric setting is ignored) for sub-unit
-     * cluster rollups and Bandits, whose statistics rows carry no per-unit
-     * exposure timestamp.
+     * cluster rollups, whose statistics rows carry no per-unit exposure
+     * timestamp.
      */
     unitEligibility?: UnitEligibility;
   },

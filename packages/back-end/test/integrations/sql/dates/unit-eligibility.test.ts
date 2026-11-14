@@ -107,6 +107,33 @@ describe("getUnitEligibilityHours", () => {
     ).toBeNull();
   });
 
+  it("is null for Bandits, including contextual ones and before any weight update", () => {
+    const banditSettings = {
+      reweight: true,
+      decisionMetric: "fact__decision",
+      seed: 1,
+      currentWeights: [0.5, 0.5],
+      historicalWeights: [],
+    };
+    expect(
+      getUnitEligibilityHours(
+        buildMetric(),
+        { ...settings, banditSettings },
+        null,
+      ),
+    ).toBeNull();
+    expect(
+      getUnitEligibilityHours(
+        buildMetric(),
+        {
+          ...settings,
+          banditSettings: { ...banditSettings, contextualBandit: true },
+        },
+        null,
+      ),
+    ).toBeNull();
+  });
+
   it("follows the experiment's conversion window override", () => {
     // Ignoring conversion windows leaves a plain metric unbounded...
     expect(
