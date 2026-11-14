@@ -302,7 +302,7 @@ If the experiment has an activation metric with a conversion window, its delay a
 
 It is on by default for new Retention Metrics and off for all other metrics. Only the metric with the setting is affected; other metrics in the same experiment still use every user, so this metric can show fewer users than the rest of the experiment.
 
-This is the per-metric version of the experiment's [In-Progress Conversions](/app/experiment-configuration) setting. When an experiment already excludes in-progress conversions, that applies to every metric and this setting changes nothing. The metric setting is not applied to Quantile Metrics, to metrics with no window or a lookback window, in Bandits, or to metrics that are rolled up from sub-units in cluster experiments. In experiments that ignore conversion windows, only retention windows and funnel step windows still count.
+This is the per-metric version of the experiment's [In-Progress Conversions](/app/experiment-configuration) setting. When an experiment already excludes in-progress conversions, that applies to every metric and this setting changes nothing. The metric setting is not applied to Quantile Metrics, to metrics with no window or a lookback window, in Bandits, in experiments that use a custom lookback window, or to metrics that are rolled up from sub-units in cluster experiments. In experiments that ignore conversion windows, only retention windows and funnel step windows still count.
 
 ## Advanced Settings
 

@@ -531,8 +531,6 @@ export function getFactMetricDefinitionForHash(
       : undefined,
     quantileSettings: factMetric.quantileSettings,
     funnelSettings: factMetric.funnelSettings,
-    // Omit when off so existing metric hashes stay unchanged.
-    skipPartialData: factMetric.skipPartialData || undefined,
     // Only present for compound metrics, so other hashes are unchanged.
     ...(isFactCompoundMetric(factMetric)
       ? { compoundSettings: factMetric.compoundSettings }

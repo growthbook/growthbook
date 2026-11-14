@@ -291,7 +291,7 @@ const apiCappingSettings = z
   .describe("Controls how outliers are handled");
 
 const SKIP_PARTIAL_DATA_DESCRIPTION =
-  "If true, experiment analyses of this metric only include units that have had the full time to convert: the metric delay plus the conversion window, the delay alone for a retention metric with no conversion window, or the delay plus the sum of the step windows for a funnel whose steps all have one. Has no effect on quantile metrics, on metrics with no such bound, in Bandits, or on metrics rolled up from sub-units in cluster experiments. Experiments that already exclude in-progress conversions apply this to every metric.";
+  "If true, experiment analyses of this metric only include units that have had the full time to convert: the metric delay plus the conversion window, the delay alone for a retention metric with no conversion window, or the delay plus the sum of the step windows for a funnel whose steps all have one. Has no effect on quantile metrics, on metrics with no such bound, in Bandits, in experiments with a lookback override, or on metrics rolled up from sub-units in cluster experiments. Experiments that already exclude in-progress conversions apply this to every metric.";
 
 const apiWindowSettings = z
   .object({

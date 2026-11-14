@@ -1,3 +1,4 @@
+import { ReactNode } from "react";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
 
@@ -7,6 +8,8 @@ export function MetricWindowSettingsForm({
   type,
   autoFocus = true,
   className = "mb-3 mt-4",
+  // Settings that depend on the window, shown inside its box
+  children = null as ReactNode,
 }) {
   const windowSettingsFields = (
     <>
@@ -119,6 +122,7 @@ export function MetricWindowSettingsForm({
               </>
             )}
           </div>
+          {children && <div className="mt-3">{children}</div>}
         </div>
       )}
     </div>

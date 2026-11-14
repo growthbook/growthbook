@@ -496,9 +496,9 @@ export function getMetricsAndQueryDataForStatsEngine(
             settings,
             metricMap.get(settings.activationMetric ?? "") ?? null,
           );
-          // A snapshot records each metric's count, so only a metric it has
-          // no settings for, edited since the query ran, can expect one the
-          // rows do not have.
+          // A snapshot records each metric's count when its queries are
+          // built. Only settings rebuilt later, as a legacy report's notebook
+          // does, can expect a count the rows do not have.
           if (usersColumn !== null && rows[0][usersColumn] === undefined) {
             throw new Error(
               `"${metric.name}" was changed after these results were computed. Update the results to analyze it.`,

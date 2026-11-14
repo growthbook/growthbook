@@ -1297,6 +1297,17 @@ function StandardFactMetricModal({
   const [funnelSettings, setFunnelSettings] = useState<FunnelSettings | null>(
     null,
   );
+  const skipPartialDataCheckbox = skipPartialDataOk({
+    metricType: type,
+    windowSettings,
+    funnelSettings,
+  }) && (
+    <SkipPartialDataCheckbox
+      value={!!form.watch("skipPartialData")}
+      setValue={(v) => form.setValue("skipPartialData", v)}
+      retention={type === "retention"}
+    />
+  );
   const availableAutoSliceColumns = useMemo(() => {
     if (type !== "funnel") {
       return (
@@ -2077,20 +2088,15 @@ function StandardFactMetricModal({
                 <p>Select a metric type above</p>
               )}
 
-              <MetricWindowSettingsForm form={form} type={type} />
+              <MetricWindowSettingsForm form={form} type={type}>
+                {windowSettings.type === "conversion" &&
+                  skipPartialDataCheckbox}
+              </MetricWindowSettingsForm>
 
-              {skipPartialDataOk({
-                metricType: type,
-                windowSettings,
-                funnelSettings,
-              }) && (
-                <Box mb="3">
-                  <SkipPartialDataCheckbox
-                    value={!!form.watch("skipPartialData")}
-                    setValue={(v) => form.setValue("skipPartialData", v)}
-                  />
-                </Box>
-              )}
+              {windowSettings.type !== "conversion" &&
+                skipPartialDataCheckbox && (
+                  <Box mb="3">{skipPartialDataCheckbox}</Box>
+                )}
 
               {type !== "funnel" && (
                 <SelectField

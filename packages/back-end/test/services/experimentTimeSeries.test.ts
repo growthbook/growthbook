@@ -600,22 +600,6 @@ describe("time series analysis settings", () => {
   });
 });
 
-describe("getMetricSettingsHash skipPartialData", () => {
-  const metric = factMetricFactory.build({ id: "fact__m" });
-  const hashFor = (skipPartialData: boolean | undefined) =>
-    getMetricSettingsHash(metric.id, undefined, [
-      { ...metric, skipPartialData },
-    ]);
-
-  it("changes when the metric starts excluding in-progress conversions", () => {
-    expect(hashFor(true)).not.toEqual(hashFor(undefined));
-  });
-
-  it("is the same for off and unset, so existing hashes are unchanged", () => {
-    expect(hashFor(false)).toEqual(hashFor(undefined));
-  });
-});
-
 describe("getMetricSettingsHash funnel settings", () => {
   const now = new Date("2025-01-01T00:00:00Z");
   const factTable = factTableFactory.build({

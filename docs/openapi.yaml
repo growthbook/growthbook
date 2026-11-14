@@ -33979,10 +33979,11 @@ paths:
                     retention metric with no conversion window, or the delay
                     plus the sum of the step windows for a funnel whose steps
                     all have one. Has no effect on quantile metrics, on metrics
-                    with no such bound, in Bandits, or on metrics rolled up from
-                    sub-units in cluster experiments. Experiments that already
-                    exclude in-progress conversions apply this to every metric.
-                    Defaults to true when creating a retention metric and false
+                    with no such bound, in Bandits, in experiments with a
+                    lookback override, or on metrics rolled up from sub-units in
+                    cluster experiments. Experiments that already exclude
+                    in-progress conversions apply this to every metric. Defaults
+                    to true when creating a retention metric and false
                     otherwise.
                   type: boolean
                 priorSettings:
@@ -34802,10 +34803,11 @@ paths:
                     retention metric with no conversion window, or the delay
                     plus the sum of the step windows for a funnel whose steps
                     all have one. Has no effect on quantile metrics, on metrics
-                    with no such bound, in Bandits, or on metrics rolled up from
-                    sub-units in cluster experiments. Experiments that already
-                    exclude in-progress conversions apply this to every metric.
-                    Defaults to true when creating a retention metric and false
+                    with no such bound, in Bandits, in experiments with a
+                    lookback override, or on metrics rolled up from sub-units in
+                    cluster experiments. Experiments that already exclude
+                    in-progress conversions apply this to every metric. Defaults
+                    to true when creating a retention metric and false
                     otherwise.
                   type: boolean
                 priorSettings:
@@ -35972,7 +35974,8 @@ paths:
                               with no conversion window, or the delay plus the
                               sum of the step windows for a funnel whose steps
                               all have one. Has no effect on quantile metrics,
-                              on metrics with no such bound, in Bandits, or on
+                              on metrics with no such bound, in Bandits, in
+                              experiments with a lookback override, or on
                               metrics rolled up from sub-units in cluster
                               experiments. Experiments that already exclude
                               in-progress conversions apply this to every
@@ -80628,9 +80631,10 @@ components:
             conversion window, the delay alone for a retention metric with no
             conversion window, or the delay plus the sum of the step windows for
             a funnel whose steps all have one. Has no effect on quantile
-            metrics, on metrics with no such bound, in Bandits, or on metrics
-            rolled up from sub-units in cluster experiments. Experiments that
-            already exclude in-progress conversions apply this to every metric.
+            metrics, on metrics with no such bound, in Bandits, in experiments
+            with a lookback override, or on metrics rolled up from sub-units in
+            cluster experiments. Experiments that already exclude in-progress
+            conversions apply this to every metric.
           type: boolean
         priorSettings:
           description: Controls the bayesian prior for the metric

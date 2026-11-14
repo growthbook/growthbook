@@ -365,6 +365,22 @@ export default function MetricEditor({
   const isCompound = formType === "compound";
   // Types that pick their own fact tables instead of one primary table.
   const isRatioOrFunnel = formType === "ratio" || isFunnel || isCompound;
+  const skipPartialDataCheckbox = skipPartialDataOk({
+    metricType,
+    windowSettings,
+    funnelSettings,
+  }) &&
+    (canEdit || !!form.watch("skipPartialData")) && (
+      <SkipPartialDataCheckbox
+        value={!!form.watch("skipPartialData")}
+        setValue={(v) => form.setValue("skipPartialData", v)}
+        retention={metricType === "retention"}
+        readOnly={!canEdit}
+      />
+    );
+  // It sits in the conversion window's box when the editor shows one.
+  const skipPartialDataInWindowBox =
+    canEdit && windowOk(formType) && windowSettings.type === "conversion";
   const primaryFactTableSelect = (
     <Select
       label="Fact table"
@@ -683,7 +699,9 @@ export default function MetricEditor({
                   type={metricType}
                   autoFocus={false}
                   className=""
-                />
+                >
+                  {skipPartialDataInWindowBox && skipPartialDataCheckbox}
+                </MetricWindowSettingsForm>
               ) : (
                 <DataList
                   data={[
@@ -697,18 +715,7 @@ export default function MetricEditor({
                 />
               ))}
 
-            {skipPartialDataOk({
-              metricType,
-              windowSettings,
-              funnelSettings,
-            }) &&
-              (canEdit || !!form.watch("skipPartialData")) && (
-                <SkipPartialDataCheckbox
-                  value={!!form.watch("skipPartialData")}
-                  setValue={(v) => form.setValue("skipPartialData", v)}
-                  readOnly={!canEdit}
-                />
-              )}
+            {!skipPartialDataInWindowBox && skipPartialDataCheckbox}
           </Flex>
         </Frame>
         {!isFunnel &&
