@@ -3,11 +3,8 @@ import mongoose from "mongoose";
 import {
   FLAG_IMPORT_CLAIMED_LIFETIME_DAYS,
   FLAG_IMPORT_LIFETIME_HOURS,
-  FlagImportFlag,
   FlagImportResult,
   FlagImportStatus,
-  FlagImportSummary,
-  FlagImportWarning,
 } from "shared/validators";
 
 export type FlagImportInterface = {
@@ -17,9 +14,6 @@ export type FlagImportInterface = {
   file: string | null;
   name: string | null;
   agent: string | null;
-  summary: FlagImportSummary;
-  flags: FlagImportFlag[];
-  warnings: FlagImportWarning[];
   status: FlagImportStatus;
   dateCreated: Date;
   expiresAt: Date;
@@ -45,9 +39,6 @@ const flagImportSchema = new mongoose.Schema({
   file: String,
   name: String,
   agent: String,
-  summary: {},
-  flags: [],
-  warnings: [],
   status: { type: String, required: true, index: true },
   dateCreated: Date,
   expiresAt: Date,
@@ -74,9 +65,6 @@ function toInterface(doc: FlagImportInterface): FlagImportInterface {
     file: doc.file ?? null,
     name: doc.name ?? null,
     agent: doc.agent ?? null,
-    summary: doc.summary,
-    flags: doc.flags,
-    warnings: doc.warnings,
     status: doc.status,
     dateCreated: doc.dateCreated,
     expiresAt: doc.expiresAt,
@@ -86,10 +74,7 @@ function toInterface(doc: FlagImportInterface): FlagImportInterface {
 }
 
 export async function createFlagImport(
-  props: Pick<
-    FlagImportInterface,
-    "file" | "name" | "agent" | "summary" | "flags" | "warnings"
-  >,
+  props: Pick<FlagImportInterface, "file" | "name" | "agent">,
 ): Promise<{ token: string; flagImport: FlagImportInterface }> {
   // Only the hash is stored, so the database alone cannot claim an upload.
   const token = crypto.randomBytes(32).toString("base64url");

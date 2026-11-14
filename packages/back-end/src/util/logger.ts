@@ -12,6 +12,7 @@ import {
 import { ApiRequestLocals } from "back-end/types/api";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { ENVIRONMENT, IS_CLOUD, LOG_LEVEL } from "./secrets";
+import { redactFlagImportRequest } from "./flagImports.util";
 
 const redactPaths = [
   "req.headers.authorization",
@@ -84,6 +85,8 @@ export const httpLogger = pinoHttp({
     remove: true,
   },
   customProps: getCustomLogProps,
+  // pino-http hands this the request it has already shaped for the log line.
+  serializers: { req: redactFlagImportRequest },
   customReceivedMessage: stringToBoolean(process.env.LOG_REQUEST_STARTED)
     ? () => "Request started"
     : undefined,

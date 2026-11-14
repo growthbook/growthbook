@@ -41821,6 +41821,7 @@ paths:
                                 type: string
                               additionalProperties: {}
                             parentConditions:
+                              maxItems: 100
                               type: array
                               items:
                                 type: object
@@ -41841,9 +41842,11 @@ paths:
                             force: {}
                             variations:
                               minItems: 2
+                              maxItems: 100
                               type: array
                               items: {}
                             weights:
+                              maxItems: 100
                               type: array
                               items:
                                 type: number
@@ -41856,6 +41859,7 @@ paths:
                             phase:
                               type: string
                             meta:
+                              maxItems: 100
                               type: array
                               items:
                                 type: object
@@ -41903,6 +41907,7 @@ paths:
                                 - type: number
                                 - type: number
                             ranges:
+                              maxItems: 100
                               type: array
                               items:
                                 type: array
@@ -41910,6 +41915,7 @@ paths:
                                   - type: number
                                   - type: number
                             filters:
+                              maxItems: 100
                               type: array
                               items:
                                 type: object
@@ -41917,11 +41923,13 @@ paths:
                                   type: string
                                 additionalProperties: {}
                             tracks:
+                              maxItems: 100
                               type: array
                               items: {}
                             contextualBanditRef:
                               type: string
                             contextualVariations:
+                              maxItems: 100
                               type: array
                               items: {}
                             metadata: {}
@@ -42107,6 +42115,7 @@ paths:
                                               type: string
                                             additionalProperties: {}
                                           parentConditions:
+                                            maxItems: 100
                                             type: array
                                             items:
                                               type: object
@@ -42127,9 +42136,11 @@ paths:
                                           force: {}
                                           variations:
                                             minItems: 2
+                                            maxItems: 100
                                             type: array
                                             items: {}
                                           weights:
+                                            maxItems: 100
                                             type: array
                                             items:
                                               type: number
@@ -42142,6 +42153,7 @@ paths:
                                           phase:
                                             type: string
                                           meta:
+                                            maxItems: 100
                                             type: array
                                             items:
                                               type: object
@@ -42189,6 +42201,7 @@ paths:
                                               - type: number
                                               - type: number
                                           ranges:
+                                            maxItems: 100
                                             type: array
                                             items:
                                               type: array
@@ -42196,6 +42209,7 @@ paths:
                                                 - type: number
                                                 - type: number
                                           filters:
+                                            maxItems: 100
                                             type: array
                                             items:
                                               type: object
@@ -42203,11 +42217,13 @@ paths:
                                                 type: string
                                               additionalProperties: {}
                                           tracks:
+                                            maxItems: 100
                                             type: array
                                             items: {}
                                           contextualBanditRef:
                                             type: string
                                           contextualVariations:
+                                            maxItems: 100
                                             type: array
                                             items: {}
                                           metadata: {}
@@ -42394,6 +42410,7 @@ paths:
                                               type: string
                                             additionalProperties: {}
                                           parentConditions:
+                                            maxItems: 100
                                             type: array
                                             items:
                                               type: object
@@ -42414,9 +42431,11 @@ paths:
                                           force: {}
                                           variations:
                                             minItems: 2
+                                            maxItems: 100
                                             type: array
                                             items: {}
                                           weights:
+                                            maxItems: 100
                                             type: array
                                             items:
                                               type: number
@@ -42429,6 +42448,7 @@ paths:
                                           phase:
                                             type: string
                                           meta:
+                                            maxItems: 100
                                             type: array
                                             items:
                                               type: object
@@ -42476,6 +42496,7 @@ paths:
                                               - type: number
                                               - type: number
                                           ranges:
+                                            maxItems: 100
                                             type: array
                                             items:
                                               type: array
@@ -42483,6 +42504,7 @@ paths:
                                                 - type: number
                                                 - type: number
                                           filters:
+                                            maxItems: 100
                                             type: array
                                             items:
                                               type: object
@@ -42490,11 +42512,13 @@ paths:
                                                 type: string
                                               additionalProperties: {}
                                           tracks:
+                                            maxItems: 100
                                             type: array
                                             items: {}
                                           contextualBanditRef:
                                             type: string
                                           contextualVariations:
+                                            maxItems: 100
                                             type: array
                                             items: {}
                                           metadata: {}
@@ -42645,7 +42669,8 @@ paths:
                     type: string
                   additionalProperties:
                     type: string
-                    minLength: 1
+                    maxLength: 100
+                    pattern: ^[A-Za-z][A-Za-z0-9_-]*$
                 rules:
                   description: >-
                     Fixes for rules that cannot be imported as written, keyed by
@@ -42673,11 +42698,12 @@ paths:
                           properties:
                             environments:
                               minItems: 1
-                              maxItems: 50
+                              maxItems: 20
                               type: array
                               items:
                                 type: string
-                                minLength: 1
+                                maxLength: 100
+                                pattern: ^[A-Za-z][A-Za-z0-9_-]*$
                           required:
                             - environments
                           additionalProperties: false
@@ -42760,6 +42786,7 @@ paths:
                                               type: string
                                             additionalProperties: {}
                                           parentConditions:
+                                            maxItems: 100
                                             type: array
                                             items:
                                               type: object
@@ -42780,9 +42807,11 @@ paths:
                                           force: {}
                                           variations:
                                             minItems: 2
+                                            maxItems: 100
                                             type: array
                                             items: {}
                                           weights:
+                                            maxItems: 100
                                             type: array
                                             items:
                                               type: number
@@ -42795,6 +42824,7 @@ paths:
                                           phase:
                                             type: string
                                           meta:
+                                            maxItems: 100
                                             type: array
                                             items:
                                               type: object
@@ -42842,6 +42872,7 @@ paths:
                                               - type: number
                                               - type: number
                                           ranges:
+                                            maxItems: 100
                                             type: array
                                             items:
                                               type: array
@@ -42849,6 +42880,7 @@ paths:
                                                 - type: number
                                                 - type: number
                                           filters:
+                                            maxItems: 100
                                             type: array
                                             items:
                                               type: object
@@ -42856,11 +42888,13 @@ paths:
                                                 type: string
                                               additionalProperties: {}
                                           tracks:
+                                            maxItems: 100
                                             type: array
                                             items: {}
                                           contextualBanditRef:
                                             type: string
                                           contextualVariations:
+                                            maxItems: 100
                                             type: array
                                             items: {}
                                           metadata: {}

@@ -27,8 +27,10 @@ export const FLAG_IMPORTS_ENABLED = stringToBoolean(
   process.env.FLAG_IMPORTS_ENABLED,
 );
 /** Unclaimed uploads allowed at once before an upload answers 429. */
-export const FLAG_IMPORTS_MAX_PENDING = parseInt(
-  process.env.FLAG_IMPORTS_MAX_PENDING || "5000",
+export const FLAG_IMPORTS_MAX_PENDING = parseEnvInt(
+  process.env.FLAG_IMPORTS_MAX_PENDING,
+  5000,
+  { name: "FLAG_IMPORTS_MAX_PENDING", min: 0 },
 );
 
 /** Enable GrowthBook OAuth 2.1 Authorization Server endpoints (MCP / CLI login). Default on. */

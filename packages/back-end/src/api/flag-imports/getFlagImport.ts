@@ -5,6 +5,7 @@ import {
   assertFlagImportsEnabled,
   getFlagImportStatusByToken,
 } from "back-end/src/services/flagImports";
+import { requireFlagImports, sourceKey } from "./flag-imports.middleware";
 
 // Room for the claim page and an agent polling, per address and per replica.
 const statusRateLimit = rateLimit({
@@ -12,13 +13,13 @@ const statusRateLimit = rateLimit({
   max: 60,
   standardHeaders: true,
   legacyHeaders: false,
-  keyGenerator: (req) => req.ip ?? "",
+  keyGenerator: sourceKey,
   message: { message: "Too many requests. Try again in a minute." },
 });
 
 export const getFlagImport = createApiRequestHandler({
   ...getFlagImportValidator,
-  middleware: [statusRateLimit],
+  middleware: [requireFlagImports, statusRateLimit],
 })(async (req) => {
   assertFlagImportsEnabled();
   return { flagImport: await getFlagImportStatusByToken(req.params.token) };

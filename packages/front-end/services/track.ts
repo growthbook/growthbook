@@ -98,10 +98,18 @@ const getHost = () => {
   return isLocalhost ? "localhost" : isCloud() ? "cloud" : "self-hosted";
 };
 
+// A claim link's token is a credential until it is used, so telemetry is told
+// the page and not the link.
+export function maskClaimToken(url: string): string {
+  return url.replace(/(\/claim\/)[^/?#]+/, "$1[token]");
+}
+
 /** Sanitized page URL for telemetry (pathname only, masked host). */
 export function getTrackingPageUrl(): string {
   const host = getHost();
-  return document.location.protocol + "//" + host + location.pathname;
+  return (
+    document.location.protocol + "//" + host + maskClaimToken(location.pathname)
+  );
 }
 
 // Identifies an entity in a product event, hashed as the back end hashes its
@@ -129,13 +137,13 @@ export default function track(
 
   const trackProps = {
     ...props,
-    page_url: location.pathname,
+    page_url: maskClaimToken(location.pathname),
     page_title: "",
     source_ip: "",
     url: getTrackingPageUrl(),
     doc_host: getHost(),
     doc_search: "",
-    doc_path: location.pathname,
+    doc_path: maskClaimToken(location.pathname),
     referer: document?.referrer?.match(/weblens\.ai/) ? document.referrer : "",
     build_sha: build.sha,
     build_date: build.date,

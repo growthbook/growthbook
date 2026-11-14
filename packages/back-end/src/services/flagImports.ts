@@ -3,7 +3,7 @@ import {
   buildFlagImportExperimentBody,
   buildFlagImportFeatureBody,
   FlagImportPlan,
-  getFlagImportFlags,
+  getFlagImportLimitProblems,
   mapFlagImportEnvironments,
   matchConfirmRules,
   planFlagImport,
@@ -13,6 +13,7 @@ import {
   ApiFlagImport,
   ApiFlagImportStatus,
   AutoRunArtifact,
+  CONFIRM_ACTIONS,
   ConfirmAction,
   FLAG_IMPORT_MAX_BYTES,
   FLAG_IMPORT_MAX_CLAIMED_PER_WORKSPACE,
@@ -37,6 +38,7 @@ import { getFeature, getFeaturesByIds } from "back-end/src/models/FeatureModel";
 import { dispatchInternal } from "back-end/src/agent/dispatcher";
 import { getBackendFeatureValue } from "back-end/src/services/growthbook";
 import { getEnvironments } from "back-end/src/services/organizations";
+import { resolveOwnerForCreate } from "back-end/src/services/owner";
 import {
   APP_ORIGIN,
   FLAG_IMPORTS_ENABLED,
@@ -64,7 +66,14 @@ export function isFlagImportsEnabled(): boolean {
 
 // Off means not here, the same as any unknown path.
 export function assertFlagImportsEnabled(): void {
-  if (!isFlagImportsEnabled()) throw new FlagImportError(404, "Not found");
+  if (!isFlagImportsEnabled()) {
+    throw new FlagImportError(404, "Unknown API endpoint");
+  }
+}
+
+function assertWithinLimits(plan: FlagImportPlan): void {
+  const problems = getFlagImportLimitProblems(plan);
+  if (problems.length) throw new FlagImportError(400, problems.join(" "));
 }
 
 type Artifact = Omit<AutoRunArtifact, "dateCreated">;
@@ -128,8 +137,7 @@ export async function createFlagImportFromFile({
   }
 
   const plan = planFlagImport(file);
-  const flags = getFlagImportFlags(plan);
-  if (!flags.some((flag) => flag.importable)) {
+  if (plan.flags.every((flag) => flag.unsupported.length)) {
     throw new FlagImportError(
       400,
       [
@@ -138,6 +146,7 @@ export async function createFlagImportFromFile({
       ].join("\n"),
     );
   }
+  assertWithinLimits(plan);
 
   if ((await countPendingFlagImports()) >= FLAG_IMPORTS_MAX_PENDING) {
     throw new FlagImportError(
@@ -150,9 +159,6 @@ export async function createFlagImportFromFile({
     file: serialized,
     name: name?.trim() || null,
     agent: agent?.trim() || null,
-    summary: plan.summary,
-    flags,
-    warnings: plan.warnings,
   });
 
   const expiresAt = flagImport.expiresAt.toISOString();
@@ -293,6 +299,8 @@ const CLAIM_ACTIONS: ConfirmAction[] = [
   "experiment.create",
   "environment.create",
   "attribute.create",
+  // A create that goes past a check is held under one of these instead.
+  ...CONFIRM_ACTIONS.filter((action) => action.startsWith("override.")),
 ];
 
 async function importFlags(
@@ -453,6 +461,19 @@ export async function claimFlagImportForWorkspace(
 
   let doc = found;
   if (doc.status === "pending") {
+    // Only someone who could import it may tie it to the workspace: a claim
+    // can't be undone and uses one of the workspace's places.
+    if (
+      !context.permissions.canViewFeatureModal(
+        undefined,
+        await context.models.projects.getAll(),
+      )
+    ) {
+      throw new FlagImportError(
+        403,
+        "You can't create Feature Flags in this workspace, so you can't claim these here. Pick another workspace or ask an admin.",
+      );
+    }
     // Claimed uploads are outside the cap on unclaimed ones, so bound them here.
     if (
       (await countClaimedFlagImports(context.org.id)) >=
@@ -516,6 +537,8 @@ async function recordAutoRun(
         )
         .map((artifact) => ({
           ...artifact,
+          id: artifact.id.slice(0, 200),
+          label: artifact.label.slice(0, 200),
           detail: artifact.detail?.slice(0, 500) ?? null,
           dateCreated: now,
         })),
@@ -586,6 +609,24 @@ export async function importClaimedFlags(
       "This API key needs a person's confirmation before it writes. Open the claim link in a browser to import.",
     );
   }
+  // A key with nobody behind it has to name an owner, or every create refuses.
+  await resolveOwnerForCreate(owner, context);
+
+  // Planned from the caller's choices before the upload is spent too.
+  if (!claimed.file) {
+    throw new FlagImportError(409, "This upload was already imported.");
+  }
+  const plan = mapFlagImportEnvironments(
+    planFlagImport(
+      selectFlagImportFlags(
+        flagsJsonValidator.parse(JSON.parse(claimed.file)),
+        choices.flags,
+      ),
+      { rules: choices.rules },
+    ),
+    choices.environments,
+  );
+  assertWithinLimits(plan);
 
   const begun = await beginFlagImport(claimed.id, {
     userId: context.userId || null,
@@ -598,14 +639,6 @@ export async function importClaimedFlags(
   const results: FlagImportResult[] = [];
   const artifacts: Artifact[] = [];
   try {
-    const file = selectFlagImportFlags(
-      flagsJsonValidator.parse(JSON.parse(begun.file)),
-      choices.flags,
-    );
-    const plan = mapFlagImportEnvironments(
-      planFlagImport(file, { rules: choices.rules }),
-      choices.environments,
-    );
     await importFlags(context, plan, { project, owner }, results, artifacts);
   } catch (e) {
     context.logger.error(e, "A flag import stopped part way through");
