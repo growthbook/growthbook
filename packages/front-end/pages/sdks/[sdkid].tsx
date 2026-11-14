@@ -11,6 +11,7 @@ import {
   SDKConnectionSettingsRevisionSnapshot,
 } from "shared/validators";
 import { useRouter } from "next/router";
+import { holdsSdkConnectionDraftDestination } from "shared/permissions";
 import React, { useEffect, useMemo, useState } from "react";
 import { Box } from "@radix-ui/themes";
 import {
@@ -392,17 +393,8 @@ export default function SDKConnectionPage() {
   const canUpdate = permissionsUtil.canUpdateSDKConnection(connection, {});
   // Publishing or approving a draft that moves the connection also takes
   // update rights where it lands, as the server checks.
-  const holdsDestinationOf = (revision: Revision | null) => {
-    if (!revision) return true;
-    const { projects, environment } = sdkConnectionSettingsAfter(
-      revision.target.snapshot as SDKConnectionRevisionSnapshot,
-      revision.target.proposedChanges,
-    );
-    return permissionsUtil.canUpdateSDKConnection(connection, {
-      ...(projects !== undefined && { projects }),
-      ...(environment !== undefined && { environment }),
-    });
-  };
+  const holdsDestinationOf = (revision: Revision | null) =>
+    holdsSdkConnectionDraftDestination(permissionsUtil, connection, revision);
   const canDelete =
     permissionsUtil.canDeleteSDKConnection(connection) &&
     !connection.managedBy?.type;
