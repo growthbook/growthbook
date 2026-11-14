@@ -633,8 +633,10 @@ export function ImportDone({
     (r) => r.kind === "experiment" && r.status === "created",
   );
   const reportUrl = flagImport.imported?.autoRunUrl ?? null;
-  // The stand-in result for an import that stopped early has no key.
-  const attempted = results.filter((r) => r.kind === "feature" && r.key).length;
+  // An import that stopped early leaves a stand-in result with no key, and no
+  // result at all for what it never reached.
+  const stopped = leftOut.some((r) => !r.key);
+  const attempted = created.length + leftOut.length;
 
   return (
     <>
@@ -643,16 +645,19 @@ export function ImportDone({
           eyebrow={<Badge label="Imported" color="green" />}
           title={`${plural(created.length, "Feature Flag")} Imported`}
         >
-          {leftOut.length
-            ? `${created.length} of ${attempted} were imported. The rest are listed below.`
-            : "They have the same rules as your code."}
+          {stopped
+            ? "The import stopped before it finished. The reason is listed below."
+            : leftOut.length
+              ? `${created.length} of ${attempted} were imported. The rest are listed below.`
+              : "They have the same rules as your code."}
         </ImportHero>
       ) : (
         <ImportHero
           eyebrow={<Badge label="Not imported" color="red" />}
           title="No Feature Flags Were Imported"
         >
-          The reasons are listed below.
+          The reasons are listed below. To try again, send the file again to get
+          a new link.
         </ImportHero>
       )}
       {created.length ? (
