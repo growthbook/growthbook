@@ -1,4 +1,5 @@
 import { ReactNode } from "react";
+import { Box } from "@radix-ui/themes";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
 
@@ -122,7 +123,7 @@ export function MetricWindowSettingsForm({
               </>
             )}
           </div>
-          {children && <div className="mt-3">{children}</div>}
+          {children && <Box mt="3">{children}</Box>}
         </div>
       )}
     </div>

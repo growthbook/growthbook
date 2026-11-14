@@ -5,7 +5,7 @@ const COPY = {
   retention: {
     label: "Exclude in-progress conversions",
     description:
-      "Only include units exposed long enough ago to reach the end of their retention period, or its start when it has no end.",
+      "Only include units exposed long enough ago to reach the end of their retention period. For retention metrics with no end date, include units exposed long enough ago to reach the start of their retention period.",
   },
   other: {
     label: "Exclude in-progress conversions",
