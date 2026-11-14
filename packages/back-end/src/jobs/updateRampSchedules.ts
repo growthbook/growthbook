@@ -90,7 +90,11 @@ export const advanceSingleRampSchedule = async (
     // revision transition (which is what establishes the hold), so let it fall
     // through to the pending-recovery block below — otherwise a publish hook
     // that deferred to the scheduler leaves it stuck pending forever.
-    if (screened.status !== "pending" && isAwaitingStartApproval(screened)) {
+    if (
+      screened.status !== "pending" &&
+      isAwaitingStartApproval(screened) &&
+      !screened.stepFailure
+    ) {
       return;
     }
     if (screened.status === "pending") {

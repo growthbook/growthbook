@@ -141,6 +141,20 @@ async function runWithAcquiredAdvanceLock<T>(
   }
 }
 
+// The in-lock read for anything that may move a schedule. Time spent retrying a
+// failed step is credited to the step timers first, so no action or pass that
+// follows can drop it.
+export async function readRampScheduleInLock(
+  ctx: ReqContext | ApiReqContext,
+  scheduleId: string,
+): Promise<RampScheduleInterface | null> {
+  const schedule = await ctx.models.rampSchedules.getById(scheduleId);
+  const held = schedule && shiftRampTimersForHold(schedule, new Date());
+  return held
+    ? ctx.models.rampSchedules.updateById(scheduleId, held)
+    : schedule;
+}
+
 // Non-reentrant; throws RampAdvanceLockBusyError when held. Callers must
 // re-read the schedule *inside* `fn` — acting on a pre-lock snapshot would
 // replay steps another advance already applied.
@@ -197,7 +211,7 @@ export async function runLockedRampScheduleAction<T>(
     ctx,
     scheduleId,
     async (heartbeat) => {
-      const fresh = await ctx.models.rampSchedules.getById(scheduleId);
+      const fresh = await readRampScheduleInLock(ctx, scheduleId);
       if (!fresh) {
         throw new NotFoundError("Ramp schedule no longer exists");
       }
@@ -2302,8 +2316,6 @@ export async function pauseSchedule(
 ): Promise<RampScheduleInterface> {
   const now = new Date();
   const updated = await ctx.models.rampSchedules.updateById(schedule.id, {
-    // Credit time already spent retrying before the pause takes over.
-    ...shiftRampTimersForHold(schedule, now),
     status: "paused",
     pausedAt: now,
     nextSnapshotAt: null,
@@ -2452,6 +2464,15 @@ export async function resumeSchedule(
       status: updated.status,
     },
   });
+
+  // A schedule without steps has nothing to replay but its start, which may be
+  // what failed before the pause.
+  if (
+    updated.steps.length === 0 &&
+    !(updated.cutoffDate && updated.cutoffDate <= now)
+  ) {
+    await applyRampStartActions(ctx, updated);
+  }
 
   // Chain through any time-due steps (nextStepAt <= now). Steps with no
   // interval (approval gates, instant steps) have nextStepAt=null and are not
@@ -2885,11 +2906,15 @@ export async function errorPauseRampSchedule(
   if (!schedule) return;
   const now = new Date();
   const updated = await ctx.models.rampSchedules.updateById(scheduleId, {
-    ...shiftRampTimersForHold(schedule, now),
     status: "paused",
     pausedAt: now,
     nextSnapshotAt: null,
-    nextProcessAt: null,
+    // A paused schedule still ends at its cutoff; one already past is what
+    // failed, so it waits for a human.
+    nextProcessAt:
+      schedule.cutoffDate && schedule.cutoffDate > now
+        ? schedule.cutoffDate
+        : null,
     stepFailure: null,
     eventHistory: appendRampEvent(schedule, "error-paused", {
       stepIndex: schedule.currentStepIndex,
@@ -3116,6 +3141,7 @@ async function applyEndActionsAndAwaitCutoff(
     currentStepEnteredAt: now,
     nextStepAt: null,
     nextSnapshotAt: null,
+    stepFailure: null,
     nextProcessAt: computeNextProcessAt({
       status: "running",
       cutoffDate: schedule.cutoffDate,
@@ -3242,6 +3268,7 @@ export async function completeRollout(
     nextStepAt: null,
     nextSnapshotAt: null,
     nextProcessAt: null,
+    stepFailure: null,
     eventHistory: appendRampEvent(schedule, "completed", {
       stepIndex: finalStepIndex,
       previousStepIndex: schedule.currentStepIndex,
@@ -3764,6 +3791,7 @@ export async function approveAndPublishStep(
       context,
     },
     phaseStartedAt: rebasedPhaseStart,
+    stepFailure: null,
     // Approval was the last remaining gate, so re-evaluate immediately.
     nextProcessAt: now,
     eventHistory: appendRampEvent(schedule, "approval-granted", {
