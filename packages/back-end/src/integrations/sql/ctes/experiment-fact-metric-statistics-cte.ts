@@ -10,10 +10,7 @@ import type {
 } from "shared/types/integrations";
 import type { FactTableInterface } from "shared/types/fact-table";
 import type { SqlDialect } from "shared/types/sql";
-import {
-  METRIC_USERS_COLUMN_MARKER,
-  N_STAR_VALUES,
-} from "back-end/src/services/experimentQueries/constants";
+import { N_STAR_VALUES } from "back-end/src/services/experimentQueries/constants";
 
 import { getQuantileGridColumns } from "back-end/src/integrations/sql/columns/quantile-grid-columns";
 import {
@@ -141,10 +138,6 @@ export function getExperimentFactMetricStatisticsCTE(
      * Metrics with `skipPartialData` only analyze units exposed long enough
      * ago: their sums skip the other units, and they are paired with a count
      * of eligible units shared by every metric needing the same hours.
-     *
-     * ponytail: omitted (so the metric setting is ignored) for sub-unit
-     * cluster rollups, whose statistics rows carry no per-unit exposure
-     * timestamp.
      */
     unitEligibility?: UnitEligibility;
   },
@@ -179,13 +172,6 @@ export function getExperimentFactMetricStatisticsCTE(
   const eligibleUsersColumns = new Map(
     [...eligibilityByAlias.values()].map((e) => [e.usersColumn, e.condition]),
   );
-  // Tells row processing which shared count is this metric's `users`
-  const usersColumnMarker = (alias: string): string => {
-    const eligibility = eligibilityByAlias.get(alias);
-    return eligibility
-      ? `, ${dialect.castToString(`'${eligibility.usersColumn}'`)} as ${alias}_${METRIC_USERS_COLUMN_MARKER}`
-      : "";
-  };
   // Funnel step values come from the resolution chain, not a per-source
   // aggregate.
   const hasFunnelMetrics = metricData.some((d) => isFactFunnelMetric(d.metric));
@@ -211,7 +197,6 @@ export function getExperimentFactMetricStatisticsCTE(
             if (isFactFunnelMetric(data.metric)) {
               return `
            , ${dialect.castToString(`'${data.id}'`)} as ${data.alias}_id
-            ${usersColumnMarker(data.alias)}
             ${data.metric.funnelSettings.steps
               .map(
                 (step, stepIndex) => `-- ${step.name}
@@ -282,7 +267,6 @@ export function getExperimentFactMetricStatisticsCTE(
                   .join("");
             return `
            , ${dialect.castToString(`'${data.id}'`)} as ${data.alias}_id${compoundComponentUnits}
-            ${usersColumnMarker(data.alias)}
             ${
               data.computeUncappedMetric
                 ? `

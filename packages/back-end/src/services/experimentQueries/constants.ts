@@ -10,12 +10,6 @@ export const N_STAR_VALUES = [
   409600, 819200, 1638400, 3276800, 6553600, 13107200, 26214400, 52428800,
 ];
 
-// Per-metric column naming the shared column that counts the units the metric
-// analyzed, for metrics that only analyze units with complete data. Row
-// processing resolves it into the metric's own `users` column.
-export const METRIC_USERS_COLUMN_MARKER = "users_column";
-export const METRIC_USERS_COL = "users";
-
 // Base columns
 export const BASE_METRIC_FLOAT_COLS = ["main_sum", "main_sum_squares"];
 

@@ -212,9 +212,9 @@ export function maxColumnsNeededForMetric({
   isBandit: boolean;
   efficientQuantileGrid?: boolean;
 }) {
-  // id column, plus the users column marker and (at worst unshared) eligible
-  // users count for a metric that only analyzes units with complete data
-  const boilerplateCols = 1 + (metric.skipPartialData ? 2 : 0);
+  // id column, plus the (at worst unshared) eligible users count for a metric
+  // that only analyzes units with complete data
+  const boilerplateCols = 1 + (metric.skipPartialData ? 1 : 0);
 
   // A funnel occupies one metric slot but emits one sum column per step, so
   // chunkMetrics has to budget for the step count, not for a fixed block.

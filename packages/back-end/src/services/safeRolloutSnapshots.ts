@@ -67,6 +67,7 @@ import { createEvent, CreateEventData } from "back-end/src/models/EventModel";
 import { getSafeRolloutRuleFromFeature } from "back-end/src/routers/safe-rollout/safe-rollout.helper";
 import { determineNextSafeRolloutSnapshotAttempt } from "back-end/src/enterprise/saferollouts/safeRolloutUtils";
 import { getPValueThresholdForProject } from "back-end/src/services/organizations";
+import { recordUnitEligibility } from "back-end/src/integrations/sql/dates/unit-eligibility";
 import { getSourceIntegrationObject } from "./datasource";
 import { computeResultsStatus, isJoinableMetric } from "./experiments";
 
@@ -365,6 +366,17 @@ export function getSafeRolloutSnapshotSettings({
       getMetricForSafeRolloutSnapshot(m, metricMap, settingsForSnapshotMetrics),
     )
     .filter(isDefined);
+  // With the experiment settings getSnapshotSettingsFromSafeRolloutArgs gives
+  // every Safe Rollout.
+  recordUnitEligibility(
+    {
+      metricSettings,
+      activationMetric: null,
+      attributionModel: "firstExposure",
+      skipPartialData: false,
+    },
+    metricMap,
+  );
 
   return {
     queryFilter: "",

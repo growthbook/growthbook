@@ -125,8 +125,8 @@ describe("splitFunnelMetricBlock", () => {
 
   it("carries a slot's own unit count once it replaces the shared one", () => {
     const trimmed = withMetricSlotUsers(
-      rows.map((row) => ({ ...row, m1_users: 60 })),
-      "m1",
+      rows.map((row) => ({ ...row, users_cw60m: 60 })),
+      "users_cw60m",
     );
     const result = splitFunnelMetricBlock({
       metric,
@@ -135,8 +135,8 @@ describe("splitFunnelMetricBlock", () => {
     });
 
     expect(result.rows[0]).toMatchObject({ users: 60, count: 60 });
-    // Slots without their own count keep the shared one
-    expect(withMetricSlotUsers(rows, "m0")).toEqual(rows);
+    // Rows without that count keep the shared one
+    expect(withMetricSlotUsers(rows, "users_cw60m")).toEqual(rows);
   });
 
   it("passes the query sql through", () => {

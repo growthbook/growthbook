@@ -212,9 +212,10 @@ describe("incremental refresh statistics query with skipPartialData", () => {
       // ...and same-window metrics share one count of eligible units
       expect(sql.split("AS users_cw5760m")).toHaveLength(2);
       expect(sql).toContain(eligible);
-      expect(sql).toContain("m1_users_column");
-      expect(sql).toContain("m2_users_column");
-      expect(sql).not.toContain("m0_users_column");
+      // Only the two opted-in metrics' sums are trimmed
+      expect(sql).toMatch(/THEN [^\n]*m\.m1_value/);
+      expect(sql).toMatch(/THEN [^\n]*m\.m2_value/);
+      expect(sql).not.toMatch(/THEN [^\n]*m\.m0_value/);
     });
 
     it("computes a trimmed metric's percentile cap over the units it analyzes", () => {

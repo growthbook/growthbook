@@ -1,8 +1,10 @@
 import type {
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotSettings,
+  MetricForSnapshot,
   SnapshotSettingsVariation,
 } from "shared/types/experiment-snapshot";
+import type { FactMetricInterface } from "shared/types/fact-table";
 import type { ExperimentMetricAnalysis } from "shared/types/stats";
 import type { ExperimentReportVariation } from "shared/types/report";
 import type { QueryInterface } from "shared/types/query";
@@ -661,48 +663,71 @@ describe("selectAnalysisQueryData", () => {
 });
 
 describe("getMetricsAndQueryDataForStatsEngine", () => {
-  it("hands metrics with their own unit count to gbstats as separate results", () => {
-    const settings = {
+  const buildSettings = (
+    metricSettings: ExperimentSnapshotSettings["metricSettings"] = [],
+  ) =>
+    ({
       goalMetrics: [],
       secondaryMetrics: [],
       guardrailMetrics: [],
-      metricSettings: [],
+      metricSettings,
       regressionAdjustmentEnabled: false,
+      skipPartialData: false,
+      attributionModel: "firstExposure",
       variations,
-    } as unknown as ExperimentSnapshotSettings;
-    const metrics = ["all_units", "one_day", "two_days", "one_day_again"].map(
-      (id) => factMetricFactory.build({ id }),
+    }) as unknown as ExperimentSnapshotSettings;
+  // A metric that excludes in-progress conversions when `windowDays` is set
+  const buildMetric = (id: string, windowDays: number | null) =>
+    factMetricFactory.build({
+      id,
+      skipPartialData: windowDays !== null,
+      windowSettings: {
+        type: windowDays === null ? "" : "conversion",
+        delayValue: 0,
+        delayUnit: "hours",
+        windowValue: windowDays ?? 1,
+        windowUnit: "days",
+      },
+    });
+  const analyze = (
+    metrics: FactMetricInterface[],
+    rows: Record<string, unknown>[],
+    settings = buildSettings(),
+  ) =>
+    getMetricsAndQueryDataForStatsEngine(
+      new Map([
+        ["group_0", { result: rows, query: "SELECT 1" } as QueryInterface],
+      ]),
+      new Map(metrics.map((m) => [m.id, m])),
+      settings,
     );
+
+  it("hands metrics with their own unit count to gbstats as separate results", () => {
+    const metrics = [
+      buildMetric("all_units", null),
+      buildMetric("one_day", 1),
+      buildMetric("two_days", 2),
+      buildMetric("one_day_again", 1),
+    ];
     const rows = [
       {
         variation: "control",
         users: 10,
         count: 10,
+        users_cw1440m: 6,
+        users_cw2880m: 3,
         m0_id: "all_units",
         m0_main_sum: 1,
         m1_id: "one_day",
-        m1_users_column: "users_cw1440m",
-        m1_users: 6,
         m1_main_sum: 2,
         m2_id: "two_days",
-        m2_users_column: "users_cw2880m",
-        m2_users: 3,
         m2_main_sum: 3,
         m3_id: "one_day_again",
-        m3_users_column: "users_cw1440m",
-        m3_users: 6,
         m3_main_sum: 4,
       },
     ];
 
-    const { queryResults, metricSettings } =
-      getMetricsAndQueryDataForStatsEngine(
-        new Map([
-          ["group_0", { result: rows, query: "SELECT 1" } as QueryInterface],
-        ]),
-        new Map(metrics.map((m) => [m.id, m])),
-        settings,
-      );
+    const { queryResults, metricSettings } = analyze(metrics, rows);
 
     expect(Object.keys(metricSettings).sort()).toEqual(
       metrics.map((m) => m.id).sort(),
@@ -714,5 +739,65 @@ describe("getMetricsAndQueryDataForStatsEngine", () => {
       [[null, "one_day", null, "one_day_again"], 6, 6],
       [[null, null, "two_days", null], 3, 3],
     ]);
+  });
+
+  it("reads a metric's unit count as the snapshot recorded it, not as the metric is now", () => {
+    const recorded = (
+      id: string,
+      unitEligibilityHours: number | null,
+    ): MetricForSnapshot => ({
+      id,
+      computedSettings: {
+        windowSettings: buildMetric(id, 1).windowSettings,
+        regressionAdjustmentEnabled: false,
+        regressionAdjustmentAvailable: false,
+        regressionAdjustmentDays: 0,
+        regressionAdjustmentReason: "",
+        properPrior: false,
+        properPriorMean: 0,
+        properPriorStdDev: 1,
+        ...(unitEligibilityHours !== null && { unitEligibilityHours }),
+      },
+    });
+    const { queryResults } = analyze(
+      // Since the queries ran, the first metric was switched off and the
+      // second switched on with a longer window
+      [buildMetric("was_on", null), buildMetric("was_off", 2)],
+      [
+        {
+          variation: "control",
+          users: 10,
+          count: 10,
+          users_cw1440m: 6,
+          m0_id: "was_on",
+          m0_main_sum: 1,
+          m1_id: "was_off",
+          m1_main_sum: 2,
+        },
+      ],
+      buildSettings([recorded("was_on", 24), recorded("was_off", null)]),
+    );
+
+    expect(queryResults.map((r) => [r.metrics, r.rows[0].users])).toEqual([
+      [[null, "was_off"], 10],
+      [["was_on", null], 6],
+    ]);
+  });
+
+  it("refuses rows that lack the unit count a metric needs", () => {
+    expect(() =>
+      analyze(
+        [buildMetric("one_day", 1)],
+        [
+          {
+            variation: "control",
+            users: 10,
+            count: 10,
+            m0_id: "one_day",
+            m0_main_sum: 1,
+          },
+        ],
+      ),
+    ).toThrow(/was changed after these results were computed/);
   });
 });

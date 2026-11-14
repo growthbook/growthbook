@@ -81,7 +81,6 @@ import { Context } from "back-end/src/models/BaseModel";
 import {
   MAX_METRICS_PER_QUERY,
   MAX_ROWS_UNIT_AGGREGATE_QUERY,
-  METRIC_USERS_COLUMN_MARKER,
 } from "back-end/src/services/experimentQueries/constants";
 import {
   CLUSTER_HEALTH_KIND_ASSIGNMENT,
@@ -92,6 +91,7 @@ import {
 import { splitFunnelMetricBlock } from "back-end/src/services/experimentQueries/funnelMetricBlock";
 import { withMetricSlotUsers } from "back-end/src/services/experimentQueries/metricSlotUsers";
 import { sumCompoundComponentUnits } from "back-end/src/integrations/sql/fact-metrics/compound-columns";
+import { getMetricUsersColumn } from "back-end/src/integrations/sql/dates/unit-eligibility";
 import { applyMetricOverrides } from "back-end/src/util/integration";
 import { statsServerPool } from "back-end/src/services/python";
 import { metrics } from "back-end/src/util/metrics";
@@ -475,7 +475,7 @@ export function getMetricsAndQueryDataForStatsEngine(
         if (!rows?.length) return;
         const metricIds: (string | null)[] = [];
         // Metrics that only analyzed units with complete data have their own
-        // unit count, shared by every slot naming the same users column. Each
+        // unit count, shared by every slot with the same users column. Each
         // such set goes to gbstats as its own result with that count.
         const slotsByUsersColumn = new Map<string, Map<number, string>>();
         for (let i = 0; i < MAX_METRICS_PER_QUERY; i++) {
@@ -483,13 +483,26 @@ export function getMetricsAndQueryDataForStatsEngine(
           if (!rows[0]?.[prefix + "id"]) break;
 
           const metricId = rows[0][prefix + "id"] as string;
-          const usersColumn = rows[0][prefix + METRIC_USERS_COLUMN_MARKER];
 
           const metric = metricMap.get(metricId);
           // skip any metrics somehow missing from map
           if (!metric) {
             metricIds.push(null);
             continue;
+          }
+
+          const usersColumn = getMetricUsersColumn(
+            metric,
+            settings,
+            metricMap.get(settings.activationMetric ?? "") ?? null,
+          );
+          // A snapshot records each metric's count, so only a metric it has
+          // no settings for, edited since the query ran, can expect one the
+          // rows do not have.
+          if (usersColumn !== null && rows[0][usersColumn] === undefined) {
+            throw new Error(
+              `"${metric.name}" was changed after these results were computed. Update the results to analyze it.`,
+            );
           }
 
           // A funnel occupies one slot in this query but has no main_sum of
@@ -501,7 +514,10 @@ export function getMetricsAndQueryDataForStatsEngine(
               splitFunnelMetricBlock({
                 metric,
                 slotAlias: `m${i}`,
-                rows: withMetricSlotUsers(rows, `m${i}`),
+                rows:
+                  usersColumn === null
+                    ? rows
+                    : withMetricSlotUsers(rows, usersColumn),
                 sql: query.query,
               }),
             );
@@ -530,7 +546,7 @@ export function getMetricsAndQueryDataForStatsEngine(
             settings,
             true,
           );
-          if (typeof usersColumn === "string") {
+          if (usersColumn !== null) {
             metricIds.push(null);
             const slots =
               slotsByUsersColumn.get(usersColumn) ?? new Map<number, string>();
@@ -544,10 +560,10 @@ export function getMetricsAndQueryDataForStatsEngine(
           rows: rows,
           sql: query.query,
         });
-        slotsByUsersColumn.forEach((slots) => {
+        slotsByUsersColumn.forEach((slots, usersColumn) => {
           queryResults.push({
             metrics: metricIds.map((_id, i) => slots.get(i) ?? null),
-            rows: withMetricSlotUsers(rows, `m${[...slots.keys()][0]}`),
+            rows: withMetricSlotUsers(rows, usersColumn),
             sql: query.query,
           });
         });

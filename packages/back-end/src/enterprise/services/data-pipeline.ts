@@ -279,7 +279,9 @@ type IgnoredComputedSettingsFieldForIncrementalRefresh =
   | "properPrior"
   | "properPriorMean"
   | "properPriorStdDev"
-  | "targetMDE";
+  | "targetMDE"
+  // Only used in stats query, not in cache building and so can be ignored
+  | "unitEligibilityHours";
 
 // Compile-time exhaustiveness guard. When a field is added to
 // `MetricForSnapshot.computedSettings`, this resolves to that field's literal

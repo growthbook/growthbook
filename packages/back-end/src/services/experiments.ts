@@ -284,6 +284,7 @@ import {
 import { PAYLOAD_AFFECTING_EXPERIMENT_FIELDS } from "back-end/src/services/experimentPayloadFields";
 import { getScheduledAnalysisEndDate } from "back-end/src/services/scheduledAnalysisEndDate";
 import { isStandaloneBreakdownSnapshot } from "back-end/src/queryRunners/unitDimensionQueryNaming";
+import { recordUnitEligibility } from "back-end/src/integrations/sql/dates/unit-eligibility";
 import { getMetricForSnapshot } from "./reports";
 import {
   getIntegrationFromDatasourceId,
@@ -1031,7 +1032,7 @@ export function getSnapshotSettings({
         }
       : undefined;
 
-  return {
+  const snapshotSettings: ExperimentSnapshotSettings = {
     activationMetric: experiment.activationMetric || null,
     attributionModel: experiment.attributionModel || "firstExposure",
     lookbackOverride: lookbackOverride,
@@ -1067,6 +1068,8 @@ export function getSnapshotSettings({
     banditSettings,
     ...(cutoff && !phase.dateEnded ? { endDateIsCutoff: true } : {}),
   };
+  recordUnitEligibility(snapshotSettings, metricMap);
+  return snapshotSettings;
 }
 
 async function parseComboConstituent(

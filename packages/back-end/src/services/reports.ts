@@ -91,6 +91,7 @@ import {
 import { ReqContextClass } from "back-end/src/services/context";
 import { findDimensionsByOrganization } from "back-end/src/models/DimensionModel";
 import { getEffectiveAccountPlan } from "back-end/src/enterprise";
+import { recordUnitEligibility } from "back-end/src/integrations/sql/dates/unit-eligibility";
 
 export function getAnalysisSettingsFromReportArgs(
   args: LegacyExperimentReportArgs,
@@ -194,6 +195,7 @@ export function getSnapshotSettingsFromReportArgs(
     })),
     coverage: args.coverage,
   };
+  recordUnitEligibility(snapshotSettings, metricMap);
   const analysisSettings = getAnalysisSettingsFromReportArgs(expandedArgs);
 
   return { snapshotSettings, analysisSettings };
@@ -727,7 +729,7 @@ export function getReportSnapshotSettings({
     : [];
 
   const phase = report.experimentMetadata.phases?.[phaseIndex];
-  return {
+  const snapshotSettings: ExperimentSnapshotSettings = {
     activationMetric:
       report.experimentAnalysisSettings.activationMetric || null,
     attributionModel:
@@ -765,6 +767,8 @@ export function getReportSnapshotSettings({
     })),
     coverage: phase?.coverage ?? 1,
   };
+  recordUnitEligibility(snapshotSettings, metricMap);
+  return snapshotSettings;
 }
 
 export async function generateExperimentReportSSRData({

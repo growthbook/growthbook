@@ -7,7 +7,10 @@ import { buildUnitsQuerySettingsFromSnapshot } from "shared/util";
 import { getExperimentFactMetricStatisticsCTE } from "back-end/src/integrations/sql/ctes/experiment-fact-metric-statistics-cte";
 import { getExperimentFactMetricsQuery } from "back-end/src/integrations/sql/queries/experiment-fact-metrics-query";
 import { getMetricData } from "back-end/src/integrations/sql/fact-metrics/metric-data";
-import { getPercentileCapSource } from "back-end/src/integrations/sql/dates/unit-eligibility";
+import {
+  getMetricUsersColumn,
+  getPercentileCapSource,
+} from "back-end/src/integrations/sql/dates/unit-eligibility";
 import { processExperimentFactMetricsQueryRows } from "back-end/src/integrations/sql/processing/process-experiment-fact-metrics-query-rows";
 import { factMetricFactory } from "../factories/FactMetric.factory";
 import { factTableFactory } from "../factories/FactTable.factory";
@@ -32,6 +35,7 @@ const settings = {
   attributionModel: "firstExposure" as const,
   regressionAdjustmentEnabled: false,
   skipPartialData: false,
+  metricSettings: [],
   startDate: new Date("2024-01-01"),
   endDate: new Date("2999-01-01"),
 };
@@ -116,36 +120,33 @@ describe("unit eligibility execution (SQL math)", () => {
     const rows = db.prepare(sql).all();
     db.close();
 
-    // The two one-day metrics share one count of eligible units
-    expect(Object.keys(rows[0]).filter((k) => k.startsWith("users_"))).toEqual([
-      "users_cw1440m",
-      "users_cw2880m",
-    ]);
+    // The two one-day metrics share one count of eligible units, and no metric
+    // adds a column of its own to find it
     expect(processExperimentFactMetricsQueryRows(rows)).toEqual([
       {
         variation: "0",
         users: 3,
         count: 3,
+        users_cw1440m: 2,
+        users_cw2880m: 1,
         m0_id: "all_units",
         m0_main_sum: 7,
         m0_main_sum_squares: 21,
         m1_id: "one_day",
-        m1_users_column: "users_cw1440m",
-        m1_users: 2,
         m1_main_sum: 3,
         m1_main_sum_squares: 5,
         m2_id: "one_day_again",
-        m2_users_column: "users_cw1440m",
-        m2_users: 2,
         m2_main_sum: 3,
         m2_main_sum_squares: 5,
         m3_id: "two_days",
-        m3_users_column: "users_cw2880m",
-        m3_users: 1,
         m3_main_sum: 1,
         m3_main_sum_squares: 1,
       },
     ]);
+    // Reading the results back names the column each metric's query wrote
+    expect(
+      metricData.map((d) => getMetricUsersColumn(d.metric, settings, null)),
+    ).toEqual([null, "users_cw1440m", "users_cw1440m", "users_cw2880m"]);
   });
 
   it("counts a trimmed compound metric's component units over the units it analyzes", () => {
@@ -214,7 +215,7 @@ describe("unit eligibility execution (SQL math)", () => {
     expect(processExperimentFactMetricsQueryRows(rows)).toEqual([
       expect.objectContaining({
         users: 3,
-        m0_users: 2,
+        users_cw1440m: 2,
         m0_main_sum: 1,
         m0_c0_units: 2,
         m0_c1_units: 1,
@@ -274,7 +275,6 @@ describe("unit eligibility in the standard fact metrics query", () => {
     const snapshotSettings = {
       ...settings,
       dimensions: [],
-      metricSettings: [],
       activationMetric: null,
       experimentId: "exp_1",
       queryFilter: "",

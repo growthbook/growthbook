@@ -5,10 +5,9 @@ import type { ExperimentFactMetricsQueryResponseRows } from "shared/types/integr
 import {
   ALL_NON_QUANTILE_METRIC_FLOAT_COLS,
   MAX_METRICS_PER_QUERY,
-  METRIC_USERS_COL,
-  METRIC_USERS_COLUMN_MARKER,
 } from "back-end/src/services/experimentQueries/constants";
 
+import { ELIGIBLE_USERS_COLUMN_PREFIX } from "back-end/src/integrations/sql/dates/unit-eligibility";
 import { getQuantileBoundsFromQueryResponse } from "back-end/src/integrations/sql/columns/quantile-bounds-from-query-response";
 import { parseFunnelStepSumColumn } from "back-end/src/integrations/sql/fact-metrics/funnel-columns";
 import { isCompoundComponentUnitsColumn } from "back-end/src/integrations/sql/fact-metrics/compound-columns";
@@ -50,17 +49,6 @@ export function processExperimentFactMetricsQueryRows(
         }
       });
 
-      // A metric that only analyzed units with complete data names the shared
-      // column holding its unit count.
-      const usersColumn = columns[METRIC_USERS_COLUMN_MARKER];
-      if (typeof usersColumn === "string") {
-        metricData[prefix + METRIC_USERS_COLUMN_MARKER] = usersColumn;
-        metricData[prefix + METRIC_USERS_COL] = parseIntWithDefault(
-          row[usersColumn],
-          0,
-        );
-      }
-
       // Funnel and compound metrics emit one sum per step / component, so their
       // columns aren't in a static list.
       dynamicKeysByMetric[`m${i}`]?.forEach((key) => {
@@ -87,12 +75,22 @@ export function processExperimentFactMetricsQueryRows(
         attributeData[key] = value;
       });
 
+    // Shared unit counts of the metrics that only analyzed units with complete
+    // data; `getMetricUsersColumn` names each metric's column.
+    const eligibleUsersData: Record<string, number> = {};
+    Object.keys(row)
+      .filter((key) => key.startsWith(ELIGIBLE_USERS_COLUMN_PREFIX))
+      .forEach((key) => {
+        eligibleUsersData[key] = parseIntWithDefault(row[key], 0);
+      });
+
     return {
       variation: row.variation ?? "",
       ...dimensionData,
       ...attributeData,
       users: parseIntWithDefault(row.users, 0),
       count: parseIntWithDefault(row.users, 0),
+      ...eligibleUsersData,
       ...(row.sub_count !== undefined
         ? { sub_count: parseIntWithDefault(row.sub_count, 0) }
         : {}),
