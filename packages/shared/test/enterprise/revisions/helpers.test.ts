@@ -1482,6 +1482,21 @@ describe("sdkConnectionDraftSettingsAfterSave", () => {
     ).toEqual({ name: "B", eventTracker: "" });
   });
 
+  it("keeps that choice through a later save of something else", () => {
+    const base = { name: "A" };
+    const live = { name: "A", includeRuleIds: true };
+    const cleared = sdkConnectionDraftSettingsAfterSave(
+      base,
+      { name: "A" },
+      { includeRuleIds: false },
+      live,
+    );
+    expect(cleared).toEqual({ name: "A", includeRuleIds: false });
+    expect(
+      sdkConnectionDraftSettingsAfterSave(base, cleared, { name: "B" }, live),
+    ).toEqual({ name: "B", includeRuleIds: false });
+  });
+
   it("leaves no change after a setting is turned on then off", () => {
     const base = { name: "A" };
     const on = sdkConnectionDraftSettingsAfterSave(base, base, {
@@ -1500,7 +1515,7 @@ describe("sdkConnectionDraftSettingsAfterSave", () => {
     expect(
       sdkConnectionDraftSettingsAfterSave(
         base,
-        { name: "A", projects: ["p1"] },
+        { name: "A", projects: ["p1"], tags: false },
         { projects: [] },
       ),
     ).toEqual(base);
