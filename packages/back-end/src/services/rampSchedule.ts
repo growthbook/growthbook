@@ -2465,20 +2465,11 @@ export async function resumeSchedule(
     },
   });
 
-  // A schedule without steps has nothing to replay but its start, which may be
-  // what failed before the pause.
-  if (
-    updated.steps.length === 0 &&
-    !(updated.cutoffDate && updated.cutoffDate <= now)
-  ) {
-    await applyRampStartActions(ctx, updated);
-  }
-
-  // Chain through any time-due steps (nextStepAt <= now). Steps with no
+  // Replays the start — for a schedule without steps, possibly what failed
+  // before the pause — then chains through time-due steps. Steps with no
   // interval (approval gates, instant steps) have nextStepAt=null and are not
   // traversed here — the agenda re-picks them via nextProcessAt.
-  await heartbeat?.();
-  await advanceUntilBlocked(ctx, updated, now);
+  await startOrRecordFailure(ctx, updated, now, heartbeat);
   updated = (await ctx.models.rampSchedules.getById(schedule.id)) ?? updated;
 
   await syncLinkedSafeRolloutForRampState(ctx, updated);
@@ -2943,9 +2934,9 @@ export async function errorPauseRampSchedule(
   });
 }
 
-// Applies a just-started schedule's start actions and first steps. A failure
-// is left to the scheduler's retries, or paused on a refusal; the caller still
-// sees the error.
+// Applies a started or resumed schedule's start actions and due steps. A
+// failure is left to the scheduler's retries, or paused on a refusal; the
+// caller still sees the error.
 async function startOrRecordFailure(
   ctx: ReqContext | ApiReqContext,
   schedule: RampScheduleInterface,
@@ -2953,7 +2944,11 @@ async function startOrRecordFailure(
   heartbeat?: () => Promise<void>,
 ): Promise<void> {
   try {
-    await applyRampStartActions(ctx, schedule);
+    // A schedule past its end date must not be enabled on the way to its
+    // completion.
+    if (!(schedule.cutoffDate && schedule.cutoffDate <= now)) {
+      await applyRampStartActions(ctx, schedule);
+    }
     const current = await ensureSafeRolloutForMonitoredRamp(ctx, schedule);
     await heartbeat?.();
     await advanceUntilBlocked(ctx, current, now);
