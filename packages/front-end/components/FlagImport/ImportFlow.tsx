@@ -633,15 +633,28 @@ export function ImportDone({
     (r) => r.kind === "experiment" && r.status === "created",
   );
   const reportUrl = flagImport.imported?.autoRunUrl ?? null;
+  // The stand-in result for an import that stopped early has no key.
+  const attempted = results.filter((r) => r.kind === "feature" && r.key).length;
 
   return (
     <>
-      <ImportHero
-        eyebrow={<Badge label="Imported" color="green" />}
-        title={`${plural(created.length, "Feature Flag")} Imported`}
-      >
-        They have the same rules as your code.
-      </ImportHero>
+      {created.length ? (
+        <ImportHero
+          eyebrow={<Badge label="Imported" color="green" />}
+          title={`${plural(created.length, "Feature Flag")} Imported`}
+        >
+          {leftOut.length
+            ? `${created.length} of ${attempted} were imported. The rest are listed below.`
+            : "They have the same rules as your code."}
+        </ImportHero>
+      ) : (
+        <ImportHero
+          eyebrow={<Badge label="Not imported" color="red" />}
+          title="No Feature Flags Were Imported"
+        >
+          The reasons are listed below.
+        </ImportHero>
+      )}
       {created.length ? (
         <SectionFrame title="Feature Flags" mb="4">
           {created.map((r, i) => (
@@ -673,22 +686,24 @@ export function ImportDone({
           </Flex>
         </Callout>
       ) : null}
-      <Flex gap="4" wrap="wrap">
-        <NextCard
-          href="/sdks"
-          title="Connect Your App"
-          description="Serve these Feature Flags from GrowthBook"
-        />
-        <NextCard
-          href="/experiments"
-          title="Run an Experiment"
-          description={
-            experiment
-              ? `${experiment.key} is ready as a draft`
-              : "Test a change before you roll it out"
-          }
-        />
-      </Flex>
+      {created.length ? (
+        <Flex gap="4" wrap="wrap">
+          <NextCard
+            href="/sdks"
+            title="Connect Your App"
+            description="Serve these Feature Flags from GrowthBook"
+          />
+          <NextCard
+            href="/experiments"
+            title="Run an Experiment"
+            description={
+              experiment
+                ? `${experiment.key} is ready as a draft`
+                : "Test a change before you roll it out"
+            }
+          />
+        </Flex>
+      ) : null}
       <ImportDock
         left={
           reportUrl ? <Link href={reportUrl}>View import report</Link> : null
