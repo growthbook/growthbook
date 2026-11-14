@@ -101,9 +101,6 @@ export default function SDKConnectionDetailsPanel({
             </PanelText>
           }
         />
-      </PanelSection>
-      <Separator size="4" />
-      <PanelSection title="Delivery">
         <Metadata
           size="sm"
           stacked
