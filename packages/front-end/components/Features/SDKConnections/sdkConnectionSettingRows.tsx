@@ -365,7 +365,10 @@ export const SECURITY_ROWS: SettingRow[] = [
     shown: (v, { cloud }) =>
       v.delivery === "remote" &&
       shouldShowPayloadSecurity(v.languages) &&
-      (cloud || v.encryptPayload || v.hashSecureAttributes),
+      (cloud ||
+        v.encryptPayload ||
+        v.hashSecureAttributes ||
+        !v.includeExperimentNames),
     read: readCipherOptions,
     edit: (v, onChange, disabled) => (
       <RemoteEvalOptionsField
