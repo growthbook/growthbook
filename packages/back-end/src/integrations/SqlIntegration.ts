@@ -2920,7 +2920,6 @@ export default abstract class SqlIntegration
       percentileData,
       eventQuantileData,
       regressionAdjustedMetrics,
-      activationMetric,
     } = parseExperimentFactMetricsParams(this.getSqlDialect(), {
       ...params,
       // Covariate data joined to single table with `m` alias before columns are extracted
@@ -2931,14 +2930,11 @@ export default abstract class SqlIntegration
     // Metrics with `skipPartialData` are trimmed in the statistics CTE, which
     // then needs each unit's exposure timestamp on its source table.
     const unitEligibility = metricData.some(
-      (d) =>
-        getUnitEligibilityHours(d.metric, params.settings, activationMetric) !==
-        null,
+      (d) => getUnitEligibilityHours(d.metric, params.settings) !== null,
     )
       ? {
           timestampColumn: "first_exposure_timestamp",
           settings: params.settings,
-          activationMetric,
           asOf: params.asOf,
         }
       : undefined;

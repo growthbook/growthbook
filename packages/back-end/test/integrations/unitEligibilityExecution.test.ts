@@ -94,7 +94,6 @@ const fixture = units
 const unitEligibility = {
   timestampColumn: "timestamp",
   settings,
-  activationMetric: null,
   asOf: ASOF,
 };
 
@@ -145,7 +144,7 @@ describe("unit eligibility execution (SQL math)", () => {
     ]);
     // Reading the results back names the column each metric's query wrote
     expect(
-      metricData.map((d) => getMetricUsersColumn(d.metric, settings, null)),
+      metricData.map((d) => getMetricUsersColumn(d.metric, settings)),
     ).toEqual([null, "users_cw1440m", "users_cw1440m", "users_cw2880m"]);
   });
 

@@ -491,11 +491,7 @@ export function getMetricsAndQueryDataForStatsEngine(
             continue;
           }
 
-          const usersColumn = getMetricUsersColumn(
-            metric,
-            settings,
-            metricMap.get(settings.activationMetric ?? "") ?? null,
-          );
+          const usersColumn = getMetricUsersColumn(metric, settings);
           // A snapshot records each metric's count when its queries are
           // built. Only settings rebuilt later, as a legacy report's notebook
           // does, can expect a count the rows do not have.

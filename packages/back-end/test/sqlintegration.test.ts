@@ -226,26 +226,14 @@ describe("bigquery integration", () => {
         delayValue: 0,
       },
     };
-    const activationMetric: MetricInterface = {
-      ...baseMetric,
-      windowSettings: {
-        type: "conversion",
-        windowUnit: "hours",
-        windowValue: 72,
-        delayUnit: "hours",
-        delayValue: 0,
-      },
-    };
-
     // standard metric
-    expect(getMaxHoursToConvert(false, [numeratorMetric], null)).toEqual(20);
+    expect(getMaxHoursToConvert(false, [numeratorMetric])).toEqual(20);
 
     // funnel metric
     expect(
       getMaxHoursToConvert(
         true,
         [denominatorBinomialMetric].concat([numeratorMetric]),
-        null,
       ),
     ).toEqual(21);
 
@@ -254,18 +242,8 @@ describe("bigquery integration", () => {
       getMaxHoursToConvert(
         false,
         [denominatorCountMetric].concat([numeratorMetric]),
-        null,
       ),
     ).toEqual(20);
-
-    // ratio metric activated
-    expect(
-      getMaxHoursToConvert(
-        false,
-        [denominatorCountMetric].concat([numeratorMetric]),
-        activationMetric,
-      ),
-    ).toEqual(92);
   });
 
   it("escape single quotes and backslash correctly", () => {

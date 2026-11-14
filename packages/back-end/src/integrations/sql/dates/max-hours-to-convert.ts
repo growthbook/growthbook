@@ -31,11 +31,12 @@ function getFunnelCompletionHours(m: ExperimentMetricInterface): number | null {
 export function getMaxHoursToConvert(
   funnelMetric: boolean,
   metricAndDenominatorMetrics: ExperimentMetricInterface[],
-  activationMetric: ExperimentMetricInterface | null,
 ): number {
   // Used to set an experiment end date to filter out users
   // who have not had enough time to convert (if experimenter
-  // has selected `skipPartialData`)
+  // has selected `skipPartialData`). An activation metric's window is not
+  // part of the wait: activated users are measured, and filtered, from when
+  // they activated.
   let neededHoursForConversion = 0;
   metricAndDenominatorMetrics.forEach((m) => {
     const funnelHours = getFunnelCompletionHours(m);
@@ -70,14 +71,5 @@ export function getMaxHoursToConvert(
       neededHoursForConversion = metricHours;
     }
   });
-  // activation metrics windows always cascade
-  if (
-    activationMetric &&
-    activationMetric.windowSettings.type === "conversion"
-  ) {
-    neededHoursForConversion +=
-      getDelayWindowHours(activationMetric.windowSettings) +
-      getMetricWindowHours(activationMetric.windowSettings);
-  }
   return neededHoursForConversion;
 }

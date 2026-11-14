@@ -14,29 +14,23 @@ export interface ConversionWindowPartition<
   metrics: M[];
 }
 
-// Match the stats CTE (metric-data.ts), including funnel and activation —
-// not getFactMetricGroup, which ignores those.
+// Match the stats CTE (metric-data.ts), including funnels — not
+// getFactMetricGroup, which ignores them.
 export function getMetricConversionWindowHours(
   metric: ExperimentMetricInterface,
-  activationMetric: ExperimentMetricInterface | null,
 ): number {
-  return getMaxHoursToConvert(
-    isFactFunnelMetric(metric),
-    [metric],
-    activationMetric,
-  );
+  return getMaxHoursToConvert(isFactFunnelMetric(metric), [metric]);
 }
 
 // Cross-FT grouping fans out from raw planMetricFanOut metrics, so overrides
 // must be applied here. Same-FT already applies them upstream.
 export function getOverriddenMetricConversionWindowHours(
   metric: ExperimentMetricInterface,
-  activationMetric: ExperimentMetricInterface | null,
   settings: Pick<ExperimentSnapshotSettings, "metricSettings">,
 ): number {
   const overridden = cloneDeep(metric);
   applyMetricOverrides(overridden, settings);
-  return getMetricConversionWindowHours(overridden, activationMetric);
+  return getMetricConversionWindowHours(overridden);
 }
 
 export function conversionWindowMinutesKey(hours: number): string {
@@ -51,18 +45,14 @@ export function conversionWindowQueryNameSuffix(
 
 export function partitionMetricsByConversionWindow<
   M extends ExperimentMetricInterface,
->(
-  metrics: M[],
-  skipPartialData: boolean,
-  activationMetric: ExperimentMetricInterface | null,
-): ConversionWindowPartition<M>[] {
+>(metrics: M[], skipPartialData: boolean): ConversionWindowPartition<M>[] {
   if (!skipPartialData) {
     return [{ window: null, metrics }];
   }
 
   const byWindow = new Map<number, M[]>();
   for (const metric of metrics) {
-    const hours = getMetricConversionWindowHours(metric, activationMetric);
+    const hours = getMetricConversionWindowHours(metric);
     const bucket = byWindow.get(hours);
     if (bucket) {
       bucket.push(metric);

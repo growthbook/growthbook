@@ -213,11 +213,7 @@ export function getSnapshotMetricQuery(
 
   const endDate: Date = getExperimentEndDate(
     settings,
-    getMaxHoursToConvert(
-      funnelMetric,
-      [metric].concat(denominatorMetrics),
-      activationMetric,
-    ),
+    getMaxHoursToConvert(funnelMetric, [metric].concat(denominatorMetrics)),
   );
 
   const dimensionCols = params.dimensions.map((d) =>

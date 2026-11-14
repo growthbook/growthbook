@@ -258,11 +258,7 @@ export function getMetricData(
     alias,
   };
 
-  const maxHoursToConvert = getMaxHoursToConvert(
-    funnelMetric,
-    [metric],
-    activationMetric,
-  );
+  const maxHoursToConvert = getMaxHoursToConvert(funnelMetric, [metric]);
 
   const numeratorAggFns = getAggregationMetadata(dialect, {
     metric,

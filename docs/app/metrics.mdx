@@ -298,7 +298,7 @@ Turn on **Exclude in-progress conversions** on a Fact Metric to only analyze use
 | Retention Metric with no conversion window             | Retention window                                                                             |
 | Funnel Metric where every step has a conversion window | Metric delay + the sum of the step windows, capped by the metric's conversion window, if any |
 
-If the experiment has an activation metric with a conversion window, its delay and window are added on top.
+If the experiment has an activation metric, the time counts from when the user activated instead of from first exposure.
 
 It is on by default for new Retention Metrics and off for all other metrics. Only the metric with the setting is affected; other metrics in the same experiment still use every user, so this metric can show fewer users than the rest of the experiment.
 

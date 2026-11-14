@@ -78,7 +78,7 @@ function makeMultiSourceGroup(
 }
 
 function windowKeyFn(m: FactMetricInterface): string | null {
-  return conversionWindowMinutesKey(getMetricConversionWindowHours(m, null));
+  return conversionWindowMinutesKey(getMetricConversionWindowHours(m));
 }
 
 describe("buildMultiSourceSubGroups", () => {
