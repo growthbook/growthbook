@@ -15,6 +15,7 @@ import {
   ensureSafeRolloutForMonitoredRamp,
   onActivatingRevisionPublished,
   recordRampStepFailure,
+  shiftRampTimersForHold,
 } from "back-end/src/services/rampSchedule";
 import {
   applyRampEvaluationDecision,
@@ -92,7 +93,11 @@ async function attemptRampScheduleTick(
   heartbeat: () => Promise<void>,
 ): Promise<void> {
   try {
-    await tickRampSchedule(context, schedule, now, heartbeat);
+    const shifted = shiftRampTimersForHold(schedule, now);
+    const current = shifted
+      ? await context.models.rampSchedules.updateById(schedule.id, shifted)
+      : schedule;
+    await tickRampSchedule(context, current, now, heartbeat);
   } catch (e) {
     if (!(e instanceof RampAdvanceLockBusyError)) {
       await recordRampStepFailure(context, schedule.id, e);

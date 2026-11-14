@@ -290,11 +290,14 @@ export const rampScheduleValidator = baseSchema
       .nullish(),
     // Failed attempts since the last clean scheduler tick; the scheduler waits
     // until `retryAt` between them and pauses the schedule once they run out.
+    // `heldSince` is how far the step timers have been pushed back: time spent
+    // failing counts like a pause.
     stepFailure: z
       .object({
         attempts: z.number().int(),
         lastError: z.string(),
         retryAt: z.date(),
+        heldSince: z.date(),
       })
       .nullish(),
 

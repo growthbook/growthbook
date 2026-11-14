@@ -67,6 +67,7 @@ import {
   forceMatchesValueType,
   remapTemplateActions,
   isTerminalRampError,
+  shiftRampTimersForHold,
 } from "back-end/src/services/rampSchedule";
 
 // ---------------------------------------------------------------------------
@@ -6109,5 +6110,65 @@ describe("getRampRetry", () => {
   it("reports nothing without a failure", () => {
     expect(getRampRetry({ status: "running" })).toBeNull();
     expect(getRampRetry({ status: "running", stepFailure: null })).toBeNull();
+  });
+});
+
+describe("shiftRampTimersForHold", () => {
+  const t = (minutes: number) =>
+    new Date(Date.UTC(2026, 10, 13, 12, 0) + minutes * 60_000);
+  const failing = (heldSince: Date) => ({
+    attempts: 2,
+    lastError: "timed out",
+    retryAt: t(30),
+    heldSince,
+  });
+
+  it("pushes the step timers back by the time held and restarts the hold", () => {
+    expect(
+      shiftRampTimersForHold(
+        {
+          phaseStartedAt: t(0),
+          nextStepAt: t(10),
+          stepFailure: failing(t(10)),
+        },
+        t(40),
+      ),
+    ).toEqual({
+      phaseStartedAt: t(30),
+      nextStepAt: t(40),
+      stepFailure: failing(t(40)),
+    });
+  });
+
+  it("applies each stretch of the hold once", () => {
+    const first = shiftRampTimersForHold(
+      { phaseStartedAt: t(0), nextStepAt: t(10), stepFailure: failing(t(10)) },
+      t(15),
+    );
+    const second = shiftRampTimersForHold(
+      {
+        phaseStartedAt: first?.phaseStartedAt,
+        nextStepAt: first?.nextStepAt ?? null,
+        stepFailure: first?.stepFailure,
+      },
+      t(40),
+    );
+    expect(second?.phaseStartedAt).toEqual(t(30));
+    expect(second?.nextStepAt).toEqual(t(40));
+  });
+
+  it("leaves unset timers unset and does nothing without a failure", () => {
+    expect(
+      shiftRampTimersForHold(
+        { phaseStartedAt: null, nextStepAt: null, stepFailure: failing(t(0)) },
+        t(5),
+      ),
+    ).toEqual({ stepFailure: failing(t(5)) });
+    expect(
+      shiftRampTimersForHold(
+        { phaseStartedAt: t(0), nextStepAt: t(10), stepFailure: null },
+        t(5),
+      ),
+    ).toBeNull();
   });
 });

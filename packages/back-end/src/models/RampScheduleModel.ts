@@ -330,7 +330,11 @@ export function rampScheduleToApiInterface(
     lastRollbackAt: dateToIso(doc.lastRollbackAt),
     lastRollbackReason: doc.lastRollbackReason,
     stepFailure: stepFailure
-      ? { ...stepFailure, retryAt: stepFailure.retryAt.toISOString() }
+      ? {
+          attempts: stepFailure.attempts,
+          lastError: stepFailure.lastError,
+          retryAt: stepFailure.retryAt.toISOString(),
+        }
       : null,
     monitoringStatus: doc.monitoringConfig
       ? (() => {

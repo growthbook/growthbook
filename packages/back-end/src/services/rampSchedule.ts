@@ -2772,6 +2772,32 @@ export function isTerminalRampError(e: unknown): boolean {
   );
 }
 
+// Time spent failing counts like a pause: the step timers move back by it, so a
+// recovered schedule doesn't fold the steps that came due meanwhile into one
+// publish. Returns the update to write before the next attempt, or null.
+export function shiftRampTimersForHold(
+  schedule: Pick<
+    RampScheduleInterface,
+    "stepFailure" | "phaseStartedAt" | "nextStepAt"
+  >,
+  now: Date,
+): Partial<
+  Pick<RampScheduleInterface, "phaseStartedAt" | "nextStepAt" | "stepFailure">
+> | null {
+  const failure = schedule.stepFailure;
+  if (!failure) return null;
+  const heldMs = now.getTime() - failure.heldSince.getTime();
+  if (heldMs <= 0) return null;
+  const shift = (d: Date) => new Date(d.getTime() + heldMs);
+  return {
+    ...(schedule.phaseStartedAt
+      ? { phaseStartedAt: shift(schedule.phaseStartedAt) }
+      : {}),
+    ...(schedule.nextStepAt ? { nextStepAt: shift(schedule.nextStepAt) } : {}),
+    stepFailure: { ...failure, heldSince: now },
+  };
+}
+
 // Failures already counted, so an error rethrown through an outer catch is
 // recorded once.
 const recordedRampFailures = new WeakSet<object>();
@@ -2817,7 +2843,12 @@ export async function recordRampStepFailure(
     return null;
   }
   const updated = await ctx.models.rampSchedules.updateById(scheduleId, {
-    stepFailure: { attempts, lastError: message, retryAt },
+    stepFailure: {
+      attempts,
+      lastError: message,
+      retryAt,
+      heldSince: schedule.stepFailure?.heldSince ?? now,
+    },
   });
   if (attempts === 1) {
     await dispatchRampEvent(ctx, updated, "rampSchedule.actions.stepRetrying", {
