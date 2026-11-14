@@ -30,7 +30,7 @@ import {
   getExperimentById,
   updateExperiment,
 } from "back-end/src/models/ExperimentModel";
-import { findSDKConnectionsByOrganization } from "back-end/src/models/SdkConnectionModel";
+import { findServingSDKConnections } from "back-end/src/models/SdkConnectionModel";
 import { findVisualChangesetsByExperiment } from "back-end/src/models/VisualChangesetModel";
 import { ReqContext } from "back-end/types/request";
 import { flagBypass } from "back-end/src/services/featurePublishGates";
@@ -206,7 +206,7 @@ export async function getExperimentStartChecklistStatus(
         experiment,
         arming ? { publisher: context } : {},
       ),
-      findSDKConnectionsByOrganization(context),
+      findServingSDKConnections(context),
       findVisualChangesetsByExperiment(experiment.id, context.org.id),
       context.models.urlRedirects.findByExperiment(experiment.id),
     ]);

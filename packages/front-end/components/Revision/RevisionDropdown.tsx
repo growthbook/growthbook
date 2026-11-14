@@ -13,6 +13,12 @@ import Text from "@/ui/Text";
 import { DropdownMenuLabel } from "@/ui/DropdownMenu";
 import { useUser } from "@/services/UserContext";
 import { getStatusBadge } from "@/components/Revision/revisionUtils";
+import {
+  revisionModelDate,
+  revisionModelFacts,
+} from "@/components/Revision/revisionFacts";
+import RevisionDetailsCard from "@/components/Reviews/RevisionDetailsCard";
+import Owner from "@/components/Avatar/Owner";
 import SharedRevisionDropdown, {
   RevisionDropdownRow,
 } from "@/components/Reviews/RevisionDropdown";
@@ -26,6 +32,8 @@ export interface RevisionDropdownProps {
   requiresApproval?: boolean;
   draftsOnly?: boolean;
   context?: "header";
+  width?: number;
+  disabled?: boolean;
 }
 
 // Generic Revision-model wrapper around the shared <RevisionDropdown> (the same
@@ -41,6 +49,8 @@ export default function RevisionDropdown({
   requiresApproval = true,
   draftsOnly = false,
   context,
+  width,
+  disabled,
 }: RevisionDropdownProps) {
   const { getUserDisplay } = useUser();
 
@@ -84,18 +94,31 @@ export default function RevisionDropdown({
       {eventUserLabel(revisionActor(r, r.authorId), {
         nameFor: (id) => getUserDisplay(id, false),
       })}
-      {r.dateUpdated && <> &middot; {dateNoYear(r.dateUpdated)}</>}
+      <> &middot; {dateNoYear(revisionModelDate(r))}</>
     </Text>
   );
 
   const rows: RevisionDropdownRow[] = displayList.map((r) => {
     const isLive = r.id === liveRevision?.id;
+    const version = revisionNumberById.get(r.id) ?? 1;
+    const badge = getStatusBadge(isLive ? "live" : r.status, requiresApproval);
     return {
       key: r.id,
-      version: revisionNumberById.get(r.id) ?? 1,
+      version,
       title: r.title,
       meta: buildMeta(r),
-      badge: getStatusBadge(isLive ? "live" : r.status, requiresApproval),
+      badge,
+      details: (
+        <RevisionDetailsCard
+          version={version}
+          title={r.title}
+          badge={badge}
+          facts={revisionModelFacts(r, (id) => (
+            <Owner ownerId={id} gap="1" size="sm" truncate />
+          ))}
+          comment={r.comment}
+        />
+      ),
     };
   });
 
@@ -150,7 +173,9 @@ export default function RevisionDropdown({
       triggerPlaceholder="Select revision"
       triggerNumbered={false}
       context={context}
+      width={width}
       menuPlacement="end"
+      disabled={disabled}
     />
   );
 }

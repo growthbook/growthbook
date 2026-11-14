@@ -347,12 +347,32 @@
       box-shadow: inset 0 0 0 1px var(--gray-a8);
     }
   }
+
+  // Faintly grayed, with no hover; what it holds can't take the cursor back.
+  // `[type]` outranks Bootstrap's pointer on a `[type="button"]` trigger.
+  &:disabled,
+  &[data-disabled],
+  &[data-disabled][type] {
+    cursor: not-allowed;
+    color: var(--gray-11);
+    background-color: var(--gray-a2);
+    box-shadow: inset 0 0 0 1px var(--gray-a5);
+
+    * {
+      cursor: not-allowed;
+    }
+  }
 }
 
 .rt-RadioGroupItem {
   cursor: pointer;
   &.disabled {
     cursor: not-allowed;
+  }
+  // The item's baseline is its label's first line, not the button's bottom
+  // edge, so a label beside the group lines up with the first option.
+  > .rt-RadioGroupItemInner {
+    align-self: baseline;
   }
   &:hover:not(.disabled) {
     .main-text {

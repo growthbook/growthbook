@@ -6,6 +6,7 @@ import type { EntityRevisionAdapter } from "back-end/src/revisions/EntityRevisio
 import { savedGroupAdapter } from "back-end/src/revisions/adapters/saved-group.adapter";
 import { constantAdapter } from "back-end/src/revisions/adapters/constant.adapter";
 import { configAdapter } from "back-end/src/revisions/adapters/config.adapter";
+import { sdkConnectionAdapter } from "back-end/src/revisions/adapters/sdk-connection.adapter";
 
 // Registry mapping entity types to their adapter implementations.
 // To add a new entity type:
@@ -15,6 +16,7 @@ const registry: Record<RevisionTargetType, EntityRevisionAdapter> = {
   "saved-group": savedGroupAdapter as EntityRevisionAdapter,
   constant: constantAdapter as EntityRevisionAdapter,
   config: configAdapter as EntityRevisionAdapter,
+  "sdk-connection": sdkConnectionAdapter as EntityRevisionAdapter,
 };
 
 /**

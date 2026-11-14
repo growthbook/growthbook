@@ -1,6 +1,5 @@
 import { ReactNode, useMemo, useState } from "react";
 import { Flex } from "@radix-ui/themes";
-import clsx from "clsx";
 import {
   PiArrowRight,
   PiCaretDown,
@@ -43,11 +42,7 @@ import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
 import { getRevisionStatus } from "@/services/revisionStatus";
-import styles from "./RevisionStatusBar.module.scss";
-
-// Room for a normal-sized button with even padding. A message that wraps
-// grows it.
-export const REVISION_STATUS_BAR_HEIGHT_PX = 48;
+import RevisionStatusBarView from "@/components/Reviews/RevisionStatusBarView";
 
 /**
  * The viewed revision's state, fixed under the page's tabs: what it is, what
@@ -261,61 +256,23 @@ export default function RevisionStatusBar({
       );
   }
 
-  const tint = isDraft ? "amber" : "gray";
-
   return (
     <>
-      <div
-        className={styles.bar}
-        style={{
-          backgroundColor: `var(--${tint}-a3)`,
-          // The tab row's underline, above it.
-          boxShadow: "inset 0 1px 0 0 var(--gray-a5)",
-        }}
-      >
-        <div
-          // The header's page column, so the two line up.
-          className={clsx("container-fluid pagecontents", styles.row)}
-          style={{
-            // Inset as the cards' content is below: the page gutter, a card's
-            // padding, and a border as wide as the card's, which zoom rounds
-            // the same way. Its actions end under the revision picker.
-            paddingInline: "calc(2 * var(--space-5))",
-            borderInline: "1px solid transparent",
-            paddingBlock: "var(--space-2)",
-            minHeight: REVISION_STATUS_BAR_HEIGHT_PX,
-          }}
-        >
-          <Flex className={styles.status} align="center" gap="3">
-            <Flex
-              align="center"
-              gap="1"
-              flexShrink="0"
-              style={{ color: `var(--${tint}-11)` }}
-            >
-              {icon}
-              {label ? <Text weight="semibold">{label}</Text> : null}
-            </Flex>
-            {/* Where the draft is in review, beside what it is. */}
-            {isDraft && revision.status !== "draft" ? (
-              <Flex flexShrink="0">
-                <RevisionStatusBadge
-                  revision={revision}
-                  liveVersion={liveVersion}
-                />
-              </Flex>
-            ) : null}
-          </Flex>
-          <div className={styles.message}>
-            <Text color="text-mid">{message}</Text>
-          </div>
-          {actions ? (
-            <Flex className={styles.actions} align="center" gap="4">
-              {actions}
-            </Flex>
-          ) : null}
-        </div>
-      </div>
+      <RevisionStatusBarView
+        draft={isDraft}
+        icon={icon}
+        label={label}
+        badge={
+          isDraft && revision.status !== "draft" ? (
+            <RevisionStatusBadge
+              revision={revision}
+              liveVersion={liveVersion}
+            />
+          ) : null
+        }
+        message={message}
+        actions={actions}
+      />
       {confirmDiscard ? (
         <DiscardDraftModal
           trackingEventModalType="discard-feature-revision"

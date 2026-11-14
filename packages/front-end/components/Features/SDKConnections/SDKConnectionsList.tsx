@@ -18,6 +18,7 @@ import Badge from "@/ui/Badge";
 import Button from "@/ui/Button";
 import { capitalizeFirstLetter } from "@/services/utils";
 import Callout from "@/ui/Callout";
+import Heading from "@/ui/Heading";
 import { Popover } from "@/ui/Popover";
 import Tooltip from "@/ui/Tooltip";
 import { ExperimentDot } from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
@@ -31,15 +32,19 @@ import Table, {
 import SDKLanguageLogo from "./SDKLanguageLogo";
 import EnvironmentProjectsBadge from "./EnvironmentProjectsBadge";
 import WebhookErrorDetails from "./WebhookErrorDetails";
-import SDKConnectionForm from "./SDKConnectionForm";
+import CreateSDKConnectionModal from "./CreateSDKConnectionModal";
 import { PayloadSizeRowWarning } from "./PayloadSizeNotices";
 
 const webhookCount = (n: number) => `${n} webhook${n === 1 ? "" : "s"}`;
 
 export default function SDKConnectionsList() {
-  const { data, mutate, error } = useSDKConnections();
+  const { data, mutate, error } = useSDKConnections({
+    includeArchived: true,
+  });
   const { data: webhooksData, mutate: mutateWebhooks } = useSDKWebhooks();
-  const connections = data?.connections ?? [];
+  const connections = [...(data?.connections ?? [])].sort(
+    (a, b) => Number(!!a.archived) - Number(!!b.archived),
+  );
 
   const [modalOpen, setModalOpen] = useState(false);
 
@@ -61,23 +66,21 @@ export default function SDKConnectionsList() {
   return (
     <>
       {modalOpen && (
-        <SDKConnectionForm
-          initialValue={{
-            languages: [],
-            includeRuleIds: true,
-          }}
+        <CreateSDKConnectionModal
+          initialValue={{ languages: [], includeRuleIds: true }}
           close={() => setModalOpen(false)}
           mutate={() => {
             mutate();
             mutateWebhooks();
           }}
-          edit={false}
         />
       )}
 
       <Flex align="center" justify="between" gap="3" mt="4" mb="2">
-        <Box style={{ flex: 1 }}>
-          <h1>SDK Connections</h1>
+        <Box flexGrow="1">
+          <Heading as="h1" size="xl">
+            SDK Connections
+          </Heading>
         </Box>
         {canCreateSDKConnections && connections.length > 0 ? (
           <Button onClick={() => setModalOpen(true)}>Add SDK Connection</Button>
@@ -173,12 +176,25 @@ export default function SDKConnectionsList() {
                     </Tooltip>
                   </TableCell>
                   <TableCell style={{ wordBreak: "break-word" }}>
+                    {/* Archived reads muted, beside a badge kept at full contrast. */}
                     <Link
                       href={`/sdks/${connection.id}`}
-                      style={{ color: "var(--gray-12)" }}
+                      style={{
+                        color: connection.archived
+                          ? "var(--gray-11)"
+                          : "var(--gray-12)",
+                      }}
                     >
                       {connection.name}
                     </Link>
+                    {connection.archived ? (
+                      <Badge
+                        label="Archived"
+                        color="gray"
+                        radius="full"
+                        ml="2"
+                      />
+                    ) : null}
                     <PayloadSizeRowWarning connection={connection} />
                     {connection.managedBy?.type ? (
                       <Box mt="1">

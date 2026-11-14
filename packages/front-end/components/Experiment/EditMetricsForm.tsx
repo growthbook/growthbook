@@ -25,14 +25,12 @@ import PremiumCallout from "@/ui/PremiumCallout";
 import { getIsExperimentIncludedInIncrementalRefresh } from "@/services/experiments";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import { validatedSubmit } from "@/ui/Modal/validatedSubmit";
+import AdvancedSection from "@/components/AdvancedSection";
 import MetricsOverridesSelector from "./MetricsOverridesSelector";
 import ActivationMetricRow from "./ActivationMetricRow";
 import ExperimentMetricsSelector from "./ExperimentMetricsSelector";
 import CustomMetricSlicesSelector from "./CustomMetricSlicesSelector";
-import {
-  AdvancedSection,
-  SettingsCard,
-} from "./TabbedPage/AnalysisPlanAdvanced";
+import { SettingsCard } from "./TabbedPage/AnalysisPlanAdvanced";
 import SetupFieldRow from "./TabbedPage/SetupFieldRow";
 
 export interface EditMetricsFormInterface {

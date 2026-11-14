@@ -1,6 +1,6 @@
 import { Flex } from "@radix-ui/themes";
 import { PiChartBar } from "react-icons/pi";
-import Text from "@/ui/Text";
+import EmptyStateMessage from "@/components/EmptyStateMessage";
 import styles from "./PreviewEmptyState.module.scss";
 
 // Relative heights of the placeholder bars, as a percent of the tallest.
@@ -19,15 +19,11 @@ export default function PreviewEmptyState({
           <span key={i} style={{ height: `${height}%` }} />
         ))}
       </div>
-      <span className={styles.emptyIcon} aria-hidden="true">
-        <PiChartBar size={20} />
-      </span>
-      <Text size="lg" weight="semibold" align="center">
-        Preview will appear here
-      </Text>
-      <Text color="text-mid" align="center">
-        {description}
-      </Text>
+      <EmptyStateMessage
+        icon={<PiChartBar size={20} />}
+        title="Preview will appear here"
+        description={description}
+      />
     </Flex>
   );
 }

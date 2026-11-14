@@ -11,6 +11,7 @@ import { createApiRequestHandler } from "back-end/src/util/handler";
 import {
   toApiRequireReviews,
   toApiSavedGroupApprovals,
+  toApiSdkConnectionApprovals,
 } from "./approvalRuleShapes";
 
 export const putApprovalSettings = createApiRequestHandler(
@@ -25,17 +26,19 @@ export const putApprovalSettings = createApiRequestHandler(
 
   // Matches the interactive route: saved-group approvals are the licensed part.
   if (
-    approvalFlows?.savedGroups?.some((rule) => rule.required) &&
+    (approvalFlows?.savedGroups?.some((rule) => rule.required) ||
+      approvalFlows?.sdkConnections?.some((rule) => rule.required)) &&
     !req.context.hasPremiumFeature("require-approvals")
   ) {
     throw new Error(
-      "Saved Groups approval flows require the Require Approvals enterprise feature.",
+      "Approval flows require the Require Approvals enterprise feature.",
     );
   }
 
   await assertApprovalRuleReferencesExist(req.context, [
     ...(requireReviews ?? []),
     ...(approvalFlows?.savedGroups ?? []),
+    ...(approvalFlows?.sdkConnections ?? []),
     ...(targetingReviewMode ?? []),
   ]);
   assertTargetingRulesDisjoint(targetingReviewMode ?? []);
@@ -50,7 +53,15 @@ export const putApprovalSettings = createApiRequestHandler(
           })),
         }
       : {}),
-    ...(approvalFlows ? { approvalFlows } : {}),
+    // Merge so a request sending only `savedGroups` keeps the sdkConnections rules.
+    ...(approvalFlows
+      ? {
+          approvalFlows: {
+            ...org.settings?.approvalFlows,
+            ...approvalFlows,
+          },
+        }
+      : {}),
   });
   const targetingUpdate = targetingReviewMode ? { targetingReviewMode } : {};
 
@@ -83,6 +94,9 @@ export const putApprovalSettings = createApiRequestHandler(
     approvalFlows: {
       savedGroups: toApiSavedGroupApprovals(
         stored.approvalFlows?.savedGroups ?? [],
+      ),
+      sdkConnections: toApiSdkConnectionApprovals(
+        stored.approvalFlows?.sdkConnections ?? [],
       ),
     },
     targetingReviewMode: stored.targetingReviewMode ?? [],

@@ -10,9 +10,11 @@ import Callout from "@/ui/Callout";
 import Link from "@/ui/Link";
 import { ApprovalScopeSections } from "@/components/GeneralSettings/ApprovalScopeFields";
 import {
+  clonedSdkConnectionRule,
   flagRuleDefaults,
   flagRulesFromSettings,
   savedGroupRuleDefaults,
+  scopeKey,
 } from "@/components/GeneralSettings/approvalScopes";
 
 // Read-only on purpose: a rule can govern several Projects, so editing it here
@@ -34,6 +36,7 @@ export default function ProjectApprovalSettings({
     settings.requireReviews,
   );
   const savedGroupRules = settings.approvalFlows?.savedGroups ?? [];
+  const sdkConnectionRules = settings.approvalFlows?.sdkConnections ?? [];
 
   // What actually applies here, folded the same way the publish gate folds it.
   const flagRule =
@@ -41,10 +44,16 @@ export default function ProjectApprovalSettings({
   const savedGroupRule =
     getApprovalFlowRules(settings.approvalFlows, "saved-group", [project])[0] ??
     savedGroupRuleDefaults(project);
+  // As the organization editor shows this Project's scope.
+  const sdkConnectionRule = clonedSdkConnectionRule(
+    sdkConnectionRules,
+    scopeKey([project]),
+  );
 
   const naming = [
     ...flagRules.filter((r) => r.projects?.includes(project)),
     ...savedGroupRules.filter((r) => r.projects?.includes(project)),
+    ...sdkConnectionRules.filter((r) => r.projects?.includes(project)),
   ];
   const sharedWith = [
     ...new Set(
@@ -91,6 +100,8 @@ export default function ProjectApprovalSettings({
           savedGroupRule={savedGroupRule}
           onSavedGroupChange={() => undefined}
           savedGroupDescription="Applies to Saved Groups in this Project. A group in several Projects must satisfy each of their requirements."
+          sdkConnectionRule={sdkConnectionRule}
+          onSdkConnectionChange={() => undefined}
         />
       </Frame>
     </Flex>

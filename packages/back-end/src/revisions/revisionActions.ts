@@ -4,6 +4,8 @@ import {
   Revision,
   RevisionTargetType,
   checkMergeConflicts,
+  landedOps,
+  mergeNestedBranch,
   normalizeProposedChanges,
   isUserBlockedFromApproving,
   isAutopublishOnApprovalEnabled,
@@ -76,6 +78,7 @@ import {
   runGuardedWrite,
   withBufferedPayloadRefreshes,
 } from "back-end/src/revisions/landingSequence";
+import { scrubConflictsForViewer } from "back-end/src/revisions/scrub";
 
 export type RevisionActionKind =
   | "draft"
@@ -181,11 +184,8 @@ export function canCommentOnRevision(
   context: Context,
   snapshot: Record<string, unknown>,
 ): boolean {
-  const projects =
-    (snapshot.projects as string[] | undefined) ??
-    (snapshot.project ? [snapshot.project as string] : []);
   return (
-    context.permissions.canAddComment(projects) ||
+    context.permissions.canAddComment(entityProjects(snapshot)) ||
     canDoRevisionAction(type, "draft", context, snapshot) ||
     canDoRevisionAction(type, "review", context, snapshot, null)
   );
@@ -505,6 +505,13 @@ export async function assertCanPublishRevision(
   );
 
   const pureRevert = await isPureRevertRevision(context, revision);
+  const archivedState = adapter.archivedState?.(
+    snapshot,
+    revision.target.proposedChanges,
+  ) ?? {
+    current: snapshot.archived as boolean | undefined,
+    proposed: proposedArchivedValue(revision.target.proposedChanges),
+  };
 
   await assertCanLandRevision({
     context,
@@ -527,15 +534,12 @@ export async function assertCanPublishRevision(
           : (adapter.canRevert ?? adapter.canUpdate);
       return canAct(context, snapshot);
     },
-    archives: isArchiveTransition({
-      proposed: proposedArchivedValue(revision.target.proposedChanges),
-      current: snapshot.archived as boolean | undefined,
-    }),
+    archives: isArchiveTransition(archivedState),
     isPureRevert: () => Promise.resolve(pureRevert),
     isPureArchive: () =>
       isPureArchiveRevision({
         proposedChanges: revision.target.proposedChanges,
-        current: snapshot.archived as boolean | undefined,
+        current: archivedState.current,
       }),
   });
 
@@ -661,16 +665,8 @@ export async function revisionApprovalsCoverChange(
   revision: Revision,
 ): Promise<{ hasCoveringApproval: boolean; uncoveredApprovers: string[] }> {
   const environments = reviewFootprintFor(context, revision);
-  const snapshot = revision.target.snapshot as {
-    project?: string;
-    projects?: string[];
-  };
   // Authority over a multi-project entity is the intersection, not the first.
-  const projects = snapshot.projects?.length
-    ? snapshot.projects
-    : snapshot.project
-      ? [snapshot.project]
-      : [];
+  const projects = entityProjects(revision.target.snapshot);
   const approvals = standingApprovals(revision);
   const roles = await getApproverRoles(context, approvalRoleIds(approvals));
   return assessApprovalCoverage({
@@ -740,7 +736,13 @@ async function publishRevisionInner(
   // the schedule's bypass flag with the armer's fire-time role. Re-deriving from
   // role here force-published an admin's ordinary non-bypass schedule unapproved.
   const canBypass =
-    bypass || (!deferred && adapter.canBypassApproval(context, entity));
+    bypass ||
+    (!deferred &&
+      adapter.canBypassApproval(
+        context,
+        entity,
+        revision.target.proposedChanges,
+      ));
 
   // Coverage, not just status: an approval given when the change was narrower
   // does not sanction what it would land now.
@@ -784,7 +786,11 @@ async function publishRevisionInner(
   if (!conflictResult.success) {
     throw new MergeConflictError(
       "Merge conflicts exist — rebase before publishing",
-      conflictResult.conflicts,
+      await scrubConflictsForViewer(
+        context,
+        revision.target,
+        conflictResult.conflicts,
+      ),
     );
   }
 
@@ -949,6 +955,7 @@ async function publishRevisionInner(
   // nothing applied) or will lose (its `close` CAS-fails once we've merged).
   // This closes the window where a discard landing between applyChanges and
   // merge would orphan a half-applied change on the live entity.
+  const baseSnapshot = revision.target.snapshot as Record<string, unknown>;
   const merged = await context.models.revisions.merge(
     revision.id,
     context.actorId,
@@ -956,6 +963,19 @@ async function publishRevisionInner(
       bypass: isBypass,
       // Same authorized-content pin as the no-op branch and bulk's claim.
       expected: { status: revision.status, dateUpdated: revision.dateUpdated },
+      // Behind live, what lands isn't what the draft holds: live keeps what
+      // changed since, and history should say so.
+      ...(isRevisionDiverged(adapter, baseSnapshot, entity) && {
+        landed: {
+          snapshot: adapter.buildSnapshot(entity),
+          proposedChanges: landedOps(
+            entity,
+            baseSnapshot,
+            revision.target.proposedChanges,
+            updatableFields,
+          ),
+        } as Pick<Revision["target"], "snapshot" | "proposedChanges">,
+      }),
     },
   );
 
@@ -1332,7 +1352,11 @@ export async function maybePublishScheduledRevision(
     const adapter = getAdapter(revision.target.type);
     const bypass =
       !!revision.scheduledPublishBypassApproval &&
-      adapter.canBypassApproval(enablerContext, entity);
+      adapter.canBypassApproval(
+        enablerContext,
+        entity,
+        revision.target.proposedChanges,
+      );
 
     return await publishRevision(enablerContext, revision, entity, {
       bypass,
@@ -1606,7 +1630,7 @@ export async function rebaseRevision({
     ) {
       throw new MergeConflictError(
         `Please resolve conflict for field: ${conflict.field}`,
-        conflicts,
+        await scrubConflictsForViewer(context, revision.target, conflicts),
       );
     }
   }
@@ -1632,8 +1656,17 @@ export async function rebaseRevision({
           `Unsupported patch op "${op.op}" in ${entityType} revision rebase`,
         );
       }
+      // A nested branch is re-based onto live, keeping only the draft's edits.
+      const nested = mergeNestedBranch(
+        field,
+        baseSnapshot[field],
+        entity[field],
+        op.value,
+        "proposed",
+      );
+      const value = nested ? nested.merged : op.value;
       // Live already caught up to what the draft was proposing: nothing to say.
-      if (!isEqual(op.value, entity[field])) newOps.push(op);
+      if (!isEqual(value, entity[field])) newOps.push({ ...op, value });
       continue;
     }
 
@@ -1659,7 +1692,16 @@ export async function rebaseRevision({
       const custom = customValues?.[field];
       let resolvedValue: unknown;
       if (custom !== undefined) {
-        resolvedValue = custom;
+        // What the caller was never shown stays as the draft, else live, had it.
+        const { restoreScrubbed } = getAdapter(revision.target.type);
+        const from = (incoming: unknown, base: unknown) =>
+          restoreScrubbed
+            ? restoreScrubbed({ [field]: base }, { [field]: incoming })[field]
+            : incoming;
+        resolvedValue = from(
+          from(custom, conflict.proposedValue),
+          conflict.liveValue,
+        );
       } else if (
         Array.isArray(conflict.liveValue) &&
         Array.isArray(conflict.proposedValue)
@@ -1688,7 +1730,20 @@ export async function rebaseRevision({
         newOps.push({ op: "replace", path: `/${field}`, value: resolvedValue });
       }
     }
-    // strategy === "discard" → drop the op, so the live value stands.
+    // strategy === "discard" → the live value stands. A nested branch keeps
+    // the draft's edits that don't collide with live.
+    if (strategy === "discard") {
+      const nested = mergeNestedBranch(
+        field,
+        conflict.baseValue,
+        conflict.liveValue,
+        conflict.proposedValue,
+        "live",
+      );
+      if (nested && !isEqual(nested.merged, entity[field])) {
+        newOps.push({ op: "replace", path: `/${field}`, value: nested.merged });
+      }
+    }
   }
 
   const updated = await context.models.revisions.rebase(
@@ -1697,6 +1752,7 @@ export async function rebaseRevision({
     newOps,
     context.actorId,
     advanceAuthorityOnRow(context),
+    revision,
   );
   await getRevisionWebhookAdapter(entityType)?.dispatch(context, updated, {
     type: "rebased",

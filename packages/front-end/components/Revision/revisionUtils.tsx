@@ -69,3 +69,13 @@ export function buildConfigRevisionUrl(
     return `${base}?v=${revision.version}`;
   return base;
 }
+
+export function buildSDKConnectionRevisionUrl(
+  sdkConnectionId: string,
+  revision?: Pick<Revision, "version"> | null,
+): string {
+  const base = `/sdks/${sdkConnectionId}`;
+  if (revision && revision.version !== undefined)
+    return `${base}?v=${revision.version}`;
+  return base;
+}

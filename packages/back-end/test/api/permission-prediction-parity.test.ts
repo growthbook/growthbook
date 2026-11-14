@@ -7,6 +7,7 @@ import {
   canStageArchiveDraft,
   getRolePermissions,
   holdsRevisionDestination,
+  holdsSdkConnectionDraftDestination,
   Permissions,
   RevisionModel,
 } from "shared/permissions";
@@ -281,6 +282,82 @@ describe("a relocating draft is predicted against the destination", () => {
         ["production"],
       ),
     ).toBe(true);
+  });
+});
+
+/**
+ * An SDK connection keeps its Projects and environment inside the draft's
+ * settings object, where the generic destination check reads no move. The
+ * server asks for `manageSDKConnections` where the draft leaves the connection
+ * when it applies it; the control has to predict the same.
+ */
+describe("an SDK connection draft is predicted against where it lands", () => {
+  // Manages SDK connections in prj_a only.
+  const inProjectA = new Permissions({
+    global: {
+      permissions: {},
+      limitAccessByEnvironment: false,
+      environments: [],
+    },
+    projects: {
+      prj_a: {
+        permissions: { manageSDKConnections: true },
+        limitAccessByEnvironment: false,
+        environments: [],
+      },
+    },
+  });
+  const live = { projects: ["prj_a"], environment: "production" };
+  const draftTo = (settings: { projects: string[]; environment: string }) => ({
+    target: {
+      snapshot: { sdkConnection: live },
+      proposedChanges: [
+        { op: "replace" as const, path: "/sdkConnection", value: settings },
+      ],
+    },
+  });
+
+  it("holds a draft that leaves the connection where it is", () => {
+    expect(
+      holdsSdkConnectionDraftDestination(inProjectA, live, draftTo(live)),
+    ).toBe(true);
+  });
+
+  it("refuses a draft that moves it to a Project the user can't manage", () => {
+    expect(
+      holdsSdkConnectionDraftDestination(
+        inProjectA,
+        live,
+        draftTo({ projects: ["prj_b"], environment: "production" }),
+      ),
+    ).toBe(false);
+  });
+
+  it("refuses a draft that adds such a Project alongside its own", () => {
+    expect(
+      holdsSdkConnectionDraftDestination(
+        inProjectA,
+        live,
+        draftTo({ projects: ["prj_a", "prj_b"], environment: "production" }),
+      ),
+    ).toBe(false);
+  });
+
+  it("matches what the server asks when the draft is applied", () => {
+    // The adapter's own check, on the same move.
+    expect(
+      inProjectA.canUpdateSDKConnection(live, {
+        projects: ["prj_b"],
+        environment: "production",
+      }),
+    ).toBe(false);
+    expect(inProjectA.canUpdateSDKConnection(live, live)).toBe(true);
+  });
+
+  it("holds when there is no draft to land", () => {
+    expect(holdsSdkConnectionDraftDestination(inProjectA, live, null)).toBe(
+      true,
+    );
   });
 });
 

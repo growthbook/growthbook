@@ -30,6 +30,8 @@ export const savedGroupRuleDefaults = (
   projects: scopeProjects(scope),
 });
 
+export type ApprovalFlowFamily = "saved-group" | "sdk-connection";
+
 type Scoped = { projects?: string[] };
 
 export function ruleForScope<T extends Scoped>(
@@ -54,7 +56,7 @@ export function withoutScope<T extends Scoped>(rules: T[], scope: string): T[] {
   return rules.filter((r) => scopeKey(r.projects) !== scope);
 }
 
-// Every override scope that already has a rule, in either family.
+// Every override scope that already has a rule, in any family.
 export function overrideScopes(families: Scoped[][]): string[] {
   const scopes = new Set<string>();
   families.forEach((rules) =>
@@ -77,17 +79,31 @@ export function inheritedFlagRule(
   });
 }
 
-export function inheritedSavedGroupRule(
+export function inheritedApprovalFlowRule(
+  family: ApprovalFlowFamily,
   rules: ApprovalFlowConfiguration[],
   scope: string,
 ): ApprovalFlowConfiguration | undefined {
   if (!scope) return undefined;
+  const others = withoutScope(rules, scope);
   return getApprovalFlowRules(
-    { savedGroups: withoutScope(rules, scope) },
-    "saved-group",
+    family === "saved-group"
+      ? { savedGroups: others }
+      : { savedGroups: [], sdkConnections: others },
+    family,
     scopeProjects(scope),
   )[0];
 }
+
+export const inheritedSavedGroupRule = (
+  rules: ApprovalFlowConfiguration[],
+  scope: string,
+) => inheritedApprovalFlowRule("saved-group", rules, scope);
+
+export const inheritedSdkConnectionRule = (
+  rules: ApprovalFlowConfiguration[],
+  scope: string,
+) => inheritedApprovalFlowRule("sdk-connection", rules, scope);
 
 // An override starts as a full copy, so the form shows what applies today.
 export function clonedFlagRule(
@@ -102,17 +118,28 @@ export function clonedFlagRule(
     : flagRuleDefaults(scope);
 }
 
-export function clonedSavedGroupRule(
+export function clonedApprovalFlowRule(
+  family: ApprovalFlowFamily,
   rules: ApprovalFlowConfiguration[],
   scope: string,
 ): ApprovalFlowConfiguration {
   const own = ruleForScope(rules, scope);
   if (own) return own;
-  const base = inheritedSavedGroupRule(rules, scope);
+  const base = inheritedApprovalFlowRule(family, rules, scope);
   return base
     ? { ...base, projects: scopeProjects(scope) }
     : savedGroupRuleDefaults(scope);
 }
+
+export const clonedSavedGroupRule = (
+  rules: ApprovalFlowConfiguration[],
+  scope: string,
+) => clonedApprovalFlowRule("saved-group", rules, scope);
+
+export const clonedSdkConnectionRule = (
+  rules: ApprovalFlowConfiguration[],
+  scope: string,
+) => clonedApprovalFlowRule("sdk-connection", rules, scope);
 
 // Whether the rule differs from its base. The selector names the scope, so it
 // is not compared.

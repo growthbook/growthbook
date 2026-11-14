@@ -1,7 +1,7 @@
 import {
   getJsonInsertContext,
   addJsonConstantExtends,
-  buildStringRefInsertion,
+  buildRefInsertion,
 } from "@/components/Constants/jsonConstantInsert";
 
 // `|` marks the cursor; returns [textWithoutCaret, offset].
@@ -107,12 +107,12 @@ describe("addJsonConstantExtends", () => {
   });
 });
 
-describe("buildStringRefInsertion", () => {
+describe("buildRefInsertion", () => {
   const run = (s: string, key: string) => {
     const [text, offset] = caret(s);
-    const ins = buildStringRefInsertion(text, offset, key);
+    const ins = buildRefInsertion(text, offset, `{{ @const:${key} }}`);
     if (!ins) return null;
-    return text.slice(0, ins.index) + ins.text + text.slice(ins.index);
+    return text.slice(0, ins.index) + ins.text + text.slice(ins.end);
   };
 
   it("inserts a reference inside a string value", () => {
@@ -140,6 +140,24 @@ describe("buildStringRefInsertion", () => {
     expect(run('{ "a": |"foo" }', "name")).toBe(
       '{ "a": "{{ @const:name }}foo" }',
     );
+  });
+
+  it("adds a quoted value where one can start", () => {
+    expect(run('{ "a": | }', "name")).toBe('{ "a": "{{ @const:name }}" }');
+    expect(run('{\n  "a": |\n}', "name")).toBe(
+      '{\n  "a": "{{ @const:name }}"\n}',
+    );
+    expect(run('[ "x", | ]', "name")).toBe('[ "x", "{{ @const:name }}" ]');
+    // A null there is replaced, wherever the caret touches it.
+    for (const s of ['{ "a": |null }', '{ "a": nu|ll }', '{ "a": null| }']) {
+      expect(run(s, "name")).toBe('{ "a": "{{ @const:name }}" }');
+    }
+    expect(run('{ "a": "null|x" }', "name")).toBe(
+      '{ "a": "null{{ @const:name }}x" }',
+    );
+    // A key goes here, and a value is already there.
+    expect(run('{ "a": 1, | }', "name")).toBe(null);
+    expect(run('{ "a": |   12 }', "name")).toBe(null);
   });
 
   it("returns null when no string is within reach", () => {

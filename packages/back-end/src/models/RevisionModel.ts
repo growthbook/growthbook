@@ -1,3 +1,4 @@
+import { isEqual } from "lodash";
 import {
   isUserBlockedFromApproving,
   revisionValidator,
@@ -37,6 +38,7 @@ import {
 } from "back-end/src/services/armGuards";
 import { getAdapter } from "back-end/src/revisions/index";
 import { ConflictError } from "back-end/src/util/errors";
+import { revisionAuditDetails } from "back-end/src/models/AuditModel";
 import {
   canCommentOnRevision,
   canTouchRevision,
@@ -121,6 +123,7 @@ const BaseClass = MakeModelClass({
     createEvent: "revision.create",
     updateEvent: "revision.update",
     deleteEvent: "revision.delete",
+    toAuditDetails: revisionAuditDetails,
   },
   globallyUniquePrimaryKeys: true,
   // Operational / scheduling fields are timeline-tracked via the activity log
@@ -1778,6 +1781,9 @@ export class RevisionModel extends BaseClass {
     newProposedChanges: JsonPatchOperation[],
     userId: string,
     authority: CasAuthority<Revision>,
+    // The revision the new changes were worked out from. If its contents were
+    // saved over since, they'd erase that save, so the rebase is refused.
+    basedOn?: Revision,
   ) {
     const existing = await this.getById(id);
     if (!existing) throw new Error("Revision not found");
@@ -1786,26 +1792,33 @@ export class RevisionModel extends BaseClass {
       newSnapshot as Record<string, unknown>,
     );
 
-    return this.writeContentEdit(id, userId, authority, (row) => ({
-      target: {
-        ...row.target,
-        snapshot: cleanedSnapshot as typeof row.target.snapshot,
-        proposedChanges: newProposedChanges,
-      } as Revision["target"],
-      entry: {
-        id: uniqid("act_"),
-        user: this.context.auditUser,
-        userId,
-        action: "updated" as const,
-        description: "Rebased revision on current live state",
-        dateCreated: new Date(),
-        // Rebase shifts both the baseline snapshot and the proposed changes.
-        // Persist both so the UI can reconstruct the state on either side of the
-        // rebase for a meaningful per-entry diff.
-        proposedChangesSnapshot: newProposedChanges,
-        targetSnapshot: cleanedSnapshot,
-      },
-    }));
+    return this.writeContentEdit(id, userId, authority, (row) => {
+      if (basedOn && !isEqual(row.target, basedOn.target)) {
+        throw new ConflictError(
+          "This draft was changed while it was being updated from live. Try again.",
+        );
+      }
+      return {
+        target: {
+          ...row.target,
+          snapshot: cleanedSnapshot as typeof row.target.snapshot,
+          proposedChanges: newProposedChanges,
+        } as Revision["target"],
+        entry: {
+          id: uniqid("act_"),
+          user: this.context.auditUser,
+          userId,
+          action: "updated" as const,
+          description: "Rebased revision on current live state",
+          dateCreated: new Date(),
+          // Rebase shifts both the baseline snapshot and the proposed changes.
+          // Persist both so the UI can reconstruct the state on either side of the
+          // rebase for a meaningful per-entry diff.
+          proposedChangesSnapshot: newProposedChanges,
+          targetSnapshot: cleanedSnapshot,
+        },
+      };
+    });
   }
 
   // Merge / close / reopen
@@ -1827,6 +1840,9 @@ export class RevisionModel extends BaseClass {
       // guard fields so a same-status edit trips the CAS retry. Conflicts throw
       // ConflictError so callers can tell a lost race from an infra failure.
       expected?: { status: string; dateUpdated: Date };
+      // What a draft published behind live actually lands, recorded in place
+      // of what it proposed, so history shows the state that went live.
+      landed?: Pick<Revision["target"], "snapshot" | "proposedChanges">;
     },
   ) {
     // Whether a schedule was armed on the winning CAS read — decides whether the
@@ -1882,6 +1898,9 @@ export class RevisionModel extends BaseClass {
           : base;
         return {
           status: "merged",
+          ...(options?.landed && {
+            target: { ...existing.target, ...options.landed },
+          }),
           // Publishing disarms any pending schedule and releases the lock-others
           // partial index (which keys on autoPublishOnApproval:true).
           autoPublishOnApproval: false,
@@ -1987,6 +2006,8 @@ export class RevisionModel extends BaseClass {
     const now = new Date();
     const buildSet = (lockOthers: boolean): Record<string, unknown> => ({
       status: prior.status,
+      // The merge may have recorded what it was landing in place of the draft.
+      target: prior.target,
       dateUpdated: now,
       autoPublishOnApproval: !!prior.autoPublishOnApproval,
       ...(prior.autoPublishEnabledBy
@@ -2309,7 +2330,7 @@ export class RevisionModel extends BaseClass {
   // awaiting approval — status "approved" (approval flow) or "draft"
   // (no-approval flow). Used by publishRevision before merging.
   async hasPublishLockingScheduledSibling(
-    target: Revision["target"],
+    target: Pick<Revision["target"], "type" | "id">,
     excludeId: string,
   ): Promise<boolean> {
     const doc = await this._dangerousGetCollection().findOne(

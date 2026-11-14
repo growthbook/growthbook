@@ -178,7 +178,9 @@ export default function CloudUsage() {
   }>(`/billing/usage/by-key?monthsAgo=${monthsAgo}`, {
     shouldRun: () => !useDummyData,
   });
-  const { data: sdkData } = useSDKConnections();
+  const { data: sdkData } = useSDKConnections({
+    includeArchived: true,
+  });
   const { getProjectById } = useDefinitions();
 
   if (!isCloud() && !useDummyData) {

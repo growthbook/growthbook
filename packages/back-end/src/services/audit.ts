@@ -113,13 +113,19 @@ export type AuditLogConfig<Entity extends EntityType> = {
   deleteEvent: EventTypes<Entity>;
   autocreateEvent?: EventTypes<Entity>;
   detailsAllowlist?: readonly string[];
+  // For details a flat allowlist can't express, e.g. one nested field.
+  toAuditDetails?: (doc: object) => object;
   omitDetails?: boolean;
 };
 
 function getAuditDetailsDoc(
   doc: object,
-  detailsAllowlist?: readonly string[],
+  {
+    detailsAllowlist,
+    toAuditDetails,
+  }: Pick<AuditLogConfig<EntityType>, "detailsAllowlist" | "toAuditDetails">,
 ): object {
+  if (toAuditDetails) return toAuditDetails(doc);
   if (!detailsAllowlist) return doc;
 
   const source = doc as Record<string, unknown>;
@@ -152,9 +158,7 @@ export function createModelAuditLogger<E extends EntityType>(
           event: config.createEvent,
           details: config.omitDetails
             ? ""
-            : auditDetailsCreate(
-                getAuditDetailsDoc(doc, config.detailsAllowlist),
-              ),
+            : auditDetailsCreate(getAuditDetailsDoc(doc, config)),
         } as AuditInterfaceTemplate<E>);
       } catch (e) {
         context.logger.error(
@@ -186,8 +190,8 @@ export function createModelAuditLogger<E extends EntityType>(
           details: config.omitDetails
             ? ""
             : auditDetailsUpdate(
-                getAuditDetailsDoc(doc, config.detailsAllowlist),
-                getAuditDetailsDoc(newDoc, config.detailsAllowlist),
+                getAuditDetailsDoc(doc, config),
+                getAuditDetailsDoc(newDoc, config),
               ),
         } as AuditInterfaceTemplate<E>);
       } catch (e) {
@@ -207,9 +211,7 @@ export function createModelAuditLogger<E extends EntityType>(
           event: config.deleteEvent,
           details: config.omitDetails
             ? ""
-            : auditDetailsDelete(
-                getAuditDetailsDoc(doc, config.detailsAllowlist),
-              ),
+            : auditDetailsDelete(getAuditDetailsDoc(doc, config)),
         } as AuditInterfaceTemplate<E>);
       } catch (e) {
         context.logger.error(
@@ -232,9 +234,7 @@ export function createModelAuditLogger<E extends EntityType>(
           event: config.autocreateEvent,
           details: config.omitDetails
             ? ""
-            : auditDetailsCreate(
-                getAuditDetailsDoc(doc, config.detailsAllowlist),
-              ),
+            : auditDetailsCreate(getAuditDetailsDoc(doc, config)),
         } as AuditInterfaceTemplate<E>);
       } catch (e) {
         context.logger.error(

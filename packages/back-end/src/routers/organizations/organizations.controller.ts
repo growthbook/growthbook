@@ -162,16 +162,11 @@ import {
   canReadApiKeyHistory,
   getApiKeyIdsHiddenFromKeyViewers,
 } from "back-end/src/services/apiKeyHistory";
-import { fireSdkWebhook } from "back-end/src/jobs/sdkWebhooks";
 import {
   getInstallationName,
   getLicenseMetaData,
   getUserCodesForOrg,
 } from "back-end/src/services/licenseData";
-import {
-  assertCanUseSDKConnections,
-  findSDKConnectionsByIds,
-} from "back-end/src/models/SdkConnectionModel";
 import {
   getLicense,
   licenseInit,
@@ -1706,6 +1701,13 @@ export async function putOrganization(
           "Saved Groups approval flows require the Require Approvals enterprise feature.",
         );
       }
+      if (
+        settings?.approvalFlows?.sdkConnections?.some((rule) => rule?.required)
+      ) {
+        throw new Error(
+          "SDK Connections approval flows require the Require Approvals enterprise feature.",
+        );
+      }
     }
 
     if (name) {
@@ -2335,26 +2337,8 @@ export async function testSDKWebhook(
   req: AuthRequest<Record<string, unknown>, { id: string }>,
   res: Response,
 ) {
-  const webhookId = req.params.id;
-
   const context = getContextFromReq(req);
-  const webhook = await context.models.sdkWebhooks.getById(webhookId);
-  if (!webhook) {
-    throw new Error("Could not find webhook");
-  }
-
-  const conns = await findSDKConnectionsByIds(context, webhook.sdks);
-  if (!conns.length) {
-    throw new Error("Could not find any SDK connection tied to this webhook");
-  }
-
-  if (!conns.every((c) => context.permissions.canUpdateSDKWebhook(c))) {
-    context.permissions.throwPermissionError();
-  }
-
-  await fireSdkWebhook(context, webhook).catch(() => {
-    // Do nothing, already being logged in Mongo
-  });
+  await context.models.sdkWebhooks.testDirect(req.params.id);
   res.status(200).json({
     status: 200,
   });
@@ -2365,49 +2349,13 @@ export async function putSDKWebhook(
   res: Response,
 ) {
   const context = getContextFromReq(req);
-
-  const { id } = req.params;
-  const webhook = await context.models.sdkWebhooks.getById(id);
-  if (!webhook) {
-    throw new Error("Could not find webhook");
-  }
-
-  const conns = await findSDKConnectionsByIds(context, webhook.sdks);
-  if (!conns.length) {
-    throw new Error("Could not find any SDK connection tied to this webhook");
-  }
-
-  if (!conns.every((c) => context.permissions.canUpdateSDKWebhook(c))) {
-    context.permissions.throwPermissionError();
-  }
-
-  const parsedUpdates = updateSdkWebhookValidator.parse(req.body);
-  if (parsedUpdates.sdks) {
-    await assertCanUseSDKConnections(
-      context,
-      parsedUpdates.sdks.filter((sdk) => !webhook.sdks.includes(sdk)),
-      (c) => context.permissions.canUpdateSDKWebhook(c),
-    );
-  }
-
-  // Reset failure state when endpoint changes
-  const resetFields =
-    parsedUpdates.endpoint && parsedUpdates.endpoint !== webhook.endpoint
-      ? { consecutiveFailures: 0, disabled: false }
-      : {};
-
-  const updatedWebhook = await context.models.sdkWebhooks.update(webhook, {
-    ...parsedUpdates,
-    ...resetFields,
-  });
-
-  // Fire the webhook now that it has changed
-  fireSdkWebhook(context, updatedWebhook).catch(() => {
-    // Do nothing, already being logged in Mongo
-  });
+  const { webhook } = await context.models.sdkWebhooks.updateDirect(
+    req.params.id,
+    updateSdkWebhookValidator.parse(req.body),
+  );
   res.status(200).json({
     status: 200,
-    webhook: updatedWebhook,
+    webhook,
   });
 }
 
@@ -2433,20 +2381,7 @@ export async function deleteSDKWebhook(
   res: Response,
 ) {
   const context = getContextFromReq(req);
-  const { id } = req.params;
-
-  const webhook = await context.models.sdkWebhooks.getById(id);
-  if (webhook) {
-    // It's ok if conns is empty here
-    // We still want to allow deleting orphaned webhooks
-    const conns = await findSDKConnectionsByIds(context, webhook.sdks);
-    if (!conns.every((c) => context.permissions.canDeleteSDKWebhook(c))) {
-      context.permissions.throwPermissionError();
-    }
-  }
-
-  await context.models.sdkWebhooks.deleteById(id);
-
+  await context.models.sdkWebhooks.deleteDirect(req.params.id);
   res.status(200).json({
     status: 200,
   });

@@ -8,6 +8,7 @@ import { getFeatureDefinitionsWithCache } from "back-end/src/controllers/feature
 import { WEBHOOKS } from "back-end/src/util/secrets";
 import { findSDKConnectionsByIds } from "back-end/src/models/SdkConnectionModel";
 import { logger } from "back-end/src/util/logger";
+import { filterRefreshableSDKConnections } from "back-end/src/util/features";
 import { SdkWebhookModel } from "back-end/src/models/WebhookModel";
 import { createSdkWebhookLog } from "back-end/src/models/SdkWebhookLogModel";
 import {
@@ -316,7 +317,9 @@ export async function fireSdkWebhook(
     webhook.httpMethod !== "GET" &&
     sendPayloadFormats.includes(webhook.payloadFormat ?? "standard");
 
-  const connections = await findSDKConnectionsByIds(context, webhook?.sdks);
+  const connections = filterRefreshableSDKConnections(
+    await findSDKConnectionsByIds(context, webhook?.sdks),
+  );
 
   if (!connections.length) {
     logger.error(

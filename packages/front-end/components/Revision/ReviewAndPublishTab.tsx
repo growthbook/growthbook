@@ -6,12 +6,13 @@ import {
   useRef,
   useState,
 } from "react";
-import { Box, Flex, IconButton } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import {
   Revision,
   checkMergeConflicts,
   getRevisionUpdatableFields,
   applyTopLevelPatchOps,
+  landedOps,
   isUserBlockedFromApproving,
   isAutopublishOnApprovalEnabled,
   entityProjects,
@@ -36,7 +37,6 @@ import {
   proposedArchivedValue,
 } from "shared/util";
 import { datetime } from "shared/dates";
-import { BsThreeDotsVertical } from "react-icons/bs";
 import { PiCaretDownBold, PiGitMergeBold, PiLockSimple } from "react-icons/pi";
 import { useUser } from "@/services/UserContext";
 import { useEnvironments } from "@/services/features";
@@ -55,6 +55,7 @@ import {
   DropdownMenu,
   DropdownMenuGroup,
   DropdownMenuItem,
+  MoreMenuTrigger,
 } from "@/ui/DropdownMenu";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import DiscardDraftModal from "@/components/Reviews/DiscardDraftModal";
@@ -221,6 +222,9 @@ export interface ReviewAndPublishTabProps<T> {
   // locked/frozen at a published revision). Drafts, edits, review requests, and
   // discarding stay available — only paths that advance the live state are hidden.
   publishBlockedReason?: string;
+  // When set, requesting review and giving one are held and this reason is
+  // shown (e.g. the page has unsaved edits the reviewer wouldn't be seeing).
+  reviewBlockedReason?: string;
   // When set, Roll back and Revert are disabled and this reason is shown (e.g.
   // the entity can't be changed on the org's plan).
   revertBlockedReason?: string;
@@ -277,6 +281,7 @@ function ReviewAndPublishRevision<T>({
   canBypassApproval,
   holdsLandingDestination,
   publishBlockedReason,
+  reviewBlockedReason,
   revertBlockedReason,
   selectRevision,
   onPublish,
@@ -421,9 +426,16 @@ function ReviewAndPublishRevision<T>({
   const baseSnapshot = isActiveDraft
     ? currentState
     : (revision.target.snapshot as T);
+  // A draft behind live lands only what it changed, as the server merges it.
   const proposedSnapshot = applyTopLevelPatchOps(
     baseSnapshot as Record<string, unknown>,
-    revision.target.proposedChanges,
+    isActiveDraft
+      ? landedOps(
+          currentState as Record<string, unknown>,
+          revision.target.snapshot as Record<string, unknown>,
+          revision.target.proposedChanges,
+        )
+      : revision.target.proposedChanges,
   ) as T;
   const { diffs, badges, customRenderGroups } = useRevisionDiff<T>(
     baseSnapshot,
@@ -615,6 +627,7 @@ function ReviewAndPublishRevision<T>({
       organization?.settings,
       revision.target.type,
       projects,
+      revision.target.snapshot,
     ) && hasCommercialFeature("require-approvals");
   const revisionAutoPublishArmed = !!revision.autoPublishOnApproval;
 
@@ -1228,16 +1241,7 @@ function ReviewAndPublishRevision<T>({
           <Box ml="auto" style={{ marginRight: -6 }}>
             <DropdownMenu
               trigger={
-                <IconButton
-                  variant="ghost"
-                  color="gray"
-                  radius="full"
-                  size="2"
-                  highContrast
-                  style={{ margin: 0 }}
-                >
-                  <BsThreeDotsVertical size={16} />
-                </IconButton>
+                <MoreMenuTrigger label="Draft actions" style={{ margin: 0 }} />
               }
               open={actionsDropdownOpen}
               onOpenChange={setActionsDropdownOpen}
@@ -1441,46 +1445,57 @@ function ReviewAndPublishRevision<T>({
           <Box mt={showApprovalBand ? "0" : "6"}>
             {/* Submit review — reviewer action, opens the comment/decision
               popover */}
-            {canReview && requiresApproval && !adminPublish && (
-              <Flex direction="column" gap="3" mb="4">
-                <ReviewCommentPopover
-                  onSubmit={submitReviewDecision}
-                  allowPublishOnApprove={autopublishOnApproval}
-                  autoPublishArmed={revisionAutoPublishArmed}
-                  autoPublishScheduled={scheduledPending}
-                  canReviewerPublish={canPublishOrEdit}
-                  publishBlocked={
-                    !mergeSuccess ||
-                    !hasChanges ||
-                    mustRebase ||
-                    !!publishBlockedReason
-                  }
-                  isBlockedContributor={!!isBlockedContributor}
-                  storageKey={`review-comment:${revision.target.type}:${revision.id}`}
-                  onSuccess={() => {}}
-                  trigger={
-                    <Button
-                      // Outline once publishing is live or armed on a schedule —
-                      // either way review is no longer the primary action.
-                      variant={
-                        state.submitAction === "publish" &&
-                        state.ctaEnabled &&
-                        canPublishOrEdit
-                          ? "outline"
-                          : undefined
-                      }
-                      style={{ width: "100%" }}
-                      icon={<PiCaretDownBold />}
-                      iconPosition="right"
-                    >
-                      Submit review
-                    </Button>
-                  }
-                  side="bottom"
-                  align="center"
-                />
-              </Flex>
-            )}
+            {canReview &&
+              requiresApproval &&
+              !adminPublish &&
+              reviewBlockedReason && (
+                <HelperText status="info" size="sm" mb="4">
+                  {reviewBlockedReason}
+                </HelperText>
+              )}
+            {canReview &&
+              requiresApproval &&
+              !adminPublish &&
+              !reviewBlockedReason && (
+                <Flex direction="column" gap="3" mb="4">
+                  <ReviewCommentPopover
+                    onSubmit={submitReviewDecision}
+                    allowPublishOnApprove={autopublishOnApproval}
+                    autoPublishArmed={revisionAutoPublishArmed}
+                    autoPublishScheduled={scheduledPending}
+                    canReviewerPublish={canPublishOrEdit}
+                    publishBlocked={
+                      !mergeSuccess ||
+                      !hasChanges ||
+                      mustRebase ||
+                      !!publishBlockedReason
+                    }
+                    isBlockedContributor={!!isBlockedContributor}
+                    storageKey={`review-comment:${revision.target.type}:${revision.id}`}
+                    onSuccess={() => {}}
+                    trigger={
+                      <Button
+                        // Outline once publishing is live or armed on a schedule —
+                        // either way review is no longer the primary action.
+                        variant={
+                          state.submitAction === "publish" &&
+                          state.ctaEnabled &&
+                          canPublishOrEdit
+                            ? "outline"
+                            : undefined
+                        }
+                        style={{ width: "100%" }}
+                        icon={<PiCaretDownBold />}
+                        iconPosition="right"
+                      >
+                        Submit review
+                      </Button>
+                    }
+                    side="bottom"
+                    align="center"
+                  />
+                </Flex>
+              )}
 
             {/* Step CTA: Request Review */}
             {state.hasSubmit && state.submitAction === "request-review" && (
@@ -1489,11 +1504,20 @@ function ReviewAndPublishRevision<T>({
                   variant="soft"
                   onClick={doSubmit}
                   loading={submitting}
-                  disabled={!state.ctaEnabled || !canAdvanceDraft}
+                  disabled={
+                    !state.ctaEnabled ||
+                    !canAdvanceDraft ||
+                    !!reviewBlockedReason
+                  }
                   style={{ width: "100%" }}
                 >
                   {state.ctaLabel}
                 </Button>
+                {canAdvanceDraft && reviewBlockedReason && (
+                  <HelperText status="info" size="sm" mt="2">
+                    {reviewBlockedReason}
+                  </HelperText>
+                )}
                 {/* A greyed-out button with no reason reads as a bug — mirrors
                   the Feature flow. */}
                 {!canAdvanceDraft && (

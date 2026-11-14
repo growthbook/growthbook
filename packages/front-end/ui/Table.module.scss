@@ -303,6 +303,53 @@
   }
 }
 
+// A borderless or surface table that scrolls sideways in a ScrollArea. Radix's
+// own scroll area steps aside, as the list variant's does, so a pinned column
+// sticks to the ScrollArea.
+.scrollPlain {
+  :global(.rt-TableRoot .rt-ScrollAreaRoot),
+  :global(.rt-TableRoot .rt-ScrollAreaViewport) {
+    overflow: visible !important;
+  }
+
+  :global(.rt-TableRoot .rt-ScrollAreaScrollbar) {
+    display: none;
+  }
+
+  // A row's own alignment, over the legacy box rule that centres every cell.
+  :global(.rt-TableCell) {
+    vertical-align: inherit;
+  }
+
+  &.pinLastColumn {
+    :global(.rt-TableRow > *:last-child:not([colspan])) {
+      position: sticky;
+      right: 0;
+      z-index: 1;
+      background-color: var(--color-panel-solid);
+    }
+
+    // While more lies under it, the content fades out on its way there; the
+    // row's bottom border runs on under the fade.
+    :global(.rt-ScrollAreaViewport[data-under-pinned~="right"])
+      :global(.rt-TableRow > *:last-child:not([colspan]))::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      bottom: 1px;
+      left: 0;
+      width: var(--space-6);
+      transform: translateX(-100%);
+      pointer-events: none;
+      background: linear-gradient(
+        to right,
+        transparent,
+        var(--color-panel-solid)
+      );
+    }
+  }
+}
+
 .resizeHandle {
   position: absolute;
   // Kept fully inside the cell: the first and last header cells carry a

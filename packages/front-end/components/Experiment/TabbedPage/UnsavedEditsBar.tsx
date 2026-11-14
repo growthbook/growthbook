@@ -1,29 +1,21 @@
 import { Box, Flex } from "@radix-ui/themes";
-import useBottomBarClearance from "@/hooks/useBottomBarClearance";
-import Button from "@/ui/Button";
 import Checkbox from "@/ui/Checkbox";
 import HelperText from "@/ui/HelperText";
+import StagedEditsBar from "@/components/StagedEdits/StagedEditsBar";
 import { incompatibleNote, useExperimentEdits } from "./ExperimentEdits";
 import StagedChanges from "./StagedChanges";
-import styles from "./UnsavedEditsBar.module.scss";
 
 /** Appears once something on the page is edited, and is the only way to write it. */
 export default function UnsavedEditsBar() {
-  const barRef = useBottomBarClearance<HTMLDivElement>();
   const edits = useExperimentEdits();
   if (!edits?.dirty) return null;
 
   return (
-    <div ref={barRef} className={styles.bar}>
-      <Box
-        mx="auto"
-        width="100%"
-        className="experiment-column"
-        style={{ maxWidth: "var(--page-content-max-width)" }}
-      >
-        <Flex align="center" gap="3">
-          <StagedChanges />
-          <Box flexGrow="1" />
+    <StagedEditsBar
+      columnClassName="experiment-column"
+      changes={<StagedChanges />}
+      notes={
+        <>
           {edits.unscopedRule ? (
             <Flex align="center" gap="3">
               <HelperText status="warning" size="sm">
@@ -55,22 +47,12 @@ export default function UnsavedEditsBar() {
               {edits.error}
             </HelperText>
           ) : null}
-          <Button
-            variant="ghost"
-            color="gray"
-            disabled={edits.saving}
-            onClick={edits.discardAll}
-          >
-            Discard changes
-          </Button>
-          <Button
-            disabled={edits.saving || edits.incompatible.length > 0}
-            onClick={() => edits.saveAll()}
-          >
-            {edits.saving ? "Saving..." : "Save"}
-          </Button>
-        </Flex>
-      </Box>
-    </div>
+        </>
+      }
+      saving={edits.saving}
+      saveDisabled={edits.incompatible.length > 0}
+      onDiscard={edits.discardAll}
+      onSave={() => edits.saveAll()}
+    />
   );
 }

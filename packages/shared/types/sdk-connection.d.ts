@@ -40,8 +40,10 @@ export type EditSDKConnectionParams = {
   includeTagsInMetadata?: boolean;
   includeExperimentScheduleInMetadata?: boolean;
   remoteEvalEnabled?: boolean;
+  savedGroupReferencesEnabled?: boolean;
   tracesEnabled?: boolean;
   eventTracker?: string;
+  archived?: boolean;
 };
 export type CreateSDKConnectionParams = {
   organization: string;
@@ -131,6 +133,7 @@ export interface SDKConnectionInterface {
    * accepted by the API so existing integrations keep working.
    */
   savedGroupReferencesEnabled?: boolean;
+  archived?: boolean;
   managedBy?: ManagedBy;
 
   // Size of the last payload built for this connection

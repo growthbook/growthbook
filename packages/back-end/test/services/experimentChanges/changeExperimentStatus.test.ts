@@ -9,7 +9,7 @@ import {
   getExperimentById,
   updateExperiment,
 } from "back-end/src/models/ExperimentModel";
-import { findSDKConnectionsByOrganization } from "back-end/src/models/SdkConnectionModel";
+import { findServingSDKConnections } from "back-end/src/models/SdkConnectionModel";
 import { getExperimentLaunchChecklist } from "back-end/src/models/ExperimentLaunchChecklistModel";
 import {
   getChangesToStartExperiment,
@@ -69,7 +69,7 @@ jest.mock(
     ),
 );
 jest.mock("back-end/src/models/SdkConnectionModel", () => ({
-  findSDKConnectionsByOrganization: jest.fn(),
+  findServingSDKConnections: jest.fn(),
 }));
 jest.mock("back-end/src/models/VisualChangesetModel", () => ({
   findVisualChangesetsByExperiment: jest.fn(async () => []),
@@ -117,7 +117,7 @@ beforeEach(() => {
   jest.clearAllMocks();
   (getExperimentById as jest.Mock).mockResolvedValue(draft);
   (getLinkedFeatureInfo as jest.Mock).mockResolvedValue([]);
-  (findSDKConnectionsByOrganization as jest.Mock).mockResolvedValue([
+  (findServingSDKConnections as jest.Mock).mockResolvedValue([
     { id: "sdk_1", projects: [] },
   ]);
   (getExperimentLaunchChecklist as jest.Mock).mockResolvedValue(null);
@@ -191,7 +191,7 @@ describe("startExperiment", () => {
 
 describe("getExperimentStartChecklistStatus", () => {
   it("asks for what the app's checklist asks for", async () => {
-    (findSDKConnectionsByOrganization as jest.Mock).mockResolvedValue([
+    (findServingSDKConnections as jest.Mock).mockResolvedValue([
       { id: "sdk_other", projects: ["prj_other"] },
     ]);
 

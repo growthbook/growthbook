@@ -69,7 +69,7 @@ import InsertConstantButton, {
 } from "@/components/Constants/InsertConstantButton";
 import {
   addJsonConstantExtends,
-  buildStringRefInsertion,
+  insertRefAtCursor,
 } from "@/components/Constants/jsonConstantInsert";
 import { ConfigEnvironmentsBadge } from "./ConfigValueBadges";
 import { useEditorDiffLines } from "./ValueDiffContext";
@@ -229,17 +229,7 @@ export default function FeatureValueField({
         editor.focus();
         return true;
       }
-      const offset = editor.session.doc.positionToIndex(
-        editor.getCursorPosition(),
-      );
-      const insertion = buildStringRefInsertion(text, offset, constant.key);
-      if (!insertion) return false;
-      editor.session.insert(
-        editor.session.doc.indexToPosition(insertion.index, 0),
-        insertion.text,
-      );
-      editor.focus();
-      return true;
+      return insertRefAtCursor(editor, `{{ @const:${constant.key} }}`);
     } catch {
       // The Ace editor can be torn down (e.g. tab unmount) — fail gracefully.
       return false;

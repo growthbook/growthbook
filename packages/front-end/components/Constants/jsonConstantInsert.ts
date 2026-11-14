@@ -1,6 +1,7 @@
 // Helpers for inserting constant references into a JSON feature value being
 // edited. Pure (text in, edit/result out) so the behavior can be unit-tested
 // without the Ace editor.
+import type { Ace } from "ace-builds";
 import { formatJsonMultilineObjects } from "shared/util";
 import { CONSTANT_EXTENDS_KEY } from "shared/constants";
 
@@ -42,7 +43,8 @@ export function getJsonInsertContext(
   return stack.length ? stack[stack.length - 1].type : "none";
 }
 
-export type ConstantInsertion = { index: number; text: string };
+// `text` replaces `index` to `end`; the two are equal for a plain insert.
+export type ConstantInsertion = { index: number; end: number; text: string };
 
 function isPlainObject(v: unknown): v is Record<string, unknown> {
   return v !== null && typeof v === "object" && !Array.isArray(v);
@@ -93,23 +95,79 @@ export function addJsonConstantExtends(
   return formatJsonMultilineObjects({ [CONSTANT_EXTENDS_KEY]: refs, ...rest });
 }
 
-// Build the edit for inserting a string constant reference into a string
-// literal (a keyval value or a string array entry). Forgiving: if the cursor
-// isn't strictly inside a string but sits within 2 characters of one (e.g. just
-// past a closing quote, as in `"foo",|`), it snaps into that nearest string.
-// Returns null when no string is in reach.
-export function buildStringRefInsertion(
-  text: string,
-  offset: number,
-  key: string,
-): ConstantInsertion | null {
+// Where a reference goes in a string literal (a keyval value or a string
+// array entry). Forgiving: if the cursor isn't strictly inside a string but
+// sits within 2 characters of one (e.g. just past a closing quote, as in
+// `"foo",|`), it snaps into that nearest string. Null when none is in reach.
+function stringInsertIndex(text: string, offset: number): number | null {
   // Prefer the exact caret, then the closest positions within 2 chars (back
   // before forward) that land inside a string.
   for (const p of [offset, offset - 1, offset + 1, offset - 2, offset + 2]) {
     if (p < 0 || p > text.length) continue;
-    if (getJsonInsertContext(text, p) === "string") {
-      return { index: p, text: `{{ @const:${key} }}` };
-    }
+    if (getJsonInsertContext(text, p) === "string") return p;
   }
   return null;
+}
+
+// The span a new value replaces at `offset`: empty where one can start (after
+// a key's colon or at an array element), or a `null` at the cursor.
+function valueSlot(text: string, offset: number): [number, number] | null {
+  const gap = text.slice(offset).length - text.slice(offset).trimStart().length;
+  const nullStart = [
+    offset + gap,
+    offset - 1,
+    offset - 2,
+    offset - 3,
+    offset - 4,
+  ].find(
+    (s) =>
+      s >= 0 &&
+      /^null(?!\w)/.test(text.slice(s)) &&
+      !/\w/.test(text[s - 1] ?? ""),
+  );
+  const [start, end] =
+    nullStart === undefined ? [offset, offset] : [nullStart, nullStart + 4];
+  const context = getJsonInsertContext(text, start);
+  const before = text.slice(0, start).trimEnd().slice(-1);
+  const opens =
+    context === "object"
+      ? before === ":"
+      : context === "array" && (before === "[" || before === ",");
+  const after = text.slice(end).trimStart()[0];
+  return opens && (after === undefined || ",}]".includes(after))
+    ? [start, end]
+    : null;
+}
+
+// The edit that puts `ref` in a string: inside the one at the cursor, or as a
+// new quoted value where one can start (`"auth": |`, `"auth": |null`).
+export function buildRefInsertion(
+  text: string,
+  offset: number,
+  ref: string,
+): ConstantInsertion | null {
+  const index = stringInsertIndex(text, offset);
+  if (index !== null) return { index, end: index, text: ref };
+  const slot = valueSlot(text, offset);
+  return slot ? { index: slot[0], end: slot[1], text: `"${ref}"` } : null;
+}
+
+// Makes that edit at the editor's cursor. False when the reference has
+// nowhere to go.
+export function insertRefAtCursor(editor: Ace.Editor, ref: string): boolean {
+  const doc = editor.session.doc;
+  const insertion = buildRefInsertion(
+    editor.getValue(),
+    doc.positionToIndex(editor.getCursorPosition()),
+    ref,
+  );
+  if (!insertion) return false;
+  const start = doc.indexToPosition(insertion.index, 0);
+  const end = doc.indexToPosition(insertion.end, 0);
+  const range = editor.getSelectionRange();
+  range.setStart(start.row, start.column);
+  range.setEnd(end.row, end.column);
+  editor.session.replace(range, insertion.text);
+  editor.focus();
+  return true;
 }

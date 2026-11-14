@@ -1,18 +1,26 @@
 import { NO_ENVIRONMENT_BINDING } from "shared/permissions";
 import { proposedProjectScope } from "shared/util";
 import type { Response } from "express";
+import { z } from "zod";
 import {
   Revision,
   RevisionTargetType,
   Conflict,
   ReviewDecision,
+  applyTopLevelPatchOps,
   checkMergeConflicts,
   JsonPatchOperation,
   normalizeProposedChanges,
   isUserBlockedFromApproving,
   REVIEW_CYCLE_STATUSES,
+  sdkConnectionSettingsAfter,
 } from "shared/enterprise";
-import { ACTIVE_DRAFT_STATUSES } from "shared/validators";
+import {
+  ACTIVE_DRAFT_STATUSES,
+  SDKConnectionRevisionSnapshot,
+  sdkConnectionSettingsSnapshotValidator,
+  sdkWebhookSnapshotValidator,
+} from "shared/validators";
 import { holdsMoveDestination } from "back-end/src/revisions/moveAuthority";
 import { buildRevisionStatusFilter } from "back-end/src/api/revisionValidations";
 import {
@@ -22,7 +30,16 @@ import {
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { ReqContext } from "back-end/types/request";
 import { ApiErrorResponse } from "back-end/types/api";
-import { ConflictError, MergeConflictError } from "back-end/src/util/errors";
+import {
+  BadRequestError,
+  ConflictError,
+  MergeConflictError,
+} from "back-end/src/util/errors";
+import { assertCanChangeSdkWebhooks } from "back-end/src/services/sdkConnectionApprovals";
+import {
+  restoreScrubbedOps,
+  scrubConflictsForViewer,
+} from "back-end/src/revisions/scrub";
 import { getContextFromReq } from "back-end/src/services/organizations";
 import { ArmAcknowledgments } from "back-end/src/services/armGuards";
 import {
@@ -98,6 +115,66 @@ async function captureArmAcknowledgment(
     context,
     entity,
     revision.target.proposedChanges,
+  );
+}
+
+function zodIssues(error: z.ZodError): string {
+  return error.issues
+    .map((issue) => `${issue.path.join(".") || "value"}: ${issue.message}`)
+    .join("; ");
+}
+
+// An SDK connection keeps its scope and webhooks inside its ops, out of reach
+// of the generic move guard, so the checks its own PUT makes up front are made
+// here too. `before` is the state the ops edit; `after` is that with them.
+function assertSdkConnectionDraftAllowed(
+  context: ReqContext,
+  live: Record<string, unknown>,
+  before: Record<string, unknown>,
+  after: Record<string, unknown>,
+  proposedChanges: JsonPatchOperation[],
+): void {
+  // The op replaces the whole settings object, so a partial one would record
+  // removals the publish never makes.
+  for (const op of normalizeProposedChanges(proposedChanges)) {
+    if (op.path !== "/sdkConnection" || !("value" in op)) continue;
+    const parsed = sdkConnectionSettingsSnapshotValidator.safeParse(op.value);
+    if (!parsed.success) {
+      throw new BadRequestError(
+        `Invalid SDK connection settings: ${zodIssues(parsed.error)}`,
+      );
+    }
+  }
+
+  const liveSnapshot = live as unknown as SDKConnectionRevisionSnapshot;
+  const { sdkConnection } = liveSnapshot;
+  const destination = sdkConnectionSettingsAfter(liveSnapshot, proposedChanges);
+  if (
+    !context.permissions.canUpdateSDKConnection(sdkConnection, {
+      projects: destination.projects,
+      environment: destination.environment,
+    })
+  ) {
+    context.permissions.throwPermissionError();
+  }
+
+  if (after.sdkWebhooks === undefined) return;
+  const webhooks = z
+    .array(sdkWebhookSnapshotValidator)
+    .safeParse(after.sdkWebhooks);
+  if (!webhooks.success) {
+    throw new BadRequestError(
+      `Invalid SDK webhooks: ${zodIssues(webhooks.error)}`,
+    );
+  }
+  assertCanChangeSdkWebhooks(
+    context,
+    {
+      projects: sdkConnection.projects,
+      environment: sdkConnection.environment,
+    },
+    (before.sdkWebhooks ?? []) as SDKConnectionRevisionSnapshot["sdkWebhooks"],
+    webhooks.data,
   );
 }
 
@@ -275,13 +352,29 @@ export const postRevision = async (
     context.permissions.throwPermissionError();
   }
 
+  const restoredChanges = restoreScrubbedOps(
+    entityType,
+    originalEntity as Record<string, unknown>,
+    proposedChanges,
+  );
+  if (entityType === "sdk-connection") {
+    const live = originalEntity as Record<string, unknown>;
+    assertSdkConnectionDraftAllowed(
+      context,
+      live,
+      live,
+      applyTopLevelPatchOps(live, restoredChanges),
+      restoredChanges,
+    );
+  }
+
   const revisionModel = context.models.revisions;
 
   const revision = await revisionModel.createRequest({
     type: entityType,
     id: entityId,
     snapshot: originalEntity as Record<string, unknown>,
-    proposedChanges,
+    proposedChanges: restoredChanges,
   });
 
   await getRevisionWebhookAdapter(revision.target.type)?.dispatch(
@@ -831,9 +924,33 @@ export const putProposedChanges = async (
     context.permissions.throwPermissionError();
   }
 
+  const draftSnapshot = existingRevision.target.snapshot as Record<
+    string,
+    unknown
+  >;
+  const draftState = applyTopLevelPatchOps(
+    draftSnapshot,
+    existingRevision.target.proposedChanges,
+  );
+  const restoredChanges = restoreScrubbedOps(
+    existingRevision.target.type,
+    draftState,
+    proposedChanges,
+  );
+  if (existingRevision.target.type === "sdk-connection") {
+    // Webhooks are judged against the draft being edited, as the PUT does.
+    assertSdkConnectionDraftAllowed(
+      context,
+      liveForDestination,
+      draftState,
+      applyTopLevelPatchOps(draftSnapshot, restoredChanges),
+      restoredChanges,
+    );
+  }
+
   const revision = await revisionModel.updateProposedChanges(
     id,
-    proposedChanges,
+    restoredChanges,
     userId,
     advanceAuthorityOnRow(context),
   );
@@ -1237,7 +1354,11 @@ export const postApproveAndPublish = async (
   if (!conflictResult.success) {
     throw new MergeConflictError(
       "Merge conflicts exist — rebase before publishing",
-      conflictResult.conflicts,
+      await scrubConflictsForViewer(
+        context,
+        revision.target,
+        conflictResult.conflicts,
+      ),
     );
   }
 
@@ -1247,6 +1368,7 @@ export const postApproveAndPublish = async (
     const canBypass = adapter.canBypassApproval(
       context,
       entity as Record<string, unknown>,
+      revision.target.proposedChanges,
     );
     if (!canBypass) {
       const diverged = isRevisionDiverged(
@@ -1961,7 +2083,11 @@ export const getConflicts = async (
   res.status(200).json({
     status: 200,
     hasConflicts: !result.success,
-    conflicts: result.conflicts,
+    conflicts: await scrubConflictsForViewer(
+      context,
+      revision.target,
+      result.conflicts,
+    ),
     canAutoMerge: result.canAutoMerge,
   });
 };

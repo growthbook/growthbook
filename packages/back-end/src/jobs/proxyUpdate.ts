@@ -62,6 +62,8 @@ const proxyUpdate = async (job: ProxyUpdateJob) => {
     );
     return;
   }
+  // Queued before it was archived: an archived connection serves nothing.
+  if (connection.archived) return;
 
   if (
     (connection.proxy.consecutiveFailures || 0) >=

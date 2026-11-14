@@ -1,6 +1,5 @@
 .badge:global(.rt-Badge) {
   padding-block: calc(var(--space-1) / 2 - 1px);
-  // A surface may set its own, as rule cards do.
-  background-color: var(--entity-badge-background, var(--gray-a2));
+  background-color: var(--gray-a2-5);
   border-radius: var(--radius-3);
 }

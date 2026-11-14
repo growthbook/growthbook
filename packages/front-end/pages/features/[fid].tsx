@@ -30,9 +30,8 @@ import { FeatureRevisionsContext } from "@/contexts/FeatureRevisionsContext";
 import { DetailsPanelLayout, useDetailsPanel } from "@/components/DetailsPanel";
 import FeatureDetailsPanel from "@/components/Features/FeatureDetailsPanel";
 import { SCHEDULE_EDIT_LOCK_REASON } from "@/components/Features/ScheduleLock";
-import RevisionStatusBar, {
-  REVISION_STATUS_BAR_HEIGHT_PX,
-} from "@/components/Features/RevisionStatusBar";
+import RevisionStatusBar from "@/components/Features/RevisionStatusBar";
+import { useRevisionStatusBarHeight } from "@/components/Reviews/RevisionStatusBarView";
 import { getRevisionStatus } from "@/services/revisionStatus";
 import {
   TABS_BAR_HEIGHT_PX,
@@ -169,19 +168,7 @@ export default function FeaturePage() {
     homeTab: "overview",
   });
 
-  // Its message wraps, so what sticks beneath it reads its real height.
-  const [statusBarEl, setStatusBarEl] = useState<HTMLDivElement | null>(null);
-  const [statusBarHeight, setStatusBarHeight] = useState(
-    REVISION_STATUS_BAR_HEIGHT_PX,
-  );
-  useEffect(() => {
-    if (!statusBarEl) return;
-    const observer = new ResizeObserver(([entry]) =>
-      setStatusBarHeight(entry.borderBoxSize[0].blockSize),
-    );
-    observer.observe(statusBarEl);
-    return () => observer.disconnect();
-  }, [statusBarEl]);
+  const [setStatusBarEl, statusBarHeight] = useRevisionStatusBarHeight();
 
   if (error) {
     return <Callout status="error">An error occurred: {error.message}</Callout>;
@@ -398,7 +385,7 @@ export default function FeaturePage() {
           />
         }
       >
-        <div className="feature-column">
+        <div className="details-column">
           {tab === "overview" && (
             <FeaturesOverviewNew
               baseFeature={baseFeature}

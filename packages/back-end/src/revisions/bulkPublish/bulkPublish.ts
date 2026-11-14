@@ -628,6 +628,10 @@ export async function commitBulkPublish(
         context.sdkPayloadRefreshBuffer
       ) {
         context.sdkPayloadRefreshBuffer.keys.push(...applyBuffer.keys);
+        context.sdkPayloadRefreshBuffer.sdkConnections = [
+          ...(context.sdkPayloadRefreshBuffer.sdkConnections ?? []),
+          ...(applyBuffer.sdkConnections ?? []),
+        ];
         context.sdkPayloadRefreshBuffer.treatEmptyProjectAsGlobal ||=
           applyBuffer.treatEmptyProjectAsGlobal;
       }

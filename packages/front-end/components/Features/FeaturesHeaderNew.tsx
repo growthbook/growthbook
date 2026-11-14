@@ -4,19 +4,12 @@ import {
 } from "shared/permissions";
 import { useRouter } from "next/router";
 import React, { ReactNode, useEffect, useRef, useState } from "react";
-import clsx from "clsx";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { FeatureInterface } from "shared/types/feature";
 import { filterEnvironmentsByFeature, isDefined } from "shared/util";
 import { PiEye } from "react-icons/pi";
-import {
-  isActiveDraftStatus,
-  REVIEW_REQUESTED_STATUSES,
-  HoldoutInterface,
-} from "shared/validators";
+import { isActiveDraftStatus, HoldoutInterface } from "shared/validators";
 import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
-import Heading from "@/ui/Heading";
-import Badge from "@/ui/Badge";
 import { useUser } from "@/services/UserContext";
 import useApi from "@/hooks/useApi";
 // eslint-disable-next-line no-restricted-imports -- legacy Modal still backs the watchers modal; migrate to @/ui/Modal in a follow-up
@@ -26,7 +19,6 @@ import FeatureStatusBadge from "@/components/Features/FeatureStatusBadge";
 import { getEnabledEnvironments, useEnvironments } from "@/services/features";
 import { useAuth } from "@/services/auth";
 import { isCloud } from "@/services/env";
-import Tooltip from "@/components/Tooltip/Tooltip";
 import { useWatching } from "@/services/WatchProvider";
 import CompareFeatureEventsModal from "@/components/Features/CompareFeatureEventsModal";
 import FeatureImplementationModal from "@/components/Features/FeatureImplementationModal";
@@ -34,32 +26,28 @@ import FeatureModal from "@/components/Features/FeatureModal";
 import StaleDetectionModal from "@/components/Features/StaleDetectionModal";
 import { FeatureTab } from "@/pages/features/[fid]";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import { Tabs, TabsList, TabsTrigger } from "@/ui/Tabs";
+import { TabsTrigger } from "@/ui/Tabs";
 import RevisionDropdown from "@/components/Features/RevisionDropdown";
 import NewDraftButton from "@/components/Features/NewDraftButton";
 import { useHoldouts } from "@/hooks/useHoldouts";
 import {
-  DetailsPanelToggle,
-  PANEL_WIDTH_PX,
-} from "@/components/CollapsiblePanelLayout";
-import {
-  DropdownMenu,
   DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownSubMenu,
-  MoreMenuTrigger,
 } from "@/ui/DropdownMenu";
 import { useFeatureHealthStates } from "@/hooks/useFeatureHealthStates";
-import usePinnedHeader from "@/hooks/usePinnedHeader";
-import { draftStatusTooltip } from "@/components/Reviews/RevisionStatusBadge";
+import {
+  DetailsPageActions,
+  DetailsPageMenu,
+  DetailsPageTabs,
+  DetailsPageTitleBar,
+  REVISION_SELECTOR_WIDTH_PX,
+  ReviewTabCount,
+} from "@/components/Layout/DetailsPageHeader";
 import FeatureArchiveModal from "./FeatureArchiveModal";
 import FeatureDeleteModal from "./FeatureDeleteModal";
 import AddToHoldoutModal from "./AddToHoldoutModal";
-
-// From the details panel's default edge to where the cards' content ends: the
-// page gutter, a card's padding and border (49px).
-const REVISION_SELECTOR_WIDTH_PX = PANEL_WIDTH_PX - 49;
 
 export default function FeaturesHeaderNew({
   feature,
@@ -147,8 +135,6 @@ export default function FeaturesHeaderNew({
   const watchHealth = healthHook.watch;
   useEffect(() => watchHealth([feature.id]), [feature.id, watchHealth]);
 
-  const [tabsPinSentinelRef, headerPinned] = usePinnedHeader();
-
   // Re-compute whenever the feature is saved (version increments on publish).
   const prevVersionRef = useRef<number | null>(null);
   useEffect(() => {
@@ -206,19 +192,6 @@ export default function FeaturesHeaderNew({
       archived: !isArchived,
     });
 
-  // Tab chip + tooltip count revisions at "request review" or beyond; drafts
-  // still being edited don't need reviewer/publisher attention.
-  const draftStatusCounts: Partial<Record<string, number>> = {};
-  revisions.forEach((r) => {
-    if ((REVIEW_REQUESTED_STATUSES as readonly string[]).includes(r.status)) {
-      draftStatusCounts[r.status] = (draftStatusCounts[r.status] ?? 0) + 1;
-    }
-  });
-  const activeDraftCount = Object.values(draftStatusCounts).reduce<number>(
-    (sum, n) => sum + (n ?? 0),
-    0,
-  );
-
   const viewedRevision = revisions.find(
     (r) => r.version === (version ?? feature.version),
   );
@@ -228,332 +201,251 @@ export default function FeaturesHeaderNew({
   const canEditDrafts = permissionsUtil.canEditFeatureDrafts(baseFeature);
 
   const headerActions = (
-    <Flex align="center" gap="4" height="var(--space-6)">
-      {/* A draft's way to review is on the status bar under the tabs. */}
-      {viewingDraft ? null : canEditDrafts ? (
-        // Ends over the revision picker: into the menu button's gap, then
-        // back by a border as wide as a card's, which zoom rounds the same way.
-        <Box style={{ marginRight: -10, borderRight: "1px solid transparent" }}>
+    <DetailsPageActions
+      // A draft's way to review is on the status bar under the tabs.
+      newDraft={
+        !viewingDraft && canEditDrafts ? (
           <NewDraftButton
             feature={baseFeature}
             revisionList={revisions}
             mutate={mutate}
             setVersion={setVersion}
           />
-        </Box>
-      ) : null}
-      <DropdownMenu
-        trigger={
-          <MoreMenuTrigger
-            label="More actions"
-            size="lg"
-            // Above the details toggle, past the row's end. Inline, not
-            // margin props: a ghost button adds its own offset to those.
-            style={{ marginLeft: 0, marginRight: -17 }}
-          />
-        }
-        open={dropdownOpen}
-        onOpenChange={setDropdownOpen}
-        menuPlacement="end"
-      >
-        <DropdownMenuGroup>
-          <DropdownMenuItem
-            onClick={() => {
-              setShowImplementation(true);
-              setDropdownOpen(false);
-            }}
-          >
-            Show implementation
-          </DropdownMenuItem>
-          <DropdownMenuItem
-            onClick={() => {
-              setAuditModal(true);
-              setDropdownOpen(false);
-            }}
-          >
-            Audit history
-          </DropdownMenuItem>
-          {onCompareRevisions && (
+        ) : null
+      }
+      menu={
+        <DetailsPageMenu open={dropdownOpen} onOpenChange={setDropdownOpen}>
+          <DropdownMenuGroup>
             <DropdownMenuItem
               onClick={() => {
-                onCompareRevisions();
+                setShowImplementation(true);
                 setDropdownOpen(false);
               }}
             >
-              Compare revisions
+              Show implementation
             </DropdownMenuItem>
-          )}
-          <DropdownSubMenu
-            trigger={
-              <Flex
-                align="center"
-                style={isWatching ? { fontWeight: "bold" } : undefined}
-              >
-                <PiEye style={{ marginRight: "5px" }} size={18} />
-                <Box as="span" pr="8">
-                  {isWatching ? "Watching" : "Not watching"}
-                </Box>
-              </Flex>
-            }
-          >
             <DropdownMenuItem
-              onClick={async () => {
-                await handleWatchUpdates(!isWatching);
+              onClick={() => {
+                setAuditModal(true);
+                setDropdownOpen(false);
               }}
             >
-              {isWatching ? "Stop watching" : "Start watching"}
+              Audit history
             </DropdownMenuItem>
-          </DropdownSubMenu>
-          <DropdownMenuItem
-            onClick={() => {
-              setWatchersModal(true);
-              setDropdownOpen(false);
-            }}
-            disabled={!usersWatching.length}
-          >
-            <Flex as="div" align="center">
-              <IconButton
-                style={{
-                  marginRight: "5px",
-                  backgroundColor:
-                    usersWatching.length > 0
-                      ? "var(--violet-9)"
-                      : "var(--slate-9)",
-                }}
-                radius="full"
-                size="1"
-              >
-                {usersWatching.length || 0}
-              </IconButton>
-              {usersWatching.length > 0 ? "View watchers" : "No watchers"}
-            </Flex>
-          </DropdownMenuItem>
-        </DropdownMenuGroup>
-        {canEdit &&
-          canPublish &&
-          holdoutsEnabled &&
-          holdouts.length > 0 &&
-          !holdout?.id &&
-          !isReadOnly && (
-            <DropdownMenuGroup>
+            {onCompareRevisions && (
               <DropdownMenuItem
                 onClick={() => {
-                  setAddToHoldoutModal(true);
+                  onCompareRevisions();
                   setDropdownOpen(false);
                 }}
               >
-                Add to holdout
+                Compare revisions
               </DropdownMenuItem>
-            </DropdownMenuGroup>
-          )}
-        <DropdownMenuSeparator />
-        <DropdownMenuGroup>
-          <DropdownMenuItem
-            onClick={() => {
-              setStaleStatusOpen(true);
-              setDropdownOpen(false);
-            }}
-          >
-            Check stale status
-          </DropdownMenuItem>
-          {canEdit && canPublish && !isReadOnly && (
+            )}
+            <DropdownSubMenu
+              trigger={
+                <Flex
+                  align="center"
+                  style={isWatching ? { fontWeight: "bold" } : undefined}
+                >
+                  <PiEye style={{ marginRight: "5px" }} size={18} />
+                  <Box as="span" pr="8">
+                    {isWatching ? "Watching" : "Not watching"}
+                  </Box>
+                </Flex>
+              }
+            >
+              <DropdownMenuItem
+                onClick={async () => {
+                  await handleWatchUpdates(!isWatching);
+                }}
+              >
+                {isWatching ? "Stop watching" : "Start watching"}
+              </DropdownMenuItem>
+            </DropdownSubMenu>
             <DropdownMenuItem
               onClick={() => {
-                setStaleFFModal(true);
+                setWatchersModal(true);
+                setDropdownOpen(false);
+              }}
+              disabled={!usersWatching.length}
+            >
+              <Flex as="div" align="center">
+                <IconButton
+                  style={{
+                    marginRight: "5px",
+                    backgroundColor:
+                      usersWatching.length > 0
+                        ? "var(--violet-9)"
+                        : "var(--slate-9)",
+                  }}
+                  radius="full"
+                  size="1"
+                >
+                  {usersWatching.length || 0}
+                </IconButton>
+                {usersWatching.length > 0 ? "View watchers" : "No watchers"}
+              </Flex>
+            </DropdownMenuItem>
+          </DropdownMenuGroup>
+          {canEdit &&
+            canPublish &&
+            holdoutsEnabled &&
+            holdouts.length > 0 &&
+            !holdout?.id &&
+            !isReadOnly && (
+              <DropdownMenuGroup>
+                <DropdownMenuItem
+                  onClick={() => {
+                    setAddToHoldoutModal(true);
+                    setDropdownOpen(false);
+                  }}
+                >
+                  Add to holdout
+                </DropdownMenuItem>
+              </DropdownMenuGroup>
+            )}
+          <DropdownMenuSeparator />
+          <DropdownMenuGroup>
+            <DropdownMenuItem
+              onClick={() => {
+                setStaleStatusOpen(true);
                 setDropdownOpen(false);
               }}
             >
-              {feature.neverStale
-                ? "Enable stale detection"
-                : "Disable stale detection"}
+              Check stale status
             </DropdownMenuItem>
-          )}
-        </DropdownMenuGroup>
-        {/* `canDuplicate` belongs in this predicate, not only on its own item: a
+            {canEdit && canPublish && !isReadOnly && (
+              <DropdownMenuItem
+                onClick={() => {
+                  setStaleFFModal(true);
+                  setDropdownOpen(false);
+                }}
+              >
+                {feature.neverStale
+                  ? "Enable stale detection"
+                  : "Disable stale detection"}
+              </DropdownMenuItem>
+            )}
+          </DropdownMenuGroup>
+          {/* `canDuplicate` belongs in this predicate, not only on its own item: a
             create-only user holds none of the other three, so the whole group was
             hidden and Duplicate never rendered even though its own check passed. */}
-        {(canDuplicate ||
-          (canEdit && canPublish) ||
-          canToggleArchive ||
-          (isArchived && canDelete)) &&
-          !isReadOnly && (
-            <>
-              <DropdownMenuSeparator />
-              <DropdownMenuGroup>
-                {canDuplicate && (
-                  <DropdownMenuItem
-                    onClick={() => {
-                      setDuplicateModal(true);
-                      setDropdownOpen(false);
-                    }}
-                  >
-                    Duplicate
-                  </DropdownMenuItem>
-                )}
-                {canToggleArchive && (
-                  <DropdownMenuItem
-                    onClick={() => {
-                      setArchiveModal(true);
-                      setDropdownOpen(false);
-                    }}
-                  >
-                    {isArchived ? "Unarchive" : "Archive"}
-                  </DropdownMenuItem>
-                )}
-              </DropdownMenuGroup>
-              {isArchived && canDelete && (
-                <>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuGroup>
+          {(canDuplicate ||
+            (canEdit && canPublish) ||
+            canToggleArchive ||
+            (isArchived && canDelete)) &&
+            !isReadOnly && (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuGroup>
+                  {canDuplicate && (
                     <DropdownMenuItem
-                      color="red"
                       onClick={() => {
-                        setDeleteModal(true);
+                        setDuplicateModal(true);
                         setDropdownOpen(false);
                       }}
                     >
-                      Delete
+                      Duplicate
                     </DropdownMenuItem>
-                  </DropdownMenuGroup>
-                </>
-              )}
-            </>
-          )}
-      </DropdownMenu>
-    </Flex>
+                  )}
+                  {canToggleArchive && (
+                    <DropdownMenuItem
+                      onClick={() => {
+                        setArchiveModal(true);
+                        setDropdownOpen(false);
+                      }}
+                    >
+                      {isArchived ? "Unarchive" : "Archive"}
+                    </DropdownMenuItem>
+                  )}
+                </DropdownMenuGroup>
+                {isArchived && canDelete && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuGroup>
+                      <DropdownMenuItem
+                        color="red"
+                        onClick={() => {
+                          setDeleteModal(true);
+                          setDropdownOpen(false);
+                        }}
+                      >
+                        Delete
+                      </DropdownMenuItem>
+                    </DropdownMenuGroup>
+                  </>
+                )}
+              </>
+            )}
+        </DetailsPageMenu>
+      }
+    />
   );
 
-  // White over the page's violet, which only the content column below shows.
   return (
     <>
-      {/* Padding inline: container-fluid's own outranks Radix's props. */}
-      <Box
-        className="container-fluid pagecontents"
-        position="relative"
-        style={{
-          background: "var(--color-panel-solid)",
-          padding: "var(--space-4) var(--space-5) var(--space-2)",
-        }}
+      <DetailsPageTitleBar
+        title={feature.id}
+        badges={
+          <FeatureStatusBadge
+            // Live doc: the chip states actual status, not the draft's.
+            feature={baseFeature}
+            staleData={staleData}
+            fetchStaleData={handleRerunStale}
+            onDisable={canEdit ? () => setStaleFFModal(true) : undefined}
+            open={staleStatusOpen}
+            onOpenChange={setStaleStatusOpen}
+          />
+        }
+        actions={headerActions}
       >
-        <Box>
-          <Flex direction="row" align="start" justify="between" gap="5">
-            {/* Raised so the name's x-height centres on the buttons' text. */}
-            <Flex align="center" gap="3" mt="-3px">
-              <Heading
-                as="h1"
-                size="2xl"
-                color="text-high"
-                overflowWrap="anywhere"
-                weight="medium"
-                mb="0"
-              >
-                {feature.id}
-              </Heading>
-              <FeatureStatusBadge
-                // Live doc: the chip states actual status, not the draft's.
-                feature={baseFeature}
-                staleData={staleData}
-                fetchStaleData={handleRerunStale}
-                onDisable={canEdit ? () => setStaleFFModal(true) : undefined}
-                open={staleStatusOpen}
-                onOpenChange={setStaleStatusOpen}
-              />
-            </Flex>
-            {headerActions}
-          </Flex>
-          {isArchived ? (
-            <Callout status="info" mt="3">
-              <strong>This Feature Flag is archived.</strong> It will not be
-              included in SDK Endpoints or Webhook payloads.
-            </Callout>
-          ) : feature.archived ? (
-            <Callout status="warning" mt="3">
-              <strong>This draft will archive the Feature Flag.</strong> Once
-              published it will be removed from SDK Endpoints and Webhook
-              payloads.
-            </Callout>
-          ) : null}
-        </Box>
-      </Box>
-      <>
-        <div
-          ref={tabsPinSentinelRef}
-          aria-hidden
-          className="d-print-none"
-          style={{
-            height: 1,
-            width: "100%",
-            pointerEvents: "none",
-            background: "var(--color-panel-solid)",
-          }}
-        />
-        <div
-          className={clsx("feature-tabs redesign d-print-none", {
-            pinned: headerPinned,
-          })}
-        >
-          <Box
-            className="container-fluid pagecontents"
-            position="relative"
-            style={{ paddingInline: "var(--space-5)" }}
-          >
-            <Flex align="center" className="header-tabs">
-              <Tabs
-                value={tab}
-                onValueChange={setTab}
-                style={{ flex: 1, minWidth: 0 }}
-              >
-                <TabsList size="lg" style={{ width: "100%" }}>
-                  <TabsTrigger value="overview">Overview</TabsTrigger>
-                  <TabsTrigger value="review">
-                    Review &amp; Publish
-                    {activeDraftCount > 0 && (
-                      <Tooltip body={draftStatusTooltip(draftStatusCounts)}>
-                        <Badge
-                          label={String(activeDraftCount)}
-                          color="red"
-                          variant="solid"
-                          radius="full"
-                          ml="2"
-                          style={{ minWidth: 18, height: 18 }}
-                        />
-                      </Tooltip>
-                    )}
-                  </TabsTrigger>
-                  <TabsTrigger value="test">Simulate</TabsTrigger>
-                  <TabsTrigger value="stats">Code Refs</TabsTrigger>
-                  <TabsTrigger value="diagnostics">Diagnostics</TabsTrigger>
-                  {/* Hooks are self-hosted only and boolean flags have no schema, so Cloud booleans have nothing to validate */}
-                  {!(isCloud() && feature.valueType === "boolean") && (
-                    <TabsTrigger value="validation">Validation</TabsTrigger>
-                  )}
-                </TabsList>
-              </Tabs>
-              {/* Beside the tab list, not in it: the list folds tabs that
-                  don't fit into its More menu. Ends where the cards' content
-                  does below: into the toggle's margin, then back by a border
-                  as wide as a card's, which zoom rounds the same way. */}
-              <Box
-                flexShrink="0"
-                ml="4"
-                mr="-3"
-                style={{ borderRight: "1px solid transparent" }}
-              >
-                <RevisionDropdown
-                  feature={feature}
-                  revisions={revisions}
-                  version={version ?? feature.version}
-                  setVersion={setVersion}
-                  context="header"
-                  width={REVISION_SELECTOR_WIDTH_PX}
-                />
-              </Box>
-              <DetailsPanelToggle open={detailsOpen} setOpen={setDetailsOpen} />
-            </Flex>
-          </Box>
-          {statusBar}
-        </div>
-      </>
+        {isArchived ? (
+          <Callout status="info" mt="3">
+            <strong>This Feature Flag is archived.</strong> It will not be
+            included in SDK Endpoints or Webhook payloads.
+          </Callout>
+        ) : feature.archived ? (
+          <Callout status="warning" mt="3">
+            <strong>This draft will archive the Feature Flag.</strong> Once
+            published it will be removed from SDK Endpoints and Webhook
+            payloads.
+          </Callout>
+        ) : null}
+      </DetailsPageTitleBar>
+      <DetailsPageTabs
+        value={tab}
+        onValueChange={setTab}
+        triggers={
+          <>
+            <TabsTrigger value="overview">Overview</TabsTrigger>
+            <TabsTrigger value="review">
+              Review &amp; Publish
+              <ReviewTabCount statuses={revisions.map((r) => r.status)} />
+            </TabsTrigger>
+            <TabsTrigger value="test">Simulate</TabsTrigger>
+            <TabsTrigger value="stats">Code Refs</TabsTrigger>
+            <TabsTrigger value="diagnostics">Diagnostics</TabsTrigger>
+            {/* Hooks are self-hosted only and boolean flags have no schema, so Cloud booleans have nothing to validate */}
+            {!(isCloud() && feature.valueType === "boolean") && (
+              <TabsTrigger value="validation">Validation</TabsTrigger>
+            )}
+          </>
+        }
+        revisionPicker={
+          <RevisionDropdown
+            feature={feature}
+            revisions={revisions}
+            version={version ?? feature.version}
+            setVersion={setVersion}
+            context="header"
+            width={REVISION_SELECTOR_WIDTH_PX}
+          />
+        }
+        detailsOpen={detailsOpen}
+        setDetailsOpen={setDetailsOpen}
+        statusBar={statusBar}
+      />
       {auditModal && (
         <CompareFeatureEventsModal
           feature={feature}

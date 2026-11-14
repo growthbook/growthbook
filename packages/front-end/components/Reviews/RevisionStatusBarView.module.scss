@@ -29,6 +29,17 @@
   padding-left: var(--space-1);
 }
 
+.row.withError {
+  grid-template-areas:
+    "status message actions"
+    "error error error";
+}
+
+.error {
+  grid-area: error;
+  justify-self: end;
+}
+
 // Short of room, the message takes a line of its own under the status and
 // actions, rather than a narrow column between them.
 @container (max-width: 760px) {
@@ -37,5 +48,12 @@
     grid-template-areas:
       "status actions"
       "message message";
+  }
+
+  .row.withError {
+    grid-template-areas:
+      "status actions"
+      "message message"
+      "error error";
   }
 }
