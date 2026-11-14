@@ -62,7 +62,7 @@ export default function ImportRuleCard({
             {ruleTitle(rule)}
           </Heading>
           {experiment ? (
-            <Badge label="Draft" color="indigo" variant="solid" radius="full" />
+            <Badge label="Draft" color="pink" variant="solid" radius="full" />
           ) : null}
         </Flex>
       }

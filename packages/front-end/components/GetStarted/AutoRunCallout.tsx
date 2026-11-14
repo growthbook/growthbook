@@ -25,7 +25,7 @@ export default function AutoRunCallout() {
   const body = (
     <Text size="md">
       {run.source === "flags-import"
-        ? `Review the results of your flags import${appName ? ` from ${appName}` : ""}.`
+        ? `Review the results of your Feature Flag import${appName ? ` from ${appName}` : ""}.`
         : unfinished
           ? `Your GrowthBook setup${where} has ${unfinished} required check${
               unfinished === 1 ? "" : "s"

@@ -32,6 +32,7 @@ import {
   findFlagImportByToken,
   finishFlagImport,
   FlagImportInterface,
+  isFlagImportRunning,
 } from "back-end/src/models/FlagImportModel";
 import { findOrganizationById } from "back-end/src/models/OrganizationModel";
 import { getFeature, getFeaturesByIds } from "back-end/src/models/FeatureModel";
@@ -574,6 +575,9 @@ export async function importClaimedFlags(
   if (claimed.status === "imported") {
     throw new FlagImportError(409, "This upload was already imported.");
   }
+  if (isFlagImportRunning(claimed)) {
+    throw new FlagImportError(409, "This upload is being imported right now.");
+  }
 
   // Checked before the upload is spent, so a refusal leaves it importable.
   const project = chosenProject || undefined;
@@ -629,11 +633,13 @@ export async function importClaimedFlags(
   assertWithinLimits(plan);
 
   const begun = await beginFlagImport(claimed.id, {
-    userId: context.userId || null,
     organization: context.org.id,
   });
-  if (!begun?.file) {
-    throw new FlagImportError(409, "This upload was already imported.");
+  if (!begun?.file || !begun.importingSince) {
+    throw new FlagImportError(
+      409,
+      "This upload was already imported, or is being imported right now.",
+    );
   }
 
   const results: FlagImportResult[] = [];
@@ -651,19 +657,20 @@ export async function importClaimedFlags(
   }
 
   const autoRunId = await recordAutoRun(context, begun, results, artifacts);
-  const finished = await finishFlagImport(begun.id, { results, autoRunId });
+  const outcome = { userId: context.userId || null, autoRunId, results };
+  const finished = await finishFlagImport(
+    begun.id,
+    begun.importingSince,
+    outcome,
+  );
   return toApiFlagImport(
     context,
     finished ?? {
       ...begun,
       file: null,
       status: "imported",
-      imported: {
-        at: new Date(),
-        userId: context.userId || null,
-        autoRunId,
-        results,
-      },
+      importingSince: null,
+      imported: { at: new Date(), ...outcome },
     },
   );
 }

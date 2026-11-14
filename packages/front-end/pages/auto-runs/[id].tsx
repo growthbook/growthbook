@@ -122,17 +122,17 @@ const IMPORT_REPORTS: Partial<
       "Removed from GrowthBook. The next import creates them again.",
   },
   "flags-import": {
-    title: "Flags Import Report",
+    title: "Feature Flag Import Report",
     breadcrumb: [
       { display: "Get Started", href: "/getstarted" },
-      { display: "Flags Import Report" },
+      { display: "Feature Flag Import Report" },
     ],
     retry:
-      "Fix them in your code and send the flags again; Feature Flags that already exist are left as they are.",
+      "Fix them in your code and send the Feature Flags again; Feature Flags that already exist are left as they are.",
     importedTitle: "Imported From Your Code",
     importedDescription: "Open an item to review its settings.",
     failedDescription:
-      "Why each item couldn't be imported. Fix the cause in your code and send the flags again.",
+      "Why each item couldn't be imported. Fix the cause in your code and send the Feature Flags again.",
     deletedDescription: "Removed from GrowthBook.",
   },
 };

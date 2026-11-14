@@ -1,5 +1,5 @@
 import { ReactNode, useMemo, useState } from "react";
-import { Box, Flex } from "@radix-ui/themes";
+import { Box, Flex, VisuallyHidden } from "@radix-ui/themes";
 import { PiArrowRight, PiCaretDown, PiCaretUp } from "react-icons/pi";
 import { Environment } from "shared/types/organization";
 import {
@@ -32,6 +32,7 @@ import Link from "@/ui/Link";
 import { Select, SelectItem } from "@/ui/Select";
 import Text from "@/ui/Text";
 import SectionFrame from "@/components/SectionFrame";
+import { ActionArrow, CardLink } from "@/components/GetStarted/FeaturedCards";
 import ImportRuleCard, { ruleIssueText } from "./ImportRuleCard";
 
 type RuleFixes = NonNullable<FlagImportOverrides["rules"]>;
@@ -154,6 +155,7 @@ function FixPanel({
                 key={env}
                 size="sm"
                 variant={picked.has(env) ? "solid" : "outline"}
+                aria-pressed={picked.has(env)}
                 onClick={() =>
                   setPicked((prev) => {
                     const next = new Set(prev);
@@ -197,6 +199,8 @@ function FlagRow({
   environments,
   environmentOptions,
   onFix,
+  fixed,
+  onUndoFix,
   last,
 }: {
   flag: FlagImportPreviewFlag;
@@ -206,6 +210,8 @@ function FlagRow({
   environments: Environment[];
   environmentOptions: string[];
   onFix: (ruleIndex: number, fix: FlagImportRuleFix) => void;
+  fixed: boolean;
+  onUndoFix: () => void;
   last: boolean;
 }) {
   const [open, setOpen] = useState(false);
@@ -221,7 +227,7 @@ function FlagRow({
           value={selectable && checked}
           setValue={setChecked}
           disabled={!selectable}
-          label={<span className="sr-only">Import {flag.key}</span>}
+          label={<VisuallyHidden>Import {flag.key}</VisuallyHidden>}
         />
         <Box flexGrow="1" minWidth="0">
           <Text as="div" weight="medium" overflowWrap="anywhere">
@@ -246,8 +252,18 @@ function FlagRow({
           <Badge label="Creates a draft experiment" />
         ) : null}
         {!exists && broken ? (
-          <Button size="sm" variant="soft" onClick={() => setFixing(!fixing)}>
+          <Button
+            size="sm"
+            variant="soft"
+            aria-expanded={fixing}
+            onClick={() => setFixing(!fixing)}
+          >
             Fix
+          </Button>
+        ) : null}
+        {!exists && fixed ? (
+          <Button size="sm" variant="ghost" onClick={onUndoFix}>
+            Undo fix
           </Button>
         ) : null}
         {flag.rules.length ? (
@@ -256,6 +272,7 @@ function FlagRow({
             variant="ghost"
             icon={open ? <PiCaretUp /> : <PiCaretDown />}
             iconPosition="right"
+            aria-expanded={open}
             onClick={() => setOpen(!open)}
           >
             Rules
@@ -268,7 +285,10 @@ function FlagRow({
           rule={broken}
           number={brokenNumber}
           options={environmentOptions}
-          onFix={(fix) => onFix(broken.index, fix)}
+          onFix={(fix) => {
+            setFixing(false);
+            onFix(broken.index, fix);
+          }}
         />
       ) : null}
       {open ? (
@@ -326,6 +346,10 @@ export default function ImportFlow({
   const selected = previews
     .filter((f) => f.importable && !existing.has(f.key) && !excluded.has(f.key))
     .map((f) => f.key);
+  // Counted against the ones that can be picked, so the total can be reached.
+  const selectable = previews.filter(
+    (f) => f.importable && !existing.has(f.key),
+  ).length;
   const selectedKey = selected.join("\n");
   const plan = useMemo(
     () =>
@@ -405,6 +429,7 @@ export default function ImportFlow({
 
   return (
     <>
+      {hasSecondStep ? <VisuallyHidden>Step {step} of 2</VisuallyHidden> : null}
       <Flex justify="center" gap="1" mb="5" aria-hidden>
         {(hasSecondStep ? [1, 2] : [1]).map((n) => (
           <Box
@@ -422,7 +447,7 @@ export default function ImportFlow({
       {step === 1 ? (
         <>
           <ImportHero
-            title={`We found ${plural(previews.length, "Feature Flag")}`}
+            title={`We Found ${plural(previews.length, "Feature Flag")}`}
           >
             Pick the ones to bring into GrowthBook.
           </ImportHero>
@@ -448,6 +473,14 @@ export default function ImportFlow({
                 environments={environments}
                 environmentOptions={environmentOptions}
                 last={i === previews.length - 1}
+                fixed={Object.prototype.hasOwnProperty.call(fixes, flag.key)}
+                onUndoFix={() =>
+                  setFixes((prev) =>
+                    Object.fromEntries(
+                      Object.entries(prev).filter(([key]) => key !== flag.key),
+                    ),
+                  )
+                }
                 onFix={(ruleIndex, fix) =>
                   setFixes((prev) => ({
                     ...prev,
@@ -468,7 +501,7 @@ export default function ImportFlow({
           <ImportHero
             title={
               plan.environments.length
-                ? "Match your environments"
+                ? "Match Your Environments"
                 : "Choose a Project"
             }
           >
@@ -561,7 +594,7 @@ export default function ImportFlow({
         left={
           step === 1 ? (
             <Text color="text-mid">
-              {selected.length} of {previews.length} selected
+              {selected.length} of {selectable} selected
             </Text>
           ) : (
             <Button variant="ghost" onClick={() => setStep(1)}>
@@ -605,7 +638,7 @@ export function ImportDone({
     <>
       <ImportHero
         eyebrow={<Badge label="Imported" color="green" />}
-        title={`${plural(created.length, "Feature Flag")} imported`}
+        title={`${plural(created.length, "Feature Flag")} Imported`}
       >
         They have the same rules as your code.
       </ImportHero>
@@ -644,7 +677,7 @@ export function ImportDone({
         <NextCard
           href="/sdks"
           title="Connect Your App"
-          description="Serve these flags from GrowthBook"
+          description="Serve these Feature Flags from GrowthBook"
         />
         <NextCard
           href="/experiments"
@@ -677,16 +710,18 @@ function NextCard({
   description: string;
 }) {
   return (
-    <Frame flexGrow="1" flexBasis="260px" mb="0" py="4" px="5">
-      <Link href={href} weight="bold">
-        <Flex align="center" justify="between" gap="3">
-          {title}
-          <PiArrowRight aria-hidden />
+    <Box flexGrow="1" flexBasis="260px">
+      <CardLink href={href} compact>
+        <Flex align="center" gap="3">
+          <Heading as="h2" size="md" mb="0">
+            {title}
+          </Heading>
+          <ActionArrow />
         </Flex>
-      </Link>
-      <Text as="div" color="text-mid" mt="1">
-        {description}
-      </Text>
-    </Frame>
+        <Text as="div" color="text-mid" mt="1">
+          {description}
+        </Text>
+      </CardLink>
+    </Box>
   );
 }

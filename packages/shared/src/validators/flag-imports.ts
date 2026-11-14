@@ -368,7 +368,9 @@ export const apiFlagImport = z
     expiresAt: z.string(),
     file: flagsJsonValidator
       .nullable()
-      .describe("The uploaded flags. Null once they have been imported."),
+      .describe(
+        "The uploaded Feature Flags. Null once they have been imported.",
+      ),
     existingFlags: z
       .array(z.string())
       .describe("Keys in the upload that this workspace already has."),
@@ -465,9 +467,10 @@ export const postFlagImportValidator = {
       howToUse: z.string(),
     })
     .strict(),
-  summary: "Upload flags defined in code for someone to claim, with no account",
+  summary:
+    "Upload Feature Flags defined in code for someone to claim, with no account",
   description:
-    "Send the SDK payload as JSON in the request body. For flags kept in a local `flags.ts`, that is `JSON.stringify(flags)`. The upload is checked and kept for 24 hours, and the response has a claim link. Whoever opens the link signs up or signs in, claims the upload for their workspace and chooses what to import. No API key is needed. A top-level `env` in a rule's condition becomes the environments that rule applies to. A rule with `variations` becomes a draft experiment linked to its Feature Flag.",
+    "Send the SDK payload as JSON in the request body. For Feature Flags kept in a local `flags.ts`, that is `JSON.stringify(flags)`. The upload is checked and kept for 24 hours, and the response has a claim link. Whoever opens the link signs up or signs in, claims the upload for their workspace and chooses what to import. No API key is needed. A top-level `env` in a rule's condition becomes the environments that rule applies to. A rule with `variations` becomes a draft experiment linked to its Feature Flag.",
   operationId: "postFlagImport",
   tags: ["flag-imports"],
   method: "post" as const,
@@ -495,7 +498,7 @@ export const getFlagImportValidator = {
   querySchema: z.never(),
   paramsSchema: tokenParams,
   responseSchema: z.object({ flagImport: apiFlagImportStatus }).strict(),
-  summary: "Check whether uploaded flags have been claimed or imported",
+  summary: "Check whether uploaded Feature Flags have been claimed or imported",
   description:
     "The token is the only credential, and the answer says nothing about what was uploaded or what was created: only whether it is pending, claimed or imported.",
   operationId: "getFlagImport",
@@ -510,7 +513,7 @@ export const postFlagImportClaimValidator = {
   querySchema: z.never(),
   paramsSchema: tokenParams,
   responseSchema: z.object({ flagImport: apiFlagImport }).strict(),
-  summary: "Claim uploaded flags for your workspace",
+  summary: "Claim uploaded Feature Flags for your workspace",
   description:
     "Ties the upload to the caller's workspace and returns it. Nothing is created. One workspace can claim an upload, and it then has 7 days to import it. Calling this again from the same workspace returns the upload.",
   operationId: "postFlagImportClaim",
@@ -526,7 +529,7 @@ export const getFlagImportDetailsValidator = {
   querySchema: z.never(),
   paramsSchema: tokenParams,
   responseSchema: z.object({ flagImport: apiFlagImport }).strict(),
-  summary: "Get uploaded flags your workspace has claimed",
+  summary: "Get uploaded Feature Flags your workspace has claimed",
   description:
     "Returns the upload to the workspace that claimed it, with the keys it already has. Any other workspace gets a 403.",
   operationId: "getFlagImportDetails",
@@ -548,7 +551,7 @@ export const postFlagImportImportValidator = {
   querySchema: z.never(),
   paramsSchema: tokenParams,
   responseSchema: z.object({ flagImport: apiFlagImport }).strict(),
-  summary: "Import claimed flags into your workspace",
+  summary: "Import claimed Feature Flags into your workspace",
   description:
     "Creates each chosen Feature Flag with the caller's own permissions, the same way `POST /v2/features` does, and records the import as an Auto Run. A Feature Flag whose key already exists is skipped, never overwritten. An upload can be imported once. An API key that needs a person's confirmation for these writes is refused: open the claim link instead.",
   operationId: "postFlagImportImport",

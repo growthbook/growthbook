@@ -389,7 +389,9 @@ function planRule(
 
   if (!hasForce) return fail("has neither force nor variations");
   const value = toStoredValue(rule.force, valueType);
-  if (rule.coverage === undefined || rule.coverage >= 1) {
+  // Any coverage, 100% included, buckets by the hash attribute in the SDK, so
+  // it stays a rollout and keeps its bucketing if it is dialled back.
+  if (rule.coverage === undefined) {
     return { rule: { ...base, type: "force", value }, experiment: null };
   }
   return {
@@ -502,7 +504,7 @@ function previewRule(
       index,
       type: source.variations
         ? "experiment"
-        : source.coverage !== undefined && source.coverage < 1
+        : source.coverage !== undefined
           ? "rollout"
           : "force",
       condition:
@@ -616,6 +618,13 @@ function planAll(
       }
       if (rule.type === "rollout") {
         noteHashAttribute(rule.hashAttribute, attributes);
+        // The one place the served payload differs from the file.
+        if (rule.coverage >= 1) {
+          warnings.push({
+            path,
+            message: `It has a 100% rollout. In code that skips visitors with no ${rule.hashAttribute}; GrowthBook serves a 100% rollout to everyone`,
+          });
+        }
       }
     });
     return flag;
