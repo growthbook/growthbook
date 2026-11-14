@@ -189,13 +189,14 @@ export const CONNECTION_ROWS: SettingRow[] = [
     shown: () => true,
     read: (v) => (
       <Box>
-        <Flex align="center" gap="3" wrap="wrap">
+        {/* The height and icon size of the select that edits it. */}
+        <Flex align="center" gap="3" wrap="wrap" minHeight="40px">
           {v.languages.map((language) => (
             <SDKLanguageLogo
               key={language}
               language={language}
               showLabel
-              size={16}
+              size={20}
               hideExtra
             />
           ))}
