@@ -1,4 +1,5 @@
 import Checkbox from "@/ui/Checkbox";
+import DataList from "@/ui/DataList";
 import Text from "@/ui/Text";
 
 const COPY = {
@@ -29,6 +30,20 @@ export default function SkipPartialDataCheckbox({
   readOnly?: boolean;
 }) {
   const { label, description } = retention ? COPY.retention : COPY.other;
+  // Reads like the label/value rows around it when the metric is not editable
+  if (readOnly) {
+    return (
+      <DataList
+        data={[
+          {
+            label: "In-progress conversions",
+            value: value ? "Excluded" : "Included",
+            tooltip: description,
+          },
+        ]}
+      />
+    );
+  }
   return (
     <Checkbox
       // Styled like the Switch labels this sits beside
@@ -40,7 +55,6 @@ export default function SkipPartialDataCheckbox({
       description={description}
       value={value}
       setValue={setValue}
-      readOnly={readOnly}
     />
   );
 }
