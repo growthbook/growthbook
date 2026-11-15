@@ -199,6 +199,12 @@ export function onVisible() {
     if (!channel) return;
     if (channel.state !== "idle") return;
     enableChannel(channel);
+    // enableChannel clears src when the reconnect fails
+    if (!channel.src) return;
+    // The new connection carries no Last-Event-ID, so changes published while the
+    // stream was closed are never replayed. Catch up with one fetch per instance.
+    const instances = subscribedInstances.get(channel.key);
+    instances && instances.forEach((instance) => fetchFeatures(instance));
   });
 }
 

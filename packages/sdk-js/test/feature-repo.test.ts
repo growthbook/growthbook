@@ -746,6 +746,62 @@ describe("feature-repo", () => {
     event.clear();
   });
 
+  it("refreshes features when an idle stream resumes", async () => {
+    const apiPayload = {
+      features: {
+        foo: {
+          defaultValue: "api",
+        },
+      },
+      experiments: [],
+      dateUpdated: "2000-05-01T00:00:12Z",
+    };
+
+    const [f, cleanup] = mockApi(apiPayload, true, 0);
+    const event = new MockEvent({
+      url: "https://fakeapi.sample.io/sub/sdk-abc123",
+      responses: [],
+    });
+
+    const growthbook = new GrowthBook({
+      apiHost: "https://fakeapi.sample.io",
+      clientKey: "sdk-abc123",
+    });
+    await growthbook.init({ streaming: true });
+    expect(growthbook.evalFeature("foo").value).toEqual("api");
+    expect(f).toHaveBeenCalledTimes(1);
+
+    // The tab goes idle, which closes the stream
+    onHidden();
+
+    // A change is published while the stream is closed, so no event reaches the SDK
+    const [f2, cleanup2] = mockApi(
+      {
+        features: {
+          foo: {
+            defaultValue: "published while idle",
+          },
+        },
+        experiments: [],
+        dateUpdated: "2010-05-01T00:00:12Z",
+      },
+      true,
+      0,
+    );
+
+    // The tab becomes visible again
+    onVisible();
+    await sleep(20);
+
+    expect(f2).toHaveBeenCalledTimes(1);
+    expect(growthbook.evalFeature("foo").value).toEqual("published while idle");
+
+    growthbook.destroy();
+    cleanup();
+    cleanup2();
+    event.clear();
+  });
+
   it("allows streaming to recover when a re-connect attempt fails", async () => {
     const apiPayload = {
       features: {
