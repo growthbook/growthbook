@@ -35,6 +35,8 @@ type ScopedChannel = {
   headers?: Record<string, string>;
   errors: number;
   state: "active" | "idle" | "disabled";
+  // Set when an idle stream is resumed: fetch once the new stream opens
+  catchUpOnOpen?: boolean;
 };
 
 // Config settings
@@ -198,13 +200,11 @@ export function onVisible() {
   streams.forEach((channel) => {
     if (!channel) return;
     if (channel.state !== "idle") return;
-    enableChannel(channel);
-    // enableChannel clears src when the reconnect fails
-    if (!channel.src) return;
     // The new connection carries no Last-Event-ID, so changes published while the
-    // stream was closed are never replayed. Catch up with one fetch per instance.
-    const instances = subscribedInstances.get(channel.key);
-    instances && instances.forEach((instance) => fetchFeatures(instance));
+    // stream was closed are never replayed. Catch up once the stream is open:
+    // fetching any earlier could miss a change published before it connects.
+    channel.catchUpOnOpen = true;
+    enableChannel(channel);
   });
 }
 
@@ -599,6 +599,11 @@ function enableChannel(channel: ScopedChannel) {
       // a stream blocked by a proxy is exactly why someone configured polling
       const poller = pollers.get(channel.key);
       if (poller) destroyPoller(poller, channel.key);
+      if (channel.catchUpOnOpen) {
+        channel.catchUpOnOpen = false;
+        const instances = subscribedInstances.get(channel.key);
+        instances && instances.forEach((instance) => fetchFeatures(instance));
+      }
     };
   } catch (e) {
     // A half-built connection may already be open, so close it before dropping the ref
