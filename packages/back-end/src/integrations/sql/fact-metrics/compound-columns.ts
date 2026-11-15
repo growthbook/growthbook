@@ -35,9 +35,6 @@ export function isCompoundComponentUnitsColumn(column: string): boolean {
  * Units per compound component, by metric id then variation index, summed
  * over every row. Only valid for the overall result: gbstats renames and
  * merges dimensions, so per-dimension counts would have to replicate that.
- *
- * One query's rows can back several results (see `slotsByUsersColumn` in
- * stats.ts), so a metric only counts in the result that analyzes it.
  */
 export function sumCompoundComponentUnits(
   queryResults: {
@@ -55,6 +52,9 @@ export function sumCompoundComponentUnits(
         const match = key.match(COMPOUND_COMPONENT_UNITS_COLUMN_RE);
         const metricId = match && row[`${match[1]}_id`];
         if (!match || typeof metricId !== "string") continue;
+        // Some rows in the query results will be analyzed separately by a
+        // different `queryResults` entry that we built with the correct
+        // unit count (i.e. when the metric has `skipPartialData` enabled).
         if (!metrics.includes(metricId)) continue;
         const byVariation =
           totals.get(metricId) ?? variationIds.map((): number[] => []);

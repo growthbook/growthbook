@@ -302,4 +302,40 @@ describe("Fact Metric API payload normalization", () => {
       getUpdateFactMetricPropsFromBody(body, metric, getFactTable),
     ).rejects.toThrow("lowerCappingSettings.value");
   });
+
+  it("defaults skipPartialData by metric type on create and takes any explicit value", async () => {
+    const create = async (
+      metricType: "retention" | "proportion",
+      extra: { skipPartialData?: boolean } = {},
+    ) => {
+      const body = postFactMetricValidator.bodySchema.parse({
+        name: "Metric",
+        metricType,
+        numerator,
+        ...extra,
+      });
+      const props = await getCreateMetricPropsFromBody(
+        body,
+        organization,
+        getFactTable,
+      );
+      return props.skipPartialData;
+    };
+    expect(await create("retention")).toBe(true);
+    expect(await create("proportion")).toBe(false);
+    expect(await create("proportion", { skipPartialData: true })).toBe(true);
+    expect(await create("retention", { skipPartialData: false })).toBe(false);
+
+    const update = (body: { skipPartialData?: boolean }) =>
+      getUpdateFactMetricPropsFromBody(
+        updateFactMetricValidator.bodySchema.parse(body),
+        metric,
+        getFactTable,
+      );
+    expect((await update({ skipPartialData: true })).skipPartialData).toBe(
+      true,
+    );
+    // Omitted on update leaves the saved value alone
+    expect(await update({})).not.toHaveProperty("skipPartialData");
+  });
 });

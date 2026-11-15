@@ -134,11 +134,6 @@ export function getExperimentFactMetricStatisticsCTE(
      * cluster-level queries, which analyze the cluster as a standard unit.
      */
     useClusterRollup?: boolean;
-    /**
-     * Metrics with `skipPartialData` only analyze units exposed long enough
-     * ago: their sums skip the other units, and they are paired with a count
-     * of eligible units shared by every metric needing the same hours.
-     */
     unitEligibility?: UnitEligibility;
   },
 ): string {

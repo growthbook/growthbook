@@ -474,9 +474,9 @@ export function getMetricsAndQueryDataForStatsEngine(
         const rows = query.result as ExperimentFactMetricsQueryResponseRows;
         if (!rows?.length) return;
         const metricIds: (string | null)[] = [];
-        // Metrics that only analyzed units with complete data have their own
-        // unit count, shared by every slot with the same users column. Each
-        // such set goes to gbstats as its own result with that count.
+        // Group metrics together that need their unit count swapped out with
+        // the one from the same user column, mocking the queryResults so
+        // gbstats just sees the same data shape
         const slotsByUsersColumn = new Map<string, Map<number, string>>();
         for (let i = 0; i < MAX_METRICS_PER_QUERY; i++) {
           const prefix = `m${i}_`;
@@ -546,14 +546,15 @@ export function getMetricsAndQueryDataForStatsEngine(
             settings,
             true,
           );
-          if (usersColumn !== null) {
-            metricIds.push(null);
+          if (usersColumn === null) {
+            metricIds.push(metricId);
+          } else {
+            // These metrics will be added as if they came from their own "query"
+            // with the new unit count for all metrics with the same window
             const slots =
               slotsByUsersColumn.get(usersColumn) ?? new Map<number, string>();
             slotsByUsersColumn.set(usersColumn, slots.set(i, metricId));
-            continue;
           }
-          metricIds.push(metricId);
         }
         queryResults.push({
           metrics: metricIds,

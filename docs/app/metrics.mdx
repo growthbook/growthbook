@@ -80,7 +80,7 @@ You can use the filters to determine if a user qualifies as retained (using a ro
 
 You then set the retention window, which is the amount of time after the first experiment exposure that a user must do the qualifying actions. You can also use a conversion window to only look for a certain time period after the start of the retention window. For example, if you want to measure the retention of users who came back to your site in the second full week after the experiment exposure, you would set the retention window to 7 days and the conversion window to 7 days.
 
-New Retention Metrics [exclude in-progress conversions](#exclude-in-progress-conversions) by default, so users who have not yet reached the retention window are left out instead of counting as not retained.
+New Retention Metrics [exclude in-progress conversions](#exclude-in-progress-conversions) by default. If the retention window is a closed period (e.g. 7-14 days after exposure), this setting excludes units who haven't had a chance to complete the full window. If the retention window is an open period (e.g. > 7 days after exposure), this setting excludes units until their time since exposure reaches the start of the retention window.
 
 ### Daily Participation Metrics
 

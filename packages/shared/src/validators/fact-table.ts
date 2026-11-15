@@ -921,8 +921,6 @@ const factMetricObjectValidator = z
     // (e.g. absolute-0 floor + percentile upper cap).
     lowerCappingSettings: cappingSettingsValidator.optional().nullable(),
     windowSettings: windowSettingsValidator,
-    // Only analyze units exposed long enough ago to have had the metric's full
-    // time to convert, even when the experiment includes in-progress conversions.
     skipPartialData: z.boolean().optional(),
     priorSettings: priorSettingsValidator,
 

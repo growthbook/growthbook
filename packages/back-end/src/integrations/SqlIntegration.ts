@@ -2928,7 +2928,7 @@ export default abstract class SqlIntegration
       flattenSources: hasMultiFtFunnelMetrics,
     });
 
-    // Metrics with `skipPartialData` are trimmed in the statistics CTE, which
+    // Metrics with `skipPartialData` are trimmed in the final statistics CTE, which
     // then needs each unit's exposure timestamp on its source table.
     const unitEligibility = metricData.some(
       (d) =>

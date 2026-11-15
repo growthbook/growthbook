@@ -49,6 +49,8 @@ export function getUnitEligibilityHours(
   return computeUnitEligibilityHours(metric, settings, activationMetric);
 }
 
+// TODO why not refactor that code so we don't need to patch like this
+// after the fact?
 /**
  * Record on freshly built snapshot settings the hours of each metric that
  * only analyzes units with complete data.
@@ -171,10 +173,12 @@ export function getUnitEligibilityCutoff(
   };
 }
 
-/**
- * Table a source's percentile caps read. A trimmed metric's values are NULL,
- * so left out of its percentiles, for the units it does not analyze.
- */
+// TODO(days-since-exposure): each point of a series would get its own cap here, so
+// the cap moves between points. Instead when building that feature, use one cap per
+// series pooled over its days, not the full metric's cap, which would barely
+// cap a single day. That needs a differently shaped query.
+// Null out metric data from units that did not complete conversion window
+// before capping is calculated
 export function getPercentileCapSource(
   dialect: Pick<SqlDialect, "toTimestamp" | "ifElse">,
   table: string,
