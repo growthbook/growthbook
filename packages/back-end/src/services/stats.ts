@@ -550,7 +550,10 @@ export function getMetricsAndQueryDataForStatsEngine(
             metricIds.push(metricId);
           } else {
             // These metrics will be added as if they came from their own "query"
-            // with the new unit count for all metrics with the same window
+            // with the new unit count for all metrics with the same window.
+            // The slot stays as a null here: position i is what ties an id to
+            // its m{i}_ columns.
+            metricIds.push(null);
             const slots =
               slotsByUsersColumn.get(usersColumn) ?? new Map<number, string>();
             slotsByUsersColumn.set(usersColumn, slots.set(i, metricId));
