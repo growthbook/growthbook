@@ -4,6 +4,7 @@ import { Flex } from "@radix-ui/themes";
 import { PiPlus } from "react-icons/pi";
 import type { FactMetricInterface } from "shared/types/fact-table";
 import type { MetricValue } from "shared/validators";
+import { getSinglePopulationStep } from "shared/populations";
 import {
   configHasPopulation,
   getMetricIdentifierTypes,
@@ -26,6 +27,7 @@ import {
   getLockedMixClass,
   getMetricValuesUnitState,
   getMixClassConflict,
+  getPopulationConflict,
   getReadOnlyUnit,
   getUnitConflict,
   getUnitPicker,
@@ -36,6 +38,7 @@ import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/Exp
 import Text from "@/ui/Text";
 import Tooltip from "@/ui/Tooltip";
 import { useUser } from "@/services/UserContext";
+import { usePopulations } from "@/hooks/usePopulations";
 import PopulationPicker from "./PopulationPicker";
 import ShowAsInput from "./ShowAsInput";
 import ValueCard from "./ValueCard";
@@ -57,6 +60,20 @@ export default function MetricTabContent() {
       ? draftExploreState.dataset.values
       : [];
   const hasPopulation = configHasPopulation(draftExploreState);
+  // The applied Population's Fact Table, which every metric must read from.
+  // Shares PopulationPicker's request; null until the Population loads.
+  const populationId =
+    draftExploreState.dataset?.type === "metric"
+      ? (draftExploreState.dataset.population?.populationId ?? null)
+      : null;
+  const { populations } = usePopulations(undefined, {
+    enabled: populationId !== null,
+  });
+  const appliedPopulation =
+    populations.find((p) => p.id === populationId) ?? null;
+  const populationFactTableId = appliedPopulation
+    ? (getSinglePopulationStep(appliedPopulation)?.source.factTableId ?? null)
+    : null;
   const unitState = getMetricValuesUnitState(
     values,
     getFactMetricById,
@@ -126,9 +143,10 @@ export default function MetricTabContent() {
       lockedClass: Exclude<MetricMixClass, "unknown"> | null,
       lockedUnit: string | null,
     ): string | null =>
+      getPopulationConflict(metric, populationFactTableId) ??
       getMixClassConflict(metric.metricType, lockedClass) ??
       getUnitConflict(metric, lockedUnit, getFactTableById),
-    [getFactTableById],
+    [getFactTableById, populationFactTableId],
   );
 
   // Each slot lists its enabled metrics first. Slots with the same locks share

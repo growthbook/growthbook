@@ -71,6 +71,26 @@ export function getAddMetricConflict(
   return null;
 }
 
+/**
+ * Why a metric can't join a chart whose Population reads from
+ * `populationFactTableId`, or null if it can (or the chart has no Population,
+ * or its definition hasn't loaded). Populations only support proportion
+ * metrics on their own Fact Table.
+ */
+export function getPopulationConflict(
+  metric: FactMetricInterface,
+  populationFactTableId: string | null,
+): string | null {
+  if (populationFactTableId === null) return null;
+  if (metric.metricType !== "proportion") {
+    return "Charts with a Population only support proportion metrics.";
+  }
+  if (metric.numerator.factTableId !== populationFactTableId) {
+    return "This metric doesn't use the Population's Fact Table.";
+  }
+  return null;
+}
+
 /** Why a metric can't join a chart locked to `lockedUnit`, or null if it can. */
 export function getUnitConflict(
   metric: FactMetricInterface,

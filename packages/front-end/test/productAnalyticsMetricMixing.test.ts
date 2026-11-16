@@ -11,6 +11,7 @@ import {
   getLockedMixClass,
   getMetricValuesUnitState,
   getMixClassConflict,
+  getPopulationConflict,
   getPopulationFactTableId,
   getUnitConflict,
   orderEnabledOptionsFirst,
@@ -408,5 +409,32 @@ describe("getMetricChartPopulationViolations", () => {
     expect(check({ getFactMetricById: () => null })).toEqual([
       "Metric signups not found.",
     ]);
+  });
+});
+
+describe("getPopulationConflict", () => {
+  it("allows any metric without a loaded Population", () => {
+    expect(getPopulationConflict(metrics.get("revenue")!, null)).toBeNull();
+  });
+
+  it("allows a proportion on the Population's Fact Table", () => {
+    expect(
+      getPopulationConflict(metrics.get("signups")!, "users_only"),
+    ).toBeNull();
+  });
+
+  it("rejects a metric that isn't a proportion", () => {
+    expect(
+      getPopulationConflict(
+        makeMetric("revenue_users", "mean", "users_only"),
+        "users_only",
+      ),
+    ).toBe("Charts with a Population only support proportion metrics.");
+  });
+
+  it("rejects a proportion on another Fact Table", () => {
+    expect(getPopulationConflict(metrics.get("signups")!, "devices_only")).toBe(
+      "This metric doesn't use the Population's Fact Table.",
+    );
   });
 });
