@@ -300,6 +300,14 @@ export function getAlignedComparisonDimensionKeyForTooltip(
  */
 export type ChartPoint = number | null;
 
+// Sorted by time, not as strings: a warehouse's dates (`2026-09-01 02:00:00`)
+// and the ISO dates filled in for missing buckets are formatted differently.
+export function sortDateXValues(xValues: Iterable<string>): string[] {
+  return Array.from(xValues).sort(
+    (a, b) => parseWarehouseDate(a).getTime() - parseWarehouseDate(b).getTime(),
+  );
+}
+
 // A series with no bucket at `x` reads as 0, unlike a null point, which is a gap.
 export function getChartPoint(
   map: Record<string, ChartPoint> | undefined,

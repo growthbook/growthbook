@@ -44,6 +44,7 @@ import {
   buildComparisonOverlaySeriesMaps,
   buildPopulationFractionLabels,
   getPopulationSeriesNames,
+  sortDateXValues,
   assignSecondaryValueAxis,
   buildValueAxes,
   buildExplorerChartComparisonSeriesList,
@@ -357,6 +358,8 @@ export default function ExplorerChart({
           ? xValueTotals[a] - xValueTotals[b]
           : xValueTotals[b] - xValueTotals[a],
       );
+    } else if (firstDimensionIsDate) {
+      sortedXValues = sortDateXValues(uniqueXValues);
     } else {
       sortedXValues = Array.from(uniqueXValues).sort();
     }

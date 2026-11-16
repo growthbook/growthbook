@@ -10,6 +10,7 @@ import {
   buildPopulationFractionLabels,
   getPopulationFractionLabel,
   getPopulationSeriesNames,
+  sortDateXValues,
   computeBigNumberComparisonTrendForMetricIndex,
   buildCompareChartLegendModel,
   computeBigNumberComparisonTrends,
@@ -790,4 +791,22 @@ describe("second % of Population value axis", () => {
       ]);
     },
   );
+});
+
+describe("sortDateXValues", () => {
+  it("orders warehouse and ISO dates by time", () => {
+    expect(
+      sortDateXValues([
+        "2026-09-01 02:00:00",
+        "2026-09-01T01:00:00.000Z",
+        "2026-09-01T03:00:00.000Z",
+        "2026-09-01 00:00:00",
+      ]),
+    ).toEqual([
+      "2026-09-01 00:00:00",
+      "2026-09-01T01:00:00.000Z",
+      "2026-09-01 02:00:00",
+      "2026-09-01T03:00:00.000Z",
+    ]);
+  });
 });
