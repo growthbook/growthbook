@@ -172,29 +172,12 @@ const NO_VALUES_RENDER_OPTS: ExplorationRenderOpts = {
 };
 
 /**
- * Whether the chart can draw a second, right-hand value axis. Horizontal bars
- * and compare-mode bars (whose series each mix metrics) keep one value axis.
- */
-function canDrawSecondValueAxis(
-  chartType: ExplorationConfig["chartType"],
-  compareActive: boolean,
-): boolean {
-  if (chartType === "horizontalBar" || chartType === "stackedHorizontalBar") {
-    return false;
-  }
-  return !(compareActive && chartType === "bar");
-}
-
-/**
  * Resolves how every value renders, once. The chart, the result table, the
- * axis title and the agent's CSV all read the result. `compareActive` is
- * whether a previous period is drawn, which decides whether the chart can
- * give "% of Population" its own axis.
+ * axis title and the agent's CSV all read the result.
  */
 export function getExplorationRenderOpts(
   config: ExplorationConfig | null,
   getFactMetricById: (id: string) => FactMetricInterface | null,
-  { compareActive = false }: { compareActive?: boolean } = {},
 ): ExplorationRenderOpts {
   if (!datasetHasValues(config?.dataset)) return NO_VALUES_RENDER_OPTS;
   const { values } = config.dataset;
@@ -213,7 +196,6 @@ export function getExplorationRenderOpts(
 
   // "% of Population" is on a different scale from every other mode, so when
   // it's mixed with them it moves to its own axis. Then each axis keeps a title.
-  // A chart that can't draw a second axis leaves the shared axis untitled.
   const percentIndexes: number[] = [];
   const otherModes = new Set<ShowAs>();
   for (let i = 0; i < choices.length; i++) {
@@ -223,10 +205,7 @@ export function getExplorationRenderOpts(
       otherModes.add(choices[i].showAs);
     }
   }
-  const hasSecondAxis =
-    percentIndexes.length > 0 &&
-    otherModes.size > 0 &&
-    canDrawSecondValueAxis(config.chartType, compareActive);
+  const hasSecondAxis = percentIndexes.length > 0 && otherModes.size > 0;
   const secondaryAxisValueIndexes = hasSecondAxis ? percentIndexes : [];
   let primaryAxisShowAs = sharedShowAs;
   if (hasSecondAxis) {

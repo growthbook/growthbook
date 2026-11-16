@@ -8,6 +8,7 @@ import {
   buildValueAxes,
   buildExplorerChartTooltipFormatter,
   buildPopulationFractionLabels,
+  getPopulationFractionLabel,
   computeBigNumberComparisonTrendForMetricIndex,
   buildCompareChartLegendModel,
   computeBigNumberComparisonTrends,
@@ -535,6 +536,53 @@ describe("population fraction tooltip labels", () => {
     ).toBe(0);
   });
 
+  describe("in compare mode", () => {
+    const periodLabels = {
+      currentLabel: "Sep 1 – 7, 2026",
+      previousLabel: "Aug 25 – 31, 2026",
+    };
+    const previousRows = [
+      {
+        dimensions: ["2026-08-25"],
+        values: [
+          { metricId: "signups", numerator: 3, denominator: 3 },
+          { metricId: "logins", numerator: 9, denominator: 9 },
+        ],
+        populationCount: 50,
+      },
+    ];
+    const compareLabels = buildPopulationFractionLabels(rows, renderOpts, {
+      periodLabels,
+      previousRows,
+      // The previous period is drawn at the current period's x values.
+      previousXAt: (x) => (x === "2026-09-01" ? "2026-08-25" : undefined),
+    });
+    const currentName = "Signups (Sep 1 – 7, 2026)";
+    const previousName = "Signups (Aug 25 – 31, 2026)";
+
+    it("labels each period with its own row, at the x it's drawn at", () => {
+      expect(compareLabels.get(`${currentName}\u00002026-09-01`)).toBe(
+        "1 / 100",
+      );
+      expect(compareLabels.get(`${previousName}\u00002026-09-01`)).toBe(
+        "3 / 50",
+      );
+      expect(compareLabels.get(`${previousName}\u0000${septFirstMs}`)).toBe(
+        "3 / 50",
+      );
+      expect(compareLabels.get("Signups\u00002026-09-01")).toBeUndefined();
+    });
+
+    it("finds the fraction by the suffixed series name in the tooltip", () => {
+      expect(
+        getPopulationFractionLabel(compareLabels, previousName, septFirstMs),
+      ).toBe("3 / 50");
+      expect(
+        getPopulationFractionLabel(compareLabels, currentName, septFirstMs),
+      ).toBe("1 / 100");
+    });
+  });
+
   it("puts the fraction before the value in the tooltip", () => {
     const formatter = buildExplorerChartTooltipFormatter({
       chartType: "line",
@@ -569,7 +617,7 @@ describe("population fraction tooltip labels", () => {
   });
 });
 
-describe("right-hand % of Population axis", () => {
+describe("second % of Population value axis", () => {
   const renderOpts = {
     values: [
       { showAs: "total" as const, isRatio: false, seriesName: "Signups" },
@@ -585,19 +633,20 @@ describe("right-hand % of Population axis", () => {
     primaryAxisShowAs: "total" as const,
     sharedUnit: "user_id",
   };
+  const labels = { currentLabel: "C", previousLabel: "P" };
 
-  it("moves only the % of Population series onto the right axis", () => {
+  it("moves only the % of Population series onto the second axis", () => {
     expect(
       assignSecondaryValueAxis(
         [{ name: "Signups" }, { name: "Purchases" }],
         renderOpts,
         null,
+        "yAxisIndex",
       ),
     ).toEqual([{ name: "Signups" }, { name: "Purchases", yAxisIndex: 1 }]);
   });
 
   it("moves both compare periods of a metric", () => {
-    const labels = { currentLabel: "C", previousLabel: "P" };
     expect(
       assignSecondaryValueAxis(
         [
@@ -607,11 +656,57 @@ describe("right-hand % of Population axis", () => {
         ],
         renderOpts,
         labels,
+        "yAxisIndex",
       ),
     ).toEqual([
       { name: "Signups (C)" },
       { name: "Purchases (C)", yAxisIndex: 1 },
       { name: "Purchases (P)", yAxisIndex: 1 },
+    ]);
+  });
+
+  it("keeps a vertical compare bar's category axis", () => {
+    expect(
+      assignSecondaryValueAxis(
+        [{ name: "Purchases (P)", xAxisIndex: 1 }],
+        renderOpts,
+        labels,
+        "yAxisIndex",
+      ),
+    ).toEqual([{ name: "Purchases (P)", xAxisIndex: 1, yAxisIndex: 1 }]);
+  });
+
+  it("uses the x value axis on horizontal bars, never the category axis", () => {
+    const [current, previous] = assignSecondaryValueAxis(
+      [{ name: "Purchases (C)" }, { name: "Purchases (P)", yAxisIndex: 1 }],
+      renderOpts,
+      labels,
+      "xAxisIndex",
+    );
+    expect(current).toEqual({ name: "Purchases (C)", xAxisIndex: 1 });
+    expect(current).not.toHaveProperty("yAxisIndex");
+    // The previous period keeps its own category axis.
+    expect(previous).toEqual({
+      name: "Purchases (P)",
+      yAxisIndex: 1,
+      xAxisIndex: 1,
+    });
+  });
+
+  it("gives the second axis's stacked series their own stack", () => {
+    expect(
+      assignSecondaryValueAxis(
+        [
+          { name: "Signups", stack: "stack" },
+          { name: "Purchases", stack: "stack" },
+        ],
+        renderOpts,
+        null,
+        "yAxisIndex",
+      ),
+    ).toEqual([
+      { name: "Signups", stack: "stack" },
+      { name: "Purchases", stack: "stack:secondary", yAxisIndex: 1 },
     ]);
   });
 
@@ -622,22 +717,32 @@ describe("right-hand % of Population axis", () => {
         series,
         { ...renderOpts, secondaryAxisValueIndexes: [] },
         null,
+        "yAxisIndex",
       ),
     ).toBe(series);
   });
 
-  it("adds a titled right axis whose ticks follow the left grid lines", () => {
-    const primary = { type: "value", name: "Total", splitLine: { show: true } };
-    expect(buildValueAxes(primary, null)).toBe(primary);
-    expect(buildValueAxes(primary, { name: "% of Population" })).toEqual([
-      primary,
-      {
+  it.each(["right", "top"] as const)(
+    "adds a titled %s axis whose ticks follow the primary grid lines",
+    (position) => {
+      const primary = {
         type: "value",
-        name: "% of Population",
-        position: "right",
-        alignTicks: true,
-        splitLine: { show: false },
-      },
-    ]);
-  });
+        name: "Total",
+        splitLine: { show: true },
+      };
+      expect(buildValueAxes(primary, null, position)).toBe(primary);
+      expect(
+        buildValueAxes(primary, { name: "% of Population" }, position),
+      ).toEqual([
+        primary,
+        {
+          type: "value",
+          name: "% of Population",
+          position,
+          alignTicks: true,
+          splitLine: { show: false },
+        },
+      ]);
+    },
+  );
 });

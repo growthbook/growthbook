@@ -247,9 +247,30 @@ describe("getPopulationFactTableId", () => {
     ).toBeNull();
   });
 
-  it("returns null when there are no metrics or a slot is empty", () => {
+  it("returns null when there are no metrics or every slot is empty", () => {
     expect(getPopulationFactTableId([], getMetric)).toBeNull();
     expect(getPopulationFactTableId([value("", null)], getMetric)).toBeNull();
+  });
+
+  it("skips an empty slot next to a proportion", () => {
+    expect(
+      getPopulationFactTableId(
+        [value("signups", "user_id"), value("", null)],
+        getMetric,
+      ),
+    ).toBe("users_only");
+  });
+
+  it("skips a metric that hasn't loaded yet", () => {
+    expect(
+      getPopulationFactTableId(
+        [value("signups", "user_id"), value("loading", "user_id")],
+        getMetric,
+      ),
+    ).toBe("users_only");
+    expect(
+      getPopulationFactTableId([value("loading", "user_id")], getMetric),
+    ).toBeNull();
   });
 });
 

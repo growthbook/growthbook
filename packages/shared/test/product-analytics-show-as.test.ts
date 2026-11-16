@@ -804,13 +804,15 @@ describe("proportions with a population", () => {
     expect(getSecondaryValueAxisName(renderOpts)).toBe("% of Population");
   });
 
+  // Render opts don't depend on compare, so compare-mode bars get the same
+  // second axis as a plain bar chart.
   it.each([
-    ["a horizontal bar chart", "horizontalBar", false],
-    ["a stacked horizontal bar chart", "stackedHorizontalBar", false],
-    ["a bar chart in compare mode", "bar", true],
+    ["a horizontal bar chart", "horizontalBar"],
+    ["a stacked horizontal bar chart", "stackedHorizontalBar"],
+    ["a bar chart, including in compare mode", "bar"],
   ] as const)(
-    "keeps one untitled axis for mixed modes on %s",
-    (_, chartType, compareActive) => {
+    "gives % of Population its own axis for mixed modes on %s",
+    (_, chartType) => {
       const renderOpts = getExplorationRenderOpts(
         {
           ...populationConfig([
@@ -820,11 +822,10 @@ describe("proportions with a population", () => {
           chartType,
         },
         getFactMetricById,
-        { compareActive },
       );
-      expect(renderOpts.secondaryAxisValueIndexes).toEqual([]);
-      expect(getSecondaryValueAxisName(renderOpts)).toBeNull();
-      expect(getDefaultValueAxisName(renderOpts)).toBe("");
+      expect(renderOpts.secondaryAxisValueIndexes).toEqual([1]);
+      expect(getDefaultValueAxisName(renderOpts)).toBe("Total");
+      expect(getSecondaryValueAxisName(renderOpts)).toBe("% of Population");
     },
   );
 

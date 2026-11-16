@@ -12,6 +12,7 @@ import { isManagedWarehousePendingQueryError } from "shared/util";
 import { parseWarehouseDate } from "shared/dates";
 import {
   calculateProductAnalyticsDateRange,
+  createComparisonAlignmentResolver,
   extendDateBucketsForward,
   getComparisonAlignmentStrategy,
   getDateGranularity,
@@ -73,6 +74,9 @@ export const CHART_GRID = {
   bottom: 8,
   top: 16,
   topWithLegend: 58,
+  // Extra room for a horizontal chart's top value axis title, so it clears
+  // the legend.
+  topValueAxisTitle: 28,
   // Rough allowance for tick labels + names outside the plot; only used for
   // compare-bar sizing and name truncation.
   axisGutterX: 80,
@@ -198,17 +202,19 @@ export default function ExplorerChart({
   useEffect(() => () => resizeObserverRef.current?.disconnect(), []);
 
   const renderOpts: RenderOpts = useMemo(
-    () =>
-      getExplorationRenderOpts(submittedExploreState, getFactMetricById, {
-        compareActive: compareEnabled,
-      }),
-    [submittedExploreState, getFactMetricById, compareEnabled],
+    () => getExplorationRenderOpts(submittedExploreState, getFactMetricById),
+    [submittedExploreState, getFactMetricById],
   );
 
   // Empty string hides the axis name; unset falls back to the inferred default.
   const customCategoryAxisName =
     submittedExploreState.chartSettings?.categoryAxisLabel?.trim();
   const valueAxisName = getValueAxisName(submittedExploreState, renderOpts);
+  // Horizontal bars put the second value axis on top (see buildValueAxes).
+  const hasTopValueAxis =
+    (submittedExploreState.chartType === "horizontalBar" ||
+      submittedExploreState.chartType === "stackedHorizontalBar") &&
+    getSecondaryValueAxisName(renderOpts) !== null;
 
   const bigNumberComparisonTrends = useMemo(() => {
     if (!compareEnabled) return null;
@@ -570,14 +576,15 @@ export default function ExplorerChart({
       );
     }
 
-    // "% of Population" values mixed with other modes get a right-hand axis
-    // when the chart can draw one (see getExplorationRenderOpts).
+    // "% of Population" values mixed with other modes get a second value
+    // axis: on the right of a vertical chart, on top of a horizontal one.
     const secondaryValueAxisName = getSecondaryValueAxisName(renderOpts);
     if (secondaryValueAxisName !== null) {
       seriesConfigs = assignSecondaryValueAxis(
         seriesConfigs,
         renderOpts,
         comparisonPeriodLabels,
+        isHorizontalBar ? "xAxisIndex" : "yAxisIndex",
       );
     }
 
@@ -664,13 +671,14 @@ export default function ExplorerChart({
       secondaryValueAxisName !== null
         ? {
             ...axisTitle(secondaryValueAxisName, valueNameMaxWidth),
-            // A % suffix keeps right-hand ticks from reading as counts.
+            // A % suffix keeps these ticks from reading as counts.
             axisLabel: {
               color: textColor,
               formatter: (value: number) => `${formatNumber(value)}%`,
             },
           }
         : null,
+      isHorizontalBar ? "top" : "right",
     );
 
     // Compare-mode bars overlay the previous period on a second category axis
@@ -711,7 +719,24 @@ export default function ExplorerChart({
       seriesConfigsLength: seriesConfigs.length,
       formatNumber,
       comparisonAlignment,
-      populationFractionLabels: buildPopulationFractionLabels(rows, renderOpts),
+      populationFractionLabels: buildPopulationFractionLabels(
+        rows,
+        renderOpts,
+        {
+          periodLabels: comparisonPeriodLabels,
+          previousRows: alignedComparisonOverlay
+            ? (comparisonExploration?.result?.rows ?? [])
+            : [],
+          previousXAt: alignedComparisonOverlay
+            ? createComparisonAlignmentResolver(
+                sortedXValues,
+                alignedComparisonOverlay.comparisonXValues,
+                firstDimensionIsDate,
+                comparisonAlignment,
+              )
+            : undefined,
+        },
+      ),
     });
 
     return {
@@ -1104,9 +1129,11 @@ export default function ExplorerChart({
                 grid: {
                   left: CHART_GRID.left,
                   right: CHART_GRID.right,
-                  top: chartConfig.legend?.show
-                    ? CHART_GRID.topWithLegend
-                    : CHART_GRID.top,
+                  top:
+                    (chartConfig.legend?.show
+                      ? CHART_GRID.topWithLegend
+                      : CHART_GRID.top) +
+                    (hasTopValueAxis ? CHART_GRID.topValueAxisTitle : 0),
                   bottom: CHART_GRID.bottom,
                 },
               }}

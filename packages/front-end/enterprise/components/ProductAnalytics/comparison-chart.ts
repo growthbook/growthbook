@@ -472,29 +472,79 @@ function populationFractionKey(seriesName: string, x: string): string {
 
 /**
  * The tooltip fraction behind each "% of Population" point, e.g. "12 / 200":
- * members who converted over the Population's member count. Keyed by series
- * name and x value; read with `getPopulationFractionLabel`.
+ * members who converted over the Population's member count. Keyed by the
+ * series name ECharts emits and the x value; read with
+ * `getPopulationFractionLabel`.
+ *
+ * In compare mode, series names carry their period (`periodLabels`) and the
+ * previous period is drawn at the current period's x values, so each previous
+ * row's fraction is keyed at the current x it's drawn at (`previousXAt`).
  */
 export function buildPopulationFractionLabels(
   rows: ProductAnalyticsResultRow[],
   renderOpts: RenderOpts,
+  {
+    periodLabels = null,
+    previousRows = [],
+    previousXAt = () => undefined,
+  }: {
+    periodLabels?: { currentLabel: string; previousLabel: string } | null;
+    previousRows?: ProductAnalyticsResultRow[];
+    /** The previous period's x drawn at a current x. */
+    previousXAt?: (x: string) => string | undefined;
+  } = {},
 ): Map<string, string> {
   const labels = new Map<string, string>();
-  for (const row of rows) {
+  const addLabel = (
+    seriesName: string,
+    x: string,
+    row: ProductAnalyticsResultRow,
+    valueIndex: number,
+  ) => {
     // No members means no data, so the point has no fraction to explain.
-    if (!row.populationCount) continue;
+    if (!row.populationCount) return;
+    const numerator = row.values?.[valueIndex]?.numerator ?? 0;
+    const label = `${fractionNumberFormatter.format(numerator)} / ${fractionNumberFormatter.format(row.populationCount)}`;
+    labels.set(populationFractionKey(seriesName, x), label);
+    // Time axes report the hovered x as epoch milliseconds.
+    const time = parseWarehouseDate(x).getTime();
+    if (!Number.isNaN(time)) {
+      labels.set(populationFractionKey(seriesName, String(time)), label);
+    }
+  };
+  const previousByX = new Map(
+    previousRows.map((row) => [String(row.dimensions[0] ?? ""), row]),
+  );
+
+  for (const row of rows) {
     const x = String(row.dimensions[0] ?? "");
-    const values = row.values ?? [];
-    for (let i = 0; i < values.length; i++) {
+    const previousX = previousXAt(x);
+    const previousRow =
+      previousX !== undefined ? previousByX.get(previousX) : undefined;
+    for (let i = 0; i < (row.values ?? []).length; i++) {
       const opts = renderOpts.values[i];
       if (opts?.showAs !== "percent_of_population") continue;
-      const numerator = values[i].numerator ?? 0;
-      const label = `${fractionNumberFormatter.format(numerator)} / ${fractionNumberFormatter.format(row.populationCount)}`;
-      labels.set(populationFractionKey(opts.seriesName, x), label);
-      // Time axes report the hovered x as epoch milliseconds.
-      const time = parseWarehouseDate(x).getTime();
-      if (!Number.isNaN(time)) {
-        labels.set(populationFractionKey(opts.seriesName, String(time)), label);
+      addLabel(
+        periodLabels
+          ? formatComparisonMetricLabel(
+              opts.seriesName,
+              periodLabels.currentLabel,
+            )
+          : opts.seriesName,
+        x,
+        row,
+        i,
+      );
+      if (periodLabels && previousRow) {
+        addLabel(
+          formatComparisonMetricLabel(
+            opts.seriesName,
+            periodLabels.previousLabel,
+          ),
+          x,
+          previousRow,
+          i,
+        );
       }
     }
   }
@@ -512,23 +562,25 @@ export function getPopulationFractionLabel(
   );
 }
 
-// --- Explorer chart: right-hand "% of Population" axis ---
+// --- Explorer chart: second "% of Population" value axis ---
 
 /**
- * The chart's value axis option: the primary axis alone, or with a right-hand
- * copy changed by `secondaryAxisOverrides` (its title and labels). Grid lines
- * follow the left axis only, and the right axis's ticks snap to them so a
- * value can be read across.
+ * The chart's value axis option: the primary axis alone, or with a second copy
+ * changed by `secondaryAxisOverrides` (its title and labels). The second axis
+ * sits on the right of a vertical chart and on top of a horizontal one. Grid
+ * lines follow the primary axis only, and the second axis's ticks snap to them
+ * so a value can be read across.
  */
 export function buildValueAxes<T extends object>(
   primaryAxis: T,
   secondaryAxisOverrides: object | null,
+  secondaryAxisPosition: "right" | "top",
 ): T | [T, T] {
   if (!secondaryAxisOverrides) return primaryAxis;
   const secondaryAxis = {
     ...primaryAxis,
     ...secondaryAxisOverrides,
-    position: "right" as const,
+    position: secondaryAxisPosition,
     alignTicks: true,
     splitLine: { show: false },
   };
@@ -536,9 +588,14 @@ export function buildValueAxes<T extends object>(
 }
 
 /**
- * Moves the series of values on the right-hand axis (see
- * `secondaryAxisValueIndexes`) onto it. Compare-mode series are matched by
- * their metric name, so both periods of a metric share an axis.
+ * Moves the series of values on the second value axis (see
+ * `secondaryAxisValueIndexes`) onto it. `valueAxisKey` is the value axis's
+ * index key: `yAxisIndex` on vertical charts, `xAxisIndex` on horizontal ones,
+ * where `yAxisIndex` is the category axis (compare mode already uses index 1
+ * for the previous period's category axis, which is kept). Compare-mode series
+ * are matched by their metric name, so both periods of a metric share an axis.
+ * Stacked series get their own stack, so counts and percents don't stack
+ * together.
  */
 export function assignSecondaryValueAxis(
   seriesConfigs: unknown[],
@@ -547,6 +604,7 @@ export function assignSecondaryValueAxis(
     currentLabel: string;
     previousLabel: string;
   } | null,
+  valueAxisKey: "xAxisIndex" | "yAxisIndex",
 ): unknown[] {
   const secondarySeriesNames = new Set<string>();
   for (const valueIndex of renderOpts.secondaryAxisValueIndexes) {
@@ -555,14 +613,20 @@ export function assignSecondaryValueAxis(
   if (!secondarySeriesNames.size) return seriesConfigs;
 
   return seriesConfigs.map((config) => {
-    const seriesConfig = config as { name?: string };
+    const seriesConfig = config as { name?: string; stack?: string };
     const displayName = seriesConfig.name ?? "";
     const metricName = comparisonPeriodLabels
       ? parseComparisonTooltipSeriesName(displayName, comparisonPeriodLabels)
           .baseName
       : displayName;
     if (!secondarySeriesNames.has(metricName)) return config;
-    return { ...seriesConfig, yAxisIndex: 1 };
+    return {
+      ...seriesConfig,
+      [valueAxisKey]: 1,
+      ...(seriesConfig.stack !== undefined
+        ? { stack: `${seriesConfig.stack}:secondary` }
+        : {}),
+    };
   });
 }
 

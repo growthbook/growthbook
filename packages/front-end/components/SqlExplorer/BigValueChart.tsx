@@ -2,6 +2,7 @@ import { Box, Flex, Heading, Text } from "@radix-ui/themes";
 import React, { type ReactNode } from "react";
 import { BigValueFormat } from "shared/validators";
 import { useCurrency } from "@/hooks/useCurrency";
+import UIText from "@/ui/Text";
 import { formatCurrency } from "@/services/metrics";
 
 type Props = {
@@ -67,13 +68,14 @@ export default function BigValueChart({
   fillContainer = false,
 }: Props) {
   const currency = useCurrency();
-  if (value === undefined || value === null) {
-    return <div style={{ textAlign: "center", color: "#888" }}>No data</div>;
-  }
-
-  const displayValue = formatter
-    ? formatter(value)
-    : formatValue(value, format ?? "longNumber", currency);
+  // No data keeps the card's layout, label and comparison; only the number
+  // is replaced.
+  const displayValue =
+    value === null
+      ? null
+      : formatter
+        ? formatter(value)
+        : formatValue(value, format ?? "longNumber", currency);
 
   const content = (
     <Flex
@@ -85,7 +87,11 @@ export default function BigValueChart({
       pt="2"
       pb="2"
     >
-      {fillContainer ? (
+      {displayValue === null ? (
+        <UIText size="lg" color="text-low">
+          No data
+        </UIText>
+      ) : fillContainer ? (
         <Heading
           as="h1"
           style={{

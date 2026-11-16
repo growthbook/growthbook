@@ -51,9 +51,7 @@ export default function ChartSettingsSection() {
     : "valueAxisLabel";
 
   const defaultValueAxisLabel = getDefaultValueAxisName(
-    getExplorationRenderOpts(draftExploreState, getFactMetricById, {
-      compareActive: (draftExploreState.previousTimeFrame ?? null) !== null,
-    }),
+    getExplorationRenderOpts(draftExploreState, getFactMetricById),
   );
   const labels = draftExploreState.chartSettings;
   const isLineChart = draftExploreState.chartType === "line";

@@ -34,16 +34,6 @@ export default function PopulationPicker({
   const { factTables, getFactMetricById, project } = useDefinitions();
   const gb = useGrowthBook<AppFeatures>();
   const populationsEnabled = !!gb?.isOn("populations");
-  // Unfiltered, so a chart's Population still resolves when it belongs to
-  // another Project; the options are filtered to the current Project below.
-  const {
-    populations,
-    loading: populationsLoading,
-    error: populationsError,
-    mutate: retryPopulations,
-  } = usePopulations(undefined, { enabled: populationsEnabled });
-  // Set when picking a Population removes the chart's Group By rows.
-  const [removedGroupBy, setRemovedGroupBy] = useState(false);
 
   const values: MetricValue[] =
     draftExploreState.dataset?.type === "metric"
@@ -54,6 +44,32 @@ export default function PopulationPicker({
       ? draftExploreState.dataset.population
       : undefined;
   const hasPopulation = population !== undefined;
+
+  // Unfiltered, so a chart's Population still resolves when it belongs to
+  // another Project; the options are filtered to the current Project below.
+  // Also fetched with the flag off while one is applied, so the select can
+  // still name it.
+  const {
+    populations,
+    loading: populationsLoading,
+    error: populationsError,
+    mutate: retryPopulations,
+  } = usePopulations(undefined, {
+    enabled: populationsEnabled || hasPopulation,
+  });
+  // The Population this picker applied while removing the chart's Group By
+  // rows. The callout shows only while that Population is still applied.
+  const [removedGroupByFor, setRemovedGroupByFor] = useState<string | null>(
+    null,
+  );
+  // Another exploration, or another Population, isn't the one Group By was
+  // removed for, so forget it.
+  if (
+    removedGroupByFor !== null &&
+    removedGroupByFor !== population?.populationId
+  ) {
+    setRemovedGroupByFor(null);
+  }
 
   // Only offer Populations that read from the metrics' shared Fact Table.
   const populationFactTableId = getPopulationFactTableId(
@@ -76,13 +92,17 @@ export default function PopulationPicker({
   if (savedPopulation && !populationOptions.includes(savedPopulation)) {
     populationOptions.push(savedPopulation);
   }
-  const populationsLoaded = !populationsLoading && !populationsError;
+  // A failed refresh keeps the cached list, so only a failed first fetch
+  // leaves none. usePopulations returns the list rather than its data, so a
+  // cached empty list that then fails to refresh also counts as none.
+  const hasPopulationList =
+    !populationsLoading && (!populationsError || populations.length > 0);
   const noPopulationsFit =
-    populationsLoaded && !hasPopulation && populationOptions.length === 0;
+    hasPopulationList && !hasPopulation && populationOptions.length === 0;
 
   const getPopulationViolations = (): string[] => {
-    // There's nothing to check until the saved Populations load.
-    if (!population || !populationsLoaded) return [];
+    // Without a list, whether the applied Population still exists is unknown.
+    if (!population || !hasPopulationList) return [];
     return getMetricChartPopulationViolations({
       population,
       savedPopulation,
@@ -96,7 +116,7 @@ export default function PopulationPicker({
 
   const handlePopulationChange = (populationId: string) => {
     if (populationId === NO_POPULATION) {
-      setRemovedGroupBy(false);
+      setRemovedGroupByFor(null);
       setDraftExploreState((prev) =>
         prev.type === "metric"
           ? { ...prev, dataset: omit(prev.dataset, "population") }
@@ -109,7 +129,7 @@ export default function PopulationPicker({
     const hasGroupBy = draftExploreState.dimensions.some(
       (d) => d.dimensionType !== "date",
     );
-    if (hasGroupBy) setRemovedGroupBy(true);
+    setRemovedGroupByFor(hasGroupBy ? populationId : null);
 
     setDraftExploreState((prev) => {
       if (prev.type !== "metric") return prev;
@@ -129,9 +149,10 @@ export default function PopulationPicker({
     });
   };
 
-  // Keep the picker visible while a Population is set so it can be cleared.
+  // Keep the picker visible while a Population is set so it can be cleared,
+  // even with the flag off.
   const showPicker =
-    populationsEnabled && (populationFactTableId !== null || hasPopulation);
+    (populationsEnabled && populationFactTableId !== null) || hasPopulation;
   if (!showPicker) return null;
 
   const populationViolations = getPopulationViolations();
@@ -147,8 +168,13 @@ export default function PopulationPicker({
             : (population?.populationId ?? NO_POPULATION)
         }
         placeholder="Loading..."
+        // Without a list, None stays selectable while a Population is applied,
+        // so the chart is never stuck filtered by one.
         disabled={
-          !unit || populationsLoading || !!populationsError || noPopulationsFit
+          !unit ||
+          populationsLoading ||
+          (!hasPopulationList && !hasPopulation) ||
+          noPopulationsFit
         }
         error={
           unit ? undefined : "Select an identifier type to add a Population."
@@ -190,12 +216,13 @@ export default function PopulationPicker({
           </ul>
         </Callout>
       )}
-      {removedGroupBy && hasPopulation && (
-        <Callout status="info">
-          Group By was removed. Charts with a Population can only be grouped by
-          date.
-        </Callout>
-      )}
+      {removedGroupByFor !== null &&
+        removedGroupByFor === population?.populationId && (
+          <Callout status="info">
+            Group By was removed. Charts with a Population can only be grouped
+            by date.
+          </Callout>
+        )}
     </>
   );
 }

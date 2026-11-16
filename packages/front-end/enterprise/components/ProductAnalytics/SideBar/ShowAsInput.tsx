@@ -14,7 +14,7 @@ type LabelKey = ShowAs | "event_totals";
 // Keyed by every ShowAs so a new option can't ship without a label.
 const getLabels = (unit: string | null): Record<LabelKey, string> => ({
   total: "Total",
-  event_totals: "Event Totals",
+  event_totals: "Event totals",
   per_unit: unit ? `Per ${unit}` : "Per unit",
   percent_of_population: "% of Population",
 });
