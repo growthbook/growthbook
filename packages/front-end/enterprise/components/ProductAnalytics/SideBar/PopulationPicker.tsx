@@ -5,6 +5,7 @@ import type { AppFeatures } from "shared/types/app-features";
 import type { MetricValue } from "shared/validators";
 import Callout from "@/ui/Callout";
 import HelperText from "@/ui/HelperText";
+import Text from "@/ui/Text";
 import Link from "@/ui/Link";
 import { Select, SelectItem } from "@/ui/Select";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -183,10 +184,16 @@ export default function PopulationPicker({
         setValue={handlePopulationChange}
       >
         <SelectItem value={NO_POPULATION}>None</SelectItem>
-        {/* Without a list, name the applied filter so it isn't blank. */}
+        {/* Without a list, the applied filter still shows, as a status rather
+            than something that reads like a Population's name. */}
         {!hasPopulationList && population && (
-          <SelectItem value={population.populationId}>
-            Applied Population
+          <SelectItem
+            value={population.populationId}
+            textValue="Name couldn't be loaded"
+          >
+            <Text color="text-low" fontStyle="italic">
+              Name couldn&apos;t be loaded
+            </Text>
           </SelectItem>
         )}
         {populationOptions.map((p) => (
