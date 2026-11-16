@@ -1,5 +1,5 @@
 import { Box } from "@radix-ui/themes";
-import type { ApiCreateInterleavingBody } from "shared/validators";
+import type { ApiInterleavingInterface } from "shared/validators";
 import { getDataSourceSqlDialect } from "shared/dialects";
 import SelectField from "@/components/Forms/SelectField";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -9,14 +9,14 @@ import Link from "@/ui/Link";
 import InterleavingMetricsInput from "./InterleavingMetricsInput";
 
 export type InterleavingAnalysisValue = Pick<
-  ApiCreateInterleavingBody,
-  "datasourceId" | "interleavingExposureQueryId" | "userIdType"
-> & { metrics: NonNullable<ApiCreateInterleavingBody["metrics"]> };
+  ApiInterleavingInterface,
+  "datasourceId" | "interleavingExposureQueryId" | "userIdType" | "metrics"
+>;
 
 export function getAnalysisError(
   value: InterleavingAnalysisValue,
 ): string | null {
-  if (!value.datasourceId) return "Select a data source";
+  if (!value.datasourceId) return "Select a Data Source";
   if (!value.interleavingExposureQueryId) return "Select an exposure query";
   if (!value.userIdType) return "Select an identifier type";
   return null;
@@ -68,9 +68,8 @@ export default function InterleavingAnalysisFields({
           value: d.id,
           label: d.name,
         }))}
-        initialOption="Select..."
         disabled={disabled}
-        helpText="Only data sources whose SQL dialect can unnest JSON arrays are listed."
+        helpText="Only Data Sources whose SQL dialect can unnest JSON arrays are listed."
       />
       {value.datasourceId && !loading && exposureQueries.length === 0 ? (
         <Callout status="warning" mb="3">
@@ -108,7 +107,7 @@ export default function InterleavingAnalysisFields({
             });
           }}
           options={exposureQueries.map((q) => ({ value: q.id, label: q.name }))}
-          initialOption="Select..."
+          sort={false}
           disabled={disabled || !value.datasourceId}
         />
       )}
@@ -120,7 +119,7 @@ export default function InterleavingAnalysisFields({
           setValue({ ...value, userIdType, metrics: [] })
         }
         options={userIdTypes.map((t) => ({ value: t, label: t }))}
-        initialOption="Select..."
+        sort={false}
         disabled={disabled || !exposureQuery}
       />
       <InterleavingMetricsInput

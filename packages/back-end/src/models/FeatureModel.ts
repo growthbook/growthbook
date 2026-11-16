@@ -1596,6 +1596,9 @@ export async function updateFeature(
     isCompensation?: boolean;
     // Preserve references already accepted in the draft being landed.
     savedGroupScopeRevision?: FeatureRevisionInterface;
+    // Drift repair copying a published revision back onto the feature. Hooks
+    // judge changes, not restoring what is already live.
+    restoresLiveRevision?: boolean;
   },
 ): Promise<FeatureInterface> {
   const ourStamp = advancedGuardStamp(options.casOnDateUpdated);
@@ -1666,11 +1669,13 @@ export async function updateFeature(
           : feature,
       );
     }
-    await runValidateFeatureHooks({
-      context,
-      feature: projected,
-      original: feature,
-    });
+    if (!options.restoresLiveRevision) {
+      await runValidateFeatureHooks({
+        context,
+        feature: projected,
+        original: feature,
+      });
+    }
   }
 
   // Hygiene: when persisting a new top-level v2 `rules` array, also force-scrub
@@ -3919,6 +3924,7 @@ export function computeProposedFeatureForValidation(
   proposedFeature: FeatureInterface;
   defaultToCheck: string | undefined;
   rulesToCheck: FeatureRule[];
+  holdoutToCheck: FeatureInterface["holdout"] | undefined;
   valueSchemaChanged: boolean;
 } {
   const { changes, removeHoldout } = computeRevisionMergeChanges(
@@ -3961,11 +3967,22 @@ export function computeProposedFeatureForValidation(
       changes.defaultValue !== feature.defaultValue)
       ? proposedFeature.defaultValue
       : undefined;
+  const holdoutToCheck =
+    proposedFeature.holdout &&
+    (backingChanged || proposedFeature.holdout.value !== feature.holdout?.value)
+      ? proposedFeature.holdout
+      : undefined;
   const valueSchemaChanged = !isEqual(
     effectiveValueSchema(feature),
     effectiveValueSchema(proposedFeature),
   );
-  return { proposedFeature, defaultToCheck, rulesToCheck, valueSchemaChanged };
+  return {
+    proposedFeature,
+    defaultToCheck,
+    rulesToCheck,
+    holdoutToCheck,
+    valueSchemaChanged,
+  };
 }
 
 function effectiveValueSchema(feature: Pick<FeatureInterface, "jsonSchema">) {
@@ -3995,8 +4012,13 @@ export async function prevalidatePublishRevision({
   skipValidation?: boolean;
   skipValueSchemaNet?: boolean;
 }) {
-  const { proposedFeature, defaultToCheck, rulesToCheck, valueSchemaChanged } =
-    computeProposedFeatureForValidation(context, feature, revision, result);
+  const {
+    proposedFeature,
+    defaultToCheck,
+    rulesToCheck,
+    holdoutToCheck,
+    valueSchemaChanged,
+  } = computeProposedFeatureForValidation(context, feature, revision, result);
   await assertFeatureSavedGroupScope(context, proposedFeature, [
     feature,
     featureForSavedGroupValidation(feature, revision),
@@ -4009,9 +4031,10 @@ export async function prevalidatePublishRevision({
     assertFeatureValuesValidForPublish(context, proposedFeature, {
       defaultValue: proposedFeature.defaultValue,
       rules: proposedFeature.rules,
+      holdout: proposedFeature.holdout,
     });
   }
-  if (defaultToCheck !== undefined || rulesToCheck.length) {
+  if (defaultToCheck !== undefined || rulesToCheck.length || holdoutToCheck) {
     if (!skipValueSchemaNet && !valueSchemaChanged) {
       assertFeatureValuesValidForPublish(
         context,
@@ -4019,6 +4042,7 @@ export async function prevalidatePublishRevision({
         {
           defaultValue: defaultToCheck,
           rules: rulesToCheck,
+          holdout: holdoutToCheck,
         },
         feature,
       );
@@ -4026,6 +4050,7 @@ export async function prevalidatePublishRevision({
     await assertConfigBackedFeatureValuesValid(context, proposedFeature, {
       defaultValue: defaultToCheck,
       rules: rulesToCheck,
+      holdout: holdoutToCheck,
     });
   }
   await runValidateFeatureHooks({

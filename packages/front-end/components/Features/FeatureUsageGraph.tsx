@@ -1,3 +1,4 @@
+import clsx from "clsx";
 import { BarStack } from "@visx/shape";
 import { scaleBand, scaleLinear, scaleOrdinal } from "@visx/scale";
 import { ParentSizeModern } from "@visx/responsive";
@@ -43,6 +44,7 @@ import Badge from "@/ui/Badge";
 import Text from "@/ui/Text";
 import Link from "@/ui/Link";
 import Tooltip from "@/ui/Tooltip";
+import { useFeaturePageRedesign } from "./FeaturePageRedesign";
 import styles from "./FeatureUsageGraph.module.scss";
 
 function generateTimeSeries(lookback: FeatureUsageLookback, keys: string[]) {
@@ -119,6 +121,9 @@ const SPARK_LOOKBACK: FeatureUsageLookback = "15minute";
 const OTHER_KEY = "(other)";
 const TOP_N = 3;
 
+// About 20% gray mixed in, so the series read calmer than the raw scale.
+const mute = (color: string) =>
+  `color-mix(in oklch, ${color} 80%, var(--gray-9))`;
 const categoricalColors = [
   "var(--blue-7)",
   "var(--green-9)",
@@ -128,9 +133,9 @@ const categoricalColors = [
   "var(--cyan-9)",
   "var(--lime-10)",
   "var(--orange-9)",
-];
+].map(mute);
 const booleanColors = {
-  true: "rgb(32, 164, 240)",
+  true: mute("rgb(32, 164, 240)"),
   false: "rgb(170, 170, 170)",
 };
 
@@ -152,6 +157,59 @@ const featureUsageContext = createContext<{
   mutateFeatureUsage: () => {},
 });
 
+// No pointer or keyboard input for this long counts as idle
+const IDLE_AFTER_MS = 60_000;
+const IDLE_REFRESH_MS = 60_000;
+
+type PageAttention = "active" | "idle" | "away";
+
+// "away": tab hidden or window unfocused. "idle": focused, but no recent input.
+function usePageAttention(): PageAttention {
+  const [attention, setAttention] = useState<PageAttention>("active");
+
+  useEffect(() => {
+    let lastInput = Date.now();
+    let current: PageAttention = "active";
+    const update = () => {
+      const next: PageAttention =
+        document.visibilityState !== "visible" || !document.hasFocus()
+          ? "away"
+          : Date.now() - lastInput > IDLE_AFTER_MS
+            ? "idle"
+            : "active";
+      // Set state only on transitions so mouse movement doesn't re-render
+      if (next !== current) {
+        current = next;
+        setAttention(next);
+      }
+    };
+    const onInput = () => {
+      lastInput = Date.now();
+      update();
+    };
+
+    const inputEvents = ["pointermove", "pointerdown", "keydown", "wheel"];
+    inputEvents.forEach((e) =>
+      window.addEventListener(e, onInput, { passive: true }),
+    );
+    window.addEventListener("focus", update);
+    window.addEventListener("blur", update);
+    document.addEventListener("visibilitychange", update);
+    const timer = setInterval(update, 5000);
+    update();
+
+    return () => {
+      inputEvents.forEach((e) => window.removeEventListener(e, onInput));
+      window.removeEventListener("focus", update);
+      window.removeEventListener("blur", update);
+      document.removeEventListener("visibilitychange", update);
+      clearInterval(timer);
+    };
+  }, []);
+
+  return attention;
+}
+
 export function FeatureUsageProvider({
   feature,
   children,
@@ -171,9 +229,11 @@ export function FeatureUsageProvider({
   const growthbookManagedDatasource = datasources.find(
     (ds) => ds.type === "growthbook_clickhouse",
   );
-  const managedWarehouseUnavailable = growthbookManagedDatasource
-    ? isManagedWarehouseUnavailable(growthbookManagedDatasource)
-    : false;
+  // Dummy data needs no warehouse, so it shows whatever state that's in.
+  const managedWarehouseUnavailable =
+    !useDummyData && growthbookManagedDatasource
+      ? isManagedWarehouseUnavailable(growthbookManagedDatasource)
+      : false;
   const showFeatureUsage = useDummyData || !!growthbookManagedDatasource;
 
   const { data, mutate: mutateFeatureUsage } = useApi<{
@@ -207,21 +267,25 @@ export function FeatureUsageProvider({
         ? data?.usage
         : sparkData?.usage;
 
-  const featureUsageAutoRefreshInterval = growthbook.getFeatureValue(
+  const { withData, withoutData } = growthbook.getFeatureValue(
     "feature-usage-auto-refresh-interval",
     { withData: 5000, withoutData: 15000 },
   );
+  const attention = usePageAttention();
+  const hasData =
+    (featureUsage?.bySource?.length ?? 0) > 0 ||
+    (sparkFeatureUsage?.bySource?.length ?? 0) > 0;
+  const activeInterval = hasData ? withData : withoutData;
+  // Stopped while away; SWR refetches as soon as the window regains focus
+  const refreshInterval =
+    !activeInterval || attention === "away"
+      ? 0
+      : attention === "idle"
+        ? Math.max(activeInterval, IDLE_REFRESH_MS)
+        : activeInterval;
 
   useEffect(() => {
-    if (managedWarehouseUnavailable) return;
-
-    const hasData =
-      (featureUsage?.bySource?.length ?? 0) > 0 ||
-      (sparkFeatureUsage?.bySource?.length ?? 0) > 0;
-    const interval = hasData
-      ? featureUsageAutoRefreshInterval["withData"]
-      : featureUsageAutoRefreshInterval["withoutData"];
-    if (interval === 0) return;
+    if (managedWarehouseUnavailable || !refreshInterval) return;
     const timer = setInterval(() => {
       if (lookback === SPARK_LOOKBACK) {
         mutateFeatureUsage();
@@ -229,13 +293,11 @@ export function FeatureUsageProvider({
         if (lookback === "15minute") mutateFeatureUsage();
         mutateSparkData();
       }
-    }, interval);
+    }, refreshInterval);
     return () => clearInterval(timer);
   }, [
     lookback,
-    featureUsage,
-    sparkFeatureUsage,
-    featureUsageAutoRefreshInterval,
+    refreshInterval,
     managedWarehouseUnavailable,
     mutateFeatureUsage,
     mutateSparkData,
@@ -1095,6 +1157,7 @@ export function FeatureUsageSparkline({
 }) {
   const { sparkFeatureUsage, showFeatureUsage, managedWarehouseUnavailable } =
     useFeatureUsage();
+  const redesign = useFeaturePageRedesign();
   const [modalOpen, setModalOpen] = useState(false);
   const router = useRouter();
   const useDummyData = router.query["dummy"] === "true";
@@ -1141,13 +1204,19 @@ export function FeatureUsageSparkline({
   const hasData = rawMaxValue > 0;
   const maxValue = rawMaxValue || 1;
 
-  const W = 90;
+  // Short enough that it, with its padding, fits a header row's 32px; the
+  // page it's tested against keeps its larger one.
+  const W = redesign ? 76 : 90;
   const BOTTOM_PAD = 2;
-  const H = 28;
+  const H = redesign ? 20 : 28;
   const AXIS_H = 1;
   const CHART_H = H - AXIS_H;
 
-  const xScale = scaleBand({ domain: xDomain, range: [0, W], padding: 0.2 });
+  const xScale = scaleBand({
+    domain: xDomain,
+    range: [0, W],
+    padding: redesign ? 0.35 : 0.2,
+  });
   const yScale = scaleLinear<number>({
     domain: [0, maxValue],
     range: [CHART_H, 0],
@@ -1160,7 +1229,7 @@ export function FeatureUsageSparkline({
           align="center"
           gap="1"
           onClick={() => setModalOpen(true)}
-          className={styles.sparkTrigger}
+          className={clsx(styles.sparkTrigger, !redesign && styles.legacy)}
         >
           <svg width={W} height={H + BOTTOM_PAD}>
             <defs>
@@ -1290,7 +1359,7 @@ export function FeatureUsageSparkline({
               style={{ pointerEvents: "none" }}
             />
           </svg>
-          <PiCaretRightBold className={styles.sparkCaret} />
+          {redesign ? null : <PiCaretRightBold className={styles.sparkCaret} />}
         </Flex>
       </Tooltip>
       {modalOpen && (

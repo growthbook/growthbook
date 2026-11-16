@@ -1,21 +1,25 @@
 import { useRouter } from "next/router";
+import { FeaturesReady, useFeatureIsOn } from "@growthbook/growthbook-react";
+import type { AppFeatures } from "shared/types/app-features";
 import { useEffect, useRef, useState } from "react";
 import { FeatureEvalDiagnosticsQueryResponseRows } from "shared/types/integrations";
-import { ACTIVE_DRAFT_STATUSES } from "shared/validators";
+import { isActiveDraftStatus } from "shared/validators";
+import { isRevisionEditLockedBySchedule } from "shared/enterprise";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import PageHead from "@/components/Layout/PageHead";
 import FeaturesHeader from "@/components/Features/FeaturesHeader";
+import FeaturesHeaderNew from "@/components/Features/FeaturesHeaderNew";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import FeaturesOverview from "@/components/Features/FeaturesOverview";
+import FeaturesOverviewNew from "@/components/Features/FeaturesOverviewNew";
+import EditFeatureInfoModal from "@/components/Features/EditFeatureInfoModal";
+import { FeaturePageRedesignContext } from "@/components/Features/FeaturePageRedesign";
 import FeaturesStats from "@/components/Features/FeaturesStats";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { FeatureUsageProvider } from "@/components/Features/FeatureUsageGraph";
 import FeatureTest from "@/components/Features/FeatureTest";
 import ReviewAndPublish from "@/components/Reviews/Feature/ReviewAndPublish";
-import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
-import EditTagsForm from "@/components/Tags/EditTagsForm";
-import EditFeatureInfoModal from "@/components/Features/EditFeatureInfoModal";
 import FeatureDiagnostics from "@/components/Features/FeatureDiagnostics";
 import FeatureValidationTab from "@/components/Features/FeatureValidationTab";
 import CompareRevisionsModal from "@/components/Reviews/Feature/CompareRevisionsModal";
@@ -23,6 +27,18 @@ import { useFeaturePageData } from "@/hooks/useFeaturePageData";
 import { useFeatureDependents } from "@/hooks/useFeatureDependents";
 import Callout from "@/ui/Callout";
 import { FeatureRevisionsContext } from "@/contexts/FeatureRevisionsContext";
+import { DetailsPanelLayout, useDetailsPanel } from "@/components/DetailsPanel";
+import FeatureDetailsPanel from "@/components/Features/FeatureDetailsPanel";
+import { SCHEDULE_EDIT_LOCK_REASON } from "@/components/Features/ScheduleLock";
+import RevisionStatusBar, {
+  REVISION_STATUS_BAR_HEIGHT_PX,
+} from "@/components/Features/RevisionStatusBar";
+import { getRevisionStatus } from "@/services/revisionStatus";
+import {
+  TABS_BAR_HEIGHT_PX,
+  TABS_HEADER_HEIGHT_PX,
+} from "@/components/Layout/constants";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 
 const featureTabs = [
   "overview",
@@ -38,9 +54,7 @@ export default function FeaturePage() {
   const router = useRouter();
   const orgSettings = useOrgSettings();
   const { fid } = router.query;
-  const [editProjectModal, setEditProjectModal] = useState(false);
-  const [editTagsModal, setEditTagsModal] = useState(false);
-  const [editFeatureInfoModal, setEditFeatureInfoModal] = useState(false);
+  const permissionsUtil = usePermissionsUtil();
   const [compareRevisionsOpen, setCompareRevisionsOpen] = useState(false);
   const [diagnosticsResults, setDiagnosticsResults] = useState<Array<
     FeatureEvalDiagnosticsQueryResponseRows[number] & { id: string }
@@ -51,8 +65,11 @@ export default function FeaturePage() {
     setDiagnosticsResults(null);
   }, [fid]);
 
-  const { apiCall } = useAuth();
   const { userId } = useUser();
+  // The redesign, tested against the page it replaces.
+  const redesign = useFeatureIsOn<AppFeatures>("feature-page-redesign-v1");
+  const [editProjectModal, setEditProjectModal] = useState(false);
+  const [editFeatureInfoModal, setEditFeatureInfoModal] = useState(false);
 
   const {
     data,
@@ -144,9 +161,27 @@ export default function FeaturePage() {
     }
   }, [router.asPath]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const dependents =
-    (dependentsData?.features.length ?? 0) +
-    (dependentsData?.experiments.length ?? 0);
+  // Open state is remembered per feature; width is a global preference.
+  const details = useDetailsPanel({
+    openKey: `feature-details-panel-open__${fid}`,
+    widthKey: "feature-details-panel-width",
+    tab,
+    homeTab: "overview",
+  });
+
+  // Its message wraps, so what sticks beneath it reads its real height.
+  const [statusBarEl, setStatusBarEl] = useState<HTMLDivElement | null>(null);
+  const [statusBarHeight, setStatusBarHeight] = useState(
+    REVISION_STATUS_BAR_HEIGHT_PX,
+  );
+  useEffect(() => {
+    if (!statusBarEl) return;
+    const observer = new ResizeObserver(([entry]) =>
+      setStatusBarHeight(entry.borderBoxSize[0].blockSize),
+    );
+    observer.observe(statusBarEl);
+    return () => observer.disconnect();
+  }, [statusBarEl]);
 
   if (error) {
     return <Callout status="error">An error occurred: {error.message}</Callout>;
@@ -156,10 +191,236 @@ export default function FeaturePage() {
     return <LoadingOverlay />;
   }
 
-  const viewingDraft = (ACTIVE_DRAFT_STATUSES as readonly string[]).includes(
-    revision.status,
-  );
+  const viewingDraft = isActiveDraftStatus(revision.status);
   const viewingLive = revision.version === feature.version;
+  // Under the tabs, the status bar pushes down what sticks beneath them.
+  // Only on the overview, where the revision's content is.
+  const showsStatusBar =
+    tab === "overview" &&
+    getRevisionStatus({
+      revision,
+      liveVersion: baseFeature.version,
+      revisionList: data.revisionList || [],
+    }) !== null;
+  const stickyTop =
+    TABS_HEADER_HEIGHT_PX +
+    TABS_BAR_HEIGHT_PX +
+    (showsStatusBar ? statusBarHeight : 0);
+  // Edits land on an open draft, or on a new one cut from live; any other
+  // revision (discarded, superseded, or held by a ramp schedule) is history.
+  const isReadOnly = !viewingDraft && !viewingLive;
+
+  const compareRevisions =
+    (data.revisionList?.length ?? 0) >= 2
+      ? () => setCompareRevisionsOpen(true)
+      : undefined;
+
+  // Every tab but the overview is the same in both versions of the page.
+  const otherTabs = (
+    <>
+      {tab === "review" && (
+        <ReviewAndPublish
+          feature={baseFeature}
+          revisions={data.revisions}
+          revisionList={data.revisionList || []}
+          version={version ?? baseFeature.version}
+          setVersion={setVersion}
+          experiments={experiments}
+          rampSchedules={rampSchedules}
+          mutate={refreshData}
+          onPublish={() => {
+            setTimeout(() => {
+              if (liveVersionRef.current !== null) {
+                setVersion(liveVersionRef.current);
+              }
+            }, 300);
+          }}
+          onCompareRevisions={compareRevisions}
+        />
+      )}
+
+      {tab === "test" && (
+        <FeatureTest
+          baseFeature={baseFeature}
+          feature={feature}
+          revision={revision}
+          version={version}
+        />
+      )}
+
+      {tab === "stats" && (
+        <FeaturesStats orgSettings={orgSettings} featureId={feature.id} />
+      )}
+
+      {tab === "diagnostics" && (
+        <FeatureDiagnostics
+          feature={feature}
+          results={diagnosticsResults}
+          setResults={setDiagnosticsResults}
+        />
+      )}
+
+      {tab === "validation" && (
+        <FeatureValidationTab
+          feature={feature}
+          revision={revision}
+          mutate={refreshData}
+          setVersion={setVersion}
+          revisionList={data.revisionList}
+        />
+      )}
+    </>
+  );
+
+  const compareModal = compareRevisionsOpen ? (
+    <CompareRevisionsModal
+      feature={feature}
+      baseFeature={baseFeature}
+      revisionList={data.revisionList || []}
+      revisions={data.revisions}
+      currentVersion={version ?? feature.version}
+      onClose={() => setCompareRevisionsOpen(false)}
+      initialPreviewDraft={viewingDraft ? (version ?? undefined) : undefined}
+      initialMode={
+        viewingLive && !viewingDraft ? "most-recent-live" : undefined
+      }
+      rampSchedules={rampSchedules}
+    />
+  ) : null;
+
+  const page = !redesign ? (
+    <>
+      <FeaturesHeader
+        feature={feature}
+        baseFeature={baseFeature}
+        mutate={refreshData}
+        setVersion={setVersion}
+        version={version}
+        revisions={data.revisionList || []}
+        tab={tab}
+        setTab={setTabAndScroll}
+        setEditFeatureInfoModal={setEditFeatureInfoModal}
+        holdout={holdout}
+        isReadOnly={isReadOnly}
+        onCompareRevisions={compareRevisions}
+      />
+      {tab === "overview" && (
+        <FeaturesOverview
+          baseFeature={baseFeature}
+          feature={feature}
+          revision={revision}
+          revisionList={data.revisionList}
+          revisions={data.revisions}
+          experiments={experiments}
+          safeRollouts={safeRollouts}
+          holdout={holdout}
+          rampSchedules={rampSchedules}
+          mutate={refreshData}
+          editProjectModal={editProjectModal}
+          setEditProjectModal={setEditProjectModal}
+          version={version}
+          setVersion={setVersion}
+          setTab={setTabAndScroll}
+        />
+      )}
+      {otherTabs}
+      {editFeatureInfoModal && (
+        <EditFeatureInfoModal
+          baseFeature={baseFeature}
+          source="feature-header"
+          dependents={
+            (dependentsData?.features.length ?? 0) +
+            (dependentsData?.experiments.length ?? 0)
+          }
+          feature={feature}
+          revisionList={data.revisionList || []}
+          cancel={() => setEditFeatureInfoModal(false)}
+          mutate={refreshData}
+          setVersion={setVersion}
+        />
+      )}
+    </>
+  ) : (
+    <>
+      <FeaturesHeaderNew
+        feature={feature}
+        baseFeature={baseFeature}
+        mutate={refreshData}
+        setVersion={setVersion}
+        version={version}
+        revisions={data.revisionList || []}
+        tab={tab}
+        setTab={setTabAndScroll}
+        holdout={holdout}
+        isReadOnly={isReadOnly}
+        onCompareRevisions={compareRevisions}
+        detailsOpen={details.open}
+        setDetailsOpen={details.toggle}
+        statusBar={
+          showsStatusBar ? (
+            <div ref={setStatusBarEl}>
+              <RevisionStatusBar
+                baseFeature={baseFeature}
+                revision={revision}
+                revisionList={data.revisionList || []}
+                setTab={setTabAndScroll}
+                setVersion={setVersion}
+                mutate={refreshData}
+              />
+            </div>
+          ) : null
+        }
+      />
+      <DetailsPanelLayout
+        details={details}
+        stickyTop={stickyTop}
+        panel={
+          <FeatureDetailsPanel
+            feature={feature}
+            baseFeature={baseFeature}
+            revision={revision}
+            revisionList={data.revisionList || []}
+            holdout={holdout}
+            dependents={dependentsData}
+            canEdit={
+              permissionsUtil.canEditFeatureDrafts(baseFeature) && !isReadOnly
+            }
+            canEditRevision={permissionsUtil.canEditFeatureDrafts(baseFeature)}
+            blockedReason={
+              viewingDraft && isRevisionEditLockedBySchedule(revision)
+                ? SCHEDULE_EDIT_LOCK_REASON
+                : null
+            }
+            mutate={refreshData}
+            setVersion={setVersion}
+            tab={details.panelTab}
+            setTab={details.setPanelTab}
+          />
+        }
+      >
+        <div className="feature-column">
+          {tab === "overview" && (
+            <FeaturesOverviewNew
+              baseFeature={baseFeature}
+              feature={feature}
+              revision={revision}
+              revisionList={data.revisionList}
+              revisions={data.revisions}
+              experiments={experiments}
+              safeRollouts={safeRollouts}
+              holdout={holdout}
+              rampSchedules={rampSchedules}
+              mutate={refreshData}
+              version={version}
+              setVersion={setVersion}
+              stickyTop={stickyTop}
+            />
+          )}
+          {otherTabs}
+        </div>
+      </DetailsPanelLayout>
+    </>
+  );
 
   return (
     <FeatureRevisionsContext.Provider
@@ -178,150 +439,17 @@ export default function FeaturePage() {
             { display: feature.id },
           ]}
         />
-        <FeaturesHeader
-          feature={feature}
-          baseFeature={baseFeature}
-          mutate={refreshData}
-          setVersion={setVersion}
-          version={version}
-          revisions={data.revisionList || []}
-          tab={tab}
-          setTab={setTabAndScroll}
-          setEditFeatureInfoModal={setEditFeatureInfoModal}
-          holdout={holdout}
-          isReadOnly={
-            revision.status === "discarded" ||
-            (revision.status === "published" &&
-              revision.version !== feature.version)
-          }
-          onCompareRevisions={
-            (data.revisionList?.length ?? 0) >= 2
-              ? () => setCompareRevisionsOpen(true)
-              : undefined
-          }
-        />
-
-        {tab === "overview" && (
-          <FeaturesOverview
-            baseFeature={baseFeature}
-            feature={feature}
-            revision={revision}
-            revisionList={data.revisionList}
-            revisions={data.revisions}
-            experiments={experiments}
-            safeRollouts={safeRollouts}
-            holdout={holdout}
-            rampSchedules={rampSchedules}
-            mutate={refreshData}
-            editProjectModal={editProjectModal}
-            setEditProjectModal={setEditProjectModal}
-            version={version}
-            setVersion={setVersion}
-            setTab={setTabAndScroll}
-          />
-        )}
-
-        {tab === "review" && (
-          <ReviewAndPublish
-            feature={baseFeature}
-            revisions={data.revisions}
-            revisionList={data.revisionList || []}
-            version={version ?? baseFeature.version}
-            setVersion={setVersion}
-            experiments={experiments}
-            rampSchedules={rampSchedules}
-            mutate={refreshData}
-            onPublish={() => {
-              setTimeout(() => {
-                if (liveVersionRef.current !== null) {
-                  setVersion(liveVersionRef.current);
-                }
-              }, 300);
-            }}
-            onCompareRevisions={
-              (data.revisionList?.length ?? 0) >= 2
-                ? () => setCompareRevisionsOpen(true)
-                : undefined
-            }
-          />
-        )}
-
-        {tab === "test" && (
-          <FeatureTest
-            baseFeature={baseFeature}
-            feature={feature}
-            revision={revision}
-            version={version}
-          />
-        )}
-
-        {tab === "stats" && (
-          <FeaturesStats orgSettings={orgSettings} featureId={feature.id} />
-        )}
-
-        {tab === "diagnostics" && (
-          <FeatureDiagnostics
-            feature={feature}
-            results={diagnosticsResults}
-            setResults={setDiagnosticsResults}
-          />
-        )}
-
-        {tab === "validation" && (
-          <FeatureValidationTab
-            feature={feature}
-            revision={revision}
-            mutate={refreshData}
-            setVersion={setVersion}
-            revisionList={data.revisionList}
-          />
-        )}
-
-        {editTagsModal && (
-          <EditTagsForm
-            tags={feature.tags || []}
-            save={async (tags) => {
-              await apiCall(`/feature/${feature.id}`, {
-                method: "PUT",
-                body: JSON.stringify({ tags }),
-              });
-            }}
-            cancel={() => setEditTagsModal(false)}
-            mutate={refreshData}
-          />
-        )}
-
-        {compareRevisionsOpen && (
-          <CompareRevisionsModal
-            feature={feature}
-            baseFeature={baseFeature}
-            revisionList={data.revisionList || []}
-            revisions={data.revisions}
-            currentVersion={version ?? feature.version}
-            onClose={() => setCompareRevisionsOpen(false)}
-            initialPreviewDraft={
-              viewingDraft ? (version ?? undefined) : undefined
-            }
-            initialMode={
-              viewingLive && !viewingDraft ? "most-recent-live" : undefined
-            }
-            rampSchedules={rampSchedules}
-          />
-        )}
-
-        {editFeatureInfoModal && (
-          <EditFeatureInfoModal
-            baseFeature={baseFeature}
-            source="feature-header"
-            dependents={dependents}
-            feature={feature}
-            revisionList={data.revisionList || []}
-            cancel={() => setEditFeatureInfoModal(false)}
-            mutate={refreshData}
-            setVersion={setVersion}
-          />
-        )}
+        {/* Picks a design only once flags load, or gives up on them. */}
+        <FeaturesReady timeout={3000} fallback={<LoadingOverlay />}>
+          <FeaturePageRedesignContext.Provider value={redesign}>
+            {page}
+            {compareModal}
+          </FeaturePageRedesignContext.Provider>
+        </FeaturesReady>
       </FeatureUsageProvider>
     </FeatureRevisionsContext.Provider>
   );
 }
+
+// Runs the window's full width, beside the details panel.
+FeaturePage.mainClassName = "feature";

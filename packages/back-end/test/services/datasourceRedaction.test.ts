@@ -26,8 +26,8 @@ const CREDENTIAL_FIELDS: Record<DataSourceType, string[]> = {
   snowflake: ["password", "privateKey", "privateKeyPassword"],
   mixpanel: ["secret"],
   google_analytics: ["refreshToken"],
-  clickhouse: ["password"],
-  growthbook_clickhouse: ["password"],
+  clickhouse: ["password", "caCert", "clientCert", "clientKey"],
+  growthbook_clickhouse: ["password", "caCert", "clientCert", "clientKey"],
   adobe_experience_platform_query_service: ["credential"],
 };
 
@@ -75,6 +75,10 @@ const clickHouseLike = (type: DataSourceType) => ({
   password: value(type, "password"),
   database: value(type, "database"),
   maxExecutionTime: 60,
+  ssl: true,
+  caCert: value(type, "caCert"),
+  clientCert: value(type, "clientCert"),
+  clientKey: value(type, "clientKey"),
 });
 
 const PARAMS: Record<DataSourceType, DataSourceParams> = {

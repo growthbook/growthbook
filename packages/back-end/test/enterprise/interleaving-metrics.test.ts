@@ -129,7 +129,7 @@ describe("resolveInterleavingMetrics", () => {
   it("rejects a metric from another datasource", async () => {
     setup([metric({ datasource: "other-datasource" })]);
     await expect(resolve(["fact__goal"])).rejects.toThrow(
-      "must belong to datasource test-datasource",
+      "must belong to this experiment's Data Source: test-datasource",
     );
   });
 

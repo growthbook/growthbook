@@ -57,6 +57,7 @@ import {
   DropdownMenuItem,
 } from "@/ui/DropdownMenu";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
+import DiscardDraftModal from "@/components/Reviews/DiscardDraftModal";
 import EventUser from "@/components/Avatar/EventUser";
 import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
 import CommentComposer from "@/components/Comments/CommentComposer";
@@ -1708,20 +1709,13 @@ function ReviewAndPublishRevision<T>({
         />
       )}
       {confirmDiscard && (
-        <ModalStandard
+        <DiscardDraftModal
           trackingEventModalType="discard-revision"
-          open={true}
-          header="Discard Draft"
-          cta="Discard"
-          ctaColor="red"
           close={() => setConfirmDiscard(false)}
-          submit={async () => {
+          discard={async () => {
             await onDiscard(revision.id);
           }}
-        >
-          Are you sure you want to discard this draft? This action cannot be
-          undone.
-        </ModalStandard>
+        />
       )}
       {confirmReopen && (
         <ModalStandard

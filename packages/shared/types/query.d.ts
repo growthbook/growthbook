@@ -124,6 +124,8 @@ export type QueryType =
   | "exposureQueryValidation"
   // Validates new or changed feature usage queries when a data source is saved
   | "featureUsageQueryValidation"
+  // Validates dimension SQL columns when a dimension is saved
+  | "dimensionValidation"
   // Datasource connectivity probe (SELECT 1)
   | "connectionTest"
   // Schema introspection: list tables + column counts
@@ -138,6 +140,8 @@ export type QueryType =
   | "userExposure"
   // Feature evaluation diagnostics
   | "featureEvalDiagnostics"
+  // Live feature usage chart on the feature page (polled)
+  | "featureUsage"
   // Fact table column top-values scan (auto-slices + column refresh)
   | "columnTopValues"
   // Auto fact table tracked-event discovery scan

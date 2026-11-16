@@ -1,9 +1,7 @@
 import { useState } from "react";
-import { Box } from "@radix-ui/themes";
 import { FeatureRuleScope, isUnscopedRule } from "shared/util";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import ModalWarningBanner from "@/components/Modal/ModalWarningBanner";
-import Checkbox from "@/ui/Checkbox";
 import { StopSubmit } from "@/ui/Modal/StopSubmit";
 
 // `previous`: every earlier copy of the rule the server may compare against.
@@ -36,17 +34,8 @@ export default function useUnscopedRuleGate(
     unscopedRuleBanner:
       gated && stopped ? (
         <ModalWarningBanner
-          controls={
-            <Box style={{ color: "var(--violet-11)" }}>
-              <Checkbox
-                value={acknowledged}
-                setValue={setAcknowledged}
-                label="Acknowledge"
-                weight="medium"
-                align="center"
-              />
-            </Box>
-          }
+          acknowledged={acknowledged}
+          setAcknowledged={setAcknowledged}
         >
           Your organization requires rules to target specific environments or
           Projects.

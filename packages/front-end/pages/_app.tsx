@@ -51,6 +51,7 @@ import { CommandPaletteLauncher } from "@/components/CommandPalette/CommandPalet
 import AgentLauncher from "@/components/Agent/AgentLauncher";
 import { AgentPanelProvider } from "@/components/Agent/AgentPanelContext";
 import Callout from "@/ui/Callout";
+import { TooltipProvider } from "@/ui/Tooltip";
 
 // Make useLayoutEffect isomorphic (for SSR)
 if (typeof window === "undefined") React.useLayoutEffect = React.useEffect;
@@ -166,8 +167,10 @@ function App({
   }, [ready]);
 
   useEffect(() => {
-    // Load feature definitions JSON from GrowthBook API
-    growthbook.init({ streaming: true }).catch(() => {
+    // Load feature definitions JSON from GrowthBook API. The timeout settles a
+    // fetch that hangs, so pages waiting on flags (the feature page's A/B
+    // test) stop waiting once rather than on every visit.
+    growthbook.init({ streaming: true, timeout: 3000 }).catch(() => {
       console.log("Failed to fetch GrowthBook feature definitions");
     });
   }, []);
@@ -221,89 +224,91 @@ function App({
       </Head>
       <AppearanceUIThemeProvider>
         <RadixTheme>
-          {ready || noLoadingOverlay ? (
-            <HoverTooltipProvider>
-              <SidebarOpenProvider>
-                <GrowthBookProvider growthbook={growthbook}>
-                  <div id="portal-root" />
-                  {preAuth || progressiveAuth ? (
-                    renderPreAuth()
-                  ) : (
-                    <PageHeadProvider>
-                      <AuthProvider>
-                        <ProtectedPage
-                          organizationRequired={organizationRequired}
-                        >
-                          {organizationRequired ? (
-                            <GetStartedProvider>
-                              <DefinitionsProvider>
-                                <FeatureHealthStatesProvider>
-                                  <AgentPanelProvider>
-                                    <SettingsNavProvider>
-                                      <SettingsForm>
-                                        {liteLayout ? (
-                                          <LayoutLite />
-                                        ) : (
-                                          <Layout />
-                                        )}
-                                        <CommandPaletteLauncher />
-                                        <AgentLauncher />
-                                        <main
-                                          className={clsx("main", parts[0], {
-                                            "settings-layout": inSettings,
-                                          })}
-                                        >
-                                          <OrgSuspendedBannerContainer />
-                                          <OrganizationMessagesContainer />
-                                          <DemoDataSourceGlobalBannerContainer />
-                                          <NPSSurvey />
-                                          <OrgPageContent>
-                                            <GuidedGetStartedBar />
-                                            <DefinitionsGuard>
-                                              <Component
-                                                {...{
-                                                  ...pageProps,
-                                                  envReady: ready,
-                                                }}
-                                              />
-                                            </DefinitionsGuard>
-                                          </OrgPageContent>
-                                        </main>
-                                      </SettingsForm>
-                                    </SettingsNavProvider>
-                                  </AgentPanelProvider>
-                                </FeatureHealthStatesProvider>
-                              </DefinitionsProvider>
-                            </GetStartedProvider>
-                          ) : (
-                            <div>
-                              <TopNavLite />
-                              <main className="container">
-                                <Component
-                                  {...{ ...pageProps, envReady: ready }}
-                                />
-                              </main>
-                            </div>
-                          )}
-                        </ProtectedPage>
-                      </AuthProvider>
-                    </PageHeadProvider>
-                  )}
-                </GrowthBookProvider>
-              </SidebarOpenProvider>
-            </HoverTooltipProvider>
-          ) : error ? (
-            <Container mt="9">
-              <Callout status="error">
-                Error Initializing GrowthBook:
-                <br />
-                <br />
-                {error}
-              </Callout>
-            </Container>
-          ) : (
-            <LoadingOverlay />
-          )}
+          <TooltipProvider>
+            {ready || noLoadingOverlay ? (
+              <HoverTooltipProvider>
+                <SidebarOpenProvider>
+                  <GrowthBookProvider growthbook={growthbook}>
+                    <div id="portal-root" />
+                    {preAuth || progressiveAuth ? (
+                      renderPreAuth()
+                    ) : (
+                      <PageHeadProvider>
+                        <AuthProvider>
+                          <ProtectedPage
+                            organizationRequired={organizationRequired}
+                          >
+                            {organizationRequired ? (
+                              <GetStartedProvider>
+                                <DefinitionsProvider>
+                                  <FeatureHealthStatesProvider>
+                                    <AgentPanelProvider>
+                                      <SettingsNavProvider>
+                                        <SettingsForm>
+                                          {liteLayout ? (
+                                            <LayoutLite />
+                                          ) : (
+                                            <Layout />
+                                          )}
+                                          <CommandPaletteLauncher />
+                                          <AgentLauncher />
+                                          <main
+                                            className={clsx("main", parts[0], {
+                                              "settings-layout": inSettings,
+                                            })}
+                                          >
+                                            <OrgSuspendedBannerContainer />
+                                            <OrganizationMessagesContainer />
+                                            <DemoDataSourceGlobalBannerContainer />
+                                            <NPSSurvey />
+                                            <OrgPageContent>
+                                              <GuidedGetStartedBar />
+                                              <DefinitionsGuard>
+                                                <Component
+                                                  {...{
+                                                    ...pageProps,
+                                                    envReady: ready,
+                                                  }}
+                                                />
+                                              </DefinitionsGuard>
+                                            </OrgPageContent>
+                                          </main>
+                                        </SettingsForm>
+                                      </SettingsNavProvider>
+                                    </AgentPanelProvider>
+                                  </FeatureHealthStatesProvider>
+                                </DefinitionsProvider>
+                              </GetStartedProvider>
+                            ) : (
+                              <div>
+                                <TopNavLite />
+                                <main className="container">
+                                  <Component
+                                    {...{ ...pageProps, envReady: ready }}
+                                  />
+                                </main>
+                              </div>
+                            )}
+                          </ProtectedPage>
+                        </AuthProvider>
+                      </PageHeadProvider>
+                    )}
+                  </GrowthBookProvider>
+                </SidebarOpenProvider>
+              </HoverTooltipProvider>
+            ) : error ? (
+              <Container mt="9">
+                <Callout status="error">
+                  Error Initializing GrowthBook:
+                  <br />
+                  <br />
+                  {error}
+                </Callout>
+              </Container>
+            ) : (
+              <LoadingOverlay />
+            )}
+          </TooltipProvider>
         </RadixTheme>
       </AppearanceUIThemeProvider>
     </>

@@ -9,6 +9,7 @@ import { dispatchFeatureRevisionEvent } from "back-end/src/services/featureRevis
 import { auditDetailsUpdate } from "back-end/src/services/audit";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { createApiRequestHandler } from "back-end/src/util/handler";
+import { holdRoute, type HeldRoute } from "back-end/src/services/confirmations";
 import { getFeature } from "back-end/src/models/FeatureModel";
 import {
   getRevision,
@@ -35,6 +36,7 @@ export async function requestReview(
       scheduledPublishLockOthers?: boolean;
     };
   },
+  route: HeldRoute,
 ) {
   const feature = await getFeature(req.context, req.params.id);
   if (!feature) throw new NotFoundError("Could not find feature");
@@ -124,6 +126,10 @@ export async function requestReview(
     );
   }
 
+  // Held only once the request is known to succeed, so nobody approves one
+  // that fails.
+  await holdRoute(req.context, route, req);
+
   await markRevisionAsReviewRequested(
     req.context,
     revision,
@@ -184,6 +190,9 @@ export async function requestReview(
 export const postFeatureRevisionRequestReview = createApiRequestHandler(
   postFeatureRevisionRequestReviewValidator,
 )(async (req) => {
-  const { feature, revision } = await requestReview(req);
+  const { feature, revision } = await requestReview(
+    req,
+    postFeatureRevisionRequestReviewValidator,
+  );
   return { revision: toApiRevision(revision, req.context, feature) };
 });

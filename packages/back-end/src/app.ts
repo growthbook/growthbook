@@ -135,6 +135,7 @@ import { customFieldsRouter } from "./routers/custom-fields/custom-fields.router
 import {
   constantsRouter,
   constantDraftStatesRouter,
+  constantResolvablesRouter,
 } from "./routers/constant/constant.router";
 import {
   configsRouter,
@@ -176,6 +177,7 @@ import { importingRouter } from "./routers/importing/importing.router";
 import { productAnalyticsRouter } from "./routers/product-analytics/product-analytics.router";
 import { sessionReplayRouter } from "./routers/session-replay/session-replay.router";
 import { experimentExposuresRouter } from "./routers/experiment-exposures/experiment-exposures.router";
+import { adminManagedWarehouseRouter } from "./routers/admin-managed-warehouse/admin-managed-warehouse.router";
 import { agentRouter } from "./routers/agent/agent.router";
 
 const app = express();
@@ -700,6 +702,7 @@ app.use("/custom-fields", customFieldsRouter);
 
 app.use("/constants", constantsRouter);
 app.use("/constants-draft-states", constantDraftStatesRouter);
+app.use("/constants-resolvables", constantResolvablesRouter);
 app.use("/configs", configsRouter);
 app.use("/configs-draft-states", configDraftStatesRouter);
 
@@ -1119,6 +1122,10 @@ app.post(
   datasourcesController.postResumeEventForwarder,
 );
 app.post(
+  "/datasource/:id/event-forwarder/restart",
+  datasourcesController.postRestartEventForwarder,
+);
+app.post(
   "/datasource/:id/event-forwarder/migrate",
   datasourcesController.postMigrateEventForwarder,
 );
@@ -1281,6 +1288,7 @@ app.post(
   "/admin/sso-connection",
   adminController._dangerousAdminUpsertSSOConnection,
 );
+app.use(adminManagedWarehouseRouter);
 
 // License
 app.get("/license", licenseController.getLicenseData);

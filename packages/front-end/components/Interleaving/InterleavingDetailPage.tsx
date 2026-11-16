@@ -69,7 +69,8 @@ export default function InterleavingDetailPage({
     !il.archived;
   // The server also demands run permission once a change reaches the SDK
   // payload, so payload-affecting edits must not be offered without it.
-  const canEditServing = canEdit && (!interleavingInSDKPayload(il) || canRun);
+  const isInSDKPayload = interleavingInSDKPayload(il);
+  const canEditServing = canEdit && (!isInSDKPayload || canRun);
 
   const start = async () => {
     await restApiCall(interleavingEndpoints.startInterleaving, {
@@ -98,7 +99,7 @@ export default function InterleavingDetailPage({
           </Box>
         </Flex>
         <Flex align="center" gap="2" flexShrink="0">
-          {canRun && il.status === "draft" && (
+          {canRun && !il.archived && il.status === "draft" && (
             <Button onClick={start} setError={setError}>
               Start
             </Button>
@@ -139,7 +140,11 @@ export default function InterleavingDetailPage({
         <Metadata label="Owner" value={<Owner ownerId={il.owner} />} />
         <Metadata
           label="Data Source"
-          value={getDatasourceById(il.datasourceId)?.name ?? il.datasourceId}
+          value={
+            getDatasourceById(il.datasourceId)?.name ||
+            il.datasourceId ||
+            "None"
+          }
         />
         {il.tags.length > 0 && (
           <Metadata
@@ -226,6 +231,8 @@ export default function InterleavingDetailPage({
       {analysisModal && (
         <EditInterleavingAnalysisModal
           interleaving={il}
+          canEditServing={canEditServing}
+          isInSDKPayload={isInSDKPayload}
           mutate={mutate}
           close={() => setAnalysisModal(false)}
         />

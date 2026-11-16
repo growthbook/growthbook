@@ -1,6 +1,7 @@
 import { useContext, useMemo, useState } from "react";
 import { Flex, Separator } from "@radix-ui/themes";
 import { ago, getValidDate } from "shared/dates";
+import { EXPERIMENT_RESULTS_UPDATE_DISABLED_MESSAGE } from "shared/experiments";
 import { PiArrowClockwise, PiInfo, PiLightning } from "react-icons/pi";
 import clsx from "clsx";
 import LoadingSpinner from "@/components/LoadingSpinner";
@@ -144,6 +145,7 @@ export default function DashboardUpdateDisplay({
     allQueries,
     savedQueriesMap,
     updateAllSnapshots,
+    resultsUpdateDisabled,
   } = useContext(DashboardSnapshotContext);
   const refreshing =
     updatingTemporaryDashboard || ["running", "queued"].includes(refreshStatus);
@@ -189,34 +191,43 @@ export default function DashboardUpdateDisplay({
       />
       <div className="position-relative">
         {canRefresh && (
-          <Button
-            size="md"
-            disabled={
-              refreshing ||
-              !dashboardId ||
-              (dashboardId === "new" && !updateTemporaryDashboardResults) ||
-              (!needsUpdate && !allQueries.length && savedQueriesMap.size === 0)
-            }
-            icon={refreshing ? <LoadingSpinner /> : <PiArrowClockwise />}
-            iconPosition="left"
-            variant="outline"
-            onClick={async () => {
-              if (updateTemporaryDashboardResults) {
-                setUpdatingTemporaryDashboard(true);
-                try {
-                  await updateTemporaryDashboardResults();
-                  onUpdated?.();
-                } finally {
-                  setUpdatingTemporaryDashboard(false);
-                }
-              } else {
-                await updateAllSnapshots();
-                onUpdated?.();
-              }
-            }}
+          <Tooltip
+            body={EXPERIMENT_RESULTS_UPDATE_DISABLED_MESSAGE}
+            shouldDisplay={resultsUpdateDisabled}
+            tipPosition="top"
           >
-            {refreshing ? "Refreshing" : "Update"}
-          </Button>
+            <Button
+              size="md"
+              disabled={
+                resultsUpdateDisabled ||
+                refreshing ||
+                !dashboardId ||
+                (dashboardId === "new" && !updateTemporaryDashboardResults) ||
+                (!needsUpdate &&
+                  !allQueries.length &&
+                  savedQueriesMap.size === 0)
+              }
+              icon={refreshing ? <LoadingSpinner /> : <PiArrowClockwise />}
+              iconPosition="left"
+              variant="outline"
+              onClick={async () => {
+                if (updateTemporaryDashboardResults) {
+                  setUpdatingTemporaryDashboard(true);
+                  try {
+                    await updateTemporaryDashboardResults();
+                    onUpdated?.();
+                  } finally {
+                    setUpdatingTemporaryDashboard(false);
+                  }
+                } else {
+                  await updateAllSnapshots();
+                  onUpdated?.();
+                }
+              }}
+            >
+              {refreshing ? "Refreshing" : "Update"}
+            </Button>
+          </Tooltip>
         )}
 
         {refreshing && allQueries.length > 0 && (

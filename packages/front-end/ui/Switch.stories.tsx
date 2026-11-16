@@ -77,6 +77,17 @@ export default function SwitchStories() {
             />
           </Flex>
         </Flex>
+        <Flex direction="column" gap="2">
+          &rarr; No label, named for screen readers (ariaLabel)
+          <Flex direction="column" gap="4">
+            <Switch
+              defaultValue={true}
+              state={switchState}
+              disabled={switchDisabled}
+              ariaLabel="Enable in production"
+            />
+          </Flex>
+        </Flex>
       </Grid>
 
       <Flex flexGrow="1" direction="column" gap="0">

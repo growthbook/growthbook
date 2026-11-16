@@ -1,6 +1,7 @@
 import React from "react";
 import {
   PiCheckBold,
+  PiClockFill,
   PiLockSimpleFill,
   PiPencil,
   PiPlusMinusBold,
@@ -83,6 +84,8 @@ export function revisionStatusIcon(
       return <PiPlusMinusBold />;
     case "discarded":
       return <PiXCircleFill />;
+    case "pending-parent":
+      return <PiClockFill />;
     case "published":
       // Label is "Locked" — a previously-published, now-immutable revision
       return <PiLockSimpleFill />;
@@ -160,6 +163,9 @@ export function revisionStatusLabel(
       return "Changes requested";
     case "discarded":
       return "Discarded";
+    // Waiting on its ramp schedule to publish it.
+    case "pending-parent":
+      return "Held";
     case "merged":
       return "Locked";
     case "published":

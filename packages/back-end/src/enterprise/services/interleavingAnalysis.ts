@@ -5,6 +5,7 @@ import {
   InterleavingVariation,
 } from "shared/validators";
 import { getScopedSettings } from "shared/settings";
+import { getInterleavingResultsBlocker } from "shared/util";
 import { DEFAULT_P_VALUE_THRESHOLD } from "shared/constants";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
@@ -12,6 +13,8 @@ import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { getSourceIntegrationObject } from "back-end/src/services/datasource";
 import { InterleavingResultsQueryRunner } from "back-end/src/enterprise/queryRunners/InterleavingResultsQueryRunner";
 import { resolveInterleavingMetrics } from "back-end/src/enterprise/services/interleavingMetrics";
+import { determineNextDate } from "back-end/src/services/experiments";
+import { logger } from "back-end/src/util/logger";
 
 type Context = ReqContext | ApiReqContext;
 
@@ -58,11 +61,6 @@ async function getInterleavingSnapshotSettings(
   context: Context,
   interleaving: InterleavingInterface,
 ): Promise<InterleavingSnapshotSettings> {
-  if (interleaving.metrics.length === 0) {
-    throw new Error(
-      "Add at least one metric to this interleaving experiment before updating results",
-    );
-  }
   if (!interleaving.dateStarted) {
     throw new Error(
       "Start this interleaving experiment before updating results",
@@ -126,6 +124,9 @@ export async function runInterleavingSnapshot(
   if (!interleaving) {
     context.throwNotFoundError(`Interleaving not found: ${interleavingId}`);
   }
+  const blocker = getInterleavingResultsBlocker(interleaving);
+  if (blocker) context.throwBadRequestError(blocker);
+
   const settings = await getInterleavingSnapshotSettings(context, interleaving);
 
   const integration = await getIntegration(context, settings.datasourceId);
@@ -147,6 +148,30 @@ export async function runInterleavingSnapshot(
   if (!(await context.models.interleavings.getById(interleavingId))) {
     await context.models.interleavingSnapshots.delete(snapshot);
     context.throwNotFoundError(`Interleaving not found: ${interleavingId}`);
+  }
+
+  if (interleaving.status === "running") {
+    const nextSnapshotAttempt = determineNextDate(
+      context.org.settings?.updateSchedule || null,
+    );
+    const autoSnapshots = nextSnapshotAttempt !== null;
+    try {
+      await context.models.interleavings.dangerousUpdateBypassPermission(
+        interleaving,
+        {
+          lastSnapshotAttempt: new Date(),
+          nextSnapshotAttempt: nextSnapshotAttempt ?? undefined,
+          ...(autoSnapshots !== !!interleaving.autoSnapshots
+            ? { autoSnapshots }
+            : {}),
+        },
+      );
+    } catch (e) {
+      logger.error(
+        e,
+        `Failed to advance interleaving schedule: ${interleavingId}`,
+      );
+    }
   }
 
   const runner = new InterleavingResultsQueryRunner(

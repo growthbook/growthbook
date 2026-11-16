@@ -113,6 +113,14 @@ export default function SDKConnectionForm({
     "hash-secure-attributes",
   );
   const hasRemoteEvaluationFeature = hasCommercialFeature("remote-evaluation");
+  // The server keeps a premium setting that is already on after a downgrade.
+  const keepsEncryption = !!initialValue.encryptPayload;
+  const keepsSecureAttributes = !!initialValue.hashSecureAttributes;
+  const keepsRemoteEval = !!initialValue.remoteEvalEnabled;
+  const canEncrypt = hasEncryptionFeature || keepsEncryption;
+  const canHashSecureAttributes =
+    hasSecureAttributesFeature || keepsSecureAttributes;
+  const canRemoteEval = hasRemoteEvaluationFeature || keepsRemoteEval;
 
   const hasLargeSavedGroupFeature = hasCommercialFeature("large-saved-groups");
   const showTraces =
@@ -390,29 +398,26 @@ export default function SDKConnectionForm({
       form.setValue("encryptPayload", false);
       form.setValue("hashSecureAttributes", false);
     } else if (selectedSecurityTab === "ciphered") {
-      const enableEncryption = hasEncryptionFeature;
-      const enableSecureAttributes = hasSecureAttributesFeature;
       form.setValue("remoteEvalEnabled", false);
       if (
         !(form.watch("encryptPayload") || form.watch("hashSecureAttributes"))
       ) {
-        form.setValue("encryptPayload", enableEncryption);
-        form.setValue("hashSecureAttributes", enableSecureAttributes);
+        form.setValue("encryptPayload", canEncrypt);
+        form.setValue("hashSecureAttributes", canHashSecureAttributes);
       }
     } else if (selectedSecurityTab === "remote") {
-      if (!hasRemoteEvaluationFeature) {
-        form.setValue("remoteEvalEnabled", false);
-        return;
-      }
-      form.setValue("remoteEvalEnabled", true);
+      form.setValue("remoteEvalEnabled", canRemoteEval);
     }
   }, [
     selectedSecurityTab,
     form,
-    hasEncryptionFeature,
-    hasSecureAttributesFeature,
-    hasRemoteEvaluationFeature,
+    canEncrypt,
+    canHashSecureAttributes,
+    canRemoteEval,
   ]);
+
+  const keptSettingNote =
+    "Your plan no longer includes this setting. It stays on for this SDK Connection, but if you turn it off and save, you'll need to upgrade to turn it back on.";
 
   useEffect(() => {
     if (languages.length > 0 && languageError) {
@@ -838,7 +843,13 @@ export default function SDKConnectionForm({
                             setValue={(val) =>
                               form.setValue("encryptPayload", val)
                             }
-                            disabled={!hasEncryptionFeature}
+                            disabled={!canEncrypt}
+                            error={
+                              !hasEncryptionFeature && keepsEncryption
+                                ? keptSettingNote
+                                : undefined
+                            }
+                            errorLevel="warning"
                             label={
                               <PremiumTooltip
                                 commercialFeature="encrypt-features-endpoint"
@@ -868,7 +879,7 @@ export default function SDKConnectionForm({
                                 Encrypt payload <PiInfo />
                               </PremiumTooltip>
                             }
-                          />
+                          />{" "}
                         </Box>
                       )}
 
@@ -879,7 +890,13 @@ export default function SDKConnectionForm({
                           setValue={(val) =>
                             form.setValue("hashSecureAttributes", val)
                           }
-                          disabled={!hasSecureAttributesFeature}
+                          disabled={!canHashSecureAttributes}
+                          error={
+                            !hasSecureAttributesFeature && keepsSecureAttributes
+                              ? keptSettingNote
+                              : undefined
+                          }
+                          errorLevel="warning"
                           label={
                             <PremiumTooltip
                               commercialFeature="hash-secure-attributes"
@@ -910,7 +927,7 @@ export default function SDKConnectionForm({
                               Hash secure attributes <PiInfo />
                             </PremiumTooltip>
                           }
-                        />
+                        />{" "}
                       </Box>
                     </Flex>
                   </Box>
@@ -1005,9 +1022,15 @@ export default function SDKConnectionForm({
                           if (val) setSelectedSecurityTab("remote");
                         }}
                         disabled={
-                          !hasRemoteEvaluationFeature ||
+                          !canRemoteEval ||
                           !latestSdkCapabilities.includes("remoteEval")
                         }
+                        error={
+                          !hasRemoteEvaluationFeature && keepsRemoteEval
+                            ? keptSettingNote
+                            : undefined
+                        }
+                        errorLevel="warning"
                         label={
                           <PremiumTooltip
                             commercialFeature="remote-evaluation"
@@ -1053,7 +1076,7 @@ export default function SDKConnectionForm({
                             Use remote evaluation <PiInfo />
                           </PremiumTooltip>
                         }
-                      />
+                      />{" "}
                     </Box>
                     {isCloud() && (
                       <Callout status="info" mb="0" mt="3">
