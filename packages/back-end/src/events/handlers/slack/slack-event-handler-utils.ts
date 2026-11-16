@@ -191,6 +191,8 @@ export const getSlackMessageForNotificationEvent = async (
     case "feature.rampSchedule.actions.startApproved":
     case "feature.rampSchedule.actions.errorPaused":
     case "feature.rampSchedule.actions.stepHeld":
+    case "feature.rampSchedule.actions.stepRetrying":
+    case "feature.rampSchedule.actions.stepRecovered":
     case "feature.rampSchedule.actions.paused":
     case "feature.rampSchedule.actions.resumed":
       return buildSlackMessageForRampScheduleEvent(
@@ -663,7 +665,10 @@ type RampBasePayload = {
 const buildSlackMessageForRampScheduleEvent = (
   eventType: string,
   data: RampBasePayload &
-    Partial<RampScheduleStepApprovalRequiredPayload> & { reason?: string },
+    Partial<RampScheduleStepApprovalRequiredPayload> & {
+      reason?: string;
+      attempts?: number;
+    },
   event: StoredEvent,
 ): SlackMessage => {
   const name = `*${data.rampName}*`;
@@ -707,6 +712,12 @@ const buildSlackMessageForRampScheduleEvent = (
       break;
     case "feature.rampSchedule.actions.stepHeld":
       text = `Ramp schedule ${name} is holding step ${step}: ${data.reason}`;
+      break;
+    case "feature.rampSchedule.actions.stepRetrying":
+      text = `Ramp schedule ${name} is retrying a failed step: ${data.reason}`;
+      break;
+    case "feature.rampSchedule.actions.stepRecovered":
+      text = `Ramp schedule ${name} recovered after ${data.attempts} failed ${data.attempts === 1 ? "attempt" : "attempts"}`;
       break;
     case "feature.rampSchedule.actions.paused":
       text = `Ramp schedule ${name} was paused${data.reason ? `: ${data.reason}` : ""}`;
