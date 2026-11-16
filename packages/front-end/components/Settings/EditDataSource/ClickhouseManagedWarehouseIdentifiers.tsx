@@ -1,7 +1,5 @@
 import { Box, Flex } from "@radix-ui/themes";
 import { GrowthbookClickhouseDataSourceWithParams } from "shared/types/datasource";
-import { getManagedWarehouseUserIdTypes } from "shared/util";
-import useOrgSettings from "@/hooks/useOrgSettings";
 import { useAuth } from "@/services/auth";
 import Badge from "@/ui/Badge";
 import Callout from "@/ui/Callout";
@@ -23,12 +21,11 @@ export default function ClickhouseManagedWarehouseIdentifiers({
   canEdit?: boolean;
   mutate?: () => void;
 }) {
-  const settings = useOrgSettings();
   const { apiCall } = useAuth();
 
+  // Always persisted: set at creation and on every attribute sync
   const identifiers =
-    dataSource.settings.userIdTypes?.map((u) => u.userIdType) ??
-    getManagedWarehouseUserIdTypes(settings.attributeSchema);
+    dataSource.settings.userIdTypes?.map((u) => u.userIdType) ?? [];
 
   const legacy = new Set(dataSource.settings.migratedIdentifiers ?? []);
   const hasLegacy = identifiers.some((id) => legacy.has(id));
