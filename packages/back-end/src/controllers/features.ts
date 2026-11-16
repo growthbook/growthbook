@@ -266,6 +266,7 @@ import {
   CACHE_CONTROL_STALE_IF_ERROR,
   CACHE_CONTROL_STALE_WHILE_REVALIDATE,
   FASTLY_SERVICE_ID,
+  IS_CLOUD,
 } from "back-end/src/util/secrets";
 import { getSurrogateKeysFromEnvironments } from "back-end/src/util/cdn.util";
 import {
@@ -553,6 +554,7 @@ export type SDKPayloadParams = Pick<
   | "allowedCustomFieldsInMetadata"
   | "includeTagsInMetadata"
   | "includeReferencedPrerequisites"
+  | "noDirectAccess"
 > &
   Partial<Pick<SDKConnectionInterface, "organization">> & {
     // Extend languages to allow "legacy" for old API keys
@@ -608,6 +610,7 @@ export async function getPayloadParamsFromApiKey(
       remoteEvalEnabled: connection.remoteEvalEnabled,
       savedGroupFormat: savedGroupFormatFromConnection(connection),
       includeReferencedPrerequisites: connection.includeReferencedPrerequisites,
+      noDirectAccess: connection.noDirectAccess,
       languages: connection.languages,
       sdkVersion: connection.sdkVersion,
     };
@@ -777,6 +780,17 @@ export async function getFeaturesPublic(req: Request, res: Response) {
     if (params.remoteEvalEnabled) {
       throw new UnrecoverableApiError(
         "Remote evaluation required for this connection",
+      );
+    }
+
+    if (
+      IS_CLOUD &&
+      params.noDirectAccess &&
+      !req.get("fastly-client-ip") &&
+      !req.get("user-agent")?.startsWith("GrowthBook Proxy")
+    ) {
+      throw new UnrecoverableApiError(
+        "You must use cdn.growthbook.io or a GrowthBook Proxy to access this endpoint",
       );
     }
 
