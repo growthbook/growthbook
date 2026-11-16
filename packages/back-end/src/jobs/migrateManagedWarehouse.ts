@@ -24,10 +24,13 @@ type MigrateJob = Job<{ organization: string }>;
 type JobContext = Awaited<ReturnType<typeof getContextForAgendaJobByOrgId>>;
 
 // Returns false to leave the version unchanged so the next sweep pass retries.
+// On success, returns the settings the migration wrote: the version is only
+// recorded while they still hold, because a concurrent full-settings write (an
+// attribute sync working from an older snapshot) can revert them.
 type Migration = (
   context: JobContext,
   datasource: GrowthbookClickhouseDataSource,
-) => Promise<boolean>;
+) => Promise<false | Record<string, unknown>>;
 
 async function getWarehouse(orgId: string) {
   const context = await getContextForAgendaJobByOrgId(orgId);
@@ -63,7 +66,7 @@ const useSchemaDerivedIdentifiers: Migration = async (context, datasource) => {
   );
 
   const migrated = await getWarehouse(orgId);
-  if (!migrated) return false;
+  if (!migrated?.datasource.settings.identifiersFromAttributes) return false;
   await syncManagedWarehouseIdentifiers(migrated.context);
 
   // The sync persists output derived from the snapshot above, so a concurrent
@@ -75,7 +78,8 @@ const useSchemaDerivedIdentifiers: Migration = async (context, datasource) => {
       w.datasource.settings.migratedIdentifiers ?? [],
       w.datasource.settings.migratedColumns ?? [],
     ]);
-  return !!fresh && inputs(migrated) === inputs(fresh);
+  if (!fresh || inputs(migrated) !== inputs(fresh)) return false;
+  return { "settings.identifiersFromAttributes": true };
 };
 
 // Index + 1 is the version a migration brings a warehouse to. Append only.
@@ -160,16 +164,21 @@ const migrateManagedWarehouse = async (job: MigrateJob) => {
       const desired = datasource.settings.desiredMigrationVersion ?? 0;
       if (version >= Math.min(desired, MIGRATIONS.length)) return;
 
-      if (!(await MIGRATIONS[version](context, datasource))) {
+      const result = await MIGRATIONS[version](context, datasource);
+      const recorded =
+        result &&
+        (
+          await getCollection("datasources").updateOne(
+            { organization: orgId, id: datasource.id, ...result },
+            { $set: { "settings.appliedMigrationVersion": version + 1 } },
+          )
+        ).matchedCount > 0;
+      if (!recorded) {
         logger.warn(
           `Managed warehouse migration v${version + 1} did not complete for org ${orgId}; the sweep will retry`,
         );
         return;
       }
-      await getCollection("datasources").updateOne(
-        { organization: orgId, id: datasource.id },
-        { $set: { "settings.appliedMigrationVersion": version + 1 } },
-      );
       logger.info(
         `Managed warehouse migrated to v${version + 1} for org ${orgId}`,
       );
