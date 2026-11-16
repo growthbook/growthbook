@@ -23,6 +23,24 @@ ARG PYTHON_MAJOR=3.11
 ARG NODE_MAJOR=24
 
 # ----------------------------------------------------------------------------
+# Stage 0: build zlib from source for /opt/pydeps. numpy/scipy (bundled
+# libgfortran) and the stdlib zlib/binascii modules need libz.so.1, and
+# Debian 12's zlib1g (1.2.13) is in the CVE-2026-76844 range (GH #7685).
+# ----------------------------------------------------------------------------
+FROM debian:12-slim AS zlibbuild
+ARG ZLIB_VERSION=1.4
+ARG ZLIB_SHA256=02dd159783677a749c04adbdd02b55b8a2bcc7e054f51b76b549199a916ad584
+RUN apt-get update && \
+  apt-get install -y --no-install-recommends gcc libc6-dev make curl ca-certificates && \
+  rm -rf /var/lib/apt/lists/*
+WORKDIR /build
+RUN curl -fsSL -o zlib.tar.gz "https://github.com/madler/zlib/releases/download/v${ZLIB_VERSION}/zlib-${ZLIB_VERSION}.tar.gz" && \
+  echo "${ZLIB_SHA256}  zlib.tar.gz" | sha256sum -c - && \
+  tar -xzf zlib.tar.gz && cd "zlib-${ZLIB_VERSION}" && \
+  ./configure --shared && make -j"$(nproc)" && \
+  cp -L libz.so.1 /build/libz.so.1
+
+# ----------------------------------------------------------------------------
 # Stage 1: build the gbstats venv against the DHI python interpreter.
 # The venv hardcodes its interpreter path (pyvenv.cfg + bin symlinks), so it must
 # be built against the same /opt/python that ships in the final image — hence the
@@ -81,11 +99,16 @@ RUN mkdir -p /opt/pydeps && \
 # their system deps (libffi for _ctypes, libsqlite3 for _sqlite3, …) explicitly
 # via dpkg from the packages the DHI python image installs.
 RUN for p in libffi8 libbz2-1.0 liblzma5 libsqlite3-0 libncursesw6 libreadline8 \
-             libtinfo6 libuuid1 libcrypt1 libdb5.3 zlib1g; do \
+             libtinfo6 libuuid1 libcrypt1 libdb5.3; do \
       dpkg -L "$p" 2>/dev/null | grep '\.so' \
         | xargs -r -I{} cp -Ln {} /opt/pydeps/ 2>/dev/null || true; \
     done; \
   echo "staged (sweep + stdlib):" && ls -1 /opt/pydeps | sort
+
+# Swap in the stage-0 libz; fail if a Debian libz is left or the venv no longer loads ours.
+COPY --from=zlibbuild /build/libz.so.1 /opt/pydeps/libz.so.1
+RUN test -z "$(ls /opt/pydeps/libz.so.1.* 2>/dev/null)" && \
+  LD_LIBRARY_PATH=/opt/pydeps python -c "import zlib, binascii, numpy, scipy.stats, gbstats.gbstats; v = zlib.ZLIB_RUNTIME_VERSION; assert not v.startswith('1.2.'), v; print('zlib', v)"
 
 # ----------------------------------------------------------------------------
 # Stage 2: build the Node app. Build-only on node:24-slim — never shipped, so its
