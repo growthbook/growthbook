@@ -630,6 +630,7 @@ export function getReportSnapshotSettings({
   if (isClusterExperiment && exposureQuery) {
     const clusterValidation = validateClusterExperimentIdentifiers(
       exposureQuery,
+      datasource,
       exposureQueryIdentifierType,
       clusterSubUnitIdentifier,
     );
