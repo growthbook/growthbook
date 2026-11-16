@@ -90,6 +90,21 @@ describe("formatCollapsedDateRange", () => {
 describe("alignComparisonOverlayToCategories", () => {
   const seriesKeys = ["__single__"];
 
+  it("leaves % of Population gaps past a shorter comparison window", () => {
+    const aligned = alignComparisonOverlayToCategories(
+      ["2026-09-01", "2026-09-02", "2026-09-03"],
+      { __metric_0__: { "2026-08-31": 50 }, __metric_1__: { "2026-08-31": 7 } },
+      ["__metric_0__", "__metric_1__"],
+      ["2026-08-31"],
+      true,
+      "chronological",
+      new Set(["__metric_0__"]),
+    );
+    expect(Object.values(aligned.__metric_0__)).toEqual([50, null, null]);
+    // Counts keep reading 0 there.
+    expect(Object.values(aligned.__metric_1__)).toEqual([7, 0, 0]);
+  });
+
   it("maps comparison buckets by chronological rank when first dimension is date", () => {
     const comparisonDataMap = {
       __single__: {

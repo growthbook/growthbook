@@ -12,6 +12,7 @@ import type { FactMetricInterface } from "shared/types/fact-table";
 // barrel forms a require cycle with this file, leaving the array undefined.
 import { comparisonMode } from "../../validators/product-analytics";
 import { calculateProductAnalyticsDateRange, getDateGranularity } from "./sql";
+import { configHasPopulation } from "./populations";
 import {
   buildExplorationColumns,
   getEffectiveMetricValue,
@@ -546,6 +547,11 @@ export function buildAlignedComparisonRowLookup(
   comparisonRows: ProductAnalyticsResultRow[],
   firstDimensionIsDate: boolean,
   strategy: ComparisonAlignmentStrategy = "calendarYearOverYear",
+  // The current period's buckets to rank against, when it has more than
+  // `primaryRows` (see `densifyPopulationTimeseriesRows`).
+  currentXValues: readonly string[] = primaryRows.map((r) =>
+    String(r.dimensions[0] ?? ""),
+  ),
 ): (currentDims: (string | null)[]) => ProductAnalyticsResultRow | null {
   if (!firstDimensionIsDate) {
     const byKey = new Map<string, ProductAnalyticsResultRow>();
@@ -555,8 +561,9 @@ export function buildAlignedComparisonRowLookup(
     return (currentDims) => byKey.get(dimensionsTupleKey(currentDims)) ?? null;
   }
 
-  const primaryKeys = primaryRows.map((r) => String(r.dimensions[0] ?? ""));
-  const sortedXValues = [...new Set(primaryKeys)].sort(compareDateStringsAsc);
+  const sortedXValues = [...new Set(currentXValues)].sort(
+    compareDateStringsAsc,
+  );
   const comparisonXValues = comparisonRows.map((r) =>
     String(r.dimensions[0] ?? ""),
   );
@@ -869,6 +876,27 @@ export function densifyComparisonExplorationTimeseries(params: {
   return { ...comparison, result: { rows: merged } };
 }
 
+/**
+ * A result's rows with a row for every date bucket in its range when a
+ * Population is applied. A bucket with no members has no row, so without these
+ * a "% of Population" line would join across it, and rank-based comparison
+ * pairing would shift every later bucket by one.
+ */
+export function densifyPopulationTimeseriesRows(
+  exploration: ProductAnalyticsExploration,
+  config: ExplorationConfig,
+): ProductAnalyticsResultRow[] {
+  const rows = exploration.result?.rows ?? [];
+  if (!configHasPopulation(config)) return rows;
+  return (
+    densifyComparisonExplorationTimeseries({
+      comparison: exploration,
+      submittedConfig: config,
+      previousTimeFrame: config.dateRange,
+    })?.result?.rows ?? rows
+  );
+}
+
 // --- Comparison payload for POST /product-analytics/run ---------------------
 
 function round2(n: number): number {
@@ -1029,6 +1057,9 @@ export function computeExplorationComparisonPayload(
     cmpSorted,
     isTimeseries,
     alignment,
+    densifyPopulationTimeseriesRows(primary, submittedConfig).map((r) =>
+      String(r.dimensions[0] ?? ""),
+    ),
   );
 
   const tableTrendsByRow = sortedRows.map((row) => {

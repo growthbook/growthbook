@@ -12,9 +12,8 @@ import { isManagedWarehousePendingQueryError } from "shared/util";
 import { parseWarehouseDate } from "shared/dates";
 import {
   calculateProductAnalyticsDateRange,
-  configHasPopulation,
   createComparisonAlignmentResolver,
-  densifyComparisonExplorationTimeseries,
+  densifyPopulationTimeseriesRows,
   extendDateBucketsForward,
   getComparisonAlignmentStrategy,
   getDateGranularity,
@@ -294,16 +293,10 @@ export default function ExplorerChart({
       submittedExploreState.dataset?.type === "journey"
     )
       return null;
-    // A day with no Population members has no row. Fill in every day of the
-    // range so the "% of Population" line breaks there instead of joining
-    // across it.
-    const rows = configHasPopulation(submittedExploreState)
-      ? (densifyComparisonExplorationTimeseries({
-          comparison: exploration,
-          submittedConfig: submittedExploreState,
-          previousTimeFrame: submittedExploreState.dateRange,
-        })?.result?.rows ?? exploration.result.rows)
-      : exploration.result.rows;
+    const rows = densifyPopulationTimeseriesRows(
+      exploration,
+      submittedExploreState,
+    );
 
     // Resolve date granularity for tooltip formatting
     const dateDimension = submittedExploreState.dimensions?.find(

@@ -283,18 +283,6 @@ export function getAlignedComparisonDimensionKeyForTooltip(
 }
 
 /**
- * Maps comparison-period values onto the chart's x categories.
- *
- * - **Date first dimension:** comparison rows use a shifted calendar (different
- *   `dimensions[0]` strings). Prefer **calendar year-over-year** when the
- *   comparison series has a bucket for `currentDate − 1 year` (handles sparse /
- *   unequal bucket counts). Otherwise fall back to **chronological rank** (same
- *   idea as {@link buildAlignedComparisonRowLookup} / table compare): i-th bucket
- *   window pairs with the i-th bucket in the comparison window.
- * - **Non-date:** keys should match between periods (e.g. country); align by
- *   string equality on the category label.
- */
-/**
  * A chart point: null is a gap (no data, e.g. "% of Population" on a day with
  * no members), unlike a bucket with no rows, which reads as 0.
  */
@@ -316,6 +304,22 @@ export function getChartPoint(
   return map && x in map ? map[x] : 0;
 }
 
+/**
+ * Maps comparison-period values onto the chart's x categories.
+ *
+ * - **Date first dimension:** comparison rows use a shifted calendar (different
+ *   `dimensions[0]` strings). Prefer **calendar year-over-year** when the
+ *   comparison series has a bucket for `currentDate − 1 year` (handles sparse /
+ *   unequal bucket counts). Otherwise fall back to **chronological rank** (same
+ *   idea as {@link buildAlignedComparisonRowLookup} / table compare): i-th bucket
+ *   window pairs with the i-th bucket in the comparison window.
+ * - **Non-date:** keys should match between periods (e.g. country); align by
+ *   string equality on the category label.
+ *
+ * A bucket the comparison has no value for reads as 0, except in
+ * `gapSeriesKeys` ("% of Population" series), where it's a gap: with no
+ * members there's no percentage.
+ */
 export function alignComparisonOverlayToCategories(
   sortedXValues: string[],
   comparisonDataMap: Record<string, Record<string, ChartPoint>>,
@@ -323,6 +327,7 @@ export function alignComparisonOverlayToCategories(
   comparisonXValues: string[],
   firstDimensionIsDate: boolean,
   strategy?: ComparisonAlignmentStrategy,
+  gapSeriesKeys: ReadonlySet<string> = new Set(),
 ): Record<string, Record<string, ChartPoint>> {
   const aligned: Record<string, Record<string, ChartPoint>> = {};
   const resolveComparisonKey = createComparisonAlignmentResolver(
@@ -337,10 +342,14 @@ export function alignComparisonOverlayToCategories(
     aligned[seriesKey] = {};
     for (const x of sortedXValues) {
       const compKey = resolveComparisonKey(x);
-      // Buckets past the end of a shorter comparison window read as zero, same
-      // as a matched bucket the comparison simply had no rows in.
+      // Buckets past the end of a shorter comparison window read the same as a
+      // matched bucket the comparison simply had no rows in.
       aligned[seriesKey][x] =
-        compKey !== undefined ? getChartPoint(src, compKey) : 0;
+        compKey !== undefined && compKey in src
+          ? src[compKey]
+          : gapSeriesKeys.has(seriesKey)
+            ? null
+            : 0;
     }
   }
   return aligned;
@@ -375,11 +384,17 @@ export function buildComparisonOverlaySeriesMaps(
 ): {
   uniqueXValues: Set<string>;
   dataMap: Record<string, Record<string, ChartPoint>>;
-  seriesMeta: Record<string, { metricId: string; name: string }>;
+  seriesMeta: Record<
+    string,
+    { metricId: string; name: string; valueIndex: number }
+  >;
 } {
   const uniqueXValues = new Set<string>();
   const dataMap: Record<string, Record<string, ChartPoint>> = {};
-  const seriesMeta: Record<string, { metricId: string; name: string }> = {};
+  const seriesMeta: Record<
+    string,
+    { metricId: string; name: string; valueIndex: number }
+  > = {};
 
   const numMetrics =
     config.dataset?.type !== "funnel" && config.dataset?.type !== "journey"
@@ -404,6 +419,7 @@ export function buildComparisonOverlaySeriesMaps(
           seriesMeta[seriesKey] = {
             metricId: metricIdForDatasetValue(config, mi),
             name: metricNameForDatasetValue(renderOpts, mi),
+            valueIndex: mi,
           };
         }
         const cell = row.values?.[mi];
@@ -433,6 +449,7 @@ export function buildComparisonOverlaySeriesMaps(
         seriesMeta[seriesKey] = {
           metricId: metricIdForDatasetValue(config, 0),
           name: group || metricNameForDatasetValue(renderOpts, 0),
+          valueIndex: 0,
         };
       }
       const cell = row.values?.[0];
@@ -454,6 +471,7 @@ export function buildComparisonOverlaySeriesMaps(
       seriesMeta[seriesKey] = {
         metricId: metricIdForDatasetValue(config, 0),
         name: metricNameForDatasetValue(renderOpts, 0),
+        valueIndex: 0,
       };
     }
     const cell = row.values?.[0];
@@ -729,12 +747,22 @@ export function buildAlignedComparisonOverlayForExplorer(args: {
   comparisonXValues: string[];
 } | null {
   if (!args.comparisonRows.length) return null;
-  const { uniqueXValues, dataMap } = buildComparisonOverlaySeriesMaps(
-    args.comparisonRows,
-    args.submittedExploreState,
-    args.renderOpts,
-  );
+  const { uniqueXValues, dataMap, seriesMeta } =
+    buildComparisonOverlaySeriesMaps(
+      args.comparisonRows,
+      args.submittedExploreState,
+      args.renderOpts,
+    );
   const comparisonXValues = Array.from(uniqueXValues);
+  const gapSeriesKeys = new Set(
+    Object.entries(seriesMeta)
+      .filter(
+        ([, meta]) =>
+          args.renderOpts.values[meta.valueIndex]?.showAs ===
+          "percent_of_population",
+      )
+      .map(([seriesKey]) => seriesKey),
+  );
   const alignedMap = alignComparisonOverlayToCategories(
     args.sortedXValues,
     dataMap,
@@ -742,6 +770,7 @@ export function buildAlignedComparisonOverlayForExplorer(args: {
     comparisonXValues,
     args.firstDimensionIsDate,
     args.comparisonAlignment,
+    gapSeriesKeys,
   );
   return { alignedMap, comparisonXValues };
 }
