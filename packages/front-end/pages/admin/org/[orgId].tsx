@@ -927,24 +927,26 @@ function OrganizationDetail({
                             {migration.desired > migration.applied
                               ? `${migration.applied} (pending ${migration.desired})`
                               : migration.applied}
-                            {can("provision") && (
-                              <Link
-                                onClick={(e) => {
-                                  e.preventDefault();
-                                  setDesiredVersion(
-                                    Math.max(
-                                      migration.applied,
-                                      Math.min(
-                                        migration.desired,
-                                        migration.latest,
+                            {can("provision") &&
+                              (migration.applied < migration.latest ||
+                                migration.desired > migration.applied) && (
+                                <Link
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    setDesiredVersion(
+                                      Math.max(
+                                        migration.applied,
+                                        Math.min(
+                                          migration.desired,
+                                          migration.latest,
+                                        ),
                                       ),
-                                    ),
-                                  );
-                                }}
-                              >
-                                Change
-                              </Link>
-                            )}
+                                    );
+                                  }}
+                                >
+                                  Change
+                                </Link>
+                              )}
                           </Flex>
                         ),
                       },
