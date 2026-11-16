@@ -22777,7 +22777,7 @@ paths:
       parameters:
         - $ref: '#/components/parameters/id'
       requestBody:
-        required: true
+        required: false
         content:
           application/json:
             schema:
@@ -67430,7 +67430,7 @@ paths:
           schema:
             type: string
       requestBody:
-        required: true
+        required: false
         content:
           application/json:
             schema:
@@ -67498,14 +67498,6 @@ paths:
                 properties:
                   sdkWebhook:
                     $ref: '#/components/schemas/SdkWebhook'
-                  bypassedGates:
-                    description: >-
-                      Gates that would have blocked this publish but were
-                      bypassed by the caller's authority. Present only when at
-                      least one gate was bypassed.
-                    type: array
-                    items:
-                      $ref: '#/components/schemas/bypassedGates'
                 required:
                   - sdkWebhook
                 additionalProperties: false

@@ -349,7 +349,8 @@ export const putSdkConnectionValidator = {
 export const deleteSdkConnectionValidator = {
   bodySchema: z
     .object({ bypassApproval: sdkConnectionBypassApprovalBodyField })
-    .strict(),
+    .strict()
+    .optional(),
   querySchema: z.never(),
   paramsSchema: idParams,
   responseSchema: z

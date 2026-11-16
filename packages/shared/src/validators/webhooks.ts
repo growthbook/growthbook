@@ -149,6 +149,9 @@ export const apiSdkWebhookReturn = z
     bypassedGates: publishBypassedGatesField,
   })
   .strict();
+export const apiSdkWebhookTestReturn = apiSdkWebhookReturn.omit({
+  bypassedGates: true,
+});
 export const apiSdkWebhookListReturn = z
   .object({ sdkWebhooks: z.array(apiSdkWebhookValidator) })
   .strict();
@@ -196,7 +199,8 @@ export const putSdkWebhookValidator = {
 export const deleteSdkWebhookValidator = {
   bodySchema: z
     .object({ bypassApproval: sdkConnectionBypassApprovalBodyField })
-    .strict(),
+    .strict()
+    .optional(),
   querySchema: z.never(),
   paramsSchema: idParams,
 };

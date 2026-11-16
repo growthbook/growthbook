@@ -3,6 +3,7 @@ import {
   apiSdkWebhookDeleteReturn,
   apiSdkWebhookListReturn,
   apiSdkWebhookReturn,
+  apiSdkWebhookTestReturn,
   apiSdkWebhookValidator,
   apiUpdateSdkWebhookBody,
   deleteSdkWebhookValidator,
@@ -78,7 +79,7 @@ export const postSdkWebhookTestEndpoint = {
   confirmation: ["sdkConnection.edit"] as const,
   operationId: "postSdkWebhookTest",
   validator: sdkWebhookIdValidator,
-  zodReturnObject: apiSdkWebhookReturn,
+  zodReturnObject: apiSdkWebhookTestReturn,
   summary: "Fire an SDK webhook now",
   description:
     "Returns the webhook with the outcome in `error` / `lastSuccess`.",
