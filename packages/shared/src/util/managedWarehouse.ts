@@ -16,6 +16,20 @@ import type {
   JSONColumnFields,
 } from "shared/types/fact-table";
 
+/**
+ * Managed Warehouse derived tables that can be recreated using the license
+ * server's `recreate-tables`. `session_replay` covers the session replay table
+ * and view.
+ */
+export const MANAGED_WAREHOUSE_RECREATABLE_TABLES = [
+  "events",
+  "experiment_views",
+  "feature_usage",
+  "session_replay",
+] as const;
+export type ManagedWarehouseRecreatableTable =
+  (typeof MANAGED_WAREHOUSE_RECREATABLE_TABLES)[number];
+
 /** Docs: Managed Warehouse — sending events */
 export const MANAGED_WAREHOUSE_SENDING_EVENTS_DOC_URL =
   "https://docs.growthbook.io/app/managed-warehouse#sending-events";
@@ -514,6 +528,28 @@ export function getManagedWarehouseIdentifierForAttribute({
   }
   if (attribute === "id") return getIdAttributeIdentifier(settings);
   return BUILTIN_ATTRIBUTE_TO_IDENTIFIER[attribute] ?? attribute;
+}
+
+// Hash attribute -> identifier column for every attribute that maps to one, so
+// managed warehouses can stand in for userIdType.attributes links, which they
+// don't populate.
+export function getManagedWarehouseAttributeIdentifierMap(
+  settings: GrowthbookClickhouseSettings,
+): Map<string, string> {
+  const attributes = new Set([
+    ...Object.keys(BUILTIN_ATTRIBUTE_TO_IDENTIFIER),
+    ...(settings.materializedColumns || []).map((c) => c.sourceField),
+    ...(settings.userIdTypes || []).map((u) => u.userIdType),
+  ]);
+  const map = new Map<string, string>();
+  for (const attribute of attributes) {
+    const identifier = getManagedWarehouseIdentifierForAttribute({
+      settings,
+      attribute,
+    });
+    if (identifier) map.set(attribute, identifier);
+  }
+  return map;
 }
 
 // Resolve the exposure query (Experiment Assignment Query) a hash attribute maps

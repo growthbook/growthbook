@@ -18,6 +18,7 @@ import {
   LicenseUserCodes,
   makeOrgLimits,
   DEFAULT_ORG_LIMITS,
+  isOrbPaymentPastDue,
   OrgLimits,
   OrgLimitsAccessor,
   planTierFor,
@@ -76,7 +77,9 @@ export function getSubscriptionFromLicense(
     billingPlatform: orbSub ? "orb" : "stripe",
     externalId: sub.id,
     trialEnd: sub.trialEnd,
-    status: getStripeSubscriptionStatus(sub.status),
+    status: isOrbPaymentPastDue(license)
+      ? "past_due"
+      : getStripeSubscriptionStatus(sub.status),
     hasPaymentMethod: !!sub.hasPaymentMethod,
     nextBillDate: new Date((sub.current_period_end || 0) * 1000).toDateString(),
     dateToBeCanceled: new Date((sub.cancel_at || 0) * 1000).toDateString(),
@@ -84,6 +87,9 @@ export function getSubscriptionFromLicense(
     pendingCancelation: sub.status !== "canceled" && !!sub.cancel_at_period_end,
     isVercelIntegration: !!license.vercelInstallationId,
     stripeCustomerId: license.stripeCustomerId,
+    pastDueUntil: license.paymentFailure?.downgradeAt
+      ? new Date(license.paymentFailure.downgradeAt).toISOString()
+      : undefined,
   };
 }
 

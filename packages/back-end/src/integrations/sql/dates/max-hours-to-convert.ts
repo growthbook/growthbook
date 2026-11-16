@@ -37,6 +37,8 @@ export function getMaxHoursToConvert(
   // has selected `skipPartialData`)
   let neededHoursForConversion = 0;
   metricAndDenominatorMetrics.forEach((m) => {
+    const funnelHours = getFunnelCompletionHours(m);
+    let conversionHours: number | null = null;
     if (m.windowSettings.type === "conversion") {
       // The metric conversion window is a hard envelope on every event.
       // When every funnel step also has a window, the funnel is settled
@@ -44,18 +46,23 @@ export function getMaxHoursToConvert(
       // can use the tighter of the two. Otherwise the envelope alone
       // bounds conversion.
       const windowHours = getMetricWindowHours(m.windowSettings);
-      const funnelHours = getFunnelCompletionHours(m);
-      const metricHours =
-        getDelayWindowHours(m.windowSettings) +
-        (funnelHours === null
-          ? windowHours
-          : Math.min(windowHours, funnelHours));
-      if (funnelMetric) {
-        // funnel metric windows can cascade, so sum each metric hours to get max
-        neededHoursForConversion += metricHours;
-      } else if (metricHours > neededHoursForConversion) {
-        neededHoursForConversion = metricHours;
-      }
+      conversionHours =
+        funnelHours === null ? windowHours : Math.min(windowHours, funnelHours);
+    } else if (m.windowSettings.type === "" && funnelHours !== null) {
+      // A funnel metric with a series of timed steps still has an implicit
+      // envelope for conversion, so it should apply even if the overall
+      // conversion window is not present. Note: we do not use the same logic
+      // for lookback windows, which do not start at the exposure event.
+      conversionHours = funnelHours;
+    }
+    if (conversionHours === null) return;
+
+    const metricHours = getDelayWindowHours(m.windowSettings) + conversionHours;
+    if (funnelMetric) {
+      // funnel metric windows can cascade, so sum each metric hours to get max
+      neededHoursForConversion += metricHours;
+    } else if (metricHours > neededHoursForConversion) {
+      neededHoursForConversion = metricHours;
     }
   });
   // activation metrics windows always cascade

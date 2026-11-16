@@ -1,15 +1,11 @@
 import { useState } from "react";
 import { useForm } from "react-hook-form";
-import { PiArrowSquareOutFill } from "react-icons/pi";
-import { Box, Flex } from "@radix-ui/themes";
 import { FeatureInterface } from "shared/types/feature";
 import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
 import { getReviewSetting } from "shared/util";
 import { useDefaultDraftMode } from "@/hooks/useDefaultDraft";
-import Text from "@/ui/Text";
 import { useAuth } from "@/services/auth";
-import Link from "@/ui/Link";
-import MarkdownInput from "@/components/Markdown/MarkdownInput";
+import AIRichTextField from "@/components/Markdown/AIRichTextField";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { ConflictProvider } from "@/components/DraftConflicts/ConflictContext";
@@ -69,6 +65,8 @@ export default function EditFeatureDescriptionModal({
   const [selectedDraft, setSelectedDraft] = useState<number | null>(
     defaultDraft,
   );
+  // An image still uploading would be dropped from the saved description.
+  const [uploading, setUploading] = useState(false);
 
   const form = useForm<{ description: string }>({
     defaultValues: {
@@ -92,7 +90,8 @@ export default function EditFeatureDescriptionModal({
         open={true}
         size="lg"
         close={close}
-        submit={validatedSubmit(form, async ({ description }) => {
+        submit={validatedSubmit(form, async (values) => {
+          const description = values.description.trim();
           const guard = conflict.guard({ description });
           const res = await conflict.guarded(() =>
             apiCall<{ draftVersion?: number }>(
@@ -120,7 +119,14 @@ export default function EditFeatureDescriptionModal({
             setVersion(resolvedVersion);
         })}
         cta={mode === "publish" ? "Save" : "Save to draft"}
-        ctaEnabled={form.formState.isDirty && conflict.resolved}
+        ctaEnabled={
+          // The editor doesn't report trailing whitespace, so the text is
+          // compared without it.
+          form.watch("description").trim() !==
+            (feature.description || "").trim() &&
+          conflict.resolved &&
+          !uploading
+        }
       >
         <DraftSelectorForChanges
           feature={feature}
@@ -135,28 +141,15 @@ export default function EditFeatureDescriptionModal({
           alertActive={conflict.alertActive}
         />
         {conflict.callouts}
-        <Flex align="center" wrap="wrap" width="auto" mb="2">
-          <Box as="div">
-            <span className="pr-1">
-              <Text as="span">Use markdown to format your content.</Text>
-            </span>
-            <Link
-              rel="noreferrer"
-              target="_blank"
-              weight="bold"
-              href="https://docs.github.com/en/get-started/writing-on-github/getting-started-with-writing-and-formatting-on-github/basic-writing-and-formatting-syntax"
-            >
-              Learn More
-              <PiArrowSquareOutFill className="ml-1" />
-            </Link>
-          </Box>
-        </Flex>
-        <MarkdownInput
+        <AIRichTextField
           value={form.watch("description")}
-          setValue={(value) =>
+          onChange={(value) =>
             form.setValue("description", value, { shouldDirty: true })
           }
           placeholder="Add context about this feature for your team"
+          collapsibleToolbar
+          autoFocus
+          onUploadingChange={setUploading}
         />
       </ModalStandard>
     </ConflictProvider>

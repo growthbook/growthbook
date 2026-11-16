@@ -81,7 +81,8 @@ export const createSchema = <
   };
   if ("id" in schema.shape) omitShape.id = true;
   if ("uid" in schema.shape) omitShape.uid = true;
-  let output = schema.omit(omitShape) as z.ZodObject<z.ZodRawShape>;
+  // Rebuild from the shape: zod 4.6 throws on .omit() of refined schemas (4.1 silently dropped refinements)
+  let output = z.object(schema.shape as z.ZodRawShape).omit(omitShape);
   if ("id" in schema.shape)
     output = output.extend({ id: z.string().optional() });
   if ("uid" in schema.shape)
@@ -128,7 +129,8 @@ const updateSchema = <
       omitShape[k as string] = true;
     }
   }
-  return schema
+  return z
+    .object(schema.shape as z.ZodRawShape)
     .omit(omitShape)
     .partial()
     .strict() as unknown as UpdateZodObject<T, PKey, readonly string[]>;

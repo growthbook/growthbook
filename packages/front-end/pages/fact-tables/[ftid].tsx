@@ -637,7 +637,7 @@ export default function FactTablePage() {
         </div>
       </div>
 
-      <Tabs defaultValue="metrics">
+      <Tabs defaultValue="metrics" persistInURL>
         <TabsList>
           <TabsTrigger value="metrics">
             Metrics{" "}

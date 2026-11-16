@@ -48,6 +48,7 @@ import {
   isFactMetric,
   isMetricGroupId,
   isRatioMetric,
+  isScalableClusterSubUnitMetric,
   isSubUnitClusterMetric,
   isSuspiciousUplift,
   quantileMetricType,
@@ -702,7 +703,7 @@ export type RowResults = {
   hasData: boolean;
   enoughData: boolean;
   enoughDataMeta: EnoughDataMeta;
-  hasScaledImpact: boolean;
+  scaledImpactEligible: boolean;
   significant: boolean;
   significantUnadjusted: boolean;
   significantReason: string;
@@ -782,11 +783,10 @@ export function getRowResults({
     maximumFractionDigits: 2,
   });
 
-  // Subunit cluster metrics are analyzed as ratios, which can't be scaled.
-  const hasScaledImpact =
-    !isRatioMetric(metric, denominator) &&
-    !quantileMetricType(metric) &&
-    !(clusterSettings && isSubUnitClusterMetric(metric, clusterSettings));
+  const scaledImpactEligible =
+    clusterSettings && isSubUnitClusterMetric(metric, clusterSettings)
+      ? isScalableClusterSubUnitMetric(metric, clusterSettings)
+      : !isRatioMetric(metric, denominator) && !quantileMetricType(metric);
   const metricSampleSize = getMetricSampleSize(
     baseline,
     stats,
@@ -963,7 +963,7 @@ export function getRowResults({
     hasData,
     enoughData,
     enoughDataMeta,
-    hasScaledImpact,
+    scaledImpactEligible,
     significant,
     significantUnadjusted,
     significantReason,

@@ -23,7 +23,10 @@ import {
   savedGroupFormatFromConnection,
   withLegacySavedGroupFlag,
 } from "shared/sdk-versioning";
-import { cancellableFetch } from "back-end/src/util/http.util";
+import {
+  cancellableFetch,
+  trimTrailingSlashes,
+} from "back-end/src/util/http.util";
 import {
   IS_CLOUD,
   PROXY_ENABLED,
@@ -242,6 +245,19 @@ export async function findSDKConnectionsByIds(
     id: { $in: ids },
   });
   return docs.map(toInterface);
+}
+
+// Throws unless every id is a connection in the org that `can` allows.
+export async function assertCanUseSDKConnections(
+  context: ReqContext,
+  ids: string[],
+  can: (conn: SDKConnectionInterface) => boolean,
+) {
+  const conns = await findSDKConnectionsByIds(context, ids);
+  if (conns.length !== new Set(ids).size) {
+    context.throwBadRequestError("Unknown SDK Connection id");
+  }
+  if (!conns.every(can)) context.permissions.throwPermissionError();
 }
 
 // Not org-scoped — authenticated callers must scope to their own org.
@@ -698,7 +714,7 @@ export async function testProxyConnection(
     return;
   }
 
-  const url = proxy.host.replace(/\/*$/, "") + "/healthcheck";
+  const url = trimTrailingSlashes(proxy.host) + "/healthcheck";
   let statusCode = 0;
   try {
     const { responseWithoutBody, stringBody } = await cancellableFetch(

@@ -1,12 +1,6 @@
 import { ReactNode, useState } from "react";
 import { Box, Flex, Separator } from "@radix-ui/themes";
-import {
-  PiArrowCounterClockwise,
-  PiCheck,
-  PiInfo,
-  PiPlus,
-  PiX,
-} from "react-icons/pi";
+import { PiArrowCounterClockwise, PiCheck, PiPlus, PiX } from "react-icons/pi";
 import {
   ApprovalFlowConfiguration,
   RequireReview,
@@ -17,7 +11,7 @@ import Text from "@/ui/Text";
 import Heading from "@/ui/Heading";
 import Link from "@/ui/Link";
 import Callout from "@/ui/Callout";
-import Tooltip from "@/components/Tooltip/Tooltip";
+import LabelWithHelp from "@/ui/LabelWithHelp";
 import { useUser } from "@/services/UserContext";
 import { useEnvironments } from "@/services/features";
 
@@ -29,23 +23,6 @@ type ScopeFieldsProps<T> = {
   // Read-only renders these same fields, so the two views cannot drift.
   readOnly?: boolean;
 };
-
-function LabelWithHelp({ label, help }: { label: string; help?: string }) {
-  const text = label;
-  if (!help) return <>{text}</>;
-  return (
-    <Flex align="center" gap="1" asChild>
-      <span>
-        {text}
-        <span onClick={(e) => e.stopPropagation()}>
-          <Tooltip body={help}>
-            <PiInfo color="var(--color-text-low)" />
-          </Tooltip>
-        </span>
-      </span>
-    </Flex>
-  );
-}
 
 const REQUIRED_TEAMS_HELP =
   "A draft cannot publish until someone from one of these teams approves it. Anyone eligible can still approve alongside them.";

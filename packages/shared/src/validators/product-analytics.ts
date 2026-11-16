@@ -1,3 +1,4 @@
+import { omit, pick } from "lodash";
 import { z } from "zod";
 import { MAX_FUNNEL_STEPS } from "shared/funnels";
 import { apiBaseSchema } from "./base-model";
@@ -17,11 +18,13 @@ const baseValueValidator = z.object({
 });
 
 // Metrics
+// Product Analytics can't explore compound metrics, so drafts never carry them.
 export const draftExplorationMetricValidator = factMetricValidator.omit({
   id: true,
   organization: true,
   dateCreated: true,
   dateUpdated: true,
+  compoundSettings: true,
 });
 
 export const explorationPopulationValidator = componentSchema(
@@ -47,11 +50,20 @@ export type ExplorationPopulation = z.infer<
   typeof explorationPopulationValidator
 >;
 
+export const showAsValidator = z.enum(["total", "per_unit"]);
+export type ShowAs = z.infer<typeof showAsValidator>;
+
 const metricValueValidator = baseValueValidator.extend({
   type: z.literal("metric"),
   metricId: z.string(),
   unit: z.string().nullable(),
   denominatorUnit: z.string().nullable(),
+  // Render-only, so it is excluded from query cache keys.
+  showAs: showAsValidator
+    .optional()
+    .describe(
+      "How a mean metric renders: `total` sums the numerator, `per_unit` divides it by the unit count. Ignored for other metric types. Omit to use the default (`per_unit` for `max` and `count distinct` aggregations, otherwise `total`).",
+    ),
 });
 // Internal only (metric editor live preview): an unsaved metric definition to
 // run in place of a saved one. Kept out of the public validators so the REST
@@ -393,9 +405,6 @@ export const comparisonMode = [
 export const comparisonModeValidator = z.enum(comparisonMode);
 export type ComparisonMode = z.infer<typeof comparisonModeValidator>;
 
-export const showAsValidator = z.enum(["total", "per_unit"]);
-export type ShowAs = z.infer<typeof showAsValidator>;
-
 export const explorationDateRangeValidator = z.object({
   predefined: z.enum(dateRangePredefined),
   lookbackValue: z.number().nullish(),
@@ -410,6 +419,13 @@ export type ExplorationDateRange = z.infer<
 const chartSettingsValidator = z.object({
   categoryAxisLabel: z.string().optional(),
   valueAxisLabel: z.string().optional(),
+  // Line charts only. Absent means anchored (the value axis starts at 0).
+  anchorYAxisToZero: z
+    .boolean()
+    .optional()
+    .describe(
+      "Line charts only: whether the y-axis starts at 0. Defaults to true.",
+    ),
 });
 export type ProductAnalyticsChartSettings = z.infer<
   typeof chartSettingsValidator
@@ -421,13 +437,13 @@ export const baseExplorationConfigValidator = z.strictObject({
   dimensions: z.array(dimensionValidator),
   chartType: z.enum(chartTypes),
   dateRange: explorationDateRangeValidator,
-  // Controls how values with a denominator are rendered at the chart level.
-  // "total"    -> render the raw numerator (e.g. total events)
-  // "per_unit" -> divide numerator by denominator (e.g. events per unit)
-  // Ratio metrics are self-contained and always render as numerator/denominator
-  // regardless of this setting.
-  // Optional for backward compatibility; read sites default to "total".
-  showAs: showAsValidator.optional(),
+  // Superseded by the per-value `showAs` on metric values. Still accepted so
+  // configs saved before that change parse; read sites treat it as the
+  // fallback for values without their own.
+  showAs: showAsValidator
+    .optional()
+    .describe("Deprecated: use `showAs` on each metric value.")
+    .meta({ deprecated: true }),
   // Render-only chart display options. Optional so existing saved explorations,
   // dashboard blocks, URLs, and API clients continue to parse unchanged.
   chartSettings: chartSettingsValidator.optional(),
@@ -704,6 +720,29 @@ export function datasetTypeHasValues(
   type: DatasetType,
 ): type is ValuesDataset["type"] {
   return type !== "funnel" && type !== "journey";
+}
+
+/** Value fields that change only how results render, never the query. */
+const RENDER_ONLY_VALUE_FIELDS = ["name", "showAs"] as const;
+
+/** Values that differ only in render-only fields run the same query. */
+export function omitRenderOnlyFields(value: ProductAnalyticsValue) {
+  return omit(value, RENDER_ONLY_VALUE_FIELDS);
+}
+
+/**
+ * A cached value with the requested value's render-only fields. Copied even
+ * when absent: no `showAs` means the default.
+ */
+export function withRequestedRenderFields<T extends ProductAnalyticsValue>(
+  cached: T,
+  requested: ProductAnalyticsValue,
+): T {
+  // lodash's omit/pick types lose T; only render-only fields change.
+  return {
+    ...omit(cached, RENDER_ONLY_VALUE_FIELDS),
+    ...pick(requested, RENDER_ONLY_VALUE_FIELDS),
+  } as T;
 }
 export type ProductAnalyticsFunnelStepResult = z.infer<
   typeof productAnalyticsFunnelStepResultValidator

@@ -15,13 +15,29 @@ export type AdminOrgSummary = {
   seats: number | null;
 };
 
+// Orb keeps a declining subscription active; our open payment failure marks it past due.
+export function isOrbPaymentPastDue(
+  license: Pick<LicenseInterface, "orbSubscription" | "paymentFailure"> | null,
+): boolean {
+  return (
+    !!license?.orbSubscription?.id &&
+    license.orbSubscription.status === "active" &&
+    !!license.paymentFailure?.invoiceId
+  );
+}
+
 // Unlike getAccountPlan, this skips the legacy pro_sso fallback for orgs
 // without a license, so the admin plan filter can match it with a licenses query.
 export function getAdminOrgSummary(
   org: Pick<OrganizationInterface, "enterprise" | "suspended" | "disabled">,
   license: Pick<
     LicenseInterface,
-    "plan" | "seats" | "isTrial" | "orbSubscription" | "stripeSubscription"
+    | "plan"
+    | "seats"
+    | "isTrial"
+    | "orbSubscription"
+    | "stripeSubscription"
+    | "paymentFailure"
   > | null,
 ): AdminOrgSummary {
   return {
@@ -35,11 +51,12 @@ function getAdminOrgStatus(
   org: Pick<OrganizationInterface, "suspended" | "disabled">,
   license: Pick<
     LicenseInterface,
-    "isTrial" | "orbSubscription" | "stripeSubscription"
+    "isTrial" | "orbSubscription" | "stripeSubscription" | "paymentFailure"
   > | null,
 ): AdminOrgStatus {
   if (org.disabled) return "disabled";
   if (org.suspended) return "suspended";
+  if (isOrbPaymentPastDue(license)) return "past_due";
   // Same precedence as getSubscriptionFromLicense: Orb first, then Stripe
   const sub = license?.orbSubscription?.id
     ? license.orbSubscription

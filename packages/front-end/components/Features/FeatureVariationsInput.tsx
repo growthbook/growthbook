@@ -2,11 +2,7 @@ import { FeatureInterface, FeatureValueType } from "shared/types/feature";
 import { Box, Flex, Grid, IconButton, Slider } from "@radix-ui/themes";
 import { ReactNode, useMemo, useState } from "react";
 import { getEqualWeights } from "shared/experiments";
-import {
-  PiArrowsClockwise,
-  PiPencilSimpleFill,
-  PiPlusBold,
-} from "react-icons/pi";
+import { PiArrowsClockwise, PiPencilSimple, PiPlusBold } from "react-icons/pi";
 import {
   coverageToPercent,
   decimalToPercent,
@@ -79,7 +75,7 @@ export default function FeatureVariationsInput({
   valueType,
   defaultValue = "",
   coverageLabel = "Traffic included in this Experiment",
-  coverageTooltip = "Users not included in the Experiment will skip this rule",
+  coverageTooltip = "Units not included in the experiment skip this rule",
   valueAsId = false,
   hideVariationIds = false,
   startEditingIndexes = false,
@@ -331,7 +327,7 @@ export default function FeatureVariationsInput({
                                 }}
                                 aria-label="Customize split"
                               >
-                                <PiPencilSimpleFill size={14} />
+                                <PiPencilSimple size={14} />
                               </IconButton>
                             </Tooltip>
                           )}
@@ -465,7 +461,7 @@ export default function FeatureVariationsInput({
 }
 
 // The included-traffic slider and its typed percentage.
-function CoverageField({
+export function CoverageField({
   coverage,
   setCoverage,
   label,
