@@ -300,7 +300,7 @@ export function getAlignedComparisonDimensionKeyForTooltip(
  */
 export type ChartPoint = number | null;
 
-/** The point at `x`; 0 when the series has no bucket there. */
+// A series with no bucket at `x` reads as 0, unlike a null point, which is a gap.
 export function getChartPoint(
   map: Record<string, ChartPoint> | undefined,
   x: string,

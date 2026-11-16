@@ -32,7 +32,6 @@ export function getDefaultValueAxisName({
   return sharedUnit ? `Per ${sharedUnit}` : "Per unit";
 }
 
-/** Title of the right-hand value axis, or null when the chart has one axis. */
 export function getSecondaryValueAxisName(
   renderOpts: ExplorationRenderOpts,
 ): string | null {

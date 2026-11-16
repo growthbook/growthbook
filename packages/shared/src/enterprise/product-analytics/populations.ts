@@ -17,7 +17,6 @@ import type {
   StandardFactMetricInterface,
 } from "shared/types/fact-table";
 
-/** Whether a config's metric dataset has a population. */
 export function configHasPopulation(config: ExplorationConfig | null): boolean {
   if (config?.dataset.type !== "metric") return false;
   return config.dataset.population !== undefined;
