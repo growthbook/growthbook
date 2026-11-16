@@ -302,7 +302,7 @@ export default function AuditHistoryExplorerModal<T>({
             borderBottom: "1px solid var(--gray-5)",
             flexShrink: 0,
             boxShadow:
-              "0 1px 2px rgba(0, 0, 0, 0.1), 0 4px 4px rgba(0, 0, 0, 0.025)",
+              "0 1px 2px var(--lift-shadow-near), 0 4px 4px var(--lift-shadow-far)",
           }}
         >
           <TabsList style={{ boxShadow: "none" }}>

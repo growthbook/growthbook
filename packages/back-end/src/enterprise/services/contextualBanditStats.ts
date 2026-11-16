@@ -188,6 +188,7 @@ function buildContextualBanditWeightsInput(
     maxLeaves: settings.maxLeaves,
     minUsersPerLeaf: settings.minUsersPerLeaf,
     priorSampleSize: settings.priorSampleSize,
+    periodWeighting: !!snapshotSettings.banditSettings?.periodWeighting,
     metricSettings,
     analysisWeights: analysisForEngine.weights,
     observations,

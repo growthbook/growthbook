@@ -1,35 +1,44 @@
 import { FeatureInterface } from "shared/types/feature";
 import React, { forwardRef, useState } from "react";
-import { Box, Flex, Heading, IconButton } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import { HoldoutInterface } from "shared/validators";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
 import { PiArrowBendRightDown } from "react-icons/pi";
-import { BsThreeDotsVertical } from "react-icons/bs";
 import {
+  coverageToHoldoutSize,
   filterEnvironmentsByFeature,
   getEnabledHoldoutEnvironments,
 } from "shared/util";
-import { hasTargetingConfigured } from "shared/experiments";
+import Heading from "@/ui/Heading";
 import Link from "@/ui/Link";
+import { LockedRowMenu } from "@/components/Features/ScheduleLock";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import { useEnvironments } from "@/services/features";
+import { useExperimentStatusIndicator } from "@/hooks/useExperimentStatusIndicator";
+import { getHoldoutRuleId, useEnvironments } from "@/services/features";
 import Badge from "@/ui/Badge";
 import RuleEnvScopeBadges from "@/components/Features/RuleEnvScopeBadges";
-import RuleCard, { RuleCardSideColor } from "@/components/Features/RuleCard";
+import RuleCard, {
+  RuleCardSideColor,
+  RuleEditButton,
+  ruleHeaderRowClass,
+  RuleIdLine,
+  ruleRowMenuClass,
+} from "@/components/Features/RuleCard";
 import useApi from "@/hooks/useApi";
 import Callout from "@/ui/Callout";
-import ExperimentStatusIndicator from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
-import TruncatedConditionDisplay from "@/components/SavedGroups/TruncatedConditionDisplay";
 import {
   DropdownMenu,
   DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuSeparator,
+  MoreMenuTrigger,
 } from "@/ui/DropdownMenu";
 import RemoveFromHoldoutModal from "./RemoveFromHoldoutModal";
 import AddToHoldoutModal from "./AddToHoldoutModal";
 import HoldoutSummary from "./HoldoutSummary";
+import RuleField, { TargetingField } from "./RuleField";
+import { useFeaturePageRedesign } from "./FeaturePageRedesign";
 
 interface Props {
   feature: FeatureInterface;
@@ -41,6 +50,10 @@ interface Props {
   // The current draft adds this holdout; it goes live when the draft publishes.
   isPendingAdd?: boolean;
   isLocked?: boolean;
+  // Its id under the title, as other rules show theirs.
+  showRuleIds?: boolean;
+  // Shows the menu disabled rather than hiding it.
+  lockedBySchedule?: boolean;
   // Per-env tab passes its env id so the badge sorts current env first;
   // omitted in the All-Environments view.
   currentEnvironment?: string;
@@ -58,6 +71,8 @@ export const HoldoutRule = forwardRef<HTMLDivElement, Props>(
       isDeleted = false,
       isPendingAdd = false,
       isLocked = false,
+      showRuleIds = false,
+      lockedBySchedule = false,
       currentEnvironment,
       ...props
     },
@@ -80,6 +95,8 @@ export const HoldoutRule = forwardRef<HTMLDivElement, Props>(
     const allEnvironments = useEnvironments();
     const environments = filterEnvironmentsByFeature(allEnvironments, feature);
 
+    const getStatusIndicator = useExperimentStatusIndicator();
+    const redesign = useFeaturePageRedesign();
     const holdout = data?.holdout;
     const holdoutExperiment = data?.experiment;
 
@@ -91,9 +108,17 @@ export const HoldoutRule = forwardRef<HTMLDivElement, Props>(
       holdout.environmentSettings,
     );
 
-    const hasCondition = hasTargetingConfigured(holdoutExperiment.phases[0]);
+    // The phase the payload sends.
+    const phase = holdoutExperiment.phases[0];
+    const status = getStatusIndicator(holdoutExperiment);
 
     const canEdit = permissionsUtil.canEditFeatureDrafts(feature);
+    // The payload carries the holdout's rule only where the holdout runs.
+    const inPayload =
+      !isDeleted &&
+      (currentEnvironment
+        ? activeHoldoutEnvIds.includes(currentEnvironment)
+        : activeHoldoutEnvIds.length > 0);
 
     const isInactive =
       !isDeleted &&
@@ -107,109 +132,139 @@ export const HoldoutRule = forwardRef<HTMLDivElement, Props>(
 
     return (
       <Box {...props} ref={ref} style={{ margin: -1 }}>
-        <RuleCard index={1} sideColor={sideColor}>
-          <Flex
-            justify="between"
-            align="start"
-            mb="3"
-            gap="3"
-            style={{ maxWidth: "100%" }}
-          >
+        <RuleCard
+          index={1}
+          sideColor={sideColor}
+          header={
             <Flex
-              align="center"
-              gap="2"
-              style={{ flex: "0 1 auto", flexWrap: "wrap" }}
+              justify="between"
+              align="start"
+              gap="3"
+              style={{ maxWidth: "100%" }}
             >
-              <Heading as="h4" size="3" weight="medium" mb="0">
-                <>
-                  Holdout:{" "}
-                  <Link
-                    href={`/holdout/${feature.holdout?.id}`}
-                    style={{ marginRight: "var(--space-2)" }}
-                  >
-                    {holdout.name}
-                  </Link>
-                </>
-              </Heading>
-              {!isDeleted && (
-                <ExperimentStatusIndicator experimentData={holdoutExperiment} />
-              )}
-            </Flex>
-
-            <Flex align="center" gap="2" flexShrink="0">
-              {isInactive && (
-                <Badge
-                  color="amber"
-                  label={
-                    <>
-                      <PiArrowBendRightDown />
-                      Skipped
-                    </>
-                  }
-                />
-              )}
-
-              {canEdit && !isLocked && (
-                <DropdownMenu
-                  trigger={
-                    <IconButton
-                      variant="ghost"
-                      color="gray"
-                      radius="full"
-                      size="2"
-                      highContrast
-                      style={{ marginRight: "calc(var(--space-2) * -1)" }}
-                    >
-                      <BsThreeDotsVertical size={16} />
-                    </IconButton>
-                  }
-                  open={dropdownOpen}
-                  onOpenChange={setDropdownOpen}
-                  menuPlacement="end"
-                  variant="soft"
+              <Box style={{ flex: "0 1 auto", minWidth: 0 }}>
+                <Flex
+                  align="center"
+                  gap="2"
+                  wrap="wrap"
+                  className={ruleHeaderRowClass}
                 >
-                  <DropdownMenuGroup>
-                    {isDeleted ? (
-                      <DropdownMenuItem
-                        onClick={() => {
-                          setDropdownOpen(false);
-                          setReEnableModal(true);
-                        }}
+                  <Heading as="h4" size="md" weight="medium" mb="0">
+                    <>
+                      Holdout:{" "}
+                      <Link
+                        href={`/holdout/${feature.holdout?.id}`}
+                        style={{ marginRight: "var(--space-2)" }}
                       >
-                        Re-enable holdout
-                      </DropdownMenuItem>
-                    ) : (
+                        {holdout.name}
+                      </Link>
+                    </>
+                  </Heading>
+                  {/* Its status alone, as the experiment page shows a holdout's. */}
+                  {!isDeleted && (
+                    <Badge
+                      label={status.status}
+                      color={status.color}
+                      variant="soft"
+                      radius="full"
+                    />
+                  )}
+                </Flex>
+                {showRuleIds && inPayload ? (
+                  <RuleIdLine id={getHoldoutRuleId(feature.id, holdout.id)} />
+                ) : null}
+              </Box>
+
+              <Flex
+                align="center"
+                gap="3"
+                flexShrink="0"
+                className={ruleHeaderRowClass}
+              >
+                {isInactive && (
+                  <Badge
+                    color="amber"
+                    label={
                       <>
-                        <DropdownMenuItem
-                          onClick={() => {
-                            setRuleModal();
-                            setDropdownOpen(false);
-                          }}
-                        >
-                          Edit
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem
-                          color="red"
-                          onClick={() => {
-                            setDropdownOpen(false);
-                            setRemoveModal(true);
-                          }}
-                        >
-                          Remove from holdout
-                        </DropdownMenuItem>
+                        <PiArrowBendRightDown />
+                        Skipped
                       </>
-                    )}
-                  </DropdownMenuGroup>
-                </DropdownMenu>
-              )}
+                    }
+                  />
+                )}
+
+                {/* Shown on hover, as the menu is. */}
+                {redesign && canEdit && !isLocked && !isDeleted ? (
+                  <RuleEditButton onClick={() => setRuleModal()} />
+                ) : null}
+                {canEdit && lockedBySchedule ? (
+                  <LockedRowMenu className={ruleRowMenuClass} />
+                ) : null}
+                {canEdit && !isLocked && (
+                  <DropdownMenu
+                    trigger={
+                      <MoreMenuTrigger
+                        label="Holdout actions"
+                        className={ruleRowMenuClass}
+                      />
+                    }
+                    open={dropdownOpen}
+                    onOpenChange={setDropdownOpen}
+                    menuPlacement="end"
+                    variant="soft"
+                  >
+                    <DropdownMenuGroup>
+                      {isDeleted ? (
+                        <DropdownMenuItem
+                          onClick={() => {
+                            setDropdownOpen(false);
+                            setReEnableModal(true);
+                          }}
+                        >
+                          Re-enable holdout
+                        </DropdownMenuItem>
+                      ) : (
+                        <>
+                          {/* The redesign has it on the card itself. */}
+                          {!redesign && (
+                            <>
+                              <DropdownMenuItem
+                                onClick={() => {
+                                  setRuleModal();
+                                  setDropdownOpen(false);
+                                }}
+                              >
+                                Edit
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                            </>
+                          )}
+                          <DropdownMenuItem
+                            color="red"
+                            onClick={() => {
+                              setDropdownOpen(false);
+                              setRemoveModal(true);
+                            }}
+                          >
+                            Remove from holdout
+                          </DropdownMenuItem>
+                        </>
+                      )}
+                    </DropdownMenuGroup>
+                  </DropdownMenu>
+                )}
+              </Flex>
             </Flex>
-          </Flex>
-          <RuleEnvScopeBadges
-            activeEnvironmentIds={activeHoldoutEnvIds}
-            environments={environments}
-            currentEnvironment={currentEnvironment}
-          />
+          }
+        >
+          <RuleField label="Environments">
+            <RuleEnvScopeBadges
+              activeEnvironmentIds={activeHoldoutEnvIds}
+              environments={environments}
+              currentEnvironment={currentEnvironment}
+              my="0"
+            />
+          </RuleField>
           <Box style={{ opacity: isInactive ? 0.6 : 1 }}>
             {isDeleted ? (
               <Callout status="error" size="sm">
@@ -225,42 +280,24 @@ export const HoldoutRule = forwardRef<HTMLDivElement, Props>(
               <Callout status="info">
                 This Holdout is stopped and this rule will be skipped.{" "}
                 <Link href={`/holdout/${holdout.id}#results`}>
-                  View Results
+                  View results
                 </Link>
               </Callout>
             ) : null}
           </Box>
           {!isInactive && !isDeleted && (
             <Box style={{ opacity: isInactive ? 0.6 : 1 }} mt="3">
-              {hasCondition && (
-                <Flex align="center" justify="start" gap="3">
-                  <Box pb="3">
-                    <strong className="font-weight-semibold">IF</strong>
-                  </Box>
-                  <Box
-                    width="100%"
-                    flexShrink="4"
-                    flexGrow="1"
-                    overflowX="auto"
-                    pb="3"
-                  >
-                    <TruncatedConditionDisplay
-                      condition={holdoutExperiment.phases[0].condition || ""}
-                      savedGroups={holdoutExperiment.phases[0].savedGroups}
-                      prerequisites={holdoutExperiment.phases[0].prerequisites}
-                      maxLength={500}
-                    />
-                  </Box>
-                </Flex>
-              )}
+              <TargetingField
+                condition={phase.condition}
+                savedGroups={phase.savedGroups}
+                prerequisites={phase.prerequisites}
+              />
               <HoldoutSummary
                 feature={feature}
                 value={feature.holdout?.value || ""}
                 hashAttribute={holdoutExperiment.hashAttribute || ""}
-                holdoutWeight={
-                  holdoutExperiment.phases[0].coverage *
-                  holdoutExperiment.phases[0].variationWeights[0]
-                }
+                holdoutSize={coverageToHoldoutSize(phase.coverage)}
+                environment={currentEnvironment}
               />
             </Box>
           )}

@@ -21,9 +21,10 @@ import {
 } from "shared/types/fact-table";
 import { DataSourceInterface } from "shared/types/datasource";
 import {
-  clearInapplicableShowAs,
-  getEffectiveShowAs,
-  getIsRatioByIndex,
+  normalizeShowAs,
+  getShowAsChoice,
+  fillMissingUnits,
+  getExplorationRenderOpts,
   buildExplorationColumns,
   getExplorationCellValue,
   getRelevantFactTableIds,
@@ -108,19 +109,17 @@ If you omit unit on a standard metric, the backend will fill in userIdTypes[0] a
 </unit_rules>
 
 <show_as_rules>
-showAs is an optional top-level field that toggles how numeric values are rendered: "total" shows the raw numerator, "per_unit" divides by the unit count (e.g. avg per user).
+showAs is an optional field on each metric value that sets how that value renders: "total" shows the raw numerator, "per_unit" divides by the unit count (e.g. avg per user). Each mean metric in a chart can use a different mode.
 
-DEFAULT: Omit showAs in almost all cases. The UI infers a sensible default from the selected metrics — totals for most datasets, per-unit only for mean metrics whose aggregation makes totals incoherent (max, count distinct).
+DEFAULT: Omit showAs in almost all cases. Each value gets a sensible default from its metric — totals, except per-unit for mean metrics whose aggregation makes totals incoherent (max, count distinct).
 
-SET showAs explicitly ONLY when the user's request clearly asks for one view:
+SET showAs on a value explicitly ONLY when the user's request clearly asks for one view of that metric:
 - "per user", "per device", "average per X", "rate" → "per_unit"
 - "total X", "sum of X", "how much X did we have" → "total"
 
-showAs has no effect on these dataset types — do not set it:
-- fact_table / data_source datasets (always renders as the raw value)
-- metric datasets where every value is a proportion, retention, dailyParticipation, ratio, or quantile metric (the toggle is hidden in the UI because per-unit is either degenerate or self-contained)
+showAs only applies to mean metrics. Do not set it on proportion, retention, dailyParticipation, ratio, or quantile metric values (per-unit is either degenerate or self-contained, so it is dropped), and fact_table / data_source values have no showAs.
 
-Set showAs only when at least one value is a mean metric.
+Never set a top-level showAs; it is deprecated.
 </show_as_rules>
 
 <value_column_rules>
@@ -162,9 +161,9 @@ runExploration returns resultCsv, config, snapshotId, and rowCount. Use resultCs
 getSnapshot retrieves config and CSV for older/compacted snapshots by snapshotId. Prefer the runExploration return value for the current run.
 
 resultCsv column conventions (so you describe the same numbers the user sees on the chart):
-- Standard metric columns: one value column per metric. The header tells you the mode — "<name>" means raw totals, "<name> per <unit>" means per-unit averages (the value is numerator/denominator). Report the numbers in the header's mode.
+- Standard metric columns: one value column per metric. The header tells you the mode — "<name>" means raw totals, "<name> (per <unit>)" means per-unit averages (the value is numerator/denominator). Report the numbers in the header's mode.
 - Ratio metric columns: three columns — "<name> Numerator", "<name> Denominator", "<name> Value" (= N/D). Ratio metrics always render as N/D.
-- The column headers reflect the effective showAs (explicit if you set it, otherwise the UI-inferred default). Never assume a different mode than what the header says.
+- The column headers reflect each value's effective showAs (explicit if you set it, otherwise the UI-inferred default). Never assume a different mode than what the header says.
 </tool_notes>
 
 <response_style>
@@ -243,7 +242,7 @@ export function findSnapshot(
 function buildConfigSchemaSummary(): string {
   return [
     "<config_schema>",
-    "Top-level: { type, datasource, chartType, dateRange, dimensions, dataset, showAs? }",
+    "Top-level: { type, datasource, chartType, dateRange, dimensions, dataset }",
     'type: "metric" | "fact_table"',
     'chartType: "line" | "area" | "timeseries-table" | "table" | "bar" | "stackedBar" | "horizontalBar" | "stackedHorizontalBar" | "bigNumber"',
     "dateRange: { predefined, lookbackValue?, lookbackUnit?, startDate?, endDate? }",
@@ -252,18 +251,41 @@ function buildConfigSchemaSummary(): string {
     "  date: { dimensionType: 'date', column: null, dateGranularity: 'auto'|'hour'|'day'|'week'|'month'|'year' }",
     "  dynamic: { dimensionType: 'dynamic', column: string, maxValues: number (1-20) }",
     "  static: { dimensionType: 'static', column: string, values: string[] (1-20) }",
-    'dataset for type="metric": { type: "metric", values: [{ type: "metric", name, metricId, unit, denominatorUnit, rowFilters }] }',
+    'dataset for type="metric": { type: "metric", values: [{ type: "metric", name, metricId, unit, denominatorUnit, rowFilters, showAs? }] }',
     'dataset for type="fact_table": { type: "fact_table", factTableId, values: [{ type: "fact_table", name, valueType: "unit_count"|"count"|"sum", valueColumn, unit, rowFilters }] }',
     'rowFilters: [{ operator: "="|"!="|"in"|"not_in"|"contains"|"not_contains"|"starts_with"|"ends_with"|"matches_pattern"|"not_matches_pattern"|"is_null"|"not_null", column: string, values: string[] }]',
-    'showAs (optional): "total" | "per_unit" — chart-level toggle between raw totals and per-unit averages for mean metrics. Omit to use the smart default (see show_as_rules).',
+    'showAs (optional, per metric value): "total" | "per_unit" — raw totals or per-unit averages for a mean metric. Omit to use the smart default (see show_as_rules).',
     "Always pass a complete config object to runExploration.",
     "</config_schema>",
   ].join("\n");
 }
 
+/**
+ * The mode each value that offers Show as renders in, chosen or inferred,
+ * e.g. "Revenue: per_unit".
+ */
+function describeShowAs(
+  config: ExplorationConfig,
+  getFactMetricById: (id: string) => FactMetricInterface | null,
+): string {
+  if (config.dataset?.type !== "metric") return "";
+  return config.dataset.values
+    .flatMap((v) => {
+      const { options, showAs } = getShowAsChoice(
+        v,
+        config.showAs,
+        getFactMetricById,
+      );
+      return options.length ? [`${v.name}: ${showAs}`] : [];
+    })
+    .join(", ");
+}
+
 function buildSnapshotSummary(
   prev: ExplorationConfig | null,
   curr: ExplorationConfig,
+  // Must resolve the metrics of both configs.
+  getFactMetricById: (id: string) => FactMetricInterface | null,
 ): string {
   const parts: string[] = [];
 
@@ -282,8 +304,9 @@ function buildSnapshotSummary(
         parts.push(`values: ${valueNames.join(", ")}`);
       }
     }
-    if (curr.showAs) {
-      parts.push(`showAs: ${curr.showAs}`);
+    const showAs = describeShowAs(curr, getFactMetricById);
+    if (showAs) {
+      parts.push(`showAs: ${showAs}`);
     }
     return parts.join(", ");
   }
@@ -326,10 +349,10 @@ function buildSnapshotSummary(
     parts.push("datasource changed");
   }
 
-  if ((prev.showAs ?? null) !== (curr.showAs ?? null)) {
-    parts.push(
-      `showAs: ${prev.showAs ?? "inferred"} → ${curr.showAs ?? "inferred"}`,
-    );
+  const prevShowAs = describeShowAs(prev, getFactMetricById);
+  const currShowAs = describeShowAs(curr, getFactMetricById);
+  if (prevShowAs !== currShowAs) {
+    parts.push(`showAs: ${prevShowAs || "none"} → ${currShowAs || "none"}`);
   }
 
   return parts.length ? parts.join(", ") : "minor config update";
@@ -352,13 +375,9 @@ function buildResultCsv(
 ): string | null {
   if (!rows.length || !config) return null;
 
-  const columns = buildExplorationColumns(config, getFactMetricById);
+  const renderOpts = getExplorationRenderOpts(config, getFactMetricById);
+  const columns = buildExplorationColumns(config, renderOpts);
   if (columns.length === 0) return null;
-
-  const renderOpts = {
-    showAs: getEffectiveShowAs(config, getFactMetricById),
-    isRatioByIndex: getIsRatioByIndex(config, getFactMetricById),
-  };
 
   const hasNoDimensions = !config.dimensions || config.dimensions.length === 0;
 
@@ -383,8 +402,7 @@ function buildResultCsv(
     if (typeof raw === "number") {
       const isRatioOrPerUnit =
         col.sub === "value" ||
-        (col.sub === "single" && renderOpts.isRatioByIndex[col.metricIndex]) ||
-        (col.sub === "single" && renderOpts.showAs === "per_unit");
+        renderOpts.values[col.metricIndex]?.showAs === "per_unit";
       return isRatioOrPerUnit ? raw.toFixed(4) : String(raw);
     }
     return String(raw);
@@ -683,6 +701,32 @@ interface NormalizeResult {
   getFactMetricById: (id: string) => FactMetricInterface | null;
 }
 
+function getReferencedMetricIds(
+  dataset: ExplorationConfig["dataset"] | undefined,
+): string[] {
+  if (dataset?.type !== "metric") return [];
+  return Array.from(
+    new Set(
+      dataset.values.map((v) => v.metricId).filter((id): id is string => !!id),
+    ),
+  );
+}
+
+/** Extends a metric resolver with the metrics `config` references that it lacks. */
+async function withMetricsOf(
+  ctx: ReqContext,
+  config: ExplorationConfig | null,
+  getFactMetricById: (id: string) => FactMetricInterface | null,
+): Promise<(id: string) => FactMetricInterface | null> {
+  const missingIds = getReferencedMetricIds(config?.dataset).filter(
+    (id) => !getFactMetricById(id),
+  );
+  if (!missingIds.length) return getFactMetricById;
+  const metrics = await ctx.models.factMetrics.getByIds(missingIds);
+  const metricById = new Map(metrics.map((m) => [m.id, m]));
+  return (id) => getFactMetricById(id) ?? metricById.get(id) ?? null;
+}
+
 async function normalizeConfigForExplorer(
   ctx: ReqContext,
   config: ExplorationConfig,
@@ -755,16 +799,7 @@ async function normalizeConfigForExplorer(
 
   // Load every referenced fact metric once. This map serves both the unit
   // backfill below and the CSV writer downstream — no second round-trip.
-  const referencedMetricIds =
-    dataset.type === "metric"
-      ? Array.from(
-          new Set(
-            dataset.values
-              .map((v) => v.metricId)
-              .filter((id): id is string => !!id),
-          ),
-        )
-      : [];
+  const referencedMetricIds = getReferencedMetricIds(dataset);
   const referencedMetrics = referencedMetricIds.length
     ? await ctx.models.factMetrics.getByIds(referencedMetricIds)
     : [];
@@ -802,53 +837,41 @@ async function normalizeConfigForExplorer(
   dims = sanitized.config.dimensions;
   warnings.push(...sanitized.warnings);
 
-  // Backfill missing units for metric values so the SQL layer emits a
+  // Backfill missing units with the Explorer's rule, so the SQL layer emits a
   // denominator and per_unit rendering works. The agent often omits `unit`
-  // even when it should be set; default to the numerator fact table's primary
-  // userIdType. Only applies to metric datasets — fact_table/data_source
-  // datasets have user-driven unit semantics.
-  if (dataset.type === "metric") {
-    const needsUnit = dataset.values.some(
-      (v) => !v.unit && v.metricId && metricById.has(v.metricId),
+  // even when it should be set.
+  let normalized = fillMissingUnits(
+    { ...config, dimensions: dims, dataset } as ExplorationConfig,
+    getDimensionFactTableById,
+    getFactMetricByIdResolver,
+  );
+  const countMissingUnits = (d: ExplorationConfig["dataset"]) =>
+    d.type === "metric" ? d.values.filter((v) => !v.unit).length : 0;
+  const filledCount =
+    countMissingUnits(dataset) - countMissingUnits(normalized.dataset);
+  if (filledCount > 0) {
+    warnings.push(
+      `Filled in a default unit (the chart's identifier type, else the first userIdType of the metric's fact table) for ${filledCount} metric value(s) where unit was missing. Set unit explicitly for standard metrics (mean, proportion, retention, dailyParticipation) to avoid this.`,
     );
-
-    if (needsUnit) {
-      let filledCount = 0;
-      const newValues = dataset.values.map((v) => {
-        if (v.unit || !v.metricId) return v;
-        const metric = metricById.get(v.metricId);
-        if (!metric) return v;
-        const factTable = getDimensionFactTableById(
-          metric.numerator?.factTableId ?? "",
-        );
-        const defaultUnit = factTable?.userIdTypes?.[0];
-        if (!defaultUnit) return v;
-        filledCount++;
-        return { ...v, unit: defaultUnit };
-      });
-
-      if (filledCount > 0) {
-        dataset = { ...dataset, values: newValues } as typeof dataset;
-        warnings.push(
-          `Filled in default unit (userIdTypes[0] from the metric's fact table) for ${filledCount} metric value(s) where unit was missing. Set unit explicitly for standard metrics (mean, proportion, retention, dailyParticipation) to avoid this.`,
-        );
-      }
-    }
   }
 
-  let normalized = {
-    ...config,
-    dimensions: dims,
-    dataset,
-  } as ExplorationConfig;
-
-  // Strip `showAs` when the current dataset doesn't support it, so we never
-  // persist a value that disagrees with what the chart will actually render.
-  const beforeShowAs = normalized.showAs;
-  normalized = clearInapplicableShowAs(normalized, getFactMetricByIdResolver);
-  if (beforeShowAs !== undefined && normalized.showAs === undefined) {
+  // Move a deprecated top-level `showAs` onto the values and drop it where it
+  // isn't one of the metric's Show as options, so we never persist a mode that
+  // disagrees with what the chart will actually render.
+  const legacyShowAs = normalized.showAs;
+  const valuesBefore =
+    normalized.dataset.type === "metric" ? normalized.dataset.values : [];
+  normalized = normalizeShowAs(normalized, getFactMetricByIdResolver);
+  const valuesAfter =
+    normalized.dataset.type === "metric" ? normalized.dataset.values : [];
+  const dropped = valuesBefore.filter(
+    (v, i) =>
+      (v.showAs ?? legacyShowAs) !== undefined &&
+      valuesAfter[i]?.showAs === undefined,
+  );
+  if (dropped.length) {
     warnings.push(
-      `Dropped showAs="${beforeShowAs}" — it doesn't apply to this dataset (only meaningful for mean metrics). The chart will render totals.`,
+      `Dropped showAs from ${dropped.map((v) => `"${v.name}"`).join(", ")} — it isn't an option for that metric type (only mean metrics offer showAs). These values render in their default mode (ratio and quantile metrics as computed, others as totals).`,
     );
   }
 
@@ -940,7 +963,11 @@ async function executeRunExploration(
     const prevConfig = explorationConfigFromLatestRun(
       buffer.getLatestToolResult("runExploration"),
     );
-    const summary = buildSnapshotSummary(prevConfig, config);
+    const summary = buildSnapshotSummary(
+      prevConfig,
+      config,
+      await withMetricsOf(ctx, prevConfig, getFactMetricById),
+    );
     const resultCsv = buildResultCsv(
       exploration?.result?.rows ?? [],
       config,

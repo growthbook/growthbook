@@ -94,6 +94,7 @@ export type ContextualBanditWeightsInput = {
    */
   ebicGamma?: number;
   priorSampleSize?: number;
+  periodWeighting?: boolean;
   metricSettings: MetricSettingsForStatsEngine;
   analysisWeights: number[];
   observations: ContextualBanditObservation[];
@@ -163,6 +164,7 @@ function assertSupportedContextualBanditMetric(
 function armMomentStatForBandit(
   arm: ContextualBanditArm,
   metric: MetricSettingsForStatsEngine,
+  periodWeighting = false,
 ): MomentStat {
   assertSupportedContextualBanditMetric(metric);
   const n = arm.n;
@@ -171,7 +173,7 @@ function armMomentStatForBandit(
     stat = new SampleMeanStatistic({
       n,
       sum: arm.main_sum,
-      sumSquares: arm.main_sum,
+      sumSquares: periodWeighting ? arm.main_sum_squares : arm.main_sum,
     });
   } else {
     stat = new SampleMeanStatistic({
@@ -194,9 +196,10 @@ function computeLeafWeights(
   metric: MetricSettingsForStatsEngine,
   currentWeights: number[],
   priorSampleSize: number = 0,
+  periodWeighting = false,
 ): VariationWeightResult {
   const stats = armsByVariation.map((arm) =>
-    armMomentStatForBandit(arm, metric),
+    armMomentStatForBandit(arm, metric, periodWeighting),
   );
   return updateVariationWeights(
     stats,
@@ -270,6 +273,7 @@ function sumOfSquaredErrorsPerVariationFromArms(
   armsPerMember: ContextualBanditArm[][],
   metric: MetricSettingsForStatsEngine,
   numVariations: number,
+  periodWeighting = false,
 ): number[] {
   const sse = new Array<number>(numVariations).fill(0);
   for (let v = 0; v < numVariations; v++) {
@@ -285,6 +289,7 @@ function sumOfSquaredErrorsPerVariationFromArms(
     const stat = armMomentStatForBandit(
       { ...emptyArm(), n, main_sum, main_sum_squares },
       metric,
+      periodWeighting,
     );
     sse[v] = (stat.n - 1) * stat.variance;
   }
@@ -750,6 +755,7 @@ function buildTree(
   numVariations: number,
   maxLeaves: number,
   ebicGamma: number,
+  periodWeighting: boolean,
 ): BuildTreeResult {
   // Sort contexts by their attribute tuple, using the first attribute in
   // `attributes` as the primary key and the remaining attributes as
@@ -824,6 +830,7 @@ function buildTree(
         inLeafArms,
         metric,
         numEligible,
+        periodWeighting,
       );
       for (let v = 0; v < numEligible; v++) total[v] += leafSse[v];
     }
@@ -841,7 +848,8 @@ function buildTree(
         const arm = armsByContext[c][v];
         n += arm.n;
         sum += arm.main_sum;
-        sumSquares += isBinomial ? arm.main_sum : arm.main_sum_squares;
+        sumSquares +=
+          isBinomial && !periodWeighting ? arm.main_sum : arm.main_sum_squares;
       }
       sse += armSseDirect(n, sum, sumSquares);
     }
@@ -883,10 +891,10 @@ function buildTree(
           const base = v * 3;
           compact[base + CAT_N] += arms[v].n;
           compact[base + CAT_SUM] += arms[v].main_sum;
-          // Binomial (0/1) data: x^2 = x, so the true sum of squares is `sum`.
-          compact[base + CAT_SUM_SQUARES] += isBinomial
-            ? arms[v].main_sum
-            : arms[v].main_sum_squares;
+          compact[base + CAT_SUM_SQUARES] +=
+            isBinomial && !periodWeighting
+              ? arms[v].main_sum
+              : arms[v].main_sum_squares;
         }
       }
       const categories = [...byCategory.keys()].sort();
@@ -1147,6 +1155,7 @@ export function computeContextualBanditWeights(
     observations,
     ebicGamma: ebicGammaInput,
     priorSampleSize: priorSampleSizeInput,
+    periodWeighting = false,
   } = input;
 
   // EBIC multiplicity penalty weight; defaults to a Bonferroni-style gamma = 1.
@@ -1184,6 +1193,7 @@ export function computeContextualBanditWeights(
     numVariations,
     maxLeaves,
     ebicGamma,
+    periodWeighting,
   );
 
   // Forward context→leaf lookup (parallel to `contexts`) for the per-context
@@ -1210,7 +1220,13 @@ export function computeContextualBanditWeights(
   for (const [leafId, arms] of leafArms) {
     leafWeights.set(
       leafId,
-      computeLeafWeights(arms, metricSettings, defaultWeights, priorSampleSize),
+      computeLeafWeights(
+        arms,
+        metricSettings,
+        defaultWeights,
+        priorSampleSize,
+        periodWeighting,
+      ),
     );
   }
 
@@ -1219,7 +1235,7 @@ export function computeContextualBanditWeights(
   const leaf_stats: ContextualLeafStatsEntry[] = sortedLeafArms.map(
     ([leafId, arms]) => {
       const stats = arms.map((arm) =>
-        armMomentStatForBandit(arm, metricSettings),
+        armMomentStatForBandit(arm, metricSettings, periodWeighting),
       );
       return {
         leafId,
@@ -1249,7 +1265,7 @@ export function computeContextualBanditWeights(
     const leaf = leafWeights.get(leafId);
 
     const contextStats = ctx.arms.map((arm) =>
-      armMomentStatForBandit(arm, metricSettings),
+      armMomentStatForBandit(arm, metricSettings, periodWeighting),
     );
 
     responses.push({

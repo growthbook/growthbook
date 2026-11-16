@@ -254,18 +254,44 @@ The return value has 3 properties:
 
 #### Fallback Payload
 
-To use a bundled payload only when features can't be downloaded, pass it to `setPayload` when `init` doesn't succeed:
+To use a bundled payload only when features can't be downloaded, pass it to `init` as `fallbackPayload` (SDK version 2.1.0+):
 
 ```ts
-const res = await gb.init({ timeout: 2000 });
-if (!res.success) {
-  await gb.setPayload(fallbackPayload);
+await gb.init({ timeout: 2000, fallbackPayload });
+```
+
+The fallback is only used when the request fails or times out and there's nothing usable in the cache. The return value still reports the failure (`success: false`) so you can log it.
+
+Don't pass the fallback as `payload` because that skips the network request entirely. On older SDK versions, call `gb.setPayload(fallbackPayload)` yourself when `init` returns `success: false`.
+
+The fallback stays in place until a later request succeeds. If `init` timed out and `streaming` or `pollingInterval` is enabled, the SDK applies the original request when it finishes. After a network error, only `pollingInterval` retries.
+
+#### Bundling a Fallback at Build Time
+
+Download the payload as part of your build, so every deploy ships with a recent copy. It's a single unauthenticated request, so it works in any CI/CD pipeline:
+
+```json
+{
+  "scripts": {
+    "growthbook:payload": "curl -sf --retry 3 https://cdn.growthbook.io/api/features/sdk-abc123 -o src/growthbook-payload.json",
+    "build": "npm run growthbook:payload && <your build command>"
+  }
 }
 ```
 
-Don't pass the fallback to `init({ payload })` because that skips the network request entirely. A cached payload counts as a success, so the fallback is only used when there's nothing usable in the cache.
+Then import the file and pass it in:
 
-The fallback stays in place until a later request succeeds. If `init` timed out and `streaming` or `pollingInterval` is enabled, the SDK applies the original request when it finishes. After a network error, only `pollingInterval` retries.
+```ts
+import type { FeatureApiResponse } from "@growthbook/growthbook";
+import fallbackPayload from "./growthbook-payload.json";
+
+await gb.init({
+  timeout: 2000,
+  fallbackPayload: fallbackPayload as FeatureApiResponse,
+});
+```
+
+Either add the file to `.gitignore` and run the same script before your dev command, or commit a copy and let the build overwrite it. Encrypted payloads work as-is. Remote Evaluation payloads are specific to a user and can't be bundled.
 
 ### Custom Integration
 
@@ -591,34 +617,177 @@ const result = gb.run({
 
 ### Strict Typing
 
-If you want to enforce stricter types in your application, you can do that when creating the GrowthBook instance:
+To enforce stricter types, register your feature flags and attributes once, in any `.ts` file that imports the SDK, such as the one where you create your GrowthBook instance (SDK version 2.1.0+):
 
 ```ts
-// Define all your feature flags and types here
+import { GrowthBook } from "@growthbook/growthbook";
+
 interface AppFeatures {
   "button-color": string;
   "font-size": number;
   "newForm": boolean;
 }
 
-// Pass into the GrowthBook instance
-const gb = new GrowthBook<AppFeatures>({
+interface AppAttributes {
+  id: string;
+  loggedIn: boolean;
+  country?: string;
+}
+
+declare module "@growthbook/growthbook" {
+  interface Register {
+    features: AppFeatures;
+    attributes: AppAttributes;
+  }
+}
+```
+
+Now every GrowthBook instance is strictly typed, with no generics or wrappers:
+
+```ts
+const gb = new GrowthBook({
+  attributes: { id: "123", loggedIn: true },
+});
+
+// feature.value will be type `number`
+const feature = gb.evalFeature("font-size");
+
+// Typos will cause compile-time errors
+gb.isOn("buton-color"); // "buton" instead of "button"
+
+// A fallback must match the feature's type, or be `null`
+gb.getFeatureValue("font-size", "large"); // must be a number
+const size = gb.getFeatureValue("font-size", null); // `number | null`
+
+// So will missing, unknown, or mistyped attributes
+gb.setAttributes({ id: "123" }); // missing "loggedIn"
+gb.setAttributes({ id: "123", loggedIn: true, plan: "pro" }); // unknown "plan"
+
+// Partial updates only need the attributes that changed
+gb.updateAttributes({ country: "US" });
+```
+
+To check `logEvent` calls as well, register your events, with each event name mapped to its properties:
+
+```ts
+interface AppEvents {
+  start_checkout: { plan: "pro" | "enterprise" };
+  button_click: { button: string };
+  page_view: {};
+}
+
+declare module "@growthbook/growthbook" {
+  interface Register {
+    events: AppEvents;
+  }
+}
+
+gb.logEvent("start_checkout", { plan: "pro" });
+gb.logEvent("page_view");
+
+// Compile-time errors
+gb.logEvent("start_checkuot", { plan: "pro" }); // unknown event
+gb.logEvent("start_checkout", { plan: "free" }); // invalid "plan"
+gb.logEvent("button_click"); // missing "button"
+```
+
+You can register any combination of `features`, `attributes`, and `events`. Anything you leave out stays loosely typed.
+
+Payloads written in code are checked as well, for example in tests or offline defaults:
+
+```ts
+gb.initSync({
+  payload: {
+    features: {
+      "font-size": { defaultValue: "large" }, // must be a number
+      "fontSize": { defaultValue: 12 }, // not a known feature
+    },
+  },
+});
+```
+
+Features can be left out. A payload that was fetched or imported from JSON is typed `FeatureApiResponse` and isn't checked.
+
+A payload written in code can be checked against your attributes as well by typing it as `Payload` (SDK version 2.1.0+). Targeting conditions, hash attributes, and saved groups then have to use real attributes, with operators and values that fit each attribute's type:
+
+```ts
+import type { Payload } from "@growthbook/growthbook";
+
+const fallbackPayload: Payload = {
+  features: {
+    "button-color": {
+      defaultValue: "blue",
+      rules: [
+        { condition: { country: "US" }, force: "red" },
+        // Compile-time errors
+        { condition: { country: "US" }, force: 5 }, // not a string
+        { condition: { contry: "US" }, force: "red" }, // unknown attribute
+        { condition: { loggedIn: "yes" }, force: "red" }, // not a boolean
+        { condition: { country: { $gt: 5 } }, force: "red" }, // a string compared to a number
+        { condition: { loggedIn: { $regex: "^y" } }, force: "red" }, // $regex needs a string
+        { hashAttribute: "userId", variations: ["blue", "red"] }, // unknown attribute
+        { hashAttribute: "loggedIn", variations: ["blue", "red"] }, // can't hash a boolean
+      ],
+    },
+  },
+};
+
+await gb.init({ fallbackPayload });
+```
+
+Use dot paths for attributes inside an object (`"company.plan"`). Without registered types, pass them in: `Payload<AppFeatures, AppAttributes>`.
+
+If you'd rather not register types globally, pass them to a single instance instead:
+
+```ts
+const gb = new GrowthBook<AppFeatures, AppAttributes>({
   ...
 });
 ```
 
-Now, all feature flag methods will be strictly typed.
+Instead of writing any of this by hand, you can [generate both types and the registration from your GrowthBook account and keep them up to date automatically](/tools/cli#generating-typescript-types).
+
+### Features Defined in Code
+
+You can use the SDK without a GrowthBook account by writing the payload in code and passing it to `initSync`:
 
 ```ts
-// feature.value will be type `number`
-const feature = gb.evalFeature("font-size");
-console.log(feature.value);
+import { GrowthBook, type Payload } from "@growthbook/growthbook";
 
-// Typos will cause compile-time errors
-gb.isOn("buton-color"); // "buton" instead of "button"
+interface AppFeatures {
+  "button-color": string;
+  "new-form": boolean;
+}
+
+declare module "@growthbook/growthbook" {
+  interface Register {
+    features: AppFeatures;
+  }
+}
+
+// Checked against your registered features and attributes
+const payload: Payload = {
+  features: {
+    "button-color": { defaultValue: "blue" },
+    "new-form": {
+      defaultValue: false,
+      rules: [{ condition: { employee: true }, force: true }],
+    },
+  },
+};
+
+const gb = new GrowthBook().initSync({ payload });
+
+const newForm = gb.isOn("new-form");
+const color = gb.getFeatureValue("button-color", "blue");
 ```
 
-Instead of defining the `AppFeatures` interface manually like above, you can auto-generate it from your GrowthBook account using the [GrowthBook CLI](/tools/cli).
+When you connect a GrowthBook account later, pass the same payload as the `fallbackPayload`. It's then used whenever features can't be downloaded:
+
+```ts
+const gb = new GrowthBook({ clientKey: "sdk-abc123" });
+await gb.init({ fallbackPayload: payload });
+```
 
 ## Updating
 

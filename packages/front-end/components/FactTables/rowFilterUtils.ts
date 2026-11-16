@@ -6,6 +6,7 @@ import {
 import { createLikeStringMatchFn } from "shared/sql";
 import { getValidDate, getValidDateOffsetByUTC } from "shared/dates";
 import { truncateString } from "shared/util";
+import { columnOnlyRowFilterOperators } from "shared/validators";
 import {
   FactTableDefinition,
   FactTableInterface,
@@ -518,10 +519,13 @@ export function isRowFilterComplete(filter: RowFilter): boolean {
   const hasValues = (filter.values ?? []).some((v) => v !== "");
 
   if (filter.operator === "sql_expr" || filter.operator === "saved_filter") {
-    return hasValues;
+    // Only spaces would build an empty SQL expression or saved filter id.
+    return (filter.values ?? []).some((v) => v.trim() !== "");
   }
   if (
-    ["is_true", "is_false", "is_null", "not_null"].includes(filter.operator)
+    (columnOnlyRowFilterOperators as readonly string[]).includes(
+      filter.operator,
+    )
   ) {
     return !!filter.column;
   }
@@ -626,12 +630,9 @@ export function columnTypesToColumnSource(
   };
 }
 
-/** Operators that carry no value of their own. */
-const VALUELESS_OPERATORS = [
-  "is_true",
-  "is_false",
-  "is_null",
-  "not_null",
+/** Operators that show no value box. A saved filter's id is picked from a list. */
+const VALUELESS_OPERATORS: string[] = [
+  ...columnOnlyRowFilterOperators,
   "saved_filter",
 ];
 

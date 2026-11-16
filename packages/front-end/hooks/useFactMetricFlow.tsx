@@ -5,6 +5,7 @@ import {
   FactTableInterface,
 } from "shared/types/fact-table";
 import { isProjectListValidForProject } from "shared/util";
+import { getFactMetricPrimaryFactTableId } from "shared/experiments";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { envAllowsCreatingMetrics } from "@/services/env";
@@ -52,8 +53,9 @@ export default function useFactMetricFlow(
     const targetProject = target.project ?? project;
     const factTableId =
       target.factTable ??
-      target.duplicate?.numerator?.factTableId ??
-      target.duplicate?.funnelSettings?.steps[0]?.factTableId;
+      (target.duplicate
+        ? getFactMetricPrimaryFactTableId(target.duplicate)
+        : undefined);
     const table = (
       createdTable ? [createdTable, ...factTables] : factTables
     ).find((table) =>
