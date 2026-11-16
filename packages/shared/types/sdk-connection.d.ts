@@ -109,8 +109,7 @@ export interface SDKConnectionInterface {
   // Carry prerequisite features into this payload even when they target other
   // projects. Absent = off; new connections are created with it on.
   includeReferencedPrerequisites?: boolean;
-  // On Cloud, reject /api/features requests not via the CDN or a GrowthBook Proxy.
-  // Absent = off (grandfathered); new connections are created with it on.
+  // Cloud only: require the CDN or a GrowthBook Proxy. Absent = off (grandfathered).
   noDirectAccess?: boolean;
 
   // URL slug for fetching features from the API
