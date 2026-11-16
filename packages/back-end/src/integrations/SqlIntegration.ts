@@ -19,6 +19,7 @@ import {
   isTimedDimension,
 } from "shared/experiments";
 import {
+  AUTOMATIC_DIMENSION_OTHER_NAME,
   DEFAULT_TEST_QUERY_DAYS,
   DEFAULT_METRIC_HISTOGRAM_BINS,
 } from "shared/constants";
@@ -170,6 +171,7 @@ import {
 } from "back-end/src/integrations/sql/ctes/funnel-resolution-cte";
 import { getFlattenedUnitMetricsCTE } from "back-end/src/integrations/sql/ctes/flattened-unit-metrics-cte";
 import { getDimensionCTE } from "back-end/src/integrations/sql/ctes/dimension-cte";
+import { getTopDimensionValuesCTE } from "back-end/src/integrations/sql/ctes/top-dimension-values-cte";
 import { getClusterRollupCTE } from "back-end/src/integrations/sql/ctes/cluster-rollup-cte";
 import { getDimensionCol } from "back-end/src/integrations/sql/columns/dimension-col";
 import { getDimensionInStatement } from "back-end/src/integrations/sql/fact-metrics/dimension-in-statement";
@@ -226,6 +228,7 @@ import { getSegmentCTE } from "back-end/src/integrations/sql/ctes/segment-cte";
 import { toTimestampWithMs } from "back-end/src/integrations/sql/primitives/to-timestamp-with-ms";
 import { afterWatermark } from "back-end/src/integrations/sql/primitives/watermark";
 import { getUserExperimentExposuresQuery as getUserExperimentExposuresQueryFromSql } from "back-end/src/integrations/sql/queries/user-experiment-exposures-query";
+import { MAX_UNSLICED_EXPERIMENT_DIMENSION_VALUES } from "back-end/src/services/experimentQueries/constants";
 export { MAX_ROWS_UNIT_AGGREGATE_QUERY } from "back-end/src/services/experimentQueries/constants";
 export { MAX_ROWS_PAST_EXPERIMENTS_QUERY } from "back-end/src/integrations/sql/queries/past-experiment-query";
 export const TEST_QUERY_SQL = "SELECT 1";
@@ -3118,9 +3121,51 @@ export default abstract class SqlIntegration
       return { value: alias, alias };
     });
 
-    const experimentDimensionCols = experimentDimensions.map((d) =>
-      getDimensionCol(this.getSqlDialect(), d),
+    // Ranked at statistics time since the top values shift as units accumulate
+    const unslicedExperimentDimensions = experimentDimensions.filter(
+      (d) => !d.specifiedSlices?.length,
     );
+    const experimentDimensionCols = experimentDimensions.map((d) => {
+      const { alias } = getDimensionCol(this.getSqlDialect(), d);
+      const raw = `e.${alias}`;
+      return {
+        alias,
+        value: d.specifiedSlices?.length
+          ? getDimensionInStatement(
+              this.getSqlDialect(),
+              raw,
+              d.specifiedSlices,
+            )
+          : this.getSqlDialect().ifElse(
+              `__dimTop_${d.id}.dimension_value IS NULL AND ${raw} IS NOT NULL`,
+              this.getSqlDialect().castToString(
+                `'${AUTOMATIC_DIMENSION_OTHER_NAME}'`,
+              ),
+              this.getSqlDialect().castToString(raw),
+            ),
+      };
+    });
+    const topDimensionValuesSQL = unslicedExperimentDimensions
+      .map(
+        (d) =>
+          `, __dimTop_${d.id} AS (${getTopDimensionValuesCTE(
+            this.getSqlDialect(),
+            {
+              source: params.unitsSourceTableFullName,
+              column: `dim_exp_${d.id}`,
+              unitColumn: unitsIdType,
+              where: unitsWhereConditions.join(" AND ") || "1 = 1",
+              limit: MAX_UNSLICED_EXPERIMENT_DIMENSION_VALUES,
+            },
+          )})`,
+      )
+      .join("\n");
+    const topDimensionValuesJoinsSQL = unslicedExperimentDimensions
+      .map(
+        (d) =>
+          `LEFT JOIN __dimTop_${d.id} __dimTop_${d.id} ON (__dimTop_${d.id}.dimension_value = ${this.getSqlDialect().castToString(`e.dim_exp_${d.id}`)})`,
+      )
+      .join("\n");
     const precomputedDimensionCols: DimensionColumnData[] =
       params.dimensionsForPrecomputation.map((d) => {
         const col = getDimensionCol(this.getSqlDialect(), d);
@@ -3350,6 +3395,7 @@ export default abstract class SqlIntegration
             )})`,
         )
         .join("\n")}
+      ${topDimensionValuesSQL}
       , __experimentUnits AS (${
         staticUnitDimensions.length > 0
           ? `SELECT
@@ -3361,6 +3407,7 @@ export default abstract class SqlIntegration
             ${nonUnitDimensionCols.map((d) => `, MIN(${d.value}) AS ${d.alias}`).join("")}
           FROM ${params.unitsSourceTableFullName} e
           ${unitDimensionJoinsSQL}
+          ${topDimensionValuesJoinsSQL}
           ${unitsWhere}
           GROUP BY
             e.${unitsIdType}
@@ -3372,6 +3419,7 @@ export default abstract class SqlIntegration
           , e.first_exposure_timestamp AS first_exposure_timestamp
           ${nonUnitDimensionCols.map((d) => `, ${d.value} AS ${d.alias}`).join("")}
         FROM ${params.unitsSourceTableFullName} e
+        ${topDimensionValuesJoinsSQL}
         ${unitsWhere}`
       })
       ${subUnitTimedChain.sql}
