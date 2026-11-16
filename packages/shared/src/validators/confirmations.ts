@@ -228,7 +228,7 @@ export const confirmationStatuses = [
 ] as const;
 
 const confirmationResponseValidator = z
-  .strictObject({ status: z.number(), body: z.unknown() })
+  .strictObject({ status: z.number(), body: z.unknown().optional() })
   .nullable();
 
 // A page the person can check before deciding.
@@ -285,7 +285,7 @@ export const confirmationValidator = baseSchema.safeExtend({
   method: z.string(),
   path: z.string(),
   query: z.record(z.string(), z.unknown()),
-  body: z.unknown(),
+  body: z.unknown().optional(),
   requestHash: z.string(),
   // What the key's rules matched, shown as why it was held.
   actions: z.array(heldActionValidator),

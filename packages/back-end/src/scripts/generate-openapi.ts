@@ -358,6 +358,11 @@ function toOpenApiSchema(schema: z.ZodType): z.core.JSONSchema.BaseSchema {
       ) {
         delete (jsonSchema as Record<string, unknown>).pattern;
       }
+      // zod 4.6 drops a $ref's description when it equals the target's; keep it so property docs still render
+      const description = z.globalRegistry.get(ctx.zodSchema)?.description;
+      if (jsonSchema.$ref && description && !jsonSchema.description) {
+        jsonSchema.description = description;
+      }
     },
   }) as Record<string, unknown>;
   if ($defs && typeof $defs === "object") {
@@ -1019,14 +1024,12 @@ curl https://api.growthbook.io/api/v1/features \
   // even if it was never referenced as a sub-schema of a response body.
   for (const [name, zodSchema] of namedSchemaRegistry) {
     if (!componentSchemas[name]) {
-      const {
-        $schema: _,
-        id: _id,
-        ...rest
-      } = z.toJSONSchema(zodSchema, {
-        unrepresentable: "any",
-      }) as Record<string, unknown>;
-      componentSchemas[name] = rewriteRefs(rest);
+      // zod 4.6 emits an id'd root as `$ref` + `$defs`, which toOpenApiSchema hoists into componentSchemas
+      const { id: _id, ...rest } = toOpenApiSchema(zodSchema) as Record<
+        string,
+        unknown
+      >;
+      componentSchemas[name] ??= rest;
     }
   }
 

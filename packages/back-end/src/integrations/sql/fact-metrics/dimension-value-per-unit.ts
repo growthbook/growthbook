@@ -1,4 +1,5 @@
 import { NULL_DIMENSION_VALUE } from "shared/constants";
+import { getDimensionNullValue } from "shared/experiments";
 import {
   Dimension,
   ExperimentDimension,
@@ -18,7 +19,9 @@ export function getDimensionValuePerUnit(
   if (dimension.type === "user") {
     return `COALESCE(MAX(${dialect.castToString(
       `__dim_unit_${dimension.dimension.id}.value`,
-    )}),'${NULL_DIMENSION_VALUE}')`;
+    )}),'${dialect.escapeStringLiteral(
+      getDimensionNullValue(dimension.dimension, NULL_DIMENSION_VALUE),
+    )}')`;
   }
   if (dimension.type === "experiment") {
     return `SUBSTRING(
