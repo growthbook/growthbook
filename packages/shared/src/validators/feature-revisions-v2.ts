@@ -653,8 +653,8 @@ const diffSupplementalFull = z
   .object({
     name: z.string(),
     type: z.string(),
-    before: z.unknown().nullable(),
-    after: z.unknown().nullable(),
+    before: z.unknown().nullish(),
+    after: z.unknown().nullish(),
   })
   .strict();
 
