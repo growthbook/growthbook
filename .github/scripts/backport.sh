@@ -157,7 +157,14 @@ case ${1:-} in
     . "$state/env"
     if git rev-parse -q --verify CHERRY_PICK_HEAD >/dev/null; then git cherry-pick --abort; fi
     git checkout -q "$start"
-    git branch -D "$branch"
+    # Put a branch that existed before the run back where it was; delete one the run created.
+    if [ -z "${orig:-}" ]; then
+      git branch -D "$branch"
+    elif [ "$start" = "$branch" ]; then
+      git reset -q --hard "$orig"
+    else
+      git branch -f "$branch" "$orig"
+    fi
     rm -rf "$state"
     ;;
   *)
@@ -181,6 +188,7 @@ case ${1:-} in
       exit 1
     fi
     start=$(git symbolic-ref -q --short HEAD || git rev-parse HEAD)
+    orig=$(git rev-parse -q --verify "refs/heads/$branch" || true)
     # Copy the script now; checking out the release branch below may remove it.
     self=$(mktemp)
     cp "${BASH_SOURCE[0]}" "$self"
@@ -221,7 +229,7 @@ case ${1:-} in
 
     mkdir -p "$state"
     mv "$self" "$state/backport.sh"
-    printf 'branch=%q\nrelease=%q\nstart=%q\n' "$branch" "$release" "$start" >"$state/env"
+    printf 'branch=%q\nrelease=%q\nstart=%q\norig=%q\n' "$branch" "$release" "$start" "$orig" >"$state/env"
     : >"$state/dropped"
     # Main commits the branch already has picks of, newest first.
     picked=$(git log --format=%b "$release..HEAD" | sed -n 's/^(cherry picked from commit \([0-9a-f]*\))$/\1/p')

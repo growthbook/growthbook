@@ -154,12 +154,14 @@ jobs:
             # Another backport, or an earlier run on this branch, is waiting on the same draft; add what it lacks.
             body=$(gh release view "$next" --json body --jq .body | tr -d '\r')
             picks=$(grep -vxF -f <(printf '%s\n' "$body") <<< "$picks" || true)
-            [ -n "$picks" ] || exit 0
+            # A rerun with no new picks can still be adding the security heading.
             if [ "$SECURITY" = true ] && ! grep -q '^## Security Patch Release' <<< "$body"; then
               body=$(awk 'NR == 1 && /^<!--/ { print; print "## Security Patch Release\n"; next }
                 NR == 1 { print "## Security Patch Release\n" } { print }' <<< "$body")
+            elif [ -z "$picks" ]; then
+              exit 0
             fi
-            { echo "$body"; echo "$picks"; } > "$RUNNER_TEMP/notes.md"
+            { echo "$body"; [ -z "$picks" ] || echo "$picks"; } > "$RUNNER_TEMP/notes.md"
             gh release edit "$next" --notes-file "$RUNNER_TEMP/notes.md"
           else
             {
