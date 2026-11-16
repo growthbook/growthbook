@@ -1,4 +1,5 @@
 import useSWR from "swr";
+import { SavedGroupType } from "shared/types/saved-group";
 import { useAuth } from "@/services/auth";
 
 export type AttributeFeatureRef = {
@@ -15,6 +16,7 @@ export type AttributeExperimentRef = {
 export type AttributeSavedGroupRef = {
   id: string;
   groupName: string;
+  type: SavedGroupType;
   projects?: string[];
 };
 
@@ -24,7 +26,7 @@ export type AttributeRefEntry = {
   savedGroups: AttributeSavedGroupRef[];
 };
 
-// Fetches features, experiments, and condition groups that reference each attribute key.
+// Fetches features, experiments, and saved groups that reference each attribute key.
 // Pass all attribute keys at once; the result is a map keyed by attribute property name.
 export function useAttributeReferences(attributeKeys: string[]): {
   references: Record<string, AttributeRefEntry> | null;

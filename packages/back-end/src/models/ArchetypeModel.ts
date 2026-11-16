@@ -66,6 +66,14 @@ export async function createArchetype(
   return toInterface(newArch);
 }
 
+// Private archetypes are visible to their owner only.
+export function isArchetypeVisibleTo(
+  archetype: Pick<ArchetypeInterface, "owner" | "isPublic">,
+  userId: string,
+) {
+  return archetype.isPublic || archetype.owner === userId;
+}
+
 export async function getAllArchetypes(
   organization: string,
   owner: string,
@@ -91,7 +99,7 @@ export async function getAllArchetypes(
   const archetype: ArchetypeDocument[] = await ArchetypeModel.find(query);
   return (
     archetype
-      .filter((su) => su.owner === owner || su.isPublic)
+      .filter((su) => isArchetypeVisibleTo(su, owner))
       .map((value) => value.toJSON()) || []
   );
 }
