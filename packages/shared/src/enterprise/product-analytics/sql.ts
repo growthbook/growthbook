@@ -5,6 +5,7 @@ import {
   quoteColumnIdentifier,
   SQL_ROW_LIMIT,
   stripTrailingSemicolon,
+  getSqlStringRules,
 } from "shared/sql";
 import {
   buildPrevResolvedExpr,
@@ -315,11 +316,13 @@ function getFactTableGroups({
   factTableMap,
   metricMap,
   datasource,
+  dialect,
 }: {
   config: ExplorationConfig;
   factTableMap: FactTableMap;
   metricMap: Map<string, FactMetricInterface>;
   datasource: MinimalDatasourceInterface;
+  dialect: SqlDialect;
 }): FactTableGroup[] {
   if (!config.dataset) {
     throw new Error("Dataset is required");
@@ -357,7 +360,10 @@ function getFactTableGroups({
         {
           index: 0,
           factTable: createStubFactTable(
-            stripTrailingSemicolon(config.dataset.sql),
+            stripTrailingSemicolon(
+              config.dataset.sql,
+              getSqlStringRules(dialect),
+            ),
             config.dataset.timestampColumn,
             config.dataset.columnTypes,
             datasourceSettings,
@@ -2096,6 +2102,7 @@ export function generateProductAnalyticsSQL(
     factTableMap,
     metricMap,
     datasource,
+    dialect,
   });
 
   // Get all metric aliases
@@ -2321,7 +2328,7 @@ function generateProductAnalyticsRawTableSQL(
 
   return format(
     dialect.selectStarLimit(
-      `(\n${stripTrailingSemicolon(config.dataset.sql)}\n) t`,
+      `(\n${stripTrailingSemicolon(config.dataset.sql, getSqlStringRules(dialect))}\n) t`,
       SQL_ROW_LIMIT + 1,
       whereClause,
     ),
