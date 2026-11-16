@@ -17,10 +17,8 @@ import { PAYLOAD_FORMAT_LABELS } from "@/components/Features/SDKConnections/SdkW
 import { TRACES_TITLE } from "@/components/Features/SDKConnections/SDKConnectionAdvancedSettings";
 import type { DiffBadge } from "@/components/AuditHistoryExplorer/types";
 import { RevisionDiffConfig } from "@/components/Revision/useRevisionDiff";
-import {
-  draftLandedState,
-  snapshotWithAbsentSettings,
-} from "@/components/Features/SDKConnections/sdkConnectionRules";
+import { snapshotWithAbsentSettings } from "@/components/Features/SDKConnections/sdkConnectionRules";
+import { draftLandedState } from "@/components/Revision/revisionUtils";
 
 type Pre = Partial<SDKConnectionRevisionSnapshot> | null;
 type Post = Partial<SDKConnectionRevisionSnapshot>;
@@ -100,10 +98,7 @@ function arrayDisplay(v: string[] | undefined | null): ReactNode {
   return v.join(", ");
 }
 
-export function renderSDKConnectionScope(
-  pre: Pre,
-  post: Post,
-): ReactNode | null {
+function renderSDKConnectionScope(pre: Pre, post: Post): ReactNode | null {
   const p0 = preConn(pre);
   const p1 = postConn(post);
   if (!p1) return null;
@@ -176,7 +171,7 @@ export function renderSDKConnectionScope(
   return rows.length ? <Box mt="1">{rows}</Box> : null;
 }
 
-export function getSDKConnectionScopeBadges(pre: Pre, post: Post): DiffBadge[] {
+function getSDKConnectionScopeBadges(pre: Pre, post: Post): DiffBadge[] {
   const p0 = preConn(pre);
   const p1 = postConn(post);
   if (!p1) return [];
@@ -191,7 +186,7 @@ export function getSDKConnectionScopeBadges(pre: Pre, post: Post): DiffBadge[] {
 
   if (!isEqual(p0?.projects, p1.projects) && p1.projects !== undefined) {
     const preProjects = p0?.projects ?? [];
-    const postProjects = p1.projects ?? [];
+    const postProjects = p1.projects;
     const added = postProjects.filter((p) => !preProjects.includes(p));
     const removed = preProjects.filter((p) => !postProjects.includes(p));
     if (added.length)
@@ -229,17 +224,17 @@ export function getSDKConnectionScopeBadges(pre: Pre, post: Post): DiffBadge[] {
   return badges;
 }
 
-export function renderSDKConnectionSecurity(
-  pre: Pre,
-  post: Post,
-): ReactNode | null {
+function renderSDKConnectionSecurity(pre: Pre, post: Post): ReactNode | null {
   const p0 = preConn(pre);
   const p1 = postConn(post);
   if (!p1) return null;
   const rows = boolRows(
     [
-      { key: "encryptPayload", label: "Encrypt payload" },
-      { key: "hashSecureAttributes", label: "Hash secure attributes" },
+      { key: "encryptPayload", label: SETTING_TITLES.encryptPayload },
+      {
+        key: "hashSecureAttributes",
+        label: SETTING_TITLES.hashSecureAttributes,
+      },
       { key: "remoteEvalEnabled", label: "Remote evaluation" },
     ],
     p0,
@@ -249,10 +244,7 @@ export function renderSDKConnectionSecurity(
   return rows.length ? <Box mt="1">{rows}</Box> : null;
 }
 
-export function getSDKConnectionSecurityBadges(
-  pre: Pre,
-  post: Post,
-): DiffBadge[] {
+function getSDKConnectionSecurityBadges(pre: Pre, post: Post): DiffBadge[] {
   const p0 = preConn(pre);
   const p1 = postConn(post);
   if (!p1) return [];
@@ -274,7 +266,7 @@ export function getSDKConnectionSecurityBadges(
   ];
 }
 
-export function renderSDKConnectionExperiments(
+function renderSDKConnectionExperiments(
   pre: Pre,
   post: Post,
 ): ReactNode | null {
@@ -297,7 +289,7 @@ export function renderSDKConnectionExperiments(
   return rows.length ? <Box mt="1">{rows}</Box> : null;
 }
 
-export function renderSDKConnectionObservability(
+function renderSDKConnectionObservability(
   pre: Pre,
   post: Post,
 ): ReactNode | null {
@@ -320,10 +312,7 @@ export function renderSDKConnectionObservability(
   return rows.length ? <Box mt="1">{rows}</Box> : null;
 }
 
-export function renderSDKConnectionMetadata(
-  pre: Pre,
-  post: Post,
-): ReactNode | null {
+function renderSDKConnectionMetadata(pre: Pre, post: Post): ReactNode | null {
   const p0 = preConn(pre);
   const p1 = postConn(post);
   if (!p1) return null;
@@ -391,10 +380,7 @@ export function renderSDKConnectionMetadata(
   return rows.length ? <Box mt="1">{rows}</Box> : null;
 }
 
-export function renderSDKConnectionProxy(
-  pre: Pre,
-  post: Post,
-): ReactNode | null {
+function renderSDKConnectionProxy(pre: Pre, post: Post): ReactNode | null {
   const p0 = preConn(pre);
   const p1 = postConn(post);
   if (!p1) return null;
@@ -419,7 +405,7 @@ export function renderSDKConnectionProxy(
   return rows.length ? <Box mt="1">{rows}</Box> : null;
 }
 
-export function getSDKConnectionProxyBadges(pre: Pre, post: Post): DiffBadge[] {
+function getSDKConnectionProxyBadges(pre: Pre, post: Post): DiffBadge[] {
   const p0 = preConn(pre);
   const p1 = postConn(post);
   if (!p1) return [];
@@ -436,10 +422,7 @@ export function getSDKConnectionProxyBadges(pre: Pre, post: Post): DiffBadge[] {
   return badges;
 }
 
-export function renderSDKConnectionName(
-  pre: Pre,
-  post: Post,
-): ReactNode | null {
+function renderSDKConnectionName(pre: Pre, post: Post): ReactNode | null {
   const p0 = preConn(pre);
   const p1 = postConn(post);
   if (!p1) return null;
@@ -471,7 +454,7 @@ export function renderSDKConnectionName(
   return rows.length ? <Box mt="1">{rows}</Box> : null;
 }
 
-export function getSDKConnectionNameBadges(pre: Pre, post: Post): DiffBadge[] {
+function getSDKConnectionNameBadges(pre: Pre, post: Post): DiffBadge[] {
   const p0 = preConn(pre);
   const p1 = postConn(post);
   if (!p1) return [];
@@ -481,17 +464,13 @@ export function getSDKConnectionNameBadges(pre: Pre, post: Post): DiffBadge[] {
   return [];
 }
 
-export function renderSDKConnectionArchived(
-  pre: Pre,
-  post: Post,
-): ReactNode | null {
+function renderSDKConnectionArchived(pre: Pre, post: Post): ReactNode | null {
   const p0 = preConn(pre);
   const p1 = postConn(post);
   if (!p1) return null;
   const preArchived = !!p0?.archived;
   const postArchived = !!p1.archived;
-  if (p1.archived === undefined || isEqual(preArchived, postArchived))
-    return null;
+  if (p1.archived === undefined || preArchived === postArchived) return null;
 
   return (
     <Box mt="1">
@@ -513,17 +492,13 @@ export function renderSDKConnectionArchived(
   );
 }
 
-export function getSDKConnectionArchivedBadges(
-  pre: Pre,
-  post: Post,
-): DiffBadge[] {
+function getSDKConnectionArchivedBadges(pre: Pre, post: Post): DiffBadge[] {
   const p0 = preConn(pre);
   const p1 = postConn(post);
   if (!p1) return [];
   const preArchived = !!p0?.archived;
   const postArchived = !!p1.archived;
-  if (p1.archived === undefined || isEqual(preArchived, postArchived))
-    return [];
+  if (p1.archived === undefined || preArchived === postArchived) return [];
   return postArchived
     ? [{ label: "Archive", action: "archive" }]
     : [{ label: "Unarchive", action: "unarchive" }];
@@ -580,7 +555,6 @@ const WEBHOOK_DIFF_FIELDS: {
   },
 ];
 
-// A webhook's header names, never their values.
 function headerNames(headers: unknown): string[] {
   if (typeof headers !== "string" || !headers.trim()) return [];
   try {
@@ -591,10 +565,7 @@ function headerNames(headers: unknown): string[] {
   }
 }
 
-export function renderSDKConnectionWebhooks(
-  pre: Pre,
-  post: Post,
-): ReactNode | null {
+function renderSDKConnectionWebhooks(pre: Pre, post: Post): ReactNode | null {
   const preWebhooks = pre?.sdkWebhooks ?? [];
   const postWebhooks = post.sdkWebhooks;
   if (!postWebhooks) return null;
@@ -657,10 +628,7 @@ export function renderSDKConnectionWebhooks(
   return rows.length ? <Box mt="1">{rows}</Box> : null;
 }
 
-export function getSDKConnectionWebhookBadges(
-  pre: Pre,
-  post: Post,
-): DiffBadge[] {
+function getSDKConnectionWebhookBadges(pre: Pre, post: Post): DiffBadge[] {
   const preWebhooks = pre?.sdkWebhooks ?? [];
   const postWebhooks = post.sdkWebhooks ?? [];
 

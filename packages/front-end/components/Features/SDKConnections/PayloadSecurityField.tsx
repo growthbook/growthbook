@@ -1,7 +1,6 @@
 import { ReactNode } from "react";
 import { SDKLanguage } from "shared/types/sdk-connection";
 import {
-  getConnectionSDKCapabilities,
   getDefaultSDKVersion,
   getSDKCapabilityVersion,
 } from "shared/sdk-versioning";
@@ -17,6 +16,7 @@ import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { isCloud } from "@/services/env";
 import { useUser } from "@/services/UserContext";
 import {
+  connectionCapabilities,
   DeliveryMode,
   shouldShowPayloadSecurity,
 } from "@/components/Features/SDKConnections/sdkConnectionRules";
@@ -25,6 +25,7 @@ import {
   DELIVERY_LABELS,
   InfoTooltip,
   SETTING_PREMIUM_TIP,
+  SETTING_TITLES,
   WithInfoIcon,
 } from "@/components/Features/SDKConnections/sdkConnectionSettingLabels";
 
@@ -50,10 +51,7 @@ type FieldProps = {
 
 function usePayloadSecurity(languages: SDKLanguage[], sdkVersion?: string) {
   const { hasCommercialFeature } = useUser();
-  const currentCaps = getConnectionSDKCapabilities(
-    { languages, sdkVersion },
-    "min-ver-intersection",
-  );
+  const { currentCaps } = connectionCapabilities({ languages, sdkVersion });
   const singleLanguage = languages.length === 1 ? languages[0] : undefined;
   return {
     allowed: shouldShowPayloadSecurity(languages),
@@ -115,8 +113,7 @@ type CipherOption = Pick<
   "encryptPayload" | "hashSecureAttributes"
 >;
 
-// Encrypting the payload and hashing secure attributes, wherever they're
-// offered.
+// Encrypting the payload and hashing secure attributes.
 function CipherCheckboxes({
   value,
   setOption,
@@ -169,7 +166,7 @@ function CipherCheckboxes({
                 </>
               }
             >
-              <WithInfoIcon>Encrypt payload</WithInfoIcon>
+              <WithInfoIcon>{SETTING_TITLES.encryptPayload}</WithInfoIcon>
             </PremiumTooltip>
           }
         />
@@ -202,7 +199,7 @@ function CipherCheckboxes({
               </>
             }
           >
-            <WithInfoIcon>Hash secure attributes</WithInfoIcon>
+            <WithInfoIcon>{SETTING_TITLES.hashSecureAttributes}</WithInfoIcon>
           </PremiumTooltip>
         }
       />
@@ -262,20 +259,22 @@ export function CipherOptionsField({
   );
 }
 
-// Remote evaluation offers no cipher options. One saved before is kept, and
-// warned about as the connection form did.
+// Remote evaluation offers no cipher options; one saved before is kept and
+// warned about.
 export function RemoteEvalOptionsField({
   value,
   languages,
   includeExperimentNames = true,
   hideLabel = false,
-}: FieldProps & { includeExperimentNames?: boolean }) {
+}: Pick<FieldProps, "value" | "languages" | "hideLabel"> & {
+  includeExperimentNames?: boolean;
+}) {
   if (!shouldShowPayloadSecurity(languages) || value.delivery !== "remote") {
     return null;
   }
   const active = [
-    value.encryptPayload && "Encrypt payload",
-    value.hashSecureAttributes && "Hash secure attributes",
+    value.encryptPayload && SETTING_TITLES.encryptPayload,
+    value.hashSecureAttributes && SETTING_TITLES.hashSecureAttributes,
     !includeExperimentNames && "Hide experiment and variation names",
   ].filter((a): a is string => !!a);
   if (!isCloud() && !active.length) return null;
@@ -392,11 +391,7 @@ export default function PayloadSecurityField({
           if (mode === "plain" || mode === "remote") {
             patch.encryptPayload = false;
             patch.hashSecureAttributes = false;
-          } else if (
-            mode === "ciphered" &&
-            !value.encryptPayload &&
-            !value.hashSecureAttributes
-          ) {
+          } else if (!value.encryptPayload && !value.hashSecureAttributes) {
             patch.encryptPayload = hasEncryptionFeature;
             patch.hashSecureAttributes = hasSecureAttributesFeature;
           }

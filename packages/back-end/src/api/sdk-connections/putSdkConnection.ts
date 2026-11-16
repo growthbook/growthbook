@@ -94,13 +94,9 @@ export const putSdkConnection = createApiRequestHandler(
     sdkConnectionReviewRules(req.context, baseline, patchOps).length > 0;
 
   // A move needs bypass authority in the destination scope too.
+  const restBypass = canUseRestApiBypassSetting(req);
   const canBypass =
-    canUseRestApiBypassSetting(req) ||
-    (adapter.canBypassApproval(req.context, baseline) &&
-      adapter.canBypassApproval(req.context, {
-        sdkConnection: proposedSettings,
-        sdkWebhooks: [],
-      }));
+    restBypass || adapter.canBypassApproval(req.context, baseline, patchOps);
 
   const bypassedGates: BypassedGate[] = [];
   if (approvalRequired) {
@@ -117,9 +113,7 @@ export const putSdkConnection = createApiRequestHandler(
     bypassedGates.push({
       type: "approval-required",
       outcome: "bypassed",
-      via: canUseRestApiBypassSetting(req)
-        ? "restApiBypassesReviews"
-        : "bypassApprovalPermission",
+      via: restBypass ? "restApiBypassesReviews" : "bypassApprovalPermission",
     });
   }
 
@@ -142,8 +136,8 @@ export const putSdkConnection = createApiRequestHandler(
     },
     patchOps,
     bypass: approvalRequired,
-    // Without these a conflict found after the write removed the revision and
-    // left the change live with no record of it.
+    // With these, a conflict found after the write keeps the revision as the
+    // record of the change.
     changes: { sdkConnection: proposedSettings },
     write: () =>
       runGuardedWrite("sdk-connection", sdkConnection.id, () =>

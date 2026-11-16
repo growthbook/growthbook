@@ -1,5 +1,10 @@
 import React from "react";
-import { Revision, RevisionStatus } from "shared/enterprise";
+import {
+  Revision,
+  RevisionStatus,
+  applyTopLevelPatchOps,
+  landedOps,
+} from "shared/enterprise";
 import Badge from "@/ui/Badge";
 import {
   revisionStatusColor,
@@ -8,6 +13,22 @@ import {
 } from "@/components/Reviews/RevisionStatusBadge";
 
 export type RevisionBadgeStatus = RevisionStatus | "live";
+
+// What publishing a draft lands: only what it changed from its base, so
+// changes made to live since are kept, as the server merges it.
+export function draftLandedState<T extends Record<string, unknown>>(
+  revision: { target: { snapshot: unknown; proposedChanges: unknown } },
+  live: T,
+): T {
+  return applyTopLevelPatchOps(
+    live,
+    landedOps(
+      live,
+      revision.target.snapshot as Record<string, unknown>,
+      revision.target.proposedChanges,
+    ),
+  );
+}
 
 // Render a revision status badge. Delegates color/label/variant to the feature
 // status helpers (`components/Reviews/RevisionStatusBadge`) so features, saved

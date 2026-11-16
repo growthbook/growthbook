@@ -44,7 +44,7 @@ export default function SDKConnectionCredentialsCard({
   mutate: () => void;
 }) {
   const proxy = connection.proxy;
-  const hasProxy = !!proxy.enabled;
+  const hasProxy = proxy.enabled;
   const apiHost = getApiBaseUrl(connection);
   const clientKey = connection.key;
   const endpoint = `${apiHost}/api/features/${clientKey}`;

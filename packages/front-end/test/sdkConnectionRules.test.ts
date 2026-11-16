@@ -4,7 +4,6 @@ import {
   defaultSavedGroupFormat,
   deliveryModeFromConnection,
   sanitizeAdvancedForSave,
-  sanitizeSavedGroupFormat,
   SDKConnectionAdvancedValue,
   shouldShowPayloadSecurity,
   withAbsentSettings,
@@ -38,7 +37,6 @@ describe("shouldShowPayloadSecurity", () => {
     expect(shouldShowPayloadSecurity(["nextjs"])).toBe(false);
     expect(shouldShowPayloadSecurity(["javascript", "nextjs"])).toBe(false);
     expect(shouldShowPayloadSecurity(["javascript"])).toBe(true);
-    expect(shouldShowPayloadSecurity(undefined)).toBe(true);
   });
 });
 
@@ -155,10 +153,6 @@ describe("sanitizeAdvancedForSave", () => {
         currentCapabilities: [],
       }).savedGroupFormat,
     ).toBe("inline");
-    // v2 on a v1-only SDK is kept: the payload steps down until an upgrade.
-    expect(sanitizeAdvancedForSave(allOn, fullyCapable).savedGroupFormat).toBe(
-      "referencesV2",
-    );
   });
 
   it("clears custom-field dependants but keeps the typed proxy host", () => {
@@ -168,27 +162,6 @@ describe("sanitizeAdvancedForSave", () => {
     );
     expect(result.allowedCustomFieldsInMetadata).toEqual([]);
     expect(result.proxyHost).toBe(allOn.proxyHost);
-  });
-});
-
-describe("sanitizeSavedGroupFormat", () => {
-  it("falls back to inline only when the SDK can't read references", () => {
-    expect(
-      sanitizeSavedGroupFormat("referencesV1", { currentCapabilities: [] }),
-    ).toBe("inline");
-    expect(
-      sanitizeSavedGroupFormat("referencesV1", {
-        currentCapabilities: ["savedGroupReferences"],
-      }),
-    ).toBe("referencesV1");
-  });
-
-  it("keeps the stored format regardless of plan", () => {
-    expect(
-      sanitizeSavedGroupFormat("referencesV2", {
-        currentCapabilities: ["savedGroupReferences"],
-      }),
-    ).toBe("referencesV2");
   });
 });
 

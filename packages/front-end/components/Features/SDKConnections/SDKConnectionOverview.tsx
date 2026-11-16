@@ -88,7 +88,7 @@ export default function SDKConnectionOverview({
 
   const ctx: SettingRowContext = {
     ...connectionCapabilities(shown),
-    customFieldName: (id) => customFields?.find((f) => f.id === id)?.name ?? id,
+    customFieldName: (id) => customFields.find((f) => f.id === id)?.name ?? id,
     projectName: (id) => getProjectById(id)?.name || <HiddenProject id={id} />,
     showTraces,
     storedSavedGroupFormat: savedGroupFormatFromConnection(connection),

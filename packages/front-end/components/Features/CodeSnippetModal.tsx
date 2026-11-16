@@ -28,7 +28,6 @@ import Table, {
 } from "@/ui/Table";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import { StopSubmit } from "@/ui/Modal/StopSubmit";
-import SectionFrame from "@/components/SectionFrame";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { getApiHost, getCdnHost } from "@/services/env";
@@ -101,7 +100,6 @@ function CollapsibleSection({
 export default function CodeSnippetModal({
   close,
   feature,
-  inline,
   cta = "Finish",
   submit,
   secondaryCTA,
@@ -117,7 +115,6 @@ export default function CodeSnippetModal({
   close?: () => void;
   feature?: FeatureInterface;
   featureId?: string;
-  inline?: boolean;
   cta?: string;
   submit?: () => void;
   secondaryCTA?: ReactElement;
@@ -257,12 +254,12 @@ export default function CodeSnippetModal({
     );
   }
 
+  const canPickConnection = connections.length > 1 && !!allowChangingConnection;
   const hasLanguageChoice =
-    currentConnection.languages.length > 1 ||
-    (connections.length > 1 && !!allowChangingConnection);
+    currentConnection.languages.length > 1 || canPickConnection;
   const picker = (
     <Flex gap="5" wrap="wrap" align="start">
-      {connections.length > 1 && allowChangingConnection ? (
+      {canPickConnection ? (
         <Box width="240px">
           <SelectField
             label="SDK Connection"
@@ -569,25 +566,6 @@ myAttributes = myAttributes.map(attribute => sha256(salt + attribute));`}
         </ul>
       ),
     });
-  }
-
-  if (inline) {
-    return (
-      <Flex direction="column" gap="4">
-        <SectionFrame title="Implementation Instructions">
-          <Flex direction="column" gap="3">
-            {picker}
-            {intro}
-          </Flex>
-        </SectionFrame>
-        {saveError}
-        {sections.map((section) => (
-          <SectionFrame key={section.id} title={section.title}>
-            {section.content}
-          </SectionFrame>
-        ))}
-      </Flex>
-    );
   }
 
   return (

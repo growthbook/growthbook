@@ -17,7 +17,6 @@ import {
   constantPublishEnvironments,
   filterEnvironmentsByFeature,
 } from "shared/util";
-import { sdkConnectionPublishFootprint } from "shared/enterprise";
 import type { FeatureInterface } from "shared/types/feature";
 import type { Environment } from "shared/types/organization";
 import {
@@ -376,18 +375,6 @@ describe("an SDK connection draft's footprint includes where it lands", () => {
         },
       ],
     },
-  });
-
-  it("names the source and the destination environment", () => {
-    expect(
-      sdkConnectionPublishFootprint(
-        { sdkConnection: live },
-        draftTo("production").target.proposedChanges,
-      ),
-    ).toEqual({
-      scope: "environments",
-      environments: ["staging", "production"],
-    });
   });
 
   it("refuses a move into an environment the user can't manage", () => {

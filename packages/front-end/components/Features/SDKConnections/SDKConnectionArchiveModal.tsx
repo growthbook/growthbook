@@ -1,4 +1,4 @@
-import { Revision, getSdkConnectionGoverningRules } from "shared/enterprise";
+import { Revision } from "shared/enterprise";
 import { SDKConnectionInterface } from "shared/types/sdk-connection";
 import {
   canLandArchiveToggle,
@@ -7,7 +7,6 @@ import {
 } from "shared/permissions";
 import ArchiveModal from "@/components/Revision/ArchiveModal";
 import RevisionDraftSelectorForChanges from "@/components/Revision/RevisionDraftSelectorForChanges";
-import useOrgSettings from "@/hooks/useOrgSettings";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useUser } from "@/services/UserContext";
 
@@ -19,6 +18,8 @@ interface SDKConnectionArchiveModalProps {
   mutate: () => void;
   onRevisionCreated?: (revision: Revision) => void;
   selectFlow?: (revision: Revision | null) => void;
+  approvalRequired: boolean;
+  canBypassApproval: boolean;
 }
 
 export default function SDKConnectionArchiveModal({
@@ -29,23 +30,13 @@ export default function SDKConnectionArchiveModal({
   mutate,
   onRevisionCreated,
   selectFlow,
+  approvalRequired,
+  canBypassApproval,
 }: SDKConnectionArchiveModalProps) {
-  const settings = useOrgSettings();
   const permissionsUtil = usePermissionsUtil();
-  const { hasCommercialFeature, userId } = useUser();
+  const { userId } = useUser();
 
   const isArchived = !!connection.archived;
-
-  const canBypass = permissionsUtil.canBypassSDKConnectionApprovalChecks({
-    projects: connection.projects,
-  });
-
-  const approvalRequired =
-    hasCommercialFeature("require-approvals") &&
-    getSdkConnectionGoverningRules(settings.approvalFlows, {
-      projects: connection.projects,
-      environment: connection.environment,
-    }).length > 0;
 
   return (
     <ArchiveModal
@@ -56,7 +47,7 @@ export default function SDKConnectionArchiveModal({
       apiPathBase="/sdk-connections"
       openRevisions={openRevisions}
       approvalRequired={approvalRequired}
-      canBypassApproval={canBypass}
+      canBypassApproval={canBypassApproval}
       // Archiving is delete-class; unarchiving is publish-class. Both are
       // scoped to the one environment the connection serves.
       canLand={canLandArchiveToggle(

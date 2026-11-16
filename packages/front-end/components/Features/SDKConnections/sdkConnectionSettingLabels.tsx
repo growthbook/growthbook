@@ -29,7 +29,8 @@ export const SETTING_TITLES = {
   savedGroupReferences: "Pass Saved Groups by reference",
   passByReference: "Pass by reference",
   prerequisites: "Always include prerequisite Feature Flags",
-  remoteCipherOptions: "Advanced",
+  encryptPayload: "Encrypt payload",
+  hashSecureAttributes: "Hash secure attributes",
   // Under an "Include" label.
   includeMetadata: "Include",
   projectIds: "Project IDs",
@@ -86,16 +87,6 @@ export function InfoTooltip({ content }: { content: ReactNode }) {
         <PiInfo />
       </Box>
     </Tooltip>
-  );
-}
-
-// Over the cipher options a remotely evaluated payload can still have.
-export function RemoteCipherOptionsLabel() {
-  return (
-    <>
-      {SETTING_TITLES.remoteCipherOptions}{" "}
-      <InfoTooltip content="Rarely needed with remote evaluation, since the full payload never reaches the client." />
-    </>
   );
 }
 

@@ -1449,21 +1449,14 @@ describe("SDK connection nested merges", () => {
 
 describe("sdkConnectionDraftSettingsAfterSave", () => {
   it("doesn't take a setting from live that the draft doesn't hold", () => {
-    // Live picked up an event tracker after the draft was made; the draft
-    // only renamed.
+    // Live picked up an event tracker and was archived after the draft was
+    // made; the draft only renamed.
     const base = { name: "A", includeRuleIds: false };
     const draft = { name: "B", includeRuleIds: false };
+    const live = { ...base, eventTracker: "GA4", archived: true };
     expect(
-      sdkConnectionDraftSettingsAfterSave(base, draft, { name: "C" }),
+      sdkConnectionDraftSettingsAfterSave(base, draft, { name: "C" }, live),
     ).toEqual({ name: "C", includeRuleIds: false });
-  });
-
-  it("doesn't propose archiving a draft because live was archived", () => {
-    const base = { name: "A", archived: false };
-    const draft = { name: "B", archived: false };
-    expect(
-      sdkConnectionDraftSettingsAfterSave(base, draft, { name: "C" }),
-    ).toEqual({ name: "C", archived: false });
   });
 
   it("keeps a setting cleared in the draft when live has since set it", () => {
@@ -1516,7 +1509,7 @@ describe("sdkConnectionDraftSettingsAfterSave", () => {
       sdkConnectionDraftSettingsAfterSave(
         base,
         { name: "A", projects: ["p1"], tags: false },
-        { projects: [] },
+        { projects: undefined },
       ),
     ).toEqual(base);
   });

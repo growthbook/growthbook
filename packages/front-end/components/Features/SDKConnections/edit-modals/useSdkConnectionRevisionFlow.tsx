@@ -1,5 +1,9 @@
 import { useState } from "react";
-import { Revision, getSdkConnectionGoverningRules } from "shared/enterprise";
+import {
+  Revision,
+  SdkConnectionApprovalScope,
+  getSdkConnectionGoverningRules,
+} from "shared/enterprise";
 import { SDKConnectionInterface } from "shared/types/sdk-connection";
 import { draftValuesEqual } from "shared/util";
 import { isActiveDraftStatus } from "shared/validators";
@@ -10,19 +14,14 @@ import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
 
 export type SdkConnectionRevisionProps = {
-  onRevisionCreated?: (revision: Revision) => void;
-  openRevisions?: Revision[];
-  allRevisions?: Revision[];
-  selectedRevision?: Revision | null;
-  onSelectRevision?: (revision: Revision | null) => void;
-  approvalRequired?: boolean;
-  canAutoPublish?: boolean;
-  metadataReviewRequired?: boolean;
-};
-
-type SdkConnectionScope = {
-  projects?: string[];
-  environment?: string;
+  onRevisionCreated: (revision: Revision) => void;
+  openRevisions: Revision[];
+  allRevisions: Revision[];
+  selectedRevision: Revision | null;
+  onSelectRevision: (revision: Revision | null) => void;
+  approvalRequired: boolean;
+  canAutoPublish: boolean;
+  metadataReviewRequired: boolean;
 };
 
 // Merged/discarded revisions are viewable but never sent as `revisionId`.
@@ -35,7 +34,7 @@ export function isDraftRevision(
 function seededValue(connection: SDKConnectionInterface, key: string): unknown {
   if (key === "proxyEnabled") return connection.proxy.enabled;
   if (key === "proxyHost") return connection.proxy.host;
-  return (connection as unknown as Record<string, unknown>)[key];
+  return connection[key as keyof SDKConnectionInterface];
 }
 
 // Sends only what differs from the saved connection, to an open draft, a new
@@ -98,7 +97,7 @@ export async function saveSdkConnectionChanges({
     body: JSON.stringify(expected ? { ...changed, expected } : changed),
   });
 
-  const revision = res?.revision ?? null;
+  const revision = res.revision ?? null;
   if (revision) onRevisionCreated?.(revision);
   await mutate();
   // Selected once the revisions have reloaded: before then the page can't
@@ -125,36 +124,35 @@ export function useSdkConnectionRevisionFlow({
 }: {
   connection: SDKConnectionInterface;
   mutate: () => Promise<unknown> | void;
-  proposedScope?: SdkConnectionScope;
+  proposedScope: SdkConnectionApprovalScope;
 } & SdkConnectionRevisionProps) {
   const { apiCall } = useAuth();
   const { user, hasCommercialFeature } = useUser();
   const settings = useOrgSettings();
   const permissionsUtil = usePermissionsUtil();
 
-  const proposedRules =
-    proposedScope && hasCommercialFeature("require-approvals")
-      ? getSdkConnectionGoverningRules(settings.approvalFlows, proposedScope)
-      : [];
+  const proposedRules = hasCommercialFeature("require-approvals")
+    ? getSdkConnectionGoverningRules(settings.approvalFlows, proposedScope)
+    : [];
   const effectiveApprovalRequired =
-    !!approvalRequired || proposedRules.length > 0;
+    approvalRequired || proposedRules.length > 0;
   // As on the server, any governing rule (live or proposed) can require it.
   const effectiveMetadataReviewRequired =
-    (!!approvalRequired && (metadataReviewRequired ?? true)) ||
+    (approvalRequired && metadataReviewRequired) ||
     proposedRules.some((r) => r.requireMetadataReview !== false);
   const effectiveCanAutoPublish =
     !effectiveApprovalRequired ||
-    ((canAutoPublish ?? true) &&
+    (canAutoPublish &&
       (!proposedRules.length ||
         permissionsUtil.canBypassSDKConnectionApprovalChecks({
-          projects: proposedScope?.projects ?? connection.projects,
+          projects: proposedScope.projects ?? connection.projects,
         })));
 
   // Prefer the draft being viewed, then the user's own open draft. Never
   // default to publishing while a draft is selected.
   const defaultDraftId = () => {
     if (isDraftRevision(selectedRevision)) return selectedRevision.id;
-    const myDraft = (openRevisions ?? []).find(
+    const myDraft = openRevisions.find(
       (r) => isDraftRevision(r) && r.authorId === user?.id,
     );
     return myDraft?.id ?? null;

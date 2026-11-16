@@ -6,7 +6,7 @@ import styles from "./RevisionStatusBarView.module.scss";
 
 // Room for a normal-sized button with even padding. A message that wraps
 // grows it.
-export const REVISION_STATUS_BAR_HEIGHT_PX = 48;
+const REVISION_STATUS_BAR_HEIGHT_PX = 48;
 
 // Its message wraps, so what sticks beneath it reads its real height.
 export function useRevisionStatusBarHeight(): [

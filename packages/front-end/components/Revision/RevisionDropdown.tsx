@@ -93,8 +93,8 @@ export default function RevisionDropdown({
     <Text size="sm" color="text-low" whiteSpace="nowrap">
       {eventUserLabel(revisionActor(r, r.authorId), {
         nameFor: (id) => getUserDisplay(id, false),
-      })}
-      <> &middot; {dateNoYear(revisionModelDate(r))}</>
+      })}{" "}
+      &middot; {dateNoYear(revisionModelDate(r))}
     </Text>
   );
 

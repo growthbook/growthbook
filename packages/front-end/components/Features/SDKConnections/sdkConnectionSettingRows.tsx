@@ -1,6 +1,7 @@
 import { ReactNode } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import { SavedGroupFormat, SDKLanguage } from "shared/types/sdk-connection";
+import { SDKCapability } from "shared/sdk-versioning";
 import Text from "@/ui/Text";
 import SelectField from "@/components/Forms/SelectField";
 import MultiSelectField from "@/ui/MultiSelectField";
@@ -34,7 +35,6 @@ import {
 } from "@/components/Features/SDKConnections/SDKConnectionAdvancedSettings";
 import {
   languagesPatch,
-  SDKCapability,
   shouldShowPayloadSecurity,
   versionedLanguage,
 } from "@/components/Features/SDKConnections/sdkConnectionRules";
@@ -338,8 +338,8 @@ const readCipherOptions: SettingRow["read"] = (v, { currentCaps }) => (
     items={[
       currentCaps.includes("encryption") &&
         v.encryptPayload &&
-        "Encrypt payload",
-      v.hashSecureAttributes && "Hash secure attributes",
+        SETTING_TITLES.encryptPayload,
+      v.hashSecureAttributes && SETTING_TITLES.hashSecureAttributes,
     ]}
   />
 );
@@ -398,15 +398,12 @@ export const SECURITY_ROWS: SettingRow[] = [
         v.hashSecureAttributes ||
         !v.includeExperimentNames),
     read: readCipherOptions,
-    edit: (v, onChange, disabled) => (
+    edit: (v) => (
       <RemoteEvalOptionsField
         value={v}
-        onChange={onChange}
         languages={v.languages}
-        sdkVersion={v.sdkVersion}
         includeExperimentNames={v.includeExperimentNames}
         hideLabel
-        disabled={disabled}
       />
     ),
   },

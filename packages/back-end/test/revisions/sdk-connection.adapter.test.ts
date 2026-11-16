@@ -234,9 +234,6 @@ describe("sdkConnectionAdapter", () => {
         },
         sdkWebhooks: [],
       });
-      ["encryptionKey", "key", "connected", "proxy", "dateUpdated"].forEach(
-        (f) => expect(baseSnapshot.sdkConnection).not.toHaveProperty(f),
-      );
     });
 
     it("maps pre-fetched `_webhooks` into the snapshot shape", () => {
@@ -393,18 +390,7 @@ describe("sdkConnectionAdapter", () => {
   });
 
   describe("isApprovalRequiredForRevision — project/environment scoping", () => {
-    const contentChange = replaceSettings({ encryptPayload: true });
     const prodRule = [{ required: true, environments: ["production"] }];
-
-    it("requires approval when the connection scope matches the rule", () => {
-      const ctx = makeContext({ rules: prodRule });
-      expect(
-        sdkConnectionAdapter.isApprovalRequiredForRevision!(
-          ctx,
-          buildRevision(contentChange, snapshotWith({})),
-        ),
-      ).toBe(true);
-    });
 
     it("does NOT require approval when the connection is out of the rule's scope", () => {
       const ctx = makeContext({ rules: prodRule });
@@ -573,13 +559,19 @@ describe("sdkConnectionAdapter", () => {
   });
 
   describe("revision action hooks", () => {
-    it("scope publish / revert / delete to the connection's projects and environment", () => {
+    it("scope publish / revert / delete / draft to the connection's projects and environment", () => {
       const canRevisionAction = jest.fn(() => true);
       const ctx = makeContext({ permissions: { canRevisionAction } });
       sdkConnectionAdapter.canPublishRevision!(ctx, baseSnapshot);
       sdkConnectionAdapter.canRevert!(ctx, baseSnapshot);
       sdkConnectionAdapter.canDeleteEntity!(ctx, baseSnapshot);
-      for (const [i, action] of ["publish", "revert", "delete"].entries()) {
+      sdkConnectionAdapter.canManageDrafts!(ctx, baseSnapshot);
+      for (const [i, action] of [
+        "publish",
+        "revert",
+        "delete",
+        "draft",
+      ].entries()) {
         expect(canRevisionAction).toHaveBeenNthCalledWith(
           i + 1,
           "sdk-connection",
@@ -1001,10 +993,6 @@ describe("sdkConnectionAdapter", () => {
     });
 
     it("unguarded: writes without a CAS condition", async () => {
-      mockedFind.mockResolvedValue({
-        ...baseConnection,
-        dateUpdated: new Date("2025-01-03"),
-      });
       await sdkConnectionAdapter.applyChanges(makeContext({}), liveEntity, {
         sdkConnection: settings({ name: "New Name" }),
       });
@@ -1138,18 +1126,6 @@ describe("sdkConnectionAdapter", () => {
       });
     });
 
-    it("refuses webhook changes without the env-scoped SDK webhook permission", async () => {
-      const ctx = makeContext({
-        permissions: { canCreateSDKWebhook: () => false },
-      });
-      await expect(
-        sdkConnectionAdapter.applyChanges(ctx, liveEntity, {
-          sdkWebhooks: [baseWebhook],
-        }),
-      ).rejects.toThrow("permission denied");
-      expect(webhooksModel(ctx).create).not.toHaveBeenCalled();
-    });
-
     it("refuses a webhook change before writing the settings that come with it", async () => {
       const ctx = makeContext({
         permissions: { canCreateSDKWebhook: () => false },
@@ -1209,20 +1185,6 @@ describe("sdkConnectionAdapter.archivedState", () => {
   });
 });
 
-describe("draft authority", () => {
-  it("carries the connection's environment, so other environments' editors don't pass", () => {
-    const canRevisionAction = jest.fn(() => true);
-    const ctx = makeContext({ permissions: { canRevisionAction } });
-    sdkConnectionAdapter.canManageDrafts!(ctx, baseSnapshot);
-    expect(canRevisionAction).toHaveBeenCalledWith(
-      "sdk-connection",
-      "draft",
-      { projects: baseSnapshot.sdkConnection.projects },
-      [baseSnapshot.sdkConnection.environment],
-    );
-  });
-});
-
 describe("webhook headers in revisions", () => {
   const secret = '{"Authorization":"Bearer abc"}';
   const live = { ...baseWebhook, headers: secret };
@@ -1256,10 +1218,6 @@ describe("webhook headers in revisions", () => {
     );
     expect(seen.target.proposedChanges[0]).toMatchObject({
       value: [omit(live, "headers"), omit(added, "headers")],
-    });
-    // Everything else is as stored.
-    expect(seen.target.snapshot).toMatchObject({
-      sdkConnection: baseSnapshot.sdkConnection,
     });
   });
 

@@ -1004,13 +1004,11 @@ export const sdkConnectionSettingsEqual = (
     sdkSettingsFieldEqual(a[key], b[key]),
   );
 
-// A draft's settings after a save into it: its own settings with the saved
-// fields over them, never live's, so a setting the draft doesn't hold stays
-// out. A saved field equal to the base's (absent counts as empty) takes the
-// base's form, so turning one on then off again leaves no change behind. Not
-// where live has since moved off the base's value: the draft is shown with
-// live's there, so setting it back is a choice the draft has to hold. Only the
-// fields this save sets are touched, so a choice an earlier save made stays.
+// A draft's settings after a save into it: its own with the saved fields on
+// top, never live's. A saved field equal to the base's (absent counts as
+// empty) takes the base's form, so on-then-off leaves no change, unless live
+// has moved off the base's value: setting it back is then a choice the draft
+// holds.
 export const sdkConnectionDraftSettingsAfterSave = (
   baseSettings: Record<string, unknown>,
   draftSettings: Record<string, unknown>,

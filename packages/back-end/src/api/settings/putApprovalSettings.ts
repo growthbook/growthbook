@@ -24,7 +24,7 @@ export const putApprovalSettings = createApiRequestHandler(
   const org = req.context.org;
   const { requireReviews, approvalFlows, targetingReviewMode } = req.body;
 
-  // Matches the interactive route: saved-group approvals are the licensed part.
+  // Matches the interactive route: approval flows are the licensed part.
   if (
     (approvalFlows?.savedGroups?.some((rule) => rule.required) ||
       approvalFlows?.sdkConnections?.some((rule) => rule.required)) &&

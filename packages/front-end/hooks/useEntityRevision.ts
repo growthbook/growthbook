@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import { useRouter } from "next/router";
-import { Revision, JsonPatchOperation } from "shared/enterprise";
+import { Revision } from "shared/enterprise";
 import useApi from "@/hooks/useApi";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
@@ -17,14 +17,11 @@ export function useEntityRevision<T extends RevisableEntity>({
   entityId,
   entityMutate,
   entity,
-  ownerId = "",
 }: {
   entityType: Revision["target"]["type"];
   entityId: string | undefined;
   entityMutate: () => void;
   entity?: T;
-  // Author of the synthetic initial revision.
-  ownerId?: string;
 }) {
   const { userId } = useUser();
   const router = useRouter();
@@ -178,24 +175,19 @@ export function useEntityRevision<T extends RevisableEntity>({
     [updateUrl],
   );
 
-  // Called after creating/updating a revision — receives the revision from the backend response.
-  // Selects it in the dropdown so the status callout appears.
+  // Selects the revision the server returned.
   const onRevisionCreated = useCallback(
     (revision: Revision) => {
-      // Optimistically update the revision in the SWR cache. If it exists, replace it.
-      // Otherwise, add it. This ensures the UI reflects the latest changes immediately.
       mutateRevisions(
         (current) => {
           const existingIndex = (current?.revisions ?? []).findIndex(
             (r) => r.id === revision.id,
           );
           if (existingIndex !== -1) {
-            // Replace existing revision
             const newRevisions = [...(current?.revisions ?? [])];
             newRevisions[existingIndex] = revision;
             return { revisions: newRevisions };
           } else {
-            // Add new revision
             return {
               revisions: [...(current?.revisions ?? []), revision],
             };
@@ -213,7 +205,7 @@ export function useEntityRevision<T extends RevisableEntity>({
       await apiCall(`/revision/${revisionId}/merge`, { method: "POST" });
       // Refetch first so the URL lands on the newly live revision.
       const updated = await mutateRevisions();
-      entityMutate(); // refresh live entity data after merge
+      entityMutate();
       const merged = (updated?.revisions ?? data?.revisions ?? []).find(
         (r) => r.id === revisionId,
       );
@@ -252,35 +244,35 @@ export function useEntityRevision<T extends RevisableEntity>({
     if (!entity || !data || data.revisions.length > 0) return null;
     return {
       id: "__initial__",
-      authorId: ownerId,
+      authorId: "",
       version: 1,
       title: "Revision 1",
       target: {
         type: entityType,
         id: entity.id,
         snapshot: entity,
-        proposedChanges: [] as JsonPatchOperation[],
+        proposedChanges: [],
       },
-      status: "merged" as const,
+      status: "merged",
       reviews: [],
       activityLog: [
         {
           id: "initial",
-          userId: ownerId,
-          action: "created" as const,
+          userId: "",
+          action: "created",
           dateCreated: entity.dateCreated,
         },
       ],
       resolution: {
-        action: "merged" as const,
-        userId: ownerId,
+        action: "merged",
+        userId: "",
         dateCreated: entity.dateCreated,
       },
       dateCreated: entity.dateCreated,
       dateUpdated: entity.dateUpdated,
       organization: entity.organization,
     } as unknown as Revision;
-  }, [data, entity, entityType, ownerId]);
+  }, [data, entity, entityType]);
 
   const allRevisions = useMemo(
     () =>

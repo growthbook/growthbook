@@ -85,6 +85,8 @@ function toSnapshot(
   });
 }
 
+type HeldWebhooks = { sdkWebhooks?: SDKWebhookRevisionSnapshot[] };
+
 type WebhookRow = {
   snapshot: SDKWebhookRevisionSnapshot;
   live?: WebhookInterface;
@@ -93,20 +95,16 @@ type WebhookRow = {
 
 export default function SdkWebhooks({
   connection,
-  liveRevisionId = null,
+  liveRevisionId,
   refresh,
   ...revisionProps
 }: {
   connection: SDKConnectionInterface;
-  liveRevisionId?: string | null;
+  liveRevisionId: string | null;
   // Reloads the connection and its revisions after a change lands.
   refresh: () => Promise<unknown>;
 } & SdkConnectionRevisionProps) {
-  const {
-    selectedRevision,
-    openRevisions = [],
-    allRevisions = [],
-  } = revisionProps;
+  const { selectedRevision, openRevisions, allRevisions } = revisionProps;
   const { data, mutate } = useApi<{ webhooks?: WebhookInterface[] }>(
     `/sdk-connections/${connection.id}/webhooks`,
   );
@@ -153,17 +151,16 @@ export default function SdkWebhooks({
   const liveById = new Map(liveWebhooks.map((wh) => [wh.id, wh]));
 
   const baselineWebhooks =
-    (
-      viewedRevision?.target.snapshot as
-        | { sdkWebhooks?: SDKWebhookRevisionSnapshot[] }
-        | undefined
-    )?.sdkWebhooks ?? [];
+    (viewedRevision?.target.snapshot as HeldWebhooks | undefined)
+      ?.sdkWebhooks ?? [];
 
   // A revision's webhooks: the ones it proposes, else the ones it started from.
   const webhooksOf = (revision: Revision): SDKWebhookRevisionSnapshot[] => {
-    type Held = { sdkWebhooks?: SDKWebhookRevisionSnapshot[] };
-    const proposed = patchOpsToPartial(revision.target.proposedChanges) as Held;
-    const started = (revision.target.snapshot as Held).sdkWebhooks ?? [];
+    const proposed = patchOpsToPartial(
+      revision.target.proposedChanges,
+    ) as HeldWebhooks;
+    const started =
+      (revision.target.snapshot as HeldWebhooks).sdkWebhooks ?? [];
     return (proposed.sdkWebhooks ?? started).map(toSnapshot);
   };
   const draftWebhookSnapshots = viewedRevision
@@ -224,9 +221,10 @@ export default function SdkWebhooks({
     lockedDraft ||
     (keepsWebhook && !hasCommercialFeature("multiple-sdk-webhooks"));
 
+  const reload = () => Promise.all([mutate(), refresh()]);
   const flow = useSdkConnectionRevisionFlow({
     connection,
-    mutate: () => Promise.all([mutate(), refresh()]),
+    mutate: reload,
     proposedScope: {
       projects: connection.projects,
       environment: connection.environment,
@@ -263,7 +261,7 @@ export default function SdkWebhooks({
     } catch (e) {
       // Reloaded, so trying again starts from what's there now.
       if (e instanceof ApiCallError && e.code === "changes_conflict") {
-        await Promise.all([mutate(), refresh()]);
+        await reload();
       }
       throw e;
     }
@@ -358,10 +356,7 @@ export default function SdkWebhooks({
   };
 
   const renderStatus = (live: WebhookInterface | undefined) => {
-    if (!live) {
-      return <Badge label="Never fired" color="gray" variant="soft" />;
-    }
-    if (live.disabled || live.error) {
+    if (live?.disabled || live?.error) {
       return (
         <Popover
           openOnHover
@@ -394,7 +389,7 @@ export default function SdkWebhooks({
         />
       );
     }
-    if (live.lastSuccess) {
+    if (live?.lastSuccess) {
       return (
         <Badge
           label={
@@ -633,7 +628,6 @@ export default function SdkWebhooks({
           close={() => setEditWebhookData(null)}
           onSave={mutate}
           current={editWebhookData}
-          sdkConnectionId={connection.id}
           onOverrideSubmit={handleEditViaRevision}
           destination={destination}
           cta={draftCta}
@@ -643,7 +637,6 @@ export default function SdkWebhooks({
         <CreateSDKWebhookModal
           close={() => setCreateWebhookModalOpen(false)}
           onSave={mutate}
-          sdkConnectionId={connection.id}
           sdkConnectionKey={connection.key}
           language={connection.languages?.[0]}
           onOverrideCreate={handleCreateViaRevision}

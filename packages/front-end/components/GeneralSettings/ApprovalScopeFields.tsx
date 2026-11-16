@@ -425,8 +425,8 @@ export function ApprovalScopeSections({
   savedGroupRule: ApprovalFlowConfiguration;
   onSavedGroupChange: (next: ApprovalFlowConfiguration) => void;
   savedGroupDescription?: string;
-  sdkConnectionRule?: ApprovalFlowConfiguration;
-  onSdkConnectionChange?: (next: ApprovalFlowConfiguration) => void;
+  sdkConnectionRule: ApprovalFlowConfiguration;
+  onSdkConnectionChange: (next: ApprovalFlowConfiguration) => void;
   // Only on an override scope, and only while that section differs from base.
   onFlagReset?: () => void;
   onSavedGroupReset?: () => void;
@@ -469,29 +469,25 @@ export function ApprovalScopeSections({
         />
       </Box>
 
-      {sdkConnectionRule && onSdkConnectionChange ? (
-        <>
-          <Separator size="4" my="4" />
+      <Separator size="4" my="4" />
 
-          <Box>
-            <SectionHeading
-              title="SDK Connections"
-              onReset={onSdkConnectionReset}
-            />
-            <Text as="p" size="md" mb="4" color="text-low">
-              Every change is saved as a revision. Approval adds a review step
-              before it goes live.
-            </Text>
-            <ApprovalFlowRuleFields
-              family="sdk-connection"
-              idPrefix={`sdk-connections-${idPrefix}`}
-              value={sdkConnectionRule}
-              onChange={onSdkConnectionChange}
-              readOnly={readOnly}
-            />
-          </Box>
-        </>
-      ) : null}
+      <Box>
+        <SectionHeading
+          title="SDK Connections"
+          onReset={onSdkConnectionReset}
+        />
+        <Text as="p" size="md" mb="4" color="text-low">
+          Every change is saved as a revision. Approval adds a review step
+          before it goes live.
+        </Text>
+        <ApprovalFlowRuleFields
+          family="sdk-connection"
+          idPrefix={`sdk-connections-${idPrefix}`}
+          value={sdkConnectionRule}
+          onChange={onSdkConnectionChange}
+          readOnly={readOnly}
+        />
+      </Box>
     </>
   );
 }

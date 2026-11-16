@@ -165,13 +165,7 @@ export default function ApprovalFlowSettings() {
     }
     const sdkConnectionOwn = ruleForScope(sdkConnectionRules, tab.scope);
     if (sdkConnectionOwn) {
-      form.setValue(
-        "approvalFlows.sdkConnections",
-        withRuleForScope(sdkConnectionRules, tab.scope, {
-          ...sdkConnectionOwn,
-          projects: next,
-        }),
-      );
+      setSdkConnectionRule(tab.scope, { ...sdkConnectionOwn, projects: next });
     }
     setTabs((prev) =>
       prev.map((t) => (t.id === tab.id ? { ...t, scope: nextScope } : t)),

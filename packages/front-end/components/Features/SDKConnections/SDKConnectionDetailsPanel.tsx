@@ -1,10 +1,7 @@
 import { Flex, Separator } from "@radix-ui/themes";
 import { Revision } from "shared/enterprise";
 import { SDKConnectionInterface } from "shared/types/sdk-connection";
-import DetailsPanel, {
-  DetailsPanelTab,
-  PanelSection,
-} from "@/components/DetailsPanel";
+import DetailsPanel, { PanelSection } from "@/components/DetailsPanel";
 import {
   HiddenProject,
   PanelEditButton,
@@ -27,8 +24,6 @@ export default function SDKConnectionDetailsPanel({
   canEditRevision,
   onRenameRevision,
   onDescribeRevision,
-  tab,
-  setTab,
 }: {
   // As viewed: the selected revision's changes over live.
   connection: SDKConnectionInterface;
@@ -45,14 +40,12 @@ export default function SDKConnectionDetailsPanel({
   canEditRevision: boolean;
   onRenameRevision: (title: string) => Promise<void>;
   onDescribeRevision: (description: string) => Promise<void>;
-  tab: DetailsPanelTab;
-  setTab: (tab: DetailsPanelTab) => void;
 }) {
   const { getProjectById } = useDefinitions();
   const projects = connection.projects;
 
   return (
-    <DetailsPanel tab={tab} setTab={setTab}>
+    <DetailsPanel>
       <PanelSection title="General">
         <Metadata
           size="sm"

@@ -145,7 +145,7 @@ export function MetadataSettings({ value, onChange, disabled }: GroupProps) {
               onChange={(fields) =>
                 onChange({ allowedCustomFieldsInMetadata: fields })
               }
-              options={(customFields || []).map((cf) => ({
+              options={customFields.map((cf) => ({
                 label: cf.name,
                 value: cf.id,
               }))}

@@ -1,5 +1,5 @@
 import mongoose, { FilterQuery, QueryOptions } from "mongoose";
-import { omit } from "lodash";
+import { omit, pick } from "lodash";
 import { AuditInterface, EntityType } from "shared/types/audit";
 import {
   removeMongooseFields,
@@ -95,10 +95,7 @@ const REVISION_AUDIT_FIELDS = [
 
 export function revisionAuditDetails(doc: object): object {
   const source = doc as Record<string, unknown>;
-  const details: Record<string, unknown> = {};
-  REVISION_AUDIT_FIELDS.forEach((key) => {
-    if (key in source) details[key] = source[key];
-  });
+  const details: Record<string, unknown> = pick(source, REVISION_AUDIT_FIELDS);
   const target = source.target as { type?: string; id?: string } | undefined;
   if (target) details.target = { type: target.type, id: target.id };
   return details;

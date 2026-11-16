@@ -1,5 +1,5 @@
 import { SDKConnectionInterface } from "shared/types/sdk-connection";
-import React, { ReactElement, useEffect, useMemo, useState } from "react";
+import React, { ReactElement, useEffect, useState } from "react";
 import { FeatureInterface } from "shared/types/feature";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import useSDKConnections from "@/hooks/useSDKConnections";
@@ -10,7 +10,6 @@ import CreateSDKConnectionModal from "./CreateSDKConnectionModal";
 export default function InitialSDKConnectionForm({
   close,
   cta,
-  inline,
   secondaryCTA,
   goToNextStep,
   feature,
@@ -18,17 +17,13 @@ export default function InitialSDKConnectionForm({
 }: {
   close?: () => void;
   cta?: string;
-  inline?: boolean;
   feature?: FeatureInterface;
   secondaryCTA?: ReactElement;
   goToNextStep?: () => void;
   includeCheck?: boolean;
 }) {
   const { data, error, mutate } = useSDKConnections();
-  const connections = useMemo(
-    () => data?.connections.filter((c) => !c.archived),
-    [data],
-  );
+  const connections = data?.connections;
 
   const [currentConnection, setCurrentConnection] =
     useState<SDKConnectionInterface | null>(null);
@@ -49,7 +44,6 @@ export default function InitialSDKConnectionForm({
       <CodeSnippetModal
         close={close}
         cta={cta}
-        inline={inline}
         connections={connections}
         sdkConnection={currentConnection}
         secondaryCTA={secondaryCTA}

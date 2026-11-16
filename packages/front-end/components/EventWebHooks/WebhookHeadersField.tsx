@@ -206,11 +206,7 @@ export default function WebhookHeadersField({
                   There are no webhook secrets yet.{" "}
                   {canManageSecrets ? (
                     <>
-                      <Link
-                        href="/settings/webhooks"
-                        target="_blank"
-                        rel="noreferrer"
-                      >
+                      <Link href="/settings/webhooks" external>
                         Add one
                       </Link>{" "}
                       to insert it here.
@@ -234,11 +230,7 @@ export default function WebhookHeadersField({
             <Flex justify="between" gap="3">
               <DocLink docSection="webhookSecrets">Learn more</DocLink>
               {canManageSecrets && (
-                <Link
-                  href="/settings/webhooks"
-                  target="_blank"
-                  rel="noreferrer"
-                >
+                <Link href="/settings/webhooks" external>
                   Manage secrets
                 </Link>
               )}
@@ -262,40 +254,32 @@ export default function WebhookHeadersField({
         }
         error={isJson(value) ? undefined : "Invalid JSON"}
         helpText={
-          <Box style={{ minWidth: 0 }}>
-            {used.length > 0 && (
-              <Flex align="center" wrap="wrap" gap="2">
-                <Text size="sm" color="text-low" weight="medium">
-                  Secrets used:
-                </Text>
-                {used.map((s) => {
-                  const badge = (
-                    <Badge
-                      key={s.id}
-                      variant="soft"
-                      color="gray"
-                      label={s.key}
-                    />
-                  );
-                  // Where secrets are edited, for someone who can.
-                  return canManageSecrets ? (
-                    <Link
-                      key={s.id}
-                      href="/settings/webhooks"
-                      target="_blank"
-                      rel="noreferrer"
-                      underline="hover"
-                      style={{ display: "inline-flex" }}
-                    >
-                      {badge}
-                    </Link>
-                  ) : (
-                    badge
-                  );
-                })}
-              </Flex>
-            )}
-          </Box>
+          used.length > 0 ? (
+            <Flex align="center" wrap="wrap" gap="2" minWidth="0">
+              <Text size="sm" color="text-low" weight="medium">
+                Secrets used:
+              </Text>
+              {used.map((s) => {
+                const badge = (
+                  <Badge key={s.id} variant="soft" color="gray" label={s.key} />
+                );
+                // Where secrets are edited, for someone who can.
+                return canManageSecrets ? (
+                  <Link
+                    key={s.id}
+                    href="/settings/webhooks"
+                    external
+                    underline="hover"
+                    style={{ display: "inline-flex" }}
+                  >
+                    {badge}
+                  </Link>
+                ) : (
+                  badge
+                );
+              })}
+            </Flex>
+          ) : undefined
         }
       />
     </Box>

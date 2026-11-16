@@ -64,10 +64,9 @@ type FieldsProps = {
 
 // Where a single SDK is published, beside the SDK it names.
 export function SDKPackageLink({ languages }: { languages: SDKLanguage[] }) {
-  const language = languages.length === 1 ? languages[0] : undefined;
-  const packageUrl = language ? languageMapping[language]?.packageUrl : null;
-  if (!language || !packageUrl) return null;
-  const packageName = languageMapping[language]?.packageName;
+  if (languages.length !== 1) return null;
+  const { packageUrl, packageName } = languageMapping[languages[0]];
+  if (!packageUrl) return null;
   const repositoryName = getPackageRepositoryName(packageUrl);
   return (
     <Text as="div" size="md" color="text-mid" mt="1">
@@ -124,7 +123,7 @@ export function SDKVersionField({
             containerStyle={{ marginBottom: 0 }}
           />
         </Box>
-        {!usingLatestVersion && latestVersion && !disabled ? (
+        {!usingLatestVersion && !disabled ? (
           <Button
             variant="soft"
             size="md"
@@ -412,12 +411,7 @@ export default function SDKConnectionFields({
         languages={value.languages}
         sdkVersion={value.sdkVersion}
       />
-      <RemoteEvalOptionsField
-        value={value}
-        onChange={onChange}
-        languages={value.languages}
-        sdkVersion={value.sdkVersion}
-      />
+      <RemoteEvalOptionsField value={value} languages={value.languages} />
     </Flex>
   );
 }

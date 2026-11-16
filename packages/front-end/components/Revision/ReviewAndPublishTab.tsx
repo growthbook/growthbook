@@ -12,7 +12,6 @@ import {
   checkMergeConflicts,
   getRevisionUpdatableFields,
   applyTopLevelPatchOps,
-  landedOps,
   isUserBlockedFromApproving,
   isAutopublishOnApprovalEnabled,
   entityProjects,
@@ -92,6 +91,7 @@ import RevisionDescription from "@/components/Reviews/RevisionDescription";
 import { useRevisionDiff, RevisionDiffConfig } from "./useRevisionDiff";
 import { RevisionDiff } from "./RevisionDiff";
 import { revisionTimelineLogs } from "./revisionTimelineLogs";
+import { draftLandedState } from "./revisionUtils";
 import FixRevisionConflictsModal from "./FixRevisionConflictsModal";
 
 // Sub-views of the review surface: "overview" is the conversation-first view
@@ -427,15 +427,13 @@ function ReviewAndPublishRevision<T>({
     ? currentState
     : (revision.target.snapshot as T);
   // A draft behind live lands only what it changed, as the server merges it.
-  const proposedSnapshot = applyTopLevelPatchOps(
-    baseSnapshot as Record<string, unknown>,
+  const proposedSnapshot = (
     isActiveDraft
-      ? landedOps(
-          currentState as Record<string, unknown>,
-          revision.target.snapshot as Record<string, unknown>,
+      ? draftLandedState(revision, currentState as Record<string, unknown>)
+      : applyTopLevelPatchOps(
+          baseSnapshot as Record<string, unknown>,
           revision.target.proposedChanges,
         )
-      : revision.target.proposedChanges,
   ) as T;
   const { diffs, badges, customRenderGroups } = useRevisionDiff<T>(
     baseSnapshot,

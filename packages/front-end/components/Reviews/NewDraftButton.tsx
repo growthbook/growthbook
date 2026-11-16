@@ -10,7 +10,7 @@ import Text from "@/ui/Text";
 import TextField from "@/ui/TextField";
 import Tooltip from "@/ui/Tooltip";
 
-export type NewDraftButtonProps = {
+type NewDraftButtonProps = {
   // What the cap message calls the entity, e.g. "Feature Flag".
   entityNoun: string;
   activeDraftCount: number;

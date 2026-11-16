@@ -343,7 +343,6 @@ export class SdkWebhookModel extends BaseClass {
     return updated;
   }
 
-  // The Vercel integration recreates and rewrites its webhooks, so REST leaves them alone
   public async apiListForConnection(
     connectionId: string,
   ): Promise<ApiSdkWebhookListReturn> {
@@ -429,11 +428,7 @@ export class SdkWebhookModel extends BaseClass {
     }
     // Legacy webhooks keep whatever they were saved with.
     if (!doc.useSdkMode) return;
-    assertSdkWebhookFields({
-      endpoint:
-        doc.endpoint !== previousDoc?.endpoint ? doc.endpoint : undefined,
-      headers: doc.headers !== previousDoc?.headers ? doc.headers : undefined,
-    });
+    assertSdkWebhookFields(doc, previousDoc);
   }
 
   protected static migrate(doc: unknown): WebhookInterface {
@@ -468,12 +463,9 @@ export class SdkWebhookModel extends BaseClass {
     });
   }
 
-  // What is live, whoever asks: a revision's snapshot, the comparison a publish
-  // makes against it and the ownership of a webhook's headers all need the real
-  // list. Read through `findAllSdkWebhooksByConnectionIds`, someone without the
-  // webhook permission gets none, which records a connection as having no
-  // webhooks and lands a webhook change as nothing. Never returned as is: what
-  // a viewer may see is decided where it is sent.
+  // Skips the read check: snapshots, publish comparisons and header ownership
+  // need the real list, or a viewer without webhook access records the
+  // connection as having none. Callers scrub it before sending.
   public async findLiveSdkWebhooksForRevision(
     sdkConnectionIds: string[],
   ): Promise<WebhookInterface[]> {

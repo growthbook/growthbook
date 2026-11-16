@@ -25,10 +25,9 @@ export async function scrubRevisionForViewer(
   revision: Revision,
 ): Promise<Revision> {
   const { target } = revision;
-  const adapter = getAdapter(target.type);
-  if (!adapter.scrubForViewer) return revision;
-  const scrub: Scrub = (fragment) =>
-    adapter.scrubForViewer!(context, target, fragment);
+  const { scrubForViewer } = getAdapter(target.type);
+  if (!scrubForViewer) return revision;
+  const scrub: Scrub = (fragment) => scrubForViewer(context, target, fragment);
   return {
     ...revision,
     target: {
@@ -59,10 +58,10 @@ export async function scrubConflictsForViewer(
   target: Revision["target"],
   conflicts: Conflict[],
 ): Promise<Conflict[]> {
-  const adapter = getAdapter(target.type);
-  if (!adapter.scrubForViewer) return conflicts;
+  const { scrubForViewer } = getAdapter(target.type);
+  if (!scrubForViewer) return conflicts;
   const scrub = async (field: string, value: unknown) =>
-    (await adapter.scrubForViewer!(context, target, { [field]: value }))[field];
+    (await scrubForViewer(context, target, { [field]: value }))[field];
   return Promise.all(
     conflicts.map(async (conflict) => ({
       ...conflict,

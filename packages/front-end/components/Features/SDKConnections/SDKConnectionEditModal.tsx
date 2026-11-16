@@ -119,8 +119,8 @@ export default function SDKConnectionEditModal({
     >
       <RevisionDraftSelectorForChanges
         entityId={connection.id}
-        openRevisions={revisionProps.openRevisions ?? []}
-        allRevisions={revisionProps.allRevisions ?? []}
+        openRevisions={revisionProps.openRevisions}
+        allRevisions={revisionProps.allRevisions}
         mode={flow.mode}
         setMode={flow.setMode}
         selectedDraftId={flow.selectedDraftId}

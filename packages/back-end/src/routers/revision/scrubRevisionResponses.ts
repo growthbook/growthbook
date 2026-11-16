@@ -8,11 +8,7 @@ import { scrubRevisionForViewer } from "back-end/src/revisions/scrub";
 const needsScrub = (value: unknown): value is Revision => {
   const type = (value as Revision | null)?.target?.type;
   if (!type || !(value as Revision).target.snapshot) return false;
-  try {
-    return !!getAdapter(type).scrubForViewer;
-  } catch {
-    return false;
-  }
+  return !!getAdapter(type)?.scrubForViewer;
 };
 
 // Every response that carries a revision sends it as its viewer may see it, so

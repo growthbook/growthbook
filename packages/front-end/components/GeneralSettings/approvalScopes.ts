@@ -79,7 +79,7 @@ export function inheritedFlagRule(
   });
 }
 
-export function inheritedApprovalFlowRule(
+function inheritedApprovalFlowRule(
   family: ApprovalFlowFamily,
   rules: ApprovalFlowConfiguration[],
   scope: string,
@@ -118,7 +118,7 @@ export function clonedFlagRule(
     : flagRuleDefaults(scope);
 }
 
-export function clonedApprovalFlowRule(
+function clonedApprovalFlowRule(
   family: ApprovalFlowFamily,
   rules: ApprovalFlowConfiguration[],
   scope: string,

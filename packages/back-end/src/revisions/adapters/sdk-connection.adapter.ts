@@ -188,9 +188,7 @@ function toLiveSnapshot(
     ...(connection.dateUpdated !== undefined && {
       dateUpdated: connection.dateUpdated,
     }),
-    sdkConnection: toConnectionSettingsSnapshot(
-      connection as unknown as Record<string, unknown>,
-    ),
+    sdkConnection: toConnectionSettingsSnapshot({ ...connection }),
     sdkWebhooks,
   };
 }
@@ -520,10 +518,7 @@ export const sdkConnectionAdapter: EntityRevisionAdapter<SDKConnectionRevisionSn
           .forEach((w) => {
             const old = entity.sdkWebhooks.find((o) => o.id === w.id) ?? null;
             assertSdkWebhookNotManaged(old, w.payloadFormat);
-            assertSdkWebhookFields({
-              endpoint: w.endpoint !== old?.endpoint ? w.endpoint : undefined,
-              headers: w.headers !== old?.headers ? w.headers : undefined,
-            });
+            assertSdkWebhookFields(w, old);
           });
         if (touchedIds.length) {
           const rows =

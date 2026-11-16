@@ -23,7 +23,6 @@ import {
   JsonPatchOperation,
   isPlainObject,
   mergeNestedBranch,
-  normalizeProposedChanges,
   sdkConnectionDraftSettingsAfterSave,
   sdkConnectionSettingsEqual,
 } from "shared/enterprise";
@@ -68,6 +67,12 @@ import {
   restoreWebhookHeaders,
   SDKConnectionLiveSnapshot,
 } from "back-end/src/revisions/adapters/sdk-connection.adapter";
+
+const settingsConflict = (fields: string[], message: string) =>
+  new ChangesConflictError(
+    { fields, featureIds: [], urlRedirectIds: [], visualChangesetIds: [] },
+    message,
+  );
 
 export const getSDKConnections = async (
   req: AuthRequest,
@@ -130,7 +135,10 @@ export const postSDKConnection = async (
 };
 
 type PutSDKConnectionRequest = AuthRequest<
-  EditSDKConnectionParams & { sdkWebhooks?: SDKWebhookRevisionSnapshot[] },
+  EditSDKConnectionParams & {
+    sdkWebhooks?: SDKWebhookRevisionSnapshot[];
+    expected?: unknown;
+  },
   { id: string },
   {
     bypassApproval?: string;
@@ -212,7 +220,7 @@ export const putSDKConnection = async (
     }
     const patchedSnapshot = applyPatchToSnapshot(
       targetRevision.target.snapshot,
-      normalizeProposedChanges(targetRevision.target.proposedChanges),
+      targetRevision.target.proposedChanges,
     );
     settingsComparisonBase = {
       ...currentState,
@@ -249,7 +257,7 @@ export const putSDKConnection = async (
 
   // The values the caller's edits were made against. A setting someone else
   // saved since is refused, for the caller to keep theirs or take the other.
-  const expected = (req.body as { expected?: unknown }).expected;
+  const { expected } = req.body;
   if (isPlainObject(expected)) {
     const fields = Object.keys(fieldsToUpdate).filter(
       (key) =>
@@ -260,13 +268,8 @@ export const putSDKConnection = async (
         ),
     );
     if (fields.length) {
-      throw new ChangesConflictError(
-        {
-          fields,
-          featureIds: [],
-          urlRedirectIds: [],
-          visualChangesetIds: [],
-        },
+      throw settingsConflict(
+        fields,
         "Someone else saved changes to what you edited. Keep yours or use theirs.",
       );
     }
@@ -303,34 +306,25 @@ export const putSDKConnection = async (
     });
   };
 
+  // The webhooks this save edits: the draft's, else live's.
+  const webhookBase = draftWebhookSnapshots ?? liveWebhookSnapshots;
   const sentWebhooks = parseIncomingWebhooks(req.body.sdkWebhooks);
   // Headers the client was never shown stay as they are in the state it edited.
   const incomingWebhooks =
-    sentWebhooks &&
-    restoreWebhookHeaders(
-      draftWebhookSnapshots ?? liveWebhookSnapshots,
-      sentWebhooks,
-    );
+    sentWebhooks && restoreWebhookHeaders(webhookBase, sentWebhooks);
   // The webhooks the caller's list was built from. One added or removed
   // since would be undone by it, so the save is refused.
   const expectedWebhookIds = isPlainObject(expected)
     ? expected.sdkWebhookIds
     : undefined;
   if (sentWebhooks && Array.isArray(expectedWebhookIds)) {
-    const baseIds = (draftWebhookSnapshots ?? liveWebhookSnapshots).map(
-      (wh) => wh.id,
-    );
+    const baseIds = webhookBase.map((wh) => wh.id);
     const seenIds = expectedWebhookIds.map((id) =>
       sdkWebhookStableId(connection.id, String(id)),
     );
     if (!isEqual([...baseIds].sort(), [...seenIds].sort())) {
-      throw new ChangesConflictError(
-        {
-          fields: ["sdkWebhooks"],
-          featureIds: [],
-          urlRedirectIds: [],
-          visualChangesetIds: [],
-        },
+      throw settingsConflict(
+        ["sdkWebhooks"],
         "This SDK connection's webhooks changed since the page loaded them. Reload and try again.",
       );
     }
@@ -338,8 +332,7 @@ export const putSDKConnection = async (
 
   // Against the draft being edited, so setting a webhook back to live sticks.
   const hasWebhookChanges =
-    incomingWebhooks !== null &&
-    !isEqual(incomingWebhooks, draftWebhookSnapshots ?? liveWebhookSnapshots);
+    incomingWebhooks !== null && !isEqual(incomingWebhooks, webhookBase);
 
   // The edit modals always send a publish flag, so an unchanged save is a no-op.
   if (
@@ -355,7 +348,7 @@ export const putSDKConnection = async (
     assertCanChangeSdkWebhooks(
       context,
       { projects: connection.projects, environment: connection.environment },
-      draftWebhookSnapshots ?? liveWebhookSnapshots,
+      webhookBase,
       incomingWebhooks,
     );
   }
@@ -363,6 +356,7 @@ export const putSDKConnection = async (
   // Editing a draft replaces its op even when the result matches live, or a
   // setting reset back to live would keep the draft's old value.
   const editsExistingDraft = !!revisionId && !explicitPublish;
+  const currentSettingsSnapshot = pickSettingsSnapshot(currentState);
   // A draft's object is its own: live fills in nothing it doesn't hold.
   const draftSettingsAfterSave = (row: Revision) =>
     pickSettingsSnapshot(
@@ -370,16 +364,15 @@ export const putSDKConnection = async (
         (row.target.snapshot as SDKConnectionRevisionSnapshot).sdkConnection,
         applyPatchToSnapshot(
           row.target.snapshot as SDKConnectionRevisionSnapshot,
-          normalizeProposedChanges(row.target.proposedChanges),
+          row.target.proposedChanges,
         ).sdkConnection,
         fieldsToUpdate,
-        pickSettingsSnapshot(currentState),
+        currentSettingsSnapshot,
       ),
     );
 
   // The op replaces the whole settings object, layered on the state being
   // edited (the draft's, if any); merges look inside it per setting.
-  const currentSettingsSnapshot = pickSettingsSnapshot(currentState);
   const proposedSettingsSnapshot =
     editsExistingDraft && targetRevision
       ? draftSettingsAfterSave(targetRevision)
@@ -417,12 +410,11 @@ export const putSDKConnection = async (
   const needsApproval =
     sdkConnectionReviewRules(context, baselineSnapshot, patchOps).length > 0;
   // A move needs bypass authority in the destination scope too.
-  const canBypass =
-    adapter.canBypassApproval(context, baselineSnapshot) &&
-    adapter.canBypassApproval(context, {
-      sdkConnection: proposedSettingsSnapshot,
-      sdkWebhooks: [],
-    });
+  const canBypass = adapter.canBypassApproval(
+    context,
+    baselineSnapshot,
+    patchOps,
+  );
 
   // Publish gates run before the draft is minted. Publish authority is the
   // edit permission, already checked above.
@@ -482,19 +474,14 @@ export const putSDKConnection = async (
         draftWebhookSnapshots ?? [],
         applyPatchToSnapshot(
           row.target.snapshot as SDKConnectionRevisionSnapshot,
-          normalizeProposedChanges(row.target.proposedChanges),
+          row.target.proposedChanges,
         ).sdkWebhooks ?? [],
         incomingWebhooks,
         "proposed",
       );
       if (nested?.conflicts.length) {
-        throw new ChangesConflictError(
-          {
-            fields: ["sdkWebhooks"],
-            featureIds: [],
-            urlRedirectIds: [],
-            visualChangesetIds: [],
-          },
+        throw settingsConflict(
+          ["sdkWebhooks"],
           "Someone else changed the same webhook in this draft. Reload to see theirs, then make your change again.",
         );
       }

@@ -7,13 +7,9 @@ import {
   getConnectionSDKCapabilities,
   getLatestSDKVersion,
   savedGroupFormatFromConnection,
+  SDKCapability,
 } from "shared/sdk-versioning";
 import { SDKConnectionRevisionSnapshot } from "shared/validators";
-import { applyTopLevelPatchOps, landedOps } from "shared/enterprise";
-
-export type SDKCapability = ReturnType<
-  typeof getConnectionSDKCapabilities
->[number];
 
 // What the oldest SDK version supports now, and what upgrading could unlock.
 export function connectionCapabilities(c: {
@@ -42,10 +38,8 @@ export function languagesPatch(languages: SDKLanguage[]) {
 }
 
 // Next.js caching can't read a ciphered or remotely-evaluated payload.
-export function shouldShowPayloadSecurity(
-  languages: SDKLanguage[] | undefined,
-): boolean {
-  return !(languages ?? []).includes("nextjs");
+export function shouldShowPayloadSecurity(languages: SDKLanguage[]): boolean {
+  return !languages.includes("nextjs");
 }
 
 export type DeliveryMode = "plain" | "ciphered" | "remote";
@@ -130,7 +124,7 @@ export function defaultSavedGroupFormat({
 
 // referencesV2 on an SDK that only reads v1 is kept on purpose: the payload
 // steps down to v1 and re-upgrading the SDK resumes v2.
-export function sanitizeSavedGroupFormat(
+function sanitizeSavedGroupFormat(
   format: SavedGroupFormat,
   { currentCapabilities }: { currentCapabilities: SDKCapability[] },
 ): SavedGroupFormat {
@@ -226,21 +220,4 @@ export function snapshotWithAbsentSettings<
       snapshot.sdkConnection,
     ) as T["sdkConnection"],
   };
-}
-
-// What publishing a draft lands: its settings op replaces the whole object, but
-// the server merges it per setting, so live's later changes it never touched
-// are kept.
-export function draftLandedState<T extends Record<string, unknown>>(
-  revision: { target: { snapshot: unknown; proposedChanges: unknown } },
-  live: T,
-): T {
-  return applyTopLevelPatchOps(
-    live,
-    landedOps(
-      live,
-      revision.target.snapshot as Record<string, unknown>,
-      revision.target.proposedChanges,
-    ),
-  );
 }

@@ -138,28 +138,21 @@ type Discussion = {
 };
 
 // A page's right rail: its details, and its comment thread if it has one.
-export default function DetailsPanel({
-  tab,
-  setTab,
-  discussion = null,
-  children,
-}: {
-  tab: DetailsPanelTab;
-  setTab: (tab: DetailsPanelTab) => void;
-  discussion?: Discussion | null;
-  children: ReactNode;
-}) {
-  if (!discussion) {
-    return (
-      <Flex direction="column" flexGrow="1" minHeight="0">
-        <DetailsScroll>{children}</DetailsScroll>
-      </Flex>
-    );
-  }
+export default function DetailsPanel(
+  props:
+    | { children: ReactNode }
+    | {
+        tab: DetailsPanelTab;
+        setTab: (tab: DetailsPanelTab) => void;
+        discussion: Discussion;
+        children: ReactNode;
+      },
+) {
+  if ("discussion" in props) return <DetailsWithDiscussion {...props} />;
   return (
-    <DetailsWithDiscussion tab={tab} setTab={setTab} discussion={discussion}>
-      {children}
-    </DetailsWithDiscussion>
+    <Flex direction="column" flexGrow="1" minHeight="0">
+      <DetailsScroll>{props.children}</DetailsScroll>
+    </Flex>
   );
 }
 

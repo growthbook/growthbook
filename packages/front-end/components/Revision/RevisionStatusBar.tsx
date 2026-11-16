@@ -11,8 +11,6 @@ import {
 import { datetime } from "shared/dates";
 import {
   Revision,
-  applyTopLevelPatchOps,
-  landedOps,
   checkMergeConflicts,
   getRevisionNumberById,
   getRevisionUpdatableFields,
@@ -28,7 +26,10 @@ import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
 import Tooltip from "@/ui/Tooltip";
-import { getStatusBadge } from "@/components/Revision/revisionUtils";
+import {
+  draftLandedState,
+  getStatusBadge,
+} from "@/components/Revision/revisionUtils";
 import {
   RevisionDiffConfig,
   useRevisionDiff,
@@ -84,13 +85,9 @@ export default function RevisionStatusBar<T>({
   const { diffs } = useRevisionDiff<T>(
     liveSnapshot,
     isDraft
-      ? (applyTopLevelPatchOps(
+      ? (draftLandedState(
+          selectedRevision,
           liveSnapshot as Record<string, unknown>,
-          landedOps(
-            liveSnapshot as Record<string, unknown>,
-            selectedRevision.target.snapshot as Record<string, unknown>,
-            selectedRevision.target.proposedChanges,
-          ),
         ) as T)
       : liveSnapshot,
     diffConfig,
@@ -105,7 +102,7 @@ export default function RevisionStatusBar<T>({
     changeCount > 0 &&
     !isScheduledPublishPending(selectedRevision) &&
     checkMergeConflicts(
-      selectedRevision.target.snapshot as unknown as Record<string, unknown>,
+      selectedRevision.target.snapshot as Record<string, unknown>,
       liveSnapshot as Record<string, unknown>,
       selectedRevision.target.proposedChanges,
       getRevisionUpdatableFields(selectedRevision.target.type),
@@ -278,9 +275,7 @@ export default function RevisionStatusBar<T>({
         <DiscardDraftModal
           trackingEventModalType="discard-revision"
           close={() => setConfirmDiscard(false)}
-          discard={async () => {
-            await onDiscard(selectedRevision.id);
-          }}
+          discard={() => onDiscard(selectedRevision.id)}
         />
       ) : null}
     </>

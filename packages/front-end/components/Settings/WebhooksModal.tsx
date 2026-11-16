@@ -12,7 +12,6 @@ import {
 import { SDKLanguage } from "shared/types/sdk-connection";
 import { CLOUD_EGRESS_IP } from "shared/constants";
 import { Box, Flex } from "@radix-ui/themes";
-import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import { isCloud } from "@/services/env";
 import { DocLink } from "@/components/DocLink";
@@ -55,6 +54,16 @@ const EDGE_CONFIG_KEY_HELP = (
     The name of the key you want to update within your Edge Config. Defaults to{" "}
     <code>gb_payload</code>.
   </Text>
+);
+
+const LOCALHOST_ERROR = (
+  <Callout status="error">
+    <strong>Error: </strong>Localhost not supported directly. Try using{" "}
+    <Link href="https://www.npmjs.com/package/ngrok" external>
+      ngrok
+    </Link>{" "}
+    instead.
+  </Callout>
 );
 
 const PAYLOAD_FORMAT_LABEL = (
@@ -173,7 +182,6 @@ const isValidHttp = (urlString: string) => {
 };
 
 export function CreateSDKWebhookModal({
-  sdkConnectionId,
   sdkConnectionKey,
   language,
   close,
@@ -182,17 +190,15 @@ export function CreateSDKWebhookModal({
   destination,
   cta,
 }: {
-  sdkConnectionId: string;
   sdkConnectionKey: string;
   language?: SDKLanguage;
   close: () => void;
   onSave: () => void;
-  onOverrideCreate?: (data: CreateSdkWebhookProps) => Promise<void>;
+  onOverrideCreate: (data: CreateSdkWebhookProps) => Promise<void>;
   // Where the change lands, chosen above the fields.
   destination?: ReactNode;
   cta?: string;
 }) {
-  const { apiCall } = useAuth();
   const { webhookSecrets } = useDefinitions();
   const [isSecretModalOpen, setIsSecretModalOpen] = useState(false);
 
@@ -307,14 +313,7 @@ export function CreateSDKWebhookModal({
             throw new Error("Invalid URL");
           }
 
-          if (onOverrideCreate) {
-            await onOverrideCreate(data);
-          } else {
-            await apiCall(`/sdk-connections/${sdkConnectionId}/webhooks`, {
-              method: "POST",
-              body: JSON.stringify(data),
-            });
-          }
+          await onOverrideCreate(data);
 
           track("Create Webhook", {
             type: webhookType,
@@ -428,16 +427,7 @@ export function CreateSDKWebhookModal({
                 helpText={endpointHelp(form.watch("httpMethod"))}
                 key="http_endpoint_url"
               />
-              {form.watch("endpoint").match(/localhost/) && (
-                <Callout status="error">
-                  <strong>Error: </strong>Localhost not supported directly. Try
-                  using{" "}
-                  <Link href="https://www.npmjs.com/package/ngrok" external>
-                    ngrok
-                  </Link>{" "}
-                  instead.
-                </Callout>
-              )}
+              {form.watch("endpoint").match(/localhost/) && LOCALHOST_ERROR}
 
               <SelectField
                 label="Method"
@@ -524,35 +514,22 @@ const EditSDKWebhooksModal: FC<{
   close: () => void;
   onSave: () => void;
   current: Partial<WebhookInterface>;
-  sdkConnectionId: string;
-  onOverrideSubmit?: (
+  onOverrideSubmit: (
     data: UpdateSdkWebhookProps,
     id: string | undefined,
   ) => Promise<void>;
   destination?: ReactNode;
   cta?: string;
-}> = ({
-  close,
-  onSave,
-  current,
-  sdkConnectionId,
-  onOverrideSubmit,
-  destination,
-  cta,
-}) => {
-  const { apiCall } = useAuth();
-
+}> = ({ close, onSave, current, onOverrideSubmit, destination, cta }) => {
   // What the form opened with, to tell which fields were changed in it.
   const opened = {
     name: current.name || "My Webhook",
     endpoint: current.endpoint || "",
-    useSdkMode: true,
     payloadFormat: current?.payloadFormat || "standard",
     payloadKey: current?.payloadKey || "",
     httpMethod: current?.httpMethod || "POST",
     headers: current?.headers || "{}",
     timeoutSeconds: current?.timeoutSeconds ?? null,
-    sdkid: sdkConnectionId,
   };
   const form = useForm({ defaultValues: opened });
 
@@ -580,26 +557,14 @@ const EditSDKWebhooksModal: FC<{
       timeoutSeconds: value.timeoutSeconds,
     };
 
-    if (onOverrideSubmit) {
-      // Only what was changed here, so an edit saved to a draft keeps the
-      // draft's own changes to the same webhook.
-      await onOverrideSubmit(
-        pickBy(data, (v, key) => !isEqual(v, opened[key as keyof typeof data])),
-        current.id,
-      );
-    } else if (current.id) {
-      await apiCall(`/sdk-webhooks/${current.id}`, {
-        method: "PUT",
-        body: JSON.stringify(data),
-      });
-    } else {
-      await apiCall(`/sdk-connections/${sdkConnectionId}/webhooks`, {
-        method: "POST",
-        body: JSON.stringify(data),
-      });
-    }
+    // Only what was changed here, so an edit saved to a draft keeps the
+    // draft's own changes to the same webhook.
+    await onOverrideSubmit(
+      pickBy(data, (v, key) => !isEqual(v, opened[key as keyof typeof data])),
+      current.id,
+    );
 
-    track(current.id ? "Edit Webhook" : "Create Webhook");
+    track("Edit Webhook");
     onSave();
   });
 
@@ -607,11 +572,11 @@ const EditSDKWebhooksModal: FC<{
     <ModalStandard
       trackingEventModalType=""
       close={close}
-      header={current.id ? "Edit SDK Webhook" : "Create SDK Webhook"}
+      header="Edit SDK Webhook"
       open={true}
       submit={onSubmit}
       ctaEnabled={!timeoutError(form.watch("timeoutSeconds"))}
-      cta={cta ?? (current.id ? "Update" : "Create")}
+      cta={cta ?? "Update"}
       size="lg"
     >
       <Flex direction="column" gap="4">
@@ -629,15 +594,7 @@ const EditSDKWebhooksModal: FC<{
           {...form.register("endpoint")}
           helpText={endpointHelp(form.watch("httpMethod"))}
         />
-        {form.watch("endpoint").match(/localhost/) && (
-          <Callout status="error">
-            <strong>Error: </strong>Localhost not supported directly. Try using{" "}
-            <Link href="https://www.npmjs.com/package/ngrok" external>
-              ngrok
-            </Link>{" "}
-            instead.
-          </Callout>
-        )}
+        {form.watch("endpoint").match(/localhost/) && LOCALHOST_ERROR}
 
         <SelectField
           label="Method"

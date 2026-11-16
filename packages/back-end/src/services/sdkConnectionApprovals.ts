@@ -140,14 +140,16 @@ export async function assertSdkWebhookPlanLimit(
   }
 }
 
-// Checked wherever a webhook's endpoint or headers change.
-export function assertSdkWebhookFields({
-  endpoint,
-  headers,
-}: {
-  endpoint?: string;
-  headers?: string;
-}): void {
+type SdkWebhookFields = { endpoint?: string; headers?: string };
+
+// Checks the endpoint and headers that differ from `previous`.
+export function assertSdkWebhookFields(
+  next: SdkWebhookFields,
+  previous?: SdkWebhookFields | null,
+): void {
+  const endpoint =
+    next.endpoint !== previous?.endpoint ? next.endpoint : undefined;
+  const headers = next.headers !== previous?.headers ? next.headers : undefined;
   if (endpoint !== undefined && !z.string().url().safeParse(endpoint).success) {
     throw new BadRequestError("endpoint must be a URL");
   }

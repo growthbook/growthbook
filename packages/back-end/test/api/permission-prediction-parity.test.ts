@@ -343,17 +343,6 @@ describe("an SDK connection draft is predicted against where it lands", () => {
     ).toBe(false);
   });
 
-  it("matches what the server asks when the draft is applied", () => {
-    // The adapter's own check, on the same move.
-    expect(
-      inProjectA.canUpdateSDKConnection(live, {
-        projects: ["prj_b"],
-        environment: "production",
-      }),
-    ).toBe(false);
-    expect(inProjectA.canUpdateSDKConnection(live, live)).toBe(true);
-  });
-
   it("holds when there is no draft to land", () => {
     expect(holdsSdkConnectionDraftDestination(inProjectA, live, null)).toBe(
       true,

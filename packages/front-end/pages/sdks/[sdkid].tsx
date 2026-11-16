@@ -16,7 +16,6 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Box } from "@radix-ui/themes";
 import {
   Revision,
-  applyTopLevelPatchOps,
   getLiveRevision,
   getRevisionNumberById,
   getSdkConnectionGoverningRules,
@@ -93,7 +92,7 @@ type SDKConnectionTab = (typeof SDK_CONNECTION_TABS)[number];
 // flags a false conflict.
 function flattenConnection(
   connection: SDKConnectionInterface,
-  webhooks: WebhookInterface[] = [],
+  webhooks: WebhookInterface[],
 ): SDKConnectionRevisionSnapshot {
   const settings: SDKConnectionSettingsRevisionSnapshot = {
     id: connection.id,
@@ -107,7 +106,7 @@ function flattenConnection(
       sdkVersion: connection.sdkVersion,
     }),
     environment: connection.environment,
-    projects: connection.projects ?? [],
+    projects: connection.projects,
     encryptPayload: connection.encryptPayload,
     ...(connection.hashSecureAttributes !== undefined && {
       hashSecureAttributes: connection.hashSecureAttributes,
@@ -163,10 +162,10 @@ function flattenConnection(
     }),
     // Omitted when unset: an explicit `undefined` isn't isEqual to an absent
     // key, which would show as a phantom diff.
-    ...(connection.proxy?.enabled !== undefined && {
+    ...(connection.proxy.enabled !== undefined && {
       proxyEnabled: connection.proxy.enabled,
     }),
-    ...(connection.proxy?.host !== undefined && {
+    ...(connection.proxy.host !== undefined && {
       proxyHost: connection.proxy.host,
     }),
     ...(connection.archived !== undefined && { archived: connection.archived }),
@@ -209,11 +208,10 @@ function buildDisplayedConnection(
 ): SDKConnectionInterface {
   if (!revision) return connection;
   // A draft shows what it holds: its own changes over where it started.
-  const effective = applyTopLevelPatchOps(
-    revision.target.snapshot as Record<string, unknown>,
+  const settings = sdkConnectionSettingsAfter(
+    revision.target.snapshot as SDKConnectionRevisionSnapshot,
     revision.target.proposedChanges,
-  ) as SDKConnectionRevisionSnapshot;
-  const settings = (effective.sdkConnection ?? {}) as Record<string, unknown>;
+  ) as Record<string, unknown>;
   // A setting history left out was off then, whatever live says now. A draft
   // keeps live's, as publishing it would.
   return overlayFlattenedOnConnection(
@@ -237,7 +235,7 @@ export default function SDKConnectionPage() {
 
   const { apiCall } = useAuth();
   const permissionsUtil = usePermissionsUtil();
-  const { userId } = useUser();
+  const { userId, hasCommercialFeature } = useUser();
   const settings = useOrgSettings();
 
   const [duplicateSource, setDuplicateSource] =
@@ -279,8 +277,12 @@ export default function SDKConnectionPage() {
   const connection: SDKConnectionInterface | undefined =
     data?.connections?.find((conn) => conn.id === sdkid);
 
+  // As on the server, approval rules apply only on a plan that has them.
+  const approvalFlows = hasCommercialFeature("require-approvals")
+    ? settings.approvalFlows
+    : undefined;
   const liveRules = connection
-    ? getSdkConnectionGoverningRules(settings.approvalFlows, {
+    ? getSdkConnectionGoverningRules(approvalFlows, {
         projects: connection.projects,
         environment: connection.environment,
       })
@@ -321,12 +323,12 @@ export default function SDKConnectionPage() {
     () =>
       selectedRevision
         ? getSdkConnectionReviewRules(
-            settings.approvalFlows,
+            approvalFlows,
             selectedRevision.target.snapshot as SDKConnectionRevisionSnapshot,
             selectedRevision.target.proposedChanges,
           )
         : [],
-    [selectedRevision, settings.approvalFlows],
+    [selectedRevision, approvalFlows],
   );
   const selectedRevisionRequiresApproval =
     selectedRevisionReviewRules.length > 0;
@@ -381,7 +383,7 @@ export default function SDKConnectionPage() {
   if (!data) {
     return <LoadingOverlay />;
   }
-  if (!connection || !liveSnapshot || !staged) {
+  if (!connection || !displayedConnection || !liveSnapshot || !staged) {
     return (
       <Box className="contents container-fluid pagecontents" pt="4">
         <Callout status="error">Invalid SDK Connection id</Callout>
@@ -395,12 +397,10 @@ export default function SDKConnectionPage() {
   // update rights where it lands, as the server checks.
   const holdsDestinationOf = (revision: Revision | null) =>
     holdsSdkConnectionDraftDestination(permissionsUtil, connection, revision);
-  const canDelete =
-    permissionsUtil.canDeleteSDKConnection(connection) &&
-    !connection.managedBy?.type;
   const isExternallyManaged = !!connection.managedBy?.type;
+  const canDelete =
+    permissionsUtil.canDeleteSDKConnection(connection) && !isExternallyManaged;
 
-  const displayedConn = displayedConnection ?? connection;
   const viewingDraft =
     !!selectedRevision && isActiveDraftStatus(selectedRevision.status);
   // Edits land on an open draft, or on a new one cut from live; any other
@@ -418,13 +418,13 @@ export default function SDKConnectionPage() {
   const stagedBlockedReason = hasUnsavedEdits ? EDITS_BLOCKED_REASON : null;
 
   const supportsBucketingV2 =
-    getConnectionSDKCapabilities(displayedConn).includes("bucketingV2");
+    getConnectionSDKCapabilities(displayedConnection).includes("bucketingV2");
   const bucketingV2IntroducedVersion = getSDKCapabilityVersion(
-    displayedConn.languages?.[0],
+    displayedConnection.languages?.[0],
     "bucketingV2",
   );
-  const sdkDocSection = displayedConn.languages?.[0]
-    ? languageMapping[displayedConn.languages[0]]?.docs
+  const sdkDocSection = displayedConnection.languages?.[0]
+    ? languageMapping[displayedConnection.languages[0]]?.docs
     : undefined;
 
   const revisionNumbers = getRevisionNumberById(allRevisions);
@@ -592,6 +592,8 @@ export default function SDKConnectionPage() {
           mutate={refreshAll}
           onRevisionCreated={onRevisionCreated}
           selectFlow={selectFlow}
+          approvalRequired={approvalRequired}
+          canBypassApproval={canBypassLive}
         />
       )}
 
@@ -628,7 +630,7 @@ export default function SDKConnectionPage() {
 
       {renaming && (
         <SDKConnectionEditModal
-          connection={displayedConn}
+          connection={displayedConnection}
           mutate={mutate}
           close={() => setRenaming(false)}
           {...revisionProps}
@@ -638,12 +640,12 @@ export default function SDKConnectionPage() {
       <PageHead
         breadcrumb={[
           { display: "SDK Connections", href: "/sdks" },
-          { display: displayedConn.name },
+          { display: displayedConnection.name },
         ]}
       />
 
       <DetailsPageTitleBar
-        title={displayedConn.name}
+        title={displayedConnection.name}
         onRename={canUpdate && !isReadOnly ? () => setRenaming(true) : null}
         renameBlockedReason={stagedBlockedReason ?? editBlockedReason}
         badges={
@@ -699,7 +701,7 @@ export default function SDKConnectionPage() {
             <strong>This SDK Connection is archived.</strong> It serves no
             payload.
           </Callout>
-        ) : displayedConn.archived ? (
+        ) : displayedConnection.archived ? (
           <Callout status="warning" mt="3">
             <strong>This draft will archive the SDK Connection.</strong> Once
             published it will serve no payload.
@@ -792,7 +794,7 @@ export default function SDKConnectionPage() {
         footer={
           hasUnsavedEdits && canUpdate ? (
             <SDKConnectionEditsBar
-              connection={displayedConn}
+              connection={displayedConnection}
               staged={staged}
               draft={viewingDraft ? selectedRevision : null}
               openRevisions={openRevisions}
@@ -805,7 +807,7 @@ export default function SDKConnectionPage() {
         }
         panel={
           <SDKConnectionDetailsPanel
-            connection={displayedConn}
+            connection={displayedConnection}
             webhookCount={webhookData?.webhooks?.length ?? 0}
             onEditWebhooks={
               canUpdate ? () => setTabAndScroll("webhooks") : null
@@ -832,8 +834,6 @@ export default function SDKConnectionPage() {
               });
               await mutateRevisions();
             }}
-            tab={details.panelTab}
-            setTab={details.setPanelTab}
           />
         }
       >
@@ -843,12 +843,12 @@ export default function SDKConnectionPage() {
               <SDKConnectionOverview
                 // Starts over from what's saved when the viewed revision changes.
                 key={selectedRevisionId ?? "live"}
-                connection={displayedConn}
+                connection={displayedConnection}
                 staged={staged}
                 canEdit={canUpdate && !isReadOnly}
                 blockedReason={editBlockedReason}
                 connections={data.connections.map((c) =>
-                  c.id === displayedConn.id ? displayedConn : c,
+                  c.id === displayedConnection.id ? displayedConnection : c,
                 )}
                 mutate={refreshAll}
                 viewingLive={
@@ -863,7 +863,7 @@ export default function SDKConnectionPage() {
                 allRevisions={allRevisions}
                 currentState={liveSnapshot}
                 diffConfig={REVISION_SDK_CONNECTION_DIFF_CONFIG}
-                entityName={displayedConn.name}
+                entityName={displayedConnection.name}
                 entityNoun="SDK Connection"
                 requiresApproval={selectedRevisionRequiresApproval}
                 reviewRules={selectedRevisionReviewRules}
