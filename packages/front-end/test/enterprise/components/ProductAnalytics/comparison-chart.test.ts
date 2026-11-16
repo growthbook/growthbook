@@ -10,6 +10,9 @@ import {
   buildPopulationFractionLabels,
   getPopulationFractionLabel,
   getPopulationSeriesNames,
+  getPopulationSeriesKeys,
+  fillPopulationSeriesGaps,
+  buildExplorerChartComparisonSeriesList,
   sortDateXValues,
   computeBigNumberComparisonTrendForMetricIndex,
   buildCompareChartLegendModel,
@@ -823,5 +826,58 @@ describe("sortDateXValues", () => {
       "2026-09-01 02:00:00",
       "2026-09-01T03:00:00.000Z",
     ]);
+  });
+});
+
+describe("fillPopulationSeriesGaps", () => {
+  it("leaves current % of Population points past its window as gaps", () => {
+    const renderOpts = {
+      values: [
+        {
+          showAs: "percent_of_population" as const,
+          isRatio: false,
+          seriesName: "Signups",
+        },
+        { showAs: "total" as const, isRatio: false, seriesName: "Logins" },
+      ],
+      sharedShowAs: null,
+      modesAreMixed: true,
+      secondaryAxisValueIndexes: [0],
+      primaryAxisShowAs: "total" as const,
+      sharedUnit: "user_id",
+    };
+    const seriesMeta = {
+      __metric_0__: { metricId: "signups", name: "Signups", valueIndex: 0 },
+      __metric_1__: { metricId: "logins", name: "Logins", valueIndex: 1 },
+    };
+    const dataMap = {
+      __metric_0__: { "2026-09-01": 50 },
+      __metric_1__: { "2026-09-01": 7 },
+    };
+    // The axis reaches past the current window for a longer comparison window.
+    const xValues = ["2026-09-01", "2026-09-02", "2026-09-03"];
+    fillPopulationSeriesGaps(
+      dataMap,
+      getPopulationSeriesKeys(seriesMeta, renderOpts),
+      xValues,
+    );
+    const series = buildExplorerChartComparisonSeriesList({
+      chartType: "line",
+      sourceDataMap: dataMap,
+      sourceSeriesMeta: seriesMeta,
+      sourceSeriesKeys: ["__metric_0__", "__metric_1__"],
+      sourceSortedXValues: xValues,
+      numMetrics: 2,
+      numDimensions: 1,
+      isStacked: false,
+      compareOverlayActive: true,
+      comparisonPeriodLabels: null,
+      seriesColor: () => "#000",
+      comparisonSeriesColor: () => "#000",
+      animate: false,
+    }) as { data: [number, number | null][] }[];
+    expect(series[0].data.map(([, y]) => y)).toEqual([50, null, null]);
+    // Counts keep reading 0 there.
+    expect(series[1].data.map(([, y]) => y)).toEqual([7, 0, 0]);
   });
 });

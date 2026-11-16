@@ -1,8 +1,8 @@
-import { Box, Flex, Heading, Text } from "@radix-ui/themes";
+import { Box, Flex, Heading } from "@radix-ui/themes";
 import React, { type ReactNode } from "react";
 import { BigValueFormat } from "shared/validators";
 import { useCurrency } from "@/hooks/useCurrency";
-import UIText from "@/ui/Text";
+import Text from "@/ui/Text";
 import { formatCurrency } from "@/services/metrics";
 
 type Props = {
@@ -88,9 +88,9 @@ export default function BigValueChart({
       pb="2"
     >
       {displayValue === null ? (
-        <UIText size="lg" color="text-low">
+        <Text size="lg" color="text-low">
           No data
-        </UIText>
+        </Text>
       ) : fillContainer ? (
         <Heading
           as="h1"
@@ -110,21 +110,25 @@ export default function BigValueChart({
       )}
       {label &&
         (fillContainer ? (
-          <Text
-            as="div"
-            color="gray"
-            truncate
-            align="center"
+          <Box
             style={{
               fontSize: FILL_FONT_SIZE.label,
               lineHeight: 1.2,
               width: "100%",
             }}
           >
-            {label}
-          </Text>
+            <Text
+              as="div"
+              size="inherit"
+              color="text-mid"
+              truncate
+              align="center"
+            >
+              {label}
+            </Text>
+          </Box>
         ) : (
-          <Text as="div" size="3" color="gray">
+          <Text as="div" size="lg" color="text-mid">
             {label}
           </Text>
         ))}

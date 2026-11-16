@@ -296,6 +296,37 @@ export function sortDateXValues(xValues: Iterable<string>): string[] {
   );
 }
 
+// "% of Population" series keys. With no members there's no percentage, so a
+// date these series have no bucket for is a gap, not 0.
+export function getPopulationSeriesKeys(
+  seriesMeta: Record<string, { valueIndex: number }>,
+  renderOpts: RenderOpts,
+): Set<string> {
+  return new Set(
+    Object.keys(seriesMeta).filter(
+      (seriesKey) =>
+        renderOpts.values[seriesMeta[seriesKey].valueIndex]?.showAs ===
+        "percent_of_population",
+    ),
+  );
+}
+
+// Marks each date in `xValues` that a "% of Population" series has no bucket
+// for as a gap, e.g. dates past the end of the current window that the axis
+// reaches for a longer comparison window.
+export function fillPopulationSeriesGaps(
+  dataMap: Record<string, Record<string, ChartPoint>>,
+  populationSeriesKeys: ReadonlySet<string>,
+  xValues: readonly string[],
+): void {
+  for (const seriesKey of populationSeriesKeys) {
+    const points = (dataMap[seriesKey] ??= {});
+    for (const x of xValues) {
+      if (!(x in points)) points[x] = null;
+    }
+  }
+}
+
 // A series with no bucket at `x` reads as 0, unlike a null point, which is a gap.
 export function getChartPoint(
   map: Record<string, ChartPoint> | undefined,
@@ -754,15 +785,7 @@ export function buildAlignedComparisonOverlayForExplorer(args: {
       args.renderOpts,
     );
   const comparisonXValues = Array.from(uniqueXValues);
-  const gapSeriesKeys = new Set(
-    Object.entries(seriesMeta)
-      .filter(
-        ([, meta]) =>
-          args.renderOpts.values[meta.valueIndex]?.showAs ===
-          "percent_of_population",
-      )
-      .map(([seriesKey]) => seriesKey),
-  );
+  const gapSeriesKeys = getPopulationSeriesKeys(seriesMeta, args.renderOpts);
   const alignedMap = alignComparisonOverlayToCategories(
     args.sortedXValues,
     dataMap,

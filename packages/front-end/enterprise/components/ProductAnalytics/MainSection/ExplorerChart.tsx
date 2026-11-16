@@ -43,6 +43,8 @@ import {
   buildComparisonOverlaySeriesMaps,
   buildPopulationFractionLabels,
   getPopulationSeriesNames,
+  getPopulationSeriesKeys,
+  fillPopulationSeriesGaps,
   sortDateXValues,
   assignSecondaryValueAxis,
   buildValueAxes,
@@ -380,6 +382,11 @@ export default function ExplorerChart({
         ];
       }
     }
+    const populationSeriesKeys = getPopulationSeriesKeys(
+      seriesMeta,
+      renderOpts,
+    );
+    fillPopulationSeriesGaps(dataMap, populationSeriesKeys, sortedXValues);
 
     // 3. Build Series (ordered by cumulative total, highest first)
     const seriesColor = (i: number) => CHART_COLORS[i % CHART_COLORS.length];
@@ -727,28 +734,33 @@ export default function ExplorerChart({
       seriesConfigsLength: seriesConfigs.length,
       formatNumber,
       comparisonAlignment,
-      populationFractionLabels: buildPopulationFractionLabels(
-        rows,
-        renderOpts,
-        {
-          periodLabels: comparisonPeriodLabels,
-          previousRows: alignedComparisonOverlay
-            ? (comparisonExploration?.result?.rows ?? [])
-            : [],
-          previousXAt: alignedComparisonOverlay
-            ? createComparisonAlignmentResolver(
-                sortedXValues,
-                alignedComparisonOverlay.comparisonXValues,
-                firstDimensionIsDate,
-                comparisonAlignment,
-              )
-            : undefined,
-        },
-      ),
-      populationSeriesNames: getPopulationSeriesNames(
-        renderOpts,
-        comparisonPeriodLabels,
-      ),
+      // Only "% of Population" series have fractions and empty points to show.
+      ...(populationSeriesKeys.size > 0
+        ? {
+            populationFractionLabels: buildPopulationFractionLabels(
+              rows,
+              renderOpts,
+              {
+                periodLabels: comparisonPeriodLabels,
+                previousRows: alignedComparisonOverlay
+                  ? (comparisonExploration?.result?.rows ?? [])
+                  : [],
+                previousXAt: alignedComparisonOverlay
+                  ? createComparisonAlignmentResolver(
+                      sortedXValues,
+                      alignedComparisonOverlay.comparisonXValues,
+                      firstDimensionIsDate,
+                      comparisonAlignment,
+                    )
+                  : undefined,
+              },
+            ),
+            populationSeriesNames: getPopulationSeriesNames(
+              renderOpts,
+              comparisonPeriodLabels,
+            ),
+          }
+        : {}),
     });
 
     return {
