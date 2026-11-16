@@ -87,8 +87,13 @@ bash .github/scripts/backport.sh 5.2 backport/5.2-<date> origin/main <PR numbers
   `git add` them, and run the printed `--continue` command; `--abort` drops the run and
   returns to where it started. Use the printed path: the release branch has no copy of the
   script, so the run keeps one under `.git`.
-- It resolves two kinds of conflict by itself. `pnpm-lock.yaml` keeps the release's copy and
+- It resolves three kinds of conflict by itself. `pnpm-lock.yaml` keeps the release's copy and
   is regenerated after the last pick. `package.json` takes only the values the commit changed.
+  The OpenAPI spec (`packages/back-end/generated/spec.yaml`, `docs/openapi.yaml`) keeps the
+  release's copy, and after the last pick it is regenerated from the picked validators in a
+  "Regenerate the OpenAPI spec" commit. That installs dependencies and builds the shared
+  packages, so it takes a few minutes, and locally it leaves the release branch's
+  `node_modules` behind: run `pnpm install` when you switch back.
 - When it finishes, `git push origin release/<line> <branch>`, then run the Backport workflow
   with `branch` set to that branch instead of `commits`. It skips the cherry-picks and opens
   the PR and the draft release.

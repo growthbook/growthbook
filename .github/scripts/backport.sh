@@ -24,8 +24,8 @@ lock_versions() {
 resolve() {
   local f=$1 ref=$2
   case $f in
-    pnpm-lock.yaml)
-      # Keep the release's lockfile; finish resolves this commit's manifest changes into it.
+    pnpm-lock.yaml | docs/openapi.yaml | packages/back-end/generated/spec.yaml)
+      # Keep the release's copy; finish regenerates it from the picked manifests or validators.
       git checkout --ours -- "$f" || return 1
       ;;
     package.json | */package.json)
@@ -82,6 +82,8 @@ pick_all() {
     ref=$(git rev-parse --short "$sha")
     comm -23 <(lock_versions "$sha^") <(lock_versions "$sha") | sed "s/\$/ $ref/" >>"$state/dropped"
     if git cherry-pick -x "$sha"; then continue; fi
+    # However this conflict gets resolved (here, by hand or by rerere), finish regenerates a spec it touched.
+    git diff --quiet "$sha^" "$sha" -- docs/openapi.yaml packages/back-end/generated/spec.yaml || : >"$state/regen-spec"
 
     # Not mapfile: macOS still ships bash 3.2.
     conflicted=()
@@ -111,6 +113,15 @@ finish() {
   pnpm install --lockfile-only --ignore-scripts
   if ! git diff --quiet HEAD -- pnpm-lock.yaml; then
     git commit -m "Regenerate pnpm-lock.yaml" -- pnpm-lock.yaml
+  fi
+  if [ -e "$state/regen-spec" ]; then
+    # Skips the root postinstall, which sets up the Python stats engine and fails without its Poetry env.
+    pnpm install --frozen-lockfile --ignore-scripts
+    pnpm -r --filter "./packages/**" rebuild
+    pnpm build:deps
+    pnpm --filter back-end generate-openapi
+    git add -A -- docs packages/back-end/generated
+    git diff --cached --quiet || git commit -m "Regenerate the OpenAPI spec"
   fi
   # A conflicting lockfile keeps the release's, which loses lockfile-only bumps, so check what the picks removed is gone.
   local stale
