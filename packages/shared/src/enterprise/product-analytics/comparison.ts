@@ -18,6 +18,7 @@ import {
   getExplorationCellValue,
   getExplorationRenderOpts,
   sortExplorationRows,
+  type ExplorationRenderOpts,
 } from "./utils";
 
 type ResolvedGranularity = "hour" | "day" | "week" | "month" | "year";
@@ -886,6 +887,47 @@ function dateRangeToPeriodStrings(dateRange: ExplorationDateRange): {
 }
 
 /**
+ * The change in one value's aggregate (first) row between the two periods.
+ * Null when either period has no data for it, or when the previous value is 0,
+ * where a percentage change is undefined.
+ */
+export function computeBigNumberTrend(
+  primary: ProductAnalyticsExploration | null,
+  comparison: ProductAnalyticsExploration | null,
+  renderOpts: ExplorationRenderOpts,
+  metricIndex: number,
+): ProductAnalyticsRunComparisonPayload["bigNumberTrends"][number] {
+  const currRow = primary?.result?.rows?.[0];
+  const prevRow = comparison?.result?.rows?.[0];
+  const currCell = currRow?.values?.[metricIndex];
+  const prevCell = prevRow?.values?.[metricIndex];
+  if (!currCell || !prevCell) return null;
+
+  const currentValue = getEffectiveMetricValue(
+    currCell,
+    renderOpts.values[metricIndex],
+    currRow.populationCount,
+  );
+  const previousValue = getEffectiveMetricValue(
+    prevCell,
+    renderOpts.values[metricIndex],
+    prevRow.populationCount,
+  );
+  if (currentValue === null || previousValue === null || previousValue === 0) {
+    return null;
+  }
+
+  const pctChangeFraction =
+    (currentValue - previousValue) / Math.abs(previousValue);
+  return {
+    currentValue,
+    previousValue,
+    pctChangeFraction,
+    pctChangePercent: round2(pctChangeFraction * 100),
+  };
+}
+
+/**
  * Builds the `comparison` payload for POST /product-analytics/run when two
  * explorations (current + previous window) have been executed.
  */
@@ -956,39 +998,9 @@ export function computeExplorationComparisonPayload(
     };
   }
 
-  const bigNumberTrends = Array.from({ length: n }, (_, metricIndex) => {
-    const currCell = primary.result.rows[0]?.values?.[metricIndex];
-    const prevCell = exploration.result.rows[0]?.values?.[metricIndex];
-    if (!currCell || !prevCell) return null;
-
-    const currentValue = getEffectiveMetricValue(
-      currCell,
-      renderOpts.values[metricIndex],
-      primary.result.rows[0]?.populationCount,
-    );
-    const previousValue = getEffectiveMetricValue(
-      prevCell,
-      renderOpts.values[metricIndex],
-      exploration.result.rows[0]?.populationCount,
-    );
-
-    if (
-      currentValue === null ||
-      previousValue === null ||
-      previousValue === 0
-    ) {
-      return null;
-    }
-
-    const pctChangeFraction =
-      (currentValue - previousValue) / Math.abs(previousValue);
-    return {
-      currentValue,
-      previousValue,
-      pctChangeFraction,
-      pctChangePercent: round2(pctChangeFraction * 100),
-    };
-  });
+  const bigNumberTrends = Array.from({ length: n }, (_, metricIndex) =>
+    computeBigNumberTrend(primary, exploration, renderOpts, metricIndex),
+  );
 
   if (hasAnyRatio) {
     return {

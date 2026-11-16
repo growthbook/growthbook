@@ -567,7 +567,7 @@ describe("metric explorations with a population", () => {
         population: mobileUsers(),
       });
       const saved = savedPopulationFor(mobileUsers());
-      const check = (savedPopulation: typeof saved | null) =>
+      const check = (savedPopulation: typeof saved) =>
         parseMetricExplorationPopulation({
           population: { populationId: POPULATION_ID, unit: "user_id" },
           savedPopulation,
@@ -582,8 +582,7 @@ describe("metric explorations with a population", () => {
         expect(check(saved)).toEqual({ ok: true, population: mobileUsers() });
       });
 
-      it.each<[string, typeof saved | null, string]>([
-        ["a missing one", null, "Population pop_mobile not found."],
+      it.each<[string, typeof saved, string]>([
         [
           "one on another Data Source",
           { ...saved, datasource: "other" },

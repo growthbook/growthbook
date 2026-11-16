@@ -222,7 +222,9 @@ export async function runProductAnalyticsExploration(
     );
     factTables.forEach((ft) => factTableMap.set(ft.id, ft));
 
-    if (dataset.population) {
+    // savedPopulation is loaded (or the request rejected) above whenever the
+    // dataset has a population.
+    if (dataset.population && savedPopulation) {
       const parsedPopulation = parseMetricExplorationPopulation({
         population: dataset.population,
         savedPopulation,

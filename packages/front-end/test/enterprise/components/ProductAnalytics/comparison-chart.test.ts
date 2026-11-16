@@ -431,7 +431,7 @@ describe("computeBigNumberComparisonTrendForMetricIndex", () => {
     });
   });
 
-  it("returns pctChange 0 when previous value is 0", () => {
+  it("returns null when the previous value is 0", () => {
     const current = explorationFromValues([cell(10)]);
     const previous = explorationFromValues([cell(0)]);
     expect(
@@ -442,7 +442,7 @@ describe("computeBigNumberComparisonTrendForMetricIndex", () => {
         getFactMetricById,
         0,
       ),
-    ).toEqual({ currentValue: 10, previousValue: 0, pctChange: 0 });
+    ).toBeNull();
   });
 
   it("returns null when comparison cell is missing", () => {

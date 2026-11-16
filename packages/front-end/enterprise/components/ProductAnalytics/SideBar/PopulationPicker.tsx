@@ -171,8 +171,11 @@ export default function PopulationPicker({
       )}
       {noPopulationsFit && unit && (
         <HelperText status="warning">
-          No Populations use this Fact Table and the {unit} identifier type.{" "}
-          <Link href="/populations">Manage Populations</Link>
+          No Populations in this Project use this Fact Table and the {unit}{" "}
+          identifier type.{" "}
+          <Link href="/populations" external>
+            Manage Populations
+          </Link>
         </HelperText>
       )}
       {populationViolations.length === 1 && (

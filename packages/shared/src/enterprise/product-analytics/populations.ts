@@ -63,16 +63,10 @@ export function resolveSavedPopulation({
   datasource,
 }: {
   population: ExplorationPopulation;
-  /** Null when no saved Population with `population.populationId` can be read. */
-  savedPopulation: SavedPopulationForExploration | null;
+  /** Callers handle a missing Population, each with its own message. */
+  savedPopulation: SavedPopulationForExploration;
   datasource: string;
 }): ParsedMetricExplorationPopulation {
-  if (!savedPopulation) {
-    return {
-      ok: false,
-      violations: [`Population ${population.populationId} not found.`],
-    };
-  }
   if (savedPopulation.datasource !== datasource) {
     return {
       ok: false,
@@ -117,8 +111,8 @@ export function parseMetricExplorationPopulation({
   factTableMap,
 }: {
   population: ExplorationPopulation;
-  /** Null when no saved Population with `population.populationId` can be read. */
-  savedPopulation: SavedPopulationForExploration | null;
+  /** Callers handle a missing Population, each with its own message. */
+  savedPopulation: SavedPopulationForExploration;
   values: MetricDataset["values"];
   dimensions: ProductAnalyticsDimension[];
   datasource: string;

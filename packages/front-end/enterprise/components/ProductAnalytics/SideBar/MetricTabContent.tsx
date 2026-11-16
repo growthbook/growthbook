@@ -214,6 +214,7 @@ export default function MetricTabContent() {
                   }
                   unit={v.unit}
                   metricName={v.name.trim() || `Metric ${idx + 1}`}
+                  metricType={getFactMetricById(v.metricId)?.metricType}
                 />
               )
             }

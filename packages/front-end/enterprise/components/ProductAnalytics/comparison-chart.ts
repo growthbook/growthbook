@@ -4,6 +4,7 @@ import type { FactMetricInterface } from "shared/types/fact-table";
 import {
   buildComparisonDateRangeForMode,
   calculateProductAnalyticsDateRange,
+  computeBigNumberTrend,
   createComparisonAlignmentResolver,
 } from "shared/enterprise";
 import type { ComparisonAlignmentStrategy } from "shared/enterprise";
@@ -1017,7 +1018,8 @@ export function buildExplorerChartComparisonSeriesList(params: {
 }
 
 /**
- * Comparison trend for one metric column on the aggregate row (Big Number view).
+ * Comparison trend for one metric column on the aggregate row (Big Number
+ * view), from the same shared calculation as the server's trends.
  */
 export function computeBigNumberComparisonTrendForMetricIndex(
   exploration: ProductAnalyticsExploration | null,
@@ -1026,44 +1028,19 @@ export function computeBigNumberComparisonTrendForMetricIndex(
   getFactMetricById: (id: string) => FactMetricInterface | null,
   metricIndex: number,
 ): BigNumberComparisonTrend | null {
-  if (
-    !exploration?.result?.rows?.length ||
-    !comparisonExploration?.result?.rows?.length ||
-    metricIndex < 0
-  ) {
-    return null;
-  }
-
-  const renderOpts = getExplorationRenderOpts(
-    submittedExploreState,
-    getFactMetricById,
+  const trend = computeBigNumberTrend(
+    exploration,
+    comparisonExploration,
+    getExplorationRenderOpts(submittedExploreState, getFactMetricById),
+    metricIndex,
   );
-
-  const currCell = exploration.result.rows[0]?.values?.[metricIndex];
-  const prevCell = comparisonExploration.result.rows[0]?.values?.[metricIndex];
-  if (!currCell || !prevCell) return null;
-
-  const currentValue = getEffectiveMetricValue(
-    currCell,
-    renderOpts.values[metricIndex],
-    exploration.result.rows[0]?.populationCount,
-  );
-  const previousValue = getEffectiveMetricValue(
-    prevCell,
-    renderOpts.values[metricIndex],
-    comparisonExploration.result.rows[0]?.populationCount,
-  );
-
-  if (currentValue === null || previousValue === null) return null;
-  if (previousValue === 0) {
-    return { currentValue, previousValue, pctChange: 0 };
-  }
-
-  return {
-    currentValue,
-    previousValue,
-    pctChange: (currentValue - previousValue) / Math.abs(previousValue),
-  };
+  return trend
+    ? {
+        currentValue: trend.currentValue,
+        previousValue: trend.previousValue,
+        pctChange: trend.pctChangeFraction,
+      }
+    : null;
 }
 
 /** One entry per `dataset.values` index (aligned with explorer metric slots). */
