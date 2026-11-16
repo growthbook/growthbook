@@ -941,6 +941,7 @@ function DataSourceModal({
     selected,
     exposureQuery,
     clusterIdentifier,
+    cluster.isClusterExperiment,
   );
   const supportsClusterExperiments = !!selected?.properties?.exposureQueries;
   const isClusterExperiment = supportsClusterExperiments && clusterChecked;

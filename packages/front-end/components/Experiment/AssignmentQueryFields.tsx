@@ -1,4 +1,11 @@
-import { ReactNode, useCallback, useEffect, useMemo, useRef } from "react";
+import {
+  ReactNode,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { Box } from "@radix-ui/themes";
 import {
@@ -501,10 +508,12 @@ export function useClusterSubUnitOptions(
   datasource: DataSourceInterfaceWithParams | null | undefined,
   exposureQuery: ExposureQuery | undefined,
   identifierType: string | undefined,
+  savedAsCluster: boolean,
 ): string[] {
-  const managedEnabled = useFeatureIsOn(
-    "managed-warehouse-cluster-experiments",
-  );
+  const flagOn = useFeatureIsOn("managed-warehouse-cluster-experiments");
+  // A cluster experiment saved while the flag was on stays editable after
+  // it's turned off; the flag only stops new ones.
+  const managedEnabled = flagOn || savedAsCluster;
   return useMemo(() => {
     if (!exposureQuery) return [];
     // Without the flag, Managed Warehouse falls back to the query's own
@@ -574,10 +583,12 @@ export function ClusterExperimentFields({
   asRows?: boolean;
 }) {
   const { hasCommercialFeature } = useUser();
+  const [savedAsCluster] = useState(isClusterExperiment);
   const subUnitOptions = useClusterSubUnitOptions(
     datasource,
     exposureQuery,
     identifierType,
+    savedAsCluster,
   );
   // A new query or identifier can leave the chosen subunit off the list.
   useEffect(() => {
