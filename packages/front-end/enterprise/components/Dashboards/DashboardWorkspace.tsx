@@ -25,7 +25,7 @@ import {
   resolveComparisonPreviousTimeFrame,
 } from "shared/enterprise";
 import { LayoutItem } from "react-grid-layout";
-import { Container, Flex, IconButton, Text } from "@radix-ui/themes";
+import { Container, Flex, IconButton } from "@radix-ui/themes";
 import {
   PiCaretDoubleLeft,
   PiCaretDoubleRight,
@@ -35,6 +35,7 @@ import {
 import clsx from "clsx";
 import { cloneDeep, pick } from "lodash";
 import { isDefined } from "shared/util";
+import Text from "@/ui/Text";
 
 import Button from "@/ui/Button";
 import Link from "@/ui/Link";
@@ -42,10 +43,8 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { useExploreData } from "@/enterprise/components/ProductAnalytics/useExploreData";
-import DashboardEditor, {
-  DASHBOARD_TOPBAR_HEIGHT,
-  getGridKeyForBlock,
-} from "./DashboardEditor";
+import DashboardEditor, { DASHBOARD_TOPBAR_HEIGHT } from "./DashboardEditor";
+import { getGridKeyForBlock } from "./DashboardEditor/DashboardCanvas";
 import { SubmitDashboard, UpdateDashboardArgs } from "./DashboardsTab";
 import DashboardEditorSidebar from "./DashboardEditor/DashboardEditorSidebar";
 import { isBlockTypeAllowed } from "./DashboardEditor/dashboardBlockTypes";
@@ -512,19 +511,21 @@ export default function DashboardWorkspace({
             {dashboard.id === "new" ? null : saveError ? (
               <Tooltip body={saveError} delay={0}>
                 <PiX color="red" />
-                <Text color="red" ml="1" size="1">
-                  Error saving dashboard
+                <Text ml="1" size="sm">
+                  <span style={{ color: "var(--red-11)" }}>
+                    Error saving dashboard
+                  </span>
                 </Text>
               </Tooltip>
             ) : saving ? (
               <>
                 <LoadingSpinner />
-                <Text size="1">Saving...</Text>
+                <Text size="sm">Saving...</Text>
               </>
             ) : (
               <>
                 <PiCheckCircle style={{ color: "var(--violet-11)" }} />
-                <Text size="1">Edits are saved automatically</Text>
+                <Text size="sm">Edits are saved automatically</Text>
               </>
             )}
           </Flex>

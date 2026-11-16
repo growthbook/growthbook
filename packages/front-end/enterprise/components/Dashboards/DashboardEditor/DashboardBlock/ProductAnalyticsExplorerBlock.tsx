@@ -1,5 +1,5 @@
 import { Box, Flex } from "@radix-ui/themes";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   MetricExplorationBlockInterface,
   FactTableExplorationBlockInterface,
@@ -52,70 +52,42 @@ function pollDelayForExploration(
 }
 
 // A block with no stored result runs from its own config: the first load only
-// reads the cache, and run() queries the warehouse.
-// shortcut: no comparison period and its own poll loop; replace with the shared
-// exploration hook once the fact table page's runner lands.
-function useUnsavedExploration(config: ExplorationConfig | null) {
-  const { fetchData, fetchExplorationById } = useExploreData();
-  const [data, setData] = useState<ProductAnalyticsExploration | null>(null);
-  const [checked, setChecked] = useState(false);
-  const [loading, setLoading] = useState(false);
+// reads the cache, and run() queries the warehouse. Either one stores the
+// exploration id, and the tile's useApi request polls it like a saved one.
+// shortcut: no comparison period; add one once the fact table page's runner lands.
+function useUnsavedRun(config: ExplorationConfig | null) {
+  const { fetchData } = useExploreData();
+  const [explorationId, setExplorationId] = useState<string | null>(null);
+  // Starts true so the empty state doesn't flash before the cache check
+  const [loading, setLoading] = useState(config !== null);
   const [error, setError] = useState<string | null>(null);
   // Callers may rebuild an equal config every render
   const configKey = config ? JSON.stringify(config) : null;
-  const latestRun = useRef(0);
-  const cancel = useCallback(() => {
-    latestRun.current++;
-  }, []);
 
-  const run = useCallback(
-    async (cache: CacheOption) => {
+  const start = useCallback(
+    async (cache: CacheOption, isCurrent: () => boolean = () => true) => {
       if (!configKey) return;
-      const id = ++latestRun.current;
-      const isCurrent = () => id === latestRun.current;
       setError(null);
-      if (cache !== "required") setLoading(true);
-      const started = Date.now();
-      let result: {
-        data: ProductAnalyticsExploration | null;
-        error: string | null;
-      } = await fetchData(JSON.parse(configKey), { cache });
-      while (
-        isCurrent() &&
-        !result.error &&
-        result.data?.status === "running"
-      ) {
-        const delay = explorationPollDelayMs(
-          Math.floor((Date.now() - started) / 1000),
-        );
-        if (delay <= 0) {
-          result = {
-            data: null,
-            error: "Timed out waiting for the query to finish.",
-          };
-          break;
-        }
-        await new Promise((resolve) => setTimeout(resolve, delay));
-        if (!isCurrent()) return;
-        result = await fetchExplorationById(result.data.id);
-      }
+      setLoading(true);
+      const result = await fetchData(JSON.parse(configKey), { cache });
       if (!isCurrent()) return;
-      if (result.error) setError(result.error);
-      else if (result.data?.status === "success") setData(result.data);
+      if (result.data?.id) setExplorationId(result.data.id);
+      else if (result.error) setError(result.error);
       setLoading(false);
-      setChecked(true);
     },
-    [configKey, fetchData, fetchExplorationById],
+    [configKey, fetchData],
   );
 
   useEffect(() => {
-    setData(null);
-    setChecked(false);
-    run("required");
-    return cancel;
-  }, [run, cancel]);
+    let current = true;
+    setExplorationId(null);
+    start("required", () => current);
+    return () => {
+      current = false;
+    };
+  }, [start]);
 
-  return { data, checked, loading, error, run };
+  return { explorationId, loading, error, run: () => start("preferred") };
 }
 
 export default function ProductAnalyticsExplorerBlock({
@@ -157,7 +129,8 @@ export function ProductAnalyticsExplorerVisualization({
   const permissionsUtil = usePermissionsUtil();
   const unsavedConfig =
     !block.explorerAnalysisId && block.config ? block.config : null;
-  const unsaved = useUnsavedExploration(unsavedConfig);
+  const unsaved = useUnsavedRun(unsavedConfig);
+  const explorationId = block.explorerAnalysisId || unsaved.explorationId;
   const unsavedDatasource = unsavedConfig
     ? getDatasourceById(unsavedConfig.datasource)
     : null;
@@ -168,24 +141,17 @@ export function ProductAnalyticsExplorerVisualization({
       unsavedDatasource,
       unsavedConfig.type,
     );
-  const {
-    data: savedData,
-    error,
-    isLoading,
-  } = useApi<{
+  const { data, error, isLoading } = useApi<{
     status: number;
     exploration: ProductAnalyticsExploration;
     query: QueryInterface | null;
-  }>(`/product-analytics/exploration/${block.explorerAnalysisId}`, {
-    shouldRun: () => !!block.explorerAnalysisId,
+  }>(`/product-analytics/exploration/${explorationId}`, {
+    shouldRun: () => !!explorationId,
     // A tile's exploration can be returned still "running" (a refresh query
     // that exceeded the ~5s sync budget keeps executing server-side). Poll on
     // a backoff until it reaches a terminal state; 0 stops the interval.
     refreshInterval: (latest) => pollDelayForExploration(latest?.exploration),
   });
-  const data = unsaved.data
-    ? { exploration: unsaved.data, query: null }
-    : savedData;
 
   // Pass the dashboard, or a dashboard-wide comparison renders as primary-only.
   // The previous-period exploration is a separate entity produced on refresh.
@@ -284,8 +250,8 @@ export function ProductAnalyticsExplorerVisualization({
     return <LoadingSpinner />;
   }
 
-  if (unsavedConfig && !data?.exploration) {
-    if (!unsaved.checked || unsaved.loading) return <LoadingSpinner />;
+  if (unsavedConfig && !explorationId) {
+    if (unsaved.loading) return <LoadingSpinner />;
     return (
       <Flex direction="column" align="center" gap="3" p="4">
         {unsaved.error ? (
@@ -294,7 +260,7 @@ export function ProductAnalyticsExplorerVisualization({
           <Callout status="info">No results yet.</Callout>
         )}
         {canRunUnsaved && (
-          <Button variant="outline" onClick={() => unsaved.run("preferred")}>
+          <Button variant="outline" onClick={unsaved.run}>
             Run
           </Button>
         )}
