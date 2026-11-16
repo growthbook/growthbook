@@ -59,8 +59,8 @@ import FeatureDeleteModal from "./FeatureDeleteModal";
 import AddToHoldoutModal from "./AddToHoldoutModal";
 
 // From the details panel's default edge to where the cards' content ends: the
-// page gutter, a card's padding and border (49px).
-const REVISION_SELECTOR_WIDTH_PX = PANEL_WIDTH_PX - 49;
+// page padding at desktop widths, a card's padding and border (57px).
+const REVISION_SELECTOR_WIDTH_PX = PANEL_WIDTH_PX - 57;
 
 export default function FeaturesHeaderNew({
   feature,
@@ -234,7 +234,7 @@ export default function FeaturesHeaderNew({
       {viewingDraft ? null : canEditDrafts ? (
         // Ends over the revision picker: into the menu button's gap, then
         // back by a border as wide as a card's, which zoom rounds the same way.
-        <Box style={{ marginRight: -10, borderRight: "1px solid transparent" }}>
+        <Box style={{ marginRight: -9, borderRight: "1px solid transparent" }}>
           <NewDraftButton
             feature={baseFeature}
             revisionList={revisions}
