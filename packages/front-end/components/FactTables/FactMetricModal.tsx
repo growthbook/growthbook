@@ -172,7 +172,6 @@ function getNumericColumns(
 
 function getColumnOptions({
   factTable,
-  datasource,
   includeCount = true,
   includeCountDistinct = false,
   includeDistinctDates = false,
@@ -185,7 +184,6 @@ function getColumnOptions({
   groupPrefix = "",
 }: {
   factTable: Omit<FactTableInterface, "sql"> | null;
-  datasource: DataSourceInterfaceWithParams | null;
   includeCount?: boolean;
   includeCountDistinct?: boolean;
   includeDistinctDates?: boolean;
@@ -254,16 +252,11 @@ function getColumnOptions({
 
   // Add JSON fields
   if (includeJSONFields && factTable?.columns) {
-    // When an attribute is surfaced as a top-level column — legacy materialized
-    // columns, or JSON-warehouse identifiers aliased out of `attributes` —
-    // point people at that column, not the JSON field.
+    // When an attribute is surfaced as a top-level column (managed warehouse
+    // identifiers aliased out of `attributes`), point people at that column,
+    // not the JSON field.
     const excludedAttributeFields =
       getAttributeFieldsExposedAsColumns(factTable);
-    if (datasource && datasource.type === "growthbook_clickhouse") {
-      datasource.settings.materializedColumns?.forEach((col) => {
-        excludedAttributeFields.add(col.sourceField);
-      });
-    }
 
     const jsonColumns = factTable.columns.filter(
       (col) => col.datatype === "json" && !col.deleted,
@@ -446,7 +439,6 @@ function ColumnRefSelector({
 
   const columnOptions = getColumnOptions({
     factTable,
-    datasource,
     includeCountDistinct: includeCountDistinct && aggregationType === "unit",
     includeDistinctDates: includeDistinctDates && aggregationType === "unit",
     includeCount: aggregationType === "unit",
@@ -637,7 +629,6 @@ function ColumnRefSelector({
                     }
                     options={getColumnOptions({
                       factTable: factTable,
-                      datasource,
                       includeCount: true,
                       includeCountDistinct: false,
                       includeStringColumns: false,

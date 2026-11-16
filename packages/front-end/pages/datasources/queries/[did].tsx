@@ -17,7 +17,7 @@ import {
   IconButton,
   SegmentedControl,
 } from "@radix-ui/themes";
-import { isManagedWarehouseUnavailable } from "shared/util";
+import { isManagedWarehouseAwaitingProvisioning } from "shared/util";
 import { useSearch } from "@/services/search";
 import useApi from "@/hooks/useApi";
 import PageHead from "@/components/Layout/PageHead";
@@ -204,7 +204,8 @@ export function DataSourceUsage({
   datasource: DataSourceInterfaceWithParams;
 }): React.ReactElement {
   const [driverTab, setDriverTab] = useState<UsageDriver>("factTables");
-  const managedWarehousePending = isManagedWarehouseUnavailable(datasource);
+  const managedWarehousePending =
+    isManagedWarehouseAwaitingProvisioning(datasource);
   const { data, error, mutate } = useApi<UsageResponse>(
     `/datasource/${datasource.id}/usage`,
   );

@@ -32,7 +32,7 @@ import {
 } from "shared/enterprise";
 import { isEqual } from "lodash";
 import { isFactFunnelMetric } from "shared/experiments";
-import { isManagedWarehouseUnavailable } from "shared/util";
+import { isManagedWarehouseAwaitingProvisioning } from "shared/util";
 import {
   cleanConfigForSubmission,
   compareConfig,
@@ -372,7 +372,9 @@ export function ExplorerProvider({
     const datasource = datasources.find(
       (d) => d.id === draftExploreState.datasource,
     );
-    return datasource ? isManagedWarehouseUnavailable(datasource) : false;
+    return datasource
+      ? isManagedWarehouseAwaitingProvisioning(datasource)
+      : false;
   }, [datasources, draftExploreState.datasource]);
 
   const setSubmittedExploreState = useCallback((state: ExplorerDraftConfig) => {

@@ -23,7 +23,7 @@ import { ago } from "shared/dates";
 import { DetectedColumn } from "shared/types/fact-table";
 import { TemplateVariables } from "shared/types/sql";
 import {
-  isManagedWarehouseUnavailable,
+  isManagedWarehouseAwaitingProvisioning,
   parseIntWithDefault,
 } from "shared/util";
 import { useAuth } from "@/services/auth";
@@ -85,7 +85,8 @@ function TablePicker({
   const permissionsUtil = usePermissionsUtil();
   const canRunQueries = permissionsUtil.canRunSchemaQueries(datasource);
   const canListTables = !!datasource.properties?.supportsInformationSchema;
-  const managedWarehousePending = isManagedWarehouseUnavailable(datasource);
+  const managedWarehousePending =
+    isManagedWarehouseAwaitingProvisioning(datasource);
 
   // A refresh is marked PENDING before the request returns, but a new schema
   // has no record to watch until its background job creates one

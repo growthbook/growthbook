@@ -99,9 +99,9 @@ export default function AttributeModal({
 
   const datatype = form.watch("datatype");
 
-  // Attribute changes only affect warehouse analyses for JSON-column managed warehouses.
-  const hasJsonManagedWarehouse = datasources.some(
-    (d) => d.type === "growthbook_clickhouse" && d.settings.useJsonColumns,
+  // Attribute changes only affect warehouse analyses for managed warehouses.
+  const hasManagedWarehouse = datasources.some(
+    (d) => d.type === "growthbook_clickhouse",
   );
   const propertyChanged = !!attribute && form.watch("property") !== attribute;
   const datatypeChanged = !!attribute && datatype !== current?.datatype;
@@ -248,7 +248,7 @@ export default function AttributeModal({
           Be careful changing the attribute name. Any existing targeting
           conditions that use this attribute will NOT be updated automatically
           and will still reference the old attribute name.
-          {hasJsonManagedWarehouse ? (
+          {hasManagedWarehouse ? (
             <span style={{ display: "block", marginTop: "var(--space-2)" }}>
               Renaming doesn&apos;t migrate historical data. Events already sent
               under the old name keep that name in the Managed Warehouse and
@@ -373,7 +373,7 @@ export default function AttributeModal({
           </>
         }
       />
-      {hasJsonManagedWarehouse && datatypeChanged ? (
+      {hasManagedWarehouse && datatypeChanged ? (
         <Callout status="info" mt="2" mb="2">
           Changing the data type won&apos;t break existing Managed Warehouse
           analyses, but historical events whose value doesn&apos;t match the new

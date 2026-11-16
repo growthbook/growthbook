@@ -5,7 +5,7 @@ import { OrganizationSettings } from "shared/types/organization";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import {
   isProjectListValidForProject,
-  isManagedWarehouseUnavailable,
+  isManagedWarehouseAwaitingProvisioning,
   getActiveFeatureUsageQuery,
 } from "shared/util";
 import { FeatureEvalDiagnosticsQueryResponseRows } from "shared/types/integrations";
@@ -67,7 +67,7 @@ function getDatasourceInitialFormValue(
     validDatasources.find(
       (d) =>
         (d.type === "growthbook_clickhouse" &&
-          !isManagedWarehouseUnavailable(d)) ||
+          !isManagedWarehouseAwaitingProvisioning(d)) ||
         getActiveFeatureUsageQuery(d.settings?.queries?.featureUsage),
     )?.id || settings.defaultDataSource;
 
@@ -125,7 +125,7 @@ export default function FeatureDiagnostics({
   const datasource = datasourceId ? getDatasourceById(datasourceId) : null;
 
   const awaitingProvisioning = datasource
-    ? isManagedWarehouseUnavailable(datasource)
+    ? isManagedWarehouseAwaitingProvisioning(datasource)
     : false;
 
   // Managed warehouse natively supports diagnostics via its feature_usage table.

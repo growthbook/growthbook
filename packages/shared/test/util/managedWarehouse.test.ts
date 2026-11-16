@@ -16,8 +16,6 @@ import {
   getManagedWarehouseUserIdTypes,
   getManagedWarehouseUserIdTypeSettings,
   isManagedWarehouse,
-  isManagedWarehouseMigrating,
-  isManagedWarehouseUnavailable,
   isManagedWarehouseNoEventsGuidanceMessage,
   isManagedWarehousePendingQueryError,
   MANAGED_WAREHOUSE_NO_EVENTS_MESSAGE,
@@ -34,35 +32,6 @@ describe("isManagedWarehouse", () => {
     expect(isManagedWarehouse({ type: "clickhouse" })).toBe(false);
     expect(isManagedWarehouse({ type: "bigquery" })).toBe(false);
     expect(isManagedWarehouse({ type: "snowflake" })).toBe(false);
-  });
-});
-
-describe("isManagedWarehouseMigrating / isManagedWarehouseUnavailable", () => {
-  const ds = (settings: Record<string, unknown>) =>
-    ({ type: "growthbook_clickhouse", settings }) as Parameters<
-      typeof isManagedWarehouseMigrating
-    >[0];
-
-  it("isManagedWarehouseMigrating is true only when migrating === true", () => {
-    expect(isManagedWarehouseMigrating(ds({ migrating: true }))).toBe(true);
-    expect(isManagedWarehouseMigrating(ds({ migrating: false }))).toBe(false);
-    expect(isManagedWarehouseMigrating(ds({}))).toBe(false);
-    expect(
-      isManagedWarehouseMigrating({
-        type: "clickhouse",
-        settings: { migrating: true },
-      }),
-    ).toBe(false);
-  });
-
-  it("isManagedWarehouseUnavailable covers both never-provisioned and migrating", () => {
-    expect(
-      isManagedWarehouseUnavailable(ds({ hasBeenProvisioned: false })),
-    ).toBe(true);
-    expect(isManagedWarehouseUnavailable(ds({ migrating: true }))).toBe(true);
-    expect(
-      isManagedWarehouseUnavailable(ds({ hasBeenProvisioned: true })),
-    ).toBe(false);
   });
 });
 
@@ -472,30 +441,6 @@ describe("idAttributeIdentifier (per-org `id` attribute mapping)", () => {
       }),
     ).toBe("user_id");
   });
-
-  it("does not affect the legacy materialized-column mapping", () => {
-    const settings: GrowthbookClickhouseSettings = {
-      idAttributeIdentifier: "user_id",
-      materializedColumns: [
-        {
-          sourceField: "id",
-          columnName: "user_id",
-          datatype: "string",
-          type: "identifier",
-        },
-      ],
-    };
-    // The stored legacy mapping wins; the flag is only read on JSON warehouses.
-    expect(
-      getManagedWarehouseIdentifierForAttribute({ settings, attribute: "id" }),
-    ).toBe("user_id");
-    expect(
-      getManagedWarehouseIdentifierForAttribute({
-        settings,
-        attribute: "unknown",
-      }),
-    ).toBeNull();
-  });
 });
 
 describe("getManagedWarehouseEventsFactTableColumns", () => {
@@ -704,46 +649,6 @@ describe("getManagedWarehouseIdentifierForAttribute", () => {
       }),
     ).toBe("company_id");
   });
-
-  it("reads the stored attribute -> column mapping for legacy warehouses", () => {
-    const settings: GrowthbookClickhouseSettings = {
-      materializedColumns: [
-        {
-          sourceField: "customerId",
-          columnName: "customer_id",
-          datatype: "string",
-          type: "identifier",
-        },
-        {
-          sourceField: "plan",
-          columnName: "plan",
-          datatype: "string",
-          type: "dimension",
-        },
-      ],
-    };
-    // The attribute name differs from the SQL column, so the stored mapping matters.
-    expect(
-      getManagedWarehouseIdentifierForAttribute({
-        settings,
-        attribute: "customerId",
-      }),
-    ).toBe("customer_id");
-    // A dimension column is not an identifier.
-    expect(
-      getManagedWarehouseIdentifierForAttribute({
-        settings,
-        attribute: "plan",
-      }),
-    ).toBeNull();
-    // An unmapped attribute resolves to no identifier.
-    expect(
-      getManagedWarehouseIdentifierForAttribute({
-        settings,
-        attribute: "unknown",
-      }),
-    ).toBeNull();
-  });
 });
 
 describe("getManagedWarehouseExposureQueryIdForAttribute", () => {
@@ -783,36 +688,6 @@ describe("getManagedWarehouseExposureQueryIdForAttribute", () => {
         attribute: "company_id",
       }),
     ).toBe("company_id");
-  });
-
-  it("resolves the exposure query via the legacy stored column mapping", () => {
-    const settings: GrowthbookClickhouseSettings = {
-      materializedColumns: [
-        {
-          sourceField: "customerId",
-          columnName: "customer_id",
-          datatype: "string",
-          type: "identifier",
-        },
-      ],
-      queries: {
-        exposure: [
-          {
-            id: "customer_id",
-            name: "customer_id",
-            userIdType: "customer_id",
-            dimensions: [],
-            query: "",
-          },
-        ],
-      },
-    };
-    expect(
-      getManagedWarehouseExposureQueryIdForAttribute({
-        settings,
-        attribute: "customerId",
-      }),
-    ).toBe("customer_id");
   });
 
   it("returns an empty string when the attribute maps to no exposure query", () => {
@@ -876,15 +751,6 @@ describe("buildManagedWarehouseAttributeAliasClause", () => {
     expect(clause).toContain(
       "toFloat64OrNull(attributes.revenue::Nullable(String)) AS revenue",
     );
-  });
-
-  it("returns empty for a pre-migration warehouse (columns still physical)", () => {
-    expect(
-      buildManagedWarehouseAttributeAliasClause({
-        ...migratedSettings,
-        useJsonColumns: false,
-      }),
-    ).toBe("");
   });
 
   it("emits only the built-in fallback when there are no custom identifiers or dimensions", () => {

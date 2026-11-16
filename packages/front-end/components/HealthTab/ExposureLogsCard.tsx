@@ -5,7 +5,7 @@ import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import {
   isManagedWarehouse,
   isManagedWarehousePendingQueryError,
-  isManagedWarehouseUnavailable,
+  isManagedWarehouseAwaitingProvisioning,
   resolveAnalysisIdentifierType,
   truncateString,
 } from "shared/util";
@@ -111,7 +111,7 @@ export default function ExposureLogsCard({
   const canRun =
     !!datasource &&
     hasHealthData(datasource) &&
-    !isManagedWarehouseUnavailable(datasource) &&
+    !isManagedWarehouseAwaitingProvisioning(datasource) &&
     !!exposureQuery &&
     permissionsUtil.canRunHealthQueries(datasource);
 

@@ -37,15 +37,12 @@ function makeColumn(
 }
 
 function makeClickhouseDatasource(
-  materializedColumns: { columnName: string; type: string }[],
+  columns: { columnName: string; type: string }[],
 ): GrowthbookClickhouseDataSource {
   return {
     type: "growthbook_clickhouse",
     settings: {
-      materializedColumns,
-      // Legacy growthbook_clickhouse warehouses mirror userIdTypes from their
-      // materializedColumns identifiers (type === "identifier").
-      userIdTypes: materializedColumns
+      userIdTypes: columns
         .filter((c) => c.type === "identifier")
         .map((c) => ({ userIdType: c.columnName, description: "" })),
     },

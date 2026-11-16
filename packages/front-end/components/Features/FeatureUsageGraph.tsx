@@ -21,7 +21,10 @@ import {
   FeatureValueType,
 } from "shared/types/feature";
 import { FeatureUsageLookback } from "shared/types/integrations";
-import { isManagedWarehouseUnavailable, stemRuleId } from "shared/util";
+import {
+  isManagedWarehouseAwaitingProvisioning,
+  stemRuleId,
+} from "shared/util";
 import { useRouter } from "next/router";
 import { Box, Flex, Grid } from "@radix-ui/themes";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
@@ -232,7 +235,7 @@ export function FeatureUsageProvider({
   // Dummy data needs no warehouse, so it shows whatever state that's in.
   const managedWarehouseUnavailable =
     !useDummyData && growthbookManagedDatasource
-      ? isManagedWarehouseUnavailable(growthbookManagedDatasource)
+      ? isManagedWarehouseAwaitingProvisioning(growthbookManagedDatasource)
       : false;
   const showFeatureUsage = useDummyData || !!growthbookManagedDatasource;
 
