@@ -30,6 +30,7 @@ import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import {
   createExperimentSnapshot,
   getSnapshotSettings,
+  planExperimentSnapshot,
   planSnapshot,
 } from "back-end/src/services/experiments";
 import { planMetricFanOut } from "back-end/src/services/experimentQueries/planMetricFanOut";
@@ -2288,5 +2289,209 @@ describe("snapshot planning", () => {
     expect(plan.snapshot.runnerKind).toBe("results");
     expect(plan.incrementalFallbackReason).toBeNull();
     expect(assertIncrementalRefreshPrerequisitesMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("planExperimentSnapshot output on trunk", () => {
+  const now = new Date("2025-02-15T12:00:00.000Z");
+
+  beforeEach(() => {
+    jest.resetAllMocks();
+    orgHasPremiumFeatureMock.mockReturnValue(true);
+    exploratoryOverallRequiresFullRefreshMock.mockReturnValue(false);
+    jest.useFakeTimers({
+      now,
+      doNotFake: [
+        "nextTick",
+        "queueMicrotask",
+        "setImmediate",
+        "setInterval",
+        "setTimeout",
+      ],
+    });
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  function makeFixture() {
+    const datasource = makeDatasource({
+      settings: {
+        queries: {
+          exposure: [
+            {
+              id: "exposure_user",
+              name: "Users",
+              userIdType: "user_id",
+              query: "SELECT * FROM exposures",
+              dimensions: ["country"],
+            },
+          ],
+        },
+      } as unknown as DataSourceInterface["settings"],
+    });
+    const eventsTable = factTableFactory.build({
+      id: "ft_events",
+      userIdTypes: ["user_id"],
+      columns: [
+        {
+          column: "country",
+          datatype: "string",
+          name: "country",
+          description: "",
+          dateCreated: now,
+          dateUpdated: now,
+          numberFormat: "",
+          deleted: false,
+          isAutoSliceColumn: true,
+          autoSlices: ["us", "ca"],
+        },
+      ],
+    });
+    const ordersTable = factTableFactory.build({
+      id: "ft_orders",
+      userIdTypes: ["user_id"],
+    });
+    const factMetric = (
+      id: string,
+      overrides: Parameters<typeof factMetricFactory.build>[0] = {},
+    ) =>
+      factMetricFactory.build({
+        id,
+        datasource: "ds_123",
+        dateCreated: now,
+        dateUpdated: now,
+        ...overrides,
+      });
+    const legacyMetric = (id: string) =>
+      ({
+        id,
+        organization: "org_123",
+        owner: "",
+        datasource: "ds_123",
+        dateCreated: now,
+        dateUpdated: now,
+        name: id,
+        description: "",
+        type: "binomial",
+        inverse: false,
+        ignoreNulls: false,
+        userIdTypes: ["user_id"],
+        sql: "SELECT user_id, timestamp FROM conversions",
+        cappingSettings: { type: "", value: 0 },
+        windowSettings: {
+          type: "conversion",
+          delayValue: 0,
+          delayUnit: "hours",
+          windowValue: 72,
+          windowUnit: "hours",
+        },
+        priorSettings: { override: false, proper: false, mean: 0, stddev: 1 },
+        queries: [],
+        runStarted: null,
+      }) as unknown as ExperimentMetricInterface;
+
+    const metrics: ExperimentMetricInterface[] = [
+      factMetric("fact__revenue", {
+        numerator: { factTableId: "ft_orders", column: "amount" },
+        regressionAdjustmentEnabled: true,
+      }),
+      factMetric("fact__clicks", {
+        numerator: { factTableId: "ft_events", column: "clicks" },
+        metricAutoSlices: ["country"],
+      } as Parameters<typeof factMetricFactory.build>[0]),
+      factMetric("fact__aov", {
+        metricType: "ratio",
+        numerator: { factTableId: "ft_orders", column: "amount" },
+        denominator: { factTableId: "ft_events", column: "$$count" },
+      }),
+      factMetric("fact__guard", {
+        metricType: "proportion",
+        numerator: { factTableId: "ft_events", column: "$$distinctUsers" },
+      }),
+      legacyMetric("met_signup"),
+      legacyMetric("met_activation"),
+    ];
+    const metricGroup = {
+      id: "mg_core",
+      organization: "org_123",
+      owner: "",
+      name: "Core",
+      description: "",
+      tags: [],
+      projects: [],
+      metrics: ["fact__clicks", "met_signup"],
+      datasource: "ds_123",
+      archived: false,
+      dateCreated: now,
+      dateUpdated: now,
+    } as unknown as MetricGroupInterface;
+
+    const experiment = makeExperiment({
+      goalMetrics: ["fact__revenue", "mg_core"],
+      secondaryMetrics: ["fact__aov"],
+      guardrailMetrics: ["fact__guard"],
+      activationMetric: "met_activation",
+      exposureQueryId: "exposure_user",
+      regressionAdjustmentEnabled: true,
+      metricOverrides: [
+        { id: "fact__aov", windowType: "conversion", windowHours: 48 },
+      ],
+      phases: [
+        {
+          dateStarted: new Date("2025-01-01T00:00:00.000Z"),
+          variationWeights: [0.5, 0.5],
+          coverage: 1,
+        },
+      ] as ExperimentInterface["phases"],
+    } as Partial<ExperimentInterface>);
+
+    const context = makeContext();
+    context.models.metricGroups.getAll = jest
+      .fn()
+      .mockResolvedValue([metricGroup]);
+    wireIncrementalRefreshState(context);
+
+    getDataSourceByIdMock.mockResolvedValue(datasource);
+    getSourceIntegrationObjectMock.mockReturnValue({} as never);
+    getMetricMapMock.mockImplementation(
+      async () => new Map(metrics.map((m) => [m.id, m])),
+    );
+    getFactTableMapMock.mockImplementation(
+      async () =>
+        new Map([
+          [eventsTable.id, eventsTable],
+          [ordersTable.id, ordersTable],
+        ]) as FactTableMap,
+    );
+
+    return { context, experiment, datasource };
+  }
+
+  it.each([
+    { name: "Overall", dimension: undefined },
+    { name: "dimension", dimension: "exp:country" },
+  ])("plans the $name snapshot the way trunk does", async ({ dimension }) => {
+    const { context, experiment, datasource } = makeFixture();
+
+    const plan = await planExperimentSnapshot({
+      context: context as never,
+      experiment,
+      datasource,
+      dimension,
+      phase: 0,
+    });
+
+    const generatedIds = [
+      plan.snapshot.id,
+      ...plan.snapshot.analyses.map((a) => a.analysisKey),
+    ];
+    expect(
+      generatedIds.reduce(
+        (json, id, i) => json.replaceAll(id, `generated_id_${i}`),
+        JSON.stringify(plan, null, 2),
+      ),
+    ).toMatchSnapshot();
   });
 });

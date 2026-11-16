@@ -1,0 +1,961 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`planExperimentSnapshot output on trunk plans the Overall snapshot the way trunk does 1`] = `
+"{
+  "snapshot": {
+    "id": "generated_id_0",
+    "organization": "org_123",
+    "experiment": "exp_123",
+    "runStarted": "2025-02-15T12:00:00.000Z",
+    "error": "",
+    "dateCreated": "2025-02-15T12:00:00.000Z",
+    "phase": 0,
+    "queries": [],
+    "dimension": null,
+    "settings": {
+      "activationMetric": "met_activation",
+      "attributionModel": "firstExposure",
+      "skipPartialData": false,
+      "segment": "",
+      "queryFilter": "",
+      "datasourceId": "ds_123",
+      "dimensions": [],
+      "precomputedUnitDimensionIds": [],
+      "startDate": "2025-01-01T00:00:00.000Z",
+      "endDate": "2025-02-15T12:00:00.000Z",
+      "experimentId": "exp_123",
+      "phase": {
+        "index": "0"
+      },
+      "goalMetrics": [
+        "fact__revenue",
+        "fact__clicks",
+        "met_signup"
+      ],
+      "secondaryMetrics": [
+        "fact__aov"
+      ],
+      "guardrailMetrics": [
+        "fact__guard"
+      ],
+      "regressionAdjustmentEnabled": true,
+      "defaultMetricPriorSettings": {
+        "override": false,
+        "proper": false,
+        "mean": 0,
+        "stddev": 0.3
+      },
+      "exposureQueryId": "exposure_user",
+      "exposureQueryIdentifierType": "user_id",
+      "isClusterExperiment": false,
+      "metricSettings": [
+        {
+          "id": "fact__revenue",
+          "settings": {
+            "datasource": "ds_123",
+            "type": "count",
+            "cappingSettings": {
+              "type": "",
+              "value": 1000,
+              "ignoreZeros": false
+            }
+          },
+          "computedSettings": {
+            "windowSettings": {
+              "delayValue": 1,
+              "delayUnit": "days",
+              "type": "",
+              "windowUnit": "days",
+              "windowValue": 1
+            },
+            "properPrior": false,
+            "properPriorMean": 0,
+            "properPriorStdDev": 0.3,
+            "regressionAdjustmentDays": 10,
+            "regressionAdjustmentEnabled": true,
+            "regressionAdjustmentAvailable": true,
+            "regressionAdjustmentReason": "",
+            "targetMDE": 0.1
+          }
+        },
+        {
+          "id": "fact__clicks",
+          "settings": {
+            "datasource": "ds_123",
+            "type": "count",
+            "cappingSettings": {
+              "type": "",
+              "value": 1000,
+              "ignoreZeros": false
+            }
+          },
+          "computedSettings": {
+            "windowSettings": {
+              "delayValue": 1,
+              "delayUnit": "days",
+              "type": "",
+              "windowUnit": "days",
+              "windowValue": 1
+            },
+            "properPrior": false,
+            "properPriorMean": 0,
+            "properPriorStdDev": 0.3,
+            "regressionAdjustmentDays": 0,
+            "regressionAdjustmentEnabled": false,
+            "regressionAdjustmentAvailable": false,
+            "regressionAdjustmentReason": "disabled in metric settings",
+            "targetMDE": 0.1
+          }
+        },
+        {
+          "id": "met_signup",
+          "settings": {
+            "datasource": "ds_123",
+            "type": "binomial",
+            "cappingSettings": {
+              "type": "",
+              "value": 0
+            },
+            "sql": "SELECT user_id, timestamp FROM conversions",
+            "userIdTypes": [
+              "user_id"
+            ]
+          },
+          "computedSettings": {
+            "windowSettings": {
+              "delayValue": 0,
+              "delayUnit": "hours",
+              "type": "conversion",
+              "windowUnit": "hours",
+              "windowValue": 72
+            },
+            "properPrior": false,
+            "properPriorMean": 0,
+            "properPriorStdDev": 0.3,
+            "regressionAdjustmentDays": 14,
+            "regressionAdjustmentEnabled": true,
+            "regressionAdjustmentAvailable": true,
+            "regressionAdjustmentReason": "",
+            "targetMDE": 0.1
+          }
+        },
+        {
+          "id": "fact__aov",
+          "settings": {
+            "datasource": "ds_123",
+            "type": "count",
+            "cappingSettings": {
+              "type": "",
+              "value": 1000,
+              "ignoreZeros": false
+            }
+          },
+          "computedSettings": {
+            "windowSettings": {
+              "delayValue": 1,
+              "delayUnit": "days",
+              "type": "conversion",
+              "windowUnit": "hours",
+              "windowValue": 48
+            },
+            "properPrior": false,
+            "properPriorMean": 0,
+            "properPriorStdDev": 0.3,
+            "regressionAdjustmentDays": 0,
+            "regressionAdjustmentEnabled": false,
+            "regressionAdjustmentAvailable": false,
+            "regressionAdjustmentReason": "disabled in metric settings",
+            "targetMDE": 0.1
+          }
+        },
+        {
+          "id": "fact__guard",
+          "settings": {
+            "datasource": "ds_123",
+            "type": "binomial",
+            "cappingSettings": {
+              "type": "",
+              "value": 1000,
+              "ignoreZeros": false
+            }
+          },
+          "computedSettings": {
+            "windowSettings": {
+              "delayValue": 1,
+              "delayUnit": "days",
+              "type": "",
+              "windowUnit": "days",
+              "windowValue": 1
+            },
+            "properPrior": false,
+            "properPriorMean": 0,
+            "properPriorStdDev": 0.3,
+            "regressionAdjustmentDays": 0,
+            "regressionAdjustmentEnabled": false,
+            "regressionAdjustmentAvailable": false,
+            "regressionAdjustmentReason": "disabled in metric settings",
+            "targetMDE": 0.1
+          }
+        },
+        {
+          "id": "met_activation",
+          "settings": {
+            "datasource": "ds_123",
+            "type": "binomial",
+            "cappingSettings": {
+              "type": "",
+              "value": 0
+            },
+            "sql": "SELECT user_id, timestamp FROM conversions",
+            "userIdTypes": [
+              "user_id"
+            ]
+          },
+          "computedSettings": {
+            "windowSettings": {
+              "delayValue": 0,
+              "delayUnit": "hours",
+              "type": "conversion",
+              "windowUnit": "hours",
+              "windowValue": 72
+            },
+            "properPrior": false,
+            "properPriorMean": 0,
+            "properPriorStdDev": 0.3,
+            "regressionAdjustmentDays": 14,
+            "regressionAdjustmentEnabled": false,
+            "regressionAdjustmentAvailable": true,
+            "regressionAdjustmentReason": "",
+            "targetMDE": 0.1
+          }
+        },
+        {
+          "id": "fact__clicks?dim:country=us",
+          "settings": {
+            "datasource": "ds_123",
+            "type": "count",
+            "cappingSettings": {
+              "type": "",
+              "value": 1000,
+              "ignoreZeros": false
+            }
+          },
+          "computedSettings": {
+            "windowSettings": {
+              "delayValue": 1,
+              "delayUnit": "days",
+              "type": "",
+              "windowUnit": "days",
+              "windowValue": 1
+            },
+            "properPrior": false,
+            "properPriorMean": 0,
+            "properPriorStdDev": 0.3,
+            "regressionAdjustmentDays": 0,
+            "regressionAdjustmentEnabled": false,
+            "regressionAdjustmentAvailable": false,
+            "regressionAdjustmentReason": "disabled in metric settings",
+            "targetMDE": 0.1
+          }
+        },
+        {
+          "id": "fact__clicks?dim:country=ca",
+          "settings": {
+            "datasource": "ds_123",
+            "type": "count",
+            "cappingSettings": {
+              "type": "",
+              "value": 1000,
+              "ignoreZeros": false
+            }
+          },
+          "computedSettings": {
+            "windowSettings": {
+              "delayValue": 1,
+              "delayUnit": "days",
+              "type": "",
+              "windowUnit": "days",
+              "windowValue": 1
+            },
+            "properPrior": false,
+            "properPriorMean": 0,
+            "properPriorStdDev": 0.3,
+            "regressionAdjustmentDays": 0,
+            "regressionAdjustmentEnabled": false,
+            "regressionAdjustmentAvailable": false,
+            "regressionAdjustmentReason": "disabled in metric settings",
+            "targetMDE": 0.1
+          }
+        },
+        {
+          "id": "fact__clicks?dim:country=",
+          "settings": {
+            "datasource": "ds_123",
+            "type": "count",
+            "cappingSettings": {
+              "type": "",
+              "value": 1000,
+              "ignoreZeros": false
+            }
+          },
+          "computedSettings": {
+            "windowSettings": {
+              "delayValue": 1,
+              "delayUnit": "days",
+              "type": "",
+              "windowUnit": "days",
+              "windowValue": 1
+            },
+            "properPrior": false,
+            "properPriorMean": 0,
+            "properPriorStdDev": 0.3,
+            "regressionAdjustmentDays": 0,
+            "regressionAdjustmentEnabled": false,
+            "regressionAdjustmentAvailable": false,
+            "regressionAdjustmentReason": "disabled in metric settings",
+            "targetMDE": 0.1
+          }
+        }
+      ],
+      "variations": [
+        {
+          "id": "0",
+          "weight": 0.5
+        },
+        {
+          "id": "1",
+          "weight": 0.5
+        }
+      ],
+      "coverage": 1
+    },
+    "type": "standard",
+    "triggeredBy": "manual",
+    "unknownVariations": [],
+    "multipleExposures": 0,
+    "analyses": [
+      {
+        "analysisKey": "generated_id_1",
+        "dateCreated": "2025-02-15T12:00:00.000Z",
+        "results": [],
+        "settings": {
+          "statsEngine": "bayesian",
+          "dimensions": [],
+          "regressionAdjusted": true,
+          "postStratificationEnabled": true,
+          "sequentialTesting": false,
+          "sequentialTestingTuningParameter": 5000,
+          "baselineVariationIndex": 0,
+          "differenceType": "relative",
+          "pValueThreshold": 0.05,
+          "numGoalMetrics": 3,
+          "numGuardrailMetrics": 1
+        },
+        "status": "running"
+      },
+      {
+        "analysisKey": "generated_id_2",
+        "dateCreated": "2025-02-15T12:00:00.000Z",
+        "results": [],
+        "settings": {
+          "statsEngine": "bayesian",
+          "dimensions": [],
+          "regressionAdjusted": true,
+          "postStratificationEnabled": true,
+          "sequentialTesting": false,
+          "sequentialTestingTuningParameter": 5000,
+          "baselineVariationIndex": 0,
+          "differenceType": "absolute",
+          "pValueThreshold": 0.05,
+          "numGoalMetrics": 3,
+          "numGuardrailMetrics": 1
+        },
+        "status": "running"
+      },
+      {
+        "analysisKey": "generated_id_3",
+        "dateCreated": "2025-02-15T12:00:00.000Z",
+        "results": [],
+        "settings": {
+          "statsEngine": "bayesian",
+          "dimensions": [],
+          "regressionAdjusted": true,
+          "postStratificationEnabled": true,
+          "sequentialTesting": false,
+          "sequentialTestingTuningParameter": 5000,
+          "baselineVariationIndex": 0,
+          "differenceType": "scaled",
+          "pValueThreshold": 0.05,
+          "numGoalMetrics": 3,
+          "numGuardrailMetrics": 1
+        },
+        "status": "running"
+      },
+      {
+        "analysisKey": "generated_id_4",
+        "dateCreated": "2025-02-15T12:00:00.000Z",
+        "results": [],
+        "settings": {
+          "statsEngine": "frequentist",
+          "dimensions": [],
+          "regressionAdjusted": true,
+          "postStratificationEnabled": true,
+          "sequentialTesting": false,
+          "sequentialTestingTuningParameter": 5000,
+          "baselineVariationIndex": 0,
+          "differenceType": "absolute",
+          "pValueThreshold": 0.05,
+          "numGoalMetrics": 3,
+          "numGuardrailMetrics": 1,
+          "useCovariateAsResponse": true
+        },
+        "status": "running"
+      }
+    ],
+    "status": "running",
+    "runnerKind": "results"
+  },
+  "incrementalFallbackReason": null,
+  "useCache": true,
+  "fullRefresh": true,
+  "fullRefreshReason": "No prior Incremental Pipeline state for this experiment.",
+  "settingsForSnapshotMetrics": [
+    {
+      "metric": "fact__revenue",
+      "properPrior": false,
+      "properPriorMean": 0,
+      "properPriorStdDev": 0.3,
+      "regressionAdjustmentEnabled": true,
+      "regressionAdjustmentAvailable": true,
+      "regressionAdjustmentDays": 10,
+      "regressionAdjustmentReason": ""
+    },
+    {
+      "metric": "fact__clicks",
+      "properPrior": false,
+      "properPriorMean": 0,
+      "properPriorStdDev": 0.3,
+      "regressionAdjustmentEnabled": false,
+      "regressionAdjustmentAvailable": false,
+      "regressionAdjustmentDays": 0,
+      "regressionAdjustmentReason": "disabled in metric settings"
+    },
+    {
+      "metric": "met_signup",
+      "properPrior": false,
+      "properPriorMean": 0,
+      "properPriorStdDev": 0.3,
+      "regressionAdjustmentEnabled": true,
+      "regressionAdjustmentAvailable": true,
+      "regressionAdjustmentDays": 14,
+      "regressionAdjustmentReason": ""
+    },
+    {
+      "metric": "fact__aov",
+      "properPrior": false,
+      "properPriorMean": 0,
+      "properPriorStdDev": 0.3,
+      "regressionAdjustmentEnabled": false,
+      "regressionAdjustmentAvailable": false,
+      "regressionAdjustmentDays": 0,
+      "regressionAdjustmentReason": "disabled in metric settings"
+    },
+    {
+      "metric": "fact__guard",
+      "properPrior": false,
+      "properPriorMean": 0,
+      "properPriorStdDev": 0.3,
+      "regressionAdjustmentEnabled": false,
+      "regressionAdjustmentAvailable": false,
+      "regressionAdjustmentDays": 0,
+      "regressionAdjustmentReason": "disabled in metric settings"
+    }
+  ]
+}"
+`;
+
+exports[`planExperimentSnapshot output on trunk plans the dimension snapshot the way trunk does 1`] = `
+"{
+  "snapshot": {
+    "id": "generated_id_0",
+    "organization": "org_123",
+    "experiment": "exp_123",
+    "runStarted": "2025-02-15T12:00:00.000Z",
+    "error": "",
+    "dateCreated": "2025-02-15T12:00:00.000Z",
+    "phase": 0,
+    "queries": [],
+    "dimension": "exp:country",
+    "settings": {
+      "activationMetric": "met_activation",
+      "attributionModel": "firstExposure",
+      "skipPartialData": false,
+      "segment": "",
+      "queryFilter": "",
+      "datasourceId": "ds_123",
+      "dimensions": [
+        {
+          "id": "exp:country"
+        }
+      ],
+      "precomputedUnitDimensionIds": [],
+      "startDate": "2025-01-01T00:00:00.000Z",
+      "endDate": "2025-02-15T12:00:00.000Z",
+      "experimentId": "exp_123",
+      "phase": {
+        "index": "0"
+      },
+      "goalMetrics": [
+        "fact__revenue",
+        "fact__clicks",
+        "met_signup"
+      ],
+      "secondaryMetrics": [
+        "fact__aov"
+      ],
+      "guardrailMetrics": [
+        "fact__guard"
+      ],
+      "regressionAdjustmentEnabled": true,
+      "defaultMetricPriorSettings": {
+        "override": false,
+        "proper": false,
+        "mean": 0,
+        "stddev": 0.3
+      },
+      "exposureQueryId": "exposure_user",
+      "exposureQueryIdentifierType": "user_id",
+      "isClusterExperiment": false,
+      "metricSettings": [
+        {
+          "id": "fact__revenue",
+          "settings": {
+            "datasource": "ds_123",
+            "type": "count",
+            "cappingSettings": {
+              "type": "",
+              "value": 1000,
+              "ignoreZeros": false
+            }
+          },
+          "computedSettings": {
+            "windowSettings": {
+              "delayValue": 1,
+              "delayUnit": "days",
+              "type": "",
+              "windowUnit": "days",
+              "windowValue": 1
+            },
+            "properPrior": false,
+            "properPriorMean": 0,
+            "properPriorStdDev": 0.3,
+            "regressionAdjustmentDays": 10,
+            "regressionAdjustmentEnabled": true,
+            "regressionAdjustmentAvailable": true,
+            "regressionAdjustmentReason": "",
+            "targetMDE": 0.1
+          }
+        },
+        {
+          "id": "fact__clicks",
+          "settings": {
+            "datasource": "ds_123",
+            "type": "count",
+            "cappingSettings": {
+              "type": "",
+              "value": 1000,
+              "ignoreZeros": false
+            }
+          },
+          "computedSettings": {
+            "windowSettings": {
+              "delayValue": 1,
+              "delayUnit": "days",
+              "type": "",
+              "windowUnit": "days",
+              "windowValue": 1
+            },
+            "properPrior": false,
+            "properPriorMean": 0,
+            "properPriorStdDev": 0.3,
+            "regressionAdjustmentDays": 0,
+            "regressionAdjustmentEnabled": false,
+            "regressionAdjustmentAvailable": false,
+            "regressionAdjustmentReason": "disabled in metric settings",
+            "targetMDE": 0.1
+          }
+        },
+        {
+          "id": "met_signup",
+          "settings": {
+            "datasource": "ds_123",
+            "type": "binomial",
+            "cappingSettings": {
+              "type": "",
+              "value": 0
+            },
+            "sql": "SELECT user_id, timestamp FROM conversions",
+            "userIdTypes": [
+              "user_id"
+            ]
+          },
+          "computedSettings": {
+            "windowSettings": {
+              "delayValue": 0,
+              "delayUnit": "hours",
+              "type": "conversion",
+              "windowUnit": "hours",
+              "windowValue": 72
+            },
+            "properPrior": false,
+            "properPriorMean": 0,
+            "properPriorStdDev": 0.3,
+            "regressionAdjustmentDays": 14,
+            "regressionAdjustmentEnabled": true,
+            "regressionAdjustmentAvailable": true,
+            "regressionAdjustmentReason": "",
+            "targetMDE": 0.1
+          }
+        },
+        {
+          "id": "fact__aov",
+          "settings": {
+            "datasource": "ds_123",
+            "type": "count",
+            "cappingSettings": {
+              "type": "",
+              "value": 1000,
+              "ignoreZeros": false
+            }
+          },
+          "computedSettings": {
+            "windowSettings": {
+              "delayValue": 1,
+              "delayUnit": "days",
+              "type": "conversion",
+              "windowUnit": "hours",
+              "windowValue": 48
+            },
+            "properPrior": false,
+            "properPriorMean": 0,
+            "properPriorStdDev": 0.3,
+            "regressionAdjustmentDays": 0,
+            "regressionAdjustmentEnabled": false,
+            "regressionAdjustmentAvailable": false,
+            "regressionAdjustmentReason": "disabled in metric settings",
+            "targetMDE": 0.1
+          }
+        },
+        {
+          "id": "fact__guard",
+          "settings": {
+            "datasource": "ds_123",
+            "type": "binomial",
+            "cappingSettings": {
+              "type": "",
+              "value": 1000,
+              "ignoreZeros": false
+            }
+          },
+          "computedSettings": {
+            "windowSettings": {
+              "delayValue": 1,
+              "delayUnit": "days",
+              "type": "",
+              "windowUnit": "days",
+              "windowValue": 1
+            },
+            "properPrior": false,
+            "properPriorMean": 0,
+            "properPriorStdDev": 0.3,
+            "regressionAdjustmentDays": 0,
+            "regressionAdjustmentEnabled": false,
+            "regressionAdjustmentAvailable": false,
+            "regressionAdjustmentReason": "disabled in metric settings",
+            "targetMDE": 0.1
+          }
+        },
+        {
+          "id": "met_activation",
+          "settings": {
+            "datasource": "ds_123",
+            "type": "binomial",
+            "cappingSettings": {
+              "type": "",
+              "value": 0
+            },
+            "sql": "SELECT user_id, timestamp FROM conversions",
+            "userIdTypes": [
+              "user_id"
+            ]
+          },
+          "computedSettings": {
+            "windowSettings": {
+              "delayValue": 0,
+              "delayUnit": "hours",
+              "type": "conversion",
+              "windowUnit": "hours",
+              "windowValue": 72
+            },
+            "properPrior": false,
+            "properPriorMean": 0,
+            "properPriorStdDev": 0.3,
+            "regressionAdjustmentDays": 14,
+            "regressionAdjustmentEnabled": false,
+            "regressionAdjustmentAvailable": true,
+            "regressionAdjustmentReason": "",
+            "targetMDE": 0.1
+          }
+        },
+        {
+          "id": "fact__clicks?dim:country=us",
+          "settings": {
+            "datasource": "ds_123",
+            "type": "count",
+            "cappingSettings": {
+              "type": "",
+              "value": 1000,
+              "ignoreZeros": false
+            }
+          },
+          "computedSettings": {
+            "windowSettings": {
+              "delayValue": 1,
+              "delayUnit": "days",
+              "type": "",
+              "windowUnit": "days",
+              "windowValue": 1
+            },
+            "properPrior": false,
+            "properPriorMean": 0,
+            "properPriorStdDev": 0.3,
+            "regressionAdjustmentDays": 0,
+            "regressionAdjustmentEnabled": false,
+            "regressionAdjustmentAvailable": false,
+            "regressionAdjustmentReason": "disabled in metric settings",
+            "targetMDE": 0.1
+          }
+        },
+        {
+          "id": "fact__clicks?dim:country=ca",
+          "settings": {
+            "datasource": "ds_123",
+            "type": "count",
+            "cappingSettings": {
+              "type": "",
+              "value": 1000,
+              "ignoreZeros": false
+            }
+          },
+          "computedSettings": {
+            "windowSettings": {
+              "delayValue": 1,
+              "delayUnit": "days",
+              "type": "",
+              "windowUnit": "days",
+              "windowValue": 1
+            },
+            "properPrior": false,
+            "properPriorMean": 0,
+            "properPriorStdDev": 0.3,
+            "regressionAdjustmentDays": 0,
+            "regressionAdjustmentEnabled": false,
+            "regressionAdjustmentAvailable": false,
+            "regressionAdjustmentReason": "disabled in metric settings",
+            "targetMDE": 0.1
+          }
+        },
+        {
+          "id": "fact__clicks?dim:country=",
+          "settings": {
+            "datasource": "ds_123",
+            "type": "count",
+            "cappingSettings": {
+              "type": "",
+              "value": 1000,
+              "ignoreZeros": false
+            }
+          },
+          "computedSettings": {
+            "windowSettings": {
+              "delayValue": 1,
+              "delayUnit": "days",
+              "type": "",
+              "windowUnit": "days",
+              "windowValue": 1
+            },
+            "properPrior": false,
+            "properPriorMean": 0,
+            "properPriorStdDev": 0.3,
+            "regressionAdjustmentDays": 0,
+            "regressionAdjustmentEnabled": false,
+            "regressionAdjustmentAvailable": false,
+            "regressionAdjustmentReason": "disabled in metric settings",
+            "targetMDE": 0.1
+          }
+        }
+      ],
+      "variations": [
+        {
+          "id": "0",
+          "weight": 0.5
+        },
+        {
+          "id": "1",
+          "weight": 0.5
+        }
+      ],
+      "coverage": 1
+    },
+    "type": "exploratory",
+    "triggeredBy": "manual",
+    "unknownVariations": [],
+    "multipleExposures": 0,
+    "analyses": [
+      {
+        "analysisKey": "generated_id_1",
+        "dateCreated": "2025-02-15T12:00:00.000Z",
+        "results": [],
+        "settings": {
+          "statsEngine": "bayesian",
+          "dimensions": [
+            "exp:country"
+          ],
+          "regressionAdjusted": true,
+          "postStratificationEnabled": true,
+          "sequentialTesting": false,
+          "sequentialTestingTuningParameter": 5000,
+          "baselineVariationIndex": 0,
+          "differenceType": "relative",
+          "pValueThreshold": 0.05,
+          "numGoalMetrics": 3,
+          "numGuardrailMetrics": 1
+        },
+        "status": "running"
+      },
+      {
+        "analysisKey": "generated_id_2",
+        "dateCreated": "2025-02-15T12:00:00.000Z",
+        "results": [],
+        "settings": {
+          "statsEngine": "bayesian",
+          "dimensions": [
+            "exp:country"
+          ],
+          "regressionAdjusted": true,
+          "postStratificationEnabled": true,
+          "sequentialTesting": false,
+          "sequentialTestingTuningParameter": 5000,
+          "baselineVariationIndex": 0,
+          "differenceType": "absolute",
+          "pValueThreshold": 0.05,
+          "numGoalMetrics": 3,
+          "numGuardrailMetrics": 1
+        },
+        "status": "running"
+      },
+      {
+        "analysisKey": "generated_id_3",
+        "dateCreated": "2025-02-15T12:00:00.000Z",
+        "results": [],
+        "settings": {
+          "statsEngine": "bayesian",
+          "dimensions": [
+            "exp:country"
+          ],
+          "regressionAdjusted": true,
+          "postStratificationEnabled": true,
+          "sequentialTesting": false,
+          "sequentialTestingTuningParameter": 5000,
+          "baselineVariationIndex": 0,
+          "differenceType": "scaled",
+          "pValueThreshold": 0.05,
+          "numGoalMetrics": 3,
+          "numGuardrailMetrics": 1
+        },
+        "status": "running"
+      },
+      {
+        "analysisKey": "generated_id_4",
+        "dateCreated": "2025-02-15T12:00:00.000Z",
+        "results": [],
+        "settings": {
+          "statsEngine": "frequentist",
+          "dimensions": [
+            "exp:country"
+          ],
+          "regressionAdjusted": true,
+          "postStratificationEnabled": true,
+          "sequentialTesting": false,
+          "sequentialTestingTuningParameter": 5000,
+          "baselineVariationIndex": 0,
+          "differenceType": "absolute",
+          "pValueThreshold": 0.05,
+          "numGoalMetrics": 3,
+          "numGuardrailMetrics": 1,
+          "useCovariateAsResponse": true
+        },
+        "status": "running"
+      }
+    ],
+    "status": "running",
+    "runnerKind": "results"
+  },
+  "incrementalFallbackReason": null,
+  "useCache": true,
+  "fullRefresh": false,
+  "fullRefreshReason": null,
+  "settingsForSnapshotMetrics": [
+    {
+      "metric": "fact__revenue",
+      "properPrior": false,
+      "properPriorMean": 0,
+      "properPriorStdDev": 0.3,
+      "regressionAdjustmentEnabled": true,
+      "regressionAdjustmentAvailable": true,
+      "regressionAdjustmentDays": 10,
+      "regressionAdjustmentReason": ""
+    },
+    {
+      "metric": "fact__clicks",
+      "properPrior": false,
+      "properPriorMean": 0,
+      "properPriorStdDev": 0.3,
+      "regressionAdjustmentEnabled": false,
+      "regressionAdjustmentAvailable": false,
+      "regressionAdjustmentDays": 0,
+      "regressionAdjustmentReason": "disabled in metric settings"
+    },
+    {
+      "metric": "met_signup",
+      "properPrior": false,
+      "properPriorMean": 0,
+      "properPriorStdDev": 0.3,
+      "regressionAdjustmentEnabled": true,
+      "regressionAdjustmentAvailable": true,
+      "regressionAdjustmentDays": 14,
+      "regressionAdjustmentReason": ""
+    },
+    {
+      "metric": "fact__aov",
+      "properPrior": false,
+      "properPriorMean": 0,
+      "properPriorStdDev": 0.3,
+      "regressionAdjustmentEnabled": false,
+      "regressionAdjustmentAvailable": false,
+      "regressionAdjustmentDays": 0,
+      "regressionAdjustmentReason": "disabled in metric settings"
+    },
+    {
+      "metric": "fact__guard",
+      "properPrior": false,
+      "properPriorMean": 0,
+      "properPriorStdDev": 0.3,
+      "regressionAdjustmentEnabled": false,
+      "regressionAdjustmentAvailable": false,
+      "regressionAdjustmentDays": 0,
+      "regressionAdjustmentReason": "disabled in metric settings"
+    }
+  ]
+}"
+`;
