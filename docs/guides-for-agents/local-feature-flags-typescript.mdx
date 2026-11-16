@@ -29,7 +29,7 @@ using a local flags.ts file and the GrowthBook SDK, following
 https://docs.growthbook.io/guides-for-agents/local-feature-flags-typescript
 
 Read the guide in full before editing. Create flags.ts with the AppFeatures
-and AppAttributes types, a payload that satisfies Payload, and the
+and AppAttributes types, a payload typed as Payload, and the
 Register declaration. Load it with the GrowthBook SDK and read every flag
 through the SDK. You do not need to create a GrowthBook account or add a
 client key. Never put secrets or personal data in flags.ts.
@@ -60,7 +60,7 @@ export type AppAttributes = {
   env: "dev" | "staging" | "production";
 };
 
-export const flags = {
+export const flags: Payload = {
   features: {
     // Redesigned checkout flow
     newCheckout: {
@@ -79,7 +79,7 @@ export const flags = {
       rules: [{ condition: { plan: "pro" }, force: 20 }],
     },
   },
-} satisfies Payload;
+};
 
 declare module "@growthbook/growthbook" {
   interface Register {
@@ -151,7 +151,7 @@ When any of these become a problem, move the flags into GrowthBook (Cloud or Sel
 
 ## Set up by platform
 
-Every platform uses the same `flags.ts`. It needs SDK version 2.1.0 or later, and TypeScript 4.9 or later for `satisfies`. Don't configure a client key, API host, streaming, or polling. Without them, the SDK makes no network requests.
+Every platform uses the same `flags.ts`. It needs SDK version 2.1.0 or later. Don't configure a client key, API host, streaming, or polling. Without them, the SDK makes no network requests.
 
 ### Browser
 
@@ -331,7 +331,7 @@ Narrow types catch more mistakes. With `plan: "free" | "pro"`, a rule that targe
 
 ### `flags`
 
-The value of every flag and the rules for assigning values to users. `satisfies Payload` checks it against both types, which it picks up from the `Register` block.
+The value of every flag and the rules for assigning values to users. The `Payload` annotation checks it against both types, which it picks up from the `Register` block.
 
 Each entry in `features` is a flag definition:
 
@@ -557,22 +557,57 @@ Recommend moving to GrowthBook when the user needs a kill switch that doesn't re
    node -e 'import("./flags.ts").then((m) => console.log(JSON.stringify(m.flags, null, 2)))' > flags.json
    ```
 
-2. Create a free [GrowthBook](https://app.growthbook.io) account and import `flags.json`. Each flag becomes a GrowthBook feature, and each `env` value becomes a GrowthBook environment. Delete `flags.json` afterward.
+2. Create a free [GrowthBook](https://app.growthbook.io) account and import `flags.json`. Each flag becomes a GrowthBook feature, and each `env` value becomes a GrowthBook environment.
 3. Create an SDK connection for each environment and copy its client key.
-4. Compare the SDK payloads from the GrowthBook CDN to `flags.json`. The GrowthBook version will include some extra fields, but the general values and rules should be nearly identical. One note: all `env` conditions are evaluated server-side so they will not appear in the payload.
-5. In `flags.ts`, delete the payload. GrowthBook is now the source of truth for this. Keep the feature and attribute typing.
-6. Pass in the environment's client key to the constructor and await `init` instead of calling `initSync`.
+4. Download each environment's payload from the GrowthBook CDN to its own file, and compare it to `flags.json`. The GrowthBook version will include some extra fields, but the general values and rules should be nearly identical. One note: all `env` conditions are evaluated server-side so they will not appear in the payload.
 
-   ```ts
-   import { GrowthBook } from "@growthbook/growthbook";
-
-   export const gb = new GrowthBook({
-     clientKey: "sdk-abc123",
-     attributes: { id: user.id, plan: user.plan, env: config.env },
-   });
-   await gb.init({ timeout: 2000 });
+   ```bash
+   curl -sf --retry 3 --create-dirs https://cdn.growthbook.io/api/features/sdk-prd123 -o src/generated/payload.production.json
    ```
 
-   In Node.js, pass the same options to `GrowthBookClient`: `new GrowthBookClient({ clientKey })` and `await client.init({ timeout: 2000 })`.
+   Repeat for each environment, with its own client key and file name. If you self-host GrowthBook, replace `https://cdn.growthbook.io` with your API host. Once the payloads match, delete `flags.json`. The downloaded files are now the fallbacks, used only when features can't be downloaded and nothing is cached.
 
-7. When you add a new flag in GrowthBook, also add it to `AppFeatures`. Same with attributes.
+5. Generate the types from GrowthBook with the `growthbook` CLI (version 4.0.0 or later), instead of maintaining them by hand. It needs a GrowthBook API key, from `growthbook auth login` or the `GBCLI_BEARER_AUTH` environment variable:
+
+   ```bash
+   npm install -g growthbook
+   ```
+
+   ```bash
+   growthbook generate-types --output ./src/generated
+   ```
+
+   This writes `AppFeatures`, `AppAttributes`, and the `Register` declaration to `src/generated/app-features.ts`.
+
+6. Delete `flags.ts`. GrowthBook is now the source of truth for the flags, the rules, and the types. Change any import of `AppAttributes` or `AppFeatures` to `./generated/app-features`.
+7. Await `init` instead of calling `initSync`, and pick the client key and the fallback with the same lookup, so they can't get out of step. Pass the downloaded payload as `fallbackPayload`, not as `payload`, which would skip the network request. Stop passing the `env` attribute, because the client key now selects the environment. The JSON imports need `resolveJsonModule` in `tsconfig.json`:
+
+   ```ts
+   import { GrowthBook, type FeatureApiResponse } from "@growthbook/growthbook";
+   import dev from "./generated/payload.dev.json";
+   import staging from "./generated/payload.staging.json";
+   import production from "./generated/payload.production.json";
+
+   const environments = {
+     dev: { clientKey: "sdk-dev123", fallbackPayload: dev },
+     staging: { clientKey: "sdk-stg123", fallbackPayload: staging },
+     production: { clientKey: "sdk-prd123", fallbackPayload: production },
+   };
+
+   const { clientKey, fallbackPayload } = environments[config.env];
+
+   export const gb = new GrowthBook({
+     clientKey,
+     attributes: { id: user.id, plan: user.plan },
+   });
+   await gb.init({
+     timeout: 2000,
+     fallbackPayload: fallbackPayload as FeatureApiResponse,
+   });
+   ```
+
+   TypeScript can't check an imported JSON file against your types, so the `as` cast is expected here. In Node.js, pass the same options to `GrowthBookClient`: `new GrowthBookClient({ clientKey })` and `await client.init({ timeout: 2000, fallbackPayload: fallbackPayload as FeatureApiResponse })`.
+
+   Static imports put every environment's payload in the bundle. That's fine on a server. In a browser or mobile app, it adds size and exposes the dev and staging rules to production users, so load only the matching file instead: ``(await import(`./generated/payload.${config.env}.json`)).default``.
+
+8. Run the same `curl` commands and `generate-types` as part of your CI/CD build, so every deploy ships fresh fallbacks and current types. Never edit the files in `src/generated` by hand.
