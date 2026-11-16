@@ -1,6 +1,10 @@
 import type { GrowthBook } from "../GrowthBook";
 import type { UserScopedGrowthBook } from "../GrowthBookClient";
-import type { InterleavingDefinition } from "../types/growthbook";
+import type {
+  InterleavingDefinition,
+  InterleavingDefinitions,
+} from "../types/growthbook";
+import { reduceInterleavings } from "../core";
 import { genUUID, hasOwn, hash } from "../util";
 import { AnyGrowthBook, isGrowthBookClient } from "./utils/instance";
 
@@ -319,28 +323,37 @@ export async function interleave<T, C extends object = InterleaveConfig>(
   };
 }
 
-function rankersOf(definition: InterleavingDefinition): InterleaveRanker[] {
-  return definition.variations.length === 2
-    ? definition.variations.map((v) => ({ ...v }))
-    : [];
+function rankersOf(
+  definition: InterleavingDefinition | undefined,
+): InterleaveRanker[] {
+  // Same shape check as interleave(), which falls back for any other count
+  const variations = definition?.variations || [];
+  return variations.length === 2 ? variations.map((v) => ({ ...v })) : [];
 }
 
-export function getActiveRankingConfigs(
+// interleave() only drafts when the pseudo flag is in the payload, so a
+// definition that outlived its flag would only ever serve the first ranker
+function activeInterleavings(gb: AnyGrowthBook): InterleavingDefinitions {
+  const payload = gb.getDecryptedPayload();
+  return reduceInterleavings(payload.interleavings || {}, payload.features);
+}
+
+export function getInterleaveRankers<C extends object = InterleaveConfig>(
   gb: AnyGrowthBook,
-): Record<string, InterleaveRanker[]> {
-  const interleavings = gb.getDecryptedPayload().interleavings || {};
+): Record<string, InterleaveRanker<C>[]> {
   // Object.fromEntries keeps a `__proto__` key as a plain key
   return Object.fromEntries(
-    Object.entries(interleavings)
+    Object.entries(activeInterleavings(gb))
       .map(([key, definition]) => [key, rankersOf(definition)] as const)
       .filter(([, rankers]) => rankers.length > 0),
-  );
+  ) as Record<string, InterleaveRanker<C>[]>;
 }
 
-export function getActiveRankingConfigsForKey<
-  C extends object = InterleaveConfig,
->(gb: AnyGrowthBook, key: string): InterleaveRanker<C>[] {
-  const interleavings = gb.getDecryptedPayload().interleavings || {};
+export function getInterleaveRankersForKey<C extends object = InterleaveConfig>(
+  gb: AnyGrowthBook,
+  key: string,
+): InterleaveRanker<C>[] {
+  const interleavings = activeInterleavings(gb);
   return hasOwn(interleavings, key)
     ? (rankersOf(interleavings[key]) as InterleaveRanker<C>[])
     : [];

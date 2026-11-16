@@ -1,5 +1,9 @@
 # Changelog
 
+## **2.1.0** - Unreleased
+
+- Add `getInterleaveRankers()` and `getInterleaveRankersForKey()` to the interleaving plugin, for reading every ranker's config out of the payload — useful for pre-computing rankings in a background job
+
 ## **2.0.0** - Oct 29, 2026
 
 - Add Remote Saved Groups support - a new type of saved group where values are managed in an external data store, rather than in the payload
