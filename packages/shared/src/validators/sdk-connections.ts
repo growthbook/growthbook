@@ -96,7 +96,7 @@ export const apiSdkConnectionValidator = namedSchema(
         .boolean()
         .optional()
         .describe(
-          "An archived connection serves no payload. A connection must be archived before it can be deleted.",
+          "An archived connection serves no payload. When the organization requires approvals for the connection, it must be archived before it can be deleted.",
         ),
     })
     .strict(),
