@@ -7,11 +7,8 @@ import type {
   ProductAnalyticsValue,
   ShowAs,
 } from "../../../validators/product-analytics";
-import {
-  configHasPopulation,
-  getDraftOrSavedMetric,
-  getShowAsChoice,
-} from "./show-as";
+import { configHasPopulation } from "../populations";
+import { getDraftOrSavedMetric, getShowAsChoice } from "./show-as";
 import { getSharedUnit } from "./units";
 
 // ---- showAs inference & applicability ---------------------------------------
@@ -124,6 +121,16 @@ export function isRatioValue(
   );
 }
 
+function isProportionValue(
+  value: ProductAnalyticsValue,
+  getFactMetricById: (id: string) => FactMetricInterface | null,
+): boolean {
+  return (
+    value.type === "metric" &&
+    getDraftOrSavedMetric(value, getFactMetricById)?.metricType === "proportion"
+  );
+}
+
 /** How one dataset value renders. */
 export type ValueRenderOpts = {
   showAs: ShowAs;
@@ -145,7 +152,10 @@ export type ExplorationRenderOpts = {
    * other values use another mode. Empty when the chart has one value axis.
    */
   secondaryAxisValueIndexes: number[];
-  /** The mode every value on the left axis renders in; null when they differ. */
+  /**
+   * The mode every value on the left axis renders in; null when they differ or
+   * none of them names one (ratios, quantiles).
+   */
   primaryAxisShowAs: ShowAs | null;
   /** See `getSharedUnit`. */
   sharedUnit: string | null;
@@ -199,6 +209,13 @@ export function getExplorationRenderOpts(
   let primaryAxisShowAs = sharedShowAs;
   if (hasSecondAxis) {
     primaryAxisShowAs = otherModes.size === 1 ? [...otherModes][0] : null;
+  } else if (
+    !someValueOffersShowAs &&
+    values.every((v) => isProportionValue(v, getFactMetricById))
+  ) {
+    // Proportions offer no choice without a population but still plot a count
+    // of units. Ratios and quantiles don't, so they stay untitled.
+    primaryAxisShowAs = "total";
   }
 
   // Annotate series names when the axis title can't tell readers how the
@@ -401,7 +418,14 @@ export function getExplorationCellValue(
       return v.numerator / v.denominator;
     return null;
   }
-  if (v.numerator == null) return null;
+  if (v.numerator == null) {
+    // With population members that day, no converting units is a real 0%,
+    // which is what the chart draws. Other modes can't tell 0 from no data.
+    const isShareOfMembers =
+      renderOpts.values[col.metricIndex]?.showAs === "percent_of_population" &&
+      !!row.populationCount;
+    if (!isShareOfMembers) return null;
+  }
   return getEffectiveMetricValue(
     v,
     renderOpts.values[col.metricIndex],

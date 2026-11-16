@@ -1,4 +1,5 @@
 import type {
+  ExplorationConfig,
   ExplorationPopulation,
   MetricDataset,
   PopulationInterface,
@@ -10,11 +11,94 @@ import {
   getSinglePopulationStep,
   type PopulationRuleFactTable,
 } from "shared/populations";
+import { isProjectListValidForProject } from "shared/util";
 import type {
   FactMetricInterface,
   FactMetricType,
   StandardFactMetricInterface,
 } from "shared/types/fact-table";
+
+/** Whether a config's metric dataset has a population. */
+export function configHasPopulation(config: ExplorationConfig | null): boolean {
+  if (config?.dataset.type !== "metric") return false;
+  return config.dataset.population !== undefined;
+}
+
+/**
+ * Whether a saved Population can be offered for a metric chart: it's in the
+ * current Project, on the chart's Data Source, reads from the metrics' shared
+ * Fact Table, and supports the chart's identifier type (any, when none is
+ * chosen yet).
+ */
+export function populationFitsMetricChart(
+  candidate: Pick<
+    PopulationInterface,
+    "projects" | "datasource" | "userIdTypes" | "steps"
+  >,
+  chart: {
+    project: string;
+    datasource: string;
+    /** The metrics' shared Fact Table; null when they don't share one. */
+    factTableId: string | null;
+    unit: string | null;
+  },
+): boolean {
+  return (
+    isProjectListValidForProject(candidate.projects, chart.project) &&
+    candidate.datasource === chart.datasource &&
+    getSinglePopulationStep(candidate)?.source.factTableId ===
+      chart.factTableId &&
+    (!chart.unit || candidate.userIdTypes.includes(chart.unit))
+  );
+}
+
+/**
+ * Why a metric chart's Population can't be used, for the editor. Values
+ * without a metric chosen yet are skipped.
+ */
+export function getMetricChartPopulationViolations({
+  population,
+  savedPopulation,
+  values,
+  dimensions,
+  datasource,
+  getFactMetricById,
+  factTables,
+}: {
+  population: ExplorationPopulation;
+  /** Null when the saved Population was deleted or can't be read. */
+  savedPopulation: Pick<
+    PopulationInterface,
+    "datasource" | "userIdTypes" | "steps"
+  > | null;
+  values: MetricDataset["values"];
+  dimensions: ProductAnalyticsDimension[];
+  datasource: string;
+  getFactMetricById: (id: string) => FactMetricInterface | null;
+  factTables: PopulationRuleFactTable[];
+}): string[] {
+  if (!savedPopulation) {
+    return [
+      "This Population was deleted or you don't have access to it. Choose another Population or None.",
+    ];
+  }
+  const chosenValues = values.filter((value) => value.metricId);
+  const metricMap = new Map<string, FactMetricInterface>();
+  for (const value of chosenValues) {
+    const metric = getFactMetricById(value.metricId);
+    if (metric) metricMap.set(metric.id, metric);
+  }
+  const parsed = parseMetricExplorationPopulation({
+    population,
+    savedPopulation,
+    values: chosenValues,
+    dimensions,
+    datasource,
+    metricMap,
+    factTableMap: new Map(factTables.map((table) => [table.id, table])),
+  });
+  return parsed.ok ? [] : parsed.violations;
+}
 
 // Metric types that can be combined with a population. Types not listed here
 // are rejected.

@@ -9,6 +9,7 @@ import type {
   ProductAnalyticsValue,
   ShowAs,
 } from "../../../validators/product-analytics";
+import { configHasPopulation } from "../populations";
 
 /**
  * How a value renders when its metric type offers no Show as options: its raw
@@ -57,12 +58,6 @@ export function getShowAsOptions(
     if (populationOptions) return populationOptions;
   }
   return SHOW_AS_OPTIONS_BY_METRIC_TYPE[metricType] ?? [];
-}
-
-/** Whether a config's metric dataset has a population. */
-export function configHasPopulation(config: ExplorationConfig | null): boolean {
-  if (config?.dataset.type !== "metric") return false;
-  return config.dataset.population !== undefined;
 }
 
 /** How one dataset value renders, and which Show as options it offers. */

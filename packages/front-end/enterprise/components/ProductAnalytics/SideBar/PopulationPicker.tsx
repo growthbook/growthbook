@@ -1,12 +1,12 @@
 import React, { useState } from "react";
 import { omit } from "lodash";
 import { useGrowthBook } from "@growthbook/growthbook-react";
-import type { FactMetricInterface } from "shared/types/fact-table";
 import type { AppFeatures } from "shared/types/app-features";
-import type { ApiPopulation, MetricValue } from "shared/validators";
-import { parseMetricExplorationPopulation } from "shared/enterprise";
-import { isProjectListValidForProject } from "shared/util";
-import { getSinglePopulationStep } from "shared/populations";
+import type { MetricValue } from "shared/validators";
+import {
+  getMetricChartPopulationViolations,
+  populationFitsMetricChart,
+} from "shared/enterprise";
 import Callout from "@/ui/Callout";
 import HelperText from "@/ui/HelperText";
 import Link from "@/ui/Link";
@@ -59,28 +59,17 @@ export default function PopulationPicker({
     values,
     getFactMetricById,
   );
-  const populationCanBeCombined = (candidate: ApiPopulation) => {
-    const isInThisProject = isProjectListValidForProject(
-      candidate.projects,
-      project,
-    );
-    const isOnThisDataSource =
-      candidate.datasource === draftExploreState.datasource;
-    const readsFromMetricsFactTable =
-      getSinglePopulationStep(candidate)?.source.factTableId ===
-      populationFactTableId;
-    const supportsChartUnit = !unit || candidate.userIdTypes.includes(unit);
-    return (
-      isInThisProject &&
-      isOnThisDataSource &&
-      readsFromMetricsFactTable &&
-      supportsChartUnit
-    );
-  };
   const savedPopulation = population
     ? (populations.find((p) => p.id === population.populationId) ?? null)
     : null;
-  const populationOptions = populations.filter(populationCanBeCombined);
+  const populationOptions = populations.filter((candidate) =>
+    populationFitsMetricChart(candidate, {
+      project,
+      datasource: draftExploreState.datasource,
+      factTableId: populationFactTableId,
+      unit,
+    }),
+  );
   // The applied Population stays listed once it no longer fits, so the select
   // still names it; the Callout explains the conflict.
   if (savedPopulation && !populationOptions.includes(savedPopulation)) {
@@ -93,29 +82,15 @@ export default function PopulationPicker({
   const getPopulationViolations = (): string[] => {
     // There's nothing to check until the saved Populations load.
     if (!population || !populationsLoaded) return [];
-    if (!savedPopulation) {
-      return [
-        "This Population was deleted or you don't have access to it. Choose another Population or None.",
-      ];
-    }
-    const metricMap = new Map<string, FactMetricInterface>();
-    const chosenValues: MetricValue[] = [];
-    for (const value of values) {
-      if (!value.metricId) continue;
-      chosenValues.push(value);
-      const metric = getFactMetricById(value.metricId);
-      if (metric) metricMap.set(metric.id, metric);
-    }
-    const parsed = parseMetricExplorationPopulation({
+    return getMetricChartPopulationViolations({
       population,
       savedPopulation,
-      values: chosenValues,
+      values,
       dimensions: draftExploreState.dimensions,
       datasource: draftExploreState.datasource,
-      metricMap,
-      factTableMap: new Map(factTables.map((table) => [table.id, table])),
+      getFactMetricById,
+      factTables,
     });
-    return parsed.ok ? [] : parsed.violations;
   };
 
   const handlePopulationChange = (populationId: string) => {

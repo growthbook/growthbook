@@ -5,6 +5,8 @@ import {
   encodeExplorationConfig,
   decodeExplorationConfigJson,
   parseMetricExplorationPopulation,
+  populationFitsMetricChart,
+  getMetricChartPopulationViolations,
 } from "shared/enterprise";
 import { createLikeStringMatchFn } from "shared/sql";
 import {
@@ -793,5 +795,99 @@ describe("metric explorations without a population", () => {
     // Login-only users (Carol, Gina, Frank) must not count as zero-device
     // purchasers once login rows are in the same scan.
     expect(together["2026-09-01"].values[3]).toEqual([3, 3]);
+  });
+});
+
+describe("populationFitsMetricChart", () => {
+  type Candidate = Parameters<typeof populationFitsMetricChart>[0];
+  type Chart = Parameters<typeof populationFitsMetricChart>[1];
+  const candidate: Candidate = {
+    ...savedPopulationFor(mobileUsers()),
+    projects: [],
+  };
+  const chart: Chart = {
+    project: "",
+    datasource: "ds",
+    factTableId: "events",
+    unit: "user_id",
+  };
+
+  it("offers a Population that matches the chart", () => {
+    expect(populationFitsMetricChart(candidate, chart)).toBe(true);
+  });
+
+  it("offers any identifier type before one is chosen", () => {
+    expect(
+      populationFitsMetricChart(
+        { ...candidate, userIdTypes: ["anonymous_id"] },
+        { ...chart, unit: null },
+      ),
+    ).toBe(true);
+  });
+
+  it.each<[string, Partial<Candidate>, Partial<Chart>]>([
+    ["in another Project", { projects: ["other"] }, { project: "current" }],
+    ["on another Data Source", { datasource: "other" }, {}],
+    ["on another Fact Table", {}, { factTableId: "other" }],
+    ["when the metrics share no Fact Table", {}, { factTableId: null }],
+    ["without the chart's identifier type", {}, { unit: "anonymous_id" }],
+    [
+      "with more than one step",
+      { steps: [...candidate.steps, ...candidate.steps] },
+      {},
+    ],
+  ])("skips a Population %s", (_, candidateChanges, chartChanges) => {
+    expect(
+      populationFitsMetricChart(
+        { ...candidate, ...candidateChanges },
+        { ...chart, ...chartChanges },
+      ),
+    ).toBe(false);
+  });
+});
+
+describe("getMetricChartPopulationViolations", () => {
+  const config = explore({ metrics: [purchasers], population: mobileUsers() });
+  const check = (
+    overrides: Partial<
+      Parameters<typeof getMetricChartPopulationViolations>[0]
+    > = {},
+  ) =>
+    getMetricChartPopulationViolations({
+      population: { populationId: POPULATION_ID, unit: "user_id" },
+      savedPopulation: savedPopulationFor(mobileUsers()),
+      values: config.dataset.values,
+      dimensions: config.dimensions,
+      datasource: config.datasource,
+      getFactMetricById: (id) => ALL_METRICS.find((m) => m.id === id) ?? null,
+      factTables: [table],
+      ...overrides,
+    });
+
+  it("is empty when the Population fits", () => {
+    expect(check()).toEqual([]);
+  });
+
+  it("explains a deleted or unreadable Population", () => {
+    expect(check({ savedPopulation: null })).toEqual([
+      "This Population was deleted or you don't have access to it. Choose another Population or None.",
+    ]);
+  });
+
+  it("skips values without a metric chosen yet", () => {
+    expect(
+      check({
+        values: [
+          ...config.dataset.values,
+          { ...config.dataset.values[0], metricId: "" },
+        ],
+      }),
+    ).toEqual([]);
+  });
+
+  it("reports a metric that can't be resolved", () => {
+    expect(check({ getFactMetricById: () => null })).toEqual([
+      "Metric purchasers not found.",
+    ]);
   });
 });
