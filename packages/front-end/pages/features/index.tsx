@@ -309,8 +309,18 @@ export default function FeaturesPage() {
       allFeatures.length > 0 && (
         <Box>
           <Box mb="2">
-            <Flex justify="between" mb="3" gap="3" align="center">
-              <Flex align="center" gap="1" width="40%">
+            <Flex
+              justify="between"
+              mb="3"
+              gap="3"
+              align="center"
+              wrap={{ initial: "wrap", md: "nowrap" }}
+            >
+              <Flex
+                align="center"
+                gap="1"
+                width={{ initial: "100%", md: "40%" }}
+              >
                 <Box flexGrow="1" style={{ position: "relative" }}>
                   <Field
                     size="legacy"

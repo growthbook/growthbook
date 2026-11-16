@@ -462,7 +462,7 @@ export default function FeaturesHeader({
     <>
       <Box className="features-header contents container-fluid pagecontents pb-0">
         <Box>
-          <Flex align="start" justify="between" gap="2">
+          <Flex align="start" justify="between" gap="2" wrap="wrap">
             <Flex align="center" mb="2" gap="3" style={{ marginTop: "-4px" }}>
               <Heading size="xl" as="h1" overflowWrap="anywhere" mb="0">
                 {feature.id}
@@ -481,7 +481,7 @@ export default function FeaturesHeader({
             <div ref={headerSlotRef} />
             {portalHost && createPortal(revisionAndSettingsGroup, portalHost)}
           </Flex>
-          <Flex gap="4" align="center">
+          <Flex gap="4" align="center" wrap="wrap">
             {holdout?.id && (
               <Box>
                 <Text weight="medium">Holdout: </Text>
