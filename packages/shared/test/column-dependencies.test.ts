@@ -114,7 +114,7 @@ describe("populationReferencesColumn", () => {
     ],
   });
   const references = (p: ReturnType<typeof population>, column: string) =>
-    populationReferencesColumn(p, "ft1", column, '"', filters);
+    populationReferencesColumn(p, { id: "ft1" }, column, '"', filters);
 
   it.each<[string, ReturnType<typeof population>, string]>([
     ["an identifier type", population(), "user_id"],
@@ -147,7 +147,32 @@ describe("populationReferencesColumn", () => {
 
   it("ignores a Population on another fact table", () => {
     expect(
-      populationReferencesColumn(population(), "ft2", "user_id", '"', filters),
+      populationReferencesColumn(
+        population(),
+        { id: "ft2" },
+        "user_id",
+        '"',
+        filters,
+      ),
     ).toBe(false);
+  });
+
+  describe("with an identifier type mapped to another column", () => {
+    const mapped = (column: string) =>
+      populationReferencesColumn(
+        population(),
+        { id: "ft1", userIdColumns: { user_id: "customer.id" } },
+        column,
+        '"',
+        filters,
+      );
+
+    it("detects the mapped column", () => {
+      expect(mapped("customer")).toBe(true);
+    });
+
+    it("ignores a column named like the identifier type", () => {
+      expect(mapped("user_id")).toBe(false);
+    });
   });
 });

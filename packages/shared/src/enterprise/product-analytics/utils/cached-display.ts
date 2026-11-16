@@ -31,6 +31,28 @@ function withRequestedValues<C extends ExplorationConfig>(
   };
 }
 
+// The cache is keyed on a Population's definition, so a hit can come from
+// another saved Population with the same rules. Keep the requested one, or
+// saving the returned config would switch the chart to the other Population.
+function withRequestedPopulation<C extends ExplorationConfig>(
+  cached: C,
+  requested: ExplorationConfig,
+): C {
+  const { dataset } = cached;
+  const requestedDataset = requested.dataset;
+  if (
+    dataset.type !== "metric" ||
+    requestedDataset.type !== "metric" ||
+    !requestedDataset.population
+  ) {
+    return cached;
+  }
+  return {
+    ...cached,
+    dataset: { ...dataset, population: requestedDataset.population },
+  };
+}
+
 /**
  * Cache lookup keys off query-defining fields (see
  * AnalyticsExplorationModel.getConfigHashes) and can reuse compatible date
@@ -68,7 +90,13 @@ export function withRequestedDisplayConfig(
     dateRange: requested.dateRange,
   };
   if (config.type !== "journey" || requested.type !== "journey") {
-    return { ...exploration, config: withRequestedValues(config, requested) };
+    return {
+      ...exploration,
+      config: withRequestedPopulation(
+        withRequestedValues(config, requested),
+        requested,
+      ),
+    };
   }
   const rows = projectJourneyRows({
     cachedDataset: config.dataset,

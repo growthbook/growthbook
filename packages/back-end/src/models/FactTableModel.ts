@@ -950,7 +950,7 @@ export async function deleteColumn(
   const allDependentPopulations = allPopulations.filter((population) =>
     populationReferencesColumn(
       population,
-      factTable.id,
+      factTable,
       columnName,
       identifierQuote,
       factTable.filters,

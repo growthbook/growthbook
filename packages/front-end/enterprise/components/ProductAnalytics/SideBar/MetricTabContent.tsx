@@ -333,7 +333,8 @@ export default function MetricTabContent() {
           </Flex>
         </Button>
       </Tooltip>
-      {unitPicker && (
+      {/* An applied Population stays clearable with no metric selected. */}
+      {(unitPicker || hasPopulation) && (
         <Flex
           direction="column"
           gap="2"
@@ -344,23 +345,25 @@ export default function MetricTabContent() {
             backgroundColor: "var(--color-panel-translucent)",
           }}
         >
-          <PopulationPicker unit={unitPicker.value} />
-          <Select
-            label="Identifier type"
-            labelWeight="medium"
-            value={unitPicker.value ?? undefined}
-            placeholder={unitPicker.placeholder}
-            disabled={unitPicker.disabledReason !== null}
-            error={unitPicker.disabledReason ?? undefined}
-            errorLevel="warning"
-            setValue={handleUnitChange}
-          >
-            {unitPicker.options.map((unit) => (
-              <SelectItem key={unit} value={unit}>
-                {unit}
-              </SelectItem>
-            ))}
-          </Select>
+          <PopulationPicker unit={unitPicker?.value ?? null} />
+          {unitPicker && (
+            <Select
+              label="Identifier type"
+              labelWeight="medium"
+              value={unitPicker.value ?? undefined}
+              placeholder={unitPicker.placeholder}
+              disabled={unitPicker.disabledReason !== null}
+              error={unitPicker.disabledReason ?? undefined}
+              errorLevel="warning"
+              setValue={handleUnitChange}
+            >
+              {unitPicker.options.map((unit) => (
+                <SelectItem key={unit} value={unit}>
+                  {unit}
+                </SelectItem>
+              ))}
+            </Select>
+          )}
         </Flex>
       )}
     </Flex>

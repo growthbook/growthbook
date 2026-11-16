@@ -169,16 +169,18 @@ export default function PopulationPicker({
             : (population?.populationId ?? NO_POPULATION)
         }
         placeholder="Loading..."
-        // Without a list, None stays selectable while a Population is applied,
-        // so the chart is never stuck filtered by one.
+        // Without a list or an identifier type, None stays selectable while a
+        // Population is applied, so the chart is never stuck filtered by one.
         disabled={
-          !unit ||
+          (!unit && !hasPopulation) ||
           populationsLoading ||
           (!hasPopulationList && !hasPopulation) ||
           noPopulationsFit
         }
         error={
-          unit ? undefined : "Select an identifier type to add a Population."
+          unit || hasPopulation
+            ? undefined
+            : "Select an identifier type to add a Population."
         }
         errorLevel="warning"
         setValue={handlePopulationChange}

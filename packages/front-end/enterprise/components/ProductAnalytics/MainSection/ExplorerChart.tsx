@@ -12,7 +12,9 @@ import { isManagedWarehousePendingQueryError } from "shared/util";
 import { parseWarehouseDate } from "shared/dates";
 import {
   calculateProductAnalyticsDateRange,
+  configHasPopulation,
   createComparisonAlignmentResolver,
+  densifyComparisonExplorationTimeseries,
   extendDateBucketsForward,
   getComparisonAlignmentStrategy,
   getDateGranularity,
@@ -41,6 +43,7 @@ import {
   buildAlignedComparisonOverlayForExplorer,
   buildComparisonOverlaySeriesMaps,
   buildPopulationFractionLabels,
+  getPopulationSeriesNames,
   assignSecondaryValueAxis,
   buildValueAxes,
   buildExplorerChartComparisonSeriesList,
@@ -290,7 +293,16 @@ export default function ExplorerChart({
       submittedExploreState.dataset?.type === "journey"
     )
       return null;
-    const rows = exploration.result.rows;
+    // A day with no Population members has no row. Fill in every day of the
+    // range so the "% of Population" line breaks there instead of joining
+    // across it.
+    const rows = configHasPopulation(submittedExploreState)
+      ? (densifyComparisonExplorationTimeseries({
+          comparison: exploration,
+          submittedConfig: submittedExploreState,
+          previousTimeFrame: submittedExploreState.dateRange,
+        })?.result?.rows ?? exploration.result.rows)
+      : exploration.result.rows;
 
     // Resolve date granularity for tooltip formatting
     const dateDimension = submittedExploreState.dimensions?.find(
@@ -737,6 +749,10 @@ export default function ExplorerChart({
             : undefined,
         },
       ),
+      populationSeriesNames: getPopulationSeriesNames(
+        renderOpts,
+        comparisonPeriodLabels,
+      ),
     });
 
     return {
@@ -802,7 +818,7 @@ export default function ExplorerChart({
       series: seriesConfigs,
     };
   }, [
-    exploration?.result?.rows,
+    exploration,
     comparisonExploration?.result?.rows,
     compareEnabled,
     submittedExploreState,

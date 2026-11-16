@@ -551,6 +551,28 @@ export function buildPopulationFractionLabels(
   return labels;
 }
 
+// In compare mode, each period's series is named with its period.
+export function getPopulationSeriesNames(
+  renderOpts: RenderOpts,
+  periodLabels: { currentLabel: string; previousLabel: string } | null,
+): Set<string> {
+  const names = new Set<string>();
+  for (const opts of renderOpts.values) {
+    if (opts.showAs !== "percent_of_population") continue;
+    if (!periodLabels) {
+      names.add(opts.seriesName);
+      continue;
+    }
+    names.add(
+      formatComparisonMetricLabel(opts.seriesName, periodLabels.currentLabel),
+    );
+    names.add(
+      formatComparisonMetricLabel(opts.seriesName, periodLabels.previousLabel),
+    );
+  }
+  return names;
+}
+
 /** The fraction label for a hovered point, or null when it has none. */
 export function getPopulationFractionLabel(
   labels: Map<string, string>,
@@ -1197,6 +1219,12 @@ function compareTooltipMarker(
   } ${c};border-radius:2px;margin-right:8px;vertical-align:middle"></span>`;
 }
 
+// A "% of Population" value's fraction, muted like the fraction in experiment
+// results.
+function populationFractionHtml(fraction: string): string {
+  return `<span style="font-size:11px;font-style:italic;opacity:0.6;margin-right:6px">${escapeHtmlForProductAnalyticsTooltip(fraction)}</span>`;
+}
+
 function buildGroupedCompareTooltipRows(
   formatNumber: (value: number) => string,
   items: Array<{
@@ -1207,6 +1235,7 @@ function buildGroupedCompareTooltipRows(
   }>,
   comparisonPeriodLabels: { currentLabel: string; previousLabel: string },
   markerStyle: CompareTooltipMarkerStyle,
+  fractionFor: (seriesName: string) => string | null,
 ): string {
   const groupKey = (seriesName: string) => {
     const { baseName } = parseComparisonTooltipSeriesName(
@@ -1221,9 +1250,10 @@ function buildGroupedCompareTooltipRows(
   const fmtVal = (item: (typeof items)[0]) => {
     const numValue = Array.isArray(item.value) ? item.value[1] : item.value;
     if (numValue === null || numValue === undefined) return "No data";
-    return typeof numValue === "number"
-      ? formatNumber(numValue)
-      : String(numValue);
+    const formatted =
+      typeof numValue === "number" ? formatNumber(numValue) : String(numValue);
+    const fraction = fractionFor(item.seriesName);
+    return fraction ? populationFractionHtml(fraction) + formatted : formatted;
   };
 
   // Stacked "Current" / "Previous" row: swatch + label on the left, value
@@ -1320,6 +1350,8 @@ type BuildExplorerChartTooltipFormatterArgs = {
   comparisonAlignment?: ComparisonAlignmentStrategy;
   /** See `buildPopulationFractionLabels`; shown before each value. */
   populationFractionLabels?: Map<string, string>;
+  /** "% of Population" series, whose empty points read "No data". */
+  populationSeriesNames?: Set<string>;
 };
 
 export function buildExplorerChartTooltipFormatter({
@@ -1335,14 +1367,21 @@ export function buildExplorerChartTooltipFormatter({
   formatNumber,
   comparisonAlignment,
   populationFractionLabels = new Map(),
+  populationSeriesNames = new Set(),
 }: BuildExplorerChartTooltipFormatterArgs):
   | ((params: unknown) => string)
   | undefined {
   const useDateGranularityTooltip =
     Boolean(resolvedGranularity) && !compositeCategoryAxisTooltip;
 
+  // Most empty points are the blank slots sparse bars are laid out with. A
+  // "% of Population" one is a bucket with no members, so it's shown.
+  const isShownItem = (item: Omit<TooltipAxisItem, "dataIndex">) =>
+    tooltipItemNumericValue(item) !== null ||
+    populationSeriesNames.has(item.seriesName);
+
   // The value cell's HTML. A "% of Population" value is preceded by its
-  // fraction, muted like the fraction in experiment results.
+  // fraction.
   const formatItemValueHtml = (item: Omit<TooltipAxisItem, "dataIndex">) => {
     const numValue = tooltipItemNumericValue(item);
     const formatted = numValue !== null ? formatNumber(numValue) : "No data";
@@ -1354,9 +1393,7 @@ export function buildExplorerChartTooltipFormatter({
       item.seriesName,
       item.axisValue,
     );
-    if (!fraction) return valueHtml;
-    const fractionHtml = `<span style="font-size:11px;font-style:italic;opacity:0.6;margin-right:6px">${escapeHtmlForProductAnalyticsTooltip(fraction)}</span>`;
-    return fractionHtml + valueHtml;
+    return fraction ? populationFractionHtml(fraction) + valueHtml : valueHtml;
   };
 
   if (useDateGranularityTooltip && resolvedGranularity) {
@@ -1371,9 +1408,7 @@ export function buildExplorerChartTooltipFormatter({
         itemsRaw,
         comparisonPeriodLabels,
       );
-      const items = itemsSorted.filter(
-        (item) => tooltipItemNumericValue(item) !== null,
-      );
+      const items = itemsSorted.filter(isShownItem);
       if (!items.length) return "";
 
       const rawAxisValue = items[0].axisValue;
@@ -1450,6 +1485,12 @@ export function buildExplorerChartTooltipFormatter({
               items,
               comparisonPeriodLabels,
               isBar ? "bar" : "line",
+              (seriesName) =>
+                getPopulationFractionLabel(
+                  populationFractionLabels,
+                  seriesName,
+                  rawAxisValue,
+                ),
             )
           : items
               .map((item) => {
@@ -1474,9 +1515,20 @@ export function buildExplorerChartTooltipFormatter({
         itemsRaw,
         comparisonPeriodLabels,
       );
-      const items = itemsSorted.filter(
-        (item) => tooltipItemNumericValue(item) !== null,
-      );
+      const items = itemsSorted.filter((item) => {
+        if (!isShownItem(item)) return false;
+        if (tooltipItemNumericValue(item) !== null) return true;
+        if (!compositeCategoryAxisTooltip || !comparisonPeriodLabels) {
+          return true;
+        }
+        // A sparse bar's slot holds one metric; the other metrics' empty
+        // points only lay it out.
+        const { baseName } = parseComparisonTooltipSeriesName(
+          item.seriesName,
+          comparisonPeriodLabels,
+        );
+        return String(item.axisValue).endsWith(` — ${baseName}`);
+      });
       if (!items.length) return "";
 
       const rawAxisValue = items[0].axisValue;
@@ -1502,11 +1554,19 @@ export function buildExplorerChartTooltipFormatter({
             header = header.slice(0, -suffix.length);
           }
         }
+        // Fractions are keyed by the bar's category, without the metric.
+        const fractionX = compositeCategoryAxisTooltip ? header : rawAxisValue;
         const seriesRows = buildGroupedCompareTooltipRows(
           formatNumber,
           items,
           comparisonPeriodLabels,
           isExplorerBarChartType(chartType) ? "bar" : "line",
+          (seriesName) =>
+            getPopulationFractionLabel(
+              populationFractionLabels,
+              seriesName,
+              fractionX,
+            ),
         );
         const headerHtml =
           `<div style="font-weight:600">${escapeHtmlForProductAnalyticsTooltip(

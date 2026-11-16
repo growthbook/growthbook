@@ -481,6 +481,29 @@ describe("withRequestedDisplayConfig", () => {
       ],
     });
   });
+
+  it("keeps the requested Population when another one's rules match", () => {
+    const withPopulation = (populationId: string): ExplorationConfig => {
+      const config = metricConfig([metricValue("converted")]);
+      return {
+        ...config,
+        dataset: {
+          type: "metric",
+          values: [metricValue("converted")],
+          population: { populationId, unit: "user_id" },
+        },
+      };
+    };
+    const cached = {
+      config: withPopulation("pop_a"),
+      result: { rows: [] },
+    } as unknown as ProductAnalyticsExploration;
+    const served = withRequestedDisplayConfig(cached, withPopulation("pop_b"));
+    expect(
+      served.config.dataset.type === "metric" &&
+        served.config.dataset.population,
+    ).toEqual({ populationId: "pop_b", unit: "user_id" });
+  });
 });
 
 describe("seriesName", () => {

@@ -9,6 +9,7 @@ import {
   buildExplorerChartTooltipFormatter,
   buildPopulationFractionLabels,
   getPopulationFractionLabel,
+  getPopulationSeriesNames,
   computeBigNumberComparisonTrendForMetricIndex,
   buildCompareChartLegendModel,
   computeBigNumberComparisonTrends,
@@ -580,6 +581,50 @@ describe("population fraction tooltip labels", () => {
       expect(
         getPopulationFractionLabel(compareLabels, currentName, septFirstMs),
       ).toBe("1 / 100");
+    });
+
+    it("shows fractions, and No data for an empty period, in the tooltip", () => {
+      const formatter = buildExplorerChartTooltipFormatter({
+        chartType: "line",
+        resolvedGranularity: "day",
+        firstDimensionIsDate: true,
+        comparisonPeriodLabels: periodLabels,
+        showLineAreaCompareTooltipDates: true,
+        alignedComparisonOverlay: { comparisonXValues: ["2026-08-25"] },
+        sortedXValues: ["2026-09-01"],
+        seriesConfigsLength: 2,
+        formatNumber: (value) => String(value),
+        populationFractionLabels: compareLabels,
+        populationSeriesNames: getPopulationSeriesNames(
+          renderOpts,
+          periodLabels,
+        ),
+      });
+      const html = formatter?.([
+        {
+          axisValue: septFirstMs,
+          marker: "",
+          seriesName: currentName,
+          value: [septFirstMs, 1],
+        },
+        {
+          axisValue: septFirstMs,
+          marker: "",
+          seriesName: previousName,
+          value: null,
+        },
+        {
+          axisValue: septFirstMs,
+          marker: "",
+          seriesName: "Logins (Aug 25 – 31, 2026)",
+          value: null,
+        },
+      ]);
+      expect(html).toContain(">1 / 100</span>1<");
+      expect(html).toContain("Previous");
+      expect(html).toContain("No data");
+      // An empty count series is a layout gap, not a Population bucket.
+      expect(html).not.toContain("Logins");
     });
   });
 

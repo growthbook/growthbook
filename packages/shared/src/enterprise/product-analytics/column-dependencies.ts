@@ -86,28 +86,26 @@ function dimensionReferencesColumn(
 }
 
 /**
- * Whether an exploration/dashboard-block config references `columnName` on the
- * fact table `factTableId`. Used to block deletion of a virtual column that a
- * saved exploration or dashboard block still depends on — those surfaces
- * persist `valueColumn`, dimension, and row-filter references (including
- * `saved_filter` references, resolved against `filters`) that resolve through
- * the same query-time chokepoint as metrics.
- */
-/**
  * Whether a saved Population reads `columnName` on this fact table: as an
- * identifier type, an aggregate filter column, or in a step's row filters.
+ * identifier type's column, an aggregate filter column, or in a step's row
+ * filters.
  */
 export function populationReferencesColumn(
   population: Pick<PopulationInterface, "steps" | "userIdTypes">,
-  factTableId: string,
+  factTable: { id: string; userIdColumns?: Record<string, string> },
   columnName: string,
   identifierQuote: SqlIdentifierQuote,
   filters: SavedFilter[],
 ): boolean {
+  // An identifier type reads the column it's mapped to, or the column of its
+  // own name when it isn't mapped.
+  const identifierColumns = population.userIdTypes.map(
+    (idType) => (factTable.userIdColumns?.[idType] ?? idType).split(".")[0],
+  );
   return population.steps.some(
     (step) =>
-      step.source.factTableId === factTableId &&
-      (population.userIdTypes.includes(columnName) ||
+      step.source.factTableId === factTable.id &&
+      (identifierColumns.includes(columnName) ||
         step.aggregateFilterColumn === columnName ||
         step.rowFilters.some((f) =>
           rowFilterReferencesColumn(f, columnName, identifierQuote, filters),
@@ -115,6 +113,14 @@ export function populationReferencesColumn(
   );
 }
 
+/**
+ * Whether an exploration/dashboard-block config references `columnName` on the
+ * fact table `factTableId`. Used to block deletion of a virtual column that a
+ * saved exploration or dashboard block still depends on — those surfaces
+ * persist `valueColumn`, dimension, and row-filter references (including
+ * `saved_filter` references, resolved against `filters`) that resolve through
+ * the same query-time chokepoint as metrics.
+ */
 export function explorationConfigReferencesColumn(
   config: ExplorationConfig,
   factTableId: string,
