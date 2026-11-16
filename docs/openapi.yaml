@@ -75322,9 +75322,6 @@ components:
               - projects
             additionalProperties: false
         featureUsageQueries:
-          description: >-
-            Queries Feature Diagnostics reads flag evaluations from. Diagnostics
-            uses the first one, or the managed one if there is one.
           type: array
           items:
             type: object
@@ -75337,10 +75334,10 @@ components:
               sql:
                 type: string
               identifierTypes:
-                description: Identifier types the query returns a column for
                 type: array
                 items:
                   type: string
+                description: Identifier types the query returns a column for
               columnMapping:
                 description: >-
                   The column `sql` returns for each role, where it isn't the
@@ -75379,10 +75376,10 @@ components:
                       type: string
                 additionalProperties: false
               managed:
+                type: boolean
                 description: >-
                   Generated and kept up to date by GrowthBook, for example by
                   the Event Forwarder
-                type: boolean
               error:
                 type: string
             required:
@@ -75392,6 +75389,9 @@ components:
               - identifierTypes
               - managed
             additionalProperties: false
+          description: >-
+            Queries Feature Diagnostics reads flag evaluations from. Diagnostics
+            uses the first one, or the managed one if there is one.
         identifierJoinQueries:
           type: array
           items:

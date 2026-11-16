@@ -328,10 +328,15 @@ export function buildEventForwarderFeatureUsageQuerySql({
   pairs?: EventForwarderUserIdTypePair[];
   attributeSchema?: SDKAttributeSchema;
 }): string {
+  // Snowflake reads an unquoted alias in any case, so only a name it can't
+  // read unquoted, like "user-id", is quoted
   const quoteAlias =
     sinkType === "bigquery" || sinkType === "databricks"
       ? quoteBigQueryIdentifier
-      : (alias: string) => alias;
+      : (alias: string) =>
+          /^[A-Za-z_][A-Za-z0-9_]*$/.test(alias)
+            ? alias
+            : `"${alias.replace(/"/g, '""')}"`;
   // Like the assignment queries: each identifier is read from `attributes`
   const identifierCols = pairs
     .map(

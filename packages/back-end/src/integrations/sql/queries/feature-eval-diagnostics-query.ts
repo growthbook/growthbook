@@ -3,7 +3,9 @@ import { format } from "shared/sql";
 import {
   getActiveFeatureUsageQuery,
   getFeatureUsageFeatureKeyColumn,
+  getFeatureUsageIdentifierColumn,
   getFeatureUsageTimestampColumn,
+  splitFeatureUsageJsonField,
 } from "shared/util";
 import type {
   DataSourceInterface,
@@ -59,10 +61,27 @@ export function getFeatureEvalDiagnosticsQuery(
   );
 }
 
+/** Reads one field of a JSON value a warehouse returned as text or as an object. */
+function readJsonField(value: unknown, field: string): unknown {
+  let parsed = value;
+  if (typeof value === "string") {
+    try {
+      parsed = JSON.parse(value);
+    } catch {
+      return null;
+    }
+  }
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+    return null;
+  }
+  return Object.entries(parsed).find(([key]) => key === field)?.[1] ?? null;
+}
+
 /**
  * Adds `timestamp` and `feature_key` to each row from the mapped columns, since
- * the Diagnostics page reads those names. Renaming them in the SQL instead would
- * clash with a result column that already has the standard name.
+ * the Diagnostics page reads those names, and one column per identifier type
+ * that is mapped to a field inside a JSON column. Doing this in the SQL instead
+ * would clash with a result column that already has the same name.
  */
 export function shapeFeatureEvalDiagnosticsRows(
   rows: QueryResponse["rows"],
@@ -74,6 +93,14 @@ export function shapeFeatureEvalDiagnosticsRows(
   const featureKeyColumn = featureUsageQuery
     ? getFeatureUsageFeatureKeyColumn(featureUsageQuery)
     : "feature_key";
+  const jsonIdentifiers = featureUsageQuery
+    ? (featureUsageQuery.userIdTypes ?? []).flatMap((type) => {
+        const parts = splitFeatureUsageJsonField(
+          getFeatureUsageIdentifierColumn(featureUsageQuery, type),
+        );
+        return parts ? [{ type, ...parts }] : [];
+      })
+    : [];
   // Some warehouses change the case of returned names; Snowflake lowercases them
   const read = (row: QueryResponse["rows"][number], column: string) =>
     column in row
@@ -85,6 +112,12 @@ export function shapeFeatureEvalDiagnosticsRows(
         ];
   return rows.map((row) => ({
     ...row,
+    ...Object.fromEntries(
+      jsonIdentifiers.map(({ type, root, field }) => [
+        type,
+        readJsonField(read(row, root), field),
+      ]),
+    ),
     timestamp: read(row, timestampColumn),
     feature_key: read(row, featureKeyColumn),
   }));

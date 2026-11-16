@@ -57,7 +57,7 @@ export default function ColumnMappingSection({
         ) : null}
       </Flex>
       {!columnsDetected ? (
-        <Callout status="info" mb="2">
+        <Callout status="info" size="sm" mb="2">
           Only the columns this query already uses are listed.
           {canRunQueries
             ? " Refresh columns to see everything it returns."
@@ -65,12 +65,12 @@ export default function ColumnMappingSection({
         </Callout>
       ) : null}
       {source.refreshSqlError ? (
-        <Callout status="error" mb="2">
+        <Callout status="error" size="sm" mb="2">
           {source.refreshSqlError}
         </Callout>
       ) : null}
       {missingColumns.length > 0 ? (
-        <Callout status="warning" mb="2">
+        <Callout status="warning" size="sm" mb="2">
           {`Your query no longer returns ${missingColumns
             .map(({ column, role }) => `"${column}" (${role})`)
             .join(", ")}. Select a new column for each.`}

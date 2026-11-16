@@ -629,7 +629,7 @@ export const ExperimentAssignmentQueryModal = ({
                     </Callout>
                   ) : null}
                   {removedIdentifierTypes.length > 0 ? (
-                    <Callout status="warning">
+                    <Callout status="warning" size="sm">
                       {`Experiments analyzed on ${removedIdentifierTypes
                         .map((idType) => `"${idType}"`)
                         .join(

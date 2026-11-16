@@ -592,6 +592,27 @@ describe("feature usage query identifier columns", () => {
     expect(sql).toMatch(/ AS user_id\nFROM MY_DB\.PUBLIC\.FEATURE_USAGE/);
   });
 
+  it("quotes an identifier alias Snowflake can't read unquoted", () => {
+    const sql = buildEventForwarderFeatureUsageQuerySql({
+      sinkType: "snowflake",
+      tableRef: "MY_DB.PUBLIC.FEATURE_USAGE",
+      pairs: [
+        {
+          attribute: "user-id",
+          userIdType: { userIdType: "user-id", managedBy: "api" as const },
+        },
+      ],
+      attributeSchema: [
+        {
+          property: "user-id",
+          datatype: "string" as const,
+          hashAttribute: true,
+        },
+      ],
+    });
+    expect(sql).toMatch(/ AS "user-id"\nFROM MY_DB\.PUBLIC\.FEATURE_USAGE/);
+  });
+
   it("declares the identifier types on the managed query", () => {
     expect(
       buildEventForwarderFeatureUsageQuery(params, pairs, attributeSchema)

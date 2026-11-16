@@ -174,6 +174,14 @@ function getFeatureUsageColumnMappingError(
 const getRoleOptions = (key: OptionalRole, columns: DetectedColumn[]) =>
   key === "attributes" ? columns.filter(canHoldJson) : columns;
 
+/** The first column mapped to more than one role, if any. */
+function findDuplicateColumn(columns: unknown[]) {
+  const mapped = columns.filter(
+    (c): c is string => typeof c === "string" && !!c,
+  );
+  return mapped.find((c, i) => mapped.indexOf(c) !== i);
+}
+
 // The column each standard column and identifier type reads from
 function getSavedRoleColumns(query: FeatureUsageQuery): Record<string, string> {
   const mapping = query.columnMapping ?? {};
@@ -418,20 +426,6 @@ export const FeatureEvaluationQueryModal = ({
     (t) => isValidIdentifier(userIdColumns[t] || "") && !identifierErrors[t],
   );
 
-  // A new query on GrowthBook's standard table has nothing left to map, as
-  // long as every identifier type found its column too
-  const isStandardTable =
-    !featureUsageQuery &&
-    mode === "table" &&
-    !!selectedTable &&
-    !!detected &&
-    isStandardFeatureUsageTable({
-      timestamp: timestampColumn,
-      feature_key: featureKeyColumn,
-      ...optionalColumns,
-    }) &&
-    identifierTypes.every((t) => mappedUserIdTypes.includes(t));
-
   const identifierTypesCallout = identifierTypes.length ? null : (
     <Callout
       status="warning"
@@ -464,6 +458,28 @@ export const FeatureEvaluationQueryModal = ({
     { columnMapping: mappingForChecks },
     getDataSourceSqlDialect(dataSource.type)?.unquotedIdentifierFold,
   );
+
+  // A new query on GrowthBook's standard table has nothing left to map, as
+  // long as every identifier type found its column and the automatic mapping
+  // would save as it is
+  const isStandardTable =
+    !featureUsageQuery &&
+    mode === "table" &&
+    !!selectedTable &&
+    !!detected &&
+    isStandardFeatureUsageTable({
+      timestamp: timestampColumn,
+      feature_key: featureKeyColumn,
+      ...optionalColumns,
+    }) &&
+    identifierTypes.every((t) => mappedUserIdTypes.includes(t)) &&
+    !columnsNeedingQuotes.length &&
+    !findDuplicateColumn([
+      timestampColumn,
+      featureKeyColumn,
+      ...Object.values(optionalColumns),
+      ...mappedUserIdTypes.map((t) => userIdColumns[t]),
+    ]);
 
   const missingColumns = featureUsageQuery
     ? [
@@ -512,7 +528,7 @@ export const FeatureEvaluationQueryModal = ({
       ...Object.values(optional),
       ...mappedUserIdTypes.map((t) => userIdColumns[t]),
     ];
-    const duplicate = mapped.find((c, i) => mapped.indexOf(c) !== i);
+    const duplicate = findDuplicateColumn(mapped);
     if (duplicate) {
       throw new Error(
         `Column "${duplicate}" is mapped more than once. Map each column to one role.`,

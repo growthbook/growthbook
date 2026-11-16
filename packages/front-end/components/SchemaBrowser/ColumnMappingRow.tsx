@@ -19,7 +19,13 @@ import HelperText from "@/ui/HelperText";
 import Link from "@/ui/Link";
 import TextField from "@/ui/TextField";
 import Tooltip from "@/ui/Tooltip";
-import { Select, SelectItem } from "@/ui/Select";
+import {
+  Select,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectSeparator,
+} from "@/ui/Select";
 import { TableCell, TableRow } from "@/ui/Table";
 import Text from "@/ui/Text";
 
@@ -115,6 +121,15 @@ export default function ColumnMappingRow({
   const selected = validColumn(options, value);
   // A saved value that isn't an option was typed in
   const custom = !!customValue && (typing || (!!value && !selected));
+  // A dotted option is a field inside a JSON column; those are listed apart so
+  // the real columns stay easy to find
+  const fieldOptions = options.filter((c) => c.column.includes("."));
+  const columnOptions = options.filter((c) => !c.column.includes("."));
+  const renderOption = (c: DetectedColumn) => (
+    <SelectItem key={c.column} value={c.column}>
+      {c.column}
+    </SelectItem>
+  );
 
   return (
     <TableRow align="center">
@@ -169,15 +184,27 @@ export default function ColumnMappingRow({
                     }}
                     placeholder="Select a column..."
                   >
-                    {options.map((c) => (
-                      <SelectItem key={c.column} value={c.column}>
-                        {c.column}
-                      </SelectItem>
-                    ))}
+                    {fieldOptions.length ? (
+                      <>
+                        <SelectGroup>
+                          <SelectLabel>Columns</SelectLabel>
+                          {columnOptions.map(renderOption)}
+                        </SelectGroup>
+                        <SelectGroup>
+                          <SelectLabel>JSON fields</SelectLabel>
+                          {fieldOptions.map(renderOption)}
+                        </SelectGroup>
+                      </>
+                    ) : (
+                      options.map(renderOption)
+                    )}
                     {customValue ? (
-                      <SelectItem value={CUSTOM_VALUE}>
-                        {customValue.label}
-                      </SelectItem>
+                      <>
+                        <SelectSeparator />
+                        <SelectItem value={CUSTOM_VALUE}>
+                          {customValue.label}
+                        </SelectItem>
+                      </>
                     ) : null}
                   </Select>
                 )}

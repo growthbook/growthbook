@@ -2035,6 +2035,43 @@ describe("getFeatureEvalDiagnosticsQuery column mapping", () => {
     expect(shapeFeatureEvalDiagnosticsRows([row], undefined)).toEqual([row]);
   });
 
+  it("adds identifiers that are mapped to a JSON field", () => {
+    const query = {
+      id: "fu1",
+      query: "SELECT * FROM t",
+      userIdTypes: ["user_id", "device_id", "account_id"],
+      columnMapping: {
+        userIdColumns: {
+          user_id: "attributes.customerId",
+          device_id: "ATTRIBUTES.deviceId",
+          account_id: "account",
+        },
+      },
+    };
+    const base = { timestamp: "2026-11-10 00:10:32", feature_key: "f" };
+    const rows = shapeFeatureEvalDiagnosticsRows(
+      [
+        // JSON returned as text, with a column that shares the identifier's name
+        {
+          ...base,
+          user_id: "raw",
+          attributes: '{"customerId":"c1","deviceId":"d1"}',
+        },
+        // JSON returned as an object
+        { ...base, attributes: { customerId: "c2" } },
+        // Not JSON
+        { ...base, attributes: "oops" },
+      ],
+      query,
+    );
+
+    expect(rows[0]).toMatchObject({ user_id: "c1", device_id: "d1" });
+    expect(rows[1]).toMatchObject({ user_id: "c2", device_id: null });
+    expect(rows[2]).toMatchObject({ user_id: null, device_id: null });
+    // A plain column mapping adds nothing
+    expect(rows[0]).not.toHaveProperty("account_id");
+  });
+
   it("leaves the SQL selecting the query's own columns", () => {
     const sql = getFeatureEvalDiagnosticsQuery(
       bigQueryDialect,
