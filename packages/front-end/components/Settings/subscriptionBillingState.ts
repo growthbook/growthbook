@@ -124,7 +124,11 @@ export function getSubscriptionBillingState({
     };
   }
 
-  if (!isEnterprise && subscription?.status === "past_due") {
+  if (
+    !isEnterprise &&
+    subscription?.billingPlatform === "orb" &&
+    subscription.status === "past_due"
+  ) {
     return {
       kind: "self_serve_past_due",
       isTrialing: false,
