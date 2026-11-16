@@ -116,7 +116,6 @@ import { IS_CLOUD } from "back-end/src/util/secrets";
 import { removeManagedWarehouseLegacyIdentifier } from "back-end/src/services/clickhouse";
 import { requestManagedWarehouseRecreates } from "back-end/src/services/managedWarehouseRecreate";
 import { queueManagedWarehouseRecreate } from "back-end/src/jobs/recreateManagedWarehouseTables";
-import { MANAGED_WAREHOUSE_MIGRATION_VERSION } from "back-end/src/jobs/migrateManagedWarehouse";
 import { UNITS_TABLE_PREFIX } from "back-end/src/queryRunners/ExperimentResultsQueryRunner";
 import { getExperimentsByTrackingKeys } from "back-end/src/models/ExperimentModel";
 import { createBigQueryClient } from "back-end/src/services/bigqueryClient";
@@ -354,13 +353,7 @@ export async function postManagedWarehouse(
   // queries are derived from the org's hashAttribute attributes.
   const datasourceSettings = getManagedWarehouseJsonSettings(
     context.org.settings?.attributeSchema,
-    {
-      hasBeenProvisioned: false,
-      region,
-      identifiersFromAttributes: true,
-      appliedMigrationVersion: MANAGED_WAREHOUSE_MIGRATION_VERSION,
-      desiredMigrationVersion: MANAGED_WAREHOUSE_MIGRATION_VERSION,
-    },
+    { hasBeenProvisioned: false, region, identifiersFromAttributes: true },
   );
 
   const datasource = await createDataSource(
