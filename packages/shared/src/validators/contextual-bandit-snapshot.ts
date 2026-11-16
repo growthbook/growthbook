@@ -38,6 +38,7 @@ export const contextualBanditSnapshotSettingsValidator = z
     endDate: z.date().nullable().optional(),
     reweight: z.boolean(),
     banditWeightsSeed: z.number(),
+    periodWeighting: z.boolean().optional(),
   })
   .strict();
 

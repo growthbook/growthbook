@@ -5,6 +5,7 @@ import { useUser } from "@/services/UserContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import track from "@/services/track";
 import { docUrl } from "@/components/DocLink";
+import { AppEventName } from "@/types/app-events";
 import { AppNotice } from "./notices";
 
 export default function useAccountPlanNotices(): AppNotice[] {
@@ -16,7 +17,7 @@ export default function useAccountPlanNotices(): AppNotice[] {
 
   const usageDetails = (
     docsHref: string,
-    trackEvent: string,
+    trackEvent: AppEventName,
     docsLabel = "FAQ",
   ) =>
     canViewUsage ? (
@@ -140,11 +141,21 @@ export default function useAccountPlanNotices(): AppNotice[] {
       license?.message &&
       (license.message.showAllUsers || canManageBilling)
     ) {
+      const { className } = license.message;
+      const isPaymentFailure =
+        className === "payment-failure" ||
+        className === "payment-failure-downgraded";
       return {
         id: "license",
-        severity: "error",
+        // Grace-period copy is a warning. The downgrade notice, and any other
+        // license message, stays an error.
+        severity: className === "payment-failure" ? "warning" : "error",
         title: license.message.text,
         details: license.message.tooltipText,
+        // The cached license can lag a payment by up to a day, so Billing re-fetches it.
+        ...(isPaymentFailure && canManageBilling
+          ? { href: "/settings/billing?refreshLicense=true" }
+          : {}),
       };
     }
     if (!license) return null;

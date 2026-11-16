@@ -17,6 +17,7 @@ import {
   normalizeFunnelStepOrder,
   normalizeTimelessSqlConfig,
   resolveSqlPreviewTimestamp,
+  stripExplorerDraftFields,
   validateDimensions,
   type ExplorerDraftConfig,
 } from "@/enterprise/components/ProductAnalytics/util";
@@ -751,5 +752,78 @@ describe("normalizeFunnelStepOrder", () => {
     expect(result[0]).toBe(steps[0]);
     expect(result[1]).toBe(steps[1]);
     expect(normalizeFunnelStepOrder([])).toEqual([]);
+  });
+});
+
+describe("stripExplorerDraftFields", () => {
+  function lineDraft(
+    chartSettings?: ExplorerDraftConfig["chartSettings"],
+  ): ExplorerDraftConfig {
+    return {
+      type: "sql",
+      datasource: "ds_1",
+      chartType: "line",
+      dateRange: {
+        predefined: "last7Days",
+        startDate: null,
+        endDate: null,
+        lookbackValue: null,
+        lookbackUnit: null,
+      },
+      dimensions: [
+        { dimensionType: "date", column: "date", dateGranularity: "auto" },
+      ],
+      dataset: {
+        type: "sql",
+        sql: "SELECT 1",
+        timestampColumn: "created_at",
+        columnTypes: { created_at: "date" },
+        values: [],
+      },
+      ...(chartSettings ? { chartSettings } : {}),
+    } as ExplorerDraftConfig;
+  }
+
+  it("keeps anchorYAxisToZero when it is turned off", () => {
+    expect(
+      stripExplorerDraftFields(lineDraft({ anchorYAxisToZero: false }))
+        .chartSettings,
+    ).toEqual({ anchorYAxisToZero: false });
+  });
+
+  it("drops anchorYAxisToZero when it is the default (true)", () => {
+    expect(
+      stripExplorerDraftFields(lineDraft({ anchorYAxisToZero: true })),
+    ).not.toHaveProperty("chartSettings");
+  });
+
+  it("leaves chartSettings absent when nothing is set", () => {
+    expect(stripExplorerDraftFields(lineDraft())).not.toHaveProperty(
+      "chartSettings",
+    );
+  });
+
+  it("keeps custom axis labels alongside an unanchored axis", () => {
+    expect(
+      stripExplorerDraftFields(
+        lineDraft({
+          categoryAxisLabel: " Day ",
+          valueAxisLabel: "",
+          anchorYAxisToZero: false,
+        }),
+      ).chartSettings,
+    ).toEqual({
+      categoryAxisLabel: "Day",
+      valueAxisLabel: "",
+      anchorYAxisToZero: false,
+    });
+  });
+
+  it("keeps custom axis labels but drops a default anchorYAxisToZero", () => {
+    expect(
+      stripExplorerDraftFields(
+        lineDraft({ valueAxisLabel: "Revenue", anchorYAxisToZero: true }),
+      ).chartSettings,
+    ).toEqual({ valueAxisLabel: "Revenue" });
   });
 });

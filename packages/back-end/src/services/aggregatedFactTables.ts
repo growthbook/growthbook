@@ -1,6 +1,7 @@
 import uniqid from "uniqid";
 import {
   getAutoSliceMetrics,
+  isFactCompoundMetric,
   isFactFunnelMetric,
   isRatioMetric,
 } from "shared/experiments";
@@ -135,7 +136,9 @@ export function getMetricsForAggregatedFactTable(
     // Funnel metrics have no materialized-cache support; they are always
     // computed inline from the raw fact table.
     // TODO(funnel): incremental support for funnel metrics
-    if (isFactFunnelMetric(metric)) return false;
+    if (isFactFunnelMetric(metric) || isFactCompoundMetric(metric)) {
+      return false;
+    }
     const referencesFactTable =
       metric.numerator.factTableId === factTableId ||
       (isRatioMetric(metric) &&

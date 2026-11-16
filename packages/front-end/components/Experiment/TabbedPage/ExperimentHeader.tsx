@@ -123,6 +123,8 @@ export interface Props {
   startOpen: boolean;
   setStartOpen: (open: boolean) => void;
   editTargeting?: (() => void) | null;
+  /** Opens the Make Changes form, set where it's the way to edit delivery. */
+  makeChanges?: (() => void) | null;
   editPhases?: (() => void) | null;
   healthNotificationCount: number;
   linkedFeatures: LinkedFeatureInfo[];
@@ -212,6 +214,7 @@ export default function ExperimentHeader({
   mutateWatchers,
   editResult,
   editTargeting,
+  makeChanges,
   start,
   startOpen,
   setStartOpen,
@@ -504,6 +507,8 @@ export default function ExperimentHeader({
     !isHoldout &&
     (experiment.status !== "draft" || hasResults);
   const showEditPhase = !!editPhases && !isBandit && !isHoldout;
+  // Running, the header's button opens it.
+  const showMakeChanges = !!makeChanges && experiment.status === "stopped";
   // Bandits schedule nothing; a holdout's schedule is its own.
   const showScheduleItem =
     canEditExperiment &&
@@ -511,7 +516,8 @@ export default function ExperimentHeader({
     !isBandit &&
     experiment.status !== "stopped" &&
     !experiment.archived;
-  const hasEditItems = showEditStatus || showEditPhase || showScheduleItem;
+  const hasEditItems =
+    showEditStatus || showEditPhase || showMakeChanges || showScheduleItem;
   const showHoldoutOverride =
     !!holdout?.nextScheduledStatusUpdate &&
     ((experiment.status === "running" && !!editResult) ||
@@ -1056,6 +1062,10 @@ export default function ExperimentHeader({
               gapX="4"
               gapY="2"
               flexGrow="1"
+              // Ends where the feature page's revision picker does: into the
+              // menu button's gap, then back by a border as wide as a card's,
+              // which zoom rounds the same way.
+              style={{ marginRight: -10, borderRight: "1px solid transparent" }}
             >
               {/* Unwrapped, so the column never narrows past the buttons. */}
               <Flex
@@ -1084,7 +1094,9 @@ export default function ExperimentHeader({
                       <ExperimentActionButtons
                         editResult={canRunExperiment ? editResult : undefined}
                         editTargeting={
-                          canRunExperiment ? editTargeting : undefined
+                          canRunExperiment
+                            ? (makeChanges ?? editTargeting)
+                            : undefined
                         }
                         blockedReason={editsBlocked}
                         isBandit={isBandit}
@@ -1172,7 +1184,14 @@ export default function ExperimentHeader({
             <Flex align="center" height="var(--space-6)">
               <DropdownMenu
                 trigger={
-                  <MoreMenuTrigger label="More actions" size="lg" ml="2" />
+                  <MoreMenuTrigger
+                    label="More actions"
+                    size="lg"
+                    // Above the details toggle, past the row's end. Inline,
+                    // not margin props: a ghost button adds its own offset to
+                    // those.
+                    style={{ marginLeft: 8, marginRight: -17 }}
+                  />
                 }
                 open={dropdownOpen}
                 onOpenChange={(o) => {
@@ -1200,6 +1219,16 @@ export default function ExperimentHeader({
                         }}
                       >
                         Edit phase
+                      </StoredActionItem>
+                    )}
+                    {showMakeChanges && (
+                      <StoredActionItem
+                        onClick={() => {
+                          makeChanges?.();
+                          setDropdownOpen(false);
+                        }}
+                      >
+                        Make changes
                       </StoredActionItem>
                     )}
                     {showScheduleItem && (
@@ -1475,7 +1504,14 @@ export default function ExperimentHeader({
                 <Tabs
                   value={tab}
                   onValueChange={setTab}
-                  style={{ flex: 1, minWidth: 0 }}
+                  // Its dates end under the actions above: into the toggle's
+                  // margin, then back by a border as wide as a card's.
+                  style={{
+                    flex: 1,
+                    minWidth: 0,
+                    marginRight: -12,
+                    borderRight: "1px solid transparent",
+                  }}
                 >
                   <TabsList size="lg">
                     <Flex align="center" className="flex-1" minWidth="0">

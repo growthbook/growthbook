@@ -607,9 +607,14 @@ p.rt-Text,
   }
 }
 
-// Tooltip
-p.rt-TooltipText {
+// Tooltip. ui/Tooltip's text is a div so content can hold blocks; whichever
+// block comes last ends flush with the tooltip's padding.
+.rt-TooltipText {
   margin-bottom: 0;
+
+  > :last-child {
+    margin-bottom: 0;
+  }
 }
 
 // Table

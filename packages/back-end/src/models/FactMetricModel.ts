@@ -1,5 +1,5 @@
 import { FilterQuery } from "mongoose";
-import { omit } from "lodash";
+import { isEqual, omit } from "lodash";
 import {
   DEFAULT_LOSE_RISK_THRESHOLD,
   DEFAULT_PROPER_PRIOR_STDDEV,
@@ -10,6 +10,7 @@ import {
   getAggregateFilters,
   getCompatibleFunnelAutoSliceColumns,
   getSelectedColumnDatatype,
+  isFactCompoundMetric,
   isFactFunnelMetric,
 } from "shared/experiments";
 import { getFunnelRuleViolations } from "shared/funnels";
@@ -20,9 +21,11 @@ import {
   validateFactMetricCapping,
   isExternallyManaged,
   externallyManagedError,
+  MAX_COMPOUND_FACT_TABLES,
 } from "shared/validators";
 import {
   ColumnRef,
+  CompoundFactMetricInterface,
   FactMetricInterface,
   FactMetricType,
   FactTableInterface,
@@ -72,6 +75,12 @@ const BaseClass = MakeModelClass({
     { fields: { organization: 1, datasource: 1 } },
     { fields: { organization: 1, "numerator.factTableId": 1 } },
     { fields: { organization: 1, "funnelSettings.steps.factTableId": 1 } },
+    {
+      fields: {
+        organization: 1,
+        "compoundSettings.components.factTableId": 1,
+      },
+    },
   ],
 });
 
@@ -146,6 +155,7 @@ function denominatorRequiredByMetricType(metricType: FactMetricType): boolean {
     case "retention":
     case "proportion":
     case "funnel":
+    case "compound":
       return false;
     case "ratio":
       return true;
@@ -210,6 +220,17 @@ export class FactMetricModel extends BaseClass<WriteOptions> {
     return this._find({}, { bypassReadPermissionChecks: true });
   }
 
+  // Ignores read permissions, so a dependency check can't miss a hidden metric
+  public async dangerousHasAnyForDatasource(
+    datasourceId: string,
+  ): Promise<boolean> {
+    const [metric] = await this._find(
+      { datasource: datasourceId },
+      { bypassReadPermissionChecks: true, limit: 1 },
+    );
+    return !!metric;
+  }
+
   // Cascade from a fact-table column change. Authority is the fact-table write,
   // so this bypasses canUpdate; the guarded write plus re-read means a
   // concurrent edit to the metric is retried against, never clobbered.
@@ -260,6 +281,9 @@ export class FactMetricModel extends BaseClass<WriteOptions> {
         $or: [
           { "numerator.factTableId": options.factTableId },
           { "funnelSettings.steps.factTableId": options.factTableId },
+          {
+            "compoundSettings.components.factTableId": options.factTableId,
+          },
         ],
       });
     }
@@ -511,8 +535,15 @@ export class FactMetricModel extends BaseClass<WriteOptions> {
     if (data.metricType === "funnel" && !data.funnelSettings) {
       throw new Error("Funnel settings required for funnel metrics");
     }
-    if (data.metricType !== "funnel" && !data.numerator) {
-      throw new Error("Numerator required for non-funnel metrics");
+    if (data.metricType === "compound" && !data.compoundSettings) {
+      throw new Error("Compound settings required for compound metrics");
+    }
+    if (
+      data.metricType !== "funnel" &&
+      data.metricType !== "compound" &&
+      !data.numerator
+    ) {
+      throw new Error("Numerator required for this metric type");
     }
 
     if (isFactFunnelMetric(data)) {
@@ -520,6 +551,16 @@ export class FactMetricModel extends BaseClass<WriteOptions> {
         throw new Error("Funnel metrics are a premium feature");
       }
       await FactMetricModel.validateFunnelSettings(
+        data,
+        previousData,
+        factTableMap,
+        context,
+      );
+    } else if (isFactCompoundMetric(data)) {
+      if (!context.hasPremiumFeature("compound-metrics")) {
+        throw new Error("Compound metrics are a premium feature");
+      }
+      await FactMetricModel.validateCompoundSettings(
         data,
         previousData,
         factTableMap,
@@ -597,12 +638,136 @@ export class FactMetricModel extends BaseClass<WriteOptions> {
       throw new Error(violation.message);
     }
 
-    // Steps can each read from a different fact table, so everything below is
-    // validated against the step's own table.
-    const stepFactTables = steps.map((step) => {
-      const factTable = factTableMap.get(step.factTableId);
+    if (data.numerator) {
+      throw new Error("Numerator not allowed for funnel metrics");
+    }
+    if (data.denominator) {
+      throw new Error("Denominator not allowed for funnel metrics");
+    }
+    if (data.quantileSettings) {
+      throw new Error("Quantile settings are not supported for funnel metrics");
+    }
+    if (data.compoundSettings) {
+      throw new Error("compoundSettings is only allowed for compound metrics");
+    }
+
+    await FactMetricModel.validateEventRefs({
+      data,
+      existingMetric,
+      refs: steps,
+      previousRefs:
+        existingMetric && isFactFunnelMetric(existingMetric)
+          ? existingMetric.funnelSettings.steps
+          : null,
+      factTableMap,
+      context,
+      messages: {
+        missingFactTable: "Could not find funnel fact table",
+        invalidAutoSlices: (columns) =>
+          `Invalid funnel Auto Slice columns: ${columns}. Configure matching Auto Slice columns on every step's Fact Table.`,
+        rowFilterSqlPrefix: "Invalid funnel step row filter SQL: ",
+      },
+    });
+  }
+
+  /**
+   * Compound metrics describe their events through unordered components
+   * rather than a numerator ColumnRef, so none of the column/aggregation rules
+   * apply.
+   */
+  private static async validateCompoundSettings(
+    data: CompoundFactMetricInterface,
+    existingMetric: FactMetricInterface | null,
+    factTableMap: Map<string, FactTableInterface>,
+    context: Context,
+  ): Promise<void> {
+    const { components } = data.compoundSettings;
+
+    components.forEach((component, i) => {
+      if (components.slice(0, i).some((prev) => isEqual(prev, component))) {
+        throw new Error("Compound metric components must be unique");
+      }
+    });
+    const factTableIds = new Set(components.map((c) => c.factTableId));
+    if (factTableIds.size > MAX_COMPOUND_FACT_TABLES) {
+      throw new Error(
+        `Compound metrics must have ${MAX_COMPOUND_FACT_TABLES} or fewer distinct Fact Tables`,
+      );
+    }
+    for (const id of factTableIds) {
+      const factTable = factTableMap.get(id);
+      if (factTable && factTable.datasource !== data.datasource) {
+        throw new Error(
+          "Every component's Fact Table must belong to the metric's Data Source",
+        );
+      }
+    }
+
+    if (data.numerator) {
+      throw new Error("Numerator not allowed for compound metrics");
+    }
+    if (data.denominator) {
+      throw new Error("Denominator not allowed for compound metrics");
+    }
+    if (data.quantileSettings) {
+      throw new Error(
+        "Quantile settings are not supported for compound metrics",
+      );
+    }
+    if (data.funnelSettings) {
+      throw new Error("funnelSettings is only allowed for funnel metrics");
+    }
+
+    await FactMetricModel.validateEventRefs({
+      data,
+      existingMetric,
+      refs: components,
+      previousRefs:
+        existingMetric && isFactCompoundMetric(existingMetric)
+          ? existingMetric.compoundSettings.components
+          : null,
+      factTableMap,
+      context,
+      messages: {
+        missingFactTable: "Could not find compound metric component Fact Table",
+        invalidAutoSlices: (columns) =>
+          `Invalid Auto Slice columns: ${columns}. Configure matching Auto Slice columns on every component's Fact Table.`,
+        rowFilterSqlPrefix: "Invalid component row filter SQL: ",
+      },
+    });
+  }
+
+  /**
+   * Rules shared by funnel steps and compound components: each ref reads from
+   * its own fact table and narrows it with row filters only.
+   */
+  private static async validateEventRefs({
+    data,
+    existingMetric,
+    refs,
+    previousRefs,
+    factTableMap,
+    context,
+    messages,
+  }: {
+    data: FactMetricInterface;
+    existingMetric: FactMetricInterface | null;
+    refs: { factTableId: string; rowFilters: RowFilter[] }[];
+    previousRefs: { factTableId: string; rowFilters: RowFilter[] }[] | null;
+    factTableMap: Map<string, FactTableInterface>;
+    context: Context;
+    messages: {
+      missingFactTable: string;
+      invalidAutoSlices: (columns: string) => string;
+      rowFilterSqlPrefix: string;
+    };
+  }): Promise<void> {
+    // Refs can each read from a different fact table, so everything below is
+    // validated against the ref's own table.
+    const refFactTables = refs.map((ref) => {
+      const factTable = factTableMap.get(ref.factTableId);
       if (!factTable) {
-        throw new Error("Could not find funnel fact table");
+        throw new Error(messages.missingFactTable);
       }
       return factTable;
     });
@@ -613,15 +778,11 @@ export class FactMetricModel extends BaseClass<WriteOptions> {
     // here would block every later write to the metric, a rename included.
     // Readers intersect against the fact tables anyway, so a stale column
     // simply produces no slices until the cascade or the next edit drops it.
-    const previousStepFactTableIds =
-      existingMetric && isFactFunnelMetric(existingMetric)
-        ? existingMetric.funnelSettings.steps.map((step) => step.factTableId)
-        : null;
-    // Changing which tables the funnel reads from re-opens every column.
+    // Changing which tables the metric reads from re-opens every column.
     const validateAllAutoSliceColumns =
-      !previousStepFactTableIds ||
-      previousStepFactTableIds.length !== steps.length ||
-      steps.some((step, i) => step.factTableId !== previousStepFactTableIds[i]);
+      !previousRefs ||
+      previousRefs.length !== refs.length ||
+      refs.some((ref, i) => ref.factTableId !== previousRefs[i].factTableId);
     const previousAutoSliceColumns = new Set(existingMetric?.metricAutoSlices);
     const newAutoSliceColumns = (data.metricAutoSlices ?? []).filter(
       (column) =>
@@ -630,7 +791,7 @@ export class FactMetricModel extends BaseClass<WriteOptions> {
     if (newAutoSliceColumns.length) {
       const compatibleAutoSliceColumns = new Set(
         getCompatibleFunnelAutoSliceColumns({
-          steps,
+          steps: refs,
           getFactTable: (id) => factTableMap.get(id),
         }).map(({ column }) => column.column),
       );
@@ -639,56 +800,42 @@ export class FactMetricModel extends BaseClass<WriteOptions> {
       );
       if (invalidAutoSliceColumns.length) {
         throw new Error(
-          `Invalid funnel Auto Slice columns: ${invalidAutoSliceColumns.join(", ")}. Configure matching Auto Slice columns on every step's Fact Table.`,
+          messages.invalidAutoSlices(invalidAutoSliceColumns.join(", ")),
         );
       }
     }
 
-    steps.forEach((step, i) => {
+    refs.forEach((ref, i) => {
       validateSavedFilterIds({
         columnRef: {
-          factTableId: step.factTableId,
+          factTableId: ref.factTableId,
           column: "",
-          rowFilters: step.rowFilters,
+          rowFilters: ref.rowFilters,
         },
-        factTable: stepFactTables[i],
+        factTable: refFactTables[i],
         filterType: "numerator",
       });
     });
 
-    if (data.numerator) {
-      throw new Error("Numerator not allowed for funnel metrics");
-    }
-    if (data.denominator) {
-      throw new Error("Denominator not allowed for funnel metrics");
-    }
-    if (data.quantileSettings) {
-      throw new Error("Quantile settings are not supported for funnel metrics");
-    }
-
-    const previousSteps =
-      existingMetric && isFactFunnelMetric(existingMetric)
-        ? existingMetric.funnelSettings.steps
-        : [];
-    // One validation query per fact table rather than per step, since each
+    // One validation query per fact table rather than per ref, since each
     // query round-trips to the warehouse.
     const rowFiltersByFactTable = new Map<
       string,
       { factTable: FactTableInterface; rowFilters: RowFilter[] }
     >();
-    steps.forEach((step, index) => {
+    refs.forEach((ref, index) => {
       const rowFilters = getNetNewSqlExprRowFilters({
-        rowFilters: step.rowFilters,
-        previousRowFilters: previousSteps[index]?.rowFilters,
-        validateAll: previousSteps[index]?.factTableId !== step.factTableId,
+        rowFilters: ref.rowFilters,
+        previousRowFilters: previousRefs?.[index]?.rowFilters,
+        validateAll: previousRefs?.[index]?.factTableId !== ref.factTableId,
       });
       if (!rowFilters.length) return;
-      const existing = rowFiltersByFactTable.get(step.factTableId);
+      const existing = rowFiltersByFactTable.get(ref.factTableId);
       if (existing) {
         existing.rowFilters.push(...rowFilters);
       } else {
-        rowFiltersByFactTable.set(step.factTableId, {
-          factTable: stepFactTables[index],
+        rowFiltersByFactTable.set(ref.factTableId, {
+          factTable: refFactTables[index],
           rowFilters: [...rowFilters],
         });
       }
@@ -706,7 +853,7 @@ export class FactMetricModel extends BaseClass<WriteOptions> {
         integration,
         factTable,
         rowFilters,
-        errorPrefix: "Invalid funnel step row filter SQL: ",
+        errorPrefix: messages.rowFilterSqlPrefix,
       });
     }
   }
@@ -719,6 +866,9 @@ export class FactMetricModel extends BaseClass<WriteOptions> {
   ): Promise<void> {
     if (data.funnelSettings) {
       throw new Error("funnelSettings is only allowed for funnel metrics");
+    }
+    if (data.compoundSettings) {
+      throw new Error("compoundSettings is only allowed for compound metrics");
     }
 
     const numeratorFactTable = factTableMap.get(data.numerator.factTableId);
@@ -913,6 +1063,7 @@ export class FactMetricModel extends BaseClass<WriteOptions> {
     const {
       quantileSettings,
       funnelSettings,
+      compoundSettings,
       cappingSettings,
       lowerCappingSettings,
       windowSettings,
@@ -936,6 +1087,7 @@ export class FactMetricModel extends BaseClass<WriteOptions> {
       metricType: metricType,
       quantileSettings: quantileSettings || undefined,
       funnelSettings: funnelSettings || undefined,
+      compoundSettings: compoundSettings || undefined,
       cappingSettings: {
         ...cappingSettings,
         type: cappingSettings.type || "none",

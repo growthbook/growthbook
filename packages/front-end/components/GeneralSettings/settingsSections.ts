@@ -153,6 +153,7 @@ const SECTION_FIELDS: Record<string, string[]> = {
     "banditScheduleUnit",
     "banditBurnInValue",
     "banditBurnInUnit",
+    "banditPeriodWeighting",
     "learningStatuses",
   ],
   metrics: [

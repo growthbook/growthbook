@@ -90,7 +90,7 @@ export default function ContextualBanditTrafficTargetingModal({
           valueType="string"
           label="Traffic included in this Bandit"
           coverageLabel="Traffic included in this Bandit"
-          coverageTooltip="Users not included in the Bandit will skip this experiment"
+          coverageTooltip="Units not included in the Bandit skip this experiment"
           coverage={form.watch("coverage")}
           setCoverage={(coverage) => form.setValue("coverage", coverage)}
           setWeight={(i, weight) =>

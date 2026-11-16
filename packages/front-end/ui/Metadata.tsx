@@ -20,20 +20,19 @@ export default forwardRef<HTMLDivElement, Props>(function Metadata(
   ref,
 ) {
   if (stacked) {
-    const content = (
-      <>
-        <Text weight="regular" color="text-low" size={size}>
-          {label}
-        </Text>
-        {typeof value === "string" ? (
-          <Text weight="regular" color="text-high" size={size}>
-            {value}
-          </Text>
-        ) : (
-          value
-        )}
-      </>
+    const labelText = (
+      <Text weight="regular" color="text-low" size={size}>
+        {label}
+      </Text>
     );
+    const valueContent =
+      typeof value === "string" ? (
+        <Text weight="regular" color="text-high" size={size}>
+          {value}
+        </Text>
+      ) : (
+        value
+      );
 
     if (!action) {
       return (
@@ -45,14 +44,16 @@ export default forwardRef<HTMLDivElement, Props>(function Metadata(
           {...props}
           ref={ref}
         >
-          {content}
+          {labelText}
+          {valueContent}
         </Flex>
       );
     }
     return (
       <Flex
+        direction="column"
+        gap="1"
         align="start"
-        gap="2"
         className={styles.actionRow}
         style={style}
         // Hovering the row reveals its action.
@@ -60,15 +61,8 @@ export default forwardRef<HTMLDivElement, Props>(function Metadata(
         {...props}
         ref={ref}
       >
-        <Flex
-          direction="column"
-          gap="1"
-          align="start"
-          flexGrow="1"
-          minWidth="0"
-        >
-          {content}
-        </Flex>
+        <span className={styles.label}>{labelText}</span>
+        {valueContent}
         <span className={styles.action}>{action}</span>
       </Flex>
     );

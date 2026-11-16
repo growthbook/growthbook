@@ -12,7 +12,6 @@ import React, {
   useRef,
   useState,
 } from "react";
-import stringify from "json-stringify-pretty-compact";
 import { IconButton } from "@radix-ui/themes";
 import { PiCheck, PiCopy } from "react-icons/pi";
 import { parsePlainJSONObject } from "shared/util";
@@ -32,10 +31,11 @@ import Modal from "@/components/Modal";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import Button from "@/ui/Button";
 import ScrollArea from "@/ui/ScrollArea";
+import Text from "@/ui/Text";
 import { CopyIcon, FullscreenIcon } from "@/ui/ActionIcons";
 import CornerActions, { ActionsOverlay } from "./CornerActions";
 import { useValueDiff } from "./ValueDiffContext";
-import { getFieldLineNumbers } from "./jsonFieldLines";
+import { formatJsonValue, getFieldLineNumbers } from "./jsonFieldLines";
 
 // For sparse JSON rules, the stored `value` is only the patch. We display the
 // fully expanded value (default merged with the patch) and bold the keys that
@@ -53,6 +53,46 @@ function getSparseMerge(
     patchKeys: new Set(Object.keys(patch)),
   };
 }
+
+// A value as one of several in a list, kept short.
+const BOOLEAN_ON = "var(--green-9)";
+const BOOLEAN_OFF = "var(--gray-7)";
+
+// A boolean's dot: true, false, or true for only some users. Empty is
+// nothing served at all.
+export function BooleanDot({
+  fill,
+}: {
+  fill: "on" | "off" | "split" | "empty";
+}) {
+  return (
+    <span
+      style={{
+        flexShrink: 0,
+        alignSelf: "center",
+        boxSizing: "border-box",
+        height: 10,
+        width: 10,
+        borderRadius: "50%",
+        border: fill === "empty" ? "1.5px solid var(--gray-8)" : undefined,
+        background:
+          fill === "split"
+            ? `linear-gradient(90deg, ${BOOLEAN_ON} 50%, ${BOOLEAN_OFF} 50%)`
+            : fill === "on"
+              ? BOOLEAN_ON
+              : fill === "off"
+                ? BOOLEAN_OFF
+                : undefined,
+      }}
+    />
+  );
+}
+
+export const LISTED_VALUE_STYLE: CSSProperties = {
+  maxHeight: 100,
+  overflowY: "auto",
+  maxWidth: "100%",
+};
 
 export default function ValueDisplay({
   value,
@@ -72,6 +112,7 @@ export default function ValueDisplay({
   linkify,
   lineHeight,
   monochrome,
+  split = false,
   extraActions,
 }: {
   value: string;
@@ -101,6 +142,8 @@ export default function ValueDisplay({
   // Override the rendered code line height (passed through to InlineCode).
   lineHeight?: number;
   monochrome?: boolean;
+  // A boolean served to only some users: its dot is half filled.
+  split?: boolean;
   // More buttons in the same row as copy and fullscreen, after them.
   extraActions?: ReactNode;
 }) {
@@ -118,22 +161,31 @@ export default function ValueDisplay({
       sparse && type === "json" ? getSparseMerge(value, defaultValue) : null,
     [sparse, type, value, defaultValue],
   );
+  // Beside other values (an experiment's variations), what differs between
+  // them is tinted instead.
+  const shown = useMemo(
+    () =>
+      type === "json"
+        ? (sparseMerge?.merged ?? parsePlainJSONObject(value))
+        : null,
+    [type, sparseMerge, value],
+  );
+  const differingKeys = useValueDiff(isFullscreen ? null : shown);
+  // Bolded or tinted keys each keep their own lines.
+  const keysOnOwnLines = !!sparseMerge || !!differingKeys?.size;
   const formatted = useMemo(() => {
     if (type === "boolean") return value;
     if (type === "number") return value || "null";
     if (type === "string") return '"' + value + '"';
     try {
       // Sparse rules display the expanded (merged) value, not the raw patch.
-      // Force one-key-per-line (maxLength: 0) so the overridden keys map to
-      // stable line numbers we can bold.
-      // Always break to one key/element per line (never compact short objects
-      // onto a single line) for consistent, scannable JSON.
-      if (sparseMerge) return stringify(sparseMerge.merged, { maxLength: 0 });
-      return stringify(JSON.parse(value), { maxLength: 0 });
+      return formatJsonValue(sparseMerge?.merged ?? JSON.parse(value), {
+        keysOnOwnLines,
+      });
     } catch (e) {
       return value;
     }
-  }, [value, type, sparseMerge]);
+  }, [value, type, sparseMerge, keysOnOwnLines]);
 
   // Long values highlight only the visible lines, inside a box that scrolls
   // even when the caller set no height limit
@@ -156,16 +208,6 @@ export default function ValueDisplay({
     [sparseMerge, formatted],
   );
 
-  // Beside other values (an experiment's variations), what differs between
-  // them is tinted instead.
-  const shown = useMemo(
-    () =>
-      type === "json"
-        ? (sparseMerge?.merged ?? parsePlainJSONObject(value))
-        : null,
-    [type, sparseMerge, value],
-  );
-  const differingKeys = useValueDiff(isFullscreen ? null : shown);
   const highlightLines = useMemo(
     () => (differingKeys ? getFieldLineNumbers(formatted, differingKeys) : []),
     [differingKeys, formatted],
@@ -206,18 +248,25 @@ export default function ValueDisplay({
   if (type === "boolean") {
     const on = !(value === "false" || value === "null" || !value);
     return (
-      <span className="text-gray font-weight-bold">
-        <div
+      <span
+        style={{
+          display: "inline-flex",
+          alignItems: "center",
+          gap: 6,
+          whiteSpace: "nowrap",
+        }}
+      >
+        <BooleanDot fill={split ? "split" : on ? "on" : "off"} />
+        <span
           style={{
-            display: "inline-block",
-            height: 10,
-            width: 10,
-            borderRadius: 10,
-            marginRight: 5,
-            backgroundColor: on ? "#3aa8e8" : "#cccccc",
+            color: on ? "var(--green-11)" : "var(--color-text-low)",
+            fontSize: "var(--font-size-2)",
           }}
-        ></div>
-        {on ? "TRUE" : "FALSE"}
+        >
+          <Text mono size="inherit" weight="semibold">
+            {on ? "true" : "false"}
+          </Text>
+        </span>
       </span>
     );
   }
@@ -242,7 +291,15 @@ export default function ValueDisplay({
   return (
     <>
       <CornerActions
-        overlay={actionsOverlay}
+        // Only the lines near the viewport render when it's long, so it can't
+        // hug its widest line without a long one widening it mid-scroll: it
+        // takes the full width instead.
+        overlay={
+          virtualize && actionsOverlay?.inline
+            ? { ...actionsOverlay, inline: false }
+            : actionsOverlay
+        }
+        oneLine={!formatted.includes("\n")}
         actions={
           isFullscreen ? null : (
             <>
@@ -292,6 +349,7 @@ export default function ValueDisplay({
         <ScrollArea
           ref={scrollBoxRef}
           gutter
+          edgeCue="fade"
           className={fullClassName}
           style={{
             maxHeight: boxStyle.maxHeight,

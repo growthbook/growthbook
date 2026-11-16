@@ -2,7 +2,7 @@ import { ReactNode } from "react";
 import { FeatureInterface } from "shared/types/feature";
 import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
 import { dateNoYear } from "shared/dates";
-import { ACTIVE_DRAFT_STATUSES } from "shared/validators";
+import { isActiveDraftStatus } from "shared/validators";
 import { Flex } from "@radix-ui/themes";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import Switch from "@/ui/Switch";
@@ -12,6 +12,7 @@ import EventUser from "@/components/Avatar/EventUser";
 import RevisionStatusBadge, {
   isRampGenerated,
 } from "@/components/Reviews/RevisionStatusBadge";
+import FeatureRevisionDetails from "@/components/Features/FeatureRevisionDetails";
 import SharedRevisionDropdown, {
   RevisionDropdownRow,
 } from "@/components/Reviews/RevisionDropdown";
@@ -22,6 +23,7 @@ export interface Props {
   version: number | null;
   setVersion: (version: number) => void;
   context?: "header";
+  width?: number;
   menuPlacement?: "start" | "center" | "end";
   draftsOnly?: boolean;
   // Show only previously-published revisions
@@ -38,6 +40,7 @@ export default function RevisionDropdown({
   version,
   setVersion,
   context,
+  width,
   menuPlacement = "end",
   draftsOnly = false,
   publishedOnly = false,
@@ -57,7 +60,7 @@ export default function RevisionDropdown({
   const withoutLive = allSorted.filter((r) => r.version !== liveVersion);
 
   const activeDrafts = (r: MinimalFeatureRevisionInterface) =>
-    (ACTIVE_DRAFT_STATUSES as readonly string[]).includes(r.status);
+    isActiveDraftStatus(r.status);
 
   const displayList = publishedOnly
     ? withoutLive
@@ -127,6 +130,7 @@ export default function RevisionDropdown({
     badge: publishedOnly ? undefined : (
       <RevisionStatusBadge revision={r} liveVersion={liveVersion} />
     ),
+    details: <FeatureRevisionDetails revision={r} liveVersion={liveVersion} />,
   }));
 
   const selectedRevision =
@@ -192,6 +196,7 @@ export default function RevisionDropdown({
       }
       triggerNumbered={!!selectedRevision?.title}
       context={context}
+      width={width}
       menuPlacement={menuPlacement}
       paginate={!draftsOnly}
       windowFromSelection={!publishedOnly}
