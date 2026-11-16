@@ -26,7 +26,10 @@ const LAUNCHER_BOTTOM_PX = 12;
 export default function InAppHelp() {
   const router = useRouter();
   const launcher = useRef<HTMLButtonElement>(null);
-  const config = useFeature("pylon-config").value;
+  const config = useFeature("pylon-config").value as {
+    script_content: string;
+    app_id: string;
+  } | null;
   const [showFreeHelpWidget, setShowFreeHelpWidget] = useState(false);
   const [upgradeModal, setUpgradeModal] = useState(false);
   const {

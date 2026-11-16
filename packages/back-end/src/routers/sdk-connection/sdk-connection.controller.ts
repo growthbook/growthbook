@@ -26,6 +26,7 @@ import {
 import { validateRequireProjectForSdkConnections } from "back-end/src/api/sdk-connections/validations";
 import { withReadablePayloadBreakdowns } from "back-end/src/services/sdkPayloadSize";
 import { queueSDKPayloadRefresh } from "back-end/src/services/features";
+import { resolvePremiumSdkSetting } from "back-end/src/util/sdkConnectionPremiumSettings";
 
 export const getSDKConnections = async (
   req: AuthRequest,
@@ -124,26 +125,21 @@ export const putSDKConnection = async (
     connection.projects,
   );
 
-  let encryptPayload = req.body.encryptPayload || false;
-  const encryptionPermitted = orgHasPremiumFeature(
-    context.org,
-    "encrypt-features-endpoint",
-  );
-  const changingFromUnencryptedToEncrypted =
-    !connection.encryptPayload && encryptPayload;
-  if (changingFromUnencryptedToEncrypted && !encryptionPermitted) {
-    encryptPayload = false;
-  }
-
-  let hashSecureAttributes = false;
-  if (orgHasPremiumFeature(context.org, "hash-secure-attributes")) {
-    hashSecureAttributes = req.body.hashSecureAttributes || false;
-  }
-
-  let remoteEvalEnabled = false;
-  if (orgHasPremiumFeature(context.org, "remote-evaluation")) {
-    remoteEvalEnabled = req.body.remoteEvalEnabled || false;
-  }
+  const encryptPayload = resolvePremiumSdkSetting({
+    requested: req.body.encryptPayload,
+    existing: connection.encryptPayload,
+    hasFeature: orgHasPremiumFeature(context.org, "encrypt-features-endpoint"),
+  });
+  const hashSecureAttributes = resolvePremiumSdkSetting({
+    requested: req.body.hashSecureAttributes,
+    existing: connection.hashSecureAttributes,
+    hasFeature: orgHasPremiumFeature(context.org, "hash-secure-attributes"),
+  });
+  const remoteEvalEnabled = resolvePremiumSdkSetting({
+    requested: req.body.remoteEvalEnabled,
+    existing: connection.remoteEvalEnabled,
+    hasFeature: orgHasPremiumFeature(context.org, "remote-evaluation"),
+  });
 
   await editSDKConnection(context, connection, {
     ...req.body,
