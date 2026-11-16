@@ -1,7 +1,5 @@
 .section {
   padding-top: 28px;
-  // Clears the fixed top nav (and below 1024px the pinned Settings select)
-  // when scrolled to.
   scroll-margin-top: calc(var(--settings-section-top) + 8px);
 
   // Anchors inside a section also clear its sticky header (~48px).
@@ -15,7 +13,8 @@
   top: var(--settings-section-top);
   z-index: 6;
   background: var(--color-background);
-  padding: 12px 0 6px;
+  --header-pad-top: 12px;
+  padding: var(--header-pad-top) 0 6px;
   border-bottom: 1px solid var(--slate-a4);
 }
 
@@ -49,11 +48,14 @@
       var(--settings-nav-left) +
         var(--settings-nav-inset) - var(--unsaved-bar-left)
     );
-  // Ends Save at the cards' right edge: the page's padding plus the 920px
-  // column, or the page's padding where the column is narrower.
+  // Ends Save at the cards' right edge.
   padding-right: max(
     var(--page-padding),
-    calc(100% - var(--settings-layout-left) - var(--page-padding) - 920px)
+    calc(
+      100% - var(--settings-layout-left) - var(--page-padding) - var(
+          --settings-general-width
+        )
+    )
   );
   background: var(--color-panel-solid);
   border-top: 1px solid var(--gray-a5);
@@ -131,23 +133,28 @@
 }
 
 .generalContent {
-  max-width: 920px;
+  max-width: var(--settings-general-width);
   padding-top: var(--space-3);
 
-  // Under the pinned Settings select (the narrow layout), the first section
-  // starts as close as a page's title does.
+  // Under the jump menu, the first item starts as close as a page's title
+  // does.
   @media (max-width: 1023px) {
     padding-top: 0;
 
-    .section:first-of-type,
-    .section:first-of-type .header {
+    // 12px under the jump menu's trigger: takes back the gap under its row.
+    .searchSummary {
+      margin-top: calc(-1 * var(--space-2));
+    }
+
+    .section:first-child {
       padding-top: 0;
+    }
+    .section:first-child .header {
+      margin-top: calc(-1 * var(--header-pad-top));
     }
   }
 }
 
-// The Settings title stands in for it, beside or above the Settings nav;
-// screen readers still get the h1.
 .visuallyHidden {
   position: absolute;
   width: 1px;

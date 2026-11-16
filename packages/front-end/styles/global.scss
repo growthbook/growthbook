@@ -71,6 +71,8 @@
   );
   // Where General's section headings pin.
   --settings-section-top: var(--page-top-offset);
+  // General's column of cards.
+  --settings-general-width: 920px;
 }
 // The side nav is a drawer from here down.
 @media (max-width: 1180px) {
@@ -78,12 +80,15 @@
     --page-nav-width: 0px;
   }
 }
-// The narrow Settings layout: the nav is a select at the page's top
-// (SettingsPageTop), pinned under the header as a 60px row, so the page
-// starts at the window's edge.
+// The narrow Settings layout: the nav is a jump menu at the page's top
+// (SettingsPageTop), in a row pinned under the header, so the page starts at
+// the window's edge.
 @media (max-width: 1023px) {
   :root {
-    --settings-section-top: calc(var(--page-top-offset) + 60px);
+    --settings-jump-bar-height: 56px;
+    --settings-section-top: calc(
+      var(--page-top-offset) + var(--settings-jump-bar-height)
+    );
     --settings-layout-left: 0px;
   }
 }

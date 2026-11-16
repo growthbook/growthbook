@@ -74,9 +74,7 @@ const Layout = (): React.ReactElement => {
 
   // hacky:
   const router = useRouter();
-  // The Settings nav is a column from 1024px and SettingsJumpMenu below, so
-  // the sidebar never lists the Organization pages.
-  const { narrow: settingsNarrow } = useSettingsNav();
+  const { navMode: settingsNavMode } = useSettingsNav();
   const path = router.route.substr(1);
   // don't show the nav for presentations
   if (path.match(/^present\//)) {
@@ -109,7 +107,8 @@ const Layout = (): React.ReactElement => {
   });
 
   const build = getGrowthBookBuild();
-  const showSettingsNav = isSettingsRoute(router.route) && !settingsNarrow;
+  const showSettingsNav =
+    isSettingsRoute(router.route) && settingsNavMode === "column";
 
   return (
     <>
