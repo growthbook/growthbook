@@ -344,7 +344,12 @@ export const deleteProject = async (
 // endregion DELETE /projects/:id
 
 type PutProjectSettingsRequest = AuthRequest<
-  { settings: ProjectSettings },
+  {
+    settings: Pick<
+      ProjectSettings,
+      "statsEngine" | "confidenceLevel" | "pValueThreshold"
+    >;
+  },
   { id: string }
 >;
 type PutProjectSettingsResponse = {
@@ -374,22 +379,30 @@ export const putProjectSettings = async (
 
   const { settings } = req.body;
 
-  // The dedicated endpoint owns this field. Preserve its current value even
-  // when a stale settings form is saved concurrently with a dashboard change.
+  // This endpoint owns the stats fields, so one the form leaves out is
+  // cleared. Every other setting keeps its stored value.
   const updated = await context.models.projects.updateWithCas(
     id,
     ["settings"],
     (current) => ({
       settings: {
-        ...settings,
-        defaultDashboardId: current.settings?.defaultDashboardId,
+        ...current.settings,
+        statsEngine: settings.statsEngine,
+        confidenceLevel: settings.confidenceLevel,
+        pValueThreshold: settings.pValueThreshold,
       },
     }),
   );
+  if (!updated) {
+    res.status(404).json({
+      message: "Could not find project",
+    });
+    return;
+  }
 
   res.status(200).json({
     status: 200,
-    settings: updated?.settings ?? {},
+    settings: updated.settings ?? {},
   });
 };
 

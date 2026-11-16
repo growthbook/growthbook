@@ -64,7 +64,14 @@ router.put(
       .strict(),
     body: z
       .object({
-        settings: projectSettingsValidator,
+        // The stats fields only. The default dashboard has its own endpoint.
+        settings: projectSettingsValidator
+          .pick({
+            statsEngine: true,
+            confidenceLevel: true,
+            pValueThreshold: true,
+          })
+          .strict(),
       })
       .strict(),
   }),
