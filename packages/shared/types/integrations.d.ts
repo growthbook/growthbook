@@ -1002,6 +1002,8 @@ export type ExperimentExposuresQueryParams = {
   customFields?: Record<string, unknown>;
   /** Same filter model Product Analytics uses; compiled by getRowFilterSQL. */
   rowFilters?: RowFilter[];
+  /** Only rows of units that saw more than one variation in the window. */
+  multipleExposuresOnly?: boolean;
   limit: number;
 };
 

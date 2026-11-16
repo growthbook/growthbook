@@ -21,7 +21,9 @@ import { useUser } from "@/services/UserContext";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import Button from "@/ui/Button";
 import TrafficCard from "@/components/HealthTab/TrafficCard";
-import ExposureLogsCard from "@/components/HealthTab/ExposureLogsCard";
+import ExposureLogsCard, {
+  useCanRunExposureLogs,
+} from "@/components/HealthTab/ExposureLogsCard";
 import { IssueTags, IssueValue } from "@/components/HealthTab/IssueTags";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -97,6 +99,9 @@ export default function HealthTab({
   const isBandit = experiment.type === "multi-armed-bandit";
   const isHoldout = experiment.type === "holdout";
   const orgStickyBucketing = !!useStickyBucketing;
+
+  const canRunExposureLogs = useCanRunExposureLogs(experiment);
+  const [multipleExposuresRequest, setMultipleExposuresRequest] = useState(0);
 
   const showMultipleExposures =
     !isBandit ||
@@ -337,6 +342,11 @@ export default function HealthTab({
           isBandit={isBandit}
           isHoldout={isHoldout}
           showMultipleExposures={showMultipleExposures}
+          onViewMultipleExposures={
+            canRunExposureLogs
+              ? () => setMultipleExposuresRequest((n) => n + 1)
+              : undefined
+          }
           decisionFrameworkEnabled={decisionFrameworkEnabled}
         />
       ) : null}
@@ -351,6 +361,7 @@ export default function HealthTab({
         experiment={experiment}
         isTabActive={isTabActive}
         phase={phase}
+        multipleExposuresRequest={multipleExposuresRequest}
       />
     </>
   );
@@ -512,6 +523,7 @@ function HealthSnapshotCards({
   isBandit,
   isHoldout,
   showMultipleExposures,
+  onViewMultipleExposures,
   decisionFrameworkEnabled,
 }: {
   experiment: ExperimentInterfaceStringDates;
@@ -527,6 +539,7 @@ function HealthSnapshotCards({
   isBandit: boolean;
   isHoldout: boolean;
   showMultipleExposures: boolean;
+  onViewMultipleExposures?: () => void;
   decisionFrameworkEnabled?: boolean;
 }) {
   const totalUsers =
@@ -636,6 +649,7 @@ function HealthSnapshotCards({
             snapshotId={snapshot.id}
             isClusterExperiment={isClusterExperiment}
             error={multipleExposuresError}
+            onViewExposures={onViewMultipleExposures}
           />
         </div>
       )}

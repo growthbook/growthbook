@@ -41,6 +41,8 @@ export interface RecordsPanelProps<TRow extends object, TResponse> {
   timestampColumn?: string;
   /** Columns and their values, for the filter panel's pickers. */
   columnSource: FilterColumnSource;
+  /** Extra controls for the filter panel, between the timeframe and filters. */
+  filterPanelExtra?: ReactNode;
 
   renderDetail?: (row: TRow) => ReactNode;
   detailFlattenKeys?: string[];
@@ -56,6 +58,8 @@ export interface RecordsPanelProps<TRow extends object, TResponse> {
    * Callers own the presentation so they can supply their own Callout.
    */
   warning?: ReactNode;
+  /** Replaces the row-limit note when the buffer isn't the most recent rows. */
+  truncatedMessage?: string;
   headerActions?: ReactNode;
   /** Height cap for the scrolling table body. */
   tableMaxHeight?: number;
@@ -70,6 +74,7 @@ export default function RecordsPanel<TRow extends object, TResponse>({
   getFilterValue,
   timestampColumn = "timestamp",
   columnSource,
+  filterPanelExtra,
   renderDetail,
   detailFlattenKeys,
   detailTitle,
@@ -77,6 +82,7 @@ export default function RecordsPanel<TRow extends object, TResponse>({
   emptyMessage = "No records found for this time range.",
   idleMessage = "Click Refresh to load records.",
   warning,
+  truncatedMessage = "Row limit exceeded. Data below only contains the most recent exposures. Use a narrower timeframe or add a filter to ensure all relevant exposures are included.",
   headerActions,
   tableMaxHeight = 480,
 }: RecordsPanelProps<TRow, TResponse>) {
@@ -154,6 +160,7 @@ export default function RecordsPanel<TRow extends object, TResponse>({
           fullWidth
         />
       </Flex>
+      {filterPanelExtra}
       <RowFilterPanel
         value={rowFilters}
         setValue={(filters) => applyControls({ rowFilters: filters })}
@@ -213,9 +220,7 @@ export default function RecordsPanel<TRow extends object, TResponse>({
         )}
         {truncated && (
           <Callout status="info" size="sm" mb="3">
-            Row limit exceeded. Data below only contains the most recent
-            exposures. Use a narrower timeframe or add a filter to ensure all
-            relevant exposures are included.
+            {truncatedMessage}
             {search.trim() ? " Search looks at the loaded rows alone." : ""}
           </Callout>
         )}

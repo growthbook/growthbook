@@ -1989,6 +1989,30 @@ describe("getExperimentExposuresQuery", () => {
     expect(sql).not.toMatch(/`(timestamp|experiment_id|variation_id|user_id)`/);
   });
 
+  it("limits rows to units with more than one variation in the window", () => {
+    const sql = getExperimentExposuresQuery(bigQueryDialect, {
+      ...params,
+      exposureQuery: {
+        query: "SELECT * FROM t",
+        identifierType: "user_id",
+        columnMapping: {
+          userIdColumns: { user_id: "uid", device_id: "did" },
+          timestampColumn: "ts",
+          experimentIdColumn: "eid",
+          variationIdColumn: "vid",
+        },
+      },
+      subUnitIdentifierType: "device_id",
+      rowFilters: [{ operator: "=", column: "variation_id", values: ["1"] }],
+      multipleExposuresOnly: true,
+    });
+    // Flags the sub-unit, over the whole window rather than the filtered rows
+    expect(sql).toMatch(
+      /`did` IN \(\s*SELECT\s+`did`\s+FROM\s+__exposureQuery\s+WHERE\s+`eid` = 'my-experiment'[^;]*?GROUP BY\s+`did`\s+HAVING\s+COUNT\(DISTINCT `vid`\) > 1\s*\)\s+AND \(\(LOWER/,
+    );
+    expect(sql).toMatch(/ORDER BY\s+`did` DESC,\s+`ts` DESC/);
+  });
+
   it("applies the phase filter the analysis applies", () => {
     const phaseParams = {
       ...params,

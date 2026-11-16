@@ -19,11 +19,15 @@ export const DEFAULT_RECORDS_DATE_RANGE: ExplorationDateRange = {
 
 export type RecordsCacheOption = "preferred" | "required" | "never";
 
+/** Server-side options the loaded rows can never be narrowed to locally. */
+export type RecordsExtraParams = Record<string, unknown>;
+
 export interface BuildParamsInput {
   startDate: string;
   endDate: string;
   rollingWindow: boolean;
   rowFilters: RowFilter[];
+  extraParams: RecordsExtraParams;
   cache: RecordsCacheOption;
 }
 
@@ -67,10 +71,14 @@ export interface UseRecordsQueryResult<TRow, TResponse> {
 
   dateRange: ExplorationDateRange;
   rowFilters: RowFilter[];
+  extraParams: RecordsExtraParams;
 
   applyControls: (next: {
     rowFilters?: RowFilter[];
     dateRange?: ExplorationDateRange;
+    extraParams?: RecordsExtraParams;
+    /** Query even when nothing is loaded yet, as an explicit Refresh would. */
+    run?: boolean;
   }) => void;
   appliedRowFilters: RowFilter[] | null;
   visibleWindow: ResolvedWindow | null;
@@ -79,6 +87,7 @@ export interface UseRecordsQueryResult<TRow, TResponse> {
 interface RunArgs {
   filters: RowFilter[];
   range: ExplorationDateRange;
+  extra: RecordsExtraParams;
   cache: RecordsCacheOption;
 }
 
@@ -100,12 +109,15 @@ export default function useRecordsQuery<TRow, TResponse>({
   const [dateRange, setDateRange] =
     useState<ExplorationDateRange>(defaultDateRange);
   const [rowFilters, setRowFilters] = useState<RowFilter[]>([]);
+  const [extraParams, setExtraParams] = useState<RecordsExtraParams>({});
 
   const [appliedDateRange, setAppliedDateRange] =
     useState<ExplorationDateRange | null>(null);
   const [appliedRowFilters, setAppliedRowFilters] = useState<
     RowFilter[] | null
   >(null);
+  const [appliedExtraParams, setAppliedExtraParams] =
+    useState<RecordsExtraParams>({});
   const [appliedWindow, setAppliedWindow] = useState<ResolvedWindow | null>(
     null,
   );
@@ -133,7 +145,7 @@ export default function useRecordsQuery<TRow, TResponse>({
   };
 
   const run = useCallback(
-    ({ filters, range, cache }: RunArgs) => {
+    ({ filters, range, extra, cache }: RunArgs) => {
       if (!canRun || !isActive) return;
 
       const resolvedRange = calculateProductAnalyticsDateRange(range);
@@ -154,6 +166,7 @@ export default function useRecordsQuery<TRow, TResponse>({
             endDate: requested.endDate,
             rollingWindow: isRollingDateRange(range),
             rowFilters: filters,
+            extraParams: extra,
             cache,
           }),
         ),
@@ -164,6 +177,7 @@ export default function useRecordsQuery<TRow, TResponse>({
           setData(response);
           setAppliedDateRange(range);
           setAppliedRowFilters(filters);
+          setAppliedExtraParams(extra);
           setAppliedWindow(
             configRef.current.selectMeta?.(response)?.window ?? null,
           );
@@ -189,14 +203,24 @@ export default function useRecordsQuery<TRow, TResponse>({
   useEffect(() => {
     if (!canRun || !isActive) return;
     if (cacheProbe !== "pending" || inFlight !== null) return;
-    run({ filters: [], range: defaultDateRange, cache: "required" });
+    run({
+      filters: [],
+      range: defaultDateRange,
+      extra: {},
+      cache: "required",
+    });
   }, [canRun, isActive, cacheProbe, inFlight, defaultDateRange, run]);
 
   useEffect(() => {
     if (!canRun || !isActive || !autoRun) return;
     if (cacheProbe !== "done" || inFlight !== null) return;
     if (data !== undefined || error !== undefined) return;
-    run({ filters: rowFilters, range: dateRange, cache: "preferred" });
+    run({
+      filters: rowFilters,
+      range: dateRange,
+      extra: extraParams,
+      cache: "preferred",
+    });
   }, [
     canRun,
     isActive,
@@ -207,6 +231,7 @@ export default function useRecordsQuery<TRow, TResponse>({
     error,
     rowFilters,
     dateRange,
+    extraParams,
     run,
   ]);
 
@@ -231,8 +256,13 @@ export default function useRecordsQuery<TRow, TResponse>({
 
   const submit = useCallback(() => {
     if (inFlight !== null) return;
-    run({ filters: rowFilters, range: dateRange, cache: "never" });
-  }, [dateRange, inFlight, rowFilters, run]);
+    run({
+      filters: rowFilters,
+      range: dateRange,
+      extra: extraParams,
+      cache: "never",
+    });
+  }, [dateRange, extraParams, inFlight, rowFilters, run]);
 
   const filtersCanNarrow = canNarrowLoadedRows({
     loadedFilters: appliedRowFilters,
@@ -241,12 +271,20 @@ export default function useRecordsQuery<TRow, TResponse>({
   });
 
   const applyControls = useCallback(
-    (next: { rowFilters?: RowFilter[]; dateRange?: ExplorationDateRange }) => {
+    (next: {
+      rowFilters?: RowFilter[];
+      dateRange?: ExplorationDateRange;
+      extraParams?: RecordsExtraParams;
+      run?: boolean;
+    }) => {
       const filters = next.rowFilters ?? rowFilters;
       const range = next.dateRange ?? dateRange;
+      const extra = next.extraParams ?? extraParams;
       if (next.rowFilters) setRowFilters(next.rowFilters);
       if (next.dateRange) setDateRange(next.dateRange);
-      if (inFlight !== null) return;
+      if (next.extraParams) setExtraParams(next.extraParams);
+      // An explicit run may supersede the cache probe, but not a real query.
+      if (inFlight === "query" || (inFlight === "cache" && !next.run)) return;
 
       const sameRange = isEqual(range, appliedDateRange);
       let nextWindow: ResolvedWindow | null = visibleWindow;
@@ -269,6 +307,7 @@ export default function useRecordsQuery<TRow, TResponse>({
 
       const canNarrow =
         rangeCanNarrow &&
+        isEqual(extra, appliedExtraParams) &&
         canNarrowLoadedRows({
           loadedFilters: appliedRowFilters,
           nextFilters: filters,
@@ -280,15 +319,17 @@ export default function useRecordsQuery<TRow, TResponse>({
         setVisibleWindow(nextWindow);
         return;
       }
-      if (appliedRowFilters !== null) {
-        run({ filters, range, cache: "preferred" });
+      if (appliedRowFilters !== null || next.run) {
+        run({ filters, range, extra, cache: "preferred" });
       }
     },
     [
       appliedDateRange,
+      appliedExtraParams,
       appliedRowFilters,
       appliedWindow,
       dateRange,
+      extraParams,
       inFlight,
       loadedRowsAreLossy,
       rowFilters,
@@ -298,6 +339,7 @@ export default function useRecordsQuery<TRow, TResponse>({
   );
 
   const hasRun = data !== undefined || error !== undefined;
+  const extraParamsAreApplied = isEqual(extraParams, appliedExtraParams);
 
   return {
     rows,
@@ -309,16 +351,18 @@ export default function useRecordsQuery<TRow, TResponse>({
     localNarrowingIsLossy:
       inFlight === null &&
       appliedRowFilters !== null &&
-      !isEqual(rowFilters, appliedRowFilters) &&
-      !filtersCanNarrow,
+      ((!isEqual(rowFilters, appliedRowFilters) && !filtersCanNarrow) ||
+        !extraParamsAreApplied),
     truncated,
     ranAt: meta?.ranAt,
     submit,
     hasPendingChanges:
-      appliedDateRange !== null && !isEqual(dateRange, appliedDateRange),
+      appliedDateRange !== null &&
+      (!isEqual(dateRange, appliedDateRange) || !extraParamsAreApplied),
 
     dateRange,
     rowFilters,
+    extraParams,
     applyControls,
     appliedRowFilters,
     visibleWindow,

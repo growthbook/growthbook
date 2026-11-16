@@ -5,6 +5,7 @@ import {
   DEFAULT_MULTIPLE_EXPOSURES_THRESHOLD,
 } from "shared/constants";
 import useOrgSettings from "@/hooks/useOrgSettings";
+import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
 import HealthCard from "./HealthCard";
 import { IssueValue } from "./IssueTags";
@@ -20,6 +21,8 @@ interface Props {
   isBandit?: boolean;
   isClusterExperiment?: boolean;
   error?: string;
+  /** Filters the exposure logs down to the units this check counted. */
+  onViewExposures?: () => void;
 }
 
 const percentFormatter = new Intl.NumberFormat(undefined, {
@@ -36,6 +39,7 @@ export default function MultipleExposuresCard({
   isBandit = false,
   isClusterExperiment = false,
   error,
+  onViewExposures,
 }: Props) {
   const settings = useOrgSettings();
 
@@ -85,10 +89,17 @@ export default function MultipleExposuresCard({
     return null;
   }
 
+  const viewExposures =
+    onViewExposures && multipleExposures > 0 ? (
+      <Button variant="ghost" size="sm" onClick={onViewExposures}>
+        View exposures
+      </Button>
+    ) : undefined;
+
   return (
     <HealthCard title={title} description={description} status={health.status}>
       {health.status === "healthy" ? (
-        <Callout status="success">
+        <Callout status="success" contentAlign="center" action={viewExposures}>
           {multipleExposures === 0 ? (
             <b>Multiple exposures were not detected.</b>
           ) : (
@@ -100,7 +111,7 @@ export default function MultipleExposuresCard({
           )}
         </Callout>
       ) : (
-        <Callout status="warning">
+        <Callout status="warning" contentAlign="center" action={viewExposures}>
           <strong>
             {isClusterExperiment
               ? "Subunit Multiple Exposures Warning"

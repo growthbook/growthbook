@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import { Flex } from "@radix-ui/themes";
 import { isEqual } from "lodash";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
@@ -18,6 +18,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import { getIdentifierDisplayName } from "@/services/experiments";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Callout from "@/ui/Callout";
+import Checkbox from "@/ui/Checkbox";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
 import VariationLabel from "@/ui/VariationLabel";
@@ -81,15 +82,38 @@ export interface Props {
   /** The phase selected on the Health tab, so the log compiles the exposure
    * query for the same phase the snapshot cards show. */
   phase: number;
+  /** Bumped each time another card asks to see the multiply-exposed units. */
+  multipleExposuresRequest?: number;
+}
+
+export function useCanRunExposureLogs(
+  experiment: ExperimentInterfaceStringDates,
+): boolean {
+  const { getDatasourceById } = useDefinitions();
+  const permissionsUtil = usePermissionsUtil();
+
+  const datasource = getDatasourceById(experiment.datasource);
+  const exposureQuery = datasource?.settings?.queries?.exposure?.find(
+    (e) => e.id === experiment.exposureQueryId,
+  );
+
+  return (
+    !!datasource &&
+    hasHealthData(datasource) &&
+    !isManagedWarehouseUnavailable(datasource) &&
+    !!exposureQuery &&
+    permissionsUtil.canRunHealthQueries(datasource)
+  );
 }
 
 export default function ExposureLogsCard({
   experiment,
   isTabActive,
   phase,
+  multipleExposuresRequest = 0,
 }: Props) {
   const { getDatasourceById } = useDefinitions();
-  const permissionsUtil = usePermissionsUtil();
+  const canRun = useCanRunExposureLogs(experiment);
 
   const datasource = getDatasourceById(experiment.datasource);
   const exposureQuery = datasource?.settings?.queries?.exposure?.find(
@@ -107,13 +131,6 @@ export default function ExposureLogsCard({
   const subUnitIdColumn =
     (experiment.isClusterExperiment && experiment.clusterSubUnitIdentifier) ||
     null;
-
-  const canRun =
-    !!datasource &&
-    hasHealthData(datasource) &&
-    !isManagedWarehouseUnavailable(datasource) &&
-    !!exposureQuery &&
-    permissionsUtil.canRunHealthQueries(datasource);
 
   // GrowthBook owns the compute for a managed warehouse, so results can be
   // fetched on sight. A customer's warehouse bills them per query, so it waits
@@ -150,16 +167,35 @@ export default function ExposureLogsCard({
       endDate,
       rollingWindow,
       rowFilters,
+      extraParams,
       cache,
     }) => ({
       startDate,
       endDate,
       rollingWindow,
       rowFilters,
+      multipleExposuresOnly: extraParams.multipleExposuresOnly === true,
       phase,
       cache,
     }),
   });
+  const multipleExposuresOnly =
+    query.extraParams.multipleExposuresOnly === true;
+
+  // The check counts over the whole phase, so a shorter window would miss
+  // units whose conflicting exposures are further apart.
+  const containerRef = useRef<HTMLDivElement>(null);
+  const handledRequest = useRef(multipleExposuresRequest);
+  useEffect(() => {
+    if (multipleExposuresRequest === handledRequest.current) return;
+    handledRequest.current = multipleExposuresRequest;
+    query.applyControls({
+      extraParams: { multipleExposuresOnly: true },
+      dateRange: entirePhaseRange(phaseBounds) ?? undefined,
+      run: true,
+    });
+    containerRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [multipleExposuresRequest, query, phaseBounds]);
 
   // Indexed off the latest phase so the number matches the traffic card legend.
   // The warehouse returns v.key when variation keys are configured, and the
@@ -381,22 +417,44 @@ export default function ExposureLogsCard({
       </Flex>
     ) : null;
 
+  const unitNoun = subUnitIdColumn ? "subunits" : "units";
+
   return (
-    <RecordsPanel
-      title="Exposure Logs"
-      query={query}
-      columns={columns}
-      getRowId={(r, i) =>
-        `${r.timestamp}-${r.unitId ?? ""}-${r.subUnitId ?? ""}-${r.variationId}-${i}`
-      }
-      getSearchText={getSearchText}
-      getFilterValue={getFilterValue}
-      columnSource={columnSource}
-      renderDetail={renderDetail}
-      searchPlaceholder="Search exposures..."
-      emptyMessage="No exposures found for this time range."
-      idleMessage="No recent results. Click Refresh to load exposure records."
-      warning={warning}
-    />
+    <div ref={containerRef} style={{ scrollMarginTop: "100px" }}>
+      <RecordsPanel
+        title="Exposure Logs"
+        query={query}
+        columns={columns}
+        getRowId={(r, i) =>
+          `${r.timestamp}-${r.unitId ?? ""}-${r.subUnitId ?? ""}-${r.variationId}-${i}`
+        }
+        getSearchText={getSearchText}
+        getFilterValue={getFilterValue}
+        columnSource={columnSource}
+        filterPanelExtra={
+          <Checkbox
+            label={`Only ${unitNoun} with multiple exposures`}
+            weight="regular"
+            value={multipleExposuresOnly}
+            setValue={(value) =>
+              query.applyControls({
+                extraParams: { multipleExposuresOnly: value },
+              })
+            }
+            disabled={query.isRefreshing}
+          />
+        }
+        truncatedMessage={
+          multipleExposuresOnly
+            ? `Row limit exceeded. Data below only contains some of the ${unitNoun} with multiple exposures. Use a narrower timeframe or add a filter to ensure all relevant exposures are included.`
+            : undefined
+        }
+        renderDetail={renderDetail}
+        searchPlaceholder="Search exposures..."
+        emptyMessage="No exposures found for this time range."
+        idleMessage="No recent results. Click Refresh to load exposure records."
+        warning={warning}
+      />
+    </div>
   );
 }

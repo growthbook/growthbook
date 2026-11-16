@@ -121,7 +121,17 @@ export function getExperimentExposuresQuery(
       ...params.dimensions,
     ]),
   );
-  const orderColumns = Array.from(new Set(filterableColumns.map(toPhysical)));
+  const physicalFilterColumns = Array.from(
+    new Set(filterableColumns.map(toPhysical)),
+  );
+  // The check flags the unit the experiment counts: the sub-unit when clustered
+  const unitColumn = toPhysical(
+    params.subUnitIdentifierType || exposureQuery.identifierType,
+  );
+  // Unit first, so each unit's conflicting rows stay together
+  const orderColumns = params.multipleExposuresOnly
+    ? [unitColumn, ...physicalFilterColumns.filter((c) => c !== unitColumn)]
+    : physicalFilterColumns;
   [...orderColumns, experimentIdColumn].forEach((c) =>
     assertSafeIdentifier(c, "Column"),
   );
@@ -146,7 +156,7 @@ export function getExperimentExposuresQuery(
           column: toPhysical(f.column ?? ""),
           values: f.values?.map((v) => v.toLowerCase()),
         })),
-        factTable: exposureColumnsAsFactTable(orderColumns, dialect),
+        factTable: exposureColumnsAsFactTable(physicalFilterColumns, dialect),
         dialect,
       })
     : "";
@@ -155,9 +165,25 @@ export function getExperimentExposuresQuery(
       AND ${rowFilterWhere}`
     : "";
 
-  const whereAndOrderBy = `WHERE ${quoteColumnIdentifier(experimentIdColumn, dialect)} = '${trackingKey}'
+  const experimentAndWindowWhere = `WHERE ${quoteColumnIdentifier(experimentIdColumn, dialect)} = '${trackingKey}'
       AND ${quoteColumnIdentifier(timestampColumn, dialect)} >= ${dialect.toTimestamp(params.startDate)}
-      AND ${quoteColumnIdentifier(timestampColumn, dialect)} < ${dialect.toTimestamp(params.endDate)}${extraWhere}
+      AND ${quoteColumnIdentifier(timestampColumn, dialect)} < ${dialect.toTimestamp(params.endDate)}`;
+
+  // Row filters are left out of the subquery: a unit is flagged on everything
+  // it saw in the window, as in the units query, not only on the rows shown.
+  const quotedUnitColumn = quoteColumnIdentifier(unitColumn, dialect);
+  const multipleExposuresWhere = params.multipleExposuresOnly
+    ? `
+      AND ${quotedUnitColumn} IN (
+        SELECT ${quotedUnitColumn}
+        FROM __exposureQuery
+        ${experimentAndWindowWhere}
+        GROUP BY ${quotedUnitColumn}
+        HAVING COUNT(DISTINCT ${quoteColumnIdentifier(physicalColumns.variation_id, dialect)}) > 1
+      )`
+    : "";
+
+  const whereAndOrderBy = `${experimentAndWindowWhere}${multipleExposuresWhere}${extraWhere}
     ORDER BY ${orderColumns.map((column) => `${quoteColumnIdentifier(column, dialect)} DESC`).join(", ")}`;
 
   // SELECT * rather than an explicit column list: every column the exposure
