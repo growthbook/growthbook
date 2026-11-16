@@ -365,16 +365,18 @@ export default function Welcome({
               {error}
             </Callout>
           )}
-          <Button
-            type="submit"
-            size="xl"
-            loading={loading}
-            style={{ width: "100%" }}
-            mt="5"
-            mb="5"
-          >
-            {cta}
-          </Button>
+          {state !== "forgotSuccess" && (
+            <Button
+              type="submit"
+              size="xl"
+              loading={loading}
+              style={{ width: "100%" }}
+              mt="5"
+              mb="5"
+            >
+              {cta}
+            </Button>
+          )}
           {state === "login" && (
             <Flex justify="center" align="center">
               <Text color="text-mid" weight="regular" align="center">
