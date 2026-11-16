@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import React, { useCallback, useMemo } from "react";
 import { omit } from "lodash";
 import { Flex } from "@radix-ui/themes";
 import { PiPlus } from "react-icons/pi";
@@ -29,6 +29,7 @@ import {
   getReadOnlyUnit,
   getUnitConflict,
   getUnitPicker,
+  orderEnabledOptionsFirst,
   setMetricValuesUnit,
 } from "@/enterprise/components/ProductAnalytics/metricMixing";
 import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
@@ -119,13 +120,41 @@ export default function MetricTabContent() {
   };
 
   /** Why `metric` can't go in a slot with these locks, or null if it can. */
-  const getDisabledReason = (
-    metric: FactMetricInterface,
-    lockedClass: Exclude<MetricMixClass, "unknown"> | null,
-    lockedUnit: string | null,
-  ): string | null =>
-    getMixClassConflict(metric.metricType, lockedClass) ??
-    getUnitConflict(metric, lockedUnit, getFactTableById);
+  const getDisabledReason = useCallback(
+    (
+      metric: FactMetricInterface,
+      lockedClass: Exclude<MetricMixClass, "unknown"> | null,
+      lockedUnit: string | null,
+    ): string | null =>
+      getMixClassConflict(metric.metricType, lockedClass) ??
+      getUnitConflict(metric, lockedUnit, getFactTableById),
+    [getFactTableById],
+  );
+
+  // Each slot lists its enabled metrics first. Slots with the same locks share
+  // one list, and lists are kept between renders so SelectField doesn't
+  // re-clone every metric option on each edit.
+  const getOrderedOptions = useMemo(() => {
+    const orderedByLocks = new Map<string, (SingleValue | GroupedValue)[]>();
+    return (
+      lockedClass: Exclude<MetricMixClass, "unknown"> | null,
+      lockedUnit: string | null,
+    ) => {
+      const key = `${lockedClass}|${lockedUnit}`;
+      let ordered = orderedByLocks.get(key);
+      if (!ordered) {
+        ordered = orderEnabledOptionsFirst(groupedOptions, (metricId) => {
+          const metric = getFactMetricById(metricId);
+          return (
+            !!metric &&
+            getDisabledReason(metric, lockedClass, lockedUnit) !== null
+          );
+        });
+        orderedByLocks.set(key, ordered);
+      }
+      return ordered;
+    };
+  }, [groupedOptions, getFactMetricById, getDisabledReason]);
 
   const handleUnitChange = (unit: string) =>
     setDraftExploreState((prev) => {
@@ -227,7 +256,7 @@ export default function MetricTabContent() {
 
                   updateValueInDataset(idx, updates as MetricValue);
                 }}
-                options={groupedOptions}
+                options={getOrderedOptions(lockedClass, lockedUnit)}
                 isOptionDisabled={(option) =>
                   "value" in option && disabledReasonFor(option.value) !== null
                 }

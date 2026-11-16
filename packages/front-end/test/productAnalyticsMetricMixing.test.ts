@@ -12,6 +12,7 @@ import {
   getMixClassConflict,
   getPopulationFactTableId,
   getUnitConflict,
+  orderEnabledOptionsFirst,
   setMetricValuesUnit,
 } from "@/enterprise/components/ProductAnalytics/metricMixing";
 
@@ -247,5 +248,34 @@ describe("getPopulationFactTableId", () => {
   it("returns null when there are no metrics or a slot is empty", () => {
     expect(getPopulationFactTableId([], getMetric)).toBeNull();
     expect(getPopulationFactTableId([value("", null)], getMetric)).toBeNull();
+  });
+});
+
+describe("orderEnabledOptionsFirst", () => {
+  const option = (value: string) => ({ label: value, value });
+  const isDisabled = (value: string) => value.startsWith("off");
+
+  it("moves enabled options first, keeping each set's order", () => {
+    expect(
+      orderEnabledOptionsFirst(
+        ["off1", "on1", "off2", "on2"].map(option),
+        isDisabled,
+      ),
+    ).toEqual(["on1", "on2", "off1", "off2"].map(option));
+  });
+
+  it("orders within each group, keeping the groups in place", () => {
+    expect(
+      orderEnabledOptionsFirst(
+        [
+          { label: "Official", options: ["off1", "on1"].map(option) },
+          { label: "", options: ["off2", "on2"].map(option) },
+        ],
+        isDisabled,
+      ),
+    ).toEqual([
+      { label: "Official", options: ["on1", "off1"].map(option) },
+      { label: "", options: ["on2", "off2"].map(option) },
+    ]);
   });
 });

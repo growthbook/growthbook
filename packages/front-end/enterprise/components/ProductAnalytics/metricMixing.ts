@@ -10,6 +10,7 @@ import {
   metricSupportsUnitSelection,
 } from "shared/enterprise";
 import type { MetricMixClass } from "shared/enterprise";
+import type { GroupedValue, SingleValue } from "@/components/Forms/SelectField";
 
 /**
  * Given the other already-selected metrics in the dataset (excluding the slot
@@ -189,4 +190,23 @@ export function getPopulationFactTableId(
     }
   }
   return sharedFactTableId;
+}
+
+/**
+ * Moves the enabled options ahead of the disabled ones, within each group and
+ * otherwise keeping their order.
+ */
+export function orderEnabledOptionsFirst(
+  options: (SingleValue | GroupedValue)[],
+  isDisabled: (value: string) => boolean,
+): (SingleValue | GroupedValue)[] {
+  const partition = (opts: SingleValue[]) => [
+    ...opts.filter((o) => !isDisabled(o.value)),
+    ...opts.filter((o) => isDisabled(o.value)),
+  ];
+  return options.some((o) => "options" in o)
+    ? options.map((o) =>
+        "options" in o ? { ...o, options: partition(o.options) } : o,
+      )
+    : partition(options as SingleValue[]);
 }
