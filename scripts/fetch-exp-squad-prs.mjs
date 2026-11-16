@@ -33,6 +33,7 @@ const members = [
   "msamper",
   "lukebrawleysmith",
   "lillialjackson",
+  "HampusPoppius",
 ];
 const extraAuthors = ["gabebook340"];
 const authors = [...members, ...extraAuthors];
