@@ -183,6 +183,12 @@ export default function PopulationPicker({
         setValue={handlePopulationChange}
       >
         <SelectItem value={NO_POPULATION}>None</SelectItem>
+        {/* Without a list, name the applied filter so it isn't blank. */}
+        {!hasPopulationList && population && (
+          <SelectItem value={population.populationId}>
+            Applied Population
+          </SelectItem>
+        )}
         {populationOptions.map((p) => (
           <SelectItem key={p.id} value={p.id}>
             {p.name}
