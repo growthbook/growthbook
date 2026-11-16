@@ -54,11 +54,19 @@
   );
 }
 
-// Reaches past the frame's side padding to the page's edges (backgrounds,
-// borders, sticky bars), keeping what's inside in line with the page.
+// A full-width band (a page's header, tabs, status bar): it reaches past the
+// frame's side padding to the page's edges, and its content keeps the step
+// padding there. It never centers with the capped page: past
+// --page-max-width the content below centers and the band stays wide.
 .bleed {
   margin-left: calc(-1 * var(--page-padding));
   margin-right: calc(-1 * var(--page-padding));
-  padding-left: var(--page-padding);
-  padding-right: var(--page-padding);
+  padding-left: var(--page-padding-step);
+  padding-right: var(--page-padding-step);
+
+  // Inside, the page's padding is the band's, so a band nested in it (the
+  // feature page's status bar, in its tab row) reaches the same edges.
+  & > * {
+    --page-padding: var(--page-padding-step);
+  }
 }

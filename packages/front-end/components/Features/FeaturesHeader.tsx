@@ -461,7 +461,7 @@ export default function FeaturesHeader({
 
   return (
     <>
-      <Box className="features-header contents container-fluid pagecontents pb-0">
+      <PageBleed>
         <Box>
           <Flex align="start" justify="between" gap="2">
             <Flex align="center" mb="2" gap="3">
@@ -608,7 +608,7 @@ export default function FeaturesHeader({
             </Callout>
           ) : null}
         </Box>
-      </Box>
+      </PageBleed>
       <>
         <div
           ref={tabsPinSentinelRef}

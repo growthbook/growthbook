@@ -1001,7 +1001,7 @@ export default function ExperimentHeader({
         />
       ) : null}
 
-      <div className="container-fluid pagecontents position-relative pb-2">
+      <PageBleed className="position-relative pb-2">
         <Flex direction="row" align="start" justify="between" gap="5">
           <Box className={revealsQuickEdit}>
             <Heading
@@ -1480,7 +1480,7 @@ export default function ExperimentHeader({
             </Flex>
           </Flex>
         </Flex>
-      </div>
+      </PageBleed>
 
       {showDashboardView ? null : (
         <>

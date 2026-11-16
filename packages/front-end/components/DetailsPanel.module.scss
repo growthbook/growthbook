@@ -5,14 +5,26 @@
   margin: 0 calc(-1 * var(--page-padding)) calc(-1 * var(--page-bottom-padding));
 }
 
-// The working area beside the panel. It keeps the page's left edge and its
-// padding at the right and bottom, so the page never moves when the panel
-// opens: the panel takes its room from the working area's right.
+// The working area beside the panel: the page's content, capped at
+// --page-max-width and centered in the room the panel leaves. Opening the
+// panel moves capped content left rather than widening it; once the room is
+// too narrow to center in, the content keeps the header's left edge and the
+// panel takes its room from the right.
 .column {
+  // The least padding on each side.
+  --column-start: var(--page-padding-step);
+  --column-end: max(var(--space-5), var(--page-padding-step));
   // Its own formatting context, so the margin below stays inside it.
   display: flow-root;
-  padding-left: var(--page-padding);
-  padding-right: max(var(--space-5), var(--page-padding));
+  // 100% is the room beside the panel.
+  padding-left: max(
+    var(--column-start),
+    (100% + var(--column-start) - var(--column-end) - var(--page-max-width)) / 2
+  );
+  padding-right: max(
+    var(--column-end),
+    (100% + var(--column-end) - var(--column-start) - var(--page-max-width)) / 2
+  );
 
   // A margin, which the last item's own bottom margin collapses into
   // (PageFrame.module.scss).
@@ -25,5 +37,5 @@
 
 // Docked, the working area runs to the panel.
 :global([data-panel-docked]) .column {
-  padding-right: var(--space-5);
+  --column-end: var(--space-5);
 }
