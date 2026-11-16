@@ -28,6 +28,7 @@ function MigrateEnvironmentField({
   environments: string[];
   others: string[];
   savedAll: boolean;
+  disabled: boolean;
   initial: string;
   onChange: (value: string) => void;
 }) {
@@ -151,6 +152,11 @@ export default function EventForwarders({
                             )
                             .map((r) => r.environment ?? "")}
                           savedAll={!row.environment}
+                          // Server keeps a live forwarder's environment, unless it was deleted
+                          disabled={
+                            !!row.environment &&
+                            environments.includes(row.environment)
+                          }
                           initial={row.environment ?? ""}
                           onChange={(v) => (migrateEnvironment.current = v)}
                         />

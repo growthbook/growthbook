@@ -131,12 +131,15 @@ export function EventForwarderEnvironmentField({
   onChange,
   region,
   datasourceId,
+  live = false,
   disabled = false,
 }: {
   value: string;
   onChange: (value: string) => void;
   region?: DataRegion | null;
   datasourceId?: string;
+  // Has received events, so a saved environment can no longer be changed
+  live?: boolean;
   disabled?: boolean;
 }) {
   const environments = useEnvironments();
@@ -145,11 +148,16 @@ export function EventForwarderEnvironmentField({
   const saved = eventForwarderEnvironments.find(
     (e) => e.datasourceId === datasourceId,
   );
+  // Same rule as the server: fixed once live, unless the environment was deleted
+  const locked =
+    live &&
+    !!saved?.environment &&
+    environments.some((e) => e.id === saved.environment);
   return (
     <EventForwarderEnvironmentSelect
       value={value}
       onChange={onChange}
-      disabled={disabled}
+      disabled={disabled || locked}
       environments={environments.map((e) => e.id)}
       others={eventForwarderEnvironments
         .filter((e) => e.datasourceId !== datasourceId)
@@ -162,9 +170,11 @@ export function EventForwarderEnvironmentField({
       )}
       // Moving a live forwarder to one environment drops the rest on save
       helpText={
-        saved && value && value !== saved.environment
-          ? `${ENVIRONMENT_HELP_TEXT} Events from other environments stop being forwarded when you save.`
-          : undefined
+        locked
+          ? `${ENVIRONMENT_HELP_TEXT} This cannot be changed.`
+          : saved && value && value !== saved.environment
+            ? `${ENVIRONMENT_HELP_TEXT} Events from other environments stop being forwarded when you save.`
+            : undefined
       }
     />
   );

@@ -504,7 +504,8 @@ function EventForwarderModal({
       projects: dataSource.projects,
       eventForwarderConfig: getEventForwarderDraft(dataSource),
     }));
-  const isEditingEventForwarder = !!dataSource.eventForwarderConfig;
+  const saved = dataSource.eventForwarderConfig;
+  const isEditingEventForwarder = !!saved;
   const [usEventForwarderFlowConsent, setUsEventForwarderFlowConsent] =
     useState(isEditingEventForwarder);
   const setEventForwarderConfig = (
@@ -627,6 +628,11 @@ function EventForwarderModal({
                   value={eventForwarderConfig.environment ?? ""}
                   region={eventForwarderConfig.region ?? DEFAULT_DATA_REGION}
                   datasourceId={dataSource.id}
+                  live={
+                    !!saved &&
+                    saved.status !== "unconfigured" &&
+                    !(saved.status === "error" && !saved.connectorName)
+                  }
                   onChange={(environment) =>
                     setEventForwarderConfig({
                       ...eventForwarderConfig,

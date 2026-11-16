@@ -1,5 +1,6 @@
 import { EventForwarderConfigInterface } from "shared/validators";
 import {
+  assertEventForwarderEnvironmentUnchanged,
   assertNoEventForwarderEnvironmentOverlap,
   getClaimedEventForwarderEnvironments,
 } from "back-end/src/services/eventForwarder/config";
@@ -162,5 +163,31 @@ describe("getClaimedEventForwarderEnvironments", () => {
       { datasourceId: "ds_b", environment: "", region: "us-east-1" },
       { datasourceId: "ds_d", environment: "dev", region: "us-east-1" },
     ]);
+  });
+});
+
+describe("assertEventForwarderEnvironmentUnchanged", () => {
+  const context = {
+    org: { settings: { environments: [{ id: "production" }, { id: "dev" }] } },
+  } as never;
+  const change = (existing: EventForwarderConfigInterface, to?: string) => () =>
+    assertEventForwarderEnvironmentUnchanged(context, existing, to);
+
+  it("rejects moving a live forwarder to another environment or back to all", () => {
+    const live = row("a", { environment: "production" });
+    expect(change(live, "dev")).toThrow(/cannot be changed/);
+    expect(change(live, undefined)).toThrow(/cannot be changed/);
+    expect(change(live, "production")).not.toThrow();
+  });
+
+  it("allows narrowing from all, rows that never received events, and deleted environments", () => {
+    expect(change(row("a"), "dev")).not.toThrow();
+    expect(
+      change(
+        row("a", { environment: "dev", status: "unconfigured" }),
+        "production",
+      ),
+    ).not.toThrow();
+    expect(change(row("a", { environment: "gone" }), "dev")).not.toThrow();
   });
 });

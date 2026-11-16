@@ -229,6 +229,30 @@ async function claimingEnvironment<T>(
   }
 }
 
+// A forwarder that has received events keeps its environment: changing it
+// would send another environment's events into the same tables
+// - All environments can still be narrowed to one
+// - An environment deleted from the organization can be replaced
+export function assertEventForwarderEnvironmentUnchanged(
+  context: ReqContext,
+  existing: EventForwarderConfigInterface | null | undefined,
+  environment: string | undefined,
+): void {
+  const saved = existing?.environment;
+  if (
+    !existing ||
+    !saved ||
+    saved === (environment ?? "") ||
+    hasNeverReceivedEvents(existing) ||
+    !getEnvironmentIdsFromOrg(context.org).includes(saved)
+  ) {
+    return;
+  }
+  throw new Error(
+    `This Event Forwarder is set to the "${saved}" environment, which cannot be changed. To use a different environment, delete it and set up a new one.`,
+  );
+}
+
 // Rules apply per data region: each regional ingestor only sees its own forwarders
 // - No two forwarders may receive the same environment (events and usage would double)
 // - No environment means all environments, which only a lone forwarder may have
@@ -818,6 +842,7 @@ export async function migrateEventForwarderToInHouseConsumer(
   }
   // Same forwarder on a new transport, so the rules for an edit apply:
   // it may keep all environments, or be narrowed to a free one
+  assertEventForwarderEnvironmentUnchanged(context, existing, environment);
   await assertNoEventForwarderEnvironmentOverlap(context, environment, {
     current: existing,
   });
@@ -1004,6 +1029,11 @@ export async function syncEventForwarderConfigFromDatasource({
 
   const projects = [...(datasource.projects ?? [])].sort();
 
+  assertEventForwarderEnvironmentUnchanged(
+    context,
+    existing,
+    draft.environment,
+  );
   await assertNoEventForwarderEnvironmentOverlap(context, draft.environment, {
     current: existing,
     adding: !existing || hasNeverReceivedEvents(existing),
