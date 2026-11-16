@@ -124,6 +124,8 @@ export interface Props {
   urlRedirects: URLRedirectInterface[];
   mutate: () => void;
   editTargeting?: (() => void) | null;
+  /** Opens the Make Changes form, set where it's the way to edit delivery. */
+  makeChanges?: ((openAt?: "traffic") => void) | null;
   targetingDraft?: TargetingDraft;
   analysisSettingsOpen: boolean;
   setAnalysisSettingsOpen: (open: boolean) => void;
@@ -152,6 +154,7 @@ export default function Implementation({
   urlRedirects,
   mutate,
   editTargeting,
+  makeChanges,
   targetingDraft,
   analysisSettingsOpen,
   setAnalysisSettingsOpen,
@@ -531,6 +534,7 @@ export default function Implementation({
               editTargeting={
                 pendingScheduledStart || !canEdit ? null : editTargeting
               }
+              makeChanges={canEdit ? makeChanges : null}
               targetingDraft={targetingDraft}
               editNamespace={
                 pendingScheduledStart || !canEdit ? null : editNamespace

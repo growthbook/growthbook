@@ -12,7 +12,6 @@ import {
   PiPlus,
   PiX,
 } from "react-icons/pi";
-import { AppFeatures } from "shared/types/app-features";
 import Avatar from "@/ui/Avatar";
 import Badge from "@/ui/Badge";
 import Callout from "@/ui/Callout";
@@ -237,7 +236,7 @@ const FILTER_LABELS: Record<string, string> = {
 };
 
 export default function SessionReplayPage() {
-  const gb = useGrowthBook<AppFeatures>();
+  const gb = useGrowthBook();
   const sessionReplayEnabled = !!gb?.isOn("session-replays");
 
   const router = useRouter();
