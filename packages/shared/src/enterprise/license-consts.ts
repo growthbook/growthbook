@@ -54,6 +54,7 @@ export type CommercialFeature =
   | "quantile-metrics"
   | "retention-metrics"
   | "funnel-metrics"
+  | "compound-metrics"
   | "custom-markdown"
   | "experiment-impact"
   | "metric-populations"
@@ -237,6 +238,7 @@ const commercialFeaturesPro: CommercialFeature[] = [
   "quantile-metrics",
   "retention-metrics",
   "funnel-metrics",
+  "compound-metrics",
   "metric-populations",
   "multi-armed-bandits",
   "historical-power",

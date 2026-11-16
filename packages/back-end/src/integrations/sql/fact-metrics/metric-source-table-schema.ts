@@ -1,4 +1,5 @@
 import {
+  isFactCompoundMetric,
   isFactFunnelMetric,
   isRatioMetric,
   quantileMetricType,
@@ -12,6 +13,7 @@ import {
   funnelStepArrayColumn,
   funnelStepResolvedTsColumn,
 } from "back-end/src/integrations/sql/fact-metrics/funnel-columns";
+import { compoundComponentColumn } from "back-end/src/integrations/sql/fact-metrics/compound-columns";
 
 // Generates the cache table schema for a single per-fact-table metric source.
 //
@@ -54,6 +56,19 @@ export function getMetricSourceTableSchema(
             dialect.getDataType("arrayTimestamp"),
           );
         }
+      });
+      return;
+    }
+
+    if (isFactCompoundMetric(metric)) {
+      // Per user-date match count for each component this cache hosts.
+      const prefix = encodeMetricIdForColumnName(metric.id);
+      metric.compoundSettings.components.forEach((component, index) => {
+        if (component.factTableId !== factTableId) return;
+        schema.set(
+          compoundComponentColumn(prefix, index),
+          dialect.getDataType("integer"),
+        );
       });
       return;
     }

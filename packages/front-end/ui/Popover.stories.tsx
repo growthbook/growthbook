@@ -86,6 +86,36 @@ export default function PopoverStories() {
           )}
         </Flex>
       </Box>
+
+      <Box>
+        <Box mb="1">
+          <Text weight="medium">Open on hover, after a delay</Text>
+        </Box>
+        <Box mb="2">
+          <Text size="1" color="gray">
+            hoverDelay keeps a pointer passing over dense rows from opening each
+            one; it opens once the pointer rests (350ms here).
+          </Text>
+        </Box>
+        <Flex direction="column" gap="1" style={{ maxWidth: 280 }}>
+          {["production", "staging", "dev"].map((env) => (
+            <Popover
+              key={env}
+              openOnHover
+              hoverDelay={350}
+              anchorOnly
+              side="right"
+              sideOffset={8}
+              trigger={
+                <span>
+                  <Text>{env}</Text>
+                </span>
+              }
+              content={<Text>Changed in this draft</Text>}
+            />
+          ))}
+        </Flex>
+      </Box>
     </Flex>
   );
 }

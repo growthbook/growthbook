@@ -1,3 +1,61 @@
+import stringify from "json-stringify-pretty-compact";
+
+const MAX_LINE = 80;
+
+// Spaces inside a one-line object's braces, `{ "a": 1 }`, as written by hand.
+function padInlineBraces(json: string): string {
+  let out = "";
+  let inString = false;
+  let escaped = false;
+  for (let i = 0; i < json.length; i++) {
+    const c = json[i];
+    if (inString) {
+      if (escaped) escaped = false;
+      else if (c === "\\") escaped = true;
+      else if (c === '"') inString = false;
+    } else if (c === '"') {
+      inString = true;
+    } else if (c === "}" && !/[\s{]/.test(json[i - 1] ?? "")) {
+      out += " ";
+    }
+    out += c;
+    if (!inString && c === "{" && !/[\s}]/.test(json[i + 1] ?? "")) {
+      out += " ";
+    }
+  }
+  return out;
+}
+
+function compact(value: unknown, maxLength: number): string {
+  // Two characters short, for the padding.
+  return padInlineBraces(stringify(value, { maxLength: maxLength - 2 }));
+}
+
+// A JSON value as people read it: what fits on a line stays on one ("{ "a": 1 }",
+// "["a", "b"]"), anything longer breaks. With `keysOnOwnLines`, an object's
+// top-level keys each start a line, so a highlight can mark one key's lines
+// without catching its neighbors'; what's inside them still compacts.
+export function formatJsonValue(
+  value: unknown,
+  { keysOnOwnLines = false }: { keysOnOwnLines?: boolean } = {},
+): string {
+  if (
+    !keysOnOwnLines ||
+    value === null ||
+    typeof value !== "object" ||
+    Array.isArray(value) ||
+    Object.keys(value).length === 0
+  ) {
+    return compact(value, MAX_LINE);
+  }
+  const entries = Object.entries(value).map(([key, v]) => {
+    const prefix = `  ${JSON.stringify(key)}: `;
+    const formatted = compact(v, Math.max(MAX_LINE - prefix.length, 2));
+    return prefix + formatted.split("\n").join("\n  ");
+  });
+  return `{\n${entries.join(",\n")}\n}`;
+}
+
 // 1-based, inclusive line range of each top-level field in a JSON object's
 // text, however it's formatted. Empty when the text isn't an object.
 export function getTopLevelFieldLines(

@@ -18,6 +18,7 @@ import SelectField, { SingleValue } from "@/components/Forms/SelectField";
 import Field from "@/components/Forms/Field";
 import Button from "@/ui/Button";
 import Link from "@/ui/Link";
+import FieldIndicator from "@/ui/FieldIndicator";
 import { DocLink } from "@/components/DocLink";
 import SetupFieldRow from "@/components/Experiment/TabbedPage/SetupFieldRow";
 import QuickEditButton, {
@@ -364,16 +365,14 @@ export default function CustomMetricSlicesSelector({
                             fillsRow
                           />
                           <span className={revealedByQuickEdit}>
-                            <button
-                              type="button"
-                              className="gb-field-indicator"
-                              aria-label="Remove custom slice"
+                            <FieldIndicator
+                              label="Remove custom slice"
                               onClick={() =>
                                 removeMetricSliceLevels(levelsIndex)
                               }
                             >
                               <PiX />
-                            </button>
+                            </FieldIndicator>
                           </span>
                         </Flex>
                       )}

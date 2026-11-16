@@ -15,13 +15,16 @@ import { radixSize, Size as SharedSize } from "@/ui/sizes";
 // recolored orange, for banners that should stand out more than a warning without
 // reading as a hard error. Used by the rule-conflict "unreachable" banner and the
 // rule approval-notes banner.
+// "neutral" is gray, for a state rather than a message, such as why a card is
+// grayed out.
 export type Status =
   | "wizard"
   | "info"
   | "warning"
   | "error"
   | "success"
-  | "attention";
+  | "attention"
+  | "neutral";
 export type RadixColor = TextProps["color"];
 export type Size = SharedSize<"sm" | "md">;
 
@@ -39,6 +42,8 @@ export function getRadixColor(status: Status): TextProps["color"] {
       return "green";
     case "attention":
       return "orange";
+    case "neutral":
+      return "gray";
   }
 }
 
@@ -73,6 +78,8 @@ export function RadixStatusIcon({
     // color differs (and callers can override the icon, e.g. a spinner).
     case "attention":
       return <PiWarningOctagonFill size={getIconSize(size)} />;
+    case "neutral":
+      return <PiInfoFill size={getIconSize(size)} />;
   }
 }
 

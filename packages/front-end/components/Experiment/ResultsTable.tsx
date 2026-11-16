@@ -35,7 +35,7 @@ import {
   SetExperimentSortBy,
   funnelStepMetricId,
   isFactMetric,
-  isSubUnitClusterMetric,
+  isScalableClusterSubUnitMetric,
   SampleSizeSource,
 } from "shared/experiments";
 import { useAuth } from "@/services/auth";
@@ -1075,19 +1075,20 @@ export default function ResultsTable({
                                   });
                                 }
 
-                                const hideScaledImpact =
-                                  !rowResults.hasScaledImpact &&
-                                  differenceType === "scaled";
-                                // These are often means or proportions, which
-                                // scale elsewhere, so say why they don't here.
-                                const noScaledImpactMessage =
-                                  hideScaledImpact &&
-                                  snapshot?.settings &&
-                                  isSubUnitClusterMetric(
+                                const scaledImpactUnavailable =
+                                  !!snapshot?.settings &&
+                                  isScalableClusterSubUnitMetric(
                                     row.metric,
                                     snapshot.settings,
-                                  )
-                                    ? "No scaled impact for subunit metrics in cluster experiments"
+                                  ) &&
+                                  !!stats.errorMessage;
+                                const hideScaledImpact =
+                                  (!rowResults.scaledImpactEligible ||
+                                    scaledImpactUnavailable) &&
+                                  differenceType === "scaled";
+                                const scaledImpactMessage =
+                                  scaledImpactUnavailable
+                                    ? "Scaled impact unavailable. Try updating results."
                                     : undefined;
 
                                 const resultsHighlightClassname = clsx(
@@ -1223,8 +1224,8 @@ export default function ResultsTable({
                                               hideScaledImpact={
                                                 hideScaledImpact
                                               }
-                                              noScaledImpactMessage={
-                                                noScaledImpactMessage
+                                              scaledImpactMessage={
+                                                scaledImpactMessage
                                               }
                                               className={clsx(
                                                 "results-ctw",
@@ -1255,8 +1256,8 @@ export default function ResultsTable({
                                               hideScaledImpact={
                                                 hideScaledImpact
                                               }
-                                              noScaledImpactMessage={
-                                                noScaledImpactMessage
+                                              scaledImpactMessage={
+                                                scaledImpactMessage
                                               }
                                               className={clsx(
                                                 "results-pval",

@@ -84,6 +84,7 @@ class MetricSettingsForStatsEngine:
     business_metric_type: Optional[List[BusinessMetricType]] = None
     target_mde: float = 0.01
     compute_uncapped_metric: bool = False
+    scale_by_sub_unit_count: bool = False
 
 
 @dataclass

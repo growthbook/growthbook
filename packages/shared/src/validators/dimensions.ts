@@ -1,10 +1,26 @@
 import { z } from "zod";
-import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
+import {
+  DIMENSION_NULL_LABEL_MAX_LENGTH,
+  MAX_DESCRIPTION_LENGTH,
+} from "shared/constants";
 import { ownerEmailField, ownerField, ownerInputField } from "./owner-field";
 import { apiPaginationFieldsValidator, paginationQueryFields } from "./shared";
 
 import { namedSchema } from "./openapi-helpers";
 import { GENERIC_NAME_DESCRIPTION } from "./api-field-descriptions";
+
+export const dimensionTimingValidator = z.enum([
+  "none",
+  "rowTimestamp",
+  "validityRange",
+]);
+export type DimensionTiming = z.infer<typeof dimensionTimingValidator>;
+
+const DIMENSION_NULL_LABEL_DESCRIPTION =
+  "Label used in experiment results for units with no dimension value. Leave empty to use the default null label.";
+
+const DIMENSION_TIMING_DESCRIPTION =
+  "What the query returns and how the value at a unit's first exposure is resolved. `none` (default): one value per unit, resolved with MAX(value). `rowTimestamp`: timestamped rows; the query also returns a `timestamp` column and the latest row at or before first exposure is used. `validityRange`: validity ranges; the query also returns `start_timestamp` and `end_timestamp` (NULL = still valid) columns and the row valid at first exposure is used. Only supported for SQL Data Sources.";
 
 // Corresponds to schemas/Dimension.yaml
 export const apiDimensionValidator = namedSchema(
@@ -21,6 +37,14 @@ export const apiDimensionValidator = namedSchema(
       name: z.string(),
       description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
       query: z.string(),
+      timing: dimensionTimingValidator
+        .describe(DIMENSION_TIMING_DESCRIPTION)
+        .optional(),
+      nullLabel: z
+        .string()
+        .max(DIMENSION_NULL_LABEL_MAX_LENGTH)
+        .describe(DIMENSION_NULL_LABEL_DESCRIPTION)
+        .optional(),
       managedBy: z
         .enum(["", "api", "config"])
         .describe(
@@ -50,6 +74,14 @@ const postDimensionBody = z
       .string()
       .describe("Type of identifier (user, anonymous, etc.)"),
     query: z.string().describe("SQL query or equivalent for the dimension"),
+    timing: dimensionTimingValidator
+      .describe(DIMENSION_TIMING_DESCRIPTION)
+      .optional(),
+    nullLabel: z
+      .string()
+      .max(DIMENSION_NULL_LABEL_MAX_LENGTH)
+      .describe(DIMENSION_NULL_LABEL_DESCRIPTION)
+      .optional(),
     managedBy: z
       .enum(["", "api"])
       .describe(

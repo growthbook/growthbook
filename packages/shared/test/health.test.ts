@@ -5,6 +5,7 @@ import {
 import {
   getClusterReliabilityHealthData,
   getClusterIssueHealthData,
+  getBanditSRMValue,
   getExperimentSRMValue,
   getExperimentSRMVariationUnits,
   getExperimentVariationUnitsFromHealth,
@@ -104,6 +105,34 @@ describe("getExperimentSRMValue", () => {
         snapshot({ type: "holdout", analyses: standardAnalyses }),
       ),
     ).toBeUndefined();
+  });
+});
+
+describe("failed traffic query", () => {
+  // What analyzeExperimentTraffic stores when the query fails.
+  const failed = (analyses?: ExperimentSnapshotInterface["analyses"]) =>
+    snapshot({
+      health: {
+        traffic: {
+          overall: { srm: 1, variationUnits: [0, 0] },
+          error: "TOO_MANY_ROWS",
+        },
+      },
+      ...(analyses ? { analyses } : {}),
+    } as unknown as Partial<ExperimentSnapshotInterface>);
+
+  it("falls back to the overall result instead of the placeholders", () => {
+    const s = failed(standardAnalyses);
+    expect(getExperimentSRMValue(s)).toBe(0.02);
+    expect(getExperimentSRMVariationUnits(s)).toEqual([600, 400]);
+    expect(getExperimentVariationUnitsFromHealth(s)).toEqual([600, 400]);
+  });
+
+  it("reports nothing when there is no result to fall back on", () => {
+    expect(getExperimentSRMValue(failed())).toBeUndefined();
+    expect(getExperimentSRMVariationUnits(failed())).toBeUndefined();
+    expect(getExperimentVariationUnitsFromHealth(failed())).toBeUndefined();
+    expect(getBanditSRMValue(failed())).toBeUndefined();
   });
 });
 

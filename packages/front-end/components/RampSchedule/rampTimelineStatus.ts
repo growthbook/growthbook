@@ -47,7 +47,7 @@ const STATUS_VISUALS: Record<
   // Approval is a hard stop — outgoing edge stays gray so it doesn't read as
   // "already advanced"; the orange dot + "approval" label carry the signal.
   "awaiting-approval": {
-    label: "Needs Approval",
+    label: "Needs approval",
     dotColor: "var(--orange-9)",
     labelColor: "var(--orange-11)",
     connectorColor: FUTURE_CONNECTOR,

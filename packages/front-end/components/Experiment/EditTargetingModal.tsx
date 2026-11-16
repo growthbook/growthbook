@@ -155,9 +155,8 @@ export default function EditTargetingModal({
       ? followAssignmentAttribute({
           queries: getExposureQueriesInScope(datasource, experiment.project),
           hashAttribute,
-          hashAttributeIdentifierTypeMap: getHashAttributeIdentifierTypeMap(
-            datasource.settings?.userIdTypes,
-          ),
+          hashAttributeIdentifierTypeMap:
+            getHashAttributeIdentifierTypeMap(datasource),
           exposureQueryId: experiment.exposureQueryId ?? "",
           identifierType: experiment.exposureQueryIdentifierType ?? "",
         })

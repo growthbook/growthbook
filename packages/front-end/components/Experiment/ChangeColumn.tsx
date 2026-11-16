@@ -27,7 +27,7 @@ interface Props
     RowResults,
     | "directionalStatus"
     | "enoughData"
-    | "hasScaledImpact"
+    | "scaledImpactEligible"
     | "resultsStatus"
     | "significant"
     | "suspiciousChange"
@@ -109,7 +109,7 @@ export default function ChangeColumn({
     },
   });
 
-  if (!rowResults.hasScaledImpact && differenceType === "scaled") {
+  if (!rowResults.scaledImpactEligible && differenceType === "scaled") {
     return null;
   }
 

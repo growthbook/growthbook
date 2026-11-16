@@ -417,6 +417,12 @@ export type ActiveDraftStatus = z.infer<typeof activeDraftStatusSchema>;
 
 export const ACTIVE_DRAFT_STATUSES = activeDraftStatusSchema.options;
 
+export function isActiveDraftStatus(
+  status: string,
+): status is ActiveDraftStatus {
+  return (ACTIVE_DRAFT_STATUSES as readonly string[]).includes(status);
+}
+
 // Revisions at "request review" or beyond — excludes drafts still being edited
 // (and terminal/ramp statuses). Used for "needs attention" counts and gates.
 export const reviewRequestedStatusSchema = revisionStatusSchema.exclude([

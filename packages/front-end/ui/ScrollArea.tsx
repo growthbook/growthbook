@@ -49,12 +49,13 @@ const ScrollArea = forwardRef<
     wheelScrollsSideways?: boolean;
     /**
      * Marks each edge with more content past it: the content fades out there,
-     * or a shadow falls over it.
+     * or a shadow falls over it. `deep-shadow` is for a header the content
+     * scrolls under, which reads as lifting off it.
      */
-    edgeCue?: "fade" | "shadow";
+    edgeCue?: "fade" | "shadow" | "deep-shadow";
     /**
-     * Edges marked instead by content pinned (sticky) to them, given
-     * `pinnedTo`'s class: the shadow falls past it.
+     * Edges left unmarked. Content pinned (sticky) to one, given `pinnedTo`'s
+     * class, casts the shadow past itself instead.
      */
     skipEdges?: Edge[];
     onScroll?: UIEventHandler<HTMLDivElement>;
@@ -173,7 +174,7 @@ const ScrollArea = forwardRef<
     return () => el.removeEventListener("wheel", onWheel);
   }, [wheelScrollsSideways]);
 
-  const shadowed = edgeCue === "shadow";
+  const shadowed = edgeCue === "shadow" || edgeCue === "deep-shadow";
   const marked = more.filter((edge) => !skipEdges.includes(edge));
   const underPinned = more.filter((edge) => skipEdges.includes(edge));
   const scrollArea = (
@@ -185,7 +186,9 @@ const ScrollArea = forwardRef<
       onScroll={onScroll}
       className={clsx(
         styles.root,
-        fill && styles.fullWidth,
+        // With nothing to scroll to sideways, wider content has no use for
+        // the room.
+        (fill || !sideways) && styles.fullWidth,
         fill && fillMinHeight !== undefined && styles.bounded,
         edgeCue === "fade" && styles.fades,
         shadowed ? styles.fillsWrapper : className,
@@ -218,7 +221,16 @@ const ScrollArea = forwardRef<
   if (!shadowed) return scrollArea;
 
   return (
-    <div className={clsx(styles.shadowed, className)} style={style}>
+    <div
+      className={clsx(
+        styles.shadowed,
+        edgeCue === "deep-shadow" && styles.deep,
+        className,
+      )}
+      style={style}
+      // For what's pinned beside the area, over its end.
+      data-under-pinned={underPinned.join(" ") || undefined}
+    >
       {scrollArea}
       {marked.map((edge) => (
         <span key={edge} className={styles.shadow} data-edge={edge} />
@@ -228,10 +240,15 @@ const ScrollArea = forwardRef<
 });
 
 /**
- * For content pinned (sticky) to the area's top or left edge, which then
- * shadows that edge past itself while more scrolls under it. The area skips
- * that edge (`skipEdges`).
+ * For content pinned (sticky) to an edge, which then shadows that edge past
+ * itself while more scrolls under it. The area skips that edge (`skipEdges`).
+ * Top and left are pinned inside the area. Bottom is the area's next sibling,
+ * held over its end (a shadowed `edgeCue`), as a composer under a thread.
  */
-export const pinnedTo = { top: styles.pinnedTop, left: styles.pinnedLeft };
+export const pinnedTo = {
+  top: styles.pinnedTop,
+  left: styles.pinnedLeft,
+  bottom: styles.pinnedBottom,
+};
 
 export default ScrollArea;

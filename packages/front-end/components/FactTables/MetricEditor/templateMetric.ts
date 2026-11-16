@@ -15,7 +15,7 @@ import {
 import { canInlineFilterColumn } from "shared/experiments";
 
 export const templateMetricValidator = z.object({
-  metricType: metricTypeValidator.exclude(["funnel"]),
+  metricType: metricTypeValidator.exclude(["funnel", "compound"]),
   name: z.string(),
   numerator: columnRefValidator,
   denominator: columnRefValidator.optional(),

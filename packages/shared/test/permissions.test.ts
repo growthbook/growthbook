@@ -1797,3 +1797,39 @@ describe("assignment query permissions", () => {
     ).toBe(false);
   });
 });
+
+describe("canViewCreatePopulation", () => {
+  const managePopulations: UserPermission = {
+    permissions: { managePopulations: true },
+    limitAccessByEnvironment: false,
+    environments: [],
+  };
+  const none: UserPermission = {
+    permissions: {},
+    limitAccessByEnvironment: false,
+    environments: [],
+  };
+  const allProjects = [{ id: "prj_a" }, { id: "prj_b" }];
+
+  it("checks the selected Project", () => {
+    const p = new Permissions({
+      global: none,
+      projects: { prj_a: managePopulations },
+    });
+    expect(p.canViewCreatePopulation("prj_a", allProjects)).toBe(true);
+    expect(p.canViewCreatePopulation("prj_b", allProjects)).toBe(false);
+  });
+
+  it("allows All Projects when the user can create in one Project", () => {
+    const p = new Permissions({
+      global: none,
+      projects: { prj_a: managePopulations },
+    });
+    expect(p.canViewCreatePopulation("", allProjects)).toBe(true);
+  });
+
+  it("blocks All Projects when the user can't create anywhere", () => {
+    const p = new Permissions({ global: none, projects: {} });
+    expect(p.canViewCreatePopulation("", allProjects)).toBe(false);
+  });
+});

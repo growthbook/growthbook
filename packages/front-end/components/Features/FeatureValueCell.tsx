@@ -106,9 +106,8 @@ export default function FeatureValueCell({
           valueType={feature.valueType}
           feature={feature}
           useDropdown
-          multilineTextField
+          compact
           size="md"
-          hideCopyButton={feature.valueType !== "string"}
           fullWidth
         />
       ) : (

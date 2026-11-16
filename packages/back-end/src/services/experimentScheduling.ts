@@ -14,6 +14,7 @@ import {
 import { getValidDate, resolveScheduledStop } from "shared/dates";
 import {
   buildTiebreakerLiftMap,
+  getCurrentPhaseAnalysisSummary,
   getDecisionFrameworkStatus,
   getExperimentResultStatus,
   getHealthSettings,
@@ -106,7 +107,8 @@ async function computeScheduledVerdict(
     winnerVariationId: null,
   };
 
-  const resultsStatus = experiment.analysisSummary?.resultsStatus;
+  const resultsStatus =
+    getCurrentPhaseAnalysisSummary(experiment)?.resultsStatus;
   const expandedGoalMetrics = expandMetricGroups(
     experiment.goalMetrics,
     metricGroups,

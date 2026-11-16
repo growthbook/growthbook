@@ -207,6 +207,7 @@ const DEMO_FACT_METRIC_DEFAULTS: Pick<
   | "regressionAdjustmentDays"
   | "quantileSettings"
   | "funnelSettings"
+  | "compoundSettings"
 > = {
   regressionAdjustmentOverride: false,
   regressionAdjustmentEnabled: false,
@@ -228,6 +229,7 @@ const DEMO_FACT_METRIC_DEFAULTS: Pick<
   regressionAdjustmentDays: 14,
   quantileSettings: null,
   funnelSettings: null,
+  compoundSettings: null,
 };
 
 // endregion Constants for Demo Datasource
