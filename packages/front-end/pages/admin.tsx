@@ -13,6 +13,7 @@ import LoadingOverlay from "@/components/LoadingOverlay";
 import PageHead from "@/components/Layout/PageHead";
 import CreateOrganization from "@/components/Admin/CreateOrganization";
 import ManagedWarehouseRecreates from "@/components/Admin/ManagedWarehouseRecreate";
+import ManagedWarehouseMigrations from "@/components/Admin/ManagedWarehouseMigrations";
 import { AdminMember, formatSuperAdmin } from "@/components/Admin/EditMember";
 import { PlanBadge, StatusBadge } from "@/components/Admin/OrgBadges";
 import ShowLicenseInfo from "@/components/License/ShowLicenseInfo";
@@ -625,9 +626,14 @@ export default function Admin() {
         </TabsContent>
         {isCloud() && (
           <TabsContent value="managed-warehouses">
-            <ManagedWarehouseRecreates
-              canRequest={hasSuperAdminPermission(superAdmin, "provision")}
-            />
+            <Flex direction="column" gap="4">
+              <ManagedWarehouseMigrations
+                canRequest={hasSuperAdminPermission(superAdmin, "provision")}
+              />
+              <ManagedWarehouseRecreates
+                canRequest={hasSuperAdminPermission(superAdmin, "provision")}
+              />
+            </Flex>
           </TabsContent>
         )}
       </Tabs>

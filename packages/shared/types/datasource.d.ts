@@ -408,10 +408,17 @@ export interface GrowthbookClickhouseSettings extends DataSourceSettings {
    * Identifiers follow the attribute schema: `user_id` / `device_id` only when
    * a hash attribute folds into them (or they're preserved in
    * `migratedIdentifiers`), and an `id` hash attribute is its own `id`
-   * identifier, not folded into a built-in. Set at creation; unset warehouses
-   * always list both built-ins.
+   * identifier, not folded into a built-in. Set at creation and by migration
+   * v1; unset warehouses always list both built-ins.
    */
   identifiersFromAttributes?: boolean;
+  /**
+   * Last managed warehouse migration applied (see the migrateManagedWarehouse
+   * job). New warehouses start on the latest version.
+   */
+  appliedMigrationVersion?: number;
+  /** Version the migration sweep should bring this warehouse to. Set by super admins. */
+  desiredMigrationVersion?: number;
 }
 
 interface DataSourceBase {
