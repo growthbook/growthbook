@@ -14,11 +14,12 @@ import type {
   ExplorationDateRange,
 } from "shared/validators";
 import { getLatestPhaseVariations } from "shared/experiments";
+import { MULTIPLE_EXPOSURES_ROW_FILTER_ID } from "shared/constants";
+import type { RowFilter } from "shared/types/fact-table";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { getIdentifierDisplayName } from "@/services/experiments";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Callout from "@/ui/Callout";
-import Checkbox from "@/ui/Checkbox";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
 import VariationLabel from "@/ui/VariationLabel";
@@ -53,6 +54,18 @@ interface ExposuresResponse {
   startDate?: string;
   endDate?: string;
   noCachedResult?: boolean;
+}
+
+const MULTIPLE_EXPOSURES_FILTER: RowFilter = {
+  operator: "saved_filter",
+  values: [MULTIPLE_EXPOSURES_ROW_FILTER_ID],
+};
+
+function isMultipleExposuresFilter(filter: RowFilter): boolean {
+  return (
+    filter.operator === "saved_filter" &&
+    filter.values?.[0] === MULTIPLE_EXPOSURES_ROW_FILTER_ID
+  );
 }
 
 const VARIATION_COLUMN = "variation_id";
@@ -167,20 +180,19 @@ export default function ExposureLogsCard({
       endDate,
       rollingWindow,
       rowFilters,
-      extraParams,
       cache,
     }) => ({
       startDate,
       endDate,
       rollingWindow,
       rowFilters,
-      multipleExposuresOnly: extraParams.multipleExposuresOnly === true,
       phase,
       cache,
     }),
   });
-  const multipleExposuresOnly =
-    query.extraParams.multipleExposuresOnly === true;
+  const multipleExposuresOnly = (query.appliedRowFilters ?? []).some(
+    isMultipleExposuresFilter,
+  );
 
   // The check counts over the whole phase, so a shorter window would miss
   // units whose conflicting exposures are further apart.
@@ -190,7 +202,9 @@ export default function ExposureLogsCard({
     if (multipleExposuresRequest === handledRequest.current) return;
     handledRequest.current = multipleExposuresRequest;
     query.applyControls({
-      extraParams: { multipleExposuresOnly: true },
+      rowFilters: query.rowFilters.some(isMultipleExposuresFilter)
+        ? query.rowFilters
+        : [...query.rowFilters, MULTIPLE_EXPOSURES_FILTER],
       dateRange: entirePhaseRange(phaseBounds) ?? undefined,
       run: true,
     });
@@ -323,7 +337,15 @@ export default function ExposureLogsCard({
 
     return {
       columns: columnLabels.map(([value, label]) => ({ label, value })),
-      savedFilters: [],
+      savedFilters: [
+        {
+          id: MULTIPLE_EXPOSURES_ROW_FILTER_ID,
+          name: subUnitIdColumn
+            ? "Subunit multiple exposures"
+            : "Multiple exposures",
+        },
+      ],
+      savedFiltersLabel: "Health checks",
       getColumnInfo: (column) => ({
         // Every value is coerced to a string by shapeExposureRows, so the
         // string operator set is the honest one to offer.
@@ -431,19 +453,6 @@ export default function ExposureLogsCard({
         getSearchText={getSearchText}
         getFilterValue={getFilterValue}
         columnSource={columnSource}
-        filterPanelExtra={
-          <Checkbox
-            label={`Only ${unitNoun} with multiple exposures`}
-            weight="regular"
-            value={multipleExposuresOnly}
-            setValue={(value) =>
-              query.applyControls({
-                extraParams: { multipleExposuresOnly: value },
-              })
-            }
-            disabled={query.isRefreshing}
-          />
-        }
         truncatedMessage={
           multipleExposuresOnly
             ? `Row limit exceeded. Data below only contains some of the ${unitNoun} with multiple exposures. Use a narrower timeframe or add a filter to ensure all relevant exposures are included.`

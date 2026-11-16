@@ -41,8 +41,6 @@ export interface RecordsPanelProps<TRow extends object, TResponse> {
   timestampColumn?: string;
   /** Columns and their values, for the filter panel's pickers. */
   columnSource: FilterColumnSource;
-  /** Extra controls for the filter panel, between the timeframe and filters. */
-  filterPanelExtra?: ReactNode;
 
   renderDetail?: (row: TRow) => ReactNode;
   detailFlattenKeys?: string[];
@@ -74,7 +72,6 @@ export default function RecordsPanel<TRow extends object, TResponse>({
   getFilterValue,
   timestampColumn = "timestamp",
   columnSource,
-  filterPanelExtra,
   renderDetail,
   detailFlattenKeys,
   detailTitle,
@@ -160,7 +157,6 @@ export default function RecordsPanel<TRow extends object, TResponse>({
           fullWidth
         />
       </Flex>
-      {filterPanelExtra}
       <RowFilterPanel
         value={rowFilters}
         setValue={(filters) => applyControls({ rowFilters: filters })}

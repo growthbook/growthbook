@@ -1,6 +1,7 @@
 import { format, quoteColumnIdentifier, SQL_ROW_LIMIT } from "shared/sql";
 import { buildRowFilterWhereClause } from "shared/experiments";
 import { stringRowFilterOperators } from "shared/validators";
+import { MULTIPLE_EXPOSURES_ROW_FILTER_ID } from "shared/constants";
 import {
   getExposureQueryExperimentIdColumn,
   getExposureQueryIdentifierColumn,
@@ -47,6 +48,13 @@ function exposureColumnsAsFactTable(
       dateUpdated: new Date(0),
     })),
   };
+}
+
+export function isMultipleExposuresRowFilter(filter: RowFilter): boolean {
+  return (
+    filter.operator === "saved_filter" &&
+    filter.values?.[0] === MULTIPLE_EXPOSURES_ROW_FILTER_ID
+  );
 }
 
 function isStringRowFilterOperator(
@@ -129,14 +137,19 @@ export function getExperimentExposuresQuery(
     params.subUnitIdentifierType || exposureQuery.identifierType,
   );
   // Unit first, so each unit's conflicting rows stay together
-  const orderColumns = params.multipleExposuresOnly
+  const multipleExposuresOnly = (params.rowFilters ?? []).some(
+    isMultipleExposuresRowFilter,
+  );
+  const orderColumns = multipleExposuresOnly
     ? [unitColumn, ...physicalFilterColumns.filter((c) => c !== unitColumn)]
     : physicalFilterColumns;
   [...orderColumns, experimentIdColumn].forEach((c) =>
     assertSafeIdentifier(c, "Column"),
   );
 
-  const rowFilters = params.rowFilters ?? [];
+  const rowFilters = (params.rowFilters ?? []).filter(
+    (f) => !isMultipleExposuresRowFilter(f),
+  );
   rowFilters.forEach((f) => {
     if (!isStringRowFilterOperator(f.operator)) {
       throw new Error(
@@ -169,10 +182,11 @@ export function getExperimentExposuresQuery(
       AND ${quoteColumnIdentifier(timestampColumn, dialect)} >= ${dialect.toTimestamp(params.startDate)}
       AND ${quoteColumnIdentifier(timestampColumn, dialect)} < ${dialect.toTimestamp(params.endDate)}`;
 
-  // Row filters are left out of the subquery: a unit is flagged on everything
-  // it saw in the window, as in the units query, not only on the rows shown.
+  // Other row filters are left out of the subquery: a unit is flagged on
+  // everything it saw in the window, as in the units query, not only on the
+  // rows shown.
   const quotedUnitColumn = quoteColumnIdentifier(unitColumn, dialect);
-  const multipleExposuresWhere = params.multipleExposuresOnly
+  const multipleExposuresWhere = multipleExposuresOnly
     ? `
       AND ${quotedUnitColumn} IN (
         SELECT ${quotedUnitColumn}

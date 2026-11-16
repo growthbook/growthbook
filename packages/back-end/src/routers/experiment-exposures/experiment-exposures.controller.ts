@@ -68,7 +68,6 @@ export async function postExposures(
       /** The window ends at "now" and moves with the clock (a lookback). */
       rollingWindow?: boolean;
       rowFilters?: RowFilter[];
-      multipleExposuresOnly?: boolean;
       /** Phase to compile `{{phase.index}}` for; defaults to the active one. */
       phase?: number;
       cache?: "preferred" | "required" | "never";
@@ -173,7 +172,6 @@ export async function postExposures(
   const dimensions = exposureQuery.dimensions || [];
 
   const rowFilters = req.body.rowFilters ?? [];
-  const multipleExposuresOnly = req.body.multipleExposuresOnly === true;
   const cache = req.body.cache ?? "preferred";
 
   const integration = getSourceIntegrationObject(context, datasource);
@@ -204,7 +202,6 @@ export async function postExposures(
     phase: { index: String(phaseIndex) },
     customFields: experiment.customFields,
     rowFilters,
-    multipleExposuresOnly,
     limit: BUFFER_SIZE,
   };
 
@@ -250,7 +247,6 @@ export async function postExposures(
     dimensions,
     window,
     rowFilters,
-    multipleExposuresOnly,
     limit: BUFFER_SIZE,
     phase: queryParams.phase,
     customFields: queryParams.customFields,

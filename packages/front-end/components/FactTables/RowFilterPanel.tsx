@@ -227,6 +227,12 @@ function getFilterSummary(
   index: number,
   columnSource: FilterColumnSource,
 ): string {
+  if (filter.operator === "saved_filter") {
+    const saved = columnSource.savedFilters.find(
+      (f) => f.id === filter.values?.[0],
+    );
+    if (saved) return saved.name;
+  }
   if (!filter.column) return `Filter ${index + 1}`;
   const column =
     columnSource.columns.find((c) => c.value === filter.column)?.label ??

@@ -23,7 +23,6 @@ export interface ExposuresCacheKeyParams {
   dimensions: string[];
   window: ExposuresWindow;
   rowFilters: RowFilter[];
-  multipleExposuresOnly?: boolean;
   limit: number;
   phase?: PhaseSQLVar;
   customFields?: Record<string, unknown>;
@@ -55,8 +54,6 @@ export function getExposuresCacheKey(params: ExposuresCacheKeyParams): string {
         params.limit,
         params.phase?.index ?? "",
         params.customFields ?? {},
-        // Only when set, so existing cache keys stay unchanged
-        ...(params.multipleExposuresOnly ? ["multipleExposuresOnly"] : []),
       ]),
     )
     .digest("hex");

@@ -410,10 +410,12 @@ export function getRowFilterSelectValue(filter: RowFilter): string {
 export function getRowFilterSelectOptions({
   columnOptions,
   savedFilters,
+  savedFiltersLabel = "Saved Filters",
   selectedSavedFilterId,
 }: {
   columnOptions: SingleValue[];
   savedFilters: { id: string; name: string }[];
+  savedFiltersLabel?: string;
   selectedSavedFilterId?: string;
 }): GroupedValue[] {
   const savedFilterOptions: SingleValue[] = savedFilters.map((f) => ({
@@ -433,7 +435,7 @@ export function getRowFilterSelectOptions({
 
   return [
     ...(savedFilterOptions.length
-      ? [{ label: "Saved Filters", options: savedFilterOptions }]
+      ? [{ label: savedFiltersLabel, options: savedFilterOptions }]
       : []),
     { label: "Columns", options: columnOptions },
   ];
@@ -540,6 +542,8 @@ export function isRowFilterComplete(filter: RowFilter): boolean {
 export interface FilterColumnSource {
   columns: SingleValue[];
   savedFilters: { id: string; name: string }[];
+  /** Heading for the saved filters in the picker, when nobody saved them. */
+  savedFiltersLabel?: string;
   getColumnInfo: (column: string | undefined) => {
     datatype: string;
     topValues: ColumnTopValue[];

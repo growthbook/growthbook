@@ -2003,8 +2003,10 @@ describe("getExperimentExposuresQuery", () => {
         },
       },
       subUnitIdentifierType: "device_id",
-      rowFilters: [{ operator: "=", column: "variation_id", values: ["1"] }],
-      multipleExposuresOnly: true,
+      rowFilters: [
+        { operator: "=", column: "variation_id", values: ["1"] },
+        { operator: "saved_filter", values: ["multiple_exposures"] },
+      ],
     });
     // Flags the sub-unit, over the whole window rather than the filtered rows
     expect(sql).toMatch(
