@@ -1,17 +1,23 @@
-import { ReactNode } from "react";
+import { ComponentPropsWithoutRef, forwardRef } from "react";
 import { BiShow } from "react-icons/bi";
 import { PiWarningFill } from "react-icons/pi";
 import Link from "@/ui/Link";
 import Tooltip from "@/ui/Tooltip";
 import LoadingSpinner from "@/components/LoadingSpinner";
 
-function DisabledLabel({ children }: { children: ReactNode }) {
+// Forwards ref and props so it can be a Tooltip trigger.
+const DisabledLabel = forwardRef<
+  HTMLSpanElement,
+  ComponentPropsWithoutRef<"span">
+>(function DisabledLabel({ style, ...props }, ref) {
   return (
-    <span style={{ color: "var(--gray-10)", cursor: "not-allowed" }}>
-      {children}
-    </span>
+    <span
+      ref={ref}
+      style={{ color: "var(--gray-10)", cursor: "not-allowed", ...style }}
+      {...props}
+    />
   );
-}
+});
 
 export default function ReferencesLink({
   total,

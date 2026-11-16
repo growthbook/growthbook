@@ -396,7 +396,9 @@ const FeatureAttributesPage = (): React.ReactElement => {
           <>
             {f.name}{" "}
             <RadixTooltip content={f.description}>
-              <PiInfo style={{ position: "relative", top: "-1px" }} />
+              <span style={{ position: "relative", top: "-1px" }}>
+                <PiInfo />
+              </span>
             </RadixTooltip>
           </>
         ) : undefined,

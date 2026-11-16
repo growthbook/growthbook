@@ -788,7 +788,9 @@ const MetricsList = (): React.ReactElement => {
                 <TableCell style={{ color: "var(--gray-11)" }}>
                   {metric.archived && (
                     <Tooltip content="Archived">
-                      <FaArchive />
+                      <span>
+                        <FaArchive />
+                      </span>
                     </Tooltip>
                   )}
                 </TableCell>
