@@ -285,15 +285,18 @@ $pinned-hover-tints:
       calc(100vh - var(--table-sticky-top, var(--page-top-offset)) - 24px)
     );
     // The frame moves onto the scroll container, so it stays put while the
-    // content scrolls under it. No top edge: the header draws its own, as in
-    // the unbounded case.
+    // content scrolls under it. All four sides, so the corners are one curve:
+    // the header's own top line is straight and met them badly.
     border: 1px solid var(--slate-a5, rgba(0, 9, 50, 0.12)) !important;
-    border-top: none !important;
     border-radius: var(--radius-4);
 
     :global(.rt-TableRootTable) {
       border: none;
       border-radius: 0;
+    }
+
+    :global(.rt-TableHeader .rt-TableRow .rt-TableColumnHeaderCell) {
+      box-shadow: inset 0 -1px 0 0 var(--slate-a5, rgba(0, 9, 50, 0.12));
     }
 
     &[data-sticky-header="true"] :global(.rt-TableHeader) {
@@ -357,16 +360,16 @@ $pinned-hover-tints:
     // rule: the neighbouring column's resize handle is already a crisp line,
     // and two of those side by side read as a double border. Drawn as the
     // cell's own color through a mask, so a hovered row fades in its tint and
-    // the header in its own color.
+    // the header in its own color. It stops 1px short of the cell's bottom
+    // line, so the row lines run on unbroken.
     &[data-more-end]
       :global(.rt-TableRow > *:last-child:not([colspan]))::before {
       content: "";
       position: absolute;
       top: 0;
-      bottom: 0;
-      left: 0;
+      bottom: 1px;
+      right: 100%;
       width: $scroll-fade-width;
-      transform: translateX(-100%);
       pointer-events: none;
       background-color: inherit;
       mask-image: linear-gradient(to right, transparent, #000);
@@ -380,19 +383,6 @@ $pinned-hover-tints:
       )::before {
       background-image: $pinned-hover-tints;
     }
-
-    // The pinned column's own edge, drawn like a resize handle's line.
-    :global(.rt-TableHeader .rt-TableRow > *:last-child)::after {
-      content: "";
-      position: absolute;
-      top: 20%;
-      left: 0;
-      width: 2px;
-      height: 60%;
-      border-radius: 1px;
-      background-color: var(--gray-a5);
-      pointer-events: none;
-    }
   }
 
   // A scroll box fades each edge that has columns hidden behind it, like the
@@ -404,6 +394,11 @@ $pinned-hover-tints:
     // Its header and fades stack inside the box, so they stay under what
     // floats over the page (the Help launcher).
     isolation: isolate;
+    // A scrollbar that takes room isn't clipped to the box's rounded corners,
+    // so its track would square them off. With no track, only the thumb
+    // shows, on the box's own surface.
+    scrollbar-color: var(--gray-a8) transparent;
+    background-color: var(--color-panel-solid);
 
     &::before {
       content: "";
