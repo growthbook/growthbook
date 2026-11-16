@@ -618,6 +618,14 @@ export class GrowthBook<
   }
 
   // Internal — first-party plugin use only.
+  // Merges attributes nothing targets on (ids that tag events, like
+  // session_replay_id) without re-rendering, re-running auto experiments,
+  // refreshing sticky buckets or re-fetching remote evaluation.
+  public _mergeTagAttributes(attributes: Attributes) {
+    this._options.attributes = { ...this._options.attributes, ...attributes };
+  }
+
+  // Internal — first-party plugin use only.
   // Fires after every setPayload() so plugins can react to remote settings.
   public _subscribePayloadUpdates(cb: () => void): () => void {
     this._payloadUpdateSubs.add(cb);
@@ -663,16 +671,24 @@ export class GrowthBook<
     this._destroyCallbacks.push(cb);
   }
 
-  /** @internal — called by sessionReplayPlugin to register its handlers */
-  public _registerSessionReplay(start: () => void, stop: () => void) {
+  /**
+   * @internal — called by sessionReplayPlugin to register its handlers.
+   * Returns false if a recorder is already registered, in which case the
+   * caller must tear itself down. Overwriting instead would strand the first
+   * recorder: its rrweb observers stay attached and keep emitting, while
+   * stopSessionReplay() can only reach the handlers stored here.
+   */
+  public _registerSessionReplay(start: () => void, stop: () => void): boolean {
     if (this._sessionReplayStart || this._sessionReplayStop) {
       console.warn(
         "[GrowthBook] sessionReplayPlugin registered more than once — " +
-          "only the latest handlers will be used. Check your plugins array for duplicates.",
+          "keeping the first recorder and discarding the duplicate. Check your plugins array for duplicates.",
       );
+      return false;
     }
     this._sessionReplayStart = start;
     this._sessionReplayStop = stop;
+    return true;
   }
 
   /** @internal — called by sessionReplayPlugin cleanup */

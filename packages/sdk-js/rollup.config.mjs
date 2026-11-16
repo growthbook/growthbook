@@ -24,6 +24,7 @@ const terserSettings = terser({
         "_cssText",
         "_experimentsDisabled",
         "_hasEventConsumer",
+        "_mergeTagAttributes",
         "_registerSessionReplay",
         "_subscribeCustomEvents",
         "_subscribeExperimentViewed",
@@ -35,6 +36,17 @@ const terserSettings = terser({
   },
   ecma: 5,
 });
+
+const rrwebRecordOnly = {
+  name: "rrweb-record-only",
+  resolveId(source, importer, options) {
+    if (source !== "rrweb") return null;
+    return this.resolve("@rrweb/record", importer, {
+      ...options,
+      skipSelf: true,
+    });
+  },
+};
 
 export default [
   {
@@ -131,6 +143,7 @@ export default [
       },
     ],
     plugins: [
+      rrwebRecordOnly,
       resolve({ extensions, jsnext: true }),
       replace({
         "process.env.NODE_ENV": JSON.stringify("production"),
