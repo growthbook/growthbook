@@ -405,7 +405,7 @@ function OrganizationDetail({
           open
           trackingEventModalType=""
           header="Managed Warehouse Migration"
-          cta="Save"
+          cta="Set version"
           close={() => setDesiredVersion(null)}
           submit={async () => {
             await apiCall("/admin/managed-warehouse/migrations", {
@@ -418,8 +418,15 @@ function OrganizationDetail({
             await mutate();
           }}
         >
+          <Text as="p" mb="3">
+            Migrations run in the background and can&apos;t be undone. Track
+            progress on the{" "}
+            <Link href="/admin#managed-warehouses">Managed Warehouses</Link>{" "}
+            admin tab.
+          </Text>
           <MigrationVersionSelect
             latest={migration.latest}
+            min={migration.applied}
             value={desiredVersion}
             setValue={setDesiredVersion}
           />

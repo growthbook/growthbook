@@ -7,10 +7,14 @@ import Callout from "@/ui/Callout";
 import ConfirmDialog from "@/ui/ConfirmDialog";
 import Frame from "@/ui/Frame";
 import Heading from "@/ui/Heading";
-import RadioGroup from "@/ui/RadioGroup";
 import { Select, SelectItem } from "@/ui/Select";
 import Text from "@/ui/Text";
-import TextField from "@/ui/TextField";
+import Tooltip from "@/ui/Tooltip";
+import {
+  OrgTarget,
+  OrgTargetPicker,
+  parseOrgIds,
+} from "@/components/Admin/ManagedWarehouseRecreate";
 
 // Poll while warehouses are waiting on the migration sweep
 const POLL_INTERVAL_MS = 15000;
@@ -23,10 +27,13 @@ type MigrationsResponse = {
 
 export function MigrationVersionSelect({
   latest,
+  min = 0,
   value,
   setValue,
 }: {
   latest: number;
+  // Applied migrations are never undone, so lower versions aren't offered
+  min?: number;
   value: number;
   setValue: (value: number) => void;
 }) {
@@ -36,9 +43,9 @@ export function MigrationVersionSelect({
       value={String(value)}
       setValue={(v) => setValue(Number(v))}
     >
-      {Array.from({ length: latest + 1 }, (_, v) => (
-        <SelectItem key={v} value={String(v)}>
-          {String(v)}
+      {Array.from({ length: latest - min + 1 }, (_, i) => (
+        <SelectItem key={min + i} value={String(min + i)}>
+          {String(min + i)}
         </SelectItem>
       ))}
     </Select>
@@ -61,16 +68,17 @@ export default function ManagedWarehouseMigrations({
   );
 
   const [version, setVersion] = useState<number | null>(null);
-  const [target, setTarget] = useState<"all" | "list">("list");
+  const [target, setTarget] = useState<OrgTarget>("list");
   const [orgIds, setOrgIds] = useState("");
   const [confirming, setConfirming] = useState(false);
   const [message, setMessage] = useState("");
   const [submitError, setSubmitError] = useState("");
 
-  const organizations = orgIds
-    .split(/[\s,]+/)
-    .map((id) => id.trim())
-    .filter(Boolean);
+  const organizations = parseOrgIds(orgIds);
+  const submitDisabledReason =
+    target === "list" && !organizations.length
+      ? "Enter at least one organization ID"
+      : "";
   const selectedVersion = version ?? data?.latestVersion ?? 0;
   const total = (data?.applied ?? []).reduce((sum, a) => sum + a.count, 0);
 
@@ -119,6 +127,7 @@ export default function ManagedWarehouseMigrations({
         Migrations
       </Heading>
       {error && <Callout status="error">{error.message}</Callout>}
+      {!data && !error && <Text color="text-mid">Loading…</Text>}
       {data && (
         <Flex gap="5" mb="4" wrap="wrap">
           <Text>Latest version: {data.latestVersion}</Text>
@@ -139,42 +148,27 @@ export default function ManagedWarehouseMigrations({
               setValue={setVersion}
             />
           </Box>
-          <Flex direction="column" gap="2">
-            <Text weight="semibold">Organizations</Text>
-            <RadioGroup
-              value={target}
-              setValue={(v) => setTarget(v as "all" | "list")}
-              options={[
-                {
-                  value: "list",
-                  label: "Selected organizations",
-                  renderOnSelect: (
-                    // Indented to line up with the option's label
-                    <Box pl="5" mb="2" width="440px" maxWidth="100%">
-                      <TextField
-                        multiline
-                        aria-label="Organization IDs"
-                        placeholder="org_abc123, org_def456"
-                        value={orgIds}
-                        onChange={(e) => setOrgIds(e.target.value)}
-                      />
-                    </Box>
-                  ),
-                  renderOutsideItem: true,
-                },
-                {
-                  value: "all",
-                  label: `All Managed Warehouses (${total})`,
-                },
-              ]}
-            />
-          </Flex>
-          <Button
-            disabled={target === "list" && !organizations.length}
-            onClick={() => setConfirming(true)}
+          <OrgTargetPicker
+            target={target}
+            setTarget={setTarget}
+            orgIds={orgIds}
+            setOrgIds={setOrgIds}
+            allCount={total}
+          />
+          <Tooltip
+            content={submitDisabledReason}
+            enabled={!!submitDisabledReason}
           >
-            Submit
-          </Button>
+            {/* A disabled button gets no hover events, so the span does */}
+            <span>
+              <Button
+                disabled={!!submitDisabledReason}
+                onClick={() => setConfirming(true)}
+              >
+                Submit
+              </Button>
+            </span>
+          </Tooltip>
         </Flex>
       )}
       {message && (
