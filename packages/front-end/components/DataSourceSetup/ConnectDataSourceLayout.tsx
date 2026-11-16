@@ -148,6 +148,7 @@ export default function ConnectDataSourceLayout({
     ready: definitionsReady,
     projects: orgProjects,
     project,
+    eventForwarderEnvironments,
   } = useDefinitions();
   const { apiCall, orgId } = useAuth();
   const permissionsUtil = usePermissionsUtil();
@@ -717,8 +718,16 @@ export default function ConnectDataSourceLayout({
   // us-east-1, because it cannot be changed later.
   const needsEventForwarderRegion =
     !existing && setup === "event_forwarder" && !eventForwarderRegion;
+  // Also when the detected region turns out to have the picked one taken
   const needsEventForwarderEnvironment =
-    checksWrite && environmentRequired && !eventDestination.environment;
+    checksWrite &&
+    (eventDestination.environment
+      ? eventForwarderEnvironments.some(
+          (e) =>
+            e.region === eventForwarderRegion &&
+            e.environment === eventDestination.environment,
+        )
+      : environmentRequired);
   const noCreatableProjects =
     !existing &&
     definitionsReady &&

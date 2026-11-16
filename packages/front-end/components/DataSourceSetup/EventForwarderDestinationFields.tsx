@@ -28,7 +28,7 @@ export type EventForwarderDestination = {
 };
 
 const ENVIRONMENT_HELP_TEXT =
-  "Only events from SDK Connections in this environment are forwarded. Each environment can go to only one Event Forwarder.";
+  "Only events from SDK Connections in this environment are forwarded. Each environment can go to only one Event Forwarder in each data region.";
 
 // Why no environment can be picked: another forwarder receives all of them.
 // - Names its Data Source when the viewer can read it (`datasources` is readable ones only)
@@ -106,10 +106,13 @@ export function EventForwarderEnvironmentSelect({
 }
 
 // Forwarders sharing a data region, which is where the environment rules apply.
-// None while the region is still unknown (detected by the connection test).
+// All regions while the region is still unknown (detected by the connection
+// test), so nothing taken is offered as free.
 function useEventForwardersInRegion(region?: DataRegion | null) {
   const { eventForwarderEnvironments } = useDefinitions();
-  return eventForwarderEnvironments.filter((e) => e.region === region);
+  return eventForwarderEnvironments.filter(
+    (e) => !region || e.region === region,
+  );
 }
 
 // Whether a forwarder on this Data Source must pick one: another forwarder in

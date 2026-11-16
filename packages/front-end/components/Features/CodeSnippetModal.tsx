@@ -10,6 +10,7 @@ import { PiPackage } from "react-icons/pi";
 import Link from "@/ui/Link";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import EventIngestorRegionWarning from "@/components/SyntaxHighlighting/Snippets/EventIngestorRegionWarning";
 import { useEventIngestorRegion } from "@/services/dataRegions";
 import { getApiHost, getCdnHost } from "@/services/env";
 import Code from "@/components/SyntaxHighlighting/Code";
@@ -412,6 +413,10 @@ export default function CodeSnippetModal({
                     </div>
                   )}
 
+                  <EventIngestorRegionWarning
+                    environment={currentConnection?.environment}
+                    eventTracker={eventTracker}
+                  />
                   <InstallationCodeSnippet
                     language={language}
                     eventTracker={eventTracker}

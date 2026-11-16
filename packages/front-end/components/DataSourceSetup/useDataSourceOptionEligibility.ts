@@ -95,9 +95,12 @@ export function useDataSourceOptionEligibility(): Record<
         : undefined)
     );
   });
-  const noFreeEnvironmentReason = regionReasons.every(Boolean)
-    ? regionReasons[0]
-    : undefined;
+  // Regions blocked for different reasons: one region's fix would not be enough
+  const noFreeEnvironmentReason = !regionReasons.every(Boolean)
+    ? undefined
+    : new Set(regionReasons).size === 1
+      ? regionReasons[0]
+      : "No data region has a free environment for another Event Forwarder. Add an environment, or change or delete an existing Event Forwarder.";
   const { effectiveAccountPlan, license, hasCommercialFeature } = useUser();
   const permissionsUtil = usePermissionsUtil();
 

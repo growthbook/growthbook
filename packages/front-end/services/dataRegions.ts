@@ -34,6 +34,20 @@ export function getEventIngestorHost(region: DataRegion): string {
   return EVENT_INGESTOR_HOSTS[region];
 }
 
+// Data regions with an Event Forwarder that receives the environment
+// - Empty with a Managed Warehouse, which uses the org's region instead
+export function useEventForwarderRegions(environment?: string): DataRegion[] {
+  const { hasManagedWarehouse, eventForwarderEnvironments } = useDefinitions();
+  if (hasManagedWarehouse) return [];
+  return [
+    ...new Set(
+      eventForwarderEnvironments
+        .filter((e) => !e.environment || e.environment === environment)
+        .map((e) => e.region),
+    ),
+  ];
+}
+
 // Ingestor region for an SDK Connection's setup snippets
 // - Follows the Event Forwarder that receives the connection's environment
 // - Forwarders in both regions receive it: undefined, so the SDK default host
@@ -41,17 +55,8 @@ export function getEventIngestorHost(region: DataRegion): string {
 export function useEventIngestorRegion(
   environment?: string,
 ): DataRegion | undefined {
-  const {
-    eventIngestorRegion,
-    hasManagedWarehouse,
-    eventForwarderEnvironments,
-  } = useDefinitions();
-  if (hasManagedWarehouse) return eventIngestorRegion;
-  const regions = new Set(
-    eventForwarderEnvironments
-      .filter((e) => !e.environment || e.environment === environment)
-      .map((e) => e.region),
-  );
-  if (regions.size > 1) return undefined;
-  return [...regions][0] ?? eventIngestorRegion;
+  const { eventIngestorRegion } = useDefinitions();
+  const regions = useEventForwarderRegions(environment);
+  if (regions.length > 1) return undefined;
+  return regions[0] ?? eventIngestorRegion;
 }

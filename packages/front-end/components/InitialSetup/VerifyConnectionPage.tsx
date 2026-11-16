@@ -13,6 +13,7 @@ import InstallationCodeSnippet from "@/components/SyntaxHighlighting/Snippets/In
 import GrowthBookSetupCodeSnippet from "@/components/SyntaxHighlighting/Snippets/GrowthBookSetupCodeSnippet";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import EventIngestorRegionWarning from "@/components/SyntaxHighlighting/Snippets/EventIngestorRegionWarning";
 import { useEventIngestorRegion } from "@/services/dataRegions";
 import { useAttributeSchema } from "@/services/features";
 import TargetingAttributeCodeSnippet from "@/components/SyntaxHighlighting/Snippets/TargetingAttributeCodeSnippet";
@@ -241,6 +242,10 @@ const VerifyConnectionPage = ({
             </h4>
             {installationOpen && (
               <div className="appbox bg-light p-3">
+                <EventIngestorRegionWarning
+                  environment={currentConnection?.environment}
+                  eventTracker={eventTracker}
+                />
                 <InstallationCodeSnippet
                   language={currentConnection.languages[0]}
                   eventTracker={eventTracker}

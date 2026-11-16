@@ -38,6 +38,7 @@ import Tooltip from "@/ui/Tooltip";
 import { useUser } from "@/services/UserContext";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import EventIngestorRegionWarning from "@/components/SyntaxHighlighting/Snippets/EventIngestorRegionWarning";
 import { useEventIngestorRegion } from "@/services/dataRegions";
 import { useAttributeSchema, useEnvironments } from "@/services/features";
 import track from "@/services/track";
@@ -209,6 +210,10 @@ export default function ConnectPage() {
             Installation
           </Heading>
           <Frame p="4" mb="5">
+            <EventIngestorRegionWarning
+              environment={connection?.environment}
+              eventTracker={eventTracker}
+            />
             <InstallationCodeSnippet
               language={language}
               eventTracker={eventTracker}
