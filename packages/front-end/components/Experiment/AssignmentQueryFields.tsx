@@ -1,11 +1,23 @@
-import { ReactNode, useCallback, useEffect, useMemo, useRef } from "react";
+import {
+  ReactNode,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { Box } from "@radix-ui/themes";
 import {
   DataSourceInterfaceWithParams,
   ExposureQuery,
 } from "shared/types/datasource";
-import { getExposureQueryIdentifierTypes } from "shared/util";
+import {
+  getClusterSubUnitIdentifierTypes,
+  getExposureQueryIdentifierTypes,
+  isManagedWarehouse,
+} from "shared/util";
+import { useFeatureIsOn } from "@growthbook/growthbook-react";
 import { PiInfo, PiWarningFill } from "react-icons/pi";
 import {
   AssignmentQueryNotice,
@@ -492,16 +504,30 @@ export default function AssignmentQueryFields({
 export const POST_STRATIFICATION_CLUSTER_MESSAGE =
   "Post-stratification isn't supported for cluster experiments.";
 
-/** The query's identifier types a cluster experiment can analyze on. */
-export function getClusterSubUnitOptions(
+export function useClusterSubUnitOptions(
+  datasource: DataSourceInterfaceWithParams | null | undefined,
   exposureQuery: ExposureQuery | undefined,
   identifierType: string | undefined,
+  savedAsCluster: boolean,
 ): string[] {
-  return exposureQuery
-    ? getExposureQueryIdentifierTypes(exposureQuery).filter(
-        (type) => type !== identifierType,
-      )
-    : [];
+  const flagOn = useFeatureIsOn("managed-warehouse-cluster-experiments");
+  // A cluster experiment saved while the flag was on stays editable after
+  // it's turned off; the flag only stops new ones.
+  const managedEnabled = flagOn || savedAsCluster;
+  return useMemo(() => {
+    if (!exposureQuery) return [];
+    // Without the flag, Managed Warehouse falls back to the query's own
+    // identifier, which leaves no subunit to pick.
+    const source =
+      datasource && isManagedWarehouse(datasource) && !managedEnabled
+        ? null
+        : datasource;
+    return getClusterSubUnitIdentifierTypes(
+      exposureQuery,
+      source,
+      identifierType,
+    );
+  }, [datasource, exposureQuery, identifierType, managedEnabled]);
 }
 
 export const CLUSTER_OFF_FOR_DATASOURCE_MESSAGE =
@@ -533,6 +559,7 @@ export function getClusterChangeAfterLaunch(
 }
 
 export function ClusterExperimentFields({
+  datasource,
   exposureQuery,
   identifierType,
   isClusterExperiment,
@@ -543,6 +570,7 @@ export function ClusterExperimentFields({
   changedAfterLaunch,
   asRows = false,
 }: {
+  datasource: DataSourceInterfaceWithParams | null | undefined;
   exposureQuery: ExposureQuery | undefined;
   identifierType: string | undefined;
   isClusterExperiment: boolean;
@@ -555,9 +583,12 @@ export function ClusterExperimentFields({
   asRows?: boolean;
 }) {
   const { hasCommercialFeature } = useUser();
-  const subUnitOptions = useMemo(
-    () => getClusterSubUnitOptions(exposureQuery, identifierType),
-    [exposureQuery, identifierType],
+  const [savedAsCluster] = useState(isClusterExperiment);
+  const subUnitOptions = useClusterSubUnitOptions(
+    datasource,
+    exposureQuery,
+    identifierType,
+    savedAsCluster,
   );
   // A new query or identifier can leave the chosen subunit off the list.
   useEffect(() => {
@@ -643,6 +674,8 @@ export function ClusterExperimentFields({
             <IdentifierCode>{subUnitIdentifier}</IdentifierCode> wherever they
             can be.
           </>
+        ) : datasource && isManagedWarehouse(datasource) ? (
+          "This Data Source has no other identifier type to analyze on."
         ) : exposureQuery ? (
           `${exposureQuery.name} doesn't declare another identifier type to analyze on.`
         ) : (

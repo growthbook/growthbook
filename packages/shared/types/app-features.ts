@@ -78,6 +78,7 @@ export type AppFeatures = {
   "interleave-exp": boolean;
   "kiosk-greeting": string;
   "login-page-content": Record<string, unknown>;
+  "managed-warehouse-cluster-experiments": boolean;
   "managed-warehouse-diagnostics": boolean;
   "managed-warehouse-json-ergonomics-sweep": boolean;
   "managed-warehouse-json-migration": boolean;
