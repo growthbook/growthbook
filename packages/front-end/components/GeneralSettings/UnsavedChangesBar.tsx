@@ -102,8 +102,6 @@ export default function UnsavedChangesBar() {
             role="region"
             aria-label="Unsaved changes"
           >
-            {/* One line: Discard and Save changes stay together on the
-                right, and the summary truncates where space runs out. */}
             <Flex align="center" gap="3">
               <Box flexGrow="1" minWidth="0" aria-live="polite">
                 {dirtyCount > 0 && (

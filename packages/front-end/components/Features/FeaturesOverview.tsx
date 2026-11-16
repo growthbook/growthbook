@@ -388,7 +388,6 @@ export default function FeaturesOverview({
 
   const bannerRef = useRef<HTMLDivElement>(null);
   const [bannerPinned, setBannerPinned] = useState(false);
-  // The draft banner pins 15px under the feature tabs.
   const bannerTop = useFeatureTabsBottom() + 15;
 
   const [envGridWidth, setEnvGridWidth] = useState(0);

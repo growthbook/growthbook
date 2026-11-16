@@ -441,7 +441,6 @@ export default function FactTablesPage() {
             <Box
               className="relative"
               width={{ initial: "100%", sm: "40%" }}
-              // No narrower than 160px when space is short.
               style={{ minWidth: 160 }}
             >
               <Field

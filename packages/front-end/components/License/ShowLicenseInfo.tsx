@@ -74,7 +74,6 @@ const ShowLicenseInfo: FC<{
           {
             label: "License key",
             value: (
-              // Wraps in a narrow column, so Edit doesn't run into the next one.
               <Flex align="center" gap="2" wrap="wrap">
                 <Text color="text-mid">
                   {license ? "***************" : "(none)"}

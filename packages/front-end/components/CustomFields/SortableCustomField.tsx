@@ -68,7 +68,6 @@ function EnumValuesDisplay({ valuesStr }: { valuesStr: string | undefined }) {
 
 export const CUSTOM_FIELD_TABLE_WIDTHS = {
   dragHandle: 30,
-  // The row menu's 32px button; its header is empty.
   menu: 32,
   name: "10%",
   key: "14%",
@@ -76,8 +75,7 @@ export const CUSTOM_FIELD_TABLE_WIDTHS = {
   appliesTo: "10%",
   valueType: undefined, // fill width
   projects: "15%",
-  // Its header's width with the cells' padding, so a narrower table doesn't
-  // hide its end behind the menu column.
+  // Its header's width, so a narrow table doesn't hide it behind the menu.
   required: 81,
 } as const;
 

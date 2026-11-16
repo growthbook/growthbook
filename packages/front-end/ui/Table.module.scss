@@ -250,6 +250,8 @@ $pinned-hover-tints:
     }
 
     @supports ((animation-timeline: view()) and (animation-range: 0% 100%)) {
+      // Tells Table.tsx not to run its fallback.
+      --table-header-scroll-driven: 1;
       view-timeline: --table-box block;
       // The line the header sticks to, in place of the window's top. 1px up:
       // the header starts under the box's border.

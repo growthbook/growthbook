@@ -217,6 +217,8 @@ function App({
     );
   };
 
+  const page = <Component {...{ ...pageProps, envReady: ready }} />;
+
   return (
     <>
       <GlobalFontStyles />
@@ -268,22 +270,12 @@ function App({
                                               <DefinitionsGuard>
                                                 {Component.noPageWrapper ||
                                                 liteLayout ? (
-                                                  <Component
-                                                    {...{
-                                                      ...pageProps,
-                                                      envReady: ready,
-                                                    }}
-                                                  />
+                                                  page
                                                 ) : (
                                                   <PageFrame
                                                     settings={inSettings}
                                                   >
-                                                    <Component
-                                                      {...{
-                                                        ...pageProps,
-                                                        envReady: ready,
-                                                      }}
-                                                    />
+                                                    {page}
                                                   </PageFrame>
                                                 )}
                                               </DefinitionsGuard>

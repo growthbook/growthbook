@@ -31,6 +31,7 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import BanditSRMCard from "@/components/HealthTab/BanditSRMCard";
 import Callout from "@/ui/Callout";
 import { PowerCard } from "@/components/HealthTab/PowerCard";
+import { SCROLL_MARGIN_UNDER_TABS } from "@/components/Layout/constants";
 import {
   HealthTabConfigParams,
   HealthTabOnboardingModal,
@@ -588,7 +589,7 @@ function HealthSnapshotCards({
       />
       <div
         id="balanceCheck"
-        style={{ scrollMarginTop: "calc(var(--tabs-bottom) + var(--space-1))" }}
+        style={{ scrollMarginTop: SCROLL_MARGIN_UNDER_TABS }}
       >
         {isBandit ? (
           <BanditSRMCard
@@ -624,7 +625,7 @@ function HealthSnapshotCards({
         <div
           id="covariateBalanceCheck"
           style={{
-            scrollMarginTop: "calc(var(--tabs-bottom) + var(--space-1))",
+            scrollMarginTop: SCROLL_MARGIN_UNDER_TABS,
           }}
         >
           <CovariateImbalanceCard
@@ -639,7 +640,7 @@ function HealthSnapshotCards({
         <div
           id="multipleExposures"
           style={{
-            scrollMarginTop: "calc(var(--tabs-bottom) + var(--space-1))",
+            scrollMarginTop: SCROLL_MARGIN_UNDER_TABS,
           }}
         >
           <MultipleExposuresCard

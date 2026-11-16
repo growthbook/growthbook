@@ -67,6 +67,7 @@ import Heading from "@/ui/Heading";
 import Frame from "@/ui/Frame";
 import useExperimentEditing from "@/components/Experiment/TabbedPage/useExperimentEditing";
 import type { AnalysisFormFocus } from "@/components/Experiment/AnalysisForm";
+import { SCROLL_MARGIN_UNDER_TABS } from "@/components/Layout/constants";
 import HoldoutEnvironments from "./HoldoutEnvironments";
 import {
   FlagEnvironmentsDraft,
@@ -513,7 +514,7 @@ export default function Implementation({
       <div
         id={IMPLEMENTATION_ID}
         className="my-4"
-        style={{ scrollMarginTop: "calc(var(--tabs-bottom) + var(--space-1))" }}
+        style={{ scrollMarginTop: SCROLL_MARGIN_UNDER_TABS }}
       >
         <Heading as="h4" size="sm" color="text-high" mb="2">
           Implementation

@@ -390,7 +390,6 @@ export const StickyTabsList = forwardRef<HTMLDivElement, StickyTabsListProps>(
   function StickyTabsList({ pinnedClass = "pinned", ...props }, ref) {
     const tabsRef = useRef<HTMLDivElement>(null);
     const [headerPinned, setHeaderPinned] = useState(false);
-    // Pinned 1px under the app header and any bar under it.
     const pinnedTopPx = useTabsTop();
 
     useEffect(() => {

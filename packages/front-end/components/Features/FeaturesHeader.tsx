@@ -627,7 +627,6 @@ export default function FeaturesHeader({
         >
           <div className="header-tabs">
             <Tabs value={tab} onValueChange={setTab}>
-              {/* Unfolded, as on main. */}
               <TabsList
                 size="lg"
                 overflowMenu={false}

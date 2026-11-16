@@ -1,8 +1,5 @@
-import React from "react";
-import { Box } from "@radix-ui/themes";
 import { SavedQuery } from "shared/validators";
-import Explorer from "@/enterprise/components/ProductAnalytics/Explorer";
-import PageHead from "@/components/Layout/PageHead";
+import ExplorerPage from "@/enterprise/components/ProductAnalytics/ExplorerPage";
 import Callout from "@/ui/Callout";
 import Link from "@/ui/Link";
 import useApi from "@/hooks/useApi";
@@ -16,41 +13,20 @@ export default function SqlExplorePage() {
   const hasSavedQueries = (data?.savedQueries.length ?? 0) > 0;
 
   return (
-    <Box
-      className="position-relative"
-      // The page frame's side padding, less the explorer's own 8px inside,
-      // and its top padding from the header to the explorer's first row: here
-      // the data source picker, with 4px of its own (no actions row above it).
-      style={{
-        padding:
-          "calc(var(--page-top-padding) - var(--space-1)) calc(var(--page-padding) - var(--space-2)) 8px",
-        ...({
-          "--explorer-frame-y":
-            "calc(var(--page-top-padding) + var(--space-1))",
-        } as React.CSSProperties),
-      }}
+    <ExplorerPage
+      type="sql"
+      breadcrumb={[
+        { display: "Explore", href: "/product-analytics/explore" },
+        { display: "SQL" },
+      ]}
     >
-      <PageHead
-        breadcrumb={[
-          {
-            display: "Explore",
-            href: "/product-analytics/explore",
-          },
-          {
-            display: "SQL",
-          },
-        ]}
-      />
-      <Box width="100%">
-        {hasSavedQueries ? (
-          <Callout status="warning" mb="3" dismissible id="legacy-sql-reports">
-            SQL Reports have been deprecated. Use this SQL explorer instead, or{" "}
-            <Link href="/sql-explorer">view the old SQL Reports</Link>.
-          </Callout>
-        ) : null}
-        <Explorer type="sql" />
-      </Box>
-    </Box>
+      {hasSavedQueries ? (
+        <Callout status="warning" mb="3" dismissible id="legacy-sql-reports">
+          SQL Reports have been deprecated. Use this SQL explorer instead, or{" "}
+          <Link href="/sql-explorer">view the old SQL Reports</Link>.
+        </Callout>
+      ) : null}
+    </ExplorerPage>
   );
 }
 

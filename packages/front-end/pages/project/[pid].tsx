@@ -212,7 +212,6 @@ const ProjectPage: FC = () => {
               short rather than running off the page. */}
           <Flex align="start" direction="column" flexGrow="1" minWidth="0">
             <Flex align="center" gap="3" mb="2" maxWidth="100%">
-              {/* One line, with the whole name in a tooltip when it's cut. */}
               <Box minWidth="0">
                 <Heading size="xl" as="h1">
                   <TruncatedText text={p.name} />
@@ -230,8 +229,6 @@ const ProjectPage: FC = () => {
                 />
               ) : null}
             </Flex>
-            {/* Labels on one line. The IDs wrap below each other first, then
-                a value cut short fades out (CopyableCode). */}
             <Flex gapX="6" gapY="2" wrap="wrap" mb="4" maxWidth="100%">
               <Metadata
                 label="ID"

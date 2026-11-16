@@ -266,7 +266,6 @@ export default function RevisionStatusBar({
   return (
     <>
       <PageBleed
-        // From the side nav to the window, past the tab row's padding.
         className={styles.bar}
         style={{
           backgroundColor: `var(--${tint}-a3)`,

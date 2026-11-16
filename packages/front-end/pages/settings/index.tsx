@@ -166,7 +166,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
   return (
     <>
       <SettingsPage
-        title="General settings"
+        title="General Settings"
         headerClassName={sectionStyles.visuallyHidden}
         breadcrumb={[
           // Plain text: on this page it would only link back to itself.

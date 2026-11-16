@@ -569,7 +569,7 @@ const DataSourcePage: FC = () => {
               // the page frame's spacing above and below.
               height:
                 pageHeight ??
-                "calc(100vh - var(--page-top-offset) - var(--page-top-padding) - var(--space-6))",
+                "calc(100vh - var(--page-top-offset) - var(--page-top-padding) - var(--page-bottom-padding))",
               overflow: "hidden",
               boxSizing: "border-box",
             }

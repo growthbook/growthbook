@@ -59,13 +59,15 @@ export function usePinnedBar<T extends HTMLElement>() {
   }, []);
 }
 
+function subscribe(listener: () => void) {
+  listeners.add(listener);
+  return () => listeners.delete(listener);
+}
+
 // Where sticky bars pin, for code that measures against it.
 export function usePageTopOffset(): number {
   const pinnedBarHeight = useSyncExternalStore(
-    (listener) => {
-      listeners.add(listener);
-      return () => listeners.delete(listener);
-    },
+    subscribe,
     () => barHeight,
     () => 0,
   );
@@ -80,13 +82,10 @@ export function useTabsTop(): number {
   return usePageTopOffset() - 1;
 }
 
-/**
- * The original feature page's tab row (--tabs-bar-height there). Its banners
- * pin under it on both versions of the feature page, as on main.
- */
+// The original feature page's tab row (--tabs-bar-height there). Banners pin
+// under it on both versions of the feature page.
 const FEATURE_TABS_BAR_HEIGHT_PX = 40;
 
-/** Under the feature page's tab row. */
 export function useFeatureTabsBottom(): number {
   return useTabsTop() + FEATURE_TABS_BAR_HEIGHT_PX;
 }

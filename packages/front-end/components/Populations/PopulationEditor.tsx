@@ -441,7 +441,7 @@ export default function PopulationEditor({
             minWidth="0"
             style={{
               position: "sticky",
-              top: "calc(var(--page-top-offset) + 16px)",
+              top: "calc(var(--page-top-offset) + var(--space-4))",
               alignSelf: "start",
             }}
           >

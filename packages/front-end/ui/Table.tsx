@@ -2,6 +2,7 @@ import React, { forwardRef, useEffect, useRef, useState } from "react";
 import { Box, Table as RadixTable } from "@radix-ui/themes";
 import clsx from "clsx";
 import { radixSize, Size } from "@/ui/sizes";
+import { usePageTopOffset } from "@/components/Layout/pageTopOffset";
 import styles from "./Table.module.scss";
 
 export type TableProps = Omit<
@@ -87,16 +88,17 @@ export default function Table({
     return () => observer.disconnect();
   }, [isListVariant, scrollX]);
 
-  // Flags each edge of a scroll box with columns hidden past it, for the edge
-  // shadows. Written to the DOM directly, so scrolling doesn't re-render.
+  // Written to the DOM directly, so scrolling doesn't re-render.
   const isScrollBox = !!scrollX || autoScroll;
   useEffect(() => {
     const wrapper = wrapperRef.current;
     if (!isScrollBox || !wrapper) return;
-    const update = () => {
+    const flagHiddenEdges = () => {
       const hidden = wrapper.scrollWidth - wrapper.clientWidth;
       wrapper.toggleAttribute("data-more-start", wrapper.scrollLeft > 1);
       wrapper.toggleAttribute("data-more-end", hidden - wrapper.scrollLeft > 1);
+    };
+    const measure = () => {
       wrapper.style.setProperty(
         "--table-scroll-height",
         `${wrapper.clientHeight}px`,
@@ -105,15 +107,16 @@ export default function Table({
         "--table-box-height",
         `${wrapper.getBoundingClientRect().height}px`,
       );
+      flagHiddenEdges();
     };
-    update();
-    wrapper.addEventListener("scroll", update, { passive: true });
-    const observer = new ResizeObserver(update);
+    measure();
+    wrapper.addEventListener("scroll", flagHiddenEdges, { passive: true });
+    const observer = new ResizeObserver(measure);
     observer.observe(wrapper);
     const table = wrapper.querySelector("table");
     if (table) observer.observe(table);
     return () => {
-      wrapper.removeEventListener("scroll", update);
+      wrapper.removeEventListener("scroll", flagHiddenEdges);
       observer.disconnect();
       wrapper.removeAttribute("data-more-start");
       wrapper.removeAttribute("data-more-end");
@@ -122,20 +125,24 @@ export default function Table({
     };
   }, [isScrollBox]);
 
+  // --table-sticky-top resolves against the page's top offset.
+  const pageTopOffset = usePageTopOffset();
+
   // A sideways scroll box can't let its header stick to the window, so the
   // header is moved down the box as the page scrolls instead. CSS does that
-  // with a scroll-driven animation (Table.module.scss); this is for browsers
-  // without one.
+  // with a scroll-driven animation; this is for browsers without one.
   useEffect(() => {
     const wrapper = wrapperRef.current;
     if (!autoScroll || !useStickyHeader || !wrapper) return;
-    if (CSS.supports("animation-timeline: view()")) return;
+    const style = getComputedStyle(wrapper);
+    // Set by the stylesheet where its animation applies.
+    if (style.getPropertyValue("--table-header-scroll-driven")) return;
     let frame = 0;
+    // scroll-margin-top carries --table-sticky-top, resolved to px.
+    let stickTop = parseFloat(style.scrollMarginTop);
     const update = () => {
       frame = 0;
       const box = wrapper.getBoundingClientRect();
-      // Resolved from --table-sticky-top.
-      const stickTop = parseFloat(getComputedStyle(wrapper).scrollMarginTop);
       // The header starts under the box's 1px border.
       const shift = Math.min(box.height, Math.max(0, stickTop - 1 - box.top));
       wrapper.style.setProperty("--table-header-shift", `${shift}px`);
@@ -143,16 +150,20 @@ export default function Table({
     const onScroll = () => {
       if (!frame) frame = requestAnimationFrame(update);
     };
+    const onResize = () => {
+      stickTop = parseFloat(style.scrollMarginTop);
+      onScroll();
+    };
     update();
     window.addEventListener("scroll", onScroll, { passive: true });
-    window.addEventListener("resize", onScroll);
+    window.addEventListener("resize", onResize);
     return () => {
       cancelAnimationFrame(frame);
       window.removeEventListener("scroll", onScroll);
-      window.removeEventListener("resize", onScroll);
+      window.removeEventListener("resize", onResize);
       wrapper.style.removeProperty("--table-header-shift");
     };
-  }, [autoScroll, useStickyHeader]);
+  }, [autoScroll, useStickyHeader, stickyTopOffset, pageTopOffset]);
 
   useEffect(() => {
     if (!isListVariant || !useStickyHeader) return;
@@ -169,25 +180,41 @@ export default function Table({
       wrapper.setAttribute("data-sticky-active", "true");
       return;
     }
-    const header = wrapper.querySelector(".rt-TableHeader");
+    const header = wrapper.querySelector<HTMLElement>(".rt-TableHeader");
     if (!header) return;
 
+    const style = getComputedStyle(header);
+    // Where it sticks: --table-sticky-top, resolved to px.
+    let stickTop = parseFloat(style.top);
     const check = () => {
-      const top = (header as HTMLElement).getBoundingClientRect().top;
-      // Where it sticks, resolved from --table-sticky-top.
-      const topOffset = parseFloat(getComputedStyle(header).top);
-      const isSticky = Math.abs(top - topOffset) < 2;
+      const isSticky =
+        Math.abs(header.getBoundingClientRect().top - stickTop) < 2;
       if (isSticky) {
         wrapper.setAttribute("data-sticky-active", "true");
       } else {
         wrapper.removeAttribute("data-sticky-active");
       }
     };
+    const onResize = () => {
+      stickTop = parseFloat(style.top);
+      check();
+    };
 
     check();
     window.addEventListener("scroll", check, { passive: true });
-    return () => window.removeEventListener("scroll", check);
-  }, [isListVariant, useStickyHeader, stickyTopOffset, scrollX, autoScroll]);
+    window.addEventListener("resize", onResize);
+    return () => {
+      window.removeEventListener("scroll", check);
+      window.removeEventListener("resize", onResize);
+    };
+  }, [
+    isListVariant,
+    useStickyHeader,
+    stickyTopOffset,
+    scrollX,
+    autoScroll,
+    pageTopOffset,
+  ]);
 
   const radixVariant = variant === "list" ? "surface" : variant;
 

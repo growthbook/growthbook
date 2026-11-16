@@ -3,10 +3,6 @@ import clsx from "clsx";
 import { SettingsPageTop } from "./SettingsJumpMenu";
 import styles from "./PageFrame.module.scss";
 
-/**
- * Wraps every page but the full-window ones (noPageWrapper, _app.tsx) and
- * owns the page's spacing, so pages don't pad themselves.
- */
 export default function PageFrame({
   settings,
   children,
@@ -23,10 +19,6 @@ export default function PageFrame({
   );
 }
 
-/**
- * A band inside the frame that runs to the page's edges (a tab row, a status
- * bar), its content still in line with the page.
- */
 export const PageBleed = forwardRef<
   HTMLDivElement,
   ComponentPropsWithoutRef<"div">

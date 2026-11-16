@@ -47,11 +47,7 @@ export { CUSTOM_FIELD_SECTION_LABELS } from "@/components/CustomFields/constants
 /** FE-only: array index for delete disambiguation (legacy duplicate ids) */
 export type CustomFieldWithArrayIndex = CustomField & { arrayIndex: number };
 
-/**
- * Narrower than this, the table scrolls sideways in its frame rather than
- * squeezing its columns (e.g. on a narrow window). Measured: at 818px
- * the end of the Field Name header is hidden behind the next column.
- */
+// Narrower, the Field Name header is cut off, so the table scrolls sideways.
 const CUSTOM_FIELDS_TABLE_MIN_WIDTH = 820;
 
 function CustomFieldsTable({
