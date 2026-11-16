@@ -48,6 +48,8 @@ export interface Props {
   hideVariationIds?: boolean;
   startEditingIndexes?: boolean;
   startEditingSplits?: boolean;
+  /** A reorder leaves each key with its variation, where data is recorded under it. */
+  keepKeysOnReorder?: boolean;
   showPreview?: boolean;
   hideCoverage?: boolean;
   disableCoverage?: boolean;
@@ -80,6 +82,7 @@ export default function FeatureVariationsInput({
   hideVariationIds = false,
   startEditingIndexes = false,
   startEditingSplits = false,
+  keepKeysOnReorder = false,
   showPreview = true,
   hideCoverage = false,
   disableCoverage = false,
@@ -145,7 +148,8 @@ export default function FeatureVariationsInput({
     !valueAsId && !editingIds && !onlySafeToEditVariationMetadata;
   // Drag and the row menu both reorder, so both renumber the same way.
   const renumberKeysOnReorder =
-    !!idsMatchIndexes || forceRenormalizeVariationKeysOnSort;
+    !keepKeysOnReorder &&
+    (!!idsMatchIndexes || forceRenormalizeVariationKeysOnSort);
 
   const setEqualWeights = () => {
     if (!variations || !setWeight) return;

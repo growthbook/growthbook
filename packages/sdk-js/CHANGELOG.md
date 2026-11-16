@@ -1,8 +1,17 @@
 # Changelog
 
-## **2.1.0** - Unreleased
+## **2.2.0** - Unreleased
 
 - Add `getInterleaveRankers()` and `getInterleaveRankersForKey()` to the interleaving plugin, for reading every ranker's config out of the payload — useful for pre-computing rankings in a background job
+
+## **2.1.0** - Nov 16, 2026
+
+- Add `fallbackPayload` option to `init` - used when features can't be downloaded and nothing is cached
+- Add `Register` interface to declare your `features`, `attributes`, and `events` types once. Every GrowthBook instance is then strongly typed without passing generics
+- Strongly typed attributes for `setAttributes` and `updateAttributes`, and strongly typed events for `logEvent`
+- Add `Payload` type that checks a payload written in code against your features and attributes, including targeting conditions and hash attributes
+- Allow `null` as the `getFeatureValue` fallback for strongly typed features
+- Fix slow trailing slash removal for very long `apiHost` and `streamingHost` values
 
 ## **2.0.0** - Oct 29, 2026
 
