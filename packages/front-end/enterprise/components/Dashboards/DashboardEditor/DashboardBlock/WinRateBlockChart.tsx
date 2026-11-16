@@ -6,6 +6,7 @@ import {
 import { Box, Flex } from "@radix-ui/themes";
 import EChartsReact from "echarts-for-react";
 import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
+import { getChartThemeColors } from "@/components/DataViz/chart-theme";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Text from "@/ui/Text";
 import Table, {
@@ -134,7 +135,7 @@ export default function WinRateBlockChart({
   block: DashboardBlockInterfaceOrData<ExperimentsWinRateBlockInterface>;
 }) {
   const { theme } = useAppearanceUITheme();
-  const textColor = theme === "dark" ? "#FFFFFF" : "#1F2D5C";
+  const { textColor } = getChartThemeColors(theme);
   const { projects } = useDefinitions();
 
   const {

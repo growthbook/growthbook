@@ -13,6 +13,10 @@ import {
 import ComparisonChartLegend from "@/enterprise/components/ProductAnalytics/ComparisonChartLegend";
 import { CompareChartLegendItem } from "@/enterprise/components/ProductAnalytics/comparison-chart";
 import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
+import {
+  CHART_COLORS,
+  getChartThemeColors,
+} from "@/components/DataViz/chart-theme";
 import { useDashboardCharts } from "@/enterprise/components/Dashboards/DashboardChartsContext";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import Text from "@/ui/Text";
@@ -25,14 +29,11 @@ import {
 } from "./completedExperimentsData";
 import { useCompletedExperimentsComparison } from "./completedExperiments";
 
-// Pulled from the Metric Explorer chart palette (CHART_COLORS in
-// ProductAnalytics/MainSection/ExplorerChart.tsx) so the dashboard's ECharts
-// blocks share one color scheme. Mapped to the semantically matching hues.
 const RESULT_COLORS: Record<VelocityResultKey, string> = {
-  won: "#22c55e", // green
-  lost: "#ef4444", // red
-  inconclusive: "#6b7280", // gray
-  dnf: "#eab308", // yellow
+  won: CHART_COLORS[3], // green
+  lost: CHART_COLORS[6], // red
+  inconclusive: CHART_COLORS[8], // gray
+  dnf: CHART_COLORS[4], // yellow
 };
 
 // Capitalized display labels for the legend + tooltip.
@@ -193,7 +194,7 @@ export default function VelocityBlockChart({
   chartId: string;
 }) {
   const { theme } = useAppearanceUITheme();
-  const textColor = theme === "dark" ? "#FFFFFF" : "#1F2D5C";
+  const { textColor } = getChartThemeColors(theme);
   const chartsContext = useDashboardCharts();
 
   // Which ECharts series are toggled off via the legend.

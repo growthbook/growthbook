@@ -12,6 +12,10 @@ import {
 import { getValidDate, parseWarehouseDate } from "shared/dates";
 import { useDashboardCharts } from "@/enterprise/components/Dashboards/DashboardChartsContext";
 import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
+import {
+  CHART_COLORS,
+  getChartThemeColors,
+} from "@/components/DataViz/chart-theme";
 import { supportsDimension } from "@/services/dataVizTypeGuards";
 import { getXAxisConfig } from "@/services/dataVizConfigUtilities";
 import { formatNumber } from "@/services/metrics";
@@ -335,8 +339,7 @@ export function DataVisualizationDisplay({
   const dimensionFields = dimensionConfigs.map((d) => d.fieldName);
 
   const { theme } = useAppearanceUITheme();
-  const textColor = theme === "dark" ? "#FFFFFF" : "#1F2D5C";
-  const tooltipBackgroundColor = theme === "dark" ? "#1c2339" : "#FFFFFF";
+  const { textColor, tooltipBackgroundColor } = getChartThemeColors(theme);
 
   // Helper: Generate all combinations of dimension values across all dimensions
   const generateAllDimensionCombinations = useCallback(
@@ -733,6 +736,7 @@ export function DataVisualizationDisplay({
     return {
       // Values are parsed as UTC, so UTC rendering shows query results as returned, unshifted.
       useUTC: true,
+      color: CHART_COLORS,
       dataset,
       tooltip: {
         appendTo: "body",

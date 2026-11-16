@@ -9,6 +9,7 @@ import EChartsReact from "echarts-for-react";
 import { FaExclamationTriangle } from "react-icons/fa";
 import { isString } from "shared/util";
 import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
+import { getChartThemeColors } from "@/components/DataViz/chart-theme";
 import { useCurrency } from "@/hooks/useCurrency";
 import { getExperimentMetricFormatter } from "@/services/metrics";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -34,7 +35,7 @@ export default function MetricExplorerBlock({
     useDashboardMetricAnalysis(block, setBlock);
   const displayCurrency = useCurrency();
   const { theme } = useAppearanceUITheme();
-  const textColor = theme === "dark" ? "#FFFFFF" : "#1F2D5C";
+  const { textColor } = getChartThemeColors(theme);
   const chartsContext = useDashboardCharts();
 
   const chartId = useMemo(() => {
