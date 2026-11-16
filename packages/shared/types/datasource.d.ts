@@ -405,16 +405,6 @@ export interface GrowthbookClickhouseSettings extends DataSourceSettings {
    */
   jsonErgonomicsVersion?: number;
   /**
-   * Which built-in identifier the `id` attribute folds into in generated SQL.
-   * Defaults to "device_id" (the SDK tracking plugin's contract). Orgs that send
-   * a logged-in user ID under the `id` key via the Ingestion API can set
-   * "user_id" so `attributes.id` participates in user_id joins instead. Only
-   * meaningful on JSON-column warehouses, and incompatible with the tracking
-   * plugin: the plugin folds `id` into the physical device_id column client-side
-   * and strips it from the JSON, where this query-time remap can't see it.
-   */
-  idAttributeIdentifier?: "user_id" | "device_id";
-  /**
    * Identifiers follow the attribute schema: `user_id` / `device_id` only when
    * a hash attribute folds into them (or they're preserved in
    * `migratedIdentifiers`), and an `id` hash attribute is its own `id`
