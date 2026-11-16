@@ -554,7 +554,6 @@ export type SDKPayloadParams = Pick<
   | "allowedCustomFieldsInMetadata"
   | "includeTagsInMetadata"
   | "includeReferencedPrerequisites"
-  | "noDirectAccess"
 > &
   Partial<Pick<SDKConnectionInterface, "organization">> & {
     // Extend languages to allow "legacy" for old API keys
@@ -564,8 +563,11 @@ export type SDKPayloadParams = Pick<
 export async function getPayloadParamsFromApiKey(
   key: string,
   req: Request,
-  // Reject a foreign key before side effects run.
-  expectedOrganization?: string,
+  // Both reject the request before side effects run.
+  {
+    expectedOrganization,
+    requireCdnOrProxy,
+  }: { expectedOrganization?: string; requireCdnOrProxy?: boolean } = {},
 ): Promise<SDKPayloadParams> {
   // SDK Connection key
   if (key.match(/^sdk-/)) {
@@ -578,6 +580,17 @@ export async function getPayloadParamsFromApiKey(
       connection.organization !== expectedOrganization
     ) {
       throw new UnrecoverableApiError("Invalid API key");
+    }
+    if (
+      requireCdnOrProxy &&
+      IS_CLOUD &&
+      connection.noDirectAccess &&
+      !req.get("fastly-client-ip") &&
+      !req.get("user-agent")?.startsWith("GrowthBook Proxy")
+    ) {
+      throw new UnrecoverableApiError(
+        "You must use cdn.growthbook.io or a GrowthBook Proxy to access this endpoint",
+      );
     }
 
     // If this is the first time the SDK Connection is being used, mark it as successfully connected
@@ -610,7 +623,6 @@ export async function getPayloadParamsFromApiKey(
       remoteEvalEnabled: connection.remoteEvalEnabled,
       savedGroupFormat: savedGroupFormatFromConnection(connection),
       includeReferencedPrerequisites: connection.includeReferencedPrerequisites,
-      noDirectAccess: connection.noDirectAccess,
       languages: connection.languages,
       sdkVersion: connection.sdkVersion,
     };
@@ -769,7 +781,9 @@ export async function getFeaturesPublic(req: Request, res: Response) {
       throw new UnrecoverableApiError("Missing API key in request");
     }
 
-    const params = await getPayloadParamsFromApiKey(key, req);
+    const params = await getPayloadParamsFromApiKey(key, req, {
+      requireCdnOrProxy: true,
+    });
 
     if (!params.organization) {
       throw new UnrecoverableApiError("Organization not found for API key");
@@ -780,17 +794,6 @@ export async function getFeaturesPublic(req: Request, res: Response) {
     if (params.remoteEvalEnabled) {
       throw new UnrecoverableApiError(
         "Remote evaluation required for this connection",
-      );
-    }
-
-    if (
-      IS_CLOUD &&
-      params.noDirectAccess &&
-      !req.get("fastly-client-ip") &&
-      !req.get("user-agent")?.startsWith("GrowthBook Proxy")
-    ) {
-      throw new UnrecoverableApiError(
-        "You must use cdn.growthbook.io or a GrowthBook Proxy to access this endpoint",
       );
     }
 
