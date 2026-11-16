@@ -73,20 +73,26 @@ export function getAddMetricConflict(
 
 /**
  * Why a metric can't join a chart whose Population reads from
- * `populationFactTableId`, or null if it can (or the chart has no Population,
+ * `populationFactTable`, or null if it can (or the chart has no Population,
  * or its definition hasn't loaded). Populations only support proportion
- * metrics on their own Fact Table.
+ * metrics on their own Fact Table, which the reason names so it says what to
+ * pick instead.
  */
 export function getPopulationConflict(
   metric: FactMetricInterface,
-  populationFactTableId: string | null,
+  populationFactTable: { id: string; name: string | null } | null,
 ): string | null {
-  if (populationFactTableId === null) return null;
+  if (populationFactTable === null) return null;
+  const { id, name } = populationFactTable;
   if (metric.metricType !== "proportion") {
-    return "Charts with a Population only support proportion metrics.";
+    return name
+      ? `Charts with this Population only support proportion metrics on the ${name} Fact Table.`
+      : "Charts with a Population only support proportion metrics.";
   }
-  if (metric.numerator.factTableId !== populationFactTableId) {
-    return "This metric doesn't use the Population's Fact Table.";
+  if (metric.numerator.factTableId !== id) {
+    return name
+      ? `Charts with this Population only support metrics on the ${name} Fact Table.`
+      : "This metric doesn't use the Population's Fact Table.";
   }
   return null;
 }

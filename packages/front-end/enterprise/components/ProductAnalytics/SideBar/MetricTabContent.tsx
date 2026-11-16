@@ -74,6 +74,10 @@ export default function MetricTabContent() {
   const populationFactTableId = appliedPopulation
     ? (getSinglePopulationStep(appliedPopulation)?.source.factTableId ?? null)
     : null;
+  const populationFactTableName =
+    populationFactTableId !== null
+      ? (getFactTableById(populationFactTableId)?.name ?? null)
+      : null;
   const unitState = getMetricValuesUnitState(
     values,
     getFactMetricById,
@@ -143,10 +147,15 @@ export default function MetricTabContent() {
       lockedClass: Exclude<MetricMixClass, "unknown"> | null,
       lockedUnit: string | null,
     ): string | null =>
-      getPopulationConflict(metric, populationFactTableId) ??
+      getPopulationConflict(
+        metric,
+        populationFactTableId !== null
+          ? { id: populationFactTableId, name: populationFactTableName }
+          : null,
+      ) ??
       getMixClassConflict(metric.metricType, lockedClass) ??
       getUnitConflict(metric, lockedUnit, getFactTableById),
-    [getFactTableById, populationFactTableId],
+    [getFactTableById, populationFactTableId, populationFactTableName],
   );
 
   // Each slot lists its enabled metrics first. Slots with the same locks share

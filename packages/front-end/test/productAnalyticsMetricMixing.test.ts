@@ -413,27 +413,46 @@ describe("getMetricChartPopulationViolations", () => {
 });
 
 describe("getPopulationConflict", () => {
+  const usersOnly = { id: "users_only", name: "Users" };
+
   it("allows any metric without a loaded Population", () => {
     expect(getPopulationConflict(metrics.get("revenue")!, null)).toBeNull();
   });
 
   it("allows a proportion on the Population's Fact Table", () => {
     expect(
-      getPopulationConflict(metrics.get("signups")!, "users_only"),
+      getPopulationConflict(metrics.get("signups")!, usersOnly),
     ).toBeNull();
   });
 
-  it("rejects a metric that isn't a proportion", () => {
+  it("rejects a metric that isn't a proportion, naming the Fact Table", () => {
     expect(
       getPopulationConflict(
         makeMetric("revenue_users", "mean", "users_only"),
-        "users_only",
+        usersOnly,
       ),
-    ).toBe("Charts with a Population only support proportion metrics.");
+    ).toBe(
+      "Charts with this Population only support proportion metrics on the Users Fact Table.",
+    );
   });
 
-  it("rejects a proportion on another Fact Table", () => {
-    expect(getPopulationConflict(metrics.get("signups")!, "devices_only")).toBe(
+  it("rejects a proportion on another Fact Table, naming the right one", () => {
+    expect(
+      getPopulationConflict(metrics.get("signups")!, {
+        id: "devices_only",
+        name: "Devices",
+      }),
+    ).toBe(
+      "Charts with this Population only support metrics on the Devices Fact Table.",
+    );
+  });
+
+  it("falls back to generic reasons when the Fact Table's name is unknown", () => {
+    const unnamed = { id: "devices_only", name: null };
+    expect(getPopulationConflict(metrics.get("revenue")!, unnamed)).toBe(
+      "Charts with a Population only support proportion metrics.",
+    );
+    expect(getPopulationConflict(metrics.get("signups")!, unnamed)).toBe(
       "This metric doesn't use the Population's Fact Table.",
     );
   });
