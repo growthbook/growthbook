@@ -326,8 +326,11 @@ $pinned-hover-tints:
       background-color: var(--color-panel-solid);
     }
 
+    // Centered, as its body cells are: a header cell's content sits at the
+    // top of the line, 1px above the resize handles' center.
     :global(.rt-TableHeader .rt-TableRow > *:last-child) {
       z-index: 2;
+      vertical-align: middle;
     }
 
     // A header that doesn't stick has no layer of its own, so the pinned
@@ -462,12 +465,6 @@ $pinned-hover-tints:
     height: 60%;
     border-radius: 1px;
     background-color: var(--gray-a5);
-  }
-
-  // The last handle borders the slack column, not a neighbour, so it only shows on hover.
-  :global(.rt-TableColumnHeaderCell):not(:has(~ * > .resizeHandle))
-    > &:not(:hover, :focus-visible, [data-active="true"])::after {
-    background-color: transparent;
   }
 
   &:hover::after,
