@@ -1,5 +1,5 @@
 import { Box, Flex } from "@radix-ui/themes";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   MetricExplorationBlockInterface,
   FactTableExplorationBlockInterface,
@@ -64,28 +64,34 @@ function useUnsavedRun(config: ExplorationConfig | null) {
   // Callers may rebuild an equal config every render
   const configKey = config ? JSON.stringify(config) : null;
 
+  // The config the latest request belongs to; null once unmounted.
+  const latestKey = useRef<string | null>(null);
+
   const start = useCallback(
-    async (cache: CacheOption, isCurrent: () => boolean = () => true) => {
+    async (cache: CacheOption) => {
       if (!configKey) return;
       setError(null);
       setLoading(true);
       const result = await fetchData(JSON.parse(configKey), { cache });
-      if (!isCurrent()) return;
+      // The config changed while this ran, so the result is for an old config.
+      if (latestKey.current !== configKey) return;
       if (result.data?.id) setExplorationId(result.data.id);
-      else if (result.error) setError(result.error);
+      // The cache check stays silent: a block that isn't set up yet fails it,
+      // and that should read as no results, not an error.
+      else if (result.error && cache !== "required") setError(result.error);
       setLoading(false);
     },
     [configKey, fetchData],
   );
 
   useEffect(() => {
-    let current = true;
+    latestKey.current = configKey;
     setExplorationId(null);
-    start("required", () => current);
+    start("required");
     return () => {
-      current = false;
+      latestKey.current = null;
     };
-  }, [start]);
+  }, [configKey, start]);
 
   return { explorationId, loading, error, run: () => start("preferred") };
 }
