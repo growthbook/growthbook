@@ -74,18 +74,21 @@ describe("getExperimentUnitsQuery", () => {
       { type: "experiment", id: "country" },
     ]);
 
+    const uncapped = sql.indexOf("__experimentUnitsUncapped AS (");
     const topCte = sql.slice(
       sql.indexOf("__dimTop_country AS ("),
-      sql.indexOf("__experimentExposures AS ("),
+      sql.indexOf("__experimentUnits AS ("),
     );
-    expect(topCte).toMatch(/COUNT\(DISTINCT e\.uid\) AS units/);
-    expect(topCte).toMatch(/e\.exp_key = 'my-exp'/);
+    expect(uncapped).toBeGreaterThan(-1);
+    expect(sql.indexOf("__dimTop_country AS (")).toBeGreaterThan(uncapped);
+    expect(topCte).toMatch(/FROM\s+__experimentUnitsUncapped\s/);
+    expect(topCte).toMatch(/dim_exp_country != '__NULL_DIMENSION'/);
     expect(topCte).toMatch(/rn <= 18/);
     expect(sql).toMatch(
-      /LEFT JOIN __dimTop_country __dimTop_country ON \(__dimTop_country\.dimension_value = CAST\(e\.country AS VARCHAR\)\)/i,
+      /LEFT JOIN __dimTop_country __dimTop_country ON \(__dimTop_country\.dimension_value = u\.dim_exp_country\)/,
     );
     expect(sql).toMatch(
-      /WHEN __dimTop_country\.dimension_value IS NULL AND e\.country IS NOT NULL THEN CAST\('__Other__' AS VARCHAR\)/i,
+      /WHEN COALESCE\(__dimTop_country\.is_top, 0\) = 1 OR u\.dim_exp_country = '__NULL_DIMENSION' THEN u\.dim_exp_country ELSE '__Other__' END\) AS dim_exp_country/,
     );
   });
 

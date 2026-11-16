@@ -14,7 +14,10 @@ import {
 import type { DataSourceInterface } from "shared/types/datasource";
 import type { ExperimentUnitsQueryParams } from "shared/types/integrations";
 import type { SqlDialect } from "shared/types/sql";
-import { AUTOMATIC_DIMENSION_OTHER_NAME } from "shared/constants";
+import {
+  AUTOMATIC_DIMENSION_OTHER_NAME,
+  NULL_DIMENSION_VALUE,
+} from "shared/constants";
 import { compileSqlTemplate } from "back-end/src/util/sql";
 
 import { MULTIPLE_CLUSTER_SENTINEL } from "back-end/src/integrations/sql/clauses/cluster-assignment-filter";
@@ -252,25 +255,51 @@ export function getExperimentUnitsQuery(
       })
     : "";
 
-  const exposureWhere = `e.${getExposureQueryExperimentIdColumn(
-    exposureQuery,
-  )} = '${unitsSettings.experimentId}'
-          AND ${rawTimestampColumn} >= ${dialect.toTimestamp(startDate)}
-          ${
-            endDate
-              ? `AND ${rawTimestampColumn} <= ${dialect.toTimestamp(endDate)}`
-              : ""
-          }
-          ${
-            unitsSettings.queryFilter
-              ? `AND (\n${unitsSettings.queryFilter}\n)`
-              : ""
-          }`;
-
   // Unsliced dimensions keep only their top values so a high-cardinality column can't explode results
   const unslicedExperimentDimensions = experimentDimensions.filter(
     (d) => !d.specifiedSlices?.length,
   );
+  const uncappedCteName = unslicedExperimentDimensions.length
+    ? `${coreCteName}Uncapped`
+    : coreCteName;
+  const cappedCte = unslicedExperimentDimensions.length
+    ? `${unslicedExperimentDimensions
+        .map(
+          (d) => `
+    , __dimTop_${d.id} AS (${getTopDimensionValuesCTE({
+      source: uncappedCteName,
+      column: `dim_exp_${d.id}`,
+      limit: MAX_UNSLICED_EXPERIMENT_DIMENSION_VALUES,
+    })}
+    )`,
+        )
+        .join("")}
+    , ${coreCteName} AS (
+      SELECT
+        ${coreColumns
+          .map(({ alias }) => {
+            const d = unslicedExperimentDimensions.find(
+              (d) => `dim_exp_${d.id}` === alias,
+            );
+            if (!d) return `u.${alias}`;
+            const top = `__dimTop_${d.id}`;
+            return `${dialect.ifElse(
+              `COALESCE(${top}.is_top, 0) = 1 OR u.${alias} = '${NULL_DIMENSION_VALUE}'`,
+              `u.${alias}`,
+              `'${AUTOMATIC_DIMENSION_OTHER_NAME}'`,
+            )} AS ${alias}`;
+          })
+          .join("\n        , ")}
+      FROM
+        ${uncappedCteName} u
+        ${unslicedExperimentDimensions
+          .map(
+            (d) =>
+              `LEFT JOIN __dimTop_${d.id} __dimTop_${d.id} ON (__dimTop_${d.id}.dimension_value = u.dim_exp_${d.id})`,
+          )
+          .join("\n        ")}
+    )`
+    : "";
 
   return `
     ${params.includeIdJoins ? idJoinSQL : ""}
@@ -287,21 +316,6 @@ export function getExperimentUnitsQuery(
         dialect,
       )}
     ),
-    ${unslicedExperimentDimensions
-      .map(
-        (d) => `__dimTop_${d.id} AS (${getTopDimensionValuesCTE(dialect, {
-          source: "__rawExperiment",
-          column: d.id,
-          unitColumn: getExposureQueryIdentifierColumn(
-            exposureQuery,
-            baseIdType,
-          ),
-          where: exposureWhere,
-          limit: MAX_UNSLICED_EXPERIMENT_DIMENSION_VALUES,
-        })}
-    ),`,
-      )
-      .join("\n")}
     __experimentExposures AS (
       -- Viewed Experiment
       SELECT
@@ -328,23 +342,26 @@ export function getExperimentUnitsQuery(
                 d.specifiedSlices,
               )} AS dim_${d.id}`;
             }
-            return `, ${dialect.ifElse(
-              `__dimTop_${d.id}.dimension_value IS NULL AND e.${d.id} IS NOT NULL`,
-              dialect.castToString(`'${AUTOMATIC_DIMENSION_OTHER_NAME}'`),
-              dialect.castToString(`e.${d.id}`),
-            )} AS dim_${d.id}`;
+            return `, e.${d.id} AS dim_${d.id}`;
           })
           .join("\n")}
       FROM
           __rawExperiment e
-          ${unslicedExperimentDimensions
-            .map(
-              (d) =>
-                `LEFT JOIN __dimTop_${d.id} __dimTop_${d.id} ON (__dimTop_${d.id}.dimension_value = ${dialect.castToString(`e.${d.id}`)})`,
-            )
-            .join("\n")}
       WHERE
-          ${exposureWhere}
+          e.${getExposureQueryExperimentIdColumn(
+            exposureQuery,
+          )} = '${unitsSettings.experimentId}'
+          AND ${rawTimestampColumn} >= ${dialect.toTimestamp(startDate)}
+          ${
+            endDate
+              ? `AND ${rawTimestampColumn} <= ${dialect.toTimestamp(endDate)}`
+              : ""
+          }
+          ${
+            unitsSettings.queryFilter
+              ? `AND (\n${unitsSettings.queryFilter}\n)`
+              : ""
+          }
     )
     ${
       activationMetric
@@ -400,7 +417,7 @@ export function getExperimentUnitsQuery(
           )})`,
       )
       .join("\n")}
-    , ${coreCteName} AS (
+    , ${uncappedCteName} AS (
       -- One row per user
       SELECT
         ${coreColumns.map((c) => `${c.expr} AS ${c.alias}`).join("\n        , ")}
@@ -429,5 +446,5 @@ export function getExperimentUnitsQuery(
       ${segment ? `WHERE s.date <= e.timestamp` : ""}
       GROUP BY
         e.${baseIdType}
-    )${timedUnitsCte}${contextualAfterUnitsCtes}`;
+    )${cappedCte}${timedUnitsCte}${contextualAfterUnitsCtes}`;
 }
