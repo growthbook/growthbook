@@ -115,22 +115,19 @@ const ProjectPage: FC = () => {
   const statsEngine = settings?.statsEngine;
   const confidenceLevel = settings?.confidenceLevel;
   const pValueThreshold = settings?.pValueThreshold;
-  const hasSettings = !!settings;
+  // Only the stored values, so a field this project hasn't set doesn't keep
+  // the previous project's value when the page stays mounted.
   useEffect(() => {
-    if (!hasSettings) return;
-    const current = form.getValues();
     const newVal: ProjectStatsSettings = {
-      statsEngine: statsEngine || current.statsEngine,
+      statsEngine,
       // The form shows confidence as a percentage.
       confidenceLevel:
-        typeof confidenceLevel === "number"
-          ? confidenceLevel * 100
-          : current.confidenceLevel,
-      pValueThreshold: pValueThreshold || current.pValueThreshold,
+        typeof confidenceLevel === "number" ? confidenceLevel * 100 : undefined,
+      pValueThreshold,
     };
     form.reset(newVal);
     setOriginalValue(newVal);
-  }, [form, hasSettings, statsEngine, confidenceLevel, pValueThreshold, pid]);
+  }, [form, statsEngine, confidenceLevel, pValueThreshold, pid]);
 
   const isValid = form.formState.isValid;
   const ctaEnabled = hasChanges(form.getValues(), originalValue) && isValid;
