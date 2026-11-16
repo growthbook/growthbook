@@ -72,35 +72,33 @@ const topLevelPatchPath = z
     "Patch paths must be top-level (`/field`); nested paths are not accepted.",
   );
 
-export const jsonPatchOperationValidator = z.discriminatedUnion("op", [
-  z.object({
-    op: z.literal("add"),
-    path: topLevelPatchPath,
-    value: z.unknown(),
-  }),
-  z.object({ op: z.literal("remove"), path: topLevelPatchPath }),
-  z.object({
-    op: z.literal("replace"),
-    path: topLevelPatchPath,
-    value: z.unknown(),
-  }),
-  z.object({
-    op: z.literal("move"),
-    from: topLevelPatchPath,
-    path: topLevelPatchPath,
-  }),
-  z.object({
-    op: z.literal("copy"),
-    from: topLevelPatchPath,
-    path: topLevelPatchPath,
-  }),
-  z.object({
-    op: z.literal("test"),
-    path: topLevelPatchPath,
-    value: z.unknown(),
-  }),
-]);
-export type JsonPatchOperation = z.infer<typeof jsonPatchOperationValidator>;
+const jsonPatchOperation = <V extends z.ZodType>(value: V) =>
+  z.discriminatedUnion("op", [
+    z.object({ op: z.literal("add"), path: topLevelPatchPath, value }),
+    z.object({ op: z.literal("remove"), path: topLevelPatchPath }),
+    z.object({ op: z.literal("replace"), path: topLevelPatchPath, value }),
+    z.object({
+      op: z.literal("move"),
+      from: topLevelPatchPath,
+      path: topLevelPatchPath,
+    }),
+    z.object({
+      op: z.literal("copy"),
+      from: topLevelPatchPath,
+      path: topLevelPatchPath,
+    }),
+    z.object({ op: z.literal("test"), path: topLevelPatchPath, value }),
+  ]);
+
+// Request bodies: RFC 6902 requires `value` on add/replace/test.
+export const jsonPatchOperationValidator = jsonPatchOperation(z.unknown());
+// Stored revisions and the API objects echoing them: ops saved before `value` was required may lack it.
+export const storedJsonPatchOperationValidator = jsonPatchOperation(
+  z.unknown().optional(),
+);
+export type JsonPatchOperation = z.infer<
+  typeof storedJsonPatchOperationValidator
+>;
 
 // Activity log entry (for timeline/history)
 export const activityLogEntryValidator = z.object({
@@ -143,7 +141,9 @@ export const activityLogEntryValidator = z.object({
   dateCreated: z.date(),
   // `target.proposedChanges` after this entry; only for content-changing actions.
   // The UI pairs it with the previous entry's snapshot to build a per-entry diff.
-  proposedChangesSnapshot: z.array(jsonPatchOperationValidator).optional(),
+  proposedChangesSnapshot: z
+    .array(storedJsonPatchOperationValidator)
+    .optional(),
   // `target.snapshot` after this entry; only persisted on a rebase.
   targetSnapshot: z.unknown().optional(),
 });
@@ -153,7 +153,7 @@ export const revisionSavedGroupTargetValidator = z.object({
   type: z.literal("saved-group"),
   id: z.string(),
   snapshot: savedGroupValidator,
-  proposedChanges: z.array(jsonPatchOperationValidator),
+  proposedChanges: z.array(storedJsonPatchOperationValidator),
 });
 export type RevisionSavedGroupTarget = z.infer<
   typeof revisionSavedGroupTargetValidator
@@ -163,7 +163,7 @@ export const revisionConstantTargetValidator = z.object({
   type: z.literal("constant"),
   id: z.string(),
   snapshot: constantValidator,
-  proposedChanges: z.array(jsonPatchOperationValidator),
+  proposedChanges: z.array(storedJsonPatchOperationValidator),
 });
 export type RevisionConstantTarget = z.infer<
   typeof revisionConstantTargetValidator
@@ -173,7 +173,7 @@ export const revisionConfigTargetValidator = z.object({
   type: z.literal("config"),
   id: z.string(),
   snapshot: configValidator,
-  proposedChanges: z.array(jsonPatchOperationValidator),
+  proposedChanges: z.array(storedJsonPatchOperationValidator),
 });
 export type RevisionConfigTarget = z.infer<
   typeof revisionConfigTargetValidator

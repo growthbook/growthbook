@@ -16,7 +16,7 @@ import {
 } from "./shared";
 import { apiSavedGroupValidator } from "./saved-group";
 import {
-  jsonPatchOperationValidator,
+  storedJsonPatchOperationValidator,
   reviewDecision,
   revisionStatus,
   activityLogEntryValidator,
@@ -165,7 +165,7 @@ export const apiSavedGroupRevisionValidator = namedSchema(
       // Raw JSON Patch ops (RFC 6902). Most callers can ignore this and use
       // `baseSavedGroup` / `proposedSavedGroup`; provided as an escape hatch
       // for callers who want to inspect the deltas directly.
-      proposedChanges: z.array(jsonPatchOperationValidator),
+      proposedChanges: z.array(storedJsonPatchOperationValidator),
     })
     .strict(),
 );

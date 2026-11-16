@@ -16,7 +16,7 @@ import {
 } from "./shared";
 import { apiConstantValidator } from "./constant";
 import {
-  jsonPatchOperationValidator,
+  storedJsonPatchOperationValidator,
   reviewDecision,
   revisionStatus,
   activityLogEntryValidator,
@@ -157,7 +157,7 @@ export const apiConstantRevisionValidator = namedSchema(
       // would look like if merged against its current snapshot.
       proposedConstant: apiConstantValidator,
       // Raw JSON Patch ops (RFC 6902); escape hatch for inspecting deltas.
-      proposedChanges: z.array(jsonPatchOperationValidator),
+      proposedChanges: z.array(storedJsonPatchOperationValidator),
     })
     .strict(),
 );
