@@ -250,7 +250,7 @@ export default function FeaturesHeaderNew({
             size="lg"
             // Above the details toggle, past the row's end. Inline, not
             // margin props: a ghost button adds its own offset to those.
-            style={{ marginLeft: 0, marginRight: -17 }}
+            style={{ marginLeft: 0, marginRight: -16 }}
           />
         }
         open={dropdownOpen}
