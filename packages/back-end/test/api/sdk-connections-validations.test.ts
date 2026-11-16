@@ -1,4 +1,3 @@
-import type { SDKConnectionInterface } from "shared/types/sdk-connection";
 import { getSDKCapabilities, getSDKVersions } from "shared/sdk-versioning";
 import {
   validateEnvironment,
@@ -298,18 +297,32 @@ describe("sdk-connections validations", () => {
       );
     });
 
-    it("Lets an unpurchased feature that's already on save again", () => {
-      expect(() => {
-        validatePremiumFeatures(context, { hashSecureAttributes: true }, {
-          hashSecureAttributes: true,
-        } as SDKConnectionInterface);
-      }).not.toThrow();
-    });
-
     it("Allows available features", () => {
       expect(() => {
         validatePremiumFeatures(context, { encryptPayload: true });
       }).not.toThrow();
+    });
+
+    it("Allows keeping a feature the existing connection already has on", () => {
+      expect(() => {
+        validatePremiumFeatures(
+          context,
+          { hashSecureAttributes: true, remoteEvalEnabled: true },
+          { hashSecureAttributes: true, remoteEvalEnabled: true },
+        );
+      }).not.toThrow();
+    });
+
+    it("Fails turning on a feature the existing connection has off", () => {
+      expect(() => {
+        validatePremiumFeatures(
+          context,
+          { hashSecureAttributes: true },
+          { hashSecureAttributes: false },
+        );
+      }).toThrow(
+        "Feature hash-secure-attributes requires premium subscription!",
+      );
     });
   });
 

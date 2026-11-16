@@ -20,6 +20,7 @@ import {
 } from "@/components/Features/SDKConnections/SDKConnectionFields";
 import PayloadSecurityField, {
   CIPHER_OPTIONS_TITLE,
+  KeptPremiumSettings,
   CipherOptionsField,
   REMOTE_EVAL_OPTIONS_TITLE,
   RemoteEvalOptionsField,
@@ -66,6 +67,7 @@ export type SettingRowContext = {
   projectName: (id: string) => ReactNode;
   showTraces: boolean;
   storedSavedGroupFormat: SavedGroupFormat;
+  keptPremiumSettings: KeptPremiumSettings;
   managedByVercel: boolean;
   requireProjectSelection: boolean;
   cloud: boolean;
@@ -353,12 +355,13 @@ export const SECURITY_ROWS: SettingRow[] = [
       v.delivery === "plain" ? ["delivery", ...CIPHER_FIELDS] : ["delivery"],
     shown: (v) => shouldShowPayloadSecurity(v.languages),
     read: (v) => <Text>{DELIVERY_LABELS[v.delivery]}</Text>,
-    edit: (v, onChange, disabled) => (
+    edit: (v, onChange, disabled, { keptPremiumSettings }) => (
       <PayloadSecurityField
         value={v}
         onChange={onChange}
         languages={v.languages}
         sdkVersion={v.sdkVersion}
+        kept={keptPremiumSettings}
         hideLabel
         disabled={disabled}
       />
@@ -371,13 +374,14 @@ export const SECURITY_ROWS: SettingRow[] = [
     shown: (v) =>
       v.delivery === "ciphered" && shouldShowPayloadSecurity(v.languages),
     read: readCipherOptions,
-    edit: (v, onChange, disabled) => (
+    edit: (v, onChange, disabled, { keptPremiumSettings }) => (
       <Checkboxes>
         <CipherOptionsField
           value={v}
           onChange={onChange}
           languages={v.languages}
           sdkVersion={v.sdkVersion}
+          kept={keptPremiumSettings}
           hideLabel
           disabled={disabled}
         />

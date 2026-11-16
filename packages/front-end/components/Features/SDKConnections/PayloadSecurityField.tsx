@@ -1,5 +1,8 @@
 import { ReactNode } from "react";
-import { SDKLanguage } from "shared/types/sdk-connection";
+import {
+  SDKConnectionInterface,
+  SDKLanguage,
+} from "shared/types/sdk-connection";
 import {
   getDefaultSDKVersion,
   getSDKCapabilityVersion,
@@ -38,26 +41,61 @@ export type PayloadSecurityValue = {
   hashSecureAttributes: boolean;
 };
 
+// The premium settings on in the live connection. They stay available after
+// the plan drops them, as the server keeps them.
+export type KeptPremiumSettings = Pick<
+  SDKConnectionInterface,
+  "encryptPayload" | "hashSecureAttributes" | "remoteEvalEnabled"
+>;
+
+const KEPT_SETTING_NOTE =
+  "Your plan no longer includes this setting. It stays on for this SDK Connection, but if you turn it off and save, you'll need to upgrade to turn it back on.";
+
 type FieldProps = {
   value: PayloadSecurityValue;
   onChange: (patch: Partial<PayloadSecurityValue>) => void;
   languages: SDKLanguage[];
   sdkVersion?: string;
+  kept?: KeptPremiumSettings;
   // Rows that supply their own label.
   hideLabel?: boolean;
   // Read-only: the caller can't edit this connection.
   disabled?: boolean;
 };
 
-function usePayloadSecurity(languages: SDKLanguage[], sdkVersion?: string) {
+function usePayloadSecurity(
+  languages: SDKLanguage[],
+  sdkVersion?: string,
+  kept?: KeptPremiumSettings,
+) {
   const { hasCommercialFeature } = useUser();
   const { currentCaps } = connectionCapabilities({ languages, sdkVersion });
   const singleLanguage = languages.length === 1 ? languages[0] : undefined;
+  const hasEncryptionFeature = hasCommercialFeature(
+    "encrypt-features-endpoint",
+  );
+  const hasSecureAttributesFeature = hasCommercialFeature(
+    "hash-secure-attributes",
+  );
+  const hasRemoteEvaluationFeature = hasCommercialFeature("remote-evaluation");
+  const keptNote = (hasFeature: boolean, on?: boolean) =>
+    !hasFeature && on ? KEPT_SETTING_NOTE : undefined;
   return {
     allowed: shouldShowPayloadSecurity(languages),
-    hasEncryptionFeature: hasCommercialFeature("encrypt-features-endpoint"),
-    hasSecureAttributesFeature: hasCommercialFeature("hash-secure-attributes"),
-    hasRemoteEvaluationFeature: hasCommercialFeature("remote-evaluation"),
+    hasEncryptionFeature,
+    canEncrypt: hasEncryptionFeature || !!kept?.encryptPayload,
+    canHashSecureAttributes:
+      hasSecureAttributesFeature || !!kept?.hashSecureAttributes,
+    canRemoteEval: hasRemoteEvaluationFeature || !!kept?.remoteEvalEnabled,
+    encryptionKeptNote: keptNote(hasEncryptionFeature, kept?.encryptPayload),
+    secureAttributesKeptNote: keptNote(
+      hasSecureAttributesFeature,
+      kept?.hashSecureAttributes,
+    ),
+    remoteEvalKeptNote: keptNote(
+      hasRemoteEvaluationFeature,
+      kept?.remoteEvalEnabled,
+    ),
     encryptionSupported: currentCaps.includes("encryption"),
     remoteEvalSupported: currentCaps.includes("remoteEval"),
     singleLanguage,
@@ -119,28 +157,34 @@ function CipherCheckboxes({
   setOption,
   languages,
   sdkVersion,
+  kept,
   disabled,
 }: {
   value: PayloadSecurityValue;
   setOption: (patch: CipherOption) => void;
   languages: SDKLanguage[];
   sdkVersion?: string;
+  kept?: KeptPremiumSettings;
   disabled: boolean;
 }) {
   const {
-    hasEncryptionFeature,
-    hasSecureAttributesFeature,
+    canEncrypt,
+    canHashSecureAttributes,
+    encryptionKeptNote,
+    secureAttributesKeptNote,
     encryptionSupported,
     singleLanguage,
     encryptionVersion,
-  } = usePayloadSecurity(languages, sdkVersion);
+  } = usePayloadSecurity(languages, sdkVersion, kept);
   return (
     <>
       {encryptionSupported && (
         <Checkbox
           weight="regular"
           value={value.encryptPayload}
-          disabled={disabled || !hasEncryptionFeature}
+          disabled={disabled || !canEncrypt}
+          error={encryptionKeptNote}
+          errorLevel="warning"
           setValue={(v) => setOption({ encryptPayload: v })}
           label={
             <PremiumTooltip
@@ -174,7 +218,9 @@ function CipherCheckboxes({
       <Checkbox
         weight="regular"
         value={value.hashSecureAttributes}
-        disabled={disabled || !hasSecureAttributesFeature}
+        disabled={disabled || !canHashSecureAttributes}
+        error={secureAttributesKeptNote}
+        errorLevel="warning"
         setValue={(v) => setOption({ hashSecureAttributes: v })}
         label={
           <PremiumTooltip
@@ -226,6 +272,7 @@ export function CipherOptionsField({
   onChange,
   languages,
   sdkVersion,
+  kept,
   hideLabel = false,
   disabled = false,
 }: FieldProps) {
@@ -252,6 +299,7 @@ export function CipherOptionsField({
           setOption={setOption}
           languages={languages}
           sdkVersion={sdkVersion}
+          kept={kept}
           disabled={disabled}
         />
       </Flex>
@@ -315,16 +363,19 @@ export default function PayloadSecurityField({
   onChange,
   languages,
   sdkVersion,
+  kept,
   hideLabel = false,
   disabled = false,
 }: FieldProps) {
   const {
     allowed,
     hasEncryptionFeature,
-    hasSecureAttributesFeature,
-    hasRemoteEvaluationFeature,
+    canEncrypt,
+    canHashSecureAttributes,
+    canRemoteEval,
+    remoteEvalKeptNote,
     remoteEvalSupported,
-  } = usePayloadSecurity(languages, sdkVersion);
+  } = usePayloadSecurity(languages, sdkVersion, kept);
   if (!allowed) return null;
 
   const options = [
@@ -368,7 +419,9 @@ export default function PayloadSecurityField({
               </PremiumTooltip>
             ),
             description: "Completely hides business logic from users",
-            disabled: !hasRemoteEvaluationFeature,
+            disabled: !canRemoteEval,
+            error: remoteEvalKeptNote,
+            errorLevel: "warning" as const,
           },
         ]
       : []),
@@ -392,8 +445,8 @@ export default function PayloadSecurityField({
             patch.encryptPayload = false;
             patch.hashSecureAttributes = false;
           } else if (!value.encryptPayload && !value.hashSecureAttributes) {
-            patch.encryptPayload = hasEncryptionFeature;
-            patch.hashSecureAttributes = hasSecureAttributesFeature;
+            patch.encryptPayload = canEncrypt;
+            patch.hashSecureAttributes = canHashSecureAttributes;
           }
           onChange(patch);
         }}

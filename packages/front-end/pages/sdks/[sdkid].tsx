@@ -844,6 +844,7 @@ export default function SDKConnectionPage() {
                 // Starts over from what's saved when the viewed revision changes.
                 key={selectedRevisionId ?? "live"}
                 connection={displayedConnection}
+                liveConnection={connection}
                 staged={staged}
                 canEdit={canUpdate && !isReadOnly}
                 blockedReason={editBlockedReason}

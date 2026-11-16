@@ -56,6 +56,7 @@ function SettingRows({ children }: { children: ReactNode }) {
 
 export default function SDKConnectionOverview({
   connection,
+  liveConnection,
   staged,
   canEdit,
   blockedReason,
@@ -66,6 +67,7 @@ export default function SDKConnectionOverview({
 }: {
   // As viewed: the selected revision's changes over live.
   connection: SDKConnectionInterface;
+  liveConnection: SDKConnectionInterface;
   // Edits made here, held until the page's save bar writes them.
   staged: SdkConnectionStagedEdits;
   canEdit: boolean;
@@ -92,6 +94,7 @@ export default function SDKConnectionOverview({
     projectName: (id) => getProjectById(id)?.name || <HiddenProject id={id} />,
     showTraces,
     storedSavedGroupFormat: savedGroupFormatFromConnection(connection),
+    keptPremiumSettings: liveConnection,
     managedByVercel: connection.managedBy?.type === "vercel",
     requireProjectSelection:
       !!settings.requireProjectForSdkConnections &&
