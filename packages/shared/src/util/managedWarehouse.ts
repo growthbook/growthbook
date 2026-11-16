@@ -181,7 +181,10 @@ export const MANAGED_WAREHOUSE_EXPERIMENT_VIEWS_TABLE = "experiment_views";
 /** Fact-table / per-org column holding the user attribute context (context_json) as JSON. */
 export const MANAGED_WAREHOUSE_ATTRIBUTES_COLUMN = "attributes";
 
-/** Built-in identity columns — always present and always used as userIdTypes. */
+/** The `id` attribute as its own identifier (schema-derived warehouses only). */
+export const MANAGED_WAREHOUSE_ID_IDENTIFIER = "id";
+
+/** Built-in identity columns: always present, and identifiers on older warehouses. */
 export const MANAGED_WAREHOUSE_BUILTIN_IDENTIFIERS = [
   "user_id",
   "device_id",
@@ -455,29 +458,105 @@ export function getManagedWarehouseTypedAttributeColumns(
   );
 }
 
+/**
+ * Identity identifiers to offer, in the slot the built-ins occupy.
+ *
+ * Warehouses without `identifiersFromAttributes` always get both built-ins,
+ * with `id` folded into one of them. Warehouses with it follow the attribute
+ * schema: `user_id` / `device_id` appear when a hash attribute folds into them,
+ * an `id` hash attribute is its own `id` identifier, and built-ins preserved in
+ * `migratedIdentifiers` are kept last so existing references keep resolving.
+ */
+export function getManagedWarehouseBuiltinIdentifiers(
+  settings: Pick<
+    GrowthbookClickhouseSettings,
+    "identifiersFromAttributes" | "migratedIdentifiers"
+  >,
+  attributeSchema: SDKAttributeSchema | undefined,
+): string[] {
+  if (!settings.identifiersFromAttributes) {
+    return [...MANAGED_WAREHOUSE_BUILTIN_IDENTIFIERS];
+  }
+  const hash = new Set(
+    (attributeSchema || [])
+      .filter((a) => a.hashAttribute && !a.archived)
+      .map((a) => a.property),
+  );
+  const mapped = MANAGED_WAREHOUSE_BUILTIN_IDENTIFIERS.filter(
+    (b) => hash.has(b) || (b === "device_id" && hash.has("anonymous_id")),
+  );
+  const preserved = new Set(settings.migratedIdentifiers || []);
+  return [
+    ...mapped,
+    ...(hash.has(MANAGED_WAREHOUSE_ID_IDENTIFIER)
+      ? [MANAGED_WAREHOUSE_ID_IDENTIFIER]
+      : []),
+    ...MANAGED_WAREHOUSE_BUILTIN_IDENTIFIERS.filter(
+      (b) => !mapped.includes(b) && preserved.has(b),
+    ),
+  ];
+}
+
+/** Built-ins an older warehouse lists that schema-derived identifiers would drop. */
+export function getManagedWarehouseUnmappedBuiltinIdentifiers(
+  settings: Pick<GrowthbookClickhouseSettings, "identifiersFromAttributes">,
+  attributeSchema: SDKAttributeSchema | undefined,
+): string[] {
+  if (settings.identifiersFromAttributes) return [];
+  const mapped = getManagedWarehouseBuiltinIdentifiers(
+    { identifiersFromAttributes: true },
+    attributeSchema,
+  );
+  return MANAGED_WAREHOUSE_BUILTIN_IDENTIFIERS.filter(
+    (b) => !mapped.includes(b),
+  );
+}
+
+// Identifiers aliased into the SELECT list: custom ones, plus `id` when the
+// warehouse treats it as its own identifier.
+function getAliasedIdentifiers(
+  attributeSchema: SDKAttributeSchema | undefined,
+  extraIdentifiers: string[],
+  builtinIdentifiers: readonly string[] | undefined,
+): string[] {
+  const custom = getManagedWarehouseCustomIdentifiers(
+    attributeSchema,
+    extraIdentifiers,
+  );
+  return builtinIdentifiers?.includes(MANAGED_WAREHOUSE_ID_IDENTIFIER)
+    ? [MANAGED_WAREHOUSE_ID_IDENTIFIER, ...custom]
+    : custom;
+}
+
 /** Full identifier/userIdType list: built-in + physical identity columns + custom JSON identifiers. */
 export function getManagedWarehouseUserIdTypes(
   attributeSchema: SDKAttributeSchema | undefined,
   extraIdentifiers: string[] = [],
+  builtinIdentifiers: readonly string[] = MANAGED_WAREHOUSE_BUILTIN_IDENTIFIERS,
 ): string[] {
-  return [
-    ...MANAGED_WAREHOUSE_BUILTIN_IDENTIFIERS,
+  const identifiers = [
+    ...builtinIdentifiers,
     ...getManagedWarehousePhysicalIdentifiers(attributeSchema),
     ...getManagedWarehouseCustomIdentifiers(attributeSchema, extraIdentifiers),
   ];
+  // An org with no hash attributes still needs one identifier to analyze on.
+  return identifiers.length ? identifiers : ["device_id"];
 }
 
 /** userIdTypes shaped for DataSourceSettings (with empty descriptions). */
 export function getManagedWarehouseUserIdTypeSettings(
   attributeSchema: SDKAttributeSchema | undefined,
   extraIdentifiers: string[] = [],
+  builtinIdentifiers?: readonly string[],
 ): UserIdType[] {
-  return getManagedWarehouseUserIdTypes(attributeSchema, extraIdentifiers).map(
-    (userIdType) => ({
-      userIdType,
-      description: "",
-    }),
-  );
+  return getManagedWarehouseUserIdTypes(
+    attributeSchema,
+    extraIdentifiers,
+    builtinIdentifiers,
+  ).map((userIdType) => ({
+    userIdType,
+    description: "",
+  }));
 }
 
 // Built-in identifier folding for JSON-column warehouses, mirroring
@@ -491,21 +570,6 @@ const BUILTIN_ATTRIBUTE_TO_IDENTIFIER: Record<string, string> = {
   anonymous_id: "device_id",
   id: "device_id",
 };
-
-/**
- * Per-org override for what the `id` attribute means (`settings.idAttributeIdentifier`):
- * "device_id" (default, the plugin contract above) or "user_id" for orgs whose
- * Ingestion API events carry a logged-in user ID under the `id` key. An explicit
- * input to the SQL derivation — every builder that folds built-ins takes it, and
- * the ergonomics sweep treats it as a freshness-guard input.
- */
-export type ManagedWarehouseIdAttributeIdentifier = "user_id" | "device_id";
-
-function getIdAttributeIdentifier(
-  settings: Pick<GrowthbookClickhouseSettings, "idAttributeIdentifier">,
-): ManagedWarehouseIdAttributeIdentifier {
-  return settings.idAttributeIdentifier === "user_id" ? "user_id" : "device_id";
-}
 
 // Resolve the managed-warehouse identifier column (which doubles as the exposure
 // query's userIdType) that a hash attribute maps to. Legacy materialized-column
@@ -526,7 +590,16 @@ export function getManagedWarehouseIdentifierForAttribute({
     )?.columnName;
     return column ?? null;
   }
-  if (attribute === "id") return getIdAttributeIdentifier(settings);
+  // `id` is its own identifier only where the warehouse lists it; otherwise it
+  // folds into device_id like the tracking plugin does.
+  if (
+    attribute === MANAGED_WAREHOUSE_ID_IDENTIFIER &&
+    (settings.userIdTypes || []).some(
+      (u) => u.userIdType === MANAGED_WAREHOUSE_ID_IDENTIFIER,
+    )
+  ) {
+    return MANAGED_WAREHOUSE_ID_IDENTIFIER;
+  }
   return BUILTIN_ATTRIBUTE_TO_IDENTIFIER[attribute] ?? attribute;
 }
 
@@ -590,6 +663,11 @@ function chIdentifier(name: string): string {
 // coerce to their string form and missing paths stay NULL, rather than ::String
 // which only surfaces String-typed values.
 function customIdentifierSelectExpr(property: string): string {
+  // `id` reads the attribute where the event still carries it (direct
+  // ingestion), else the device_id column the tracking plugin folds it into.
+  if (property === MANAGED_WAREHOUSE_ID_IDENTIFIER) {
+    return `coalesce(nullIf(${MANAGED_WAREHOUSE_ATTRIBUTES_COLUMN}.id::Nullable(String), ''), nullIf(device_id, '')) AS id`;
+  }
   const path = `${MANAGED_WAREHOUSE_ATTRIBUTES_COLUMN}.${chIdentifier(
     property,
   )}::Nullable(String)`;
@@ -649,14 +727,7 @@ function migratedColumnSelectExpr(col: MaterializedColumn): string {
 // leaving the columns empty. REPLACE each column with a coalesce through the same
 // keys in the same precedence, so both eras resolve (folded rows can't
 // double-resolve: their JSON no longer contains the keys).
-//
-// `idAttributeIdentifier` moves the `attributes.id` fallback (always last in its
-// chain, mirroring the plugin's precedence) between the two columns — each key
-// feeds exactly one identifier, so a value can never resolve under both.
-function builtinIdentifierReplaceClause(
-  idAttributeIdentifier: ManagedWarehouseIdAttributeIdentifier,
-  physicalIdentifiers: string[],
-): string {
+function builtinIdentifierReplaceClause(physicalIdentifiers: string[]): string {
   // nullIf-wrapped so empty strings fall through, matching the plugin's falsy
   // `||` chain — a JSON `device_id: ""` must not shadow a populated `id`.
   const path = (key: string) =>
@@ -668,10 +739,8 @@ function builtinIdentifierReplaceClause(
     `nullIf(device_id, '')`,
     path("device_id"),
     path("anonymous_id"),
-  ];
-  (idAttributeIdentifier === "user_id" ? userIdSources : deviceIdSources).push(
     path("id"),
-  );
+  ];
   const replacements = [
     `coalesce(${userIdSources.join(", ")}) AS user_id`,
     `coalesce(${deviceIdSources.join(", ")}) AS device_id`,
@@ -690,17 +759,13 @@ function attributeAliasClause(
   physicalIdentifiers: string[],
   customIdentifiers: string[],
   dimensions: MaterializedColumn[],
-  idAttributeIdentifier: ManagedWarehouseIdAttributeIdentifier,
 ): string {
   const exprs = [
     ...customIdentifiers.map(customIdentifierSelectExpr),
     ...dimensions.map(migratedColumnSelectExpr),
   ];
   const aliases = exprs.length ? ",\n  " + exprs.join(",\n  ") : "";
-  return (
-    builtinIdentifierReplaceClause(idAttributeIdentifier, physicalIdentifiers) +
-    aliases
-  );
+  return builtinIdentifierReplaceClause(physicalIdentifiers) + aliases;
 }
 
 /**
@@ -739,7 +804,6 @@ export function buildManagedWarehouseAttributeAliasClause(
       .sort(),
     customIdentifiers,
     dedupeMigratedDimensions(customIdentifiers, s.migratedColumns || []),
-    getIdAttributeIdentifier(s),
   );
 }
 
@@ -750,11 +814,12 @@ export function buildManagedWarehouseEventsFactTableSql(
   attributeSchema: SDKAttributeSchema | undefined,
   extraIdentifiers: string[] = [],
   migratedColumns: MaterializedColumn[] = [],
-  idAttributeIdentifier: ManagedWarehouseIdAttributeIdentifier = "device_id",
+  builtinIdentifiers?: readonly string[],
 ): string {
-  const customIdentifiers = getManagedWarehouseCustomIdentifiers(
+  const customIdentifiers = getAliasedIdentifiers(
     attributeSchema,
     extraIdentifiers,
+    builtinIdentifiers,
   );
   const dimensionAliases = dedupeMigratedDimensions(
     customIdentifiers,
@@ -764,7 +829,6 @@ export function buildManagedWarehouseEventsFactTableSql(
     getManagedWarehousePhysicalIdentifiers(attributeSchema),
     customIdentifiers,
     dimensionAliases,
-    idAttributeIdentifier,
   )}
 FROM ${MANAGED_WAREHOUSE_EVENTS_TABLE}
 WHERE timestamp BETWEEN '{{startDate}}' AND '{{endDate}}'`;
@@ -775,11 +839,12 @@ export function buildManagedWarehouseExposureQueries(
   attributeSchema: SDKAttributeSchema | undefined,
   extraIdentifiers: string[] = [],
   migratedColumns: MaterializedColumn[] = [],
-  idAttributeIdentifier: ManagedWarehouseIdAttributeIdentifier = "device_id",
+  builtinIdentifiers?: readonly string[],
 ): ExposureQuery[] {
-  const customIdentifiers = getManagedWarehouseCustomIdentifiers(
+  const customIdentifiers = getAliasedIdentifiers(
     attributeSchema,
     extraIdentifiers,
+    builtinIdentifiers,
   );
   const dimensionAliases = dedupeMigratedDimensions(
     customIdentifiers,
@@ -789,7 +854,6 @@ export function buildManagedWarehouseExposureQueries(
     getManagedWarehousePhysicalIdentifiers(attributeSchema),
     customIdentifiers,
     dimensionAliases,
-    idAttributeIdentifier,
   )}
 FROM ${MANAGED_WAREHOUSE_EXPERIMENT_VIEWS_TABLE}
 WHERE
@@ -805,16 +869,18 @@ WHERE
       .filter((c) => !MANAGED_WAREHOUSE_DEFAULT_DIMENSIONS.includes(c)),
   ];
 
-  return getManagedWarehouseUserIdTypes(attributeSchema, extraIdentifiers).map(
-    (identifier) => ({
-      id: identifier,
-      name: identifier,
-      userIdType: identifier,
-      userIdTypes: [identifier],
-      dimensions,
-      query,
-    }),
-  );
+  return getManagedWarehouseUserIdTypes(
+    attributeSchema,
+    extraIdentifiers,
+    builtinIdentifiers,
+  ).map((identifier) => ({
+    id: identifier,
+    name: identifier,
+    userIdType: identifier,
+    userIdTypes: [identifier],
+    dimensions,
+    query,
+  }));
 }
 
 export type ManagedWarehouseFactColumn = {
@@ -855,10 +921,12 @@ export function getManagedWarehouseEventsFactTableColumns(
   attributeSchema: SDKAttributeSchema | undefined,
   extraIdentifiers: string[] = [],
   migratedColumns: MaterializedColumn[] = [],
+  builtinIdentifiers?: readonly string[],
 ): ManagedWarehouseFactColumn[] {
-  const customIdentifiers = getManagedWarehouseCustomIdentifiers(
+  const customIdentifiers = getAliasedIdentifiers(
     attributeSchema,
     extraIdentifiers,
+    builtinIdentifiers,
   );
   const dimensionAliases = dedupeMigratedDimensions(
     customIdentifiers,

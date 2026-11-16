@@ -235,7 +235,12 @@ export async function createOrganization({
       runHealthTrafficQuery: true,
       // Default to the same attributes as the auto-wrapper for the Javascript SDK
       attributeSchema: [
-        { property: "id", datatype: "string", hashAttribute: true },
+        {
+          property: "id",
+          datatype: "string",
+          hashAttribute: true,
+          description: "Anonymous device ID",
+        },
         { property: "url", datatype: "string" },
         { property: "path", datatype: "string" },
         { property: "host", datatype: "string" },

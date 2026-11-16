@@ -7,6 +7,7 @@ import { SQL_ROW_LIMIT } from "shared/sql";
 import {
   getEventForwarderDatasourceParams,
   buildManagedWarehouseExposureQueries,
+  getManagedWarehouseBuiltinIdentifiers,
   getManagedWarehouseUserIdTypeSettings,
   getSavedQueriesSharingId,
   MANAGED_WAREHOUSE_RECREATABLE_TABLES,
@@ -112,12 +113,10 @@ import {
   updateDataSourceWithChecks,
 } from "back-end/src/services/datasourceChanges";
 import { IS_CLOUD } from "back-end/src/util/secrets";
-import {
-  removeManagedWarehouseLegacyIdentifier,
-  setManagedWarehouseIdAttributeIdentifier,
-} from "back-end/src/services/clickhouse";
+import { removeManagedWarehouseLegacyIdentifier } from "back-end/src/services/clickhouse";
 import { requestManagedWarehouseRecreates } from "back-end/src/services/managedWarehouseRecreate";
 import { queueManagedWarehouseRecreate } from "back-end/src/jobs/recreateManagedWarehouseTables";
+import { MANAGED_WAREHOUSE_MIGRATION_VERSION } from "back-end/src/jobs/migrateManagedWarehouse";
 import { UNITS_TABLE_PREFIX } from "back-end/src/queryRunners/ExperimentResultsQueryRunner";
 import { getExperimentsByTrackingKeys } from "back-end/src/models/ExperimentModel";
 import { createBigQueryClient } from "back-end/src/services/bigqueryClient";
@@ -355,7 +354,13 @@ export async function postManagedWarehouse(
   // queries are derived from the org's hashAttribute attributes.
   const datasourceSettings = getManagedWarehouseJsonSettings(
     context.org.settings?.attributeSchema,
-    { hasBeenProvisioned: false, region },
+    {
+      hasBeenProvisioned: false,
+      region,
+      identifiersFromAttributes: true,
+      appliedMigrationVersion: MANAGED_WAREHOUSE_MIGRATION_VERSION,
+      desiredMigrationVersion: MANAGED_WAREHOUSE_MIGRATION_VERSION,
+    },
   );
 
   const datasource = await createDataSource(
@@ -1913,60 +1918,32 @@ export async function postRemoveManagedWarehouseLegacyIdentifier(
   });
 }
 
-export async function putManagedWarehouseIdAttributeIdentifier(
-  req: AuthRequest<{ identifier?: string }, { datasourceId: string }>,
-  res: Response,
-) {
-  const context = getContextFromReq(req);
-  const { datasourceId } = req.params;
-  const { identifier } = req.body;
-
-  if (identifier !== "user_id" && identifier !== "device_id") {
-    throw new Error('Identifier must be "user_id" or "device_id"');
-  }
-
-  const datasource = await getDataSourceById(context, datasourceId);
-  if (!datasource) {
-    throw new Error("Cannot find datasource");
-  }
-  if (datasource.type !== "growthbook_clickhouse") {
-    throw new Error(
-      "Can only change the id attribute mapping on a Managed Warehouse datasource",
-    );
-  }
-  if (!context.permissions.canUpdateDataSourceSettings(datasource)) {
-    context.permissions.throwPermissionError();
-  }
-
-  await setManagedWarehouseIdAttributeIdentifier(
-    context,
-    datasource,
-    identifier,
-  );
-
-  res.status(200).json({
-    status: 200,
-  });
-}
-
 // Managed-warehouse settings for the JSON-columns model: identifiers and exposure
 // queries derive from the org's hashAttribute attributes.
 function getManagedWarehouseJsonSettings(
   attributeSchema: SDKAttributeSchema | undefined,
   existing: GrowthbookClickhouseDataSource["settings"],
 ): GrowthbookClickhouseSettings {
+  const builtinIdentifiers = getManagedWarehouseBuiltinIdentifiers(
+    existing,
+    attributeSchema,
+  );
   return {
     ...existing,
     useJsonColumns: true,
     materializedColumns: undefined,
-    userIdTypes: getManagedWarehouseUserIdTypeSettings(attributeSchema),
+    userIdTypes: getManagedWarehouseUserIdTypeSettings(
+      attributeSchema,
+      [],
+      builtinIdentifiers,
+    ),
     queries: {
       ...existing.queries,
       exposure: buildManagedWarehouseExposureQueries(
         attributeSchema,
         [],
         [],
-        existing.idAttributeIdentifier === "user_id" ? "user_id" : "device_id",
+        builtinIdentifiers,
       ),
     },
   };

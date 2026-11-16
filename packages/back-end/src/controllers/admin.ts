@@ -65,6 +65,7 @@ import { SavedGroupModel } from "back-end/src/models/SavedGroupModel";
 import { _dangerousCountFeaturesByOrganization } from "back-end/src/models/FeatureModel";
 import { _dangerousCountExperimentsByOrganization } from "back-end/src/models/ExperimentModel";
 import { _dangerousCountSDKConnectionsByOrganization } from "back-end/src/models/SdkConnectionModel";
+import { MANAGED_WAREHOUSE_MIGRATION_VERSION } from "back-end/src/jobs/migrateManagedWarehouse";
 import {
   getLicenseMetaData,
   getUserCodesForOrg,
@@ -190,6 +191,7 @@ export async function _dangerousAdminGetOrganization(
     SavedGroupModel._dangerousCountByOrganization(org.id),
   ]);
   const [projects, features, experiments, sdkConnections, savedGroups] = counts;
+  const warehouse = datasources.find((d) => d.type === "growthbook_clickhouse");
 
   return res.status(200).json({
     status: 200,
@@ -201,6 +203,15 @@ export async function _dangerousAdminGetOrganization(
       ? { ...ssoConnections[0], clientSecret: "" }
       : null,
     datasources: datasources.map(({ id, name, type }) => ({ id, name, type })),
+    managedWarehouseMigration:
+      warehouse?.type === "growthbook_clickhouse" &&
+      warehouse.settings.useJsonColumns
+        ? {
+            applied: warehouse.settings.appliedMigrationVersion ?? 0,
+            desired: warehouse.settings.desiredMigrationVersion ?? 0,
+            latest: MANAGED_WAREHOUSE_MIGRATION_VERSION,
+          }
+        : null,
     counts: { projects, features, experiments, sdkConnections, savedGroups },
   });
 }

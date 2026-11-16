@@ -42,6 +42,7 @@ import EditSSOModal from "@/components/Admin/EditSSOModal";
 import BannerModal from "@/components/Admin/BannerModal";
 import KeyValues from "@/components/Admin/KeyValues";
 import { RecreateTablesCheckboxes } from "@/components/Admin/ManagedWarehouseRecreate";
+import { MigrationVersionSelect } from "@/components/Admin/ManagedWarehouseMigrations";
 import CardHeading, { EditLink } from "@/components/Admin/CardHeading";
 import EventForwarders from "@/components/Admin/EventForwarders";
 import { PlanBadge, StatusBadge } from "@/components/Admin/OrgBadges";
@@ -74,6 +75,11 @@ type OrgDetailResponse = {
   summary: AdminOrgSummary;
   ssoConnection: SSOConnectionInterface | null;
   datasources: Pick<DataSourceInterface, "id" | "name" | "type">[];
+  managedWarehouseMigration: {
+    applied: number;
+    desired: number;
+    latest: number;
+  } | null;
   counts: {
     projects: number;
     features: number;
@@ -139,6 +145,7 @@ function OrganizationDetail({
   summary: cachedSummary,
   ssoConnection,
   datasources,
+  managedWarehouseMigration: migration,
   counts,
   mutate,
 }: OrgDetailResponse & { mutate: () => Promise<unknown> }) {
@@ -187,6 +194,7 @@ function OrganizationDetail({
     null,
   );
   const [recreateOpen, setRecreateOpen] = useState(false);
+  const [desiredVersion, setDesiredVersion] = useState<number | null>(null);
   const [recreateTables, setRecreateTables] = useState<
     ManagedWarehouseRecreatableTable[]
   >([...MANAGED_WAREHOUSE_RECREATABLE_TABLES]);
@@ -390,6 +398,31 @@ function OrganizationDetail({
           <Text as="p" color="text-mid" mt="2">
             This can&apos;t be changed later.
           </Text>
+        </ModalStandard>
+      )}
+      {migration && desiredVersion !== null && (
+        <ModalStandard
+          open
+          trackingEventModalType=""
+          header="Managed Warehouse Migration"
+          cta="Save"
+          close={() => setDesiredVersion(null)}
+          submit={async () => {
+            await apiCall("/admin/managed-warehouse/migrations", {
+              method: "POST",
+              body: JSON.stringify({
+                version: desiredVersion,
+                organizations: [org.id],
+              }),
+            });
+            await mutate();
+          }}
+        >
+          <MigrationVersionSelect
+            latest={migration.latest}
+            value={desiredVersion}
+            setValue={setDesiredVersion}
+          />
         </ModalStandard>
       )}
       {recreateOpen && managedWarehouse && (
@@ -871,6 +904,38 @@ function OrganizationDetail({
                                 }}
                               >
                                 Add
+                              </Link>
+                            )}
+                          </Flex>
+                        ),
+                      },
+                    ]
+                  : []),
+                ...(isCloud() && migration
+                  ? [
+                      {
+                        label: "Warehouse migration version",
+                        value: (
+                          <Flex align="center" gap="3">
+                            {migration.desired > migration.applied
+                              ? `${migration.applied} (pending ${migration.desired})`
+                              : migration.applied}
+                            {can("provision") && (
+                              <Link
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  setDesiredVersion(
+                                    Math.max(
+                                      migration.applied,
+                                      Math.min(
+                                        migration.desired,
+                                        migration.latest,
+                                      ),
+                                    ),
+                                  );
+                                }}
+                              >
+                                Change
                               </Link>
                             )}
                           </Flex>

@@ -373,6 +373,9 @@ export interface GrowthbookClickhouseSettings extends DataSourceSettings {
    * `attributes` JSON column (like hashAttribute identifiers) so legacy `userIdType`s and
    * the joins keyed on them survive. Persisted so the attribute-change sync re-includes
    * them rather than regenerating identifiers from the schema alone.
+   *
+   * Also holds built-ins (`user_id` / `device_id`) kept when a warehouse moved to
+   * `identifiersFromAttributes` without a hash attribute mapping to them.
    */
   migratedIdentifiers?: string[];
   /**
@@ -411,6 +414,21 @@ export interface GrowthbookClickhouseSettings extends DataSourceSettings {
    * and strips it from the JSON, where this query-time remap can't see it.
    */
   idAttributeIdentifier?: "user_id" | "device_id";
+  /**
+   * Identifiers follow the attribute schema: `user_id` / `device_id` only when
+   * a hash attribute folds into them (or they're preserved in
+   * `migratedIdentifiers`), and an `id` hash attribute is its own `id`
+   * identifier, not folded into a built-in. Set at creation and by migration
+   * v1; unset warehouses always list both built-ins.
+   */
+  identifiersFromAttributes?: boolean;
+  /**
+   * Last managed warehouse migration applied (see the migrateManagedWarehouse
+   * job). New warehouses start on the latest version.
+   */
+  appliedMigrationVersion?: number;
+  /** Version the migration sweep should bring this warehouse to. Set by super admins. */
+  desiredMigrationVersion?: number;
 }
 
 interface DataSourceBase {
