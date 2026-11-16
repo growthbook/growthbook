@@ -124,6 +124,8 @@ export interface Props {
   startOpen: boolean;
   setStartOpen: (open: boolean) => void;
   editTargeting?: (() => void) | null;
+  /** Opens the Make Changes form, set where it's the way to edit delivery. */
+  makeChanges?: (() => void) | null;
   editPhases?: (() => void) | null;
   healthNotificationCount: number;
   linkedFeatures: LinkedFeatureInfo[];
@@ -213,6 +215,7 @@ export default function ExperimentHeader({
   mutateWatchers,
   editResult,
   editTargeting,
+  makeChanges,
   start,
   startOpen,
   setStartOpen,
@@ -505,6 +508,8 @@ export default function ExperimentHeader({
     !isHoldout &&
     (experiment.status !== "draft" || hasResults);
   const showEditPhase = !!editPhases && !isBandit && !isHoldout;
+  // Running, the header's button opens it.
+  const showMakeChanges = !!makeChanges && experiment.status === "stopped";
   // Bandits schedule nothing; a holdout's schedule is its own.
   const showScheduleItem =
     canEditExperiment &&
@@ -512,7 +517,8 @@ export default function ExperimentHeader({
     !isBandit &&
     experiment.status !== "stopped" &&
     !experiment.archived;
-  const hasEditItems = showEditStatus || showEditPhase || showScheduleItem;
+  const hasEditItems =
+    showEditStatus || showEditPhase || showMakeChanges || showScheduleItem;
   const showHoldoutOverride =
     !!holdout?.nextScheduledStatusUpdate &&
     ((experiment.status === "running" && !!editResult) ||
@@ -1088,7 +1094,9 @@ export default function ExperimentHeader({
                       <ExperimentActionButtons
                         editResult={canRunExperiment ? editResult : undefined}
                         editTargeting={
-                          canRunExperiment ? editTargeting : undefined
+                          canRunExperiment
+                            ? (makeChanges ?? editTargeting)
+                            : undefined
                         }
                         blockedReason={editsBlocked}
                         isBandit={isBandit}
@@ -1211,6 +1219,16 @@ export default function ExperimentHeader({
                         }}
                       >
                         Edit phase
+                      </StoredActionItem>
+                    )}
+                    {showMakeChanges && (
+                      <StoredActionItem
+                        onClick={() => {
+                          makeChanges?.();
+                          setDropdownOpen(false);
+                        }}
+                      >
+                        Make changes
                       </StoredActionItem>
                     )}
                     {showScheduleItem && (

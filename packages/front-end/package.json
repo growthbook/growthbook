@@ -128,7 +128,7 @@
     "swr": "^2.2.5",
     "uniqid": "^5.3.0",
     "uuid": "^14.0.0",
-    "zod": "^4.1.12"
+    "zod": "^4.6.6"
   },
   "devDependencies": {
     "@rrweb/types": "2.0.0-alpha.18",

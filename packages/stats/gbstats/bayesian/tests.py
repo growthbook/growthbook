@@ -89,8 +89,8 @@ class BayesianABTest(BaseABTest):
         if self.phase_length_days == 0 or self.traffic_percentage == 0:
             return self._default_output(ZERO_SCALED_VARIATION_MESSAGE)
         if self.scaled_impact_eligible:
-            if self.total_users and result.ci:
-                daily_traffic = self.total_users / (
+            if self.scaled_impact_count and result.ci:
+                daily_traffic = self.scaled_impact_count / (
                     self.traffic_percentage * self.phase_length_days
                 )
                 lower = (
@@ -115,7 +115,7 @@ class BayesianABTest(BaseABTest):
             else:
                 return self._default_output(NO_UNITS_IN_VARIATION_MESSAGE)
         else:
-            error_str = "For scaled impact the statistic must be of type ProportionStatistic, SampleMeanStatistic, or RegressionAdjustedStatistic"
+            error_str = "For scaled impact the statistic must be of type ProportionStatistic, SampleMeanStatistic, RegressionAdjustedStatistic, or a sub-unit cluster ratio"
             return self._default_output(error_str)
 
 
