@@ -1,5 +1,8 @@
-import { explorationConfigReferencesColumn } from "shared/enterprise";
-import { ExplorationConfig } from "shared/validators";
+import {
+  explorationConfigReferencesColumn,
+  populationReferencesColumn,
+} from "shared/enterprise";
+import { ExplorationConfig, PopulationStep } from "shared/validators";
 
 const baseConfig = {
   datasource: "ds1",
@@ -91,6 +94,60 @@ describe("explorationConfigReferencesColumn", () => {
         '"',
         filters,
       ),
+    ).toBe(false);
+  });
+});
+
+describe("populationReferencesColumn", () => {
+  const filters = [{ id: "flt_1", value: "plan = 'pro'" }];
+  const population = (
+    step: Partial<PopulationStep> = {},
+    userIdTypes = ["user_id"],
+  ) => ({
+    userIdTypes,
+    steps: [
+      {
+        source: { type: "factTable" as const, factTableId: "ft1" },
+        rowFilters: [],
+        ...step,
+      },
+    ],
+  });
+  const references = (p: ReturnType<typeof population>, column: string) =>
+    populationReferencesColumn(p, "ft1", column, '"', filters);
+
+  it.each<[string, ReturnType<typeof population>, string]>([
+    ["an identifier type", population(), "user_id"],
+    [
+      "an aggregate filter column",
+      population({ aggregateFilter: ">10", aggregateFilterColumn: "revenue" }),
+      "revenue",
+    ],
+    [
+      "a row filter column",
+      population({
+        rowFilters: [{ operator: "=", column: "country", values: ["US"] }],
+      }),
+      "country",
+    ],
+    [
+      "a saved filter's SQL",
+      population({
+        rowFilters: [{ operator: "saved_filter", values: ["flt_1"] }],
+      }),
+      "plan",
+    ],
+  ])("detects %s", (_, p, column) => {
+    expect(references(p, column)).toBe(true);
+  });
+
+  it("ignores columns the Population doesn't read", () => {
+    expect(references(population(), "revenue")).toBe(false);
+  });
+
+  it("ignores a Population on another fact table", () => {
+    expect(
+      populationReferencesColumn(population(), "ft2", "user_id", '"', filters),
     ).toBe(false);
   });
 });

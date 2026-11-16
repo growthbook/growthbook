@@ -87,14 +87,15 @@ function getAnnotatedName(
  * dataset value at that index) the raw numerator is used.
  *
  * `populationCount` is the result row's population member count, undefined
- * when the request has no population. Required so no caller can forget it and
- * render every "% of Population" value as 0.
+ * when the request has no population. Required so no caller can forget it.
+ * "% of Population" is null (no data) when the row has no members, since a
+ * share of nobody isn't 0%.
  */
 export function getEffectiveMetricValue(
   v: { numerator: number | null; denominator: number | null },
   opts: Pick<ValueRenderOpts, "showAs" | "isRatio"> | undefined,
   populationCount: number | undefined,
-): number {
+): number | null {
   const num = v.numerator ?? 0;
   if (opts?.isRatio) {
     return v.denominator ? num / v.denominator : num;
@@ -103,7 +104,7 @@ export function getEffectiveMetricValue(
     return v.denominator ? num / v.denominator : num;
   }
   if (opts?.showAs === "percent_of_population") {
-    if (!populationCount) return 0;
+    if (!populationCount) return null;
     const shareOfPopulation = num / populationCount;
     return shareOfPopulation * 100;
   }
@@ -171,12 +172,29 @@ const NO_VALUES_RENDER_OPTS: ExplorationRenderOpts = {
 };
 
 /**
+ * Whether the chart can draw a second, right-hand value axis. Horizontal bars
+ * and compare-mode bars (whose series each mix metrics) keep one value axis.
+ */
+function canDrawSecondValueAxis(
+  chartType: ExplorationConfig["chartType"],
+  compareActive: boolean,
+): boolean {
+  if (chartType === "horizontalBar" || chartType === "stackedHorizontalBar") {
+    return false;
+  }
+  return !(compareActive && chartType === "bar");
+}
+
+/**
  * Resolves how every value renders, once. The chart, the result table, the
- * axis title and the agent's CSV all read the result.
+ * axis title and the agent's CSV all read the result. `compareActive` is
+ * whether a previous period is drawn, which decides whether the chart can
+ * give "% of Population" its own axis.
  */
 export function getExplorationRenderOpts(
   config: ExplorationConfig | null,
   getFactMetricById: (id: string) => FactMetricInterface | null,
+  { compareActive = false }: { compareActive?: boolean } = {},
 ): ExplorationRenderOpts {
   if (!datasetHasValues(config?.dataset)) return NO_VALUES_RENDER_OPTS;
   const { values } = config.dataset;
@@ -195,6 +213,7 @@ export function getExplorationRenderOpts(
 
   // "% of Population" is on a different scale from every other mode, so when
   // it's mixed with them it moves to its own axis. Then each axis keeps a title.
+  // A chart that can't draw a second axis leaves the shared axis untitled.
   const percentIndexes: number[] = [];
   const otherModes = new Set<ShowAs>();
   for (let i = 0; i < choices.length; i++) {
@@ -204,7 +223,10 @@ export function getExplorationRenderOpts(
       otherModes.add(choices[i].showAs);
     }
   }
-  const hasSecondAxis = percentIndexes.length > 0 && otherModes.size > 0;
+  const hasSecondAxis =
+    percentIndexes.length > 0 &&
+    otherModes.size > 0 &&
+    canDrawSecondValueAxis(config.chartType, compareActive);
   const secondaryAxisValueIndexes = hasSecondAxis ? percentIndexes : [];
   let primaryAxisShowAs = sharedShowAs;
   if (hasSecondAxis) {
@@ -418,14 +440,12 @@ export function getExplorationCellValue(
       return v.numerator / v.denominator;
     return null;
   }
-  if (v.numerator == null) {
-    // With population members that day, no converting units is a real 0%,
-    // which is what the chart draws. Other modes can't tell 0 from no data.
-    const isShareOfMembers =
-      renderOpts.values[col.metricIndex]?.showAs === "percent_of_population" &&
-      !!row.populationCount;
-    if (!isShareOfMembers) return null;
-  }
+  // With population members that day, no converting units is a real 0%
+  // (getEffectiveMetricValue handles no members). Other modes can't tell 0
+  // from no data.
+  const isShareOfMembers =
+    renderOpts.values[col.metricIndex]?.showAs === "percent_of_population";
+  if (v.numerator == null && !isShareOfMembers) return null;
   return getEffectiveMetricValue(
     v,
     renderOpts.values[col.metricIndex],
@@ -439,7 +459,8 @@ function getRowTotal(
 ): number {
   return (row.values ?? []).reduce(
     (sum, v, i) =>
-      sum + getEffectiveMetricValue(v, opts.values[i], row.populationCount),
+      sum +
+      (getEffectiveMetricValue(v, opts.values[i], row.populationCount) ?? 0),
     0,
   );
 }

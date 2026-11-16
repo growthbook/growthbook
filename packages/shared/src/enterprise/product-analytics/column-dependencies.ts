@@ -11,12 +11,13 @@ import {
   sqlExplorationConfigValidator,
   populationExplorationConfigValidator,
 } from "../../validators/product-analytics";
+import type { PopulationInterface } from "../../validators/population";
 import { sqlReferencesColumn } from "../../sql";
 
 // The exploration config shape persisted by both saved explorations and
 // dashboard "exploration" blocks. Metric definitions are covered by the
 // fact-metric dependency scan; their dataset population only references a
-// saved Population.
+// saved Population, which `populationReferencesColumn` scans.
 type ExplorationConfig =
   | z.infer<typeof metricExplorationConfigValidator>
   | z.infer<typeof factTableExplorationConfigValidator>
@@ -92,6 +93,28 @@ function dimensionReferencesColumn(
  * `saved_filter` references, resolved against `filters`) that resolve through
  * the same query-time chokepoint as metrics.
  */
+/**
+ * Whether a saved Population reads `columnName` on this fact table: as an
+ * identifier type, an aggregate filter column, or in a step's row filters.
+ */
+export function populationReferencesColumn(
+  population: Pick<PopulationInterface, "steps" | "userIdTypes">,
+  factTableId: string,
+  columnName: string,
+  identifierQuote: SqlIdentifierQuote,
+  filters: SavedFilter[],
+): boolean {
+  return population.steps.some(
+    (step) =>
+      step.source.factTableId === factTableId &&
+      (population.userIdTypes.includes(columnName) ||
+        step.aggregateFilterColumn === columnName ||
+        step.rowFilters.some((f) =>
+          rowFilterReferencesColumn(f, columnName, identifierQuote, filters),
+        )),
+  );
+}
+
 export function explorationConfigReferencesColumn(
   config: ExplorationConfig,
   factTableId: string,
@@ -99,10 +122,8 @@ export function explorationConfigReferencesColumn(
   identifierQuote: SqlIdentifierQuote,
   filters: SavedFilter[],
 ): boolean {
-  // Metric definitions are covered by the fact-metric scan. The dataset
-  // population is a saved Population reference, which holds the columns.
-  // shortcut: saved Populations don't block column deletion yet; add a
-  // Population scan when they do.
+  // Metric definitions are covered by the fact-metric scan, and the dataset
+  // population by the saved Population scan.
   if (config.type === "metric") return false;
 
   if (config.type === "fact_table") {

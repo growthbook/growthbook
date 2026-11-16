@@ -198,8 +198,11 @@ export default function ExplorerChart({
   useEffect(() => () => resizeObserverRef.current?.disconnect(), []);
 
   const renderOpts: RenderOpts = useMemo(
-    () => getExplorationRenderOpts(submittedExploreState, getFactMetricById),
-    [submittedExploreState, getFactMetricById],
+    () =>
+      getExplorationRenderOpts(submittedExploreState, getFactMetricById, {
+        compareActive: compareEnabled,
+      }),
+    [submittedExploreState, getFactMetricById, compareEnabled],
   );
 
   // Empty string hides the axis name; unset falls back to the inferred default.
@@ -310,8 +313,8 @@ export default function ExplorerChart({
     // 2. Compute cumulative totals for sorting
     const seriesTotals: Record<string, number> = {};
     for (const [seriesKey, seriesData] of Object.entries(dataMap)) {
-      seriesTotals[seriesKey] = Object.values(seriesData).reduce(
-        (sum, v) => sum + v,
+      seriesTotals[seriesKey] = Object.values(seriesData).reduce<number>(
+        (sum, v) => sum + (v ?? 0),
         0,
       );
     }
@@ -567,15 +570,10 @@ export default function ExplorerChart({
       );
     }
 
-    // "% of Population" values mixed with other modes get a right-hand axis.
-    // shortcut: horizontal bars and sparse compare bars (whose series each
-    // mix metrics) keep one axis; add a top axis for them if needed.
+    // "% of Population" values mixed with other modes get a right-hand axis
+    // when the chart can draw one (see getExplorationRenderOpts).
     const secondaryValueAxisName = getSecondaryValueAxisName(renderOpts);
-    const useSecondaryValueAxis =
-      secondaryValueAxisName !== null &&
-      !isHorizontalBar &&
-      !sparseFlatCompareBars;
-    if (useSecondaryValueAxis) {
+    if (secondaryValueAxisName !== null) {
       seriesConfigs = assignSecondaryValueAxis(
         seriesConfigs,
         renderOpts,
@@ -663,8 +661,15 @@ export default function ExplorerChart({
     };
     const valueAxis = buildValueAxes(
       primaryValueAxis,
-      useSecondaryValueAxis && secondaryValueAxisName
-        ? axisTitle(secondaryValueAxisName, valueNameMaxWidth)
+      secondaryValueAxisName !== null
+        ? {
+            ...axisTitle(secondaryValueAxisName, valueNameMaxWidth),
+            // A % suffix keeps right-hand ticks from reading as counts.
+            axisLabel: {
+              color: textColor,
+              formatter: (value: number) => `${formatNumber(value)}%`,
+            },
+          }
         : null,
     );
 

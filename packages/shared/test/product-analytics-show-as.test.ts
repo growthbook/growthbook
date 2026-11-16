@@ -362,11 +362,33 @@ describe("getDefaultValueAxisName", () => {
     ).toBe("");
   });
 
-  it("is empty when no value offers options", () => {
+  it("names the total when every value is a proportion without options", () => {
     expect(
       getDefaultValueAxisName(
         getExplorationRenderOpts(
-          metricConfig([metricValue("converted")]),
+          metricConfig([metricValue("converted"), metricValue("converted")]),
+          getFactMetricById,
+        ),
+      ),
+    ).toBe("Total");
+  });
+
+  it("is empty for a ratio, which offers no options and isn't a total", () => {
+    expect(
+      getDefaultValueAxisName(
+        getExplorationRenderOpts(
+          metricConfig([metricValue("aov")]),
+          getFactMetricById,
+        ),
+      ),
+    ).toBe("");
+  });
+
+  it("is empty while a value's metric hasn't loaded", () => {
+    expect(
+      getDefaultValueAxisName(
+        getExplorationRenderOpts(
+          metricConfig([metricValue("converted"), metricValue("loading")]),
           getFactMetricById,
         ),
       ),
@@ -666,8 +688,38 @@ describe("proportions with a population", () => {
     ).values;
     const cell = { numerator: 25, denominator: 25 };
     expect(getEffectiveMetricValue(cell, opts, 200)).toBe(12.5);
-    expect(getEffectiveMetricValue(cell, opts, 0)).toBe(0);
-    expect(getEffectiveMetricValue(cell, opts, undefined)).toBe(0);
+    expect(
+      getEffectiveMetricValue(
+        { numerator: null, denominator: null },
+        opts,
+        200,
+      ),
+    ).toBe(0);
+  });
+
+  it("has no data when the row has no population members", () => {
+    const config = populationConfig([
+      metricValue("converted", "percent_of_population"),
+    ]);
+    const renderOpts = getExplorationRenderOpts(config, getFactMetricById);
+    const [column] = buildExplorationColumns(config, renderOpts).filter(
+      (c) => c.kind === "metric",
+    );
+    for (const populationCount of [0, undefined]) {
+      for (const numerator of [0, null]) {
+        const cell = { numerator, denominator: null };
+        expect(
+          getEffectiveMetricValue(cell, renderOpts.values[0], populationCount),
+        ).toBeNull();
+        expect(
+          getExplorationCellValue(
+            { dimensions: [], values: [cell], populationCount },
+            column,
+            renderOpts,
+          ),
+        ).toBeNull();
+      }
+    }
   });
 
   it("strips percent of population once the population is removed", () => {
@@ -712,6 +764,33 @@ describe("proportions with a population", () => {
     }
   });
 
+  it("shows 0% in the table when no member converted", () => {
+    const config = populationConfig([
+      metricValue("converted", "percent_of_population"),
+      metricValue("converted", "total"),
+    ]);
+    const renderOpts = getExplorationRenderOpts(config, getFactMetricById);
+    const [percentColumn, totalColumn] = buildExplorationColumns(
+      config,
+      renderOpts,
+    ).filter((column) => column.kind === "metric");
+    const noConversions = { numerator: null, denominator: 0 };
+    const row = {
+      dimensions: [],
+      values: [noConversions, noConversions],
+      populationCount: 200,
+    };
+    expect(getExplorationCellValue(row, percentColumn, renderOpts)).toBe(0);
+    expect(getExplorationCellValue(row, totalColumn, renderOpts)).toBeNull();
+    expect(
+      getExplorationCellValue(
+        { ...row, populationCount: 0 },
+        percentColumn,
+        renderOpts,
+      ),
+    ).toBeNull();
+  });
+
   it("moves % of Population to a right-hand axis when mixed with totals", () => {
     const renderOpts = getExplorationRenderOpts(
       populationConfig([
@@ -724,6 +803,30 @@ describe("proportions with a population", () => {
     expect(getDefaultValueAxisName(renderOpts)).toBe("Total");
     expect(getSecondaryValueAxisName(renderOpts)).toBe("% of Population");
   });
+
+  it.each([
+    ["a horizontal bar chart", "horizontalBar", false],
+    ["a stacked horizontal bar chart", "stackedHorizontalBar", false],
+    ["a bar chart in compare mode", "bar", true],
+  ] as const)(
+    "keeps one untitled axis for mixed modes on %s",
+    (_, chartType, compareActive) => {
+      const renderOpts = getExplorationRenderOpts(
+        {
+          ...populationConfig([
+            metricValue("converted", "total"),
+            metricValue("converted", "percent_of_population"),
+          ]),
+          chartType,
+        },
+        getFactMetricById,
+        { compareActive },
+      );
+      expect(renderOpts.secondaryAxisValueIndexes).toEqual([]);
+      expect(getSecondaryValueAxisName(renderOpts)).toBeNull();
+      expect(getDefaultValueAxisName(renderOpts)).toBe("");
+    },
+  );
 
   it("keeps one axis when every value is a % of Population", () => {
     const renderOpts = getExplorationRenderOpts(

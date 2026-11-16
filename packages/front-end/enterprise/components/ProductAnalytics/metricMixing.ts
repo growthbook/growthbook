@@ -1,14 +1,27 @@
+import { partition } from "lodash";
 import type {
   FactMetricInterface,
   FactTableDefinition,
 } from "shared/types/fact-table";
-import type { MetricValue } from "shared/validators";
+import type {
+  ExplorationPopulation,
+  MetricDataset,
+  MetricValue,
+  PopulationInterface,
+  ProductAnalyticsDimension,
+} from "shared/validators";
 import {
   getChosenUnits,
   getMetricIdentifierTypes,
   getMetricMixClass,
   metricSupportsUnitSelection,
+  parseMetricExplorationPopulation,
 } from "shared/enterprise";
+import {
+  getSinglePopulationStep,
+  type PopulationRuleFactTable,
+} from "shared/populations";
+import { isProjectListValidForProject } from "shared/util";
 import type { MetricMixClass } from "shared/enterprise";
 import type { GroupedValue, SingleValue } from "@/components/Forms/SelectField";
 
@@ -193,6 +206,82 @@ export function getPopulationFactTableId(
 }
 
 /**
+ * Whether a saved Population can be offered for a metric chart: it's in the
+ * current Project, on the chart's Data Source, reads from the metrics' shared
+ * Fact Table, and supports the chart's identifier type (any, when none is
+ * chosen yet).
+ */
+export function populationFitsMetricChart(
+  candidate: Pick<
+    PopulationInterface,
+    "projects" | "datasource" | "userIdTypes" | "steps"
+  >,
+  chart: {
+    project: string;
+    datasource: string;
+    /** The metrics' shared Fact Table; null when they don't share one. */
+    factTableId: string | null;
+    unit: string | null;
+  },
+): boolean {
+  return (
+    isProjectListValidForProject(candidate.projects, chart.project) &&
+    candidate.datasource === chart.datasource &&
+    getSinglePopulationStep(candidate)?.source.factTableId ===
+      chart.factTableId &&
+    (!chart.unit || candidate.userIdTypes.includes(chart.unit))
+  );
+}
+
+/**
+ * Why a metric chart's Population can't be used, for the editor. Values
+ * without a metric chosen yet are skipped.
+ */
+export function getMetricChartPopulationViolations({
+  population,
+  savedPopulation,
+  values,
+  dimensions,
+  datasource,
+  getFactMetricById,
+  factTables,
+}: {
+  population: ExplorationPopulation;
+  /** Null when the saved Population was deleted or can't be read. */
+  savedPopulation: Pick<
+    PopulationInterface,
+    "datasource" | "userIdTypes" | "steps"
+  > | null;
+  values: MetricDataset["values"];
+  dimensions: ProductAnalyticsDimension[];
+  datasource: string;
+  getFactMetricById: (id: string) => FactMetricInterface | null;
+  factTables: PopulationRuleFactTable[];
+}): string[] {
+  if (!savedPopulation) {
+    return [
+      "This Population was deleted or you don't have access to it. Choose another Population or None.",
+    ];
+  }
+  const chosenValues = values.filter((value) => value.metricId);
+  const metricMap = new Map<string, FactMetricInterface>();
+  for (const value of chosenValues) {
+    const metric = getFactMetricById(value.metricId);
+    if (metric) metricMap.set(metric.id, metric);
+  }
+  const parsed = parseMetricExplorationPopulation({
+    population,
+    savedPopulation,
+    values: chosenValues,
+    dimensions,
+    datasource,
+    metricMap,
+    factTableMap: new Map(factTables.map((table) => [table.id, table])),
+  });
+  return parsed.ok ? [] : parsed.violations;
+}
+
+/**
  * Moves the enabled options ahead of the disabled ones, within each group and
  * otherwise keeping their order.
  */
@@ -200,13 +289,11 @@ export function orderEnabledOptionsFirst(
   options: (SingleValue | GroupedValue)[],
   isDisabled: (value: string) => boolean,
 ): (SingleValue | GroupedValue)[] {
-  const partition = (opts: SingleValue[]) => [
-    ...opts.filter((o) => !isDisabled(o.value)),
-    ...opts.filter((o) => isDisabled(o.value)),
-  ];
+  const enabledFirst = (opts: SingleValue[]) =>
+    partition(opts, (o) => !isDisabled(o.value)).flat();
   return options.some((o) => "options" in o)
     ? options.map((o) =>
-        "options" in o ? { ...o, options: partition(o.options) } : o,
+        "options" in o ? { ...o, options: enabledFirst(o.options) } : o,
       )
-    : partition(options as SingleValue[]);
+    : enabledFirst(options as SingleValue[]);
 }

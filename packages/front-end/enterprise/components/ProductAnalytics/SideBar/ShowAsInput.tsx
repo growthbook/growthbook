@@ -30,6 +30,14 @@ export default function ShowAsInput({
 }) {
   const [open, setOpen] = useState(false);
   const labels = getLabels(unit);
+  // Nothing to choose (e.g. while the metric loads), so show the saved mode.
+  if (options.length <= 1) {
+    return (
+      <Text size="sm" color="text-mid">
+        Show as: {labels[value]}
+      </Text>
+    );
+  }
   return (
     <DropdownMenu
       open={open}

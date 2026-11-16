@@ -79,7 +79,7 @@ export default function MetricPreviewChart({
     const cell = cellsByDay.get(day);
     // Metric editor previews never have a Population.
     return cell
-      ? getEffectiveMetricValue(cell, renderOpts.values[0], undefined)
+      ? (getEffectiveMetricValue(cell, renderOpts.values[0], undefined) ?? 0)
       : 0;
   };
 

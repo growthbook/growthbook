@@ -972,7 +972,11 @@ export function computeExplorationComparisonPayload(
       exploration.result.rows[0]?.populationCount,
     );
 
-    if (previousValue === 0) {
+    if (
+      currentValue === null ||
+      previousValue === null ||
+      previousValue === 0
+    ) {
       return null;
     }
 

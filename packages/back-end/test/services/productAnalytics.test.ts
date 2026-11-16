@@ -445,6 +445,18 @@ describe("metric dataset population validation", () => {
     await expect(run()).rejects.toThrow("Population pop_1 not found.");
     expect(findLatestByConfig).not.toHaveBeenCalled();
   });
+  it("never serves cached results for a Population that no longer fits", async () => {
+    getPopulationById.mockResolvedValue({
+      ...savedPopulation,
+      userIdTypes: ["anonymous_id"],
+    });
+    const result = run();
+    await expect(result).rejects.toThrow(BadRequestError);
+    await expect(result).rejects.toThrow(
+      "The Population doesn't support the identifier type",
+    );
+    expect(findLatestByConfig).not.toHaveBeenCalled();
+  });
   it("rejects the request when any metric is incompatible with the population", async () => {
     const mean = {
       ...metric,

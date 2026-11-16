@@ -626,7 +626,7 @@ describe("right-hand % of Population axis", () => {
     ).toBe(series);
   });
 
-  it("adds a titled right axis without its own grid lines", () => {
+  it("adds a titled right axis whose ticks follow the left grid lines", () => {
     const primary = { type: "value", name: "Total", splitLine: { show: true } };
     expect(buildValueAxes(primary, null)).toBe(primary);
     expect(buildValueAxes(primary, { name: "% of Population" })).toEqual([
@@ -635,6 +635,7 @@ describe("right-hand % of Population axis", () => {
         type: "value",
         name: "% of Population",
         position: "right",
+        alignTicks: true,
         splitLine: { show: false },
       },
     ]);

@@ -3,16 +3,16 @@ import { omit } from "lodash";
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import type { AppFeatures } from "shared/types/app-features";
 import type { MetricValue } from "shared/validators";
-import {
-  getMetricChartPopulationViolations,
-  populationFitsMetricChart,
-} from "shared/enterprise";
 import Callout from "@/ui/Callout";
 import HelperText from "@/ui/HelperText";
 import Link from "@/ui/Link";
 import { Select, SelectItem } from "@/ui/Select";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import { getPopulationFactTableId } from "@/enterprise/components/ProductAnalytics/metricMixing";
+import {
+  getMetricChartPopulationViolations,
+  getPopulationFactTableId,
+  populationFitsMetricChart,
+} from "@/enterprise/components/ProductAnalytics/metricMixing";
 import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
 import { usePopulations } from "@/hooks/usePopulations";
 
@@ -40,6 +40,7 @@ export default function PopulationPicker({
     populations,
     loading: populationsLoading,
     error: populationsError,
+    mutate: retryPopulations,
   } = usePopulations(undefined, { enabled: populationsEnabled });
   // Set when picking a Population removes the chart's Group By rows.
   const [removedGroupBy, setRemovedGroupBy] = useState(false);
@@ -146,7 +147,9 @@ export default function PopulationPicker({
             : (population?.populationId ?? NO_POPULATION)
         }
         placeholder="Loading..."
-        disabled={!unit || populationsLoading || noPopulationsFit}
+        disabled={
+          !unit || populationsLoading || !!populationsError || noPopulationsFit
+        }
         error={
           unit ? undefined : "Select an identifier type to add a Population."
         }
@@ -161,7 +164,10 @@ export default function PopulationPicker({
         ))}
       </Select>
       {populationsError && (
-        <Callout status="error">Unable to load Populations.</Callout>
+        <Callout status="error">
+          Unable to load Populations.{" "}
+          <Link onClick={() => retryPopulations()}>Try again</Link>
+        </Callout>
       )}
       {noPopulationsFit && unit && (
         <HelperText status="warning">

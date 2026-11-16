@@ -20,6 +20,7 @@ import {
   isFunnelSupportedDatasourceType,
   isJourneySupportedDatasourceType,
   parseMetricExplorationPopulation,
+  resolveSavedPopulation,
   withRequestedDisplayConfig,
 } from "shared/enterprise";
 import { isReadOnlySQL } from "shared/sql";
@@ -97,9 +98,10 @@ export async function runProductAnalyticsExploration(
     context.permissions.throwPermissionError();
   }
 
-  // Loaded before the cache lookup: a deleted or unreadable Population must
-  // not serve cached results, and the cache is keyed on its definition so
-  // edits to it invalidate them.
+  // Loaded and checked before the cache lookup: a Population that was deleted,
+  // can't be read, or no longer fits the request must not serve cached
+  // results, and the cache is keyed on its definition so edits to it
+  // invalidate them. The metric checks run with the metric load below.
   let savedPopulation: PopulationInterface | null = null;
   if (dataset.type === "metric" && dataset.population) {
     // Returns null when the Population doesn't exist or can't be read.
@@ -110,6 +112,14 @@ export async function runProductAnalyticsExploration(
       throw new NotFoundError(
         `Population ${dataset.population.populationId} not found.`,
       );
+    }
+    const resolvedPopulation = resolveSavedPopulation({
+      population: dataset.population,
+      savedPopulation,
+      datasource: datasource.id,
+    });
+    if (!resolvedPopulation.ok) {
+      throw new BadRequestError(resolvedPopulation.violations.join(" "));
     }
   }
 

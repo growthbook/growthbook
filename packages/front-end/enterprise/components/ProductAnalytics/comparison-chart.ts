@@ -293,15 +293,29 @@ export function getAlignedComparisonDimensionKeyForTooltip(
  * - **Non-date:** keys should match between periods (e.g. country); align by
  *   string equality on the category label.
  */
+/**
+ * A chart point: null is a gap (no data, e.g. "% of Population" on a day with
+ * no members), unlike a bucket with no rows, which reads as 0.
+ */
+export type ChartPoint = number | null;
+
+/** The point at `x`; 0 when the series has no bucket there. */
+export function getChartPoint(
+  map: Record<string, ChartPoint> | undefined,
+  x: string,
+): ChartPoint {
+  return map && x in map ? map[x] : 0;
+}
+
 export function alignComparisonOverlayToCategories(
   sortedXValues: string[],
-  comparisonDataMap: Record<string, Record<string, number>>,
+  comparisonDataMap: Record<string, Record<string, ChartPoint>>,
   sortedSeriesKeys: string[],
   comparisonXValues: string[],
   firstDimensionIsDate: boolean,
   strategy?: ComparisonAlignmentStrategy,
-): Record<string, Record<string, number>> {
-  const aligned: Record<string, Record<string, number>> = {};
+): Record<string, Record<string, ChartPoint>> {
+  const aligned: Record<string, Record<string, ChartPoint>> = {};
   const resolveComparisonKey = createComparisonAlignmentResolver(
     sortedXValues,
     comparisonXValues,
@@ -316,7 +330,8 @@ export function alignComparisonOverlayToCategories(
       const compKey = resolveComparisonKey(x);
       // Buckets past the end of a shorter comparison window read as zero, same
       // as a matched bucket the comparison simply had no rows in.
-      aligned[seriesKey][x] = compKey !== undefined ? (src[compKey] ?? 0) : 0;
+      aligned[seriesKey][x] =
+        compKey !== undefined ? getChartPoint(src, compKey) : 0;
     }
   }
   return aligned;
@@ -350,11 +365,11 @@ export function buildComparisonOverlaySeriesMaps(
   renderOpts: RenderOpts,
 ): {
   uniqueXValues: Set<string>;
-  dataMap: Record<string, Record<string, number>>;
+  dataMap: Record<string, Record<string, ChartPoint>>;
   seriesMeta: Record<string, { metricId: string; name: string }>;
 } {
   const uniqueXValues = new Set<string>();
-  const dataMap: Record<string, Record<string, number>> = {};
+  const dataMap: Record<string, Record<string, ChartPoint>> = {};
   const seriesMeta: Record<string, { metricId: string; name: string }> = {};
 
   const numMetrics =
@@ -363,10 +378,11 @@ export function buildComparisonOverlaySeriesMaps(
       : 0;
   const numDimensions = config.dimensions?.length ?? 0;
 
-  const bump = (seriesKey: string, x: string, y: number) => {
+  const bump = (seriesKey: string, x: string, y: ChartPoint) => {
     uniqueXValues.add(x);
     if (!dataMap[seriesKey]) dataMap[seriesKey] = {};
-    dataMap[seriesKey][x] = (dataMap[seriesKey][x] ?? 0) + y;
+    const prev = dataMap[seriesKey][x];
+    dataMap[seriesKey][x] = y === null ? (prev ?? null) : (prev ?? 0) + y;
   };
 
   for (const row of rows) {
@@ -464,7 +480,8 @@ export function buildPopulationFractionLabels(
 ): Map<string, string> {
   const labels = new Map<string, string>();
   for (const row of rows) {
-    if (row.populationCount === undefined) continue;
+    // No members means no data, so the point has no fraction to explain.
+    if (!row.populationCount) continue;
     const x = String(row.dimensions[0] ?? "");
     const values = row.values ?? [];
     for (let i = 0; i < values.length; i++) {
@@ -498,18 +515,20 @@ export function getPopulationFractionLabel(
 
 /**
  * The chart's value axis option: the primary axis alone, or with a right-hand
- * copy titled by `secondaryAxisTitle`. Grid lines follow the left axis only,
- * so the two scales don't draw competing lines.
+ * copy changed by `secondaryAxisOverrides` (its title and labels). Grid lines
+ * follow the left axis only, and the right axis's ticks snap to them so a
+ * value can be read across.
  */
 export function buildValueAxes<T extends object>(
   primaryAxis: T,
-  secondaryAxisTitle: object | null,
+  secondaryAxisOverrides: object | null,
 ): T | [T, T] {
-  if (!secondaryAxisTitle) return primaryAxis;
+  if (!secondaryAxisOverrides) return primaryAxis;
   const secondaryAxis = {
     ...primaryAxis,
-    ...secondaryAxisTitle,
+    ...secondaryAxisOverrides,
     position: "right" as const,
+    alignTicks: true,
     splitLine: { show: false },
   };
   return [primaryAxis, secondaryAxis];
@@ -611,7 +630,7 @@ export function buildAlignedComparisonOverlayForExplorer(args: {
   firstDimensionIsDate: boolean;
   comparisonAlignment?: ComparisonAlignmentStrategy;
 }): {
-  alignedMap: Record<string, Record<string, number>>;
+  alignedMap: Record<string, Record<string, ChartPoint>>;
   comparisonXValues: string[];
 } | null {
   if (!args.comparisonRows.length) return null;
@@ -648,8 +667,8 @@ export function buildExplorerCompareSparseFlatBarSeries(args: {
   sourceSortedXValues: string[];
   sourceSeriesKeys: string[];
   sourceSeriesMeta: Record<string, ExplorerChartCompareSeriesMeta>;
-  currentDataMap: Record<string, Record<string, number>>;
-  previousDataMap: Record<string, Record<string, number>>;
+  currentDataMap: Record<string, Record<string, ChartPoint>>;
+  previousDataMap: Record<string, Record<string, ChartPoint>>;
   comparisonPeriodLabels: {
     currentLabel: string;
     previousLabel: string;
@@ -723,8 +742,8 @@ export function buildExplorerCompareSparseFlatBarSeries(args: {
       const slotKi = j % K;
       const x = sourceSortedXValues[xi]!;
       if (slotKi === ki) {
-        currData.push(currentDataMap[sk]?.[x] ?? 0);
-        prevData.push(previousDataMap[sk]?.[x] ?? 0);
+        currData.push(getChartPoint(currentDataMap[sk], x));
+        prevData.push(getChartPoint(previousDataMap[sk], x));
       } else {
         currData.push(null);
         prevData.push(null);
@@ -780,7 +799,7 @@ export function buildExplorerCompareSparseFlatBarSeries(args: {
  */
 export function buildExplorerChartComparisonSeriesList(params: {
   chartType: ExplorationConfig["chartType"];
-  sourceDataMap: Record<string, Record<string, number>>;
+  sourceDataMap: Record<string, Record<string, ChartPoint>>;
   sourceSeriesMeta: Record<string, ExplorerChartCompareSeriesMeta>;
   sourceSeriesKeys: string[];
   sourceSortedXValues: string[];
@@ -843,7 +862,7 @@ export function buildExplorerChartComparisonSeriesList(params: {
       if (isPrevious && chartType === "line") {
         const data = sourceSortedXValues.map((x) => [
           parseWarehouseDate(x).getTime(),
-          seriesDataMap[x] ?? 0,
+          getChartPoint(seriesDataMap, x),
         ]);
 
         return {
@@ -870,13 +889,15 @@ export function buildExplorerChartComparisonSeriesList(params: {
           !compareOverlayActive
         ) {
           const data = sourceSortedXValues.map((x, i) => ({
-            value: seriesDataMap[x] ?? 0,
+            value: getChartPoint(seriesDataMap, x),
             itemStyle: { color: seriesColor(i) },
           }));
           return { name: displayName, data, type: "bar" as const };
         }
 
-        const data = sourceSortedXValues.map((x) => seriesDataMap[x] ?? 0);
+        const data = sourceSortedXValues.map((x) =>
+          getChartPoint(seriesDataMap, x),
+        );
         if (compareOverlayActive) {
           return {
             name: displayName,
@@ -931,7 +952,7 @@ export function buildExplorerChartComparisonSeriesList(params: {
       if (chartType === "line" || chartType === "area") {
         const data = sourceSortedXValues.map((x) => [
           parseWarehouseDate(x).getTime(),
-          seriesDataMap[x] ?? 0,
+          getChartPoint(seriesDataMap, x),
         ]);
 
         if (chartType === "area" && isPrevious && compareOverlayActive) {
@@ -1033,6 +1054,7 @@ export function computeBigNumberComparisonTrendForMetricIndex(
     comparisonExploration.result.rows[0]?.populationCount,
   );
 
+  if (currentValue === null || previousValue === null) return null;
   if (previousValue === 0) {
     return { currentValue, previousValue, pctChange: 0 };
   }
@@ -1157,6 +1179,7 @@ function buildGroupedCompareTooltipRows(
 
   const fmtVal = (item: (typeof items)[0]) => {
     const numValue = Array.isArray(item.value) ? item.value[1] : item.value;
+    if (numValue === null || numValue === undefined) return "No data";
     return typeof numValue === "number"
       ? formatNumber(numValue)
       : String(numValue);
@@ -1281,7 +1304,7 @@ export function buildExplorerChartTooltipFormatter({
   // fraction, muted like the fraction in experiment results.
   const formatItemValueHtml = (item: Omit<TooltipAxisItem, "dataIndex">) => {
     const numValue = tooltipItemNumericValue(item);
-    const formatted = numValue !== null ? formatNumber(numValue) : "";
+    const formatted = numValue !== null ? formatNumber(numValue) : "No data";
     const valueHtml = `<b>${formatted}</b>`;
     if (numValue === null) return valueHtml;
 
