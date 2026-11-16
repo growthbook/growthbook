@@ -6096,13 +6096,13 @@ describe("getRampRetry", () => {
   };
 
   it("reports the failure until the schedule finishes", () => {
-    for (const status of ["pending", "ready", "running", "paused"]) {
+    for (const status of ["pending", "ready", "running", "paused"] as const) {
       expect(getRampRetry({ status, stepFailure })).toBe(stepFailure);
     }
   });
 
   it("reports nothing once the schedule is finished", () => {
-    for (const status of ["completed", "rolled-back"]) {
+    for (const status of ["completed", "rolled-back"] as const) {
       expect(getRampRetry({ status, stepFailure })).toBeNull();
     }
   });

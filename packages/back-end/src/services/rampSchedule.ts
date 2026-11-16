@@ -2465,10 +2465,8 @@ export async function resumeSchedule(
     },
   });
 
-  // Replays the start — for a schedule without steps, possibly what failed
-  // before the pause — then chains through time-due steps. Steps with no
-  // interval (approval gates, instant steps) have nextStepAt=null and are not
-  // traversed here — the agenda re-picks them via nextProcessAt.
+  // Replays the start, which may be what failed before the pause, then chains
+  // through time-due steps; the agenda picks up steps without an interval.
   await startOrRecordFailure(ctx, updated, now, heartbeat);
   updated = (await ctx.models.rampSchedules.getById(schedule.id)) ?? updated;
 
