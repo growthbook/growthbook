@@ -10,6 +10,14 @@ export const CHART_COLORS = [
   "#6b7280",
 ];
 
+// Semantic colors for experiment results (Velocity dashboard block).
+export const EXPERIMENT_RESULT_COLORS = {
+  won: "#22c55e",
+  lost: "#ef4444",
+  inconclusive: "#6b7280",
+  dnf: "#eab308",
+} as const;
+
 export const COMPARISON_SERIES_COLORS = [
   "#d97706",
   "#a8a29e",

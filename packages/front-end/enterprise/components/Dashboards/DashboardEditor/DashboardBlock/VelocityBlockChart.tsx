@@ -14,7 +14,7 @@ import ComparisonChartLegend from "@/enterprise/components/ProductAnalytics/Comp
 import { CompareChartLegendItem } from "@/enterprise/components/ProductAnalytics/comparison-chart";
 import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
 import {
-  CHART_COLORS,
+  EXPERIMENT_RESULT_COLORS,
   getChartThemeColors,
 } from "@/components/DataViz/chart-theme";
 import { useDashboardCharts } from "@/enterprise/components/Dashboards/DashboardChartsContext";
@@ -29,12 +29,8 @@ import {
 } from "./completedExperimentsData";
 import { useCompletedExperimentsComparison } from "./completedExperiments";
 
-const RESULT_COLORS: Record<VelocityResultKey, string> = {
-  won: CHART_COLORS[3], // green
-  lost: CHART_COLORS[6], // red
-  inconclusive: CHART_COLORS[8], // gray
-  dnf: CHART_COLORS[4], // yellow
-};
+const RESULT_COLORS: Record<VelocityResultKey, string> =
+  EXPERIMENT_RESULT_COLORS;
 
 // Capitalized display labels for the legend + tooltip.
 const RESULT_LABELS: Record<VelocityResultKey, string> = {
