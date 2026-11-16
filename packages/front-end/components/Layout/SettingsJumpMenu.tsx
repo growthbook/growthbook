@@ -83,9 +83,9 @@ function SettingsJumpMenu() {
           icon={<PiCaretDown />}
           iconPosition="right"
           truncate
-          className={styles.trigger}
+          className={clsx("dropdown-trigger-select-style", styles.trigger)}
           aria-label={`Settings: ${location}`}
-          style={{ width: "100%", justifyContent: "space-between" }}
+          style={{ justifyContent: "space-between" }}
         >
           {location}
         </Button>
