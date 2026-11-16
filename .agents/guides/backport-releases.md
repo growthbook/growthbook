@@ -77,11 +77,12 @@ before it pushes anything. Run the same script from a clean working tree instead
 `gh`, `jq` and `pnpm`.
 
 ```bash
+git fetch origin
 bash .github/scripts/backport.sh 5.2 backport/5.2-<date> origin/main <PR numbers or SHAs>
 ```
 
-- The branch name must be new. The script checks out `release/<line>` (creating it from the
-  line's newest tag if it doesn't exist) and starts the branch from there.
+- A new branch starts from `release/<line>`, which the script creates from the line's newest
+  tag if it doesn't exist. A branch that already exists on origin is added to.
 - On a conflict it stops and prints the two commands to use next. Resolve the files,
   `git add` them, and run the printed `--continue` command; `--abort` drops the run and
   returns to where it started. Use the printed path: the release branch has no copy of the
@@ -92,13 +93,15 @@ bash .github/scripts/backport.sh 5.2 backport/5.2-<date> origin/main <PR numbers
   with `branch` set to that branch instead of `commits`. It skips the cherry-picks and opens
   the PR and the draft release.
 
-**Adding picks to a backport branch that is already open.** `backport.sh` always starts a new
-branch. To add to an existing one, `git cherry-pick -x <sha>` onto it, keeping the picks in
-`main`'s order (rebuild the branch and push with `--force-with-lease` when a new pick belongs
-before an existing one). If a pick changes a `package.json`, run
-`pnpm install --lockfile-only --ignore-scripts` and commit the lockfile. Add the pick to the
-PR description, and to its "Self-hosted build impact" section when the pick changes build
-files.
+**Adding picks to a backport branch that is already open.** Run the Backport workflow with both
+`commits` and `branch`. It skips commits the branch already has, appends the rest after its
+picks, and pushes without force. It adds them under the open PR's "Features and Changes",
+rebuilds its "Self-hosted build impact" section, and adds them to the draft release (or creates
+the draft with every pick if there isn't one). Close and reopen the PR to run CI. A pick older
+on `main` than the branch's last pick is appended anyway, with a warning. On a conflict, run
+`backport.sh` locally with the existing branch name, push the branch, and run the workflow with
+only `branch`: it adds the new picks to the draft release and the impact section, but list them
+in the PR description by hand.
 
 ### 3. Land the picks on the release branch
 

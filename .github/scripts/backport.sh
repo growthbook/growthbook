@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Cherry-picks main commits onto a new branch off release/<line>, oldest first in main's order whatever
-# order they're given in, creating release/<line> from the line's newest tag if needed.
-# Usage: backport.sh <line> <new-branch> <source-ref> <sha-or-PR#>...
+# order they're given in, creating release/<line> from the line's newest tag if needed. Given a branch
+# that already exists on origin, it adds the picks to that branch instead.
+# Usage: backport.sh <line> <branch> <source-ref> <sha-or-PR#>...
 #        backport.sh --continue  after resolving and `git add`-ing the conflict it stopped on
 #        backport.sh --abort      to drop the run and go back to where it started
 # In GitHub Actions a conflict it can't resolve fails the run. Run it locally instead, resolve the
@@ -157,9 +158,15 @@ case ${1:-} in
     shift 3
     release="release/$line"
     [[ $line =~ ^[0-9]+\.[0-9]+$ ]] || { echo "::error::Release line must look like 5.1, got '$line'"; exit 1; }
-    # The branch is created from the release branch below, which would throw away what an existing one has.
-    if git show-ref -q --verify "refs/heads/$branch" || git show-ref -q --verify "refs/remotes/origin/$branch"; then
-      echo "::error::Branch $branch already exists; pass a new name, or git cherry-pick -x onto it by hand"
+    # A branch on origin is added to; a local branch is reset below, so it must not have anything origin lacks.
+    base=$release
+    if git ls-remote --exit-code --heads origin "$branch" >/dev/null; then
+      git fetch -q origin "$branch"
+      base=origin/$branch
+    fi
+    if git show-ref -q --verify "refs/heads/$branch" &&
+      ! git merge-base --is-ancestor "refs/heads/$branch" "refs/remotes/origin/$branch" 2>/dev/null; then
+      echo "::error::Local branch $branch has commits that aren't on $base; push them or pass a new name"
       exit 1
     fi
     start=$(git symbolic-ref -q --short HEAD || git rev-parse HEAD)
@@ -197,19 +204,29 @@ case ${1:-} in
       git checkout "$source_ref" -- "${synced[@]}"
       git diff --cached --quiet || git commit -m "Use main's release workflows on $release"
     fi
-    git checkout -B "$branch"
+    git checkout -B "$branch" "$base"
+    git merge-base --is-ancestor "$release" HEAD ||
+      { echo "::error::$branch isn't on top of $release; rebase it first"; exit 1; }
 
     mkdir -p "$state"
     mv "$self" "$state/backport.sh"
     printf 'branch=%q\nrelease=%q\nstart=%q\n' "$branch" "$release" "$start" >"$state/env"
     : >"$state/dropped"
-    # Main's commits since the release branched off, in order, kept to the ones asked for. Anything
-    # older is already on the release.
+    # Main commits the branch already has picks of, newest first.
+    picked=$(git log --format=%b "$release..HEAD" | sed -n 's/^(cherry picked from commit \([0-9a-f]*\))$/\1/p')
+    # Main's commits since the release branched off, in order, kept to the ones asked for and not yet
+    # picked. Anything older is already on the release.
     git rev-list --reverse "$(git merge-base HEAD "$source_ref")..$source_ref" |
-      grep -Fx -f <(printf '%s\n' "${shas[@]}") >"$state/todo" || true
+      grep -Fx -f <(printf '%s\n' "${shas[@]}") | grep -vFx -f <(printf '%s\n' "$picked") >"$state/todo" || true
     for sha in "${shas[@]}"; do
-      grep -qFx "$sha" "$state/todo" || echo "::notice::$(git rev-parse --short "$sha") is already on $release, skipped"
+      grep -qFx "$sha" "$state/todo" || echo "::notice::$(git rev-parse --short "$sha") is already on $branch, skipped"
     done
+    # Appended picks keep main's order among themselves only; rebuilding the branch would redo its resolutions.
+    [ -z "$picked" ] || while read -r sha; do
+      if git merge-base --is-ancestor "$sha" "${picked%%$'\n'*}"; then
+        echo "::warning::$(git rev-parse --short "$sha") is older on main than $branch's last pick, so it lands out of main's order"
+      fi
+    done <"$state/todo"
     echo "Picking $(wc -l <"$state/todo" | tr -d ' ') commits in main's order"
     pick_all
     finish

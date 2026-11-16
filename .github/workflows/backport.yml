@@ -5,7 +5,8 @@ name: Backport
 # "Release X.Y.Z" version bump. Then publish the draft release this creates; that tags the branch's head
 # and Release builds it. The steps are in .agents/guides/backport-releases.md.
 # A conflict it can't resolve fails the run: run backport.sh locally, resolve it, push release/<line>
-# and the branch, then run this with `branch` instead of `commits`.
+# and the branch, then run this with `branch` instead of `commits`. Given both, it adds the commits to
+# that open backport branch, its PR and the draft release.
 on:
   workflow_dispatch:
     inputs:
@@ -16,7 +17,7 @@ on:
         description: PR numbers or main commit SHAs to cherry-pick, space-separated, in any order
         required: false
       branch:
-        description: Or a backport branch you pushed after running backport.sh locally; skips the cherry-picks
+        description: A backport branch to add the commits to, or with no commits, one you pushed after running backport.sh locally
         required: false
       security:
         description: Mark the draft release as a security patch release
@@ -60,24 +61,25 @@ jobs:
         run: cp -r .github "$RUNNER_TEMP/main"
 
       - name: Cherry-pick onto the release branch
-        if: ${{ inputs.branch == '' }}
+        if: ${{ inputs.commits != '' }}
         env:
           GH_TOKEN: ${{ github.token }}
           COMMITS: ${{ inputs.commits }}
         run: |
-          [ -n "$COMMITS" ] || { echo "::error::Pass commits to cherry-pick, or a branch"; exit 1; }
           git config user.name "github-actions[bot]"
           git config user.email "41898333+github-actions[bot]@users.noreply.github.com"
+          # Where the picks this run adds start; empty for a new branch. Later steps add only these to an open PR.
+          echo "NEW_FROM=$(git rev-parse -q --verify "origin/$BRANCH" || true)" >>"$GITHUB_ENV"
           # shellcheck disable=SC2086 # COMMITS is a list of words
           bash "$RUNNER_TEMP/main/scripts/backport.sh" "$LINE" "$BRANCH" "$GITHUB_SHA" $COMMITS
           git push origin "release/$LINE" "$BRANCH"
 
       - name: Use the pushed branch
-        if: ${{ inputs.branch != '' }}
+        if: ${{ inputs.commits == '' }}
         env:
-          COMMITS: ${{ inputs.commits }}
+          INPUT_BRANCH: ${{ inputs.branch }}
         run: |
-          [ -z "$COMMITS" ] || { echo "::error::Pass commits or a branch, not both"; exit 1; }
+          [ -n "$INPUT_BRANCH" ] || { echo "::error::Pass commits to cherry-pick, a branch, or both"; exit 1; }
           git branch "$BRANCH" "origin/$BRANCH"
           git merge-base --is-ancestor "origin/release/$LINE" "$BRANCH" ||
             { echo "::error::$BRANCH isn't on top of origin/release/$LINE; push release/$LINE too"; exit 1; }
@@ -100,6 +102,26 @@ jobs:
             impact+="- $(git log -1 --format=%s "$sha")"$'\n'
             if [ -n "$note" ]; then impact+="$(sed 's/^/  /' <<< "$note")"$'\n'; fi
           done
+
+          pr=$(gh pr list --head "$BRANCH" --base "release/$LINE" --state open --json number --jq '.[0].number // empty')
+          if [ -n "$pr" ]; then
+            # Keep the open PR's description: list this run's picks under its changes and refresh the impact section.
+            added=""
+            if [ -n "${NEW_FROM:-}" ]; then
+              added=$(git log --reverse --grep='^(cherry picked from' --format='- %s' "$NEW_FROM..$BRANCH")
+              [ -z "$added" ] || added=$'Also backports:\n\n'"$added"$'\n'
+            fi
+            gh pr view "$pr" --json body --jq .body |
+              ADDED="$added" IMPACT="${impact:-None.}" perl -0777 -pe '
+                s/\r//g;
+                s/^(#{1,6}[ \t]*Features and Changes[^\n]*\n.*?)(?=^#{1,6}[ \t]|\z)/$1\n$ENV{ADDED}\n/ims if $ENV{ADDED};
+                s/^(#{1,6}[ \t]*Self-hosted build impact[ \t]*\n).*?(?=^#{1,6}[ \t]|\z)/$1\n$ENV{IMPACT}\n\n/ims
+                  or $_ .= "\n### Self-hosted build impact\n\n$ENV{IMPACT}\n";
+              ' > "$RUNNER_TEMP/body.md"
+            gh pr edit "$pr" --body-file "$RUNNER_TEMP/body.md"
+            echo "::notice::Added to #$pr. Pushes from Actions don't start CI: close and reopen it to run CI on the new picks."
+            exit 0
+          fi
           {
             echo "### Features and Changes"
             echo
@@ -129,8 +151,10 @@ jobs:
           next="v$LINE.$((${tag##*.} + 1))"
           picks=$(git log --reverse --grep='^(cherry picked from' --format='- %s' "origin/release/$LINE..$BRANCH")
           if gh release view "$next" >/dev/null 2>&1; then
-            # Another backport is waiting on the same draft; add to it, under the security heading if this is one.
-            body=$(gh release view "$next" --json body --jq .body)
+            # Another backport, or an earlier run on this branch, is waiting on the same draft; add what it lacks.
+            body=$(gh release view "$next" --json body --jq .body | tr -d '\r')
+            picks=$(grep -vxF -f <(printf '%s\n' "$body") <<< "$picks" || true)
+            [ -n "$picks" ] || exit 0
             if [ "$SECURITY" = true ] && ! grep -q '^## Security Patch Release' <<< "$body"; then
               body=$(awk 'NR == 1 && /^<!--/ { print; print "## Security Patch Release\n"; next }
                 NR == 1 { print "## Security Patch Release\n" } { print }' <<< "$body")
