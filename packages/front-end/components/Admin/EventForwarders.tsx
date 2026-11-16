@@ -136,11 +136,13 @@ export default function EventForwarders({
                         </Text>
                         <MigrateEnvironmentField
                           environments={environments}
-                          // Same rule as the server: bound rows, plus live unbound ones
+                          // Same rule as the server: same region's bound rows, plus live unbound ones
                           others={data
                             .filter(
                               (r) =>
                                 r.id !== row.id &&
+                                (r.region ?? "us-east-1") ===
+                                  (row.region ?? "us-east-1") &&
                                 (r.environment ||
                                   !(
                                     r.status === "unconfigured" ||

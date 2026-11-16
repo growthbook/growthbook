@@ -116,14 +116,30 @@ describe("assertNoEventForwarderEnvironmentOverlap", () => {
     await expect(check(rows, "staging")).resolves.toBeUndefined();
   });
 
-  it("rejects a new forwarder in a different data region, counting unconfigured rows and absent as us-east-1", async () => {
-    const rows = [row("a", { status: "unconfigured" })];
-    await expect(check(rows, "dev", { region: "eu-west-1" })).rejects.toThrow(
-      /same data region.*us-east-1/,
-    );
+  it("applies the rules per data region, with absent as us-east-1", async () => {
+    const rows = [
+      row("a"),
+      row("b", { environment: "dev", region: "eu-west-1" }),
+    ];
+    // Same environment, or all environments, in the other region
     await expect(
-      check(rows, "dev", { region: "us-east-1" }),
+      check([rows[1]], "dev", { region: "us-east-1" }),
     ).resolves.toBeUndefined();
+    await expect(
+      check([rows[1]], undefined, { region: "us-east-1" }),
+    ).resolves.toBeUndefined();
+    // Same region still conflicts
+    await expect(check(rows, "dev", { region: "eu-west-1" })).rejects.toThrow(
+      /already receives/,
+    );
+    await expect(check(rows, "dev", { region: "us-east-1" })).rejects.toThrow(
+      /receives all environments/,
+    );
+    // An update is checked in its own row's region
+    const current = row("c", { environment: "staging", region: "eu-west-1" });
+    await expect(check(rows, "dev", { current })).rejects.toThrow(
+      /already receives/,
+    );
   });
 });
 
@@ -142,9 +158,9 @@ describe("getClaimedEventForwarderEnvironments", () => {
         }),
       ]),
     ).toEqual([
-      { datasourceId: "ds_a", environment: "production" },
-      { datasourceId: "ds_b", environment: "" },
-      { datasourceId: "ds_d", environment: "dev" },
+      { datasourceId: "ds_a", environment: "production", region: "us-east-1" },
+      { datasourceId: "ds_b", environment: "", region: "us-east-1" },
+      { datasourceId: "ds_d", environment: "dev", region: "us-east-1" },
     ]);
   });
 });

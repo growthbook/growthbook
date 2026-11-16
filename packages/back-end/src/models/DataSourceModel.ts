@@ -182,7 +182,9 @@ export async function getEventPipelineStatusForOrganization(
   eventIngestorRegion: DataRegion | undefined;
   hasManagedWarehouse: boolean;
   hasEventForwarder: boolean;
-  eventForwarderEnvironments: { datasourceId: string; environment: string }[];
+  eventForwarderEnvironments: ReturnType<
+    typeof getClaimedEventForwarderEnvironments
+  >;
 }> {
   const datasources = usingFileConfig()
     ? getConfigDatasources(context.org.id)

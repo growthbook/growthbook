@@ -13,6 +13,7 @@ import { DocLink } from "@/components/DocLink";
 import SelectField from "@/components/Forms/SelectField";
 import { useEnvironments } from "@/services/features";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import { DataRegion } from "@/services/dataRegions";
 import Callout from "@/ui/Callout";
 import Frame from "@/ui/Frame";
 import Heading from "@/ui/Heading";
@@ -48,9 +49,9 @@ export function allEnvironmentsTakenMessage(
 }
 
 // Environment whose events a forwarder receives; "" is all environments.
-// - `others`: environments held by the org's other forwarders ("" = all)
+// - `others`: environments held by other forwarders in the same data region ("" = all)
 // - `savedAll`: this forwarder already receives all, so it may stay that way
-// - All is otherwise a choice only for the organization's only forwarder
+// - All is otherwise a choice only for the region's only forwarder
 export function EventForwarderEnvironmentSelect({
   value,
   onChange,
@@ -104,17 +105,23 @@ export function EventForwarderEnvironmentSelect({
   );
 }
 
-// Whether a forwarder on this Data Source must pick one: another forwarder
-// holds an environment, and this one does not already receive all
+// Forwarders sharing a data region, which is where the environment rules apply.
+// None while the region is still unknown (detected by the connection test).
+function useEventForwardersInRegion(region?: DataRegion | null) {
+  const { eventForwarderEnvironments } = useDefinitions();
+  return eventForwarderEnvironments.filter((e) => e.region === region);
+}
+
+// Whether a forwarder on this Data Source must pick one: another forwarder in
+// its data region holds an environment, and this one does not already receive all
 export function useEventForwarderEnvironmentRequired(
+  region?: DataRegion | null,
   datasourceId?: string,
 ): boolean {
-  const { eventForwarderEnvironments } = useDefinitions();
+  const inRegion = useEventForwardersInRegion(region);
   return (
-    eventForwarderEnvironments.some((e) => e.datasourceId !== datasourceId) &&
-    !eventForwarderEnvironments.some(
-      (e) => e.datasourceId === datasourceId && !e.environment,
-    )
+    inRegion.some((e) => e.datasourceId !== datasourceId) &&
+    !inRegion.some((e) => e.datasourceId === datasourceId && !e.environment)
   );
 }
 
@@ -122,16 +129,19 @@ export function useEventForwarderEnvironmentRequired(
 export function EventForwarderEnvironmentField({
   value,
   onChange,
+  region,
   datasourceId,
   disabled = false,
 }: {
   value: string;
   onChange: (value: string) => void;
+  region?: DataRegion | null;
   datasourceId?: string;
   disabled?: boolean;
 }) {
   const environments = useEnvironments();
-  const { eventForwarderEnvironments, datasources } = useDefinitions();
+  const { datasources } = useDefinitions();
+  const eventForwarderEnvironments = useEventForwardersInRegion(region);
   const saved = eventForwarderEnvironments.find(
     (e) => e.datasourceId === datasourceId,
   );
@@ -244,6 +254,7 @@ export default function EventForwarderDestinationFields({
   onTablePrefixChange,
   onZerobusEndpointChange,
   environment = "",
+  region,
   onEnvironmentChange,
   datasourceId,
   disabled = false,
@@ -259,6 +270,8 @@ export default function EventForwarderDestinationFields({
   onTablePrefixChange: (value: string) => void;
   onZerobusEndpointChange: (value: string) => void;
   environment?: string;
+  /** Data region of the forwarder; the environment rules apply within it. */
+  region?: DataRegion | null;
   onEnvironmentChange: (value: string) => void;
   /** Absent while the Data Source is still being created. */
   datasourceId?: string;
@@ -350,6 +363,7 @@ export default function EventForwarderDestinationFields({
         <EventForwarderEnvironmentField
           value={environment}
           onChange={onEnvironmentChange}
+          region={region}
           datasourceId={datasourceId}
           disabled={disabled}
         />

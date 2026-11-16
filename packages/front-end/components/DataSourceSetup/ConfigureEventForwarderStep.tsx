@@ -74,6 +74,7 @@ export default function ConfigureEventForwarderStep({
     (dataSource.type === "databricks" && !destination.zerobusEndpoint.trim());
 
   const environmentRequired = useEventForwarderEnvironmentRequired(
+    region,
     dataSource.id,
   );
   const missingEnvironment = environmentRequired && !destination.environment;
@@ -113,6 +114,7 @@ export default function ConfigureEventForwarderStep({
         tablePrefix={destination.tablePrefix}
         zerobusEndpoint={destination.zerobusEndpoint}
         environment={destination.environment}
+        region={region}
         datasourceId={dataSource.id}
         onEnvironmentChange={(environment) =>
           setDestination((current) => ({ ...current, environment }))

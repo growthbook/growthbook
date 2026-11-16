@@ -63,7 +63,11 @@ type Definitions = {
   hasManagedWarehouse: boolean;
   hasEventForwarder: boolean;
   // Environments claimed by Event Forwarders; "" is all environments.
-  eventForwarderEnvironments: { datasourceId: string; environment: string }[];
+  eventForwarderEnvironments: {
+    datasourceId: string;
+    environment: string;
+    region: DataRegion;
+  }[];
 };
 
 type DefinitionContextValue = Definitions & {

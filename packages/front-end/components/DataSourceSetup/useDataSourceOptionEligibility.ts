@@ -3,6 +3,7 @@ import { useEnvironments } from "@/services/features";
 import { isCloud } from "@/services/env";
 import { useUser } from "@/services/UserContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import { useDataRegionOptions } from "@/services/dataRegions";
 import { allEnvironmentsTakenMessage } from "./EventForwarderDestinationFields";
 
 export type DataSourceOptionKey = "managed" | "event-forwarder" | "custom";
@@ -79,14 +80,24 @@ export function useDataSourceOptionEligibility(): Record<
     eventForwarderEnvironments,
   } = useDefinitions();
   const environments = useEnvironments();
-  // No environment left for a new forwarder, so say so before the connection form
-  const noFreeEnvironmentReason =
-    allEnvironmentsTakenMessage(eventForwarderEnvironments, datasources) ??
-    (environments.every((env) =>
-      eventForwarderEnvironments.some((e) => e.environment === env.id),
-    )
-      ? "Every environment already has an Event Forwarder. Add an environment, or change or delete an existing Event Forwarder."
-      : undefined);
+  // No environment left for a new forwarder in any data region, so say so
+  // before the connection form
+  const regionReasons = useDataRegionOptions().map(({ value }) => {
+    const inRegion = eventForwarderEnvironments.filter(
+      (e) => e.region === value,
+    );
+    return (
+      allEnvironmentsTakenMessage(inRegion, datasources) ??
+      (environments.every((env) =>
+        inRegion.some((e) => e.environment === env.id),
+      )
+        ? "Every environment already has an Event Forwarder. Add an environment, or change or delete an existing Event Forwarder."
+        : undefined)
+    );
+  });
+  const noFreeEnvironmentReason = regionReasons.every(Boolean)
+    ? regionReasons[0]
+    : undefined;
   const { effectiveAccountPlan, license, hasCommercialFeature } = useUser();
   const permissionsUtil = usePermissionsUtil();
 

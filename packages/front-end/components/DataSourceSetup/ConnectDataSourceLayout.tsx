@@ -177,7 +177,6 @@ export default function ConnectDataSourceLayout({
   const [ga4Exports, setGA4Exports] = useState<string[]>([]);
   const [ga4Table, setGA4Table] = useState<string | null>(null);
   const [ga4Enabled, setGA4Enabled] = useState(true);
-  const environmentRequired = useEventForwarderEnvironmentRequired();
   const [eventDestinationDraft, setEventDestination] = useState(() =>
     defaultEventForwarderDestination(initial.type || "bigquery"),
   );
@@ -246,6 +245,8 @@ export default function ConnectDataSourceLayout({
   const eventForwarderRegion = checksWrite
     ? resolvedRegion
     : savedEventForwarderRegion;
+  const environmentRequired =
+    useEventForwarderEnvironmentRequired(eventForwarderRegion);
   const sinkType = isEventForwarderSink(datasource.type)
     ? datasource.type
     : null;
@@ -1057,6 +1058,7 @@ export default function ConnectDataSourceLayout({
             tablePrefix={eventDestination.tablePrefix}
             zerobusEndpoint={eventDestination.zerobusEndpoint}
             environment={eventDestination.environment}
+            region={eventForwarderRegion}
             onEnvironmentChange={(environment) =>
               updateEventDestination({ environment })
             }

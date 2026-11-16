@@ -625,6 +625,7 @@ function EventForwarderModal({
               <Box mb="3">
                 <EventForwarderEnvironmentField
                   value={eventForwarderConfig.environment ?? ""}
+                  region={eventForwarderConfig.region ?? DEFAULT_DATA_REGION}
                   datasourceId={dataSource.id}
                   onChange={(environment) =>
                     setEventForwarderConfig({

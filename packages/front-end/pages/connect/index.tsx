@@ -38,6 +38,7 @@ import Tooltip from "@/ui/Tooltip";
 import { useUser } from "@/services/UserContext";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import { useEventIngestorRegion } from "@/services/dataRegions";
 import { useAttributeSchema, useEnvironments } from "@/services/features";
 import track from "@/services/track";
 import { getApiHost, isCloud } from "@/services/env";
@@ -80,7 +81,7 @@ export default function ConnectPage() {
 
   const { apiCall } = useAuth();
   const { hasCommercialFeature } = useUser();
-  const { mutateDefinitions, eventIngestorRegion } = useDefinitions();
+  const { mutateDefinitions } = useDefinitions();
   const { data: sdkData, mutate: mutateSdkConnections } = useSDKConnections();
   const environments = useEnvironments();
   const settings = useOrgSettings();
@@ -88,6 +89,7 @@ export default function ConnectPage() {
 
   const connection: SDKConnectionInterface | null =
     sdkData?.connections.find((c) => c.languages.includes(language)) ?? null;
+  const eventIngestorRegion = useEventIngestorRegion(connection?.environment);
   const [creatingConnection, setCreatingConnection] = useState(false);
   const createdFor = useRef<string | null>(null);
 

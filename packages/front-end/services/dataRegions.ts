@@ -1,5 +1,6 @@
 import { useFeatureIsOn } from "@growthbook/growthbook-react";
 import type { DataRegion } from "shared/util";
+import { useDefinitions } from "@/services/DefinitionsContext";
 
 export type { DataRegion };
 
@@ -31,4 +32,26 @@ const EVENT_INGESTOR_HOSTS: Record<DataRegion, string> = {
 // callers only need to pass this along explicitly for non-default regions.
 export function getEventIngestorHost(region: DataRegion): string {
   return EVENT_INGESTOR_HOSTS[region];
+}
+
+// Ingestor region for an SDK Connection's setup snippets
+// - Follows the Event Forwarder that receives the connection's environment
+// - Forwarders in both regions receive it: undefined, so the SDK default host
+// - Managed Warehouse, or no forwarder for the environment: the org's region
+export function useEventIngestorRegion(
+  environment?: string,
+): DataRegion | undefined {
+  const {
+    eventIngestorRegion,
+    hasManagedWarehouse,
+    eventForwarderEnvironments,
+  } = useDefinitions();
+  if (hasManagedWarehouse) return eventIngestorRegion;
+  const regions = new Set(
+    eventForwarderEnvironments
+      .filter((e) => !e.environment || e.environment === environment)
+      .map((e) => e.region),
+  );
+  if (regions.size > 1) return undefined;
+  return [...regions][0] ?? eventIngestorRegion;
 }

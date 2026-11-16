@@ -191,17 +191,22 @@ function hasNeverReceivedEvents(c: EventForwarderConfigInterface): boolean {
 // Org-wide (not sensitive), so the UI can rule choices out before a save.
 export function getClaimedEventForwarderEnvironments(
   configs: EventForwarderConfigInterface[],
-): { datasourceId: string; environment: string }[] {
+): {
+  datasourceId: string;
+  environment: string;
+  region: "us-east-1" | "eu-west-1";
+}[] {
   return configs
     .filter((c) => c.environment || !hasNeverReceivedEvents(c))
     .map((c) => ({
       datasourceId: c.datasourceId,
       environment: c.environment ?? "",
+      region: c.region ?? "us-east-1",
     }));
 }
 
 const environmentTakenMessage = (environment: string) =>
-  `Another Event Forwarder already receives the "${environment}" environment.`;
+  `Another Event Forwarder in this data region already receives the "${environment}" environment.`;
 
 // Turns a lost race on the unique environment index into the usual message
 async function claimingEnvironment<T>(
@@ -224,10 +229,10 @@ async function claimingEnvironment<T>(
   }
 }
 
+// Rules apply per data region: each regional ingestor only sees its own forwarders
 // - No two forwarders may receive the same environment (events and usage would double)
 // - No environment means all environments, which only a lone forwarder may have
 // - Rows that never received events only conflict on the same environment (unique index)
-// - All forwarders share one data region, since SDK setup snippets use one ingestor host
 // - Org-wide, so forwarders on unreadable Projects count
 export async function assertNoEventForwarderEnvironmentOverlap(
   context: ReqContext,
@@ -244,7 +249,7 @@ export async function assertNoEventForwarderEnvironmentOverlap(
     adding?: boolean;
     // Environment is picked later (unconfigured row)
     allowUnset?: boolean;
-    // Data region of a forwarder being created
+    // Data region of a forwarder being created; otherwise `current`'s
     region?: "us-east-1" | "eu-west-1";
   } = {},
 ): Promise<void> {
@@ -254,17 +259,12 @@ export async function assertNoEventForwarderEnvironmentOverlap(
   ) {
     throw new Error(`Cannot find environment "${environment}".`);
   }
+  const ownRegion = region ?? current?.region ?? "us-east-1";
   const all = (
     await context.models.eventForwarderConfigs.getAllBypassingReadPermissions()
-  ).filter((c) => c.id !== current?.id);
-  const otherRegion = all.find(
-    (c) => region && (c.region ?? "us-east-1") !== region,
+  ).filter(
+    (c) => c.id !== current?.id && (c.region ?? "us-east-1") === ownRegion,
   );
-  if (otherRegion) {
-    throw new Error(
-      `Event Forwarders in an organization must use the same data region. The existing one uses ${otherRegion.region ?? "us-east-1"}.`,
-    );
-  }
   if (environment && all.some((c) => c.environment === environment)) {
     throw new Error(environmentTakenMessage(environment));
   }
@@ -275,17 +275,17 @@ export async function assertNoEventForwarderEnvironmentOverlap(
   if (adding) {
     if (others.some((c) => !c.environment)) {
       throw new Error(
-        "Another Event Forwarder receives all environments. Set it to one environment first, so events are not sent twice.",
+        "Another Event Forwarder in this data region receives all environments. Set it to one environment first, so events are not sent twice.",
       );
     }
     if (!environment && !allowUnset) {
       throw new Error(
-        "Choose an environment. This organization has another Event Forwarder.",
+        "Choose an environment. This data region has another Event Forwarder.",
       );
     }
   } else if (!environment && current?.environment) {
     throw new Error(
-      "Choose an environment. This organization has another Event Forwarder.",
+      "Choose an environment. This data region has another Event Forwarder.",
     );
   }
 }

@@ -10,6 +10,7 @@ import { PiPackage } from "react-icons/pi";
 import Link from "@/ui/Link";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import { useEventIngestorRegion } from "@/services/dataRegions";
 import { getApiHost, getCdnHost } from "@/services/env";
 import Code from "@/components/SyntaxHighlighting/Code";
 import { useAttributeSchema } from "@/services/features";
@@ -109,7 +110,10 @@ export default function CodeSnippetModal({
 
   const settings = useOrgSettings();
   const attributeSchema = useAttributeSchema();
-  const { ready: definitionsReady, eventIngestorRegion } = useDefinitions();
+  const { ready: definitionsReady } = useDefinitions();
+  const eventIngestorRegion = useEventIngestorRegion(
+    currentConnection?.environment,
+  );
 
   const permissionsUtil = usePermissionsUtil();
   const canUpdate = currentConnection
