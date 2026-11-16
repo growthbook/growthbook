@@ -497,6 +497,21 @@ export function getManagedWarehouseBuiltinIdentifiers(
   ];
 }
 
+/** Built-ins an older warehouse lists that schema-derived identifiers would drop. */
+export function getManagedWarehouseUnmappedBuiltinIdentifiers(
+  settings: Pick<GrowthbookClickhouseSettings, "identifiersFromAttributes">,
+  attributeSchema: SDKAttributeSchema | undefined,
+): string[] {
+  if (settings.identifiersFromAttributes) return [];
+  const mapped = getManagedWarehouseBuiltinIdentifiers(
+    { identifiersFromAttributes: true },
+    attributeSchema,
+  );
+  return MANAGED_WAREHOUSE_BUILTIN_IDENTIFIERS.filter(
+    (b) => !mapped.includes(b),
+  );
+}
+
 // Identifiers aliased into the SELECT list: custom ones, plus `id` when the
 // warehouse treats it as its own identifier.
 function getAliasedIdentifiers(

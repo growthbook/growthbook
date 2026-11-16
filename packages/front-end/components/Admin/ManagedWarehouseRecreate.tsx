@@ -108,6 +108,63 @@ export function RecreateTablesCheckboxes({
   );
 }
 
+export type OrgTarget = "all" | "list";
+
+export function parseOrgIds(orgIds: string): string[] {
+  return orgIds
+    .split(/[\s,]+/)
+    .map((id) => id.trim())
+    .filter(Boolean);
+}
+
+/** Choice between a pasted list of organization IDs and every Managed Warehouse. */
+export function OrgTargetPicker({
+  target,
+  setTarget,
+  orgIds,
+  setOrgIds,
+  allCount,
+}: {
+  target: OrgTarget;
+  setTarget: (target: OrgTarget) => void;
+  orgIds: string;
+  setOrgIds: (orgIds: string) => void;
+  allCount?: number;
+}) {
+  return (
+    <Flex direction="column" gap="2">
+      <Text weight="semibold">Organizations</Text>
+      <RadioGroup
+        value={target}
+        setValue={(v) => setTarget(v as OrgTarget)}
+        options={[
+          {
+            value: "list",
+            label: "Selected organizations",
+            renderOnSelect: (
+              // Indented to line up with the option's label
+              <Box pl="5" mb="2" width="440px" maxWidth="100%">
+                <TextField
+                  multiline
+                  aria-label="Organization IDs"
+                  placeholder="org_abc123, org_def456"
+                  value={orgIds}
+                  onChange={(e) => setOrgIds(e.target.value)}
+                />
+              </Box>
+            ),
+            renderOutsideItem: true,
+          },
+          {
+            value: "all",
+            label: `All Managed Warehouses${allCount === undefined ? "" : ` (${allCount})`}`,
+          },
+        ]}
+      />
+    </Flex>
+  );
+}
+
 type RecreatesResponse = {
   provisioned: number;
   counts: Record<ManagedWarehouseRecreateStatus, number>;
@@ -139,15 +196,12 @@ export default function ManagedWarehouseRecreates({
   const [confirming, setConfirming] = useState(false);
   const [confirmingCancel, setConfirmingCancel] = useState(false);
   const [confirmingRetry, setConfirmingRetry] = useState(false);
-  const [target, setTarget] = useState<"all" | "list">("list");
+  const [target, setTarget] = useState<OrgTarget>("list");
   const [orgIds, setOrgIds] = useState("");
   const [message, setMessage] = useState("");
   const [submitError, setSubmitError] = useState("");
 
-  const organizations = orgIds
-    .split(/[\s,]+/)
-    .map((id) => id.trim())
-    .filter(Boolean);
+  const organizations = parseOrgIds(orgIds);
 
   const run = async (action: () => Promise<string>) => {
     setMessage("");
@@ -262,36 +316,13 @@ export default function ManagedWarehouseRecreates({
               <Text weight="semibold">Tables</Text>
               <RecreateTablesCheckboxes value={tables} setValue={setTables} />
             </Flex>
-            <Flex direction="column" gap="2">
-              <Text weight="semibold">Organizations</Text>
-              <RadioGroup
-                value={target}
-                setValue={(v) => setTarget(v as "all" | "list")}
-                options={[
-                  {
-                    value: "list",
-                    label: "Selected organizations",
-                    renderOnSelect: (
-                      // Indented to line up with the option's label
-                      <Box pl="5" mb="2" width="440px" maxWidth="100%">
-                        <TextField
-                          multiline
-                          aria-label="Organization IDs"
-                          placeholder="org_abc123, org_def456"
-                          value={orgIds}
-                          onChange={(e) => setOrgIds(e.target.value)}
-                        />
-                      </Box>
-                    ),
-                    renderOutsideItem: true,
-                  },
-                  {
-                    value: "all",
-                    label: `All Managed Warehouses${data ? ` (${data.provisioned})` : ""}`,
-                  },
-                ]}
-              />
-            </Flex>
+            <OrgTargetPicker
+              target={target}
+              setTarget={setTarget}
+              orgIds={orgIds}
+              setOrgIds={setOrgIds}
+              allCount={data?.provisioned}
+            />
             <Flex>
               <Tooltip
                 content={submitDisabledReason}

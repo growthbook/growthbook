@@ -10,6 +10,11 @@ import {
   retryFailedManagedWarehouseRecreates,
 } from "back-end/src/services/managedWarehouseRecreate";
 import { startManagedWarehouseRecreates } from "back-end/src/jobs/recreateManagedWarehouseTables";
+import { auditDetailsUpdate } from "back-end/src/services/audit";
+import {
+  getManagedWarehouseMigrationSummary,
+  setManagedWarehouseDesiredMigrationVersion,
+} from "back-end/src/jobs/migrateManagedWarehouse";
 
 function forbidden(res: Response, permission: "view" | "provision") {
   return res.status(403).json({
@@ -86,4 +91,38 @@ export async function postCancelPendingRecreates(
   }
   const cancelled = await cancelPendingManagedWarehouseRecreates();
   res.status(200).json({ status: 200, cancelled });
+}
+
+export async function getMigrations(req: AuthRequest, res: Response) {
+  if (!hasSuperAdminPermission(req.superAdmin, "view")) {
+    return forbidden(res, "view");
+  }
+  res.status(200).json({
+    status: 200,
+    ...(await getManagedWarehouseMigrationSummary()),
+  });
+}
+
+export async function postMigrations(
+  req: AuthRequest<{ version: number; organizations: string[] | "all" }>,
+  res: Response,
+) {
+  if (!hasSuperAdminPermission(req.superAdmin, "provision")) {
+    return forbidden(res, "provision");
+  }
+  const updated = await setManagedWarehouseDesiredMigrationVersion(
+    req.body.organizations,
+    req.body.version,
+  );
+  // One entry per request; "all" can touch hundreds of warehouses
+  await req.audit({
+    event: "datasource.update",
+    entity: { object: "datasource", id: "managed_warehouse" },
+    details: auditDetailsUpdate(
+      {},
+      { desiredMigrationVersion: req.body.version },
+      { organizations: req.body.organizations, updated },
+    ),
+  });
+  res.status(200).json({ status: 200, updated });
 }

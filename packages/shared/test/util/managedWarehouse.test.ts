@@ -14,6 +14,7 @@ import {
   getManagedWarehouseIdentifierForAttribute,
   getManagedWarehouseTypedAttributeColumns,
   getManagedWarehouseBuiltinIdentifiers,
+  getManagedWarehouseUnmappedBuiltinIdentifiers,
   getManagedWarehouseUserIdTypes,
   getManagedWarehouseUserIdTypeSettings,
   isManagedWarehouse,
@@ -359,6 +360,21 @@ describe("getManagedWarehouseUserIdTypes", () => {
       expect(
         buildManagedWarehouseEventsFactTableSql([hash("id")]),
       ).not.toContain("AS id");
+      expect(
+        getManagedWarehouseUnmappedBuiltinIdentifiers({}, [hash("id")]),
+      ).toEqual(["user_id", "device_id"]);
+      expect(
+        getManagedWarehouseUnmappedBuiltinIdentifiers({}, [
+          hash("id"),
+          hash("user_id"),
+        ]),
+      ).toEqual(["device_id"]);
+      expect(
+        getManagedWarehouseUnmappedBuiltinIdentifiers(
+          { identifiersFromAttributes: true },
+          [hash("id")],
+        ),
+      ).toEqual([]);
     });
   });
 
