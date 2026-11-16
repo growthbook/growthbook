@@ -5,6 +5,7 @@ import {
   DashboardBlockInterface,
   DashboardBlockInterfaceOrData,
   getBlockData,
+  isDashboardEligibleAsProjectDefault,
 } from "shared/enterprise";
 import { Box, Flex, IconButton, Text } from "@radix-ui/themes";
 import { FaArrowRight } from "react-icons/fa";
@@ -159,15 +160,12 @@ export default function DashboardsPage() {
   // for one of those; a global dashboard (no projects) is eligible for any
   // project. Either way, setting a project's default requires permission on
   // that project specifically, not on the dashboard.
-  const getEligibleProjectsForDefault = (d: DashboardInterface) => {
-    // Other members can't read a private dashboard, so it can't be their default.
-    if (d.shareLevel === "private") return [];
-    return projects.filter(
+  const getEligibleProjectsForDefault = (d: DashboardInterface) =>
+    projects.filter(
       (p) =>
-        isProjectListValidForProject(d.projects, p.id) &&
+        isDashboardEligibleAsProjectDefault(d, p.id) &&
         permissionsUtil.canUpdateProject(p.id),
     );
-  };
 
   const setDefaultDashboard = async (
     projectId: string,

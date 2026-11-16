@@ -37,7 +37,11 @@ import {
 import { MetricGroupInterface } from "shared/types/metric-groups";
 import { DataSourceInterface } from "shared/types/datasource";
 import { isNumber, isString } from "../../util/types";
-import { getSnapshotAnalysis, isManagedWarehouse } from "../../util";
+import {
+  getSnapshotAnalysis,
+  isManagedWarehouse,
+  isProjectListValidForProject,
+} from "../../util";
 import {
   parseSliceQueryString,
   generateSliceString,
@@ -1246,5 +1250,21 @@ export function offScreenDashboardWriteRejection({
       : "You can only change a dashboard while the user is viewing it, and they are not on a dashboard page.") +
     " Do not retry this call and do not look for another way to make the change." +
     " Tell them to open the dashboard they want changed and ask again there."
+  );
+}
+
+// Whether a dashboard can be a project's home default. Other members can't
+// read a private dashboard, so it can't be their default.
+export function isDashboardEligibleAsProjectDefault(
+  dashboard: Pick<
+    DashboardInterface,
+    "experimentId" | "shareLevel" | "projects"
+  >,
+  projectId: string,
+): boolean {
+  return (
+    !dashboard.experimentId &&
+    dashboard.shareLevel !== "private" &&
+    isProjectListValidForProject(dashboard.projects, projectId)
   );
 }

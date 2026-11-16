@@ -1,8 +1,6 @@
 import { isEqual } from "lodash";
-import {
-  isProjectListValidForProject,
-  pruneApprovalRuleReferences,
-} from "shared/util";
+import { pruneApprovalRuleReferences } from "shared/util";
+import { isDashboardEligibleAsProjectDefault } from "shared/enterprise";
 import { TeamInterface } from "shared/types/team";
 import {
   OAuthGrantInterface,
@@ -116,10 +114,7 @@ export class ProjectModel extends BaseClass {
         await this.context.models.dashboards.getById(dashboardId);
       if (
         !dashboard ||
-        !!dashboard.experimentId ||
-        // Other members can't read a private dashboard, so it can't be their default.
-        dashboard.shareLevel === "private" ||
-        !isProjectListValidForProject(dashboard.projects, project.id)
+        !isDashboardEligibleAsProjectDefault(dashboard, project.id)
       ) {
         this.context.throwBadRequestError(
           "Dashboard is not available for this project",
