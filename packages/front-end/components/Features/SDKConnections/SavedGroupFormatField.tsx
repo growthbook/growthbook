@@ -43,6 +43,9 @@ export default function SavedGroupFormatField({
     "savedGroupReferencesV2",
   );
   const savedAsAllSavedGroupTypes = storedFormat === "referencesV2";
+  // The saved format stays selectable after the plan drops it.
+  const canPassByReference = (format: SavedGroupFormat) =>
+    hasLargeSavedGroupFeature || storedFormat === format;
 
   return (
     <SelectField
@@ -63,7 +66,7 @@ export default function SavedGroupFormatField({
         {
           value: "referencesV1",
           label: SAVED_GROUP_FORMAT_LABELS.referencesV1,
-          isDisabled: !hasLargeSavedGroupFeature,
+          isDisabled: !canPassByReference("referencesV1"),
         },
         ...(allSavedGroupTypesAvailable || savedAsAllSavedGroupTypes
           ? [
@@ -73,7 +76,7 @@ export default function SavedGroupFormatField({
                 // A saved v2 connection stays selectable after an SDK
                 // downgrade so the choice warns instead of being dropped.
                 isDisabled:
-                  !hasLargeSavedGroupFeature ||
+                  !canPassByReference("referencesV2") ||
                   (!supportsAllSavedGroupTypes && !savedAsAllSavedGroupTypes),
               },
             ]
