@@ -39,6 +39,19 @@ export function isMultiRangeNamespaceFormat(
   return "ranges" in namespace;
 }
 
+// Whether a namespace reaches the SDK as a filter (multi-range) rather than
+// the legacy tuple on the rule: the org's definition decides when there is
+// one, else the namespace's own shape.
+export function isMultiRangeInPayload(
+  namespace: NamespaceValue,
+  namespacesMap?: Map<string, { format?: "legacy" | "multiRange" }>,
+): boolean {
+  const definition = namespacesMap?.get(namespace.name);
+  return definition
+    ? definition.format === "multiRange"
+    : isMultiRangeNamespaceFormat(namespace);
+}
+
 /**
  * Get ranges from a namespace regardless of format
  */
@@ -218,4 +231,18 @@ export function hasNarrowedRanges(
     if (covered < prevEnd) return true; // Tail of range not covered
   }
   return false;
+}
+
+// With a fallback attribute only legacy namespaces can take the experiment; a
+// multi-range one needs the experiment's hash attribute.
+export function isNamespaceSelectable(
+  namespace: Namespaces,
+  {
+    hashAttribute,
+    fallbackAttribute,
+  }: { hashAttribute: string; fallbackAttribute: string },
+): boolean {
+  if (namespace.status === "inactive") return false;
+  if (namespace.format !== "multiRange") return true;
+  return !fallbackAttribute.trim() && namespace.hashAttribute === hashAttribute;
 }

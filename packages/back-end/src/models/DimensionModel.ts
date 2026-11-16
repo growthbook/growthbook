@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 import { ApiDimension } from "shared/validators";
 import { DimensionInterface } from "shared/types/dimension";
+import { getDimensionTiming } from "shared/experiments";
 import { getConfigDimensions, usingFileConfig } from "back-end/src/init/config";
 import { ApiReqContext } from "back-end/types/api";
 import { ReqContext } from "back-end/types/request";
@@ -21,6 +22,8 @@ const dimensionSchema = new mongoose.Schema({
   description: String,
   name: String,
   sql: String,
+  timing: String,
+  nullLabel: String,
   dateCreated: Date,
   dateUpdated: Date,
 });
@@ -144,11 +147,11 @@ export async function updateDimension(
 ) {
   // If the dimension is managed by the config.yml, don't allow updates
   if (existing.managedBy === "config") {
-    throw new Error("Cannot update. Dimenision managed by config.yml");
+    throw new Error("Cannot update. Dimension managed by config.yml");
   }
   // If the dimension is managed by the API, only allow updates via the API
   if (existing.managedBy === "api" && context.auditUser?.type !== "api_key") {
-    throw new Error("Cannot update. Dimenision managed by the API");
+    throw new Error("Cannot update. Dimension managed by the API");
   }
 
   await DimensionModel.updateOne(
@@ -191,6 +194,8 @@ export function toDimensionApiInterface(
     owner: dimension.owner || "",
     identifierType: dimension.userIdType || "user_id",
     query: dimension.sql,
+    timing: getDimensionTiming(dimension),
+    nullLabel: dimension.nullLabel || "",
     datasourceId: dimension.datasource || "",
     dateCreated: dimension.dateCreated?.toISOString() || "",
     dateUpdated: dimension.dateUpdated?.toISOString() || "",

@@ -29,11 +29,22 @@ export type ContextualLeafStatsEntryInterface = z.infer<
   typeof contextualLeafStatsEntryValidator
 >;
 
+/** Metadata for a single greedy tree split (pre-split leaf condition + partition). */
+export const contextualTreeSplitValidator = z.object({
+  leafClauses: z.array(contextualLeafClauseValidator),
+  attribute: z.string(),
+  leftLevels: z.array(z.string()),
+  rightLevels: z.array(z.string()),
+});
+export type ContextualTreeSplitInterface = z.infer<
+  typeof contextualTreeSplitValidator
+>;
+
 /** Total within-tree SSE at each stage of greedy tree growth (root, after 1st split, ...). */
 export const contextualSseTrajectoryEntryValidator = z.object({
   numSplits: z.number().int().nonnegative(),
   totalSse: z.number(),
-  ssePerVariation: z.array(z.number()).optional(),
+  split: contextualTreeSplitValidator.optional(),
 });
 export type ContextualSseTrajectoryEntryInterface = z.infer<
   typeof contextualSseTrajectoryEntryValidator
@@ -45,6 +56,8 @@ export const contextualBicTrajectoryEntryValidator = z.object({
   logLikelihoodRatio: z.number(),
   penalty: z.number(),
   deltaBic: z.number(),
+  numCandidates: z.number().int().nonnegative().optional(),
+  multiplicityPenalty: z.number().optional(),
 });
 export type ContextualBicTrajectoryEntryInterface = z.infer<
   typeof contextualBicTrajectoryEntryValidator
@@ -58,6 +71,8 @@ export const contextualBanditResponseValidator = z.object({
   sampleMeans: z.array(z.number()).nullable().optional(),
   sampleVariances: z.array(z.number()).nullable().optional(),
   updatedWeights: z.array(z.number()).nullable().optional(),
+  // P(best) among qualifying arms; under-observed arms use the prior 1/K (numeric
+  // for API back-compat). Conditional distribution, so it need not sum to 1.
   bestArmProbabilities: z.array(z.number()).nullable().optional(),
   updateMessage: z.string().nullable().optional(),
   error: z.string().nullable().optional(),
@@ -74,6 +89,7 @@ export const contextualBanditEventValidator = baseSchema
   .extend({
     contextualBandit: z.string(),
     snapshotId: z.string(),
+    frozenVariationIds: z.array(z.string()).optional(),
     attributes: z.array(z.string()),
     responses: z.array(contextualBanditResponseValidator),
     leaf_map: z.array(contextualLeafMapEntryValidator).optional(),

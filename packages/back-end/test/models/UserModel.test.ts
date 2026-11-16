@@ -26,7 +26,9 @@ describe("getUserByEmail", () => {
 
     expect(result?.email).toBe("User@Example.com");
     expect(findOne).toHaveBeenCalledTimes(1);
-    expect(findOne).toHaveBeenCalledWith({ email: "User@Example.com" });
+    expect(findOne).toHaveBeenCalledWith({
+      email: { $eq: "User@Example.com" },
+    });
   });
 
   it("retries with the lowercased email when the input had uppercase and exact missed", async () => {
@@ -37,7 +39,9 @@ describe("getUserByEmail", () => {
 
     expect(result?.email).toBe("user@example.com");
     expect(findOne).toHaveBeenCalledTimes(2);
-    expect(findOne).toHaveBeenNthCalledWith(2, { email: "user@example.com" });
+    expect(findOne).toHaveBeenNthCalledWith(2, {
+      email: { $eq: "user@example.com" },
+    });
   });
 
   it("does not retry when the input is already lowercase", async () => {

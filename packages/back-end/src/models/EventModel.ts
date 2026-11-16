@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import omit from "lodash/omit";
-import mongoose from "mongoose";
+import mongoose, { FilterQuery } from "mongoose";
 import { isEqual } from "lodash";
 import {
   NotificationEventResource,
@@ -23,6 +23,7 @@ import { errorStringFromZodResult } from "back-end/src/util/validation";
 import { logger } from "back-end/src/util/logger";
 import { ReqContext } from "back-end/types/request";
 import { EventNotifier } from "back-end/src/events/notifiers/EventNotifier";
+import { trackRevisionActivity } from "back-end/src/events/revisionActivityTracking";
 
 const API_VERSION = "2024-07-31" as const;
 const MODEL_VERSION = 1 as const;
@@ -53,9 +54,9 @@ const eventSchema = new mongoose.Schema({
     enum: zodNotificationEventNamesEnum,
   },
   version: {
-    type: String,
+    type: Number,
     required: false,
-    enum: ["1"],
+    enum: [MODEL_VERSION],
   },
   data: {
     type: Object,
@@ -112,6 +113,7 @@ export const createEventWithPayload = async <
   payload,
   organizationId,
   objectId,
+  notify = true,
 }: {
   payload: Omit<
     NotificationEventPayload<Resource, Event>,
@@ -119,7 +121,11 @@ export const createEventWithPayload = async <
   >;
   organizationId: string;
   objectId?: string;
+  // Save event history even when webhook and legacy Slack dispatch is skipped.
+  notify?: boolean;
 }) => {
+  // Set once saved, so a failed dispatch still reports the event as created
+  let savedEventId: string | null = null;
   try {
     const eventId = `event-${randomUUID()}`;
 
@@ -138,11 +144,17 @@ export const createEventWithPayload = async <
       NotificationEventPayload<Resource, Event>,
       typeof MODEL_VERSION
     >;
+    savedEventId = event.id;
 
-    new EventNotifier(event.id).perform();
+    if (notify) await new EventNotifier(event.id).perform();
+
+    // Returned so callers that record having announced something can tell a
+    // swallowed failure from a delivered event.
+    return event.id;
   } catch (e) {
     logger.error(e);
   }
+  return savedEventId;
 };
 
 // createEvent can handle creating the diff
@@ -231,6 +243,7 @@ export type CreateEventParams<
   projects: string[];
   tags: string[];
   environments: string[];
+  notify?: boolean;
 };
 
 export const createEvent = async <
@@ -246,8 +259,10 @@ export const createEvent = async <
   projects,
   tags,
   environments,
-}: CreateEventParams<Resource, Event>) =>
-  createEventWithPayload<Resource, Event>({
+  notify = true,
+}: CreateEventParams<Resource, Event>) => {
+  trackRevisionActivity(context, object, event, objectId ?? null, data);
+  return createEventWithPayload<Resource, Event>({
     payload: {
       event: `${object}.${event}`,
       object,
@@ -259,8 +274,10 @@ export const createEvent = async <
       user: context.auditUser ?? { type: "system" },
     },
     organizationId: context.org.id,
+    notify,
     ...(objectId ? { objectId } : {}),
   });
+};
 
 /**
  * Get an event by ID
@@ -302,9 +319,10 @@ export const getEventsForOrganization = async (
     to?: string;
     sortOrder?: 1 | -1;
   },
+  customFilter?: FilterQuery<BaseEventInterface<unknown, unknown>>,
 ): Promise<EventInterface[]> => {
   const query = applyFiltersToQuery(organizationId, filters);
-  const docs = await EventModel.find(query)
+  const docs = await EventModel.find({ ...query, ...customFilter })
     .sort([["dateCreated", filters.sortOrder ?? -1]])
     .skip((filters.page - 1) * filters.perPage)
     .limit(filters.perPage);
@@ -357,18 +375,10 @@ const applyFiltersToQuery = (
 };
 
 /**
- * Get all events for an organization
- * @param organizationId
- * @param limit  Providing 0 as a limit will return all events
- * @returns
+ * Stream all events for an organization, newest first, as plain objects
  */
-export const getLatestEventsForOrganization = async (
-  organizationId: string,
-  limit: number = 50,
-): Promise<EventInterface[]> => {
-  const docs = await EventModel.find({ organizationId })
+export const getEventsCursorForOrganization = (organizationId: string) =>
+  EventModel.find({ organizationId }, { _id: 0, __v: 0 })
     .sort([["dateCreated", -1]])
-    .limit(limit);
-
-  return docs.map(toInterface) as EventInterface[];
-};
+    .lean<EventInterface>()
+    .cursor();

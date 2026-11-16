@@ -121,7 +121,7 @@ describe("Experiment Significance notifications", () => {
   const { isReady, setReqContext } = setupApp();
   const orgId = experiments[0].organization;
 
-  beforeAll(async () => {
+  beforeEach(async () => {
     await isReady;
 
     const globalContext = {
@@ -184,5 +184,35 @@ describe("Experiment Significance notifications", () => {
         );
       },
     );
+  });
+  it("resolves variation names by snapshot key after variations are reordered", async () => {
+    getLatestSuccessfulSnapshot.mockReturnValue(undefined);
+    getSignificanceSettingsForProject.mockResolvedValue({
+      ciUpper: 0.95,
+      ciLower: 0.05,
+      pValueThreshold: 0.05,
+      pValueCorrection: null,
+    });
+    getMetricDefaultsForOrg.mockReturnValue([]);
+    const experiment = ensureAndReturn(
+      await ExperimentModel.findOne({ id: snapshots.base.experiment }),
+    ).toObject();
+    const expectedVariation = experiment.variations[1];
+    experiment.variations.reverse();
+    const results = await computeExperimentChanges({
+      context: {
+        org: { id: orgId },
+        permissions: { canReadMultiProjectResource: () => true },
+        models: { metricGroups: { getAll: () => [] } },
+      },
+      experiment,
+      snapshot: snapshots.base,
+    });
+    expect(results).toEqual([
+      expect.objectContaining({
+        variationId: expectedVariation.id,
+        variationName: expectedVariation.name,
+      }),
+    ]);
   });
 });

@@ -1,4 +1,5 @@
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import { resolveAnalysisIdentifierType } from "shared/util";
 import { FactTableColumnType } from "shared/types/fact-table";
 import { getScopedSettings } from "shared/settings";
 import {
@@ -10,10 +11,8 @@ import {
   ExperimentSnapshotReportArgs,
   ReportInterface,
 } from "shared/types/report";
-import { VisualChangesetInterface } from "shared/types/visual-changeset";
-import { SDKConnectionInterface } from "shared/types/sdk-connection";
-import NextLink from "next/link";
 import { useRouter } from "next/router";
+
 import { DEFAULT_STATS_ENGINE } from "shared/constants";
 import { Box, Flex, Text } from "@radix-ui/themes";
 import { date } from "shared/dates";
@@ -28,11 +27,13 @@ import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Callout from "@/ui/Callout";
 import Button from "@/ui/Button";
+import LinkButton from "@/ui/LinkButton";
 import { getHonoredPrecomputedUnitDimensionIds } from "@/services/experiments";
 import track from "@/services/track";
 import Metadata from "@/ui/Metadata";
 import Link from "@/ui/Link";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import AnalysisSettingInfo from "@/components/AnalysisSettingInfo";
 import AnalysisSettingsSummary from "./AnalysisSettingsSummary";
 import { ExperimentTab } from ".";
 
@@ -40,13 +41,9 @@ export interface Props {
   experiment: ExperimentInterfaceStringDates;
   mutate: () => void;
   editMetrics?: (() => void) | null;
-  editResult?: (() => void) | null;
-  newPhase?: (() => void) | null;
-  visualChangesets: VisualChangesetInterface[];
-  editTargeting?: (() => void) | null;
+  holdoutProjects?: string[];
   envs: string[];
   setTab: (tab: ExperimentTab) => void;
-  connections: SDKConnectionInterface[];
   isTabActive: boolean;
   metricTagFilter: string[];
   setMetricTagFilter: (tags: string[]) => void;
@@ -81,7 +78,6 @@ export default function ResultsTab({
   envs,
   mutate,
   editMetrics,
-  editResult,
   setTab,
   isTabActive,
   analysisBarSettings,
@@ -99,6 +95,7 @@ export default function ResultsTab({
   setSortBy,
   sortDirection,
   setSortDirection,
+  holdoutProjects,
 }: Props) {
   const {
     getDatasourceById,
@@ -164,9 +161,12 @@ export default function ResultsTab({
   const datasourceSettings = experiment.datasource
     ? getDatasourceById(experiment.datasource)?.settings
     : undefined;
-  const userIdType = datasourceSettings?.queries?.exposure?.find(
-    (e) => e.id === experiment.exposureQueryId,
-  )?.userIdType;
+  const userIdType = resolveAnalysisIdentifierType(
+    datasourceSettings?.queries?.exposure?.find(
+      (e) => e.id === experiment.exposureQueryId,
+    ),
+    experiment.exposureQueryIdentifierType,
+  );
 
   const reportArgs: ExperimentSnapshotReportArgs = {
     userIdType: userIdType as "user" | "anonymous" | undefined,
@@ -197,6 +197,20 @@ export default function ResultsTab({
 
   const endDate =
     experiment.status !== "running" ? snapshot?.settings?.endDate : undefined;
+
+  const engineIsBayesian =
+    (analysis?.settings?.statsEngine || DEFAULT_STATS_ENGINE) !== "frequentist";
+  const anyMetricUsesProperPrior =
+    snapshot?.settings?.metricSettings?.some(
+      (m) => m.computedSettings?.properPrior,
+    ) ?? false;
+  const priorUsed = hasData && engineIsBayesian && anyMetricUsesProperPrior;
+  const cupedUsed = hasData && !!analysis?.settings?.regressionAdjusted;
+  const postStratificationUsed =
+    hasData &&
+    !!analysis?.settings?.postStratificationEnabled &&
+    !organization?.settings?.disablePrecomputedDimensions;
+
   return (
     <div>
       {isBandit && hasResults ? (
@@ -222,31 +236,58 @@ export default function ResultsTab({
           ) : null}
           {hasData && (
             <>
-              <Metadata
-                label="Engine"
-                value={
-                  analysis?.settings?.statsEngine === "frequentist"
-                    ? "Frequentist"
-                    : "Bayesian"
-                }
-              />
-              <Metadata
-                label="CUPED"
-                value={
-                  analysis?.settings?.regressionAdjusted
-                    ? "Enabled"
-                    : "Disabled"
-                }
-              />
-              {!organization?.settings?.disablePrecomputedDimensions ? (
+              <Flex align="center" gap="1">
                 <Metadata
-                  label="Post-Stratification"
+                  label="Engine"
                   value={
-                    analysis?.settings?.postStratificationEnabled
+                    analysis?.settings?.statsEngine === "frequentist"
+                      ? "Frequentist"
+                      : "Bayesian"
+                  }
+                />
+                {priorUsed ? (
+                  <AnalysisSettingInfo
+                    drilldownHint
+                    ariaLabel="How a Bayesian prior affects results"
+                    description="A Bayesian prior shrinks the metric estimate towards the prior mean."
+                  />
+                ) : null}
+              </Flex>
+              <Flex align="center" gap="1">
+                <Metadata
+                  label="CUPED"
+                  value={
+                    analysis?.settings?.regressionAdjusted
                       ? "Enabled"
                       : "Disabled"
                   }
                 />
+                {cupedUsed ? (
+                  <AnalysisSettingInfo
+                    drilldownHint
+                    ariaLabel="How CUPED affects results"
+                    description="CUPED adjusts for pre-exposure mean imbalances across variations to reduce variance."
+                  />
+                ) : null}
+              </Flex>
+              {!organization?.settings?.disablePrecomputedDimensions ? (
+                <Flex align="center" gap="1">
+                  <Metadata
+                    label="Post-Stratification"
+                    value={
+                      analysis?.settings?.postStratificationEnabled
+                        ? "Enabled"
+                        : "Disabled"
+                    }
+                  />
+                  {postStratificationUsed ? (
+                    <AnalysisSettingInfo
+                      drilldownHint
+                      ariaLabel="How post-stratification affects results"
+                      description="Post-stratification adjusts for within-dimension imbalances to reduce variance."
+                    />
+                  ) : null}
+                </Flex>
               ) : null}
               {analysis?.settings?.statsEngine === "frequentist" ? (
                 <Metadata
@@ -348,9 +389,10 @@ export default function ResultsTab({
             editMetrics={true}
             editVariationIds={false}
             source={"results-tab"}
+            holdoutProjects={holdoutProjects}
           />
         ) : null}
-        <div className="mb-2" style={{ overflowX: "initial" }}>
+        <div style={{ overflowX: "initial" }}>
           <AnalysisSettingsSummary
             experiment={experiment}
             mutate={mutate}
@@ -387,9 +429,8 @@ export default function ResultsTab({
             onSnapshotSuccessfulUpdate={onSnapshotSuccessfulUpdate}
           />
           {experiment.status === "draft" ? (
-            <Callout status="info" mx="3" my="4">
-              Your experiment is still in a <strong>draft</strong> state. You
-              must start the experiment first before seeing results.
+            <Callout status="info" contentAlign="center" mx="3" my="3">
+              This experiment is still a draft. Start it to see results.
             </Callout>
           ) : (
             <>
@@ -397,44 +438,40 @@ export default function ResultsTab({
               !experiment.datasource &&
               !snapshot &&
               !experiment.id.match(/^exp_sample/) ? (
-                <div className="appbox text-center m-4 px-3 py-4">
-                  <p className="h4">Use GrowthBook for Analysis</p>
-                  {datasources.length > 0 ? (
-                    <>
-                      <p>
-                        Select a Data Source and metrics so GrowthBook can
-                        analyze the experiment results.
-                      </p>
-                      <button
-                        className="btn btn-primary"
-                        type="button"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          setAnalysisSettingsOpen(true);
-                        }}
+                <Callout
+                  status="info"
+                  contentAlign="center"
+                  mx="3"
+                  my="3"
+                  action={
+                    datasources.length > 0 ? (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setAnalysisSettingsOpen(true)}
                       >
                         Select Data Source
-                      </button>
-                    </>
-                  ) : (
-                    <>
-                      <p>
-                        Connect GrowthBook to your data and use our powerful
-                        metrics and stats engine to automatically analyze your
-                        experiment results.
-                      </p>
-                      <NextLink href="/datasources" className="btn btn-primary">
-                        Connect to your Data
-                      </NextLink>
-                    </>
-                  )}
-                </div>
+                      </Button>
+                    ) : (
+                      <LinkButton
+                        href="/datasources"
+                        variant="outline"
+                        size="sm"
+                      >
+                        Connect a Data Source
+                      </LinkButton>
+                    )
+                  }
+                >
+                  {datasources.length > 0
+                    ? "Select a Data Source and metrics so GrowthBook can analyze this experiment's results."
+                    : "Connect GrowthBook to your data to analyze this experiment's results automatically."}
+                </Callout>
               ) : (
                 <Results
                   experiment={experiment}
                   mutateExperiment={mutate}
                   editMetrics={editMetrics ?? undefined}
-                  editResult={editResult ?? undefined}
                   statsEngine={statsEngine}
                   analysisBarSettings={analysisBarSettings}
                   setAnalysisBarSettings={setAnalysisBarSettings}
@@ -454,7 +491,7 @@ export default function ResultsTab({
         </div>
       </div>
       {snapshot && !isDemoExperiment && (
-        <div className="appbox mt-4">
+        <Box className="appbox" mt="7">
           <div className="row mx-2 py-3 d-flex align-items-center">
             <div className="col ml-2">
               <div className="h3">Custom Reports</div>
@@ -491,7 +528,7 @@ export default function ResultsTab({
             </div>
           </div>
           <ExperimentReportsList experiment={experiment} />
-        </div>
+        </Box>
       )}
     </div>
   );

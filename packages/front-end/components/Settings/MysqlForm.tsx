@@ -1,6 +1,7 @@
 import { FC, ChangeEventHandler } from "react";
 import { MysqlConnectionParams } from "shared/types/integrations/mysql";
 import { KEEP_EXISTING_PLACEHOLDER } from "@/components/Forms/secretInput";
+import GeneratedPasswordNote from "./GeneratedPasswordNote";
 import HostWarning from "./HostWarning";
 import SSLConnectionFields from "./SSLConnectionFields";
 
@@ -8,12 +9,22 @@ const MysqlForm: FC<{
   params: Partial<MysqlConnectionParams>;
   existing: boolean;
   onParamChange: ChangeEventHandler<HTMLInputElement>;
-  setParams: (params: { [key: string]: string | boolean }) => void;
-}> = ({ params, existing, onParamChange, setParams }) => {
+  setParams: (params: { [key: string]: string | boolean | null }) => void;
+  generatedPassword?: boolean;
+  showAllowlist?: boolean;
+}> = ({
+  params,
+  existing,
+  onParamChange,
+  setParams,
+  generatedPassword,
+  showAllowlist,
+}) => {
   return (
     <>
       <HostWarning
         host={params.host}
+        showAllowlist={showAllowlist}
         setHost={(host) => {
           setParams({
             host,
@@ -32,7 +43,7 @@ const MysqlForm: FC<{
             onChange={onParamChange}
           />
         </div>
-        <div className="form-group col-md-12">
+        <div className="form-group col-md-6">
           <label>Port</label>
           <input
             type="number"
@@ -43,7 +54,7 @@ const MysqlForm: FC<{
             onChange={onParamChange}
           />
         </div>
-        <div className="form-group col-md-12">
+        <div className="form-group col-md-6">
           <label>Database</label>
           <input
             type="text"
@@ -54,7 +65,7 @@ const MysqlForm: FC<{
             onChange={onParamChange}
           />
         </div>
-        <div className="form-group col-md-12">
+        <div className="form-group col-md-6">
           <label>User</label>
           <input
             type="text"
@@ -65,7 +76,7 @@ const MysqlForm: FC<{
             onChange={onParamChange}
           />
         </div>
-        <div className="form-group col-md-12">
+        <div className="form-group col-md-6">
           <label>Password</label>
           <input
             type="text"
@@ -77,11 +88,15 @@ const MysqlForm: FC<{
             onChange={onParamChange}
             placeholder={existing ? KEEP_EXISTING_PLACEHOLDER : ""}
           />
+          <GeneratedPasswordNote show={generatedPassword} />
         </div>
         <SSLConnectionFields
           existing={existing}
           onParamChange={onParamChange}
           setSSL={(ssl) => setParams({ ssl })}
+          setCertRemoved={(name, removed) =>
+            setParams({ [name]: removed ? null : "" })
+          }
           value={{
             // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'boolean | undefined' is not assignable to ty... Remove this comment to see the full error message
             ssl: params.ssl,

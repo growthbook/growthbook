@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import clsx from "clsx";
 import CreatableSelect from "react-select/creatable";
 import {
@@ -6,11 +6,11 @@ import {
   ClearIndicatorProps,
 } from "react-select";
 import TextareaAutosize from "react-textarea-autosize";
-import { PiCopy, PiRepeatBold, PiXBold } from "react-icons/pi";
-import { Tooltip } from "@radix-ui/themes";
+import { PiRepeatBold, PiXBold } from "react-icons/pi";
 import Field, { FieldProps } from "@/components/Forms/Field";
 import { ReactSelectProps } from "@/components/Forms/SelectField";
 import { Size } from "@/ui/sizes";
+import FieldIndicator, { CopyFieldIndicator } from "@/ui/FieldIndicator";
 
 export type StringArrayFieldSize = Size<"md" | "lg">;
 
@@ -30,6 +30,34 @@ export type Props = Omit<
 };
 
 const DEFAULT_DELIMITERS = ["Enter", "Tab", " ", ","];
+
+// Past this many values a list is edited as text: a token per value can't be
+// scanned or edited, and thousands of them freeze the page. Crossing it
+// switches to text; going back below it never switches back mid-edit.
+const RAW_TEXT_AFTER_VALUES = 200;
+
+// Text mode separates values the way the field does: with commas where a comma
+// ends a value, otherwise one value per line, so values that may hold a comma
+// (row filters, ID lists) stay whole
+export function rawTextSeparator(delimiters: string[]): string {
+  return !delimiters.includes(",") && delimiters.includes("Enter") ? "\n" : ",";
+}
+
+export function parseRawText(raw: string, separator: string): string[] {
+  return raw
+    .split(separator === "," ? "," : /\r?\n/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
+// Only a list its own text parses back into opens as text
+export function opensAsRawText(value: string[], separator: string): boolean {
+  if (value.length <= RAW_TEXT_AFTER_VALUES) return false;
+  const parsed = parseRawText(value.join(separator), separator);
+  return (
+    parsed.length === value.length && parsed.every((v, i) => v === value[i])
+  );
+}
 
 const baseComponents = {
   DropdownIndicator: null,
@@ -75,51 +103,13 @@ function RawTextModeToggleButton({
   onToggle: () => void;
 }) {
   return (
-    <Tooltip
-      content={rawTextMode ? "Switch to token mode" : "Switch to raw text mode"}
+    <FieldIndicator
+      label={rawTextMode ? "Switch to token mode" : "Switch to raw text mode"}
+      onClick={onToggle}
+      className="gb-select__raw-text-mode-indicator"
     >
-      <button
-        type="button"
-        className="gb-select__raw-text-mode-indicator"
-        onClick={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          onToggle();
-        }}
-      >
-        <PiRepeatBold />
-      </button>
-    </Tooltip>
-  );
-}
-
-function CopyButton({ value }: { value: string[] }) {
-  const [copied, setCopied] = useState(false);
-
-  const handleCopy = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-
-    const text = value.join(", ");
-    navigator.clipboard.writeText(text).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 750);
-    });
-  };
-
-  return (
-    <Tooltip
-      content={copied ? "Copied" : "Copy to clipboard"}
-      open={copied ? true : undefined}
-    >
-      <button
-        type="button"
-        className="gb-select__copy-button"
-        onClick={handleCopy}
-      >
-        <PiCopy />
-      </button>
-    </Tooltip>
+      <PiRepeatBold />
+    </FieldIndicator>
   );
 }
 
@@ -139,7 +129,12 @@ function IndicatorsContainerWithButtons(
 
   return (
     <SelectComponents.IndicatorsContainer {...props}>
-      {showCopy && value && <CopyButton value={value} />}
+      {showCopy && value && (
+        <CopyFieldIndicator
+          value={value.join(", ")}
+          className="gb-select__copy-button"
+        />
+      )}
       {showToggle && (
         <RawTextModeToggleButton
           rawTextMode={false}
@@ -171,7 +166,21 @@ export default function StringArrayField({
   const usesLegacyHeight = legacyHeight ?? size === undefined;
   const styleSize = usesLegacyHeight ? "legacy" : resolvedSize;
   const [inputValue, setInputValue] = useState("");
-  const [rawTextMode, setRawTextMode] = useState(false);
+  const textSeparator = rawTextSeparator(delimiters);
+  const tooManyForTokens = useMemo(
+    () => opensAsRawText(value, textSeparator),
+    [value, textSeparator],
+  );
+  const [rawTextMode, setRawTextMode] = useState(tooManyForTokens);
+  const [focusRawText, setFocusRawText] = useState(false);
+
+  // A paste that crosses the limit moves the edit into the text box
+  useEffect(() => {
+    if (tooManyForTokens && !rawTextMode) {
+      setRawTextMode(true);
+      setFocusRawText(true);
+    }
+  }, [tooManyForTokens, rawTextMode]);
 
   const showButtons = enableRawTextMode || showCopyButton;
   const components = {
@@ -203,20 +212,50 @@ export default function StringArrayField({
     origOnChange(val);
   };
 
-  const handleRawTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    const raw = e.target.value;
-    if (raw === "") {
-      onChange([]);
-      return;
-    }
-    const next = raw
-      .split(",")
-      .map((s) => s.trim())
-      .filter(Boolean);
-    onChange(next);
+  // The text as typed while editing; parsing drops empty entries, so text
+  // rebuilt from the list would eat a trailing comma before the next value
+  const [rawTextDraft, setRawTextDraft] = useState<string | null>(null);
+  const setRawText = (raw: string) => {
+    setRawTextDraft(raw);
+    onChange(parseRawText(raw, textSeparator));
+  };
+  // Inserts at the caret like typing, so the caret and undo history hold
+  const insertRawText = (target: HTMLTextAreaElement, text: string): void => {
+    if (document.execCommand("insertText", false, text)) return;
+    setRawText(
+      target.value.slice(0, target.selectionStart) +
+        text +
+        target.value.slice(target.selectionEnd),
+    );
   };
 
-  const rawTextValue = value.join(",");
+  const rawTextValue = rawTextDraft ?? value.join(textSeparator);
+  // Pasted lines and tabs become separators when Enter and Tab end a token, as
+  // a paste in token mode splits them; typed text splits on the separator only,
+  // so stored values that contain anything else stay whole
+  const handleRawTextPaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    const separators = `${delimiters.includes("Enter") ? "\n" : ""}${
+      delimiters.includes("Tab") ? "\t" : ""
+    }`;
+    const pasted = e.clipboardData.getData("text");
+    if (!separators || !new RegExp(`[${separators}]`).test(pasted)) return;
+    e.preventDefault();
+    // Empty entries from leading or doubled separators are dropped on parse
+    insertRawText(
+      e.currentTarget,
+      pasted.replace(new RegExp(`\r?[${separators}]+`, "g"), textSeparator),
+    );
+  };
+  // Enter ends a value here too when it does in token mode; one value per
+  // line already gets that from the textarea
+  const handleRawTextKeyDown = (
+    e: React.KeyboardEvent<HTMLTextAreaElement>,
+  ) => {
+    if (e.key !== "Enter" || !delimiters.includes("Enter")) return;
+    if (textSeparator !== ",") return;
+    e.preventDefault();
+    insertRawText(e.currentTarget, ",");
+  };
 
   const sizeStyles = useMemo(() => {
     const sizeMinHeight: Record<StringArrayFieldSize, number> = {
@@ -301,11 +340,16 @@ export default function StringArrayField({
     <Field
       {...fieldProps}
       helpText={
-        rawTextMode ? (helpText ?? "Separate values by comma") : helpText
+        rawTextMode
+          ? (helpText ??
+            (textSeparator === ","
+              ? "Separate values by comma"
+              : "One value per line"))
+          : helpText
       }
       helpTextClassName="mt-0"
       render={(id, ref) => {
-        if (enableRawTextMode && rawTextMode) {
+        if (rawTextMode) {
           return (
             <div
               className={clsx(
@@ -322,21 +366,32 @@ export default function StringArrayField({
                     id={id}
                     className="form-control gb-select__raw-text-input"
                     value={rawTextValue}
-                    onChange={handleRawTextChange}
-                    placeholder={placeholder ?? "value 1, value 2..."}
+                    onChange={(e) => setRawText(e.target.value)}
+                    onPaste={handleRawTextPaste}
+                    onKeyDown={handleRawTextKeyDown}
+                    onBlur={() => setRawTextDraft(null)}
+                    placeholder={
+                      placeholder ??
+                      (textSeparator === ","
+                        ? "value 1, value 2..."
+                        : "value 1\nvalue 2...")
+                    }
                     minRows={1}
+                    maxRows={10}
                     disabled={disabled}
                     required={fieldProps.required}
-                    autoFocus={autoFocus}
+                    autoFocus={autoFocus || focusRawText}
                     style={{ resize: "none" }}
                   />
                 </div>
-                <div className="gb-select__indicators">
-                  <RawTextModeToggleButton
-                    rawTextMode={true}
-                    onToggle={() => setRawTextMode(false)}
-                  />
-                </div>
+                {!tooManyForTokens && (
+                  <div className="gb-select__indicators">
+                    <RawTextModeToggleButton
+                      rawTextMode={true}
+                      onToggle={() => setRawTextMode(false)}
+                    />
+                  </div>
+                )}
               </div>
             </div>
           );

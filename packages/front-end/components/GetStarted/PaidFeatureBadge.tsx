@@ -13,6 +13,7 @@ export type Props = {
   useTip?: boolean;
   variant?: "outline" | "solid";
   inheritColor?: boolean;
+  showWhenEnabled?: boolean;
 } & MarginProps;
 
 const PaidFeatureBadge = ({
@@ -21,6 +22,7 @@ const PaidFeatureBadge = ({
   useTip = true,
   variant = "outline",
   inheritColor = false,
+  showWhenEnabled = false,
   ...badgeProps
 }: Props) => {
   const { hasCommercialFeature, commercialFeatureLowestPlan } = useUser();
@@ -28,7 +30,7 @@ const PaidFeatureBadge = ({
     ? hasCommercialFeature(commercialFeature)
     : true;
 
-  if (hasFeature) {
+  if (hasFeature && !showWhenEnabled) {
     return null;
   }
 

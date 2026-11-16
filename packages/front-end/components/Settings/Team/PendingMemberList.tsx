@@ -5,14 +5,17 @@ import { PendingMember } from "shared/types/organization";
 import { date, datetime } from "shared/dates";
 import { Box, IconButton } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
-import { RoleRuleLines } from "@/components/Settings/Team/RoleRuleLabel";
-import ProjectBadges from "@/components/ProjectBadges";
+import {
+  CollapsedRuleRows,
+  memberRuleRows,
+} from "@/components/Settings/Team/RoleRuleLabel";
 import { MEMBER_COLUMN_WIDTHS } from "@/components/Settings/Team/memberTableWidths";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import ChangeRoleModal from "@/components/Settings/Team/ChangeRoleModal";
 import { useUser } from "@/services/UserContext";
 import Button from "@/ui/Button";
 import Text from "@/ui/Text";
+import Heading from "@/ui/Heading";
 import Table, {
   TableHeader,
   TableBody,
@@ -35,12 +38,14 @@ const PendingMemberList: FC<{
   const [roleModalUser, setRoleModalUser] = useState<PendingMember | null>(
     null,
   );
-  const { projects } = useDefinitions();
+  const { getProjectById } = useDefinitions();
   const { organization } = useUser();
 
   return (
     <Box my="4">
-      <h5>Pending Members{` (${pendingMembers.length})`}</h5>
+      <Heading as="h5" size="sm" mb="1">
+        Pending Members{` (${pendingMembers.length})`}
+      </Heading>
       <Text as="p" color="text-mid" mb="2">
         Members who have requested to join this organization. They must be
         manually approved.
@@ -91,10 +96,9 @@ const PendingMemberList: FC<{
         </TableHeader>
         <TableBody>
           {pendingMembers.map((member) => {
-            const roleInfo =
-              (project &&
-                member.projectRoles?.find((r) => r.project === project)) ||
-              member;
+            const rows = memberRuleRows(member, getProjectById, organization, {
+              project,
+            });
             return (
               <TableRow key={member.id}>
                 <TableCell>{member.name}</TableCell>
@@ -109,29 +113,11 @@ const PendingMemberList: FC<{
                   {member.dateCreated && date(member.dateCreated)}
                 </TableCell>
                 <TableCell>
-                  <RoleRuleLines scope={roleInfo} organization={organization} />
+                  <CollapsedRuleRows rows={rows.roles} />
                 </TableCell>
                 {!project && (
                   <TableCell>
-                    {/* @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'. */}
-                    {member.projectRoles.map((pr) => {
-                      const p = projects.find((p) => p.id === pr.project);
-                      if (p?.name) {
-                        return (
-                          <div key={`project-tags-${p.id}`}>
-                            <ProjectBadges
-                              resourceType="member"
-                              projectIds={[p.id]}
-                            />
-                            <RoleRuleLines
-                              scope={pr}
-                              organization={organization}
-                            />
-                          </div>
-                        );
-                      }
-                      return null;
-                    })}
+                    <CollapsedRuleRows rows={rows.projectRoles} />
                   </TableCell>
                 )}
                 <TableCell>

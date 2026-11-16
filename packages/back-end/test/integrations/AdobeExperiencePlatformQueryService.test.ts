@@ -1,6 +1,6 @@
 import { AdobeExperiencePlatformQueryServiceConnectionParams } from "shared/types/integrations/adobe-experience-platform-query-service";
+import { adobeExperiencePlatformQueryServiceDialect } from "shared/dialects";
 import { toPostgresConnectionParams } from "back-end/src/integrations/AdobeExperiencePlatformQueryService";
-import { adobeExperiencePlatformQueryServiceDialect } from "back-end/src/integrations/dialects/adobeExperiencePlatformQueryService";
 
 const baseParams: AdobeExperiencePlatformQueryServiceConnectionParams = {
   host: "acme.platform.adobe.io",

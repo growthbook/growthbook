@@ -16,7 +16,7 @@ Both are default exports.
 
 ### `HelperText` — field-level
 
-`status` is **required** and takes exactly six values: `"wizard" | "info" | "warning" | "error" | "success" | "attention"`. There is no `variant` prop.
+`status` is **required** and takes exactly seven values: `"wizard" | "info" | "warning" | "error" | "success" | "attention" | "neutral"`. There is no `variant` prop.
 
 ```tsx
 <HelperText status="error" size="sm">
@@ -30,7 +30,7 @@ Several form primitives already render `HelperText` for you from an `error` prop
 
 ### `Callout` — section-level
 
-`status` is **required** and uses the same six values. `Callout` has no `color` and no `variant` prop — the color comes from the status.
+`status` is **required** and uses the same seven values. `Callout` has no `color` and no `variant` prop — the color comes from the status.
 
 ```tsx
 <Callout
@@ -68,7 +68,7 @@ The design system already handles this, and it does **not** work through an erro
 
 ### `@/ui/ConfirmDialog`
 
-Its props are exactly `title`, `content?`, `yesText?` (default `"Confirm"`), `noText?` (default `"Cancel"`), `onConfirm`, and `onCancel`. There is **no** `error` prop and **no** `open` prop — `open` is hardcoded `true`, so mounting and unmounting the dialog is the caller's job.
+Its props are exactly `title`, `content?`, `yesText?` (default `"Confirm"`), `noText?` (default `"Cancel"`), `color?` (default `"violet"`; match the control that opened the dialog, so a destructive step stays red), `onConfirm`, `onCancel`, and `onDismiss?` (Escape or a click outside; defaults to `onCancel`). There is **no** `error` prop and **no** `open` prop — `open` is hardcoded `true`, so mounting and unmounting the dialog is the caller's job.
 
 How the error actually surfaces: `ConfirmDialog` holds its own `error` state and passes `setError` into its confirm `<Button setError={setError}>`. `@/ui/Button` catches a rejection from an async `onClick`, hands the message to `setError`, and manages its own loading state. `ConfirmDialog` then renders `<HelperText status="error">{error}</HelperText>` above the footer. The dialog stays mounted throughout.
 

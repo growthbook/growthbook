@@ -4,11 +4,22 @@ import {
   FactMetricInterface,
   FactTableInterface,
 } from "shared/types/fact-table";
-import { ExplorationConfig, ExplorationDataset } from "shared/validators";
 import {
-  getCommonColumns,
+  ExplorationConfig,
+  ExplorationDataset,
+  SqlDataset,
+} from "shared/validators";
+import {
+  applyTimestampColumn,
+  createEmptyFunnelStep,
+  getAvailableDimensionColumns,
   getColumnTopValues,
+  normalizeFunnelStepOrder,
+  normalizeTimelessSqlConfig,
+  resolveSqlPreviewTimestamp,
+  stripExplorerDraftFields,
   validateDimensions,
+  type ExplorerDraftConfig,
 } from "@/enterprise/components/ProductAnalytics/util";
 
 function makeColumn(overrides: Partial<ColumnInterface>): ColumnInterface {
@@ -25,7 +36,7 @@ function makeColumn(overrides: Partial<ColumnInterface>): ColumnInterface {
   };
 }
 
-// getCommonColumns only reads `columns` and `userIdTypes` off the fact table.
+// getAvailableDimensionColumns only reads `columns` and `userIdTypes` off the fact table.
 function makeFactTable(
   columns: ColumnInterface[],
   userIdTypes: string[] = [],
@@ -52,9 +63,11 @@ function factTableDataset(): ExplorationDataset {
 
 const noFactMetric = () => null;
 
-describe("getCommonColumns", () => {
+describe("getAvailableDimensionColumns", () => {
   it("returns empty when dataset is null", () => {
-    expect(getCommonColumns(null, () => null, noFactMetric)).toEqual([]);
+    expect(
+      getAvailableDimensionColumns(null, () => null, noFactMetric),
+    ).toEqual([]);
   });
 
   it("returns empty when the dataset has no values", () => {
@@ -63,7 +76,9 @@ describe("getCommonColumns", () => {
       factTableId: "ft_1",
       values: [],
     };
-    expect(getCommonColumns(dataset, () => null, noFactMetric)).toEqual([]);
+    expect(
+      getAvailableDimensionColumns(dataset, () => null, noFactMetric),
+    ).toEqual([]);
   });
 
   it("includes only top-level string columns, sorted by name", () => {
@@ -75,10 +90,10 @@ describe("getCommonColumns", () => {
     ]);
 
     expect(
-      getCommonColumns(factTableDataset(), () => ft, noFactMetric),
+      getAvailableDimensionColumns(factTableDataset(), () => ft, noFactMetric),
     ).toEqual([
-      { column: "browser", name: "Browser" },
-      { column: "country", name: "Country" },
+      { column: "browser", name: "Browser", datatype: "string" },
+      { column: "country", name: "Country", datatype: "string" },
     ]);
   });
 
@@ -93,8 +108,8 @@ describe("getCommonColumns", () => {
     );
 
     expect(
-      getCommonColumns(factTableDataset(), () => ft, noFactMetric),
-    ).toEqual([{ column: "country", name: "Country" }]);
+      getAvailableDimensionColumns(factTableDataset(), () => ft, noFactMetric),
+    ).toEqual([{ column: "country", name: "Country", datatype: "string" }]);
   });
 
   it("expands string JSON fields into dot-notation columns", () => {
@@ -113,11 +128,11 @@ describe("getCommonColumns", () => {
     ]);
 
     expect(
-      getCommonColumns(factTableDataset(), () => ft, noFactMetric),
+      getAvailableDimensionColumns(factTableDataset(), () => ft, noFactMetric),
     ).toEqual([
-      { column: "country", name: "Country" },
-      { column: "props.city", name: "Props.city" },
-      { column: "props.plan", name: "Props.plan" },
+      { column: "country", name: "Country", datatype: "string" },
+      { column: "props.city", name: "Props.city", datatype: "string" },
+      { column: "props.plan", name: "Props.plan", datatype: "string" },
     ]);
   });
 
@@ -134,8 +149,8 @@ describe("getCommonColumns", () => {
     ]);
 
     expect(
-      getCommonColumns(factTableDataset(), () => ft, noFactMetric),
-    ).toEqual([{ column: "country", name: "Country" }]);
+      getAvailableDimensionColumns(factTableDataset(), () => ft, noFactMetric),
+    ).toEqual([{ column: "country", name: "Country", datatype: "string" }]);
   });
 
   it("falls back to the column id when a JSON column has no name", () => {
@@ -149,8 +164,10 @@ describe("getCommonColumns", () => {
     ]);
 
     expect(
-      getCommonColumns(factTableDataset(), () => ft, noFactMetric),
-    ).toEqual([{ column: "props.plan", name: "props.plan" }]);
+      getAvailableDimensionColumns(factTableDataset(), () => ft, noFactMetric),
+    ).toEqual([
+      { column: "props.plan", name: "props.plan", datatype: "string" },
+    ]);
   });
 
   it("maps data_source columnTypes to string columns", () => {
@@ -176,8 +193,45 @@ describe("getCommonColumns", () => {
       ],
     };
 
-    expect(getCommonColumns(dataset, () => null, noFactMetric)).toEqual([
-      { column: "country", name: "country" },
+    expect(
+      getAvailableDimensionColumns(dataset, () => null, noFactMetric),
+    ).toEqual([{ column: "country", name: "country", datatype: "string" }]);
+  });
+
+  it("offers every scalar column of a sql dataset, but not `other`", () => {
+    const dataset: ExplorationDataset = {
+      type: "sql",
+      sql: "SELECT ...",
+      timestampColumn: "month",
+      columnTypes: {
+        month: "date",
+        plan: "string",
+        installs: "number",
+        active: "boolean",
+        // Catch-all for unidentified types — arrays and structs land here, and
+        // warehouses reject casting those to string.
+        countries: "other",
+      },
+      hiddenColumns: [],
+      values: [
+        {
+          type: "sql",
+          name: "installs",
+          rowFilters: [],
+          valueType: "sum",
+          valueColumn: "installs",
+          unit: null,
+        },
+      ],
+    };
+
+    expect(
+      getAvailableDimensionColumns(dataset, () => null, noFactMetric),
+    ).toEqual([
+      { column: "active", name: "active", datatype: "boolean" },
+      { column: "installs", name: "installs", datatype: "number" },
+      { column: "month", name: "month", datatype: "date" },
+      { column: "plan", name: "plan", datatype: "string" },
     ]);
   });
 
@@ -221,8 +275,12 @@ describe("getCommonColumns", () => {
       }) as FactMetricInterface;
 
     expect(
-      getCommonColumns(dataset, getFactTableById, getFactMetricById),
-    ).toEqual([{ column: "country", name: "Country" }]);
+      getAvailableDimensionColumns(
+        dataset,
+        getFactTableById,
+        getFactMetricById,
+      ),
+    ).toEqual([{ column: "country", name: "Country", datatype: "string" }]);
   });
 
   it("excludes columns a ratio metric's denominator table can't resolve", () => {
@@ -261,8 +319,12 @@ describe("getCommonColumns", () => {
       }) as FactMetricInterface;
 
     expect(
-      getCommonColumns(dataset, getFactTableById, getFactMetricById),
-    ).toEqual([{ column: "country", name: "Country" }]);
+      getAvailableDimensionColumns(
+        dataset,
+        getFactTableById,
+        getFactMetricById,
+      ),
+    ).toEqual([{ column: "country", name: "Country", datatype: "string" }]);
   });
 });
 
@@ -357,6 +419,50 @@ describe("getColumnTopValues", () => {
       ).sort(),
     ).toEqual(["CA", "MX", "US"]);
   });
+
+  it("includes top values from a ratio metric's denominator fact table, not just the numerator", () => {
+    const dataset: ExplorationDataset = {
+      type: "metric",
+      values: [
+        {
+          type: "metric",
+          name: "a",
+          rowFilters: [],
+          metricId: "met_a",
+          unit: null,
+          denominatorUnit: null,
+        },
+      ],
+    };
+
+    const numeratorFt = makeFactTable([
+      makeColumn({ column: "country", topValues: ["US"] }),
+    ]);
+    const denominatorFt = makeFactTable([
+      makeColumn({ column: "country", topValues: ["CA"] }),
+    ]);
+
+    const getFactTableById = (id: string) =>
+      id === "ft_numerator"
+        ? numeratorFt
+        : id === "ft_denominator"
+          ? denominatorFt
+          : null;
+    const getFactMetricById = () =>
+      ({
+        numerator: { factTableId: "ft_numerator" },
+        denominator: { factTableId: "ft_denominator" },
+      }) as FactMetricInterface;
+
+    expect(
+      getColumnTopValues(
+        dataset,
+        "country",
+        getFactTableById,
+        getFactMetricById,
+      ).sort(),
+    ).toEqual(["CA", "US"]);
+  });
 });
 
 describe("validateDimensions", () => {
@@ -433,5 +539,291 @@ describe("validateDimensions", () => {
     expect(
       validateDimensions(config, () => ft, noFactMetric).dimensions,
     ).toEqual([]);
+  });
+
+  it("keeps dimensions when the fact table can't be resolved at all", () => {
+    const config = makeConfig([
+      { dimensionType: "static", column: "country", values: ["US"] },
+    ]);
+
+    expect(
+      validateDimensions(config, () => null, noFactMetric).dimensions,
+    ).toEqual(config.dimensions);
+  });
+
+  it("keeps dimensions on a sql dataset with no known columnTypes", () => {
+    const config: ExplorationConfig = {
+      ...makeConfig([
+        { dimensionType: "dynamic", column: "country", maxValues: 5 },
+      ]),
+      type: "sql",
+      dataset: {
+        type: "sql",
+        sql: "SELECT * FROM events",
+        timestampColumn: null,
+        columnTypes: {},
+        values: [
+          {
+            type: "sql",
+            name: "value",
+            rowFilters: [],
+            valueType: "count",
+            valueColumn: null,
+            unit: null,
+          },
+        ],
+      },
+    };
+
+    expect(
+      validateDimensions(config, () => null, noFactMetric).dimensions,
+    ).toEqual(config.dimensions);
+  });
+});
+
+describe("applyTimestampColumn", () => {
+  function sqlDraft(
+    overrides: Omit<Partial<ExplorerDraftConfig>, "dataset"> & {
+      dataset?: Partial<SqlDataset>;
+    } = {},
+  ): ExplorerDraftConfig {
+    return {
+      type: "sql",
+      datasource: "ds_1",
+      chartType: "line",
+      dateRange: {
+        predefined: "last7Days",
+        startDate: null,
+        endDate: null,
+        lookbackValue: null,
+        lookbackUnit: null,
+      },
+      dimensions: [
+        {
+          dimensionType: "date",
+          column: "date",
+          dateGranularity: "auto",
+        },
+      ],
+      ...overrides,
+      dataset: {
+        type: "sql",
+        sql: "SELECT 1",
+        timestampColumn: "created_at",
+        columnTypes: { created_at: "date" },
+        values: [],
+        ...(overrides.dataset ?? {}),
+      },
+    } as ExplorerDraftConfig;
+  }
+
+  it("defaults bar/table to a line chart and adds a date dimension when a timestamp appears", () => {
+    const config = sqlDraft({
+      chartType: "bar",
+      dimensions: [],
+      dataset: { timestampColumn: null },
+    });
+    const next = applyTimestampColumn(config, "created_at");
+    expect(next.chartType).toBe("line");
+    expect(next.dimensions[0]).toEqual({
+      dimensionType: "date",
+      column: "date",
+      dateGranularity: "auto",
+    });
+    expect(
+      next.dataset.type === "sql" ? next.dataset.timestampColumn : null,
+    ).toBe("created_at");
+  });
+
+  it("resets a line chart, date dimension, and comparison window when the timestamp is cleared", () => {
+    const config = sqlDraft({
+      previousTimeFrame: {
+        predefined: "last7Days",
+        startDate: null,
+        endDate: null,
+        lookbackValue: null,
+        lookbackUnit: null,
+      },
+      comparisonMode: "previousPeriod",
+    });
+    const next = applyTimestampColumn(config, null);
+    expect(next.chartType).toBe("bar");
+    expect(next.dimensions).toEqual([]);
+    expect(next.previousTimeFrame).toBeUndefined();
+    expect(next.comparisonMode).toBeUndefined();
+    expect(
+      next.dataset.type === "sql" ? next.dataset.timestampColumn : null,
+    ).toBe(null);
+  });
+
+  it("returns the same reference when a timeless config is already clean", () => {
+    const config = sqlDraft({
+      chartType: "bar",
+      dimensions: [],
+      dataset: { timestampColumn: null },
+    });
+    expect(normalizeTimelessSqlConfig(config)).toBe(config);
+  });
+});
+
+describe("resolveSqlPreviewTimestamp", () => {
+  it("keeps a still-valid manual timestamp pick", () => {
+    expect(
+      resolveSqlPreviewTimestamp({
+        previousTimestamp: "event_at",
+        previousColumnTypes: { event_at: "date", created_at: "date" },
+        columnTypes: { event_at: "date", created_at: "date" },
+        inferredTimestamp: "created_at",
+      }),
+    ).toBe("event_at");
+  });
+
+  it("infers a timestamp when date columns newly appear", () => {
+    expect(
+      resolveSqlPreviewTimestamp({
+        previousTimestamp: null,
+        previousColumnTypes: { event_name: "string" },
+        columnTypes: { event_name: "string", created_at: "date" },
+        inferredTimestamp: "created_at",
+      }),
+    ).toBe("created_at");
+  });
+
+  it("clears the timestamp when the new results have no date columns", () => {
+    expect(
+      resolveSqlPreviewTimestamp({
+        previousTimestamp: "created_at",
+        previousColumnTypes: { created_at: "date" },
+        columnTypes: { event_name: "string" },
+        inferredTimestamp: null,
+      }),
+    ).toBe(null);
+  });
+
+  it("preserves explicit None while date columns still exist", () => {
+    expect(
+      resolveSqlPreviewTimestamp({
+        previousTimestamp: null,
+        previousColumnTypes: { created_at: "date" },
+        columnTypes: { created_at: "date", event_at: "date" },
+        inferredTimestamp: "created_at",
+      }),
+    ).toBe(null);
+  });
+});
+
+describe("normalizeFunnelStepOrder", () => {
+  const step = (name: string) => createEmptyFunnelStep({ name });
+
+  it("renumbers default names by position and keeps custom names", () => {
+    // Inserted after step 1: [Step 1, new "Step 2", old "Step 2", custom]
+    const result = normalizeFunnelStepOrder([
+      step("Step 1"),
+      step("Step 2"),
+      step("Step 2"),
+      step("Checkout"),
+    ]);
+    expect(result.map((s) => s.name)).toEqual([
+      "Step 1",
+      "Step 2",
+      "Step 3",
+      "Checkout",
+    ]);
+  });
+
+  it("clears optional and conversion window on the first step only", () => {
+    const later = {
+      ...step("b"),
+      optional: true,
+      conversionWindow: { unit: "days" as const, value: 2 },
+    };
+    const result = normalizeFunnelStepOrder([{ ...later, name: "a" }, later]);
+    expect(result[0]).toMatchObject({
+      name: "a",
+      optional: false,
+      conversionWindow: null,
+    });
+    expect(result[1]).toBe(later);
+  });
+
+  it("keeps step objects when nothing changes", () => {
+    const steps = [step("Step 1"), step("Checkout")];
+    const result = normalizeFunnelStepOrder(steps);
+    expect(result[0]).toBe(steps[0]);
+    expect(result[1]).toBe(steps[1]);
+    expect(normalizeFunnelStepOrder([])).toEqual([]);
+  });
+});
+
+describe("stripExplorerDraftFields", () => {
+  function lineDraft(
+    chartSettings?: ExplorerDraftConfig["chartSettings"],
+  ): ExplorerDraftConfig {
+    return {
+      type: "sql",
+      datasource: "ds_1",
+      chartType: "line",
+      dateRange: {
+        predefined: "last7Days",
+        startDate: null,
+        endDate: null,
+        lookbackValue: null,
+        lookbackUnit: null,
+      },
+      dimensions: [
+        { dimensionType: "date", column: "date", dateGranularity: "auto" },
+      ],
+      dataset: {
+        type: "sql",
+        sql: "SELECT 1",
+        timestampColumn: "created_at",
+        columnTypes: { created_at: "date" },
+        values: [],
+      },
+      ...(chartSettings ? { chartSettings } : {}),
+    } as ExplorerDraftConfig;
+  }
+
+  it("keeps anchorYAxisToZero when it is turned off", () => {
+    expect(
+      stripExplorerDraftFields(lineDraft({ anchorYAxisToZero: false }))
+        .chartSettings,
+    ).toEqual({ anchorYAxisToZero: false });
+  });
+
+  it("drops anchorYAxisToZero when it is the default (true)", () => {
+    expect(
+      stripExplorerDraftFields(lineDraft({ anchorYAxisToZero: true })),
+    ).not.toHaveProperty("chartSettings");
+  });
+
+  it("leaves chartSettings absent when nothing is set", () => {
+    expect(stripExplorerDraftFields(lineDraft())).not.toHaveProperty(
+      "chartSettings",
+    );
+  });
+
+  it("keeps custom axis labels alongside an unanchored axis", () => {
+    expect(
+      stripExplorerDraftFields(
+        lineDraft({
+          categoryAxisLabel: " Day ",
+          valueAxisLabel: "",
+          anchorYAxisToZero: false,
+        }),
+      ).chartSettings,
+    ).toEqual({
+      categoryAxisLabel: "Day",
+      valueAxisLabel: "",
+      anchorYAxisToZero: false,
+    });
+  });
+
+  it("keeps custom axis labels but drops a default anchorYAxisToZero", () => {
+    expect(
+      stripExplorerDraftFields(
+        lineDraft({ valueAxisLabel: "Revenue", anchorYAxisToZero: true }),
+      ).chartSettings,
+    ).toEqual({ valueAxisLabel: "Revenue" });
   });
 });

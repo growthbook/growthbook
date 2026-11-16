@@ -1,6 +1,7 @@
 import { DetailedHTMLProps, FC, HTMLAttributes, useMemo } from "react";
+import Link from "next/link";
 import clsx from "clsx";
-import ReactMarkdown from "react-markdown";
+import ReactMarkdown, { Options } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import AuthorizedImage from "@/components/AuthorizedImage";
 import MarkdownCodeBlock from "@/components/SyntaxHighlighting/MarkdownCodeBlock";
@@ -8,26 +9,33 @@ import styles from "./Markdown.module.scss";
 
 const imageCache = {};
 
+// An indented line reads as it would without the indent, never as code: the
+// rich text editor writes a nested list item that way.
+const noIndentedCode: NonNullable<Options["remarkPlugins"]>[number] =
+  function () {
+    // Where remark-parse, whose types aren't a dependency here, reads its
+    // micromark extensions from.
+    const data = this.data() as { micromarkExtensions?: unknown[] };
+    (data.micromarkExtensions ??= []).push({
+      disable: { null: ["codeIndented"] },
+    });
+  };
+
 interface MarkdownProps
   extends DetailedHTMLProps<HTMLAttributes<HTMLDivElement>, HTMLDivElement> {
   isPublic?: boolean;
   shareUid?: string;
   shareType?: "experiment" | "report";
   /**
-   * When provided, relative (same-origin) links are handled by this callback
-   * instead of opening in a new tab — e.g. to navigate in-app via the router.
-   * External links (with a protocol) still open in a new tab.
+   * Recognizes and rewrites hrefs for SPA navigation.
+   * Return a root-relative href to render with Next.js Link, or null to leave
+   * the link external.
    */
-  onInternalLinkClick?: (href: string) => void;
+  resolveInternalHref?: (href: string) => string | null;
   // Opt-in: syntax-highlight fenced code blocks (lazy-loaded Prism). Enabled
   // on the review surfaces (revision descriptions / comments); other markdown
   // surfaces keep plain code blocks.
   highlightCode?: boolean;
-}
-
-/** A relative, same-origin path like `/features/foo` — not protocol-relative. */
-function isInternalHref(href: string): boolean {
-  return href.startsWith("/") && !href.startsWith("//");
 }
 
 const Markdown: FC<MarkdownProps> = ({
@@ -36,7 +44,7 @@ const Markdown: FC<MarkdownProps> = ({
   isPublic = false,
   shareUid,
   shareType = "experiment",
-  onInternalLinkClick,
+  resolveInternalHref,
   highlightCode = false,
   ...props
 }) => {
@@ -51,24 +59,11 @@ const Markdown: FC<MarkdownProps> = ({
 
   const components = useMemo(
     () => ({
-      // Internal (relative) links navigate in-app when a handler is given;
-      // everything else opens in a new tab.
       a: ({ ...props }) => {
         const href = props.href ?? "";
-        if (onInternalLinkClick && isInternalHref(href)) {
-          return (
-            <a
-              href={href}
-              onClick={(e) => {
-                // Let modifier-clicks (cmd/ctrl/middle) open a new tab as usual.
-                if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
-                e.preventDefault();
-                onInternalLinkClick(href);
-              }}
-            >
-              {props.children}
-            </a>
-          );
+        const internalHref = resolveInternalHref?.(href) ?? null;
+        if (internalHref !== null) {
+          return <Link href={internalHref}>{props.children}</Link>;
         }
         return (
           <a href={href} target="_blank" rel="noreferrer">
@@ -93,13 +88,13 @@ const Markdown: FC<MarkdownProps> = ({
           }
         : {}),
     }),
-    [isPublic, shareUid, shareType, onInternalLinkClick, highlightCode],
+    [isPublic, shareUid, shareType, resolveInternalHref, highlightCode],
   );
 
   return (
     <div {...props} className={clsx(className, styles.markdown)}>
       <ReactMarkdown
-        remarkPlugins={[remarkGfm]}
+        remarkPlugins={[remarkGfm, noIndentedCode]}
         urlTransform={(url) => {
           // even though we're on 9.0.0, the URL sanitization in our version is
           // messing up & in urls. This code come from the latest version of react-markdown

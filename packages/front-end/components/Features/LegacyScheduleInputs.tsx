@@ -1,5 +1,4 @@
 import { ScheduleRule } from "shared/types/feature";
-import { format as formatTimeZone } from "date-fns-tz";
 import React, { useEffect, useState } from "react";
 import { getValidDate } from "shared/dates";
 import { useUser } from "@/services/UserContext";
@@ -108,10 +107,8 @@ export default function ScheduleInputs(props: Props) {
                       : undefined
                   }
                   containerClassName=""
+                  timeZone="local"
                 />
-                <span className="pl-2">
-                  ({formatTimeZone(new Date(), "z")})
-                </span>
               </div>
             </>
           )}
@@ -170,10 +167,8 @@ export default function ScheduleInputs(props: Props) {
                       : undefined
                   }
                   containerClassName=""
+                  timeZone="local"
                 />
-                <span className="pl-2">
-                  ({formatTimeZone(new Date(), "z")})
-                </span>
               </div>
             </>
           )}

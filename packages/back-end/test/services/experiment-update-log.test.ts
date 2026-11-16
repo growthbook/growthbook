@@ -1,4 +1,8 @@
-import { ExperimentUpdateExecutionLogger } from "back-end/src/services/experimentUpdateExecutionLogger";
+import {
+  ExperimentUpdateExecutionLogger,
+  logExperimentUpdated,
+} from "back-end/src/services/experimentUpdateExecutionLogger";
+import { snapshotFactory } from "back-end/test/factories/Snapshot.factory";
 
 describe("ExperimentUpdateExecutionLogger", () => {
   beforeEach(() => {
@@ -20,11 +24,35 @@ describe("ExperimentUpdateExecutionLogger", () => {
   };
 
   const meta = {
-    experimentId: "exp_1",
-    snapshotId: "snap_1",
-    snapshotType: "standard" as const,
-    triggeredBy: "schedule" as const,
-    datasource: { id: "ds_1", type: "bigquery" } as const,
+    datasource: { id: "ds_1", type: "bigquery" } as never,
+  };
+
+  const snapshot = (
+    overrides: Parameters<typeof snapshotFactory.build>[0] = {},
+  ) =>
+    snapshotFactory.build({
+      id: "snap_1",
+      experiment: "exp_1",
+      type: "standard",
+      triggeredBy: "schedule",
+      status: "success",
+      dateCreated: new Date(-5_000),
+      ...overrides,
+    });
+
+  const logLine = (
+    args: Omit<Parameters<typeof logExperimentUpdated>[1], "snapshot"> & {
+      snapshot?: ReturnType<typeof snapshot>;
+    },
+  ) => {
+    const info = jest.fn();
+    logExperimentUpdated({ logger: { info } } as never, {
+      snapshot: args.snapshot ?? snapshot(),
+      ...args,
+    });
+    expect(info).toHaveBeenCalledTimes(1);
+    expect(info.mock.calls[0][1]).toBe("Experiment update completed");
+    return info.mock.calls[0][0];
   };
 
   it("accumulates phase timings via withTiming and boundary marks", async () => {
@@ -48,6 +76,23 @@ describe("ExperimentUpdateExecutionLogger", () => {
       total: expect.any(Number),
     });
     expect(logger.getTimings().generateSql).toBe(10);
+  });
+
+  it("reports phases that never started as null", async () => {
+    const logger = new ExperimentUpdateExecutionLogger(plan, meta);
+    await logger.withTiming("analyze", async () => {
+      jest.advanceTimersByTime(10);
+    });
+    logger.endPhase("runQueries");
+
+    expect(logger.completedTimings()).toEqual({
+      generateSql: null,
+      runQueries: null,
+      analyze: 10,
+      persistSnapshot: null,
+      propagateSnapshot: null,
+      total: 10,
+    });
   });
 
   it("records phase timings via startPhase and endPhase", async () => {
@@ -99,42 +144,22 @@ describe("ExperimentUpdateExecutionLogger", () => {
     expect(logger.getTimings().total).toBe(timingsAfterFreeze.total);
   });
 
-  it("freezes total when logUpdateCompleted runs without propagateSnapshot", async () => {
+  it("freezes total when the line is logged without propagateSnapshot", async () => {
     const logger = new ExperimentUpdateExecutionLogger(plan, meta);
     await logger.withTiming("persistSnapshot", async () => {
       jest.advanceTimersByTime(10);
     });
 
-    const info = jest.fn();
-    logger.logUpdateCompleted({ logger: { info } } as never, {
+    logLine({
       snapshotStatus: "error",
-      error: "query failed",
+      conclusion: { concludedBy: "runner" },
+      executionLogger: logger,
     });
 
     const totalAfterLog = logger.getTimings().total;
     expect(totalAfterLog).toBe(10);
     jest.advanceTimersByTime(10);
     expect(logger.getTimings().total).toBe(totalAfterLog);
-  });
-
-  it("logs only once on terminal snapshot status", () => {
-    const logger = new ExperimentUpdateExecutionLogger(plan, meta);
-    const info = jest.fn();
-    const context = { logger: { info } } as const;
-
-    logger.logUpdateCompleted(context, { snapshotStatus: "running" });
-    logger.logUpdateCompleted(context, { snapshotStatus: "success" });
-    logger.logUpdateCompleted(context, { snapshotStatus: "success" });
-
-    expect(info).toHaveBeenCalledTimes(1);
-    expect(info.mock.calls[0][0]).toMatchObject({
-      event: "experiment_updated",
-      snapshotStatus: "success",
-      timingsMs: expect.objectContaining({
-        generateSql: 0,
-        analyze: 0,
-      }),
-    });
   });
 
   it("emits structured fields including plan metadata and execution mode", () => {
@@ -146,51 +171,79 @@ describe("ExperimentUpdateExecutionLogger", () => {
         fullRefresh: false,
         fullRefreshReason: null,
       },
-      {
-        ...meta,
-        snapshotType: "exploratory",
-        triggeredBy: "manual",
-      },
+      meta,
     );
     logger.execution.incrementalRefreshMode = "incremental";
-    const info = jest.fn();
 
-    logger.logUpdateCompleted({ logger: { info } } as never, {
-      snapshotStatus: "error",
-      error: "Failed to run queries",
-    });
-
-    expect(info).toHaveBeenCalledWith(
-      expect.objectContaining({
-        event: "experiment_updated",
-        experimentId: "exp_1",
-        snapshotId: "snap_1",
-        snapshotType: "exploratory",
-        triggeredBy: "manual",
+    expect(
+      logLine({
+        snapshot: snapshot({
+          type: "exploratory",
+          triggeredBy: "manual",
+          status: "error",
+          error: "Failed to run queries",
+        }),
         snapshotStatus: "error",
-        error: "Failed to run queries",
-        runnerKind: "results",
-        incrementalFallbackReason: "metric not compatible",
-        plannedFullRefresh: false,
-        fullRefreshReason: null,
-        incrementalRefreshMode: "incremental",
-        covariateSources: null,
-        timingsMs: expect.any(Object),
+        conclusion: { concludedBy: "runner" },
+        executionLogger: logger,
       }),
-      "Experiment update completed",
-    );
+    ).toEqual({
+      event: "experiment_updated",
+      organization: "org_1",
+      experimentId: "exp_1",
+      snapshotId: "snap_1",
+      snapshotType: "exploratory",
+      triggeredBy: "manual",
+      snapshotStatus: "error",
+      concludedBy: "runner",
+      reason: null,
+      error: "Failed to run queries",
+      datasourceId: "ds_1",
+      datasourceType: "bigquery",
+      runnerKind: "results",
+      incrementalFallbackReason: "metric not compatible",
+      plannedFullRefresh: false,
+      fullRefreshReason: null,
+      incrementalRefreshMode: "incremental",
+      covariateSources: null,
+      timingsMs: {
+        generateSql: null,
+        runQueries: null,
+        analyze: null,
+        persistSnapshot: null,
+        propagateSnapshot: null,
+        total: 0,
+        snapshotAge: 5_000,
+      },
+    });
   });
 
-  it("emits null covariateSources when none are recorded", () => {
-    const logger = new ExperimentUpdateExecutionLogger(plan, meta);
-    const info = jest.fn();
-
-    logger.logUpdateCompleted({ logger: { info } } as never, {
-      snapshotStatus: "success",
-    });
-
-    expect(info.mock.calls[0][0]).toMatchObject({
-      covariateSources: null,
+  it("logs the reaper's reason with only the snapshot age when nothing timed the run", () => {
+    expect(
+      logLine({
+        snapshot: snapshot({
+          status: "error",
+          runnerKind: "incremental-update",
+        }),
+        snapshotStatus: "error",
+        conclusion: { concludedBy: "reaper", reason: "orphaned" },
+        executionLogger: null,
+      }),
+    ).toMatchObject({
+      concludedBy: "reaper",
+      reason: "orphaned",
+      datasourceType: null,
+      runnerKind: "incremental-update",
+      plannedFullRefresh: null,
+      timingsMs: {
+        generateSql: null,
+        runQueries: null,
+        analyze: null,
+        persistSnapshot: null,
+        propagateSnapshot: null,
+        total: null,
+        snapshotAge: 5_000,
+      },
     });
   });
 
@@ -210,13 +263,14 @@ describe("ExperimentUpdateExecutionLogger", () => {
       aggregatedTableFullName: null,
       reason: "window-not-covered",
     });
-    const info = jest.fn();
 
-    logger.logUpdateCompleted({ logger: { info } } as never, {
-      snapshotStatus: "success",
-    });
-
-    expect(info.mock.calls[0][0]).toMatchObject({
+    expect(
+      logLine({
+        snapshotStatus: "success",
+        conclusion: { concludedBy: "runner" },
+        executionLogger: logger,
+      }),
+    ).toMatchObject({
       covariateSources: [
         {
           groupId: "grp_1",

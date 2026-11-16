@@ -25,7 +25,6 @@ type SlackIntegrationAddEditModalProps = {
   tagOptions: TagInterface[];
   isOpen: boolean;
   onClose: () => void;
-  onCreate: (data: SlackIntegrationEditParams) => void;
   onUpdate: (id: string, data: SlackIntegrationEditParams) => void;
   mode: SlackIntegrationModalMode;
   error: string | null;
@@ -41,41 +40,17 @@ export const SlackIntegrationAddEditModal: FC<
   mode,
   error,
   onClose,
-  onCreate,
   onUpdate,
 }) => {
   const [ctaEnabled, setCtaEnabled] = useState(false);
 
   const form = useForm<SlackIntegrationEditParams>({
-    defaultValues:
-      mode.mode === "edit"
-        ? mode.data
-        : {
-            name: "",
-            events: [],
-            description: "",
-            slackAppId: "",
-            environments: [],
-            projects: [],
-            slackSigningKey: "",
-            slackIncomingWebHook: "",
-            tags: [],
-          },
+    defaultValues: mode.data,
   });
 
   const handleSubmit = form.handleSubmit(async (values) => {
-    if (mode.mode === "edit") {
-      onUpdate(mode.id, values);
-    } else {
-      onCreate(values);
-    }
+    onUpdate(mode.id, values);
   });
-
-  const modalTitle =
-    mode.mode == "edit"
-      ? "Edit Slack integration"
-      : "Create a new Slack integration";
-  const buttonText = mode.mode == "edit" ? "Save" : "Create";
 
   const handleFormValidation = useCallback(() => {
     const formValues = form.getValues();
@@ -110,10 +85,9 @@ export const SlackIntegrationAddEditModal: FC<
 
   return (
     <Modal
-      useRadixButton={false}
       trackingEventModalType=""
-      header={modalTitle}
-      cta={buttonText}
+      header="Edit Slack integration"
+      cta="Save"
       close={onClose}
       open={isOpen}
       autoCloseOnSubmit={false}

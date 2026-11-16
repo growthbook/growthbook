@@ -4,12 +4,15 @@ import { getAllExperiments } from "back-end/src/models/ExperimentModel";
 import { getLatestSnapshotMultipleExperiments } from "back-end/src/models/ExperimentSnapshotModel";
 import {
   getExperimentMetricsByIds,
+  getHealthSettingsForOrg,
   toSnapshotApiInterface,
 } from "back-end/src/services/experiments";
 import {
   applyPagination,
   createApiRequestHandler,
 } from "back-end/src/util/handler";
+import { getExposureQueriesForDatasource } from "back-end/src/services/assignmentQuerySelection";
+import { toApiResultHealth } from "./resultHealth";
 
 export const listExperimentResults = createApiRequestHandler(
   listExperimentResultsValidator,
@@ -61,6 +64,16 @@ export const listExperimentResults = createApiRequestHandler(
   const snapshotsByExperiment = new Map(
     snapshots.map((snapshot) => [snapshot.experiment, snapshot]),
   );
+  const exposureQueriesByDatasource = new Map(
+    await Promise.all(
+      [...new Set(filtered.map((e) => e.datasource))].map(
+        async (id) =>
+          [id, await getExposureQueriesForDatasource(req.context, id)] as const,
+      ),
+    ),
+  );
+
+  const healthSettings = getHealthSettingsForOrg(req.context);
 
   // Preserve the experiment ordering from getAllExperiments and drop
   // experiments without a completed snapshot. `count` is overridden below so it
@@ -68,7 +81,17 @@ export const listExperimentResults = createApiRequestHandler(
   const experimentResults = filtered.flatMap((experiment) => {
     const snapshot = snapshotsByExperiment.get(experiment.id);
     return snapshot
-      ? [toSnapshotApiInterface(experiment, snapshot, metricsById)]
+      ? [
+          {
+            ...toSnapshotApiInterface(
+              experiment,
+              snapshot,
+              metricsById,
+              exposureQueriesByDatasource.get(experiment.datasource) ?? [],
+            ),
+            health: toApiResultHealth({ experiment, snapshot, healthSettings }),
+          },
+        ]
       : [];
   });
 

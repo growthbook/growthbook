@@ -1,6 +1,10 @@
 import { z } from "zod";
 import { statsEngines, MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import { MAX_HOLDOUT_SIZE, holdoutStage } from "../util/holdouts";
+import {
+  apiAssignmentQueryInputFields,
+  apiAssignmentQueryResponseFields,
+} from "./assignment-query-field";
 import { apiBaseSchema } from "./base-model";
 import { featureEnvironment } from "./features";
 import { namedSchema } from "./openapi-helpers";
@@ -11,6 +15,11 @@ import {
   ownerInputField,
 } from "./owner-field";
 import { booleanQueryField, savedGroupTargeting } from "./shared";
+import {
+  GENERIC_NAME_DESCRIPTION,
+  MARKDOWN_DESCRIPTION,
+  TAGS_DESCRIPTION,
+} from "./api-field-descriptions";
 
 export const holdoutLinkedItemValidator = z.object({
   dateAdded: z.date(),
@@ -31,6 +40,20 @@ const nextScheduledStatusUpdateValidator = z.object({
 export type HoldoutNextScheduledStatusUpdate = z.infer<
   typeof nextScheduledStatusUpdateValidator
 >;
+
+// An entry the holdout lists whose experiment or Feature Flag doesn't point
+// back: deleted, or moved off it without the holdout's side catching up.
+export const holdoutMissingLinkValidator = z.object({
+  id: z.string(),
+  // Null once it's deleted.
+  name: z.string().nullable(),
+  problem: z.enum(["deleted", "unlinked"]),
+});
+export type HoldoutMissingLink = z.infer<typeof holdoutMissingLinkValidator>;
+export type HoldoutMissingLinkage = {
+  experiments: HoldoutMissingLink[];
+  features: HoldoutMissingLink[];
+};
 
 export const holdoutValidator = z
   .object({
@@ -119,6 +142,7 @@ export const createHoldoutInputValidator = z.object({
 
   datasourceId: z.string().optional(),
   assignmentQueryId: z.string().optional(),
+  assignmentQueryIdentifierType: z.string().optional(),
   goalMetrics: z.array(z.string()).optional(),
   secondaryMetrics: z.array(z.string()).optional(),
 
@@ -238,7 +262,7 @@ export const apiHoldoutValidator = namedSchema(
 
     // Analysis settings
     datasourceId: z.string(),
-    assignmentQueryId: z.string(),
+    ...apiAssignmentQueryResponseFields("assignmentQuery"),
     goalMetrics: z.array(z.string()),
     secondaryMetrics: z.array(z.string()),
     statsEngine: z
@@ -299,8 +323,15 @@ export const apiListHoldoutsValidator = {
 };
 
 export const apiCreateHoldoutBody = z.strictObject({
-  name: z.string().min(1, "Holdout name cannot be empty"),
-  description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
+  name: z
+    .string()
+    .min(1, "Holdout name cannot be empty")
+    .describe(GENERIC_NAME_DESCRIPTION),
+  description: z
+    .string()
+    .max(MAX_DESCRIPTION_LENGTH)
+    .describe(MARKDOWN_DESCRIPTION)
+    .optional(),
   projects: z
     .array(z.string())
     .describe(
@@ -308,7 +339,7 @@ export const apiCreateHoldoutBody = z.strictObject({
     )
     .optional(),
   owner: ownerInputField.optional(),
-  tags: z.array(z.string()).optional(),
+  tags: z.array(z.string()).describe(TAGS_DESCRIPTION).optional(),
   skipAsDefaultHoldout: z
     .boolean()
     .describe(
@@ -329,7 +360,7 @@ export const apiCreateHoldoutBody = z.strictObject({
   savedGroupTargeting: z.array(savedGroupTargeting).optional(),
 
   datasourceId: z.string().optional(),
-  assignmentQueryId: z.string().optional(),
+  ...apiAssignmentQueryInputFields("assignmentQuery"),
   goalMetrics: z.array(z.string()).optional(),
   secondaryMetrics: z.array(z.string()).optional(),
   statsEngine: z
@@ -350,11 +381,24 @@ export const apiCreateHoldoutBody = z.strictObject({
 export type ApiCreateHoldoutBody = z.infer<typeof apiCreateHoldoutBody>;
 
 export const apiUpdateHoldoutBody = z.strictObject({
-  name: z.string().min(1, "Holdout name cannot be empty").optional(),
-  description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
-  projects: z.array(z.string()).optional(),
+  name: z
+    .string()
+    .min(1, "Holdout name cannot be empty")
+    .describe(GENERIC_NAME_DESCRIPTION)
+    .optional(),
+  description: z
+    .string()
+    .max(MAX_DESCRIPTION_LENGTH)
+    .describe(MARKDOWN_DESCRIPTION)
+    .optional(),
+  projects: z
+    .array(z.string())
+    .describe(
+      "Project IDs this Holdout applies to. Send an empty array for All Projects.",
+    )
+    .optional(),
   owner: ownerInputField.optional(),
-  tags: z.array(z.string()).optional(),
+  tags: z.array(z.string()).describe(TAGS_DESCRIPTION).optional(),
   archived: z.boolean().optional(),
   skipAsDefaultHoldout: z
     .boolean()
@@ -369,7 +413,7 @@ export const apiUpdateHoldoutBody = z.strictObject({
   savedGroupTargeting: z.array(savedGroupTargeting).optional(),
 
   datasourceId: z.string().optional(),
-  assignmentQueryId: z.string().optional(),
+  ...apiAssignmentQueryInputFields("assignmentQuery"),
   goalMetrics: z.array(z.string()).optional(),
   secondaryMetrics: z.array(z.string()).optional(),
   statsEngine: z

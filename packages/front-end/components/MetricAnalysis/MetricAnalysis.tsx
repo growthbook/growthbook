@@ -342,6 +342,10 @@ const MetricAnalysis: FC<MetricAnalysisProps> = ({
           <Callout status="warning" mt="2" mb="2">
             Standalone metric analysis not yet available for funnel metrics.
           </Callout>
+        ) : factMetric.metricType === "compound" ? (
+          <Callout status="warning" mt="2" mb="2">
+            Standalone metric analysis not yet available for compound metrics.
+          </Callout>
         ) : (
           <>
             <div
@@ -474,9 +478,18 @@ const MetricAnalysis: FC<MetricAnalysisProps> = ({
               ) : null}
               <div className="col-auto">
                 {canRunMetricQuery && (
-                  <form
-                    onSubmit={async (e) => {
-                      e.preventDefault();
+                  <RunQueriesButton
+                    icon="refresh"
+                    cta={"Run Analysis"}
+                    mutate={mutate}
+                    model={
+                      metricAnalysis ?? {
+                        queries: [],
+                        runStarted: new Date(),
+                      }
+                    }
+                    cancelEndpoint={`/metric-analysis/${metricAnalysis?.id}/cancel`}
+                    onSubmit={async () => {
                       setError(null);
                       const data = getMetricAnalysisProps({
                         id: factMetric.id,
@@ -498,22 +511,7 @@ const MetricAnalysis: FC<MetricAnalysisProps> = ({
                         setError(e.message);
                       }
                     }}
-                  >
-                    <RunQueriesButton
-                      useRadixButton={false}
-                      icon="refresh"
-                      cta={"Run Analysis"}
-                      mutate={mutate}
-                      model={
-                        metricAnalysis ?? {
-                          queries: [],
-                          runStarted: new Date(),
-                        }
-                      }
-                      cancelEndpoint={`/metric-analysis/${metricAnalysis?.id}/cancel`}
-                      color="outline-primary"
-                    />
-                  </form>
+                  />
                 )}
               </div>
               <MetricAnalysisMoreMenu

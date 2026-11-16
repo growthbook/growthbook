@@ -8,6 +8,7 @@ import type {
 } from "shared/validators";
 import type { QueryInterface } from "shared/types/query";
 import { formatNumericLikeForDisplay } from "shared/util";
+import { SQL_ROW_LIMIT } from "shared/sql";
 import DisplayTestQueryResults from "@/components/Settings/DisplayTestQueryResults";
 import Text from "@/ui/Text";
 import useExplorationTableData from "./useExplorationTableData";
@@ -53,6 +54,18 @@ export default function ExplorerDataTable({
     comparisonMode,
     serverTableTrendsByRow,
   });
+  const rawTableDataset =
+    submittedExploreState?.type === "sql" &&
+    submittedExploreState.dataset.type === "sql" &&
+    submittedExploreState.chartType === "rawTable"
+      ? submittedExploreState.dataset
+      : null;
+  const rawRows = rawTableDataset ? (exploration?.result.rawRows ?? []) : null;
+  const rawColumnKeys = rawTableDataset
+    ? Object.keys(rawTableDataset.columnTypes).filter(
+        (column) => !(rawTableDataset.hiddenColumns ?? []).includes(column),
+      )
+    : [];
 
   const renderCell = useCallback(
     (key: string, value: unknown, row: Record<string, unknown>) => {
@@ -112,19 +125,27 @@ export default function ExplorerDataTable({
 
   return (
     <DisplayTestQueryResults
-      results={rowData}
+      results={rawRows ?? rowData}
       duration={query?.statistics?.executionDurationMs ?? 0}
       sql={query?.query || ""}
       error={error || ""}
-      showNoRowsWarning={explorationReturnedNoData && !hasChart}
+      showNoRowsWarning={
+        (rawRows ? rawRows.length === 0 : explorationReturnedNoData) &&
+        !hasChart
+      }
       allowDownload={true}
       showSampleHeader={false}
       showDuration={!!query?.statistics}
-      headerStructure={headerStructure ?? undefined}
-      orderedColumnKeys={orderedColumnKeys}
-      columnLabels={columnLabels}
-      csvColumnKeys={csvColumnKeys}
-      csvColumnLabels={csvColumnLabels}
+      headerStructure={rawRows ? undefined : (headerStructure ?? undefined)}
+      orderedColumnKeys={rawRows ? rawColumnKeys : orderedColumnKeys}
+      columnLabels={rawRows ? undefined : columnLabels}
+      csvColumnKeys={rawRows ? undefined : csvColumnKeys}
+      csvColumnLabels={rawRows ? undefined : csvColumnLabels}
+      rowsLabel={
+        rawRows && exploration?.result.truncated
+          ? `the first ${SQL_ROW_LIMIT} rows`
+          : undefined
+      }
       renderCell={renderCell}
       paddingTop={(isStale || loading) && !hasChart ? 35 : 0}
     />

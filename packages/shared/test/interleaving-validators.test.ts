@@ -1,0 +1,332 @@
+import omit from "lodash/omit";
+import {
+  interleavingMetricConfigValidator,
+  interleavingValidator,
+} from "../src/validators/interleaving";
+import {
+  getInterleavingFeatureDefId,
+  interleavingInSDKPayload,
+  interleavingTargetingServes,
+  interleavingVariationsList,
+  mapInterleavingVariations,
+  nextAvailableTrackingKey,
+  parseInterleavingRankerConfig,
+} from "../src/util/interleaving";
+
+const ranker = (id: string, key: string, config = "{}") => ({
+  id,
+  key,
+  name: key,
+  config,
+});
+
+const schema = (schemaString: string, enabled = true) => ({
+  schemaType: "schema" as const,
+  schema: schemaString,
+  simple: { type: "object" as const, fields: [] },
+  date: new Date("2026-10-01"),
+  enabled,
+});
+
+const weightSchema = schema(
+  JSON.stringify({
+    type: "object",
+    properties: { weight: { type: "number" } },
+    required: ["weight"],
+  }),
+);
+
+const baseDoc = {
+  id: "il_1",
+  organization: "org_1",
+  dateCreated: new Date("2026-10-01"),
+  dateUpdated: new Date("2026-10-01"),
+  name: "Featured products ranker",
+  owner: "",
+  tags: [],
+  archived: false,
+  status: "draft" as const,
+  key: "featured-products-ranker",
+  trackingKey: "featured-products-ranker",
+  hashAttribute: "id",
+  seed: "seed",
+  variations: {
+    control: ranker("var_a", "buyers-pick", '{"algorithm":"buyers-pick"}'),
+    treatment: ranker("var_b", "price-first", '{"algorithm":"price-first"}'),
+  },
+  jsonSchema: null,
+  datasourceId: "ds_1",
+  interleavingExposureQueryId: "ileq_1",
+  userIdType: "user_id",
+  metrics: [{ id: "fact__clicks", analyses: [{ type: "paired" }] }],
+  environmentSettings: { production: { enabled: true } },
+};
+
+describe("interleavingValidator", () => {
+  it("accepts a two-ranker experiment", () => {
+    expect(interleavingValidator.safeParse(baseDoc).success).toBe(true);
+  });
+
+  it.each([
+    { control: ranker("var_a", "a") },
+    { treatment: ranker("var_b", "b") },
+    [ranker("var_a", "a"), ranker("var_b", "b")],
+    {
+      control: ranker("var_a", "a"),
+      treatment: ranker("var_b", "b"),
+      extra: ranker("var_c", "c"),
+    },
+  ])(
+    "rejects rankers not keyed exactly by control/treatment: %j",
+    (variations) => {
+      expect(
+        interleavingValidator.safeParse({ ...baseDoc, variations }).success,
+      ).toBe(false);
+    },
+  );
+
+  it.each(["", " ", "\t"])("rejects a blank ranker key: %j", (key) => {
+    expect(
+      interleavingValidator.safeParse({
+        ...baseDoc,
+        variations: { ...baseDoc.variations, control: ranker("var_a", key) },
+      }).success,
+    ).toBe(false);
+  });
+
+  it("rejects unknown fields", () => {
+    expect(
+      interleavingValidator.safeParse({
+        ...baseDoc,
+        measurementArmPercent: 0.1,
+      }).success,
+    ).toBe(false);
+  });
+
+  it("rejects the same metric added twice", () => {
+    const metric = { id: "fact__clicks", analyses: [{ type: "paired" }] };
+    expect(
+      interleavingValidator.safeParse({ ...baseDoc, metrics: [metric, metric] })
+        .success,
+    ).toBe(false);
+  });
+});
+
+describe("interleaving key", () => {
+  it.each(["featured-products-ranker", "search_v2", "a.b:c|d"])(
+    "accepts %j",
+    (key) => {
+      expect(interleavingValidator.safeParse({ ...baseDoc, key }).success).toBe(
+        true,
+      );
+    },
+  );
+
+  it.each(["", "has space", "slash/key", "emoji🙂"])("rejects %j", (key) => {
+    expect(interleavingValidator.safeParse({ ...baseDoc, key }).success).toBe(
+      false,
+    );
+  });
+
+  it("is required", () => {
+    expect(
+      interleavingValidator.safeParse(omit(baseDoc, ["key"])).success,
+    ).toBe(false);
+  });
+});
+
+describe("variation role helpers", () => {
+  const variations = { control: "c", treatment: "t" };
+
+  it("lists control first, then treatment", () => {
+    expect(interleavingVariationsList(variations)).toEqual(["c", "t"]);
+  });
+
+  it("maps each role to its own value and role name", () => {
+    expect(
+      mapInterleavingVariations(variations, (v, role) => `${role}:${v}`),
+    ).toEqual({ control: "control:c", treatment: "treatment:t" });
+  });
+});
+
+describe("getInterleavingFeatureDefId", () => {
+  it("prefixes the key", () => {
+    expect(getInterleavingFeatureDefId("search")).toBe("$interleave:search");
+  });
+
+  it("cannot collide with a real feature key", () => {
+    // `$` is outside FEATURE_KEY_REGEX, so no customer feature can claim it.
+    expect(
+      interleavingValidator.safeParse({ ...baseDoc, key: "$interleave:x" })
+        .success,
+    ).toBe(false);
+  });
+});
+
+describe("interleaving lifecycle predicates", () => {
+  const cases: [string, boolean, boolean, boolean][] = [
+    // status, archived, inSDKPayload, targetingServes
+    ["draft", false, false, true],
+    ["running", false, true, true],
+    ["stopped", false, false, false],
+    ["draft", true, false, false],
+    ["running", true, false, false],
+    ["stopped", true, false, false],
+  ];
+
+  it.each(cases)(
+    "%s (archived: %s) -> payload %s, targeting %s",
+    (status, archived, inPayload, targeting) => {
+      expect(interleavingInSDKPayload({ status, archived })).toBe(inPayload);
+      expect(interleavingTargetingServes({ status, archived })).toBe(targeting);
+    },
+  );
+
+  it("keeps a draft out of the payload but still holding its references", () => {
+    const draft = { status: "draft", archived: false };
+    expect(interleavingInSDKPayload(draft)).toBe(false);
+    expect(interleavingTargetingServes(draft)).toBe(true);
+  });
+
+  it("drops a stopped interleaving from the payload entirely", () => {
+    const stopped = { status: "stopped", archived: false };
+    expect(interleavingInSDKPayload(stopped)).toBe(false);
+    expect(interleavingTargetingServes(stopped)).toBe(false);
+  });
+});
+
+describe("interleavingMetricConfigValidator", () => {
+  const parse = (analyses: unknown) =>
+    interleavingMetricConfigValidator.safeParse({ id: "fact__m", analyses })
+      .success;
+
+  it.each([
+    { name: "paired only", analyses: [{ type: "paired" }] },
+    {
+      name: "one preference only",
+      analyses: [{ type: "preference", attribution: "exposureCount" }],
+    },
+    {
+      name: "every analysis at once",
+      analyses: [
+        { type: "paired" },
+        { type: "preference", attribution: "exposureCount" },
+      ],
+    },
+  ])("accepts $name", ({ analyses }) => {
+    expect(parse(analyses)).toBe(true);
+  });
+
+  it("rejects a metric with no analysis selected", () => {
+    expect(parse([])).toBe(false);
+  });
+
+  it("rejects a duplicate paired analysis", () => {
+    expect(parse([{ type: "paired" }, { type: "paired" }])).toBe(false);
+  });
+
+  it("rejects a duplicate preference attribution", () => {
+    expect(
+      parse([
+        { type: "preference", attribution: "exposureCount" },
+        { type: "preference", attribution: "exposureCount" },
+      ]),
+    ).toBe(false);
+  });
+
+  it.each(["lastClick", "engagementSignal"])(
+    "rejects the unsupported preference attribution %j",
+    (attribution) => {
+      expect(parse([{ type: "preference", attribution }])).toBe(false);
+    },
+  );
+
+  it("rejects an unknown analysis type", () => {
+    expect(parse([{ type: "sequential" }])).toBe(false);
+  });
+
+  it("rejects an preference analysis with no attribution", () => {
+    expect(parse([{ type: "preference" }])).toBe(false);
+  });
+});
+
+describe("parseInterleavingRankerConfig", () => {
+  it("parses a JSON object", () => {
+    expect(parseInterleavingRankerConfig('{"weight":0.3}')).toEqual({
+      weight: 0.3,
+    });
+  });
+
+  it.each(["not json", "[]", "null", "3", '"x"'])("rejects %j", (config) => {
+    expect(() => parseInterleavingRankerConfig(config)).toThrow();
+  });
+
+  it("accepts a config matching the schema", () => {
+    expect(
+      parseInterleavingRankerConfig('{"weight":0.3}', weightSchema),
+    ).toEqual({ weight: 0.3 });
+  });
+
+  it("rejects a config that violates the schema", () => {
+    expect(() =>
+      parseInterleavingRankerConfig('{"weight":"heavy"}', weightSchema),
+    ).toThrow(/weight/);
+  });
+
+  it("skips validation when the schema is disabled", () => {
+    const disabled = { ...weightSchema, enabled: false };
+    expect(parseInterleavingRankerConfig("{}", disabled)).toEqual({});
+  });
+
+  // getValidation reports an unparseable schema as "validation disabled", which
+  // would otherwise let every config through an enabled schema.
+  it("rejects an enabled schema that is not valid JSON", () => {
+    expect(() =>
+      parseInterleavingRankerConfig('{"weight":"heavy"}', schema("not json")),
+    ).toThrow(/schema is invalid/);
+  });
+
+  it("rejects an enabled simple schema that cannot be built", () => {
+    const emptySimple = { ...schema("{}"), schemaType: "simple" as const };
+    expect(() => parseInterleavingRankerConfig("{}", emptySimple)).toThrow(
+      /schema is invalid/,
+    );
+  });
+
+  it("still skips a malformed schema when it is disabled", () => {
+    expect(
+      parseInterleavingRankerConfig("{}", schema("not json", false)),
+    ).toEqual({});
+  });
+});
+
+describe("nextAvailableTrackingKey", () => {
+  it("uses the code key when nothing has claimed it", () => {
+    expect(nextAvailableTrackingKey("search", new Set())).toBe("search");
+    expect(nextAvailableTrackingKey("search", new Set(["other"]))).toBe(
+      "search",
+    );
+  });
+
+  it("suffixes when the code key is taken", () => {
+    expect(nextAvailableTrackingKey("search", new Set(["search"]))).toBe(
+      "search_v1",
+    );
+    expect(
+      nextAvailableTrackingKey("search", new Set(["search", "search_v1"])),
+    ).toBe("search_v2");
+  });
+
+  // Someone can set `search_v1` by hand, so counting collisions would collide
+  it("skips a suffix that was claimed out of order", () => {
+    expect(
+      nextAvailableTrackingKey("search", new Set(["search", "search_v2"])),
+    ).toBe("search_v1");
+    expect(
+      nextAvailableTrackingKey(
+        "search",
+        new Set(["search", "search_v1", "search_v2"]),
+      ),
+    ).toBe("search_v3");
+  });
+});

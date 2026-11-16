@@ -63,6 +63,7 @@ async function refreshColumns({
   const datasource: DataSourceInterface = {};
 
   return runColumnDetectionQuery(context, datasource, {
+    id: "ftb_1",
     sql: "SELECT * FROM fact_table",
     eventName: "",
     columns: [column],
@@ -237,6 +238,7 @@ describe("refreshColumnTopValues", () => {
       context,
       datasource,
       {
+        id: "ftb_1",
         sql: "SELECT * FROM fact_table",
         eventName: "",
         userIdTypes: [],
@@ -523,5 +525,21 @@ describe("runColumnDetectionQuery", () => {
       deleted: true,
       dataTypeFromWarehouse: "string",
     });
+  });
+
+  it("does not mutate the input columns", async () => {
+    const column = makeCol("missing");
+    const originalDateUpdated = column.dateUpdated;
+
+    await refreshColumns({
+      column,
+      result: {
+        results: [],
+        duration: 1,
+      },
+    });
+
+    expect(column.deleted).toBe(false);
+    expect(column.dateUpdated).toBe(originalDateUpdated);
   });
 });

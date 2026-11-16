@@ -145,9 +145,19 @@ const NorthStarMetricDisplay = ({
           )}
           {datasource && permissionsUtil.canRunMetricQueries(datasource) ? (
             isFactMetric(metric) ? (
-              <form
-                onSubmit={async (e) => {
-                  e.preventDefault();
+              <RunQueriesButton
+                icon="refresh"
+                cta={analysis ? "Refresh Data" : "Run Analysis"}
+                mutate={mutate}
+                model={
+                  analysis ?? {
+                    queries: [],
+                    runStarted: new Date(),
+                  }
+                }
+                cancelEndpoint={`/metric-analysis/${analysis?.id}/cancel`}
+                position="left"
+                onSubmit={async () => {
                   //setError(null);
                   try {
                     const endOfToday = new Date();
@@ -183,27 +193,21 @@ const NorthStarMetricDisplay = ({
                     //setError(e.message);
                   }
                 }}
-              >
-                <RunQueriesButton
-                  useRadixButton={false}
-                  icon="refresh"
-                  cta={analysis ? "Refresh Data" : "Run Analysis"}
-                  mutate={mutate}
-                  model={
-                    analysis ?? {
-                      queries: [],
-                      runStarted: new Date(),
-                    }
-                  }
-                  cancelEndpoint={`/metric-analysis/${analysis?.id}/cancel`}
-                  color="outline-primary"
-                  position="left"
-                />
-              </form>
+              />
             ) : (
-              <form
-                onSubmit={async (e) => {
-                  e.preventDefault();
+              <RunQueriesButton
+                icon="refresh"
+                cta={analysis ? "Refresh Data" : "Run Analysis"}
+                model={
+                  data.data.metric ?? {
+                    queries: [],
+                    runStarted: new Date(),
+                  }
+                }
+                cancelEndpoint={`/metric/${metric.id}/analysis/cancel`}
+                position="left"
+                mutate={mutate}
+                onSubmit={async () => {
                   try {
                     await apiCall(`/metric/${metric.id}/analysis`, {
                       method: "POST",
@@ -213,23 +217,7 @@ const NorthStarMetricDisplay = ({
                     console.error(e);
                   }
                 }}
-              >
-                <RunQueriesButton
-                  useRadixButton={false}
-                  icon="refresh"
-                  cta={analysis ? "Refresh Data" : "Run Analysis"}
-                  model={
-                    data.data.metric ?? {
-                      queries: [],
-                      runStarted: new Date(),
-                    }
-                  }
-                  cancelEndpoint={`/metric/${metric.id}/analysis/cancel`}
-                  color="outline-primary"
-                  position="left"
-                  mutate={mutate}
-                />
-              </form>
+              />
             )
           ) : null}
         </div>

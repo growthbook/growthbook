@@ -191,7 +191,7 @@ describe("sdk-connections validations", () => {
           "latest_version",
         );
       }).toThrow(
-        "You need to ugrade to version latest_version to support remoteEval",
+        "You need to upgrade to version latest_version to support remoteEval",
       );
     });
 
@@ -233,7 +233,7 @@ describe("sdk-connections validations", () => {
       }).not.toThrow();
     });
 
-    it("Allows premium overriden features", () => {
+    it("Allows premium overridden features", () => {
       expect(() => {
         validatePremiumFeatures(context, { proxyEnabled: true });
       }).not.toThrow();
@@ -254,6 +254,28 @@ describe("sdk-connections validations", () => {
       expect(() => {
         validatePremiumFeatures(context, { encryptPayload: true });
       }).not.toThrow();
+    });
+
+    it("Allows keeping a feature the existing connection already has on", () => {
+      expect(() => {
+        validatePremiumFeatures(
+          context,
+          { hashSecureAttributes: true, remoteEvalEnabled: true },
+          { hashSecureAttributes: true, remoteEvalEnabled: true },
+        );
+      }).not.toThrow();
+    });
+
+    it("Fails turning on a feature the existing connection has off", () => {
+      expect(() => {
+        validatePremiumFeatures(
+          context,
+          { hashSecureAttributes: true },
+          { hashSecureAttributes: false },
+        );
+      }).toThrow(
+        "Feature hash-secure-attributes requires premium subscription!",
+      );
     });
   });
 

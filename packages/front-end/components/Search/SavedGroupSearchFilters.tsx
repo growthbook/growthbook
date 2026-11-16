@@ -14,7 +14,6 @@ const SavedGroupSearchFilters: FC<
   BaseSearchFiltersProps & {
     groups: { owner?: string; archived?: boolean }[];
     hasArchived: boolean;
-    hasDraftStates: boolean;
   }
 > = ({
   searchInputProps,
@@ -22,7 +21,6 @@ const SavedGroupSearchFilters: FC<
   setSearchValue,
   groups,
   hasArchived,
-  hasDraftStates,
 }) => {
   const {
     dropdownFilterOpen,
@@ -97,7 +95,6 @@ const SavedGroupSearchFilters: FC<
           />
         </DropdownMenuItem>
         <DropdownMenuItem
-          disabled={!hasDraftStates}
           onClick={() => {
             updateQuery({
               field: "has",

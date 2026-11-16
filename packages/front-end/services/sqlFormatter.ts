@@ -1,31 +1,21 @@
 import { DataSourceType } from "shared/types/datasource";
 import { format } from "shared/sql";
+import { getDataSourceSqlDialect } from "shared/dialects";
 import { FormatDialect } from "shared/types/sql";
 
 export function canFormatSql(datasourceType: DataSourceType): boolean {
   return !!getSqlDialect(datasourceType);
 }
 
-function getSqlDialect(datasourceType: DataSourceType): FormatDialect | "" {
-  const typeMap: Record<DataSourceType, FormatDialect | ""> = {
-    redshift: "redshift",
-    snowflake: "snowflake",
-    mysql: "mysql",
-    bigquery: "bigquery",
-    postgres: "postgresql",
-    mssql: "tsql",
-    clickhouse: "clickhouse",
-    growthbook_clickhouse: "clickhouse",
-    athena: "trino",
-    presto: "trino",
-    databricks: "spark",
-    vertica: "postgresql",
-    adobe_experience_platform_query_service: "spark",
-    mixpanel: "",
-    google_analytics: "",
-  };
+// Matches the Ace binding in CodeTextArea's onFormatShortcut
+export function getFormatSqlShortcutLabel(): string {
+  const isMac =
+    typeof navigator !== "undefined" && navigator.userAgent.includes("Mac");
+  return isMac ? "⇧⌘F" : "Ctrl+Shift+F";
+}
 
-  return typeMap[datasourceType];
+function getSqlDialect(datasourceType: DataSourceType): FormatDialect | "" {
+  return getDataSourceSqlDialect(datasourceType)?.formatDialect ?? "";
 }
 
 // The formatter doesn't support template variables, so we need to replace them with placeholders

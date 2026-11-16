@@ -106,7 +106,7 @@ export default function DataVizFilter({
           // Calculate last 30 days as default
           const today = new Date();
           const thirtyDaysAgo = new Date(today);
-          thirtyDaysAgo.setDate(today.getDate() - 30);
+          thirtyDaysAgo.setUTCDate(today.getUTCDate() - 30);
 
           return {
             column,

@@ -39,6 +39,11 @@ export const gbContext: Context = {
       {
         experimentId: experiment.key,
         variationId: result.key,
+        ...(result.leafId !== undefined && {
+          leaf_id: result.leafId,
+          bandit_version: result.banditVersion,
+          variation_weights: JSON.stringify(result.variationWeights),
+        }),
         userContextAttributes: {
           attributes: {
             // hardcoded sublist of attributes without PII
@@ -75,6 +80,12 @@ export function formatTrafficSplit(weights: number[], decimals = 0): string {
     .join(" / ");
 }
 
+// Unlike the split above, not normalized: stored weights that predate
+// validation can add up to something other than 100%.
+export function variationWeightsTotalPercent(weights: number[]): number {
+  return Math.round(weights.reduce((sum, w) => sum + w, 0) * 100);
+}
+
 // Single source of truth for the holdout traffic breakdown shown in the start
 // summary and the traffic/targeting card.
 export function getHoldoutTrafficBreakdown(
@@ -91,30 +102,18 @@ export function getHoldoutTrafficBreakdown(
 } {
   const coverage = phase?.coverage ?? 0;
   const weights = phase?.variationWeights ?? [];
-  const inHoldoutWeight = weights[0] ?? 0;
-  const forMeasurementWeight = weights[1] ?? 0;
+  const inHoldoutPercent = coverageToPercent(coverage * (weights[0] ?? 0));
+  const forMeasurementPercent = coverageToPercent(coverage * (weights[1] ?? 0));
 
   return {
-    inHoldoutPercent: Math.floor(coverage * inHoldoutWeight * 100),
-    forMeasurementPercent: Math.floor(coverage * forMeasurementWeight * 100),
-    notForMeasurementPercent: Math.floor(
-      (1 - coverage * (inHoldoutWeight + forMeasurementWeight)) * 100,
+    inHoldoutPercent,
+    forMeasurementPercent,
+    // The rest, so the three always add up to 100%.
+    notForMeasurementPercent: floatRound(
+      100 - inHoldoutPercent - forMeasurementPercent,
+      COVERAGE_DECIMALS,
     ),
   };
-}
-
-// Get the number of decimals +1 needed to differentiate between
-// observed and expected weights
-export function getSRMNeededPrecisionP1(
-  observed: number[],
-  expected: number[],
-): number {
-  const observedpct = trafficSplitPercentages(observed);
-  const expectedpct = trafficSplitPercentages(expected);
-  const maxDiff = Math.max(
-    ...observedpct.map((o, i) => Math.abs(o - expectedpct[i] || 0)),
-  );
-  return (maxDiff ? -1 * Math.floor(Math.log10(maxDiff)) : 0) + 1;
 }
 
 export function phaseSummary(
@@ -127,7 +126,7 @@ export function phaseSummary(
   return (
     <>
       <span className="percent-traffic">
-        {Math.floor(phase.coverage * 100)}%
+        {coveragePercentFormatter.format(phase.coverage)}
       </span>{" "}
       traffic
       {!skipWeights && (
@@ -177,11 +176,56 @@ export function percentToDecimalForNumber(
 export function percentToDecimal(val: string, precision: number = 4): number {
   return parseFloat((parseFloat(val) / 100).toFixed(precision));
 }
+
+// Decimal places a typed percent keeps.
+export const VARIATION_WEIGHT_DECIMALS = 2;
+export const COVERAGE_DECIMALS = 4;
+
+// A coverage decimal as the percent its inputs show.
+export const coverageToPercent = (decimal: number) =>
+  decimalToPercent(decimal, COVERAGE_DECIMALS + 2);
+
+// What's typed in a coverage input, as a decimal.
+export const typedPercentToCoverage = (raw: string) =>
+  percentToDecimal(
+    capTypedPercent(raw, COVERAGE_DECIMALS),
+    COVERAGE_DECIMALS + 2,
+  );
+
+// A traffic share, to the precision its inputs take.
+export const coveragePercentFormatter = new Intl.NumberFormat(undefined, {
+  style: "percent",
+  maximumFractionDigits: COVERAGE_DECIMALS,
+});
+
+// Truncates typing to 3 integer digits and `decimals` decimal places.
+export function capTypedPercent(raw: string, decimals: number): string {
+  // An exponent, like a pasted "1e-2", is read whole; cutting its digits
+  // would change its value.
+  if (/e/i.test(raw)) {
+    const value = Number(raw);
+    return Number.isFinite(value)
+      ? String(parseFloat(value.toFixed(decimals)))
+      : raw;
+  }
+  const match = raw.match(
+    new RegExp(`^(\\d{0,3})\\d*(\\.\\d{0,${decimals}})?`),
+  );
+  return match ? match[1] + (match[2] ?? "") : raw;
+}
+
 export function decimalToPercent(val: number, precision: number = 4): number {
   return parseFloat((val * 100).toFixed(precision - 2));
 }
 export function floatRound(val: number, precision: number = 4): number {
   return parseFloat(val.toFixed(precision));
+}
+
+// Within one step of the stored precision, since getEqualWeights can't split
+// every count evenly.
+export function isEqualSplit(weights: number[]): boolean {
+  const step = Math.pow(10, -(VARIATION_WEIGHT_DECIMALS + 2));
+  return floatRound(Math.max(...weights) - Math.min(...weights)) <= step;
 }
 
 // Updates one of the variation weights and rebalances
@@ -257,13 +301,6 @@ export function appendQueryParamsToURL(
 
 export function capitalizeFirstLetter(string): string {
   return string.charAt(0).toUpperCase() + string.slice(1);
-}
-
-export function capitalizeWords(string): string {
-  return string
-    .split(" ")
-    .map((word) => capitalizeFirstLetter(word))
-    .join(" ");
 }
 
 function getOrGenerateDeviceId() {

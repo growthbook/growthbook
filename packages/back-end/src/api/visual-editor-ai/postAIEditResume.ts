@@ -20,7 +20,7 @@ const bodySchema = z
     // "any object" — we trust the extension's content script handlers
     // to produce shapes the tool's contract expects. A bad shape will
     // cause the model to error gracefully on the next step.
-    result: z.unknown(),
+    result: z.unknown().optional(),
   })
   .strict();
 
@@ -31,6 +31,7 @@ const validation = {
   responseSchema: z.any(),
   method: "post" as const,
   path: "/visual-editor/ai/edit/resume",
+  confirmation: [],
   operationId: "postVisualEditorAIEditResume",
   // Internal Visual Editor extension endpoint — not part of the
   // public OpenAPI spec.

@@ -1710,7 +1710,7 @@ describe("feature-repo", () => {
     cleanup();
   });
 
-  it("Handles SSE errors gracefuly", async () => {
+  it("Handles SSE errors gracefully", async () => {
     const [f, cleanup] = mockApi(
       {
         features: {

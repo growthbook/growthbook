@@ -4,6 +4,7 @@ import { PiCaretRightFill } from "react-icons/pi";
 import Collapsible from "react-collapsible";
 import Heading from "@/ui/Heading";
 import Link from "@/ui/Link";
+import Text from "@/ui/Text";
 import Badge from "@/ui/Badge";
 import ProjectBadges from "@/components/ProjectBadges";
 import Pagination from "@/ui/Pagination";
@@ -13,7 +14,7 @@ const PER_PAGE = 50;
 export type ReferenceItem = {
   id: string;
   label: string;
-  href: string;
+  href?: string;
   projectIds?: string[];
 };
 
@@ -67,9 +68,13 @@ const ReferencesListSection: FC<ReferenceSection> = ({
           {pageItems.map((item) => (
             <li key={item.id}>
               <Flex justify="between" align="center" gap="2" my="1">
-                <Link href={item.href} target="_blank">
-                  {item.label}
-                </Link>
+                {item.href ? (
+                  <Link href={item.href} target="_blank">
+                    {item.label}
+                  </Link>
+                ) : (
+                  <Text>{item.label}</Text>
+                )}
                 <ProjectBadges
                   resourceType={resourceType}
                   projectIds={item.projectIds}

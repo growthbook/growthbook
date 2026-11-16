@@ -1,0 +1,14 @@
+.field {
+  width: 110px;
+  max-width: 100%;
+}
+
+// The look of a field's error, from what the browser says it refuses.
+.field input:invalid {
+  border-color: var(--red-8) !important;
+
+  &:focus {
+    border-color: var(--violet-8) !important;
+    outline-color: var(--violet-8) !important;
+  }
+}

@@ -5,6 +5,7 @@ import {
   getRevisionNumberById,
 } from "shared/enterprise";
 import { dateNoYear } from "shared/dates";
+import { eventUserLabel, revisionActor } from "shared/validators";
 import { Flex } from "@radix-ui/themes";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import Switch from "@/ui/Switch";
@@ -80,7 +81,9 @@ export default function RevisionDropdown({
 
   const buildMeta = (r: Revision): ReactNode => (
     <Text size="sm" color="text-low" whiteSpace="nowrap">
-      {getUserDisplay(r.authorId)}
+      {eventUserLabel(revisionActor(r, r.authorId), {
+        nameFor: (id) => getUserDisplay(id, false),
+      })}
       {r.dateUpdated && <> &middot; {dateNoYear(r.dateUpdated)}</>}
     </Text>
   );

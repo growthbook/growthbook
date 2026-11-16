@@ -1,7 +1,11 @@
 import { subWeeks } from "date-fns";
 import cloneDeep from "lodash/cloneDeep";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import { FeatureInterface, ExperimentRefRule } from "shared/types/feature";
+import {
+  FeatureInterface,
+  ExperimentRefRule,
+  FeatureRule,
+} from "shared/types/feature";
 
 import {
   isFeatureStale,
@@ -358,6 +362,34 @@ describe("isFeatureStale", () => {
               stale: true,
               reason: "rules-one-sided",
             });
+          });
+        });
+      });
+
+      describe("and one has no coverage stored", () => {
+        it("treats it as 100% and is stale", () => {
+          feature.environmentSettings = {
+            development: {
+              enabled: true,
+              rules: [
+                {
+                  coverage: null,
+                  enabled: true,
+                  hashAttribute: "id",
+                  value: "2",
+                  description: "",
+                  id: "fr_1xx71305loywqomm",
+                  type: "rollout",
+                } as unknown as FeatureRule,
+              ],
+            },
+            staging: { enabled: false, rules: [] },
+            production: { enabled: false, rules: [] },
+          };
+          feature.dateUpdated = subWeeks(new Date(), 3);
+          expect(testStale({ feature })).toMatchObject({
+            stale: true,
+            reason: "rules-one-sided",
           });
         });
       });
@@ -1565,6 +1597,290 @@ describe("isFeatureStale", () => {
       expect(result.envResults.prod).toMatchObject({
         stale: false,
         reason: "active-experiment",
+      });
+    });
+
+    it("prefers active-experiment over temp-rollout when both kinds of experiment rules are reachable in the same env", () => {
+      const experiments = [
+        genMockExperiment({
+          id: "exp_done",
+          status: "stopped",
+          excludeFromPayload: false,
+          releasedVariationId: "v1",
+        }),
+        genMockExperiment({ id: "exp_live", status: "running" }),
+      ];
+      feature.environmentSettings = {
+        prod: {
+          enabled: true,
+          rules: [
+            {
+              type: "experiment-ref",
+              enabled: true,
+              description: "",
+              experimentId: "exp_done",
+              id: "rule_done",
+              variations: [
+                { variationId: "v1", value: "true" },
+                { variationId: "v2", value: "false" },
+              ],
+            },
+            {
+              type: "experiment-ref",
+              enabled: true,
+              description: "",
+              experimentId: "exp_live",
+              id: "rule_live",
+              variations: [
+                { variationId: "v1", value: "true" },
+                { variationId: "v2", value: "false" },
+              ],
+            },
+          ],
+        },
+      };
+      const result = testStale({ feature, experiments });
+      expect(result.envResults.prod).toMatchObject({
+        stale: false,
+        reason: "active-experiment",
+      });
+    });
+
+    it("still reports a temp rollout that sits after a running experiment", () => {
+      const experiments = [
+        genMockExperiment({ id: "exp_live", status: "running" }),
+        genMockExperiment({
+          id: "exp_done",
+          status: "stopped",
+          excludeFromPayload: false,
+          releasedVariationId: "v1",
+        }),
+      ];
+      feature.environmentSettings = {
+        prod: {
+          enabled: true,
+          rules: [
+            {
+              type: "experiment-ref",
+              enabled: true,
+              description: "",
+              experimentId: "exp_live",
+              id: "rule_live",
+              variations: [
+                { variationId: "v1", value: "true" },
+                { variationId: "v2", value: "false" },
+              ],
+            },
+            {
+              type: "experiment-ref",
+              enabled: true,
+              description: "",
+              experimentId: "exp_done",
+              id: "rule_done",
+              variations: [
+                { variationId: "v1", value: "true" },
+                { variationId: "v2", value: "false" },
+              ],
+            },
+          ],
+        },
+      };
+      const result = testStale({ feature, experiments });
+      expect(result.envResults.prod).toMatchObject({
+        stale: false,
+        reason: "active-experiment",
+        tempRollout: "temp-rollout",
+      });
+    });
+
+    it("sets reason to temp-rollout when env has a rule referencing a stopped experiment still in the payload", () => {
+      const experiments = [
+        genMockExperiment({
+          id: "exp_done",
+          status: "stopped",
+          excludeFromPayload: false,
+          releasedVariationId: "v1",
+        }),
+      ];
+      feature.environmentSettings = {
+        prod: {
+          enabled: true,
+          rules: [
+            {
+              type: "experiment-ref",
+              enabled: true,
+              description: "",
+              experimentId: "exp_done",
+              id: "rule_1",
+              variations: [
+                { variationId: "v1", value: "true" },
+                { variationId: "v2", value: "false" },
+              ],
+            },
+          ],
+        },
+      };
+      const result = testStale({ feature, experiments });
+      expect(result.envResults.prod).toMatchObject({
+        stale: false,
+        reason: "temp-rollout",
+        tempRollout: "temp-rollout",
+      });
+      // The mock phase targets a country, so the value is not deterministic.
+      expect(result.envResults.prod.evaluatesTo).toBeUndefined();
+    });
+
+    it("sets reason to old-temp-rollout when the stopped experiment ended more than 30 days ago", () => {
+      const experiments = [
+        genMockExperiment({
+          id: "exp_done",
+          status: "stopped",
+          excludeFromPayload: false,
+          releasedVariationId: "v1",
+          phases: [
+            {
+              coverage: 1,
+              dateStarted: "2023-08-05T05:27:00Z",
+              dateEnded: "2023-09-05T05:27:00Z",
+              variationWeights: [0.5, 0.5],
+              namespace: { enabled: false, name: "", range: [0, 1] },
+              condition: "",
+              name: "Main",
+              reason: "",
+              seed: "seed",
+            },
+          ],
+        }),
+      ];
+      feature.environmentSettings = {
+        prod: {
+          enabled: true,
+          rules: [
+            {
+              type: "experiment-ref",
+              enabled: true,
+              description: "",
+              experimentId: "exp_done",
+              id: "rule_1",
+              variations: [
+                { variationId: "v1", value: "true" },
+                { variationId: "v2", value: "false" },
+              ],
+            },
+          ],
+        },
+      };
+      const result = testStale({ feature, experiments });
+      expect(result.envResults.prod).toMatchObject({
+        stale: true,
+        reason: "old-temp-rollout",
+        tempRollout: "old-temp-rollout",
+        evaluatesTo: "true",
+      });
+    });
+
+    it("keeps an env non-stale when its old temp rollout still targets a subset of users", () => {
+      const experiments = [
+        genMockExperiment({
+          id: "exp_done",
+          status: "stopped",
+          excludeFromPayload: false,
+          releasedVariationId: "v1",
+          phases: [
+            {
+              coverage: 0.2,
+              dateStarted: "2023-08-05T05:27:00Z",
+              dateEnded: "2023-09-05T05:27:00Z",
+              variationWeights: [0.5, 0.5],
+              namespace: { enabled: false, name: "", range: [0, 1] },
+              condition: '{"country": "US"}',
+              name: "Main",
+              reason: "",
+              seed: "seed",
+            },
+          ],
+        }),
+      ];
+      feature.environmentSettings = {
+        prod: {
+          enabled: true,
+          rules: [
+            {
+              type: "experiment-ref",
+              enabled: true,
+              description: "",
+              experimentId: "exp_done",
+              id: "rule_1",
+              variations: [
+                { variationId: "v1", value: "true" },
+                { variationId: "v2", value: "false" },
+              ],
+            },
+          ],
+        },
+      };
+      const result = testStale({ feature, experiments });
+      expect(result.envResults.prod).toMatchObject({
+        stale: false,
+        reason: "has-rules",
+        tempRollout: "old-temp-rollout",
+      });
+      expect(result.envResults.prod.evaluatesTo).toBeUndefined();
+    });
+
+    it("keeps an env with an old temp rollout non-stale when other rules do real work, but still reports the rollout", () => {
+      const experiments = [
+        genMockExperiment({
+          id: "exp_done",
+          status: "stopped",
+          excludeFromPayload: false,
+          releasedVariationId: "v1",
+          phases: [
+            {
+              coverage: 1,
+              dateStarted: "2023-08-05T05:27:00Z",
+              dateEnded: "2023-09-05T05:27:00Z",
+              variationWeights: [0.5, 0.5],
+              namespace: { enabled: false, name: "", range: [0, 1] },
+              condition: "",
+              name: "Main",
+              reason: "",
+              seed: "seed",
+            },
+          ],
+        }),
+      ];
+      feature.environmentSettings = {
+        prod: {
+          enabled: true,
+          rules: [
+            {
+              type: "experiment-ref",
+              enabled: true,
+              description: "",
+              experimentId: "exp_done",
+              id: "rule_1",
+              variations: [
+                { variationId: "v1", value: "true" },
+                { variationId: "v2", value: "false" },
+              ],
+            },
+            {
+              type: "force",
+              enabled: true,
+              description: "",
+              id: "rule_2",
+              value: "true",
+              condition: '{"country": "US"}',
+            },
+          ],
+        },
+      };
+      const result = testStale({ feature, experiments });
+      expect(result.envResults.prod).toMatchObject({
+        stale: false,
+        reason: "has-rules",
+        tempRollout: "old-temp-rollout",
       });
     });
 

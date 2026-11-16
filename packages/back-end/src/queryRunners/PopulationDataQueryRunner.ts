@@ -1,6 +1,7 @@
 import { UpdateProps } from "shared/types/base-model";
 import {
   ExperimentMetricInterface,
+  getFactTableIdsForMetrics,
   isBinomialMetric,
   isFactMetric,
   isRatioMetric,
@@ -102,7 +103,7 @@ export const startPopulationDataQueries = async (
 
   const unitsSettings = buildUnitsQuerySettingsFromSnapshot(settings, {
     query: "",
-    userIdType: params.populationSettings.userIdType,
+    identifierType: params.populationSettings.userIdType,
   });
 
   for (const m of legacyMetricSingles) {
@@ -184,6 +185,7 @@ export const startPopulationDataQueries = async (
             setExternalId,
             queryMetadata,
           ),
+        metadata: { factTableIds: getFactTableIdsForMetrics(m) },
         queryType: "populationMultiMetric",
       }),
     );
@@ -192,7 +194,7 @@ export const startPopulationDataQueries = async (
   return queries;
 };
 
-function readMetricData({
+export function readMetricData({
   metric,
   rows,
   metricPrefix,
@@ -251,10 +253,7 @@ function readMetricData({
     if (r.dim_pre_date) {
       const users = (r.users as number) ?? 0;
       const week = lastMondayString(r.dim_pre_date as string);
-      if (!histogram[week]) {
-        histogram[week] = users;
-      }
-      histogram[week] += users;
+      histogram[week] = (histogram[week] ?? 0) + users;
     }
   });
 

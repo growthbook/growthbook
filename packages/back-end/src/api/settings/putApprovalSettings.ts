@@ -1,7 +1,10 @@
 import { putApprovalSettingsValidator } from "shared/validators";
 import { OrganizationInterface } from "shared/types/organization";
-import { normalizeApprovalRuleSettings } from "shared/util";
-import { ApiReqContext } from "back-end/types/api";
+import {
+  assertTargetingRulesDisjoint,
+  normalizeApprovalRuleSettings,
+} from "shared/util";
+import { assertApprovalRuleReferencesExist } from "back-end/src/services/approvalRuleReferences";
 import { updateOrganization } from "back-end/src/models/OrganizationModel";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
 import { createApiRequestHandler } from "back-end/src/util/handler";
@@ -9,43 +12,6 @@ import {
   toApiRequireReviews,
   toApiSavedGroupApprovals,
 } from "./approvalRuleShapes";
-
-// A rule naming something that does not exist gates nothing, so refuse it here
-// rather than storing a requirement that silently never applies.
-async function assertReferencesExist(
-  context: ApiReqContext,
-  rules: {
-    projects?: string[];
-    environments?: string[];
-    requiredApproverTeams?: string[];
-  }[],
-) {
-  const validProjects = new Set(await context.getAllProjectIds());
-  const validEnvironments = new Set(
-    (context.org.settings?.environments ?? []).map((e) => e.id),
-  );
-  const validTeams = new Set(
-    (await context.models.teams.getAll()).map((t) => t.id),
-  );
-
-  rules.forEach((rule) => {
-    (rule.projects ?? []).forEach((project) => {
-      if (!validProjects.has(project)) {
-        throw new Error(`${project} is not a valid project ID.`);
-      }
-    });
-    (rule.environments ?? []).forEach((env) => {
-      if (!validEnvironments.has(env)) {
-        throw new Error(`${env} is not a valid environment ID.`);
-      }
-    });
-    (rule.requiredApproverTeams ?? []).forEach((teamId) => {
-      if (!validTeams.has(teamId)) {
-        throw new Error(`${teamId} is not a valid team ID.`);
-      }
-    });
-  });
-}
 
 export const putApprovalSettings = createApiRequestHandler(
   putApprovalSettingsValidator,
@@ -55,7 +21,7 @@ export const putApprovalSettings = createApiRequestHandler(
   }
 
   const org = req.context.org;
-  const { requireReviews, approvalFlows } = req.body;
+  const { requireReviews, approvalFlows, targetingReviewMode } = req.body;
 
   // Matches the interactive route: saved-group approvals are the licensed part.
   if (
@@ -67,10 +33,12 @@ export const putApprovalSettings = createApiRequestHandler(
     );
   }
 
-  await assertReferencesExist(req.context, [
+  await assertApprovalRuleReferencesExist(req.context, [
     ...(requireReviews ?? []),
     ...(approvalFlows?.savedGroups ?? []),
+    ...(targetingReviewMode ?? []),
   ]);
+  assertTargetingRulesDisjoint(targetingReviewMode ?? []);
 
   // An absent selector means the all-projects rule; storage spells that as [].
   const nextSettings = normalizeApprovalRuleSettings({
@@ -84,9 +52,10 @@ export const putApprovalSettings = createApiRequestHandler(
       : {}),
     ...(approvalFlows ? { approvalFlows } : {}),
   });
+  const targetingUpdate = targetingReviewMode ? { targetingReviewMode } : {};
 
   const updates: Partial<OrganizationInterface> = {
-    settings: { ...org.settings, ...nextSettings },
+    settings: { ...org.settings, ...nextSettings, ...targetingUpdate },
   };
 
   await updateOrganization(org.id, updates);
@@ -99,9 +68,10 @@ export const putApprovalSettings = createApiRequestHandler(
         settings: {
           requireReviews: org.settings?.requireReviews,
           approvalFlows: org.settings?.approvalFlows,
+          targetingReviewMode: org.settings?.targetingReviewMode,
         },
       },
-      { settings: nextSettings },
+      { settings: { ...nextSettings, ...targetingUpdate } },
     ),
   });
 
@@ -115,5 +85,6 @@ export const putApprovalSettings = createApiRequestHandler(
         stored.approvalFlows?.savedGroups ?? [],
       ),
     },
+    targetingReviewMode: stored.targetingReviewMode ?? [],
   };
 });

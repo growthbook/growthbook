@@ -1,11 +1,13 @@
 import { ReactNode } from "react";
 import isEqual from "lodash/isEqual";
-import ReactDiffViewer, { DiffMethod } from "react-diff-viewer-continued";
+import { DiffMethod } from "react-diff-viewer-continued";
 import { SavedGroupInterface } from "shared/types/saved-group";
 import { Box, Flex } from "@radix-ui/themes";
+import LazyDiffViewer from "@/components/AuditHistoryExplorer/LazyDiffViewer";
 import ConditionDisplay from "@/components/Features/ConditionDisplay";
 import Text from "@/ui/Text";
 import Badge from "@/ui/Badge";
+import ScrollArea from "@/ui/ScrollArea";
 import {
   ChangeField,
   toConditionString,
@@ -47,36 +49,41 @@ function ValuesBox({
       >
         {marker}
       </Box>
-      <Box
+      <ScrollArea
+        edgeCue="fade"
         style={{
           flex: 1,
           border: "1px solid var(--gray-5)",
           borderRadius: "var(--radius-2)",
-          padding: "6px 10px",
           background: "var(--gray-2)",
           maxHeight: 120,
-          overflowY: "auto",
-          whiteSpace: "pre-wrap",
-          wordBreak: "break-word",
-          fontSize: "var(--font-size-1)",
-          lineHeight: 1.5,
-          fontFamily: "var(--font-mono)",
         }}
       >
-        {values.length ? (
-          values.join("\n")
-        ) : (
-          <Text fontStyle="italic" color="text-low">
-            None
-          </Text>
-        )}
-      </Box>
+        <Box
+          style={{
+            padding: "6px 10px",
+            whiteSpace: "pre-wrap",
+            wordBreak: "break-word",
+            fontSize: "var(--font-size-1)",
+            lineHeight: 1.5,
+            fontFamily: "var(--code-font-family)",
+          }}
+        >
+          {values.length ? (
+            values.join("\n")
+          ) : (
+            <Text fontStyle="italic" color="text-low">
+              None
+            </Text>
+          )}
+        </Box>
+      </ScrollArea>
     </Flex>
   );
 }
 
 // Uses ChangeField for single-line values (booleans, numbers, short strings)
-// and an inline ReactDiffViewer for multi-line / JSON values.
+// and an inline diff viewer for multi-line / JSON values.
 function ValueChangedField({
   label,
   pre,
@@ -132,17 +139,18 @@ function ValueChangedField({
           <Text weight="semibold">{label}</Text>
         </Box>
       )}
-      <Box
+      <ScrollArea
+        edgeCue="fade"
         className="diff-wrapper diff-wrapper-compact"
-        style={{ maxHeight: 250, overflowY: "auto" }}
+        style={{ maxHeight: 250 }}
       >
-        <ReactDiffViewer
+        <LazyDiffViewer
           oldValue={pre ?? ""}
           newValue={post ?? ""}
           compareMethod={DiffMethod.LINES}
           styles={COMPACT_DIFF_STYLES}
         />
-      </Box>
+      </ScrollArea>
     </Box>
   );
 }
@@ -646,6 +654,31 @@ export function getSavedGroupValuesBadges(pre: Pre, post: Post): DiffBadge[] {
     else badges.push({ label: "Edit values", action: "edit values" });
   }
   return badges;
+}
+
+/** A remote group switching to another upload. */
+export function renderSavedGroupUploadVersion(
+  pre: Pre,
+  post: Post,
+): ReactNode | null {
+  const version = (v: number | undefined) =>
+    v === undefined ? undefined : `Version ${v}`;
+  return (
+    <ValueChangedField
+      label="Upload version"
+      pre={version(pre?.currentUploadVersion)}
+      post={version(post.currentUploadVersion)}
+    />
+  );
+}
+
+export function getSavedGroupUploadVersionBadges(
+  pre: Pre,
+  post: Post,
+): DiffBadge[] {
+  return isEqual(pre?.currentUploadVersion, post.currentUploadVersion)
+    ? []
+    : [{ label: "Edit upload version", action: "edit upload version" }];
 }
 
 export function getSavedGroupProjectsBadges(pre: Pre, post: Post): DiffBadge[] {

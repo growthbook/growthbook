@@ -9,6 +9,7 @@ import { CUSTOM_FIELD_SECTION_LABELS } from "@/components/CustomFields/constants
 import type { CustomFieldWithArrayIndex } from "@/components/CustomFields/CustomFields";
 import CustomFieldRowMenu from "@/components/CustomFields/CustomFieldRowMenu";
 import ProjectBadges from "@/components/ProjectBadges";
+import CopyableCode from "@/components/Settings/CopyableCode";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Badge from "@/ui/Badge";
 import { TableCell, TableRow } from "@/ui/Table";
@@ -113,7 +114,6 @@ interface SortableProps {
 }
 
 const tdStyle: React.CSSProperties = { verticalAlign: "top" };
-const codeColor: React.CSSProperties["color"] = "var(--color-text-mid)";
 
 function RowCells({
   customField,
@@ -152,15 +152,7 @@ function RowCells({
               />
             </Tooltip>
           )}
-          <code
-            style={{
-              wordBreak: "break-all",
-              color: codeColor,
-              fontSize: "0.85em",
-            }}
-          >
-            {customField.id}
-          </code>
+          <CopyableCode value={customField.id} />
         </Flex>
       </TableCell>
       <TableCell style={tdStyle}>

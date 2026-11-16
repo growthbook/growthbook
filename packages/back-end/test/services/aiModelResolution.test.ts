@@ -1,4 +1,5 @@
 import {
+  AUTOCOMPLETE_AI_MODEL,
   CLOUD_MANAGED_AI_MODEL,
   CLOUD_MANAGED_VISUAL_EDITOR_AI_MODEL,
   SELF_HOSTED_DEFAULT_AI_MODELS,
@@ -69,10 +70,10 @@ describe("getAISettingsForOrg model resolution", () => {
   it("still honors an explicit Visual Editor model", async () => {
     const mod = loadModule(true, ["anthropic"]);
     const settings = await mod.getAISettingsForOrg(
-      makeContext({ visualEditorAIModel: "claude-opus-4-1-20250805" }),
+      makeContext({ visualEditorAIModel: "claude-opus-4-8" }),
     );
 
-    expect(settings.visualEditorAIModel).toBe("claude-opus-4-1-20250805");
+    expect(settings.visualEditorAIModel).toBe("claude-opus-4-8");
   });
 
   it("falls back to the managed model when a Cloud org sets no default", async () => {
@@ -102,6 +103,30 @@ describe("getAISettingsForOrg model resolution", () => {
       ([provider]) => provider === "anthropic",
     )?.[1];
     expect(settings.defaultAIModel).toBe(expected);
+  });
+
+  it("runs autocomplete on the cheap tier when an Anthropic key exists", async () => {
+    expect(
+      (
+        await loadModule(true, ["anthropic"]).getAISettingsForOrg(
+          makeContext({}),
+        )
+      ).autocompleteAIModel,
+    ).toBe(AUTOCOMPLETE_AI_MODEL);
+    expect(
+      (
+        await loadModule(false, ["openai"]).getAISettingsForOrg(
+          makeContext({ defaultAIModel: "gpt-5.2" }),
+        )
+      ).autocompleteAIModel,
+    ).toBe("gpt-5.2");
+    expect(
+      (
+        await loadModule(false, ["anthropic"]).getAISettingsForOrg(
+          makeContext({ aiAutocompleteModel: "claude-sonnet-4-6" }),
+        )
+      ).autocompleteAIModel,
+    ).toBe("claude-sonnet-4-6");
   });
 
   it("follows the org default on self-hosted", async () => {

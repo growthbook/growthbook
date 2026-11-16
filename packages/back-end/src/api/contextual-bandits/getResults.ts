@@ -1,38 +1,85 @@
-import { getContextualBanditResultsValidator } from "shared/validators";
+import { contextualBanditEndpoints } from "shared/api-endpoints";
 import {
   buildContextualBanditResultsView,
   computeOverallVariationWeights,
+  resolveSnapshotVariations,
 } from "shared/experiments";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getContextualBanditResultsForUi } from "back-end/src/enterprise/services/contextualBandits";
-import { loadContextualBanditForRead } from "./_shared";
+import {
+  loadContextualBanditForRead,
+  toApiContextualBanditLatestStatus,
+} from "./_shared";
 
 export const getContextualBanditResults = createApiRequestHandler(
-  getContextualBanditResultsValidator,
+  contextualBanditEndpoints.getContextualBanditResults,
 )(async (req) => {
   const { contextualBandit } = await loadContextualBanditForRead(
     req.context,
     req.params.id,
   );
-  const { contextualBanditSnapshot, latestSnapshotSummary, srm } =
-    await getContextualBanditResultsForUi(req.context, contextualBandit);
+  const {
+    contextualBanditSnapshot,
+    latestSnapshotSummary,
+    snapshotVariationIds,
+    resultsRun,
+    health,
+  } = await getContextualBanditResultsForUi(req.context, contextualBandit);
+
+  const snapshotVariations = resolveSnapshotVariations(
+    snapshotVariationIds ?? [],
+    contextualBandit.variations,
+  );
 
   const overallWeights = contextualBanditSnapshot
     ? computeOverallVariationWeights(
         contextualBanditSnapshot.responses,
-        contextualBandit.variations.length,
+        snapshotVariations.length,
       ).map((weight, i) => ({
-        variationId: contextualBandit.variations[i].id,
+        variationId: snapshotVariations[i].id,
         weight,
       }))
     : null;
 
-  const results = contextualBanditSnapshot
-    ? buildContextualBanditResultsView(
-        contextualBanditSnapshot,
-        contextualBandit.variations,
-      )
+  const healthView = health
+    ? {
+        variations: health.variations.map((v) => {
+          const match = contextualBandit.variations.find(
+            (cv) => cv.id === v.id,
+          );
+          return {
+            variationId: v.id,
+            ...(match?.name !== undefined ? { variationName: match.name } : {}),
+            weight: v.weight,
+          };
+        }),
+        traffic: health.traffic,
+        srm: health.srm
+          ? {
+              statistic: health.srm.statistic,
+              pValue: health.srm.pValue,
+              degreesOfFreedom: health.srm.degreesOfFreedom,
+              ...(health.srm.latestPeriod
+                ? { latestPeriod: health.srm.latestPeriod }
+                : {}),
+            }
+          : null,
+        multipleExposures: health.multipleExposures,
+      }
     : null;
+
+  const results =
+    contextualBanditSnapshot && resultsRun
+      ? {
+          ...buildContextualBanditResultsView(
+            contextualBanditSnapshot,
+            snapshotVariations,
+          ),
+          snapshotId: resultsRun.snapshotId,
+          dateCreated: resultsRun.dateCreated.toISOString(),
+          health: healthView,
+        }
+      : null;
 
   return {
     contextualBanditSnapshot: contextualBanditSnapshot
@@ -47,27 +94,6 @@ export const getContextualBanditResults = createApiRequestHandler(
       : null,
     overallWeights,
     results,
-    latest: latestSnapshotSummary
-      ? {
-          id: latestSnapshotSummary.id,
-          status: latestSnapshotSummary.status,
-          error: latestSnapshotSummary.error ?? "",
-          queries: latestSnapshotSummary.queries,
-          runStarted: latestSnapshotSummary.runStarted
-            ? latestSnapshotSummary.runStarted.toISOString()
-            : null,
-          dateCreated: latestSnapshotSummary.dateCreated.toISOString(),
-          multipleExposures: latestSnapshotSummary.multipleExposures,
-          type: latestSnapshotSummary.type ?? "standard",
-          triggeredBy: latestSnapshotSummary.triggeredBy ?? "manual",
-          srm: srm
-            ? {
-                statistic: srm.statistic,
-                pValue: srm.pValue,
-                degreesOfFreedom: srm.degreesOfFreedom,
-              }
-            : null,
-        }
-      : null,
+    latest: toApiContextualBanditLatestStatus(latestSnapshotSummary),
   };
 });

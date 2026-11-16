@@ -16,9 +16,13 @@ type TextWhiteSpace =
   | "break-spaces";
 type TextFontStyle = "normal" | "italic" | "oblique";
 // NB: We might need to expand this to support RadixTextProps["color"], but being conservative for now.
-type TextColors = "text-high" | "text-mid" | "text-low" | "text-disabled";
+export type TextColors =
+  | "text-high"
+  | "text-mid"
+  | "text-low"
+  | "text-disabled";
 
-const radixWeightMap: Record<TextWeights, RadixTextProps["weight"]> = {
+export const radixWeightMap: Record<TextWeights, RadixTextProps["weight"]> = {
   regular: "regular",
   medium: "medium",
   semibold: "bold",
@@ -40,6 +44,8 @@ export interface TextProps {
   whiteSpace?: TextWhiteSpace;
   fontStyle?: TextFontStyle;
   textTransform?: "uppercase" | "lowercase" | "capitalize";
+  /** Identifiers, keys, and other machine-facing strings. */
+  mono?: boolean;
 
   // Margin props
   m?: RadixTextProps["m"];
@@ -69,6 +75,7 @@ export default forwardRef<
     fontStyle = "normal",
     truncate = false,
     textTransform,
+    mono = false,
     m,
     mx,
     my,
@@ -87,6 +94,7 @@ export default forwardRef<
     ...(truncate ? {} : { whiteSpace }),
   };
   if (textTransform) style.textTransform = textTransform;
+  if (mono) style.fontFamily = "var(--code-font-family)";
 
   if (color === "text-high") {
     style.color = "var(--color-text-high)";

@@ -1,7 +1,7 @@
 import { randomUUID } from "crypto";
 import mongoose from "mongoose";
-import { MongoMemoryServer } from "mongodb-memory-server";
 import merge from "lodash/merge";
+import { testMongoUri, disconnectTestMongo } from "back-end/test/test-helpers";
 import { getAuthConnection } from "back-end/src/services/auth";
 import authenticateApiRequestMiddleware from "back-end/src/middleware/authenticateApiRequestMiddleware";
 import app from "back-end/src/app";
@@ -46,15 +46,12 @@ export const setupApp = () => {
   // spec each run.
   jest.setTimeout(20000);
 
-  let mongodb;
   let reqContext;
   const auditMock = jest.fn();
   const OLD_ENV = process.env;
   const isReady = new Promise((resolve) => {
     beforeAll(async () => {
-      mongodb = await MongoMemoryServer.create();
-      const uri = mongodb.getUri();
-      process.env.MONGO_URL = uri;
+      process.env.MONGO_URL = testMongoUri();
       getAuthConnection().middleware.mockImplementation((req, res, next) => {
         next();
       });
@@ -67,10 +64,14 @@ export const setupApp = () => {
         // auth middleware sets this; under this mock we give each request a
         // unique key so the limiter never crosses test boundaries.
         req.apiKey = randomUUID();
-        // The real middleware sets this on every path. Without it, writes that
-        // record an audit user fail validation — and because several are
-        // fire-and-forget, the failure is swallowed and the specs cannot see it.
-        req.eventAudit = { type: "api_key", apiKey: req.apiKey, name: "test" };
+        // The real middleware sets this on every path, to the same actor as the
+        // context's. Without it, writes that record an audit user fail
+        // validation — and because several are fire-and-forget, the failure is
+        // swallowed and the specs cannot see it.
+        req.eventAudit =
+          reqContext?.auditUser?.type === "api_key"
+            ? reqContext.auditUser
+            : { type: "api_key", apiKey: req.apiKey, name: "test" };
         next();
       });
 
@@ -108,8 +109,7 @@ export const setupApp = () => {
 
     afterAll(async () => {
       await getAgendaInstance().stop();
-      await mongoose.connection.close();
-      await mongodb.stop();
+      await disconnectTestMongo();
       process.env = OLD_ENV;
     });
 

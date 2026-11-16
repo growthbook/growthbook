@@ -1,13 +1,13 @@
-import { deleteContextualBanditLinkedFeatureValidator } from "shared/validators";
+import { contextualBanditEndpoints } from "shared/api-endpoints";
 import { stringToBoolean } from "shared/util";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getFeature } from "back-end/src/models/FeatureModel";
 import { unlinkFeatureFromContextualBandit } from "back-end/src/enterprise/services/contextualBandits";
 import { NotFoundError } from "back-end/src/util/errors";
-import { loadContextualBanditForRead } from "./_shared";
+import { loadContextualBanditForRead, holdLinkedFeatureWrite } from "./_shared";
 
 export const deleteContextualBanditLinkedFeature = createApiRequestHandler(
-  deleteContextualBanditLinkedFeatureValidator,
+  contextualBanditEndpoints.deleteContextualBanditLinkedFeature,
 )(async (req) => {
   const { contextualBandit } = await loadContextualBanditForRead(
     req.context,
@@ -35,6 +35,13 @@ export const deleteContextualBanditLinkedFeature = createApiRequestHandler(
     throw new NotFoundError("Feature not found");
   }
 
+  const autoPublish = stringToBoolean(req.query.autoPublish?.toString());
+  await holdLinkedFeatureWrite(
+    req.context,
+    feature,
+    autoPublish,
+    req.query.draftVersion,
+  );
   const result = await unlinkFeatureFromContextualBandit({
     context: req.context,
     contextualBandit,
@@ -42,7 +49,7 @@ export const deleteContextualBanditLinkedFeature = createApiRequestHandler(
     feature,
     eventAudit: req.eventAudit,
     audit: req.audit,
-    autoPublish: stringToBoolean(req.query.autoPublish?.toString()),
+    autoPublish,
     draftVersion: req.query.draftVersion,
   });
 

@@ -2,12 +2,15 @@ import {
   Box,
   Flex,
   DropdownMenu as RadixDropdownMenu,
+  IconButton,
   Text,
 } from "@radix-ui/themes";
 import type { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
 import { PiCaretDown, PiWarningFill } from "react-icons/pi";
+import { BsThreeDotsVertical } from "react-icons/bs";
 import { amber } from "@radix-ui/colors";
 import React, {
+  forwardRef,
   ReactElement,
   useCallback,
   useEffect,
@@ -18,7 +21,7 @@ import React, {
 import { createPortal } from "react-dom";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import Button from "@/ui/Button";
-import Tooltip from "@/components/Tooltip/Tooltip";
+import Tooltip from "@/ui/Tooltip";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import { radixSize, Size } from "@/ui/sizes";
 
@@ -42,6 +45,8 @@ type DropdownProps = {
   // collision, so e.g. "top" opens upward when there's room, else downward.
   menuSide?: "top" | "right" | "bottom" | "left";
   menuWidth?: "full" | number;
+  menuMaxHeight?: number | string;
+  menuZIndex?: number;
   children: AllowedChildren;
   color?: RadixDropdownMenu.ContentProps["color"];
   variant?: RadixDropdownMenu.ContentProps["variant"];
@@ -57,6 +62,35 @@ type DropdownProps = {
   >["onCloseAutoFocus"];
 } & MarginProps;
 
+const MORE_ICON_SIZES = { sm: 14, md: 16, lg: 18 };
+
+/** The ⋮ button that opens a menu: a DropdownMenu `trigger`, named by `label`. */
+export const MoreMenuTrigger = forwardRef<
+  HTMLButtonElement,
+  Omit<
+    React.ComponentPropsWithoutRef<typeof IconButton>,
+    "children" | "size" | "aria-label"
+  > & {
+    label: string;
+    size?: Size<"sm" | "md" | "lg">;
+  }
+>(function MoreMenuTrigger({ label, size = "md", ...props }, ref) {
+  return (
+    <IconButton
+      ref={ref}
+      variant="ghost"
+      color="gray"
+      radius="full"
+      size={radixSize(size)}
+      highContrast
+      aria-label={label}
+      {...props}
+    >
+      <BsThreeDotsVertical size={MORE_ICON_SIZES[size]} />
+    </IconButton>
+  );
+});
+
 export function DropdownMenu({
   trigger,
   triggerClassName,
@@ -64,6 +98,8 @@ export function DropdownMenu({
   menuPlacement = "start",
   menuSide = "bottom",
   menuWidth,
+  menuMaxHeight,
+  menuZIndex,
   children,
   color,
   variant,
@@ -116,21 +152,21 @@ export function DropdownMenu({
     handleOpenChange(false);
   };
 
-  // When modal=true, walk up from the Content node to find the Radix popper
-  // wrapper and elevate its z-index above the backdrop (9998).
+  // z-index has to land on the Popper wrapper; it owns the stacking context.
   const contentRef = useCallback(
     (node: HTMLDivElement | null) => {
-      if (!modal || !node) return;
+      const zIndex = menuZIndex ?? (modal ? 9999 : null);
+      if (zIndex === null || !node) return;
       let el: HTMLElement | null = node.parentElement;
       while (el) {
         if (el.hasAttribute("data-radix-popper-content-wrapper")) {
-          el.style.zIndex = "9999";
+          el.style.zIndex = String(zIndex);
           return;
         }
         el = el.parentElement;
       }
     },
-    [modal],
+    [menuZIndex, modal],
   );
 
   return (
@@ -171,6 +207,7 @@ export function DropdownMenu({
           }
           style={{
             width: typeof menuWidth === "number" ? menuWidth : undefined,
+            maxHeight: menuMaxHeight,
             visibility: isHiddenWithDelay ? "hidden" : "visible",
           }}
         >
@@ -213,10 +250,12 @@ type DropdownItemProps = {
   color?: "red" | "default";
   shortcut?: RadixDropdownMenu.ItemProps["shortcut"];
   tooltip?: string;
-  tooltipStyle?: React.CSSProperties;
+  tooltipSide?: "top" | "right" | "bottom" | "left";
   confirmation?: {
     submit: () => Promise<void> | void;
-    getConfirmationContent?: () => Promise<string | ReactElement | null>;
+    getConfirmationContent?: (
+      close: () => void,
+    ) => Promise<string | ReactElement | null>;
     confirmationTitle: string;
     cta: string;
     ctaColor?: "red" | "violet";
@@ -235,7 +274,7 @@ export function DropdownMenuItem({
   onClick,
   confirmation,
   tooltip,
-  tooltipStyle = { width: "max-content" },
+  tooltipSide = "bottom",
   ...props
 }: DropdownItemProps) {
   if (color === "default") {
@@ -246,14 +285,6 @@ export function DropdownMenuItem({
   const [confirmationContent, setConfirmationContent] = useState<
     string | ReactElement | null
   >(null);
-  useEffect(() => {
-    if (!confirming || !confirmation || !confirmation.getConfirmationContent)
-      return;
-    confirmation
-      .getConfirmationContent()
-      .then((c) => setConfirmationContent(c))
-      .catch((e) => console.error(e));
-  }, [confirming, confirmation]);
 
   const [error, setError] = useState<null | string>(null);
   const [loading, setLoading] = useState(false);
@@ -267,11 +298,20 @@ export function DropdownMenuItem({
   const closeDropdown =
     confirmation?.closeDropdown ?? visibilityContext?.closeDropdown;
 
-  const handleClose = () => {
+  const handleClose = useCallback(() => {
     setConfirming(false);
     showDropdown?.();
     closeDropdown?.();
-  };
+  }, [showDropdown, closeDropdown]);
+
+  useEffect(() => {
+    if (!confirming || !confirmation || !confirmation.getConfirmationContent)
+      return;
+    confirmation
+      .getConfirmationContent(handleClose)
+      .then((c) => setConfirmationContent(c))
+      .catch((e) => console.error(e));
+  }, [confirming, confirmation, handleClose]);
 
   const menuItem = (
     <RadixDropdownMenu.Item
@@ -315,8 +355,11 @@ export function DropdownMenuItem({
           <Box width="14px" className="ml-3">
             {loading ? <LoadingSpinner /> : null}
             {error ? (
-              <Tooltip body={`Error: ${error}. Exit menu and try again.`}>
-                <PiWarningFill color={amber.amber11} />
+              <Tooltip content={`Error: ${error}. Exit menu and try again.`}>
+                {/* An icon can't hold the tooltip's ref. */}
+                <span>
+                  <PiWarningFill color={amber.amber11} />
+                </span>
               </Tooltip>
             ) : null}
           </Box>
@@ -343,7 +386,7 @@ export function DropdownMenuItem({
         </ModalStandard>
       )}
       {tooltip ? (
-        <Tooltip body={tooltip} popperStyle={tooltipStyle}>
+        <Tooltip content={tooltip} side={tooltipSide}>
           {menuItem}
         </Tooltip>
       ) : (

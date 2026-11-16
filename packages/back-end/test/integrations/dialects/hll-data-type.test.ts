@@ -1,8 +1,10 @@
-import { baseDialect } from "back-end/src/integrations/dialects/base";
-import { bigQueryDialect } from "back-end/src/integrations/dialects/bigquery";
-import { snowflakeDialect } from "back-end/src/integrations/dialects/snowflake";
-import { databricksDialect } from "back-end/src/integrations/dialects/databricks";
-import { redshiftDialect } from "back-end/src/integrations/dialects/redshift";
+import {
+  baseDialect,
+  bigQueryDialect,
+  snowflakeDialect,
+  databricksDialect,
+  redshiftDialect,
+} from "shared/dialects";
 import { castToHllDataType } from "back-end/src/integrations/sql/primitives/cast-to-hll-data-type";
 
 // Dialects supporting HLL count-distinct must override getDataType("hll")

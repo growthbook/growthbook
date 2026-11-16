@@ -36,6 +36,7 @@ import Switch from "@/ui/Switch";
 import Field from "@/components/Forms/Field";
 import MarkdownInput from "@/components/Markdown/MarkdownInput";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
+import { validatedSubmit } from "@/ui/Modal/validatedSubmit";
 import { useUser } from "@/services/UserContext";
 import VariationIdWarning from "@/components/Experiment/VariationIdWarning";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
@@ -186,7 +187,7 @@ export default function LegacyReportPage({
           <ModalStandard
             trackingEventModalType=""
             open={true}
-            submit={form.handleSubmit(async (value) => {
+            submit={validatedSubmit(form, async (value) => {
               await apiCall(`/report/${report.id}`, {
                 method: "PUT",
                 body: JSON.stringify(value),
@@ -366,9 +367,13 @@ export default function LegacyReportPage({
                   </div>
                   <div className="col-auto">
                     {canUpdateReport && (
-                      <form
-                        onSubmit={async (e) => {
-                          e.preventDefault();
+                      <RunQueriesButton
+                        icon="refresh"
+                        cta="Refresh Data"
+                        mutate={mutate}
+                        model={report}
+                        cancelEndpoint={`/report/${report.id}/cancel`}
+                        onSubmit={async () => {
                           try {
                             const res = await apiCall<{
                               report: ReportInterface;
@@ -387,17 +392,7 @@ export default function LegacyReportPage({
                             setRefreshError(e.message);
                           }
                         }}
-                      >
-                        <RunQueriesButton
-                          useRadixButton={false}
-                          icon="refresh"
-                          cta="Refresh Data"
-                          mutate={mutate}
-                          model={report}
-                          cancelEndpoint={`/report/${report.id}/cancel`}
-                          color="outline-primary"
-                        />
-                      </form>
+                      />
                     )}
                   </div>
                   <div className="col-auto">

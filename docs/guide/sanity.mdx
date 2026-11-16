@@ -353,7 +353,7 @@ With the feature flag created, we can now create an experiment.
 
 4. Complete remaining steps and save.
 
-5. Click **Review and Publish** to launch the experiment.
+5. Click **Review & Publish** to launch the experiment.
 
 Your experiment is now live! Before creating the content variations with Sanity, we'll need to create an API Key that allows Sanity to fetch the experiment content.
 
@@ -451,7 +451,7 @@ export function configureServerSideGrowthBook() {
 
 ### Configure Experiment Tracking
 
-To track experiment exposures—which variations a users saw—we'll need to create a tracking component. Create a new file, `lib/growthbookTracking.tsx`.
+To track experiment exposures, which variations a user saw, we'll need to create a tracking component. Create a new file, `lib/growthbookTracking.tsx`.
 
 Note the `TODO` comment. You'll need to replace the `console.log` with your own [event tracking](/app/datasources). Popular event tracking tools include Google Analytics, Segment, and Jitsu.
 

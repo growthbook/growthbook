@@ -188,6 +188,7 @@ export type ContextualBanditResponseSnapshot = {
   /** Per-variation sample (data-only) variances; not posterior variances. */
   sampleVariances?: number[] | null;
   updatedWeights?: number[] | null;
+  /** Per-variation P(best) among qualifying arms with sample size >= 100, otherwise the uniform prior 1/K.*/
   bestArmProbabilities?: number[] | null;
   updateMessage?: string | null;
   error?: string | null;
@@ -221,19 +222,33 @@ export type ContextualLeafStatsEntry = {
 };
 
 /**
- * Total within-tree SSE captured at each stage of greedy regression-tree
- * growth: index 0 is the root (before the first split), the next entry is
- * total SSE after the first split, etc.
+ * Metadata describing a single greedy regression-tree split.
+ */
+export type ContextualTreeSplit = {
+  /**
+   * The AND of per-attribute clauses defining the leaf node that was split,
+   * as it existed before this split (empty for the root node).
+   */
+  leafClauses: ContextualLeafClause[];
+  /** The attribute the tree split this node on. */
+  attribute: string;
+  /** Categories routed to the retained parent leaf (label 0). */
+  leftLevels: string[];
+  /** Categories routed to the new child leaf (label 1). */
+  rightLevels: string[];
+};
+
+/**
+ * Within-tree SSE captured at each stage of greedy regression-tree growth,
+ * summed over variations with at least 100 users: index 0 is the root (before the first
+ * split), the next entry is the error after the first split, etc.
  */
 export type ContextualSseTrajectoryEntry = {
   /** Number of splits applied so far. 0 = root, before the first split. */
   numSplits: number;
-  /** Total SSE summed across every leaf of the tree at this stage. */
   totalSse: number;
-  /**
-   * Per-variation SSE at this stage, summing to `totalSse`.
-   */
-  ssePerVariation?: number[];
+  /** The split that produced this stage; absent on the root (`numSplits === 0`). */
+  split?: ContextualTreeSplit;
 };
 
 /**
@@ -241,12 +256,23 @@ export type ContextualSseTrajectoryEntry = {
  * from the per-(split, variation) SSE trajectory.
  */
 export type ContextualBicTrajectoryEntry = {
-  /** Number of splits after applying this split (>= 1). */
+  /**
+   * Resulting number of splits this candidate would produce if applied (>= 1).
+   */
   numSplits: number;
   logLikelihoodRatio: number;
+  /** Full gate penalty: base BIC `K*ln(N)` plus the EBIC multiplicity term. */
   penalty: number;
   /** `penalty - logLikelihoodRatio`; a negative value favors keeping the split. */
   deltaBic: number;
+  /**
+   * Number of candidate splits searched for this split (M).
+   */
+  numCandidates?: number;
+  /**
+   * EBIC multiplicity penalty `2*gamma*ln(M)` included in `penalty`.
+   */
+  multiplicityPenalty?: number;
 };
 
 /** Full contextual bandit output for a decision-metric run (mirrors gbstats `ContextualBanditResult`). */
@@ -288,6 +314,7 @@ export interface AnalysisSettingsForStatsEngine {
   one_sided_intervals?: boolean;
   use_covariate_as_response?: boolean;
   post_stratification_enabled?: boolean;
+  is_cluster_experiment?: boolean;
 }
 
 export interface BanditSettingsForStatsEngine {
@@ -332,6 +359,7 @@ export interface MetricSettingsForStatsEngine {
   target_mde: number;
   business_metric_type: BusinessMetricTypeForStatsEngine[];
   compute_uncapped_metric: boolean;
+  scale_by_sub_unit_count?: boolean;
 }
 
 export interface QueryResultsForStatsEngine {

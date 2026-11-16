@@ -167,7 +167,7 @@ export class ExperimentSnapshotAnalysisChunkModel extends BaseClass {
       }
     }
 
-    await waitForIndexes();
+    await waitForIndexes(this.config.collectionName);
 
     // 1. Upsert. For scope:"all" we inline-unset keys in the passed set
     //    that are absent from a given metric chunk. For scope:"keys" the

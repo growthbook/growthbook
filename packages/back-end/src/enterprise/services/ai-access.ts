@@ -23,14 +23,18 @@ export class AIUsageLimitError extends Error {
   }
 }
 
-async function assertAIEnabled(context: ReqContext): Promise<void> {
+export async function assertAIEnabled(context: ReqContext): Promise<void> {
   if (!orgHasPremiumFeature(context.org, "ai-suggestions")) {
     throw new PlanDoesNotAllowError("Your plan does not support AI features.");
   }
 
   const { aiEnabled } = await getAISettingsForOrg(context);
   if (!aiEnabled) {
-    throw new NotFoundError("AI configuration not set or enabled");
+    throw new NotFoundError(
+      context.org.settings?.aiEnabled
+        ? "AI is enabled, but no usable AI provider API key is configured. An admin can add one in GrowthBook → Settings → AI & Prompts."
+        : "AI is disabled for this organization. An admin can enable AI in GrowthBook → Settings → General.",
+    );
   }
 }
 

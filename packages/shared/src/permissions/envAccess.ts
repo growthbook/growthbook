@@ -1,11 +1,5 @@
-import {
-  MemberRoleInfo,
-  OrganizationInterface,
-} from "../../types/organization";
-import {
-  envScopedPermissionsForRole,
-  roleSupportsEnvLimit,
-} from "./permissions.utils";
+import { OrganizationInterface } from "../../types/organization";
+import { envScopedPermissionsForRole } from "./permissions.utils";
 import { REVISION_PERMISSIONS, RevisionAction } from "./revisionPermissions";
 
 // The env-scoped atoms that aren't revision actions get spelled out; the rest
@@ -51,42 +45,4 @@ export function envScopeLabels(
     }
   });
   return [...ACTION_ORDER.filter((a) => actions.has(a)), ...[...others].sort()];
-}
-
-function ruleHasAccessToEnv(
-  rule: {
-    role: string;
-    limitAccessByEnvironment: boolean;
-    environments: string[];
-  },
-  env: string,
-  org: Partial<OrganizationInterface>,
-): "yes" | "no" | "N/A" {
-  if (rule.role === "admin" || rule.role === "gbDefault_projectAdmin") {
-    return "yes";
-  }
-
-  if (!roleSupportsEnvLimit(rule.role, org)) return "N/A";
-
-  if (!rule.limitAccessByEnvironment) return "yes";
-
-  if (rule.environments.includes(env)) return "yes";
-
-  return "no";
-}
-
-// Access is the union across base and additional rules: one rule allowing the
-// environment is enough, and "N/A" only when nothing is environment-scoped.
-export function roleHasAccessToEnv(
-  role: MemberRoleInfo,
-  env: string,
-  org: Partial<OrganizationInterface>,
-): "yes" | "no" | "N/A" {
-  const results = [role, ...(role.additionalRoles ?? [])].map((rule) =>
-    ruleHasAccessToEnv(rule, env, org),
-  );
-
-  if (results.includes("yes")) return "yes";
-  if (results.includes("no")) return "no";
-  return "N/A";
 }

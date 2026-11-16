@@ -18,6 +18,12 @@ import { postVariationImageUpload } from "./postVariationImageUpload";
 import { deleteVariationScreenshot } from "./deleteVariationScreenshot";
 import { getExperimentNames } from "./getExperimentNames";
 import { getExperimentStartChecklist } from "./getExperimentStartChecklist";
+import {
+  deleteExperiment,
+  postExperimentArchive,
+  postExperimentUnarchive,
+} from "./archiveExperiment";
+import { postExperimentComment } from "./postExperimentComment";
 
 export const experimentsRoutes: OpenApiRoute[] = [
   // Experiment Endpoints
@@ -31,6 +37,9 @@ export const experimentsRoutes: OpenApiRoute[] = [
   getExperimentResults,
   getExperimentBulkResults,
   updateExperiment,
+  postExperimentArchive,
+  postExperimentUnarchive,
+  deleteExperiment,
   postExperimentStart,
   postExperimentStartChecklistManualComplete,
   postExperimentStop,
@@ -40,6 +49,7 @@ export const experimentsRoutes: OpenApiRoute[] = [
   postVariationImageUpload,
   deleteVariationScreenshot,
   getExperimentNames,
+  postExperimentComment,
   // VisualChangeset Endpoints (mounted under /experiments)
   listVisualChangesets,
   postVisualChangesets,

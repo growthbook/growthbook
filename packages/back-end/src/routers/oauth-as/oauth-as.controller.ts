@@ -1,8 +1,14 @@
 import { Request, Response } from "express";
-import { oauthDcrRequestValidator } from "shared/validators";
+import {
+  oauthDcrRequestValidator,
+  oauthTokenPermissionsValidator,
+} from "shared/validators";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { findOrganizationsByMemberId } from "back-end/src/models/OrganizationModel";
-import { getContextFromReq } from "back-end/src/services/organizations";
+import {
+  getContextFromReq,
+  isValidLoginMethod,
+} from "back-end/src/services/organizations";
 import {
   exchangeAuthorizationCode,
   exchangeRefreshToken,
@@ -135,7 +141,9 @@ export async function getAuthorizeInfoHandler(
     }
 
     const info = await getAuthorizeInfo({ clientId, redirectUri });
-    const orgs = await findOrganizationsByMemberId(req.userId);
+    const orgs = (await findOrganizationsByMemberId(req.userId)).filter((o) =>
+      isValidLoginMethod(o, req),
+    );
 
     return res.status(200).json({
       status: 200,
@@ -176,6 +184,7 @@ export async function postAuthorize(
     scope?: string;
     resource?: string;
     organization?: string;
+    permissions?: unknown;
   }>,
   res: Response,
 ) {
@@ -195,12 +204,25 @@ export async function postAuthorize(
         message: "organization is required",
       });
     }
+    // The role, scope and confirmations are checked when the token is minted.
+    const permissions = oauthTokenPermissionsValidator
+      .nullable()
+      .optional()
+      .safeParse(body.permissions);
+    if (!permissions.success) {
+      return res.status(400).json({
+        status: 400,
+        message: "permissions is invalid",
+      });
+    }
 
     // Verify the user is a member of the chosen org. No superadmin bypass:
     // the whole grant lifecycle (issuance, refresh) requires membership —
     // refresh tears down grants for non-members, so a non-member grant would
     // die on first rotation anyway.
-    const orgs = await findOrganizationsByMemberId(req.userId);
+    const orgs = (await findOrganizationsByMemberId(req.userId)).filter((o) =>
+      isValidLoginMethod(o, req),
+    );
     if (!orgs.some((o) => o.id === organization)) {
       return res.status(403).json({
         status: 403,
@@ -218,6 +240,7 @@ export async function postAuthorize(
       scope: body.scope ? String(body.scope) : undefined,
       resource: body.resource ? String(body.resource) : undefined,
       state: body.state ? String(body.state) : undefined,
+      permissions: permissions.data ?? null,
     });
 
     return res.status(200).json({ status: 200, redirectTo });

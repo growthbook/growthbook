@@ -1,20 +1,21 @@
 import { useFormContext } from "react-hook-form";
-import { Box, Flex, Heading, Text } from "@radix-ui/themes";
+import { Box } from "@radix-ui/themes";
 import React from "react";
 import { DEFAULT_MAX_METRIC_SLICE_LEVELS } from "shared/settings";
+import { useSettingsForm } from "@/components/GeneralSettings/SettingsFormProvider";
 import { hasFileConfig } from "@/services/env";
 import { supportedCurrencies } from "@/services/settings";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
 import Callout from "@/ui/Callout";
-import Frame from "@/ui/Frame";
 import Checkbox from "@/ui/Checkbox";
-import HelperText from "@/ui/HelperText";
 import { useUser } from "@/services/UserContext";
 import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
+import { SettingsField, SettingsGroup, UnsavedMark } from "./SettingsGroup";
 
 export default function MetricsSettings() {
   const form = useFormContext();
+  const { defaultFor } = useSettingsForm();
   const { hasCommercialFeature } = useUser();
   const metricAnalysisDays = form.watch("metricAnalysisDays");
   const metricAnalysisDaysWarningMsg =
@@ -29,222 +30,135 @@ export default function MetricsSettings() {
   const currencyOptions = Object.entries(supportedCurrencies).map(
     ([value, label]) => ({ value, label }),
   );
+
+  const numberField = (
+    name: string,
+    options: { append?: string; min?: number; max?: number; step?: number },
+  ) => (
+    <Box width="200px">
+      <Field
+        size="md"
+        type="number"
+        containerClassName="mb-0"
+        append={options.append}
+        min={options.min}
+        max={options.max}
+        step={options.step}
+        disabled={hasFileConfig()}
+        placeholder={defaultFor(name)}
+        {...form.register(name, {
+          valueAsNumber: true,
+          min: options.min,
+          max: options.max,
+        })}
+      />
+    </Box>
+  );
+
   return (
-    <Frame>
-      <Flex gap="4">
-        <Box width="220px" flexShrink="0">
-          <Heading size="4" as="h4">
-            Metrics Settings
-          </Heading>
-        </Box>
+    <>
+      <SettingsGroup
+        id="m-analysis"
+        title="Metric Analysis"
+        description="Settings for the metric analysis page."
+        keywords="lookback window history"
+      >
+        <SettingsField
+          name="metricAnalysisDays"
+          label="Lookback window"
+          help="Historical data used on the metric analysis page."
+        >
+          {numberField("metricAnalysisDays", { append: "days" })}
+          {metricAnalysisDaysWarningMsg && (
+            <Callout status="warning" mt="2">
+              {metricAnalysisDaysWarningMsg}
+            </Callout>
+          )}
+        </SettingsField>
+      </SettingsGroup>
 
-        <Flex align="start" direction="column" flexGrow="1" pt="6">
-          <Box mb="6" width="100%">
-            <Text as="label" className="font-weight-semibold" size="3">
-              Metric analysis lookback window
-            </Text>
-            <Box width="200px">
-              <Field
-                size="legacy"
-                type="number"
-                append="days"
-                containerClassName="mb-0"
-                disabled={hasFileConfig()}
-                {...form.register("metricAnalysisDays", {
-                  valueAsNumber: true,
-                })}
-              />
-            </Box>
-            <HelperText status="info" size="sm" mt="1">
-              Amount of historical data to use on the metric analysis page.
-            </HelperText>
-            {metricAnalysisDaysWarningMsg && (
-              <Callout status="warning" mt="2">
-                {metricAnalysisDaysWarningMsg}
-              </Callout>
-            )}
-          </Box>
-
-          {/* region Metrics Behavior Defaults */}
-          <Box mb="4" width="100%">
-            <Heading as="h4" size="4">
-              Metrics Behavior Defaults
-            </Heading>
-            <p>
-              These are the pre-configured default values that will be used when
-              configuring metrics. You can always change these values on a
-              per-metric basis.
-            </p>
-
-            {/* region Minimum Metric Total */}
-            <div>
-              <div className="form-inline">
-                <Field
-                  size="legacy"
-                  label="Minimum metric total"
-                  type="number"
-                  min={0}
-                  className="ml-2"
-                  containerClassName="mt-2"
-                  disabled={hasFileConfig()}
-                  {...form.register("metricDefaults.minimumSampleSize", {
-                    valueAsNumber: true,
-                    min: 0,
-                  })}
-                />
-              </div>
-              <p>
-                <small className="text-muted mb-3">
-                  The total metric value required in an experiment variation
-                  before showing results.
-                </small>
-              </p>
-            </div>
-            {/* endregion Minimum Metric Total */}
-
-            {/* region Maximum Percentage Change */}
-            <div>
-              <div className="form-inline">
-                <Field
-                  size="legacy"
-                  label="Maximum percentage change"
-                  type="number"
-                  min={0}
-                  append="%"
-                  className="ml-2"
-                  containerClassName="mt-2"
-                  disabled={hasFileConfig()}
-                  {...form.register("metricDefaults.maxPercentageChange", {
-                    valueAsNumber: true,
-                    min: 0,
-                  })}
-                />
-              </div>
-              <p>
-                <small className="text-muted mb-3">
-                  An experiment that changes the metric by more than this
-                  percent will be flagged as suspicious.
-                </small>
-              </p>
-            </div>
-            {/* endregion Maximum Percentage Change */}
-
-            {/* region Minimum Percentage Change */}
-            <div>
-              <div className="form-inline">
-                <Field
-                  size="legacy"
-                  label="Minimum percentage change"
-                  type="number"
-                  min={0}
-                  append="%"
-                  className="ml-2"
-                  containerClassName="mt-2"
-                  disabled={hasFileConfig()}
-                  {...form.register("metricDefaults.minPercentageChange", {
-                    valueAsNumber: true,
-                    min: 0,
-                  })}
-                />
-              </div>
-              <p>
-                <small className="text-muted mb-3">
-                  An experiment that changes the metric by less than this
-                  percent will be considered a draw.
-                </small>
-              </p>
-            </div>
-            {/* endregion Minimum Percentage Change */}
-
-            {/* region Target MDE */}
-            <div>
-              <div className="form-inline">
-                <Field
-                  size="legacy"
-                  label="Target minimum detectable effect"
-                  type="number"
-                  min={0}
-                  append="%"
-                  className="ml-2"
-                  containerClassName="mt-2"
-                  disabled={hasFileConfig()}
-                  {...form.register("metricDefaults.targetMDE", {
-                    valueAsNumber: true,
-                    min: 0,
-                  })}
-                />
-              </div>
-              <Box maxWidth="740px">
-                <small className="text-muted mb-3">
-                  The percentage change that you want to be able to reliably
-                  detect before ending your experiment. This is used to estimate
-                  the &quot;Days Left&quot; for running experiments. Lower
-                  values require more data to reach a decision point for an
-                  experiment.
-                </small>
-              </Box>
-            </div>
-            {/* endregion Target MDE */}
-          </Box>
-          {/* endregion Metrics Behavior Defaults */}
-          <>
+      <SettingsGroup
+        id="m-defaults"
+        title="Metric Behavior Defaults"
+        description="Defaults for new metrics. Each metric can override these."
+        keywords="minimum total sample size threshold suspicious outlier draw mde minimum detectable effect currency revenue"
+      >
+        <SettingsField
+          name="metricDefaults.minimumSampleSize"
+          label="Minimum metric total"
+          help="Total a variation needs before results are shown."
+        >
+          {numberField("metricDefaults.minimumSampleSize", { min: 0 })}
+        </SettingsField>
+        <SettingsField
+          name="metricDefaults.maxPercentageChange"
+          label="Maximum percentage change"
+          help="Larger changes are flagged as suspicious."
+        >
+          {numberField("metricDefaults.maxPercentageChange", {
+            min: 0,
+            append: "%",
+          })}
+        </SettingsField>
+        <SettingsField
+          name="metricDefaults.minPercentageChange"
+          label="Minimum percentage change"
+          help="Smaller changes are treated as a draw."
+        >
+          {numberField("metricDefaults.minPercentageChange", {
+            min: 0,
+            append: "%",
+          })}
+        </SettingsField>
+        <SettingsField
+          name="metricDefaults.targetMDE"
+          label="Target minimum detectable effect"
+          help="The change you want to reliably detect. Used to estimate days left. Lower values need more data."
+        >
+          {numberField("metricDefaults.targetMDE", { min: 0, append: "%" })}
+        </SettingsField>
+        <SettingsField
+          name="displayCurrency"
+          htmlFor="settings-displayCurrency"
+          label="Display currency"
+          help="Should match the currency stored in your Data Source."
+        >
+          <Box width="320px">
             <SelectField
-              size="legacy"
-              label="Display currency"
+              id="settings-displayCurrency"
               value={form.watch("displayCurrency") || "USD"}
               options={currencyOptions}
               onChange={(v: string) => form.setValue("displayCurrency", v)}
               required
               markRequired
               placeholder="Select a currency..."
-              helpText="This should match what is stored in the Data Source and controls what currency symbol is displayed."
             />
-          </>
-
-          {/* Require Fact Metrics */}
-          <Box mt="3" mb="6" width="100%">
-            <Flex align="start" justify="start" gap="3">
-              <Box>
-                <Checkbox
-                  id="toggle-disableLegacyMetricCreation"
-                  value={!!form.watch("disableLegacyMetricCreation")}
-                  setValue={(value) => {
-                    form.setValue("disableLegacyMetricCreation", value);
-                  }}
-                  mt="1"
-                />
-              </Box>
-              <Flex
-                direction="column"
-                justify="start"
-                style={{ marginTop: "1px" }}
-              >
-                <Box>
-                  <Text
-                    size="3"
-                    className="font-weight-semibold"
-                    htmlFor="toggle-disableLegacyMetricCreation"
-                    as="label"
-                    mb="2"
-                  >
-                    Require Fact Metrics
-                  </Text>
-                </Box>
-                <Box>
-                  <Text size="2" color="gray">
-                    If enabled, users will only be able to create Fact Metrics.
-                    Legacy metric creation will be disabled.
-                  </Text>
-                </Box>
-              </Flex>
-            </Flex>
           </Box>
+        </SettingsField>
+      </SettingsGroup>
 
-          <Box mb="6" width="100%" mt="2">
-            <Heading as="h4" size="4" mb="3">
-              Metric Slices
-            </Heading>
-            <Text as="label" className="font-weight-semibold" size="3">
+      <SettingsGroup
+        id="m-slices"
+        title="Metric Types and Slices"
+        description="Which metric types can be created, and limits for Auto Slices."
+        keywords="fact metrics legacy metric creation auto slice levels dimensions"
+      >
+        <UnsavedMark name="disableLegacyMetricCreation">
+          <Checkbox
+            id="toggle-disableLegacyMetricCreation"
+            label="Require Fact Metrics"
+            description="Turns off legacy metric creation."
+            value={!!form.watch("disableLegacyMetricCreation")}
+            setValue={(value) => {
+              form.setValue("disableLegacyMetricCreation", value);
+            }}
+          />
+        </UnsavedMark>
+        <SettingsField
+          name="maxMetricSliceLevels"
+          htmlFor="settings-maxMetricSliceLevels"
+          label={
+            <>
               Max Auto Slice levels
               <PaidFeatureBadge
                 commercialFeature="metric-slices"
@@ -252,37 +166,42 @@ export default function MetricsSettings() {
                 variant="outline"
                 ml="2"
               />
-            </Text>
-            <Box mb="3">
-              {hasCommercialFeature("metric-slices")
-                ? `Maximum number of Auto Slice levels that can be configured for metric analysis. Default is ${DEFAULT_MAX_METRIC_SLICE_LEVELS}.`
-                : "This feature requires an Enterprise license."}
-            </Box>
-            <Box width="200px">
-              <Field
-                size="legacy"
-                type="number"
-                min="0"
-                max="200"
-                step="1"
-                disabled={
-                  hasFileConfig() || !hasCommercialFeature("metric-slices")
-                }
-                {...form.register("maxMetricSliceLevels", {
-                  valueAsNumber: true,
-                  min: 0,
-                  max: 200,
-                })}
-              />
-            </Box>
-            {maxMetricSliceLevelsWarningMsg && (
-              <Callout status="warning" mt="2">
-                {maxMetricSliceLevelsWarningMsg}
-              </Callout>
-            )}
+            </>
+          }
+          help={
+            hasCommercialFeature("metric-slices")
+              ? `Most levels allowed per metric. Default is ${DEFAULT_MAX_METRIC_SLICE_LEVELS}.`
+              : "This feature requires an Enterprise license."
+          }
+        >
+          <Box width="200px">
+            <Field
+              id="settings-maxMetricSliceLevels"
+              size="md"
+              type="number"
+              min="0"
+              max="200"
+              step="1"
+              append="levels"
+              containerClassName="mb-0"
+              disabled={
+                hasFileConfig() || !hasCommercialFeature("metric-slices")
+              }
+              placeholder={defaultFor("maxMetricSliceLevels")}
+              {...form.register("maxMetricSliceLevels", {
+                valueAsNumber: true,
+                min: 0,
+                max: 200,
+              })}
+            />
           </Box>
-        </Flex>
-      </Flex>
-    </Frame>
+          {maxMetricSliceLevelsWarningMsg && (
+            <Callout status="warning" mt="2">
+              {maxMetricSliceLevelsWarningMsg}
+            </Callout>
+          )}
+        </SettingsField>
+      </SettingsGroup>
+    </>
   );
 }

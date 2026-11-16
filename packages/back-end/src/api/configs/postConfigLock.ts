@@ -42,7 +42,7 @@ export const lockConfig = createApiRequestHandler(lockConfigValidator)(async (
         lock: {
           revisionId,
           version,
-          lockedBy: req.context.userId,
+          lockedBy: req.context.actorId,
           dateLocked: new Date(),
           ...(req.body.reason ? { reason: req.body.reason } : {}),
         },

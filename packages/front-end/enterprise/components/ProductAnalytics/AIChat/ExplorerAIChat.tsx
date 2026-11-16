@@ -13,6 +13,7 @@ import AIChatGatingScreen from "@/enterprise/components/AIChat/AIChatGatingScree
 import ChatComposer, {
   type ChatComposerHandle,
 } from "@/enterprise/components/AIChat/Composer/ChatComposer";
+import { useAutoScroll } from "@/enterprise/components/AIChat/useAutoScroll";
 import { useMetricMentionItems } from "@/enterprise/components/AIChat/Composer/useMetricMentionItems";
 import { useChatFeedback } from "@/enterprise/components/AIChat/useChatFeedback";
 import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
@@ -24,7 +25,6 @@ import {
 import ChatMessageList, { TOOL_STATUS_LABELS } from "./ChatMessageList";
 import { useConversationList } from "./useConversationList";
 import { useChatModel } from "./useChatModel";
-import { useAutoScroll } from "./useAutoScroll";
 
 export default function ExplorerAIChat() {
   const toolDetailsOpenRef = useRef<Record<string, boolean>>({});
@@ -144,11 +144,13 @@ export default function ExplorerAIChat() {
     deleteConversation,
   } = useConversationList(conversationId, messages, loading);
 
-  const { scrollContainerRef, messagesEndRef, handleScroll } = useAutoScroll(
-    messages,
-    activeTurnItems,
-    conversationId,
-  );
+  const { scrollContainerRef, messagesEndRef, handleScroll, resumeAutoScroll } =
+    useAutoScroll({
+      messages,
+      activeTurnItems,
+      displayedTextMap,
+      conversationId,
+    });
 
   // -- Handlers --------------------------------------------------------------
 
@@ -157,6 +159,7 @@ export default function ExplorerAIChat() {
       const text = (messageOverride ?? input).trim();
       if (!text) return;
       pendingMentionsRef.current = mentions;
+      resumeAutoScroll();
       track("AI Chat Message Sent", {
         model: chatModel,
         messageCount: messages.length,
@@ -164,7 +167,7 @@ export default function ExplorerAIChat() {
       });
       sendMessage(messageOverride, { mentions });
     },
-    [input, chatModel, messages.length, sendMessage],
+    [input, chatModel, messages.length, sendMessage, resumeAutoScroll],
   );
 
   // -- Effects ---------------------------------------------------------------

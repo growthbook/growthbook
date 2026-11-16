@@ -5,11 +5,35 @@ export const SKILL_COMMAND_NAME = "skillCommand";
 
 export interface SkillItem {
   id: string;
+  /** The token text — must stay the identifier; `renderText` sends `/<label>`. */
   label: string;
+  /** Display name for the `/` menu. */
+  title: string;
   description: string;
   kind: SkillKind;
   /** Parent domain for leaf skills; same as `id` for domain routers. */
   group?: string;
+  /** Off in org settings: past tokens still resolve, but the `/` menu hides it. */
+  enabled: boolean;
+}
+
+/** `flag-default-value` → "Flag default value". Sentence case, per the copy guide. */
+export function skillDisplayName(id: string): string {
+  const words = id
+    .split("-")
+    .filter(Boolean)
+    // "GrowthBook" is never "Growthbook" — the one spelling the copy guide pins.
+    .map((w) => (w.toLowerCase() === "growthbook" ? "GrowthBook" : w));
+  // "Feature Flag" is a named resource, so it stays Title Case mid-sentence too.
+  for (let i = 1; i < words.length; i++) {
+    if (words[i - 1] === "feature" && /^flags?$/.test(words[i])) {
+      words[i - 1] = "Feature";
+      words[i] = "F" + words[i].slice(1);
+    }
+  }
+  if (!words.length) return "";
+  const [first, ...rest] = words;
+  return [first.charAt(0).toUpperCase() + first.slice(1), ...rest].join(" ");
 }
 
 /** Slash commands, built on Mention with a `/` trigger. */
@@ -24,25 +48,27 @@ export const SkillCommand = Mention.extend<
   },
 });
 
-/** Name matches first, then description. With no query, domains before leaves. */
+/** Title/id matches first, then description. An empty query keeps server order. */
 export function filterSkillItems(
   items: SkillItem[],
   query: string,
-  limit = 20,
+  limit = 50,
 ): SkillItem[] {
   const q = query.trim().toLowerCase();
   if (!q) {
-    return [
-      ...items.filter((i) => i.kind === "domain"),
-      ...items.filter((i) => i.kind !== "domain"),
-    ].slice(0, limit);
+    return items.slice(0, limit);
   }
 
   const nameMatch: SkillItem[] = [];
   const descriptionMatch: SkillItem[] = [];
   for (const item of items) {
-    if (item.id.toLowerCase().includes(q)) nameMatch.push(item);
-    else if (item.description.toLowerCase().includes(q)) {
+    // People search the words they can see, not the kebab-case id.
+    if (
+      item.id.toLowerCase().includes(q) ||
+      item.title.toLowerCase().includes(q)
+    ) {
+      nameMatch.push(item);
+    } else if (item.description.toLowerCase().includes(q)) {
       descriptionMatch.push(item);
     }
   }

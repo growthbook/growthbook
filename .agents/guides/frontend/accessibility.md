@@ -102,7 +102,7 @@ A bare `<label>`, a `<Text as="label">`, or a bold `<Text>` sitting above a cont
 
 Pass the text to the control's own `label` prop — `@/ui/Checkbox`, `@/ui/Switch`, `@/ui/Select`, `@/ui/MultiSelectField`, `@/components/Forms/Field`, and the legacy `@/components/Forms/SelectField` and `@/components/Experiment/MetricSelector` where those are already in use — or wire `htmlFor`/`id` yourself.
 
-`@/ui/Select` is `label`-only. Its prop type is closed and anything extra spreads onto the wrapper `<Flex>`, not the trigger, so `aria-label` never reaches the control. A string `label` is the only working route.
+`@/ui/Select` wires `label` to the trigger only when the label is a **string**; a node `label` is rendered as-is with no `htmlFor`. When there is no visible string label, pass `aria-label`, which `Select` forwards to the trigger. Its prop type is otherwise closed, so no other ARIA attribute reaches the control. `@/ui/Switch` takes a camelCase `ariaLabel` prop for the same case.
 
 ### `@/ui/TextField` — read this before assuming `label` is enough
 

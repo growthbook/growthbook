@@ -66,3 +66,12 @@ export function parseApiJsonSchema(
   }
   return jsonSchemaWrapper;
 }
+
+// REST callers can't send a Date, so check a staged schema against the value type and stamp `date`.
+export function stampApiJsonSchema(
+  jsonSchema: Omit<JSONSchemaDef, "date">,
+  valueType: FeatureValueType,
+): JSONSchemaDef {
+  assertSchemaMatchesValueType(jsonSchema, valueType);
+  return { ...jsonSchema, date: new Date() };
+}

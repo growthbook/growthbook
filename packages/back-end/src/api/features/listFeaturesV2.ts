@@ -3,15 +3,12 @@ import { stemRuleId } from "shared/util";
 import { getApiFeatureObjV2 } from "back-end/src/services/features";
 import { resolveOwnerEmails } from "back-end/src/services/owner";
 import { createApiRequestHandler } from "back-end/src/util/handler";
+import { indexRevisions } from "back-end/src/util/features";
 import { loadFeaturesPage } from "./listFeatures";
 
 export const listFeaturesV2 = createApiRequestHandler(listFeaturesV2Validator)(
   async (req) => {
-    const r = await loadFeaturesPage(
-      req.context,
-      req.organization.id,
-      req.query,
-    );
+    const r = await loadFeaturesPage(req.context, req.query);
     if (r.empty) return r.response;
     const rampSchedules =
       await req.context.models.rampSchedules.getAllByFeatureIds(
@@ -25,14 +22,12 @@ export const listFeaturesV2 = createApiRequestHandler(listFeaturesV2Validator)(
         }
       }
     }
+    const revisionMap = indexRevisions(r.revisions);
     return {
       features: await resolveOwnerEmails(
         r.filtered.map((feature) => {
           const revision =
-            r.revisions?.find(
-              (x) =>
-                x.featureId === feature.id && x.version === feature.version,
-            ) || null;
+            revisionMap.get(`${feature.id}:${feature.version}`) ?? null;
           return getApiFeatureObjV2({
             feature,
             organization: req.organization,

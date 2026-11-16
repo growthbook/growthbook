@@ -265,6 +265,32 @@ describe("classifyPublishGate", () => {
     });
   });
 
+  // The review requirement's own sub-conditions clear exactly as it does.
+  describe.each([
+    "required-approvers-missing",
+    "required-project-approvers-missing",
+  ])("%s", (type) => {
+    const gate: PublishGate = { ...approvalGate, type };
+
+    it("blocks without any bypass authority", () => {
+      expect(classifyPublishGate(gate, noClearance)).toEqual({
+        outcome: "blocking",
+      });
+    });
+
+    it("is bypassed by the bypass-approval permission or the org REST setting", () => {
+      expect(
+        classifyPublishGate(
+          gate,
+          clearance({ bypassApprovalPermission: true }),
+        ),
+      ).toEqual({ outcome: "bypassed", via: "bypassApprovalPermission" });
+      expect(
+        classifyPublishGate(gate, clearance({ restApiBypassesReviews: true })),
+      ).toEqual({ outcome: "bypassed", via: "restApiBypassesReviews" });
+    });
+  });
+
   describe("stale-base", () => {
     it("blocks when only ignoreWarnings is set (no force-merge authority)", () => {
       expect(
@@ -458,7 +484,7 @@ describe("classifyPublishGate", () => {
 
 describe("evaluatePublishGates", () => {
   it("partitions active gates into blocking and bypassed", () => {
-    const { blocking, bypassed } = evaluatePublishGates(
+    const { blocking, bypassed, skipped } = evaluatePublishGates(
       [approvalGate, staleBaseGate, experimentGuardGate, configLockedGate],
       clearance({
         ignoreWarnings: true,
@@ -478,6 +504,12 @@ describe("evaluatePublishGates", () => {
       { type: "experiment-guard", outcome: "bypassed", via: "ignoreWarnings" },
     ];
     expect(bypassed).toEqual(expectedBypassed);
+    expect(skipped).toEqual(
+      [approvalGate, staleBaseGate, experimentGuardGate].map((gate, i) => ({
+        ...gate,
+        via: expectedBypassed[i].via,
+      })),
+    );
   });
 
   it("returns no bypassed entries when nothing is cleared", () => {
@@ -493,6 +525,7 @@ describe("evaluatePublishGates", () => {
     expect(evaluatePublishGates([], noClearance)).toEqual({
       blocking: [],
       bypassed: [],
+      skipped: [],
     });
   });
 });
@@ -532,6 +565,18 @@ describe("PublishBlockedError", () => {
       "requires the bypassApprovalFeatures permission",
     );
     expect(err.message).toContain("[experiment-guard]");
+  });
+
+  it("lists every message of a multi-message gate in the error message", () => {
+    const err = new PublishBlockedError([
+      {
+        ...experimentGuardGate,
+        messages: ["First conflict.", "Second conflict."],
+      },
+    ]);
+    expect(err.message).toContain(
+      "[experiment-guard] First conflict. Second conflict.",
+    );
   });
 
   it("shows no retry hint for a gate without an override flag", () => {

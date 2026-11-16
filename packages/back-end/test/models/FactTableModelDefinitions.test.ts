@@ -1,8 +1,11 @@
 import mongoose from "mongoose";
-import { MongoMemoryServer } from "mongodb-memory-server";
 import { Permissions, roleToPermissionMap } from "shared/permissions";
 import { OrganizationInterface } from "shared/types/organization";
 import { FactTableInterface } from "shared/types/fact-table";
+import {
+  connectTestMongo,
+  disconnectTestMongo,
+} from "back-end/test/test-helpers";
 import { getAllFactTablesForDefinitions } from "back-end/src/models/FactTableModel";
 import { ReqContext } from "back-end/types/request";
 
@@ -84,16 +87,12 @@ function makeFactTable(
 }
 
 describe("getAllFactTablesForDefinitions", () => {
-  let mongod: MongoMemoryServer;
-
   beforeAll(async () => {
-    mongod = await MongoMemoryServer.create();
-    await mongoose.connect(mongod.getUri());
+    await connectTestMongo();
   }, 60000);
 
   afterAll(async () => {
-    await mongoose.connection.close();
-    await mongod.stop();
+    await disconnectTestMongo();
   });
 
   afterEach(async () => {

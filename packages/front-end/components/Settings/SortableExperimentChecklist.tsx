@@ -10,13 +10,12 @@ import {
   SortableContext,
   arrayMove,
   sortableKeyboardCoordinates,
-  useSortable,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { ChecklistTask } from "shared/types/experimentLaunchChecklist";
 import { FaGripHorizontal, FaTimes } from "react-icons/fa";
-import { CSS } from "@dnd-kit/utilities";
 import { forwardRef, useState } from "react";
+import useSortableItem from "@/hooks/useSortableItem";
 
 type SortableProps = {
   experimentLaunchChecklist: ChecklistTask[];
@@ -89,22 +88,20 @@ export const ChecklistItem = forwardRef<HTMLDivElement, ChecklistItemProps>(
 );
 
 function SortableChecklistItem(props: SortableProps) {
-  const { attributes, listeners, setNodeRef, transform, transition, active } =
-    useSortable({ id: props.item.task });
-
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: active?.id === props.item.task ? 0.3 : 1,
-    backgroundColor: "var(--color-surface)",
-  };
+  const { setNodeRef, style, isDragging, handle } = useSortableItem(
+    props.item.task,
+  );
 
   return (
     <ChecklistItem
       {...props}
       ref={setNodeRef}
-      style={style}
-      handle={{ ...attributes, ...listeners }}
+      style={{
+        ...style,
+        opacity: isDragging ? 0.3 : 1,
+        backgroundColor: "var(--color-surface)",
+      }}
+      handle={handle}
     />
   );
 }

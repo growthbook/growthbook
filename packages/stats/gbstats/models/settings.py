@@ -32,6 +32,7 @@ class AnalysisSettingsForStatsEngine:
     one_sided_intervals: bool = False
     use_covariate_as_response: bool = False
     post_stratification_enabled: bool = False
+    is_cluster_experiment: bool = False
 
 
 @dataclass
@@ -83,6 +84,7 @@ class MetricSettingsForStatsEngine:
     business_metric_type: Optional[List[BusinessMetricType]] = None
     target_mde: float = 0.01
     compute_uncapped_metric: bool = False
+    scale_by_sub_unit_count: bool = False
 
 
 @dataclass

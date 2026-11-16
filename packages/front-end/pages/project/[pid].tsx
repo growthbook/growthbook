@@ -1,7 +1,7 @@
-import { PiDotsThreeVertical } from "react-icons/pi";
+import { BsThreeDotsVertical } from "react-icons/bs";
+import { PiDetective } from "react-icons/pi";
 import React, { FC, useEffect, useState } from "react";
 import router from "next/router";
-import NextLink from "next/link";
 import { useForm } from "react-hook-form";
 import isEqual from "lodash/isEqual";
 import { ProjectInterface, ProjectSettings } from "shared/types/project";
@@ -11,11 +11,13 @@ import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { ExperimentLaunchChecklistInterface } from "shared/types/experimentLaunchChecklist";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import LoadingOverlay from "@/components/LoadingOverlay";
-import Button from "@/components/Button";
 import RadixButton from "@/ui/Button";
 import TempMessage from "@/components/TempMessage";
 import ProjectModal from "@/components/Projects/ProjectModal";
 import ProjectApprovalSettings from "@/components/Projects/ProjectApprovalSettings";
+import ProjectAccessSettings from "@/components/Projects/ProjectAccessSettings";
+import DeleteProjectModal from "@/components/Projects/DeleteProjectModal";
+import ProjectTeams from "@/components/Projects/ProjectTeams";
 import MemberList from "@/components/Settings/Team/MemberList";
 import StatsEngineSelect from "@/components/Settings/forms/StatsEngineSelect";
 import { useUser } from "@/services/UserContext";
@@ -23,6 +25,7 @@ import { useAuth } from "@/services/auth";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Frame from "@/ui/Frame";
 import Badge from "@/ui/Badge";
+import Link from "@/ui/Link";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
 import { capitalizeFirstLetter } from "@/services/utils";
@@ -31,6 +34,7 @@ import {
   DropdownMenu,
   DropdownMenuGroup,
   DropdownMenuItem,
+  DropdownMenuSeparator,
 } from "@/ui/DropdownMenu";
 import PageHead from "@/components/Layout/PageHead";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
@@ -38,6 +42,7 @@ import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import useApi from "@/hooks/useApi";
 import ExperimentCheckListModal from "@/components/Settings/ExperimentCheckListModal";
 import Metadata from "@/ui/Metadata";
+import CopyableCode from "@/components/Settings/CopyableCode";
 import ChanceToWinThresholdField from "@/components/GeneralSettings/ExperimentSettings/ChanceToWinThresholdField";
 import PValueThresholdField from "@/components/GeneralSettings/ExperimentSettings/PValueThresholdField";
 import Callout from "@/ui/Callout";
@@ -74,13 +79,15 @@ const ProjectPage: FC = () => {
     null,
   );
   const [saveMsg, setSaveMsg] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [deleteOpen, setDeleteOpen] = useState(false);
   const [originalValue, setOriginalValue] = useState<ProjectSettings>({});
 
   const permissionsUtil = usePermissionsUtil();
   const canEditSettings = permissionsUtil.canUpdateProject(pid);
-
-  // todo: should this also be project scoped?
-  const canManageTeam = permissionsUtil.canManageTeam();
+  // Externally managed projects are deleted from their manager, not here.
+  const canDelete =
+    permissionsUtil.canDeleteProject(pid) && !p?.managedBy?.type;
 
   const form = useForm<ProjectSettings>({ mode: "onChange" });
 
@@ -147,7 +154,11 @@ const ProjectPage: FC = () => {
     return (
       <div className="container pagecontents">
         <Callout status="error">
-          Project <code>{pid}</code> does not exist.
+          Project{" "}
+          <Text as="span" size="inherit" mono>
+            {pid}
+          </Text>{" "}
+          does not exist.
         </Callout>
       </div>
     );
@@ -160,6 +171,16 @@ const ProjectPage: FC = () => {
           existing={modalOpen}
           close={() => setModalOpen(null)}
           onSuccess={() => mutateDefinitions()}
+        />
+      )}
+      {deleteOpen && (
+        <DeleteProjectModal
+          project={p}
+          close={() => setDeleteOpen(false)}
+          onDeleted={async () => {
+            await mutateDefinitions();
+            router.push("/projects");
+          }}
         />
       )}
       {editChecklistOpen && (
@@ -184,18 +205,30 @@ const ProjectPage: FC = () => {
         ) : null}
         <Flex align="center" justify="between" width="100%">
           <Flex align="start" direction="column">
-            <Heading size="xl" as="h1" overflowWrap="anywhere">
-              {p.name}
-            </Heading>
+            <Flex align="center" gap="3" mb="2">
+              <Heading size="xl" as="h1" overflowWrap="anywhere">
+                {p.name}
+              </Heading>
+              {p.restrictAccess ? (
+                <Badge
+                  color="amber"
+                  radius="full"
+                  label={
+                    <>
+                      <PiDetective size={14} /> Restricted access
+                    </>
+                  }
+                />
+              ) : null}
+            </Flex>
             <Flex gap="6" mb="4">
-              <Metadata
-                label="Public ID"
-                value={<code>{p.publicId || p.id}</code>}
-              />
-              <Metadata
-                label="ID"
-                value={<code className="text-muted">{p.id}</code>}
-              />
+              <Metadata label="ID" value={<CopyableCode value={p.id} />} />
+              {p.publicId && (
+                <Metadata
+                  label="Public ID (SDK payloads)"
+                  value={<CopyableCode value={p.publicId} muted />}
+                />
+              )}
             </Flex>
           </Flex>
           <DropdownMenu
@@ -204,10 +237,11 @@ const ProjectPage: FC = () => {
                 variant="ghost"
                 color="gray"
                 radius="full"
-                size="3"
+                size="2"
                 highContrast
+                aria-label="Project actions"
               >
-                <PiDotsThreeVertical size={18} />
+                <BsThreeDotsVertical size={18} />
               </IconButton>
             }
             menuPlacement="end"
@@ -217,6 +251,17 @@ const ProjectPage: FC = () => {
               <DropdownMenuItem onClick={() => setModalOpen(p)}>
                 Edit project settings
               </DropdownMenuItem>
+              {canDelete && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    color="red"
+                    onClick={() => setDeleteOpen(true)}
+                  >
+                    Delete project
+                  </DropdownMenuItem>
+                </>
+              )}
             </DropdownMenuGroup>
           </DropdownMenu>
         </Flex>
@@ -226,22 +271,14 @@ const ProjectPage: FC = () => {
           </Box>
         ) : (
           <Box>
-            <NextLink
-              href="#"
-              onClick={(e) => {
-                e.preventDefault();
-                setModalOpen(p);
-              }}
-            >
-              Add a description
-            </NextLink>
+            <Link onClick={() => setModalOpen(p)}>Add a description</Link>
           </Box>
         )}
 
         <Box mt="4">
-          <Tabs defaultValue="members">
+          <Tabs defaultValue="members" persistInURL>
             <TabsList>
-              <TabsTrigger value="members">Project Members</TabsTrigger>
+              <TabsTrigger value="members">Roles & Permissions</TabsTrigger>
               <TabsTrigger value="approvals">Approvals</TabsTrigger>
               <TabsTrigger value="settings">Experiment Settings</TabsTrigger>
             </TabsList>
@@ -409,43 +446,46 @@ const ProjectPage: FC = () => {
                     </Flex>
                   </Flex>
                 </Frame>
-                <div className="w-100 py-3" style={{ bottom: 0, height: 70 }}>
-                  <div className="container-fluid pagecontents d-flex">
-                    <div className="flex-grow-1 mr-4">
-                      {saveMsg && (
-                        <TempMessage
-                          className="mb-0 py-2"
-                          close={() => {
-                            setSaveMsg(false);
-                          }}
-                        >
-                          Settings saved
-                        </TempMessage>
-                      )}
-                    </div>
-                    <div>
-                      <Button
-                        color={"primary"}
-                        disabled={!ctaEnabled}
-                        onClick={async () => {
-                          if (!ctaEnabled) return;
-                          await saveSettings();
-                        }}
-                      >
-                        Save
-                      </Button>
-                    </div>
-                  </div>
-                </div>
+                <Flex
+                  justify="end"
+                  align="center"
+                  gap="4"
+                  // Clears the help launcher, which publishes its footprint (see InAppHelp).
+                  style={{
+                    paddingRight: "var(--help-launcher-clearance, 0px)",
+                  }}
+                >
+                  {saveError && <Callout status="error">{saveError}</Callout>}
+                  {saveMsg && (
+                    <TempMessage
+                      close={() => {
+                        setSaveMsg(false);
+                      }}
+                    >
+                      Settings saved
+                    </TempMessage>
+                  )}
+                  <RadixButton
+                    size="lg"
+                    disabled={!ctaEnabled}
+                    onClick={saveSettings}
+                    setError={setSaveError}
+                  >
+                    Save
+                  </RadixButton>
+                </Flex>
               </TabsContent>
               <TabsContent value="approvals">
                 <ProjectApprovalSettings project={pid} projectName={p.name} />
               </TabsContent>
               <TabsContent value="members">
+                <ProjectAccessSettings project={p} />
+                <ProjectTeams project={pid} />
                 <MemberList
                   mutate={refreshOrganization}
                   project={pid}
-                  canEditRoles={canManageTeam}
+                  // Scoped controls only — never the global role editor here
+                  canEditRoles={false}
                   canEditProjectRoles={canEditSettings}
                   canDeleteMembers={false}
                   canInviteMembers={false}

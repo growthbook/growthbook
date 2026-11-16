@@ -49,6 +49,7 @@ import { holdsMoveDestination } from "back-end/src/revisions/moveAuthority";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { ApiErrorResponse } from "back-end/types/api";
 import { getContextFromReq } from "back-end/src/services/organizations";
+import { parseIdsQuery } from "back-end/src/util/validation";
 import {
   createOrUpdateRevision,
   buildPatchOps,
@@ -76,7 +77,10 @@ import {
   syncScopedConfigMarkers,
 } from "back-end/src/services/constants";
 import { assertConfigArchiveDependentsGuard } from "back-end/src/services/archiveDependentsGuard";
-import { getResolvableValues } from "back-end/src/services/resolvableValues";
+import {
+  getClientResolvables,
+  getResolvableValues,
+} from "back-end/src/services/resolvableValues";
 import {
   reconcileConfigDescendants,
   assertConfigDescendantsReconcilable,
@@ -132,9 +136,7 @@ export const getConfigDraftStates = async (
   res: Response,
 ) => {
   const context = getContextFromReq(req);
-  const ids = req.query.ids
-    ? req.query.ids.split(",").filter(Boolean)
-    : undefined;
+  const ids = parseIdsQuery(req.query.ids);
   const configs = await context.models.revisions.getActiveDraftStates(
     "config",
     ids,
@@ -309,22 +311,7 @@ export const getConfigResolved = async (
 
   // Scoped to this config's project + globals so cross-project values never leak.
   const configProject = config.project || "";
-  const constants = (await getResolvableValues(context))
-    .filter((c) => !c.project || c.project === configProject)
-    .map((c) => ({
-      key: c.key,
-      type: c.type,
-      source: c.source,
-      value: c.value,
-      project: c.project,
-      archived: c.archived,
-      // Carry a config's env/project flavor selection so the client can resolve
-      // per-environment (swap in the matching flavor) without a second fetch —
-      // the flavor configs themselves are already in this resolvable set.
-      ...(c.scopedOverrides?.length
-        ? { scopedOverrides: c.scopedOverrides }
-        : {}),
-    }));
+  const constants = await getClientResolvables(context, configProject);
 
   // Own value keys that no longer conform to a node's effective schema (the
   // "incompatible, must fix" state) or that it no longer declares at all

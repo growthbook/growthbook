@@ -1,0 +1,57 @@
+.hoverActions .actions {
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+// Keyboard focus shows them too; a click's focus (after a drag, or a menu
+// closing) doesn't, so they hide once the pointer leaves. A menu it opens
+// keeps it shown.
+.hoverActions:hover .actions,
+.hoverActions:has(:focus-visible) .actions,
+.hoverActions .actions[data-state="open"] {
+  opacity: 1;
+}
+
+// A value inside a hovered card shows its buttons only while it's hovered
+// itself, so a rule's variations don't all show theirs at once.
+.hoverActions
+  .value:not(:hover):not(:has(:focus-visible)):not(:has([data-state="open"]))
+  > .actions {
+  opacity: 0;
+}
+
+// A card being dragged isn't hovered, but is the one in hand.
+.showActions .actions {
+  opacity: 1;
+}
+
+// Hugs its content.
+.inline {
+  width: fit-content;
+  max-width: 100%;
+
+  // Several lines, at least a readable width, so a short line doesn't squeeze
+  // the box; one line, like `{}`, stays as short as it is.
+  &.lines {
+    min-width: min(200px, 100%);
+  }
+}
+
+// A one-line value keeps a strip on its right for its buttons, which would
+// otherwise cover its end.
+.room {
+  padding-right: 36px;
+
+  &:has(> .actions > :nth-child(2)) {
+    padding-right: 44px;
+  }
+  &:has(> .actions > :nth-child(3)) {
+    padding-right: 68px;
+  }
+}
+
+// A long value's lines stop short of its scrollbar, so its buttons, just
+// inside that, rarely meet a line's end.
+.lines :global(.rt-ScrollAreaViewport) > * {
+  padding-right: var(--space-3);
+}

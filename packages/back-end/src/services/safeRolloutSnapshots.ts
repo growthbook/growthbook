@@ -9,7 +9,12 @@ import {
   DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
   DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
 } from "shared/constants";
-import { getSafeRolloutSnapshotAnalysis, isDefined } from "shared/util";
+import {
+  assertExposureQueryDeclaresIdentifierType,
+  resolveAnalysisIdentifierType,
+  getSafeRolloutSnapshotAnalysis,
+  isDefined,
+} from "shared/util";
 import {
   expandMetricGroups,
   ExperimentMetricInterface,
@@ -167,6 +172,7 @@ export function getSnapshotSettingsFromSafeRolloutArgs(
     endDate: settings.endDate || new Date(),
     experimentId: settings.experimentId,
     exposureQueryId: settings.exposureQueryId,
+    exposureQueryIdentifierType: settings.exposureQueryIdentifierType,
     segment: "",
     queryFilter: settings.queryFilter || "",
     skipPartialData: false,
@@ -318,6 +324,18 @@ export function getSafeRolloutSnapshotSettings({
   const exposureQuery = queries.find(
     (q) => q.id === safeRollout.exposureQueryId,
   );
+  // Refused before the snapshot is inserted so a failed refresh leaves none
+  // behind. A missing query is left to the query builder to surface.
+  if (exposureQuery) {
+    assertExposureQueryDeclaresIdentifierType(
+      exposureQuery,
+      safeRollout.exposureQueryIdentifierType,
+    );
+  }
+  const exposureQueryIdentifierType = resolveAnalysisIdentifierType(
+    exposureQuery,
+    safeRollout.exposureQueryIdentifierType,
+  );
 
   // expand metric groups and scrub unjoinable metrics
   const guardrailMetrics = expandMetricGroups(
@@ -328,7 +346,7 @@ export function getSafeRolloutSnapshotSettings({
       metricId: m,
       metricMap,
       factTableMap,
-      exposureQuery,
+      identifierType: exposureQueryIdentifierType,
       datasource,
     }),
   );
@@ -368,6 +386,7 @@ export function getSafeRolloutSnapshotSettings({
     regressionAdjustmentEnabled: !!settings.regressionAdjusted,
     defaultMetricPriorSettings: defaultPriorSettings,
     exposureQueryId: safeRollout.exposureQueryId,
+    exposureQueryIdentifierType,
     metricSettings,
     // SDK-emitted variation_id mapping depends on the safe rollout's mode:
     //   v1 (rule.type === "safe-rollout"):
@@ -439,6 +458,17 @@ export async function _createSafeRolloutSnapshot({
     throw new Error("Could not load data source");
   }
 
+  // Advanced before building settings, which can refuse the identifier, so a
+  // scheduled retry waits for the next window rather than the next minute.
+  const { nextSnapshot } = determineNextSafeRolloutSnapshotAttempt(
+    safeRollout,
+    organization,
+  );
+  await context.models.safeRollout.update(safeRollout, {
+    nextSnapshotAttempt: nextSnapshot,
+    lastSnapshotAttempt: new Date(),
+  });
+
   const snapshotSettings = getSafeRolloutSnapshotSettings({
     safeRollout,
     trackingKey,
@@ -469,15 +499,6 @@ export async function _createSafeRolloutSnapshot({
     ],
     status: "running",
   };
-
-  const { nextSnapshot } = determineNextSafeRolloutSnapshotAttempt(
-    safeRollout,
-    organization,
-  );
-  await context.models.safeRollout.update(safeRollout, {
-    nextSnapshotAttempt: nextSnapshot,
-    lastSnapshotAttempt: new Date(),
-  });
 
   const snapshot = await context.models.safeRolloutSnapshots.create(data);
 

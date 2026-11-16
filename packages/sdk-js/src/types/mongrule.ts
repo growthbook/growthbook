@@ -1,3 +1,5 @@
+import type { SavedGroupsPayload } from "./growthbook";
+
 type OrCondition = {
   $or: ConditionInterface[];
 };
@@ -9,6 +11,21 @@ type AndCondition = {
 };
 type NotCondition = {
   $not: ConditionInterface;
+};
+/** Names one saved group. Unknown keys are ignored. */
+export type SavedGroupReference = {
+  id: string;
+  /** Optional. Checks this attribute instead of the entry's own. */
+  attributeKey?: string;
+};
+
+/**
+ * A reference to one saved group. Top level like `$and`, not scoped to an
+ * attribute. The plural authoring operator `$savedGroups` never reaches an
+ * SDK, so it has no type here.
+ */
+export type SavedGroupCondition = {
+  $savedGroup: SavedGroupReference;
 };
 export type Operator =
   | "$in"
@@ -46,6 +63,21 @@ export type VarType =
   | "object"
   | "null"
   | "undefined";
+export type ConditionTypeMismatch = {
+  path: string;
+  /** `$eq` for implicit equality */
+  operator: string;
+  /** Condition value */
+  expected: unknown;
+  /** Attribute value, `null` when missing */
+  actual: unknown;
+};
+export type TypeMismatchCallback = (mismatch: ConditionTypeMismatch) => void;
+export type EvalConditionOptions = {
+  /** Required for saved group operators to match anyone */
+  savedGroups?: SavedGroupsPayload;
+  onTypeMismatch?: TypeMismatchCallback;
+};
 export type OperatorConditionValue = {
   $in?: (string | number)[];
   $ini?: (string | number)[];
@@ -90,6 +122,7 @@ export type ConditionInterface =
   | NorCondition
   | AndCondition
   | NotCondition
+  | SavedGroupCondition
   | OperatorCondition;
 
 export type ParentConditionInterface = {

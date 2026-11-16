@@ -269,7 +269,7 @@ describe("sdk-connections API", () => {
     expect(response.status).toBe(200);
   });
 
-  it("checks for SDK cacapbilities when creating new sdk-connections", async () => {
+  it("checks for SDK capabilities when creating new sdk-connections", async () => {
     getLatestSDKVersion.mockReturnValue("latest-version");
     getSDKCapabilities.mockReturnValue([]);
 
@@ -302,7 +302,7 @@ describe("sdk-connections API", () => {
     });
   });
 
-  it("checks for SDK cacapbilities for the latest version when creating new sdk-connections", async () => {
+  it("checks for SDK capabilities for the latest version when creating new sdk-connections", async () => {
     getLatestSDKVersion.mockReturnValue("latest-version");
     getSDKCapabilities.mockImplementation((_, v) =>
       v === "latest-version" ? ["remoteEval"] : [],
@@ -331,7 +331,7 @@ describe("sdk-connections API", () => {
     expect(response.status).toBe(400);
     expect(response.body).toEqual({
       message:
-        "You need to ugrade to version latest-version to support remoteEval",
+        "You need to upgrade to version latest-version to support remoteEval",
     });
   });
 

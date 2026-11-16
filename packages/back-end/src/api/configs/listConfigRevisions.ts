@@ -37,7 +37,7 @@ export const listConfigRevisions = createApiRequestHandler(
     ({ limit, offset } = validatePagination(req.query));
   }
 
-  const authorId = mine ? req.context.userId : req.query.author;
+  const authorId = mine ? req.context.actingUserId : req.query.author;
   const status = buildRevisionStatusFilter(req.query.status);
 
   // Resolve the public key to the internal id the revision store indexes on.

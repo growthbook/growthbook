@@ -2,7 +2,10 @@ import { FC, Fragment, useMemo, useState } from "react";
 import { QueryInterface } from "shared/types/query";
 import { FaAngleDown, FaAngleRight } from "react-icons/fa";
 import { SavedQuery } from "shared/validators";
-import { isManagedWarehousePendingQueryError } from "shared/util";
+import {
+  isManagedWarehouseOutOfMemoryQueryError,
+  isManagedWarehousePendingQueryError,
+} from "shared/util";
 import useApi from "@/hooks/useApi";
 import Modal from "@/components/Modal";
 import LoadingOverlay from "@/components/LoadingOverlay";
@@ -75,6 +78,14 @@ const AsyncQueriesModal: FC<{
           <div className="mb-3">
             <ManagedWarehouseNoEventsCallout />
           </div>
+        ) : isManagedWarehouseOutOfMemoryQueryError(_error) ? (
+          <Callout status="error">
+            <div>
+              <strong>Query ran out of memory</strong>
+            </div>
+            The Managed Warehouse ran out of memory running this query. Try
+            shortening the date range or removing dimensions, then run it again.
+          </Callout>
         ) : (
           <Callout status="error">
             <div>
@@ -188,7 +199,6 @@ const AsyncQueriesModal: FC<{
 
   return (
     <Modal
-      useRadixButton={false}
       trackingEventModalType="async-queries"
       close={close}
       header="Queries"

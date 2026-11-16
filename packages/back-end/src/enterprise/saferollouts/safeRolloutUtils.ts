@@ -137,7 +137,6 @@ export async function checkAndRollbackSafeRollout({
       ruleId,
       { status },
       context.auditUser,
-      false,
       ruleEnvs[0],
     );
     const live = await getRevision({

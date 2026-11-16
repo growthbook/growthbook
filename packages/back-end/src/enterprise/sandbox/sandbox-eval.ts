@@ -1,8 +1,12 @@
 import type { EventUser } from "shared/validators";
 import {
+  CustomHookEntityType,
+  CustomHookErrorDetail,
   CustomHookInterface,
   CustomHookType,
+  eventUserIdentity,
   hookEntityType,
+  revisionActor,
 } from "shared/validators";
 import {
   getConfigAncestorKeys,
@@ -21,8 +25,9 @@ import { FeatureInterface } from "shared/types/feature";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { ConfigInterface } from "shared/types/config";
 import { ExperimentInterface } from "shared/types/experiment";
-import { SoftWarningError } from "back-end/src/util/errors";
+import { CustomHookError, SoftWarningError } from "back-end/src/util/errors";
 import { IS_CLOUD } from "back-end/src/util/secrets";
+import { logger } from "back-end/src/util/logger";
 import { getEnvironmentIdsFromOrg } from "back-end/src/util/organization.util";
 import { Context } from "back-end/src/models/BaseModel";
 import {
@@ -62,11 +67,16 @@ export async function runValidateFeatureHooks({
 }
 
 // For hooks that gate on team rather than identity.
-// One member expansion per hook call. Still a member = user, else an API key.
-async function memberDirectory(context: Context) {
+// One member expansion per hook call. Still a member = user, else the actor
+// the revision stored for that identity, such as a key that acted as itself.
+async function memberDirectory(
+  context: Context,
+  revision: Parameters<typeof revisionActor>[0] = {},
+) {
   const members = await expandOrgMembers(context.org.members ?? []);
   const byId = new Map(members.map((m) => [m.id, m]));
   return (userId: string) => {
+    const stored = revisionActor(revision, userId);
     const user: EventUser = byId.has(userId)
       ? {
           type: "dashboard",
@@ -74,7 +84,9 @@ async function memberDirectory(context: Context) {
           name: byId.get(userId)?.name || "",
           email: byId.get(userId)?.email || "",
         }
-      : { type: "api_key", apiKey: userId };
+      : stored?.type === "api_key"
+        ? stored
+        : { type: "api_key", apiKey: userId };
     return {
       user,
       teams: teamsForMember(userId, context.org, context.teams ?? []),
@@ -87,8 +99,9 @@ async function hookAuthorship(
   context: Context,
   authorId: string | undefined,
   contributors: string[] | undefined,
+  revision: Parameters<typeof revisionActor>[0],
 ) {
-  const resolve = await memberDirectory(context);
+  const resolve = await memberDirectory(context, revision);
   return {
     author: authorId ? { userId: authorId, ...resolve(authorId) } : null,
     coauthors: coauthorIds(authorId, contributors).map((id) => ({
@@ -107,7 +120,7 @@ async function withHookRevisionContext<
     | {
         reviews?: { userId: string }[];
         contributors?: string[];
-        createdBy?: { id?: string } | null;
+        createdBy?: EventUser | null;
       }
     | null
     | undefined,
@@ -115,8 +128,9 @@ async function withHookRevisionContext<
   if (!revision) return revision;
   const authorship = await hookAuthorship(
     context,
-    revision.createdBy?.id,
+    eventUserIdentity(revision.createdBy ?? null) ?? undefined,
     revision.contributors,
+    { createdBy: revision.createdBy ?? undefined },
   );
   return {
     ...revision,
@@ -137,6 +151,7 @@ async function hookReviewerVerdicts(
   context: Context,
   reviews: {
     userId: string;
+    user?: EventUser;
     decision: string;
     stale?: boolean;
     dateCreated: Date;
@@ -497,11 +512,13 @@ export type ConfigRevisionHookInput = {
   // Stored as-is; the prep maps them to the feature-shaped entries hooks see.
   reviews: {
     userId: string;
+    user?: EventUser;
     decision: string;
     comment?: string;
     stale?: boolean;
     dateCreated: Date;
   }[];
+  activityLog?: { user?: EventUser }[];
 };
 
 type ConfigRevisionHookArgs = {
@@ -531,6 +548,7 @@ async function prepareConfigRevisionHookCall({
           context,
           revision.authorId,
           revision.contributors,
+          revision,
         )),
         reviews: await hookReviewerVerdicts(context, revision.reviews),
       }
@@ -617,9 +635,29 @@ export async function runValidateExperimentHooks({
 // acknowledge-class). Non-throwing so the caller can either throw (the assert
 // wrappers) or emit gates (the REST publish handlers).
 export type CustomHookResults = {
-  hardErrors: string[];
+  hardErrors: CustomHookErrorDetail[];
   warnings: string[];
 };
+
+const entityNoun: Record<CustomHookEntityType, string> = {
+  feature: "Feature Flag",
+  config: "Config",
+  experiment: "experiment",
+};
+
+// Rejections show as written; failures collapse to one retry hint (detail stays in `details`).
+export function customHookErrorMessage(
+  errors: CustomHookErrorDetail[],
+  entityType: CustomHookEntityType,
+): string {
+  const lines = errors.filter((e) => e.rejected).map((e) => e.message);
+  if (errors.some((e) => !e.rejected)) {
+    lines.push(
+      `Validation for this ${entityNoun[entityType]} failed unexpectedly. Try again, or check with your GrowthBook admins if it keeps happening.`,
+    );
+  }
+  return lines.join("\n");
+}
 
 // Run every matching hook and collect the results without throwing. All hard
 // errors are collected (not short-circuited on the first), so a gate can list them.
@@ -646,7 +684,7 @@ export async function collectCustomHookResults(
     configBases,
   );
 
-  const hardErrors: string[] = [];
+  const hardErrors: CustomHookErrorDetail[] = [];
   const warnings: string[] = [];
   for (const hook of hooks) {
     const { error, warnings: hookWarnings } = await _runCustomHook(
@@ -698,7 +736,10 @@ async function _runCustomHooks(
       ? context.canSkipHooksFor(hookFamily)
       : false;
   if (hardErrors.length && !canSkip) {
-    throw new Error(hardErrors.join("\n"));
+    throw new CustomHookError(
+      customHookErrorMessage(hardErrors, hookFamily),
+      hardErrors,
+    );
   }
 
   // Hook warnings are acknowledge-class: bypassable by ignoreWarnings (anyone).
@@ -778,7 +819,8 @@ export function formatCustomHookTestResult(
 
   return {
     success: false,
-    error: result.error || "Unknown error",
+    error:
+      (!result.rejected && result.stack) || result.error || "Unknown error",
     warnings: result.warnings,
     log: result.log,
     suppressed,
@@ -810,13 +852,25 @@ async function _runCustomHook(
   hook: CustomHookInterface,
   functionArgs: Record<string, unknown>,
   originalFunctionArgs?: Record<string, unknown>,
-): Promise<{ error?: string; warnings: string[] }> {
+): Promise<{ error?: CustomHookErrorDetail; warnings: string[] }> {
   const res = await runInSandbox(hook.code, functionArgs);
 
   if (res.ok) {
     context.models.customHooks.logSuccess(hook);
   } else {
     context.models.customHooks.logFailure(hook);
+    // Users only see a generic message for crashes, so keep the real error in the server logs.
+    if (!res.rejected) {
+      logger.warn(
+        {
+          hookId: hook.id,
+          hookName: hook.name,
+          error: res.error,
+          stack: res.stack,
+        },
+        "Custom hook failed to run",
+      );
+    }
   }
 
   // Only worth a second sandbox run when there's an outcome to suppress.
@@ -833,9 +887,16 @@ async function _runCustomHook(
       if (errorSuppressed) return { warnings: [] };
     }
 
-    const error =
-      (res.error || "Custom hook error") + (res.log ? `\n${res.log}` : "");
-    return { error, warnings: [] };
+    return {
+      error: {
+        hookName: hook.name,
+        rejected: !!res.rejected,
+        message: res.error || "Custom hook error",
+        ...(res.stack ? { stack: res.stack } : {}),
+        ...(res.log ? { log: res.log } : {}),
+      },
+      warnings: [],
+    };
   }
 
   let warnings = res.warnings;

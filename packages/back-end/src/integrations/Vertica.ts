@@ -10,7 +10,6 @@ import { formatInformationSchema } from "back-end/src/util/informationSchemas";
 import { decryptDataSourceParams } from "back-end/src/services/datasource";
 import { runPostgresQuery } from "back-end/src/services/postgres";
 import SqlIntegration from "./SqlIntegration";
-import { verticaDialect } from "./dialects/vertica";
 
 export default class Vertica extends SqlIntegration {
   params!: PostgresConnectionParams;
@@ -22,10 +21,11 @@ export default class Vertica extends SqlIntegration {
   }
   getSqlDialect(): SqlDialect {
     return {
-      ...verticaDialect,
+      ...super.getSqlDialect(),
       defaultSchema: this.params.defaultSchema || "",
     };
   }
+  // Vertica OIDs differ from Postgres, so leave column types undetected.
   runQuery(sql: string): Promise<QueryResponse> {
     return runPostgresQuery(this.params, sql);
   }

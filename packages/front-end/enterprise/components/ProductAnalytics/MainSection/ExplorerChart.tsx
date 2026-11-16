@@ -9,6 +9,7 @@ import type {
   ProductAnalyticsRunComparisonPayload,
 } from "shared/validators";
 import { isManagedWarehousePendingQueryError } from "shared/util";
+import { parseWarehouseDate } from "shared/dates";
 import {
   calculateProductAnalyticsDateRange,
   extendDateBucketsForward,
@@ -17,12 +18,10 @@ import {
 } from "shared/enterprise";
 import {
   shouldChartSectionShow,
-  getEffectiveMetricValue,
   computeDimensionTotals,
-  getIsRatioByIndex,
-  getEffectiveShowAs,
-  getSharedUnit,
-  showAsAppliesTo,
+  getExplorationRenderOpts,
+  getEffectiveMetricValue,
+  getValueAxisName,
   formatDateByGranularity,
   type ResolvedGranularity,
   type RenderOpts,
@@ -56,10 +55,33 @@ import {
   CHART_COLORS,
   COMPARISON_SERIES_COLORS,
   getChartThemeColors,
-} from "@/enterprise/components/ProductAnalytics/chart-theme";
+} from "@/components/DataViz/chart-theme";
 import FunnelChart from "./FunnelChart";
+import JourneyChart from "./JourneyChart";
 
 const CHART_ID = "explorer-chart";
+
+// ECharts 6 treats these as a minimum around the plot, then shrinks the grid
+// until axis labels and names fit. (v5's `containLabel` is ignored.)
+export const CHART_GRID = {
+  left: 8,
+  right: 16,
+  bottom: 8,
+  top: 16,
+  topWithLegend: 58,
+  // Rough allowance for tick labels + names outside the plot; only used for
+  // compare-bar sizing and name truncation.
+  axisGutterX: 80,
+  axisGutterY: 40,
+} as const;
+
+function axisTitle(name: string | undefined, maxWidth: number | undefined) {
+  if (!name) return {};
+  return {
+    name,
+    ...(maxWidth != null ? { nameTruncate: { maxWidth } } : {}),
+  };
+}
 
 // Simple number formatter
 function formatNumber(value: number): string {
@@ -172,25 +194,14 @@ export default function ExplorerChart({
   useEffect(() => () => resizeObserverRef.current?.disconnect(), []);
 
   const renderOpts: RenderOpts = useMemo(
-    () => ({
-      showAs: getEffectiveShowAs(submittedExploreState, getFactMetricById),
-      isRatioByIndex: getIsRatioByIndex(
-        submittedExploreState,
-        getFactMetricById,
-      ),
-    }),
+    () => getExplorationRenderOpts(submittedExploreState, getFactMetricById),
     [submittedExploreState, getFactMetricById],
   );
 
-  // Y-axis label: reflects whether we're rendering raw totals or per-unit
-  // averages. Only populated when showAs applies (otherwise the toggle is
-  // hidden and the number's meaning is carried by the metric/series name).
-  const valueAxisName = useMemo(() => {
-    if (!showAsAppliesTo(submittedExploreState, getFactMetricById)) return "";
-    if (renderOpts.showAs === "total") return "Total";
-    const sharedUnit = getSharedUnit(submittedExploreState);
-    return sharedUnit ? `Per ${sharedUnit}` : "Per unit";
-  }, [submittedExploreState, getFactMetricById, renderOpts.showAs]);
+  // Empty string hides the axis name; unset falls back to the inferred default.
+  const customCategoryAxisName =
+    submittedExploreState.chartSettings?.categoryAxisLabel?.trim();
+  const valueAxisName = getValueAxisName(submittedExploreState, renderOpts);
 
   const bigNumberComparisonTrends = useMemo(() => {
     if (!compareEnabled) return null;
@@ -229,26 +240,13 @@ export default function ExplorerChart({
     }
     const row = exploration.result.rows[0];
     if (submittedExploreState.dataset?.type === "funnel") return null;
-    const valuesMeta = submittedExploreState.dataset?.values ?? [];
-    return valuesMeta.map((v, metricIndex) => {
+    if (submittedExploreState.dataset?.type === "journey") return null;
+    return renderOpts.values.map((opts, metricIndex) => {
       const cell = row?.values?.[metricIndex];
-      const value = cell
-        ? getEffectiveMetricValue(cell, {
-            showAs: renderOpts.showAs,
-            isRatio: renderOpts.isRatioByIndex[metricIndex] ?? false,
-          })
-        : 0;
-      return {
-        value,
-        label: v.name?.trim() ? v.name : `Metric ${metricIndex + 1}`,
-      };
+      const value = cell ? getEffectiveMetricValue(cell, opts) : 0;
+      return { value, label: opts.seriesName };
     });
-  }, [
-    exploration?.result?.rows,
-    submittedExploreState,
-    renderOpts.showAs,
-    renderOpts.isRatioByIndex,
-  ]);
+  }, [exploration?.result?.rows, submittedExploreState, renderOpts]);
 
   // Compare is on and the previous-period query finished, but returned no rows
   // (e.g. a grouped breakdown with no prior data that densification can't fill).
@@ -273,7 +271,8 @@ export default function ExplorerChart({
       ) ||
       // Funnels render through FunnelChart (early-returned below); this
       // ECharts config builder doesn't know how to read `row.steps`.
-      submittedExploreState.dataset?.type === "funnel"
+      submittedExploreState.dataset?.type === "funnel" ||
+      submittedExploreState.dataset?.type === "journey"
     )
       return null;
     const rows = exploration.result.rows;
@@ -417,6 +416,25 @@ export default function ExplorerChart({
       Boolean(alignedComparisonOverlay) &&
       firstDimensionIsDate;
 
+    const plotSize = chartBoxSize
+      ? {
+          width: Math.max(
+            1,
+            chartBoxSize.width -
+              CHART_GRID.left -
+              CHART_GRID.right -
+              CHART_GRID.axisGutterX,
+          ),
+          height: Math.max(
+            1,
+            chartBoxSize.height -
+              CHART_GRID.topWithLegend -
+              CHART_GRID.bottom -
+              CHART_GRID.axisGutterY,
+          ),
+        }
+      : null;
+
     // Compare-mode bar widths. The current bar is sized in px to ~75% of the
     // category band — matching ECharts' default bar width so it scales with the
     // available space like a normal (compare-off) bar — and the previous bar is
@@ -436,7 +454,7 @@ export default function ExplorerChart({
       if (!needsDualCompareAxis) {
         return { current: undefined, previous: undefined };
       }
-      if (!chartBoxSize) {
+      if (!plotSize) {
         return { current: "75%", previous: "81%" };
       }
       const numTicks = Math.max(
@@ -445,11 +463,7 @@ export default function ExplorerChart({
           ? sortedXValues.length * sortedSeriesKeys.length
           : sortedXValues.length,
       );
-      // Plot extent along the category axis, matching the grid insets set on the
-      // ECharts option below (legend pushes the top down ~58px when shown).
-      const plotExtent = isHorizontalBar
-        ? Math.max(1, chartBoxSize.height - 58 - chartBoxSize.height * 0.1)
-        : chartBoxSize.width * (1 - 0.08 - 0.05);
+      const plotExtent = isHorizontalBar ? plotSize.height : plotSize.width;
       const band = plotExtent / numTicks;
       // Derive the frame from the ideal (uncapped) bar width so it doesn't feed
       // back into the fit-cap below.
@@ -555,22 +569,33 @@ export default function ExplorerChart({
             const date =
               typeof params.value === "number"
                 ? new Date(params.value)
-                : new Date(String(params.value));
+                : parseWarehouseDate(String(params.value));
             return formatDateByGranularity(date, resolvedGranularity);
           }
         : undefined;
 
-    // Define the category axis (shows the dimension labels)
+    const nameTextStyle = {
+      fontSize: 14,
+      fontWeight: "bold" as const,
+      color: textColor,
+    };
+    const categoryNameMaxWidth = plotSize
+      ? isHorizontalBar
+        ? plotSize.height
+        : plotSize.width
+      : undefined;
+    const valueNameMaxWidth = plotSize
+      ? isHorizontalBar
+        ? plotSize.width
+        : plotSize.height
+      : undefined;
+
     const categoryAxis = {
       type: chartType === "line" || chartType === "area" ? "time" : "category",
       data: categoryAxisValues,
+      ...axisTitle(customCategoryAxisName, categoryNameMaxWidth),
       nameLocation: "middle" as const,
-      nameTextStyle: {
-        fontSize: 14,
-        fontWeight: "bold",
-        padding: [10, 0],
-        color: textColor,
-      },
+      nameTextStyle,
       axisLabel: {
         color: textColor,
         rotate: isHorizontalBar ? 0 : -45,
@@ -601,19 +626,16 @@ export default function ExplorerChart({
       splitLine: { lineStyle: { color: gridLineColor, width: 1 } },
     };
 
-    // Define the value axis (shows the numeric values)
     const valueAxis = {
       type: "value" as const,
-      scale: false,
-      name: valueAxisName,
+      // Anchored to 0 unless a line chart opts out; `scale: true` lets ECharts
+      // fit the axis to the data range instead.
+      scale:
+        chartType === "line" &&
+        submittedExploreState.chartSettings?.anchorYAxisToZero === false,
+      ...axisTitle(valueAxisName, valueNameMaxWidth),
       nameLocation: "middle" as const,
-      nameGap: 50,
-      nameTextStyle: {
-        fontSize: 14,
-        fontWeight: "bold",
-        padding: [40, 0],
-        color: textColor,
-      },
+      nameTextStyle,
       axisLabel: { color: textColor, formatter: formatNumber },
       splitLine: { lineStyle: { color: gridLineColor, width: 1 } },
     };
@@ -659,6 +681,8 @@ export default function ExplorerChart({
     });
 
     return {
+      // Buckets are parsed as UTC, so UTC ticks show the warehouse's dates and times unshifted.
+      useUTC: true,
       tooltip: {
         appendTo: "body",
         trigger: "axis",
@@ -730,6 +754,7 @@ export default function ExplorerChart({
     gridLineColor,
     tooltipBackgroundColor,
     animate,
+    customCategoryAxisName,
     valueAxisName,
     chartBoxSize,
   ]);
@@ -799,6 +824,7 @@ export default function ExplorerChart({
   }, [exploration?.result?.rows]);
 
   if (
+    submittedExploreState?.dataset?.type !== "journey" &&
     !shouldChartSectionShow({
       loading,
       error,
@@ -819,6 +845,15 @@ export default function ExplorerChart({
       </Flex>
     );
   }
+
+  const compareNoDataCallout = compareReturnedNoData ? (
+    <Box px="4" pt="3">
+      <Callout status="info">
+        The previous period returned no data, so there&apos;s nothing to compare
+        against.
+      </Callout>
+    </Box>
+  ) : null;
 
   // Funnels have a wholly different visualization than metric/fact-table/
   // data-source datasets. Render the funnel-specific chart and bypass the
@@ -844,12 +879,57 @@ export default function ExplorerChart({
             )}
           </Box>
         ) : (
-          <FunnelChart
-            exploration={exploration}
-            submittedExploreState={submittedExploreState}
-            animate={animate}
-          />
+          <>
+            {compareNoDataCallout}
+            <FunnelChart
+              exploration={exploration}
+              comparisonExploration={
+                compareEnabled ? comparisonExploration : null
+              }
+              periodLabels={
+                compareEnabled
+                  ? getComparisonPeriodLabels(
+                      submittedExploreState.dateRange,
+                      submittedPreviousTimeFrame ?? undefined,
+                      submittedComparisonMode ?? "previousPeriod",
+                    )
+                  : null
+              }
+              submittedExploreState={submittedExploreState}
+              animate={animate}
+            />
+          </>
         )}
+      </Flex>
+    );
+  }
+
+  if (submittedExploreState?.dataset?.type === "journey") {
+    return (
+      <Flex
+        direction="column"
+        position="relative"
+        style={{
+          borderRadius: "var(--radius-4)",
+          flex: 1,
+          minHeight: 0,
+        }}
+      >
+        {error ? (
+          <Box mb="3" width="100%">
+            {isManagedWarehousePendingQueryError(error) ? (
+              <ManagedWarehouseNoEventsCallout />
+            ) : (
+              <Callout status="error" size="sm">
+                {error}
+              </Callout>
+            )}
+          </Box>
+        ) : null}
+        <JourneyChart
+          exploration={exploration}
+          submittedExploreState={submittedExploreState}
+        />
       </Flex>
     );
   }
@@ -863,6 +943,8 @@ export default function ExplorerChart({
         borderRadius: "var(--radius-4)",
         flex: 1,
         minHeight: 0,
+        minWidth: 0,
+        width: "100%",
       }}
     >
       {error ? (
@@ -952,15 +1034,11 @@ export default function ExplorerChart({
           </Box>
         </Flex>
       ) : chartConfig ? (
-        <Flex direction="column" style={{ flex: 1, minHeight: 0 }}>
-          {compareReturnedNoData ? (
-            <Box px="4" pt="3">
-              <Callout status="info">
-                The previous period returned no data, so there&apos;s nothing to
-                compare against.
-              </Callout>
-            </Box>
-          ) : null}
+        <Flex
+          direction="column"
+          style={{ flex: 1, minHeight: 0, minWidth: 0, width: "100%" }}
+        >
+          {compareNoDataCallout}
           {compareLegend ? (
             <ComparisonChartLegend
               currentLabel={compareLegend.currentLabel}
@@ -973,7 +1051,14 @@ export default function ExplorerChart({
           ) : null}
           <Box
             ref={attachChartWrapper}
-            style={{ flex: 1, minHeight: 0, position: "relative" }}
+            style={{
+              flex: 1,
+              minHeight: 0,
+              minWidth: 0,
+              width: "100%",
+              overflow: "hidden",
+              position: "relative",
+            }}
           >
             <EChartsReact
               key={`${submittedExploreState.chartType}:${JSON.stringify(chartConfig)}`}
@@ -983,14 +1068,12 @@ export default function ExplorerChart({
                 ...(animate ? {} : { animation: false }),
                 padding: [0, 0, 0, 0],
                 grid: {
-                  left:
-                    submittedExploreState?.chartType === "horizontalBar" ||
-                    submittedExploreState?.chartType === "stackedHorizontalBar"
-                      ? "10%"
-                      : "8%",
-                  right: "5%",
-                  top: chartConfig.legend?.show ? 58 : "8%",
-                  bottom: "10%",
+                  left: CHART_GRID.left,
+                  right: CHART_GRID.right,
+                  top: chartConfig.legend?.show
+                    ? CHART_GRID.topWithLegend
+                    : CHART_GRID.top,
+                  bottom: CHART_GRID.bottom,
                 },
               }}
               style={{ width: "100%", height: "100%" }}

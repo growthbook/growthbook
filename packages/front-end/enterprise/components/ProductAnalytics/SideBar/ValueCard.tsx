@@ -1,9 +1,9 @@
 import React, { useMemo, useState } from "react";
+import { reconcileInlineFilterPrompts } from "shared/experiments";
 import { Flex, Box, TextField } from "@radix-ui/themes";
 import {
   PiX,
   PiPencilSimple,
-  PiPlus,
   PiCaretDown,
   PiCaretUp,
   PiUserFill,
@@ -17,10 +17,11 @@ import Button from "@/ui/Button";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
 import Text from "@/ui/Text";
+import Tooltip from "@/ui/Tooltip";
 import {
   factTableToColumnSource,
   columnTypesToColumnSource,
-} from "./ExplorerFilterRow";
+} from "@/components/FactTables/rowFilterUtils";
 import styles from "./ValueCard.module.scss";
 import { ExplorerRowFilterInput } from "./ExplorerRowFilterInput";
 
@@ -29,9 +30,15 @@ type RowFilter = z.infer<typeof rowFilterValidator>;
 export default function ValueCard({
   index,
   children,
+  filterActions,
+  readOnlyUnit = null,
 }: {
   index: number;
   children: React.ReactNode;
+  /** Rendered beside the add-filter buttons. */
+  filterActions?: React.ReactNode;
+  /** Metric charts saved with mixed units show each card's unit here. */
+  readOnlyUnit?: string | null;
 }) {
   const { draftExploreState, updateValueInDataset, deleteValueFromDataset } =
     useExplorerContext();
@@ -40,13 +47,15 @@ export default function ValueCard({
   // ValueCard is only mounted from metric/fact_table/data_source tabs —
   // funnels manage their own step UI. The hooks below must run unconditionally,
   // so we narrow defensively but defer the early return until after them.
-  const isFunnel = draftExploreState.dataset.type === "funnel";
-  const dataset = isFunnel
-    ? null
-    : (draftExploreState.dataset as Exclude<
+  const isValuesDataset =
+    draftExploreState.dataset.type !== "funnel" &&
+    draftExploreState.dataset.type !== "journey";
+  const dataset = isValuesDataset
+    ? (draftExploreState.dataset as Exclude<
         typeof draftExploreState.dataset,
-        { type: "funnel" }
-      >);
+        { type: "funnel" } | { type: "journey" }
+      >)
+    : null;
   const value = dataset?.values[index];
   const name = value?.name ?? "";
   const filters = value?.rowFilters ?? [];
@@ -73,17 +82,18 @@ export default function ValueCard({
       return factTableToColumnSource(factTable);
     }
     if (
-      dataset?.type === "data_source" &&
-      dataset.columnTypes &&
-      Object.keys(dataset.columnTypes).length > 0
+      (draftExploreState.dataset.type === "data_source" ||
+        draftExploreState.dataset.type === "sql") &&
+      draftExploreState.dataset.columnTypes &&
+      Object.keys(draftExploreState.dataset.columnTypes).length > 0
     ) {
       return columnTypesToColumnSource(
-        dataset.columnTypes,
-        dataset.timestampColumn,
+        draftExploreState.dataset.columnTypes,
+        draftExploreState.dataset.timestampColumn ?? undefined,
       );
     }
     return null;
-  }, [factTable, dataset]);
+  }, [factTable, draftExploreState.dataset]);
 
   // Funnels manage their own step UI; ValueCard isn't mounted from
   // FunnelTabContent. Returning null here keeps the hook order stable in
@@ -115,35 +125,34 @@ export default function ValueCard({
     }
   };
 
-  const handleFiltersChange = (filters: RowFilter[]) => {
+  const handleFiltersChange = (newFilters: RowFilter[]) => {
     updateValueInDataset(index, {
       ...value,
-      rowFilters: filters,
+      rowFilters: factTable
+        ? reconcileInlineFilterPrompts(factTable, filters, newFilters)
+        : newFilters,
     });
   };
 
+  // Metric explorations pick one unit for the whole chart (MetricTabContent),
+  // so their cards only show the unit when an older config mixes them.
   let supportsUnitSelection = false;
 
-  if (dataset.type === "fact_table" || dataset.type === "data_source") {
-    supportsUnitSelection = dataset.values[index].valueType === "unit_count";
-  } else if (dataset.type === "metric") {
-    const factMetric = getFactMetricById(dataset.values[index].metricId ?? "");
-    if (
-      factMetric?.metricType === "mean" ||
-      factMetric?.metricType === "proportion" ||
-      factMetric?.metricType === "retention" ||
-      factMetric?.metricType === "dailyParticipation"
-    ) {
+  switch (draftExploreState.dataset.type) {
+    case "fact_table":
+    case "data_source":
+    case "sql":
+      supportsUnitSelection =
+        draftExploreState.dataset.values[index].valueType === "unit_count";
+      break;
+    case "population":
       supportsUnitSelection = true;
-    } else if (factMetric?.metricType === "ratio") {
-      if (factMetric.numerator.column === "$$distinctUsers") {
-        supportsUnitSelection = true;
-      }
-      // TODO: handle separate denominator unit selector
-    }
+      break;
+    case "metric":
+    case "funnel":
+    case "journey":
+      break;
   }
-
-  const canAddFilter = !!columnSource;
 
   return (
     <Box
@@ -198,6 +207,16 @@ export default function ValueCard({
           )}
         </Flex>
         <Flex align="center" style={{ flexShrink: 0 }}>
+          {readOnlyUnit && (
+            <Tooltip content="Identifier type">
+              <Flex align="center" gap="1" mr="2">
+                <PiUserFill size={12} />
+                <Text size="sm" color="text-low">
+                  {readOnlyUnit}
+                </Text>
+              </Flex>
+            </Tooltip>
+          )}
           <Button
             variant="ghost"
             size="sm"
@@ -232,59 +251,38 @@ export default function ValueCard({
                 columnSource={columnSource}
                 value={filters}
                 setValue={handleFiltersChange}
-              />
+              >
+                {factTable && supportsUnitSelection && (
+                  <DropdownMenu
+                    open={unitDropdownOpen}
+                    onOpenChange={setUnitDropdownOpen}
+                    trigger={
+                      <Button size="sm" variant="ghost" icon={<PiUserFill />}>
+                        {dataset.values[index].unit ?? "Select unit..."}
+                      </Button>
+                    }
+                  >
+                    {factTable.userIdTypes.map((t) => (
+                      <DropdownMenuItem
+                        key={t}
+                        onClick={() => {
+                          updateValueInDataset(index, {
+                            ...dataset.values[index],
+                            unit: t || null,
+                          });
+                          setUnitDropdownOpen(false);
+                        }}
+                      >
+                        <Text>{t}</Text>
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenu>
+                )}
+                {filterActions}
+              </ExplorerRowFilterInput>
             </Box>
           )}
         </Box>
-        <Flex justify="between" align="center" mt="2">
-          <Button
-            size="sm"
-            variant="ghost"
-            style={{ maxWidth: "fit-content" }}
-            onClick={() => {
-              handleFiltersChange([
-                ...filters,
-                { column: "", operator: "=", values: [] },
-              ]);
-            }}
-            disabled={!canAddFilter}
-          >
-            <Flex align="center" gap="2">
-              <PiPlus size={14} />
-              Add Filter
-            </Flex>
-          </Button>
-
-          {factTable && supportsUnitSelection && (
-            <DropdownMenu
-              open={unitDropdownOpen}
-              onOpenChange={setUnitDropdownOpen}
-              trigger={
-                <Button size="sm" variant="ghost">
-                  <Flex align="center" gap="2">
-                    <PiUserFill />{" "}
-                    {dataset.values[index].unit ?? "Select Unit..."}
-                  </Flex>
-                </Button>
-              }
-            >
-              {factTable?.userIdTypes.map((t) => (
-                <DropdownMenuItem
-                  key={t}
-                  onClick={() => {
-                    updateValueInDataset(index, {
-                      ...dataset.values[index],
-                      unit: t || null,
-                    });
-                    setUnitDropdownOpen(false);
-                  }}
-                >
-                  <Text>{t}</Text>
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenu>
-          )}
-        </Flex>
       </Collapsible>
     </Box>
   );

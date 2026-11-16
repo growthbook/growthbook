@@ -1,5 +1,6 @@
 export interface BigQueryConnectionParams {
   authType?: "auto" | "json";
+  apiEndpoint?: string;
   projectId?: string;
   clientEmail?: string;
   privateKey?: string;

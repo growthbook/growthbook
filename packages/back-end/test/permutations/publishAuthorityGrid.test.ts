@@ -142,6 +142,7 @@ function contextFor(rules: RequireReview[], actor: (typeof ACTORS)[number]) {
     teams: GRID_TEAMS as unknown as TeamInterface[],
     hasPremiumFeature: () => true,
     permissions: endpointPermissions(org, actor),
+    getTargetingOptOutProjectIds: async () => [],
     models: { rampSchedules: { getById: async () => null } },
   } as unknown as Context;
 }

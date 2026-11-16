@@ -1,3 +1,4 @@
+import { ReactNode } from "react";
 import {
   ApiContextualBanditInterface,
   ContextualBanditRefRule,
@@ -5,17 +6,50 @@ import {
 import { FeatureInterface } from "shared/types/feature";
 import { getConfigBackingKey, getFeatureBaseConfigKey } from "shared/util";
 import { Box, Flex } from "@radix-ui/themes";
+import { hasTargetingConfigured } from "shared/experiments";
 import { useContextualBandits } from "@/hooks/useContextualBandits";
 import Link from "@/ui/Link";
 import Callout from "@/ui/Callout";
-import Badge from "@/ui/Badge";
-import Table, { TableBody, TableRow, TableCell } from "@/ui/Table";
-import Text from "@/ui/Text";
-import { getVariationColor } from "@/services/features";
-import ValueDisplay from "@/components/Features/ValueDisplay";
+import ValueDisplay, {
+  LISTED_VALUE_STYLE,
+} from "@/components/Features/ValueDisplay";
+import RuleField from "@/components/Features/RuleField";
+import RolloutRow from "@/components/Features/RolloutRow";
 import ConfigBackedSummary from "@/components/Features/ConfigBackedSummary";
+import { ValueDiffProvider } from "@/components/Features/ValueDiffContext";
+import ConditionDisplay from "@/components/Features/ConditionDisplay";
+import { AttributeBadge } from "@/components/Features/AttributeBadge";
+import RuleVariationsTable from "@/components/Features/RuleVariationsTable";
 
-/** Summary card for a `contextual-bandit-ref` feature rule (status, variation values, weights). */
+// A draft's rule is left out of SDK payloads until it starts.
+export function isContextualBanditRefRuleSkipped(
+  cb: ApiContextualBanditInterface,
+): boolean {
+  return cb.archived || cb.status === "stopped" || cb.status === "draft";
+}
+
+// Why a Contextual Bandit rule serves nothing, or null while it serves.
+export function contextualBanditSkipReason(
+  cb: ApiContextualBanditInterface,
+): ReactNode {
+  const view = (
+    <Link href={`/contextual-bandit/${cb.id}`}>View Contextual Bandit</Link>
+  );
+  if (cb.archived) return <>This Contextual Bandit is archived. {view}</>;
+  if (cb.status === "stopped") {
+    return <>This Contextual Bandit is stopped. {view}</>;
+  }
+  if (cb.status === "draft") {
+    return (
+      <>
+        This Contextual Bandit is a <strong>draft</strong> and hasn&apos;t
+        started.
+      </>
+    );
+  }
+  return null;
+}
+
 export default function ContextualBanditRefSummary({
   rule,
   feature,
@@ -23,8 +57,6 @@ export default function ContextualBanditRefSummary({
 }: {
   rule: ContextualBanditRefRule;
   feature: FeatureInterface;
-  // Environment this rule is shown for, so a config-backed arm previews its
-  // matching env flavor. Absent (all-environments view) = the base value.
   environment?: string;
 }) {
   const { contextualBanditsMap, loading } = useContextualBandits();
@@ -43,115 +75,83 @@ export default function ContextualBanditRefSummary({
     );
   }
 
-  const detailHref = `/contextual-bandit/${cb.id}`;
+  // The card's ribbon says why these serve nothing.
+  if (cb.archived || cb.status === "stopped") return null;
 
-  if (cb.archived) {
-    return (
-      <Callout status="info">
-        This Contextual Bandit is archived and will be skipped.{" "}
-        <Link href={detailHref}>View CB</Link>
-      </Callout>
+  const defaultConfigKey = getFeatureBaseConfigKey(feature);
+  const variationValue = (value: string) => {
+    const configKey =
+      defaultConfigKey !== null
+        ? (getConfigBackingKey(value) ?? defaultConfigKey)
+        : null;
+    return configKey !== null ? (
+      <ConfigBackedSummary
+        label={null}
+        value={value}
+        configKey={configKey}
+        feature={feature}
+        sparse
+        environment={environment}
+      />
+    ) : (
+      <ValueDisplay value={value} type={type} fullStyle={LISTED_VALUE_STYLE} />
     );
-  }
-
-  if (cb.status === "stopped") {
-    return (
-      <Callout status="info">
-        This Contextual Bandit is stopped and will be skipped.{" "}
-        <Link href={detailHref}>View CB</Link>
-      </Callout>
-    );
-  }
-
-  const variationWeights = cb.variations.map(
-    (v) =>
-      cb.variationWeights?.find((w) => w.variationId === v.id)?.weight ?? 0,
-  );
+  };
 
   return (
     <Box>
-      <Flex align="center" gap="2" mb="2" wrap="wrap">
-        <Text size="md" weight="medium">
-          <Link href={detailHref}>{cb.name}</Link>
-        </Text>
-        <Badge
-          color={cb.status === "running" ? "green" : "gray"}
-          label={cb.status}
-        />
-        {cb.contextualAttributes.length > 0 && (
-          <Text size="sm" color="text-low">
-            Context: {cb.contextualAttributes.join(", ")}
-          </Text>
-        )}
-      </Flex>
+      {hasTargetingConfigured({
+        condition: cb.condition,
+        savedGroups: cb.savedGroups,
+        prerequisites: cb.prerequisites,
+      }) && (
+        <RuleField label="Targeting">
+          <ConditionDisplay
+            condition={cb.condition || ""}
+            savedGroups={cb.savedGroups}
+            prerequisites={cb.prerequisites}
+          />
+        </RuleField>
+      )}
 
-      <Table>
-        <TableBody>
-          {cb.variations.map((v, i) => {
-            const ruleVariation = rule.variations.find(
-              (rv) => rv.variationId === v.id,
-            );
-            const weight = variationWeights[i];
-            return (
-              <TableRow key={v.id}>
-                <TableCell>
-                  <Box
-                    style={{
-                      display: "inline-block",
-                      width: 10,
-                      height: 10,
-                      borderRadius: 2,
-                      background: getVariationColor(i, true),
-                      marginRight: 6,
-                    }}
-                  />
-                  {v.name || v.key}
-                </TableCell>
-                <TableCell>
-                  {ruleVariation ? (
-                    (() => {
-                      // Config-backed arms render "SERVE ConfigName" + resolved
-                      // payload (per-env flavor when an environment is set),
-                      // never the raw `@config:` directive — matching the
-                      // experiment-ref arms table. Arms are sparse patches when
-                      // the feature is config-backed (mirrors getFeatureDefinition's
-                      // `!!defaultConfigKey`).
-                      const defaultConfigKey = getFeatureBaseConfigKey(feature);
-                      // Only a config-backed feature resolves configs — a stray
-                      // `@config:` on a plain flag is stripped at serve time.
-                      const configKey =
-                        defaultConfigKey !== null
-                          ? (getConfigBackingKey(ruleVariation.value) ??
-                            defaultConfigKey)
-                          : null;
-                      return configKey !== null ? (
-                        <ConfigBackedSummary
-                          value={ruleVariation.value}
-                          configKey={configKey}
-                          feature={feature}
-                          sparse={defaultConfigKey !== null}
-                          environment={environment}
-                        />
-                      ) : (
-                        <ValueDisplay value={ruleVariation.value} type={type} />
-                      );
-                    })()
+      <RuleField label="Split by">
+        <AttributeBadge attributeId={cb.hashAttribute || "id"} />
+      </RuleField>
+
+      <RolloutRow coverage={cb.coverage ?? 1} />
+
+      {cb.contextualAttributes.length > 0 && (
+        <RuleField label="Context">
+          <Flex gap="2" wrap="wrap" align="center">
+            {cb.contextualAttributes.map((a) => (
+              <AttributeBadge key={a} attributeId={a} />
+            ))}
+          </Flex>
+        </RuleField>
+      )}
+
+      <RuleField label="Serve" mb="0" align="start">
+        <Box>
+          <ValueDiffProvider>
+            <RuleVariationsTable
+              rows={cb.variations.map((v) => {
+                const ruleVariation = rule.variations.find(
+                  (rv) => rv.variationId === v.id,
+                );
+                return {
+                  key: v.id,
+                  name: v.name || v.key,
+                  value: ruleVariation ? (
+                    variationValue(ruleVariation.value)
                   ) : (
                     <em>not set</em>
-                  )}
-                </TableCell>
-                <TableCell>
-                  {weight != null ? (
-                    `${Math.round(weight * 10000) / 100}%`
-                  ) : (
-                    <em>—</em>
-                  )}
-                </TableCell>
-              </TableRow>
-            );
-          })}
-        </TableBody>
-      </Table>
+                  ),
+                };
+              })}
+            />
+          </ValueDiffProvider>
+        </Box>
+      </RuleField>
     </Box>
   );
 }

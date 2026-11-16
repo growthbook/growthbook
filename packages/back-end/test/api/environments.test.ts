@@ -3,6 +3,8 @@ import {
   findOrganizationById,
   updateOrganization,
 } from "back-end/src/models/OrganizationModel";
+import { countSDKConnectionsByEnvironment } from "back-end/src/models/SdkConnectionModel";
+import { removeEnvironmentFromSlackIntegration } from "back-end/src/models/SlackIntegrationModel";
 import { setupApp } from "./api.setup";
 
 jest.mock("back-end/src/models/OrganizationModel", () => ({
@@ -10,7 +12,17 @@ jest.mock("back-end/src/models/OrganizationModel", () => ({
   updateOrganization: jest.fn(),
 }));
 
-describe("environements API", () => {
+jest.mock("back-end/src/models/SdkConnectionModel", () => ({
+  countSDKConnectionsByEnvironment: jest.fn().mockResolvedValue(0),
+  findSDKConnectionsByOrganization: jest.fn().mockResolvedValue([]),
+}));
+
+jest.mock("back-end/src/models/SlackIntegrationModel", () => ({
+  ...jest.requireActual("back-end/src/models/SlackIntegrationModel"),
+  removeEnvironmentFromSlackIntegration: jest.fn(),
+}));
+
+describe("environments API", () => {
   const { app, auditMock, setReqContext } = setupApp();
 
   afterEach(async () => {
@@ -53,6 +65,7 @@ describe("environements API", () => {
           toggleOnList: true,
           defaultState: true,
           projects: ["bla"],
+          isProduction: true,
         },
         {
           id: "env2",
@@ -60,6 +73,7 @@ describe("environements API", () => {
           toggleOnList: false,
           defaultState: false,
           projects: [],
+          isProduction: true,
         },
       ],
     });
@@ -102,6 +116,7 @@ describe("environements API", () => {
           toggleOnList: true,
           defaultState: true,
           projects: ["bla"],
+          isProduction: true,
         },
       ],
     });
@@ -140,12 +155,41 @@ describe("environements API", () => {
     expect(updateOrganization).toHaveBeenCalledWith("org1", {
       settings: { environments: [{ id: "env2" }] },
     });
+    expect(removeEnvironmentFromSlackIntegration).toHaveBeenCalledWith({
+      organizationId: "org1",
+      envId: "env1",
+    });
     expect(auditMock).toHaveBeenCalledWith({
       details:
         '{"pre":{"id":"env1","description":"env1","toggleOnList":true,"defaultState":true,"projects":["bla"]},"context":{}}',
       entity: { id: "env1", object: "environment" },
       event: "environment.delete",
     });
+  });
+
+  it("refuses to delete an environment that SDK Connections still use", async () => {
+    setReqContext({
+      org: {
+        id: "org1",
+        settings: {
+          environments: [{ id: "env1" }, { id: "env2" }],
+        },
+      },
+      permissions: {
+        canDeleteEnvironment: () => true,
+      },
+    });
+    jest.mocked(countSDKConnectionsByEnvironment).mockResolvedValueOnce(2);
+
+    const response = await request(app)
+      .delete("/api/v1/environments/env1")
+      .set("Authorization", "Bearer foo");
+
+    expect(response.status).toBe(400);
+    expect(response.body.message).toMatch(/still used by 2 SDK Connection/);
+    expect(updateOrganization).not.toHaveBeenCalled();
+    expect(removeEnvironmentFromSlackIntegration).not.toHaveBeenCalled();
+    expect(auditMock).not.toHaveBeenCalled();
   });
 
   it("checks for permission to delete environments", async () => {
@@ -234,6 +278,7 @@ describe("environements API", () => {
         id: "env1",
         projects: ["proj1", "proj2"],
         toggleOnList: false,
+        isProduction: true,
       },
     });
     expect(updateOrganization).toHaveBeenCalledWith("org1", {
@@ -245,6 +290,7 @@ describe("environements API", () => {
             toggleOnList: false,
             defaultState: false,
             projects: ["proj1", "proj2"],
+            isProduction: true,
           },
           { id: "env2" },
         ],
@@ -252,7 +298,7 @@ describe("environements API", () => {
     });
     expect(auditMock).toHaveBeenCalledWith({
       details:
-        '{"pre":{"id":"env1","description":"env1","toggleOnList":true,"defaultState":true,"projects":["bla"]},"post":{"id":"env1","projects":["proj1","proj2"],"description":"new description","toggleOnList":false,"defaultState":false},"context":{}}',
+        '{"pre":{"id":"env1","description":"env1","toggleOnList":true,"defaultState":true,"projects":["bla"]},"post":{"id":"env1","projects":["proj1","proj2"],"description":"new description","toggleOnList":false,"defaultState":false,"isProduction":true},"context":{}}',
       entity: {
         id: "env1",
         object: "environment",
@@ -445,6 +491,7 @@ describe("environements API", () => {
         id: "env3",
         projects: ["proj1", "proj2"],
         toggleOnList: false,
+        isProduction: true,
       },
     });
     expect(updateOrganization).toHaveBeenCalledWith("org1", {
@@ -466,13 +513,14 @@ describe("environements API", () => {
             toggleOnList: false,
             defaultState: false,
             projects: ["proj1", "proj2"],
+            isProduction: true,
           },
         ],
       },
     });
     expect(auditMock).toHaveBeenCalledWith({
       details:
-        '{"post":{"id":"env3","projects":["proj1","proj2"],"description":"new description","toggleOnList":false,"defaultState":false},"context":{}}',
+        '{"post":{"id":"env3","projects":["proj1","proj2"],"description":"new description","toggleOnList":false,"defaultState":false,"isProduction":true},"context":{}}',
       entity: {
         id: "env3",
         object: "environment",
@@ -661,7 +709,9 @@ describe("environements API", () => {
       .set("Authorization", "Bearer foo");
 
     expect(response.status).toBe(400);
-    expect(response.body).toEqual({ message: "Environment ID cannot empty!" });
+    expect(response.body).toEqual({
+      message: "Environment ID cannot be empty!",
+    });
     expect(updateOrganization).not.toHaveBeenCalled();
     expect(auditMock).not.toHaveBeenCalled();
   });

@@ -1,17 +1,21 @@
 import type { ToolSet } from "ai";
 import type { ApiReqContext } from "back-end/types/api";
-import { generateImageTool } from "./generateImage";
+import { hasDocumentOrder } from "back-end/src/api/visual-editor-ai/pageStructure";
+import { generateImageTool, type ImageTurnState } from "./generateImage";
 import { searchImageLibraryTool } from "./searchImageLibrary";
 import { getDesignTokensTool } from "./getDesignTokens";
 import { searchPastExperimentsTool } from "./searchPastExperiments";
 import { getExperimentVariationsTool } from "./getExperimentVariations";
 import {
+  deferredDomTools,
   getComputedStylesTool,
   findElementsTool,
   getInnerHTMLTool,
 } from "./clientSideTools";
 import {
+  describeContainerServerTool,
   findElementsServerTool,
+  type LookupMemo,
   type PageStructureNode,
 } from "./findElementsServer";
 import type { ClientJob } from "./clientJob";
@@ -28,40 +32,82 @@ export interface VisualEditorToolsetOptions {
   // through the client. When omitted, only server-side tools are
   // included — the handler runs as a single HTTP request.
   job?: ClientJob<unknown>;
+  // Stateless alternative to `job`: DOM tools without execute(). Ignored when `job` is set.
+  deferDomTools?: boolean;
   // Page-structure snapshot for the server-side `findElements` tool. When
   // present, the model can locate uncatalogued containers (sections, layout
   // wrappers) without a client round-trip — so it works on Cloud.
   pageStructure?: PageStructureNode[];
   // Set to true to suppress tools entirely.
   disabled?: boolean;
+  imageState?: ImageTurnState;
+  quarantineImages?: boolean;
+  // See GenerateImageToolContext.attachmentCount.
+  attachmentCount?: number;
+}
+
+export function newImageTurnState(): ImageTurnState {
+  return {
+    count: 0,
+    max: IMAGE_GEN_PER_TURN_MAX,
+    generated: [],
+    warnings: [],
+  };
 }
 
 export function buildVisualEditorTools({
   context,
   job,
+  deferDomTools = false,
   pageStructure,
   disabled = false,
+  imageState,
+  quarantineImages = true,
+  attachmentCount = 0,
 }: VisualEditorToolsetOptions): ToolSet | undefined {
   if (disabled) return undefined;
-  const turnCounter = { count: 0, max: IMAGE_GEN_PER_TURN_MAX };
+  const turnCounter = imageState ?? newImageTurnState();
   const hasStructure = !!pageStructure && pageStructure.length > 0;
+  // Shared by the two lookup tools so a repeated question is called out.
+  const lookups: LookupMemo = new Map();
   const serverTools = {
-    generateImage: generateImageTool({ context, turnCounter }),
+    generateImage: generateImageTool({
+      context,
+      turnCounter,
+      quarantine: quarantineImages,
+      attachmentCount,
+    }),
     searchImageLibrary: searchImageLibraryTool(context),
     getDesignTokens: getDesignTokensTool(context),
     searchPastExperiments: searchPastExperimentsTool(context),
     getExperimentVariations: getExperimentVariationsTool(context),
-    // Server-side container lookup over the in-request snapshot — works on
-    // Cloud (no client round-trip). Only added when the extension sent a
-    // snapshot.
+    // Server-side lookups over the in-request snapshot; describeContainer needs document order.
     ...(hasStructure
       ? {
           findElements: findElementsServerTool(
             pageStructure as PageStructureNode[],
+            lookups,
+          ),
+        }
+      : {}),
+    ...(hasStructure && hasDocumentOrder(pageStructure as PageStructureNode[])
+      ? {
+          describeContainer: describeContainerServerTool(
+            pageStructure as PageStructureNode[],
+            lookups,
           ),
         }
       : {}),
   };
+  if (!job && deferDomTools) {
+    const deferred = deferredDomTools();
+    return {
+      ...serverTools,
+      getComputedStyles: deferred.getComputedStyles,
+      getInnerHTML: deferred.getInnerHTML,
+      ...(hasStructure ? {} : { findElements: deferred.findElements }),
+    };
+  }
   if (!job) return serverTools;
   return {
     ...serverTools,
@@ -73,7 +119,5 @@ export function buildVisualEditorTools({
   };
 }
 
-// How many LLM round-trips the chat handler permits before forcing a
-// final structured output. Each tool call adds a step. Default room for
-// e.g. 2-3 image gens + a design-tokens fetch + the final answer.
-export const VISUAL_EDITOR_MAX_STEPS = 8;
+// Steps before a forced final answer; bounded by latency, since the extension aborts at 180s.
+export const VISUAL_EDITOR_MAX_STEPS = 20;

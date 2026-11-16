@@ -59,7 +59,8 @@ async function deleteEventForwarderAndTeardown({
 
   switch (sinkType) {
     case "bigquery":
-    case "snowflake": {
+    case "snowflake":
+    case "databricks": {
       logger.info(
         {
           organizationId: context.org.id,
@@ -287,6 +288,23 @@ export async function syncEventForwarderAfterDatasourceUpdate({
   }
 
   if (!didUpdateDatasourceParams) {
+    return;
+  }
+
+  const existing = await getEventForwarderForDatasource(context, datasource.id);
+  // Destination is chosen later, or setup never got far enough to create a
+  // connector (e.g. `recordEventForwarderCreateFailure` left an `error` row
+  // from a failed first attempt). Refreshing credentials here would validate
+  // an empty sink and flip status to "pending", but
+  // `updateEventForwarderCredentialsThroughLicenseServer` silently no-ops
+  // without a `connectorName` — leaving the forwarder stuck "pending"
+  // forever with its original error cleared. Only a real retry through
+  // provisioning can move it forward.
+  if (
+    !existing ||
+    existing.status === "unconfigured" ||
+    !existing.connectorName?.trim()
+  ) {
     return;
   }
 

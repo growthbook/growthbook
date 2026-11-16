@@ -1,0 +1,37 @@
+Requires `@growthbook/growthbook` v1.4.0 or later. We recommend also adding `autoAttributesPlugin` to include common attributes (browser, `session_id`, UTM parameters, etc.) with every event.
+
+```js
+import { GrowthBook } from "@growthbook/growthbook";
+import {
+  autoAttributesPlugin,
+  growthbookTrackingPlugin,
+} from "@growthbook/growthbook/plugins";
+
+const gb = new GrowthBook({
+  clientKey: "YOUR_CLIENT_KEY",
+  plugins: [
+    autoAttributesPlugin(),
+    growthbookTrackingPlugin({
+      ingestorHost: "https://us-east-1.gb-ingest.com",
+    }),
+  ],
+});
+```
+
+Log custom events with `logEvent`. In React, get the instance with `useGrowthBook()`.
+
+```js
+// Without properties
+gb.logEvent("Page View");
+
+// With properties
+gb.logEvent("Button Click", { button: "Sign Up" });
+```
+
+| Option                     | Description                                                                   |
+| -------------------------- | ----------------------------------------------------------------------------- |
+| `ingestorHost`             | Ingestor for your Data Region.                                                |
+| `enableFeatureUsageEvents` | Set to `false` to stop sending feature usage events. Default `true`. v1.8.0+. |
+| `transport`                | `auto` (default), `beacon`, or `fetch`. See below. v1.7.0+.                   |
+
+Events are batched and sent with `fetch` using `keepalive`. When the page is hidden or unloading, the queue is flushed with `navigator.sendBeacon`. Both survive the page being torn down, so exposures aren't lost when a user navigates away immediately, which matters most for redirect experiments. Set `transport: "beacon"` to always prefer `sendBeacon`, or `"fetch"` to never use it.

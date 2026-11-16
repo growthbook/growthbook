@@ -9,6 +9,7 @@ import {
   PastExperimentQueryResponse,
   ExperimentUnitsQueryResponse,
   ExperimentAggregateUnitsQueryResponse,
+  ExperimentClusterHealthQueryResponse,
   DimensionSlicesQueryResponse,
   MetricAnalysisQueryResponse,
   DropTableQueryResponse,
@@ -29,7 +30,7 @@ import {
   InsertMetricSourceDataQueryParams,
   IncrementalRefreshStatisticsQueryParams,
   DimensionSlicesQueryParams,
-  PastExperimentParams,
+  PastExperimentQueryParams,
   MetricAnalysisParams,
   ExperimentFactMetricsQueryResponse,
   UserExperimentExposuresQueryResponse,
@@ -149,6 +150,18 @@ export default class GoogleAnalytics implements SourceIntegrationInterface {
   ): Promise<ExperimentAggregateUnitsQueryResponse> {
     throw new Error("Method not implemented.");
   }
+  getExperimentClusterHealthQuery(
+    _: ExperimentAggregateUnitsQueryParams,
+  ): string {
+    throw new Error("Method not implemented.");
+  }
+  runExperimentClusterHealthQuery(
+    _query: string,
+    _setExternalId: ExternalIdCallback,
+    _queryMetadata?: QueryMetadata,
+  ): Promise<ExperimentClusterHealthQueryResponse> {
+    throw new Error("Method not implemented.");
+  }
   runSnapshotMetricQuery(
     _query: string,
     _setExternalId: ExternalIdCallback,
@@ -166,7 +179,7 @@ export default class GoogleAnalytics implements SourceIntegrationInterface {
   ): Promise<ExperimentUnitsQueryResponse> {
     throw new Error("Method not implemented.");
   }
-  getPastExperimentQuery(_: PastExperimentParams): string {
+  getPastExperimentQuery(_: PastExperimentQueryParams): string {
     throw new Error("Method not implemented.");
   }
   runPastExperimentQuery(
@@ -529,7 +542,7 @@ export default class GoogleAnalytics implements SourceIntegrationInterface {
           // GA doesn't expose standard deviations, so we have to guess
           // If the metric is duration, we can assume an exponential distribution where the stddev equals the mean
           // If the metric is count, we can assume a poisson distribution where the variance equals the mean
-          // For binomial metrics, we can use the Normal approximation for a bernouli random variable
+          // For binomial metrics, we can use the Normal approximation for a Bernoulli random variable
           const variance =
             metric.type === "duration"
               ? Math.pow(mean, 2)

@@ -1,5 +1,6 @@
 import {
   FREE_ORG_LIMITS,
+  PRO_ORG_LIMITS,
   OrgLimits,
   isLimitsFlagDisabled,
   resolveOrgLimitsConfig,
@@ -66,6 +67,30 @@ describe("resolveOrgLimitsConfig", () => {
       maxProjects: 2,
       customEnvironments: FREE_ORG_LIMITS.customEnvironments,
       roleManagement: FREE_ORG_LIMITS.roleManagement,
+    });
+  });
+
+  describe("per-tier fallback", () => {
+    it("falls back to the supplied tier defaults instead of free", () => {
+      expect(resolveOrgLimitsConfig({}, PRO_ORG_LIMITS)).toEqual({
+        maxProjects: PRO_ORG_LIMITS.maxProjects,
+        customEnvironments: PRO_ORG_LIMITS.customEnvironments,
+        roleManagement: PRO_ORG_LIMITS.roleManagement,
+      });
+    });
+
+    it("still lets the flag override individual tier fields", () => {
+      const result = resolveOrgLimitsConfig({ maxProjects: 5 }, PRO_ORG_LIMITS);
+      expect(result.maxProjects).toBe(5);
+      expect(result.roleManagement).toBe(PRO_ORG_LIMITS.roleManagement);
+    });
+
+    it("falls back per-field when the flag serves an invalid value", () => {
+      const result = resolveOrgLimitsConfig(
+        { maxProjects: "three" },
+        PRO_ORG_LIMITS,
+      );
+      expect(result.maxProjects).toBe(PRO_ORG_LIMITS.maxProjects);
     });
   });
 });

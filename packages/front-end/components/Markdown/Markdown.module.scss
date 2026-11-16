@@ -48,6 +48,12 @@
     border-radius: 5px;
   }
   table {
+    // Scroll a too-wide table inside its container, like `pre` above,
+    // instead of spilling out of it.
+    display: block;
+    width: max-content;
+    max-width: 100%;
+    overflow: auto;
     border-collapse: collapse;
     margin-bottom: 1em;
     td,

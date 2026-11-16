@@ -1,7 +1,11 @@
-import { useMemo } from "react";
+import { useMemo, ReactNode } from "react";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { MemberRoleWithProjects } from "shared/types/organization";
-import { getRoleDisplayName } from "shared/permissions";
+import {
+  getRoleDisplayName,
+  holdsGlobalAdmin,
+  roleSupportsEnvLimit,
+} from "shared/permissions";
 import { PiTrash, PiInfo, PiPlus, PiPlusBold } from "react-icons/pi";
 import { useUser } from "@/services/UserContext";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -14,7 +18,7 @@ import Table, {
 } from "@/ui/Table";
 import Button from "@/ui/Button";
 import SelectField from "@/components/Forms/SelectField";
-import Tooltip from "@/components/Tooltip/Tooltip";
+import Tooltip from "@/ui/Tooltip";
 import Badge from "@/ui/Badge";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
@@ -43,16 +47,22 @@ export default function RoleRulesTable({
   value,
   setValue,
   teams = [],
+  forApiKey = false,
+  footerEnd,
 }: {
   value: MemberRoleWithProjects;
   setValue: (value: MemberRoleWithProjects) => void;
   teams?: TeamRuleSource[];
+  // An API key's project rules stay binding even over All Projects admin.
+  forApiKey?: boolean;
+  footerEnd?: ReactNode;
 }) {
   const { organization, hasCommercialFeature } = useUser();
   const hasAdvancedPermissions = hasCommercialFeature("advanced-permissions");
   const { projects } = useDefinitions();
 
   const rules = useMemo(() => toRules(value, teams), [value, teams]);
+  const adminEverywhere = !forApiKey && holdsGlobalAdmin(value, teams);
   const inert = useMemo(
     () => inertRules(rules, organization),
     [rules, organization],
@@ -77,7 +87,19 @@ export default function RoleRulesTable({
   const WIDTHS = showFrom ? WITH_FROM : WITHOUT_FROM;
   const columnCount = showFrom ? 6 : 5;
 
-  const commit = (next: RoleRule[]) => setValue(fromRules(next, value));
+  // Drop env limits a role can't hold (e.g. left over after switching to Admin);
+  // the Environments cell hides them, so they can't be cleared by hand.
+  const commit = (next: RoleRule[]) =>
+    setValue(
+      fromRules(
+        next.map((r) =>
+          roleSupportsEnvLimit(r.role, organization)
+            ? r
+            : { ...r, environments: [], limitAccessByEnvironment: false },
+        ),
+        value,
+      ),
+    );
   const patch = (key: string, changes: Partial<RoleRule>) =>
     commit(rules.map((r) => (r.key === key ? { ...r, ...changes } : r)));
 
@@ -153,7 +175,7 @@ export default function RoleRulesTable({
           <TableCell width={WIDTHS[3]}>
             {fromTeam ? (
               <Tooltip
-                body={`Inherited from the ${rule.teamName} team. Change it there.`}
+                content={`Inherited from the ${rule.teamName} team. Change it there.`}
               >
                 <Link href="/settings/team#teams">{rule.teamName}</Link>
               </Tooltip>
@@ -164,8 +186,23 @@ export default function RoleRulesTable({
         )}
         <TableCell width={WIDTHS[4]}>
           <Flex align="center" gap="1" justify="end" wrap="wrap">
+            {!forApiKey &&
+              rule.project === ALL_PROJECTS &&
+              rule.role === "admin" && (
+                <Tooltip content="Admin already grants everything, so other global and Project roles have no effect.">
+                  <Badge
+                    color="gray"
+                    variant="soft"
+                    label={
+                      <Flex align="center" gap="1">
+                        <PiInfo /> Overrides all other roles
+                      </Flex>
+                    }
+                  />
+                </Tooltip>
+              )}
             {inert.has(rule.key) && (
-              <Tooltip body={inertReason(rule, inert.get(rule.key))}>
+              <Tooltip content={inertReason(rule, inert.get(rule.key))}>
                 <Badge
                   color="gray"
                   variant="soft"
@@ -185,7 +222,7 @@ export default function RoleRulesTable({
         <TableCell width={WIDTHS[5]}>
           <Flex align="center" justify="end">
             {!fromTeam && !rule.isPrimary && (
-              <Tooltip body="Remove rule">
+              <Tooltip content="Remove rule">
                 <IconButton
                   variant="ghost"
                   color="red"
@@ -243,7 +280,9 @@ export default function RoleRulesTable({
           )}
           {!isAllProjects && (
             <Text size="sm" color="text-low">
-              replaces the All Projects rules inside it
+              {adminEverywhere
+                ? "Has no effect for a global Admin."
+                : "Replaces the All Projects rules inside it"}
             </Text>
           )}
         </Flex>
@@ -282,11 +321,26 @@ export default function RoleRulesTable({
   return (
     <Box>
       {groups.map(renderGroup)}
-      {unusedProjects.length > 0 && hasAdvancedPermissions && (
-        <Button variant="soft" onClick={() => addRule(unusedProjects[0].id)}>
-          <PiPlus /> Add project override
-        </Button>
-      )}
+      <Flex align="center" gap="3">
+        {unusedProjects.length > 0 && hasAdvancedPermissions && (
+          <Tooltip
+            content="Project overrides have no effect for a global Admin."
+            enabled={adminEverywhere}
+          >
+            <span tabIndex={adminEverywhere ? 0 : undefined}>
+              <Button
+                variant="soft"
+                icon={<PiPlus />}
+                disabled={adminEverywhere}
+                onClick={() => addRule(unusedProjects[0].id)}
+              >
+                Add Project override
+              </Button>
+            </span>
+          </Tooltip>
+        )}
+        {footerEnd && <Box ml="auto">{footerEnd}</Box>}
+      </Flex>
     </Box>
   );
 }

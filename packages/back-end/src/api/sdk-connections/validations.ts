@@ -62,6 +62,7 @@ interface CreateSdkConnectionRequestBody
   includeCustomFieldsInMetadata?: boolean;
   allowedCustomFieldsInMetadata?: string[];
   includeTagsInMetadata?: boolean;
+  includeReferencedPrerequisites?: boolean;
   proxyHost?: string;
   hashSecureAttributes?: boolean;
 }
@@ -145,7 +146,7 @@ export function validateSdkCapabilities(
     if (payload[param] && !capabilities.includes(capability))
       if (latestCapabilities.includes(capability))
         throw new Error(
-          `You need to ugrade to version ${latestSdkVersion} to support ${capability}`,
+          `You need to upgrade to version ${latestSdkVersion} to support ${capability}`,
         );
       else
         throw new Error(
@@ -154,14 +155,27 @@ export function validateSdkCapabilities(
   });
 }
 
+// On update, a setting that is already on may be kept without the feature, so a
+// downgrade never forces a change to an existing connection's payload.
+function isAlreadyOn(
+  param: PremiumFeatureParam,
+  existing: SDKConnectionInterface | undefined,
+): boolean {
+  if (!existing || param === "proxyEnabled") return false;
+  return !!existing[param];
+}
+
 export function validatePremiumFeatures(
   context: ApiReqContext,
   payload: CreateSdkConnectionPayload | UpdateSdkConnectionPayload,
+  existing?: SDKConnectionInterface,
 ) {
   premiumFeatures.forEach(([feature, param]) => {
     if (!payload[param]) return;
 
     if (premiumOverrides[feature]) return;
+
+    if (isAlreadyOn(param, existing)) return;
 
     if (!context.hasPremiumFeature(feature))
       throw new Error(`Feature ${feature} requires premium subscription!`);
@@ -322,7 +336,7 @@ export async function validatePutPayload(
 
   validateSdkCapabilities(payload, language, sdkVersion, latestSdkVersion);
 
-  validatePremiumFeatures(context, payload);
+  validatePremiumFeatures(context, payload, sdkConnection);
 
   return payload;
 }

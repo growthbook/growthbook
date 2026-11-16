@@ -1,18 +1,17 @@
 ---
 title: "AI Mode: Generate A/B Test Variations With AI"
-description: Generate A/B test variations with natural language in the Visual Editor. Preview the proposed edits, then accept or change them.
+description: Generate A/B test variations with natural language in the AI Visual Editor. Preview the proposed edits, then accept or change them.
 sidebarTitle: AI mode
-slug: /app/visual/ai-mode
 ---
 
 import { CommercialFeature } from "/snippets/CommercialFeature.jsx";
 
 <CommercialFeature feature="ai-suggestions" />
 
-AI mode is the fastest way to draft an A/B test variation in the [Visual Editor](/app/visual). You describe what you want in plain language ("make the hero headline more urgent and the primary button green"), and the AI proposes specific DOM-level changes — element selectors, new content, new styles — that you can preview, accept, edit, or reject one at a time.
+AI mode is the fastest way to draft an A/B test variation in the [AI Visual Editor](/app/visual). You describe what you want in plain language ("make the hero headline more urgent and the primary button green"), and the AI proposes specific DOM-level changes — element selectors, new content, new styles — that you can preview, accept, edit, or reject one at a time.
 
 <Frame>
-  <img src="/static/images/visual-editor/ve-ai-chat.png" alt="The GrowthBook Visual Editor AI Editor" width="300" />
+  <img src="/static/images/visual-editor/ve-ai-chat.png" alt="The GrowthBook AI Visual Editor" width="300" />
 </Frame>
 
 It's especially good for:
@@ -29,7 +28,7 @@ Before AI mode is usable on your account:
 
 1. **An org admin needs to configure an AI provider.** Go to **Settings → AI** in GrowthBook and add an OpenAI, Google, or xAI API key. See [AI Integrations](/integrations/ai) for the full setup.
 2. **Your plan must include AI features.** AI mode is part of the `ai-suggestions` commercial feature. Pro and Enterprise plans include it; Free does not.
-3. **You need to be connected** to your GrowthBook account in the [Visual Editor side panel](/app/visual/install-and-connect).
+3. **You need to be connected** to your GrowthBook account in the [AI Visual Editor side panel](/app/visual/install-and-connect).
 
 If AI mode is greyed out in the side panel, the most common cause is that no AI provider key is configured yet for the organization.
 
@@ -152,7 +151,7 @@ Your GrowthBook experiment metadata, metric values, user data, and SDK payloads 
 
 ## Limits and caveats
 
-- **Single-page scope.** AI mode reasons about the page currently loaded in the Visual Editor's target URL. It can't propose changes against pages it hasn't seen.
+- **Single-page scope.** AI mode reasons about the page currently loaded in the AI Visual Editor's target URL. It can't propose changes against pages it hasn't seen.
 - **Selectors can still drift.** Even with selector grounding, large site rewrites or design-system changes can break previously-stable selectors. Run a sanity check on long-running visual experiments after major releases.
 - **Quality varies by model.** The org admin picks the underlying model in AI Settings — bigger/newer models generally produce better proposals at higher cost. The same prompt will produce different output across `gpt-4o-mini`, `gemini-2.5-pro`, and `grok-2`.
 - **AI mode is not a substitute for review.** Always preview the variation on a real page (and ideally a real preview link) before publishing.

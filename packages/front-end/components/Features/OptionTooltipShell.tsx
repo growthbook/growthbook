@@ -1,0 +1,253 @@
+import React from "react";
+import { Flex } from "@radix-ui/themes";
+import { PiArrowSquareOut } from "react-icons/pi";
+import Markdown from "@/components/Markdown/Markdown";
+import SortedTags from "@/components/Tags/SortedTags";
+import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import Text from "@/ui/Text";
+import Link from "@/ui/Link";
+import { Popover } from "@/ui/Popover";
+
+export const OPTION_LABEL_MAX_WIDTH = 200;
+const TOOLTIP_MAX_WIDTH = 280;
+
+export type OptionContext = "menu" | "value";
+
+export function useProjectNames(ids?: string[]): string[] {
+  const { getProjectById } = useDefinitions();
+  return (ids ?? []).map((id) => getProjectById(id)?.name || id);
+}
+
+export function OptionTooltipShell({
+  href,
+  title,
+  subtitle,
+  titleColor,
+  children,
+}: {
+  href: string;
+  title: string;
+  // "dark" for a card with links of its own, so the title isn't one more.
+  titleColor?: "dark";
+  // A line held close under the title, such as what kind of thing it is.
+  subtitle?: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  const link = (
+    <Link
+      href={href}
+      target="_blank"
+      weight="bold"
+      size="md"
+      color={titleColor}
+    >
+      <span style={{ overflowWrap: "anywhere" }} className="mr-1">
+        {title}
+      </span>
+      <PiArrowSquareOut />
+    </Link>
+  );
+  return (
+    <Flex
+      direction="column"
+      gap="2"
+      style={{ minWidth: 0, maxWidth: TOOLTIP_MAX_WIDTH }}
+    >
+      {subtitle ? (
+        <div>
+          {link}
+          <Text size="sm" as="div" color="text-low">
+            {subtitle}
+          </Text>
+        </div>
+      ) : (
+        link
+      )}
+      {children}
+    </Flex>
+  );
+}
+
+export function OptionTooltipRow({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <Text size="sm" as="div">
+      <Text size="sm" as="span" weight="semibold">
+        {label}{" "}
+      </Text>
+      {children}
+    </Text>
+  );
+}
+
+export function OptionTooltipSection({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div>
+      <Text size="sm" as="div" weight="semibold">
+        {label}
+      </Text>
+      {children}
+    </div>
+  );
+}
+
+export function OptionTooltipProjectsRow({ names }: { names: string[] }) {
+  return (
+    <OptionTooltipRow label={names.length === 1 ? "Project:" : "Projects:"}>
+      {names.length ? names.join(", ") : "All Projects"}
+    </OptionTooltipRow>
+  );
+}
+
+export function OptionTooltipTags({ tags }: { tags?: string[] }) {
+  if (!tags?.length) return null;
+  return (
+    <OptionTooltipSection label="Tags:">
+      <SortedTags
+        tags={tags}
+        shouldShowEllipsis={true}
+        showEllipsisAtIndex={20}
+        ellipsisFormat={(n) => `+${n}`}
+      />
+    </OptionTooltipSection>
+  );
+}
+
+// The full text is a click away on the item's own page.
+const DESCRIPTION_MAX_LINES = 6;
+
+export function OptionTooltipDescription({
+  description,
+}: {
+  description?: string;
+}) {
+  if (!description) return null;
+  return (
+    <div>
+      <Text size="sm" as="div" color="text-low">
+        Description:
+      </Text>
+      <div
+        style={{
+          display: "-webkit-box",
+          WebkitBoxOrient: "vertical",
+          WebkitLineClamp: DESCRIPTION_MAX_LINES,
+          overflow: "hidden",
+        }}
+      >
+        <Markdown style={{ fontSize: 12 }}>{description}</Markdown>
+      </div>
+    </div>
+  );
+}
+
+export function OptionPopover({
+  context = "menu",
+  side,
+  content,
+  children,
+}: {
+  context?: OptionContext;
+  // Overrides the side the context would use, for a control too narrow for it.
+  side?: "top" | "right" | "bottom" | "left";
+  content: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  const isValue = context === "value";
+  return (
+    <Popover
+      openOnHover
+      anchorOnly
+      side={side ?? (isValue ? "top" : "right")}
+      sideOffset={8}
+      trigger={
+        <div
+          style={{
+            position: "relative",
+            display: isValue ? "flex" : "block",
+            alignItems: isValue ? "center" : undefined,
+            // A value fills the select so its label can shrink to fit
+            width: isValue ? "100%" : undefined,
+            minWidth: isValue ? 0 : 80,
+            maxWidth: 400,
+          }}
+        >
+          {children}
+        </div>
+      }
+      content={content}
+    />
+  );
+}
+
+export function OptionLabel({
+  label,
+  style,
+  maxWidth = OPTION_LABEL_MAX_WIDTH,
+}: {
+  label: string;
+  style?: React.CSSProperties;
+  maxWidth?: number | string;
+}) {
+  return (
+    <Text size="md">
+      <OverflowText maxWidth={maxWidth} style={style}>
+        {label}
+      </OverflowText>
+    </Text>
+  );
+}
+
+export function OptionMenuRow({
+  label,
+  right,
+}: {
+  label: string;
+  right?: React.ReactNode;
+}) {
+  return (
+    <Flex align="center" gap="3">
+      <Text size="md">{label}</Text>
+      {right}
+    </Flex>
+  );
+}
+
+export function OptionProjectsLabel({
+  names,
+  extra,
+}: {
+  names: string[];
+  extra?: React.ReactNode;
+}) {
+  if (!names.length && !extra) return null;
+  return (
+    <Flex ml="auto" flexShrink="0" align="center" style={{ fontSize: 11 }}>
+      <Text size="inherit">
+        {names.length > 0 && (
+          <>
+            <Text size="inherit" color="text-low">
+              {names.length > 1 ? "Projects:" : "Project:"}
+            </Text>{" "}
+            <Text size="inherit" color="text-high">
+              <OverflowText maxWidth={150}>{names.join(", ")}</OverflowText>
+            </Text>
+          </>
+        )}
+        {extra}
+      </Text>
+    </Flex>
+  );
+}

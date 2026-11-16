@@ -8,10 +8,8 @@ export type WebhookEntry = {
   readonly schema: ZodType<any>;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   readonly extra?: ZodType<any>;
-  readonly description: string;
   readonly isDiff?: boolean;
   readonly firstVersion?: string;
-  readonly noDoc?: boolean;
 };
 
 type Webhook = {

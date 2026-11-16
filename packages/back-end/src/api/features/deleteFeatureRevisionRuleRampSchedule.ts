@@ -1,7 +1,7 @@
 import type { OrganizationInterface } from "shared/types/organization";
 import type { RevisionRampDetachAction } from "shared/validators";
 import { deleteFeatureRevisionRuleRampScheduleValidator } from "shared/validators";
-import { getApplicableEnvIds, resetReviewOnChange } from "shared/util";
+import { getApplicableEnvIds } from "shared/util";
 import type { ApiReqContext } from "back-end/types/api";
 import { toApiRevision } from "back-end/src/services/features";
 import { recordRevisionUpdate } from "back-end/src/services/featureRevisionEvents";
@@ -136,12 +136,6 @@ export async function clearRuleRampSchedule(
         subject: canonicalRuleId,
         value: JSON.stringify({ ruleId: canonicalRuleId, environment }),
       },
-      resetReviewOnChange({
-        feature,
-        changedEnvironments,
-        defaultValueChanged: false,
-        settings: organization.settings,
-      }),
     );
 
     const updated = await getRevision({

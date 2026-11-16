@@ -29,7 +29,7 @@ import {
 import { auditDetailsUpdate } from "back-end/src/services/audit";
 import {
   getApiFeatureObj,
-  getSavedGroupMap,
+  getFeatureDefinitionLookups,
 } from "back-end/src/services/features";
 import { resolveOwnerEmail } from "back-end/src/services/owner";
 import { getEnvironmentIdsFromOrg } from "back-end/src/services/organizations";
@@ -38,6 +38,7 @@ import {
   getPublishedRevisionForEvents,
 } from "back-end/src/services/featureRevisionEvents";
 import { createApiRequestHandler } from "back-end/src/util/handler";
+import { holdFeatureUpdate } from "back-end/src/services/confirmations";
 import { canUseRestApiBypassSetting } from "./reviewBypass";
 
 export async function toggleFeatureCore(
@@ -48,6 +49,7 @@ export async function toggleFeatureCore(
   body: {
     environments: Record<string, boolean | string | number>;
     reason?: string;
+    comment?: string;
   },
   audit: (input: AuditInterfaceInput) => Promise<void>,
   canUseRestApiBypass: boolean,
@@ -85,12 +87,8 @@ export async function toggleFeatureCore(
     }
   }
 
-  const groupMap = await getSavedGroupMap(context);
-  const experimentMap = await getExperimentMapForFeature(context, feature.id);
-  const safeRolloutMap =
-    await context.models.safeRollout.getAllPayloadSafeRollouts();
-
   if (Object.keys(changedToggles).length === 0) {
+    const experimentMap = await getExperimentMapForFeature(context, feature.id);
     const revision = await getRevision({
       context,
       organization: feature.organization,
@@ -101,10 +99,12 @@ export async function toggleFeatureCore(
     return {
       feature,
       organization,
-      groupMap,
       experimentMap,
       revision,
-      safeRolloutMap,
+      ...(await getFeatureDefinitionLookups(context, {
+        features: [feature],
+        experiments: experimentMap.values(),
+      })),
       bypassedGates: [],
     };
   }
@@ -170,12 +170,20 @@ export async function toggleFeatureCore(
         ]
       : [];
 
+  await holdFeatureUpdate(
+    context,
+    feature,
+    { envEnabled: changedToggles },
+    bypassedGates,
+    Object.keys(changedToggles),
+  );
+
   const revision = await createRevision({
     context,
     feature,
     user: eventAudit,
     baseVersion: feature.version,
-    comment: "Created via REST API",
+    comment: body.comment ?? "Created via REST API",
     environments: environmentIds,
     publish: true,
     changes: { environmentsEnabled: changedToggles },
@@ -251,10 +259,12 @@ export async function toggleFeatureCore(
   return {
     feature: updatedFeature,
     organization,
-    groupMap,
     experimentMap: updatedExperimentMap,
     revision: latestRevision,
-    safeRolloutMap,
+    ...(await getFeatureDefinitionLookups(context, {
+      features: [updatedFeature],
+      experiments: updatedExperimentMap.values(),
+    })),
     bypassedGates,
   };
 }

@@ -108,7 +108,7 @@ Export shapes are **not** uniform: most `@/ui/` components are **default** expor
 
 `@/ui/` resolves to `packages/front-end/ui/` (tsconfig maps `"@/*"` to `"./*"`). When in doubt, open the file and read its `export default` / `export const` line — that is the only authority.
 
-Most `@/ui/` components ship a `.stories.tsx` next to them (30 of 43). Read the story to learn the intended props and variants before judging whether a component is used correctly. There is **no Storybook** — the stories render through a hand-rolled page at `packages/front-end/pages/design-system/index.tsx`.
+Most `@/ui/` components ship a `.stories.tsx` next to them (42 of 59). Read the story to learn the intended props and variants before judging whether a component is used correctly. There is **no Storybook** — the stories render through a hand-rolled page at `packages/front-end/pages/design-system/index.tsx`.
 
 #### Size props
 
@@ -136,7 +136,7 @@ Three rules:
 
 ### 2. Radix Themes - SECONDARY
 
-If a component doesn't exist in `@/ui/`, check Radix Themes. It is the expected default for layout — `@radix-ui/themes` is imported in 700+ front-end files.
+If a component doesn't exist in `@/ui/`, check Radix Themes. It is the expected default for layout — `@radix-ui/themes` is imported in 900+ front-end files.
 
 `no-restricted-imports` blocks these names from `@radix-ui/themes` with "Don't import Radix directly. Use our design system wrappers from @/ui/ instead.": `Avatar`, `Badge`, `Button`, `Callout`, `Checkbox`, `DataList`, `Dialog`, `DropdownMenu`, `Heading`, `Link`, `RadioCards`, `RadioGroup`, `Select`, `Switch`, `Table`, `Tabs`, `Text`. Use the `@/ui/` wrapper for every one of those.
 
@@ -310,7 +310,7 @@ Every one of these has a design-system equivalent that already handles the label
 | `<select>`                | `{ Select, SelectItem }` from `@/ui/Select`                   |
 | `<button>`                | `@/ui/Button`, or Radix `IconButton` for an icon-only control |
 
-Raw controls are still common — `<button` appears in 112 front-end files and `<input` in 43 — so the rule is again "do not introduce new usage".
+Raw controls are still common — `<button` appears in 105 front-end files and `<input` in 37 — so the rule is again "do not introduce new usage".
 
 `@/ui/Checkbox`'s `label` keeps the label a real click target for you. Hand-written label markup next to a raw input almost never does; see [accessibility.md](accessibility.md).
 
@@ -345,7 +345,7 @@ Two components for one boolean, and the choice is not stylistic:
 </>;
 ```
 
-Note the different APIs. `Checkbox` takes `value` / `setValue`; `Switch` takes either `value` + `onChange` (controlled) or `defaultValue` (uncontrolled) — a discriminated union, so you cannot mix them. `Switch` also takes `label`, `description` (a plain string), `state?: "default" | "warning" | "error"`, `stateLabel`, and `size?: "sm" | "md" | "lg"`.
+Note the different APIs. `Checkbox` takes `value` / `setValue`; `Switch` takes either `value` + `onChange` (controlled) or `defaultValue` (uncontrolled) — a discriminated union, so you cannot mix them. `Switch` also takes `label`, `ariaLabel` (names a switch shown without a label), `description` (a plain string), `state?: "default" | "warning" | "error"`, `stateLabel`, and `size?: "sm" | "md" | "lg"`.
 
 ## Variation Identity — `VariationLabel` / `VariationNumber`
 
@@ -362,7 +362,7 @@ import VariationNumber from "@/ui/VariationNumber";
 <VariationNumber number={i} />
 ```
 
-`VariationLabel` takes `{ number, name, size?, maxWidth?, disableTooltip? }`. `VariationNumber` takes `{ number }` plus Radix `Box` props.
+`VariationLabel` takes `{ number, name, size?, maxWidth?, disableTooltip?, fadeOverflow? }`. `VariationNumber` takes `{ number }` plus Radix `Box` props.
 
 Do not pass a fallback like ``name={variation.name || `Variation ${i}`}`` — it duplicates the number the badge already shows. Pass the real name, or use `VariationNumber` alone.
 

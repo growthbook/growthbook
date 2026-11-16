@@ -6,7 +6,10 @@ import { resolvableDependencyClosure } from "back-end/src/services/constants";
 import { getResolvableValues } from "back-end/src/services/resolvableValues";
 import { getContextForAgendaJobByOrgObject } from "back-end/src/services/organizations";
 import { getArmAcknowledgment } from "back-end/src/services/armGuards";
-import { decideExperimentGuard } from "back-end/src/services/experimentGuard";
+import {
+  decideExperimentGuard,
+  guardWarningReader,
+} from "back-end/src/services/experimentGuard";
 import {
   SoftWarningError,
   TerminalPublishError,
@@ -23,6 +26,23 @@ export type GuardedResolvable = {
 // User-facing noun per the copy glossary — both sources are named resources.
 const displaySource = (source: ConstantSource): string =>
   source === "config" ? "Config" : "Constant";
+
+// One line per locked Config for the "Save anyway" dialog, naming only those the publisher can read.
+export async function describeLockedConfigs(
+  context: Context,
+  keys: string[],
+): Promise<string[]> {
+  const reader = guardWarningReader(context);
+  const configs = await Promise.all(
+    keys.map((k) => reader.models.configs.getByKey(k)),
+  );
+  const lines = keys.map((key, i) =>
+    configs[i]
+      ? `Config [${key}](/configs/${key}) is locked to a pinned revision, and publishing changes its resolved value.`
+      : "A Config you can't access is locked to a pinned revision, and publishing changes its resolved value.",
+  );
+  return [...new Set(lines)];
+}
 
 // Config-lock guard: locking a config pins ITS OWN revision (assertConfigNotLocked
 // hard-blocks re-publishing it), but a locked config that `@const:`/`@config:`-
@@ -121,19 +141,18 @@ export async function assertConfigLockGuard(
     return;
   }
 
-  const keyList = decision.conflictKeys.join(", ");
   if (decision.action === "block-immediate") {
+    const lines = await describeLockedConfigs(context, decision.conflictKeys);
     throw new SoftWarningError(
-      `Publishing this ${displaySource(
-        resolvable.source,
-      )} changes the resolved value of locked Config(s): ${keyList}. Those Configs are locked to a pinned revision — unlock them, or re-submit with ignoreWarnings to proceed.`,
-      decision.conflictKeys,
+      `${lines.join(" ")} Unlock them, or re-submit with ignoreWarnings to proceed.`,
+      lines,
     );
   }
+  // Names nothing: stored on the draft and sent to webhooks, whose readers may differ.
   throw new TerminalPublishError(
     `Publish blocked by the config-lock guard: the locked Configs depending on this ${displaySource(
       resolvable.source,
-    )} changed since this publish was scheduled (now: ${keyList}). Re-open the draft and re-confirm to publish.`,
+    )} changed since this publish was scheduled. Re-open the draft and re-confirm to publish.`,
   );
 }
 
@@ -155,11 +174,10 @@ export async function captureConfigLockAcknowledgment(
       resolvable.source,
     );
   if (!override) {
+    const lines = await describeLockedConfigs(context, sortedKeys);
     throw new SoftWarningError(
-      `Scheduling this publish will change the resolved value of locked Config(s): ${sortedKeys.join(
-        ", ",
-      )}. Re-submit with ignoreWarnings to acknowledge and schedule.`,
-      sortedKeys,
+      `${lines.join(" ")} Re-submit with ignoreWarnings to acknowledge and schedule.`,
+      lines,
     );
   }
   return sortedKeys;

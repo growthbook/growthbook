@@ -10,6 +10,7 @@ export const POLICIES = [
   "FlagsPublish",
   "FlagsRevert",
   "FlagsDelete",
+  "FlagsTarget",
   "FlagsBypassApprovals",
   "ArchetypesFullAccess",
   // Deprecated — see DEPRECATED_POLICIES.
@@ -29,6 +30,7 @@ export const POLICIES = [
   "FactMetricsFullAccess",
   "DimensionsFullAccess",
   "SegmentsFullAccess",
+  "PopulationsFullAccess",
   "IdeasFullAccess",
   "PresentationsFullAccess",
   "ExperimentsPublish",
@@ -54,6 +56,11 @@ export const POLICIES = [
   "ProjectAdminAccess",
   "TagsFullAccess",
   "APIKeysFullAccess",
+  "APIKeysView",
+  "APIKeysCreate",
+  "APIKeysEdit",
+  "APIKeysDelete",
+  "APIKeysMemberTokens",
   "IntegrationsFullAccess",
   "EventWebhooksFullAccess",
   "BillingFullAccess",
@@ -112,6 +119,7 @@ export const POLICY_PERMISSION_MAP: Record<Policy, Permission[]> = {
     "revertFeatures",
     "revertConfigs",
     "revertConstants",
+    "targetFeatures",
   ],
   // The lifecycle, one policy per action. Each bundles the three flag
   // entities, so an admin grants "may publish flags" without choosing between
@@ -146,6 +154,9 @@ export const POLICY_PERMISSION_MAP: Record<Policy, Permission[]> = {
     "publishConfigs",
     "publishConstants",
   ],
+  // Deliver other projects' Feature Flags into this one via Targeting Projects.
+  // Features only: Configs and Constants have no targeting projects.
+  FlagsTarget: ["readData", "targetFeatures"],
   FlagsRevert: [
     "readData",
     "revertFeatures",
@@ -174,6 +185,7 @@ export const POLICY_PERMISSION_MAP: Record<Policy, Permission[]> = {
     "editFeatureDrafts",
     "reviewFeatures",
     "manageArchetype",
+    "targetFeatures",
   ],
   // Grants EVERY entity's bypass atom: the pre-split `bypassApprovalChecks` was
   // org-wide — main's config/constant adapters consult it directly — so dropping
@@ -221,6 +233,7 @@ export const POLICY_PERMISSION_MAP: Record<Policy, Permission[]> = {
   ],
   DimensionsFullAccess: ["readData", "createDimensions", "runQueries"],
   SegmentsFullAccess: ["readData", "createSegments", "runQueries"],
+  PopulationsFullAccess: ["readData", "managePopulations", "runQueries"],
   IdeasFullAccess: ["readData", "createIdeas"],
   PresentationsFullAccess: ["readData", "createPresentations"],
   ExperimentsPublish: ["readData", "runExperiments"],
@@ -305,7 +318,19 @@ export const POLICY_PERMISSION_MAP: Record<Policy, Permission[]> = {
   ],
   ProjectAdminAccess: ["readData", "manageProjects"],
   TagsFullAccess: ["readData", "manageTags"],
-  APIKeysFullAccess: ["readData", "manageApiKeys"],
+  APIKeysFullAccess: [
+    "readData",
+    "viewApiKeys",
+    "createApiKeys",
+    "editApiKeys",
+    "deleteApiKeys",
+    "managePersonalAccessTokens",
+  ],
+  APIKeysView: ["readData", "viewApiKeys"],
+  APIKeysCreate: ["readData", "viewApiKeys", "createApiKeys"],
+  APIKeysEdit: ["readData", "viewApiKeys", "editApiKeys"],
+  APIKeysDelete: ["readData", "viewApiKeys", "deleteApiKeys"],
+  APIKeysMemberTokens: ["readData", "managePersonalAccessTokens"],
   IntegrationsFullAccess: ["readData", "manageIntegrations"],
   EventWebhooksFullAccess: ["readData", "manageEventWebhooks", "viewAuditLog"],
   BillingFullAccess: ["readData", "manageBilling"],
@@ -345,6 +370,7 @@ export const POLICY_DISPLAY_GROUPS: { name: string; policies: Policy[] }[] = [
       "FlagsPublish",
       "FlagsRevert",
       "FlagsDelete",
+      "FlagsTarget",
       "FlagsBypassApprovals",
       "ArchetypesFullAccess",
     ],
@@ -387,6 +413,7 @@ export const POLICY_DISPLAY_GROUPS: { name: string; policies: Policy[] }[] = [
       "FactMetricsFullAccess",
       "DimensionsFullAccess",
       "SegmentsFullAccess",
+      "PopulationsFullAccess",
       "ManageOfficialResources",
     ],
   },
@@ -423,6 +450,11 @@ export const POLICY_DISPLAY_GROUPS: { name: string; policies: Policy[] }[] = [
       "ProjectAdminAccess",
       "TagsFullAccess",
       "APIKeysFullAccess",
+      "APIKeysView",
+      "APIKeysCreate",
+      "APIKeysEdit",
+      "APIKeysDelete",
+      "APIKeysMemberTokens",
       "IntegrationsFullAccess",
       "EventWebhooksFullAccess",
       "BillingFullAccess",
@@ -483,6 +515,11 @@ export const POLICY_METADATA_MAP: Record<
     displayName: "Archive & delete",
     description:
       "Archive (environment-scoped) or delete Feature Flags, Constants, and Configs. Deleting is not environment-scoped — an archived entity already serves nowhere.",
+  },
+  FlagsTarget: {
+    displayName: "Target",
+    description:
+      'Allowed to include this role\'s project in any Feature Flag\'s "Targeting Projects". When the role is granted globally, also allowed to set "Targeting Projects" to All Projects.',
   },
   FlagsBypassApprovals: {
     displayName: "Bypass draft approvals",
@@ -566,6 +603,10 @@ export const POLICY_METADATA_MAP: Record<
   SegmentsFullAccess: {
     displayName: "Segments Full Access",
     description: "Create, edit, and delete segments",
+  },
+  PopulationsFullAccess: {
+    displayName: "Populations Full Access",
+    description: "Create, edit, and delete populations",
   },
   IdeasFullAccess: {
     displayName: "Ideas Full Access",
@@ -662,14 +703,14 @@ export const POLICY_METADATA_MAP: Record<
   ProjectsFullAccess: {
     displayName: "Projects Full Access",
     description:
-      "Create, edit, and delete projects and change project roles for other members. Can be applied at the global or project level.",
+      "Create, edit, and delete projects, change project roles for other members, and manage project-scoped teams. Can be applied at the global or project level.",
     warning:
       "Can be used to create new project admins and adjust project roles for other members",
   },
   ProjectAdminAccess: {
     displayName: "Project Admin Access",
     description:
-      "Manage project settings and change project roles for other members.",
+      "Manage project settings, change project roles for other members, and manage project-scoped teams.",
     warning:
       "Can be used to create new project admins and adjust project roles for other members",
   },
@@ -680,8 +721,33 @@ export const POLICY_METADATA_MAP: Record<
   APIKeysFullAccess: {
     displayName: "API Keys Full Access",
     description:
-      "Create, edit, and delete API secret keys. Not required to create Personal Access Tokens.",
+      "View, create, edit, disable, and delete API secret keys, and manage members' Personal Access Tokens. Not required to create your own Personal Access Tokens.",
     warning: "Can be used to create an API Key with full admin permissions.",
+  },
+  APIKeysView: {
+    displayName: "View",
+    description:
+      "View API secret keys and their audit logs. Revealing a key's value requires Create.",
+  },
+  APIKeysCreate: {
+    displayName: "Create",
+    description:
+      "Create API secret keys, reveal their values, and change what a key can do: its role, scope, requester settings, or confirmations",
+  },
+  APIKeysEdit: {
+    displayName: "Edit",
+    description:
+      "Change an API secret key's description and expiration, and re-enable disabled keys. Changing what a key can do requires Create.",
+  },
+  APIKeysDelete: {
+    displayName: "Disable & delete",
+    description:
+      "Disable and delete API secret keys, and apply the expiration policy to existing keys",
+  },
+  APIKeysMemberTokens: {
+    displayName: "Manage members' tokens",
+    description:
+      "View, disable, or re-enable any member's Personal Access Tokens, see their audit logs, and apply the expiration policy to existing tokens. Token values stay visible only to their owners.",
   },
   IntegrationsFullAccess: {
     displayName: "Integrations Full Access",
@@ -762,6 +828,7 @@ export const POLICY_PARTS: Partial<Record<Policy, Policy[]>> = {
     "FlagsPublish",
     "FlagsRevert",
     "FlagsDelete",
+    "FlagsTarget",
   ],
   SavedGroupsFullAccess: [
     "SavedGroupsCreate",
@@ -770,6 +837,13 @@ export const POLICY_PARTS: Partial<Record<Policy, Policy[]>> = {
     "SavedGroupsPublish",
     "SavedGroupsRevert",
     "SavedGroupsDelete",
+  ],
+  APIKeysFullAccess: [
+    "APIKeysView",
+    "APIKeysCreate",
+    "APIKeysEdit",
+    "APIKeysDelete",
+    "APIKeysMemberTokens",
   ],
 };
 
@@ -842,6 +916,7 @@ export const DEFAULT_ROLES: Record<DefaultMemberRole, Role> = {
       "FactMetricsFullAccess",
       "DimensionsFullAccess",
       "SegmentsFullAccess",
+      "PopulationsFullAccess",
       "IdeasFullAccess",
       "PresentationsFullAccess",
       "TagsFullAccess",
@@ -871,6 +946,7 @@ export const DEFAULT_ROLES: Record<DefaultMemberRole, Role> = {
       "FactMetricsFullAccess",
       "DimensionsFullAccess",
       "SegmentsFullAccess",
+      "PopulationsFullAccess",
       "IdeasFullAccess",
       "PresentationsFullAccess",
       "ExperimentsPublish",
@@ -906,6 +982,7 @@ export const DEFAULT_ROLES: Record<DefaultMemberRole, Role> = {
       "FactMetricsFullAccess",
       "DimensionsFullAccess",
       "SegmentsFullAccess",
+      "PopulationsFullAccess",
       "IdeasFullAccess",
       "PresentationsFullAccess",
       "ExperimentsPublish",
@@ -964,6 +1041,7 @@ export const ENV_SCOPED_PERMISSIONS = [
   "manageEnvironments",
   "manageSDKConnections",
   "manageSDKWebhooks",
+  "manageEventWebhooks",
   "runExperiments",
   // Review is env-scoped exactly where publish is: you may not approve what you
   // could not publish. Saved groups are absent because none of their atoms are.
@@ -977,6 +1055,7 @@ export const PROJECT_SCOPED_PERMISSIONS = [
   "addComments",
   "editFeatureDrafts",
   "bypassApprovalFeatures",
+  "targetFeatures",
   "editConfigDrafts",
   "bypassApprovalConfigs",
   "editConstantDrafts",
@@ -987,6 +1066,7 @@ export const PROJECT_SCOPED_PERMISSIONS = [
   "deleteProjects",
   "createAnalyses",
   "createSegments",
+  "managePopulations",
   "createIdeas",
   "createMetrics",
   "manageFactTables",
@@ -1026,9 +1106,12 @@ export const GLOBAL_PERMISSIONS = [
   "superDeleteReport",
   "manageTeam",
   "manageTags",
-  "manageApiKeys",
+  "viewApiKeys",
+  "createApiKeys",
+  "editApiKeys",
+  "deleteApiKeys",
+  "managePersonalAccessTokens",
   "manageIntegrations",
-  "manageEventWebhooks",
   "manageBilling",
   "manageNorthStarMetric",
   "manageDecisionCriteria",

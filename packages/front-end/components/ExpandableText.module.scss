@@ -1,0 +1,49 @@
+// Its last line fades out toward the link to the rest, which sits over the
+// end of it. The padding below, where the next line starts, stays hidden.
+.clamped {
+  mask-image:
+    linear-gradient(#000, #000),
+    linear-gradient(to left, transparent 5.5em, #000 9em);
+  mask-size:
+    100% calc(100% - 1lh - var(--space-1)),
+    100% 1lh;
+  mask-position:
+    top,
+    left 0 bottom var(--space-1);
+  mask-repeat: no-repeat;
+}
+
+// With the link under it, its last lines fade out toward it, so it reads as
+// going on. The padding below, where the next line starts, stays hidden.
+.fadesOut {
+  mask-image: linear-gradient(
+    to bottom,
+    #000 calc(100% - 1.5lh - var(--space-1)),
+    transparent calc(100% - var(--space-1))
+  );
+}
+
+// Over the end of its last line. Twice the class, to outrank a click row's own
+// placing of the buttons in it.
+.atLineEnd.atLineEnd {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+}
+
+// The whole text opens it, so the link answers to a hover anywhere on it.
+.expandsOnClick {
+  &:has(.more) {
+    cursor: pointer;
+  }
+
+  // In a card, tints its surface, drawn by its ::before, under the text.
+  &:has(.more):hover :global(.rt-Card)::before {
+    background-image: linear-gradient(var(--gray-a1), var(--gray-a1));
+  }
+
+  &:hover .more {
+    color: var(--accent-10);
+    text-decoration-line: underline;
+  }
+}

@@ -14,13 +14,17 @@ import {
   loadConstantReferences,
   totalConstantReferences,
 } from "back-end/src/services/constants";
-import { getFeaturesDependingOnAsPrerequisite } from "back-end/src/services/features";
+import {
+  getContextualBanditsDependingOnAsPrerequisite,
+  getInterleavingsDependingOnAsPrerequisite,
+  getExperimentsDependingOnAsPrerequisite,
+  getFeaturesDependingOnAsPrerequisite,
+} from "back-end/src/services/features";
 import {
   loadSavedGroupReferences,
   totalSavedGroupReferences,
 } from "back-end/src/services/savedGroups";
 import { getContextForAgendaJobByOrgObject } from "back-end/src/services/organizations";
-import { getAllExperimentsForStaleGraph } from "back-end/src/models/ExperimentModel";
 import type { PublishGate } from "back-end/src/revisions/publishGates";
 import {
   SoftWarningError,
@@ -79,22 +83,23 @@ export async function collectFeatureArchiveDependents(
   const scanContext =
     context.scanContextOverride ??
     getContextForAgendaJobByOrgObject(context.org);
-  const [dependentFeatureIds, allExperiments] = await Promise.all([
+  const [
+    dependentFeatureIds,
+    dependentExperimentIds,
+    dependentBanditIds,
+    dependentInterleavingIds,
+  ] = await Promise.all([
     getFeaturesDependingOnAsPrerequisite(scanContext, featureId),
-    // Projected loader (id/status/phases.prerequisites only) — avoids
-    // materializing every experiment's analysis blob just to read prerequisites.
-    getAllExperimentsForStaleGraph(scanContext),
+    getExperimentsDependingOnAsPrerequisite(scanContext, featureId),
+    getContextualBanditsDependingOnAsPrerequisite(scanContext, featureId),
+    getInterleavingsDependingOnAsPrerequisite(scanContext, featureId),
   ]);
-  const dependentExperimentIds = allExperiments
-    .filter((e) => {
-      const phase = e.phases.slice(-1)?.[0] ?? null;
-      return !!phase?.prerequisites?.some((p) => p.id === featureId);
-    })
-    .map((e) => e.id);
 
   const ids = [
     ...dependentFeatureIds.map((id) => `feature:${id}`),
     ...dependentExperimentIds.map((id) => `experiment:${id}`),
+    ...dependentBanditIds.map((id) => `contextualBandit:${id}`),
+    ...dependentInterleavingIds.map((id) => `interleaving:${id}`),
   ];
   return {
     ids,
@@ -102,6 +107,8 @@ export async function collectFeatureArchiveDependents(
     parts: pluralParts([
       [dependentFeatureIds.length, "feature flag(s)"],
       [dependentExperimentIds.length, "experiment(s)"],
+      [dependentBanditIds.length, "contextual bandit(s)"],
+      [dependentInterleavingIds.length, "interleaving experiment(s)"],
     ]),
   };
 }
@@ -228,7 +235,8 @@ export async function collectConfigArchiveDependents(
   };
 }
 
-// Saved group: features + experiments + other saved groups referencing it.
+// Saved group: features + experiments + bandits + interleavings + other saved
+// groups referencing it.
 export async function collectSavedGroupArchiveDependents(
   context: ReqContext | ApiReqContext,
   savedGroupId: string,
@@ -241,6 +249,8 @@ export async function collectSavedGroupArchiveDependents(
   const ids = [
     ...refs.features.map((f) => `feature:${f.id}`),
     ...refs.experiments.map((e) => `experiment:${e.id}`),
+    ...refs.contextualBandits.map((cb) => `contextualBandit:${cb.id}`),
+    ...refs.interleavings.map((il) => `interleaving:${il.id}`),
     ...refs.savedGroups.map((g) => `savedGroup:${g.id}`),
   ];
   return {
@@ -249,6 +259,8 @@ export async function collectSavedGroupArchiveDependents(
     parts: pluralParts([
       [refs.features.length, "feature(s)"],
       [refs.experiments.length, "experiment(s)"],
+      [refs.contextualBandits.length, "contextual bandit(s)"],
+      [refs.interleavings.length, "interleaving experiment(s)"],
       [refs.savedGroups.length, "other Saved Group(s)"],
     ]),
   };

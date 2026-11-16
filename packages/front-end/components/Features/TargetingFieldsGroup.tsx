@@ -14,6 +14,7 @@ import PrerequisiteInput, {
 export interface TargetingFieldsGroupProps {
   project: string;
   attributeProjects?: string[] | null;
+  savedGroupProjects?: string[] | null;
   attributeSelectIndicator?: ReactNode;
   environments: string[];
   // When set, `PrerequisiteInput` will use the feature's project + linked-feature
@@ -38,6 +39,7 @@ export interface TargetingFieldsGroupProps {
 export default function TargetingFieldsGroup({
   project,
   attributeProjects,
+  savedGroupProjects,
   attributeSelectIndicator,
   environments,
   feature,
@@ -54,6 +56,7 @@ export default function TargetingFieldsGroup({
   return (
     <>
       <SavedGroupTargetingField
+        savedGroupProjects={savedGroupProjects}
         value={savedGroups}
         setValue={setSavedGroups}
         project={project}
@@ -65,6 +68,7 @@ export default function TargetingFieldsGroup({
         key={conditionKey}
         project={project}
         attributeProjects={attributeProjects}
+        savedGroupProjects={savedGroupProjects}
         attributeSelectIndicator={attributeSelectIndicator}
       />
       <Separator size="4" my="5" />

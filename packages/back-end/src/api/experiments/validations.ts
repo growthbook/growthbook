@@ -55,6 +55,7 @@ export function assertExperimentPayloadCommercialFeatures(
     decisionFrameworkSettings?: DecisionFrameworkPayload;
     metricOverrides?: MetricOverride[];
     defaultDashboardId?: string;
+    isClusterExperiment?: boolean;
   },
 ) {
   if (payload.postStratificationEnabled !== undefined) {
@@ -86,6 +87,14 @@ export function assertExperimentPayloadCommercialFeatures(
       context,
       "dashboards",
       "defaultDashboardId requires a higher tier plan.",
+    );
+  }
+
+  if (payload.isClusterExperiment) {
+    requireFeature(
+      context,
+      "cluster-experiments",
+      "isClusterExperiment requires a higher tier plan.",
     );
   }
 }

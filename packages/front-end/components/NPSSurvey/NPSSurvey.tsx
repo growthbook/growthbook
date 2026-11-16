@@ -10,6 +10,7 @@ import {
   npsValueOf,
 } from "shared/nps";
 import { NpsDisposition, NpsSurveyStatus } from "shared/validators";
+import { hasSuperAdminPermission } from "shared/permissions";
 import Button from "@/ui/Button";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
@@ -141,7 +142,7 @@ export default function NPSSurvey() {
   const storageKey = userId ? `${STORAGE_KEY}:${userId}` : STORAGE_KEY;
   // Staff-gated rather than flag-gated; the server re-checks this before
   // honouring `preview`.
-  const isStaff = !!superAdmin;
+  const isStaff = hasSuperAdminPermission(superAdmin, "view");
   const suppressed = withinCooldown(npsSurveyAt);
   // Tenure is the account's own age, so a new hire at an established org isn't
   // asked on their first day.

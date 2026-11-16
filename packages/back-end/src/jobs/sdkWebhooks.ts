@@ -13,6 +13,7 @@ import { createSdkWebhookLog } from "back-end/src/models/SdkWebhookLogModel";
 import {
   cancellableFetch,
   CancellableFetchReturn,
+  getWebhookTimeoutMs,
 } from "back-end/src/util/http.util";
 import {
   getContextForAgendaJobByOrgId,
@@ -145,7 +146,7 @@ async function runWebhookFetch({
   const payloadFormat = webhook.payloadFormat || "standard";
   const payloadKey = webhook.payloadKey;
   const organizationId = webhook.organization;
-  const requestTimeout = 30000;
+  const requestTimeout = getWebhookTimeoutMs(webhook.timeoutSeconds);
   const maxContentSize = 1000;
   const jsonPayload = JSON.stringify(payload);
 
@@ -357,7 +358,9 @@ export async function fireGlobalSdkWebhooks(
   context: ReqContext | ApiReqContext,
   connections: SDKConnectionInterface[],
 ) {
-  if (!connections.length) return;
+  // With no global webhooks configured (the WEBHOOKS env var) there is nobody
+  // to send to; don't generate a full SDK payload per connection just to drop it.
+  if (!connections.length || !WEBHOOKS.length) return;
 
   for (const connection of connections) {
     const payload = await getFeatureDefinitionsWithCache({

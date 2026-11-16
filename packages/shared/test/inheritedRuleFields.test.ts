@@ -219,3 +219,42 @@ describe("pruneApprovalRuleReferences", () => {
     ).toBe(true);
   });
 });
+
+describe("pruneApprovalRuleReferences and deleted projects", () => {
+  it("drops deleted project ids, and a project rule left with none", () => {
+    const pruned = pruneApprovalRuleReferences(
+      {
+        requireReviews: [
+          { requireReviewOn: true, projects: [] },
+          { requireReviewOn: true, projects: ["prj_keep", "prj_gone"] },
+          { requireReviewOn: true, projects: ["prj_gone"] },
+        ],
+        targetingReviewMode: [
+          { projects: ["prj_gone"], mode: "loose" },
+          { projects: ["prj_keep"], mode: "loose" },
+        ],
+      },
+      { projects: ["prj_keep"] },
+    );
+    expect(pruned.requireReviews).toEqual([
+      { requireReviewOn: true, projects: [] },
+      { requireReviewOn: true, projects: ["prj_keep"] },
+    ]);
+    expect(pruned.targetingReviewMode).toEqual([
+      { projects: ["prj_keep"], mode: "loose" },
+    ]);
+  });
+
+  it("leaves a family alone when its valid set is not given", () => {
+    const settings = {
+      requireReviews: [
+        {
+          requireReviewOn: true,
+          projects: ["prj_gone"],
+          requiredApproverTeams: ["t_gone"],
+        },
+      ],
+    };
+    expect(pruneApprovalRuleReferences(settings, {})).toEqual(settings);
+  });
+});

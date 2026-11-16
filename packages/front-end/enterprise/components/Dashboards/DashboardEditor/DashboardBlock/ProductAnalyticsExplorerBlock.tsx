@@ -4,6 +4,7 @@ import {
   MetricExplorationBlockInterface,
   FactTableExplorationBlockInterface,
   DataSourceExplorationBlockInterface,
+  SqlExplorationBlockInterface,
   FunnelExplorationBlockInterface,
   blockUsesDashboardDateControl,
   getEffectiveExplorationConfig,
@@ -12,12 +13,16 @@ import {
   resolveComparisonMode,
   getComparisonAlignmentStrategy,
   computeExplorationComparisonPayload,
+  DashboardBlockInterfaceOrData,
 } from "shared/enterprise";
 import { isEqual } from "lodash";
 import { ProductAnalyticsExploration } from "shared/validators";
 import { QueryInterface } from "shared/types/query";
 import useApi from "@/hooks/useApi";
-import { explorationPollDelayMs } from "@/enterprise/components/ProductAnalytics/util";
+import {
+  explorationPollDelayMs,
+  isTableChartType,
+} from "@/enterprise/components/ProductAnalytics/util";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import ExplorerChart from "@/enterprise/components/ProductAnalytics/MainSection/ExplorerChart";
 import ExplorerDataTable from "@/enterprise/components/ProductAnalytics/MainSection/ExplorerDataTable";
@@ -45,8 +50,33 @@ export default function ProductAnalyticsExplorerBlock({
   | MetricExplorationBlockInterface
   | FactTableExplorationBlockInterface
   | DataSourceExplorationBlockInterface
+  | SqlExplorationBlockInterface
   | FunnelExplorationBlockInterface
 >) {
+  return (
+    <ProductAnalyticsExplorerVisualization
+      block={block}
+      dashboardGlobalControls={dashboardGlobalControls}
+      dashboardComparison={dashboardComparison}
+    />
+  );
+}
+
+export function ProductAnalyticsExplorerVisualization({
+  block,
+  dashboardGlobalControls,
+  dashboardComparison,
+}: {
+  block: DashboardBlockInterfaceOrData<
+    | MetricExplorationBlockInterface
+    | FactTableExplorationBlockInterface
+    | DataSourceExplorationBlockInterface
+    | SqlExplorationBlockInterface
+    | FunnelExplorationBlockInterface
+  >;
+  dashboardGlobalControls?: BlockProps<SqlExplorationBlockInterface>["dashboardGlobalControls"];
+  dashboardComparison?: BlockProps<SqlExplorationBlockInterface>["dashboardComparison"];
+}) {
   const { getFactMetricById } = useDefinitions();
   const { data, error, isLoading } = useApi<{
     status: number;
@@ -81,6 +111,9 @@ export default function ProductAnalyticsExplorerBlock({
   // The resolved previous window lives on the comparison exploration's config.
   const submittedPreviousTimeFrame =
     rawComparisonExploration?.config?.dateRange ?? null;
+  const dateControlledBlock = blockUsesDashboardDateControl(block)
+    ? block
+    : null;
 
   // Dashboard blocks fetch the saved primary + previous explorations directly,
   // bypassing POST /product-analytics/run — where the live Explorer builds its
@@ -91,12 +124,17 @@ export default function ProductAnalyticsExplorerBlock({
   // big-number / table trends are computed identically.
   const submittedConfig = useMemo(
     () =>
-      block.config && dashboardGlobalControls
-        ? getEffectiveExplorationConfig(block, {
+      block.config && dashboardGlobalControls && dateControlledBlock
+        ? getEffectiveExplorationConfig(dateControlledBlock, {
             globalControls: dashboardGlobalControls,
           })
         : (block.config ?? data?.exploration?.config ?? null),
-    [block, dashboardGlobalControls, data?.exploration?.config],
+    [
+      block.config,
+      dashboardGlobalControls,
+      data?.exploration?.config,
+      dateControlledBlock,
+    ],
   );
   const submittedExplorationConfig = data?.exploration?.config;
   // A block only tracks the dashboard date control when it hasn't opted out.
@@ -175,9 +213,7 @@ export default function ProductAnalyticsExplorerBlock({
     );
   }
 
-  const shouldShowTable = ["table", "timeseries-table"].includes(
-    block.config?.chartType ?? "",
-  );
+  const shouldShowTable = isTableChartType(block.config?.chartType);
 
   return (
     <Flex direction="column" gap="2" style={{ height: "100%", minHeight: 0 }}>

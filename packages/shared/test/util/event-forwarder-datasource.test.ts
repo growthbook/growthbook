@@ -1,4 +1,6 @@
 import {
+  DATABRICKS_EVENT_FORWARDER_AUTH_MESSAGE,
+  getDatabricksEventForwarderAuthMessage,
   EVENT_FORWARDER_MANAGED_IDENTIFIER_TYPE_DESCRIPTION,
   attributeMatchesDatasourceProjects,
   findCollidingUserIdTypeName,
@@ -9,6 +11,7 @@ import {
   getEventForwarderSinkTypeForDatasource,
   getEventForwarderUserIdTypeSourceAttribute,
   isEventForwarderManaged,
+  isEventForwarderSetupStepComplete,
   resolveEventForwarderManagedName,
   resolveEventForwarderManagedUserIdTypes,
   supportsEventForwarder,
@@ -20,6 +23,19 @@ const managed = (userIdType: string, attribute: string) => ({
   description: EVENT_FORWARDER_MANAGED_IDENTIFIER_TYPE_DESCRIPTION,
   attributes: [attribute],
   managedBy: "api",
+});
+
+describe("getDatabricksEventForwarderAuthMessage", () => {
+  it("names Entra ID when a stored connection still uses it", () => {
+    expect(
+      getDatabricksEventForwarderAuthMessage({
+        authType: "azure-entra" as unknown as "pat",
+      }),
+    ).toMatch(/Entra ID/);
+    expect(getDatabricksEventForwarderAuthMessage({ authType: "pat" })).toBe(
+      DATABRICKS_EVENT_FORWARDER_AUTH_MESSAGE,
+    );
+  });
 });
 
 describe("getEventForwarderSinkTypeForDatasource", () => {
@@ -49,6 +65,55 @@ describe("supportsEventForwarder", () => {
     expect(supportsEventForwarder({ type: "postgres" })).toBe(false);
     expect(supportsEventForwarder(null)).toBe(false);
     expect(supportsEventForwarder(undefined)).toBe(false);
+  });
+});
+
+describe("isEventForwarderSetupStepComplete", () => {
+  it("returns false when there is no config", () => {
+    expect(isEventForwarderSetupStepComplete(null)).toBe(false);
+    expect(isEventForwarderSetupStepComplete(undefined)).toBe(false);
+  });
+
+  it("returns false while a forwarder has never been configured", () => {
+    expect(
+      isEventForwarderSetupStepComplete({
+        status: "unconfigured",
+        connectorName: "",
+      }),
+    ).toBe(false);
+  });
+
+  it.each(["pending", "ready", "paused", "schema_update_error"] as const)(
+    "returns true for %s regardless of connectorName",
+    (status) => {
+      expect(
+        isEventForwarderSetupStepComplete({ status, connectorName: "" }),
+      ).toBe(true);
+    },
+  );
+
+  it("treats a first-time setup failure (no connector ever created) as incomplete", () => {
+    expect(
+      isEventForwarderSetupStepComplete({
+        status: "error",
+        connectorName: "",
+      }),
+    ).toBe(false);
+    expect(
+      isEventForwarderSetupStepComplete({
+        status: "error",
+        connectorName: undefined,
+      }),
+    ).toBe(false);
+  });
+
+  it("treats an operational error after a previous successful setup as complete", () => {
+    expect(
+      isEventForwarderSetupStepComplete({
+        status: "error",
+        connectorName: "connector-1",
+      }),
+    ).toBe(true);
   });
 });
 

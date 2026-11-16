@@ -197,7 +197,7 @@ export const postConfig = createApiRequestHandler(postConfigValidator)(async (
   const config = await req.context.models.configs.create({
     key,
     name,
-    owner: owner || req.context.userId || "",
+    owner: owner || req.context.actingUserId,
     parent: parent || undefined,
     extends: extendsKeys,
     value: stripConfigExtends(value),

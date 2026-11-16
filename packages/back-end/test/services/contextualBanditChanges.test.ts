@@ -1,7 +1,10 @@
 import { ContextualBanditInterface } from "shared/validators";
 import { FeatureInterface } from "shared/types/feature";
 import { ReqContext } from "back-end/types/request";
-import { refreshLinkedFeaturePayloads } from "back-end/src/services/contextualBanditChanges";
+import {
+  contextualBanditUpdateAffectsPayload,
+  refreshLinkedFeaturePayloads,
+} from "back-end/src/services/contextualBanditChanges";
 import { getAllFeatures } from "back-end/src/models/FeatureModel";
 import { queueSDKPayloadRefresh } from "back-end/src/services/features";
 
@@ -182,5 +185,161 @@ describe("refreshLinkedFeaturePayloads", () => {
     );
 
     expect(queueSDKPayloadRefreshMock).not.toHaveBeenCalled();
+  });
+
+  it("refreshes every environment for a visual bandit with no linked rule", async () => {
+    getAllFeaturesMock.mockResolvedValue([]);
+
+    await refreshLinkedFeaturePayloads(
+      makeContext(),
+      makeCb({
+        linkedFeatures: [],
+        project: "prj_a",
+        hasVisualChangesets: true,
+      }),
+      "contextualBandit.refresh",
+    );
+
+    expect(queueSDKPayloadRefreshMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        payloadKeys: [
+          { environment: "dev", project: "" },
+          { environment: "dev", project: "prj_a" },
+          { environment: "production", project: "" },
+          { environment: "production", project: "prj_a" },
+        ],
+      }),
+    );
+  });
+
+  it("refreshes every environment when asked to, after the last changeset is gone", async () => {
+    getAllFeaturesMock.mockResolvedValue([]);
+
+    await refreshLinkedFeaturePayloads(
+      makeContext(),
+      makeCb({ linkedFeatures: [], hasVisualChangesets: false }),
+      "contextualBandit.refresh",
+      { includeVisualKeys: true },
+    );
+
+    expect(queueSDKPayloadRefreshMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        payloadKeys: [
+          { environment: "dev", project: "" },
+          { environment: "production", project: "" },
+        ],
+      }),
+    );
+  });
+
+  it("adds the visual keys to the linked rule's keys without duplicates", async () => {
+    getAllFeaturesMock.mockResolvedValue([makeLinkedFeature()]);
+
+    await refreshLinkedFeaturePayloads(
+      makeContext(),
+      makeCb(),
+      "contextualBandit.refresh",
+      { includeVisualKeys: true },
+    );
+
+    expect(queueSDKPayloadRefreshMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        payloadKeys: [
+          { environment: "production", project: "" },
+          { environment: "dev", project: "" },
+        ],
+      }),
+    );
+  });
+});
+
+describe("contextualBanditUpdateAffectsPayload", () => {
+  const running = makeCb({ status: "running", project: "prj_a" });
+
+  it("is true when a running bandit's targeting changes", () => {
+    const updates = { condition: '{"country":"US"}' };
+    expect(
+      contextualBanditUpdateAffectsPayload(running, updates, {
+        ...running,
+        ...updates,
+      }),
+    ).toBe(true);
+  });
+
+  it("is true when a running bandit is stopped or archived", () => {
+    for (const updates of [
+      { status: "stopped" as const },
+      { archived: true },
+    ]) {
+      expect(
+        contextualBanditUpdateAffectsPayload(running, updates, {
+          ...running,
+          ...updates,
+        }),
+      ).toBe(true);
+    }
+  });
+
+  it("is true when a running bandit moves project", () => {
+    const updates = { project: "prj_b" };
+    expect(
+      contextualBanditUpdateAffectsPayload(running, updates, {
+        ...running,
+        ...updates,
+      }),
+    ).toBe(true);
+  });
+
+  it("is true when a running bandit is renamed or retagged", () => {
+    for (const updates of [{ name: "Renamed" }, { tags: ["promo"] }]) {
+      expect(
+        contextualBanditUpdateAffectsPayload(running, updates, {
+          ...running,
+          ...updates,
+        }),
+      ).toBe(true);
+    }
+  });
+
+  it("is false for fields the payload does not read", () => {
+    const updates = { description: "New" };
+    expect(
+      contextualBanditUpdateAffectsPayload(running, updates, {
+        ...running,
+        ...updates,
+      }),
+    ).toBe(false);
+  });
+
+  it("is false when a payload field is resent unchanged", () => {
+    const updates = { project: "prj_a", coverage: running.coverage };
+    expect(
+      contextualBanditUpdateAffectsPayload(running, updates, {
+        ...running,
+        ...updates,
+      }),
+    ).toBe(false);
+  });
+
+  it("is false for edits to a draft that stays a draft", () => {
+    const draft = makeCb({ status: "draft" });
+    const updates = { condition: '{"country":"US"}' };
+    expect(
+      contextualBanditUpdateAffectsPayload(draft, updates, {
+        ...draft,
+        ...updates,
+      }),
+    ).toBe(false);
+  });
+
+  it("is true when a draft is started through the update", () => {
+    const draft = makeCb({ status: "draft" });
+    const updates = { status: "running" as const };
+    expect(
+      contextualBanditUpdateAffectsPayload(draft, updates, {
+        ...draft,
+        ...updates,
+      }),
+    ).toBe(true);
   });
 });

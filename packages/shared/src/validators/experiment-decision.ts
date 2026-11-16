@@ -1,8 +1,10 @@
 import { z } from "zod";
+import { ownerEmailField } from "./owner-field";
 
 export const experimentDecisionNotificationPayload = z
   .object({
     experimentName: z.string(),
+    ownerEmail: ownerEmailField,
     experimentId: z.string(),
     decisionDescription: z.string().optional(),
     // Distinguishes a decision surfaced by a fresh analysis snapshot from one

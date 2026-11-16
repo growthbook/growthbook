@@ -5,6 +5,8 @@ import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import {
   attributeMatchesDatasourceProjects,
   findCollidingUserIdTypeName,
+  USER_ID_TYPE_NAME_PATTERN,
+  USER_ID_TYPE_NAME_RULE,
 } from "shared/util";
 import MultiSelectField from "@/ui/MultiSelectField";
 import useOrgSettings from "@/hooks/useOrgSettings";
@@ -114,11 +116,11 @@ export const EditIdentifierType: FC<EditIdentifierTypeProps> = ({
           size="legacy"
           label="Identifier Type"
           {...form.register("idType")}
-          pattern="^[a-z_]+$"
+          pattern={USER_ID_TYPE_NAME_PATTERN.source}
           readOnly={mode === "edit"}
           required
           error={fieldError}
-          helpText="Only lowercase letters and underscores allowed. For example, 'user_id' or 'device_cookie'."
+          helpText={USER_ID_TYPE_NAME_RULE}
         />
         <Field
           size="legacy"

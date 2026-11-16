@@ -2,6 +2,9 @@ import { SignedUploadUrlResponse, UploadResponse } from "shared/types/upload";
 import { ApiCallType } from "./auth";
 import { getApiHost, getUploadMethod } from "./env";
 
+// The image types the upload endpoints accept.
+export const UPLOAD_IMAGE_TYPES = ["image/png", "image/jpeg", "image/gif"];
+
 export async function uploadFile(
   apiCall: ApiCallType<UploadResponse | SignedUploadUrlResponse>,
   file: File,
@@ -93,6 +96,63 @@ export async function uploadFile(
   return {
     fileURL: fileURL.match(/^\//) ? getApiHost() + fileURL : fileURL,
   };
+}
+
+/**
+ * Uploads a file to a signed storage URL, reporting progress from 0 to 1.
+ * With `fields`, it's an S3 presigned POST; otherwise a PUT (GCS).
+ * Uses XMLHttpRequest because fetch can't report upload progress. Aborting
+ * `signal` stops the upload and rejects with an `AbortError`.
+ */
+export function uploadToSignedUrl({
+  signedUrl,
+  fields,
+  file,
+  contentType,
+  onProgress,
+  signal,
+}: {
+  signedUrl: string;
+  fields: Record<string, string> | null;
+  file: File;
+  contentType: string;
+  onProgress: (fraction: number) => void;
+  signal?: AbortSignal;
+}): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const abortError = () =>
+      new DOMException("The upload was canceled", "AbortError");
+    if (signal?.aborted) {
+      reject(abortError());
+      return;
+    }
+    const xhr = new XMLHttpRequest();
+    signal?.addEventListener("abort", () => xhr.abort(), { once: true });
+    xhr.onabort = () => reject(abortError());
+    xhr.upload.onprogress = (e) => {
+      if (e.lengthComputable) onProgress(e.loaded / e.total);
+    };
+    xhr.onload = () =>
+      xhr.status >= 200 && xhr.status < 300
+        ? resolve()
+        : reject(new Error(`Upload failed: ${xhr.status} ${xhr.statusText}`));
+    xhr.onerror = () => reject(new Error("Upload failed: network error"));
+
+    if (fields) {
+      const formData = new FormData();
+      Object.entries(fields).forEach(([key, value]) =>
+        formData.append(key, value),
+      );
+      // S3 requires the file last
+      formData.append("file", file);
+      xhr.open("POST", signedUrl);
+      xhr.send(formData);
+    } else {
+      xhr.open("PUT", signedUrl);
+      xhr.setRequestHeader("Content-Type", contentType);
+      xhr.send(file);
+    }
+  });
 }
 
 /**

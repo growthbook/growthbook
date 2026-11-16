@@ -1,11 +1,25 @@
 import { createPrivateKey } from "crypto";
-import { Connection, createConnection } from "snowflake-sdk";
+import { z } from "zod";
+import {
+  Column,
+  Connection,
+  QueryStatus,
+  createConnection,
+} from "snowflake-sdk";
 import { version as SNOWFLAKE_SDK_VERSION } from "snowflake-sdk/package.json";
-import { ExternalIdCallback, QueryResponse } from "shared/types/integrations";
+import {
+  ExternalIdCallback,
+  QueryResponse,
+  QueryResponseColumnData,
+} from "shared/types/integrations";
 import { SnowflakeConnectionParams } from "shared/types/integrations/snowflake";
-import { QueryMetadata } from "shared/types/query";
+import { FactTableColumnType } from "shared/types/fact-table";
+import { QueryMetadata, QueryStatistics } from "shared/types/query";
 import { TEST_QUERY_SQL } from "back-end/src/integrations/SqlIntegration";
+import { IS_CLOUD } from "back-end/src/util/secrets";
+import { ExternalQueryStatus } from "back-end/src/types/Integration";
 import { getQueryTagString } from "back-end/src/util/integration";
+import { getErrorMessage } from "back-end/src/util/errors";
 import { logger } from "back-end/src/util/logger";
 
 type ProxyOptions = {
@@ -15,6 +29,20 @@ type ProxyOptions = {
   proxyPort?: number;
   proxyProtocol?: string;
 };
+// Snowflake reports each column's type on the statement, so the output schema is
+// available even when a query returns no rows. The SDK exposes type predicates
+// rather than a stable type string, so use those.
+function getColumnDataType(col: Column): FactTableColumnType {
+  if (col.isNumber()) return "number";
+  if (col.isBoolean()) return "boolean";
+  if (col.isDate() || col.isTime() || col.isTimestamp()) return "date";
+  if (col.isVariant() || col.isObject() || col.isMap()) return "json";
+  if (col.isBinary()) return "binary";
+  if (col.isString()) return "string";
+  // ARRAY and anything the SDK doesn't classify
+  return "other";
+}
+
 function getProxySettings(): ProxyOptions {
   const uri = process.env.SNOWFLAKE_PROXY;
   if (!uri) return {};
@@ -31,7 +59,7 @@ function getProxySettings(): ProxyOptions {
 
 const SNOWFLAKE_QUERY_TAG_MAX_LENGTH = 2000;
 
-function buildSnowflakeConnection(
+export function buildSnowflakeConnection(
   conn: SnowflakeConnectionParams,
   queryMetadata?: QueryMetadata,
 ): Connection {
@@ -59,6 +87,27 @@ function buildSnowflakeConnection(
     } catch (e) {
       throw new Error("Invalid private key or private key password");
     }
+  } else if (conn.authMethod === "workload-identity") {
+    // On Cloud the ambient identity would be GrowthBook's infrastructure, not the customer's.
+    if (IS_CLOUD) {
+      throw new Error(
+        "Workload Identity authentication is only supported on self-hosted GrowthBook installations",
+      );
+    }
+    // Fail before connecting; the SDK would also accept OIDC, which needs a token we don't plumb.
+    if (
+      conn.workloadIdentityProvider !== "AWS" &&
+      conn.workloadIdentityProvider !== "AZURE" &&
+      conn.workloadIdentityProvider !== "GCP"
+    ) {
+      throw new Error(
+        "Workload Identity authentication requires a cloud provider (AWS, AZURE, or GCP)",
+      );
+    }
+    authenticationDetails = {
+      authenticator: "WORKLOAD_IDENTITY",
+      workloadIdentityProvider: conn.workloadIdentityProvider,
+    };
   } else {
     authenticationDetails = {
       password: conn.password,
@@ -101,6 +150,57 @@ function connectSnowflake(
       }
     });
   });
+}
+
+// Per-query stats from the undocumented endpoint behind getQueryStatus; needs no warehouse
+const snowflakeQueryMonitoringValidator = z.object({
+  data: z.object({
+    queries: z.array(
+      z.object({
+        // -1 when no warehouse ran the query (result cache or metadata only)
+        clusterNumber: z.number().nullish(),
+        stats: z.record(z.string(), z.unknown()).nullish(),
+      }),
+    ),
+  }),
+});
+
+export function snowflakeMonitoringToStatistics(
+  data: unknown,
+): QueryStatistics | undefined {
+  const parsed = snowflakeQueryMonitoringValidator.safeParse(data);
+  const query = parsed.success ? parsed.data.data.queries[0] : undefined;
+  if (!query) return undefined;
+
+  const stats = query.stats ?? {};
+  const read = (key: string) => {
+    const value = stats[key];
+    return typeof value === "number" ? value : undefined;
+  };
+  // Zero counters are omitted; only treat missing as 0 when the format is the one we verified
+  const recognized =
+    query.clusterNumber === -1 || read("xpExecTime") !== undefined;
+  const count = (key: string) => (recognized ? (read(key) ?? 0) : undefined);
+
+  return {
+    executionDurationMs: count("xpExecTime"),
+    bytesProcessed: count("scanBytes"),
+    partitionsScanned: count("scanFiles"),
+    partitionsTotal: count("scanOriginalFiles"),
+  };
+}
+
+function getSnowflakeQueryStatistics(
+  queryId: string,
+  monitoringData: unknown,
+): QueryStatistics | undefined {
+  const statistics = snowflakeMonitoringToStatistics(monitoringData);
+  if (statistics?.executionDurationMs === undefined) {
+    logger.warn(
+      `Snowflake: unrecognized monitoring response for query ${queryId}; no execution statistics recorded`,
+    );
+  }
+  return statistics;
 }
 
 function destroySnowflakeConnection(connection: Connection): Promise<void> {
@@ -179,9 +279,7 @@ export async function runSnowflakeQuery<T extends Record<string, any>>(
         await setExternalId(queryId);
       } catch (e) {
         logger.debug(
-          `Snowflake: failed to persist external id ${queryId}: ${
-            e instanceof Error ? e.message : String(e)
-          }`,
+          `Snowflake: failed to persist external id ${queryId}: ${getErrorMessage(e)}`,
         );
       }
     }
@@ -189,12 +287,13 @@ export async function runSnowflakeQuery<T extends Record<string, any>>(
     // Wait for the query to finish and fetch the results.
     const res = await new Promise<{
       rows: T[];
-      columns: { name: string }[];
+      columns: QueryResponseColumnData[];
+      monitoringData: unknown;
     }>((resolve, reject) => {
       connection
         .getResultsFromQueryId({
           queryId,
-          complete: (err, stmt, rows) => {
+          complete: (err, stmt, rows, monitoringData) => {
             if (err) {
               reject(err);
             } else {
@@ -203,9 +302,10 @@ export async function runSnowflakeQuery<T extends Record<string, any>>(
               const columns = stmtColumns
                 ? stmtColumns.map((col) => ({
                     name: col.getName().toLowerCase(),
+                    dataType: getColumnDataType(col),
                   }))
                 : [];
-              resolve({ rows: (rows as T[]) || [], columns });
+              resolve({ rows: (rows as T[]) || [], columns, monitoringData });
             }
           },
         })
@@ -220,7 +320,9 @@ export async function runSnowflakeQuery<T extends Record<string, any>>(
       ) as T;
     });
 
-    return { rows: lowercase, columns: res.columns };
+    const statistics = getSnowflakeQueryStatistics(queryId, res.monitoringData);
+
+    return { rows: lowercase, columns: res.columns, statistics };
   } finally {
     await destroySnowflakeConnection(connection);
   }
@@ -235,13 +337,6 @@ export async function cancelSnowflakeQuery(
   conn: SnowflakeConnectionParams,
   queryId: string,
 ): Promise<void> {
-  if (!queryId) {
-    logger.debug(
-      `Failed to cancel Snowflake query ${queryId}: No query ID provided`,
-    );
-    return;
-  }
-
   const connection = buildSnowflakeConnection(conn);
   try {
     await connectSnowflake(connection, 30000);
@@ -270,12 +365,42 @@ export async function cancelSnowflakeQuery(
     });
 
     logger.debug(`Cancelled Snowflake query ${queryId}`);
+  } finally {
+    await destroySnowflakeConnection(connection);
+  }
+}
+
+export function snowflakeStatusToExternalStatus(
+  status: string,
+  { isRunning, isError }: { isRunning: boolean; isError: boolean },
+): ExternalQueryStatus {
+  if (isRunning) return { state: "running" };
+  if (isError) return { state: "failed", error: status };
+  if (status === "SUCCESS") return { state: "succeeded" };
+  // NO_QUERY_DATA means the query id is no longer in Snowflake's monitoring
+  // history (expired), not that the query is still running.
+  if (status === "NO_QUERY_DATA")
+    return { state: "unknown", reason: "expired" };
+  return { state: "unknown", reason: "unrecognized" };
+}
+
+export async function getSnowflakeQueryStatus(
+  conn: SnowflakeConnectionParams,
+  queryId: string,
+): Promise<ExternalQueryStatus> {
+  const connection = buildSnowflakeConnection(conn);
+  try {
+    await connectSnowflake(connection, 30000);
+    const status = await connection.getQueryStatus(queryId);
+    return snowflakeStatusToExternalStatus(status, {
+      isRunning: connection.isStillRunning(status as QueryStatus),
+      isError: connection.isAnError(status),
+    });
   } catch (e) {
     logger.debug(
-      `Failed to cancel Snowflake query ${queryId}: ${
-        e instanceof Error ? e.message : String(e)
-      }`,
+      `Failed to get Snowflake query status ${queryId}: ${getErrorMessage(e)}`,
     );
+    return { state: "unknown", reason: "unreachable" };
   } finally {
     await destroySnowflakeConnection(connection);
   }

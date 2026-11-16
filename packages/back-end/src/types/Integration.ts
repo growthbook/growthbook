@@ -20,8 +20,11 @@ import {
   DropTableQueryResponse,
   ContextualBanditSrmQueryParams,
   ContextualBanditSrmQueryResponse,
+  InterleavingMetricQueryParams,
+  InterleavingMetricQueryResponse,
   ExperimentAggregateUnitsQueryParams,
   ExperimentAggregateUnitsQueryResponse,
+  ExperimentClusterHealthQueryResponse,
   ExperimentFactMetricsQueryParams,
   ExperimentFactMetricsQueryResponse,
   ExperimentMetricQueryParams,
@@ -30,6 +33,8 @@ import {
   ExperimentUnitsQueryParams,
   ExperimentUnitsQueryResponse,
   ExternalIdCallback,
+  ExperimentExposuresQueryParams,
+  ExperimentExposuresQueryResponse,
   FeatureEvalDiagnosticsQueryParams,
   FeatureEvalDiagnosticsQueryResponse,
   FeatureUsageAggregateRow,
@@ -47,7 +52,7 @@ import {
   MetricAnalysisQueryResponse,
   MetricValueParams,
   MetricValueQueryResponse,
-  PastExperimentParams,
+  PastExperimentQueryParams,
   PastExperimentQueryResponse,
   PopulationFactMetricsQueryParams,
   PopulationMetricQueryParams,
@@ -78,6 +83,15 @@ import { MetricInterface, MetricType } from "shared/types/metric";
 import { ReqContext } from "back-end/types/request";
 
 export type { MetricAnalysisParams };
+
+export type ExternalQueryStatus =
+  | { state: "running" }
+  | { state: "succeeded" }
+  | { state: "failed"; error: string }
+  // expired: the warehouse no longer knows the id. unreachable: the status
+  // call itself failed. unrecognized: the warehouse answered with a payload or
+  // state we cannot classify.
+  | { state: "unknown"; reason: "expired" | "unreachable" | "unrecognized" };
 
 type DataSourceByType = {
   [DataSource in DataSourceInterface as DataSource["type"]]: DataSource;
@@ -115,6 +129,9 @@ export interface SourceIntegrationInterface<
     tableName: string,
   ): Promise<{ tableData: null | unknown[] }>;
   getInformationSchema?(): Promise<InformationSchema[]>;
+  estimateQueryCost?(
+    sql: string,
+  ): Promise<{ bytesProcessed: number; costEstimateUsd?: number }>;
   supportsLimitZeroColumnValidation?(): boolean;
   getTestValidityQuery?(
     query: string,
@@ -128,6 +145,7 @@ export interface SourceIntegrationInterface<
     sql: string,
     timestampCols: string[] | undefined,
     queryType: QueryType,
+    factTableId: string | null,
   ): Promise<TestQueryResult>;
   getMetricAnalysisQuery(
     metric: FactMetricInterface,
@@ -156,7 +174,11 @@ export interface SourceIntegrationInterface<
   getExperimentAggregateUnitsQuery(
     params: ExperimentAggregateUnitsQueryParams,
   ): string;
+  getExperimentClusterHealthQuery(
+    params: ExperimentAggregateUnitsQueryParams,
+  ): string;
   getContextualBanditSrmQuery?(params: ContextualBanditSrmQueryParams): string;
+  getInterleavingMetricQuery?(params: InterleavingMetricQueryParams): string;
   getExperimentUnitsTableQuery(params: ExperimentUnitsQueryParams): string;
   getCreateExperimentIncrementalUnitsQuery(
     params: CreateExperimentIncrementalUnitsQueryParams,
@@ -227,7 +249,7 @@ export interface SourceIntegrationInterface<
   // Pipeline validation helpers
   getPipelineValidationInsertQuery?(params: { tableFullName: string }): string;
   getCurrentTimestamp(): string;
-  getPastExperimentQuery(params: PastExperimentParams): string;
+  getPastExperimentQuery(params: PastExperimentQueryParams): string;
   getUserExperimentExposuresQuery(
     params: UserExperimentExposuresQueryParams,
   ): string;
@@ -240,6 +262,10 @@ export interface SourceIntegrationInterface<
   runFeatureEvalDiagnosticsQuery(
     query: string,
   ): Promise<FeatureEvalDiagnosticsQueryResponse>;
+  getExperimentExposuresQuery?(params: ExperimentExposuresQueryParams): string;
+  runExperimentExposuresQuery?(
+    query: string,
+  ): Promise<ExperimentExposuresQueryResponse>;
   getDimensionSlicesQuery(params: DimensionSlicesQueryParams): string;
   runDimensionSlicesQuery(
     query: string,
@@ -276,11 +302,21 @@ export interface SourceIntegrationInterface<
     setExternalId: ExternalIdCallback,
     queryMetadata: RunQueryMetadata,
   ): Promise<ExperimentAggregateUnitsQueryResponse>;
+  runExperimentClusterHealthQuery(
+    query: string,
+    setExternalId: ExternalIdCallback,
+    queryMetadata: RunQueryMetadata,
+  ): Promise<ExperimentClusterHealthQueryResponse>;
   runContextualBanditSrmQuery?(
     query: string,
     setExternalId: ExternalIdCallback,
     queryMetadata: RunQueryMetadata,
   ): Promise<ContextualBanditSrmQueryResponse>;
+  runInterleavingMetricQuery?(
+    query: string,
+    setExternalId: ExternalIdCallback,
+    queryMetadata: RunQueryMetadata,
+  ): Promise<InterleavingMetricQueryResponse>;
   runExperimentUnitsQuery(
     query: string,
     setExternalId: ExternalIdCallback,
@@ -291,7 +327,10 @@ export interface SourceIntegrationInterface<
     setExternalId: ExternalIdCallback,
     queryMetadata: RunQueryMetadata,
   ): Promise<PastExperimentQueryResponse>;
-  runColumnsTopValuesQuery?(sql: string): Promise<ColumnTopValuesResponse>;
+  runColumnsTopValuesQuery?(
+    sql: string,
+    factTableId: string | null,
+  ): Promise<ColumnTopValuesResponse>;
   getColumnsTopValuesQuery?: (params: ColumnTopValuesParams) => string;
   getEventsTrackedByDatasource?: (
     schemaFormat: AutoFactTableSchemas,
@@ -317,6 +356,10 @@ export interface SourceIntegrationInterface<
     externalId: string,
     metadata?: Record<string, string>,
   ): Promise<void>;
+  getExternalQueryStatus?(
+    externalId: string,
+    metadata?: Record<string, string>,
+  ): Promise<ExternalQueryStatus>;
   getFeatureUsage?(
     feature: string,
     lookback: FeatureUsageLookback,

@@ -28,8 +28,8 @@ Do this before writing any feedback.
 - Scope the review to the changed `.tsx` and `.scss` files in the PR diff. Run `git diff --name-only main...HEAD` (or the PR base) and review only those files plus the components they render.
 - The design system lives in `packages/front-end/ui/`. These are the approved primitives (`Button`, `Checkbox`, `Switch`, `Select`, `Callout`, `Table`, `Badge`, and so on). Prefer these. `@/ui/` resolves to this directory.
 - Feature and page components live in `packages/front-end/components/`. This is where most UI is assembled. A new shared-looking component added here, rather than in `ui/`, is a signal to check for reuse.
-- Layout primitives come from Radix Themes (`@radix-ui/themes`), imported in **700+ front-end files**, so it is the expected default for layout.
-- **Most `ui/` components ship a `.stories.tsx` next to them (30 of 43).** Read the story to learn the intended props, variants, and usage before judging whether a component is used correctly. There is **no Storybook** in this repo — the stories render through a hand-rolled page at `packages/front-end/pages/design-system/index.tsx`.
+- Layout primitives come from Radix Themes (`@radix-ui/themes`), imported in **900+ front-end files**, so it is the expected default for layout.
+- **Most `ui/` components ship a `.stories.tsx` next to them (42 of 59).** Read the story to learn the intended props, variants, and usage before judging whether a component is used correctly. There is **no Storybook** in this repo — the stories render through a hand-rolled page at `packages/front-end/pages/design-system/index.tsx`.
 - Read the component's own source before asserting a prop exists. Export shapes are not uniform (most `@/ui/` components are default exports; `Select`, `Tabs`, `DropdownMenu`, `Popover`, and `ProgressBar` are named-only), and a finding that recommends a nonexistent prop or import path is worse than no finding.
 
 ## 2. What to check

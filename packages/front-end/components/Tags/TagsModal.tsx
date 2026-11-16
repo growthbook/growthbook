@@ -1,22 +1,32 @@
 import { useForm } from "react-hook-form";
 import React from "react";
 import { TagInterface } from "shared/types/tag";
-import { Text, Container } from "@radix-ui/themes";
+import { Flex } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
+import { useDefinitions } from "@/services/DefinitionsContext";
 import Field from "@/components/Forms/Field";
 import { RadixColor } from "@/ui/HelperText";
+import { TextField } from "@/ui/TextField";
 import { Select, SelectItem } from "@/ui/Select";
+import Text from "@/ui/Text";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
+import { validatedSubmit } from "@/ui/Modal/validatedSubmit";
 import Tag from "./Tag";
+import styles from "./TagsModal.module.scss";
 
-export const TAG_COLORS = [
+const TAG_COLORS = [
   "blue",
+  "sky",
+  "cyan",
   "teal",
-  "pink",
+  "green",
+  "amber",
   "orange",
-  "lime",
+  "red",
+  "pink",
+  "purple",
+  "violet",
   "gray",
-  "gold",
 ] as const;
 
 export default function TagsModal({
@@ -28,94 +38,101 @@ export default function TagsModal({
   close: () => void;
   onSuccess: () => Promise<void>;
 }) {
+  const isEdit = !!existing.id;
+  const { tags } = useDefinitions();
   const form = useForm<TagInterface>({
     defaultValues: {
-      id: existing?.id || "",
-      color: existing?.color || "blue",
-      description: existing?.description || "",
+      id: existing.id || "",
+      color: existing.color || "blue",
+      description: existing.description || "",
     },
   });
   const { apiCall } = useAuth();
 
-  // Add the existing color to the list of options if it's not already there
-  // Necessary for hex colors that were converted to Radix colors that we don't
-  // allow for new tags
-  const colorOptions = existing.color
-    ? [...new Set([...TAG_COLORS, existing.color])]
-    : TAG_COLORS;
+  const name = form.watch("id").trim();
+  // Creating with an existing name would overwrite that tag.
+  const duplicate =
+    !isEdit && tags.find((t) => t.id.toLowerCase() === name.toLowerCase());
+  // Legacy colors outside the palette stay selectable for existing tags.
+  const colors = [
+    ...new Set<string>([
+      ...TAG_COLORS,
+      ...(existing.color ? [existing.color] : []),
+    ]),
+  ];
+  const option = (c: string) => (
+    <Flex align="center" gap="3">
+      <Tag tag={name || "Tag name"} color={c as RadixColor} skipMargin />
+      <span>{c}</span>
+    </Flex>
+  );
 
   return (
     <ModalStandard
       trackingEventModalType=""
       open={true}
       close={close}
-      cta={existing?.id ? "Save Changes" : "Create Tag"}
-      header={existing?.id ? `Edit Tag: ${existing.id}` : "Create Tag"}
-      submit={form.handleSubmit(async (value) => {
+      header={isEdit ? "Edit Tag" : "Create Tag"}
+      cta={isEdit ? "Save changes" : "Create tag"}
+      ctaEnabled={isEdit || (name.length >= 2 && !duplicate)}
+      submit={validatedSubmit(form, async (value) => {
         await apiCall(`/tag`, {
           method: "POST",
-          body: JSON.stringify(value),
+          body: JSON.stringify({
+            ...value,
+            // Edits must keep the exact id, which the server matches on.
+            id: isEdit ? value.id : value.id.trim(),
+          }),
         });
         await onSuccess();
       })}
     >
-      <div>
-        {!existing?.id && (
-          <Container mb="3">
-            <Text as="label" size="3" weight="medium">
-              Name
-            </Text>
-            <Field
-              size="legacy"
-              minLength={2}
-              maxLength={64}
-              className=""
-              required
-              {...form.register("id")}
-            />
-          </Container>
+      <Flex direction="column" gap="4">
+        {isEdit ? (
+          <Flex direction="column" gap="1">
+            <Text weight="semibold">Name</Text>
+            <Text>{existing.id}</Text>
+          </Flex>
+        ) : (
+          <TextField
+            label="Name"
+            autoFocus
+            autoComplete="off"
+            maxLength={64}
+            error={
+              duplicate
+                ? `A tag named "${duplicate.id}" already exists.`
+                : name.length === 1 && form.formState.touchedFields.id
+                  ? "Use at least 2 characters."
+                  : ""
+            }
+            {...form.register("id")}
+          />
         )}
         <Select
           label="Color"
           value={form.watch("color")}
-          setValue={(v) => form.setValue("color", v)}
-          mb="3"
+          setValue={(c) => form.setValue("color", c)}
         >
-          {colorOptions.map((c) => (
-            <SelectItem key={c} value={c}>
-              {c}
+          {colors.map((c) => (
+            <SelectItem key={c} value={c} className={styles.colorItem}>
+              {option(c)}
             </SelectItem>
           ))}
         </Select>
-
-        <Container mb="3">
-          <Text as="label" size="3" weight="medium">
-            Description
-          </Text>
-          <Field
-            size="legacy"
-            textarea
-            maxLength={256}
-            {...form.register("description")}
-          />
-        </Container>
-
-        <Container>
-          <Text as="label" size="3" weight="medium">
-            Preview
-          </Text>
-          <div>
-            {form.watch("id") && (
-              <Tag
-                tag={form.watch("id")}
-                color={form.watch("color") as RadixColor}
-                description={form.watch("description")}
-                skipMargin
-              />
-            )}
-          </div>
-        </Container>
-      </div>
+        <Field
+          label={
+            <>
+              Description <Text color="text-low">(optional)</Text>
+            </>
+          }
+          textarea
+          minRows={2}
+          maxLength={256}
+          containerClassName="mb-0"
+          {...form.register("description")}
+        />
+      </Flex>
     </ModalStandard>
   );
 }

@@ -27,6 +27,9 @@ jest.mock("back-end/src/enterprise/licenseUtil", () => ({
 }));
 jest.mock("back-end/src/services/eventForwarder/config");
 jest.mock("back-end/src/services/eventForwarder/bigquery");
+jest.mock("back-end/src/services/eventForwarder/snowflake", () => ({
+  ensureEventForwarderSnowflakeTables: jest.fn(),
+}));
 jest.mock("back-end/src/services/eventForwarder/writeAccess");
 jest.mock("back-end/src/services/eventForwarder/datasourceSync");
 jest.mock("back-end/src/services/eventForwarder/datasourceQueries");

@@ -21,7 +21,7 @@ export const getSavedGroupRevisionLatest = createApiRequestHandler(
   const revision = await req.context.models.revisions.getLatestOpenByTarget(
     "saved-group",
     savedGroup.id,
-    { authorId: mine ? req.context.userId : undefined },
+    { authorId: mine ? req.context.actingUserId : undefined },
   );
   if (!revision) {
     throw new NotFoundError(

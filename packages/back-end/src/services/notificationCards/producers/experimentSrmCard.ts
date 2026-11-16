@@ -1,0 +1,31 @@
+import { srm } from "shared/validators";
+import { getExperimentUrl } from "back-end/src/util/appUrls";
+import { EXPERIMENT_WARNING_LABELS } from "back-end/src/services/experimentChanges/experimentEventLabels";
+import {
+  buildSrmBalanceTable,
+  getSrmTotalUnits,
+} from "back-end/src/services/experimentChanges/experimentSrmSummary";
+import { formatExperimentFooter } from "back-end/src/services/notificationCards/producers/experimentFooter";
+import type { NotificationCardProducer } from "back-end/src/services/notificationCards/types";
+
+// Only the SRM subtype of experiment.warning has a card; other warnings stay
+// as accurate text notifications.
+export const buildExperimentSrmCard: NotificationCardProducer = (event) => {
+  const parsed = srm.safeParse(event.data.object);
+  if (!parsed.success) return null;
+  const { experimentId, experimentName } = parsed.data;
+  const table = buildSrmBalanceTable(parsed.data);
+  const footer = formatExperimentFooter(
+    getSrmTotalUnits(parsed.data),
+    parsed.data.durationDays,
+  );
+  return {
+    tone: "warning",
+    icon: "warn",
+    name: experimentName,
+    banner: EXPERIMENT_WARNING_LABELS.srm,
+    url: getExperimentUrl(experimentId),
+    ...(footer ? { footer } : {}),
+    sections: table ? [{ kind: "table", table }] : [],
+  };
+};

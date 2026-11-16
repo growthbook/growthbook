@@ -39,6 +39,19 @@ export function isScheduledPublishPending(
   );
 }
 
+// A manual publish pre-empts a pending dated schedule. Every publish surface
+// raises this as a warning the caller acknowledges (ignoreWarnings).
+export function pendingScheduleWarning(
+  revision: Pick<
+    ScheduledRevisionFields,
+    "status" | "autoPublishOnApproval" | "scheduledPublishAt"
+  >,
+): string | null {
+  if (!isScheduledPublishPending(revision)) return null;
+  const at = new Date(revision.scheduledPublishAt as Date | string);
+  return `This revision is scheduled to publish on ${at.toUTCString()}. Publishing now cancels that schedule.`;
+}
+
 // True once a pending schedule's date has arrived. Coerces the date so it works
 // on both Date (back-end) and ISO-string (front-end) shapes.
 export function isScheduledPublishDue(

@@ -14,6 +14,7 @@ export const getCustomHooks = async (
   res: Response<{
     status: 200;
     customHooks: CustomHookInterface[];
+    deletedProjects: string[];
   }>,
 ) => {
   const context = getContextFromReq(req);
@@ -23,15 +24,23 @@ export const getCustomHooks = async (
     res.status(200).json({
       status: 200,
       customHooks: [],
+      deletedProjects: [],
     });
     return;
   }
 
   const customHooks = await context.models.customHooks.getAll();
 
+  // Unfiltered, so the UI can tell deleted Projects from ones the viewer can't read
+  const projectIds = new Set(await context.getAllProjectIds());
+  const deletedProjects = [
+    ...new Set(customHooks.flatMap((h) => h.projects)),
+  ].filter((id) => !projectIds.has(id));
+
   res.status(200).json({
     status: 200,
     customHooks,
+    deletedProjects,
   });
 };
 

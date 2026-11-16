@@ -1,9 +1,9 @@
 import type { MetricQuantileSettings } from "shared/types/fact-table";
 import type { SqlDialect } from "shared/types/sql";
+import { quantileColumn } from "shared/dialects";
 import { N_STAR_VALUES } from "back-end/src/services/experimentQueries/constants";
 import { getQuantileBoundValues } from "back-end/src/integrations/sql/columns/quantile-bound-values";
 import { getQuantileGridArrayColumn } from "back-end/src/integrations/sql/columns/quantile-grid-array-column";
-import { quantileColumn } from "back-end/src/integrations/sql/columns/quantile-column";
 
 export function getQuantileGridColumns(
   dialect: SqlDialect,

@@ -1,5 +1,20 @@
 // Import package.json in this project and bump the version
 // Usage: node scripts/bump-version.js patch
+//
+// Known problems. Make the risky edits by hand, or check every file this
+// touches before committing:
+//
+// - It adds the new version to javascript.json, nodejs.json and react.json
+//   right away, which makes it selectable and the "latest" version before it
+//   is published. Mark the entry `"prerelease": true` until the npm release.
+// - The three commands at the end run in parallel and are not awaited. When
+//   one fails it calls process.exit(1), which can stop another one mid-write.
+//   A failed docs step once left javascript.json empty.
+// - The docs step (`cd ../../docs && pnpm gen-sdk-resources`) always fails,
+//   because docs/ has no package.json. Run
+//   `pnpm --filter shared gen-sdk-resources-for-docs` instead.
+// - generate-sdk-report reads the JSON files while prettier may still be
+//   rewriting them.
 
 const fs = require("fs");
 const path = require("path");
@@ -152,7 +167,7 @@ fs.writeFileSync(
 // Run prettier to format the JSON files properly
 exec(
   "pnpm prettier --write ../shared/src/sdk-versioning/sdk-versions/{javascript,nodejs,react}.json",
-  (err, stdout, stderr) => {
+  (err, stdout) => {
     console.log("Running prettier to format JSON files");
     if (err) {
       console.error(err);
@@ -163,7 +178,7 @@ exec(
 );
 
 // Generate a new SDK report
-exec("pnpm --filter shared generate-sdk-report", (err, stdout, stderr) => {
+exec("pnpm --filter shared generate-sdk-report", (err, stdout) => {
   console.log("Generating new SDK report");
   if (err) {
     console.error(err);
@@ -173,7 +188,7 @@ exec("pnpm --filter shared generate-sdk-report", (err, stdout, stderr) => {
 });
 
 // Update docs SDKInfo.ts
-exec("cd ../../docs && pnpm gen-sdk-resources", (err, stdout, stderr) => {
+exec("cd ../../docs && pnpm gen-sdk-resources", (err, stdout) => {
   console.log("Updating docs SDKInfo.ts");
   if (err) {
     console.error(err);

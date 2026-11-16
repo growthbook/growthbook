@@ -299,7 +299,7 @@ export class MetricTimeSeriesModel extends BaseClass {
       await this._dangerousGetCollection().bulkWrite(
         toUpdate.map((u) => ({
           updateOne: {
-            filter: { id: u.id },
+            filter: { organization: this.context.org.id, id: u.id },
             update: {
               $set: {
                 lastExperimentSettingsHash: u.lastExperimentSettingsHash,

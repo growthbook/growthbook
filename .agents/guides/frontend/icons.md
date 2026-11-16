@@ -2,7 +2,7 @@
 
 Which icon set to import from, and what to do when you meet a legacy one.
 
-**This is convention, not tooling.** No lint rule and no `@deprecated` annotation enforces anything on this page. `react-icons/fa` is still imported in 188 front-end files against 337 for `react-icons/pi`, so you will keep meeting the legacy sets — the rule is only ever "do not introduce new usage".
+**This is convention, not tooling.** No lint rule and no `@deprecated` annotation enforces anything on this page. `react-icons/fa` is still imported in 138 front-end files against 475 for `react-icons/pi`, so you will keep meeting the legacy sets — the rule is only ever "do not introduce new usage".
 
 ## The two sanctioned sources
 

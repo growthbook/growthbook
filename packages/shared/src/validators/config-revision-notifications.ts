@@ -1,41 +1,32 @@
-// Webhook payload schemas for config revision events (`config.revision.*`).
-// Modeled on constant-revision-notifications.ts. The base shape is the API
-// revision projection, but the JSON-Patch–typed fields (`proposedChanges` and
-// the activity-log snapshots) are loosened to render-safe supersets so the docs
-// generator can emit them.
+// Webhook payload schemas for config revision events (`config.revision.*`): the
+// revision with its before, after, patch and review history, plus each event's
+// own fields.
 
 import { z } from "zod";
-import { apiConfigRevisionValidator } from "./config-revisions";
 import {
   bulkPublishIdField,
   revisionPublishFailedExtension,
 } from "./revision-publish-failed";
+import {
+  keyedEntityReference,
+  revisionWebhookReference,
+  revisionWebhookReview,
+  webhookProposedChanges,
+} from "./revision-webhook-reference";
+import { apiConfigValidator } from "./config";
+import { apiConfigRevisionValidator } from "./config-revisions";
 
-const reviewer = z
-  .object({
-    id: z.string().optional(),
-    name: z.string().optional(),
-    email: z.string().optional(),
-  })
-  .strict();
-
-const webhookProposedChanges = z.array(
-  z.object({ op: z.string(), path: z.string() }).passthrough(),
-);
-const webhookActivityLog = z.array(
-  z
-    .object({
-      id: z.string(),
-      userId: z.string(),
-      action: z.string(),
-      dateCreated: z.string(),
-    })
-    .passthrough(),
-);
-
-const configRevisionWebhookPayload = apiConfigRevisionValidator.extend({
+const configRevisionWebhookPayload = revisionWebhookReference.extend({
+  config: keyedEntityReference,
+  baseConfig: apiConfigValidator,
+  proposedConfig: apiConfigValidator,
   proposedChanges: webhookProposedChanges,
-  activityLog: webhookActivityLog,
+  ...apiConfigRevisionValidator.pick({
+    contributors: true,
+    revertedFrom: true,
+    reviews: true,
+    resolution: true,
+  }).shape,
 });
 
 export const configRevisionCreatedPayload = configRevisionWebhookPayload;
@@ -101,22 +92,20 @@ export type ConfigRevisionUpdatedPayload = z.infer<
 >;
 
 export const configRevisionApprovedPayload = configRevisionWebhookPayload
-  .extend({ reviewer, reviewComment: z.string().nullable() })
+  .extend(revisionWebhookReview)
   .strict();
 export type ConfigRevisionApprovedPayload = z.infer<
   typeof configRevisionApprovedPayload
 >;
 
 export const configRevisionChangesRequestedPayload =
-  configRevisionWebhookPayload
-    .extend({ reviewer, reviewComment: z.string().nullable() })
-    .strict();
+  configRevisionWebhookPayload.extend(revisionWebhookReview).strict();
 export type ConfigRevisionChangesRequestedPayload = z.infer<
   typeof configRevisionChangesRequestedPayload
 >;
 
 export const configRevisionCommentedPayload = configRevisionWebhookPayload
-  .extend({ reviewer, reviewComment: z.string() })
+  .extend({ ...revisionWebhookReview, reviewComment: z.string() })
   .strict();
 export type ConfigRevisionCommentedPayload = z.infer<
   typeof configRevisionCommentedPayload

@@ -4,6 +4,7 @@ import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import { SegmentInterface } from "shared/types/segment";
 import { GBArrowLeft } from "@/components/Icons";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
+import { validatedSubmit } from "@/ui/Modal/validatedSubmit";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -53,12 +54,12 @@ export default function FactSegmentForm({
     }
   }
 
-  // Build a list of unique data source ids that have atleast 1 fact table built on it
+  // Build a list of unique data source ids that have at least 1 fact table built on it
   const uniqueDatasourcesWithFactTables = Array.from(
     new Set(factTables.map((ft) => ft.datasource)),
   );
 
-  // Filter the list of datasources to only show those that have atleast 1 fact built on it
+  // Filter the list of datasources to only show those that have at least 1 fact built on it
   const datasourceOptions = filteredDatasources.filter((filteredDs) =>
     uniqueDatasourcesWithFactTables.includes(filteredDs.id),
   );
@@ -109,7 +110,7 @@ export default function FactSegmentForm({
       ctaEnabled={!isReadOnly}
       cta={current?.factTableId ? "Update Segment" : "Create Segment"}
       header={current?.factTableId ? "Edit Segment" : "Create Segment"}
-      submit={form.handleSubmit(async (value) => {
+      submit={validatedSubmit(form, async (value) => {
         // Block creating a new segment if the selected data source has projects, and the segment is in 'All Projects'
         // If the user is updating an existing segment, we can ignore this
         if (

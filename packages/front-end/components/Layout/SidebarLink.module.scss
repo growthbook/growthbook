@@ -74,7 +74,9 @@ $topbarheight: 60px;
   &.sublink {
     padding-left: 24px;
     margin-bottom: 6px;
-    max-height: 40px;
+    // Room for a label that wraps to two lines; the collapse animation still
+    // drives this to 0.
+    max-height: 80px;
     overflow-y: hidden;
     opacity: 1;
     transition: all 0.3s;

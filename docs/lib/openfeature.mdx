@@ -1,12 +1,11 @@
 ---
 title: OpenFeature Providers
-description: Use GrowthBook as an OpenFeature provider in Python, Go, .NET, and Java so you can evaluate flags through the OpenFeature API.
+description: Use GrowthBook as an OpenFeature provider in JavaScript, Python, Go, .NET, Java, Swift, and Kotlin so you can evaluate flags through the OpenFeature API.
 sidebarTitle: OpenFeature Providers
-slug: openfeature
 toc_max_heading_level: 4
 ---
 
-[OpenFeature](https://openfeature.dev) is a [CNCF-incubating](https://www.cncf.io/projects/openfeature/) open standard for feature flagging. GrowthBook provides OpenFeature provider SDKs for **Python**, **Go**, **.NET**, and **Java** — listed in the [OpenFeature ecosystem](https://openfeature.dev/ecosystem/?instant_search%5Bquery%5D=growthbook).
+[OpenFeature](https://openfeature.dev) is a [CNCF-incubating](https://www.cncf.io/projects/openfeature/) open standard for feature flagging. GrowthBook provides OpenFeature provider SDKs for **JavaScript** (Node.js and web), **Python**, **Go**, **.NET**, **Java**, **Swift** (iOS and other Apple platforms), and **Kotlin** (Android and the JVM), listed in the [OpenFeature ecosystem](https://openfeature.dev/ecosystem/?instant_search%5Bquery%5D=growthbook).
 
 ## Prerequisites
 
@@ -23,18 +22,97 @@ OpenFeature defines a vendor-neutral interface for evaluating feature flags. Usi
 - **Vendor portability** — Your flag evaluation code is identical regardless of which provider is active. Switching from or to GrowthBook only requires changing the provider bootstrap, not a single flag call.
 - **Standardized API** — Teams use the same OpenFeature interface they already know across all services.
 - **Ecosystem compatibility** — OpenFeature-aware tooling — including [OpenTelemetry hooks](https://openfeature.dev/docs/reference/technologies/observability/opentelemetry) and other instrumentation — works automatically with GrowthBook.
-- **Polyglot consistency** — The same conceptual API spans Python, Go, .NET, Java (and more), giving teams a single mental model.
+- **Polyglot consistency** — The same conceptual API spans JavaScript, Python, Go, .NET, Java, Swift, Kotlin (and more), giving teams a single mental model.
 
 <Tip>
 **When to use the native GrowthBook SDK instead**
 
-The native GrowthBook SDKs expose features that go beyond the OpenFeature interface: Sticky Bucketing, Visual Editor experiments, inline experiment definitions, and real-time SSE streaming. If you need those capabilities, use the [native SDK](/lib) for your language instead.
+The native GrowthBook SDKs expose features that go beyond the OpenFeature interface: Sticky Bucketing, AI Visual Editor experiments, and inline experiment definitions. If you need those capabilities, use the [native SDK](/lib) for your language instead.
 
 </Tip>
 
 ## Installation & Setup
 
 <Tabs>
+<Tab title="JavaScript">
+
+Use `@openfeature/growthbook-provider` with `@openfeature/server-sdk` in Node.js. Use `@openfeature/growthbook-client-provider` with `@openfeature/web-sdk` in the browser. The two providers are not interchangeable — either one throws if you register it with the wrong SDK.
+
+<Warning>
+Unlike the Python, .NET, and Java providers, the JavaScript providers pass the evaluation context to GrowthBook unchanged. `targetingKey` is **not** mapped to GrowthBook's `id` attribute, so you must set `id` yourself — see [Evaluation Context](#evaluation-context-targeting-attributes).
+</Warning>
+
+Both packages are published from [open-feature/js-sdk-contrib](https://github.com/open-feature/js-sdk-contrib) and are currently pre-1.0. Report issues there rather than on the GrowthBook repos.
+
+<Tabs>
+<Tab title="Node.js (server)">
+
+**GitHub:** [js-sdk-contrib/providers/growthbook](https://github.com/open-feature/js-sdk-contrib/tree/main/libs/providers/growthbook) &nbsp;|&nbsp; **npm:** [@openfeature/growthbook-provider](https://www.npmjs.com/package/@openfeature/growthbook-provider)
+
+**Requirements:** Node.js 20+ (set by the current `@openfeature/server-sdk`)
+
+```bash
+npm install @openfeature/growthbook-provider @openfeature/server-sdk @growthbook/growthbook
+```
+
+```js
+import { OpenFeature } from "@openfeature/server-sdk";
+import { GrowthbookProvider } from "@openfeature/growthbook-provider";
+
+const gbClientOptions = {
+  apiHost: "https://cdn.growthbook.io",
+  clientKey: "sdk-abc123",
+  // Only required if you have feature encryption enabled
+  // decryptionKey: "key_abc123",
+};
+
+// The second argument is optional. `timeout` bounds how long startup can block
+// on the initial feature fetch; streaming is already enabled by default.
+await OpenFeature.setProviderAndWait(
+  new GrowthbookProvider(gbClientOptions, { timeout: 2000 }),
+  { region: "us-east" }, // optional global attributes, applied to every evaluation
+);
+
+const client = OpenFeature.getClient("my-app");
+```
+
+The provider reads global attributes once, when it initializes. Pass them as the second argument to `setProviderAndWait` as shown above — calling `OpenFeature.setContext()` later does not update them on the server SDK.
+
+</Tab>
+<Tab title="Web (client)">
+
+**GitHub:** [js-sdk-contrib/providers/growthbook-client](https://github.com/open-feature/js-sdk-contrib/tree/main/libs/providers/growthbook-client) &nbsp;|&nbsp; **npm:** [@openfeature/growthbook-client-provider](https://www.npmjs.com/package/@openfeature/growthbook-client-provider)
+
+```bash
+npm install @openfeature/growthbook-client-provider @openfeature/web-sdk @growthbook/growthbook
+```
+
+```js
+import { OpenFeature } from "@openfeature/web-sdk";
+import { GrowthbookClientProvider } from "@openfeature/growthbook-client-provider";
+
+const gbContext = {
+  apiHost: "https://cdn.growthbook.io",
+  clientKey: "sdk-abc123",
+  // Only required if you have feature encryption enabled
+  // decryptionKey: "key_abc123",
+};
+
+await OpenFeature.setProviderAndWait(
+  new GrowthbookClientProvider(gbContext, { timeout: 2000 }),
+);
+
+// Web SDK evaluations read the global context. Await it before evaluating —
+// the provider applies the new attributes inside this call.
+await OpenFeature.setContext({ targetingKey: "user-123", id: "user-123" });
+
+const client = OpenFeature.getClient("my-app");
+```
+
+</Tab>
+</Tabs>
+
+</Tab>
 <Tab title="Python">
 
 **GitHub:** [growthbook-openfeature-provider-python](https://github.com/growthbook/growthbook-openfeature-provider-python) &nbsp;|&nbsp; **PyPI:** [growthbook-openfeature-provider](https://pypi.org/project/growthbook-openfeature-provider/)
@@ -194,15 +272,113 @@ Client client = OpenFeatureAPI.getInstance().getClient();
 ```
 
 </Tab>
+<Tab title="Swift">
+
+**GitHub:** [growthbook-openfeature-provider-swift](https://github.com/growthbook/growthbook-openfeature-provider-swift)
+
+**Requirements:** Xcode 16.3+; iOS 15+, macOS 12+, tvOS 15+, watchOS 8+, or visionOS 1+
+
+Add the package with Swift Package Manager:
+
+```swift
+.package(url: "https://github.com/growthbook/growthbook-openfeature-provider-swift.git", from: "0.1.0")
+```
+
+Then add `.product(name: "GrowthBookOpenFeature", package: "growthbook-openfeature-provider-swift")` to your target.
+
+```swift
+import GrowthBook
+import GrowthBookOpenFeature
+import OpenFeature
+
+let provider = try GrowthBookOpenFeatureProvider(
+    configuration: GrowthBookModel(
+        apiHost: "https://cdn.growthbook.io",
+        clientKey: "sdk-abc123",
+        // Only required if you have feature encryption enabled
+        // encryptionKey: "key_abc123",
+        trackingClosure: { experiment, result in
+            // Send the experiment exposure to your analytics tool
+        }
+    )
+)
+
+await OpenFeatureAPI.shared.setProviderAndWait(
+    provider: provider,
+    initialContext: ImmutableContext(targetingKey: "user-123")
+)
+
+let client = OpenFeatureAPI.shared.getClient()
+```
+
+The provider waits up to 10 seconds for the first feature fetch (`initializationTimeout`), or is ready immediately when features are cached. It supports local evaluation only: configuring `remoteEval` or a sticky bucket service throws.
+
+</Tab>
+<Tab title="Kotlin">
+
+**GitHub:** [growthbook-kotlin/GrowthBookOpenFeature](https://github.com/growthbook/growthbook-kotlin/tree/main/GrowthBookOpenFeature) &nbsp;|&nbsp; **Maven Central:** [GrowthBookOpenFeature](https://central.sonatype.com/artifact/io.growthbook.sdk/GrowthBookOpenFeature)
+
+**Requirements:** Java 11+; Android or the JVM
+
+```gradle
+implementation 'io.growthbook.sdk:GrowthBookOpenFeature:1.0.0'
+implementation 'io.growthbook.sdk:NetworkDispatcherOkHttp:1.2.0'
+```
+
+```kotlin
+import com.sdk.growthbook.network.GBNetworkDispatcherOkHttp
+import com.sdk.growthbook.openfeature.GrowthBookOpenFeatureProvider
+import dev.openfeature.kotlin.sdk.ImmutableContext
+import dev.openfeature.kotlin.sdk.OpenFeatureAPI
+
+val provider = GrowthBookOpenFeatureProvider(
+    apiKey = "sdk-abc123",
+    apiHost = "https://cdn.growthbook.io",
+    networkDispatcher = GBNetworkDispatcherOkHttp(),
+    // Only required if you have feature encryption enabled
+    // encryptionKey = "key_abc123",
+    trackingCallback = { experiment, result ->
+        // Send the experiment exposure to your analytics tool
+    },
+)
+
+// Call from a coroutine
+OpenFeatureAPI.setProviderAndWait(provider, ImmutableContext(targetingKey = "user-123"))
+
+val client = OpenFeatureAPI.getClient()
+```
+
+The provider waits up to 10 seconds for the first feature fetch (`initializationTimeout`), or is ready immediately when features are cached. It supports local evaluation only: configuring a sticky bucket service fails initialization.
+
+</Tab>
 </Tabs>
 
 ## Evaluation Context (Targeting Attributes)
 
 Pass user attributes to the OpenFeature client via an `EvaluationContext`. These become GrowthBook targeting attributes used for percentage rollouts, feature targeting rules, and experiment bucketing.
 
-The `targetingKey` maps to the user ID in GrowthBook. Additional attributes (e.g. `country`, `plan`, `email`) are matched against your feature flag targeting conditions.
+GrowthBook buckets users on the `id` attribute by default. The Python, .NET, Java, Swift, and Kotlin providers map the OpenFeature `targetingKey` to `id` for you. In Swift and Kotlin, when the context has both, `identityPrecedence` decides which wins (`targetingKey` by default). The **JavaScript and Go providers do not** — they pass the context through unchanged, so you must set `id` yourself.
+
+<Warning>
+If `id` is missing, GrowthBook has nothing to hash on: percentage rollouts return their default value and experiments never assign a variation. Nothing raises an error, so the flag simply appears to be off. Set `targetingKey` and `id` to the same value — `id` does the bucketing today, and the pair keeps your code portable to providers that read `targetingKey`.
+</Warning>
+
+Additional attributes (e.g. `country`, `plan`, `email`) are matched against your feature flag targeting conditions.
+
+The JavaScript examples use the Node.js server SDK, which accepts an invocation-level context. On the web SDK, call `await OpenFeature.setContext(context)` instead of passing context into each evaluation. The Swift and Kotlin SDKs also use a single global context: set it with `setEvaluationContextAndWait`, and each change replaces all attributes.
 
 <CodeGroup>
+
+```js JavaScript
+const context = {
+  // The JS providers do not map targetingKey — GrowthBook buckets on `id`.
+  targetingKey: "user-123",
+  id: "user-123",
+  country: "US",
+  plan: "premium",
+  email: "user@example.com",
+};
+```
 
 ```python Python
 from openfeature.evaluation_context import EvaluationContext
@@ -219,6 +395,8 @@ context = EvaluationContext(
 
 ```go Go
 evalCtx := openfeature.NewEvaluationContext("user-123", map[string]interface{}{
+    // The Go provider does not map targetingKey — GrowthBook buckets on `id`.
+    "id":      "user-123",
     "country": "US",
     "plan":    "premium",
     "email":   "user@example.com",
@@ -247,17 +425,68 @@ context.add("plan", "premium");
 context.add("email", "user@example.com");
 ```
 
+```swift Swift
+await OpenFeatureAPI.shared.setEvaluationContextAndWait(
+    evaluationContext: ImmutableContext(
+        targetingKey: "user-123",
+        structure: ImmutableStructure(attributes: [
+            "country": .string("US"),
+            "plan": .string("premium"),
+            "email": .string("user@example.com"),
+        ])
+    )
+)
+```
+
+```kotlin Kotlin
+import dev.openfeature.kotlin.sdk.ImmutableContext
+import dev.openfeature.kotlin.sdk.OpenFeatureAPI
+import dev.openfeature.kotlin.sdk.Value
+
+OpenFeatureAPI.setEvaluationContextAndWait(
+    ImmutableContext(
+        targetingKey = "user-123",
+        attributes = mapOf(
+            "country" to Value.String("US"),
+            "plan" to Value.String("premium"),
+            "email" to Value.String("user@example.com"),
+        ),
+    ),
+)
+```
+
 </CodeGroup>
 
 ## Evaluating Feature Flags
 
 OpenFeature defines five value types. GrowthBook's feature flags map to all of them.
 
+The JavaScript examples below use the Node.js server SDK, where evaluations are asynchronous and take an invocation-level context. On the web SDK the same calls are **synchronous and take no context argument** — they read the global context set via `await OpenFeature.setContext(...)`:
+
+```js
+// Web SDK equivalent
+const enabled = client.getBooleanValue("dark-mode", false);
+```
+
+The Swift and Kotlin SDKs work the same way: evaluations are synchronous and read the global context.
+
+<Note>
+The JavaScript providers return GrowthBook's own `source` string as the evaluation `reason` (e.g. `experiment`, `force`, `defaultValue`) rather than the standard OpenFeature reasons such as `TARGETING_MATCH` or `STATIC`. The Swift and Kotlin providers return the standard reasons. Code that branches on `details.reason` is not portable across providers.
+</Note>
+
 ### Boolean
 
 The most common type — use for on/off feature gates.
 
 <CodeGroup>
+
+```js JavaScript
+// Server SDK (async)
+const enabled = await client.getBooleanValue("dark-mode", false, context);
+
+// Returns full evaluation details (value, reason, variant, error)
+const details = await client.getBooleanDetails("dark-mode", false, context);
+```
 
 ```python Python
 # Synchronous
@@ -285,6 +514,20 @@ bool enabled = await client.GetBooleanValue("dark-mode", false, context);
 boolean enabled = client.getBooleanValue("dark-mode", false, context);
 ```
 
+```swift Swift
+let enabled = client.getBooleanValue(key: "dark-mode", defaultValue: false)
+
+// Returns full evaluation details (value, reason, variant, error)
+let details = client.getBooleanDetails(key: "dark-mode", defaultValue: false)
+```
+
+```kotlin Kotlin
+val enabled = client.getBooleanValue("dark-mode", false)
+
+// Returns full evaluation details (value, reason, variant, error)
+val details = client.getBooleanDetails("dark-mode", false)
+```
+
 </CodeGroup>
 
 ### String
@@ -292,6 +535,10 @@ boolean enabled = client.getBooleanValue("dark-mode", false, context);
 Use for multi-variant flags where the value is a string (e.g. button color, layout variant).
 
 <CodeGroup>
+
+```js JavaScript
+const variant = await client.getStringValue("button-color", "blue", context);
+```
 
 ```python Python
 variant = client.get_string_value("button-color", "blue", context)
@@ -309,6 +556,14 @@ string variant = await client.GetStringValue("button-color", "blue", context);
 String variant = client.getStringValue("button-color", "blue", context);
 ```
 
+```swift Swift
+let variant = client.getStringValue(key: "button-color", defaultValue: "blue")
+```
+
+```kotlin Kotlin
+val variant = client.getStringValue("button-color", "blue")
+```
+
 </CodeGroup>
 
 ### Integer & Float/Double
@@ -316,6 +571,11 @@ String variant = client.getStringValue("button-color", "blue", context);
 Use for numeric feature values such as rate limits, timeouts, or pricing.
 
 <CodeGroup>
+
+```js JavaScript
+const requestLimit = await client.getNumberValue("api-request-limit", 100, context);
+const price = await client.getNumberValue("subscription-price", 9.99, context);
+```
 
 ```python Python
 request_limit = client.get_integer_value("api-request-limit", 100, context)
@@ -337,6 +597,16 @@ int    requestLimit = client.getIntegerValue("api-request-limit", 100, context);
 double price        = client.getDoubleValue("subscription-price", 9.99, context);
 ```
 
+```swift Swift
+let requestLimit = client.getIntegerValue(key: "api-request-limit", defaultValue: 100) // Int64
+let price        = client.getDoubleValue(key: "subscription-price", defaultValue: 9.99)
+```
+
+```kotlin Kotlin
+val requestLimit = client.getIntegerValue("api-request-limit", 100)
+val price        = client.getDoubleValue("subscription-price", 9.99)
+```
+
 </CodeGroup>
 
 ### Object
@@ -344,6 +614,10 @@ double price        = client.getDoubleValue("subscription-price", 9.99, context)
 Use for structured feature values (e.g. configuration payloads, theme objects).
 
 <CodeGroup>
+
+```js JavaScript
+const config = await client.getObjectValue("theme-config", { color: "blue" }, context);
+```
 
 ```python Python
 config = client.get_object_value("theme-config", {"color": "blue"}, context)
@@ -363,24 +637,42 @@ Value config = await client.GetObjectValue("theme-config",
 Value config = client.getObjectValue("theme-config", new MutableStructure(), context);
 ```
 
+```swift Swift
+let config = client.getObjectValue(key: "theme-config", defaultValue: .structure([:]))
+```
+
+```kotlin Kotlin
+val config = client.getObjectValue("theme-config", Value.Structure(emptyMap()))
+```
+
 </CodeGroup>
 
 ## Configuration Options
 
-| Option                     | Python | Go  | .NET | Java | Description                                       |
-| -------------------------- | :----: | :-: | :--: | :--: | ------------------------------------------------- |
-| `api_host` / `apiHost`     |   ✓    |  ✓  |  ✓   |  ✓   | GrowthBook CDN or self-hosted URL                 |
-| `client_key` / `clientKey` |   ✓    |  ✓  |  ✓   |  ✓   | SDK Connection key from GrowthBook                |
-| `decryption_key`           |   ✓    |  —  |  —   |  —   | Key for encrypted SDK endpoint payloads           |
-| `cache_ttl`                |   ✓    |  ✓  |  —   |  —   | Seconds before re-fetching features (default: 60) |
-| `enabled`                  |   ✓    |  —  |  ✓   |  —   | Enable/disable the provider entirely              |
-| `qa_mode`                  |   ✓    |  —  |  —   |  —   | Forces all experiments into the control variation |
+| Option                     | JavaScript | Python | Go  | .NET | Java | Swift | Kotlin | Description                                       |
+| -------------------------- | :--------: | :----: | :-: | :--: | :--: | :---: | :----: | ------------------------------------------------- |
+| `api_host` / `apiHost`     |     ✓      |   ✓    |  ✓  |  ✓   |  ✓   |   ✓   |   ✓    | GrowthBook CDN or self-hosted URL                 |
+| `client_key` / `clientKey` |     ✓      |   ✓    |  ✓  |  ✓   |  ✓   |   ✓   |   ✓    | SDK Connection key from GrowthBook                |
+| `decryption_key`           |     ✓      |   ✓    |  —  |  —   |  —   |   ✓   |   ✓    | Key for encrypted SDK endpoint payloads           |
+| `cache_ttl`                |    ✓\*     |   ✓    |  ✓  |  —   |  —   |   ✓   | ✓\*\*  | Seconds before re-fetching features (default: 60) |
+| `enabled`                  |     ✓      |   ✓    |  —  |  ✓   |  —   |   ✓   | ✓\*\*  | Enable/disable the provider entirely              |
+| `qa_mode`                  |     ✓      |   ✓    |  —  |  —   |  —   |   ✓   | ✓\*\*  | Forces all experiments into the control variation |
+
+\* In JavaScript, `cache_ttl` lives on the provider's optional second argument as `{ cacheSettings: { staleTTL: 60000 } }` rather than in the client options object. Every other JavaScript option in this table goes in the client options object.
+
+In Swift, `cache_ttl` is the provider's `ttlSeconds` argument and the other options are `GrowthBookModel` fields (`encryptionKey`, `isEnabled`, `isQaMode`).
+
+\*\* In Kotlin, set these through the provider's `configureSdk` argument, which receives the GrowthBook SDK builder: `setCacheMaxAge(ms)`, `setEnabled(...)` and `setQAMode(...)`. Pass `encryptionKey` to the provider directly.
 
 ## Shutdown & Cleanup
 
 Always shut down the provider when your application exits to close background connections.
 
 <CodeGroup>
+
+```js JavaScript
+await OpenFeature.close();
+```
 
 ```python Python
 await provider.close()       # async
@@ -400,10 +692,19 @@ provider.Dispose();
 provider.shutdown();
 ```
 
+```swift Swift
+// OpenFeature Swift doesn't shut providers down, so close the provider yourself
+provider.close()
+```
+
+```kotlin Kotlin
+OpenFeatureAPI.shutdown() // from a coroutine
+```
+
 </CodeGroup>
 
 ## Further Reading
 
 - [OpenFeature specification](https://openfeature.dev/specification) — the full standard
 - [GrowthBook on the OpenFeature ecosystem](https://openfeature.dev/ecosystem/?instant_search%5Bquery%5D=growthbook)
-- [Native GrowthBook SDKs](/lib) — for Sticky Bucketing, Visual Editor, SSE streaming, and more
+- [Native GrowthBook SDKs](/lib) — for Sticky Bucketing, AI Visual Editor, SSE streaming, and more

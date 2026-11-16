@@ -15,7 +15,7 @@ import {
 } from "shared/constants";
 import { getSRMHealthData, getMultipleExposureHealthData } from "shared/health";
 import { expandMetricGroups } from "shared/experiments";
-import { isRampScheduleServing } from "shared/util";
+import { isRampScheduleServing, pValueFormatter } from "shared/util";
 import Badge from "@/ui/Badge";
 import Button, { Size as ButtonSize } from "@/ui/Button";
 import { useSafeRolloutSnapshot } from "@/components/SafeRollout/SnapshotProvider";
@@ -128,10 +128,6 @@ function buildDummySignalData({
   };
 }
 
-function formatPValue(value: number): string {
-  return value < 0.001 ? "<0.001" : value.toFixed(3);
-}
-
 function getHoldStatusPrefix(rampSchedule: RampScheduleInterface): string {
   const activeHold = isHoldingNow(rampSchedule);
   return activeHold ? "Holding" : "Step may hold when complete";
@@ -157,7 +153,7 @@ export function isHoldingNow(rampSchedule: RampScheduleInterface): boolean {
 }
 
 // Returns true when we're past `threshold` (0–1) of the current step's
-// interval. Used to suppress "Awaiting Sample" noise early in a long step —
+// interval. Used to suppress "Awaiting sample" noise early in a long step —
 // only surface it once there's reason to be concerned about pace.
 export function isNearingStepEnd(
   rampSchedule: RampScheduleInterface,
@@ -305,7 +301,7 @@ function computeSignals(
       signals.push("srm");
       actions["srm"] = (mc?.srmAction as SignalAction) ?? "hold";
       details["srm"] =
-        `SRM p-value ${formatPValue(srmPValue)} is below threshold ${srmThreshold}`;
+        `SRM p-value ${pValueFormatter(srmPValue)} is below threshold ${srmThreshold}`;
     }
   }
 
@@ -480,7 +476,7 @@ function signalToBadge(
         <Badge
           color={actionColor("amber", action)}
           variant="soft"
-          label={`No Traffic${actionSuffix(action)}`}
+          label={`No traffic${actionSuffix(action)}`}
           radius="full"
         />
       );
@@ -489,7 +485,7 @@ function signalToBadge(
         <Badge
           color="blue"
           variant="soft"
-          label="Awaiting Sample"
+          label="Awaiting sample"
           radius="full"
         />
       );
@@ -1013,7 +1009,7 @@ export function RampMonitoringCTAs({
     conservativeAction === "rollback" || conservativeAction === "hold";
 
   // When the monitored step is actively held by a signal *and* ready for
-  // approval, show a compound "Approve & Continue" button paired with
+  // approval, show a compound "Approve & continue" button paired with
   // Rollback. This fires both actions so the user doesn't have to click twice.
   if (
     onMonitored &&
@@ -1034,7 +1030,7 @@ export function RampMonitoringCTAs({
             await onAdvance();
           }}
         >
-          Approve & Continue
+          Approve & continue
         </Button>
         {rollbackButton("outline")}
       </div>
@@ -1082,7 +1078,7 @@ export function RampMonitoringCTAs({
   if (onApproveStep && approvalReady && !monitoredBlocksApproval) {
     return (
       <Button size={size} variant="solid" onClick={onApproveStep}>
-        Approve Step
+        Approve step
       </Button>
     );
   }

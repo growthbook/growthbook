@@ -1,12 +1,12 @@
 import React, { useState } from "react";
 import { useRouter } from "next/router";
+import { PiArrowRight } from "react-icons/pi";
 import { FaArrowLeft } from "react-icons/fa";
 import { ProjectInterface } from "shared/types/project";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
+import useFactMetricFlow from "@/hooks/useFactMetricFlow";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { envAllowsCreatingMetrics, hasFileConfig } from "@/services/env";
-import NewDataSourceForm from "@/components/Settings/NewDataSourceForm";
-import MetricForm from "@/components/Metrics/MetricForm";
 import { DocLink } from "@/components/DocLink";
 import DocumentationLinksSidebar from "@/components/HomePage/DocumentationLinksSidebar";
 import GetStartedStep from "@/components/HomePage/GetStartedStep";
@@ -27,8 +27,6 @@ const ExperimentsGetStarted = (): React.ReactElement => {
 
   const permissionsUtil = usePermissionsUtil();
 
-  const [dataSourceOpen, setDataSourceOpen] = useState(false);
-  const [metricsOpen, setMetricsOpen] = useState(false);
   const [importExperimentsOpen, setImportExperimentsOpen] = useState(false);
   const [designExperimentOpen, setDesignExperimentOpen] = useState(false);
 
@@ -77,31 +75,12 @@ const ExperimentsGetStarted = (): React.ReactElement => {
     }
   };
 
+  const factMetricFlow = useFactMetricFlow("get-started");
+
   return (
     <>
+      {factMetricFlow.modal}
       <div>
-        {dataSourceOpen && (
-          <NewDataSourceForm
-            source="get-started"
-            onCancel={() => setDataSourceOpen(false)}
-            onSuccess={async () => {
-              await mutateDefinitions();
-              setDataSourceOpen(false);
-            }}
-            showImportSampleData={false}
-          />
-        )}
-
-        {metricsOpen && (
-          <MetricForm
-            current={{}}
-            edit={false}
-            source="get-started"
-            onClose={() => {
-              setMetricsOpen(false);
-            }}
-          />
-        )}
         {importExperimentsOpen && (
           <ImportExperimentModal
             onClose={() => setImportExperimentsOpen(false)}
@@ -197,11 +176,9 @@ const ExperimentsGetStarted = (): React.ReactElement => {
                     finishedCTA="View data sources"
                     imageLeft={true}
                     onClick={(finished) => {
-                      if (finished) {
-                        router.push("/datasources");
-                      } else {
-                        setDataSourceOpen(true);
-                      }
+                      router.push(
+                        finished ? "/datasources" : "/datasources/new",
+                      );
                     }}
                   />
                   <GetStartedStep
@@ -220,22 +197,19 @@ const ExperimentsGetStarted = (): React.ReactElement => {
                       </p>
                     }
                     hideCTA={!envAllowsCreatingMetrics()}
-                    cta="Add metric"
+                    action={factMetricFlow.createButton(
+                      {},
+                      {
+                        variant: currentStep === 2 ? "solid" : "ghost",
+                        icon: <PiArrowRight />,
+                        iconPosition: "right",
+                        showPermissionError: true,
+                      },
+                    )}
                     finishedCTA="View metrics"
-                    permissionsError={
-                      envAllowsCreatingMetrics() &&
-                      !permissionsUtil.canCreateMetric({
-                        projects: [project],
-                      }) &&
-                      !hasMetrics
-                    }
                     imageLeft={false}
                     onClick={(finished) => {
-                      if (finished) {
-                        router.push("/metrics");
-                      } else {
-                        setMetricsOpen(true);
-                      }
+                      if (finished) router.push("/metrics");
                     }}
                   />
                   <GetStartedStep

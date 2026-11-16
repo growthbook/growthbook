@@ -378,34 +378,71 @@ export function experimentRefsReferencingConstant(
   return { experimentIds: [...experimentIds], banditIds: [...banditIds] };
 }
 
+export type RunningExperimentRef = {
+  id: string;
+  name: string;
+  bandit: boolean;
+  featureIds: Set<string>;
+};
+
 // Running experiments / contextual bandits whose rule directly references the
-// constant. Returns `exp:<id>` tokens so they never collide with config-key
-// conflicts in the shared experiment-guard fingerprint. Caller supplies an
+// constant, with the Feature Flags that reference it. Caller supplies an
 // org-wide context so a running experiment in any project is seen.
 export async function findRunningExperimentRefsReferencingConstant(
   context: ReqContext | ApiReqContext,
   constantKey: string,
-): Promise<Set<string>> {
+): Promise<RunningExperimentRef[]> {
   const features = await getAllFeaturesWithoutEditorFields(context, {});
-  const { experimentIds, banditIds } = experimentRefsReferencingConstant(
-    features,
-    constantKey,
-  );
-  if (!experimentIds.length && !banditIds.length) return new Set<string>();
+  // Ref id → ids of the Feature Flags whose rules reference the constant.
+  const experimentFeatures = new Map<string, Set<string>>();
+  const banditFeatures = new Map<string, Set<string>>();
+  const addFeature = (
+    byRef: Map<string, Set<string>>,
+    refId: string,
+    featureId: string,
+  ) => {
+    const ids = byRef.get(refId) ?? new Set<string>();
+    ids.add(featureId);
+    byRef.set(refId, ids);
+  };
+  for (const f of features) {
+    const { experimentIds, banditIds } = experimentRefsReferencingConstant(
+      [f],
+      constantKey,
+    );
+    for (const id of experimentIds) addFeature(experimentFeatures, id, f.id);
+    for (const id of banditIds) addFeature(banditFeatures, id, f.id);
+  }
 
-  const conflicts = new Set<string>();
-  const collectRunning = (entities: Array<{ id: string; status: string }>) => {
+  const refs: RunningExperimentRef[] = [];
+  const collectRunning = (
+    entities: Array<{ id: string; name: string; status: string }>,
+    featureIdsById: Map<string, Set<string>>,
+    bandit: boolean,
+  ) => {
     for (const e of entities) {
-      if (e.status === "running") conflicts.add(`exp:${e.id}`);
+      if (e.status !== "running") continue;
+      const featureIds = featureIdsById.get(e.id) ?? new Set<string>();
+      refs.push({ id: e.id, name: e.name, bandit, featureIds });
     }
   };
-  if (experimentIds.length) {
-    collectRunning(await getExperimentsByIds(context, experimentIds));
+  if (experimentFeatures.size) {
+    collectRunning(
+      await getExperimentsByIds(context, [...experimentFeatures.keys()]),
+      experimentFeatures,
+      false,
+    );
   }
-  if (banditIds.length) {
-    collectRunning(await context.models.contextualBandits.getByIds(banditIds));
+  if (banditFeatures.size) {
+    collectRunning(
+      await context.models.contextualBandits.getByIds([
+        ...banditFeatures.keys(),
+      ]),
+      banditFeatures,
+      true,
+    );
   }
-  return conflicts;
+  return refs;
 }
 
 // Features and constants/configs that reference a constant. Includes one level

@@ -1,6 +1,15 @@
+import { createPrivateKey, X509Certificate } from "crypto";
+import { readFile, stat } from "fs/promises";
 import { subDays } from "date-fns";
-import { createClient, ResponseJSON } from "@clickhouse/client";
 import {
+  ClickHouseClientConfigOptions,
+  ClickHouseError,
+  ClickHouseLogLevel,
+  createClient,
+  ResponseJSON,
+} from "@clickhouse/client";
+import {
+  ExternalIdCallback,
   FeatureEvalDiagnosticsQueryParams,
   FeatureUsageAggregateRow,
   FeatureUsageLookback,
@@ -11,14 +20,18 @@ import {
   isManagedWarehouse,
   isManagedWarehouseAwaitingProvisioning,
   isManagedWarehouseMigrating,
+  ManagedWarehouseOutOfMemoryError,
   ManagedWarehousePendingError,
 } from "shared/util";
-import { SqlDialect } from "shared/types/sql";
+import { RunQueryMetadata } from "shared/types/query";
 import { decryptDataSourceParams } from "back-end/src/services/datasource";
 import { getHost } from "back-end/src/util/sql";
+import { getFactTableTypeFromClickHouseType } from "back-end/src/util/warehouseColumnTypes";
 import { logger } from "back-end/src/util/logger";
+import { metrics } from "back-end/src/util/metrics";
+import { getErrorMessage } from "back-end/src/util/errors";
+import { IS_CLOUD, IS_MULTI_ORG } from "back-end/src/util/secrets";
 import SqlIntegration from "./SqlIntegration";
-import { clickHouseDialect } from "./dialects/clickhouse";
 
 // Matches ClickHouse DateTime/DateTime64 column types with no explicit
 // timezone argument (e.g. "DateTime", "DateTime64(3)", "Nullable(DateTime64(3))").
@@ -27,6 +40,9 @@ import { clickHouseDialect } from "./dialects/clickhouse";
 // reflects that declared zone rather than needing this override.
 const NAIVE_CLICKHOUSE_DATETIME_TYPE =
   /^Nullable\(DateTime(64\(\d+\))?\)$|^DateTime(64\(\d+\))?$/;
+
+/** ClickHouse MEMORY_LIMIT_EXCEEDED — the per-query and server-total caps both raise it. */
+const CLICKHOUSE_MEMORY_LIMIT_EXCEEDED_CODE = "241";
 
 // Managed warehouse DateTime/DateTime64 columns carry no explicit timezone,
 // so ClickHouse renders them as bare "YYYY-MM-DD HH:mm:ss[.ffffff]" strings
@@ -53,6 +69,130 @@ function normalizeManagedWarehouseDatetimes(
   }
 }
 
+// @clickhouse/client only applies `tls` to https URLs, so a scheme-less URL
+// defaults to https when SSL is required.
+export function getClickHouseUrl(
+  params: Pick<ClickHouseConnectionParams, "url" | "port" | "ssl">,
+): string | undefined {
+  const url =
+    params.ssl && params.url && !/^https?:\/\//i.test(params.url)
+      ? `https://${params.url}`
+      : params.url;
+  const host = getHost(url, params.port);
+  if (params.ssl && host?.startsWith("http://")) {
+    throw new Error(
+      "SSL is required, but the ClickHouse URL uses http://. Use an https:// URL instead.",
+    );
+  }
+  return host;
+}
+
+const MAX_PEM_FILE_BYTES = 1024 * 1024;
+
+// Files that don't parse (e.g. an encrypted key) are left for the TLS handshake to report
+function certMatchesKey(cert: Buffer, key: Buffer): boolean {
+  try {
+    return new X509Certificate(cert).checkPrivateKey(createPrivateKey(key));
+  } catch {
+    return true;
+  }
+}
+
+// Files are read on every call, so certificates rotated on disk are picked up without a restart
+async function readPem(
+  value: string | undefined,
+  path: string | undefined,
+  description: string,
+): Promise<Buffer | undefined> {
+  if (value && path) {
+    throw new Error(
+      `Set either the ClickHouse ${description} or its file path, not both.`,
+    );
+  }
+  if (!path) return value ? Buffer.from(value) : undefined;
+  // Any org that can edit a data source could otherwise read files mounted for another org
+  if (IS_CLOUD || IS_MULTI_ORG) {
+    throw new Error(
+      "ClickHouse certificate file paths are only supported on self-hosted GrowthBook with a single organization.",
+    );
+  }
+  let contents: Buffer;
+  try {
+    // A device or pipe (e.g. /dev/zero) would otherwise be read without end
+    const info = await stat(path);
+    if (!info.isFile() || info.size > MAX_PEM_FILE_BYTES) {
+      throw new Error("expected a regular file of at most 1 MB");
+    }
+    contents = await readFile(path);
+  } catch (e) {
+    throw new Error(
+      `Unable to read the ClickHouse ${description} file: ${getErrorMessage(e)}`,
+    );
+  }
+  if (!contents.includes("-----BEGIN ")) {
+    throw new Error(
+      `The ClickHouse ${description} file ${path} is empty or not PEM-encoded.`,
+    );
+  }
+  return contents;
+}
+
+export async function getClickHouseTLSOptions(
+  params: Pick<
+    ClickHouseConnectionParams,
+    | "ssl"
+    | "caCert"
+    | "clientCert"
+    | "clientKey"
+    | "caCertPath"
+    | "clientCertPath"
+    | "clientKeyPath"
+    | "clientCertChainPath"
+  >,
+): Promise<ClickHouseClientConfigOptions["tls"]> {
+  if (!params.ssl) return undefined;
+
+  const read = () =>
+    Promise.all([
+      readPem(params.caCert, params.caCertPath, "CA cert"),
+      readPem(params.clientCert, params.clientCertPath, "client cert"),
+      readPem(undefined, params.clientCertChainPath, "client cert chain"),
+      readPem(params.clientKey, params.clientKeyPath, "client key"),
+    ]);
+  let [caCert, leafCert, chain, clientKey] = await read();
+  // A Secret rotated between the two reads can pair the old cert with the new key
+  if (
+    params.clientCertPath &&
+    params.clientKeyPath &&
+    leafCert &&
+    clientKey &&
+    !certMatchesKey(leafCert, clientKey)
+  ) {
+    [caCert, leafCert, chain, clientKey] = await read();
+  }
+  if (!!leafCert !== !!clientKey) {
+    throw new Error("Client cert and client key must be provided together.");
+  }
+  if (chain && !leafCert) {
+    throw new Error("A client cert chain requires a client cert.");
+  }
+  // Node expects the leaf first, followed by its intermediates
+  const clientCert =
+    leafCert && chain
+      ? Buffer.concat([leafCert, Buffer.from("\n"), chain])
+      : leafCert;
+  const ca = caCert ? { ca_cert: caCert } : undefined;
+  if (clientCert && clientKey) {
+    // The client's type requires ca_cert, but without one Node falls back to its default CAs
+    return {
+      ...ca,
+      cert: clientCert,
+      key: clientKey,
+    } as ClickHouseClientConfigOptions["tls"];
+  }
+  return ca;
+}
+
 export default class ClickHouse extends SqlIntegration {
   params!: ClickHouseConnectionParams;
   requiresDatabase = false;
@@ -71,9 +211,6 @@ export default class ClickHouse extends SqlIntegration {
       delete this.params.host;
     }
   }
-  getSqlDialect(): SqlDialect {
-    return clickHouseDialect;
-  }
 
   async testConnection(): Promise<boolean> {
     if (isManagedWarehouseAwaitingProvisioning(this.datasource)) {
@@ -82,7 +219,11 @@ export default class ClickHouse extends SqlIntegration {
     return super.testConnection();
   }
 
-  async runQuery(sql: string): Promise<QueryResponse> {
+  async runQuery(
+    sql: string,
+    setExternalId: ExternalIdCallback | undefined,
+    metadata: RunQueryMetadata,
+  ): Promise<QueryResponse> {
     // Block queries while never-provisioned OR mid-migration (tables being recreated).
     // Reuse the pending error so existing UI surfaces show the managed-warehouse callout;
     // the callout distinguishes the migrating case for honest "upgrading" copy.
@@ -92,13 +233,18 @@ export default class ClickHouse extends SqlIntegration {
     ) {
       throw new ManagedWarehousePendingError();
     }
+    const tls = await getClickHouseTLSOptions(this.params);
     const client = createClient({
-      url: getHost(this.params.url, this.params.port),
+      url: getClickHouseUrl(this.params),
+      ...(tls ? { tls } : {}),
       username: this.params.username,
-      password: this.params.password,
+      // ClickHouse rejects a password sent alongside certificate auth
+      password: tls && "cert" in tls ? undefined : this.params.password,
       database: this.params.database,
       application: "GrowthBook",
       request_timeout: 3620_000,
+      // The client warns per instance when request_timeout > 60s without progress headers; we create one per query.
+      log: { level: ClickHouseLogLevel.ERROR },
       clickhouse_settings: {
         max_execution_time: Math.min(
           this.params.maxExecutionTime ?? 1800,
@@ -113,27 +259,79 @@ export default class ClickHouse extends SqlIntegration {
           ? {
               allow_suspicious_types_in_group_by: 1,
               allow_suspicious_types_in_order_by: 1,
+              // Switch off the in-RAM hash join when memory runs short instead of failing the query.
+              join_algorithm: "auto",
+              // Bucket size after that switch; the 1GB default is itself too large an allocation under pressure.
+              max_bytes_in_join: "268435456",
             }
           : {}),
       },
     });
-    const results = await client.query({ query: sql, format: "JSON" });
-    // eslint-disable-next-line
-    const data: ResponseJSON<Record<string, any>[]> = await results.json();
-    const rows = data.data ? data.data : [];
-    if (isManagedWarehouse(this.datasource)) {
-      normalizeManagedWarehouseDatetimes(rows, data.meta);
+    try {
+      const results = await client.query({ query: sql, format: "JSON" });
+      // eslint-disable-next-line
+      const data: ResponseJSON<Record<string, any>[]> = await results.json();
+      const rows = data.data ? data.data : [];
+      if (isManagedWarehouse(this.datasource)) {
+        normalizeManagedWarehouseDatetimes(rows, data.meta);
+      }
+      return {
+        rows,
+        columns: data.meta?.map((col) => {
+          const dataType = getFactTableTypeFromClickHouseType(col.type);
+          return { name: col.name, ...(dataType && { dataType }) };
+        }),
+        statistics: data.statistics
+          ? {
+              // ClickHouse reports elapsed in seconds
+              executionDurationMs: data.statistics.elapsed * 1000,
+              rowsProcessed: data.statistics.rows_read,
+              bytesProcessed: data.statistics.bytes_read,
+            }
+          : undefined,
+      };
+    } catch (e) {
+      // QueryRunner only logs failures at debug level (suppressed in prod), so this is
+      // the only place Managed Warehouse failure rate/detail is visible in prod logs.
+      if (isManagedWarehouse(this.datasource)) {
+        // Network failures (ECONNRESET etc.) aren't ClickHouseErrors but carry a Node errno code.
+        const code =
+          e instanceof ClickHouseError
+            ? e.code
+            : (e as NodeJS.ErrnoException)?.code || "unknown";
+        try {
+          logger.error(
+            {
+              err: e,
+              orgId: this.datasource.organization,
+              datasourceId: this.datasource.id,
+              queryId: metadata.queryId,
+            },
+            `Managed Warehouse query failed (code ${code})`,
+          );
+          metrics
+            .getCounter("clickhouse.managed_warehouse_errors")
+            .increment({ code });
+        } catch (telemetryError) {
+          // Don't let a metrics/logging failure replace the query error below.
+          logger.warn(
+            telemetryError,
+            "Failed to record Managed Warehouse query failure telemetry",
+          );
+        }
+
+        if (code === CLICKHOUSE_MEMORY_LIMIT_EXCEEDED_CODE) {
+          throw new ManagedWarehouseOutOfMemoryError();
+        }
+      }
+      throw e;
+    } finally {
+      try {
+        await client.close();
+      } catch (e) {
+        logger.warn(e, "Failed to close ClickHouse client");
+      }
     }
-    return {
-      rows,
-      statistics: data.statistics
-        ? {
-            executionDurationMs: data.statistics.elapsed,
-            rowsProcessed: data.statistics.rows_read,
-            bytesProcessed: data.statistics.bytes_read,
-          }
-        : undefined,
-    };
   }
 
   getInformationSchemaWhereClause(): string {
@@ -206,7 +404,8 @@ export default class ClickHouse extends SqlIntegration {
       throw new Error(`Invalid lookback: ${lookback}`);
     }
 
-    const res = await this.runQuery(`
+    const res = await this.runQuery(
+      `
 WITH _data as (
 	SELECT
 	  ${this.getSqlDialect().formatDateTimeString(roundedTimestamp)} as ts,
@@ -238,7 +437,10 @@ WITH _data as (
     variationId
   ORDER BY evaluations DESC
   LIMIT 200
-      `);
+      `,
+      undefined,
+      { queryType: "featureUsage" },
+    );
 
     return {
       start: start.getTime(),

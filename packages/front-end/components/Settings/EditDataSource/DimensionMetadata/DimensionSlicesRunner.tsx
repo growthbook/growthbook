@@ -214,7 +214,6 @@ const RefreshData = ({
           mutate={mutate}
           model={dimensionSlices ?? { queries: [], runStarted: undefined }}
           cancelEndpoint={`/dimension-slices/${dimensionSlices?.id}/cancel`}
-          color={`${dimensionSlices ? "outline-" : ""}primary`}
           onSubmit={async () => {
             try {
               setError("");

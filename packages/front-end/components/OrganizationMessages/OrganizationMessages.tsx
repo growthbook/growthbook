@@ -10,7 +10,7 @@ type OrganizationMessagesProps = {
   messages: OrganizationMessage[];
 };
 
-const statusMap: Record<OrganizationMessage["level"], Status> = {
+export const statusMap: Record<OrganizationMessage["level"], Status> = {
   info: "info",
   warning: "warning",
   danger: "error",

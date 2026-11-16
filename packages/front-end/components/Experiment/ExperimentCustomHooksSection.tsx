@@ -10,7 +10,11 @@ import Heading from "@/ui/Heading";
 import Button from "@/ui/Button";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import CustomHookModal from "@/components/CustomHooks/CustomHookModal";
-import CustomHooksTable from "@/components/CustomHooks/CustomHooksTable";
+import CustomHooksTable, {
+  HookScope,
+  hookScopeColumn,
+  isHookScopedTo,
+} from "@/components/CustomHooks/CustomHooksTable";
 import PremiumCallout from "@/ui/PremiumCallout";
 import Text from "@/ui/Text";
 import LinkButton from "@/ui/LinkButton";
@@ -47,6 +51,12 @@ export default function ExperimentCustomHooksSection({
       ),
     [data, experiment.id, experiment.project],
   );
+
+  const scope: HookScope = {
+    entityType: "experiment",
+    entityId: experiment.id,
+    label: "Experiment",
+  };
 
   let disableReason = "";
   if (!hasAccessToCustomHooks) {
@@ -92,6 +102,7 @@ export default function ExperimentCustomHooksSection({
             </Heading>
             <Tooltip body={disableReason} shouldDisplay={!!disableReason}>
               <Button
+                mb="2"
                 onClick={() => setModalData(true)}
                 disabled={!hasAccessToCustomHooks || !canManage}
               >
@@ -101,11 +112,10 @@ export default function ExperimentCustomHooksSection({
           </Flex>
           <CustomHooksTable
             hooks={applicableHooks.filter((hook) => !!hook.entityId)}
-            entityType="experiment"
-            entityId={experiment.id}
-            scopeLabel="Experiment"
-            canManage={canManage}
-            setModalData={setModalData}
+            column={hookScopeColumn(scope)}
+            showIncremental
+            canManage={(hook) => canManage && isHookScopedTo(hook, scope)}
+            onEdit={setModalData}
             mutate={mutate}
           />
 
@@ -124,11 +134,9 @@ export default function ExperimentCustomHooksSection({
 
           <CustomHooksTable
             hooks={applicableHooks.filter((hook) => !hook.entityId)}
-            entityType="experiment"
-            entityId={experiment.id}
-            scopeLabel="Experiment"
-            canManage={canManage}
-            setModalData={setModalData}
+            column={hookScopeColumn(scope)}
+            showIncremental
+            canManage={() => false}
             mutate={mutate}
           />
         </>

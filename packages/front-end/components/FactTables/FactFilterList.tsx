@@ -2,7 +2,8 @@ import {
   FactTableInterface,
   FactFilterInterface,
 } from "shared/types/fact-table";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/router";
 import { IconButton } from "@radix-ui/themes";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { useAuth } from "@/services/auth";
@@ -14,6 +15,7 @@ import InlineCode from "@/components/SyntaxHighlighting/InlineCode";
 import { OfficialBadge } from "@/components/Metrics/MetricName";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Button from "@/ui/Button";
+import ExpandableBlock from "@/ui/ExpandableBlock";
 import {
   DropdownMenu,
   DropdownMenuGroup,
@@ -102,23 +104,70 @@ export interface Props {
   factTable: FactTableInterface;
 }
 
+const FILTER_PAGE_SIZE = 10;
+
 export default function FactFilterList({ factTable }: Props) {
+  const router = useRouter();
+  const requestedFilterId =
+    typeof router.query.filter === "string" ? router.query.filter : "";
+  const [highlightedFilterId, setHighlightedFilterId] =
+    useState(requestedFilterId);
   const [editOpen, setEditOpen] = useState("");
   const [newOpen, setNewOpen] = useState(false);
+  const didJumpToFilter = useRef(false);
 
   const permissionsUtil = usePermissionsUtil();
 
-  const { items, searchInputProps, isFiltered, SortableTH, clear, pagination } =
-    useSearch({
-      items: factTable?.filters || [],
-      defaultSortField: "name",
-      localStorageKey: "factFilters",
-      searchFields: ["name^3", "description", "value^2"],
-      pageSize: 10,
-    });
+  const {
+    items,
+    unpaginatedItems,
+    searchInputProps,
+    isFiltered,
+    SortableTH,
+    clear,
+    pagination,
+    page: currentPage,
+    setPage,
+  } = useSearch({
+    items: factTable?.filters || [],
+    defaultSortField: "name",
+    localStorageKey: "factFilters",
+    searchFields: ["name^3", "description", "value^2"],
+    pageSize: FILTER_PAGE_SIZE,
+  });
 
   const canAddAndEdit = permissionsUtil.canCreateAndUpdateFactFilter(factTable);
   const canDelete = permissionsUtil.canDeleteFactFilter(factTable);
+
+  useEffect(() => {
+    if (requestedFilterId) setHighlightedFilterId(requestedFilterId);
+  }, [requestedFilterId]);
+
+  // `?filter=<id>` deep-links one saved filter. The highlight is only a
+  // landing cue: drop the query once the row is in view.
+  useEffect(() => {
+    if (!requestedFilterId || didJumpToFilter.current) return;
+    const index = unpaginatedItems.findIndex(
+      (filter) => filter.id === requestedFilterId,
+    );
+    if (index < 0) return;
+    const page = Math.floor(index / FILTER_PAGE_SIZE) + 1;
+    if (page !== currentPage) {
+      setPage(page);
+      return;
+    }
+    const row = document.getElementById(`fact-filter-${requestedFilterId}`);
+    if (!row) return;
+    didJumpToFilter.current = true;
+    row.scrollIntoView({ block: "center" });
+    const query = { ...router.query };
+    delete query.filter;
+    void router.replace(
+      { pathname: router.pathname, query, hash: "filters" },
+      undefined,
+      { shallow: true },
+    );
+  }, [requestedFilterId, unpaginatedItems, currentPage, setPage, router]);
 
   return (
     <>
@@ -169,7 +218,11 @@ export default function FactFilterList({ factTable }: Props) {
       </div>
       {factTable.filters.length > 0 && (
         <>
-          <table className="table appbox gbtable mt-2 mb-0">
+          <table
+            className="table appbox gbtable mt-2 mb-0"
+            onPointerDown={() => setHighlightedFilterId("")}
+            onKeyDown={() => setHighlightedFilterId("")}
+          >
             <thead>
               <tr>
                 <SortableTH field="name">Name</SortableTH>
@@ -179,14 +232,30 @@ export default function FactFilterList({ factTable }: Props) {
             </thead>
             <tbody>
               {items.map((filter) => (
-                <tr key={filter.id}>
+                <tr
+                  key={filter.id}
+                  id={`fact-filter-${filter.id}`}
+                  aria-current={
+                    filter.id === highlightedFilterId ? "true" : undefined
+                  }
+                  style={
+                    filter.id === highlightedFilterId
+                      ? { backgroundColor: "var(--violet-a3)" }
+                      : undefined
+                  }
+                >
                   <td style={{ verticalAlign: "top" }}>
                     {filter.name}
                     <OfficialBadge type="filter" managedBy={filter.managedBy} />
                   </td>
                   <td style={{ verticalAlign: "top" }}>
                     <div style={{ marginTop: 2 }}>
-                      <InlineCode language="sql" code={filter.value} />
+                      <ExpandableBlock
+                        maxHeight={160}
+                        defaultExpanded={filter.id === highlightedFilterId}
+                      >
+                        <InlineCode language="sql" code={filter.value} />
+                      </ExpandableBlock>
                     </div>
                   </td>
                   <td style={{ verticalAlign: "top" }}>

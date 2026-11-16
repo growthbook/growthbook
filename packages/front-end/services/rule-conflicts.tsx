@@ -1,13 +1,13 @@
 import { useState, type ReactElement } from "react";
 import { Flex } from "@radix-ui/themes";
 import { FeatureRule } from "shared/types/feature";
+import { SavedGroupType } from "shared/types/saved-group";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { paddedVersionString } from "@growthbook/growthbook";
 import { ruleProjectScope } from "shared/util";
 import Callout from "@/ui/Callout";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
-import { getRadixColor, RadixColor, RadixStatusIcon } from "@/ui/HelperText";
 import { getUpcomingScheduleRule } from "@/services/scheduleRules";
 import { isRuleInactive } from "@/services/features";
 
@@ -219,7 +219,7 @@ type Expr =
 // the front-end loads ID-list values lazily — until they arrive a list group is
 // opaque (its attribute is still tracked for soft overlap).
 export type SavedGroupForConflicts = {
-  type: "list" | "condition";
+  type: SavedGroupType;
   attributeKey?: string;
   values?: string[];
   condition?: string;
@@ -404,6 +404,10 @@ function savedGroupToExpr(
       };
     }
     // Values not loaded yet (or empty) — opaque, but track the attribute.
+    return opaque(group.attributeKey ? [group.attributeKey] : []);
+  }
+  // Remote IDs are never loaded.
+  if (group.type === "remote") {
     return opaque(group.attributeKey ? [group.attributeKey] : []);
   }
   if (
@@ -848,6 +852,12 @@ function rangeHardConflicts<T extends number | string>(
   };
 }
 
+// An insensitive `in` escapes a case-sensitive `notIn` via other casings.
+function notInExcludesAll(n: NotInAtom, i: InAtom): boolean {
+  if (i.insensitive && !n.insensitive) return false;
+  return [...i.values].every((v) => setHasValue(n, v));
+}
+
 // Can we *prove* two atoms target disjoint populations? Used for soft overlap:
 // when we can't prove they're disjoint, a rule above might consume some of this
 // rule's users. Unhandled combinations conservatively return false (might overlap).
@@ -855,12 +865,8 @@ function provablyDisjoint(a: Atom, b: Atom): boolean {
   if (a.op === "in" && b.op === "in") {
     return !inSetsOverlap(a, b);
   }
-  if (a.op === "in" && b.op === "notIn") {
-    return [...a.values].every((v) => setHasValue(b, v));
-  }
-  if (a.op === "notIn" && b.op === "in") {
-    return [...b.values].every((v) => setHasValue(a, v));
-  }
+  if (a.op === "in" && b.op === "notIn") return notInExcludesAll(b, a);
+  if (a.op === "notIn" && b.op === "in") return notInExcludesAll(a, b);
   if (a.op === "in") return ![...a.values].some((v) => atomMatchesValue(b, v));
   if (b.op === "in") return ![...b.values].some((v) => atomMatchesValue(a, v));
   if (a.op === "num" && b.op === "num") {
@@ -875,6 +881,17 @@ function provablyDisjoint(a: Atom, b: Atom): boolean {
     return !rangesOverlap(a, b, cmp);
   }
   return false; // notIn/notIn, mismatched range types, … → can't prove disjoint
+}
+
+// Two rules can't share a user when any pair of their top-level AND atoms is disjoint.
+function rulesProvablyDisjoint(
+  a: ParsedTargeting,
+  b: ParsedTargeting,
+): boolean {
+  return a.constraints.some((ac) => {
+    const bc = b.constraints.find((c) => c.attr === ac.attr);
+    return !!bc && provablyDisjoint(ac.atom, bc.atom);
+  });
 }
 
 // Intersect two atoms on the same attribute into a single atom meaning "matches
@@ -1250,6 +1267,7 @@ export function getRuleReachability(
         // Only traffic-serving rules above that also reference this attribute
         // can overlap — every other rule is irrelevant, so we never scan them.
         for (const r of trafficByAttr.get(attr) ?? []) {
+          if (rulesProvablyDisjoint(target, r.parsed)) continue;
           const consumerOpaque = !r.parsed.modeledAttrs.has(attr);
           // Can't prove this rule above leaves our targeted users alone?
           let overlaps = targetOpaque || consumerOpaque;
@@ -1553,40 +1571,6 @@ function joinEnvNames(names: string[]): ReactElement {
   );
 }
 
-// The status badge for a rule's conflicts, mirroring the colour + icon of the
-// callout it summarizes so the top-right pill and the detail banner can never
-// disagree. Unreachable is the strongest tier (orange + the error/octagon icon);
-// any lesser conflict ("will not reach" / "may not reach") is an amber warning.
-// Returns null when the rule has no conflicts (no badge).
-export type ConflictBadge = {
-  color: RadixColor;
-  icon: ReactElement;
-  label: string;
-  title: string;
-};
-
-export function getConflictBadge(
-  banners: ConflictBanner[] | undefined,
-): ConflictBadge | null {
-  if (!banners?.length) return null;
-  if (banners.some((b) => b.isUnreachable)) {
-    return {
-      // Sourced from the "attention" status so the badge and the
-      // ConflictCallout always share the same orange + octagon icon.
-      color: getRadixColor("attention"),
-      icon: <RadixStatusIcon status="attention" size="sm" />,
-      label: "Unreachable",
-      title: "No matching traffic will reach this rule",
-    };
-  }
-  return {
-    color: "amber",
-    icon: <RadixStatusIcon status="warning" size="sm" />,
-    label: "Conflict",
-    title: "Some matching traffic may not reach this rule",
-  };
-}
-
 // Generic warning that some/all targeted traffic won't (or may not) reach this
 // rule, with an expandable explanation of which rule(s) consume it. In the
 // all-environments view `environments` / `allEnvironments` scope the banner to
@@ -1610,10 +1594,10 @@ export function ConflictCallout({
   const hasHard = conflicts.hard.length > 0;
   const hasSoft = conflicts.soft.length > 0;
   const base = isUnreachable
-    ? "No matching traffic will reach this rule"
+    ? "no matching traffic will reach this rule"
     : hasHard
-      ? "Some matching traffic will not reach this rule"
-      : "Some matching traffic may not reach this rule";
+      ? "some matching traffic will not reach this rule"
+      : "some matching traffic may not reach this rule";
   const envSuffix = allEnvironments ? (
     <> in all environments</>
   ) : environments.length > 0 ? (
@@ -1631,15 +1615,14 @@ export function ConflictCallout({
     ) : null;
   const headline = (
     <span>
-      {base}
+      <strong>{isUnreachable ? "Unreachable" : "Conflict"}</strong>: {base}
       {envSuffix}
       {projectSuffix}.
     </span>
   );
   const hasDetails = hasHard || hasSoft;
   // Unreachable uses the orange "attention" status (orange + the error octagon
-  // icon + alert role) so the banner matches its status badge; lesser conflicts
-  // stay amber "warning".
+  // icon + alert role); lesser conflicts stay amber "warning".
   const status = isUnreachable ? "attention" : "warning";
   return (
     <Callout status={status} size="sm">

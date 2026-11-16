@@ -56,9 +56,12 @@ import {
   canRebaseRevision,
   isRevisionAuthor,
   mayBeRevisionAuthor,
+  retractAuthorityOnRow,
   reviewAuthorityOnRow,
 } from "back-end/src/revisions/revisionAuthority";
+import { assertCasAuthority } from "back-end/src/models/casLoop";
 import { scheduleRevisionPublish } from "back-end/src/revisions/revisionLifecycle";
+import { assertPendingScheduleAcknowledged } from "back-end/src/revisions/pendingScheduleGuard";
 
 // Arming publishes into the entity as it stands when the fire happens, so
 // authorization uses the LIVE entity rather than the revision's snapshot: after
@@ -721,7 +724,6 @@ export const postReview = async (
     {
       type: "reviewed",
       decision,
-      userId,
       ...(comment ? { comment } : {}),
     },
   );
@@ -1136,6 +1138,7 @@ export const postMerge = async (
   if (!entity) {
     return res.status(404).json({ message: "Entity not found" });
   }
+  assertPendingScheduleAcknowledged(context, revision);
 
   const mergedRevision = await publishRevisionAction(
     context,
@@ -1182,6 +1185,7 @@ export const postApproveAndPublish = async (
   if (!entity) {
     return res.status(404).json({ message: "Entity not found" });
   }
+  assertPendingScheduleAcknowledged(context, revision);
 
   // Pre-flight publish feasibility BEFORE writing the approval. Otherwise a
   // conflict (or missing publish permission) surfaces only inside
@@ -1617,19 +1621,15 @@ export const postUndoReview = async (
     return res.status(404).json({ message: "Revision not found" });
   }
 
-  // Must have review permission to touch verdicts; the model enforces that
-  // only the caller's own active verdict is retracted.
-  if (!canRevisionOwnedAction(context, existingRevision, "review")) {
-    context.permissions.throwPermissionError();
-  }
-
   // Re-asked inside the CAS against the row the write is conditioned on — a
   // rebase between the two would otherwise carry this retraction into a
   // project the caller holds nothing in.
+  const authority = retractAuthorityOnRow(context);
+  await assertCasAuthority(authority, existingRevision);
   const revision = await revisionModel.undoReview(
     id,
     userId,
-    reviewAuthorityOnRow(context),
+    authority,
     // The cycle this caller was looking at when they asked to retract.
     existingRevision.reviewCycle ?? 0,
   );

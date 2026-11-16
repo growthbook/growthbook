@@ -170,6 +170,21 @@ export const isSavedGroupRevisionMetadataOnly = (
 };
 
 /**
+ * Returns true when every proposed change in the revision only archives or
+ * unarchives the saved group. An empty list returns false.
+ *
+ * A Remote Group can still be archived without the Enterprise plan, for
+ * cleanup; this tells those revisions apart from other changes.
+ */
+export const isSavedGroupRevisionArchiveOnly = (
+  proposedChanges: JsonPatchOperation[] | unknown,
+): boolean => {
+  const ops = normalizeProposedChanges(proposedChanges);
+  if (ops.length === 0) return false;
+  return ops.every((op) => op.path.split("/")[1] === "archived");
+};
+
+/**
  * Top-level constant fields that count as "metadata" for the `requireMetadataReview`
  * gate. The content fields (`value`, `environmentValues`) always require full
  * review when approval is enabled, since they change the value the SDK resolves.
@@ -308,6 +323,59 @@ export const getConstantRevisionChange = (
     changedEnvironments,
     metadataOnly: isConstantRevisionMetadataOnly(ops),
   };
+};
+
+/**
+ * What a write to an approved revision changed, for deciding whether it goes
+ * back for review. An edit keeps the snapshot and is judged on the difference
+ * between the states its `before` and `after` changes resolve to, so only what
+ * the edit added, altered, or removed counts. A rebase moves the snapshot, so
+ * it is judged the way publish judges the draft: what `after` still changes
+ * against its new snapshot.
+ */
+export const getConstantRevisionApprovalChange = (
+  before: {
+    snapshot: unknown;
+    proposedChanges: JsonPatchOperation[] | unknown;
+  },
+  after: { snapshot: unknown; proposedChanges: JsonPatchOperation[] | unknown },
+): { valueChanged: boolean; changedEnvironments: string[] } => {
+  const snapshot = after.snapshot as Pick<
+    ConstantInterface,
+    "value" | "environmentValues"
+  >;
+  if (!isEqual(before.snapshot, after.snapshot)) {
+    const { valueChanged, changedEnvironments } = getConstantRevisionChange(
+      snapshot,
+      after.proposedChanges,
+    );
+    return { valueChanged, changedEnvironments };
+  }
+
+  const beforeOps = normalizeProposedChanges(before.proposedChanges);
+  const afterOps = normalizeProposedChanges(after.proposedChanges);
+  const base = snapshot as unknown as Record<string, unknown>;
+  const was = applyTopLevelPatchOps(base, beforeOps);
+  const now = applyTopLevelPatchOps(base, afterOps);
+
+  const contentChanged = [...CONFIG_CONTENT_FIELDS].some(
+    (field) => !isEqual(was[field], now[field]),
+  );
+  // Ops this applier can't read make the resolved states unreliable; if the
+  // edit touched them, read it as the widest change it could be.
+  const unresolved =
+    !isEqual(beforeOps, afterOps) &&
+    (hasUnappliablePatchOps(beforeOps) || hasUnappliablePatchOps(afterOps));
+  const valueChanged =
+    !isEqual(was.value ?? "", now.value ?? "") || contentChanged || unresolved;
+
+  const wasEnvs = (was.environmentValues ?? {}) as Record<string, unknown>;
+  const nowEnvs = (now.environmentValues ?? {}) as Record<string, unknown>;
+  const changedEnvironments = Array.from(
+    new Set([...Object.keys(wasEnvs), ...Object.keys(nowEnvs)]),
+  ).filter((env) => !isEqual(wasEnvs[env] ?? "", nowEnvs[env] ?? ""));
+
+  return { valueChanged, changedEnvironments };
 };
 
 /**
@@ -740,10 +808,12 @@ const VERDICT_BASE: Record<string, "approved" | "changes-requested"> = {
   "request-changes": "changes-requested",
 };
 
-// As hooks see them: latest per reviewer, `decision` + `stale` collapsed.
+// As hooks see them: latest per reviewer, `decision` + `stale` collapsed. A
+// stored actor wins over the enriched one, so a hook can tell a key acted.
 export function toHookReviewerVerdicts<U, T>(
   reviews: {
     userId: string;
+    user?: U | null;
     decision: string;
     stale?: boolean;
     dateCreated: Date;
@@ -758,7 +828,7 @@ export function toHookReviewerVerdicts<U, T>(
 }[] {
   const latest = new Map<
     string,
-    { status: ReviewerVerdictStatus; timestamp: Date }
+    { status: ReviewerVerdictStatus; timestamp: Date; user?: U | null }
   >();
   for (const r of reviews) {
     const base = VERDICT_BASE[r.decision];
@@ -766,14 +836,18 @@ export function toHookReviewerVerdicts<U, T>(
     const status = (r.stale ? `${base}-stale` : base) as ReviewerVerdictStatus;
     const existing = latest.get(r.userId);
     if (existing && existing.timestamp > r.dateCreated) continue;
-    latest.set(r.userId, { status, timestamp: r.dateCreated });
+    latest.set(r.userId, { status, timestamp: r.dateCreated, user: r.user });
   }
-  return Array.from(latest, ([userId, v]) => ({
-    userId,
-    ...enrich(userId),
-    status: v.status,
-    timestamp: v.timestamp,
-  }));
+  return Array.from(latest, ([userId, v]) => {
+    const enriched = enrich(userId);
+    return {
+      userId,
+      user: v.user ?? enriched.user,
+      teams: enriched.teams,
+      status: v.status,
+      timestamp: v.timestamp,
+    };
+  });
 }
 
 // `contributors` may include the author, and carries blanks from older rows.

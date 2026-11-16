@@ -19,7 +19,9 @@
         "savedGroupReferences",
         "caseInsensitiveRegex",
         "caseInsensitiveMembership",
-        "contextualBandits"
+        "contextualBandits",
+        "savedGroupReferencesV2",
+        "contextualBanditsAuto"
       ]
     }
   ]

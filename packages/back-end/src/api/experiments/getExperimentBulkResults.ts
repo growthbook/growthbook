@@ -4,7 +4,10 @@ import { getExperimentBulkResultsValidator } from "shared/validators";
 import { ApiRequestLocals } from "back-end/types/api";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import { findSnapshotsByExperiment } from "back-end/src/models/ExperimentSnapshotModel";
-import { getMetricMapForExperimentSnapshots } from "back-end/src/services/experiments";
+import {
+  getHealthSettingsForOrg,
+  getMetricMapForExperimentSnapshots,
+} from "back-end/src/services/experiments";
 import { toExperimentSnapshotBulkResultsApiInterface } from "back-end/src/api/experiments/bulkResultSerialization";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import {
@@ -16,6 +19,7 @@ import {
   EXPERIMENT_BULK_RESULTS_ENABLED,
   EXPERIMENT_BULK_RESULTS_RATE_LIMIT_MAX,
 } from "back-end/src/util/secrets";
+import { getExposureQueriesForDatasource } from "back-end/src/services/assignmentQuerySelection";
 
 // Answer exactly like the router's unknown-endpoint handler when disabled, so
 // a gated endpoint is indistinguishable from one that doesn't exist.
@@ -87,11 +91,29 @@ export const getExperimentBulkResults = createApiRequestHandler({
 
   // A single snapshot expands into one result item per dimension; pagination
   // stays over snapshots, so `count` reflects snapshots on this page.
+  const datasourceIds = [
+    ...new Set(
+      snapshots.map((s) => s.settings.datasourceId || experiment.datasource),
+    ),
+  ];
+  const exposureQueriesByDatasource = new Map(
+    await Promise.all(
+      datasourceIds.map(
+        async (id) =>
+          [id, await getExposureQueriesForDatasource(req.context, id)] as const,
+      ),
+    ),
+  );
+  const healthSettings = getHealthSettingsForOrg(req.context);
   const results = snapshots.flatMap((snapshot) =>
     toExperimentSnapshotBulkResultsApiInterface(
       experiment,
       snapshot,
       metricsById,
+      exposureQueriesByDatasource.get(
+        snapshot.settings.datasourceId || experiment.datasource,
+      ) ?? [],
+      healthSettings,
     ),
   );
 

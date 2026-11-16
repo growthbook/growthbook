@@ -6,12 +6,13 @@ import type {
   FactMetricQuantileData,
   FactMetricSource,
 } from "shared/types/integrations";
-import type { ExperimentMetricInterface } from "shared/experiments";
+import { type ExperimentMetricInterface } from "shared/experiments";
 import type { FactMetricInterface } from "shared/types/fact-table";
 import type { SqlDialect } from "shared/types/sql";
 import type { FactTableMap } from "back-end/src/models/FactTableModel";
 import { applyMetricOverrides } from "back-end/src/util/integration";
 
+import { getFactMetricPercentileData } from "back-end/src/integrations/sql/columns/fact-metric-percentile-data";
 import { getFactMetricQuantileData } from "back-end/src/integrations/sql/columns/fact-metric-quantile-data";
 import { getFactTablesForMetrics } from "back-end/src/integrations/sql/fact-metrics/fact-tables-for-metrics";
 import { getMetricData } from "back-end/src/integrations/sql/fact-metrics/metric-data";
@@ -35,6 +36,7 @@ export function parseExperimentFactMetricsParams(
     settings: ExperimentSnapshotSettings;
     factTableMap: FactTableMap;
     lastMaxTimestamp: Date | null;
+    lastMaxTimestampRaw?: string | null;
     covariateTableAlias: string;
     forcedUserIdType?: string;
     // When set, restrict fact-table discovery to a single FT. Cross-FT
@@ -45,6 +47,10 @@ export function parseExperimentFactMetricsParams(
     // refresh inserts so a metric hub like `[A/B, A/C]` can populate the
     // FT_A cache without tripping the 2-FT cap on {A, B, C}.
     targetFactTableId?: string;
+    // When true, column references use the bare `m` alias instead of
+    // per-source `m{i}` aliases. Set for multi-FT funnel statistics queries
+    // where all sources are flattened into one table.
+    flattenSources?: boolean;
   },
 ): {
   // One entry per fact table touched by `metrics` (clamped to a single entry
@@ -93,32 +99,13 @@ export function parseExperimentFactMetricsParams(
       factTablesWithMetrics,
       params.covariateTableAlias,
       `m${m.index}`,
+      params.flattenSources ?? false,
     );
   });
 
-  // Build the flat per-metric pivots once, from the global metricData. Each
-  // entry carries its `sourceIndex` (already set in metric-data.ts), so
-  // consumers can partition per source by filtering on that field.
-  const percentileData: FactMetricPercentileData[] = [];
-  metricData.forEach((m) => {
-    if (!m.isPercentileCapped) return;
-    percentileData.push({
-      valueCol: `${m.alias}_value`,
-      outputCol: `${m.alias}_value_cap`,
-      percentile: m.metric.cappingSettings.value ?? 1,
-      ignoreZeros: m.metric.cappingSettings.ignoreZeros ?? false,
-      sourceIndex: m.numeratorSourceIndex,
-    });
-    if (m.ratioMetric) {
-      percentileData.push({
-        valueCol: `${m.alias}_denominator`,
-        outputCol: `${m.alias}_denominator_cap`,
-        percentile: m.metric.cappingSettings.value ?? 1,
-        ignoreZeros: m.metric.cappingSettings.ignoreZeros ?? false,
-        sourceIndex: m.denominatorSourceIndex,
-      });
-    }
-  });
+  const percentileData = metricData.flatMap((m) =>
+    getFactMetricPercentileData(m),
+  );
 
   const eventQuantileData = getFactMetricQuantileData(metricData, "event");
 
@@ -173,6 +160,9 @@ export function parseExperimentFactMetricsParams(
       metricStart: startDate,
       metricEnd,
       bindingLastMaxTimestamp,
+      lastMaxTimestampRaw: bindingLastMaxTimestamp
+        ? (params.lastMaxTimestampRaw ?? null)
+        : null,
       minCovariateStartDate,
       maxCovariateEndDate,
     };

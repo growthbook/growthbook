@@ -8,6 +8,7 @@ export {
   EventUser,
   EventUserLoggedIn,
   EventUserApiKey,
+  EventUserRequestedBy,
 } from "shared/validators";
 
 /**

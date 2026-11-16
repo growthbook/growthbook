@@ -1,5 +1,6 @@
 import {
   canEnableEnvironmentOnCreate,
+  targetingRefusal,
   NO_ENVIRONMENT_BINDING,
 } from "shared/permissions";
 import { useForm, FormProvider } from "react-hook-form";
@@ -27,7 +28,7 @@ import { useFeatureMetaInfo } from "@/hooks/useFeatureMetaInfo";
 import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import track from "@/services/track";
+import track, { entityTrackingHash } from "@/services/track";
 import {
   genDuplicatedKey,
   getDefaultValue,
@@ -166,6 +167,8 @@ const genFormDefaultValues = ({
       };
 };
 
+const NOTHING_TARGETED_YET = { allProjects: false, targetingProjects: [] };
+
 export default function FeatureModal({
   close,
   onSuccess,
@@ -174,7 +177,12 @@ export default function FeatureModal({
   secondaryCTA,
   featureToDuplicate,
 }: Props) {
-  const { project, refreshTags, configs } = useDefinitions();
+  const {
+    project,
+    refreshTags,
+    configs,
+    targetingOptOutProjectIds: targetingOptOut,
+  } = useDefinitions();
   const environments = useEnvironments();
   const permissionsUtil = usePermissionsUtil();
   const { refreshWatching } = useWatching();
@@ -303,11 +311,30 @@ export default function FeatureModal({
       !selectedProject && projectOptions.length > 0
         ? "Select a project to continue."
         : "You don't have permission to create Feature Flags.";
+  } else {
+    // A new flag's whole targeting set is an addition, duplicated or not.
+    const proposedTargeting = {
+      project: form.watch("project") ?? selectedProject,
+      targetingAllProjects: form.watch("targetingAllProjects"),
+      targetingProjects: form.watch("targetingProjects"),
+    };
+    const refusal = targetingRefusal({
+      permissions: permissionsUtil,
+      existing: {},
+      proposed: proposedTargeting,
+      optedOut: targetingOptOut,
+    });
+    if (refusal) {
+      ctaEnabled = false;
+      disabledMessage =
+        refusal.cause === "opted-out"
+          ? "One or more of the selected Projects don't allow targeting from other Projects' Feature Flags."
+          : "You don't have permission to target one or more of the selected Projects.";
+    }
   }
 
   return (
     <Modal
-      useRadixButton={false}
       trackingEventModalType=""
       open
       size="lg"
@@ -373,6 +400,7 @@ export default function FeatureModal({
 
         const body = {
           ...feature,
+          duplicateOf: featureToDuplicate?.id,
           baseConfig: configKey,
           defaultValue: storedDefault,
           holdout: {
@@ -387,6 +415,7 @@ export default function FeatureModal({
         });
 
         track("Feature Created", {
+          entity_id_hash: entityTrackingHash(res.feature.id),
           valueType: values.valueType,
           hasDescription: !!values.description?.length,
           initialRule: "none",
@@ -428,6 +457,7 @@ export default function FeatureModal({
         <TargetingProjectsField
           mb="5"
           primaryProject={selectedProject}
+          baseline={NOTHING_TARGETED_YET}
           allProjects={!!form.watch("targetingAllProjects")}
           setAllProjects={(v) => form.setValue("targetingAllProjects", v)}
           targetingProjects={form.watch("targetingProjects") ?? []}
@@ -584,8 +614,6 @@ export default function FeatureModal({
               // to the selected project instead of passing a `feature`.
               project={selectedProject || undefined}
               constantContext={{ project: selectedProject || undefined }}
-              useCodeInput={true}
-              showFullscreenButton={true}
               // Config-backing is offered only for the "config" authoring type — a
               // plain JSON flag can't extend a config (any manual `@config:` in its
               // value is stripped on submit).

@@ -10,8 +10,9 @@ import {
   PiWarningBold,
   PiX,
 } from "react-icons/pi";
-import ReactDiffViewer, { DiffMethod } from "react-diff-viewer-continued";
+import { DiffMethod } from "react-diff-viewer-continued";
 import { datetime } from "shared/dates";
+import LazyDiffViewer from "@/components/AuditHistoryExplorer/LazyDiffViewer";
 import EventUser from "@/components/Avatar/EventUser";
 import { auditUserInfoToEventUser } from "@/components/Avatar/auditUserToEventUser";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -191,7 +192,7 @@ function RawAuditDetails({ entry }: { entry: CoarsenedAuditEntry<unknown> }) {
           </Text>
           <div className="diff-wrapper">
             <div className="list-group-item list-group-item-light">
-              <ReactDiffViewer
+              <LazyDiffViewer
                 oldValue={pre}
                 newValue={post}
                 compareMethod={DiffMethod.LINES}
@@ -461,7 +462,7 @@ export default function CompareAuditEvents<T>({
   };
 
   return (
-    <Flex style={{ flex: 1, minHeight: 0, height: "100%" }}>
+    <Flex style={{ flex: 1, minHeight: 0, minWidth: 0, height: "100%" }}>
       {confirmRevertEntry && revert && (
         <ConfirmDialog
           title={revert.confirmTitle ?? revert.cta}
@@ -871,12 +872,13 @@ export default function CompareAuditEvents<T>({
         </Box>
       </Box>
 
-      {/* Right column */}
+      {/* Right column. minWidth 0 (here and on the root) keeps long code lines
+          scrolling inside the column instead of widening the modal. */}
       <Box
         flexGrow="1"
         position="relative"
         className={`${styles.sidebar} overflow-auto`}
-        style={{ minHeight: 0 }}
+        style={{ minHeight: 0, minWidth: 0 }}
       >
         {steps.length === 0 && !isSingleEntry ? (
           <Text color="text-low">

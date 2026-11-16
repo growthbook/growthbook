@@ -29,6 +29,7 @@ import { holdsMoveDestination } from "back-end/src/revisions/moveAuthority";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { ApiErrorResponse } from "back-end/types/api";
 import { getContextFromReq } from "back-end/src/services/organizations";
+import { parseIdsQuery } from "back-end/src/util/validation";
 import {
   createOrUpdateRevision,
   buildPatchOps,
@@ -47,7 +48,11 @@ import {
   assertKeyAvailable,
 } from "back-end/src/services/constants";
 import { assertConstantArchiveDependentsGuard } from "back-end/src/services/archiveDependentsGuard";
-import { getResolvableValues } from "back-end/src/services/resolvableValues";
+import {
+  ClientResolvable,
+  getClientResolvables,
+  getResolvableValues,
+} from "back-end/src/services/resolvableValues";
 import { dispatchConstantRevisionEvent } from "back-end/src/services/constantRevisionEvents";
 import { assertConstantPublishGuards } from "back-end/src/services/publishGuards";
 import { constantChangeAffectsServedValue } from "back-end/src/services/experimentGuard";
@@ -78,6 +83,29 @@ export const getConstants = async (
   return res.status(200).json({ status: 200, constants });
 };
 
+// GET /constants-resolvables?project=&constants=&configs= — the constants and
+// configs resolving the given keys reaches in that project, so a page can show
+// what the SDK receives.
+export const getConstantResolvables = async (
+  req: AuthRequest<
+    null,
+    Record<string, never>,
+    { project?: string; constants?: string; configs?: string }
+  >,
+  res: Response<{ status: 200; constants: ClientResolvable[] }>,
+) => {
+  const context = getContextFromReq(req);
+  const constants = await getClientResolvables(
+    context,
+    req.query.project ?? "",
+    {
+      constants: parseIdsQuery(req.query.constants) ?? [],
+      configs: parseIdsQuery(req.query.configs) ?? [],
+    },
+  );
+  return res.status(200).json({ status: 200, constants });
+};
+
 // GET /constants/draft-states — active draft status counts per constant id, for
 // the "Draft Status" column on the list page (mirrors saved groups).
 export const getConstantDraftStates = async (
@@ -85,9 +113,7 @@ export const getConstantDraftStates = async (
   res: Response,
 ) => {
   const context = getContextFromReq(req);
-  const ids = req.query.ids
-    ? req.query.ids.split(",").filter(Boolean)
-    : undefined;
+  const ids = parseIdsQuery(req.query.ids);
   const constants = await context.models.revisions.getActiveDraftStates(
     "constant",
     ids,

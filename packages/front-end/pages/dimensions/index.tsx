@@ -3,6 +3,7 @@ import { FaPencilAlt } from "react-icons/fa";
 import { DimensionInterface } from "shared/types/dimension";
 import NextLink from "next/link";
 import { ago } from "shared/dates";
+import { getExposureQueryIdentifierTypes } from "shared/util";
 import { Box, Flex } from "@radix-ui/themes";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import Link from "@/ui/Link";
@@ -50,22 +51,18 @@ function getExperimentDimensions(
     ds.settings.queries?.exposure?.forEach((eq) => {
       eq.dimensions.forEach((d) => {
         const key = `${d}-${ds.id}`;
-        if (!collapsedExperimentDimensions[key]) {
-          collapsedExperimentDimensions[key] = {
-            id: key,
-            dimension: d,
-            datasourceName: ds.name,
-            datasourceId: ds.id,
-            identifierTypes: [eq.userIdType],
-          };
-        } else if (
-          !collapsedExperimentDimensions[key].identifierTypes.includes(
-            eq.userIdType,
-          )
-        ) {
-          collapsedExperimentDimensions[key].identifierTypes.push(
-            eq.userIdType,
-          );
+        collapsedExperimentDimensions[key] ??= {
+          id: key,
+          dimension: d,
+          datasourceName: ds.name,
+          datasourceId: ds.id,
+          identifierTypes: [],
+        };
+        const { identifierTypes } = collapsedExperimentDimensions[key];
+        for (const identifierType of getExposureQueryIdentifierTypes(eq)) {
+          if (!identifierTypes.includes(identifierType)) {
+            identifierTypes.push(identifierType);
+          }
         }
       });
     });

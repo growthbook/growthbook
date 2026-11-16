@@ -1,0 +1,49 @@
+.slide {
+  display: none;
+}
+
+.active {
+  display: block;
+}
+
+// Out of the way until the carousel is pointed at or tabbed into.
+.ribbon {
+  position: absolute;
+  top: var(--space-1);
+  left: 50%;
+  z-index: 1;
+  transform: translateX(-50%);
+  // Hugs its round buttons.
+  border-radius: 9999px;
+  background-color: color-mix(
+    in srgb,
+    var(--color-panel-solid) 50%,
+    transparent
+  );
+  // A touch of blur, so the count holds up over a busy image.
+  backdrop-filter: blur(2px);
+  box-shadow: 0 0 0 1px var(--gray-a4);
+  opacity: 0;
+  transition: opacity 100ms ease;
+}
+
+// Wide enough for "35 of 35", so paging never changes the ribbon's width.
+.count {
+  // Its own size, so the width is measured in the text's characters.
+  font-size: var(--font-size-1);
+  width: 7ch;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.carousel:hover .ribbon,
+.carousel:focus-within .ribbon {
+  opacity: 1;
+}
+
+// Nothing to hover on a touch screen, so it simply shows.
+@media (hover: none) {
+  .ribbon {
+    opacity: 1;
+  }
+}

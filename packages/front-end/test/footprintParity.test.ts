@@ -1,7 +1,12 @@
 import { describe, it, expect } from "vitest";
 import {
+  Permissions,
   archiveFootprintForControl,
+  canApplyExpirationPolicy,
+  canManageApiKeySecret,
+  canSetApiKeyDisabled,
   featurePublishFootprint,
+  interleavingEnvsForChange,
   revertFootprint,
   serveFootprint,
   NO_ENVIRONMENT_BINDING,
@@ -344,5 +349,120 @@ describe("the cancel footprint is the entity's own scope, unwidened", () => {
 
   it("a Constant answers unbound when no environment override changes", () => {
     expect(constantPublishEnvironments()).toEqual(NO_ENVIRONMENT_BINDING);
+  });
+});
+
+describe("metric creation has no environment footprint", () => {
+  it("allows Fact Metric creation across environments when its project atom is granted", () => {
+    const permissions = new Permissions({
+      global: {
+        permissions: { manageFactMetrics: true, createMetrics: false },
+        limitAccessByEnvironment: true,
+        environments: ["dev"],
+      },
+      projects: {},
+    });
+    expect(permissions.canCreateFactMetric({ projects: ["prj_web"] })).toBe(
+      true,
+    );
+    expect(permissions.canCreateMetric({ projects: ["prj_web"] })).toBe(false);
+  });
+});
+
+describe("API key controls have no environment footprint", () => {
+  it("keeps each grant for an environment-limited role", () => {
+    const envLimited = (granted: string) =>
+      new Permissions({
+        global: {
+          permissions: { [granted]: true },
+          limitAccessByEnvironment: true,
+          environments: ["dev"],
+        },
+        projects: {},
+      });
+    const deleteOnly = envLimited("deleteApiKeys");
+    const editOnly = envLimited("editApiKeys");
+    const tokensOnly = envLimited("managePersonalAccessTokens");
+    const createOnly = envLimited("createApiKeys");
+
+    expect(canManageApiKeySecret(createOnly, {}, "u_1")).toBe(true);
+    expect(
+      canSetApiKeyDisabled(deleteOnly, { disabled: false }, "u_1", true),
+    ).toBe(true);
+    expect(canApplyExpirationPolicy(deleteOnly, "secret")).toBe(true);
+    expect(
+      canSetApiKeyDisabled(
+        editOnly,
+        { disabled: true, disabledBy: "u_x" },
+        "u_1",
+        false,
+      ),
+    ).toBe(true);
+    expect(
+      canSetApiKeyDisabled(
+        tokensOnly,
+        { userId: "u_owner", disabled: false },
+        "u_1",
+        true,
+      ),
+    ).toBe(true);
+    expect(canApplyExpirationPolicy(tokensOnly, "pat")).toBe(true);
+  });
+});
+
+describe("interleaving serving footprint", () => {
+  const enabled = (...ids: string[]) => ({
+    environmentSettings: Object.fromEntries(
+      environmentIds.map((id) => [id, { enabled: ids.includes(id) }]),
+    ),
+  });
+
+  it("answers for the environments it currently serves", () => {
+    expect(
+      interleavingEnvsForChange({
+        existing: enabled("production"),
+        environmentIds,
+      }),
+    ).toEqual(["production"]);
+  });
+
+  it("answers for nothing when it serves nowhere", () => {
+    expect(
+      interleavingEnvsForChange({ existing: enabled(), environmentIds }),
+    ).toEqual([]);
+  });
+
+  it("unions both sides of a toggle so neither end is unguarded", () => {
+    expect(
+      interleavingEnvsForChange({
+        existing: enabled("dev"),
+        updated: enabled("production"),
+        environmentIds,
+      }).sort(),
+    ).toEqual(["dev", "production"]);
+  });
+
+  it("still answers for an environment being turned off", () => {
+    expect(
+      interleavingEnvsForChange({
+        existing: enabled("production"),
+        updated: enabled(),
+        environmentIds,
+      }),
+    ).toEqual(["production"]);
+  });
+
+  it("ignores environments the organization does not have", () => {
+    expect(
+      interleavingEnvsForChange({
+        existing: {
+          environmentSettings: {
+            production: { enabled: true },
+            ghost: { enabled: true },
+          },
+        },
+        environmentIds,
+      }),
+    ).toEqual(["production"]);
   });
 });

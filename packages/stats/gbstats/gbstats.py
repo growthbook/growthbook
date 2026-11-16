@@ -3,7 +3,7 @@ import dataclasses
 import re
 import traceback
 import copy
-from typing import Any, Dict, List, Optional, Set, Tuple, Union
+from typing import Any, Dict, List, Optional, Set, Tuple, TypeVar, Union
 
 import pandas as pd
 
@@ -84,12 +84,15 @@ from gbstats.models.statistics import (
 )
 from gbstats.utils import check_srm
 
-from gbstats.models.tests import EffectMomentsResult
+from gbstats.models.tests import BaseABTest, EffectMomentsResult
+
+TestT = TypeVar("TestT", bound=BaseABTest)
 
 
 SUM_COLS = [
     "users",
     "count",
+    "sub_count",
     "main_sum",
     "main_sum_squares",
     "denominator_sum",
@@ -184,6 +187,7 @@ def get_dimension_column_name(dimension: str) -> str:
 @dataclass
 class InitialMetricDataStrata:
     total_units: int
+    total_sub_units: int
     data: Dict[str, Dict[str, Any]]
 
 
@@ -191,6 +195,7 @@ class InitialMetricDataStrata:
 class DimensionMetricData:
     dimension: str
     total_units: int
+    total_sub_units: int
     data: pd.DataFrame
 
 
@@ -230,6 +235,7 @@ def get_metric_dfs(
         if dim not in dimensions:
             dimensions[dim] = InitialMetricDataStrata(
                 total_units=0,
+                total_sub_units=0,
                 data={},
             )
         if strata not in dimensions[dim].data:
@@ -252,6 +258,7 @@ def get_metric_dfs(
         if key in var_id_map:
             i = var_id_map[key]
             dimensions[dim].total_units += getattr(row, "users", 0)
+            dimensions[dim].total_sub_units += getattr(row, "sub_count", 0)
             prefix = f"v{i}" if i > 0 else "baseline"
 
             # Sum here in case multiple rows per dimension
@@ -275,6 +282,7 @@ def get_metric_dfs(
         DimensionMetricData(
             dimension=dimension,
             total_units=dimension_data.total_units,
+            total_sub_units=dimension_data.total_sub_units,
             data=pd.DataFrame([s for s in dimension_data.data.values()]),
         )
         for dimension, dimension_data in dimensions.items()
@@ -306,6 +314,7 @@ def reduce_dimensionality(
             current.data["dimension"] = "(other)"
             dimension.data["dimension"] = "(other)"
             current.total_units += dimension.total_units
+            current.total_sub_units += dimension.total_sub_units
             for v in range(num_variations):
                 prefix = f"v{v}" if v > 0 else "baseline"
                 if combine_strata:
@@ -326,6 +335,7 @@ def get_configured_test(
     analysis: AnalysisSettingsForStatsEngine,
     metric: MetricSettingsForStatsEngine,
     post_stratify: bool = False,
+    total_sub_units: int = 0,
 ) -> StatisticalTests:
 
     base_config = {
@@ -335,6 +345,15 @@ def get_configured_test(
         "difference_type": analysis.difference_type,
         "post_stratify": post_stratify,
     }
+
+    # Sub-unit cluster scaled-impact inputs are set on the test instance after
+    # construction rather than on the (public) Config classes, so their
+    # constructor signatures stay backward-compatible.
+    def with_scaling_settings(test: TestT) -> TestT:
+        test.total_sub_units = total_sub_units
+        test.scale_by_sub_unit_count = metric.scale_by_sub_unit_count
+        return test
+
     if analysis.use_covariate_as_response:
         num_variations = len(analysis.var_names)
         # if there are no goal metrics, just use 1 as the number of tests
@@ -355,15 +374,19 @@ def get_configured_test(
             )
             if analysis.one_sided_intervals:
                 if metric.inverse:
-                    return SequentialOneSidedTreatmentGreaterTTest(
-                        stats, sequential_config
+                    return with_scaling_settings(
+                        SequentialOneSidedTreatmentGreaterTTest(
+                            stats, sequential_config
+                        )
                     )
                 else:
-                    return SequentialOneSidedTreatmentLesserTTest(
-                        stats, sequential_config
+                    return with_scaling_settings(
+                        SequentialOneSidedTreatmentLesserTTest(stats, sequential_config)
                     )
             else:
-                return SequentialTwoSidedTTest(stats, sequential_config)
+                return with_scaling_settings(
+                    SequentialTwoSidedTTest(stats, sequential_config)
+                )
         else:
             config = FrequentistConfig(
                 **base_config,
@@ -371,11 +394,15 @@ def get_configured_test(
             )
             if analysis.one_sided_intervals:
                 if metric.inverse:
-                    return OneSidedTreatmentGreaterTTest(stats, config)
+                    return with_scaling_settings(
+                        OneSidedTreatmentGreaterTTest(stats, config)
+                    )
                 else:
-                    return OneSidedTreatmentLesserTTest(stats, config)
+                    return with_scaling_settings(
+                        OneSidedTreatmentLesserTTest(stats, config)
+                    )
             else:
-                return TwoSidedTTest(stats, config)
+                return with_scaling_settings(TwoSidedTTest(stats, config))
     else:
         if analysis.use_covariate_as_response:
             prior = GaussianPrior(
@@ -389,15 +416,17 @@ def get_configured_test(
                 variance=pow(metric.prior_stddev, 2),
                 proper=metric.prior_proper,
             )
-        return EffectBayesianABTest(
-            stats,
-            EffectBayesianConfig(
-                **base_config,
-                inverse=metric.inverse,
-                prior_effect=prior,
-                prior_type="relative",
-                alpha=alpha,
-            ),
+        return with_scaling_settings(
+            EffectBayesianABTest(
+                stats,
+                EffectBayesianConfig(
+                    **base_config,
+                    inverse=metric.inverse,
+                    prior_effect=prior,
+                    prior_type="relative",
+                    alpha=alpha,
+                ),
+            )
         )
 
 
@@ -636,6 +665,7 @@ def analyze_metric_df(
                 analysis=analysis,
                 metric=metric,
                 post_stratify=post_stratify,
+                total_sub_units=dimensionData.total_sub_units,
             )
             res = test.compute_result()
             realized_settings = test.realized_settings
@@ -738,6 +768,7 @@ def get_metric_response(
         count=count,
         stddev=statistic.stddev,
         mean=statistic.unadjusted_mean,
+        sub_count=int(metric_row[f"{prefix}_sub_count"].sum()),
     )
     return BaselineResponse(
         cr=statistic.unadjusted_mean,
@@ -847,7 +878,7 @@ def variation_statistic_from_metric_row(
         )
         post_pre_sum_of_products = row[f"{prefix}_main_covariate_sum_product"]
         n = row[f"{prefix}_users"]
-        # Theta will be overriden with correct value later for A/B tests, needs to be passed in for bandits
+        # Theta will be overridden with correct value later for A/B tests, needs to be passed in for bandits
         theta = None
         if metric.keep_theta:
             theta = row[f"{prefix}_theta"] if f"{prefix}_theta" in row.index else 0
@@ -1184,6 +1215,19 @@ def process_single_metric(
             )
             continue
         try:
+            if (
+                a.is_cluster_experiment
+                and a.dimension == ""
+                and any(
+                    str(col).startswith("dim_exp_") or str(col).startswith("dim_unit_")
+                    for col in pdrows.columns
+                )
+            ):
+                raise ValueError(
+                    "Cluster-experiment overall analysis received dimension-bearing "
+                    "rows; the parent query must be dimensionless to preserve "
+                    "cluster-robust variance."
+                )
             dimensions = process_analysis(
                 rows=pdrows,
                 var_id_map=get_var_id_map(a.var_ids),
@@ -1225,13 +1269,11 @@ def create_bandit_statistics(
         stat = variation_statistic_from_metric_row(
             row=metric_data, prefix=prefix, metric=metric
         )
-        # recast proportion metrics in case they slipped through
-        # for bandits we weight by period; iid data over periods no longer holds
+        # Binomial metrics are coerced to "count" upstream for bandits.
         if isinstance(stat, ProportionStatistic):
-            stat = SampleMeanStatistic(
-                n=stat.n,
-                sum=stat.sum,
-                sum_squares=stat.sum,
+            raise ValueError(
+                "ProportionStatistic not supported for bandits; "
+                "binomial metrics must be recast to count upstream"
             )
         if isinstance(stat, QuantileStatistic):
             raise ValueError("QuantileStatistic not supported for bandits")
@@ -1357,7 +1399,7 @@ def get_bandit_result(
     return get_error_bandit_result(
         single_variation_results=None,
         update_message="not updated",
-        error="no data froms sql query matches dimension",
+        error="no data from sql query matches dimension",
         reweight=bandit_settings.reweight,
         current_weights=bandit_settings.current_weights,
     )

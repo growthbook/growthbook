@@ -5,6 +5,7 @@ import { datetime } from "shared/dates";
 import useApi from "@/hooks/useApi";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import Code from "@/components/SyntaxHighlighting/Code";
+import SettingsPage from "@/components/Layout/SettingsPage";
 import Callout from "@/ui/Callout";
 
 type EventDetailProps = {
@@ -13,16 +14,12 @@ type EventDetailProps = {
 
 export const EventDetail: FC<EventDetailProps> = ({ event }) => {
   return (
-    <div>
-      <h1>{event.event}</h1>
-      <h2 className="text-muted mb-3">{datetime(event.dateCreated)}</h2>
-      <Code
-        language="json"
-        filename={event.data.event}
-        code={JSON.stringify(event.data, null, 2)}
-        expandable={false}
-      />
-    </div>
+    <Code
+      language="json"
+      filename={event.data.event}
+      code={JSON.stringify(event.data, null, 2)}
+      expandable={false}
+    />
   );
 };
 
@@ -35,14 +32,21 @@ export const EventDetailContainer = () => {
   }>(`/events/${eventId}`);
 
   const event = data?.event;
+  const title = event?.event ?? "Event";
 
-  if (error || (!isValidating && !event)) {
-    return <Callout status="error">Unable to fetch event {eventId}</Callout>;
-  }
-
-  if (!event) {
-    return <LoadingSpinner />;
-  }
-
-  return <EventDetail event={event} />;
+  return (
+    <SettingsPage
+      title={title}
+      description={event ? datetime(event.dateCreated) : undefined}
+      parent={{ display: "Events Log", href: "/events" }}
+    >
+      {error || (!isValidating && !event) ? (
+        <Callout status="error">Unable to fetch event {eventId}</Callout>
+      ) : !event ? (
+        <LoadingSpinner />
+      ) : (
+        <EventDetail event={event} />
+      )}
+    </SettingsPage>
+  );
 };

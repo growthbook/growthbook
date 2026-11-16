@@ -17,8 +17,6 @@ import {
   DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
   DEFAULT_STATS_ENGINE,
   DEFAULT_TARGET_MDE,
-  DEFAULT_WIN_RISK_THRESHOLD,
-  DEFAULT_LOSE_RISK_THRESHOLD,
   DEFAULT_SRM_THRESHOLD,
   DEFAULT_USE_STICKY_BUCKETING,
   DEFAULT_STICKY_BUCKETING_ON_BY_DEFAULT,
@@ -50,6 +48,7 @@ export const DEFAULT_BANDIT_SCHEDULE_VALUE = 1;
 export const DEFAULT_BANDIT_SCHEDULE_UNIT = "days";
 export const DEFAULT_BANDIT_BURN_IN_VALUE = 1;
 export const DEFAULT_BANDIT_BURN_IN_UNIT = "days";
+export const DEFAULT_BANDIT_PERIOD_WEIGHTING = false;
 
 export const DEFAULT_METRIC_DEFAULTS: MetricDefaults = {
   maxPercentageChange: 0.5,
@@ -93,8 +92,6 @@ export default function genDefaultSettings(): Settings {
     windowType: DEFAULT_METRIC_WINDOW,
     windowHours: DEFAULT_METRIC_WINDOW_HOURS,
     delayHours: DEFAULT_METRIC_WINDOW_DELAY_HOURS,
-    loseRisk: DEFAULT_LOSE_RISK_THRESHOLD,
-    winRisk: DEFAULT_WIN_RISK_THRESHOLD,
     srmThreshold: DEFAULT_SRM_THRESHOLD,
     secureAttributeSalt: DEFAULT_SECURE_ATTRIBUTE_SALT,
     killswitchConfirmation: DEFAULT_KILLSWITCH_CONFIRMATION,
@@ -105,6 +102,7 @@ export default function genDefaultSettings(): Settings {
     banditScheduleValue: DEFAULT_BANDIT_SCHEDULE_VALUE,
     banditScheduleUnit: DEFAULT_BANDIT_SCHEDULE_UNIT,
     banditBurnInValue: DEFAULT_BANDIT_BURN_IN_VALUE,
+    banditPeriodWeighting: DEFAULT_BANDIT_PERIOD_WEIGHTING,
     banditBurnInUnit: DEFAULT_BANDIT_BURN_IN_UNIT,
     experimentMinLengthDays: DEFAULT_EXPERIMENT_MIN_LENGTH_DAYS,
     experimentMaxLengthDays: DEFAULT_EXPERIMENT_MAX_LENGTH_DAYS,

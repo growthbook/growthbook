@@ -92,6 +92,14 @@ satellites → re-fence on the feature's `dateUpdated` → claim
 (`markRevisionAsPublished`) last, with rewinds registered at each step. Same
 fences, opposite claim position — see section 5 for what that changes.
 
+`updateFeature` (the feature document's whole-field writer) requires
+`casOnDateUpdated`: every caller is a landing or a restore, and an unguarded
+write after a landing put a stale read back over a rival's publish (REST
+update, sync, drift repair all did this once). A field no revision owns
+(`nextScheduledUpdate`, `linkedExperiments`) takes a targeted
+`FeatureModel.updateOne` that does not bump `dateUpdated`, so it cannot break a
+landing's guard either.
+
 ```mermaid
 flowchart TD
     A[publishRevision] --> B{gates pass?<br/>approval, schema,<br/>hooks, locks}

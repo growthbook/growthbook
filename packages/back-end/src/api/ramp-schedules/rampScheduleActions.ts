@@ -3,11 +3,13 @@ import { v4 as uuidv4 } from "uuid";
 import { PermissionError, isRampScheduleServing } from "shared/util";
 import {
   apiRampScheduleInterface,
+  apiRampMonitoringConfigInput,
   DEFAULT_NO_TRAFFIC_GRACE_PERIOD_HOURS,
-  rampMonitoringConfig,
   lockdownConfigSchema,
   stepHoldConditions,
   isAwaitingStartApproval,
+  readOnlyEcho,
+  HUMAN_OVERRIDE_NOTE,
 } from "shared/validators";
 import type { RampScheduleInterface } from "shared/validators";
 import {
@@ -45,6 +47,13 @@ import { assertCanRefreshRampMonitoring } from "back-end/src/services/rampMonito
 import { evaluateCurrentStep } from "back-end/src/services/rampScheduleEvaluator";
 import { getFeature } from "back-end/src/models/FeatureModel";
 import { rampScheduleToApiInterface } from "back-end/src/models/RampScheduleModel";
+import { resolveApiMonitoringConfig } from "back-end/src/services/assignmentQuerySelection";
+import {
+  assertRampPlanChangeAllowed,
+  assertRampScheduleReplanAllowed,
+  changesRampPlan,
+} from "back-end/src/services/rampPlanReview";
+import { canUseRestApiBypassSetting } from "back-end/src/api/features/reviewBypass";
 import { getMetricsByIds } from "back-end/src/models/MetricModel";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { createSafeRolloutSnapshot } from "back-end/src/services/safeRolloutSnapshots";
@@ -70,6 +79,7 @@ export const startRampSchedule = createApiRequestHandler({
   responseSchema: rampScheduleResponse,
   method: "post" as const,
   path: "/ramp-schedules/:id/actions/start",
+  confirmation: ["rampSchedule.start"] as const,
   operationId: "startRampSchedule",
   summary: "Start a ramp schedule",
   description:
@@ -111,7 +121,7 @@ export const startRampSchedule = createApiRequestHandler({
       return startSchedule(req.context, fresh, heartbeat);
     },
   );
-  return { rampSchedule: rampScheduleToApiInterface(current) };
+  return { rampSchedule: rampScheduleToApiInterface(req.context, current) };
 });
 
 export const pauseRampSchedule = createApiRequestHandler({
@@ -120,6 +130,7 @@ export const pauseRampSchedule = createApiRequestHandler({
   responseSchema: rampScheduleResponse,
   method: "post" as const,
   path: "/ramp-schedules/:id/actions/pause",
+  confirmation: ["rampSchedule.pause"] as const,
   operationId: "pauseRampSchedule",
   summary: "Pause a ramp schedule",
   description:
@@ -150,7 +161,7 @@ export const pauseRampSchedule = createApiRequestHandler({
     },
   );
 
-  return { rampSchedule: rampScheduleToApiInterface(updated) };
+  return { rampSchedule: rampScheduleToApiInterface(req.context, updated) };
 });
 
 export const resumeRampSchedule = createApiRequestHandler({
@@ -159,6 +170,7 @@ export const resumeRampSchedule = createApiRequestHandler({
   responseSchema: rampScheduleResponse,
   method: "post" as const,
   path: "/ramp-schedules/:id/actions/resume",
+  confirmation: ["rampSchedule.start"] as const,
   operationId: "resumeRampSchedule",
   summary: "Resume a paused ramp schedule",
   description:
@@ -189,7 +201,7 @@ export const resumeRampSchedule = createApiRequestHandler({
     },
   );
 
-  return { rampSchedule: rampScheduleToApiInterface(updated) };
+  return { rampSchedule: rampScheduleToApiInterface(req.context, updated) };
 });
 
 export const jumpRampSchedule = createApiRequestHandler({
@@ -204,6 +216,7 @@ export const jumpRampSchedule = createApiRequestHandler({
   responseSchema: rampScheduleResponse,
   method: "post" as const,
   path: "/ramp-schedules/:id/actions/jump",
+  confirmation: ["rampSchedule.progression"] as const,
   operationId: "jumpRampSchedule",
   summary: "Jump to a specific step",
   description:
@@ -239,7 +252,7 @@ export const jumpRampSchedule = createApiRequestHandler({
     },
   );
 
-  return { rampSchedule: rampScheduleToApiInterface(updated) };
+  return { rampSchedule: rampScheduleToApiInterface(req.context, updated) };
 });
 
 export const completeRampSchedule = createApiRequestHandler({
@@ -248,6 +261,7 @@ export const completeRampSchedule = createApiRequestHandler({
   responseSchema: rampScheduleResponse,
   method: "post" as const,
   path: "/ramp-schedules/:id/actions/complete",
+  confirmation: ["rampSchedule.progression"] as const,
   operationId: "completeRampSchedule",
   summary: "Complete a ramp schedule immediately",
   description:
@@ -299,7 +313,7 @@ export const completeRampSchedule = createApiRequestHandler({
     },
   );
 
-  return { rampSchedule: rampScheduleToApiInterface(completed) };
+  return { rampSchedule: rampScheduleToApiInterface(req.context, completed) };
 });
 
 export const approveStepRampSchedule = createApiRequestHandler({
@@ -308,6 +322,7 @@ export const approveStepRampSchedule = createApiRequestHandler({
   responseSchema: rampScheduleResponse,
   method: "post" as const,
   path: "/ramp-schedules/:id/actions/approve-step",
+  confirmation: ["rampSchedule.approve"] as const,
   operationId: "approveStepRampSchedule",
   summary: "Approve the pending approval gate",
   description:
@@ -393,7 +408,7 @@ export const approveStepRampSchedule = createApiRequestHandler({
     ),
   });
 
-  return { rampSchedule: rampScheduleToApiInterface(updated) };
+  return { rampSchedule: rampScheduleToApiInterface(req.context, updated) };
 });
 
 const rollbackBodySchema = z
@@ -408,6 +423,7 @@ export const rollbackRampSchedule = createApiRequestHandler({
   responseSchema: rampScheduleResponse,
   method: "post" as const,
   path: "/ramp-schedules/:id/actions/rollback",
+  confirmation: ["rampSchedule.progression"] as const,
   operationId: "rollbackRampSchedule",
   summary: "Roll back a ramp schedule",
   description:
@@ -440,7 +456,7 @@ export const rollbackRampSchedule = createApiRequestHandler({
     },
   );
 
-  return { rampSchedule: rampScheduleToApiInterface(updated) };
+  return { rampSchedule: rampScheduleToApiInterface(req.context, updated) };
 });
 
 export const restartRampSchedule = createApiRequestHandler({
@@ -449,6 +465,7 @@ export const restartRampSchedule = createApiRequestHandler({
   responseSchema: rampScheduleResponse,
   method: "post" as const,
   path: "/ramp-schedules/:id/actions/restart",
+  confirmation: ["rampSchedule.start"] as const,
   operationId: "restartRampSchedule",
   summary: "Restart a terminal ramp schedule",
   description:
@@ -478,7 +495,7 @@ export const restartRampSchedule = createApiRequestHandler({
       return restartSchedule(req.context, fresh, heartbeat);
     },
   );
-  return { rampSchedule: rampScheduleToApiInterface(updated) };
+  return { rampSchedule: rampScheduleToApiInterface(req.context, updated) };
 });
 
 export const addTargetRampSchedule = createApiRequestHandler({
@@ -497,10 +514,11 @@ export const addTargetRampSchedule = createApiRequestHandler({
   responseSchema: rampScheduleResponse,
   method: "post" as const,
   path: "/ramp-schedules/:id/actions/add-target",
+  confirmation: ["rampSchedule.other"] as const,
   operationId: "addTargetRampSchedule",
   summary: "Add a target rule to a ramp schedule",
   description:
-    "Attaches an additional feature rule to this ramp schedule. The `ruleId`\nmust identify a rule that is already published and must not already be\ncontrolled by another schedule. `environment` is accepted for backward\ncompatibility with pre-v2 ramps but is deprecated and no longer required.\n",
+    "Attaches an additional feature rule to this ramp schedule. The `ruleId`\nmust identify a rule that is already published and must not already be\ncontrolled by another schedule. `environment` is accepted for backward\ncompatibility with pre-v2 ramps but is deprecated and no longer required.\n\nThis skips the revision review flow, so when the organization requires review\nanywhere it is limited to credentials that may bypass approval. The reviewed way\nto attach a plan is `PUT /features/{id}/revisions/{version}/rules/{ruleId}/ramp-schedule`\nfollowed by a publish.\n",
   tags: ["ramp-schedules"],
 })(async (req) => {
   const schedule = await req.context.models.rampSchedules.getById(
@@ -525,6 +543,11 @@ export const addTargetRampSchedule = createApiRequestHandler({
   ) => {
     const feature = await getFeature(req.context, featureId);
     if (!feature) throw new Error(`Feature '${featureId}' not found`);
+    assertRampPlanChangeAllowed(
+      req.context,
+      feature,
+      canUseRestApiBypassSetting(req),
+    );
     // The schedule gate covered its existing targets; the flag being attached
     // needs the same authority, or a schedule anchored in one project becomes a
     // lever over flags in another.
@@ -641,7 +664,7 @@ export const addTargetRampSchedule = createApiRequestHandler({
     },
   );
 
-  return { rampSchedule: rampScheduleToApiInterface(updated) };
+  return { rampSchedule: rampScheduleToApiInterface(req.context, updated) };
 });
 
 export const ejectTargetRampSchedule = createApiRequestHandler({
@@ -672,6 +695,7 @@ export const ejectTargetRampSchedule = createApiRequestHandler({
     .or(z.object({ deleted: z.boolean(), rampScheduleId: z.string() })),
   method: "post" as const,
   path: "/ramp-schedules/:id/actions/eject-target",
+  confirmation: ["rampSchedule.other"] as const,
   operationId: "ejectTargetRampSchedule",
   summary: "Remove a target rule from a ramp schedule",
   description:
@@ -733,7 +757,7 @@ export const ejectTargetRampSchedule = createApiRequestHandler({
         { targets: remaining },
       );
 
-      return { rampSchedule: rampScheduleToApiInterface(updated) };
+      return { rampSchedule: rampScheduleToApiInterface(req.context, updated) };
     },
   );
 });
@@ -747,13 +771,14 @@ export const apiAdvanceRampSchedule = createApiRequestHandler({
         .boolean()
         .optional()
         .describe(
-          "Bypass a pending approval gate on the current step. Requires admin-level (`FlagsBypassApprovals`) permission. When omitted or `false`, a 409 is returned if the step has an unsatisfied `holdConditions.requiresApproval` gate.",
+          `Bypass a pending approval gate on the current step. Requires admin-level (\`FlagsBypassApprovals\`) permission. When omitted or \`false\`, a 409 is returned if the step has an unsatisfied \`holdConditions.requiresApproval\` gate. ${HUMAN_OVERRIDE_NOTE}`,
         ),
     })
     .optional(),
   responseSchema: rampScheduleResponse,
   method: "post" as const,
   path: "/ramp-schedules/:id/actions/advance",
+  confirmation: ["rampSchedule.approve"] as const,
   operationId: "apiAdvanceRampSchedule",
   summary: "Advance to the next step, overriding any holds",
   description:
@@ -854,7 +879,7 @@ export const apiAdvanceRampSchedule = createApiRequestHandler({
   current =
     (await req.context.models.rampSchedules.getById(schedule.id)) ?? current;
 
-  return { rampSchedule: rampScheduleToApiInterface(current) };
+  return { rampSchedule: rampScheduleToApiInterface(req.context, current) };
 });
 
 const healthSummaryMetricSchema = z.object({
@@ -1297,6 +1322,7 @@ export const setMonitoringModeRampSchedule = createApiRequestHandler({
   responseSchema: apiRampScheduleInterface,
   method: "post" as const,
   path: "/ramp-schedules/:id/actions/set-monitoring-mode",
+  confirmation: ["rampSchedule.edit"] as const,
   operationId: "setMonitoringModeRampSchedule",
   summary: "Set ramp monitoring mode",
   description:
@@ -1314,7 +1340,7 @@ export const setMonitoringModeRampSchedule = createApiRequestHandler({
     (fresh) =>
       setRampMonitoringMode(req.context, fresh, req.body.monitoringMode),
   );
-  return rampScheduleToApiInterface(updated);
+  return rampScheduleToApiInterface(req.context, updated);
 });
 
 export const setAutoUpdateRampSchedule = createApiRequestHandler({
@@ -1329,6 +1355,7 @@ export const setAutoUpdateRampSchedule = createApiRequestHandler({
   responseSchema: apiRampScheduleInterface,
   method: "post" as const,
   path: "/ramp-schedules/:id/actions/set-auto-update",
+  confirmation: ["rampSchedule.edit"] as const,
   operationId: "setAutoUpdateRampSchedule",
   summary: "Toggle automatic monitoring updates",
   description:
@@ -1350,17 +1377,18 @@ export const setAutoUpdateRampSchedule = createApiRequestHandler({
         req.body.enabled ? "auto" : "manual",
       ),
   );
-  return rampScheduleToApiInterface(updated);
+  return rampScheduleToApiInterface(req.context, updated);
 });
 
 export const updateMonitoringConfigRampSchedule = createApiRequestHandler({
   paramsSchema: actionParamsSchema,
-  bodySchema: rampMonitoringConfig.describe(
-    "Full replacement of the monitoring configuration. `datasourceId` and `exposureQueryId` cannot be changed while a monitoring experiment is active — stop the schedule first.",
+  bodySchema: apiRampMonitoringConfigInput.describe(
+    "Full replacement of the monitoring configuration. `datasourceId` and `exposureQuery` cannot be changed while a monitoring experiment is active — stop the schedule first.",
   ),
   responseSchema: apiRampScheduleInterface,
   method: "put" as const,
   path: "/ramp-schedules/:id/monitoring",
+  confirmation: ["rampSchedule.edit"] as const,
   operationId: "updateRampScheduleMonitoring",
   summary: "Update ramp monitoring configuration",
   description:
@@ -1375,9 +1403,18 @@ export const updateMonitoringConfigRampSchedule = createApiRequestHandler({
   const updated = await runControlledRampScheduleAction(
     req.context,
     schedule.id,
-    (fresh) => updateRampMonitoringConfig(req.context, fresh, req.body),
+    async (fresh) =>
+      updateRampMonitoringConfig(
+        req.context,
+        fresh,
+        await resolveApiMonitoringConfig(
+          req.context,
+          req.body,
+          fresh.monitoringConfig,
+        ),
+      ),
   );
-  return rampScheduleToApiInterface(updated);
+  return rampScheduleToApiInterface(req.context, updated);
 });
 
 export const updateLockdownConfigRampSchedule = createApiRequestHandler({
@@ -1386,6 +1423,7 @@ export const updateLockdownConfigRampSchedule = createApiRequestHandler({
   responseSchema: apiRampScheduleInterface,
   method: "put" as const,
   path: "/ramp-schedules/:id/lockdown",
+  confirmation: ["rampSchedule.edit"] as const,
   operationId: "updateRampScheduleLockdown",
   summary: "Update ramp lockdown configuration",
   description:
@@ -1402,35 +1440,41 @@ export const updateLockdownConfigRampSchedule = createApiRequestHandler({
     schedule.id,
     (fresh) => updateRampLockdownConfig(req.context, fresh, req.body),
   );
-  return rampScheduleToApiInterface(updated);
+  return rampScheduleToApiInterface(req.context, updated);
 });
 
-const putStepSchema = z.object({
-  interval: z
-    .number()
-    .positive()
-    .nullable()
-    .describe(
-      "Hold duration in seconds before this step's gates are evaluated. `null` means no time gate.",
-    ),
-  monitored: z
-    .boolean()
-    .optional()
-    .describe(
-      "When true, this step runs A/B traffic analysis while active. Applies only to future steps — cannot be changed on the currently executing step.",
-    ),
-  holdConditions: stepHoldConditions
-    .optional()
-    .describe(
-      "Additional gates that must clear before the step advances: `minSampleSize` and/or `requiresApproval`.",
-    ),
-  approvalNotes: z
-    .string()
-    .nullish()
-    .describe(
-      "Optional notes shown to approvers when the step is awaiting approval.",
-    ),
-});
+export const putStepSchema = z
+  .object({
+    // The handler keeps each position's stored actions; accepted so a GET
+    // response can be edited and sent back.
+    actions: readOnlyEcho,
+    interval: z
+      .number()
+      .positive()
+      .nullable()
+      .describe(
+        "Hold duration in seconds before this step's gates are evaluated. `null` means no time gate.",
+      ),
+    monitored: z
+      .boolean()
+      .optional()
+      .describe(
+        "When true, this step runs A/B traffic analysis while active. Applies only to future steps — cannot be changed on the currently executing step.",
+      ),
+    holdConditions: stepHoldConditions
+      .strict()
+      .optional()
+      .describe(
+        "Additional gates that must clear before the step advances: `minSampleSize` and/or `requiresApproval`.",
+      ),
+    approvalNotes: z
+      .string()
+      .nullish()
+      .describe(
+        "Optional notes shown to approvers when the step is awaiting approval.",
+      ),
+  })
+  .strict();
 
 export const updateStepsRampSchedule = createApiRequestHandler({
   paramsSchema: actionParamsSchema,
@@ -1446,10 +1490,11 @@ export const updateStepsRampSchedule = createApiRequestHandler({
   }),
   method: "put" as const,
   path: "/ramp-schedules/:id/steps",
+  confirmation: ["rampSchedule.edit"] as const,
   operationId: "updateRampScheduleSteps",
   summary: "Update ramp schedule steps",
   description:
-    "Fully replaces the steps array for a ramp schedule. Only allowed when the schedule is in a non-running, non-terminal state (`ready`, `pending`, or `paused`). Pause a running schedule first; restart a terminal schedule first.\n\n**Step actions** (coverage/targeting patches) are not accepted here — they change the SDK payload and must go through a feature revision draft. Existing step actions are preserved for each position. Use `PUT /v2/features/:id/revisions/:version/rules/:ruleId/ramp-schedule` to modify coverage/targeting.\n",
+    "Fully replaces the steps array for a ramp schedule. Only allowed when the schedule is in a non-running, non-terminal state (`ready`, `pending`, or `paused`). Pause a running schedule first; restart a terminal schedule first.\n\nOn a schedule attached to a rule this skips the revision review flow, so when the organization requires review anywhere it is limited to credentials that may bypass approval.\n\n**Step actions** (coverage/targeting patches) are not accepted here — they change the SDK payload and must go through a feature revision draft. Existing step actions are preserved for each position. Use `PUT /v2/features/:id/revisions/:version/rules/:ruleId/ramp-schedule` to modify coverage/targeting.\n",
   tags: ["ramp-schedules"],
 })(async (req) => {
   const schedule = await req.context.models.rampSchedules.getById(
@@ -1461,7 +1506,7 @@ export const updateStepsRampSchedule = createApiRequestHandler({
   const { schedule: updated } = await runControlledRampScheduleAction(
     req.context,
     schedule.id,
-    (fresh) => {
+    async (fresh) => {
       // The PUT body intentionally omits step actions (coverage patches) —
       // preserve them from the in-lock doc so a concurrent advance's state
       // isn't clobbered.
@@ -1474,11 +1519,23 @@ export const updateStepsRampSchedule = createApiRequestHandler({
           actions: fresh.steps[idx]?.actions ?? [],
         }),
       );
+      // Compared in-lock with the preserved actions, so an echo is not a
+      // re-plan and a plan reviewed meanwhile is not silently overwritten.
+      if (
+        fresh.targets.length &&
+        changesRampPlan({ steps: incomingSteps }, fresh)
+      ) {
+        await assertRampScheduleReplanAllowed(
+          req.context,
+          fresh,
+          canUseRestApiBypassSetting(req),
+        );
+      }
       return updateRampSteps(req.context, fresh, incomingSteps);
     },
   );
 
-  return { rampSchedule: rampScheduleToApiInterface(updated) };
+  return { rampSchedule: rampScheduleToApiInterface(req.context, updated) };
 });
 
 export const refreshMonitoringRampSchedule = createApiRequestHandler({
@@ -1489,6 +1546,7 @@ export const refreshMonitoringRampSchedule = createApiRequestHandler({
   }),
   method: "post" as const,
   path: "/ramp-schedules/:id/actions/refresh-monitoring",
+  confirmation: [],
   operationId: "refreshMonitoringRampSchedule",
   summary: "Trigger a manual monitoring update",
   description:
@@ -1597,5 +1655,5 @@ export const refreshMonitoringRampSchedule = createApiRequestHandler({
 
   const updated =
     (await req.context.models.rampSchedules.getById(schedule.id)) ?? schedule;
-  return { rampSchedule: rampScheduleToApiInterface(updated) };
+  return { rampSchedule: rampScheduleToApiInterface(req.context, updated) };
 });

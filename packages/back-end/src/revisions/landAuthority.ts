@@ -1,3 +1,7 @@
+import {
+  canStageArchiveDraft,
+  canWriteArchiveIntoDraft,
+} from "shared/permissions";
 import { Context } from "back-end/src/models/BaseModel";
 
 // Landing authority for every revisioned entity: archiving is delete-class
@@ -100,7 +104,28 @@ export async function canAdvanceDraftWithNarrowAtom({
 //
 // Defined in `shared` so the archive CONTROLS ask exactly what these
 // endpoints enforce.
-export {
-  canStageArchiveDraft,
-  canWriteArchiveIntoDraft,
-} from "shared/permissions";
+export { canStageArchiveDraft, canWriteArchiveIntoDraft };
+
+// The archive guard for a request: an org key assuming the draft author's role
+// may use their authorship only where it holds draft authority itself.
+export function canRequestArchiveIntoDraft(
+  context: Context,
+  args: Omit<
+    Parameters<typeof canWriteArchiveIntoDraft>[0],
+    "permissions" | "userId"
+  >,
+): boolean {
+  return (
+    canWriteArchiveIntoDraft({
+      ...args,
+      permissions: context.permissions,
+      userId: context.actorId,
+    }) &&
+    context.authorRightsAllow((keyContext) =>
+      canWriteArchiveIntoDraft({
+        ...args,
+        permissions: keyContext.permissions,
+      }),
+    )
+  );
+}

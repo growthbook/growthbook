@@ -1,7 +1,9 @@
-import { useMemo } from "react";
+import { useCallback, useMemo } from "react";
 import {
-  assessApprovalCoverage,
-  assessRequiredApproverTeams,
+  approvalApprovers,
+  approvalRoleIds,
+  assessGoverningApprovalCoverage,
+  assessRequiredApproverTeamsByProject,
   getRolePermissions,
   revisionActionPermission,
   teamsForMember,
@@ -9,13 +11,28 @@ import {
 } from "shared/permissions";
 import type { ReviewAuthorityFootprint } from "shared/util";
 import type { RevisionModel } from "shared/permissions";
-import type { OrganizationInterface } from "shared/types/organization";
+import type {
+  MemberRoleWithProjects,
+  OrganizationInterface,
+} from "shared/types/organization";
 import type { TeamInterface } from "shared/types/team";
+import type { EventUser } from "shared/validators";
+import useApi from "@/hooks/useApi";
 import { useUser } from "@/services/UserContext";
+import { useDefinitions } from "@/services/DefinitionsContext";
 
-type Reviewer = { id: string; status: "approved" | "changes-requested" };
+type Reviewer = {
+  id: string;
+  status: "approved" | "changes-requested";
+  user?: EventUser;
+};
 
 const NO_RULES: { requiredApproverTeams?: string[] }[] = [];
+const NO_PROJECTS: string[] = [];
+type GoverningRule = {
+  project: string;
+  rule: { requiredApproverTeams?: string[] };
+};
 
 export interface ApprovalCoverage {
   uncoveredApprovers: Set<string>;
@@ -34,6 +51,13 @@ export interface ApprovalCoverage {
     unmet: { id: string; name: string }[][];
     enforcedTeamIds: string[][];
   };
+  // Targeting projects whose own review rule fired and still lack an approval
+  // from one of their reviewers. `name` is null for a project the viewer
+  // cannot read.
+  requiredProjects: {
+    satisfied: boolean;
+    unmet: { id: string; name: string | null }[];
+  };
 }
 
 // Uses the same functions the server uses, so the panel and the refusal agree.
@@ -44,6 +68,8 @@ export function useApprovalCoverage({
   model,
   projects,
   reviewRules = NO_RULES,
+  approverProjects = NO_PROJECTS,
+  governingRules,
 }: {
   reviewers: Reviewer[];
   footprint: ReviewAuthorityFootprint;
@@ -52,26 +78,77 @@ export function useApprovalCoverage({
   reviewRules?: { requiredApproverTeams?: string[] }[];
   model: RevisionModel;
   projects: string[];
+  // Feature Flags only: targeting projects that each need one of their own
+  // reviewers to approve.
+  approverProjects?: string[];
+  // Feature Flags only: which project imposed each rule, so its required teams
+  // are judged against that project's approvals. Falls back to `reviewRules`
+  // as the primary project's.
+  governingRules?: GoverningRule[];
 }): ApprovalCoverage {
   const { users, teams, organization } = useUser();
+  const { getProjectById } = useDefinitions();
 
-  const uncoveredApprovers = useMemo(() => {
-    const approved = reviewers.filter((r) => r.status === "approved");
-    if (!approved.length) return new Set<string>();
-    return new Set(
-      assessApprovalCoverage({
+  // Keys' roles come from the server, so the panel judges key approvals the
+  // way publishing does.
+  const approvals = useMemo(
+    () =>
+      reviewers
+        .filter((r) => r.status === "approved")
+        .map((r) => ({ userId: r.id, user: r.user })),
+    [reviewers],
+  );
+  const keyIds = approvalRoleIds(approvals).filter((id) => !users.has(id));
+  const { data: keyRoleData } = useApi<{
+    roles: Record<string, MemberRoleWithProjects | null>;
+  }>(`/keys/approver-roles?ids=${keyIds.map(encodeURIComponent).join(",")}`, {
+    shouldRun: () => keyIds.length > 0,
+  });
+  const roleFor = useCallback(
+    (id: string): MemberRoleWithProjects | null =>
+      users.get(id) ?? keyRoleData?.roles[id] ?? null,
+    [users, keyRoleData],
+  );
+  const approvers = useMemo(
+    () => approvalApprovers(approvals, roleFor),
+    [approvals, roleFor],
+  );
+
+  const coverage = useMemo(
+    () =>
+      assessGoverningApprovalCoverage({
         org: organization as OrganizationInterface,
         teams: (teams ?? []) as TeamInterface[],
         model,
         projects,
+        approverProjects,
         footprint,
-        approvers: approved.map((r) => ({
-          id: r.id,
-          roleInfo: users.get(r.id) ?? null,
-        })),
-      }).uncoveredApprovers,
-    );
-  }, [reviewers, organization, teams, model, projects, footprint, users]);
+        approvers,
+      }),
+    [
+      approvers,
+      organization,
+      teams,
+      model,
+      projects,
+      approverProjects,
+      footprint,
+    ],
+  );
+  const uncoveredApprovers = useMemo(
+    () => new Set(coverage.uncoveredApprovers),
+    [coverage],
+  );
+  const requiredProjects = useMemo(
+    () => ({
+      satisfied: coverage.requiredProjects.satisfied,
+      unmet: coverage.requiredProjects.unmet.map((id) => ({
+        id,
+        name: getProjectById(id)?.name ?? null,
+      })),
+    }),
+    [coverage, getProjectById],
+  );
 
   // Resolved like the coverage decision — teams, project roles and additional
   // rules included — so the explanation cannot contradict the decision.
@@ -84,31 +161,58 @@ export function useApprovalCoverage({
     return (approverId: string): string[] => {
       const hit = cache.get(approverId);
       if (hit) return hit;
-      const roleInfo = users.get(approverId);
-      if (!roleInfo) return [];
-      const perms = getRolePermissions(
-        roleInfo,
-        organization as OrganizationInterface,
-        (teams ?? []) as TeamInterface[],
+      const approver = approvers.find((a) => a.id === approverId);
+      const roles = approver
+        ? approver.assumingKeyRole === undefined
+          ? [approver.roleInfo]
+          : [approver.roleInfo, approver.assumingKeyRole]
+        : [];
+      // The approver may be a member or an org key; an assuming key is a key.
+      const isMember = !!organization.members?.some((m) => m.id === approverId);
+      const perms = roles.map(
+        (roleInfo, i) =>
+          roleInfo &&
+          getRolePermissions(
+            roleInfo,
+            organization as OrganizationInterface,
+            (teams ?? []) as TeamInterface[],
+            undefined,
+            { member: i === 0 && isMember },
+          ),
       );
-      const held = envIds.filter((env) =>
-        userHasPermission(
-          perms,
-          reviewPermission,
-          projects.length ? projects : undefined,
-          [env],
-        ),
+      const held = envIds.filter(
+        (env) =>
+          perms.length > 0 &&
+          perms.every(
+            (p) =>
+              !!p &&
+              userHasPermission(
+                p,
+                reviewPermission,
+                projects.length ? projects : undefined,
+                [env],
+              ),
+          ),
       );
       cache.set(approverId, held);
       return held;
     };
-  }, [users, organization, teams, envIds, model, projects]);
+  }, [approvers, organization, teams, envIds, model, projects]);
 
   const uncoveredApproverReasons = useMemo(() => {
     const reason = (approverId: string): string => {
-      const roleInfo = users.get(approverId);
-      const who = roleInfo?.name || roleInfo?.email || "this reviewer";
-      if (!roleInfo) return `${who} is no longer a member of this organization`;
+      const member = users.get(approverId);
+      const who = member?.name || member?.email || "this reviewer";
+      const approver = approvers.find((a) => a.id === approverId);
+      const user = reviewers.find((r) => r.id === approverId)?.user;
+      if (!approver?.roleInfo) {
+        return user?.type === "api_key" && user.apiKey === approverId
+          ? "this API key is disabled, expired or removed"
+          : `${who} is no longer a member of this organization`;
+      }
+      if (approver.assumingKeyRole === null) {
+        return "the API key it came through is disabled, expired or removed";
+      }
       if (footprint.scope !== "environments") {
         return `needs review access with no environment limit`;
       }
@@ -121,7 +225,7 @@ export function useApprovalCoverage({
     return new Map(
       [...uncoveredApprovers].map((id) => [id, reason(id)] as const),
     );
-  }, [uncoveredApprovers, users, footprint, heldEnvsFor]);
+  }, [uncoveredApprovers, users, approvers, reviewers, footprint, heldEnvsFor]);
 
   const uncoveredFootprintEnvs = useMemo(() => {
     if (footprint.scope !== "environments") return [];
@@ -132,24 +236,30 @@ export function useApprovalCoverage({
     return footprint.environments.filter((e) => !covered.has(e));
   }, [footprint, reviewers, heldEnvsFor]);
 
-  const approvalsCoverFootprint = reviewers.some(
-    (r) => r.status === "approved" && !uncoveredApprovers.has(r.id),
-  );
+  // Only the primary project's coverage sanctions the change; a targeting
+  // reviewer contributes without covering.
+  const approvalsCoverFootprint = coverage.hasCoveringApproval;
 
+  const primaryProject = projects[0] ?? "";
   const requiredTeams = useMemo(
     () =>
-      assessRequiredApproverTeams({
-        rules: reviewRules,
-        // Only covering approvals can satisfy a team requirement.
-        coveringApproverIds: reviewers
-          .filter(
-            (r) => r.status === "approved" && !uncoveredApprovers.has(r.id),
-          )
-          .map((r) => r.id),
+      assessRequiredApproverTeamsByProject({
+        governing:
+          governingRules ??
+          reviewRules.map((rule) => ({ project: primaryProject, rule })),
+        primaryProject,
+        coverage,
         org: organization as OrganizationInterface,
         teams: (teams ?? []) as TeamInterface[],
       }),
-    [reviewRules, reviewers, uncoveredApprovers, organization, teams],
+    [
+      governingRules,
+      reviewRules,
+      primaryProject,
+      coverage,
+      organization,
+      teams,
+    ],
   );
 
   // Required-team rules are summative — different rules can be satisfied by
@@ -198,7 +308,9 @@ export function useApprovalCoverage({
     uncoveredFootprintEnvs,
     approvalsCoverFootprint,
     hasUncoveredApproval:
-      !approvalsCoverFootprint && uncoveredApprovers.size > 0,
+      !approvalsCoverFootprint &&
+      reviewers.some((r) => r.status === "approved"),
     requiredTeams,
+    requiredProjects,
   };
 }

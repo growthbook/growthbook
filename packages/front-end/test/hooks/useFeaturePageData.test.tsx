@@ -57,7 +57,6 @@ function basePayload(fullRevisions: FeatureRevisionInterface[]) {
     revisions: fullRevisions,
     experiments: [],
     safeRollouts: [],
-    codeRefs: [],
     holdout: undefined,
     rampSchedules: [],
   };
@@ -81,15 +80,22 @@ describe("useFeaturePageData", () => {
       resolveBase = res;
     });
     apiCall.mockImplementation((url: string) => {
-      if (url === "/feature/f1") return basePromise;
+      if (url === "/feature/f1" || url.startsWith("/feature/f1?v=")) {
+        return basePromise;
+      }
       if (url.startsWith("/ramp-schedule")) {
         return Promise.resolve({ status: 200, rampSchedules: [] });
       }
       if (url.startsWith("/feature/f1/revisions?versions=")) {
-        const version = parseInt(url.split("versions=")[1], 10);
+        const versions = url.split("versions=")[1].split(",").map(Number);
         return Promise.resolve({
           status: 200,
-          revisions: [rev(version, { baseVersion: 1 })],
+          revisions: versions.map((v) =>
+            rev(v, {
+              baseVersion: v === 9 ? 3 : 1,
+              status: v > 2 ? "draft" : "published",
+            }),
+          ),
         });
       }
       throw new Error(`unexpected api call: ${url}`);
@@ -113,6 +119,28 @@ describe("useFeaturePageData", () => {
   }
 
   const flush = () => act(async () => {});
+
+  // Live v1 on screen; draft v9 (based on v3) is only in the list
+  async function renderOnLiveWithDraft9() {
+    const rendered = render();
+    const payload = basePayload([rev(1)]);
+    payload.revisionList.unshift({
+      version: 9,
+      baseVersion: 3,
+      datePublished: null,
+      dateUpdated: new Date(0),
+      createdBy: null,
+      status: "draft",
+      comment: "",
+    } as (typeof payload.revisionList)[number]);
+    await act(async () => {
+      resolveBase(payload);
+    });
+    await waitFor(() =>
+      expect(rendered.result.current.revision?.version).toBe(1),
+    );
+    return rendered;
+  }
 
   it("does not fetch a ?v= version that the base response already includes", async () => {
     const { result } = render("2");
@@ -173,6 +201,118 @@ describe("useFeaturePageData", () => {
     await waitFor(() => expect(result.current.revision?.version).toBe(6));
   });
 
+  it("asks the first request for a deep-linked version", async () => {
+    render("7");
+    await flush();
+    expect(apiCall.mock.calls[0][0]).toBe("/feature/f1?v=7");
+  });
+
+  it("keeps the current version on screen until a picked draft and its base load", async () => {
+    const { result } = await renderOnLiveWithDraft9();
+
+    act(() => result.current.setVersion(9));
+    // Still showing v1 while v9 and its base load, in one request
+    expect(result.current.version).toBe(1);
+    expect(result.current.revision?.version).toBe(1);
+    await waitFor(() => expect(result.current.revision?.version).toBe(9));
+    expect(revisionFetches()).toEqual(["/feature/f1/revisions?versions=9,3"]);
+
+    // A refresh loads the picked draft again, so edits to it show up
+    await act(async () => {
+      await result.current.refreshData();
+    });
+    expect(revisionFetches()).toEqual([
+      "/feature/f1/revisions?versions=9,3",
+      "/feature/f1/revisions?versions=9,3",
+    ]);
+  });
+
+  it("switches straight to a draft another part of the page already loaded", async () => {
+    const { result } = await renderOnLiveWithDraft9();
+
+    // A modal reads draft 9 (and its base) through the page context
+    await act(async () => {
+      await result.current.loadRevisions([9, 3]);
+    });
+    expect(revisionFetches()).toEqual(["/feature/f1/revisions?versions=9,3"]);
+
+    act(() => result.current.setVersion(9));
+    expect(result.current.revision?.version).toBe(9);
+    expect(revisionFetches()).toHaveLength(1);
+  });
+
+  it("drops a revision response from before the page left the flag, even after coming back", async () => {
+    let resolveF1Revisions!: (payload: unknown) => void;
+    apiCall.mockImplementation((url: string) => {
+      if (url === "/feature/f1" || url === "/feature/f2") {
+        return Promise.resolve(basePayload([rev(1)]));
+      }
+      if (url.startsWith("/ramp-schedule")) {
+        return Promise.resolve({ status: 200, rampSchedules: [] });
+      }
+      if (url === "/feature/f1/revisions?versions=5") {
+        return new Promise((res) => {
+          resolveF1Revisions = res;
+        });
+      }
+      throw new Error(`unexpected api call: ${url}`);
+    });
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <SWRConfig value={{ provider: () => new Map(), dedupingInterval: 0 }}>
+        {children}
+      </SWRConfig>
+    );
+    const { result, rerender } = renderHook(
+      ({ fid }) => useFeaturePageData(fid, undefined),
+      { wrapper, initialProps: { fid: "f1" } },
+    );
+    await waitFor(() => expect(result.current.revision?.version).toBe(1));
+
+    let pending!: Promise<void>;
+    act(() => {
+      pending = result.current.loadRevisions([5]);
+    });
+    rerender({ fid: "f2" });
+    rerender({ fid: "f1" });
+    await waitFor(() => expect(result.current.revision?.version).toBe(1));
+    await act(async () => {
+      resolveF1Revisions({ status: 200, revisions: [rev(5)] });
+      await pending;
+    });
+    expect(result.current.data?.revisions.map((r) => r.version)).not.toContain(
+      5,
+    );
+  });
+
+  it("ignores a load asked for by a callback from a flag the page has left", async () => {
+    apiCall.mockImplementation((url: string) => {
+      if (url === "/feature/f1" || url === "/feature/f2") {
+        return Promise.resolve(basePayload([rev(1)]));
+      }
+      if (url.startsWith("/ramp-schedule")) {
+        return Promise.resolve({ status: 200, rampSchedules: [] });
+      }
+      throw new Error(`unexpected api call: ${url}`);
+    });
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <SWRConfig value={{ provider: () => new Map(), dedupingInterval: 0 }}>
+        {children}
+      </SWRConfig>
+    );
+    const { result, rerender } = renderHook(
+      ({ fid }) => useFeaturePageData(fid, undefined),
+      { wrapper, initialProps: { fid: "f1" } },
+    );
+    await waitFor(() => expect(result.current.revision?.version).toBe(1));
+    const staleLoad = result.current.loadRevisions;
+
+    rerender({ fid: "f2" });
+    await act(async () => {
+      await staleLoad([5]);
+    });
+    expect(revisionFetches()).toEqual([]);
+  });
+
   it("does not render live feature values under a ?v= URL while that revision is loading", async () => {
     let resolveBaseLocal!: (payload: unknown) => void;
     let resolveRev!: (payload: unknown) => void;
@@ -184,7 +324,7 @@ describe("useFeaturePageData", () => {
     });
     apiCall.mockReset();
     apiCall.mockImplementation((url: string) => {
-      if (url === "/feature/f1") return baseLocal;
+      if (url === "/feature/f1?v=42") return baseLocal;
       if (url.startsWith("/ramp-schedule")) {
         return Promise.resolve({ status: 200, rampSchedules: [] });
       }

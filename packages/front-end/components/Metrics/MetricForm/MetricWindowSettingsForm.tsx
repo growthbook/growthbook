@@ -2,7 +2,12 @@ import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
 
 // TODO form type
-export function MetricWindowSettingsForm({ form, type }) {
+export function MetricWindowSettingsForm({
+  form,
+  type,
+  autoFocus = true,
+  className = "mb-3 mt-4",
+}) {
   const windowSettingsFields = (
     <>
       <div className="col-auto">
@@ -17,7 +22,7 @@ export function MetricWindowSettingsForm({ form, type }) {
           step={1}
           style={{ width: 70 }}
           required
-          autoFocus
+          autoFocus={autoFocus}
         />
       </div>
       <div className="col-auto">
@@ -54,11 +59,11 @@ export function MetricWindowSettingsForm({ form, type }) {
     </>
   );
   return (
-    <div className="mb-3 mt-4">
+    <div className={className}>
       <div className="form-group mb-1">
         <SelectField
           size="legacy"
-          label={"Metric Window"}
+          label="Metric window"
           value={form.watch("windowSettings.type")}
           onChange={(value) => {
             form.setValue(

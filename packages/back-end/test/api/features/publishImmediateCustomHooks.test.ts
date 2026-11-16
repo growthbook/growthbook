@@ -167,7 +167,12 @@ describe("publish-immediately custom hooks", () => {
         });
       }
       if (hookArgs.revision === undefined && hookArgs.feature?.version === 3) {
-        return { ok: false, error: "version 3 rejected", warnings: [] };
+        return {
+          ok: false,
+          rejected: true,
+          error: "version 3 rejected",
+          warnings: [],
+        };
       }
       return { ok: true, warnings: [] };
     });
@@ -200,7 +205,12 @@ describe("publish-immediately custom hooks", () => {
         }
       ).revision;
       if (revision?.status === "published") {
-        return { ok: false, error: "published rejected", warnings: [] };
+        return {
+          ok: false,
+          rejected: true,
+          error: "published rejected",
+          warnings: [],
+        };
       }
       return { ok: true, warnings: [] };
     });

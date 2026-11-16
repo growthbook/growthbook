@@ -18,6 +18,9 @@ const ATTRIB_KEYS = [
   "utm_term",
   "utm_content",
   "gclid",
+  "gbraid",
+  "wbraid",
+  "li_fat_id",
   "fbclid",
   "msclkid",
 ] as const;

@@ -1,6 +1,8 @@
 import {
   featurePublishFootprint,
+  rampActionFootprint,
   holdoutEnvsForChange,
+  interleavingEnvsForChange,
   revertFootprint,
   servingEnvironments,
   HOLDOUT_ENVS_UNRESOLVED,
@@ -266,6 +268,53 @@ describe("holdoutEnvsForChange", () => {
   });
 });
 
+describe("interleavingEnvsForChange", () => {
+  const draft = { environmentSettings: { dev: { enabled: false } } };
+  const live = {
+    environmentSettings: {
+      dev: { enabled: true },
+      production: { enabled: false },
+    },
+  };
+
+  it("counts only the environments it serves", () => {
+    expect(
+      interleavingEnvsForChange({ existing: live, environmentIds: ENVS }),
+    ).toEqual(["dev"]);
+  });
+
+  it("unions before and after, so turning one off still needs authority there", () => {
+    const envs = interleavingEnvsForChange({
+      existing: live,
+      updated: {
+        environmentSettings: {
+          dev: { enabled: false },
+          production: { enabled: true },
+        },
+      },
+      environmentIds: ENVS,
+    });
+    expect(envs.sort()).toEqual(["dev", "production"]);
+  });
+
+  it("has no footprint when it serves nowhere", () => {
+    expect(
+      interleavingEnvsForChange({ existing: draft, environmentIds: ENVS }),
+    ).toEqual([]);
+  });
+
+  // A stale setting for a deleted environment must not demand authority over an
+  // environment the org no longer has.
+  it("restricts to the environments allowed", () => {
+    expect(
+      interleavingEnvsForChange({
+        existing: { environmentSettings: { retired: { enabled: true } } },
+        environmentIds: ENVS,
+      }),
+    ).toEqual([]);
+  });
+});
+
 describe("revertFootprint", () => {
   it("is the serving environments when the target enables nothing new", () => {
     expect(
@@ -312,5 +361,58 @@ describe("revertFootprint", () => {
         changedEnvs: ["retired"],
       }).sort(),
     ).toEqual(["dev", "staging"]);
+  });
+});
+
+describe("rampActionFootprint detach reach", () => {
+  const sibling = (env: string) =>
+    ({
+      id: `r1__${env}`,
+      type: "force",
+      value: "true",
+      description: "",
+      enabled: true,
+      allEnvironments: false,
+      environments: [env],
+    }) as FeatureRule;
+  const liveRules = [sibling("dev"), sibling("production")];
+  const detach = {
+    mode: "detach" as const,
+    rampScheduleId: "rs_1",
+    ruleId: "r1__dev",
+    deleteScheduleWhenEmpty: true,
+  };
+  const withTarget = (ruleId: string) => [
+    {
+      id: "rs_1",
+      targets: [
+        {
+          id: "t1",
+          entityType: "feature" as const,
+          entityId: "f1",
+          ruleId,
+          environment: null,
+          status: "active" as const,
+        },
+      ],
+    },
+  ];
+  const reach = (schedules?: ReturnType<typeof withTarget>) =>
+    rampActionFootprint({
+      rampActions: [detach],
+      liveRules,
+      environmentIds: ["dev", "production"],
+      schedules,
+    });
+
+  it("sizes a detach by every rule the removed target reaches", () => {
+    // A legacy bare target drives both migrated siblings; removing it from the
+    // dev copy takes the ramp off production too.
+    expect(reach(withTarget("r1"))).toEqual(["dev", "production"]);
+  });
+
+  it("stays on the named rule for an exact target, or with no schedule known", () => {
+    expect(reach(withTarget("r1__dev"))).toEqual(["dev"]);
+    expect(reach()).toEqual(["dev"]);
   });
 });

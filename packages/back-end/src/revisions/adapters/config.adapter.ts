@@ -6,6 +6,7 @@ import { ConfigInterface } from "shared/types/config";
 import {
   Revision,
   configPublishFootprint,
+  getConstantRevisionApprovalChange,
   getConstantRevisionChange,
   normalizeProposedChanges,
 } from "shared/enterprise";
@@ -15,6 +16,7 @@ import {
   configResetReviewOnChange,
   constantAutopublishOnApproval,
   formatAncestorFieldConflictMessage,
+  orgRequiresAnyReview,
 } from "shared/util";
 import {
   configValidator,
@@ -47,11 +49,12 @@ import {
   captureConfigExperimentGuardAcknowledgment,
   configChangeAffectsServedValue,
   configRevisionAffectsServedValue,
-  describeConfigConflictKeys,
+  describeExperimentGuardConflicts,
   evaluateConfigExperimentGuardConflicts,
 } from "back-end/src/services/experimentGuard";
 import {
   captureConfigLockAcknowledgment,
+  describeLockedConfigs,
   evaluateConfigLockConflicts,
 } from "back-end/src/services/configLockGuard";
 import {
@@ -124,12 +127,9 @@ function configProjects(snapshot: ConfigInterface): string[] {
 }
 
 function configApprovalConfigured(context: Context): boolean {
-  if (!context.hasPremiumFeature("require-approvals")) return false;
-  const requireReviews = context.org.settings?.requireReviews;
-  if (typeof requireReviews === "boolean") return requireReviews;
-  return (
-    Array.isArray(requireReviews) &&
-    requireReviews.some((r) => r.requireReviewOn)
+  return orgRequiresAnyReview(
+    context.org.settings,
+    context.hasPremiumFeature("require-approvals"),
   );
 }
 
@@ -247,19 +247,19 @@ export const configAdapter: EntityRevisionAdapter<ConfigInterface> = {
     return canBypassApprovalForConfig(context, snapshot);
   },
 
-  shouldResetReviewOnChange(context: Context, revision: Revision): boolean {
+  shouldResetReviewOnChange(
+    context: Context,
+    before: Revision,
+    after: Revision,
+  ): boolean {
     if (!context.hasPremiumFeature("require-approvals")) return false;
-    const snapshot = revision.target.snapshot as ConfigInterface;
-    const { valueChanged, changedEnvironments } = getConstantRevisionChange(
-      snapshot,
-      revision.target.proposedChanges,
-    );
+    const snapshot = after.target.snapshot as ConfigInterface;
     const flavorEnvironments = snapshot.scopedConfig
       ? (snapshot.scopedConfig.environments ?? [])
       : null;
     return configResetReviewOnChange(
       { project: snapshot.project },
-      { valueChanged, changedEnvironments },
+      getConstantRevisionApprovalChange(before.target, after.target),
       flavorEnvironments,
       context.org.settings,
     );
@@ -582,16 +582,17 @@ export const configAdapter: EntityRevisionAdapter<ConfigInterface> = {
       context.ignoreWarnings || canBypassApprovalForConfig(context, entity);
     const gates: PublishGate[] = [];
 
-    const experimentConflicts = [
-      ...(await evaluateConfigExperimentGuardConflicts(context, entity)),
-    ].sort();
-    if (experimentConflicts.length) {
+    const experimentConflicts = await evaluateConfigExperimentGuardConflicts(
+      context,
+      entity,
+    );
+    if (experimentConflicts.size) {
       if (override) {
         logger.info(
           {
             configId: entity.id,
             userId: context.userId,
-            conflictKeys: experimentConflicts,
+            conflictKeys: [...experimentConflicts.keys()].sort(),
           },
           "Config experiment guard overridden on a direct publish",
         );
@@ -599,11 +600,10 @@ export const configAdapter: EntityRevisionAdapter<ConfigInterface> = {
       gates.push({
         type: "experiment-guard",
         severity: "warning",
-        messages: [
-          `Publishing this Config rewrites the live value served to a running experiment (${describeConfigConflictKeys(
-            experimentConflicts,
-          )}).`,
-        ],
+        messages: await describeExperimentGuardConflicts(
+          context,
+          experimentConflicts,
+        ),
         override: "ignoreWarnings",
         requiresPermission: null,
         resolution: null,
@@ -632,11 +632,7 @@ export const configAdapter: EntityRevisionAdapter<ConfigInterface> = {
       gates.push({
         type: "dependent-config-locked",
         severity: "warning",
-        messages: [
-          `Publishing this Config changes the resolved value of locked Config(s): ${lockConflicts.join(
-            ", ",
-          )}.`,
-        ],
+        messages: await describeLockedConfigs(context, lockConflicts),
         override: "ignoreWarnings",
         requiresPermission: null,
         resolution: null,

@@ -24,7 +24,6 @@ export default function CheckSDKConnectionModal({
   const canUpdate = permissionsUtil.canUpdateSDKConnection(connection, {});
   return (
     <Modal
-      useRadixButton={false}
       trackingEventModalType=""
       open={true}
       close={showModalClose ? close : undefined}

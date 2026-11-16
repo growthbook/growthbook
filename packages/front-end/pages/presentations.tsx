@@ -286,7 +286,6 @@ const PresentationPage = (): React.ReactElement => {
       />
       {sharableLinkModal && (
         <Modal
-          useRadixButton={false}
           trackingEventModalType=""
           open={true}
           header={"Sharable link"}

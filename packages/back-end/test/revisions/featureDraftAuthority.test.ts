@@ -51,6 +51,9 @@ function contextWith(atoms: Atoms, userId = "u_me"): ReqContext {
   const thrown = new Error("permission denied");
   return {
     userId,
+    actorId: userId,
+    authorRightsAllow: () => true,
+    getTargetingOptOutProjectIds: async () => [],
     permissions: {
       canEditFeatureDrafts: () => !!atoms.draft,
       canRevertFeature: () => !!atoms.revert,
@@ -112,6 +115,20 @@ describe("authoredFeatureDraft", () => {
     ).toBe(true);
   });
 
+  it("counts the member whose role an org key assumed", () => {
+    const madeForAsker = draft({
+      createdBy: {
+        type: "api_key",
+        apiKey: "key_org",
+        requestedBy: { id: "u_asker", name: "", email: "" },
+        assumedRole: true,
+      },
+    });
+    expect(authoredFeatureDraft(contextWith({}, "u_asker"), madeForAsker)).toBe(
+      true,
+    );
+  });
+
   it("counts nobody else, and no API key", () => {
     expect(authoredFeatureDraft(contextWith({}, "u_other"), draft())).toBe(
       false,
@@ -126,7 +143,7 @@ describe("assertCanCreateFeatureInState", () => {
 
   // A flag that starts disabled everywhere reaches no SDK payload, so Create
   // alone carries it — the rule both dashboard and REST must agree on.
-  it("asks for nothing extra when the flag starts disabled everywhere", () => {
+  it("asks for nothing extra when the flag starts disabled everywhere", async () => {
     const disabled = {
       ...feature,
       environmentSettings: {
@@ -134,18 +151,18 @@ describe("assertCanCreateFeatureInState", () => {
         production: { enabled: false, rules: [] },
       },
     } as unknown as FeatureInterface;
-    expect(() =>
+    await expect(
       assertCanCreateFeatureInState({
         context: contextWith({ publish: false }),
         feature: disabled,
         environmentIds,
       }),
-    ).not.toThrow();
+    ).resolves.toBeUndefined();
   });
 
-  it("asks for publish in exactly the environments it starts enabled in", () => {
+  it("asks for publish in exactly the environments it starts enabled in", async () => {
     const asked: string[][] = [];
-    expect(() =>
+    await expect(
       assertCanCreateFeatureInState({
         context: contextWith({
           publish: (envs) => {
@@ -156,18 +173,18 @@ describe("assertCanCreateFeatureInState", () => {
         feature,
         environmentIds,
       }),
-    ).not.toThrow();
+    ).resolves.toBeUndefined();
     expect(asked).toEqual([["dev"]]);
   });
 
-  it("refuses when publish is missing in one it starts enabled in", () => {
-    expect(() =>
+  it("refuses when publish is missing in one it starts enabled in", async () => {
+    await expect(
       assertCanCreateFeatureInState({
         context: contextWith({ publish: (envs) => !envs.includes("dev") }),
         feature,
         environmentIds,
       }),
-    ).toThrow("permission denied");
+    ).rejects.toThrow("permission denied");
   });
 });
 

@@ -37,6 +37,7 @@ export const factMetricFactory = Factory.define<FactMetricInterface>(
       value: params.cappingSettings?.value ?? 1000,
       ignoreZeros: params.cappingSettings?.ignoreZeros ?? false,
     },
+    lowerCappingSettings: params.lowerCappingSettings ?? null,
     windowSettings: {
       type: params.windowSettings?.type ?? "",
       delayValue: params.windowSettings?.delayValue ?? 1,
@@ -57,8 +58,6 @@ export const factMetricFactory = Factory.define<FactMetricInterface>(
     minSampleSize: 100,
     targetMDE: 0.1,
     displayAsPercentage: false,
-    winRisk: 0.1,
-    loseRisk: 0.05,
     regressionAdjustmentOverride: true,
     regressionAdjustmentEnabled: params.regressionAdjustmentEnabled ?? false,
     regressionAdjustmentDays: 10,

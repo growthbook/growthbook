@@ -14,6 +14,7 @@ import {
   DEFAULT_SRM_MINIMINUM_COUNT_PER_VARIATION,
   DEFAULT_MULTIPLE_EXPOSURES_ENOUGH_DATA_THRESHOLD,
 } from "shared/constants";
+import isEqual from "lodash/isEqual";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 import {
@@ -25,12 +26,18 @@ import {
   pauseSchedule,
   rollbackSchedule,
   withRampScheduleAdvanceLockRetry,
+  dispatchRampEvent,
 } from "back-end/src/services/rampSchedule";
 import {
   NotFoundError,
   RampAdvanceLockBusyError,
 } from "back-end/src/util/errors";
 import { logger } from "back-end/src/util/logger";
+import { getContextForAgendaJobByOrgObject } from "back-end/src/services/organizations";
+
+export type RampHealthHoldKind = NonNullable<
+  RampScheduleInterface["healthHold"]
+>["kind"];
 
 export type EvalDecision =
   | { action: "advance" }
@@ -44,6 +51,9 @@ export type EvalDecision =
       // This is what makes approval the final gate: the UI only prompts and the
       // API only accepts an approval once awaitingApproval is set.
       awaitingApproval?: boolean;
+      // The health check holding the step. Reported once per check per step;
+      // the reason text is not the dedupe key.
+      health?: RampHealthHoldKind;
     }
   | { action: "rollback"; reason: string }
   | { action: "pause"; reason: string };
@@ -268,6 +278,7 @@ async function evaluateMonitoredStep(
       return {
         action: "hold",
         reason: "No traffic detected — holding step (noTrafficAction=hold)",
+        health: "noTraffic",
       };
     }
     // "warn": surfaced via UI monitoring badges only; don't gate progression.
@@ -319,6 +330,7 @@ async function evaluateMonitoredStep(
     return {
       action: "hold",
       reason: `Guardrail metric ${computeFailure.metricId} failed to compute — holding step until it recovers`,
+      health: "guardrailCompute",
     };
   }
 
@@ -456,6 +468,7 @@ function checkExperimentHealth(
       return {
         action: "hold",
         reason: `Experiment health: SRM check failed — holding step (p=${summary.health.srm.toFixed(4)})`,
+        health: "srm",
       };
     }
     // "warn": surfaced via the UI monitoring badges; not a backend gate.
@@ -479,6 +492,7 @@ function checkExperimentHealth(
       return {
         action: "hold",
         reason: `Experiment health: multiple exposures detected — holding step (${(meData.rawDecimal * 100).toFixed(1)}% of users)`,
+        health: "multipleExposures",
       };
     }
     // "warn": surfaced via the UI monitoring badges; not a backend gate.
@@ -505,6 +519,7 @@ function checkSignalMetricGating(
         return {
           action: "hold",
           reason: `Signal metric ${metricId} is unhealthy — holding step`,
+          health: "signalMetric",
         };
       }
     }
@@ -534,9 +549,28 @@ export async function applyRampEvaluationDecision(
       nextSnapshotAt: schedule.nextSnapshotAt,
       cutoffDate: schedule.cutoffDate,
     });
-    return ctx.models.rampSchedules.updateById(schedule.id, {
+    // Every step transition clears the record, so a restart or rollback
+    // that meets the same failure again reports it again.
+    const healthHold = decision.health
+      ? { stepIndex: schedule.currentStepIndex, kind: decision.health }
+      : null;
+    const updated = await ctx.models.rampSchedules.updateById(schedule.id, {
       nextProcessAt,
+      healthHold,
     });
+    if (healthHold && !isEqual(healthHold, schedule.healthHold ?? null)) {
+      await dispatchRampEvent(ctx, updated, "rampSchedule.actions.stepHeld", {
+        object: {
+          rampScheduleId: updated.id,
+          rampName: updated.name,
+          orgId: ctx.org.id,
+          currentStepIndex: updated.currentStepIndex,
+          status: updated.status,
+          reason: decision.reason,
+        },
+      });
+    }
+    return updated;
   }
 
   // Fold the verified advance and any due backlog into a single jump publish.
@@ -551,12 +585,16 @@ export async function applyRampEvaluationDecision(
 }
 
 export async function evaluateRampScheduleAfterSafeRolloutSnapshot(
-  ctx: ReqContext,
+  requestCtx: ReqContext,
   safeRollout: SafeRolloutInterface,
   now: Date = new Date(),
 ): Promise<void> {
   if (!safeRollout.rampScheduleId) return;
   const rampScheduleId = safeRollout.rampScheduleId;
+
+  // A scheduler decision, so it runs on the same authority as the cron tick:
+  // the member whose snapshot completed may not be able to publish the feature.
+  const ctx = getContextForAgendaJobByOrgObject(requestCtx.org);
 
   // Pre-lock screen: don't pay lock writes for no-op snapshot completions.
   // Re-screened inside the lock.

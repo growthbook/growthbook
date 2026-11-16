@@ -75,7 +75,6 @@ const EditScheduleModal = ({
 
   return (
     <Modal
-      useRadixButton={false}
       open={true}
       ctaEnabled={holdoutStage !== "stopped" && !experiment.archived}
       trackingEventModalType=""

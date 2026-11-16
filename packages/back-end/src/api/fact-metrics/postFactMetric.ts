@@ -1,16 +1,17 @@
 import { z } from "zod";
+import omit from "lodash/omit";
 import { getScopedSettings } from "shared/settings";
 import {
   DEFAULT_FACT_METRIC_WINDOW,
-  DEFAULT_LOSE_RISK_THRESHOLD,
   DEFAULT_METRIC_WINDOW_DELAY_HOURS,
   DEFAULT_METRIC_WINDOW_HOURS,
   DEFAULT_PROPER_PRIOR_STDDEV,
-  DEFAULT_WIN_RISK_THRESHOLD,
 } from "shared/constants";
 import {
   postFactMetricBodyFields,
   postFactMetricValidator,
+  resolveCappingSettingsPatch,
+  validateFactMetricCapping,
 } from "shared/validators";
 import {
   CreateFactMetricProps,
@@ -36,7 +37,9 @@ export async function getCreateMetricPropsFromBody(
   const primaryFactTableId =
     body.metricType === "funnel"
       ? body.funnelSettings?.steps[0]?.factTableId
-      : body.numerator?.factTableId;
+      : body.metricType === "compound"
+        ? body.compoundSettings?.components[0]?.factTableId
+        : body.numerator?.factTableId;
   if (!primaryFactTableId) {
     throw new Error("Could not determine the Fact Table for this metric");
   }
@@ -46,30 +49,32 @@ export async function getCreateMetricPropsFromBody(
     throw new Error("Could not find fact table");
   }
 
+  // Risk thresholds are still accepted but no longer stored.
   const {
     quantileSettings,
     funnelSettings,
+    compoundSettings,
     cappingSettings,
+    lowerCappingSettings,
     windowSettings,
     regressionAdjustmentSettings,
     priorSettings,
     numerator,
     denominator,
-    riskThresholdSuccess,
-    riskThresholdDanger,
     minPercentChange,
     maxPercentChange,
     minSampleSize,
     targetMDE,
     ...otherFields
-  } = body;
+  } = omit(body, ["riskThresholdSuccess", "riskThresholdDanger"]);
 
   // Set the correct column based on metric type
   let column: string;
   if (
     body.metricType === "proportion" ||
     body.metricType === "retention" ||
-    body.metricType === "funnel"
+    body.metricType === "funnel" ||
+    body.metricType === "compound"
   ) {
     column = "$$distinctUsers";
   } else if (body.metricType === "dailyParticipation") {
@@ -78,36 +83,29 @@ export async function getCreateMetricPropsFromBody(
     column = body.numerator?.column || "$$distinctUsers";
   }
 
-  const cleanedNumerator =
-    body.metricType === "funnel"
-      ? null
-      : numerator
-        ? FactMetricModel.migrateColumnRef({
-            ...numerator,
-            column,
-            // Clear aggregation for metric types that use special columns
-            aggregation:
-              body.metricType === "proportion" ||
-              body.metricType === "retention" ||
-              body.metricType === "dailyParticipation"
-                ? undefined
-                : numerator.aggregation,
-          })
-        : null;
-  if (body.metricType !== "funnel" && !cleanedNumerator) {
-    throw new Error("Numerator required for non-funnel metrics");
+  const eventListMetric =
+    body.metricType === "funnel" || body.metricType === "compound";
+  const cleanedNumerator = eventListMetric
+    ? null
+    : numerator
+      ? FactMetricModel.migrateColumnRef({
+          ...numerator,
+          column,
+          // Clear aggregation for metric types that use special columns
+          aggregation:
+            body.metricType === "proportion" ||
+            body.metricType === "retention" ||
+            body.metricType === "dailyParticipation"
+              ? undefined
+              : numerator.aggregation,
+        })
+      : null;
+  if (!eventListMetric && !cleanedNumerator) {
+    throw new Error(`Numerator required for ${body.metricType} metrics`);
   }
 
   const data: CreateFactMetricProps = {
     datasource: factTable.datasource,
-    loseRisk:
-      riskThresholdDanger ||
-      scopedSettings.loseRisk.value ||
-      DEFAULT_LOSE_RISK_THRESHOLD,
-    winRisk:
-      riskThresholdSuccess ||
-      scopedSettings.winRisk.value ||
-      DEFAULT_WIN_RISK_THRESHOLD,
     maxPercentChange:
       maxPercentChange ??
       scopedSettings.metricDefaults.value.maxPercentageChange ??
@@ -129,6 +127,7 @@ export async function getCreateMetricPropsFromBody(
     inverse: false,
     quantileSettings: quantileSettings ?? null,
     funnelSettings: funnelSettings ?? null,
+    compoundSettings: compoundSettings ?? null,
     windowSettings: {
       type: DEFAULT_FACT_METRIC_WINDOW,
       delayValue:
@@ -159,7 +158,7 @@ export async function getCreateMetricPropsFromBody(
     ...otherFields,
   };
 
-  if (denominator && body.metricType !== "funnel") {
+  if (denominator && !eventListMetric) {
     data.denominator = FactMetricModel.migrateColumnRef({
       ...denominator,
       column: denominator.column || "$$distinctUsers",
@@ -173,11 +172,11 @@ export async function getCreateMetricPropsFromBody(
     }
   }
 
-  if (cappingSettings?.type && cappingSettings?.type !== "none") {
-    data.cappingSettings.type = cappingSettings.type;
-    data.cappingSettings.value = cappingSettings.value || 0;
-    data.cappingSettings.ignoreZeros = cappingSettings.ignoreZeros || false;
-  }
+  Object.assign(
+    data,
+    resolveCappingSettingsPatch({ cappingSettings, lowerCappingSettings }),
+  );
+  validateFactMetricCapping(data);
 
   if (windowSettings?.type && windowSettings?.type !== "none") {
     data.windowSettings.type = windowSettings.type;

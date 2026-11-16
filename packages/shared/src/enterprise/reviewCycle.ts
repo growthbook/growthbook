@@ -27,6 +27,18 @@ export function reviewCycleSupersededMessage(
   return `This review request was superseded — the draft was recalled and resubmitted while your ${what} was in flight. Reload and review the current request.`;
 }
 
+// Each reviewer's latest verdict still in force. Comments carry none, and
+// stale verdicts were given on older content or an earlier review cycle.
+export function standingReviews<
+  T extends { userId: string; decision: string; stale?: boolean },
+>(reviews: readonly T[]): T[] {
+  const latest = new Map<string, T>();
+  for (const r of reviews) {
+    if (r.decision !== "comment" && !r.stale) latest.set(r.userId, r);
+  }
+  return [...latest.values()];
+}
+
 // Changes requested outrank approvals; callers choose the no-verdict fallback.
 export function statusFromStandingVerdicts<TFallback extends string>(
   verdicts: readonly ("approved" | "changes-requested")[],

@@ -1,18 +1,17 @@
 import type { Response } from "express";
 import {
+  EventWebHookRequestBody,
   CreateWebhookSecretProps,
   UpdateWebhookSecretProps,
 } from "shared/validators";
 import {
   EventWebHookInterface,
-  EventWebHookPayloadType,
   EventWebHookMethod,
 } from "shared/types/event-webhook";
 import {
   EventWebHookLegacyLogInterface,
   EventWebHookLogInterface,
 } from "shared/types/event-webhook-log";
-import { NotificationEventName } from "shared/types/events/base-types";
 import { PrivateApiErrorResponse } from "back-end/types/api";
 import * as EventWebHook from "back-end/src/models/EventWebhookModel";
 import {
@@ -20,7 +19,6 @@ import {
   getEventWebHookById,
   updateEventWebHook,
   sendEventWebhookTestEvent,
-  UpdateEventWebHookAttributes,
 } from "back-end/src/models/EventWebhookModel";
 import * as EventWebHookLog from "back-end/src/models/EventWebHookLogModel";
 
@@ -42,11 +40,13 @@ export const getEventWebHooks = async (
 ) => {
   const context = getContextFromReq(req);
 
-  if (!context.permissions.canViewEventWebhook()) {
+  if (!context.permissions.canManageSomeEventWebhooks()) {
     context.permissions.throwPermissionError();
   }
 
-  const eventWebHooks = await EventWebHook.getAllEventWebHooks(context.org.id);
+  const eventWebHooks = (
+    await EventWebHook.getAllEventWebHooks(context.org.id)
+  ).filter((webhook) => context.permissions.canViewEventWebhook(webhook));
 
   return res.json({ eventWebHooks });
 };
@@ -67,10 +67,6 @@ export const getEventWebHook = async (
 ) => {
   const context = getContextFromReq(req);
 
-  if (!context.permissions.canViewEventWebhook()) {
-    context.permissions.throwPermissionError();
-  }
-
   const { eventWebHookId } = req.params;
 
   const eventWebHook = await getEventWebHookById(
@@ -82,6 +78,10 @@ export const getEventWebHook = async (
     return res.status(404).json({ status: 404, message: "Not found" });
   }
 
+  if (!context.permissions.canViewEventWebhook(eventWebHook)) {
+    context.permissions.throwPermissionError();
+  }
+
   return res.json({
     eventWebHook,
   });
@@ -91,20 +91,7 @@ export const getEventWebHook = async (
 
 // region POST /event-webhooks
 
-type PostEventWebHooksRequest = AuthRequest & {
-  body: {
-    url: string;
-    name: string;
-    enabled: boolean;
-    events: NotificationEventName[];
-    tags: string[];
-    environments: string[];
-    projects: string[];
-    payloadType: EventWebHookPayloadType;
-    method: EventWebHookMethod;
-    headers: Record<string, string>;
-  };
-};
+type PostEventWebHooksRequest = AuthRequest<EventWebHookRequestBody>;
 
 type PostEventWebHooksResponse = {
   eventWebHook: EventWebHookInterface;
@@ -116,7 +103,7 @@ export const createEventWebHook = async (
 ) => {
   const context = getContextFromReq(req);
 
-  if (!context.permissions.canCreateEventWebhook()) {
+  if (!context.permissions.canCreateEventWebhook(req.body)) {
     context.permissions.throwPermissionError();
   }
   const {
@@ -130,6 +117,7 @@ export const createEventWebHook = async (
     payloadType,
     method = "POST",
     headers = {},
+    timeoutSeconds,
   } = req.body;
 
   const created = await EventWebHook.createEventWebHook({
@@ -144,6 +132,7 @@ export const createEventWebHook = async (
     payloadType,
     method,
     headers,
+    timeoutSeconds,
   });
 
   return res.json({ eventWebHook: created });
@@ -171,14 +160,25 @@ export const getEventWebHookLogs = async (
 ) => {
   const context = getContextFromReq(req);
 
-  if (!context.permissions.canViewEventWebhook()) {
+  const eventWebHook = await getEventWebHookById(
+    req.params.eventWebHookId,
+    context.org.id,
+  );
+
+  if (!eventWebHook) {
+    return res.status(404).json({ status: 404, message: "Not found" });
+  }
+
+  if (!context.permissions.canViewEventWebhook(eventWebHook)) {
     context.permissions.throwPermissionError();
   }
 
+  // Filters may have narrowed since delivery, so each log is checked against its own.
   const eventWebHookLogs = await EventWebHookLog.getLatestRunsForWebHook(
     context.org.id,
-    req.params.eventWebHookId,
+    eventWebHook.id,
     50,
+    (filters) => context.permissions.canViewEventWebhook(filters),
   );
 
   return res.json({ eventWebHookLogs });
@@ -200,7 +200,16 @@ export const deleteEventWebHook = async (
 ) => {
   const context = getContextFromReq(req);
 
-  if (!context.permissions.canDeleteEventWebhook()) {
+  const eventWebHook = await getEventWebHookById(
+    req.params.eventWebHookId,
+    context.org.id,
+  );
+
+  if (!eventWebHook) {
+    return res.status(404).json({ status: 404, message: "Not found" });
+  }
+
+  if (!context.permissions.canDeleteEventWebhook(eventWebHook)) {
     context.permissions.throwPermissionError();
   }
 
@@ -221,7 +230,7 @@ export const deleteEventWebHook = async (
 // region PUT /event-webhooks/:eventWebHookId
 
 type UpdateEventWebHookRequest = AuthRequest<
-  Required<UpdateEventWebHookAttributes>,
+  EventWebHookRequestBody,
   { eventWebHookId: string }
 >;
 
@@ -235,7 +244,16 @@ export const putEventWebHook = async (
 ) => {
   const context = getContextFromReq(req);
 
-  if (!context.permissions.canUpdateEventWebhook()) {
+  const eventWebHook = await getEventWebHookById(
+    req.params.eventWebHookId,
+    context.org.id,
+  );
+
+  if (!eventWebHook) {
+    return res.status(404).json({ status: 404 });
+  }
+
+  if (!context.permissions.canUpdateEventWebhook(eventWebHook, req.body)) {
     context.permissions.throwPermissionError();
   }
 
@@ -274,10 +292,6 @@ export const toggleEventWebHook = async (
 ) => {
   const context = getContextFromReq(req);
 
-  if (!context.permissions.canUpdateEventWebhook()) {
-    context.permissions.throwPermissionError();
-  }
-
   const {
     org: { id: organizationId },
   } = context;
@@ -288,7 +302,15 @@ export const toggleEventWebHook = async (
     organizationId,
   );
 
-  const enabled = !webhook?.enabled;
+  if (!webhook) {
+    return res.status(404).json({ status: 404, message: "Not found" });
+  }
+
+  if (!context.permissions.canUpdateEventWebhook(webhook, {})) {
+    context.permissions.throwPermissionError();
+  }
+
+  const enabled = !webhook.enabled;
 
   const successful = await updateEventWebHook(
     {
@@ -336,7 +358,7 @@ export const testWebHookParams = async (
 ) => {
   const context = getContextFromReq(req);
 
-  if (!context.permissions.canCreateEventWebhook()) {
+  if (!context.permissions.canManageSomeEventWebhooks()) {
     context.permissions.throwPermissionError();
   }
 
@@ -387,7 +409,7 @@ export const createTestEventWebHook = async (
 
   await sendEventWebhookTestEvent(context, webhookId);
 
-  return res.status(200);
+  return res.status(200).json({ status: 200 });
 };
 
 // endregion POST /event-webhooks/test

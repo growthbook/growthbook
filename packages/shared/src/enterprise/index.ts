@@ -1,6 +1,7 @@
 export * from "./reviewCycle";
 export * from "../revisions";
 export * from "./license-consts";
+export * from "./adminOrganizations";
 export * from "./pricing-limits";
 export * from "./entitlements";
 export * from "./sso";
@@ -9,6 +10,8 @@ export * from "./power";
 export * from "./decision-criteria";
 export * from "./dashboards";
 export * from "./product-analytics/sql";
+export * from "./product-analytics/columns";
+export * from "./product-analytics/journey-sql";
 export * from "./product-analytics/column-dependencies";
 export * from "./product-analytics/comparison";
 export * from "./product-analytics/utils";
@@ -17,3 +20,5 @@ export * from "./validators/decision-criteria";
 export * from "./validators/dashboard";
 export * from "./validators/dashboard-block";
 export * from "./validators/dashboard-template";
+
+export * from "./product-analytics/populations";

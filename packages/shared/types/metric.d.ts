@@ -18,6 +18,8 @@ export interface MetricStats {
   count: number;
   stddev: number;
   mean: number;
+  //used in cluster experiments.
+  sub_count?: number;
 }
 
 export interface LegacyMetricAnalysis {
@@ -71,8 +73,6 @@ export interface MetricInterface {
   windowSettings: MetricWindowSettings;
   priorSettings: MetricPriorSettings;
 
-  winRisk?: number;
-  loseRisk?: number;
   maxPercentChange?: number;
   minPercentChange?: number;
   minSampleSize?: number;
@@ -123,6 +123,8 @@ export type LegacyMetricInterface = Omit<
   capValue?: number;
   conversionWindowHours?: number;
   conversionDelayHours?: number;
+  winRisk?: number;
+  loseRisk?: number;
   userIdType?: "anonymous" | "user" | "either";
   userIdColumn?: string;
   anonymousIdColumn?: string;

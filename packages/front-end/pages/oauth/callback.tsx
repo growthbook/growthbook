@@ -3,7 +3,22 @@ import { useEffect, useState } from "react";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { OAuthError } from "@/components/OAuthError";
 import { getApiHost } from "@/services/env";
-import { getPostAuthRedirectPath } from "@/services/auth";
+import { getPostAuthRedirectPath, redirectWithTimeout } from "@/services/auth";
+
+// At most one silent restart a minute, so a persistent failure still surfaces the error page
+const canAutoRestart = () => {
+  try {
+    const last = parseInt(
+      window.sessionStorage.getItem("gb-login-restart") || "0",
+      10,
+    );
+    if (Date.now() - last < 60_000) return false;
+    window.sessionStorage.setItem("gb-login-restart", `${Date.now()}`);
+    return true;
+  } catch {
+    return false;
+  }
+};
 
 export default function OAuthCallbackPage() {
   const router = useRouter();
@@ -29,6 +44,14 @@ export default function OAuthCallbackPage() {
         const refresh = await post("/auth/refresh").catch(() => null);
         if (refresh?.token) {
           return router.replace(getPostAuthRedirectPath({ consume: true }));
+        }
+        // A stale attempt (e.g. a tab parked on the IdP overnight) is fixed by a fresh flow
+        if (
+          json?.code === "stale_login_attempt" &&
+          refresh?.redirectURI &&
+          canAutoRestart()
+        ) {
+          return redirectWithTimeout(refresh.redirectURI);
         }
         setError(json?.message || "An unknown error occurred");
       })

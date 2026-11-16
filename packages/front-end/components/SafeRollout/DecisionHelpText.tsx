@@ -116,6 +116,13 @@ const DecisionHelpText = ({ rule }: { rule: SafeRolloutRule }) => {
         Guardrails are failing and the Safe Rollout should be reverted.
       </HelperText>
     );
+  } else if (decisionStatus.status === "data-incomplete") {
+    return (
+      <HelperText status="warning" mb="3">
+        Some guardrail metrics could not be computed, so no ship recommendation
+        is available.
+      </HelperText>
+    );
   } else if (decisionStatus.status === "ship-now") {
     return (
       <HelperText status="success" mb="3">

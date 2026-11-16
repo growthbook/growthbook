@@ -4,11 +4,12 @@ import {
 } from "shared/validators";
 import { stringToBoolean } from "shared/util";
 import type { ApiReqContext } from "back-end/types/api";
+import { assertUserScopedKeyForMine } from "back-end/src/api/revisionValidations";
 import {
   getFeatureRevisionsByStatus,
   countDocuments,
 } from "back-end/src/models/FeatureRevisionModel";
-import { getAllFeatures, getFeature } from "back-end/src/models/FeatureModel";
+import { getAllFeatureIds, getFeature } from "back-end/src/models/FeatureModel";
 import {
   createApiRequestHandler,
   validatePagination,
@@ -56,12 +57,8 @@ export async function loadRevisionsPage(
       "`mine` and `author` are mutually exclusive. Pass one or the other.",
     );
   }
-  if (mine && !context.userId) {
-    throw new BadRequestError(
-      "`mine=true` requires a user-scoped API key (the caller must be identifiable as a user).",
-    );
-  }
-  const involvedUserId = mine ? context.userId : undefined;
+  assertUserScopedKeyForMine(context, mine);
+  const involvedUserId = mine ? context.actingUserId : undefined;
 
   const skipPagination = stringToBoolean(query.skipPagination?.toString());
   if (skipPagination && !API_ALLOW_SKIP_PAGINATION) {
@@ -89,17 +86,19 @@ export async function loadRevisionsPage(
     if (singleFeature.archived && !includeArchived)
       return emptyListResponse(limit, offset);
   } else {
-    const readableProjects =
-      context.permissions.getProjectsWithPermission("readData");
+    const readableProjects = context.permissions.getProjectsWithPermission(
+      "readData",
+      await context.models.projects.getAllIdsForOrg(),
+    );
     if (readableProjects !== null) {
       if (readableProjects.length === 0) {
         return emptyListResponse(limit, offset);
       }
-      const scopedFeatures = await getAllFeatures(context, {
+      featureIds = await getAllFeatureIds(context, {
         projects: readableProjects,
+        projectsAreReadAllowlist: true,
         includeArchived,
       });
-      featureIds = scopedFeatures.map((f) => f.id);
       if (featureIds.length === 0) {
         return emptyListResponse(limit, offset);
       }

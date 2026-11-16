@@ -1,3 +1,4 @@
+import { hasSuperAdminPermission } from "shared/permissions";
 import {
   EventForwarderConfigInterface,
   eventForwarderConfigValidator,
@@ -54,15 +55,15 @@ export class EventForwarderConfigModel extends BaseClass {
     _updates: UpdateProps<EventForwarderConfigInterface>,
     newDoc: EventForwarderConfigInterface,
   ): boolean {
-    return this.context.permissions.canUpdateEventForwarderConfig(
-      existing,
-      newDoc,
+    return (
+      hasSuperAdminPermission(this.context.superAdmin, "provision") ||
+      this.context.permissions.canUpdateEventForwarderConfig(existing, newDoc)
     );
   }
 
   protected canDelete(doc: EventForwarderConfigInterface): boolean {
     return (
-      this.context.superAdmin ||
+      hasSuperAdminPermission(this.context.superAdmin, "provision") ||
       this.context.permissions.canDeleteEventForwarderConfig(doc)
     );
   }

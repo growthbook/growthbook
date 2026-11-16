@@ -8,6 +8,7 @@ import {
   updateColumnPropsValidator,
   updateFactTablePropsValidator,
   testFactFilterPropsValidator,
+  testRowFiltersPropsValidator,
   testVirtualColumnPropsValidator,
 } from "shared/validators";
 import { wrapController } from "back-end/src/routers/wrapController";
@@ -15,6 +16,8 @@ import { validateRequestMiddleware } from "back-end/src/routers/utils/validateRe
 import * as rawFactTableController from "./fact-table.controller";
 
 const router = express.Router();
+
+const MAX_FACT_TABLE_IDS = 50;
 
 const factTableController = wrapController(rawFactTableController);
 
@@ -35,7 +38,22 @@ router.post(
   factTableController.postFactTable,
 );
 
-router.get("/fact-tables", factTableController.getFactTables);
+router.get(
+  "/fact-tables",
+  validateRequestMiddleware({
+    query: z
+      .object({
+        ids: z
+          .string()
+          .refine((ids) => ids.split(",").length <= MAX_FACT_TABLE_IDS, {
+            message: `At most ${MAX_FACT_TABLE_IDS} ids`,
+          })
+          .optional(),
+      })
+      .strict(),
+  }),
+  factTableController.getFactTables,
+);
 
 router.get(
   "/fact-tables/:id",
@@ -175,6 +193,15 @@ router.post(
     body: testFactFilterPropsValidator,
   }),
   factTableController.postFactFilterTest,
+);
+
+router.post(
+  "/fact-tables/:id/test-row-filters",
+  validateRequestMiddleware({
+    params: factTableParams,
+    body: testRowFiltersPropsValidator,
+  }),
+  factTableController.postRowFiltersTest,
 );
 
 router.delete(

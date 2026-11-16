@@ -233,9 +233,22 @@ const PopulationDataQueryInput = ({
         <div style={{ flex: 1 }} />
         <div className="col-auto">
           {canRunPopulationQuery && (
-            <form
-              onSubmit={async (e) => {
-                e.preventDefault();
+            <RunQueriesButton
+              icon="refresh"
+              cta={
+                populationData?.status === "success"
+                  ? "Refresh Data"
+                  : "Get Data"
+              }
+              mutate={mutate}
+              model={
+                populationData ?? {
+                  queries: [],
+                  runStarted: new Date(),
+                }
+              }
+              cancelEndpoint={`/population-data/${populationData?.id}/cancel`}
+              onSubmit={async () => {
                 try {
                   form.setValue("customizedMetrics", false);
                   const res = await postPopulationData({
@@ -253,26 +266,7 @@ const PopulationDataQueryInput = ({
                   setError(e.message);
                 }
               }}
-            >
-              <RunQueriesButton
-                useRadixButton={false}
-                icon="refresh"
-                cta={
-                  populationData?.status === "success"
-                    ? "Refresh Data"
-                    : "Get Data"
-                }
-                mutate={mutate}
-                model={
-                  populationData ?? {
-                    queries: [],
-                    runStarted: new Date(),
-                  }
-                }
-                cancelEndpoint={`/population-data/${populationData?.id}/cancel`}
-                color="outline-primary"
-              />
-            </form>
+            />
           )}
         </div>
         <div className="col-auto pl-0">
@@ -432,7 +426,6 @@ export const SetParamsStep = ({
   }
   return (
     <Modal
-      useRadixButton={false}
       trackingEventModalType="power-calculation-set-params"
       allowlistedTrackingEventProps={{
         source: form.getValues("metricValuesData.source"),
