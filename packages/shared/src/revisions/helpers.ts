@@ -743,9 +743,10 @@ export function mergeNestedBranch(
       return null;
     }
     const merged: Record<string, unknown> = {};
+    // Live's key order first, so a diff against live shows no reordering.
     for (const key of new Set([
-      ...Object.keys(b),
       ...Object.keys(l),
+      ...Object.keys(b),
       ...Object.keys(p),
     ])) {
       const value = pick(key, b[key], l[key], p[key]);

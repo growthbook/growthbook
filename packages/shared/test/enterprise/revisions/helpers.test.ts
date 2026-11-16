@@ -1617,6 +1617,29 @@ describe("landedOps", () => {
     ]);
   });
 
+  it("keeps live's key order, so a setting added to live since isn't shown as moved", () => {
+    const liveWithTracker = {
+      ...live,
+      sdkConnection: {
+        name: "Prod",
+        eventTracker: "segment",
+        encryptPayload: true,
+        environment: "prod",
+      },
+    };
+    const ops: JsonPatchOperation[] = [
+      {
+        op: "replace",
+        path: "/sdkConnection",
+        value: { ...base.sdkConnection, name: "Renamed" },
+      },
+    ];
+    const [landed] = landedOps(liveWithTracker, base, ops);
+    expect(
+      Object.keys((landed as { value: Record<string, unknown> }).value),
+    ).toEqual(Object.keys(liveWithTracker.sdkConnection));
+  });
+
   it("drops what isn't a change, or isn't the entity's to write", () => {
     const ops: JsonPatchOperation[] = [
       { op: "replace", path: "/name", value: "Prod" },
