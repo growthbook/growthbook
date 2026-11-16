@@ -225,8 +225,9 @@ export default function EditTargetingModal({
         <div className="pt-2">
           {makesChanges && (
             <Callout status="info" mb="5">
-              No payload changes are linked to this experiment. These changes
-              are metadata only.
+              This experiment has no linked Feature Flags, visual changes, or
+              URL redirects. These edits update the experiment&apos;s record
+              only and don&apos;t change what users are served.
             </Callout>
           )}
           {experiment.hashVersion === 1 && (
