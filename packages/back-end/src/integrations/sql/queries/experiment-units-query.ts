@@ -14,6 +14,7 @@ import {
 import type { DataSourceInterface } from "shared/types/datasource";
 import type { ExperimentUnitsQueryParams } from "shared/types/integrations";
 import type { SqlDialect } from "shared/types/sql";
+import { AUTOMATIC_DIMENSION_OTHER_NAME } from "shared/constants";
 import { compileSqlTemplate } from "back-end/src/util/sql";
 
 import { MULTIPLE_CLUSTER_SENTINEL } from "back-end/src/integrations/sql/clauses/cluster-assignment-filter";
@@ -31,6 +32,8 @@ import { getMetricStart } from "back-end/src/integrations/sql/dates/metric-start
 import { processActivationMetric } from "back-end/src/integrations/sql/processing/process-activation-metric";
 import { processDimensions } from "back-end/src/integrations/sql/processing/process-dimensions";
 import { getSegmentCTE } from "back-end/src/integrations/sql/ctes/segment-cte";
+import { getTopDimensionValuesCTE } from "back-end/src/integrations/sql/ctes/top-dimension-values-cte";
+import { MAX_UNSLICED_EXPERIMENT_DIMENSION_VALUES } from "back-end/src/services/experimentQueries/constants";
 import {
   getContextualBanditExposureSelectCols,
   getContextualBanditUnitsBaseColumns,
@@ -249,6 +252,26 @@ export function getExperimentUnitsQuery(
       })
     : "";
 
+  const exposureWhere = `e.${getExposureQueryExperimentIdColumn(
+    exposureQuery,
+  )} = '${unitsSettings.experimentId}'
+          AND ${rawTimestampColumn} >= ${dialect.toTimestamp(startDate)}
+          ${
+            endDate
+              ? `AND ${rawTimestampColumn} <= ${dialect.toTimestamp(endDate)}`
+              : ""
+          }
+          ${
+            unitsSettings.queryFilter
+              ? `AND (\n${unitsSettings.queryFilter}\n)`
+              : ""
+          }`;
+
+  // Unsliced dimensions keep only their top values so a high-cardinality column can't explode results
+  const unslicedExperimentDimensions = experimentDimensions.filter(
+    (d) => !d.specifiedSlices?.length,
+  );
+
   return `
     ${params.includeIdJoins ? idJoinSQL : ""}
     __rawExperiment AS (
@@ -264,6 +287,21 @@ export function getExperimentUnitsQuery(
         dialect,
       )}
     ),
+    ${unslicedExperimentDimensions
+      .map(
+        (d) => `__dimTop_${d.id} AS (${getTopDimensionValuesCTE(dialect, {
+          source: "__rawExperiment",
+          column: d.id,
+          unitColumn: getExposureQueryIdentifierColumn(
+            exposureQuery,
+            baseIdType,
+          ),
+          where: exposureWhere,
+          limit: MAX_UNSLICED_EXPERIMENT_DIMENSION_VALUES,
+        })}
+    ),`,
+      )
+      .join("\n")}
     __experimentExposures AS (
       -- Viewed Experiment
       SELECT
@@ -290,26 +328,23 @@ export function getExperimentUnitsQuery(
                 d.specifiedSlices,
               )} AS dim_${d.id}`;
             }
-            return `, e.${d.id} AS dim_${d.id}`;
+            return `, ${dialect.ifElse(
+              `__dimTop_${d.id}.dimension_value IS NULL AND e.${d.id} IS NOT NULL`,
+              dialect.castToString(`'${AUTOMATIC_DIMENSION_OTHER_NAME}'`),
+              dialect.castToString(`e.${d.id}`),
+            )} AS dim_${d.id}`;
           })
           .join("\n")}
       FROM
           __rawExperiment e
+          ${unslicedExperimentDimensions
+            .map(
+              (d) =>
+                `LEFT JOIN __dimTop_${d.id} __dimTop_${d.id} ON (__dimTop_${d.id}.dimension_value = ${dialect.castToString(`e.${d.id}`)})`,
+            )
+            .join("\n")}
       WHERE
-          e.${getExposureQueryExperimentIdColumn(
-            exposureQuery,
-          )} = '${unitsSettings.experimentId}'
-          AND ${rawTimestampColumn} >= ${dialect.toTimestamp(startDate)}
-          ${
-            endDate
-              ? `AND ${rawTimestampColumn} <= ${dialect.toTimestamp(endDate)}`
-              : ""
-          }
-          ${
-            unitsSettings.queryFilter
-              ? `AND (\n${unitsSettings.queryFilter}\n)`
-              : ""
-          }
+          ${exposureWhere}
     )
     ${
       activationMetric

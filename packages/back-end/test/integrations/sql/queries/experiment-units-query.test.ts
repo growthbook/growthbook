@@ -1,5 +1,8 @@
 import type { DataSourceInterface } from "shared/types/datasource";
-import type { ResolvedExposureQuery } from "shared/types/integrations";
+import type {
+  ExperimentDimension,
+  ResolvedExposureQuery,
+} from "shared/types/integrations";
 import { postgresDialect } from "shared/dialects";
 import { getExperimentUnitsQuery } from "back-end/src/integrations/sql/queries/experiment-units-query";
 
@@ -14,7 +17,10 @@ const mappedExposureQuery: ResolvedExposureQuery = {
   },
 };
 
-function buildSql(exposureQuery: ResolvedExposureQuery) {
+function buildSql(
+  exposureQuery: ResolvedExposureQuery,
+  dimensions: ExperimentDimension[] = [],
+) {
   return getExperimentUnitsQuery(
     postgresDialect,
     {
@@ -34,7 +40,7 @@ function buildSql(exposureQuery: ResolvedExposureQuery) {
       },
       activationMetric: null,
       factTableMap: new Map(),
-      dimensions: [],
+      dimensions,
       segment: null,
       includeIdJoins: false,
     },
@@ -61,5 +67,34 @@ describe("getExperimentUnitsQuery", () => {
       /MIN\(e\.timestamp\) AS first_exposure_timestamp/,
     );
     expect(afterExposures).not.toContain("received_at");
+  });
+
+  it("buckets an unsliced experiment dimension into its top values", () => {
+    const sql = buildSql(mappedExposureQuery, [
+      { type: "experiment", id: "country" },
+    ]);
+
+    const topCte = sql.slice(
+      sql.indexOf("__dimTop_country AS ("),
+      sql.indexOf("__experimentExposures AS ("),
+    );
+    expect(topCte).toMatch(/COUNT\(DISTINCT e\.uid\) AS units/);
+    expect(topCte).toMatch(/e\.exp_key = 'my-exp'/);
+    expect(topCte).toMatch(/rn <= 18/);
+    expect(sql).toMatch(
+      /LEFT JOIN __dimTop_country __dimTop_country ON \(__dimTop_country\.dimension_value = CAST\(e\.country AS VARCHAR\)\)/i,
+    );
+    expect(sql).toMatch(
+      /WHEN __dimTop_country\.dimension_value IS NULL AND e\.country IS NOT NULL THEN CAST\('__Other__' AS VARCHAR\)/i,
+    );
+  });
+
+  it("leaves dimensions with configured slices to their slices", () => {
+    const sql = buildSql(mappedExposureQuery, [
+      { type: "experiment", id: "country", specifiedSlices: ["US", "CA"] },
+    ]);
+
+    expect(sql).not.toContain("__dimTop_country");
+    expect(sql).toMatch(/IN \('US','CA'\)/);
   });
 });
