@@ -11489,8 +11489,6 @@ paths:
                               required:
                                 - name
                                 - type
-                                - before
-                                - after
                               additionalProperties: false
                         required:
                           - name
@@ -26034,9 +26032,6 @@ paths:
                         proposedValue: {}
                       required:
                         - field
-                        - baseValue
-                        - liveValue
-                        - proposedValue
                       additionalProperties: false
                   canAutoMerge:
                     type: boolean
@@ -27940,9 +27935,6 @@ paths:
                         proposedValue: {}
                       required:
                         - field
-                        - baseValue
-                        - liveValue
-                        - proposedValue
                       additionalProperties: false
                   canAutoMerge:
                     type: boolean
@@ -31146,9 +31138,6 @@ paths:
                         proposedValue: {}
                       required:
                         - field
-                        - baseValue
-                        - liveValue
-                        - proposedValue
                       additionalProperties: false
                   canAutoMerge:
                     type: boolean
@@ -81600,7 +81589,6 @@ components:
                 body: {}
               required:
                 - status
-                - body
               additionalProperties: false
             - type: 'null'
         note:
@@ -91466,161 +91454,6 @@ components:
         - confirmation
         - message
       additionalProperties: false
-      $defs:
-        Confirmation:
-          id: Confirmation
-          type: object
-          properties:
-            id:
-              type: string
-            status:
-              type: string
-              enum:
-                - pending
-                - running
-                - completed
-                - rejected
-                - expired
-            actions:
-              type: array
-              items:
-                type: object
-                properties:
-                  action:
-                    type: string
-                    enum:
-                      - feature.create
-                      - feature.draft
-                      - feature.review
-                      - feature.publish
-                      - feature.archive
-                      - feature.delete
-                      - feature.other
-                      - experiment.create
-                      - experiment.draft
-                      - experiment.start
-                      - experiment.stop
-                      - experiment.targeting
-                      - experiment.traffic
-                      - experiment.phases
-                      - experiment.visualEditor
-                      - experiment.checklist
-                      - experiment.other
-                      - savedGroup.create
-                      - savedGroup.draft
-                      - savedGroup.review
-                      - savedGroup.publish
-                      - savedGroup.archive
-                      - savedGroup.delete
-                      - savedGroup.other
-                      - constant.create
-                      - constant.draft
-                      - constant.review
-                      - constant.publish
-                      - constant.archive
-                      - constant.delete
-                      - constant.other
-                      - config.create
-                      - config.draft
-                      - config.review
-                      - config.publish
-                      - config.archive
-                      - config.delete
-                      - config.other
-                      - rampSchedule.create
-                      - rampSchedule.start
-                      - rampSchedule.pause
-                      - rampSchedule.progression
-                      - rampSchedule.approve
-                      - rampSchedule.edit
-                      - rampSchedule.delete
-                      - rampSchedule.other
-                      - settings.approvals
-                      - settings.dataSources
-                      - settings.webhooks
-                      - settings.other
-                      - access.members
-                      - access.teams
-                      - customHook.create
-                      - customHook.edit
-                      - customHook.delete
-                      - environment.create
-                      - environment.edit
-                      - environment.delete
-                      - project.create
-                      - project.edit
-                      - project.delete
-                      - attribute.create
-                      - attribute.edit
-                      - attribute.delete
-                      - customField.create
-                      - customField.edit
-                      - customField.delete
-                      - sdkConnection.create
-                      - sdkConnection.edit
-                      - sdkConnection.delete
-                      - metric.create
-                      - metric.edit
-                      - metric.delete
-                      - factTable.create
-                      - factTable.edit
-                      - factTable.delete
-                      - segment.create
-                      - segment.edit
-                      - segment.delete
-                      - dimension.create
-                      - dimension.edit
-                      - dimension.delete
-                      - override.ignoreWarnings
-                      - override.skipSchemaValidation
-                      - override.skipHooks
-                      - override.bypassApproval
-                      - override.restBypassesReviews
-                      - override.draftLimit
-                      - override.skipChecklist
-                      - override.bypassDuplicateKeyCheck
-                      - override.unscopedRules
-                      - other.write
-                  environments:
-                    type: array
-                    items:
-                      type: string
-                required:
-                  - action
-                  - environments
-                additionalProperties: false
-            summary:
-              type: string
-            url:
-              type: string
-            expiresAt:
-              type: string
-            response:
-              anyOf:
-                - type: object
-                  properties:
-                    status:
-                      type: number
-                    body: {}
-                  required:
-                    - status
-                    - body
-                  additionalProperties: false
-                - type: 'null'
-            note:
-              anyOf:
-                - type: string
-                - type: 'null'
-          required:
-            - id
-            - status
-            - actions
-            - summary
-            - url
-            - expiresAt
-            - response
-            - note
-          additionalProperties: false
     ExperimentSnapshot:
       type: object
       properties:
@@ -91909,8 +91742,6 @@ components:
                   Distance from the family root along the `parent` spine (root
                   is 0).
                 type: integer
-                minimum: -9007199254740991
-                maximum: 9007199254740991
               isTarget:
                 description: True for the requested config.
                 type: boolean
@@ -91969,85 +91800,6 @@ components:
         - effective
         - additionalProperties
       additionalProperties: false
-      $defs:
-        ConfigSchemaSource:
-          id: ConfigSchemaSource
-          anyOf:
-            - type: object
-              properties:
-                type:
-                  type: string
-                  const: json-schema
-                value:
-                  description: A JSON Schema document (an object).
-                  type: object
-                  propertyNames:
-                    type: string
-                  additionalProperties: {}
-              required:
-                - type
-                - value
-              additionalProperties: false
-            - type: object
-              properties:
-                type:
-                  type: string
-                  const: typescript
-                value:
-                  description: TypeScript source — an interface or object type.
-                  type: string
-              required:
-                - type
-                - value
-              additionalProperties: false
-            - type: object
-              properties:
-                type:
-                  type: string
-                  const: protobuf
-                value:
-                  description: Protobuf (proto3) source — a `message` definition.
-                  type: string
-              required:
-                - type
-                - value
-              additionalProperties: false
-            - type: object
-              properties:
-                type:
-                  type: string
-                  const: python
-                value:
-                  description: Python source — a Pydantic `BaseModel` class.
-                  type: string
-              required:
-                - type
-                - value
-              additionalProperties: false
-            - type: object
-              properties:
-                type:
-                  type: string
-                  const: go
-                value:
-                  description: Go source — a `struct` definition.
-                  type: string
-              required:
-                - type
-                - value
-              additionalProperties: false
-            - type: object
-              properties:
-                type:
-                  type: string
-                  const: rust
-                value:
-                  description: Rust source — a serde `struct` definition.
-                  type: string
-              required:
-                - type
-                - value
-              additionalProperties: false
     ConfigSchemaVerify:
       type: object
       properties:
@@ -92143,28 +91895,6 @@ components:
         - fingerprint
         - incomingFingerprint
       additionalProperties: false
-      $defs:
-        ConfigSchemaWarning:
-          id: ConfigSchemaWarning
-          type: object
-          properties:
-            code:
-              type: string
-              enum:
-                - dropped-declaration
-                - non-object-root
-                - unresolved-type
-                - unsupported-member
-                - redundant-declaration
-                - undeclared-rule-field
-            message:
-              type: string
-            path:
-              type: string
-          required:
-            - code
-            - message
-          additionalProperties: false
     SavedGroupReferences:
       type: object
       properties:
@@ -92221,20 +91951,6 @@ components:
         - interleavings
         - savedGroups
       additionalProperties: false
-      $defs:
-        SavedGroupReferenceResource:
-          id: SavedGroupReferenceResource
-          type: object
-          properties:
-            id:
-              type: string
-            name:
-              type: string
-            project:
-              type: string
-          required:
-            - id
-          additionalProperties: false
     ConstantReferences:
       type: object
       properties:

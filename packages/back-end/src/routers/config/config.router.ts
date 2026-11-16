@@ -74,7 +74,7 @@ router.put(
   validateRequestMiddleware({
     params: idParams,
     body: z
-      .object({ property: z.string().min(1), value: z.unknown() })
+      .object({ property: z.string().min(1), value: z.unknown().optional() })
       .strict(),
   }),
   configController.putConfigProperty,
