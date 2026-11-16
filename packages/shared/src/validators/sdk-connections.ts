@@ -1,6 +1,7 @@
 import { z } from "zod";
 import {
   apiPaginationFieldsValidator,
+  booleanQueryField,
   paginationQueryFields,
   publishBypassedGatesField,
   sdkConnectionBypassApprovalBodyField,
@@ -272,6 +273,9 @@ export const listSdkConnectionsValidator = {
       projectId: z.string().describe("Filter by project id").optional(),
       withProxy: z.string().optional(),
       multiOrg: z.string().optional(),
+      archived: booleanQueryField.describe(
+        "Whether to include archived SDK Connections. Defaults to `false` (non-archived only). Pass `true` to include archived SDK Connections alongside non-archived ones.",
+      ),
     })
     .strict(),
   paramsSchema: z.never(),

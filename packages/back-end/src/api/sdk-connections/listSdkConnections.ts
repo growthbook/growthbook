@@ -1,5 +1,6 @@
 import { SDKConnectionInterface } from "shared/types/sdk-connection";
 import { listSdkConnectionsValidator } from "shared/validators";
+import { stringToBoolean } from "shared/util";
 import {
   findAllSDKConnectionsAcrossAllOrgs,
   findSDKConnectionsByOrganization,
@@ -16,6 +17,7 @@ export const listSdkConnections = createApiRequestHandler(
   listSdkConnectionsValidator,
 )(async (req) => {
   let connections: SDKConnectionInterface[] = [];
+  const includeArchived = stringToBoolean(req.query.archived?.toString());
 
   if (req.query.multiOrg) {
     // Includes every org's signing and encryption keys, which impersonating
@@ -31,13 +33,10 @@ export const listSdkConnections = createApiRequestHandler(
       .filter(
         (c) =>
           (!req.query.withProxy || c.proxy?.enabled) &&
+          // An archived connection serves nothing, so the proxy never gets it.
+          ((includeArchived && !req.query.withProxy) || !c.archived) &&
           applyFilter(req.query.projectId, c.projects, true),
       )
-      .filter((c) => {
-        if (!req.query.withProxy) return true;
-        // An archived connection serves nothing, so the proxy drops it.
-        return c.proxy?.enabled && !c.archived;
-      })
       .sort((a, b) => a.dateCreated.getTime() - b.dateCreated.getTime()),
     req.query,
   );

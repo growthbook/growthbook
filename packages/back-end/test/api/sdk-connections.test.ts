@@ -135,6 +135,38 @@ describe("sdk-connections API", () => {
     });
   });
 
+  it("lists archived sdk-connections only when asked", async () => {
+    setReqContext({ org });
+
+    const [live, archived, archivedProxy] = [
+      {},
+      { archived: true },
+      { archived: true, proxy: { enabled: true } },
+    ].map((props) =>
+      sdkConnectionFactory.build({ organization: org.id, ...props }),
+    );
+    findSDKConnectionsByOrganization.mockReturnValue([
+      live,
+      archived,
+      archivedProxy,
+    ]);
+
+    const list = async (query: string) =>
+      (
+        await request(app)
+          .get(`/api/v1/sdk-connections${query}`)
+          .set("Authorization", "Bearer foo")
+      ).body.connections;
+    const shown = (...connections: { id: string }[]) =>
+      connections.map(mockApiSDKConnectionInterface);
+
+    expect(await list("")).toEqual(shown(live));
+    expect(await list("?archived=true")).toEqual(
+      shown(live, archived, archivedProxy),
+    );
+    expect(await list("?archived=true&withProxy=1")).toEqual([]);
+  });
+
   it("can paginate sdk-connections", async () => {
     setReqContext({ org });
 

@@ -22470,6 +22470,27 @@ paths:
         - $ref: '#/components/parameters/projectId'
         - $ref: '#/components/parameters/withProxy'
         - $ref: '#/components/parameters/multiOrg'
+        - name: archived
+          in: query
+          description: >-
+            Whether to include archived SDK Connections. Defaults to `false`
+            (non-archived only). Pass `true` to include archived SDK Connections
+            alongside non-archived ones.
+          schema:
+            description: >-
+              Whether to include archived SDK Connections. Defaults to `false`
+              (non-archived only). Pass `true` to include archived SDK
+              Connections alongside non-archived ones.
+            anyOf:
+              - type: string
+                const: 'true'
+              - type: string
+                const: 'false'
+              - type: string
+                const: '0'
+              - type: string
+                const: '1'
+              - type: boolean
       responses:
         '200':
           description: Successful response
