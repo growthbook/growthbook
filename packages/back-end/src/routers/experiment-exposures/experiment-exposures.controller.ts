@@ -13,6 +13,7 @@ import {
   getExposureQueryExperimentIdColumn,
   getExposureQueryIdentifierColumn,
   getClusterSubUnitIdentifierTypes,
+  getClusterSubUnitMissingError,
   getExposureQueryTimestampColumn,
   getExposureQueryVariationIdColumn,
   parseOptionalInt,
@@ -141,7 +142,11 @@ export async function postExposures(
     ).includes(subUnitIdentifierType)
   ) {
     context.throwBadRequestError(
-      `Assignment query "${exposureQuery.name || exposureQuery.id}" doesn't declare the sub-unit identifier type "${subUnitIdentifierType}".`,
+      getClusterSubUnitMissingError(
+        exposureQuery,
+        datasource,
+        subUnitIdentifierType,
+      ),
     );
     return;
   }

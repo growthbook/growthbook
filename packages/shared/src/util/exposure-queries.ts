@@ -647,6 +647,16 @@ export function getClusterSubUnitIdentifierTypes(
   return types.filter((type) => type !== clusterIdentifierType);
 }
 
+export function getClusterSubUnitMissingError(
+  query: Pick<ExposureQuery, "id" | "name">,
+  datasource: ClusterSubUnitDataSource | null | undefined,
+  subUnitIdentifierType: string,
+): string {
+  return datasource && isManagedWarehouse(datasource)
+    ? `This Data Source doesn't have the subunit identifier type "${subUnitIdentifierType}".`
+    : `Assignment query "${query.name || query.id}" doesn't declare the subunit identifier type "${subUnitIdentifierType}".`;
+}
+
 type ClusterIdentifierValidation = { ok: true } | { ok: false; error: string };
 
 export function validateClusterExperimentIdentifiers(
@@ -697,7 +707,11 @@ export function validateClusterExperimentIdentifiers(
   ) {
     return {
       ok: false,
-      error: `Assignment query "${name}" doesn't declare the subunit identifier type "${subUnitIdentifierType}".`,
+      error: getClusterSubUnitMissingError(
+        query,
+        datasource,
+        subUnitIdentifierType,
+      ),
     };
   }
   return { ok: true };

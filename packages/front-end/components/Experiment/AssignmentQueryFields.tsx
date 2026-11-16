@@ -663,6 +663,8 @@ export function ClusterExperimentFields({
             <IdentifierCode>{subUnitIdentifier}</IdentifierCode> wherever they
             can be.
           </>
+        ) : datasource && isManagedWarehouse(datasource) ? (
+          "This Data Source has no other identifier type to analyze on."
         ) : exposureQuery ? (
           `${exposureQuery.name} doesn't declare another identifier type to analyze on.`
         ) : (
