@@ -23,7 +23,7 @@ import {
   configValueObject,
 } from "./config";
 import {
-  storedJsonPatchOperationValidator,
+  jsonPatchOperationValidator,
   reviewDecision,
   revisionStatus,
   activityLogEntryValidator,
@@ -151,7 +151,7 @@ export const apiConfigRevisionValidator = namedSchema(
       // The config with this revision's changes applied, against its current snapshot.
       proposedConfig: apiConfigValidator,
       // Raw JSON Patch ops (RFC 6902); escape hatch for inspecting deltas.
-      proposedChanges: z.array(storedJsonPatchOperationValidator),
+      proposedChanges: z.array(jsonPatchOperationValidator),
     })
     .strict(),
 );
