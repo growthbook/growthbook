@@ -802,6 +802,7 @@ const AnalysisForm: FC<{
             {supportsClusterExperiments && !isBandit && !isHoldout && (
               <ClusterExperimentFields
                 asRows
+                datasource={datasource}
                 exposureQuery={exposureQuery}
                 identifierType={
                   exposureQuery

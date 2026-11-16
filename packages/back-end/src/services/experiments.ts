@@ -5012,6 +5012,7 @@ export async function assertValidClusterExperimentConfig({
 
   const identifierValidation = validateClusterExperimentIdentifiers(
     currentQuery,
+    datasource,
     clusterIdentifier,
     current.clusterSubUnitIdentifier ?? undefined,
   );
