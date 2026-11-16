@@ -83,6 +83,12 @@ export function getFeatureUsageRevisionColumn(
   return query.columnMapping?.revisionColumn || "revision";
 }
 
+export function getFeatureUsageAttributesColumn(
+  query: WithColumnMapping,
+): string {
+  return query.columnMapping?.attributesColumn || "attributes";
+}
+
 export function getFeatureUsageIdentifierColumn(
   query: WithColumnMapping,
   identifierType: string,
@@ -109,6 +115,7 @@ export function getFeatureUsageRequiredColumns(
         mapping.variationIdColumn,
         mapping.sourceColumn,
         mapping.revisionColumn,
+        mapping.attributesColumn,
       ].filter((c): c is string => !!c),
       ...(query.userIdTypes ?? []).map((type) =>
         getRootColumn(getFeatureUsageIdentifierColumn(query, type)),
@@ -132,6 +139,7 @@ export function findFeatureUsageColumnsNeedingQuotes(
       mapping.variationIdColumn,
       mapping.sourceColumn,
       mapping.revisionColumn,
+      mapping.attributesColumn,
       // A JSON field's root is a column; the field itself is checked by
       // getFeatureUsageJsonFieldError
       ...Object.values(mapping.userIdColumns ?? {}).map(getRootColumn),
@@ -184,4 +192,20 @@ export function getFeatureUsageIdentifierExpression(
     return dialect.jsonExtract(`${prefix}${parts.root}`, parts.field, false);
   }
   return `${prefix}${column}`;
+}
+
+/**
+ * Whether a table needs no column mapping from the user: the timestamp and
+ * feature key use their standard names, and so does every other standard
+ * column the table has. `roleColumns` holds the column matched to each role,
+ * keyed by the role's standard name.
+ */
+export function isStandardFeatureUsageTable(
+  roleColumns: Record<string, string | undefined>,
+): boolean {
+  if (roleColumns.timestamp !== "timestamp") return false;
+  if (roleColumns.feature_key !== "feature_key") return false;
+  return Object.entries(roleColumns).every(
+    ([role, column]) => !column || column === role,
+  );
 }

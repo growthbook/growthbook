@@ -53,6 +53,10 @@ export const featureUsageQueryColumnMappingValidator = z.object({
   variationIdColumn: z.string().optional(),
   sourceColumn: z.string().optional(),
   revisionColumn: z.string().optional(),
+  attributesColumn: z
+    .string()
+    .optional()
+    .describe("JSON column holding the attributes the SDK sent"),
   userIdColumns: z
     .record(z.string(), z.string())
     .optional()

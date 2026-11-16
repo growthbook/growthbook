@@ -5,6 +5,7 @@ import omit from "lodash/omit";
 import {
   findFeatureUsageColumnsNeedingQuotes,
   getColumnsNeedingQuotesMessage,
+  getFeatureUsageAttributesColumn,
   getFeatureUsageEnvironmentColumn,
   getFeatureUsageFeatureKeyColumn,
   getFeatureUsageIdentifierColumn,
@@ -16,6 +17,7 @@ import {
   getFeatureUsageValueColumn,
   getFeatureUsageVariationIdColumn,
   FEATURE_USAGE_JSON_ROOT_TYPES,
+  isStandardFeatureUsageTable,
   splitFeatureUsageJsonField,
 } from "shared/util";
 import {
@@ -47,9 +49,14 @@ import { useAttributeSchema } from "@/services/features";
 import PagedModal from "@/components/Modal/PagedModal";
 import Page from "@/components/Modal/Page";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import { DocLink } from "@/components/DocLink";
 import Callout from "@/ui/Callout";
+import Link from "@/ui/Link";
+import Text from "@/ui/Text";
 
 const BODY_HEIGHT = "calc(93vh - 200px)";
+
+export const IDENTIFIER_TYPES_ANCHOR_ID = "identifier-types";
 
 // Text columns with these names usually hold the SDK's attributes as JSON
 const ATTRIBUTE_COLUMN_NAMES = [
@@ -60,10 +67,13 @@ const ATTRIBUTE_COLUMN_NAMES = [
   "properties_json",
 ];
 
-const isJsonRoot = (c: DetectedColumn, root: string) =>
-  c.column === root && FEATURE_USAGE_JSON_ROOT_TYPES.includes(c.datatype);
+const canHoldJson = (c: DetectedColumn) =>
+  FEATURE_USAGE_JSON_ROOT_TYPES.includes(c.datatype);
 
-// No known evaluation-table layouts to recognize yet
+const isJsonRoot = (c: DetectedColumn, root: string) =>
+  c.column === root && canHoldJson(c);
+
+// GrowthBook's standard table is recognized from its column names instead
 const NO_TEMPLATES: SourceTableTemplate[] = [];
 
 const DEFAULT_QUERY = `SELECT\n  timestamp,\n  feature_key,\n  environment,\n  value\nFROM feature_usage`;
@@ -84,6 +94,13 @@ const OPTIONAL_ROLES = [
     names: ["value"],
     tooltip: "Lets you break down and filter evaluations by value",
     getColumn: getFeatureUsageValueColumn,
+  },
+  {
+    key: "attributes",
+    label: "Attributes",
+    names: ["attributes"],
+    tooltip: "The attributes the SDK sent with each evaluation, as JSON",
+    getColumn: getFeatureUsageAttributesColumn,
   },
   {
     key: "rule_id",
@@ -124,6 +141,7 @@ const MAPPING_KEYS: Record<
 > = {
   environment: "environmentColumn",
   value: "valueColumn",
+  attributes: "attributesColumn",
   rule_id: "ruleIdColumn",
   variation_id: "variationIdColumn",
   source: "sourceColumn",
@@ -151,6 +169,10 @@ function getFeatureUsageColumnMappingError(
   }
   return null;
 }
+
+// Attributes are read as JSON, so only columns that can hold it are offered
+const getRoleOptions = (key: OptionalRole, columns: DetectedColumn[]) =>
+  key === "attributes" ? columns.filter(canHoldJson) : columns;
 
 // The column each standard column and identifier type reads from
 function getSavedRoleColumns(query: FeatureUsageQuery): Record<string, string> {
@@ -274,7 +296,9 @@ export const FeatureEvaluationQueryModal = ({
             prev[key] ?? "",
             cols,
             () =>
-              names.map((n) => findColumnByName(cols, n)).find(Boolean) ?? "",
+              names
+                .map((n) => findColumnByName(getRoleOptions(key, cols), n))
+                .find(Boolean) ?? "",
           ),
         ]).filter(([, column]) => column),
       ),
@@ -326,9 +350,7 @@ export const FeatureEvaluationQueryModal = ({
   );
   const stringOptions = columns.filter(isIdentifierCandidate);
   // Columns a typed JSON field can be read from
-  const jsonRootNames = columns
-    .filter((c) => FEATURE_USAGE_JSON_ROOT_TYPES.includes(c.datatype))
-    .map((c) => c.column);
+  const jsonRootNames = columns.filter(canHoldJson).map((c) => c.column);
   // Identifiers can also be a field inside a JSON column; the org's attributes
   // are the fields the SDK sends. They're suggested for JSON columns and for
   // text columns named like they hold attributes.
@@ -336,7 +358,7 @@ export const FeatureEvaluationQueryModal = ({
     .filter(
       (c) =>
         c.datatype === "json" ||
-        (FEATURE_USAGE_JSON_ROOT_TYPES.includes(c.datatype) &&
+        (canHoldJson(c) &&
           ATTRIBUTE_COLUMN_NAMES.includes(c.column.toLowerCase())),
     )
     .map((c) => c.column);
@@ -396,6 +418,35 @@ export const FeatureEvaluationQueryModal = ({
     (t) => isValidIdentifier(userIdColumns[t] || "") && !identifierErrors[t],
   );
 
+  // A new query on GrowthBook's standard table has nothing left to map, as
+  // long as every identifier type found its column too
+  const isStandardTable =
+    !featureUsageQuery &&
+    mode === "table" &&
+    !!selectedTable &&
+    !!detected &&
+    isStandardFeatureUsageTable({
+      timestamp: timestampColumn,
+      feature_key: featureKeyColumn,
+      ...optionalColumns,
+    }) &&
+    identifierTypes.every((t) => mappedUserIdTypes.includes(t));
+
+  const identifierTypesCallout = identifierTypes.length ? null : (
+    <Callout
+      status="warning"
+      size="sm"
+      action={
+        <Link href={`#${IDENTIFIER_TYPES_ANCHOR_ID}`} onClick={onCancel}>
+          Add identifier types
+        </Link>
+      }
+    >
+      This Data Source has no identifier types yet, so user ids won&apos;t be
+      mapped.
+    </Callout>
+  );
+
   const mappingForChecks: FeatureUsageQueryColumnMapping = {
     timestampColumn,
     featureKeyColumn,
@@ -450,7 +501,7 @@ export const FeatureEvaluationQueryModal = ({
     const optional = Object.fromEntries(
       OPTIONAL_ROLES.map(({ key }) => [
         key,
-        validColumn(columns, optionalColumns[key] || ""),
+        validColumn(getRoleOptions(key, columns), optionalColumns[key] || ""),
       ]).filter(([, column]) => column),
     );
 
@@ -562,11 +613,30 @@ export const FeatureEvaluationQueryModal = ({
             source={source}
             validateRef={validateSql}
             placeholder={DEFAULT_QUERY}
+            tableHint={
+              <>
+                {isStandardTable ? (
+                  <Callout status="info" size="sm">
+                    GrowthBook standard feature usage table detected. Its
+                    columns are mapped for you.
+                  </Callout>
+                ) : (
+                  <Text size="sm" color="text-mid">
+                    Setting up a new table? Create it with GrowthBook&apos;s
+                    standard columns and you can skip the mapping.{" "}
+                    <DocLink docSection="featureUsageStandardTable">
+                      View the standard table
+                    </DocLink>
+                  </Text>
+                )}
+                {identifierTypesCallout}
+              </>
+            }
           />
         </Box>
       </Page>
 
-      <Page display="Configure">
+      <Page display="Configure" enabled={!isStandardTable}>
         <Box
           px="4"
           py="2"
@@ -578,6 +648,8 @@ export const FeatureEvaluationQueryModal = ({
               sql={querySql}
               onEdit={() => setStep(0)}
             />
+
+            {identifierTypesCallout}
 
             <ColumnMappingSection
               source={source}
@@ -608,14 +680,14 @@ export const FeatureEvaluationQueryModal = ({
                 options={stringOptions}
                 setValue={setFeatureKeyColumn}
               />
-              {OPTIONAL_ROLES.slice(0, 2).map(({ key, label, tooltip }) => (
+              {OPTIONAL_ROLES.slice(0, 3).map(({ key, label, tooltip }) => (
                 <ColumnMappingRow
                   key={key}
                   label={label}
                   kind="detail"
                   tooltip={tooltip}
                   value={optionalColumns[key] || ""}
-                  options={columns}
+                  options={getRoleOptions(key, columns)}
                   setValue={(v) =>
                     setOptionalColumns((prev) => ({ ...prev, [key]: v }))
                   }
@@ -649,14 +721,14 @@ export const FeatureEvaluationQueryModal = ({
                   }
                 />
               ))}
-              {OPTIONAL_ROLES.slice(2).map(({ key, label, tooltip }) => (
+              {OPTIONAL_ROLES.slice(3).map(({ key, label, tooltip }) => (
                 <ColumnMappingRow
                   key={key}
                   label={label}
                   kind="detail"
                   tooltip={tooltip}
                   value={optionalColumns[key] || ""}
-                  options={columns}
+                  options={getRoleOptions(key, columns)}
                   setValue={(v) =>
                     setOptionalColumns((prev) => ({ ...prev, [key]: v }))
                   }

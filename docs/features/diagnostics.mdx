@@ -31,6 +31,46 @@ Once feature evaluation data is in your data warehouse, set up the feature usage
 
 <Frame>![Feature Usage Query configuration in data source settings](/static/images/features/feature-diagnostics/datasource-usage-query-block.png)</Frame>
 
+When you add the query, pick the table that holds your feature evaluation events, or switch to SQL mode to write the query yourself. GrowthBook then asks which column holds each value below. Columns that already use the standard names are matched for you.
+
+### Standard Table
+
+If you are creating a new table, use the standard column names. GrowthBook detects a table that uses them and adds the query without asking you to map anything.
+
+| Column         | Required | Description                                                                  |
+| -------------- | -------- | ---------------------------------------------------------------------------- |
+| `timestamp`    | Yes      | When the feature was evaluated                                               |
+| `feature_key`  | Yes      | The feature's key                                                            |
+| `environment`  | No       | The environment the SDK was running in                                       |
+| `value`        | No       | The value that was served                                                    |
+| `attributes`   | No       | The attributes the SDK sent, as JSON                                         |
+| `rule_id`      | No       | The rule that served the value                                               |
+| `variation_id` | No       | The experiment variation that was served                                     |
+| `source`       | No       | Why the value was served, such as a rule or the default value                |
+| `revision`     | No       | The revision of the feature that was served                                  |
+| `user_id`      | No       | One column per identifier type, named after the type (for example `user_id`) |
+
+For example:
+
+```sql
+CREATE TABLE feature_usage (
+  timestamp TIMESTAMP,
+  feature_key VARCHAR,
+  environment VARCHAR,
+  value VARCHAR,
+  attributes JSON,
+  rule_id VARCHAR,
+  variation_id VARCHAR,
+  source VARCHAR,
+  revision VARCHAR,
+  user_id VARCHAR
+);
+```
+
+Column types differ between warehouses, so adjust them to match yours. A table that uses other column names works too: GrowthBook shows the column mapping so you can choose the column for each value.
+
+User ids are matched to the data source's identifier types. If the data source has no identifier types yet, add them first so the user id columns can be mapped.
+
 ## Feature Diagnostics Tab
 
 View diagnostic events for your feature flag within the **Diagnostics** tab on any feature. Select your data source and click **View recent feature evaluations** to see the latest 100 feature evaluation events.

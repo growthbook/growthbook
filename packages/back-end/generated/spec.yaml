@@ -77081,6 +77081,9 @@ components:
                     type: string
                   revisionColumn:
                     type: string
+                  attributesColumn:
+                    description: JSON column holding the attributes the SDK sent
+                    type: string
                   userIdColumns:
                     description: Column for each identifier type, keyed by type
                     type: object

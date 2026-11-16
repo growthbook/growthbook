@@ -15,12 +15,14 @@ import {
 import {
   findFeatureUsageColumnsNeedingQuotes,
   getFeatureUsageIdentifierExpression,
+  getFeatureUsageAttributesColumn,
   getFeatureUsageJsonFieldError,
   getFeatureUsageFeatureKeyColumn,
   getFeatureUsageIdentifierColumn,
   getFeatureUsageRequiredColumns,
   getFeatureUsageRuleIdColumn,
   getFeatureUsageTimestampColumn,
+  isStandardFeatureUsageTable,
 } from "../../src/util/feature-usage-queries";
 
 describe("feature usage query column getters", () => {
@@ -29,6 +31,7 @@ describe("feature usage query column getters", () => {
     expect(getFeatureUsageTimestampColumn(query)).toBe("timestamp");
     expect(getFeatureUsageFeatureKeyColumn(query)).toBe("feature_key");
     expect(getFeatureUsageRuleIdColumn(query)).toBe("rule_id");
+    expect(getFeatureUsageAttributesColumn(query)).toBe("attributes");
     expect(getFeatureUsageIdentifierColumn(query, "user_id")).toBe("user_id");
   });
 
@@ -38,9 +41,11 @@ describe("feature usage query column getters", () => {
         timestampColumn: "ts",
         featureKeyColumn: "feature",
         ruleIdColumn: "ruleId",
+        attributesColumn: "context",
         userIdColumns: { user_id: "uid" },
       },
     };
+    expect(getFeatureUsageAttributesColumn(query)).toBe("context");
     expect(getFeatureUsageTimestampColumn(query)).toBe("ts");
     expect(getFeatureUsageFeatureKeyColumn(query)).toBe("feature");
     expect(getFeatureUsageRuleIdColumn(query)).toBe("ruleId");
@@ -66,10 +71,68 @@ describe("getFeatureUsageRequiredColumns", () => {
         columnMapping: {
           timestampColumn: "ts",
           valueColumn: "val",
+          attributesColumn: "context",
           userIdColumns: { user_id: "uid" },
         },
       }),
-    ).toEqual(["ts", "feature_key", "val", "uid", "device_id"]);
+    ).toEqual(["ts", "feature_key", "val", "context", "uid", "device_id"]);
+  });
+});
+
+describe("isStandardFeatureUsageTable", () => {
+  it("accepts a table whose matched columns all use standard names", () => {
+    expect(
+      isStandardFeatureUsageTable({
+        timestamp: "timestamp",
+        feature_key: "feature_key",
+        environment: "environment",
+        value: "value",
+      }),
+    ).toBe(true);
+  });
+
+  it("ignores standard columns the table doesn't have", () => {
+    expect(
+      isStandardFeatureUsageTable({
+        timestamp: "timestamp",
+        feature_key: "feature_key",
+        rule_id: undefined,
+        revision: "",
+      }),
+    ).toBe(true);
+  });
+
+  it("rejects a renamed timestamp or feature key", () => {
+    expect(
+      isStandardFeatureUsageTable({
+        timestamp: "ts",
+        feature_key: "feature_key",
+      }),
+    ).toBe(false);
+    expect(
+      isStandardFeatureUsageTable({
+        timestamp: "timestamp",
+        feature_key: "feature",
+      }),
+    ).toBe(false);
+    expect(isStandardFeatureUsageTable({ timestamp: "timestamp" })).toBe(false);
+  });
+
+  it("rejects a standard column matched under another name", () => {
+    expect(
+      isStandardFeatureUsageTable({
+        timestamp: "timestamp",
+        feature_key: "feature_key",
+        rule_id: "ruleId",
+      }),
+    ).toBe(false);
+    expect(
+      isStandardFeatureUsageTable({
+        timestamp: "timestamp",
+        feature_key: "feature_key",
+        environment: "env",
+      }),
+    ).toBe(false);
   });
 });
 

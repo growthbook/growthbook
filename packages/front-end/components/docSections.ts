@@ -56,6 +56,7 @@ export const docSections = {
   safeRollouts: "/features/safe-rollouts",
   publishingAndApprovalFlows: "/features/publishing-and-approval-flows",
   staleDetection: "/features/stale-detection",
+  featureUsageStandardTable: "/features/diagnostics#standard-table",
   featureDiagnostics: "/features/diagnostics",
   customHooks: "/features/custom-hooks",
   "customHooks#validatefeature": "/features/custom-hooks#validatefeature",
