@@ -126,13 +126,13 @@ An irreversible or silently mutating action — Delete, rewriting ids, clearing 
 
 A control that is inert with no explanation is a dead end. Never ship one.
 
-| Situation                                 | Do this                                                               |
-| ----------------------------------------- | --------------------------------------------------------------------- |
-| A checkbox locked by permission or plan   | `@/ui/Checkbox`'s `disabledMessage?: string`                          |
-| A radio option that cannot be chosen      | The option's `disabledReason?: ReactNode` on `RadioOptions`           |
-| A button waiting on a request             | `@/ui/Button`'s `loading` prop — not `disabled={isLoading}`           |
-| A locked Delete, or a section-wide block  | A `@/ui/Badge`, a `<Text color="text-low">` line, or a `@/ui/Callout` |
-| Displaying a value the user cannot change | Read-only `@/ui/Text` or `@/ui/Badge` — never a `disabled` input      |
+| Situation                                 | Do this                                                                                                         |
+| ----------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| A checkbox locked by permission or plan   | `@/ui/Checkbox`'s `disabledMessage?: string`                                                                    |
+| A radio option that cannot be chosen      | The option's `disabledReason?: ReactNode` on `RadioOptions`                                                     |
+| A button waiting on a request             | `@/ui/Button`'s `loading` prop — not `disabled={isLoading}`                                                     |
+| A locked Delete, or a section-wide block  | A `@/ui/Badge`, a `<Text color="text-low">` line, or a `@/ui/Callout`                                           |
+| Displaying a value the user cannot change | Read-only `@/ui/Text` or `@/ui/Badge`, or `@/ui/Checkbox`'s `readOnly` for a boolean — never a `disabled` input |
 
 One trap: a natively `disabled` button **suppresses pointer events**, so a `@/ui/Tooltip` wrapping it never fires and the explanation you attached is invisible. Keep the trigger hover-reachable — either style the button as inert with `pointerEvents: "none"` instead of setting `disabled`, or wrap a muted non-disabled element.
 
