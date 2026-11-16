@@ -18,7 +18,6 @@
  *
  * Exception: "feature-page-redesign-v1" tests the redesigned feature page
  * against the one it replaces.
-
  */
 export type AppFeatures = {
   // Added ahead of the flag's creation in GrowthBook's own account
