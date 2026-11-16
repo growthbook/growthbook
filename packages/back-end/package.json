@@ -109,7 +109,7 @@
     "md5": "^2.3.0",
     "module-alias": "^2.2.3",
     "mongodb": "^4.17.2",
-    "mongoose": "^6.13.10",
+    "mongoose": "^6.13.12",
     "mssql": "^12.2.0",
     "mysql2": "^3.23.1",
     "node-fetch": "^2.6.1",
@@ -132,7 +132,7 @@
     "stripe": "^17.4.0",
     "uniqid": "^5.3.0",
     "uuid": "^14.0.0",
-    "zod": "^4.1.12"
+    "zod": "^4.6.6"
   },
   "devDependencies": {
     "@slack/types": "^1.7.0",

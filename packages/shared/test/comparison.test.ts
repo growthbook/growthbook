@@ -1441,7 +1441,6 @@ describe("densifyComparisonExplorationTimeseries", () => {
       comparison: shellExploration([]),
       submittedConfig: baseConfig,
       previousTimeFrame: prevFrame,
-      getFactMetricById,
     });
     expect(out?.result.rows).toHaveLength(7);
     expect(out?.result.rows.every((r) => r.values[0]?.numerator === 0)).toBe(
@@ -1459,7 +1458,6 @@ describe("densifyComparisonExplorationTimeseries", () => {
       ]),
       submittedConfig: baseConfig,
       previousTimeFrame: prevFrame,
-      getFactMetricById,
     });
     expect(out?.result.rows).toHaveLength(7);
     const jan3 = out?.result.rows.find(
@@ -1488,7 +1486,6 @@ describe("densifyComparisonExplorationTimeseries", () => {
       ]),
       submittedConfig: baseConfig,
       previousTimeFrame: prevFrame,
-      getFactMetricById,
     });
     const jan3 = out?.result.rows.find(
       (r) =>
@@ -1530,7 +1527,6 @@ describe("densifyComparisonExplorationTimeseries", () => {
       comparison: shellExploration([]),
       submittedConfig: weekConfig,
       previousTimeFrame: weekPrev,
-      getFactMetricById,
     });
     expect(out?.result.rows).toHaveLength(2);
   });
@@ -1554,7 +1550,6 @@ describe("densifyComparisonExplorationTimeseries", () => {
         comparison: shellExploration([]),
         submittedConfig: groupedConfig,
         previousTimeFrame: shortPrev,
-        getFactMetricById,
         primaryRows: [
           {
             dimensions: ["2024-01-01", "Chrome"],
@@ -1586,7 +1581,6 @@ describe("densifyComparisonExplorationTimeseries", () => {
         ]),
         submittedConfig: groupedConfig,
         previousTimeFrame: shortPrev,
-        getFactMetricById,
         primaryRows: [
           {
             dimensions: ["2024-01-01", "Chrome"],
@@ -1628,7 +1622,6 @@ describe("densifyComparisonExplorationTimeseries", () => {
         ]),
         submittedConfig: groupedConfig,
         previousTimeFrame: shortPrev,
-        getFactMetricById,
         primaryRows: [
           {
             dimensions: ["2024-01-01", "Chrome"],
@@ -1647,7 +1640,6 @@ describe("densifyComparisonExplorationTimeseries", () => {
         comparison: shellExploration([]),
         submittedConfig: groupedConfig,
         previousTimeFrame: shortPrev,
-        getFactMetricById,
       });
       expect(out?.result.rows).toHaveLength(0);
     });

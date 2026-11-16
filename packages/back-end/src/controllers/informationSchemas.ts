@@ -7,13 +7,9 @@ import {
   getInformationSchemaByDatasourceId,
   updateInformationSchemaById,
 } from "back-end/src/models/InformationSchemaModel";
+import { getInformationSchemaTableById } from "back-end/src/models/InformationSchemaTablesModel";
 import {
-  createInformationSchemaTable,
-  getInformationSchemaTableById,
-} from "back-end/src/models/InformationSchemaTablesModel";
-import {
-  fetchTableData,
-  getInformationSchemaColumns,
+  createInformationSchemaTableFromWarehouse,
   getInformationSchemaWithPaths,
   refreshInformationSchemaTable,
 } from "back-end/src/services/informationSchema";
@@ -112,30 +108,12 @@ export async function getTableData(
   }
 
   // Otherwise, the table doesn't exist yet, so we need to create it.
-  const { tableData, refreshMS, databaseName, tableSchema, tableName } =
-    await fetchTableData(context, datasource, informationSchema, tableId);
-
-  if (!tableData) {
-    res
-      .status(400)
-      .json({ status: 400, message: "Unable to retrieve table data." });
-    return;
-  }
-
-  const columns = getInformationSchemaColumns(tableData);
-
-  // Create the table record in Mongo.
-  const newTable = await createInformationSchemaTable({
-    organization: org.id,
-    tableName,
-    tableSchema,
-    databaseName,
-    columns,
-    refreshMS,
-    datasourceId: datasource.id,
-    informationSchemaId: informationSchema.id,
-    id: tableId,
-  });
+  const newTable = await createInformationSchemaTableFromWarehouse(
+    context,
+    datasource,
+    informationSchema,
+    tableId,
+  );
 
   res.status(200).json({ status: 200, table: newTable });
 }

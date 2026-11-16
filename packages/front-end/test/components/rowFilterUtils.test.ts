@@ -400,6 +400,9 @@ describe("isRowFilterComplete", () => {
     expect(isRowFilterComplete({ operator: "sql_expr", values: [""] })).toBe(
       false,
     );
+    expect(isRowFilterComplete({ operator: "sql_expr", values: ["  "] })).toBe(
+      false,
+    );
     expect(
       isRowFilterComplete({ operator: "sql_expr", values: ["a = 1"] }),
     ).toBe(true);

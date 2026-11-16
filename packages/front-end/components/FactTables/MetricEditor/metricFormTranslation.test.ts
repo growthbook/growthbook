@@ -669,6 +669,7 @@ describe("applyFormType", () => {
 
   it("initializes a denominator for ratio when none exists", () => {
     const result = applyFormType(current, "ratio", factTable, dialect);
+    expect(result.numerator?.column).toBe("$$count");
     expect(result.denominator).toEqual({
       factTableId: "ft1",
       column: "$$count",
