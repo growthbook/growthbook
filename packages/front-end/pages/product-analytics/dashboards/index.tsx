@@ -359,6 +359,8 @@ export default function DashboardsPage() {
                 mb="3"
                 action={
                   <Button
+                    variant="ghost"
+                    size="sm"
                     color="inherit"
                     onClick={() => setDefaultDashboardError(null)}
                   >
