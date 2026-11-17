@@ -22,10 +22,11 @@ import {
 } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import { getApiHost } from "@/services/env";
+import { allowSelfOrgCreation, getApiHost, isMultiOrg } from "@/services/env";
 import track, { maskClaimToken, trackPageView } from "@/services/track";
 import { growthbook } from "@/services/utils";
 import { useRestApiCall } from "@/services/restApi";
+import useApi from "@/hooks/useApi";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import Welcome from "@/components/Auth/Welcome";
 import ImportFlow, {
@@ -124,6 +125,17 @@ const ClaimPage = (): React.ReactElement => {
     () => fetchStatus(token),
     { revalidateOnFocus: false },
   );
+
+  // Who may create a workspace, by the same rule as CreateOrJoinOrganization.
+  const selfServe = isMultiOrg() && allowSelfOrgCreation();
+  const { data: site, isLoading: siteLoading } = useApi<{
+    hasOrganizations: boolean;
+  }>("/auth/hasorgs", {
+    shouldRun: () => !selfServe,
+    orgScoped: false,
+    autoRevalidate: false,
+  });
+  const canCreateWorkspace = selfServe || site?.hasOrganizations === false;
 
   const orgLoaded = !!orgId && organization?.id === orgId && definitionsReady;
   const {
@@ -225,7 +237,7 @@ const ClaimPage = (): React.ReactElement => {
     );
   }
 
-  if (!router.isReady || authLoading || isLoading) {
+  if (!router.isReady || authLoading || isLoading || siteLoading) {
     return <LoadingOverlay />;
   }
 
@@ -262,9 +274,11 @@ const ClaimPage = (): React.ReactElement => {
               : "This Link Was Already Claimed"
           }
         >
-          {pending
-            ? "Create an account or log in to bring them into GrowthBook."
-            : "If you claimed it, log in to pick up where you left off."}
+          {!pending
+            ? "If you claimed it, log in to pick up where you left off."
+            : canCreateWorkspace
+              ? "Create an account or log in to bring them into GrowthBook."
+              : "Log in to bring them into GrowthBook."}
         </ImportHero>
         {authError ? (
           <Callout status="error" mb="3">
@@ -272,7 +286,7 @@ const ClaimPage = (): React.ReactElement => {
           </Callout>
         ) : null}
         <Flex justify="center" align="center" gap="3" wrap="wrap">
-          {pending ? (
+          {pending && canCreateWorkspace ? (
             <>
               <Button setError={setAuthError} onClick={() => startAuth(true)}>
                 Create an account
@@ -340,6 +354,17 @@ const ClaimPage = (): React.ReactElement => {
 
   if (pending) {
     const hasWorkspace = organizations.length > 0 && !namingWorkspace;
+    if (!hasWorkspace && !canCreateWorkspace) {
+      return (
+        <Page narrow>
+          <ImportHero title="No Workspace Yet">
+            Ask an admin to invite you to their workspace, then open this link
+            again.
+          </ImportHero>
+          <LinkNote expiresAt={status.expiresAt} />
+        </Page>
+      );
+    }
     return (
       <Page narrow>
         <ImportHero
