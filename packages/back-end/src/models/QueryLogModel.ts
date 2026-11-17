@@ -32,6 +32,10 @@ const BaseClass = MakeModelClass({
   ],
 });
 
+// The usage views only count queries the warehouse ran, not the rows for
+// failures inside GrowthBook
+const SENT = { status: { $in: ["succeeded", "failed"] } };
+
 // Written by recordQueryLog for every warehouse query; rows are never edited.
 export class QueryLogModel extends BaseClass {
   protected canRead(doc: QueryLogInterface) {
@@ -69,7 +73,7 @@ export class QueryLogModel extends BaseClass {
   ) {
     this.assertCanReadDatasource(datasource);
     return this._find(
-      { datasource: datasource.id },
+      { datasource: datasource.id, ...SENT },
       { sort: { dateCreated: -1 }, limit, bypassReadPermissionChecks: true },
     );
   }
@@ -89,6 +93,7 @@ export class QueryLogModel extends BaseClass {
             organization: this.context.org.id,
             datasource: datasource.id,
             dateCreated: { $gte: since },
+            ...SENT,
           },
         },
         {

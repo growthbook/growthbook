@@ -133,6 +133,8 @@ import {
 import { ExplorationConfig } from "shared/validators";
 import {
   AdditionalQueryMetadata,
+  QueryInterface,
+  QueryLogRunnerFailure,
   QueryType,
   RunQueryMetadata,
 } from "shared/types/query";
@@ -398,9 +400,6 @@ export default abstract class SqlIntegration
       setExternalId: ExternalIdCallback | undefined,
       metadata: RunQueryMetadata,
     ) => {
-      if (isMultiStatementSQL(sql, getSqlStringRules(this.getSqlDialect()))) {
-        throw new Error("Multi-statement queries are not supported");
-      }
       metadata = {
         ...metadata,
         userId: this.context.actingUserId,
@@ -408,6 +407,14 @@ export default abstract class SqlIntegration
         ...this.additionalMetadata,
       };
       const startedAt = new Date();
+      if (isMultiStatementSQL(sql, getSqlStringRules(this.getSqlDialect()))) {
+        const error = "Multi-statement queries are not supported";
+        void this.recordQueryLog(metadata, startedAt, undefined, {
+          status: "not-sent",
+          error,
+        });
+        throw new Error(error);
+      }
       let externalId: string | undefined;
       try {
         const response = await originalRunQuery.call(
@@ -433,23 +440,45 @@ export default abstract class SqlIntegration
     };
   }
 
-  // One row per warehouse query; not awaited, so it never delays or fails the query
+  // For a query its runner fails itself: before sending it, or after the
+  // warehouse returned
+  logQueryFailure(
+    query: QueryInterface,
+    status: QueryLogRunnerFailure,
+    error: string,
+  ) {
+    void this.recordQueryLog(
+      {
+        ...this.additionalMetadata,
+        userId: this.context.actingUserId,
+        queryType: query.queryType || "unknown",
+        queryId: query.id,
+      },
+      query.startedAt ?? query.createdAt,
+      undefined,
+      { status, error },
+    );
+  }
+
+  // One row per query, when it ends; not awaited, so it never delays or fails
+  // the query
   private async recordQueryLog(
     metadata: RunQueryMetadata,
     startedAt: Date,
     externalId: string | undefined,
     outcome:
       | { response: QueryResponse }
-      | { error: string; errorCode?: string },
+      | { error: string; errorCode?: string; status?: QueryLogRunnerFailure },
   ) {
     const response = "response" in outcome ? outcome.response : undefined;
+    const failure = "error" in outcome ? outcome : undefined;
     try {
       await this.context.models.queryLogs.create({
         datasource: this.datasource.id,
         datasourceType: this.datasource.type,
         // A few integration-internal callers still omit metadata
         queryType: metadata.queryType || "unknown",
-        status: response ? "succeeded" : "failed",
+        status: response ? "succeeded" : (failure?.status ?? "failed"),
         startedAt,
         durationMs: Date.now() - startedAt.getTime(),
         externalId,
@@ -462,11 +491,8 @@ export default abstract class SqlIntegration
         rowsReturned: response?.rows.length,
         statistics: response?.statistics,
         // Just enough for a short preview in the UI
-        error:
-          "error" in outcome
-            ? outcome.error.slice(0, MAX_LOG_ERROR_LENGTH)
-            : undefined,
-        errorCode: "error" in outcome ? outcome.errorCode : undefined,
+        error: failure?.error.slice(0, MAX_LOG_ERROR_LENGTH),
+        errorCode: failure?.errorCode,
       });
     } catch (e) {
       logger.warn(e, `Failed to record query log for ${this.datasource.id}`);

@@ -125,13 +125,29 @@ export const queryStatisticsValidator = z.object({
   partitionsTotal: z.number().optional(),
 });
 
-// One row per query GrowthBook sends to a warehouse, including queries with no Query document
+export const queryLogStatusValidator = z.enum([
+  "succeeded",
+  // The warehouse, or the connection to it, returned an error
+  "failed",
+  // The rest are failures inside GrowthBook.
+  // Never sent, because a query it depends on failed
+  "dependency-failed",
+  // Never sent, because GrowthBook refused or was unable to send it
+  "not-sent",
+  // The warehouse succeeded (it has a "succeeded" row too), but storing or
+  // processing its result failed
+  "processing-failed",
+]);
+
+// One row per query, written when it ends: every query GrowthBook sends to a
+// warehouse (including ones with no Query document), plus the ones that fail
+// inside GrowthBook. The one exception is "processing-failed", a second row.
 export const queryLogValidator = baseSchema
   .extend({
     datasource: z.string(),
     datasourceType: z.string(),
     queryType: z.string(),
-    status: z.enum(["succeeded", "failed"]),
+    status: queryLogStatusValidator,
     startedAt: z.date(),
     durationMs: z.number(),
     // The warehouse's own job/query ID, for joining with its query history

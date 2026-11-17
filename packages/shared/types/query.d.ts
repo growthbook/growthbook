@@ -26,6 +26,12 @@ export type QueryStatistics = z.infer<typeof queryStatisticsValidator>;
 
 export type QueryLogInterface = z.infer<typeof queryLogValidator>;
 
+// The statuses a query runner logs for a query it fails itself
+export type QueryLogRunnerFailure = Exclude<
+  QueryLogInterface["status"],
+  "succeeded" | "failed"
+>;
+
 // Summed querylogs rows; stats a warehouse doesn't report sum to 0
 export type QueryLogUsage = {
   queries: number;
