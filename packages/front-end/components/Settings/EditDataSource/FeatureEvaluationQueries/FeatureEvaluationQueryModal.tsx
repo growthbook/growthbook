@@ -128,7 +128,7 @@ const OPTIONAL_ROLES = [
     key: "revision",
     label: "Revision",
     names: ["revision"],
-    tooltip: "Lets you see which revision of the flag was served",
+    tooltip: "Lets you see which revision of the Feature Flag was served",
     getColumn: getFeatureUsageRevisionColumn,
   },
 ] as const;
@@ -170,9 +170,16 @@ function getFeatureUsageColumnMappingError(
   return null;
 }
 
-// Attributes are read as JSON, so only columns that can hold it are offered
-const getRoleOptions = (key: OptionalRole, columns: DetectedColumn[]) =>
-  key === "attributes" ? columns.filter(canHoldJson) : columns;
+// Attributes are read as JSON, so only columns that can hold it are offered,
+// plus the saved column so a refresh that re-types it doesn't drop the mapping
+const getRoleOptions = (
+  key: OptionalRole,
+  columns: DetectedColumn[],
+  savedColumn?: string,
+) =>
+  key === "attributes"
+    ? columns.filter((c) => canHoldJson(c) || c.column === savedColumn)
+    : columns;
 
 /** The first column mapped to more than one role, if any. */
 function findDuplicateColumn(columns: unknown[]) {
@@ -357,6 +364,11 @@ export const FeatureEvaluationQueryModal = ({
     (c) => isTimestampCandidate(c) || c.column === savedRoleColumns.timestamp,
   );
   const stringOptions = columns.filter(isIdentifierCandidate);
+  // Like the timestamp, the saved feature key stays an option after a refresh
+  const featureKeyOptions = columns.filter(
+    (c) =>
+      isIdentifierCandidate(c) || c.column === savedRoleColumns.feature_key,
+  );
   // Columns a typed JSON field can be read from
   const jsonRootNames = columns.filter(canHoldJson).map((c) => c.column);
   // Identifiers can also be a field inside a JSON column; the org's attributes
@@ -426,20 +438,25 @@ export const FeatureEvaluationQueryModal = ({
     (t) => isValidIdentifier(userIdColumns[t] || "") && !identifierErrors[t],
   );
 
-  const identifierTypesCallout = identifierTypes.length ? null : (
-    <Callout
-      status="warning"
-      size="sm"
-      action={
-        <Link href={`#${IDENTIFIER_TYPES_ANCHOR_ID}`} onClick={onCancel}>
-          Add identifier types
-        </Link>
-      }
-    >
-      This Data Source has no identifier types yet, so user ids won&apos;t be
-      mapped.
-    </Callout>
-  );
+  // The link closes the modal, so it's only offered on the first step, before
+  // there is a mapping to lose
+  const getIdentifierTypesCallout = (withLink: boolean) =>
+    identifierTypes.length ? null : (
+      <Callout
+        status="warning"
+        size="sm"
+        action={
+          withLink ? (
+            <Link href={`#${IDENTIFIER_TYPES_ANCHOR_ID}`} onClick={onCancel}>
+              Add identifier types
+            </Link>
+          ) : undefined
+        }
+      >
+        This Data Source has no identifier types yet, so user ids won&apos;t be
+        mapped.
+      </Callout>
+    );
 
   const mappingForChecks: FeatureUsageQueryColumnMapping = {
     timestampColumn,
@@ -510,14 +527,17 @@ export const FeatureEvaluationQueryModal = ({
     if (!detected) throw new Error("Test your SQL first");
 
     const timestamp = validColumn(timestampOptions, timestampColumn);
-    const featureKey = validColumn(stringOptions, featureKeyColumn);
+    const featureKey = validColumn(featureKeyOptions, featureKeyColumn);
     if (!timestamp) throw new Error("Select a timestamp column");
     if (!featureKey) throw new Error("Select a feature key column");
 
     const optional = Object.fromEntries(
       OPTIONAL_ROLES.map(({ key }) => [
         key,
-        validColumn(getRoleOptions(key, columns), optionalColumns[key] || ""),
+        validColumn(
+          getRoleOptions(key, columns, savedRoleColumns[key]),
+          optionalColumns[key] || "",
+        ),
       ]).filter(([, column]) => column),
     );
 
@@ -645,7 +665,7 @@ export const FeatureEvaluationQueryModal = ({
                     </DocLink>
                   </Text>
                 )}
-                {identifierTypesCallout}
+                {getIdentifierTypesCallout(true)}
               </>
             }
           />
@@ -665,7 +685,7 @@ export const FeatureEvaluationQueryModal = ({
               onEdit={() => setStep(0)}
             />
 
-            {identifierTypesCallout}
+            {getIdentifierTypesCallout(false)}
 
             <ColumnMappingSection
               source={source}
@@ -684,7 +704,7 @@ export const FeatureEvaluationQueryModal = ({
               <ColumnMappingRow
                 label="Timestamp"
                 kind="timestamp"
-                tooltip="When the flag was evaluated"
+                tooltip="When the Feature Flag was evaluated"
                 value={timestampColumn}
                 options={timestampOptions}
                 setValue={setTimestampColumn}
@@ -693,7 +713,7 @@ export const FeatureEvaluationQueryModal = ({
                 label="Feature key"
                 kind="feature"
                 value={featureKeyColumn}
-                options={stringOptions}
+                options={featureKeyOptions}
                 setValue={setFeatureKeyColumn}
               />
               {OPTIONAL_ROLES.slice(0, 3).map(({ key, label, tooltip }) => (
@@ -703,7 +723,7 @@ export const FeatureEvaluationQueryModal = ({
                   kind="detail"
                   tooltip={tooltip}
                   value={optionalColumns[key] || ""}
-                  options={getRoleOptions(key, columns)}
+                  options={getRoleOptions(key, columns, savedRoleColumns[key])}
                   setValue={(v) =>
                     setOptionalColumns((prev) => ({ ...prev, [key]: v }))
                   }
@@ -715,7 +735,7 @@ export const FeatureEvaluationQueryModal = ({
                   key={idType}
                   label={idType}
                   kind="identifier"
-                  tooltip="Lets you filter evaluations by user and chart metrics for users who got the flag. If apps send this id in different attributes, combine them in the SQL, for example with COALESCE."
+                  tooltip="Lets you filter evaluations by user and chart metrics for users who got the Feature Flag. If apps send this id in different attributes, combine them in the SQL, for example with COALESCE."
                   value={userIdColumns[idType] || ""}
                   options={identifierOptions}
                   setValue={(v) =>
@@ -744,7 +764,7 @@ export const FeatureEvaluationQueryModal = ({
                   kind="detail"
                   tooltip={tooltip}
                   value={optionalColumns[key] || ""}
-                  options={getRoleOptions(key, columns)}
+                  options={getRoleOptions(key, columns, savedRoleColumns[key])}
                   setValue={(v) =>
                     setOptionalColumns((prev) => ({ ...prev, [key]: v }))
                   }

@@ -57,7 +57,7 @@ export default function FeaturePage() {
   const permissionsUtil = usePermissionsUtil();
   const [compareRevisionsOpen, setCompareRevisionsOpen] = useState(false);
   const [diagnosticsResults, setDiagnosticsResults] = useState<Array<
-    FeatureEvalDiagnosticsQueryResponseRows[number] & { id: string }
+    FeatureEvalDiagnosticsQueryResponseRows[number] & { __rowKey: string }
   > | null>(null);
 
   // Clean state when feature id changes

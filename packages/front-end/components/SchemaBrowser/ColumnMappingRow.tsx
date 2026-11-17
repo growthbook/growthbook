@@ -175,7 +175,7 @@ export default function ColumnMappingRow({
                     autoFocus={adding}
                     value={selected || undefined}
                     setValue={(v) => {
-                      if (v === CUSTOM_VALUE) {
+                      if (customValue && v === CUSTOM_VALUE) {
                         setTyping(true);
                         setValue("");
                       } else {

@@ -102,6 +102,10 @@ export function useSourceTable({
   const [refreshingSqlColumns, setRefreshingSqlColumns] = useState(false);
   const [refreshSqlError, setRefreshSqlError] = useState<string | null>(null);
 
+  // The SQL as it is now, so a refresh that finishes after an edit is ignored
+  const sqlRef = useRef(sql);
+  sqlRef.current = sql;
+
   const onColumnsChangedRef = useRef(onColumnsChanged);
   onColumnsChangedRef.current = onColumnsChanged;
   const handleColumnsDetected = useCallback(
@@ -384,6 +388,7 @@ export function useSourceTable({
           }),
         },
       );
+      if (sqlRef.current !== sql) return;
       if (res.error) throw new Error(res.error);
       const cols = res.columns || [];
       const error = getColumnMappingError(cols);
