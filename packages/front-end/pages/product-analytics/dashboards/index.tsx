@@ -1,5 +1,5 @@
 import { ago } from "shared/dates";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   DashboardInterface,
   DashboardBlockInterface,
@@ -72,6 +72,17 @@ export default function DashboardsPage() {
   const [defaultDashboardError, setDefaultDashboardError] = useState<
     string | null
   >(null);
+  // The error shows above the table, so a failure from a row lower down
+  // would be off-screen.
+  const defaultDashboardErrorRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (defaultDashboardError) {
+      defaultDashboardErrorRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "nearest",
+      });
+    }
+  }, [defaultDashboardError]);
   const [_blocks, setBlocks] = useState<
     DashboardBlockInterfaceOrData<DashboardBlockInterface>[]
   >([]);
@@ -342,7 +353,19 @@ export default function DashboardsPage() {
             </p>
 
             {defaultDashboardError && (
-              <Callout status="error" mb="3">
+              <Callout
+                ref={defaultDashboardErrorRef}
+                status="error"
+                mb="3"
+                action={
+                  <Button
+                    color="inherit"
+                    onClick={() => setDefaultDashboardError(null)}
+                  >
+                    Dismiss
+                  </Button>
+                }
+              >
                 {defaultDashboardError}
               </Callout>
             )}
@@ -463,6 +486,7 @@ export default function DashboardsPage() {
                                   >
                                     <Badge
                                       ml="2"
+                                      radius="full"
                                       color="violet"
                                       variant="soft"
                                       label={
