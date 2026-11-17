@@ -515,13 +515,18 @@ export async function collectFeaturePublishGates({
     return gates;
   }
 
-  const { proposedFeature, defaultToCheck, rulesToCheck, valueSchemaChanged } =
-    computeProposedFeatureForValidation(
-      context,
-      feature,
-      revision,
-      plan.mergeResult,
-    );
+  const {
+    proposedFeature,
+    defaultToCheck,
+    rulesToCheck,
+    holdoutToCheck,
+    valueSchemaChanged,
+  } = computeProposedFeatureForValidation(
+    context,
+    feature,
+    revision,
+    plan.mergeResult,
+  );
 
   gates.push(
     ...(await collectSavedGroupScopeGate(() =>
@@ -556,13 +561,15 @@ export async function collectFeaturePublishGates({
       {
         defaultValue: proposedFeature.defaultValue,
         rules: proposedFeature.rules,
+        holdout: proposedFeature.holdout,
       },
       valueSchemaChanged ? undefined : feature,
     ),
-    ...(defaultToCheck !== undefined || rulesToCheck.length
+    ...(defaultToCheck !== undefined || rulesToCheck.length || holdoutToCheck
       ? await collectConfigBackedFeatureValueErrors(context, proposedFeature, {
           defaultValue: defaultToCheck,
           rules: rulesToCheck,
+          holdout: holdoutToCheck,
         })
       : []),
   ];
@@ -650,6 +657,23 @@ export async function collectFeaturePublishGates({
   if (moveGate) gates.push(moveGate);
 
   return gates;
+}
+
+// What a caller skips on one linked flag when an experiment publishes to it. The
+// org's REST setting waives approval outright; the caller's own needs the opt-in.
+export function flagBypass(
+  context: Context,
+  feature: FeatureInterface,
+  {
+    optIn,
+    restApiBypassesReviews = false,
+  }: { optIn: boolean; restApiBypassesReviews?: boolean },
+): { approval: boolean; lockdown: boolean } {
+  const approval =
+    restApiBypassesReviews ||
+    (optIn &&
+      context.permissions.canBypassFlagApprovalChecks(feature, "feature"));
+  return { approval, lockdown: optIn && approval };
 }
 
 // The merge an unattended publish lands, under the governance the publish button

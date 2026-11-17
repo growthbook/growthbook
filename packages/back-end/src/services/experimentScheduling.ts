@@ -1,6 +1,10 @@
 import { ExperimentInterface } from "shared/types/experiment";
 import { MetricGroupInterface } from "shared/types/metric-groups";
-import { expandMetricGroups, withScheduledBy } from "shared/experiments";
+import {
+  expandMetricGroups,
+  snapshotColumnVariationIds,
+  withScheduledBy,
+} from "shared/experiments";
 import { DEFAULT_DECISION_FRAMEWORK_ENABLED } from "shared/constants";
 import {
   ExperimentType,
@@ -10,6 +14,7 @@ import {
 import { getValidDate, resolveScheduledStop } from "shared/dates";
 import {
   buildTiebreakerLiftMap,
+  getCurrentPhaseAnalysisSummary,
   getDecisionFrameworkStatus,
   getExperimentResultStatus,
   getHealthSettings,
@@ -59,13 +64,12 @@ async function getTiebreakerLiftMap(
 
   const metric = await getExperimentMetricById(context, metricId);
 
-  // Key by the snapshot's own variation ids (index-aligned with the analysis
-  // results); experiment.variations may have been reordered since.
-  const snapshotVariationIds = snapshot.settings.variations.map((v) => v.id);
-
   return buildTiebreakerLiftMap({
     variations: dimension.variations,
-    snapshotVariationIds,
+    variationIds: snapshotColumnVariationIds(
+      experiment,
+      snapshot.settings.variations,
+    ),
     metricId,
     inverse: metric?.inverse,
   });
@@ -103,7 +107,8 @@ async function computeScheduledVerdict(
     winnerVariationId: null,
   };
 
-  const resultsStatus = experiment.analysisSummary?.resultsStatus;
+  const resultsStatus =
+    getCurrentPhaseAnalysisSummary(experiment)?.resultsStatus;
   const expandedGoalMetrics = expandMetricGroups(
     experiment.goalMetrics,
     metricGroups,
@@ -120,7 +125,9 @@ async function computeScheduledVerdict(
     overallStatus?.status === "unhealthy" &&
     (overallStatus.unhealthyData.srm ||
       overallStatus.unhealthyData.multipleExposures ||
-      overallStatus.unhealthyData.covariateImbalance)
+      overallStatus.unhealthyData.covariateImbalance ||
+      overallStatus.unhealthyData.clusterAssignment ||
+      overallStatus.unhealthyData.clusterMapping)
   ) {
     return inconclusive;
   }

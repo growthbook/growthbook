@@ -47,7 +47,7 @@ export async function addTags(organization: string, tags: string[]) {
   );
   if (!tags.length) return;
 
-  await TagModel.updateOne(
+  const res = await TagModel.updateOne(
     { organization },
     {
       $addToSet: {
@@ -58,7 +58,12 @@ export async function addTags(organization: string, tags: string[]) {
       upsert: true,
     },
   );
-  await touchDefinitionsVersion(organization);
+  // Only bump the definitions version when a tag was actually added, so
+  // saving something with existing tags doesn't invalidate every client's
+  // cached definitions.
+  if (res.modifiedCount || res.upsertedCount) {
+    await touchDefinitionsVersion(organization);
+  }
 }
 
 export async function addTag(
@@ -85,9 +90,8 @@ export async function addTag(
   await TagModel.updateOne(
     { organization },
     {
-      $addToSet: {
-        tags: tag,
-      },
+      // FerretDB 2.x duplicates the field on a no-op $addToSet beside $set.
+      ...(existing?.tags?.includes(tag) ? {} : { $addToSet: { tags: tag } }),
       $set: {
         // Need to set the entire settings object, not just settings.{tag},
         // since tags can contains dots in the name

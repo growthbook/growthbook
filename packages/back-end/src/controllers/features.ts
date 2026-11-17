@@ -47,24 +47,18 @@ import {
   mergeRevision,
   namespacesToMap,
   normalizeTargetingInUpdates,
-  normalizeTargetingProjects,
-  reconcileMergeBaselines,
   computeFeatureHealth,
   FeatureHealthStateEntry,
   rebasedRevisionChanges,
   getFeaturePageDefaultVersion,
   naiveFlattenV1Rules,
-  getMalformedPrereqConditionError,
+  evalDeterministicPrereqValue,
 } from "shared/util";
 import {
   statusFromStandingVerdicts,
   getHealthSettings,
 } from "shared/enterprise";
-import {
-  FEATURE_KEY_PATTERN,
-  FEATURE_KEY_PATTERN_ERROR,
-  SAFE_ROLLOUT_TRACKING_KEY_PREFIX,
-} from "shared/constants";
+import { SAFE_ROLLOUT_TRACKING_KEY_PREFIX } from "shared/constants";
 import {
   getConnectionSDKCapabilities,
   withoutUnsupportedSavedGroupCapabilities,
@@ -117,7 +111,6 @@ import type { GroupMap } from "shared/types/saved-group";
 import { canWriteArchiveIntoDraft } from "back-end/src/revisions/landAuthority";
 import { isArmedWithAuthorizedPublisher } from "back-end/src/revisions/approveAndPublish";
 import {
-  assertCanCreateFeatureInState,
   assertCanPublishFeatureRevision,
   canAdvanceFeatureDraft,
   canDiscardFeatureDraft,
@@ -139,7 +132,6 @@ import {
 } from "back-end/src/services/organizations";
 import {
   addLinkedExperiment,
-  createFeature,
   deleteFeature,
   editFeatureRule,
   getAllFeatures,
@@ -164,13 +156,11 @@ import { generateId } from "back-end/src/util/uuid";
 import { mergeSyncRules } from "back-end/src/util/flattenRules";
 import {
   addIdsToFlatRules,
-  addIdsToRules,
   inheritStoredRolloutSeeds,
   assertFeatureDeletable,
   evaluateAllFeatures,
   evaluateFeature,
   FeatureDefinitionSDKPayload,
-  generateRuleId,
   getFeatureDefinitions,
   getMergeResultPublishEnvs,
   getSavedGroupMap,
@@ -182,6 +172,7 @@ import {
   getDraftRevision,
   assertCanAutoPublish,
   assertFeatureValuesValid,
+  assertHoldoutValueValid,
   revisionRequiresReview,
   assertCanUndoFeatureReview,
 } from "back-end/src/services/features";
@@ -248,7 +239,6 @@ import {
   getOpenDraftRules,
   getRevisionsByStatus,
   markRevisionAsReviewRequested,
-  normalizeRulesInputToV2,
   prevalidateRevisionUpdate,
   ReviewSubmittedType,
   submitReviewAndComments,
@@ -301,6 +291,7 @@ import { repairFeatureDriftIfNeeded } from "back-end/src/services/featureDriftRe
 import { getGrowthbookDatasource } from "back-end/src/models/DataSourceModel";
 import {
   assertCanPublishPendingFeatureDrafts,
+  assertValidExperimentPhases,
   getChangesToStartExperiment,
 } from "back-end/src/services/experiments";
 import {
@@ -309,12 +300,13 @@ import {
 } from "back-end/src/services/experimentChanges/changeExperimentStatus";
 import {
   formatPendingDraftFailureMessage,
+  linkFeatureToExperiment,
   PendingDraftPublishResult,
   publishPendingFeatureDraftsForExperiment,
 } from "back-end/src/services/experiment-feature";
 import { validateSafeRolloutFields } from "back-end/src/validators/safe-rollout";
 import { getSafeRolloutRuleFromFeature } from "back-end/src/routers/safe-rollout/safe-rollout.helper";
-import { UnrecoverableApiError } from "back-end/src/util/errors";
+import { UnrecoverableApiError, NotFoundError } from "back-end/src/util/errors";
 import {
   MAX_IDS_QUERY_LENGTH,
   parseIdsQuery,
@@ -322,6 +314,7 @@ import {
 import {
   canDisarmFeatureAutoPublishOnApproval,
   canEnableFeatureAutoPublishOnApproval,
+  assertArmDoesNotLaunchExperiments,
   canPublishFeatureRevision,
   canScheduleFeaturePublish,
   maybeAutoPublishFeatureRevision,
@@ -332,7 +325,6 @@ import {
   shouldValidateCustomFieldsOnUpdate,
   validateCustomFieldsForSection,
 } from "back-end/src/util/custom-fields";
-import { getInitialFeatureJsonSchema } from "back-end/src/util/feature-json-schema";
 import {
   getStartPatchForRule,
   normalizeRampPlanForceValues,
@@ -351,6 +343,11 @@ import {
   validateRampPlanPatches,
 } from "back-end/src/api/features/validations";
 import { assertValidPrerequisiteParents } from "back-end/src/services/prerequisiteParents";
+import {
+  insertNewFeature,
+  NewFeatureInput,
+  prepareNewFeature,
+} from "back-end/src/services/featureCreate";
 import {
   getSavedGroupIdsForFeatureDefinitions,
   loadSavedGroupsWithNested,
@@ -873,7 +870,14 @@ export async function getEvaluatedFeaturesPublic(req: Request, res: Response) {
 
     // todo: don't use link. investigate why clicking through returns the stub only.
     const payload = await evaluateFeatures({
-      payload: defs,
+      // proxy-eval types dateUpdated as a string. The cached payload already
+      // has a string at runtime, despite the Date type
+      payload: {
+        ...defs,
+        dateUpdated: defs.dateUpdated
+          ? new Date(defs.dateUpdated).toISOString()
+          : undefined,
+      },
       attributes,
       forcedVariations,
       forcedFeatures,
@@ -893,206 +897,15 @@ export async function getEvaluatedFeaturesPublic(req: Request, res: Response) {
 }
 
 export async function postFeatures(
-  req: AuthRequest<Partial<FeatureInterface> & { duplicateOf?: string }>,
+  req: AuthRequest<NewFeatureInput>,
   res: Response<
     { status: 200; feature: FeatureInterface },
     EventUserForResponseLocals
   >,
 ) {
   const context = getContextFromReq(req);
-  const { org, userId } = context;
-  const {
-    id,
-    environmentSettings,
-    holdout,
-    customFields,
-    jsonSchema,
-    duplicateOf,
-    ...otherProps
-  } = req.body;
-
-  if (
-    !context.permissions.canCreateFeature(
-      req.body,
-      Array.from(
-        getEnabledEnvironments(
-          req.body as FeatureInterface,
-          getEnvironmentIdsFromOrg(context.org),
-        ),
-      ),
-    )
-  ) {
-    context.permissions.throwPermissionError();
-  }
-
-  if (typeof id !== "string" || !id) {
-    throw new Error("Must specify feature key");
-  }
-
-  if (org.settings?.featureRegexValidator) {
-    const regex = new RegExp(org.settings.featureRegexValidator);
-    if (!regex.test(id)) {
-      throw new Error(
-        `Feature key must match the regex validator. '${org.settings.featureRegexValidator}' Example: '${org.settings.featureKeyExample}'`,
-      );
-    }
-  }
-
-  if (!environmentSettings) {
-    throw new Error("Feature missing initial environment toggle settings");
-  }
-
-  if (!new RegExp(FEATURE_KEY_PATTERN).test(id)) {
-    throw new Error(FEATURE_KEY_PATTERN_ERROR);
-  }
-
-  if (org.settings?.requireProjectForFeatures && !otherProps.project) {
-    throw new Error("Must specify a project for new features");
-  }
-  // Validate projects - We can remove this validation when FeatureModel is migrated to BaseModel
-  if (otherProps.project) {
-    await context.models.projects.ensureProjectsExist([otherProps.project]);
-  }
-  // Read-gated, so a caller can't link a flag into a Holdout outside their scope.
-  // The linkage write itself deliberately bypasses read scope, so this is the
-  // only place the id is authorized.
-  await assertValidHoldout(
-    holdout?.id ? holdout : null,
-    context,
-    otherProps.project ?? "",
-  );
-
-  await validateCustomFieldsForSection({
-    customFieldValues: customFields,
-    customFieldsModel: context.models.customFields,
-    section: "feature",
-    project: otherProps.project || undefined,
-  });
-
-  const existing = await getFeature(context, id);
-  if (existing) {
-    throw new Error(
-      "This feature key already exists. Feature keys must be unique.",
-    );
-  }
-
-  const initialJsonSchema = getInitialFeatureJsonSchema(jsonSchema);
-
-  const feature: FeatureInterface = {
-    defaultValue: "",
-    valueType: "boolean",
-    owner: userId,
-    description: "",
-    project: "",
-    environmentSettings: {},
-    rules: [],
-    customFields,
-    ...otherProps,
-    dateCreated: new Date(),
-    dateUpdated: new Date(),
-    organization: org.id,
-    id,
-    archived: false,
-    version: 1,
-    holdout: holdout?.id ? holdout : undefined,
-    jsonSchema: initialJsonSchema,
-  };
-  Object.assign(feature, normalizeTargetingProjects(feature));
-
-  const allEnvironments = getEnvironments(org);
-  const environments = filterEnvironmentsByFeature(allEnvironments, feature);
-  const environmentIds = environments.map((e) => e.id);
-
-  // construct environmentSettings, scrub environments if not allowed in project
-  feature.environmentSettings = Object.fromEntries(
-    Object.entries(environmentSettings).filter(([env]) =>
-      environmentIds.includes(env),
-    ),
-  );
-
-  await assertCanCreateFeatureInState({ context, feature, environmentIds });
-  // After the gate so an unreadable id cannot be probed for existence.
-  if (feature.targetingProjects?.length) {
-    await context.models.projects.ensureProjectIdsExist(
-      feature.targetingProjects,
-    );
-  }
-
-  addIdsToRules(feature.environmentSettings, feature.id);
-
-  // Accept v1-shape (env-nested rules) or v2-shape (top-level `rules`) bodies,
-  // but never both — mixing silently concats into feature.rules and can
-  // corrupt rule ids. buildFeatureUpdate strips stray envSettings[env].rules
-  // on write.
-  const inboundEnvRules = Object.fromEntries(
-    Object.entries(feature.environmentSettings ?? {}).map(([env, settings]) => [
-      env,
-      ((settings as unknown as { rules?: FeatureRule[] }).rules ??
-        []) as FeatureRule[],
-    ]),
-  );
-  const hasTopLevelRules = Array.isArray(otherProps.rules)
-    ? otherProps.rules.length > 0
-    : false;
-  const hasPerEnvRules = Object.values(inboundEnvRules).some(
-    (r) => Array.isArray(r) && r.length > 0,
-  );
-  if (hasTopLevelRules && hasPerEnvRules) {
-    throw new Error(
-      "Feature create received both top-level `rules` and `environmentSettings[env].rules`. " +
-        "Use one shape or the other — the v1 per-env shape is for v1 clients; the v2 flat `rules` array is for v2 clients.",
-    );
-  }
-  // v1-shape (per-env) input is normalized through `normalizeRulesInputToV2`
-  // so content-identical rules across envs merge into a single v2 rule with
-  // `environments: [...envs]` (or `allEnvironments: true` when applicable),
-  // matching the read-path JIT migration. The naive shared `naiveFlattenV1Rules`
-  // would split the same rule id across envs, forcing `ensureUniqueRuleIds`
-  // to suffix and breaking v1 round-trip semantics.
-  const flattenedInbound = normalizeRulesInputToV2(inboundEnvRules, {
-    orgEnvs: getEnvironments(org),
-    featureProject: feature.project,
-  });
-  if (flattenedInbound.length > 0) {
-    feature.rules = [...(feature.rules ?? []), ...flattenedInbound];
-  }
-
-  // Inbound v2 rules (e.g. from FeatureFromExperimentModal) often arrive with
-  // `id: ""`; stamp ids so they're addressable by later update/delete ops.
-  addIdsToFlatRules(feature.rules, feature.id);
-  // A duplicate echoes its source's rules; only what the copy changes is
-  // re-checked.
-  const source = duplicateOf ? await getFeature(context, duplicateOf) : null;
-  await assertValidFeatureRules(context, feature.rules ?? [], source?.rules, {
-    copiesRules: true,
-  });
-  validatePrerequisiteConditions(feature.prerequisites ?? []);
-  await assertValidPrerequisiteParents(context, feature, source ?? undefined);
-  assertFeatureValuesValid(context, feature, {
-    defaultValue: feature.defaultValue,
-    rules: feature.rules,
-  });
-
-  await createFeature(context, feature);
-  await context.models.watch.upsertWatch({
-    userId,
-    item: feature.id,
-    type: "features",
-  });
-
-  await req.audit({
-    event: "feature.create",
-    entity: {
-      object: "feature",
-      id: feature.id,
-    },
-    details: auditDetailsCreate(feature),
-  });
-
-  if (holdout && holdout.id) {
-    await context.models.holdout.addFeatureToHoldout(holdout.id, id);
-  }
-
+  const feature = await prepareNewFeature(context, req.body);
+  await insertNewFeature(context, feature, req.audit);
   res.status(200).json({
     status: 200,
     feature,
@@ -1116,7 +929,7 @@ export async function postFeatureRebase(
   const feature = await getFeature(context, id);
 
   if (!feature) {
-    throw new Error("Could not find feature");
+    throw new NotFoundError("Could not find feature");
   }
 
   const allEnvironments = getEnvironments(org);
@@ -1131,7 +944,7 @@ export async function postFeatureRebase(
     version: parseInt(version),
   });
   if (!revision) {
-    throw new Error("Could not find feature revision");
+    throw new NotFoundError("Could not find feature revision");
   }
   const rebasableStatuses = [
     "draft",
@@ -1256,7 +1069,7 @@ export async function postFeatureScheduledPublish(
   const { scheduledPublishAt, lockEdits, lockOthers } = req.body;
 
   const feature = await getFeature(context, id);
-  if (!feature) throw new Error("Could not find feature");
+  if (!feature) throw new NotFoundError("Could not find feature");
 
   const revision = await getRevision({
     context,
@@ -1265,7 +1078,7 @@ export async function postFeatureScheduledPublish(
     feature,
     version: parseInt(version),
   });
-  if (!revision) throw new Error("Could not find feature revision");
+  if (!revision) throw new NotFoundError("Could not find feature revision");
 
   if (
     !["draft", "pending-review", "changes-requested", "approved"].includes(
@@ -1286,6 +1099,7 @@ export async function postFeatureScheduledPublish(
   if (!allowed) {
     context.permissions.throwPermissionError();
   }
+  if (date) await assertArmDoesNotLaunchExperiments(context, feature, revision);
 
   // Committing a schedule on a draft is the no-approval path (fires without a
   // review cycle), so only allow it when the change doesn't require review (or
@@ -1369,7 +1183,7 @@ export async function postFeatureRequestReview(
   } = req.body;
   const feature = await getFeature(context, id);
   if (!feature) {
-    throw new Error("Could not find feature");
+    throw new NotFoundError("Could not find feature");
   }
   const revision = await getRevision({
     context,
@@ -1379,7 +1193,7 @@ export async function postFeatureRequestReview(
     version: parseInt(version),
   });
   if (!revision) {
-    throw new Error("Could not find feature revision");
+    throw new NotFoundError("Could not find feature revision");
   }
   // Draft authority, or revert authority over a draft that only restores a
   // published revision — otherwise a revert-only role can open a rollback it
@@ -1400,6 +1214,9 @@ export async function postFeatureRequestReview(
     !(await canScheduleFeaturePublish(context, feature, revision))
   ) {
     context.permissions.throwPermissionError();
+  }
+  if (enableAutoPublish || scheduledDate !== null) {
+    await assertArmDoesNotLaunchExperiments(context, feature, revision);
   }
 
   await markRevisionAsReviewRequested(
@@ -1480,7 +1297,7 @@ export async function postFeatureReviewOrComment(
   const { comment, review = "Comment" } = req.body;
   const feature = await getFeature(context, id);
   if (!feature) {
-    throw new Error("Could not find feature");
+    throw new NotFoundError("Could not find feature");
   }
 
   // A verdict is the review atom; a plain comment is participation, so the
@@ -1522,7 +1339,7 @@ export async function postFeatureReviewOrComment(
     version: parseInt(version),
   });
   if (!revision) {
-    throw new Error("Could not find feature revision");
+    throw new NotFoundError("Could not find feature revision");
   }
 
   // A verdict is judged against what the draft changes, so it waits on the
@@ -1647,7 +1464,7 @@ export async function postFeatureApproveAndPublish(
   const { id, version } = req.params;
   const { comment } = req.body;
   const feature = await getFeature(context, id);
-  if (!feature) throw new Error("Could not find feature");
+  if (!feature) throw new NotFoundError("Could not find feature");
 
   // Coarse refusal first: no review rights should 403, not 404 on a bad version.
   if (
@@ -1667,7 +1484,7 @@ export async function postFeatureApproveAndPublish(
     feature,
     version: parseInt(version),
   });
-  if (!revision) throw new Error("Could not find feature revision");
+  if (!revision) throw new NotFoundError("Could not find feature revision");
 
   // Granting the approval, so judge it against what the draft would change.
   const approveFootprint = await getFeatureReviewFootprint({
@@ -1967,7 +1784,7 @@ export async function postFeatureToggleAutoPublish(
   const { enabled } = req.body;
 
   const feature = await getFeature(context, id);
-  if (!feature) throw new Error("Could not find feature");
+  if (!feature) throw new NotFoundError("Could not find feature");
 
   const revision = await getRevision({
     context,
@@ -1976,7 +1793,7 @@ export async function postFeatureToggleAutoPublish(
     feature,
     version: parseInt(version),
   });
-  if (!revision) throw new Error("Could not find feature revision");
+  if (!revision) throw new NotFoundError("Could not find feature revision");
 
   if (
     !["draft", "pending-review", "changes-requested", "approved"].includes(
@@ -1998,6 +1815,9 @@ export async function postFeatureToggleAutoPublish(
     : await canDisarmFeatureAutoPublishOnApproval(context, feature, revision);
   if (!mayToggle) {
     context.permissions.throwPermissionError();
+  }
+  if (enabled) {
+    await assertArmDoesNotLaunchExperiments(context, feature, revision);
   }
 
   await setAutoPublishOnApproval(revision, !!enabled, context.userId || null);
@@ -2038,7 +1858,7 @@ export async function postFeatureRecallReview(
   const context = getContextFromReq(req);
   const { id, version } = req.params;
   const feature = await getFeature(context, id);
-  if (!feature) throw new Error("Could not find feature");
+  if (!feature) throw new NotFoundError("Could not find feature");
   const revision = await getRevision({
     context,
     organization: context.org.id,
@@ -2046,7 +1866,7 @@ export async function postFeatureRecallReview(
     feature,
     version: parseInt(version),
   });
-  if (!revision) throw new Error("Could not find feature revision");
+  if (!revision) throw new NotFoundError("Could not find feature revision");
   if (!(await canRecallFeatureReview({ context, feature, draft: revision }))) {
     context.permissions.throwPermissionError();
   }
@@ -2082,7 +1902,7 @@ export async function postFeatureUndoReview(
   const context = getContextFromReq(req);
   const { id, version } = req.params;
   const feature = await getFeature(context, id);
-  if (!feature) throw new Error("Could not find feature");
+  if (!feature) throw new NotFoundError("Could not find feature");
   const revision = await getRevision({
     context,
     organization: context.org.id,
@@ -2090,7 +1910,7 @@ export async function postFeatureUndoReview(
     feature,
     version: parseInt(version),
   });
-  if (!revision) throw new Error("Could not find feature revision");
+  if (!revision) throw new NotFoundError("Could not find feature revision");
   await assertCanUndoFeatureReview({
     context,
     feature,
@@ -2144,7 +1964,7 @@ export async function putFeatureRevisionLogComment(
     throw new Error("Comment cannot be empty");
   }
   const feature = await getFeature(context, id);
-  if (!feature) throw new Error("Could not find feature");
+  if (!feature) throw new NotFoundError("Could not find feature");
   await context.models.featureRevisionLogs.updateCommentText(logId, comment, {
     featureId: feature.id,
     version: parseInt(version),
@@ -2165,7 +1985,7 @@ export async function deleteFeatureRevisionLogEntry(
   const context = getContextFromReq(req);
   const { id, version, logId } = req.params;
   const feature = await getFeature(context, id);
-  if (!feature) throw new Error("Could not find feature");
+  if (!feature) throw new NotFoundError("Could not find feature");
   await context.models.featureRevisionLogs.deleteOwnedEntry(logId, {
     featureId: feature.id,
     version: parseInt(version),
@@ -2197,7 +2017,7 @@ export async function postFeaturePublish(
   const feature = await getFeature(context, id);
 
   if (!feature) {
-    throw new Error("Could not find feature");
+    throw new NotFoundError("Could not find feature");
   }
 
   const allEnvironments = getEnvironments(org);
@@ -2220,7 +2040,7 @@ export async function postFeaturePublish(
     "approved",
   ];
   if (!revision) {
-    throw new Error("Could not find feature revision");
+    throw new NotFoundError("Could not find feature revision");
   }
   const { live, base } = await getLiveAndBaseRevisionsForFeature({
     context,
@@ -2514,6 +2334,12 @@ export async function postFeaturePublish(
   }
 
   for (const { experiment, changes } of experimentsToUpdate) {
+    // Also checked on the write; here so a refused start publishes nothing.
+    assertValidExperimentPhases(
+      changes.phases ?? experiment.phases,
+      experiment.phases,
+      true,
+    );
     await validateExperimentChange({ context, experiment, changes });
   }
 
@@ -2674,7 +2500,7 @@ export async function postFeatureRevert(
 
   const feature = await getFeature(context, id);
   if (!feature) {
-    throw new Error("Could not find feature");
+    throw new NotFoundError("Could not find feature");
   }
 
   const allEnvironments = getEnvironments(org);
@@ -2689,7 +2515,7 @@ export async function postFeatureRevert(
     version: parseInt(version),
   });
   if (!revision) {
-    throw new Error("Could not find feature revision");
+    throw new NotFoundError("Could not find feature revision");
   }
 
   if (revision.version === feature.version || revision.status !== "published") {
@@ -3041,7 +2867,7 @@ export async function postFeatureRevertDraft(
 
   const feature = await getFeature(context, id);
   if (!feature) {
-    throw new Error("Could not find feature");
+    throw new NotFoundError("Could not find feature");
   }
 
   const revision = await getRevision({
@@ -3052,7 +2878,7 @@ export async function postFeatureRevertDraft(
     version: parseInt(version),
   });
   if (!revision) {
-    throw new Error("Could not find feature revision");
+    throw new NotFoundError("Could not find feature revision");
   }
 
   if (revision.version === feature.version || revision.status !== "published") {
@@ -3165,7 +2991,7 @@ export async function postFeatureFork(
   const feature = await getFeature(context, id);
 
   if (!feature) {
-    throw new Error("Could not find feature");
+    throw new NotFoundError("Could not find feature");
   }
 
   const revision = await getRevision({
@@ -3176,7 +3002,7 @@ export async function postFeatureFork(
     version: parseInt(version),
   });
   if (!revision) {
-    throw new Error("Could not find feature revision");
+    throw new NotFoundError("Could not find feature revision");
   }
 
   if (!context.permissions.canEditFeatureDrafts(feature)) {
@@ -3217,7 +3043,7 @@ export async function postFeatureDiscard(
   const feature = await getFeature(context, id);
 
   if (!feature) {
-    throw new Error("Could not find feature");
+    throw new NotFoundError("Could not find feature");
   }
 
   const revision = await getRevision({
@@ -3228,7 +3054,7 @@ export async function postFeatureDiscard(
     version: parseInt(version),
   });
   if (!revision) {
-    throw new Error("Could not find feature revision");
+    throw new NotFoundError("Could not find feature revision");
   }
 
   if (revision.status === "published" || revision.status === "discarded") {
@@ -3299,7 +3125,7 @@ export async function postFeatureReopen(
   const feature = await getFeature(context, id);
 
   if (!feature) {
-    throw new Error("Could not find feature");
+    throw new NotFoundError("Could not find feature");
   }
 
   const revision = await getRevision({
@@ -3310,7 +3136,7 @@ export async function postFeatureReopen(
     version: parseInt(version),
   });
   if (!revision) {
-    throw new Error("Could not find feature revision");
+    throw new NotFoundError("Could not find feature revision");
   }
 
   if (revision.status !== "discarded") {
@@ -3377,7 +3203,7 @@ export async function postFeatureRule(
 
   const feature = await getFeature(context, id);
   if (!feature) {
-    throw new Error("Could not find feature");
+    throw new NotFoundError("Could not find feature");
   }
 
   const allEnvironments = getEnvironments(context.org);
@@ -3886,32 +3712,12 @@ export async function postFeatureExperimentRefRule(
   >,
 ) {
   const context = getContextFromReq(req);
-  const { environments } = context;
   const { id } = req.params;
   const { rule, autoPublish, draftVersion, forceNewDraft } = req.body;
 
-  if (
-    rule.type !== "experiment-ref" ||
-    !rule.experimentId ||
-    !rule.variations ||
-    !rule.variations.length
-  ) {
-    throw new Error("Invalid experiment rule");
-  }
-
-  if (!environments.length) {
-    throw new Error(
-      "Must have at least one environment configured to use Feature Flags",
-    );
-  }
-
   const feature = await getFeature(context, id);
   if (!feature) {
-    throw new Error("Could not find feature");
-  }
-
-  if (!context.permissions.canEditFeatureDrafts(feature)) {
-    context.permissions.throwPermissionError();
+    throw new NotFoundError("Could not find feature");
   }
 
   const experiment = await getExperimentById(context, rule.experimentId);
@@ -3919,198 +3725,21 @@ export async function postFeatureExperimentRefRule(
     throw new Error("Invalid experiment selected");
   }
 
-  // allEnvironments:true strips any stale environments[]; false passes the
-  // explicit list through. Legacy callers that send neither default to every
-  // applicable org env.
-  let scopedRule: FeatureRule;
-  if (rule.allEnvironments === true) {
-    scopedRule = {
-      ...omit(rule, ["environments"]),
-      id: generateRuleId(),
-      allEnvironments: true,
-    } as FeatureRule;
-  } else if (
-    rule.allEnvironments === false &&
-    Array.isArray(rule.environments)
-  ) {
-    scopedRule = { ...rule, id: generateRuleId() } as FeatureRule;
-  } else {
-    scopedRule = stampRuleForEnvs(
-      { ...rule, id: generateRuleId() } as FeatureRule,
-      environments,
-    );
-  }
-
-  await assertValidRuleWrite(
+  const { version, published } = await linkFeatureToExperiment({
     context,
-    withStagedSchema(
-      feature,
-      await stagedRevision(context, feature, draftVersion),
-    ),
-    scopedRule,
-  );
-  const ruleEnvFootprint = scopedRule.allEnvironments
-    ? environments
-    : (scopedRule.environments ?? []);
-
-  // Landing authority only when this call lands. Staging the rule into a draft
-  // is authoring, already gated above; the draft reaches no one until published.
-  if (
-    autoPublish &&
-    !context.permissions.canPublishFeature(feature, ruleEnvFootprint)
-  ) {
-    context.permissions.throwPermissionError();
-  }
-
-  // Experiment/MAB-served values must satisfy the backing Config's schema +
-  // invariants, the same as a REST publish. No-op unless the feature is
-  // config-backed JSON.
-  await assertConfigBackedFeatureValuesValid(context, feature, {
-    rules: [scopedRule],
-  });
-
-  // autoPublish always starts from live so the merge stays clean.
-  const targetVersion = autoPublish
-    ? feature.version
-    : forceNewDraft
-      ? feature.version
-      : (draftVersion ?? feature.version);
-
-  const revision = await getDraftRevision(context, feature, targetVersion);
-
-  // If posting to a different revision, use the holdout from that revision
-  // to check compatibility
-  const effectiveHoldout = getEffectiveRevisionHoldout(revision, feature);
-
-  await resolveHoldoutExperimentToLink({
-    context,
+    experiment,
     feature,
-    experiment,
-    effectiveHoldout,
+    rule,
+    eventAudit: res.locals.eventAudit,
+    audit: req.audit,
+    autoPublish,
+    draftVersion,
+    forceNewDraft,
   });
-
-  // One-way: any rule-footprint env that's currently off flips on. We never
-  // turn envs off here.
-  const baseEnvEnabled: Record<string, boolean> = {
-    ...Object.fromEntries(
-      environments.map((e) => [
-        e,
-        feature.environmentSettings?.[e]?.enabled ?? false,
-      ]),
-    ),
-    ...(revision.environmentsEnabled ?? {}),
-  };
-  const envToggles: Record<string, boolean> = {};
-  for (const envId of ruleEnvFootprint) {
-    if (!environments.includes(envId)) continue;
-    if (!baseEnvEnabled[envId]) envToggles[envId] = true;
-  }
-
-  const existingRules = cloneDeep(revision.rules ?? []);
-  const nextRules = [...existingRules, scopedRule];
-
-  const combinedChanges: Partial<FeatureRevisionInterface> = {
-    rules: nextRules,
-  };
-  if (Object.keys(envToggles).length > 0) {
-    combinedChanges.environmentsEnabled = {
-      ...(revision.environmentsEnabled ?? {}),
-      ...envToggles,
-    };
-  }
-  // Title fresh drafts only — don't clobber a user's title on an existing draft.
-  const bundlingIntoExistingDraft =
-    !!draftVersion && !forceNewDraft && !autoPublish;
-  if (!bundlingIntoExistingDraft && !revision.title) {
-    combinedChanges.title =
-      experiment.type === "multi-armed-bandit"
-        ? "Publish bandit"
-        : "Publish experiment";
-  }
-
-  const auditSubject = scopedRule.allEnvironments
-    ? "to all environments"
-    : `to ${ruleEnvFootprint.join(", ") || "no environments"}`;
-  const updatedRevision =
-    (await updateRevision(context, feature, revision, combinedChanges, {
-      user: res.locals.eventAudit,
-      action: "add experiment rule",
-      subject: auditSubject,
-      value: JSON.stringify(scopedRule),
-    })) ?? revision;
-  await recordRevisionUpdate(context, feature, updatedRevision, "rule.add", {
-    environments: ruleEnvFootprint,
-  });
-
-  let published = false;
-  if (autoPublish) {
-    await assertCanAutoPublish(context, feature, updatedRevision);
-    const { live, base } = await getLiveAndBaseRevisionsForFeature({
-      context,
-      feature,
-      revision: updatedRevision,
-    });
-    const orgEnvIds = environments;
-    const { live: mergeLive, base: mergeBase } = reconcileMergeBaselines(
-      feature,
-      live,
-      base,
-    );
-    const mergeResult = autoMerge(
-      mergeLive,
-      mergeBase,
-      updatedRevision,
-      orgEnvIds,
-      {},
-    );
-    if (!mergeResult.success) {
-      throw new Error(
-        `Unable to auto-publish: please resolve conflicts on draft #${updatedRevision.version} before publishing.`,
-      );
-    }
-    const updatedFeature = await publishRevision({
-      context,
-      feature,
-      revision: updatedRevision,
-      result: mergeResult.result,
-      comment: `Add experiment rule for "${experiment.name}"`,
-      bypassLockdown: context.permissions.canBypassFlagApprovalChecks(
-        feature,
-        "feature",
-      ),
-    });
-    await req.audit({
-      event: "feature.publish",
-      entity: { object: "feature", id: feature.id },
-      details: auditDetailsUpdate(feature, updatedFeature, {
-        revision: updatedRevision.version,
-        comment: `Add experiment rule for "${experiment.name}"`,
-      }),
-    });
-    published = true;
-  } else {
-    // Queue the draft for auto-publish on `status -> running`.
-    await addPendingFeatureDraftToExperiment(
-      context,
-      rule.experimentId,
-      feature.id,
-      updatedRevision.version,
-    );
-  }
-
-  if (!feature.linkedExperiments?.includes(experiment.id)) {
-    await addLinkedExperiment(feature, experiment.id);
-  }
-  await addLinkedFeatureToExperiment(
-    context,
-    rule.experimentId,
-    feature.id,
-    experiment,
-  );
 
   res.status(200).json({
     status: 200,
-    version: updatedRevision.version,
+    version,
     published,
   });
 }
@@ -4136,7 +3765,7 @@ export async function postFeatureContextualBanditRefRule(
 
   const feature = await getFeature(context, id);
   if (!feature) {
-    throw new Error("Could not find feature");
+    throw new NotFoundError("Could not find feature");
   }
 
   const contextualBandit = await context.models.contextualBandits.getById(
@@ -4184,7 +3813,7 @@ export async function putRevisionComment(
 
   const feature = await getFeature(context, id);
   if (!feature) {
-    throw new Error("Could not find feature");
+    throw new NotFoundError("Could not find feature");
   }
 
   // Editing a comment is commenting, judged by the same shared predicate as posting
@@ -4205,7 +3834,7 @@ export async function putRevisionComment(
     version: parseInt(version),
   });
   if (!revision) {
-    throw new Error("Could not find feature revision");
+    throw new NotFoundError("Could not find feature revision");
   }
 
   const updatedRevisionAfterComment = await updateRevision(
@@ -4245,7 +3874,7 @@ export async function putRevisionTitle(
 
   const feature = await getFeature(context, id);
   if (!feature) {
-    throw new Error("Could not find feature");
+    throw new NotFoundError("Could not find feature");
   }
 
   if (!context.permissions.canEditFeatureDrafts(feature)) {
@@ -4260,7 +3889,7 @@ export async function putRevisionTitle(
     version: parseInt(version),
   });
   if (!revision) {
-    throw new Error("Could not find feature revision");
+    throw new NotFoundError("Could not find feature revision");
   }
 
   const updatedRevisionAfterTitle = await updateRevision(
@@ -4310,7 +3939,7 @@ export async function postFeatureDefaultValue(
 
   const feature = await getFeature(context, id);
   if (!feature) {
-    throw new Error("Could not find feature");
+    throw new NotFoundError("Could not find feature");
   }
 
   if (!context.permissions.canEditFeatureDrafts(feature)) {
@@ -4407,7 +4036,7 @@ export async function postFeatureSchema(
   const feature = await getFeature(context, id);
 
   if (!feature) {
-    throw new Error("Could not find feature");
+    throw new NotFoundError("Could not find feature");
   }
 
   if (!context.permissions.canEditFeatureDrafts(feature)) {
@@ -4482,7 +4111,7 @@ export async function putSafeRolloutStatus(
   const { org } = context;
   const feature = await getFeature(context, id);
   if (!feature) {
-    throw new Error("Could not find feature");
+    throw new NotFoundError("Could not find feature");
   }
 
   // A status flip is a live write in one environment; the revision below is
@@ -4636,7 +4265,7 @@ export async function putFeatureRule(
 
   const feature = await getFeature(context, id);
   if (!feature) {
-    throw new Error("Could not find feature");
+    throw new NotFoundError("Could not find feature");
   }
 
   const allEnvironments = getEnvironments(context.org);
@@ -5097,7 +4726,7 @@ export async function postFeatureCreateDraft(
   const feature = await getFeature(context, id);
 
   if (!feature) {
-    throw new Error("Could not find feature");
+    throw new NotFoundError("Could not find feature");
   }
 
   if (!context.permissions.canEditFeatureDrafts(feature)) {
@@ -5187,7 +4816,7 @@ export async function postFeatureToggle(
   const feature = await getFeature(context, id);
 
   if (!feature) {
-    throw new Error("Could not find feature");
+    throw new NotFoundError("Could not find feature");
   }
 
   if (!environments || typeof environments !== "object") {
@@ -5400,7 +5029,7 @@ export async function postFeatureMoveRule(
   const feature = await getFeature(context, id);
 
   if (!feature) {
-    throw new Error("Could not find feature");
+    throw new NotFoundError("Could not find feature");
   }
 
   if (!context.permissions.canEditFeatureDrafts(feature)) {
@@ -5488,7 +5117,7 @@ export async function deleteFeatureRule(
 
   const feature = await getFeature(context, id);
   if (!feature) {
-    throw new Error("Could not find feature");
+    throw new NotFoundError("Could not find feature");
   }
 
   const allEnvironments = getEnvironments(context.org);
@@ -5600,7 +5229,7 @@ export async function putFeature(
   const feature = await getFeature(context, id);
 
   if (!feature) {
-    throw new Error("Could not find feature");
+    throw new NotFoundError("Could not find feature");
   }
 
   const {
@@ -5797,6 +5426,12 @@ export async function putFeature(
       metadataUpdates.project ?? feature.project,
     );
   }
+  // Judged by the schema the draft it lands in would publish.
+  assertHoldoutValueValid(
+    context,
+    withStagedSchema(feature, targetDraft),
+    holdoutUpdate,
+  );
 
   if (Object.keys(metadataUpdates).length > 0 || holdoutUpdate !== undefined) {
     const envelopeChanges: Parameters<
@@ -6038,7 +5673,7 @@ export async function postFeatureEvaluate(
 
   const feature = await getFeature(context, id);
   if (!feature) {
-    throw new Error("Could not find feature");
+    throw new NotFoundError("Could not find feature");
   }
 
   const revision = await getRevision({
@@ -6049,7 +5684,7 @@ export async function postFeatureEvaluate(
     version: parseInt(version),
   });
   if (!revision) {
-    throw new Error("Could not find feature revision");
+    throw new NotFoundError("Could not find feature revision");
   }
   const date = evalDate ? new Date(evalDate) : new Date();
 
@@ -6188,7 +5823,7 @@ export async function postFeatureArchive(
   const feature = await getFeature(context, id);
 
   if (!feature) {
-    throw new Error("Could not find feature");
+    throw new NotFoundError("Could not find feature");
   }
 
   const {
@@ -6390,7 +6025,7 @@ export async function getFeatureCodeRefs(
   const context = getContextFromReq(req);
   const feature = await getFeature(context, req.params.id);
   if (!feature) {
-    throw new Error("Could not find feature");
+    throw new NotFoundError("Could not find feature");
   }
   const codeRefs = await getAllCodeRefsForFeature({
     feature: feature.id,
@@ -6409,7 +6044,7 @@ export async function getFeatureRevisions(
 
   const feature = await getFeature(context, id);
   if (!feature) {
-    throw new Error("Could not find feature");
+    throw new NotFoundError("Could not find feature");
   }
 
   const versionsParam = req.query.versions ?? "";
@@ -6450,7 +6085,7 @@ export async function getRevisionLog(
 
   const feature = await getFeature(context, id);
   if (!feature) {
-    throw new Error("Could not find feature");
+    throw new NotFoundError("Could not find feature");
   }
 
   // In the past logs were stored on the revisions.
@@ -6463,7 +6098,7 @@ export async function getRevisionLog(
     includeLog: true,
   });
   if (!revision) {
-    throw new Error("Could not find feature revision");
+    throw new NotFoundError("Could not find feature revision");
   }
 
   // But now we store logs in a separate table as they are too large
@@ -6502,7 +6137,7 @@ export async function getFeatureById(
 
   const feature = await getFeature(context, id);
   if (!feature) {
-    throw new Error("Could not find feature");
+    throw new NotFoundError("Could not find feature");
   }
 
   const [minimalRevisions, rampScheduleDocs, holdout] = await Promise.all([
@@ -6664,7 +6299,7 @@ export async function getFeatureUsage(
   const feature = await getFeature(context, id);
 
   if (!feature) {
-    throw new Error("Could not find feature");
+    throw new NotFoundError("Could not find feature");
   }
 
   const allEnvironments = getEnvironments(org);
@@ -6872,7 +6507,7 @@ export async function toggleStaleFFDetectionForFeature(
 
   const feature = await getFeature(context, id);
   if (!feature) {
-    throw new Error("Could not find feature");
+    throw new NotFoundError("Could not find feature");
   }
 
   if (!context.permissions.canEditFeatureDrafts(feature)) {
@@ -7045,7 +6680,7 @@ export async function postPrerequisite(
 
   const feature = await getFeature(context, id);
   if (!feature) {
-    throw new Error("Could not find feature");
+    throw new NotFoundError("Could not find feature");
   }
 
   if (!context.permissions.canEditFeatureDrafts(feature)) {
@@ -7113,7 +6748,7 @@ export async function putPrerequisite(
 
   const feature = await getFeature(context, id);
   if (!feature) {
-    throw new Error("Could not find feature");
+    throw new NotFoundError("Could not find feature");
   }
 
   if (!context.permissions.canEditFeatureDrafts(feature)) {
@@ -7194,7 +6829,7 @@ export async function deletePrerequisite(
 
   const feature = await getFeature(context, id);
   if (!feature) {
-    throw new Error("Could not find feature");
+    throw new NotFoundError("Could not find feature");
   }
 
   if (!context.permissions.canEditFeatureDrafts(feature)) {
@@ -7265,7 +6900,7 @@ export async function getPrerequisiteStates(
 
   const baseFeature = await getFeature(context, id);
   if (!baseFeature) {
-    throw new Error("Could not find feature");
+    throw new NotFoundError("Could not find feature");
   }
 
   let envIds: string[];
@@ -7644,7 +7279,7 @@ async function evaluatePrerequisiteStateAsync(
       );
 
       if (prereqState === "deterministic") {
-        const evaled = evalDeterministicPrereqValueBackend(
+        const evaled = evalDeterministicPrereqValue(
           prereqValue ?? null,
           prereq.condition,
         );
@@ -7669,52 +7304,6 @@ async function evaluatePrerequisiteStateAsync(
   const result = await visit(feature, 0);
   if (stateCache && !skipRootConditions) stateCache.set(cacheKey, result);
   return result;
-}
-
-function evalDeterministicPrereqValueBackend(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  value: any,
-  condition: string,
-): "pass" | "fail" {
-  if (getMalformedPrereqConditionError(condition)) return "fail";
-  try {
-    const conditionObj = JSON.parse(condition || "{}");
-    // Empty condition means "is truthy"
-    if (Object.keys(conditionObj).length === 0) {
-      return value ? "pass" : "fail";
-    }
-    // Check if condition references "value" field
-    if ("value" in conditionObj) {
-      const valueCondition = conditionObj.value;
-      // Handle $exists checks
-      if (typeof valueCondition === "object" && valueCondition !== null) {
-        if ("$exists" in valueCondition) {
-          return valueCondition.$exists ===
-            (value !== null && value !== undefined)
-            ? "pass"
-            : "fail";
-        }
-        if ("$eq" in valueCondition) {
-          return valueCondition.$eq === value ? "pass" : "fail";
-        }
-        if ("$ne" in valueCondition) {
-          return valueCondition.$ne !== value ? "pass" : "fail";
-        }
-        if ("$in" in valueCondition && Array.isArray(valueCondition.$in)) {
-          return valueCondition.$in.includes(value) ? "pass" : "fail";
-        }
-        if ("$nin" in valueCondition && Array.isArray(valueCondition.$nin)) {
-          return !valueCondition.$nin.includes(value) ? "pass" : "fail";
-        }
-      }
-      // Direct value comparison
-      return valueCondition === value ? "pass" : "fail";
-    }
-    // Default: value must be truthy
-    return value ? "pass" : "fail";
-  } catch (e) {
-    return "fail";
-  }
 }
 
 // Return lightweight feature metadata for UI components

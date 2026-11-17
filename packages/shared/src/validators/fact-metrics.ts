@@ -4,11 +4,17 @@ import { MAX_FUNNEL_STEPS } from "shared/funnels";
 import { ownerEmailField, ownerField, ownerInputField } from "./owner-field";
 import { apiPaginationFieldsValidator, paginationQueryFields } from "./shared";
 import {
+  factManagedByValidator,
   isValidRowFilterRangeLength,
+  MAX_COMPOUND_COMPONENTS,
   ROW_FILTER_RANGE_LENGTH_MESSAGE,
 } from "./fact-table";
 
-import { namedSchema } from "./openapi-helpers";
+import {
+  namedSchema,
+  retiredRiskDefault,
+  retiredRiskInput,
+} from "./openapi-helpers";
 import {
   MARKDOWN_DESCRIPTION,
   METRIC_NAME_DESCRIPTION,
@@ -241,6 +247,31 @@ const postFunnelSettings = z
   })
   .describe('Funnel metric settings (required when metricType is "funnel")');
 
+const apiCompoundSettings = z
+  .object({
+    components: z
+      .array(
+        z.object({
+          factTableId: z
+            .string()
+            .describe("The fact table this component draws events from"),
+          rowFilters: z
+            .array(apiRowFilterValidator)
+            .describe(
+              "Filters that decide whether an event row counts for this component",
+            ),
+        }),
+      )
+      .min(2)
+      .max(MAX_COMPOUND_COMPONENTS)
+      .describe(
+        "A unit passes when it has at least one matching event for every component, in any order. Minimum 2 components required.",
+      ),
+  })
+  .describe(
+    'Compound metric settings (required when metricType is "compound")',
+  );
+
 const apiCappingSettings = z
   .object({
     type: z.enum(["none", "absolute", "percentile"]),
@@ -329,6 +360,7 @@ export const apiMetricTypeEnum = z.enum([
   "ratio",
   "dailyParticipation",
   "funnel",
+  "compound",
 ]);
 
 const apiResponseMetricTypeEnum = apiMetricTypeEnum;
@@ -356,13 +388,14 @@ export const apiFactMetricValidator = namedSchema(
         ),
       quantileSettings: apiQuantileSettings.optional(),
       funnelSettings: apiFunnelSettings.optional(),
+      compoundSettings: apiCompoundSettings.optional(),
       cappingSettings: apiCappingSettings,
       lowerCappingSettings: apiLowerCappingSettings.nullable().optional(),
       windowSettings: apiWindowSettings,
       priorSettings: apiPriorSettings,
       regressionAdjustmentSettings: apiRegressionAdjustmentSettings,
-      riskThresholdSuccess: z.coerce.number(),
-      riskThresholdDanger: z.coerce.number(),
+      riskThresholdSuccess: retiredRiskDefault(),
+      riskThresholdDanger: retiredRiskDefault(),
       displayAsPercentage: z
         .boolean()
         .describe(
@@ -373,11 +406,9 @@ export const apiFactMetricValidator = namedSchema(
       maxPercentChange: z.coerce.number(),
       minSampleSize: z.coerce.number(),
       targetMDE: z.coerce.number(),
-      managedBy: z
-        .enum(["", "api", "admin"])
-        .describe(
-          "Where this fact metric must be managed from. If not set (empty string), it can be managed from anywhere.",
-        ),
+      managedBy: factManagedByValidator.describe(
+        "Where this fact metric must be managed from. If not set (empty string), it can be managed from anywhere.",
+      ),
       dateCreated: z.string().meta({ format: "date-time" }),
       dateUpdated: z.string().meta({ format: "date-time" }),
       archived: z.boolean().optional(),
@@ -678,6 +709,7 @@ export const postFactMetricBodyFields = z.object({
     .optional(),
   quantileSettings: postQuantileSettings.optional(),
   funnelSettings: postFunnelSettings.optional(),
+  compoundSettings: apiCompoundSettings.optional(),
   cappingSettings: postCappingSettings
     .optional()
     .describe(
@@ -692,22 +724,8 @@ export const postFactMetricBodyFields = z.object({
   windowSettings: postWindowSettings.optional(),
   priorSettings: postPriorSettings.optional(),
   regressionAdjustmentSettings: postRegressionAdjustmentSettings.optional(),
-  riskThresholdSuccess: z
-    .number()
-    .gte(0)
-    .describe(
-      "No longer used. Threshold for Risk to be considered low enough, as a proportion (e.g. put 0.0025 for 0.25%). <br/> Must be a non-negative number and must not be higher than `riskThresholdDanger`.",
-    )
-    .optional()
-    .meta({ deprecated: true }),
-  riskThresholdDanger: z
-    .number()
-    .gte(0)
-    .describe(
-      "No longer used. Threshold for Risk to be considered too high, as a proportion (e.g. put 0.0125 for 1.25%). <br/> Must be a non-negative number.",
-    )
-    .optional()
-    .meta({ deprecated: true }),
+  riskThresholdSuccess: retiredRiskInput(),
+  riskThresholdDanger: retiredRiskInput(),
   displayAsPercentage: z
     .boolean()
     .describe(
@@ -736,9 +754,10 @@ export const postFactMetricBodyFields = z.object({
       'The percentage change that you want to reliably detect before ending an experiment, as a proportion (e.g. put 0.1 for 10%). This is used to estimate the "Days Left" for running experiments.',
     )
     .optional(),
-  managedBy: z
-    .enum(["", "api", "admin"])
-    .describe('Set this to "api" to disable editing in the GrowthBook UI')
+  managedBy: factManagedByValidator
+    .describe(
+      'Set this to "api" (or "dbt" for resources synced from dbt) to disable editing in the GrowthBook UI',
+    )
     .optional(),
   metricAutoSlices: z
     .array(z.string())
@@ -754,48 +773,72 @@ export const postFactMetricBodyFields = z.object({
     .optional(),
 });
 
-export function refineFactMetricCreateBody(
-  body: z.infer<typeof postFactMetricBodyFields>,
+// Funnel and compound metrics describe their events through a settings
+// object instead of a numerator.
+const EVENT_LIST_SETTINGS = {
+  funnel: "funnelSettings",
+  compound: "compoundSettings",
+} as const;
+
+function refineEventListSettings(
+  body: Partial<z.infer<typeof postFactMetricBodyFields>>,
   ctx: z.RefinementCtx,
+  { isCreate }: { isCreate: boolean },
 ): void {
-  if (body.metricType === "funnel") {
-    if (!body.funnelSettings) {
+  const settingsField =
+    body.metricType === "funnel" || body.metricType === "compound"
+      ? EVENT_LIST_SETTINGS[body.metricType]
+      : null;
+
+  if (settingsField) {
+    if (!body[settingsField]) {
       ctx.addIssue({
         code: "custom",
-        message: "funnelSettings is required for funnel metrics",
-        path: ["funnelSettings"],
+        message: isCreate
+          ? `${settingsField} is required for ${body.metricType} metrics`
+          : `${settingsField} is required when changing to a ${body.metricType} metric`,
+        path: [settingsField],
       });
     }
     if ((body.numerator ?? null) !== null) {
       ctx.addIssue({
         code: "custom",
-        message: "numerator is not allowed for funnel metrics",
+        message: `numerator is not allowed for ${body.metricType} metrics`,
         path: ["numerator"],
       });
     }
     if (body.denominator) {
       ctx.addIssue({
         code: "custom",
-        message: "denominator is not allowed for funnel metrics",
+        message: `denominator is not allowed for ${body.metricType} metrics`,
         path: ["denominator"],
       });
     }
-  } else {
-    if (!body.numerator) {
+  } else if (isCreate && !body.numerator) {
+    ctx.addIssue({
+      code: "custom",
+      message: `numerator is required for ${body.metricType} metrics`,
+      path: ["numerator"],
+    });
+  }
+
+  if (!isCreate && !settingsField) return;
+  for (const [metricType, field] of Object.entries(EVENT_LIST_SETTINGS)) {
+    if (field !== settingsField && body[field]) {
       ctx.addIssue({
         code: "custom",
-        message: "numerator is required for non-funnel metrics",
-        path: ["numerator"],
-      });
-    }
-    if (body.funnelSettings) {
-      ctx.addIssue({
-        code: "custom",
-        message: "funnelSettings is only allowed for funnel metrics",
-        path: ["funnelSettings"],
+        message: `${field} is only allowed for ${metricType} metrics`,
+        path: [field],
       });
     }
   }
+}
+
+export function refineFactMetricCreateBody(
+  body: z.infer<typeof postFactMetricBodyFields>,
+  ctx: z.RefinementCtx,
+): void {
+  refineEventListSettings(body, ctx, { isCreate: true });
 }
 
 export const postFactMetricBody = postFactMetricBodyFields
@@ -809,31 +852,9 @@ const updateFactMetricBody = postFactMetricBodyFields
     archived: factMetricCreateArchivedField,
   })
   .strict()
-  .superRefine((body, ctx) => {
-    if (body.metricType !== "funnel") return;
-
-    if (!body.funnelSettings) {
-      ctx.addIssue({
-        code: "custom",
-        message: "funnelSettings is required when changing to a funnel metric",
-        path: ["funnelSettings"],
-      });
-    }
-    if ((body.numerator ?? null) !== null) {
-      ctx.addIssue({
-        code: "custom",
-        message: "numerator is not allowed for funnel metrics",
-        path: ["numerator"],
-      });
-    }
-    if (body.denominator) {
-      ctx.addIssue({
-        code: "custom",
-        message: "denominator is not allowed for funnel metrics",
-        path: ["denominator"],
-      });
-    }
-  });
+  .superRefine((body, ctx) =>
+    refineEventListSettings(body, ctx, { isCreate: false }),
+  );
 
 // Corresponds to payload-schemas/PostFactMetricAnalysisPayload.yaml
 const postFactMetricAnalysisBody = z

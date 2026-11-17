@@ -29,7 +29,7 @@ export function formatOperatorLabel(
             width: ICON_WIDTH,
             flexShrink: 0,
             textAlign: "center",
-            fontFamily: "monospace",
+            fontFamily: "var(--code-font-family)",
             marginRight: 6,
           }}
         >

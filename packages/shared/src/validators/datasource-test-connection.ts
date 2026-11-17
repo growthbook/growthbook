@@ -36,6 +36,9 @@ export const testDataSourceConnectionBodySchema = z.strictObject({
   projects: z.array(z.string()).optional(),
   // When set, blank secret fields fall back to this Data Source's saved values.
   datasourceId: z.string().optional(),
+  // Also look for Google Analytics 4 exports (BigQuery only), so a new Data
+  // Source can offer to set them up.
+  findGoogleAnalytics4Exports: z.boolean().optional(),
 });
 
 export type TestDataSourceConnectionBody = z.infer<

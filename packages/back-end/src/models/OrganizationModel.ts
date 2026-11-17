@@ -1,4 +1,4 @@
-import mongoose from "mongoose";
+import mongoose, { FilterQuery } from "mongoose";
 import uniqid from "uniqid";
 import escapeRegExp from "lodash/escapeRegExp";
 import { z } from "zod";
@@ -18,6 +18,7 @@ import { ApiOrganization } from "shared/validators";
 import { getStampedOrgLimits } from "back-end/src/services/plan-limits";
 import { upgradeOrganizationDoc } from "back-end/src/util/migrations";
 import { IS_CLOUD } from "back-end/src/util/secrets";
+import { NotFoundError } from "back-end/src/util/errors";
 import {
   ToInterface,
   getCollection,
@@ -283,10 +284,12 @@ export async function findAllOrganizations(
   page: number,
   search: string,
   limit: number = 50,
+  filter: FilterQuery<OrganizationInterface> = {},
+  sort: "newest" | "members" = "newest",
 ) {
   const regex = new RegExp(escapeRegExp(search), "i");
 
-  const query = search
+  const searchQuery = search
     ? {
         $or: [
           { name: regex },
@@ -297,20 +300,54 @@ export async function findAllOrganizations(
         ],
       }
     : {};
+  const hasFilter = Object.keys(filter).length > 0;
+  const query = hasFilter ? { $and: [searchQuery, filter] } : searchQuery;
 
-  const docs = await OrganizationModel.find(query)
-    .sort({ _id: -1 })
-    .skip((page - 1) * limit)
-    .limit(limit);
+  const docs =
+    sort === "members"
+      ? await findPageByMemberCount(query, page, limit)
+      : await OrganizationModel.find(query)
+          .sort({ _id: -1 })
+          .skip((page - 1) * limit)
+          .limit(limit);
 
-  const total = await (search
+  const total = await (search || hasFilter
     ? OrganizationModel.find(query).countDocuments()
     : OrganizationModel.find().estimatedDocumentCount());
 
   return { organizations: docs.map(toInterface), total };
 }
 
+// Ranks on IDs and member counts only, so member arrays stay out of the sort
+async function findPageByMemberCount(
+  query: FilterQuery<OrganizationInterface>,
+  page: number,
+  limit: number,
+) {
+  const ranked = await getCollection(COLLECTION)
+    .aggregate<{ id: string }>([
+      { $match: query },
+      {
+        $project: {
+          id: 1,
+          memberCount: { $size: { $ifNull: ["$members", []] } },
+        },
+      },
+      { $sort: { memberCount: -1, _id: -1 } },
+      { $skip: (page - 1) * limit },
+      { $limit: limit },
+    ])
+    .toArray();
+  const ids = ranked.map((d) => d.id);
+  const docs = await getCollection(COLLECTION)
+    .find({ id: { $in: ids } })
+    .toArray();
+  return ids.flatMap((id) => docs.filter((d) => d.id === id));
+}
+
 export async function findOrganizationById(id: string) {
+  // Global collection: an object here would act as a query operator
+  if (id && typeof id !== "string") return null;
   const doc = await getCollection(COLLECTION).findOne({ id });
   return doc ? toInterface(doc) : null;
 }
@@ -528,6 +565,7 @@ export async function findOrganizationsByMemberIds(userId: string[]) {
 }
 
 export async function findOrganizationByInviteKey(key: string) {
+  if (key && typeof key !== "string") return null;
   const doc = await OrganizationModel.findOne({
     "invites.key": key,
     disabled: { $ne: true },
@@ -682,7 +720,7 @@ export async function editCustomRole(
   });
 
   if (!found) {
-    throw new Error("Role not found");
+    throw new NotFoundError("Role not found");
   }
 
   await updateOrganization(org.id, { customRoles: newCustomRoles });
@@ -743,7 +781,7 @@ export async function removeCustomRole(context: ReqContext, id: string) {
   );
 
   if (newCustomRoles.length === (context.org.customRoles || []).length) {
-    throw new Error("Role not found");
+    throw new NotFoundError("Role not found");
   }
 
   const updates: Partial<OrganizationInterface> = {
@@ -767,7 +805,7 @@ export async function deactivateRoleById(
     !RESERVED_ROLE_IDS.includes(id) &&
     !org.customRoles?.some((role) => role.id === id)
   ) {
-    throw new Error(`Unable to find role id ${id}`);
+    throw new NotFoundError(`Unable to find role id ${id}`);
   }
 
   const deactivatedRoles = new Set<string>(org.deactivatedRoles);

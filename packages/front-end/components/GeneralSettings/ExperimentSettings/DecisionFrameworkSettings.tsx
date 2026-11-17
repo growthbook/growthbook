@@ -1,17 +1,20 @@
 import React, { useState } from "react";
 import { useFormContext } from "react-hook-form";
-import { Box, Flex, Heading, Text, Tooltip } from "@radix-ui/themes";
-import { FaPlusCircle } from "react-icons/fa";
+import { Box, Flex } from "@radix-ui/themes";
+import { PiPlus } from "react-icons/pi";
 import { DecisionCriteriaData } from "shared/types/experiment";
 import {
   PRESET_DECISION_CRITERIA,
   PRESET_DECISION_CRITERIAS,
 } from "shared/enterprise";
+import { useSettingsForm } from "@/components/GeneralSettings/SettingsFormProvider";
 import Checkbox from "@/ui/Checkbox";
 import Button from "@/ui/Button";
 import Field from "@/components/Forms/Field";
-import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
-import { GBInfo } from "@/components/Icons";
+import {
+  SettingsField,
+  UnsavedMark,
+} from "@/components/GeneralSettings/SettingsGroup";
 import { DocLink } from "@/components/DocLink";
 import DecisionCriteriaTable from "@/components/DecisionCriteria/DecisionCriteriaTable";
 import DecisionCriteriaModal from "@/components/DecisionCriteria/DecisionCriteriaModal";
@@ -23,6 +26,7 @@ import { useAuth } from "@/services/auth";
 const DecisionFrameworkSettings = () => {
   const { hasCommercialFeature } = useUser();
   const form = useFormContext();
+  const { defaultFor } = useSettingsForm();
 
   const { data, mutate } = useApi<{
     status: number;
@@ -95,147 +99,101 @@ const DecisionFrameworkSettings = () => {
           </div>
         </Modal>
       )}
-      <Box className="appbox p-3">
-        <Flex justify="between">
-          <Heading size="3" className="font-weight-semibold" mb="4">
-            Experiment Decision Framework
-            <PremiumTooltip
-              commercialFeature="decision-framework"
-              style={{ display: "inline-flex" }}
-            />
-          </Heading>
-          <Box>
-            <Text wrap="nowrap">
-              <DocLink
-                useRadix={false}
-                docSection={"experimentDecisionFramework"}
-              >
-                View docs
-              </DocLink>
-            </Text>
-          </Box>
-        </Flex>
-        <Box mb="4">
-          <Text size="2" style={{ color: "var(--color-text-mid)" }}>
-            Calculates the estimated duration of your experiment using target
-            minimum detectable effects and makes shipping recommendations.
-          </Text>
-        </Box>
-        <Flex
-          display="inline-flex"
-          gap="3"
-          mb="4"
-          align="center"
-          justify="center"
-        >
-          <Checkbox
-            mb="0"
-            value={
-              !hasCommercialFeature("decision-framework")
-                ? false
-                : form.watch("decisionFrameworkEnabled")
-            }
-            setValue={(v) => form.setValue("decisionFrameworkEnabled", v)}
-            id="toggle-decisionFrameworkEnabled"
-            disabled={!hasCommercialFeature("decision-framework")}
-          />
-          <Box>
-            <label
-              htmlFor="toggle-decisionFrameworkEnabled"
-              className="font-weight-semibold mb-0"
-            >
-              Enable Experiment Decision Framework
-            </label>
-          </Box>
-        </Flex>
-        {hasCommercialFeature("decision-framework") &&
-          form.watch("decisionFrameworkEnabled") && (
-            <>
-              <Box mt="3" mb="3">
-                <Heading size="2">
-                  Minimum Experiment Runtime
-                  <Tooltip content="Estimated duration and shipping recommendations are not made until an experiment has been running for this many days.">
-                    <Flex
-                      ml="2"
-                      display="inline-flex"
-                      style={{ verticalAlign: "middle" }}
-                    >
-                      <GBInfo />
-                    </Flex>
-                  </Tooltip>
-                </Heading>
-                <Box width="150px">
-                  <Field
-                    size="legacy"
-                    type="number"
-                    append="days"
-                    step="1"
-                    min="0"
-                    disabled={
-                      !form.watch("decisionFrameworkEnabled") ||
-                      !hasCommercialFeature("decision-framework")
-                    }
-                    {...form.register("experimentMinLengthDays", {
-                      valueAsNumber: true,
-                    })}
-                  />
-                </Box>
-              </Box>
-              <Flex align="start" direction="column">
-                <Box mb="4">
-                  <Flex align="center" gap="1" justify="between">
-                    <Heading size="2" mb="2">
-                      Default Decision Criteria
-                    </Heading>
-                    <Box mb="4">
-                      <Button
-                        variant="ghost"
-                        mt="3"
-                        onClick={() => {
-                          setDecisionCriteriaProps({
-                            open: true,
-                            editable: true,
-                            selectedCriteria: undefined,
-                          });
-                        }}
-                      >
-                        <Flex align="center" gap="1">
-                          <FaPlusCircle size={12} />
-                          <span>Add custom</span>
-                        </Flex>
-                      </Button>
-                    </Box>
-                  </Flex>
-
-                  <DecisionCriteriaTable
-                    defaultCriteriaId={
-                      form.watch("defaultDecisionCriteriaId") ||
-                      PRESET_DECISION_CRITERIA.id
-                    }
-                    setDefaultCriteriaId={(id) =>
-                      form.setValue("defaultDecisionCriteriaId", id)
-                    }
-                    decisionCriterias={[
-                      ...PRESET_DECISION_CRITERIAS,
-                      ...(data?.decisionCriteria || []),
-                    ]}
-                    onViewEditClick={(criteria: DecisionCriteriaData) => {
-                      setDecisionCriteriaProps({
-                        open: true,
-                        editable: isEditable(criteria),
-                        selectedCriteria: criteria,
-                      });
-                    }}
-                    onDeleteClick={(criteria) => {
-                      setCriteriaToDelete(criteria);
-                    }}
-                    isEditable={isEditable}
-                  />
-                </Box>
-              </Flex>
-            </>
-          )}
+      <Box>
+        <DocLink useRadix={false} docSection={"experimentDecisionFramework"}>
+          View docs
+        </DocLink>
       </Box>
+      <UnsavedMark name="decisionFrameworkEnabled">
+        <Checkbox
+          id="toggle-decisionFrameworkEnabled"
+          label="Enable Experiment Decision Framework"
+          value={
+            !hasCommercialFeature("decision-framework")
+              ? false
+              : form.watch("decisionFrameworkEnabled")
+          }
+          setValue={(v) => form.setValue("decisionFrameworkEnabled", v)}
+          disabled={!hasCommercialFeature("decision-framework")}
+        />
+      </UnsavedMark>
+      {hasCommercialFeature("decision-framework") &&
+        form.watch("decisionFrameworkEnabled") && (
+          <Flex direction="column" gap="4" pl="5">
+            <SettingsField
+              name="experimentMinLengthDays"
+              htmlFor="settings-decisionFrameworkEnabled"
+              label="Minimum runtime"
+              help="Experiments won't get a shipping recommendation before this."
+            >
+              <Box width="150px">
+                <Field
+                  id="settings-decisionFrameworkEnabled"
+                  size="md"
+                  type="number"
+                  append="days"
+                  step="1"
+                  min="0"
+                  containerClassName="mb-0"
+                  disabled={
+                    !form.watch("decisionFrameworkEnabled") ||
+                    !hasCommercialFeature("decision-framework")
+                  }
+                  placeholder={defaultFor("experimentMinLengthDays")}
+                  {...form.register("experimentMinLengthDays", {
+                    valueAsNumber: true,
+                  })}
+                />
+              </Box>
+            </SettingsField>
+            <SettingsField
+              name="defaultDecisionCriteriaId"
+              label="Decision criteria"
+              help="The org default is applied to new experiments."
+            >
+              <Flex justify="end" mb="2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setDecisionCriteriaProps({
+                      open: true,
+                      editable: true,
+                      selectedCriteria: undefined,
+                    });
+                  }}
+                  icon={<PiPlus />}
+                >
+                  Add custom
+                </Button>
+              </Flex>
+              <DecisionCriteriaTable
+                defaultCriteriaId={
+                  form.watch("defaultDecisionCriteriaId") ||
+                  PRESET_DECISION_CRITERIA.id
+                }
+                setDefaultCriteriaId={(id) =>
+                  form.setValue("defaultDecisionCriteriaId", id)
+                }
+                decisionCriterias={[
+                  ...PRESET_DECISION_CRITERIAS,
+                  ...(data?.decisionCriteria || []),
+                ]}
+                onViewEditClick={(criteria: DecisionCriteriaData) => {
+                  setDecisionCriteriaProps({
+                    open: true,
+                    editable: isEditable(criteria),
+                    selectedCriteria: criteria,
+                  });
+                }}
+                onDeleteClick={(criteria) => {
+                  setCriteriaToDelete(criteria);
+                }}
+                isEditable={isEditable}
+              />
+            </SettingsField>
+          </Flex>
+        )}
     </>
   );
 };

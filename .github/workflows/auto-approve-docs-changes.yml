@@ -6,13 +6,20 @@ on:
       - "docs/**"
     types: [opened, synchronize, reopened, ready_for_review]
 
+# Read-only by default; a job that needs more asks for it.
+permissions:
+  contents: read
+
 jobs:
   auto-approve:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
     if: ${{ github.event.pull_request.draft == false && github.event.pull_request.user.type != 'Bot' }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Get PR Author
         id: get_pr_author
         run: echo "PR_AUTHOR=${{ github.event.pull_request.user.login }}" >> $GITHUB_ENV
@@ -84,7 +91,7 @@ jobs:
 
       - name: Approve PR if all files are markdown or mdx and the PR author is a collaborator
         if: env.only_markdown == 'true' && env.role == 'collaborator'
-        uses: hmarr/auto-approve-action@v4
+        uses: hmarr/auto-approve-action@05a696a09d381a5a0d142c755f7eacbb19eb6525 # v4
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
         env:

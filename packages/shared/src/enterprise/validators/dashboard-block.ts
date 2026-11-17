@@ -73,13 +73,15 @@ export const DEFAULT_BLOCK_SIZE_BY_TYPE: Record<
   "experiments-status": { w: DASHBOARD_GRID_COLS, h: 8, minW: 8, minH: 4 },
   "experiment-dimension": { w: DASHBOARD_GRID_COLS, h: 8, minW: 12, minH: 4 },
   "experiment-time-series": { w: DASHBOARD_GRID_COLS, h: 8, minW: 12, minH: 4 },
-  "sql-explorer": { w: DASHBOARD_GRID_COLS, h: 8, minW: 8, minH: 4 },
   "metric-explorer": { w: DASHBOARD_GRID_COLS, h: 8, minW: 8, minH: 4 },
-  "metric-exploration": { w: DASHBOARD_GRID_COLS, h: 8, minW: 8, minH: 4 },
-  "fact-table-exploration": { w: DASHBOARD_GRID_COLS, h: 8, minW: 8, minH: 4 },
-  "data-source-exploration": { w: DASHBOARD_GRID_COLS, h: 8, minW: 8, minH: 4 },
-  "sql-exploration": { w: DASHBOARD_GRID_COLS, h: 8, minW: 8, minH: 4 },
-  "funnel-exploration": { w: DASHBOARD_GRID_COLS, h: 8, minW: 8, minH: 4 },
+  // Tables and charts sized to the block: room for a few rows under their
+  // controls.
+  "sql-explorer": { w: DASHBOARD_GRID_COLS, h: 8, minW: 8, minH: 6 },
+  "metric-exploration": { w: DASHBOARD_GRID_COLS, h: 8, minW: 8, minH: 6 },
+  "fact-table-exploration": { w: DASHBOARD_GRID_COLS, h: 8, minW: 8, minH: 6 },
+  "data-source-exploration": { w: DASHBOARD_GRID_COLS, h: 8, minW: 8, minH: 6 },
+  "sql-exploration": { w: DASHBOARD_GRID_COLS, h: 8, minW: 8, minH: 6 },
+  "funnel-exploration": { w: DASHBOARD_GRID_COLS, h: 8, minW: 8, minH: 6 },
 };
 
 export function getBlockSizeBounds(

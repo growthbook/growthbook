@@ -346,6 +346,80 @@ describe("snapshot planning", () => {
     expect(updateExperimentDashboardsMock).not.toHaveBeenCalled();
   });
 
+  it.each([
+    {
+      through: "the lagged cutoff",
+      type: "standard",
+      lookbackStartHoursAgo: null,
+      hasCutoff: true,
+    },
+    {
+      through:
+        "the run time when a holdout's analysis period starts after the cutoff",
+      type: "holdout",
+      lookbackStartHoursAgo: 1,
+      hasCutoff: false,
+    },
+  ])(
+    "analyzes a scheduled update through $through",
+    async ({ type, lookbackStartHoursAgo, hasCutoff }) => {
+      const hour = 60 * 60 * 1000;
+      const context = makeContext();
+      context.org.settings = {
+        updateSchedule: {
+          type: "stale",
+          hours: 6,
+          analysisEndDateMode: "lag",
+          analysisEndDateLagHours: 3,
+        },
+      };
+      const before = Date.now();
+
+      const plan = await planSnapshot({
+        experiment: makeExperiment({
+          type: type as ExperimentInterface["type"],
+          phases: [
+            {
+              dateStarted: new Date(before - 48 * hour),
+              ...(lookbackStartHoursAgo === null
+                ? {}
+                : {
+                    lookbackStartDate: new Date(
+                      before - lookbackStartHoursAgo * hour,
+                    ),
+                  }),
+              variationWeights: [0.5, 0.5],
+            },
+          ] as ExperimentInterface["phases"],
+        }),
+        context,
+        type: "standard",
+        triggeredBy: "schedule",
+        phaseIndex: 0,
+        useCache: false,
+        defaultAnalysisSettings: makeAnalysisSettings(),
+        additionalAnalysisSettings: [],
+        settingsForSnapshotMetrics: [],
+        metricMap: new Map<string, ExperimentMetricInterface>(),
+        factTableMap: new Map() as FactTableMap,
+      });
+
+      const { settings } = plan.snapshot;
+      if (hasCutoff) {
+        expect(settings.endDateIsCutoff).toBe(true);
+        expect(settings.endDate.getTime()).toBeGreaterThanOrEqual(
+          before - 3 * hour,
+        );
+        expect(settings.endDate.getTime()).toBeLessThanOrEqual(
+          Date.now() - 3 * hour,
+        );
+      } else {
+        expect(settings).not.toHaveProperty("endDateIsCutoff");
+        expect(settings.endDate.getTime()).toBeGreaterThanOrEqual(before);
+      }
+    },
+  );
+
   // Exposure query identifies units by user_id; ft_joinable shares that id
   // type, ft_orphan does not and the datasource has no identity join for it.
   // Both metrics carry auto slices, so each expands into derived metrics.
@@ -488,6 +562,145 @@ describe("snapshot planning", () => {
     });
   });
 
+  it("sizes a holdout's analysis window from a lagged end date", () => {
+    const { datasource, factTableMap, metricMap, settingsForSnapshotMetrics } =
+      makeJoinabilityFixture();
+    const experiment = makeExperiment({
+      type: "holdout",
+      exposureQueryId: "exposure_user",
+      goalMetrics: ["m_joinable"],
+      metricOverrides: [],
+      phases: [
+        {
+          dateStarted: new Date("2025-01-01T00:00:00.000Z"),
+          lookbackStartDate: new Date("2025-01-10T00:00:00.000Z"),
+          variationWeights: [0.5, 0.5],
+        },
+      ] as ExperimentInterface["phases"],
+    });
+
+    const snapshotSettings = getSnapshotSettings({
+      experiment,
+      phaseIndex: 0,
+      snapshotType: "standard",
+      dimension: null,
+      regressionAdjustmentEnabled: false,
+      orgPriorSettings: undefined,
+      orgDisabledPrecomputedDimensions: true,
+      settingsForSnapshotMetrics,
+      metricMap,
+      factTableMap,
+      metricGroups: [],
+      incrementalRefreshModel: null,
+      datasource,
+      cutoff: new Date("2025-01-10T06:00:00.000Z"),
+    });
+
+    expect(snapshotSettings.endDate).toEqual(
+      new Date("2025-01-10T06:00:00.000Z"),
+    );
+    expect(snapshotSettings.endDateIsCutoff).toBe(true);
+    expect(
+      snapshotSettings.metricSettings.find((m) => m.id === "m_joinable")
+        ?.computedSettings?.windowSettings,
+    ).toMatchObject({ type: "lookback", windowUnit: "hours", windowValue: 6 });
+  });
+
+  // Sizing it from the end date instead is a fix that changes results for
+  // orgs without a lag, so it ships separately.
+  it("still sizes a stopped holdout's analysis window from now", () => {
+    jest.useFakeTimers().setSystemTime(new Date("2025-01-20T00:00:00.000Z"));
+    try {
+      const {
+        datasource,
+        factTableMap,
+        metricMap,
+        settingsForSnapshotMetrics,
+      } = makeJoinabilityFixture();
+      const dateEnded = new Date("2025-01-10T00:00:00.000Z");
+      const experiment = makeExperiment({
+        type: "holdout",
+        exposureQueryId: "exposure_user",
+        goalMetrics: ["m_joinable"],
+        metricOverrides: [],
+        phases: [
+          {
+            dateStarted: new Date("2025-01-01T00:00:00.000Z"),
+            lookbackStartDate: new Date("2025-01-05T00:00:00.000Z"),
+            dateEnded,
+            variationWeights: [0.5, 0.5],
+          },
+        ] as ExperimentInterface["phases"],
+      });
+
+      const snapshotSettings = getSnapshotSettings({
+        experiment,
+        phaseIndex: 0,
+        snapshotType: "standard",
+        dimension: null,
+        regressionAdjustmentEnabled: false,
+        orgPriorSettings: undefined,
+        orgDisabledPrecomputedDimensions: true,
+        settingsForSnapshotMetrics,
+        metricMap,
+        factTableMap,
+        metricGroups: [],
+        incrementalRefreshModel: null,
+        datasource,
+      });
+
+      expect(snapshotSettings.endDate).toEqual(dateEnded);
+      expect(
+        snapshotSettings.metricSettings.find((m) => m.id === "m_joinable")
+          ?.computedSettings?.windowSettings,
+      ).toMatchObject({
+        type: "lookback",
+        windowUnit: "hours",
+        windowValue: 15 * 24,
+      });
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it("analyzes an ended phase through its end date, not a cutoff", () => {
+    const { datasource, factTableMap, metricMap, settingsForSnapshotMetrics } =
+      makeJoinabilityFixture();
+    const dateEnded = new Date("2025-01-10T00:00:00.000Z");
+    const experiment = makeExperiment({
+      exposureQueryId: "exposure_user",
+      goalMetrics: ["m_joinable"],
+      metricOverrides: [],
+      phases: [
+        {
+          dateStarted: new Date("2025-01-01T00:00:00.000Z"),
+          dateEnded,
+          variationWeights: [0.5, 0.5],
+        },
+      ] as ExperimentInterface["phases"],
+    });
+
+    const snapshotSettings = getSnapshotSettings({
+      experiment,
+      phaseIndex: 0,
+      snapshotType: "standard",
+      dimension: null,
+      regressionAdjustmentEnabled: false,
+      orgPriorSettings: undefined,
+      orgDisabledPrecomputedDimensions: true,
+      settingsForSnapshotMetrics,
+      metricMap,
+      factTableMap,
+      metricGroups: [],
+      incrementalRefreshModel: null,
+      datasource,
+      cutoff: new Date("2025-01-09T06:00:00.000Z"),
+    });
+
+    expect(snapshotSettings.endDate).toEqual(dateEnded);
+    expect(snapshotSettings).not.toHaveProperty("endDateIsCutoff");
+  });
+
   it("report settings drop unjoinable metrics and their slices", () => {
     const { datasource, factTableMap, metricMap, settingsForSnapshotMetrics } =
       makeJoinabilityFixture();
@@ -526,6 +739,176 @@ describe("snapshot planning", () => {
     });
 
     expectOnlyJoinableMetricsAnalyzed(snapshotSettings, metricMap);
+  });
+
+  it("report settings analyze cluster-level metrics at the cluster grain", () => {
+    // Cluster experiment: randomize on region_id (the cluster), analyze the
+    // nested user_id sub-unit. A metric on a user-grain fact table is analyzed
+    // per sub-unit and rolled up; a metric on a region-only fact table can only
+    // be reached at the cluster grain, so it joins on region_id directly.
+    const datasource = makeDatasource({
+      settings: {
+        queries: {
+          exposure: [
+            {
+              id: "exposure_region",
+              name: "Regions",
+              userIdType: "region_id",
+              userIdTypes: ["region_id", "user_id"],
+              query: "SELECT * FROM exposures",
+              dimensions: [],
+            },
+          ],
+        },
+      } as unknown as DataSourceInterface["settings"],
+    });
+    const subUnitTable = factTableFactory.build({
+      id: "ft_subunit",
+      userIdTypes: ["user_id"],
+    });
+    const clusterTable = factTableFactory.build({
+      id: "ft_cluster",
+      userIdTypes: ["region_id"],
+    });
+    const factTableMap = new Map([
+      [subUnitTable.id, subUnitTable],
+      [clusterTable.id, clusterTable],
+    ]) as FactTableMap;
+    const subUnitMetric = factMetricFactory.build({
+      id: "m_subunit",
+      numerator: { factTableId: "ft_subunit" },
+    });
+    const clusterMetric = factMetricFactory.build({
+      id: "m_cluster",
+      numerator: { factTableId: "ft_cluster" },
+    });
+    const metricMap = new Map<string, ExperimentMetricInterface>([
+      [subUnitMetric.id, subUnitMetric],
+      [clusterMetric.id, clusterMetric],
+    ]);
+    const settingsForSnapshotMetrics = [subUnitMetric, clusterMetric].map(
+      (metric) =>
+        getMetricSnapshotSettings({
+          metric,
+          denominatorMetrics: [],
+          experimentRegressionAdjustmentEnabled: false,
+        }).metricSnapshotSettings,
+    );
+
+    const experimentAnalysisSettings = {
+      exposureQueryId: "exposure_region",
+      exposureQueryIdentifierType: "region_id",
+      isClusterExperiment: true,
+      clusterSubUnitIdentifier: "user_id",
+      goalMetrics: ["m_subunit", "m_cluster"],
+      secondaryMetrics: [],
+      guardrailMetrics: [],
+      metricOverrides: [],
+    };
+
+    const snapshotSettings = getReportSnapshotSettings({
+      report: {
+        experimentAnalysisSettings,
+        experimentMetadata: {
+          phases: [{ variationWeights: [0.5, 0.5] }],
+          variations: [{ key: "0" }, { key: "1" }],
+        },
+      } as unknown as ExperimentSnapshotReportInterface,
+      analysisSettings: makeAnalysisSettings(),
+      phaseIndex: 0,
+      orgPriorSettings: undefined,
+      settingsForSnapshotMetrics,
+      metricMap,
+      factTableMap,
+      metricGroups: [],
+      datasource,
+    });
+
+    // Per-metric scrub: the sub-unit metric joins on user_id, the cluster-level
+    // metric on region_id. Before this fix the blanket sub-unit scrub dropped
+    // the region-only metric.
+    expect(snapshotSettings.goalMetrics).toEqual(["m_subunit", "m_cluster"]);
+    // Only the region-only metric is analyzed with the cluster as the unit.
+    expect(snapshotSettings.clusterLevelMetricIds).toEqual(["m_cluster"]);
+    expect(snapshotSettings.isClusterExperiment).toBe(true);
+    expect(snapshotSettings.clusterSubUnitIdentifier).toBe("user_id");
+  });
+
+  it("refuses to build a cluster report snapshot when the assignment query drops the sub-unit identifier", () => {
+    // The report editor can swap the assignment query while keeping the stored
+    // clusterSubUnitIdentifier. Switching to a query that declares only the
+    // cluster id (region_id) but not the sub-unit id (user_id) must be refused
+    // before the snapshot is inserted; otherwise every refresh fails reading the
+    // missing e.user_id column.
+    const datasource = makeDatasource({
+      settings: {
+        queries: {
+          exposure: [
+            {
+              id: "exposure_region",
+              name: "Regions",
+              userIdType: "region_id",
+              userIdTypes: ["region_id"],
+              query: "SELECT * FROM exposures",
+              dimensions: [],
+            },
+          ],
+        },
+      } as unknown as DataSourceInterface["settings"],
+    });
+    const subUnitTable = factTableFactory.build({
+      id: "ft_subunit",
+      userIdTypes: ["user_id"],
+    });
+    const factTableMap = new Map([
+      [subUnitTable.id, subUnitTable],
+    ]) as FactTableMap;
+    const subUnitMetric = factMetricFactory.build({
+      id: "m_subunit",
+      numerator: { factTableId: "ft_subunit" },
+    });
+    const metricMap = new Map<string, ExperimentMetricInterface>([
+      [subUnitMetric.id, subUnitMetric],
+    ]);
+    const settingsForSnapshotMetrics = [subUnitMetric].map(
+      (metric) =>
+        getMetricSnapshotSettings({
+          metric,
+          denominatorMetrics: [],
+          experimentRegressionAdjustmentEnabled: false,
+        }).metricSnapshotSettings,
+    );
+
+    const experimentAnalysisSettings = {
+      exposureQueryId: "exposure_region",
+      exposureQueryIdentifierType: "region_id",
+      isClusterExperiment: true,
+      clusterSubUnitIdentifier: "user_id",
+      goalMetrics: ["m_subunit"],
+      secondaryMetrics: [],
+      guardrailMetrics: [],
+      metricOverrides: [],
+    };
+
+    expect(() =>
+      getReportSnapshotSettings({
+        report: {
+          experimentAnalysisSettings,
+          experimentMetadata: {
+            phases: [{ variationWeights: [0.5, 0.5] }],
+            variations: [{ key: "0" }, { key: "1" }],
+          },
+        } as unknown as ExperimentSnapshotReportInterface,
+        analysisSettings: makeAnalysisSettings(),
+        phaseIndex: 0,
+        orgPriorSettings: undefined,
+        settingsForSnapshotMetrics,
+        metricMap,
+        factTableMap,
+        metricGroups: [],
+        datasource,
+      }),
+    ).toThrow(/subunit identifier type "user_id"/);
   });
 
   it("expands legacy report metric groups consistently", () => {
@@ -594,6 +977,46 @@ describe("snapshot planning", () => {
     ]);
     expect(analysisSettings.numGoalMetrics).toBe(2);
     expect(analysisSettings.numGuardrailMetrics).toBe(2);
+  });
+
+  it("never enables cluster analysis for legacy reports, even for a cluster experiment", () => {
+    const metric = factMetricFactory.build({ id: "m_goal" });
+    const metricMap = new Map<string, ExperimentMetricInterface>([
+      [metric.id, metric],
+    ]);
+    const args: LegacyExperimentReportArgs = {
+      trackingKey: "experiment",
+      datasource: "ds_123",
+      exposureQueryId: "exposure",
+      exposureQueryIdentifierType: "region_id",
+      startDate: new Date(),
+      variations: [
+        { id: "0", index: 0, name: "Control", weight: 0.5 },
+        { id: "1", index: 1, name: "Treatment", weight: 0.5 },
+      ],
+      goalMetrics: ["m_goal"],
+      secondaryMetrics: [],
+      guardrailMetrics: [],
+      decisionFrameworkSettings: {},
+    };
+
+    // Even if the live experiment is cluster-randomized, legacy reports must
+    // not enable cluster analysis (they can't compute clusterLevelMetricIds).
+    const clusterExperiment = makeExperiment({
+      isClusterExperiment: true,
+      clusterSubUnitIdentifier: "user_id",
+    });
+
+    const { snapshotSettings } = getSnapshotSettingsFromReportArgs(
+      args,
+      metricMap,
+      undefined,
+      clusterExperiment,
+    );
+
+    expect(snapshotSettings.isClusterExperiment).toBe(false);
+    expect(snapshotSettings.clusterSubUnitIdentifier).toBeUndefined();
+    expect(snapshotSettings.clusterLevelMetricIds).toBeUndefined();
   });
 
   it("rejects a snapshot for an experiment with no metrics without persisting a record", async () => {
@@ -1248,53 +1671,81 @@ describe("snapshot planning", () => {
     expect(plan.fullRefreshReason).toBeNull();
   });
 
-  it("records exploratory provenance from materializedBySnapshotId when present", async () => {
-    wireIncrementalIntegration(makeIncrementalDatasource());
-    assertIncrementalRefreshPrerequisitesMock.mockResolvedValue(
-      undefined as never,
-    );
+  it.each([
+    {
+      dataEnd: "its cutoff when it analyzed through one",
+      endDateIsCutoff: true,
+    },
+    { dataEnd: "its run time otherwise", endDateIsCutoff: false },
+  ])(
+    "records exploratory provenance from materializedBySnapshotId, with the source data ending at $dataEnd",
+    async ({ endDateIsCutoff }) => {
+      wireIncrementalIntegration(makeIncrementalDatasource());
+      assertIncrementalRefreshPrerequisitesMock.mockResolvedValue(
+        undefined as never,
+      );
 
-    const materializedBySnapshotId = "snap_pipeline_producer";
-    const producerDateCreated = new Date("2025-01-10T12:00:00.000Z");
-    findSnapshotByIdMock.mockResolvedValue({
-      id: materializedBySnapshotId,
-      dateCreated: producerDateCreated,
-    } as never);
+      const materializedBySnapshotId = "snap_pipeline_producer";
+      const producerDateCreated = new Date("2025-01-10T12:00:00.000Z");
+      const producerEndDate = new Date("2025-01-10T06:00:00.000Z");
+      findSnapshotByIdMock.mockResolvedValue({
+        id: materializedBySnapshotId,
+        dateCreated: producerDateCreated,
+        settings: {
+          endDate: producerEndDate,
+          ...(endDateIsCutoff ? { endDateIsCutoff: true } : {}),
+        },
+      } as never);
 
-    const context = makeContext();
-    wireIncrementalRefreshState(context, {
-      phaseDoc: {
-        unitsTableFullName: "db.schema.units_exp_123",
-        experimentSettingsHash: "current_hash",
+      const context = makeContext();
+      wireIncrementalRefreshState(context, {
+        phaseDoc: {
+          unitsTableFullName: "db.schema.units_exp_123",
+          experimentSettingsHash: "current_hash",
+          materializedBySnapshotId,
+        },
+      });
+
+      const plan = await planSnapshot({
+        experiment: makeExperiment(),
+        context,
+        type: "exploratory",
+        triggeredBy: "manual-dashboard",
+        phaseIndex: 0,
+        useCache: true,
+        defaultAnalysisSettings: makeAnalysisSettings({
+          dimensions: ["dim_country"],
+        }),
+        additionalAnalysisSettings: [],
+        settingsForSnapshotMetrics: [],
+        metricMap: new Map<string, ExperimentMetricInterface>(),
+        factTableMap: new Map() as FactTableMap,
+      });
+
+      expect(plan.snapshot.runnerKind).toBe("incremental-exploratory");
+      expect(findSnapshotByIdMock).toHaveBeenCalledWith(
+        context,
         materializedBySnapshotId,
-      },
-    });
-
-    const plan = await planSnapshot({
-      experiment: makeExperiment(),
-      context,
-      type: "exploratory",
-      triggeredBy: "manual-dashboard",
-      phaseIndex: 0,
-      useCache: true,
-      defaultAnalysisSettings: makeAnalysisSettings({
-        dimensions: ["dim_country"],
-      }),
-      additionalAnalysisSettings: [],
-      settingsForSnapshotMetrics: [],
-      metricMap: new Map<string, ExperimentMetricInterface>(),
-      factTableMap: new Map() as FactTableMap,
-    });
-
-    expect(plan.snapshot.runnerKind).toBe("incremental-exploratory");
-    expect(findSnapshotByIdMock).toHaveBeenCalledWith(
-      context,
-      materializedBySnapshotId,
-    );
-    expect(plan.snapshot.sourceSnapshotId).toBe(materializedBySnapshotId);
-    expect(plan.snapshot.sourceSnapshotDateCreated).toBe(producerDateCreated);
-    expect(getLatestSuccessfulSnapshotMock).toHaveBeenCalled();
-  });
+      );
+      expect(plan.snapshot.sourceSnapshotId).toBe(materializedBySnapshotId);
+      expect(plan.snapshot.sourceSnapshotDateCreated).toBe(producerDateCreated);
+      expect(plan.snapshot.sourceSnapshotEndDate).toBe(
+        endDateIsCutoff ? producerEndDate : producerDateCreated,
+      );
+      // Rates and windows are sized from the end date, so a breakdown of a
+      // cutoff analysis ends where its source's data does.
+      if (endDateIsCutoff) {
+        expect(plan.snapshot.settings.endDate).toEqual(producerEndDate);
+        expect(plan.snapshot.settings.endDateIsCutoff).toBe(true);
+      } else {
+        expect(plan.snapshot.settings.endDate.getTime()).toBeGreaterThan(
+          producerDateCreated.getTime(),
+        );
+        expect(plan.snapshot.settings).not.toHaveProperty("endDateIsCutoff");
+      }
+      expect(getLatestSuccessfulSnapshotMock).toHaveBeenCalled();
+    },
+  );
 
   it("leaves exploratory provenance unset when materializedBySnapshotId is null", async () => {
     wireIncrementalIntegration(makeIncrementalDatasource());
@@ -1332,6 +1783,7 @@ describe("snapshot planning", () => {
     expect(getLatestSuccessfulSnapshotMock).not.toHaveBeenCalled();
     expect(plan.snapshot.sourceSnapshotId).toBeUndefined();
     expect(plan.snapshot.sourceSnapshotDateCreated).toBeUndefined();
+    expect(plan.snapshot.sourceSnapshotEndDate).toBeUndefined();
   });
 
   describe("getMetricSnapshotSettings read contract", () => {

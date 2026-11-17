@@ -8,6 +8,7 @@ import { useAuth } from "@/services/auth";
 import { useExperiments } from "@/hooks/useExperiments";
 import Callout from "@/ui/Callout";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
+import { validatedSubmit } from "@/ui/Modal/validatedSubmit";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useDefaultDraft } from "@/hooks/useDefaultDraft";
 import DraftSelectorForChanges, {
@@ -150,7 +151,7 @@ const AddToHoldoutModal = ({
       trackingEventModalType="add-feature-to-holdout"
       size="lg"
       ctaEnabled={canSubmit}
-      submit={form.handleSubmit(async (value) => {
+      submit={validatedSubmit(form, async (value) => {
         const isPublish = mode === "publish";
         const res = await apiCall<{
           feature: FeatureInterface;

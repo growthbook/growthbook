@@ -42,9 +42,14 @@ jest.mock(
   "back-end/src/services/experimentChanges/changeExperimentStatus",
   () => ({ validateExperimentChange: jest.fn() }),
 );
-jest.mock("back-end/src/services/experiments", () => ({
-  toExperimentApiInterface: jest.fn(),
-}));
+jest.mock("back-end/src/services/experiments", () => {
+  const actual = jest.requireActual("back-end/src/services/experiments");
+  return {
+    toExperimentApiInterface: jest.fn(),
+    assertCanRunLinkedChanges: actual.assertCanRunLinkedChanges,
+    auditVisualChangeEditAfterStart: actual.auditVisualChangeEditAfterStart,
+  };
+});
 jest.mock("back-end/src/services/owner", () => ({
   resolveOwnerEmail: jest.fn(async (doc: unknown) => doc),
 }));
@@ -304,21 +309,38 @@ describe("ExperimentChangesetOwner", () => {
       expect(req.audit).not.toHaveBeenCalled();
     });
 
+    it("rejects an archived experiment even with the live-edit opt-in", () => {
+      const req = writeReq(makeContext());
+      const owner = new ExperimentChangesetOwner(
+        req.context,
+        makeExperiment({ status: "stopped", archived: true }),
+      );
+      expect(() =>
+        owner.requireWrite(req, { ...opts, allowRunning: true }),
+      ).toThrow("Only draft experiments can have their visual changes edited");
+    });
+
     it.each([
-      { name: "a stopped", overrides: { status: "stopped" as const } },
-      { name: "an archived", overrides: { archived: true } },
-    ])(
-      "rejects $name experiment even with the live-edit opt-in",
-      ({ overrides }) => {
+      { status: "running", allowRunning: true },
+      { status: "stopped", allowRunning: false },
+    ] as const)(
+      "allows a $status experiment (opt-in: $allowRunning), checked everywhere and audited",
+      async ({ status, allowRunning }) => {
         const req = writeReq(makeContext());
         const owner = new ExperimentChangesetOwner(
           req.context,
-          makeExperiment(overrides),
+          makeExperiment({ status }),
         );
-        expect(() =>
-          owner.requireWrite(req, { ...opts, allowRunning: true }),
-        ).toThrow(
-          "Only draft experiments can have their visual changes edited",
+        await owner.requireWrite(req, { ...opts, allowRunning })();
+        expect(
+          jest.mocked(req.context.permissions.canRunExperiment).mock.calls,
+        ).toEqual([[{ project: "prj_1" }, ["__ALL__"]]]);
+        expect(req.audit).toHaveBeenCalledWith(
+          expect.objectContaining({
+            event: "experiment.update",
+            entity: { object: "experiment", id: "exp_1" },
+            details: expect.stringContaining('"liveVisualChangeEdit":true'),
+          }),
         );
       },
     );
@@ -343,22 +365,6 @@ describe("ExperimentChangesetOwner", () => {
       expect(() =>
         owner.requireWrite(req, { ...opts, allowRunning: true }),
       ).toThrow("permission denied");
-    });
-
-    it("audits an accepted live edit", async () => {
-      const req = writeReq(makeContext());
-      const owner = new ExperimentChangesetOwner(
-        req.context,
-        makeExperiment({ status: "running" }),
-      );
-      await owner.requireWrite(req, { ...opts, allowRunning: true })();
-      expect(req.audit).toHaveBeenCalledWith(
-        expect.objectContaining({
-          event: "experiment.update",
-          entity: { object: "experiment", id: "exp_1" },
-          details: expect.stringContaining('"liveVisualChangeEdit":true'),
-        }),
-      );
     });
 
     it("logs instead of failing the write when the audit fails", async () => {

@@ -58,9 +58,6 @@ interface MetricSettings {
   windowType: MetricWindowSettings["type"];
   windowHours: number;
   delayHours: number;
-
-  winRisk: number;
-  loseRisk: number;
   targetMDE: number;
 }
 
@@ -95,6 +92,7 @@ interface BaseSettings {
   banditScheduleUnit: "hours" | "days";
   banditBurnInValue: number;
   banditBurnInUnit: "hours" | "days";
+  banditPeriodWeighting: boolean;
   experimentMinLengthDays: number;
   experimentMaxLengthDays: number | undefined;
   maxMetricSliceLevels: number;

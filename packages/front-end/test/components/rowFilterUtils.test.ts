@@ -1,5 +1,9 @@
 import { format } from "date-fns";
-import { ColumnInterface, FactTableInterface } from "shared/types/fact-table";
+import {
+  ColumnInterface,
+  FactTableDefinition,
+  FactTableInterface,
+} from "shared/types/fact-table";
 import {
   getAttributeFieldsExposedAsColumns,
   factTableToColumnSource,
@@ -16,6 +20,8 @@ import {
   getRowFilterInputState,
   isRowFilterComplete,
   getRowFilterDescription,
+  getRowFilterDisplaySQL,
+  getRowFiltersDisplaySQL,
 } from "@/components/FactTables/rowFilterUtils";
 
 /** Wall-clock the picker would display for a parsed value. */
@@ -394,6 +400,9 @@ describe("isRowFilterComplete", () => {
     expect(isRowFilterComplete({ operator: "sql_expr", values: [""] })).toBe(
       false,
     );
+    expect(isRowFilterComplete({ operator: "sql_expr", values: ["  "] })).toBe(
+      false,
+    );
     expect(
       isRowFilterComplete({ operator: "sql_expr", values: ["a = 1"] }),
     ).toBe(true);
@@ -554,6 +563,94 @@ describe("getRowFilterDescription", () => {
         ),
       ).toBe("Missing Saved Filter id");
     });
+  });
+});
+
+describe("getRowFilterDisplaySQL", () => {
+  const ft = {
+    columns: [col("country", { name: "Country" }), col("amount")],
+    filters: [
+      {
+        id: "flt_purchases",
+        dateCreated: new Date(0),
+        dateUpdated: new Date(0),
+        name: "Purchases only",
+        description: "",
+        value: "event_name = 'purchase'",
+      },
+    ],
+    userIdTypes: [],
+  } as unknown as FactTableDefinition;
+
+  it("expands a saved filter and names it in a comment", () => {
+    expect(
+      getRowFilterDisplaySQL(
+        { operator: "saved_filter", values: ["flt_purchases"] },
+        ft,
+      ),
+    ).toBe("-- Filter: Purchases only\n(event_name = 'purchase')");
+  });
+
+  it("returns nothing when the saved filter is gone", () => {
+    expect(
+      getRowFilterDisplaySQL(
+        { operator: "saved_filter", values: ["flt_gone"] },
+        ft,
+      ),
+    ).toBe("");
+  });
+
+  it("falls back to a plain line when the fact table is missing", () => {
+    expect(
+      getRowFilterDisplaySQL(
+        { column: "country", operator: "=", values: ["US"] },
+        null,
+      ),
+    ).toBe("country = US");
+    expect(
+      getRowFilterDisplaySQL({ operator: "=", values: ["US"] }, null),
+    ).toBe("= US");
+  });
+
+  it("renders a column comparison", () => {
+    expect(
+      getRowFilterDisplaySQL(
+        { column: "country", operator: "=", values: ["US"] },
+        ft,
+      ),
+    ).toBe("(country = 'US')");
+  });
+});
+
+describe("getRowFiltersDisplaySQL", () => {
+  const ft = {
+    columns: [col("country"), col("amount", { datatype: "number" })],
+    filters: [],
+    userIdTypes: [],
+  } as unknown as FactTableDefinition;
+
+  it("joins every filter into one WHERE clause", () => {
+    expect(
+      getRowFiltersDisplaySQL(
+        [
+          { column: "country", operator: "=", values: ["US"] },
+          { column: "amount", operator: ">", values: ["100"] },
+        ],
+        ft,
+      ),
+    ).toBe("WHERE (country = 'US')\nAND (amount > 100)");
+  });
+
+  it("uses the plain fallback for each filter when the fact table is missing", () => {
+    expect(
+      getRowFiltersDisplaySQL(
+        [
+          { column: "country", operator: "=", values: ["US"] },
+          { column: "amount", operator: ">", values: ["100"] },
+        ],
+        null,
+      ),
+    ).toBe("WHERE country = US\nAND amount > 100");
   });
 });
 

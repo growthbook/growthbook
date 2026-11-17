@@ -5,7 +5,7 @@ import { getApiHost, getAppOrigin } from "@/services/env";
 import track from "@/services/track";
 import { appendQueryParamsToURL } from "@/services/utils";
 import { AuthContextValue, useAuth } from "@/services/auth";
-import RadixButton from "@/ui/Button";
+import RadixButton, { Size as ButtonSize } from "@/ui/Button";
 import Link from "@/ui/Link";
 import Modal from "./Modal";
 import Button from "./Button";
@@ -81,12 +81,14 @@ export async function openVisualEditor({
   browser,
   deviceType,
   bypassChecks = false,
+  beforeLeave,
 }: {
-  vc: VisualChangesetInterface;
+  vc: Pick<VisualChangesetInterface, "id" | "editorUrl">;
   apiCall: AuthContextValue["apiCall"];
   browser: string;
   deviceType: string;
   bypassChecks?: boolean;
+  beforeLeave?: () => void;
 }): Promise<null | OpenVisualEditorResponse> {
   let url = vc.editorUrl.trim();
   if (!url) {
@@ -182,21 +184,26 @@ export async function openVisualEditor({
     status: "success",
     type: browser + " - " + deviceType,
   });
+  beforeLeave?.();
   window.location.href = url;
   return null;
 }
 
 const OpenVisualEditorLink: FC<{
-  visualChangeset: VisualChangesetInterface;
+  visualChangeset: Pick<VisualChangesetInterface, "id" | "editorUrl">;
   openSettings?: () => void;
   useRadix?: boolean;
   useLink?: boolean;
+  size?: ButtonSize;
   button?: string | JSX.Element;
+  beforeLeave?: () => void;
 }> = ({
   visualChangeset,
   openSettings,
   useRadix = true,
   useLink,
+  size = "md",
+  beforeLeave,
   button = (
     <>
       Open AI Visual Editor
@@ -223,6 +230,7 @@ const OpenVisualEditorLink: FC<{
       apiCall,
       browser,
       deviceType,
+      beforeLeave,
     });
     if (!res) {
       // Stay in a loading state until window redirects
@@ -255,7 +263,7 @@ const OpenVisualEditorLink: FC<{
           {button}
         </Link>
       ) : useRadix ? (
-        <RadixButton variant="ghost" onClick={onOpen}>
+        <RadixButton variant="ghost" size={size} onClick={onOpen}>
           {button}
         </RadixButton>
       ) : (
@@ -307,6 +315,7 @@ const OpenVisualEditorLink: FC<{
                     browser,
                     deviceType,
                     bypassChecks: true,
+                    beforeLeave,
                   });
                 }}
               >

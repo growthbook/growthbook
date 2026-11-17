@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 import {
   databricksParamsSupportEventForwarder,
   getDatabricksEventForwarderAuthMessage,
@@ -23,8 +23,13 @@ import { BigQueryConnectionParams } from "shared/types/integrations/bigquery";
 import { DatabricksConnectionParams } from "shared/types/integrations/databricks";
 import { SnowflakeConnectionParams } from "shared/types/integrations/snowflake";
 import { Box, Card, Flex } from "@radix-ui/themes";
-import { useFeatureValue } from "@growthbook/growthbook-react";
-import { PiCaretRight, PiPause, PiPencilSimple, PiPlay } from "react-icons/pi";
+import {
+  PiArrowClockwise,
+  PiCaretRight,
+  PiPause,
+  PiPencilSimple,
+  PiPlay,
+} from "react-icons/pi";
 import { DailyUsage, UsageLimits } from "shared/types/organization";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
@@ -32,6 +37,7 @@ import useApi from "@/hooks/useApi";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { isCloud } from "@/services/env";
 import UsageMeter from "@/components/Settings/EditDataSource/EventForwarder/UsageMeter";
+import EventForwarderActivity from "@/components/Settings/EditDataSource/EventForwarder/EventForwarderActivity";
 import PremiumCallout from "@/ui/PremiumCallout";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import SelectField from "@/components/Forms/SelectField";
@@ -44,6 +50,7 @@ import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
 import Checkbox from "@/ui/Checkbox";
 import Heading from "@/ui/Heading";
+import Link from "@/ui/Link";
 import Text from "@/ui/Text";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import ConfirmDialog from "@/ui/ConfirmDialog";
@@ -66,6 +73,8 @@ type Props = {
   dataSource: DataSourceInterfaceWithParams;
   canEdit?: boolean;
   onRefresh: () => Promise<void>;
+  /** Title the section when it isn't on its own Event Forwarder tab. */
+  showTitle?: boolean;
 };
 
 type EventForwarderDatasourceDraft = {
@@ -79,17 +88,19 @@ type EventForwarderDatasourceDraft = {
 };
 
 const statusLabels: Record<EventForwarderStatus, string> = {
+  unconfigured: "Not configured",
   pending: "Pending",
   ready: "Ready",
   paused: "Paused",
-  error: "Error",
-  schema_update_error: "Schema Update Error",
+  error: "Errored",
+  schema_update_error: "Schema update error",
 };
 
 const statusColors: Record<
   EventForwarderStatus,
   "gray" | "green" | "amber" | "red"
 > = {
+  unconfigured: "gray",
   pending: "gray",
   ready: "green",
   paused: "amber",
@@ -530,7 +541,7 @@ function EventForwarderModal({
             ) : null}
             {eventForwarderConfig ? (
               <SelectField
-                size="small"
+                size="md"
                 legacyLabelFormatting={false}
                 label="Data region"
                 value={eventForwarderConfig.region ?? DEFAULT_DATA_REGION}
@@ -585,6 +596,61 @@ function EventForwarderModal({
   );
 }
 
+// First line only until expanded; error traces can run many lines.
+// - Toggle shows for extra lines, or a first line the clamp actually cut.
+function EventForwarderErrorMessage({ message }: { message: string }) {
+  const [expanded, setExpanded] = useState(false);
+  const [clipped, setClipped] = useState(false);
+  const textRef = useRef<HTMLDivElement>(null);
+  const textId = useId();
+  const firstLine = message.split("\n")[0];
+  const isLong = firstLine !== message || clipped;
+
+  // Measured only while clamped; expanding keeps the last answer.
+  useEffect(() => {
+    const el = textRef.current;
+    if (!el || expanded) return;
+    const check = () => setClipped(el.scrollHeight > el.clientHeight + 1);
+    check();
+    const observer = new ResizeObserver(check);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [expanded]);
+
+  return (
+    <Box>
+      <Box
+        ref={textRef}
+        id={textId}
+        style={{
+          // Long URLs/IDs have no spaces to wrap on.
+          overflowWrap: "anywhere",
+          ...(expanded
+            ? { whiteSpace: "pre-wrap" }
+            : {
+                display: "-webkit-box",
+                WebkitLineClamp: 1,
+                WebkitBoxOrient: "vertical",
+                overflow: "hidden",
+              }),
+        }}
+      >
+        {expanded ? message : firstLine}
+      </Box>
+      {isLong ? (
+        <Link
+          size="sm"
+          aria-expanded={expanded}
+          aria-controls={textId}
+          onClick={() => setExpanded((open) => !open)}
+        >
+          {expanded ? "Show less" : "Show more"}
+        </Link>
+      ) : null}
+    </Box>
+  );
+}
+
 function EventForwarderSetupIndicator() {
   return (
     <Box
@@ -610,6 +676,7 @@ export default function EventForwarder({
   dataSource,
   canEdit = true,
   onRefresh,
+  showTitle = false,
 }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -635,10 +702,6 @@ export default function EventForwarder({
   // "over" is the advertised stop (what the nav and docs say); the hidden
   // `blocked` flag is enforced server-side and needs nothing here.
   const isOverLimit = isMetered && usage?.eventForwarder?.status === "over";
-  const eventsForwarderFlag = useFeatureValue(
-    "events-forwarder-multi-step",
-    "OFF",
-  );
 
   const isPaidPlan = ["pro", "pro_sso", "enterprise"].includes(
     effectiveAccountPlan || "",
@@ -657,7 +720,7 @@ export default function EventForwarder({
       onRefresh: handleRefresh,
     });
 
-  if (!supportsEventForwarder(dataSource)) {
+  if (!isCloud() || !supportsEventForwarder(dataSource)) {
     return null;
   }
 
@@ -679,7 +742,19 @@ export default function EventForwarder({
           !!primaryConnectorErrorMessage)));
   // Pause/Resume stay available while usage-blocked; a resume takes effect on the 1st
   const canToggle = canEdit && (isReady || isPaused);
-  const action = isReady ? "pause" : "resume";
+  // Restart replaces Pause once the destination errored; without a connector
+  // there is nothing to restart, so Edit is the retry path.
+  const canRestart =
+    canEdit &&
+    !isProvisioning &&
+    eventForwarderConfig?.status === "error" &&
+    !!eventForwarderConfig.connectorName;
+  const action = canRestart ? "restart" : isReady ? "pause" : "resume";
+  const actionButton = {
+    restart: { label: "Restart", icon: <PiArrowClockwise /> },
+    pause: { label: "Pause", icon: <PiPause />, color: "red" as const },
+    resume: { label: "Resume", icon: <PiPlay /> },
+  }[action];
   const databricksParams =
     dataSource.params as Partial<DatabricksConnectionParams>;
   const databricksAuthBlocked =
@@ -690,69 +765,71 @@ export default function EventForwarder({
 
   return (
     <Box>
-      <Flex align="center" justify="between" gap="3" mb="2">
-        <Flex align="center" gap="2">
-          <Heading as="h3" size="md" mb="0">
-            Event Forwarder
-          </Heading>
-          {eventForwarderConfig ? (
-            <Flex align="center" gap="2">
-              {isProvisioning ? (
-                <EventForwarderSetupIndicator />
-              ) : (
-                <>
-                  <Badge
-                    label={statusLabels[eventForwarderConfig.status]}
-                    color={statusColors[eventForwarderConfig.status]}
-                    variant="soft"
-                  />
-                  {isOverLimit ? (
-                    <Badge label="Limit reached" color="red" variant="soft" />
-                  ) : null}
-                </>
-              )}
-            </Flex>
-          ) : null}
-        </Flex>
-
-        {canEdit && eventForwarderConfig ? (
+      {showTitle || eventForwarderConfig ? (
+        <Flex align="center" justify="between" gap="3" mb="2">
           <Flex align="center" gap="2">
+            {showTitle ? (
+              <Heading as="h3" size="md" mb="0">
+                Event Forwarder
+              </Heading>
+            ) : (
+              <Text weight="semibold">Status</Text>
+            )}
+            {!eventForwarderConfig ? null : isProvisioning ? (
+              <EventForwarderSetupIndicator />
+            ) : (
+              <>
+                <Badge
+                  label={statusLabels[eventForwarderConfig.status]}
+                  color={statusColors[eventForwarderConfig.status]}
+                  variant="soft"
+                />
+                {isOverLimit ? (
+                  <Badge label="Limit reached" color="red" variant="soft" />
+                ) : null}
+              </>
+            )}
+          </Flex>
+
+          {canToggle || canRestart ? (
             <Button
               variant="outline"
-              icon={<PiPencilSimple />}
+              color={"color" in actionButton ? actionButton.color : undefined}
+              icon={actionButton.icon}
               iconPosition="left"
-              onClick={() => setShowEditModal(true)}
+              loading={pauseResumeLoading}
+              onClick={async () => {
+                setError(null);
+                setPauseResumeLoading(true);
+                try {
+                  await apiCall(
+                    `/datasource/${dataSource.id}/event-forwarder/${action}`,
+                    { method: "POST" },
+                  );
+                  await onRefresh();
+                } catch (e) {
+                  setError(e instanceof Error ? e.message : "Action failed");
+                } finally {
+                  setPauseResumeLoading(false);
+                }
+              }}
             >
-              Edit
+              {actionButton.label}
             </Button>
-            {canToggle ? (
-              <Button
-                variant="outline"
-                color={isReady ? "red" : undefined}
-                icon={isReady ? <PiPause /> : <PiPlay />}
-                iconPosition="left"
-                loading={pauseResumeLoading}
-                onClick={async () => {
-                  setPauseResumeLoading(true);
-                  try {
-                    await apiCall(
-                      `/datasource/${dataSource.id}/event-forwarder/${action}`,
-                      { method: "POST" },
-                    );
-                    await onRefresh();
-                  } catch (e) {
-                    setError(e instanceof Error ? e.message : "Action failed");
-                  } finally {
-                    setPauseResumeLoading(false);
-                  }
-                }}
-              >
-                {isReady ? "Pause" : "Resume"}
-              </Button>
-            ) : null}
-          </Flex>
-        ) : null}
-      </Flex>
+          ) : null}
+        </Flex>
+      ) : null}
+
+      {eventForwarderConfig &&
+      showProvisioningError &&
+      primaryConnectorErrorMessage ? (
+        <Callout status="error" mb="3">
+          <EventForwarderErrorMessage
+            key={primaryConnectorErrorMessage}
+            message={primaryConnectorErrorMessage}
+          />
+        </Callout>
+      ) : null}
 
       <p>
         GrowthBook&apos;s Event Forwarder streams SDK event data from GrowthBook
@@ -802,20 +879,7 @@ export default function EventForwarder({
       ) : null}
 
       {!eventForwarderConfig ? (
-        eventsForwarderFlag === "VISIBLE" ? (
-          <Callout status="info">
-            Event Forwarder is available as an early access feature. Contact
-            your account manager or reach out to{" "}
-            <a
-              href="mailto:sales@growthbook.io"
-              target="_blank"
-              rel="noreferrer"
-            >
-              sales@growthbook.io
-            </a>{" "}
-            to learn more and get started.
-          </Callout>
-        ) : hasEventForwarderFeature ? (
+        hasEventForwarderFeature ? (
           <Callout status="info">
             Event Forwarder is not configured for this datasource.
             {canEdit ? (
@@ -834,13 +898,7 @@ export default function EventForwarder({
           <Callout status="info">
             Event Forwarder is not available for your current plan. Contact your
             account manager or reach out to{" "}
-            <a
-              href="mailto:sales@growthbook.io"
-              target="_blank"
-              rel="noreferrer"
-            >
-              sales@growthbook.io
-            </a>{" "}
+            <Link href="mailto:sales@growthbook.io">sales@growthbook.io</Link>{" "}
             to upgrade.
           </Callout>
         ) : (
@@ -857,9 +915,49 @@ export default function EventForwarder({
         </Callout>
       ) : null}
 
+      {eventForwarderConfig && isProvisioning ? (
+        <Callout status="info" mb="3">
+          <Text color="text-mid" size="md">
+            This page will update automatically once provisioning completes.
+          </Text>
+        </Callout>
+      ) : null}
+
+      {eventForwarderConfig && typeof forwarderLimit === "number" ? (
+        <Box mb="4">
+          <UsageMeter
+            used={forwardedThisMonth}
+            limit={forwarderLimit}
+            noun="events"
+          />
+        </Box>
+      ) : null}
+
+      {(isReady || isPaused) && !isProvisioning ? (
+        <EventForwarderActivity
+          dataSource={dataSource}
+          isPaused={isPaused}
+          isOverLimit={isOverLimit}
+        />
+      ) : null}
       {eventForwarderConfig ? (
         <Card>
           <Flex direction="column" gap="3" p="2">
+            <Flex align="center" justify="between" gap="3">
+              <Heading as="h4" size="sm" mb="0">
+                Destination
+              </Heading>
+              {canEdit ? (
+                <Button
+                  variant="outline"
+                  icon={<PiPencilSimple />}
+                  iconPosition="left"
+                  onClick={() => setShowEditModal(true)}
+                >
+                  Edit
+                </Button>
+              ) : null}
+            </Flex>
             <Flex direction="column" gap="4">
               {eventForwarderConfig.sinkType === "bigquery" ? (
                 <>
@@ -936,31 +1034,6 @@ export default function EventForwarder({
                 )}
               />
             </Flex>
-
-            {typeof forwarderLimit === "number" ? (
-              <UsageMeter
-                used={forwardedThisMonth}
-                limit={forwarderLimit}
-                noun="events"
-              />
-            ) : null}
-
-            {isProvisioning ? (
-              <Callout status="info">
-                <Text color="text-mid" size="md">
-                  This page will update automatically once provisioning
-                  completes.
-                </Text>
-              </Callout>
-            ) : null}
-
-            {showProvisioningError && primaryConnectorErrorMessage ? (
-              <Callout status="error" mb="0">
-                <Box style={{ whiteSpace: "pre-wrap" }}>
-                  {primaryConnectorErrorMessage}
-                </Box>
-              </Callout>
-            ) : null}
           </Flex>
         </Card>
       ) : null}

@@ -1365,6 +1365,87 @@ describe("SDK payload generation (scenario-specific)", () => {
       expect(Object.keys(outBoth.features)).toContain("parent");
     });
 
+    it("includeReferencedPrerequisites carries only the parents the connection's environment gates on", async () => {
+      const envs = ["production", "development"];
+      const flag = (
+        id: string,
+        project: string,
+        rules: Partial<FeatureRule>[],
+      ): FeatureInterface =>
+        ({
+          id,
+          project,
+          organization: "org-1",
+          owner: "",
+          description: "",
+          valueType: "boolean",
+          defaultValue: "true",
+          version: 1,
+          archived: false,
+          dateCreated: new Date(),
+          dateUpdated: new Date(),
+          environmentSettings: Object.fromEntries(
+            envs.map((env) => [env, { enabled: true }]),
+          ),
+          rules: rules.map((rule, i) => ({
+            id: `${id}_rule_${i}`,
+            type: "force",
+            value: "true",
+            enabled: true,
+            allEnvironments: true,
+            ...rule,
+          })),
+        }) as unknown as FeatureInterface;
+      const gatedOn = (parent: string, environment: string) => ({
+        allEnvironments: false,
+        environments: [environment],
+        prerequisites: [{ id: parent, condition: '{"value": true}' }],
+      });
+      // A rule keeps each parent conditional, so its gate isn't folded away.
+      const parent = (id: string, project: string) =>
+        flag(id, project, [{ value: "false", condition: '{"country":"FR"}' }]);
+
+      const data = minimalRawData({
+        features: [
+          flag("child", "p1", [
+            gatedOn("prod_parent", "production"),
+            gatedOn("dev_parent", "development"),
+          ]),
+          parent("prod_parent", "p2"),
+          parent("dev_parent", "p3"),
+        ],
+      });
+      const build = (environment: string) =>
+        buildSDKPayloadForConnection({
+          context: minimalContext(),
+          connection: {
+            capabilities: ["prerequisites", "bucketingV2"],
+            environment,
+            projects: ["p1"],
+            includeReferencedPrerequisites: true,
+          },
+          data,
+        });
+
+      const production = await build("production");
+      const development = await build("development");
+
+      expect(Object.keys(production.features).sort()).toEqual([
+        "child",
+        "prod_parent",
+      ]);
+      expect(production.features.child.rules).toMatchObject([
+        { parentConditions: [{ id: "prod_parent" }] },
+      ]);
+      expect(Object.keys(development.features).sort()).toEqual([
+        "child",
+        "dev_parent",
+      ]);
+      expect(development.features.child.rules).toMatchObject([
+        { parentConditions: [{ id: "dev_parent" }] },
+      ]);
+    });
+
     it("holdouts + capabilities: holdout rule on feature only when prerequisites capability", async () => {
       const holdout: HoldoutInterface = {
         id: "holdout-1",
@@ -2346,6 +2427,48 @@ describe("getUsedSavedGroupIds", () => {
         groupMap,
       ),
     ).toEqual(new Set(["list_1"]));
+  });
+
+  it("includes derived remote groups and their source groups", () => {
+    const remoteMap: GroupMap = new Map([
+      ...groupMap,
+      ["vip", { type: "remote", attributeKey: "account_id" }],
+    ]);
+    expect(
+      getUsedSavedGroupIds(
+        featureWith({ $savedGroup: { id: "vip:parent_id" } }),
+        [],
+        remoteMap,
+      ),
+    ).toEqual(new Set(["vip:parent_id", "vip"]));
+    expect(
+      getUsedSavedGroupIds(
+        featureWith({ __gb_remoteGroupIds: { $in: ["vip:parent_id"] } }),
+        [],
+        remoteMap,
+      ),
+    ).toEqual(new Set(["vip:parent_id", "vip"]));
+  });
+
+  it("includes the source of a derived group named in a condition group", () => {
+    const remoteMap: GroupMap = new Map([
+      ...groupMap,
+      ["vip", { type: "remote", attributeKey: "account_id" }],
+      [
+        "cond_vip",
+        {
+          type: "condition",
+          condition: JSON.stringify({ $savedGroups: ["vip:parent_id"] }),
+        },
+      ],
+    ]);
+    expect(
+      getUsedSavedGroupIds(
+        featureWith({ $savedGroup: { id: "cond_vip" } }),
+        [],
+        remoteMap,
+      ),
+    ).toEqual(new Set(["cond_vip", "vip:parent_id", "vip"]));
   });
 
   it("includes groups reachable only through a shipped condition", () => {

@@ -45,6 +45,44 @@ import { getContextForAgendaJobByOrgObject } from "back-end/src/services/organiz
 import { logger } from "back-end/src/util/logger";
 import { ReqContext } from "back-end/types/request";
 
+/**
+ * Whether the stored config has a real write destination. A config that
+ * never got past an initial setup failure (`recordEventForwarderCreateFailure`
+ * marks an empty `unconfigured` row `error`) decrypts to blank database/schema
+ * names, which would otherwise produce a fact table with broken SQL that a
+ * later successful retry can never fix (`ensureEventForwarderEventsFactTable`
+ * returns the existing table as soon as one exists for the datasource).
+ */
+function eventForwarderHasDestination(
+  eventForwarderConfig: EventForwarderConfigInterface,
+): boolean {
+  switch (eventForwarderConfig.sinkType) {
+    case "bigquery": {
+      const decrypted =
+        decryptEventForwarderConfigModel<BigQueryEventForwarderStoredConfig>(
+          eventForwarderConfig,
+        );
+      return !!decrypted.dataset?.trim();
+    }
+    case "snowflake": {
+      const decrypted =
+        decryptEventForwarderConfigModel<SnowflakeEventForwarderStoredConfig>(
+          eventForwarderConfig,
+        );
+      return !!decrypted.database?.trim() && !!decrypted.schema?.trim();
+    }
+    case "databricks": {
+      const decrypted =
+        decryptEventForwarderConfigModel<DatabricksEventForwarderStoredConfig>(
+          eventForwarderConfig,
+        );
+      return !!decrypted.catalog?.trim() && !!decrypted.schema?.trim();
+    }
+    default:
+      return false;
+  }
+}
+
 export async function getEventForwarderEventsFactTableForDatasource(
   context: ReqContext,
   datasource: DataSourceInterface,
@@ -202,6 +240,34 @@ export async function syncEventForwarderEventsFactTableMetadata(
       datasource,
     );
     if (!factTable) {
+      // `status: "error"` means the last provisioning attempt failed, so the
+      // saved destination (or warehouse objects it names) may be stale or
+      // never actually created. Creating the fact table now would lock in
+      // broken SQL that a later successful retry can't fix (`ensure...`
+      // below returns the existing table as soon as one exists).
+      if (
+        eventForwarderConfig.status === "error" ||
+        !eventForwarderHasDestination(eventForwarderConfig)
+      ) {
+        continue;
+      }
+      try {
+        await ensureEventForwarderEventsFactTable(
+          context,
+          eventForwarderConfig,
+        );
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : "Unknown error";
+        logger.error(
+          {
+            datasourceId,
+            organizationId: context.org.id,
+            error: message,
+          },
+          "Failed to create Events fact table after event forwarder attribute sync",
+        );
+      }
       continue;
     }
 

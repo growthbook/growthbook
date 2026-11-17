@@ -5,6 +5,7 @@ import { baseDialect } from "./base";
 
 export const mssqlDialect: SqlDialect = {
   ...baseDialect,
+  bracketIdentifiers: true,
   formatDialect: "tsql",
   selectStarLimit: (
     from: string,
@@ -37,6 +38,14 @@ export const mssqlDialect: SqlDialect = {
   jsonExtract: (jsonCol: string, path: string, isNumeric: boolean) => {
     const raw = `JSON_VALUE(${jsonCol}, '$.${path}')`;
     return isNumeric ? mssqlDialect.castToFloat(raw) : raw;
+  },
+  // OPENJSON without a WITH clause yields (key, value, type) rows; the
+  // element's JSON text is in [value]
+  jsonArray: {
+    unnest: (jsonColumn, itemAlias) =>
+      `CROSS APPLY OPENJSON(${jsonColumn}) AS ${itemAlias}`,
+    fieldText: (itemAlias, field) =>
+      `JSON_VALUE(${itemAlias}.[value], '$.${field}')`,
   },
   evalBoolean: (col: string, value: boolean) => `${col} = ${value ? "1" : "0"}`,
   percentileCapSelectClause: (values, metricTable, where = "") =>

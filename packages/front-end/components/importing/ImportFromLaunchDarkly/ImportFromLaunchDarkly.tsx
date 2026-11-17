@@ -19,7 +19,7 @@ import Field from "@/components/Forms/Field";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Code from "@/components/SyntaxHighlighting/Code";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
-import Button from "@/components/Button";
+import Button from "@/ui/Button";
 import Checkbox from "@/ui/Checkbox";
 import { ApiCallType, useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -703,18 +703,12 @@ export default function ImportFromLaunchDarkly() {
 
   return (
     <div>
-      <h1>LaunchDarkly Importer</h1>
-      <p>
-        Import your existing projects, environments, and feature flags from the
-        LaunchDarkly API.
-      </p>
       <div className="appbox p-3">
         <div className="row">
           <div className="col">
             <div className="row">
               <div className="col">
                 <Field
-                  size="legacy"
                   label="API Token"
                   value={token}
                   type="password"
@@ -724,7 +718,6 @@ export default function ImportFromLaunchDarkly() {
               </div>
               <div className="col-auto">
                 <Field
-                  size="legacy"
                   label="Max requests per 10 secs"
                   type="number"
                   value={intervalCap}
@@ -751,7 +744,7 @@ export default function ImportFromLaunchDarkly() {
             </div>
             <Button
               type="button"
-              color={step === 1 ? "primary" : "outline-primary"}
+              variant={step === 1 ? "solid" : "outline"}
               onClick={async () => {
                 if (!token) return;
 
@@ -787,8 +780,8 @@ export default function ImportFromLaunchDarkly() {
               Step 1: Fetch from LaunchDarkly
             </Button>
             <Button
-              className="ml-2"
-              color={step === 2 ? "primary" : "outline-primary"}
+              ml="2"
+              variant={step === 2 ? "solid" : "outline"}
               disabled={step < 2}
               onClick={async () => {
                 track("LaunchDarkly import started", {
@@ -796,7 +789,13 @@ export default function ImportFromLaunchDarkly() {
                   step: 2,
                 });
 
-                await runImport(data, apiCall, (d) => setData(d));
+                // Shown in the error callout; the button has nowhere to surface it.
+                try {
+                  await runImport(data, apiCall, (d) => setData(d));
+                } catch (e) {
+                  setData({ ...data, status: "error", error: e.message });
+                  return;
+                }
                 mutateDefinitions();
                 mutateFeatures();
                 refreshOrganization();

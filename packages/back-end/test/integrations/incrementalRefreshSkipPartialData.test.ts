@@ -2,6 +2,7 @@ import { ExperimentSnapshotSettings } from "shared/types/experiment-snapshot";
 import { ExposureQuery } from "shared/types/datasource";
 import BigQuery from "back-end/src/integrations/BigQuery";
 import { getIncrementalRefreshMetricSources } from "back-end/src/queryRunners/ExperimentIncrementalRefreshQueryRunner";
+import { getIncrementalMetricScanEnd } from "back-end/src/services/experiments";
 import { factTableFactory } from "../factories/FactTable.factory";
 import { factMetricFactory } from "../factories/FactMetric.factory";
 
@@ -206,6 +207,26 @@ describe("incremental refresh statistics query with skipPartialData", () => {
     const cutoff = integration
       .getSqlDialect()
       .toTimestamp(new Date("2024-01-31T00:00:00.000Z"));
+    expect(unitsCte(sql)).toContain(`e.first_exposure_timestamp <= ${cutoff}`);
+  });
+
+  it("judges a lagged run's units against its cutoff", () => {
+    // Running phase analyzed through 24 hours before NOW: the metric sources
+    // stop there, so a unit is complete only if its window closed by then.
+    const settings = {
+      ...baseSettings,
+      skipPartialData: true,
+      endDate: new Date("2024-02-09T12:00:00.000Z"),
+    };
+    const sql = buildSql(
+      settings,
+      [longWindowMetric],
+      getIncrementalMetricScanEnd({}, settings, NOW),
+    );
+    // 96 hours before the cutoff, not before NOW
+    const cutoff = integration
+      .getSqlDialect()
+      .toTimestamp(new Date("2024-02-05T12:00:00.000Z"));
     expect(unitsCte(sql)).toContain(`e.first_exposure_timestamp <= ${cutoff}`);
   });
 

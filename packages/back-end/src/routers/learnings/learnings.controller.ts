@@ -28,6 +28,7 @@ import { getMetricMap } from "back-end/src/models/MetricModel";
 import { getAllTags } from "back-end/src/models/TagModel";
 import { logger } from "back-end/src/util/logger";
 import { getEmbeddingsForModel } from "back-end/src/util/vectors";
+import { NotFoundError } from "back-end/src/util/errors";
 
 type LearningWithCanManage = LearningInterface & { canManage: boolean };
 
@@ -71,7 +72,7 @@ export const getLearning = async (
   const context = getContextFromReq(req);
   const learning = await context.models.learnings.getById(req.params.id);
   if (!learning) {
-    throw new Error("Learning not found");
+    throw new NotFoundError("Learning not found");
   }
   res.status(200).json({
     status: 200,
@@ -153,7 +154,7 @@ export const putLearning = async (
   const { id } = req.params;
   const existing = await context.models.learnings.getById(id);
   if (!existing) {
-    throw new Error("Learning not found");
+    throw new NotFoundError("Learning not found");
   }
 
   // Append the current user to authors if this is a meaningful edit they
@@ -181,7 +182,7 @@ export const deleteLearning = async (
   const { id } = req.params;
   const existing = await context.models.learnings.getById(id);
   if (!existing) {
-    throw new Error("Learning not found");
+    throw new NotFoundError("Learning not found");
   }
   await context.models.learnings.delete(existing);
   res.status(200).json({ status: 200 });
@@ -920,7 +921,7 @@ export const postApplyLearningRefresh = async (
   const context = getContextFromReq(req);
   const existing = await context.models.learnings.getById(req.params.id);
   if (!existing) {
-    throw new Error("Learning not found");
+    throw new NotFoundError("Learning not found");
   }
 
   const { text, addSupportingExperimentIds, addContradictingExperimentIds } =

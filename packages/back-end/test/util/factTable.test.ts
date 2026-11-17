@@ -1,11 +1,17 @@
-import { ColumnInterface, UpdateColumnProps } from "shared/types/fact-table";
+import {
+  AggregatedFactTableSettings,
+  ColumnInterface,
+  UpdateColumnProps,
+} from "shared/types/fact-table";
 import {
   DataSourceInterface,
   GrowthbookClickhouseDataSource,
 } from "shared/types/datasource";
 import {
+  applyColumnUpdates,
   columnsHaveAutoSlices,
   deriveUserIdTypesFromColumns,
+  pruneAggregatedFactTableSettings,
   validateColumnMappingTargets,
   validateNewUserIdColumnKeys,
   ensureAutoSliceDefaults,
@@ -758,5 +764,103 @@ describe("buildColumnTypeMaps", () => {
     });
 
     expect([...datatypes]).toEqual([["revenue", "number"]]);
+  });
+});
+
+describe("pruneAggregatedFactTableSettings", () => {
+  const settings: AggregatedFactTableSettings = {
+    idTypes: ["user_id", "anonymous_id"],
+    updateTime: { time: "02:00", timezone: "America/Chicago" },
+    lookbackWindow: 60,
+    restateChunkDays: 3,
+  };
+
+  it("removes unsupported identifiers and preserves the remaining job settings", () => {
+    expect(pruneAggregatedFactTableSettings(settings, ["user_id"])).toEqual({
+      idTypes: ["user_id"],
+      updateTime: { time: "02:00", timezone: "America/Chicago" },
+      lookbackWindow: 60,
+      restateChunkDays: 3,
+    });
+    expect(settings.idTypes).toEqual(["user_id", "anonymous_id"]);
+  });
+
+  it("disables aggregation when no configured identifiers remain", () => {
+    expect(
+      pruneAggregatedFactTableSettings(settings, ["device_id"]),
+    ).toBeNull();
+    expect(pruneAggregatedFactTableSettings(settings, [])).toBeNull();
+  });
+
+  it("leaves valid settings unchanged without adding jobs for new identifiers", () => {
+    expect(
+      pruneAggregatedFactTableSettings(settings, [
+        "anonymous_id",
+        "user_id",
+        "device_id",
+      ]),
+    ).toBe(settings);
+  });
+
+  it("removes a job when its mapped column disappears during refresh", () => {
+    const datasource = makeStandardDatasource([
+      { userIdType: "user_id" },
+      { userIdType: "anonymous_id" },
+    ]);
+    const userIdTypes = deriveUserIdTypesFromColumns(
+      datasource,
+      [makeColumn("user_id"), makeColumn("anon_id", true)],
+      { anonymous_id: "anon_id" },
+    );
+    expect(
+      pruneAggregatedFactTableSettings(settings, userIdTypes)?.idTypes,
+    ).toEqual(["user_id"]);
+  });
+});
+
+describe("applyColumnUpdates", () => {
+  const columns = [
+    { ...makeColumn("event_name", false, "string"), name: "Event" },
+    makeColumn("old_event", false, "string"),
+    makeColumn("amount", false, "number"),
+    makeColumn("gone", true, "string"),
+    makeColumn("constructor", false, "string"),
+  ];
+
+  it("changes only the given fields of the named columns", () => {
+    const updated = applyColumnUpdates(columns, {
+      event_name: { alwaysInlineFilter: true },
+      old_event: { alwaysInlineFilter: false },
+    });
+    expect(updated[0]).toMatchObject({
+      name: "Event",
+      datatype: "string",
+      alwaysInlineFilter: true,
+    });
+    expect(updated[1].alwaysInlineFilter).toBe(false);
+    expect(updated[2]).toBe(columns[2]);
+    expect(updated[4]).toBe(columns[4]);
+  });
+
+  it("rejects a missing column", () => {
+    expect(() => applyColumnUpdates(columns, { nope: { name: "x" } })).toThrow(
+      /Could not find column nope/,
+    );
+  });
+
+  it("cleans up a deleted column but doesn't prompt on it", () => {
+    expect(
+      applyColumnUpdates(columns, { gone: { alwaysInlineFilter: false } })[3]
+        .alwaysInlineFilter,
+    ).toBe(false);
+    expect(() =>
+      applyColumnUpdates(columns, { gone: { alwaysInlineFilter: true } }),
+    ).toThrow(/Could not find column gone/);
+  });
+
+  it("only prompts on string columns", () => {
+    expect(() =>
+      applyColumnUpdates(columns, { amount: { alwaysInlineFilter: true } }),
+    ).toThrow(/Only string columns/);
   });
 });

@@ -4,10 +4,12 @@ import {
   ANCHORED_RAMP_SCHEDULE_STATUSES,
   ApiRampScheduleInterface,
   RampScheduleInterface,
+  RampScheduleStatus,
   RampStartAction,
   RampStepAction,
   RampTarget,
   StepHoldConditions,
+  getRampRetry,
   isAwaitingStartApproval,
   isReadyForApproval,
   rampScheduleValidator,
@@ -97,12 +99,17 @@ const BaseClass = MakeModelClass({
     updateEvent: "rampSchedule.update",
     deleteEvent: "rampSchedule.delete",
   },
+  // Retry bookkeeping, written on every failed attempt.
+  skipAuditLogFields: ["stepFailure"],
+  skipDateUpdatedFields: ["stepFailure"],
   additionalIndexes: [
     // Agenda poller queries by nextProcessAt on every tick — must be indexed.
     // Intentionally omits the organization prefix because
     // dangerouslyFindAllDueSchedules is a cross-tenant query.
     // sparse: true matches the existing index (most documents have nextProcessAt: null).
     { fields: { nextProcessAt: 1 }, sparse: true },
+    // ...and by the retry time of a failed step.
+    { fields: { "stepFailure.retryAt": 1 }, sparse: true },
     // Every feature publish reads the feature's schedules (getAllByFeatureId).
     { fields: { organization: 1, entityId: 1 } },
   ],
@@ -251,6 +258,7 @@ export function rampScheduleToApiInterface(
   context: ReqContext | ApiReqContext,
   doc: RampScheduleInterface,
 ): ApiRampScheduleInterface {
+  const stepFailure = getRampRetry(doc);
   const monitoringConfig = doc.monitoringConfig
     ? {
         ...monitoringConfigToApi(
@@ -321,6 +329,13 @@ export function rampScheduleToApiInterface(
     monitoringStartDate: dateToIso(doc.monitoringStartDate),
     lastRollbackAt: dateToIso(doc.lastRollbackAt),
     lastRollbackReason: doc.lastRollbackReason,
+    stepFailure: stepFailure
+      ? {
+          attempts: stepFailure.attempts,
+          lastError: stepFailure.lastError,
+          retryAt: stepFailure.retryAt.toISOString(),
+        }
+      : null,
     monitoringStatus: doc.monitoringConfig
       ? (() => {
           const autoUpdateState = getEffectiveRampAutoUpdateState(doc);
@@ -921,7 +936,7 @@ export class RampScheduleModel extends BaseClass {
   ) {
     const schedule = await this.getById(req.params.id);
     if (!schedule) {
-      throw new Error("Ramp schedule not found");
+      throw new NotFoundError("Ramp schedule not found");
     }
 
     if (schedule.status === "running") {
@@ -977,6 +992,19 @@ export class RampScheduleModel extends BaseClass {
     return this._find({
       entityType: "feature",
       entityId: { $in: featureIds },
+    });
+  }
+
+  public async getByStatuses(
+    statuses: RampScheduleStatus[],
+  ): Promise<RampScheduleInterface[]> {
+    // Older docs still store `pending-approval`, which reads back as running.
+    return this._find({
+      status: {
+        $in: statuses.includes("running")
+          ? [...statuses, "pending-approval"]
+          : statuses,
+      },
     });
   }
 
@@ -1160,6 +1188,8 @@ export class RampScheduleModel extends BaseClass {
             // Ready schedules whose start is due are matched by startDate too,
             // so a deferred "start now" survives a clobbered nextProcessAt.
             { status: "ready", startDate: { $ne: null, $lte: now } },
+            // A failed step retries on its own clock, whatever drives the rest.
+            { "stepFailure.retryAt": { $ne: null, $lte: now } },
           ],
         },
         { projection: { id: 1, organization: 1, _id: 0 } },

@@ -1,0 +1,45 @@
+@import "../styles/hover-highlight";
+
+.actionRow {
+  @include hover-highlight;
+  @include click-row;
+
+  .action :global(button) {
+    @include click-row-target;
+    // Its layer passes clicks through to it.
+    pointer-events: auto;
+  }
+
+  // Another control in the row clicks itself, so pointing at it shows
+  // neither the row's tint nor its action.
+  &:has(
+    :is(:global(a), :global(button), :global([role="button"])):hover:not(
+        .action *
+      )
+  ) {
+    background: none;
+
+    .action {
+      opacity: 0;
+    }
+  }
+}
+
+// Over the whole row, holding its button at the end of the label's line, so
+// the value keeps the row's full width. The button's click target still
+// covers the row.
+.action {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  justify-content: flex-end;
+  align-items: flex-start;
+  // The hover tint's bleed, to line up with the contents.
+  padding: var(--space-1) var(--space-2);
+  pointer-events: none;
+}
+
+// Clear of the button at the end of its line.
+.label {
+  padding-right: var(--space-6);
+}

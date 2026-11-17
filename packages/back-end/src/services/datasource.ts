@@ -1,6 +1,8 @@
 import { AES, enc } from "crypto-js";
 import uniqid from "uniqid";
 import { isReadOnlySQL } from "shared/sql";
+import { getDimensionRequiredColumns } from "shared/experiments";
+import { DimensionInterface } from "shared/types/dimension";
 import {
   SqlDialect,
   SqlIdentifierQuote,
@@ -22,10 +24,7 @@ import {
   ExposureQuery,
   FeatureUsageQuery,
 } from "shared/types/datasource";
-import {
-  DetectedFactTableColumn,
-  FactTableColumnType,
-} from "shared/types/fact-table";
+import { DetectedColumn, FactTableColumnType } from "shared/types/fact-table";
 import { FeatureInterface } from "shared/types/feature";
 import { QueryStatistics, QueryType, TestQueryType } from "shared/types/query";
 import {
@@ -33,6 +32,12 @@ import {
   DataSourceParamsForType,
   mergeDataSourceParams,
   redactSecretParams,
+  getExposureQueryExperimentIdColumn,
+  getExposureQueryExperimentNameColumn,
+  getExposureQueryIdentifierColumn,
+  getExposureQueryTimestampColumn,
+  getExposureQueryVariationIdColumn,
+  getExposureQueryVariationNameColumn,
 } from "shared/util";
 import { columnNamesMatch, determineColumnTypes } from "back-end/src/util/sql";
 import { detectColumnsFromQueryResult } from "back-end/src/util/factTable";
@@ -58,6 +63,7 @@ import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 import { SQLExecutionError } from "back-end/src/util/errors";
 import { closeMssqlPool } from "back-end/src/util/mssqlPoolManager";
+import { logger } from "back-end/src/util/logger";
 
 // freeFormQuery runs user-authored SQL; we should only use it for this scenario
 const FREE_FORM_QUERY_TYPE: QueryType = "freeFormQuery";
@@ -197,6 +203,39 @@ export async function testDataSourceConnection(
 ) {
   const integration = getSourceIntegrationObject(context, datasource);
   await integration.testConnection();
+}
+
+// Test Connection waits on this, so a slow lookup gives up rather than hold
+// up the result.
+const GA4_LOOKUP_TIMEOUT_MS = 5000;
+
+// Never throws: a missing permission, an API error, or a timeout just means
+// there's nothing to offer.
+export async function findGoogleAnalytics4Exports(
+  context: ReqContext,
+  datasource: DataSourceInterface,
+): Promise<string[]> {
+  if (datasource.type !== "bigquery") return [];
+  const integration = getSourceIntegrationObject(context, datasource);
+  if (!(integration instanceof BigQuery)) return [];
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<string[]>((resolve) => {
+    timer = setTimeout(() => {
+      logger.warn("Timed out looking for Google Analytics 4 exports");
+      resolve([]);
+    }, GA4_LOOKUP_TIMEOUT_MS);
+  });
+  try {
+    return await Promise.race([
+      integration.listGoogleAnalytics4Exports(),
+      timeout,
+    ]);
+  } catch (e) {
+    logger.warn(e, "Could not look for Google Analytics 4 exports");
+    return [];
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 // MSSQL caches connection pools by Data Source id. An unsaved test uses a
@@ -416,7 +455,7 @@ export async function testQuery(
   duration?: number;
   error?: string;
   sql?: string;
-  columns?: DetectedFactTableColumn[];
+  columns?: DetectedColumn[];
 }> {
   if (!context.permissions.canRunTestQueries(datasource)) {
     throw new Error("Permission denied");
@@ -506,26 +545,63 @@ export async function testQueryValidity(
     return undefined;
   }
 
+  // Dimensions aren't remappable, so they stay canonical
   const requiredColumns = new Set([
-    "experiment_id",
-    "variation_id",
-    "timestamp",
-    ...query.userIdTypes,
+    getExposureQueryExperimentIdColumn(query),
+    getExposureQueryVariationIdColumn(query),
+    getExposureQueryTimestampColumn(query),
+    ...query.userIdTypes.map((idType) =>
+      getExposureQueryIdentifierColumn(query, idType),
+    ),
     ...query.dimensions,
-    ...(query.hasNameCol ? ["experiment_name", "variation_name"] : []),
+    ...(query.hasNameCol
+      ? [
+          getExposureQueryExperimentNameColumn(query),
+          getExposureQueryVariationNameColumn(query),
+        ]
+      : []),
   ]);
 
   const sql = integration.getTestValidityQuery(
     query.query,
     testDays,
     undefined,
-    "timestamp",
+    getExposureQueryTimestampColumn(query),
   );
   try {
     const results = await integration.runTestQuery(
       sql,
       undefined,
       "exposureQueryValidation",
+      null,
+    );
+    return findMissingRequiredColumns(
+      results,
+      requiredColumns,
+      integration.columnNamesAreCaseSensitive,
+    );
+  } catch (e) {
+    return e.message;
+  }
+}
+
+export async function testDimensionQueryValidity(
+  integration: SourceIntegrationInterface,
+  dimension: Pick<DimensionInterface, "sql" | "userIdType" | "timing">,
+  testDays?: number,
+): Promise<string | undefined> {
+  if (!integration.getTestValidityQuery || !integration.runTestQuery) {
+    return undefined;
+  }
+
+  const requiredColumns = new Set(getDimensionRequiredColumns(dimension));
+
+  const sql = integration.getTestValidityQuery(dimension.sql, testDays);
+  try {
+    const results = await integration.runTestQuery(
+      sql,
+      undefined,
+      "dimensionValidation",
       null,
     );
     return findMissingRequiredColumns(

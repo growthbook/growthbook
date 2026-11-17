@@ -3,6 +3,7 @@ import { interleavingEnvsForChange } from "shared/permissions";
 import type { ReqContext } from "back-end/types/request";
 import type { ApiReqContext } from "back-end/types/api";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
+import { determineNextDate } from "back-end/src/services/experiments";
 
 type Context = ReqContext | ApiReqContext;
 
@@ -27,10 +28,15 @@ export async function startInterleaving(
     );
   }
 
+  const nextSnapshotAttempt = determineNextDate(
+    context.org.settings?.updateSchedule || null,
+  );
   const updated = await context.models.interleavings.update(interleaving, {
     status: "running",
     dateStarted: interleaving.dateStarted ?? new Date(),
     dateStopped: undefined,
+    autoSnapshots: nextSnapshotAttempt !== null,
+    nextSnapshotAttempt: nextSnapshotAttempt ?? undefined,
   });
   await context.auditLog({
     event: "interleaving.start",
@@ -54,6 +60,8 @@ export async function stopInterleaving(
   const updated = await context.models.interleavings.update(interleaving, {
     status: "stopped",
     dateStopped: new Date(),
+    autoSnapshots: false,
+    nextSnapshotAttempt: undefined,
   });
   await context.auditLog({
     event: "interleaving.stop",

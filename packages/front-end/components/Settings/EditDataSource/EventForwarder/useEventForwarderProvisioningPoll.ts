@@ -27,7 +27,7 @@ export function useEventForwarderProvisioningPoll({
   const [pollTimedOut, setPollTimedOut] = useState(false);
   const [taskErrors, setTaskErrors] =
     useState<EventForwarderStatusResponse["taskErrors"]>();
-  const refreshedTerminalErrorRef = useRef<string | null>(null);
+  const refreshedStatusRef = useRef<string | null>(null);
   const onRefreshRef = useRef(onRefresh);
   onRefreshRef.current = onRefresh;
   const isPending = status === "pending";
@@ -75,16 +75,18 @@ export function useEventForwarderProvisioningPoll({
     };
   }, [fetchConnectorStatus, isPending]);
 
+  // Once per settled status: a ready forwarder can still have failed writes
+  // that only the status sync records.
   useEffect(() => {
-    if (!isTerminalErrorStatus(status)) {
+    if (status !== "ready" && !isTerminalErrorStatus(status)) {
       return;
     }
 
     const refreshKey = `${datasourceId}:${status}`;
-    if (refreshedTerminalErrorRef.current === refreshKey) {
+    if (refreshedStatusRef.current === refreshKey) {
       return;
     }
-    refreshedTerminalErrorRef.current = refreshKey;
+    refreshedStatusRef.current = refreshKey;
 
     void fetchConnectorStatus().catch(() => {
       // Persisted status remains the source of truth for display.
@@ -95,7 +97,7 @@ export function useEventForwarderProvisioningPoll({
     if (status === "pending") {
       setPollTimedOut(false);
       setTaskErrors(undefined);
-      refreshedTerminalErrorRef.current = null;
+      refreshedStatusRef.current = null;
     }
   }, [status]);
 

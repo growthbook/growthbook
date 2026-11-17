@@ -333,6 +333,7 @@ export const postFeatureRevisionRequestReviewValidator = {
   method: "post" as const,
   path: "/features/:id/revisions/:version/request-review",
   confirmation: ["feature.draft"] as const,
+  confirmationInHandler: true,
   operationId: "postFeatureRevisionRequestReview",
   summary: "Request review for a draft revision",
   description:
@@ -412,6 +413,7 @@ const forceRolloutCreateInput = z
     sparse: z.boolean().optional(),
     coverage: z.number().min(0).max(1).optional(),
     hashAttribute: z.string().optional(),
+    fallbackAttribute: z.string().optional(),
     seed: z.string().optional(),
     hashVersion: z.union([z.literal(1), z.literal(2)]).optional(),
   })
@@ -543,6 +545,7 @@ const rulePatchSchema = z
     sparse: z.boolean().optional(),
     coverage: z.number().min(0).max(1).optional(),
     hashAttribute: z.string().optional(),
+    fallbackAttribute: z.string().optional(),
     seed: z.string().optional(),
     hashVersion: z.union([z.literal(1), z.literal(2)]).optional(),
     experimentId: z.string().optional(),

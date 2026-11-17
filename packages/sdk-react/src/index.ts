@@ -14,6 +14,10 @@ export type {
   Result,
   ExperimentOverride,
   Attributes,
+  Register,
+  RegisteredFeatures,
+  RegisteredAttributes,
+  RegisteredEvents,
   ConditionInterface,
   ExperimentStatus,
   FeatureDefinition,
@@ -54,7 +58,9 @@ export type {
   UrlTarget,
   UrlTargetType,
   WidenPrimitives,
+  FeatureValueOrFallback,
   GrowthBookPayload,
+  Payload,
   InitSyncOptions,
   Options,
   UserContext,
@@ -74,6 +80,9 @@ export type {
   IORedisCompat,
   RequestCompat,
   ResponseCompat,
+  RemoteSavedGroup,
+  SavedGroupResolver,
+  RedisSetClient,
 } from "@growthbook/growthbook";
 
 export {
@@ -82,6 +91,8 @@ export {
   BrowserCookieStickyBucketService,
   ExpressCookieStickyBucketService,
   RedisStickyBucketService,
+  redisResolver,
+  REMOTE_GROUP_IDS_ATTRIBUTE,
 } from "@growthbook/growthbook";
 
 export type {

@@ -1,5 +1,13 @@
 import { SAFE_ROLLOUT_TRACKING_KEY_PREFIX } from "shared/constants";
 import { format } from "shared/sql";
+import {
+  getExposureQueryExperimentIdColumn,
+  getExposureQueryExperimentNameColumn,
+  getExposureQueryIdentifierColumn,
+  getExposureQueryTimestampColumn,
+  getExposureQueryVariationIdColumn,
+  getExposureQueryVariationNameColumn,
+} from "shared/util";
 import type { ExposureQuery } from "shared/types/datasource";
 import type { SqlDialect } from "shared/types/sql";
 import { compileSqlTemplate } from "back-end/src/util/sql";
@@ -15,49 +23,60 @@ export function getPastExperimentQuery(
   end: Date,
 ): string {
   const hasNameCol = exposureQuery.hasNameCol || false;
-  const countUnits = (identifierType: string) =>
-    dialect.hasCountDistinctHLL()
-      ? dialect.hllCardinality(dialect.hllAggregate(identifierType))
-      : `COUNT(DISTINCT ${identifierType})`;
+  // Qualified, so a column named like a function (`user`) stays a column
+  const expIdCol = `e.${getExposureQueryExperimentIdColumn(exposureQuery)}`;
+  const varIdCol = `e.${getExposureQueryVariationIdColumn(exposureQuery)}`;
+  const tsCol = `e.${getExposureQueryTimestampColumn(exposureQuery)}`;
+  const countUnits = (identifierType: string) => {
+    const idCol = `e.${getExposureQueryIdentifierColumn(
+      exposureQuery,
+      identifierType,
+    )}`;
+    return dialect.hasCountDistinctHLL()
+      ? dialect.hllCardinality(dialect.hllAggregate(idCol))
+      : `COUNT(DISTINCT ${idCol})`;
+  };
   return format(
     `-- Past Experiments
     WITH
       __exposures as (
         SELECT
-          experiment_id,
-          ${
-            hasNameCol ? "MIN(experiment_name)" : "experiment_id"
-          } as experiment_name,
-          ${dialect.castToString("variation_id")} as variation_id,
+          ${expIdCol} as experiment_id,
           ${
             hasNameCol
-              ? "MIN(variation_name)"
-              : dialect.castToString("variation_id")
+              ? `MIN(e.${getExposureQueryExperimentNameColumn(exposureQuery)})`
+              : expIdCol
+          } as experiment_name,
+          ${dialect.castToString(varIdCol)} as variation_id,
+          ${
+            hasNameCol
+              ? `MIN(e.${getExposureQueryVariationNameColumn(exposureQuery)})`
+              : dialect.castToString(varIdCol)
           } as variation_name,
-          ${dialect.dateTrunc(dialect.castUserDateCol("timestamp"), "day")} as date,
+          ${dialect.dateTrunc(dialect.castUserDateCol(tsCol), "day")} as date,
           ${identifierTypes
             .map(
               (identifierType, i) =>
                 `${countUnits(identifierType)} as users_${i},`,
             )
             .join("\n")}
-          MAX(${dialect.castUserDateCol("timestamp")}) as latest_data
+          MAX(${dialect.castUserDateCol(tsCol)}) as latest_data
         FROM
           (
             ${compileSqlTemplate(exposureQuery.query, { startDate: from }, dialect)}
           ) e
         WHERE
-          timestamp > ${dialect.toTimestamp(from)}
-          AND timestamp <= ${dialect.toTimestamp(end)}
-          AND SUBSTRING(experiment_id, 1, ${
+          ${tsCol} > ${dialect.toTimestamp(from)}
+          AND ${tsCol} <= ${dialect.toTimestamp(end)}
+          AND SUBSTRING(${expIdCol}, 1, ${
             SAFE_ROLLOUT_TRACKING_KEY_PREFIX.length
           }) != '${SAFE_ROLLOUT_TRACKING_KEY_PREFIX}'
-          AND experiment_id IS NOT NULL
-          AND variation_id IS NOT NULL
+          AND ${expIdCol} IS NOT NULL
+          AND ${varIdCol} IS NOT NULL
         GROUP BY
-          experiment_id,
-          variation_id,
-          ${dialect.dateTrunc(dialect.castUserDateCol("timestamp"), "day")}
+          ${expIdCol},
+          ${varIdCol},
+          ${dialect.dateTrunc(dialect.castUserDateCol(tsCol), "day")}
       ),
       -- One row per identifier, so each is filtered on its own counts
       __experiments as (

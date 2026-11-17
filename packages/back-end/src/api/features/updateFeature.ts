@@ -7,12 +7,12 @@ import {
   getRulesForEnvironment,
   normalizeTargetingInUpdates,
   stemRuleId,
-  validateFeatureValue,
 } from "shared/util";
 import { isEqual, omit } from "lodash";
 import { updateFeatureValidator } from "shared/validators";
 import { FeatureInterface, FeatureRule } from "shared/types/feature";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
+import { assertStorableFeatureValue } from "back-end/src/util/storableFeatureValue";
 import { assertFeatureMoveDependentsGuard } from "back-end/src/services/moveDependentsGuard";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import type { BypassedGate } from "back-end/src/revisions/publishGates";
@@ -29,6 +29,7 @@ import { BadRequestError } from "back-end/src/util/errors";
 import {
   addIdsToFlatRules,
   addIdsToRules,
+  assertHoldoutValueValid,
   fromApiEnvSettingsRulesToFeatureEnvSettingsRules,
   getApiFeatureObj,
   getFeatureDefinitionLookups,
@@ -181,7 +182,7 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
     // ensure default value matches value type
     let defaultValue;
     if (req.body.defaultValue != null) {
-      defaultValue = validateFeatureValue(
+      defaultValue = assertStorableFeatureValue(
         feature,
         req.body.defaultValue,
         "Default value",
@@ -220,6 +221,12 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
             feature.valueType,
           )
         : null;
+    // Judged by the schema this request leaves in place.
+    assertHoldoutValueValid(
+      req.context,
+      jsonSchema ? { ...feature, jsonSchema } : feature,
+      req.body.holdout,
+    );
 
     // The backing config is fixed at creation — reject any attempt to change it
     // (a no-op resend of the same value is allowed). Matches the UI, which only

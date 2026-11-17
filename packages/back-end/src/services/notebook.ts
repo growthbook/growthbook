@@ -14,6 +14,7 @@ import {
 import { ExperimentInterface } from "shared/types/experiment";
 import type { DataForStatsEngine } from "shared/types/stats";
 import { APP_ORIGIN } from "back-end/src/util/secrets";
+import { NotFoundError } from "back-end/src/util/errors";
 import { findSnapshotById } from "back-end/src/models/ExperimentSnapshotModel";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import { getMetricMap } from "back-end/src/models/MetricModel";
@@ -24,10 +25,12 @@ import { QueryMap } from "back-end/src/queryRunners/QueryRunner";
 import { getQueriesByIds } from "back-end/src/models/QueryModel";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
+import { isStandaloneBreakdownSnapshot } from "back-end/src/queryRunners/unitDimensionQueryNaming";
 import { getSnapshotSettingsFromReportArgs } from "./reports";
 import {
   getAnalysisSettingsForStatsEngine,
   getMetricsAndQueryDataForStatsEngine,
+  selectAnalysisQueryData,
 } from "./stats";
 
 async function getQueryData(
@@ -56,7 +59,7 @@ export async function generateReportNotebook(
 ): Promise<string> {
   const report = await getReportById(context.org.id, reportId);
   if (!report) {
-    throw new Error("Could not find report");
+    throw new NotFoundError("Could not find report");
   }
 
   if (report.type === "experiment") {
@@ -120,6 +123,7 @@ export async function generateExperimentNotebook(
     queryPointers: snapshot.queries,
     snapshotSettings: snapshot.settings,
     analysisSettings: analysis.settings,
+    isStandaloneBreakdown: isStandaloneBreakdownSnapshot(snapshot),
     variationNames: getLatestPhaseVariations(experiment).map((v) => v.name),
     url: `/experiment/${experiment.id}`,
     name: experiment.name,
@@ -132,6 +136,7 @@ export async function generateNotebook({
   queryPointers,
   snapshotSettings,
   analysisSettings,
+  isStandaloneBreakdown = false,
   variationNames,
   url,
   name,
@@ -141,6 +146,7 @@ export async function generateNotebook({
   queryPointers: Queries;
   snapshotSettings: ExperimentSnapshotSettings;
   analysisSettings: ExperimentSnapshotAnalysisSettings;
+  isStandaloneBreakdown?: boolean;
   variationNames: string[];
   url: string;
   name: string;
@@ -204,8 +210,15 @@ export async function generateNotebook({
       1,
     ) / 24;
 
-  const { queryResults, metricSettings } = getMetricsAndQueryDataForStatsEngine(
+  const analysisQueryData = selectAnalysisQueryData(
     queries,
+    snapshotSettings,
+    analysisSettings.dimensions[0],
+    { isStandaloneBreakdown },
+  );
+
+  const { queryResults, metricSettings } = getMetricsAndQueryDataForStatsEngine(
+    analysisQueryData,
     metricMap,
     snapshotSettings,
   );
@@ -221,6 +234,7 @@ export async function generateNotebook({
         })),
         snapshotSettings.coverage ?? 1,
         phaseLengthDays,
+        !!snapshotSettings.isClusterExperiment,
       ),
     ],
     metrics: metricSettings,

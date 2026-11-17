@@ -9,26 +9,52 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import SelectField from "@/components/Forms/SelectField";
 import Button from "@/components/Button";
 import Callout from "@/ui/Callout";
+import FileInput from "@/ui/FileInput";
+import HelperText from "@/ui/HelperText";
+import Text from "@/ui/Text";
 import TextField from "@/ui/TextField";
 import { useCanKeepExistingCredentials } from "@/components/Forms/secretInput";
 
 export function BigQueryAdvancedSettings({
   params,
   onParamChange,
+  showProjectId,
 }: {
   params: Partial<BigQueryConnectionParams>;
   onParamChange: ChangeEventHandler<HTMLInputElement>;
+  // JSON keys fill this in. Auto-discovery has no key, so that field stays on the main form.
+  showProjectId: boolean;
 }) {
   return (
-    <TextField
-      mb="3"
-      name="apiEndpoint"
-      label="API endpoint (optional)"
-      placeholder="https://proxy.example.com/"
-      value={params.apiEndpoint || ""}
-      onChange={onParamChange}
-      helpText="Default is https://bigquery.googleapis.com. '/bigquery/v2' is automatically appended to the URL."
-    />
+    <>
+      {showProjectId ? (
+        <TextField
+          mb="3"
+          name="defaultProject"
+          label="BigQuery project ID"
+          value={params.defaultProject || ""}
+          onChange={onParamChange}
+          helpText="Filled from the key file. Change this only if GrowthBook should query a different project than the service account's project."
+        />
+      ) : null}
+      <TextField
+        mb="3"
+        name="reservation"
+        label="Reservation (optional)"
+        value={params.reservation || ""}
+        onChange={onParamChange}
+        helpText="If set, GrowthBook includes this reservation on every BigQuery query. Use the full resource name, for example projects/my-project/locations/US/reservations/my-reservation."
+      />
+      <TextField
+        mb="3"
+        name="apiEndpoint"
+        label="API endpoint (optional)"
+        placeholder="https://proxy.example.com/"
+        value={params.apiEndpoint || ""}
+        onChange={onParamChange}
+        helpText="Default is https://bigquery.googleapis.com. '/bigquery/v2' is automatically appended to the URL."
+      />
+    </>
   );
 }
 
@@ -60,6 +86,7 @@ const BigQueryForm: FC<{
     existing,
     authType,
   );
+  const [keyFileInvalid, setKeyFileInvalid] = useState(false);
   const [testConnectionResults, setTestConnectionResults] = useState<{
     status: "success" | "warning" | "danger";
     message: string;
@@ -155,65 +182,76 @@ const BigQueryForm: FC<{
       {(cloud || authType !== "auto") && (
         <>
           <div className="form-group col-md-12">
-            <div className="custom-file">
-              <input
-                type="file"
-                required={!canKeepExistingCredentials}
-                className="custom-file-input"
-                id="bigQueryFileInput"
-                accept="application/json"
-                onChange={(e) => {
-                  connectionTest.current?.abort();
-                  setTestConnectionResults(null);
-                  const file: File | undefined = e.target?.files?.[0];
-                  if (!file) {
+            <FileInput
+              name="bigQueryKeyFile"
+              accept="application/json"
+              required={!canKeepExistingCredentials}
+              placeholder={
+                canKeepExistingCredentials
+                  ? "Upload a new key file..."
+                  : "Upload key file..."
+              }
+              onChange={(e) => {
+                connectionTest.current?.abort();
+                setTestConnectionResults(null);
+                const file: File | undefined = e.target?.files?.[0];
+                if (!file) {
+                  return;
+                }
+
+                const reader = new FileReader();
+                reader.onload = () => {
+                  const str = reader.result;
+                  if (typeof str !== "string") {
+                    setKeyFileInvalid(true);
                     return;
                   }
-
-                  const reader = new FileReader();
-                  reader.onload = function (e) {
-                    try {
-                      const str = e.target?.result;
-                      if (typeof str !== "string") {
-                        return;
-                      }
-                      const raw = stripLeadingUtf8ByteOrderMark(str);
-                      const json: {
-                        project_id: string;
-                        private_key: string;
-                        client_email: string;
-                      } = JSON.parse(raw);
-
-                      if (
-                        json.project_id &&
-                        json.private_key &&
-                        json.client_email
-                      ) {
-                        setParams({
-                          privateKey: json.private_key,
-                          projectId: json.project_id,
-                          clientEmail: json.client_email,
-                          defaultProject: json.project_id,
-                          serviceAccountJson: raw,
-                        });
-                      }
-                    } catch (e) {
-                      console.error(e);
+                  try {
+                    const raw = stripLeadingUtf8ByteOrderMark(str);
+                    const parsed: unknown = JSON.parse(raw);
+                    const json =
+                      typeof parsed === "object" && parsed !== null
+                        ? (parsed as Record<string, unknown>)
+                        : null;
+                    const projectId = json?.project_id;
+                    const privateKey = json?.private_key;
+                    const clientEmail = json?.client_email;
+                    if (
+                      typeof projectId !== "string" ||
+                      !projectId ||
+                      typeof privateKey !== "string" ||
+                      !privateKey ||
+                      typeof clientEmail !== "string" ||
+                      !clientEmail
+                    ) {
+                      setKeyFileInvalid(true);
                       return;
                     }
-                  };
-                  reader.readAsText(file);
-                }}
-              />
-              <label className="custom-file-label" htmlFor="bigQueryFileInput">
-                {canKeepExistingCredentials
-                  ? "Upload a new key file..."
-                  : "Upload key file..."}
-              </label>
-              {canKeepExistingCredentials ? (
-                <small>Leave blank to keep the existing credentials.</small>
-              ) : null}
-            </div>
+                    setKeyFileInvalid(false);
+                    setParams({
+                      privateKey,
+                      projectId,
+                      clientEmail,
+                      defaultProject: projectId,
+                      serviceAccountJson: raw,
+                    });
+                  } catch {
+                    setKeyFileInvalid(true);
+                  }
+                };
+                reader.onerror = () => setKeyFileInvalid(true);
+                reader.readAsText(file);
+              }}
+            />
+            {keyFileInvalid ? (
+              <HelperText status="error" size="sm" mt="1">
+                This file isn&apos;t a valid service account JSON key.
+              </HelperText>
+            ) : canKeepExistingCredentials ? (
+              <Text as="p" size="sm" color="text-mid" mt="1" mb="0">
+                Leave blank to keep the existing credentials.
+              </Text>
+            ) : null}
           </div>
           <div className="form-group col-md-12">
             {params && params.projectId ? (
@@ -241,7 +279,7 @@ const BigQueryForm: FC<{
                   </Callout>
                 ) : null}
               </>
-            ) : (
+            ) : keyFileInvalid ? null : (
               <Callout status="info">
                 Your connection info will appear here when you select a valid
                 JSON key file.
@@ -267,22 +305,27 @@ const BigQueryForm: FC<{
           </div>
         </>
       )}
-      <div
-        className={`form-group ${connectionOnly ? "col-md-12" : "col-md-6"}`}
-      >
-        <label>BigQuery Project ID</label>
-        <Field
-          size="legacy"
-          type="text"
-          className="form-control"
-          name="defaultProject"
-          value={params.defaultProject || ""}
-          onChange={onParamChange}
-          placeholder=""
-        />
-      </div>
+      {authType === "auto" ? (
+        <div
+          className={`form-group ${connectionOnly ? "col-md-12" : "col-md-6"}`}
+        >
+          <label>BigQuery project ID</label>
+          <Field
+            size="legacy"
+            type="text"
+            className="form-control"
+            name="defaultProject"
+            value={params.defaultProject || ""}
+            onChange={onParamChange}
+            placeholder=""
+            helpText="Auto-discovery does not include a project, so enter the project GrowthBook should query."
+          />
+        </div>
+      ) : null}
       {!connectionOnly && (
-        <div className="form-group col-md-6">
+        <div
+          className={`form-group ${authType === "auto" ? "col-md-6" : "col-md-12"}`}
+        >
           <label>
             Default Dataset{" "}
             <Tooltip body="The default dataset is where your experiment assignments are stored. GrowthBook uses this to create default queries that define working assignments and metrics. This value can be edited later if needed." />
@@ -325,20 +368,6 @@ const BigQueryForm: FC<{
           )}
         </div>
       )}
-      <div className="form-group col-md-12">
-        <label>
-          Reservation (optional){" "}
-          <Tooltip body="If set, GrowthBook will include this reservation on all BigQuery query jobs. Use the full reservation resource name (e.g. projects/my-project/locations/US/reservations/my-reservation)." />
-        </label>
-        <Field
-          size="legacy"
-          type="text"
-          className="form-control"
-          name="reservation"
-          value={params.reservation || ""}
-          onChange={onParamChange}
-        />
-      </div>
     </div>
   );
 };

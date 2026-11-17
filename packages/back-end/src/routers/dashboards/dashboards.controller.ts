@@ -37,6 +37,7 @@ import {
   generateDashboardBlockIds,
   migrateBlock,
 } from "back-end/src/enterprise/models/DashboardModel";
+import { NotFoundError } from "back-end/src/util/errors";
 import { createDashboardBody, updateDashboardBody } from "./dashboards.router";
 interface SingleDashboardResponse {
   status: number;
@@ -147,7 +148,7 @@ export async function updateDashboard(
   const { id } = req.params;
   const updates = { ...req.body };
   const dashboard = await context.models.dashboards.getById(id);
-  if (!dashboard) throw new Error("Cannot find dashboard");
+  if (!dashboard) throw new NotFoundError("Cannot find dashboard");
 
   let experiment: ExperimentInterface | null = null;
 
@@ -206,7 +207,7 @@ export async function refreshDashboardData(
   const context = getContextFromReq(req);
   const { id } = req.params;
   const dashboard = await context.models.dashboards.getById(id);
-  if (!dashboard) throw new Error("Cannot find dashboard");
+  if (!dashboard) throw new NotFoundError("Cannot find dashboard");
   if (dashboard.experimentId) {
     const experiment = await getExperimentById(context, dashboard.experimentId);
     if (!experiment)
@@ -317,7 +318,7 @@ export async function getDashboardSnapshots(
   const context = getContextFromReq(req);
   const { id } = req.params;
   const dashboard = await context.models.dashboards.getById(id);
-  if (!dashboard) throw new Error("Cannot find dashboard");
+  if (!dashboard) throw new NotFoundError("Cannot find dashboard");
   let snapshots: ExperimentSnapshotInterface[] = [];
   if (dashboard.experimentId) {
     const experiment = await getExperimentById(context, dashboard.experimentId);

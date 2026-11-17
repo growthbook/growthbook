@@ -5,6 +5,7 @@ import {
   FEATURE_KEY_DESCRIPTION,
   RULE_DESCRIPTION,
   TAGS_DESCRIPTION,
+  FALLBACK_ATTRIBUTE_DESCRIPTION,
 } from "./api-field-descriptions";
 import { apiEventUser, REQUIRES_PERSON_NOTE } from "./event-user";
 import {
@@ -606,6 +607,10 @@ const v2RuleRolloutBase = z
     sparse: v2SparseRuleField,
     coverage: z.number(),
     hashAttribute: z.string(),
+    fallbackAttribute: z
+      .string()
+      .describe(FALLBACK_ATTRIBUTE_DESCRIPTION)
+      .optional(),
     seed: z
       .string()
       .describe("Optional seed for the hash function; defaults to the rule id")

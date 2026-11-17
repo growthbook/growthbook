@@ -2,11 +2,11 @@
 title: "Run a Free JavaScript A/B Test"
 description: "A complete React and TypeScript implementation for designing a valid experiment, assigning stable variations, proving the data path, reading trustworthy results, and removing the losing code."
 sidebarTitle: "Run a free JavaScript A/B test"
-last_verified: "2026-08-12"
-last_verified_growthbook_commit: "e44a15af063860c7118f52508746356d55e5a91d"
+last_verified: "2026-11-03"
+last_verified_growthbook_commit: "489de700e4a57af3b1c594a41c9f84e6aa146951"
 tested_stack:
-  - "@growthbook/growthbook 1.7.0"
-  - "@growthbook/growthbook-react 1.7.0"
+  - "@growthbook/growthbook 2.0.0"
+  - "@growthbook/growthbook-react 2.0.0"
   - "React 19.2.8"
   - "Vite 8.2.1"
   - "TypeScript 7.0.2"
@@ -108,7 +108,7 @@ When a test is inappropriate, choose the smallest fitting alternative: a unit te
 
 ## Tested stack
 
-The code in this guide targets a client-rendered React application created with Vite and TypeScript. It was verified against the GrowthBook JavaScript and React SDK source at commit `e44a15af063860c7118f52508746356d55e5a91d`, where both packages are version `1.7.0`.
+The code in this guide targets a client-rendered React application created with Vite and TypeScript. It was verified against the GrowthBook JavaScript and React SDK source at commit `489de700e4a57af3b1c594a41c9f84e6aa146951`, where both packages are version `2.0.0`.
 
 The same design works in other JavaScript frameworks, but the location of initialization and the moment of exposure will differ. For Next.js, Remix, or another server-rendered framework, do not copy the browser-only bootstrap blindly. Use the framework-specific SDK guidance and preserve the identity, event, and decision contracts in this guide.
 
@@ -420,14 +420,14 @@ The Managed Warehouse provisions a ClickHouse data source, an Events fact table,
 6. Add `user_id` as a string identifier if the application adds it after signup.
 7. Add `app_environment` and `app_version` as non-identifier string attributes only if you will use them for diagnostics.
 
-Attribute names are an interface between code, SDK rules, event ingestion, assignment queries, and metrics. Treat a rename as a data migration.
+Attribute names are an interface between code, SDK rules, event ingestion, assignment queries, and metrics. Treat a rename as a data migration. Attribute types are part of that interface: SDK 2.0.0 conditions do not convert between strings, numbers, and booleans, so send each attribute with the type set in GrowthBook. The assignment attribute must be a string or a number; any other value counts as missing and the browser is not included in the experiment.
 
 ### Install the SDK packages
 
 Pin the versions while implementing so a later release does not change the test fixture during review:
 
 ```bash
-npm install @growthbook/growthbook@1.7.0 @growthbook/growthbook-react@1.7.0
+npm install @growthbook/growthbook@2.0.0 @growthbook/growthbook-react@2.0.0
 npm install --save-dev vitest@4 jsdom @testing-library/react @testing-library/jest-dom
 ```
 
@@ -442,8 +442,8 @@ npm ls @growthbook/growthbook @growthbook/growthbook-react
 Expected result:
 
 ```text
-@growthbook/growthbook@1.7.0
-@growthbook/growthbook-react@1.7.0
+@growthbook/growthbook@2.0.0
+@growthbook/growthbook-react@2.0.0
 ```
 
 ### Add public environment configuration
@@ -453,7 +453,7 @@ Create `.env.example`:
 ```bash
 VITE_GROWTHBOOK_CLIENT_KEY=sdk_REPLACE_WITH_PUBLIC_CLIENT_KEY
 VITE_GROWTHBOOK_API_HOST=https://cdn.growthbook.io
-VITE_GROWTHBOOK_INGESTOR_HOST=https://us1.gb-ingest.com
+VITE_GROWTHBOOK_INGESTOR_HOST=https://us-east-1.gb-ingest.com
 VITE_APP_ENVIRONMENT=development
 VITE_APP_VERSION=local
 ```
@@ -563,10 +563,10 @@ function cleanPageUrl(): string {
 function getIngestorHost(): string {
   const configured =
     import.meta.env.VITE_GROWTHBOOK_INGESTOR_HOST ??
-    "https://us1.gb-ingest.com";
+    "https://us-east-1.gb-ingest.com";
 
   const allowed = new Set([
-    "https://us1.gb-ingest.com",
+    "https://us-east-1.gb-ingest.com",
     "https://eu-west-1.gb-ingest.com",
   ]);
 
@@ -1241,7 +1241,7 @@ export const growthbook = new GrowthBook({
     app_version: import.meta.env.VITE_APP_VERSION,
   },
   trackingCallback: (experiment, result, user) => {
-    const rawUserId = user.attributes.user_id;
+    const rawUserId = user?.attributes?.user_id;
     const userId = typeof rawUserId === "string" ? rawUserId : undefined;
 
     return analytics.track({
@@ -1274,7 +1274,7 @@ export function setAuthenticatedUser(userId: string): void {
 }
 ```
 
-SDK `1.7.0` passes a third `user` argument to `trackingCallback`. Read identifiers from `user.attributes`, because those are the attributes used at evaluation time. Reading a mutable global user object can record an identity different from the one the SDK hashed.
+The SDK passes a third `user` argument to `trackingCallback`. Its TypeScript type is optional, so read it with optional chaining. Read identifiers from `user.attributes`, because those are the attributes used at evaluation time. Reading a mutable global user object can record an identity different from the one the SDK hashed.
 
 Replace `growthbook.logEvent()` in `signup-events.ts` with `analytics.track()` using the same `context()` helper. Better yet, route both exposure and custom events through the application’s existing typed analytics module so they share retries, consent, timestamps, and identifier rules.
 
@@ -1959,7 +1959,7 @@ Use this final, falsifiable checklist. “The feature renders” is not enough.
 
 ## Source map and freshness
 
-This guide was verified against GrowthBook public source commit `e44a15af063860c7118f52508746356d55e5a91d` on 2026-08-12.
+This guide was verified against GrowthBook public source commit `489de700e4a57af3b1c594a41c9f84e6aa146951` on 2026-11-03.
 
 ### Product and SDK dependencies
 

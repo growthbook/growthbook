@@ -1,73 +1,30 @@
 import { ReactNode } from "react";
-import { FeatureValueType } from "shared/types/feature";
 import { Box, Flex } from "@radix-ui/themes";
 import { PiArrowSquareOut } from "react-icons/pi";
-import { VisualChangesetInterface } from "shared/types/visual-changeset";
-import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import Button from "@/ui/Button";
-import OpenVisualEditorLink from "@/components/OpenVisualEditorLink";
-import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import Avatar from "@/ui/Avatar";
 import Link from "@/ui/Link";
-import Text from "@/ui/Text";
 import Heading from "@/ui/Heading";
 import { ICON_PROPERTIES } from "./constants";
 
 type Props = {
-  changeType: "flag" | "visual" | "redirect";
-  feature?: { id: string; valueType: FeatureValueType };
+  feature: { id: string };
   additionalBadge?: ReactNode;
-  changes?: string[];
-  vc?: VisualChangesetInterface;
-  experiment?: ExperimentInterfaceStringDates;
   children?: ReactNode;
   heading: string;
-  headingLink?: string;
   onEdit?: () => void;
-  onDelete?: () => void | Promise<void>;
   canEdit?: boolean;
 };
 
-const joinWithOxfordComma = (array) => {
-  if (array.length <= 1) {
-    return array.join("");
-  } else if (array.length === 2) {
-    return array.join(" and ");
-  } else {
-    const allButLast = array.slice(0, -1).join(", ");
-    const last = array.slice(-1);
-    return `${allButLast}, and ${last}`;
-  }
-};
-
-const CHANGE_TYPE_TO_ICON_TYPE = {
-  flag: "feature-flag",
-  visual: "visual-editor",
-  redirect: "redirects",
-};
-
-const CHANGE_TO_DELETE_DISPLAY_NAME = {
-  flag: "Feature Flag",
-  visual: "Visual Changes",
-  redirect: "URL Redirect",
-};
-
 export default function LinkedChange({
-  changeType,
   feature,
-  changes,
-  vc,
-  experiment,
   canEdit = false,
   additionalBadge,
   children,
   heading,
-  headingLink,
-  onDelete,
   onEdit,
 }: Props) {
-  const { component: Icon, radixColor } =
-    ICON_PROPERTIES[CHANGE_TYPE_TO_ICON_TYPE[changeType]];
+  const { component: Icon, radixColor } = ICON_PROPERTIES["feature-flag"];
 
   return (
     <Box className="my-3" p="1">
@@ -77,69 +34,21 @@ export default function LinkedChange({
             <Avatar radius="small" color={radixColor} size="md" variant="soft">
               <Icon />
             </Avatar>
-            {changeType === "flag" ? (
-              <Link href={`/features/${feature?.id}`}>
-                <Heading as="h4" size="sm" weight="medium" mb="0">
-                  <Flex align="center">
-                    {heading}
-                    <PiArrowSquareOut className="ml-2" />
-                  </Flex>
-                </Heading>
-              </Link>
-            ) : headingLink ? (
-              <Link href={headingLink}>
-                <Heading as="h4" size="sm" weight="medium" mb="0">
-                  <Flex align="center">
-                    {heading}
-                    <PiArrowSquareOut className="ml-2" />
-                  </Flex>
-                </Heading>
-              </Link>
-            ) : (
+            <Link href={`/features/${feature.id}`}>
               <Heading as="h4" size="sm" weight="medium" mb="0">
-                {heading}
+                <Flex align="center">
+                  {heading}
+                  <PiArrowSquareOut className="ml-2" />
+                </Flex>
               </Heading>
-            )}
+            </Link>
             {additionalBadge && <Box>{additionalBadge}</Box>}
-            {changeType === "visual" && (
-              <>
-                <Box>&middot;</Box>
-                <Text color="text-low">
-                  {(changes?.length || 0) > 0
-                    ? joinWithOxfordComma(changes) + " changes"
-                    : "no changes"}
-                </Text>
-              </>
-            )}
           </Flex>
-          {canEdit && (
+          {canEdit && onEdit && (
             <Box>
-              {onDelete && (
-                <DeleteButton
-                  className="btn-sm ml-4"
-                  text="Remove"
-                  stopPropagation={true}
-                  onClick={() => onDelete()}
-                  displayName={CHANGE_TO_DELETE_DISPLAY_NAME[changeType]}
-                />
-              )}
-              {onEdit && (
-                <Button variant="ghost" onClick={() => onEdit()}>
-                  Edit
-                </Button>
-              )}
-              {vc &&
-                experiment?.status === "draft" &&
-                !experiment?.nextScheduledStatusUpdate && (
-                  <OpenVisualEditorLink
-                    useRadix={false}
-                    visualChangeset={vc}
-                    useLink={true}
-                    button={
-                      <Button variant="ghost">Launch AI Visual Editor</Button>
-                    }
-                  />
-                )}
+              <Button variant="ghost" onClick={() => onEdit()}>
+                Edit
+              </Button>
             </Box>
           )}
         </Flex>

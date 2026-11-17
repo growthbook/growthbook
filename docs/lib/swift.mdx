@@ -81,33 +81,33 @@ The GrowthBook Swift SDK provides comprehensive support for all Apple platforms:
 
 ## Installation
 
-### CocoaPods
+Install the SDK with the [Swift Package Manager](https://www.swift.org/documentation/package-manager/).
 
-Add the following to your podfile:
+In Xcode, choose **File → Add Package Dependencies…**, enter `https://github.com/growthbook/growthbook-swift`, choose "Up to Next Major Version" from `2.0.0`, and add the `GrowthBook-IOS` library to your target.
 
-```ruby
-source 'https://github.com/CocoaPods/Specs.git'
-
-target 'MyApp' do
-  pod 'GrowthBook-IOS'
-end
-```
-
-Then, install:
-
-```bash
-pod install
-```
-
-### Swift Package Manager (SPM)
-
-Add GrowthBook to your `Package.swift` file:
+In a `Package.swift`, add the package and the product:
 
 ```swift
 dependencies: [
-  .package(url: "https://github.com/growthbook/growthbook-swift.git")
+  .package(url: "https://github.com/growthbook/growthbook-swift.git", from: "2.0.0")
+],
+targets: [
+  .target(
+    name: "MyApp",
+    dependencies: [.product(name: "GrowthBook-IOS", package: "growthbook-swift")]
+  )
 ]
 ```
+
+Then `import GrowthBook`.
+
+### Migrating from CocoaPods
+
+CocoaPods Trunk becomes read-only on December 2, 2026, and `GrowthBook-IOS` 1.3.4 is the last version published there. To move to the Swift Package Manager:
+
+1. Remove `pod 'GrowthBook-IOS'` from your `Podfile` and run `pod install` (or `pod deintegrate` if it was your only pod).
+2. Add the package as described above.
+3. Build. The module is still named `GrowthBook`, so your `import GrowthBook` statements don't change.
 
 ## Quick Start
 

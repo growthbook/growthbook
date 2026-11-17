@@ -54,6 +54,7 @@ export type CommercialFeature =
   | "quantile-metrics"
   | "retention-metrics"
   | "funnel-metrics"
+  | "compound-metrics"
   | "custom-markdown"
   | "experiment-impact"
   | "metric-populations"
@@ -77,7 +78,6 @@ export type CommercialFeature =
   | "learnings"
   | "dashboards"
   | "product-analytics-dashboards"
-  | "share-product-analytics-dashboards"
   | "precomputed-dimensions"
   | "custom-hooks"
   | "metric-slices"
@@ -90,6 +90,7 @@ export type CommercialFeature =
   | "releases"
   | "contextual-bandits"
   | "interleaving"
+  | "cluster-experiments"
   | "human-in-the-loop";
 
 export type CommercialFeaturesMap = Record<AccountPlan, Set<CommercialFeature>>;
@@ -113,6 +114,8 @@ export type SubscriptionInfo = {
   pendingCancelation: boolean;
   isVercelIntegration: boolean;
   stripeCustomerId?: string;
+  // ISO time the Pro plan ends if this open invoice will cancel it. Orb Pro only.
+  pastDueUntil?: string;
 };
 
 export interface LicenseInterface {
@@ -130,6 +133,12 @@ export interface LicenseInterface {
   plan?: AccountPlan; // The assigned plan (pro, enterprise, etc.) for this license
   seatsInUse: number; // Number of seats currently in use
   remoteDowngrade: boolean; // True if the license was downgraded remotely
+  // Open Orb Pro card failure. Absent once the invoice is paid or void, or the subscription ends.
+  paymentFailure?: {
+    invoiceId: string;
+    // When the plan is canceled if the invoice stays unpaid. Missing means this failure will not cancel it.
+    downgradeAt?: string;
+  };
   message?: {
     text: string; // The text to show in the account notice
     className: string; // The class name to apply to the account notice
@@ -237,6 +246,7 @@ const commercialFeaturesPro: CommercialFeature[] = [
   "quantile-metrics",
   "retention-metrics",
   "funnel-metrics",
+  "compound-metrics",
   "metric-populations",
   "multi-armed-bandits",
   "historical-power",
@@ -248,6 +258,7 @@ const commercialFeaturesPro: CommercialFeature[] = [
   "saveSqlExplorerQueries",
   "precomputed-dimensions",
   "product-analytics-dashboards",
+  "cluster-experiments",
 ];
 
 const commercialFeaturesProSso: CommercialFeature[] = [
@@ -291,7 +302,6 @@ const commercialFeaturesEnterpriseOnly: CommercialFeature[] = [
   "custom-hooks",
   "metric-slices",
   "manage-official-resources",
-  "share-product-analytics-dashboards",
   "incremental-refresh",
   "adv-presentations",
   "contextual-bandits",

@@ -56,7 +56,14 @@ const TopNav: FC<{
   pageTitle: string;
   showNotices?: boolean;
   showLogo?: boolean;
-}> = ({ toggleLeftMenu, pageTitle, showNotices, showLogo = true }) => {
+  mutedBreadcrumb?: boolean;
+}> = ({
+  toggleLeftMenu,
+  pageTitle,
+  showNotices,
+  showLogo = true,
+  mutedBreadcrumb = false,
+}) => {
   const [editUserOpen, setEditUserOpen] = useState(false);
   const [changePasswordOpen, setChangePasswordOpen] = useState(false);
   const [enableCelebrations, setEnableCelebrations] =
@@ -408,7 +415,7 @@ const TopNav: FC<{
 
     return (
       <div className={styles.pagetitle}>
-        <Breadcrumbs items={breadcrumbItems} />
+        <Breadcrumbs items={breadcrumbItems} muted={mutedBreadcrumb} />
       </div>
     );
   };

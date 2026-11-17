@@ -278,10 +278,10 @@ export const bypassApprovalPublishBodyField = z
 
 /**
  * The closed set of bypass sources a response may report: a request field
- * (`ignoreWarnings`, the privileged `skipSchemaValidation`, `skipHooks`), the
- * caller's permission on the entity (`bypassApprovalPermission`), or an
- * organization setting (`restApiBypassesReviews`, or `revertsBypassApproval` on a
- * revert).
+ * (`ignoreWarnings`, the privileged `skipSchemaValidation`, `skipHooks`, or an
+ * experiment start's `skipChecklist`), the caller's permission on the entity
+ * (`bypassApprovalPermission`), or an organization setting
+ * (`restApiBypassesReviews`, or `revertsBypassApproval` on a revert).
  *
  * The source of truth for both the runtime schema and `BypassVia`, so a handler
  * cannot report a provenance the API docs do not describe.
@@ -293,6 +293,7 @@ export const bypassViaValues = [
   "bypassApprovalPermission",
   "restApiBypassesReviews",
   "revertsBypassApproval",
+  "skipChecklist",
 ] as const;
 
 // Reported on a SUCCESSFUL publish when a gate that would otherwise have blocked

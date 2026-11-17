@@ -81,6 +81,13 @@ export const snowflakeDialect: SqlDialect = {
   },
   jsonExtract: (jsonCol: string, path: string, isNumeric: boolean) =>
     `PARSE_JSON(${jsonCol}):${path}::${isNumeric ? "float" : "string"}`,
+  // ::string first so a VARIANT column round-trips through its JSON text
+  // instead of failing PARSE_JSON's VARCHAR input requirement
+  jsonArray: {
+    unnest: (jsonColumn, itemAlias) =>
+      `, LATERAL FLATTEN(INPUT => PARSE_JSON(${jsonColumn}::string)) ${itemAlias}`,
+    fieldText: (itemAlias, field) => `${itemAlias}.value:${field}::string`,
+  },
   evalBoolean: (col: string, value: boolean) =>
     `${col} = ${value ? "true" : "false"}`,
   // Snowflake aggregate-with-sort uses `WITHIN GROUP`. NULLs are skipped

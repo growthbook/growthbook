@@ -14,7 +14,10 @@ import { AuditUserLoggedIn } from "shared/types/audit";
 import { MetricInterface } from "shared/types/metric";
 import { ExperimentWithSnapshot } from "shared/types/experiment-snapshot";
 import { EventUserForResponseLocals } from "shared/types/events/event-types";
-import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import {
+  ExperimentInterface,
+  ExperimentInterfaceStringDates,
+} from "shared/types/experiment";
 import { MetricAnalysisInterface } from "shared/types/metric-analysis";
 import {
   AuthRequest,
@@ -63,6 +66,7 @@ import {
   simpleCompletion,
 } from "back-end/src/enterprise/services/ai";
 import { getEmbeddingsForModel } from "back-end/src/util/vectors";
+import { NotFoundError } from "back-end/src/util/errors";
 
 /**
  * Fields on a metric that we allow users to update. Excluded fields are
@@ -86,8 +90,6 @@ export const UPDATEABLE_FIELDS: (keyof MetricInterface)[] = [
   "status",
   "tags",
   "projects",
-  "winRisk",
-  "loseRisk",
   "maxPercentChange",
   "minPercentChange",
   "minSampleSize",
@@ -433,8 +435,6 @@ export async function postMetrics(
     segment,
     tags,
     projects,
-    winRisk,
-    loseRisk,
     maxPercentChange,
     minPercentChange,
     minSampleSize,
@@ -494,8 +494,6 @@ export async function postMetrics(
     conditions,
     tags,
     projects,
-    winRisk,
-    loseRisk,
     maxPercentChange,
     minPercentChange,
     minSampleSize,
@@ -521,7 +519,7 @@ export async function putMetric(
   const { id } = req.params;
   const metric = await getMetricById(context, id);
   if (!metric) {
-    throw new Error("Could not find metric");
+    throw new NotFoundError("Could not find metric");
   }
 
   const updates: Partial<MetricInterface> = {};
@@ -538,6 +536,40 @@ export async function putMetric(
   res.status(200).json({
     status: 200,
   });
+}
+
+function withStringDates(
+  e: ExperimentInterface,
+): ExperimentInterfaceStringDates {
+  return {
+    ...e,
+    dateCreated: e.dateCreated.toISOString(),
+    dateUpdated: e.dateUpdated.toISOString(),
+    phases: e.phases.map((p) => ({
+      ...p,
+      dateStarted: p.dateStarted?.toISOString(),
+      dateEnded: p.dateEnded?.toISOString(),
+    })),
+    nextScheduledStatusUpdate: e.nextScheduledStatusUpdate
+      ? {
+          ...e.nextScheduledStatusUpdate,
+          date: e.nextScheduledStatusUpdate.date.toISOString(),
+        }
+      : e.nextScheduledStatusUpdate,
+    statusUpdateSchedule: e.statusUpdateSchedule
+      ? {
+          ...e.statusUpdateSchedule,
+          startAt: e.statusUpdateSchedule.startAt?.toISOString(),
+          stopAt: e.statusUpdateSchedule.stopAt?.toISOString(),
+        }
+      : e.statusUpdateSchedule,
+    scheduledStatusUpdateFailure: e.scheduledStatusUpdateFailure
+      ? {
+          ...e.scheduledStatusUpdateFailure,
+          date: e.scheduledStatusUpdateFailure.date.toISOString(),
+        }
+      : e.scheduledStatusUpdateFailure,
+  };
 }
 
 export const getMetricExperimentResults = async (
@@ -564,7 +596,7 @@ export const getMetricExperimentResults = async (
   // experiment but not the metric. Returns null when it isn't readable.
   const metric = await getExperimentMetricById(context, req.params.id);
   if (!metric) {
-    throw new Error("Could not find metric with that id");
+    throw new NotFoundError("Could not find metric with that id");
   }
 
   const parseDate = (v?: string) => (v ? new Date(v) : undefined);
@@ -603,27 +635,7 @@ export const getMetricExperimentResults = async (
 
   // TODO simplify data for front-end?
   const data = experiments.map((e) => ({
-    ...e,
-    dateCreated: e.dateCreated.toISOString(),
-    dateUpdated: e.dateUpdated.toISOString(),
-    phases: e.phases.map((p) => ({
-      ...p,
-      dateStarted: p.dateStarted?.toISOString(),
-      dateEnded: p.dateEnded?.toISOString(),
-    })),
-    nextScheduledStatusUpdate: e.nextScheduledStatusUpdate
-      ? {
-          ...e.nextScheduledStatusUpdate,
-          date: e.nextScheduledStatusUpdate.date.toISOString(),
-        }
-      : e.nextScheduledStatusUpdate,
-    statusUpdateSchedule: e.statusUpdateSchedule
-      ? {
-          ...e.statusUpdateSchedule,
-          startAt: e.statusUpdateSchedule.startAt?.toISOString(),
-          stopAt: e.statusUpdateSchedule.stopAt?.toISOString(),
-        }
-      : e.statusUpdateSchedule,
+    ...withStringDates(e),
     snapshot: snapshots.find((s) => s.experiment === e.id),
   }));
 
@@ -702,29 +714,7 @@ export const getMetricNorthstarData = async (
     }
   }
 
-  const experimentsStringDates = experiments.map((e) => ({
-    ...e,
-    dateCreated: e.dateCreated.toISOString(),
-    dateUpdated: e.dateUpdated.toISOString(),
-    phases: e.phases.map((p) => ({
-      ...p,
-      dateStarted: p.dateStarted?.toISOString(),
-      dateEnded: p.dateEnded?.toISOString(),
-    })),
-    nextScheduledStatusUpdate: e.nextScheduledStatusUpdate
-      ? {
-          ...e.nextScheduledStatusUpdate,
-          date: e.nextScheduledStatusUpdate.date.toISOString(),
-        }
-      : e.nextScheduledStatusUpdate,
-    statusUpdateSchedule: e.statusUpdateSchedule
-      ? {
-          ...e.statusUpdateSchedule,
-          startAt: e.statusUpdateSchedule.startAt?.toISOString(),
-          stopAt: e.statusUpdateSchedule.stopAt?.toISOString(),
-        }
-      : e.statusUpdateSchedule,
-  }));
+  const experimentsStringDates = experiments.map(withStringDates);
 
   res.status(200).json({
     status: 200,

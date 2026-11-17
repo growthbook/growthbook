@@ -6,6 +6,7 @@ import { ApiContextualBanditInterface } from "shared/validators";
 import { LinkedFeatureInfo } from "shared/types/experiment";
 import { useRestApiCall } from "@/services/restApi";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
+import { validatedSubmit } from "@/ui/Modal/validatedSubmit";
 import Heading from "@/ui/Heading";
 import HelperText from "@/ui/HelperText";
 import Text from "@/ui/Text";
@@ -109,7 +110,7 @@ export default function ContextualBanditVariationsModal({
         close={close}
         cta="Save"
         size="lg"
-        submit={form.handleSubmit(async (data) => {
+        submit={validatedSubmit(form, async (data) => {
           const currentIds = new Set(data.variations.map((v) => v.id));
           const addedVariations = data.variations.filter(
             (v) => !originalIds.has(v.id),

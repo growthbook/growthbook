@@ -1,0 +1,118 @@
+---
+title: Remote Groups
+description: Target large lists of IDs with Saved Groups whose IDs are stored outside the SDK payload.
+sidebarTitle: Remote Groups
+---
+
+Remote Groups are Saved Groups for large lists of IDs, such as millions of user or account IDs. The IDs are stored and looked up outside the SDK payload, so the payload stays small no matter how big the group is.
+
+<Note>
+Remote Groups are an Enterprise feature.
+</Note>
+
+## How It Works
+
+A Remote Group has a name and an attribute, like an [ID List](/features/targeting#id-lists), but the SDK payload doesn't contain its IDs. Instead:
+
+1. You upload a CSV of IDs to GrowthBook, or keep the IDs in your own storage.
+2. A **loader** writes the uploaded IDs to a fast lookup store, such as Redis. The [GrowthBook Proxy](/self-host/proxy) includes one.
+3. Before evaluating features, your app (or the Proxy, for remote evaluation) looks up which Remote Groups the user is in, using a **resolver**.
+4. The SDK checks rules against that list of groups.
+
+Rules that use a Remote Group match no one until the user's groups have been looked up. If the lookup fails or times out, the user is treated as being in no Remote Groups, including for "not in group" rules.
+
+## Creating a Remote Group
+
+Go to **SDK Configuration** → **Saved Groups**, open the **Remote Groups** tab, and click **Add Remote Group**. Choose a name and the attribute the IDs belong to. The attribute must be a `string` or `number`; `secureString` attributes aren't supported, because the lookup needs the raw value.
+
+After you create the group, it opens on its own page, where you can upload IDs.
+
+Uploading is optional. If your IDs already live in your own database or cache, skip the upload and [write your own resolver](/features/remote-saved-groups-custom#your-own-resolver).
+
+## Uploading IDs
+
+Click **Upload CSV** on the group's page and choose a file. GrowthBook checks the start of the file first, so common mistakes show up before the upload. The file then goes straight to your file storage (S3 or Google Cloud Storage), and GrowthBook checks every line in the background.
+
+The CSV needs:
+
+- One ID per line. A first line equal to the attribute name is treated as a header and skipped.
+- No more than one column. Quotes, blank lines, a BOM and Windows line endings are handled.
+- IDs up to 1,024 characters.
+- Numbers only, for `number` attributes.
+- Up to 100 MB, which is about 3 to 5 million IDs.
+
+Each upload is a complete list of IDs, not a list of changes. Every upload creates a new version, and the group keeps all of them, so you can go back to an earlier one.
+
+<Tip>
+Self-hosted GrowthBook needs `UPLOAD_METHOD` set to `s3` or `google-cloud` to upload IDs. Local file storage isn't supported, because files can be very large. To allow larger files, set `REMOTE_SAVED_GROUP_MAX_UPLOAD_MB`, up to `5120` (5 GB).
+</Tip>
+
+### Choosing the Version a Group Uses
+
+Uploading a file doesn't change what the group targets. The version a group uses is part of the Saved Group, so changing it goes through a draft, like any other Saved Group change, and is reviewed and published the same way. See [Publishing & Approval Flows](/features/publishing-and-approval-flows#saved-groups).
+
+After you upload a file, click **Add to revision** once it's validated. To use another version, click **Use** next to it in the uploads table.
+
+The uploads table marks the version the group uses as **Live**. Click a version to see its details: file name, size, SHA-256 checksum, and which data stores have loaded it. You can download any version, and delete versions the group doesn't use.
+
+### ID Counts
+
+The ID count on an upload counts every ID in the file. If the file contains duplicate IDs, each one is stored only once when it's loaded, so a data store can report fewer IDs than the file has. A warning icon in the uploads table shows when that happens.
+
+## Targeting with Remote Groups
+
+Use a Remote Group in a rule like any other Saved Group: in a rule's **Saved Groups** targeting, or with the **is in the saved group** and **is not in the saved group** operators in a condition.
+
+A Remote Group can also be used with another `string` or `number` attribute. For example, a group of VIP account IDs on `account_id` can target users whose `parent_account_id` is a VIP account. The group's IDs are matched against the other attribute's value, so you don't need to upload the same IDs twice. In the condition builder, these groups show the attribute their IDs belong to, such as **VIP Accounts (account_id IDs)**.
+
+In the SDK payload, this is a separate group with the ID `<group id>:<attribute>`, such as `grp_abc123:parent_account_id`. Resolvers look up the attribute's value in the original group's IDs.
+
+## Looking Up a User's Groups
+
+Rules check Remote Groups against the user's list of group IDs, in the internal `__gb_remoteGroupIds` attribute. Set that list in one of these ways:
+
+- **[With the GrowthBook Proxy](/features/remote-saved-groups-proxy):** with remote evaluation, the Proxy (version 1.6.0 or later) loads uploaded IDs into Redis and looks up each user's groups before evaluating. Your app doesn't need to do anything.
+- **[Custom lookups and storage](/features/remote-saved-groups-custom):** look up groups yourself, with the JavaScript SDK's resolver, your own resolver and storage, or by setting the attribute in any SDK.
+
+## Using the REST API
+
+Uploads use the same signed-URL flow as the app. First ask for an upload URL:
+
+```bash
+curl -X POST 'https://api.growthbook.io/api/v1/saved-groups/grp_abc123/upload-url' \
+  -H 'Authorization: Bearer YOUR_API_KEY'
+```
+
+Upload the file to `signedUrl`. When `fields` is set, send a form POST with those fields and the file last; otherwise `PUT` the file. Then record the upload:
+
+```bash
+curl -X POST 'https://api.growthbook.io/api/v1/saved-groups/grp_abc123/uploads' \
+  -H 'Authorization: Bearer YOUR_API_KEY' \
+  -H 'Content-Type: application/json' \
+  -d '{"fileKey": "FILE_KEY_FROM_THE_FIRST_STEP", "fileName": "vip-accounts.csv"}'
+```
+
+GrowthBook then checks the whole file in the background. Poll the upload until `status.type` is `valid` or `invalid`:
+
+```bash
+curl 'https://api.growthbook.io/api/v1/saved-groups/grp_abc123/uploads/3' \
+  -H 'Authorization: Bearer YOUR_API_KEY'
+```
+
+To make the group use the new version, set `currentUploadVersion` in a [revision](/features/saved-group-revisions-api), then publish it. Pass `new` as the revision version to open a draft:
+
+```bash
+curl -X PUT 'https://api.growthbook.io/api/v1/saved-groups-revisions/grp_abc123/new/upload-version' \
+  -H 'Authorization: Bearer YOUR_API_KEY' \
+  -H 'Content-Type: application/json' \
+  -d '{"currentUploadVersion": 3}'
+
+curl -X POST 'https://api.growthbook.io/api/v1/saved-groups-revisions/grp_abc123/REVISION_VERSION/publish' \
+  -H 'Authorization: Bearer YOUR_API_KEY'
+```
+
+If your organization requires approvals, request a review instead of publishing. Without required approvals, you can also set `currentUploadVersion` directly with [`POST /saved-groups/{id}`](/api/#operation/updateSavedGroup).
+
+To delete an old upload, use `DELETE /api/v1/saved-groups/{id}/uploads/{version}`. The version the group uses, or one an open draft uses, can't be deleted.
+
+To load uploaded IDs into your own store, see [With Your Own Loader](/features/remote-saved-groups-custom#with-your-own-loader).

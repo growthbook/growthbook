@@ -35,8 +35,44 @@ describe("getUserExperimentExposuresQuery", () => {
     expect(sql).toContain("multi_exposures");
     expect(sql).not.toContain("anon_exposures");
     expect(sql).toContain(
-      `${postgresDialect.castToString("user_id")} = 'u_123'`,
+      `${postgresDialect.castToString("t0.user_id")} = 'u_123'`,
     );
-    expect(sql).not.toContain(postgresDialect.castToString("anonymous_id"));
+    expect(sql).not.toContain(postgresDialect.castToString("t0.anonymous_id"));
+  });
+
+  // Unqualified, Postgres reads `user` as CURRENT_USER and matches no rows
+  it("qualifies mapped columns so reserved words stay column references", () => {
+    const sql = getUserExperimentExposuresQuery(
+      postgresDialect,
+      {
+        settings: {
+          queries: {
+            exposure: [
+              {
+                id: "eq_mapped",
+                userIdType: "user_id",
+                userIdTypes: ["user_id"],
+                query: "SELECT * FROM mapped_exposures",
+                dimensions: [],
+                columnMapping: {
+                  userIdColumns: { user_id: "user" },
+                  timestampColumn: "received_at",
+                  experimentIdColumn: "exp_key",
+                  variationIdColumn: "variant",
+                },
+              },
+            ],
+          },
+        },
+      } as unknown as DataSourceInterface,
+      { unitId: "u_123", userIdType: "user_id", lookbackDays: 7 },
+    );
+    expect(sql).toContain(
+      `${postgresDialect.castToString("t0.user")} = 'u_123'`,
+    );
+    expect(sql).toMatch(
+      /t0\.received_at as timestamp,\s*t0\.exp_key as experiment_id,\s*t0\.variant as variation_id/,
+    );
+    expect(sql).toMatch(/AND t0\.received_at >= /);
   });
 });

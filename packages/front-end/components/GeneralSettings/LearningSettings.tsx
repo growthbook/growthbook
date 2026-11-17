@@ -10,7 +10,6 @@ import { DEFAULT_LEARNING_STATUSES } from "shared/constants";
 import Button from "@/ui/Button";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import Badge from "@/ui/Badge";
-import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import ConfirmModal from "@/components/ConfirmModal";
@@ -117,23 +116,8 @@ const LearningSettings: React.FC = () => {
   return (
     <Box>
       <Flex gap="4">
-        <Box width="220px" flexShrink="0">
-          <Heading size="md" as="h4">
-            Learning Settings
-          </Heading>
-        </Box>
         <Box width="100%">
-          <Flex justify="between" align="start" mb="3" gap="3" wrap="wrap">
-            <Box>
-              <Heading as="h3" size="sm" weight="semibold" mb="1">
-                Learning statuses
-              </Heading>
-              <Text size="sm" color="text-mid">
-                Configure the statuses available on saved Learnings. Each
-                Learning can have one status, displayed as a badge next to its
-                title. New Learnings start with no status.
-              </Text>
-            </Box>
+          <Flex justify="end" align="start" mb="3" gap="3" wrap="wrap">
             <Flex gap="2" align="center">
               {statuses.length === 0 && (
                 <Button variant="soft" size="sm" onClick={handleResetDefaults}>

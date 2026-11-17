@@ -4,7 +4,8 @@ import {
   ExperimentPhaseStringDates,
   ExperimentTargetingData,
 } from "shared/types/experiment";
-import React from "react";
+import React, { useState } from "react";
+import { changedTargeting } from "shared/experiments";
 import {
   coverageToHoldoutSize,
   holdoutSizeToCoverage,
@@ -14,22 +15,24 @@ import {
 import { Text, Separator } from "@radix-ui/themes";
 import { useIncrementer } from "@/hooks/useIncrementer";
 import { useAuth } from "@/services/auth";
-import { useAttributeSchema } from "@/services/features";
 import ConditionInput from "@/components//Features/ConditionInput";
 import SelectField from "@/components//Forms/SelectField";
-import {
-  type AttributeOptionForTooltip,
-  formatAttributeOptionLabel,
-  toAttributeOption,
-} from "@/components/Features/AttributeOptionTooltip";
+import { formatAttributeOptionLabel } from "@/components/Features/AttributeOptionTooltip";
+import useHashAttributeOptions from "@/components/Experiment/useHashAttributeOptions";
 import SavedGroupTargetingField, {
   validateSavedGroupTargeting,
 } from "@/components/Features/SavedGroupTargetingField";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
+import { validatedSubmit } from "@/ui/Modal/validatedSubmit";
+import { experimentFieldChanges } from "@/components/Experiment/TabbedPage/ExperimentEdits";
 import Field from "@/components/Forms/Field";
 import track from "@/services/track";
 import variationInputStyles from "@/components/Features/VariationsInput.module.scss";
-import { decimalToPercent, percentToDecimal } from "@/services/utils";
+import {
+  coverageToPercent,
+  decimalToPercent,
+  typedPercentToCoverage,
+} from "@/services/utils";
 
 export interface Props {
   close: () => void;
@@ -45,21 +48,23 @@ export default function EditHoldoutTargetingModal({
   const { apiCall } = useAuth();
   const [conditionKey, forceConditionRender] = useIncrementer();
 
-  const mainPhase: ExperimentPhaseStringDates | undefined =
-    experiment.phases[0];
+  // As the modal opened, so a change saved since conflicts instead of being
+  // overwritten.
+  const [opened] = useState(experiment);
+  const mainPhase: ExperimentPhaseStringDates | undefined = opened.phases[0];
 
   const defaultValues = {
     condition: mainPhase?.condition ?? "",
     savedGroups: mainPhase?.savedGroups ?? [],
     coverage: mainPhase?.coverage ?? 1,
-    hashAttribute: experiment.hashAttribute || "id",
+    hashAttribute: opened.hashAttribute || "id",
   };
 
   const form = useForm<ExperimentTargetingData>({
     defaultValues,
   });
 
-  const onSubmit = form.handleSubmit(async (value) => {
+  const onSubmit = validatedSubmit(form, async (value) => {
     validateSavedGroupTargeting(value.savedGroups);
 
     validateAndFixCondition(value.condition, (condition) => {
@@ -67,9 +72,16 @@ export default function EditHoldoutTargetingModal({
       forceConditionRender();
     });
 
-    await apiCall(`/experiment/${experiment.id}/targeting`, {
+    await apiCall(`/experiment/${experiment.id}/changes`, {
       method: "POST",
-      body: JSON.stringify(value),
+      body: JSON.stringify({
+        ...experimentFieldChanges(
+          opened,
+          changedTargeting(value, defaultValues),
+        ),
+        // A running holdout's size changes as it's saved.
+        release: { newPhase: false, reseed: false },
+      }),
     });
     mutate();
     track("edit-holdout-targeting");
@@ -103,25 +115,10 @@ function TargetingForm({
   form: UseFormReturn<ExperimentTargetingData>;
   conditionKey: number;
 }) {
-  const attributeSchema = useAttributeSchema(false, experiment.project);
-  const hasHashAttributes =
-    attributeSchema.filter((x) => x.hashAttribute).length > 0;
-
-  const hashAttributeOptions: AttributeOptionForTooltip[] = attributeSchema
-    .filter((s) => !hasHashAttributes || s.hashAttribute)
-    .map(toAttributeOption);
-
-  // If the current hashAttribute isn't in the list, add it for backwards compatibility
-  // this could happen if the hashAttribute has been archived, or removed from the experiment's project after the experiment was created
-  if (
-    form.watch("hashAttribute") &&
-    !hashAttributeOptions.find((o) => o.value === form.watch("hashAttribute"))
-  ) {
-    hashAttributeOptions.push({
-      label: form.watch("hashAttribute"),
-      value: form.watch("hashAttribute"),
-    });
-  }
+  const hashAttributeOptions = useHashAttributeOptions(
+    experiment.project,
+    form.watch("hashAttribute"),
+  );
 
   return (
     <div className="pt-2">
@@ -148,22 +145,19 @@ function TargetingForm({
               holdout. The same amount of traffic will be in the control.
             </Text>
           </Text>
-          <div
-            className={`position-relative ${variationInputStyles.percentInputWrap}`}
-            style={{ width: 110 }}
-          >
+          <div className={variationInputStyles.percentInputWrap}>
             <Field
               size="legacy"
               style={{ width: 105 }}
               value={
                 isNaN(form.watch("coverage") ?? 0)
                   ? "5"
-                  : decimalToPercent(
+                  : coverageToPercent(
                       coverageToHoldoutSize(form.watch("coverage") ?? 0),
                     )
               }
               onChange={(e) => {
-                let holdoutSize = percentToDecimal(e.target.value);
+                let holdoutSize = typedPercentToCoverage(e.target.value);
                 if (holdoutSize > MAX_HOLDOUT_SIZE)
                   holdoutSize = MAX_HOLDOUT_SIZE;
                 if (holdoutSize < 0) holdoutSize = 0;
@@ -172,7 +166,7 @@ function TargetingForm({
               type="number"
               min={0}
               max={decimalToPercent(MAX_HOLDOUT_SIZE)}
-              step="1"
+              step="any"
             />
             <span>%</span>
           </div>

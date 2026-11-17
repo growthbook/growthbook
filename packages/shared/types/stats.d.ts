@@ -314,6 +314,7 @@ export interface AnalysisSettingsForStatsEngine {
   one_sided_intervals?: boolean;
   use_covariate_as_response?: boolean;
   post_stratification_enabled?: boolean;
+  is_cluster_experiment?: boolean;
 }
 
 export interface BanditSettingsForStatsEngine {
@@ -358,6 +359,7 @@ export interface MetricSettingsForStatsEngine {
   target_mde: number;
   business_metric_type: BusinessMetricTypeForStatsEngine[];
   compute_uncapped_metric: boolean;
+  scale_by_sub_unit_count?: boolean;
 }
 
 export interface QueryResultsForStatsEngine {

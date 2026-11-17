@@ -3,6 +3,7 @@ import { useRouter } from "next/router";
 import { act, renderHook } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  ariaSort,
   buildFilterUrl,
   filterSearchTerm,
   tagFilterOnClick,
@@ -809,5 +810,20 @@ describe("useSearch", () => {
       expect(filterSearchTerm(30, "~", "3")).toEqual(true);
       expect(filterSearchTerm(30, "~", "0")).toEqual(true);
     });
+  });
+});
+
+describe("ariaSort", () => {
+  it("is none when the column isn't the sorted one", () => {
+    expect(ariaSort(false, 1)).toBe("none");
+    expect(ariaSort(false, -1)).toBe("none");
+  });
+
+  it("is ascending for a positive direction", () => {
+    expect(ariaSort(true, 1)).toBe("ascending");
+  });
+
+  it("is descending for a negative direction", () => {
+    expect(ariaSort(true, -1)).toBe("descending");
   });
 });

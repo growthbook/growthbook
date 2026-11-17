@@ -1,6 +1,7 @@
 import { FC } from "react";
 import { DecisionCriteriaData } from "shared/enterprise";
 import Modal from "@/components/Modal";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import { useDecisionCriteriaForm } from "@/hooks/useDecisionCriteriaForm";
 import DecisionCriteriaModalContent from "@/components/DecisionCriteria/DecisionCriteriaModalContent";
 
@@ -24,21 +25,44 @@ const DecisionCriteriaModal: FC<DecisionCriteriaModalProps> = ({
     mutate,
   });
 
+  const subheader =
+    "Define rules for automatic decision making based on experiment results";
+  // Read-only, it can open over another dialog, which only this one stacks over.
+  if (!editable) {
+    return (
+      <ModalStandard
+        open
+        header="View Decision Criteria"
+        subheader={subheader}
+        close={onClose}
+        closeCta="Close"
+        size="lg"
+        trackingEventModalType="decision_criteria_create"
+        trackingEventModalSource={trackingEventModalSource}
+      >
+        <DecisionCriteriaModalContent
+          decisionCriteriaFormProps={decisionCriteriaFormProps}
+          editable={false}
+        />
+      </ModalStandard>
+    );
+  }
+
   return (
     <Modal
       open={true}
-      header={editable ? "Modify Decision Criteria" : "View Decision Criteria"}
-      subHeader="Define rules for automatic decision making based on experiment results"
+      header="Modify Decision Criteria"
+      subHeader={subheader}
       close={onClose}
-      submit={editable ? decisionCriteriaFormProps.handleSave : undefined}
-      cta={editable ? "Save Decision Criteria" : undefined}
+      submit={decisionCriteriaFormProps.handleSave}
+      cta="Save Decision Criteria"
       size="lg"
       trackingEventModalType="decision_criteria_create"
       trackingEventModalSource={trackingEventModalSource}
     >
       <DecisionCriteriaModalContent
         decisionCriteriaFormProps={decisionCriteriaFormProps}
-        editable={editable}
+        editable
       />
     </Modal>
   );

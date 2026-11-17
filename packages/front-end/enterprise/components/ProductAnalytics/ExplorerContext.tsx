@@ -161,6 +161,8 @@ export function useDefaultDataSourceId(): string | undefined {
 }
 
 interface ExplorerProviderProps {
+  /** Passive previews only auto-read cache and retain results on failed cache reads. */
+  mode?: "explorer" | "passive-preview";
   queryEnabled?: boolean;
   children: ReactNode;
   initialConfig: ExplorerDraftConfig;
@@ -181,6 +183,7 @@ interface ExplorerProviderProps {
 }
 
 export function ExplorerProvider({
+  mode = "explorer",
   queryEnabled = true,
   children,
   initialConfig,
@@ -200,6 +203,7 @@ export function ExplorerProvider({
     datasources,
     getDatasourceById,
   } = useDefinitions();
+  const isPassivePreview = mode === "passive-preview";
 
   const [, setDefaultDataSourceId] = useLocalStorage<string>(
     LOCALSTORAGE_EXPLORER_DATASOURCE_KEY,
@@ -537,7 +541,7 @@ export function ExplorerProvider({
 
       // A failed automatic preview refresh must keep the last successful graph.
       if (
-        trackingSource === "metric-preview" &&
+        isPassivePreview &&
         cache === "required" &&
         (fetchError || fetchResult?.status === "error")
       ) {
@@ -800,6 +804,7 @@ export function ExplorerProvider({
       isManagedWarehouse,
       managedWarehouseUnavailable,
       trackingSource,
+      isPassivePreview,
       getDatasourceById,
       getFactMetricById,
     ],
@@ -867,7 +872,7 @@ export function ExplorerProvider({
       !forceFunnelAutoSubmit;
 
     if (needsFetch) {
-      if (trackingSource === "metric-preview") {
+      if (isPassivePreview) {
         // Each submit cancels the in-flight poll, so a draft edit would drop
         // a running "Run query" result. Wait for it; this effect reruns when
         // polling ends and checks the cache for the latest draft.
@@ -903,7 +908,7 @@ export function ExplorerProvider({
     }
   }, [
     needsFetch,
-    trackingSource,
+    isPassivePreview,
     polling,
     needsUpdate,
     doSubmit,

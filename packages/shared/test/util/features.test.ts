@@ -2182,6 +2182,13 @@ describe("validateFeatureValue", () => {
   beforeAll(() => {
     feature.valueType = "boolean";
   });
+
+  it("rejects an empty JSON value with a readable error", () => {
+    expect(() =>
+      validateFeatureValue({ valueType: "json" }, "   ", "Variation 2"),
+    ).toThrow("Variation 2: A JSON value is required");
+  });
+
   describe("boolean values", () => {
     it('returns "true" and "false" unchanged', () => {
       expect(validateFeatureValue(feature, "true", "testVal")).toEqual("true");
@@ -2731,6 +2738,7 @@ describe("validateCondition operator structure", () => {
       { items: { $elemMatch: { id: 1, $and: [null] } } },
       "$and cannot contain null",
     ],
+    [{ tags: { $elemMatch: { $and: [null] } } }, "$and cannot contain null"],
     [{ nested: { $all: [{ $elemMatch: null }] } }, "$elemMatch cannot be null"],
     [
       { nested: { $alli: [{ $elemMatch: null }] } },
@@ -2758,7 +2766,6 @@ describe("validateCondition operator structure", () => {
     { value: { $not: { $in: [1, 2] } } },
     { tags: { $elemMatch: { $eq: "a" } } },
     { items: { $elemMatch: { id: 1 } } },
-    { tags: { $elemMatch: { $and: [null] } } },
     { nested: { $all: [[1]] } },
   ])("accepts %j", (condition) => {
     expect(validateCondition(JSON.stringify(condition))).toEqual({

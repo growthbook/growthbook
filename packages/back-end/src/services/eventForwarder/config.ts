@@ -90,6 +90,46 @@ function encryptSinkConfig(config: SinkConfig): string {
   return AES.encrypt(JSON.stringify(config), ENCRYPTION_KEY).toString();
 }
 
+function emptyStoredConfig(sinkType: EventForwarderSinkType): SinkConfig {
+  const tables = {
+    events: "",
+    experiment_viewed: "",
+    feature_usage: "",
+  };
+  switch (sinkType) {
+    case "bigquery":
+      return {
+        projectId: "",
+        dataset: "",
+        tablePrefix: "",
+        serviceAccountKey: "",
+        tables,
+      };
+    case "snowflake":
+      return {
+        tablePrefix: "",
+        tables,
+        account: "",
+        username: "",
+        database: "",
+        schema: "",
+        privateKey: "",
+      };
+    case "databricks":
+      return {
+        catalog: "",
+        schema: "",
+        tablePrefix: "",
+        zerobusEndpoint: "",
+        tables,
+        host: "",
+        path: "",
+        oauthClientId: "",
+        oauthClientSecret: "",
+      };
+  }
+}
+
 function decryptSinkConfig<T extends SinkConfig>(encrypted: string): T {
   return JSON.parse(AES.decrypt(encrypted, ENCRYPTION_KEY).toString(enc.Utf8));
 }
@@ -647,7 +687,64 @@ export function toEventForwarderConfigWithMetadata(
     connectorName: config.connectorName,
     connectorId: config.connectorId,
     lastProvisioningError: config.lastProvisioningError,
+    inHouseConsumer: isInHouseConsumerTopic(config.topic, config.sinkType),
   };
+}
+
+// Moves a pre-consumer (Confluent connector) config onto the shared consumer
+// topic. Re-normalizes the stored config so it carries `tables`. Confluent
+// resources are left for manual teardown. Only claims the row; the caller
+// provisions it and audit-logs on success.
+export async function migrateEventForwarderToInHouseConsumer(
+  context: ReqContext,
+  existing: EventForwarderConfigInterface,
+  datasourceParams: EventForwarderDatasourceParams,
+): Promise<{
+  migrated: EventForwarderConfigInterface;
+  // The row the CAS actually claimed; revert and audit must use it, not `existing`
+  previous: EventForwarderConfigInterface;
+}> {
+  if (isInHouseConsumerTopic(existing.topic, existing.sinkType)) {
+    throw new Error("Event forwarder is already on the in-house consumer");
+  }
+  let previous = existing;
+  // All checks run on the freshly read row inside the CAS, guarded on the
+  // fields they decide on, so a pause, credential update or second migrate
+  // landing in between is seen rather than overwritten.
+  const migrated = await context.models.eventForwarderConfigs.updateWithCas(
+    existing.id,
+    ["topic", "status", "config"],
+    (fresh) => {
+      previous = fresh;
+      if (isInHouseConsumerTopic(fresh.topic, fresh.sinkType)) {
+        throw new Error("Event forwarder is already on the in-house consumer");
+      }
+      // Provisioning marks the row ready, which would silently undo a pause.
+      if (fresh.status === "paused") {
+        throw new Error("Resume the event forwarder before migrating it");
+      }
+      const draft = toEventForwarderConfigDraft(fresh);
+      if (!draft) {
+        throw new Error("Cannot read event forwarder config");
+      }
+      const normalizedPayload = buildNormalizedSinkPayload(
+        draft,
+        datasourceParams,
+        fresh,
+      );
+      validateNormalizedSinkPayload(draft, datasourceParams, normalizedPayload);
+      return {
+        topic: getInHouseConsumerTopicName(fresh.sinkType),
+        config: encryptSinkConfig(normalizedPayload),
+        status: "pending",
+        lastProvisioningError: "",
+      };
+    },
+  );
+  if (!migrated) {
+    throw new Error("Cannot find event forwarder config");
+  }
+  return { migrated, previous };
 }
 
 export async function getEventForwarderConfigDraftForDatasource(
@@ -670,6 +767,76 @@ export async function getEventForwarderMetadataForDatasource(
 
   const existing = await getEventForwarderForDatasource(context, datasource.id);
   return toEventForwarderConfigWithMetadata(existing);
+}
+
+export async function createUnconfiguredEventForwarderConfig({
+  context,
+  datasource,
+  region,
+}: {
+  context: ReqContext;
+  datasource: Pick<
+    DataSourceInterface,
+    "id" | "organization" | "projects" | "type"
+  >;
+  region: "us-east-1" | "eu-west-1";
+}): Promise<EventForwarderConfigInterface | null> {
+  const sinkType = getEventForwarderSinkTypeForDatasource(datasource);
+  if (!sinkType) {
+    return null;
+  }
+
+  const existing = await getEventForwarderForDatasource(context, datasource.id);
+  if (existing) {
+    return existing;
+  }
+
+  return context.models.eventForwarderConfigs.create({
+    datasourceId: datasource.id,
+    projects: [...(datasource.projects ?? [])].sort(),
+    topic: isInHouseConsumerSink(sinkType)
+      ? getInHouseConsumerTopicName(sinkType)
+      : getEventForwarderTopicName(datasource.organization, datasource.id),
+    schemaId: 0,
+    sinkType,
+    region,
+    config: encryptSinkConfig(emptyStoredConfig(sinkType)),
+    status: "unconfigured",
+    connectorName: "",
+    connectorId: "",
+    lastProvisioningError: "",
+  });
+}
+
+// The Data Source already exists. Keep a config row so the Data Source page
+// can show the failure instead of looking like a normal warehouse connection.
+export async function recordEventForwarderCreateFailure({
+  context,
+  datasource,
+  region,
+  message,
+}: {
+  context: ReqContext;
+  datasource: Pick<
+    DataSourceInterface,
+    "id" | "organization" | "projects" | "type"
+  >;
+  region: "us-east-1" | "eu-west-1";
+  message: string;
+}): Promise<void> {
+  const existing =
+    (await getEventForwarderForDatasource(context, datasource.id)) ??
+    (await createUnconfiguredEventForwarderConfig({
+      context,
+      datasource,
+      region,
+    }));
+  if (!existing) return;
+
+  await context.models.eventForwarderConfigs.update(existing, {
+    status: "error",
+    lastProvisioningError: message,
+  });
 }
 
 export async function syncEventForwarderConfigFromDatasource({

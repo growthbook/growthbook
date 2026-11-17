@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import { Popover } from "@/ui/Popover";
 import Button from "@/ui/Button";
@@ -6,7 +6,7 @@ import LinkButton from "@/components/Button";
 import RadioGroup from "@/ui/RadioGroup";
 import Heading from "@/ui/Heading";
 import HelperText from "@/ui/HelperText";
-import MarkdownInput from "@/components/Markdown/MarkdownInput";
+import RichTextEditor, { RichTextEditorHandle } from "@/ui/RichTextEditor";
 import { useAuth } from "@/services/auth";
 
 type ReviewDecision = "Comment" | "Requested Changes" | "Approved";
@@ -88,6 +88,8 @@ interface Props {
   // When true, publish CTAs use a trailing arrow to signal a follow-on step
   // (e.g. the pre-launch checklist before the final publish).
   publishHasMoreSteps?: boolean;
+  // Shown with the publish option, e.g. what publishing leaves out.
+  publishNote?: React.ReactNode;
   trigger: React.ReactNode | ((state: { open: boolean }) => React.ReactNode);
   /** Prevents self-approval when blockSelfApproval is set. */
   isBlockedContributor?: boolean;
@@ -110,6 +112,7 @@ export default function ReviewCommentPopover({
   canReviewerPublish = false,
   publishBlocked = false,
   publishHasMoreSteps = false,
+  publishNote = null,
   trigger,
   isBlockedContributor = false,
   onSuccess,
@@ -119,6 +122,7 @@ export default function ReviewCommentPopover({
 }: Props) {
   const { apiCall } = useAuth();
   const [open, setOpen] = useState(false);
+  const editorRef = useRef<RichTextEditorHandle>(null);
   const [comment, setComment] = useState<string>(
     () => (storageKey ? readReviewDraft(storageKey)?.comment : "") ?? "",
   );
@@ -128,6 +132,7 @@ export default function ReviewCommentPopover({
       "Comment",
   );
   const [loading, setLoading] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Persist the in-progress draft as it changes. An empty/default draft is
@@ -158,7 +163,8 @@ export default function ReviewCommentPopover({
 
   // Verdicts (Approve / Request changes) may stand alone, but a plain
   // "Comment" decision with no text would create an empty log entry.
-  const canSubmit = decision !== "Comment" || comment.trim().length > 0;
+  const canSubmit =
+    !uploading && (decision !== "Comment" || comment.trim().length > 0);
 
   const isApproval = decision === "Approved";
   // A future-dated schedule fires later, so approving it isn't an immediate publish.
@@ -211,11 +217,18 @@ export default function ReviewCommentPopover({
         Submit review
       </Heading>
 
-      <MarkdownInput
+      <RichTextEditor
+        ref={editorRef}
         value={comment}
-        setValue={setComment}
+        onChange={setComment}
         placeholder="Leave a comment…"
-        showButtons={false}
+        size="sm"
+        height="md"
+        autoGrow
+        maxHeight="xl"
+        simpleToolbar
+        collapsibleToolbar
+        onUploadingChange={setUploading}
       />
 
       <Box mt="5">
@@ -250,6 +263,12 @@ export default function ReviewCommentPopover({
           {error}
         </HelperText>
       )}
+
+      {showPublishOption && publishNote ? (
+        <HelperText status="info" size="sm" mt="3">
+          {publishNote}
+        </HelperText>
+      ) : null}
 
       <Flex gap="2" mt="3" justify="end">
         <LinkButton
@@ -299,6 +318,11 @@ export default function ReviewCommentPopover({
       side={side}
       align={align}
       showArrow={false}
+      // Into the text, not a formatting button (whose tooltip would open).
+      onOpenAutoFocus={(e) => {
+        e.preventDefault();
+        editorRef.current?.focus();
+      }}
       contentStyle={{ padding: 16, width: 560, maxWidth: "calc(100vw - 32px)" }}
     />
   );

@@ -14,6 +14,7 @@ import type {
   FeatureRule,
 } from "shared/types/feature";
 import type { FeatureRevisionInterface } from "shared/types/feature-revision";
+import type { SqlIdentifierQuote } from "shared/types/sql";
 import {
   ContextualBanditEventInterface,
   ContextualBanditInterface,
@@ -22,6 +23,7 @@ import {
   ContextualBanditSnapshotSettings,
   ContextualBanditVariation,
   getEffectiveContextualAttributes,
+  queryHasContextualBanditVersionColumn,
   LeafWeight,
   Variation,
   VariationWeightPair,
@@ -31,6 +33,7 @@ import {
   generateVariationId,
   validateFeatureValue,
   visualChangeHasContent,
+  orgRequiresAnyReview,
 } from "shared/util";
 import {
   assertAtLeastTwoVariations,
@@ -62,7 +65,10 @@ import {
   PendingDraftFailure,
   PendingDraftFailureReason,
 } from "back-end/src/services/experiment-feature";
-import { mergeDraftForAutoPublish } from "back-end/src/services/featurePublishGates";
+import {
+  flagBypass,
+  mergeDraftForAutoPublish,
+} from "back-end/src/services/featurePublishGates";
 import {
   getLinkageSyncRevisionSummaries,
   getRevision,
@@ -84,7 +90,11 @@ import { refreshLinkedFeaturePayloads } from "back-end/src/services/contextualBa
 import { findVisualChangesetsByContextualBandit } from "back-end/src/models/VisualChangesetModel";
 import { onContextualBanditVisualStateChanged } from "back-end/src/services/contextualBanditVisualState";
 import { computeContextualBanditStageAndSchedule } from "back-end/src/services/contextualBanditSchedule";
-import { stampRuleForEnvs } from "back-end/src/util/revisionRuleOps";
+import {
+  enableFootprintEnvironments,
+  resolveLinkTargetVersion,
+  scopeLinkedRefRule,
+} from "back-end/src/util/revisionRuleOps";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import {
   ContextualBanditResultsQueryRunner,
@@ -128,7 +138,6 @@ export async function getContextualBanditLinkedFeatureInfo(
     matchRule: (rule) =>
       rule.type === "contextual-bandit-ref" &&
       rule.contextualBanditId === contextualBandit.id,
-    pendingFeatureDrafts: contextualBandit.pendingFeatureDrafts,
   });
 }
 
@@ -147,20 +156,6 @@ const isRuleForContextualBandit = (
 ) =>
   rule.type === "contextual-bandit-ref" &&
   rule.contextualBanditId === contextualBanditId;
-
-/** Revision a link edit lands on: an explicitly targeted open draft, otherwise a new draft branched off live. */
-function resolveLinkTargetVersion(
-  feature: FeatureInterface,
-  {
-    autoPublish,
-    draftVersion,
-    forceNewDraft,
-  }: { autoPublish?: boolean; draftVersion?: number; forceNewDraft?: boolean },
-): number {
-  return autoPublish || forceNewDraft
-    ? feature.version
-    : (draftVersion ?? feature.version);
-}
 
 /** Rules the edit gets applied on top of: the targeted draft's own rules, or live when a new draft will be branched off it. */
 async function getRulesForTargetVersion(
@@ -230,12 +225,10 @@ async function publishContextualBanditRevision({
   comment: string;
   audit: (input: AuditInterfaceInput) => Promise<void>;
 }): Promise<{ pendingApproval: boolean }> {
-  const requireReviews = context.org.settings?.requireReviews;
-  const reviewsConfigured =
-    context.hasPremiumFeature("require-approvals") &&
-    (requireReviews === true ||
-      (Array.isArray(requireReviews) &&
-        requireReviews.some((r) => r?.requireReviewOn)));
+  const reviewsConfigured = orgRequiresAnyReview(
+    context.org.settings,
+    context.hasPremiumFeature("require-approvals"),
+  );
   const requiresReview = await revisionRequiresReview(
     context,
     feature,
@@ -281,10 +274,7 @@ async function publishContextualBanditRevision({
     revision,
     result: mergeResult.result,
     comment,
-    bypassLockdown: context.permissions.canBypassFlagApprovalChecks(
-      feature,
-      "feature",
-    ),
+    bypassLockdown: flagBypass(context, feature, { optIn: true }).lockdown,
   });
 
   await context.models.contextualBandits.activatePendingVariationsForFeature(
@@ -349,24 +339,10 @@ export async function linkFeatureToContextualBandit({
     context.permissions.throwPermissionError();
   }
 
-  let scopedRule: FeatureRule;
-  if (rule.allEnvironments === true) {
-    scopedRule = {
-      ...omit(rule, ["environments"]),
-      id: generateRuleId(),
-      allEnvironments: true,
-    } as FeatureRule;
-  } else if (
-    rule.allEnvironments === false &&
-    Array.isArray(rule.environments)
-  ) {
-    scopedRule = { ...rule, id: generateRuleId() } as FeatureRule;
-  } else {
-    scopedRule = stampRuleForEnvs(
-      { ...rule, id: generateRuleId() } as FeatureRule,
-      environments,
-    );
-  }
+  const scopedRule = scopeLinkedRefRule(
+    { ...rule, id: generateRuleId() } as FeatureRule,
+    environments,
+  );
 
   const ruleEnvFootprint = scopedRule.allEnvironments
     ? environments
@@ -401,33 +377,16 @@ export async function linkFeatureToContextualBandit({
   const revision = await getDraftRevision(context, feature, targetVersion);
 
   try {
-    const baseEnvEnabled: Record<string, boolean> = {
-      ...Object.fromEntries(
-        environments.map((e) => [
-          e,
-          feature.environmentSettings?.[e]?.enabled ?? false,
-        ]),
-      ),
-      ...(revision.environmentsEnabled ?? {}),
-    };
-    const envToggles: Record<string, boolean> = {};
-    for (const envId of ruleEnvFootprint) {
-      if (!environments.includes(envId)) continue;
-      if (!baseEnvEnabled[envId]) envToggles[envId] = true;
-    }
-
-    const existingRules = cloneDeep(revision.rules ?? []);
-    const nextRules = [...existingRules, scopedRule];
-
+    const environmentsEnabled = enableFootprintEnvironments(
+      feature,
+      revision,
+      environments,
+      ruleEnvFootprint,
+    );
     const combinedChanges: Partial<FeatureRevisionInterface> = {
-      rules: nextRules,
+      rules: [...cloneDeep(revision.rules ?? []), scopedRule],
+      ...(environmentsEnabled && { environmentsEnabled }),
     };
-    if (Object.keys(envToggles).length > 0) {
-      combinedChanges.environmentsEnabled = {
-        ...(revision.environmentsEnabled ?? {}),
-        ...envToggles,
-      };
-    }
     const bundlingIntoExistingDraft =
       !!draftVersion && !forceNewDraft && !autoPublish;
     if (!bundlingIntoExistingDraft && !revision.title) {
@@ -555,20 +514,10 @@ export async function updateContextualBanditFeatureRule({
     );
   }
 
-  let scopedRule: FeatureRule;
-  if (rule.allEnvironments === true) {
-    scopedRule = {
-      ...omit(rule, ["environments"]),
-      allEnvironments: true,
-    } as FeatureRule;
-  } else if (
-    rule.allEnvironments === false &&
-    Array.isArray(rule.environments)
-  ) {
-    scopedRule = { ...rule } as FeatureRule;
-  } else {
-    scopedRule = stampRuleForEnvs({ ...rule } as FeatureRule, environments);
-  }
+  const scopedRule = scopeLinkedRefRule(
+    { ...rule } as FeatureRule,
+    environments,
+  );
   assertScopedRules(
     context,
     [{ ...scopedRule, id: baselineRule.id }],
@@ -1594,6 +1543,19 @@ export function toContextualBanditSnapshotStatusSummary(
   };
 }
 
+export async function getContextualBanditStatusForUi(
+  context: ReqContext,
+  cb: ContextualBanditInterface,
+): Promise<SnapshotStatusSummary | null> {
+  const latestSnapshot =
+    await context.models.contextualBanditSnapshots.getLatestStatusForContextualBandit(
+      cb.id,
+    );
+  return latestSnapshot
+    ? toContextualBanditSnapshotStatusSummary(latestSnapshot)
+    : null;
+}
+
 /** Latest CBS run status + CBE stats payload for the CB results UI. */
 export async function getContextualBanditResultsForUi(
   context: ReqContext,
@@ -1717,6 +1679,7 @@ export async function runContextualBanditSnapshot(
     updatedCb,
     cbQuery,
     context.org.settings?.attributeSchema,
+    context.org.settings?.banditPeriodWeighting === true,
   );
 
   const droppedContextualAttributes = updatedCb.contextualAttributes.filter(
@@ -2058,6 +2021,7 @@ export function buildContextualBanditSnapshotSettings(
   cb: ContextualBanditInterface,
   cbQuery: ContextualBanditQueryInterface,
   attributeSchema: SDKAttributeSchema | undefined,
+  periodWeighting = false,
 ): ContextualBanditSnapshotSettings {
   // Only active arms are analyzed; pending/deactivated hold no weight.
   const activeVariations = getActiveVariations(cb.variations ?? []);
@@ -2113,6 +2077,7 @@ export function buildContextualBanditSnapshotSettings(
     endDate: cb.dateStopped ?? null,
     reweight: true,
     banditWeightsSeed: 0,
+    periodWeighting: periodWeighting && !!cb.periodWeightingEligible,
 
     // TODO(holdout-v1.5): thread `holdoutPercent` + seed so SQL can split train_id=0/1 and stats can compute holdout-vs-bandit lift.
   };
@@ -2121,6 +2086,7 @@ export function buildContextualBanditSnapshotSettings(
 /** Translates `ContextualBanditSnapshotSettings` into the `ExperimentSnapshotSettings` shape used by `SqlIntegration.getSnapshotMetricQuery`. */
 export function buildSnapshotSettingsForCb(
   cbSnapshotSettings: ContextualBanditSnapshotSettings,
+  identifierQuote: SqlIdentifierQuote,
 ): ExperimentSnapshotSettings {
   const decisionMetric = cbSnapshotSettings.decisionMetric;
   return {
@@ -2157,6 +2123,12 @@ export function buildSnapshotSettingsForCb(
       seed: cbSnapshotSettings.banditWeightsSeed,
       currentWeights: cbSnapshotSettings.variations.map((v) => v.weight),
       historicalWeights: [],
+      periodWeighting:
+        cbSnapshotSettings.periodWeighting === true &&
+        queryHasContextualBanditVersionColumn(
+          cbSnapshotSettings.query,
+          identifierQuote,
+        ),
     },
   };
 }

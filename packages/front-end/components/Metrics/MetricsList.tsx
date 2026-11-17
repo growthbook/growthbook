@@ -3,7 +3,11 @@ import Link from "next/link";
 import { flushSync } from "react-dom";
 import { date, datetime } from "shared/dates";
 import { isProjectListValidForProject } from "shared/util";
-import { getMetricLink, isFactMetricId } from "shared/experiments";
+import {
+  getFactMetricPrimaryFactTableId,
+  getMetricLink,
+  isFactMetricId,
+} from "shared/experiments";
 import { FactMetricInterface } from "shared/types/fact-table";
 import { useRouter } from "next/router";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
@@ -171,7 +175,7 @@ function MetricRowMenu({ metric }: { metric: MetricTableItem }) {
 
 export interface MetricTableItem {
   id: string;
-  managedBy: "" | "api" | "config" | "admin";
+  managedBy: "" | "api" | "config" | "admin" | "dbt";
   name: string;
   description?: string;
   type: string;
@@ -195,7 +199,6 @@ export interface MetricTableItem {
 
 export function useCombinedMetrics({
   setMetricModalProps,
-  enableRowActions,
   onDuplicateFactMetric,
   onEditFactMetric,
   afterArchive,
@@ -204,9 +207,6 @@ export function useCombinedMetrics({
   // the modal state) - not a stand-in for "does this caller want row
   // actions" anymore now that fact metrics navigate instead of using it.
   setMetricModalProps?: (props: MetricModalState) => void;
-  // The real "did this caller opt into row actions" signal, explicit rather
-  // than inferred from setMetricModalProps's presence.
-  enableRowActions?: boolean;
   // Open the caller's fact metric flow (useFactMetricFlow).
   onDuplicateFactMetric?: (metric: FactMetricInterface) => void;
   onEditFactMetric?: (metric: FactMetricInterface) => void;
@@ -310,18 +310,14 @@ export function useCombinedMetrics({
     }),
     ...factMetrics.map((m) => {
       // Match /fact-metrics/new: the copy gets its fact table's Projects.
-      const seedTable = getFactTableById(
-        m.metricType === "funnel"
-          ? (m.funnelSettings?.steps[0]?.factTableId ?? "")
-          : (m.numerator?.factTableId ?? ""),
-      );
+      const seedTable = getFactTableById(getFactMetricPrimaryFactTableId(m));
       const canDuplicate = permissionsUtil.canCreateFactMetric({
         projects: seedTable ? seedTable.projects || [] : m.projects,
       });
       let canEdit = permissionsUtil.canUpdateFactMetric(m, {});
       let canDelete = permissionsUtil.canDeleteFactMetric(m);
 
-      if (m.managedBy && ["admin", "api"].includes(m.managedBy)) {
+      if (m.managedBy && ["admin", "api", "dbt"].includes(m.managedBy)) {
         canEdit = false;
         canDelete = false;
       }
@@ -363,13 +359,11 @@ export function useCombinedMetrics({
             }
           : undefined,
         onDuplicate:
-          canDuplicate && enableRowActions && onDuplicateFactMetric
+          canDuplicate && onDuplicateFactMetric
             ? () => onDuplicateFactMetric(m)
             : undefined,
         onEdit:
-          canEdit && enableRowActions && onEditFactMetric
-            ? () => onEditFactMetric(m)
-            : undefined,
+          canEdit && onEditFactMetric ? () => onEditFactMetric(m) : undefined,
         onDelete: canDelete
           ? async () => {
               await apiCall(`/fact-metrics/${m.id}`, {
@@ -415,7 +409,6 @@ const MetricsList = (): React.ReactElement => {
   const factMetricFlow = useFactMetricFlow("blank-state");
   const combinedMetrics = useCombinedMetrics({
     setMetricModalProps: setModalData,
-    enableRowActions: true,
     onDuplicateFactMetric: (m) => factMetricFlow.open({ duplicate: m }),
     onEditFactMetric: (m) => factMetricFlow.edit(m),
   });

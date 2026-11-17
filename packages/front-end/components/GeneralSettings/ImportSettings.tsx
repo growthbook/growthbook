@@ -1,10 +1,13 @@
-import Link from "next/link";
 import { OrganizationSettings } from "shared/types/organization";
-import { FaUpload } from "react-icons/fa";
+import { PiUploadSimple } from "react-icons/pi";
+import { Flex } from "@radix-ui/themes";
 import { DocLink } from "@/components/DocLink";
 import BackupConfigYamlButton from "@/components/Settings/BackupConfigYamlButton";
 import RestoreConfigYamlButton from "@/components/Settings/RestoreConfigYamlButton";
 import Callout from "@/ui/Callout";
+import Text from "@/ui/Text";
+import LinkButton from "@/ui/LinkButton";
+import { SettingsGroup } from "./SettingsGroup";
 
 export default function ImportSettings({
   hasFileConfig,
@@ -19,70 +22,68 @@ export default function ImportSettings({
 }) {
   return (
     <>
-      {hasFileConfig && (
-        <Callout status="info" my="3">
-          The below settings are controlled through your <code>config.yml</code>{" "}
-          file and cannot be changed through the web UI.{" "}
-          <DocLink
-            useRadix={false}
-            docSection="config_organization_settings"
-            className="font-weight-bold"
-          >
-            View docs
-          </DocLink>
-          .
-        </Callout>
-      )}
-
-      {!hasFileConfig && (
-        <Callout status="info" my="3">
-          <h3>Import &amp; Export config.yml</h3>
-          <p>
-            {isCloud ? "GrowthBook Cloud stores" : "You are currently storing"}{" "}
-            all organization settings, Data Sources, metrics, and dimensions in
-            a database.
-          </p>
-          <p>
-            You can import/export these settings to a <code>config.yml</code>{" "}
-            file to more easily move between GrowthBook Cloud accounts and/or
-            self-hosted environments.{" "}
-            <DocLink
-              useRadix={false}
-              docSection="config_yml"
-              className="font-weight-bold"
-            >
+      <SettingsGroup
+        id="ie-config"
+        title="config.yml"
+        description={
+          <>
+            Organization settings, Data Sources, metrics, and dimensions can be
+            exported to a config.yml file and imported into another GrowthBook
+            Cloud account or self-hosted instance.{" "}
+            <DocLink docSection="config_yml">View docs</DocLink>
+          </>
+        }
+        keywords="yaml config export import backup restore self-hosted"
+      >
+        {hasFileConfig ? (
+          <Callout status="info">
+            The settings on this page are controlled through your{" "}
+            <code>config.yml</code> file and cannot be changed through the web
+            UI.{" "}
+            <DocLink docSection="config_organization_settings">
               View docs
             </DocLink>
-          </p>
-          <div className="row mb-3">
-            <div className="col-auto">
+          </Callout>
+        ) : (
+          <>
+            <Text as="p" color="text-mid">
+              {isCloud
+                ? "GrowthBook Cloud stores"
+                : "You are currently storing"}{" "}
+              all organization settings, Data Sources, metrics, and dimensions
+              in a database.
+            </Text>
+            <Flex gap="3" wrap="wrap">
               <BackupConfigYamlButton settings={settings} />
-            </div>
-            <div className="col-auto">
               <RestoreConfigYamlButton
                 settings={settings}
                 mutate={refreshOrg}
               />
-            </div>
-          </div>
-          <div className="text-muted">
-            <strong>Note:</strong> For security reasons, the exported file does
-            not include Data Source connection secrets such as passwords. You
-            must edit the file and add these yourself.
-          </div>
-        </Callout>
-      )}
+            </Flex>
+            <Callout status="info">
+              Exported files don&apos;t include Data Source connection secrets
+              such as passwords. Add them to the file before importing.
+            </Callout>
+          </>
+        )}
+      </SettingsGroup>
 
-      <div className="appbox p-3 position-relative my-3">
-        <h3>Import from Another Service</h3>
-        <p>
-          Import your data from another feature flag and/or experimentation
-          service.
-        </p>
-        <Link href="/importing" className="btn btn-primary">
-          <FaUpload className="mr-1" /> Import from another service
-        </Link>
-      </div>
+      <SettingsGroup
+        id="ie-service"
+        title="Import from Another Service"
+        description="Bring in data from another feature flag or experimentation service."
+        keywords="migrate launchdarkly optimizely import"
+      >
+        <div>
+          <LinkButton
+            href="/importing"
+            variant="outline"
+            icon={<PiUploadSimple />}
+          >
+            Import from another service
+          </LinkButton>
+        </div>
+      </SettingsGroup>
     </>
   );
 }

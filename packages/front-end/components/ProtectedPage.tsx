@@ -1,15 +1,16 @@
 import { FC, ReactNode } from "react";
+import { Flex } from "@radix-ui/themes";
 import { useFeatureIsOn } from "@growthbook/growthbook-react";
-import { useAuth, safeLogout } from "@/services/auth";
+import { useAuth, safeLogout, switchToSSO } from "@/services/auth";
 import WatchProvider from "@/services/WatchProvider";
 import { UserContextProvider, useUser } from "@/services/UserContext";
 import { isCloud } from "@/services/env";
+import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
 import LoadingOverlay from "./LoadingOverlay";
 import CreateOrJoinOrganization from "./Auth/CreateOrJoinOrganization";
 import SelectInitialPlan from "./Auth/SelectInitialPlan";
 import InAppHelp from "./Auth/InAppHelp";
-import Button from "./Button";
 import TopNavLite from "./Layout/TopNavLite";
 
 const LoggedInPageGuard = ({
@@ -19,7 +20,7 @@ const LoggedInPageGuard = ({
   children: ReactNode;
   organizationRequired: boolean;
 }) => {
-  const { error, ready, organization } = useUser();
+  const { error, requiredSSOConnectionId, ready, organization } = useUser();
   const { organizations } = useAuth();
 
   if (error) {
@@ -32,28 +33,40 @@ const LoggedInPageGuard = ({
               className="appbox p-4"
               style={{ maxWidth: 500, margin: "auto" }}
             >
-              <h3 className="mb-3">Something Went Wrong</h3>
-              <Callout status="error">{error}</Callout>
-              <div className="d-flex align-items-center mt-3">
-                <Button
-                  className="ml-auto"
-                  onClick={async () => {
-                    await safeLogout();
-                  }}
-                  color="danger"
-                >
-                  Log Out
-                </Button>
-                <button
-                  className="btn btn-link"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    window.location.reload();
-                  }}
-                >
-                  Reload
-                </button>
-              </div>
+              <h3 className="mb-3">
+                {requiredSSOConnectionId
+                  ? "Enterprise SSO Required"
+                  : "Something Went Wrong"}
+              </h3>
+              <Callout status={requiredSSOConnectionId ? "info" : "error"}>
+                {error}
+              </Callout>
+              <Flex justify="end" align="center" gap="3" mt="3">
+                {requiredSSOConnectionId ? (
+                  <>
+                    <Button variant="ghost" onClick={safeLogout}>
+                      Log out
+                    </Button>
+                    <Button
+                      onClick={() => switchToSSO(requiredSSOConnectionId)}
+                    >
+                      Sign in with Enterprise SSO
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <Button color="red" onClick={safeLogout}>
+                      Log out
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      onClick={() => window.location.reload()}
+                    >
+                      Reload
+                    </Button>
+                  </>
+                )}
+              </Flex>
             </div>
           </div>
         </main>

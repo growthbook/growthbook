@@ -4,7 +4,9 @@ description: Install pnpm, Node and workspace dependencies, then build the share
 inputs:
   build-deps:
     description: >-
-      Which packages to build: "true" all, "sdk" just the SDKs, "false" none.
+      Which packages to build: "true" all, "sdk" just the SDKs and
+      @growthbook/remote-saved-groups-csv-parser (published packages whose types come
+      from dist/), "false" none.
       shared and stats-ts resolve types from src/, so only jobs that execute
       their code need "true".
     default: "true"
@@ -13,10 +15,10 @@ runs:
   using: composite
   steps:
     - name: Install pnpm
-      uses: pnpm/action-setup@v4
+      uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
 
     - name: Setup Node
-      uses: actions/setup-node@v5
+      uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
       with:
         node-version: "24"
         cache: "pnpm"
@@ -32,7 +34,7 @@ runs:
       shell: bash
       run: |
         lock=$(git hash-object pnpm-lock.yaml)
-        sdk="$(git rev-parse HEAD:packages/sdk-js)-$(git rev-parse HEAD:packages/sdk-react)"
+        sdk="$(git rev-parse HEAD:packages/sdk-js)-$(git rev-parse HEAD:packages/sdk-react)-$(git rev-parse HEAD:packages/remote-saved-groups-csv-parser)"
         shared=$(git rev-parse HEAD:packages/shared)
         # Each key includes what that package compiles against, not just itself.
         {
@@ -45,11 +47,12 @@ runs:
     - name: Cache SDK builds
       if: inputs.build-deps != 'false'
       id: cache-sdk
-      uses: actions/cache@v5
+      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
         path: |
           packages/sdk-js/dist
           packages/sdk-react/dist
+          packages/remote-saved-groups-csv-parser/dist
         key: ${{ steps.keys.outputs.sdk }}
 
     - name: Build SDKs
@@ -62,7 +65,7 @@ runs:
     - name: Cache shared build
       if: inputs.build-deps == 'true'
       id: cache-shared
-      uses: actions/cache@v5
+      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
         path: packages/shared/dist
         key: ${{ steps.keys.outputs.shared }}
@@ -78,7 +81,7 @@ runs:
     - name: Cache stats-ts build
       if: inputs.build-deps == 'true'
       id: cache-stats-ts
-      uses: actions/cache@v5
+      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
         path: packages/stats-ts/dist
         key: ${{ steps.keys.outputs.stats }}

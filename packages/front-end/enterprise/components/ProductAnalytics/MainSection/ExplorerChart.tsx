@@ -18,11 +18,10 @@ import {
 } from "shared/enterprise";
 import {
   shouldChartSectionShow,
-  getEffectiveMetricValue,
   computeDimensionTotals,
-  getIsRatioByIndex,
-  getEffectiveShowAs,
-  getDefaultValueAxisName,
+  getExplorationRenderOpts,
+  getEffectiveMetricValue,
+  getValueAxisName,
   formatDateByGranularity,
   type ResolvedGranularity,
   type RenderOpts,
@@ -56,7 +55,7 @@ import {
   CHART_COLORS,
   COMPARISON_SERIES_COLORS,
   getChartThemeColors,
-} from "@/enterprise/components/ProductAnalytics/chart-theme";
+} from "@/components/DataViz/chart-theme";
 import FunnelChart from "./FunnelChart";
 import JourneyChart from "./JourneyChart";
 
@@ -64,7 +63,7 @@ const CHART_ID = "explorer-chart";
 
 // ECharts 6 treats these as a minimum around the plot, then shrinks the grid
 // until axis labels and names fit. (v5's `containLabel` is ignored.)
-const CHART_GRID = {
+export const CHART_GRID = {
   left: 8,
   right: 16,
   bottom: 8,
@@ -195,26 +194,14 @@ export default function ExplorerChart({
   useEffect(() => () => resizeObserverRef.current?.disconnect(), []);
 
   const renderOpts: RenderOpts = useMemo(
-    () => ({
-      showAs: getEffectiveShowAs(submittedExploreState, getFactMetricById),
-      isRatioByIndex: getIsRatioByIndex(
-        submittedExploreState,
-        getFactMetricById,
-      ),
-    }),
+    () => getExplorationRenderOpts(submittedExploreState, getFactMetricById),
     [submittedExploreState, getFactMetricById],
   );
 
-  const defaultValueAxisName = getDefaultValueAxisName(
-    submittedExploreState,
-    getFactMetricById,
-  );
   // Empty string hides the axis name; unset falls back to the inferred default.
   const customCategoryAxisName =
     submittedExploreState.chartSettings?.categoryAxisLabel?.trim();
-  const customValueAxisName =
-    submittedExploreState.chartSettings?.valueAxisLabel?.trim();
-  const valueAxisName = customValueAxisName ?? defaultValueAxisName;
+  const valueAxisName = getValueAxisName(submittedExploreState, renderOpts);
 
   const bigNumberComparisonTrends = useMemo(() => {
     if (!compareEnabled) return null;
@@ -254,26 +241,12 @@ export default function ExplorerChart({
     const row = exploration.result.rows[0];
     if (submittedExploreState.dataset?.type === "funnel") return null;
     if (submittedExploreState.dataset?.type === "journey") return null;
-    const valuesMeta = submittedExploreState.dataset?.values ?? [];
-    return valuesMeta.map((v, metricIndex) => {
+    return renderOpts.values.map((opts, metricIndex) => {
       const cell = row?.values?.[metricIndex];
-      const value = cell
-        ? getEffectiveMetricValue(cell, {
-            showAs: renderOpts.showAs,
-            isRatio: renderOpts.isRatioByIndex[metricIndex] ?? false,
-          })
-        : 0;
-      return {
-        value,
-        label: v.name?.trim() ? v.name : `Metric ${metricIndex + 1}`,
-      };
+      const value = cell ? getEffectiveMetricValue(cell, opts) : 0;
+      return { value, label: opts.seriesName };
     });
-  }, [
-    exploration?.result?.rows,
-    submittedExploreState,
-    renderOpts.showAs,
-    renderOpts.isRatioByIndex,
-  ]);
+  }, [exploration?.result?.rows, submittedExploreState, renderOpts]);
 
   // Compare is on and the previous-period query finished, but returned no rows
   // (e.g. a grouped breakdown with no prior data that densification can't fill).
@@ -655,7 +628,11 @@ export default function ExplorerChart({
 
     const valueAxis = {
       type: "value" as const,
-      scale: false,
+      // Anchored to 0 unless a line chart opts out; `scale: true` lets ECharts
+      // fit the axis to the data range instead.
+      scale:
+        chartType === "line" &&
+        submittedExploreState.chartSettings?.anchorYAxisToZero === false,
       ...axisTitle(valueAxisName, valueNameMaxWidth),
       nameLocation: "middle" as const,
       nameTextStyle,
@@ -869,6 +846,15 @@ export default function ExplorerChart({
     );
   }
 
+  const compareNoDataCallout = compareReturnedNoData ? (
+    <Box px="4" pt="3">
+      <Callout status="info">
+        The previous period returned no data, so there&apos;s nothing to compare
+        against.
+      </Callout>
+    </Box>
+  ) : null;
+
   // Funnels have a wholly different visualization than metric/fact-table/
   // data-source datasets. Render the funnel-specific chart and bypass the
   // ECharts config we built above.
@@ -893,11 +879,26 @@ export default function ExplorerChart({
             )}
           </Box>
         ) : (
-          <FunnelChart
-            exploration={exploration}
-            submittedExploreState={submittedExploreState}
-            animate={animate}
-          />
+          <>
+            {compareNoDataCallout}
+            <FunnelChart
+              exploration={exploration}
+              comparisonExploration={
+                compareEnabled ? comparisonExploration : null
+              }
+              periodLabels={
+                compareEnabled
+                  ? getComparisonPeriodLabels(
+                      submittedExploreState.dateRange,
+                      submittedPreviousTimeFrame ?? undefined,
+                      submittedComparisonMode ?? "previousPeriod",
+                    )
+                  : null
+              }
+              submittedExploreState={submittedExploreState}
+              animate={animate}
+            />
+          </>
         )}
       </Flex>
     );
@@ -1037,14 +1038,7 @@ export default function ExplorerChart({
           direction="column"
           style={{ flex: 1, minHeight: 0, minWidth: 0, width: "100%" }}
         >
-          {compareReturnedNoData ? (
-            <Box px="4" pt="3">
-              <Callout status="info">
-                The previous period returned no data, so there&apos;s nothing to
-                compare against.
-              </Callout>
-            </Box>
-          ) : null}
+          {compareNoDataCallout}
           {compareLegend ? (
             <ComparisonChartLegend
               currentLabel={compareLegend.currentLabel}

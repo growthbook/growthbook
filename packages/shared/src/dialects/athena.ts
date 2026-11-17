@@ -1,5 +1,6 @@
 import type { SqlDialect } from "shared/types/sql";
 import { defaultPercentileCapSelectClause } from "./clauses/percentile-cap-select-clause";
+import { trinoJsonArray } from "./clauses/json-array";
 import { baseDialect } from "./base";
 
 export const athenaDialect: SqlDialect = {
@@ -23,6 +24,7 @@ export const athenaDialect: SqlDialect = {
     const raw = `json_extract_scalar(${jsonCol}, '$.${path}')`;
     return isNumeric ? athenaDialect.castToFloat(raw) : raw;
   },
+  jsonArray: trinoJsonArray,
   hasCountDistinctHLL: () => true,
   hllAggregate: (col: string) => `APPROX_SET(${col})`,
   hllReaggregate: (col: string) => `MERGE(${col})`,

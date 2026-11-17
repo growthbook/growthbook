@@ -1,3 +1,4 @@
+import { CONSTANT_REF_PATTERN } from "shared/validators";
 import {
   FeatureInterface,
   FeatureValueType,
@@ -5,6 +6,7 @@ import {
   SimpleSchema,
 } from "shared/types/feature";
 import {
+  ComponentProps,
   ReactElement,
   ReactNode,
   useEffect,
@@ -24,24 +26,19 @@ import {
   orderConfigsByLineage,
   isScopedConfig,
 } from "shared/util";
-import { FaMagic, FaRegTrashAlt } from "react-icons/fa";
+import { FaRegTrashAlt } from "react-icons/fa";
 import stringify from "json-stringify-pretty-compact";
-import { BsBoxArrowUpRight } from "react-icons/bs";
 import clsx from "clsx";
-import { Box, Flex, IconButton } from "@radix-ui/themes";
-import {
-  PiCheck,
-  PiCopy,
-  PiBracketsCurly,
-  PiCaretDownFill,
-} from "react-icons/pi";
+// eslint-disable-next-line no-restricted-imports -- the bare checkbox, inline beside a field label; @/ui/Checkbox brings its own label and layout
+import { Box, Checkbox as RadixCheckbox, Flex } from "@radix-ui/themes";
+import { PiCaretDownFill } from "react-icons/pi";
 import Link from "@/ui/Link";
 import {
   DropdownMenu,
   DropdownMenuItem,
   DropdownMenuGroup,
 } from "@/ui/DropdownMenu";
-import { formatJSON, LARGE_FILE_SIZE } from "@/services/features";
+import { formatJSON } from "@/services/features";
 import Field from "@/components/Forms/Field";
 import { useUser } from "@/services/UserContext";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -50,10 +47,19 @@ import MultiSelectField from "@/ui/MultiSelectField";
 import Modal from "@/components/Modal";
 import { GBAddCircle } from "@/components/Icons";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import TextField from "@/ui/TextField";
 import RadioGroup from "@/ui/RadioGroup";
 import ConfigOverrideEditor from "@/components/Features/ConfigOverrideEditor";
-import CodeTextArea from "@/components/Forms/CodeTextArea";
-import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
+import CodeTextArea, {
+  FIVE_LINES_HEIGHT,
+} from "@/components/Forms/CodeTextArea";
+import FormatJsonAction from "@/components/Features/FormatJsonAction";
+import FieldIndicator, {
+  CopyFieldIndicator,
+  FieldIndicatorCorner,
+} from "@/ui/FieldIndicator";
+import { EditIcon } from "@/ui/ActionIcons";
+import UITooltip from "@/ui/Tooltip";
 import Text from "@/ui/Text";
 import SparsePatchToggle from "@/components/Features/SparsePatchToggle";
 import EmptyStringConfirm from "@/components/Features/EmptyStringConfirm";
@@ -65,6 +71,8 @@ import {
   addJsonConstantExtends,
   buildStringRefInsertion,
 } from "@/components/Constants/jsonConstantInsert";
+import { ConfigEnvironmentsBadge } from "./ConfigValueBadges";
+import { useEditorDiffLines } from "./ValueDiffContext";
 
 export interface Props {
   valueType?: FeatureValueType;
@@ -85,14 +93,12 @@ export interface Props {
   renderJSONInline?: boolean;
   disabled?: boolean;
   useDropdown?: boolean;
-  useCodeInput?: boolean;
-  showFullscreenButton?: boolean;
   codeInputDefaultHeight?: number;
-  hideCopyButton?: boolean;
-  // Renders the "Insert constant" picker as a compact square IconButton beside
-  // the field (top-aligned) instead of on a label row above it, and hides the
-  // copy button. Used by the inline config field editor.
-  inlineConstantButton?: boolean;
+  // Number fields fill their container rather than sitting at a fixed width.
+  fullWidth?: boolean;
+  // In a table cell: smaller constant tags.
+  compact?: boolean;
+  size?: ComponentProps<typeof Field>["size"];
   // JSON features only. Whether this rule value is a sparse patch (merged onto
   // the feature default). When `setSparse` is provided and the feature default
   // is a plain object, a "Sparse patch" toggle renders on the label row.
@@ -133,11 +139,10 @@ export default function FeatureValueField({
   renderJSONInline,
   disabled = false,
   useDropdown = false,
-  useCodeInput = false,
-  showFullscreenButton = false,
   codeInputDefaultHeight,
-  hideCopyButton = false,
-  inlineConstantButton = false,
+  fullWidth = false,
+  compact = false,
+  size,
   sparse,
   setSparse,
   condensed = false,
@@ -149,8 +154,6 @@ export default function FeatureValueField({
   emptyStringConfirmed = false,
   setEmptyStringConfirmed,
 }: Props) {
-  // Inline mode also suppresses the copy button.
-  const copyHidden = hideCopyButton || inlineConstantButton;
   const { hasCommercialFeature } = useUser();
   const { configs } = useDefinitions();
   const hasJsonValidator = hasCommercialFeature("json-validation");
@@ -158,24 +161,24 @@ export default function FeatureValueField({
     ? getValidation(feature)
     : { simpleSchema: null, validationEnabled: null };
 
-  const { performCopy, copySuccess } = useCopyToClipboard({
-    timeout: 800,
-  });
-
   // Constant-picker wiring. Only offered in a feature context (where `@const:`
   // references get resolved at payload build time) — not for standalone
   // experiment values. `pickerProject` scopes which constants are offered.
-  const showConstantPicker = !!feature || !!constantContext;
+  const constantsResolve = !!feature || !!constantContext;
+  const showConstantPicker = constantsResolve && !disabled;
   const pickerProject = constantContext?.project ?? project ?? feature?.project;
   const pickerExcludeKeys = constantContext?.excludeKeys;
-  // Tags for the valid constants referenced in the current value, shown below
-  // the editor's CTA row.
+  // Tags for the constants the value references, shown under the field even
+  // when it's read-only; none at all without a reference.
   const usedConstantTags =
-    showConstantPicker && (valueType === "string" || valueType === "json") ? (
+    constantsResolve &&
+    (valueType === "string" || valueType === "json") &&
+    new RegExp(CONSTANT_REF_PATTERN).test(value) ? (
       <UsedConstantTags
         value={value}
         valueType={valueType}
         project={pickerProject}
+        compact={compact}
       />
     ) : null;
   const jsonEditorRef = useRef<Ace.Editor | null>(null);
@@ -243,9 +246,10 @@ export default function FeatureValueField({
     }
   };
 
-  const defaultCodeEditorToggledOn = value.length <= LARGE_FILE_SIZE;
-  const [codeEditorToggledOn, setCodeEditorToggledOn] = useState(
-    defaultCodeEditorToggledOn,
+  // A whole-value JSON code editor marks the fields that differ from its
+  // sibling values; a sparse patch's editor does its own.
+  const codeEditorDiffLines = useEditorDiffLines(
+    valueType === "json" && !sparse && !allowConfigBacking ? value : null,
   );
 
   // Local buffer for the config-backed override editor. The stored value
@@ -312,12 +316,14 @@ export default function FeatureValueField({
           { label: "TRUE", value: "true" },
           { label: "FALSE", value: "false" },
         ]}
+        isSearchable={false}
         value={value}
         onChange={(v) => {
           setValue(v);
         }}
         label={label}
         disabled={disabled}
+        size={size}
       />
     );
   }
@@ -525,6 +531,12 @@ export default function FeatureValueField({
                   </DropdownMenuGroup>
                 </DropdownMenu>
               )}
+              {configKey ? (
+                <ConfigEnvironmentsBadge
+                  configKey={configKey}
+                  project={backingProject}
+                />
+              ) : null}
             </Flex>
             {showPatchEditor && (
               <Box mt="3">
@@ -562,8 +574,6 @@ export default function FeatureValueField({
                     constantContext={constantContext}
                     renderJSONInline={renderJSONInline}
                     disabled={disabled}
-                    useCodeInput={useCodeInput}
-                    showFullscreenButton={showFullscreenButton}
                     codeInputDefaultHeight={codeInputDefaultHeight}
                     sparse={configBackingShowPatch ? sparse : undefined}
                   />
@@ -581,30 +591,32 @@ export default function FeatureValueField({
     }
   }
 
+  const labelText =
+    label !== undefined ? (
+      <Text as="label" weight="semibold" mb="0">
+        {label}
+      </Text>
+    ) : null;
+
   if (valueType === "json") {
     // Sparse patch mode (JSON features): the value is a partial object merged
     // onto the default. We show a toggle on the label row and, when on,
     // Edit/Preview tabs. Offered whenever the caller wires `setSparse` — when the
     // default isn't a plain object (array/null/primitive) there's nothing to
     // merge onto, so the patch simply replaces the value (see the toggle tooltip).
-    const showSparseToggle = !!setSparse;
+    const showSparseToggle = !!setSparse && !disabled;
     const isSparse = !!sparse;
 
-    // Cursor-aware insertion targets the Ace editor (the code-editor path, or the
-    // sparse Edit tab — both Ace). Rendered as a small text button on its own row
-    // above the editor (matching the feature value editors) — even in inline
-    // contexts — so the multi-line JSON editor keeps the full width.
-    const insertConstantButton =
-      showConstantPicker &&
-      (isSparse || (useCodeInput && codeEditorToggledOn)) ? (
-        <InsertConstantButton
-          valueType="json"
-          project={pickerProject}
-          excludeKeys={pickerExcludeKeys}
-          onInsert={insertJsonConstant}
-          disabled={disabled}
-        />
-      ) : null;
+    // Cursor-aware insertion targets the Ace editor (the whole-value editor or
+    // the sparse Edit tab), among its own buttons.
+    const editorInsertButton = showConstantPicker ? (
+      <InsertConstantButton
+        valueType="json"
+        project={pickerProject}
+        excludeKeys={pickerExcludeKeys}
+        onInsert={insertJsonConstant}
+      />
+    ) : null;
 
     const sparseHeader = showSparseToggle ? (
       <Flex
@@ -615,15 +627,8 @@ export default function FeatureValueField({
         width="100%"
         style={{ minHeight: "var(--space-6)" }}
       >
-        {label !== undefined ? (
-          <Text as="label" weight="semibold" mb="0">
-            {label}
-          </Text>
-        ) : (
-          <Box />
-        )}
+        {labelText ?? <Box />}
         <Flex align="center" gap="3" flexShrink="0">
-          {insertConstantButton}
           <SparsePatchToggle
             checked={!!sparse}
             onChange={(checked) => {
@@ -638,7 +643,6 @@ export default function FeatureValueField({
               );
               setSparse?.(checked);
             }}
-            disabled={disabled}
           />
         </Flex>
       </Flex>
@@ -649,6 +653,8 @@ export default function FeatureValueField({
         <Box mb="3">
           {sparseHeader}
           <SparseTabbedEditor
+            headerLeft={!sparseHeader ? labelText : undefined}
+            actions={editorInsertButton}
             value={value}
             setValue={setValue}
             valueType={valueType}
@@ -657,7 +663,6 @@ export default function FeatureValueField({
             placeholder={placeholder}
             disabled={disabled}
             defaultHeight={codeInputDefaultHeight}
-            showInlineLabel={!showSparseToggle}
             condensed={condensed}
             onEditorLoad={(e) => (jsonEditorRef.current = e)}
             usedConstantTags={usedConstantTags}
@@ -666,150 +671,42 @@ export default function FeatureValueField({
       );
     }
 
-    // When the picker shows (or the sparse toggle owns the row), render the
-    // label row ourselves so the button sits on its own row above the editor
-    // rather than nested inside the editor's <label> element. Otherwise let the
-    // editor render its own label.
-    const editorLabel =
-      showSparseToggle || insertConstantButton ? undefined : label;
-    const jsonLabelRow =
-      !showSparseToggle && insertConstantButton ? (
-        <Flex
-          align="center"
-          justify="between"
-          gap="3"
-          width="100%"
-          mb="1"
-          // Consistent row height so a label paired with a code editor lines up
-          // with sibling columns (e.g. the config JSON value/schema editors).
-          style={{ minHeight: "var(--space-6)" }}
-        >
-          {label !== undefined ? (
-            <Text as="label" weight="semibold" mb="0">
-              {label}
-            </Text>
-          ) : (
-            <Box />
-          )}
-          {insertConstantButton}
-        </Flex>
-      ) : null;
-
-    const formatted = formatJSON(value);
-
-    const codeEditorToggleButton = useCodeInput ? (
-      <a
-        href="#"
-        className="text-purple"
-        onClick={(e) => {
-          e.preventDefault();
-          setCodeEditorToggledOn(!codeEditorToggledOn);
-        }}
-        style={{ whiteSpace: "nowrap" }}
-      >
-        <PiBracketsCurly />{" "}
-        {codeEditorToggledOn ? "Use text editor" : "Use code editor"}
-      </a>
-    ) : null;
-
-    const formatJSONButton = (
-      <a
-        href="#"
-        className={clsx("text-purple", {
-          "text-muted cursor-default no-underline":
-            !formatted || formatted === value,
-        })}
-        onClick={(e) => {
-          e.preventDefault();
-          if (formatted && formatted !== value) {
-            setValue(formatted);
-          }
-        }}
-        style={{ whiteSpace: "nowrap" }}
-      >
-        <FaMagic /> Format JSON
-      </a>
+    // The sparse toggle's row carries the label when it shows.
+    const editorLabel = showSparseToggle ? undefined : label;
+    const codeEditorActions = disabled ? null : (
+      <>
+        {editorInsertButton}
+        <FormatJsonAction value={value} setValue={setValue} />
+      </>
     );
-
-    // Stack the editor CTAs (right-aligned, own row) above the help text + used-
-    // constant tags (full width). Side-by-side overlapped in narrow columns
-    // (e.g. the config JSON editor's two-column layout); stacking also gives the
-    // tags the full width to wrap into.
-    const combinedHelpText = (
-      <Box width="100%">
-        <Flex gap="3" justify="end" wrap="wrap" width="100%">
-          {codeEditorToggleButton}
-          {formatJSONButton}
-        </Flex>
-        {(helpText || usedConstantTags) && (
-          <Box mt="1" style={{ minWidth: 0 }}>
-            {helpText}
-            {usedConstantTags}
-          </Box>
-        )}
-      </Box>
-    );
-
-    if (useCodeInput && codeEditorToggledOn) {
-      // In tabular/inline layouts, float the insert-constant button just above
-      // the editor (out of flow) so the editor's top lines up with the sibling
-      // grid cells (type select, actions) instead of being pushed down by the
-      // button row. Elsewhere the label row sits in flow above the editor.
-      const floatInsertButton = inlineConstantButton && !!insertConstantButton;
-      return (
-        <Box
-          mb="3"
-          style={floatInsertButton ? { position: "relative" } : undefined}
-        >
-          {sparseHeader}
-          {floatInsertButton ? (
-            <Box
-              style={{
-                position: "absolute",
-                bottom: "100%",
-                right: 0,
-                marginBottom: 2,
-              }}
-            >
-              {insertConstantButton}
-            </Box>
-          ) : (
-            jsonLabelRow
-          )}
-          <CodeTextArea
-            label={editorLabel}
-            language="json"
-            value={value}
-            setValue={setValue}
-            helpText={combinedHelpText}
-            placeholder={placeholder}
-            disabled={disabled}
-            resizable={true}
-            defaultHeight={codeInputDefaultHeight}
-            showCopyButton={!copyHidden}
-            showFullscreenButton={showFullscreenButton}
-            fontSize="0.75rem"
-            slimGutter
-            onEditorLoad={(e) => (jsonEditorRef.current = e)}
-          />
+    const codeEditorHelpText =
+      helpText || usedConstantTags ? (
+        <Box style={{ minWidth: 0 }}>
+          {helpText}
+          {usedConstantTags}
         </Box>
-      );
-    }
+      ) : undefined;
 
     return (
       <Box mb="3">
         {sparseHeader}
-        {jsonLabelRow}
-        <JSONTextEditor
+        <CodeTextArea
           label={editorLabel}
+          language="json"
           value={value}
           setValue={setValue}
-          helpText={combinedHelpText}
+          helpText={codeEditorHelpText}
+          actions={codeEditorActions}
           placeholder={placeholder}
           disabled={disabled}
-          showCopyButton={!copyHidden}
-          performCopy={performCopy}
-          copySuccess={copySuccess}
+          resizable={true}
+          defaultHeight={codeInputDefaultHeight}
+          showCopyButton
+          showFullscreenButton
+          slimGutter
+          onEditorLoad={(e) => (jsonEditorRef.current = e)}
+          highlightLines={codeEditorDiffLines}
+          matchValueDisplay
         />
       </Box>
     );
@@ -866,114 +763,73 @@ export default function FeatureValueField({
     }
   }
 
-  const copyButton = (
-    <Tooltip body={copySuccess ? "Copied" : "Copy to clipboard"}>
-      <IconButton
-        type="button"
-        radius="full"
-        variant="ghost"
-        onClick={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          if (!copySuccess) performCopy(value);
-        }}
-      >
-        {copySuccess ? <PiCheck size={12} /> : <PiCopy size={12} />}
-      </IconButton>
-    </Tooltip>
-  );
-
-  const combinedHelpTextForString =
-    valueType === "string" ? (
-      <Flex align="start" gap="3" width="100%">
-        <Box flexGrow="1" style={{ minWidth: 0 }}>
-          {helpText}
-          {usedConstantTags}
-        </Box>
-        {!copyHidden && <Box flexShrink="0">{copyButton}</Box>}
-      </Flex>
-    ) : (
-      helpText
-    );
-
-  // The string constant picker rides right-aligned on its own label row above
-  // the field (only in a feature context) — rendered beside the label text, not
-  // nested inside the field's <label> element.
-  const showStringPicker = valueType === "string" && showConstantPicker;
-  const stringInsertButton = showStringPicker ? (
-    <InsertConstantButton
-      valueType="string"
-      project={pickerProject}
-      excludeKeys={pickerExcludeKeys}
-      onInsert={insertStringConstant}
-      disabled={disabled}
-      iconOnly={inlineConstantButton}
-    />
-  ) : null;
-  const stringLabelRow =
-    showStringPicker && !inlineConstantButton ? (
-      <Flex align="center" justify="between" gap="3" width="100%" mb="1">
-        {label !== undefined ? (
-          <Text as="label" weight="semibold" mb="0">
-            {label}
-          </Text>
-        ) : (
-          <Box />
-        )}
-        {stringInsertButton}
-      </Flex>
+  const stringInsertButton =
+    valueType === "string" && showConstantPicker ? (
+      <InsertConstantButton
+        valueType="string"
+        project={pickerProject}
+        excludeKeys={pickerExcludeKeys}
+        onInsert={insertStringConstant}
+      />
     ) : null;
 
-  const field = (
-    <Field
-      ref={stringInputRef}
-      label={stringLabelRow ? undefined : label}
-      value={value}
-      placeholder={placeholder}
-      onChange={(e) => {
-        setValue(e.target.value);
-      }}
-      {...(valueType === "number"
-        ? {
-            type: "number",
-            step: "any",
-            min: "any",
-            max: "any",
-          }
-        : valueType === "string"
-          ? {
-              textarea: true,
-              minRows: 1,
-            }
-          : {})}
-      helpText={combinedHelpTextForString}
-      style={
-        valueType === undefined
-          ? { width: 80 }
-          : valueType === "number"
-            ? { width: 120 }
-            : undefined
-      }
-      disabled={disabled}
-    />
-  );
-
-  // Inline layout: the picker rides to the right of the field, top-aligned.
-  if (inlineConstantButton && stringInsertButton) {
-    return (
-      <>
-        <Flex align="start" gap="2" width="100%">
-          <Box style={{ flex: 1, minWidth: 0 }}>{field}</Box>
-          <Box style={{ flexShrink: 0 }}>{stringInsertButton}</Box>
-        </Flex>
-        {emptyStringConfirmField}
-      </>
+  const field =
+    valueType === "string" ? (
+      <TextField
+        multiline
+        ref={stringInputRef}
+        label={label}
+        value={value}
+        placeholder={placeholder}
+        onChange={(e) => {
+          setValue(e.target.value);
+        }}
+        helpText={
+          helpText || usedConstantTags ? (
+            <>
+              {helpText}
+              {usedConstantTags}
+            </>
+          ) : undefined
+        }
+        append={
+          <Flex align="center" style={{ margin: "0 -6px 0 -4px" }}>
+            {stringInsertButton}
+            <CopyFieldIndicator value={value} reveal />
+          </Flex>
+        }
+        disabled={disabled}
+      />
+    ) : (
+      <Field
+        size={size}
+        ref={stringInputRef}
+        label={label}
+        value={value}
+        placeholder={placeholder}
+        onChange={(e) => {
+          setValue(e.target.value);
+        }}
+        {...(valueType === "number" && {
+          type: "number",
+          step: "any",
+          min: "any",
+          max: "any",
+        })}
+        helpText={helpText}
+        style={
+          valueType === undefined
+            ? { width: 80 }
+            : valueType === "number" && !fullWidth
+              ? { width: 120 }
+              : undefined
+        }
+        disabled={disabled}
+      />
     );
-  }
 
   return (
     <>
-      {stringLabelRow}
       {field}
       {emptyStringConfirmField}
     </>
@@ -1003,28 +859,33 @@ function SimpleSchemaPrimitiveEditor<T = unknown>({
   let labelClassName = "";
   if (!field.required) {
     const checkbox = (
-      <input
-        type="checkbox"
-        style={{ verticalAlign: "middle" }}
-        title="Whether or not to include this optional field"
-        name={`${uuid}_required`}
-        className="ml-1 mr-2"
-        checked={isset}
-        disabled={disabled}
-        onChange={(e) => {
-          if (!isset && e.target.checked) {
-            setValue(
-              (field.type === "boolean"
-                ? false
-                : field.type === "string"
-                  ? ""
-                  : 0) as T,
-            );
-          } else if (!e.target.checked) {
-            setValue(undefined as T);
-          }
-        }}
-      />
+      <UITooltip content="Whether or not to include this optional field">
+        <RadixCheckbox
+          size="1"
+          aria-label="Include this optional field"
+          name={`${uuid}_required`}
+          style={{
+            verticalAlign: "middle",
+            marginLeft: "var(--space-1)",
+            marginRight: "var(--space-2)",
+          }}
+          checked={isset}
+          disabled={disabled}
+          onCheckedChange={(checked) => {
+            if (!isset && checked === true) {
+              setValue(
+                (field.type === "boolean"
+                  ? false
+                  : field.type === "string"
+                    ? ""
+                    : 0) as T,
+              );
+            } else if (checked !== true) {
+              setValue(undefined as T);
+            }
+          }}
+        />
+      </UITooltip>
     );
 
     if (!label) {
@@ -1252,20 +1113,13 @@ function SimpleSchemaEditor({
   const [open, setOpen] = useState(false);
   const [tempValue, setTempValue] = useState(value);
 
-  const { performCopy, copySuccess } = useCopyToClipboard({
-    timeout: 800,
-  });
-
   const fallback = (
-    <JSONTextEditor
+    <JSONCodeEditor
       value={value}
       setValue={setValue}
       label={label}
       placeholder={placeholder}
       disabled={disabled}
-      showCopyButton={true}
-      performCopy={performCopy}
-      copySuccess={copySuccess}
     />
   );
 
@@ -1365,28 +1219,29 @@ function SimpleSchemaEditor({
             />
           </Modal>
         ) : null}
-        <div>
+        <Box mb="3" className="gb-field-indicator-host">
           <Field
             textarea
             value={stringify(valueParsed)}
             maxRows={5}
             disabled
             label={label}
+            containerClassName="mb-0"
           />
           {!disabled && (
-            <a
-              href="#"
-              className="text-purple"
-              onClick={(e) => {
-                e.preventDefault();
-                setTempValue(value);
-                setOpen(true);
-              }}
-            >
-              Edit Value <BsBoxArrowUpRight style={{ marginTop: -3 }} />
-            </a>
+            <FieldIndicatorCorner>
+              <FieldIndicator
+                label="Edit value"
+                onClick={() => {
+                  setTempValue(value);
+                  setOpen(true);
+                }}
+              >
+                <EditIcon />
+              </FieldIndicator>
+            </FieldIndicatorCorner>
           )}
-        </div>
+        </Box>
       </>
     );
   }
@@ -1405,98 +1260,66 @@ function SimpleSchemaEditor({
   );
 }
 
-function JSONTextEditor({
+// A schema form's raw JSON view.
+function JSONCodeEditor({
   label,
   labelClassName,
   editAsForm,
   value,
   setValue,
-  helpText,
   placeholder,
   disabled = false,
-  showCopyButton = false,
-  performCopy,
-  copySuccess,
 }: {
   label?: string | ReactNode;
   labelClassName?: string;
   editAsForm?: () => void;
   value: string;
   setValue: (value: string) => void;
-  helpText?: ReactNode;
   placeholder?: string;
   disabled?: boolean;
-  showCopyButton?: boolean;
-  performCopy?: (text: string) => void;
-  copySuccess?: boolean;
 }) {
   return (
-    <div className="mb-2">
-      <div style={{ position: "relative" }}>
-        <Field
-          labelClassName={
-            editAsForm ? "d-flex w-100" : labelClassName ? labelClassName : ""
-          }
-          containerClassName="mb-0"
-          placeholder={placeholder}
-          disabled={disabled}
-          label={
-            editAsForm ? (
-              <>
-                <div>{label}</div>
-                {editAsForm && (
-                  <div className="ml-auto">
-                    <a
-                      href="#"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        editAsForm();
-                      }}
-                    >
-                      Edit as Form
-                    </a>
-                  </div>
-                )}
-              </>
-            ) : (
-              label
-            )
-          }
-          value={value}
-          onChange={(e) => {
-            setValue(e.target.value);
-          }}
-          textarea
-          minRows={1}
-        />
-        {showCopyButton && performCopy && (
-          <div
-            style={{
-              position: "absolute",
-              bottom: 0,
-              right: 16,
-              zIndex: 1000,
-            }}
-          >
-            <Tooltip body={copySuccess ? "Copied" : "Copy to clipboard"}>
-              <IconButton
-                type="button"
-                radius="full"
-                variant="ghost"
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  if (!copySuccess) performCopy(value);
-                }}
-              >
-                {copySuccess ? <PiCheck size={12} /> : <PiCopy size={12} />}
-              </IconButton>
-            </Tooltip>
-          </div>
-        )}
-      </div>
-      {helpText && <div className="small form-text text-muted">{helpText}</div>}
-    </div>
+    <Box mb="2">
+      <CodeTextArea
+        labelClassName={editAsForm ? "d-flex w-100" : labelClassName}
+        label={
+          editAsForm ? (
+            <>
+              <div>{label}</div>
+              <div className="ml-auto">
+                <a
+                  href="#"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    editAsForm();
+                  }}
+                >
+                  Edit as Form
+                </a>
+              </div>
+            </>
+          ) : (
+            label
+          )
+        }
+        language="json"
+        value={value}
+        setValue={setValue}
+        placeholder={placeholder}
+        disabled={disabled}
+        resizable
+        defaultHeight={FIVE_LINES_HEIGHT}
+        slimGutter
+        showCopyButton
+        showFullscreenButton
+        matchValueDisplay
+        actions={
+          disabled ? null : (
+            <FormatJsonAction value={value} setValue={setValue} />
+          )
+        }
+      />
+    </Box>
   );
 }
 
@@ -1527,12 +1350,8 @@ function SimpleSchemaObjectArrayEditor({
 
   const [rawJSONInput, setRawJSONInput] = useState(!simpleEditorAllowed);
 
-  const { performCopy, copySuccess } = useCopyToClipboard({
-    timeout: 800,
-  });
-
   const fallback = (
-    <JSONTextEditor
+    <JSONCodeEditor
       label={label}
       value={value}
       setValue={setValue}
@@ -1545,9 +1364,6 @@ function SimpleSchemaObjectArrayEditor({
       }
       placeholder={placeholder}
       disabled={disabled}
-      showCopyButton={true}
-      performCopy={performCopy}
-      copySuccess={copySuccess}
     />
   );
 

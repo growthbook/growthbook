@@ -170,6 +170,21 @@ export const isSavedGroupRevisionMetadataOnly = (
 };
 
 /**
+ * Returns true when every proposed change in the revision only archives or
+ * unarchives the saved group. An empty list returns false.
+ *
+ * A Remote Group can still be archived without the Enterprise plan, for
+ * cleanup; this tells those revisions apart from other changes.
+ */
+export const isSavedGroupRevisionArchiveOnly = (
+  proposedChanges: JsonPatchOperation[] | unknown,
+): boolean => {
+  const ops = normalizeProposedChanges(proposedChanges);
+  if (ops.length === 0) return false;
+  return ops.every((op) => op.path.split("/")[1] === "archived");
+};
+
+/**
  * Top-level constant fields that count as "metadata" for the `requireMetadataReview`
  * gate. The content fields (`value`, `environmentValues`) always require full
  * review when approval is enabled, since they change the value the SDK resolves.

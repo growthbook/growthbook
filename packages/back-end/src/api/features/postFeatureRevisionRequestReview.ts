@@ -9,6 +9,7 @@ import { dispatchFeatureRevisionEvent } from "back-end/src/services/featureRevis
 import { auditDetailsUpdate } from "back-end/src/services/audit";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { createApiRequestHandler } from "back-end/src/util/handler";
+import { holdRoute, type HeldRoute } from "back-end/src/services/confirmations";
 import { getFeature } from "back-end/src/models/FeatureModel";
 import {
   getRevision,
@@ -17,6 +18,7 @@ import {
 import { canAdvanceFeatureDraft } from "back-end/src/revisions/featureDraftAuthority";
 import { getEnvironments } from "back-end/src/util/organization.util";
 import {
+  assertArmDoesNotLaunchExperiments,
   canEnableFeatureAutoPublishOnApproval,
   canScheduleFeaturePublish,
   parseScheduledPublishDate,
@@ -34,6 +36,7 @@ export async function requestReview(
       scheduledPublishLockOthers?: boolean;
     };
   },
+  route: HeldRoute,
 ) {
   const feature = await getFeature(req.context, req.params.id);
   if (!feature) throw new NotFoundError("Could not find feature");
@@ -105,6 +108,9 @@ export async function requestReview(
   ) {
     req.context.permissions.throwPermissionError();
   }
+  if (enableAutoPublish || scheduledDate !== null) {
+    await assertArmDoesNotLaunchExperiments(req.context, feature, revision);
+  }
 
   // A scheduled publish runs as a resolvable dashboard user at fire time. Reject
   // arming when there is none (e.g. an API key requesting review with a schedule
@@ -119,6 +125,10 @@ export async function requestReview(
         "(e.g. an API key scheduling a draft authored by an API key). Arm the schedule from a user session.",
     );
   }
+
+  // Held only once the request is known to succeed, so nobody approves one
+  // that fails.
+  await holdRoute(req.context, route, req);
 
   await markRevisionAsReviewRequested(
     req.context,
@@ -180,6 +190,9 @@ export async function requestReview(
 export const postFeatureRevisionRequestReview = createApiRequestHandler(
   postFeatureRevisionRequestReviewValidator,
 )(async (req) => {
-  const { feature, revision } = await requestReview(req);
+  const { feature, revision } = await requestReview(
+    req,
+    postFeatureRevisionRequestReviewValidator,
+  );
   return { revision: toApiRevision(revision, req.context, feature) };
 });

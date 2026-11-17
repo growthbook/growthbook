@@ -1,0 +1,178 @@
+---
+title: Sync dbt Semantic Layer Metrics to GrowthBook
+description: Use your dbt semantic models and metrics as the source of truth for GrowthBook Fact Tables and Fact Metrics with the growthbook-dbt CLI.
+sidebarTitle: dbt (Semantic Layer)
+---
+
+If you define metrics in dbt's semantic layer (MetricFlow), the `@growthbook/dbt` CLI turns them into GrowthBook Fact Tables and Fact Metrics and keeps them in sync. It reads the artifacts dbt writes after `dbt parse`, so it needs no warehouse connection and no dbt runtime of its own.
+
+This builds on the same bulk import API as the [GitHub metrics guide](/integrations/github-metrics). Fact Tables and Fact Metrics it creates are marked as managed by dbt, so they are read-only in the GrowthBook UI: change them in dbt and sync again. Self-hosted GrowthBook needs a version that supports dbt-managed resources.
+
+## How Definitions Map
+
+| dbt                                                 | GrowthBook                                                                                                                                                                                                                                                                                                  |
+| --------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Semantic model                                      | Fact Table with `SELECT * FROM <model relation>`                                                                                                                                                                                                                                                            |
+| `agg_time_dimension`                                | Fact Table timestamp column                                                                                                                                                                                                                                                                                 |
+| Entities                                            | Fact Table identifier types (see [Entities](#entities))                                                                                                                                                                                                                                                     |
+| Measure or simple metric with `sum`, `max`, `count` | Mean metric                                                                                                                                                                                                                                                                                                 |
+| `count_distinct`                                    | Mean metric with count distinct aggregation                                                                                                                                                                                                                                                                 |
+| `average`                                           | Ratio metric: sum of the column over row count                                                                                                                                                                                                                                                              |
+| `sum_boolean`                                       | Mean metric over a virtual column `CASE WHEN ... THEN 1 ELSE 0 END`                                                                                                                                                                                                                                         |
+| `median`, `percentile`                              | Quantile metric                                                                                                                                                                                                                                                                                             |
+| Measure `expr` that is not a plain column           | Virtual column on the Fact Table, named `<measure>_vc`                                                                                                                                                                                                                                                      |
+| `count` of a column that can be null                | Adds an `IS NOT NULL` row filter so it matches `COUNT(column)`; counting a primary or unique entity adds nothing                                                                                                                                                                                            |
+| Metric `filter` on the model's own dimensions       | Row filter on the metric. Simple comparisons (`=`, `!=`, `<`, `>`, `IN`, `IS NULL`, booleans) become structured filters; anything else, including a comparison with a date such as `'2024-01-01'`, is kept as a SQL expression, which GrowthBook test-runs against the warehouse when the metric is created |
+| Metric `filter` on a dimension one join away        | A second Fact Table with a `LEFT JOIN`, shared by every metric that needs the same join                                                                                                                                                                                                                     |
+| Ratio metric                                        | Ratio metric                                                                                                                                                                                                                                                                                                |
+| Cumulative metric with a `window`                   | The input metric with a lookback window. Months, quarters and years become 30, 91 and 365 days, with a note in the output                                                                                                                                                                                   |
+| Cumulative metric without a window                  | The input metric (an experiment already aggregates over its whole date range)                                                                                                                                                                                                                               |
+| Conversion metric                                   | Two-step Funnel metric with a conversion window on the second step. The `entity` must map to a Data Source identifier type, because funnels join events on the experiment's unit                                                                                                                            |
+| Derived metric of the form `a / b`                  | Ratio metric                                                                                                                                                                                                                                                                                                |
+| `label`, `description`, `config.tags`               | Name, description, tags                                                                                                                                                                                                                                                                                     |
+| `config.meta.growthbook.*`                          | Merged onto the Fact Table or Fact Metric (see [Overrides](#overrides))                                                                                                                                                                                                                                     |
+
+Both the legacy YAML spec (`semantic_models` with `measures`) and the dbt v1.12 spec (`semantic_model` nested under a model, measures replaced by simple metrics) are supported, because the CLI reads `manifest.json` rather than your YAML.
+
+dbt aggregates a metric over a time grain, while GrowthBook aggregates it per experiment unit and then compares variations. A synced metric therefore will not reproduce the values on your dbt-powered dashboards: a `sum` becomes the average per-user total, and an `average` becomes total value over total rows across all exposed users.
+
+### Not Supported
+
+These are skipped with a message explaining why. Add `--strict` to fail the run instead.
+
+- `min` aggregation
+- `non_additive_dimension`
+- Cumulative metrics with `grain_to_date` (period-to-date resets)
+- Conversion metrics with `constant_properties` or `calculation: conversions`
+- Derived metrics other than `a / b`
+- Filters that reach a dimension two or more joins away, or that use `TimeDimension()` or `Metric()`
+- Ratio inputs that are themselves averages or percentiles
+- Percentiles below 0.001 or above 0.999
+- A joined dimension whose `<entity>__<dimension>` column name is already a column on the base model
+- Two metrics that share a column name but disagree on what it holds (for example, a physical `net_revenue_vc` column and the virtual column for a `net_revenue` measure)
+
+Quantile and Funnel metrics require a GrowthBook plan that includes them.
+
+## Setup
+
+### 1. Find Your Data Source Id and Create an API Key
+
+Go to **Metrics and Data** → **Data Sources**, open the Data Source that your dbt project writes to, and copy the id from the end of the URL (it starts with `ds_`).
+
+Then go to **Settings** → **API Keys** and create a Secret Key with the Admin role.
+
+### 2. Run the Sync
+
+After `dbt parse` (or any dbt command that writes `target/manifest.json`):
+
+```bash
+export GROWTHBOOK_API_KEY=secret_admin_...
+npx @growthbook/dbt sync --datasource ds_abc123 --entities customer=user_id --dry-run
+```
+
+The dry run translates your project, validates the result against GrowthBook without writing anything, and prints everything it skipped. Drop `--dry-run` to apply. If your API key requires a person to confirm writes, the CLI prints the confirmation link and waits until they decide.
+
+Self-hosting? Set `GROWTHBOOK_API_HOST` or pass `--api-host https://api.your-host.example`.
+
+### 3. Automate It
+
+Run the same command wherever you already run dbt. For example, as a GitHub Actions step after `dbt parse`:
+
+```yml
+- name: Sync metrics to GrowthBook
+  run: npx @growthbook/dbt sync --datasource ds_abc123 --entities customer=user_id --strict
+  env:
+    GROWTHBOOK_API_KEY: ${{ secrets.GROWTHBOOK_API_KEY }}
+```
+
+## Entities
+
+GrowthBook needs to know which columns identify an experiment unit (`user_id`, `anonymous_id`, and so on). The CLI fetches your Data Source's identifier types and uses every dbt entity whose name matches one. Use `--entities` to map entities with different names:
+
+```bash
+--entities customer=user_id,visitor=anonymous_id
+```
+
+Entities that don't map to an identifier type are ignored. A semantic model with no mapped entity is skipped along with its metrics, since GrowthBook could not join it to experiment exposures.
+
+## Choosing What to Sync
+
+Two ways, which can be combined:
+
+- In dbt, set `config.meta.growthbook.enabled: false` on a metric or semantic model. Disabling a model also drops every metric that reads from it.
+- On the command line, pass `--select` or `--exclude` with comma-separated metric or model names (`*` wildcards allowed) or `tag:<tag>` selectors.
+
+```bash
+# only metrics or models tagged "growthbook"
+npx @growthbook/dbt sync --datasource ds_abc123 --select tag:growthbook
+
+# everything except staging models and one metric
+npx @growthbook/dbt sync --datasource ds_abc123 --exclude 'stg_*,internal_revenue'
+```
+
+By default, metrics removed from dbt stay in GrowthBook. Add `--prune` to archive dbt-managed Fact Tables and Fact Metrics on the Data Source that are no longer produced by the sync. Prune never archives resources created any other way, including through the API. They are archived rather than deleted so existing experiment results keep working, and a later `--prune` run unarchives them if they reappear in dbt. Combine `--prune` with `--dry-run` to list what would be archived or unarchived without changing anything. Because a selected subset is not the full picture, `--prune` cannot be combined with `--select` or `--exclude`, and it refuses to run when a Fact Table was skipped (for example because no entity maps to an identifier type), since that would archive metrics still defined in dbt; metrics disabled with `meta.growthbook.enabled: false` are still archived.
+
+## Overrides
+
+dbt has no vocabulary for conversion windows, capping, inverse metrics, priors or projects. Set those under `config.meta.growthbook` on a metric or semantic model, using the field names from the [Fact Metric](/api/fact-metrics/operation/postFactMetric) and [Fact Table](/api/fact-tables/operation/postFactTable) API docs. They are merged last and win over the translated values.
+
+Fields the sync derives from dbt (name, description, tags, lookback windows) are always sent, so removing them in dbt removes them in GrowthBook. Fields that only come from `meta.growthbook` are left untouched when you delete the key, because the API keeps omitted settings. To clear one, set it explicitly, for example `cappingSettings: { type: none }`.
+
+```yml
+metrics:
+  - name: revenue
+    type: simple
+    agg: sum
+    expr: amount
+    config:
+      meta:
+        growthbook:
+          cappingSettings:
+            type: percentile
+            value: 0.99
+          windowSettings:
+            type: conversion
+            windowValue: 3
+            windowUnit: days
+```
+
+### Models Without a Semantic Model
+
+A plain dbt model can also become a Fact Table by describing it in GrowthBook's own terms under `meta.growthbook`. `userIdTypes` marks it as a Fact Table; `metrics` entries use the Fact Metric API fields plus an `id`, and their numerators default to this table. The timestamp, identifier and metric columns are declared for you (metric columns as numbers, or strings for `count distinct`); the rest are detected from the SQL.
+
+```yml
+models:
+  - name: page_views
+    config:
+      meta:
+        growthbook:
+          userIdTypes: [anonymous_id]
+          timestampColumn: viewed_at
+          metrics:
+            - id: page_views_per_user
+              name: Page views per user
+              metricType: mean
+              numerator:
+                column: $$count
+```
+
+## Reference
+
+```text
+growthbook-dbt sync --datasource <ds_id> [options]
+
+  --manifest <path>     dbt manifest (default: target/manifest.json)
+  --api-host <url>      default: $GROWTHBOOK_API_HOST or https://api.growthbook.io
+  --api-key <key>       default: $GROWTHBOOK_API_KEY
+  --entities <map>      dbt entity -> identifier type, e.g. customer=user_id
+  --select <list>       only sync these metrics/models (name globs or tag:<tag>)
+  --exclude <list>      never sync these metrics/models
+  --dry-run             validate against the API without writing (with --prune, lists what would be archived or unarchived)
+  --strict              exit 1 if anything was skipped or a selector matched nothing
+  --prune               archive dbt-managed resources no longer in dbt
+  --out <path>          write the payload to a file instead of calling the API
+```
+
+`--out` writes the exact bulk import payload, which you can inspect or feed to the script from the [GitHub metrics guide](/integrations/github-metrics).
+
+Fact Table ids are the semantic model names (with `__<entity>` appended for joined tables and `__<dimension>` for measures that use a different time dimension). Fact Metric ids are the dbt metric names with a `fact__` prefix (`revenue` becomes `fact__revenue`). The sync upserts by id, so renaming a metric in dbt creates a new one in GrowthBook; use `--prune` to archive the old one. It also means an existing Fact Table or Fact Metric with the same id, however it was created, is overwritten by the sync and becomes dbt-managed. A plain model whose name matches a generated Fact Table id is skipped. A plain-model metric whose id matches another metric's, with or without the `fact__` prefix, is skipped.

@@ -5,15 +5,15 @@ import {
 } from "shared/types/feature";
 import React, {
   CSSProperties,
+  ReactNode,
   useContext,
   useEffect,
   useMemo,
   useRef,
   useState,
 } from "react";
-import stringify from "json-stringify-pretty-compact";
-import { Box, Flex, IconButton } from "@radix-ui/themes";
-import { PiCheck, PiCornersOut, PiCopy } from "react-icons/pi";
+import { IconButton } from "@radix-ui/themes";
+import { PiCheck, PiCopy } from "react-icons/pi";
 import { parsePlainJSONObject } from "shared/util";
 import InlineCode, {
   LinkifyConfig,
@@ -25,10 +25,17 @@ import VirtualizedCode, {
 import { useConstantLinkify } from "@/components/Constants/useConstantLinkify";
 import styles from "@/components/Archetype/ArchetypeResults.module.scss";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import UITooltip from "@/ui/Tooltip";
 import { parseFeatureResult } from "@/hooks/useArchetype";
 import Modal from "@/components/Modal";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import Button from "@/ui/Button";
+import ScrollArea from "@/ui/ScrollArea";
+import Text from "@/ui/Text";
+import { CopyIcon, FullscreenIcon } from "@/ui/ActionIcons";
+import CornerActions, { ActionsOverlay } from "./CornerActions";
+import { useValueDiff } from "./ValueDiffContext";
+import { formatJsonValue, getFieldLineNumbers } from "./jsonFieldLines";
 
 // For sparse JSON rules, the stored `value` is only the patch. We display the
 // fully expanded value (default merged with the patch) and bold the keys that
@@ -47,27 +54,45 @@ function getSparseMerge(
   };
 }
 
-// Given fully-expanded (one-key-per-line) JSON and the set of patched keys,
-// returns the 1-based line numbers that make up those keys' entries — including
-// the continuation lines of multi-line (nested) values. Top-level keys sit at a
-// 2-space indent; a line at column 0 (the closing brace) ends the object.
-function getBoldLineNumbers(
-  formatted: string,
-  patchKeys: Set<string>,
-): number[] {
-  const bold: number[] = [];
-  let inPatchedEntry = false;
-  formatted.split("\n").forEach((line, i) => {
-    const topLevelKey = line.match(/^ {2}"([^"]+)":/);
-    if (topLevelKey) {
-      inPatchedEntry = patchKeys.has(topLevelKey[1]);
-    } else if (/^[}\]]/.test(line)) {
-      inPatchedEntry = false;
-    }
-    if (inPatchedEntry) bold.push(i + 1);
-  });
-  return bold;
+// A value as one of several in a list, kept short.
+const BOOLEAN_ON = "var(--green-9)";
+const BOOLEAN_OFF = "var(--gray-7)";
+
+// A boolean's dot: true, false, or true for only some users. Empty is
+// nothing served at all.
+export function BooleanDot({
+  fill,
+}: {
+  fill: "on" | "off" | "split" | "empty";
+}) {
+  return (
+    <span
+      style={{
+        flexShrink: 0,
+        alignSelf: "center",
+        boxSizing: "border-box",
+        height: 10,
+        width: 10,
+        borderRadius: "50%",
+        border: fill === "empty" ? "1.5px solid var(--gray-8)" : undefined,
+        background:
+          fill === "split"
+            ? `linear-gradient(90deg, ${BOOLEAN_ON} 50%, ${BOOLEAN_OFF} 50%)`
+            : fill === "on"
+              ? BOOLEAN_ON
+              : fill === "off"
+                ? BOOLEAN_OFF
+                : undefined,
+      }}
+    />
+  );
 }
+
+export const LISTED_VALUE_STYLE: CSSProperties = {
+  maxHeight: 100,
+  overflowY: "auto",
+  maxWidth: "100%",
+};
 
 export default function ValueDisplay({
   value,
@@ -80,11 +105,15 @@ export default function ValueDisplay({
   showCopyButton = true,
   copyButtonClassName,
   isFullscreen = false,
+  actionsOverlay,
   sparse = false,
   defaultValue,
   fullscreenHeader = "Feature Value",
   linkify,
-  fontSize,
+  lineHeight,
+  monochrome,
+  split = false,
+  extraActions,
 }: {
   value: string;
   type: FeatureValueType;
@@ -98,6 +127,7 @@ export default function ValueDisplay({
   // row hover) without affecting other ValueDisplay usages.
   copyButtonClassName?: string;
   isFullscreen?: boolean;
+  actionsOverlay?: ActionsOverlay;
   // Header for the fullscreen modal (e.g. "Constant Value" when reused outside features).
   fullscreenHeader?: string;
   // When true (JSON rules flagged sparse), `value` is a partial patch. We show
@@ -109,8 +139,13 @@ export default function ValueDisplay({
   // as links to the referenced constant). Rarely needed — pass to customize or,
   // with a no-op getHref, effectively disable linking.
   linkify?: LinkifyConfig;
-  // Override the rendered code font size (passed through to InlineCode).
-  fontSize?: string;
+  // Override the rendered code line height (passed through to InlineCode).
+  lineHeight?: number;
+  monochrome?: boolean;
+  // A boolean served to only some users: its dot is half filled.
+  split?: boolean;
+  // More buttons in the same row as copy and fullscreen, after them.
+  extraActions?: ReactNode;
 }) {
   // Link `@const:` references to their constant by default on every surface that
   // renders a value, unless the caller supplies its own linkify config.
@@ -126,22 +161,31 @@ export default function ValueDisplay({
       sparse && type === "json" ? getSparseMerge(value, defaultValue) : null,
     [sparse, type, value, defaultValue],
   );
+  // Beside other values (an experiment's variations), what differs between
+  // them is tinted instead.
+  const shown = useMemo(
+    () =>
+      type === "json"
+        ? (sparseMerge?.merged ?? parsePlainJSONObject(value))
+        : null,
+    [type, sparseMerge, value],
+  );
+  const differingKeys = useValueDiff(isFullscreen ? null : shown);
+  // Bolded or tinted keys each keep their own lines.
+  const keysOnOwnLines = !!sparseMerge || !!differingKeys?.size;
   const formatted = useMemo(() => {
     if (type === "boolean") return value;
     if (type === "number") return value || "null";
     if (type === "string") return '"' + value + '"';
     try {
       // Sparse rules display the expanded (merged) value, not the raw patch.
-      // Force one-key-per-line (maxLength: 0) so the overridden keys map to
-      // stable line numbers we can bold.
-      // Always break to one key/element per line (never compact short objects
-      // onto a single line) for consistent, scannable JSON.
-      if (sparseMerge) return stringify(sparseMerge.merged, { maxLength: 0 });
-      return stringify(JSON.parse(value), { maxLength: 0 });
+      return formatJsonValue(sparseMerge?.merged ?? JSON.parse(value), {
+        keysOnOwnLines,
+      });
     } catch (e) {
       return value;
     }
-  }, [value, type, sparseMerge]);
+  }, [value, type, sparseMerge, keysOnOwnLines]);
 
   // Long values highlight only the visible lines, inside a box that scrolls
   // even when the caller set no height limit
@@ -160,54 +204,69 @@ export default function ValueDisplay({
   // 1-based line numbers of the overridden keys, bolded in the expanded value.
   const boldLines = useMemo(
     () =>
-      sparseMerge ? getBoldLineNumbers(formatted, sparseMerge.patchKeys) : [],
+      sparseMerge ? getFieldLineNumbers(formatted, sparseMerge.patchKeys) : [],
     [sparseMerge, formatted],
   );
 
-  // For sparse values the override can sit far down a tall object that's
-  // clipped by the fixed-height scroll box. Scroll it so the first highlighted
-  // line is near the top (with a line of padding above). The content is a
-  // lazily-loaded syntax highlighter, so poll on animation frames until it has
-  // rendered enough to be scrollable, scroll once, then stop (bounded so a
-  // short, non-scrollable value doesn't poll forever).
+  const highlightLines = useMemo(
+    () => (differingKeys ? getFieldLineNumbers(formatted, differingKeys) : []),
+    [differingKeys, formatted],
+  );
+  const emphasizedLines = differingKeys ? highlightLines : boldLines;
+
+  // The first emphasized line can sit far down a tall object that's clipped by
+  // the fixed-height scroll box. When it's out of view, scroll it near the top
+  // (with a line of padding above). The content is a lazily-loaded syntax
+  // highlighter, so poll on animation frames until it has rendered enough to be
+  // scrollable, scroll once, then stop (bounded so a short, non-scrollable value
+  // doesn't poll forever).
   const scrollBoxRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    if (!boldLines.length) return;
+    if (!emphasizedLines.length) return;
     const el = scrollBoxRef.current;
     if (!el) return;
-    const firstBold = Math.min(...boldLines);
+    const firstEmphasized = Math.min(...emphasizedLines);
     const totalLines = formatted.split("\n").length;
     let raf = 0;
     let attempts = 0;
     const tryScroll = () => {
-      if (el.scrollHeight > el.clientHeight + 1) {
-        const targetLine = Math.max(0, firstBold - 2); // 0-based, minus a line of padding
-        el.scrollTop = (targetLine / totalLines) * el.scrollHeight;
+      if (el.clientHeight > 0 && el.scrollHeight > el.clientHeight + 1) {
+        const rowHeight = el.scrollHeight / totalLines;
+        if (firstEmphasized * rowHeight <= el.clientHeight) return;
+        const targetLine = Math.max(0, firstEmphasized - 2); // 0-based, minus a line of padding
+        el.scrollTop = targetLine * rowHeight;
         return;
       }
       if (++attempts < 90) raf = requestAnimationFrame(tryScroll);
     };
     raf = requestAnimationFrame(tryScroll);
     return () => cancelAnimationFrame(raf);
-  }, [boldLines, formatted]);
+  }, [emphasizedLines, formatted]);
 
   const showFullscreenButton = _showFullscreenButton && type === "json";
 
   if (type === "boolean") {
     const on = !(value === "false" || value === "null" || !value);
     return (
-      <span className="text-gray font-weight-bold">
-        <div
+      <span
+        style={{
+          display: "inline-flex",
+          alignItems: "center",
+          gap: 6,
+          whiteSpace: "nowrap",
+        }}
+      >
+        <BooleanDot fill={split ? "split" : on ? "on" : "off"} />
+        <span
           style={{
-            display: "inline-block",
-            height: 10,
-            width: 10,
-            borderRadius: 10,
-            marginRight: 5,
-            backgroundColor: on ? "#3aa8e8" : "#cccccc",
+            color: on ? "var(--green-11)" : "var(--color-text-low)",
+            fontSize: "var(--font-size-2)",
           }}
-        ></div>
-        {on ? "TRUE" : "FALSE"}
+        >
+          <Text mono size="inherit" weight="semibold">
+            {on ? "true" : "false"}
+          </Text>
+        </span>
       </span>
     );
   }
@@ -231,78 +290,98 @@ export default function ValueDisplay({
 
   return (
     <>
-      <Box position="relative">
-        <Box ref={scrollBoxRef} style={boxStyle} className={fullClassName}>
+      <CornerActions
+        // Only the lines near the viewport render when it's long, so it can't
+        // hug its widest line without a long one widening it mid-scroll: it
+        // takes the full width instead.
+        overlay={
+          virtualize && actionsOverlay?.inline
+            ? { ...actionsOverlay, inline: false }
+            : actionsOverlay
+        }
+        oneLine={!formatted.includes("\n")}
+        actions={
+          isFullscreen ? null : (
+            <>
+              {showCopyButton && (type === "json" || type === "string") ? (
+                <UITooltip
+                  content={copySuccess ? "Copied" : "Copy to clipboard"}
+                >
+                  <IconButton
+                    type="button"
+                    radius="full"
+                    variant="ghost"
+                    className={copyButtonClassName}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      if (!copySuccess) {
+                        performCopy(sparseMerge ? formatted : value);
+                      }
+                    }}
+                  >
+                    <CopyIcon copied={copySuccess} size="sm" />
+                  </IconButton>
+                </UITooltip>
+              ) : null}
+              {showFullscreenButton && (
+                <UITooltip content="View in full screen">
+                  <IconButton
+                    type="button"
+                    radius="full"
+                    variant="ghost"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setModalOpen(true);
+                    }}
+                  >
+                    <FullscreenIcon size="sm" />
+                  </IconButton>
+                </UITooltip>
+              )}
+              {extraActions}
+            </>
+          )
+        }
+      >
+        {/* The gutter keeps highlighted lines clear of the scrollbar. */}
+        <ScrollArea
+          ref={scrollBoxRef}
+          gutter
+          edgeCue="fade"
+          className={fullClassName}
+          style={{
+            maxHeight: boxStyle.maxHeight,
+            minHeight: boxStyle.minHeight,
+            height: boxStyle.height,
+            maxWidth: boxStyle.maxWidth,
+          }}
+        >
           {virtualize ? (
             <VirtualizedCode
               scrollRef={scrollBoxRef}
               language="json"
               code={formatted}
-              boldLines={sparseMerge ? boldLines : undefined}
+              boldLines={sparseMerge && !differingKeys ? boldLines : undefined}
+              highlightLines={highlightLines}
               linkify={resolvedLinkify}
-              fontSize={fontSize}
+              lineHeight={lineHeight}
+              monochrome={monochrome}
             />
           ) : (
             <InlineCode
               language="json"
               code={formatted}
-              boldLines={sparseMerge ? boldLines : undefined}
+              boldLines={sparseMerge && !differingKeys ? boldLines : undefined}
+              highlightLines={highlightLines}
               linkify={resolvedLinkify}
-              fontSize={fontSize}
+              lineHeight={lineHeight}
+              monochrome={monochrome}
             />
           )}
-        </Box>
-        {!isFullscreen && (
-          <Flex
-            align="center"
-            gap="3"
-            style={{
-              position: "absolute",
-              bottom: -4,
-              right: 16,
-            }}
-          >
-            {showCopyButton && (type === "json" || type === "string") ? (
-              <Tooltip
-                body={copySuccess ? "Copied" : "Copy to clipboard"}
-                usePortal={true}
-              >
-                <IconButton
-                  type="button"
-                  radius="full"
-                  variant="ghost"
-                  className={copyButtonClassName}
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    if (!copySuccess) {
-                      performCopy(sparseMerge ? formatted : value);
-                    }
-                  }}
-                >
-                  {copySuccess ? <PiCheck size={12} /> : <PiCopy size={12} />}
-                </IconButton>
-              </Tooltip>
-            ) : null}
-            {showFullscreenButton && type === "json" && (
-              <Tooltip body="View in full screen" usePortal={true}>
-                <IconButton
-                  type="button"
-                  radius="full"
-                  variant="ghost"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    setModalOpen(true);
-                  }}
-                >
-                  <PiCornersOut size={12} />
-                </IconButton>
-              </Tooltip>
-            )}
-          </Flex>
-        )}
-      </Box>
+        </ScrollArea>
+      </CornerActions>
       {modalOpen && (
         <Modal
           header={fullscreenHeader}
@@ -340,7 +419,7 @@ export default function ValueDisplay({
             sparse={sparse}
             defaultValue={defaultValue}
             linkify={resolvedLinkify}
-            fontSize={fontSize}
+            lineHeight={lineHeight}
           />
         </Modal>
       )}

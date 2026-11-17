@@ -18,6 +18,9 @@ export const FEATURE_DESCRIPTION =
 export const RULE_DESCRIPTION =
   "Short note on why the rule exists (e.g. `Beta testers only`).";
 
+export const FALLBACK_ATTRIBUTE_DESCRIPTION =
+  "Used in place of `hashAttribute` when a user lacks it. Only SDKs with Sticky Bucketing enabled use it.";
+
 export const EXPERIMENT_NAME_DESCRIPTION =
   "Short display name (e.g. `Express checkout button`). Put reasoning in `hypothesis` and context in `description`.";
 

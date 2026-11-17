@@ -5,13 +5,11 @@ import {
   ExperimentTargetingData,
 } from "shared/types/experiment";
 import { getLatestPhaseVariations } from "shared/experiments";
-import React, { useEffect, useMemo, useState } from "react";
-import { FaExternalLinkAlt } from "react-icons/fa";
+import React, { useEffect, useMemo } from "react";
 import clsx from "clsx";
-import { BiHide, BiShow } from "react-icons/bi";
 import { FeaturePrerequisite, SavedGroupTargeting } from "shared/types/feature";
 import { BsCheckCircle, BsExclamationCircle } from "react-icons/bs";
-import { PiLightbulb } from "react-icons/pi";
+import { PiArrowSquareOut, PiLightbulb } from "react-icons/pi";
 import {
   getNamespaceRanges,
   hasNarrowedRanges,
@@ -22,12 +20,14 @@ import {
   ChangeType,
   ReleasePlan,
 } from "@/components/Experiment/MakeChangesFlow";
-import TargetingInfo from "@/components/Experiment/TabbedPage/TargetingInfo";
+import { TargetingChanges } from "@/components/Experiment/TabbedPage/TargetingInfo";
 import SelectField from "@/components/Forms/SelectField";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import { DocLink } from "@/components/DocLink";
+import { docUrl } from "@/components/DocLink";
 import { formatPercent } from "@/services/metrics";
 import Callout from "@/ui/Callout";
+import Link from "@/ui/Link";
+import Text from "@/ui/Text";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
@@ -50,8 +50,6 @@ export default function ReleaseChangesForm({
     orgStickyBucketing && !experiment.disableStickyBucketing;
 
   const isBandit = experiment.type === "multi-armed-bandit";
-
-  const [showFullTargetingInfo, setShowFullTargetingInfo] = useState(false);
 
   const lastPhase: ExperimentPhaseStringDates | undefined =
     experiment.phases[experiment.phases.length - 1];
@@ -86,7 +84,7 @@ export default function ReleaseChangesForm({
   useEffect(() => {
     if (releasePlan === "same-phase-sticky") {
       form.setValue("newPhase", false);
-      form.setValue("reseed", isBandit);
+      form.setValue("reseed", false);
       form.setValue("bucketVersion", experiment.bucketVersion);
       form.setValue("minBucketVersion", experiment.minBucketVersion);
     } else if (releasePlan === "same-phase-everyone") {
@@ -121,7 +119,6 @@ export default function ReleaseChangesForm({
     form,
     experiment.bucketVersion,
     experiment.minBucketVersion,
-    isBandit,
   ]);
 
   if (!lastPhase) return null;
@@ -189,51 +186,26 @@ export default function ReleaseChangesForm({
         }}
       />
 
-      <div className="mt-4 mb-3">
-        <label className="mb-1">Impact</label>
-        <div className="font-weight-semibold">
-          {form.watch("newPhase")
-            ? form.watch("reseed")
-              ? `New phase${!isBandit ? ", new randomization seed." : "."}`
-              : `New phase${!isBandit ? ", same randomization seed." : "."}`
-            : form.watch("reseed")
-              ? `Same phase${!isBandit ? ", new randomization seed." : "."}`
-              : `Same phase${
-                  !isBandit ? ", same randomization seed." : "."
-                }`}{" "}
-          {isBandit &&
-            form.watch("newPhase") &&
-            "Variation weights will be reset. "}
-          {isBandit || usingStickyBucketing
-            ? (form.watch("bucketVersion") ?? 0) <=
-              (experiment.bucketVersion ?? 0)
-              ? "Sticky Bucketed users will keep their assigned bucket."
-              : (form.watch("minBucketVersion") ?? 0) <=
-                  (experiment.minBucketVersion ?? 0)
-                ? "Sticky Bucketed users will be reassigned."
-                : "Sticky Bucketed users will be excluded from the experiment."
-            : "No sticky bucketing."}
-          {form.watch("newPhase") && isBandit && (
-            <Callout status="warning" mt="2">
-              This Bandit will restart. Variation weights will reset (
-              {(() => {
-                const variations = getLatestPhaseVariations(experiment);
-                return variations
-                  .map((_, i) =>
-                    i < 3
-                      ? formatPercent(1 / (variations.length ?? 2))
-                      : i === 3
-                        ? "..."
-                        : null,
-                  )
-                  .filter(Boolean)
-                  .join(", ");
-              })()}
-              ).
-            </Callout>
-          )}
-        </div>
-      </div>
+      {/* What the plan changes shows in Changes below; this is what it costs. */}
+      {form.watch("newPhase") && isBandit && (
+        <Callout status="warning" mt="4" mb="3">
+          This Bandit will restart. Variation weights will reset (
+          {(() => {
+            const variations = getLatestPhaseVariations(experiment);
+            return variations
+              .map((_, i) =>
+                i < 3
+                  ? formatPercent(1 / variations.length)
+                  : i === 3
+                    ? "..."
+                    : null,
+              )
+              .filter(Boolean)
+              .join(", ");
+          })()}
+          ).
+        </Callout>
+      )}
 
       {recommendedRolloutData && changeType !== "phase" && (
         <ImpactTooltips
@@ -251,46 +223,10 @@ export default function ReleaseChangesForm({
         </Callout>
       )}
 
-      {changeType !== "phase" && (
-        <div className="mt-4 mb-1">
-          <div className="d-flex">
-            <label>Targeting and traffic changes</label>
-            <div className="flex-1" />
-            <div className="position-relative small" style={{ bottom: -6 }}>
-              <a
-                role="button"
-                className="link-purple ml-3"
-                onClick={() => setShowFullTargetingInfo(!showFullTargetingInfo)}
-              >
-                {showFullTargetingInfo ? (
-                  <>
-                    <BiHide className="mr-1" />
-                    Show changes only
-                  </>
-                ) : (
-                  <>
-                    <BiShow className="mr-1" />
-                    Show full targeting
-                  </>
-                )}
-              </a>
-            </div>
-          </div>
-          <div className="appbox bg-light px-3 pt-3 pb-0 mb-0">
-            <TargetingInfo
-              experiment={experiment}
-              noHeader={true}
-              targetingFieldsOnly={true}
-              separateTrafficSplitDisplay={true}
-              showDecimals={true}
-              showNamespaceRanges={true}
-              showChanges={true}
-              showFullTargetingInfo={showFullTargetingInfo}
-              changes={form.getValues()}
-            />
-          </div>
-        </div>
-      )}
+      <div className="mt-4 mb-1">
+        <label className="mb-1">Changes</label>
+        <TargetingChanges experiment={experiment} value={form.getValues()} />
+      </div>
     </div>
   );
 }
@@ -334,9 +270,24 @@ function ImpactTooltips({
     }
   }
 
+  const hoppingTip =
+    !isBandit && variationHopping && releasePlan !== "same-phase-sticky";
+  const stickyBucketingDocs = (
+    <Link
+      size="sm"
+      href={docUrl("stickyBucketing")}
+      target="_blank"
+      rel="noopener noreferrer"
+    >
+      About Sticky Bucketing <PiArrowSquareOut />
+    </Link>
+  );
+
   return (
     <div className="appbox bg-light px-3 pt-3 pb-0 mb-0">
-      <div className="mb-1 font-weight-bold">Statistical impact</div>
+      <Text as="div" size="lg" weight="semibold" mb="2">
+        Statistical impact
+      </Text>
       <div
         className={clsx("mb-3", {
           "text-success": riskLevel === "safe",
@@ -419,7 +370,18 @@ function ImpactTooltips({
                   )}
                 </div>
 
-                <Callout status="info" mt="2" mb="0" icon={<PiLightbulb />}>
+                <Callout
+                  status="info"
+                  size="sm"
+                  mt="2"
+                  mb="0"
+                  icon={<PiLightbulb />}
+                  action={
+                    recommendStickyBucketing && switchToSB && !hoppingTip
+                      ? stickyBucketingDocs
+                      : undefined
+                  }
+                >
                   Re-randomize traffic{" "}
                   {recommendStickyBucketing && switchToSB
                     ? " or use Sticky Bucketing"
@@ -432,7 +394,9 @@ function ImpactTooltips({
         )}
       </div>
 
-      <div className="mb-1 font-weight-bold">User experience impact</div>
+      <Text as="div" size="lg" weight="semibold" mb="2">
+        User experience impact
+      </Text>
       <div
         className={clsx("mb-3", {
           "text-success": !variationHopping,
@@ -451,25 +415,19 @@ function ImpactTooltips({
           </div>
         )}
 
-        {!isBandit &&
-          variationHopping &&
-          releasePlan !== "same-phase-sticky" && (
-            <Callout status="info" mt="2" mb="0" icon={<PiLightbulb />}>
-              You may be able to use Sticky Bucketing to prevent variation
-              hopping.
-            </Callout>
-          )}
-      </div>
-
-      {!isBandit &&
-        ((variationHopping && releasePlan !== "same-phase-sticky") ||
-          recommendStickyBucketing) && (
-          <div className="text-right mb-2 small">
-            <DocLink useRadix={false} docSection="stickyBucketing">
-              Learn about Sticky Bucketing <FaExternalLinkAlt />
-            </DocLink>
-          </div>
+        {hoppingTip && (
+          <Callout
+            status="info"
+            size="sm"
+            mt="2"
+            mb="0"
+            icon={<PiLightbulb />}
+            action={stickyBucketingDocs}
+          >
+            Using Sticky Bucketing may help prevent variation hopping.
+          </Callout>
         )}
+      </div>
     </div>
   );
 }

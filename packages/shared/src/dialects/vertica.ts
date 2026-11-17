@@ -6,6 +6,7 @@ import { baseDialect } from "./base";
 
 export const verticaDialect: SqlDialect = {
   ...baseDialect,
+  eStrings: true,
   formatDialect: "postgresql",
   unquotedIdentifierFold: "lower",
   ...createLikeMatchFns({

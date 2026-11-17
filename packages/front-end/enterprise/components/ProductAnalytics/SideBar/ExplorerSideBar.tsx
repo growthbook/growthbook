@@ -30,7 +30,6 @@ import {
   createEmptyValue,
   getInitialInlineFilters,
   isTimelessSqlExploration,
-  showAsAppliesTo,
 } from "@/enterprise/components/ProductAnalytics/util";
 import { useOptionalSqlEditorContext } from "@/enterprise/components/ProductAnalytics/SqlEditorContext";
 import ExplorerPageActions from "@/enterprise/components/ProductAnalytics/ExplorerPageActions";
@@ -42,7 +41,6 @@ import FunnelTabContent from "./FunnelTabContent";
 import JourneyTabContent from "./JourneyTabContent";
 import GroupBySection from "./GroupBySection";
 import SaveFunnelMetricAction from "./SaveFunnelMetricAction";
-import ShowAsSection from "./ShowAsSection";
 import DatasourceConfigurator from "./DatasourceConfigurator";
 import ChartSettingsSection from "./ChartSettingsSection";
 import SchemaBrowserSection from "./SchemaBrowserSection";
@@ -89,8 +87,7 @@ export default function ExplorerSideBar({
     isStale,
     error,
   } = useExplorerContext();
-  const { factTables, getFactMetricById, getFactTableById, project } =
-    useDefinitions();
+  const { factTables, getFactTableById, project } = useDefinitions();
   const { permissionsUtil } = useUser();
   const dataset = draftExploreState.dataset;
   const activeType: DatasetType = dataset?.type ?? "metric";
@@ -207,7 +204,7 @@ export default function ExplorerSideBar({
         <Callout status="error">{error}</Callout>
       ) : null}
       {hideHeaderActions ? null : headerActions ? (
-        <Flex justify="end" align="center" height="32px" py="2" gap="2">
+        <Flex justify="end" align="center" wrap="wrap" py="2" gap="2">
           {headerActions}
         </Flex>
       ) : renderingInDashboardSidebar ? (
@@ -436,12 +433,6 @@ export default function ExplorerSideBar({
         {activeType === "journey" && <JourneyTabContent />}
       </Box>
 
-      {showChartControls &&
-        activeType !== "funnel" &&
-        activeType !== "journey" &&
-        showAsAppliesTo(draftExploreState, getFactMetricById) && (
-          <ShowAsSection />
-        )}
       {showChartControls && hasInputs && !isRawTable && <GroupBySection />}
       {activeType === "funnel" && renderingInDashboardSidebar && (
         <SaveFunnelMetricAction />

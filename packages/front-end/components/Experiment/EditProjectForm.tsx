@@ -3,6 +3,7 @@ import { useForm } from "react-hook-form";
 import SelectField from "@/components/Forms/SelectField";
 import useProjectOptions from "@/hooks/useProjectOptions";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
+import { validatedSubmit } from "@/ui/Modal/validatedSubmit";
 
 const EditProjectForm: FC<{
   save: (project: string) => Promise<unknown>;
@@ -41,7 +42,7 @@ const EditProjectForm: FC<{
       header="Edit Project"
       open={true}
       close={cancel}
-      submit={form.handleSubmit(async (data) => {
+      submit={validatedSubmit(form, async (data) => {
         await save(data.project);
         mutate();
       })}

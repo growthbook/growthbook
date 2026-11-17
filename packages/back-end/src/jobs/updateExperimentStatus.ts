@@ -1,4 +1,5 @@
 import Agenda, { Job } from "agenda";
+import { isEqual } from "lodash";
 import { isPermissionError } from "shared/util";
 import type { ExperimentInterface } from "shared/types/experiment";
 import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
@@ -8,7 +9,11 @@ import {
   getExperimentsWithScheduledStatusUpdate,
   updateExperiment,
 } from "back-end/src/models/ExperimentModel";
-import { executeExperimentStart } from "back-end/src/services/experimentChanges/changeExperimentStatus";
+import {
+  armedStartBypassStands,
+  assertScheduledStartNotHardBlocked,
+  executeExperimentStart,
+} from "back-end/src/services/experimentChanges/changeExperimentStatus";
 import { applyScheduledExperimentStop } from "back-end/src/services/experimentScheduling";
 import {
   assertCanRunExperimentInAffectedEnvironments,
@@ -41,7 +46,7 @@ const UPDATE_SINGLE_EXPERIMENT_STATUS = "updateSingleExperimentStatus";
 const SCHEDULED_STATUS_UPDATE_MAX_ATTEMPTS = 5;
 
 // Only the exact update a job processed may be cleared or marked failed, not
-// the same action re-staged by someone else meanwhile.
+// the same action re-staged meanwhile, by someone else or with fresh pins.
 type StagedUpdate = NonNullable<
   ExperimentInterface["nextScheduledStatusUpdate"]
 >;
@@ -53,7 +58,9 @@ const sameStagedUpdate = (
   a.type === b.type &&
   a.date.getTime() === b.date.getTime() &&
   (a.scheduledBy ?? null) === (b.scheduledBy ?? null) &&
-  (a.scheduledByApiKey ?? null) === (b.scheduledByApiKey ?? null);
+  (a.scheduledByApiKey ?? null) === (b.scheduledByApiKey ?? null) &&
+  !!a.bypassApproval === !!b.bypassApproval &&
+  isEqual(a.pinnedDrafts ?? null, b.pinnedDrafts ?? null);
 
 export default async function (agenda: Agenda) {
   agenda.define(QUEUE_EXPERIMENT_STATUS_UPDATES, async () => {
@@ -170,11 +177,23 @@ export const updateSingleExperimentStatus = async (
           return;
         }
 
-        const { updated } = await executeExperimentStart(armer, experiment);
+        const bypass = await armedStartBypassStands(armer, experiment);
+        // Transient, not terminal: retried to the cap, then given up with a notice.
+        await assertScheduledStartNotHardBlocked(armer, experiment, bypass);
+
+        const { updated } = await executeExperimentStart(
+          armer,
+          experiment,
+          bypass,
+        );
         await armer.auditLog({
           event: "experiment.status",
           entity: { object: "experiment", id: experiment.id },
-          details: auditDetailsUpdate(experiment, updated),
+          details: auditDetailsUpdate(
+            experiment,
+            updated,
+            bypass ? { bypassLockdown: true } : {},
+          ),
         });
         await notifyScheduledStatusUpdateApplied({
           context,
@@ -300,11 +319,22 @@ export const updateSingleExperimentStatus = async (
       await updateExperiment({
         context,
         experiment: latest,
-        changes: {
-          nextScheduledStatusUpdate: willRetry
-            ? { ...scheduled, failedAttempts: attempts }
-            : null,
-        },
+        changes: willRetry
+          ? {
+              nextScheduledStatusUpdate: {
+                ...scheduled,
+                failedAttempts: attempts,
+                lastError: reason,
+              },
+            }
+          : {
+              nextScheduledStatusUpdate: null,
+              scheduledStatusUpdateFailure: {
+                type: scheduled.type,
+                date: new Date(),
+                reason,
+              },
+            },
       });
     } catch (inner) {
       logger.error(

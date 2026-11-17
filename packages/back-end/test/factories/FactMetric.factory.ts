@@ -58,8 +58,6 @@ export const factMetricFactory = Factory.define<FactMetricInterface>(
     minSampleSize: 100,
     targetMDE: 0.1,
     displayAsPercentage: false,
-    winRisk: 0.1,
-    loseRisk: 0.05,
     regressionAdjustmentOverride: true,
     regressionAdjustmentEnabled: params.regressionAdjustmentEnabled ?? false,
     regressionAdjustmentDays: 10,

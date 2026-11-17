@@ -145,7 +145,9 @@ export const postReport = createApiRequestHandler(postReportValidator)(async (
     analysisSettings.lookbackOverride = lookbackOverride;
   }
   if (metricOverrides) {
-    analysisSettings.metricOverrides = metricOverrides;
+    analysisSettings.metricOverrides = metricOverrides.map((o) =>
+      omit(o, ["winRisk", "loseRisk"]),
+    );
   }
   if (customMetricSlices) {
     analysisSettings.customMetricSlices = customMetricSlices;

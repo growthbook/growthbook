@@ -16,6 +16,7 @@ import {
   configResetReviewOnChange,
   constantAutopublishOnApproval,
   formatAncestorFieldConflictMessage,
+  orgRequiresAnyReview,
 } from "shared/util";
 import {
   configValidator,
@@ -126,12 +127,9 @@ function configProjects(snapshot: ConfigInterface): string[] {
 }
 
 function configApprovalConfigured(context: Context): boolean {
-  if (!context.hasPremiumFeature("require-approvals")) return false;
-  const requireReviews = context.org.settings?.requireReviews;
-  if (typeof requireReviews === "boolean") return requireReviews;
-  return (
-    Array.isArray(requireReviews) &&
-    requireReviews.some((r) => r.requireReviewOn)
+  return orgRequiresAnyReview(
+    context.org.settings,
+    context.hasPremiumFeature("require-approvals"),
   );
 }
 

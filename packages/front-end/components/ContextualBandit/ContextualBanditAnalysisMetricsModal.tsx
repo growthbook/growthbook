@@ -15,6 +15,7 @@ import useOrgSettings from "@/hooks/useOrgSettings";
 import { useAttributeSchema } from "@/services/features";
 import { useContextualBanditQueries } from "@/hooks/useContextualBanditQueries";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
+import { validatedSubmit } from "@/ui/Modal/validatedSubmit";
 import SelectField from "@/components/Forms/SelectField";
 import TextField from "@/ui/TextField";
 import MultiSelectField from "@/ui/MultiSelectField";
@@ -184,7 +185,7 @@ export default function ContextualBanditAnalysisMetricsModal({
         close={close}
         cta="Save"
         size="lg"
-        submit={form.handleSubmit(async (data) => {
+        submit={validatedSubmit(form, async (data) => {
           const query = contextualBanditQueries.find(
             (q) => q.id === data.exposureQueryId,
           );

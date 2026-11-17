@@ -14,6 +14,7 @@ export {
   getEventForwarderSinkTypeForDatasource,
   getEventForwarderUserIdTypeSourceAttribute,
   isEventForwarderManaged,
+  isEventForwarderSetupStepComplete,
   normalizeUserIdTypeName,
   resolveEventForwarderManagedName,
   resolveEventForwarderManagedUserIdTypes,
@@ -41,8 +42,11 @@ export type {
 export {
   USER_ID_TYPE_NAME_PATTERN,
   USER_ID_TYPE_NAME_RULE,
+  addAttributeToUserIdTypes,
   attributeToUserIdTypeName,
+  findSimilarUserIdType,
   isValidUserIdTypeName,
+  renameAttributeInUserIdTypes,
 } from "./user-id-types";
 
 export type { DataRegion } from "./data-regions";

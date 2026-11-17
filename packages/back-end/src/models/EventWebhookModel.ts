@@ -18,6 +18,7 @@ import {
 import { EventWebHookInterface } from "shared/types/event-webhook";
 import { errorStringFromZodResult } from "back-end/src/util/validation";
 import { logger } from "back-end/src/util/logger";
+import { NotFoundError } from "back-end/src/util/errors";
 import { validateWebhookTimeoutSeconds } from "back-end/src/util/http.util";
 import { ReqContext } from "back-end/types/request";
 import { createEvent } from "./EventModel";
@@ -528,13 +529,14 @@ export const sendEventWebhookTestEvent = async (
   context: ReqContext,
   webhookId: string,
 ) => {
-  if (!context.permissions.canCreateEventWebhook()) {
-    context.permissions.throwPermissionError();
-  }
-
   const webhook = await getEventWebHookById(webhookId, context.org.id);
 
-  if (!webhook) throw new Error(`Cannot find webhook with id ${webhookId}`);
+  if (!webhook)
+    throw new NotFoundError(`Cannot find webhook with id ${webhookId}`);
+
+  if (!context.permissions.canCreateEventWebhook(webhook)) {
+    context.permissions.throwPermissionError();
+  }
 
   await createEvent({
     context,

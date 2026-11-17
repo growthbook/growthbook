@@ -4,12 +4,14 @@ import {
   ApiAnalyticsExploration,
   ProductAnalyticsExploration,
   productAnalyticsExplorationValidator,
+  omitRenderOnlyFields,
 } from "shared/validators";
 import md5 from "md5";
 import {
   calculateProductAnalyticsDateRange,
   getDateGranularity,
   hasTimestampColumn,
+  withRequestedDisplayConfig,
 } from "shared/enterprise";
 import { getValidDate } from "shared/dates";
 import {
@@ -17,7 +19,6 @@ import {
   journeyFamilyIdentity,
   journeyCacheCandidateVerdict,
   journeyResultCanServe,
-  toClientJourneyExploration,
 } from "shared/journeys";
 import {
   getQueryById,
@@ -52,7 +53,7 @@ import { MakeModelClass } from "./BaseModel";
 function toApiInterface(
   exploration: ProductAnalyticsExploration,
 ): ApiAnalyticsExploration {
-  const client = toClientJourneyExploration(exploration, exploration.config);
+  const client = withRequestedDisplayConfig(exploration, exploration.config);
   if (client.config.type === "population") {
     throw new Error("Population previews are not part of the REST API");
   }
@@ -222,6 +223,9 @@ export class AnalyticsExplorationModel extends BaseClass {
         path: dataset.type === "data_source" ? dataset.path : null,
         sql: dataset.type === "sql" ? dataset.sql : null,
         rawTable: config.chartType === "rawTable",
+        ...(dataset.type === "metric" && dataset.population
+          ? { population: dataset.population }
+          : {}),
         timestampColumn:
           dataset.type === "data_source" || dataset.type === "sql"
             ? dataset.timestampColumn
@@ -252,7 +256,9 @@ export class AnalyticsExplorationModel extends BaseClass {
           ? [md5("journey")]
           : config.chartType === "rawTable"
             ? []
-            : dataset.values.map((value) => md5(JSON.stringify(value)));
+            : dataset.values.map((value) =>
+                md5(JSON.stringify(omitRenderOnlyFields(value))),
+              );
 
     return {
       generalSettingsHash,

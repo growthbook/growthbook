@@ -1,12 +1,12 @@
 import { useState } from "react";
 import { useRouter } from "next/router";
-import { Flex } from "@radix-ui/themes";
 import { DataSourceType } from "shared/types/datasource";
 import { isTestableDataSourceType } from "shared/validators";
 import { dataSourceConnections } from "@/services/eventSchema";
 import Heading from "@/ui/Heading";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import RadioCards from "@/ui/RadioCards";
+import DataSourceTypeIcon from "./DataSourceTypeIcon";
 
 // The connect page only handles warehouses with credentials to test, and
 // Mixpanel is deprecated for new connections.
@@ -58,11 +58,7 @@ export default function CustomDataSourceModal({
         options={warehouses.map((connection) => ({
           value: connection.type,
           label: connection.display,
-          avatar: (
-            <Flex align="center" flexShrink="0" style={{ fontSize: 28 }}>
-              {connection.icon}
-            </Flex>
-          ),
+          avatar: <DataSourceTypeIcon icon={connection.icon} />,
         }))}
       />
     </ModalStandard>

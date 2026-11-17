@@ -8,6 +8,7 @@ import {
 } from "back-end/src/models/FeatureRevisionModel";
 import { revisionRequiresReview } from "back-end/src/services/features";
 import {
+  assertArmDoesNotLaunchExperiments,
   canPublishFeatureRevision,
   canScheduleFeaturePublish,
   parseScheduledPublishDate,
@@ -59,6 +60,9 @@ export async function schedulePublish(
     : await canPublishFeatureRevision(req.context, feature, revision);
   if (!allowed) {
     req.context.permissions.throwPermissionError();
+  }
+  if (date) {
+    await assertArmDoesNotLaunchExperiments(req.context, feature, revision);
   }
 
   // A scheduled publish runs as a resolvable dashboard user at fire time. Reject

@@ -1,4 +1,3 @@
-import { startCase } from "lodash";
 import {
   FactMetricInterface,
   FactTableDefinition,
@@ -9,68 +8,21 @@ import {
   draftExplorationMetricValidator,
 } from "shared/validators";
 import { DEFAULT_EXPLORE_STATE } from "shared/enterprise";
-import { isFactFunnelMetric } from "shared/experiments";
+import {
+  getFactMetricFactTableIds,
+  isFactCompoundMetric,
+  isFactFunnelMetric,
+} from "shared/experiments";
 import { funnelSettingsToFunnelDataset } from "shared/funnels";
-
-export function getMetricPreviewDateRange(
-  now = new Date(),
-): ExplorationConfig["dateRange"] {
-  const start = new Date(now);
-  const end = new Date(now);
-  start.setUTCDate(start.getUTCDate() - 7);
-  end.setUTCDate(end.getUTCDate() - 1);
-  return {
-    predefined: "customDateRange",
-    startDate: start.toISOString().slice(0, 10),
-    endDate: end.toISOString().slice(0, 10),
-  };
-}
-
-export function getMetricPreviewUnitLabel(
-  unit: string,
-  factTable:
-    | (Pick<FactTableDefinition, "userIdColumns"> & {
-        columns: Pick<
-          FactTableDefinition["columns"][number],
-          "column" | "name"
-        >[];
-      })
-    | null,
-): { label: string; column: string } {
-  const column = factTable?.userIdColumns?.[unit] || unit;
-  const name = factTable?.columns
-    .find((c) => c.column === column)
-    ?.name?.trim();
-  const commonNames: Record<string, string> = {
-    userid: "Users",
-    anonymousid: "Anonymous users",
-    deviceid: "Devices",
-    sessionid: "Sessions",
-    accountid: "Accounts",
-    organizationid: "Organizations",
-    orgid: "Organizations",
-    customerid: "Customers",
-    visitorid: "Visitors",
-  };
-  const key = unit.replace(/[_\s-]/g, "").toLowerCase();
-  return {
-    label:
-      name ||
-      (Object.prototype.hasOwnProperty.call(commonNames, key)
-        ? commonNames[key]
-        : startCase(unit)),
-    column,
-  };
-}
 
 export function getMetricPreviewUnits(
   metric: FactMetricInterface | null,
   getFactTable: (id: string) => Pick<FactTableDefinition, "userIdTypes"> | null,
 ): { numerator: string[]; denominator: string[] } {
   if (!metric) return { numerator: [], denominator: [] };
-  if (isFactFunnelMetric(metric)) {
-    const tables = metric.funnelSettings.steps.map((step) =>
-      getFactTable(step.factTableId),
+  if (isFactFunnelMetric(metric) || isFactCompoundMetric(metric)) {
+    const tables = getFactMetricFactTableIds(metric).map((id) =>
+      getFactTable(id),
     );
     const units = tables[0]?.userIdTypes ?? [];
     return {
@@ -128,8 +80,6 @@ export function getPreviewDraftMetric(metric: FactMetricInterface) {
     maxPercentChange: 1,
     minPercentChange: 0,
     minSampleSize: 0,
-    winRisk: 0,
-    loseRisk: 0,
     regressionAdjustmentOverride: false,
     regressionAdjustmentEnabled: false,
     regressionAdjustmentDays: 0,
@@ -167,7 +117,6 @@ export function getMetricPreviewConfig(
     dateRange,
     type: "metric",
     chartType: "bar",
-    ...(metric.metricType === "mean" ? { showAs: "per_unit" as const } : {}),
     dataset: {
       type: "metric",
       values: [
@@ -179,6 +128,9 @@ export function getMetricPreviewConfig(
           rowFilters: [],
           unit,
           denominatorUnit,
+          ...(metric.metricType === "mean"
+            ? { showAs: "per_unit" as const }
+            : {}),
         },
       ],
     },
@@ -252,23 +204,4 @@ export function getMetricPreviewSummary(
             ? "Matching units, 7-day total"
             : "Average per unit-day",
   };
-}
-
-// The preview headline is 3rem in a ~330px panel. Compact notation keeps any
-// realistic value to about 8 characters ("-999.99T"), so it never runs past
-// the panel; tiny values keep their significant digits instead of rounding
-// to 0.
-export function formatPreviewHeadline(value: number): string {
-  const abs = Math.abs(value);
-  if (abs >= 100_000) {
-    return value.toLocaleString(undefined, {
-      notation: "compact",
-      maximumFractionDigits: 2,
-    });
-  }
-  if (abs > 0 && abs < 0.001) return value.toExponential(2);
-  if (abs > 0 && abs < 1) {
-    return value.toLocaleString(undefined, { maximumSignificantDigits: 3 });
-  }
-  return value.toLocaleString(undefined, { maximumFractionDigits: 2 });
 }

@@ -164,7 +164,7 @@ function MethodPill({ method }: { method: string }) {
         lineHeight: "16px",
         fontWeight: 600,
         letterSpacing: 0.3,
-        fontFamily: "var(--font-mono, monospace)",
+        fontFamily: "var(--code-font-family)",
       }}
     >
       {upper || "?"}

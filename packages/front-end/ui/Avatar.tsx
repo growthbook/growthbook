@@ -5,7 +5,8 @@ import { forwardRef, ReactNode } from "react";
 import { radixSize, Size as SharedSize } from "@/ui/sizes";
 import styles from "./Avatar.module.scss";
 
-export type Size = SharedSize<"sm" | "md" | "lg">;
+// xs is Radix "1" shrunk in Avatar.module.scss.
+export type Size = SharedSize<"xs" | "sm" | "md" | "lg">;
 
 export type Props = {
   size?: Size;
@@ -33,8 +34,12 @@ export default forwardRef<HTMLImageElement, Props>(function Avatar(
     <RadixAvatar
       {...otherProps}
       ref={ref}
-      className={clsx(styles.avatar, ring && styles.ring)}
-      size={radixSize(size)}
+      className={clsx(
+        styles.avatar,
+        ring && styles.ring,
+        size === "xs" && styles.xs,
+      )}
+      size={size === "xs" ? "1" : radixSize(size)}
       color={color}
       variant={variant}
       radius={radius}

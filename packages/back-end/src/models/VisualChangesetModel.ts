@@ -22,6 +22,7 @@ import type {
   OwnerVariation,
 } from "back-end/src/services/changesetOwner";
 import { ApiReqContext } from "back-end/types/api";
+import { NotFoundError } from "back-end/src/util/errors";
 
 const visualChangesetURLPatternSchema =
   new mongoose.Schema<VisualChangesetURLPattern>(
@@ -73,6 +74,7 @@ const visualChangesetSchema = new mongoose.Schema<VisualChangesetInterface>({
     type: String,
     index: true,
   },
+  dateUpdated: Date,
   // VisualChanges are associated with one of the variations of the experiment
   // associated with the VisualChangeset
   visualChanges: {
@@ -161,6 +163,7 @@ export async function findVisualChangesetsByExperiment(
   experiment: string,
   organization: string,
 ): Promise<VisualChangesetInterface[]> {
+  if (experiment && typeof experiment !== "string") return [];
   const visualChangesets = await VisualChangesetModel.find({
     experiment,
     organization,
@@ -292,7 +295,7 @@ export async function createVisualChange(
   const visualChangeset = await findVisualChangesetById(id, organization);
 
   if (!visualChangeset) {
-    throw new Error("Visual Changeset not found");
+    throw new NotFoundError("Visual Changeset not found");
   }
 
   const visualChanges = [...visualChangeset.visualChanges, visualChange];
@@ -357,7 +360,7 @@ export async function updateVisualChange({
   );
 
   if (!visualChangeset) {
-    throw new Error("Visual Changeset not found");
+    throw new NotFoundError("Visual Changeset not found");
   }
 
   // Strip `id` from the payload so callers can't rename a visual change
@@ -467,12 +470,15 @@ export const updateVisualChangeset = async ({
   context,
   updates,
   bypassWebhooks,
+  guarded = false,
 }: {
   visualChangeset: VisualChangesetInterface;
   owner: ChangesetOwner | null;
   context: ReqContext | ApiReqContext;
   updates: VisualChangesetUpdates;
   bypassWebhooks?: boolean;
+  // Writes only if nothing has updated it since `visualChangeset` was read.
+  guarded?: boolean;
 }) => {
   // pick() preserves explicit-undefined keys, which would flow into $set and
   // could unset fields if Mongoose's casting behavior changes. Strip them.
@@ -509,14 +515,21 @@ export const updateVisualChangeset = async ({
     {
       id: visualChangeset.id,
       organization: context.org.id,
+      ...(guarded && {
+        dateUpdated: visualChangeset.dateUpdated ?? { $exists: false },
+      }),
     },
     {
       $set: {
         ...safeUpdates,
         visualChanges,
+        dateUpdated: new Date(),
       },
     },
   );
+  if (!res.matchedCount) {
+    return { matched: false, nModified: 0, visualChanges };
+  }
 
   if (owner) {
     await owner.setHasVisualChangesets(true);
@@ -540,7 +553,7 @@ export const updateVisualChangeset = async ({
     bypassWebhooks,
   });
 
-  return { nModified: res.modifiedCount, visualChanges };
+  return { matched: true, nModified: res.modifiedCount, visualChanges };
 };
 
 const onVisualChangesetCreate = async ({

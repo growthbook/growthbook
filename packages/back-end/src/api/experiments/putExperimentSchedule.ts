@@ -4,7 +4,6 @@ import {
 } from "shared/validators";
 import { scheduleWriteNeedsRunPermission } from "shared/experiments";
 import { scheduleActions } from "shared/util";
-import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import { setExperimentSchedule } from "back-end/src/services/experimentScheduling";
 import { assertCanRunExperimentInAffectedEnvironments } from "back-end/src/services/experiments";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
@@ -14,15 +13,12 @@ import {
   requireConfirmation,
 } from "back-end/src/services/confirmations";
 import { toEnhancedExperimentApiResponse } from "./enhancedExperimentResponse";
+import { requireExperiment } from "./requireExperiment";
 
 export const putExperimentSchedule = createApiRequestHandler(
   putExperimentScheduleValidator,
 )(async (req) => {
-  const experiment = await getExperimentById(req.context, req.params.id);
-  if (!experiment) throw new Error("Could not find the experiment");
-  if (experiment.type === "holdout") {
-    throw new Error("Holdouts are not supported via this API");
-  }
+  const experiment = await requireExperiment(req.context, req.params.id);
   if (!req.context.permissions.canUpdateExperiment(experiment, {})) {
     req.context.permissions.throwPermissionError();
   }

@@ -3,6 +3,7 @@ import { PiInfo } from "react-icons/pi";
 import {
   ExperimentMetricDefinition,
   ExperimentSortBy,
+  isFactFunnelMetric,
 } from "shared/experiments";
 import {
   DifferenceType,
@@ -11,7 +12,10 @@ import {
   SignificanceThresholds,
 } from "shared/types/stats";
 import { ExperimentStatus } from "shared/types/experiment";
-import { ExperimentReportVariation } from "shared/types/report";
+import {
+  ExperimentReportResultDimension,
+  ExperimentReportVariation,
+} from "shared/types/report";
 import { Box, Flex, Text, TextField, Tooltip } from "@radix-ui/themes";
 import { FaSearch } from "react-icons/fa";
 import { ExperimentTableRow } from "@/services/experiments";
@@ -22,14 +26,19 @@ import PremiumEmptyState from "@/components/PremiumEmptyState";
 import { useTableSorting } from "@/hooks/useTableSorting";
 import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
-import { filterRowsForMetricDrilldown } from "./helpers";
+import { Select, SelectItem } from "@/ui/Select";
+import {
+  buildFunnelStepSliceRows,
+  filterRowsForMetricDrilldown,
+} from "./helpers";
 import { type DrilldownDimensionInfo } from "./useMetricDrilldownContext";
 
 interface MetricDrilldownSlicesProps {
   metric: ExperimentMetricDefinition;
   // Rows computed by parent using useExperimentTableRows
   rows: ExperimentTableRow[];
-  variationNames: string[];
+  // Needed to look up per-step slice results for funnel metrics
+  results: ExperimentReportResultDimension;
   differenceType: DifferenceType;
   setDifferenceType: (type: DifferenceType) => void;
   statsEngine: StatsEngine;
@@ -56,6 +65,9 @@ interface MetricDrilldownSlicesProps {
   // Search state (managed by parent to persist across tab switches)
   searchTerm: string;
   setSearchTerm: (term: string) => void;
+  // Selected funnel step (managed by parent to persist across tab switches)
+  funnelStepIndex: number;
+  setFunnelStepIndex: (index: number) => void;
   // Timeseries state (managed by parent to persist across tab switches)
   visibleTimeSeriesRowIds: string[];
   setVisibleTimeSeriesRowIds: (ids: string[]) => void;
@@ -68,6 +80,7 @@ interface MetricDrilldownSlicesProps {
 const MetricDrilldownSlices: FC<MetricDrilldownSlicesProps> = ({
   metric,
   rows,
+  results,
   differenceType,
   setDifferenceType,
   statsEngine,
@@ -90,6 +103,8 @@ const MetricDrilldownSlices: FC<MetricDrilldownSlicesProps> = ({
   initialSortDirection,
   searchTerm,
   setSearchTerm,
+  funnelStepIndex,
+  setFunnelStepIndex,
   visibleTimeSeriesRowIds,
   setVisibleTimeSeriesRowIds,
   ssrPolyfills,
@@ -114,13 +129,44 @@ const MetricDrilldownSlices: FC<MetricDrilldownSlicesProps> = ({
     initialSortDirection,
   );
 
+  const funnelSteps = isFactFunnelMetric(metric)
+    ? metric.funnelSettings.steps
+    : [];
+  // Steps can be removed after a snapshot was run
+  const selectedStepIndex =
+    funnelStepIndex < funnelSteps.length ? funnelStepIndex : 0;
+
   const { mainRow, sliceRows, filteredSliceRows } = useMemo(() => {
     return filterRowsForMetricDrilldown(rows, metric.id, searchTerm);
   }, [rows, metric.id, searchTerm]);
 
   const rowsToSort = useMemo(() => {
+    if (funnelSteps.length) {
+      // Funnels slice per step, not per funnel: the selected step leads its
+      // own slices, and its last step doubles as whole-funnel completion.
+      const stepRow = rows.find(
+        (r) =>
+          r.childRowType === "funnelStep" &&
+          r.metric.id === metric.id &&
+          r.funnelStepIndex === selectedStepIndex,
+      );
+      return buildFunnelStepSliceRows({
+        stepRow,
+        sliceRows: filteredSliceRows,
+        stepIndex: selectedStepIndex,
+        results,
+      });
+    }
     return mainRow ? [mainRow, ...filteredSliceRows] : filteredSliceRows;
-  }, [mainRow, filteredSliceRows]);
+  }, [
+    mainRow,
+    filteredSliceRows,
+    funnelSteps.length,
+    rows,
+    metric.id,
+    selectedStepIndex,
+    results,
+  ]);
 
   const rowsToRender = useTableSorting({
     rows: rowsToSort,
@@ -175,7 +221,20 @@ const MetricDrilldownSlices: FC<MetricDrilldownSlicesProps> = ({
         mb="3"
         style={{ marginBottom: "12px" }}
       >
-        <Flex align="center" gap="2">
+        <Flex align="center" gap="3">
+          {funnelSteps.length > 0 && (
+            <Select
+              value={String(selectedStepIndex)}
+              setValue={(value) => setFunnelStepIndex(parseInt(value, 10))}
+              style={{ width: "300px" }}
+            >
+              {funnelSteps.map((step, index) => (
+                <SelectItem key={index} value={String(index)}>
+                  {`Step ${index + 1}: ${step.name}`}
+                </SelectItem>
+              ))}
+            </Select>
+          )}
           <div style={{ width: "300px" }}>
             <TextField.Root
               placeholder="Search"
@@ -225,6 +284,12 @@ const MetricDrilldownSlices: FC<MetricDrilldownSlicesProps> = ({
             {row.isSliceRow ? (
               <Text size="1" style={{ color: "var(--color-text-low)" }}>
                 {row.sliceLevels?.map((dl) => dl.column).join(" + ")}
+              </Text>
+            ) : row.childRowType === "funnelStep" &&
+              row.funnelStepIndex !== undefined ? (
+              <Text size="1" style={{ color: "var(--color-text-low)" }}>
+                Step {row.funnelStepIndex + 1}
+                {row.funnelStepOptional ? " (optional)" : ""}
               </Text>
             ) : null}
           </Flex>

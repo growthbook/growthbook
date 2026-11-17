@@ -1,5 +1,4 @@
 import {
-  validateFeatureValue,
   getRuleAttributeScopeProjectIds,
   getConfigBackingPatch,
   getConfigBackingKey,
@@ -14,6 +13,7 @@ import {
 import { updateFeatureV2Validator } from "shared/validators";
 import { FeatureInterface, FeatureRule } from "shared/types/feature";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
+import { assertStorableFeatureValue } from "back-end/src/util/storableFeatureValue";
 import { assertFeatureMoveDependentsGuard } from "back-end/src/services/moveDependentsGuard";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import type { BypassedGate } from "back-end/src/revisions/publishGates";
@@ -33,6 +33,7 @@ import {
 import {
   addIdsToFlatRules,
   assertFeatureValuesValid,
+  assertHoldoutValueValid,
   getApiFeatureObjV2,
   getFeatureDefinitionLookups,
   inheritStoredRolloutSeeds,
@@ -189,9 +190,8 @@ export const updateFeatureV2 = createApiRequestHandler(
 
   let defaultValue: string | undefined;
   if (req.body.defaultValue != null) {
-    // Always normalize (parse / dirty-json fixup), but only enforce the schema
-    // when not explicitly skipped.
-    defaultValue = validateFeatureValue(
+    // Enforce the schema unless explicitly skipped.
+    defaultValue = assertStorableFeatureValue(
       req.context.canSkipSchemaValidationFor("feature")
         ? { ...effectiveFeature, jsonSchema: undefined }
         : effectiveFeature,
@@ -270,6 +270,7 @@ export const updateFeatureV2 = createApiRequestHandler(
       req.body.project ?? feature.project,
     );
   }
+  assertHoldoutValueValid(req.context, effectiveFeature, req.body.holdout);
 
   // Block a config-backed default value coexisting with an enabled JSON schema
   // (either inbound or already on the flag), using the effective post-update

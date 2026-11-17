@@ -2,10 +2,10 @@
 title: "Migrate DIY Feature Flags"
 description: "Inventory environment-variable, hard-coded, JSON, and database feature flags, then migrate them to GrowthBook through typed adapters, shadow evaluation, measured cutover, and reversible cleanup."
 sidebarTitle: "Migrate DIY feature flags"
-last_verified: "2026-08-12"
-last_verified_growthbook_commit: "e44a15af063860c7118f52508746356d55e5a91d"
+last_verified: "2026-11-03"
+last_verified_growthbook_commit: "489de700e4a57af3b1c594a41c9f84e6aa146951"
 tested_stack:
-  - "@growthbook/growthbook 1.7.0"
+  - "@growthbook/growthbook 2.0.0"
   - "growthbook CLI 1.0.0"
   - "Node.js 22"
   - "TypeScript 5.7"
@@ -88,7 +88,7 @@ The reference Node.js/TypeScript service uses one `GrowthBookClient` for feature
 
 ## Tested stack
 
-The complete TypeScript examples were checked against GrowthBook commit `e44a15af063860c7118f52508746356d55e5a91d`, including `@growthbook/growthbook` 1.7.0 evaluation behavior and the SDK's own feature, typed-feature, and multi-user tests. The reference commands assume Node.js 22, TypeScript 5.7, npm, and Jest 29.7.
+The complete TypeScript examples were checked against GrowthBook commit `489de700e4a57af3b1c594a41c9f84e6aa146951`, including `@growthbook/growthbook` 2.0.0 evaluation behavior and the SDK's own feature, typed-feature, and multi-user tests. The reference commands assume Node.js 22, TypeScript 5.7, npm, and Jest 29.7.
 
 Pin the SDK and CLI versions in your lockfile. Re-run the contract tests in this guide before adopting a newer major version or changing GrowthBook rule semantics.
 
@@ -117,7 +117,6 @@ src/
     provider.ts
     legacy-loader.ts
     legacy-provider.ts
-    feature-refresh.ts
     growthbook-provider.ts
     decision-telemetry.ts
     migrating-provider.ts
@@ -494,13 +493,13 @@ A 10% legacy rollout and a 10% GrowthBook rollout usually include the same _amou
 
 Use one of these strategies:
 
-- **Preserve a small explicit cohort:** Import the existing account or user IDs into a GrowthBook Saved Group and target that group during migration. Keep ID lists concise because they increase the SDK payload.
+- **Preserve a small explicit cohort:** Import the existing account or user IDs into a GrowthBook Saved Group and target that group during migration. Keep ID lists concise because they increase the SDK payload. If the SDK payload does not contain the group, a rule that targets users in it matches nobody.
 - **Pass a temporary legacy-cohort attribute:** Continue calculating `legacy_invoice_preview=true` and target it in GrowthBook. Remove the attribute after the rollout completes. This preserves behavior but intentionally retains part of the legacy evaluator for a limited time.
 - **Preserve persisted assignments:** Export only the assignment data required by an approved migration design. Do not assume deterministic hashing can reproduce a stored assignment table.
 - **Accept re-bucketing:** Do this only for a low-risk release, outside an active experiment, with written approval. Tell support and analytics when assignment changes.
 - **Wait for 0% or 100%:** If the rollout can pause or finish safely, migrate after there is no partial cohort to preserve.
 
-Setting the same `hashAttribute` is necessary, but it is not proof of cohort parity. In GrowthBook, a percentage rule deterministically samples on the configured attribute. Missing the attribute causes the percentage rule to be skipped and evaluation falls through to the next rule or default. Test empty and missing identifiers explicitly.
+Setting the same `hashAttribute` is necessary, but it is not proof of cohort parity. In GrowthBook, a percentage rule deterministically samples on the configured attribute. Missing the attribute causes the percentage rule to be skipped and evaluation falls through to the next rule or default. A hash attribute must be a string or a number; any other value, such as a Boolean or an array, also counts as missing. Test empty and missing identifiers explicitly.
 
 ## Put one typed boundary in front of every read
 
@@ -509,7 +508,7 @@ Do this before GrowthBook controls a single production decision. The boundary le
 Install the SDK and test dependencies. Use the versions already accepted by your repository if they differ:
 
 ```bash
-npm install @growthbook/growthbook@1.7.0
+npm install @growthbook/growthbook@2.0.0
 npm install --save-dev typescript@5.7.3 jest@29.7.0 ts-jest@29.4.11 @types/jest@29.5.14
 ```
 
@@ -899,35 +898,9 @@ Use a table like this during review:
 
 Case matters. If the legacy system stores `country="us"` and GrowthBook targets `"US"`, either normalize the application attribute or configure the intended comparison. Do not “fix” casing only for some services.
 
+Types matter too. The SDK does not convert between strings, numbers, and Booleans when it compares an attribute to a condition. If the legacy system stores account IDs as numbers, the GrowthBook attribute type, the condition values, and the value the application sends must all agree. A number sent for a string attribute does not match. See [Updating to 2.0.0](/lib/js#updating-to-2-0-0) for the full comparison rules.
+
 ## Implement the GrowthBook provider
-
-Create `src/feature-flags/feature-refresh.ts`. SDK `1.7.0` does not have the newer `init({ pollingInterval })` option, so this example uses its supported `refreshFeatures` method. Start one timer per long-lived client, not per request.
-
-```ts title="src/feature-flags/feature-refresh.ts"
-import type { GrowthBookClient } from "@growthbook/growthbook";
-
-export function startFeaturePolling(
-  client: Pick<GrowthBookClient, "refreshFeatures">,
-): () => void {
-  let refreshing = false;
-  const timer = setInterval(() => {
-    if (refreshing) return;
-    refreshing = true;
-    void client
-      .refreshFeatures({ skipCache: true, timeout: 2_000 })
-      .catch(() => {
-        console.error("Unexpected GrowthBook refresh error");
-      })
-      .finally(() => {
-        refreshing = false;
-      });
-  }, 60_000);
-  timer.unref();
-  return () => clearInterval(timer);
-}
-```
-
-The timer bypasses the cache, skips overlapping refresh calls, and does not keep Node running by itself. Call its stop function before destroying the client. In this SDK version, `refreshFeatures()` resolves without a success receipt on ordinary network failures and retains the last payload; promise resolution is not proof of freshness. Monitor delivery and use a staging publish-to-evaluation check to prove propagation. Expect up to the polling interval plus delivery time while the endpoint is healthy, not an instantaneous kill switch. Define an operational staleness limit and escalation policy before production cutover.
 
 Create `src/feature-flags/growthbook-provider.ts`:
 
@@ -937,7 +910,6 @@ import {
   type FeatureApiResponse,
 } from "@growthbook/growthbook";
 import { isFeatureValue, type AppFeatures, type FeatureKey } from "./app-features.js";
-import { startFeaturePolling } from "./feature-refresh.js";
 import { toGrowthBookAttributes, type FlagContext } from "./context.js";
 import type {
   FeatureProvider,
@@ -960,7 +932,6 @@ export interface GrowthBookStartupReceipt {
 export class GrowthBookFlagProvider implements FeatureProvider {
   private constructor(
     private readonly client: GrowthBookClient<AppFeatures>,
-    private readonly stopPolling: () => void = () => {},
   ) {}
 
   public static async connect(options: GrowthBookConnectOptions): Promise<{
@@ -976,7 +947,10 @@ export class GrowthBookFlagProvider implements FeatureProvider {
       clientKey: options.clientKey,
     });
 
-    const result = await client.init({ timeout: options.timeoutMs });
+    const result = await client.init({
+      timeout: options.timeoutMs,
+      pollingInterval: 60_000,
+    });
     const receipt: GrowthBookStartupReceipt = {
       success: result.success,
       source: result.source,
@@ -984,7 +958,7 @@ export class GrowthBookFlagProvider implements FeatureProvider {
     };
 
     return {
-      provider: new GrowthBookFlagProvider(client, startFeaturePolling(client)),
+      provider: new GrowthBookFlagProvider(client),
       receipt,
     };
   }
@@ -1023,17 +997,18 @@ export class GrowthBookFlagProvider implements FeatureProvider {
   }
 
   public close(): void {
-    this.stopPolling();
     this.client.destroy({ destroyAllStreams: true });
   }
 }
 ```
 
+`connect` refreshes features with the SDK's built-in `pollingInterval` option, in milliseconds. Polling runs once per client key, not per request. It bypasses the cache, waits for each request to finish before scheduling the next, and does not keep Node running by itself. `close()` stops it. A failed poll keeps the last payload and backs off exponentially, up to 5 minutes between attempts. The SDK does not report poll results to the application, and `refreshFeatures()` still resolves without a success receipt, so neither is proof of freshness. Monitor delivery and use a staging publish-to-evaluation check to prove propagation. Expect up to the polling interval plus delivery time while the endpoint is healthy, and up to the back-off delay after an outage, not an instantaneous kill switch. Define an operational staleness limit and escalation policy before production cutover.
+
 The SDK's `init` method reports failures in its return value instead of throwing for normal network and timeout failures. Until a usable payload loads, feature evaluation returns `null`; this adapter converts that state to the explicit call-site fallback and marks it unusable. A non-null value that fails its runtime contract is also unusable, with `reason: "invalid-value"`. In `growthbook-preferred` mode that allows the legacy fallback; in `growthbook-only` mode it uses the code fallback.
 
 `fromPayload` is for deterministic tests. It uses the same payload shape as the SDK connection endpoint without making a network request.
 
-`connect` starts polling even if the first fetch fails, so later delivery can recover without restarting the service. `fromPayload` starts no timer. The [Node.js SDK documentation](/lib/node#refreshing-features) also covers streaming; if you need faster propagation, configure the required `EventSource` support and test it before replacing this polling implementation.
+`connect` starts polling even if the first fetch fails, so later delivery can recover without restarting the service. `fromPayload` starts no polling. The [Node.js SDK documentation](/lib/node#refreshing-features) also covers streaming; if you need faster propagation, configure the required `EventSource` support and test it. Polling is skipped while a stream is connected, so you can keep `pollingInterval` as a fallback.
 
 ## Emit comparison evidence without leaking identities
 
@@ -1561,7 +1536,7 @@ Classify every mismatch into one of these causes:
 - **Wrong default:** The feature exists, but its default differs from the legacy value.
 - **Rule order:** A context matches multiple rules and the first match differs.
 - **Attribute name:** `accountId` and `account_id` are different keys.
-- **Attribute type:** The old system compares a number while the new attribute is a string.
+- **Attribute type:** The old system compares a number while the new attribute is a string. The SDK does not convert between types, so the rule does not match.
 - **Normalization:** Casing, whitespace, Unicode, date formatting, or semantic version handling differs.
 - **Missing identity:** The percentage rule has no value for its hash attribute and falls through.
 - **Cohort re-bucketing:** Both providers include the intended percentage but assign different subjects.
@@ -1903,7 +1878,7 @@ Expected receipt:
 
 ```text
 Test Suites: 3 passed, 3 total
-Tests:       8 passed, 8 total
+Tests:       15 passed, 15 total
 ```
 
 Your exact count may differ. The acceptance signal is zero failed tests, a successful type check, and no network dependency in unit tests.
@@ -2010,7 +1985,7 @@ const client = new GrowthBookClient<AppFeatures>({
       value: result.value,
       reason: result.source,
       rule_id: result.ruleId,
-      unit_id: userContext.attributes.account_id ?? userContext.attributes.id,
+      unit_id: userContext.attributes?.account_id ?? userContext.attributes?.id,
     });
   },
 });
@@ -2195,7 +2170,7 @@ Record:
 
 OpenFeature is useful when a team has already standardized on its vendor-neutral evaluation API across multiple services, or portability is a stated architecture requirement. Do not add it merely to make this migration look more abstract.
 
-At the commit verified for this guide, GrowthBook documents OpenFeature providers for Python, Go, .NET, and Java. The native GrowthBook SDKs expose capabilities outside the OpenFeature interface, and the documented provider list does not include an official JavaScript/TypeScript provider. Therefore, the reference Node implementation uses the native SDK behind an application-owned interface.
+At the commit verified for this guide, GrowthBook documents OpenFeature providers for JavaScript (Node.js and web), Python, Go, .NET, and Java. The native GrowthBook SDKs expose capabilities outside the OpenFeature interface, such as Sticky Bucketing. The reference Node implementation uses the native SDK behind an application-owned interface because this migration does not need OpenFeature.
 
 Use an official GrowthBook OpenFeature provider in a supported language when all of these are true:
 
@@ -2205,7 +2180,7 @@ Use an official GrowthBook OpenFeature provider in a supported language when all
 - Provider initialization, shutdown, cache, and failure behavior are covered by contract tests.
 - The team accepts that native-only capabilities may require an escape hatch.
 
-Do not write an ad hoc JavaScript OpenFeature provider during a feature flag migration unless maintaining that adapter is itself an explicit project goal. The application-owned `FeatureProvider` in this guide already limits vendor-specific code to one file without claiming standards compliance.
+The JavaScript providers do not map `targetingKey` to GrowthBook's `id` attribute, so set `id` yourself. Do not write an ad hoc OpenFeature provider during a feature flag migration unless maintaining that adapter is itself an explicit project goal. The application-owned `FeatureProvider` in this guide already limits vendor-specific code to one file without claiming standards compliance.
 
 ## DIY versus GrowthBook: make the decision honestly
 
@@ -2290,7 +2265,7 @@ The strongest reason to migrate is not that GrowthBook can return a Boolean. It 
 
 ## Source map and freshness
 
-This guide was verified on 2026-08-12 against GrowthBook repository commit `e44a15af063860c7118f52508746356d55e5a91d` and these source areas:
+This guide was verified on 2026-11-03 against GrowthBook repository commit `489de700e4a57af3b1c594a41c9f84e6aa146951` and these source areas:
 
 | Claim or artifact                                                                       | Primary source                                                                                                        | Recheck when                                 |
 | --------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- | -------------------------------------------- |
@@ -2320,7 +2295,7 @@ End the migration with a machine-readable summary that another coding agent can 
   "migration": "diy-feature-flags-to-growthbook",
   "applicationCommit": "<GIT_COMMIT>",
   "deploymentRevision": "<DEPLOYMENT_REVISION>",
-  "growthbookVerifiedCommit": "e44a15af063860c7118f52508746356d55e5a91d",
+  "growthbookVerifiedCommit": "489de700e4a57af3b1c594a41c9f84e6aa146951",
   "providerMode": "growthbook-only",
   "featuresMigrated": 4,
   "unexplainedMismatches": 0,

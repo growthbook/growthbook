@@ -10,11 +10,14 @@ import {
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import {
   createSnapshot,
+  determineNextDate,
   getAdditionalExperimentAnalysisSettings,
   getDefaultExperimentAnalysisSettings,
   getSettingsForSnapshotMetrics,
   updateExperimentBanditSettings,
 } from "back-end/src/services/experiments";
+import { getScheduledAnalysisEndDate } from "back-end/src/services/scheduledAnalysisEndDate";
+import { findLatestSuccessfulSnapshotEndDate } from "back-end/src/models/ExperimentSnapshotModel";
 import {
   ConcurrentIncrementalRefreshError,
   UnrecoverableSnapshotError,
@@ -118,9 +121,11 @@ export const updateSingleExperiment = async (job: UpdateSingleExpJob) => {
   if (experiment.project) {
     project = await context.models.projects.getById(experiment.project);
   }
+  // With the experiment, as a manual refresh resolves them.
   const { settings: scopedSettings } = getScopedSettings({
     organization: context.org,
     project: project ?? undefined,
+    experiment,
   });
 
   // Disable auto snapshots for the experiment so it doesn't keep trying to update if schedule is off (non-bandits only)
@@ -136,6 +141,46 @@ export const updateSingleExperiment = async (job: UpdateSingleExpJob) => {
       },
     });
     return;
+  }
+
+  const phaseIndex = experiment.phases.length - 1;
+  const phase = experiment.phases[phaseIndex];
+  const updateSchedule = organization.settings?.updateSchedule ?? null;
+  const now = new Date();
+  const cutoff =
+    experiment.type !== "multi-armed-bandit" && phase && !phase.dateEnded
+      ? getScheduledAnalysisEndDate(updateSchedule, now)
+      : null;
+  if (phase && cutoff) {
+    const latestEndDate = await findLatestSuccessfulSnapshotEndDate(context, {
+      experiment: experiment.id,
+      phase: phaseIndex,
+    });
+    // A cutoff before the phase started leaves no data to analyze yet. A newer
+    // update (e.g. a manual one) may already cover a later cutoff; re-running
+    // would replace fresher results with older ones. An end date in the future
+    // (left by a phase end that was later cleared) must not hold off updates
+    // until that date.
+    const skipReason =
+      cutoff <= (phase.lookbackStartDate ?? phase.dateStarted)
+        ? "cutoff is before the phase started"
+        : latestEndDate && latestEndDate >= cutoff && latestEndDate <= now
+          ? "latest snapshot already covers"
+          : null;
+    if (skipReason) {
+      logger.info(
+        `Skipping scheduled update for experiment ${experimentId}: ${skipReason} ${cutoff.toISOString()}`,
+      );
+      const nextUpdate = determineNextDate(updateSchedule);
+      if (nextUpdate) {
+        await updateExperiment({
+          context,
+          experiment,
+          changes: { nextSnapshotAttempt: nextUpdate },
+        });
+      }
+      return;
+    }
   }
 
   try {
@@ -186,7 +231,7 @@ export const updateSingleExperiment = async (job: UpdateSingleExpJob) => {
     const queryRunner = await createSnapshot({
       experiment,
       context,
-      phaseIndex: experiment.phases.length - 1,
+      phaseIndex,
       defaultAnalysisSettings: analysisSettings,
       additionalAnalysisSettings:
         getAdditionalExperimentAnalysisSettings(analysisSettings),
@@ -197,6 +242,7 @@ export const updateSingleExperiment = async (job: UpdateSingleExpJob) => {
       type: "standard",
       triggeredBy: "schedule",
       reweight,
+      cutoff,
     });
     await queryRunner.waitForResults();
     const currentSnapshot = queryRunner.model;

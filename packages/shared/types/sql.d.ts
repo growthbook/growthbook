@@ -83,13 +83,46 @@ export type SqlIdentifierQuote = '"' | "`";
 // this case to match columns the user wrote without quotes (Snowflake: UPPER).
 export type UnquotedIdentifierFold = "upper" | "lower";
 
+// How a dialect quotes text in user-written SQL, for scanners that must skip
+// strings and quoted identifiers. Build it with `getSqlStringRules(dialect)`.
+export interface SqlStringRules {
+  // `\'` escapes a quote inside a string (BigQuery, MySQL, ...). Otherwise `\`
+  // is a literal character (Postgres, ...).
+  backslashEscapes: boolean;
+  // `[name]` quotes an identifier (SQL Server).
+  bracketIdentifiers: boolean;
+  // `\'` escapes a quote inside an `E'...'` string even though `\` is literal
+  // in a plain one (Postgres, Vertica).
+  eStrings: boolean;
+}
+
 export interface SqlDialect {
   identifierQuote: SqlIdentifierQuote;
+  // Whether user-written SQL can quote identifiers with [brackets] (SQL
+  // Server). Read when parsing user SQL, never used to generate it.
+  bracketIdentifiers: boolean;
+  // Whether user-written SQL can use `E'...'` strings, which take backslash
+  // escapes (Postgres, Vertica). Read when parsing user SQL.
+  eStrings: boolean;
   unquotedIdentifierFold?: UnquotedIdentifierFold;
   escapeStringLiteral: (s: string) => string;
   stringMatch: StringMatchFn;
   globMatch: GlobMatchFn;
   jsonExtract: (jsonCol: string, path: string, isNumeric: boolean) => string;
+  // JSON-array support required for interleaving exposures; absence
+  // means the warehouse does not support interleaving analysis yet.
+  jsonArray?: {
+    // Clause appended after a FROM-item that unnests its `jsonColumn` (one
+    // row per element). The column comes from a user-authored exposure query,
+    // so implementations must accept JSON text or the warehouse's native JSON
+    // type without knowing which. `itemAlias` is only meaningful to
+    // `fieldText`; it may be a column, a table alias, or a lateral alias
+    // depending on the engine.
+    unnest: (jsonColumn: string, itemAlias: string) => string;
+    // Text value of `field` on an element exposed by `unnest`; booleans must
+    // render as 'true'/'false'. Usable in SELECT, WHERE, and GROUP BY.
+    fieldText: (itemAlias: string, field: string) => string;
+  };
   evalBoolean: (col: string, value: boolean) => string;
   dateTrunc: (
     column: string,

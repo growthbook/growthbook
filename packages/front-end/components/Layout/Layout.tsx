@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import clsx from "clsx";
 import { useRouter } from "next/router";
 import { BsSearch } from "react-icons/bs";
@@ -12,11 +12,12 @@ import { WhiteButton } from "@/ui/Button";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import ProjectSelector from "./ProjectSelector";
 import SidebarLink, { SidebarLinkProps } from "./SidebarLink";
-import { navlinks } from "./sidebarNav";
+import { isSettingsRoute, navlinks } from "./sidebarNav";
 import TopNav from "./TopNav";
 import styles from "./Layout.module.scss";
 import { usePageHead } from "./PageHead";
 import { useSidebarOpen } from "./SidebarOpenProvider";
+import SettingsNav from "./SettingsNav";
 
 const breadcrumbLinks = [
   ...navlinks,
@@ -72,6 +73,15 @@ const Layout = (): React.ReactElement => {
 
   // hacky:
   const router = useRouter();
+  // Below 1400px the sidebar lists the Organization pages instead of the sub nav.
+  const [wide, setWide] = useState(true);
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 1400px)");
+    const update = () => setWide(mq.matches);
+    update();
+    mq.addEventListener("change", update);
+    return () => mq.removeEventListener("change", update);
+  }, []);
   const path = router.route.substr(1);
   // don't show the nav for presentations
   if (path.match(/^present\//)) {
@@ -104,6 +114,7 @@ const Layout = (): React.ReactElement => {
   });
 
   const build = getGrowthBookBuild();
+  const showSettingsNav = isSettingsRoute(router.route) && wide;
 
   return (
     <>
@@ -196,7 +207,11 @@ const Layout = (): React.ReactElement => {
                 </li>
                 <ProjectSelector />
                 {navlinks.map((v) => (
-                  <SidebarLink key={v.href} {...v} />
+                  <SidebarLink
+                    key={v.href}
+                    {...v}
+                    hideSubLinks={v.hideSubLinks && wide}
+                  />
                 ))}
               </ul>
             </div>
@@ -233,10 +248,12 @@ const Layout = (): React.ReactElement => {
         )}
       </div>
 
+      {showSettingsNav && <SettingsNav />}
       <TopNav
         pageTitle={pageTitle}
         showNotices={true}
         toggleLeftMenu={() => setOpen(!open)}
+        mutedBreadcrumb={isSettingsRoute(router.route)}
       />
     </>
   );

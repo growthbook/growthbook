@@ -1,47 +1,33 @@
-@import "../../styles/colors.scss";
+@import "../../styles/percent-suffix";
 
-.dragging {
-  z-index: 100 !important;
-  box-shadow: 0 5px 10px rgba(0, 0, 0, 0.1);
-  background-color: var(--color-panel-solid);
-}
-.thead {
-  tr th {
-    padding-bottom: 8px;
-  }
-}
-.tr {
-  position: relative;
-  td {
-    padding-top: 12px;
-    padding-bottom: 12px;
-    vertical-align: top;
-    border-top: none;
-    border-bottom: 1px solid var(--border-color-100);
-  }
-}
-.tr:last-of-type td {
-  border-bottom: none !important;
-}
-
-.colorMarker {
-  width: 4px;
-  position: absolute;
-  top: 12px;
-  left: 0;
-  height: calc(100% - 24px);
-}
-
-.percentInput {
-  width: 7em;
-}
+// Shrinks to its field, so the "%" sits against the field's edge.
 .percentInputWrap {
+  @include percent-suffix;
+  display: inline-block;
+
   span {
-    position: absolute;
-    right: 26px;
-    top: 7px;
-    z-index: 10000;
-    color: $gray-600;
+    color: var(--slate-11);
+  }
+
+  &.hideArrows input {
+    padding-right: calc(var(--space-2) + #{$suffix-room});
+  }
+
+  &.hideArrows span {
+    right: var(--space-2);
+  }
+}
+
+// An md field filling a fixed-width grid column.
+.percentInputWrapMd {
+  @include percent-suffix;
+
+  input {
+    width: 100%;
+  }
+
+  span {
+    color: var(--slate-11);
   }
 }
 
@@ -56,5 +42,17 @@
   /* Firefox */
   input[type="number"] {
     -moz-appearance: textfield;
+  }
+}
+
+// The grid row's padding already separates rows, so drop the field's margin.
+.tightValueCell {
+  > :global(.rt-Box),
+  :global(.form-group) {
+    margin-bottom: 0;
+  }
+
+  input {
+    width: 100%;
   }
 }

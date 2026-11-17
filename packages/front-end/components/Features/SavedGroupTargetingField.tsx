@@ -15,6 +15,7 @@ import LargeSavedGroupPerformanceWarning, {
 import Link from "@/ui/Link";
 import { formatSavedGroupOptionLabel } from "@/components/Features/SavedGroupOptionTooltip";
 import RadioGroup from "@/ui/RadioGroup";
+import RemoteGroupNotLoadedWarning from "@/components/SavedGroups/RemoteGroupNotLoadedWarning";
 import Callout from "@/ui/Callout";
 import {
   TargetingConditionsCard,
@@ -290,23 +291,29 @@ export default function SavedGroupTargetingField({
                     />
                   }
                   valueSlot={
-                    <MultiSelectField
-                      legacyHeight
-                      disabled={locked}
-                      value={v.ids}
-                      onChange={(ids) => {
-                        const newValue = [...value];
-                        newValue[i] = { ...v };
-                        newValue[i].ids = ids;
-                        setValue(newValue);
-                      }}
-                      options={options}
-                      formatOptionLabel={formatSavedGroupOptionLabel}
-                      valueTitles={false}
-                      required
-                      placeholder="Select groups..."
-                      closeMenuOnSelect={true}
-                    />
+                    <Box style={{ flexBasis: "100%", minWidth: 0 }}>
+                      <MultiSelectField
+                        legacyHeight
+                        disabled={locked}
+                        value={v.ids}
+                        onChange={(ids) => {
+                          const newValue = [...value];
+                          newValue[i] = { ...v };
+                          newValue[i].ids = ids;
+                          setValue(newValue);
+                        }}
+                        options={options}
+                        formatOptionLabel={formatSavedGroupOptionLabel}
+                        valueTitles={false}
+                        required
+                        placeholder="Select groups..."
+                        closeMenuOnSelect={true}
+                      />
+                      {v.match === "none" &&
+                        v.ids.map((id) => (
+                          <RemoteGroupNotLoadedWarning key={id} groupId={id} />
+                        ))}
+                    </Box>
                   }
                   removeSlot={
                     <Tooltip content="Remove group">

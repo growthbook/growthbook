@@ -1,0 +1,6 @@
+// Flex gap spaces the fields; drop legacy bottom margins (Name/Description,
+// and the metric window select when no settings box follows).
+.body > :global(.form-group),
+.body :global(.form-group:last-child) {
+  margin-bottom: 0 !important;
+}

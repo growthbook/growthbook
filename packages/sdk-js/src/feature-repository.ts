@@ -7,12 +7,8 @@ import {
   Polyfills,
 } from "./types/growthbook";
 import { getPolyfills, promiseTimeout } from "./util";
-import type {
-  GrowthBook,
-  InitOptions,
-  InitSyncOptions,
-  GrowthBookClient,
-} from ".";
+import { REMOTE_GROUP_IDS_ATTRIBUTE } from "./remoteSavedGroups";
+import type { GrowthBook, InitOptions, GrowthBookClient } from ".";
 
 type CacheEntry = {
   data: FeatureApiResponse;
@@ -311,6 +307,10 @@ function getCacheKey(instance: GrowthBook | GrowthBookClient): string {
   cacheKeyAttributes.forEach((key) => {
     ca[key] = attributes[key];
   });
+  // SDK-managed membership remains a dependency with a custom attribute list.
+  if (attributes[REMOTE_GROUP_IDS_ATTRIBUTE] !== undefined) {
+    ca[REMOTE_GROUP_IDS_ATTRIBUTE] = attributes[REMOTE_GROUP_IDS_ATTRIBUTE];
+  }
 
   const fv = instance.getForcedVariations();
   const url = instance.getUrl();
@@ -692,7 +692,10 @@ export function clearAutoRefresh() {
 
 export function startBackgroundSync(
   instance: GrowthBook | GrowthBookClient,
-  options: InitOptions | InitSyncOptions,
+  // Not the payload's type: callers may have one typed to their AppFeatures
+  options: Pick<InitOptions, "streaming" | "pollingInterval"> & {
+    payload?: unknown;
+  },
 ) {
   if (!options.streaming && options.pollingInterval === undefined) return;
 

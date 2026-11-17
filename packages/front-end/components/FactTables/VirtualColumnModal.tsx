@@ -20,6 +20,7 @@ import Button from "@/ui/Button";
 import Checkbox from "@/ui/Checkbox";
 import Callout from "@/ui/Callout";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
+import { validatedSubmit } from "@/ui/Modal/validatedSubmit";
 import FactTableSchema from "./FactTableSchema";
 
 export interface Props {
@@ -143,7 +144,7 @@ export default function VirtualColumnModal({
       cta={"Save"}
       size="lg"
       header={existing ? "Edit Virtual Column" : "Add Virtual Column"}
-      submit={form.handleSubmit(async (value) => {
+      submit={validatedSubmit(form, async (value) => {
         value.sql = value.sql.trim();
 
         if (!value.name.trim()) {

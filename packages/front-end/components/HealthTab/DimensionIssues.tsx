@@ -1,6 +1,7 @@
 import { ExperimentSnapshotTrafficDimension } from "shared/types/experiment-snapshot";
+import { Separator, Box, Flex } from "@radix-ui/themes";
 import { ExperimentReportVariation } from "shared/types/report";
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   DataSourceInterfaceWithParams,
   ExposureQuery,
@@ -11,6 +12,7 @@ import {
   DEFAULT_SRM_MINIMINUM_COUNT_PER_VARIATION,
   DEFAULT_SRM_THRESHOLD,
 } from "shared/constants";
+import { PiCaretRight } from "react-icons/pi";
 import { useUser } from "@/services/UserContext";
 import track from "@/services/track";
 import VariationUsersTable from "@/components/Experiment/TabbedPage/VariationUsersTable";
@@ -21,7 +23,9 @@ import {
   HealthTabConfigParams,
   HealthTabOnboardingModal,
 } from "@/components/Experiment/TabbedPage/HealthTabOnboardingModal";
+import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
+import Link from "@/ui/Link";
 import { EXPERIMENT_DIMENSION_PREFIX } from "./SRMCard";
 import HealthCard from "./HealthCard";
 import { IssueTags, IssueValue } from "./IssueTags";
@@ -53,6 +57,7 @@ export function transformDimensionData(
   variations: ExperimentReportVariation[],
   srmThreshold: number,
   isBandit: boolean,
+  disableSRM = false,
 ): DimensionWithIssues[] {
   return Object.entries(dimensionData).flatMap(
     ([dimensionName, dimensionSlices]) => {
@@ -61,23 +66,25 @@ export function transformDimensionData(
         return [];
       }
 
-      const dimensionSlicesWithIssues = dimensionSlices.filter((item) => {
-        const totalDimUsers = item.variationUnits.reduce(
-          (acc, a) => acc + a,
-          0,
-        );
-        return (
-          getSRMHealthData({
-            srm: item.srm,
-            numOfVariations: variations.length,
-            srmThreshold,
-            totalUsersCount: totalDimUsers,
-            minUsersPerVariation: isBandit
-              ? DEFAULT_SRM_BANDIT_MINIMINUM_COUNT_PER_VARIATION
-              : DEFAULT_SRM_MINIMINUM_COUNT_PER_VARIATION,
-          }) !== "healthy"
-        );
-      });
+      const dimensionSlicesWithIssues = disableSRM
+        ? []
+        : dimensionSlices.filter((item) => {
+            const totalDimUsers = item.variationUnits.reduce(
+              (acc, a) => acc + a,
+              0,
+            );
+            return (
+              getSRMHealthData({
+                srm: item.srm,
+                numOfVariations: variations.length,
+                srmThreshold,
+                totalUsersCount: totalDimUsers,
+                minUsersPerVariation: isBandit
+                  ? DEFAULT_SRM_BANDIT_MINIMINUM_COUNT_PER_VARIATION
+                  : DEFAULT_SRM_MINIMINUM_COUNT_PER_VARIATION,
+              }) !== "healthy"
+            );
+          });
 
       const issueNames = dimensionSlicesWithIssues.map((item) => item.name);
 
@@ -112,6 +119,25 @@ export const DimensionIssues = ({
     srmThreshold,
     !!isBandit,
   ).sort((a, b) => b.issues.length - a.issues.length);
+
+  const listRef = useRef<HTMLDivElement | null>(null);
+  const [moreBelow, setMoreBelow] = useState(false);
+  const updateMoreBelow = useCallback(() => {
+    const list = listRef.current;
+    setMoreBelow(
+      !!list && list.scrollHeight - list.scrollTop - list.clientHeight > 1,
+    );
+  }, []);
+  // Re-measured as the list mounts, gains or loses rows, or is resized.
+  const listLength = availableDimensions.length;
+  useEffect(() => {
+    const list = listRef.current;
+    if (!list) return;
+    updateMoreBelow();
+    const observer = new ResizeObserver(updateMoreBelow);
+    observer.observe(list);
+    return () => observer.disconnect();
+  }, [updateMoreBelow, listLength]);
 
   const [selectedDimension, setSelectedDimension] = useState(
     availableDimensions[0]?.value,
@@ -226,23 +252,25 @@ export const DimensionIssues = ({
                           variations={variations}
                           srm={d.srm}
                         />
-                        {d.health !== "not-enough-traffic" ? (
-                          <SRMWarning
-                            srm={d.srm}
-                            variations={variations}
-                            users={d.variationUnits}
-                            showWhenHealthy
-                            type="simple"
-                            isBandit={isBandit}
-                          />
-                        ) : (
-                          <Callout status="info">
-                            <b>
-                              More traffic is required to detect a Sample Ratio
-                              Mismatch (SRM).
-                            </b>
-                          </Callout>
-                        )}
+                        <Box mt="3">
+                          {d.health !== "not-enough-traffic" ? (
+                            <SRMWarning
+                              srm={d.srm}
+                              variations={variations}
+                              users={d.variationUnits}
+                              showWhenHealthy
+                              type="simple"
+                              isBandit={isBandit}
+                            />
+                          ) : (
+                            <Callout status="info">
+                              <b>
+                                More traffic is required to detect a Sample
+                                Ratio Mismatch (SRM).
+                              </b>
+                            </Callout>
+                          )}
+                        </Box>
                       </div>
                     </div>
                   </HealthCard>
@@ -259,10 +287,12 @@ export const DimensionIssues = ({
           <p className="mt-1">Highlights perceived issues across dimensions</p>
         </div>
 
-        <hr className="my-0 w-100" />
+        <Separator size="4" my="0" />
         {areDimensionsAvailable ? (
           <>
             <div
+              ref={listRef}
+              onScroll={updateMoreBelow}
               className="flex-fill flex-shrink-1 overflow-auto px-4"
               style={{ paddingTop: "12px" }}
             >
@@ -296,23 +326,25 @@ export const DimensionIssues = ({
                 );
               })}
             </div>
-            {/*TODO: if size of dimension list area is greater than DimensionIssues - (header + footer) add boxShadow. Hide otherwise.*/}
             <div
               className="py-3 px-4 w-100"
               style={{
-                boxShadow: "0px -5px 10px rgba(0, 0, 0, 0.1)",
+                boxShadow: moreBelow
+                  ? "0px -5px 10px rgba(0, 0, 0, 0.1)"
+                  : undefined,
               }}
             >
-              <a
-                className="a text-lg"
-                role="button"
+              <Link
+                weight="medium"
                 onClick={() => {
                   track("Open health tab dimension modal");
                   setModalOpen(true);
                 }}
               >
-                <h3>Explore dimensions {">"}</h3>
-              </a>
+                <Flex align="center" gap="1">
+                  Explore dimensions <PiCaretRight />
+                </Flex>
+              </Link>
             </div>
           </>
         ) : (
@@ -331,21 +363,19 @@ export const DimensionIssues = ({
             canConfigHealthTab &&
             exposureQuery.dimensions.length > 0 &&
             healthTabConfigParams ? (
-              <div className="pt-4 d-flex justify-content-center">
-                <div>
-                  <a
-                    href="#"
-                    className="btn btn-outline-primary"
-                    onClick={() => {
-                      track("Health Tab Onboarding Opened", {
-                        source: "dimension-issues",
-                      });
-                      setSetupModalOpen(true);
-                    }}
-                  >
-                    Configure experiment dimension slices
-                  </a>
-                </div>
+              <Flex justify="center" pt="4" px="4">
+                <Button
+                  variant="outline"
+                  wrap
+                  onClick={() => {
+                    track("Health Tab Onboarding Opened", {
+                      source: "dimension-issues",
+                    });
+                    setSetupModalOpen(true);
+                  }}
+                >
+                  Configure dimension slices
+                </Button>
                 {setupModalOpen ? (
                   <HealthTabOnboardingModal
                     open={setupModalOpen}
@@ -356,7 +386,7 @@ export const DimensionIssues = ({
                     healthTabOnboardingPurpose={"dimensions"}
                   />
                 ) : null}
-              </div>
+              </Flex>
             ) : null}
           </>
         )}

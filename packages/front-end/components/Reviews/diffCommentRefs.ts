@@ -65,8 +65,8 @@ export type DiffSnapshotEntry = DiffRefSnapshotLine & {
 };
 
 // Section keys may not contain `:` (the token delimiter). Everything we
-// generate (`rules`, `environmentsEnabled.production`, `rampAction.<id>`)
-// fits this charset.
+// generate (`rules`, `environmentsEnabled`, `rampAction.<id>`, and the older
+// `environmentsEnabled.<env>`) fits this charset.
 const REF_BLOCK_RE =
   /```diff-ref ([A-Za-z0-9_.-]+):([LR])(\d+)\n([\s\S]*?)```/g;
 // Legacy single-token form (no snapshot); still parsed, no longer emitted.

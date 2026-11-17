@@ -305,6 +305,10 @@ export function blockFitsGap(
   return bounds.minW <= gap.w && bounds.minH <= gap.h;
 }
 
+export function gridRowsToPixels(rows: number, rowHeight: number) {
+  return rows * rowHeight + (rows - 1) * DASHBOARD_GRID_MARGIN;
+}
+
 export function gridRectToPixels({
   rect,
   containerWidth,
@@ -321,6 +325,6 @@ export function gridRectToPixels({
     left: rect.x * (columnWidth + DASHBOARD_GRID_MARGIN),
     top: rect.y * (rowHeight + DASHBOARD_GRID_MARGIN),
     width: rect.w * columnWidth + (rect.w - 1) * DASHBOARD_GRID_MARGIN,
-    height: rect.h * rowHeight + (rect.h - 1) * DASHBOARD_GRID_MARGIN,
+    height: gridRowsToPixels(rect.h, rowHeight),
   };
 }

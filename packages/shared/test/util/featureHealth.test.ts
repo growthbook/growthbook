@@ -879,6 +879,7 @@ describe("getHealthSettings", () => {
       experimentMinLengthDays: 3,
       srmThreshold: 0.001,
       multipleExposureMinPercent: 0.01,
+      clusterIssueMinPercent: 0.01,
     });
   });
 

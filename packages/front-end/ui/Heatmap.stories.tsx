@@ -1,4 +1,5 @@
-import { Flex, Text } from "@radix-ui/themes";
+import { Flex } from "@radix-ui/themes";
+import Text from "./Text";
 import Badge from "./Badge";
 import Heatmap, {
   HeatmapColorScale,
@@ -13,6 +14,32 @@ const variationColumns: HeatmapColumn[] = [
   { key: "v3", header: "Variation 3" },
   { key: "v4", header: "Variation 4" },
 ];
+
+const roundedColumns: HeatmapColumn[] = [
+  { key: "a", header: "A" },
+  { key: "b", header: "B" },
+  { key: "c", header: "C" },
+];
+
+function makeRoundedRows(): HeatmapRow[] {
+  const data: { key: string; label: string; values: number[] }[] = [
+    // All three read "17%" (0.1665/0.1666/0.1667) -> one uniform shade.
+    {
+      key: "uniform",
+      label: "17%, 17%, 17%",
+      values: [0.1666, 0.1667, 0.1665],
+    },
+    // 0.104 reads "10%"; 0.106 and 0.110 both read "11%" -> last two match.
+    { key: "two-labels", label: "10%, 11%, 11%", values: [0.104, 0.106, 0.11] },
+    // Same labels reordered -> same shades follow the labels, not the columns.
+    { key: "reordered", label: "11%, 11%, 10%", values: [0.11, 0.106, 0.104] },
+  ];
+  return data.map(({ key, label, values }) => ({
+    key,
+    label: <Badge color="gray" label={label} />,
+    cells: values.map((value) => ({ value })),
+  }));
+}
 
 function makeRows(): HeatmapRow[] {
   const data: { label: string; values: number[]; units: number }[] = [
@@ -46,7 +73,7 @@ function makeRows(): HeatmapRow[] {
     key: `row-${i}`,
     label: (
       <Flex gap="2" align="center" wrap="wrap">
-        <Text size="2" weight="medium">
+        <Text size="md" weight="medium">
           IF
         </Text>
         <Badge color="gray" label={row.label} />
@@ -64,7 +91,7 @@ export default function HeatmapStories() {
   return (
     <Flex direction="column" gap="6">
       <Flex direction="column" gap="2">
-        <Text size="2" weight="bold">
+        <Text size="md" weight="semibold">
           Default (indigo, row-normalized) with a leading Units column
         </Text>
         <Heatmap
@@ -76,7 +103,7 @@ export default function HeatmapStories() {
       </Flex>
 
       <Flex direction="column" gap="2">
-        <Text size="2" weight="bold">
+        <Text size="md" weight="semibold">
           Global normalization (intensity compared across the whole grid)
         </Text>
         <Heatmap
@@ -88,12 +115,12 @@ export default function HeatmapStories() {
       </Flex>
 
       <Flex direction="column" gap="2">
-        <Text size="2" weight="bold">
+        <Text size="md" weight="semibold">
           Color scales
         </Text>
         {scales.map((scale) => (
           <Flex key={scale} direction="column" gap="1">
-            <Text size="1" style={{ color: "var(--gray-9)" }}>
+            <Text size="sm" color="text-low">
               {scale}
             </Text>
             <Heatmap
@@ -107,7 +134,38 @@ export default function HeatmapStories() {
       </Flex>
 
       <Flex direction="column" gap="2">
-        <Text size="2" weight="bold">
+        <Text size="md" weight="semibold">
+          Rounded-equal values share a shade (row-normalized)
+        </Text>
+        <Text size="sm" color="text-low">
+          Raw values differ below display precision, so cells with the same
+          label get the same shade (e.g. 0.106 and 0.110 both read 11%).
+        </Text>
+        <Heatmap
+          labelHeader="Context"
+          columns={roundedColumns}
+          rows={makeRoundedRows()}
+        />
+      </Flex>
+
+      <Flex direction="column" gap="2">
+        <Text size="md" weight="semibold">
+          Rounded-equal values share a shade (global normalization)
+        </Text>
+        <Text size="sm" color="text-low">
+          With normalize=&quot;all&quot; the same label maps to the same shade
+          across every row, not just within one.
+        </Text>
+        <Heatmap
+          labelHeader="Context"
+          columns={roundedColumns}
+          rows={makeRoundedRows()}
+          normalize="all"
+        />
+      </Flex>
+
+      <Flex direction="column" gap="2">
+        <Text size="md" weight="semibold">
           Counts (custom formatter) with null cells
         </Text>
         <Heatmap
@@ -116,12 +174,12 @@ export default function HeatmapStories() {
           rows={[
             {
               key: "a",
-              label: <Text size="2">browser is chrome</Text>,
+              label: <Text size="md">browser is chrome</Text>,
               cells: [{ value: 1204 }, { value: 980 }, { value: null }],
             },
             {
               key: "b",
-              label: <Text size="2">browser is safari</Text>,
+              label: <Text size="md">browser is safari</Text>,
               cells: [{ value: 311 }, { value: 720 }, { value: 540 }],
             },
           ]}

@@ -30,10 +30,13 @@ import { getErrorMessage } from "back-end/src/util/errors";
 //    the entity's bypass-approval permission.
 //  - "skipHooks": custom validation-hook rejections — also bypass-approval only,
 //    but its own flag (a hook failure isn't a schema error).
+//  - "skipChecklist": an experiment start's incomplete launch checklist item —
+//    anyone can acknowledge it.
 export type PublishGateOverride =
   | "ignoreWarnings"
   | "skipSchemaValidation"
-  | "skipHooks";
+  | "skipHooks"
+  | "skipChecklist";
 
 /** The non-flag way past a gate, expressed as a callable REST route. */
 export type PublishGateResolution = {
@@ -73,6 +76,7 @@ export type PublishOverrideFlags = {
   ignoreWarnings?: boolean;
   skipSchemaValidation?: boolean;
   skipHooks?: boolean;
+  skipChecklist?: boolean;
 };
 
 // The override class for a schema-family failure (JSON-schema conformance,
@@ -229,6 +233,8 @@ export function hookResultsToGates(
 export type PublishGateClearance = {
   /** The request asked to force past warnings (body `ignoreWarnings`). */
   ignoreWarnings: boolean;
+  /** An experiment start asked to skip its incomplete checklist items. */
+  skipChecklist?: boolean;
   // The caller may skip validation-class gates (schema errors, invariants,
   // schema-break, hook failures) — i.e. they passed `skipSchemaValidation` AND
   // hold the entity family's bypass-approval permission. Already resolves flag+permission
@@ -325,15 +331,18 @@ export function classifyPublishGate(
 
   const flags: PublishOverrideFlags = {
     ignoreWarnings: clearance.ignoreWarnings,
+    skipChecklist: clearance.skipChecklist,
   };
   // Any family's bypass-approval atom clears a stale base — the gate names the
   // one for its own entity, and the clearance already resolved whether the
   // caller holds it.
   const hasPermission = (permission: string) =>
     isBypassApprovalPermission(permission) && clearance.canForceMergeStaleBase;
-  if (unclearedGates([gate], flags, hasPermission).length === 0) {
-    // Only ignoreWarnings-override gates are flag-clearable here.
-    return { outcome: "bypassed", via: "ignoreWarnings" };
+  if (
+    gate.override &&
+    unclearedGates([gate], flags, hasPermission).length === 0
+  ) {
+    return { outcome: "bypassed", via: gate.override };
   }
 
   if (gate.type === "config-locked") return { outcome: "blocking" };
@@ -406,7 +415,7 @@ export function evaluatePublishGates(
   return { blocking, bypassed, skipped };
 }
 
-function formatGateLine(gate: PublishGate): string {
+export function formatGateLine(gate: PublishGate): string {
   const summary = gate.messages.join(" ");
   if (!gate.override) return `- [${gate.type}] ${summary}`;
   const permissionNote = gate.requiresPermission

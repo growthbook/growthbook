@@ -8,6 +8,8 @@ export function getMetricEnd(
   metrics: ExperimentMetricInterface[],
   initial?: Date,
   overrideConversionWindows?: boolean,
+  // No data past this is read, so conversion windows stop there too.
+  cutoffDate?: Date | null,
 ): Date | null {
   if (!initial) return null;
   if (overrideConversionWindows) return initial;
@@ -30,5 +32,5 @@ export function getMetricEnd(
     metricEnd.setHours(metricEnd.getHours() + maxHours);
   }
 
-  return metricEnd;
+  return cutoffDate && cutoffDate < metricEnd ? cutoffDate : metricEnd;
 }

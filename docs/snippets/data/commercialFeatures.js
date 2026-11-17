@@ -29,9 +29,17 @@ export default {
     plan: "pro",
     displayName: "Cloud Proxy",
   },
+  "cluster-experiments": {
+    plan: "pro",
+    displayName: "Cluster Experiments",
+  },
   "code-references": {
     plan: "pro",
     displayName: "Code References",
+  },
+  "compound-metrics": {
+    plan: "pro",
+    displayName: "Compound Metrics",
   },
   "contextual-bandits": {
     plan: "enterprise",
@@ -276,10 +284,6 @@ export default {
   "sequential-testing": {
     plan: "pro",
     displayName: "Sequential Testing",
-  },
-  "share-product-analytics-dashboards": {
-    plan: "enterprise",
-    displayName: "Share Product Analytics Dashboards",
   },
   simulate: {
     plan: "pro",

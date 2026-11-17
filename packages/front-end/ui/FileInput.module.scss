@@ -1,0 +1,43 @@
+.control {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  height: 36px;
+  margin-bottom: 0;
+  padding: 0 8px 0 4px;
+  gap: 8px;
+  cursor: pointer;
+  font-size: var(--font-size-2);
+  line-height: normal;
+  color: var(--text-color-main);
+  background-color: var(--color-surface);
+  border: 1px solid var(--gray-a7);
+  border-radius: var(--radius-2);
+
+  &:focus {
+    outline: none;
+    border-color: var(--gray-a7);
+    box-shadow: 0 0 0 1px var(--violet-8);
+  }
+}
+
+.name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font: inherit;
+  letter-spacing: normal;
+}
+
+.placeholder {
+  color: var(--gray-10);
+}
+
+// Not display: none. That hides the browser's required message.
+.native {
+  display: block;
+  height: 0;
+  width: 0;
+  opacity: 0;
+}

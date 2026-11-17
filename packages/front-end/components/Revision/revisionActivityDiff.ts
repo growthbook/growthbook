@@ -8,8 +8,7 @@ import {
 // replaying the per-entry snapshots in chronological order. Returns `null`
 // for entries that didn't change content (e.g. merged/discarded/reopened,
 // or any entry from a revision created before per-entry snapshots were
-// persisted). Shared between CompareSavedGroupRevisionsModal and the
-// Review & Publish timeline's per-entry "Details" disclosure.
+// persisted).
 export function buildPerEntryDiffSnapshots<T>(
   revision: Revision,
   activityId: string,

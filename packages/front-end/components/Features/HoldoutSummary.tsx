@@ -1,54 +1,30 @@
 import { FeatureInterface } from "shared/types/feature";
-import { Box, Flex, Text } from "@radix-ui/themes";
-import ValidateValue from "@/components/Features/ValidateValue";
-import Badge from "@/ui/Badge";
-import { AttributeBadge } from "./AttributeBadge";
-import ValueDisplay from "./ValueDisplay";
+import { Box } from "@radix-ui/themes";
+import ForceSummary from "./ForceSummary";
+import RolloutRow from "./RolloutRow";
+import { SampleByField } from "./RuleField";
 
-const percentFormatter = new Intl.NumberFormat(undefined, {
-  style: "percent",
-  maximumFractionDigits: 2,
-});
-
+// A holdout's split, laid out as a rollout's is.
 export default function HoldoutSummary({
   value,
   feature,
   hashAttribute,
-  holdoutWeight,
+  holdoutSize,
+  environment,
 }: {
   value: string;
   feature: FeatureInterface;
   hashAttribute: string;
-  holdoutWeight: number;
+  holdoutSize: number;
+  // Environment this value is shown for, so a config-backed value previews its
+  // matching env flavor. Absent (all-environments view) = the base value.
+  environment?: string;
 }) {
   return (
     <Box>
-      <Flex direction="row" gap="2" mb="3">
-        <Text weight="medium">HOLDOUT</Text>
-        <Badge
-          color="gray"
-          label={
-            <Text style={{ color: "var(--slate-12)" }}>
-              {percentFormatter.format(holdoutWeight)}
-            </Text>
-          }
-        />
-        of
-        <AttributeBadge attributeId={hashAttribute} />
-      </Flex>
-      <Flex gap="3">
-        <Box>
-          <Text weight="medium">SERVE</Text>
-        </Box>
-        <Box flexGrow="1">
-          <ValueDisplay
-            value={value}
-            type={feature.valueType}
-            showFullscreenButton={true}
-          />
-        </Box>
-      </Flex>
-      <ValidateValue value={value} feature={feature} />
+      <SampleByField hashAttribute={hashAttribute} />
+      <RolloutRow coverage={holdoutSize} label="Holdout" />
+      <ForceSummary value={value} feature={feature} environment={environment} />
     </Box>
   );
 }

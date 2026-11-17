@@ -8,7 +8,7 @@ import {
   mergeRevision,
 } from "shared/util";
 import {
-  ACTIVE_DRAFT_STATUSES,
+  isActiveDraftStatus,
   SafeRolloutInterface,
   HoldoutInterface,
   MinimalFeatureRevisionInterface,
@@ -209,6 +209,7 @@ export function useFeaturePageData(
     setUnavailableVersions(new Set());
     setLoadingVersions(new Set());
     inFlight.current = new Set();
+    baseVersions.current = new Set();
     generation.current += 1;
   }, [fid]);
 
@@ -225,28 +226,68 @@ export function useFeaturePageData(
     );
   }, [baseData, targetVersion, targetBaseVersion, loadRevisions]);
 
+  // Open drafts loaded beyond the initial response, which can still change.
+  const loadedDrafts = () =>
+    Object.values(cachedRevisions)
+      .filter((r) => !inBaseSet(r.version) && isActiveDraftStatus(r.status))
+      .map((r) => r.version);
+
   // Also reloads what was loaded beyond the initial response and can still
   // change: the version on screen and any open drafts, so edits show up
   const refreshData = async () => {
-    const changeable = Object.values(cachedRevisions)
-      .filter(
-        (r) =>
-          !inBaseSet(r.version) &&
-          (ACTIVE_DRAFT_STATUSES as readonly string[]).includes(r.status),
-      )
-      .map((r) => r.version);
+    const changeable = loadedDrafts();
     const onScreen = [targetVersion, targetBaseVersion].filter(
       (v): v is number => v !== null && !inBaseSet(v),
     );
     const reload = [...new Set([...onScreen, ...changeable])];
-    await Promise.all([
+    const [fresh] = await Promise.all([
       mutateBase(),
       mutateRampSchedules(),
       reload.length
         ? loadRevisions(reload, { force: true })
         : Promise.resolve(),
     ]);
+    // A draft the response carried until now, and no longer does (discarded,
+    // say), keeps its copy from before unless it's reloaded too.
+    const dropped = [
+      ...[targetVersion, targetBaseVersion].filter(
+        (v): v is number => v !== null,
+      ),
+      ...Object.values(cachedRevisions)
+        .filter((r) => isActiveDraftStatus(r.status))
+        .map((r) => r.version),
+    ].filter(
+      (v) => inBaseSet(v) && !fresh?.revisions?.some((r) => r.version === v),
+    );
+    if (dropped.length) {
+      await loadRevisions([...new Set(dropped)], { force: true });
+    }
   };
+
+  // The initial response revalidates when the tab regains focus; the drafts
+  // loaded beyond it do too, so edits made elsewhere show up.
+  const reloadDraftsRef = useRef(() => {});
+  reloadDraftsRef.current = () => {
+    const drafts = loadedDrafts();
+    if (drafts.length) void loadRevisions(drafts, { force: true });
+  };
+  useEffect(() => {
+    // As often as SWR revalidates on focus.
+    const throttleMs = 5_000;
+    let last = 0;
+    const onFocus = () => {
+      if (document.visibilityState !== "visible") return;
+      if (Date.now() - last < throttleMs) return;
+      last = Date.now();
+      reloadDraftsRef.current();
+    };
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onFocus);
+    return () => {
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onFocus);
+    };
+  }, []);
 
   // When the ramp-schedule poll detects an advancement (step or status change),
   // re-fetch the full feature payload so revisions and rule state stay in sync.
@@ -269,7 +310,10 @@ export function useFeaturePageData(
     }
   }, [rampSchedulesData]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Seed cache from initial response
+  // Seed cache from initial response. A version the response stopped
+  // carrying (a draft discarded elsewhere, say) is reloaded, or its cached copy
+  // would stay as it was.
+  const baseVersions = useRef<Set<number>>(new Set());
   useEffect(() => {
     if (!baseData || !baseData.feature || baseData.feature.id !== fid) {
       return;
@@ -282,7 +326,11 @@ export function useFeaturePageData(
       });
       return next;
     });
-  }, [baseData, fid]);
+    const carried = new Set(baseData.revisions.map((r) => r.version));
+    const dropped = [...baseVersions.current].filter((v) => !carried.has(v));
+    baseVersions.current = carried;
+    if (dropped.length) void loadRevisions(dropped, { force: true });
+  }, [baseData, fid, loadRevisions]);
 
   const isReady = useCallback(
     (v: number) => {
@@ -290,9 +338,12 @@ export function useFeaturePageData(
         !!cachedRevisions[version] ||
         (baseData?.revisions?.some((r) => r.version === version) ?? false);
       const base = baseVersionOf(v);
-      return loaded(v) && (base === null || loaded(base));
+      return (
+        loaded(v) &&
+        (base === null || loaded(base) || unavailableVersions.has(base))
+      );
     },
-    [cachedRevisions, baseData, baseVersionOf],
+    [cachedRevisions, baseData, baseVersionOf, unavailableVersions],
   );
 
   const setVersion = useCallback(

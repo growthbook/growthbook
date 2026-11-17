@@ -1,0 +1,177 @@
+.caretTriggerRoot,
+.caretTrigger {
+  display: inline-flex;
+  min-width: 0;
+}
+
+.caretTriggerRoot,
+.baselineText {
+  align-self: baseline;
+  min-width: 0;
+}
+
+.baselineText {
+  display: flex;
+}
+
+.caretTrigger {
+  border-bottom: 1px solid transparent;
+
+  // A long revision name is cut off at the caret, without an ellipsis.
+  :global(.rt-truncate) {
+    text-overflow: clip;
+  }
+
+  &:hover {
+    border-bottom-color: currentColor;
+  }
+}
+
+.sizeContainer {
+  container-type: inline-size;
+}
+
+.grid {
+  --cell-inset: var(--space-3);
+  display: grid;
+}
+
+.headerCell,
+.cell {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  padding: var(--space-2) var(--cell-inset);
+  border-bottom: 1px solid var(--gray-a4);
+  background: var(--color-panel-solid);
+}
+
+.cell {
+  align-items: flex-start;
+}
+
+.fieldLine {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  min-height: 32px;
+}
+
+.headerCell {
+  min-height: 44px;
+  padding-top: var(--space-3);
+  padding-bottom: var(--space-2);
+  border-bottom-color: var(--gray-a5);
+}
+
+.pinnedStart {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+}
+
+.detailsCell {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+  padding: var(--space-2) var(--cell-inset);
+  background: var(--color-panel-solid);
+
+  &:empty {
+    padding: 0;
+  }
+}
+
+.headerCell.pinnedStart,
+.cell.pinnedStart,
+.detailsCell.pinnedStart:not(:empty) {
+  padding-left: var(--space-3);
+}
+
+.splitField {
+  width: 100%;
+  min-width: 0;
+
+  > *,
+  input {
+    max-width: 100%;
+  }
+}
+
+.headerCell.lastColumn,
+.cell.lastColumn,
+.detailsCell.lastColumn {
+  padding-right: var(--space-3);
+}
+
+.implementationColumn {
+  display: contents;
+}
+
+.revealOnHover {
+  opacity: 0;
+  transition: opacity 0.1s ease-in-out;
+
+  .implementationColumn:has(:hover) &,
+  .grid:has(.pinnedStart:hover) .pinnedStart &,
+  &:focus-visible,
+  &:focus-within,
+  &[data-state="open"],
+  &:has([data-state="open"]) {
+    opacity: 1;
+  }
+}
+
+.footerMessages:empty {
+  display: none;
+}
+
+.footerLine {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+  min-width: 0;
+  font-size: var(--font-size-2);
+  line-height: var(--line-height-2);
+
+  &::before {
+    // Interpolated so Sass keeps the escape: emitting the raw character makes
+    // it prefix a byte-order mark, which breaks the module's first rule.
+    content: #{'"\\200b"'};
+    margin-inline-end: calc(-1 * var(--space-3));
+  }
+}
+
+.columnHeader {
+  position: relative;
+}
+
+.headerActions {
+  position: absolute;
+  top: var(--space-3);
+  bottom: var(--space-2);
+  right: var(--cell-inset);
+  padding-left: calc(var(--space-3) + var(--space-4));
+  background: linear-gradient(
+    to right,
+    transparent,
+    var(--color-panel-solid) var(--space-3)
+  );
+}
+
+$menu-trigger-size: 24px;
+
+.clearOfMenu {
+  padding-right: calc(#{$menu-trigger-size} + var(--space-2));
+}
+
+.headerActions.menuOnly {
+  padding-left: 0;
+  background: none;
+}
+
+.headerType {
+  font-size: var(--font-size-2);
+  line-height: var(--line-height-2);
+}

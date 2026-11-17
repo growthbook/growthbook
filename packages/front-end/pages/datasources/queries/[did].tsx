@@ -3,14 +3,20 @@ import { PiXBold } from "react-icons/pi";
 import { useRouter } from "next/router";
 import { ago, datetime } from "shared/dates";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
-import {
-  DataSourceUsage,
+import type {
+  DataSourceUsage as DataSourceUsageData,
   QueryInterface,
   QueryLogInterface,
   QueryLogUsage,
   QueryLogUsageGroup,
 } from "shared/types/query";
-import { Box, Flex, Grid, IconButton } from "@radix-ui/themes";
+import {
+  Box,
+  Flex,
+  Grid,
+  IconButton,
+  SegmentedControl,
+} from "@radix-ui/themes";
 import { isManagedWarehouseUnavailable } from "shared/util";
 import { useSearch } from "@/services/search";
 import useApi from "@/hooks/useApi";
@@ -33,7 +39,6 @@ import Link from "@/ui/Link";
 import Text from "@/ui/Text";
 import TextField from "@/ui/TextField";
 import Tooltip from "@/ui/Tooltip";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
 import Table, {
   TableBody,
   TableCell,
@@ -54,7 +59,7 @@ type UsageUnit = {
 };
 
 type UsageResponse = {
-  usage: DataSourceUsage;
+  usage: DataSourceUsageData;
   recent: QueryLogInterface[];
   running: Pick<
     QueryInterface,
@@ -139,11 +144,6 @@ const DataSourceUsagePage = (): React.ReactElement => {
   const { did } = router.query as { did: string };
   const { getDatasourceById, ready, error: datasourceError } = useDefinitions();
   const d = getDatasourceById(did);
-  const managedWarehousePending = d ? isManagedWarehouseUnavailable(d) : false;
-
-  const { data, error, mutate } = useApi<UsageResponse>(
-    `/datasource/${did}/usage`,
-  );
 
   const header = (
     <>
@@ -178,92 +178,136 @@ const DataSourceUsagePage = (): React.ReactElement => {
   if (!permissions.check("readData", d.projects || [])) {
     return errorPage("You do not have access to view this page.");
   }
-  if (error) return errorPage(error.message);
-  if (!data) return <LoadingOverlay />;
-
-  const units = USAGE_UNITS[d.type] ?? DEFAULT_USAGE_UNITS;
-  const { total } = data.usage;
 
   return (
     <div className="container pagecontents">
-      {managedWarehousePending ? (
-        <Box mt="3" mb="3">
-          <ManagedWarehouseNoEventsCallout />
-        </Box>
-      ) : null}
       {header}
-
-      <Heading as="h2" size="md" mb="3">
-        Last 30 Days
-      </Heading>
-      <Grid
-        columns={{ initial: "1", sm: String(units.length + 1) }}
-        gap="4"
-        mb="4"
-      >
-        {units.map((u) => (
-          <Frame key={u.field} mb="0" py="4" px="5">
-            <Text color="text-mid" weight="medium">
-              {u.label}
-            </Text>
-            <Tooltip content={u.exact(total[u.field])}>
-              <Text as="div" size="xl" weight="semibold">
-                {u.scaleFor([total[u.field]])(total[u.field])}
-              </Text>
-            </Tooltip>
-          </Frame>
-        ))}
-        <Frame mb="0" py="4" px="5">
-          <Text color="text-mid" weight="medium">
-            Queries
-          </Text>
-          <Text as="div" size="xl" weight="semibold">
-            {total.queries.toLocaleString()}
-          </Text>
-        </Frame>
-      </Grid>
-
-      <IncrementalRefreshCallout
-        datasource={d}
-        usage={data.usage}
-        units={units}
-      />
-
-      <Tabs defaultValue="factTables">
-        <TabsList>
-          {DRIVER_TABS.map((t) => (
-            <TabsTrigger key={t.key} value={t.key}>
-              {t.label}
-            </TabsTrigger>
-          ))}
-        </TabsList>
-        {DRIVER_TABS.map((t) => (
-          <TabsContent key={t.key} value={t.key}>
-            <UsageGroupTable
-              tab={t}
-              groups={data.usage[t.key]}
-              total={total}
-              units={units}
-              data={data}
-            />
-          </TabsContent>
-        ))}
-      </Tabs>
-
-      <Heading as="h2" size="md" mt="6" mb="3">
-        Recent Queries
-      </Heading>
-      <RecentQueries
-        datasource={d}
-        data={data}
-        units={units}
-        onCancel={mutate}
-      />
+      <DataSourceUsage datasource={d} />
     </div>
   );
 };
 
 export default DataSourceUsagePage;
+
+const DRIVER_TABS = [
+  { key: "factTables", label: "Fact tables", column: "Fact table" },
+  { key: "experiments", label: "Experiments", column: "Experiment" },
+  { key: "users", label: "People", column: "Run by" },
+  { key: "queryTypes", label: "Query types", column: "Query type" },
+] as const;
+
+type UsageDriver = (typeof DRIVER_TABS)[number]["key"];
+
+export function DataSourceUsage({
+  datasource,
+}: {
+  datasource: DataSourceInterfaceWithParams;
+}): React.ReactElement {
+  const [driverTab, setDriverTab] = useState<UsageDriver>("factTables");
+  const managedWarehousePending = isManagedWarehouseUnavailable(datasource);
+  const { data, error, mutate } = useApi<UsageResponse>(
+    `/datasource/${datasource.id}/usage`,
+  );
+
+  if (error) {
+    return <Callout status="error">{error.message}</Callout>;
+  }
+  if (!data) {
+    return <LoadingOverlay />;
+  }
+
+  const units = USAGE_UNITS[datasource.type] ?? DEFAULT_USAGE_UNITS;
+  const { total } = data.usage;
+  const activeDriver =
+    DRIVER_TABS.find((tab) => tab.key === driverTab) ?? DRIVER_TABS[0];
+
+  const summaryCards = (
+    <Grid
+      columns={{ initial: "1", sm: String(units.length + 1) }}
+      gap="4"
+      mb="4"
+    >
+      {units.map((u) => (
+        <Frame key={u.field} mb="0" py="4" px="5">
+          <Text color="text-mid" weight="medium">
+            {u.label}
+          </Text>
+          <Tooltip content={u.exact(total[u.field])}>
+            <Text as="div" size="xl" weight="semibold">
+              {u.scaleFor([total[u.field]])(total[u.field])}
+            </Text>
+          </Tooltip>
+        </Frame>
+      ))}
+      <Frame mb="0" py="4" px="5">
+        <Text color="text-mid" weight="medium">
+          Queries
+        </Text>
+        <Text as="div" size="xl" weight="semibold">
+          {total.queries.toLocaleString()}
+        </Text>
+      </Frame>
+    </Grid>
+  );
+
+  return (
+    <>
+      {managedWarehousePending ? (
+        <Box mt="3" mb="3">
+          <ManagedWarehouseNoEventsCallout />
+        </Box>
+      ) : null}
+
+      <Heading as="h2" size="md" mb="3">
+        Last 30 Days
+      </Heading>
+      {summaryCards}
+
+      <IncrementalRefreshCallout
+        datasource={datasource}
+        usage={data.usage}
+        units={units}
+      />
+
+      <Box mb="3">
+        <SegmentedControl.Root
+          style={{ width: "fit-content" }}
+          value={driverTab}
+          onValueChange={(value) => {
+            if (DRIVER_TABS.some((tab) => tab.key === value)) {
+              setDriverTab(value as UsageDriver);
+            }
+          }}
+          aria-label="Usage breakdown"
+        >
+          {DRIVER_TABS.map((tab) => (
+            <SegmentedControl.Item key={tab.key} value={tab.key}>
+              {tab.label}
+            </SegmentedControl.Item>
+          ))}
+        </SegmentedControl.Root>
+      </Box>
+      <UsageGroupTable
+        key={activeDriver.key}
+        tab={activeDriver}
+        groups={data.usage[activeDriver.key]}
+        total={total}
+        units={units}
+        data={data}
+      />
+
+      <Heading as="h2" size="md" mt="6" mb="3">
+        Recent Queries
+      </Heading>
+      <RecentQueries
+        datasource={datasource}
+        data={data}
+        units={units}
+        onCancel={mutate}
+      />
+    </>
+  );
+}
 
 function IncrementalRefreshCallout({
   datasource,
@@ -271,7 +315,7 @@ function IncrementalRefreshCallout({
   units,
 }: {
   datasource: DataSourceInterfaceWithParams;
-  usage: DataSourceUsage;
+  usage: DataSourceUsageData;
   units: UsageUnit[];
 }) {
   const pipeline = datasource.settings.pipelineSettings;
@@ -309,13 +353,6 @@ function IncrementalRefreshCallout({
     </Callout>
   );
 }
-
-const DRIVER_TABS = [
-  { key: "factTables", label: "Fact tables", column: "Fact table" },
-  { key: "experiments", label: "Experiments", column: "Experiment" },
-  { key: "users", label: "People", column: "Run by" },
-  { key: "queryTypes", label: "Query types", column: "Query type" },
-] as const;
 
 type GroupRow = QueryLogUsage & {
   id: string;

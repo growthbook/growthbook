@@ -1,7 +1,18 @@
 import React, { FC, useState } from "react";
-import { FaPencilAlt } from "react-icons/fa";
 import { date } from "shared/dates";
-import { Box, Flex, Heading, Text } from "@radix-ui/themes";
+import { Box, Flex, Separator } from "@radix-ui/themes";
+import Badge from "@/ui/Badge";
+import DataList, { DataListItem } from "@/ui/DataList";
+import Table, {
+  TableBody,
+  TableCell,
+  TableColumnHeader,
+  TableHeader,
+  TableRow,
+} from "@/ui/Table";
+import Heading from "@/ui/Heading";
+import HelperText from "@/ui/HelperText";
+import Text from "@/ui/Text";
 import { useUser } from "@/services/UserContext";
 import EditLicenseModal from "@/components/Settings/EditLicenseModal";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
@@ -15,13 +26,16 @@ import DownloadLicenseUsageButton from "./DownloadLicenseUsageButton";
 
 const ShowLicenseInfo: FC<{
   showInput?: boolean;
-}> = ({ showInput = true }) => {
+  /** False when the surrounding card already titles the block. */
+  showHeading?: boolean;
+}> = ({ showInput = true, showHeading = true }) => {
   const { accountPlan, license, refreshOrganization, subscription } = useUser();
   const planNotices = useAccountPlanNotices();
   const permissionsUtil = usePermissionsUtil();
   const [editLicenseOpen, setEditLicenseOpen] = useState(false);
 
   const [upgradeModal, setUpgradeModal] = useState(false);
+  const [refreshError, setRefreshError] = useState("");
 
   // The accountPlan is the effective plan given possible downgrades.
   // but we want to show the actual plan on the license.
@@ -44,6 +58,64 @@ const ShowLicenseInfo: FC<{
 
   const showSeatUsage =
     license?.plan === "enterprise" && !showInstallationChart;
+  const planColor =
+    actualPlan === "enterprise"
+      ? "indigo"
+      : actualPlan === "pro" || actualPlan === "pro_sso"
+        ? "gold"
+        : "gray";
+
+  const statusActive = ["active", "trialing"].includes(
+    subscription?.status || "",
+  );
+  const licenseDetails: DataListItem[] = [
+    ...(showInput
+      ? [
+          {
+            label: "License key",
+            value: (
+              <Flex align="center" gap="2">
+                <Text color="text-mid">
+                  {license ? "***************" : "(none)"}
+                </Text>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setEditLicenseOpen(true)}
+                >
+                  Edit
+                </Button>
+              </Flex>
+            ),
+          },
+        ]
+      : []),
+    // A license might not have a plan if a stripe pro form is not filled out
+    ...(license?.plan
+      ? [
+          ...(["pro", "pro_sso"].includes(license.plan) && subscription?.status
+            ? [
+                {
+                  label: "Status",
+                  value: (
+                    <Badge
+                      label={subscription.status}
+                      color={statusActive ? "green" : "red"}
+                      variant="soft"
+                    />
+                  ),
+                },
+              ]
+            : []),
+          { label: "Issued", value: date(license.dateCreated || "") },
+          { label: "Expires", value: date(license.dateExpires || "") },
+          { label: "Seats", value: String(license.seats) },
+          ...(license.id?.startsWith("license") && showSeatUsage
+            ? [{ label: "Seats in use", value: String(license.seatsInUse) }]
+            : []),
+        ]
+      : []),
+  ];
 
   return (
     <Box>
@@ -61,165 +133,94 @@ const ShowLicenseInfo: FC<{
         />
       )}
       <Box>
-        <div className="divider border-bottom mb-3 mt-3" />
+        {showHeading && <Separator size="4" my="3" />}
         <Flex justify="start" gap="4">
-          <Box width="220px">
-            <Heading as="h4" size="4">
-              License
-            </Heading>
-          </Box>
-          <Box flexGrow="1">
+          {showHeading && (
+            <Box width="220px">
+              <Heading as="h4" size="md">
+                License
+              </Heading>
+            </Box>
+          )}
+          <Flex direction="column" gap="4" flexGrow="1" minWidth="0">
             <Box>
-              <div className="form-group row mb-3">
-                <div className="col-sm-12">
-                  <Flex justify="start" gap="3" align="center">
-                    <Box>
-                      <Text className="font-weight-semibold">Plan type:</Text>
-                    </Box>
-                    <Box>{licensePlanText}</Box>
-                    {showUpgradeButton && (
-                      <Button
-                        variant={"ghost"}
-                        onClick={() => setUpgradeModal(true)}
-                      >
-                        Upgrade
-                      </Button>
-                    )}
-                  </Flex>
-                </div>
-                <Box pl="2">
-                  <NoticeStack notices={planNotices} />
-                </Box>
-              </div>
-              {permissionsUtil.canManageBilling() && (
-                <div className="form-group row mt-3 mb-0">
-                  {showInput && (
-                    <div className="col-auto mr-3 nowrap">
-                      <div>
-                        <Text className="font-weight-semibold">
-                          License Key:{" "}
-                        </Text>
-                      </div>
-                      <div
-                        className="d-inline-block mt-1 mb-2 nowrap text-center text-muted"
-                        style={{
-                          width: 105,
-                          borderBottom: "1px solid #cccccc",
-                          pointerEvents: "none",
-                          overflow: "hidden",
-                          verticalAlign: "top",
-                        }}
-                      >
-                        {license ? "***************" : "(none)"}
-                      </div>{" "}
-                      <a
-                        href="#"
-                        className="pl-1"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          setEditLicenseOpen(true);
-                        }}
-                      >
-                        <FaPencilAlt />
-                      </a>
-                    </div>
+              <Text as="div" weight="semibold" mb="2">
+                Plan type
+              </Text>
+              <Flex align="center" gap="3" wrap="wrap">
+                <Badge
+                  label={licensePlanText.toUpperCase()}
+                  color={planColor}
+                  variant="solid"
+                  radius="full"
+                />
+                {showUpgradeButton && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setUpgradeModal(true)}
+                  >
+                    Upgrade
+                  </Button>
+                )}
+                {permissionsUtil.canManageBilling() &&
+                  license?.id?.startsWith("license") && (
+                    <RefreshLicenseButton setError={setRefreshError} />
                   )}
-                  {license &&
-                    license.plan && ( // A license might not have a plan if a stripe pro form is not filled out
-                      <>
-                        {["pro", "pro_sso"].includes(license.plan) &&
-                          subscription?.status && (
-                            <div className="col-sm-2">
-                              <div>Status:</div>
-                              <span
-                                className={`text-muted ${
-                                  !["active", "trialing"].includes(
-                                    subscription?.status || "",
-                                  )
-                                    ? "alert-danger"
-                                    : ""
-                                }`}
-                              >
-                                {subscription?.status}
-                              </span>
-                            </div>
-                          )}
-                        <div className="col-sm-2">
-                          <div>Issued:</div>
-                          <span className="text-muted">
-                            {date(license.dateCreated || "")}
-                          </span>
-                        </div>
-                        <div className="col-sm-2">
-                          <div>Expires:</div>
-                          <span className="text-muted">
-                            {date(license.dateExpires || "")}
-                          </span>
-                        </div>
-                        <div className="col-sm-2">
-                          <div>Seats:</div>
-                          <span className="text-muted">{license.seats}</span>
-                        </div>
-                        {license.id?.startsWith("license") && showSeatUsage && (
-                          <div className="col-sm-2">
-                            <div>Seats in use:</div>
-                            <span className="text-muted">
-                              {license.seatsInUse}
-                            </span>
-                          </div>
-                        )}
-                      </>
-                    )}
-                  {license && (
-                    <>
-                      {license.id?.startsWith("license") && (
-                        <div className="col-2">
-                          <RefreshLicenseButton />
-                        </div>
-                      )}
-
-                      {!license.id?.startsWith("license") && (
-                        <div className="mt-3">
-                          <DownloadLicenseUsageButton />
-                        </div>
-                      )}
-                    </>
-                  )}
-                </div>
-              )}
-              {showInstallationChart && (
-                <div className="form-group row mt-4">
-                  <div className="col-sm-12">
-                    <Text className="font-weight-semibold mb-3">
-                      Seats in Use:
-                    </Text>
-                    <table className="table gbtable appbox table-sm">
-                      <thead>
-                        <tr>
-                          <th>Installation</th>
-                          <th>Seats Used</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {Object.entries(license?.installationUsers || {}).map(
-                          ([id, { installationName, userHashes }]) => (
-                            <tr key={id}>
-                              <td>{installationName || id}</td>
-                              <td>{userHashes.length}</td>
-                            </tr>
-                          ),
-                        )}
-                        <tr key="total" className="font-weight-bold">
-                          <td>Total Distinct Users</td>
-                          <td>{license?.seatsInUse || 0}</td>
-                        </tr>
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
+              </Flex>
+              {refreshError && (
+                <HelperText status="error" mt="1">
+                  {refreshError}
+                </HelperText>
               )}
             </Box>
-          </Box>
+            <NoticeStack notices={planNotices} />
+            {permissionsUtil.canManageBilling() && (
+              <>
+                <DataList data={licenseDetails} maxColumns={5} />
+                {license && !license.id?.startsWith("license") && (
+                  <Box>
+                    <DownloadLicenseUsageButton />
+                  </Box>
+                )}
+              </>
+            )}
+            {showInstallationChart && (
+              <Box>
+                <Text as="div" weight="medium" mb="2">
+                  Seats in use
+                </Text>
+                <Table variant="surface">
+                  <TableHeader>
+                    <TableRow>
+                      <TableColumnHeader>Installation</TableColumnHeader>
+                      <TableColumnHeader>Seats used</TableColumnHeader>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {Object.entries(license?.installationUsers || {}).map(
+                      ([id, { installationName, userHashes }]) => (
+                        <TableRow key={id}>
+                          <TableCell>{installationName || id}</TableCell>
+                          <TableCell>{userHashes.length}</TableCell>
+                        </TableRow>
+                      ),
+                    )}
+                    <TableRow key="total">
+                      <TableCell>
+                        <Text weight="semibold">Total distinct users</Text>
+                      </TableCell>
+                      <TableCell>
+                        <Text weight="semibold">
+                          {license?.seatsInUse || 0}
+                        </Text>
+                      </TableCell>
+                    </TableRow>
+                  </TableBody>
+                </Table>
+              </Box>
+            )}
+          </Flex>
         </Flex>
       </Box>
     </Box>

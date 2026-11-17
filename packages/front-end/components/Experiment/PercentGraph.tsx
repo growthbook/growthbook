@@ -44,7 +44,7 @@ interface Props
   resultsStatus?: RowResults["resultsStatus"];
   statsEngine?: StatsEngine;
   suspiciousChange?: boolean;
-  suspiciousThreshold?: number;
+  suspiciousThreshold: number;
   notEnoughData?: boolean;
   minSampleSize?: number;
   minPercentChange?: number;
@@ -80,8 +80,8 @@ export default function PercentGraph({
   resultsStatus = "",
   statsEngine = "frequentist",
   suspiciousChange = false,
-  suspiciousThreshold = 0,
-  notEnoughData = false,
+  suspiciousThreshold,
+  notEnoughData,
   minSampleSize = 0,
   minPercentChange = 0,
   currentMetricTotal = 0,
@@ -97,7 +97,12 @@ export default function PercentGraph({
   const { bayesianConfidenceLevels, pValueThreshold } = significanceThresholds;
   const { ciUpper, ciLower } = bayesianConfidenceLevels;
 
-  const enoughData = hasEnoughData(baseline, stats, metric, metricDefaults);
+  // The caller has already decided this, and may have sized the row by its
+  // denominator; only recompute when nothing was passed.
+  const enoughData =
+    notEnoughData !== undefined
+      ? !notEnoughData
+      : hasEnoughData(baseline, stats, metric, metricDefaults);
 
   const barType = _barType ? _barType : stats.uplift?.dist ? "violin" : "pill";
 
@@ -122,6 +127,7 @@ export default function PercentGraph({
   const { Trigger } = useResultPopover({
     enabled: !!showPopover,
     positioning: "element",
+    pointsAtMean: true,
     data: {
       stats,
       metric,
@@ -133,7 +139,7 @@ export default function PercentGraph({
       ssrPolyfills,
       suspiciousChange,
       suspiciousThreshold,
-      notEnoughData,
+      notEnoughData: !enoughData,
       minSampleSize,
       minPercentChange,
       currentMetricTotal,

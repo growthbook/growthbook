@@ -4,6 +4,7 @@ import {
   toApiSDKConnectionInterface,
 } from "back-end/src/models/SdkConnectionModel";
 import { createApiRequestHandler } from "back-end/src/util/handler";
+import { NotFoundError } from "back-end/src/util/errors";
 
 export const lookupSdkConnectionByKey = createApiRequestHandler(
   lookupSdkConnectionByKeyValidator,
@@ -13,7 +14,7 @@ export const lookupSdkConnectionByKey = createApiRequestHandler(
     req.params.key,
   );
   if (!sdkConnection) {
-    throw new Error("Could not find sdkConnection with that key");
+    throw new NotFoundError("Could not find sdkConnection with that key");
   }
   if (
     !req.context.permissions.canReadMultiProjectResource(sdkConnection.projects)

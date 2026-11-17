@@ -15,7 +15,10 @@ import {
   offset,
   flip,
   shift,
+  arrow as arrowMiddleware,
   autoUpdate,
+  FloatingArrow,
+  type Placement,
   type VirtualElement,
 } from "@floating-ui/react";
 import { RadixTheme } from "@/services/RadixTheme";
@@ -74,10 +77,24 @@ const VERTICAL_OFFSET_PX = 8;
 type PositioningMode = "cursor" | "element";
 type TooltipState = "idle" | "waiting" | "visible";
 
+/**
+ * A point on the trigger for the tooltip to stand over, instead of the
+ * trigger's middle. `start`/`end` line the tooltip's edge up with it, for a
+ * point the tooltip shouldn't cover past.
+ */
+export interface HoverAnchor {
+  x: number;
+  align: "center" | "start" | "end";
+}
+
 export interface UseHoverTooltipOptions {
   enabled?: boolean;
   delayMs?: number;
   positioning?: PositioningMode;
+  /** A tail pointing back at the trigger, or its anchor. */
+  arrow?: boolean;
+  /** Element positioning only; null stands over the trigger's middle. */
+  anchor?: (trigger: HTMLElement) => HoverAnchor | null;
 }
 
 export interface UseHoverTooltipReturn {
@@ -104,6 +121,8 @@ interface TooltipPortalProps {
   triggerElement: HTMLElement | null;
   cursorPosition: Position | null;
   positioning: PositioningMode;
+  arrow: boolean;
+  anchor?: (trigger: HTMLElement) => HoverAnchor | null;
   onMouseEnter?: () => void;
   onMouseLeave?: () => void;
 }
@@ -113,6 +132,8 @@ function TooltipPortal({
   triggerElement,
   cursorPosition,
   positioning,
+  arrow,
+  anchor,
   onMouseEnter,
   onMouseLeave,
 }: TooltipPortalProps) {
@@ -133,12 +154,46 @@ function TooltipPortal({
     };
   }, [positioning, cursorPosition]);
 
-  const { refs, floatingStyles, update, placement } = useFloating({
-    placement: "top",
+  // Read once on open, for the side to line up with.
+  const align = useMemo((): HoverAnchor["align"] => {
+    if (positioning !== "element" || !triggerElement || !anchor) {
+      return "center";
+    }
+    return anchor(triggerElement)?.align ?? "center";
+  }, [positioning, triggerElement, anchor]);
+  // The trigger's own box, narrowed to its anchor's point when it has one.
+  const anchoredElement = useMemo((): VirtualElement | null => {
+    if (positioning !== "element" || !triggerElement || !anchor) return null;
+    return {
+      contextElement: triggerElement,
+      getBoundingClientRect: () => {
+        const rect = triggerElement.getBoundingClientRect();
+        const point = anchor(triggerElement);
+        if (!point) return rect;
+        return {
+          x: point.x,
+          y: rect.y,
+          width: 0,
+          height: rect.height,
+          top: rect.top,
+          bottom: rect.bottom,
+          left: point.x,
+          right: point.x,
+        };
+      },
+    };
+  }, [positioning, triggerElement, anchor]);
+
+  const arrowRef = useRef<SVGSVGElement>(null);
+  const side = (s: "top" | "bottom"): Placement =>
+    align === "center" ? s : `${s}-${align}`;
+  const { refs, floatingStyles, update, placement, context } = useFloating({
+    placement: side("top"),
     middleware: [
       offset(VERTICAL_OFFSET_PX),
-      flip({ fallbackPlacements: ["bottom", "top"] }),
+      flip({ fallbackPlacements: [side("bottom"), side("top")] }),
       shift({ padding: VERTICAL_OFFSET_PX }),
+      ...(arrow ? [arrowMiddleware({ element: arrowRef, padding: 12 })] : []),
     ],
   });
 
@@ -146,10 +201,11 @@ function TooltipPortal({
   useLayoutEffect(() => {
     if (positioning === "element" && triggerElement) {
       refs.setReference(triggerElement);
+      if (anchoredElement) refs.setPositionReference(anchoredElement);
     } else if (positioning === "cursor" && virtualElement) {
       refs.setPositionReference(virtualElement);
     }
-  }, [positioning, triggerElement, virtualElement, refs]);
+  }, [positioning, triggerElement, anchoredElement, virtualElement, refs]);
 
   // Auto-update position for element mode
   useEffect(() => {
@@ -212,6 +268,13 @@ function TooltipPortal({
         onClick={handleClick}
       >
         {content}
+        {arrow ? (
+          <FloatingArrow
+            ref={arrowRef}
+            context={context}
+            fill="var(--color-panel)"
+          />
+        ) : null}
         <div style={bridgeStyle} />
       </div>
     </RadixTheme>,
@@ -223,6 +286,8 @@ export function useHoverTooltip({
   enabled = true,
   delayMs = 100,
   positioning = "element",
+  arrow = false,
+  anchor,
 }: UseHoverTooltipOptions = {}): UseHoverTooltipReturn {
   const id = useId();
   const { openTooltip, closeTooltip } = useHoverTooltipContext();
@@ -478,6 +543,8 @@ export function useHoverTooltip({
           triggerElement={triggerElement}
           cursorPosition={cursorPosition}
           positioning={positioning}
+          arrow={arrow}
+          anchor={anchor}
           onMouseEnter={handleContentMouseEnter}
           onMouseLeave={handleContentMouseLeave}
         />
@@ -489,6 +556,8 @@ export function useHoverTooltip({
       triggerElement,
       cursorPosition,
       positioning,
+      arrow,
+      anchor,
       handleContentMouseEnter,
       handleContentMouseLeave,
     ],
