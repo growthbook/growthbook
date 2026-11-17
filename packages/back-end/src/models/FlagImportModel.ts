@@ -112,8 +112,12 @@ export async function findFlagImportByToken(
   return doc ? toInterface(doc) : null;
 }
 
+// Counted by deadline, so the limit doesn't wait on MongoDB's cleanup.
 export async function countPendingFlagImports(): Promise<number> {
-  return FlagImportModel.countDocuments({ status: "pending" });
+  return FlagImportModel.countDocuments({
+    status: "pending",
+    expiresAt: { $gt: new Date() },
+  });
 }
 
 // Uploads a workspace has claimed and not yet imported.
