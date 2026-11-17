@@ -130,18 +130,130 @@ When the CLI detects it's running under an AI coding agent (Claude Code, Cursor,
 
 ## Generating TypeScript types
 
-Generate an `AppFeatures` type definition from your feature flags for [strictly-typed SDK usage](/lib/js#strict-typing):
+Generate `AppFeatures` and `AppAttributes` type definitions from your feature flags and targeting attributes for [strictly-typed SDK usage](/lib/js#strict-typing):
 
 ```bash
-growthbook generate-types --output ./types
+growthbook generate-types --output ./src/generated
 ```
 
-Add it to your `package.json` scripts to keep types in sync:
+The generated file also registers both types with the SDK, so every GrowthBook instance and React hook is strictly typed with no generics or imports. It only needs to be somewhere your `tsconfig.json` includes. If it lives outside that, for example in another package of a monorepo, import it once from the app (`import type {} from "shared/generated/app-features"`), otherwise the types silently don't apply. This requires CLI version 4.0.0+ and JS or React SDK version 2.1.0+.
+
+```ts
+export type AppFeatures = {
+  'dark_mode': boolean;
+  'donut_price': number;
+}
+
+export type AppAttributes = {
+  'id'?: string | null;
+  'loggedIn'?: boolean | null;
+  'plan'?: 'free' | 'pro' | null;
+}
+
+// @ts-ignore - only applies if your project imports this package
+declare module '@growthbook/growthbook' {
+  interface Register {
+    features: AppFeatures;
+    attributes: AppAttributes;
+  }
+}
+
+// @ts-ignore - only applies if your project imports this package
+declare module '@growthbook/growthbook-react' {
+  interface Register {
+    features: AppFeatures;
+    attributes: AppAttributes;
+  }
+}
+```
+
+The types are registered with both SDK packages, so the same file works whichever one your project uses.
+
+Attributes are optional, so you can set them in stages, for example some in the constructor and the rest from middleware, a `useEffect` hook, or a plugin. Attributes that aren't defined in GrowthBook and values of the wrong type are compile-time errors.
+
+TypeScript only flags unknown attributes on an object written inline in the call. If you build the attributes in a variable first, add `satisfies AppAttributes` (or annotate the variable as `AppAttributes`) so its keys are checked too:
+
+```ts
+import type { AppAttributes } from "./generated/app-features";
+
+const attributes = {
+  id: user.id,
+  plan: user.plan,
+} satisfies AppAttributes;
+
+gb.setAttributes(attributes);
+```
+
+To also catch an attribute that was added in GrowthBook but never passed to the SDK, use `--strict-attributes`. Every attribute then becomes a required key in `setAttributes` and the `attributes` option. Pass `null` or `undefined` when your app doesn't know a value, such as the `id` of a logged-out user.
+
+| Flag                  | Description                                                                                                                          |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| `--output`            | Output directory (default `./growthbook-types`)                                                                                      |
+| `--filename`          | Output filename (default `app-features.ts`)                                                                                          |
+| `--project`           | Only include features and attributes from this project. Repeat it for several projects, to match the projects of your SDK Connection |
+| `--strict-attributes` | Make every attribute a required key                                                                                                  |
+| `--no-register`       | Only write the type definitions, without registering them with the SDK                                                               |
+
+If your app uses more than one GrowthBook instance with different features, such as one per project, generate a file for each with `--no-register` and pass the types to each instance yourself:
+
+```ts
+import type { AppFeatures, AppAttributes } from "./generated/checkout";
+
+const gb = new GrowthBook<AppFeatures, AppAttributes>({ ... });
+```
+
+<Note>
+**Upgrading from an earlier CLI version?**
+
+Earlier versions only wrote `AppFeatures`, which did nothing until you passed it to the SDK as a generic. Because the file now registers itself, regenerating it can surface new type errors across your app: unknown or dynamic feature keys, mismatched fallback values, and attributes that aren't defined in GrowthBook. Pass `--no-register` to keep the previous behavior.
+
+</Note>
+
+### Keeping types up to date
+
+Commit the generated file and let a scheduled workflow open a pull request whenever your features or attributes change. A removed or retyped flag then shows up as a failing type-check on that pull request, not as a broken deploy.
+
+```yaml
+# .github/workflows/growthbook-types.yml
+name: Update GrowthBook types
+on:
+  schedule:
+    - cron: "0 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: npx growthbook generate-types --no-interactive --output ./src/generated
+        env:
+          GBCLI_BEARER_AUTH: ${{ secrets.GROWTHBOOK_API_KEY }}
+      - uses: peter-evans/create-pull-request@v7
+        with:
+          token: ${{ secrets.TYPES_PR_TOKEN }}
+          branch: growthbook-types
+          title: Update GrowthBook types
+          commit-message: Update GrowthBook types
+```
+
+Setup is two repository secrets:
+
+- `GROWTHBOOK_API_KEY`: a read-only Secret Key.
+- `TYPES_PR_TOKEN`: a personal access token or GitHub App token that can push branches and open pull requests. GitHub doesn't run other workflows on pull requests opened with the default `GITHUB_TOKEN`, so without this your type-check would never run on them.
+
+The workflow does nothing when the types haven't changed.
+
+If you'd rather not commit generated code, add the output directory to `.gitignore` and generate on every build instead. This needs `GBCLI_BEARER_AUTH` wherever you build:
 
 ```json
 {
   "scripts": {
-    "type-gen": "growthbook generate-types --output ./types"
+    "growthbook:types": "growthbook generate-types --no-interactive --output ./src/generated",
+    "build": "npm run growthbook:types && <your build command>"
   }
 }
 ```

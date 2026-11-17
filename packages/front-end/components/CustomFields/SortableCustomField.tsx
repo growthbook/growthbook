@@ -68,14 +68,15 @@ function EnumValuesDisplay({ valuesStr }: { valuesStr: string | undefined }) {
 
 export const CUSTOM_FIELD_TABLE_WIDTHS = {
   dragHandle: 30,
-  menu: 40,
+  menu: 32,
   name: "10%",
   key: "14%",
   description: "20%",
   appliesTo: "10%",
   valueType: undefined, // fill width
   projects: "15%",
-  required: "7%",
+  // Its header's width, so a narrow table doesn't hide it behind the menu.
+  required: 81,
 } as const;
 
 export function CustomFieldColGroup({

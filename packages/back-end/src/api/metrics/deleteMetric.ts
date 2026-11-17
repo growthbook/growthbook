@@ -4,6 +4,7 @@ import {
   getMetricById,
   deleteMetricById,
 } from "back-end/src/models/MetricModel";
+import { NotFoundError } from "back-end/src/util/errors";
 
 export const deleteMetricHandler = createApiRequestHandler(
   deleteMetricValidator,
@@ -11,7 +12,7 @@ export const deleteMetricHandler = createApiRequestHandler(
   const metric = await getMetricById(req.context, req.params.id, false);
 
   if (!metric) {
-    throw new Error("Could not find metric with that id");
+    throw new NotFoundError("Could not find metric with that id");
   }
 
   await deleteMetricById(req.context, metric);

@@ -15,6 +15,7 @@ import { getFactTable } from "back-end/src/models/FactTableModel";
 import { resolveOwnerEmail } from "back-end/src/services/owner";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { FactMetricModel } from "back-end/src/models/FactMetricModel";
+import { NotFoundError } from "back-end/src/util/errors";
 
 function expectsDenominator(metricType: FactMetricType) {
   switch (metricType) {
@@ -216,7 +217,7 @@ export const updateFactMetric = createApiRequestHandler(
     req.params.id,
   );
   if (!factMetric) {
-    throw new Error("Could not find factMetric with that id");
+    throw new NotFoundError("Could not find factMetric with that id");
   }
 
   if (

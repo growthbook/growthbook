@@ -29,6 +29,7 @@ const TagsInput: FC<{
   creatable?: boolean;
   customClassName?: string;
   size?: MultiSelectFieldSize;
+  legacyLabelFormatting?: boolean;
 }> = ({
   onChange,
   value,
@@ -40,6 +41,7 @@ const TagsInput: FC<{
   creatable = true,
   customClassName,
   size,
+  legacyLabelFormatting,
 }) => {
   const { tags, getTagById } = useDefinitions();
   const permissionsUtil = usePermissionsUtil();
@@ -125,6 +127,7 @@ const TagsInput: FC<{
     <MultiSelectField
       size={size}
       label={label}
+      legacyLabelFormatting={legacyLabelFormatting}
       options={
         tagOptions.map((t) => {
           // Converts Radix color to hex color to make it compatible with MultiSelectField

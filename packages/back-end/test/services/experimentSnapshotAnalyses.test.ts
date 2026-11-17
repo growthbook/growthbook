@@ -5,7 +5,10 @@ import {
   MetricForSnapshot,
   SnapshotMetric,
 } from "shared/types/experiment-snapshot";
-import { ExperimentInterface } from "shared/types/experiment";
+import {
+  ExperimentHealthSettings,
+  ExperimentInterface,
+} from "shared/types/experiment";
 import { ExperimentMetricInterface } from "shared/experiments";
 import { analyzeExperimentResults } from "back-end/src/services/stats";
 import {
@@ -45,6 +48,14 @@ jest.mock("back-end/src/models/ExperimentSnapshotModel", () => ({
   updateSnapshot: jest.fn(),
   updateSnapshotAnalysis: jest.fn(),
 }));
+
+const healthSettings: ExperimentHealthSettings = {
+  decisionFrameworkEnabled: false,
+  srmThreshold: 0.001,
+  multipleExposureMinPercent: 0.01,
+  clusterIssueMinPercent: 0.01,
+  experimentMinLengthDays: 7,
+};
 
 function makeAnalysisSettings(
   overrides: Partial<ExperimentSnapshotAnalysisSettings> = {},
@@ -405,6 +416,28 @@ describe("toSnapshotApiInterface (legacy contract)", () => {
 });
 
 describe("toExperimentSnapshotBulkResultsApiInterface", () => {
+  it("repeats the snapshot-wide health fields on every item", () => {
+    const snapshot = makeSnapshot();
+    snapshot.unknownVariations = ["2"];
+    snapshot.analyses = [
+      makeSuccessAnalysis(makeAnalysisSettings({ dimensions: [""] })),
+      makeSuccessAnalysis(makeAnalysisSettings()),
+    ];
+
+    const results = toExperimentSnapshotBulkResultsApiInterface(
+      makeExperiment(),
+      snapshot,
+      new Map(),
+      [],
+      healthSettings,
+    );
+
+    expect(results.map((r) => r.health.unknownVariations)).toEqual([
+      ["2"],
+      ["2"],
+    ]);
+  });
+
   it("uses a unique dimension result id while preserving snapshotId", () => {
     const snapshot = makeSnapshot();
     snapshot.analyses = [makeSuccessAnalysis(makeAnalysisSettings())];
@@ -414,6 +447,7 @@ describe("toExperimentSnapshotBulkResultsApiInterface", () => {
       snapshot,
       new Map(),
       [],
+      healthSettings,
     );
 
     expect(result.id).toBe("snp_1:dimension:precomputed%3Acountry");
@@ -447,6 +481,7 @@ describe("toExperimentSnapshotBulkResultsApiInterface", () => {
       snapshot,
       makeMetricMap({ met_1: "Revenue" }),
       [],
+      healthSettings,
     );
 
     expect(result.settings.experimentId).toBe("exp_1");
@@ -476,6 +511,7 @@ describe("toExperimentSnapshotBulkResultsApiInterface", () => {
       snapshot,
       new Map(),
       [],
+      healthSettings,
     );
 
     expect(result.settings.goals[0].effectiveSettings).toEqual({
@@ -505,6 +541,7 @@ describe("toExperimentSnapshotBulkResultsApiInterface", () => {
       snapshot,
       new Map(),
       [],
+      healthSettings,
     );
 
     expect(result.settings.goals[0]).toEqual({ metricId: "met_1" });
@@ -538,6 +575,7 @@ describe("toExperimentSnapshotBulkResultsApiInterface", () => {
       snapshot,
       new Map(),
       [],
+      healthSettings,
     );
 
     const variations = result.results[0].metrics[0].variations;
@@ -579,6 +617,7 @@ describe("toExperimentSnapshotBulkResultsApiInterface", () => {
       snapshot,
       new Map(),
       [],
+      healthSettings,
     );
 
     const [removed, kept] = result.results[0].metrics[0].variations;
@@ -619,6 +658,7 @@ describe("toExperimentSnapshotBulkResultsApiInterface", () => {
       snapshot,
       new Map(),
       [],
+      healthSettings,
     );
 
     // One item per dimension, each with a unique id.
@@ -649,6 +689,7 @@ describe("toExperimentSnapshotBulkResultsApiInterface", () => {
       snapshot,
       new Map(),
       [],
+      healthSettings,
     );
 
     expect(result.dateStart).toBe(

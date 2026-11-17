@@ -12,6 +12,7 @@ import { truncateString } from "shared/util";
 import { v4 as uuidv4 } from "uuid";
 import { Flex, Text } from "@radix-ui/themes";
 import track, { TrackEventProps } from "@/services/track";
+import { ModalEventName } from "@/types/app-events";
 import ConditionalWrapper from "@/components/ConditionalWrapper";
 import ErrorDisplay from "@/ui/ErrorDisplay";
 import Button from "@/ui/Button";
@@ -375,7 +376,7 @@ const Modal: FC<ModalProps> = ({
   }
 
   const sendTrackingEvent = useCallback(
-    (eventName: string, additionalProps?: Record<string, unknown>) => {
+    (eventName: ModalEventName, additionalProps?: Record<string, unknown>) => {
       if (trackingEventModalType === "") {
         return;
       }

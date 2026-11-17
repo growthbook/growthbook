@@ -12,10 +12,9 @@ $sidebarwidth: 240px;
   z-index: 1010;
   background-color: var(--color-surface-solid);
   box-shadow: 0px 0px 1px 0px var(--border-color-200);
-  padding: 0 16px;
-  @media (max-width: 520px) {
-    padding: 0 8px;
-  }
+  // The step padding, as the page's header bands: past --page-max-width the
+  // page centers and the bar stays wide.
+  padding: 0 var(--page-padding-step);
   @media (max-width: 1180px) {
     left: 0;
     .pagetitle {
@@ -41,16 +40,6 @@ $sidebarwidth: 240px;
   @media (max-width: 520px) {
     padding: 0 8px;
   }
-}
-.guidedstepbar {
-  display: flex;
-  justify-content: space-between;
-  position: fixed;
-  top: 56px;
-  left: $sidebarwidth;
-  right: 0;
-  height: 56px;
-  z-index: 995;
 }
 .pagetitle {
   flex: 1;
@@ -84,6 +73,12 @@ $sidebarwidth: 240px;
   > :global(.nav-link):empty {
     display: none;
   }
+}
+
+.navbar .account {
+  gap: var(--space-2);
+  // Its caret ends on the bar's edge.
+  padding-right: 0;
 }
 
 .dropdownItemIconColor {

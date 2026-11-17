@@ -11,7 +11,6 @@ import {
 import { TeamInterface } from "shared/types/team";
 import { UserInterface } from "shared/types/user";
 import { SuperAdmin } from "shared/validators";
-import { AppFeatures } from "shared/types/app-features";
 
 export type PermissionFunctions = {
   checkPermissions(permission: GlobalPermission): void;
@@ -56,7 +55,7 @@ export type AuthRequest<
   audit: (
     data: Omit<AuditInterface, "organization" | "id" | "user" | "dateCreated">,
   ) => Promise<void>;
-  gb?: UserScopedGrowthBook<AppFeatures>;
+  gb?: UserScopedGrowthBook;
 } & PermissionFunctions;
 
 export type ResponseWithStatusAndError<T = unknown> = Response<

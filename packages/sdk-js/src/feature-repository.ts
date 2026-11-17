@@ -8,12 +8,7 @@ import {
 } from "./types/growthbook";
 import { getPolyfills, promiseTimeout } from "./util";
 import { REMOTE_GROUP_IDS_ATTRIBUTE } from "./remoteSavedGroups";
-import type {
-  GrowthBook,
-  InitOptions,
-  InitSyncOptions,
-  GrowthBookClient,
-} from ".";
+import type { GrowthBook, InitOptions, GrowthBookClient } from ".";
 
 type CacheEntry = {
   data: FeatureApiResponse;
@@ -697,7 +692,10 @@ export function clearAutoRefresh() {
 
 export function startBackgroundSync(
   instance: GrowthBook | GrowthBookClient,
-  options: InitOptions | InitSyncOptions,
+  // Not the payload's type: callers may have one typed to their AppFeatures
+  options: Pick<InitOptions, "streaming" | "pollingInterval"> & {
+    payload?: unknown;
+  },
 ) {
   if (!options.streaming && options.pollingInterval === undefined) return;
 

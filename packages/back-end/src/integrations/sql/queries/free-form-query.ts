@@ -1,4 +1,9 @@
-import { ensureLimit, format, SQL_ROW_LIMIT } from "shared/sql";
+import {
+  ensureLimit,
+  format,
+  SQL_ROW_LIMIT,
+  getSqlStringRules,
+} from "shared/sql";
 import { SqlDialect } from "shared/types/sql";
 
 export function getFreeFormQuery(
@@ -6,6 +11,10 @@ export function getFreeFormQuery(
   sql: string,
   limit?: number,
 ): string {
-  const limitedQuery = ensureLimit(sql, limit ?? SQL_ROW_LIMIT);
+  const limitedQuery = ensureLimit(
+    sql,
+    limit ?? SQL_ROW_LIMIT,
+    getSqlStringRules(dialect),
+  );
   return format(limitedQuery, dialect.formatDialect);
 }
