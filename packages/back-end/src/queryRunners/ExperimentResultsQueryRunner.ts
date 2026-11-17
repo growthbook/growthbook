@@ -84,7 +84,6 @@ export type SnapshotResult = {
   analyses: ExperimentSnapshotAnalysis[];
   banditResult?: BanditResult;
   health?: ExperimentSnapshotHealth;
-  overallClusterUnits?: number[];
 };
 
 export type ExperimentResultsQueryParams = {
@@ -102,8 +101,6 @@ export const TRAFFIC_QUERY_NAME = "traffic";
 export const CLUSTER_TRAFFIC_QUERY_NAME = "clusterTraffic";
 
 export const CLUSTER_HEALTH_QUERY_NAME = "clusterHealth";
-
-export const OVERALL_CLUSTER_UNITS_QUERY_NAME = "overallClusterUnits";
 
 export const UNITS_TABLE_PREFIX = "growthbook_tmp_units";
 
@@ -580,34 +577,6 @@ export const startExperimentResultQueries = async (
     }
   }
 
-  // Reports have no overall snapshot to count clusters from, and a cluster can
-  // fall into several breakdown slices, so count them once here.
-  if (
-    snapshotType === "report" &&
-    snapshotSettings.isClusterExperiment &&
-    snapshotDimensions.length
-  ) {
-    const overallClusterUnitsQuery = await startQuery({
-      name: OVERALL_CLUSTER_UNITS_QUERY_NAME,
-      query: integration.getExperimentAggregateUnitsQuery({
-        ...unitQueryParams,
-        settings: snapshotSettings,
-        dimensions: [],
-        useUnitsTable: !!unitQuery,
-        clusterGrain: true,
-      }),
-      dependencies: unitQuery ? [unitQuery.query] : [],
-      run: (query, setExternalId, queryMetadata) =>
-        integration.runExperimentAggregateUnitsQuery(
-          query,
-          setExternalId,
-          queryMetadata,
-        ),
-      queryType: "experimentTraffic",
-    });
-    queries.push(overallClusterUnitsQuery);
-  }
-
   const dropUnitsTable =
     integration.getSourceProperties().dropUnitsTable &&
     settings.pipelineSettings?.unitsTableDeletion;
@@ -701,20 +670,6 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
       result.unknownVariations = results.unknownVariations || [];
       result.multipleExposures = results.multipleExposures ?? 0;
     });
-
-    const overallClusterUnitsQuery = queryMap.get(
-      OVERALL_CLUSTER_UNITS_QUERY_NAME,
-    );
-    if (overallClusterUnitsQuery && !overallClusterUnitsQuery.error) {
-      const traffic = analyzeExperimentTraffic({
-        rows: overallClusterUnitsQuery.result as ExperimentAggregateUnitsQueryResponseRows,
-        error: overallClusterUnitsQuery.error,
-        variations: this.model.settings.variations,
-      });
-      if (!traffic.error) {
-        result.overallClusterUnits = traffic.overall.variationUnits;
-      }
-    }
 
     // Run health checks
     const healthQuery = queryMap.get(TRAFFIC_QUERY_NAME);

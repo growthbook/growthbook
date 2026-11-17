@@ -528,7 +528,6 @@ export async function createReportSnapshot({
     // Report snapshots don't run health queries, so drop the health carried
     // over from the experiment; warnings then use the report's own results.
     health: undefined,
-    overallClusterUnits: undefined,
     hasChunkedAnalyses: false,
     chunkedAnalysesMeta: {},
     analyses: [
