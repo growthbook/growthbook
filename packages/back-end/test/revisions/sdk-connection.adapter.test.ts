@@ -182,6 +182,7 @@ function makeContext(overrides: {
     models: {
       sdkWebhooks: {
         findLiveSdkWebhooksForRevision: jest.fn(async () => []),
+        findSdkWebhooksByIdsForRevision: jest.fn(async () => []),
         countSdkWebhooksByOrg: jest.fn(async () => overrides.webhookCount ?? 0),
         getDefaultCreateProps: (id: string) => ({ sdks: [id] }),
         create: jest.fn(async () => ({})),
@@ -1399,16 +1400,109 @@ describe("webhook headers in revisions", () => {
     const model = webhooksModel(ctx);
     expect(headersIn(await scrubRevisionForViewer(ctx, revision()))).toBe(true);
 
+    // Each webhook is looked up once, however many fragments name it.
+    const lookedUp = model.findSdkWebhooksByIdsForRevision.mock.calls.flatMap(
+      ([ids]: [string[]]) => ids,
+    );
+    expect(lookedUp.sort()).toEqual(["wh-1", "wh_sdk-1_2"]);
+
     // Live, but not editable on every connection it fires for.
     const shared = makeContext({});
-    webhooksModel(shared).findLiveSdkWebhooksForRevision.mockResolvedValue([
-      { id: live.id },
+    webhooksModel(shared).findSdkWebhooksByIdsForRevision.mockResolvedValue([
+      { id: live.id, sdks: ["sdk-1", "sdk-2"] },
     ]);
     const seen = await scrubRevisionForViewer(shared, revision());
     expect(seen.target.proposedChanges[0]).toMatchObject({
       value: [omit(live, "headers"), added],
     });
-    expect(model.getEditableWebhookIds).toHaveBeenCalledTimes(1);
+  });
+
+  describe("a webhook history holds", () => {
+    // Mirrors the model: editable when every connection it fires for is.
+    const contextFor = (
+      rows: { id: string; sdks: string[] }[],
+      editableConnections: string[],
+    ) => {
+      const ctx = makeContext({});
+      const model = webhooksModel(ctx);
+      model.findSdkWebhooksByIdsForRevision.mockImplementation(
+        async (ids: string[]) => rows.filter((w) => ids.includes(w.id)),
+      );
+      model.getEditableWebhookIds.mockImplementation(
+        async (found: { id: string; sdks: string[] }[]) =>
+          new Set(
+            found
+              .filter((w) =>
+                w.sdks.every((id) => editableConnections.includes(id)),
+              )
+              .map((w) => w.id),
+          ),
+      );
+      return ctx;
+    };
+    const history = () =>
+      buildRevision(
+        [{ op: "replace", path: "/sdkWebhooks", value: [added] }],
+        snapshotWith({}, [live]),
+      );
+
+    it("hides one detached from this connection but still used by another", async () => {
+      const ctx = contextFor(
+        [
+          { id: "wh-1", sdks: ["sdk-2"] },
+          { id: "wh_sdk-1_2", sdks: ["sdk-2"] },
+        ],
+        ["sdk-1"],
+      );
+      expect(headersIn(await scrubRevisionForViewer(ctx, history()))).toBe(
+        false,
+      );
+    });
+
+    it("shows one detached but shared to whoever could update it everywhere", async () => {
+      const ctx = contextFor(
+        [
+          { id: "wh-1", sdks: ["sdk-2"] },
+          { id: "wh_sdk-1_2", sdks: ["sdk-2"] },
+        ],
+        ["sdk-1", "sdk-2"],
+      );
+      const seen = await scrubRevisionForViewer(ctx, history());
+      expect(seen.target.snapshot).toEqual(snapshotWith({}, [live]));
+      expect(seen.target.proposedChanges[0]).toMatchObject({ value: [added] });
+    });
+
+    it("judges one still attached here by every connection it fires for", async () => {
+      const rows = [{ id: "wh-1", sdks: ["sdk-1", "sdk-2"] }];
+      const onlyHere = await scrubRevisionForViewer(
+        contextFor(rows, ["sdk-1"]),
+        history(),
+      );
+      expect(onlyHere.target.snapshot).toEqual(
+        snapshotWith({}, [omit(live, "headers")]),
+      );
+      const everywhere = await scrubRevisionForViewer(
+        contextFor(rows, ["sdk-1", "sdk-2"]),
+        history(),
+      );
+      expect(everywhere.target.snapshot).toEqual(snapshotWith({}, [live]));
+    });
+
+    it("shows one deleted since only to those who manage this connection's webhooks", async () => {
+      const seen = await scrubRevisionForViewer(contextFor([], []), history());
+      expect(seen.target.snapshot).toEqual(snapshotWith({}, [live]));
+      expect(seen.target.proposedChanges[0]).toMatchObject({ value: [added] });
+
+      const ctx = makeContext({
+        permissions: { canUpdateSDKWebhook: () => false },
+      });
+      expect(headersIn(await scrubRevisionForViewer(ctx, history()))).toBe(
+        false,
+      );
+      expect(
+        webhooksModel(ctx).findSdkWebhooksByIdsForRevision,
+      ).not.toHaveBeenCalled();
+    });
   });
 
   it("scrubs conflict values the same way", async () => {

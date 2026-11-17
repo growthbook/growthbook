@@ -102,39 +102,59 @@ const UNSETTABLE_SETTINGS = Object.entries(
   );
 
 // Who may see a webhook's headers, as the live webhook list decides it: someone
-// who could update the webhook on every connection it fires for. Looked up
-// once per request and connection.
-const headerViewers = new WeakMap<
-  Context,
-  Map<string, Promise<(webhookId: string) => boolean>>
->();
-function webhookHeaderViewer(context: Context, connectionId: string) {
-  const byConnection = headerViewers.get(context) ?? new Map();
+// who could update the webhook on every connection it fires for now, whether or
+// not this connection is still one of them. Without a stored row, managing this
+// connection's webhooks is enough. Each webhook is looked up once per request
+// and connection.
+type HeaderViewer = (ids: string[]) => Promise<(id: string) => boolean>;
+const headerViewers = new WeakMap<Context, Map<string, HeaderViewer>>();
+function webhookHeaderViewer(
+  context: Context,
+  connectionId: string,
+): HeaderViewer {
+  const byConnection =
+    headerViewers.get(context) ?? new Map<string, HeaderViewer>();
   headerViewers.set(context, byConnection);
-  if (!byConnection.has(connectionId)) {
-    byConnection.set(
-      connectionId,
-      (async () => {
-        const connection = await findSDKConnectionById(context, connectionId);
-        if (
-          !connection ||
-          !context.permissions.canUpdateSDKWebhook(connection)
-        ) {
-          return () => false;
-        }
-        const live =
-          await context.models.sdkWebhooks.findLiveSdkWebhooksForRevision([
-            connectionId,
-          ]);
-        const editable =
-          await context.models.sdkWebhooks.getEditableWebhookIds(live);
-        const liveIds = new Set(live.map((w) => w.id));
-        // One only a draft or history holds fires for this connection alone.
-        return (id: string) => !liveIds.has(id) || editable.has(id);
-      })(),
-    );
-  }
-  return byConnection.get(connectionId)!;
+  const cached = byConnection.get(connectionId);
+  if (cached) return cached;
+
+  const canManageHere = findSDKConnectionById(context, connectionId).then(
+    (connection) =>
+      !!connection && context.permissions.canUpdateSDKWebhook(connection),
+  );
+  const visible = new Map<string, Promise<boolean>>();
+  const viewer: HeaderViewer = async (ids) => {
+    // A draft's temp id names the row its landing created.
+    const rowIds = ids.map((id) => sdkWebhookStableId(connectionId, id));
+    const unseen = [...new Set(rowIds.filter((id) => !visible.has(id)))];
+    if (unseen.length) {
+      const lookup = (async () => {
+        if (!(await canManageHere)) return new Set<string>();
+        const rows =
+          await context.models.sdkWebhooks.findSdkWebhooksByIdsForRevision(
+            unseen,
+          );
+        const editable = rows.length
+          ? await context.models.sdkWebhooks.getEditableWebhookIds(rows)
+          : new Set<string>();
+        const stored = new Set(rows.map((w) => w.id));
+        return new Set(
+          unseen.filter((id) => (stored.has(id) ? editable.has(id) : true)),
+        );
+      })();
+      unseen.forEach((id) =>
+        visible.set(
+          id,
+          lookup.then((allowed) => allowed.has(id)),
+        ),
+      );
+    }
+    const results = await Promise.all(rowIds.map((id) => visible.get(id)));
+    const allowed = new Set(ids.filter((_, i) => results[i] === true));
+    return (id) => allowed.has(id);
+  };
+  byConnection.set(connectionId, viewer);
+  return viewer;
 }
 
 // Headers a client left out, having never been shown them, stay as they were.
@@ -472,7 +492,10 @@ export const sdkConnectionAdapter: EntityRevisionAdapter<SDKConnectionRevisionSn
       if (!Array.isArray(rows) || !rows.some((w) => w?.headers !== undefined)) {
         return fragment;
       }
-      const canSee = await webhookHeaderViewer(context, target.id);
+      const canSee = await webhookHeaderViewer(
+        context,
+        target.id,
+      )(rows.filter((w) => w?.headers !== undefined).map((w) => w.id));
       return {
         ...fragment,
         sdkWebhooks: rows.map((w) => (canSee(w.id) ? w : omit(w, "headers"))),

@@ -484,6 +484,17 @@ export class SdkWebhookModel extends BaseClass {
     );
   }
 
+  // Skips the read check, like the above: it decides who may see a revision's
+  // stored headers, wherever the webhook is attached now.
+  public async findSdkWebhooksByIdsForRevision(
+    ids: string[],
+  ): Promise<WebhookInterface[]> {
+    return await this._find(
+      { id: { $in: ids } },
+      { bypassReadPermissionChecks: true },
+    );
+  }
+
   public async findAllSdkWebhooksByPayloadFormat(
     payloadFormat: string,
   ): Promise<WebhookInterface[]> {
