@@ -315,7 +315,8 @@ export async function syncManagedWarehouseIdentifiers(
   );
   const desiredColumnNames = new Set(desiredColumns.map((c) => c.column));
 
-  const newColumns: ColumnInterface[] = [...ft.columns];
+  // Copy each column: editing ft's in place makes the sync's no-op check skip the write.
+  const newColumns: ColumnInterface[] = ft.columns.map((c) => ({ ...c }));
   newColumns.forEach((col) => {
     if (col.numberFormat === undefined) {
       col.numberFormat = "";

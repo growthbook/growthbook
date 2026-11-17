@@ -209,6 +209,10 @@ describe("syncManagedWarehouseIdentifiers", () => {
       (c) => c.column === "attributes",
     );
     expect(attributes?.jsonFields).toEqual({ age: { datatype: "string" } });
+    // The sync skips writes equal to its input, so the input must stay untouched.
+    expect(
+      ft.columns.find((c) => c.column === "attributes")?.jsonFields,
+    ).toEqual({ age: { datatype: "number" } });
   });
 
   it("preserves data-discovered JSON fields not present in the schema", async () => {
