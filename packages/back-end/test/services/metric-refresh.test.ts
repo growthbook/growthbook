@@ -462,17 +462,35 @@ describe("getSettingsChangedSinceParent", () => {
           })) as unknown as ExperimentSnapshotSettings["metricSettings"],
         }),
       });
-    const planned = () =>
+    const planned = (adjustsCopiedMetrics: boolean) =>
       makePlan({
-        settings: { regressionAdjustmentEnabled: true },
+        settings: {
+          regressionAdjustmentEnabled: true,
+          metricSettings: [
+            ...["met_a", "met_b"].map((id) => ({
+              id,
+              computedSettings: {
+                regressionAdjustmentEnabled: adjustsCopiedMetrics,
+              },
+            })),
+            {
+              id: "met_c",
+              computedSettings: { regressionAdjustmentEnabled: true },
+            },
+          ] as unknown as ExperimentSnapshotSettings["metricSettings"],
+        },
         analysisSettings: { regressionAdjusted: true },
       }).snapshot;
+    const flags = [
+      "analysis.regressionAdjusted",
+      "regressionAdjustmentEnabled",
+    ];
 
-    it("ignores its flags when no copied metric is regression adjusted", () => {
+    it("ignores its flags when no copied metric is or would be regression adjusted", () => {
       expect(
         getSettingsChangedSinceParent({
           parent: parentWithAdjustment(false),
-          planned: planned(),
+          planned: planned(false),
           exposureQueries: [],
         }),
       ).toEqual([]);
@@ -482,10 +500,20 @@ describe("getSettingsChangedSinceParent", () => {
       expect(
         getSettingsChangedSinceParent({
           parent: parentWithAdjustment(true),
-          planned: planned(),
+          planned: planned(true),
           exposureQueries: [],
         }).sort(),
-      ).toEqual(["analysis.regressionAdjusted", "regressionAdjustmentEnabled"]);
+      ).toEqual(flags);
+    });
+
+    it("names its flags when turning it on would adjust a copied metric", () => {
+      expect(
+        getSettingsChangedSinceParent({
+          parent: parentWithAdjustment(false),
+          planned: planned(true),
+          exposureQueries: [],
+        }).sort(),
+      ).toEqual(flags);
     });
   });
 

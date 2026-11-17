@@ -246,9 +246,20 @@ export function getSettingsChangedSinceParent({
   planned: Pick<ExperimentSnapshotInterface, "settings" | "analyses">;
   exposureQueries: Pick<ExposureQuery, "id" | "userIdType" | "userIdTypes">[];
 }): string[] {
-  const parentAdjustsNoMetric = parent.settings.metricSettings.every(
-    (m) => m.computedSettings?.regressionAdjustmentEnabled === false,
+  // The scheduled job and a manual update derive the snapshot-level flags
+  // differently when the experiment adjusts but every metric opts out. A metric
+  // is only adjusted when its own flag is on too, so that difference changes no
+  // number, as long as the plan would not start adjusting a copied metric.
+  const copiedMetricIds = new Set(
+    parent.settings.metricSettings.map((m) => m.id),
   );
+  const optsOut = (m: ExperimentSnapshotSettings["metricSettings"][number]) =>
+    m.computedSettings?.regressionAdjustmentEnabled === false;
+  const noCopiedMetricIsAdjusted =
+    parent.settings.metricSettings.every(optsOut) &&
+    planned.settings.metricSettings
+      .filter((m) => copiedMetricIds.has(m.id))
+      .every(optsOut);
   const comparable = (settings: ExperimentSnapshotSettings) => ({
     ...settings,
     exposureQueryIdentifierType: getIdentifierTypeForSettingsHash(
@@ -263,7 +274,7 @@ export function getSettingsChangedSinceParent({
       comparable(planned.settings),
       [
         ...REFRESH_SPECIFIC_SETTINGS,
-        ...(parentAdjustsNoMetric ? ["regressionAdjustmentEnabled"] : []),
+        ...(noCopiedMetricIsAdjusted ? ["regressionAdjustmentEnabled"] : []),
       ],
     ),
     ...getChangedKeys(
@@ -271,7 +282,7 @@ export function getSettingsChangedSinceParent({
       planned.analyses[0]?.settings ?? {},
       [
         ...METRIC_COUNT_ANALYSIS_SETTINGS,
-        ...(parentAdjustsNoMetric ? ["regressionAdjusted"] : []),
+        ...(noCopiedMetricIsAdjusted ? ["regressionAdjusted"] : []),
       ],
     ).map((key) => `analysis.${key}`),
   ];
