@@ -49,6 +49,8 @@ import {
   buildTopValuesWrite,
   keepStoredTopValues,
   storedTopValuesFilter,
+  toStoredColumn,
+  withDerivedTopValues,
   type TopValuesUpdate,
 } from "back-end/src/util/topValues";
 import { logger } from "back-end/src/util/logger";
@@ -94,7 +96,8 @@ const factTableSchema = new mongoose.Schema({
       deleted: Boolean,
       alwaysInlineFilter: Boolean,
       conditionalInlineFilters: {},
-      topValues: [String],
+      // Read-only: columns saved before topValueCounts existed. Never written.
+      topValues: { type: [String], default: undefined },
       topValuesDate: Date,
       topValueCounts: {
         type: [{ _id: false, value: String, count: Number }],
@@ -154,7 +157,10 @@ const FactTableModel = mongoose.model<FactTableInterface>(
 
 function toInterface(doc: FactTableDocument): FactTableInterface {
   const ret = doc.toJSON<FactTableDocument>();
-  return omit(ret, ["__v", "_id"]);
+  return {
+    ...omit(ret, ["__v", "_id"]),
+    columns: (ret.columns || []).map(withDerivedTopValues),
+  };
 }
 
 // Every whole-array column write goes through here. Each column keeps the
@@ -178,7 +184,7 @@ async function persistColumns<T extends { column: string }>(
     const next = keepStoredTopValues(stored, columns);
     const { matchedCount } = await FactTableModel.updateOne(
       { ...filter, ...storedTopValuesFilter(stored) },
-      { $set: { ...$set, columns: next } },
+      { $set: { ...$set, columns: next.map(toStoredColumn) } },
     );
     if (matchedCount || !doc) return next;
   }
@@ -403,7 +409,10 @@ export async function createFactTable(
   // the same time the background job is scheduling the aggregated table update
   await deferAggregatedFactTableToNextSlot(context, factTableProps);
 
-  const doc = await FactTableModel.create(factTableProps);
+  const doc = await FactTableModel.create({
+    ...factTableProps,
+    columns: factTableProps.columns.map(toStoredColumn),
+  });
 
   const factTable = toInterface(doc);
 

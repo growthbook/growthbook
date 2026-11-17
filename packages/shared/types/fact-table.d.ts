@@ -56,8 +56,8 @@ export type NumberFormat = z.infer<typeof numberFormatValidator>;
 
 export type JSONColumnFields = z.infer<typeof jsonColumnFieldsValidator>;
 
-// One top values query result. A column stores it as topValues,
-// topValueCounts, and topValuesDate.
+// One top values query result. A column stores it as topValueCounts and
+// topValuesDate.
 export type TopValuesSnapshot = {
   values: { value: string; count?: number }[];
   refreshedAt: Date;
@@ -78,11 +78,10 @@ export interface ColumnInterface {
   conditionalInlineFilters?: ConditionalInlineFilters;
   topValues?: string[];
   topValuesDate?: Date;
-  // topValues with their row counts, written alongside topValues. Display-only:
-  // filter pickers and Auto Slices read topValues. Missing on columns saved
-  // before counts existed until their next refresh, and on ClickHouse, whose
-  // topK only ranks values.
-  topValueCounts?: { value: string; count: number }[];
+  // The stored top values, ranked, each with its row count when the query
+  // returned one (ClickHouse's topK only ranks values). topValues is derived
+  // from this on read.
+  topValueCounts?: { value: string; count?: number }[];
   jsonFields?: JSONColumnFields;
   deleted: boolean;
   isAutoSliceColumn?: boolean;

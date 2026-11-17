@@ -6,34 +6,62 @@ import {
   populateAutoSlices,
   refillAutoSlices,
   storedTopValuesFilter,
+  toStoredColumn,
+  withDerivedTopValues,
 } from "back-end/src/util/topValues";
 
 describe("getTopValueFields", () => {
   const refreshedAt = new Date("2026-11-01T00:00:00Z");
 
-  it("derives the string list from the counts", () => {
-    const values = [
-      { value: "a", count: 3 },
-      { value: "b", count: 1 },
-    ];
-    expect(getTopValueFields({ values, refreshedAt })).toEqual({
-      topValues: ["a", "b"],
-      topValueCounts: values,
-      topValuesDate: refreshedAt,
-    });
-  });
-
-  it("stores no counts when any value is missing one", () => {
+  it("stores one list, leaving off the counts a query didn't return", () => {
     expect(
       getTopValueFields({
-        values: [{ value: "a" }, { value: "b", count: 2 }],
+        values: [
+          { value: "a", count: 3 },
+          { value: "b", count: undefined },
+        ],
         refreshedAt,
       }),
     ).toEqual({
-      topValues: ["a", "b"],
-      topValueCounts: undefined,
+      topValueCounts: [{ value: "a", count: 3 }, { value: "b" }],
       topValuesDate: refreshedAt,
     });
+  });
+});
+
+describe("withDerivedTopValues", () => {
+  it("reads topValues from the stored list, never the other way", () => {
+    expect(
+      withDerivedTopValues({
+        column: "country",
+        topValues: ["stale"],
+        topValueCounts: [{ value: "US", count: 4 }, { value: "CA" }],
+      } as ColumnInterface),
+    ).toMatchObject({
+      topValues: ["US", "CA"],
+      topValueCounts: [{ value: "US", count: 4 }, { value: "CA" }],
+    });
+  });
+
+  it("reads a column saved before counts existed", () => {
+    expect(
+      withDerivedTopValues({
+        column: "country",
+        topValues: ["US"],
+      } as ColumnInterface),
+    ).toMatchObject({ topValues: ["US"], topValueCounts: [{ value: "US" }] });
+  });
+
+  it("gives a column without top values an empty list and no counts", () => {
+    const column = withDerivedTopValues({ column: "c" } as ColumnInterface);
+    expect(column.topValues).toEqual([]);
+    expect(column.topValueCounts).toBeUndefined();
+  });
+
+  it("is never stored", () => {
+    expect(
+      toStoredColumn({ column: "c", topValues: ["US"], topValueCounts: [] }),
+    ).toEqual({ column: "c", topValueCounts: [] });
   });
 });
 
@@ -118,10 +146,10 @@ describe("buildTopValuesWrite", () => {
       ]),
     ).toEqual({
       $set: {
-        "columns.$[c0].topValues": ["US"],
+        "columns.$[c0].topValueCounts": [{ value: "US" }],
         "columns.$[c0].topValuesDate": refreshedAt,
       },
-      $unset: { "columns.$[c0].topValueCounts": "" },
+      $unset: { "columns.$[c0].topValues": "" },
       arrayFilters: [{ "c0.column": "country" }],
       filter: {},
       changed: true,
@@ -189,7 +217,9 @@ describe("buildTopValuesWrite", () => {
   it("marks a refresh that only moved the dates as unchanged", () => {
     const stored = {
       ...current,
-      columns: [{ ...current.columns[0], topValues: ["US"] }],
+      columns: [
+        withDerivedTopValues({ ...current.columns[0], topValues: ["US"] }),
+      ],
     };
     expect(
       buildTopValuesWrite(stored, [{ column: "country", snapshot }])?.changed,

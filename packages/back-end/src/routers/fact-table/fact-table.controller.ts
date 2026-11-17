@@ -896,7 +896,7 @@ export const postColumnTopValues = async (
     { forceAutoSlice?: string }
   >,
   // values is missing when the warehouse can't count them
-  res: Response<{ status: 200; values?: { value: string; count: number }[] }>,
+  res: Response<{ status: 200; values?: ColumnInterface["topValueCounts"] }>,
 ) => {
   const context = getContextFromReq(req);
 
@@ -933,7 +933,7 @@ export const postColumnTopValues = async (
       }
     : databaseColumn;
 
-  let values: { value: string; count: number }[] | undefined = [];
+  let values: ColumnInterface["topValueCounts"] = [];
 
   if (
     forceAutoSlice ||
