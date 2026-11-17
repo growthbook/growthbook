@@ -1122,6 +1122,11 @@ tags:
     description: >-
       <SchemaDefinition
       schemaRef="#/components/schemas/SdkConnectionRevisionActivityLogEntry" />
+  - name: SdkConnectionRevisionRef_model
+    x-displayName: Sdk Connection Revision Ref
+    description: >-
+      <SchemaDefinition
+      schemaRef="#/components/schemas/SdkConnectionRevisionRef" />
   - name: SdkConnectionRevisionReview_model
     x-displayName: Sdk Connection Revision Review
     description: >-
@@ -33120,8 +33125,8 @@ paths:
       summary: Atomically publish revisions across multiple entities
       description: >-
         Publishes a set of revisions — at most one per entity — across Feature
-        Flags, Saved Groups, configs, and constants as a single all-or-nothing
-        operation.
+        Flags, Saved Groups, Configs, Constants, and SDK Connections as a single
+        all-or-nothing operation.
 
 
         Validation, guards, and custom hooks run against the combined end-state
@@ -33162,6 +33167,8 @@ paths:
                         $ref: '#/components/schemas/ConfigRevisionRef'
                       - title: Constant Revision Ref
                         $ref: '#/components/schemas/ConstantRevisionRef'
+                      - title: Sdk Connection Revision Ref
+                        $ref: '#/components/schemas/SdkConnectionRevisionRef'
                       - title: Revision Id Ref
                         $ref: '#/components/schemas/RevisionIdRef'
                   description: The revisions to publish, at most one per entity.
@@ -33191,10 +33198,11 @@ paths:
                   description: >-
                     Set to true to publish despite Custom Hook rejections. The
                     caller must have Bypass draft approvals access for Feature
-                    Flags, Configs, and Constants in every Project. Only set
-                    this when a person has explicitly asked you to. If a check
-                    blocks you, stop and ask a person instead of working around
-                    it.
+                    Flags, Configs, and Constants in every Project. A Custom
+                    Hook on an SDK Connection takes that access for SDK
+                    Connections. Only set this when a person has explicitly
+                    asked you to. If a check blocks you, stop and ask a person
+                    instead of working around it.
                   type: boolean
                 comment:
                   description: >-
@@ -33237,6 +33245,7 @@ paths:
                             - saved-group
                             - config
                             - constant
+                            - sdk-connection
                         id:
                           type: string
                           description: The identifier used in the request.
@@ -33309,6 +33318,7 @@ paths:
                             - saved-group
                             - config
                             - constant
+                            - sdk-connection
                         id:
                           type: string
                         version:
@@ -80409,6 +80419,23 @@ components:
         - key
         - version
       additionalProperties: false
+    SdkConnectionRevisionRef:
+      type: object
+      properties:
+        entityType:
+          type: string
+          const: sdk-connection
+        id:
+          type: string
+          description: SDK Connection id.
+        version:
+          type: integer
+          description: Revision version to publish.
+      required:
+        - entityType
+        - id
+        - version
+      additionalProperties: false
     RevisionIdRef:
       type: object
       properties:
@@ -80419,6 +80446,7 @@ components:
             - saved-group
             - config
             - constant
+            - sdk-connection
         revisionId:
           type: string
           description: >-
@@ -94198,6 +94226,7 @@ components:
             - saved-group
             - config
             - constant
+            - sdk-connection
         id:
           type: string
           description: The identifier used in the request.
@@ -94896,6 +94925,7 @@ x-tagGroups:
       - SdkConnectionApprovalRule_model
       - SdkConnectionRevision_model
       - SdkConnectionRevisionActivityLogEntry_model
+      - SdkConnectionRevisionRef_model
       - SdkConnectionRevisionReview_model
       - SdkConnectionRevisionSettings_model
       - SdkConnectionRevisionWebhook_model

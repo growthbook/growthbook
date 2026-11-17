@@ -836,8 +836,9 @@ export const sdkConnectionAdapter: EntityRevisionAdapter<SDKConnectionRevisionSn
         for (const wh of newWebhooks) {
           if (oldById.has(wh.id)) continue;
           // A retried landing skips webhooks an earlier attempt created.
-          if (!(await context.models.sdkWebhooks.getById(wh.id))) {
-            await context.models.sdkWebhooks.create({
+          const row =
+            (await context.models.sdkWebhooks.getById(wh.id)) ??
+            (await context.models.sdkWebhooks.create({
               ...context.models.sdkWebhooks.getDefaultCreateProps(
                 entity.sdkConnection.id,
               ),
@@ -853,9 +854,9 @@ export const sdkConnectionAdapter: EntityRevisionAdapter<SDKConnectionRevisionSn
               ...((wh.timeoutSeconds ?? null) !== null && {
                 timeoutSeconds: wh.timeoutSeconds,
               }),
-            });
-          }
-          current = [...current, wh];
+            }));
+          // As stored, which is what compensation compares live against.
+          current = [...current, toWebhookSnapshot(row)];
           recordWebhooks();
         }
 
@@ -880,8 +881,10 @@ export const sdkConnectionAdapter: EntityRevisionAdapter<SDKConnectionRevisionSn
               },
             );
             edited.push(saved);
+            current = current.map((w) =>
+              w.id === newWh.id ? toWebhookSnapshot(saved) : w,
+            );
           }
-          current = current.map((w) => (w.id === newWh.id ? newWh : w));
           recordWebhooks();
         }
 
@@ -897,7 +900,9 @@ export const sdkConnectionAdapter: EntityRevisionAdapter<SDKConnectionRevisionSn
           recordWebhooks();
         }
 
-        current = newWebhooks;
+        // In the revision's order, each as stored.
+        const stored = new Map(current.map((w) => [w.id, w]));
+        current = newWebhooks.map((w) => stored.get(w.id) ?? w);
         recordWebhooks();
 
         if (edited.length) {

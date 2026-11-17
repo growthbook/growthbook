@@ -1410,6 +1410,7 @@
               "api/SdkConnectionApprovalRule_model",
               "api/SdkConnectionRevision_model",
               "api/SdkConnectionRevisionActivityLogEntry_model",
+              "api/SdkConnectionRevisionRef_model",
               "api/SdkConnectionRevisionReview_model",
               "api/SdkConnectionRevisionSettings_model",
               "api/SdkConnectionRevisionWebhook_model",

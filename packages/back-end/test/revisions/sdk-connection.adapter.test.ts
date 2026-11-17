@@ -188,8 +188,13 @@ function makeContext(overrides: {
         findSdkWebhooksByIdsForRevision: jest.fn(async () => []),
         countSdkWebhooksByOrg: jest.fn(async () => overrides.webhookCount ?? 0),
         getDefaultCreateProps: (id: string) => ({ sdks: [id] }),
-        create: jest.fn(async () => ({})),
-        saveEdit: jest.fn(async (w: { id: string }) => ({ ...w, saved: true })),
+        // As the model does: each returns the row it stored.
+        create: jest.fn(async (props: object) => props),
+        saveEdit: jest.fn(async (w: { id: string }, updates: object) => ({
+          ...w,
+          ...updates,
+          saved: true,
+        })),
         send: jest.fn(),
         delete: jest.fn(async () => undefined),
         getById: jest.fn(async (id: string) => ({ id })),
@@ -1222,7 +1227,7 @@ describe("sdkConnectionAdapter", () => {
         const model = webhooksModel(ctx);
         await editOnly(ctx);
         expect(model.send).toHaveBeenCalledTimes(1);
-        expect(model.send.mock.calls[0][0]).toEqual({
+        expect(model.send.mock.calls[0][0]).toMatchObject({
           id: "wh-1",
           saved: true,
         });
@@ -1316,8 +1321,10 @@ describe("sdkConnectionAdapter", () => {
 
     it("reports both keys when settings and webhooks change together", async () => {
       const onPersisted = jest.fn();
+      const ctx = makeContext({});
+      webhooksModel(ctx).getById.mockResolvedValue(null);
       const result = await sdkConnectionAdapter.applyChanges(
-        makeContext({}),
+        ctx,
         liveEntity,
         {
           sdkConnection: settings({ name: "New Name" }),

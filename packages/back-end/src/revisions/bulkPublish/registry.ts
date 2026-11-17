@@ -2,6 +2,8 @@ import { ConfigInterface } from "shared/types/config";
 import { ConstantInterface } from "shared/types/constant";
 import { SavedGroupInterface } from "shared/types/saved-group";
 import type { Revision } from "shared/enterprise";
+import type { SDKConnectionRevisionSnapshot } from "shared/validators";
+import { bypassApprovalPermission } from "shared/permissions";
 import type { Context } from "back-end/src/models/BaseModel";
 import { getAdapter } from "back-end/src/revisions";
 import {
@@ -16,10 +18,17 @@ import {
   assertSavedGroupProjectScope,
   collectSavedGroupScopeGate,
 } from "back-end/src/services/savedGroupProjectScope";
+import { assertCanChangeSdkWebhooks } from "back-end/src/services/sdkConnectionApprovals";
+import {
+  collectValidateSdkConnectionHookResults,
+  collectValidateSdkConnectionRevisionHookResults,
+} from "back-end/src/enterprise/sandbox/sandbox-eval";
+import { getErrorMessage } from "back-end/src/util/errors";
 import type { ReqContext } from "back-end/types/request";
 import type { PublishGate } from "back-end/src/revisions/publishGates";
 import {
   gateOr5xx,
+  hookResultsToGates,
   makeBlockingGate,
 } from "back-end/src/revisions/publishGates";
 import { makeGenericBulkAdapter } from "back-end/src/revisions/bulkPublish/genericBulkAdapter";
@@ -132,6 +141,71 @@ async function savedGroupExtraGates(args: {
   return gates;
 }
 
+// What a single SDK Connection publish refuses, as gates: a refusal at commit
+// would roll the whole release back.
+async function sdkConnectionExtraGates(args: {
+  callerContext: Context;
+  entity: Record<string, unknown>;
+  revision: Revision;
+  desiredState: Record<string, unknown>;
+}): Promise<PublishGate[]> {
+  const { callerContext: context, revision, desiredState } = args;
+  const live = args.entity as unknown as SDKConnectionRevisionSnapshot;
+  const proposed = {
+    ...live,
+    ...desiredState,
+  } as SDKConnectionRevisionSnapshot;
+  // The API reads an error with no status as a 400, so one is a refusal here.
+  const refusal = (type: string, e: unknown) => {
+    if (((e as { status?: number }).status ?? 400) >= 500) throw e;
+    return [makeBlockingGate({ type, messages: [getErrorMessage(e)] })];
+  };
+  // Before any hook runs, so a caller who may not change webhooks is shown no
+  // hook's message.
+  try {
+    assertCanChangeSdkWebhooks(
+      context,
+      live.sdkConnection,
+      live.sdkWebhooks,
+      proposed.sdkWebhooks,
+    );
+  } catch (e) {
+    return refusal("permission-denied", e);
+  }
+  try {
+    await getAdapter("sdk-connection").assertPublishable?.(
+      context,
+      live,
+      desiredState,
+      revision,
+      { hooksAlreadyRan: true },
+    );
+  } catch (e) {
+    return refusal("validation", e);
+  }
+  const hookBypass = bypassApprovalPermission("sdk-connection");
+  return [
+    ...hookResultsToGates(
+      await collectValidateSdkConnectionHookResults({
+        context,
+        original: live,
+        sdkConnection: proposed,
+      }),
+      hookBypass,
+    ),
+    ...hookResultsToGates(
+      await collectValidateSdkConnectionRevisionHookResults({
+        context,
+        live,
+        revision,
+        proposed,
+        before: live,
+      }),
+      hookBypass,
+    ),
+  ];
+}
+
 const registry: Record<BulkPublishTargetType, () => BulkPublishableAdapter> = {
   "saved-group": () =>
     makeGenericBulkAdapter("saved-group", getAdapter("saved-group"), {
@@ -153,6 +227,12 @@ const registry: Record<BulkPublishTargetType, () => BulkPublishableAdapter> = {
         ctx.models.configs.setScanOverlay(proposed as ConfigInterface[]),
     }),
   feature: () => featureBulkAdapter,
+  "sdk-connection": () =>
+    makeGenericBulkAdapter("sdk-connection", getAdapter("sdk-connection"), {
+      extraGates: sdkConnectionExtraGates,
+      // Nothing another entity's checks read from a connection is overlaid.
+      setScanOverlay: () => undefined,
+    }),
 };
 
 // Every bulk-publishable target type — the orchestrator iterates this to
