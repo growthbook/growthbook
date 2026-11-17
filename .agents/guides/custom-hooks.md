@@ -31,9 +31,9 @@ publish and receives revision details without the proposed content, and
    the entity before the change for the first hook; the revision before this
    save for the second, which is live's state for a new draft and at publish.
 5. **No secrets reach a hook.** A hook's error or log is shown to people who
-   may not be allowed to see them. Leave out keys, signing secrets and webhook
-   headers, and never pass a whole revision document: its snapshot carries the
-   entity.
+   may not be allowed to see them. Leave out keys and signing secrets, and never
+   pass a whole revision document: its snapshot carries the entity. Webhook
+   headers are passed as written: a secret is referenced there, never expanded.
 6. **Which hooks apply:** hooks scoped to the entity, Project hooks naming any
    of the entity's Projects, and global hooks. A change that moves the entity
    answers to the Projects it leaves and the ones it enters. An entity in all

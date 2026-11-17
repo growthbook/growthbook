@@ -193,6 +193,30 @@ export type SDKConnectionRevisionSnapshot = z.infer<
   typeof sdkConnectionSnapshotValidator
 >;
 
+function webhookHeadersObject(headers?: string): Record<string, string> {
+  try {
+    const parsed: unknown = JSON.parse(headers || "{}");
+    return parsed && typeof parsed === "object"
+      ? (parsed as Record<string, string>)
+      : {};
+  } catch (e) {
+    return {};
+  }
+}
+
+// What a Custom Hook receives: the settings, and each webhook with its headers
+// as an object. A reference to a secret stays as written, never its value.
+export const sdkConnectionHookArgs = ({
+  sdkConnection,
+  sdkWebhooks,
+}: SDKConnectionRevisionSnapshot) => ({
+  sdkConnection,
+  sdkWebhooks: sdkWebhooks.map((webhook) => ({
+    ...webhook,
+    headers: webhookHeadersObject(webhook.headers),
+  })),
+});
+
 // The fields a revision may write to the live connection.
 export const sdkConnectionUpdatableFieldsSchema =
   sdkConnectionSettingsSnapshotValidator.omit({ id: true, organization: true });

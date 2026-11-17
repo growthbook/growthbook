@@ -550,8 +550,8 @@ describe("SDK Connection revision endpoints", () => {
     expect(badUpdate.body.message).toContain("No bad names");
     expect((await liveConnection(id))?.name).toBe("Web app");
 
-    // A direct webhook write is a change to the connection too. Hooks never
-    // get the headers, which can hold credentials.
+    // A direct webhook write is a change to the connection too. Hooks get the
+    // headers as an object.
     const webhook = await request(app)
       .post(`/api/v1/sdk-connections/${id}/webhooks`)
       .send({
@@ -561,17 +561,15 @@ describe("SDK Connection revision endpoints", () => {
       })
       .set(auth);
     expect(webhook.status).toBe(200);
-    expect(lastArgs().sdkWebhooks).toMatchObject([{ name: "Purge" }]);
-    expect(lastArgs().sdkWebhooks[0]).not.toHaveProperty("headers");
+    expect(lastArgs().sdkWebhooks).toMatchObject([
+      { name: "Purge", headers: { "X-Token": "abc" } },
+    ]);
     // A direct write lands a revision already published, so both hooks run.
     expect(lastArgs()).not.toHaveProperty("revision");
     expect(lastArgs("revision").revision).toMatchObject({
       status: "merged",
-      sdkWebhooks: [{ name: "Purge" }],
+      sdkWebhooks: [{ name: "Purge", headers: { "X-Token": "abc" } }],
     });
-    expect(lastArgs("revision").revision?.sdkWebhooks[0]).not.toHaveProperty(
-      "headers",
-    );
 
     // The revision hook sees a draft save: live, and what the draft proposes.
     const refused = await request(app)

@@ -1,4 +1,4 @@
-import { omit, pick, union } from "lodash";
+import { pick, union } from "lodash";
 import type {
   EventUser,
   SDKConnectionRevisionSnapshot,
@@ -12,6 +12,7 @@ import {
   eventUserIdentity,
   hookEntityType,
   revisionActor,
+  sdkConnectionHookArgs,
 } from "shared/validators";
 import {
   getConfigAncestorKeys,
@@ -653,16 +654,6 @@ export async function runValidateExperimentHooks({
     original ? { experiment: original } : undefined,
   );
 }
-
-// Webhook headers can hold credentials, which a hook's error or log would show
-// to someone who can't see them, so hooks get everything else.
-const sdkConnectionHookArgs = ({
-  sdkConnection,
-  sdkWebhooks,
-}: SDKConnectionRevisionSnapshot) => ({
-  sdkConnection,
-  sdkWebhooks: sdkWebhooks.map((webhook) => omit(webhook, "headers")),
-});
 
 type SdkConnectionHookInput = {
   context: Context;

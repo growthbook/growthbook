@@ -1,4 +1,4 @@
-import { omit, pick } from "lodash";
+import { pick } from "lodash";
 import React, { useState } from "react";
 import { useForm } from "react-hook-form";
 import {
@@ -6,6 +6,7 @@ import {
   CustomHookType,
   SDKConnectionRevisionSnapshot,
   customHookEntityNoun,
+  sdkConnectionHookArgs,
   hookEntityType,
 } from "shared/validators";
 import { CreateProps } from "shared/types/base-model";
@@ -289,20 +290,13 @@ const dummySdkConnection: SDKConnectionRevisionSnapshot = {
       name: "Purge CDN",
       endpoint: "https://example.com/purge",
       httpMethod: "POST",
+      headers: '{"Authorization":"Bearer {{ CDN_TOKEN }}"}',
       payloadFormat: "standard",
       timeoutSeconds: 10,
     },
   ],
 };
-
-// As hooks get them: settings and webhooks, never the headers.
-const sdkConnectionHookArgs = ({
-  sdkConnection,
-  sdkWebhooks,
-}: SDKConnectionRevisionSnapshot) => ({
-  sdkConnection,
-  sdkWebhooks: sdkWebhooks.map((webhook) => omit(webhook, "headers")),
-});
+const dummySdkConnectionArgs = sdkConnectionHookArgs(dummySdkConnection);
 
 const dummySdkConnectionRevision = {
   ...dummyConfigRevision,
@@ -410,12 +404,12 @@ export const hookTypes: Record<
       sdkConnection: {
         description:
           "The SDK Connection's settings as the change leaves them. Keys and other secrets are left out",
-        testValue: stringify(dummySdkConnection.sdkConnection),
+        testValue: stringify(dummySdkConnectionArgs.sdkConnection),
       },
       sdkWebhooks: {
         description:
-          "The SDK Connection's webhooks as the change leaves them, without their headers",
-        testValue: stringify(dummySdkConnection.sdkWebhooks),
+          "The SDK Connection's webhooks as the change leaves them. A secret referenced in a header or endpoint stays as written",
+        testValue: stringify(dummySdkConnectionArgs.sdkWebhooks),
       },
     },
     example: `\n// Block the save (hard error):\nif (sdkConnection.environment === "production" && !sdkConnection.encryptPayload) {\n  throw new Error("Production SDK Connections must encrypt their payload");\n}\n\n// Or raise a soft warning the user can acknowledge:\nif (sdkWebhooks.some((webhook) => !webhook.endpoint.startsWith("https://"))) {\n  addWarning("Webhooks should use HTTPS");\n}`,
@@ -426,19 +420,18 @@ export const hookTypes: Record<
       sdkConnection: {
         description:
           "The live SDK Connection's settings, before this revision is published. Keys and other secrets are left out",
-        testValue: stringify(dummySdkConnection.sdkConnection),
+        testValue: stringify(dummySdkConnectionArgs.sdkConnection),
       },
       sdkWebhooks: {
-        description:
-          "The live SDK Connection's webhooks, without their headers",
-        testValue: stringify(dummySdkConnection.sdkWebhooks),
+        description: "The live SDK Connection's webhooks",
+        testValue: stringify(dummySdkConnectionArgs.sdkWebhooks),
       },
       revision: {
         description:
           "The revision being written: what it proposes (`sdkConnection`, `sdkWebhooks`) and where it stands (version, status, author, reviews)",
         testValue: stringify({
           ...dummySdkConnectionRevision,
-          ...dummySdkConnection,
+          ...dummySdkConnectionArgs,
         }),
       },
     },
