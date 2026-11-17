@@ -11,7 +11,10 @@ import {
   createExperimentSnapshotFromPlan,
   planExperimentSnapshot,
 } from "back-end/src/services/experiments";
-import { ExperimentIncrementalPipelineRequiresFullRefreshError } from "back-end/src/util/errors";
+import {
+  ExperimentIncrementalPipelineRequiresFullRefreshError,
+  MetricRefreshUnavailableError,
+} from "back-end/src/util/errors";
 import { snapshotFactory } from "back-end/test/factories/Snapshot.factory";
 import { setupApp } from "./api.setup";
 
@@ -995,5 +998,162 @@ describe("snapshots API", () => {
     expect(response.status).toBe(400);
     expect(response.body).toEqual({ message: "permission error" });
     expect(createExperimentSnapshot).not.toHaveBeenCalled();
+  });
+
+  describe("missingMetricsOnly", () => {
+    const refreshEndDate = new Date("2026-11-16T09:02:00.000Z");
+    const setup = () => {
+      setReqContext({
+        org,
+        permissions: {
+          canCreateExperimentSnapshot: () => true,
+          canReadSingleProjectResource: () => true,
+        },
+      });
+      const base = snapshotFactory.build({ organization: org.id });
+      const snapshot = snapshotFactory.build({
+        organization: org.id,
+        status: "running",
+        type: "standard",
+        settings: { ...base.settings, endDate: refreshEndDate },
+        metricRefresh: {
+          baseSnapshotId: "snp_base",
+          baseDateCreated: refreshEndDate,
+          baseCutoffDate: null,
+          parentSnapshotId: "snp_base",
+          metricIds: ["fact__new"],
+        },
+      });
+      const experiment = {
+        id: snapshot.experiment,
+        datasource: "ds_123",
+        phases: [{}, {}],
+      };
+      const datasource = { id: "ds_123" };
+      getExperimentById.mockReturnValue(experiment);
+      getDataSourceById.mockReturnValue(datasource);
+      return { snapshot, experiment, datasource };
+    };
+    const post = (experimentId: string, body: object) =>
+      request(app)
+        .post(`/api/v1/experiments/${experimentId}/snapshot`)
+        .set("Authorization", "Bearer foo")
+        .send(body);
+    const expectedRefresh = {
+      baseSnapshotId: "snp_base",
+      metricIds: ["fact__new"],
+      dateEnd: refreshEndDate.toISOString(),
+    };
+
+    it("refreshes only the newly added metrics and reports what ran", async () => {
+      const { snapshot, experiment, datasource } = setup();
+      createExperimentSnapshot.mockResolvedValueOnce({
+        snapshot,
+        queryRunner: {},
+      });
+
+      const response = await post(experiment.id, { missingMetricsOnly: true });
+
+      expect(response.status).toBe(200);
+      expect(response.body).toEqual({
+        snapshot: {
+          id: snapshot.id,
+          experiment: snapshot.experiment,
+          status: "running",
+          metricRefresh: expectedRefresh,
+        },
+      });
+      expect(createExperimentSnapshot).toHaveBeenCalledTimes(1);
+      expect(createExperimentSnapshot).toHaveBeenCalledWith({
+        context: expect.objectContaining({ org }),
+        experiment,
+        datasource,
+        phase: 1,
+        dimension: undefined,
+        useCache: true,
+        missingMetricsOnly: true,
+      });
+    });
+
+    it("does not fall back to a Full Refresh when one is required", async () => {
+      const { experiment } = setup();
+      createExperimentSnapshot.mockRejectedValueOnce(
+        new ExperimentIncrementalPipelineRequiresFullRefreshError(
+          "The experiment configuration is outdated.",
+        ),
+      );
+
+      const response = await post(experiment.id, { missingMetricsOnly: true });
+
+      expect(response.status).toBe(409);
+      expect(response.body.code).toBe("requires_full_refresh");
+      expect(createExperimentSnapshot).toHaveBeenCalledTimes(1);
+    });
+
+    it("returns the reason when the refresh is unavailable", async () => {
+      const { experiment } = setup();
+      createExperimentSnapshot.mockRejectedValueOnce(
+        new MetricRefreshUnavailableError(
+          "settings_changed",
+          "Run a full update instead.",
+        ),
+      );
+
+      const response = await post(experiment.id, { missingMetricsOnly: true });
+
+      expect(response.status).toBe(409);
+      expect(response.body).toMatchObject({
+        code: "metric_refresh_unavailable",
+        details: { reason: "settings_changed" },
+      });
+    });
+
+    it.each([{ dimension: "pre:date" }, { triggeredBy: "schedule" }])(
+      "rejects the flag combined with %o",
+      async (extra) => {
+        const { experiment } = setup();
+
+        const response = await post(experiment.id, {
+          missingMetricsOnly: true,
+          ...extra,
+        });
+
+        expect(response.status).toBe(400);
+        expect(response.body).toEqual({
+          message:
+            '"missingMetricsOnly" cannot be combined with "dimension" or with "triggeredBy": "schedule".',
+        });
+        expect(createExperimentSnapshot).not.toHaveBeenCalled();
+        expect(planExperimentSnapshot).not.toHaveBeenCalled();
+      },
+    );
+
+    it("runs a normal update when the flag is false", async () => {
+      const { snapshot, experiment } = setup();
+      createExperimentSnapshot.mockResolvedValueOnce({
+        snapshot: { ...snapshot, metricRefresh: undefined },
+        queryRunner: {},
+      });
+
+      const response = await post(experiment.id, { missingMetricsOnly: false });
+
+      expect(response.status).toBe(200);
+      expect(response.body.snapshot).not.toHaveProperty("metricRefresh");
+      expect(createExperimentSnapshot).toHaveBeenCalledWith(
+        expect.not.objectContaining({ missingMetricsOnly: true }),
+      );
+    });
+
+    it("reports the refresh when the snapshot is read back", async () => {
+      const { snapshot } = setup();
+      findSnapshotById.mockReturnValueOnce(snapshot);
+
+      const response = await request(app)
+        .get(`/api/v1/snapshots/${snapshot.id}`)
+        .set("Authorization", "Bearer foo");
+
+      expect(response.status).toBe(200);
+      expect(response.body.snapshot.metricRefresh).toEqual(expectedRefresh);
+    });
   });
 });

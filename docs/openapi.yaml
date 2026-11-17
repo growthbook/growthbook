@@ -18539,6 +18539,19 @@ paths:
                   description: >-
                     Zero-based phase index to snapshot, where 0 is the first
                     experiment phase. Defaults to the latest phase.
+                missingMetricsOnly:
+                  type: boolean
+                  description: >-
+                    Set to true to compute only the metrics added to the
+                    experiment since its latest Overall Results, without
+                    rerunning the rest of the analysis. The new metrics are
+                    computed up to that update's end date, so they are as stale
+                    as the other results. Returns 409
+                    "metrics_already_up_to_date" when nothing is missing, and
+                    409 "metric_refresh_unavailable" when a full update is
+                    needed instead; it never falls back to a full update by
+                    itself. Cannot be combined with "dimension" or with
+                    "triggeredBy": "schedule".
                 ignoreWarnings:
                   description: >-
                     Set to true to acknowledge the warnings listed in a blocked
@@ -18606,6 +18619,57 @@ paths:
                       details:
                         $ref: >-
                           #/components/schemas/ApiErrorDimensionAlreadyUpToDateDetails
+                    required:
+                      - message
+                      - code
+                      - details
+                  - type: object
+                    description: >-
+                      Every metric of the experiment already has results in the
+                      latest Overall Results
+                    properties:
+                      message:
+                        type: string
+                      code:
+                        type: string
+                        enum:
+                          - metrics_already_up_to_date
+                      details:
+                        $ref: >-
+                          #/components/schemas/ApiErrorMetricsAlreadyUpToDateDetails
+                    required:
+                      - message
+                      - code
+                      - details
+                  - type: object
+                    description: An update of the experiment's Overall Results is running
+                    properties:
+                      message:
+                        type: string
+                      code:
+                        type: string
+                        enum:
+                          - snapshot_in_progress
+                      details:
+                        $ref: '#/components/schemas/ApiErrorSnapshotInProgressDetails'
+                    required:
+                      - message
+                      - code
+                      - details
+                  - type: object
+                    description: >-
+                      Newly added metrics can't be updated on their own; run a
+                      full update instead
+                    properties:
+                      message:
+                        type: string
+                      code:
+                        type: string
+                        enum:
+                          - metric_refresh_unavailable
+                      details:
+                        $ref: >-
+                          #/components/schemas/ApiErrorMetricRefreshUnavailableDetails
                     required:
                       - message
                       - code
@@ -90019,6 +90083,31 @@ components:
           type: string
         status:
           type: string
+        metricRefresh:
+          type: object
+          properties:
+            baseSnapshotId:
+              type: string
+              description: >-
+                The full update this snapshot is anchored to. Its end date is
+                this snapshot's end date
+            metricIds:
+              type: array
+              items:
+                type: string
+              description: The newly added metrics this snapshot queried
+            dateEnd:
+              type: string
+              format: date-time
+              description: >-
+                The end of the analysis window. It is the base update's end
+                date, not the time of this request
+          required:
+            - baseSnapshotId
+            - metricIds
+            - dateEnd
+          additionalProperties: false
+          description: 'Present only on a snapshot created with "missingMetricsOnly": true'
       required:
         - id
         - experiment
@@ -91469,6 +91558,31 @@ components:
           type: string
         status:
           type: string
+        metricRefresh:
+          type: object
+          properties:
+            baseSnapshotId:
+              type: string
+              description: >-
+                The full update this snapshot is anchored to. Its end date is
+                this snapshot's end date
+            metricIds:
+              type: array
+              items:
+                type: string
+              description: The newly added metrics this snapshot queried
+            dateEnd:
+              type: string
+              format: date-time
+              description: >-
+                The end of the analysis window. It is the base update's end
+                date, not the time of this request
+          required:
+            - baseSnapshotId
+            - metricIds
+            - dateEnd
+          additionalProperties: false
+          description: 'Present only on a snapshot created with "missingMetricsOnly": true'
       required:
         - id
         - experiment

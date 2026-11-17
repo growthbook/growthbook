@@ -11,7 +11,9 @@ import {
   PlannedExperimentSnapshot,
 } from "back-end/src/services/experiments";
 import { validateSnapshotDimension } from "back-end/src/services/snapshotDimension";
+import { toSnapshotApiInterface } from "back-end/src/api/snapshots/toSnapshotApiInterface";
 import {
+  BadRequestError,
   DimensionAlreadyUpToDateError,
   ExperimentIncrementalPipelineRequiresFullRefreshError,
   NotFoundError,
@@ -31,6 +33,12 @@ export const postExperimentSnapshot = createApiRequestHandler(
   const id = req.params.id;
 
   const { triggeredBy, dimension, phase } = req.body ?? {};
+  const missingMetricsOnly = req.body?.missingMetricsOnly === true;
+  if (missingMetricsOnly && (dimension || triggeredBy === "schedule")) {
+    throw new BadRequestError(
+      '"missingMetricsOnly" cannot be combined with "dimension" or with "triggeredBy": "schedule".',
+    );
+  }
   const experiment = await getExperimentById(context, id);
 
   if (!experiment) {
@@ -142,6 +150,17 @@ export const postExperimentSnapshot = createApiRequestHandler(
       context,
       experiment,
     });
+  } else if (missingMetricsOnly) {
+    // No Full Refresh fallback: the caller asked for the cheap path only.
+    result = await createExperimentSnapshot({
+      context,
+      experiment,
+      datasource,
+      phase: phaseIndex,
+      dimension: undefined,
+      useCache: true,
+      missingMetricsOnly: true,
+    });
   } else {
     try {
       result = await createExperimentSnapshot({
@@ -190,13 +209,8 @@ export const postExperimentSnapshot = createApiRequestHandler(
       dimension,
       useCache,
       manual: false,
+      ...(missingMetricsOnly ? { missingMetricsOnly } : {}),
     }),
   });
-  return {
-    snapshot: {
-      id: snapshot.id,
-      experiment: snapshot.experiment,
-      status: snapshot.status,
-    },
-  };
+  return { snapshot: toSnapshotApiInterface(snapshot) };
 });

@@ -1242,6 +1242,26 @@ const apiExperimentSnapshotShape = z.object({
   id: z.string(),
   experiment: z.string(),
   status: z.string(),
+  metricRefresh: z
+    .object({
+      baseSnapshotId: z
+        .string()
+        .describe(
+          "The full update this snapshot is anchored to. Its end date is this snapshot's end date",
+        ),
+      metricIds: z
+        .array(z.string())
+        .describe("The newly added metrics this snapshot queried"),
+      dateEnd: z.iso
+        .datetime()
+        .describe(
+          "The end of the analysis window. It is the base update's end date, not the time of this request",
+        ),
+    })
+    .describe(
+      'Present only on a snapshot created with "missingMetricsOnly": true',
+    )
+    .optional(),
 });
 export const apiExperimentSnapshotValidator = namedSchema(
   "ExperimentSnapshot",
@@ -2965,6 +2985,12 @@ export const postExperimentSnapshotValidator = {
           "Zero-based phase index to snapshot, where 0 is the first experiment phase. Defaults to the latest phase.",
         )
         .optional(),
+      missingMetricsOnly: z
+        .boolean()
+        .describe(
+          'Set to true to compute only the metrics added to the experiment since its latest Overall Results, without rerunning the rest of the analysis. The new metrics are computed up to that update\'s end date, so they are as stale as the other results. Returns 409 "metrics_already_up_to_date" when nothing is missing, and 409 "metric_refresh_unavailable" when a full update is needed instead; it never falls back to a full update by itself. Cannot be combined with "dimension" or with "triggeredBy": "schedule".',
+        )
+        .optional(),
       ignoreWarnings: ignoreWarningsBodyField,
     })
     .strict()
@@ -2990,6 +3016,9 @@ export const postExperimentSnapshotValidator = {
   possibleErrors: [
     "requires_full_refresh",
     "dimension_already_up_to_date",
+    "metrics_already_up_to_date",
+    "snapshot_in_progress",
+    "metric_refresh_unavailable",
   ] as const,
 };
 
