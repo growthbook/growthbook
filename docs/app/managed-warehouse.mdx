@@ -323,7 +323,7 @@ For best performance, take advantage of the indexed columns in each table:
   - `feature`: the name of the feature being evaluated
 - **experiment_views** table:
   - `timestamp`: the time the event occurred
-  - `experimentId`: the ID of the experiment being viewed
+  - `experiment_id`: the ID of the experiment being viewed
 
 #### Querying attributes and properties
 
@@ -337,6 +337,10 @@ FROM events
 WHERE timestamp >= '2025-06-01 00:00:00'
   AND event_name = 'Purchase'
 ```
+
+<Warning>
+Avoid `JSONExtractString()` and other `JSONExtract*` functions on `attributes` and `properties`. They convert each row's entire JSON value to text, so ClickHouse reads the whole column instead of the one field you need. On a large table, `JSONExtractString(properties, 'resource')` can read close to 100 times more data than `properties.resource::Nullable(String)`. This applies everywhere you write SQL, including fact table SQL and metric filters.
+</Warning>
 
 Attributes marked as [Identifiers](#identifiers-and-custom-attributes) are already exposed as top-level columns, so you can reference them directly without the JSON path.
 
@@ -360,6 +364,17 @@ coalesce(
 ```
 
 Keep the standard column names (`user_id`, `device_id`): experiment analysis joins your fact table to GrowthBook's exposure queries by identifier, so a fact table that extracts an ID from the JSON under a different name won't match any exposures.
+
+#### Filter every metric by event name
+
+GrowthBook computes all the metrics in an experiment that use the same fact table in a single query. That query can only skip the events it doesn't need if **every** one of those metrics filters on `event_name`. If even one metric has no `event_name` filter, such as an "active users" metric that counts any event, the query reads every event in the date range for all of them.
+
+To keep experiment queries fast:
+
+- Give each metric an `event_name` filter, even a broad one. Excluding a single high-volume event (for example, `event_name != 'Request Completed'`) is enough for ClickHouse to skip the rows for that event.
+- When a metric really needs every event, consider putting it in a separate fact table so it doesn't slow down the others.
+
+Experiments also read events from before exposure when [CUPED](/statistics/cuped) is enabled (14 days by default), so a new experiment can still scan several weeks of events.
 
 #### Large queries
 
