@@ -27,6 +27,15 @@ export class ConfirmationModel extends BaseClass {
     return false;
   }
 
+  public findByRequester(apiKeyId: string | null, userId: string | null) {
+    const or = [
+      ...(apiKeyId ? [{ apiKeyId }] : []),
+      ...(userId ? [{ userId }] : []),
+    ];
+    if (!or.length) return Promise.resolve([]);
+    return this._find({ $or: or }, { sort: { dateCreated: -1 } });
+  }
+
   public findPending(apiKeyId: string, requestHash: string) {
     return this._findOne({
       apiKeyId,
