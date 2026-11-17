@@ -107,6 +107,9 @@ export default function ConfigureReport({
     ) {
       throw new Error("Choose a subunit identifier type.");
     }
+    if (isClusterExperiment && value.experimentAnalysisSettings) {
+      value.experimentAnalysisSettings.activationMetric = "";
+    }
     await apiCall<{
       updatedReport: ExperimentSnapshotReportInterface;
     }>(`/report/${report.id}`, {
@@ -662,7 +665,10 @@ export default function ConfigureReport({
               onlyBinomial
               filterFactFunnelMetrics
               value={
-                form.watch("experimentAnalysisSettings.activationMetric") || ""
+                isClusterExperiment
+                  ? ""
+                  : form.watch("experimentAnalysisSettings.activationMetric") ||
+                    ""
               }
               onChange={(value) =>
                 form.setValue(
@@ -670,7 +676,12 @@ export default function ConfigureReport({
                   value || "",
                 )
               }
-              helpText="Users must convert on this metric before being included"
+              disabled={isClusterExperiment}
+              helpText={
+                isClusterExperiment
+                  ? "Activation metrics aren't supported for cluster experiments."
+                  : "Users must convert on this metric before being included"
+              }
             />
             {datasourceProperties?.experimentSegments && (
               <SelectField
