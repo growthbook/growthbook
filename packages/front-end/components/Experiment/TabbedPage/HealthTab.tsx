@@ -31,6 +31,7 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import BanditSRMCard from "@/components/HealthTab/BanditSRMCard";
 import Callout from "@/ui/Callout";
 import { PowerCard } from "@/components/HealthTab/PowerCard";
+import { SCROLL_MARGIN_UNDER_TABS } from "@/components/Layout/constants";
 import {
   HealthTabConfigParams,
   HealthTabOnboardingModal,
@@ -584,7 +585,10 @@ function HealthSnapshotCards({
         }
         disableDimensionSRM={isClusterExperiment}
       />
-      <div id="balanceCheck" style={{ scrollMarginTop: "100px" }}>
+      <div
+        id="balanceCheck"
+        style={{ scrollMarginTop: SCROLL_MARGIN_UNDER_TABS }}
+      >
         {isBandit ? (
           <BanditSRMCard
             experiment={experiment}
@@ -616,7 +620,12 @@ function HealthSnapshotCards({
         )}
       </div>
       {!isBandit && snapshot.settings.regressionAdjustmentEnabled && (
-        <div id="covariateBalanceCheck" style={{ scrollMarginTop: "100px" }}>
+        <div
+          id="covariateBalanceCheck"
+          style={{
+            scrollMarginTop: SCROLL_MARGIN_UNDER_TABS,
+          }}
+        >
           <CovariateImbalanceCard
             experiment={experiment}
             variations={variations}
@@ -626,7 +635,12 @@ function HealthSnapshotCards({
         </div>
       )}
       {showMultipleExposures && (
-        <div id="multipleExposures" style={{ scrollMarginTop: "100px" }}>
+        <div
+          id="multipleExposures"
+          style={{
+            scrollMarginTop: SCROLL_MARGIN_UNDER_TABS,
+          }}
+        >
           <MultipleExposuresCard
             totalUsers={multipleExposuresTotalUnits}
             onNotify={handleHealthNotification}

@@ -5,6 +5,7 @@ import { BsThreeDotsVertical } from "react-icons/bs";
 import { useAuth } from "@/services/auth";
 import { useSearch } from "@/services/search";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import { useUser } from "@/services/UserContext";
 import Field from "@/components/Forms/Field";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import InlineCode from "@/components/SyntaxHighlighting/InlineCode";
@@ -17,6 +18,7 @@ import {
   DropdownMenuSeparator,
 } from "@/ui/DropdownMenu";
 import VirtualColumnModal from "./VirtualColumnModal";
+import ColumnModal from "./ColumnModal";
 
 function VirtualColumnRowMenu({
   column,
@@ -24,16 +26,19 @@ function VirtualColumnRowMenu({
   canEdit,
   canDelete,
   onEdit,
+  onConfigureSlices,
 }: {
   column: ColumnInterface;
   factTableId: string;
   canEdit: boolean;
   canDelete: boolean;
   onEdit: () => void;
+  onConfigureSlices: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const { apiCall } = useAuth();
   const { mutateDefinitions } = useDefinitions();
+  const { hasCommercialFeature } = useUser();
 
   return (
     <DropdownMenu
@@ -63,6 +68,18 @@ function VirtualColumnRowMenu({
             Edit
           </DropdownMenuItem>
         )}
+        {canEdit &&
+          hasCommercialFeature("metric-slices") &&
+          (column.datatype === "string" || column.datatype === "boolean") && (
+            <DropdownMenuItem
+              onClick={() => {
+                onConfigureSlices();
+                setOpen(false);
+              }}
+            >
+              Configure Auto Slices
+            </DropdownMenuItem>
+          )}
       </DropdownMenuGroup>
       {canDelete && (
         <>
@@ -101,6 +118,7 @@ export interface Props {
 export default function VirtualColumnList({ factTable }: Props) {
   const [editOpen, setEditOpen] = useState("");
   const [newOpen, setNewOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState("");
 
   const permissionsUtil = usePermissionsUtil();
 
@@ -134,6 +152,14 @@ export default function VirtualColumnList({ factTable }: Props) {
           close={() => setEditOpen("")}
           factTable={factTable}
           existing={virtualColumns.find((c) => c.column === editOpen)}
+        />
+      )}
+      {settingsOpen && (
+        <ColumnModal
+          close={() => setSettingsOpen("")}
+          factTable={factTable}
+          existing={virtualColumns.find((c) => c.column === settingsOpen)}
+          slicesOnly
         />
       )}
 
@@ -195,6 +221,7 @@ export default function VirtualColumnList({ factTable }: Props) {
                       canEdit={canEdit}
                       canDelete={canEdit}
                       onEdit={() => setEditOpen(column.column)}
+                      onConfigureSlices={() => setSettingsOpen(column.column)}
                     />
                   </td>
                 </tr>
