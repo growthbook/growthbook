@@ -217,9 +217,11 @@ export default function ReportAnalysisSettingsBar({
         <div className="row flex-grow-1 flex-shrink-0 pt-1 px-2 justify-content-end align-items-center">
           <div className="col-auto mr-2" style={{ fontSize: "12px" }}>
             <Flex align="center" gap="4">
-              {/* A cluster's subunits can fall into several breakdown slices,
+              {/* A refreshing report points at a snapshot with no results yet.
+                  A cluster's subunits can fall into several breakdown slices,
                   and report snapshots have no overall result to count from. */}
-              {clusterSubUnitIdentifier && snapshot.dimension ? (
+              {!hasData ? null : clusterSubUnitIdentifier &&
+                snapshot.dimension ? (
                 <Metadata
                   label={unitDisplayName}
                   value={
@@ -236,7 +238,7 @@ export default function ReportAnalysisSettingsBar({
                   style={{ whiteSpace: "nowrap" }}
                 />
               )}
-              {clusterSubUnitIdentifier && totalSubUnits !== null ? (
+              {hasData && clusterSubUnitIdentifier && totalSubUnits !== null ? (
                 <Metadata
                   label={getUnitDisplayName(clusterSubUnitIdentifier)}
                   value={numberFormatter.format(totalSubUnits)}
