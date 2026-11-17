@@ -468,7 +468,7 @@ export function getTrustedOrgAttributes(
 export type RequestSource = NonNullable<AppAttributes["requestSource"]>;
 
 // Where a request came from: the app, the REST API or the MCP server calling
-// it. The agent's calls and background jobs are set apart where they run.
+// it. The AI assistant's calls and background jobs are set apart where they run.
 export function getRequestSource(
   req: Pick<Request, "originalUrl" | "get">,
 ): "app" | "api" | "mcp" {

@@ -84,13 +84,15 @@ export async function dispatchInternal(
   return result;
 }
 
-// A call the in-app agent makes. Its events say the agent made it.
+// A call GrowthBook's AI assistant makes. Its events say the assistant made it.
 export function dispatchForAgent(
   ctx: ReqContext,
   input: DispatchInput,
   hooks?: DispatchHooks,
 ): Promise<DispatchResult> {
-  return runAsRequestSource("agent", () => dispatchInternal(ctx, input, hooks));
+  return runAsRequestSource("assistant", () =>
+    dispatchInternal(ctx, input, hooks),
+  );
 }
 
 /**

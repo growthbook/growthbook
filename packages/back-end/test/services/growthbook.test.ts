@@ -135,15 +135,15 @@ describe("trackEventForContext", () => {
     ]);
   });
 
-  it("logs the in-app agent's calls as the agent's, keeping the user", () => {
+  it("logs the AI assistant's calls as the assistant's, keeping the user", () => {
     runAsRequestSource("app", () =>
-      runAsRequestSource("agent", () => log({ org, req: appRequest })),
+      runAsRequestSource("assistant", () => log({ org, req: appRequest })),
     );
     expect(logged()[2]).toEqual({
       ...appRequest.gbUserContext,
       attributes: {
         ...appRequest.gbUserContext.attributes,
-        requestSource: "agent",
+        requestSource: "assistant",
       },
     });
   });
