@@ -1,10 +1,10 @@
 import { EventEmitter } from "events";
 import type { OrganizationInterface } from "shared/types/organization";
 import {
-  getRequestOrigin,
+  getRequestSource,
   getRoutePath,
   parseContentLength,
-  runAsRequestOrigin,
+  runAsRequestSource,
   trackAIUsage,
   trackEventForContext,
   trackMcpRequestCompletion,
@@ -83,7 +83,7 @@ describe("getRoutePath", () => {
   });
 });
 
-describe("getRequestOrigin", () => {
+describe("getRequestSource", () => {
   const req = (originalUrl: string, mcpTool?: string) => ({
     originalUrl,
     get: (name: string) => (name === "x-gb-mcp-tool" ? mcpTool : undefined),
@@ -95,7 +95,7 @@ describe("getRequestOrigin", () => {
     // Only the REST API reads the MCP header.
     ["an app call with the MCP header", req("/feature/x", "tool"), "app"],
   ])("says %s is %s", (_, request, origin) => {
-    expect(getRequestOrigin(request)).toBe(origin);
+    expect(getRequestSource(request)).toBe(origin);
   });
 });
 
@@ -112,7 +112,7 @@ describe("trackEventForContext", () => {
     originalUrl: "/feature/my-flag",
     get: () => undefined,
     gbUserContext: {
-      attributes: { id: "u_1", session_id: "s_1", requestOrigin: "app" },
+      attributes: { id: "u_1", session_id: "s_1", requestSource: "app" },
       url: "https://app.growthbook.io/features/my-flag",
     },
   };
@@ -127,7 +127,7 @@ describe("trackEventForContext", () => {
   });
 
   it("logs an app request with its user, session and page", () => {
-    runAsRequestOrigin("app", () => log({ org, req: appRequest }));
+    runAsRequestSource("app", () => log({ org, req: appRequest }));
     expect(logged()).toEqual([
       "Experiment Started",
       { source: "test" },
@@ -136,14 +136,14 @@ describe("trackEventForContext", () => {
   });
 
   it("logs the in-app agent's calls as the agent's, keeping the user", () => {
-    runAsRequestOrigin("app", () =>
-      runAsRequestOrigin("agent", () => log({ org, req: appRequest })),
+    runAsRequestSource("app", () =>
+      runAsRequestSource("agent", () => log({ org, req: appRequest })),
     );
     expect(logged()[2]).toEqual({
       ...appRequest.gbUserContext,
       attributes: {
         ...appRequest.gbUserContext.attributes,
-        requestOrigin: "agent",
+        requestSource: "agent",
       },
     });
   });
@@ -151,12 +151,12 @@ describe("trackEventForContext", () => {
   // A context made inside a request to act for someone else, as an
   // approval's publish runs as its author, still logs the request's origin.
   it("keeps the request's origin across awaits and other contexts", async () => {
-    await runAsRequestOrigin("app", async () => {
+    await runAsRequestSource("app", async () => {
       await Promise.resolve();
       log({ org, actingUserId: "u_author" });
     });
     expect(logged()[2].attributes).toEqual(
-      expect.objectContaining({ id: "u_author", requestOrigin: "app" }),
+      expect.objectContaining({ id: "u_author", requestSource: "app" }),
     );
   });
 
@@ -167,13 +167,13 @@ describe("trackEventForContext", () => {
   ] as const)(
     "logs %s's events with the org and whoever it acts for",
     (_, origin, actingUserId) => {
-      if (origin) runAsRequestOrigin(origin, () => log({ org, actingUserId }));
+      if (origin) runAsRequestSource(origin, () => log({ org, actingUserId }));
       else log({ org, actingUserId });
       const { attributes } = logged()[2];
       expect(attributes).toEqual(
         expect.objectContaining({
           cloudOrgId: expect.anything(),
-          requestOrigin: origin ?? "system",
+          requestSource: origin ?? "system",
         }),
       );
       expect(attributes.id).toBe(actingUserId || undefined);
@@ -197,10 +197,10 @@ describe("trackAIUsage", () => {
     ["the request it runs in", "app"],
     ["no request", null],
   ] as const)("logs its origin as %s's", (_, origin) => {
-    if (origin) runAsRequestOrigin(origin, () => trackAIUsage(usage));
+    if (origin) runAsRequestSource(origin, () => trackAIUsage(usage));
     else trackAIUsage(usage);
     expect(
-      mockOrgClientLogEvent.mock.calls[0][2].attributes.requestOrigin,
+      mockOrgClientLogEvent.mock.calls[0][2].attributes.requestSource,
     ).toBe(origin ?? "system");
   });
 });
@@ -281,7 +281,7 @@ describe("trackMcpRequestCompletion", () => {
           id: "",
           accountPlan: expect.anything(),
           cloudOrgId: expect.anything(),
-          requestOrigin: "mcp",
+          requestSource: "mcp",
         }),
       },
     );

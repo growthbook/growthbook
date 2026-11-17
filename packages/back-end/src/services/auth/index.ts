@@ -57,9 +57,9 @@ import {
   getGrowthBookClient,
   getGrowthBookRequestUrl,
   getGrowthBookTrackingAttributes,
-  getRequestOrigin,
+  getRequestSource,
   hashOrganizationId,
-  runAsRequestOrigin,
+  runAsRequestSource,
 } from "back-end/src/services/growthbook";
 import { TeamModel } from "back-end/src/models/TeamModel";
 import { ProjectModel } from "back-end/src/models/ProjectModel";
@@ -142,7 +142,7 @@ export async function processJWT(
 ): Promise<void> {
   const parsedJWT = getInitialDataFromJWT(req.user);
   const { email, name, verified } = parsedJWT;
-  const requestOrigin = getRequestOrigin(req);
+  const requestSource = getRequestSource(req);
 
   req.authSubject = parsedJWT.sub || "";
   req.email = email || "";
@@ -408,7 +408,7 @@ export async function processJWT(
           ? new Date(user.dateCreated).toISOString()
           : "",
         ...trackingAttributes,
-        requestOrigin,
+        requestSource,
         role: org?.members.find((m) => m.id === user.id)?.role,
         hasLicenseKey: org?.licenseKey ? true : false,
         configFile: usingFileConfig(),
@@ -449,7 +449,7 @@ export async function processJWT(
     };
   }
 
-  runAsRequestOrigin(requestOrigin, next);
+  runAsRequestSource(requestSource, next);
 }
 
 // For setting up anything that later acts as the stored user, since that carries their stored super admin

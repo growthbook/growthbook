@@ -3,7 +3,7 @@ import type { ApiRequestLocals } from "back-end/types/api";
 import { type OpenApiRoute, runApiHandler } from "back-end/src/util/handler";
 import { allRoutes } from "back-end/src/api/api.router";
 import { logger } from "back-end/src/util/logger";
-import { runAsRequestOrigin } from "back-end/src/services/growthbook";
+import { runAsRequestSource } from "back-end/src/services/growthbook";
 
 /**
  * In-process dispatcher for the public REST API surface. Lets internal callers
@@ -90,7 +90,7 @@ export function dispatchForAgent(
   input: DispatchInput,
   hooks?: DispatchHooks,
 ): Promise<DispatchResult> {
-  return runAsRequestOrigin("agent", () => dispatchInternal(ctx, input, hooks));
+  return runAsRequestSource("agent", () => dispatchInternal(ctx, input, hooks));
 }
 
 /**

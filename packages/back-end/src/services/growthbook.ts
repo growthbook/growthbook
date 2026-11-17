@@ -31,8 +31,8 @@ setPolyfills({ EventSource });
 
 let gbClient: GrowthBookClient | null = null;
 let initPromise: Promise<void> | null = null;
-// Where the request whose work is running came from; see runAsRequestOrigin.
-const requestOrigins = new AsyncLocalStorage<RequestOrigin>();
+// Where the request whose work is running came from; see runAsRequestSource.
+const requestSources = new AsyncLocalStorage<RequestSource>();
 
 function createGrowthBookClient(): GrowthBookClient {
   const client = new GrowthBookClient({
@@ -41,7 +41,8 @@ function createGrowthBookClient(): GrowthBookClient {
     globalAttributes: {
       cloud: IS_CLOUD,
       multiOrg: IS_MULTI_ORG,
-      requestSource: "backend",
+      // Anything evaluated or logged outside a request; requests set their own.
+      requestSource: "system",
     },
     plugins: [
       growthbookTrackingPlugin({
@@ -273,7 +274,7 @@ export function trackMcpRequestCompletion(
           ...getTrustedOrgAttributes(req.organization),
           id: userId,
           user_id: userId,
-          requestOrigin: "mcp",
+          requestSource: "mcp",
         },
       });
     } catch (e) {
@@ -344,7 +345,7 @@ export function trackAIUsage({
         user_id: userId || "",
         organizationId: hashOrganizationId(organizationId),
         cloudOrgId: IS_CLOUD ? organizationId : "",
-        requestOrigin: currentRequestOrigin(),
+        requestSource: currentRequestSource(),
       },
     });
 
@@ -464,38 +465,38 @@ export function getTrustedOrgAttributes(
   };
 }
 
-export type RequestOrigin = NonNullable<AppAttributes["requestOrigin"]>;
+export type RequestSource = NonNullable<AppAttributes["requestSource"]>;
 
-// Where a request came from, unlike requestSource, which says where its events
-// were logged: always the back end.
-export function getRequestOrigin(
+// Where a request came from: the app, the REST API or the MCP server calling
+// it. The agent's calls and background jobs are set apart where they run.
+export function getRequestSource(
   req: Pick<Request, "originalUrl" | "get">,
 ): "app" | "api" | "mcp" {
   if (!req.originalUrl.startsWith("/api/")) return "app";
   return getMcpHeader(req, MCP_TOOL_HEADER) ? "mcp" : "api";
 }
 
-// Runs the rest of a request, or an agent's call, as coming from `origin`.
+// Runs the rest of a request, or an agent's call, as coming from `source`.
 // Everything it logs says so, whichever context logs it, including one made
 // to act for someone else (an approval's publish, as its author).
-export function runAsRequestOrigin<T>(origin: RequestOrigin, fn: () => T): T {
-  return requestOrigins.run(origin, fn);
+export function runAsRequestSource<T>(source: RequestSource, fn: () => T): T {
+  return requestSources.run(source, fn);
 }
 
 // Outside any request, as a background job is: the system.
-function currentRequestOrigin(): RequestOrigin {
-  return requestOrigins.getStore() ?? "system";
+function currentRequestSource(): RequestSource {
+  return requestSources.getStore() ?? "system";
 }
 
 // A signed-in request's own user context, with the user, session and page;
 // else the org's, with whoever a key acts for.
 function eventUserContext(context: ReqContext): UserContext {
   const req = context.req as AuthRequest | undefined;
-  const requestOrigin = currentRequestOrigin();
+  const requestSource = currentRequestSource();
   if (req?.gbUserContext) {
     return {
       ...req.gbUserContext,
-      attributes: { ...req.gbUserContext.attributes, requestOrigin },
+      attributes: { ...req.gbUserContext.attributes, requestSource },
     };
   }
   const userId = context.actingUserId;
@@ -503,7 +504,7 @@ function eventUserContext(context: ReqContext): UserContext {
     attributes: {
       ...getTrustedOrgAttributes(context.org),
       ...(userId ? { id: userId, user_id: userId } : {}),
-      requestOrigin,
+      requestSource,
     },
   };
 }
