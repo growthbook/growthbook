@@ -21,6 +21,7 @@ import { useAuth } from "@/services/auth";
 import Callout from "@/ui/Callout";
 import Button from "@/ui/Button";
 import Metadata from "@/ui/Metadata";
+import Tooltip from "@/ui/Tooltip";
 import Link from "@/ui/Link";
 import { Popover } from "@/ui/Popover";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -218,7 +219,17 @@ export default function ReportAnalysisSettingsBar({
             <Flex align="center" gap="4">
               {/* A cluster's subunits can fall into several breakdown slices,
                   and report snapshots have no overall result to count from. */}
-              {clusterSubUnitIdentifier && snapshot.dimension ? null : (
+              {clusterSubUnitIdentifier && snapshot.dimension ? (
+                <Metadata
+                  label={unitDisplayName}
+                  value={
+                    <Tooltip content="Cluster counts aren't available when results are broken down by a dimension.">
+                      <span>—</span>
+                    </Tooltip>
+                  }
+                  style={{ whiteSpace: "nowrap" }}
+                />
+              ) : (
                 <Metadata
                   label={unitDisplayName}
                   value={numberFormatter.format(totalUnits ?? 0)}
