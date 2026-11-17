@@ -1,6 +1,7 @@
 import { FC, ChangeEventHandler, useState } from "react";
 import { Box } from "@radix-ui/themes";
 import { SnowflakeConnectionParams } from "shared/types/integrations/snowflake";
+import SelectField from "@/components/Forms/SelectField";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
@@ -129,15 +130,29 @@ const SnowflakeForm: FC<{
         />
       </div>
 
-      <div className="form-group col-md-6">
-        <label>Authentication Method</label>
-        <select
-          className="form-control"
-          autoComplete="off"
-          name="authMethod"
+      <div className="col-md-6">
+        <SelectField
+          size="md"
+          // Matches the plain labels of the fields around it
+          legacyLabelFormatting={false}
+          labelWeight="regular"
+          label="Authentication Method"
           value={authMethod}
-          onChange={(e) => {
-            const value = e.target.value;
+          options={[
+            { value: "key-pair", label: "Key Pair" },
+            ...(keyPairGenerator?.keyPairRequired
+              ? []
+              : [{ value: "password", label: "Password" }]),
+            ...(!isCloud() || authMethod === "workload-identity"
+              ? [
+                  {
+                    value: "workload-identity",
+                    label: "Workload Identity Federation",
+                  },
+                ]
+              : []),
+          ]}
+          onChange={(value) => {
             if (value === "workload-identity") {
               // Needed on create, which stores params without the server-side merge strip.
               setParams({
@@ -153,17 +168,7 @@ const SnowflakeForm: FC<{
               });
             }
           }}
-        >
-          <option value="key-pair">Key Pair</option>
-          {keyPairGenerator?.keyPairRequired ? null : (
-            <option value="password">Password</option>
-          )}
-          {(!isCloud() || authMethod === "workload-identity") && (
-            <option value="workload-identity">
-              Workload Identity Federation
-            </option>
-          )}
-        </select>
+        />
       </div>
 
       {authMethod === "password" && keyPairGenerator ? (
