@@ -139,6 +139,8 @@ export interface UserContextValue {
   licenseError: string;
   commercialFeatures: CommercialFeature[];
   organization: Partial<OrganizationInterface>;
+  // The organizationId attribute given to GrowthBook, "" until the org loads.
+  hashedOrganizationId: string;
   agreements?: AgreementType[];
   // AI providers with a usable API key, from the org's own stored keys or the
   // host's environment variables.
@@ -197,6 +199,7 @@ export const UserContext = createContext<UserContextValue>({
     // Do nothing
   },
   organization: {},
+  hashedOrganizationId: "",
   agreements: [],
   aiKeyProviders: [],
   sttModel: null,
@@ -648,6 +651,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
         aiKeyProviders: currentOrg?.aiKeyProviders || [],
         sttModel: currentOrg?.sttModel || null,
         organization: organization || {},
+        hashedOrganizationId,
         seatsInUse: currentOrg?.seatsInUse || 0,
         teams,
         error: error?.message || orgLoadingError?.message,

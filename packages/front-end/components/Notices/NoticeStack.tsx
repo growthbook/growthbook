@@ -19,14 +19,19 @@ type Upgrade = NonNullable<AppNotice["upgrade"]>;
 
 // The most important notice in full, and a "+N" that lists them all, so a
 // crowded row stays one line.
-export default function NoticeStack({ notices }: { notices: AppNotice[] }) {
+export default function NoticeStack({
+  notices,
+  compactWhenNarrow = false,
+}: {
+  notices: AppNotice[];
+  compactWhenNarrow?: boolean;
+}) {
   const [upgrade, setUpgrade] = useState<Upgrade | null>(null);
   const [listOpen, setListOpen] = useState(false);
   // Narrow headers share their first row with the menu and the AI Assistant
   // button (TopNav.module.scss), so the notices collapse to one button.
-  const compact = useMediaQuery(
-    `(max-width: ${NARROW_LAYOUT_BREAKPOINT_PX}px)`,
-  );
+  const narrow = useMediaQuery(`(max-width: ${NARROW_LAYOUT_BREAKPOINT_PX}px)`);
+  const compact = compactWhenNarrow && narrow;
   // The list lives in the persistent top nav, so following a link closes it.
   const router = useRouter();
   useEffect(() => {

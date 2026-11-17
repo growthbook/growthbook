@@ -883,6 +883,19 @@
       "count": 1
     }
   },
+  "packages/front-end/components/Layout/legacy/ProjectSelector.tsx": {
+    "no-restricted-syntax": {
+      "count": 1
+    }
+  },
+  "packages/front-end/components/Layout/legacy/TopNav.tsx": {
+    "no-restricted-imports": {
+      "count": 2
+    },
+    "no-restricted-syntax": {
+      "count": 1
+    }
+  },
   "packages/front-end/components/License/OptInModal.tsx": {
     "no-restricted-imports": {
       "count": 1

@@ -360,7 +360,7 @@ export default defineConfig([
   {
     files: [
       "./packages/docs/pages/_app.tsx",
-      "./packages/front-end/components/Auth/InAppHelp.tsx",
+      "./packages/front-end/components/Auth/legacy/InAppHelp.tsx",
       "./packages/front-end/components/Dimensions/DimensionChooser.tsx",
       "./packages/front-end/components/Experiment/ImportExperimentModal.tsx",
       "./packages/front-end/components/Experiment/NewExperimentForm.tsx",

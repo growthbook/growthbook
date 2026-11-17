@@ -14,7 +14,7 @@
 // the window.
 :root {
   // Keep in sync with HEADER_HEIGHT_PX in components/Layout/headerHeight.ts.
-  --header-height: 44px;
+  --header-height: 56px;
   --sidebar-width: 240px;
   // The header plus any bar pinned under it (--pinned-bar-height,
   // pageTopOffset.ts): where sticky bars pin and what full-window pages
@@ -78,6 +78,10 @@
   // General's column of cards.
   --settings-general-width: 920px;
 }
+// The new app shell (components/Layout/AppShell.tsx).
+html.app-shell-new {
+  --header-height: 44px;
+}
 html.app-sidebar-collapsed {
   --sidebar-width: 48px;
 }
@@ -90,7 +94,7 @@ html.app-sidebar-collapsed {
     --sidebar-width: 240px;
   }
   // Two rows on pages with the sidebar (TopNav.module.scss).
-  :root:has(#main-menu-toggle) {
+  html.app-shell-new:has(#main-menu-toggle) {
     --header-height: 80px;
   }
 }
@@ -171,9 +175,17 @@ body {
 .main {
   padding-left: var(--sidebar-width);
   padding-right: var(--agent-rail-width, 0px);
-  transition:
-    padding-left 200ms ease,
-    padding-right var(--agent-dock-duration) var(--agent-dock-easing);
+  transition: padding-right var(--agent-dock-duration) var(--agent-dock-easing);
+  // Only the new sidebar changes width.
+  html.app-shell-new & {
+    transition:
+      padding-left 200ms ease,
+      padding-right var(--agent-dock-duration) var(--agent-dock-easing);
+
+    @media (prefers-reduced-motion: reduce) {
+      transition: none;
+    }
+  }
   html.agent-dock-motion & {
     transition:
       padding-left var(--agent-dock-duration) var(--agent-dock-easing),
@@ -4298,3 +4310,5 @@ input:disabled {
 .PylonChat-chatWindowFrameContainer {
   margin-bottom: var(--bottom-bar-clearance, 0px) !important;
 }
+
+@import "../components/Layout/legacy/shell-globals";

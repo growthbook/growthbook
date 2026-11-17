@@ -2,7 +2,7 @@ import { useSyncExternalStore } from "react";
 import { NARROW_LAYOUT_BREAKPOINT_PX } from "./constants";
 
 /** Keep in sync with --header-height in global.scss. */
-const HEADER_HEIGHT_PX = 44;
+const HEADER_HEIGHT_PX = 56;
 
 /** The widths where the header changes height (global.scss). */
 const HEIGHT_QUERIES = [`(max-width: ${NARROW_LAYOUT_BREAKPOINT_PX}px)`];

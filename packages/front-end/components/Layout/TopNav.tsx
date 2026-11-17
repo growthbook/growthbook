@@ -83,7 +83,7 @@ const TopNav: FC<{
           <div className={styles.actions}>
             {showNotices && (
               <div className="nav-link">
-                <NoticeStack notices={notices} />
+                <NoticeStack notices={notices} compactWhenNarrow />
               </div>
             )}
             <AiAssistantButton className={styles.aiAssistantButton} />
