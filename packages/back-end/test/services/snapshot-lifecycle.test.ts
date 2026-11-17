@@ -19,7 +19,7 @@ import { createExperimentSnapshotModel } from "back-end/src/models/ExperimentSna
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { getSourceIntegrationObject } from "back-end/src/services/datasource";
 import { updateExperimentDashboards } from "back-end/src/enterprise/services/dashboards";
-import { preemptIncrementalReaders } from "back-end/src/services/snapshotCancellation";
+import { interruptIncrementalReaders } from "back-end/src/services/snapshotCancellation";
 import { ExperimentResultsQueryRunner } from "back-end/src/queryRunners/ExperimentResultsQueryRunner";
 import { ExperimentIncrementalRefreshQueryRunner } from "back-end/src/queryRunners/ExperimentIncrementalRefreshQueryRunner";
 import { ExperimentIncrementalRefreshExploratoryQueryRunner } from "back-end/src/queryRunners/ExperimentIncrementalRefreshExploratoryQueryRunner";
@@ -48,7 +48,7 @@ jest.mock("back-end/src/enterprise/services/dashboards", () => ({
 }));
 
 jest.mock("back-end/src/services/snapshotCancellation", () => ({
-  preemptIncrementalReaders: jest.fn(),
+  interruptIncrementalReaders: jest.fn(),
 }));
 
 jest.mock("back-end/src/queryRunners/ExperimentResultsQueryRunner", () => ({
@@ -106,9 +106,9 @@ const updateExperimentDashboardsMock =
     typeof updateExperimentDashboards
   >;
 
-const preemptIncrementalReadersMock =
-  preemptIncrementalReaders as jest.MockedFunction<
-    typeof preemptIncrementalReaders
+const interruptIncrementalReadersMock =
+  interruptIncrementalReaders as jest.MockedFunction<
+    typeof interruptIncrementalReaders
   >;
 
 const resultsQueryRunnerMock =
@@ -467,13 +467,13 @@ describe("snapshot lifecycle", () => {
           snapshotId: plan.snapshot.id,
           legacyExperimentSettingsHash: expect.any(String),
         });
-        expect(preemptIncrementalReadersMock).toHaveBeenCalledWith(
+        expect(interruptIncrementalReadersMock).toHaveBeenCalledWith(
           context,
           experiment.id,
           plan.snapshot.id,
         );
         expect(
-          preemptIncrementalReadersMock.mock.invocationCallOrder[0],
+          interruptIncrementalReadersMock.mock.invocationCallOrder[0],
         ).toBeLessThan(incrementalQueryRunnerMock.mock.invocationCallOrder[0]);
       },
     );
@@ -506,14 +506,14 @@ describe("snapshot lifecycle", () => {
       expect(
         context.models.incrementalRefresh.acquireLock,
       ).not.toHaveBeenCalled();
-      expect(preemptIncrementalReadersMock).not.toHaveBeenCalled();
+      expect(interruptIncrementalReadersMock).not.toHaveBeenCalled();
     });
 
     it("releases the writer lock and starts nothing when readers cannot be interrupted", async () => {
       const context = makeContext();
       const experiment = makeExperiment();
       const plan = makePlan({ runnerKind: "incremental-update" });
-      preemptIncrementalReadersMock.mockRejectedValueOnce(
+      interruptIncrementalReadersMock.mockRejectedValueOnce(
         new Error("Mongo unavailable"),
       );
 

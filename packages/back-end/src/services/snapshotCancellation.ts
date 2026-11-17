@@ -24,7 +24,7 @@ import { logger } from "back-end/src/util/logger";
 import { ReqContext } from "back-end/types/request";
 
 export const SNAPSHOT_CANCELLED_ERROR = "Update cancelled by user";
-export const SNAPSHOT_PREEMPTED_ERROR =
+export const SNAPSHOT_INTERRUPTED_ERROR =
   "Interrupted by an update of the Overall Results. Run this breakdown again when the update finishes.";
 
 export type SnapshotCancelAction = "delete" | "conclude" | "reconcile" | "none";
@@ -38,12 +38,12 @@ export function planSnapshotCancel({
   snapshot,
   docs,
   reportSnapshotId,
-  preempted = false,
+  interruptedByWriter = false,
 }: {
   snapshot: Pick<ExperimentSnapshotInterface, "id" | "status" | "queries">;
   docs: Pick<QueryInterface, "id" | "status">[];
   reportSnapshotId: string | null;
-  preempted?: boolean;
+  interruptedByWriter?: boolean;
 }): { action: SnapshotCancelAction; queries: Queries } {
   const statusById = new Map(docs.map((doc) => [doc.id, doc.status]));
   const queries: Queries = snapshot.queries.map((pointer) => ({
@@ -55,7 +55,9 @@ export function planSnapshotCancel({
   if (snapshot.status === "running") {
     return {
       action:
-        preempted || reportSnapshotId === snapshot.id ? "conclude" : "delete",
+        interruptedByWriter || reportSnapshotId === snapshot.id
+          ? "conclude"
+          : "delete",
       queries,
     };
   }
@@ -110,7 +112,7 @@ export async function cancelExperimentSnapshot(
   snapshot: ExperimentSnapshotInterface,
   // Set when an Overall Results update or phase delete took the incremental
   // lock from this run, rather than a user cancelling it.
-  { preempted = false }: { preempted?: boolean } = {},
+  { interruptedByWriter = false }: { interruptedByWriter?: boolean } = {},
 ): Promise<{ outcome: SnapshotCancelOutcome; cancelledQueryIds: string[] }> {
   // Undecryptable credentials must not block the Mongo cleanup; the warehouse
   // cancels below already downgrade their own failures to warnings.
@@ -118,9 +120,9 @@ export async function cancelExperimentSnapshot(
     context,
     snapshot.settings.datasourceId,
   );
-  // A pre-empting caller was already allowed to start the run that pre-empts.
+  // The caller was already allowed to start the run that interrupts this one.
   if (
-    !preempted &&
+    !interruptedByWriter &&
     !context.permissions.canRunExperimentQueries(integration.datasource)
   ) {
     context.permissions.throwPermissionError();
@@ -135,11 +137,13 @@ export async function cancelExperimentSnapshot(
   // The fence: once pending docs are failed, no live runner can promote a
   // queued query or record a result for a running one.
   // A live runner that sees the failed queries first reports their error as
-  // the snapshot's, so a pre-empted run needs it here too.
+  // the snapshot's, so an interrupted run needs it here too.
   await markPendingQueriesAsFailed(
     context,
     pendingIds,
-    preempted ? SNAPSHOT_PREEMPTED_ERROR : QUERY_CANCELLED_BY_USER_ERROR,
+    interruptedByWriter
+      ? SNAPSHOT_INTERRUPTED_ERROR
+      : QUERY_CANCELLED_BY_USER_ERROR,
   );
   // Re-read so a doc that finished between the first read and the fence
   // keeps its real status.
@@ -157,12 +161,12 @@ export async function cancelExperimentSnapshot(
     snapshot,
     docs: after,
     reportSnapshotId,
-    preempted,
+    interruptedByWriter,
   });
   // A finished snapshot is never cancelled itself; only its pending queries
   // and stale pointers are. With neither, there is nothing to cancel, which
   // is only an error when a user asked.
-  if (action === "none" && !pendingIds.length && !preempted) {
+  if (action === "none" && !pendingIds.length && !interruptedByWriter) {
     throw new BadRequestError("Snapshot is not running");
   }
   const outcome = await applySnapshotCancel(
@@ -170,7 +174,7 @@ export async function cancelExperimentSnapshot(
     snapshot.id,
     action,
     queries,
-    preempted ? SNAPSHOT_PREEMPTED_ERROR : SNAPSHOT_CANCELLED_ERROR,
+    interruptedByWriter ? SNAPSHOT_INTERRUPTED_ERROR : SNAPSHOT_CANCELLED_ERROR,
   );
 
   // The cancelled run has no results, so its report goes back to the latest
@@ -220,7 +224,7 @@ export async function cancelExperimentSnapshot(
  * A writer calls this once it holds the incremental lock and before its first
  * query, so no breakdown is still reading the tables it is about to rebuild.
  */
-export async function preemptIncrementalReaders(
+export async function interruptIncrementalReaders(
   context: ReqContext,
   experimentId: string,
   writerId: string,
@@ -234,7 +238,7 @@ export async function preemptIncrementalReaders(
   const readers = await findSnapshotsByIds(context, readerSnapshotIds);
   await Promise.all(
     readers.map((reader) =>
-      cancelExperimentSnapshot(context, reader, { preempted: true }),
+      cancelExperimentSnapshot(context, reader, { interruptedByWriter: true }),
     ),
   );
 }

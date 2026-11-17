@@ -144,7 +144,7 @@ import { validateSnapshotDimension } from "back-end/src/services/snapshotDimensi
 import { generateExperimentNotebook } from "back-end/src/services/notebook";
 import {
   cancelExperimentSnapshot,
-  preemptIncrementalReaders,
+  interruptIncrementalReaders,
 } from "back-end/src/services/snapshotCancellation";
 import { IMPORT_LIMIT_DAYS } from "back-end/src/util/secrets";
 import {
@@ -2148,7 +2148,7 @@ export async function deleteExperimentPhase(
   }
 
   try {
-    await preemptIncrementalReaders(context, id, mutationToken);
+    await interruptIncrementalReaders(context, id, mutationToken);
 
     const updated = await updateExperiment({
       context,
