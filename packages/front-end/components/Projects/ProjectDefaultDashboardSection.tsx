@@ -111,6 +111,7 @@ export default function ProjectDefaultDashboardSection({
                   <Button
                     variant="ghost"
                     size="sm"
+                    color="inherit"
                     disabled={savingDashboard}
                     onClick={() => setDefaultDashboard("")}
                   >
