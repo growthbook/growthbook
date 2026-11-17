@@ -135,3 +135,4 @@ The detailed reference material lives under `.agents/guides/`. Read the relevant
 - Back-end models: `.agents/guides/backend/model-patterns.md`
 - Legacy model migrations: `.agents/guides/backend/legacy-model-migration-patterns.md`
 - Docs (Mintlify MDX): `.agents/guides/docs.md`
+- Backport (patch) releases: `.agents/guides/backport-releases.md`

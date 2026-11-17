@@ -13,6 +13,7 @@ import {
 } from "back-end/src/services/features";
 import { resolveOwnerEmail } from "back-end/src/services/owner";
 import { createApiRequestHandler } from "back-end/src/util/handler";
+import { NotFoundError } from "back-end/src/util/errors";
 
 async function loadFeatureForApiV2(
   context: ApiReqContext,
@@ -25,7 +26,7 @@ async function loadFeatureForApiV2(
   );
   const feature = await getFeatureDB(context, featureId);
   if (!feature) {
-    throw new Error("Could not find a feature with that key");
+    throw new NotFoundError("Could not find a feature with that key");
   }
   const experimentMap = await getExperimentMapForFeature(context, feature.id);
   const rampSchedules = await context.models.rampSchedules.getAllByFeatureId(

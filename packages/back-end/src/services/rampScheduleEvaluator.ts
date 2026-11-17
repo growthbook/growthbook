@@ -27,6 +27,7 @@ import {
   rollbackSchedule,
   withRampScheduleAdvanceLockRetry,
   dispatchRampEvent,
+  readRampScheduleInLock,
 } from "back-end/src/services/rampSchedule";
 import {
   NotFoundError,
@@ -606,7 +607,7 @@ export async function evaluateRampScheduleAfterSafeRolloutSnapshot(
     // Retry rather than skip: the busy holder may have read pre-snapshot data,
     // and dropping the evaluation would discard rollback decisions.
     await withRampScheduleAdvanceLockRetry(ctx, rampScheduleId, async () => {
-      const schedule = await ctx.models.rampSchedules.getById(rampScheduleId);
+      const schedule = await readRampScheduleInLock(ctx, rampScheduleId);
       if (!schedule || schedule.status !== "running") return;
 
       // Mirror the tick's cutoff branch: a lapsed cutoff must complete-with-

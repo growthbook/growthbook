@@ -5,7 +5,6 @@ import clsx from "clsx";
 import { PiMagnifyingGlass, PiX } from "react-icons/pi";
 import { IconButton } from "@radix-ui/themes";
 import { useGrowthBook } from "@growthbook/growthbook-react";
-import { AppFeatures } from "shared/types/app-features";
 import Badge from "@/ui/Badge";
 import Heading from "@/ui/Heading";
 import { TextField } from "@/ui/TextField";
@@ -34,7 +33,7 @@ export default function SettingsNav() {
   const { permissions, superAdmin } = useUser();
   const { project, segments } = useDefinitions();
   const permissionsUtils = usePermissionsUtil();
-  const gb = useGrowthBook<AppFeatures>();
+  const gb = useGrowthBook();
 
   const filterProps = buildSidebarLinkFilterProps({
     permissionsUtils,

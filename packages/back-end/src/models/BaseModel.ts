@@ -81,7 +81,8 @@ export const createSchema = <
   };
   if ("id" in schema.shape) omitShape.id = true;
   if ("uid" in schema.shape) omitShape.uid = true;
-  let output = schema.omit(omitShape) as z.ZodObject<z.ZodRawShape>;
+  // Rebuild from the shape: zod 4.6 throws on .omit() of refined schemas (4.1 silently dropped refinements)
+  let output = z.object(schema.shape as z.ZodRawShape).omit(omitShape);
   if ("id" in schema.shape)
     output = output.extend({ id: z.string().optional() });
   if ("uid" in schema.shape)
@@ -128,7 +129,8 @@ const updateSchema = <
       omitShape[k as string] = true;
     }
   }
-  return schema
+  return z
+    .object(schema.shape as z.ZodRawShape)
     .omit(omitShape)
     .partial()
     .strict() as unknown as UpdateZodObject<T, PKey, readonly string[]>;
@@ -626,10 +628,12 @@ export abstract class BaseModel<
     >,
   ): Promise<z.infer<ApiT>> {
     const { id } = req.params as { id: string };
+    const existing = await this.getById(id);
+    if (!existing) req.context.throwNotFoundError();
     const rawBody = req.body;
     const toUpdate = await this.processApiUpdateBody(rawBody);
     return resolveOwnerEmail(
-      this.toApiInterface(await this.updateById(id, toUpdate)),
+      this.toApiInterface(await this._updateOne(existing, toUpdate)),
       this.context,
     );
   }

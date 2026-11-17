@@ -6,6 +6,7 @@ import {
   putMetricApiPayloadIsValid,
   putMetricApiPayloadToMetricInterface,
 } from "back-end/src/services/experiments";
+import { NotFoundError } from "back-end/src/util/errors";
 
 export const putMetric = createApiRequestHandler(putMetricValidator)(async (
   req,
@@ -13,7 +14,7 @@ export const putMetric = createApiRequestHandler(putMetricValidator)(async (
   const metric = await getMetricById(req.context, req.params.id);
 
   if (!metric) {
-    throw new Error("Metric not found");
+    throw new NotFoundError("Metric not found");
   }
 
   if (req.body.projects) {

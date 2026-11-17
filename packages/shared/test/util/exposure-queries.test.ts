@@ -21,6 +21,7 @@ import {
   resolveAssignmentQuerySelectionChange,
   findColumnsNeedingQuotes,
   getColumnsNeedingQuotesMessage,
+  validateClusterExperimentIdentifiers,
 } from "shared/util";
 import { ExposureQuery } from "shared/types/datasource";
 
@@ -1087,5 +1088,40 @@ describe("getColumnsNeedingQuotesMessage", () => {
     ).toBe(
       'Columns "userId", "experimentId" and "Variation Name" can\'t be mapped because of their capital letters or special characters. In SQL mode, quote each one and alias them to lowercase names with only letters, numbers and underscores, like "userId" AS user_id.',
     );
+  });
+});
+
+describe("validateClusterExperimentIdentifiers", () => {
+  const deviceQuery = query({
+    id: "device_id",
+    userIdType: "device_id",
+    userIdTypes: ["device_id"],
+  });
+  const userIdTypes = [
+    { userIdType: "user_id" },
+    { userIdType: "device_id" },
+    { userIdType: "company_id" },
+  ];
+
+  it("accepts any warehouse identifier as the subunit on Managed Warehouse", () => {
+    expect(
+      validateClusterExperimentIdentifiers(
+        deviceQuery,
+        { type: "growthbook_clickhouse", settings: { userIdTypes } },
+        "device_id",
+        "company_id",
+      ),
+    ).toEqual({ ok: true });
+  });
+
+  it("requires other data sources' queries to declare the subunit", () => {
+    expect(
+      validateClusterExperimentIdentifiers(
+        deviceQuery,
+        { type: "postgres", settings: { userIdTypes } },
+        "device_id",
+        "company_id",
+      ).ok,
+    ).toBe(false);
   });
 });
