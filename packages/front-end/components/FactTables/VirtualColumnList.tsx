@@ -17,6 +17,7 @@ import {
   DropdownMenuSeparator,
 } from "@/ui/DropdownMenu";
 import VirtualColumnModal from "./VirtualColumnModal";
+import ColumnModal from "./ColumnModal";
 
 function VirtualColumnRowMenu({
   column,
@@ -24,12 +25,14 @@ function VirtualColumnRowMenu({
   canEdit,
   canDelete,
   onEdit,
+  onEditSettings,
 }: {
   column: ColumnInterface;
   factTableId: string;
   canEdit: boolean;
   canDelete: boolean;
   onEdit: () => void;
+  onEditSettings: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const { apiCall } = useAuth();
@@ -61,6 +64,16 @@ function VirtualColumnRowMenu({
             }}
           >
             Edit
+          </DropdownMenuItem>
+        )}
+        {canEdit && (
+          <DropdownMenuItem
+            onClick={() => {
+              onEditSettings();
+              setOpen(false);
+            }}
+          >
+            Configure slices
           </DropdownMenuItem>
         )}
       </DropdownMenuGroup>
@@ -101,6 +114,7 @@ export interface Props {
 export default function VirtualColumnList({ factTable }: Props) {
   const [editOpen, setEditOpen] = useState("");
   const [newOpen, setNewOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState("");
 
   const permissionsUtil = usePermissionsUtil();
 
@@ -134,6 +148,13 @@ export default function VirtualColumnList({ factTable }: Props) {
           close={() => setEditOpen("")}
           factTable={factTable}
           existing={virtualColumns.find((c) => c.column === editOpen)}
+        />
+      )}
+      {settingsOpen && (
+        <ColumnModal
+          close={() => setSettingsOpen("")}
+          factTable={factTable}
+          existing={virtualColumns.find((c) => c.column === settingsOpen)}
         />
       )}
 
@@ -195,6 +216,7 @@ export default function VirtualColumnList({ factTable }: Props) {
                       canEdit={canEdit}
                       canDelete={canEdit}
                       onEdit={() => setEditOpen(column.column)}
+                      onEditSettings={() => setSettingsOpen(column.column)}
                     />
                   </td>
                 </tr>
