@@ -37,11 +37,13 @@ import {
   scopeKey,
   inheritedFlagRule,
   inheritedSavedGroupRule,
-  inheritedSdkConnectionRule,
   scopeProjects,
+  sdkConnectionScopeDiffersFromBase,
   seededSdkConnectionRules,
   withRuleForScope,
   withScopeRetargeted,
+  withSdkConnectionRuleEdited,
+  withSdkConnectionScopeReset,
   withoutScope,
 } from "./approvalScopes";
 import {
@@ -130,7 +132,7 @@ export default function ApprovalFlowSettings() {
   ) =>
     form.setValue(
       "approvalFlows.sdkConnections",
-      withRuleForScope(sdkConnectionRules, scope, next),
+      withSdkConnectionRuleEdited(sdkConnectionRules, scope, next),
     );
 
   const addOverride = (project: string) => {
@@ -381,15 +383,12 @@ export default function ApprovalFlowSettings() {
                   setSdkConnectionRule(scope, next)
                 }
                 onSdkConnectionReset={
-                  differsFromBase(
-                    clonedSdkConnectionRule(sdkConnectionRules, scope),
-                    inheritedSdkConnectionRule(sdkConnectionRules, scope),
-                  )
+                  sdkConnectionScopeDiffersFromBase(sdkConnectionRules, scope)
                     ? () =>
-                        setSdkConnectionRule(
-                          scope,
-                          clonedSdkConnectionRule(
-                            withoutScope(sdkConnectionRules, scope),
+                        form.setValue(
+                          "approvalFlows.sdkConnections",
+                          withSdkConnectionScopeReset(
+                            sdkConnectionRules,
                             scope,
                           ),
                         )

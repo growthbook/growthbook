@@ -136,10 +136,90 @@ export const clonedSavedGroupRule = (
   scope: string,
 ) => clonedApprovalFlowRule("saved-group", rules, scope);
 
-export const clonedSdkConnectionRule = (
+// A scope can hold several SDK Connection rules, one per environment set. The
+// form shows one, so it shows an active one: its switch is on if any rule is.
+export function clonedSdkConnectionRule(
   rules: ApprovalFlowConfiguration[],
   scope: string,
-) => clonedApprovalFlowRule("sdk-connection", rules, scope);
+): ApprovalFlowConfiguration {
+  const own = rulesForScope(rules, scope);
+  return (
+    own.find((r) => !!r.required) ??
+    clonedApprovalFlowRule("sdk-connection", rules, scope)
+  );
+}
+
+function rulesForScope<T extends Scoped>(rules: T[], scope: string): T[] {
+  return rules.filter((r) => scopeKey(r.projects) === scope);
+}
+
+// Replaces all of the scope's rules with `next`, where its first rule stood.
+function withScopeRules<T extends Scoped>(
+  rules: T[],
+  scope: string,
+  next: T[],
+): T[] {
+  const i = rules.findIndex((r) => scopeKey(r.projects) === scope);
+  if (i < 0) return [...rules, ...next];
+  return rules.flatMap((r, idx) =>
+    idx === i ? next : scopeKey(r.projects) === scope ? [] : [r],
+  );
+}
+
+// An edit in the form applies to every rule in the scope. Each keeps its own
+// environments, unless the edit is to environments: then the scope is the one
+// rule the user stated.
+export function withSdkConnectionRuleEdited(
+  rules: ApprovalFlowConfiguration[],
+  scope: string,
+  next: ApprovalFlowConfiguration,
+): ApprovalFlowConfiguration[] {
+  if (rulesForScope(rules, scope).length < 2) {
+    return withRuleForScope(rules, scope, next);
+  }
+  const shown = clonedSdkConnectionRule(rules, scope);
+  const keys = new Set([
+    ...Object.keys(shown),
+    ...Object.keys(next),
+  ] as (keyof ApprovalFlowConfiguration)[]);
+  const patch: Partial<ApprovalFlowConfiguration> = {};
+  keys.forEach((key) => {
+    if (key !== "projects" && !isEqual(shown[key], next[key])) {
+      Object.assign(patch, { [key]: next[key] });
+    }
+  });
+  if ("environments" in patch) return withScopeRules(rules, scope, [next]);
+  return rules.map((r) =>
+    scopeKey(r.projects) === scope ? { ...r, ...patch } : r,
+  );
+}
+
+// Back to what a fresh override would seed: every base rule, one-for-one.
+export function withSdkConnectionScopeReset(
+  rules: ApprovalFlowConfiguration[],
+  scope: string,
+): ApprovalFlowConfiguration[] {
+  const others = withoutScope(rules, scope);
+  return withScopeRules(
+    rules,
+    scope,
+    rulesForScope(seededSdkConnectionRules(others, scope), scope),
+  );
+}
+
+export function sdkConnectionScopeDiffersFromBase(
+  rules: ApprovalFlowConfiguration[],
+  scope: string,
+): boolean {
+  const own = rulesForScope(rules, scope);
+  if (!own.length || !inheritedSdkConnectionRule(rules, scope)) return false;
+  const seeded = rulesForScope(
+    withSdkConnectionScopeReset(rules, scope),
+    scope,
+  );
+  if (own.length !== seeded.length) return true;
+  return own.some((r, i) => differsFromBase(r, seeded[i]));
+}
 
 // A fresh override's SDK Connection rules. Base rules can each gate their own
 // environments, and one combined copy keeps only the first rule's, so the
