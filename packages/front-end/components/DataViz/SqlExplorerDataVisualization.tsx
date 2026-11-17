@@ -13,7 +13,7 @@ import { getValidDate, parseWarehouseDate } from "shared/dates";
 import { useDashboardCharts } from "@/enterprise/components/Dashboards/DashboardChartsContext";
 import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
 import {
-  CHART_COLORS,
+  SQL_EXPLORER_COLORS,
   getChartThemeColors,
 } from "@/components/DataViz/chart-theme";
 import { supportsDimension } from "@/services/dataVizTypeGuards";
@@ -736,7 +736,7 @@ export function DataVisualizationDisplay({
     return {
       // Values are parsed as UTC, so UTC rendering shows query results as returned, unshifted.
       useUTC: true,
-      color: CHART_COLORS,
+      color: SQL_EXPLORER_COLORS,
       dataset,
       tooltip: {
         appendTo: "body",

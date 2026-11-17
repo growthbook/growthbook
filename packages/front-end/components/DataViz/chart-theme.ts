@@ -10,6 +10,21 @@ export const CHART_COLORS = [
   "#6b7280",
 ];
 
+// The ECharts 6 default palette, which SQL Explorer charts have always used.
+// Named here so it lives with the other chart colors; switching SQL Explorer
+// to CHART_COLORS would recolor every saved chart.
+export const SQL_EXPLORER_COLORS = [
+  "#5070dd",
+  "#b6d634",
+  "#505372",
+  "#ff994d",
+  "#0ca8df",
+  "#ffd10a",
+  "#fb628b",
+  "#785db0",
+  "#3fbe95",
+];
+
 // Semantic colors for experiment results, as Radix tokens so they follow the
 // theme. ECharts draws on canvas, so resolve them with cssColorToHex first.
 export const EXPERIMENT_RESULT_COLORS = {
