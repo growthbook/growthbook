@@ -3,16 +3,10 @@ import {
   applyPagination,
   createApiRequestHandler,
 } from "back-end/src/util/handler";
-import { toApiConfirmation } from "back-end/src/services/confirmations";
-
-// Stored statuses that toApiConfirmation can report as each API status.
-const STORED_STATUSES = {
-  pending: ["pending"],
-  running: ["running"],
-  completed: ["completed", "running"],
-  rejected: ["rejected"],
-  expired: ["expired", "pending"],
-} as const;
+import {
+  confirmationStatusQuery,
+  toApiConfirmation,
+} from "back-end/src/services/confirmations";
 
 // Same visibility as getConfirmation: the requesting key, or any token of the same person.
 export const listConfirmations = createApiRequestHandler(
@@ -22,9 +16,9 @@ export const listConfirmations = createApiRequestHandler(
   const docs = await req.context.models.confirmations.findByRequester(
     req.context.apiKey || null,
     req.context.userId || null,
-    [...STORED_STATUSES[status]],
-    status === "pending",
+    confirmationStatusQuery(status),
   );
+  // Drops a row whose status changed between the query and now, e.g. one that just expired.
   const { filtered, returnFields } = applyPagination(
     docs.map(toApiConfirmation).filter((c) => c.status === status),
     req.query,

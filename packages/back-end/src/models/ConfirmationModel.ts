@@ -1,3 +1,4 @@
+import type { FilterQuery } from "mongoose";
 import {
   ConfirmationInterface,
   confirmationValidator,
@@ -33,8 +34,7 @@ export class ConfirmationModel extends BaseClass {
   public findByRequester(
     apiKeyId: string | null,
     userId: string | null,
-    statuses: ConfirmationInterface["status"][],
-    unexpiredOnly: boolean,
+    statusQuery: FilterQuery<ConfirmationInterface>,
   ) {
     const or = [
       ...(apiKeyId ? [{ apiKeyId }] : []),
@@ -42,11 +42,7 @@ export class ConfirmationModel extends BaseClass {
     ];
     if (!or.length) return Promise.resolve([]);
     return this._find(
-      {
-        $or: or,
-        status: { $in: statuses },
-        ...(unexpiredOnly && { expiresAt: { $gt: new Date() } }),
-      },
+      { $and: [{ $or: or }, statusQuery] },
       {
         sort: { dateCreated: -1 },
         projection: { body: 0, query: 0, links: 0, notices: 0 },
