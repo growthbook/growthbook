@@ -14,6 +14,7 @@ import {
   getMetricRefreshRequestOutcome,
   getNewMetricRowStates,
   getUnitDisplayName,
+  getUnjoinableMetricIds,
   hasOutdatedReasonBlockingMetricRefresh,
   isMetricRefreshUnavailable,
   NewMetricRowState,
@@ -211,12 +212,35 @@ describe("getNewMetricRowStates", () => {
     ]);
   });
 
+  it("keeps the No data row for a metric no snapshot can compute", () => {
+    const unjoinable = getUnjoinableMetricIds({
+      metricIds: ["met_goal", "met_secondary"],
+      getExperimentMetricById: (id) =>
+        ({
+          id,
+          userIdTypes: id === "met_goal" ? ["anonymous_id"] : ["user_id"],
+        }) as MetricInterface,
+      getFactTableById: () => null,
+      userIdType: "user_id",
+      datasourceSettings: {},
+    });
+    expect(
+      statesFor({
+        latest: { type: "standard", status: "success" },
+        uncomputableMetricIds: unjoinable,
+      }),
+    ).toEqual({
+      met_secondary: { status: "idle" },
+      met_guardrail: { status: "idle" },
+    });
+  });
+
   it("stops treating metrics as new once the server found nothing to update for them", () => {
     expect(
       statesFor({
         latest: { type: "standard", status: "success" },
         request: {
-          status: "upToDate",
+          status: "nothingToCompute",
           metricIds: ["met_old", "met_goal", "met_secondary"],
         },
       }),
@@ -235,7 +259,7 @@ describe("getNewMetricRowStates", () => {
     ).toEqual({
       met_goal: { status: "running" },
       met_secondary: { status: "running" },
-      met_guardrail: { status: "waiting" },
+      met_guardrail: { status: "otherUpdateRunning" },
     });
   });
 
@@ -342,7 +366,7 @@ describe("newMetricRowsOfferRefresh", () => {
     expect(
       offers(
         { status: "running" },
-        { status: "waiting" },
+        { status: "otherUpdateRunning" },
         { status: "unavailable" },
       ),
     ).toBe(false);
@@ -363,7 +387,7 @@ describe("getMetricRefreshRequestOutcome", () => {
 
   it("settles the attempted metrics when the server says nothing is missing", () => {
     expect(rejected("metrics_already_up_to_date")).toEqual({
-      status: "upToDate",
+      status: "nothingToCompute",
       metricIds: attempted,
     });
   });

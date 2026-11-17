@@ -1,18 +1,20 @@
 import { useCallback, useRef, useState } from "react";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
-import { isDimensionPrecomputed } from "shared/experiments";
+import {
+  getAllMetricIdsFromExperiment,
+  isDimensionPrecomputed,
+} from "shared/experiments";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
-import { ApiErrorCode } from "shared/validators";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import {
   getHonoredPrecomputedUnitDimensionIds,
+  getMetricRefreshRequestOutcome,
   MetricRefreshRequest,
 } from "@/services/experiments";
 import { trackSnapshot } from "@/services/track";
-import { ApiCallError } from "@/services/apiCallError";
 
 export type SnapshotRefreshBlocker = {
   kind: "requires-full-refresh";
@@ -294,11 +296,6 @@ export function useExperimentSnapshotUpdate({
 
 const NO_METRIC_REFRESH_REQUEST: MetricRefreshRequest = { status: "none" };
 
-const STALE_PAGE_ERROR_CODES: string[] = [
-  "metrics_already_up_to_date",
-  "snapshot_in_progress",
-] satisfies ApiErrorCode[];
-
 export function useNewMetricsRefresh({
   experiment,
   phase,
@@ -311,16 +308,20 @@ export function useNewMetricsRefresh({
   mutate: () => Promise<unknown>;
 }) {
   const { apiCall } = useAuth();
-  const { getDatasourceById } = useDefinitions();
+  const { getDatasourceById, metricGroups } = useDefinitions();
+  const scope = `${experiment.id}:${phase}:${snapshotId}`;
   const [state, setState] = useState<{
-    snapshotId: string | undefined;
+    scope: string;
     request: MetricRefreshRequest;
-  }>({ snapshotId, request: NO_METRIC_REFRESH_REQUEST });
+  }>({ scope, request: NO_METRIC_REFRESH_REQUEST });
   const request =
-    state.snapshotId === snapshotId ? state.request : NO_METRIC_REFRESH_REQUEST;
+    state.scope === scope ? state.request : NO_METRIC_REFRESH_REQUEST;
+  const inFlight = useRef(false);
 
   const refreshNewMetrics = useCallback(async () => {
-    setState({ snapshotId, request: { status: "sending" } });
+    if (inFlight.current) return;
+    inFlight.current = true;
+    setState({ scope, request: { status: "sending" } });
     let next: MetricRefreshRequest = NO_METRIC_REFRESH_REQUEST;
     try {
       const res = await apiCall<{ snapshot: ExperimentSnapshotInterface }>(
@@ -337,23 +338,22 @@ export function useNewMetricsRefresh({
         res.snapshot,
       );
     } catch (e) {
-      const code = e instanceof ApiCallError ? e.code : undefined;
-      if (code === "metric_refresh_unavailable") {
-        next = { status: "unavailable" };
-      } else if (!code || !STALE_PAGE_ERROR_CODES.includes(code)) {
-        next = { status: "failed", error: e.message };
-      }
+      next = getMetricRefreshRequestOutcome(
+        e,
+        getAllMetricIdsFromExperiment(experiment, false, metricGroups),
+      );
     }
-    await mutate();
-    setState({ snapshotId, request: next });
+    await Promise.allSettled([mutate()]);
+    inFlight.current = false;
+    setState({ scope, request: next });
   }, [
     apiCall,
-    experiment.id,
-    experiment.datasource,
+    experiment,
     getDatasourceById,
+    metricGroups,
     mutate,
     phase,
-    snapshotId,
+    scope,
   ]);
 
   return { request, refreshNewMetrics };

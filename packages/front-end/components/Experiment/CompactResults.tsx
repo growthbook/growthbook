@@ -43,7 +43,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import {
   excludeFunnelSliceRows,
   ExperimentTableRow,
-  NewMetricRowsInput,
+  NewMetricRowState,
 } from "@/services/experiments";
 import FunnelStepLabel from "@/components/Experiment/FunnelStepLabel";
 import FunnelStepSliceLink, {
@@ -65,7 +65,7 @@ const CompactResults: FC<{
   experimentId: string;
   significanceThresholds: SignificanceThresholds;
   editMetrics?: () => void;
-  newMetrics?: NewMetricRowsInput;
+  newMetricStates?: Map<string, NewMetricRowState>;
   onRefreshMetrics?: () => void;
   onViewRefreshQueries?: () => void;
   variations: ExperimentReportVariation[];
@@ -132,7 +132,7 @@ const CompactResults: FC<{
   experimentId,
   significanceThresholds,
   editMetrics,
-  newMetrics,
+  newMetricStates,
   onRefreshMetrics,
   onViewRefreshQueries,
   variations,
@@ -237,7 +237,7 @@ const CompactResults: FC<{
     enableExpansion: true,
     expandedMetrics,
     pValueThreshold: significanceThresholds.pValueThreshold,
-    newMetrics,
+    newMetricStates,
   });
 
   const expandedGoals = useMemo(

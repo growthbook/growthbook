@@ -15,9 +15,6 @@ import {
   expandMetricGroups,
   getAllMetricIdsFromExperiment,
   getAllExpandedMetricIdsFromExperiment,
-  isFactMetric,
-  isFactMetricJoinable,
-  isMetricJoinable,
   expandDerivedMetricsInMap,
   ExperimentMetricDefinition,
   getLatestPhaseVariations,
@@ -79,6 +76,7 @@ import {
   getHonoredPrecomputedUnitDimensionIds,
   getUnitDisplayName,
   hasOutdatedReasonBlockingMetricRefresh,
+  getUnjoinableMetricIds,
   ANALYSIS_DATES_CHANGED_OUTDATED_REASON,
   METRICS_CHANGED_OUTDATED_REASON,
 } from "@/services/experiments";
@@ -490,38 +488,23 @@ export default function AnalysisSettingsSummary({
     ),
   );
 
-  const unjoinableMetrics = useMemo(() => {
-    const unjoinables = new Set<string>();
-    allExpandedMetrics.forEach((m) => {
-      const metric = getExperimentMetricById(m);
-      if (!metric) return;
-      const isJoinable =
-        userIdType && datasourceSettings
-          ? isFactMetric(metric)
-            ? isFactMetricJoinable(
-                metric,
-                userIdType,
-                getFactTableById,
-                datasourceSettings,
-              )
-            : isMetricJoinable(
-                metric.userIdTypes || [],
-                userIdType,
-                datasourceSettings,
-              )
-          : true;
-      if (!isJoinable) {
-        unjoinables.add(m);
-      }
-    });
-    return unjoinables;
-  }, [
-    allExpandedMetrics,
-    getFactTableById,
-    userIdType,
-    datasourceSettings,
-    getExperimentMetricById,
-  ]);
+  const unjoinableMetrics = useMemo(
+    () =>
+      getUnjoinableMetricIds({
+        metricIds: allExpandedMetrics,
+        getExperimentMetricById,
+        getFactTableById,
+        userIdType,
+        datasourceSettings,
+      }),
+    [
+      allExpandedMetrics,
+      getFactTableById,
+      userIdType,
+      datasourceSettings,
+      getExperimentMetricById,
+    ],
+  );
 
   const conversionWindowMetrics = useMemo(() => {
     const conversionWindowMetrics = new Set<string>();

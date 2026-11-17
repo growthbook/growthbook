@@ -31,12 +31,15 @@ import Button from "@/ui/Button";
 import LinkButton from "@/ui/LinkButton";
 import {
   getHonoredPrecomputedUnitDimensionIds,
+  getNewMetricRowStates,
+  getMetricIdsNoSnapshotComputes,
   isMetricRefreshUnavailable,
-  NewMetricRowsInput,
+  newMetricRowsOfferRefresh,
 } from "@/services/experiments";
 import { useNewMetricsRefresh } from "@/hooks/useExperimentSnapshotUpdate";
 import { useKeepAnalysisSelectionAcrossMetricRefresh } from "@/hooks/useKeepAnalysisSelectionAcrossMetricRefresh";
 import useOrgSettings from "@/hooks/useOrgSettings";
+import { useDeepStableValue } from "@/hooks/useDeepStableValue";
 import track from "@/services/track";
 import Metadata from "@/ui/Metadata";
 import Link from "@/ui/Link";
@@ -111,6 +114,8 @@ export default function ResultsTab({
     getProjectById,
     datasources,
     getSegmentById,
+    getFactTableById,
+    metricGroups,
   } = useDefinitions();
 
   const { apiCall } = useAuth();
@@ -196,31 +201,6 @@ export default function ResultsTab({
     datasource,
     settingsOutdated,
   });
-  const isLatestPhase = phase === experiment.phases.length - 1;
-  const newMetrics = useMemo<NewMetricRowsInput | undefined>(
-    () =>
-      snapshot && isLatestPhase
-        ? {
-            snapshotSettings: snapshot.settings,
-            latest: latestSummary,
-            request: metricRefreshRequest,
-            refreshUnavailable: canUpdateResults && metricRefreshUnavailable,
-          }
-        : undefined,
-    [
-      isLatestPhase,
-      snapshot,
-      latestSummary,
-      metricRefreshRequest,
-      canUpdateResults,
-      metricRefreshUnavailable,
-    ],
-  );
-  const onRefreshMetrics =
-    canUpdateResults && !metricRefreshUnavailable
-      ? refreshNewMetrics
-      : undefined;
-
   const datasourceSettings = datasource?.settings;
   const userIdType = resolveAnalysisIdentifierType(
     datasourceSettings?.queries?.exposure?.find(
@@ -228,6 +208,50 @@ export default function ResultsTab({
     ),
     experiment.exposureQueryIdentifierType,
   );
+  const isLatestPhase = phase === experiment.phases.length - 1;
+  const showsMetricRows = !analysis?.settings?.dimensions?.length;
+  const newMetricStates = useDeepStableValue(
+    useMemo(
+      () =>
+        snapshot && isLatestPhase && showsMetricRows
+          ? getNewMetricRowStates({
+              experiment,
+              metricGroups,
+              snapshotSettings: snapshot.settings,
+              latest: latestSummary,
+              request: metricRefreshRequest,
+              refreshUnavailable: canUpdateResults && metricRefreshUnavailable,
+              uncomputableMetricIds: getMetricIdsNoSnapshotComputes({
+                experiment,
+                metricGroups,
+                getExperimentMetricById,
+                getFactTableById,
+                userIdType,
+                datasourceSettings,
+              }),
+            })
+          : undefined,
+      [
+        experiment,
+        metricGroups,
+        getExperimentMetricById,
+        getFactTableById,
+        userIdType,
+        datasourceSettings,
+        isLatestPhase,
+        showsMetricRows,
+        snapshot,
+        latestSummary,
+        metricRefreshRequest,
+        canUpdateResults,
+        metricRefreshUnavailable,
+      ],
+    ),
+  );
+  const onRefreshMetrics =
+    canUpdateResults && !metricRefreshUnavailable
+      ? refreshNewMetrics
+      : undefined;
 
   const reportArgs: ExperimentSnapshotReportArgs = {
     userIdType: userIdType as "user" | "anonymous" | undefined,
@@ -491,7 +515,9 @@ export default function ResultsTab({
             sortDirection={sortDirection}
             onSnapshotSuccessfulUpdate={onSnapshotSuccessfulUpdate}
             onOtherOutdatedReasonsChange={setSettingsOutdated}
-            newMetricsUpdatableInTable={!!onRefreshMetrics}
+            newMetricsUpdatableInTable={
+              !!onRefreshMetrics && newMetricRowsOfferRefresh(newMetricStates)
+            }
           />
           {experiment.status === "draft" ? (
             <Callout status="info" contentAlign="center" mx="3" my="3">
@@ -537,7 +563,7 @@ export default function ResultsTab({
                   experiment={experiment}
                   mutateExperiment={mutate}
                   editMetrics={editMetrics ?? undefined}
-                  newMetrics={newMetrics}
+                  newMetricStates={newMetricStates}
                   onRefreshMetrics={onRefreshMetrics}
                   statsEngine={statsEngine}
                   analysisBarSettings={analysisBarSettings}

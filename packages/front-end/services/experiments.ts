@@ -20,6 +20,7 @@ import {
 import {
   DataSourceInterfaceWithParams,
   DataSourcePipelineSettings,
+  DataSourceSettings,
   ExposureQuery,
 } from "shared/types/datasource";
 import cloneDeep from "lodash/cloneDeep";
@@ -49,6 +50,8 @@ import {
   hasEnoughData,
   isFactFunnelMetric,
   isFactMetric,
+  isFactMetricJoinable,
+  isMetricJoinable,
   isMetricGroupId,
   isRatioMetric,
   isScalableClusterSubUnitMetric,
@@ -79,6 +82,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import { useExperimentStatusIndicator } from "@/hooks/useExperimentStatusIndicator";
 import { RowError } from "@/components/Experiment/ResultsTable";
+import { ApiCallError } from "@/services/apiCallError";
 import { getDefaultRuleValue, NewExperimentRefRule } from "./features";
 
 export const NO_DATA_ERROR_MESSAGE = "No data";
@@ -296,6 +300,7 @@ export function isMetricRefreshUnavailable({
 export type NewMetricRowState =
   | { status: "idle" }
   | { status: "running" }
+  | { status: "otherUpdateRunning" }
   | { status: "failed"; error: string | null }
   | { status: "unavailable" };
 
@@ -303,17 +308,92 @@ export type MetricRefreshRequest =
   | { status: "none" }
   | { status: "sending" }
   | { status: "failed"; error: string }
-  | { status: "unavailable" };
+  | { status: "unavailable" }
+  | { status: "nothingToCompute"; metricIds: string[] };
 
-export type NewMetricRowsInput = {
-  snapshotSettings: Pick<ExperimentSnapshotSettings, "metricSettings">;
-  latest?: Pick<
-    SnapshotStatusSummary,
-    "type" | "status" | "error" | "metricRefresh"
+export function getMetricRefreshRequestOutcome(
+  error: unknown,
+  attemptedMetricIds: string[],
+): MetricRefreshRequest {
+  const code = error instanceof ApiCallError ? error.code : undefined;
+  if (code === "metrics_already_up_to_date") {
+    return { status: "nothingToCompute", metricIds: attemptedMetricIds };
+  }
+  if (code === "snapshot_in_progress") return { status: "none" };
+  if (code === "metric_refresh_unavailable") return { status: "unavailable" };
+  return {
+    status: "failed",
+    error: error instanceof Error ? error.message : String(error),
+  };
+}
+
+export function newMetricRowsOfferRefresh(
+  states: Map<string, NewMetricRowState> | undefined,
+): boolean {
+  return [...(states?.values() ?? [])].some(
+    (s) => s.status === "idle" || s.status === "failed",
+  );
+}
+
+export function getUnjoinableMetricIds({
+  metricIds,
+  getExperimentMetricById,
+  getFactTableById,
+  userIdType,
+  datasourceSettings,
+}: {
+  metricIds: string[];
+  getExperimentMetricById: (id: string) => ExperimentMetricDefinition | null;
+  getFactTableById: Parameters<typeof isFactMetricJoinable>[2];
+  userIdType: string | undefined;
+  datasourceSettings: DataSourceSettings | undefined;
+}): Set<string> {
+  if (!userIdType || !datasourceSettings) return new Set();
+  return new Set(
+    metricIds.filter((id) => {
+      const metric = getExperimentMetricById(id);
+      if (!metric) return false;
+      return !(isFactMetric(metric)
+        ? isFactMetricJoinable(
+            metric,
+            userIdType,
+            getFactTableById,
+            datasourceSettings,
+          )
+        : isMetricJoinable(
+            metric.userIdTypes || [],
+            userIdType,
+            datasourceSettings,
+          ));
+    }),
+  );
+}
+
+// Joinability is all the page can check without the back-end's metric maps;
+// cluster experiments decide eligibility per cluster or sub-unit instead.
+export function getMetricIdsNoSnapshotComputes({
+  experiment,
+  metricGroups,
+  ...joinInputs
+}: {
+  experiment: Pick<
+    ExperimentInterfaceStringDates,
+    | "goalMetrics"
+    | "secondaryMetrics"
+    | "guardrailMetrics"
+    | "isClusterExperiment"
   >;
-  request: MetricRefreshRequest;
-  refreshUnavailable: boolean;
-};
+  metricGroups: MetricGroupInterface[];
+} & Omit<
+  Parameters<typeof getUnjoinableMetricIds>[0],
+  "metricIds"
+>): Set<string> {
+  if (experiment.isClusterExperiment) return new Set();
+  return getUnjoinableMetricIds({
+    metricIds: getAllMetricIdsFromExperiment(experiment, false, metricGroups),
+    ...joinInputs,
+  });
+}
 
 export function getNewMetricRowStates({
   experiment,
@@ -322,20 +402,29 @@ export function getNewMetricRowStates({
   latest,
   request,
   refreshUnavailable,
-}: NewMetricRowsInput & {
+  uncomputableMetricIds = new Set(),
+}: {
   experiment: Pick<
     ExperimentInterfaceStringDates,
     "goalMetrics" | "secondaryMetrics" | "guardrailMetrics"
   >;
   metricGroups: MetricGroupInterface[];
+  snapshotSettings: Pick<ExperimentSnapshotSettings, "metricSettings">;
+  latest?: Pick<
+    SnapshotStatusSummary,
+    "type" | "status" | "error" | "metricRefresh"
+  >;
+  request: MetricRefreshRequest;
+  refreshUnavailable: boolean;
+  uncomputableMetricIds?: ReadonlySet<string>;
 }): Map<string, NewMetricRowState> {
   const refresh = latest ? getMetricRefresh(latest) : null;
   const getState = (metricId: string): NewMetricRowState => {
     if (request.status === "sending") return { status: "running" };
-    const latestQueriesMetric =
-      !refresh || refresh.metricIds.includes(metricId);
-    if (latest?.status === "running" && latestQueriesMetric) {
-      return { status: "running" };
+    if (latest?.status === "running") {
+      return !refresh || refresh.metricIds.includes(metricId)
+        ? { status: "running" }
+        : { status: "otherUpdateRunning" };
     }
     if (refreshUnavailable || request.status === "unavailable") {
       return { status: "unavailable" };
@@ -348,12 +437,17 @@ export function getNewMetricRowStates({
     }
     return { status: "idle" };
   };
+  const settled = new Set(
+    request.status === "nothingToCompute" ? request.metricIds : [],
+  );
   return new Map(
     getMetricIdsMissingFromSnapshot({
       experiment,
       snapshotSettings,
       metricGroups,
-    }).map((id) => [id, getState(id)]),
+    })
+      .filter((id) => !settled.has(id) && !uncomputableMetricIds.has(id))
+      .map((id) => [id, getState(id)]),
   );
 }
 

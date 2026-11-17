@@ -36,9 +36,7 @@ const METRIC_SELECTOR_IDS = [
 import {
   applyMetricOverrides,
   ExperimentTableRow,
-  getNewMetricRowStates,
   NewMetricRowState,
-  NewMetricRowsInput,
   NO_DATA_ERROR_MESSAGE,
 } from "@/services/experiments";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
@@ -73,7 +71,7 @@ export interface UseExperimentTableRowsParams {
   enableExpansion?: boolean;
   expandedMetrics: Record<string, boolean>;
   pValueThreshold: number;
-  newMetrics?: NewMetricRowsInput;
+  newMetricStates?: Map<string, NewMetricRowState>;
 }
 
 export interface UseExperimentTableRowsReturn {
@@ -103,7 +101,7 @@ export function useExperimentTableRows({
   enableExpansion: _enableExpansion = true,
   expandedMetrics,
   pValueThreshold,
-  newMetrics,
+  newMetricStates,
 }: UseExperimentTableRowsParams): UseExperimentTableRowsReturn {
   const {
     getExperimentMetricById: _getExperimentMetricById,
@@ -297,18 +295,6 @@ export function useExperimentTableRows({
       guardrailMetrics,
       metricsFilter,
     ]);
-
-  const newMetricStates = useMemo(
-    () =>
-      newMetrics
-        ? getNewMetricRowStates({
-            ...newMetrics,
-            experiment: { goalMetrics, secondaryMetrics, guardrailMetrics },
-            metricGroups,
-          })
-        : undefined,
-    [newMetrics, goalMetrics, secondaryMetrics, guardrailMetrics, metricGroups],
-  );
 
   const unsortedRows = useMemo<ExperimentTableRow[]>(() => {
     function getRowsForMetricGroup(

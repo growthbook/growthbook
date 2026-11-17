@@ -38,7 +38,7 @@ import AsyncQueriesModal from "@/components/Queries/AsyncQueriesModal";
 import { MetricDrilldownProvider } from "@/components/MetricDrilldown/MetricDrilldownContext";
 import {
   getIsExperimentIncludedInIncrementalRefresh,
-  NewMetricRowsInput,
+  NewMetricRowState,
 } from "@/services/experiments";
 import { useIncrementalPipelineUnsupportedReason } from "@/hooks/useIncrementalPipelineUnsupportedReason";
 import { useRunningExperimentStatus } from "@/hooks/useExperimentStatusIndicator";
@@ -64,7 +64,7 @@ const Results: FC<{
   experiment: ExperimentInterfaceStringDates;
   mutateExperiment: () => void;
   editMetrics?: () => void;
-  newMetrics?: NewMetricRowsInput;
+  newMetricStates?: Map<string, NewMetricRowState>;
   onRefreshMetrics?: () => void;
   statsEngine: StatsEngine;
   analysisBarSettings: AnalysisBarSettings;
@@ -82,7 +82,7 @@ const Results: FC<{
   experiment,
   mutateExperiment,
   editMetrics,
-  newMetrics,
+  newMetricStates,
   onRefreshMetrics,
   statsEngine,
   analysisBarSettings,
@@ -483,7 +483,7 @@ const Results: FC<{
               experimentId={experiment.id}
               significanceThresholds={significanceThresholds}
               editMetrics={editMetrics}
-              newMetrics={newMetrics}
+              newMetricStates={newMetricStates}
               onRefreshMetrics={onRefreshMetrics}
               onViewRefreshQueries={
                 latest?.status === "error" &&

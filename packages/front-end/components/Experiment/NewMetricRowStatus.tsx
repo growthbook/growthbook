@@ -16,11 +16,12 @@ export default function NewMetricRowStatus({
 }) {
   switch (state.status) {
     case "idle":
+    case "otherUpdateRunning":
       return (
         <HelperText status="neutral" size="sm" mx="2">
           <Flex gap="2" wrap="wrap">
             Added after the last update
-            {onRefreshMetrics ? (
+            {onRefreshMetrics && state.status === "idle" ? (
               <Link onClick={onRefreshMetrics}>Update new metrics</Link>
             ) : null}
           </Flex>
