@@ -159,7 +159,6 @@ interface Props {
 
 const noop = () => undefined;
 
-// The block area of a dashboard: the empty state, the grid, and each block.
 export default function DashboardCanvas({
   blocks,
   isTabActive,
