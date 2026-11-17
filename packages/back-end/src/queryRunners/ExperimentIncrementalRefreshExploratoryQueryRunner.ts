@@ -412,7 +412,7 @@ export class ExperimentIncrementalRefreshExploratoryQueryRunner extends QueryRun
 
   protected override onHeartbeat(): void {
     this.context.models.incrementalRefresh
-      .touchLockHeartbeat(this.model.experiment, this.model.id)
+      .touchReaderHeartbeat(this.model.experiment, this.model.id)
       .catch((e) =>
         this.context.logger.warn(
           e,

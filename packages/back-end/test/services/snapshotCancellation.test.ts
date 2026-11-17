@@ -13,7 +13,9 @@ import { snapshotFactory } from "back-end/test/factories/Snapshot.factory";
 import {
   cancelExperimentSnapshot,
   planSnapshotCancel,
+  preemptIncrementalReaders,
   SNAPSHOT_CANCELLED_ERROR,
+  SNAPSHOT_PREEMPTED_ERROR,
   SnapshotCancelAction,
 } from "back-end/src/services/snapshotCancellation";
 import {
@@ -191,6 +193,7 @@ describe("cancelExperimentSnapshot", () => {
   const organization = "org_1";
   let context: ReqContext;
   let releaseLock: jest.Mock;
+  let clearReaders: jest.Mock;
   let cancelQuery: jest.Mock;
   let canRunExperimentQueries: jest.Mock;
 
@@ -204,6 +207,7 @@ describe("cancelExperimentSnapshot", () => {
 
   beforeEach(() => {
     releaseLock = jest.fn().mockResolvedValue(undefined);
+    clearReaders = jest.fn().mockResolvedValue([]);
     cancelQuery = jest.fn().mockResolvedValue(undefined);
     canRunExperimentQueries = jest.fn().mockReturnValue(true);
     context = {
@@ -215,7 +219,7 @@ describe("cancelExperimentSnapshot", () => {
           throw new Error("permission denied");
         },
       },
-      models: { incrementalRefresh: { releaseLock } },
+      models: { incrementalRefresh: { releaseLock, clearReaders } },
       logger: { info: jest.fn(), warn: jest.fn(), error: jest.fn() },
     } as unknown as ReqContext;
     context.models.experimentSnapshotAnalysisChunks =
@@ -769,6 +773,53 @@ describe("cancelExperimentSnapshot", () => {
       { status: "running", error: undefined },
     ]);
     expect(await findSnapshotById(context, snapshot.id)).not.toBeNull();
+    expect(cancelQuery).not.toHaveBeenCalled();
+  });
+
+  it("concludes each evicted reader with the interrupted error, without a permission check", async () => {
+    canRunExperimentQueries.mockReturnValue(false);
+    const done = await insertQuery("succeeded");
+    const running = await insertQuery("running", "job_live");
+    const { snapshot } = await insertReportSnapshot({
+      id: "snp_reader",
+      status: "running",
+      queries: [pointer(done, "succeeded"), pointer(running, "running")],
+      reportSnapshotId: "snp_prev",
+    });
+    clearReaders.mockResolvedValue([snapshot.id, "snp_never_created"]);
+
+    await preemptIncrementalReaders(context, "exp_1", "snp_writer");
+
+    expect(clearReaders).toHaveBeenCalledWith("exp_1", "snp_writer");
+    expect(await findSnapshotById(context, snapshot.id)).toMatchObject({
+      status: "error",
+      error: SNAPSHOT_PREEMPTED_ERROR,
+      queries: [pointer(done, "succeeded"), pointer(running, "failed")],
+    });
+    expect(await queryStatuses([running])).toEqual([
+      { status: "failed", error: SNAPSHOT_PREEMPTED_ERROR },
+    ]);
+    expect(cancelQuery.mock.calls).toEqual([["job_live", undefined]]);
+  });
+
+  it("leaves a pre-empted snapshot that already finished alone instead of refusing", async () => {
+    const done = await insertQuery("succeeded");
+    const { snapshot } = await insertReportSnapshot({
+      id: "snp_done",
+      status: "success",
+      queries: [pointer(done, "succeeded")],
+      withResults: true,
+      reportSnapshotId: "snp_done",
+    });
+
+    const result = await cancelExperimentSnapshot(context, snapshot, {
+      preempted: true,
+    });
+
+    expect(result).toEqual({ outcome: "unchanged", cancelledQueryIds: [] });
+    expect((await findSnapshotById(context, snapshot.id))?.status).toBe(
+      "success",
+    );
     expect(cancelQuery).not.toHaveBeenCalled();
   });
 });
