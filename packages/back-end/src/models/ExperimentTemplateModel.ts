@@ -224,7 +224,7 @@ export class ExperimentTemplatesModel extends BaseClass {
       existing,
     )) as UpdateProps<ExperimentTemplateInterface>;
     return resolveOwnerEmail(
-      this.toApiInterface(await this.updateById(id, toUpdate)),
+      this.toApiInterface(await this._updateOne(existing, toUpdate)),
       this.context,
     );
   }

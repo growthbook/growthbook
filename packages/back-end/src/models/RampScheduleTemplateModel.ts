@@ -162,10 +162,10 @@ export class RampScheduleTemplateModel extends BaseClass {
         UpdateProps<RampScheduleTemplateInterface>,
         "monitoringConfig"
       > & { monitoringConfig?: ApiRampMonitoringConfigInput | null },
-      existing?.monitoringConfig,
+      existing.monitoringConfig,
     )) as UpdateProps<RampScheduleTemplateInterface>;
     return resolveOwnerEmail(
-      this.toApiInterface(await this.updateById(id, toUpdate)),
+      this.toApiInterface(await this._updateOne(existing, toUpdate)),
       this.context,
     );
   }
