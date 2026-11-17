@@ -1,11 +1,4 @@
-import {
-  ReactNode,
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { ReactNode, useCallback, useEffect, useMemo, useRef } from "react";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { Box } from "@radix-ui/themes";
 import {
@@ -17,7 +10,6 @@ import {
   getExposureQueryIdentifierTypes,
   isManagedWarehouse,
 } from "shared/util";
-import { useFeatureIsOn } from "@growthbook/growthbook-react";
 import { PiInfo, PiWarningFill } from "react-icons/pi";
 import {
   AssignmentQueryNotice,
@@ -508,26 +500,18 @@ export function useClusterSubUnitOptions(
   datasource: DataSourceInterfaceWithParams | null | undefined,
   exposureQuery: ExposureQuery | undefined,
   identifierType: string | undefined,
-  savedAsCluster: boolean,
 ): string[] {
-  const flagOn = useFeatureIsOn("managed-warehouse-cluster-experiments");
-  // A cluster experiment saved while the flag was on stays editable after
-  // it's turned off; the flag only stops new ones.
-  const managedEnabled = flagOn || savedAsCluster;
-  return useMemo(() => {
-    if (!exposureQuery) return [];
-    // Without the flag, Managed Warehouse falls back to the query's own
-    // identifier, which leaves no subunit to pick.
-    const source =
-      datasource && isManagedWarehouse(datasource) && !managedEnabled
-        ? null
-        : datasource;
-    return getClusterSubUnitIdentifierTypes(
-      exposureQuery,
-      source,
-      identifierType,
-    );
-  }, [datasource, exposureQuery, identifierType, managedEnabled]);
+  return useMemo(
+    () =>
+      exposureQuery
+        ? getClusterSubUnitIdentifierTypes(
+            exposureQuery,
+            datasource,
+            identifierType,
+          )
+        : [],
+    [datasource, exposureQuery, identifierType],
+  );
 }
 
 export const CLUSTER_OFF_FOR_DATASOURCE_MESSAGE =
@@ -583,12 +567,10 @@ export function ClusterExperimentFields({
   asRows?: boolean;
 }) {
   const { hasCommercialFeature } = useUser();
-  const [savedAsCluster] = useState(isClusterExperiment);
   const subUnitOptions = useClusterSubUnitOptions(
     datasource,
     exposureQuery,
     identifierType,
-    savedAsCluster,
   );
   // A new query or identifier can leave the chosen subunit off the list.
   useEffect(() => {

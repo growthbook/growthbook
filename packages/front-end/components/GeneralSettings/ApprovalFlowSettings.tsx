@@ -37,9 +37,13 @@ import {
   scopeKey,
   inheritedFlagRule,
   inheritedSavedGroupRule,
-  inheritedSdkConnectionRule,
   scopeProjects,
+  sdkConnectionScopeDiffersFromBase,
+  seededSdkConnectionRules,
   withRuleForScope,
+  withScopeRetargeted,
+  withSdkConnectionRuleEdited,
+  withSdkConnectionScopeReset,
   withoutScope,
 } from "./approvalScopes";
 import {
@@ -128,7 +132,7 @@ export default function ApprovalFlowSettings() {
   ) =>
     form.setValue(
       "approvalFlows.sdkConnections",
-      withRuleForScope(sdkConnectionRules, scope, next),
+      withSdkConnectionRuleEdited(sdkConnectionRules, scope, next),
     );
 
   const addOverride = (project: string) => {
@@ -136,9 +140,9 @@ export default function ApprovalFlowSettings() {
     setTabs((prev) => [...prev, { id, scope: project }]);
     setFlagRule(project, clonedFlagRule(flagRules, project));
     setSavedGroupRule(project, clonedSavedGroupRule(savedGroupRules, project));
-    setSdkConnectionRule(
-      project,
-      clonedSdkConnectionRule(sdkConnectionRules, project),
+    form.setValue(
+      "approvalFlows.sdkConnections",
+      seededSdkConnectionRules(sdkConnectionRules, project),
     );
   };
 
@@ -163,9 +167,11 @@ export default function ApprovalFlowSettings() {
         }),
       );
     }
-    const sdkConnectionOwn = ruleForScope(sdkConnectionRules, tab.scope);
-    if (sdkConnectionOwn) {
-      setSdkConnectionRule(tab.scope, { ...sdkConnectionOwn, projects: next });
+    if (ruleForScope(sdkConnectionRules, tab.scope)) {
+      form.setValue(
+        "approvalFlows.sdkConnections",
+        withScopeRetargeted(sdkConnectionRules, tab.scope, next),
+      );
     }
     setTabs((prev) =>
       prev.map((t) => (t.id === tab.id ? { ...t, scope: nextScope } : t)),
@@ -300,7 +306,9 @@ export default function ApprovalFlowSettings() {
               id={`approval-override-${tab.id}`}
               p="4"
               mb="0"
-              style={{ scrollMarginTop: 80 }}
+              style={{
+                scrollMarginTop: "calc(var(--settings-section-top) + 24px)",
+              }}
             >
               <Flex align="end" justify="between" gap="3" mb="4" wrap="wrap">
                 <Box flexGrow="1" minWidth="240px">
@@ -375,15 +383,12 @@ export default function ApprovalFlowSettings() {
                   setSdkConnectionRule(scope, next)
                 }
                 onSdkConnectionReset={
-                  differsFromBase(
-                    clonedSdkConnectionRule(sdkConnectionRules, scope),
-                    inheritedSdkConnectionRule(sdkConnectionRules, scope),
-                  )
+                  sdkConnectionScopeDiffersFromBase(sdkConnectionRules, scope)
                     ? () =>
-                        setSdkConnectionRule(
-                          scope,
-                          clonedSdkConnectionRule(
-                            withoutScope(sdkConnectionRules, scope),
+                        form.setValue(
+                          "approvalFlows.sdkConnections",
+                          withSdkConnectionScopeReset(
+                            sdkConnectionRules,
                             scope,
                           ),
                         )

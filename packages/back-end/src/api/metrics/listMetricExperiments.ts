@@ -14,6 +14,7 @@ import {
   _getSnapshots,
   getExperimentMetricById,
 } from "back-end/src/services/experiments";
+import { NotFoundError } from "back-end/src/util/errors";
 
 export const listMetricExperiments = createApiRequestHandler(
   listMetricExperimentsValidator,
@@ -23,7 +24,7 @@ export const listMetricExperiments = createApiRequestHandler(
   // Ensure the metric (fact or classic) exists and is readable
   const metric = await getExperimentMetricById(req.context, metricId);
   if (!metric) {
-    throw new Error("Could not find metric with that id");
+    throw new NotFoundError("Could not find metric with that id");
   }
 
   // Reject unsupported search syntax (negation/operators) with a 400 instead

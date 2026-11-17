@@ -1,6 +1,7 @@
 import { ReactNode, useEffect, useState } from "react";
 import { Flex } from "@radix-ui/themes";
 import clsx from "clsx";
+import { PageBleed } from "@/components/Layout/PageFrame";
 import Text from "@/ui/Text";
 import styles from "./RevisionStatusBarView.module.scss";
 
@@ -53,7 +54,7 @@ export default function RevisionStatusBarView({
 }) {
   const tint = draft ? "amber" : "gray";
   return (
-    <div
+    <PageBleed
       className={styles.bar}
       style={{
         backgroundColor: `var(--${tint}-a3)`,
@@ -62,17 +63,12 @@ export default function RevisionStatusBarView({
       }}
     >
       <div
-        // The header's page column, so the two line up.
-        className={clsx(
-          "container-fluid pagecontents",
-          styles.row,
-          error && styles.withError,
-        )}
+        className={clsx(styles.row, error && styles.withError)}
         style={{
-          // Inset as the cards' content is below: the page gutter, a card's
-          // padding, and a border as wide as the card's, which zoom rounds
-          // the same way. Its actions end under the revision picker.
-          paddingInline: "calc(2 * var(--space-5))",
+          // Inset as the cards' content is below: a card's padding, and a
+          // border as wide as the card's, which zoom rounds the same way.
+          // Its actions end under the revision picker.
+          paddingInline: "var(--space-5)",
           borderInline: "1px solid transparent",
           paddingBlock: "var(--space-2)",
           minHeight: REVISION_STATUS_BAR_HEIGHT_PX,
@@ -100,6 +96,6 @@ export default function RevisionStatusBarView({
         ) : null}
         {error ? <div className={styles.error}>{error}</div> : null}
       </div>
-    </div>
+    </PageBleed>
   );
 }

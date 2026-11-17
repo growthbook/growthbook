@@ -12,6 +12,7 @@ import {
   sdkConnectionAdapter,
 } from "back-end/src/revisions/adapters/sdk-connection.adapter";
 import { getAdapter } from "back-end/src/revisions/index";
+import { restoreEntityPreImage } from "back-end/src/revisions/landingSequence";
 import {
   restoreScrubbedOps,
   scrubConflictsForViewer,
@@ -184,6 +185,7 @@ function makeContext(overrides: {
     models: {
       sdkWebhooks: {
         findLiveSdkWebhooksForRevision: jest.fn(async () => []),
+        findSdkWebhooksByIdsForRevision: jest.fn(async () => []),
         countSdkWebhooksByOrg: jest.fn(async () => overrides.webhookCount ?? 0),
         getDefaultCreateProps: (id: string) => ({ sdks: [id] }),
         create: jest.fn(async () => ({})),
@@ -1038,6 +1040,116 @@ describe("sdkConnectionAdapter", () => {
       expect(mockedEdit.mock.calls[0][3]).toBeUndefined();
     });
 
+    describe("settings the snapshot lacks", () => {
+      // An older connection that predates the setting.
+      const olderConnection = omit(
+        baseConnection,
+        "includeDraftExperiments",
+      ) as SDKConnectionInterface;
+      const olderSettings = omit(
+        baseSnapshot.sdkConnection,
+        "includeDraftExperiments",
+      );
+      // What a publish that renamed it and turned the setting on left live.
+      const published = {
+        ...baseConnection,
+        name: "Renamed",
+        dateUpdated: new Date("2025-01-03"),
+      } as SDKConnectionInterface;
+      const publishedEntity = {
+        ...liveEntity,
+        dateUpdated: new Date("2025-01-03"),
+        sdkConnection: settings({ name: "Renamed" }),
+      };
+
+      it("a restore unsets them along with the fields it puts back", async () => {
+        mockedFind.mockResolvedValue(published);
+        const result = await sdkConnectionAdapter.applyChanges(
+          makeContext({}),
+          publishedEntity,
+          { sdkConnection: olderSettings },
+          { isRevert: true, isCompensation: true, guarded: true },
+        );
+        const [, , changes, editOptions] = mockedEdit.mock.calls[0];
+        expect(changes).toEqual({ name: "Prod Web" });
+        expect(editOptions).toEqual({
+          casOnDateUpdated: new Date("2025-01-03"),
+          unset: ["includeDraftExperiments"],
+        });
+        expect(result.persistedKeys).toEqual(["sdkConnection"]);
+      });
+
+      it("a restore that only has a setting to unset still writes", async () => {
+        mockedFind.mockResolvedValue({ ...published, name: "Prod Web" });
+        await sdkConnectionAdapter.applyChanges(
+          makeContext({}),
+          liveEntity,
+          { sdkConnection: olderSettings },
+          { isRevert: true, isCompensation: true },
+        );
+        const [, , changes, editOptions] = mockedEdit.mock.calls[0];
+        expect(changes).toEqual({});
+        expect(editOptions).toEqual({ unset: ["includeDraftExperiments"] });
+      });
+
+      it("a publish leaves them as they are", async () => {
+        await sdkConnectionAdapter.applyChanges(
+          makeContext({}),
+          liveEntity,
+          { sdkConnection: { ...olderSettings, name: "Renamed" } },
+          { guarded: true },
+        );
+        const [, , changes, editOptions] = mockedEdit.mock.calls[0];
+        expect(changes).toEqual({ name: "Renamed" });
+        expect(editOptions).toEqual({
+          casOnDateUpdated: new Date("2025-01-02"),
+        });
+      });
+
+      it("rolling back a failed landing returns the connection to its pre-image", async () => {
+        let stored: SDKConnectionInterface = published;
+        mockedFind.mockImplementation(async () => stored);
+        mockedEdit.mockImplementation(
+          async (
+            _ctx: Context,
+            conn: SDKConnectionInterface,
+            changes: Record<string, unknown>,
+            editOptions?: { unset?: (keyof SDKConnectionInterface)[] },
+          ) => {
+            stored = omit(
+              { ...conn, ...changes, dateUpdated: new Date("2025-01-04") },
+              editOptions?.unset ?? [],
+            ) as SDKConnectionInterface;
+            return stored;
+          },
+        );
+        const ctx = makeContext({});
+        const preImage = {
+          ...liveEntity,
+          sdkConnection: olderSettings,
+        } as SDKConnectionRevisionSnapshot & { id: string };
+
+        await restoreEntityPreImage({
+          context: ctx,
+          entityType: "sdk-connection",
+          preImage,
+          persistedKeys: ["sdkConnection"],
+          written: publishedEntity,
+        });
+
+        expect(stored).toEqual({
+          ...olderConnection,
+          dateUpdated: new Date("2025-01-04"),
+        });
+        const restored = await getAdapter("sdk-connection")
+          .getModel(ctx)
+          ?.getById("sdk-1");
+        expect(
+          (restored as SDKConnectionRevisionSnapshot).sdkConnection,
+        ).toEqual(olderSettings);
+      });
+    });
+
     it("checks the destination scope when a revision relocates the connection", async () => {
       const canUpdateSDKConnection = jest.fn(() => false);
       const ctx = makeContext({ permissions: { canUpdateSDKConnection } });
@@ -1324,16 +1436,109 @@ describe("webhook headers in revisions", () => {
     const model = webhooksModel(ctx);
     expect(headersIn(await scrubRevisionForViewer(ctx, revision()))).toBe(true);
 
+    // Each webhook is looked up once, however many fragments name it.
+    const lookedUp = model.findSdkWebhooksByIdsForRevision.mock.calls.flatMap(
+      ([ids]: [string[]]) => ids,
+    );
+    expect(lookedUp.sort()).toEqual(["wh-1", "wh_sdk-1_2"]);
+
     // Live, but not editable on every connection it fires for.
     const shared = makeContext({});
-    webhooksModel(shared).findLiveSdkWebhooksForRevision.mockResolvedValue([
-      { id: live.id },
+    webhooksModel(shared).findSdkWebhooksByIdsForRevision.mockResolvedValue([
+      { id: live.id, sdks: ["sdk-1", "sdk-2"] },
     ]);
     const seen = await scrubRevisionForViewer(shared, revision());
     expect(seen.target.proposedChanges[0]).toMatchObject({
       value: [omit(live, "headers"), added],
     });
-    expect(model.getEditableWebhookIds).toHaveBeenCalledTimes(1);
+  });
+
+  describe("a webhook history holds", () => {
+    // Mirrors the model: editable when every connection it fires for is.
+    const contextFor = (
+      rows: { id: string; sdks: string[] }[],
+      editableConnections: string[],
+    ) => {
+      const ctx = makeContext({});
+      const model = webhooksModel(ctx);
+      model.findSdkWebhooksByIdsForRevision.mockImplementation(
+        async (ids: string[]) => rows.filter((w) => ids.includes(w.id)),
+      );
+      model.getEditableWebhookIds.mockImplementation(
+        async (found: { id: string; sdks: string[] }[]) =>
+          new Set(
+            found
+              .filter((w) =>
+                w.sdks.every((id) => editableConnections.includes(id)),
+              )
+              .map((w) => w.id),
+          ),
+      );
+      return ctx;
+    };
+    const history = () =>
+      buildRevision(
+        [{ op: "replace", path: "/sdkWebhooks", value: [added] }],
+        snapshotWith({}, [live]),
+      );
+
+    it("hides one detached from this connection but still used by another", async () => {
+      const ctx = contextFor(
+        [
+          { id: "wh-1", sdks: ["sdk-2"] },
+          { id: "wh_sdk-1_2", sdks: ["sdk-2"] },
+        ],
+        ["sdk-1"],
+      );
+      expect(headersIn(await scrubRevisionForViewer(ctx, history()))).toBe(
+        false,
+      );
+    });
+
+    it("shows one detached but shared to whoever could update it everywhere", async () => {
+      const ctx = contextFor(
+        [
+          { id: "wh-1", sdks: ["sdk-2"] },
+          { id: "wh_sdk-1_2", sdks: ["sdk-2"] },
+        ],
+        ["sdk-1", "sdk-2"],
+      );
+      const seen = await scrubRevisionForViewer(ctx, history());
+      expect(seen.target.snapshot).toEqual(snapshotWith({}, [live]));
+      expect(seen.target.proposedChanges[0]).toMatchObject({ value: [added] });
+    });
+
+    it("judges one still attached here by every connection it fires for", async () => {
+      const rows = [{ id: "wh-1", sdks: ["sdk-1", "sdk-2"] }];
+      const onlyHere = await scrubRevisionForViewer(
+        contextFor(rows, ["sdk-1"]),
+        history(),
+      );
+      expect(onlyHere.target.snapshot).toEqual(
+        snapshotWith({}, [omit(live, "headers")]),
+      );
+      const everywhere = await scrubRevisionForViewer(
+        contextFor(rows, ["sdk-1", "sdk-2"]),
+        history(),
+      );
+      expect(everywhere.target.snapshot).toEqual(snapshotWith({}, [live]));
+    });
+
+    it("shows one deleted since only to those who manage this connection's webhooks", async () => {
+      const seen = await scrubRevisionForViewer(contextFor([], []), history());
+      expect(seen.target.snapshot).toEqual(snapshotWith({}, [live]));
+      expect(seen.target.proposedChanges[0]).toMatchObject({ value: [added] });
+
+      const ctx = makeContext({
+        permissions: { canUpdateSDKWebhook: () => false },
+      });
+      expect(headersIn(await scrubRevisionForViewer(ctx, history()))).toBe(
+        false,
+      );
+      expect(
+        webhooksModel(ctx).findSdkWebhooksByIdsForRevision,
+      ).not.toHaveBeenCalled();
+    });
   });
 
   it("scrubs conflict values the same way", async () => {

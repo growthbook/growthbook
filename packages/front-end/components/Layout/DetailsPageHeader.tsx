@@ -7,6 +7,7 @@ import Badge from "@/ui/Badge";
 import Tooltip from "@/ui/Tooltip";
 import { DropdownMenu, MoreMenuTrigger } from "@/ui/DropdownMenu";
 import { Tabs, TabsList } from "@/ui/Tabs";
+import { PageBleed } from "@/components/Layout/PageFrame";
 import {
   DetailsPanelToggle,
   PANEL_WIDTH_PX,
@@ -20,8 +21,8 @@ import QuickEditButton, {
 // The header and tab row of a page built on the details panel.
 
 // From the details panel's default edge to where the cards' content ends: the
-// page gutter, a card's padding and border (49px).
-export const REVISION_SELECTOR_WIDTH_PX = PANEL_WIDTH_PX - 49;
+// page padding at desktop widths, a card's padding and border (57px).
+export const REVISION_SELECTOR_WIDTH_PX = PANEL_WIDTH_PX - 57;
 
 // Beside the title, centred on its line.
 const titleInline: CSSProperties = {
@@ -30,7 +31,8 @@ const titleInline: CSSProperties = {
   lineHeight: 0,
 };
 
-// White over the page's violet, which only the content column below shows.
+// White over the page's violet, which only the content column below shows,
+// from the side nav to the window, its content on the page's edges.
 export function DetailsPageTitleBar({
   title,
   onRename = null,
@@ -50,13 +52,14 @@ export function DetailsPageTitleBar({
   children?: ReactNode;
 }) {
   return (
-    // Padding inline: container-fluid's own outranks Radix's props.
-    <Box
-      className="container-fluid pagecontents"
-      position="relative"
+    <PageBleed
       style={{
+        position: "relative",
         background: "var(--color-panel-solid)",
-        padding: "var(--space-4) var(--space-5) var(--space-2)",
+        // From the app header down: it holds the page's top padding itself.
+        marginTop: "calc(-1 * var(--page-top-padding))",
+        paddingTop: "var(--page-top-padding)",
+        paddingBottom: "var(--space-2)",
       }}
     >
       <Flex direction="row" align="start" justify="between" gap="5">
@@ -101,7 +104,7 @@ export function DetailsPageTitleBar({
         {actions}
       </Flex>
       {children}
-    </Box>
+    </PageBleed>
   );
 }
 
@@ -118,7 +121,7 @@ export function DetailsPageActions({
       {newDraft ? (
         // Ends over the revision picker: into the menu button's gap, then
         // back by a border as wide as a card's, which zoom rounds the same way.
-        <Box style={{ marginRight: -10, borderRight: "1px solid transparent" }}>
+        <Box style={{ marginRight: -9, borderRight: "1px solid transparent" }}>
           {newDraft}
         </Box>
       ) : null}
@@ -149,7 +152,7 @@ export function DetailsPageMenu({
           disabled={disabled}
           // Above the details toggle, past the row's end. Inline, not
           // margin props: a ghost button adds its own offset to those.
-          style={{ marginLeft: 0, marginRight: -17 }}
+          style={{ marginLeft: 0, marginRight: -16 }}
         />
       }
       open={open && !disabled}
@@ -246,12 +249,8 @@ export function DetailsPageTabs({
           background: "var(--color-panel-solid)",
         }}
       />
-      <div className={clsx("details-tabs d-print-none", { pinned })}>
-        <Box
-          className="container-fluid pagecontents"
-          position="relative"
-          style={{ paddingInline: "var(--space-5)" }}
-        >
+      <PageBleed className={clsx("details-tabs d-print-none", { pinned })}>
+        <Box position="relative">
           <Flex align="center" className="header-tabs">
             <Tabs
               value={value}
@@ -280,7 +279,7 @@ export function DetailsPageTabs({
           </Flex>
         </Box>
         {statusBar}
-      </div>
+      </PageBleed>
     </>
   );
 }

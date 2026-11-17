@@ -60,7 +60,7 @@ import { getMetricsByIds } from "back-end/src/models/MetricModel";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { createSafeRolloutSnapshot } from "back-end/src/services/safeRolloutSnapshots";
 import { createApiRequestHandler } from "back-end/src/util/handler";
-import { ConflictError } from "back-end/src/util/errors";
+import { ConflictError, NotFoundError } from "back-end/src/util/errors";
 import {
   resolveRampTargets,
   rampTargetsEquivalent,
@@ -91,7 +91,7 @@ export const startRampSchedule = createApiRequestHandler({
   const schedule = await req.context.models.rampSchedules.getById(
     req.params.id,
   );
-  if (!schedule) throw new Error("Ramp schedule not found");
+  if (!schedule) throw new NotFoundError("Ramp schedule not found");
   await assertCanControlRampSchedule(req.context, schedule);
   if (schedule.status !== "ready") {
     throw new Error(
@@ -142,7 +142,7 @@ export const pauseRampSchedule = createApiRequestHandler({
   const schedule = await req.context.models.rampSchedules.getById(
     req.params.id,
   );
-  if (!schedule) throw new Error("Ramp schedule not found");
+  if (!schedule) throw new NotFoundError("Ramp schedule not found");
   await assertCanControlRampSchedule(req.context, schedule);
   if (schedule.status !== "running") {
     throw new Error(
@@ -182,7 +182,7 @@ export const resumeRampSchedule = createApiRequestHandler({
   const schedule = await req.context.models.rampSchedules.getById(
     req.params.id,
   );
-  if (!schedule) throw new Error("Ramp schedule not found");
+  if (!schedule) throw new NotFoundError("Ramp schedule not found");
   await assertCanControlRampSchedule(req.context, schedule);
   if (schedule.status !== "paused") {
     throw new Error(
@@ -222,7 +222,7 @@ export const retryRampSchedule = createApiRequestHandler({
   const schedule = await req.context.models.rampSchedules.getById(
     req.params.id,
   );
-  if (!schedule) throw new Error("Ramp schedule not found");
+  if (!schedule) throw new NotFoundError("Ramp schedule not found");
   await assertCanControlRampSchedule(req.context, schedule);
   if (!getRampRetry(schedule)) {
     throw new Error("This ramp schedule has no failed step to retry");
@@ -259,7 +259,7 @@ export const jumpRampSchedule = createApiRequestHandler({
   const schedule = await req.context.models.rampSchedules.getById(
     req.params.id,
   );
-  if (!schedule) throw new Error("Ramp schedule not found");
+  if (!schedule) throw new NotFoundError("Ramp schedule not found");
   await assertCanControlRampSchedule(req.context, schedule);
   if (["completed", "rolled-back"].includes(schedule.status)) {
     throw new Error(
@@ -304,7 +304,7 @@ export const completeRampSchedule = createApiRequestHandler({
   const schedule = await req.context.models.rampSchedules.getById(
     req.params.id,
   );
-  if (!schedule) throw new Error("Ramp schedule not found");
+  if (!schedule) throw new NotFoundError("Ramp schedule not found");
   await assertCanControlRampSchedule(req.context, schedule);
   if (["completed", "rolled-back"].includes(schedule.status)) {
     throw new Error(
@@ -365,7 +365,7 @@ export const approveStepRampSchedule = createApiRequestHandler({
   const schedule = await req.context.models.rampSchedules.getById(
     req.params.id,
   );
-  if (!schedule) throw new Error("Ramp schedule not found");
+  if (!schedule) throw new NotFoundError("Ramp schedule not found");
   await assertCanControlRampSchedule(req.context, schedule);
 
   const awaitingStart = isAwaitingStartApproval(schedule);
@@ -466,7 +466,7 @@ export const rollbackRampSchedule = createApiRequestHandler({
   const schedule = await req.context.models.rampSchedules.getById(
     req.params.id,
   );
-  if (!schedule) throw new Error("Ramp schedule not found");
+  if (!schedule) throw new NotFoundError("Ramp schedule not found");
   await assertCanControlRampSchedule(req.context, schedule);
   if (["completed", "rolled-back"].includes(schedule.status)) {
     throw new Error(
@@ -508,7 +508,7 @@ export const restartRampSchedule = createApiRequestHandler({
   const schedule = await req.context.models.rampSchedules.getById(
     req.params.id,
   );
-  if (!schedule) throw new Error("Ramp schedule not found");
+  if (!schedule) throw new NotFoundError("Ramp schedule not found");
   await assertCanControlRampSchedule(req.context, schedule);
   if (!["rolled-back", "completed"].includes(schedule.status)) {
     throw new Error(
@@ -557,7 +557,7 @@ export const addTargetRampSchedule = createApiRequestHandler({
   const schedule = await req.context.models.rampSchedules.getById(
     req.params.id,
   );
-  if (!schedule) throw new Error("Ramp schedule not found");
+  if (!schedule) throw new NotFoundError("Ramp schedule not found");
   await assertCanControlRampSchedule(req.context, schedule);
 
   const { featureId, ruleId, environment } = req.body;
@@ -738,7 +738,7 @@ export const ejectTargetRampSchedule = createApiRequestHandler({
   const schedule = await req.context.models.rampSchedules.getById(
     req.params.id,
   );
-  if (!schedule) throw new Error("Ramp schedule not found");
+  if (!schedule) throw new NotFoundError("Ramp schedule not found");
   await assertCanControlRampSchedule(req.context, schedule);
 
   const { targetId, ruleId, environment } = req.body;
@@ -821,7 +821,7 @@ export const apiAdvanceRampSchedule = createApiRequestHandler({
   const schedule = await req.context.models.rampSchedules.getById(
     req.params.id,
   );
-  if (!schedule) throw new Error("Ramp schedule not found");
+  if (!schedule) throw new NotFoundError("Ramp schedule not found");
   await assertCanControlRampSchedule(req.context, schedule);
 
   if (!isRampScheduleServing(schedule)) {
@@ -1082,7 +1082,7 @@ export const getRampScheduleStatus = createApiRequestHandler({
   const schedule = await req.context.models.rampSchedules.getById(
     req.params.id,
   );
-  if (!schedule) throw new Error("Ramp schedule not found");
+  if (!schedule) throw new NotFoundError("Ramp schedule not found");
 
   const monitoring = schedule.monitoringConfig
     ? (() => {
@@ -1365,7 +1365,7 @@ export const setMonitoringModeRampSchedule = createApiRequestHandler({
   const schedule = await req.context.models.rampSchedules.getById(
     req.params.id,
   );
-  if (!schedule) throw new Error("Ramp schedule not found");
+  if (!schedule) throw new NotFoundError("Ramp schedule not found");
   await assertCanControlRampSchedule(req.context, schedule);
   const updated = await runControlledRampScheduleAction(
     req.context,
@@ -1398,7 +1398,7 @@ export const setAutoUpdateRampSchedule = createApiRequestHandler({
   const schedule = await req.context.models.rampSchedules.getById(
     req.params.id,
   );
-  if (!schedule) throw new Error("Ramp schedule not found");
+  if (!schedule) throw new NotFoundError("Ramp schedule not found");
   await assertCanControlRampSchedule(req.context, schedule);
   const updated = await runControlledRampScheduleAction(
     req.context,
@@ -1431,7 +1431,7 @@ export const updateMonitoringConfigRampSchedule = createApiRequestHandler({
   const schedule = await req.context.models.rampSchedules.getById(
     req.params.id,
   );
-  if (!schedule) throw new Error("Ramp schedule not found");
+  if (!schedule) throw new NotFoundError("Ramp schedule not found");
   await assertCanControlRampSchedule(req.context, schedule);
   const updated = await runControlledRampScheduleAction(
     req.context,
@@ -1466,7 +1466,7 @@ export const updateLockdownConfigRampSchedule = createApiRequestHandler({
   const schedule = await req.context.models.rampSchedules.getById(
     req.params.id,
   );
-  if (!schedule) throw new Error("Ramp schedule not found");
+  if (!schedule) throw new NotFoundError("Ramp schedule not found");
   await assertCanControlRampSchedule(req.context, schedule);
   const updated = await runControlledRampScheduleAction(
     req.context,
@@ -1533,7 +1533,7 @@ export const updateStepsRampSchedule = createApiRequestHandler({
   const schedule = await req.context.models.rampSchedules.getById(
     req.params.id,
   );
-  if (!schedule) throw new Error("Ramp schedule not found");
+  if (!schedule) throw new NotFoundError("Ramp schedule not found");
   await assertCanControlRampSchedule(req.context, schedule);
 
   const { schedule: updated } = await runControlledRampScheduleAction(
@@ -1589,7 +1589,7 @@ export const refreshMonitoringRampSchedule = createApiRequestHandler({
   const schedule = await req.context.models.rampSchedules.getById(
     req.params.id,
   );
-  if (!schedule) throw new Error("Ramp schedule not found");
+  if (!schedule) throw new NotFoundError("Ramp schedule not found");
   // No publish gate: queuing a snapshot reads data and does not move the
   // rollout. It gates on the datasource's query permission below, which is the
   // contract this endpoint documents.

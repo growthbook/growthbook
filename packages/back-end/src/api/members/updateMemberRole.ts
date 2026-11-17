@@ -9,6 +9,7 @@ import {
 } from "back-end/src/services/organizations";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
 import { createApiRequestHandler } from "back-end/src/util/handler";
+import { NotFoundError } from "back-end/src/util/errors";
 
 // The API takes each extra rule's environment list as its limit.
 const normalizeExtraRules = (
@@ -27,7 +28,7 @@ export const updateMemberRole = createApiRequestHandler(
   );
 
   if (!orgUser) {
-    throw new Error("Could not find user with that ID");
+    throw new NotFoundError("Could not find user with that ID");
   }
 
   if (orgUser.managedByIdp) {
@@ -94,7 +95,7 @@ export const updateMemberRole = createApiRequestHandler(
     );
 
     if (userIndex === -1) {
-      throw new Error("User not found in organization");
+      throw new NotFoundError("User not found in organization");
     }
 
     updatedOrgMembers[userIndex] = updatedMember;
