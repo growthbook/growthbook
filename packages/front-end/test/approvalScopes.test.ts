@@ -358,7 +358,9 @@ describe("editing a scope with several SDK Connection rules", () => {
     ]);
   });
 
-  it("collapses the scope to the edited rule when environments change", () => {
+  // Regression: replacing the scope with the one shown rule dropped the
+  // hidden staging rule, and with it review there.
+  it("changes only the shown rule's environments and keeps the others", () => {
     const next = edit(seeded, "prj_a", { environments: ["production", "dev"] });
 
     expect(next).toEqual([
@@ -369,7 +371,16 @@ describe("editing a scope with several SDK Connection rules", () => {
         projects: ["prj_a"],
         environments: ["production", "dev"],
       },
+      { ...staging, projects: ["prj_a"] },
     ]);
+    for (const environment of ["production", "staging", "dev"]) {
+      expect(
+        getSdkConnectionGoverningRules(
+          { savedGroups: [], sdkConnections: next },
+          { projects: ["prj_a"], environment },
+        ).length,
+      ).toBeGreaterThan(0);
+    }
   });
 
   it("edits a single-rule scope in place, as before", () => {

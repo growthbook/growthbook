@@ -166,18 +166,17 @@ function withScopeRules<T extends Scoped>(
   );
 }
 
-// An edit in the form applies to every rule in the scope. Each keeps its own
-// environments, unless the edit is to environments: then the scope is the one
-// rule the user stated.
+// An edit in the form applies to every rule in the scope. Environments are
+// each rule's own, so an edit to them changes only the rule the form shows.
 export function withSdkConnectionRuleEdited(
   rules: ApprovalFlowConfiguration[],
   scope: string,
   next: ApprovalFlowConfiguration,
 ): ApprovalFlowConfiguration[] {
-  if (rulesForScope(rules, scope).length < 2) {
-    return withRuleForScope(rules, scope, next);
-  }
+  const own = rulesForScope(rules, scope);
+  if (own.length < 2) return withRuleForScope(rules, scope, next);
   const shown = clonedSdkConnectionRule(rules, scope);
+  const edited = own.includes(shown) ? shown : own[0];
   const keys = new Set([
     ...Object.keys(shown),
     ...Object.keys(next),
@@ -188,10 +187,15 @@ export function withSdkConnectionRuleEdited(
       Object.assign(patch, { [key]: next[key] });
     }
   });
-  if ("environments" in patch) return withScopeRules(rules, scope, [next]);
-  return rules.map((r) =>
-    scopeKey(r.projects) === scope ? { ...r, ...patch } : r,
-  );
+  const { environments, ...shared } = patch;
+  return rules.map((r) => {
+    if (scopeKey(r.projects) !== scope) return r;
+    return {
+      ...r,
+      ...shared,
+      ...(r === edited && "environments" in patch && { environments }),
+    };
+  });
 }
 
 // Back to what a fresh override would seed: every base rule, one-for-one.
