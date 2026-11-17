@@ -1,4 +1,5 @@
 import { listMetricExperimentsValidator } from "shared/validators";
+import { stringToBoolean } from "shared/util";
 import { getLatestPhaseVariations } from "shared/experiments";
 import {
   applyPagination,
@@ -44,11 +45,9 @@ export const listMetricExperiments = createApiRequestHandler(
   };
 
   const bandits =
-    req.query.bandits === "true"
-      ? true
-      : req.query.bandits === "false"
-        ? false
-        : undefined;
+    req.query.bandits === undefined
+      ? undefined
+      : stringToBoolean(req.query.bandits.toString());
 
   const experiments = await getFilteredExperimentsUsingMetric({
     context: req.context,

@@ -67513,11 +67513,8 @@ components:
       in: query
       description: When true, return only multi-armed bandits; when false, exclude them
       schema:
-        type: string
-        enum:
-          - 'true'
-          - 'false'
         description: When true, return only multi-armed bandits; when false, exclude them
+        type: boolean
     sortBy:
       name: sortBy
       in: query
@@ -67803,14 +67800,11 @@ components:
         Whether to delete code references that are no longer present in the
         submitted data
       schema:
-        type: string
-        enum:
-          - 'true'
-          - 'false'
         description: >-
           Whether to delete code references that are no longer present in the
           submitted data
-        default: 'false'
+        default: false
+        type: boolean
     userName:
       name: userName
       in: query
