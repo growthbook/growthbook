@@ -170,7 +170,6 @@ function RowFilterBadge({
           style={{
             display: "inline-flex",
             maxWidth: "100%",
-            minWidth: 0,
             margin: 0,
             padding: 0,
             border: "none",
@@ -185,13 +184,9 @@ function RowFilterBadge({
             color="violet"
             radius="small"
             style={{
-              // Radix badges are nowrap and flex-shrink: 0, so long SQL
-              // filters would overflow the card instead of wrapping.
               flexShrink: 1,
-              minWidth: 0,
               whiteSpace: "normal",
               overflowWrap: "anywhere",
-              lineHeight: 1.4,
             }}
             label={description}
           />
