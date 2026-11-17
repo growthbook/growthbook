@@ -215,7 +215,7 @@ describe("runColumnsTopValueCountsQuery", () => {
     jest.clearAllMocks();
   });
 
-  it("asks the query for exact counts", async () => {
+  it("groups the returned counts by column", async () => {
     const getColumnsTopValuesQuery = jest
       .fn()
       .mockReturnValue("SELECT top_values");
@@ -246,12 +246,8 @@ describe("runColumnsTopValueCountsQuery", () => {
         columns: [],
       },
       [makeCol("country")],
-      { forceExactCounts: true },
     );
 
-    expect(getColumnsTopValuesQuery).toHaveBeenCalledWith(
-      expect.objectContaining({ forceExactCounts: true }),
-    );
     expect(runColumnsTopValuesQuery).toHaveBeenCalledWith(
       "SELECT top_values",
       "ftb_1",

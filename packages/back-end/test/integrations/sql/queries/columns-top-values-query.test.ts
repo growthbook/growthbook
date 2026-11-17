@@ -77,12 +77,7 @@ function registerSharedTopValuesTests(dialect: SqlDialect) {
     expect(sql).toMatch(/column_name/i);
     expect(sql).toMatch(/\bvalue\b/i);
     expect(sql).toMatch(/\bcount\b/i);
-    // ClickHouse's topK has no counts, so it orders by its own rank
-    expect(sql).toMatch(
-      dialect.approxTopValuesRankColumn
-        ? /ORDER BY\s+column_name,\s*rank DESC/i
-        : /ORDER BY\s+column_name,\s*count DESC/i,
-    );
+    expect(sql).toMatch(/ORDER BY\s+column_name,\s*count DESC/i);
     expect(sql).toMatch(
       /SELECT\s+column_name,\s*value,\s*count\s+FROM\s+__topValues/i,
     );
@@ -193,22 +188,12 @@ describe("getColumnsTopValuesQuery — exact fallback path", () => {
   });
 });
 
-describe("getColumnsTopValuesQuery — forceExactCounts", () => {
-  it("runs the exact aggregate instead of an approximate query", () => {
-    [clickHouseDialect, snowflakeDialect].forEach((dialect) => {
-      const sql = buildSql(dialect, { forceExactCounts: true });
-      expect(sql).toMatch(/GROUP BY/i);
-      expect(sql).not.toMatch(/topK|APPROX_TOP_K/i);
-      expect(sql).toMatch(/ORDER BY\s+column_name,\s*count DESC/i);
-    });
-  });
-});
-
 describe("ClickHouse topK", () => {
-  it("returns no frequency, only a rank to order by", () => {
+  it("asks topK for approximate counts", () => {
     const sql = buildSql(clickHouseDialect);
-    expect(sql).toMatch(/CAST\(NULL AS Nullable\(Int64\)\) AS count/);
-    expect(sql).toMatch(/AS rank/);
+    expect(sql).toMatch(/topK\(\d+, 3, 'counts'\)/);
+    expect(sql).toMatch(/toInt64\(tupleElement\(__item, 2\)\) AS count/);
+    expect(sql).not.toMatch(/\brank\b/);
   });
 });
 

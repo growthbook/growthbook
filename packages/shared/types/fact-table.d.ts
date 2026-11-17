@@ -79,8 +79,9 @@ export interface ColumnInterface {
   topValues?: string[];
   topValuesDate?: Date;
   // The stored top values, ranked, each with its row count when the query
-  // returned one (ClickHouse's topK only ranks values). topValues is derived
-  // from this on read.
+  // returned one. Counts are approximate on warehouses with a native top-k
+  // aggregate. Older rows have no counts. topValues is derived from this on
+  // read.
   topValueCounts?: { value: string; count?: number }[];
   jsonFields?: JSONColumnFields;
   deleted: boolean;

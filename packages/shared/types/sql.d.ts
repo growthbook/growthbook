@@ -251,7 +251,4 @@ export interface SqlDialect {
    */
   arrayElement: (arrayCol: string, index: number) => string;
   approxTopValuesCTEBody?: (params: ApproxTopValuesParams) => string;
-  // A column the approximate body orders by when it emits NULL counts
-  // (ClickHouse topK has no counts before 24.2)
-  approxTopValuesRankColumn?: string;
 }
