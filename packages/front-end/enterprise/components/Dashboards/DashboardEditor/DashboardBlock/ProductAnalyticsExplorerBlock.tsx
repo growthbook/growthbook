@@ -54,12 +54,20 @@ function pollDelayForExploration(
 // A block with no stored result runs from its own config: the first load only
 // reads the cache, and run() queries the warehouse. Either one stores the
 // exploration id, and the tile's useApi request polls it like a saved one.
+// The server checks run permission before it reads the cache, so a viewer who
+// can't run queries skips the check.
 // shortcut: no comparison period; add one once the fact table page's runner lands.
-function useUnsavedRun(config: ExplorationConfig | null) {
+function useUnsavedRun(config: ExplorationConfig | null, canRun: boolean) {
   const { fetchData } = useExploreData();
+  // fetchData changes whenever the sign-in token refreshes, and that shouldn't
+  // reset the tile, so requests read it through a ref.
+  const fetchDataRef = useRef(fetchData);
+  useEffect(() => {
+    fetchDataRef.current = fetchData;
+  }, [fetchData]);
   const [explorationId, setExplorationId] = useState<string | null>(null);
   // Starts true so the empty state doesn't flash before the cache check
-  const [loading, setLoading] = useState(config !== null);
+  const [loading, setLoading] = useState(config !== null && canRun);
   const [error, setError] = useState<string | null>(null);
   // Callers may rebuild an equal config every render
   const configKey = config ? JSON.stringify(config) : null;
@@ -72,7 +80,9 @@ function useUnsavedRun(config: ExplorationConfig | null) {
       if (!configKey) return;
       setError(null);
       setLoading(true);
-      const result = await fetchData(JSON.parse(configKey), { cache });
+      const result = await fetchDataRef.current(JSON.parse(configKey), {
+        cache,
+      });
       // The config changed while this ran, so the result is for an old config.
       if (latestKey.current !== configKey) return;
       if (result.data?.id) setExplorationId(result.data.id);
@@ -81,17 +91,18 @@ function useUnsavedRun(config: ExplorationConfig | null) {
       else if (result.error && cache !== "required") setError(result.error);
       setLoading(false);
     },
-    [configKey, fetchData],
+    [configKey],
   );
 
   useEffect(() => {
     latestKey.current = configKey;
     setExplorationId(null);
-    start("required");
+    if (canRun) start("required");
+    else setLoading(false);
     return () => {
       latestKey.current = null;
     };
-  }, [configKey, start]);
+  }, [configKey, canRun, start]);
 
   return { explorationId, loading, error, run: () => start("preferred") };
 }
@@ -100,6 +111,7 @@ export default function ProductAnalyticsExplorerBlock({
   block,
   dashboardGlobalControls,
   dashboardComparison,
+  isEditing,
 }: BlockProps<
   | MetricExplorationBlockInterface
   | FactTableExplorationBlockInterface
@@ -112,6 +124,7 @@ export default function ProductAnalyticsExplorerBlock({
       block={block}
       dashboardGlobalControls={dashboardGlobalControls}
       dashboardComparison={dashboardComparison}
+      isEditing={isEditing}
     />
   );
 }
@@ -120,6 +133,7 @@ export function ProductAnalyticsExplorerVisualization({
   block,
   dashboardGlobalControls,
   dashboardComparison,
+  isEditing = false,
 }: {
   block: DashboardBlockInterfaceOrData<
     | MetricExplorationBlockInterface
@@ -130,13 +144,24 @@ export function ProductAnalyticsExplorerVisualization({
   >;
   dashboardGlobalControls?: BlockProps<SqlExplorationBlockInterface>["dashboardGlobalControls"];
   dashboardComparison?: BlockProps<SqlExplorationBlockInterface>["dashboardComparison"];
+  isEditing?: boolean;
 }) {
   const { getFactMetricById, getDatasourceById } = useDefinitions();
   const permissionsUtil = usePermissionsUtil();
+  const dateControlledBlock = blockUsesDashboardDateControl(block)
+    ? block
+    : null;
+  // While editing, the sidebar runs the block, so the tile doesn't. A block that
+  // follows the dashboard date control runs with the dashboard's dates, or its
+  // result would read as stale.
   const unsavedConfig =
-    !block.explorerAnalysisId && block.config ? block.config : null;
-  const unsaved = useUnsavedRun(unsavedConfig);
-  const explorationId = block.explorerAnalysisId || unsaved.explorationId;
+    isEditing || block.explorerAnalysisId || !block.config
+      ? null
+      : dashboardGlobalControls && dateControlledBlock
+        ? getEffectiveExplorationConfig(dateControlledBlock, {
+            globalControls: dashboardGlobalControls,
+          })
+        : block.config;
   const unsavedDatasource = unsavedConfig
     ? getDatasourceById(unsavedConfig.datasource)
     : null;
@@ -147,6 +172,8 @@ export function ProductAnalyticsExplorerVisualization({
       unsavedDatasource,
       unsavedConfig.type,
     );
+  const unsaved = useUnsavedRun(unsavedConfig, canRunUnsaved);
+  const explorationId = block.explorerAnalysisId || unsaved.explorationId;
   const { data, error, isLoading } = useApi<{
     status: number;
     exploration: ProductAnalyticsExploration;
@@ -180,9 +207,6 @@ export function ProductAnalyticsExplorerVisualization({
   // The resolved previous window lives on the comparison exploration's config.
   const submittedPreviousTimeFrame =
     rawComparisonExploration?.config?.dateRange ?? null;
-  const dateControlledBlock = blockUsesDashboardDateControl(block)
-    ? block
-    : null;
 
   // Dashboard blocks fetch the saved primary + previous explorations directly,
   // bypassing POST /product-analytics/run — where the live Explorer builds its
@@ -262,8 +286,13 @@ export function ProductAnalyticsExplorerVisualization({
       <Flex direction="column" align="center" gap="3" p="4">
         {unsaved.error ? (
           <Callout status="error">{unsaved.error}</Callout>
-        ) : (
+        ) : canRunUnsaved ? (
           <Callout status="info">No results yet.</Callout>
+        ) : (
+          <Callout status="info">
+            No results yet. Ask someone who can run queries on this Data Source
+            to run it.
+          </Callout>
         )}
         {canRunUnsaved && (
           <Button variant="outline" onClick={unsaved.run}>
