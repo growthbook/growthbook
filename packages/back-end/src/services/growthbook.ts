@@ -344,7 +344,7 @@ export function trackAIUsage({
         user_id: userId || "",
         organizationId: hashOrganizationId(organizationId),
         cloudOrgId: IS_CLOUD ? organizationId : "",
-        requestOrigin: requestOrigins.getStore() ?? "system",
+        requestOrigin: currentRequestOrigin(),
       },
     });
 
@@ -466,29 +466,13 @@ export function getTrustedOrgAttributes(
 
 export type RequestOrigin = NonNullable<AppAttributes["requestOrigin"]>;
 
-// Where the request behind an event came from: the app, the REST API (or the
-// MCP server calling it) or the in-app agent, else a background job. Not
-// requestSource, which says where the event was logged: always the back end.
+// Where a request came from, unlike requestSource, which says where its events
+// were logged: always the back end.
 export function getRequestOrigin(
   req: Pick<Request, "originalUrl" | "get">,
 ): "app" | "api" | "mcp" {
   if (!req.originalUrl.startsWith("/api/")) return "app";
   return getMcpHeader(req, MCP_TOOL_HEADER) ? "mcp" : "api";
-}
-
-/**
- * Log a telemetry event from a background job, where there is no request.
- * Sets org attributes so the accountPlan filter doesn't drop the event, and
- * never throws — callers fire these inside business-logic try/catch blocks.
- */
-export function trackEventForOrganization<K extends AppEventName>(
-  org: OrganizationInterface,
-  eventName: K,
-  properties: AppEvents[K],
-): void {
-  logAppEvent(eventName, properties, {
-    attributes: { ...getTrustedOrgAttributes(org), requestOrigin: "system" },
-  });
 }
 
 // Runs the rest of a request, or an agent's call, as coming from `origin`.
@@ -498,11 +482,16 @@ export function runAsRequestOrigin<T>(origin: RequestOrigin, fn: () => T): T {
   return requestOrigins.run(origin, fn);
 }
 
+// Outside any request, as a background job is: the system.
+function currentRequestOrigin(): RequestOrigin {
+  return requestOrigins.getStore() ?? "system";
+}
+
 // A signed-in request's own user context, with the user, session and page;
 // else the org's, with whoever a key acts for.
 function eventUserContext(context: ReqContext): UserContext {
   const req = context.req as AuthRequest | undefined;
-  const requestOrigin = requestOrigins.getStore() ?? "system";
+  const requestOrigin = currentRequestOrigin();
   if (req?.gbUserContext) {
     return {
       ...req.gbUserContext,

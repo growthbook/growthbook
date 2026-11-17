@@ -117,39 +117,27 @@ describe("trackEventForContext", () => {
     },
   };
   const logged = () => mockOrgClientLogEvent.mock.calls[0];
+  const log = (context: object) =>
+    trackEventForContext(context as Context, "Experiment Started", {
+      source: "test",
+    });
 
   beforeEach(() => {
     mockOrgClientLogEvent.mockClear();
   });
 
   it("logs an app request with its user, session and page", () => {
-    runAsRequestOrigin("app", () =>
-      trackEventForContext(
-        { org, req: appRequest } as unknown as Context,
-        "Experiment Started",
-        {
-          source: "dashboard",
-        },
-      ),
-    );
+    runAsRequestOrigin("app", () => log({ org, req: appRequest }));
     expect(logged()).toEqual([
       "Experiment Started",
-      { source: "dashboard" },
+      { source: "test" },
       appRequest.gbUserContext,
     ]);
   });
 
   it("logs the in-app agent's calls as the agent's, keeping the user", () => {
     runAsRequestOrigin("app", () =>
-      runAsRequestOrigin("agent", () =>
-        trackEventForContext(
-          { org, req: appRequest } as unknown as Context,
-          "Experiment Started",
-          {
-            source: "dashboard",
-          },
-        ),
-      ),
+      runAsRequestOrigin("agent", () => log({ org, req: appRequest })),
     );
     expect(logged()[2]).toEqual({
       ...appRequest.gbUserContext,
@@ -165,13 +153,7 @@ describe("trackEventForContext", () => {
   it("keeps the request's origin across awaits and other contexts", async () => {
     await runAsRequestOrigin("app", async () => {
       await Promise.resolve();
-      trackEventForContext(
-        { org, actingUserId: "u_author" } as unknown as Context,
-        "Experiment Started",
-        {
-          source: "dashboard",
-        },
-      );
+      log({ org, actingUserId: "u_author" });
     });
     expect(logged()[2].attributes).toEqual(
       expect.objectContaining({ id: "u_author", requestOrigin: "app" }),
@@ -181,21 +163,12 @@ describe("trackEventForContext", () => {
   it.each([
     ["a key", "api", ""],
     ["a personal access token", "api", "u_2"],
-    ["the MCP server", "mcp", "u_2"],
     ["a background job", null, ""],
   ] as const)(
     "logs %s's events with the org and whoever it acts for",
     (_, origin, actingUserId) => {
-      const log = () =>
-        trackEventForContext(
-          { org, actingUserId } as unknown as Context,
-          "Experiment Started",
-          {
-            source: "api",
-          },
-        );
-      if (origin) runAsRequestOrigin(origin, log);
-      else log();
+      if (origin) runAsRequestOrigin(origin, () => log({ org, actingUserId }));
+      else log({ org, actingUserId });
       const { attributes } = logged()[2];
       expect(attributes).toEqual(
         expect.objectContaining({

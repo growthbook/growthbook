@@ -142,6 +142,7 @@ export async function processJWT(
 ): Promise<void> {
   const parsedJWT = getInitialDataFromJWT(req.user);
   const { email, name, verified } = parsedJWT;
+  const requestOrigin = getRequestOrigin(req);
 
   req.authSubject = parsedJWT.sub || "";
   req.email = email || "";
@@ -407,7 +408,7 @@ export async function processJWT(
           ? new Date(user.dateCreated).toISOString()
           : "",
         ...trackingAttributes,
-        requestOrigin: getRequestOrigin(req),
+        requestOrigin,
         role: org?.members.find((m) => m.id === user.id)?.role,
         hasLicenseKey: org?.licenseKey ? true : false,
         configFile: usingFileConfig(),
@@ -448,7 +449,7 @@ export async function processJWT(
     };
   }
 
-  runAsRequestOrigin(getRequestOrigin(req), next);
+  runAsRequestOrigin(requestOrigin, next);
 }
 
 // For setting up anything that later acts as the stored user, since that carries their stored super admin
