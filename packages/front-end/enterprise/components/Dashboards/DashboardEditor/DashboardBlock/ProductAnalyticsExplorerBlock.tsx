@@ -1,4 +1,4 @@
-import { Box, Flex } from "@radix-ui/themes";
+import { Flex } from "@radix-ui/themes";
 import {
   createContext,
   useCallback,
@@ -333,7 +333,9 @@ export function ProductAnalyticsExplorerVisualization({
     return <LoadingSpinner />;
   }
 
-  // The tile's own Update button, for blocks the dashboard header won't update.
+  // Without the dashboard header, the tile offers its own Update button. With
+  // the header, its Update covers every block, so the tile doesn't add one.
+  const tileUpdates = headerless && !!runConfig;
   const updatePrompt = (message: string, status: "info" | "error" = "info") => (
     <Flex direction="column" align="center" gap="3" p="4">
       {tileRun.error ? (
@@ -358,19 +360,19 @@ export function ProductAnalyticsExplorerVisualization({
     </Flex>
   );
 
-  if (runConfig && !explorationId) {
+  if (tileUpdates && !explorationId) {
     return updatePrompt("No results yet.");
   }
 
   if (!exploration) {
-    if (runConfig) return updatePrompt("No results yet.");
+    if (tileUpdates) return updatePrompt("No results yet.");
     return (
-      <Box p="4" style={{ textAlign: "center" }}>
+      <Flex direction="column" align="center" gap="3" p="4">
         <Callout status="info">
           Please click the <code>Update</code> button to generate the necessary
           data.
         </Callout>
-      </Box>
+      </Flex>
     );
   }
 
@@ -379,7 +381,7 @@ export function ProductAnalyticsExplorerVisualization({
   }
 
   // Keep Update available so a failed run can be retried in place.
-  if (runConfig && exploration.status === "error") {
+  if (tileUpdates && exploration.status === "error") {
     return updatePrompt(
       exploration.error || "This block's query failed.",
       "error",
@@ -387,18 +389,18 @@ export function ProductAnalyticsExplorerVisualization({
   }
 
   if (hasStaleDashboardDateResults) {
-    if (runConfig) {
+    if (tileUpdates) {
       return updatePrompt(
         "The dashboard dates changed since this block last ran.",
       );
     }
     return (
-      <Box p="4" style={{ textAlign: "center" }}>
+      <Flex direction="column" align="center" gap="3" p="4">
         <Callout status="info">
           Global controls changed. Click the <code>Update</code> button to
           refresh this block.
         </Callout>
-      </Box>
+      </Flex>
     );
   }
 
