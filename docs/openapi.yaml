@@ -90234,6 +90234,38 @@ components:
       required:
         - overallResultsAsOf
       additionalProperties: false
+    ApiErrorMetricsAlreadyUpToDateDetails:
+      type: object
+      properties:
+        baseSnapshotId:
+          type: string
+      required:
+        - baseSnapshotId
+      additionalProperties: false
+    ApiErrorSnapshotInProgressDetails:
+      type: object
+      properties:
+        snapshotId:
+          type: string
+      required:
+        - snapshotId
+      additionalProperties: false
+    ApiErrorMetricRefreshUnavailableDetails:
+      type: object
+      properties:
+        reason:
+          type: string
+          enum:
+            - no_base_snapshot
+            - not_latest_phase
+            - unsupported_experiment_type
+            - unsupported_data_source
+            - incremental_pipeline
+            - settings_changed
+            - base_incomplete
+      required:
+        - reason
+      additionalProperties: false
     ApiErrorInvalidTrackingKeyDetails:
       type: object
       properties:

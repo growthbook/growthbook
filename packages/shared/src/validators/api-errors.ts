@@ -79,6 +79,37 @@ export const apiErrorRegistry = {
       overallResultsAsOf: z.string(),
     }),
   },
+  metrics_already_up_to_date: {
+    status: 409,
+    description:
+      "Every metric of the experiment already has results in the latest Overall Results",
+    detailsSchema: z.object({
+      baseSnapshotId: z.string(),
+    }),
+  },
+  snapshot_in_progress: {
+    status: 409,
+    description: "An update of the experiment's Overall Results is running",
+    detailsSchema: z.object({
+      snapshotId: z.string(),
+    }),
+  },
+  metric_refresh_unavailable: {
+    status: 409,
+    description:
+      "Newly added metrics can't be updated on their own; run a full update instead",
+    detailsSchema: z.object({
+      reason: z.enum([
+        "no_base_snapshot",
+        "not_latest_phase",
+        "unsupported_experiment_type",
+        "unsupported_data_source",
+        "incremental_pipeline",
+        "settings_changed",
+        "base_incomplete",
+      ]),
+    }),
+  },
   invalid_tracking_key: {
     status: 400,
     description:

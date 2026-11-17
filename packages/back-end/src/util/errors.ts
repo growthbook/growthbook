@@ -353,6 +353,38 @@ export class DimensionAlreadyUpToDateError extends ApiError<"dimension_already_u
   }
 }
 
+export class MetricsAlreadyUpToDateError extends ApiError<"metrics_already_up_to_date"> {
+  constructor(baseSnapshotId: string) {
+    super(
+      "metrics_already_up_to_date",
+      "Every metric of this experiment already has results in the latest update.",
+      { baseSnapshotId },
+    );
+    this.name = "MetricsAlreadyUpToDateError";
+  }
+}
+
+export class SnapshotInProgressError extends ApiError<"snapshot_in_progress"> {
+  constructor(snapshotId: string) {
+    super(
+      "snapshot_in_progress",
+      "An update is already running for this experiment. Try again when it finishes.",
+      { snapshotId },
+    );
+    this.name = "SnapshotInProgressError";
+  }
+}
+
+export type MetricRefreshUnavailableReason =
+  ApiErrorDetails<"metric_refresh_unavailable">["reason"];
+
+export class MetricRefreshUnavailableError extends ApiError<"metric_refresh_unavailable"> {
+  constructor(reason: MetricRefreshUnavailableReason, message: string) {
+    super("metric_refresh_unavailable", message, { reason });
+    this.name = "MetricRefreshUnavailableError";
+  }
+}
+
 // Snapshot failures that repeat on every retry; auto-updates get disabled, even for bandits
 export class UnrecoverableSnapshotError extends Error {
   constructor(message: string) {

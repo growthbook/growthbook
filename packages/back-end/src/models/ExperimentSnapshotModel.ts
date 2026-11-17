@@ -85,6 +85,16 @@ const experimentSnapshotSchema = new mongoose.Schema({
   triggeredBy: String,
   report: String,
   runnerKind: String,
+  metricRefresh: new mongoose.Schema(
+    {
+      baseSnapshotId: String,
+      baseDateCreated: Date,
+      baseCutoffDate: Date,
+      parentSnapshotId: String,
+      metricIds: [String],
+    },
+    { _id: false },
+  ),
   dateCreated: Date,
   sourceSnapshotId: String,
   sourceSnapshotDateCreated: Date,
@@ -1324,6 +1334,7 @@ const snapshotStatusProjection = {
   banditResult: 1,
   type: 1,
   triggeredBy: 1,
+  metricRefresh: 1,
 } as const;
 
 function toSnapshotStatusSummary(
@@ -1341,6 +1352,7 @@ function toSnapshotStatusSummary(
     banditResult: raw.banditResult,
     type: raw.type,
     triggeredBy: raw.triggeredBy,
+    metricRefresh: raw.metricRefresh,
   };
 }
 

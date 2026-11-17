@@ -11,8 +11,7 @@ import {
   getFactMetricPrimaryFactTableId,
   isFactCompoundMetric,
   isFactFunnelMetric,
-  parseFunnelStepMetricId,
-  parseSliceMetricId,
+  getDefinitionMetricId,
 } from "shared/experiments";
 import {
   CreateMetricTimeSeriesSingleDataPoint,
@@ -469,24 +468,6 @@ export function getCompoundComponentFactTablesForHash(
       filters: getFiltersForHash(factTable, component),
     };
   });
-}
-
-/**
- * The id whose stored definition governs a metric. Funnel steps and slices are
- * derived from a parent and have no document of their own, so they hash against
- * the parent: an edit anywhere in the parent (another step's row filters, say)
- * tags every derived series. That blast radius is wider than strictly needed,
- * but it matches how the parent already behaves and errs toward flagging a
- * change rather than hiding it.
- */
-function getDefinitionMetricId(metricId: string): string {
-  const stepInfo = parseFunnelStepMetricId(metricId);
-  // Strip step info first (if present), then strip slice info.
-  // A sliced funnel step like funnelId?step=0&dim:col=val has both.
-  const afterStep = stepInfo.isFunnelStepMetric
-    ? stepInfo.baseMetricId
-    : metricId;
-  return parseSliceMetricId(afterStep).baseMetricId;
 }
 
 /**

@@ -232,6 +232,24 @@ export interface ExperimentSnapshotSettings {
   manual?: boolean;
 }
 
+/**
+ * Lineage of a metric refresh: a complete Overall snapshot that copied a
+ * previous snapshot's finished queries and queried only `metricIds`, pinned
+ * to that snapshot's end date. Absent on every other snapshot.
+ */
+export interface SnapshotMetricRefresh {
+  // The full (non-refresh) snapshot the chain of refreshes started from.
+  baseSnapshotId: string;
+  baseDateCreated: Date;
+  // The base's analysis cutoff, or null when it analyzed through its run time.
+  baseCutoffDate: Date | null;
+  // The snapshot whose queries were copied and whose metric settings were kept.
+  parentSnapshotId: string;
+  // Experiment metric ids this run queried. Their slices and funnel steps
+  // were queried with them and are not listed.
+  metricIds: string[];
+}
+
 export interface ExperimentSnapshotInterface {
   // Fields that uniquely define the snapshot
   id: string;
@@ -256,6 +274,7 @@ export interface ExperimentSnapshotInterface {
   triggeredBy?: SnapshotTriggeredBy;
   report?: string;
   runnerKind?: SnapshotQueryRunnerKind;
+  metricRefresh?: SnapshotMetricRefresh;
 
   // List of queries that were run as part of this snapshot
   queries: Queries;
@@ -298,6 +317,7 @@ export type SnapshotStatusSummary = Pick<
   | "banditResult"
   | "type"
   | "triggeredBy"
+  | "metricRefresh"
 >;
 
 export interface ExperimentSnapshotHealth {
