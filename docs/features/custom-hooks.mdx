@@ -518,7 +518,7 @@ Example: Only allow webhooks that call an approved host.
 
 ```js
 for (const webhook of sdkWebhooks) {
-  if (new URL(webhook.endpoint).hostname !== "hooks.example.com") {
+  if (!webhook.endpoint.startsWith("https://hooks.example.com/")) {
     throw new Error(`Webhook "${webhook.name}" must call hooks.example.com.`);
   }
 }

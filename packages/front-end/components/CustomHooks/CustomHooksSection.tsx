@@ -43,7 +43,11 @@ export default function CustomHooksSection({
   // The entity the Add / Edit modal scopes a hook to.
   modalProps: Pick<
     ComponentProps<typeof CustomHookModal>,
-    "feature" | "revision" | "config" | "sdkConnection"
+    | "feature"
+    | "revision"
+    | "config"
+    | "sdkConnection"
+    | "sdkConnectionRevision"
   >;
   // Hooks scoped to another entity that also run on this one.
   inherited?: {

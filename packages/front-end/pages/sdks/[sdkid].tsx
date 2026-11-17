@@ -915,7 +915,10 @@ export default function SDKConnectionPage() {
                 canManage={permissionsUtil.canCreateCustomHook({
                   projects: [],
                 })}
-                modalProps={{ sdkConnection: liveSnapshot }}
+                modalProps={{
+                  sdkConnection: liveSnapshot,
+                  sdkConnectionRevision: viewingDraft ? selectedRevision : null,
+                }}
               />
             )}
             {tab === "webhooks" && (

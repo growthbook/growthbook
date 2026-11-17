@@ -331,6 +331,9 @@ export interface EntityRevisionAdapter<
       revision: Revision | null;
       // A direct landing: the revision is created already published.
       direct?: boolean;
+      // What a write that creates the revision names it.
+      title?: string;
+      comment?: string;
       proposed: TSnapshot;
       before: TSnapshot;
     },

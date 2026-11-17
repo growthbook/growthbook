@@ -272,6 +272,7 @@ export async function createOrUpdateRevision(
       live,
       revision: row,
       direct: !row && direct,
+      ...(!row && { title, comment }),
       proposed: applyPatchToSnapshot(replaceChanges ? base : before, derived),
       before,
     });

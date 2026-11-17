@@ -1,4 +1,4 @@
-import { omit } from "lodash";
+import { omit, pick } from "lodash";
 import React, { useState } from "react";
 import { useForm } from "react-hook-form";
 import {
@@ -9,6 +9,13 @@ import {
   hookEntityType,
 } from "shared/validators";
 import { CreateProps } from "shared/types/base-model";
+import {
+  Revision,
+  applyTopLevelPatchOps,
+  coauthorIds,
+  toHookReviewerVerdicts,
+} from "shared/enterprise";
+import { teamsForMember } from "shared/permissions";
 import { Box, Flex, Kbd, Separator } from "@radix-ui/themes";
 import stringify from "json-stringify-pretty-compact";
 import { FeatureInterface } from "shared/types/feature";
@@ -18,6 +25,7 @@ import {
   ExperimentInterfaceStringDates,
 } from "shared/types/experiment";
 import { useAuth } from "@/services/auth";
+import { useUser } from "@/services/UserContext";
 import { useFeaturesList } from "@/services/features";
 import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
@@ -258,8 +266,21 @@ const dummySdkConnection: SDKConnectionRevisionSnapshot = {
     projects: [],
     encryptPayload: false,
     hashSecureAttributes: false,
+    includeVisualExperiments: false,
+    includeDraftExperiments: false,
+    includeDraftExperimentRefs: false,
+    includeExperimentNames: false,
+    includeRedirectExperiments: false,
+    includeRuleIds: false,
+    includeProjectIdInMetadata: false,
+    includeCustomFieldsInMetadata: false,
+    allowedCustomFieldsInMetadata: [],
+    includeTagsInMetadata: false,
     remoteEvalEnabled: false,
+    savedGroupFormat: "inline",
+    includeReferencedPrerequisites: true,
     proxyEnabled: false,
+    proxyHost: "",
     archived: false,
   },
   sdkWebhooks: [
@@ -269,8 +290,24 @@ const dummySdkConnection: SDKConnectionRevisionSnapshot = {
       endpoint: "https://example.com/purge",
       httpMethod: "POST",
       payloadFormat: "standard",
+      timeoutSeconds: 10,
     },
   ],
+};
+
+// As hooks get them: settings and webhooks, never the headers.
+const sdkConnectionHookArgs = ({
+  sdkConnection,
+  sdkWebhooks,
+}: SDKConnectionRevisionSnapshot) => ({
+  sdkConnection,
+  sdkWebhooks: sdkWebhooks.map((webhook) => omit(webhook, "headers")),
+});
+
+const dummySdkConnectionRevision = {
+  ...dummyConfigRevision,
+  title: "Include rule ids",
+  comment: "Needed to debug targeting in production",
 };
 
 export const hookTypes: Record<
@@ -399,7 +436,10 @@ export const hookTypes: Record<
       revision: {
         description:
           "The revision being written: what it proposes (`sdkConnection`, `sdkWebhooks`) and where it stands (version, status, author, reviews)",
-        testValue: stringify({ ...dummyConfigRevision, ...dummySdkConnection }),
+        testValue: stringify({
+          ...dummySdkConnectionRevision,
+          ...dummySdkConnection,
+        }),
       },
     },
     example: `\n// Block staging a change (hard error):\nif (revision.sdkConnection.environment !== sdkConnection.environment) {\n  throw new Error("An SDK Connection cannot be moved to another environment");\n}\n\n// Gate on approval policy:\nconst approvals = (revision.reviews || []).filter(r => r.status === "approved");\nif (revision.status === "approved" && !approvals.some(r => r.userId === "key_abc123")) {\n  throw new Error("Requires release-bot approval");\n}`,
@@ -415,6 +455,7 @@ export default function CustomHookModal({
   revision,
   config,
   sdkConnection,
+  sdkConnectionRevision,
 }: {
   close: () => void;
   current?: CustomHookInterface;
@@ -445,6 +486,8 @@ export default function CustomHookModal({
   // When set, scopes the hook to this SDK Connection and hides the Projects
   // field. Its settings and webhooks prefill the test arguments.
   sdkConnection?: SDKConnectionRevisionSnapshot;
+  // The draft being viewed, which prefills the revision test argument.
+  sdkConnectionRevision?: Revision | null;
 }) {
   // The entity this modal is scoped to, if any. Drives the hook-type options,
   // the hidden Projects field, and the submit/test scope.
@@ -497,15 +540,58 @@ export default function CustomHookModal({
     )
     .map(([value, { label }]) => ({ value, label }));
 
-  // As hooks get them: settings and webhooks, never the headers.
   const sdkConnectionArgs: Record<string, unknown> | null = sdkConnection
+    ? sdkConnectionHookArgs(sdkConnection)
+    : null;
+  // The draft as its hook sees it: its details, its author and reviewers
+  // resolved, and what it proposes.
+  const { users, teams } = useUser();
+  const member = (userId: string) => {
+    const found = users.get(userId);
+    return {
+      user: found
+        ? {
+            type: "dashboard" as const,
+            id: userId,
+            name: found.name,
+            email: found.email,
+          }
+        : { type: "api_key" as const, apiKey: userId },
+      teams: teamsForMember(
+        userId,
+        { members: [...users.values()] },
+        teams ?? [],
+      ),
+    };
+  };
+  const sdkConnectionRevisionArg = sdkConnectionRevision
     ? {
-        sdkConnection: sdkConnection.sdkConnection,
-        sdkWebhooks: sdkConnection.sdkWebhooks.map((webhook) =>
-          omit(webhook, "headers"),
+        ...pick(sdkConnectionRevision, [
+          "version",
+          "status",
+          "title",
+          "comment",
+          "authorId",
+          "contributors",
+        ]),
+        author: {
+          userId: sdkConnectionRevision.authorId,
+          ...member(sdkConnectionRevision.authorId),
+        },
+        coauthors: coauthorIds(
+          sdkConnectionRevision.authorId,
+          sdkConnectionRevision.contributors,
+        ).map((userId) => ({ userId, ...member(userId) })),
+        reviews: toHookReviewerVerdicts(sdkConnectionRevision.reviews, member),
+        ...sdkConnectionHookArgs(
+          applyTopLevelPatchOps(
+            sdkConnectionRevision.target
+              .snapshot as SDKConnectionRevisionSnapshot,
+            sdkConnectionRevision.target.proposedChanges,
+          ),
         ),
       }
-    : null;
+    : { ...dummySdkConnectionRevision, ...sdkConnectionArgs };
 
   const initialTestValues = (h: CustomHookType): Record<string, string> =>
     Object.fromEntries(
@@ -529,10 +615,7 @@ export default function CustomHookModal({
                 : sdkConnectionArgs && k in sdkConnectionArgs
                   ? stringify(sdkConnectionArgs[k])
                   : sdkConnectionArgs && k === "revision"
-                    ? stringify({
-                        ...dummyConfigRevision,
-                        ...sdkConnectionArgs,
-                      })
+                    ? stringify(sdkConnectionRevisionArg)
                     : v.testValue,
       ]),
     );

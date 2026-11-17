@@ -241,6 +241,7 @@ export async function landDirectChange<T>({
         live,
         revision: null,
         direct: true,
+        title,
         proposed: applyPatchToSnapshot(live, patchOps),
         before: live,
       });

@@ -4,6 +4,7 @@ import type { Request } from "express";
 import type { OrganizationInterface } from "shared/types/organization";
 import { ReqContextClass } from "back-end/src/services/context";
 import { runInSandbox } from "back-end/src/enterprise/sandbox/sandbox-pool";
+import { sandboxEval } from "back-end/src/enterprise/sandbox/sandbox-core";
 import { setupApp } from "./api.setup";
 
 jest.mock("back-end/src/enterprise/sandbox/sandbox-pool", () => ({
@@ -102,8 +103,9 @@ describe("SDK Connection revision endpoints", () => {
         .collection(name)
         .deleteMany({ organization: ORG_ID });
     }
+    // Hook code runs for real, in an isolate without the worker pool.
     mockRunInSandbox.mockReset();
-    mockRunInSandbox.mockResolvedValue({ ok: true, warnings: [] });
+    mockRunInSandbox.mockImplementation(sandboxEval);
   });
 
   it("stages settings and webhooks in one draft and publishes them together", async () => {
@@ -493,23 +495,28 @@ describe("SDK Connection revision endpoints", () => {
 
   it("runs the connection hook on writes and the revision hook on drafts", async () => {
     useAdmin();
-    // Behavior comes from the runInSandbox mock, which tells them apart by code.
     const hook = (type: string, code: string) => ({
-      id: `hook_${code}`,
+      id: `hook_${type}`,
       organization: ORG_ID,
       dateCreated: new Date(),
       dateUpdated: new Date(),
       enabled: true,
       projects: [],
-      name: code,
+      name: type,
       hook: type,
       code,
     });
     await mongoose.connection
       .collection("customhooks")
       .insertMany([
-        hook("validateSdkConnection", "connection"),
-        hook("validateSdkConnectionRevision", "revision"),
+        hook(
+          "validateSdkConnection",
+          `if (sdkConnection.name === "Bad") throw new Error("No bad names");`,
+        ),
+        hook(
+          "validateSdkConnectionRevision",
+          `if (revision.sdkConnection.name === "Staged bad") throw new Error("No bad drafts");`,
+        ),
       ]);
     type HookArgs = {
       sdkConnection: { name: string };
@@ -519,20 +526,11 @@ describe("SDK Connection revision endpoints", () => {
         sdkWebhooks: Record<string, unknown>[];
       };
     };
-    const ranAs = (code: string, hookCode: unknown) =>
-      String(hookCode).includes(code);
-    mockRunInSandbox.mockImplementation(async (code, args) => {
-      const { sdkConnection, revision } = args as HookArgs;
-      const error = ranAs("revision", code)
-        ? revision?.sdkConnection.name === "Staged bad" && "No bad drafts"
-        : sdkConnection.name === "Bad" && "No bad names";
-      return error
-        ? { ok: false, rejected: true, error, warnings: [] }
-        : { ok: true, warnings: [] };
-    });
-    const lastArgs = (code = "connection") =>
+    const lastArgs = (hookType = "connection") =>
       mockRunInSandbox.mock.calls
-        .filter((call) => ranAs(code, call[0]))
+        .filter(
+          (call) => call[0].includes("revision.") === (hookType === "revision"),
+        )
         .at(-1)?.[1] as HookArgs;
 
     const badCreate = await request(app)
@@ -578,13 +576,17 @@ describe("SDK Connection revision endpoints", () => {
     // The revision hook sees a draft save: live, and what the draft proposes.
     const refused = await request(app)
       .put(`${BASE}/${id}/new/settings`)
-      .send({ name: "Staged bad" })
+      .send({ name: "Staged bad", revisionTitle: "Rename" })
       .set(auth);
     expect(refused.status).toBe(400);
     expect(refused.body.message).toContain("No bad drafts");
     expect(lastArgs("revision")).toMatchObject({
       sdkConnection: { name: "Web app" },
-      revision: { status: "draft", sdkConnection: { name: "Staged bad" } },
+      revision: {
+        status: "draft",
+        title: "Rename",
+        sdkConnection: { name: "Staged bad" },
+      },
     });
 
     const staged = await request(app)

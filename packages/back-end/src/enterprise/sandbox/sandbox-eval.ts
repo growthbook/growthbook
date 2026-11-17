@@ -708,6 +708,8 @@ type SdkConnectionRevisionHookInput = {
   // a draft, or one a direct write lands already published.
   revision: ConfigRevisionHookInput | null;
   direct?: boolean;
+  title?: string;
+  comment?: string;
   // What the revision proposes once this write lands, and what it proposed
   // before: live's state, for a new draft and at publish.
   proposed: SDKConnectionRevisionSnapshot;
@@ -718,6 +720,8 @@ async function sdkConnectionRevisionHookCall({
   live,
   revision,
   direct,
+  title,
+  comment,
   proposed,
   before,
 }: SdkConnectionRevisionHookInput) {
@@ -726,6 +730,8 @@ async function sdkConnectionRevisionHookCall({
     context,
     revision ?? {
       status: direct ? "merged" : "draft",
+      title,
+      comment,
       authorId: context.actorId,
       reviews: [],
     },
