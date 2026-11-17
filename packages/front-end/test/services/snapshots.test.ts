@@ -1,3 +1,5 @@
+import { vi } from "vitest";
+import { isAnalysisDateRangeOutdated } from "shared/experiments";
 import {
   getResultsFreshness,
   getSnapshotFreshnessInputs,
@@ -63,61 +65,92 @@ describe("getSnapshotFreshnessInputs", () => {
   const freshnessOf = (
     snapshot: Parameters<typeof getSnapshotFreshnessInputs>[0],
   ) => getResultsFreshness(getSnapshotFreshnessInputs(snapshot));
+  const lineage = (baseCutoffDate: Date | null) => ({
+    baseSnapshotId: "snp_base",
+    baseDateCreated: baseRanAt,
+    baseCutoffDate,
+    parentSnapshotId: "snp_base",
+    metricIds: ["met_new"],
+  });
+  const fullRun = (endDate: Date, endDateIsCutoff: boolean) => ({
+    type: "standard" as const,
+    dateCreated: baseRanAt,
+    settings: { endDate, endDateIsCutoff },
+  });
+  const refreshOf = (endDate: Date, baseCutoffDate: Date | null) => ({
+    type: "standard" as const,
+    dateCreated: refreshRanAt,
+    settings: { endDate, endDateIsCutoff: true },
+    metricRefresh: lineage(baseCutoffDate),
+  });
 
   it("dates a refresh of a base without a cutoff by the base run", () => {
-    const base = {
-      dateCreated: baseRanAt,
-      settings: { endDate: baseRanAt, endDateIsCutoff: false },
-    };
-    const refresh = {
-      dateCreated: refreshRanAt,
-      settings: { endDate: baseRanAt, endDateIsCutoff: true },
-      metricRefresh: { baseDateCreated: baseRanAt, baseCutoffDate: null },
-    };
+    const base = fullRun(baseRanAt, false);
     expect(freshnessOf(base)).toEqual({ kind: "updated", ranAt: baseRanAt });
-    expect(freshnessOf(refresh)).toEqual(freshnessOf(base));
+    expect(freshnessOf(refreshOf(baseRanAt, null))).toEqual(freshnessOf(base));
   });
 
   it("keeps the base's cutoff for a refresh of a lagged base", () => {
     const baseCutoff = new Date("2026-11-16T06:00:00Z");
-    const base = {
-      dateCreated: baseRanAt,
-      settings: { endDate: baseCutoff, endDateIsCutoff: true },
-    };
-    const refresh = {
-      dateCreated: refreshRanAt,
-      settings: { endDate: baseCutoff, endDateIsCutoff: true },
-      metricRefresh: { baseDateCreated: baseRanAt, baseCutoffDate: baseCutoff },
-    };
+    const base = fullRun(baseCutoff, true);
     expect(freshnessOf(base)).toEqual({
       kind: "cutoff",
       ranAt: baseRanAt,
       asOf: baseCutoff,
     });
-    expect(freshnessOf(refresh)).toEqual(freshnessOf(base));
+    expect(freshnessOf(refreshOf(baseCutoff, baseCutoff))).toEqual(
+      freshnessOf(base),
+    );
   });
 
   it("dates a refresh of a refresh by the root base", () => {
-    const base = {
-      dateCreated: baseRanAt,
-      settings: { endDate: baseRanAt, endDateIsCutoff: false },
-    };
     const refreshOfRefresh = {
+      ...refreshOf(baseRanAt, null),
       dateCreated: new Date("2026-11-16T18:00:00Z"),
-      settings: { endDate: baseRanAt, endDateIsCutoff: true },
-      metricRefresh: { baseDateCreated: baseRanAt, baseCutoffDate: null },
     };
-    expect(freshnessOf(refreshOfRefresh)).toEqual(freshnessOf(base));
+    expect(freshnessOf(refreshOfRefresh)).toEqual(
+      freshnessOf(fullRun(baseRanAt, false)),
+    );
   });
 
   it("parses the string dates a fetched snapshot carries", () => {
-    const refresh = JSON.parse(
-      JSON.stringify({
-        dateCreated: refreshRanAt,
-        settings: { endDate: baseRanAt, endDateIsCutoff: true },
-        metricRefresh: { baseDateCreated: baseRanAt, baseCutoffDate: null },
-      }),
-    );
+    const refresh = JSON.parse(JSON.stringify(refreshOf(baseRanAt, null)));
     expect(freshnessOf(refresh)).toEqual({ kind: "updated", ranAt: baseRanAt });
+  });
+
+  it("dates a dimension snapshot by its own run", () => {
+    const dimension = {
+      ...refreshOf(baseRanAt, null),
+      type: "exploratory" as const,
+    };
+    expect(freshnessOf(dimension)).toEqual({
+      kind: "cutoff",
+      ranAt: refreshRanAt,
+      asOf: baseRanAt,
+    });
+  });
+
+  it("flags a refresh as outdated whenever its base would be", () => {
+    const phase = { dateStarted: "2026-11-01T00:00:00Z" };
+    const startDate = new Date(phase.dateStarted);
+    const isOutdated = (
+      snapshot: ReturnType<typeof fullRun> | ReturnType<typeof refreshOf>,
+    ) =>
+      isAnalysisDateRangeOutdated({
+        phase,
+        snapshotSettings: { ...snapshot.settings, startDate },
+        snapshotDateCreated: getSnapshotFreshnessInputs(snapshot).dateCreated,
+      });
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(new Date("2026-11-17T10:00:00Z"));
+      expect(isOutdated(fullRun(baseRanAt, false))).toBe(true);
+      expect(isOutdated(refreshOf(baseRanAt, null))).toBe(true);
+      vi.setSystemTime(new Date("2026-11-16T20:00:00Z"));
+      expect(isOutdated(fullRun(baseRanAt, false))).toBe(false);
+      expect(isOutdated(refreshOf(baseRanAt, null))).toBe(false);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

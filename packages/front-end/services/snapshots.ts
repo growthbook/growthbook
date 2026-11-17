@@ -3,10 +3,9 @@ import {
   ExperimentSnapshotAnalysis,
   ExperimentSnapshotInterface,
   ExperimentSnapshotAnalysisSettings,
-  ExperimentSnapshotSettings,
-  SnapshotMetricRefresh,
 } from "shared/types/experiment-snapshot";
 import { getSnapshotAnalysis, getSnapshotCutoffDate } from "shared/util";
+import { getMetricRefresh } from "shared/experiments";
 import { getValidDate } from "shared/dates";
 import { SourceSnapshotRef } from "shared/enterprise";
 
@@ -52,18 +51,22 @@ export async function analysisUpdate(
   return status;
 }
 
-export function getSnapshotFreshnessInputs(snapshot: {
-  dateCreated: Date;
-  settings: Pick<ExperimentSnapshotSettings, "endDate" | "endDateIsCutoff">;
-  metricRefresh?: Pick<
-    SnapshotMetricRefresh,
-    "baseDateCreated" | "baseCutoffDate"
-  >;
-}): { dateCreated: Date; cutoffDate: Date | null } {
-  if (snapshot.metricRefresh) {
+export function getSnapshotFreshnessInputs(
+  snapshot: Pick<
+    ExperimentSnapshotInterface,
+    "type" | "dateCreated" | "metricRefresh"
+  > & {
+    settings: Pick<
+      ExperimentSnapshotInterface["settings"],
+      "endDate" | "endDateIsCutoff"
+    >;
+  },
+): { dateCreated: Date; cutoffDate: Date | null } {
+  const refresh = getMetricRefresh(snapshot);
+  if (refresh) {
     return {
-      dateCreated: snapshot.metricRefresh.baseDateCreated,
-      cutoffDate: snapshot.metricRefresh.baseCutoffDate,
+      dateCreated: refresh.baseDateCreated,
+      cutoffDate: refresh.baseCutoffDate,
     };
   }
   return {

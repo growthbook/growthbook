@@ -39,6 +39,7 @@ import {
   ExperimentMetricDefinition,
   getAllMetricIdsFromExperiment,
   getMetricIdsMissingFromSnapshot,
+  getMetricRefresh,
   getClusterExperimentMetricEligibility,
   getEqualWeights,
   getFunnelStepMetric,
@@ -253,6 +254,43 @@ export type ExperimentTableRow = {
 };
 
 export const METRICS_CHANGED_OUTDATED_REASON = "Metrics changed";
+export const ANALYSIS_DATES_CHANGED_OUTDATED_REASON = "Analysis dates changed";
+
+// A refresh is pinned to its base's dates, so date drift alone doesn't block it.
+export function hasOutdatedReasonBlockingMetricRefresh(
+  reasons: string[],
+): boolean {
+  return reasons.some(
+    (r) =>
+      r !== METRICS_CHANGED_OUTDATED_REASON &&
+      r !== ANALYSIS_DATES_CHANGED_OUTDATED_REASON,
+  );
+}
+
+// The server's refusals the page can predict before a click.
+export function isMetricRefreshUnavailable({
+  experiment,
+  phase,
+  datasource,
+  settingsOutdated,
+}: {
+  experiment: Pick<ExperimentInterfaceStringDates, "id" | "type" | "phases">;
+  phase: number;
+  datasource: DataSourceInterfaceWithParams | null;
+  settingsOutdated: boolean;
+}): boolean {
+  return (
+    (experiment.type ?? "standard") !== "standard" ||
+    !!experiment.phases[phase]?.dateEnded ||
+    !datasource?.properties?.separateExperimentResultQueries ||
+    getIsExperimentIncludedInIncrementalRefresh(
+      datasource ?? undefined,
+      experiment.id,
+      experiment.type,
+    ) ||
+    settingsOutdated
+  );
+}
 
 export type NewMetricRowState =
   | { status: "idle" }
@@ -268,7 +306,10 @@ export type MetricRefreshRequest =
 
 export type NewMetricRowsInput = {
   snapshotSettings: Pick<ExperimentSnapshotSettings, "metricSettings">;
-  latest?: Pick<SnapshotStatusSummary, "status" | "error" | "metricRefresh">;
+  latest?: Pick<
+    SnapshotStatusSummary,
+    "type" | "status" | "error" | "metricRefresh"
+  >;
   request: MetricRefreshRequest;
   refreshUnavailable: boolean;
 };
@@ -287,7 +328,7 @@ export function getNewMetricRowStates({
   >;
   metricGroups: MetricGroupInterface[];
 }): Map<string, NewMetricRowState> {
-  const refresh = latest?.metricRefresh;
+  const refresh = latest ? getMetricRefresh(latest) : null;
   const getState = (metricId: string): NewMetricRowState => {
     if (request.status === "sending") return { status: "running" };
     const latestQueriesMetric =

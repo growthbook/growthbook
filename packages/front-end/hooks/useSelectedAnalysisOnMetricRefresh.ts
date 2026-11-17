@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { getSnapshotAnalysis } from "shared/util";
+import { getMetricRefresh } from "shared/experiments";
 import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
 import { useAuth } from "@/services/auth";
 import { analysisUpdate } from "@/services/snapshots";
@@ -12,7 +13,7 @@ export function useSelectedAnalysisOnMetricRefresh(onFailure: () => void) {
     useSnapshot();
 
   useEffect(() => {
-    if (!snapshot?.metricRefresh || !analysisSettings) return;
+    if (!snapshot || !getMetricRefresh(snapshot) || !analysisSettings) return;
     if (getSnapshotAnalysis(snapshot, analysisSettings)) return;
     const defaultAnalysis = getSnapshotAnalysis(snapshot);
     if (!defaultAnalysis) return;

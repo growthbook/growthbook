@@ -28,6 +28,7 @@ import {
   isExperimentResultsUpdateDisabled,
   EXPERIMENT_RESULTS_UPDATE_DISABLED_MESSAGE,
   getClusterSubUnit,
+  getMetricRefresh,
 } from "shared/experiments";
 import {
   isNewerOverallResultsDataAvailable,
@@ -77,6 +78,8 @@ import {
   getPipelineSettingsAfterDisablingExperiment,
   getHonoredPrecomputedUnitDimensionIds,
   getUnitDisplayName,
+  hasOutdatedReasonBlockingMetricRefresh,
+  ANALYSIS_DATES_CHANGED_OUTDATED_REASON,
   METRICS_CHANGED_OUTDATED_REASON,
 } from "@/services/experiments";
 import Metadata from "@/ui/Metadata";
@@ -207,12 +210,12 @@ export default function AnalysisSettingsSummary({
     if (
       previousLatestStatusRef.current === "running" &&
       latest?.status === "success" &&
-      !latest.metricRefresh
+      !getMetricRefresh(latest)
     ) {
       onSnapshotSuccessfulUpdate?.();
     }
     previousLatestStatusRef.current = latest?.status;
-  }, [latest?.status, latest?.metricRefresh, onSnapshotSuccessfulUpdate]);
+  }, [latest, onSnapshotSuccessfulUpdate]);
 
   const hasData = (analysis?.results?.[0]?.variations?.length ?? 0) > 0;
   const hasValidStatsEngine =
@@ -549,9 +552,8 @@ export default function AnalysisSettingsSummary({
       newerOverallResultsAvailable && !incrementalUpdatesUnavailable,
     resultsUpdateDisabled,
   });
-  const hasOtherOutdatedReasons = reasons.some(
-    (r) => r !== METRICS_CHANGED_OUTDATED_REASON,
-  );
+  const hasOtherOutdatedReasons =
+    hasOutdatedReasonBlockingMetricRefresh(reasons);
   useEffect(() => {
     onOtherOutdatedReasonsChange?.(hasOtherOutdatedReasons);
   }, [hasOtherOutdatedReasons, onOtherOutdatedReasonsChange]);
@@ -845,7 +847,7 @@ export default function AnalysisSettingsSummary({
         resultsUpdateDisabled: updateDisabled,
       })
     ) {
-      reasons.push("Analysis dates changed");
+      reasons.push(ANALYSIS_DATES_CHANGED_OUTDATED_REASON);
     }
     if (
       isDifferent(

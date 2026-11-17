@@ -31,6 +31,7 @@ import Button from "@/ui/Button";
 import LinkButton from "@/ui/LinkButton";
 import {
   getHonoredPrecomputedUnitDimensionIds,
+  isMetricRefreshUnavailable,
   NewMetricRowsInput,
 } from "@/services/experiments";
 import { useNewMetricsRefresh } from "@/hooks/useExperimentSnapshotUpdate";
@@ -189,8 +190,12 @@ export default function ResultsTab({
     permissionsUtil.canRunExperimentQueries(datasource) &&
     experiment.status !== "draft" &&
     !isExperimentResultsUpdateDisabled(experiment, orgSettings);
-  const metricRefreshUnavailable =
-    (experiment.type ?? "standard") !== "standard" || settingsOutdated;
+  const metricRefreshUnavailable = isMetricRefreshUnavailable({
+    experiment,
+    phase,
+    datasource,
+    settingsOutdated,
+  });
   const isLatestPhase = phase === experiment.phases.length - 1;
   const newMetrics = useMemo<NewMetricRowsInput | undefined>(
     () =>

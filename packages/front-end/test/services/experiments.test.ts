@@ -3,6 +3,7 @@ import type { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import type { MetricInterface } from "shared/types/metric";
 import type { MetricGroupInterface } from "shared/types/metric-groups";
 import type { MetricForSnapshot } from "shared/types/experiment-snapshot";
+import type { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import {
   convertExperimentToTemplate,
   getClusterSubUnitsLabel,
@@ -10,6 +11,8 @@ import {
   getIneligibleClusterMetrics,
   getNewMetricRowStates,
   getUnitDisplayName,
+  hasOutdatedReasonBlockingMetricRefresh,
+  isMetricRefreshUnavailable,
 } from "@/services/experiments";
 
 describe("convertExperimentToTemplate", () => {
@@ -143,7 +146,14 @@ describe("getNewMetricRowStates", () => {
   });
 
   it("marks every metric the snapshot lacks as idle", () => {
-    expect(statesFor({ latest: { status: "success" } })).toEqual({
+    expect(
+      statesFor({
+        latest: {
+          type: "standard",
+          status: "success",
+        },
+      }),
+    ).toEqual({
       met_goal: { status: "idle" },
       met_secondary: { status: "idle" },
       met_guardrail: { status: "idle" },
@@ -168,6 +178,7 @@ describe("getNewMetricRowStates", () => {
     expect(
       statesFor({
         latest: {
+          type: "standard",
           status: "running",
           metricRefresh: refreshOf(["met_goal", "met_secondary"]),
         },
@@ -180,7 +191,14 @@ describe("getNewMetricRowStates", () => {
   });
 
   it("shows every new metric as running during a full update", () => {
-    expect(statesFor({ latest: { status: "running" } })).toEqual({
+    expect(
+      statesFor({
+        latest: {
+          type: "standard",
+          status: "running",
+        },
+      }),
+    ).toEqual({
       met_goal: { status: "running" },
       met_secondary: { status: "running" },
       met_guardrail: { status: "running" },
@@ -190,7 +208,10 @@ describe("getNewMetricRowStates", () => {
   it("shows every new metric as running while the request is sent", () => {
     expect(
       statesFor({
-        latest: { status: "success" },
+        latest: {
+          type: "standard",
+          status: "success",
+        },
         request: { status: "sending" },
       }).met_guardrail,
     ).toEqual({ status: "running" });
@@ -200,6 +221,7 @@ describe("getNewMetricRowStates", () => {
     expect(
       statesFor({
         latest: {
+          type: "standard",
           status: "error",
           error: "Query failed",
           metricRefresh: refreshOf(["met_goal"]),
@@ -214,8 +236,13 @@ describe("getNewMetricRowStates", () => {
 
   it("keeps new metrics idle after a failed full update", () => {
     expect(
-      statesFor({ latest: { status: "error", error: "Query failed" } })
-        .met_goal,
+      statesFor({
+        latest: {
+          type: "standard",
+          status: "error",
+          error: "Query failed",
+        },
+      }).met_goal,
     ).toEqual({ status: "idle" });
   });
 
@@ -230,6 +257,7 @@ describe("getNewMetricRowStates", () => {
     expect(
       statesFor({
         latest: {
+          type: "standard",
           status: "error",
           metricRefresh: refreshOf(["met_goal"]),
         },
@@ -246,5 +274,96 @@ describe("getNewMetricRowStates", () => {
     expect(
       statesFor({ request: { status: "unavailable" } }).met_secondary,
     ).toEqual({ status: "unavailable" });
+  });
+});
+
+describe("isMetricRefreshUnavailable", () => {
+  const running = {
+    id: "exp_1",
+    type: "standard" as const,
+    phases: [
+      { dateEnded: "2026-11-01T00:00:00Z" },
+      { dateEnded: undefined },
+    ] as ExperimentInterfaceStringDates["phases"],
+  };
+  const sqlDatasource = {
+    properties: { separateExperimentResultQueries: true },
+    settings: {},
+  } as DataSourceInterfaceWithParams;
+  const unavailable = (
+    overrides: Partial<Parameters<typeof isMetricRefreshUnavailable>[0]>,
+  ) =>
+    isMetricRefreshUnavailable({
+      experiment: running,
+      phase: 1,
+      datasource: sqlDatasource,
+      settingsOutdated: false,
+      ...overrides,
+    });
+
+  it("allows a running standard experiment on a SQL data source", () => {
+    expect(unavailable({})).toBe(false);
+  });
+
+  it("refuses bandits and holdouts", () => {
+    expect(
+      unavailable({ experiment: { ...running, type: "multi-armed-bandit" } }),
+    ).toBe(true);
+    expect(unavailable({ experiment: { ...running, type: "holdout" } })).toBe(
+      true,
+    );
+  });
+
+  it("refuses an ended phase", () => {
+    expect(unavailable({ phase: 0 })).toBe(true);
+  });
+
+  it("refuses a data source that queries every metric at once", () => {
+    expect(
+      unavailable({ datasource: { ...sqlDatasource, properties: undefined } }),
+    ).toBe(true);
+    expect(unavailable({ datasource: null })).toBe(true);
+  });
+
+  it("refuses an experiment on the incremental pipeline", () => {
+    expect(
+      unavailable({
+        datasource: {
+          ...sqlDatasource,
+          settings: {
+            pipelineSettings: {
+              allowWriting: true,
+              mode: "incremental",
+              unitsTableRetentionHours: 24,
+              includedExperimentIds: ["exp_1"],
+            },
+          },
+        } as DataSourceInterfaceWithParams,
+      }),
+    ).toBe(true);
+  });
+
+  it("refuses when analysis settings changed since the last update", () => {
+    expect(unavailable({ settingsOutdated: true })).toBe(true);
+  });
+});
+
+describe("hasOutdatedReasonBlockingMetricRefresh", () => {
+  it("ignores added metrics and date drift", () => {
+    expect(
+      hasOutdatedReasonBlockingMetricRefresh([
+        "Metrics changed",
+        "Analysis dates changed",
+      ]),
+    ).toBe(false);
+  });
+
+  it("blocks on any other reason", () => {
+    expect(
+      hasOutdatedReasonBlockingMetricRefresh([
+        "Metrics changed",
+        "Stats engine changed",
+      ]),
+    ).toBe(true);
   });
 });
