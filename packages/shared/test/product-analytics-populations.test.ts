@@ -520,7 +520,7 @@ describe("metric explorations with a population", () => {
             { dimensionType: "dynamic", column: "device_type", maxValues: 5 },
           ],
         }),
-        "Metrics with populations can only be grouped by date.",
+        "Metrics with populations can only be grouped by one date dimension.",
       ],
       [
         "grouping by two dates",
