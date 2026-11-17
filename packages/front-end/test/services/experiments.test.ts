@@ -2,11 +2,13 @@ import { describe, expect, it } from "vitest";
 import type { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import type { MetricInterface } from "shared/types/metric";
 import type { MetricGroupInterface } from "shared/types/metric-groups";
+import type { MetricForSnapshot } from "shared/types/experiment-snapshot";
 import {
   convertExperimentToTemplate,
   getClusterSubUnitsLabel,
   getClusterUnitsLabel,
   getIneligibleClusterMetrics,
+  getNewMetricRowStates,
   getUnitDisplayName,
 } from "@/services/experiments";
 
@@ -107,5 +109,142 @@ describe("getIneligibleClusterMetrics", () => {
     const result = getIneligibleClusterMetrics(["mg_group"], options);
     expect(result.droppedIds.size).toBe(0);
     expect(result.groupNames).toEqual(["Group"]);
+  });
+});
+
+describe("getNewMetricRowStates", () => {
+  const experiment = {
+    goalMetrics: ["met_old", "met_goal"],
+    secondaryMetrics: ["met_secondary"],
+    guardrailMetrics: ["met_guardrail"],
+  };
+  const snapshotSettings = {
+    metricSettings: [{ id: "met_old" } as MetricForSnapshot],
+  };
+  const statesFor = (
+    overrides: Partial<Parameters<typeof getNewMetricRowStates>[0]>,
+  ) =>
+    Object.fromEntries(
+      getNewMetricRowStates({
+        experiment,
+        metricGroups: [],
+        snapshotSettings,
+        request: { status: "none" },
+        refreshUnavailable: false,
+        ...overrides,
+      }),
+    );
+  const refreshOf = (metricIds: string[]) => ({
+    baseSnapshotId: "snp_base",
+    baseDateCreated: new Date("2026-11-16T09:00:00Z"),
+    baseCutoffDate: null,
+    parentSnapshotId: "snp_base",
+    metricIds,
+  });
+
+  it("marks every metric the snapshot lacks as idle", () => {
+    expect(statesFor({ latest: { status: "success" } })).toEqual({
+      met_goal: { status: "idle" },
+      met_secondary: { status: "idle" },
+      met_guardrail: { status: "idle" },
+    });
+  });
+
+  it("leaves out a metric the snapshot computed, even with zero users", () => {
+    const states = statesFor({
+      snapshotSettings: {
+        metricSettings: [
+          { id: "met_old" },
+          { id: "met_goal" },
+          { id: "met_secondary" },
+          { id: "met_guardrail" },
+        ] as MetricForSnapshot[],
+      },
+    });
+    expect(states).toEqual({});
+  });
+
+  it("shows the metrics a running refresh queries as running", () => {
+    expect(
+      statesFor({
+        latest: {
+          status: "running",
+          metricRefresh: refreshOf(["met_goal", "met_secondary"]),
+        },
+      }),
+    ).toEqual({
+      met_goal: { status: "running" },
+      met_secondary: { status: "running" },
+      met_guardrail: { status: "idle" },
+    });
+  });
+
+  it("shows every new metric as running during a full update", () => {
+    expect(statesFor({ latest: { status: "running" } })).toEqual({
+      met_goal: { status: "running" },
+      met_secondary: { status: "running" },
+      met_guardrail: { status: "running" },
+    });
+  });
+
+  it("shows every new metric as running while the request is sent", () => {
+    expect(
+      statesFor({
+        latest: { status: "success" },
+        request: { status: "sending" },
+      }).met_guardrail,
+    ).toEqual({ status: "running" });
+  });
+
+  it("shows the metrics of a failed refresh as failed", () => {
+    expect(
+      statesFor({
+        latest: {
+          status: "error",
+          error: "Query failed",
+          metricRefresh: refreshOf(["met_goal"]),
+        },
+      }),
+    ).toEqual({
+      met_goal: { status: "failed", error: "Query failed" },
+      met_secondary: { status: "idle" },
+      met_guardrail: { status: "idle" },
+    });
+  });
+
+  it("keeps new metrics idle after a failed full update", () => {
+    expect(
+      statesFor({ latest: { status: "error", error: "Query failed" } })
+        .met_goal,
+    ).toEqual({ status: "idle" });
+  });
+
+  it("shows a rejected request as failed", () => {
+    expect(
+      statesFor({ request: { status: "failed", error: "Network error" } })
+        .met_goal,
+    ).toEqual({ status: "failed", error: "Network error" });
+  });
+
+  it("marks new metrics unavailable when another setting is outdated", () => {
+    expect(
+      statesFor({
+        latest: {
+          status: "error",
+          metricRefresh: refreshOf(["met_goal"]),
+        },
+        refreshUnavailable: true,
+      }),
+    ).toEqual({
+      met_goal: { status: "unavailable" },
+      met_secondary: { status: "unavailable" },
+      met_guardrail: { status: "unavailable" },
+    });
+  });
+
+  it("marks new metrics unavailable when the server refused the refresh", () => {
+    expect(
+      statesFor({ request: { status: "unavailable" } }).met_secondary,
+    ).toEqual({ status: "unavailable" });
   });
 });

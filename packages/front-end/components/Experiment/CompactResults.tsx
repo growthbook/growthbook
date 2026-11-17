@@ -43,6 +43,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import {
   excludeFunnelSliceRows,
   ExperimentTableRow,
+  NewMetricRowsInput,
 } from "@/services/experiments";
 import FunnelStepLabel from "@/components/Experiment/FunnelStepLabel";
 import FunnelStepSliceLink, {
@@ -64,6 +65,9 @@ const CompactResults: FC<{
   experimentId: string;
   significanceThresholds: SignificanceThresholds;
   editMetrics?: () => void;
+  newMetrics?: NewMetricRowsInput;
+  onRefreshMetrics?: () => void;
+  onViewRefreshQueries?: () => void;
   variations: ExperimentReportVariation[];
   variationFilter?: number[];
   setVariationFilter?: (variationFilter: number[]) => void;
@@ -128,6 +132,9 @@ const CompactResults: FC<{
   experimentId,
   significanceThresholds,
   editMetrics,
+  newMetrics,
+  onRefreshMetrics,
+  onViewRefreshQueries,
   variations,
   variationFilter,
   setVariationFilter,
@@ -230,6 +237,7 @@ const CompactResults: FC<{
     enableExpansion: true,
     expandedMetrics,
     pValueThreshold: significanceThresholds.pValueThreshold,
+    newMetrics,
   });
 
   const expandedGoals = useMemo(
@@ -429,6 +437,8 @@ const CompactResults: FC<{
           editMetrics={
             experimentType !== "multi-armed-bandit" ? editMetrics : undefined
           }
+          onRefreshMetrics={onRefreshMetrics}
+          onViewRefreshQueries={onViewRefreshQueries}
           statsEngine={statsEngine}
           sequentialTestingEnabled={sequentialTestingEnabled}
           pValueCorrection={pValueCorrection}
@@ -487,6 +497,8 @@ const CompactResults: FC<{
             tableRowAxis="metric"
             labelHeader="Secondary Metrics"
             editMetrics={editMetrics}
+            onRefreshMetrics={onRefreshMetrics}
+            onViewRefreshQueries={onViewRefreshQueries}
             statsEngine={statsEngine}
             sequentialTestingEnabled={sequentialTestingEnabled}
             pValueCorrection={pValueCorrection}
@@ -545,6 +557,8 @@ const CompactResults: FC<{
             tableRowAxis="metric"
             labelHeader="Guardrail Metrics"
             editMetrics={editMetrics}
+            onRefreshMetrics={onRefreshMetrics}
+            onViewRefreshQueries={onViewRefreshQueries}
             statsEngine={statsEngine}
             sequentialTestingEnabled={sequentialTestingEnabled}
             pValueCorrection={pValueCorrection}

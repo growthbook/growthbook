@@ -1,6 +1,7 @@
 import {
   ExperimentSnapshotSettings,
   SnapshotMetric,
+  SnapshotStatusSummary,
 } from "shared/types/experiment-snapshot";
 import { DifferenceType, StatsEngine } from "shared/types/stats";
 import {
@@ -37,6 +38,7 @@ import {
 import {
   ExperimentMetricDefinition,
   getAllMetricIdsFromExperiment,
+  getMetricIdsMissingFromSnapshot,
   getClusterExperimentMetricEligibility,
   getEqualWeights,
   getFunnelStepMetric,
@@ -247,7 +249,71 @@ export type ExperimentTableRow = {
   dimensionValue?: string;
   isHiddenByFilter?: boolean;
   labelOnly?: boolean;
+  newMetricState?: NewMetricRowState;
 };
+
+export const METRICS_CHANGED_OUTDATED_REASON = "Metrics changed";
+
+export type NewMetricRowState =
+  | { status: "idle" }
+  | { status: "running" }
+  | { status: "failed"; error: string | null }
+  | { status: "unavailable" };
+
+export type MetricRefreshRequest =
+  | { status: "none" }
+  | { status: "sending" }
+  | { status: "failed"; error: string }
+  | { status: "unavailable" };
+
+export type NewMetricRowsInput = {
+  snapshotSettings: Pick<ExperimentSnapshotSettings, "metricSettings">;
+  latest?: Pick<SnapshotStatusSummary, "status" | "error" | "metricRefresh">;
+  request: MetricRefreshRequest;
+  refreshUnavailable: boolean;
+};
+
+export function getNewMetricRowStates({
+  experiment,
+  metricGroups,
+  snapshotSettings,
+  latest,
+  request,
+  refreshUnavailable,
+}: NewMetricRowsInput & {
+  experiment: Pick<
+    ExperimentInterfaceStringDates,
+    "goalMetrics" | "secondaryMetrics" | "guardrailMetrics"
+  >;
+  metricGroups: MetricGroupInterface[];
+}): Map<string, NewMetricRowState> {
+  const refresh = latest?.metricRefresh;
+  const getState = (metricId: string): NewMetricRowState => {
+    if (request.status === "sending") return { status: "running" };
+    const latestQueriesMetric =
+      !refresh || refresh.metricIds.includes(metricId);
+    if (latest?.status === "running" && latestQueriesMetric) {
+      return { status: "running" };
+    }
+    if (refreshUnavailable || request.status === "unavailable") {
+      return { status: "unavailable" };
+    }
+    if (request.status === "failed") {
+      return { status: "failed", error: request.error };
+    }
+    if (latest?.status === "error" && refresh?.metricIds.includes(metricId)) {
+      return { status: "failed", error: latest.error ?? null };
+    }
+    return { status: "idle" };
+  };
+  return new Map(
+    getMetricIdsMissingFromSnapshot({
+      experiment,
+      snapshotSettings,
+      metricGroups,
+    }).map((id) => [id, getState(id)]),
+  );
+}
 
 /**
  * A funnel expands into its steps in a results table; its slices are per-step

@@ -36,6 +36,9 @@ const METRIC_SELECTOR_IDS = [
 import {
   applyMetricOverrides,
   ExperimentTableRow,
+  getNewMetricRowStates,
+  NewMetricRowState,
+  NewMetricRowsInput,
   NO_DATA_ERROR_MESSAGE,
 } from "@/services/experiments";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
@@ -70,6 +73,7 @@ export interface UseExperimentTableRowsParams {
   enableExpansion?: boolean;
   expandedMetrics: Record<string, boolean>;
   pValueThreshold: number;
+  newMetrics?: NewMetricRowsInput;
 }
 
 export interface UseExperimentTableRowsReturn {
@@ -99,6 +103,7 @@ export function useExperimentTableRows({
   enableExpansion: _enableExpansion = true,
   expandedMetrics,
   pValueThreshold,
+  newMetrics,
 }: UseExperimentTableRowsParams): UseExperimentTableRowsReturn {
   const {
     getExperimentMetricById: _getExperimentMetricById,
@@ -293,6 +298,18 @@ export function useExperimentTableRows({
       metricsFilter,
     ]);
 
+  const newMetricStates = useMemo(
+    () =>
+      newMetrics
+        ? getNewMetricRowStates({
+            ...newMetrics,
+            experiment: { goalMetrics, secondaryMetrics, guardrailMetrics },
+            metricGroups,
+          })
+        : undefined,
+    [newMetrics, goalMetrics, secondaryMetrics, guardrailMetrics, metricGroups],
+  );
+
   const unsortedRows = useMemo<ExperimentTableRow[]>(() => {
     function getRowsForMetricGroup(
       metricIds: string[],
@@ -310,6 +327,7 @@ export function useExperimentTableRows({
         getExperimentMetricById,
         getFactTableById,
         sliceTagsFilter,
+        newMetricStates,
       });
     }
 
@@ -448,6 +466,7 @@ export function useExperimentTableRows({
     customMetricSlices,
     sortBy,
     customMetricOrder,
+    newMetricStates,
   ]);
 
   // Apply sorting using the reusable useTableSorting hook
@@ -479,9 +498,14 @@ export function useExperimentTableRows({
  */
 export function generateRowsForMetricGroup({
   metricIds,
+  newMetricStates,
   ...params
-}: Omit<Parameters<typeof generateRowsForMetric>[0], "metricId"> & {
+}: Omit<
+  Parameters<typeof generateRowsForMetric>[0],
+  "metricId" | "newMetricState"
+> & {
   metricIds: string[];
+  newMetricStates?: Map<string, NewMetricRowState>;
 }): ExperimentTableRow[] {
   const { results, getExperimentMetricById } = params;
   const seen = new Set<string>();
@@ -496,7 +520,11 @@ export function generateRowsForMetricGroup({
     return metrics.flatMap((m) => {
       if (seen.has(m.id)) return [];
       seen.add(m.id);
-      const rows = generateRowsForMetric({ ...params, metricId: m.id });
+      const rows = generateRowsForMetric({
+        ...params,
+        metricId: m.id,
+        newMetricState: newMetricStates?.get(m.id),
+      });
       return replacedByMetricName
         ? rows.map((row) => ({ ...row, replacedByMetricName }))
         : rows;
@@ -532,6 +560,7 @@ export function generateRowsForMetric({
   getExperimentMetricById,
   getFactTableById,
   sliceTagsFilter,
+  newMetricState,
 }: {
   metricId: string;
   resultGroup: "goal" | "secondary" | "guardrail";
@@ -549,6 +578,7 @@ export function generateRowsForMetric({
   getExperimentMetricById: (id: string) => ExperimentMetricDefinition | null;
   getFactTableById: (id: string) => FactTableDefinition | null;
   sliceTagsFilter?: string[];
+  newMetricState?: NewMetricRowState;
 }): ExperimentTableRow[] {
   const resultsArray = Array.isArray(results) ? results : [results];
   const metric = getExperimentMetricById(metricId);
@@ -592,6 +622,30 @@ export function generateRowsForMetric({
     return [];
   }
 
+  const noDataVariations = () =>
+    resultsArray[0].variations.map(() => ({
+      users: 0,
+      value: 0,
+      cr: 0,
+      errorMessage: NO_DATA_ERROR_MESSAGE,
+    }));
+
+  if (newMetricState) {
+    return [
+      {
+        label: newMetric?.name,
+        metric: newMetric,
+        metricOverrideFields: overrideFields,
+        rowClass: newMetric?.inverse ? "inverse" : "",
+        variations: noDataVariations(),
+        metricSnapshotSettings,
+        resultGroup,
+        numChildren: 0,
+        newMetricState,
+      },
+    ];
+  }
+
   // When slice filters are active and metric has slices, make parent row label-only (unless "overall" filter is set)
   const isLabelOnly =
     sliceTagsFilter &&
@@ -609,12 +663,7 @@ export function generateRowsForMetric({
     metricOverrideFields: overrideFields,
     rowClass: newMetric?.inverse ? "inverse" : "",
     variations: isLabelOnly
-      ? resultsArray[0].variations.map(() => ({
-          users: 0,
-          value: 0,
-          cr: 0,
-          errorMessage: NO_DATA_ERROR_MESSAGE,
-        }))
+      ? noDataVariations()
       : resultsArray[0].variations.map((v) => {
           return (
             v.metrics?.[metricId] || {

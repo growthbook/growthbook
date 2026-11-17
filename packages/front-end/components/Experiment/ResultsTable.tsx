@@ -60,6 +60,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import HelperText from "@/ui/HelperText";
+import NewMetricRowStatus from "@/components/Experiment/NewMetricRowStatus";
 import VariationLabel from "@/ui/VariationLabel";
 import { useMetricDrilldownContext } from "@/components/MetricDrilldown/useMetricDrilldownContext";
 import { getTimeSeriesGraphVariations } from "@/services/timeSeriesVariations";
@@ -94,6 +95,8 @@ export type ResultsTableProps = {
   tableRowAxis: "metric" | "dimension";
   labelHeader: ReactElement | string;
   editMetrics?: () => void;
+  onRefreshMetrics?: () => void;
+  onViewRefreshQueries?: () => void;
   resultGroup?: "goal" | "secondary" | "guardrail";
   renderLabelColumn: ({
     label,
@@ -182,6 +185,8 @@ export default function ResultsTable({
   tableRowAxis,
   labelHeader,
   editMetrics,
+  onRefreshMetrics,
+  onViewRefreshQueries,
   variations,
   variationFilter,
   setVariationFilter,
@@ -782,6 +787,7 @@ export default function ResultsTable({
                     showTimeSeriesButtonProp &&
                     isAuthenticated &&
                     baselineRow === 0 &&
+                    !row.newMetricState &&
                     (tableRowAxis === "metric" ||
                       (tableRowAxis === "dimension" && row.isSliceRow));
 
@@ -798,6 +804,11 @@ export default function ResultsTable({
                   let alreadyShownQueryError = false;
                   let alreadyShownQuantileError = false;
                   let alreadyShownComputeError = false;
+                  let alreadyShownNewMetricState = false;
+                  const rowOnClick =
+                    effectiveOnRowClick && !row.newMetricState
+                      ? effectiveOnRowClick
+                      : undefined;
 
                   // In a dimension breakdown the same slice repeats under
                   // every dimension value, so the value is part of its id.
@@ -840,17 +851,17 @@ export default function ResultsTable({
                           <tbody
                             className={clsx("results-group-row", {
                               "child-row": row.isChildRow,
-                              [styles.clickableRow]: !!effectiveOnRowClick,
+                              [styles.clickableRow]: !!rowOnClick,
                             })}
                             key={`${rowId}-tbody`}
                             onClick={
-                              effectiveOnRowClick
+                              rowOnClick
                                 ? (e) => {
                                     const target = e.target as HTMLElement;
                                     // Always cancel the drilldown tooltip: prevents stranding a pending tooltip
                                     onRowClick_();
                                     if (!isInteractiveElement(target)) {
-                                      effectiveOnRowClick(row);
+                                      rowOnClick(row);
                                     }
                                   }
                                 : undefined
@@ -922,6 +933,52 @@ export default function ResultsTable({
                                 const rowResults = rowsResults?.[i]?.[j];
                                 if (!rowResults) {
                                   return null;
+                                }
+                                if (row.newMetricState) {
+                                  if (alreadyShownNewMetricState) return null;
+                                  alreadyShownNewMetricState = true;
+                                  return drawEmptyRow({
+                                    key: j,
+                                    className:
+                                      "results-variation-row align-items-center",
+                                    labelColSpan: includedLabelColumns.length,
+                                    renderLabel:
+                                      includedLabelColumns.length > 0,
+                                    renderGraph:
+                                      columnsToDisplay.includes("CI Graph"),
+                                    renderLastColumn:
+                                      columnsToDisplay.includes("Lift"),
+                                    label: (
+                                      <>
+                                        {compactResults ? (
+                                          <div className="position-relative">
+                                            {renderLabelColumn({
+                                              label: row.label,
+                                              metric: row.metric,
+                                              row,
+                                              location: resultGroup,
+                                            })}
+                                          </div>
+                                        ) : null}
+                                        <NewMetricRowStatus
+                                          state={row.newMetricState}
+                                          onRefreshMetrics={onRefreshMetrics}
+                                          onViewQueries={onViewRefreshQueries}
+                                        />
+                                      </>
+                                    ),
+                                    graphCellWidth: columnsToDisplay.includes(
+                                      "CI Graph",
+                                    )
+                                      ? graphCellWidth
+                                      : 0,
+                                    rowHeight: compactResults
+                                      ? ROW_HEIGHT + 10
+                                      : ROW_HEIGHT,
+                                    id,
+                                    domain,
+                                    ssrPolyfills,
+                                  });
                                 }
                                 if (
                                   rowResults === "query error" ||
