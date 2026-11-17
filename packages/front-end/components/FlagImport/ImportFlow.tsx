@@ -52,6 +52,10 @@ export const plural = (n: number, word: string) =>
 // The rule under each row of a list, as a section's header has.
 const rowRule = { boxShadow: "inset 0 -1px 0 0 var(--gray-a4)" };
 
+// An upload can be imported once, so what was left behind needs a new one.
+// Uploading the same file is safe: Feature Flags that exist are left alone.
+const RETRY = "To try again, rerun the upload to get a new link.";
+
 export function ImportHero({
   eyebrow,
   title,
@@ -462,7 +466,7 @@ export default function ImportFlow({
             {!nothingToImport
               ? "Pick the ones to bring into GrowthBook."
               : !previews.every((f) => existing.has(f.key))
-                ? "None of these can be imported."
+                ? `None of these can be imported. The reasons are listed below. ${RETRY}`
                 : previews.length === 1
                   ? "It's already in GrowthBook, so there's nothing to import."
                   : "They're already in GrowthBook, so there's nothing to import."}
@@ -634,10 +638,6 @@ export default function ImportFlow({
     </>
   );
 }
-
-// An upload can be imported once, so what was left behind needs a new one.
-// Uploading the same file is safe: Feature Flags that exist are left alone.
-const RETRY = "To try again, rerun the upload to get a new link.";
 
 export function ImportDone({
   flagImport,
