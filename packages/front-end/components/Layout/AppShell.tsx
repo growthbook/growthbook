@@ -19,7 +19,7 @@ import LegacyLayout from "./legacy/Layout";
 import LegacyLayoutLite from "./legacy/LayoutLite";
 
 // Past this, with the user and org loaded, the old shell renders.
-const DECISION_TIMEOUT_MS = 3500;
+const DECISION_TIMEOUT_MS = 400;
 // Sets the new shell's sizes in global.scss.
 const NEW_SHELL_CLASS = "app-shell-new";
 
