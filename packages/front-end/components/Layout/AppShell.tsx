@@ -26,7 +26,14 @@ const NEW_SHELL_CLASS = "app-shell-new";
 const AppShellContext = createContext<boolean | null>(null);
 
 // Decides once per mount; ProtectedPage remounts it with each org.
-export function AppShellProvider({ children }: { children: ReactNode }) {
+export function AppShellProvider({
+  organizationRequired,
+  children,
+}: {
+  // Pages that render without an org have no shell and keep the old sizes.
+  organizationRequired: boolean;
+  children: ReactNode;
+}) {
   const growthbook = useGrowthBook();
   const flagOn = useFeatureIsOn("new-app-shell");
   const { ready: userReady, hashedOrganizationId } = useUser();
@@ -44,14 +51,20 @@ export function AppShellProvider({ children }: { children: ReactNode }) {
     growthbook.getAttributes().organizationId === hashedOrganizationId;
   const decidable = orgKnown && growthbook.ready && attributesApplied;
 
-  const decide = useCallback((on: boolean) => {
-    if (decided.current) return;
-    decided.current = true;
-    // Before the shell renders, so nothing under it measures the wrong header;
-    // the effect below only keeps it in step.
-    document.documentElement.classList.toggle(NEW_SHELL_CLASS, on);
-    setNewShell(on);
-  }, []);
+  const decide = useCallback(
+    (on: boolean) => {
+      if (decided.current) return;
+      decided.current = true;
+      // Before the shell renders, so nothing under it measures the wrong
+      // header; the effect below only keeps it in step.
+      document.documentElement.classList.toggle(
+        NEW_SHELL_CLASS,
+        on && organizationRequired,
+      );
+      setNewShell(on);
+    },
+    [organizationRequired],
+  );
 
   useEffect(() => {
     if (decidable) decide(flagOn);
@@ -66,9 +79,9 @@ export function AppShellProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (newShell === null) return;
     const root = document.documentElement;
-    root.classList.toggle(NEW_SHELL_CLASS, newShell);
+    root.classList.toggle(NEW_SHELL_CLASS, newShell && organizationRequired);
     return () => root.classList.remove(NEW_SHELL_CLASS);
-  }, [newShell]);
+  }, [newShell, organizationRequired]);
 
   return (
     <AppShellContext.Provider value={newShell}>

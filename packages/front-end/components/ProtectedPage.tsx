@@ -119,7 +119,10 @@ const ProtectedPage: React.FC<{
 
   return (
     <UserContextProvider key={orgId}>
-      <AppShellProvider>
+      <AppShellProvider
+        key={String(organizationRequired)}
+        organizationRequired={organizationRequired}
+      >
         <LoggedInPageGuard organizationRequired={organizationRequired}>
           <AppShellHelp />
           {!organizationRequired ? (

@@ -29,6 +29,9 @@
   @media (prefers-reduced-motion: reduce) {
     transition: none;
   }
+  :global(html.agent-dock-resizing) & {
+    transition: none;
+  }
   @media (max-width: 1180px) {
     left: 0;
     .mobilemenu.mobilemenu {
