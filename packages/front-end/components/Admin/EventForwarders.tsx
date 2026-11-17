@@ -11,6 +11,7 @@ import {
 } from "@/ui/DropdownMenu";
 import HelperText from "@/ui/HelperText";
 import { EventForwarderEnvironmentSelect } from "@/components/DataSourceSetup/EventForwarderDestinationFields";
+import Callout from "@/ui/Callout";
 import Text from "@/ui/Text";
 
 const SINK_TYPE_LABELS: Record<EventForwarderSinkType, string> = {
@@ -34,14 +35,22 @@ function MigrateEnvironmentField({
 }) {
   const [value, setValue] = useState(initial);
   return (
-    <EventForwarderEnvironmentSelect
-      {...props}
-      value={value}
-      onChange={(v) => {
-        setValue(v);
-        onChange(v);
-      }}
-    />
+    <>
+      {props.others.includes("") && !props.savedAll ? (
+        <Callout status="warning" mb="3">
+          Another Event Forwarder receives all environments. Set it to one
+          environment first, so events are not sent twice.
+        </Callout>
+      ) : null}
+      <EventForwarderEnvironmentSelect
+        {...props}
+        value={value}
+        onChange={(v) => {
+          setValue(v);
+          onChange(v);
+        }}
+      />
+    </>
   );
 }
 

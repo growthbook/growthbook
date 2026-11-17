@@ -3,7 +3,7 @@ import { Box, Grid } from "@radix-ui/themes";
 import { EventForwarderConfigDraft } from "shared/types/event-forwarder";
 import { DocLink } from "@/components/DocLink";
 import TextField from "@/ui/TextField";
-import EventForwarderTableNameField from "./EventForwarderTableNameField";
+import TextFieldWithHelp from "./TextFieldWithHelp";
 
 const SnowflakeEventForwarderForm: FC<{
   eventForwarderConfig: EventForwarderConfigDraft;
@@ -31,7 +31,7 @@ const SnowflakeEventForwarderForm: FC<{
   return (
     <Grid columns="2" gap="4" align="start">
       <Box gridColumn="1 / -1">
-        <EventForwarderTableNameField
+        <TextFieldWithHelp
           label="Snowflake access URL"
           name="eventForwarderSnowflakeUrl"
           value={snowflakeEventForwarderConfig.config.accessUrl || ""}
@@ -64,7 +64,7 @@ const SnowflakeEventForwarderForm: FC<{
         placeholder="GB"
         helpText="GrowthBook creates EVENTS, EXPERIMENT_VIEWED, and FEATURE_USAGE tables using this prefix."
       />
-      <EventForwarderTableNameField
+      <TextFieldWithHelp
         label="Warehouse (optional)"
         name="eventForwarderWarehouse"
         value={snowflakeEventForwarderConfig.config.warehouse || ""}

@@ -93,7 +93,6 @@ export function EventForwarderEnvironmentSelect({
   savedAll = false,
   disabled = false,
   helpText = ENVIRONMENT_HELP_TEXT,
-  allTakenMessage = "Another Event Forwarder receives all environments. Set it to one environment first, so events are not sent twice.",
 }: {
   value: string;
   onChange: (value: string) => void;
@@ -102,39 +101,31 @@ export function EventForwarderEnvironmentSelect({
   savedAll?: boolean;
   disabled?: boolean;
   helpText?: string;
-  allTakenMessage?: string;
 }) {
   const allowAll = !others.length || savedAll;
   return (
-    <>
-      {allTakenMessage && others.includes("") && !savedAll ? (
-        <Callout status="warning" mb="3">
-          {allTakenMessage}
-        </Callout>
-      ) : null}
-      <SelectField
-        size="md"
-        legacyLabelFormatting={false}
-        label="Environment"
-        value={value}
-        onChange={onChange}
-        disabled={disabled}
-        initialOption={allowAll ? "All Environments" : undefined}
-        placeholder="Select an environment"
-        required={!allowAll}
-        markRequired={!allowAll}
-        options={environments.map((e) => {
-          const taken = others.includes(e);
-          return {
-            // In the label: SelectField options have no working tooltip
-            label: taken ? `${e} (used by another Event Forwarder)` : e,
-            value: e,
-            isDisabled: taken,
-          };
-        })}
-        helpText={helpText}
-      />
-    </>
+    <SelectField
+      size="md"
+      legacyLabelFormatting={false}
+      label="Environment"
+      value={value}
+      onChange={onChange}
+      disabled={disabled}
+      initialOption={allowAll ? "All Environments" : undefined}
+      placeholder="Select an environment"
+      required={!allowAll}
+      markRequired={!allowAll}
+      options={environments.map((e) => {
+        const taken = others.includes(e);
+        return {
+          // In the label: SelectField options have no working tooltip
+          label: taken ? `${e} (used by another Event Forwarder)` : e,
+          value: e,
+          isDisabled: taken,
+        };
+      })}
+      helpText={helpText}
+    />
   );
 }
 
@@ -240,7 +231,6 @@ export function EventForwarderEnvironmentField({
         .filter((e) => e.datasourceId !== datasourceId)
         .map((e) => e.environment)}
       savedAll={!!saved && !saved.environment}
-      allTakenMessage=""
       // Moving a live forwarder to one environment drops the rest on save
       helpText={
         saved && value && value !== saved.environment

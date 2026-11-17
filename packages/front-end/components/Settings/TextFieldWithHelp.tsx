@@ -4,9 +4,9 @@ import Text from "@/ui/Text";
 import TextField from "@/ui/TextField";
 
 // Text field whose label carries an info tooltip
-export default function EventForwarderTableNameField({
-  label = "Event Forwarder Table Name",
-  name = "eventForwarderTableName",
+export default function TextFieldWithHelp({
+  label,
+  name,
   value,
   onChange,
   placeholder,
@@ -14,8 +14,8 @@ export default function EventForwarderTableNameField({
   helpText,
   required = true,
 }: {
-  label?: string;
-  name?: string;
+  label: string;
+  name: string;
   value: string;
   onChange: (value: string) => void;
   placeholder?: string;

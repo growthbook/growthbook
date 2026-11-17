@@ -4,7 +4,7 @@ import { EventForwarderConfigDraft } from "shared/types/event-forwarder";
 import { DocLink } from "@/components/DocLink";
 import { EventForwarderLockedField } from "@/components/DataSourceSetup/EventForwarderDestinationFields";
 import LabelWithHelp from "@/ui/LabelWithHelp";
-import EventForwarderTableNameField from "./EventForwarderTableNameField";
+import TextFieldWithHelp from "./TextFieldWithHelp";
 
 const DatabricksEventForwarderForm: FC<{
   eventForwarderConfig: EventForwarderConfigDraft;
@@ -46,7 +46,7 @@ const DatabricksEventForwarderForm: FC<{
             helpText="From your Databricks connection. Change it on the connection settings if needed."
           />
         ) : (
-          <EventForwarderTableNameField
+          <TextFieldWithHelp
             label="Catalog"
             name="eventForwarderDatabricksCatalog"
             value={config.catalog}
@@ -56,7 +56,7 @@ const DatabricksEventForwarderForm: FC<{
           />
         )}
       </Box>
-      <EventForwarderTableNameField
+      <TextFieldWithHelp
         label="Schema"
         name="eventForwarderDatabricksSchema"
         value={config.schema}
@@ -65,7 +65,7 @@ const DatabricksEventForwarderForm: FC<{
         tooltip="An existing schema in the catalog that the service principal can create tables in."
         helpText="Must already exist. We suggest a dedicated schema such as growthbook."
       />
-      <EventForwarderTableNameField
+      <TextFieldWithHelp
         label="Table prefix (optional)"
         name="eventForwarderDatabricksTablePrefix"
         required={false}
@@ -76,7 +76,7 @@ const DatabricksEventForwarderForm: FC<{
         helpText={`Creates ${config.tablePrefix || "gb"}_events, ${config.tablePrefix || "gb"}_experiment_viewed and ${config.tablePrefix || "gb"}_feature_usage.`}
       />
       <Box gridColumn="1 / -1">
-        <EventForwarderTableNameField
+        <TextFieldWithHelp
           label="Zerobus endpoint"
           name="eventForwarderDatabricksZerobusEndpoint"
           value={config.zerobusEndpoint}

@@ -59,7 +59,6 @@ import Checkbox from "@/ui/Checkbox";
 import Heading from "@/ui/Heading";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
-import Tooltip from "@/components/Tooltip/Tooltip";
 import UITooltip from "@/ui/Tooltip";
 import ConfirmDialog from "@/ui/ConfirmDialog";
 import Modal from "@/ui/Modal";
@@ -386,9 +385,11 @@ function SyncSubmittingRef({
 function EventForwarderConfirmButton({
   usEventForwarderFlowConsent,
   editing,
+  region,
 }: {
   usEventForwarderFlowConsent: boolean;
   editing: boolean;
+  region: DataRegion;
 }) {
   const { loading } = useModalForm();
 
@@ -401,10 +402,10 @@ function EventForwarderConfirmButton({
   }
 
   return (
-    <Tooltip
-      body="Acknowledge US data flow and authorization to use Confirm."
-      shouldDisplay={!usEventForwarderFlowConsent}
-      tipPosition="top"
+    <UITooltip
+      content={`Confirm that event data flows through GrowthBook's servers in ${getDataRegionLabel(region)} to continue.`}
+      enabled={!usEventForwarderFlowConsent}
+      side="top"
     >
       <Button
         type="submit"
@@ -415,7 +416,7 @@ function EventForwarderConfirmButton({
       >
         Confirm
       </Button>
-    </Tooltip>
+    </UITooltip>
   );
 }
 
@@ -539,6 +540,13 @@ function EventForwarderModal({
           if (!nextOpen) attemptClose();
         }}
         size="lg"
+        // First field, not the label's help icon, whose tooltip would pop open
+        onOpenAutoFocus={(e) => {
+          e.preventDefault();
+          (e.currentTarget as HTMLElement)
+            .querySelector<HTMLElement>("input:not([disabled])")
+            ?.focus();
+        }}
         trackingEventModalType=""
       >
         <ModalForm
@@ -695,6 +703,7 @@ function EventForwarderModal({
             <EventForwarderConfirmButton
               usEventForwarderFlowConsent={usEventForwarderFlowConsent}
               editing={isEditingEventForwarder}
+              region={eventForwarderConfig?.region ?? DEFAULT_DATA_REGION}
             />
           </Modal.Footer>
         </ModalForm>
