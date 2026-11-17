@@ -5,6 +5,7 @@ import { BsThreeDotsVertical } from "react-icons/bs";
 import { useAuth } from "@/services/auth";
 import { useSearch } from "@/services/search";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import { useUser } from "@/services/UserContext";
 import Field from "@/components/Forms/Field";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import InlineCode from "@/components/SyntaxHighlighting/InlineCode";
@@ -37,6 +38,7 @@ function VirtualColumnRowMenu({
   const [open, setOpen] = useState(false);
   const { apiCall } = useAuth();
   const { mutateDefinitions } = useDefinitions();
+  const { hasCommercialFeature } = useUser();
 
   return (
     <DropdownMenu
@@ -67,6 +69,7 @@ function VirtualColumnRowMenu({
           </DropdownMenuItem>
         )}
         {canEdit &&
+          hasCommercialFeature("metric-slices") &&
           (column.datatype === "string" || column.datatype === "boolean") && (
             <DropdownMenuItem
               onClick={() => {
