@@ -1,6 +1,5 @@
 import { useEffect } from "react";
 import { getSnapshotAnalysis } from "shared/util";
-import { getMetricRefresh } from "shared/experiments";
 import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
 import { useAuth } from "@/services/auth";
 import { analysisUpdate } from "@/services/snapshots";
@@ -9,12 +8,16 @@ export function useKeepAnalysisSelectionAcrossMetricRefresh(
   onFailure: () => void,
 ) {
   const { apiCall } = useAuth();
-  const { snapshot, analysisSettings, setAnalysisSettings, phase, mutate } =
-    useSnapshot();
+  const {
+    refreshAwaitingSelectedAnalysis: snapshot,
+    analysisSettings,
+    setAnalysisSettings,
+    phase,
+    mutate,
+  } = useSnapshot();
 
   useEffect(() => {
-    if (!snapshot || !getMetricRefresh(snapshot) || !analysisSettings) return;
-    if (getSnapshotAnalysis(snapshot, analysisSettings)) return;
+    if (!snapshot || !analysisSettings) return;
     const defaultAnalysis = getSnapshotAnalysis(snapshot);
     if (!defaultAnalysis) return;
     const selected = {

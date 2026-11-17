@@ -51,6 +51,18 @@ export async function analysisUpdate(
   return status;
 }
 
+export function isAwaitingSelectedAnalysis(
+  snapshot: ExperimentSnapshotInterface | undefined,
+  analysisSettings: ExperimentSnapshotAnalysisSettings | null | undefined,
+): boolean {
+  return (
+    !!snapshot &&
+    !!getMetricRefresh(snapshot) &&
+    !!analysisSettings &&
+    !getSnapshotAnalysis(snapshot, analysisSettings)
+  );
+}
+
 export function getSnapshotFreshnessInputs(
   snapshot: Pick<
     ExperimentSnapshotInterface,

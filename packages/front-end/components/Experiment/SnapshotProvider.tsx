@@ -1,4 +1,10 @@
-import React, { useState, ReactNode, useContext, useCallback } from "react";
+import React, {
+  useState,
+  ReactNode,
+  useContext,
+  useCallback,
+  useEffect,
+} from "react";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import {
   SnapshotType,
@@ -14,6 +20,7 @@ import {
 import { getSnapshotAnalysis } from "shared/util";
 import useApi from "@/hooks/useApi";
 import { useAuth } from "@/services/auth";
+import { isAwaitingSelectedAnalysis } from "@/services/snapshots";
 import {
   useCoherentLatest,
   useRefetchHeavyOnStatusSuccess,
@@ -24,6 +31,7 @@ const snapshotContext = React.createContext<{
   snapshot?: ExperimentSnapshotInterface;
   analysis?: ExperimentSnapshotAnalysis | undefined;
   dimensionless?: ExperimentSnapshotInterface;
+  refreshAwaitingSelectedAnalysis?: ExperimentSnapshotInterface;
 
   latestSummary?: SnapshotStatusSummary;
   // Refreshes the snapshot data exposed by this provider.
@@ -208,17 +216,6 @@ export default function SnapshotProvider({
     [mutateHeavy, mutateStatus],
   );
 
-  const statusLatest = statusData?.latest ?? undefined;
-  const snapshotId = data?.snapshot?.id;
-  const heavyCaughtUp = heavyReflectsStatus(statusLatest, snapshotId);
-  useRefetchHeavyOnStatusSuccess(
-    statusLatest,
-    heavyCaughtUp,
-    isValidating,
-    mutateHeavy,
-  );
-  const latest = useCoherentLatest(statusLatest, heavyCaughtUp) ?? undefined;
-
   const defaultAnalysisSettings = data?.snapshot
     ? getSnapshotAnalysis(data?.snapshot)?.settings
     : null;
@@ -226,24 +223,51 @@ export default function SnapshotProvider({
     defaultAnalysisSettings,
   );
 
-  const dimensionlessSnapshot = data?.dimensionless ?? data?.snapshot;
+  const awaitingSelectedAnalysis = isAwaitingSelectedAnalysis(
+    data?.snapshot,
+    analysisSettings,
+  );
+  const [shownData, setShownData] = useState(data);
+  useEffect(() => {
+    if (!awaitingSelectedAnalysis) setShownData(data);
+  }, [data, awaitingSelectedAnalysis]);
+  const displayedData = awaitingSelectedAnalysis ? shownData : data;
+
+  const statusLatest = statusData?.latest ?? undefined;
+  useRefetchHeavyOnStatusSuccess(
+    statusLatest,
+    heavyReflectsStatus(statusLatest, data?.snapshot?.id),
+    isValidating,
+    mutateHeavy,
+  );
+  const latest =
+    useCoherentLatest(
+      statusLatest,
+      heavyReflectsStatus(statusLatest, displayedData?.snapshot?.id),
+    ) ?? undefined;
+
+  const snapshot = displayedData?.snapshot;
+  const dimensionlessSnapshot = displayedData?.dimensionless ?? snapshot;
   const precomputedUnitDimensionIds = getPrecomputedUnitDimensionIds(
     experiment,
-    data?.snapshot,
+    snapshot,
     dimensionlessSnapshot,
   );
-  const sourceSnapshot = getExperimentSourceSnapshotRef(data?.snapshot);
+  const sourceSnapshot = getExperimentSourceSnapshotRef(snapshot);
 
   return (
     <snapshotContext.Provider
       value={{
         experiment,
-        snapshot: data?.snapshot,
+        snapshot,
         dimensionless: dimensionlessSnapshot,
+        refreshAwaitingSelectedAnalysis: awaitingSelectedAnalysis
+          ? data?.snapshot
+          : undefined,
         latestSummary: latest,
-        analysis: data?.snapshot
+        analysis: snapshot
           ? ((getSnapshotAnalysis(
-              data?.snapshot,
+              snapshot,
               analysisSettings,
             ) as ExperimentSnapshotAnalysis) ?? undefined)
           : undefined,
@@ -252,7 +276,7 @@ export default function SnapshotProvider({
         dimension,
         analysisSettings,
         precomputedDimensions: getPrecomputedDimensions(
-          data?.snapshot,
+          snapshot,
           dimensionlessSnapshot,
         ),
         precomputedUnitDimensionIds,
