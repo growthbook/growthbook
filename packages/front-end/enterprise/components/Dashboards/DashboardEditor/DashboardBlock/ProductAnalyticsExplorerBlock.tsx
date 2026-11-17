@@ -23,10 +23,14 @@ import {
   computeExplorationComparisonPayload,
   DashboardBlockInterfaceOrData,
   withRequestedDisplayConfig,
+  buildComparisonExplorationConfig,
+  resolveComparisonPreviousTimeFrame,
 } from "shared/enterprise";
 import { isEqual } from "lodash";
 import {
+  ComparisonMode,
   ExplorationConfig,
+  ExplorationDateRange,
   ProductAnalyticsExploration,
 } from "shared/validators";
 import { QueryInterface } from "shared/types/query";
@@ -62,12 +66,20 @@ function pollDelayForExploration(
 // so each tile offers its own.
 export const DashboardHeaderlessContext = createContext(false);
 
-// Runs a tile from its own config. With checkCache, the first load reads a
-// cached result, which only needs read access. run() queries the warehouse.
-// Either one stores the exploration id, and the tile's useApi request polls it
-// like a saved one.
-// shortcut: no comparison period; add one once the fact table page's runner lands.
-function useTileRun(config: ExplorationConfig | null, checkCache: boolean) {
+type TileComparison = {
+  previousTimeFrame: ExplorationDateRange;
+  comparisonMode: ComparisonMode;
+};
+
+// Runs a tile from its own config, with its comparison period when it has one.
+// With checkCache, the first load reads cached results, which only needs read
+// access. run() queries the warehouse. Either one stores the exploration ids,
+// and the tile's useApi requests poll them like saved ones.
+function useTileRun(
+  config: ExplorationConfig | null,
+  comparison: TileComparison | null,
+  checkCache: boolean,
+) {
   const { apiCall } = useAuth();
   const { fetchData } = useExploreData();
   // Both change whenever the sign-in token refreshes, and that shouldn't
@@ -78,62 +90,94 @@ function useTileRun(config: ExplorationConfig | null, checkCache: boolean) {
     apiCallRef.current = apiCall;
     fetchDataRef.current = fetchData;
   }, [apiCall, fetchData]);
-  const [explorationId, setExplorationId] = useState<string | null>(null);
+  const [ids, setIds] = useState<{
+    exploration: string;
+    comparison: string | null;
+  } | null>(null);
   // Starts true so the empty state doesn't flash before the cache check
   const [loading, setLoading] = useState(config !== null && checkCache);
   const [error, setError] = useState<string | null>(null);
   // Callers may rebuild an equal config every render
-  const configKey = config ? JSON.stringify(config) : null;
+  const key = config ? JSON.stringify({ config, comparison }) : null;
 
-  // The config the latest request belongs to; null once unmounted.
+  // The key the latest request belongs to; null once unmounted.
   const latestKey = useRef<string | null>(null);
 
   const readCache = useCallback(async () => {
-    if (!configKey) return;
+    if (!key) return;
+    const request: {
+      config: ExplorationConfig;
+      comparison: TileComparison | null;
+    } = JSON.parse(key);
     setLoading(true);
     // Stays silent: a block that isn't set up yet fails the check, and that
     // should read as no results, not an error.
-    const id = await apiCallRef
-      .current<{ exploration: ProductAnalyticsExploration | null }>(
-        "/product-analytics/cached",
-        {
-          method: "POST",
-          body: JSON.stringify({ config: JSON.parse(configKey) }),
-        },
-      )
-      .then((res) => res.exploration?.id ?? null)
-      .catch(() => null);
+    const readId = (config: ExplorationConfig) =>
+      apiCallRef
+        .current<{ exploration: ProductAnalyticsExploration | null }>(
+          "/product-analytics/cached",
+          { method: "POST", body: JSON.stringify({ config }) },
+        )
+        .then((res) => res.exploration?.id ?? null)
+        .catch(() => null);
+    const [id, comparisonId] = await Promise.all([
+      readId(request.config),
+      request.comparison
+        ? readId(
+            buildComparisonExplorationConfig(
+              request.config,
+              request.comparison.previousTimeFrame,
+            ),
+          )
+        : null,
+    ]);
     // The config changed while this ran, so the result is for an old config.
-    if (latestKey.current !== configKey) return;
-    if (id) setExplorationId(id);
+    if (latestKey.current !== key) return;
+    if (id) setIds({ exploration: id, comparison: comparisonId });
     setLoading(false);
-  }, [configKey]);
+  }, [key]);
 
   const run = useCallback(async () => {
-    if (!configKey) return;
+    if (!key) return;
+    const request: {
+      config: ExplorationConfig;
+      comparison: TileComparison | null;
+    } = JSON.parse(key);
     setError(null);
     setLoading(true);
-    const result = await fetchDataRef.current(JSON.parse(configKey), {
+    const result = await fetchDataRef.current(request.config, {
       cache: "preferred",
+      previousTimeFrame: request.comparison?.previousTimeFrame ?? null,
+      comparisonMode: request.comparison?.comparisonMode ?? null,
     });
-    if (latestKey.current !== configKey) return;
-    if (result.data?.id) setExplorationId(result.data.id);
-    else if (result.error) setError(result.error);
+    if (latestKey.current !== key) return;
+    if (result.data?.id) {
+      setIds({
+        exploration: result.data.id,
+        comparison: result.comparison?.exploration?.id ?? null,
+      });
+    } else if (result.error) setError(result.error);
     setLoading(false);
-  }, [configKey]);
+  }, [key]);
 
   useEffect(() => {
-    latestKey.current = configKey;
-    setExplorationId(null);
+    latestKey.current = key;
+    setIds(null);
     setError(null);
     if (checkCache) readCache();
     else setLoading(false);
     return () => {
       latestKey.current = null;
     };
-  }, [configKey, checkCache, readCache]);
+  }, [key, checkCache, readCache]);
 
-  return { explorationId, loading, error, run };
+  return {
+    explorationId: ids?.exploration ?? null,
+    comparisonExplorationId: ids?.comparison ?? null,
+    loading,
+    error,
+    run,
+  };
 }
 
 export default function ProductAnalyticsExplorerBlock({
@@ -213,9 +257,40 @@ export function ProductAnalyticsExplorerVisualization({
       runDatasource,
       runConfig.type,
     );
-  const tileRun = useTileRun(runConfig, !block.explorerAnalysisId);
-  // A result the tile ran replaces the stored one.
+  // Pass the dashboard, or a dashboard-wide comparison renders as primary-only.
+  // The previous-period exploration is a separate entity produced on refresh.
+  const comparison = resolveBlockComparison(block, {
+    comparison: dashboardComparison,
+  });
+  const compareEnabled = !!comparison?.enabled;
+  const comparisonMode = comparison
+    ? resolveComparisonMode(comparison)
+    : "previousPeriod";
+  // The tile runs the comparison period too, so its trends match the dates
+  // it ran with.
+  const tileComparison = useMemo(
+    () =>
+      runConfig && comparison?.enabled
+        ? {
+            previousTimeFrame: resolveComparisonPreviousTimeFrame(
+              runConfig.dateRange,
+              comparison,
+            ),
+            comparisonMode,
+          }
+        : null,
+    [runConfig, comparison, comparisonMode],
+  );
+  const tileRun = useTileRun(
+    runConfig,
+    tileComparison,
+    !block.explorerAnalysisId,
+  );
+  // A result the tile ran replaces the stored one, comparison included.
   const explorationId = tileRun.explorationId || block.explorerAnalysisId;
+  const comparisonExplorationId = tileRun.explorationId
+    ? tileRun.comparisonExplorationId
+    : block.comparisonExplorerAnalysisId;
   const { data, error, isLoading } = useApi<{
     status: number;
     exploration: ProductAnalyticsExploration;
@@ -239,27 +314,22 @@ export function ProductAnalyticsExplorerVisualization({
     [fetchedExploration, tileRun.explorationId, runConfig],
   );
 
-  // Pass the dashboard, or a dashboard-wide comparison renders as primary-only.
-  // The previous-period exploration is a separate entity produced on refresh.
-  const comparison = resolveBlockComparison(block, {
-    comparison: dashboardComparison,
-  });
-  const compareEnabled = !!comparison?.enabled;
-  const comparisonMode = comparison
-    ? resolveComparisonMode(comparison)
-    : "previousPeriod";
   const { data: comparisonData } = useApi<{
     status: number;
     exploration: ProductAnalyticsExploration;
     query: QueryInterface | null;
-  }>(`/product-analytics/exploration/${block.comparisonExplorerAnalysisId}`, {
-    shouldRun: () => compareEnabled && !!block.comparisonExplorerAnalysisId,
+  }>(`/product-analytics/exploration/${comparisonExplorationId}`, {
+    shouldRun: () => compareEnabled && !!comparisonExplorationId,
     refreshInterval: (latest) => pollDelayForExploration(latest?.exploration),
   });
   const rawComparisonExploration = comparisonData?.exploration ?? null;
   // The resolved previous window lives on the comparison exploration's config.
+  // A cache hit keeps its stored dates, so a tile run uses the window it asked
+  // for.
   const submittedPreviousTimeFrame =
-    rawComparisonExploration?.config?.dateRange ?? null;
+    tileRun.explorationId && tileComparison
+      ? tileComparison.previousTimeFrame
+      : (rawComparisonExploration?.config?.dateRange ?? null);
 
   // Dashboard blocks fetch the saved primary + previous explorations directly,
   // bypassing POST /product-analytics/run — where the live Explorer builds its
@@ -336,29 +406,38 @@ export function ProductAnalyticsExplorerVisualization({
   // Without the dashboard header, the tile offers its own Update button. With
   // the header, its Update covers every block, so the tile doesn't add one.
   const tileUpdates = headerless && !!runConfig;
-  const updatePrompt = (message: string, status: "info" | "error" = "info") => (
-    <Flex direction="column" align="center" gap="3" p="4">
-      {tileRun.error ? (
-        <Callout status="error">{tileRun.error}</Callout>
-      ) : !runDatasource ? (
-        <Callout status="warning">
-          {message} The Data Source for this block can&apos;t be found.
+  const updatePrompt = (message: string, status: "info" | "error" = "info") => {
+    const [calloutStatus, text] = tileRun.error
+      ? (["error", tileRun.error] as const)
+      : !runDatasource
+        ? ([
+            "warning",
+            `${message} The Data Source for this block can't be found.`,
+          ] as const)
+        : canRun
+          ? ([status, message] as const)
+          : ([
+              status,
+              `${message} Ask someone who can run queries on this Data Source to update it.`,
+            ] as const);
+    return (
+      <Flex direction="column" align="center" gap="3" p="4">
+        <Callout
+          status={calloutStatus}
+          contentAlign="center"
+          action={
+            canRun ? (
+              <Button variant="outline" size="sm" onClick={tileRun.run}>
+                Update
+              </Button>
+            ) : undefined
+          }
+        >
+          {text}
         </Callout>
-      ) : canRun ? (
-        <Callout status={status}>{message}</Callout>
-      ) : (
-        <Callout status={status}>
-          {message} Ask someone who can run queries on this Data Source to
-          update it.
-        </Callout>
-      )}
-      {canRun && (
-        <Button variant="outline" onClick={tileRun.run}>
-          Update
-        </Button>
-      )}
-    </Flex>
-  );
+      </Flex>
+    );
+  };
 
   if (tileUpdates && !explorationId) {
     return updatePrompt("No results yet.");
