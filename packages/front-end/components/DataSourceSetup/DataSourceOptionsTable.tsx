@@ -1,6 +1,6 @@
 import { ReactNode, useState } from "react";
 import { useRouter } from "next/router";
-import { Flex } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import {
   PiArrowSquareOut,
   PiCheck,
@@ -25,12 +25,11 @@ import Button from "@/ui/Button";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
 import { dataSourceConnections } from "@/services/eventSchema";
+import { isCloud } from "@/services/env";
 import { DocLink, DocSection } from "@/components/DocLink";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 import { GBPremiumBadge } from "@/components/Icons";
-import { useDefinitions } from "@/services/DefinitionsContext";
-import NewDataSourceForm from "@/components/Settings/NewDataSourceForm";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import {
   DataSourceOptionKey,
@@ -40,6 +39,7 @@ import { useDataSourceOptionPricing } from "./useDataSourceOptionPricing";
 import SampleDataSourceLink from "./SampleDataSourceLink";
 import ManagedWarehouseModal from "./ManagedWarehouseModal";
 import CustomDataSourceModal from "./CustomDataSourceModal";
+import EventForwarderModal from "./EventForwarderModal";
 
 const OPTION_KEYS: DataSourceOptionKey[] = [
   "managed",
@@ -149,9 +149,11 @@ const COMPARISON_ROWS: {
 function OptionHead({
   option,
   upgradeRequired,
+  cloudOnly,
 }: {
   option: DataSourceOptionKey;
   upgradeRequired: boolean;
+  cloudOnly: boolean;
 }) {
   const { icon, name, badge, description, docSection, commercialFeature } =
     OPTION_HEADS[option];
@@ -178,7 +180,11 @@ function OptionHead({
           <PaidFeatureBadge commercialFeature={commercialFeature} />
         ) : null}
       </Flex>
-      <Badge label={badge} color="violet" variant="soft" />
+      {cloudOnly ? (
+        <Badge label="Cloud only" color="gray" variant="soft" />
+      ) : (
+        <Badge label={badge} color="violet" variant="soft" />
+      )}
       <Text color="text-mid" weight="regular">
         {description}{" "}
         <DocLink docSection={docSection}>
@@ -238,13 +244,12 @@ function ComparisonCellContent({ indicator, text, detail }: ComparisonCell) {
 
 export default function DataSourceOptionsTable() {
   const router = useRouter();
-  const { mutateDefinitions } = useDefinitions();
   const eligibility = useDataSourceOptionEligibility();
   const { pricing, showPricing, pricingFootnote } =
     useDataSourceOptionPricing();
 
   const [managedWarehouseOpen, setManagedWarehouseOpen] = useState(false);
-  const [newDataSourceFormOpen, setNewDataSourceFormOpen] = useState(false);
+  const [eventForwarderOpen, setEventForwarderOpen] = useState(false);
   const [customDataSourceOpen, setCustomDataSourceOpen] = useState(false);
   const [upgradeOpen, setUpgradeOpen] = useState(false);
 
@@ -257,7 +262,7 @@ export default function DataSourceOptionsTable() {
     "event-forwarder": {
       label: "Set up Event Forwarder",
       variant: "outline",
-      onClick: () => setNewDataSourceFormOpen(true),
+      onClick: () => setEventForwarderOpen(true),
     },
     custom: {
       label: "Set up Custom Data Source",
@@ -285,6 +290,7 @@ export default function DataSourceOptionsTable() {
           icon: <GBPremiumBadge />,
           onClick: () => setUpgradeOpen(true),
         };
+      case "cloud-only":
       case "unavailable":
         return { ...setUpActions[option], reason: availability.reason };
     }
@@ -320,15 +326,14 @@ export default function DataSourceOptionsTable() {
           close={() => setManagedWarehouseOpen(false)}
         />
       ) : null}
-      {newDataSourceFormOpen ? (
-        <NewDataSourceForm
+      {eventForwarderOpen ? (
+        <EventForwarderModal
           source="datasource-options"
-          showImportSampleData={false}
-          onSuccess={async (id) => {
-            await mutateDefinitions({});
-            await router.push(`/datasources/${id}`);
+          close={() => setEventForwarderOpen(false)}
+          onSwitchToCustom={() => {
+            setEventForwarderOpen(false);
+            setCustomDataSourceOpen(true);
           }}
-          onCancel={() => setNewDataSourceFormOpen(false)}
         />
       ) : null}
       {customDataSourceOpen ? (
@@ -349,82 +354,85 @@ export default function DataSourceOptionsTable() {
         Choose How to Connect Your Data
       </Heading>
       <Text as="p" color="text-mid" mb="2">
-        All three options use the same stats engine and experiment reports. You
-        can add more Data Sources later.
+        {isCloud()
+          ? "All three options use the same stats engine and experiment reports. You can add more Data Sources later."
+          : "Custom connects to your warehouse. Managed Warehouse and Event Forwarder are available on GrowthBook Cloud. You can add more Data Sources later."}
       </Text>
       <SampleDataSourceLink />
 
-      <Table
-        variant="surface"
-        layout="fixed"
-        style={{ minWidth: 820, maxWidth: 1200 }}
-      >
-        <TableHeader>
-          <TableRow align="start">
-            <TableColumnHeader style={{ width: 190 }} />
-            {OPTION_KEYS.map((option) => (
-              <TableColumnHeader key={option} style={OPTION_COLUMN_STYLE}>
-                <OptionHead
-                  option={option}
-                  upgradeRequired={
-                    eligibility[option].status === "upgrade-required"
-                  }
-                />
-              </TableColumnHeader>
+      <Box overflowX="auto">
+        <Table variant="surface" layout="fixed" style={{ minWidth: 820 }}>
+          <TableHeader>
+            <TableRow align="start">
+              <TableColumnHeader style={{ width: 190 }} />
+              {OPTION_KEYS.map((option) => (
+                <TableColumnHeader key={option} style={OPTION_COLUMN_STYLE}>
+                  <OptionHead
+                    option={option}
+                    upgradeRequired={
+                      eligibility[option].status === "upgrade-required"
+                    }
+                    cloudOnly={eligibility[option].status === "cloud-only"}
+                  />
+                </TableColumnHeader>
+              ))}
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {COMPARISON_ROWS.map((row) => (
+              <TableRow key={row.label} align="center">
+                <TableRowHeaderCell>
+                  <Text weight="medium">
+                    {row.tooltip ? (
+                      <LabelWithTooltip
+                        label={row.label}
+                        tooltip={row.tooltip}
+                      />
+                    ) : (
+                      row.label
+                    )}
+                  </Text>
+                </TableRowHeaderCell>
+                {OPTION_KEYS.map((option) => (
+                  <TableCell key={option} style={OPTION_COLUMN_STYLE}>
+                    <ComparisonCellContent {...row.cells[option]} />
+                  </TableCell>
+                ))}
+              </TableRow>
             ))}
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {COMPARISON_ROWS.map((row) => (
-            <TableRow key={row.label} align="center">
-              <TableRowHeaderCell>
-                <Text weight="medium">
-                  {row.tooltip ? (
-                    <LabelWithTooltip label={row.label} tooltip={row.tooltip} />
-                  ) : (
-                    row.label
-                  )}
-                </Text>
-              </TableRowHeaderCell>
+            {showPricing ? (
+              <TableRow align="center">
+                <TableRowHeaderCell>
+                  <Text weight="medium">Event pricing</Text>
+                </TableRowHeaderCell>
+                {OPTION_KEYS.map((option) => {
+                  const { headline, detail } = pricing[option];
+                  return (
+                    <TableCell key={option} style={OPTION_COLUMN_STYLE}>
+                      <Text as="div" weight="semibold">
+                        {headline}
+                      </Text>
+                      {detail ? (
+                        <Text as="div" color="text-mid">
+                          {detail}
+                        </Text>
+                      ) : null}
+                    </TableCell>
+                  );
+                })}
+              </TableRow>
+            ) : null}
+            <TableRow align="start">
+              <TableRowHeaderCell />
               {OPTION_KEYS.map((option) => (
                 <TableCell key={option} style={OPTION_COLUMN_STYLE}>
-                  <ComparisonCellContent {...row.cells[option]} />
+                  {renderAction(option)}
                 </TableCell>
               ))}
             </TableRow>
-          ))}
-          {showPricing ? (
-            <TableRow align="center">
-              <TableRowHeaderCell>
-                <Text weight="medium">Event pricing</Text>
-              </TableRowHeaderCell>
-              {OPTION_KEYS.map((option) => {
-                const { headline, detail } = pricing[option];
-                return (
-                  <TableCell key={option} style={OPTION_COLUMN_STYLE}>
-                    <Text as="div" weight="semibold">
-                      {headline}
-                    </Text>
-                    {detail ? (
-                      <Text as="div" color="text-mid">
-                        {detail}
-                      </Text>
-                    ) : null}
-                  </TableCell>
-                );
-              })}
-            </TableRow>
-          ) : null}
-          <TableRow align="start">
-            <TableRowHeaderCell />
-            {OPTION_KEYS.map((option) => (
-              <TableCell key={option} style={OPTION_COLUMN_STYLE}>
-                {renderAction(option)}
-              </TableCell>
-            ))}
-          </TableRow>
-        </TableBody>
-      </Table>
+          </TableBody>
+        </Table>
+      </Box>
       {pricingFootnote ? (
         <Text as="p" size="sm" color="text-mid" mt="3">
           {pricingFootnote}

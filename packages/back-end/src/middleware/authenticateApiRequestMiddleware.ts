@@ -123,8 +123,12 @@ function authenticateWithJwt(
       };
 
       req.apiKey = "";
-      req.user = authReq.currentUser
-        ? (await getUserById(authReq.currentUser.id)) || undefined
+      const dbUser = authReq.currentUser
+        ? await getUserById(authReq.currentUser.id)
+        : null;
+      // processJWT may have demoted super admin for this login; the stored value must not restore it
+      req.user = dbUser
+        ? { ...dbUser, superAdmin: authReq.superAdmin ?? false }
         : undefined;
       req.organization = context.org;
       req.eventAudit = eventAudit;

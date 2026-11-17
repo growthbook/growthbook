@@ -5,7 +5,7 @@ import {
   LinkedFeatureEnvState,
 } from "shared/types/experiment";
 import type { ExperimentRuleEnvironments } from "shared/validators";
-import { PiCaretDown, PiCaretRight } from "react-icons/pi";
+import { PiArrowRight, PiCaretDown, PiCaretRight } from "react-icons/pi";
 import { Fragment, ReactNode, useState } from "react";
 import {
   FaCircleCheck,
@@ -200,6 +200,15 @@ function EnvironmentSetting({ value }: { value: boolean | null }) {
   );
 }
 
+// Between an environment's gates: it's active once it passes both.
+function FlowArrow() {
+  return (
+    <Flex align="center" justify="center" aria-hidden>
+      <PiArrowRight size={12} style={{ color: "var(--gray-8)" }} />
+    </Flex>
+  );
+}
+
 function EnvironmentName({
   env,
   isActive,
@@ -241,8 +250,8 @@ export function EnvironmentInputsPopover({
       content={
         <Flex direction="column" gap="2" width="fit-content">
           <Grid
-            columns="max-content 40px 40px max-content"
-            gapX="4"
+            columns="max-content 14px 12px 14px 12px max-content"
+            gapX="3"
             gapY="2"
             align="center"
           >
@@ -252,11 +261,13 @@ export function EnvironmentInputsPopover({
                 Flag
               </Text>
             </Flex>
+            <Box />
             <Flex justify="center">
               <Text size="sm" color="text-low">
                 Rule
               </Text>
             </Flex>
+            <Box />
             <Box />
             {environmentStates.map(({ env, state, isActive }) => {
               const input = environmentInputs?.[env];
@@ -266,9 +277,11 @@ export function EnvironmentInputsPopover({
                   <EnvironmentSetting
                     value={input ? input.flagEnabled : null}
                   />
+                  <FlowArrow />
                   <EnvironmentSetting
                     value={input ? input.rule === "on" : null}
                   />
+                  <FlowArrow />
                   <Flex align="center" gap="1">
                     <EnvironmentStateIcon isActive={isActive} />
                     <Text size="sm" weight="medium">

@@ -1,0 +1,138 @@
+---
+title: Custom Remote Group Lookups and Storage
+description: Look up users' Remote Groups yourself, with the JavaScript SDK, your own resolver, or your own storage and loader.
+sidebarTitle: Custom Lookups and Storage
+---
+
+Without the [GrowthBook Proxy's remote evaluation](/features/remote-saved-groups-proxy), your code looks up which [Remote Groups](/features/remote-saved-groups) a user is in before evaluating. That needs two parts:
+
+- **IDs in a store you can query.** Use GrowthBook's Redis loader, or load uploads into your own storage. If the IDs already live in your own database or cache, you don't need to upload them at all.
+- **A lookup before evaluating.** Use the JavaScript SDK's resolver, or set the user's groups yourself in any SDK.
+
+Rules check Remote Groups against the user's list of group IDs, in the internal `__gb_remoteGroupIds` attribute. Rules that use a Remote Group match no one until that list is set.
+
+## Loading IDs
+
+### With GrowthBook's Redis Loader
+
+The loader polls GrowthBook for each Remote Group's version, downloads new versions, and loads them into Redis. Several loaders can share a Redis; they take turns loading each group. Run it one of these ways:
+
+- **On its own**, with the [`@growthbook/remote-saved-groups-redis-loader`](https://www.npmjs.com/package/@growthbook/remote-saved-groups-redis-loader) package. Run its command, or start it from your own Node.js service. It uses the same settings as the Proxy:
+
+  ```bash
+  GROWTHBOOK_API_HOST=https://api.growthbook.io \
+  SECRET_API_KEY=secret_... \
+  REMOTE_SAVED_GROUPS_STORE_ID=redis-us-east \
+  REMOTE_SAVED_GROUPS_CONNECTION_URL=redis://localhost:6379 \
+  npx @growthbook/remote-saved-groups-redis-loader
+  ```
+
+- **In the GrowthBook Proxy**, with `REMOTE_SAVED_GROUPS_LOADER_ONLY=true`, so it only loads IDs. See [Loading IDs into Redis](/features/remote-saved-groups-proxy#loading-ids-into-redis) for the settings, store IDs and Redis requirements.
+
+The API key needs permission to publish Saved Groups to report what it loaded. With a read-only key, it still loads but doesn't report.
+
+### With Your Own Loader
+
+To load uploaded IDs into your own store:
+
+1. Poll `GET /api/v1/saved-groups?type=remote&limit=100`. The response is paginated: while `hasMore` is true, fetch the next page by passing `nextOffset` as `offset`. Each group's `currentUpload` has the `version` it uses, or is `null` when it uses none. Archived groups are included. Only after every page succeeds, remove the IDs of groups missing from the complete list.
+2. Download a version with `GET /api/v1/saved-groups/{id}/uploads/{version}/file`. It redirects to a short-lived download URL; follow the redirect without the `Authorization` header.
+3. Load the IDs. Remove duplicates, and when `currentUpload.numeric` is true, store numbers in their shortest form (`String(Number(id))`).
+4. Optionally report the result with `POST /api/v1/saved-groups/{id}/uploads/{version}/loads`, so it shows in GrowthBook.
+
+The version a group uses can move back to an earlier one. Load whichever version `currentUpload` names.
+
+To read files the same way GrowthBook does, use the [`@growthbook/remote-saved-groups-csv-parser`](https://www.npmjs.com/package/@growthbook/remote-saved-groups-csv-parser) package. It parses and validates a file as a stream, gives each ID in the form to store, and converts attribute values for lookups with `toRemoteGroupKey`.
+
+## Looking Up a User's Groups
+
+### JavaScript SDK
+
+The JavaScript SDK (version 2.0.0 or later) can look up a user's groups with a resolver. On the SDK Connection, set **Pass Saved Groups by reference** to **All Saved Groups**, so the payload lists the Remote Groups and their attributes.
+
+For a Node.js server with `GrowthBookClient`, add the user's groups to the user context before evaluating:
+
+```ts
+import { GrowthBookClient, redisResolver } from "@growthbook/growthbook";
+import { createClient } from "redis";
+
+const redis = await createClient({ url: process.env.REDIS_URL }).connect();
+const resolver = redisResolver(redis);
+
+const gb = new GrowthBookClient({ clientKey: "sdk-abc123" });
+await gb.init();
+
+// For each request
+const userContext = await gb.addRemoteSavedGroups(
+  { attributes: { id: "123", parent_account_id: "acct_9" } },
+  resolver,
+);
+const scoped = gb.createScopedInstance(userContext);
+scoped.isOn("my-feature");
+```
+
+`redisResolver` reads the Redis keys GrowthBook's loader writes. It takes a node-redis client, or any object with an `sMembers` method; for ioredis, pass `{ sMembers: (key) => redis.smembers(key) }`. If the lookup fails, `addRemoteSavedGroups` returns the user context unchanged, so rules using Remote Groups don't match.
+
+<Warning>
+Unlike the Proxy, `redisResolver` doesn't check whether a group has been loaded, so a "not in group" rule matches everyone until it is. Publish such rules after the group's version shows in the **Data stores** column, or check in your resolver. The loader records each loaded group in the `gb:group-attributes` hash, and throwing makes the user count as being in no Remote Groups:
+
+```ts
+const resolver: SavedGroupResolver = async (args) => {
+  const loaded = await redis.hKeys("gb:group-attributes");
+  for (const group of args.groups) {
+    if (!loaded.includes(group.valuesFrom ?? group.id)) {
+      throw new Error(`Remote Group ${group.id} isn't loaded`);
+    }
+  }
+  return redisResolver(redis)(args);
+};
+```
+
+This turns off all Remote Groups while any one of them is loading. The Proxy blocks only the rules that use the unloaded group.
+
+</Warning>
+
+If you look up groups some other way, pass them directly with the `remoteGroupIds` option, or with `growthbook.setRemoteGroupIds([...])` on a `GrowthBook` instance.
+
+### Your Own Resolver
+
+To look up groups in your own storage, write a resolver. It takes the user's attributes and the Remote Groups in the payload, and returns the IDs of the groups the user is in:
+
+```ts
+import type { SavedGroupResolver } from "@growthbook/growthbook";
+
+const resolver: SavedGroupResolver = async ({ attributes, groups }) => {
+  // groups: [{ id: "grp_abc123", attributeKey: "account_id" }, ...]
+  return lookUpGroups(attributes, groups); // e.g. ["grp_abc123"]
+};
+```
+
+Groups on another attribute also have a `valuesFrom` field: the ID of the group whose IDs to check that attribute's value against.
+
+Pass the resolver to `addRemoteSavedGroups` as above. Throw on errors, so the user is treated as being in no Remote Groups.
+
+### Your Own Remote Evaluation Endpoint
+
+If you build your own [remote evaluation endpoint](/self-host/remote-evaluation#remote-evaluation-endpoint) with [`@growthbook/proxy-eval`](https://www.npmjs.com/package/@growthbook/proxy-eval) (version 1.3.0 or later), pass a resolver as `savedGroupResolver`:
+
+```ts
+import { evaluateFeatures } from "@growthbook/proxy-eval";
+import { redisResolver } from "@growthbook/growthbook";
+
+const result = await evaluateFeatures({
+  payload,
+  attributes,
+  savedGroupResolver: redisResolver(redis),
+  onSavedGroupResolverError: (err) => console.error(err),
+});
+```
+
+With a resolver, group IDs sent by the client are ignored. If the lookup fails, the user is in no Remote Groups.
+
+<Warning>
+The resolver only runs when the payload lists the Remote Groups, which needs an SDK Connection for JavaScript 2.0.0 or later with **Pass Saved Groups by reference** set to **All Saved Groups**. Payloads for SDK Connections with **Remote Evaluation** turned on don't list Remote Groups yet, so with those, rules that use Remote Groups match no one. For now, fetch the payload from an SDK Connection without Remote Evaluation, or use the [GrowthBook Proxy](/features/remote-saved-groups-proxy).
+</Warning>
+
+### Other SDKs and Older Versions
+
+SDKs without Remote Group support still work, as long as you set the `__gb_remoteGroupIds` attribute yourself: an array of the IDs of the groups the user is in. Rules check that attribute directly. Include the `<group id>:<attribute>` IDs for groups used on other attributes that the user matches. Leave the attribute unset until you've looked the groups up, so rules don't match too early.

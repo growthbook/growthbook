@@ -38,6 +38,7 @@ export interface EnvironmentInitValue {
   hasMistralKey?: boolean;
   hasGoogleAIKey?: boolean;
   uploadMethod: "local" | "s3" | "google-cloud";
+  interleavingEnabled: boolean;
 }
 
 // Get env variables at runtime on the front-end while still using SSG
@@ -63,6 +64,7 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
     STORE_SEGMENTS_IN_MONGO,
     ALLOW_CREATE_METRICS,
     ALLOW_CREATE_DIMENSIONS,
+    ENABLE_INTERLEAVING,
     SUPERADMIN_DEFAULT_ROLE,
     NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY,
     EXPERIMENT_REFRESH_FREQUENCY,
@@ -134,6 +136,7 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
     allowCreateMetrics: !hasConfigFile || stringToBoolean(ALLOW_CREATE_METRICS),
     allowCreateDimensions:
       !hasConfigFile || stringToBoolean(ALLOW_CREATE_DIMENSIONS),
+    interleavingEnabled: stringToBoolean(ENABLE_INTERLEAVING),
     build,
     environment: NODE_ENV || "development",
     defaultConversionWindowHours: parseEnvInt(

@@ -1,0 +1,79 @@
+---
+title: Compound Metrics
+description: Measure the share of experiment units who did every one of several things, in any order, with compound fact metrics in GrowthBook.
+sidebarTitle: Compound Metrics
+---
+
+import { CommercialFeature } from "/snippets/CommercialFeature.jsx";
+
+<CommercialFeature feature="compound-metrics" />
+
+Compound Metrics measure the share of exposed units who did **every** one of several things, in any order. For example, users who viewed pricing **and** started a trial. The result is a single conversion rate, analyzed like any other proportion metric.
+
+A compound metric is a [Fact Table](/app/metrics) metric. Instead of a numerator, you define a list of **components**, each a Fact Table plus row filters.
+
+<Note>
+**Compound, funnel, or threshold?**
+
+| Type                                         | Use it for                                                  |
+| -------------------------------------------- | ----------------------------------------------------------- |
+| Compound                                     | Several distinct actions, order ignored, one number.        |
+| [Funnel](/app/metrics/funnel)                | Steps that must happen in order, with a rate per step.      |
+| [Threshold](/app/metrics#proportion-metrics) | One action done at least N times, such as placed 3+ orders. |
+
+</Note>
+
+## How a unit passes
+
+A unit passes when it has at least one matching event for **every** component inside the [metric window](/app/metrics#metric-windows).
+
+- Order does not matter, and there is no co-occurrence window. Viewing pricing in week 1 and starting a trial in week 3 passes.
+- One event can satisfy several components if it matches all component's row filters (e.g. `event_name = view_pricing` and `plan = trial` could be satisfied by a single event).
+- Units with no matching events fail.
+
+Metric windows, metric delay, target MDE, and [Bayesian priors](/app/metrics#bayesian-priors) work as on a proportion metric.
+
+A compound metric needs 2 to 20 components across at most 5 distinct Fact Tables, and no two components may be identical. In experiments, every component's Fact Table must share an identifier type with the assignment table (or reach it through a Join Table); otherwise the metric is excluded from analysis.
+
+Not supported:
+
+- Use as activation metrics
+- [Metric Slices](/app/metrics#metric-slices) are not supported.
+- Standalone metric analysis or Product Analytics
+
+## Compound metrics in experiment results
+
+Results render like any other proportion metric. The [metric drilldown](/app/experiment-results#metric-drilldown) adds a **Components** tab showing how many units in each variation matched each component. These counts are descriptive, shown for the overall result only, and carry no statistics.
+
+## Managing compound metrics with the API
+
+Set `metricType` to `compound` and pass `compoundSettings`. Omit `numerator` and `denominator`; they are not allowed. The metric inherits its data source from the first component's Fact Table.
+
+```bash
+curl -X POST 'https://api.growthbook.io/api/v1/fact-metrics' \
+  -H 'Authorization: Bearer YOUR_API_KEY' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "name": "Viewed pricing and started trial",
+    "owner": "you@example.com",
+    "metricType": "compound",
+    "compoundSettings": {
+      "components": [
+        {
+          "factTableId": "ft_events",
+          "rowFilters": [
+            { "column": "event_name", "operator": "=", "values": ["view_pricing"] }
+          ]
+        },
+        {
+          "factTableId": "ft_subscriptions",
+          "rowFilters": [
+            { "column": "plan", "operator": "=", "values": ["trial"] }
+          ]
+        }
+      ]
+    }
+  }'
+```
+
+`compoundSettings.components` is a required array of 2 to 20 objects, each with `factTableId` and `rowFilters`. `GET` responses for compound metrics include `compoundSettings` and omit `numerator`. Listing fact metrics filtered by `factTableId` returns compound metrics with a component on that Fact Table.

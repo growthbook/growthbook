@@ -46,6 +46,7 @@ import {
   RampScheduleInterface,
 } from "shared/validators";
 import EventUser from "@/components/Avatar/EventUser";
+import { useFeatureTabsBottom } from "@/components/Layout/pageTopOffset";
 import CoAuthors from "@/components/Reviews/Feature/CoAuthors";
 import Button from "@/ui/Button";
 import { FeatureBadge } from "@/components/Features/FeatureBadge";
@@ -53,7 +54,7 @@ import Callout from "@/ui/Callout";
 import Checkbox from "@/ui/Checkbox";
 import { useAuth } from "@/services/auth";
 import ForceSummary from "@/components/Features/ForceSummary";
-import track from "@/services/track";
+import track, { entityTrackingHash } from "@/services/track";
 import EditDefaultValueModal from "@/components/Features/EditDefaultValueModal";
 import KillSwitchModal from "@/components/Features/KillSwitchModal";
 import EditProjectForm from "@/components/Experiment/EditProjectForm";
@@ -387,6 +388,7 @@ export default function FeaturesOverview({
 
   const bannerRef = useRef<HTMLDivElement>(null);
   const [bannerPinned, setBannerPinned] = useState(false);
+  const bannerTop = useFeatureTabsBottom() + 15;
 
   const [envGridWidth, setEnvGridWidth] = useState(0);
   const envGridRef = useCallback((el: HTMLDivElement | null) => {
@@ -398,7 +400,7 @@ export default function FeaturesOverview({
     ro.observe(el);
   }, []);
   // Watch a sentinel just above the sticky banner. When the sentinel scrolls
-  // out of the viewport (above the 110px sticky offset), the banner is
+  // out of the viewport (above the banner's sticky offset), the banner is
   // genuinely pinned — a more reliable signal than getBoundingClientRect math,
   // which falsely reports "pinned" whenever the banner's natural position
   // already sits near the top of the page.
@@ -407,22 +409,25 @@ export default function FeaturesOverview({
   // when the sentinel later mounts — e.g. when a user creates a draft on a
   // page that initially had no banner.
   const bannerSentinelObserver = useRef<IntersectionObserver | null>(null);
-  const bannerSentinelRef = useCallback((el: HTMLDivElement | null) => {
-    if (bannerSentinelObserver.current) {
-      bannerSentinelObserver.current.disconnect();
-      bannerSentinelObserver.current = null;
-    }
-    if (!el) {
-      setBannerPinned(false);
-      return;
-    }
-    const observer = new IntersectionObserver(
-      ([entry]) => setBannerPinned(!entry.isIntersecting),
-      { rootMargin: "-110px 0px 0px 0px", threshold: 0 },
-    );
-    observer.observe(el);
-    bannerSentinelObserver.current = observer;
-  }, []);
+  const bannerSentinelRef = useCallback(
+    (el: HTMLDivElement | null) => {
+      if (bannerSentinelObserver.current) {
+        bannerSentinelObserver.current.disconnect();
+        bannerSentinelObserver.current = null;
+      }
+      if (!el) {
+        setBannerPinned(false);
+        return;
+      }
+      const observer = new IntersectionObserver(
+        ([entry]) => setBannerPinned(!entry.isIntersecting),
+        { rootMargin: `-${bannerTop}px 0px 0px 0px`, threshold: 0 },
+      );
+      observer.observe(el);
+      bannerSentinelObserver.current = observer;
+    },
+    [bannerTop],
+  );
 
   // Slot refs for the draft CTA portal ("Open review" navigation).
   // The portal host migrates between the revision card slot and the sticky banner
@@ -831,7 +836,7 @@ export default function FeaturesOverview({
                 ref={bannerRef}
                 style={{
                   position: "sticky",
-                  top: 110,
+                  top: bannerTop,
                   zIndex: 920,
                   marginBottom: 12,
                   display: "flex",
@@ -1360,6 +1365,7 @@ export default function FeaturesOverview({
                         i: getPrerequisites(feature).length,
                       });
                       track("Viewed prerequisite feature modal", {
+                        entity_id_hash: entityTrackingHash(feature.id),
                         source: "add-prerequisite",
                       });
                     }}
@@ -1497,6 +1503,7 @@ export default function FeaturesOverview({
                         i: getPrerequisites(feature).length,
                       });
                       track("Viewed prerequisite feature modal", {
+                        entity_id_hash: entityTrackingHash(feature.id),
                         source: "add-prerequisite",
                       });
                     }}

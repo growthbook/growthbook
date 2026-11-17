@@ -12,11 +12,13 @@ import { WhiteButton } from "@/ui/Button";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import ProjectSelector from "./ProjectSelector";
 import SidebarLink, { SidebarLinkProps } from "./SidebarLink";
-import { navlinks } from "./sidebarNav";
+import { isSettingsRoute, navlinks } from "./sidebarNav";
 import TopNav from "./TopNav";
 import styles from "./Layout.module.scss";
 import { usePageHead } from "./PageHead";
 import { useSidebarOpen } from "./SidebarOpenProvider";
+import SettingsNav from "./SettingsNav";
+import { useSettingsNav } from "./SettingsNavContext";
 
 const breadcrumbLinks = [
   ...navlinks,
@@ -72,6 +74,7 @@ const Layout = (): React.ReactElement => {
 
   // hacky:
   const router = useRouter();
+  const { navMode: settingsNavMode } = useSettingsNav();
   const path = router.route.substr(1);
   // don't show the nav for presentations
   if (path.match(/^present\//)) {
@@ -104,6 +107,8 @@ const Layout = (): React.ReactElement => {
   });
 
   const build = getGrowthBookBuild();
+  const showSettingsNav =
+    isSettingsRoute(router.route) && settingsNavMode === "column";
 
   return (
     <>
@@ -233,10 +238,12 @@ const Layout = (): React.ReactElement => {
         )}
       </div>
 
+      {showSettingsNav && <SettingsNav />}
       <TopNav
         pageTitle={pageTitle}
         showNotices={true}
         toggleLeftMenu={() => setOpen(!open)}
+        mutedBreadcrumb={isSettingsRoute(router.route)}
       />
     </>
   );

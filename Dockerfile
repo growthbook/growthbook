@@ -45,7 +45,7 @@ RUN \
   && poetry build \
   && poetry export -f requirements.txt --output requirements.txt \
   && pip install --no-cache-dir -r requirements.txt \
-  && pip install --no-cache-dir dist/*.whl ddtrace==4.8.2
+  && pip install --no-cache-dir dist/*.whl ddtrace==4.16.1
 # No compiler in this stage (dev variant has only binutils) — fine while every
 # gbstats dep is a manylinux wheel; add one if a dep ever ships sdist-only.
 
@@ -85,6 +85,7 @@ RUN for p in libffi8 libbz2-1.0 liblzma5 libsqlite3-0 libncursesw6 libreadline8 
       dpkg -L "$p" 2>/dev/null | grep '\.so' \
         | xargs -r -I{} cp -Ln {} /opt/pydeps/ 2>/dev/null || true; \
     done; \
+  rm -f /opt/pydeps/libz.so*; \
   echo "staged (sweep + stdlib):" && ls -1 /opt/pydeps | sort
 
 # ----------------------------------------------------------------------------
@@ -190,6 +191,20 @@ RUN mkdir -p /krb5deps && \
   echo "staged krb5 closure:" && ls -1 /krb5deps
 # /usr/bin/env (coreutils) is also pulled from here — see stage 4.
 
+# TEMP for CVE-2026-85091 (aka -76844): bookworm zlib1g is unpatched; drop once our debian base fixes it.
+FROM debian:12-slim AS zlib
+ARG ZLIB_VERSION=1.4
+ARG ZLIB_SHA256=02dd159783677a749c04adbdd02b55b8a2bcc7e054f51b76b549199a916ad584
+RUN apt-get update && \
+  apt-get install -y --no-install-recommends build-essential curl ca-certificates && \
+  rm -rf /var/lib/apt/lists/*
+WORKDIR /zlib
+RUN curl -fsSL "https://github.com/madler/zlib/releases/download/v${ZLIB_VERSION}/zlib-${ZLIB_VERSION}.tar.gz" -o zlib.tar.gz && \
+  echo "${ZLIB_SHA256}  zlib.tar.gz" | sha256sum --check && \
+  tar -xzf zlib.tar.gz --strip-components=1 && \
+  ./configure && make -j"$(nproc)" && make test && \
+  cp -L libz.so.1 /libz.so.1
+
 # ----------------------------------------------------------------------------
 # Stage 4: the hardened runtime image — DHI node:24, distroless, non-root
 # (uid 1000). WORKDIR is /usr/local/src/app to match the Helm chart's hardcoded
@@ -207,6 +222,7 @@ COPY --from=node:24.22.1-bookworm-slim /usr/local/bin/node /usr/local/bin/node
 COPY --from=pybuild /opt/python /opt/python
 COPY --from=pybuild /opt/venv /opt/venv
 COPY --from=pybuild /opt/pydeps /opt/pydeps
+COPY --from=zlib /libz.so.1 /opt/pydeps/libz.so.1
 
 # /usr/bin/env — cheap insurance for any `#!/usr/bin/env node` scripts the app
 # may exec at runtime (the DHI node runtime ships no coreutils). Nothing on the

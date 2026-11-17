@@ -155,6 +155,8 @@ const experimentSchema = new mongoose.Schema({
   userIdType: String,
   exposureQueryId: String,
   exposureQueryIdentifierType: String,
+  isClusterExperiment: Boolean,
+  clusterSubUnitIdentifier: String,
   hashAttribute: String,
   fallbackAttribute: String,
   hashVersion: Number,
@@ -177,8 +179,6 @@ const experimentSchema = new mongoose.Schema({
       windowType: String,
       windowHours: Number,
       delayHours: Number,
-      winRisk: Number,
-      loseRisk: Number,
       properPriorOverride: Boolean,
       properPriorEnabled: Boolean,
       properPriorMean: Number,
@@ -399,14 +399,31 @@ const experimentSchema = new mongoose.Schema({
   analysisSummary: {
     _id: false,
     snapshotId: String,
+    phase: Number,
     health: {
       _id: false,
       srm: Number,
       multipleExposures: Number,
       totalUsers: Number,
+      srmTotalUnits: Number,
       covariateImbalance: {
         _id: false,
         isImbalanced: Boolean,
+      },
+      clusterAssignment: {
+        _id: false,
+        totalClusters: Number,
+        mixedClusters: Number,
+      },
+      clusterSubUnitMapping: {
+        _id: false,
+        totalUnits: Number,
+        multiClusterUnits: Number,
+      },
+      subUnitMultipleExposures: {
+        _id: false,
+        totalSubUnits: Number,
+        multipleExposedSubUnits: Number,
       },
       power: {
         _id: false,
@@ -526,6 +543,7 @@ export async function getExperimentById(
   context: ReqContext | ApiReqContext,
   id: string,
 ): Promise<ExperimentInterface | null> {
+  if (id && typeof id !== "string") return null;
   const doc = await getCollection(COLLECTION).findOne({
     organization: context.org.id,
     id,
@@ -543,6 +561,7 @@ export async function getExperimentById(
 export async function getExperimentByUid(
   uid: string,
 ): Promise<ExperimentInterface | null> {
+  if (uid && typeof uid !== "string") return null;
   const doc = await getCollection(COLLECTION).findOne({
     uid,
   });
@@ -550,7 +569,21 @@ export async function getExperimentByUid(
   return doc ? toInterface(doc) : null;
 }
 
-export async function getAllExperiments(
+type ExperimentListFilters = {
+  project?: string;
+  includeArchived?: boolean;
+  // Tri-state archived filter: true = archived only, false = exclude
+  // archived, undefined = fall back to `includeArchived`.
+  archived?: boolean;
+  type?: ExperimentType;
+  datasourceId?: string;
+  trackingKey?: string;
+  status?: ExperimentStatus;
+  // Only these experiments
+  ids?: string[];
+};
+
+function getExperimentListQuery(
   context: ReqContext | ApiReqContext,
   {
     project,
@@ -560,25 +593,9 @@ export async function getAllExperiments(
     datasourceId,
     trackingKey,
     status,
-    sortBy,
-    limit,
-  }: {
-    project?: string;
-    includeArchived?: boolean;
-    // Tri-state archived filter: true = archived only, false = exclude
-    // archived, undefined = fall back to `includeArchived`.
-    archived?: boolean;
-    type?: ExperimentType;
-    datasourceId?: string;
-    trackingKey?: string;
-    status?: ExperimentStatus;
-    sortBy?: SortFilter;
-    // Mongo-cursor-level cap; pair with `sortBy` to get top-N. Without
-    // it, large orgs materialize the full result set (each row carries
-    // a potentially large analysis blob).
-    limit?: number;
-  } = {},
-): Promise<ExperimentInterface[]> {
+    ids,
+  }: ExperimentListFilters,
+): FilterQuery<ExperimentDocument> {
   const query: FilterQuery<ExperimentDocument> = {
     organization: context.org.id,
   };
@@ -615,7 +632,65 @@ export async function getAllExperiments(
     query.type = { $ne: "holdout" };
   }
 
-  return await findExperiments(context, query, limit, sortBy);
+  if (ids) {
+    query.id = { $in: ids };
+  }
+
+  return query;
+}
+
+export async function getAllExperiments(
+  context: ReqContext | ApiReqContext,
+  {
+    sortBy,
+    limit,
+    ...filters
+  }: ExperimentListFilters & {
+    sortBy?: SortFilter;
+    // Mongo-cursor-level cap; pair with `sortBy` to get top-N. Without
+    // it, large orgs materialize the full result set (each row carries
+    // a potentially large analysis blob).
+    limit?: number;
+  } = {},
+): Promise<ExperimentInterface[]> {
+  if (filters.ids && !filters.ids.length) return [];
+  return await findExperiments(
+    context,
+    getExperimentListQuery(context, filters),
+    limit,
+    sortBy,
+  );
+}
+
+export type ExperimentListKey = Pick<
+  ExperimentInterface,
+  "id" | "project" | "name" | "dateCreated" | "dateUpdated"
+>;
+
+// Lightweight sibling of `getAllExperiments` for sorting and paginating a
+// list before loading full experiments. Skips `upgradeExperimentDoc`, which
+// does not touch any of the projected fields.
+export async function getAllExperimentListKeys(
+  context: ReqContext | ApiReqContext,
+  filters: ExperimentListFilters = {},
+): Promise<ExperimentListKey[]> {
+  if (filters.ids && !filters.ids.length) return [];
+  const docs = await getCollection<ExperimentListKey>(COLLECTION)
+    .find(getExperimentListQuery(context, filters), {
+      projection: {
+        _id: 0,
+        id: 1,
+        project: 1,
+        name: 1,
+        dateCreated: 1,
+        dateUpdated: 1,
+      },
+    })
+    .toArray();
+
+  return docs.filter((exp) =>
+    context.permissions.canReadSingleProjectResource(exp.project),
+  );
 }
 
 // For super admin views of another org, which have no ReqContext for it
@@ -822,6 +897,7 @@ export async function getExperimentByTrackingKey(
   context: ReqContext | ApiReqContext,
   trackingKey: string,
 ): Promise<ExperimentInterface | null> {
+  if (trackingKey && typeof trackingKey !== "string") return null;
   const doc = await getCollection(COLLECTION).findOne({
     organization: context.org.id,
     trackingKey,
@@ -1033,8 +1109,14 @@ export async function updateExperiment({
     throw new Error("Cannot set empty name for experiment!");
 
   validateMetricOverrides(allChanges.metricOverrides);
-  if (allChanges.phases) {
-    assertValidExperimentPhases(allChanges.phases, experiment.phases);
+  const startsRunning =
+    allChanges.status === "running" && experiment.status !== "running";
+  if (allChanges.phases || startsRunning) {
+    assertValidExperimentPhases(
+      allChanges.phases ?? experiment.phases,
+      experiment.phases,
+      startsRunning,
+    );
   }
   assertValidReleasedVariationId({ ...experiment, ...allChanges }, experiment);
   assertValidBucketVersions({ ...experiment, ...allChanges }, experiment);
@@ -2727,6 +2809,13 @@ const onExperimentDelete = async (
     await deleteVercelExperimentationItemFromExperiment({
       experiment,
       organization: context.org,
+    });
+
+  // Last and non-fatal: a stale watch entry must not undo the cleanup above.
+  await context.models.watch
+    .removeEntityFromAllWatchers({ type: "experiments", item: experiment.id })
+    .catch((e) => {
+      logger.error(e, "Error removing watchers on experiment delete");
     });
 };
 

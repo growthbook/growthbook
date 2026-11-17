@@ -35,6 +35,8 @@ import {
   SetExperimentSortBy,
   funnelStepMetricId,
   isFactMetric,
+  isScalableClusterSubUnitMetric,
+  SampleSizeSource,
 } from "shared/experiments";
 import { useAuth } from "@/services/auth";
 import {
@@ -146,6 +148,7 @@ export type ResultsTableProps = {
   // rollouts), render CIs as one-sided: a single bound + open side, with the
   // domain/range anchored at 0 rather than the fake (±Infinity) bound.
   oneSided?: boolean;
+  sampleSizeFrom?: SampleSizeSource;
 };
 
 export const ROW_HEIGHT = 46;
@@ -221,6 +224,7 @@ export default function ResultsTable({
   valueColumnWidth = 130,
   labelMaxWidth = 75,
   oneSided = false,
+  sampleSizeFrom,
 }: ResultsTableProps) {
   if (variationFilter?.includes(baselineRow)) {
     variationFilter = variationFilter.filter((v) => v !== baselineRow);
@@ -438,7 +442,13 @@ export default function ResultsTable({
   );
   const compactResults = filteredVariations.length <= 2;
 
-  const domain = useDomain(filteredVariations, rows, differenceType, oneSided);
+  const domain = useDomain(
+    filteredVariations,
+    rows,
+    differenceType,
+    oneSided,
+    sampleSizeFrom,
+  );
 
   const rowsResults: (RowResults | "query error" | RowError | null)[][] =
     useMemo(() => {
@@ -505,6 +515,8 @@ export default function ResultsTable({
             phaseStartDate: getValidDate(startDate),
             isLatestPhase,
             experimentStatus: status,
+            sampleSizeFrom,
+            clusterSettings: snapshot?.settings,
           });
           rr[i].push(rowResults);
         });
@@ -529,6 +541,8 @@ export default function ResultsTable({
       queryStatusData,
       ssrPolyfills,
       getExperimentMetricById,
+      sampleSizeFrom,
+      snapshot?.settings,
     ]);
 
   const noRows = rows.length === 0;
@@ -1061,9 +1075,21 @@ export default function ResultsTable({
                                   });
                                 }
 
+                                const scaledImpactUnavailable =
+                                  !!snapshot?.settings &&
+                                  isScalableClusterSubUnitMetric(
+                                    row.metric,
+                                    snapshot.settings,
+                                  ) &&
+                                  !!stats.errorMessage;
                                 const hideScaledImpact =
-                                  !rowResults.hasScaledImpact &&
+                                  (!rowResults.scaledImpactEligible ||
+                                    scaledImpactUnavailable) &&
                                   differenceType === "scaled";
+                                const scaledImpactMessage =
+                                  scaledImpactUnavailable
+                                    ? "Scaled impact unavailable. Try updating results."
+                                    : undefined;
 
                                 const resultsHighlightClassname = clsx(
                                   rowResults.resultsStatus,
@@ -1198,6 +1224,9 @@ export default function ResultsTable({
                                               hideScaledImpact={
                                                 hideScaledImpact
                                               }
+                                              scaledImpactMessage={
+                                                scaledImpactMessage
+                                              }
                                               className={clsx(
                                                 "results-ctw",
                                                 resultsHighlightClassname,
@@ -1214,7 +1243,6 @@ export default function ResultsTable({
                                           ) : (
                                             <PValueColumn
                                               stats={stats}
-                                              baseline={baseline}
                                               rowResults={rowResults}
                                               pValueCorrection={
                                                 row.resultGroup === "goal"
@@ -1227,6 +1255,9 @@ export default function ResultsTable({
                                               showUnadjustedPValue={false}
                                               hideScaledImpact={
                                                 hideScaledImpact
+                                              }
+                                              scaledImpactMessage={
+                                                scaledImpactMessage
                                               }
                                               className={clsx(
                                                 "results-pval",
@@ -1403,6 +1434,7 @@ export default function ResultsTable({
                                           experimentId={experimentId}
                                           pValueThreshold={pValueThreshold}
                                           phase={phase}
+                                          snapshotSettings={snapshot?.settings}
                                           metric={row.metric}
                                           differenceType={differenceType}
                                           variations={timeSeriesVariations}

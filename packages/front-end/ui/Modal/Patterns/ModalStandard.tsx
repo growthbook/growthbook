@@ -8,10 +8,14 @@ function SubmitButton({
   cta,
   ctaColor,
   ctaEnabled,
+  ctaIcon,
+  ctaIconPosition,
 }: {
   cta: string;
   ctaColor: "red" | "violet";
   ctaEnabled: boolean;
+  ctaIcon?: ReactNode;
+  ctaIconPosition?: "left" | "right";
 }) {
   const { loading } = useModalForm();
   return (
@@ -20,6 +24,8 @@ function SubmitButton({
       disabled={!ctaEnabled}
       color={ctaColor}
       loading={loading}
+      icon={ctaIcon}
+      iconPosition={ctaIconPosition}
     >
       {cta}
     </Button>
@@ -46,12 +52,14 @@ function CloseButton({
 
 export type Props = TrackingEventModalProps & {
   open: boolean;
-  header: string;
+  header: ReactNode;
   headerAction?: ReactNode;
   subheader?: ReactNode;
   cta?: string;
   ctaColor?: "red" | "violet";
   ctaEnabled?: boolean;
+  ctaIcon?: ReactNode;
+  ctaIconPosition?: "left" | "right";
   size?: Size;
   /** Replaces the default of focusing the first field. */
   onOpenAutoFocus?: ComponentProps<typeof Modal.Root>["onOpenAutoFocus"];
@@ -94,8 +102,8 @@ const focusFirstField: NonNullable<
 
 // ModalStandard is the opinionated wrapper around the composable Modal
 // primitives: header + scrollable body + Cancel / Save footer, optionally
-// wired to a form submit. New modals with one-off layouts should compose
-// <Modal.Root> primitives directly instead of reaching for more props here.
+// wired to a form submit. A CTA icon belongs here; one-off layouts should
+// compose <Modal.Root> primitives directly instead of reaching for more props.
 export default function ModalStandard({
   open,
   header,
@@ -104,6 +112,8 @@ export default function ModalStandard({
   cta = "Save",
   ctaColor = "violet",
   ctaEnabled = true,
+  ctaIcon,
+  ctaIconPosition,
   onOpenAutoFocus,
   size = "md",
   submit,
@@ -152,6 +162,8 @@ export default function ModalStandard({
               cta={cta}
               ctaColor={ctaColor}
               ctaEnabled={ctaEnabled}
+              ctaIcon={ctaIcon}
+              ctaIconPosition={ctaIconPosition}
             />
           )}
         </Flex>

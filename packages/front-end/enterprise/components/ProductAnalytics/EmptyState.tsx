@@ -9,12 +9,9 @@ import {
   PiDatabase,
   PiTable,
 } from "react-icons/pi";
-import { DataSourceInterfaceWithParams } from "shared/types/datasource";
-import NewDataSourceForm from "@/components/Settings/NewDataSourceForm";
 import TextDivider from "@/components/TextDivider/TextDivider";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
-import { dataSourceConnections } from "@/services/eventSchema";
 import track from "@/services/track";
 import Button from "@/ui/Button";
 import Heading from "@/ui/Heading";
@@ -36,15 +33,12 @@ import DataSourceDropdown from "./MainSection/Toolbar/DataSourceDropdown";
 export default function EmptyState() {
   const router = useRouter();
   const { permissionsUtil, hasCommercialFeature } = useUser();
-  const { datasources, mutateDefinitions, project } = useDefinitions();
+  const { datasources, project } = useDefinitions();
   const composerRef = useRef<ChatComposerHandle>(null);
   const [input, setInput] = useState("");
   const { aiEnabled } = useAISettings();
 
   const [showAdvancedOptions, setShowAdvancedOptions] = useState(false);
-
-  const [newModalData, setNewModalData] =
-    useState<null | Partial<DataSourceInterfaceWithParams>>(null);
 
   const isDataSourceEmpty = datasources.length === 0;
   const { draftExploreState } = useExplorerContext();
@@ -170,20 +164,17 @@ export default function EmptyState() {
                   <DataSourceTypeSelector
                     value=""
                     setValue={(value) => {
-                      const option = dataSourceConnections.find(
-                        (o) => o.type === value,
-                      );
-                      if (!option) return;
-
-                      setNewModalData({
-                        type: option.type,
-                        params: option.default,
-                      } as Partial<DataSourceInterfaceWithParams>);
-
                       track("Data Source Type Selected", {
                         type: value,
                         newDatasourceForm: true,
                       });
+                      const params = new URLSearchParams({
+                        type: value,
+                        setup: "custom",
+                      });
+                      router.push(
+                        `/datasources/new/connect?${params.toString()}`,
+                      );
                     }}
                   />
                 </Flex>
@@ -302,20 +293,6 @@ export default function EmptyState() {
           )}
         </Flex>
       </Box>
-      {newModalData && (
-        <NewDataSourceForm
-          initial={newModalData || undefined}
-          source="datasource-list"
-          onSuccess={async (id) => {
-            await mutateDefinitions({});
-            await router.push(`/datasources/${id}`);
-          }}
-          onCancel={() => {
-            setNewModalData(null);
-          }}
-          showImportSampleData={false}
-        />
-      )}
     </Box>
   );
 }

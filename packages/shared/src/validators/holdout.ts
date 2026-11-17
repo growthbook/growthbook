@@ -41,6 +41,20 @@ export type HoldoutNextScheduledStatusUpdate = z.infer<
   typeof nextScheduledStatusUpdateValidator
 >;
 
+// An entry the holdout lists whose experiment or Feature Flag doesn't point
+// back: deleted, or moved off it without the holdout's side catching up.
+export const holdoutMissingLinkValidator = z.object({
+  id: z.string(),
+  // Null once it's deleted.
+  name: z.string().nullable(),
+  problem: z.enum(["deleted", "unlinked"]),
+});
+export type HoldoutMissingLink = z.infer<typeof holdoutMissingLinkValidator>;
+export type HoldoutMissingLinkage = {
+  experiments: HoldoutMissingLink[];
+  features: HoldoutMissingLink[];
+};
+
 export const holdoutValidator = z
   .object({
     id: z.string(),

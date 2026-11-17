@@ -1,6 +1,6 @@
 import { ReactNode, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/router";
-import { useGrowthBook } from "@growthbook/growthbook-react";
+import { isEqual } from "lodash";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import {
   PiArrowLeft,
@@ -15,9 +15,15 @@ import {
   DetectedColumn,
   FactTableInterface,
   FactTableType,
+  UpdateFactTableProps,
 } from "shared/types/fact-table";
 import { isProjectListValidForProject } from "shared/util";
+import {
+  getFactTableIdColumn,
+  getFactTableTimestampColumn,
+} from "shared/experiments";
 import { DocLink } from "@/components/DocLink";
+import { usesEventName } from "@/components/Metrics/MetricForm";
 import {
   getNewExperimentDatasourceDefaults,
   getInitialFactTableQuery,
@@ -32,6 +38,7 @@ import SelectField from "@/components/Forms/SelectField";
 import PagedModal from "@/components/Modal/PagedModal";
 import Page from "@/components/Modal/Page";
 import { useAuth } from "@/services/auth";
+import { useUser } from "@/services/UserContext";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import {
   GA4_EVENTS_TEMPLATE,
@@ -58,6 +65,7 @@ import { Select, SelectItem } from "@/ui/Select";
 import Table, { TableBody, TableCell, TableRow } from "@/ui/Table";
 import Text from "@/ui/Text";
 import Code from "@/components/SyntaxHighlighting/Code";
+import Tooltip from "@/components/Tooltip/Tooltip";
 import Link from "@/ui/Link";
 
 const TABLE_TYPES: {
@@ -284,45 +292,120 @@ function AdditionalColumnsRow({
 
 const BODY_HEIGHT = "calc(93vh - 200px)";
 
+// Only event streams have an event column here; other types can still prompt
+// on a column from the column editor.
+function getSavedMapping(factTable: FactTableInterface | undefined): {
+  timestampColumn: string;
+  userIdColumns: Record<string, string>;
+  inlineFilterColumn: string;
+  tableType: FactTableType;
+} {
+  if (!factTable) {
+    return {
+      timestampColumn: "",
+      userIdColumns: {},
+      inlineFilterColumn: "",
+      tableType: "event",
+    };
+  }
+  const inlineFilterColumn =
+    factTable.columns.find(
+      (c) => c.alwaysInlineFilter && !c.deleted && !c.isVirtual,
+    )?.column ?? "";
+  const tableType =
+    factTable.tableType ?? (inlineFilterColumn ? "event" : "other");
+  return {
+    timestampColumn: getFactTableTimestampColumn(factTable),
+    userIdColumns: Object.fromEntries(
+      factTable.userIdTypes.map((t) => [t, getFactTableIdColumn(factTable, t)]),
+    ),
+    inlineFilterColumn: tableType === "event" ? inlineFilterColumn : "",
+    tableType,
+  };
+}
+
 export default function NewFactTableModal({
   close,
   datasourceId: initialDatasourceId,
   lockDatasource = false,
+  existing,
+  duplicate = false,
+  editSql = false,
+  onCreate,
 }: {
   close: () => void;
   datasourceId?: string;
   lockDatasource?: boolean;
+  // Edits this Fact Table, or creates a copy of it with `duplicate`
+  existing?: FactTableInterface;
+  duplicate?: boolean;
+  // Opens an edit on the SQL instead of the mapping
+  editSql?: boolean;
+  // Replaces opening the new Fact Table's page
+  onCreate?: (factTable: FactTableInterface) => void;
 }) {
   const router = useRouter();
-  const growthbook = useGrowthBook();
   const { apiCall } = useAuth();
   const settings = useOrgSettings();
   const permissionsUtil = usePermissionsUtil();
+  const { hasCommercialFeature } = useUser();
   const { datasources, project, getDatasourceById, mutateDefinitions } =
     useDefinitions();
 
-  const [step, setStep] = useState(0);
+  const isEdit = !!existing && !duplicate;
+  // The page's "Edit SQL" link opened a separate modal that sent no events
+  // before, so its edits are told apart from the "Edit" menu's
+  const editProps = isEdit
+    ? { source: editSql ? "edit-sql" : "edit-menu" }
+    : undefined;
+  useEffect(() => {
+    track(
+      isEdit
+        ? "Viewed Edit Fact Table Modal"
+        : "Viewed Create Fact Table Modal",
+      editProps,
+    );
+    // Once per open
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  // Seeded once, since the page keeps refreshing `existing` in the background
+  const [saved] = useState(() => getSavedMapping(existing));
+  // Stand in for a test run, so a saved Fact Table starts on the mapping
+  const [savedColumns] = useState<DetectedColumn[] | null>(() => {
+    const columns = (existing?.columns ?? [])
+      .filter((c) => !c.deleted && !c.isVirtual)
+      .map(({ column, datatype, jsonFields }) => ({
+        column,
+        datatype,
+        ...(jsonFields ? { jsonFields } : {}),
+      }));
+    return columns.length ? columns : null;
+  });
+
+  const [step, setStep] = useState(savedColumns && !editSql ? 1 : 0);
   const [datasourceId, setDatasourceId] = useState(
     () =>
+      existing?.datasource ||
       initialDatasourceId ||
       getNewExperimentDatasourceDefaults({ datasources, settings, project })
         .datasource,
   );
-  const [sql, setSql] = useState("");
+  const [sql, setSql] = useState(existing?.sql ?? "");
   const [removedColumns, setRemovedColumns] = useState<string[]>([]);
 
-  const [name, setName] = useState("");
-  const [timestampColumn, setTimestampColumn] = useState("");
-  const [userIdColumns, setUserIdColumns] = useState<Record<string, string>>(
-    {},
+  const [name, setName] = useState(existing?.name ?? "");
+  const [eventName, setEventName] = useState(existing?.eventName ?? "");
+  const [timestampColumn, setTimestampColumn] = useState(saved.timestampColumn);
+  const [userIdColumns, setUserIdColumns] = useState(saved.userIdColumns);
+  const [inlineFilterColumn, setInlineFilterColumn] = useState(
+    saved.inlineFilterColumn,
   );
-  const [inlineFilterColumn, setInlineFilterColumn] = useState("");
-  const [tableType, setTableType] = useState<FactTableType>("event");
+  const [tableType, setTableType] = useState(saved.tableType);
 
   const validateSql = useRef<(() => Promise<void>) | null>(null);
 
   // Keyed off a ref so a background definitions refresh can't wipe user edits.
-  const seededDatasource = useRef<string | null>(null);
+  const seededDatasource = useRef(existing?.datasource ?? null);
   useEffect(() => {
     if (seededDatasource.current === datasourceId) return;
     const datasource = getDatasourceById(datasourceId);
@@ -356,20 +439,53 @@ export default function NewFactTableModal({
     setUserIdColumns((prev) =>
       rematchUserIdColumns(prev, identifierTypes, columns),
     );
-    if (columns.some((c) => c.column === inlineFilterColumn)) return;
+    // A saved Fact Table keeps its type and event column
+    if (existing || columns.some((c) => c.column === inlineFilterColumn)) {
+      return;
+    }
     const eventTypeColumn = findEventTypeColumn(columns);
     setInlineFilterColumn(eventTypeColumn);
     setTableType(eventTypeColumn ? "event" : "model");
   };
 
+  // Saved mappings stay options by name, as the server only type-checks a
+  // changed one: older Fact Tables didn't check column types, and an
+  // identifier can be a field inside a JSON column. The SQL step checks these
+  // same options.
+  const savedIdColumns = [...new Set(Object.values(saved.userIdColumns))];
+  const getTimestampOptions = (columns: DetectedColumn[]) =>
+    columns.filter(
+      (c) => isTimestampCandidate(c) || c.column === saved.timestampColumn,
+    );
+  const getIdentifierOptions = (columns: DetectedColumn[]) => [
+    ...columns.filter(
+      (c) => isIdentifierCandidate(c) || savedIdColumns.includes(c.column),
+    ),
+    ...savedIdColumns.flatMap((column) => {
+      const [root, field] = column.split(".");
+      const json = field
+        ? columns.find((c) => c.column === root && c.datatype === "json")
+        : undefined;
+      return json
+        ? [{ column, datatype: json.jsonFields?.[field]?.datatype ?? "" }]
+        : [];
+    }),
+  ];
+
   const source = useSourceTable({
     datasource,
-    tableModeAvailable: growthbook.isOn("fact-table-table-mode"),
+    // A saved Fact Table keeps only its SQL, so edits stay in SQL mode
+    tableModeAvailable: !existing,
     templates: [GA4_EVENTS_TEMPLATE],
     queryType: "factTableTest",
     sql,
     setSql,
-    getColumnMappingError,
+    initialColumns: savedColumns,
+    getColumnMappingError: (columns, fromTable) =>
+      getColumnMappingError(columns, fromTable, {
+        timestampOptions: getTimestampOptions(columns),
+        identifierOptions: getIdentifierOptions(columns),
+      }),
     columnSelection: {
       mapped: [
         timestampColumn,
@@ -399,17 +515,18 @@ export default function NewFactTableModal({
   } = source;
   const factTableSql = source.querySql;
 
-  const timestampOptions = (detected || []).filter(isTimestampCandidate);
-  const identifierOptions = (detected || []).filter(isIdentifierCandidate);
+  const timestampOptions = getTimestampOptions(detected || []);
+  const identifierOptions = getIdentifierOptions(detected || []);
   // An event type is a low-cardinality string many rows share. A column named
   // like an id holds a value per row, so offering it would build a metric
   // filter whose dropdown lists every id in the table.
   const inlineFilterOptions = (detected || []).filter(
     (c) =>
-      c.datatype === "string" &&
-      !/id$/i.test(c.column) &&
-      c.column !== timestampColumn &&
-      !Object.values(userIdColumns).includes(c.column),
+      c.column === saved.inlineFilterColumn ||
+      (c.datatype === "string" &&
+        !/id$/i.test(c.column) &&
+        c.column !== timestampColumn &&
+        !Object.values(userIdColumns).includes(c.column)),
   );
 
   const missingMapping = !validColumn(timestampOptions, timestampColumn)
@@ -428,11 +545,6 @@ export default function NewFactTableModal({
     const timestamp = validColumn(timestampOptions, timestampColumn);
     if (!timestamp) throw new Error("Select a timestamp column");
 
-    const inlineFilter =
-      tableType === "event"
-        ? validColumn(inlineFilterOptions, inlineFilterColumn)
-        : "";
-
     const userIdTypes = identifierTypes.filter((t) =>
       validColumn(identifierOptions, userIdColumns[t] || ""),
     );
@@ -442,16 +554,77 @@ export default function NewFactTableModal({
 
     const remapped = getRemappedUserIdColumns(userIdTypes, userIdColumns);
 
+    const inlineFilter =
+      tableType === "event"
+        ? validColumn(inlineFilterOptions, inlineFilterColumn)
+        : "";
+
+    if (existing && !duplicate) {
+      // Other types leave prompted columns to the column editor. The server
+      // detects a column it hasn't stored yet before updating it.
+      const columnUpdates: NonNullable<UpdateFactTableProps["columnUpdates"]> =
+        {};
+      if (tableType === "event" && inlineFilter !== saved.inlineFilterColumn) {
+        if (saved.inlineFilterColumn) {
+          columnUpdates[saved.inlineFilterColumn] = {
+            alwaysInlineFilter: false,
+          };
+        }
+        if (inlineFilter) {
+          columnUpdates[inlineFilter] = { alwaysInlineFilter: true };
+        }
+      }
+      // A changed mapping re-detects columns, and older Fact Tables store
+      // identity mappings that `remapped` leaves out
+      const mappingChanged = !isEqual(
+        Object.fromEntries(userIdTypes.map((t) => [t, userIdColumns[t]])),
+        saved.userIdColumns,
+      );
+      const changes: UpdateFactTableProps = {
+        name,
+        sql: factTableSql,
+        tableType,
+        ...(mappingChanged ? { userIdTypes, userIdColumns: remapped } : {}),
+        // The server only type-checks a changed timestamp, which an older Fact
+        // Table's untyped one wouldn't pass
+        ...(timestamp !== saved.timestampColumn
+          ? { timestampColumn: timestamp }
+          : {}),
+        ...(usesEventName(factTableSql)
+          ? { eventName: eventName || name }
+          : {}),
+        ...(Object.keys(columnUpdates).length ? { columnUpdates } : {}),
+      };
+      await apiCall(`/fact-tables/${existing.id}`, {
+        method: "PUT",
+        body: JSON.stringify(changes),
+      });
+      track("Edit Fact Table", editProps);
+      await mutateDefinitions();
+      return;
+    }
+
     const columns =
       mode === "table" && sqlColumns.length
         ? detected.filter((c) => sqlColumns.includes(c.column))
         : detected;
 
+    // A copy keeps the daily aggregation job, where the server would allow it
+    const aggregated = existing?.aggregatedFactTableSettings;
+    const aggregatedIdTypes = (aggregated?.idTypes ?? []).filter((t) =>
+      userIdTypes.includes(t),
+    );
+    const copyAggregated =
+      !!aggregated &&
+      aggregatedIdTypes.length > 0 &&
+      hasCommercialFeature("pipeline-mode") &&
+      permissionsUtil.canUpdateDataSourceSettings(datasource);
+
     const body: CreateFactTableProps = {
       name,
-      description: "",
+      description: existing?.description ?? "",
       owner: "",
-      tags: [],
+      tags: existing?.tags ?? [],
       projects: getNewFactTableProjects({
         datasource,
         project,
@@ -459,7 +632,8 @@ export default function NewFactTableModal({
       }),
       datasource: datasourceId,
       sql: factTableSql,
-      eventName: name,
+      eventName: eventName || name,
+      managedBy: existing?.managedBy,
       tableType,
       userIdTypes,
       ...(Object.keys(remapped).length ? { userIdColumns: remapped } : {}),
@@ -472,6 +646,14 @@ export default function NewFactTableModal({
       })),
       // A background refresh re-detects types and loads inline filter values
       columnRefreshPending: true,
+      ...(copyAggregated
+        ? {
+            aggregatedFactTableSettings: {
+              ...aggregated,
+              idTypes: aggregatedIdTypes,
+            },
+          }
+        : {}),
     };
 
     const { factTable, error: apiError } = await apiCall<{
@@ -485,7 +667,8 @@ export default function NewFactTableModal({
 
     track("Create Fact Table");
     await mutateDefinitions();
-    router.push(`/fact-tables/${factTable.id}`);
+    if (onCreate) onCreate(factTable);
+    else router.push(`/fact-tables/${factTable.id}`);
   }
 
   const nameField = (
@@ -551,13 +734,19 @@ export default function NewFactTableModal({
 
   return (
     <PagedModal
-      trackingEventModalType="new-fact-table"
-      header="New Fact Table"
+      trackingEventModalType={isEdit ? "edit-fact-table" : "new-fact-table"}
+      header={
+        isEdit
+          ? "Edit Fact Table"
+          : duplicate
+            ? "Duplicate Fact Table"
+            : "New Fact Table"
+      }
       step={step}
       setStep={setStep}
       submit={submit}
       close={close}
-      cta="Create Fact Table"
+      cta={isEdit ? "Save" : "Create Fact Table"}
       size={step === 0 && mode === "sql" ? "max" : "md"}
       disabledMessage={
         (step > 0
@@ -593,21 +782,28 @@ export default function NewFactTableModal({
             source={source}
             validateRef={validateSql}
             placeholder={"SELECT\n  user_id,\n  timestamp\nFROM\n  events"}
+            templateVariables={{ eventName: eventName || name }}
             datasourceHeader={
-              <Select
-                aria-label="Data Source"
-                value={datasourceId}
-                setValue={setDatasourceId}
-                disabled={lockDatasource}
-                placeholder="Select..."
-                mb="0"
+              // The server doesn't take a new Data Source on update
+              <Tooltip
+                body="A saved Fact Table's Data Source can't be changed. Duplicate it to use another one."
+                shouldDisplay={isEdit}
               >
-                {validDatasources.map((d) => (
-                  <SelectItem key={d.id} value={d.id}>
-                    {d.name}
-                  </SelectItem>
-                ))}
-              </Select>
+                <Select
+                  aria-label="Data Source"
+                  value={datasourceId}
+                  setValue={setDatasourceId}
+                  disabled={lockDatasource || isEdit}
+                  placeholder="Select..."
+                  mb="0"
+                >
+                  {validDatasources.map((d) => (
+                    <SelectItem key={d.id} value={d.id}>
+                      {d.name}
+                    </SelectItem>
+                  ))}
+                </Select>
+              </Tooltip>
             }
           />
         </Box>
@@ -731,7 +927,18 @@ export default function NewFactTableModal({
                   expandable
                   collapsedLines={3}
                   filename={
-                    <Link onClick={() => setStep(0)}>
+                    <Link
+                      onClick={() => {
+                        // Matches the old create modal's SQL button; editing
+                        // never sent it
+                        if (!isEdit) {
+                          track("Edit Fact Table SQL", {
+                            type: datasource?.settings?.schemaFormat,
+                          });
+                        }
+                        setStep(0);
+                      }}
+                    >
                       <Flex align="center" gap="1">
                         <PiArrowLeft /> Edit SQL
                       </Flex>
@@ -739,6 +946,15 @@ export default function NewFactTableModal({
                   }
                 />
                 {nameField}
+                {usesEventName(factTableSql) ? (
+                  <TextField
+                    label="Event name in database"
+                    helpText="Fills {{eventName}} in your SQL. Leave blank to use the Fact Table name."
+                    value={eventName}
+                    placeholder={name}
+                    onChange={(e) => setEventName(e.target.value)}
+                  />
+                ) : null}
 
                 <Box pt="2">
                   <Text as="div" weight="semibold" mb="2">

@@ -12,7 +12,7 @@ import {
   ReportInterface,
 } from "shared/types/report";
 import { useRouter } from "next/router";
-import { PiInfo } from "react-icons/pi";
+
 import { DEFAULT_STATS_ENGINE } from "shared/constants";
 import { Box, Flex, Text } from "@radix-ui/themes";
 import { date } from "shared/dates";
@@ -32,40 +32,10 @@ import { getHonoredPrecomputedUnitDimensionIds } from "@/services/experiments";
 import track from "@/services/track";
 import Metadata from "@/ui/Metadata";
 import Link from "@/ui/Link";
-import UIText from "@/ui/Text";
-import UITooltip from "@/ui/Tooltip";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import AnalysisSettingInfo from "@/components/AnalysisSettingInfo";
 import AnalysisSettingsSummary from "./AnalysisSettingsSummary";
 import { ExperimentTab } from ".";
-
-function AnalysisSettingInfo({
-  ariaLabel,
-  description,
-}: {
-  ariaLabel: string;
-  description: string;
-}) {
-  return (
-    <UITooltip
-      content={
-        <Flex direction="column" gap="2" align="start">
-          <UIText as="p" size="sm">
-            {description}
-          </UIText>
-          <UIText as="p" size="sm">
-            Click in the table to drill down and see the impact.
-          </UIText>
-        </Flex>
-      }
-    >
-      <Box as="span" display="inline-block" tabIndex={0} aria-label={ariaLabel}>
-        <UIText color="text-low">
-          <PiInfo size={16} style={{ display: "block" }} aria-hidden />
-        </UIText>
-      </Box>
-    </UITooltip>
-  );
-}
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
@@ -277,6 +247,7 @@ export default function ResultsTab({
                 />
                 {priorUsed ? (
                   <AnalysisSettingInfo
+                    drilldownHint
                     ariaLabel="How a Bayesian prior affects results"
                     description="A Bayesian prior shrinks the metric estimate towards the prior mean."
                   />
@@ -293,6 +264,7 @@ export default function ResultsTab({
                 />
                 {cupedUsed ? (
                   <AnalysisSettingInfo
+                    drilldownHint
                     ariaLabel="How CUPED affects results"
                     description="CUPED adjusts for pre-exposure mean imbalances across variations to reduce variance."
                   />
@@ -310,6 +282,7 @@ export default function ResultsTab({
                   />
                   {postStratificationUsed ? (
                     <AnalysisSettingInfo
+                      drilldownHint
                       ariaLabel="How post-stratification affects results"
                       description="Post-stratification adjusts for within-dimension imbalances to reduce variance."
                     />

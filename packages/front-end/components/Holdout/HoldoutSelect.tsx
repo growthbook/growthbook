@@ -26,6 +26,7 @@ export function selectableHoldouts<H extends HoldoutInterface>(
     return (
       openToProject &&
       !!experiment &&
+      !experiment.archived &&
       getHoldoutStage(h, experiment) === "running"
     );
   });

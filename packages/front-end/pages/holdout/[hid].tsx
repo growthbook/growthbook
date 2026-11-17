@@ -2,7 +2,10 @@ import { useRouter } from "next/router";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import React, { ReactElement, useState } from "react";
 import { getHoldoutStage } from "shared/util";
-import { HoldoutInterfaceStringDates } from "shared/validators";
+import {
+  HoldoutInterfaceStringDates,
+  HoldoutMissingLinkage,
+} from "shared/validators";
 import { FeatureInterface } from "shared/types/feature";
 import useApi from "@/hooks/useApi";
 import LoadingOverlay from "@/components/LoadingOverlay";
@@ -39,6 +42,7 @@ const HoldoutPage = (): ReactElement => {
     experiment: ExperimentInterfaceStringDates;
     linkedFeatures: FeatureInterface[];
     linkedExperiments: ExperimentInterfaceStringDates[];
+    missingLinkage?: HoldoutMissingLinkage;
     envs: string[];
   }>(`/holdout/${hid}`);
 
@@ -58,6 +62,7 @@ const HoldoutPage = (): ReactElement => {
     linkedFeatures = [],
     envs = [],
     linkedExperiments = [],
+    missingLinkage,
   } = data;
   const holdoutStage = getHoldoutStage(holdout, experiment);
 
@@ -72,16 +77,15 @@ const HoldoutPage = (): ReactElement => {
     mutate();
   };
 
-  const canEditExperiment =
-    permissionsUtil.canUpdateHoldout(holdout, { projects: holdout.projects }) &&
-    !experiment.archived;
+  const hasUpdatePermission = permissionsUtil.canUpdateHoldout(holdout, {
+    projects: holdout.projects,
+  });
+  const canEditExperiment = hasUpdatePermission && !experiment.archived;
 
-  let canRunExperiment = !experiment.archived;
-  if (envs.length > 0) {
-    if (!permissionsUtil.canRunHoldout(holdout, envs)) {
-      canRunExperiment = false;
-    }
-  }
+  const canChangeServing =
+    hasUpdatePermission &&
+    (envs.length === 0 || permissionsUtil.canRunHoldout(holdout, envs));
+  const canRunExperiment = canChangeServing && !experiment.archived;
 
   const editMetrics = canEditExperiment
     ? () => setMetricsModalOpen(true)
@@ -180,6 +184,7 @@ const HoldoutPage = (): ReactElement => {
           linkedFeatures={[]}
           holdoutFeatures={linkedFeatures}
           holdoutExperiments={linkedExperiments}
+          holdoutMissingLinkage={missingLinkage}
           mutate={mutate}
           visualChangesets={[]}
           urlRedirects={[]}

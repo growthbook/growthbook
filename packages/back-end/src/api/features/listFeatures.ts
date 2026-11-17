@@ -14,7 +14,10 @@ import {
 } from "back-end/src/services/features";
 import { resolveOwnerEmails } from "back-end/src/services/owner";
 import { getFeatureDefinitionsWithCache } from "back-end/src/controllers/features";
-import { getReferenceIdsInFeatures } from "back-end/src/util/features";
+import {
+  getReferenceIdsInFeatures,
+  indexRevisions,
+} from "back-end/src/util/features";
 import {
   applyPagination,
   createApiRequestHandler,
@@ -246,14 +249,12 @@ export const listFeatures = createApiRequestHandler(listFeaturesValidator)(
       { ...req.query, archived: true }, // v1 always included archived features
     );
     if (r.empty) return r.response;
+    const revisionMap = indexRevisions(r.revisions);
     return {
       features: await resolveOwnerEmails(
         r.filtered.map((feature) => {
           const revision =
-            r.revisions?.find(
-              (x) =>
-                x.featureId === feature.id && x.version === feature.version,
-            ) || null;
+            revisionMap.get(`${feature.id}:${feature.version}`) ?? null;
           return getApiFeatureObj({
             feature,
             organization: req.organization,

@@ -21,7 +21,11 @@ import {
 } from "shared/types/experiment";
 import { PiTrash, PiCameraPlusLight } from "react-icons/pi";
 import AuthorizedImage from "@/components/AuthorizedImage";
-import ScreenshotUpload from "@/components/EditExperiment/ScreenshotUpload";
+import {
+  ScreenshotUploadError,
+  ScreenshotUploadOverlay,
+  useScreenshotUpload,
+} from "@/components/EditExperiment/ScreenshotUpload";
 import Tooltip from "@/ui/Tooltip";
 import ExperimentCarouselModal from "@/components/Experiment/ExperimentCarouselModal";
 import placeholderStyles from "@/components/Experiment/VariationsTable.module.scss";
@@ -33,23 +37,38 @@ const TILE_ASPECT = "1 / 1";
 // Shared so a reorder doesn't re-request every signed URL.
 const imageCache = {};
 
-const uploadTile = (
-  <Flex
-    align="center"
-    justify="center"
-    width="100%"
-    className={clsx(
-      "appbox mb-0",
-      styles.uploadTile,
-      placeholderStyles.noImageBox,
-      placeholderStyles.noImageBoxEditable,
-    )}
-    style={{ aspectRatio: TILE_ASPECT, border: "none" }}
-  >
-    <PiCameraPlusLight size={32} />
-    <span className={styles.uploadHint}>Upload image</span>
-  </Flex>
-);
+function UploadTile({
+  upload,
+}: {
+  upload: ReturnType<typeof useScreenshotUpload>;
+}) {
+  return (
+    <Flex
+      {...upload.getRootProps()}
+      aria-label="Upload image"
+      onPaste={upload.onPaste}
+      align="center"
+      justify="center"
+      width="100%"
+      className={clsx(
+        "appbox mb-0",
+        styles.uploadTile,
+        placeholderStyles.noImageBox,
+        placeholderStyles.noImageBoxEditable,
+      )}
+      style={{ aspectRatio: TILE_ASPECT, border: "none" }}
+    >
+      <input {...upload.getInputProps()} />
+      <PiCameraPlusLight size={32} />
+      <span className={styles.uploadHint}>Upload image</span>
+      <ScreenshotUploadOverlay
+        dragging={upload.isDragActive}
+        rejecting={upload.isDragReject}
+        progress={upload.progress}
+      />
+    </Flex>
+  );
+}
 
 function ScreenshotTile({
   screenshot,
@@ -154,6 +173,14 @@ export default function VariationScreenshotManager({
     [experiment, variationIndex, screenshots],
   );
   const [lightbox, setLightbox] = useState<number | null>(null);
+  // Lives here so its error renders below the grid, not inside a tile.
+  const upload = useScreenshotUpload({
+    experiment: experiment.id,
+    variation: variationIndex,
+    attach: false,
+    onSuccess: (screenshot) => setScreenshots((prev) => [...prev, screenshot]),
+    onPendingChange: setUploading,
+  });
 
   return (
     <Box>
@@ -176,20 +203,7 @@ export default function VariationScreenshotManager({
           strategy={rectSortingStrategy}
         >
           <Grid columns="4" gap="4">
-            <ScreenshotUpload
-              experiment={experiment.id}
-              variation={variationIndex}
-              className={styles.gridUpload}
-              messageClassName={styles.gridUploadMessage}
-              message="Drop image here"
-              attach={false}
-              onSuccess={(screenshot) =>
-                setScreenshots((prev) => [...prev, screenshot])
-              }
-              onPendingChange={setUploading}
-            >
-              {uploadTile}
-            </ScreenshotUpload>
+            <UploadTile upload={upload} />
             {screenshots.map((s, i) => (
               <ScreenshotTile
                 key={s.path}
@@ -205,6 +219,11 @@ export default function VariationScreenshotManager({
           </Grid>
         </SortableContext>
       </DndContext>
+      {upload.error ? (
+        <Box mt="2">
+          <ScreenshotUploadError error={upload.error} />
+        </Box>
+      ) : null}
       {lightbox !== null && variation ? (
         <ExperimentCarouselModal
           experiment={stagedExperiment}

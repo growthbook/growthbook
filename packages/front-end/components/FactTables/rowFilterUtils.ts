@@ -1,9 +1,12 @@
 import {
+  getRowFilterSQL,
   isValidRowFilterDateValue,
   normalizeRowFilterDateValue,
 } from "shared/experiments";
+import { createLikeStringMatchFn } from "shared/sql";
 import { getValidDate, getValidDateOffsetByUTC } from "shared/dates";
 import { truncateString } from "shared/util";
+import { columnOnlyRowFilterOperators } from "shared/validators";
 import {
   FactTableDefinition,
   FactTableInterface,
@@ -278,6 +281,46 @@ export function getRowFilterDescription(
   return `${column} ${operator} ${values.join(", ")}`.trim();
 }
 
+// Display only: the operators here are not valid SQL in every warehouse.
+export function getRowFilterDisplaySQL(
+  rowFilter: RowFilter,
+  factTable: FactTableDefinition | null,
+): string {
+  if (!factTable) {
+    return [
+      rowFilter.column,
+      rowFilter.operator,
+      (rowFilter.values ?? []).join(", "),
+    ]
+      .filter(Boolean)
+      .join(" ");
+  }
+  const escapeStringLiteral = (s: string) => s.replace(/'/g, "''");
+  return (
+    getRowFilterSQL({
+      rowFilter,
+      factTable,
+      escapeStringLiteral,
+      stringMatch: createLikeStringMatchFn({
+        escapeStringLiteral,
+        emitEscapeClause: false,
+      }),
+      evalBoolean: (col, value) => `${col} IS ${value ? "TRUE" : "FALSE"}`,
+      jsonExtract: (col, path) => `${col}.${path}`,
+      showSourceComment: true,
+    }) ?? ""
+  );
+}
+
+export function getRowFiltersDisplaySQL(
+  rowFilters: RowFilter[],
+  factTable: FactTableDefinition | null,
+): string {
+  return `WHERE ${rowFilters
+    .map((rf) => getRowFilterDisplaySQL(rf, factTable))
+    .join("\nAND ")}`;
+}
+
 /**
  * `attributes` JSON-field names that are also exposed as a top-level column on
  * the fact table — e.g. managed-warehouse identifiers aliased out of
@@ -476,10 +519,13 @@ export function isRowFilterComplete(filter: RowFilter): boolean {
   const hasValues = (filter.values ?? []).some((v) => v !== "");
 
   if (filter.operator === "sql_expr" || filter.operator === "saved_filter") {
-    return hasValues;
+    // Only spaces would build an empty SQL expression or saved filter id.
+    return (filter.values ?? []).some((v) => v.trim() !== "");
   }
   if (
-    ["is_true", "is_false", "is_null", "not_null"].includes(filter.operator)
+    (columnOnlyRowFilterOperators as readonly string[]).includes(
+      filter.operator,
+    )
   ) {
     return !!filter.column;
   }
@@ -584,12 +630,9 @@ export function columnTypesToColumnSource(
   };
 }
 
-/** Operators that carry no value of their own. */
-const VALUELESS_OPERATORS = [
-  "is_true",
-  "is_false",
-  "is_null",
-  "not_null",
+/** Operators that show no value box. A saved filter's id is picked from a list. */
+const VALUELESS_OPERATORS: string[] = [
+  ...columnOnlyRowFilterOperators,
   "saved_filter",
 ];
 

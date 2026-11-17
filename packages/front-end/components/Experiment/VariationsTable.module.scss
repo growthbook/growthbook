@@ -12,3 +12,14 @@
     background-color: rgba(0, 0, 0, 0.07);
   }
 }
+
+.noImageButton {
+  all: unset;
+  display: block;
+  border-radius: var(--radius-2);
+
+  &:focus-visible {
+    outline: 2px solid var(--focus-8);
+    outline-offset: 2px;
+  }
+}

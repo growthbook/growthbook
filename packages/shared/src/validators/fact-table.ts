@@ -242,6 +242,19 @@ export const updateFactTablePropsValidator = z
     eventName: z.string().optional(),
     tableType: factTableTypeValidator.optional(),
     columns: z.array(createColumnPropsValidator).optional(),
+    // Changes only these fields of each named column, in the same write.
+    // Fields that need more checks go through the column endpoint.
+    columnUpdates: z
+      .record(
+        z.string(),
+        updateColumnPropsValidator.pick({
+          name: true,
+          description: true,
+          numberFormat: true,
+          alwaysInlineFilter: true,
+        }),
+      )
+      .optional(),
     managedBy: factManagedByValidator.optional(),
     archived: z.boolean().optional(),
     autoSliceUpdatesEnabled: z.boolean().optional(),
@@ -289,6 +302,14 @@ export const rowFilterOperators = [
   "is_false",
   "sql_expr",
   "saved_filter",
+] as const;
+
+/** Operators that check the column itself and take no values. */
+export const columnOnlyRowFilterOperators = [
+  "is_true",
+  "is_false",
+  "is_null",
+  "not_null",
 ] as const;
 
 /**
@@ -818,6 +839,26 @@ export const funnelSettingsValidator = z.object({
 });
 export type FunnelSettings = z.infer<typeof funnelSettingsValidator>;
 
+export const MAX_COMPOUND_COMPONENTS = 20;
+// Incremental refresh joins at most five per-fact-table caches per query.
+export const MAX_COMPOUND_FACT_TABLES = 5;
+
+// A unit passes a compound metric when every component has at least one
+// matching event in the metric window, in any order.
+export const compoundComponentValidator = z.object({
+  factTableId: z.string(),
+  rowFilters: z.array(rowFilterValidator),
+});
+export type CompoundComponent = z.infer<typeof compoundComponentValidator>;
+
+export const compoundSettingsValidator = z.object({
+  components: z
+    .array(compoundComponentValidator)
+    .min(2)
+    .max(MAX_COMPOUND_COMPONENTS),
+});
+export type CompoundSettings = z.infer<typeof compoundSettingsValidator>;
+
 export const metricTypeValidator = z.enum([
   "ratio",
   "mean",
@@ -826,6 +867,7 @@ export const metricTypeValidator = z.enum([
   "quantile",
   "dailyParticipation",
   "funnel",
+  "compound",
 ]);
 
 export function isCappableFactMetric(
@@ -838,6 +880,7 @@ export function isCappableFactMetric(
     case "proportion":
     case "retention":
     case "funnel":
+    case "compound":
     case "dailyParticipation":
     case "quantile":
       return false;
@@ -866,9 +909,9 @@ const factMetricObjectValidator = z
     replaces: z.array(z.string()).optional(),
 
     metricType: metricTypeValidator,
-    // Null only for funnel metrics, which describe their events through
-    // funnelSettings.steps instead. Cross-field rules live in
-    // FactMetricModel.customValidation.
+    // Null only for funnel and compound metrics, which describe their events
+    // through funnelSettings.steps / compoundSettings.components instead.
+    // Cross-field rules live in FactMetricModel.customValidation.
     numerator: columnRefValidator.nullable(),
     denominator: columnRefValidator.nullable(),
 
@@ -886,9 +929,6 @@ const factMetricObjectValidator = z
     targetMDE: z.number().optional(),
     displayAsPercentage: z.boolean().optional(),
 
-    winRisk: z.number(),
-    loseRisk: z.number(),
-
     regressionAdjustmentOverride: z.boolean(),
     regressionAdjustmentEnabled: z.boolean(),
     regressionAdjustmentDays: z.number(),
@@ -898,23 +938,29 @@ const factMetricObjectValidator = z
     quantileSettings: quantileSettingsValidator.nullable(),
 
     funnelSettings: funnelSettingsValidator.nullable(),
+
+    compoundSettings: compoundSettingsValidator.nullable(),
   })
   .strict();
 
 type FactMetricFields = z.infer<typeof factMetricObjectValidator>;
 type FactMetricSharedFields = Omit<
   FactMetricFields,
-  "metricType" | "numerator" | "funnelSettings"
+  "metricType" | "numerator" | "funnelSettings" | "compoundSettings"
 >;
 
-/** Every metric type except "funnel": describes its events with a ColumnRef. */
+/**
+ * Every metric type except "funnel" and "compound": describes its events with
+ * a ColumnRef.
+ */
 export type StandardFactMetric = FactMetricSharedFields & {
-  metricType: Exclude<FactMetricFields["metricType"], "funnel">;
+  metricType: Exclude<FactMetricFields["metricType"], "funnel" | "compound">;
   numerator: z.infer<typeof columnRefValidator>;
   // Required-null (like quantileSettings) rather than optional: this keeps the
   // member a subtype of the flat schema output, which MakeModelClass's
   // BaseSchemaWithPrimaryKey constraint intersects with the union.
   funnelSettings: null;
+  compoundSettings: null;
 };
 
 /** Describes its events with an ordered list of funnel steps instead. */
@@ -922,6 +968,15 @@ export type FunnelFactMetric = FactMetricSharedFields & {
   metricType: "funnel";
   numerator: null;
   funnelSettings: z.infer<typeof funnelSettingsValidator>;
+  compoundSettings: null;
+};
+
+/** Describes its events with an unordered set of components instead. */
+export type CompoundFactMetric = FactMetricSharedFields & {
+  metricType: "compound";
+  numerator: null;
+  funnelSettings: null;
+  compoundSettings: z.infer<typeof compoundSettingsValidator>;
 };
 
 /**
@@ -940,7 +995,7 @@ export type FunnelFactMetric = FactMetricSharedFields & {
  */
 export const factMetricValidator =
   factMetricObjectValidator as typeof factMetricObjectValidator &
-    z.ZodType<StandardFactMetric | FunnelFactMetric>;
+    z.ZodType<StandardFactMetric | FunnelFactMetric | CompoundFactMetric>;
 
 export const createFactFilterPropsValidator = z
   .object({

@@ -1,4 +1,5 @@
 import { ExperimentSnapshotTrafficDimension } from "shared/types/experiment-snapshot";
+import { Separator, Box, Flex } from "@radix-ui/themes";
 import { ExperimentReportVariation } from "shared/types/report";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -11,7 +12,6 @@ import {
   DEFAULT_SRM_MINIMINUM_COUNT_PER_VARIATION,
   DEFAULT_SRM_THRESHOLD,
 } from "shared/constants";
-import { Box, Flex } from "@radix-ui/themes";
 import { PiCaretRight } from "react-icons/pi";
 import { useUser } from "@/services/UserContext";
 import track from "@/services/track";
@@ -57,6 +57,7 @@ export function transformDimensionData(
   variations: ExperimentReportVariation[],
   srmThreshold: number,
   isBandit: boolean,
+  disableSRM = false,
 ): DimensionWithIssues[] {
   return Object.entries(dimensionData).flatMap(
     ([dimensionName, dimensionSlices]) => {
@@ -65,23 +66,25 @@ export function transformDimensionData(
         return [];
       }
 
-      const dimensionSlicesWithIssues = dimensionSlices.filter((item) => {
-        const totalDimUsers = item.variationUnits.reduce(
-          (acc, a) => acc + a,
-          0,
-        );
-        return (
-          getSRMHealthData({
-            srm: item.srm,
-            numOfVariations: variations.length,
-            srmThreshold,
-            totalUsersCount: totalDimUsers,
-            minUsersPerVariation: isBandit
-              ? DEFAULT_SRM_BANDIT_MINIMINUM_COUNT_PER_VARIATION
-              : DEFAULT_SRM_MINIMINUM_COUNT_PER_VARIATION,
-          }) !== "healthy"
-        );
-      });
+      const dimensionSlicesWithIssues = disableSRM
+        ? []
+        : dimensionSlices.filter((item) => {
+            const totalDimUsers = item.variationUnits.reduce(
+              (acc, a) => acc + a,
+              0,
+            );
+            return (
+              getSRMHealthData({
+                srm: item.srm,
+                numOfVariations: variations.length,
+                srmThreshold,
+                totalUsersCount: totalDimUsers,
+                minUsersPerVariation: isBandit
+                  ? DEFAULT_SRM_BANDIT_MINIMINUM_COUNT_PER_VARIATION
+                  : DEFAULT_SRM_MINIMINUM_COUNT_PER_VARIATION,
+              }) !== "healthy"
+            );
+          });
 
       const issueNames = dimensionSlicesWithIssues.map((item) => item.name);
 
@@ -284,7 +287,7 @@ export const DimensionIssues = ({
           <p className="mt-1">Highlights perceived issues across dimensions</p>
         </div>
 
-        <hr className="my-0 w-100" />
+        <Separator size="4" my="0" />
         {areDimensionsAvailable ? (
           <>
             <div

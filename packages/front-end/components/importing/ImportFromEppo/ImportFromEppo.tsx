@@ -27,7 +27,6 @@ import { useSessionStorage } from "@/hooks/useSessionStorage";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import useApi from "@/hooks/useApi";
 import track from "@/services/track";
-import Heading from "@/ui/Heading";
 import Frame from "@/ui/Frame";
 import Button from "@/ui/Button";
 import Badge from "@/ui/Badge";
@@ -399,9 +398,6 @@ export default function ImportFromEppo() {
 
   return (
     <Box>
-      <Heading as="h1" size="2xl" mb="4">
-        Eppo Importer
-      </Heading>
       <Frame>
         <Grid columns={{ initial: "1", md: "2" }} gap="4">
           <TextField

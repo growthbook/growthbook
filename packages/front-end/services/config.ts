@@ -87,8 +87,6 @@ export function useConfigJson({
           "regressionAdjustmentOverride",
           "regressionAdjustmentEnabled",
           "regressionAdjustmentDays",
-          "loseRisk",
-          "winRisk",
           "maxPercentChange",
           "minPercentChange",
           "minSampleSize",

@@ -19,7 +19,8 @@ export function getPresentationsByOrganization(organization: string) {
   });
 }
 
-export function getPresentationById(id: string) {
+export async function getPresentationById(id: string) {
+  if (id && typeof id !== "string") return null;
   return PresentationModel.findOne({
     id,
   });

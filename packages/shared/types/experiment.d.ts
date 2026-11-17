@@ -91,6 +91,14 @@ export type ExperimentUnhealthyData = {
   };
   lowPowered?: boolean;
   covariateImbalance?: boolean;
+  clusterAssignment?: {
+    rawDecimal: number;
+    mixedClusters: number;
+  };
+  clusterMapping?: {
+    rawDecimal: number;
+    multiClusterUnits: number;
+  };
 };
 
 export type ExperimentResultStatus =
@@ -177,6 +185,8 @@ type StatusUpdateScheduleStringDates = Omit<
 export type LegacyMetricOverride = MetricOverride & {
   conversionWindowHours?: number;
   conversionDelayHours?: number;
+  winRisk?: number;
+  loseRisk?: number;
 };
 
 export interface LegacyExperimentInterface
@@ -430,8 +440,15 @@ export type ExperimentHealthSettings = {
   decisionFrameworkEnabled: boolean;
   srmThreshold: number;
   multipleExposureMinPercent: number;
+  clusterIssueMinPercent: number;
   experimentMinLengthDays: number;
 };
+
+// Other experiment models reuse the standard status indicator.
+type ExperimentStatusAdapterType =
+  | ExperimentType
+  | "contextual-bandit"
+  | "interleaving";
 
 export type ExperimentDataForStatusStringDates = Omit<
   Pick<
@@ -451,13 +468,11 @@ export type ExperimentDataForStatusStringDates = Omit<
     | "decisionFrameworkSettings"
     | "nextScheduledStatusUpdate"
     | "statusUpdateSchedule"
+    | "isClusterExperiment"
   >,
   "type"
 > & {
-  // Contextual bandits are a separate model but reuse the experiment status
-  // badge via an adapter, so allow their type here. Kept optional to match
-  // the source `type` field.
-  type?: ExperimentType | "contextual-bandit";
+  type?: ExperimentStatusAdapterType;
 };
 
 export type ExperimentDataForStatus = Omit<
@@ -478,11 +493,9 @@ export type ExperimentDataForStatus = Omit<
     | "decisionFrameworkSettings"
     | "nextScheduledStatusUpdate"
     | "statusUpdateSchedule"
+    | "isClusterExperiment"
   >,
   "type"
 > & {
-  // Contextual bandits are a separate model but reuse the experiment status
-  // badge via an adapter, so allow their type here. Kept optional to match
-  // the source `type` field.
-  type?: ExperimentType | "contextual-bandit";
+  type?: ExperimentStatusAdapterType;
 };

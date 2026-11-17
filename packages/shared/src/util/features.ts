@@ -905,7 +905,7 @@ const matchesEveryone = (rule: FeatureRule): boolean =>
 export const isUnconditionalCatcher = (rule: FeatureRule): boolean => {
   if (!matchesEveryone(rule)) return false;
   if (isForceRule(rule)) return true;
-  if (isRolloutRule(rule)) return rule.coverage >= 1;
+  if (isRolloutRule(rule)) return (rule.coverage ?? 1) >= 1;
   return false;
 };
 
@@ -945,7 +945,9 @@ const areRulesOneSided = (
   // Prerequisites target too: the rule serves only when the parent passes.
   const rolloutRulesOnesided =
     !rolloutRules.length ||
-    rolloutRules.every((r) => r.coverage === 1 && !hasTargetingConfigured(r));
+    rolloutRules.every(
+      (r) => (r.coverage ?? 1) === 1 && !hasTargetingConfigured(r),
+    );
 
   const forceRulesOnesided =
     !forceRules.length || forceRules.every((r) => !hasTargetingConfigured(r));
@@ -4213,14 +4215,14 @@ export function getRevisionReviewRequirement({
     }
 
     // Kill switch changes only gate when featureRequireEnvironmentReview is enabled
+    const killSwitchGated = killSwitchReviewScope(reviewSetting);
     if (
-      envKillSwitchChanges.length > 0 &&
-      reviewSetting.featureRequireEnvironmentReview !== false
-    ) {
-      if (gatedEnvs.length === 0) return true;
-      if (envKillSwitchChanges.some((env) => gatedEnvs.includes(env)))
-        return true;
-    }
+      killSwitchGated !== "none" &&
+      envKillSwitchChanges.some(
+        (env) => killSwitchGated === "all" || killSwitchGated.has(env),
+      )
+    )
+      return true;
 
     // Ramp actions (create/update/detach) change how the feature is rolled out
     // across environments. They are treated like rule changes and always require
@@ -4285,6 +4287,17 @@ export function orgRequiresAnyReview(
 }
 
 // Boolean form, for callers that only ask whether review is needed.
+// The environments where turning a flag on or off needs review under this
+// setting: none when it doesn't gate kill switches, all when it names none.
+export function killSwitchReviewScope(
+  reviewSetting: RequireReview | null | undefined,
+): Set<string> | "all" | "none" {
+  if (!reviewSetting?.requireReviewOn) return "none";
+  if (reviewSetting.featureRequireEnvironmentReview === false) return "none";
+  const environments = reviewSetting.environments ?? [];
+  return environments.length === 0 ? "all" : new Set(environments);
+}
+
 export function checkIfRevisionNeedsReview(
   args: Parameters<typeof getRevisionReviewRequirement>[0],
 ): boolean {

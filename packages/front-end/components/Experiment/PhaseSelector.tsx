@@ -2,7 +2,7 @@ import { ReactNode } from "react";
 import { date } from "shared/dates";
 import { parseIntWithDefault } from "shared/util";
 import { ExperimentPhaseStringDates } from "shared/types/experiment";
-import { Box, Flex } from "@radix-ui/themes";
+import { Flex } from "@radix-ui/themes";
 import { HoldoutInterfaceStringDates } from "shared/validators";
 import { phaseSummary } from "@/services/utils";
 import Tooltip from "@/ui/Tooltip";
@@ -16,8 +16,8 @@ export interface Props {
   isBandit?: boolean;
   isHoldout?: boolean;
   holdout?: HoldoutInterfaceStringDates;
-  // More for the selected phase's tooltip.
-  details?: ReactNode;
+  // The selected phase's tooltip, as if it were the only phase.
+  details?: (phaseIndex: number) => ReactNode;
 }
 
 export default function PhaseSelector({
@@ -60,29 +60,11 @@ export default function PhaseSelector({
     const isValueContext = meta?.context === "value";
 
     if (isValueContext) {
+      const tip = details?.(phaseIndex) ?? null;
       // Collapsed/selected value mode - show tooltip version
       return (
         // Closes once pressed, so it stays out of the way of the menu.
-        <Tooltip
-          content={
-            <>
-              {/* A Bandit's phases read as one run, so only its dates. */}
-              {!isBandit && (
-                <>
-                  <div className="font-weight-bold">
-                    {!isHoldout && `Phase ${phaseIndex + 1}: `} {phase.name}
-                  </div>
-                  {!isHoldout && (
-                    <div className="mt-1">{phaseSummary(phase, isBandit)}</div>
-                  )}
-                </>
-              )}
-              {details ? <Box mt={isBandit ? "0" : "2"}>{details}</Box> : null}
-            </>
-          }
-          enabled={!isBandit || !!details}
-          side="top"
-        >
+        <Tooltip content={tip} enabled={!!tip} side="top">
           <span>
             <span className="font-weight-bold">
               {!isHoldout

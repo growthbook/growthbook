@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { namedSchema } from "./openapi-helpers";
+import { namedSchema, retiredRiskDefault } from "./openapi-helpers";
 
 // Approval rules are project-scoped: a rule with no `projects` is the
 // all-projects rule, and a project override inherits any field it omits.
@@ -136,8 +136,8 @@ export const apiSettingsValidator = namedSchema(
       delayHours: z.coerce.number(),
       windowType: z.string(),
       windowHours: z.coerce.number(),
-      winRisk: z.coerce.number(),
-      loseRisk: z.coerce.number(),
+      winRisk: retiredRiskDefault(),
+      loseRisk: retiredRiskDefault(),
       secureAttributeSalt: z.string(),
       killswitchConfirmation: z.boolean(),
       featureKillSwitchBehavior: z.enum(["off", "warn"]).optional(),
@@ -155,6 +155,7 @@ export const apiSettingsValidator = namedSchema(
       banditScheduleUnit: z.enum(["hours", "days"]),
       banditBurnInValue: z.coerce.number(),
       banditBurnInUnit: z.enum(["hours", "days"]),
+      banditPeriodWeighting: z.boolean().optional(),
       experimentMinLengthDays: z.coerce.number(),
       experimentMaxLengthDays: z.coerce.number().nullable().optional(),
       preferredEnvironment: z.string().nullable().optional(),

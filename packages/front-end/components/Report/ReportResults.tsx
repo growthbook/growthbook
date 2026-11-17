@@ -148,7 +148,7 @@ export default function ReportResults({
         setEditAnalysisOpen={setEditAnalysisOpen}
         runQueriesButtonRef={runQueriesButtonRef}
       />
-      <div className="appbox pt-3 mb-5">
+      <div className="appbox pt-3">
         {snapshotError ? (
           <div className="mx-3 mb-3">
             <Callout status="error">
@@ -284,6 +284,7 @@ export default function ReportResults({
                 experimentId={snapshot.experiment}
                 significanceThresholds={significanceThresholds}
                 variations={variations}
+                snapshot={snapshot}
                 multipleExposures={snapshot.multipleExposures || 0}
                 results={analysis.results[0]}
                 queryStatusData={queryStatusData}

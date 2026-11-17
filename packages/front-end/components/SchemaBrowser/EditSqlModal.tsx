@@ -67,6 +67,7 @@ export interface Props {
       | "Identity Join"
       | "Experiment Assignment Query"
       | "Contextual Bandit Assignment Query"
+      | "Interleaving Exposure Query"
       | "Metric"
       | "Segment"
       | "Feature Usage Query";
@@ -84,6 +85,7 @@ const TEST_QUERY_TYPES: Record<
   "Identity Join": "identityJoinTest",
   "Experiment Assignment Query": "exposureQueryTest",
   "Contextual Bandit Assignment Query": "contextualBanditQueryTest",
+  "Interleaving Exposure Query": "interleavingExposureQueryTest",
   Metric: "metricTest",
   Segment: "segmentTest",
   "Feature Usage Query": "featureUsageQueryTest",

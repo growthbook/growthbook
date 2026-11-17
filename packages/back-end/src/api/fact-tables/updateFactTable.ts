@@ -31,6 +31,7 @@ import {
 } from "back-end/src/util/factTable";
 import { ApiReqContext } from "back-end/types/api";
 import { ReqContext } from "back-end/types/request";
+import { NotFoundError } from "back-end/src/util/errors";
 
 export async function authorizeAndPersistFactTableUpdate({
   context,
@@ -63,7 +64,7 @@ export const updateFactTable = createApiRequestHandler(
 )(async (req) => {
   const factTable = await getFactTable(req.context, req.params.id);
   if (!factTable) {
-    throw new Error("Could not find factTable with that id");
+    throw new NotFoundError("Could not find factTable with that id");
   }
 
   // Validate projects

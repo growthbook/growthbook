@@ -17,6 +17,7 @@ import {
   PENDING_APPROVAL_ITEM_PREFIX,
 } from "../validators/experiment-launch-checklist";
 import { getLatestPhaseVariations } from "./variations";
+import { areVariationWeightsValid } from "./experiments";
 
 export type LaunchChecklistItem = {
   // A built-in key, `<kind>:<featureId>` for a linked flag, or a custom task.
@@ -317,6 +318,20 @@ export function getLaunchChecklistItems({
     // There's no phase to run.
     hardBlock: !hasPhases,
   });
+  const weights =
+    experiment.phases[experiment.phases.length - 1]?.variationWeights;
+  // Can't be hidden: SDKs would serve an equal split. A Bandit's start resets
+  // its weights.
+  if (!isBandit && weights && !areVariationWeightsValid(weights)) {
+    items.push({
+      key: "variationWeights",
+      label: "Fix the variation weights so they add up to 100%",
+      status: "incomplete",
+      required: true,
+      hardBlock: true,
+      manual: false,
+    });
+  }
 
   pushBuiltIn("sdkConnection", {
     label: "Add an SDK Connection",

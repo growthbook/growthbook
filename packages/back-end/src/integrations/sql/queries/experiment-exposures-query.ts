@@ -1,4 +1,4 @@
-import { format, quoteIdentifier, SQL_ROW_LIMIT } from "shared/sql";
+import { format, quoteColumnIdentifier, SQL_ROW_LIMIT } from "shared/sql";
 import { buildRowFilterWhereClause } from "shared/experiments";
 import { stringRowFilterOperators } from "shared/validators";
 import {
@@ -25,16 +25,6 @@ export function isSafeIdentifier(name: string): boolean {
 function filterColumnExpr(column: string, dialect: SqlDialect): string {
   const cast = dialect.castToFilterString ?? dialect.castToString;
   return dialect.lowerString(cast(quoteColumnIdentifier(column, dialect)));
-}
-
-function quoteColumnIdentifier(name: string, dialect: SqlDialect): string {
-  const folded =
-    dialect.unquotedIdentifierFold === "upper"
-      ? name.toUpperCase()
-      : dialect.unquotedIdentifierFold === "lower"
-        ? name.toLowerCase()
-        : name;
-  return quoteIdentifier(folded, dialect.identifierQuote);
 }
 
 function exposureColumnsAsFactTable(
@@ -103,15 +93,21 @@ export function getExperimentExposuresQuery(
   const { exposureQuery } = params;
   const timestampColumn = getExposureQueryTimestampColumn(exposureQuery);
   const experimentIdColumn = getExposureQueryExperimentIdColumn(exposureQuery);
+  const identifierTypes = [
+    exposureQuery.identifierType,
+    ...(params.subUnitIdentifierType ? [params.subUnitIdentifierType] : []),
+  ];
   // Filters name roles canonically, but the query returns the mapped columns
   const physicalColumns: Record<string, string> = {
     timestamp: timestampColumn,
     variation_id: getExposureQueryVariationIdColumn(exposureQuery),
-    [exposureQuery.identifierType]: getExposureQueryIdentifierColumn(
-      exposureQuery,
-      exposureQuery.identifierType,
-    ),
   };
+  identifierTypes.forEach((type) => {
+    physicalColumns[type] = getExposureQueryIdentifierColumn(
+      exposureQuery,
+      type,
+    );
+  });
   const toPhysical = (column: string) => physicalColumns[column] ?? column;
 
   // Ordering on every configured column keeps paging stable for rows that tie
@@ -120,7 +116,7 @@ export function getExperimentExposuresQuery(
   const filterableColumns = Array.from(
     new Set([
       "timestamp",
-      exposureQuery.identifierType,
+      ...identifierTypes,
       "variation_id",
       ...params.dimensions,
     ]),

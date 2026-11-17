@@ -27,6 +27,7 @@ export const docSections = {
   clusterExperiments: "/experimentation-analysis/cluster-experiments",
   preLaunchChecklist: "/app/pre-launch-checklist",
   banditsConfig: "/bandits/config",
+  interleaving: "/experimentation-analysis/interleaving",
   banditsResults: "/bandits/results",
   stickyBucketing: "/app/sticky-bucketing",
   metrics: "/app/metrics",

@@ -35,6 +35,7 @@ import {
   getExperimentsScript,
 } from "./controllers/config";
 import { getAuthConnection, processJWT, usingOpenId } from "./services/auth";
+import { rejectQueryOperators } from "./middleware/rejectQueryOperators";
 import { trackRequestCompletion } from "./services/growthbook";
 import { wrapController } from "./routers/wrapController";
 import apiRouter from "./api/api.router";
@@ -134,6 +135,7 @@ import { customFieldsRouter } from "./routers/custom-fields/custom-fields.router
 import {
   constantsRouter,
   constantDraftStatesRouter,
+  constantResolvablesRouter,
 } from "./routers/constant/constant.router";
 import {
   configsRouter,
@@ -146,6 +148,7 @@ import { savedQueriesRouter } from "./routers/saved-queries/saved-queries.router
 import { projectRouter } from "./routers/project/project.router";
 import { vercelRouter } from "./routers/vercel-native-integration/vercel-native-integration.router";
 import { factTableRouter } from "./routers/fact-table/fact-table.router";
+import { datasourcesRouter } from "./routers/datasources/datasources.router";
 import { slackIntegrationRouter } from "./routers/slack-integration/slack-integration.router";
 import { slackActionsRouter } from "./routers/slack-actions/slack-actions.router";
 import { dataExportRouter } from "./routers/data-export/data-export.router";
@@ -174,6 +177,7 @@ import { importingRouter } from "./routers/importing/importing.router";
 import { productAnalyticsRouter } from "./routers/product-analytics/product-analytics.router";
 import { sessionReplayRouter } from "./routers/session-replay/session-replay.router";
 import { experimentExposuresRouter } from "./routers/experiment-exposures/experiment-exposures.router";
+import { adminManagedWarehouseRouter } from "./routers/admin-managed-warehouse/admin-managed-warehouse.router";
 import { agentRouter } from "./routers/agent/agent.router";
 
 const app = express();
@@ -249,6 +253,7 @@ if (stringToBoolean(process.env.PYTHON_SERVER_MODE)) {
 }
 
 app.use(cookieParser());
+app.use(rejectQueryOperators);
 
 // Health check route  (does not require JWT or cors)
 app.get("/healthcheck", (req, res) => {
@@ -697,6 +702,7 @@ app.use("/custom-fields", customFieldsRouter);
 
 app.use("/constants", constantsRouter);
 app.use("/constants-draft-states", constantDraftStatesRouter);
+app.use("/constants-resolvables", constantResolvablesRouter);
 app.use("/configs", configsRouter);
 app.use("/configs-draft-states", configDraftStatesRouter);
 
@@ -1088,6 +1094,7 @@ app.post(
   "/datasources/event-forwarder/test-access",
   datasourcesController.postTestEventForwarderAccessForCreate,
 );
+app.use(datasourcesRouter);
 app.put("/datasource/:id", datasourcesController.putDataSource);
 app.delete("/datasource/:id", datasourcesController.deleteDataSource);
 app.put(
@@ -1113,6 +1120,14 @@ app.post(
 app.post(
   "/datasource/:id/event-forwarder/resume",
   datasourcesController.postResumeEventForwarder,
+);
+app.post(
+  "/datasource/:id/event-forwarder/restart",
+  datasourcesController.postRestartEventForwarder,
+);
+app.post(
+  "/datasource/:id/event-forwarder/migrate",
+  datasourcesController.postMigrateEventForwarder,
 );
 app.get("/datasource/:id/metrics", datasourcesController.getDataSourceMetrics);
 app.post(
@@ -1267,11 +1282,13 @@ app.get(
   adminController._dangerousAdminGetOrganizationLicense,
 );
 app.get("/admin/members", adminController._dangerousAdminGetMembers);
+app.get("/admin/user/:userId", adminController._dangerousAdminGetUser);
 app.put("/admin/member", adminController._dangerousAdminPutMember);
 app.post(
   "/admin/sso-connection",
   adminController._dangerousAdminUpsertSSOConnection,
 );
+app.use(adminManagedWarehouseRouter);
 
 // License
 app.get("/license", licenseController.getLicenseData);

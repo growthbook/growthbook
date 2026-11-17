@@ -5,7 +5,11 @@ import {
   DataSourceType,
   UserIdType,
 } from "shared/types/datasource";
-import { EventForwarderSinkType } from "shared/types/event-forwarder";
+import {
+  EventForwarderConfigWithMetadata,
+  EventForwarderSinkType,
+  EventForwarderStatus,
+} from "shared/types/event-forwarder";
 import { BigQueryConnectionParams } from "shared/types/integrations/bigquery";
 import { DatabricksConnectionParams } from "shared/types/integrations/databricks";
 import { SnowflakeConnectionParams } from "shared/types/integrations/snowflake";
@@ -197,6 +201,33 @@ export function supportsEventForwarder(
 ): boolean {
   if (!datasource) return false;
   return getEventForwarderSinkTypeForDatasource(datasource) !== null;
+}
+
+// The Finish Setting Up step is done once provisioning has been accepted.
+// A failed attempt stays open so the destination can be retried. Later
+// operational failures stay on the Event Forwarder tab.
+const EVENT_FORWARDER_SETUP_STEP_COMPLETE = new Set<EventForwarderStatus>([
+  "pending",
+  "ready",
+  "paused",
+  "schema_update_error",
+]);
+
+export function isEventForwarderSetupStepComplete(
+  config:
+    | Pick<EventForwarderConfigWithMetadata, "status" | "connectorName">
+    | null
+    | undefined,
+): boolean {
+  if (!config) return false;
+  if (EVENT_FORWARDER_SETUP_STEP_COMPLETE.has(config.status)) return true;
+  // `error` also covers an operational failure after setup previously
+  // succeeded — a bad credential update, or a connector health check, can
+  // both set `error` on a forwarder that finished setup long ago.
+  // `connectorName` is only ever written once provisioning has succeeded, so
+  // its presence means the first-time setup step is done even though the
+  // forwarder is currently erroring.
+  return config.status === "error" && !!config.connectorName?.trim();
 }
 
 export function getEventForwarderDatasourceParams(

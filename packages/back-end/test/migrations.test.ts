@@ -59,59 +59,67 @@ import { flattenV1ToV2Rules } from "back-end/src/util/flattenRules";
 import { deepFreeze } from "back-end/test/test-helpers";
 
 describe("Fact Metric Migration", () => {
+  const baseFactMetric: LegacyFactMetricInterface = {
+    id: "",
+    organization: "",
+    owner: "",
+    datasource: "",
+    dateCreated: new Date(),
+    dateUpdated: new Date(),
+    name: "",
+    description: "",
+    tags: [],
+    projects: [],
+    inverse: false,
+
+    metricType: "proportion",
+    numerator: {
+      factTableId: "",
+      column: "",
+      rowFilters: [],
+    },
+    denominator: null,
+
+    windowSettings: {
+      type: "",
+      delayUnit: "hours",
+      delayValue: 0,
+      windowUnit: "hours",
+      windowValue: 0,
+    },
+    cappingSettings: {
+      type: "",
+      value: 0,
+    },
+    priorSettings: {
+      override: false,
+      proper: false,
+      mean: 0,
+      stddev: DEFAULT_PROPER_PRIOR_STDDEV,
+    },
+
+    maxPercentChange: 0.05,
+    minPercentChange: 500,
+    minSampleSize: 150,
+
+    regressionAdjustmentOverride: false,
+    regressionAdjustmentEnabled: true,
+    regressionAdjustmentDays: 14,
+
+    quantileSettings: null,
+  };
+
+  it("drops retired risk thresholds", () => {
+    expect(
+      FactMetricModel.upgradeFactMetricDoc({
+        ...baseFactMetric,
+        winRisk: 0.1,
+        loseRisk: 3,
+      }),
+    ).toEqual(baseFactMetric);
+  });
+
   it("upgrades delay hours", () => {
-    const baseFactMetric: LegacyFactMetricInterface = {
-      id: "",
-      organization: "",
-      owner: "",
-      datasource: "",
-      dateCreated: new Date(),
-      dateUpdated: new Date(),
-      name: "",
-      description: "",
-      tags: [],
-      projects: [],
-      inverse: false,
-
-      metricType: "proportion",
-      numerator: {
-        factTableId: "",
-        column: "",
-        rowFilters: [],
-      },
-      denominator: null,
-
-      windowSettings: {
-        type: "",
-        delayUnit: "hours",
-        delayValue: 0,
-        windowUnit: "hours",
-        windowValue: 0,
-      },
-      cappingSettings: {
-        type: "",
-        value: 0,
-      },
-      priorSettings: {
-        override: false,
-        proper: false,
-        mean: 0,
-        stddev: DEFAULT_PROPER_PRIOR_STDDEV,
-      },
-
-      maxPercentChange: 0.05,
-      minPercentChange: 500,
-      minSampleSize: 150,
-      winRisk: 0.1,
-      loseRisk: 3,
-
-      regressionAdjustmentOverride: false,
-      regressionAdjustmentEnabled: true,
-      regressionAdjustmentDays: 14,
-
-      quantileSettings: null,
-    };
-
     const delayHours: LegacyFactMetricInterface = {
       ...baseFactMetric,
       windowSettings: {
@@ -2203,6 +2211,25 @@ describe("Experiment Migration", () => {
       ],
     });
   });
+
+  it("drops target MDE overrides saved without a value", () => {
+    expect(
+      upgradeExperimentDoc({
+        ...exp,
+        decisionFrameworkSettings: {
+          decisionCriteriaId: "dcr_1",
+          decisionFrameworkMetricOverrides: [
+            { id: "met_a", targetMDE: null },
+            { id: "met_b" },
+            { id: "met_c", targetMDE: 0.02 },
+          ],
+        },
+      }).decisionFrameworkSettings,
+    ).toEqual({
+      decisionCriteriaId: "dcr_1",
+      decisionFrameworkMetricOverrides: [{ id: "met_c", targetMDE: 0.02 }],
+    });
+  });
 });
 
 describe("Organization Migration", () => {
@@ -2253,15 +2280,65 @@ describe("Organization Migration", () => {
             id: "dev",
             description: "",
             toggleOnList: true,
+            isProduction: false,
           },
           {
             id: "production",
             description: "",
             toggleOnList: true,
+            isProduction: true,
           },
         ],
       },
     });
+  });
+
+  it("fills a missing isProduction from the environment id without mutating the input", () => {
+    const testOrg: OrganizationInterface = {
+      id: "org_test",
+      name: "Test",
+      ownerEmail: "test@test.com",
+      url: "",
+      dateCreated: new Date(),
+      invites: [],
+      members: [],
+      settings: {
+        environments: [
+          { id: "staging", description: "" },
+          { id: "john_dev", description: "" },
+          { id: "production", description: "", isProduction: false },
+        ],
+      },
+    };
+    const result = upgradeFrozen(testOrg);
+    expect(result.settings.environments).toEqual([
+      { id: "staging", description: "", isProduction: false },
+      { id: "john_dev", description: "", isProduction: true },
+      { id: "production", description: "", isProduction: false },
+    ]);
+    expect(testOrg.settings?.environments?.[0]).toEqual({
+      id: "staging",
+      description: "",
+    });
+  });
+
+  it("keeps the environments array when every isProduction is already set", () => {
+    const environments = [
+      { id: "dev", description: "", isProduction: false },
+      { id: "production", description: "", isProduction: true },
+    ];
+    const testOrg: OrganizationInterface = {
+      id: "org_test",
+      name: "Test",
+      ownerEmail: "test@test.com",
+      url: "",
+      dateCreated: new Date(),
+      invites: [],
+      members: [],
+      settings: { environments },
+    };
+    const result = upgradeFrozen(testOrg);
+    expect(result.settings.environments).toBe(environments);
   });
 
   it("copies only the parts it upgrades and leaves the given document unchanged", () => {

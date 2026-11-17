@@ -1,7 +1,6 @@
 // TODO(holdout-v1.5): attach holdout-vs-bandit comparison view and EDF recommendations here.
 import { ReactNode, useEffect, useMemo, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
-import { startCase } from "lodash";
 import { getValidDate } from "shared/dates";
 import { ApiContextualBanditInterface } from "shared/validators";
 import {
@@ -15,6 +14,7 @@ import type {
   ContextualBanditResultsLeaf,
   ContextualLeafClause,
 } from "shared/experiments";
+import { getUnitDisplayName } from "@/services/experiments";
 import Text from "@/ui/Text";
 import Callout from "@/ui/Callout";
 import HelperText from "@/ui/HelperText";
@@ -194,9 +194,7 @@ export default function ContextualBanditResultsTable({
   const userIdType = contextualBanditQueriesMap.get(
     cb.contextualBanditQueryId,
   )?.userIdType;
-  const unitDisplayName = userIdType
-    ? startCase(userIdType.split("_").join(" ")) + "s"
-    : "Units";
+  const unitDisplayName = getUnitDisplayName(userIdType);
 
   const goalMetric = cb.decisionMetric
     ? getExperimentMetricById(cb.decisionMetric)

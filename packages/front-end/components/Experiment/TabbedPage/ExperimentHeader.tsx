@@ -79,7 +79,9 @@ import PhaseSelector from "@/components/Experiment/PhaseSelector";
 import TemplateForm from "@/components/Experiment/Templates/TemplateForm";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import usePinnedHeader from "@/hooks/usePinnedHeader";
+import { useIsOverflowingX } from "@/hooks/useIsOverflowing";
 import { DetailsPanelToggle } from "@/components/CollapsiblePanelLayout";
+import { PageBleed } from "@/components/Layout/PageFrame";
 import { hasHealthData } from "@/components/HealthTab/constants";
 import ExperimentActionButtons from "./ExperimentActionButtons";
 import QuickEditButton, { revealsQuickEdit } from "./QuickEditButton";
@@ -95,6 +97,8 @@ import {
   hasStatusSchedule,
   allDates,
   headerDates,
+  headerDetails,
+  LabeledDate,
   scheduledTime,
 } from "./statusSchedule";
 import { getStartTitle } from "./startActions";
@@ -120,6 +124,8 @@ export interface Props {
   startOpen: boolean;
   setStartOpen: (open: boolean) => void;
   editTargeting?: (() => void) | null;
+  /** Opens the Make Changes form, set where it's the way to edit delivery. */
+  makeChanges?: (() => void) | null;
   editPhases?: (() => void) | null;
   healthNotificationCount: number;
   linkedFeatures: LinkedFeatureInfo[];
@@ -209,6 +215,7 @@ export default function ExperimentHeader({
   mutateWatchers,
   editResult,
   editTargeting,
+  makeChanges,
   start,
   startOpen,
   setStartOpen,
@@ -222,7 +229,8 @@ export default function ExperimentHeader({
   editSchedule,
 }: Props) {
   const { apiCall } = useAuth();
-  const { hasCommercialFeature } = useUser();
+  const { hasCommercialFeature, settings } = useUser();
+  const publicSharingDisabled = !!settings?.disablePublicSharing;
   const { watchedExperiments, refreshWatching } = useWatching();
   const router = useRouter();
   const permissionsUtil = usePermissionsUtil();
@@ -385,6 +393,7 @@ export default function ExperimentHeader({
   const disableHealthTab = !hasHealthData(dataSource);
 
   const isBandit = experiment.type === "multi-armed-bandit";
+  const clusterBlocksBandit = !isBandit && !!experiment.isClusterExperiment;
   const isHoldout = experiment.type === "holdout";
   const holdoutStage = holdout
     ? getHoldoutStage(holdout, experiment)
@@ -458,7 +467,8 @@ export default function ExperimentHeader({
   ]);
 
   const shareLinkButton =
-    experiment.shareLevel !== "public" ? null : copySuccess ? (
+    experiment.shareLevel !== "public" ||
+    publicSharingDisabled ? null : copySuccess ? (
       <Button style={{ width: 130 }} icon={<PiCheck />}>
         Link copied
       </Button>
@@ -485,7 +495,10 @@ export default function ExperimentHeader({
   const showShareableReportButton =
     permissionsUtil.canCreateReport(experiment) && snapshot;
 
-  const showShareButton = canEditExperiment;
+  // Kept for an already-public experiment so its link can be revoked.
+  const showShareButton =
+    canEditExperiment &&
+    (!publicSharingDisabled || experiment.shareLevel === "public");
 
   const showSaveAsTemplateButton = canCreateTemplate && !isBandit;
 
@@ -495,6 +508,8 @@ export default function ExperimentHeader({
     !isHoldout &&
     (experiment.status !== "draft" || hasResults);
   const showEditPhase = !!editPhases && !isBandit && !isHoldout;
+  // Running, the header's button opens it.
+  const showMakeChanges = !!makeChanges && experiment.status === "stopped";
   // Bandits schedule nothing; a holdout's schedule is its own.
   const showScheduleItem =
     canEditExperiment &&
@@ -502,7 +517,8 @@ export default function ExperimentHeader({
     !isBandit &&
     experiment.status !== "stopped" &&
     !experiment.archived;
-  const hasEditItems = showEditStatus || showEditPhase || showScheduleItem;
+  const hasEditItems =
+    showEditStatus || showEditPhase || showMakeChanges || showScheduleItem;
   const showHoldoutOverride =
     !!holdout?.nextScheduledStatusUpdate &&
     ((experiment.status === "running" && !!editResult) ||
@@ -514,10 +530,14 @@ export default function ExperimentHeader({
     ? !!holdout && hasStatusSchedule(holdout)
     : hasStatusSchedule(experiment);
   const nextScheduledStartDate = armedStartDate(experiment);
-  const everyDate = allDates(experiment);
-  const everyDateList = (
+  const now = new Date();
+  const shownDates = headerDates(experiment, now);
+  const everyDate = allDates(experiment, now);
+  const details = headerDetails(experiment, now);
+  const dateList = (dates: LabeledDate[], lead?: string | null) => (
     <Flex direction="column" gap="1">
-      {everyDate.map(({ label, value }) => (
+      {lead ? <span>{lead}</span> : null}
+      {dates.map(({ label, value }) => (
         <span key={label}>
           <Text size="inherit" weight="semibold">
             {label}:
@@ -527,36 +547,68 @@ export default function ExperimentHeader({
       ))}
     </Flex>
   );
-  // Breaks only between dates, never inside one, or keeps to one line. The
-  // rest of its dates are in the tooltip, when it has any.
-  const datesLine = (oneLine: boolean) => (
-    <Tooltip enabled={everyDate.length > 1} content={everyDateList}>
-      <span
-        tabIndex={everyDate.length > 1 ? 0 : undefined}
-        // Inset, so the box clipping it to one line keeps its focus ring.
-        style={{ textAlign: "right", outlineOffset: -2 }}
-      >
-        <Text color="text-mid" whiteSpace={oneLine ? "nowrap" : "normal"}>
-          {headerDates(experiment, new Date()).map(({ label, value }, i) => (
-            <Fragment key={label}>
-              {i > 0 ? " · " : null}
-              <Text size="inherit" whiteSpace="nowrap">
-                <Text
-                  size="inherit"
-                  weight="semibold"
-                  color="text-high"
-                  whiteSpace="nowrap"
-                >
-                  {label}:
-                </Text>{" "}
-                {value}
-              </Text>
-            </Fragment>
-          ))}
-        </Text>
-      </span>
-    </Tooltip>
+  const everyDateList = dateList(everyDate);
+  // What the line doesn't already say; nothing, when it says it all.
+  const detailsList =
+    details.runtime || details.dates.length
+      ? dateList(details.dates, details.runtime)
+      : null;
+  // A phase's tooltip reads as it would were that phase the only one.
+  const phaseDetails = (index: number) => {
+    const phase = experiment.phases[index];
+    if (!phase) return null;
+    const { runtime, dates } = headerDetails(
+      {
+        ...experiment,
+        phases: [phase],
+        // An earlier phase ended, though the experiment runs on.
+        status:
+          index < experiment.phases.length - 1 ? "stopped" : experiment.status,
+      },
+      now,
+    );
+    return runtime || dates.length ? dateList(dates, runtime) : null;
+  };
+  const datesBox = useRef<HTMLDivElement>(null);
+  // Off with the dashboard, so it measures the box anew once the tabs show it.
+  const datesCut = useIsOverflowingX(
+    datesBox,
+    !hasMultiplePhases && !showDashboardView,
+    shownDates.map(({ value }) => value).join(),
   );
+  // Breaks only between dates, never inside one, or keeps to one line. Its
+  // tooltip adds what the line leaves out, or, cut short, has every date.
+  const datesLine = (oneLine: boolean) => {
+    const tip = oneLine && datesCut ? everyDateList : detailsList;
+    return (
+      <Tooltip enabled={!!tip} content={tip}>
+        <span
+          tabIndex={tip ? 0 : undefined}
+          // Inset, so the box clipping it to one line keeps its focus ring.
+          style={{ textAlign: "right", outlineOffset: -2 }}
+        >
+          <Text color="text-mid" whiteSpace={oneLine ? "nowrap" : "normal"}>
+            {shownDates.map(({ label, value }, i) => (
+              <Fragment key={label}>
+                {i > 0 ? " · " : null}
+                <Text size="inherit" whiteSpace="nowrap">
+                  <Text
+                    size="inherit"
+                    weight="semibold"
+                    color="text-high"
+                    whiteSpace="nowrap"
+                  >
+                    {label}:
+                  </Text>{" "}
+                  {value}
+                </Text>
+              </Fragment>
+            ))}
+          </Text>
+        </span>
+      </Tooltip>
+    );
+  };
   const startGate = useStartGate({
     experiment,
     linkedFeatures,
@@ -613,6 +665,7 @@ export default function ExperimentHeader({
           header={`Convert to ${isBandit ? "Experiment" : "Bandit"}`}
           submit={async () => {
             if (!isBandit && !hasMultiArmedBanditFeature) return;
+            if (clusterBlocksBandit) return;
             try {
               await apiCall(`/experiment/${experiment.id}`, {
                 method: "POST",
@@ -638,65 +691,78 @@ export default function ExperimentHeader({
               </PremiumTooltip>
             )
           }
-          ctaEnabled={isBandit || hasMultiArmedBanditFeature}
+          ctaEnabled={
+            (isBandit || hasMultiArmedBanditFeature) && !clusterBlocksBandit
+          }
         >
           <div>
-            <p>
-              Are you sure you want to convert this{" "}
-              {!isBandit ? "Experiment" : "Bandit"} to a{" "}
-              <strong>{isBandit ? "Experiment" : "Bandit"}</strong>?
-            </p>
-            {!isBandit && experiment.goalMetrics.length > 0 && (
+            {clusterBlocksBandit ? (
               <Callout status="warning">
-                <Collapsible
-                  trigger={
-                    <Flex justify="between" gap="1">
-                      Some of your experiment settings may be altered.{" "}
-                      <Box>
-                        <FaAngleRight className="chevron" />
-                      </Box>
-                    </Flex>
-                  }
-                  transitionTime={100}
-                >
-                  <ul className="ml-0 pl-3 mt-3">
-                    <li>
-                      A <strong>single decision metric</strong> will be
-                      automatically assigned. You may change this before running
-                      the experiment.
-                    </li>
-                    <li>
-                      Experiment variations will begin with{" "}
-                      <strong>equal weights</strong> (
-                      {(() => {
-                        const variations = getLatestPhaseVariations(experiment);
-                        return variations
-                          .map((_, i) =>
-                            i < 3
-                              ? formatPercent(1 / variations.length)
-                              : i === 3
-                                ? "..."
-                                : null,
-                          )
-                          .filter(Boolean)
-                          .join(", ");
-                      })()}
-                      ).
-                    </li>
-                    <li>
-                      The stats engine will be locked to{" "}
-                      <strong>Bayesian</strong>.
-                    </li>
-                    <li>
-                      Any <strong>Activation Metric</strong>,{" "}
-                      <strong>Segments</strong>,{" "}
-                      <strong>Conversion Window overrides</strong>,{" "}
-                      <strong>Custom SQL Filters</strong>, or{" "}
-                      <strong>Metric Overrides</strong> will be removed.
-                    </li>
-                  </ul>
-                </Collapsible>
+                {
+                  "Cluster experiments can't be run as Bandits. To convert this one, first turn off cluster experiment in the Analysis Plan's Data Source settings."
+                }
               </Callout>
+            ) : (
+              <>
+                <p>
+                  Are you sure you want to convert this{" "}
+                  {!isBandit ? "Experiment" : "Bandit"} to a{" "}
+                  <strong>{isBandit ? "Experiment" : "Bandit"}</strong>?
+                </p>
+                {!isBandit && experiment.goalMetrics.length > 0 && (
+                  <Callout status="warning">
+                    <Collapsible
+                      trigger={
+                        <Flex justify="between" gap="1">
+                          Some of your experiment settings may be altered.{" "}
+                          <Box>
+                            <FaAngleRight className="chevron" />
+                          </Box>
+                        </Flex>
+                      }
+                      transitionTime={100}
+                    >
+                      <ul className="ml-0 pl-3 mt-3">
+                        <li>
+                          A <strong>single decision metric</strong> will be
+                          automatically assigned. You may change this before
+                          running the experiment.
+                        </li>
+                        <li>
+                          Experiment variations will begin with{" "}
+                          <strong>equal weights</strong> (
+                          {(() => {
+                            const variations =
+                              getLatestPhaseVariations(experiment);
+                            return variations
+                              .map((_, i) =>
+                                i < 3
+                                  ? formatPercent(1 / variations.length)
+                                  : i === 3
+                                    ? "..."
+                                    : null,
+                              )
+                              .filter(Boolean)
+                              .join(", ");
+                          })()}
+                          ).
+                        </li>
+                        <li>
+                          The stats engine will be locked to{" "}
+                          <strong>Bayesian</strong>.
+                        </li>
+                        <li>
+                          Any <strong>Activation Metric</strong>,{" "}
+                          <strong>Segments</strong>,{" "}
+                          <strong>Conversion Window overrides</strong>,{" "}
+                          <strong>Custom SQL Filters</strong>, or{" "}
+                          <strong>Metric Overrides</strong> will be removed.
+                        </li>
+                      </ul>
+                    </Collapsible>
+                  </Callout>
+                )}
+              </>
             )}
           </div>
         </Modal>
@@ -878,9 +944,15 @@ export default function ExperimentHeader({
             ) : shareLevel === "public" ? (
               <>
                 <Callout status="warning" size="sm">
-                  Anyone with the link can view this{" "}
-                  {isBandit ? "Bandit" : "Experiment"}, even those outside your
-                  organization.
+                  {publicSharingDisabled ? (
+                    'Public sharing is turned off for your organization, so this link doesn\'t work right now. It will work again if sharing is turned back on. To revoke it, set View access to "Only organization members".'
+                  ) : (
+                    <>
+                      Anyone with the link can view this{" "}
+                      {isBandit ? "Bandit" : "Experiment"}, even those outside
+                      your organization.
+                    </>
+                  )}
                 </Callout>
               </>
             ) : null}
@@ -896,7 +968,9 @@ export default function ExperimentHeader({
             disabled={!hasUpdatePermissions}
             options={[
               { value: "organization", label: "Only organization members" },
-              { value: "public", label: "Anyone with the link" },
+              ...(publicSharingDisabled && experiment.shareLevel !== "public"
+                ? []
+                : [{ value: "public", label: "Anyone with the link" }]),
             ]}
           />
           <div className="mb-1" style={{ height: 24 }}>
@@ -920,13 +994,14 @@ export default function ExperimentHeader({
       {editingName ? (
         <EditExperimentInfoModal
           experiment={experiment}
+          holdout={holdout}
           setShowEditInfoModal={setEditingName}
           mutate={mutate}
           section="name"
         />
       ) : null}
 
-      <div className="container-fluid pagecontents position-relative px-4 pt-3 pb-2">
+      <PageBleed className="position-relative pb-2">
         <Flex
           direction="row"
           align="start"
@@ -935,8 +1010,7 @@ export default function ExperimentHeader({
           gap="5"
           gapY="3"
         >
-          {/* Raised so the name's x-height centres on the buttons' text.
-              Sized to its text as before, but never narrower than 300px:
+          {/* Sized to its text as before, but never narrower than 300px:
               short of that, the actions wrap below instead of squeezing the
               name to a few characters per line on phones. The huge grow
               factor (capped by max-content) gives the title its text width
@@ -944,7 +1018,6 @@ export default function ExperimentHeader({
               would split it and a long name would wrap narrower than before. */}
           <Box
             className={revealsQuickEdit}
-            mt="-3px"
             flexGrow="100000"
             flexShrink="1"
             flexBasis="300px"
@@ -1009,6 +1082,10 @@ export default function ExperimentHeader({
               gapX="4"
               gapY="2"
               flexGrow="1"
+              // Ends where the feature page's revision picker does: into the
+              // menu button's gap, then back by a border as wide as a card's,
+              // which zoom rounds the same way.
+              style={{ marginRight: -10, borderRight: "1px solid transparent" }}
             >
               {/* Unwrapped, so the column never narrows past the buttons. */}
               <Flex
@@ -1037,7 +1114,9 @@ export default function ExperimentHeader({
                       <ExperimentActionButtons
                         editResult={canRunExperiment ? editResult : undefined}
                         editTargeting={
-                          canRunExperiment ? editTargeting : undefined
+                          canRunExperiment
+                            ? (makeChanges ?? editTargeting)
+                            : undefined
                         }
                         blockedReason={editsBlocked}
                         isBandit={isBandit}
@@ -1107,7 +1186,7 @@ export default function ExperimentHeader({
                     ) : null}
                     {experiment.status === "stopped" && experiment.results ? (
                       <>
-                        {canEditExperiment ? (
+                        {showShareButton ? (
                           <Button onClick={() => setShareModalOpen(true)}>
                             Share...
                           </Button>
@@ -1125,7 +1204,14 @@ export default function ExperimentHeader({
             <Flex align="center" height="var(--space-6)">
               <DropdownMenu
                 trigger={
-                  <MoreMenuTrigger label="More actions" size="lg" ml="2" />
+                  <MoreMenuTrigger
+                    label="More actions"
+                    size="lg"
+                    // Above the details toggle, past the row's end. Inline,
+                    // not margin props: a ghost button adds its own offset to
+                    // those.
+                    style={{ marginLeft: 8, marginRight: -17 }}
+                  />
                 }
                 open={dropdownOpen}
                 onOpenChange={(o) => {
@@ -1153,6 +1239,16 @@ export default function ExperimentHeader({
                         }}
                       >
                         Edit phase
+                      </StoredActionItem>
+                    )}
+                    {showMakeChanges && (
+                      <StoredActionItem
+                        onClick={() => {
+                          makeChanges?.();
+                          setDropdownOpen(false);
+                        }}
+                      >
+                        Make changes
                       </StoredActionItem>
                     )}
                     {showScheduleItem && (
@@ -1404,7 +1500,7 @@ export default function ExperimentHeader({
             </Flex>
           </Flex>
         </Flex>
-      </div>
+      </PageBleed>
 
       {showDashboardView ? null : (
         <>
@@ -1418,17 +1514,24 @@ export default function ExperimentHeader({
               pointerEvents: "none",
             }}
           />
-          <div
+          <PageBleed
             className={clsx("experiment-tabs d-print-none", {
               pinned: headerPinned,
             })}
           >
-            <div className="position-relative container-fluid pagecontents px-4">
+            <div className="position-relative">
               <div className="d-flex align-items-center header-tabs">
                 <Tabs
                   value={tab}
                   onValueChange={setTab}
-                  style={{ flex: 1, minWidth: 0 }}
+                  // Its dates end under the actions above: into the toggle's
+                  // margin, then back by a border as wide as a card's.
+                  style={{
+                    flex: 1,
+                    minWidth: 0,
+                    marginRight: -12,
+                    borderRight: "1px solid transparent",
+                  }}
                 >
                   <TabsList size="lg">
                     <Flex align="center" className="flex-1" minWidth="0">
@@ -1481,13 +1584,14 @@ export default function ExperimentHeader({
                             isBandit={experiment.type === "multi-armed-bandit"}
                             isHoldout={experiment.type === "holdout"}
                             holdout={holdout}
-                            details={everyDateList}
+                            details={phaseDetails}
                           />
                         </Text>
                       ) : (
                         // Short of room, it ends in an ellipsis; its tooltip
                         // has every date.
                         <Box
+                          ref={datesBox}
                           minWidth="0"
                           style={{
                             overflow: "hidden",
@@ -1507,7 +1611,7 @@ export default function ExperimentHeader({
                 />
               </div>
             </div>
-          </div>
+          </PageBleed>
         </>
       )}
     </>

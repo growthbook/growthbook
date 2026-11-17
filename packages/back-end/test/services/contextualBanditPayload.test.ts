@@ -164,6 +164,26 @@ describe("getFeatureDefinition contextual-bandit-ref rules", () => {
     // retrain each epoch), independent of the contextualBandits capability.
     expect(rule?.disableStickyBucketing).toEqual(true);
   });
+
+  it("drops the rule for an archived CB regardless of status", () => {
+    const cb = makeCb({ archived: true, status: "running" });
+    const def = getFeatureDefinition({
+      feature: makeFeature(),
+      environment: "production",
+      groupMap,
+      experimentMap,
+      safeRolloutMap,
+      cbMap: new Map([[cb.id, cb]]),
+    });
+
+    expect(def?.rules ?? []).toHaveLength(0);
+    expect(
+      filterUsedContextualBandits(
+        new Map([[cb.id, cb]]),
+        def ? { feature: def } : {},
+      ),
+    ).toBeUndefined();
+  });
 });
 
 describe("filterUsedContextualBandits", () => {

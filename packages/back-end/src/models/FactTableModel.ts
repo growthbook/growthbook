@@ -2,9 +2,9 @@ import mongoose, { FilterQuery } from "mongoose";
 import uniqid from "uniqid";
 import {
   getFactMetricColumnRefs,
-  getFactMetricPrimaryFactTableId,
-  sqlReferencesColumn,
+  getMetricAutoSliceFactTableIds,
 } from "shared/experiments";
+import { sqlReferencesColumn } from "shared/sql";
 import { explorationConfigReferencesColumn } from "shared/enterprise";
 import { SqlIdentifierQuote } from "shared/types/sql";
 import { isEqual, omit } from "lodash";
@@ -15,6 +15,7 @@ import {
   ColumnRef,
   FactFilterInterface,
   FactMetricInterface,
+  FactTableColumnType,
   FactTableDefinition,
   FactTableInterface,
   UpdateFactFilterProps,
@@ -32,6 +33,7 @@ import {
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 import { promiseAllChunks } from "back-end/src/util/promise";
+import { NotFoundError } from "back-end/src/util/errors";
 import { projectFilterQuery } from "back-end/src/util/mongo.util";
 import { createModelAuditLogger } from "back-end/src/services/audit";
 import { deferAggregatedFactTableToNextSlot } from "back-end/src/services/aggregatedFactTables";
@@ -557,17 +559,16 @@ export async function dangerouslySyncManagedWarehouseFactTable(
 }
 
 // Detect columns that were removed or had auto slice disabled
+type AutoSliceColumnState = {
+  column: string;
+  deleted?: boolean;
+  isAutoSliceColumn?: boolean;
+  datatype?: FactTableColumnType;
+};
+
 export function detectRemovedColumns(
-  originalColumns: Array<{
-    column: string;
-    deleted?: boolean;
-    isAutoSliceColumn?: boolean;
-  }>,
-  newColumns: Array<{
-    column: string;
-    deleted?: boolean;
-    isAutoSliceColumn?: boolean;
-  }>,
+  originalColumns: AutoSliceColumnState[],
+  newColumns: AutoSliceColumnState[],
 ): string[] {
   // Find columns that were deleted (existed before but don't exist now)
   const deletedColumns = originalColumns
@@ -589,7 +590,25 @@ export function detectRemovedColumns(
       return newCol && !newCol.isAutoSliceColumn;
     });
 
-  return [...deletedColumns, ...disabledAutoSliceColumns];
+  // A column that changes datatype no longer means what the metric's slices
+  // were built against - string levels against a number column, say - so treat
+  // it the same as the column going away.
+  const retypedColumns = originalColumns
+    .filter((col) => col.isAutoSliceColumn && !col.deleted && col.datatype)
+    .map((col) => col.column)
+    .filter((columnName) => {
+      const newCol = newColumns.find((newCol) => newCol.column === columnName);
+      const original = originalColumns.find((c) => c.column === columnName);
+      return !!newCol?.datatype && newCol.datatype !== original?.datatype;
+    });
+
+  return [
+    ...new Set([
+      ...deletedColumns,
+      ...disabledAutoSliceColumns,
+      ...retypedColumns,
+    ]),
+  ];
 }
 
 // Cascade from a fact-table column change: drop metric auto slices that
@@ -619,7 +638,11 @@ export async function cleanupMetricAutoSlices({
     return;
   }
   for (const metric of allFactMetrics) {
-    if (getFactMetricPrimaryFactTableId(metric) !== factTableId) continue;
+    // Scope by the tables that back this metric's auto slices — every step for
+    // a funnel, the numerator alone otherwise — so a later step's column change
+    // cleans up without a ratio metric's denominator table clobbering a slice
+    // its numerator still supports.
+    if (!getMetricAutoSliceFactTableIds(metric).includes(factTableId)) continue;
     if (!metric.metricAutoSlices?.some((c) => removedColumns.includes(c))) {
       continue;
     }
@@ -649,7 +672,7 @@ export async function updateColumn({
   changes: UpdateColumnProps;
 }) {
   const columnIndex = factTable.columns.findIndex((c) => c.column === column);
-  if (columnIndex < 0) throw new Error("Could not find that column");
+  if (columnIndex < 0) throw new NotFoundError("Could not find that column");
 
   if (
     changes.alwaysInlineFilter &&
@@ -689,11 +712,11 @@ export async function updateColumn({
     definitionsScope(factTable.projects),
   );
 
-  // Clean up auto slices from metrics if column was deleted or isAutoSliceColumn was disabled
+  // Clean up auto slices from metrics when the column can no longer back them:
+  // deleted, no longer an Auto Slice column, or retyped.
   if (
     context &&
-    (updatedColumn.deleted ||
-      (!updatedColumn.isAutoSliceColumn && originalColumn.isAutoSliceColumn))
+    detectRemovedColumns([originalColumn], [updatedColumn]).length > 0
   ) {
     await cleanupMetricAutoSlices({
       context,
@@ -864,7 +887,7 @@ export async function deleteColumn(
 ): Promise<void> {
   const col = factTable.columns.find((c) => c.column === columnName);
   if (!col) {
-    throw new Error("Could not find that column");
+    throw new NotFoundError("Could not find that column");
   }
   // Only virtual columns can be hard-deleted. SQL-detected columns are managed
   // by the column refresh (soft delete) and must not be removed here.
@@ -1027,10 +1050,7 @@ export function mergeUpsertColumns(
     });
 
     columns[index] = nextColumn;
-    if (
-      nextColumn.deleted ||
-      (!nextColumn.isAutoSliceColumn && originalColumn.isAutoSliceColumn)
-    ) {
+    if (detectRemovedColumns([originalColumn], [nextColumn]).length > 0) {
       removedAutoSliceColumns.push(incomingColumn.column);
     }
   }
@@ -1143,7 +1163,8 @@ export async function updateFactFilter(
   const filters = [...factTable.filters];
 
   const filterIndex = filters.findIndex((f) => f.id === filterId);
-  if (filterIndex < 0) throw new Error("Could not find filter with that id");
+  if (filterIndex < 0)
+    throw new NotFoundError("Could not find filter with that id");
 
   const existingFilter = filters[filterIndex];
 
@@ -1233,6 +1254,19 @@ export async function projectHasFactTables(
   }));
 }
 
+// Ignores read permissions, so a dependency check can't miss a hidden table
+export async function datasourceHasFactTables(
+  context: ReqContext | ApiReqContext,
+  datasourceId: string,
+  ignoreIds: string[] = [],
+): Promise<boolean> {
+  return !!(await FactTableModel.exists({
+    organization: context.org.id,
+    datasource: datasourceId,
+    id: { $nin: ignoreIds },
+  }));
+}
+
 export async function deleteAllFactTablesForAProject({
   projectId,
   context,
@@ -1271,7 +1305,7 @@ export async function deleteFactFilter(
   const newFilters = factTable.filters.filter((f) => f.id !== filterId);
 
   if (newFilters.length === factTable.filters.length) {
-    throw new Error("Could not find filter with that id");
+    throw new NotFoundError("Could not find filter with that id");
   }
 
   await FactTableModel.updateOne(
@@ -1359,7 +1393,7 @@ export function toFactTableFilterApiInterface(
   const filter = factTable.filters.find((f) => f.id === filterId);
 
   if (!filter) {
-    throw new Error("Cannot find filter with that id");
+    throw new NotFoundError("Cannot find filter with that id");
   }
 
   return {

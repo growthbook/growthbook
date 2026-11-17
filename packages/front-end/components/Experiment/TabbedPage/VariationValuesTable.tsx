@@ -36,9 +36,7 @@ import {
   stageEnvironmentInputs,
 } from "@/components/Experiment/LinkedChanges/EnvironmentStatesGrid";
 import EditExperimentEnvironmentsModal from "@/components/Experiment/EditExperimentEnvironmentsModal";
-import RevisionLabel, {
-  revisionLabelText,
-} from "@/components/Reviews/RevisionLabel";
+import { NamedRevision } from "@/components/Reviews/RevisionLabel";
 import {
   draftStatusDotColor,
   revisionStatusLabel,
@@ -893,16 +891,6 @@ function FlagColumn({
   );
 
   const draftMention = pendingDraft ? `Revision ${pendingDraft.version}` : null;
-  const labelFor = (d: (typeof drafts)[number]) => (
-    <RevisionLabel
-      version={d.version}
-      title={d.title}
-      numbered={!!d.title}
-      minWidth={0}
-      numberSize="inherit"
-      inheritNumberColor
-    />
-  );
   const canStartNew = canStartSeparateDraft(info) && canEdit;
   const canChooseTarget = !!pendingDraft && (drafts.length > 1 || canStartNew);
   const launches = experiment.status === "draft";
@@ -950,6 +938,7 @@ function FlagColumn({
     action?: ReactNode;
   }[] = [];
   const draftNotes: string[] = [];
+  let unrelatedChangesBlock = false;
   // Otherwise the header's mark says it.
   if (archivedServing) {
     notices.push({
@@ -973,6 +962,7 @@ function FlagColumn({
       action: draftLink("Review draft"),
     });
   } else if (draftLaunches && shownDraft?.hasUnrelatedDraftChanges) {
+    unrelatedChangesBlock = true;
     notices.push({
       status: "error",
       text: "Draft has unrelated changes, which block experiment start.",
@@ -1010,7 +1000,8 @@ function FlagColumn({
       text: `This experiment has more than one rule here, with different values. Showing the ones from ${info.valuesFrom}.`,
     });
   }
-  if (onFlag && describesShown && info.rulesAbove) {
+  // Rules above the experiment's are among the unrelated changes that error names.
+  if (onFlag && describesShown && info.rulesAbove && !unrelatedChangesBlock) {
     notices.push({
       status: "info",
       text: "Feature Flag has rules above the experiment's rule.",
@@ -1078,13 +1069,8 @@ function FlagColumn({
   const canEditEnvironments = canEditFlag && showEnvironments && !group;
   const startsDraft =
     !showsDraft && !showingLive && (editable || canChooseTarget);
-  const revisionName = showsDraft
-    ? revisionLabelText(
-        pendingDraft.version,
-        pendingDraft.title,
-        !!pendingDraft.title,
-      )
-    : "New draft";
+  // Its title waits for the hover.
+  const revisionName = (showsDraft && draftMention) || "New draft";
   const revisionStatus = showsDraft ? pendingDraft.status : "draft";
   const revisionNotes = showsDraft
     ? draftNotes
@@ -1103,7 +1089,7 @@ function FlagColumn({
             key={d.version}
             onClick={() => chooseTarget(d.version)}
           >
-            {labelFor(d)}
+            <NamedRevision version={d.version} title={d.title} />
           </DropdownMenuItem>
         ))}
         {canStartNew ? (
@@ -1130,7 +1116,10 @@ function FlagColumn({
           </Flex>
           {showsDraft && pendingDraft.title ? (
             <Text size="sm" color="text-low">
-              {revisionName}
+              <NamedRevision
+                version={pendingDraft.version}
+                title={pendingDraft.title}
+              />
             </Text>
           ) : null}
           {revisionNotes.map((note) => (
@@ -1199,15 +1188,19 @@ function FlagColumn({
           Feature Flag has no experiment rule.
         </HelperText>
       </Box>
-      {canEditFlagLinks && !showingLive ? (
+      {canEditFlagLinks ? (
         <Flex gap="2" flexShrink="0">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => stageLinkAction("relink")}
-          >
-            Re-link
-          </Button>
+          {/* Past a draft only the broken link goes: a new rule would change
+              who sees what mid-run. */}
+          {!showingLive ? (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => stageLinkAction("relink")}
+            >
+              Re-link
+            </Button>
+          ) : null}
           <Button
             variant="outline"
             size="sm"

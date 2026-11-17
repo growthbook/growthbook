@@ -3,20 +3,46 @@ import { Box, Flex } from "@radix-ui/themes";
 import type {
   ExplorationConfig,
   ProductAnalyticsExploration,
+  ProductAnalyticsResultRow,
 } from "shared/validators";
 import { getFunnelStepDisplayLabel } from "@/enterprise/components/ProductAnalytics/util";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import { getMetricPreviewUnitLabel } from "@/components/FactTables/MetricEditor/metricPreview";
+import { getPreviewUnitLabel } from "@/components/QueryPreview/previewUtils";
 import Text from "@/ui/Text";
 import FunnelStepsChart, { FunnelChartSeries } from "./FunnelStepsChart";
 
+function rowsToSeries(
+  rows: ProductAnalyticsResultRow[] | undefined,
+  stepNames: string[],
+): FunnelChartSeries[] {
+  if (!rows?.length || !stepNames.length) return [];
+  return rows.map((row) => {
+    const steps = row.steps ?? [];
+    const key = row.dimensions[0] ?? "";
+    return {
+      key,
+      label: key || "All users",
+      counts: stepNames.map((_, i) => steps[i]?.count ?? 0),
+      avgTimes: stepNames.map((_, i) => {
+        const s = steps[i];
+        if (!s || !s.timeFromPrevSumHrs || !s.count) return null;
+        return (s.timeFromPrevSumHrs / s.count) * 3_600_000;
+      }),
+    };
+  });
+}
+
 export default function FunnelChart({
   exploration,
+  comparisonExploration = null,
+  periodLabels = null,
   submittedExploreState,
   animate = true,
   compact = false,
 }: {
   exploration: ProductAnalyticsExploration | null;
+  comparisonExploration?: ProductAnalyticsExploration | null;
+  periodLabels?: { currentLabel: string; previousLabel: string } | null;
   submittedExploreState: ExplorationConfig;
   animate?: boolean;
   compact?: boolean;
@@ -40,35 +66,30 @@ export default function FunnelChart({
     );
   }, [submittedExploreState, getFactTableById]);
 
-  const dimensionSeries: FunnelChartSeries[] = useMemo(() => {
-    const rows = exploration?.result?.rows ?? [];
-    if (!rows.length || !stepNames.length) return [];
-    const series: FunnelChartSeries[] = [];
-    rows.forEach((row) => {
-      const steps = row.steps ?? [];
-      const key = row.dimensions[0] ?? "";
-      const counts = stepNames.map((_, i) => steps[i]?.count ?? 0);
-      const avgTimes = stepNames.map((_, i) => {
-        const s = steps[i];
-        if (!s || !s.timeFromPrevSumHrs || !s.count) return null;
-        return (s.timeFromPrevSumHrs / s.count) * 3_600_000;
-      });
-      series.push({
-        key,
-        label: key || "All users",
-        counts,
-        avgTimes,
-      });
-    });
-    return series;
-  }, [exploration?.result?.rows, stepNames]);
-
-  const sortedSeries: FunnelChartSeries[] = useMemo(() => {
+  const sortedSeries: FunnelChartSeries[] = useMemo(
     // Sort by first-step count descending so the biggest funnel shows up first.
-    return [...dimensionSeries].sort(
-      (a, b) => (b.counts[0] ?? 0) - (a.counts[0] ?? 0),
+    () =>
+      rowsToSeries(exploration?.result?.rows, stepNames).sort(
+        (a, b) => (b.counts[0] ?? 0) - (a.counts[0] ?? 0),
+      ),
+    [exploration?.result?.rows, stepNames],
+  );
+
+  // Previous period, in the same order as `sortedSeries`. A breakdown value
+  // missing from the previous period gets an all-zero funnel.
+  const comparisonSeries: FunnelChartSeries[] | null = useMemo(() => {
+    const rows = comparisonExploration?.result?.rows;
+    if (!rows?.length) return null;
+    const byKey = new Map(rowsToSeries(rows, stepNames).map((s) => [s.key, s]));
+    return sortedSeries.map(
+      (s) =>
+        byKey.get(s.key) ?? {
+          ...s,
+          counts: s.counts.map(() => 0),
+          avgTimes: s.avgTimes.map(() => null),
+        },
     );
-  }, [dimensionSeries]);
+  }, [comparisonExploration?.result?.rows, stepNames, sortedSeries]);
 
   // Y-axis scaling: "percent" normalizes each series so step 1 = 100%,
   // surfacing per-dimension conversion rates directly. "count" preserves
@@ -113,6 +134,11 @@ export default function FunnelChart({
     <FunnelStepsChart
       stepLabels={stepNames}
       series={sortedSeries}
+      comparison={
+        comparisonSeries && periodLabels
+          ? { series: comparisonSeries, ...periodLabels }
+          : undefined
+      }
       yAxisScale={yAxisScale}
       animate={animate}
     />
@@ -127,7 +153,7 @@ export default function FunnelChart({
   const dataset = submittedExploreState.dataset;
   const unitLabel =
     dataset.type === "funnel" && dataset.unit
-      ? getMetricPreviewUnitLabel(
+      ? getPreviewUnitLabel(
           dataset.unit,
           getFactTableById(dataset.steps[0]?.factTableId ?? ""),
         ).label.toLowerCase()

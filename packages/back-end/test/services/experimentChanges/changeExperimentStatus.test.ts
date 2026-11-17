@@ -11,7 +11,11 @@ import {
 } from "back-end/src/models/ExperimentModel";
 import { findSDKConnectionsByOrganization } from "back-end/src/models/SdkConnectionModel";
 import { getExperimentLaunchChecklist } from "back-end/src/models/ExperimentLaunchChecklistModel";
-import { getLinkedFeatureInfo } from "back-end/src/services/experiments";
+import {
+  getChangesToStartExperiment,
+  getLinkedFeatureInfo,
+} from "back-end/src/services/experiments";
+import { publishPendingFeatureDraftsForExperiment } from "back-end/src/services/experiment-feature";
 import {
   ChecklistIncompleteError,
   isTerminalPublishError,
@@ -38,6 +42,10 @@ jest.mock("back-end/src/services/experiment-feature", () => ({
 jest.mock("back-end/src/services/experiments", () => ({
   assertCanPublishPendingFeatureDrafts: jest.fn(),
   assertCanRunExperimentInAffectedEnvironments: jest.fn(),
+  assertValidExperimentPhases: (...args: unknown[]) =>
+    jest
+      .requireActual("back-end/src/services/experiments")
+      .assertValidExperimentPhases(...args),
   getChangesToStartExperiment: jest.fn(),
   getLinkedFeatureInfo: jest.fn(),
   resetExperimentBanditSettings: jest.fn(() => ({ banditStage: "explore" })),
@@ -85,6 +93,10 @@ const draft = {
     { id: "v1", screenshots: [] },
   ],
   phases: [{ variationWeights: [0.5, 0.5] }],
+} as unknown as ExperimentInterface;
+const invalidSplit = {
+  ...draft,
+  phases: [{ variationWeights: [0.53, 0.5] }],
 } as unknown as ExperimentInterface;
 const context = {
   org: { id: "org_1" },
@@ -138,6 +150,43 @@ describe("startExperiment", () => {
     });
     expect(updateExperiment).not.toHaveBeenCalled();
   });
+
+  it("refuses weights that don't add up to 100% before publishing a draft", async () => {
+    (getExperimentById as jest.Mock).mockResolvedValue(invalidSplit);
+
+    await expect(
+      startExperiment({
+        context,
+        experimentId: "exp_1",
+        skipChecklist: true,
+        bypassLockdown: true,
+      }),
+    ).rejects.toMatchObject({
+      code: "checklist_incomplete",
+      details: {
+        remainingChecklistItems: [
+          expect.objectContaining({ key: "variationWeights", hardBlock: true }),
+        ],
+      },
+    });
+    expect(publishPendingFeatureDraftsForExperiment).not.toHaveBeenCalled();
+  });
+
+  it("refuses a stored invalid coverage before publishing a draft", async () => {
+    (getExperimentById as jest.Mock).mockResolvedValue({
+      ...draft,
+      phases: [{ coverage: 1.5, variationWeights: [0.5, 0.5] }],
+    });
+    // An experiment with results keeps its phases as they are.
+    (getChangesToStartExperiment as jest.Mock).mockResolvedValueOnce({
+      status: "running",
+    });
+
+    await expect(
+      startExperiment({ context, experimentId: "exp_1", skipChecklist: true }),
+    ).rejects.toThrow("invalid_coverage");
+    expect(publishPendingFeatureDraftsForExperiment).not.toHaveBeenCalled();
+  });
 });
 
 describe("getExperimentStartChecklistStatus", () => {
@@ -159,6 +208,17 @@ describe("getExperimentStartChecklistStatus", () => {
       // Only a connection that serves the experiment's Project counts.
       sdkConnection: "incomplete",
     });
+  });
+
+  it("leaves a Bandit's weights to its start, which resets them", async () => {
+    const keys = (
+      await getExperimentStartChecklistStatus(context, {
+        ...invalidSplit,
+        type: "multi-armed-bandit",
+      })
+    ).map((item) => item.key);
+
+    expect(keys).not.toContain("variationWeights");
   });
 });
 
@@ -311,6 +371,18 @@ describe("assertScheduledStartNotHardBlocked", () => {
       ]);
     },
   );
+
+  it("refuses to fire with weights that don't add up to 100%", async () => {
+    const error = await assertScheduledStartNotHardBlocked(
+      context,
+      invalidSplit,
+    ).catch((e) => e);
+
+    expect(error).toBeInstanceOf(ChecklistIncompleteError);
+    expect(error.details.remainingChecklistItems).toEqual([
+      expect.objectContaining({ key: "variationWeights" }),
+    ]);
+  });
 });
 
 describe("assertStartNotBlocked and startResult", () => {

@@ -3,7 +3,7 @@ import {
   ExperimentPhaseStringDates,
 } from "shared/types/experiment";
 import { hasPendingScheduledStart } from "shared/util";
-import { date } from "shared/dates";
+import { date, daysBetween } from "shared/dates";
 import { format } from "date-fns-tz";
 
 export const scheduledTime = (value: string | Date) =>
@@ -13,6 +13,12 @@ const day = (value: string | Date) => date(value, "UTC");
 
 const stopAfterSpan = ({ value, unit }: { value: number; unit: string }) =>
   `${value} ${value === 1 ? unit.replace(/s$/, "") : unit}`;
+
+/** How long it ran between two dates, in whole days: "36 days", "under a day". */
+export const runLength = (start: string | Date, end: string | Date) => {
+  const days = daysBetween(start, end);
+  return days < 1 ? "under a day" : `${days} ${days === 1 ? "day" : "days"}`;
+};
 
 /** When a schedule ends: a date, or a span after the start. */
 export const scheduledEnd = (
@@ -40,7 +46,22 @@ type DatedExperiment = Pick<
   phases: Pick<ExperimentPhaseStringDates, "dateStarted" | "dateEnded">[];
 };
 
-type LabeledDate = { label: string; value: string };
+export type LabeledDate = { label: string; value: string };
+
+/** How long its one phase ran, or has so far while it runs; null if unknown. */
+const soloRun = (experiment: DatedExperiment, now: Date) => {
+  const { phases, status } = experiment;
+  if (status === "draft" || experiment.type === "holdout") return null;
+  if (phases.length !== 1) return null;
+  const [{ dateStarted, dateEnded }] = phases;
+  if (!dateStarted) return null;
+  if (dateEnded) {
+    return { ended: true, length: runLength(dateStarted, dateEnded) };
+  }
+  return status === "running"
+    ? { ended: false, length: runLength(dateStarted, now) }
+    : null;
+};
 
 /** When it's set to end, while that's still ahead. */
 export const upcomingEnd = (
@@ -92,8 +113,14 @@ export const headerDates = (
   ];
 };
 
-/** Every date behind the header's: its creation, each phase, its schedule. */
-export const allDates = (experiment: DatedExperiment): LabeledDate[] => {
+/**
+ * Every date behind the header's: its creation, each phase and how long it
+ * ran, its schedule.
+ */
+export const allDates = (
+  experiment: DatedExperiment,
+  now: Date,
+): LabeledDate[] => {
   const { phases, status } = experiment;
   const isHoldout = experiment.type === "holdout";
   const schedule = experiment.statusUpdateSchedule;
@@ -107,8 +134,16 @@ export const allDates = (experiment: DatedExperiment): LabeledDate[] => {
     }
   } else if (phases.length === 1 && !isHoldout) {
     const [{ dateStarted, dateEnded }] = phases;
-    if (dateStarted) dates.push({ label: "Started", value: day(dateStarted) });
-    if (dateEnded) dates.push({ label: "Ended", value: day(dateEnded) });
+    // How long it ran, beside the date it's measured to.
+    const run = soloRun(experiment, now);
+    if (dateStarted) {
+      const running = run && !run.ended ? ` (running ${run.length})` : "";
+      dates.push({ label: "Started", value: day(dateStarted) + running });
+    }
+    if (dateEnded) {
+      const ran = run?.ended ? ` (ran ${run.length})` : "";
+      dates.push({ label: "Ended", value: day(dateEnded) + ran });
+    }
   } else {
     phases.forEach(({ dateStarted, dateEnded }, i) => {
       if (!dateStarted) return;
@@ -123,7 +158,9 @@ export const allDates = (experiment: DatedExperiment): LabeledDate[] => {
             ? "Holdout"
             : "Analysis"
           : `Phase ${i + 1}`,
-        value: end ? `${day(dateStarted)} – ${end}` : day(dateStarted),
+        value: end
+          ? `${day(dateStarted)} – ${end} (${runLength(dateStarted, dateEnded || now)})`
+          : day(dateStarted),
       });
     });
   }
@@ -134,6 +171,25 @@ export const allDates = (experiment: DatedExperiment): LabeledDate[] => {
       : null;
   if (end) dates.push({ label: "Scheduled end", value: end });
   return dates;
+};
+
+/**
+ * What the header's tooltip adds to its line, and nothing the line already
+ * shows: how long it has run, then the rest of its dates.
+ */
+export const headerDetails = (experiment: DatedExperiment, now: Date) => {
+  const shown = headerDates(experiment, now);
+  const ends = shown.find(({ label }) => label === "Ends")?.value;
+  const run = soloRun(experiment, now);
+  return {
+    runtime: run ? `${run.ended ? "Ran" : "Running"} for ${run.length}` : null,
+    dates: allDates(experiment, now).filter(
+      ({ label, value }) =>
+        !shown.some((date) => date.label === label) &&
+        // A span after the start reads the same on the line; a date adds its time.
+        !(label === "Scheduled end" && value === ends),
+    ),
+  };
 };
 
 /** When an approved start fires, while one is armed. */

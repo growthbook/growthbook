@@ -1,4 +1,4 @@
-import { FC, useEffect } from "react";
+import { FC, useEffect, useId, useState } from "react";
 import { useForm } from "react-hook-form";
 import { useRouter } from "next/router";
 import { useFeatureIsOn } from "@growthbook/growthbook-react";
@@ -14,7 +14,7 @@ import {
   getManagedWarehouseExposureQueryIdForAttribute,
   isProjectListValidForProject,
 } from "shared/util";
-import { Flex } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
@@ -27,6 +27,8 @@ import {
 import Callout from "@/ui/Callout";
 import HelperText from "@/ui/HelperText";
 import Text from "@/ui/Text";
+import AIRichTextField from "@/components/Markdown/AIRichTextField";
+import { useSuggestHypothesis } from "@/components/Experiment/useSuggestHypothesis";
 import Link from "@/ui/Link";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
@@ -124,17 +126,17 @@ export function getAutoExposureQueryId({
 
   if (exposureQueries.length === 1) return exposureQueries[0].id;
 
-  // Managed warehouses don't populate userIdType.attributes links, so the generic
-  // lookup below can't resolve the assignment query. Map the hash attribute to its
-  // exposure query directly instead.
+  // Managed warehouses map attributes to their exposure queries themselves.
+  // Older ones can also have userIdType.attributes links added by hand, so fall
+  // back to the generic lookup below when the mapping finds nothing.
   if (datasource?.type === "growthbook_clickhouse") {
     const managedQueryId = getManagedWarehouseExposureQueryIdForAttribute({
       settings: datasource.settings,
       attribute: hashAttribute,
     });
-    return exposureQueries.some((q) => q.id === managedQueryId)
-      ? managedQueryId
-      : "";
+    if (exposureQueries.some((q) => q.id === managedQueryId)) {
+      return managedQueryId;
+    }
   }
 
   // A hash attribute can be linked to several identifier types, each with its
@@ -231,9 +233,7 @@ function getAutoExposureQueryIdentifierType({
     return templateIdentifierType;
   }
   const linked =
-    getHashAttributeIdentifierTypeMap(datasource?.settings?.userIdTypes).get(
-      hashAttribute,
-    ) ?? [];
+    getHashAttributeIdentifierTypeMap(datasource).get(hashAttribute) ?? [];
   return (
     declared.find((identifierType) => linked.includes(identifierType)) ??
     getDefaultIdentifierTypeForQuery(exposureQuery)
@@ -345,7 +345,15 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
     ? permissionsUtil.canViewExperimentModal(selectedProject)
     : allowAllProjects;
 
-  const canSubmit = hasProjectPermission && !sdkConnectionsLoading;
+  const hypothesisLabelId = useId();
+  // An image still uploading would be dropped from the saved hypothesis.
+  const [hypothesisUploading, setHypothesisUploading] = useState(false);
+  const suggestHypothesis = useSuggestHypothesis(
+    form.watch("hypothesis") ?? "",
+    "simple-new-experiment-form",
+  );
+  const canSubmit =
+    hasProjectPermission && !sdkConnectionsLoading && !hypothesisUploading;
 
   // When the project changes, drop any selection that's no longer valid there
   useEffect(() => {
@@ -703,13 +711,25 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
         formType="experiment"
       />
 
-      <Field
-        label="Hypothesis"
-        textarea
-        minRows={2}
-        placeholder="e.g. Making the signup button bigger will increase clicks and ultimately improve revenue"
-        {...form.register("hypothesis")}
-      />
+      <Box mb="3">
+        <Box id={hypothesisLabelId} mb="1">
+          <Text as="label" weight="semibold">
+            Hypothesis
+          </Text>
+        </Box>
+        <AIRichTextField
+          value={form.watch("hypothesis") ?? ""}
+          onChange={(hypothesis) => form.setValue("hypothesis", hypothesis)}
+          placeholder="e.g. Making the signup button bigger will increase clicks and ultimately improve revenue"
+          height="xs"
+          collapsibleToolbar
+          aiSuggestFunction={suggestHypothesis}
+          aiButtonText="Check hypothesis"
+          trackingSource="simple-new-experiment-form"
+          onUploadingChange={setHypothesisUploading}
+          ariaLabelledBy={hypothesisLabelId}
+        />
+      </Box>
 
       {askHashAttribute && (
         <SelectField

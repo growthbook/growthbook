@@ -3,6 +3,7 @@ import {
   getFactTableIdColumnExpression,
   getFactTableTemplateVariables,
   getFactTableTimestampColumn,
+  isFactCompoundMetric,
   isFactFunnelMetric,
   isRatioMetric,
   parseSliceMetricId,
@@ -17,6 +18,7 @@ import { compileSqlTemplate } from "back-end/src/util/sql";
 
 import { getFactMetricColumn } from "back-end/src/integrations/sql/columns/fact-metric-column";
 import { funnelStepTimestampColumn } from "back-end/src/integrations/sql/fact-metrics/funnel-columns";
+import { compoundComponentColumn } from "back-end/src/integrations/sql/fact-metrics/compound-columns";
 import { toTimestampWithMs } from "back-end/src/integrations/sql/primitives/to-timestamp-with-ms";
 import { afterWatermark } from "back-end/src/integrations/sql/primitives/watermark";
 import { getKllEventCountSourceColumn } from "back-end/src/services/factMetrics";
@@ -118,6 +120,9 @@ export function getFactMetricCTE(
       // A funnel has no value column. Each step instead projects the row's
       // timestamp when the row matches that step's filters, so the resolution
       // CTEs downstream can collect per-step timestamps per user.
+      const sliceInfo = parseSliceMetricId(m.id, {
+        [factTable.id]: factTable,
+      });
       m.funnelSettings.steps.forEach((step, stepIndex) => {
         if (step.factTableId !== factTable.id) return;
 
@@ -133,6 +138,7 @@ export function getFactMetricCTE(
           jsonExtract: dialect.jsonExtract,
           evalBoolean: dialect.evalBoolean,
           castToTimestamp: dialect.castToTimestamp,
+          sliceInfo,
           identifierQuote: dialect.identifierQuote,
         });
 
@@ -142,6 +148,42 @@ export function getFactMetricCTE(
 
         metricCols.push(`-- ${m.name} (step ${stepIndex + 1}: ${step.name})
         ${column} AS ${funnelStepTimestampColumn(`m${index}`, stepIndex)}`);
+
+        allMetricFilters.push(filters);
+      });
+      return;
+    }
+
+    if (isFactCompoundMetric(m)) {
+      // One 0/1 column per component this table hosts, summed per unit later.
+      const sliceInfo = parseSliceMetricId(m.id, {
+        [factTable.id]: factTable,
+      });
+      m.compoundSettings.components.forEach((component, componentIndex) => {
+        if (component.factTableId !== factTable.id) return;
+
+        const filters = getColumnRefWhereClause({
+          factTable,
+          columnRef: {
+            factTableId: component.factTableId,
+            column: "",
+            rowFilters: component.rowFilters,
+          },
+          escapeStringLiteral: dialect.escapeStringLiteral,
+          stringMatch: dialect.stringMatch,
+          jsonExtract: dialect.jsonExtract,
+          evalBoolean: dialect.evalBoolean,
+          castToTimestamp: dialect.castToTimestamp,
+          sliceInfo,
+          identifierQuote: dialect.identifierQuote,
+        });
+
+        const column = filters.length
+          ? `CASE WHEN (${filters.join("\n AND ")}) THEN 1 ELSE 0 END`
+          : "1";
+
+        metricCols.push(`-- ${m.name} (component ${componentIndex + 1})
+        ${column} AS ${compoundComponentColumn(`m${index}`, componentIndex)}`);
 
         allMetricFilters.push(filters);
       });

@@ -7,6 +7,10 @@ name: Redeploy
 on:
   workflow_dispatch:
 
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
 # Read-only token by default; a job that needs more declares it itself.
 permissions:
   contents: read

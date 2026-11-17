@@ -6,6 +6,7 @@ import { PiCaretDown, PiPlus } from "react-icons/pi";
 import { SlackOAuthIntegrationInterface } from "shared/types/slack-integration";
 import { SlackWorkspaceConnectionFrontEndInterface } from "shared/validators";
 import { useAISettings } from "@/hooks/useOrgSettings";
+import useBottomBarClearance from "@/hooks/useBottomBarClearance";
 import { useAuth } from "@/services/auth";
 import HelperText from "@/ui/HelperText";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -86,6 +87,7 @@ export default function SlackWorkspacePanel({
   const formChannelId = useRef(selected?.id ?? null);
   const lastRequestedChannelId = useRef(selectedChannelId ?? null);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const saveBarRef = useBottomBarClearance<HTMLDivElement>();
   const [pendingSelection, setPendingSelection] = useState<{
     channelId: string;
     urlChannelId: string | null;
@@ -330,6 +332,7 @@ export default function SlackWorkspacePanel({
         </div>
         {selected && (
           <Flex
+            ref={saveBarRef}
             align="center"
             justify="end"
             gap="3"

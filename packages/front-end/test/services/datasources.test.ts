@@ -16,7 +16,6 @@ import {
   getGroupedIdentifierTypeOptions,
   getHashAttributeIdentifierTypeMap,
   getImportIdentifierTypes,
-  getGA4ExposureTemplate,
   getInitialExposureQuery,
   getInitialSettings,
   getNewExperimentDatasourceDefaults,
@@ -112,6 +111,14 @@ describe("validateSQL", () => {
 
     it("does not throw when a semicolon appears mid-query", () => {
       expect(() => validateSQL("SELECT ';' AS delim FROM t", [])).not.toThrow();
+    });
+
+    it("runs in linear time on a semicolon followed by many newlines", () => {
+      // The old `/;(\s|\n)*$/` backtracked exponentially here
+      const sql = "SELECT x FROM y;" + "\n".repeat(50000) + "z";
+      const start = performance.now();
+      expect(() => validateSQL(sql, [])).not.toThrow();
+      expect(performance.now() - start).toBeLessThan(500);
     });
   });
 
@@ -406,14 +413,35 @@ describe("getCopySourceIdentifierType", () => {
 
 describe("getHashAttributeIdentifierTypeMap", () => {
   it("maps each attribute to every identifier type linked to it", () => {
-    const map = getHashAttributeIdentifierTypeMap([
-      { userIdType: "user_id", attributes: ["id", "email"] },
-      { userIdType: "device_id", attributes: ["id"] },
-      { userIdType: "anonymous_id" },
-    ]);
+    const map = getHashAttributeIdentifierTypeMap({
+      type: "postgres",
+      settings: {
+        userIdTypes: [
+          { userIdType: "user_id", attributes: ["id", "email"] },
+          { userIdType: "device_id", attributes: ["id"] },
+          { userIdType: "anonymous_id" },
+        ],
+      },
+    } as unknown as DataSourceInterfaceWithParams);
     expect(map.get("id")).toEqual(["user_id", "device_id"]);
     expect(map.get("email")).toEqual(["user_id"]);
     expect(map.has("anonymous_id")).toBe(false);
+  });
+
+  it("links managed warehouse attributes by their identifier mapping", () => {
+    const map = getHashAttributeIdentifierTypeMap({
+      type: "growthbook_clickhouse",
+      settings: {
+        userIdTypes: [
+          { userIdType: "user_id" },
+          { userIdType: "device_id" },
+          { userIdType: "session_id" },
+        ],
+      },
+    } as unknown as DataSourceInterfaceWithParams);
+    expect(map.get("session_id")).toEqual(["session_id"]);
+    expect(map.get("anonymous_id")).toEqual(["device_id"]);
+    expect(map.get("id")).toEqual(["device_id"]);
   });
 });
 
@@ -721,12 +749,31 @@ describe("getInitialSettings", () => {
   });
 
   it("omits the project filter when the option is blank", () => {
+    for (const projectId of ["", "   "]) {
+      // @ts-expect-error minimal params for the test
+      const settings = getInitialSettings("langfuse", clickhouseParams, {
+        projectId,
+      });
+      for (const q of settings.queries.exposure) {
+        expect(q.query).not.toContain("project_id = '");
+      }
+    }
+  });
+
+  it("trims the project option before filtering", () => {
     // @ts-expect-error minimal params for the test
-    const settings = getInitialSettings("langfuse", clickhouseParams, {
-      projectId: "",
+    const langfuse = getInitialSettings("langfuse", clickhouseParams, {
+      projectId: " proj_1 ",
     });
-    for (const q of settings.queries.exposure) {
-      expect(q.query).not.toContain("project_id = '");
+    expect(langfuse.queries.exposure[0].query).toContain(
+      "project_id = 'proj_1'",
+    );
+    // @ts-expect-error minimal params for the test
+    const phoenix = getInitialSettings("phoenix", postgresParams, {
+      projectName: "  ",
+    });
+    for (const q of phoenix.queries.exposure) {
+      expect(q.query).not.toContain("p.name = '");
     }
   });
 });
@@ -991,17 +1038,4 @@ describe("getInitialExposureQuery", () => {
   });
 });
 
-describe("getGA4ExposureTemplate", () => {
-  it("uses the Data Source's identifiers and the picked table", () => {
-    const template = getGA4ExposureTemplate(["device_id"]);
-    expect(template.columns.map((c) => c.column)).toContain("device_id");
-    const sql = template.getSql(
-      { path: "`proj.analytics_1.events_*`" } as Parameters<
-        typeof template.getSql
-      >[0],
-      "",
-    );
-    expect(sql).toContain("user_pseudo_id as device_id");
-    expect(sql).toContain("FROM\n  `proj.analytics_1.events_*`,");
-  });
-});
+// GA4-specific helpers are covered in googleAnalytics4.test.ts.

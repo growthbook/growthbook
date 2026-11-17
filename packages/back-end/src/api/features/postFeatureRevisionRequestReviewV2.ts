@@ -6,6 +6,9 @@ import { requestReview } from "./postFeatureRevisionRequestReview";
 export const postFeatureRevisionRequestReviewV2 = createApiRequestHandler(
   postFeatureRevisionRequestReviewV2Validator,
 )(async (req) => {
-  const { revision } = await requestReview(req);
+  const { revision } = await requestReview(
+    req,
+    postFeatureRevisionRequestReviewV2Validator,
+  );
   return { revision: toApiRevisionV2(revision) };
 });

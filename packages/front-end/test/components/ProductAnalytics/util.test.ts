@@ -11,10 +11,13 @@ import {
 } from "shared/validators";
 import {
   applyTimestampColumn,
+  createEmptyFunnelStep,
   getAvailableDimensionColumns,
   getColumnTopValues,
+  normalizeFunnelStepOrder,
   normalizeTimelessSqlConfig,
   resolveSqlPreviewTimestamp,
+  stripExplorerDraftFields,
   validateDimensions,
   type ExplorerDraftConfig,
 } from "@/enterprise/components/ProductAnalytics/util";
@@ -706,5 +709,121 @@ describe("resolveSqlPreviewTimestamp", () => {
         inferredTimestamp: "created_at",
       }),
     ).toBe(null);
+  });
+});
+
+describe("normalizeFunnelStepOrder", () => {
+  const step = (name: string) => createEmptyFunnelStep({ name });
+
+  it("renumbers default names by position and keeps custom names", () => {
+    // Inserted after step 1: [Step 1, new "Step 2", old "Step 2", custom]
+    const result = normalizeFunnelStepOrder([
+      step("Step 1"),
+      step("Step 2"),
+      step("Step 2"),
+      step("Checkout"),
+    ]);
+    expect(result.map((s) => s.name)).toEqual([
+      "Step 1",
+      "Step 2",
+      "Step 3",
+      "Checkout",
+    ]);
+  });
+
+  it("clears optional and conversion window on the first step only", () => {
+    const later = {
+      ...step("b"),
+      optional: true,
+      conversionWindow: { unit: "days" as const, value: 2 },
+    };
+    const result = normalizeFunnelStepOrder([{ ...later, name: "a" }, later]);
+    expect(result[0]).toMatchObject({
+      name: "a",
+      optional: false,
+      conversionWindow: null,
+    });
+    expect(result[1]).toBe(later);
+  });
+
+  it("keeps step objects when nothing changes", () => {
+    const steps = [step("Step 1"), step("Checkout")];
+    const result = normalizeFunnelStepOrder(steps);
+    expect(result[0]).toBe(steps[0]);
+    expect(result[1]).toBe(steps[1]);
+    expect(normalizeFunnelStepOrder([])).toEqual([]);
+  });
+});
+
+describe("stripExplorerDraftFields", () => {
+  function lineDraft(
+    chartSettings?: ExplorerDraftConfig["chartSettings"],
+  ): ExplorerDraftConfig {
+    return {
+      type: "sql",
+      datasource: "ds_1",
+      chartType: "line",
+      dateRange: {
+        predefined: "last7Days",
+        startDate: null,
+        endDate: null,
+        lookbackValue: null,
+        lookbackUnit: null,
+      },
+      dimensions: [
+        { dimensionType: "date", column: "date", dateGranularity: "auto" },
+      ],
+      dataset: {
+        type: "sql",
+        sql: "SELECT 1",
+        timestampColumn: "created_at",
+        columnTypes: { created_at: "date" },
+        values: [],
+      },
+      ...(chartSettings ? { chartSettings } : {}),
+    } as ExplorerDraftConfig;
+  }
+
+  it("keeps anchorYAxisToZero when it is turned off", () => {
+    expect(
+      stripExplorerDraftFields(lineDraft({ anchorYAxisToZero: false }))
+        .chartSettings,
+    ).toEqual({ anchorYAxisToZero: false });
+  });
+
+  it("drops anchorYAxisToZero when it is the default (true)", () => {
+    expect(
+      stripExplorerDraftFields(lineDraft({ anchorYAxisToZero: true })),
+    ).not.toHaveProperty("chartSettings");
+  });
+
+  it("leaves chartSettings absent when nothing is set", () => {
+    expect(stripExplorerDraftFields(lineDraft())).not.toHaveProperty(
+      "chartSettings",
+    );
+  });
+
+  it("keeps custom axis labels alongside an unanchored axis", () => {
+    expect(
+      stripExplorerDraftFields(
+        lineDraft({
+          categoryAxisLabel: " Day ",
+          valueAxisLabel: "",
+          anchorYAxisToZero: false,
+        }),
+      ).chartSettings,
+    ).toEqual({
+      categoryAxisLabel: "Day",
+      valueAxisLabel: "",
+      anchorYAxisToZero: false,
+    });
+  });
+
+  it("keeps custom axis labels but drops a default anchorYAxisToZero", () => {
+    expect(
+      stripExplorerDraftFields(
+        lineDraft({ valueAxisLabel: "Revenue", anchorYAxisToZero: true }),
+      ).chartSettings,
+    ).toEqual({ valueAxisLabel: "Revenue" });
   });
 });

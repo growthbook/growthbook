@@ -5,7 +5,21 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { Flex } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
+import {
+  closestCenter,
+  DndContext,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+} from "@dnd-kit/core";
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
 import { PiFunnelBold, PiPlus } from "react-icons/pi";
 import { ExplorationConfig, FunnelDataset } from "shared/validators";
 import { isFactFunnelMetric } from "shared/experiments";
@@ -16,6 +30,7 @@ import {
 } from "shared/funnels";
 import { isProjectListValidForProject } from "shared/util";
 import Button from "@/ui/Button";
+import useSortableItem from "@/hooks/useSortableItem";
 import Text from "@/ui/Text";
 import { Select, SelectItem, SelectSeparator } from "@/ui/Select";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -24,9 +39,29 @@ import {
   createEmptyFunnelStep,
   getFunnelUnitOptions,
   getInitialInlineFilters,
+  normalizeFunnelStepOrder,
 } from "@/enterprise/components/ProductAnalytics/util";
 import Callout from "@/ui/Callout";
 import FunnelStepCard from "./FunnelStepCard";
+
+type FunnelStepCardProps = React.ComponentProps<typeof FunnelStepCard>;
+
+function SortableFunnelStepCard({
+  id,
+  pinned,
+  ...props
+}: { id: string; pinned: boolean } & Omit<
+  FunnelStepCardProps,
+  "dragHandleProps"
+>) {
+  const { setNodeRef, style, handle } = useSortableItem(id);
+  if (pinned) return <FunnelStepCard {...props} />;
+  return (
+    <Box ref={setNodeRef} style={style}>
+      <FunnelStepCard {...props} dragHandleProps={handle} />
+    </Box>
+  );
+}
 
 /**
  * Sentinel for the "Build a New Funnel" entry. A Radix Select needs every item
@@ -39,7 +74,14 @@ const NEW_FUNNEL_VALUE = "__new_funnel__";
  *  auto-collapse non-user-expanded steps when a new step is added.
  *  `userExpanded` is set when the user explicitly opens a step — those
  *  are "locked open" and skipped by the auto-collapse logic. */
-type StepUiState = { collapsed: boolean; userExpanded: boolean };
+type StepUiState = { id: string; collapsed: boolean; userExpanded: boolean };
+
+let nextStepUiId = 0;
+const newStepUi = (collapsed = false): StepUiState => ({
+  id: `funnel-step-${nextStepUiId++}`,
+  collapsed,
+  userExpanded: false,
+});
 
 export default function FunnelTabContent() {
   const {
@@ -65,6 +107,13 @@ export default function FunnelTabContent() {
     ? (draftExploreState.dataset as FunnelDataset).steps.length
     : 0;
 
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    }),
+  );
+
   const [instantCollapseTransition, setInstantCollapseTransition] =
     useState(false);
 
@@ -84,10 +133,7 @@ export default function FunnelTabContent() {
       ? (draftExploreState.dataset as FunnelDataset).steps
       : [];
     const hasConfiguredStep = initialSteps.some((s) => !!s.factTableId);
-    return initialSteps.map(() => ({
-      collapsed: hasConfiguredStep,
-      userExpanded: false,
-    }));
+    return initialSteps.map(() => newStepUi(hasConfiguredStep));
     // Intentionally only run on mount — auto-collapse on URL/saved
     // re-initialization should not re-trigger as the user edits.
   });
@@ -102,7 +148,7 @@ export default function FunnelTabContent() {
       if (prev.length === stepsLength) return prev;
       const next = prev.slice(0, stepsLength);
       while (next.length < stepsLength) {
-        next.push({ collapsed: false, userExpanded: false });
+        next.push(newStepUi());
       }
       return next;
     });
@@ -171,7 +217,7 @@ export default function FunnelTabContent() {
   const resetToNewFunnel = useCallback(() => {
     clearAllDatasets(draftExploreState.datasource);
     setInstantCollapseTransition(true);
-    setUiState([{ collapsed: false, userExpanded: false }]);
+    setUiState([newStepUi()]);
     setEmptyStateActive(true);
   }, [clearAllDatasets, draftExploreState.datasource]);
 
@@ -243,12 +289,7 @@ export default function FunnelTabContent() {
     setLinkedFunnelMetricId(metricId);
     setInstantCollapseTransition(true);
     setEmptyStateActive(false);
-    setUiState(
-      metric.funnelSettings.steps.map(() => ({
-        collapsed: true,
-        userExpanded: false,
-      })),
-    );
+    setUiState(metric.funnelSettings.steps.map(() => newStepUi(true)));
   };
 
   useEffect(() => {
@@ -274,7 +315,7 @@ export default function FunnelTabContent() {
         const nextCollapsed = !s.collapsed;
         // Expanding via the chevron locks the step open; collapsing resets
         // the lock so a future "add step" can collapse it again.
-        return { collapsed: nextCollapsed, userExpanded: !nextCollapsed };
+        return { ...s, collapsed: nextCollapsed, userExpanded: !nextCollapsed };
       }),
     );
   };
@@ -286,23 +327,25 @@ export default function FunnelTabContent() {
         ...prev,
         dataset: {
           ...prev.dataset,
-          steps: prev.dataset.steps.filter((_, i) => i !== index),
+          steps: normalizeFunnelStepOrder(
+            prev.dataset.steps.filter((_, i) => i !== index),
+          ),
         } as FunnelDataset,
       } as ExplorationConfig;
     });
     setUiState((prev) => prev.filter((_, i) => i !== index));
   };
 
-  const handleAddStep = () => {
+  const handleInsertStep = (atIndex: number) => {
     setDraftExploreState((prev) => {
       if (prev.dataset.type !== "funnel") return prev;
       const previousFactTable =
-        prev.dataset.steps[prev.dataset.steps.length - 1]?.factTableId ?? "";
+        prev.dataset.steps[atIndex - 1]?.factTableId ?? "";
       // Default the new step's fact table to the previous step's — the most
       // common case. The picker is hidden on inherited steps, so the user
       // doesn't see a redundant select until they actively want to override.
       const newStep = createEmptyFunnelStep({
-        name: `Step ${prev.dataset.steps.length + 1}`,
+        name: `Step ${atIndex + 1}`,
         factTableId: previousFactTable,
       });
       // Mirror handleFactTableChange in FunnelStepCard: any alwaysInlineFilter
@@ -311,25 +354,44 @@ export default function FunnelTabContent() {
       if (ft) {
         newStep.rowFilters = getInitialInlineFilters(ft, newStep.rowFilters);
       }
+      const steps = [...prev.dataset.steps];
+      steps.splice(atIndex, 0, newStep);
       return {
         ...prev,
         dataset: {
           ...prev.dataset,
-          steps: [...prev.dataset.steps, newStep],
+          steps: normalizeFunnelStepOrder(steps),
         } as FunnelDataset,
       } as ExplorationConfig;
     });
-    // Auto-collapse every existing step that wasn't manually opened by the
-    // user; the new step appends in its default (expanded, not-user-opened)
-    // state. Steps the user explicitly expanded stay open until they
-    // collapse them, matching the "locked open" intent.
     setInstantCollapseTransition(true);
     setUiState((prev) => {
-      const collapsed = prev.map((s) =>
-        s.userExpanded ? s : { ...s, collapsed: true },
-      );
-      return [...collapsed, { collapsed: false, userExpanded: false }];
+      const next = prev.map((s) => ({
+        ...s,
+        collapsed: true,
+        userExpanded: false,
+      }));
+      next.splice(atIndex, 0, newStepUi());
+      return next;
     });
+  };
+
+  // Step 1 is pinned: it owns the funnel's fact table.
+  const handleMoveStep = (from: number, to: number) => {
+    if (from === to || from < 1 || to < 1 || to >= steps.length) return;
+    setDraftExploreState((prev) => {
+      if (prev.dataset.type !== "funnel") return prev;
+      return {
+        ...prev,
+        dataset: {
+          ...prev.dataset,
+          steps: normalizeFunnelStepOrder(
+            arrayMove(prev.dataset.steps, from, to),
+          ),
+        } as FunnelDataset,
+      } as ExplorationConfig;
+    });
+    setUiState((prev) => arrayMove(prev, from, to));
   };
 
   return (
@@ -411,7 +473,7 @@ export default function FunnelTabContent() {
               setEmptyStateActive(false);
               setUiState((prev) =>
                 prev.map((s, i) =>
-                  i === 0 ? { collapsed: false, userExpanded: true } : s,
+                  i === 0 ? { ...s, collapsed: false, userExpanded: true } : s,
                 ),
               );
             }}
@@ -424,22 +486,44 @@ export default function FunnelTabContent() {
         </Flex>
       ) : (
         <>
-          {steps.map((step, index) => (
-            <FunnelStepCard
-              key={index}
-              index={index}
-              step={step}
-              steps={steps}
-              previousFactTable={
-                index === 0 ? null : (steps[index - 1]?.factTableId ?? null)
-              }
-              isCollapsed={uiState[index]?.collapsed ?? false}
-              onToggleCollapsed={() => handleToggleCollapsed(index)}
-              onDelete={handleDelete}
-              funnelUnitOptions={funnelUnitOptions}
-              collapsibleTransitionMs={instantCollapseTransition ? 0 : 100}
-            />
-          ))}
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragEnd={({ active, over }) => {
+              if (!over) return;
+              const ids = uiState.map((s) => s.id);
+              handleMoveStep(
+                ids.indexOf(String(active.id)),
+                ids.indexOf(String(over.id)),
+              );
+            }}
+          >
+            <SortableContext
+              items={uiState.slice(1).map((s) => s.id)}
+              strategy={verticalListSortingStrategy}
+            >
+              {steps.map((step, index) => (
+                <SortableFunnelStepCard
+                  key={uiState[index]?.id ?? index}
+                  id={uiState[index]?.id ?? String(index)}
+                  pinned={index === 0}
+                  index={index}
+                  step={step}
+                  steps={steps}
+                  previousFactTable={
+                    index === 0 ? null : (steps[index - 1]?.factTableId ?? null)
+                  }
+                  isCollapsed={uiState[index]?.collapsed ?? false}
+                  onToggleCollapsed={() => handleToggleCollapsed(index)}
+                  onDelete={handleDelete}
+                  onInsert={handleInsertStep}
+                  canAddStep={steps.length < MAX_FUNNEL_STEPS}
+                  funnelUnitOptions={funnelUnitOptions}
+                  collapsibleTransitionMs={instantCollapseTransition ? 0 : 100}
+                />
+              ))}
+            </SortableContext>
+          </DndContext>
           {allStepsHaveFactTable && funnelUnitOptions.length === 0 && (
             <Text size="sm" color="text-low">
               No shared user identifier across steps.
@@ -448,7 +532,7 @@ export default function FunnelTabContent() {
           <Button
             size="md"
             variant="outline"
-            onClick={handleAddStep}
+            onClick={() => handleInsertStep(steps.length)}
             disabled={steps.length >= MAX_FUNNEL_STEPS}
             title={
               steps.length >= MAX_FUNNEL_STEPS

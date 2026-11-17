@@ -34,7 +34,7 @@ export function flattenRecord<T extends object>(
   const lifted: [string, string, unknown][] = [];
 
   // Top-level fields first, so a lifted child can never overwrite one. A
-  // warehouse column called "userId" must not replace the normalized value.
+  // warehouse column called "unitId" must not replace the normalized value.
   for (const [key, value] of Object.entries(row)) {
     if (flattenKeys.has(key) && isPlainObject(value)) {
       for (const [childKey, childValue] of Object.entries(value)) {

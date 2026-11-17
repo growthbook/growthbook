@@ -2,6 +2,7 @@ import clsx from "clsx";
 import { Dispatch, ReactNode, SetStateAction, useMemo, useState } from "react";
 import {
   ExperimentInterfaceStringDates,
+  ExperimentPhaseStringDates,
   ExperimentTargetingData,
   LinkedFeatureInfo,
   Variation,
@@ -15,7 +16,11 @@ import {
   hasTargetingConfigured,
   onlyTrafficFields,
 } from "shared/experiments";
-import { generateVariationId, isNamespaceSelectable } from "shared/util";
+import {
+  coverageToHoldoutSize,
+  generateVariationId,
+  isNamespaceSelectable,
+} from "shared/util";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { PiPencilSimple, PiPlus, PiWarningFill } from "react-icons/pi";
 import ConditionDisplay from "@/components/Features/ConditionDisplay";
@@ -37,15 +42,17 @@ import { PercentField } from "@/components/Forms/PercentSliderField";
 import EditTrafficModal from "@/components/Experiment/EditTrafficModal";
 import { useTargetingDefaults } from "@/components/Experiment/useExperimentTargetingForm";
 import AddToHoldoutModal from "@/components/Experiment/holdout/AddToHoldoutModal";
-import { useHoldouts } from "@/hooks/useHoldouts";
+import { holdoutSizeTip, useHoldouts } from "@/hooks/useHoldouts";
+import { useExperimentStatusIndicator } from "@/hooks/useExperimentStatusIndicator";
+import Badge from "@/ui/Badge";
 import { selectableHoldouts } from "@/components/Holdout/HoldoutSelect";
 import { coveragePercentFormatter } from "@/services/utils";
 import FunnelConnector from "./FunnelConnector";
 import { ImplementationColumn } from "./ImplementationColumn";
 import VariationValuesTable from "./VariationValuesTable";
+import { InfoTip } from "./SetupFieldRow";
 import { DraftPick, FlagDraftPicks } from "./draftPicks";
 import styles from "./TrafficAllocationFunnel.module.scss";
-import SetupFieldRow from "./SetupFieldRow";
 import useExperimentEditing from "./useExperimentEditing";
 import {
   experimentFieldChanges,
@@ -53,6 +60,7 @@ import {
   HoldoutDraft,
   reviewAgainstCurrent,
   useEditBase,
+  useEditsBlockedReason,
   useExperimentEdits,
   useRegisterExperimentEdit,
   useStagedState,
@@ -61,6 +69,11 @@ import {
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
   editTargeting?: (() => void) | null;
+  /**
+   * Opens the Make Changes form, set where targeting and traffic are edited
+   * through it rather than staged here.
+   */
+  makeChanges?: ((openAt?: "traffic") => void) | null;
   editNamespace?: (() => void) | null;
   /** Offers the + that appends a variation and evens out the split. */
   canAddVariation: boolean;
@@ -109,14 +122,19 @@ const percentFormatter = new Intl.NumberFormat(undefined, {
 
 function FunnelRow({
   label,
+  tip,
   children,
 }: {
   label: string;
+  tip?: ReactNode;
   children?: ReactNode;
 }) {
   return (
     <Flex align="center" justify="between" gap="4" minHeight="32px">
-      <Text color="text-mid">{label}</Text>
+      <Flex align="center" gap="1">
+        <Text color="text-mid">{label}</Text>
+        {tip ? <InfoTip content={tip} /> : null}
+      </Flex>
       {children}
     </Flex>
   );
@@ -208,6 +226,7 @@ function FunnelCard({
 export default function TrafficAllocationFunnel({
   experiment,
   editTargeting,
+  makeChanges,
   editNamespace,
   canAddVariation,
   stageVariations,
@@ -227,6 +246,7 @@ export default function TrafficAllocationFunnel({
 }: Props) {
   const { namespaces } = useOrgSettings();
   const edits = useExperimentEdits();
+  const editsBlocked = useEditsBlockedReason();
   const { editInline } = useExperimentEditing(experiment);
 
   const targetingDefaults = useTargetingDefaults(experiment);
@@ -367,11 +387,24 @@ export default function TrafficAllocationFunnel({
 
   // Staged over what's stored: "" means leaving the stored holdout.
   const holdoutId = holdoutDraft?.value ?? experiment.holdoutId ?? "";
+  // Archived too, so a linked holdout that's since been archived still shows.
   const { holdouts, holdoutsMap, experimentsMap } = useHoldouts(
     undefined,
-    false,
+    true,
     { enabled: canStageHoldout || !!holdoutId },
   );
+  const holdout = holdoutsMap.get(holdoutId);
+  const holdoutExperiment = holdout
+    ? experimentsMap.get(holdout.experimentId)
+    : undefined;
+  const holdoutPhase = holdoutExperiment?.phases.at(-1);
+  const holdoutSize = holdoutPhase
+    ? coverageToHoldoutSize(holdoutPhase.coverage)
+    : null;
+  const getStatusIndicator = useExperimentStatusIndicator();
+  const holdoutStatus = holdoutExperiment
+    ? getStatusIndicator(holdoutExperiment)
+    : null;
   const [choosingHoldout, setChoosingHoldout] = useState(false);
   const canAddHoldout =
     canJoinHoldout &&
@@ -382,11 +415,6 @@ export default function TrafficAllocationFunnel({
     holdoutDraft?.set(experiment.holdoutId ? "" : null);
   const stageHoldout = (id: string) =>
     holdoutDraft?.set(id === (experiment.holdoutId ?? "") ? null : id);
-
-  const targetsEveryone = !hasTargetingConfigured(phase);
-  const hasCondition = hasAttributeCondition(phase?.condition);
-  const hasSavedGroups = !!phase?.savedGroups?.length;
-  const hasPrerequisites = !!phase?.prerequisites?.length;
 
   if (!phase) {
     return (
@@ -436,14 +464,41 @@ export default function TrafficAllocationFunnel({
                   ) : null
                 }
               >
-                <SetupFieldRow label="Name" content="text">
-                  <Link href={`/holdout/${holdoutId}`} external>
-                    {holdoutsMap.get(holdoutId)?.name ?? holdoutId}
-                  </Link>
-                </SetupFieldRow>
-                <SetupFieldRow label="ID" content="text">
-                  <Text color="text-mid">{holdoutId}</Text>
-                </SetupFieldRow>
+                <FunnelRow label="Name">
+                  <Flex align="center" gap="2">
+                    <Link href={`/holdout/${holdoutId}`} external>
+                      {holdout?.name ?? holdoutId}
+                    </Link>
+                    {holdoutStatus ? (
+                      <Badge
+                        label={holdoutStatus.status}
+                        color={holdoutStatus.color}
+                        variant="soft"
+                        radius="full"
+                        size="xs"
+                      />
+                    ) : null}
+                  </Flex>
+                </FunnelRow>
+                {holdoutSize !== null ? (
+                  <FunnelRow
+                    label="Holdout size"
+                    tip={holdoutSizeTip(holdoutSize)}
+                  >
+                    <Text color="text-high">
+                      {coveragePercentFormatter.format(holdoutSize)}
+                    </Text>
+                  </FunnelRow>
+                ) : null}
+                {holdoutPhase ? <Audience phase={holdoutPhase} /> : null}
+                {holdoutExperiment ? (
+                  <AssignmentAttribute
+                    hashAttribute={holdoutExperiment.hashAttribute || "id"}
+                    fallbackAttribute={
+                      holdoutExperiment.fallbackAttribute ?? ""
+                    }
+                  />
+                ) : null}
               </FunnelCard>
               <FunnelConnector />
             </>
@@ -452,7 +507,8 @@ export default function TrafficAllocationFunnel({
           <FunnelCard
             title="Targeting"
             grow
-            onEdit={editTargeting}
+            onEdit={makeChanges ? () => makeChanges() : editTargeting}
+            editBlockedReason={makeChanges ? editsBlocked : null}
             disabled={!safeToEdit}
             menu={
               canAddHoldout ? (
@@ -462,25 +518,7 @@ export default function TrafficAllocationFunnel({
               ) : null
             }
           >
-            {targetsEveryone ? (
-              <FunnelRow label="Audience">
-                <Text color="text-high">Everyone</Text>
-              </FunnelRow>
-            ) : (
-              <>
-                <FunnelRow label="Audience" />
-                <Box pl="4" mb="2">
-                  <ConditionDisplay
-                    variant="rows"
-                    condition={hasCondition ? phase.condition : undefined}
-                    savedGroups={hasSavedGroups ? phase.savedGroups : undefined}
-                    prerequisites={
-                      hasPrerequisites ? phase.prerequisites : undefined
-                    }
-                  />
-                </Box>
-              </>
-            )}
+            <Audience phase={phase} />
             <AssignmentAttribute
               hashAttribute={hashAttribute}
               fallbackAttribute={fallbackAttribute}
@@ -537,8 +575,13 @@ export default function TrafficAllocationFunnel({
           <FunnelCard
             title="Traffic"
             onEdit={
-              editDeliveryInline ? () => setEditingTraffic(true) : editTargeting
+              makeChanges
+                ? () => makeChanges("traffic")
+                : editDeliveryInline
+                  ? () => setEditingTraffic(true)
+                  : editTargeting
             }
+            editBlockedReason={makeChanges ? editsBlocked : null}
             disabled={!safeToEdit}
           >
             <FunnelRow label="Rollout percentage">
@@ -609,6 +652,42 @@ export default function TrafficAllocationFunnel({
         />
       </Flex>
     </Frame>
+  );
+}
+
+function Audience({
+  phase,
+}: {
+  phase: Pick<
+    ExperimentPhaseStringDates,
+    "condition" | "savedGroups" | "prerequisites"
+  >;
+}) {
+  if (!hasTargetingConfigured(phase)) {
+    return (
+      <FunnelRow label="Audience">
+        <Text color="text-high">Everyone</Text>
+      </FunnelRow>
+    );
+  }
+  return (
+    <>
+      <FunnelRow label="Audience" />
+      <Box pl="4" mb="2">
+        <ConditionDisplay
+          variant="rows"
+          condition={
+            hasAttributeCondition(phase.condition) ? phase.condition : undefined
+          }
+          savedGroups={
+            phase.savedGroups?.length ? phase.savedGroups : undefined
+          }
+          prerequisites={
+            phase.prerequisites?.length ? phase.prerequisites : undefined
+          }
+        />
+      </Box>
+    </>
   );
 }
 

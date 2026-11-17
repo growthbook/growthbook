@@ -12,7 +12,7 @@ const ImportPage: FC = () => {
   const importId = Array.isArray(id) ? id[0] : id;
 
   return (
-    <div className="container-fluid pagecontents p-3">
+    <div className="container-fluid pagecontents">
       {create && (
         <NewExperimentForm
           onClose={() => setCreate(null)}

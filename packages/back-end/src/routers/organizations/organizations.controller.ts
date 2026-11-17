@@ -16,6 +16,7 @@ import {
   getRoles,
   hasSuperAdminPermission,
   holdsAllSuperAdminPermissions,
+  normalizeSuperAdmin,
 } from "shared/permissions";
 import { isExpired } from "shared/api-key-expiration";
 import uniqid from "uniqid";
@@ -74,12 +75,14 @@ import {
   importConfig,
   inviteUser,
   isEnterpriseSSO,
+  isOrgScopedLogin,
+  isValidLoginMethod,
   removeMember,
   revokeInvite,
   setLicenseKey,
   assertProjectRulesReferenceProjects,
 } from "back-end/src/services/organizations";
-import { BadRequestError } from "back-end/src/util/errors";
+import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { updatePassword } from "back-end/src/services/users";
 import {
   auditDetailsCreate,
@@ -88,6 +91,7 @@ import {
   getRecentWatchedAudits,
   isValidAuditEntityType,
 } from "back-end/src/services/audit";
+import { parseDateCursor } from "back-end/src/util/dateCursor";
 import {
   getAllFeatures,
   hasNonDemoFeature,
@@ -153,18 +157,21 @@ import {
   getExperimentsForActivityFeed,
   hasNonDemoExperiment,
 } from "back-end/src/models/ExperimentModel";
+import { getAuditHistory } from "back-end/src/models/AuditModel";
 import {
-  getAuditHistory,
-  getAuditedApiKeyKinds,
-} from "back-end/src/models/AuditModel";
-import { ReqContext } from "back-end/types/request";
+  canReadApiKeyHistory,
+  getApiKeyIdsHiddenFromKeyViewers,
+} from "back-end/src/services/apiKeyHistory";
 import { fireSdkWebhook } from "back-end/src/jobs/sdkWebhooks";
 import {
   getInstallationName,
   getLicenseMetaData,
   getUserCodesForOrg,
 } from "back-end/src/services/licenseData";
-import { findSDKConnectionsByIds } from "back-end/src/models/SdkConnectionModel";
+import {
+  assertCanUseSDKConnections,
+  findSDKConnectionsByIds,
+} from "back-end/src/models/SdkConnectionModel";
 import {
   getLicense,
   licenseInit,
@@ -324,51 +331,12 @@ export async function getHistory(
     parseIntWithDefaultCapped(req.query.limit, 50, 100), // Max 100 per page
     {
       event: parseEventParam(req.query.event),
-      before: req.query.cursor ? new Date(req.query.cursor) : undefined,
+      before: parseDateCursor(context, req.query.cursor),
       excludeIds,
     },
   );
 
   res.status(200).json({ status: 200, ...history });
-}
-
-async function canReadApiKeyHistory(
-  context: ReqContext,
-  id: string | undefined,
-): Promise<boolean> {
-  const { permissions } = context;
-  if (!id) return permissions.canViewApiKeys();
-  const key = await context.models.apiKeys.dangerousGetById(id);
-  if (key) {
-    return key.userId
-      ? key.userId === context.userId ||
-          permissions.canManagePersonalAccessTokens()
-      : permissions.canViewApiKeys();
-  }
-  // A deleted key is known only by its audits. One they can't place needs both.
-  const kinds = await getAuditedApiKeyKinds(context.org.id);
-  if (kinds.tokens.has(id)) return permissions.canManagePersonalAccessTokens();
-  if (kinds.orgKeys.has(id)) return permissions.canViewApiKeys();
-  return (
-    permissions.canViewApiKeys() && permissions.canManagePersonalAccessTokens()
-  );
-}
-
-// Members' tokens, and deleted keys their audits can't place as org keys.
-async function getApiKeyIdsHiddenFromKeyViewers(
-  context: ReqContext,
-): Promise<string[]> {
-  const [keys, kinds] = await Promise.all([
-    context.models.apiKeys.dangerousGetAllApiKeysInOrg(),
-    getAuditedApiKeyKinds(context.org.id),
-  ]);
-  const live = new Map(keys.map((k) => [k.id, k]));
-  return kinds.all.filter((id) => {
-    // Org-wide entries, like applying the expiration policy, name no key.
-    if (!id) return false;
-    const key = live.get(id);
-    return key ? !!key.userId : !kinds.orgKeys.has(id);
-  });
 }
 
 export async function putMemberRole(
@@ -581,7 +549,7 @@ export async function putMember(
   }
 
   // ensure org matches one of the calculated verified org
-  const organizations = await findVerifiedOrgsForNewUser(req.email);
+  const organizations = await findVerifiedOrgsForNewUser(req.email, req);
   if (!organizations) {
     throw new Error("Invalid orgId");
   }
@@ -1236,7 +1204,7 @@ export async function putNamespaces(
   // Make sure this namespace exists
   const target = namespaces.find((n) => n.name === name);
   if (!target) {
-    throw new Error("Namespace not found.");
+    throw new NotFoundError("Namespace not found.");
   }
 
   await assertNamespaceHashAttributeChangeAllowed(
@@ -1310,7 +1278,7 @@ export async function deleteNamespace(
   });
 
   if (namespaces.length === updatedNamespaces.length) {
-    throw new Error("Namespace not found.");
+    throw new NotFoundError("Namespace not found.");
   }
 
   await assertNamespaceNotInUse(context, name, "delete");
@@ -1382,6 +1350,15 @@ export async function postInviteAccept(
   try {
     if (!req.userId || !req.email) {
       throw new Error("Must be logged in");
+    }
+    // An SSO or Vercel login only vouches for the email within its own org
+    if (isOrgScopedLogin(req)) {
+      const invitingOrg = await findOrganizationByInviteKey(key);
+      if (invitingOrg && !isValidLoginMethod(invitingOrg, req)) {
+        throw new Error(
+          "Log out and sign in with Google or email and password to accept this invitation.",
+        );
+      }
     }
     const org = await acceptInvite(key, req.userId, req.email);
     await licenseInit(org, getUserCodesForOrg, getLicenseMetaData, true);
@@ -1541,6 +1518,13 @@ export async function signup(
   // Note: Request will not have an organization at this point. Do not use getContextFromReq
   const { company, externalId, demographicData } = req.body;
 
+  // The new org wouldn't accept this login, so the user would be locked out of it
+  if (isOrgScopedLogin(req)) {
+    throw new Error(
+      "Log out and sign in with Google or email and password to create an organization.",
+    );
+  }
+
   const orgs = await hasOrganization();
   // Only allow one organization per site unless IS_MULTI_ORG is true
   if (!IS_MULTI_ORG && orgs) {
@@ -1660,6 +1644,11 @@ export async function putOrganization(
     externalId,
     licenseKey,
   } = req.body;
+
+  // An object here would reach the global users lookup as a Mongo operator
+  if (ownerEmail && typeof ownerEmail !== "string") {
+    return res.status(400).json({ status: 400, message: "Invalid ownerEmail" });
+  }
 
   if (connections || name || ownerEmail || installationName) {
     if (!context.permissions.canManageOrgSettings()) {
@@ -1815,6 +1804,17 @@ export async function putOrganization(
           "Maximum token lifetime must be a whole number of days, at least 1",
         );
       }
+    }
+
+    const disableGraceHours =
+      settings?.disableResultsUpdateForStoppedExperimentGraceHours;
+    if (
+      (disableGraceHours ?? null) !== null &&
+      (typeof disableGraceHours !== "number" || disableGraceHours < 0)
+    ) {
+      context.throwBadRequestError(
+        "Grace period for updating stopped experiments must be a number of hours, at least 0",
+      );
     }
 
     const topValuesLookbackValue = settings?.topValuesLookbackValue;
@@ -2050,6 +2050,13 @@ export async function postApiKey(
     if (!userId) {
       throw new Error(
         "Cannot create user personal access token without a user ID",
+      );
+    }
+    // Tokens take super admin from the user record, not from this login
+    const user = await getUserById(userId);
+    if (normalizeSuperAdmin(user?.superAdmin) && !req.superAdmin) {
+      throw new Error(
+        "Super admins must sign in with a method that grants super admin access to create personal access tokens.",
       );
     }
     key = await context.models.apiKeys.createUserPersonalAccessApiKey({
@@ -2333,7 +2340,7 @@ export async function testSDKWebhook(
   const context = getContextFromReq(req);
   const webhook = await context.models.sdkWebhooks.getById(webhookId);
   if (!webhook) {
-    throw new Error("Could not find webhook");
+    throw new NotFoundError("Could not find webhook");
   }
 
   const conns = await findSDKConnectionsByIds(context, webhook.sdks);
@@ -2362,7 +2369,7 @@ export async function putSDKWebhook(
   const { id } = req.params;
   const webhook = await context.models.sdkWebhooks.getById(id);
   if (!webhook) {
-    throw new Error("Could not find webhook");
+    throw new NotFoundError("Could not find webhook");
   }
 
   const conns = await findSDKConnectionsByIds(context, webhook.sdks);
@@ -2375,6 +2382,13 @@ export async function putSDKWebhook(
   }
 
   const parsedUpdates = updateSdkWebhookValidator.parse(req.body);
+  if (parsedUpdates.sdks) {
+    await assertCanUseSDKConnections(
+      context,
+      parsedUpdates.sdks.filter((sdk) => !webhook.sdks.includes(sdk)),
+      (c) => context.permissions.canUpdateSDKWebhook(c),
+    );
+  }
 
   // Reset failure state when endpoint changes
   const resetFields =
@@ -2539,8 +2553,8 @@ export async function addOrphanedUser(
   // Make sure user exists
   const user = await getUserById(id);
   if (!user) {
-    return res.status(400).json({
-      status: 400,
+    return res.status(404).json({
+      status: 404,
       message: "Cannot find user with that id",
     });
   }
@@ -2620,8 +2634,8 @@ export async function deleteOrphanedUser(
   // Make sure user exists
   const user = await getUserById(id);
   if (!user) {
-    return res.status(400).json({
-      status: 400,
+    return res.status(404).json({
+      status: 404,
       message: "Cannot find user with that id",
     });
   }

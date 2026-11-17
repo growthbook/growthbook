@@ -60,6 +60,50 @@ describe("cancellableFetch with WEBHOOK_PROXY set", () => {
   });
 });
 
+describe("cancellableFetch truncation", () => {
+  beforeEach(() => {
+    mockedFetch.mockReset();
+  });
+
+  // Streams two chunks over a 5-byte cap, so the second read trips the abort.
+  function oversizedResponse() {
+    return {
+      status: 200,
+      body: (async function* () {
+        yield Buffer.from("abcdef");
+        yield Buffer.from("ghijkl");
+      })(),
+    };
+  }
+
+  it("resolves with the partial body", async () => {
+    mockedFetch.mockResolvedValueOnce(oversizedResponse());
+    const { stringBody } = await cancellableFetch(
+      "https://example.com/big",
+      {},
+      { maxTimeMs: 1000, maxContentSize: 5 },
+    );
+    expect(stringBody).toBe("abcdef");
+  });
+
+  it("decodes a multi-byte character split across chunks", async () => {
+    const bytes = Buffer.from("日本語");
+    mockedFetch.mockResolvedValueOnce({
+      status: 200,
+      body: (async function* () {
+        yield bytes.subarray(0, 4);
+        yield bytes.subarray(4);
+      })(),
+    });
+    const { stringBody } = await cancellableFetch(
+      "https://example.com/ja",
+      {},
+      { maxTimeMs: 1000, maxContentSize: 1000 },
+    );
+    expect(stringBody).toBe("日本語");
+  });
+});
+
 describe("getAuthProxyForUrl", () => {
   it.each([
     "https://acme.okta.com/oauth2/v1/keys",

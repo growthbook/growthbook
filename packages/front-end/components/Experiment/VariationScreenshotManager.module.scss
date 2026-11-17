@@ -1,10 +1,3 @@
-// The shared drop target hugs its content; in the grid it fills its cell.
-.gridUpload {
-  width: 100%;
-  height: 100%;
-  margin-left: 0;
-}
-
 .tile {
   position: relative;
 }
@@ -34,24 +27,13 @@
   position: relative;
 }
 
-// The doubled class outranks ScreenshotUpload's base `.message` rule.
-.uploadHint,
-.gridUploadMessage.gridUploadMessage {
-  top: 75%;
-  bottom: auto;
-  left: 0;
-  right: 0;
-  padding: 0;
-  text-align: center;
-  align-items: flex-start;
-  justify-content: center;
-  font-size: 1em;
-  line-height: normal;
-  color: var(--violet-11);
-}
-
 .uploadHint {
   position: absolute;
+  top: 75%;
+  left: 0;
+  right: 0;
+  text-align: center;
+  color: var(--violet-11);
   opacity: 0;
   transition: opacity 100ms ease;
   pointer-events: none;
@@ -59,18 +41,4 @@
 
 .uploadTile:hover .uploadHint {
   opacity: 1;
-}
-
-// While dropping only the prompt shows; the `:hover` selectors outrank the
-// hover rules above.
-:global(.screenshot-dropping) {
-  .uploadTile,
-  .uploadTile:hover {
-    background-color: var(--black-a1);
-  }
-
-  .uploadHint,
-  .uploadTile:hover .uploadHint {
-    opacity: 0;
-  }
 }

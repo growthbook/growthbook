@@ -11,10 +11,12 @@ export default function ExperimentStatusIndicator({
   experimentData,
   labelFormat = "full",
   skipArchived = false,
+  size,
 }: {
   experimentData: ExperimentDataForStatusStringDates;
   labelFormat?: LabelFormat;
   skipArchived?: boolean;
+  size?: "xs" | "sm";
 }) {
   const getExperimentStatusIndicator = useExperimentStatusIndicator();
   const statusIndicatorData = getExperimentStatusIndicator(
@@ -27,6 +29,7 @@ export default function ExperimentStatusIndicator({
       statusIndicatorData={statusIndicatorData}
       labelFormat={labelFormat}
       experimentData={experimentData}
+      size={size}
     />
   );
 }
@@ -66,10 +69,12 @@ export function RawExperimentStatusIndicator({
   statusIndicatorData,
   labelFormat = "full",
   experimentData,
+  size,
 }: {
   statusIndicatorData: StatusIndicatorData;
   labelFormat?: LabelFormat;
   experimentData: ExperimentDataForStatusStringDates;
+  size?: "xs" | "sm";
 }) {
   const { color, status, detailedStatus, tooltip } = statusIndicatorData;
   const isHoldout = experimentData.type === "holdout";
@@ -89,6 +94,7 @@ export function RawExperimentStatusIndicator({
       color={color}
       variant={"solid"}
       radius="full"
+      size={size}
       label={`${label}${isInAnalysisPeriod ? ": Analysis Phase" : ""}`}
       style={{
         cursor: tooltip !== undefined ? "default" : undefined,
@@ -99,7 +105,7 @@ export function RawExperimentStatusIndicator({
   return tooltip ? <Tooltip content={tooltip}>{badge}</Tooltip> : badge;
 }
 
-function getFormattedLabel(
+export function getFormattedLabel(
   labelFormat: LabelFormat,
   status: string,
   detailedStatus?: string,

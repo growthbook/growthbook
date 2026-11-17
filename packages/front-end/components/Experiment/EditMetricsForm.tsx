@@ -5,12 +5,12 @@ import {
   MetricOverride,
 } from "shared/types/experiment";
 import cloneDeep from "lodash/cloneDeep";
-import {
-  DEFAULT_PROPER_PRIOR_STDDEV,
-  DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
-} from "shared/constants";
+import { DEFAULT_PROPER_PRIOR_STDDEV } from "shared/constants";
 import { OrganizationSettings } from "shared/types/organization";
-import { ExperimentMetricDefinition } from "shared/experiments";
+import {
+  ExperimentMetricDefinition,
+  getDefaultRegressionAdjustmentDays,
+} from "shared/experiments";
 import { CustomMetricSlice } from "shared/validators";
 import { Box, Separator } from "@radix-ui/themes";
 import { getScopedSettings } from "shared/settings";
@@ -53,30 +53,16 @@ export function getDefaultMetricOverridesFormValue(
   for (let i = 0; i < defaultMetricOverrides.length; i++) {
     for (const key in defaultMetricOverrides[i]) {
       // fix fields with percentage values
-      if (
-        [
-          "winRisk",
-          "loseRisk",
-          "maxPercentChange",
-          "minPercentChange",
-          "targetMDE",
-        ].includes(key)
-      ) {
+      if (["maxPercentChange", "minPercentChange", "targetMDE"].includes(key)) {
         defaultMetricOverrides[i][key] *= 100;
       }
     }
     if (defaultMetricOverrides[i].regressionAdjustmentDays === undefined) {
-      const metricDefinition = getExperimentMetricById(
-        defaultMetricOverrides[i].id,
-      );
-      if (metricDefinition?.regressionAdjustmentOverride) {
-        defaultMetricOverrides[i].regressionAdjustmentDays =
-          metricDefinition.regressionAdjustmentDays;
-      } else {
-        defaultMetricOverrides[i].regressionAdjustmentDays =
-          settings.regressionAdjustmentDays ??
-          DEFAULT_REGRESSION_ADJUSTMENT_DAYS;
-      }
+      defaultMetricOverrides[i].regressionAdjustmentDays =
+        getDefaultRegressionAdjustmentDays(
+          getExperimentMetricById(defaultMetricOverrides[i].id),
+          settings,
+        );
     }
     if (
       isNaN(defaultMetricOverrides[i].properPriorMean ?? NaN) ||
@@ -121,15 +107,7 @@ export function fixMetricOverridesBeforeSaving(overrides: MetricOverride[]) {
         continue;
       }
       // fix fields with percentage values
-      if (
-        [
-          "winRisk",
-          "loseRisk",
-          "maxPercentChange",
-          "minPercentChange",
-          "targetMDE",
-        ].includes(key)
-      ) {
+      if (["maxPercentChange", "minPercentChange", "targetMDE"].includes(key)) {
         overrides[i][key] = v / 100;
       }
     }
@@ -241,6 +219,8 @@ const EditMetricsForm: FC<{
         filterConversionWindowMetrics={isHoldout}
         experimentId={experiment.id}
         experimentType={experiment.type}
+        isClusterExperiment={experiment.isClusterExperiment}
+        clusterSubUnitIdentifier={experiment.clusterSubUnitIdentifier}
       />
       {/* If the org has the feature, we render a callout within MetricsSelector */}
       {!hasCommercialFeature("metric-groups") ? (

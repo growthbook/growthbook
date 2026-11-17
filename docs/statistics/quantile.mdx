@@ -32,7 +32,7 @@ Consider one universe where **all** customers received control (not just the cus
 
 Consider another universe where **all** customers are assigned to treatment. In the treatment universe, website latency for 99% of customers is no more than 139 ms. So the true effect at P99 is 139 ms - 145 ms = -6 ms.
 
-A quantile test tries to estimate this difference. You interpret the interval above as “There is a 95% chance that the difference in P99 latencies across the groups is in (-9ms, -5ms)”.
+A quantile test tries to estimate this difference. In the Bayesian engine, you interpret the interval above as “There is a 95% chance that the difference in P99 latencies across the groups is in (-9ms, -5ms)”.
 
 ## Should I aggregate by experiment user before taking quantile?
 

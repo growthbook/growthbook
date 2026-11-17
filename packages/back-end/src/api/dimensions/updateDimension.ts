@@ -12,6 +12,8 @@ import {
   toDimensionApiInterface,
 } from "back-end/src/models/DimensionModel";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
+import { validateDimensionBeforeSave } from "back-end/src/services/dimensions";
+import { NotFoundError } from "back-end/src/util/errors";
 
 export const updateDimension = createApiRequestHandler(
   updateDimensionValidator,
@@ -23,20 +25,18 @@ export const updateDimension = createApiRequestHandler(
   const organization = req.organization.id;
   const dimension = await findDimensionById(req.params.id, organization);
 
-  if (!dimension) {
-    throw new Error("Could not find dimension with that id");
+  if (
+    !dimension ||
+    !(await hasDimensionDatasourceAccess(req.context, dimension))
+  ) {
+    throw new NotFoundError("Could not find dimension with that id");
   }
-  if (!(await hasDimensionDatasourceAccess(req.context, dimension))) {
-    throw new Error("You don't have access to this dimension");
-  }
-  if (req.body.datasourceId) {
-    const datasourceDoc = await getDataSourceById(
-      req.context,
-      req.body.datasourceId,
-    );
-    if (!datasourceDoc) {
-      throw new Error("Invalid data source");
-    }
+  const datasourceDoc = await getDataSourceById(
+    req.context,
+    req.body.datasourceId || dimension.datasource,
+  );
+  if (!datasourceDoc) {
+    throw new Error("Invalid data source");
   }
 
   const updates: Partial<DimensionInterface> = {};
@@ -49,10 +49,19 @@ export const updateDimension = createApiRequestHandler(
   if (req.body.datasourceId) updates.datasource = req.body.datasourceId;
   if (req.body.identifierType) updates.userIdType = req.body.identifierType;
   if (req.body.query) updates.sql = req.body.query;
+  if (req.body.timing !== undefined) updates.timing = req.body.timing;
+  if (req.body.nullLabel !== undefined) updates.nullLabel = req.body.nullLabel;
   if (req.body.managedBy !== undefined) {
     updates.managedBy = req.body.managedBy;
   }
   updates.dateUpdated = new Date();
+
+  await validateDimensionBeforeSave(
+    req.context,
+    datasourceDoc,
+    { ...dimension, ...updates },
+    dimension,
+  );
 
   await updateDimensionModel(req.context, dimension, updates);
 

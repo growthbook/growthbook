@@ -1,5 +1,6 @@
 import { getValidDate } from "shared/dates";
 import {
+  getClusterSubUnit,
   getExperimentOutdatedReasonLabel,
   isFactMetric,
   isExperimentOutdatedReasonField,
@@ -34,13 +35,16 @@ export const INCREMENTAL_FULL_REFRESH_SETTINGS_FIELDS = [
 
 /**
  * Callers resolve an unset `exposureQueryIdentifierType` to the query's legacy
- * identifier. It isn't in INCREMENTAL_FULL_REFRESH_SETTINGS_FIELDS because it
- * is hashed separately (getExperimentSettingsHashForIncrementalRefresh).
+ * identifier. It, along with the cluster fields, isn't in
+ * INCREMENTAL_FULL_REFRESH_SETTINGS_FIELDS because those are hashed and
+ * compared separately (getExperimentSettingsHashForIncrementalRefresh).
  */
 export type IncrementalFullRefreshComparable = Pick<
   ExperimentSnapshotSettings,
   | (typeof INCREMENTAL_FULL_REFRESH_SETTINGS_FIELDS)[number]
   | "exposureQueryIdentifierType"
+  | "isClusterExperiment"
+  | "clusterSubUnitIdentifier"
 >;
 
 // Keep this aligned with snapshotSettings so UI labels match backend hash checks.
@@ -81,6 +85,15 @@ export function getIncrementalFullRefreshReasons(
     reasons.push(
       getExperimentOutdatedReasonLabel("exposureQueryIdentifierType"),
     );
+  }
+  // Cluster fields reshape the units table grain (cluster vs sub-unit), so a
+  // change requires a full refresh. A sub-unit saved while cluster mode is off
+  // isn't used, and snapshots don't record it.
+  if (!!current.isClusterExperiment !== !!baseline.isClusterExperiment) {
+    reasons.push(getExperimentOutdatedReasonLabel("isClusterExperiment"));
+  }
+  if (getClusterSubUnit(current) !== getClusterSubUnit(baseline)) {
+    reasons.push(getExperimentOutdatedReasonLabel("clusterSubUnitIdentifier"));
   }
   return reasons;
 }

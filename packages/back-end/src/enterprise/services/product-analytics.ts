@@ -17,11 +17,12 @@ import {
   hasTimestampColumn,
   isFunnelSupportedDatasourceType,
   isJourneySupportedDatasourceType,
+  getMetricPopulationViolations,
+  withRequestedDisplayConfig,
 } from "shared/enterprise";
 import { isReadOnlySQL } from "shared/sql";
 import {
   journeyMinUnusedLookahead,
-  toClientJourneyExploration,
   validateJourneyDataset,
   validateJourneyStepColumns,
 } from "shared/journeys";
@@ -42,37 +43,6 @@ import { ApiReqContext } from "back-end/types/api";
 import { ReqContext } from "back-end/types/request";
 import { APP_ORIGIN } from "back-end/src/util/secrets";
 import { FactMetricModel } from "back-end/src/models/FactMetricModel";
-
-/**
- * Cache lookup keys off query-defining fields (see AnalyticsExplorationModel.getConfigHashes)
- * and can reuse compatible date ranges. Reuse the cached rows but surface the
- * client's requested display config — journeys also collapse lookahead so the
- * payload matches the path being viewed.
- */
-function withRequestedDisplayConfig(
-  existing: ProductAnalyticsExploration,
-  requested: ExplorationConfig,
-): ProductAnalyticsExploration {
-  if (
-    existing.config.type === "sql" &&
-    requested.type === "sql" &&
-    requested.chartType === "rawTable"
-  ) {
-    return {
-      ...existing,
-      config: {
-        ...existing.config,
-        chartType: requested.chartType,
-        dateRange: requested.dateRange,
-        dataset: {
-          ...existing.config.dataset,
-          hiddenColumns: requested.dataset.hiddenColumns,
-        },
-      },
-    };
-  }
-  return toClientJourneyExploration(existing, requested);
-}
 
 // Max time to wait synchronously for an exploration's queries before
 // returning the in-progress model and letting the frontend poll for the
@@ -178,6 +148,7 @@ export async function runProductAnalyticsExploration(
         "A draft preview must contain only fact__preview",
       );
     }
+
     const factMetrics = await context.models.factMetrics.getByIds(
       dataset.values
         .filter((value) => !value.draftMetric)
@@ -188,6 +159,7 @@ export async function runProductAnalyticsExploration(
       factMetrics.push(
         factMetricValidator.parse({
           ...value.draftMetric,
+          compoundSettings: null,
           id: value.metricId,
           organization: context.org.id,
           dateCreated: new Date(0),
@@ -219,6 +191,20 @@ export async function runProductAnalyticsExploration(
       Array.from(factTableIds),
     );
     factTables.forEach((ft) => factTableMap.set(ft.id, ft));
+
+    if (dataset.population) {
+      const populationViolations = getMetricPopulationViolations({
+        population: dataset.population,
+        values: dataset.values,
+        dimensions: config.dimensions,
+        datasource: datasource.id,
+        metricMap,
+        factTableMap,
+      });
+      if (populationViolations.length) {
+        throw new BadRequestError(populationViolations.join(" "));
+      }
+    }
 
     for (const value of dataset.values) {
       if (!value.draftMetric) continue;

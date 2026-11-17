@@ -8,6 +8,7 @@ import {
 import { FeatureDefinition } from "shared/types/sdk";
 import {
   FeatureInterface,
+  FeatureRule,
   SavedGroupTargeting,
   ScheduleRule,
 } from "shared/types/feature";
@@ -3371,6 +3372,32 @@ describe("SDK Payloads", () => {
         },
       ],
     });
+  });
+
+  it("Serves a rollout with no coverage to everyone", () => {
+    const feature = cloneDeep(baseFeature);
+    feature.environmentSettings.dev.rules = [
+      {
+        type: "rollout",
+        description: "",
+        id: "1",
+        coverage: null,
+        hashAttribute: "id",
+        value: "false",
+        enabled: true,
+      } as unknown as FeatureRule,
+    ];
+
+    expect(
+      getFeatureDefinition({
+        feature,
+        environment: "dev",
+        groupMap,
+        experimentMap,
+        safeRolloutMap,
+        capabilities: ["looseUnmarshalling"],
+      })?.rules,
+    ).toEqual([{ force: false }]);
   });
 
   describe("Saved Groups", () => {

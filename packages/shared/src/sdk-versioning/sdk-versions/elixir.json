@@ -1,6 +1,10 @@
 {
   "versions": [
     {
+      "version": "0.4.0",
+      "capabilities": ["caseInsensitiveMembership", "caseInsensitiveRegex"]
+    },
+    {
       "version": "0.3.0",
       "capabilities": ["encryption"]
     },

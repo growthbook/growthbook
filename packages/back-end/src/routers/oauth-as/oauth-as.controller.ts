@@ -5,7 +5,10 @@ import {
 } from "shared/validators";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { findOrganizationsByMemberId } from "back-end/src/models/OrganizationModel";
-import { getContextFromReq } from "back-end/src/services/organizations";
+import {
+  getContextFromReq,
+  isValidLoginMethod,
+} from "back-end/src/services/organizations";
 import {
   exchangeAuthorizationCode,
   exchangeRefreshToken,
@@ -138,7 +141,9 @@ export async function getAuthorizeInfoHandler(
     }
 
     const info = await getAuthorizeInfo({ clientId, redirectUri });
-    const orgs = await findOrganizationsByMemberId(req.userId);
+    const orgs = (await findOrganizationsByMemberId(req.userId)).filter((o) =>
+      isValidLoginMethod(o, req),
+    );
 
     return res.status(200).json({
       status: 200,
@@ -215,7 +220,9 @@ export async function postAuthorize(
     // the whole grant lifecycle (issuance, refresh) requires membership —
     // refresh tears down grants for non-members, so a non-member grant would
     // die on first rotation anyway.
-    const orgs = await findOrganizationsByMemberId(req.userId);
+    const orgs = (await findOrganizationsByMemberId(req.userId)).filter((o) =>
+      isValidLoginMethod(o, req),
+    );
     if (!orgs.some((o) => o.id === organization)) {
       return res.status(403).json({
         status: 403,

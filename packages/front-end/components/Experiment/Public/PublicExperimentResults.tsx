@@ -211,6 +211,7 @@ export default function PublicExperimentResults({
                 experimentId={experiment.id}
                 significanceThresholds={significanceThresholds}
                 variations={variations}
+                snapshot={snapshot}
                 multipleExposures={snapshot.multipleExposures || 0}
                 results={analysis.results[0]}
                 queryStatusData={queryStatusData}

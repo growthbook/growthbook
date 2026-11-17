@@ -20,6 +20,15 @@ const BaseClass = MakeModelClass({
     {
       fields: { contextualBanditEventId: 1 },
     },
+    // Backs the cross-org stalled-snapshot reaper scan in expireOldQueries,
+    // which runs every minute: status equality, then the dateCreated window
+    // and sort.
+    {
+      fields: {
+        status: 1,
+        dateCreated: -1,
+      },
+    },
   ],
 });
 

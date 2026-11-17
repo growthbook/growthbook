@@ -854,6 +854,32 @@ describe("getMetricSettingsHash funnel settings", () => {
   });
 });
 
+describe("getMetricSettingsHash cluster analysis level", () => {
+  const metric = factMetricFactory.build({ id: "fact_revenue" });
+  const hash = (settings?: {
+    isClusterExperiment?: boolean;
+    clusterSubUnitIdentifier?: string;
+    clusterLevelMetricIds?: string[];
+  }) =>
+    getMetricSettingsHash(metric.id, undefined, [metric], new Map(), settings);
+  const cluster = {
+    isClusterExperiment: true,
+    clusterSubUnitIdentifier: "user_id",
+  };
+
+  it("changes when a metric moves between sub-unit and cluster analysis", () => {
+    expect(
+      hash({ ...cluster, clusterLevelMetricIds: [metric.id] }),
+    ).not.toEqual(hash(cluster));
+  });
+
+  it("leaves non-cluster hashes unchanged", () => {
+    expect(
+      hash({ isClusterExperiment: false, clusterSubUnitIdentifier: "user_id" }),
+    ).toEqual(hash());
+  });
+});
+
 describe("metric history hashes with lower capping", () => {
   const metric = factMetricFactory.build({
     id: "fact__floor",

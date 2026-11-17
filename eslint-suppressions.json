@@ -145,14 +145,6 @@
       "count": 1
     }
   },
-  "packages/front-end/components/Dimensions/DimensionForm.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    },
-    "no-restricted-syntax": {
-      "count": 5
-    }
-  },
   "packages/front-end/components/EmptyState.tsx": {
     "no-restricted-imports": {
       "count": 1
@@ -177,11 +169,6 @@
     },
     "no-restricted-syntax": {
       "count": 3
-    }
-  },
-  "packages/front-end/components/Events/EventsPage/EventsPage.tsx": {
-    "no-restricted-syntax": {
-      "count": 1
     }
   },
   "packages/front-end/components/Events/EventsPage/utils.ts": {
@@ -382,14 +369,6 @@
       "count": 3
     }
   },
-  "packages/front-end/components/Experiment/TabbedPage/EditHoldoutInfoModal.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    },
-    "no-restricted-syntax": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/Experiment/TabbedPage/ExperimentHeader.tsx": {
     "no-restricted-imports": {
       "count": 1
@@ -487,14 +466,6 @@
       "count": 1
     }
   },
-  "packages/front-end/components/FactTables/FactTableModal.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    },
-    "no-restricted-syntax": {
-      "count": 3
-    }
-  },
   "packages/front-end/components/FactTables/RecommendedFactMetricsModal.tsx": {
     "no-restricted-imports": {
       "count": 1
@@ -506,14 +477,6 @@
   "packages/front-end/components/Features/AddToHoldoutModal.tsx": {
     "no-restricted-imports": {
       "count": 1
-    }
-  },
-  "packages/front-end/components/Features/AttributeModal.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    },
-    "no-restricted-syntax": {
-      "count": 4
     }
   },
   "packages/front-end/components/Features/CodeSnippetModal.tsx": {
@@ -532,6 +495,11 @@
   "packages/front-end/components/Features/EditFeatureInfoModal.tsx": {
     "no-restricted-syntax": {
       "count": 3
+    }
+  },
+  "packages/front-end/components/Features/EditFeatureInfoModalNew.tsx": {
+    "no-restricted-syntax": {
+      "count": 1
     }
   },
   "packages/front-end/components/Features/EditSchemaModal.tsx": {
@@ -615,21 +583,6 @@
   "packages/front-end/components/Features/FeaturesOverview.tsx": {
     "no-restricted-syntax": {
       "count": 3
-    }
-  },
-  "packages/front-end/components/Features/HoldoutRule.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "packages/front-end/components/Features/HoldoutSummary.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "packages/front-end/components/Features/HoldoutValueModal.tsx": {
-    "no-restricted-imports": {
-      "count": 2
     }
   },
   "packages/front-end/components/Features/LegacyScheduleInputs.tsx": {
@@ -754,11 +707,6 @@
       "count": 2
     }
   },
-  "packages/front-end/components/FileInput.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/FlagCard/FlagCard.tsx": {
     "no-restricted-imports": {
       "count": 1
@@ -784,22 +732,9 @@
       "count": 1
     }
   },
-  "packages/front-end/components/GeneralSettings/AISettings.tsx": {
-    "no-restricted-imports": {
-      "count": 2
-    }
-  },
   "packages/front-end/components/GeneralSettings/BanditSettings.tsx": {
     "no-restricted-syntax": {
       "count": 4
-    }
-  },
-  "packages/front-end/components/GeneralSettings/DatasourceSettings.tsx": {
-    "no-restricted-imports": {
-      "count": 2
-    },
-    "no-restricted-syntax": {
-      "count": 2
     }
   },
   "packages/front-end/components/GeneralSettings/ExperimentSettings/ChanceToWinThresholdField.tsx": {
@@ -809,15 +744,7 @@
   },
   "packages/front-end/components/GeneralSettings/ExperimentSettings/DecisionFrameworkSettings.tsx": {
     "no-restricted-imports": {
-      "count": 3
-    },
-    "no-restricted-syntax": {
       "count": 1
-    }
-  },
-  "packages/front-end/components/GeneralSettings/ExperimentSettings/FrequentistTab.tsx": {
-    "no-restricted-syntax": {
-      "count": 2
     }
   },
   "packages/front-end/components/GeneralSettings/ExperimentSettings/PValueThresholdField.tsx": {
@@ -825,67 +752,9 @@
       "count": 1
     }
   },
-  "packages/front-end/components/GeneralSettings/ExperimentSettings/StatsEngineSettings.tsx": {
-    "no-restricted-imports": {
-      "count": 2
-    },
-    "no-restricted-syntax": {
-      "count": 1
-    }
-  },
-  "packages/front-end/components/GeneralSettings/ExperimentSettings/StickyBucketingSettings.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "packages/front-end/components/GeneralSettings/ExperimentSettings/index.tsx": {
-    "no-restricted-imports": {
-      "count": 2
-    },
-    "no-restricted-syntax": {
-      "count": 5
-    }
-  },
-  "packages/front-end/components/GeneralSettings/FeatureSettings.tsx": {
-    "no-restricted-imports": {
-      "count": 2
-    },
-    "no-restricted-syntax": {
-      "count": 6
-    }
-  },
-  "packages/front-end/components/GeneralSettings/MetricsSettings.tsx": {
-    "no-restricted-imports": {
-      "count": 2
-    },
-    "no-restricted-syntax": {
-      "count": 7
-    }
-  },
-  "packages/front-end/components/GeneralSettings/NorthStarMetricSettings.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    },
-    "no-restricted-syntax": {
-      "count": 1
-    }
-  },
-  "packages/front-end/components/GeneralSettings/OrganizationAndLicenseSettings.tsx": {
-    "no-restricted-imports": {
-      "count": 2
-    }
-  },
   "packages/front-end/components/GeneralSettings/RampScheduleTemplates.tsx": {
     "no-restricted-imports": {
       "count": 1
-    },
-    "no-restricted-syntax": {
-      "count": 1
-    }
-  },
-  "packages/front-end/components/GeneralSettings/SavedGroupSettings.tsx": {
-    "no-restricted-imports": {
-      "count": 2
     },
     "no-restricted-syntax": {
       "count": 1
@@ -978,16 +847,6 @@
       "count": 1
     }
   },
-  "packages/front-end/components/Holdout/LinkedExperimentsTable.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "packages/front-end/components/Holdout/LinkedFeaturesTable.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/Holdout/NewHoldoutForm.tsx": {
     "no-restricted-syntax": {
       "count": 6
@@ -1040,11 +899,6 @@
   "packages/front-end/components/License/OptInModal.tsx": {
     "no-restricted-imports": {
       "count": 1
-    }
-  },
-  "packages/front-end/components/License/ShowLicenseInfo.tsx": {
-    "no-restricted-imports": {
-      "count": 2
     }
   },
   "packages/front-end/components/Markdown/MarkdownInput.tsx": {
@@ -1263,7 +1117,7 @@
   },
   "packages/front-end/components/Reviews/RevisionStatusBadge.tsx": {
     "@typescript-eslint/switch-exhaustiveness-check": {
-      "count": 3
+      "count": 1
     }
   },
   "packages/front-end/components/Revision/CompareRevisionsModal.tsx": {
@@ -1376,14 +1230,9 @@
       "count": 2
     }
   },
-  "packages/front-end/components/Settings/BayesianPriorSettings.tsx": {
-    "no-restricted-syntax": {
-      "count": 2
-    }
-  },
   "packages/front-end/components/Settings/BigQueryForm.tsx": {
     "no-restricted-syntax": {
-      "count": 5
+      "count": 4
     }
   },
   "packages/front-end/components/Settings/DataSourceForm.tsx": {
@@ -1478,11 +1327,6 @@
       "count": 1
     }
   },
-  "packages/front-end/components/Settings/EditOrganizationModal.tsx": {
-    "no-restricted-syntax": {
-      "count": 4
-    }
-  },
   "packages/front-end/components/Settings/EnvironmentModal.tsx": {
     "no-restricted-imports": {
       "count": 1
@@ -1497,14 +1341,6 @@
     }
   },
   "packages/front-end/components/Settings/MixpanelForm.tsx": {
-    "no-restricted-syntax": {
-      "count": 1
-    }
-  },
-  "packages/front-end/components/Settings/NewDataSourceForm.tsx": {
-    "no-restricted-imports": {
-      "count": 2
-    },
     "no-restricted-syntax": {
       "count": 1
     }
@@ -1526,7 +1362,7 @@
   },
   "packages/front-end/components/Settings/SSLConnectionFields.tsx": {
     "no-restricted-syntax": {
-      "count": 3
+      "count": 1
     }
   },
   "packages/front-end/components/Settings/SubscriptionInfo.tsx": {
@@ -1544,11 +1380,6 @@
       "count": 1
     },
     "no-restricted-syntax": {
-      "count": 1
-    }
-  },
-  "packages/front-end/components/Settings/Team/InviteModal.tsx": {
-    "no-restricted-imports": {
       "count": 1
     }
   },
@@ -1591,11 +1422,6 @@
   "packages/front-end/components/Settings/UpgradeModal/index.tsx": {
     "no-restricted-imports": {
       "count": 2
-    }
-  },
-  "packages/front-end/components/Settings/Usage/CloudUsage.tsx": {
-    "no-restricted-syntax": {
-      "count": 1
     }
   },
   "packages/front-end/components/Settings/WebhooksModal.tsx": {
@@ -1650,27 +1476,9 @@
       "count": 1
     }
   },
-  "packages/front-end/components/Tags/TagsModal.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    },
-    "no-restricted-syntax": {
-      "count": 2
-    }
-  },
   "packages/front-end/components/Teams/TeamModal.tsx": {
     "no-restricted-syntax": {
       "count": 3
-    }
-  },
-  "packages/front-end/components/importing/ImportFromLaunchDarkly/ImportFromLaunchDarkly.tsx": {
-    "no-restricted-syntax": {
-      "count": 2
-    }
-  },
-  "packages/front-end/components/importing/ImportFromStatsig/ImportFromStatsig.tsx": {
-    "no-restricted-syntax": {
-      "count": 4
     }
   },
   "packages/front-end/enterprise/components/AIChat/AIChatModelSelect.tsx": {
@@ -1847,11 +1655,6 @@
       "count": 1
     }
   },
-  "packages/front-end/pages/attributes.tsx": {
-    "no-restricted-syntax": {
-      "count": 1
-    }
-  },
   "packages/front-end/pages/attributes/[property].tsx": {
     "no-restricted-imports": {
       "count": 1
@@ -1973,16 +1776,6 @@
   "packages/front-end/pages/saved-groups/index.tsx": {
     "no-restricted-imports": {
       "count": 2
-    }
-  },
-  "packages/front-end/pages/settings/custom-markdown.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "packages/front-end/pages/settings/index.tsx": {
-    "no-restricted-imports": {
-      "count": 1
     }
   },
   "packages/front-end/pages/settings/tags.tsx": {

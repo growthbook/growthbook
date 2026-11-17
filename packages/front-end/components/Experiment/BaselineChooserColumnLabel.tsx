@@ -170,41 +170,41 @@ export default function BaselineChooserColumnLabel({
         </div>
       }
     >
-      <Flex align="center" gap="1">
-        <Flex align="center">
-          {isHoldout ? (
-            <OverflowText
-              maxWidth={labelMaxWidth}
-              style={{ color: "var(--color-text-mid)", fontSize: "12px" }}
-            >
-              Holdout
-            </OverflowText>
-          ) : (
-            <Box
-              style={{
-                maxWidth: `min(${labelMaxWidth + 20}px, 100%)`,
-                minWidth: 0,
-                marginLeft: -4,
-              }}
-            >
-              <VariationLabel
-                number={baselineVariation.index}
-                name={baselineVariation.name}
-                size="sm"
-                disableTooltip
-                fadeOverflow
-              />
-            </Box>
-          )}
-          {dropdownEnabled && setBaselineRow && (
-            <Flex align="center" gap="1">
-              <PiCaretDownFill style={{ fontSize: "12px" }} />
-              {postLoading && (
-                <LoadingSpinner style={{ width: "12px", height: "12px" }} />
-              )}
-            </Flex>
-          )}
-        </Flex>
+      {/* One flex level only: a nested one shrink-wraps the label, so the
+          `100%` in its max-width resolves to its own width, not the cell's. */}
+      <Flex align="center">
+        {isHoldout ? (
+          <OverflowText
+            maxWidth={labelMaxWidth}
+            style={{ color: "var(--color-text-mid)", fontSize: "12px" }}
+          >
+            Holdout
+          </OverflowText>
+        ) : (
+          <Box
+            style={{
+              maxWidth: `min(${labelMaxWidth + 20}px, 100%)`,
+              minWidth: 0,
+              marginLeft: -4,
+            }}
+          >
+            <VariationLabel
+              number={baselineVariation.index}
+              name={baselineVariation.name}
+              size="sm"
+              disableTooltip
+              fadeOverflow
+            />
+          </Box>
+        )}
+        {dropdownEnabled && setBaselineRow && (
+          <Flex align="center" gap="1">
+            <PiCaretDownFill style={{ fontSize: "12px" }} />
+            {postLoading && (
+              <LoadingSpinner style={{ width: "12px", height: "12px" }} />
+            )}
+          </Flex>
+        )}
       </Flex>
     </Tooltip>
   );

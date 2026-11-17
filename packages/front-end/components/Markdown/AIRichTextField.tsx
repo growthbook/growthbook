@@ -18,6 +18,8 @@ export interface Props {
   onAISuggestionReceived?: (result: string) => void;
   trackingSource?: string;
   collapsibleToolbar?: boolean;
+  onUploadingChange?: (uploading: boolean) => void;
+  ariaLabelledBy?: string;
 }
 
 // A rich text editor with an AI suggestion in its footer; a suggestion replaces
@@ -33,6 +35,8 @@ export default function AIRichTextField({
   onAISuggestionReceived,
   trackingSource,
   collapsibleToolbar = false,
+  onUploadingChange,
+  ariaLabelledBy,
 }: Props) {
   // What the field held before a suggestion replaced it, so it can be undone.
   const [beforeSuggestion, setBeforeSuggestion] = useState<string | null>(null);
@@ -48,6 +52,8 @@ export default function AIRichTextField({
         height={height}
         autoGrow
         collapsibleToolbar={collapsibleToolbar}
+        onUploadingChange={onUploadingChange}
+        ariaLabelledBy={ariaLabelledBy}
         footer={
           aiSuggestFunction ? (
             <Flex

@@ -327,6 +327,10 @@ ID Lists are limited to 1 MB. Using multiple large ID Lists may impact performan
 
 ID Lists accept the following attribute types: `string`, `secureString`, or `number`. For targeting other types of attributes, use [Condition Groups](#condition-groups).
 
+### Remote Groups
+
+For lists too large for an ID List, such as millions of user IDs, use [Remote Groups](/features/remote-saved-groups). Their IDs are stored and looked up outside the SDK payload.
+
 <Tip>
 **Passing Saved Groups by reference**
 

@@ -20,7 +20,7 @@ import {
 import { evaluateRampScheduleAfterSafeRolloutSnapshot } from "back-end/src/services/rampScheduleEvaluator";
 import { MakeModelClass } from "./BaseModel";
 
-export const COLLECTION_NAME = "saferolloutsnapshots";
+const COLLECTION_NAME = "saferolloutsnapshots";
 
 const BaseClass = MakeModelClass({
   schema: safeRolloutSnapshotInterface,
@@ -33,6 +33,15 @@ const BaseClass = MakeModelClass({
         organization: 1,
         safeRolloutId: 1,
         dimension: 1,
+        status: 1,
+        dateCreated: -1,
+      },
+    },
+    // Backs the cross-org stalled-snapshot reaper scan in expireOldQueries,
+    // which runs every minute: status equality, then the dateCreated window
+    // and sort. Mirrors the interleavingsnapshots index.
+    {
+      fields: {
         status: 1,
         dateCreated: -1,
       },

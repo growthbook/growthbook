@@ -49,6 +49,9 @@ import MetricDrilldownOverview from "./MetricDrilldownOverview";
 import MetricDrilldownSlices from "./MetricDrilldownSlices";
 import MetricDrilldownDebug from "./MetricDrilldownDebug";
 import ExperimentFunnelChart from "./ExperimentFunnelChart";
+import CompoundComponentCounts, {
+  hasCompoundComponentUnits,
+} from "./CompoundComponentCounts";
 import {
   MetricDrilldownContext,
   type MetricDrilldownTab,
@@ -263,6 +266,10 @@ const MetricDrilldownContent: FC<MetricDrilldownContentProps> = ({
   const [sliceSearchTerm, setSliceSearchTerm] = useState(
     initialSliceSearchTerm || "",
   );
+  // Opening from a funnel step row lands on that step's slices
+  const [funnelStepIndex, setFunnelStepIndex] = useState(
+    row.funnelStepIndex ?? 0,
+  );
   const hasDimensionTimeSeries =
     !dimensionInfo ||
     isDimensionPrecomputed(
@@ -373,7 +380,7 @@ const MetricDrilldownContent: FC<MetricDrilldownContentProps> = ({
           dimensionInfo={dimensionInfo}
         />
       </TabsContent>
-      {isFunnelMetric ? (
+      {isFunnelMetric && (
         <TabsContent value="funnel">
           <Box
             style={{
@@ -392,42 +399,54 @@ const MetricDrilldownContent: FC<MetricDrilldownContentProps> = ({
             />
           </Box>
         </TabsContent>
-      ) : (
-        <TabsContent value="slices">
-          <MetricDrilldownSlices
-            metric={metric}
-            rows={allRows}
-            variationNames={variations.map((v) => v.name)}
-            differenceType={localDifferenceType}
-            setDifferenceType={setLocalDifferenceType}
-            statsEngine={statsEngine}
-            baselineRow={localBaselineRow}
-            setBaselineRow={setLocalBaselineRow}
-            variationFilter={localVariationFilter}
-            setVariationFilter={setLocalVariationFilter}
-            experimentId={experimentId}
-            significanceThresholds={significanceThresholds}
-            phase={phase}
-            variations={variations}
-            startDate={startDate}
-            endDate={endDate}
-            reportDate={reportDate}
-            isLatestPhase={isLatestPhase}
-            pValueCorrection={pValueCorrection}
-            sequentialTestingEnabled={sequentialTestingEnabled}
-            experimentStatus={experimentStatus}
-            initialSortBy={localSortBy}
-            initialSortDirection={localSortDirection}
-            searchTerm={sliceSearchTerm}
-            setSearchTerm={setSliceSearchTerm}
-            visibleTimeSeriesRowIds={visibleSliceTimeSeriesRowIds}
-            setVisibleTimeSeriesRowIds={setVisibleSliceTimeSeriesRowIds}
-            ssrPolyfills={ssrPolyfills}
-            hideTimeSeries={hideTimeSeries}
-            dimensionInfo={dimensionInfo}
-          />
+      )}
+      {hasCompoundComponentUnits(metric, results) && (
+        <TabsContent value="components">
+          <Box mt="3">
+            <CompoundComponentCounts
+              metric={metric}
+              results={results}
+              variations={variations}
+            />
+          </Box>
         </TabsContent>
       )}
+      <TabsContent value="slices">
+        <MetricDrilldownSlices
+          metric={metric}
+          rows={allRows}
+          results={results}
+          differenceType={localDifferenceType}
+          setDifferenceType={setLocalDifferenceType}
+          statsEngine={statsEngine}
+          baselineRow={localBaselineRow}
+          setBaselineRow={setLocalBaselineRow}
+          variationFilter={localVariationFilter}
+          setVariationFilter={setLocalVariationFilter}
+          experimentId={experimentId}
+          significanceThresholds={significanceThresholds}
+          phase={phase}
+          variations={variations}
+          startDate={startDate}
+          endDate={endDate}
+          reportDate={reportDate}
+          isLatestPhase={isLatestPhase}
+          pValueCorrection={pValueCorrection}
+          sequentialTestingEnabled={sequentialTestingEnabled}
+          experimentStatus={experimentStatus}
+          initialSortBy={localSortBy}
+          initialSortDirection={localSortDirection}
+          searchTerm={sliceSearchTerm}
+          setSearchTerm={setSliceSearchTerm}
+          funnelStepIndex={funnelStepIndex}
+          setFunnelStepIndex={setFunnelStepIndex}
+          visibleTimeSeriesRowIds={visibleSliceTimeSeriesRowIds}
+          setVisibleTimeSeriesRowIds={setVisibleSliceTimeSeriesRowIds}
+          ssrPolyfills={ssrPolyfills}
+          hideTimeSeries={hideTimeSeries}
+          dimensionInfo={dimensionInfo}
+        />
+      </TabsContent>
       <TabsContent value="debug">
         <MetricDrilldownDebug
           row={mainMetricRow}
@@ -451,7 +470,6 @@ const MetricDrilldownContent: FC<MetricDrilldownContentProps> = ({
           goalRows={goalRows}
           sequentialTestingEnabled={sequentialTestingEnabled}
           experimentStatus={experimentStatus}
-          variationNames={variations.map((v) => v.name)}
         />
       </TabsContent>
     </>
@@ -579,11 +597,7 @@ const MetricDrilldownModal = ({
   };
 
   return (
-    <Tabs
-      defaultValue={
-        isFunnelMetric && initialTab === "slices" ? "funnel" : initialTab
-      }
-    >
+    <Tabs defaultValue={initialTab}>
       <Modal
         open={true}
         close={close}
@@ -655,21 +669,23 @@ const MetricDrilldownModal = ({
 
             <TabsList mt="5">
               <TabsTrigger value="overview">Overview</TabsTrigger>
-              {isFunnelMetric ? (
+              {isFunnelMetric && (
                 <TabsTrigger value="funnel">Funnel</TabsTrigger>
-              ) : (
-                <TabsTrigger value="slices">
-                  <Flex align="center" gap="1">
-                    Slices
-                    {!ownerHasMetricSlices && (
-                      <PaidFeatureBadge
-                        commercialFeature="metric-slices"
-                        useTip={false}
-                      />
-                    )}
-                  </Flex>
-                </TabsTrigger>
               )}
+              {hasCompoundComponentUnits(metric, results) && (
+                <TabsTrigger value="components">Components</TabsTrigger>
+              )}
+              <TabsTrigger value="slices">
+                <Flex align="center" gap="1">
+                  Slices
+                  {!ownerHasMetricSlices && (
+                    <PaidFeatureBadge
+                      commercialFeature="metric-slices"
+                      useTip={false}
+                    />
+                  )}
+                </Flex>
+              </TabsTrigger>
               <TabsTrigger value="debug">Debug</TabsTrigger>
             </TabsList>
           </Box>

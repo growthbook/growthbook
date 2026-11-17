@@ -13,6 +13,7 @@ import {
 
 const base = {
   identifierColumn: "user_id",
+  subUnitIdColumn: null,
   timestampColumn: "timestamp",
   variationIdColumn: "variation_id",
   dimensions: ["country"],
@@ -115,8 +116,27 @@ describe("shapeExposureRows", () => {
         },
       ],
     });
-    expect(records[0]).toMatchObject({ userId: "u1", variationId: "1" });
+    expect(records[0]).toMatchObject({ unitId: "u1", variationId: "1" });
+    expect(records[0]).not.toHaveProperty("subUnitId");
     expect(records[0].timestamp).toContain("2025-01-01");
+    expect(extraColumns).toEqual([]);
+  });
+
+  it("reads the sub-unit of a cluster experiment as a typed field", () => {
+    const { records, extraColumns } = shapeExposureRows({
+      ...base,
+      identifierColumn: "region_id",
+      subUnitIdColumn: "uid",
+      rows: [
+        {
+          timestamp: "2025-01-01 00:00:00",
+          region_id: "r1",
+          uid: "u1",
+          variation_id: "0",
+        },
+      ],
+    });
+    expect(records[0]).toMatchObject({ unitId: "r1", subUnitId: "u1" });
     expect(extraColumns).toEqual([]);
   });
 
@@ -138,7 +158,7 @@ describe("shapeExposureRows", () => {
 
   it("does not let a warehouse column shadow a typed field", () => {
     // Regression: the previous implementation spread the raw row over the
-    // coerced fields, so raw values leaked back into timestamp/userId.
+    // coerced fields, so raw values leaked back into timestamp/unitId.
     const { records } = shapeExposureRows({
       ...base,
       rows: [
@@ -151,7 +171,7 @@ describe("shapeExposureRows", () => {
       ],
     });
     expect(records[0].timestamp).toBe("2025-01-01T00:00:00.000Z");
-    expect(records[0].userId).toBe("42");
+    expect(records[0].unitId).toBe("42");
     expect(records[0].variationId).toBe("1");
     expect(records[0].dimensions.country).toBeNull();
   });
@@ -217,7 +237,7 @@ describe("shapeExposureRows", () => {
     expect(() =>
       z.array(experimentExposureRecordValidator).parse(records),
     ).not.toThrow();
-    expect(records[0].userId).toBeNull();
+    expect(records[0].unitId).toBeNull();
   });
 });
 

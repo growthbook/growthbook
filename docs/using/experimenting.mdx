@@ -121,9 +121,9 @@ see the full data, mouse over any of the results.
 Value is the conversion rate or average value per user. In small print you can see the raw numbers
 used to calculate this.
 
-**Chance to Beat Control** tells you the probability that the variation is better. If you are familiar with
-Frequentist statistics, you can consider this value 1 - the p value. Anything above the threshold (which
-by default is set to 95%) is highlighted green indicating a very clear winner. Anything below the
+**Chance to Win** tells you the probability that the variation is better. If you are familiar with
+Frequentist statistics, the 95% threshold corresponds roughly to a two-sided p-value of 0.10 with the
+default prior. Anything above the threshold (which by default is set to 95%) is highlighted green indicating a very clear winner. Anything below the
 threshold (5% by default) is highlighted red, indicating a very clear loser. Anything in between is gray
 indicating it's inconclusive. If that's the case, there's either no measurable difference or you haven't
 gathered enough data yet.
@@ -144,7 +144,7 @@ results, you will see the following results:
 
 Everything is the same as above except for two key changes:
 
-- The Chance to Beat Control column has been replaced with the P-value column. The p-value
+- The Chance to Win column has been replaced with the P-value column. The p-value
   is the probability that the percent change for a variant would have been observed if the true
   percent change were zero. When the p-value is less than the threshold (default to 0.05) and the
   percent change is in the preferred direction, we highlight the cell green, indicating it is a clear
@@ -218,7 +218,7 @@ experiment. For example, if you are trying to improve page load times, you may a
 guardrail since you don't want to inadvertently harm it.
 
 Guardrail results show up beneath the main table of goal and secondary metrics. The full statistics are shown like
-goal metrics, and similarly they are colored based on "Chance to Beat Control". If guardrail metrics
+goal metrics, and similarly they are colored based on "Chance to Win". If guardrail metrics
 become significant, you may want to consider ending the experiment.
 
 ![Guardrail Results](/static/images/using/guardrail-metrics.png)

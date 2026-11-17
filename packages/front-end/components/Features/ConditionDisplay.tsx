@@ -8,6 +8,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import { Condition, jsonToConds, useAttributeMap } from "@/services/features";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { Popover } from "@/ui/Popover";
+import ScrollArea from "@/ui/ScrollArea";
 import InlineCode from "@/components/SyntaxHighlighting/InlineCode";
 import VirtualizedCode, {
   isLongCode,
@@ -128,9 +129,9 @@ function ConditionJson({ code }: { code: string }) {
     return <InlineCode language="json" code={code} />;
   }
   return (
-    <Box ref={scrollRef} style={{ maxHeight: 400, overflowY: "auto" }}>
+    <ScrollArea ref={scrollRef} edgeCue="fade" style={{ maxHeight: 400 }}>
       <VirtualizedCode scrollRef={scrollRef} language="json" code={code} />
-    </Box>
+    </ScrollArea>
   );
 }
 
@@ -171,28 +172,48 @@ export function MultiValuesDisplay({
           openOnHover
           side="bottom"
           align="start"
-          contentStyle={{ maxWidth: 480, maxHeight: 240, overflowY: "auto" }}
+          contentStyle={{ maxWidth: 480 }}
           trigger={
             <span className="mr-1">
               <em>+ {values.length - MULTI_VALUE_LIMIT} more</em>
             </span>
           }
           content={
-            <Text size="sm" color="text-mid">
-              {values
-                .slice(MULTI_VALUE_LIMIT)
-                .map((v) => {
-                  const group = savedGroupIds?.has(v)
-                    ? getSavedGroupById(v)
-                    : null;
-                  return group ? group.groupName : displayMap?.[v] || v;
-                })
-                .join(", ")}
-            </Text>
+            <ScrollArea gutter edgeCue="fade" style={{ maxHeight: 210 }}>
+              <RemainingValues
+                values={values}
+                displayMap={displayMap}
+                savedGroupIds={savedGroupIds}
+              />
+            </ScrollArea>
           }
         />
       )}
     </>
+  );
+}
+
+// Built only while its popover is open: the list can run to thousands.
+function RemainingValues({
+  values,
+  displayMap,
+  savedGroupIds,
+}: {
+  values: string[];
+  displayMap?: Record<string, string>;
+  savedGroupIds?: Set<string>;
+}) {
+  const { getSavedGroupById } = useDefinitions();
+  return (
+    <Text size="sm" color="text-mid">
+      {values
+        .slice(MULTI_VALUE_LIMIT)
+        .map((v) => {
+          const group = savedGroupIds?.has(v) ? getSavedGroupById(v) : null;
+          return group ? group.groupName : displayMap?.[v] || v;
+        })
+        .join(", ")}
+    </Text>
   );
 }
 
@@ -232,6 +253,9 @@ function MultiValueDisplay({
   );
 }
 
+// Rows left to build, for a display cut off past them.
+type RowBudget = { rows: number };
+
 function getConditionOrParts({
   conditions,
   savedGroups,
@@ -240,6 +264,7 @@ function getConditionOrParts({
   renderPrerequisite = false,
   keyPrefix = "",
   prefix,
+  budget,
 }: {
   conditions: ConditionWithParentId[][];
   savedGroups?: SavedGroupWithoutValues[];
@@ -248,6 +273,7 @@ function getConditionOrParts({
   renderPrerequisite?: boolean;
   keyPrefix?: string;
   prefix?: ReactNode;
+  budget?: RowBudget;
 }) {
   if (conditions.length === 0) return [];
   if (conditions.length === 1) {
@@ -259,6 +285,7 @@ function getConditionOrParts({
       renderPrerequisite,
       keyPrefix,
       prefix,
+      budget,
     });
   }
 
@@ -279,6 +306,7 @@ function getConditionOrParts({
   }
 
   conditions.forEach((condGroup, i) => {
+    if (budget && budget.rows <= 0) return;
     if (i > 0) {
       parts.push(
         <Text weight="medium" key={keyPrefix + "or-sep-" + i}>
@@ -294,6 +322,7 @@ function getConditionOrParts({
       initialAnd: false,
       renderPrerequisite,
       keyPrefix: `${keyPrefix}or-${i}-`,
+      budget,
     });
 
     parts.push(
@@ -330,6 +359,7 @@ function getConditionParts({
   renderPrerequisite = false,
   keyPrefix = "",
   prefix,
+  budget,
 }: {
   conditions: ConditionWithParentId[];
   savedGroups?: SavedGroupWithoutValues[];
@@ -338,8 +368,13 @@ function getConditionParts({
   renderPrerequisite?: boolean;
   keyPrefix?: string;
   prefix?: ReactNode;
+  budget?: RowBudget;
 }) {
-  return conditions.map(({ field, operator, value, parentId }, i) => {
+  const shown = budget
+    ? conditions.slice(0, Math.max(0, budget.rows))
+    : conditions;
+  if (budget) budget.rows -= shown.length;
+  return shown.map(({ field, operator, value, parentId }, i) => {
     let fieldEl: ReactNode = attributeIds.has(field) ? (
       <AttributeBadge attributeId={field} />
     ) : (
@@ -461,6 +496,7 @@ export default function ConditionDisplay({
   prerequisites,
   prefix,
   variant = "default",
+  rowLimit,
 }: {
   condition?: string;
   savedGroups?: SavedGroupTargeting[];
@@ -468,6 +504,8 @@ export default function ConditionDisplay({
   prefix?: ReactNode;
   // "rows" sits each part on a 28px row, in the field text color.
   variant?: "default" | "rows";
+  // Builds no more rows than this, where the rest are cut off from view.
+  rowLimit?: number;
 }) {
   const rows = variant === "rows";
   const { savedGroups } = useDefinitions();
@@ -478,28 +516,35 @@ export default function ConditionDisplay({
   let partId = 0;
   let prefixUsed = false;
 
+  const conds = useMemo(
+    () => (condition ? jsonToConds(condition) : null),
+    [condition],
+  );
+  // Not simple conditions, it shows as JSON, formatted only then.
+  const showsJson = !!condition && (conds === null || !attributes.size);
   const jsonFormattedCondition = useMemo(() => {
-    if (!condition) return;
+    if (!showsJson || !condition) return;
     try {
-      const parsed = JSON.parse(condition);
-      return stringify(parsed);
+      return stringify(JSON.parse(condition));
     } catch (e) {
       console.error(e);
       return condition;
     }
-  }, [condition]);
+  }, [condition, showsJson]);
+  const budget: RowBudget | undefined =
+    rowLimit === undefined ? undefined : { rows: rowLimit };
 
   if (savedGroupTargeting && savedGroupTargeting.length > 0) {
     parts.push(
       <SavedGroupTargetingDisplay
         savedGroups={savedGroupTargeting}
-        groupClassName={rows ? undefined : "col-auto"}
         initialAnd={false}
         key={`${partId++}-saved-group-targeting`}
         prefix={!prefixUsed ? prefix : undefined}
       />,
     );
     prefixUsed = true;
+    if (budget) budget.rows -= savedGroupTargeting.length;
   }
 
   if (prerequisites) {
@@ -519,7 +564,7 @@ export default function ConditionDisplay({
             console.error(e, p.condition);
           }
           parts.push(
-            <Flex wrap="wrap" gap="2" key={partId++} className="w-100 col-auto">
+            <Flex wrap="wrap" gap="2" key={partId++} width="100%">
               {!prefixUsed && prefix}
               {prefixUsed && <Text weight="medium">AND</Text>}
               <Text>prerequisite</Text>
@@ -556,34 +601,32 @@ export default function ConditionDisplay({
       initialAnd: prefixUsed,
       keyPrefix: `${partId++}-prereq-`,
       prefix: !prefixUsed ? prefix : undefined,
+      budget,
     });
     parts.push(...prereqParts);
     if (prereqParts.length > 0) prefixUsed = true;
   }
 
-  if (condition && jsonFormattedCondition) {
-    const conds = jsonToConds(condition);
-    // Could not parse into simple conditions
-    if (conds === null || !attributes.size) {
-      parts.push(
-        <div className="w-100" key={partId++}>
-          {!prefixUsed && prefix}
-          <ConditionJson code={jsonFormattedCondition} />
-        </div>,
-      );
-      prefixUsed = true;
-    } else {
-      const conditionParts = getConditionOrParts({
-        conditions: conds,
-        savedGroups,
-        attributeIds,
-        keyPrefix: `${partId++}-condition-`,
-        initialAnd: prefixUsed,
-        prefix: !prefixUsed ? prefix : undefined,
-      });
-      parts.push(...conditionParts);
-      if (conditionParts.length > 0) prefixUsed = true;
-    }
+  if (condition && showsJson) {
+    parts.push(
+      <Box width="100%" key={partId++}>
+        {!prefixUsed && prefix}
+        <ConditionJson code={jsonFormattedCondition ?? condition} />
+      </Box>,
+    );
+    prefixUsed = true;
+  } else if (conds) {
+    const conditionParts = getConditionOrParts({
+      conditions: conds,
+      savedGroups,
+      attributeIds,
+      keyPrefix: `${partId++}-condition-`,
+      initialAnd: prefixUsed,
+      prefix: !prefixUsed ? prefix : undefined,
+      budget,
+    });
+    parts.push(...conditionParts);
+    if (conditionParts.length > 0) prefixUsed = true;
   }
 
   return (

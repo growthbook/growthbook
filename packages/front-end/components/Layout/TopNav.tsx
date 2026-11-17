@@ -56,7 +56,14 @@ const TopNav: FC<{
   pageTitle: string;
   showNotices?: boolean;
   showLogo?: boolean;
-}> = ({ toggleLeftMenu, pageTitle, showNotices, showLogo = true }) => {
+  mutedBreadcrumb?: boolean;
+}> = ({
+  toggleLeftMenu,
+  pageTitle,
+  showNotices,
+  showLogo = true,
+  mutedBreadcrumb = false,
+}) => {
   const [editUserOpen, setEditUserOpen] = useState(false);
   const [changePasswordOpen, setChangePasswordOpen] = useState(false);
   const [enableCelebrations, setEnableCelebrations] =
@@ -408,7 +415,7 @@ const TopNav: FC<{
 
     return (
       <div className={styles.pagetitle}>
-        <Breadcrumbs items={breadcrumbItems} />
+        <Breadcrumbs items={breadcrumbItems} muted={mutedBreadcrumb} />
       </div>
     );
   };
@@ -520,13 +527,14 @@ const TopNav: FC<{
               setDropdownOpen(!!o);
             }}
             trigger={
-              <div className="nav-link d-flex align-items-center">
+              <div
+                className={`nav-link d-flex align-items-center ${styles.account}`}
+              >
                 <UserAvatar
                   email={email || ""}
                   name={name || ""}
                   size="md"
                   variant="soft"
-                  mr="2"
                 />{" "}
                 <span className="d-none d-lg-inline">
                   <OverflowText maxWidth={200}>

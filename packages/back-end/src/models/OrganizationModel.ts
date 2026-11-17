@@ -18,6 +18,7 @@ import { ApiOrganization } from "shared/validators";
 import { getStampedOrgLimits } from "back-end/src/services/plan-limits";
 import { upgradeOrganizationDoc } from "back-end/src/util/migrations";
 import { IS_CLOUD } from "back-end/src/util/secrets";
+import { NotFoundError } from "back-end/src/util/errors";
 import {
   ToInterface,
   getCollection,
@@ -345,6 +346,8 @@ async function findPageByMemberCount(
 }
 
 export async function findOrganizationById(id: string) {
+  // Global collection: an object here would act as a query operator
+  if (id && typeof id !== "string") return null;
   const doc = await getCollection(COLLECTION).findOne({ id });
   return doc ? toInterface(doc) : null;
 }
@@ -562,6 +565,7 @@ export async function findOrganizationsByMemberIds(userId: string[]) {
 }
 
 export async function findOrganizationByInviteKey(key: string) {
+  if (key && typeof key !== "string") return null;
   const doc = await OrganizationModel.findOne({
     "invites.key": key,
     disabled: { $ne: true },
@@ -716,7 +720,7 @@ export async function editCustomRole(
   });
 
   if (!found) {
-    throw new Error("Role not found");
+    throw new NotFoundError("Role not found");
   }
 
   await updateOrganization(org.id, { customRoles: newCustomRoles });
@@ -777,7 +781,7 @@ export async function removeCustomRole(context: ReqContext, id: string) {
   );
 
   if (newCustomRoles.length === (context.org.customRoles || []).length) {
-    throw new Error("Role not found");
+    throw new NotFoundError("Role not found");
   }
 
   const updates: Partial<OrganizationInterface> = {
@@ -801,7 +805,7 @@ export async function deactivateRoleById(
     !RESERVED_ROLE_IDS.includes(id) &&
     !org.customRoles?.some((role) => role.id === id)
   ) {
-    throw new Error(`Unable to find role id ${id}`);
+    throw new NotFoundError(`Unable to find role id ${id}`);
   }
 
   const deactivatedRoles = new Set<string>(org.deactivatedRoles);

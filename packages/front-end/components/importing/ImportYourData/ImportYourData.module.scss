@@ -1,0 +1,8 @@
+.list > * + * {
+  border-top: 1px solid var(--gray-a5);
+}
+
+.requestBox {
+  border: 1px dashed var(--gray-a6);
+  border-radius: var(--radius-3);
+}

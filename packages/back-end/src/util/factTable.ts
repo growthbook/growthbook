@@ -9,6 +9,7 @@ import {
   FactTableColumnType,
   FactTableInterface,
   JSONColumnFields,
+  UpdateFactTableProps,
 } from "shared/types/fact-table";
 import { DataSourceInterface } from "shared/types/datasource";
 import { TestQueryResult } from "shared/types/integrations";
@@ -206,6 +207,36 @@ export function validateNewUserIdColumnKeys({
   }
 }
 
+/**
+ * Changes only the given fields of each named column. Takes the list the
+ * request will write, so a column its own refresh just found can be updated.
+ */
+export function applyColumnUpdates(
+  columns: ColumnInterface[],
+  updates: NonNullable<UpdateFactTableProps["columnUpdates"]>,
+): ColumnInterface[] {
+  // A Map, so a column named like an Object property can't match one
+  const byColumn = new Map(Object.entries(updates));
+  for (const [column, changes] of byColumn) {
+    const existing = columns.find((c) => c.column === column);
+    // A deleted column can still be cleaned up, like the prompt on an event
+    // column the same request's SQL removed, but not prompted on
+    if (!existing || (existing.deleted && changes.alwaysInlineFilter)) {
+      throw new Error(`Could not find column ${column}`);
+    }
+    if (changes.alwaysInlineFilter && existing.datatype !== "string") {
+      throw new Error(
+        `Only string columns are eligible for inline filtering: ${column}`,
+      );
+    }
+  }
+  const dateUpdated = new Date();
+  return columns.map((c) => {
+    const changes = byColumn.get(c.column);
+    return changes ? { ...c, ...changes, dateUpdated } : c;
+  });
+}
+
 const SAFE_BARE_SQL_IDENTIFIER = /^[A-Za-z_][A-Za-z0-9_]*$/;
 
 /**
@@ -294,6 +325,15 @@ function isValidIanaTimezone(timezone: string): boolean {
   } catch {
     return false;
   }
+}
+
+export function pruneAggregatedFactTableSettings(
+  settings: AggregatedFactTableSettings,
+  userIdTypes: string[],
+): AggregatedFactTableSettings | null {
+  const idTypes = settings.idTypes.filter((id) => userIdTypes.includes(id));
+  if (idTypes.length === settings.idTypes.length) return settings;
+  return idTypes.length ? { ...settings, idTypes } : null;
 }
 
 // Throws if the aggregated fact table settings are invalid: every id type must

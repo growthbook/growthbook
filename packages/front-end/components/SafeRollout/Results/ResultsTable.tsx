@@ -474,7 +474,7 @@ export default function ResultsTable({
                     }
 
                     const hideScaledImpact =
-                      !rowResults.hasScaledImpact &&
+                      !rowResults.scaledImpactEligible &&
                       differenceType === "scaled";
 
                     const resultsHighlightClassname = clsx(

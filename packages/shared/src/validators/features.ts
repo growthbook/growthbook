@@ -191,6 +191,8 @@ export type ExperimentValue = z.infer<typeof experimentValue>;
 const experimentType = ["standard", "multi-armed-bandit"] as const;
 const banditStageType = ["explore", "exploit", "paused"] as const;
 
+// Legacy inline experiment rule. New experiments are linked to features
+// through "experiment-ref" rules instead.
 const experimentRule = baseRule
   .extend({
     type: z.literal("experiment"), // refers to RuleType, not experiment.type
@@ -414,6 +416,12 @@ export const activeDraftStatusSchema = revisionStatusSchema.exclude([
 export type ActiveDraftStatus = z.infer<typeof activeDraftStatusSchema>;
 
 export const ACTIVE_DRAFT_STATUSES = activeDraftStatusSchema.options;
+
+export function isActiveDraftStatus(
+  status: string,
+): status is ActiveDraftStatus {
+  return (ACTIVE_DRAFT_STATUSES as readonly string[]).includes(status);
+}
 
 // Revisions at "request review" or beyond — excludes drafts still being edited
 // (and terminal/ramp statuses). Used for "needs attention" counts and gates.

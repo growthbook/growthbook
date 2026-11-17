@@ -5,7 +5,10 @@ import {
   MetricForSnapshot,
   SnapshotMetric,
 } from "shared/types/experiment-snapshot";
-import { ExperimentInterface } from "shared/types/experiment";
+import {
+  ExperimentHealthSettings,
+  ExperimentInterface,
+} from "shared/types/experiment";
 import { ExperimentMetricInterface } from "shared/experiments";
 import { analyzeExperimentResults } from "back-end/src/services/stats";
 import {
@@ -45,6 +48,14 @@ jest.mock("back-end/src/models/ExperimentSnapshotModel", () => ({
   updateSnapshot: jest.fn(),
   updateSnapshotAnalysis: jest.fn(),
 }));
+
+const healthSettings: ExperimentHealthSettings = {
+  decisionFrameworkEnabled: false,
+  srmThreshold: 0.001,
+  multipleExposureMinPercent: 0.01,
+  clusterIssueMinPercent: 0.01,
+  experimentMinLengthDays: 7,
+};
 
 function makeAnalysisSettings(
   overrides: Partial<ExperimentSnapshotAnalysisSettings> = {},
@@ -405,6 +416,28 @@ describe("toSnapshotApiInterface (legacy contract)", () => {
 });
 
 describe("toExperimentSnapshotBulkResultsApiInterface", () => {
+  it("repeats the snapshot-wide health fields on every item", () => {
+    const snapshot = makeSnapshot();
+    snapshot.unknownVariations = ["2"];
+    snapshot.analyses = [
+      makeSuccessAnalysis(makeAnalysisSettings({ dimensions: [""] })),
+      makeSuccessAnalysis(makeAnalysisSettings()),
+    ];
+
+    const results = toExperimentSnapshotBulkResultsApiInterface(
+      makeExperiment(),
+      snapshot,
+      new Map(),
+      [],
+      healthSettings,
+    );
+
+    expect(results.map((r) => r.health.unknownVariations)).toEqual([
+      ["2"],
+      ["2"],
+    ]);
+  });
+
   it("uses a unique dimension result id while preserving snapshotId", () => {
     const snapshot = makeSnapshot();
     snapshot.analyses = [makeSuccessAnalysis(makeAnalysisSettings())];
@@ -414,6 +447,7 @@ describe("toExperimentSnapshotBulkResultsApiInterface", () => {
       snapshot,
       new Map(),
       [],
+      healthSettings,
     );
 
     expect(result.id).toBe("snp_1:dimension:precomputed%3Acountry");
@@ -447,6 +481,7 @@ describe("toExperimentSnapshotBulkResultsApiInterface", () => {
       snapshot,
       makeMetricMap({ met_1: "Revenue" }),
       [],
+      healthSettings,
     );
 
     expect(result.settings.experimentId).toBe("exp_1");
@@ -476,6 +511,7 @@ describe("toExperimentSnapshotBulkResultsApiInterface", () => {
       snapshot,
       new Map(),
       [],
+      healthSettings,
     );
 
     expect(result.settings.goals[0].effectiveSettings).toEqual({
@@ -505,6 +541,7 @@ describe("toExperimentSnapshotBulkResultsApiInterface", () => {
       snapshot,
       new Map(),
       [],
+      healthSettings,
     );
 
     expect(result.settings.goals[0]).toEqual({ metricId: "met_1" });
@@ -538,6 +575,7 @@ describe("toExperimentSnapshotBulkResultsApiInterface", () => {
       snapshot,
       new Map(),
       [],
+      healthSettings,
     );
 
     const variations = result.results[0].metrics[0].variations;
@@ -579,6 +617,7 @@ describe("toExperimentSnapshotBulkResultsApiInterface", () => {
       snapshot,
       new Map(),
       [],
+      healthSettings,
     );
 
     const [removed, kept] = result.results[0].metrics[0].variations;
@@ -619,6 +658,7 @@ describe("toExperimentSnapshotBulkResultsApiInterface", () => {
       snapshot,
       new Map(),
       [],
+      healthSettings,
     );
 
     // One item per dimension, each with a unique id.
@@ -649,6 +689,7 @@ describe("toExperimentSnapshotBulkResultsApiInterface", () => {
       snapshot,
       new Map(),
       [],
+      healthSettings,
     );
 
     expect(result.dateStart).toBe(
@@ -715,7 +756,7 @@ describe("createSnapshotAnalysesBatched", () => {
     ]);
   });
 
-  it("rewrites parent unit-dimension queries to bare metric keys", async () => {
+  it("forwards the raw query map to analyzeExperimentResults for per-dimension routing", async () => {
     const parentQuery = { id: "qry_parent" };
     const unitQuery = { id: "qry_unit_country" };
     (getQueryMap as jest.Mock).mockResolvedValue(
@@ -750,10 +791,16 @@ describe("createSnapshotAnalysesBatched", () => {
       },
     );
 
+    // getQueryMapForAnalysis no longer pre-routes; the raw map is handed to
+    // analyzeExperimentResults, which owns the per-dimension selection.
     const queryData = (analyzeExperimentResults as jest.Mock).mock.calls[0][0]
       .queryData as Map<string, unknown>;
-    expect(Array.from(queryData.keys())).toEqual(["met_1"]);
-    expect(queryData.get("met_1")).toBe(unitQuery);
+    expect(Array.from(queryData.keys())).toEqual([
+      "met_1",
+      "unitdim:dim_country:met_1",
+    ]);
+    expect(queryData.get("met_1")).toBe(parentQuery);
+    expect(queryData.get("unitdim:dim_country:met_1")).toBe(unitQuery);
     expect(analyses[0]).toEqual(
       expect.objectContaining({
         settings: analysisSettingsList[0],
@@ -769,7 +816,7 @@ describe("createSnapshotAnalysis", () => {
     jest.clearAllMocks();
   });
 
-  it("rewrites parent unit-dimension queries to bare metric keys for lazy analyses", async () => {
+  it("forwards the raw query map to analyzeExperimentResults for lazy analyses", async () => {
     const parentQuery = { id: "qry_parent" };
     const unitQuery = { id: "qry_unit_country" };
     (getQueryMap as jest.Mock).mockResolvedValue(
@@ -797,9 +844,15 @@ describe("createSnapshotAnalysis", () => {
       }),
     });
 
+    // getQueryMapForAnalysis no longer pre-routes; the raw map is handed to
+    // analyzeExperimentResults, which owns the per-dimension selection.
     const queryData = (analyzeExperimentResults as jest.Mock).mock.calls[0][0]
       .queryData as Map<string, unknown>;
-    expect(Array.from(queryData.keys())).toEqual(["met_1"]);
-    expect(queryData.get("met_1")).toBe(unitQuery);
+    expect(Array.from(queryData.keys())).toEqual([
+      "met_1",
+      "unitdim:dim_country:met_1",
+    ]);
+    expect(queryData.get("met_1")).toBe(parentQuery);
+    expect(queryData.get("unitdim:dim_country:met_1")).toBe(unitQuery);
   });
 });

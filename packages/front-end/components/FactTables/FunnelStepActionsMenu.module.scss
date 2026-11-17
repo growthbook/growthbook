@@ -1,0 +1,20 @@
+// Not inline: inline styles would hide Radix's [data-highlighted] focus.
+.cancel {
+  background-color: transparent;
+  color: var(--gray-12);
+  box-shadow: inset 0 0 0 1px var(--gray-a7);
+  &[data-highlighted] {
+    background-color: var(--gray-a4);
+    color: var(--gray-12);
+  }
+}
+
+.confirm {
+  background-color: var(--red-9);
+  color: var(--red-contrast);
+  &[data-highlighted] {
+    background-color: var(--red-10);
+    color: var(--red-contrast);
+    box-shadow: 0 0 0 2px var(--red-a7);
+  }
+}

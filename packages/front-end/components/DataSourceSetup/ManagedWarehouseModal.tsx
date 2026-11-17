@@ -1,8 +1,7 @@
 import { useState } from "react";
 import { useRouter } from "next/router";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
-import { Box, Flex, Separator } from "@radix-ui/themes";
-import { PiArrowSquareOut, PiGlobe } from "react-icons/pi";
+import { PiGlobe } from "react-icons/pi";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useAuth } from "@/services/auth";
@@ -19,10 +18,10 @@ import {
 import track from "@/services/track";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import RadioCards from "@/ui/RadioCards";
-import Checkbox from "@/ui/Checkbox";
 import Heading from "@/ui/Heading";
-import Link from "@/ui/Link";
 import Text from "@/ui/Text";
+import DataSourceOptionPricing from "./DataSourceOptionPricing";
+import DataSourceTermsCheckbox from "./DataSourceTermsCheckbox";
 import { useDataSourceOptionPricing } from "./useDataSourceOptionPricing";
 
 const REGION_NAMES: Record<DataRegion, string> = {
@@ -131,59 +130,14 @@ export default function ManagedWarehouseModal({
       />
 
       {showPricing ? (
-        <>
-          <Heading as="h3" size="sm" mt="5" mb="2">
-            Pricing
-          </Heading>
-          <Flex
-            align="center"
-            justify="between"
-            gap="3"
-            wrap="wrap"
-            p="3"
-            style={{
-              background: "var(--violet-a2)",
-              border: "1px solid var(--gray-a5)",
-              borderRadius: "var(--radius-3)",
-            }}
-          >
-            <Box>
-              <Text as="div" weight="semibold">
-                {headline}
-              </Text>
-              {detail ? (
-                <Text as="div" color="text-mid">
-                  {detail}
-                </Text>
-              ) : null}
-            </Box>
-            <Link href="https://www.growthbook.io/pricing" external>
-              Pricing details <PiArrowSquareOut />
-            </Link>
-          </Flex>
-          {pricingFootnote ? (
-            <Text as="p" size="sm" color="text-mid" mt="2">
-              {pricingFootnote}
-            </Text>
-          ) : null}
-        </>
+        <DataSourceOptionPricing
+          headline={headline}
+          detail={detail}
+          footnote={pricingFootnote}
+        />
       ) : null}
 
-      <Separator size="4" my="5" />
-      <Checkbox
-        value={agree}
-        setValue={setAgree}
-        required
-        label={
-          <>
-            I agree to the{" "}
-            <Link href="https://www.growthbook.io/legal" external>
-              terms and conditions
-            </Link>
-          </>
-        }
-        description="Do not include any sensitive or regulated personal data in your analytics events unless it is properly de-identified in accordance with applicable legal standards."
-      />
+      <DataSourceTermsCheckbox value={agree} setValue={setAgree} />
     </ModalStandard>
   );
 }

@@ -653,8 +653,8 @@ const diffSupplementalFull = z
   .object({
     name: z.string(),
     type: z.string(),
-    before: z.unknown().nullable(),
-    after: z.unknown().nullable(),
+    before: z.unknown().nullish(),
+    after: z.unknown().nullish(),
   })
   .strict();
 
@@ -742,6 +742,7 @@ export const postFeatureRevisionRequestReviewV2Validator = {
   method: "post" as const,
   path: "/features/:id/revisions/:version/request-review",
   confirmation: ["feature.draft"] as const,
+  confirmationInHandler: true,
   operationId: "postFeatureRevisionRequestReviewV2",
   summary: "Request review for a draft revision",
   description:

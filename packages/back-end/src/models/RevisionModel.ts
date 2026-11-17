@@ -671,6 +671,7 @@ export class RevisionModel extends BaseClass {
 
   /** Loads one revision using the live-entity visibility basis. */
   async getByIdReadable(id: string): Promise<Revision | null> {
+    if (id && typeof id !== "string") return null;
     const [doc] = await this._find(
       { id },
       { limit: 1, bypassReadPermissionChecks: true },

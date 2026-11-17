@@ -3,7 +3,9 @@ import { useState } from "react";
 import { Flex } from "@radix-ui/themes";
 import { FactMetricInterface } from "shared/types/fact-table";
 import { isProjectListValidForProject } from "shared/util";
+import { getFactMetricPrimaryFactTableId } from "shared/experiments";
 import { CommercialFeature } from "shared/enterprise";
+import { getFactMetricCommercialFeature } from "@/services/factMetrics";
 import { duplicateFactMetric } from "@/services/metrics";
 import { getSafeReturnUrl } from "@/services/returnUrl";
 import Callout from "@/ui/Callout";
@@ -112,11 +114,7 @@ export default function NewFactMetricPage() {
   // header. The Add and Duplicate buttons that link here check the same.
   const seedFactTable =
     (duplicateSource &&
-      getFactTableById(
-        duplicateSource.metricType === "funnel"
-          ? (duplicateSource.funnelSettings?.steps[0]?.factTableId ?? "")
-          : (duplicateSource.numerator?.factTableId ?? ""),
-      )) ||
+      getFactTableById(getFactMetricPrimaryFactTableId(duplicateSource))) ||
     initialFactTable;
   const canCreate = permissionsUtil.canCreateFactMetric({
     projects: seedFactTable
@@ -127,20 +125,13 @@ export default function NewFactMetricPage() {
     managedBy: "",
   });
 
-  // MetricEditor's MetricTypeSelect only disables a commercial-gated option
-  // for a fresh choice - it doesn't stop a pre-seeded quantile/retention
-  // template or duplicate from saving, so this stays a page-level gate.
+  // Seeded templates and duplicates can bypass the metric type picker.
   const seedMetricType = template?.metricType ?? duplicateSource?.metricType;
-  const missingCommercialFeature:
-    | "quantile-metrics"
-    | "retention-metrics"
-    | null =
-    seedMetricType === "quantile" && !hasCommercialFeature("quantile-metrics")
-      ? "quantile-metrics"
-      : seedMetricType === "retention" &&
-          !hasCommercialFeature("retention-metrics")
-        ? "retention-metrics"
-        : null;
+  const commercialFeature = getFactMetricCommercialFeature(seedMetricType);
+  const missingCommercialFeature =
+    commercialFeature && !hasCommercialFeature(commercialFeature)
+      ? commercialFeature
+      : null;
 
   const hasDatasource = datasources.some(
     (d) =>
@@ -176,7 +167,7 @@ export default function NewFactMetricPage() {
           </Heading>
           <Badge label="Draft" color="pink" variant="solid" radius="full" />
         </Flex>
-        <div ref={setActionsContainer} style={{ minHeight: 40, minWidth: 1 }} />
+        <div ref={setActionsContainer} style={{ minHeight: 32, minWidth: 1 }} />
       </Flex>
       {!canCreate ? (
         <Callout status="error">
@@ -201,11 +192,10 @@ export default function NewFactMetricPage() {
       ) : missingCommercialFeature ? (
         <UpgradeMessage
           commercialFeature={missingCommercialFeature}
-          upgradeMessage={
-            missingCommercialFeature === "quantile-metrics"
-              ? "create quantile metrics"
-              : "create retention metrics"
-          }
+          upgradeMessage={`create ${
+            // Match the type picker's "Percentile" label.
+            seedMetricType === "quantile" ? "percentile" : seedMetricType
+          } metrics`}
           showUpgradeModal={() =>
             setUpgradeModal({
               source: `${template ? "metric-template" : "metric-duplicate"}-${missingCommercialFeature}`,
