@@ -798,6 +798,11 @@
       "count": 1
     }
   },
+  "packages/front-end/components/GetStarted/legacy/index.tsx": {
+    "no-restricted-imports": {
+      "count": 1
+    }
+  },
   "packages/front-end/components/GuidedGetStarted/CheckSDKConnectionModal.tsx": {
     "no-restricted-imports": {
       "count": 1

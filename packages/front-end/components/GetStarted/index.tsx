@@ -313,7 +313,7 @@ const GetStartedAndHomePage = ({
             <Box>
               {orgIsUsingFeatureOrExperiment && (
                 <Box>
-                  <NeedingAttention headingAction={createInHeading} />
+                  <NeedingAttention headingAction={createInHeading} flushTop />
                   <Box mt="6" mb="2">
                     <Box mb="3">
                       <Text

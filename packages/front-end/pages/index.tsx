@@ -4,6 +4,8 @@ import useAgentOnboarding from "@/hooks/useAgentOnboarding";
 import { useUser } from "@/services/UserContext";
 import { useAuth } from "@/services/auth";
 import GetStartedAndHomePage from "@/components/GetStarted";
+import LegacyGetStartedAndHomePage from "@/components/GetStarted/legacy";
+import { useNewAppShell } from "@/components/Layout/AppShell";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { isExperimentationLeaning } from "@/services/onboarding";
 import Callout from "@/ui/Callout";
@@ -18,6 +20,7 @@ export default function Home(): React.ReactElement {
   const { apiCall } = useAuth();
   const { organization } = useUser();
   const agentOnboarding = useAgentOnboarding();
+  const newShell = useNewAppShell();
 
   // Fetch fresh on mount — we don't want a cached "no features yet" result
   // bouncing the user back to /setup right after they create their first one.
@@ -92,5 +95,9 @@ export default function Home(): React.ReactElement {
     );
   }
   if (!data || (willRedirect && !stayHere)) return <LoadingOverlay />;
-  return <GetStartedAndHomePage showMarketingBanner />;
+  return newShell ? (
+    <GetStartedAndHomePage showMarketingBanner />
+  ) : (
+    <LegacyGetStartedAndHomePage showMarketingBanner />
+  );
 }

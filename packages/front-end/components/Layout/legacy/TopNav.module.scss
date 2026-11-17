@@ -7,7 +7,7 @@ $sidebarwidth: 240px;
   position: fixed;
   top: 0;
   left: $sidebarwidth;
-  right: var(--agent-rail-width, 0px);
+  right: 0;
   height: 56px;
   z-index: 1010;
   background-color: var(--color-surface-solid);
@@ -15,13 +15,6 @@ $sidebarwidth: 240px;
   // The step padding, as the page's header bands: past --page-max-width the
   // page centers and the bar stays wide.
   padding: 0 var(--page-padding-step);
-  transition: right var(--agent-dock-duration) var(--agent-dock-easing);
-  @media (prefers-reduced-motion: reduce) {
-    transition: none;
-  }
-  :global(html.agent-dock-resizing) & {
-    transition: none;
-  }
   @media (max-width: 1180px) {
     left: 0;
     .pagetitle {

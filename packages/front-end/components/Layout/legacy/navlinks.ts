@@ -30,7 +30,23 @@ const decoration: Record<
   Admin: { Icon: PiShieldCheck },
 };
 
+// main's matching, keyed "Section" or "Section/Item": the shared list also
+// matches holdout and template pages (holdout/[hid], experiments/template/[tid]).
+const mainPaths: Record<string, RegExp> = {
+  Experimentation:
+    /^(experiments|experiment\/|bandit|contextual-bandit|namespaces|power-calculator)/,
+  "Experimentation/Experiments":
+    /^(experiments(\/(?!templates|explore)|$)|experiment\/)/,
+  "Experimentation/Holdouts": /^holdouts/,
+  "Experimentation/Templates": /^experiments\/templates/,
+};
+
 export const navlinks: SidebarLinkProps[] = sharedNavlinks.map((link) => ({
   ...link,
   ...decoration[link.name],
+  path: mainPaths[link.name] ?? link.path,
+  subLinks: link.subLinks?.map((sub) => ({
+    ...sub,
+    path: mainPaths[`${link.name}/${sub.name}`] ?? sub.path,
+  })),
 }));

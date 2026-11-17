@@ -59,9 +59,12 @@ type ComputedFeaturesAndRevisions = FeaturesAndRevisions & {
 
 const NeedingAttention = ({
   headingAction,
+  flushTop = false,
 }: {
   /** Beside the first heading, right-aligned (Home's Create, when narrow). */
   headingAction?: React.ReactNode;
+  /** Opt-in (Home without its "Home" title): no top margin when first. */
+  flushTop?: boolean;
 } = {}): React.ReactElement | null => {
   const [experimentsPage, setExperimentsPage] = useState<number>(1);
   const [featureFlagsPage, setFeatureFlagsPage] = useState(1);
@@ -372,8 +375,8 @@ const NeedingAttention = ({
     );
 
     return (
-      // Spaced from Recent; first on the page without it.
-      <Box mt={showsRecent ? "8" : undefined}>
+      // Spaced from Recent, or from the title above.
+      <Box mt={showsRecent || !flushTop ? "8" : undefined}>
         <Flex direction="row" align="center">
           <Text size="4" weight="medium">
             Experiments requiring attention
