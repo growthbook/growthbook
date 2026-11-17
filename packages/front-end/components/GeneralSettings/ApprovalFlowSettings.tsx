@@ -39,7 +39,9 @@ import {
   inheritedSavedGroupRule,
   inheritedSdkConnectionRule,
   scopeProjects,
+  seededSdkConnectionRules,
   withRuleForScope,
+  withScopeRetargeted,
   withoutScope,
 } from "./approvalScopes";
 import {
@@ -136,9 +138,9 @@ export default function ApprovalFlowSettings() {
     setTabs((prev) => [...prev, { id, scope: project }]);
     setFlagRule(project, clonedFlagRule(flagRules, project));
     setSavedGroupRule(project, clonedSavedGroupRule(savedGroupRules, project));
-    setSdkConnectionRule(
-      project,
-      clonedSdkConnectionRule(sdkConnectionRules, project),
+    form.setValue(
+      "approvalFlows.sdkConnections",
+      seededSdkConnectionRules(sdkConnectionRules, project),
     );
   };
 
@@ -163,9 +165,11 @@ export default function ApprovalFlowSettings() {
         }),
       );
     }
-    const sdkConnectionOwn = ruleForScope(sdkConnectionRules, tab.scope);
-    if (sdkConnectionOwn) {
-      setSdkConnectionRule(tab.scope, { ...sdkConnectionOwn, projects: next });
+    if (ruleForScope(sdkConnectionRules, tab.scope)) {
+      form.setValue(
+        "approvalFlows.sdkConnections",
+        withScopeRetargeted(sdkConnectionRules, tab.scope, next),
+      );
     }
     setTabs((prev) =>
       prev.map((t) => (t.id === tab.id ? { ...t, scope: nextScope } : t)),

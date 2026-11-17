@@ -3,6 +3,7 @@ import {
   ApprovalFlowConfiguration,
   RequireReview,
 } from "shared/types/organization";
+import { getSdkConnectionGoverningRules } from "shared/enterprise";
 import {
   ALL_PROJECTS_SCOPE,
   inheritedFlagRule,
@@ -17,7 +18,9 @@ import {
   ruleForScope,
   scopeKey,
   scopeProjects,
+  seededSdkConnectionRules,
   withRuleForScope,
+  withScopeRetargeted,
   withoutScope,
 } from "@/components/GeneralSettings/approvalScopes";
 
@@ -197,6 +200,110 @@ describe("SDK connection rules", () => {
     expect(clonedSdkConnectionRule([], "prj_a")).toEqual({
       required: false,
       projects: ["prj_a"],
+    });
+  });
+});
+
+describe("seededSdkConnectionRules", () => {
+  const production: ApprovalFlowConfiguration = {
+    required: true,
+    projects: [],
+    environments: ["production"],
+  };
+  const staging: ApprovalFlowConfiguration = {
+    required: true,
+    projects: [],
+    environments: ["staging"],
+    requiredApproverTeams: ["t_qa"],
+  };
+  const needsReview = (
+    rules: ApprovalFlowConfiguration[],
+    environment: string,
+  ) =>
+    getSdkConnectionGoverningRules(
+      { savedGroups: [], sdkConnections: rules },
+      { projects: ["prj_a"], environment },
+    ).length > 0;
+
+  // Regression: one combined copy kept only production's environments, so the
+  // override switched staging review off for the Project.
+  it("keeps every environment gated when the base has a rule per environment", () => {
+    const seeded = seededSdkConnectionRules([production, staging], "prj_a");
+
+    expect(seeded.slice(2)).toEqual([
+      { ...production, projects: ["prj_a"] },
+      { ...staging, projects: ["prj_a"] },
+    ]);
+    expect(needsReview(seeded, "production")).toBe(true);
+    expect(needsReview(seeded, "staging")).toBe(true);
+    expect(needsReview(seeded, "dev")).toBe(false);
+  });
+
+  it("seeds a single base rule exactly as the clone does", () => {
+    const seeded = seededSdkConnectionRules([production], "prj_a");
+
+    expect(seeded).toEqual([
+      production,
+      clonedSdkConnectionRule([production], "prj_a"),
+    ]);
+  });
+
+  it("does not copy switched-off base rules alongside active ones", () => {
+    const off = { ...staging, required: false };
+    const seeded = seededSdkConnectionRules(
+      [production, off, { ...staging, environments: ["dev"] }],
+      "prj_a",
+    );
+
+    expect(seeded.slice(3).map((r) => r.environments)).toEqual([
+      ["production"],
+      ["dev"],
+    ]);
+  });
+
+  it("seeds a switched-off rule when there is no base", () => {
+    expect(seededSdkConnectionRules([], "prj_a")).toEqual([
+      { required: false, projects: ["prj_a"] },
+    ]);
+  });
+
+  it("leaves a scope that already has a rule untouched", () => {
+    const rules = [
+      production,
+      staging,
+      { required: false, projects: ["prj_a"] },
+    ];
+    expect(seededSdkConnectionRules(rules, "prj_a")).toBe(rules);
+  });
+});
+
+describe("withScopeRetargeted", () => {
+  it("re-points every rule in the scope and nothing else", () => {
+    const rules: ApprovalFlowConfiguration[] = [
+      { required: true, projects: [] },
+      { required: true, projects: ["prj_a"], environments: ["production"] },
+      { required: true, projects: ["prj_a"], environments: ["staging"] },
+      { required: true, projects: ["prj_b"] },
+    ];
+
+    expect(
+      withScopeRetargeted(rules, "prj_a", ["prj_a", "prj_c"]).map(
+        (r) => r.projects,
+      ),
+    ).toEqual([[], ["prj_a", "prj_c"], ["prj_a", "prj_c"], ["prj_b"]]);
+  });
+});
+
+// Saved Groups keep the single-rule clone they had before.
+describe("saved-group override seeding", () => {
+  it("clones one combined rule, as before", () => {
+    const rules: ApprovalFlowConfiguration[] = [
+      { required: true, projects: [], requiredApproverTeams: ["t_sec"] },
+    ];
+    expect(clonedSavedGroupRule(rules, "prj_a")).toEqual({
+      required: true,
+      projects: ["prj_a"],
+      requiredApproverTeams: ["t_sec"],
     });
   });
 });

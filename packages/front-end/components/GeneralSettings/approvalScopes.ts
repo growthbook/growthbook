@@ -141,6 +141,39 @@ export const clonedSdkConnectionRule = (
   scope: string,
 ) => clonedApprovalFlowRule("sdk-connection", rules, scope);
 
+// A fresh override's SDK Connection rules. Base rules can each gate their own
+// environments, and one combined copy keeps only the first rule's, so the
+// override would drop review in the others: copy them one-for-one instead.
+export function seededSdkConnectionRules(
+  rules: ApprovalFlowConfiguration[],
+  scope: string,
+): ApprovalFlowConfiguration[] {
+  if (!scope || ruleForScope(rules, scope)) return rules;
+  const active = rules.filter((r) => !r.projects?.length && !!r.required);
+  if (active.length < 2) {
+    return withRuleForScope(
+      rules,
+      scope,
+      clonedSdkConnectionRule(rules, scope),
+    );
+  }
+  return [
+    ...rules,
+    ...active.map((r) => ({ ...r, projects: scopeProjects(scope) })),
+  ];
+}
+
+// Re-points every rule in the scope, since a scope can hold several.
+export function withScopeRetargeted<T extends Scoped>(
+  rules: T[],
+  scope: string,
+  next: string[],
+): T[] {
+  return rules.map((r) =>
+    scopeKey(r.projects) === scope ? { ...r, projects: next } : r,
+  );
+}
+
 // Whether the rule differs from its base. The selector names the scope, so it
 // is not compared.
 export function differsFromBase<T extends { projects?: string[] }>(
