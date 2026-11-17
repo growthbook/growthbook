@@ -11,6 +11,7 @@ import {
   putMetricApiPayloadToMetricInterface,
   toMetricApiInterface,
 } from "back-end/src/services/experiments";
+import { NotFoundError } from "back-end/src/util/errors";
 
 export const putMetric = createApiRequestHandler(putMetricValidator)(async (
   req,
@@ -18,7 +19,7 @@ export const putMetric = createApiRequestHandler(putMetricValidator)(async (
   const metric = await getMetricById(req.context, req.params.id);
 
   if (!metric) {
-    throw new Error("Metric not found");
+    throw new NotFoundError("Metric not found");
   }
 
   if (req.body.projects) {
@@ -40,7 +41,7 @@ export const putMetric = createApiRequestHandler(putMetricValidator)(async (
   await updateMetric(req.context, metric, updated);
 
   const updatedMetric = await getMetricById(req.context, req.params.id);
-  if (!updatedMetric) throw new Error("Metric not found");
+  if (!updatedMetric) throw new NotFoundError("Metric not found");
   const datasource = updatedMetric.datasource
     ? await getDataSourceById(req.context, updatedMetric.datasource)
     : null;

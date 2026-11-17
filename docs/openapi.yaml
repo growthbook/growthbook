@@ -67742,12 +67742,7 @@ components:
           When true, includes fields inherited across the lineage (the family's
           accumulated schema). When false (default), returns only this config's
           own fields.
-        anyOf:
-          - type: string
-            const: 'true'
-          - type: string
-            const: 'false'
-          - type: boolean
+        type: boolean
     source:
       name: source
       in: query

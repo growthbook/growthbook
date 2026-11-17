@@ -384,13 +384,19 @@ function toOpenApiSchema(schema: z.ZodType): z.core.JSONSchema.BaseSchema {
 }
 
 // Boolean query params also accept "true"/"false"/"0"/"1" at runtime; clients should just see a boolean.
+const BOOLEAN_STRINGS: unknown[] = ["true", "false", "0", "1"];
 function isStringOrBooleanUnion(schema: z.core.JSONSchema.BaseSchema): boolean {
   const members = schema.anyOf as z.core.JSONSchema.BaseSchema[] | undefined;
-  if (members?.length !== 5) return false;
-  const consts = members.filter((m) => m.type === "string").map((m) => m.const);
+  if (!members) return false;
+  const isBoolean = (m: z.core.JSONSchema.BaseSchema) =>
+    m.type === "boolean" && m.const === undefined;
   return (
-    members.some((m) => m.type === "boolean" && m.const === undefined) &&
-    ["true", "false", "0", "1"].every((v) => consts.includes(v))
+    members.some(isBoolean) &&
+    members.every(
+      (m) =>
+        isBoolean(m) ||
+        (m.type === "string" && BOOLEAN_STRINGS.includes(m.const)),
+    )
   );
 }
 
