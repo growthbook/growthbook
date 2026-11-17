@@ -309,6 +309,8 @@ export interface EntityRevisionAdapter<
     context: Context,
     target: { id: string },
     fragment: Partial<TSnapshot>,
+    // Hide it from everyone: a write's response is shown on its confirmation.
+    hideAll?: boolean,
   ): Promise<Partial<TSnapshot>>;
 
   // The write-side counterpart: a value a client left out, having never

@@ -35,8 +35,9 @@ publish and receives revision details without the proposed content, and
    headers, and never pass a whole revision document: its snapshot carries the
    entity.
 6. **Which hooks apply:** hooks scoped to the entity, Project hooks naming any
-   of the entity's Projects, and global hooks. An entity in all Projects is
-   checked by global hooks only.
+   of the entity's Projects, and global hooks. A change that moves the entity
+   answers to the Projects it leaves and the ones it enters. An entity in all
+   Projects is checked by global hooks only.
 7. **Outcomes:** a thrown error blocks the change. On a REST publish it is a
    `custom-hook` gate in the 422, cleared by `skipHooks` from a caller with
    bypass-approval authority for that entity in every Project
@@ -54,10 +55,11 @@ publish and receives revision details without the proposed content, and
 ## Adding Hooks to an Entity
 
 - `shared/src/validators/custom-hooks.ts`: add both types to `hooks` and
-  `hookEntityType`, and the entity to `customHookEntityTypes`.
+  `hookEntityType`, and the entity to `customHookEntityTypes` and
+  `customHookEntityNoun`.
 - `back-end/src/enterprise/sandbox/sandbox-eval.ts`: the argument builder, a
-  `run…Hooks` / `collect…HookResults` pair for each type, `entityNoun`, and the
-  entity's family in the `canSkip` check.
+  `run…Hooks` / `collect…HookResults` pair for each type, and the entity's
+  family in the `canSkip` check.
 - `back-end/src/services/context.ts`: add the family to `SkipFamily`.
 - `back-end/src/models/CustomHookModel.ts`: check the scoped entity exists.
 - Write paths: call the first hook on create and on each direct write. For
@@ -69,8 +71,8 @@ publish and receives revision details without the proposed content, and
   in the REST publish handler collect both into gates with `hookResultsToGates`
   and resolve them with `resolveEntityPublishGates`.
 - Front-end: `CustomHookModal` (`hookTypes`, `EXAMPLE_DOC_SECTIONS`, a prop
-  that scopes it to the entity), `ENTITY_NOUN` in `CustomHooksSection`, the
-  entity page's Validation tab, the Settings page section, and `docSections`.
+  that scopes it to the entity), the entity page's Validation tab, the Settings
+  page section, and `docSections`.
 - `docs/features/custom-hooks.mdx`: a section for each hook type.
 - Tests: one end-to-end case per write path, asserting which hook ran and what
   it was given: both hooks on a direct write, the proposed content on a draft

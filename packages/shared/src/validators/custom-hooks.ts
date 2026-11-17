@@ -58,6 +58,13 @@ export const hookEntityType: Record<CustomHookType, CustomHookEntityType> = {
   validateSdkConnectionRevision: "sdkConnection",
 };
 
+export const customHookEntityNoun: Record<CustomHookEntityType, string> = {
+  feature: "Feature Flag",
+  config: "Config",
+  experiment: "experiment",
+  sdkConnection: "SDK Connection",
+};
+
 // External REST API. Validators carry the OpenAPI route metadata.
 export const apiCustomHookValidator = namedSchema(
   "CustomHook",

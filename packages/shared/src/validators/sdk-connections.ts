@@ -5,6 +5,7 @@ import {
   paginationQueryFields,
   publishBypassedGatesField,
   sdkConnectionBypassApprovalBodyField,
+  sdkConnectionHookOverrideFields,
 } from "./shared";
 import { namedSchema } from "./openapi-helpers";
 import {
@@ -171,11 +172,15 @@ export function sdkWebhookStableId(connectionId: string, id: string): string {
 }
 
 // A null timeout means "use the default", same as an absent one; dropping it
-// keeps the two from diffing as a change.
+// keeps the two from diffing as a change. Rows predating `httpMethod` lack it.
 export function parseSdkWebhookSnapshot(
   value: unknown,
 ): SDKWebhookRevisionSnapshot {
-  const { timeoutSeconds, ...rest } = sdkWebhookSnapshotValidator.parse(value);
+  const row = (value ?? {}) as { httpMethod?: unknown };
+  const { timeoutSeconds, ...rest } = sdkWebhookSnapshotValidator.parse({
+    ...row,
+    httpMethod: row.httpMethod ?? "POST",
+  });
   return (timeoutSeconds ?? null) === null ? rest : { ...rest, timeoutSeconds };
 }
 
@@ -256,6 +261,7 @@ export const putSdkConnectionBody = postSdkConnectionBody
         "Archive (true) or restore (false) the connection. Archiving takes the same authority as deleting it; restoring takes publish authority.",
       ),
     bypassApproval: sdkConnectionBypassApprovalBodyField,
+    ...sdkConnectionHookOverrideFields,
   })
   .strict();
 
@@ -293,7 +299,9 @@ export const listSdkConnectionsValidator = {
 };
 
 export const postSdkConnectionValidator = {
-  bodySchema: postSdkConnectionBody,
+  bodySchema: postSdkConnectionBody
+    .extend(sdkConnectionHookOverrideFields)
+    .strict(),
   querySchema: z.never(),
   paramsSchema: z.never(),
   responseSchema: z

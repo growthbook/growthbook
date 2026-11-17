@@ -25,6 +25,7 @@ import { canUseRestApiBypassSetting } from "back-end/src/api/features/reviewBypa
 import {
   assertNoLockingScheduledDraft,
   sdkConnectionReviewRules,
+  sdkWriteFields,
 } from "back-end/src/services/sdkConnectionApprovals";
 import { runValidateSdkConnectionHooks } from "back-end/src/enterprise/sandbox/sandbox-eval";
 import { validatePutPayload } from "./validations";
@@ -37,8 +38,12 @@ export const putSdkConnection = createApiRequestHandler(
     throw new NotFoundError("Could not find sdkConnection with that id");
   }
 
-  const { bypassApproval, ...body } = req.body;
-  const params = await validatePutPayload(req.context, body, sdkConnection);
+  const { bypassApproval } = req.body;
+  const params = await validatePutPayload(
+    req.context,
+    sdkWriteFields(req.body),
+    sdkConnection,
+  );
 
   if (!req.context.permissions.canUpdateSDKConnection(sdkConnection, params))
     req.context.permissions.throwPermissionError();

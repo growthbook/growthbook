@@ -233,7 +233,7 @@ export const putSDKConnection = async (
       ...patchedSnapshot.sdkConnection,
     };
     draftWebhookSnapshots = (patchedSnapshot.sdkWebhooks ?? []).map((wh) =>
-      parseSdkWebhookSnapshot({ ...wh, httpMethod: wh.httpMethod ?? "POST" }),
+      parseSdkWebhookSnapshot(wh),
     );
   }
 
@@ -467,8 +467,6 @@ export const putSDKConnection = async (
       baselineSnapshot,
       desiredChanges,
       {
-        // Publishing a draft along with this edit: hooks see that draft.
-        ...(revisionId ? targetRevision : null),
         target: {
           type: "sdk-connection",
           id: connection.id,
@@ -525,6 +523,7 @@ export const putSDKConnection = async (
     editsExistingDraft ? opsFor : patchOps,
     {
       forceCreate: wantsMerge || forceCreateRevision,
+      direct: wantsMerge,
       title,
       comment,
       revertedFrom,

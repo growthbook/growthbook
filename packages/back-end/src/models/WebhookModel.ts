@@ -36,6 +36,7 @@ import {
 import { fireSdkWebhook } from "back-end/src/jobs/sdkWebhooks";
 import {
   assertDirectWriteAllowed,
+  sdkWriteFields,
   assertNoLockingScheduledDraft,
   assertSdkWebhookFields,
   assertSdkWebhookNotManaged,
@@ -49,7 +50,6 @@ import { getAdapter } from "back-end/src/revisions";
 import { ensureLiveRevisionExists } from "back-end/src/revisions/util";
 import { logger } from "back-end/src/util/logger";
 import {
-  customHooksActive,
   runValidateSdkConnectionHooks,
   runValidateSdkConnectionRevisionHooks,
 } from "back-end/src/enterprise/sandbox/sandbox-eval";
@@ -60,13 +60,6 @@ import {
   findSDKConnectionsByIds,
   touchSDKConnections,
 } from "./SdkConnectionModel";
-
-// Rows predating `httpMethod` lack it.
-const toSnapshot = (webhook: Partial<WebhookInterface>) =>
-  parseSdkWebhookSnapshot({
-    ...webhook,
-    httpMethod: webhook.httpMethod ?? "POST",
-  });
 
 type ApiSdkWebhook = z.infer<typeof apiSdkWebhookValidator>;
 type ApiSdkWebhookReturn = z.infer<typeof apiSdkWebhookReturn>;
@@ -290,23 +283,21 @@ export class SdkWebhookModel extends BaseClass {
         landings.push({ entity, original, sdkWebhooks });
       }
     }
-    if (customHooksActive(context)) {
-      for (const { original, sdkWebhooks } of landings) {
-        const proposed = { ...original, sdkWebhooks };
-        await runValidateSdkConnectionHooks({
-          context,
-          original,
-          sdkConnection: proposed,
-        });
-        await runValidateSdkConnectionRevisionHooks({
-          context,
-          live: original,
-          revision: null,
-          direct: true,
-          proposed,
-          before: original,
-        });
-      }
+    for (const { original, sdkWebhooks } of landings) {
+      const proposed = { ...original, sdkWebhooks };
+      await runValidateSdkConnectionHooks({
+        context,
+        original,
+        sdkConnection: proposed,
+      });
+      await runValidateSdkConnectionRevisionHooks({
+        context,
+        live: original,
+        revision: null,
+        direct: true,
+        proposed,
+        before: original,
+      });
     }
 
     const recorded: string[] = [];
@@ -405,7 +396,7 @@ export class SdkWebhookModel extends BaseClass {
       );
     }
 
-    const next = toSnapshot({ ...webhook, ...updates });
+    const next = parseSdkWebhookSnapshot({ ...webhook, ...updates });
     const updated = await this.landOnConnections(
       affected,
       (webhooks, conn) => {
@@ -489,9 +480,10 @@ export class SdkWebhookModel extends BaseClass {
 
   public async apiCreateForConnection(
     connectionId: string,
-    { bypassApproval, ...body }: PostSdkWebhookBody,
+    { bypassApproval, ...rest }: PostSdkWebhookBody,
     restBypass: boolean,
   ): Promise<ApiSdkWebhookReturn> {
+    const body = sdkWriteFields(rest);
     const { webhook, bypassedGates } = await this.createForConnection(
       connectionId,
       {
@@ -513,7 +505,10 @@ export class SdkWebhookModel extends BaseClass {
   ): Promise<ApiSdkWebhookReturn> {
     const { webhook, bypassedGates } = await this.updateDirect(
       id,
-      { ...updates, ...(sdkConnections ? { sdks: sdkConnections } : {}) },
+      {
+        ...sdkWriteFields(updates),
+        ...(sdkConnections ? { sdks: sdkConnections } : {}),
+      },
       { bypassApproval, restBypass },
     );
     return this.toApiReturn(webhook, bypassedGates);

@@ -13,9 +13,9 @@ import {
   booleanQueryField,
   ignoreWarningsBodyField,
   bypassApprovalPublishBodyField,
+  sdkConnectionHookOverrideFields,
   publishBypassedGatesField,
   revisionScheduleResponseFields,
-  HUMAN_OVERRIDE_NOTE,
 } from "./shared";
 import {
   jsonPatchOperationValidator,
@@ -58,13 +58,15 @@ const webhookParams = editParams.extend({
   webhookId: z.string().describe("The webhook's id in this revision"),
 });
 
-// Used only when `version` is "new".
+// On every edit endpoint. The title and comment are used only when `version`
+// is "new".
 const newDraftFields = {
   revisionTitle: z.string().describe(NEW_DRAFT_TITLE_DESCRIPTION).optional(),
   revisionComment: z
     .string()
     .describe(NEW_DRAFT_COMMENT_DESCRIPTION)
     .optional(),
+  ...sdkConnectionHookOverrideFields,
 };
 
 const statusQuery = z
@@ -110,12 +112,12 @@ const apiActivityLogEntryValidator = namedSchema(
     .strict(),
 );
 
-export const apiSdkConnectionRevisionSettingsValidator = namedSchema(
+const apiSdkConnectionRevisionSettingsValidator = namedSchema(
   "SdkConnectionRevisionSettings",
   sdkConnectionSettingsSnapshotValidator.omit({ organization: true }),
 );
 
-export const apiSdkConnectionRevisionWebhookValidator = namedSchema(
+const apiSdkConnectionRevisionWebhookValidator = namedSchema(
   "SdkConnectionRevisionWebhook",
   sdkWebhookSnapshotValidator
     .extend({
@@ -123,7 +125,7 @@ export const apiSdkConnectionRevisionWebhookValidator = namedSchema(
         .string()
         .optional()
         .describe(
-          "JSON-encoded object of extra headers. Only returned to callers who can edit the webhook.",
+          "JSON-encoded object of extra headers. Only returned by the read endpoints, to callers who can edit the webhook.",
         ),
     })
     .strict(),
@@ -244,7 +246,8 @@ export const getSdkConnectionRevisionLatestValidator = {
   path: `${BASE}/latest`,
   operationId: "getSdkConnectionRevisionLatest",
   summary: "Get the most recent active draft revision",
-  description: `Returns the most recently updated open (non-merged, non-discarded) revision. Returns 404 if there is none. ${REQUIRES_PERSON_NOTE}`,
+  description:
+    "Returns the most recently updated open (non-merged, non-discarded) revision. Returns 404 if there is none. Pass `mine=true` to restrict to drafts authored by the calling user.",
   tags: TAGS,
   paramsSchema: connectionParams,
   bodySchema: z.never(),
@@ -317,6 +320,7 @@ export const postSdkConnectionRevisionValidator = {
     .object({
       title: z.string().describe(REVISION_TITLE_DESCRIPTION).optional(),
       comment: z.string().describe(REVISION_COMMENT_DESCRIPTION).optional(),
+      ...sdkConnectionHookOverrideFields,
     })
     .strict(),
   querySchema: z.never(),
@@ -533,6 +537,7 @@ export const postSdkConnectionRevisionRebaseValidator = {
       conflictResolutions: z
         .record(z.string(), z.enum(["overwrite", "discard"]))
         .optional(),
+      ...sdkConnectionHookOverrideFields,
     })
     .strict(),
   querySchema: z.never(),
@@ -585,13 +590,7 @@ export const postSdkConnectionRevisionPublishValidator = {
   bodySchema: z
     .object({
       bypassApproval: bypassApprovalPublishBodyField,
-      ignoreWarnings: ignoreWarningsBodyField,
-      skipHooks: z
-        .boolean()
-        .optional()
-        .describe(
-          `Set to true to publish despite a Custom Hook rejection. The caller must have Bypass draft approvals access for SDK Connections in every Project. Otherwise, this field is ignored. ${HUMAN_OVERRIDE_NOTE}`,
-        ),
+      ...sdkConnectionHookOverrideFields,
     })
     .strict(),
   querySchema: z.never(),
@@ -627,7 +626,7 @@ export const postSdkConnectionRevisionRevertValidator = {
         ),
       title: z.string().describe(REVISION_TITLE_DESCRIPTION).optional(),
       comment: z.string().describe(REVISION_COMMENT_DESCRIPTION).optional(),
-      ignoreWarnings: ignoreWarningsBodyField,
+      ...sdkConnectionHookOverrideFields,
     })
     .strict(),
   querySchema: z.never(),

@@ -1,10 +1,11 @@
 import { deleteSdkConnectionValidator } from "shared/validators";
+import { PermissionError } from "shared/util";
 import {
   findSDKConnectionById,
   deleteSDKConnectionModel,
 } from "back-end/src/models/SdkConnectionModel";
 import { createApiRequestHandler } from "back-end/src/util/handler";
-import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
+import { NotFoundError } from "back-end/src/util/errors";
 import { canUseRestApiBypassSetting } from "back-end/src/api/features/reviewBypass";
 
 export const deleteSdkConnection = createApiRequestHandler(
@@ -23,7 +24,7 @@ export const deleteSdkConnection = createApiRequestHandler(
   // need review. As for Feature Flags, a live one deletes only when the org
   // has opted in to unrestricted REST writes.
   if (!sdkConnection.archived && !canUseRestApiBypassSetting(req)) {
-    throw new BadRequestError(
+    throw new PermissionError(
       "Cannot delete a live SDK Connection via the REST API when 'REST API always bypasses approval requirements' is disabled. " +
         "Archive the SDK Connection first (`PUT /sdk-connections/{id}` with `archived: true`, or in a draft revision), or enable the bypass setting in organization settings.",
     );

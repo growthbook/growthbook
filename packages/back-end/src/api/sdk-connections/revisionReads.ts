@@ -73,7 +73,9 @@ async function revisionPage(
   const hasMore = !skipPagination && offset + limit < total;
   return {
     revisions: await Promise.all(
-      revisions.map((r) => toApiSdkConnectionRevision(context, r)),
+      revisions.map((r) =>
+        toApiSdkConnectionRevision(context, r, { withHeaders: true }),
+      ),
     ),
     limit: skipPagination ? total : limit,
     offset,
@@ -117,14 +119,22 @@ export const getSdkConnectionRevisionLatest = createApiRequestHandler(
         : "No active draft revision found for this SDK Connection",
     );
   }
-  return { revision: await toApiSdkConnectionRevision(req.context, revision) };
+  return {
+    revision: await toApiSdkConnectionRevision(req.context, revision, {
+      withHeaders: true,
+    }),
+  };
 });
 
 export const getSdkConnectionRevision = createApiRequestHandler(
   getSdkConnectionRevisionValidator,
 )(async (req) => {
   const { revision } = await loadConnectionAndRevision(req.context, req.params);
-  return { revision: await toApiSdkConnectionRevision(req.context, revision) };
+  return {
+    revision: await toApiSdkConnectionRevision(req.context, revision, {
+      withHeaders: true,
+    }),
+  };
 });
 
 export const getSdkConnectionRevisionMergeStatus = createApiRequestHandler(

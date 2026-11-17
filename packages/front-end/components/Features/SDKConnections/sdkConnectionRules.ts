@@ -174,11 +174,6 @@ export function sanitizeAdvancedForSave(
   };
 }
 
-export {
-  withAbsentSdkSettings as withAbsentSettings,
-  ABSENT_SDK_SETTING_KEYS as ABSENT_SETTING_KEYS,
-} from "shared/enterprise";
-
 // A snapshot as the payload reads it, so a setting one side left out still
 // diffs against the other.
 export function snapshotWithAbsentSettings<

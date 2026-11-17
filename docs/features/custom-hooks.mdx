@@ -25,7 +25,7 @@ a hook for one Feature Flag from that flag's **Validation** tab. This tab also
 lists the global and Project hooks that apply to the Feature Flag. Experiment
 hooks can only use a global or Project scope.
 
-SDK Connections work the same way as Feature Flags. The `validateSdkConnection`
+SDK Connections have the same scopes as Feature Flags. The `validateSdkConnection`
 and `validateSdkConnectionRevision` hook types can use a global, Project, or
 SDK Connection scope. Manage a hook for one SDK Connection from that
 connection's **Validation** tab.
@@ -40,9 +40,9 @@ indirect descendants through `parent` or `extends`. If a publish moves a Config
 into that family, the hook runs during the same publish. A descendant Config's
 page lists both its own hooks and the hooks it inherits.
 
-Creating or changing a global, Project-scoped, or Config-scoped hook requires the
-**Custom Hooks** permission. A hook for one Feature Flag requires **Edit** access
-to that flag instead.
+Creating or changing a global, Project-scoped, Config-scoped, or SDK
+Connection-scoped hook requires the **Custom Hooks** permission. A hook for one
+Feature Flag requires **Edit** access to that flag instead.
 
 The REST API can change a hook's scope after creation. The caller must have
 permission to manage both the old and new scopes. To remove an entity scope,
@@ -532,7 +532,7 @@ Receives three arguments:
 
 - `sdkConnection`: the live connection's settings, as they stand before this revision publishes.
 - `sdkWebhooks`: the live connection's webhooks, without their headers.
-- `revision`: the revision being written. `revision.sdkConnection` and `revision.sdkWebhooks` hold what it proposes, in the same shape as the live values. It also carries `version`, `status`, `title`, `comment`, `authorId`, `contributors`, `author`, `coauthors`, and `reviews`. Reviews use the same shape as feature revisions, described under [validateFeatureRevision](#validatefeaturerevision), so one policy can be written against both. A revision that is being created has no `version` yet, and its `status` is `draft`, or `merged` for a change saved directly.
+- `revision`: the revision being written. `revision.sdkConnection` and `revision.sdkWebhooks` hold what it proposes, in the same shape as the live values. It also carries `version`, `status`, `title`, `comment`, `authorId`, `contributors`, `author`, `coauthors`, and `reviews`. Reviews use the same shape as feature revisions, described under [validateFeatureRevision](#validatefeaturerevision), so one policy can be written against both. A revision that is being created has no `version` yet. Its `status` is `draft`, or `merged` when a direct REST write records it already published.
 
 Example: Block staging a move to another environment.
 

@@ -511,7 +511,7 @@ const patchDraftState = (
 const DRAFT_REVISIONS: Record<
   string,
   {
-    model: "feature" | "savedGroup" | "constant" | "config";
+    model: RevisionModelName;
     load: (
       context: ReqContext,
       params: Record<string, string>,
@@ -537,6 +537,18 @@ const DRAFT_REVISIONS: Record<
     load: loadKeyedRevision("constant"),
   },
   "config-revisions": { model: "config", load: loadKeyedRevision("config") },
+  "sdk-connection-revisions": {
+    model: "sdkConnection",
+    load: async (context, { id, version }) =>
+      patchDraftState(
+        "sdkConnection",
+        await context.models.revisions.getByTargetAndVersion(
+          "sdk-connection",
+          id,
+          Number(version),
+        ),
+      ),
+  },
 };
 
 // Constants and configs are routed by key, but their revisions by id.
@@ -650,9 +662,7 @@ export const DISARMED_BY_EDIT =
   "Canceled because an API key whose publishes need a person's confirmation edited the draft";
 
 // Everything landing a draft can do, for an edit that may add any of it.
-const everyLanding = (
-  model: "feature" | "savedGroup" | "constant" | "config",
-): ConfirmAction[] =>
+const everyLanding = (model: RevisionModelName): ConfirmAction[] =>
   model === "feature"
     ? [...FEATURE_LANDING_ACTIONS]
     : landingActions(model, true);

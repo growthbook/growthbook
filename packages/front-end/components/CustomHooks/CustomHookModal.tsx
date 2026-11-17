@@ -5,6 +5,7 @@ import {
   CustomHookInterface,
   CustomHookType,
   SDKConnectionRevisionSnapshot,
+  customHookEntityNoun,
   hookEntityType,
 } from "shared/validators";
 import { CreateProps } from "shared/types/base-model";
@@ -723,11 +724,7 @@ export default function CustomHookModal({
           <Text as="div" size="sm" color="text-low" mt="1" mb="5">
             Need a starting point? See an{" "}
             <DocLink docSection={exampleDocSection}>
-              example{" "}
-              {hookType === "validateSdkConnection"
-                ? "SDK Connection"
-                : hookEntityType[hookType]}{" "}
-              hook
+              example {customHookEntityNoun[hookEntityType[hookType]]} hook
             </DocLink>
             .
           </Text>

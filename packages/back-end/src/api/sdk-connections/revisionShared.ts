@@ -20,7 +20,6 @@ import {
 } from "back-end/src/revisions/util";
 import { scrubRevisionForViewer } from "back-end/src/revisions/scrub";
 import { canDoRevisionAction } from "back-end/src/revisions/revisionActions";
-import { getRevisionWebhookAdapter } from "back-end/src/events/revisionWebhookAdapters";
 import { SDKConnectionLiveSnapshot } from "back-end/src/revisions/adapters/sdk-connection.adapter";
 import { revisionEnvelopeToApi } from "back-end/src/api/revisionApiEnvelope";
 import { isDraftStatus } from "back-end/src/api/revisionValidations";
@@ -84,20 +83,20 @@ export function proposedSnapshot(
   );
 }
 
-// The draft an edit endpoint writes to; null for "new".
-export async function loadDraft(
+// The connection an edit endpoint writes to and its draft; null for "new".
+export async function loadEdit(
   context: ApiReqContext,
-  connectionId: string,
-  version: number | "new",
-): Promise<Revision | null> {
-  if (version === "new") return null;
-  const draft = await loadRevision(context, connectionId, version);
+  params: { id: string; version: number | "new" },
+) {
+  const loaded = await loadConnection(context, params.id);
+  if (params.version === "new") return { loaded, draft: null };
+  const draft = await loadRevision(context, loaded.live.id, params.version);
   if (!isDraftStatus(draft.status)) {
     throw new BadRequestError(
       `Cannot edit a revision with status "${draft.status}"`,
     );
   }
-  return draft;
+  return { loaded, draft };
 }
 
 // Stages changes into `draft`, or into a new one. `derive` builds the ops from
@@ -111,6 +110,7 @@ export async function stageDraftChanges(
     revisionTitle?: string;
     revisionComment?: string;
     revertedFrom?: string;
+    direct?: boolean;
   },
   derive: (row: Revision | null) => JsonPatchOperation[],
 ): Promise<Revision> {
@@ -119,7 +119,7 @@ export async function stageDraftChanges(
   }
   await ensureLiveRevisionExists(context, TYPE, entity);
 
-  const revision = await createOrUpdateRevision(
+  return createOrUpdateRevision(
     context,
     TYPE,
     entity,
@@ -131,12 +131,9 @@ export async function stageDraftChanges(
           title: newDraft.revisionTitle,
           comment: newDraft.revisionComment,
           revertedFrom: newDraft.revertedFrom,
+          direct: newDraft.direct,
         },
   );
-  await getRevisionWebhookAdapter(TYPE)?.dispatch(context, revision, {
-    type: draft ? "updated" : "created",
-  });
-  return revision;
 }
 
 const toApiSnapshot = (snapshot: SDKConnectionRevisionSnapshot) => {
@@ -145,19 +142,19 @@ const toApiSnapshot = (snapshot: SDKConnectionRevisionSnapshot) => {
   ) as SDKConnectionRevisionSnapshot;
   return {
     settings: omit(sdkConnection, "organization"),
-    // Older rows may lack `httpMethod` or carry delivery state.
-    webhooks: sdkWebhooks.map((wh) =>
-      parseSdkWebhookSnapshot({ ...wh, httpMethod: wh.httpMethod ?? "POST" }),
-    ),
+    // Older rows may carry delivery state.
+    webhooks: sdkWebhooks.map(parseSdkWebhookSnapshot),
   };
 };
 
 export async function toApiSdkConnectionRevision(
   context: ApiReqContext,
   raw: Revision,
+  { withHeaders = false } = {},
 ): Promise<ApiSdkConnectionRevision> {
-  // Webhook headers go only to callers who can edit the webhook.
-  const revision = await scrubRevisionForViewer(context, raw);
+  // Webhook headers go only to callers who can edit the webhook, and only on
+  // reads: a held write's response is shown on its confirmation.
+  const revision = await scrubRevisionForViewer(context, raw, !withHeaders);
   const base = toApiSnapshot(
     revision.target.snapshot as SDKConnectionRevisionSnapshot,
   );

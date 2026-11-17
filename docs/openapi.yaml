@@ -22633,6 +22633,28 @@ paths:
                     they target other Projects. Defaults to true for new
                     connections.
                   type: boolean
+                ignoreWarnings:
+                  description: >-
+                    Set to true to acknowledge the warnings listed in a blocked
+                    response and continue. This covers experiment guards, locked
+                    dependents, and references affected by an archive. When the
+                    organization treats schema failures as warnings, it also
+                    covers schema and invariant warnings. It never bypasses a
+                    rejected Custom Hook. On revision publish endpoints, it can
+                    also force-publish an out-of-date draft when the caller has
+                    Bypass draft approvals access. Only set this when a person
+                    has explicitly asked you to. If a check blocks you, stop and
+                    ask a person instead of working around it.
+                  type: boolean
+                skipHooks:
+                  description: >-
+                    Set to true to continue despite a Custom Hook rejection. The
+                    caller must have Bypass draft approvals access for SDK
+                    Connections in every Project. Otherwise, this field is
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
+                  type: boolean
               required:
                 - name
                 - language
@@ -22791,6 +22813,28 @@ paths:
                     approvals access in the SDK Connection's Projects, unless
                     the organization enables the REST API approval bypass. This
                     field has no effect when approval is not required.
+                  type: boolean
+                ignoreWarnings:
+                  description: >-
+                    Set to true to acknowledge the warnings listed in a blocked
+                    response and continue. This covers experiment guards, locked
+                    dependents, and references affected by an archive. When the
+                    organization treats schema failures as warnings, it also
+                    covers schema and invariant warnings. It never bypasses a
+                    rejected Custom Hook. On revision publish endpoints, it can
+                    also force-publish an out-of-date draft when the caller has
+                    Bypass draft approvals access. Only set this when a person
+                    has explicitly asked you to. If a check blocks you, stop and
+                    ask a person instead of working around it.
+                  type: boolean
+                skipHooks:
+                  description: >-
+                    Set to true to continue despite a Custom Hook rejection. The
+                    caller must have Bypass draft approvals access for SDK
+                    Connections in every Project. Otherwise, this field is
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
                   type: boolean
               additionalProperties: false
       responses:
@@ -23092,6 +23136,28 @@ paths:
                 comment:
                   type: string
                   description: Markdown. What changed and why, for reviewers.
+                ignoreWarnings:
+                  description: >-
+                    Set to true to acknowledge the warnings listed in a blocked
+                    response and continue. This covers experiment guards, locked
+                    dependents, and references affected by an archive. When the
+                    organization treats schema failures as warnings, it also
+                    covers schema and invariant warnings. It never bypasses a
+                    rejected Custom Hook. On revision publish endpoints, it can
+                    also force-publish an out-of-date draft when the caller has
+                    Bypass draft approvals access. Only set this when a person
+                    has explicitly asked you to. If a check blocks you, stop and
+                    ask a person instead of working around it.
+                  type: boolean
+                skipHooks:
+                  description: >-
+                    Set to true to continue despite a Custom Hook rejection. The
+                    caller must have Bypass draft approvals access for SDK
+                    Connections in every Project. Otherwise, this field is
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
+                  type: boolean
               additionalProperties: false
       responses:
         '200':
@@ -23123,8 +23189,8 @@ paths:
       summary: Get the most recent active draft revision
       description: >-
         Returns the most recently updated open (non-merged, non-discarded)
-        revision. Returns 404 if there is none. Needs a personal access token,
-        or an organization API key that assumes a named member's role.
+        revision. Returns 404 if there is none. Pass `mine=true` to restrict to
+        drafts authored by the calling user.
       tags: *ref_0
       parameters:
         - name: id
@@ -23373,6 +23439,28 @@ paths:
                     they target other Projects. Defaults to true for new
                     connections.
                   type: boolean
+                ignoreWarnings:
+                  description: >-
+                    Set to true to acknowledge the warnings listed in a blocked
+                    response and continue. This covers experiment guards, locked
+                    dependents, and references affected by an archive. When the
+                    organization treats schema failures as warnings, it also
+                    covers schema and invariant warnings. It never bypasses a
+                    rejected Custom Hook. On revision publish endpoints, it can
+                    also force-publish an out-of-date draft when the caller has
+                    Bypass draft approvals access. Only set this when a person
+                    has explicitly asked you to. If a check blocks you, stop and
+                    ask a person instead of working around it.
+                  type: boolean
+                skipHooks:
+                  description: >-
+                    Set to true to continue despite a Custom Hook rejection. The
+                    caller must have Bypass draft approvals access for SDK
+                    Connections in every Project. Otherwise, this field is
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
+                  type: boolean
                 revisionTitle:
                   type: string
                   description: >-
@@ -23451,6 +23539,28 @@ paths:
                   description: >-
                     Markdown. What changed and why, for reviewers. Only used
                     when `version` is "new"; ignored for existing drafts.
+                ignoreWarnings:
+                  description: >-
+                    Set to true to acknowledge the warnings listed in a blocked
+                    response and continue. This covers experiment guards, locked
+                    dependents, and references affected by an archive. When the
+                    organization treats schema failures as warnings, it also
+                    covers schema and invariant warnings. It never bypasses a
+                    rejected Custom Hook. On revision publish endpoints, it can
+                    also force-publish an out-of-date draft when the caller has
+                    Bypass draft approvals access. Only set this when a person
+                    has explicitly asked you to. If a check blocks you, stop and
+                    ask a person instead of working around it.
+                  type: boolean
+                skipHooks:
+                  description: >-
+                    Set to true to continue despite a Custom Hook rejection. The
+                    caller must have Bypass draft approvals access for SDK
+                    Connections in every Project. Otherwise, this field is
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
+                  type: boolean
                 archived:
                   type: boolean
               required:
@@ -23522,6 +23632,28 @@ paths:
                   description: >-
                     Markdown. What changed and why, for reviewers. Only used
                     when `version` is "new"; ignored for existing drafts.
+                ignoreWarnings:
+                  description: >-
+                    Set to true to acknowledge the warnings listed in a blocked
+                    response and continue. This covers experiment guards, locked
+                    dependents, and references affected by an archive. When the
+                    organization treats schema failures as warnings, it also
+                    covers schema and invariant warnings. It never bypasses a
+                    rejected Custom Hook. On revision publish endpoints, it can
+                    also force-publish an out-of-date draft when the caller has
+                    Bypass draft approvals access. Only set this when a person
+                    has explicitly asked you to. If a check blocks you, stop and
+                    ask a person instead of working around it.
+                  type: boolean
+                skipHooks:
+                  description: >-
+                    Set to true to continue despite a Custom Hook rejection. The
+                    caller must have Bypass draft approvals access for SDK
+                    Connections in every Project. Otherwise, this field is
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
+                  type: boolean
                 name:
                   type: string
                 endpoint:
@@ -23629,6 +23761,28 @@ paths:
                   description: >-
                     Markdown. What changed and why, for reviewers. Only used
                     when `version` is "new"; ignored for existing drafts.
+                ignoreWarnings:
+                  description: >-
+                    Set to true to acknowledge the warnings listed in a blocked
+                    response and continue. This covers experiment guards, locked
+                    dependents, and references affected by an archive. When the
+                    organization treats schema failures as warnings, it also
+                    covers schema and invariant warnings. It never bypasses a
+                    rejected Custom Hook. On revision publish endpoints, it can
+                    also force-publish an out-of-date draft when the caller has
+                    Bypass draft approvals access. Only set this when a person
+                    has explicitly asked you to. If a check blocks you, stop and
+                    ask a person instead of working around it.
+                  type: boolean
+                skipHooks:
+                  description: >-
+                    Set to true to continue despite a Custom Hook rejection. The
+                    caller must have Bypass draft approvals access for SDK
+                    Connections in every Project. Otherwise, this field is
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
+                  type: boolean
                 name:
                   type: string
                 endpoint:
@@ -23732,6 +23886,28 @@ paths:
                   description: >-
                     Markdown. What changed and why, for reviewers. Only used
                     when `version` is "new"; ignored for existing drafts.
+                ignoreWarnings:
+                  description: >-
+                    Set to true to acknowledge the warnings listed in a blocked
+                    response and continue. This covers experiment guards, locked
+                    dependents, and references affected by an archive. When the
+                    organization treats schema failures as warnings, it also
+                    covers schema and invariant warnings. It never bypasses a
+                    rejected Custom Hook. On revision publish endpoints, it can
+                    also force-publish an out-of-date draft when the caller has
+                    Bypass draft approvals access. Only set this when a person
+                    has explicitly asked you to. If a check blocks you, stop and
+                    ask a person instead of working around it.
+                  type: boolean
+                skipHooks:
+                  description: >-
+                    Set to true to continue despite a Custom Hook rejection. The
+                    caller must have Bypass draft approvals access for SDK
+                    Connections in every Project. Otherwise, this field is
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
+                  type: boolean
               additionalProperties: false
       responses:
         '200':
@@ -24130,6 +24306,28 @@ paths:
                     enum:
                       - overwrite
                       - discard
+                ignoreWarnings:
+                  description: >-
+                    Set to true to acknowledge the warnings listed in a blocked
+                    response and continue. This covers experiment guards, locked
+                    dependents, and references affected by an archive. When the
+                    organization treats schema failures as warnings, it also
+                    covers schema and invariant warnings. It never bypasses a
+                    rejected Custom Hook. On revision publish endpoints, it can
+                    also force-publish an out-of-date draft when the caller has
+                    Bypass draft approvals access. Only set this when a person
+                    has explicitly asked you to. If a check blocks you, stop and
+                    ask a person instead of working around it.
+                  type: boolean
+                skipHooks:
+                  description: >-
+                    Set to true to continue despite a Custom Hook rejection. The
+                    caller must have Bypass draft approvals access for SDK
+                    Connections in every Project. Otherwise, this field is
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
+                  type: boolean
               additionalProperties: false
       responses:
         '200':
@@ -24202,7 +24400,7 @@ paths:
                   type: boolean
                 skipHooks:
                   description: >-
-                    Set to true to publish despite a Custom Hook rejection. The
+                    Set to true to continue despite a Custom Hook rejection. The
                     caller must have Bypass draft approvals access for SDK
                     Connections in every Project. Otherwise, this field is
                     ignored. Only set this when a person has explicitly asked
@@ -24342,6 +24540,15 @@ paths:
                     Bypass draft approvals access. Only set this when a person
                     has explicitly asked you to. If a check blocks you, stop and
                     ask a person instead of working around it.
+                  type: boolean
+                skipHooks:
+                  description: >-
+                    Set to true to continue despite a Custom Hook rejection. The
+                    caller must have Bypass draft approvals access for SDK
+                    Connections in every Project. Otherwise, this field is
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
                   type: boolean
               additionalProperties: false
       responses:
@@ -68870,6 +69077,28 @@ paths:
                     the organization enables the REST API approval bypass. This
                     field has no effect when approval is not required.
                   type: boolean
+                ignoreWarnings:
+                  description: >-
+                    Set to true to acknowledge the warnings listed in a blocked
+                    response and continue. This covers experiment guards, locked
+                    dependents, and references affected by an archive. When the
+                    organization treats schema failures as warnings, it also
+                    covers schema and invariant warnings. It never bypasses a
+                    rejected Custom Hook. On revision publish endpoints, it can
+                    also force-publish an out-of-date draft when the caller has
+                    Bypass draft approvals access. Only set this when a person
+                    has explicitly asked you to. If a check blocks you, stop and
+                    ask a person instead of working around it.
+                  type: boolean
+                skipHooks:
+                  description: >-
+                    Set to true to continue despite a Custom Hook rejection. The
+                    caller must have Bypass draft approvals access for SDK
+                    Connections in every Project. Otherwise, this field is
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
+                  type: boolean
               required:
                 - name
                 - endpoint
@@ -68978,6 +69207,28 @@ paths:
                     the organization enables the REST API approval bypass. This
                     field has no effect when approval is not required.
                   type: boolean
+                ignoreWarnings:
+                  description: >-
+                    Set to true to acknowledge the warnings listed in a blocked
+                    response and continue. This covers experiment guards, locked
+                    dependents, and references affected by an archive. When the
+                    organization treats schema failures as warnings, it also
+                    covers schema and invariant warnings. It never bypasses a
+                    rejected Custom Hook. On revision publish endpoints, it can
+                    also force-publish an out-of-date draft when the caller has
+                    Bypass draft approvals access. Only set this when a person
+                    has explicitly asked you to. If a check blocks you, stop and
+                    ask a person instead of working around it.
+                  type: boolean
+                skipHooks:
+                  description: >-
+                    Set to true to continue despite a Custom Hook rejection. The
+                    caller must have Bypass draft approvals access for SDK
+                    Connections in every Project. Otherwise, this field is
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
+                  type: boolean
                 sdkConnections:
                   minItems: 1
                   type: array
@@ -69045,6 +69296,28 @@ paths:
                     approvals access in the SDK Connection's Projects, unless
                     the organization enables the REST API approval bypass. This
                     field has no effect when approval is not required.
+                  type: boolean
+                ignoreWarnings:
+                  description: >-
+                    Set to true to acknowledge the warnings listed in a blocked
+                    response and continue. This covers experiment guards, locked
+                    dependents, and references affected by an archive. When the
+                    organization treats schema failures as warnings, it also
+                    covers schema and invariant warnings. It never bypasses a
+                    rejected Custom Hook. On revision publish endpoints, it can
+                    also force-publish an out-of-date draft when the caller has
+                    Bypass draft approvals access. Only set this when a person
+                    has explicitly asked you to. If a check blocks you, stop and
+                    ask a person instead of working around it.
+                  type: boolean
+                skipHooks:
+                  description: >-
+                    Set to true to continue despite a Custom Hook rejection. The
+                    caller must have Bypass draft approvals access for SDK
+                    Connections in every Project. Otherwise, this field is
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
                   type: boolean
               additionalProperties: false
       responses:
@@ -77432,8 +77705,8 @@ components:
             - PATCH
         headers:
           description: >-
-            JSON-encoded object of extra headers. Only returned to callers who
-            can edit the webhook.
+            JSON-encoded object of extra headers. Only returned by the read
+            endpoints, to callers who can edit the webhook.
           type: string
         payloadFormat:
           type: string

@@ -5,6 +5,7 @@ import { apiBaseSchema } from "./base-model";
 import {
   publishBypassedGatesField,
   sdkConnectionBypassApprovalBodyField,
+  sdkConnectionHookOverrideFields,
 } from "./shared";
 
 export const payloadFormatValidator = z.enum([
@@ -137,6 +138,7 @@ export const sdkWebhookFields = {
     .describe('JSON-encoded object, e.g. "{\\"X-Token\\": \\"abc\\"}"'),
   timeoutSeconds: apiWebhookTimeoutSeconds.optional(),
   bypassApproval: sdkConnectionBypassApprovalBodyField,
+  ...sdkConnectionHookOverrideFields,
 };
 
 // Unused: SDK webhooks are created through their SDK Connection
@@ -198,7 +200,10 @@ export const putSdkWebhookValidator = {
 
 export const deleteSdkWebhookValidator = {
   bodySchema: z
-    .object({ bypassApproval: sdkConnectionBypassApprovalBodyField })
+    .object({
+      bypassApproval: sdkConnectionBypassApprovalBodyField,
+      ...sdkConnectionHookOverrideFields,
+    })
     .strict()
     .optional(),
   querySchema: z.never(),

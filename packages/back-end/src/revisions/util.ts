@@ -230,6 +230,8 @@ export type CreateOrUpdateRevisionOptions = {
   comment?: string;
   revertedFrom?: string;
   revisionId?: string;
+  // The caller publishes the new revision at once, so it is a direct landing.
+  direct?: boolean;
 };
 
 /**
@@ -250,6 +252,7 @@ export async function createOrUpdateRevision(
     comment,
     revertedFrom,
     revisionId,
+    direct,
   } = options;
 
   const adapter = getAdapter(entityType);
@@ -268,6 +271,7 @@ export async function createOrUpdateRevision(
     await adapter.validateRevisionWrite(context, {
       live,
       revision: row,
+      direct: !row && direct,
       proposed: applyPatchToSnapshot(replaceChanges ? base : before, derived),
       before,
     });

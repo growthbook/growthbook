@@ -1,6 +1,6 @@
 import {
-  CustomHookEntityType,
   CustomHookInterface,
+  customHookEntityNoun,
   hookEntityType,
 } from "shared/validators";
 import { ComponentProps, ReactNode, useState } from "react";
@@ -23,13 +23,6 @@ import CustomHooksTable, {
   hookScopeColumn,
   isHookScopedTo,
 } from "@/components/CustomHooks/CustomHooksTable";
-
-const ENTITY_NOUN: Record<CustomHookEntityType, string> = {
-  feature: "Feature Flag",
-  config: "Config",
-  experiment: "experiment",
-  sdkConnection: "SDK Connection",
-};
 
 // The custom hooks that validate changes to one entity: its own, any it
 // inherits, and the global and Project hooks in scope. One layout for every
@@ -88,7 +81,7 @@ export default function CustomHooksSection({
       (!h.projects.length || h.projects.some((p) => projects.includes(p))),
   );
 
-  const noun = ENTITY_NOUN[scope.entityType];
+  const noun = customHookEntityNoun[scope.entityType];
 
   const header = (title: string, action: ReactNode, first = false) => (
     <Flex

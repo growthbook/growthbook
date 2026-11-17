@@ -165,11 +165,7 @@ export function sdkConnectionRevertChanges(
   );
   const liveById = new Map(live.sdkWebhooks.map((wh) => [wh.id, wh]));
   const sdkWebhooks = then.sdkWebhooks.map((wh) => {
-    // Rows predating `httpMethod` lack it.
-    const was = parseSdkWebhookSnapshot({
-      ...wh,
-      httpMethod: wh.httpMethod ?? "POST",
-    });
+    const was = parseSdkWebhookSnapshot(wh);
     const now = liveById.get(was.id);
     return now && isEqual(withHeaders(was), withHeaders(now)) ? now : was;
   });
@@ -519,12 +515,14 @@ export const sdkConnectionAdapter: EntityRevisionAdapter<SDKConnectionRevisionSn
       );
     },
 
-    async scrubForViewer(context, target, fragment) {
+    async scrubForViewer(context, target, fragment, hideAll) {
       const rows = fragment.sdkWebhooks;
       if (!Array.isArray(rows) || !rows.some((w) => w?.headers !== undefined)) {
         return fragment;
       }
-      const canSee = await webhookHeaderViewer(context, target.id);
+      const canSee = hideAll
+        ? () => false
+        : await webhookHeaderViewer(context, target.id);
       return {
         ...fragment,
         sdkWebhooks: rows.map((w) => (canSee(w.id) ? w : omit(w, "headers"))),

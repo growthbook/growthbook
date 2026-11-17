@@ -14,6 +14,7 @@ import {
 } from "back-end/src/revisions/publishGates";
 import { collectRevisionGovernanceGates } from "back-end/src/revisions/governanceGates";
 import { buildMergeDesiredState } from "back-end/src/revisions/util";
+import { assertCanChangeSdkWebhooks } from "back-end/src/services/sdkConnectionApprovals";
 import {
   collectValidateSdkConnectionHookResults,
   collectValidateSdkConnectionRevisionHookResults,
@@ -55,6 +56,14 @@ export const postSdkConnectionRevisionPublish = createApiRequestHandler(
     revision.target.snapshot as Record<string, unknown>,
     proposedChanges,
     adapter.getUpdatableFields(),
+  );
+  // Before any hook runs, so a caller who may not change webhooks is refused
+  // for that and shown no hook's message.
+  assertCanChangeSdkWebhooks(
+    context,
+    live.sdkConnection,
+    live.sdkWebhooks,
+    proposed.sdkWebhooks,
   );
   // Every gate in one 422, each with the way past it. The publish below
   // enforces the same rules again.

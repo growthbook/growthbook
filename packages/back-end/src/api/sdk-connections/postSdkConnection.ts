@@ -7,13 +7,14 @@ import { createApiRequestHandler } from "back-end/src/util/handler";
 import { ensureLiveRevisionExists } from "back-end/src/revisions/util";
 import { runValidateSdkConnectionHooks } from "back-end/src/enterprise/sandbox/sandbox-eval";
 import { pickSettingsSnapshot } from "back-end/src/revisions/adapters/sdk-connection.adapter";
+import { sdkWriteFields } from "back-end/src/services/sdkConnectionApprovals";
 import { validatePostPayload } from "./validations";
 
 export const postSdkConnection = createApiRequestHandler(
   postSdkConnectionValidator,
 )(async (req) => {
   const params = {
-    ...(await validatePostPayload(req.context, req.body)),
+    ...(await validatePostPayload(req.context, sdkWriteFields(req.body))),
     organization: req.context.org.id,
   };
 

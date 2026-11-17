@@ -141,6 +141,9 @@ describe("SDK Connection revision endpoints", () => {
       httpMethod: "POST",
       payloadFormat: "standard",
     });
+    // A write's response may be shown on a confirmation, so only reads carry
+    // the headers.
+    expect(webhook).not.toHaveProperty("headers");
 
     const edited = await request(app)
       .put(`${BASE}/${id}/${version}/webhooks/${webhook.id}`)
@@ -161,6 +164,9 @@ describe("SDK Connection revision endpoints", () => {
 
     const latest = await request(app).get(`${BASE}/${id}/latest`).set(auth);
     expect(latest.body.revision.version).toBe(version);
+    expect(latest.body.revision.proposedWebhooks[0].headers).toBe(
+      '{"X-Token":"abc"}',
+    );
 
     const published = await request(app)
       .post(`${BASE}/${id}/${version}/publish`)
@@ -289,7 +295,7 @@ describe("SDK Connection revision endpoints", () => {
     const live = await request(app)
       .delete(`/api/v1/sdk-connections/${id}`)
       .set(auth);
-    expect(live.status).toBe(400);
+    expect(live.status).toBe(403);
     expect(live.body.message).toMatch(/Archive the SDK Connection first/);
 
     const staged = await request(app)
@@ -533,7 +539,7 @@ describe("SDK Connection revision endpoints", () => {
       .post("/api/v1/sdk-connections")
       .send({ name: "Bad", language: "javascript", environment: "production" })
       .set(auth);
-    expect(badCreate.status).toBeGreaterThanOrEqual(400);
+    expect(badCreate.status).toBe(400);
     expect(badCreate.body.message).toContain("No bad names");
 
     const id = await createConnection();
@@ -542,7 +548,8 @@ describe("SDK Connection revision endpoints", () => {
       .put(`/api/v1/sdk-connections/${id}`)
       .send({ name: "Bad" })
       .set(auth);
-    expect(badUpdate.status).toBeGreaterThanOrEqual(400);
+    expect(badUpdate.status).toBe(400);
+    expect(badUpdate.body.message).toContain("No bad names");
     expect((await liveConnection(id))?.name).toBe("Web app");
 
     // A direct webhook write is a change to the connection too. Hooks never
@@ -573,7 +580,7 @@ describe("SDK Connection revision endpoints", () => {
       .put(`${BASE}/${id}/new/settings`)
       .send({ name: "Staged bad" })
       .set(auth);
-    expect(refused.status).toBeGreaterThanOrEqual(400);
+    expect(refused.status).toBe(400);
     expect(refused.body.message).toContain("No bad drafts");
     expect(lastArgs("revision")).toMatchObject({
       sdkConnection: { name: "Web app" },
@@ -602,17 +609,29 @@ describe("SDK Connection revision endpoints", () => {
     expect(lastArgs("revision").revision).not.toHaveProperty("target");
     expect((await liveConnection(id))?.name).toBe("Web app");
 
-    // Past a hook too, for someone who can bypass approvals everywhere.
+    // Past a hook too, for someone who can bypass approvals everywhere. The
+    // flag is part of every body that runs a hook, and no part of the change.
     useAdmin({}, { body: { skipHooks: true } });
     const direct = await request(app)
       .put(`/api/v1/sdk-connections/${id}`)
-      .send({ name: "Bad" })
+      .send({ name: "Bad", skipHooks: true })
       .set(auth);
     expect(direct.status).toBe(200);
     await request(app)
       .put(`/api/v1/sdk-connections/${id}`)
       .send({ name: "Web app" })
       .set(auth);
+    const forcedDraft = await request(app)
+      .put(`${BASE}/${id}/new/settings`)
+      .send({ name: "Staged bad", skipHooks: true })
+      .set(auth);
+    expect(forcedDraft.status).toBe(200);
+    expect(forcedDraft.body.revision.proposedSdkConnection).toMatchObject({
+      name: "Staged bad",
+    });
+    expect(forcedDraft.body.revision.proposedSdkConnection).not.toHaveProperty(
+      "skipHooks",
+    );
 
     const calls = mockRunInSandbox.mock.calls.length;
     const forced = await request(app)
@@ -644,6 +663,28 @@ describe("SDK Connection revision endpoints", () => {
     expect(lastArgs("revision").revision).toMatchObject({
       version: behind.body.revision.version,
       sdkConnection: { name: "Web app", includeRuleIds: true },
+    });
+
+    // A revert that publishes at once is a direct landing, not a draft.
+    await request(app)
+      .put(`/api/v1/sdk-connections/${id}`)
+      .send({ name: "Renamed" })
+      .set(auth);
+    const merged = await request(app)
+      .get(`${BASE}/${id}?status=merged`)
+      .set(auth);
+    const target = merged.body.revisions.find(
+      (r: { proposedSdkConnection: { name: string } }) =>
+        r.proposedSdkConnection.name === "Web app",
+    );
+    const reverted = await request(app)
+      .post(`${BASE}/${id}/${target.version}/revert`)
+      .send({ strategy: "publish" })
+      .set(auth);
+    expect(reverted.status).toBe(200);
+    expect(lastArgs("revision").revision).toMatchObject({
+      status: "merged",
+      sdkConnection: { name: "Web app" },
     });
   });
 });

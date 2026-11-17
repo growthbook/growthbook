@@ -1,4 +1,4 @@
-import { isEqual } from "lodash";
+import { isEqual, omit } from "lodash";
 import { z } from "zod";
 import {
   getSdkConnectionGoverningRules,
@@ -42,6 +42,17 @@ export function sdkConnectionReviewRules(
     proposedChanges,
   );
 }
+
+// A REST body's content, without the fields that steer the write.
+export const sdkWriteFields = <T extends object>(body: T) =>
+  omit(
+    body,
+    "bypassApproval",
+    "ignoreWarnings",
+    "skipHooks",
+    "revisionTitle",
+    "revisionComment",
+  );
 
 // The Vercel integration owns its webhooks and their payload format.
 export function assertSdkWebhookNotManaged(

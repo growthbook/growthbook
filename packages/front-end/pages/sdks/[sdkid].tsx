@@ -22,6 +22,7 @@ import {
   getSdkConnectionReviewRules,
   isScheduledPublishLockActive,
   sdkConnectionSettingsAfter,
+  withAbsentSdkSettings,
 } from "shared/enterprise";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { useAuth } from "@/services/auth";
@@ -45,7 +46,6 @@ import SDKConnectionEditsBar from "@/components/Features/SDKConnections/SDKConne
 import { useSdkConnectionStagedEdits } from "@/components/Features/SDKConnections/useSdkConnectionStagedEdits";
 import Tooltip from "@/ui/Tooltip";
 import SDKConnectionEditModal from "@/components/Features/SDKConnections/SDKConnectionEditModal";
-import { withAbsentSettings } from "@/components/Features/SDKConnections/sdkConnectionRules";
 import Badge from "@/ui/Badge";
 import Callout from "@/ui/Callout";
 import { TabsTrigger } from "@/ui/Tabs";
@@ -179,9 +179,7 @@ function flattenConnection(
   };
   return {
     sdkConnection: settings,
-    sdkWebhooks: webhooks.map((wh) =>
-      parseSdkWebhookSnapshot({ ...wh, httpMethod: wh.httpMethod ?? "POST" }),
-    ),
+    sdkWebhooks: webhooks.map((wh) => parseSdkWebhookSnapshot(wh)),
   };
 }
 
@@ -225,7 +223,7 @@ function buildDisplayedConnection(
     connection,
     isActiveDraftStatus(revision.status)
       ? settings
-      : withAbsentSettings(settings),
+      : withAbsentSdkSettings(settings),
   );
 }
 
@@ -267,7 +265,10 @@ export default function SDKConnectionPage() {
   };
   useEffect(() => {
     const hash = new URL(router.asPath, "http://x").hash.slice(1).split(",")[0];
-    const next = SDK_CONNECTION_TABS.find((t) => t === hash);
+    // Custom hooks are self-hosted only, so Cloud has no Validation tab.
+    const next = SDK_CONNECTION_TABS.find(
+      (t) => t === hash && !(t === "validation" && isCloud()),
+    );
     if (next) setTab(next);
   }, [router.asPath]);
 

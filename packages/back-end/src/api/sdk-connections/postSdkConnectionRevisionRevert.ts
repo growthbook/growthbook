@@ -173,7 +173,7 @@ export const postSdkConnectionRevisionRevert = createApiRequestHandler(
     context,
     loaded,
     null,
-    newDraft,
+    { ...newDraft, direct: true },
     () => patchOps,
   );
   return respond(

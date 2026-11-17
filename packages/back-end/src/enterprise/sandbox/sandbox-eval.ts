@@ -1,4 +1,4 @@
-import { omit, pick } from "lodash";
+import { omit, pick, union } from "lodash";
 import type {
   EventUser,
   SDKConnectionRevisionSnapshot,
@@ -8,6 +8,7 @@ import {
   CustomHookErrorDetail,
   CustomHookInterface,
   CustomHookType,
+  customHookEntityNoun,
   eventUserIdentity,
   hookEntityType,
   revisionActor,
@@ -525,9 +526,9 @@ export type ConfigRevisionHookInput = {
   activityLog?: { user?: EventUser }[];
 };
 
-// The `revision` argument a hook receives when a draft is published: the stored
-// fields plus who wrote it and each reviewer's verdict. Every entity's hook
-// gets this shape, so one approval policy can be written against all of them.
+// The `revision` details a hook receives: the stored fields plus who wrote it
+// and each reviewer's verdict. Every entity's hook gets this shape, so one
+// approval policy can be written against all of them.
 async function revisionHookArg(
   context: Context,
   revision: ConfigRevisionHookInput,
@@ -677,7 +678,11 @@ const sdkConnectionHookCall = ({
     context,
     "validateSdkConnection",
     sdkConnectionHookArgs(sdkConnection),
-    sdkConnection.sdkConnection.projects,
+    // A move answers to the Projects it leaves and the ones it enters.
+    union(
+      sdkConnection.sdkConnection.projects,
+      original?.sdkConnection.projects,
+    ),
     sdkConnection.sdkConnection.id,
     original ? sdkConnectionHookArgs(original) : undefined,
   ] as const;
@@ -733,7 +738,7 @@ async function sdkConnectionRevisionHookCall({
       ...liveArgs,
       revision: { ...details, ...sdkConnectionHookArgs(proposed) },
     },
-    live.sdkConnection.projects,
+    union(live.sdkConnection.projects, proposed.sdkConnection.projects),
     live.sdkConnection.id,
     { ...liveArgs, revision: { ...details, ...sdkConnectionHookArgs(before) } },
   ] as const;
@@ -764,13 +769,6 @@ export type CustomHookResults = {
   warnings: string[];
 };
 
-const entityNoun: Record<CustomHookEntityType, string> = {
-  feature: "Feature Flag",
-  config: "Config",
-  experiment: "experiment",
-  sdkConnection: "SDK Connection",
-};
-
 // Rejections show as written; failures collapse to one retry hint (detail stays in `details`).
 export function customHookErrorMessage(
   errors: CustomHookErrorDetail[],
@@ -779,7 +777,7 @@ export function customHookErrorMessage(
   const lines = errors.filter((e) => e.rejected).map((e) => e.message);
   if (errors.some((e) => !e.rejected)) {
     lines.push(
-      `Validation for this ${entityNoun[entityType]} failed unexpectedly. Try again, or check with your GrowthBook admins if it keeps happening.`,
+      `Validation for this ${customHookEntityNoun[entityType]} failed unexpectedly. Try again, or check with your GrowthBook admins if it keeps happening.`,
     );
   }
   return lines.join("\n");

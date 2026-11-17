@@ -25,11 +25,12 @@ import { pickSettingsSnapshot } from "back-end/src/revisions/adapters/sdk-connec
 import {
   assertCanChangeSdkWebhooks,
   assertSdkWebhookFields,
+  sdkWriteFields,
 } from "back-end/src/services/sdkConnectionApprovals";
 import {
   LoadedConnection,
   loadConnection,
-  loadDraft,
+  loadEdit,
   proposedSnapshot,
   stageDraftChanges,
   toApiSdkConnectionRevision,
@@ -82,11 +83,8 @@ function stageWebhooks(
     webhooks: SDKWebhookRevisionSnapshot[],
   ) => SDKWebhookRevisionSnapshot[],
 ) {
-  // Rows predating `httpMethod` lack it.
   const webhooksOf = (row: Revision | null) =>
-    editedSnapshot(loaded, row).sdkWebhooks.map((wh) =>
-      parseSdkWebhookSnapshot({ ...wh, httpMethod: wh.httpMethod ?? "POST" }),
-    );
+    editedSnapshot(loaded, row).sdkWebhooks.map(parseSdkWebhookSnapshot);
   const before = webhooksOf(draft);
   const { projects, environment } = loaded.connection;
   assertCanChangeSdkWebhooks(
@@ -130,10 +128,8 @@ export const putSdkConnectionRevisionSettings = createApiRequestHandler(
   putSdkConnectionRevisionSettingsValidator,
 )(async (req) => {
   const { context } = req;
-  const { revisionTitle, revisionComment, ...body } = req.body;
-  const loaded = await loadConnection(context, req.params.id);
+  const { loaded, draft } = await loadEdit(context, req.params);
   const { connection } = loaded;
-  const draft = await loadDraft(context, connection.id, req.params.version);
 
   // Validated as an edit to the settings the draft holds.
   const edited = editedSnapshot(loaded, draft).sdkConnection;
@@ -146,7 +142,11 @@ export const putSdkConnectionRevisionSettings = createApiRequestHandler(
       host: edited.proxyHost ?? "",
     },
   } as SDKConnectionInterface;
-  const params = await validatePutPayload(context, body, editedConnection);
+  const params = await validatePutPayload(
+    context,
+    sdkWriteFields(req.body),
+    editedConnection,
+  );
   // The plan is judged against live: only a setting live has on is kept.
   validatePremiumFeatures(context, params, connection);
   if (!context.permissions.canUpdateSDKConnection(connection, params)) {
@@ -157,7 +157,7 @@ export const putSdkConnectionRevisionSettings = createApiRequestHandler(
     context,
     loaded,
     draft,
-    { revisionTitle, revisionComment },
+    req.body,
     withLegacySavedGroupFlag(omitBy(params, isUndefined), editedConnection),
   );
   return { revision: await toApiSdkConnectionRevision(context, revision) };
@@ -167,15 +167,9 @@ export const putSdkConnectionRevisionArchive = createApiRequestHandler(
   putSdkConnectionRevisionArchiveValidator,
 )(async (req) => {
   const { context } = req;
-  const { archived, ...newDraft } = req.body;
-  const loaded = await loadConnection(context, req.params.id);
-  const draft = await loadDraft(
-    context,
-    loaded.connection.id,
-    req.params.version,
-  );
-  const revision = await stageSettings(context, loaded, draft, newDraft, {
-    archived,
+  const { loaded, draft } = await loadEdit(context, req.params);
+  const revision = await stageSettings(context, loaded, draft, req.body, {
+    archived: req.body.archived,
   });
   return { revision: await toApiSdkConnectionRevision(context, revision) };
 });
@@ -184,25 +178,19 @@ export const postSdkConnectionRevisionWebhook = createApiRequestHandler(
   postSdkConnectionRevisionWebhookValidator,
 )(async (req) => {
   const { context } = req;
-  const { revisionTitle, revisionComment, ...fields } = req.body;
-  const loaded = await loadConnection(context, req.params.id);
-  const draft = await loadDraft(
-    context,
-    loaded.connection.id,
-    req.params.version,
-  );
+  const fields = sdkWriteFields(req.body);
+  const { loaded, draft } = await loadEdit(context, req.params);
   assertSdkWebhookFields(fields);
   const webhook = parseSdkWebhookSnapshot({
     ...fields,
     id: uniqid("wh_"),
-    httpMethod: fields.httpMethod ?? "POST",
     payloadFormat: fields.payloadFormat ?? "standard",
   });
   const revision = await stageWebhooks(
     context,
     loaded,
     draft,
-    { revisionTitle, revisionComment },
+    req.body,
     (webhooks) => [...webhooks, webhook],
   );
   return { revision: await toApiSdkConnectionRevision(context, revision) };
@@ -212,19 +200,14 @@ export const putSdkConnectionRevisionWebhook = createApiRequestHandler(
   putSdkConnectionRevisionWebhookValidator,
 )(async (req) => {
   const { context } = req;
-  const { revisionTitle, revisionComment, ...fields } = req.body;
+  const fields = sdkWriteFields(req.body);
   const { webhookId } = req.params;
-  const loaded = await loadConnection(context, req.params.id);
-  const draft = await loadDraft(
-    context,
-    loaded.connection.id,
-    req.params.version,
-  );
+  const { loaded, draft } = await loadEdit(context, req.params);
   const revision = await stageWebhooks(
     context,
     loaded,
     draft,
-    { revisionTitle, revisionComment },
+    req.body,
     (webhooks) => {
       const old = draftWebhook(webhooks, webhookId);
       const next = parseSdkWebhookSnapshot({
@@ -243,12 +226,7 @@ export const deleteSdkConnectionRevisionWebhook = createApiRequestHandler(
 )(async (req) => {
   const { context } = req;
   const { webhookId } = req.params;
-  const loaded = await loadConnection(context, req.params.id);
-  const draft = await loadDraft(
-    context,
-    loaded.connection.id,
-    req.params.version,
-  );
+  const { loaded, draft } = await loadEdit(context, req.params);
   const revision = await stageWebhooks(
     context,
     loaded,
