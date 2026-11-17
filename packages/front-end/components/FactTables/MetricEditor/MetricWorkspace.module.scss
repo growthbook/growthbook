@@ -1,7 +1,7 @@
 .floatingActions {
   position: fixed;
-  top: 72px;
-  right: 16px;
+  top: calc(var(--page-top-offset) + var(--space-4));
+  right: var(--space-4);
   width: 380px;
   max-width: calc(100vw - 32px);
   padding: 16px;

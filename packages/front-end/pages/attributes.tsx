@@ -225,7 +225,9 @@ function buildAttributeColumns<T extends SDKAttribute>({
       id: "description",
       label: "Description",
       sortField: "description",
-      defaultWidth: 360,
+      // The Identifiers table's default columns fit beside the side nav in a
+      // 1440px window, scrollbar included.
+      defaultWidth: 310,
       cellProps: () => ({ className: "text-gray" }),
       render: (v) =>
         v.description ? (
