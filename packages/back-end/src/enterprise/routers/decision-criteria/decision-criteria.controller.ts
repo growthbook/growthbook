@@ -6,6 +6,7 @@ import {
 } from "shared/enterprise";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { getContextFromReq } from "back-end/src/services/organizations";
+import { NotFoundError } from "back-end/src/util/errors";
 
 /**
  * GET /decision-criteria
@@ -48,7 +49,7 @@ export const getDecisionCriteriaById = async (
   );
 
   if (!decisionCriteria) {
-    throw new Error("Could not find decision criteria with that id");
+    throw new NotFoundError("Could not find decision criteria with that id");
   }
 
   res.status(200).json({
@@ -103,7 +104,7 @@ export const deleteDecisionCriteria = async (
   );
 
   if (!decisionCriteria) {
-    throw new Error("Could not find decision criteria with that id");
+    throw new NotFoundError("Could not find decision criteria with that id");
   }
 
   await context.models.decisionCriteria.deleteById(req.params.id);
@@ -130,7 +131,7 @@ export const putDecisionCriteria = async (
     await context.models.decisionCriteria.getById(req.params.id);
 
   if (!existingDecisionCriteria) {
-    throw new Error("Could not find decision criteria with that id");
+    throw new NotFoundError("Could not find decision criteria with that id");
   }
 
   // Update the decision criteria

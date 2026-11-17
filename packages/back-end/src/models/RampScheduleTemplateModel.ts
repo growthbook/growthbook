@@ -155,6 +155,7 @@ export class RampScheduleTemplateModel extends BaseClass {
   ) {
     const { id } = req.params as { id: string };
     const existing = await this.getById(id);
+    if (!existing) req.context.throwNotFoundError();
     const toUpdate = (await withInternalMonitoringConfig(
       this.context,
       req.body as Omit<

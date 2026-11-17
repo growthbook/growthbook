@@ -12,6 +12,7 @@ import {
   FeatureRevisionLogInterface,
   featureRevisionLogValidator,
 } from "back-end/src/validators/feature-revision-log";
+import { NotFoundError } from "back-end/src/util/errors";
 import { MakeModelClass } from "./BaseModel";
 
 export const COLLECTION_NAME = "featurerevisionlog";
@@ -139,7 +140,7 @@ export class FeatureRevisionLogModel extends BaseClass {
       existing.featureId !== scope.featureId ||
       existing.version !== scope.version
     ) {
-      throw new Error("Could not find revision log entry");
+      throw new NotFoundError("Could not find revision log entry");
     }
   }
 
@@ -153,7 +154,7 @@ export class FeatureRevisionLogModel extends BaseClass {
   ) {
     const existing = await this.getById(id);
     if (!existing) {
-      throw new Error("Could not find revision log entry");
+      throw new NotFoundError("Could not find revision log entry");
     }
     this.assertEntryInScope(existing, scope);
     let payload: Record<string, unknown> = {};

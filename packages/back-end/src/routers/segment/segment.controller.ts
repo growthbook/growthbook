@@ -23,6 +23,7 @@ import {
   deleteExperimentSegment,
   getExperimentsUsingSegment,
 } from "back-end/src/models/ExperimentModel";
+import { NotFoundError } from "back-end/src/util/errors";
 
 // region GET /segments
 
@@ -86,7 +87,7 @@ export const getSegmentUsage = async (
   const segment = await context.models.segments.getById(id);
 
   if (!segment) {
-    throw new Error("Could not find segment");
+    throw new NotFoundError("Could not find segment");
   }
   const query: FilterQuery<IdeaDocument> = {
     organization: org.id,
@@ -221,7 +222,7 @@ export const putSegment = async (
   const segment = await context.models.segments.getById(id);
 
   if (!segment) {
-    throw new Error("Could not find segment");
+    throw new NotFoundError("Could not find segment");
   }
   if (segment.organization !== org.id) {
     throw new Error("You don't have access to that segment");
@@ -294,7 +295,7 @@ export const deleteSegment = async (
   const segment = await context.models.segments.getById(id);
 
   if (!segment) {
-    throw new Error("Could not find segment");
+    throw new NotFoundError("Could not find segment");
   }
   if (!context.permissions.canDeleteSegment(segment)) {
     context.permissions.throwPermissionError();

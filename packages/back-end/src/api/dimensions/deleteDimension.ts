@@ -5,6 +5,7 @@ import {
   hasDimensionDatasourceAccess,
   deleteDimensionById,
 } from "back-end/src/models/DimensionModel";
+import { NotFoundError } from "back-end/src/util/errors";
 
 export const deleteDimension = createApiRequestHandler(
   deleteDimensionValidator,
@@ -17,7 +18,7 @@ export const deleteDimension = createApiRequestHandler(
   const dimension = await findDimensionById(req.params.id, organization);
 
   if (!dimension) {
-    throw new Error("Could not find dimension with that id");
+    throw new NotFoundError("Could not find dimension with that id");
   }
   if (!(await hasDimensionDatasourceAccess(req.context, dimension))) {
     throw new Error("You don't have access to this dimension");

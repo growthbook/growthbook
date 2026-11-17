@@ -39,6 +39,7 @@ import {
 import { getFeature } from "back-end/src/models/FeatureModel";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import { findRecentAuditByUserIdAndOrganization } from "back-end/src/models/AuditModel";
+import { NotFoundError } from "back-end/src/util/errors";
 
 function isValidWatchEntityType(type: string): boolean {
   if (type === "experiment" || type === "feature") {
@@ -357,7 +358,7 @@ export async function postWatchItem(
     }
   }
   if (!item) {
-    throw new Error(`Could not find ${item}`);
+    throw new NotFoundError(`Could not find ${item}`);
   }
 
   await context.models.watch.upsertWatch({

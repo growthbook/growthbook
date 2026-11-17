@@ -9,6 +9,7 @@ import {
   createVisualChange,
   findVisualChangesetById,
 } from "back-end/src/models/VisualChangesetModel";
+import { NotFoundError } from "back-end/src/util/errors";
 
 export const postVisualChange = createApiRequestHandler(
   postVisualChangeValidator,
@@ -18,7 +19,7 @@ export const postVisualChange = createApiRequestHandler(
     req.organization.id,
   );
   if (!visualChangeset) {
-    throw new Error("Visual Changeset not found");
+    throw new NotFoundError("Visual Changeset not found");
   }
 
   // The opt-in flag gates the write; it is not part of the visual change.

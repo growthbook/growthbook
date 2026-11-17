@@ -216,10 +216,12 @@ export class ExperimentTemplatesModel extends BaseClass {
     req: Parameters<InstanceType<typeof BaseClass>["handleApiUpdate"]>[0],
   ) {
     const { id } = req.params as { id: string };
+    const existing = await this.getById(id);
+    if (!existing) req.context.throwNotFoundError();
     const toUpdate = (await toTemplateWriteBody(
       this.context,
       req.body,
-      await this.getById(id),
+      existing,
     )) as UpdateProps<ExperimentTemplateInterface>;
     return resolveOwnerEmail(
       this.toApiInterface(await this.updateById(id, toUpdate)),

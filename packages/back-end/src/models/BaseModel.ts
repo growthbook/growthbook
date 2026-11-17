@@ -628,6 +628,7 @@ export abstract class BaseModel<
     >,
   ): Promise<z.infer<ApiT>> {
     const { id } = req.params as { id: string };
+    if (!(await this.getById(id))) req.context.throwNotFoundError();
     const rawBody = req.body;
     const toUpdate = await this.processApiUpdateBody(rawBody);
     return resolveOwnerEmail(
