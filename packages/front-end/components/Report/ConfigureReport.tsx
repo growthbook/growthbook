@@ -523,6 +523,9 @@ export default function ConfigureReport({
           </TabsContent>
 
           <TabsContent value="metrics">
+            <IneligibleClusterMetricsCallouts
+              ineligible={ineligibleClusterMetrics}
+            />
             <ExperimentMetricsSelector
               datasource={form.watch("experimentAnalysisSettings.datasource")}
               exposureQueryId={form.watch(
