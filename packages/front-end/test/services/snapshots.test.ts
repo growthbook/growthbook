@@ -8,6 +8,7 @@ import {
   getResultsFreshness,
   getSnapshotFreshnessInputs,
   isAwaitingSelectedAnalysis,
+  showSameResults,
 } from "@/services/snapshots";
 
 describe("getResultsFreshness", () => {
@@ -204,5 +205,38 @@ describe("isAwaitingSelectedAnalysis", () => {
     expect(isAwaitingSelectedAnalysis(snapshotWith(), otherBaseline)).toBe(
       false,
     );
+  });
+});
+
+describe("showSameResults", () => {
+  const view = { experiment: "exp_1", phase: 1, dimension: null };
+
+  it("matches two snapshots of one experiment, phase and dimension", () => {
+    expect(showSameResults(view, { ...view })).toBe(true);
+  });
+
+  it("treats a missing dimension as the Overall results", () => {
+    expect(
+      showSameResults(view, {
+        experiment: "exp_1",
+        phase: 1,
+      } as Pick<
+        ExperimentSnapshotInterface,
+        "experiment" | "phase" | "dimension"
+      >),
+    ).toBe(true);
+  });
+
+  it("tells another experiment, phase or dimension apart", () => {
+    expect(showSameResults(view, { ...view, experiment: "exp_2" })).toBe(false);
+    expect(showSameResults(view, { ...view, phase: 0 })).toBe(false);
+    expect(showSameResults(view, { ...view, dimension: "exp:country" })).toBe(
+      false,
+    );
+  });
+
+  it("matches nothing when either snapshot is missing", () => {
+    expect(showSameResults(undefined, view)).toBe(false);
+    expect(showSameResults(view, undefined)).toBe(false);
   });
 });

@@ -20,7 +20,10 @@ import {
 import { getSnapshotAnalysis } from "shared/util";
 import useApi from "@/hooks/useApi";
 import { useAuth } from "@/services/auth";
-import { isAwaitingSelectedAnalysis } from "@/services/snapshots";
+import {
+  isAwaitingSelectedAnalysis,
+  showSameResults,
+} from "@/services/snapshots";
 import {
   useCoherentLatest,
   useRefetchHeavyOnStatusSuccess,
@@ -231,7 +234,12 @@ export default function SnapshotProvider({
   useEffect(() => {
     if (!awaitingSelectedAnalysis) setShownData(data);
   }, [data, awaitingSelectedAnalysis]);
-  const displayedData = awaitingSelectedAnalysis ? shownData : data;
+  // The results shown before can belong to another experiment, phase or
+  // dimension when the user navigated here with a selection still set.
+  const keepShownData =
+    awaitingSelectedAnalysis &&
+    showSameResults(shownData?.snapshot, data?.snapshot);
+  const displayedData = keepShownData ? shownData : data;
 
   const statusLatest = statusData?.latest ?? undefined;
   useRefetchHeavyOnStatusSuccess(

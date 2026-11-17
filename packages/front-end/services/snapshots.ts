@@ -63,6 +63,24 @@ export function isAwaitingSelectedAnalysis(
   );
 }
 
+type ResultsView = Pick<
+  ExperimentSnapshotInterface,
+  "experiment" | "phase" | "dimension"
+>;
+
+export function showSameResults(
+  a: ResultsView | undefined,
+  b: ResultsView | undefined,
+): boolean {
+  return (
+    !!a &&
+    !!b &&
+    a.experiment === b.experiment &&
+    a.phase === b.phase &&
+    (a.dimension ?? null) === (b.dimension ?? null)
+  );
+}
+
 export function getSnapshotFreshnessInputs(
   snapshot: Pick<
     ExperimentSnapshotInterface,
