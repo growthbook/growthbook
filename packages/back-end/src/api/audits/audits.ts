@@ -15,10 +15,7 @@ import {
   getNextDateCursor,
   parseDateCursor,
 } from "back-end/src/util/dateCursor";
-import {
-  canReadApiKeyHistory,
-  getApiKeyIdsHiddenFromKeyViewers,
-} from "back-end/src/services/apiKeyHistory";
+import { getAuditHistoryExcludeIds } from "back-end/src/services/auditHistory";
 import { ApiReqContext } from "back-end/types/api";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 
@@ -57,32 +54,13 @@ export const listAudits = createApiRequestHandler(listAuditsValidator)(async (
   req,
 ) => {
   const { context } = req;
-  assertCanViewAuditLogs(context);
   const { entityType, entityId, before } = req.query;
-  // Same API key and Project read rules as the app's History tab
-  if (
-    entityType === "apiKey" &&
-    !(await canReadApiKeyHistory(context, entityId))
-  ) {
-    context.permissions.throwPermissionError();
-  }
-  if (
-    entityType === "project" &&
-    entityId &&
-    !context.permissions.canReadSingleProjectResource(entityId)
-  ) {
-    context.permissions.throwPermissionError();
-  }
-  const excludeIds =
-    entityType === "project"
-      ? (await context.getAllProjectIds()).filter(
-          (p) => !context.permissions.canReadSingleProjectResource(p),
-        )
-      : entityType === "apiKey" &&
-          !entityId &&
-          !context.permissions.canManagePersonalAccessTokens()
-        ? await getApiKeyIdsHiddenFromKeyViewers(context)
-        : [];
+  // Same read rules as the app's History tab
+  const excludeIds = await getAuditHistoryExcludeIds(
+    context,
+    entityType,
+    entityId,
+  );
 
   const { events, nextCursor } = await getAuditHistory(
     context.org.id,

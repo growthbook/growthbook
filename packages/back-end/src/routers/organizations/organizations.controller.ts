@@ -158,10 +158,7 @@ import {
   hasNonDemoExperiment,
 } from "back-end/src/models/ExperimentModel";
 import { getAuditHistory } from "back-end/src/models/AuditModel";
-import {
-  canReadApiKeyHistory,
-  getApiKeyIdsHiddenFromKeyViewers,
-} from "back-end/src/services/apiKeyHistory";
+import { getAuditHistoryExcludeIds } from "back-end/src/services/auditHistory";
 import { fireSdkWebhook } from "back-end/src/jobs/sdkWebhooks";
 import {
   getInstallationName,
@@ -298,31 +295,7 @@ export async function getHistory(
     });
   }
 
-  // API key history can expose roles/scope/descriptions, so it needs the same
-  // permission as listing the key. Other entity types keep their org-scoped access.
-  if (type === "apiKey" && !(await canReadApiKeyHistory(context, id))) {
-    context.permissions.throwPermissionError();
-  }
-  if (
-    type === "project" &&
-    id &&
-    !context.permissions.canReadSingleProjectResource(id)
-  ) {
-    context.permissions.throwPermissionError();
-  }
-
-  // Leave out Projects the user can't read; deleted ones stay visible.
-  // Members' tokens share the apiKey log, so leave them out unless the user manages them.
-  const excludeIds =
-    type === "project"
-      ? (await context.getAllProjectIds()).filter(
-          (p) => !context.permissions.canReadSingleProjectResource(p),
-        )
-      : type === "apiKey" &&
-          !id &&
-          !context.permissions.canManagePersonalAccessTokens()
-        ? await getApiKeyIdsHiddenFromKeyViewers(context)
-        : [];
+  const excludeIds = await getAuditHistoryExcludeIds(context, type, id);
 
   const history = await getAuditHistory(
     context.org.id,
