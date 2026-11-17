@@ -1151,33 +1151,12 @@ export abstract class QueryRunner<
       }
     };
 
-    withSpan(
-      `query ${doc.queryType || "unknown"}`,
-      {
-        kind: SpanKind.CLIENT,
-        attributes: {
-          "db.system.name": this.integration.datasource.type,
-          "db.query.text": doc.query,
-          "growthbook.organization": this.context.org.id,
-          "growthbook.datasource": this.integration.datasource.id,
-          "growthbook.query.id": doc.id,
-          "growthbook.query.type": doc.queryType || "unknown",
-        },
-      },
-      async (span) => {
-        const response = await run(doc.query, setExternalId, {
-          ...metadata,
-          queryType: doc.queryType || "unknown",
-          queryId: doc.id,
-        });
-        span.setAttribute("db.response.returned_rows", response.rows.length);
-        for (const [key, value] of Object.entries(response.statistics ?? {})) {
-          if (value !== undefined)
-            span.setAttribute(`db.statistics.${key}`, value);
-        }
-        return response;
-      },
-    )
+    const tracedRun = this.withQuerySpan(doc, run);
+    tracedRun(doc.query, setExternalId, {
+      ...metadata,
+      queryType: doc.queryType || "unknown",
+      queryId: doc.id,
+    })
       .then(async ({ rows, statistics }) => {
         clearInterval(timer);
         logger.debug("Query succeeded: " + doc.id);
@@ -1213,6 +1192,42 @@ export abstract class QueryRunner<
           logger.error(err);
         }
       });
+  }
+
+  private withQuerySpan<Rows extends RowsType>(
+    doc: QueryInterface,
+    run: (
+      query: string,
+      setExternalId: ExternalIdCallback,
+      queryMetadata: RunQueryMetadata,
+    ) => Promise<QueryResponse<Rows>>,
+  ): typeof run {
+    return (query, setExternalId, queryMetadata) =>
+      withSpan(
+        `query ${doc.queryType || "unknown"}`,
+        {
+          kind: SpanKind.CLIENT,
+          attributes: {
+            "db.system.name": this.integration.datasource.type,
+            "db.query.text": query,
+            "growthbook.organization": this.context.org.id,
+            "growthbook.datasource": this.integration.datasource.id,
+            "growthbook.query.id": doc.id,
+            "growthbook.query.type": doc.queryType || "unknown",
+          },
+        },
+        async (span) => {
+          const response = await run(query, setExternalId, queryMetadata);
+          span.setAttribute("db.response.returned_rows", response.rows.length);
+          for (const [key, value] of Object.entries(
+            response.statistics ?? {},
+          )) {
+            if (value !== undefined)
+              span.setAttribute(`db.statistics.${key}`, value);
+          }
+          return response;
+        },
+      );
   }
 
   public async startQuery<
