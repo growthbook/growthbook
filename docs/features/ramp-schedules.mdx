@@ -29,7 +29,9 @@ Each step also has an **Action** that controls when it advances:
 
 When a step's Action clears, GrowthBook applies the step's changes to the rule and starts the next step. Each advance publishes a new feature revision automatically, so your SDKs pick up the change through the normal feature payload.
 
-If a schedule falls behind (for example, background processing was interrupted past several steps' hold times — pausing doesn't cause this, since pause shifts the timers), the overdue steps are caught up in a **single** advance: one revision publish (labeled with the folded range, such as "Ramp steps 4–12 of 20") and one webhook whose `previousStepIndex` shows the gap — `rampSchedule.actions.step.advanced`, or `rampSchedule.actions.completed` when the fold finishes the ramp. Consumers mirroring ramp progress should diff `currentStepIndex - previousStepIndex` rather than counting events. Approval and monitored steps are never skipped by a catch-up — the schedule always stops at them.
+If a schedule falls behind (for example, background processing was interrupted past several steps' hold times — pausing or a retried step doesn't cause this, since both shift the timers), the overdue steps are caught up in a **single** advance: one revision publish (labeled with the folded range, such as "Ramp steps 4–12 of 20") and one webhook whose `previousStepIndex` shows the gap — `rampSchedule.actions.step.advanced`, or `rampSchedule.actions.completed` when the fold finishes the ramp. Consumers mirroring ramp progress should diff `currentStepIndex - previousStepIndex` rather than counting events. Approval and monitored steps are never skipped by a catch-up — the schedule always stops at them.
+
+If a step fails to apply for a reason that can clear on its own, such as a database timeout or a concurrent edit to the Feature Flag, the schedule holds at its current step and retries: after 5 seconds, 10 seconds, 30 seconds and 1 minute, then at doubling intervals up to every 30 minutes. Time spent retrying counts like a pause: once the step lands, the steps after it keep their full hold times rather than catching up. A retry never waits past the schedule's end date. The rule shows **Ramp retrying** with the error, and **Retry now** makes the next attempt immediately. The first failure sends `rampSchedule.actions.stepRetrying` with the next attempt's time, and a retry that succeeds sends `rampSchedule.actions.stepRecovered`. After 10 failed attempts, about an hour, the schedule pauses and sends `rampSchedule.actions.errorPaused`; fix the cause, then resume it. A step the engine refuses outright, such as invalid targeting or a rule that no longer exists, pauses the schedule right away.
 
 The grid always ends with an **end** row, set to 100% by default. That is the state the rule lands in when the schedule finishes; open its menu to attach final rule changes, such as removing targeting.
 
@@ -140,16 +142,16 @@ Once started, a schedule reports its status and progress on the feature's rule.
   <img src="/static/images/features/ramp-schedule-timeline.webp" alt="A running ramp schedule on a feature rule, showing the current rollout percentage, the served value, the current step, time remaining, and the step timeline" width="800" />
 </Frame>
 
-| Status        | Meaning                                                         |
-| ------------- | --------------------------------------------------------------- |
-| `pending`     | Created but not yet armed. Publish the revision to start.       |
-| `ready`       | Armed and waiting for the start date.                           |
-| `running`     | Actively advancing through steps.                               |
-| `paused`      | Halted by a user or a `hold` health action. Resume to continue. |
-| `completed`   | All steps applied and the end state set.                        |
-| `rolled-back` | Returned to the pre-ramp state.                                 |
+| Status        | Meaning                                                                                    |
+| ------------- | ------------------------------------------------------------------------------------------ |
+| `pending`     | Created but not yet armed. Publish the revision to start.                                  |
+| `ready`       | Armed and waiting for the start date.                                                      |
+| `running`     | Actively advancing through steps.                                                          |
+| `paused`      | Halted by a user, a `hold` health action, or a step that kept failing. Resume to continue. |
+| `completed`   | All steps applied and the end state set.                                                   |
+| `rolled-back` | Returned to the pre-ramp state.                                                            |
 
-From the UI or API you can start, pause, resume, manually advance, jump to a specific step, approve a gated step, roll back to the pre-ramp state, or restart a finished schedule. Every transition is recorded in the schedule's event history.
+From the UI or API you can start, pause, resume, retry a failed step, manually advance, jump to a specific step, approve a gated step, roll back to the pre-ramp state, or restart a finished schedule. Every transition is recorded in the schedule's event history.
 
 ### Editing a rule under a running schedule
 
@@ -196,7 +198,7 @@ To change the plan on a rule that already has a schedule, stage a new one the sa
 
 A ramp that sets partial coverage on a **force** rule turns it into a rollout when it starts, so it needs an attribute to hash on. If the rule does not already have one, name it in the plan's start state, for example `"startState": { "hashAttribute": "id" }`; the request is refused otherwise. `seed` and `hashVersion` can be set there too and default to the rule id and version 2.
 
-Once a schedule is live, operate it with the lifecycle actions under `/api/v1/ramp-schedules/{id}/actions/…` (`start`, `pause`, `resume`, `advance`, `approve-step`, `rollback`, `complete`, `restart`, `eject-target`) or delete it. These run or end the reviewed plan and are never review-gated. Editing the rule itself follows the [base state rules](#editing-a-rule-under-a-running-schedule): a publish is refused while the schedule is running (pause first) and for a field a step sets, and otherwise updates the schedule's `startActions`. Look up the schedule id from the rule's `rampScheduleId` field or with `GET /api/v1/ramp-schedules?ruleId=…`.
+Once a schedule is live, operate it with the lifecycle actions under `/api/v1/ramp-schedules/{id}/actions/…` (`start`, `pause`, `resume`, `retry`, `advance`, `approve-step`, `rollback`, `complete`, `restart`, `eject-target`) or delete it. These run or end the reviewed plan and are never review-gated. Editing the rule itself follows the [base state rules](#editing-a-rule-under-a-running-schedule): a publish is refused while the schedule is running (pause first) and for a field a step sets, and otherwise updates the schedule's `startActions`. Look up the schedule id from the rule's `rampScheduleId` field or with `GET /api/v1/ramp-schedules?ruleId=…`.
 
 The `/api/v1/ramp-schedules` endpoints can also create a schedule attached to a rule, add a target, or edit an attached schedule's steps and dates directly, without a revision. Because that skips review, those operations are only available to credentials that may bypass approval whenever the organization requires review anywhere; other callers receive a `403` pointing at the revision endpoint above. See the [API reference](/api) for the full set of endpoints.
 

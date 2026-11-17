@@ -531,6 +531,8 @@ describe("sdk-connections API", () => {
         environment: org.environments[0].id,
         projects: [],
         name: "renamed-connection",
+        // The write is judged still ours by this matching what is read back.
+        dateUpdated: existing.dateUpdated,
       });
       editSDKConnection.mockResolvedValue(updated);
 

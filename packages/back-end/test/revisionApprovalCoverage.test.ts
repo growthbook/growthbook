@@ -1,6 +1,12 @@
 import type { Revision } from "shared/types/revision";
-import { revisionApprovalsCoverChange } from "back-end/src/revisions/revisionActions";
+import type { OrganizationInterface } from "shared/types/organization";
+import { Permissions } from "shared/permissions";
+import {
+  canRevisionOwnedAction,
+  revisionApprovalsCoverChange,
+} from "back-end/src/revisions/revisionActions";
 import type { Context } from "back-end/src/models/BaseModel";
+import { getUserPermissions } from "back-end/src/util/organization.util";
 
 // A saved group belongs to many projects, and authority over it is the
 // intersection — so the coverage check must not read only the first.
@@ -198,5 +204,105 @@ describe("a multi-project entity needs authority in every project", () => {
 
     expect(result.hasCoveringApproval).toBe(false);
     expect(result.uncoveredApprovers).toEqual(["u_rev"]);
+  });
+});
+
+// A move answers to the destination's approval rules, so its reviewers too.
+const sdkContext = (projectsWithReview: string[]): Context => {
+  const org = {
+    id: "org_1",
+    settings: { environments: [{ id: "dev" }, { id: "production" }] },
+    customRoles: [
+      {
+        id: "sdk_manager",
+        description: "",
+        policies: ["SDKConnectionsFullAccess"],
+      },
+    ],
+    members: [
+      {
+        id: "u_rev",
+        role: "noaccess",
+        limitAccessByEnvironment: false,
+        environments: [],
+        projectRoles: projectsWithReview.map((project) => ({
+          project,
+          role: "sdk_manager",
+          limitAccessByEnvironment: false,
+          environments: [],
+        })),
+      },
+    ],
+  } as unknown as OrganizationInterface;
+  return {
+    org,
+    teams: [],
+    permissions: new Permissions(getUserPermissions({ id: "u_rev" }, org, [])),
+  } as unknown as Context;
+};
+
+const sdkConnection = {
+  id: "sdk_1",
+  name: "Web",
+  environment: "production",
+  projects: ["prj_a"],
+};
+
+const sdkRevision = (proposedProjects: string[]): Revision =>
+  ({
+    status: "approved",
+    reviews: [{ userId: "u_rev", decision: "approve" }],
+    target: {
+      type: "sdk-connection",
+      snapshot: { sdkConnection, sdkWebhooks: [] },
+      proposedChanges: [
+        {
+          op: "replace",
+          path: "/sdkConnection",
+          value: { ...sdkConnection, projects: proposedProjects },
+        },
+      ],
+    },
+  }) as unknown as Revision;
+
+describe("an SDK connection move needs review authority on both sides", () => {
+  it("counts an approval that covers source and destination", async () => {
+    const r = sdkRevision(["prj_b"]);
+    const context = sdkContext(["prj_a", "prj_b"]);
+
+    expect(canRevisionOwnedAction(context, r, "review")).toBe(true);
+    expect(
+      (await revisionApprovalsCoverChange(context, r)).hasCoveringApproval,
+    ).toBe(true);
+  });
+
+  it("refuses and discounts a reviewer who manages only the source", async () => {
+    const r = sdkRevision(["prj_b"]);
+    const context = sdkContext(["prj_a"]);
+    const result = await revisionApprovalsCoverChange(context, r);
+
+    expect(canRevisionOwnedAction(context, r, "review")).toBe(false);
+    expect(result.hasCoveringApproval).toBe(false);
+    expect(result.uncoveredApprovers).toEqual(["u_rev"]);
+  });
+
+  it("refuses a reviewer who manages only the destination", async () => {
+    const r = sdkRevision(["prj_b"]);
+    const context = sdkContext(["prj_b"]);
+
+    expect(canRevisionOwnedAction(context, r, "review")).toBe(false);
+    expect(
+      (await revisionApprovalsCoverChange(context, r)).hasCoveringApproval,
+    ).toBe(false);
+  });
+
+  it("needs only the source when the connection stays put", async () => {
+    const r = sdkRevision(["prj_a"]);
+    const context = sdkContext(["prj_a"]);
+
+    expect(canRevisionOwnedAction(context, r, "review")).toBe(true);
+    expect(
+      (await revisionApprovalsCoverChange(context, r)).hasCoveringApproval,
+    ).toBe(true);
   });
 });

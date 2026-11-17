@@ -39,9 +39,7 @@ export function valueFromConnection(
 }
 
 // What a form value saves as.
-export function sdkConnectionBody(
-  v: SDKConnectionFormValue,
-): Record<string, unknown> {
+export function sdkConnectionBody(v: SDKConnectionFormValue) {
   const { latestCaps: latestCapabilities, currentCaps: currentCapabilities } =
     connectionCapabilities(v);
   // An SDK that can't read a secured payload gets a plain one, whatever

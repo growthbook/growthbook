@@ -743,9 +743,10 @@ export function mergeNestedBranch(
       return null;
     }
     const merged: Record<string, unknown> = {};
+    // Live's key order first, so a diff against live shows no reordering.
     for (const key of new Set([
-      ...Object.keys(b),
       ...Object.keys(l),
+      ...Object.keys(b),
       ...Object.keys(p),
     ])) {
       const value = pick(key, b[key], l[key], p[key]);
@@ -1202,6 +1203,24 @@ export const getSdkConnectionReviewRules = (
   return isSdkConnectionRevisionMetadataOnly(proposedChanges, baseline)
     ? rules.filter((r) => r.requireMetadataReview !== false)
     : rules;
+};
+
+// The Projects an approver must cover: for a connection draft that moves it,
+// where it leaves and where it lands. Empty means every Project.
+export const reviewCoverageProjects = (
+  type: string,
+  snapshot: unknown,
+  proposedChanges: unknown,
+): string[] => {
+  const before = entityProjects(snapshot);
+  if (type !== "sdk-connection") return before;
+  const after =
+    sdkConnectionSettingsAfter(
+      snapshot as { sdkConnection?: SdkConnectionApprovalScope },
+      proposedChanges,
+    ).projects ?? [];
+  if (!before.length || !after.length) return [];
+  return [...new Set([...before, ...after])];
 };
 
 export const orgHasAnySdkConnectionApproval = (

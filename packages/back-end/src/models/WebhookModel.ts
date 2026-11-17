@@ -452,17 +452,26 @@ export class SdkWebhookModel extends BaseClass {
     return (await this.getById(webhook.id)) ?? webhook;
   }
 
-  // A person's edit, direct or landed from a draft: sent once it's saved.
+  // A draft's edit is saved without sending; its landing sends once it stands.
+  public async saveEdit(
+    webhook: WebhookInterface,
+    updates: UpdateProps<WebhookInterface>,
+  ): Promise<WebhookInterface> {
+    return this.update(webhook, sdkWebhookEditUpdates(webhook, updates));
+  }
+
+  // A person's direct edit: sent once it's saved.
   public async applyEdit(
     webhook: WebhookInterface,
     updates: UpdateProps<WebhookInterface>,
   ): Promise<WebhookInterface> {
-    const updated = await this.update(
-      webhook,
-      sdkWebhookEditUpdates(webhook, updates),
-    );
-    fireSdkWebhook(this.context, updated).catch(() => undefined);
+    const updated = await this.saveEdit(webhook, updates);
+    this.send(updated);
     return updated;
+  }
+
+  public send(webhook: WebhookInterface) {
+    fireSdkWebhook(this.context, webhook).catch(() => undefined);
   }
 
   public async apiListForConnection(

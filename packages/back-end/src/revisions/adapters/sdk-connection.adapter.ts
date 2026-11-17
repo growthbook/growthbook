@@ -43,6 +43,11 @@ import {
 } from "back-end/src/models/SdkConnectionModel";
 import { ConflictError } from "back-end/src/util/errors";
 import {
+  captureEventBuffer,
+  emitOrDeferBulkPublishEvent,
+  entityKey,
+} from "back-end/src/events/bulkPublishCorrelation";
+import {
   assertCanChangeSdkWebhooks,
   assertSdkWebhookFields,
   assertSdkWebhookNotManaged,
@@ -60,6 +65,24 @@ function loadValidations(): Promise<SdkConnectionValidations> {
 // Likewise for the hook runner.
 function loadHooks() {
   return import("back-end/src/enterprise/sandbox/sandbox-eval");
+}
+
+// Run once the landing stands. A payload rebuild it queued for the connection
+// sends every webhook itself, after the new payload is cached.
+function sendLandedWebhookEdits(
+  context: Context,
+  connection: SDKConnectionInterface,
+  webhooks: WebhookInterface[],
+) {
+  const refresh = context.sdkPayloadRefreshBuffer;
+  if (
+    refresh &&
+    !refresh.closed &&
+    refresh.sdkConnections?.some((c) => c.key === connection.key)
+  ) {
+    return;
+  }
+  webhooks.forEach((w) => context.models.sdkWebhooks.send(w));
 }
 
 const SETTINGS_ALLOWED_KEYS = Object.keys(
@@ -406,6 +429,24 @@ export const sdkConnectionAdapter: EntityRevisionAdapter<SDKConnectionRevisionSn
       proposedChanges: unknown,
     ): PublishFootprint {
       return sdkConnectionPublishFootprint(snapshot, proposedChanges);
+    },
+
+    // The destination's approval rules apply to a move, so its reviewers must too.
+    reviewScopes(
+      snapshot: SDKConnectionRevisionSnapshot,
+      proposedChanges: unknown,
+    ): SDKConnectionRevisionSnapshot[] {
+      const before = snapshot.sdkConnection.projects ?? [];
+      const after =
+        sdkConnectionSettingsAfter(snapshot, proposedChanges).projects ?? [];
+      if (isEqual([...before].sort(), [...after].sort())) return [snapshot];
+      return [
+        snapshot,
+        {
+          ...snapshot,
+          sdkConnection: { ...snapshot.sdkConnection, projects: after },
+        },
+      ];
     },
 
     archivedState(snapshot, proposedChanges) {
@@ -795,6 +836,7 @@ export const sdkConnectionAdapter: EntityRevisionAdapter<SDKConnectionRevisionSn
           recordWebhooks();
         }
 
+        const edited: WebhookInterface[] = [];
         for (const newWh of newWebhooks) {
           const oldWh = oldById.get(newWh.id);
           if (!oldWh || isEqual(newWh, oldWh)) continue;
@@ -802,15 +844,19 @@ export const sdkConnectionAdapter: EntityRevisionAdapter<SDKConnectionRevisionSn
             newWh.id,
           );
           if (liveWebhook) {
-            await context.models.sdkWebhooks.applyEdit(liveWebhook, {
-              name: newWh.name,
-              endpoint: newWh.endpoint,
-              httpMethod: newWh.httpMethod,
-              headers: newWh.headers,
-              payloadFormat: newWh.payloadFormat,
-              payloadKey: newWh.payloadKey,
-              timeoutSeconds: newWh.timeoutSeconds ?? null,
-            });
+            const saved = await context.models.sdkWebhooks.saveEdit(
+              liveWebhook,
+              {
+                name: newWh.name,
+                endpoint: newWh.endpoint,
+                httpMethod: newWh.httpMethod,
+                headers: newWh.headers,
+                payloadFormat: newWh.payloadFormat,
+                payloadKey: newWh.payloadKey,
+                timeoutSeconds: newWh.timeoutSeconds ?? null,
+              },
+            );
+            edited.push(saved);
           }
           current = current.map((w) => (w.id === newWh.id ? newWh : w));
           recordWebhooks();
@@ -830,6 +876,14 @@ export const sdkConnectionAdapter: EntityRevisionAdapter<SDKConnectionRevisionSn
 
         current = newWebhooks;
         recordWebhooks();
+
+        if (edited.length) {
+          await emitOrDeferBulkPublishEvent(
+            async () => sendLandedWebhookEdits(context, liveConnection, edited),
+            entityKey("sdk-connection", entity.sdkConnection.id),
+            captureEventBuffer(context),
+          );
+        }
       }
 
       return { persistedKeys, written };

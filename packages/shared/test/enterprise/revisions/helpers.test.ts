@@ -23,6 +23,7 @@ import {
   isUserBlockedFromApproving,
   mergeNestedBranch,
   landedOps,
+  reviewCoverageProjects,
   sdkConnectionDraftSettingsAfterSave,
 } from "../../../src/revisions/helpers";
 import { entityPublishFootprint } from "../../../src/revisions/entityPublishFootprint";
@@ -1617,6 +1618,29 @@ describe("landedOps", () => {
     ]);
   });
 
+  it("keeps live's key order, so a setting added to live since isn't shown as moved", () => {
+    const liveWithTracker = {
+      ...live,
+      sdkConnection: {
+        name: "Prod",
+        eventTracker: "segment",
+        encryptPayload: true,
+        environment: "prod",
+      },
+    };
+    const ops: JsonPatchOperation[] = [
+      {
+        op: "replace",
+        path: "/sdkConnection",
+        value: { ...base.sdkConnection, name: "Renamed" },
+      },
+    ];
+    const [landed] = landedOps(liveWithTracker, base, ops);
+    expect(
+      Object.keys((landed as { value: Record<string, unknown> }).value),
+    ).toEqual(Object.keys(liveWithTracker.sdkConnection));
+  });
+
   it("drops what isn't a change, or isn't the entity's to write", () => {
     const ops: JsonPatchOperation[] = [
       { op: "replace", path: "/name", value: "Prod" },
@@ -1626,5 +1650,39 @@ describe("landedOps", () => {
     expect(landedOps(live, base, ops, new Set(["name"]))).toEqual([]);
     // Without an allowlist, the real change stays.
     expect(landedOps(live, base, ops)).toEqual([ops[2]]);
+  });
+});
+
+describe("reviewCoverageProjects", () => {
+  const snapshot = { sdkConnection: { projects: ["a"], environment: "prod" } };
+  const moveTo = (projects: string[]): JsonPatchOperation[] => [
+    {
+      op: "replace",
+      path: "/sdkConnection",
+      value: { projects, environment: "prod" },
+    },
+  ];
+
+  it("covers where a connection leaves and where it lands", () => {
+    expect(
+      reviewCoverageProjects("sdk-connection", snapshot, moveTo(["b"])),
+    ).toEqual(["a", "b"]);
+    expect(reviewCoverageProjects("sdk-connection", snapshot, [])).toEqual([
+      "a",
+    ]);
+  });
+
+  it("is every Project when either side is", () => {
+    expect(
+      reviewCoverageProjects("sdk-connection", snapshot, moveTo([])),
+    ).toEqual([]);
+  });
+
+  it("reads other entities from the snapshot alone", () => {
+    expect(
+      reviewCoverageProjects("saved-group", { projects: ["a"] }, [
+        { op: "replace", path: "/projects", value: ["b"] },
+      ]),
+    ).toEqual(["a"]);
   });
 });

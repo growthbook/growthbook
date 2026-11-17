@@ -56,7 +56,7 @@ import { getOverridesBlockedReason } from "@/services/metricOverrides";
 import AssignmentQueryFields, {
   CLUSTER_OFF_FOR_DATASOURCE_MESSAGE,
   ClusterExperimentFields,
-  getClusterSubUnitOptions,
+  useClusterSubUnitOptions,
   getClusterChangeAfterLaunch,
   useAssignmentQuerySelection,
 } from "@/components/Experiment/AssignmentQueryFields";
@@ -937,6 +937,12 @@ function DataSourceModal({
   const clusterIdentifier = exposureQuery
     ? resolveAnalysisIdentifierType(exposureQuery, identifierType)
     : undefined;
+  const clusterSubUnitOptions = useClusterSubUnitOptions(
+    selected,
+    exposureQuery,
+    clusterIdentifier,
+    cluster.isClusterExperiment,
+  );
   const supportsClusterExperiments = !!selected?.properties?.exposureQueries;
   const isClusterExperiment = supportsClusterExperiments && clusterChecked;
   const clusterChangedAfterLaunch = getClusterChangeAfterLaunch(experiment, {
@@ -960,9 +966,7 @@ function DataSourceModal({
       ctaEnabled={
         changed &&
         (!isClusterExperiment ||
-          getClusterSubUnitOptions(exposureQuery, clusterIdentifier).includes(
-            clusterSubUnitIdentifier,
-          ))
+          clusterSubUnitOptions.includes(clusterSubUnitIdentifier))
       }
       trackingEventModalType="experiment-data-source"
       submit={() => {
@@ -997,6 +1001,7 @@ function DataSourceModal({
       ) : null}
       {supportsClusterExperiments ? (
         <ClusterExperimentFields
+          datasource={selected}
           exposureQuery={exposureQuery}
           identifierType={clusterIdentifier}
           isClusterExperiment={isClusterExperiment}

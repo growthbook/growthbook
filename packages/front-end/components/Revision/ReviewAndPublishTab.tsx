@@ -15,6 +15,7 @@ import {
   isUserBlockedFromApproving,
   isAutopublishOnApprovalEnabled,
   entityProjects,
+  reviewCoverageProjects,
   isScheduledPublishPending,
   isScheduledPublishLockActive,
   findPublishLockingScheduledRevision,
@@ -565,7 +566,11 @@ function ReviewAndPublishRevision<T>({
     footprint: reviewFootprint,
     envIds,
     model: revision.target.type,
-    projects,
+    projects: reviewCoverageProjects(
+      revision.target.type,
+      revision.target.snapshot,
+      revision.target.proposedChanges,
+    ),
     reviewRules,
   });
 

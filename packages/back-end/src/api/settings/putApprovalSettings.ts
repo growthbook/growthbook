@@ -9,6 +9,7 @@ import { updateOrganization } from "back-end/src/models/OrganizationModel";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import {
+  mergeApprovalFlows,
   toApiRequireReviews,
   toApiSavedGroupApprovals,
   toApiSdkConnectionApprovals,
@@ -53,13 +54,12 @@ export const putApprovalSettings = createApiRequestHandler(
           })),
         }
       : {}),
-    // Merge so a request sending only `savedGroups` keeps the sdkConnections rules.
     ...(approvalFlows
       ? {
-          approvalFlows: {
-            ...org.settings?.approvalFlows,
-            ...approvalFlows,
-          },
+          approvalFlows: mergeApprovalFlows(
+            org.settings?.approvalFlows,
+            approvalFlows,
+          ),
         }
       : {}),
   });
