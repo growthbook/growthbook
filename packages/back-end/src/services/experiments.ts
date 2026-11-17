@@ -2406,7 +2406,7 @@ export async function createSnapshotFromPlan({
           experiment.phases[plan.snapshot.phase],
           plan.snapshot.settings,
         ),
-        fullRefresh: runnerKind === "incremental-full",
+        mode: { kind: runnerKind === "incremental-full" ? "full" : "update" },
       });
     } else if (runnerKind === "incremental-exploratory") {
       await (

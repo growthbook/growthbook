@@ -330,11 +330,11 @@ describe("snapshot lifecycle", () => {
   });
 
   it.each([
-    ["incremental-full", false, true],
-    ["incremental-update", true, false],
+    ["incremental-full", false, "full"],
+    ["incremental-update", true, "update"],
   ] as const)(
-    "uses the shared incremental runner for %s and derives fullRefresh from the kind",
-    async (runnerKind, plannedFullRefresh, expectedFullRefresh) => {
+    "uses the shared incremental runner for %s and derives the run mode from the kind",
+    async (runnerKind, plannedFullRefresh, expectedMode) => {
       const context = makeContext();
       const experiment = makeExperiment();
       const plan = makePlan({
@@ -360,7 +360,7 @@ describe("snapshot lifecycle", () => {
       expect(queryRunner.startAnalysis).toHaveBeenCalledWith(
         expect.objectContaining({
           experimentId: experiment.id,
-          fullRefresh: expectedFullRefresh,
+          mode: { kind: expectedMode },
           snapshotType: "standard",
         }),
       );

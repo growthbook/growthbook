@@ -87,10 +87,14 @@ const metrics = [
     numerator: { factTableId: "ft_a", column: "value", rowFilters: [] },
     denominator: { factTableId: "ft_c", column: "value", rowFilters: [] },
   }),
+  metric("r3", {
+    metricType: "ratio",
+    numerator: { factTableId: "ft_a", column: "$$count", rowFilters: [] },
+    denominator: { factTableId: "ft_b", column: "value", rowFilters: [] },
+  }),
 ];
 const metricMap = new Map(metrics.map((m) => [m.id, m]));
 
-// a1 and a3 are regression adjusted.
 const metricSettings = (id: string) => ({
   id,
   computedSettings: {
@@ -151,7 +155,7 @@ const BASE_METRICS = ["a1", "a2", "b1", "r1"];
 const storedMetric = (id: string) => {
   const factMetric = metricMap.get(id);
   if (!factMetric) throw new Error(`unknown metric ${id}`);
-  const settings = snapshotSettings(BASE_METRICS, BASE_END);
+  const settings = snapshotSettings([id], BASE_END);
   return {
     id,
     settingsHash: getMetricSettingsHashForIncrementalRefresh({
@@ -163,7 +167,6 @@ const storedMetric = (id: string) => {
   };
 };
 
-// The state a normal update left behind for a1, a2, b1 and r1.
 function baseState(): IncrementalRefreshInterface {
   return {
     id: "ir_1",
@@ -209,8 +212,6 @@ function baseState(): IncrementalRefreshInterface {
   } as IncrementalRefreshInterface;
 }
 
-// Stable digest of a query builder's arguments, so a pinned DAG notices any
-// change in what a query is built from without storing the SQL itself.
 function digest(value: unknown): string {
   const seen = new WeakSet<object>();
   const json = JSON.stringify(value, (_key, v: unknown) => {
@@ -327,7 +328,7 @@ async function buildDag({
       queryParentId: "snp_run",
       experimentId: "exp_1",
       experimentQueryMetadata: null,
-      fullRefresh: false,
+      mode: { kind: "update" },
       incrementalRefreshStartTime: BASE_END,
       ...params,
     },
@@ -338,8 +339,6 @@ async function buildDag({
   return { queries, recorded, calls, updateState };
 }
 
-// One line per query: name, type, the queries it waits for, and which builder
-// produced it from which arguments.
 function describeDag(
   recorded: Recorded[],
   calls: Map<string, BuilderCall>,
@@ -369,7 +368,7 @@ afterEach(() => random.mockRestore());
 describe("normal incremental runs (pinned at trunk b29299f794)", () => {
   it("full refresh", async () => {
     const { recorded, calls } = await buildDag({
-      params: { fullRefresh: true },
+      params: { mode: { kind: "full" } },
       state: baseState(),
     });
     expect(describeDag(recorded, calls)).toMatchSnapshot();
@@ -398,5 +397,213 @@ describe("normal incremental runs (pinned at trunk b29299f794)", () => {
       state: baseState(),
     });
     expect(describeDag(recorded, calls)).toMatchSnapshot();
+  });
+});
+
+function refreshDag(
+  targets: string[],
+  state: IncrementalRefreshInterface = baseState(),
+) {
+  return buildDag({
+    params: {
+      mode: { kind: "metrics-only", definitionMetricIds: new Set(targets) },
+      snapshotSettings: snapshotSettings(
+        [...BASE_METRICS, ...targets],
+        BASE_END,
+      ),
+      incrementalRefreshStartTime: BASE_END,
+    },
+    state,
+  });
+}
+
+function byName(recorded: Recorded[], name: string): Recorded {
+  const query = recorded.find((r) => r.name === name);
+  if (!query) throw new Error(`no query ${name}`);
+  return query;
+}
+
+function argsOf(
+  recorded: Recorded[],
+  calls: Map<string, BuilderCall>,
+  prefix: string,
+): (BuilderCall["args"] & { name: string })[] {
+  return recorded
+    .filter((r) => r.name.startsWith(prefix))
+    .map((r) => ({ ...(calls.get(r.query)?.args ?? {}), name: r.name }));
+}
+
+const metricIdsOf = (args: Record<string, unknown>) =>
+  (args.metrics as FactMetricInterface[]).map((m) => m.id);
+
+const UNITS_OR_TRAFFIC =
+  /^(update|drop|alter|max_timestamp|create)_snp_run|^drop_snp_run_old$|^(traffic|clusterTraffic|clusterHealth)$/;
+
+describe("metric refresh (metrics-only runs)", () => {
+  it("builds only the targets' caches and statistics on the base's units table", async () => {
+    const { recorded, calls } = await refreshDag(["a3", "c1"]);
+    const names = recorded.map((r) => r.name);
+
+    expect(names.filter((n) => UNITS_OR_TRAFFIC.test(n))).toEqual([]);
+    expect(names.filter((n) => n.includes("stored0"))).toEqual([]);
+
+    const inserts = argsOf(recorded, calls, "insert_metrics_source_data_");
+    expect(
+      inserts.map((a) => [a.factTableId, metricIdsOf(a), a.lastMaxTimestamp]),
+    ).toEqual([
+      ["ft_a", ["a3"], null],
+      ["ft_c", ["c1"], null],
+    ]);
+    inserts.forEach((a) => {
+      expect(a.unitsSourceTableFullName).toBe("proj.ds.gb_units_exp_1_base");
+      expect(a.incrementalRefreshStartTime).toEqual(BASE_END);
+    });
+
+    const statistics = argsOf(recorded, calls, "statistics_");
+    expect(statistics.flatMap(metricIdsOf).sort()).toEqual(["a3", "c1"]);
+    statistics.forEach((a) => expect(a.asOf).toEqual(BASE_END));
+
+    recorded
+      .filter((r) =>
+        /^(create_metrics_source|drop_metrics_covariate)_/.test(r.name),
+      )
+      .forEach((r) => expect(r.dependencyNames).toEqual([]));
+    const covariateInsert = recorded.find((r) =>
+      r.name.startsWith("insert_metrics_covariate_data_"),
+    );
+    expect(covariateInsert?.dependencyNames).toEqual([
+      covariateInsert?.name.replace(
+        "insert_metrics_covariate_data_",
+        "create_metrics_covariate_table_",
+      ),
+    ]);
+
+    expect(describeDag(recorded, calls)).toMatchSnapshot();
+  });
+
+  it("computes a cross-fact-table ratio from new caches on both of its fact tables", async () => {
+    const { recorded, calls } = await refreshDag(["r3"]);
+    const names = recorded.map((r) => r.name);
+
+    expect(names.filter((n) => UNITS_OR_TRAFFIC.test(n))).toEqual([]);
+    expect(names.filter((n) => n.includes("stored0"))).toEqual([]);
+    expect(
+      argsOf(recorded, calls, "insert_metrics_source_data_").map((a) => [
+        a.factTableId,
+        metricIdsOf(a),
+      ]),
+    ).toEqual([
+      ["ft_a", ["r3"]],
+      ["ft_b", ["r3"]],
+    ]);
+    const statistics = argsOf(recorded, calls, "statistics_");
+    expect(
+      statistics.map((a) => [
+        a.name.startsWith("statistics_multi_"),
+        metricIdsOf(a),
+      ]),
+    ).toEqual([[true, ["r3"]]]);
+  });
+
+  it("adds a target's cache to the stored ones and keeps every other entry", async () => {
+    const { recorded, updateState } = await refreshDag(["a3", "c1"]);
+    const base = baseState();
+    const a3Group = recorded
+      .find((r) => r.name.startsWith("max_timestamp_metrics_source_ft_a_"))
+      ?.name.replace("max_timestamp_metrics_source_", "");
+    if (!a3Group) throw new Error("no ft_a target cache");
+
+    await byName(
+      recorded,
+      `max_timestamp_metrics_source_${a3Group}`,
+    ).onSuccess?.([{ max_timestamp: "2026-11-10T11:59:30Z" }]);
+    await byName(
+      recorded,
+      `insert_metrics_covariate_data_${a3Group}`,
+    ).onSuccess?.([]);
+
+    const written = updateState.mock.calls.map((c) => c[2]);
+    expect(written).toEqual([
+      {
+        metricSources: [
+          ...base.metricSources,
+          {
+            groupId: a3Group,
+            factTableId: "ft_a",
+            metrics: [storedMetric("a3")],
+            maxTimestamp: new Date("2026-11-10T11:59:30Z"),
+            maxTimestampRaw: null,
+            tableFullName: `proj.ds.gb_metrics_exp_1_${a3Group}`,
+          },
+        ],
+      },
+      {
+        metricCovariateSources: [
+          ...base.metricCovariateSources,
+          expect.objectContaining({
+            groupId: a3Group,
+            lastSuccessfulMaxTimestamp: base.unitsMaxTimestamp,
+          }),
+        ],
+      },
+    ]);
+    expect(
+      written.some(
+        (w) => "unitsMaxTimestamp" in w || "unitsTableFullName" in w,
+      ),
+    ).toBe(false);
+  });
+
+  it("leaves the stored caches as the base left them when a target's cache fails", async () => {
+    const { recorded, updateState } = await refreshDag(["a3"]);
+    const maxTimestamp = recorded.find((r) =>
+      r.name.startsWith("max_timestamp_metrics_source_"),
+    );
+    maxTimestamp?.onFailure?.();
+    await Promise.resolve();
+
+    expect(updateState.mock.calls.map((c) => c[2])).toEqual([
+      { metricSources: baseState().metricSources },
+    ]);
+  });
+
+  it("lets the next update append to every cache, the refresh's included", async () => {
+    const refreshed = await refreshDag(["a3", "c1"]);
+    const state = baseState();
+    for (const r of refreshed.recorded.filter((q) =>
+      q.name.startsWith("max_timestamp_metrics_source_"),
+    )) {
+      await r.onSuccess?.([{ max_timestamp: "2026-11-10T11:59:30Z" }]);
+    }
+    const lastWrite = refreshed.updateState.mock.calls
+      .map((c) => c[2])
+      .filter((w) => "metricSources" in w)
+      .pop();
+    state.metricSources = lastWrite.metricSources;
+
+    const { recorded, calls } = await buildDag({
+      params: {
+        snapshotSettings: snapshotSettings(
+          [...BASE_METRICS, "a3", "c1"],
+          LATER_END,
+        ),
+        incrementalRefreshStartTime: LATER_END,
+      },
+      state,
+    });
+    const names = recorded.map((r) => r.name);
+
+    expect(names.some((n) => n.startsWith("create_metrics_source_"))).toBe(
+      false,
+    );
+    expect(
+      argsOf(recorded, calls, "insert_metrics_source_data_")
+        .map((a) => (a.lastMaxTimestamp === null ? null : a.name))
+        .sort(),
+    ).toEqual(
+      state.metricSources
+        .map((s) => `insert_metrics_source_data_${s.groupId}`)
+        .sort(),
+    );
   });
 });

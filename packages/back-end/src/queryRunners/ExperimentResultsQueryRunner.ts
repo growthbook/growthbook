@@ -110,6 +110,12 @@ export const CLUSTER_TRAFFIC_QUERY_NAME = "clusterTraffic";
 
 export const CLUSTER_HEALTH_QUERY_NAME = "clusterHealth";
 
+export const HEALTH_QUERY_NAMES: ReadonlySet<string> = new Set([
+  TRAFFIC_QUERY_NAME,
+  CLUSTER_TRAFFIC_QUERY_NAME,
+  CLUSTER_HEALTH_QUERY_NAME,
+]);
+
 export const UNITS_TABLE_PREFIX = "growthbook_tmp_units";
 
 const GROUP_QUERY_NAME = /^group_(\d+)$/;
@@ -127,13 +133,7 @@ export function isCarriedMetricRefreshQuery(
   if (name === parentSnapshotId || name === `drop_${parentSnapshotId}`) {
     return false;
   }
-  if (
-    name === TRAFFIC_QUERY_NAME ||
-    name === CLUSTER_TRAFFIC_QUERY_NAME ||
-    name === CLUSTER_HEALTH_QUERY_NAME
-  ) {
-    return true;
-  }
+  if (HEALTH_QUERY_NAMES.has(name)) return true;
   const baseName = parseUnitDimQueryName(name)?.baseQueryName ?? name;
   return GROUP_QUERY_NAME.test(baseName) || analyzedMetricIds.has(baseName);
 }

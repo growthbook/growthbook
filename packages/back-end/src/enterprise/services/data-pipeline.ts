@@ -52,6 +52,12 @@ import { getColumnsForMetric } from "back-end/src/integrations/sql/fact-metrics/
 import { getQueryableMetricsFromSnapshotSettings } from "back-end/src/services/experimentQueries/experimentQueries";
 import type { MetricFanOut } from "back-end/src/services/experimentQueries/planMetricFanOut";
 
+export type IncrementalPrerequisiteAnalysis =
+  | "main-update"
+  | "main-fullRefresh"
+  | "exploratory"
+  | "metric-refresh";
+
 /**
  * Preconditions for running the incremental refresh query runner on a snapshot.
  * Throws when incremental refresh is unsupported for this configuration, or when
@@ -75,7 +81,7 @@ export async function assertIncrementalRefreshPrerequisites({
   metricMap: Map<string, ExperimentMetricInterface>;
   experiment: ExperimentInterface;
   incrementalRefreshModel: IncrementalRefreshInterface | null;
-  analysisType: "main-update" | "main-fullRefresh" | "exploratory";
+  analysisType: IncrementalPrerequisiteAnalysis;
 }): Promise<void> {
   const selectedMetrics = getQueryableMetricsFromSnapshotSettings(
     snapshotSettings,
@@ -110,7 +116,10 @@ export async function assertIncrementalRefreshPrerequisites({
   // detects the metric-source hash drift (see getFactTablesNeedingRebuild) and
   // rebuilds only that metric's fact-table cache, leaving the units table and
   // every unaffected metric cache on the incremental path.
-  if (analysisType === "main-update" && incrementalRefreshModel) {
+  if (
+    (analysisType === "main-update" || analysisType === "metric-refresh") &&
+    incrementalRefreshModel
+  ) {
     const currentSettingsHash = getExperimentSettingsHashForIncrementalRefresh(
       snapshotSettings,
       integration.datasource.settings.queries?.exposure ?? [],
@@ -125,7 +134,10 @@ export async function assertIncrementalRefreshPrerequisites({
     // The tables only grow, so an update can't analyze through a cutoff
     // earlier than rows they already hold, such as rows a refresh loaded
     // before it failed.
-    const cutoff = getSnapshotCutoffDate(snapshotSettings);
+    const cutoff =
+      analysisType === "main-update"
+        ? getSnapshotCutoffDate(snapshotSettings)
+        : null;
     const tablesEnd = [
       incrementalRefreshModel.unitsMaxTimestamp,
       ...incrementalRefreshModel.metricSources.map((s) => s.maxTimestamp),
