@@ -1,7 +1,9 @@
 import {
   docTitleForSection,
+  docUrl,
   getDocSectionsForCommandPalette,
 } from "@/components/DocLink";
+import { getApiReferencePaletteRows } from "@/components/CommandPalette/apiReferencePalette";
 
 describe("docTitleForSection", () => {
   it("preserves acronyms in generated titles for affected documentation keys", () => {
@@ -45,5 +47,29 @@ describe("getDocSectionsForCommandPalette", () => {
     expect(titleBySection.get("hashSecureAttributes")).toBe(
       "Hash Secure Attributes",
     );
+  });
+});
+
+describe("Cmd+K docs and API reference rows", () => {
+  it("lists each API reference resource once, as an API reference row", () => {
+    const apiRows = getApiReferencePaletteRows();
+    const apiUrls = apiRows.map((r) => r.url);
+    const docUrls = new Set(
+      getDocSectionsForCommandPalette().map((r) => r.url),
+    );
+
+    expect(new Set(apiUrls).size).toBe(apiUrls.length);
+    expect(apiRows.filter((r) => docUrls.has(r.url))).toEqual([]);
+    expect(apiRows.slice(1).every((r) => !r.url.includes("#"))).toBe(true);
+  });
+
+  it("lists the REST API overview exactly once", () => {
+    const overviewUrl = docUrl("apiIntroduction");
+    const allUrls = [
+      ...getDocSectionsForCommandPalette(),
+      ...getApiReferencePaletteRows(),
+    ].map((r) => r.url);
+
+    expect(allUrls.filter((url) => url === overviewUrl)).toHaveLength(1);
   });
 });
