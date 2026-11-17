@@ -41,7 +41,7 @@ export const getSettings = createApiRequestHandler(getSettingsValidator)(async (
     restApiBypassesReviews: !!orgSettings?.restApiBypassesReviews,
     requireRebaseBeforePublish: !!orgSettings?.requireRebaseBeforePublish,
     revertsBypassApproval: !!orgSettings?.revertsBypassApproval,
-    maxConcurrentDrafts: orgSettings?.maxConcurrentDrafts,
+    maxConcurrentDrafts: orgSettings?.maxConcurrentDrafts ?? 0,
     sparseJSONRulesByDefault: !!orgSettings?.sparseJSONRulesByDefault,
     experimentMaxLengthDays: filteredSettings.experimentMaxLengthDays ?? null,
     winRisk: DEFAULT_WIN_RISK_THRESHOLD,
