@@ -8,10 +8,10 @@ import {
   PopulationInterface,
 } from "shared/validators";
 import md5 from "md5";
-import { getSinglePopulationStep } from "shared/populations";
 import {
   calculateProductAnalyticsDateRange,
   getDateGranularity,
+  getPopulationCacheKey,
   hasTimestampColumn,
   withRequestedDisplayConfig,
 } from "shared/enterprise";
@@ -180,33 +180,6 @@ const BaseClass = MakeModelClass({
     ],
   },
 });
-
-/**
- * A metric exploration's Population as it appears in the cache key. Matches
- * the inline definition explorations sent before they referenced saved
- * Populations, field for field and in the same order, so results cached then
- * still match.
- */
-function getPopulationCacheKey(
-  savedPopulation: Pick<PopulationInterface, "steps">,
-  unit: string,
-): object {
-  const step = getSinglePopulationStep(savedPopulation);
-  // Multi-step Populations can't be saved yet; key on every step so one never
-  // collides with a single-step definition.
-  if (!step) return { steps: savedPopulation.steps, unit };
-  return {
-    source: { type: step.source.type, factTableId: step.source.factTableId },
-    rowFilters: step.rowFilters,
-    ...(step.aggregateFilter !== undefined
-      ? { aggregateFilter: step.aggregateFilter }
-      : {}),
-    ...(step.aggregateFilterColumn !== undefined
-      ? { aggregateFilterColumn: step.aggregateFilterColumn }
-      : {}),
-    unit,
-  };
-}
 
 export class AnalyticsExplorationModel extends BaseClass {
   // Every saved exploration in the org, ignoring the caller's read permissions.

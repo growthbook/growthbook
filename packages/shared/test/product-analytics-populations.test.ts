@@ -4,6 +4,7 @@ import {
   transformProductAnalyticsRowsToResult,
   encodeExplorationConfig,
   decodeExplorationConfigJson,
+  getPopulationCacheKey,
   parseMetricExplorationPopulation,
 } from "shared/enterprise";
 import { createLikeStringMatchFn } from "shared/sql";
@@ -17,6 +18,7 @@ import {
   explorationConfigValidator,
   productAnalyticsExplorationValidator,
   populationExplorationConfigValidator,
+  populationStepValidator,
 } from "shared/validators";
 import {
   FactMetricInterface,
@@ -804,5 +806,57 @@ describe("metric explorations without a population", () => {
     // Login-only users (Carol, Gina, Frank) must not count as zero-device
     // purchasers once login rows are in the same scan.
     expect(together["2026-09-01"].values[3]).toEqual([3, 3]);
+  });
+});
+
+describe("getPopulationCacheKey", () => {
+  // Every step field changes the query, so the key takes the whole step.
+  // Adding a field here means deciding whether it does; a render-only field
+  // must be omitted in getPopulationCacheKey.
+  it("is reconsidered when a field is added to the step", () => {
+    expect(Object.keys(populationStepValidator.shape).sort()).toEqual([
+      "aggregateFilter",
+      "aggregateFilterColumn",
+      "rowFilters",
+      "source",
+    ]);
+  });
+
+  // Explorations once sent the Population inline, in this shape; results
+  // cached then are still served when a saved Population's key reads the same.
+  it("reads the same as the inline definition it replaced", () => {
+    const step = populationStepValidator.parse({
+      aggregateFilterColumn: "revenue",
+      aggregateFilter: ">10",
+      rowFilters: [{ column: "device", operator: "=", values: ["mobile"] }],
+      source: { factTableId: "ft_1", type: "factTable" },
+    });
+    // Row filters were passed through then too, so only their presence counts.
+    const inline = {
+      source: { type: "factTable", factTableId: "ft_1" },
+      rowFilters: step.rowFilters,
+      aggregateFilter: ">10",
+      aggregateFilterColumn: "revenue",
+      unit: "user_id",
+    };
+    expect(
+      JSON.stringify(getPopulationCacheKey({ steps: [step] }, "user_id")),
+    ).toBe(JSON.stringify(inline));
+  });
+
+  it("leaves absent aggregate fields out, as the inline definition did", () => {
+    const step = populationStepValidator.parse({
+      source: { type: "factTable", factTableId: "ft_1" },
+      rowFilters: [],
+    });
+    expect(
+      JSON.stringify(getPopulationCacheKey({ steps: [step] }, "user_id")),
+    ).toBe(
+      JSON.stringify({
+        source: { type: "factTable", factTableId: "ft_1" },
+        rowFilters: [],
+        unit: "user_id",
+      }),
+    );
   });
 });

@@ -42,6 +42,25 @@ export function getPopulationMetricFactTableId(
   return metric.numerator?.factTableId ?? null;
 }
 
+/**
+ * A metric exploration's Population as it appears in the results cache key:
+ * the whole step, so a field added to it changes the key. Every step field
+ * changes the query; a render-only one would be omitted here, like metric
+ * values' are. The key reads the same as the inline definition explorations
+ * sent before they referenced saved Populations, so results cached then still
+ * match.
+ */
+export function getPopulationCacheKey(
+  savedPopulation: Pick<PopulationInterface, "steps">,
+  unit: string,
+): object {
+  const step = getSinglePopulationStep(savedPopulation);
+  // Multi-step Populations can't be saved yet; key on every step so one never
+  // collides with a single-step definition.
+  if (!step) return { steps: savedPopulation.steps, unit };
+  return { ...step, unit };
+}
+
 export type ParsedMetricExplorationPopulation =
   | {
       ok: true;
