@@ -3,11 +3,16 @@ import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
 import { isDimensionPrecomputed } from "shared/experiments";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
+import { ApiErrorCode } from "shared/validators";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
-import { getHonoredPrecomputedUnitDimensionIds } from "@/services/experiments";
+import {
+  getHonoredPrecomputedUnitDimensionIds,
+  MetricRefreshRequest,
+} from "@/services/experiments";
 import { trackSnapshot } from "@/services/track";
+import { ApiCallError } from "@/services/apiCallError";
 
 export type SnapshotRefreshBlocker = {
   kind: "requires-full-refresh";
@@ -285,4 +290,72 @@ export function useExperimentSnapshotUpdate({
       onCancel: () => resolveFullRefresh(false),
     },
   };
+}
+
+const NO_METRIC_REFRESH_REQUEST: MetricRefreshRequest = { status: "none" };
+
+// Answers that mean the page is behind the server; refetching shows why.
+const STALE_PAGE_ERROR_CODES: string[] = [
+  "metrics_already_up_to_date",
+  "snapshot_in_progress",
+] satisfies ApiErrorCode[];
+
+export function useNewMetricsRefresh({
+  experiment,
+  phase,
+  snapshotId,
+  mutate,
+}: {
+  experiment: ExperimentInterfaceStringDates;
+  phase: number;
+  snapshotId: string | undefined;
+  mutate: () => Promise<unknown>;
+}) {
+  const { apiCall } = useAuth();
+  const { getDatasourceById } = useDefinitions();
+  const [state, setState] = useState<{
+    snapshotId: string | undefined;
+    request: MetricRefreshRequest;
+  }>({ snapshotId, request: NO_METRIC_REFRESH_REQUEST });
+  const request =
+    state.snapshotId === snapshotId ? state.request : NO_METRIC_REFRESH_REQUEST;
+
+  const refreshNewMetrics = useCallback(async () => {
+    setState({ snapshotId, request: { status: "sending" } });
+    let next: MetricRefreshRequest = NO_METRIC_REFRESH_REQUEST;
+    try {
+      const res = await apiCall<{ snapshot: ExperimentSnapshotInterface }>(
+        `/experiment/${experiment.id}/snapshot`,
+        {
+          method: "POST",
+          body: JSON.stringify({ phase, missingMetricsOnly: true }),
+        },
+      );
+      trackSnapshot(
+        "create",
+        "NewMetricRow",
+        getDatasourceById(experiment.datasource)?.type ?? null,
+        res.snapshot,
+      );
+    } catch (e) {
+      const code = e instanceof ApiCallError ? e.code : undefined;
+      if (code === "metric_refresh_unavailable") {
+        next = { status: "unavailable" };
+      } else if (!code || !STALE_PAGE_ERROR_CODES.includes(code)) {
+        next = { status: "failed", error: e.message };
+      }
+    }
+    await mutate();
+    setState({ snapshotId, request: next });
+  }, [
+    apiCall,
+    experiment.id,
+    experiment.datasource,
+    getDatasourceById,
+    mutate,
+    phase,
+    snapshotId,
+  ]);
+
+  return { request, refreshNewMetrics };
 }

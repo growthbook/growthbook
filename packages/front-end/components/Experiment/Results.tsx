@@ -35,7 +35,10 @@ import Link from "@/ui/Link";
 import Button from "@/ui/Button";
 import AsyncQueriesModal from "@/components/Queries/AsyncQueriesModal";
 import { MetricDrilldownProvider } from "@/components/MetricDrilldown/MetricDrilldownContext";
-import { getIsExperimentIncludedInIncrementalRefresh } from "@/services/experiments";
+import {
+  getIsExperimentIncludedInIncrementalRefresh,
+  NewMetricRowsInput,
+} from "@/services/experiments";
 import { useIncrementalPipelineUnsupportedReason } from "@/hooks/useIncrementalPipelineUnsupportedReason";
 import { useRunningExperimentStatus } from "@/hooks/useExperimentStatusIndicator";
 import { hasHealthData } from "@/components/HealthTab/constants";
@@ -60,6 +63,8 @@ const Results: FC<{
   experiment: ExperimentInterfaceStringDates;
   mutateExperiment: () => void;
   editMetrics?: () => void;
+  newMetrics?: NewMetricRowsInput;
+  onRefreshMetrics?: () => void;
   statsEngine: StatsEngine;
   analysisBarSettings: AnalysisBarSettings;
   setAnalysisBarSettings: (s: AnalysisBarSettings) => void;
@@ -76,6 +81,8 @@ const Results: FC<{
   experiment,
   mutateExperiment,
   editMetrics,
+  newMetrics,
+  onRefreshMetrics,
   statsEngine,
   analysisBarSettings,
   setAnalysisBarSettings,
@@ -475,6 +482,13 @@ const Results: FC<{
               experimentId={experiment.id}
               significanceThresholds={significanceThresholds}
               editMetrics={editMetrics}
+              newMetrics={newMetrics}
+              onRefreshMetrics={onRefreshMetrics}
+              onViewRefreshQueries={
+                latest?.status === "error" && latest.metricRefresh && hasQueries
+                  ? () => setQueriesModalOpen(true)
+                  : undefined
+              }
               variations={variations}
               variationFilter={analysisBarSettings.variationFilter}
               setVariationFilter={(v: number[]) =>

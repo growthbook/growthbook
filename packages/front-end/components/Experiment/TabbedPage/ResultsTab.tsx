@@ -5,8 +5,9 @@ import { getScopedSettings } from "shared/settings";
 import {
   isDimensionPrecomputed,
   getEffectiveLookbackOverride,
+  isExperimentResultsUpdateDisabled,
 } from "shared/experiments";
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useMemo } from "react";
 import {
   ExperimentSnapshotReportArgs,
   ReportInterface,
@@ -28,7 +29,13 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Callout from "@/ui/Callout";
 import Button from "@/ui/Button";
 import LinkButton from "@/ui/LinkButton";
-import { getHonoredPrecomputedUnitDimensionIds } from "@/services/experiments";
+import {
+  getHonoredPrecomputedUnitDimensionIds,
+  NewMetricRowsInput,
+} from "@/services/experiments";
+import { useNewMetricsRefresh } from "@/hooks/useExperimentSnapshotUpdate";
+import { useSelectedAnalysisOnMetricRefresh } from "@/hooks/useSelectedAnalysisOnMetricRefresh";
+import useOrgSettings from "@/hooks/useOrgSettings";
 import track from "@/services/track";
 import Metadata from "@/ui/Metadata";
 import Link from "@/ui/Link";
@@ -111,8 +118,15 @@ export default function ResultsTab({
 
   const router = useRouter();
 
-  const { snapshot, analysis, setSnapshotType, setAnalysisSettings } =
-    useSnapshot();
+  const {
+    snapshot,
+    analysis,
+    latestSummary,
+    phase,
+    mutate: mutateSnapshot,
+    setSnapshotType,
+    setAnalysisSettings,
+  } = useSnapshot();
 
   const permissionsUtil = usePermissionsUtil();
   const { organization, hasCommercialFeature } = useUser();
@@ -158,9 +172,51 @@ export default function ResultsTab({
 
   const isBandit = experiment.type === "multi-armed-bandit";
 
-  const datasourceSettings = experiment.datasource
-    ? getDatasourceById(experiment.datasource)?.settings
-    : undefined;
+  const orgSettings = useOrgSettings();
+  const [settingsOutdated, setSettingsOutdated] = useState(false);
+  const { request: metricRefreshRequest, refreshNewMetrics } =
+    useNewMetricsRefresh({
+      experiment,
+      phase,
+      snapshotId: snapshot?.id,
+      mutate: mutateSnapshot,
+    });
+  const datasource = experiment.datasource
+    ? getDatasourceById(experiment.datasource)
+    : null;
+  const canUpdateResults =
+    !!datasource &&
+    permissionsUtil.canRunExperimentQueries(datasource) &&
+    experiment.status !== "draft" &&
+    !isExperimentResultsUpdateDisabled(experiment, orgSettings);
+  const metricRefreshUnavailable =
+    (experiment.type ?? "standard") !== "standard" || settingsOutdated;
+  const isLatestPhase = phase === experiment.phases.length - 1;
+  const newMetrics = useMemo<NewMetricRowsInput | undefined>(
+    () =>
+      snapshot && isLatestPhase
+        ? {
+            snapshotSettings: snapshot.settings,
+            latest: latestSummary,
+            request: metricRefreshRequest,
+            refreshUnavailable: canUpdateResults && metricRefreshUnavailable,
+          }
+        : undefined,
+    [
+      isLatestPhase,
+      snapshot,
+      latestSummary,
+      metricRefreshRequest,
+      canUpdateResults,
+      metricRefreshUnavailable,
+    ],
+  );
+  const onRefreshMetrics =
+    canUpdateResults && !metricRefreshUnavailable
+      ? refreshNewMetrics
+      : undefined;
+
+  const datasourceSettings = datasource?.settings;
   const userIdType = resolveAnalysisIdentifierType(
     datasourceSettings?.queries?.exposure?.find(
       (e) => e.id === experiment.exposureQueryId,
@@ -194,6 +250,8 @@ export default function ResultsTab({
     setAnalysisSettings,
     honoredPrecomputedUnitDimensionIds,
   ]);
+
+  useSelectedAnalysisOnMetricRefresh(onSnapshotSuccessfulUpdate);
 
   const endDate =
     experiment.status !== "running" ? snapshot?.settings?.endDate : undefined;
@@ -427,6 +485,8 @@ export default function ResultsTab({
             sortBy={sortBy}
             sortDirection={sortDirection}
             onSnapshotSuccessfulUpdate={onSnapshotSuccessfulUpdate}
+            onOtherOutdatedReasonsChange={setSettingsOutdated}
+            newMetricsUpdatableInTable={!!onRefreshMetrics}
           />
           {experiment.status === "draft" ? (
             <Callout status="info" contentAlign="center" mx="3" my="3">
@@ -472,6 +532,8 @@ export default function ResultsTab({
                   experiment={experiment}
                   mutateExperiment={mutate}
                   editMetrics={editMetrics ?? undefined}
+                  newMetrics={newMetrics}
+                  onRefreshMetrics={onRefreshMetrics}
                   statsEngine={statsEngine}
                   analysisBarSettings={analysisBarSettings}
                   setAnalysisBarSettings={setAnalysisBarSettings}

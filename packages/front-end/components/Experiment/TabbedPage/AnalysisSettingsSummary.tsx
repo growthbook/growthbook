@@ -77,6 +77,7 @@ import {
   getPipelineSettingsAfterDisablingExperiment,
   getHonoredPrecomputedUnitDimensionIds,
   getUnitDisplayName,
+  METRICS_CHANGED_OUTDATED_REASON,
 } from "@/services/experiments";
 import Metadata from "@/ui/Metadata";
 import Tooltip from "@/ui/Tooltip";
@@ -116,6 +117,8 @@ export interface Props {
   sortBy?: "significance" | "change" | "custom" | null;
   sortDirection?: "asc" | "desc" | null;
   onSnapshotSuccessfulUpdate?: () => void;
+  onOtherOutdatedReasonsChange?: (hasOtherReasons: boolean) => void;
+  newMetricsUpdatableInTable?: boolean;
 }
 
 const numberFormatter = Intl.NumberFormat();
@@ -142,6 +145,8 @@ export default function AnalysisSettingsSummary({
   sortBy,
   sortDirection,
   onSnapshotSuccessfulUpdate,
+  onOtherOutdatedReasonsChange,
+  newMetricsUpdatableInTable = false,
 }: Props) {
   const {
     getDatasourceById,
@@ -201,12 +206,13 @@ export default function AnalysisSettingsSummary({
   useEffect(() => {
     if (
       previousLatestStatusRef.current === "running" &&
-      latest?.status === "success"
+      latest?.status === "success" &&
+      !latest.metricRefresh
     ) {
       onSnapshotSuccessfulUpdate?.();
     }
     previousLatestStatusRef.current = latest?.status;
-  }, [latest?.status, onSnapshotSuccessfulUpdate]);
+  }, [latest?.status, latest?.metricRefresh, onSnapshotSuccessfulUpdate]);
 
   const hasData = (analysis?.results?.[0]?.variations?.length ?? 0) > 0;
   const hasValidStatsEngine =
@@ -526,7 +532,7 @@ export default function AnalysisSettingsSummary({
     return conversionWindowMetrics;
   }, [allExpandedMetrics, getExperimentMetricById]);
 
-  const { outdated, reasons } = isOutdated({
+  const { reasons } = isOutdated({
     experiment,
     snapshot,
     metricGroups,
@@ -543,6 +549,15 @@ export default function AnalysisSettingsSummary({
       newerOverallResultsAvailable && !incrementalUpdatesUnavailable,
     resultsUpdateDisabled,
   });
+  const hasOtherOutdatedReasons = reasons.some(
+    (r) => r !== METRICS_CHANGED_OUTDATED_REASON,
+  );
+  useEffect(() => {
+    onOtherOutdatedReasonsChange?.(hasOtherOutdatedReasons);
+  }, [hasOtherOutdatedReasons, onOtherOutdatedReasonsChange]);
+  const shownOutdatedReasons = newMetricsUpdatableInTable
+    ? reasons.filter((r) => r !== METRICS_CHANGED_OUTDATED_REASON)
+    : reasons;
 
   // If a dimension breakdown already covers the latest Overall Results, another
   // dimension update would read the same caches. Point the user to Overall
@@ -715,11 +730,11 @@ export default function AnalysisSettingsSummary({
     conversionWindowMetrics?: Set<string>;
     newerOverallResultsAvailable?: boolean;
     resultsUpdateDisabled?: boolean;
-  }): { outdated: boolean; reasons: string[] } {
+  }): { reasons: string[] } {
     const snapshotSettings = snap?.settings;
     const analysisSettings = snap ? getSnapshotAnalysis(snap)?.settings : null;
     if (!exp || !snapshotSettings || !analysisSettings) {
-      return { outdated: false, reasons: [] };
+      return { reasons: [] };
     }
 
     const reasons: string[] = [];
@@ -811,7 +826,7 @@ export default function AnalysisSettingsSummary({
       experimentMetrics = experimentMetrics.filter((m) => !conversion.has(m));
     }
     if (isStringArrayMissingElements(snapshotMetrics, experimentMetrics)) {
-      reasons.push("Metrics changed");
+      reasons.push(METRICS_CHANGED_OUTDATED_REASON);
     }
 
     if (
@@ -901,7 +916,7 @@ export default function AnalysisSettingsSummary({
       reasons.push("Newer Overall Results are available");
     }
 
-    return { outdated: reasons.length > 0, reasons };
+    return { reasons };
   }
 
   // Determine if any filters are currently set
@@ -996,12 +1011,12 @@ export default function AnalysisSettingsSummary({
                 }
               />
               {hasData &&
-              outdated &&
+              shownOutdatedReasons.length > 0 &&
               status !== "running" &&
               !hideOutdatedBadge ? (
                 <OutdatedBadge
                   label={`These results are outdated. Click "Update" to re-run the analysis.`}
-                  reasons={reasons}
+                  reasons={shownOutdatedReasons}
                   hasData={hasData && hasValidStatsEngine}
                 />
               ) : null}
