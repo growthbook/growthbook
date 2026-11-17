@@ -458,17 +458,6 @@ const COMPARE_OVERLAY_Z_PREVIOUS_LINE_ON_TOP = 3;
 
 const COMPARE_OVERLAY_BAR_GAP = "-100%";
 /**
- * Compare-mode bar widths (see `currentBarWidth` / `previousBarWidth`). The
- * current bar uses a responsive percentage so it scales with the available width,
- * and the previous bar is sized in px as `current + 2 * frame` (computed from the
- * measured chart), so it frames the current bar by a fixed number of pixels per
- * side at any category count — a percentage would scale the frame with the bar.
- * Centering a wider bar behind a narrower one isn't possible on a single ECharts
- * category axis (unequal widths render side-by-side), so the current and previous
- * series are placed on two overlaid category axes that each center their own bars
- * — see the axis wiring in ExplorerChart.
- */
-/**
  * How far the previous period extends past the current bar on each side, in px:
  * a share of the bar width, kept within [minPx, maxPx].
  */
@@ -480,6 +469,17 @@ export function compareBarFramePx(
 ): number {
   return Math.max(minPx, Math.min(maxPx, Math.round(barWidth * fraction)));
 }
+/**
+ * Compare-mode bar widths (see `currentBarWidth` / `previousBarWidth`). The
+ * current bar uses a responsive percentage so it scales with the available width,
+ * and the previous bar is sized in px as `current + 2 * frame` (computed from the
+ * measured chart), so it frames the current bar by a fixed number of pixels per
+ * side at any category count — a percentage would scale the frame with the bar.
+ * Centering a wider bar behind a narrower one isn't possible on a single ECharts
+ * category axis (unequal widths render side-by-side), so the current and previous
+ * series are placed on two overlaid category axes that each center their own bars
+ * — see the axis wiring in ExplorerChart.
+ */
 /** Base opacity for the previous-period bar (kept soft, behind current). */
 const COMPARE_OVERLAY_PREVIOUS_BAR_BASE_OPACITY = 0.48;
 /** Current bar dims to this on hover so the previous bar shows through behind it. */
