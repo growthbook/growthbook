@@ -91,6 +91,7 @@ import {
   withScheduledBy,
   isExperimentResultsUpdateDisabled,
   EXPERIMENT_RESULTS_UPDATE_DISABLED_MESSAGE,
+  getSnapshotDataAsOf,
   getSnapshotSideEffects,
   getMetricFilterForCarriedQueries,
   getMetricRefresh,
@@ -286,7 +287,11 @@ import {
 } from "back-end/src/services/experimentUpdateExecutionLogger";
 import { PAYLOAD_AFFECTING_EXPERIMENT_FIELDS } from "back-end/src/services/experimentPayloadFields";
 import { getScheduledAnalysisEndDate } from "back-end/src/services/scheduledAnalysisEndDate";
-import { planMetricRefresh } from "back-end/src/services/metricRefresh";
+import {
+  getMetricRefreshLockConflict,
+  planMetricRefresh,
+  resolveIncrementalMetricRefreshRun,
+} from "back-end/src/services/metricRefresh";
 import { isStandaloneBreakdownSnapshot } from "back-end/src/queryRunners/unitDimensionQueryNaming";
 import { getMetricForSnapshot } from "./reports";
 import {
@@ -1805,6 +1810,7 @@ async function planSnapshotQueryRunner({
   triggeredBy,
   throwOnErrorInsteadOfFallback,
   isLatestPhase,
+  forMetricRefresh,
 }: {
   organization: OrganizationInterface;
   datasource: DataSourceInterface;
@@ -1820,6 +1826,7 @@ async function planSnapshotQueryRunner({
   triggeredBy: SnapshotTriggeredBy;
   throwOnErrorInsteadOfFallback: boolean;
   isLatestPhase: boolean;
+  forMetricRefresh: boolean;
 }): Promise<{
   runnerFamily: SnapshotQueryRunnerFamily;
   incrementalFallbackReason: string | null;
@@ -1908,9 +1915,11 @@ async function planSnapshotQueryRunner({
       ...prerequisites,
       analysisType: fullRefresh
         ? "main-fullRefresh"
-        : snapshotType === "standard"
-          ? "main-update"
-          : "exploratory",
+        : snapshotType !== "standard"
+          ? "exploratory"
+          : forMetricRefresh
+            ? "metric-refresh"
+            : "main-update",
     });
     return {
       ...decision,
@@ -1987,6 +1996,7 @@ export async function planSnapshot({
   reweight,
   throwIfRequiresFullRefresh,
   cutoff,
+  forMetricRefresh = false,
 }: {
   experiment: ExperimentInterface;
   context: ReqContext | ApiReqContext;
@@ -2002,6 +2012,7 @@ export async function planSnapshot({
   reweight?: boolean;
   throwIfRequiresFullRefresh?: boolean;
   cutoff?: Date | null;
+  forMetricRefresh?: boolean;
 }): Promise<PlannedExperimentSnapshot> {
   const { org: organization } = context;
   const dimension = defaultAnalysisSettings.dimensions[0] || null;
@@ -2185,6 +2196,7 @@ export async function planSnapshot({
       throwIfRequiresFullRefresh,
     ),
     isLatestPhase: phaseIndex === experiment.phases.length - 1,
+    forMetricRefresh,
   });
 
   if (runnerPlan.runnerFamily === "incremental-exploratory") {
@@ -2198,10 +2210,11 @@ export async function planSnapshot({
       : null;
     if (sourceSnapshot) {
       data.sourceSnapshotId = sourceSnapshot.id;
-      data.sourceSnapshotDateCreated = sourceSnapshot.dateCreated;
+      const sourceDataAsOf = getSnapshotDataAsOf(sourceSnapshot);
+      data.sourceSnapshotDateCreated = sourceDataAsOf;
       // The source's data ends at its cutoff, otherwise at its run time.
       const sourceCutoff = getSnapshotCutoffDate(sourceSnapshot.settings);
-      data.sourceSnapshotEndDate = sourceCutoff ?? sourceSnapshot.dateCreated;
+      data.sourceSnapshotEndDate = sourceCutoff ?? sourceDataAsOf;
       // The tables hold nothing past the source's cutoff, so daily rates and
       // lookback windows must be sized from it too, not from now.
       if (sourceCutoff && !snapshotSettingsArgs.cutoff) {
@@ -2268,6 +2281,7 @@ export async function createSnapshotFromPlan({
     runnerKind === "incremental-update" ||
     runnerKind === "incremental-exploratory";
 
+  const metricRefresh = getMetricRefresh(plan.snapshot);
   let hasIncrementalRefreshLock = false;
   if (needsIncrementalRefreshLock) {
     hasIncrementalRefreshLock =
@@ -2282,6 +2296,13 @@ export async function createSnapshotFromPlan({
           ),
       });
     if (!hasIncrementalRefreshLock) {
+      if (metricRefresh) {
+        throw await getMetricRefreshLockConflict(
+          context,
+          experiment.id,
+          plan.snapshot.phase,
+        );
+      }
       throw new ConcurrentIncrementalRefreshError(
         "There is already an update in progress for this experiment.",
       );
@@ -2294,6 +2315,15 @@ export async function createSnapshotFromPlan({
 
   const sideEffects = getSnapshotSideEffects(plan.snapshot);
   try {
+    const incrementalMetricRefresh =
+      metricRefresh && hasIncrementalRefreshLock
+        ? await resolveIncrementalMetricRefreshRun({
+            context,
+            snapshot: plan.snapshot,
+            metricRefresh,
+          })
+        : null;
+
     let scheduleNextSnapshot = sideEffects.advanceUpdateSchedule;
     if (
       experiment.type === "multi-armed-bandit" &&
@@ -2402,11 +2432,18 @@ export async function createSnapshotFromPlan({
       ).startAnalysis({
         ...analysisProps,
         experimentId: experiment.id,
-        incrementalRefreshStartTime: getIncrementalMetricScanEnd(
-          experiment.phases[plan.snapshot.phase],
-          plan.snapshot.settings,
-        ),
-        mode: { kind: runnerKind === "incremental-full" ? "full" : "update" },
+        incrementalRefreshStartTime:
+          incrementalMetricRefresh?.scanEnd ??
+          getIncrementalMetricScanEnd(
+            experiment.phases[plan.snapshot.phase],
+            plan.snapshot.settings,
+          ),
+        mode: incrementalMetricRefresh
+          ? {
+              kind: "metrics-only",
+              definitionMetricIds: incrementalMetricRefresh.definitionMetricIds,
+            }
+          : { kind: runnerKind === "incremental-full" ? "full" : "update" },
       });
     } else if (runnerKind === "incremental-exploratory") {
       await (
@@ -3194,7 +3231,8 @@ export async function planExperimentSnapshot({
       dimension,
       useCache,
       metricGroups,
-      planSnapshotAt: (cutoff) => planSnapshot({ ...planSnapshotArgs, cutoff }),
+      planSnapshotAt: (cutoff) =>
+        planSnapshot({ ...planSnapshotArgs, cutoff, forMetricRefresh: true }),
     });
   }
   return planSnapshot(planSnapshotArgs);

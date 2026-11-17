@@ -20,6 +20,7 @@ import {
   getMetricRefreshLineage,
   getSettingsChangedSinceParent,
   mergeMetricRefreshSettings,
+  parseIncrementalRefreshBase,
   planMetricRefresh,
 } from "back-end/src/services/metricRefresh";
 import {
@@ -40,6 +41,7 @@ import { getSourceIntegrationObject } from "back-end/src/services/datasource";
 import { analyzeExperimentResults } from "back-end/src/services/stats";
 import {
   BadRequestError,
+  ExperimentIncrementalPipelineRequiresFullRefreshError,
   MetricRefreshUnavailableError,
   MetricsAlreadyUpToDateError,
   SnapshotInProgressError,
@@ -339,7 +341,7 @@ describe("planMetricRefresh", () => {
       },
     },
     {
-      name: "an Incremental Pipeline parent",
+      name: "an Incremental Pipeline parent with a results plan",
       setup: () => {
         findParentMock.mockResolvedValue(
           makeParent({ runnerKind: "incremental-update" }),
@@ -348,12 +350,41 @@ describe("planMetricRefresh", () => {
       expected: unavailable("incremental_pipeline"),
     },
     {
-      name: "an Incremental Pipeline plan",
+      name: "a results parent with an Incremental Pipeline plan",
       setup: () => ({
         planSnapshotAt: async () =>
-          makePlan({ runnerKind: "incremental-full" }),
+          makePlan({ runnerKind: "incremental-update" }),
       }),
       expected: unavailable("incremental_pipeline"),
+    },
+    {
+      name: "a planned full refresh of the Incremental Pipeline",
+      setup: () => {
+        findParentMock.mockResolvedValue(
+          makeParent({ runnerKind: "incremental-update" }),
+        );
+        return {
+          planSnapshotAt: async () =>
+            makePlan({ runnerKind: "incremental-full" }),
+        };
+      },
+      expected: unavailable("incremental_pipeline"),
+    },
+    {
+      name: "a plan that requires a full refresh",
+      setup: () => {
+        findParentMock.mockResolvedValue(
+          makeParent({ runnerKind: "incremental-update" }),
+        );
+        return {
+          planSnapshotAt: async () => {
+            throw new ExperimentIncrementalPipelineRequiresFullRefreshError(
+              "Experiment settings changed",
+            );
+          },
+        };
+      },
+      expected: unavailable("settings_changed"),
     },
     {
       name: "changed snapshot settings",
@@ -413,6 +444,159 @@ describe("planMetricRefresh", () => {
       expect(plan.snapshot.metricRefresh?.metricIds).toEqual(["met_c"]);
     },
   );
+
+  it.each([
+    ["a statistics query", "statistics_fta_0", true],
+    ["a traffic query", "traffic", true],
+    [
+      "a cache insert, which it does not copy",
+      "insert_metrics_source_data_fta_0",
+      false,
+    ],
+  ])(
+    "on the Incremental Pipeline, a parent with a failed %s",
+    async (_, failed, rejected) => {
+      findParentMock.mockResolvedValue(
+        makeParent({
+          runnerKind: "incremental-update",
+          queries: [
+            {
+              name: "statistics_ftb_0",
+              query: "qry_stats",
+              status: "succeeded",
+            },
+            { name: failed, query: "qry_failed", status: "failed" },
+          ],
+        }),
+      );
+
+      const promise = planMetricRefresh(
+        refreshArgs({
+          planSnapshotAt: async () =>
+            makePlan({ runnerKind: "incremental-update" }),
+        }),
+      );
+
+      if (rejected) {
+        await expect(promise).rejects.toMatchObject({
+          details: { reason: "base_incomplete" },
+        });
+      } else {
+        await expect(promise).resolves.toMatchObject({
+          snapshot: { metricRefresh: { metricIds: ["met_c"] } },
+        });
+      }
+    },
+  );
+
+  it.each(["incremental-full", "incremental-update"] as const)(
+    "plans an incremental update after an %s parent",
+    async (parentKind) => {
+      findParentMock.mockResolvedValue(makeParent({ runnerKind: parentKind }));
+      const plan = await planMetricRefresh(
+        refreshArgs({
+          planSnapshotAt: async () =>
+            makePlan({ runnerKind: "incremental-update" }),
+        }),
+      );
+      expect(plan.snapshot.runnerKind).toBe("incremental-update");
+      expect(plan.snapshot.metricRefresh?.metricIds).toEqual(["met_c"]);
+    },
+  );
+});
+
+describe("parseIncrementalRefreshBase", () => {
+  const SCAN_END = PARENT_END;
+  const before = (minutes: number) =>
+    new Date(SCAN_END.getTime() - minutes * 60_000);
+  const after = (minutes: number) =>
+    new Date(SCAN_END.getTime() + minutes * 60_000);
+
+  type State = NonNullable<
+    Parameters<typeof parseIncrementalRefreshBase>[0]["state"]
+  >;
+  const source = (
+    groupId: string,
+    metricIds: string[],
+    maxTimestamp: Date | null,
+  ): State["metricSources"][number] => ({
+    groupId,
+    factTableId: groupId.split("_")[0],
+    metrics: metricIds.map((id) => ({ id, settingsHash: `h_${id}` })),
+    maxTimestamp,
+    maxTimestampRaw: null,
+    tableFullName: `t_${groupId}`,
+  });
+  const state = (overrides: Partial<State> = {}): State => ({
+    unitsTableFullName: "t_units",
+    unitsMaxTimestamp: before(1),
+    materializedBySnapshotId: "snp_parent",
+    metricSources: [
+      source("fta_0", ["met_a"], before(2)),
+      source("ftb_0", ["met_b"], SCAN_END),
+    ],
+    ...overrides,
+  });
+  const withSource = (...extra: State["metricSources"]) => {
+    const s = state();
+    s.metricSources.push(...extra);
+    return s;
+  };
+  const parse = (s: State | null) =>
+    parseIncrementalRefreshBase({
+      state: s,
+      parentSnapshotId: "snp_parent",
+      definitionMetricIds: new Set(["met_c"]),
+      scanEnd: SCAN_END,
+    });
+
+  it("accepts the state the parent left and names the targets", () => {
+    expect(parse(state())).toEqual({
+      definitionMetricIds: new Set(["met_c"]),
+      scanEnd: SCAN_END,
+    });
+  });
+
+  it.each<[string, () => State | null]>([
+    ["no pipeline state", () => null],
+    ["no units table", () => state({ unitsTableFullName: null })],
+    [
+      "tables materialized by another run",
+      () => state({ materializedBySnapshotId: "snp_failed_update" }),
+    ],
+    [
+      "tables never stamped by a run",
+      () => state({ materializedBySnapshotId: undefined }),
+    ],
+    [
+      "a units table past the parent's end",
+      () => state({ unitsMaxTimestamp: after(5) }),
+    ],
+    [
+      "a sibling cache past the parent's end, left by an update that replaced the units table",
+      () => {
+        const s = state();
+        s.metricSources[1].maxTimestamp = after(30);
+        return s;
+      },
+    ],
+    [
+      "a cache that already holds a target",
+      () => withSource(source("ftc_1", ["met_c"], before(1))),
+    ],
+    [
+      "a cache that already holds a target's slice",
+      () => withSource(source("ftc_1", ["met_c?dim:country=US"], before(1))),
+    ],
+    [
+      "a target sharing a cache with a metric the refresh doesn't compute",
+      () => withSource(source("fta_1", ["met_d", "met_c"], before(1))),
+    ],
+  ])("rejects %s", (_name, makeState) => {
+    expect(() => parse(makeState())).toThrow(
+      expect.objectContaining({ details: { reason: "incremental_pipeline" } }),
+    );
+  });
 });
 
 describe("getSettingsChangedSinceParent", () => {

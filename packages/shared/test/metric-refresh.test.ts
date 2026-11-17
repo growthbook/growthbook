@@ -3,6 +3,7 @@ import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
 import {
   getMetricFilterForCarriedQueries,
   getMetricIdsMissingFromSnapshot,
+  getSnapshotDataAsOf,
   getSnapshotSideEffects,
 } from "../src/experiments/metric-refresh";
 
@@ -168,5 +169,36 @@ describe("a report snapshot copied from a metric refresh", () => {
 
   it("analyzes every metric its queries return", () => {
     expect(getMetricFilterForCarriedQueries(report)).toBeUndefined();
+  });
+
+  it("reports its own run time as its data date", () => {
+    expect(getSnapshotDataAsOf(report)).toEqual(report.dateCreated);
+  });
+});
+
+describe("getSnapshotDataAsOf", () => {
+  const ran = new Date("2026-11-10T12:00:00Z");
+  const rootRan = new Date("2026-11-09T08:00:00Z");
+
+  it("is a full run's own run time", () => {
+    expect(getSnapshotDataAsOf({ type: "standard", dateCreated: ran })).toEqual(
+      ran,
+    );
+  });
+
+  it("is the lineage root's run time for a metric refresh", () => {
+    expect(
+      getSnapshotDataAsOf({
+        type: "standard",
+        dateCreated: ran,
+        metricRefresh: {
+          baseSnapshotId: "snp_root",
+          baseDateCreated: rootRan,
+          baseCutoffDate: null,
+          parentSnapshotId: "snp_parent",
+          metricIds: ["met_c"],
+        },
+      }),
+    ).toEqual(rootRan);
   });
 });

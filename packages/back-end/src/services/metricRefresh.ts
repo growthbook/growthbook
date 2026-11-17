@@ -8,6 +8,7 @@ import {
   getIdentifierTypeForSettingsHash,
   getSnapshotCutoffDate,
 } from "shared/util";
+import type { IncrementalRefreshInterface } from "shared/validators";
 import type {
   DataSourceInterface,
   ExposureQuery,
@@ -35,8 +36,10 @@ import {
 } from "back-end/src/models/QueryModel";
 import { getSourceIntegrationObject } from "back-end/src/services/datasource";
 import { isCarriedMetricRefreshQuery } from "back-end/src/queryRunners/ExperimentResultsQueryRunner";
+import { isCarriedIncrementalQuery } from "back-end/src/queryRunners/ExperimentIncrementalRefreshQueryRunner";
 import {
   BadRequestError,
+  ExperimentIncrementalPipelineRequiresFullRefreshError,
   MetricRefreshUnavailableError,
   MetricRefreshUnavailableReason,
   MetricsAlreadyUpToDateError,
@@ -55,7 +58,7 @@ const UNAVAILABLE_MESSAGES: Record<MetricRefreshUnavailableReason, string> = {
   unsupported_data_source:
     "This Data Source analyzes every metric in one query, so newly added metrics can't be updated on their own. Run a full update instead.",
   incremental_pipeline:
-    "Experiments on the Incremental Pipeline can't update newly added metrics on their own yet. Run a full update instead.",
+    "The experiment's pipeline tables no longer match its latest results, so newly added metrics can't be updated on their own. Run a full update instead.",
   settings_changed:
     "The experiment's analysis settings changed since the last update. Run a full update instead.",
   base_incomplete:
@@ -144,11 +147,20 @@ export async function planMetricRefresh({
     throw new MetricsAlreadyUpToDateError(parent.id);
   }
 
-  const plan = await planSnapshotAt(parent.settings.endDate);
+  const plan = await planSnapshotAt(parent.settings.endDate).catch(
+    (error: unknown) => {
+      if (
+        error instanceof ExperimentIncrementalPipelineRequiresFullRefreshError
+      ) {
+        throw unavailable("settings_changed");
+      }
+      throw error;
+    },
+  );
   if (!getSnapshotCutoffDate(plan.snapshot.settings)) {
     throw unavailable("phase_ended");
   }
-  assertResultsPipeline({ parent, planned: plan.snapshot });
+  assertRefreshablePipeline({ parent, planned: plan.snapshot });
   if (
     getSettingsChangedSinceParent({
       parent,
@@ -168,12 +180,13 @@ export async function planMetricRefresh({
     throw new MetricsAlreadyUpToDateError(parent.id);
   }
   const analyzedMetricIds = new Set(settings.metricSettings.map((m) => m.id));
+  const isCarried =
+    (parent.runnerKind ?? "results") === "results"
+      ? (name: string) =>
+          isCarriedMetricRefreshQuery(name, parent.id, analyzedMetricIds)
+      : isCarriedIncrementalQuery;
   if (
-    parent.queries.some(
-      (q) =>
-        q.status !== "succeeded" &&
-        isCarriedMetricRefreshQuery(q.name, parent.id, analyzedMetricIds),
-    )
+    parent.queries.some((q) => q.status !== "succeeded" && isCarried(q.name))
   ) {
     throw unavailable("base_incomplete");
   }
@@ -188,17 +201,16 @@ export async function planMetricRefresh({
   };
 }
 
-function assertResultsPipeline({
+function assertRefreshablePipeline({
   parent,
   planned,
 }: {
   parent: Pick<ExperimentSnapshotInterface, "runnerKind">;
   planned: Pick<PlannedExperimentSnapshot["snapshot"], "runnerKind">;
 }): void {
-  if (
-    (parent.runnerKind ?? "results") !== "results" ||
-    planned.runnerKind !== "results"
-  ) {
+  const parentKind = parent.runnerKind ?? "results";
+  const expected = parentKind === "results" ? "results" : "incremental-update";
+  if (planned.runnerKind !== expected) {
     throw unavailable("incremental_pipeline");
   }
 }
@@ -353,6 +365,88 @@ export function getMetricRefreshLineage(
         baseCutoffDate: getSnapshotCutoffDate(parent.settings),
       };
   return { ...root, parentSnapshotId: parent.id, metricIds };
+}
+
+export type IncrementalMetricRefreshRun = {
+  definitionMetricIds: ReadonlySet<string>;
+  scanEnd: Date;
+};
+
+export function parseIncrementalRefreshBase({
+  state,
+  parentSnapshotId,
+  definitionMetricIds,
+  scanEnd,
+}: {
+  state: Pick<
+    IncrementalRefreshInterface,
+    | "unitsTableFullName"
+    | "unitsMaxTimestamp"
+    | "materializedBySnapshotId"
+    | "metricSources"
+  > | null;
+  parentSnapshotId: string;
+  definitionMetricIds: ReadonlySet<string>;
+  scanEnd: Date;
+}): IncrementalMetricRefreshRun {
+  const sources = state?.metricSources ?? [];
+  const pastScanEnd = (timestamp: Date | null) =>
+    !!timestamp && timestamp > scanEnd;
+  const tablesMatchParent =
+    !!state?.unitsTableFullName &&
+    state.materializedBySnapshotId === parentSnapshotId &&
+    ![state.unitsMaxTimestamp, ...sources.map((s) => s.maxTimestamp)].some(
+      pastScanEnd,
+    );
+  const storesTarget = sources.some((source) =>
+    source.metrics.some((m) =>
+      definitionMetricIds.has(getDefinitionMetricId(m.id)),
+    ),
+  );
+  if (!tablesMatchParent || storesTarget) {
+    throw unavailable("incremental_pipeline");
+  }
+  return { definitionMetricIds, scanEnd };
+}
+
+export async function resolveIncrementalMetricRefreshRun({
+  context,
+  snapshot,
+  metricRefresh,
+}: {
+  context: ReqContext | ApiReqContext;
+  snapshot: PlannedExperimentSnapshot["snapshot"];
+  metricRefresh: SnapshotMetricRefresh;
+}): Promise<IncrementalMetricRefreshRun> {
+  if (snapshot.runnerKind !== "incremental-update") {
+    throw unavailable("incremental_pipeline");
+  }
+  const scanEnd = getSnapshotCutoffDate(snapshot.settings);
+  if (!scanEnd) {
+    throw unavailable("phase_ended");
+  }
+  return parseIncrementalRefreshBase({
+    state: await context.models.incrementalRefresh.getLockedBySnapshotId(
+      snapshot.experiment,
+      snapshot.id,
+    ),
+    parentSnapshotId: metricRefresh.parentSnapshotId,
+    definitionMetricIds: new Set(metricRefresh.metricIds),
+    scanEnd,
+  });
+}
+
+export async function getMetricRefreshLockConflict(
+  context: ReqContext | ApiReqContext,
+  experimentId: string,
+  phase: number,
+): Promise<SnapshotInProgressError> {
+  const state =
+    await context.models.incrementalRefresh.getByExperimentIdAndPhase(
+      experimentId,
+      phase,
+    );
+  return new SnapshotInProgressError(state?.currentExecutionSnapshotId ?? "");
 }
 
 /**

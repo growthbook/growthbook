@@ -45,6 +45,10 @@ export function getMetricRefresh(
   return snapshot.type === "standard" ? (snapshot.metricRefresh ?? null) : null;
 }
 
+export function getSnapshotDataAsOf(snapshot: SnapshotLineage): Date {
+  return getMetricRefresh(snapshot)?.baseDateCreated ?? snapshot.dateCreated;
+}
+
 /**
  * Side effects that differ between a full run and a metric refresh. Callers
  * keep their own conditions and also require the flag.
