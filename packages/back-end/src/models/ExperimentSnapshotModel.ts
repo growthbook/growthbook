@@ -98,6 +98,7 @@ const experimentSnapshotSchema = new mongoose.Schema({
   dimension: String,
   unknownVariations: [String],
   multipleExposures: Number,
+  overallClusterUnits: { type: [Number], default: undefined },
   hasCorrectedStats: Boolean,
   status: String,
   settings: {},

@@ -270,6 +270,9 @@ export interface ExperimentSnapshotInterface {
   banditResult?: BanditResult;
 
   health?: ExperimentSnapshotHealth;
+  // Report snapshots of cluster experiments broken down by a dimension: distinct
+  // clusters per variation, which the breakdown's slices can't be summed into.
+  overallClusterUnits?: number[];
 }
 
 export interface ExperimentWithSnapshot extends ExperimentInterfaceStringDates {

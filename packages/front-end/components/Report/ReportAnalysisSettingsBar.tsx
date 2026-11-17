@@ -87,6 +87,14 @@ export default function ReportAnalysisSettingsBar({
   const clusterSubUnitIdentifier = snapshot?.settings.isClusterExperiment
     ? snapshot.settings.clusterSubUnitIdentifier
     : undefined;
+  // A cluster can fall into several breakdown slices, so a breakdown uses the
+  // snapshot's own distinct count instead of summing slices.
+  const clusterUnits =
+    clusterSubUnitIdentifier && snapshot?.dimension
+      ? snapshot.overallClusterUnits?.length
+        ? snapshot.overallClusterUnits.reduce((acc, n) => acc + n, 0)
+        : null
+      : (totalUnits ?? 0);
   // Each subunit falls in one breakdown slice, so summing slices is exact.
   const totalSubUnits = useMemo(
     () =>
@@ -220,13 +228,11 @@ export default function ReportAnalysisSettingsBar({
             {/* A refreshing report points at a snapshot with no results yet. */}
             {hasData ? (
               <Flex align="center" gap="4">
-                {/* A cluster's subunits can fall into several breakdown slices,
-                    and report snapshots have no overall result to count from. */}
-                {clusterSubUnitIdentifier && snapshot.dimension ? (
+                {clusterUnits === null ? (
                   <Metadata
                     label={unitDisplayName}
                     value={
-                      <Tooltip content="Cluster counts aren't available when results are broken down by a dimension.">
+                      <Tooltip content="This breakdown has no cluster count yet. Refresh the report to count them.">
                         <span tabIndex={0} style={{ cursor: "help" }}>
                           —
                         </span>
@@ -237,7 +243,7 @@ export default function ReportAnalysisSettingsBar({
                 ) : (
                   <Metadata
                     label={unitDisplayName}
-                    value={numberFormatter.format(totalUnits ?? 0)}
+                    value={numberFormatter.format(clusterUnits)}
                     style={{ whiteSpace: "nowrap" }}
                   />
                 )}
