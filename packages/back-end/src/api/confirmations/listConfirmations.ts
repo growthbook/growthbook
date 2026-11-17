@@ -23,6 +23,7 @@ export const listConfirmations = createApiRequestHandler(
     req.context.apiKey || null,
     req.context.userId || null,
     [...STORED_STATUSES[status]],
+    status === "pending",
   );
   const { filtered, returnFields } = applyPagination(
     docs.map(toApiConfirmation).filter((c) => c.status === status),
