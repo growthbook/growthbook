@@ -987,7 +987,7 @@ export const putColumn = async (
     throw new Error("Could not find column");
   }
 
-  if (!data.name) {
+  if (data.name !== undefined && !data.name) {
     data.name = col.column;
   }
 

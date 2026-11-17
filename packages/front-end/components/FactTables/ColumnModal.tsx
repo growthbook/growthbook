@@ -389,7 +389,16 @@ export default function ColumnModal({
             `/fact-tables/${factTable.id}/column/${existing.column}`,
             {
               method: "PUT",
-              body: JSON.stringify(data),
+              // Slices-only edits send just slice fields so hidden ones can't clobber concurrent edits.
+              body: JSON.stringify(
+                slicesOnly
+                  ? {
+                      isAutoSliceColumn: data.isAutoSliceColumn,
+                      autoSlices: data.autoSlices,
+                      lockedAutoSlices: data.lockedAutoSlices,
+                    }
+                  : data,
+              ),
             },
           );
         } else {
