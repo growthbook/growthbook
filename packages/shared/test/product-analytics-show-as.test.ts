@@ -822,7 +822,10 @@ describe("proportions with a population", () => {
       ]),
       getFactMetricById,
     );
-    expect(renderOpts.secondaryAxisValueIndexes).toEqual([1]);
+    expect(renderOpts.values.map((v) => v.valueAxis)).toEqual([
+      "primary",
+      "secondary",
+    ]);
     expect(getDefaultValueAxisName(renderOpts)).toBe("Total");
     expect(getSecondaryValueAxisName(renderOpts)).toBe("% of Population");
   });
@@ -846,7 +849,10 @@ describe("proportions with a population", () => {
         },
         getFactMetricById,
       );
-      expect(renderOpts.secondaryAxisValueIndexes).toEqual([1]);
+      expect(renderOpts.values.map((v) => v.valueAxis)).toEqual([
+        "primary",
+        "secondary",
+      ]);
       expect(getDefaultValueAxisName(renderOpts)).toBe("Total");
       expect(getSecondaryValueAxisName(renderOpts)).toBe("% of Population");
     },
@@ -860,7 +866,9 @@ describe("proportions with a population", () => {
       ]),
       getFactMetricById,
     );
-    expect(renderOpts.secondaryAxisValueIndexes).toEqual([]);
+    expect(renderOpts.values.every((v) => v.valueAxis === "primary")).toBe(
+      true,
+    );
     expect(getSecondaryValueAxisName(renderOpts)).toBeNull();
     expect(getDefaultValueAxisName(renderOpts)).toBe("% of Population");
   });

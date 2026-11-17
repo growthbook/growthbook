@@ -5,6 +5,7 @@ import type {
 import {
   alignComparisonOverlayToCategories,
   assignSecondaryValueAxis,
+  buildComparisonOverlaySeriesMaps,
   buildValueAxes,
   buildExplorerChartTooltipFormatter,
   buildPopulationFractionLabels,
@@ -518,12 +519,17 @@ describe("population fraction tooltip labels", () => {
         showAs: "percent_of_population" as const,
         isRatio: false,
         seriesName: "Signups",
+        valueAxis: "secondary" as const,
       },
-      { showAs: "total" as const, isRatio: false, seriesName: "Logins" },
+      {
+        showAs: "total" as const,
+        isRatio: false,
+        seriesName: "Logins",
+        valueAxis: "primary" as const,
+      },
     ],
     sharedShowAs: null,
     modesAreMixed: true,
-    secondaryAxisValueIndexes: [0],
     primaryAxisShowAs: "total" as const,
     sharedUnit: "user_id",
   };
@@ -684,106 +690,105 @@ describe("population fraction tooltip labels", () => {
 describe("second % of Population value axis", () => {
   const renderOpts = {
     values: [
-      { showAs: "total" as const, isRatio: false, seriesName: "Signups" },
+      {
+        showAs: "total" as const,
+        isRatio: false,
+        seriesName: "Signups",
+        valueAxis: "primary" as const,
+      },
       {
         showAs: "percent_of_population" as const,
         isRatio: false,
         seriesName: "Purchases",
+        valueAxis: "secondary" as const,
       },
     ],
     sharedShowAs: null,
     modesAreMixed: true,
-    secondaryAxisValueIndexes: [1],
     primaryAxisShowAs: "total" as const,
     sharedUnit: "user_id",
   };
-  const labels = { currentLabel: "C", previousLabel: "P" };
+  const signups = { name: "Signups", valueAxis: "primary" as const };
+  const purchases = { name: "Purchases", valueAxis: "secondary" as const };
+
+  it("copies each value's axis onto its series when it's built", () => {
+    const { seriesMeta } = buildComparisonOverlaySeriesMaps(
+      [
+        {
+          dimensions: ["2026-09-01"],
+          values: [
+            { metricId: "m0", numerator: 1, denominator: null },
+            { metricId: "m1", numerator: 2, denominator: null },
+          ],
+        },
+      ],
+      submittedExploreStateFixture,
+      renderOpts,
+    );
+    expect(seriesMeta.__metric_0__.valueAxis).toBe("primary");
+    expect(seriesMeta.__metric_1__.valueAxis).toBe("secondary");
+  });
 
   it("moves only the % of Population series onto the second axis", () => {
     expect(
-      assignSecondaryValueAxis(
-        [{ name: "Signups" }, { name: "Purchases" }],
-        renderOpts,
-        null,
-        "yAxisIndex",
-      ),
-    ).toEqual([{ name: "Signups" }, { name: "Purchases", yAxisIndex: 1 }]);
+      assignSecondaryValueAxis([signups, purchases], "yAxisIndex"),
+    ).toEqual([signups, { ...purchases, yAxisIndex: 1 }]);
   });
 
-  it("moves both compare periods of a metric", () => {
+  it("moves every series of a value, whatever it's named", () => {
+    // Compare periods and breakdown groups of a value are named after the
+    // period or the group, not the value.
+    const current = { ...purchases, name: "Purchases (C)" };
+    const previous = { ...purchases, name: "Purchases (P)" };
+    const group = { ...purchases, name: "US" };
     expect(
       assignSecondaryValueAxis(
-        [
-          { name: "Signups (C)" },
-          { name: "Purchases (C)" },
-          { name: "Purchases (P)" },
-        ],
-        renderOpts,
-        labels,
+        [signups, current, previous, group],
         "yAxisIndex",
       ),
     ).toEqual([
-      { name: "Signups (C)" },
-      { name: "Purchases (C)", yAxisIndex: 1 },
-      { name: "Purchases (P)", yAxisIndex: 1 },
+      signups,
+      { ...current, yAxisIndex: 1 },
+      { ...previous, yAxisIndex: 1 },
+      { ...group, yAxisIndex: 1 },
     ]);
   });
 
   it("keeps a vertical compare bar's category axis", () => {
     expect(
-      assignSecondaryValueAxis(
-        [{ name: "Purchases (P)", xAxisIndex: 1 }],
-        renderOpts,
-        labels,
-        "yAxisIndex",
-      ),
-    ).toEqual([{ name: "Purchases (P)", xAxisIndex: 1, yAxisIndex: 1 }]);
+      assignSecondaryValueAxis([{ ...purchases, xAxisIndex: 1 }], "yAxisIndex"),
+    ).toEqual([{ ...purchases, xAxisIndex: 1, yAxisIndex: 1 }]);
   });
 
   it("uses the x value axis on horizontal bars, never the category axis", () => {
     const [current, previous] = assignSecondaryValueAxis(
-      [{ name: "Purchases (C)" }, { name: "Purchases (P)", yAxisIndex: 1 }],
-      renderOpts,
-      labels,
+      [purchases, { ...purchases, yAxisIndex: 1 }],
       "xAxisIndex",
     );
-    expect(current).toEqual({ name: "Purchases (C)", xAxisIndex: 1 });
+    expect(current).toEqual({ ...purchases, xAxisIndex: 1 });
     expect(current).not.toHaveProperty("yAxisIndex");
     // The previous period keeps its own category axis.
-    expect(previous).toEqual({
-      name: "Purchases (P)",
-      yAxisIndex: 1,
-      xAxisIndex: 1,
-    });
+    expect(previous).toEqual({ ...purchases, yAxisIndex: 1, xAxisIndex: 1 });
   });
 
   it("gives the second axis's stacked series their own stack", () => {
     expect(
       assignSecondaryValueAxis(
         [
-          { name: "Signups", stack: "stack" },
-          { name: "Purchases", stack: "stack" },
+          { ...signups, stack: "stack" },
+          { ...purchases, stack: "stack" },
         ],
-        renderOpts,
-        null,
         "yAxisIndex",
       ),
     ).toEqual([
-      { name: "Signups", stack: "stack" },
-      { name: "Purchases", stack: "stack:secondary", yAxisIndex: 1 },
+      { ...signups, stack: "stack" },
+      { ...purchases, stack: "stack:secondary", yAxisIndex: 1 },
     ]);
   });
 
-  it("leaves series alone when the chart has one axis", () => {
-    const series = [{ name: "Purchases" }];
-    expect(
-      assignSecondaryValueAxis(
-        series,
-        { ...renderOpts, secondaryAxisValueIndexes: [] },
-        null,
-        "yAxisIndex",
-      ),
-    ).toBe(series);
+  it("leaves primary-axis series alone", () => {
+    const series = [signups, { ...signups, stack: "stack" }];
+    expect(assignSecondaryValueAxis(series, "yAxisIndex")).toEqual(series);
   });
 
   it.each(["right", "top"] as const)(
@@ -837,18 +842,33 @@ describe("fillPopulationSeriesGaps", () => {
           showAs: "percent_of_population" as const,
           isRatio: false,
           seriesName: "Signups",
+          valueAxis: "secondary" as const,
         },
-        { showAs: "total" as const, isRatio: false, seriesName: "Logins" },
+        {
+          showAs: "total" as const,
+          isRatio: false,
+          seriesName: "Logins",
+          valueAxis: "primary" as const,
+        },
       ],
       sharedShowAs: null,
       modesAreMixed: true,
-      secondaryAxisValueIndexes: [0],
       primaryAxisShowAs: "total" as const,
       sharedUnit: "user_id",
     };
     const seriesMeta = {
-      __metric_0__: { metricId: "signups", name: "Signups", valueIndex: 0 },
-      __metric_1__: { metricId: "logins", name: "Logins", valueIndex: 1 },
+      __metric_0__: {
+        metricId: "signups",
+        name: "Signups",
+        valueIndex: 0,
+        valueAxis: "secondary" as const,
+      },
+      __metric_1__: {
+        metricId: "logins",
+        name: "Logins",
+        valueIndex: 1,
+        valueAxis: "primary" as const,
+      },
     };
     const dataMap = {
       __metric_0__: { "2026-09-01": 50 },

@@ -597,8 +597,6 @@ export default function ExplorerChart({
     if (secondaryValueAxisName !== null) {
       seriesConfigs = assignSecondaryValueAxis(
         seriesConfigs,
-        renderOpts,
-        comparisonPeriodLabels,
         isHorizontalBar ? "xAxisIndex" : "yAxisIndex",
       );
     }

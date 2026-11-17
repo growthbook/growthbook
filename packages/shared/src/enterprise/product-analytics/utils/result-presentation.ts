@@ -35,7 +35,7 @@ export function getDefaultValueAxisName({
 export function getSecondaryValueAxisName(
   renderOpts: ExplorationRenderOpts,
 ): string | null {
-  if (!renderOpts.secondaryAxisValueIndexes.length) return null;
+  if (!renderOpts.values.some((v) => v.valueAxis === "secondary")) return null;
   return "% of Population";
 }
 
@@ -131,12 +131,20 @@ function isProportionValue(
   );
 }
 
+/** The value axis a value is drawn against. */
+export type ValueAxis = "primary" | "secondary";
+
 /** How one dataset value renders. */
 export type ValueRenderOpts = {
   showAs: ShowAs;
   isRatio: boolean;
   /** Chart legend and tooltip name. */
   seriesName: string;
+  /**
+   * "secondary" for a "% of Population" value when other values use another
+   * mode: it's on a different scale, so it gets its own right-hand axis.
+   */
+  valueAxis: ValueAxis;
 };
 
 /** How a config's values render: each value, plus what they share. */
@@ -147,11 +155,6 @@ export type ExplorationRenderOpts = {
   sharedShowAs: ShowAs | null;
   /** Some values render as totals and others per unit. */
   modesAreMixed: boolean;
-  /**
-   * Values drawn on a second, right-hand axis: "% of Population" values when
-   * other values use another mode. Empty when the chart has one value axis.
-   */
-  secondaryAxisValueIndexes: number[];
   /**
    * The mode every value on the left axis renders in; null when they differ or
    * none of them names one (ratios, quantiles).
@@ -165,7 +168,6 @@ const NO_VALUES_RENDER_OPTS: ExplorationRenderOpts = {
   values: [],
   sharedShowAs: null,
   modesAreMixed: false,
-  secondaryAxisValueIndexes: [],
   primaryAxisShowAs: null,
   sharedUnit: null,
 };
@@ -195,17 +197,18 @@ export function getExplorationRenderOpts(
 
   // "% of Population" is on a different scale from every other mode, so when
   // it's mixed with them it moves to its own axis. Then each axis keeps a title.
-  const percentIndexes: number[] = [];
   const otherModes = new Set<ShowAs>();
-  for (let i = 0; i < choices.length; i++) {
-    if (choices[i].showAs === "percent_of_population") {
-      percentIndexes.push(i);
-    } else {
-      otherModes.add(choices[i].showAs);
-    }
+  for (const choice of choices) {
+    if (choice.showAs !== "percent_of_population")
+      otherModes.add(choice.showAs);
   }
-  const hasSecondAxis = percentIndexes.length > 0 && otherModes.size > 0;
-  const secondaryAxisValueIndexes = hasSecondAxis ? percentIndexes : [];
+  const hasSecondAxis =
+    choices.some((choice) => choice.showAs === "percent_of_population") &&
+    otherModes.size > 0;
+  const valueAxisFor = (showAs: ShowAs): ValueAxis =>
+    hasSecondAxis && showAs === "percent_of_population"
+      ? "secondary"
+      : "primary";
   let primaryAxisShowAs = sharedShowAs;
   if (hasSecondAxis) {
     primaryAxisShowAs = otherModes.size === 1 ? [...otherModes][0] : null;
@@ -234,10 +237,10 @@ export function getExplorationRenderOpts(
       seriesName: annotateNames
         ? getAnnotatedName(v, i, choices[i].showAs, sharedUnit)
         : getValueName(v, i),
+      valueAxis: valueAxisFor(choices[i].showAs),
     })),
     sharedShowAs,
     modesAreMixed,
-    secondaryAxisValueIndexes,
     primaryAxisShowAs,
     sharedUnit,
   };

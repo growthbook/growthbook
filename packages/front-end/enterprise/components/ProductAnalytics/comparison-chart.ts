@@ -7,7 +7,7 @@ import {
   computeBigNumberTrend,
   createComparisonAlignmentResolver,
 } from "shared/enterprise";
-import type { ComparisonAlignmentStrategy } from "shared/enterprise";
+import type { ComparisonAlignmentStrategy, ValueAxis } from "shared/enterprise";
 import type {
   ComparisonMode,
   ExplorationConfig,
@@ -405,6 +405,22 @@ function metricNameForDatasetValue(
   return renderOpts.values[metricIndex]?.seriesName ?? `Metric ${metricIndex}`;
 }
 
+function valueAxisForDatasetValue(
+  renderOpts: RenderOpts,
+  metricIndex: number,
+): ValueAxis {
+  return renderOpts.values[metricIndex]?.valueAxis ?? "primary";
+}
+
+export type ExplorerSeriesMeta = {
+  metricId: string;
+  name: string;
+  /** The dataset value the series draws. */
+  valueIndex: number;
+  /** The value's axis, from its render options. */
+  valueAxis: ValueAxis;
+};
+
 /**
  * Maps exploration rows into per-series maps keyed by the primary dimension (x).
  */
@@ -415,17 +431,11 @@ export function buildComparisonOverlaySeriesMaps(
 ): {
   uniqueXValues: Set<string>;
   dataMap: Record<string, Record<string, ChartPoint>>;
-  seriesMeta: Record<
-    string,
-    { metricId: string; name: string; valueIndex: number }
-  >;
+  seriesMeta: Record<string, ExplorerSeriesMeta>;
 } {
   const uniqueXValues = new Set<string>();
   const dataMap: Record<string, Record<string, ChartPoint>> = {};
-  const seriesMeta: Record<
-    string,
-    { metricId: string; name: string; valueIndex: number }
-  > = {};
+  const seriesMeta: Record<string, ExplorerSeriesMeta> = {};
 
   const numMetrics =
     config.dataset?.type !== "funnel" && config.dataset?.type !== "journey"
@@ -451,6 +461,7 @@ export function buildComparisonOverlaySeriesMaps(
             metricId: metricIdForDatasetValue(config, mi),
             name: metricNameForDatasetValue(renderOpts, mi),
             valueIndex: mi,
+            valueAxis: valueAxisForDatasetValue(renderOpts, mi),
           };
         }
         const cell = row.values?.[mi];
@@ -481,6 +492,7 @@ export function buildComparisonOverlaySeriesMaps(
           metricId: metricIdForDatasetValue(config, 0),
           name: group || metricNameForDatasetValue(renderOpts, 0),
           valueIndex: 0,
+          valueAxis: valueAxisForDatasetValue(renderOpts, 0),
         };
       }
       const cell = row.values?.[0];
@@ -503,6 +515,7 @@ export function buildComparisonOverlaySeriesMaps(
         metricId: metricIdForDatasetValue(config, 0),
         name: metricNameForDatasetValue(renderOpts, 0),
         valueIndex: 0,
+        valueAxis: valueAxisForDatasetValue(renderOpts, 0),
       };
     }
     const cell = row.values?.[0];
@@ -667,38 +680,20 @@ export function buildValueAxes<T extends object>(
 }
 
 /**
- * Moves the series of values on the second value axis (see
- * `secondaryAxisValueIndexes`) onto it. `valueAxisKey` is the value axis's
- * index key: `yAxisIndex` on vertical charts, `xAxisIndex` on horizontal ones,
- * where `yAxisIndex` is the category axis (compare mode already uses index 1
- * for the previous period's category axis, which is kept). Compare-mode series
- * are matched by their metric name, so both periods of a metric share an axis.
- * Stacked series get their own stack, so counts and percents don't stack
- * together.
+ * Moves each series whose `valueAxis` is "secondary" onto the second value
+ * axis. `valueAxisKey` is the value axis's index key: `yAxisIndex` on vertical
+ * charts, `xAxisIndex` on horizontal ones, where `yAxisIndex` is the category
+ * axis (compare mode already uses index 1 for the previous period's category
+ * axis, which is kept). Stacked series get their own stack, so counts and
+ * percents don't stack together.
  */
 export function assignSecondaryValueAxis(
   seriesConfigs: unknown[],
-  renderOpts: RenderOpts,
-  comparisonPeriodLabels: {
-    currentLabel: string;
-    previousLabel: string;
-  } | null,
   valueAxisKey: "xAxisIndex" | "yAxisIndex",
 ): unknown[] {
-  const secondarySeriesNames = new Set<string>();
-  for (const valueIndex of renderOpts.secondaryAxisValueIndexes) {
-    secondarySeriesNames.add(renderOpts.values[valueIndex].seriesName);
-  }
-  if (!secondarySeriesNames.size) return seriesConfigs;
-
   return seriesConfigs.map((config) => {
-    const seriesConfig = config as { name?: string; stack?: string };
-    const displayName = seriesConfig.name ?? "";
-    const metricName = comparisonPeriodLabels
-      ? parseComparisonTooltipSeriesName(displayName, comparisonPeriodLabels)
-          .baseName
-      : displayName;
-    if (!secondarySeriesNames.has(metricName)) return config;
+    const seriesConfig = config as { valueAxis?: ValueAxis; stack?: string };
+    if (seriesConfig.valueAxis !== "secondary") return config;
     return {
       ...seriesConfig,
       [valueAxisKey]: 1,
@@ -798,10 +793,11 @@ export function buildAlignedComparisonOverlayForExplorer(args: {
   return { alignedMap, comparisonXValues };
 }
 
-type ExplorerChartCompareSeriesMeta = {
-  metricId: string;
-  name: string;
-};
+/** Each series config carries its `valueAxis`, for `assignSecondaryValueAxis`. */
+type ExplorerChartCompareSeriesMeta = Pick<
+  ExplorerSeriesMeta,
+  "metricId" | "name" | "valueAxis"
+>;
 
 /**
  * Compare mode for non-stacked bar / horizontalBar with multiple metrics (or grouped
@@ -856,8 +852,7 @@ export function buildExplorerCompareSparseFlatBarSeries(args: {
   for (const x of sourceSortedXValues) {
     for (let ki = 0; ki < K; ki++) {
       const sk = sourceSeriesKeys[ki]!;
-      const { name } = sourceSeriesMeta[sk] ?? { name: sk };
-      flatCategoryData.push(`${x} — ${name}`);
+      flatCategoryData.push(`${x} — ${sourceSeriesMeta[sk].name}`);
     }
   }
 
@@ -871,7 +866,7 @@ export function buildExplorerCompareSparseFlatBarSeries(args: {
 
   for (let ki = 0; ki < K; ki++) {
     const sk = sourceSeriesKeys[ki]!;
-    const { name } = sourceSeriesMeta[sk] ?? { name: sk };
+    const { name, valueAxis } = sourceSeriesMeta[sk];
     const currName = formatComparisonMetricLabel(
       name,
       comparisonPeriodLabels.currentLabel,
@@ -901,6 +896,7 @@ export function buildExplorerCompareSparseFlatBarSeries(args: {
     // previous bar behind it shows through.
     series.push({
       name: currName,
+      valueAxis,
       type: "bar" as const,
       data: currData,
       color: seriesColor(ki),
@@ -917,6 +913,7 @@ export function buildExplorerCompareSparseFlatBarSeries(args: {
     // overlaid category axis), so it frames it. On hover it becomes outline-only.
     series.push({
       name: prevName,
+      valueAxis,
       type: "bar" as const,
       data: prevData,
       color: comparisonSeriesColor(ki),
@@ -994,7 +991,7 @@ export function buildExplorerChartComparisonSeriesList(params: {
 
   return sourceSeriesKeys
     .map((seriesKey, idx) => {
-      const { name } = sourceSeriesMeta[seriesKey];
+      const { name, valueAxis } = sourceSeriesMeta[seriesKey];
       const seriesDataMap = sourceDataMap[seriesKey];
       const displayName = comparisonPeriodLabels
         ? formatComparisonMetricLabel(
@@ -1014,6 +1011,7 @@ export function buildExplorerChartComparisonSeriesList(params: {
 
         return {
           name: displayName,
+          valueAxis,
           data,
           color,
           type: "line" as const,
@@ -1039,7 +1037,12 @@ export function buildExplorerChartComparisonSeriesList(params: {
             value: getChartPoint(seriesDataMap, x),
             itemStyle: { color: seriesColor(i) },
           }));
-          return { name: displayName, data, type: "bar" as const };
+          return {
+            name: displayName,
+            valueAxis,
+            data,
+            type: "bar" as const,
+          };
         }
 
         const data = sourceSortedXValues.map((x) =>
@@ -1048,6 +1051,7 @@ export function buildExplorerChartComparisonSeriesList(params: {
         if (compareOverlayActive) {
           return {
             name: displayName,
+            valueAxis,
             data,
             color,
             type: "bar" as const,
@@ -1089,6 +1093,7 @@ export function buildExplorerChartComparisonSeriesList(params: {
         }
         return {
           name: displayName,
+          valueAxis,
           data,
           color,
           type: "bar" as const,
@@ -1105,6 +1110,7 @@ export function buildExplorerChartComparisonSeriesList(params: {
         if (chartType === "area" && isPrevious && compareOverlayActive) {
           return {
             name: displayName,
+            valueAxis,
             data,
             color,
             type: "line" as const,
@@ -1128,6 +1134,7 @@ export function buildExplorerChartComparisonSeriesList(params: {
 
         const lineConfig = {
           name: displayName,
+          valueAxis,
           data,
           color,
           type: "line" as const,
