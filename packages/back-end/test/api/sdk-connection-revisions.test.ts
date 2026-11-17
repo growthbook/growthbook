@@ -245,6 +245,7 @@ describe("SDK Connection revision endpoints", () => {
     expect(direct.body.message).toContain(
       `PUT /sdk-connections-revisions/${id}/new/settings`,
     );
+    expect(direct.body.message).toContain("bypassApproval");
 
     const staged = await request(app)
       .put(`${BASE}/${id}/new/settings`)
@@ -315,6 +316,7 @@ describe("SDK Connection revision endpoints", () => {
       .delete(`/api/v1/sdk-connections/${id}`)
       .set(auth);
     expect(archived.status).toBe(200);
+    expect(archived.body).toEqual({ deletedId: id });
     expect(await liveConnection(id)).toBeNull();
 
     useAdmin({ restApiBypassesReviews: true });

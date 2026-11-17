@@ -20,35 +20,6 @@ jest.mock("back-end/src/jobs/sdkWebhooks", () => ({
   ...jest.requireActual("back-end/src/jobs/sdkWebhooks"),
   fireSdkWebhook: jest.fn(async () => undefined),
 }));
-// The constant is last in each release, so failing its write leaves every
-// connection before it already live. Lazy, to stay clear of import cycles.
-let mockFailConstantApply = false;
-jest.mock("back-end/src/revisions/bulkPublish/registry", () => {
-  return new Proxy(
-    {},
-    {
-      get(_target, prop: string) {
-        const actual = jest.requireActual(
-          "back-end/src/revisions/bulkPublish/registry",
-        );
-        if (prop !== "getBulkAdapter") return actual[prop];
-        return (type: string) => {
-          const adapter = actual.getBulkAdapter(type);
-          if (type !== "constant") return adapter;
-          return {
-            ...adapter,
-            applyPrecomputed: async (...args: unknown[]) => {
-              if (mockFailConstantApply) {
-                throw new Error("simulated infra failure");
-              }
-              return adapter.applyPrecomputed(...args);
-            },
-          };
-        };
-      },
-    },
-  );
-});
 const mockRunInSandbox = runInSandbox as jest.MockedFunction<
   typeof runInSandbox
 >;
@@ -84,7 +55,6 @@ describe("SDK Connections in a release", () => {
     ]) {
       await collection(name).deleteMany({ organization: ORG_ID });
     }
-    mockFailConstantApply = false;
     mockFireSdkWebhook.mockClear();
     mockRunInSandbox.mockReset();
     mockRunInSandbox.mockImplementation(sandboxEval);
@@ -291,15 +261,27 @@ describe("SDK Connections in a release", () => {
     expect(await constantValue("rel-sdk-shared")).toBe("before");
   });
 
-  it("puts back connections that landed before a later item failed", async () => {
+  it("puts back a connection that landed and one that failed partway", async () => {
     const a = await connectionWithDraft("Web app");
     const b = await connectionWithDraft("Mobile app");
     const constant = await constantWithDraft("rel-sdk-fail");
     const before = { a: await live(a.id), b: await live(b.id) };
+    const revisions = [a.ref, b.ref, constant];
     mockFireSdkWebhook.mockClear();
-    mockFailConstantApply = true;
+    // The first connection lands whole. The second has its settings and added
+    // webhook live when its rename fails.
+    const original = SdkWebhookModel.prototype.saveEdit;
+    const saveEdit = jest
+      .spyOn(SdkWebhookModel.prototype, "saveEdit")
+      .mockImplementationOnce(function (
+        this: SdkWebhookModel,
+        ...args: Parameters<typeof original>
+      ) {
+        return original.apply(this, args);
+      })
+      .mockRejectedValueOnce(new Error("simulated infra failure"));
 
-    const res = await publish({ revisions: [a.ref, b.ref, constant] });
+    const res = await publish({ revisions });
     expect(res.status).toBe(500);
     // Removed webhooks are back under their own ids, with their headers.
     expect({ a: await live(a.id), b: await live(b.id) }).toEqual(before);
@@ -309,30 +291,13 @@ describe("SDK Connections in a release", () => {
     // A release that did not stand sends nothing.
     expect(mockFireSdkWebhook).not.toHaveBeenCalled();
 
-    mockFailConstantApply = false;
-    const retry = await publish({ revisions: [a.ref, b.ref, constant] });
+    const retry = await publish({ revisions });
+    saveEdit.mockRestore();
     expect(retry.status).toBe(200);
-    expect((await live(a.id)).webhooks.map((w) => w.name)).toEqual([
+    expect((await live(b.id)).webhooks.map((w) => w.name)).toEqual([
       "Added",
       "Keep",
       "Renamed",
     ]);
-  });
-
-  it("puts back a connection whose own write failed partway", async () => {
-    const a = await connectionWithDraft("Web app");
-    const constant = await constantWithDraft("rel-sdk-partial");
-    const before = await live(a.id);
-    // Settings and the added webhook are live by the time the rename fails.
-    const saveEdit = jest
-      .spyOn(SdkWebhookModel.prototype, "saveEdit")
-      .mockRejectedValueOnce(new Error("simulated infra failure"));
-
-    const res = await publish({ revisions: [a.ref, constant] });
-    saveEdit.mockRestore();
-    expect(res.status).toBe(500);
-    expect(await live(a.id)).toEqual(before);
-    expect(await draftStatus(a.id, a.version)).toBe("draft");
-    expect(await constantValue("rel-sdk-partial")).toBe("before");
   });
 });

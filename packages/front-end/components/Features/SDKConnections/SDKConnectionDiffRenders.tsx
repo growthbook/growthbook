@@ -5,6 +5,7 @@ import {
   SDKConnectionRevisionSnapshot,
   SDKConnectionSettingsRevisionSnapshot,
   SDKWebhookRevisionSnapshot,
+  webhookHeadersObject,
 } from "shared/validators";
 import Text from "@/ui/Text";
 import { ChangeField } from "@/components/AuditHistoryExplorer/DiffRenderUtils";
@@ -555,15 +556,10 @@ const WEBHOOK_DIFF_FIELDS: {
   },
 ];
 
-function headerNames(headers: unknown): string[] {
-  if (typeof headers !== "string" || !headers.trim()) return [];
-  try {
-    const parsed: unknown = JSON.parse(headers);
-    return parsed && typeof parsed === "object" ? Object.keys(parsed) : [];
-  } catch {
-    return [];
-  }
-}
+const headerNames = (headers: unknown): string[] =>
+  Object.keys(
+    webhookHeadersObject(typeof headers === "string" ? headers : undefined),
+  );
 
 function renderSDKConnectionWebhooks(pre: Pre, post: Post): ReactNode | null {
   const preWebhooks = pre?.sdkWebhooks ?? [];

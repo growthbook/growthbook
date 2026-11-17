@@ -225,7 +225,7 @@ export type SDKConnectionRevisionSnapshot = z.infer<
   typeof sdkConnectionSnapshotValidator
 >;
 
-function webhookHeadersObject(headers?: string): Record<string, string> {
+export function webhookHeadersObject(headers?: string): Record<string, string> {
   try {
     const parsed: unknown = JSON.parse(headers || "{}");
     return parsed && typeof parsed === "object"

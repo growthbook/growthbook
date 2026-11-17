@@ -1,3 +1,4 @@
+import type { z } from "zod";
 import {
   getSdkConnectionRevisionLatestValidator,
   getSdkConnectionRevisionMergeStatusValidator,
@@ -30,14 +31,7 @@ import {
   toApiSdkConnectionRevision,
 } from "./revisionShared";
 
-type ListQuery = {
-  status?: string;
-  author?: string;
-  mine?: string | boolean;
-  skipPagination?: string | boolean;
-  limit?: number;
-  offset?: number;
-};
+type ListQuery = z.infer<typeof getSdkConnectionRevisionsValidator.querySchema>;
 
 // One page of revisions, for one connection or for every readable one.
 async function revisionPage(

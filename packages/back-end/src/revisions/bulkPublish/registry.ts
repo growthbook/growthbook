@@ -3,7 +3,7 @@ import { ConstantInterface } from "shared/types/constant";
 import { SavedGroupInterface } from "shared/types/saved-group";
 import type { Revision } from "shared/enterprise";
 import type { SDKConnectionRevisionSnapshot } from "shared/validators";
-import { bypassApprovalPermission } from "shared/permissions";
+import { PermissionError } from "shared/util";
 import type { Context } from "back-end/src/models/BaseModel";
 import { getAdapter } from "back-end/src/revisions";
 import {
@@ -19,16 +19,12 @@ import {
   collectSavedGroupScopeGate,
 } from "back-end/src/services/savedGroupProjectScope";
 import { assertCanChangeSdkWebhooks } from "back-end/src/services/sdkConnectionApprovals";
-import {
-  collectValidateSdkConnectionHookResults,
-  collectValidateSdkConnectionRevisionHookResults,
-} from "back-end/src/enterprise/sandbox/sandbox-eval";
+import { collectSdkConnectionPublishHookGates } from "back-end/src/enterprise/sandbox/sandbox-eval";
 import { getErrorMessage } from "back-end/src/util/errors";
 import type { ReqContext } from "back-end/types/request";
 import type { PublishGate } from "back-end/src/revisions/publishGates";
 import {
   gateOr5xx,
-  hookResultsToGates,
   makeBlockingGate,
 } from "back-end/src/revisions/publishGates";
 import { makeGenericBulkAdapter } from "back-end/src/revisions/bulkPublish/genericBulkAdapter";
@@ -155,11 +151,6 @@ async function sdkConnectionExtraGates(args: {
     ...live,
     ...desiredState,
   } as SDKConnectionRevisionSnapshot;
-  // The API reads an error with no status as a 400, so one is a refusal here.
-  const refusal = (type: string, e: unknown) => {
-    if (((e as { status?: number }).status ?? 400) >= 500) throw e;
-    return [makeBlockingGate({ type, messages: [getErrorMessage(e)] })];
-  };
   // Before any hook runs, so a caller who may not change webhooks is shown no
   // hook's message.
   try {
@@ -169,10 +160,6 @@ async function sdkConnectionExtraGates(args: {
       live.sdkWebhooks,
       proposed.sdkWebhooks,
     );
-  } catch (e) {
-    return refusal("permission-denied", e);
-  }
-  try {
     await getAdapter("sdk-connection").assertPublishable?.(
       context,
       live,
@@ -181,29 +168,21 @@ async function sdkConnectionExtraGates(args: {
       { hooksAlreadyRan: true },
     );
   } catch (e) {
-    return refusal("validation", e);
+    // The API reads an error with no status as a 400, so one is a refusal here.
+    if (((e as { status?: number }).status ?? 400) >= 500) throw e;
+    return [
+      makeBlockingGate({
+        type: e instanceof PermissionError ? "permission-denied" : "validation",
+        messages: [getErrorMessage(e)],
+      }),
+    ];
   }
-  const hookBypass = bypassApprovalPermission("sdk-connection");
-  return [
-    ...hookResultsToGates(
-      await collectValidateSdkConnectionHookResults({
-        context,
-        original: live,
-        sdkConnection: proposed,
-      }),
-      hookBypass,
-    ),
-    ...hookResultsToGates(
-      await collectValidateSdkConnectionRevisionHookResults({
-        context,
-        live,
-        revision,
-        proposed,
-        before: live,
-      }),
-      hookBypass,
-    ),
-  ];
+  return collectSdkConnectionPublishHookGates({
+    context,
+    live,
+    revision,
+    proposed,
+  });
 }
 
 const registry: Record<BulkPublishTargetType, () => BulkPublishableAdapter> = {

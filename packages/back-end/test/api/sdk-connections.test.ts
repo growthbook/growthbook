@@ -667,13 +667,6 @@ describe("sdk-connections API", () => {
       const existing = existingConnection();
       findSDKConnectionById.mockReturnValue(existing);
 
-      const refused = await request(app)
-        .put(`/api/v1/sdk-connections/${existing.id}`)
-        .send({ name: "my-new-connection" })
-        .set("Authorization", "Bearer foo");
-      expect(refused.status).toBe(400);
-      expect(refused.body.message).toContain("bypassApproval");
-
       const response = await request(app)
         .put(`/api/v1/sdk-connections/${existing.id}`)
         .send({ name: "my-new-connection", bypassApproval: true })
@@ -748,31 +741,6 @@ describe("sdk-connections API", () => {
     expect(response.status).toBe(400);
     expect(editSDKConnection).not.toHaveBeenCalled();
     expect(response.body).toEqual({ message: "permission error" });
-  });
-
-  it("can delete archived sdk-connections", async () => {
-    const context = {
-      org,
-      permissions: { canDeleteSDKConnection: () => true },
-    };
-    setReqContext(context);
-
-    const existing = sdkConnectionFactory.build({
-      name: "my-connection",
-      environment: org.environments[0].id,
-      language: "javascript",
-      archived: true,
-    });
-
-    findSDKConnectionById.mockReturnValue(existing);
-
-    const response = await request(app)
-      .delete(`/api/v1/sdk-connections/${existing.id}`)
-      .set("Authorization", "Bearer foo");
-
-    expect(response.status).toBe(200);
-    expect(deleteSDKConnectionModel).toHaveBeenCalledWith(context, existing);
-    expect(response.body).toEqual({ deletedId: existing.id });
   });
 
   it("checks for permissions when deleting sdk-connections", async () => {

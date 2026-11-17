@@ -79,7 +79,7 @@ export function proposedSnapshot(
 ): SDKConnectionRevisionSnapshot {
   return applyPatchToSnapshot(
     revision.target.snapshot as SDKConnectionRevisionSnapshot,
-    normalizeProposedChanges(revision.target.proposedChanges),
+    revision.target.proposedChanges,
   );
 }
 

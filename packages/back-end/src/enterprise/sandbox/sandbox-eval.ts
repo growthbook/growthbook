@@ -21,7 +21,7 @@ import {
   withConfigExtends,
 } from "shared/util";
 import { CONSTANT_EXTENDS_KEY } from "shared/constants";
-import { teamsForMember } from "shared/permissions";
+import { bypassApprovalPermission, teamsForMember } from "shared/permissions";
 import { coauthorIds, toHookReviewerVerdicts } from "shared/enterprise";
 import {
   buildConstantValueMap,
@@ -36,6 +36,10 @@ import { IS_CLOUD } from "back-end/src/util/secrets";
 import { logger } from "back-end/src/util/logger";
 import { getEnvironmentIdsFromOrg } from "back-end/src/util/organization.util";
 import { Context } from "back-end/src/models/BaseModel";
+import {
+  hookResultsToGates,
+  type PublishGate,
+} from "back-end/src/revisions/publishGates";
 import {
   expandOrgMembers,
   getContextForAgendaJobByOrgObject,
@@ -684,7 +688,7 @@ export async function runValidateSdkConnectionHooks(
   return _runCustomHooks(...sdkConnectionHookCall(input));
 }
 
-export async function collectValidateSdkConnectionHookResults(
+async function collectValidateSdkConnectionHookResults(
   input: SdkConnectionHookInput,
 ): Promise<CustomHookResults> {
   return collectCustomHookResults(...sdkConnectionHookCall(input));
@@ -748,7 +752,7 @@ export async function runValidateSdkConnectionRevisionHooks(
   if (call) await _runCustomHooks(...call);
 }
 
-export async function collectValidateSdkConnectionRevisionHookResults(
+async function collectValidateSdkConnectionRevisionHookResults(
   input: SdkConnectionRevisionHookInput,
 ): Promise<CustomHookResults> {
   const call = await sdkConnectionRevisionHookCall(input);
@@ -761,6 +765,39 @@ export async function collectValidateSdkConnectionRevisionHookResults(
 // threw — validation-class) and soft warnings (a hook called addWarning —
 // acknowledge-class). Non-throwing so the caller can either throw (the assert
 // wrappers) or emit gates (the REST publish handlers).
+// Both hooks' results for a publish, as its gates.
+export async function collectSdkConnectionPublishHookGates({
+  context,
+  live,
+  revision,
+  proposed,
+}: Pick<
+  SdkConnectionRevisionHookInput,
+  "context" | "live" | "revision" | "proposed"
+>): Promise<PublishGate[]> {
+  const bypass = bypassApprovalPermission("sdk-connection");
+  return [
+    ...hookResultsToGates(
+      await collectValidateSdkConnectionHookResults({
+        context,
+        original: live,
+        sdkConnection: proposed,
+      }),
+      bypass,
+    ),
+    ...hookResultsToGates(
+      await collectValidateSdkConnectionRevisionHookResults({
+        context,
+        live,
+        revision,
+        proposed,
+        before: live,
+      }),
+      bypass,
+    ),
+  ];
+}
+
 export type CustomHookResults = {
   hardErrors: CustomHookErrorDetail[];
   warnings: string[];

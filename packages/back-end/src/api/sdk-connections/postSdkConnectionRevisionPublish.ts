@@ -1,4 +1,3 @@
-import { bypassApprovalPermission } from "shared/permissions";
 import { postSdkConnectionRevisionPublishValidator } from "shared/validators";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { BadRequestError } from "back-end/src/util/errors";
@@ -9,16 +8,12 @@ import {
 } from "back-end/src/revisions/revisionActions";
 import {
   REVIEW_GATE_TYPES,
-  hookResultsToGates,
   resolveEntityPublishGates,
 } from "back-end/src/revisions/publishGates";
 import { collectRevisionGovernanceGates } from "back-end/src/revisions/governanceGates";
 import { buildMergeDesiredState } from "back-end/src/revisions/util";
 import { assertCanChangeSdkWebhooks } from "back-end/src/services/sdkConnectionApprovals";
-import {
-  collectValidateSdkConnectionHookResults,
-  collectValidateSdkConnectionRevisionHookResults,
-} from "back-end/src/enterprise/sandbox/sandbox-eval";
+import { collectSdkConnectionPublishHookGates } from "back-end/src/enterprise/sandbox/sandbox-eval";
 import {
   confirmationLink,
   gateNotices,
@@ -75,24 +70,12 @@ export const postSdkConnectionRevisionPublish = createApiRequestHandler(
       entity: live,
       revision,
     })),
-    ...hookResultsToGates(
-      await collectValidateSdkConnectionHookResults({
-        context,
-        original: live,
-        sdkConnection: proposed,
-      }),
-      bypassApprovalPermission(TYPE),
-    ),
-    ...hookResultsToGates(
-      await collectValidateSdkConnectionRevisionHookResults({
-        context,
-        live,
-        revision,
-        proposed,
-        before: live,
-      }),
-      bypassApprovalPermission(TYPE),
-    ),
+    ...(await collectSdkConnectionPublishHookGates({
+      context,
+      live,
+      revision,
+      proposed,
+    })),
   ];
   const { bypassed, skipped } = resolveEntityPublishGates({
     entityType: TYPE,
