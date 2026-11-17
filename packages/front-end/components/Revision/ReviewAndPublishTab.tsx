@@ -1297,7 +1297,11 @@ function ReviewAndPublishRevision<T>({
   const readonlyActionsColumn = (
     <Box
       className="appbox"
-      style={{ position: "sticky", top: 90, overflow: "hidden" }}
+      style={{
+        position: "sticky",
+        top: "calc(var(--page-top-offset) + var(--space-5))",
+        overflow: "hidden",
+      }}
     >
       {actionsColumnHeader}
       <Box p="4">
@@ -1404,7 +1408,11 @@ function ReviewAndPublishRevision<T>({
   const draftActionsColumn = (
     <Box
       className="appbox"
-      style={{ position: "sticky", top: 90, overflow: "hidden" }}
+      style={{
+        position: "sticky",
+        top: "calc(var(--page-top-offset) + var(--space-5))",
+        overflow: "hidden",
+      }}
     >
       {actionsColumnHeader}
       <Box p="4">

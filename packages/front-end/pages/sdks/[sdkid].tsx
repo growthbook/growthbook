@@ -80,10 +80,8 @@ import {
   ReviewTabCount,
   TabCount,
 } from "@/components/Layout/DetailsPageHeader";
-import {
-  TABS_BAR_HEIGHT_PX,
-  TABS_HEADER_HEIGHT_PX,
-} from "@/components/Layout/constants";
+import { TABS_BAR_HEIGHT_PX } from "@/components/Layout/constants";
+import { useTabsTop } from "@/components/Layout/pageTopOffset";
 
 const SDK_CONNECTION_TABS = ["overview", "webhooks", "review"] as const;
 type SDKConnectionTab = (typeof SDK_CONNECTION_TABS)[number];
@@ -272,6 +270,7 @@ export default function SDKConnectionPage() {
     homeTab: ["overview", "webhooks"],
   });
 
+  const tabsTop = useTabsTop();
   const [setStatusBarEl, statusBarHeight] = useRevisionStatusBarHeight();
 
   const connection: SDKConnectionInterface | undefined =
@@ -436,9 +435,7 @@ export default function SDKConnectionPage() {
     tab === "overview" &&
     hasRevisionStatus(selectedRevision, liveRevision, allRevisions);
   const stickyTop =
-    TABS_HEADER_HEIGHT_PX +
-    TABS_BAR_HEIGHT_PX +
-    (showsStatusBar ? statusBarHeight : 0);
+    tabsTop + TABS_BAR_HEIGHT_PX + (showsStatusBar ? statusBarHeight : 0);
 
   const revisionProps = {
     onRevisionCreated,

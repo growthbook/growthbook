@@ -645,7 +645,7 @@ export const getSDKConnectionWebhooks = async (
 
   const conn = await findSDKConnectionById(context, id);
   if (!conn) {
-    throw new NotFoundError("Could not find SDK Connection");
+    throw new NotFoundError("Could not find SDK connection");
   }
 
   const webhooks =

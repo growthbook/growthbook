@@ -138,7 +138,6 @@ export default function SDKConnectionEditsBar({
 
   return (
     <StagedEditsBar
-      columnClassName="details-column"
       changes={
         <StagedChangesPopover
           open={open}

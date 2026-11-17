@@ -6,13 +6,14 @@ import {
 } from "back-end/src/models/FactTableModel";
 import { validateVirtualColumnProps } from "back-end/src/util/factTable";
 import { createApiRequestHandler } from "back-end/src/util/handler";
+import { NotFoundError } from "back-end/src/util/errors";
 
 export const postFactTableVirtualColumn = createApiRequestHandler(
   postFactTableVirtualColumnValidator,
 )(async (req) => {
   const factTable = await getFactTable(req.context, req.params.factTableId);
   if (!factTable) {
-    throw new Error("Could not find factTable with that id");
+    throw new NotFoundError("Could not find factTable with that id");
   }
 
   if (!req.context.permissions.canManageFactTableVirtualColumn(factTable)) {

@@ -93,7 +93,7 @@ const ReportsPage = (): React.ReactElement => {
 
   if (!reports.length) {
     return (
-      <div className="container p-4">
+      <div className="container">
         <h1>Reports</h1>
         <p>
           A report is a standalone ad-hoc analysis of an experiment. Use them to
@@ -123,7 +123,7 @@ const ReportsPage = (): React.ReactElement => {
   }
 
   return (
-    <div className="container-fluid py-3 p-3 pagecontents">
+    <div className="container-fluid pagecontents">
       <div className="filters md-form row mb-3 align-items-center">
         <div className="col-auto">
           <h3>

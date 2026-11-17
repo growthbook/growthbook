@@ -14,6 +14,7 @@ import { getExperimentMetricById } from "back-end/src/services/experiments";
 import { getIntegrationFromDatasourceId } from "back-end/src/services/datasource";
 import { getContextFromReq } from "back-end/src/services/organizations";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
+import { NotFoundError } from "back-end/src/util/errors";
 
 export const postMetricAnalysis = async (
   req: AuthRequest<CreateMetricAnalysisProps>,
@@ -89,7 +90,7 @@ export const getMetricAnalysis = async (
   );
 
   if (!metricAnalysis) {
-    throw new Error("Metric analysis not found");
+    throw new NotFoundError("Metric analysis not found");
   }
 
   res.status(200).json({
@@ -239,7 +240,7 @@ export async function getMetricAnalysisById(
   );
 
   if (!metricAnalysis) {
-    throw new Error("Metric analysis not found");
+    throw new NotFoundError("Metric analysis not found");
   }
 
   res.status(200).json({

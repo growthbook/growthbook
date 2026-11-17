@@ -1333,7 +1333,7 @@ export default function ReviewAndPublish({
   };
 
   const pageWrapper = (children: React.ReactNode) => (
-    <Box className="contents container-fluid pagecontents pt-4">{children}</Box>
+    <Box className="contents container-fluid pagecontents">{children}</Box>
   );
 
   // After a reviewer chooses "Submit and Publish", go on to the pre-launch

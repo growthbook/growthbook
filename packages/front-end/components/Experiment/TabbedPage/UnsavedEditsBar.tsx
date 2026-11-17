@@ -12,7 +12,6 @@ export default function UnsavedEditsBar() {
 
   return (
     <StagedEditsBar
-      columnClassName="experiment-column"
       changes={<StagedChanges />}
       notes={
         <>

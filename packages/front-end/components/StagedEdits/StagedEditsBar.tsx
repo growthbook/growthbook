@@ -8,7 +8,6 @@ export const EDITS_BLOCKED_REASON = "Save or discard your changes first.";
 
 /** Appears once something on the page is edited, and is the only way to write it. */
 export default function StagedEditsBar({
-  columnClassName,
   changes,
   notes,
   target,
@@ -17,8 +16,6 @@ export default function StagedEditsBar({
   onDiscard,
   onSave,
 }: {
-  // The page column it lines up with.
-  columnClassName: string;
   // What's staged, opened from its count.
   changes: ReactNode;
   // Warnings and errors, beside the buttons.
@@ -33,33 +30,26 @@ export default function StagedEditsBar({
   const barRef = useBottomBarClearance<HTMLDivElement>();
   return (
     <div ref={barRef} className={styles.bar}>
-      <Box
-        mx="auto"
-        width="100%"
-        className={columnClassName}
-        style={{ maxWidth: "var(--page-content-max-width)" }}
-      >
-        <Flex align="center" gap="3">
-          {changes}
-          <Box flexGrow="1" />
-          {/* Set apart from the controls it sits beside. */}
-          <Flex align="center" gap="3" mr="3">
-            {notes}
-          </Flex>
-          {target ? <Box mr="3">{target}</Box> : null}
-          <Button
-            variant="ghost"
-            color="gray"
-            disabled={saving}
-            onClick={onDiscard}
-          >
-            Discard changes
-          </Button>
-          <Button disabled={saving || saveDisabled} onClick={onSave}>
-            {saving ? "Saving..." : "Save"}
-          </Button>
+      <Flex align="center" gap="3">
+        {changes}
+        <Box flexGrow="1" />
+        {/* Set apart from the controls it sits beside. */}
+        <Flex align="center" gap="3" mr="3">
+          {notes}
         </Flex>
-      </Box>
+        {target ? <Box mr="3">{target}</Box> : null}
+        <Button
+          variant="ghost"
+          color="gray"
+          disabled={saving}
+          onClick={onDiscard}
+        >
+          Discard changes
+        </Button>
+        <Button disabled={saving || saveDisabled} onClick={onSave}>
+          {saving ? "Saving..." : "Save"}
+        </Button>
+      </Flex>
     </div>
   );
 }
