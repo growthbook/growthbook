@@ -1,7 +1,7 @@
 import { createHash } from "crypto";
 import isEqual from "lodash/isEqual";
-import type { FilterQuery } from "mongoose";
 import omit from "lodash/omit";
+import type { FilterQuery } from "mongoose";
 import type {
   ContextualBanditInterface,
   InterleavingInterface,
