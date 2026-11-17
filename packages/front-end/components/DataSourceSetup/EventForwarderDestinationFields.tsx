@@ -1,4 +1,6 @@
-import { Box, Grid } from "@radix-ui/themes";
+import { ReactNode } from "react";
+import { Box, Flex, Grid } from "@radix-ui/themes";
+import { PiLockSimple } from "react-icons/pi";
 import {
   DEFAULT_EVENT_FORWARDER_TABLE_PREFIX,
   suggestDatabricksEventForwarderZerobusEndpoint,
@@ -17,6 +19,7 @@ import { DataRegion } from "@/services/dataRegions";
 import Callout from "@/ui/Callout";
 import Frame from "@/ui/Frame";
 import Heading from "@/ui/Heading";
+import Text from "@/ui/Text";
 import TextField from "@/ui/TextField";
 
 export type EventForwarderDestination = {
@@ -29,6 +32,32 @@ export type EventForwarderDestination = {
 
 const ENVIRONMENT_HELP_TEXT =
   "Only events from SDK Connections in this environment are forwarded. Each environment can go to only one Event Forwarder in each data region.";
+
+// A value fixed at creation, shown as text with a lock instead of an input
+export function EventForwarderLockedField({
+  label,
+  value,
+  helpText,
+}: {
+  label: ReactNode;
+  value: string;
+  helpText: string;
+}) {
+  return (
+    <Flex direction="column" gap="1">
+      <Text as="div" weight="semibold">
+        {label}
+      </Text>
+      <Flex align="center" gap="1">
+        <PiLockSimple aria-label="Locked" color="var(--color-text-mid)" />
+        <Text>{value}</Text>
+      </Flex>
+      <Text as="div" size="sm" color="text-mid">
+        {helpText}
+      </Text>
+    </Flex>
+  );
+}
 
 // Why no environment can be picked: another forwarder receives all of them.
 // - Names its Data Source when the viewer can read it (`datasources` is readable ones only)
@@ -156,11 +185,20 @@ export function EventForwarderEnvironmentField({
     live &&
     !!saved?.environment &&
     environments.some((e) => e.id === saved.environment);
+  if (locked) {
+    return (
+      <EventForwarderLockedField
+        label="Environment"
+        value={saved.environment}
+        helpText={`${ENVIRONMENT_HELP_TEXT} Set at creation.`}
+      />
+    );
+  }
   return (
     <EventForwarderEnvironmentSelect
       value={value}
       onChange={onChange}
-      disabled={disabled || locked}
+      disabled={disabled}
       environments={environments.map((e) => e.id)}
       others={eventForwarderEnvironments
         .filter((e) => e.datasourceId !== datasourceId)
@@ -173,11 +211,9 @@ export function EventForwarderEnvironmentField({
       )}
       // Moving a live forwarder to one environment drops the rest on save
       helpText={
-        locked
-          ? `${ENVIRONMENT_HELP_TEXT} This cannot be changed.`
-          : saved && value && value !== saved.environment
-            ? `${ENVIRONMENT_HELP_TEXT} Events from other environments stop being forwarded when you save.`
-            : undefined
+        saved && value && value !== saved.environment
+          ? `${ENVIRONMENT_HELP_TEXT} Events from other environments stop being forwarded when you save.`
+          : undefined
       }
     />
   );

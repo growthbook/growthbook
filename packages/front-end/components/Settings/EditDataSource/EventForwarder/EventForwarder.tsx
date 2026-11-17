@@ -22,7 +22,7 @@ import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import { BigQueryConnectionParams } from "shared/types/integrations/bigquery";
 import { DatabricksConnectionParams } from "shared/types/integrations/databricks";
 import { SnowflakeConnectionParams } from "shared/types/integrations/snowflake";
-import { Box, Card, Flex } from "@radix-ui/themes";
+import { Box, Card, Flex, Grid } from "@radix-ui/themes";
 import {
   PiArrowClockwise,
   PiCaretRight,
@@ -46,7 +46,10 @@ import BigQueryEventForwarderForm from "@/components/Settings/BigQueryEventForwa
 import SnowflakeEventForwarderForm from "@/components/Settings/SnowflakeEventForwarderForm";
 import DatabricksEventForwarderForm from "@/components/Settings/DatabricksEventForwarderForm";
 import { useEventForwarderAccessTest } from "@/components/Settings/useEventForwarderAccessTest";
-import { EventForwarderEnvironmentField } from "@/components/DataSourceSetup/EventForwarderDestinationFields";
+import {
+  EventForwarderEnvironmentField,
+  EventForwarderLockedField,
+} from "@/components/DataSourceSetup/EventForwarderDestinationFields";
 import TextField from "@/ui/TextField";
 import Badge from "@/ui/Badge";
 import Button from "@/ui/Button";
@@ -380,10 +383,20 @@ function SyncSubmittingRef({
 
 function EventForwarderConfirmButton({
   usEventForwarderFlowConsent,
+  editing,
 }: {
   usEventForwarderFlowConsent: boolean;
+  editing: boolean;
 }) {
   const { loading } = useModalForm();
+
+  if (editing) {
+    return (
+      <Button type="submit" loading={loading}>
+        Save changes
+      </Button>
+    );
+  }
 
   return (
     <Tooltip
@@ -520,7 +533,7 @@ function EventForwarderModal({
   const eventForwarderConfig = datasourceDraft.eventForwarderConfig;
   const modalTitle = isEditingEventForwarder
     ? "Edit Event Forwarder"
-    : "Set Up Event Forwarder";
+    : "Set up Event Forwarder";
   const params = datasourceDraft.params || {};
 
   const { testEventForwarderAccess } = useEventForwarderAccessTest({
@@ -547,7 +560,7 @@ function EventForwarderModal({
         onOpenChange={(nextOpen) => {
           if (!nextOpen) attemptClose();
         }}
-        size="md"
+        size="lg"
         trackingEventModalType=""
       >
         <ModalForm
@@ -596,81 +609,100 @@ function EventForwarderModal({
             <Modal.Title>{modalTitle}</Modal.Title>
           </Modal.Header>
           <Modal.Body>
-            {eventForwarderConfig?.sinkType === "bigquery" ? (
-              <BigQueryEventForwarderForm
-                eventForwarderConfig={eventForwarderConfig}
-                setEventForwarderConfig={setEventForwarderConfig}
-                className="form-group col-md-12 px-0"
-              />
-            ) : null}
-            {eventForwarderConfig?.sinkType === "snowflake" ? (
-              <SnowflakeEventForwarderForm
-                eventForwarderConfig={eventForwarderConfig}
-                setEventForwarderConfig={setEventForwarderConfig}
-              />
-            ) : null}
-            {eventForwarderConfig?.sinkType === "databricks" ? (
-              <DatabricksEventForwarderForm
-                eventForwarderConfig={eventForwarderConfig}
-                setEventForwarderConfig={setEventForwarderConfig}
-                catalogReadOnly={!!databricksParams.catalog}
-                zerobusPlaceholder={
-                  suggestDatabricksEventForwarderZerobusEndpoint(
-                    databricksParams.host,
-                  ) ||
-                  "https://<workspace-id>.zerobus.<region>.cloud.databricks.com"
-                }
-              />
-            ) : null}
-            {eventForwarderConfig ? (
-              <Box mb="3">
-                <EventForwarderEnvironmentField
-                  value={eventForwarderConfig.environment ?? ""}
-                  region={eventForwarderConfig.region ?? DEFAULT_DATA_REGION}
-                  datasourceId={dataSource.id}
-                  live={
-                    !!saved &&
-                    saved.status !== "unconfigured" &&
-                    !(saved.status === "error" && !saved.connectorName)
-                  }
-                  onChange={(environment) =>
-                    setEventForwarderConfig({
-                      ...eventForwarderConfig,
-                      environment,
-                    })
+            <Flex direction="column" gap="4">
+              {eventForwarderConfig?.sinkType === "bigquery" ? (
+                <BigQueryEventForwarderForm
+                  eventForwarderConfig={eventForwarderConfig}
+                  setEventForwarderConfig={setEventForwarderConfig}
+                />
+              ) : null}
+              {eventForwarderConfig?.sinkType === "snowflake" ? (
+                <SnowflakeEventForwarderForm
+                  eventForwarderConfig={eventForwarderConfig}
+                  setEventForwarderConfig={setEventForwarderConfig}
+                />
+              ) : null}
+              {eventForwarderConfig?.sinkType === "databricks" ? (
+                <DatabricksEventForwarderForm
+                  eventForwarderConfig={eventForwarderConfig}
+                  setEventForwarderConfig={setEventForwarderConfig}
+                  catalogReadOnly={!!databricksParams.catalog}
+                  zerobusPlaceholder={
+                    suggestDatabricksEventForwarderZerobusEndpoint(
+                      databricksParams.host,
+                    ) ||
+                    "https://<workspace-id>.zerobus.<region>.cloud.databricks.com"
                   }
                 />
-              </Box>
-            ) : null}
-            {eventForwarderConfig ? (
-              <SelectField
-                size="md"
-                legacyLabelFormatting={false}
-                label="Data region"
-                value={eventForwarderConfig.region ?? DEFAULT_DATA_REGION}
-                onChange={(value) => {
-                  setEventForwarderConfig({
-                    ...eventForwarderConfig,
-                    region: value as DataRegion,
-                  });
-                  setUsEventForwarderFlowConsent(false);
-                }}
-                disabled={isEditingEventForwarder}
-                options={dataRegionOptions}
-                helpText="Where GrowthBook processes event data before writing to your warehouse. This cannot be changed later."
-              />
-            ) : null}
-            <Callout status="info" mb="0" mt="3" icon={null}>
-              <Checkbox
-                value={usEventForwarderFlowConsent}
-                setValue={setUsEventForwarderFlowConsent}
-                disabled={isEditingEventForwarder}
-                label={`I understand that event data will flow through GrowthBook's servers in ${getDataRegionLabel(
-                  eventForwarderConfig?.region ?? DEFAULT_DATA_REGION,
-                )} and confirm I'm authorized to enable this for my organization.`}
-                weight="regular"
-              />
-            </Callout>
+              ) : null}
+              {eventForwarderConfig ? (
+                <Grid columns="2" gap="4" align="start">
+                  <Box>
+                    <EventForwarderEnvironmentField
+                      value={eventForwarderConfig.environment ?? ""}
+                      region={
+                        eventForwarderConfig.region ?? DEFAULT_DATA_REGION
+                      }
+                      datasourceId={dataSource.id}
+                      live={
+                        !!saved &&
+                        saved.status !== "unconfigured" &&
+                        !(saved.status === "error" && !saved.connectorName)
+                      }
+                      onChange={(environment) =>
+                        setEventForwarderConfig({
+                          ...eventForwarderConfig,
+                          environment,
+                        })
+                      }
+                    />
+                  </Box>
+                  {isEditingEventForwarder ? (
+                    <EventForwarderLockedField
+                      label="Data region"
+                      value={getDataRegionLabel(
+                        eventForwarderConfig.region ?? DEFAULT_DATA_REGION,
+                      )}
+                      helpText="Where GrowthBook processes event data before writing to your warehouse. Set at creation."
+                    />
+                  ) : (
+                    <SelectField
+                      size="md"
+                      legacyLabelFormatting={false}
+                      label="Data region"
+                      value={eventForwarderConfig.region ?? DEFAULT_DATA_REGION}
+                      onChange={(value) => {
+                        setEventForwarderConfig({
+                          ...eventForwarderConfig,
+                          region: value as DataRegion,
+                        });
+                        setUsEventForwarderFlowConsent(false);
+                      }}
+                      options={dataRegionOptions}
+                      helpText="Where GrowthBook processes event data before writing to your warehouse. Can't be changed later."
+                    />
+                  )}
+                </Grid>
+              ) : null}
+              {isEditingEventForwarder ? (
+                <Callout status="info" mb="0">
+                  {`Event data flows through GrowthBook's servers in ${getDataRegionLabel(
+                    eventForwarderConfig?.region ?? DEFAULT_DATA_REGION,
+                  )}. Your organization authorized this when the Event Forwarder was created.`}
+                </Callout>
+              ) : (
+                <Callout status="info" mb="0" icon={null}>
+                  <Checkbox
+                    value={usEventForwarderFlowConsent}
+                    setValue={setUsEventForwarderFlowConsent}
+                    label={`I understand that event data will flow through GrowthBook's servers in ${getDataRegionLabel(
+                      eventForwarderConfig?.region ?? DEFAULT_DATA_REGION,
+                    )} and confirm I'm authorized to enable this for my organization.`}
+                    weight="regular"
+                  />
+                </Callout>
+              )}
+            </Flex>
           </Modal.Body>
           <Modal.Footer>
             <Button variant="ghost" onClick={attemptClose}>
@@ -678,6 +710,7 @@ function EventForwarderModal({
             </Button>
             <EventForwarderConfirmButton
               usEventForwarderFlowConsent={usEventForwarderFlowConsent}
+              editing={isEditingEventForwarder}
             />
           </Modal.Footer>
         </ModalForm>
@@ -1092,10 +1125,6 @@ export default function EventForwarder({
               ) : null}
             </Flex>
             <Flex direction="column" gap="4">
-              <EventForwarderConfigField
-                label="Environment"
-                value={eventForwarderConfig.environment || "All Environments"}
-              />
               {eventForwarderConfig.sinkType === "bigquery" ? (
                 <>
                   <EventForwarderConfigField
@@ -1164,6 +1193,10 @@ export default function EventForwarder({
                   />
                 </>
               ) : null}
+              <EventForwarderConfigField
+                label="Environment"
+                value={eventForwarderConfig.environment || "All Environments"}
+              />
               <EventForwarderConfigField
                 label="Data region"
                 value={getDataRegionLabel(
