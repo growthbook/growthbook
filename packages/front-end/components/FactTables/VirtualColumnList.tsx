@@ -74,7 +74,7 @@ function VirtualColumnRowMenu({
                 setOpen(false);
               }}
             >
-              Configure slices
+              Configure auto slices
             </DropdownMenuItem>
           )}
       </DropdownMenuGroup>
@@ -156,6 +156,7 @@ export default function VirtualColumnList({ factTable }: Props) {
           close={() => setSettingsOpen("")}
           factTable={factTable}
           existing={virtualColumns.find((c) => c.column === settingsOpen)}
+          slicesOnly
         />
       )}
 

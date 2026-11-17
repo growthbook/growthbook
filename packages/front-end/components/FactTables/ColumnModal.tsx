@@ -50,6 +50,7 @@ export interface Props {
   factTable: FactTableInterface;
   existing?: ColumnInterface;
   close: () => void;
+  slicesOnly?: boolean;
 }
 
 // Form values allow an omitted json field datatype; a persisted column always
@@ -74,7 +75,12 @@ function toConditionalInlineFilters(
   );
 }
 
-export default function ColumnModal({ existing, factTable, close }: Props) {
+export default function ColumnModal({
+  existing,
+  factTable,
+  close,
+  slicesOnly = false,
+}: Props) {
   const { apiCall } = useAuth();
   const { hasCommercialFeature, settings } = useUser();
   const hasMetricSlicesFeature = hasCommercialFeature("metric-slices");
@@ -307,13 +313,26 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
     }
   });
 
+  const showInlineFilterPrompt =
+    !slicesOnly &&
+    canInlineFilterColumn(
+      { ...factTable, columns: [updatedColumn] },
+      form.watch("column"),
+    );
+
   return (
     <Modal
       trackingEventModalType=""
       open={true}
       close={close}
       cta={"Save"}
-      header={existing ? "Edit Column" : "Add Column"}
+      header={
+        slicesOnly
+          ? "Configure Auto Slices"
+          : existing
+            ? "Edit Column"
+            : "Add Column"
+      }
       submit={form.handleSubmit(async (value) => {
         if (!value.name) value.name = value.column;
 
@@ -397,57 +416,57 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
           columns. Please double check your SQL first before using this form.
         </Callout>
       )}
-      <Field
-        size="legacy"
-        label="Column"
-        {...form.register("column")}
-        disabled={!!existing}
-      />
-      <SelectField
-        size="legacy"
-        label="Data Type"
-        value={form.watch("datatype") ?? ""}
-        onChange={(f) => form.setValue("datatype", f as FactTableColumnType)}
-        initialOption="Unknown"
-        required
-        disabled={!!existing?.isVirtual}
-        helpText={
-          existing?.isVirtual
-            ? "Change a virtual column's type from its Edit dialog"
-            : undefined
-        }
-        sort={false}
-        options={[
-          {
-            label: "Number",
-            value: "number",
-          },
-          {
-            label: "String",
-            value: "string",
-          },
-          {
-            label: "Date / Datetime",
-            value: "date",
-          },
-          {
-            label: "Boolean",
-            value: "boolean",
-          },
-          {
-            label: "JSON",
-            value: "json",
-          },
-          {
-            label: "Binary",
-            value: "binary",
-          },
-          {
-            label: "Other",
-            value: "other",
-          },
-        ]}
-      />
+      {!slicesOnly && (
+        <>
+          <Field
+            size="legacy"
+            label="Column"
+            {...form.register("column")}
+            disabled={!!existing}
+          />
+          <SelectField
+            size="legacy"
+            label="Data Type"
+            value={form.watch("datatype") ?? ""}
+            onChange={(f) =>
+              form.setValue("datatype", f as FactTableColumnType)
+            }
+            initialOption="Unknown"
+            required
+            sort={false}
+            options={[
+              {
+                label: "Number",
+                value: "number",
+              },
+              {
+                label: "String",
+                value: "string",
+              },
+              {
+                label: "Date / Datetime",
+                value: "date",
+              },
+              {
+                label: "Boolean",
+                value: "boolean",
+              },
+              {
+                label: "JSON",
+                value: "json",
+              },
+              {
+                label: "Binary",
+                value: "binary",
+              },
+              {
+                label: "Other",
+                value: "other",
+              },
+            ]}
+          />
+        </>
+      )}
       {form.watch("datatype") === "number" && (
         <SelectField
           size="legacy"
@@ -627,14 +646,16 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
         </div>
       )}
 
-      <Field
-        size="legacy"
-        label="Display Name"
-        {...form.register("name")}
-        placeholder={form.watch("column")}
-      />
+      {!slicesOnly && (
+        <Field
+          size="legacy"
+          label="Display Name"
+          {...form.register("name")}
+          placeholder={form.watch("column")}
+        />
+      )}
 
-      {showDescription ? (
+      {slicesOnly ? null : showDescription ? (
         <div className="form-group">
           <label>Description</label>
           <MarkdownInput
@@ -1041,13 +1062,7 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
           </div>
         )}
 
-      {canInlineFilterColumn(
-        {
-          ...factTable,
-          columns: [updatedColumn],
-        },
-        form.watch("column"),
-      ) && (
+      {showInlineFilterPrompt && (
         <div className="px-3 pb-1 mb-4">
           <Checkbox
             value={form.watch("alwaysInlineFilter") ?? false}
