@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   DashboardBlockInterfaceOrData,
   ExperimentsStatusBlockInterface,
@@ -164,6 +164,17 @@ function compactBucketLabel(
   }
 }
 
+// ECharts draws on canvas, which can't read CSS variables, so resolve the
+// tokens to hex.
+function resolveResultColors(): Record<VelocityResultKey, string> {
+  return {
+    won: cssColorToHex(EXPERIMENT_RESULT_COLORS.won),
+    lost: cssColorToHex(EXPERIMENT_RESULT_COLORS.lost),
+    inconclusive: cssColorToHex(EXPERIMENT_RESULT_COLORS.inconclusive),
+    dnf: cssColorToHex(EXPERIMENT_RESULT_COLORS.dnf),
+  };
+}
+
 // Simple centered legend used when comparison is off.
 function LegendDot({ color, label }: { color: string; label: string }) {
   return (
@@ -193,6 +204,12 @@ export default function VelocityBlockChart({
   const { textColor } = getChartThemeColors(theme);
   const chartsContext = useDashboardCharts();
 
+  // Re-resolve in an effect, not during render: the theme provider swaps the
+  // <html> theme class in a layout effect that runs after this component
+  // renders, so a render-time read would get the previous theme's colors.
+  const [resultColors, setResultColors] = useState(resolveResultColors);
+  useEffect(() => setResultColors(resolveResultColors()), [theme]);
+
   // Which ECharts series are toggled off via the legend.
   const [hiddenSeries, setHiddenSeries] = useState<Set<string>>(new Set());
   const toggleSeries = (names: string[]) =>
@@ -209,16 +226,7 @@ export default function VelocityBlockChart({
   // single-period view, even if an older block still has comparison persisted.
   const comparisonEnabled = false;
 
-  const { option, resultColors } = useMemo(() => {
-    // ECharts draws on canvas, which can't read CSS variables, so resolve the
-    // tokens to hex. textColor is a dep of this memo, so a theme switch
-    // re-resolves them.
-    const resultColors: Record<VelocityResultKey, string> = {
-      won: cssColorToHex(EXPERIMENT_RESULT_COLORS.won),
-      lost: cssColorToHex(EXPERIMENT_RESULT_COLORS.lost),
-      inconclusive: cssColorToHex(EXPERIMENT_RESULT_COLORS.inconclusive),
-      dnf: cssColorToHex(EXPERIMENT_RESULT_COLORS.dnf),
-    };
+  const option = useMemo(() => {
     const resolvedGranularity: ResolvedGranularity = getDateGranularity(
       block.dateGranularity || "auto",
       { startDate: window.startDate, endDate: window.endDate },
@@ -338,7 +346,7 @@ export default function VelocityBlockChart({
         : {}),
       series: [...currentSeries, ...previousSeries],
     };
-    return { option, resultColors };
+    return option;
   }, [
     block.dateGranularity,
     current,
@@ -348,6 +356,7 @@ export default function VelocityBlockChart({
     comparisonEnabled,
     hiddenSeries,
     textColor,
+    resultColors,
   ]);
 
   const legendItems: CompareChartLegendItem[] = VELOCITY_RESULT_KEYS.map(
