@@ -313,11 +313,13 @@ export default function ImportFlow({
   flagImport,
   file,
   onImported,
+  onGoToFlags,
 }: {
   token: string;
   flagImport: ApiFlagImport;
   file: FlagsJson;
   onImported: (flagImport: ApiFlagImport) => void;
+  onGoToFlags: () => void;
 }) {
   const restApiCall = useRestApiCall();
   const workspaceEnvironments = useEnvironments();
@@ -350,6 +352,13 @@ export default function ImportFlow({
   const selectable = previews.filter(
     (f) => f.importable && !existing.has(f.key),
   ).length;
+  // Nothing to pick, and no fix would change that: each Feature Flag is
+  // already in the workspace or can't be imported.
+  const nothingToImport =
+    !selectable &&
+    !previews.some(
+      (f) => !existing.has(f.key) && f.rules.some((rule) => rule.issue),
+    );
   const selectedKey = selected.join("\n");
   const plan = useMemo(
     () =>
@@ -394,7 +403,8 @@ export default function ImportFlow({
   const needsProject =
     projectOptions.length > 0 &&
     (!allowNoProject || !!settings.requireProjectForFeatures);
-  const hasSecondStep = plan.environments.length > 0 || needsProject;
+  const hasSecondStep =
+    !nothingToImport && (plan.environments.length > 0 || needsProject);
   const importLabel = `Import ${plural(selected.length, "Feature Flag")}`;
   const sender = [
     flagImport.name,
@@ -449,7 +459,13 @@ export default function ImportFlow({
           <ImportHero
             title={`We Found ${plural(previews.length, "Feature Flag")}`}
           >
-            Pick the ones to bring into GrowthBook.
+            {!nothingToImport
+              ? "Pick the ones to bring into GrowthBook."
+              : !previews.every((f) => existing.has(f.key))
+                ? "None of these can be imported."
+                : previews.length === 1
+                  ? "It's already in GrowthBook, so there's nothing to import."
+                  : "They're already in GrowthBook, so there's nothing to import."}
           </ImportHero>
           <SectionFrame
             title="Feature Flags"
@@ -593,9 +609,11 @@ export default function ImportFlow({
       <ImportDock
         left={
           step === 1 ? (
-            <Text color="text-mid">
-              {selected.length} of {selectable} selected
-            </Text>
+            nothingToImport ? null : (
+              <Text color="text-mid">
+                {selected.length} of {selectable} selected
+              </Text>
+            )
           ) : (
             <Button variant="ghost" onClick={() => setStep(1)}>
               Back
@@ -603,7 +621,9 @@ export default function ImportFlow({
           )
         }
       >
-        {step === 1 && hasSecondStep ? (
+        {nothingToImport ? (
+          <Button onClick={onGoToFlags}>Go to Feature Flags</Button>
+        ) : step === 1 && hasSecondStep ? (
           <Button disabled={!selected.length} onClick={() => setStep(2)}>
             Next
           </Button>

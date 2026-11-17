@@ -339,6 +339,7 @@ const ClaimPage = (): React.ReactElement => {
             if (orgId) setClaimed({ orgId, flagImport: imported });
             mutateStatus();
           }}
+          onGoToFlags={goToFlags}
         />
       </Page>
     );
