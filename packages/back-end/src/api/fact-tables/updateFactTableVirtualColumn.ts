@@ -49,7 +49,7 @@ export const updateFactTableVirtualColumn = createApiRequestHandler(
 
   const updated = factTable.columns.find((c) => c.column === req.params.id);
   if (!updated) {
-    throw new Error("Could not find a column with that id");
+    throw new NotFoundError("Could not find a column with that id");
   }
 
   return {

@@ -358,7 +358,7 @@ export async function postWatchItem(
     }
   }
   if (!item) {
-    throw new NotFoundError(`Could not find ${item}`);
+    throw new NotFoundError(`Could not find ${type}`);
   }
 
   await context.models.watch.upsertWatch({
