@@ -21,8 +21,8 @@ export default function DefaultDashboardMenuItems({
         key={project.id}
         tooltip={
           isCurrentDefault
-            ? `Remove this dashboard as the default. Members of the ${project.name} project currently see it on their home page by default.`
-            : `Members of the ${project.name} project will see this dashboard on their home page by default. They can still pick a different one for themselves.`
+            ? `Members of the ${project.name} Project no longer see this dashboard on their home page by default.`
+            : `Members of the ${project.name} Project see this dashboard on their home page by default.`
         }
         onClick={() =>
           onSetDefault(project.id, isCurrentDefault ? null : dashboard.id)

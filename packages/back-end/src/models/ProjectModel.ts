@@ -123,7 +123,7 @@ export class ProjectModel extends BaseClass {
         !isDashboardEligibleAsProjectDefault(dashboard, project.id)
       ) {
         this.context.throwBadRequestError(
-          "Dashboard is not available for this project",
+          "Dashboard is not available for this Project",
         );
       }
     }

@@ -1,8 +1,9 @@
 import React from "react";
-import { Flex, Text } from "@radix-ui/themes";
+import { Flex } from "@radix-ui/themes";
 import { PiPlus } from "react-icons/pi";
 import { DashboardInterface } from "shared/enterprise";
 import { Select, SelectItem, SelectSeparator } from "@/ui/Select";
+import Text from "@/ui/Text";
 import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
 
 // Radix Select forbids an empty-string item value, so a "no selection"
@@ -22,6 +23,7 @@ export interface DashboardSelectorProps {
   // Adds a "no selection" option that calls setValue("") when chosen.
   allowClear?: boolean;
   clearLabel?: string;
+  "aria-label"?: string;
 }
 
 export default function DashboardSelector({
@@ -36,6 +38,7 @@ export default function DashboardSelector({
   disabled = false,
   allowClear = false,
   clearLabel = "None",
+  "aria-label": ariaLabel,
 }: DashboardSelectorProps) {
   return (
     <Select
@@ -56,11 +59,12 @@ export default function DashboardSelector({
         setValue(newValue);
       }}
       disabled={disabled}
+      aria-label={ariaLabel}
     >
       {allowClear && (
         <>
           <SelectItem value={CLEAR_VALUE}>
-            <Text color="gray">{clearLabel}</Text>
+            <Text color="text-low">{clearLabel}</Text>
           </SelectItem>
           <SelectSeparator />
         </>

@@ -44,6 +44,7 @@ import PremiumEmptyState from "@/components/PremiumEmptyState";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import ShareStatusBadge from "@/components/Report/ShareStatusBadge";
 import LinkButton from "@/ui/LinkButton";
+import Badge from "@/ui/Badge";
 import DefaultDashboardMenuItems from "@/enterprise/components/Dashboards/DefaultDashboardMenuItems";
 
 export default function DashboardsPage() {
@@ -159,10 +160,12 @@ export default function DashboardsPage() {
   // A dashboard scoped to specific projects can only be set as the default
   // for one of those; a global dashboard (no projects) is eligible for any
   // project. Either way, setting a project's default requires permission on
-  // that project specifically, not on the dashboard.
+  // that project specifically, not on the dashboard. With a Project selected,
+  // only that one is offered, which keeps the menu short.
   const getEligibleProjectsForDefault = (d: DashboardInterface) =>
     projects.filter(
       (p) =>
+        (!project || p.id === project) &&
         isDashboardEligibleAsProjectDefault(d, p.id) &&
         permissionsUtil.canUpdateProject(p.id),
     );
@@ -398,6 +401,11 @@ export default function DashboardsPage() {
                             canEdit && (isOwner || isAdmin);
                           const eligibleProjectsForDefault =
                             getEligibleProjectsForDefault(d);
+                          const defaultForProjects = projects.filter(
+                            (p) =>
+                              p.settings?.defaultDashboardId === d.id &&
+                              isDashboardEligibleAsProjectDefault(d, p.id),
+                          );
 
                           // If the dashboard is private, and the currentUser isn't the owner, they don't have edit/delete rights, regardless of their permissions
                           if (
@@ -444,6 +452,21 @@ export default function DashboardsPage() {
                                   }
                                   isOwner={d.userId === userId}
                                 />
+                                {defaultForProjects.length > 0 && (
+                                  <Badge
+                                    ml="2"
+                                    color="violet"
+                                    variant="soft"
+                                    label={
+                                      defaultForProjects.length === 1
+                                        ? `Default for ${defaultForProjects[0].name}`
+                                        : `Default for ${defaultForProjects.length} Projects`
+                                    }
+                                    title={`Home page default for ${defaultForProjects
+                                      .map((p) => p.name)
+                                      .join(", ")}`}
+                                  />
+                                )}
                               </td>
                               <td>
                                 {d && (d.projects || []).length > 0 ? (

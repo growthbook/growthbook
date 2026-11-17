@@ -6,6 +6,7 @@ import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
 import Link from "@/ui/Link";
 import Callout from "@/ui/Callout";
+import Button from "@/ui/Button";
 import TempMessage from "@/components/TempMessage";
 import DashboardSelector from "@/enterprise/components/Dashboards/DashboardSelector";
 import { useDashboards } from "@/hooks/useDashboards";
@@ -23,7 +24,13 @@ export default function ProjectDefaultDashboardSection({
 }) {
   const { apiCall } = useAuth();
   const { mutateDefinitions } = useDefinitions();
-  const { dashboards, loading: dashboardsLoading } = useDashboards(false);
+  const {
+    dashboards,
+    loading: dashboardsLoading,
+    error: dashboardsError,
+  } = useDashboards(false);
+  // Only a successful read can show that a dashboard is missing.
+  const dashboardsLoaded = !dashboardsLoading && !dashboardsError;
   const projectDashboards = useMemo(
     () => dashboards.filter((d) => isDashboardEligibleAsProjectDefault(d, pid)),
     [dashboards, pid],
@@ -36,9 +43,7 @@ export default function ProjectDefaultDashboardSection({
     ? defaultDashboardId
     : "";
   const defaultDashboardUnavailable =
-    !dashboardsLoading && !!defaultDashboardId && !savedDefaultDashboardId;
-  const noProjectDashboards =
-    !dashboardsLoading && projectDashboards.length === 0;
+    dashboardsLoaded && !!defaultDashboardId && !savedDefaultDashboardId;
 
   const [savingDashboard, setSavingDashboard] = useState(false);
   const [dashboardError, setDashboardError] = useState<string | null>(null);
@@ -90,42 +95,65 @@ export default function ProjectDefaultDashboardSection({
               Default Dashboard
             </Heading>
             <Text as="p">
-              Members of this project see this dashboard on their home page by
+              Members of this Project see this dashboard on their home page by
               default. They can still pick a different one for themselves.
               Changes save immediately.
             </Text>
             {dashboardError && (
               <Callout status="error">{dashboardError}</Callout>
             )}
-            {dashboardSavedMsg && (
-              <TempMessage close={() => setDashboardSavedMsg(null)}>
-                {dashboardSavedMsg}
-              </TempMessage>
-            )}
             {defaultDashboardUnavailable && (
-              <Callout status="warning">
-                The dashboard chosen as this project&apos;s default is no longer
-                available, so the home page ignores it. Choose another one.
+              <Callout
+                status="warning"
+                action={
+                  // The select already shows "No default" here, so it can't
+                  // send the clear request itself.
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    disabled={savingDashboard}
+                    onClick={() => setDefaultDashboard("")}
+                  >
+                    Clear default
+                  </Button>
+                }
+              >
+                The dashboard chosen as this Project&apos;s default is no longer
+                available, so the home page ignores it. Choose another one or
+                clear it.
               </Callout>
             )}
-            {noProjectDashboards ? (
+            {dashboardsError ? (
+              <Callout status="error">
+                There was an error loading the list of dashboards.
+              </Callout>
+            ) : dashboardsLoading ? (
+              <Text color="text-low">Loading dashboards…</Text>
+            ) : projectDashboards.length === 0 ? (
               <Callout status="info">
-                No dashboards are available for this project yet.{" "}
+                No dashboards are available for this Project yet.{" "}
                 <Link href="/product-analytics/dashboards/new">
                   Create a dashboard
                 </Link>{" "}
-                scoped to this project (or with no project restriction) to set a
+                scoped to this Project (or with no Project restriction) to set a
                 default.
               </Callout>
             ) : (
               <DashboardSelector
+                aria-label="Default dashboard"
                 dashboards={projectDashboards}
                 value={pendingDashboardId ?? savedDefaultDashboardId ?? ""}
                 setValue={setDefaultDashboard}
-                disabled={savingDashboard || dashboardsLoading}
+                disabled={savingDashboard}
                 allowClear
                 clearLabel="No default"
               />
+            )}
+            {/* After the select, so the control doesn't move when it shows. */}
+            {dashboardSavedMsg && (
+              <TempMessage close={() => setDashboardSavedMsg(null)}>
+                {dashboardSavedMsg}
+              </TempMessage>
             )}
           </Flex>
         </Flex>

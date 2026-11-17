@@ -475,12 +475,6 @@ const ProjectPage: FC = () => {
                     </Flex>
                   </Flex>
                 </Frame>
-                {canViewDashboards && (
-                  <ProjectDefaultDashboardSection
-                    projectId={pid}
-                    defaultDashboardId={settings?.defaultDashboardId}
-                  />
-                )}
                 <Flex
                   justify="end"
                   align="center"
@@ -509,6 +503,15 @@ const ProjectPage: FC = () => {
                     Save
                   </RadixButton>
                 </Flex>
+                {/* Below the Save row because it saves on change, not on Save. */}
+                {canViewDashboards && (
+                  <Box mt="5">
+                    <ProjectDefaultDashboardSection
+                      projectId={pid}
+                      defaultDashboardId={settings?.defaultDashboardId}
+                    />
+                  </Box>
+                )}
               </TabsContent>
               <TabsContent value="approvals">
                 <ProjectApprovalSettings project={pid} projectName={p.name} />
