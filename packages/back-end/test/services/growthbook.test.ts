@@ -163,7 +163,8 @@ describe("trackEventForContext", () => {
   it.each([
     ["a key", "api", ""],
     ["a personal access token", "api", "u_2"],
-    ["a background job", null, ""],
+    ["a background job", "system", ""],
+    ["work nothing marked", null, ""],
   ] as const)(
     "logs %s's events with the org and whoever it acts for",
     (_, origin, actingUserId) => {
@@ -173,7 +174,7 @@ describe("trackEventForContext", () => {
       expect(attributes).toEqual(
         expect.objectContaining({
           cloudOrgId: expect.anything(),
-          requestSource: origin ?? "system",
+          requestSource: origin ?? "unknown",
         }),
       );
       expect(attributes.id).toBe(actingUserId || undefined);
@@ -195,13 +196,13 @@ describe("trackAIUsage", () => {
 
   it.each([
     ["the request it runs in", "app"],
-    ["no request", null],
+    ["unmarked work", null],
   ] as const)("logs its origin as %s's", (_, origin) => {
     if (origin) runAsRequestSource(origin, () => trackAIUsage(usage));
     else trackAIUsage(usage);
     expect(
       mockOrgClientLogEvent.mock.calls[0][2].attributes.requestSource,
-    ).toBe(origin ?? "system");
+    ).toBe(origin ?? "unknown");
   });
 });
 

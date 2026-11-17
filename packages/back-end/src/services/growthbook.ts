@@ -41,8 +41,8 @@ function createGrowthBookClient(): GrowthBookClient {
     globalAttributes: {
       cloud: IS_CLOUD,
       multiOrg: IS_MULTI_ORG,
-      // Anything evaluated or logged outside a request; requests set their own.
-      requestSource: "system",
+      // Requests and jobs set their own; anything else is unmarked.
+      requestSource: "unknown",
     },
     plugins: [
       growthbookTrackingPlugin({
@@ -483,9 +483,9 @@ export function runAsRequestSource<T>(source: RequestSource, fn: () => T): T {
   return requestSources.run(source, fn);
 }
 
-// Outside any request, as a background job is: the system.
+// Unknown when nothing marked the work: a request path or job that never set it.
 function currentRequestSource(): RequestSource {
-  return requestSources.getStore() ?? "system";
+  return requestSources.getStore() ?? "unknown";
 }
 
 // A signed-in request's own user context, with the user, session and page;
