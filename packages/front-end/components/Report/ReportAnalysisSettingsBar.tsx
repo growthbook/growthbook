@@ -9,7 +9,10 @@ import { ago, date, datetime } from "shared/dates";
 import React, { RefObject, useMemo, useState } from "react";
 import { PiEye } from "react-icons/pi";
 import { Box, Text } from "@radix-ui/themes";
-import { getUnitDisplayName } from "@/services/experiments";
+import {
+  getResultsSubUnitTotal,
+  getUnitDisplayName,
+} from "@/services/experiments";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import RunQueriesButton from "@/components/Queries/RunQueriesButton";
 import DimensionChooser from "@/components/Dimensions/DimensionChooser";
@@ -79,6 +82,19 @@ export default function ReportAnalysisSettingsBar({
     });
     return totalUsers;
   }, [analysis?.results]);
+
+  const clusterSubUnitIdentifier = snapshot?.settings.isClusterExperiment
+    ? snapshot.settings.clusterSubUnitIdentifier
+    : undefined;
+  const totalSubUnits = useMemo(() => {
+    if (!clusterSubUnitIdentifier) return null;
+    let total: number | null = null;
+    analysis?.results?.forEach((result) => {
+      const subUnits = getResultsSubUnitTotal(result?.variations ?? []);
+      if (subUnits !== null) total = (total ?? 0) + subUnits;
+    });
+    return total;
+  }, [analysis?.results, clusterSubUnitIdentifier]);
 
   const unitDisplayName = getUnitDisplayName(userIdType);
 
@@ -204,6 +220,14 @@ export default function ReportAnalysisSettingsBar({
               value={numberFormatter.format(totalUnits ?? 0)}
             />
           </div>
+          {clusterSubUnitIdentifier && totalSubUnits !== null ? (
+            <div className="col-auto mr-2" style={{ fontSize: "12px" }}>
+              <Metadata
+                label={getUnitDisplayName(clusterSubUnitIdentifier)}
+                value={numberFormatter.format(totalSubUnits)}
+              />
+            </div>
+          ) : null}
           <div className="col-auto px-0">
             {hasData && snapshot.runStarted ? (
               <Box style={{ lineHeight: 1.2, fontSize: "12px" }}>
