@@ -113,14 +113,12 @@ export default function ConfigureReport({
     if (useToday && value.experimentAnalysisSettings) {
       value.experimentAnalysisSettings.dateEnded = null;
     }
-    if (
-      value.experimentAnalysisSettings?.isClusterExperiment &&
-      !value.experimentAnalysisSettings.clusterSubUnitIdentifier
-    ) {
-      throw new Error("Choose a subunit identifier type.");
-    }
-    if (isClusterExperiment && value.experimentAnalysisSettings) {
-      value.experimentAnalysisSettings.activationMetric = "";
+    const settings = value.experimentAnalysisSettings;
+    if (isClusterExperiment && settings) {
+      if (!settings.clusterSubUnitIdentifier) {
+        throw new Error("Choose a subunit identifier type.");
+      }
+      settings.activationMetric = "";
       const { droppedIds, groupNames } = ineligibleClusterMetrics;
       if (groupNames.length) {
         throw new Error(getIneligibleGroupsMessage(groupNames));
@@ -128,7 +126,6 @@ export default function ConfigureReport({
       if (droppedIds.size) {
         const keep = (ids: string[] = []) =>
           ids.filter((id) => !droppedIds.has(id));
-        const settings = value.experimentAnalysisSettings;
         settings.goalMetrics = keep(settings.goalMetrics);
         settings.secondaryMetrics = keep(settings.secondaryMetrics);
         settings.guardrailMetrics = keep(settings.guardrailMetrics);
@@ -275,9 +272,9 @@ export default function ConfigureReport({
   ]);
 
   const hasMetrics =
-    form.watch("experimentAnalysisSettings.goalMetrics").length > 0 ||
-    form.watch("experimentAnalysisSettings.guardrailMetrics").length > 0 ||
-    form.watch("experimentAnalysisSettings.secondaryMetrics").length > 0;
+    goalMetrics.length > 0 ||
+    guardrailMetrics.length > 0 ||
+    secondaryMetrics.length > 0;
 
   if (upgradeModal) {
     return (

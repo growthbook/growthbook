@@ -87,15 +87,16 @@ export default function ReportAnalysisSettingsBar({
   const clusterSubUnitIdentifier = snapshot?.settings.isClusterExperiment
     ? snapshot.settings.clusterSubUnitIdentifier
     : undefined;
-  const totalSubUnits = useMemo(() => {
-    if (!clusterSubUnitIdentifier) return null;
-    let total: number | null = null;
-    analysis?.results?.forEach((result) => {
-      const subUnits = getResultsSubUnitTotal(result?.variations ?? []);
-      if (subUnits !== null) total = (total ?? 0) + subUnits;
-    });
-    return total;
-  }, [analysis?.results, clusterSubUnitIdentifier]);
+  // Each subunit falls in one breakdown slice, so summing slices is exact.
+  const totalSubUnits = useMemo(
+    () =>
+      clusterSubUnitIdentifier
+        ? getResultsSubUnitTotal(
+            (analysis?.results ?? []).flatMap((r) => r.variations),
+          )
+        : null,
+    [analysis?.results, clusterSubUnitIdentifier],
+  );
 
   const unitDisplayName = getUnitDisplayName(userIdType);
 
@@ -216,38 +217,39 @@ export default function ReportAnalysisSettingsBar({
         </div>
         <div className="row flex-grow-1 flex-shrink-0 pt-1 px-2 justify-content-end align-items-center">
           <div className="col-auto mr-2" style={{ fontSize: "12px" }}>
-            <Flex align="center" gap="4">
-              {/* A refreshing report points at a snapshot with no results yet.
-                  A cluster's subunits can fall into several breakdown slices,
-                  and report snapshots have no overall result to count from. */}
-              {!hasData ? null : clusterSubUnitIdentifier &&
-                snapshot.dimension ? (
-                <Metadata
-                  label={unitDisplayName}
-                  value={
-                    <Tooltip content="Cluster counts aren't available when results are broken down by a dimension.">
-                      <span tabIndex={0} style={{ cursor: "help" }}>
-                        —
-                      </span>
-                    </Tooltip>
-                  }
-                  style={{ whiteSpace: "nowrap" }}
-                />
-              ) : (
-                <Metadata
-                  label={unitDisplayName}
-                  value={numberFormatter.format(totalUnits ?? 0)}
-                  style={{ whiteSpace: "nowrap" }}
-                />
-              )}
-              {hasData && clusterSubUnitIdentifier && totalSubUnits !== null ? (
-                <Metadata
-                  label={getUnitDisplayName(clusterSubUnitIdentifier)}
-                  value={numberFormatter.format(totalSubUnits)}
-                  style={{ whiteSpace: "nowrap" }}
-                />
-              ) : null}
-            </Flex>
+            {/* A refreshing report points at a snapshot with no results yet. */}
+            {hasData ? (
+              <Flex align="center" gap="4">
+                {/* A cluster's subunits can fall into several breakdown slices,
+                    and report snapshots have no overall result to count from. */}
+                {clusterSubUnitIdentifier && snapshot.dimension ? (
+                  <Metadata
+                    label={unitDisplayName}
+                    value={
+                      <Tooltip content="Cluster counts aren't available when results are broken down by a dimension.">
+                        <span tabIndex={0} style={{ cursor: "help" }}>
+                          —
+                        </span>
+                      </Tooltip>
+                    }
+                    style={{ whiteSpace: "nowrap" }}
+                  />
+                ) : (
+                  <Metadata
+                    label={unitDisplayName}
+                    value={numberFormatter.format(totalUnits ?? 0)}
+                    style={{ whiteSpace: "nowrap" }}
+                  />
+                )}
+                {clusterSubUnitIdentifier && totalSubUnits !== null ? (
+                  <Metadata
+                    label={getUnitDisplayName(clusterSubUnitIdentifier)}
+                    value={numberFormatter.format(totalSubUnits)}
+                    style={{ whiteSpace: "nowrap" }}
+                  />
+                ) : null}
+              </Flex>
+            ) : null}
           </div>
           <div className="col-auto px-0">
             {hasData && snapshot.runStarted ? (
