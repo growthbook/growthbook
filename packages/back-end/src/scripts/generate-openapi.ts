@@ -358,6 +358,10 @@ function toOpenApiSchema(schema: z.ZodType): z.core.JSONSchema.BaseSchema {
       ) {
         delete (jsonSchema as Record<string, unknown>).pattern;
       }
+      if (isStringOrBooleanUnion(jsonSchema)) {
+        delete jsonSchema.anyOf;
+        jsonSchema.type = "boolean";
+      }
       // zod 4.6 drops a $ref's description when it equals the target's; keep it so property docs still render
       const description = z.globalRegistry.get(ctx.zodSchema)?.description;
       if (jsonSchema.$ref && description && !jsonSchema.description) {
@@ -377,6 +381,17 @@ function toOpenApiSchema(schema: z.ZodType): z.core.JSONSchema.BaseSchema {
     }
   }
   return rewriteRefs(rest) as z.core.JSONSchema.BaseSchema;
+}
+
+// Boolean query params also accept "true"/"false"/"0"/"1" at runtime; clients should just see a boolean.
+function isStringOrBooleanUnion(schema: z.core.JSONSchema.BaseSchema): boolean {
+  const members = schema.anyOf as z.core.JSONSchema.BaseSchema[] | undefined;
+  if (members?.length !== 5) return false;
+  const consts = members.filter((m) => m.type === "string").map((m) => m.const);
+  return (
+    members.some((m) => m.type === "boolean" && m.const === undefined) &&
+    ["true", "false", "0", "1"].every((v) => consts.includes(v))
+  );
 }
 
 // Remove `default`-bearing properties from every `required` array in a schema

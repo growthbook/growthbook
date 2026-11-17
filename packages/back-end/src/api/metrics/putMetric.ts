@@ -1,10 +1,15 @@
 import { putMetricValidator } from "shared/validators";
 import { createApiRequestHandler } from "back-end/src/util/handler";
-import { resolveOwnerToUserId } from "back-end/src/services/owner";
+import {
+  resolveOwnerEmail,
+  resolveOwnerToUserId,
+} from "back-end/src/services/owner";
+import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { getMetricById, updateMetric } from "back-end/src/models/MetricModel";
 import {
   putMetricApiPayloadIsValid,
   putMetricApiPayloadToMetricInterface,
+  toMetricApiInterface,
 } from "back-end/src/services/experiments";
 
 export const putMetric = createApiRequestHandler(putMetricValidator)(async (
@@ -34,7 +39,17 @@ export const putMetric = createApiRequestHandler(putMetricValidator)(async (
 
   await updateMetric(req.context, metric, updated);
 
+  const updatedMetric = await getMetricById(req.context, req.params.id);
+  if (!updatedMetric) throw new Error("Metric not found");
+  const datasource = updatedMetric.datasource
+    ? await getDataSourceById(req.context, updatedMetric.datasource)
+    : null;
+
   return {
+    metric: await resolveOwnerEmail(
+      toMetricApiInterface(req.organization, updatedMetric, datasource),
+      req.context,
+    ),
     updatedId: req.params.id,
   };
 });

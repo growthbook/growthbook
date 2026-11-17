@@ -829,6 +829,6 @@ export function toApiSDKConnectionInterface(
     remoteEvalEnabled: connection.remoteEvalEnabled,
     savedGroupReferencesEnabled: connection.savedGroupReferencesEnabled,
     savedGroupFormat: savedGroupFormatFromConnection(connection),
-    includeReferencedPrerequisites: connection.includeReferencedPrerequisites,
+    includeReferencedPrerequisites: !!connection.includeReferencedPrerequisites,
   };
 }

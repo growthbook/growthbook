@@ -2507,7 +2507,7 @@ export const postExperimentArchiveValidator = {
 };
 
 export const postExperimentUnarchiveValidator = {
-  bodySchema: z.object({}).strict(),
+  bodySchema: z.never(),
   querySchema: z.never(),
   paramsSchema: idParams,
   responseSchema: z

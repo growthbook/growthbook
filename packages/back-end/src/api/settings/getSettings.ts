@@ -26,22 +26,27 @@ export const getSettings = createApiRequestHandler(getSettingsValidator)(async (
     ...filteredSettings
   } = settingsValues;
 
+  const orgSettings = req.context.org.settings;
   const settings = {
     ...filteredSettings,
     requireReviews: Array.isArray(filteredSettings.requireReviews)
       ? toApiRequireReviews(filteredSettings.requireReviews)
       : [],
-    // Not a scoped setting, so read it straight off the org.
+    // Not scoped settings, so read them straight off the org.
     approvalFlows: {
       savedGroups: toApiSavedGroupApprovals(
-        req.context.org.settings?.approvalFlows?.savedGroups ?? [],
+        orgSettings?.approvalFlows?.savedGroups ?? [],
       ),
     },
+    restApiBypassesReviews: !!orgSettings?.restApiBypassesReviews,
+    requireRebaseBeforePublish: !!orgSettings?.requireRebaseBeforePublish,
+    revertsBypassApproval: !!orgSettings?.revertsBypassApproval,
+    maxConcurrentDrafts: orgSettings?.maxConcurrentDrafts,
+    sparseJSONRulesByDefault: !!orgSettings?.sparseJSONRulesByDefault,
     experimentMaxLengthDays: filteredSettings.experimentMaxLengthDays ?? null,
     winRisk: DEFAULT_WIN_RISK_THRESHOLD,
     loseRisk: DEFAULT_LOSE_RISK_THRESHOLD,
-    preferredEnvironment:
-      req.context.org.settings?.preferredEnvironment ?? null,
+    preferredEnvironment: orgSettings?.preferredEnvironment ?? null,
   };
 
   return {

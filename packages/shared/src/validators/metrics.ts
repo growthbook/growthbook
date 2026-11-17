@@ -879,7 +879,11 @@ export const putMetricValidator = {
   paramsSchema: idParams,
   responseSchema: z
     .object({
-      updatedId: z.string(),
+      metric: apiMetricValidator,
+      updatedId: z
+        .string()
+        .describe("Deprecated: use `metric.id`.")
+        .meta({ deprecated: true }),
     })
     .strict(),
   summary: "Update a metric",

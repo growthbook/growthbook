@@ -4890,16 +4890,7 @@ paths:
               If true, return only the most recent active draft authored by or
               contributed to by the calling user. Needs a personal access token,
               or an organization API key that assumes a named member's role.
-            anyOf:
-              - type: string
-                const: 'true'
-              - type: string
-                const: 'false'
-              - type: string
-                const: '0'
-              - type: string
-                const: '1'
-              - type: boolean
+            type: boolean
       responses:
         '200':
           description: Successful response
@@ -8564,14 +8555,6 @@ paths:
           schema:
             type: string
         - $ref: '#/components/parameters/version'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties: {}
-              additionalProperties: false
       responses:
         '200':
           description: Resource created
@@ -11050,16 +11033,7 @@ paths:
             description: >-
               If true, return only revisions authored by or contributed to by
               the calling user.
-            anyOf:
-              - type: string
-                const: 'true'
-              - type: string
-                const: 'false'
-              - type: string
-                const: '0'
-              - type: string
-                const: '1'
-              - type: boolean
+            type: boolean
         - name: archived
           in: query
           description: >-
@@ -11071,16 +11045,7 @@ paths:
               Whether to include revisions for archived features. Defaults to
               `false` (non-archived features only). Pass `true` to include
               revisions for archived features alongside non-archived ones.
-            anyOf:
-              - type: string
-                const: 'true'
-              - type: string
-                const: 'false'
-              - type: string
-                const: '0'
-              - type: string
-                const: '1'
-              - type: boolean
+            type: boolean
       responses:
         '200':
           description: Successful response
@@ -11267,16 +11232,7 @@ paths:
             description: >-
               If true, return only the most recent active draft authored by or
               contributed to by the calling user.
-            anyOf:
-              - type: string
-                const: 'true'
-              - type: string
-                const: 'false'
-              - type: string
-                const: '0'
-              - type: string
-                const: '1'
-              - type: boolean
+            type: boolean
         - $ref: '#/components/parameters/status'
         - name: author
           in: query
@@ -14850,14 +14806,6 @@ paths:
           schema:
             type: string
         - $ref: '#/components/parameters/version'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties: {}
-              additionalProperties: false
       responses:
         '200':
           description: Resource created
@@ -14904,14 +14852,6 @@ paths:
           schema:
             type: string
         - $ref: '#/components/parameters/version'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties: {}
-              additionalProperties: false
       responses:
         '200':
           description: Resource created
@@ -15050,14 +14990,6 @@ paths:
             type: string
         - $ref: '#/components/parameters/version'
         - $ref: '#/components/parameters/logId'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties: {}
-              additionalProperties: false
       responses:
         '200':
           description: Resource deleted
@@ -15595,14 +15527,6 @@ paths:
           schema:
             type: string
         - $ref: '#/components/parameters/version'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties: {}
-              additionalProperties: false
       responses:
         '200':
           description: Resource created
@@ -15643,14 +15567,6 @@ paths:
           schema:
             type: string
         - $ref: '#/components/parameters/version'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties: {}
-              additionalProperties: false
       responses:
         '200':
           description: Resource created
@@ -16023,16 +15939,7 @@ paths:
               Filter by archived status. Set to `true` to return only archived
               experiments, `false` to exclude them. If omitted, both archived
               and non-archived experiments are returned.
-            anyOf:
-              - type: string
-                const: 'true'
-              - type: string
-                const: 'false'
-              - type: string
-                const: '0'
-              - type: string
-                const: '1'
-              - type: boolean
+            type: boolean
         - $ref: '#/components/parameters/sortBy'
         - $ref: '#/components/parameters/sortOrder'
       responses:
@@ -17880,14 +17787,6 @@ paths:
         - experiments
       parameters:
         - $ref: '#/components/parameters/id'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties: {}
-              additionalProperties: false
       responses:
         '200':
           description: Resource created
@@ -21005,9 +20904,14 @@ paths:
               schema:
                 type: object
                 properties:
+                  metric:
+                    $ref: '#/components/schemas/Metric'
                   updatedId:
                     type: string
+                    description: 'Deprecated: use `metric.id`.'
+                    deprecated: true
                 required:
+                  - metric
                   - updatedId
                 additionalProperties: false
         '202':
@@ -24097,16 +24001,7 @@ paths:
               If true, return only revisions authored by the calling user. Needs
               a personal access token, or an organization API key that assumes a
               named member's role. Mutually exclusive with `author`.
-            anyOf:
-              - type: string
-                const: 'true'
-              - type: string
-                const: 'false'
-              - type: string
-                const: '0'
-              - type: string
-                const: '1'
-              - type: boolean
+            type: boolean
       responses:
         '200':
           description: Successful response
@@ -24857,16 +24752,7 @@ paths:
               If true, return only revisions authored by the calling user. Needs
               a personal access token, or an organization API key that assumes a
               named member's role. Mutually exclusive with `author`.
-            anyOf:
-              - type: string
-                const: 'true'
-              - type: string
-                const: 'false'
-              - type: string
-                const: '0'
-              - type: string
-                const: '1'
-              - type: boolean
+            type: boolean
       responses:
         '200':
           description: Successful response
@@ -24991,16 +24877,7 @@ paths:
               If true, return only the most recent active draft authored by the
               calling user. Needs a personal access token, or an organization
               API key that assumes a named member's role.
-            anyOf:
-              - type: string
-                const: 'true'
-              - type: string
-                const: 'false'
-              - type: string
-                const: '0'
-              - type: string
-                const: '1'
-              - type: boolean
+            type: boolean
       responses:
         '200':
           description: Successful response
@@ -25750,14 +25627,6 @@ paths:
           schema:
             type: string
         - $ref: '#/components/parameters/version'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties: {}
-              additionalProperties: false
       responses:
         '200':
           description: Resource created
@@ -25797,14 +25666,6 @@ paths:
           schema:
             type: string
         - $ref: '#/components/parameters/version'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties: {}
-              additionalProperties: false
       responses:
         '200':
           description: Resource created
@@ -25930,14 +25791,6 @@ paths:
           schema:
             type: string
         - $ref: '#/components/parameters/version'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties: {}
-              additionalProperties: false
       responses:
         '200':
           description: Resource created
@@ -26464,16 +26317,7 @@ paths:
               If true, return only revisions authored by the calling user. Needs
               a personal access token, or an organization API key that assumes a
               named member's role. Mutually exclusive with `author`.
-            anyOf:
-              - type: string
-                const: 'true'
-              - type: string
-                const: 'false'
-              - type: string
-                const: '0'
-              - type: string
-                const: '1'
-              - type: boolean
+            type: boolean
       responses:
         '200':
           description: Successful response
@@ -26957,16 +26801,7 @@ paths:
               If true, return only revisions authored by the calling user. Needs
               a personal access token, or an organization API key that assumes a
               named member's role. Mutually exclusive with `author`.
-            anyOf:
-              - type: string
-                const: 'true'
-              - type: string
-                const: 'false'
-              - type: string
-                const: '0'
-              - type: string
-                const: '1'
-              - type: boolean
+            type: boolean
       responses:
         '200':
           description: Successful response
@@ -27088,16 +26923,7 @@ paths:
               If true, return only the most recent active draft authored by the
               calling user. Needs a personal access token, or an organization
               API key that assumes a named member's role.
-            anyOf:
-              - type: string
-                const: 'true'
-              - type: string
-                const: 'false'
-              - type: string
-                const: '0'
-              - type: string
-                const: '1'
-              - type: boolean
+            type: boolean
       responses:
         '200':
           description: Successful response
@@ -27606,14 +27432,6 @@ paths:
           schema:
             type: string
         - $ref: '#/components/parameters/version'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties: {}
-              additionalProperties: false
       responses:
         '200':
           description: Resource created
@@ -27653,14 +27471,6 @@ paths:
           schema:
             type: string
         - $ref: '#/components/parameters/version'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties: {}
-              additionalProperties: false
       responses:
         '200':
           description: Resource created
@@ -27809,14 +27619,6 @@ paths:
           schema:
             type: string
         - $ref: '#/components/parameters/version'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties: {}
-              additionalProperties: false
       responses:
         '200':
           description: Resource created
@@ -28536,16 +28338,7 @@ paths:
               If true, return only revisions authored by the calling user. Needs
               a personal access token, or an organization API key that assumes a
               named member's role. Mutually exclusive with `author`.
-            anyOf:
-              - type: string
-                const: 'true'
-              - type: string
-                const: 'false'
-              - type: string
-                const: '0'
-              - type: string
-                const: '1'
-              - type: boolean
+            type: boolean
       responses:
         '200':
           description: Successful response
@@ -29406,16 +29199,7 @@ paths:
               If true, return only revisions authored by the calling user. Needs
               a personal access token, or an organization API key that assumes a
               named member's role. Mutually exclusive with `author`.
-            anyOf:
-              - type: string
-                const: 'true'
-              - type: string
-                const: 'false'
-              - type: string
-                const: '0'
-              - type: string
-                const: '1'
-              - type: boolean
+            type: boolean
       responses:
         '200':
           description: Successful response
@@ -29536,16 +29320,7 @@ paths:
               If true, return only the most recent active draft authored by the
               calling user. Needs a personal access token, or an organization
               API key that assumes a named member's role.
-            anyOf:
-              - type: string
-                const: 'true'
-              - type: string
-                const: 'false'
-              - type: string
-                const: '0'
-              - type: string
-                const: '1'
-              - type: boolean
+            type: boolean
       responses:
         '200':
           description: Successful response
@@ -30671,14 +30446,6 @@ paths:
           schema:
             type: string
         - $ref: '#/components/parameters/version'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties: {}
-              additionalProperties: false
       responses:
         '200':
           description: Resource created
@@ -30719,14 +30486,6 @@ paths:
           schema:
             type: string
         - $ref: '#/components/parameters/version'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties: {}
-              additionalProperties: false
       responses:
         '200':
           description: Resource created
@@ -30766,14 +30525,6 @@ paths:
           schema:
             type: string
         - $ref: '#/components/parameters/version'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties: {}
-              additionalProperties: false
       responses:
         '200':
           description: Resource created
@@ -66173,16 +65924,7 @@ paths:
             description: >-
               Filter by archived state. Omit to return both archived and
               unarchived Holdouts.
-            anyOf:
-              - type: string
-                const: 'true'
-              - type: string
-                const: 'false'
-              - type: string
-                const: '0'
-              - type: string
-                const: '1'
-              - type: boolean
+            type: boolean
       responses:
         '200':
           description: Successful response
@@ -67465,22 +67207,13 @@ components:
         Self-hosted only. Has no effect unless API_ALLOW_SKIP_PAGINATION is set
         to true or 1.
       schema:
-        anyOf:
-          - type: string
-            const: 'true'
-          - type: string
-            const: 'false'
-          - type: string
-            const: '0'
-          - type: string
-            const: '1'
-          - type: boolean
         description: >-
           If true, return all matching items and ignore limit/offset.
 
           Self-hosted only. Has no effect unless API_ALLOW_SKIP_PAGINATION is
           set to true or 1.
         default: false
+        type: boolean
       x-selfHostedOnly: true
       x-requiresEnv: API_ALLOW_SKIP_PAGINATION
     id:
@@ -67559,16 +67292,7 @@ components:
           calling user. Needs a personal access token, or an organization API
           key that assumes a named member's role. Mutually exclusive with
           `author`.
-        anyOf:
-          - type: string
-            const: 'true'
-          - type: string
-            const: 'false'
-          - type: string
-            const: '0'
-          - type: string
-            const: '1'
-          - type: boolean
+        type: boolean
     version:
       name: version
       in: path
@@ -67592,16 +67316,7 @@ components:
           rejected with a 409. Pass `true` to create the draft anyway. Only set
           this when a person has explicitly asked you to. If a check blocks you,
           stop and ask a person instead of working around it.
-        anyOf:
-          - type: string
-            const: 'true'
-          - type: string
-            const: 'false'
-          - type: string
-            const: '0'
-          - type: string
-            const: '1'
-          - type: boolean
+        type: boolean
     ruleId:
       name: ruleId
       in: path
@@ -67621,16 +67336,7 @@ components:
           Whether to include archived features. Defaults to `false`
           (non-archived only). Pass `true` to include archived features
           alongside non-archived ones.
-        anyOf:
-          - type: string
-            const: 'true'
-          - type: string
-            const: 'false'
-          - type: string
-            const: '0'
-          - type: string
-            const: '1'
-          - type: boolean
+        type: boolean
     skipSchemaValidation:
       name: skipSchemaValidation
       in: query
@@ -67638,16 +67344,7 @@ components:
       schema:
         description: Deprecated — pass `skipSchemaValidation` in the request body instead.
         deprecated: true
-        anyOf:
-          - type: string
-            const: 'true'
-          - type: string
-            const: 'false'
-          - type: string
-            const: '0'
-          - type: string
-            const: '1'
-          - type: boolean
+        type: boolean
     ignoreWarnings:
       name: ignoreWarnings
       in: query
@@ -67655,16 +67352,7 @@ components:
       schema:
         description: Deprecated — pass `ignoreWarnings` in the request body instead.
         deprecated: true
-        anyOf:
-          - type: string
-            const: 'true'
-          - type: string
-            const: 'false'
-          - type: string
-            const: '0'
-          - type: string
-            const: '1'
-          - type: boolean
+        type: boolean
     format:
       name: format
       in: query
@@ -67922,16 +67610,7 @@ components:
         description: >-
           Publish the resulting revision immediately instead of leaving it as a
           draft.
-        anyOf:
-          - type: string
-            const: 'true'
-          - type: string
-            const: 'false'
-          - type: string
-            const: '0'
-          - type: string
-            const: '1'
-          - type: boolean
+        type: boolean
     draftVersion:
       name: draftVersion
       in: query
@@ -67955,16 +67634,7 @@ components:
         description: >-
           Whether to include archived metrics. Defaults to `true`. Pass `false`
           to return only non-archived metrics.
-        anyOf:
-          - type: string
-            const: 'true'
-          - type: string
-            const: 'false'
-          - type: string
-            const: '0'
-          - type: string
-            const: '1'
-          - type: boolean
+        type: boolean
     type:
       name: type
       in: query
@@ -68457,11 +68127,14 @@ components:
           maxLength: 10000
         owner:
           type: string
-          description: The userId of the owner (or raw owner name/email for legacy records)
+          description: >-
+            The userId of the owner (or raw owner name/email for legacy
+            records). An owner set by email comes back here as its userId;
+            compare against `ownerEmail` instead.
         ownerEmail:
           description: >-
             The email address of the owner, when the owner can be resolved to a
-            known user.
+            known user. Matches an `owner` that was sent as an email address.
           type: string
         project:
           type: string
@@ -69565,7 +69238,8 @@ components:
               type: string
               description: >-
                 The userId of the owner (or raw owner name/email for legacy
-                records)
+                records). An owner set by email comes back here as its userId;
+                compare against `ownerEmail` instead.
             project:
               type: string
             tags:
@@ -71173,7 +70847,8 @@ components:
               type: string
               description: >-
                 The userId of the owner (or raw owner name/email for legacy
-                records)
+                records). An owner set by email comes back here as its userId;
+                compare against `ownerEmail` instead.
             project:
               type: string
             tags:
@@ -72709,11 +72384,14 @@ components:
           maxLength: 10000
         owner:
           type: string
-          description: The userId of the owner (or raw owner name/email for legacy records)
+          description: >-
+            The userId of the owner (or raw owner name/email for legacy
+            records). An owner set by email comes back here as its userId;
+            compare against `ownerEmail` instead.
         ownerEmail:
           description: >-
             The email address of the owner, when the owner can be resolved to a
-            known user.
+            known user. Matches an `owner` that was sent as an email address.
           type: string
         isPublic:
           type: boolean
@@ -72777,11 +72455,14 @@ components:
             type: string
         owner:
           type: string
-          description: The userId of the owner (or raw owner name/email for legacy records)
+          description: >-
+            The userId of the owner (or raw owner name/email for legacy
+            records). An owner set by email comes back here as its userId;
+            compare against `ownerEmail` instead.
         ownerEmail:
           description: >-
             The email address of the owner, when the owner can be resolved to a
-            known user.
+            known user. Matches an `owner` that was sent as an email address.
           type: string
         archived:
           type: boolean
@@ -73935,11 +73616,14 @@ components:
             type: string
         owner:
           type: string
-          description: The userId of the owner (or raw owner name/email for legacy records)
+          description: >-
+            The userId of the owner (or raw owner name/email for legacy
+            records). An owner set by email comes back here as its userId;
+            compare against `ownerEmail` instead.
         ownerEmail:
           description: >-
             The email address of the owner, when the owner can be resolved to a
-            known user.
+            known user. Matches an `owner` that was sent as an email address.
           type: string
         archived:
           type: boolean
@@ -74504,11 +74188,14 @@ components:
           type: string
         owner:
           type: string
-          description: The userId of the owner (or raw owner name/email for legacy records)
+          description: >-
+            The userId of the owner (or raw owner name/email for legacy
+            records). An owner set by email comes back here as its userId;
+            compare against `ownerEmail` instead.
         ownerEmail:
           description: >-
             The email address of the owner, when the owner can be resolved to a
-            known user.
+            known user. Matches an `owner` that was sent as an email address.
           type: string
         datasourceId:
           type: string
@@ -74843,11 +74530,14 @@ components:
           type: string
         owner:
           type: string
-          description: The userId of the owner (or raw owner name/email for legacy records)
+          description: >-
+            The userId of the owner (or raw owner name/email for legacy
+            records). An owner set by email comes back here as its userId;
+            compare against `ownerEmail` instead.
         ownerEmail:
           description: >-
             The email address of the owner, when the owner can be resolved to a
-            known user.
+            known user. Matches an `owner` that was sent as an email address.
           type: string
         datasourceId:
           type: string
@@ -74908,11 +74598,14 @@ components:
           type: string
         owner:
           type: string
-          description: The userId of the owner (or raw owner name/email for legacy records)
+          description: >-
+            The userId of the owner (or raw owner name/email for legacy
+            records). An owner set by email comes back here as its userId;
+            compare against `ownerEmail` instead.
         ownerEmail:
           description: >-
             The email address of the owner, when the owner can be resolved to a
-            known user.
+            known user. Matches an `owner` that was sent as an email address.
           type: string
         datasourceId:
           type: string
@@ -75000,11 +74693,14 @@ components:
             new targeting (and All Projects); existing targeting is kept.
         owner:
           type: string
-          description: The userId of the owner (or raw owner name/email for legacy records)
+          description: >-
+            The userId of the owner (or raw owner name/email for legacy
+            records). An owner set by email comes back here as its userId;
+            compare against `ownerEmail` instead.
         ownerEmail:
           description: >-
             The email address of the owner, when the owner can be resolved to a
-            known user.
+            known user. Matches an `owner` that was sent as an email address.
           type: string
         settings:
           type: object
@@ -75598,11 +75294,14 @@ components:
           type: string
         owner:
           type: string
-          description: The userId of the owner (or raw owner name/email for legacy records)
+          description: >-
+            The userId of the owner (or raw owner name/email for legacy
+            records). An owner set by email comes back here as its userId;
+            compare against `ownerEmail` instead.
         ownerEmail:
           description: >-
             The email address of the owner, when the owner can be resolved to a
-            known user.
+            known user. Matches an `owner` that was sent as an email address.
           type: string
         condition:
           type: string
@@ -76314,11 +76013,14 @@ components:
             - json
         owner:
           type: string
-          description: The userId of the owner (or raw owner name/email for legacy records)
+          description: >-
+            The userId of the owner (or raw owner name/email for legacy
+            records). An owner set by email comes back here as its userId;
+            compare against `ownerEmail` instead.
         ownerEmail:
           description: >-
             The email address of the owner, when the owner can be resolved to a
-            known user.
+            known user. Matches an `owner` that was sent as an email address.
           type: string
         value:
           type: string
@@ -76800,11 +76502,14 @@ components:
           type: string
         owner:
           type: string
-          description: The userId of the owner (or raw owner name/email for legacy records)
+          description: >-
+            The userId of the owner (or raw owner name/email for legacy
+            records). An owner set by email comes back here as its userId;
+            compare against `ownerEmail` instead.
         ownerEmail:
           description: >-
             The email address of the owner, when the owner can be resolved to a
-            known user.
+            known user. Matches an `owner` that was sent as an email address.
           type: string
         parent:
           type: string
@@ -78015,11 +77720,14 @@ components:
           maxLength: 10000
         owner:
           type: string
-          description: The userId of the owner (or raw owner name/email for legacy records)
+          description: >-
+            The userId of the owner (or raw owner name/email for legacy
+            records). An owner set by email comes back here as its userId;
+            compare against `ownerEmail` instead.
         ownerEmail:
           description: >-
             The email address of the owner, when the owner can be resolved to a
-            known user.
+            known user. Matches an `owner` that was sent as an email address.
           type: string
         projects:
           type: array
@@ -78738,11 +78446,14 @@ components:
           maxLength: 10000
         owner:
           type: string
-          description: The userId of the owner (or raw owner name/email for legacy records)
+          description: >-
+            The userId of the owner (or raw owner name/email for legacy
+            records). An owner set by email comes back here as its userId;
+            compare against `ownerEmail` instead.
         ownerEmail:
           description: >-
             The email address of the owner, when the owner can be resolved to a
-            known user.
+            known user. Matches an `owner` that was sent as an email address.
           type: string
         projects:
           type: array
@@ -79532,8 +79243,15 @@ components:
             Additional roles granted alongside this one, in the same scope. Each
             is granted independently and environment access is the union across
             them.
+        managedByIdp:
+          type: boolean
+          description: >-
+            Whether the member is provisioned and managed by an identity
+            provider (SCIM).
         managedbyIdp:
           type: boolean
+          description: 'Deprecated: use `managedByIdp`.'
+          deprecated: true
         teams:
           type: array
           items:
@@ -79791,11 +79509,6 @@ components:
           type: string
         killswitchConfirmation:
           type: boolean
-        featureKillSwitchBehavior:
-          type: string
-          enum:
-            - 'off'
-            - warn
         requireReviews:
           type: array
           items:
@@ -81062,7 +80775,7 @@ components:
         ownerEmail:
           description: >-
             The email address of the owner, when the owner can be resolved to a
-            known user.
+            known user. Matches an `owner` that was sent as an email address.
           type: string
         snapshotId:
           type: string
@@ -85399,11 +85112,14 @@ components:
                 additionalProperties: false
         owner:
           type: string
-          description: The userId of the owner (or raw owner name/email for legacy records)
+          description: >-
+            The userId of the owner (or raw owner name/email for legacy
+            records). An owner set by email comes back here as its userId;
+            compare against `ownerEmail` instead.
         ownerEmail:
           description: >-
             The email address of the owner, when the owner can be resolved to a
-            known user.
+            known user. Matches an `owner` that was sent as an email address.
           type: string
       required:
         - id
@@ -85516,11 +85232,14 @@ components:
           type: string
         owner:
           type: string
-          description: The userId of the owner (or raw owner name/email for legacy records)
+          description: >-
+            The userId of the owner (or raw owner name/email for legacy
+            records). An owner set by email comes back here as its userId;
+            compare against `ownerEmail` instead.
         ownerEmail:
           description: >-
             The email address of the owner, when the owner can be resolved to a
-            known user.
+            known user. Matches an `owner` that was sent as an email address.
           type: string
         tags:
           type: array
@@ -85784,11 +85503,14 @@ components:
           format: date-time
         owner:
           type: string
-          description: The userId of the owner (or raw owner name/email for legacy records)
+          description: >-
+            The userId of the owner (or raw owner name/email for legacy
+            records). An owner set by email comes back here as its userId;
+            compare against `ownerEmail` instead.
         ownerEmail:
           description: >-
             The email address of the owner, when the owner can be resolved to a
-            known user.
+            known user. Matches an `owner` that was sent as an email address.
           type: string
         datasourceId:
           type: string
@@ -85828,11 +85550,14 @@ components:
           format: date-time
         owner:
           type: string
-          description: The userId of the owner (or raw owner name/email for legacy records)
+          description: >-
+            The userId of the owner (or raw owner name/email for legacy
+            records). An owner set by email comes back here as its userId;
+            compare against `ownerEmail` instead.
         ownerEmail:
           description: >-
             The email address of the owner, when the owner can be resolved to a
-            known user.
+            known user. Matches an `owner` that was sent as an email address.
           type: string
         datasourceId:
           type: string
@@ -85880,11 +85605,14 @@ components:
           type: string
         owner:
           type: string
-          description: The userId of the owner (or raw owner name/email for legacy records)
+          description: >-
+            The userId of the owner (or raw owner name/email for legacy
+            records). An owner set by email comes back here as its userId;
+            compare against `ownerEmail` instead.
         ownerEmail:
           description: >-
             The email address of the owner, when the owner can be resolved to a
-            known user.
+            known user. Matches an `owner` that was sent as an email address.
           type: string
         tags:
           type: array
@@ -86598,11 +86326,14 @@ components:
           format: date-time
         owner:
           type: string
-          description: The userId of the owner (or raw owner name/email for legacy records)
+          description: >-
+            The userId of the owner (or raw owner name/email for legacy
+            records). An owner set by email comes back here as its userId;
+            compare against `ownerEmail` instead.
         ownerEmail:
           description: >-
             The email address of the owner, when the owner can be resolved to a
-            known user.
+            known user. Matches an `owner` that was sent as an email address.
           type: string
         name:
           type: string
@@ -86756,11 +86487,14 @@ components:
           type: string
         owner:
           type: string
-          description: The userId of the owner (or raw owner name/email for legacy records)
+          description: >-
+            The userId of the owner (or raw owner name/email for legacy
+            records). An owner set by email comes back here as its userId;
+            compare against `ownerEmail` instead.
         ownerEmail:
           description: >-
             The email address of the owner, when the owner can be resolved to a
-            known user.
+            known user. Matches an `owner` that was sent as an email address.
           type: string
         templateMetadata:
           type: object
@@ -89275,11 +89009,14 @@ components:
           format: date-time
         owner:
           type: string
-          description: The userId of the owner (or raw owner name/email for legacy records)
+          description: >-
+            The userId of the owner (or raw owner name/email for legacy
+            records). An owner set by email comes back here as its userId;
+            compare against `ownerEmail` instead.
         ownerEmail:
           description: >-
             The email address of the owner, when the owner can be resolved to a
-            known user.
+            known user. Matches an `owner` that was sent as an email address.
           type: string
         authors:
           type: array
@@ -89353,11 +89090,14 @@ components:
             Projects.
         owner:
           type: string
-          description: The userId of the owner (or raw owner name/email for legacy records)
+          description: >-
+            The userId of the owner (or raw owner name/email for legacy
+            records). An owner set by email comes back here as its userId;
+            compare against `ownerEmail` instead.
         ownerEmail:
           description: >-
             The email address of the owner, when the owner can be resolved to a
-            known user.
+            known user. Matches an `owner` that was sent as an email address.
           type: string
         tags:
           type: array
@@ -89789,11 +89529,14 @@ components:
             type: string
         owner:
           type: string
-          description: The userId of the owner (or raw owner name/email for legacy records)
+          description: >-
+            The userId of the owner (or raw owner name/email for legacy
+            records). An owner set by email comes back here as its userId;
+            compare against `ownerEmail` instead.
         ownerEmail:
           description: >-
             The email address of the owner, when the owner can be resolved to a
-            known user.
+            known user. Matches an `owner` that was sent as an email address.
           type: string
         name:
           type: string
@@ -92067,11 +91810,14 @@ components:
           format: date-time
         owner:
           type: string
-          description: The userId of the owner (or raw owner name/email for legacy records)
+          description: >-
+            The userId of the owner (or raw owner name/email for legacy
+            records). An owner set by email comes back here as its userId;
+            compare against `ownerEmail` instead.
         ownerEmail:
           description: >-
             The email address of the owner, when the owner can be resolved to a
-            known user.
+            known user. Matches an `owner` that was sent as an email address.
           type: string
         authors:
           type: array
