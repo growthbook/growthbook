@@ -139,6 +139,7 @@ it("uses the selected numerator and denominator identifiers in the query", () =>
       numerator,
       denominator: { ...numerator, factTableId: "ft2" },
       funnelSettings: null,
+      compoundSettings: null,
     },
     {
       draft: true,
@@ -203,6 +204,7 @@ it("keeps the query identity when only non-query fields change", () => {
   expect(() =>
     factMetricValidator.parse({
       ...getPreviewDraftMetric(edited),
+      compoundSettings: null,
       id: "fact__preview",
       organization: "org",
       dateCreated: new Date(0),
@@ -226,6 +228,7 @@ it("offers only identifiers shared by all funnel steps", () => {
     ...metric(),
     metricType: "funnel",
     numerator: null,
+    compoundSettings: null,
     funnelSettings: {
       steps: [
         { ...step, factTableId: "ft1" },
@@ -287,6 +290,6 @@ it("uses the per-unit scale for mean metric charts", () => {
       unit: "user_id",
       denominatorUnit: null,
       dateRange: getPreviewDateRange(),
-    }).showAs,
-  ).toBe("per_unit");
+    }).dataset,
+  ).toMatchObject({ values: [{ showAs: "per_unit" }] });
 });

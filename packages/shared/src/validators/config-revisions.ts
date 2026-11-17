@@ -170,9 +170,9 @@ const revisionResponseWithWarnings = revisionResponse.extend({
 const mergeConflictSchema = z
   .object({
     field: z.string(),
-    baseValue: z.unknown(),
-    liveValue: z.unknown(),
-    proposedValue: z.unknown(),
+    baseValue: z.unknown().optional(),
+    liveValue: z.unknown().optional(),
+    proposedValue: z.unknown().optional(),
   })
   .strict();
 

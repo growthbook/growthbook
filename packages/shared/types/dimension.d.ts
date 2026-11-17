@@ -1,3 +1,4 @@
+import type { DimensionTiming } from "shared/validators";
 import { Queries } from "./query";
 
 export interface DimensionInterface {
@@ -10,6 +11,10 @@ export interface DimensionInterface {
   userIdType: string;
   name: string;
   sql: string;
+  // Absent means "none"
+  timing?: DimensionTiming;
+  // Shown in results for units with no value; absent/empty uses the default sentinel
+  nullLabel?: string;
   dateCreated: Date | null;
   dateUpdated: Date | null;
 }

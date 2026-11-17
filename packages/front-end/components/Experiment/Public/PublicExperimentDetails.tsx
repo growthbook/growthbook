@@ -2,9 +2,9 @@ import { Flex, Separator } from "@radix-ui/themes";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import Metadata from "@/ui/Metadata";
 import ScrollArea from "@/ui/ScrollArea";
-import { PanelSection } from "@/components/Experiment/TabbedPage/ExperimentDetailsPanel";
+import { PanelSection } from "@/components/DetailsPanel";
+import { EmptyValue } from "@/components/DetailsPanelFields";
 import {
-  EmptyValue,
   ExperimentDates,
   ExperimentStatusField,
 } from "@/components/Experiment/TabbedPage/ProjectTagBar";
@@ -37,29 +37,25 @@ export default function PublicExperimentDetails({
     <ScrollArea fill style={{ flex: 1, minHeight: 0 }}>
       <Flex px="5" py="4" direction="column" gap="4">
         <PanelSection title="General">
-          <Flex direction="column" gap="3">
-            <ExperimentStatusField experiment={experiment} />
-            <ExperimentDates experiment={experiment} />
-          </Flex>
+          <ExperimentStatusField experiment={experiment} />
+          <ExperimentDates experiment={experiment} />
         </PanelSection>
         <Separator size="4" />
         <PanelSection title="Data">
-          <Flex direction="column" gap="3">
-            <Metadata
-              size="sm"
-              stacked
-              label="Experiment key"
-              value={experiment.trackingKey || <EmptyValue />}
-            />
-            <Metadata
-              size="sm"
-              stacked
-              label="Linked changes"
-              value={
-                linkedChanges.length ? linkedChanges.join(", ") : <EmptyValue />
-              }
-            />
-          </Flex>
+          <Metadata
+            size="sm"
+            stacked
+            label="Experiment key"
+            value={experiment.trackingKey || <EmptyValue />}
+          />
+          <Metadata
+            size="sm"
+            stacked
+            label="Linked changes"
+            value={
+              linkedChanges.length ? linkedChanges.join(", ") : <EmptyValue />
+            }
+          />
         </PanelSection>
       </Flex>
     </ScrollArea>

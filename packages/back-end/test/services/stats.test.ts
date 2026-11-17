@@ -76,6 +76,64 @@ const failedResult: ExperimentMetricAnalysis[number] = {
 };
 
 describe("parseStatsEngineResult", () => {
+  it("attaches compound component unit counts to the overall result only", () => {
+    const queryResults = [
+      {
+        metrics: ["survivor"],
+        rows: [
+          // Precomputed dimension slices are summed per variation.
+          {
+            variation: "control",
+            m0_id: "survivor",
+            m0_c0_units: 4,
+            m0_c1_units: 2,
+          },
+          {
+            variation: "control",
+            m0_id: "survivor",
+            m0_c0_units: 1,
+            m0_c1_units: 1,
+          },
+          {
+            variation: "treatment",
+            m0_id: "survivor",
+            m0_c0_units: 6,
+            m0_c1_units: 5,
+          },
+          {
+            variation: "__multiple__",
+            m0_id: "survivor",
+            m0_c0_units: 9,
+            m0_c1_units: 9,
+          },
+        ],
+      },
+    ];
+    const [overall, byDimension] = parseStatsEngineResult({
+      analysisSettings: [
+        analysisSettings,
+        { ...analysisSettings, dimensions: ["dim_exp_country"] },
+      ],
+      snapshotSettings: { variations },
+      queryResults,
+      unknownVariations: [],
+      result: [
+        {
+          ...survivorResult,
+          analyses: [survivorResult.analyses[0], survivorResult.analyses[0]],
+        },
+      ],
+    });
+
+    const units = (r: typeof overall) =>
+      r.dimensions[0].variations.map((v) => v.metrics.survivor.componentUnits);
+    expect(units(overall)).toEqual([
+      [5, 3],
+      [6, 5],
+    ]);
+    expect(units(byDimension)).toEqual([undefined, undefined]);
+  });
+
   it("attaches a failed metric to every surviving variation", () => {
     const [result] = parseStatsEngineResult({
       analysisSettings: [analysisSettings],

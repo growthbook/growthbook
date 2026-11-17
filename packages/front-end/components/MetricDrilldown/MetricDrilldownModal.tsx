@@ -49,6 +49,9 @@ import MetricDrilldownOverview from "./MetricDrilldownOverview";
 import MetricDrilldownSlices from "./MetricDrilldownSlices";
 import MetricDrilldownDebug from "./MetricDrilldownDebug";
 import ExperimentFunnelChart from "./ExperimentFunnelChart";
+import CompoundComponentCounts, {
+  hasCompoundComponentUnits,
+} from "./CompoundComponentCounts";
 import {
   MetricDrilldownContext,
   type MetricDrilldownTab,
@@ -397,6 +400,17 @@ const MetricDrilldownContent: FC<MetricDrilldownContentProps> = ({
           </Box>
         </TabsContent>
       )}
+      {hasCompoundComponentUnits(metric, results) && (
+        <TabsContent value="components">
+          <Box mt="3">
+            <CompoundComponentCounts
+              metric={metric}
+              results={results}
+              variations={variations}
+            />
+          </Box>
+        </TabsContent>
+      )}
       <TabsContent value="slices">
         <MetricDrilldownSlices
           metric={metric}
@@ -657,6 +671,9 @@ const MetricDrilldownModal = ({
               <TabsTrigger value="overview">Overview</TabsTrigger>
               {isFunnelMetric && (
                 <TabsTrigger value="funnel">Funnel</TabsTrigger>
+              )}
+              {hasCompoundComponentUnits(metric, results) && (
+                <TabsTrigger value="components">Components</TabsTrigger>
               )}
               <TabsTrigger value="slices">
                 <Flex align="center" gap="1">

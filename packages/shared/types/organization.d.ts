@@ -404,6 +404,7 @@ export interface OrganizationSettings {
   banditScheduleUnit?: "hours" | "days";
   banditBurnInValue?: number;
   banditBurnInUnit?: "hours" | "days";
+  banditPeriodWeighting?: boolean;
   requireExperimentTemplates?: boolean;
   disableResultsUpdateForStoppedExperiments?: boolean;
   disableResultsUpdateForStoppedExperimentGraceHours?: number;

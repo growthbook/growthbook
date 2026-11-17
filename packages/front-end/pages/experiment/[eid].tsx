@@ -8,7 +8,10 @@ import { VisualChangesetInterface } from "shared/types/visual-changeset";
 import { URLRedirectInterface } from "shared/types/url-redirect";
 import React, { ReactElement, useEffect, useState } from "react";
 import { IdeaInterface } from "shared/types/idea";
-import { canEditDeliveryInPlace } from "shared/util";
+import {
+  canEditDeliveryInPlace,
+  experimentHasLinkedChanges,
+} from "shared/util";
 import useApi from "@/hooks/useApi";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import useSwitchOrg from "@/services/useSwitchOrg";
@@ -35,9 +38,10 @@ const ExperimentPage = (): ReactElement => {
   const [metricsModalOpen, setMetricsModalOpen] = useState(false);
   const [duplicateModalOpen, setDuplicateModalOpen] = useState(false);
   const [editPhasesOpen, setEditPhasesOpen] = useState(false);
-  const [targetingModal, setTargetingModal] = useState<
-    null | "targeting" | "namespace"
-  >(null);
+  const [targetingModal, setTargetingModal] = useState<null | {
+    section: "targeting" | "namespace" | "changes";
+    openAt?: "traffic";
+  }>(null);
   const [editScheduleModalOpen, setEditScheduleModalOpen] = useState(false);
 
   const { data, error, mutate } = useApi<{
@@ -118,11 +122,20 @@ const ExperimentPage = (): ReactElement => {
     : null;
   const editPhases = canRunExperiment ? () => setEditPhasesOpen(true) : null;
   const editTargeting = canRunExperiment
-    ? () => setTargetingModal("targeting")
+    ? () => setTargetingModal({ section: "targeting" })
     : null;
   const editNamespace = canRunExperiment
-    ? () => setTargetingModal("namespace")
+    ? () => setTargetingModal({ section: "namespace" })
     : null;
+  // With nothing linked there's no release to plan, so a started experiment's
+  // targeting, traffic and variations are edited in one form.
+  const makeChanges =
+    canRunExperiment &&
+    experiment.status !== "draft" &&
+    !experimentHasLinkedChanges(experiment)
+      ? (openAt?: "traffic") =>
+          setTargetingModal({ section: "changes", openAt })
+      : null;
   const editSchedule = canEditExperiment
     ? () => setEditScheduleModalOpen(true)
     : null;
@@ -157,13 +170,14 @@ const ExperimentPage = (): ReactElement => {
           mutateExperiment={mutate}
           experiment={experiment}
           linkedFeatures={linkedFeatures}
-          editTargeting={editTargeting}
+          editTargeting={makeChanges ? () => makeChanges() : editTargeting}
           source="eid"
         />
       )}
       {targetingModal && (
         <EditTargetingModal
-          section={targetingModal}
+          section={targetingModal.section}
+          openAt={targetingModal.openAt}
           close={() => setTargetingModal(null)}
           mutate={mutate}
           experiment={experiment}
@@ -206,6 +220,7 @@ const ExperimentPage = (): ReactElement => {
           editPhases={editPhases}
           envs={envs}
           editTargeting={editTargeting}
+          makeChanges={makeChanges}
           targetingDraft={targeting}
           canAddVariation={canRunExperiment}
           editNamespace={editNamespace}

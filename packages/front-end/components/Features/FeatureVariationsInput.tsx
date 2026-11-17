@@ -2,11 +2,7 @@ import { FeatureInterface, FeatureValueType } from "shared/types/feature";
 import { Box, Flex, Grid, IconButton, Slider } from "@radix-ui/themes";
 import { ReactNode, useMemo, useState } from "react";
 import { getEqualWeights } from "shared/experiments";
-import {
-  PiArrowsClockwise,
-  PiPencilSimpleFill,
-  PiPlusBold,
-} from "react-icons/pi";
+import { PiArrowsClockwise, PiPencilSimple, PiPlusBold } from "react-icons/pi";
 import {
   coverageToPercent,
   decimalToPercent,
@@ -52,6 +48,8 @@ export interface Props {
   hideVariationIds?: boolean;
   startEditingIndexes?: boolean;
   startEditingSplits?: boolean;
+  /** A reorder leaves each key with its variation, where data is recorded under it. */
+  keepKeysOnReorder?: boolean;
   showPreview?: boolean;
   hideCoverage?: boolean;
   disableCoverage?: boolean;
@@ -79,11 +77,12 @@ export default function FeatureVariationsInput({
   valueType,
   defaultValue = "",
   coverageLabel = "Traffic included in this Experiment",
-  coverageTooltip = "Users not included in the Experiment will skip this rule",
+  coverageTooltip = "Units not included in the experiment skip this rule",
   valueAsId = false,
   hideVariationIds = false,
   startEditingIndexes = false,
   startEditingSplits = false,
+  keepKeysOnReorder = false,
   showPreview = true,
   hideCoverage = false,
   disableCoverage = false,
@@ -149,7 +148,8 @@ export default function FeatureVariationsInput({
     !valueAsId && !editingIds && !onlySafeToEditVariationMetadata;
   // Drag and the row menu both reorder, so both renumber the same way.
   const renumberKeysOnReorder =
-    !!idsMatchIndexes || forceRenormalizeVariationKeysOnSort;
+    !keepKeysOnReorder &&
+    (!!idsMatchIndexes || forceRenormalizeVariationKeysOnSort);
 
   const setEqualWeights = () => {
     if (!variations || !setWeight) return;
@@ -331,7 +331,7 @@ export default function FeatureVariationsInput({
                                 }}
                                 aria-label="Customize split"
                               >
-                                <PiPencilSimpleFill size={14} />
+                                <PiPencilSimple size={14} />
                               </IconButton>
                             </Tooltip>
                           )}
@@ -465,7 +465,7 @@ export default function FeatureVariationsInput({
 }
 
 // The included-traffic slider and its typed percentage.
-function CoverageField({
+export function CoverageField({
   coverage,
   setCoverage,
   label,

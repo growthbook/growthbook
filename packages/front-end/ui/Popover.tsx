@@ -1,4 +1,4 @@
-import React, { forwardRef, useRef, useState } from "react";
+import React, { forwardRef, useEffect, useRef, useState } from "react";
 import * as RadixPopover from "@radix-ui/react-popover";
 import clsx from "clsx";
 import { IconButton } from "@radix-ui/themes";
@@ -65,6 +65,8 @@ type PopoverProps = (ControlledPopoverProps | UncontrolledPopoverProps) & {
   // instead of on click. The content does not steal focus — suitable for
   // read-only previews, including inside menus.
   openOnHover?: boolean;
+  // With openOnHover: ms the pointer rests on the trigger before it opens.
+  hoverDelay?: number;
 } & MarginProps;
 
 export function Popover({
@@ -87,6 +89,7 @@ export function Popover({
   onOpenAutoFocus,
   onCloseAutoFocus,
   openOnHover = false,
+  hoverDelay = 0,
   avoidCollisions,
   ...props
 }: PopoverProps) {
@@ -106,20 +109,29 @@ export function Popover({
   // close delay bridges the gap between them.
   const [hoverOpen, setHoverOpen] = useState(false);
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const cancelClose = () => {
-    if (closeTimer.current) {
-      clearTimeout(closeTimer.current);
-      closeTimer.current = null;
+  const openTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const cancelTimers = () => {
+    for (const timer of [closeTimer, openTimer]) {
+      if (timer.current) {
+        clearTimeout(timer.current);
+        timer.current = null;
+      }
     }
   };
+  useEffect(() => cancelTimers, []);
   const hoverHandlers = openOnHover
     ? {
         onMouseEnter: () => {
-          cancelClose();
-          setHoverOpen(true);
+          cancelTimers();
+          if (hoverOpen || !hoverDelay) setHoverOpen(true);
+          else
+            openTimer.current = setTimeout(
+              () => setHoverOpen(true),
+              hoverDelay,
+            );
         },
         onMouseLeave: () => {
-          cancelClose();
+          cancelTimers();
           closeTimer.current = setTimeout(() => setHoverOpen(false), 120);
         },
       }

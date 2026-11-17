@@ -1,12 +1,16 @@
 import { ReactNode } from "react";
 import { FeatureInterface } from "shared/types/feature";
-import { getConfigBackingKey, getFeatureBaseConfigKey } from "shared/util";
-import { Box, Flex } from "@radix-ui/themes";
+import {
+  getConfigBackingKey,
+  getFeatureBaseConfigKey,
+  parsePlainJSONObject,
+} from "shared/util";
+import { Box } from "@radix-ui/themes";
 import ValidateValue from "@/components/Features/ValidateValue";
-import Text from "@/ui/Text";
 import ValueDisplay from "./ValueDisplay";
 import { ActionsOverlay } from "./CornerActions";
 import ConfigBackedSummary from "./ConfigBackedSummary";
+import RuleField from "./RuleField";
 
 export default function ForceSummary({
   value,
@@ -15,7 +19,7 @@ export default function ForceSummary({
   sparse = false,
   isDefault = false,
   environment,
-  label = "SERVE",
+  label = "Serve",
   lineHeight,
   actionsOverlay,
   monochrome,
@@ -43,12 +47,18 @@ export default function ForceSummary({
   // More buttons beside the value's copy and fullscreen.
   extraActions?: ReactNode;
 }) {
+  // Short of the full width, the buttons follow the value.
+  const valueOverlay: ActionsOverlay | undefined = fullWidth
+    ? actionsOverlay
+    : { ...actionsOverlay, inline: true };
   // Mirror the SDK compiler: a value resolves a config ONLY when the feature is
   // config-backed (baseConfig set). A stray `@config:` hand-typed into a plain
   // flag's value is stripped at serve time, so it must not be previewed as backed.
+  // An array or scalar replaces the config outright, so it shows as itself.
   const baseConfigKey = getFeatureBaseConfigKey(feature);
   const configKey =
-    baseConfigKey !== null
+    baseConfigKey !== null &&
+    (value.trim() === "" || parsePlainJSONObject(value) !== null)
       ? (getConfigBackingKey(value) ?? baseConfigKey)
       : null;
   if (configKey !== null) {
@@ -63,34 +73,41 @@ export default function ForceSummary({
         environment={environment}
         label={label}
         lineHeight={lineHeight}
-        actionsOverlay={actionsOverlay}
+        actionsOverlay={valueOverlay}
       />
     );
   }
 
+  const valueBox = (
+    <Box width="100%">
+      <ValueDisplay
+        value={value}
+        type={feature.valueType}
+        showFullscreenButton={true}
+        sparse={sparse}
+        defaultValue={feature.defaultValue}
+        lineHeight={lineHeight}
+        monochrome={monochrome}
+        actionsOverlay={valueOverlay}
+        extraActions={extraActions}
+        fullStyle={{
+          maxHeight: maxHeight ?? 150,
+          overflowY: "auto",
+          maxWidth: "100%",
+        }}
+      />
+    </Box>
+  );
+
   return (
     <>
-      <Flex direction="row" gap="2" width={fullWidth ? "100%" : undefined}>
-        {label !== null && <Text weight="medium">{label}</Text>}
-        <Box width="100%">
-          <ValueDisplay
-            value={value}
-            type={feature.valueType}
-            showFullscreenButton={true}
-            sparse={sparse}
-            defaultValue={feature.defaultValue}
-            lineHeight={lineHeight}
-            monochrome={monochrome}
-            actionsOverlay={actionsOverlay}
-            extraActions={extraActions}
-            fullStyle={{
-              maxHeight: maxHeight ?? 150,
-              overflowY: "auto",
-              maxWidth: "100%",
-            }}
-          />
-        </Box>
-      </Flex>
+      {label !== null ? (
+        <RuleField label={label} mb="0">
+          {valueBox}
+        </RuleField>
+      ) : (
+        valueBox
+      )}
       <ValidateValue value={value} feature={feature} />
     </>
   );

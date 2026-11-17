@@ -1,5 +1,6 @@
 import dataclasses
 from functools import partial
+from typing import cast
 from unittest import TestCase, main as unittest_main
 from unittest.mock import patch
 import numpy as np
@@ -1903,6 +1904,86 @@ class TestSubCount(TestCase):
         for dim in result:
             for variation in dim.variations:
                 self.assertEqual(variation.stats.sub_count, 0)
+
+
+# Sub-unit cluster mean metric: analyzed as a ratio (value total / sub-unit
+# count per cluster), scalable by the sub-unit count.
+CLUSTER_SUBUNIT_METRIC = MetricSettingsForStatsEngine(
+    id="cluster_subunit_metric",
+    name="cluster_subunit_metric",
+    inverse=False,
+    statistic_type="ratio",
+    main_metric_type="count",
+    denominator_metric_type="count",
+    scale_by_sub_unit_count=True,
+)
+
+CLUSTER_SUBUNIT_ROWS = pd.DataFrame(
+    [
+        {
+            "dimension": "All",
+            "variation": "zero",
+            "users": 100,  # clusters (randomization unit)
+            "count": 100,
+            "sub_count": 500,  # sub-units behind the clusters
+            "main_sum": 200,
+            "main_sum_squares": 600,
+            "denominator_sum": 500,
+            "denominator_sum_squares": 3000,
+            "main_denominator_sum_product": 1200,
+        },
+        {
+            "dimension": "All",
+            "variation": "one",
+            "users": 100,
+            "count": 100,
+            "sub_count": 520,
+            "main_sum": 260,
+            "main_sum_squares": 900,
+            "denominator_sum": 520,
+            "denominator_sum_squares": 3200,
+            "main_denominator_sum_product": 1500,
+        },
+    ]
+)
+
+
+class TestScaledImpactSubUnitClusterPipeline(TestCase):
+    def test_scaled_impact_uses_sub_unit_count(self):
+        """End-to-end: a sub-unit cluster ratio metric scales by the total
+        sub-unit count (1020) rather than the cluster count (200)."""
+        frequentist = dataclasses.replace(DEFAULT_ANALYSIS, stats_engine="frequentist")
+        absolute_analysis = dataclasses.replace(frequentist, difference_type="absolute")
+        scaled_analysis = dataclasses.replace(frequentist, difference_type="scaled")
+
+        df = get_metric_dfs(
+            CLUSTER_SUBUNIT_ROWS, {"zero": 0, "one": 1}, ["zero", "one"]
+        )
+        absolute = analyze_metric_df(
+            df.copy(),
+            num_variations=2,
+            metric=CLUSTER_SUBUNIT_METRIC,
+            analysis=absolute_analysis,
+        )
+        scaled = analyze_metric_df(
+            df.copy(),
+            num_variations=2,
+            metric=CLUSTER_SUBUNIT_METRIC,
+            analysis=scaled_analysis,
+        )
+
+        absolute_var = cast(
+            FrequentistVariationResponseIndividual, absolute[0].variations[1]
+        )
+        scaled_var = cast(
+            FrequentistVariationResponseIndividual, scaled[0].variations[1]
+        )
+        absolute_expected = absolute_var.expected
+        scaled_expected = scaled_var.expected
+        self.assertIsNone(scaled_var.errorMessage)
+        self.assertAlmostEqual(absolute_expected, 0.1)
+        self.assertAlmostEqual(scaled_expected, absolute_expected * 1020)
+        self.assertNotAlmostEqual(scaled_expected, absolute_expected * 200)
 
 
 if __name__ == "__main__":

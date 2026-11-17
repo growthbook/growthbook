@@ -20,7 +20,7 @@ const bodySchema = z
     // "any object" — we trust the extension's content script handlers
     // to produce shapes the tool's contract expects. A bad shape will
     // cause the model to error gracefully on the next step.
-    result: z.unknown(),
+    result: z.unknown().optional(),
   })
   .strict();
 
