@@ -143,6 +143,13 @@ export function parseMetricExplorationPopulation({
   if (dimensions.some((d) => d.dimensionType !== "date")) {
     violations.push("Metrics with populations can only be grouped by date.");
   }
+  // The chart sums rows that share a series and x, which a second dimension
+  // would cause; summed shares of a Population are meaningless.
+  if (dimensions.length > 1) {
+    violations.push(
+      "Metrics with populations can only be grouped by one date dimension.",
+    );
+  }
   for (const value of values) {
     const metric = metricMap.get(value.metricId);
     if (!metric) {

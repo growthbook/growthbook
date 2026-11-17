@@ -282,11 +282,18 @@ export function getAlignedComparisonDimensionKeyForTooltip(
   )(currentKey);
 }
 
+/** Members who converted over the Population's member count. */
+export type PopulationFraction = { numerator: number; populationCount: number };
+
 /**
- * A chart point: null is a gap (no data, e.g. "% of Population" on a day with
- * no members), unlike a bucket with no rows, which reads as 0.
+ * A chart point. A null value is a gap (no data, e.g. "% of Population" on a
+ * day with no members), unlike a bucket with no rows, which reads as 0. A
+ * "% of Population" point also carries its fraction, which the tooltip shows.
  */
-export type ChartPoint = number | null;
+export type ChartPoint = {
+  value: number | null;
+  fraction?: PopulationFraction;
+};
 
 // Sorted by time, not as strings: a warehouse's dates (`2026-09-01 02:00:00`)
 // and the ISO dates filled in for missing buckets are formatted differently.
@@ -322,17 +329,9 @@ export function fillPopulationSeriesGaps(
   for (const seriesKey of populationSeriesKeys) {
     const points = (dataMap[seriesKey] ??= {});
     for (const x of xValues) {
-      if (!(x in points)) points[x] = null;
+      if (!(x in points)) points[x] = { value: null };
     }
   }
-}
-
-// A series with no bucket at `x` reads as 0, unlike a null point, which is a gap.
-export function getChartPoint(
-  map: Record<string, ChartPoint> | undefined,
-  x: string,
-): ChartPoint {
-  return map && x in map ? map[x] : 0;
 }
 
 /**
@@ -379,8 +378,8 @@ export function alignComparisonOverlayToCategories(
         compKey !== undefined && compKey in src
           ? src[compKey]
           : gapSeriesKeys.has(seriesKey)
-            ? null
-            : 0;
+            ? { value: null }
+            : { value: 0 };
     }
   }
   return aligned;
@@ -443,11 +442,36 @@ export function buildComparisonOverlaySeriesMaps(
       : 0;
   const numDimensions = config.dimensions?.length ?? 0;
 
-  const bump = (seriesKey: string, x: string, y: ChartPoint) => {
+  const bump = (seriesKey: string, x: string, point: ChartPoint) => {
     uniqueXValues.add(x);
-    if (!dataMap[seriesKey]) dataMap[seriesKey] = {};
-    const prev = dataMap[seriesKey][x];
-    dataMap[seriesKey][x] = y === null ? (prev ?? null) : (prev ?? 0) + y;
+    const points = (dataMap[seriesKey] ??= {});
+    const prev = points[x];
+    const value =
+      point.value === null
+        ? (prev?.value ?? null)
+        : (prev?.value ?? 0) + point.value;
+    // A Population chart has one row per series and x (the parser allows one
+    // dimension), so there's never a fraction already here to merge.
+    points[x] = point.fraction
+      ? { value, fraction: point.fraction }
+      : { value };
+  };
+  const pointFor = (
+    row: ProductAnalyticsResultRow,
+    valueIndex: number,
+  ): ChartPoint | null => {
+    const cell = row.values?.[valueIndex];
+    if (!cell) return null;
+    const opts = renderOpts.values[valueIndex];
+    const value = getEffectiveMetricValue(cell, opts, row.populationCount);
+    // A "% of Population" point has a fraction whenever it has a value;
+    // getEffectiveMetricValue decides when it has one.
+    if (opts?.showAs === "percent_of_population" && value !== null) {
+      const numerator = cell.numerator ?? 0;
+      const populationCount = row.populationCount ?? 0;
+      return { value, fraction: { numerator, populationCount } };
+    }
+    return { value };
   };
 
   for (const row of rows) {
@@ -464,17 +488,9 @@ export function buildComparisonOverlaySeriesMaps(
             valueAxis: valueAxisForDatasetValue(renderOpts, mi),
           };
         }
-        const cell = row.values?.[mi];
-        if (!cell) continue;
-        bump(
-          seriesKey,
-          x,
-          getEffectiveMetricValue(
-            cell,
-            renderOpts.values[mi],
-            row.populationCount,
-          ),
-        );
+        const point = pointFor(row, mi);
+        if (!point) continue;
+        bump(seriesKey, x, point);
       }
       continue;
     }
@@ -495,17 +511,9 @@ export function buildComparisonOverlaySeriesMaps(
           valueAxis: valueAxisForDatasetValue(renderOpts, 0),
         };
       }
-      const cell = row.values?.[0];
-      if (!cell) continue;
-      bump(
-        seriesKey,
-        x,
-        getEffectiveMetricValue(
-          cell,
-          renderOpts.values[0],
-          row.populationCount,
-        ),
-      );
+      const point = pointFor(row, 0);
+      if (!point) continue;
+      bump(seriesKey, x, point);
       continue;
     }
 
@@ -518,140 +526,12 @@ export function buildComparisonOverlaySeriesMaps(
         valueAxis: valueAxisForDatasetValue(renderOpts, 0),
       };
     }
-    const cell = row.values?.[0];
-    if (!cell) continue;
-    bump(
-      seriesKey,
-      x,
-      getEffectiveMetricValue(cell, renderOpts.values[0], row.populationCount),
-    );
+    const point = pointFor(row, 0);
+    if (!point) continue;
+    bump(seriesKey, x, point);
   }
 
   return { uniqueXValues, dataMap, seriesMeta };
-}
-
-// Matches the fraction under each value in experiment results.
-const fractionNumberFormatter = Intl.NumberFormat("en-US", {
-  notation: "compact",
-  maximumFractionDigits: 1,
-});
-
-function populationFractionKey(seriesName: string, x: string): string {
-  return `${seriesName}\0${x}`;
-}
-
-/**
- * The tooltip fraction behind each "% of Population" point, e.g. "12 / 200":
- * members who converted over the Population's member count. Keyed by the
- * series name ECharts emits and the x value; read with
- * `getPopulationFractionLabel`.
- *
- * In compare mode, series names carry their period (`periodLabels`) and the
- * previous period is drawn at the current period's x values, so each previous
- * row's fraction is keyed at the current x it's drawn at (`previousXAt`).
- */
-export function buildPopulationFractionLabels(
-  rows: ProductAnalyticsResultRow[],
-  renderOpts: RenderOpts,
-  {
-    periodLabels = null,
-    previousRows = [],
-    previousXAt = () => undefined,
-  }: {
-    periodLabels?: { currentLabel: string; previousLabel: string } | null;
-    previousRows?: ProductAnalyticsResultRow[];
-    /** The previous period's x drawn at a current x. */
-    previousXAt?: (x: string) => string | undefined;
-  } = {},
-): Map<string, string> {
-  const labels = new Map<string, string>();
-  const addLabel = (
-    seriesName: string,
-    x: string,
-    row: ProductAnalyticsResultRow,
-    valueIndex: number,
-  ) => {
-    // No members means no data, so the point has no fraction to explain.
-    if (!row.populationCount) return;
-    const numerator = row.values?.[valueIndex]?.numerator ?? 0;
-    const label = `${fractionNumberFormatter.format(numerator)} / ${fractionNumberFormatter.format(row.populationCount)}`;
-    labels.set(populationFractionKey(seriesName, x), label);
-    // Time axes report the hovered x as epoch milliseconds.
-    const time = parseWarehouseDate(x).getTime();
-    if (!Number.isNaN(time)) {
-      labels.set(populationFractionKey(seriesName, String(time)), label);
-    }
-  };
-  const previousByX = new Map(
-    previousRows.map((row) => [String(row.dimensions[0] ?? ""), row]),
-  );
-
-  for (const row of rows) {
-    const x = String(row.dimensions[0] ?? "");
-    const previousX = previousXAt(x);
-    const previousRow =
-      previousX !== undefined ? previousByX.get(previousX) : undefined;
-    for (let i = 0; i < (row.values ?? []).length; i++) {
-      const opts = renderOpts.values[i];
-      if (opts?.showAs !== "percent_of_population") continue;
-      addLabel(
-        periodLabels
-          ? formatComparisonMetricLabel(
-              opts.seriesName,
-              periodLabels.currentLabel,
-            )
-          : opts.seriesName,
-        x,
-        row,
-        i,
-      );
-      if (periodLabels && previousRow) {
-        addLabel(
-          formatComparisonMetricLabel(
-            opts.seriesName,
-            periodLabels.previousLabel,
-          ),
-          x,
-          previousRow,
-          i,
-        );
-      }
-    }
-  }
-  return labels;
-}
-
-// In compare mode, each period's series is named with its period.
-export function getPopulationSeriesNames(
-  renderOpts: RenderOpts,
-  periodLabels: { currentLabel: string; previousLabel: string } | null,
-): Set<string> {
-  const names = new Set<string>();
-  for (const opts of renderOpts.values) {
-    if (opts.showAs !== "percent_of_population") continue;
-    if (!periodLabels) {
-      names.add(opts.seriesName);
-      continue;
-    }
-    names.add(
-      formatComparisonMetricLabel(opts.seriesName, periodLabels.currentLabel),
-    );
-    names.add(
-      formatComparisonMetricLabel(opts.seriesName, periodLabels.previousLabel),
-    );
-  }
-  return names;
-}
-
-/** The fraction label for a hovered point, or null when it has none. */
-export function getPopulationFractionLabel(
-  labels: Map<string, string>,
-  seriesName: string,
-  axisValue: string | number,
-): string | null {
-  return (
-    labels.get(populationFractionKey(seriesName, String(axisValue))) ?? null
-  );
 }
 
 // --- Explorer chart: second "% of Population" value axis ---
@@ -793,6 +673,30 @@ export function buildAlignedComparisonOverlayForExplorer(args: {
   return { alignedMap, comparisonXValues };
 }
 
+/**
+ * An ECharts data item: the point's value (paired with its time on a time
+ * axis) and, for a "% of Population" point, the fraction the tooltip shows.
+ */
+type EChartsDataItem = {
+  value: number | null | [number, number | null];
+  fraction?: PopulationFraction;
+};
+
+/**
+ * The series' data item at `x`. A series with no bucket at `x` reads as 0,
+ * unlike a null point, which is a gap.
+ */
+function eChartsDataItemAt(
+  map: Record<string, ChartPoint> | undefined,
+  x: string,
+  time?: number,
+): EChartsDataItem {
+  const point = map && x in map ? map[x] : { value: 0 };
+  const value: EChartsDataItem["value"] =
+    time === undefined ? point.value : [time, point.value];
+  return point.fraction ? { value, fraction: point.fraction } : { value };
+}
+
 /** Each series config carries its `valueAxis`, for `assignSecondaryValueAxis`. */
 type ExplorerChartCompareSeriesMeta = Pick<
   ExplorerSeriesMeta,
@@ -876,16 +780,16 @@ export function buildExplorerCompareSparseFlatBarSeries(args: {
       comparisonPeriodLabels.previousLabel,
     );
 
-    const currData: (number | null)[] = [];
-    const prevData: (number | null)[] = [];
+    const currData: (EChartsDataItem | null)[] = [];
+    const prevData: (EChartsDataItem | null)[] = [];
 
     for (let j = 0; j < flatLen; j++) {
       const xi = Math.floor(j / K);
       const slotKi = j % K;
       const x = sourceSortedXValues[xi]!;
       if (slotKi === ki) {
-        currData.push(getChartPoint(currentDataMap[sk], x));
-        prevData.push(getChartPoint(previousDataMap[sk], x));
+        currData.push(eChartsDataItemAt(currentDataMap[sk], x));
+        prevData.push(eChartsDataItemAt(previousDataMap[sk], x));
       } else {
         currData.push(null);
         prevData.push(null);
@@ -1004,10 +908,9 @@ export function buildExplorerChartComparisonSeriesList(params: {
       const color = isPrevious ? comparisonSeriesColor(idx) : seriesColor(idx);
 
       if (isPrevious && chartType === "line") {
-        const data = sourceSortedXValues.map((x) => [
-          parseWarehouseDate(x).getTime(),
-          getChartPoint(seriesDataMap, x),
-        ]);
+        const data = sourceSortedXValues.map((x) =>
+          eChartsDataItemAt(seriesDataMap, x, parseWarehouseDate(x).getTime()),
+        );
 
         return {
           name: displayName,
@@ -1034,7 +937,7 @@ export function buildExplorerChartComparisonSeriesList(params: {
           !compareOverlayActive
         ) {
           const data = sourceSortedXValues.map((x, i) => ({
-            value: getChartPoint(seriesDataMap, x),
+            ...eChartsDataItemAt(seriesDataMap, x),
             itemStyle: { color: seriesColor(i) },
           }));
           return {
@@ -1046,7 +949,7 @@ export function buildExplorerChartComparisonSeriesList(params: {
         }
 
         const data = sourceSortedXValues.map((x) =>
-          getChartPoint(seriesDataMap, x),
+          eChartsDataItemAt(seriesDataMap, x),
         );
         if (compareOverlayActive) {
           return {
@@ -1102,10 +1005,9 @@ export function buildExplorerChartComparisonSeriesList(params: {
       }
 
       if (chartType === "line" || chartType === "area") {
-        const data = sourceSortedXValues.map((x) => [
-          parseWarehouseDate(x).getTime(),
-          getChartPoint(seriesDataMap, x),
-        ]);
+        const data = sourceSortedXValues.map((x) =>
+          eChartsDataItemAt(seriesDataMap, x, parseWarehouseDate(x).getTime()),
+        );
 
         if (chartType === "area" && isPrevious && compareOverlayActive) {
           return {
@@ -1248,6 +1150,8 @@ type TooltipAxisItem = {
   marker: string;
   seriesName: string;
   value: number | [number, number];
+  /** The series' data item here; null for the blank slots sparse bars are laid out with. */
+  data?: EChartsDataItem | null;
   /** Series color, surfaced by ECharts on each axis-tooltip item. */
   color?: string;
 };
@@ -1286,9 +1190,19 @@ function compareTooltipMarker(
   } ${c};border-radius:2px;margin-right:8px;vertical-align:middle"></span>`;
 }
 
+// Matches the fraction under each value in experiment results.
+const fractionNumberFormatter = Intl.NumberFormat("en-US", {
+  notation: "compact",
+  maximumFractionDigits: 1,
+});
+
 // A "% of Population" value's fraction, muted like the fraction in experiment
 // results.
-function populationFractionHtml(fraction: string): string {
+function populationFractionHtml({
+  numerator,
+  populationCount,
+}: PopulationFraction): string {
+  const fraction = `${fractionNumberFormatter.format(numerator)} / ${fractionNumberFormatter.format(populationCount)}`;
   return `<span style="font-size:11px;font-style:italic;opacity:0.6;margin-right:6px">${escapeHtmlForProductAnalyticsTooltip(fraction)}</span>`;
 }
 
@@ -1299,10 +1213,10 @@ function buildGroupedCompareTooltipRows(
     seriesName: string;
     value: number | [number, number];
     color?: string;
+    data?: EChartsDataItem | null;
   }>,
   comparisonPeriodLabels: { currentLabel: string; previousLabel: string },
   markerStyle: CompareTooltipMarkerStyle,
-  fractionFor: (seriesName: string) => string | null,
 ): string {
   const groupKey = (seriesName: string) => {
     const { baseName } = parseComparisonTooltipSeriesName(
@@ -1319,7 +1233,7 @@ function buildGroupedCompareTooltipRows(
     if (numValue === null || numValue === undefined) return "No data";
     const formatted =
       typeof numValue === "number" ? formatNumber(numValue) : String(numValue);
-    const fraction = fractionFor(item.seriesName);
+    const fraction = item.data?.fraction;
     return fraction ? populationFractionHtml(fraction) + formatted : formatted;
   };
 
@@ -1415,10 +1329,6 @@ type BuildExplorerChartTooltipFormatterArgs = {
   seriesConfigsLength: number;
   formatNumber: (value: number) => string;
   comparisonAlignment?: ComparisonAlignmentStrategy;
-  /** See `buildPopulationFractionLabels`; shown before each value. */
-  populationFractionLabels?: Map<string, string>;
-  /** "% of Population" series, whose empty points read "No data". */
-  populationSeriesNames?: Set<string>;
 };
 
 export function buildExplorerChartTooltipFormatter({
@@ -1433,19 +1343,20 @@ export function buildExplorerChartTooltipFormatter({
   seriesConfigsLength,
   formatNumber,
   comparisonAlignment,
-  populationFractionLabels = new Map(),
-  populationSeriesNames = new Set(),
 }: BuildExplorerChartTooltipFormatterArgs):
   | ((params: unknown) => string)
   | undefined {
   const useDateGranularityTooltip =
     Boolean(resolvedGranularity) && !compositeCategoryAxisTooltip;
 
-  // Most empty points are the blank slots sparse bars are laid out with. A
-  // "% of Population" one is a bucket with no members, so it's shown.
-  const isShownItem = (item: Omit<TooltipAxisItem, "dataIndex">) =>
-    tooltipItemNumericValue(item) !== null ||
-    populationSeriesNames.has(item.seriesName);
+  // Most empty points are the blank slots sparse bars are laid out with, which
+  // have no data item. A "% of Population" bucket with no members is a data
+  // item with no value, shown as "No data".
+  const isShownItem = (item: Omit<TooltipAxisItem, "dataIndex">) => {
+    if (tooltipItemNumericValue(item) !== null) return true;
+    const data = item.data ?? null;
+    return data !== null && tooltipItemNumericValue(data) === null;
+  };
 
   // The value cell's HTML. A "% of Population" value is preceded by its
   // fraction.
@@ -1455,11 +1366,7 @@ export function buildExplorerChartTooltipFormatter({
     const valueHtml = `<b>${formatted}</b>`;
     if (numValue === null) return valueHtml;
 
-    const fraction = getPopulationFractionLabel(
-      populationFractionLabels,
-      item.seriesName,
-      item.axisValue,
-    );
+    const fraction = item.data?.fraction;
     return fraction ? populationFractionHtml(fraction) + valueHtml : valueHtml;
   };
 
@@ -1552,12 +1459,6 @@ export function buildExplorerChartTooltipFormatter({
               items,
               comparisonPeriodLabels,
               isBar ? "bar" : "line",
-              (seriesName) =>
-                getPopulationFractionLabel(
-                  populationFractionLabels,
-                  seriesName,
-                  rawAxisValue,
-                ),
             )
           : items
               .map((item) => {
@@ -1621,19 +1522,11 @@ export function buildExplorerChartTooltipFormatter({
             header = header.slice(0, -suffix.length);
           }
         }
-        // Fractions are keyed by the bar's category, without the metric.
-        const fractionX = compositeCategoryAxisTooltip ? header : rawAxisValue;
         const seriesRows = buildGroupedCompareTooltipRows(
           formatNumber,
           items,
           comparisonPeriodLabels,
           isExplorerBarChartType(chartType) ? "bar" : "line",
-          (seriesName) =>
-            getPopulationFractionLabel(
-              populationFractionLabels,
-              seriesName,
-              fractionX,
-            ),
         );
         const headerHtml =
           `<div style="font-weight:600">${escapeHtmlForProductAnalyticsTooltip(

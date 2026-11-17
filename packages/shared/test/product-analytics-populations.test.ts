@@ -521,6 +521,18 @@ describe("metric explorations with a population", () => {
         "Metrics with populations can only be grouped by date.",
       ],
       [
+        "grouping by two dates",
+        explore({
+          metrics: [purchasers],
+          population: mobileRevenueOver10,
+          dimensions: [
+            ...DAILY,
+            { dimensionType: "date", column: null, dateGranularity: "month" },
+          ],
+        }),
+        "Metrics with populations can only be grouped by one date dimension.",
+      ],
+      [
         "an invalid aggregate condition",
         explore({
           metrics: [purchasers],

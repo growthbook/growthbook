@@ -12,7 +12,6 @@ import { isManagedWarehousePendingQueryError } from "shared/util";
 import { parseWarehouseDate } from "shared/dates";
 import {
   calculateProductAnalyticsDateRange,
-  createComparisonAlignmentResolver,
   densifyPopulationTimeseriesRows,
   extendDateBucketsForward,
   getComparisonAlignmentStrategy,
@@ -41,8 +40,6 @@ import ManagedWarehouseNoEventsCallout from "@/components/ManagedWarehouse/Manag
 import {
   buildAlignedComparisonOverlayForExplorer,
   buildComparisonOverlaySeriesMaps,
-  buildPopulationFractionLabels,
-  getPopulationSeriesNames,
   getPopulationSeriesKeys,
   fillPopulationSeriesGaps,
   sortDateXValues,
@@ -328,7 +325,7 @@ export default function ExplorerChart({
     const seriesTotals: Record<string, number> = {};
     for (const [seriesKey, seriesData] of Object.entries(dataMap)) {
       seriesTotals[seriesKey] = Object.values(seriesData).reduce<number>(
-        (sum, v) => sum + (v ?? 0),
+        (sum, point) => sum + (point.value ?? 0),
         0,
       );
     }
@@ -732,33 +729,6 @@ export default function ExplorerChart({
       seriesConfigsLength: seriesConfigs.length,
       formatNumber,
       comparisonAlignment,
-      // Only "% of Population" series have fractions and empty points to show.
-      ...(populationSeriesKeys.size > 0
-        ? {
-            populationFractionLabels: buildPopulationFractionLabels(
-              rows,
-              renderOpts,
-              {
-                periodLabels: comparisonPeriodLabels,
-                previousRows: alignedComparisonOverlay
-                  ? (comparisonExploration?.result?.rows ?? [])
-                  : [],
-                previousXAt: alignedComparisonOverlay
-                  ? createComparisonAlignmentResolver(
-                      sortedXValues,
-                      alignedComparisonOverlay.comparisonXValues,
-                      firstDimensionIsDate,
-                      comparisonAlignment,
-                    )
-                  : undefined,
-              },
-            ),
-            populationSeriesNames: getPopulationSeriesNames(
-              renderOpts,
-              comparisonPeriodLabels,
-            ),
-          }
-        : {}),
     });
 
     return {

@@ -8,9 +8,7 @@ import {
   buildComparisonOverlaySeriesMaps,
   buildValueAxes,
   buildExplorerChartTooltipFormatter,
-  buildPopulationFractionLabels,
-  getPopulationFractionLabel,
-  getPopulationSeriesNames,
+  buildAlignedComparisonOverlayForExplorer,
   getPopulationSeriesKeys,
   fillPopulationSeriesGaps,
   buildExplorerChartComparisonSeriesList,
@@ -97,24 +95,35 @@ describe("alignComparisonOverlayToCategories", () => {
   it("leaves % of Population gaps past a shorter comparison window", () => {
     const aligned = alignComparisonOverlayToCategories(
       ["2026-09-01", "2026-09-02", "2026-09-03"],
-      { __metric_0__: { "2026-08-31": 50 }, __metric_1__: { "2026-08-31": 7 } },
+      {
+        __metric_0__: { "2026-08-31": { value: 50 } },
+        __metric_1__: { "2026-08-31": { value: 7 } },
+      },
       ["__metric_0__", "__metric_1__"],
       ["2026-08-31"],
       true,
       "chronological",
       new Set(["__metric_0__"]),
     );
-    expect(Object.values(aligned.__metric_0__)).toEqual([50, null, null]);
+    expect(Object.values(aligned.__metric_0__)).toEqual([
+      { value: 50 },
+      { value: null },
+      { value: null },
+    ]);
     // Counts keep reading 0 there.
-    expect(Object.values(aligned.__metric_1__)).toEqual([7, 0, 0]);
+    expect(Object.values(aligned.__metric_1__)).toEqual([
+      { value: 7 },
+      { value: 0 },
+      { value: 0 },
+    ]);
   });
 
   it("maps comparison buckets by chronological rank when first dimension is date", () => {
     const comparisonDataMap = {
       __single__: {
-        "2024-12-30": 10,
-        "2024-12-31": 20,
-        "2025-01-01": 30,
+        "2024-12-30": { value: 10 },
+        "2024-12-31": { value: 20 },
+        "2025-01-01": { value: 30 },
       },
     };
     const comparisonXValues = ["2024-12-31", "2025-01-01", "2024-12-30"];
@@ -129,16 +138,16 @@ describe("alignComparisonOverlayToCategories", () => {
       true,
     );
 
-    expect(aligned.__single__["2025-01-02"]).toBe(10);
-    expect(aligned.__single__["2025-01-03"]).toBe(20);
-    expect(aligned.__single__["2025-01-04"]).toBe(30);
+    expect(aligned.__single__["2025-01-02"]).toEqual({ value: 10 });
+    expect(aligned.__single__["2025-01-03"]).toEqual({ value: 20 });
+    expect(aligned.__single__["2025-01-04"]).toEqual({ value: 30 });
   });
 
   it("preserves display order of categories while filling values from ranked comparison dates", () => {
     const comparisonDataMap = {
       __single__: {
-        "2024-01-10": 100,
-        "2024-01-05": 200,
+        "2024-01-10": { value: 100 },
+        "2024-01-05": { value: 200 },
       },
     };
     const sortedXValues = ["2025-01-08", "2025-01-03"];
@@ -150,15 +159,15 @@ describe("alignComparisonOverlayToCategories", () => {
       true,
     );
 
-    expect(aligned.__single__["2025-01-08"]).toBe(100);
-    expect(aligned.__single__["2025-01-03"]).toBe(200);
+    expect(aligned.__single__["2025-01-08"]).toEqual({ value: 100 });
+    expect(aligned.__single__["2025-01-03"]).toEqual({ value: 200 });
   });
 
   it("aligns non-date dimensions by category key", () => {
     const comparisonDataMap = {
       __single__: {
-        US: 42,
-        UK: 7,
+        US: { value: 42 },
+        UK: { value: 7 },
       },
     };
     const sortedXValues = ["UK", "US"];
@@ -170,14 +179,14 @@ describe("alignComparisonOverlayToCategories", () => {
       false,
     );
 
-    expect(aligned.__single__.UK).toBe(7);
-    expect(aligned.__single__.US).toBe(42);
+    expect(aligned.__single__.UK).toEqual({ value: 7 });
+    expect(aligned.__single__.US).toEqual({ value: 42 });
   });
 
   it("uses zero when comparison has fewer date buckets than current", () => {
     const comparisonDataMap = {
       __single__: {
-        "2024-01-01": 1,
+        "2024-01-01": { value: 1 },
       },
     };
     const sortedXValues = ["2025-01-01", "2025-01-02", "2025-01-03"];
@@ -189,18 +198,18 @@ describe("alignComparisonOverlayToCategories", () => {
       true,
     );
 
-    expect(aligned.__single__["2025-01-01"]).toBe(1);
-    expect(aligned.__single__["2025-01-02"]).toBe(0);
-    expect(aligned.__single__["2025-01-03"]).toBe(0);
+    expect(aligned.__single__["2025-01-01"]).toEqual({ value: 1 });
+    expect(aligned.__single__["2025-01-02"]).toEqual({ value: 0 });
+    expect(aligned.__single__["2025-01-03"]).toEqual({ value: 0 });
   });
 
   it("uses calendar year-over-year when bucket counts differ (rank would mis-align)", () => {
     const comparisonDataMap = {
       __single__: {
-        "2025-05-13": 1,
-        "2025-05-14": 2,
-        "2025-05-15": 999,
-        "2025-05-16": 4,
+        "2025-05-13": { value: 1 },
+        "2025-05-14": { value: 2 },
+        "2025-05-15": { value: 999 },
+        "2025-05-16": { value: 4 },
       },
     };
     const sortedXValues = ["2026-05-13", "2026-05-14", "2026-05-16"];
@@ -218,9 +227,9 @@ describe("alignComparisonOverlayToCategories", () => {
       true,
     );
 
-    expect(aligned.__single__["2026-05-13"]).toBe(1);
-    expect(aligned.__single__["2026-05-14"]).toBe(2);
-    expect(aligned.__single__["2026-05-16"]).toBe(4);
+    expect(aligned.__single__["2026-05-13"]).toEqual({ value: 1 });
+    expect(aligned.__single__["2026-05-14"]).toEqual({ value: 2 });
+    expect(aligned.__single__["2026-05-16"]).toEqual({ value: 4 });
   });
 });
 
@@ -512,7 +521,7 @@ describe("computeBigNumberComparisonTrends", () => {
   });
 });
 
-describe("population fraction tooltip labels", () => {
+describe("% of Population fractions", () => {
   const renderOpts = {
     values: [
       {
@@ -543,30 +552,53 @@ describe("population fraction tooltip labels", () => {
       populationCount: 100,
     },
   ];
-  const labels = buildPopulationFractionLabels(rows, renderOpts);
+  const fraction = { numerator: 1, populationCount: 100 };
   const septFirstMs = Date.UTC(2026, 8, 1);
+  const tooltipArgs = {
+    chartType: "line" as const,
+    resolvedGranularity: "day" as const,
+    firstDimensionIsDate: true,
+    showLineAreaCompareTooltipDates: false,
+    alignedComparisonOverlay: null,
+    sortedXValues: ["2026-09-01"],
+    seriesConfigsLength: 2,
+    formatNumber: (value: number) => String(value),
+  };
 
-  it("labels only values shown as a share of the Population", () => {
-    expect(labels.get("Signups\u00002026-09-01")).toBe("1 / 100");
-    expect(labels.get(`Signups\u0000${septFirstMs}`)).toBe("1 / 100");
-    expect(labels.get("Logins\u00002026-09-01")).toBeUndefined();
+  it("carries the fraction only on values shown as a share of the Population", () => {
+    const { dataMap } = buildComparisonOverlaySeriesMaps(
+      rows,
+      submittedExploreStateFixture,
+      renderOpts,
+    );
+    expect(dataMap.__metric_0__["2026-09-01"]).toEqual({ value: 1, fraction });
+    expect(dataMap.__metric_1__["2026-09-01"]).toEqual({ value: 5 });
   });
 
-  it("has no labels for rows without a Population", () => {
-    const withoutPopulation = rows.map((row) => ({
-      dimensions: row.dimensions,
-      values: row.values,
+  it("has no value and no fraction for rows without a Population", () => {
+    const withoutPopulation = rows.map(({ dimensions, values }) => ({
+      dimensions,
+      values,
     }));
-    expect(
-      buildPopulationFractionLabels(withoutPopulation, renderOpts).size,
-    ).toBe(0);
+    const { dataMap } = buildComparisonOverlaySeriesMaps(
+      withoutPopulation,
+      submittedExploreStateFixture,
+      renderOpts,
+    );
+    expect(dataMap.__metric_0__["2026-09-01"]).toEqual({ value: null });
   });
 
-  describe("in compare mode", () => {
-    const periodLabels = {
-      currentLabel: "Sep 1 – 7, 2026",
-      previousLabel: "Aug 25 – 31, 2026",
-    };
+  it("has no value and no fraction for a day with no members", () => {
+    const noMembers = rows.map((row) => ({ ...row, populationCount: 0 }));
+    const { dataMap } = buildComparisonOverlaySeriesMaps(
+      noMembers,
+      submittedExploreStateFixture,
+      renderOpts,
+    );
+    expect(dataMap.__metric_0__["2026-09-01"]).toEqual({ value: null });
+  });
+
+  it("draws the previous period's fraction at the current x", () => {
     const previousRows = [
       {
         dimensions: ["2026-08-25"],
@@ -577,94 +609,49 @@ describe("population fraction tooltip labels", () => {
         populationCount: 50,
       },
     ];
-    const compareLabels = buildPopulationFractionLabels(rows, renderOpts, {
-      periodLabels,
-      previousRows,
-      // The previous period is drawn at the current period's x values.
-      previousXAt: (x) => (x === "2026-09-01" ? "2026-08-25" : undefined),
+    const overlay = buildAlignedComparisonOverlayForExplorer({
+      sortedXValues: ["2026-09-01"],
+      comparisonRows: previousRows,
+      submittedExploreState: submittedExploreStateFixture,
+      renderOpts,
+      sortedSeriesKeys: ["__metric_0__", "__metric_1__"],
+      firstDimensionIsDate: true,
+      comparisonAlignment: "chronological",
     });
-    const currentName = "Signups (Sep 1 – 7, 2026)";
-    const previousName = "Signups (Aug 25 – 31, 2026)";
+    expect(overlay?.alignedMap.__metric_0__["2026-09-01"]).toEqual({
+      value: 6,
+      fraction: { numerator: 3, populationCount: 50 },
+    });
+  });
 
-    it("labels each period with its own row, at the x it's drawn at", () => {
-      expect(compareLabels.get(`${currentName}\u00002026-09-01`)).toBe(
-        "1 / 100",
-      );
-      expect(compareLabels.get(`${previousName}\u00002026-09-01`)).toBe(
-        "3 / 50",
-      );
-      expect(compareLabels.get(`${previousName}\u0000${septFirstMs}`)).toBe(
-        "3 / 50",
-      );
-      expect(compareLabels.get("Signups\u00002026-09-01")).toBeUndefined();
-    });
-
-    it("finds the fraction by the suffixed series name in the tooltip", () => {
-      expect(
-        getPopulationFractionLabel(compareLabels, previousName, septFirstMs),
-      ).toBe("3 / 50");
-      expect(
-        getPopulationFractionLabel(compareLabels, currentName, septFirstMs),
-      ).toBe("1 / 100");
-    });
-
-    it("shows fractions, and No data for an empty period, in the tooltip", () => {
-      const formatter = buildExplorerChartTooltipFormatter({
-        chartType: "line",
-        resolvedGranularity: "day",
-        firstDimensionIsDate: true,
-        comparisonPeriodLabels: periodLabels,
-        showLineAreaCompareTooltipDates: true,
-        alignedComparisonOverlay: { comparisonXValues: ["2026-08-25"] },
-        sortedXValues: ["2026-09-01"],
-        seriesConfigsLength: 2,
-        formatNumber: (value) => String(value),
-        populationFractionLabels: compareLabels,
-        populationSeriesNames: getPopulationSeriesNames(
-          renderOpts,
-          periodLabels,
-        ),
-      });
-      const html = formatter?.([
-        {
-          axisValue: septFirstMs,
-          marker: "",
-          seriesName: currentName,
-          value: [septFirstMs, 1],
-        },
-        {
-          axisValue: septFirstMs,
-          marker: "",
-          seriesName: previousName,
-          value: null,
-        },
-        {
-          axisValue: septFirstMs,
-          marker: "",
-          seriesName: "Logins (Aug 25 – 31, 2026)",
-          value: null,
-        },
-      ]);
-      expect(html).toContain(">1 / 100</span>1<");
-      expect(html).toContain("Previous");
-      expect(html).toContain("No data");
-      // An empty count series is a layout gap, not a Population bucket.
-      expect(html).not.toContain("Logins");
-    });
+  it("puts the fraction on the series' data item", () => {
+    const { dataMap, seriesMeta } = buildComparisonOverlaySeriesMaps(
+      rows,
+      submittedExploreStateFixture,
+      renderOpts,
+    );
+    const [signups] = buildExplorerChartComparisonSeriesList({
+      chartType: "line",
+      sourceDataMap: dataMap,
+      sourceSeriesMeta: seriesMeta,
+      sourceSeriesKeys: ["__metric_0__"],
+      sourceSortedXValues: ["2026-09-01"],
+      numMetrics: 2,
+      numDimensions: 1,
+      isStacked: false,
+      compareOverlayActive: false,
+      comparisonPeriodLabels: null,
+      seriesColor: () => "#000",
+      comparisonSeriesColor: () => "#000",
+      animate: false,
+    }) as { data: unknown[] }[];
+    expect(signups.data).toEqual([{ value: [septFirstMs, 1], fraction }]);
   });
 
   it("puts the fraction before the value in the tooltip", () => {
     const formatter = buildExplorerChartTooltipFormatter({
-      chartType: "line",
-      resolvedGranularity: "day",
-      firstDimensionIsDate: true,
+      ...tooltipArgs,
       comparisonPeriodLabels: null,
-      showLineAreaCompareTooltipDates: false,
-      alignedComparisonOverlay: null,
-      sortedXValues: ["2026-09-01"],
-      seriesConfigsLength: 2,
-      formatNumber: (value) => String(value),
-      populationFractionLabels: labels,
     });
     const html = formatter?.([
       {
@@ -672,18 +659,62 @@ describe("population fraction tooltip labels", () => {
         marker: "",
         seriesName: "Signups",
         value: [septFirstMs, 1],
+        data: { value: [septFirstMs, 1], fraction },
       },
       {
         axisValue: septFirstMs,
         marker: "",
         seriesName: "Logins",
         value: [septFirstMs, 5],
+        data: { value: [septFirstMs, 5] },
       },
     ]);
     expect(html).toContain(
       'font-style:italic;opacity:0.6;margin-right:6px">1 / 100</span><b>1</b>',
     );
     expect(html).toContain("<b>5</b>");
+  });
+
+  it("shows fractions, and No data for an empty period, when comparing", () => {
+    const periodLabels = {
+      currentLabel: "Sep 1 – 7, 2026",
+      previousLabel: "Aug 25 – 31, 2026",
+    };
+    const formatter = buildExplorerChartTooltipFormatter({
+      ...tooltipArgs,
+      comparisonPeriodLabels: periodLabels,
+      showLineAreaCompareTooltipDates: true,
+      alignedComparisonOverlay: { comparisonXValues: ["2026-08-25"] },
+    });
+    const html = formatter?.([
+      {
+        axisValue: septFirstMs,
+        marker: "",
+        seriesName: "Signups (Sep 1 – 7, 2026)",
+        value: [septFirstMs, 1],
+        data: { value: [septFirstMs, 1], fraction },
+      },
+      // A Population bucket with no members: a data item with no value.
+      {
+        axisValue: septFirstMs,
+        marker: "",
+        seriesName: "Signups (Aug 25 – 31, 2026)",
+        value: null,
+        data: { value: [septFirstMs, null] },
+      },
+      // A blank slot sparse bars are laid out with: no data item at all.
+      {
+        axisValue: septFirstMs,
+        marker: "",
+        seriesName: "Logins (Aug 25 – 31, 2026)",
+        value: null,
+        data: null,
+      },
+    ]);
+    expect(html).toContain(">1 / 100</span>1<");
+    expect(html).toContain("Previous");
+    expect(html).toContain("No data");
+    expect(html).not.toContain("Logins");
   });
 });
 
@@ -871,8 +902,8 @@ describe("fillPopulationSeriesGaps", () => {
       },
     };
     const dataMap = {
-      __metric_0__: { "2026-09-01": 50 },
-      __metric_1__: { "2026-09-01": 7 },
+      __metric_0__: { "2026-09-01": { value: 50 } },
+      __metric_1__: { "2026-09-01": { value: 7 } },
     };
     // The axis reaches past the current window for a longer comparison window.
     const xValues = ["2026-09-01", "2026-09-02", "2026-09-03"];
@@ -895,9 +926,9 @@ describe("fillPopulationSeriesGaps", () => {
       seriesColor: () => "#000",
       comparisonSeriesColor: () => "#000",
       animate: false,
-    }) as { data: [number, number | null][] }[];
-    expect(series[0].data.map(([, y]) => y)).toEqual([50, null, null]);
+    }) as { data: { value: [number, number | null] }[] }[];
+    expect(series[0].data.map((d) => d.value[1])).toEqual([50, null, null]);
     // Counts keep reading 0 there.
-    expect(series[1].data.map(([, y]) => y)).toEqual([7, 0, 0]);
+    expect(series[1].data.map((d) => d.value[1])).toEqual([7, 0, 0]);
   });
 });
