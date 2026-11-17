@@ -17,6 +17,7 @@ const SQL_PREVIEW_MAX_HEIGHT = 200;
 // pointer can rest on it without the preview closing.
 const PREVIEW_PADDING = "15px 20px";
 const PREVIEW_CLOSE_DELAY_MS = 120;
+const LABEL_MAX_LINES = 2;
 
 function RowFilterPopoverContent({
   sql,
@@ -188,7 +189,18 @@ function RowFilterBadge({
               whiteSpace: "normal",
               overflowWrap: "anywhere",
             }}
-            label={description}
+            label={
+              <span
+                style={{
+                  display: "-webkit-box",
+                  WebkitBoxOrient: "vertical",
+                  WebkitLineClamp: LABEL_MAX_LINES,
+                  overflow: "hidden",
+                }}
+              >
+                {description}
+              </span>
+            }
           />
         </button>
       }
