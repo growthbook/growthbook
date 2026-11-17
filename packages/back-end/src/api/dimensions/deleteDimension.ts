@@ -17,11 +17,11 @@ export const deleteDimension = createApiRequestHandler(
   const organization = req.organization.id;
   const dimension = await findDimensionById(req.params.id, organization);
 
-  if (!dimension) {
+  if (
+    !dimension ||
+    !(await hasDimensionDatasourceAccess(req.context, dimension))
+  ) {
     throw new NotFoundError("Could not find dimension with that id");
-  }
-  if (!(await hasDimensionDatasourceAccess(req.context, dimension))) {
-    throw new Error("You don't have access to this dimension");
   }
 
   await deleteDimensionById(req.context, dimension);
