@@ -1062,8 +1062,9 @@ export async function syncEventForwarderConfigFromDatasource({
     );
   }
 
+  // Guarded on the row just checked, so a concurrent save can't slip past the lock
   return await claimingEnvironment(draft.environment, () =>
-    context.models.eventForwarderConfigs.update(existing, {
+    context.models.eventForwarderConfigs.updateIfUnchanged(existing, {
       datasourceId: existing.datasourceId || datasource.id,
       projects,
       topic:

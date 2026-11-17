@@ -1,9 +1,9 @@
 import { FC } from "react";
-import { Box, Flex, Grid } from "@radix-ui/themes";
+import { Box, Grid } from "@radix-ui/themes";
 import { EventForwarderConfigDraft } from "shared/types/event-forwarder";
 import { DocLink } from "@/components/DocLink";
 import { EventForwarderLockedField } from "@/components/DataSourceSetup/EventForwarderDestinationFields";
-import Tooltip from "@/components/Tooltip/Tooltip";
+import LabelWithHelp from "@/ui/LabelWithHelp";
 import EventForwarderTableNameField from "./EventForwarderTableNameField";
 
 const DatabricksEventForwarderForm: FC<{
@@ -41,12 +41,7 @@ const DatabricksEventForwarderForm: FC<{
       <Box gridColumn="1 / -1">
         {catalogReadOnly ? (
           <EventForwarderLockedField
-            label={
-              <Flex align="center" gap="1">
-                Catalog
-                <Tooltip body={catalogTooltip} />
-              </Flex>
-            }
+            label={<LabelWithHelp label="Catalog" help={catalogTooltip} />}
             value={config.catalog}
             helpText="From your Databricks connection. Change it on the connection settings if needed."
           />

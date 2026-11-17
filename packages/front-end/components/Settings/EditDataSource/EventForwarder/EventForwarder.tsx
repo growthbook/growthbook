@@ -47,6 +47,7 @@ import SnowflakeEventForwarderForm from "@/components/Settings/SnowflakeEventFor
 import DatabricksEventForwarderForm from "@/components/Settings/DatabricksEventForwarderForm";
 import { useEventForwarderAccessTest } from "@/components/Settings/useEventForwarderAccessTest";
 import {
+  EventForwarderAllTakenCallout,
   EventForwarderEnvironmentField,
   EventForwarderLockedField,
 } from "@/components/DataSourceSetup/EventForwarderDestinationFields";
@@ -63,6 +64,7 @@ import UITooltip from "@/ui/Tooltip";
 import ConfirmDialog from "@/ui/ConfirmDialog";
 import Modal from "@/ui/Modal";
 import ModalForm, { useModalForm } from "@/ui/Modal/ModalForm";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { DocLink } from "@/components/DocLink";
 import {
@@ -417,15 +419,6 @@ function EventForwarderConfirmButton({
   );
 }
 
-function DeleteEventForwarderSubmit({ disabled }: { disabled: boolean }) {
-  const { loading } = useModalForm();
-  return (
-    <Button type="submit" color="red" disabled={disabled} loading={loading}>
-      Delete
-    </Button>
-  );
-}
-
 // Delete stays disabled until "confirm" is typed, case sensitive
 function DeleteEventForwarderModal({
   datasourceId,
@@ -439,53 +432,38 @@ function DeleteEventForwarderModal({
   const { apiCall } = useAuth();
   const [confirmText, setConfirmText] = useState("");
   return (
-    <Modal.Root
-      open={true}
-      onOpenChange={(open) => {
-        if (!open) onClose();
+    <ModalStandard
+      open
+      header="Delete Event Forwarder?"
+      cta="Delete"
+      ctaColor="red"
+      ctaEnabled={confirmText === "confirm"}
+      close={onClose}
+      submit={async () => {
+        await apiCall(`/datasource/${datasourceId}/event-forwarder`, {
+          method: "DELETE",
+        });
+        await onRefresh();
       }}
-      size="md"
       trackingEventModalType=""
     >
-      <ModalForm
-        onSubmit={async () => {
-          await apiCall(`/datasource/${datasourceId}/event-forwarder`, {
-            method: "DELETE",
-          });
-          onClose();
-          await onRefresh();
-        }}
-      >
-        <Modal.Header>
-          <Modal.Title>Delete Event Forwarder?</Modal.Title>
-        </Modal.Header>
-        <Modal.Body>
-          <Flex direction="column" gap="3">
-            <Text as="div">
-              Once this Event Forwarder is deleted, events your SDKs keep
-              sending are no longer forwarded and may be rejected with an error.
-              Stop sending events from your SDKs first.
-            </Text>
-            <Text as="div">
-              The tables already in your warehouse and the queries on this Data
-              Source are kept.
-            </Text>
-            <TextField
-              label={'Type "confirm" to delete (case sensitive)'}
-              value={confirmText}
-              onChange={(e) => setConfirmText(e.target.value)}
-              autoFocus
-            />
-          </Flex>
-        </Modal.Body>
-        <Modal.Footer>
-          <Button variant="ghost" onClick={onClose}>
-            Cancel
-          </Button>
-          <DeleteEventForwarderSubmit disabled={confirmText !== "confirm"} />
-        </Modal.Footer>
-      </ModalForm>
-    </Modal.Root>
+      <Flex direction="column" gap="3">
+        <Text as="div">
+          Once this Event Forwarder is deleted, events your SDKs keep sending
+          are no longer forwarded and may be rejected with an error. Stop
+          sending events from your SDKs first.
+        </Text>
+        <Text as="div">
+          The tables already in your warehouse and the queries on this Data
+          Source are kept.
+        </Text>
+        <TextField
+          label={'Type "confirm" to delete (case sensitive)'}
+          value={confirmText}
+          onChange={(e) => setConfirmText(e.target.value)}
+        />
+      </Flex>
+    </ModalStandard>
   );
 }
 
@@ -633,6 +611,12 @@ function EventForwarderModal({
                     ) ||
                     "https://<workspace-id>.zerobus.<region>.cloud.databricks.com"
                   }
+                />
+              ) : null}
+              {eventForwarderConfig ? (
+                <EventForwarderAllTakenCallout
+                  region={eventForwarderConfig.region ?? DEFAULT_DATA_REGION}
+                  datasourceId={dataSource.id}
                 />
               ) : null}
               {eventForwarderConfig ? (

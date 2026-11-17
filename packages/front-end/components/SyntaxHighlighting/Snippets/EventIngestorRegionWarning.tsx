@@ -25,8 +25,8 @@ export default function EventIngestorRegionWarning({
       This environment has an Event Forwarder in{" "}
       {regions.map(getDataRegionLabel).join(" and in ")}. This code sends events
       to {getDataRegionLabel(DEFAULT_DATA_REGION)}. To send them to{" "}
-      {getDataRegionLabel(other)}, set the host to {getEventIngestorHost(other)}
-      .
+      {getDataRegionLabel(other)}, set the tracking plugin&apos;s ingestor host
+      to <code>{getEventIngestorHost(other)}</code>.
     </Callout>
   );
 }

@@ -42,6 +42,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import {
   DataRegion,
   DEFAULT_DATA_REGION,
+  getDataRegionLabel,
   useDataRegionOptions,
 } from "@/services/dataRegions";
 import {
@@ -718,16 +719,18 @@ export default function ConnectDataSourceLayout({
   // us-east-1, because it cannot be changed later.
   const needsEventForwarderRegion =
     !existing && setup === "event_forwarder" && !eventForwarderRegion;
-  // Also when the detected region turns out to have the picked one taken
-  const needsEventForwarderEnvironment =
+  // The detected region turned out to have the picked one taken
+  const eventForwarderEnvironmentTaken =
     checksWrite &&
-    (eventDestination.environment
-      ? eventForwarderEnvironments.some(
-          (e) =>
-            e.region === eventForwarderRegion &&
-            e.environment === eventDestination.environment,
-        )
-      : environmentRequired);
+    !!eventDestination.environment &&
+    eventForwarderEnvironments.some(
+      (e) =>
+        e.region === eventForwarderRegion &&
+        e.environment === eventDestination.environment,
+    );
+  const needsEventForwarderEnvironment =
+    eventForwarderEnvironmentTaken ||
+    (checksWrite && !eventDestination.environment && environmentRequired);
   const noCreatableProjects =
     !existing &&
     definitionsReady &&
@@ -765,6 +768,9 @@ export default function ConnectDataSourceLayout({
     }
     if (regionBlockedMessage) {
       return "The EU ingestor is not enabled for this organization";
+    }
+    if (eventForwarderEnvironmentTaken && eventForwarderRegion) {
+      return `${eventDestination.environment} already has an Event Forwarder in ${getDataRegionLabel(eventForwarderRegion)}. Select another environment to continue`;
     }
     if (needsEventForwarderEnvironment) {
       return "Select an environment to continue";

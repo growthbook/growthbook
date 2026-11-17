@@ -1,9 +1,7 @@
 import { FC } from "react";
-import { Box, Flex, Grid } from "@radix-ui/themes";
+import { Box, Grid } from "@radix-ui/themes";
 import { EventForwarderConfigDraft } from "shared/types/event-forwarder";
 import { DocLink } from "@/components/DocLink";
-import Tooltip from "@/components/Tooltip/Tooltip";
-import Text from "@/ui/Text";
 import TextField from "@/ui/TextField";
 import EventForwarderTableNameField from "./EventForwarderTableNameField";
 
@@ -66,23 +64,13 @@ const SnowflakeEventForwarderForm: FC<{
         placeholder="GB"
         helpText="GrowthBook creates EVENTS, EXPERIMENT_VIEWED, and FEATURE_USAGE tables using this prefix."
       />
-      <TextField
-        label={
-          <Flex align="center" gap="1">
-            <Text
-              as="label"
-              htmlFor="eventForwarderWarehouse"
-              weight="semibold"
-            >
-              Warehouse (optional)
-            </Text>
-            <Tooltip body="If empty, Snowflake uses the default warehouse for the user." />
-          </Flex>
-        }
-        id="eventForwarderWarehouse"
+      <EventForwarderTableNameField
+        label="Warehouse (optional)"
         name="eventForwarderWarehouse"
         value={snowflakeEventForwarderConfig.config.warehouse || ""}
-        onChange={(e) => updateConfig({ warehouse: e.target.value })}
+        onChange={(warehouse) => updateConfig({ warehouse })}
+        tooltip="If empty, Snowflake uses the default warehouse for the user."
+        required={false}
       />
       <Box gridColumn="1 / -1">
         <TextField

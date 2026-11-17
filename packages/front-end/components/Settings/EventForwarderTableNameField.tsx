@@ -1,6 +1,5 @@
 import { ReactNode } from "react";
-import { Flex } from "@radix-ui/themes";
-import Tooltip from "@/components/Tooltip/Tooltip";
+import LabelWithHelp from "@/ui/LabelWithHelp";
 import Text from "@/ui/Text";
 import TextField from "@/ui/TextField";
 
@@ -19,7 +18,7 @@ export default function EventForwarderTableNameField({
   name?: string;
   value: string;
   onChange: (value: string) => void;
-  placeholder: string;
+  placeholder?: string;
   tooltip: string;
   helpText?: ReactNode;
   required?: boolean;
@@ -27,12 +26,9 @@ export default function EventForwarderTableNameField({
   return (
     <TextField
       label={
-        <Flex align="center" gap="1">
-          <Text as="label" htmlFor={name} weight="semibold">
-            {label}
-          </Text>
-          <Tooltip body={tooltip} />
-        </Flex>
+        <Text as="label" htmlFor={name} weight="semibold">
+          <LabelWithHelp label={label} help={tooltip} />
+        </Text>
       }
       id={name}
       name={name}

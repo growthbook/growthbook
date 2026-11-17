@@ -49,7 +49,11 @@ export function EventForwarderLockedField({
         {label}
       </Text>
       <Flex align="center" gap="1">
-        <PiLockSimple aria-label="Locked" color="var(--color-text-mid)" />
+        <PiLockSimple
+          role="img"
+          aria-label="Locked"
+          color="var(--color-text-mid)"
+        />
         <Text>{value}</Text>
       </Flex>
       <Text as="div" size="sm" color="text-mid">
@@ -103,7 +107,7 @@ export function EventForwarderEnvironmentSelect({
   const allowAll = !others.length || savedAll;
   return (
     <>
-      {others.includes("") && !savedAll ? (
+      {allTakenMessage && others.includes("") && !savedAll ? (
         <Callout status="warning" mb="3">
           {allTakenMessage}
         </Callout>
@@ -157,7 +161,40 @@ export function useEventForwarderEnvironmentRequired(
   );
 }
 
-// For the current organization; pass the Data Source once it exists
+// Warning that another forwarder in the region receives all environments
+// - Separate from the field, so a caller can give it the full width
+// - Nothing while the region is unknown: the forwarder may be in the other one
+export function EventForwarderAllTakenCallout({
+  region,
+  datasourceId,
+  mb,
+}: {
+  region?: DataRegion | null;
+  datasourceId?: string;
+  mb?: "3";
+}) {
+  const { datasources } = useDefinitions();
+  const inRegion = useEventForwardersInRegion(region);
+  if (
+    !region ||
+    inRegion.some((e) => e.datasourceId === datasourceId && !e.environment)
+  ) {
+    return null;
+  }
+  const message = allEnvironmentsTakenMessage(
+    inRegion,
+    datasources,
+    datasourceId,
+  );
+  return message ? (
+    <Callout status="warning" mb={mb}>
+      {message}
+    </Callout>
+  ) : null;
+}
+
+// For the current organization; pass the Data Source once it exists.
+// Render EventForwarderAllTakenCallout alongside it.
 export function EventForwarderEnvironmentField({
   value,
   onChange,
@@ -175,7 +212,6 @@ export function EventForwarderEnvironmentField({
   disabled?: boolean;
 }) {
   const environments = useEnvironments();
-  const { datasources } = useDefinitions();
   const eventForwarderEnvironments = useEventForwardersInRegion(region);
   const saved = eventForwarderEnvironments.find(
     (e) => e.datasourceId === datasourceId,
@@ -204,11 +240,7 @@ export function EventForwarderEnvironmentField({
         .filter((e) => e.datasourceId !== datasourceId)
         .map((e) => e.environment)}
       savedAll={!!saved && !saved.environment}
-      allTakenMessage={allEnvironmentsTakenMessage(
-        eventForwarderEnvironments,
-        datasources,
-        datasourceId,
-      )}
+      allTakenMessage=""
       // Moving a live forwarder to one environment drops the rest on save
       helpText={
         saved && value && value !== saved.environment
@@ -409,6 +441,11 @@ export default function EventForwarderDestinationFields({
         </Box>
       ) : null}
       <Box mt="3">
+        <EventForwarderAllTakenCallout
+          region={region}
+          datasourceId={datasourceId}
+          mb="3"
+        />
         <EventForwarderEnvironmentField
           value={environment}
           onChange={onEnvironmentChange}
