@@ -1,4 +1,7 @@
-import { confirmationValidator } from "shared/validators";
+import {
+  ConfirmationInterface,
+  confirmationValidator,
+} from "shared/validators";
 import { MakeModelClass } from "./BaseModel";
 
 const BaseClass = MakeModelClass({
@@ -27,13 +30,23 @@ export class ConfirmationModel extends BaseClass {
     return false;
   }
 
-  public findByRequester(apiKeyId: string | null, userId: string | null) {
+  public findByRequester(
+    apiKeyId: string | null,
+    userId: string | null,
+    statuses: ConfirmationInterface["status"][],
+  ) {
     const or = [
       ...(apiKeyId ? [{ apiKeyId }] : []),
       ...(userId ? [{ userId }] : []),
     ];
     if (!or.length) return Promise.resolve([]);
-    return this._find({ $or: or }, { sort: { dateCreated: -1 } });
+    return this._find(
+      { $or: or, status: { $in: statuses } },
+      {
+        sort: { dateCreated: -1 },
+        projection: { body: 0, query: 0, links: 0, notices: 0 },
+      },
+    );
   }
 
   public findPending(apiKeyId: string, requestHash: string) {
