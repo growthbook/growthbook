@@ -661,7 +661,6 @@ pre {
     // NB: make sure shared reports & shared experiments look good
     top: var(--tabs-top);
     height: var(--tabs-bar-height);
-    transition: 150ms all;
     // The underline belongs to the whole row, so it runs the page's full
     // width, past the tab list and under anything beside it.
     box-shadow: inset 0 -1px 0 0 var(--gray-a5);
@@ -748,7 +747,7 @@ pre {
   top: var(--tabs-top);
   // The original feature page's row; the redesign's is --tabs-bar-height.
   height: 40px;
-  transition: 150ms all;
+  transition: box-shadow 150ms;
 
   &.pinned {
     position: sticky;
