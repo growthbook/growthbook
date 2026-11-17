@@ -22,7 +22,7 @@ import {
 } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import { getApiHost, isCloud } from "@/services/env";
+import { getApiHost } from "@/services/env";
 import track, { maskClaimToken, trackPageView } from "@/services/track";
 import { growthbook } from "@/services/utils";
 import { useRestApiCall } from "@/services/restApi";
@@ -96,6 +96,7 @@ const ClaimPage = (): React.ReactElement => {
 
   const [showLogin, setShowLogin] = useState<{
     newInstallation: boolean;
+    register: boolean;
   } | null>(null);
   const [authError, setAuthError] = useState<string | null>(null);
   const [workspaceName, setWorkspaceName] = useState("");
@@ -176,7 +177,10 @@ const ClaimPage = (): React.ReactElement => {
       if (signup) url.searchParams.set("screen_hint", "signup");
       await redirectWithTimeout(url.toString());
     } else if ("showLogin" in data) {
-      setShowLogin({ newInstallation: data.newInstallation });
+      setShowLogin({
+        newInstallation: data.newInstallation,
+        register: signup,
+      });
     } else {
       throw new Error("There was an error");
     }
@@ -215,6 +219,7 @@ const ClaimPage = (): React.ReactElement => {
     return (
       <Welcome
         firstTime={showLogin.newInstallation}
+        register={showLogin.register}
         onSuccess={() => window.location.reload()}
       />
     );
@@ -258,8 +263,8 @@ const ClaimPage = (): React.ReactElement => {
           }
         >
           {pending
-            ? "Sign in or create a free account to bring them into GrowthBook."
-            : "If you claimed it, sign in to pick up where you left off."}
+            ? "Create an account or log in to bring them into GrowthBook."
+            : "If you claimed it, log in to pick up where you left off."}
         </ImportHero>
         {authError ? (
           <Callout status="error" mb="3">
@@ -267,22 +272,22 @@ const ClaimPage = (): React.ReactElement => {
           </Callout>
         ) : null}
         <Flex justify="center" align="center" gap="3" wrap="wrap">
-          {pending && isCloud() ? (
+          {pending ? (
             <>
               <Button setError={setAuthError} onClick={() => startAuth(true)}>
-                Sign up to claim
+                Create an account
               </Button>
               <Button
-                variant="ghost"
+                variant="outline"
                 setError={setAuthError}
                 onClick={() => startAuth(false)}
               >
-                Sign in
+                Log in
               </Button>
             </>
           ) : (
             <Button setError={setAuthError} onClick={() => startAuth(false)}>
-              {pending ? "Sign in to claim" : "Sign in"}
+              Log in
             </Button>
           )}
         </Flex>
