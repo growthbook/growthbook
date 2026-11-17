@@ -36,6 +36,14 @@ import {
 } from "@/enterprise/components/ProductAnalytics/util";
 import { useDefinitions } from "@/services/DefinitionsContext";
 
+// In compare mode only metric columns split into current and previous. A type
+// predicate so the other branch can read the metric column's `sub`.
+function showsCurrentPeriodOnly(
+  col: ExplorationColumn,
+): col is Exclude<ExplorationColumn, { kind: "metric" }> {
+  return col.kind !== "metric";
+}
+
 /**
  * Format a raw cell value (from the shared column schema) for display in the
  * result table. The shared schema returns unformatted primitives; this adds
@@ -553,8 +561,7 @@ export default function useExplorationTableData(
     if (tableCompareActive) {
       const keys: string[] = [];
       columns.forEach((col, i) => {
-        const showsCurrentPeriodOnly = col.kind !== "metric";
-        if (showsCurrentPeriodOnly) {
+        if (showsCurrentPeriodOnly(col)) {
           keys.push(col.key);
         } else if (col.sub === "single") {
           keys.push(`${col.key}__curr`, `${col.key}__prev`);
@@ -600,8 +607,7 @@ export default function useExplorationTableData(
       const { prevHeading, currHeading } = compareHeadings;
       const labels: string[] = [];
       columns.forEach((col, i) => {
-        const showsCurrentPeriodOnly = col.kind !== "metric";
-        if (showsCurrentPeriodOnly) {
+        if (showsCurrentPeriodOnly(col)) {
           labels.push(col.label);
         } else if (col.sub === "single") {
           labels.push(
@@ -636,8 +642,7 @@ export default function useExplorationTableData(
       const row1: { label: string; colSpan?: number; rowSpan?: number }[] = [];
       const row2Labels: string[] = [];
       columns.forEach((col, i) => {
-        const showsCurrentPeriodOnly = col.kind !== "metric";
-        if (showsCurrentPeriodOnly) {
+        if (showsCurrentPeriodOnly(col)) {
           row1.push({ label: col.label, rowSpan: 2 });
         } else if (col.sub === "single") {
           row1.push({ label: col.label, colSpan: 2 });
@@ -756,8 +761,7 @@ export default function useExplorationTableData(
           ] as const);
         }
         for (const col of columns) {
-          const showsCurrentPeriodOnly = col.kind !== "metric";
-          if (showsCurrentPeriodOnly) {
+          if (showsCurrentPeriodOnly(col)) {
             const raw = getExplorationCellValue(row, col, renderOpts);
             entries.push([
               col.key,
