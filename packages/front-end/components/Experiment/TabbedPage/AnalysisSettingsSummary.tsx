@@ -39,7 +39,6 @@ import {
 import {
   resolveAnalysisIdentifierType,
   getSnapshotAnalysis,
-  getSnapshotCutoffDate,
 } from "shared/util";
 import { MetricGroupInterface } from "shared/types/metric-groups";
 import { getValidDate } from "shared/dates";
@@ -56,6 +55,7 @@ import ResultMoreMenu, {
 import { useExperimentSnapshotUpdate } from "@/hooks/useExperimentSnapshotUpdate";
 import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
 import { useAuth } from "@/services/auth";
+import { getSnapshotFreshnessInputs } from "@/services/snapshots";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import usePValueThreshold from "@/hooks/usePValueThreshold";
 import { useIncrementalPipelineFallbackConfirm } from "@/hooks/useIncrementalPipelineFallbackConfirm";
@@ -826,7 +826,7 @@ export default function AnalysisSettingsSummary({
       isAnalysisDateRangeOutdated({
         phase: exp.phases?.[currentPhase ?? 0],
         snapshotSettings,
-        snapshotDateCreated: snap?.dateCreated,
+        snapshotDateCreated: getSnapshotFreshnessInputs(snap).dateCreated,
         resultsUpdateDisabled: updateDisabled,
       })
     ) {
@@ -971,10 +971,7 @@ export default function AnalysisSettingsSummary({
             <Flex align="center" gap="2">
               <QueriesLastRun
                 status={status}
-                dateCreated={snapshot?.dateCreated}
-                cutoffDate={
-                  snapshot ? getSnapshotCutoffDate(snapshot.settings) : null
-                }
+                {...(snapshot ? getSnapshotFreshnessInputs(snapshot) : {})}
                 sourceSnapshot={sourceSnapshot}
                 latestQueryDate={latest?.dateCreated}
                 nextUpdate={experiment.nextSnapshotAttempt}
