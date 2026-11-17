@@ -91,6 +91,7 @@ import {
   withScheduledBy,
   isExperimentResultsUpdateDisabled,
   EXPERIMENT_RESULTS_UPDATE_DISABLED_MESSAGE,
+  getSnapshotSideEffects,
 } from "shared/experiments";
 import { getValidDate, hoursBetween, resolveScheduledStop } from "shared/dates";
 import { buildAnalysisKey } from "shared/snapshot-analysis-chunks";
@@ -2288,8 +2289,9 @@ export async function createSnapshotFromPlan({
   let experimentUpdateExecutionLogger: ExperimentUpdateExecutionLogger | null =
     null;
 
+  const sideEffects = getSnapshotSideEffects(plan.snapshot);
   try {
-    let scheduleNextSnapshot = true;
+    let scheduleNextSnapshot = sideEffects.advanceUpdateSchedule;
     if (
       experiment.type === "multi-armed-bandit" &&
       plan.snapshot.type !== "standard"
@@ -2420,6 +2422,7 @@ export async function createSnapshotFromPlan({
     const runningSnapshot = queryRunner.model;
     // Whenever the standard snapshot for an experiment is refreshed, also refresh the associated dashboards in the background
     if (
+      sideEffects.refreshDashboards &&
       runningSnapshot.type === "standard" &&
       runningSnapshot.triggeredBy !== "manual-dashboard"
     ) {

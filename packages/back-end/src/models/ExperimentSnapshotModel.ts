@@ -12,6 +12,7 @@ import {
   getSnapshotAnalysis,
   isString,
 } from "shared/util";
+import { getSnapshotSideEffects } from "shared/experiments";
 import {
   SnapshotType,
   ExperimentSnapshotAnalysis,
@@ -532,6 +533,7 @@ export async function updateSnapshot({
     ReturnType<typeof updateExperimentAnalysisSummary>
   > | null = null;
   let shouldRunEagerDimensionAnalyses = false;
+  let superseded = false;
 
   try {
     const updatesForDb: Partial<ExperimentSnapshotInterface> = { ...updates };
@@ -622,11 +624,17 @@ export async function updateSnapshot({
       });
     }
 
+    superseded =
+      getSnapshotSideEffects(experimentSnapshot).yieldsToNewerOverallSnapshot &&
+      experimentSnapshot.status === "success" &&
+      (await hasNewerSuccessfulOverallSnapshot(context, experimentSnapshot));
+
     const shouldUpdateExperimentAnalysisSummary =
       experimentSnapshot.type === "standard" &&
       experimentSnapshot.status === "success" &&
       findAnalysisComputeFailure(getSnapshotAnalysis(experimentSnapshot)) ===
-        null;
+        null &&
+      !superseded;
 
     shouldRunEagerDimensionAnalyses =
       shouldUpdateExperimentAnalysisSummary && hasAnalysisUpdates;
@@ -744,6 +752,7 @@ export async function updateSnapshot({
 
   if (
     experimentSnapshot.status === "success" &&
+    !superseded &&
     // Only use main snapshots or those triggered automatically for dashboards
     experimentSnapshot.triggeredBy !== "manual-dashboard" &&
     (experimentSnapshot.triggeredBy === "update-dashboards" ||
@@ -1196,26 +1205,50 @@ export async function findLatestSuccessfulReportSnapshotId(
   return doc?.id ?? null;
 }
 
+const latestSuccessfulOverallQuery = (
+  context: Context,
+  experiment: string,
+  phase: number,
+): FilterQuery<ExperimentSnapshotDocument> => ({
+  organization: context.org.id,
+  experiment,
+  phase,
+  dimension: null,
+  type: "standard",
+  status: "success",
+});
+
 /** Analysis end date of a phase's newest successful Overall snapshot, read without its analyses. */
 export async function findLatestSuccessfulSnapshotEndDate(
   context: Context,
   { experiment, phase }: { experiment: string; phase: number },
 ): Promise<Date | null> {
   const doc = await ExperimentSnapshotModel.findOne(
-    {
-      organization: context.org.id,
-      experiment,
-      phase,
-      dimension: null,
-      type: "standard",
-      status: "success",
-    },
+    latestSuccessfulOverallQuery(context, experiment, phase),
     { "settings.endDate": 1 },
     { sort: { dateCreated: -1 } },
   )
     .lean<{ settings?: { endDate?: Date | string } }>()
     .exec();
   return doc?.settings?.endDate ? new Date(doc.settings.endDate) : null;
+}
+
+async function hasNewerSuccessfulOverallSnapshot(
+  context: Context,
+  snapshot: Pick<
+    ExperimentSnapshotInterface,
+    "experiment" | "phase" | "dateCreated"
+  >,
+): Promise<boolean> {
+  const newer = await ExperimentSnapshotModel.exists({
+    ...latestSuccessfulOverallQuery(
+      context,
+      snapshot.experiment,
+      snapshot.phase,
+    ),
+    dateCreated: { $gt: snapshot.dateCreated },
+  });
+  return newer !== null;
 }
 
 export async function dangerousFindStalledRunningSnapshotsFromAllOrgs(

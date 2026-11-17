@@ -12,6 +12,7 @@ import {
   isFactCompoundMetric,
   isFactFunnelMetric,
   getDefinitionMetricId,
+  getSnapshotSideEffects,
 } from "shared/experiments";
 import {
   CreateMetricTimeSeriesSingleDataPoint,
@@ -219,6 +220,7 @@ export async function updateExperimentAnalysisTimeSeries({
     experimentSnapshot.settings.datasourceId,
   );
   const variationIds = getLatestPhaseVariations(experiment);
+  const { timeSeries } = getSnapshotSideEffects(experimentSnapshot);
   const allDataPoints: CreateMetricTimeSeriesSingleDataPoint[] = [];
   const dimensionValues = dimensionId
     ? baseAnalysis.results.map((result) => result.name)
@@ -243,6 +245,7 @@ export async function updateExperimentAnalysisTimeSeries({
     );
 
     for (const metricId of allMetricIds) {
+      if (!timeSeries.includesMetric(metricId)) continue;
       const variations: MetricTimeSeriesVariation[] = variationIds.map(
         (v, variationIndex) => {
           // Each difference type computes independently; drop the ones that
@@ -300,7 +303,7 @@ export async function updateExperimentAnalysisTimeSeries({
           experimentSnapshot.settings,
         ),
         singleDataPoint: {
-          date: experimentSnapshot.dateCreated,
+          date: timeSeries.pointDate,
           variations,
           ...(tags?.length ? { tags: [...tags] } : {}),
         },
