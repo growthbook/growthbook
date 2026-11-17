@@ -6,6 +6,7 @@ import {
 } from "shared/validators";
 import type { SDKConnectionInterface } from "shared/types/sdk-connection";
 import { CasConflictError, type Context } from "back-end/src/models/BaseModel";
+import type { DeferredEventBuffer } from "back-end/src/events/bulkPublishCorrelation";
 import { sdkConnectionAdapter } from "back-end/src/revisions/adapters/sdk-connection.adapter";
 import { getAdapter } from "back-end/src/revisions/index";
 import {
@@ -183,7 +184,8 @@ function makeContext(overrides: {
         countSdkWebhooksByOrg: jest.fn(async () => overrides.webhookCount ?? 0),
         getDefaultCreateProps: (id: string) => ({ sdks: [id] }),
         create: jest.fn(async () => ({})),
-        applyEdit: jest.fn(async () => ({})),
+        saveEdit: jest.fn(async (w: { id: string }) => ({ ...w, saved: true })),
+        send: jest.fn(),
         delete: jest.fn(async () => undefined),
         getById: jest.fn(async (id: string) => ({ id })),
         // Nothing live is editable unless a test says so.
@@ -1038,9 +1040,9 @@ describe("sdkConnectionAdapter", () => {
         sdks: ["sdk-1"],
         name: "Three",
       });
-      // Only the edited webhook is saved (and so fired) as an edit.
-      expect(model.applyEdit).toHaveBeenCalledTimes(1);
-      expect(model.applyEdit.mock.calls[0][1]).toMatchObject({
+      // Only the edited webhook is saved (and so sent) as an edit.
+      expect(model.saveEdit).toHaveBeenCalledTimes(1);
+      expect(model.saveEdit.mock.calls[0][1]).toMatchObject({
         name: "Renamed",
       });
       expect(model.delete).toHaveBeenCalledTimes(1);
@@ -1056,13 +1058,73 @@ describe("sdkConnectionAdapter", () => {
       });
     });
 
+    describe("sending edited webhooks", () => {
+      const editOnly = (ctx: Context) =>
+        sdkConnectionAdapter.applyChanges(
+          ctx,
+          {
+            ...liveEntity,
+            sdkWebhooks: [baseWebhook, { ...baseWebhook, id: "wh-2" }],
+          },
+          { sdkWebhooks: [{ ...baseWebhook, name: "Renamed" }] },
+        );
+
+      it("sends after every webhook write when not landing", async () => {
+        const ctx = makeContext({});
+        const model = webhooksModel(ctx);
+        await editOnly(ctx);
+        expect(model.send).toHaveBeenCalledTimes(1);
+        expect(model.send.mock.calls[0][0]).toEqual({
+          id: "wh-1",
+          saved: true,
+        });
+        expect(model.send.mock.invocationCallOrder[0]).toBeGreaterThan(
+          model.delete.mock.invocationCallOrder[0],
+        );
+      });
+
+      it("holds the send until the landing emits its deferred events", async () => {
+        const ctx = makeContext({});
+        const events: DeferredEventBuffer = {
+          entries: [],
+          restored: new Set(),
+        };
+        ctx.bulkPublishDeferredEvents = events;
+        await editOnly(ctx);
+        expect(webhooksModel(ctx).send).not.toHaveBeenCalled();
+        expect(events.entries.map((e) => e.owner)).toEqual([
+          "sdk-connection:sdk-1",
+        ]);
+        await events.entries[0].emit();
+        expect(webhooksModel(ctx).send).toHaveBeenCalledTimes(1);
+      });
+
+      it("sends nothing when a later webhook write fails", async () => {
+        const ctx = makeContext({});
+        webhooksModel(ctx).delete.mockRejectedValue(new Error("boom"));
+        await expect(editOnly(ctx)).rejects.toThrow("boom");
+        expect(webhooksModel(ctx).send).not.toHaveBeenCalled();
+      });
+
+      it("leaves the send to a payload rebuild queued for the connection", async () => {
+        const ctx = makeContext({});
+        ctx.sdkPayloadRefreshBuffer = {
+          keys: [],
+          sdkConnections: [baseConnection],
+          treatEmptyProjectAsGlobal: false,
+        };
+        await editOnly(ctx);
+        expect(webhooksModel(ctx).send).not.toHaveBeenCalled();
+      });
+    });
+
     it("reports the webhooks actually live when a later write fails", async () => {
       const ctx = makeContext({});
       const model = webhooksModel(ctx);
       model.getById.mockImplementation(async (id: string) =>
         id.startsWith("wh_") ? null : { id },
       );
-      model.applyEdit.mockRejectedValue(new Error("boom"));
+      model.saveEdit.mockRejectedValue(new Error("boom"));
       const onPersisted = jest.fn();
       await expect(
         sdkConnectionAdapter.applyChanges(

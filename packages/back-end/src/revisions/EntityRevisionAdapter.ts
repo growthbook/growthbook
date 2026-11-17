@@ -164,6 +164,13 @@ export interface EntityRevisionAdapter<
     environments?: string[] | null,
   ): boolean;
 
+  /**
+   * Every scope a reviewer needs authority over: the snapshot, plus where the
+   * change moves the entity, for entities whose snapshot holds its own scope.
+   * Defaults to the snapshot alone.
+   */
+  reviewScopes?(snapshot: TSnapshot, proposedChanges: unknown): TSnapshot[];
+
   /** Restore a previously-published revision. */
   canRevert?(context: Context, snapshot: TSnapshot): boolean;
 

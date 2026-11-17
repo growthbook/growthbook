@@ -23,6 +23,7 @@ import {
   isUserBlockedFromApproving,
   mergeNestedBranch,
   landedOps,
+  reviewCoverageProjects,
   sdkConnectionDraftSettingsAfterSave,
 } from "../../../src/revisions/helpers";
 import { entityPublishFootprint } from "../../../src/revisions/entityPublishFootprint";
@@ -1649,5 +1650,39 @@ describe("landedOps", () => {
     expect(landedOps(live, base, ops, new Set(["name"]))).toEqual([]);
     // Without an allowlist, the real change stays.
     expect(landedOps(live, base, ops)).toEqual([ops[2]]);
+  });
+});
+
+describe("reviewCoverageProjects", () => {
+  const snapshot = { sdkConnection: { projects: ["a"], environment: "prod" } };
+  const moveTo = (projects: string[]): JsonPatchOperation[] => [
+    {
+      op: "replace",
+      path: "/sdkConnection",
+      value: { projects, environment: "prod" },
+    },
+  ];
+
+  it("covers where a connection leaves and where it lands", () => {
+    expect(
+      reviewCoverageProjects("sdk-connection", snapshot, moveTo(["b"])),
+    ).toEqual(["a", "b"]);
+    expect(reviewCoverageProjects("sdk-connection", snapshot, [])).toEqual([
+      "a",
+    ]);
+  });
+
+  it("is every Project when either side is", () => {
+    expect(
+      reviewCoverageProjects("sdk-connection", snapshot, moveTo([])),
+    ).toEqual([]);
+  });
+
+  it("reads other entities from the snapshot alone", () => {
+    expect(
+      reviewCoverageProjects("saved-group", { projects: ["a"] }, [
+        { op: "replace", path: "/projects", value: ["b"] },
+      ]),
+    ).toEqual(["a"]);
   });
 });

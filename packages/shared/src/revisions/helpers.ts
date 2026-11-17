@@ -1170,6 +1170,24 @@ export const getSdkConnectionReviewRules = (
     : rules;
 };
 
+// The Projects an approver must cover: for a connection draft that moves it,
+// where it leaves and where it lands. Empty means every Project.
+export const reviewCoverageProjects = (
+  type: string,
+  snapshot: unknown,
+  proposedChanges: unknown,
+): string[] => {
+  const before = entityProjects(snapshot);
+  if (type !== "sdk-connection") return before;
+  const after =
+    sdkConnectionSettingsAfter(
+      snapshot as { sdkConnection?: SdkConnectionApprovalScope },
+      proposedChanges,
+    ).projects ?? [];
+  if (!before.length || !after.length) return [];
+  return [...new Set([...before, ...after])];
+};
+
 export const orgHasAnySdkConnectionApproval = (
   approvalFlows: ApprovalFlowConfigurations | undefined,
 ): boolean => !!approvalFlows?.sdkConnections?.some((rule) => rule.required);

@@ -106,24 +106,49 @@ export function reviewFootprintFor(
   );
 }
 
+// The snapshot, plus where the change moves the entity when the adapter says so.
+function reviewScopesFor(
+  revision: Pick<Revision, "target">,
+): Record<string, unknown>[] {
+  const snapshot = revision.target.snapshot as Record<string, unknown>;
+  return (
+    getAdapter(revision.target.type).reviewScopes?.(
+      snapshot,
+      revision.target.proposedChanges,
+    ) ?? [snapshot]
+  );
+}
+
 /**
  * Authority for a verb that belongs to the REVISION rather than the live entity:
  * drafting, reviewing, commenting. Always judged on `target.snapshot` — a later
  * move on the live entity does not change the revision's project — so there is
- * deliberately no scope argument to pass wrongly. Verbs that LAND on live keep
- * the explicit scope via `canDoRevisionAction`.
+ * deliberately no scope argument to pass wrongly. Review also needs authority
+ * where the change itself moves the entity. Verbs that LAND on live keep the
+ * explicit scope via `canDoRevisionAction`.
  */
 export function canRevisionOwnedAction(
   context: Context,
   revision: Pick<Revision, "target">,
   action: Extract<RevisionActionKind, "draft" | "review">,
 ): boolean {
-  return canDoRevisionAction(
-    revision.target.type,
-    action,
-    context,
-    revision.target.snapshot as Record<string, unknown>,
-    action === "review" ? reviewFootprintFor(context, revision) : undefined,
+  if (action === "draft") {
+    return canDoRevisionAction(
+      revision.target.type,
+      action,
+      context,
+      revision.target.snapshot as Record<string, unknown>,
+    );
+  }
+  const environments = reviewFootprintFor(context, revision);
+  return reviewScopesFor(revision).every((scope) =>
+    canDoRevisionAction(
+      revision.target.type,
+      action,
+      context,
+      scope,
+      environments,
+    ),
   );
 }
 
@@ -569,19 +594,11 @@ export async function approveRevision(
   entity: Record<string, unknown>,
   comment?: string,
 ): Promise<Revision> {
-  const adapter = getAdapter(revision.target.type);
-  const canReview = adapter.canReview ?? adapter.canUpdate;
   // On the revision's SNAPSHOT, like every other review check (the preflight,
   // `addReview`'s CAS, the REST twin): a review belongs to the revision, whose
   // project a later move on the live entity does not change. The ENVIRONMENTS,
   // though, come from the change — approving is scoped to what would land.
-  if (
-    !canReview(
-      context,
-      revision.target.snapshot as Record<string, unknown>,
-      reviewFootprintFor(context, revision),
-    )
-  ) {
+  if (!canRevisionOwnedAction(context, revision, "review")) {
     context.permissions.throwPermissionError();
   }
 
@@ -665,20 +682,34 @@ export async function revisionApprovalsCoverChange(
   revision: Revision,
 ): Promise<{ hasCoveringApproval: boolean; uncoveredApprovers: string[] }> {
   const environments = reviewFootprintFor(context, revision);
-  // Authority over a multi-project entity is the intersection, not the first.
-  const projects = entityProjects(revision.target.snapshot);
   const approvals = standingApprovals(revision);
   const roles = await getApproverRoles(context, approvalRoleIds(approvals));
-  return assessApprovalCoverage({
-    org: context.org,
-    teams: context.teams ?? [],
-    model: revision.target.type,
-    projects,
-    footprint: environments.length
-      ? { scope: "environments", environments }
-      : { scope: "unbound" },
-    approvers: approvalApprovers(approvals, (id) => roles.get(id) ?? null),
-  });
+  const approvers = approvalApprovers(approvals, (id) => roles.get(id) ?? null);
+  // An approver must cover every scope; within one, authority over a
+  // multi-project entity is the intersection, not the first.
+  const uncoveredApprovers = [
+    ...new Set(
+      reviewScopesFor(revision).flatMap(
+        (scope) =>
+          assessApprovalCoverage({
+            org: context.org,
+            teams: context.teams ?? [],
+            model: revision.target.type,
+            projects: entityProjects(scope),
+            footprint: environments.length
+              ? { scope: "environments", environments }
+              : { scope: "unbound" },
+            approvers,
+          }).uncoveredApprovers,
+      ),
+    ),
+  ];
+  return {
+    hasCoveringApproval: approvers.some(
+      (a) => !uncoveredApprovers.includes(a.id),
+    ),
+    uncoveredApprovers,
+  };
 }
 
 export async function publishRevision(
