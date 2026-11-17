@@ -3,7 +3,7 @@ import type { RevisionMetadata } from "shared/validators";
 import type { FeatureRevisionInterface } from "shared/types/feature-revision";
 import type { FeatureInterface, FeatureRule } from "shared/types/feature";
 // Specific file, not the barrel, to avoid a runtime import cycle.
-import { normalizeProposedChanges } from "../revisions/helpers";
+import { isPlainObject, normalizeProposedChanges } from "../revisions/helpers";
 import {
   MergeResultChanges,
   featureMetadataEnvelope,
@@ -277,6 +277,14 @@ export function proposedProjectScope(proposedChanges: unknown): {
     }
     if (op.path === "/projects" && Array.isArray(op.value)) {
       scope.projects = op.value as string[];
+    }
+    // SDK connections move projects inside the whole-settings replace.
+    if (
+      op.path === "/sdkConnection" &&
+      isPlainObject(op.value) &&
+      Array.isArray(op.value.projects)
+    ) {
+      scope.projects = op.value.projects as string[];
     }
   }
   return scope;

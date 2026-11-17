@@ -181,7 +181,8 @@ export async function scheduleRevisionPublish({
   }
 
   const wantsBypass =
-    !!bypassApproval && adapter.canBypassApproval(context, entity);
+    !!bypassApproval &&
+    adapter.canBypassApproval(context, entity, revision.target.proposedChanges);
 
   const enabledBy =
     context.armerId ||

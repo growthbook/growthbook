@@ -1,6 +1,7 @@
 // Specific files, not the package barrels: this module is imported by both apps
 // and a barrel round-trip risks a runtime cycle.
 import { proposedProjectScope } from "../util/featureDraftPurity";
+import { sdkConnectionSettingsAfter } from "../revisions/helpers";
 import { eventUserIdentity } from "../validators/event-user";
 import type { EventUser } from "../validators/event-user";
 import { holdsMoveDestination } from "./moveAuthority";
@@ -98,6 +99,31 @@ export function holdsRevisionDestination(
       ...proposedProjectScope(revision?.target?.proposedChanges),
     },
     environments,
+  });
+}
+
+// An SDK connection's draft holds its Projects and environment inside its
+// settings, where `holdsRevisionDestination` reads no move. Landing one takes
+// update rights where it leaves the connection, which is what the server asks
+// when it applies the draft.
+export function holdsSdkConnectionDraftDestination(
+  permissionsUtil: Pick<Permissions, "canUpdateSDKConnection">,
+  connection: { projects?: string[]; environment?: string },
+  revision:
+    | { target?: { snapshot?: unknown; proposedChanges?: unknown } }
+    | null
+    | undefined,
+): boolean {
+  if (!revision?.target) return true;
+  const { projects, environment } = sdkConnectionSettingsAfter(
+    (revision.target.snapshot ?? {}) as {
+      sdkConnection?: { projects?: string[]; environment?: string };
+    },
+    revision.target.proposedChanges,
+  );
+  return permissionsUtil.canUpdateSDKConnection(connection, {
+    ...(projects !== undefined && { projects }),
+    ...(environment !== undefined && { environment }),
   });
 }
 
