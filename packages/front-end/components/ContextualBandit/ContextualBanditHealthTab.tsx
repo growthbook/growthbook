@@ -11,6 +11,7 @@ import Callout from "@/ui/Callout";
 import { useContextualBanditHealthIssues } from "@/hooks/useContextualBandits";
 import { useContextualBanditSnapshot } from "@/components/ContextualBandit/ContextualBanditSnapshotProvider";
 import StatusErrorCallout from "@/components/ContextualBandit/StatusErrorCallout";
+import { SCROLL_MARGIN_UNDER_TABS } from "@/components/Layout/constants";
 import ContextualBanditSRMCard from "./ContextualBanditSRMCard";
 
 export default function ContextualBanditHealthTab({
@@ -140,7 +141,12 @@ export default function ContextualBanditHealthTab({
           </Callout>
         ) : (
           <>
-            <div id="balanceCheck" style={{ scrollMarginTop: "100px" }}>
+            <div
+              id="balanceCheck"
+              style={{
+                scrollMarginTop: SCROLL_MARGIN_UNDER_TABS,
+              }}
+            >
               <ContextualBanditSRMCard
                 srm={health?.srm?.pValue ?? null}
                 variations={variations}
@@ -150,7 +156,12 @@ export default function ContextualBanditHealthTab({
               />
             </div>
 
-            <div id="multipleExposures" style={{ scrollMarginTop: "100px" }}>
+            <div
+              id="multipleExposures"
+              style={{
+                scrollMarginTop: SCROLL_MARGIN_UNDER_TABS,
+              }}
+            >
               <MultipleExposuresCard
                 totalUsers={totalUsers}
                 multipleExposures={health?.multipleExposures ?? 0}
