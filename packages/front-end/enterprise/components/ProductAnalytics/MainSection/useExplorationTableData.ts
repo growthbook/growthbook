@@ -553,8 +553,8 @@ export default function useExplorationTableData(
     if (tableCompareActive) {
       const keys: string[] = [];
       columns.forEach((col, i) => {
-        // The Population count shows the current period only.
-        if (col.kind === "dimension" || col.kind === "populationCount") {
+        const showsCurrentPeriodOnly = col.kind !== "metric";
+        if (showsCurrentPeriodOnly) {
           keys.push(col.key);
         } else if (col.sub === "single") {
           keys.push(`${col.key}__curr`, `${col.key}__prev`);
@@ -600,7 +600,8 @@ export default function useExplorationTableData(
       const { prevHeading, currHeading } = compareHeadings;
       const labels: string[] = [];
       columns.forEach((col, i) => {
-        if (col.kind === "dimension" || col.kind === "populationCount") {
+        const showsCurrentPeriodOnly = col.kind !== "metric";
+        if (showsCurrentPeriodOnly) {
           labels.push(col.label);
         } else if (col.sub === "single") {
           labels.push(
@@ -635,7 +636,8 @@ export default function useExplorationTableData(
       const row1: { label: string; colSpan?: number; rowSpan?: number }[] = [];
       const row2Labels: string[] = [];
       columns.forEach((col, i) => {
-        if (col.kind === "dimension" || col.kind === "populationCount") {
+        const showsCurrentPeriodOnly = col.kind !== "metric";
+        if (showsCurrentPeriodOnly) {
           row1.push({ label: col.label, rowSpan: 2 });
         } else if (col.sub === "single") {
           row1.push({ label: col.label, colSpan: 2 });
@@ -653,11 +655,9 @@ export default function useExplorationTableData(
     const row1: { label: string; colSpan?: number; rowSpan?: number }[] = [];
     const row2Labels: string[] = [];
     for (const col of columns) {
-      if (col.kind === "dimension" || col.kind === "populationCount") {
-        row1.push({ label: col.label, rowSpan: 2 });
-        continue;
-      }
-      if (col.sub === "single") {
+      // Columns with no Numerator / Denominator / Value parts span both
+      // header rows; only ratio metrics have them.
+      if (col.kind !== "metric" || col.sub === "single") {
         row1.push({ label: col.label, rowSpan: 2 });
         continue;
       }
@@ -756,7 +756,8 @@ export default function useExplorationTableData(
           ] as const);
         }
         for (const col of columns) {
-          if (col.kind === "dimension" || col.kind === "populationCount") {
+          const showsCurrentPeriodOnly = col.kind !== "metric";
+          if (showsCurrentPeriodOnly) {
             const raw = getExplorationCellValue(row, col, renderOpts);
             entries.push([
               col.key,
