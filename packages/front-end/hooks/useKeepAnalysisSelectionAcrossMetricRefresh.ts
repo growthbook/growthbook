@@ -5,9 +5,9 @@ import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
 import { useAuth } from "@/services/auth";
 import { analysisUpdate } from "@/services/snapshots";
 
-// A metric refresh's analyses use the experiment's current default settings,
-// which differ from the base's once a goal metric is added (numGoalMetrics).
-export function useSelectedAnalysisOnMetricRefresh(onFailure: () => void) {
+export function useKeepAnalysisSelectionAcrossMetricRefresh(
+  onFailure: () => void,
+) {
   const { apiCall } = useAuth();
   const { snapshot, analysisSettings, setAnalysisSettings, phase, mutate } =
     useSnapshot();

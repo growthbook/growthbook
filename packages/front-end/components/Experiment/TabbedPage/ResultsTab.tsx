@@ -35,7 +35,7 @@ import {
   NewMetricRowsInput,
 } from "@/services/experiments";
 import { useNewMetricsRefresh } from "@/hooks/useExperimentSnapshotUpdate";
-import { useSelectedAnalysisOnMetricRefresh } from "@/hooks/useSelectedAnalysisOnMetricRefresh";
+import { useKeepAnalysisSelectionAcrossMetricRefresh } from "@/hooks/useKeepAnalysisSelectionAcrossMetricRefresh";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import track from "@/services/track";
 import Metadata from "@/ui/Metadata";
@@ -256,7 +256,7 @@ export default function ResultsTab({
     honoredPrecomputedUnitDimensionIds,
   ]);
 
-  useSelectedAnalysisOnMetricRefresh(onSnapshotSuccessfulUpdate);
+  useKeepAnalysisSelectionAcrossMetricRefresh(onSnapshotSuccessfulUpdate);
 
   const endDate =
     experiment.status !== "running" ? snapshot?.settings?.endDate : undefined;

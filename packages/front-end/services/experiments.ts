@@ -256,18 +256,19 @@ export type ExperimentTableRow = {
 export const METRICS_CHANGED_OUTDATED_REASON = "Metrics changed";
 export const ANALYSIS_DATES_CHANGED_OUTDATED_REASON = "Analysis dates changed";
 
-// A refresh is pinned to its base's dates, so date drift alone doesn't block it.
+const OUTDATED_REASONS_A_METRIC_REFRESH_PINS_TO_ITS_BASE = new Set([
+  METRICS_CHANGED_OUTDATED_REASON,
+  ANALYSIS_DATES_CHANGED_OUTDATED_REASON,
+]);
+
 export function hasOutdatedReasonBlockingMetricRefresh(
   reasons: string[],
 ): boolean {
   return reasons.some(
-    (r) =>
-      r !== METRICS_CHANGED_OUTDATED_REASON &&
-      r !== ANALYSIS_DATES_CHANGED_OUTDATED_REASON,
+    (r) => !OUTDATED_REASONS_A_METRIC_REFRESH_PINS_TO_ITS_BASE.has(r),
   );
 }
 
-// The server's refusals the page can predict before a click.
 export function isMetricRefreshUnavailable({
   experiment,
   phase,

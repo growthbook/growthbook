@@ -294,7 +294,6 @@ export function useExperimentSnapshotUpdate({
 
 const NO_METRIC_REFRESH_REQUEST: MetricRefreshRequest = { status: "none" };
 
-// Answers that mean the page is behind the server; refetching shows why.
 const STALE_PAGE_ERROR_CODES: string[] = [
   "metrics_already_up_to_date",
   "snapshot_in_progress",
