@@ -585,6 +585,8 @@ export async function getPayloadParamsFromApiKey(
       requireCdnOrProxy &&
       IS_CLOUD &&
       connection.noDirectAccess &&
+      // Proxies before growthbook-proxy#147 forward cache misses with the client's User-Agent
+      !connection.proxy.enabled &&
       !req.get("fastly-client-ip") &&
       !req.get("user-agent")?.startsWith("GrowthBook Proxy")
     ) {
