@@ -10,6 +10,7 @@ import {
 import { resolveOwnerEmail } from "back-end/src/services/owner";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getExposureQueriesForDatasource } from "back-end/src/services/assignmentQuerySelection";
+import { NotFoundError } from "back-end/src/util/errors";
 import { toReportApiInterface } from "./toReportApiInterface";
 
 export const putReportMetadata = createApiRequestHandler(
@@ -19,7 +20,7 @@ export const putReportMetadata = createApiRequestHandler(
 
   const report = await getReportById(org.id, req.params.id);
   if (!report) {
-    throw new Error("Could not find report with that id");
+    throw new NotFoundError("Could not find report with that id");
   }
 
   if (report.type !== "experiment-snapshot") {
@@ -31,7 +32,7 @@ export const putReportMetadata = createApiRequestHandler(
     : null;
 
   if (report.experimentId && !experiment) {
-    throw new Error("Could not find report with that id");
+    throw new NotFoundError("Could not find report with that id");
   }
 
   if (!req.context.permissions.canUpdateReport(experiment || {})) {

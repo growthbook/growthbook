@@ -1,5 +1,6 @@
 import fs from "fs";
 import { UPLOAD_METHOD } from "back-end/src/util/secrets";
+import { NotFoundError } from "back-end/src/util/errors";
 import { getDestinationConfig, UploadDestination } from "./config";
 import { gcsFileStorage } from "./gcs";
 import { localFileStorage, resolveUploadPath } from "./local";
@@ -137,7 +138,7 @@ export function getImageData(filePath: string) {
   assertSafeKey(filePath);
   const fullPath = resolveUploadPath(filePath);
   if (!fs.existsSync(fullPath)) {
-    throw new Error("File not found");
+    throw new NotFoundError("File not found");
   }
   return fs.createReadStream(fullPath);
 }

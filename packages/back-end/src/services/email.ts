@@ -13,6 +13,7 @@ import {
   APP_ORIGIN,
 } from "back-end/src/util/secrets";
 import { getEmailFromUserId } from "back-end/src/models/UserModel";
+import { NotFoundError } from "back-end/src/util/errors";
 import { getInviteUrl } from "./organizations";
 
 export function isEmailEnabled(): boolean {
@@ -98,7 +99,7 @@ export async function sendInviteEmail(
 ) {
   const invite = organization.invites.filter((invite) => invite.key === key)[0];
   if (!invite) {
-    throw new Error("Could not find invite with specified key");
+    throw new NotFoundError("Could not find invite with specified key");
   }
 
   const inviteUrl = getInviteUrl(key);
