@@ -17,7 +17,10 @@ describe("OwnParentTracer", () => {
     spanProcessors: [new SimpleSpanProcessor({ exporter })],
   });
   const ours = new OwnParentTracer(provider.getTracer("test"));
-  const foreign = new TracerProvider().getTracer("foreign");
+  const foreignExporter = new InMemorySpanExporter();
+  const foreign = new TracerProvider({
+    spanProcessors: [new SimpleSpanProcessor({ exporter: foreignExporter })],
+  }).getTracer("foreign");
 
   beforeAll(() => {
     context.setGlobalContextManager(contextManager.enable());
@@ -27,7 +30,10 @@ describe("OwnParentTracer", () => {
     context.disable();
   });
 
-  beforeEach(() => exporter.reset());
+  beforeEach(() => {
+    exporter.reset();
+    foreignExporter.reset();
+  });
 
   it("drops foreign parents but keeps its own", async () => {
     const foreignTraceId = await foreign.startActiveSpan(
@@ -61,6 +67,25 @@ describe("OwnParentTracer", () => {
         root.spanContext().traceId,
       );
     }
+  });
+
+  it("leaves foreign spans under the request span", async () => {
+    await foreign.startActiveSpan("http.request", async (request) => {
+      await runInSpan(ours, "job refresh", {}, async () =>
+        foreign.startActiveSpan("pg.query", (span) => span.end()),
+      );
+      request.end();
+    });
+
+    const [job] = exporter.getFinishedSpans();
+    const spans = Object.fromEntries(
+      foreignExporter.getFinishedSpans().map((s) => [s.name, s]),
+    );
+    const request = spans["http.request"];
+    const query = spans["pg.query"];
+    expect(job.name).toBe("job refresh");
+    expect(query.parentSpanContext?.spanId).toBe(request.spanContext().spanId);
+    expect(query.spanContext().traceId).toBe(request.spanContext().traceId);
   });
 
   it("starts a new trace outside any request", async () => {

@@ -46,22 +46,23 @@ function hasGlobalContextManager() {
   );
 }
 
-// Our spans run inside request spans from Sentry or Datadog, which never reach
-// this exporter. Only parent our own spans so each job or AI call is its own trace.
+const OWN_SPAN_KEY = createContextKey("growthbook-ingestor-traces-span");
+
+// Our spans run inside request spans from Sentry, Datadog or OpenTelemetry,
+// which never reach this exporter. Our parent is kept under its own context key
+// so each job or AI call is its own trace, and the app's other instrumentation
+// keeps parenting off the request span.
 export class OwnParentTracer implements Tracer {
-  private spans = new WeakSet<Span>();
   constructor(private inner: Tracer) {}
 
   startSpan(name: string, options?: SpanOptions, ctx?: Context): Span {
     const active = ctx ?? otelContext.active();
-    const parent = trace.getSpan(active);
-    const span = this.inner.startSpan(
+    const parent = active.getValue(OWN_SPAN_KEY) as Span | undefined;
+    return this.inner.startSpan(
       name,
       options,
-      parent && this.spans.has(parent) ? active : trace.deleteSpan(active),
+      parent ? trace.setSpan(active, parent) : trace.deleteSpan(active),
     );
-    this.spans.add(span);
-    return span;
   }
 
   startActiveSpan<F extends (span: Span) => unknown>(
@@ -88,7 +89,7 @@ export class OwnParentTracer implements Tracer {
     const ctx = args.length > 2 ? (args[1] as Context) : otelContext.active();
     const span = this.startSpan(name, options, ctx);
     return otelContext.with(
-      trace.setSpan(ctx, span),
+      ctx.setValue(OWN_SPAN_KEY, span),
       () => fn(span) as ReturnType<F>,
     );
   }
