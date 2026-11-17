@@ -223,7 +223,8 @@ function issueLines(
 ): { path: PropertyKey[]; message: string }[] {
   const path = [...prefix, ...issue.path];
   if (issue.code === "invalid_union" && issue.errors.length) {
-    return issue.errors
+    const branches: readonly (readonly core.$ZodIssue[])[] = issue.errors;
+    return branches
       .reduce((best, branch) => (branch.length < best.length ? branch : best))
       .flatMap((inner) => issueLines(inner, path));
   }
