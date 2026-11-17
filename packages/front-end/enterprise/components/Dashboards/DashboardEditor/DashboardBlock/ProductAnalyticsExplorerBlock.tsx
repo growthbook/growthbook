@@ -286,6 +286,10 @@ export function ProductAnalyticsExplorerVisualization({
       <Flex direction="column" align="center" gap="3" p="4">
         {unsaved.error ? (
           <Callout status="error">{unsaved.error}</Callout>
+        ) : !unsavedDatasource ? (
+          <Callout status="warning">
+            No results yet. The Data Source for this block can&apos;t be found.
+          </Callout>
         ) : canRunUnsaved ? (
           <Callout status="info">No results yet.</Callout>
         ) : (

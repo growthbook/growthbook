@@ -36,6 +36,7 @@ import clsx from "clsx";
 import { cloneDeep, pick } from "lodash";
 import { isDefined } from "shared/util";
 import Text from "@/ui/Text";
+import HelperText from "@/ui/HelperText";
 
 import Button from "@/ui/Button";
 import Link from "@/ui/Link";
@@ -510,12 +511,9 @@ export default function DashboardWorkspace({
           <Flex align="center" gap="1">
             {dashboard.id === "new" ? null : saveError ? (
               <Tooltip body={saveError} delay={0}>
-                <PiX color="red" />
-                <Text ml="1" size="sm">
-                  <span style={{ color: "var(--red-11)" }}>
-                    Error saving dashboard
-                  </span>
-                </Text>
+                <HelperText status="error" size="sm">
+                  Error saving dashboard
+                </HelperText>
               </Tooltip>
             ) : saving ? (
               <>
