@@ -948,7 +948,7 @@ export const postColumnTopValues = async (
         datasource,
         factTable,
         [column],
-        { needsCounts: true },
+        { forceExactCounts: true },
       );
 
       const snapshot = {

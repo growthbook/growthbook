@@ -350,7 +350,7 @@ export type ColumnTopValuesParams = {
   maxValueLength?: number;
   searchTerm?: string;
   // Runs the exact aggregate instead of an approximate query, for counts
-  needsCounts?: boolean;
+  forceExactCounts?: boolean;
 };
 
 /** Rows are returned most-frequent-first per column. */

@@ -121,7 +121,7 @@ export async function runColumnsTopValueCountsQuery(
     limit?: number;
     searchTerm?: string;
     // Runs the exact aggregate instead of an approximate query, for counts
-    needsCounts?: boolean;
+    forceExactCounts?: boolean;
   },
 ): Promise<Record<string, RankedValue[]>> {
   if (!context.permissions.canRunFactQueries(datasource)) {
@@ -159,7 +159,7 @@ export async function runColumnsTopValueCountsQuery(
     ),
     maxValueLength: MAX_TOP_VALUE_LENGTH,
     searchTerm: options?.searchTerm,
-    needsCounts: options?.needsCounts,
+    forceExactCounts: options?.forceExactCounts,
   });
   const result = await integration.runColumnsTopValuesQuery(sql, factTable.id);
 

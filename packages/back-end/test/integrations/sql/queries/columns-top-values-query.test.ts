@@ -193,10 +193,10 @@ describe("getColumnsTopValuesQuery — exact fallback path", () => {
   });
 });
 
-describe("getColumnsTopValuesQuery — needsCounts", () => {
+describe("getColumnsTopValuesQuery — forceExactCounts", () => {
   it("runs the exact aggregate instead of an approximate query", () => {
     [clickHouseDialect, snowflakeDialect].forEach((dialect) => {
-      const sql = buildSql(dialect, { needsCounts: true });
+      const sql = buildSql(dialect, { forceExactCounts: true });
       expect(sql).toMatch(/GROUP BY/i);
       expect(sql).not.toMatch(/topK|APPROX_TOP_K/i);
       expect(sql).toMatch(/ORDER BY\s+column_name,\s*count DESC/i);

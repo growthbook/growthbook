@@ -246,11 +246,11 @@ describe("runColumnsTopValueCountsQuery", () => {
         columns: [],
       },
       [makeCol("country")],
-      { needsCounts: true },
+      { forceExactCounts: true },
     );
 
     expect(getColumnsTopValuesQuery).toHaveBeenCalledWith(
-      expect.objectContaining({ needsCounts: true }),
+      expect.objectContaining({ forceExactCounts: true }),
     );
     expect(runColumnsTopValuesQuery).toHaveBeenCalledWith(
       "SELECT top_values",

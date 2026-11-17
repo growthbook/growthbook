@@ -20,7 +20,7 @@ export function getColumnsTopValuesQuery(
     lookbackDays,
     maxValueLength,
     searchTerm,
-    needsCounts,
+    forceExactCounts,
   }: ColumnTopValuesParams,
 ): string {
   if (columns.length === 0) {
@@ -40,7 +40,7 @@ export function getColumnsTopValuesQuery(
   const timestampColumn = getFactTableTimestampColumn(factTable);
   // An approximate body without counts orders by its own rank column
   const orderBy =
-    dialect.approxTopValuesCTEBody && !needsCounts
+    dialect.approxTopValuesCTEBody && !forceExactCounts
       ? (dialect.approxTopValuesRankColumn ?? "count")
       : "count";
 
@@ -68,7 +68,7 @@ __topValues AS (
     maxValueLength,
     searchTerm,
     timestampColumn,
-    needsCounts,
+    forceExactCounts,
   })}
 )
 SELECT column_name, value, count FROM __topValues
@@ -86,7 +86,7 @@ type TopValuesCTEBodyParams = {
   maxValueLength?: number;
   searchTerm?: string;
   timestampColumn: string;
-  needsCounts?: boolean;
+  forceExactCounts?: boolean;
 };
 
 function getTopValuesCTEBody(
@@ -99,7 +99,7 @@ function getTopValuesCTEBody(
     maxValueLength,
     searchTerm,
     timestampColumn,
-    needsCounts,
+    forceExactCounts,
   }: TopValuesCTEBodyParams,
 ): string {
   const pairs = columns.map((c) => {
@@ -128,7 +128,7 @@ function getTopValuesCTEBody(
 
   // When the dialect has a native approximate top-k aggregate use it
   // for better performance.
-  if (dialect.approxTopValuesCTEBody && !needsCounts) {
+  if (dialect.approxTopValuesCTEBody && !forceExactCounts) {
     return dialect.approxTopValuesCTEBody({
       pairs,
       fromTable: "__factTable",
