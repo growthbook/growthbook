@@ -313,7 +313,7 @@ function parseMaxTimestampRow(row: Record<string, unknown> | undefined): {
   };
 }
 
-const startExperimentIncrementalRefreshQueries = async (
+export const startExperimentIncrementalRefreshQueries = async (
   context: ApiReqContext,
   params: ExperimentIncrementalRefreshQueryParams,
   integration: SourceIntegrationInterface,
