@@ -13,12 +13,13 @@ import {
   getManagedWarehouseExposureQueryIdForAttribute,
   getManagedWarehouseIdentifierForAttribute,
   getManagedWarehouseTypedAttributeColumns,
+  getManagedWarehouseBuiltinIdentifiers,
   getManagedWarehouseUserIdTypes,
   getManagedWarehouseUserIdTypeSettings,
   isManagedWarehouse,
+  isManagedWarehouseNoEventsGuidanceMessage,
   isManagedWarehouseMigrating,
   isManagedWarehouseUnavailable,
-  isManagedWarehouseNoEventsGuidanceMessage,
   isManagedWarehousePendingQueryError,
   MANAGED_WAREHOUSE_NO_EVENTS_MESSAGE,
   MANAGED_WAREHOUSE_PENDING_ERROR_CODE,
@@ -254,6 +255,113 @@ describe("getManagedWarehouseUserIdTypes", () => {
     ]);
   });
 
+  describe("schema-derived identifiers (identifiersFromAttributes)", () => {
+    const hash = (property: string): SDKAttributeSchema[number] => ({
+      property,
+      datatype: "string",
+      hashAttribute: true,
+    });
+    const derive = (
+      schema: SDKAttributeSchema,
+      migratedIdentifiers?: string[],
+    ) =>
+      getManagedWarehouseUserIdTypes(
+        schema,
+        [],
+        getManagedWarehouseBuiltinIdentifiers(
+          { identifiersFromAttributes: true, migratedIdentifiers },
+          schema,
+        ),
+      );
+
+    it("lists built-ins only when a hash attribute folds into them", () => {
+      expect(derive([hash("device_id")])).toEqual(["device_id"]);
+      expect(derive([hash("anonymous_id"), hash("user_id")])).toEqual([
+        "user_id",
+        "device_id",
+      ]);
+      expect(derive([hash("company_id")])).toEqual(["company_id"]);
+      expect(derive([{ ...hash("user_id"), archived: true }])).toEqual([
+        "device_id",
+      ]);
+    });
+
+    it("makes id its own identifier", () => {
+      expect(derive([hash("id")])).toEqual(["id"]);
+      expect(derive([hash("id"), hash("device_id")])).toEqual([
+        "device_id",
+        "id",
+      ]);
+      expect(
+        getManagedWarehouseIdentifierForAttribute({
+          settings: { userIdTypes: [{ userIdType: "id", description: "" }] },
+          attribute: "id",
+        }),
+      ).toBe("id");
+      // A warehouse that doesn't list `id` (no such attribute) folds it instead
+      expect(
+        getManagedWarehouseIdentifierForAttribute({
+          settings: {
+            identifiersFromAttributes: true,
+            userIdTypes: [{ userIdType: "device_id", description: "" }],
+          },
+          attribute: "id",
+        }),
+      ).toBe("device_id");
+    });
+
+    it("keeps preserved built-ins after the derived identifiers", () => {
+      expect(derive([hash("id")], ["user_id", "device_id", "old"])).toEqual([
+        "id",
+        "user_id",
+        "device_id",
+      ]);
+    });
+
+    it("aliases id from the attribute, falling back to the device_id column", () => {
+      const schema = [hash("id")];
+      const builtins = getManagedWarehouseBuiltinIdentifiers(
+        { identifiersFromAttributes: true },
+        schema,
+      );
+      const idAlias =
+        "coalesce(nullIf(attributes.id::Nullable(String), ''), nullIf(device_id, '')) AS id";
+      expect(
+        buildManagedWarehouseEventsFactTableSql(schema, [], [], builtins),
+      ).toContain(idAlias);
+      const queries = buildManagedWarehouseExposureQueries(
+        schema,
+        [],
+        [],
+        builtins,
+      );
+      expect(queries.map((q) => q.id)).toEqual(["id"]);
+      expect(queries[0].query).toContain(idAlias);
+      expect(
+        getManagedWarehouseEventsFactTableColumns(schema, [], [], builtins).map(
+          (c) => c.column,
+        ),
+      ).toContain("id");
+      // Settings-only path (Product Analytics) emits the same alias
+      expect(
+        buildManagedWarehouseAttributeAliasClause({
+          useJsonColumns: true,
+          identifiersFromAttributes: true,
+          userIdTypes: [{ userIdType: "id", description: "" }],
+        }),
+      ).toContain(idAlias);
+    });
+
+    it("leaves older warehouses on both built-ins", () => {
+      expect(
+        getManagedWarehouseBuiltinIdentifiers({}, [hash("device_id")]),
+      ).toEqual(["user_id", "device_id"]);
+      expect(
+        buildManagedWarehouseEventsFactTableSql([hash("id")]),
+      ).not.toContain("AS id");
+    });
+  });
+
   it("shapes userIdTypes for settings", () => {
     expect(getManagedWarehouseUserIdTypeSettings(defaultSchema)).toEqual([
       { userIdType: "user_id", description: "" },
@@ -378,123 +486,6 @@ describe("buildManagedWarehouseExposureQueries", () => {
       expect(q.dimensions).toContain("plan"); // preserved breakdown
       expect(q.dimensions).toContain("revenue");
     });
-  });
-});
-
-describe("idAttributeIdentifier (per-org `id` attribute mapping)", () => {
-  const USER_ID_CHAIN_WITH_ID =
-    "coalesce(nullIf(user_id, ''), nullIf(attributes.user_id::Nullable(String), ''), nullIf(attributes.id::Nullable(String), '')) AS user_id";
-  const DEVICE_ID_CHAIN_WITHOUT_ID =
-    "coalesce(nullIf(device_id, ''), nullIf(attributes.device_id::Nullable(String), ''), nullIf(attributes.anonymous_id::Nullable(String), '')) AS device_id";
-
-  it("moves the attributes.id fallback to the user_id chain in fact-table SQL", () => {
-    const sql = buildManagedWarehouseEventsFactTableSql(
-      defaultSchema,
-      [],
-      [],
-      "user_id",
-    );
-    expect(sql).toContain(USER_ID_CHAIN_WITH_ID);
-    expect(sql).toContain(DEVICE_ID_CHAIN_WITHOUT_ID);
-    // The key feeds exactly one identifier — never both chains.
-    expect(sql.match(/attributes\.id::Nullable\(String\)/g)?.length).toBe(1);
-  });
-
-  it("moves the attributes.id fallback in every generated exposure query", () => {
-    const queries = buildManagedWarehouseExposureQueries(
-      defaultSchema,
-      [],
-      [],
-      "user_id",
-    );
-    queries.forEach((q) => {
-      expect(q.query).toContain(USER_ID_CHAIN_WITH_ID);
-      expect(q.query).toContain(DEVICE_ID_CHAIN_WITHOUT_ID);
-    });
-  });
-
-  it("passing device_id explicitly matches the default output", () => {
-    expect(
-      buildManagedWarehouseEventsFactTableSql(
-        defaultSchema,
-        [],
-        [],
-        "device_id",
-      ),
-    ).toBe(buildManagedWarehouseEventsFactTableSql(defaultSchema));
-  });
-
-  it("buildManagedWarehouseAttributeAliasClause reads the flag from settings", () => {
-    const clause = buildManagedWarehouseAttributeAliasClause({
-      useJsonColumns: true,
-      idAttributeIdentifier: "user_id",
-    });
-    expect(clause).toContain(USER_ID_CHAIN_WITH_ID);
-    expect(clause).toContain(DEVICE_ID_CHAIN_WITHOUT_ID);
-  });
-
-  it("remaps only `id` in the attribute -> identifier fold", () => {
-    const settings: GrowthbookClickhouseSettings = {
-      useJsonColumns: true,
-      idAttributeIdentifier: "user_id",
-    };
-    const cases: Array<[string, string]> = [
-      ["id", "user_id"],
-      ["user_id", "user_id"],
-      ["device_id", "device_id"],
-      ["anonymous_id", "device_id"],
-      ["company_id", "company_id"],
-    ];
-    cases.forEach(([attribute, identifier]) => {
-      expect(
-        getManagedWarehouseIdentifierForAttribute({ settings, attribute }),
-      ).toBe(identifier);
-    });
-  });
-
-  it("resolves the user_id exposure query for the id attribute when flagged", () => {
-    const settings: GrowthbookClickhouseSettings = {
-      useJsonColumns: true,
-      idAttributeIdentifier: "user_id",
-      queries: {
-        exposure: buildManagedWarehouseExposureQueries(
-          defaultSchema,
-          [],
-          [],
-          "user_id",
-        ),
-      },
-    };
-    expect(
-      getManagedWarehouseExposureQueryIdForAttribute({
-        settings,
-        attribute: "id",
-      }),
-    ).toBe("user_id");
-  });
-
-  it("does not affect the legacy materialized-column mapping", () => {
-    const settings: GrowthbookClickhouseSettings = {
-      idAttributeIdentifier: "user_id",
-      materializedColumns: [
-        {
-          sourceField: "id",
-          columnName: "user_id",
-          datatype: "string",
-          type: "identifier",
-        },
-      ],
-    };
-    // The stored legacy mapping wins; the flag is only read on JSON warehouses.
-    expect(
-      getManagedWarehouseIdentifierForAttribute({ settings, attribute: "id" }),
-    ).toBe("user_id");
-    expect(
-      getManagedWarehouseIdentifierForAttribute({
-        settings,
-        attribute: "unknown",
-      }),
-    ).toBeNull();
   });
 });
 

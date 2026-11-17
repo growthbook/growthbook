@@ -1150,10 +1150,6 @@ app.post(
   "/datasource/:datasourceId/managed-warehouse/remove-legacy-identifier",
   datasourcesController.postRemoveManagedWarehouseLegacyIdentifier,
 );
-app.put(
-  "/datasource/:datasourceId/managed-warehouse/id-attribute-identifier",
-  datasourcesController.putManagedWarehouseIdAttributeIdentifier,
-);
 
 if (IS_CLOUD) {
   app.post(

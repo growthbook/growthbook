@@ -10,6 +10,7 @@ import {
   DataSourceInterfaceWithParams,
   DataSourceSettings,
   SchemaFormat,
+  GrowthbookClickhouseSettings,
 } from "shared/types/datasource";
 import {
   MetricDefaults,
@@ -19,6 +20,7 @@ import {
 import {
   buildManagedWarehouseEventsFactTableSql,
   getManagedWarehouseEventsFactTableColumns,
+  getManagedWarehouseBuiltinIdentifiers,
   getManagedWarehouseUserIdTypes,
 } from "shared/util";
 import {
@@ -84,12 +86,22 @@ export interface InitialDatasourceResources {
 
 function getBuiltInWarehouseResources(
   attributeSchema: SDKAttributeSchema | undefined,
+  settings: GrowthbookClickhouseSettings,
 ): InitialDatasourceResources {
+  const builtinIdentifiers = getManagedWarehouseBuiltinIdentifiers(
+    settings,
+    attributeSchema,
+  );
   // JSON-columns model: standard fields + `attributes`/`properties` JSON columns,
   // with identifiers exposed as top-level aliases in the fact-table SELECT.
   const columns = generateColumns(
     Object.fromEntries(
-      getManagedWarehouseEventsFactTableColumns(attributeSchema).map((c) => [
+      getManagedWarehouseEventsFactTableColumns(
+        attributeSchema,
+        [],
+        [],
+        builtinIdentifiers,
+      ).map((c) => [
         c.column,
         {
           datatype: c.datatype,
@@ -109,11 +121,20 @@ function getBuiltInWarehouseResources(
           id: MANAGED_WAREHOUSE_EVENTS_FACT_TABLE_ID,
           name: "Events",
           description: "",
-          sql: buildManagedWarehouseEventsFactTableSql(attributeSchema),
+          sql: buildManagedWarehouseEventsFactTableSql(
+            attributeSchema,
+            [],
+            [],
+            builtinIdentifiers,
+          ),
           // Mark the fact table as Official and block editing/deleting in the UI
           managedBy: "api",
           columns,
-          userIdTypes: getManagedWarehouseUserIdTypes(attributeSchema),
+          userIdTypes: getManagedWarehouseUserIdTypes(
+            attributeSchema,
+            [],
+            builtinIdentifiers,
+          ),
           eventName: "",
         },
         filters: [],
@@ -1098,7 +1119,7 @@ export function getInitialDatasourceResources({
   attributeSchema?: SDKAttributeSchema;
 }): InitialDatasourceResources {
   if (datasource.type === "growthbook_clickhouse") {
-    return getBuiltInWarehouseResources(attributeSchema);
+    return getBuiltInWarehouseResources(attributeSchema, datasource.settings);
   }
 
   switch (datasource.settings?.schemaFormat) {

@@ -373,6 +373,9 @@ export interface GrowthbookClickhouseSettings extends DataSourceSettings {
    * `attributes` JSON column (like hashAttribute identifiers) so legacy `userIdType`s and
    * the joins keyed on them survive. Persisted so the attribute-change sync re-includes
    * them rather than regenerating identifiers from the schema alone.
+   *
+   * Also holds built-ins (`user_id` / `device_id`) kept when a warehouse moved to
+   * `identifiersFromAttributes` without a hash attribute mapping to them.
    */
   migratedIdentifiers?: string[];
   /**
@@ -402,15 +405,13 @@ export interface GrowthbookClickhouseSettings extends DataSourceSettings {
    */
   jsonErgonomicsVersion?: number;
   /**
-   * Which built-in identifier the `id` attribute folds into in generated SQL.
-   * Defaults to "device_id" (the SDK tracking plugin's contract). Orgs that send
-   * a logged-in user ID under the `id` key via the Ingestion API can set
-   * "user_id" so `attributes.id` participates in user_id joins instead. Only
-   * meaningful on JSON-column warehouses, and incompatible with the tracking
-   * plugin: the plugin folds `id` into the physical device_id column client-side
-   * and strips it from the JSON, where this query-time remap can't see it.
+   * Identifiers follow the attribute schema: `user_id` / `device_id` only when
+   * a hash attribute folds into them (or they're preserved in
+   * `migratedIdentifiers`), and an `id` hash attribute is its own `id`
+   * identifier, not folded into a built-in. Set at creation; unset warehouses
+   * always list both built-ins.
    */
-  idAttributeIdentifier?: "user_id" | "device_id";
+  identifiersFromAttributes?: boolean;
 }
 
 interface DataSourceBase {
