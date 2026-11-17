@@ -1,9 +1,14 @@
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
 import { useForm } from "react-hook-form";
 import { Box, Flex, Heading, Text } from "@radix-ui/themes";
-import Link from "next/link";
 import { getValidDate } from "shared/dates";
 import { getAllMetricIdsFromExperiment } from "shared/experiments";
 import { useAuth } from "@/services/auth";
@@ -22,6 +27,9 @@ import Callout from "@/ui/Callout";
 import Button from "@/ui/Button";
 import SelectField from "@/components/Forms/SelectField";
 import DSTooltip from "@/ui/Tooltip";
+import track, { TrackEventProps } from "@/services/track";
+import { isCloud } from "@/services/env";
+import Link from "@/ui/Link";
 
 interface ExperimentSummaryType {
   experiment: ExperimentInterfaceStringDates;
@@ -89,7 +97,9 @@ export default function ExecExperimentImpact({
 
   const [loading, setLoading] = useState(true);
   const [snapshots, setSnapshots] = useState<ExperimentSnapshotInterface[]>();
+  const [snapshotLoadFailed, setSnapshotLoadFailed] = useState(false);
   const [showAllExperiments, setShowAllExperiments] = useState(false);
+  const [hasBeenViewed, setHasBeenViewed] = useState(false);
 
   const form = useForm<{
     adjusted: boolean;
@@ -100,6 +110,22 @@ export default function ExecExperimentImpact({
   });
 
   const adjusted = form.watch("adjusted");
+  const surface = embedded ? "dashboard-block" : "executive-dashboard";
+  const impactContainerRef = useRef<HTMLDivElement | null>(null);
+  const viewedRef = useRef(false);
+  const lastTrackedResultsKeyRef = useRef("");
+
+  const trackInteraction = useCallback(
+    (action: string, properties: TrackEventProps = {}) => {
+      track("Experiment Impact Interacted", {
+        surface,
+        action,
+        ...(metric ? { metricId: metric } : {}),
+        ...properties,
+      });
+    },
+    [metric, surface],
+  );
 
   const metricInterface = getExperimentMetricById(metric);
   const formatter = metricInterface
@@ -133,11 +159,13 @@ export default function ExecExperimentImpact({
         .join(",");
       if (!experimentIds) {
         setSnapshots([]);
+        setSnapshotLoadFailed(false);
         setLoading(false);
         return;
       }
 
       setLoading(true);
+      setSnapshotLoadFailed(false);
       try {
         const { snapshots } = await apiCall<{
           snapshots: ExperimentSnapshotInterface[];
@@ -146,6 +174,8 @@ export default function ExecExperimentImpact({
         });
         setSnapshots(snapshots);
       } catch (error) {
+        setSnapshots(undefined);
+        setSnapshotLoadFailed(true);
         console.error(`Error getting snapshots: ${error.message}`);
       }
       setLoading(false);
@@ -179,33 +209,189 @@ export default function ExecExperimentImpact({
   }, [experiments]);
 
   // 2 check for snapshots w/o impact and update data
-  const { summaryObj, nExpsUsedForAdjustment, experimentsWithNoImpact } =
-    useMemo(
-      () =>
-        scaleImpactAndSetMissingExperiments({
-          experiments,
-          snapshots,
-          metric,
-          selectedProjects: projects,
-          startDate: startDate?.toISOString() || "",
-          endDate: endDate?.toISOString() || "",
-          adjusted,
-          // The embedded (dashboard block) input is already date-filtered by
-          // the shared result-date helper, so skip the redundant date filter
-          // here to stay consistent with Win Percentage / Team Velocity.
-          skipDateFilter: embedded,
-        }),
-      [
+  const {
+    summaryObj,
+    nExpsUsedForAdjustment,
+    experimentsWithNoImpact,
+    estimatedShrinkageFactor,
+    appliedShrinkageFactor,
+  } = useMemo(
+    () =>
+      scaleImpactAndSetMissingExperiments({
         experiments,
         snapshots,
         metric,
-        projects,
-        startDate,
-        endDate,
+        selectedProjects: projects,
+        startDate: startDate?.toISOString() || "",
+        endDate: endDate?.toISOString() || "",
         adjusted,
-        embedded,
-      ],
+        // The embedded (dashboard block) input is already date-filtered by
+        // the shared result-date helper, so skip the redundant date filter
+        // here to stay consistent with Win Percentage / Team Velocity.
+        skipDateFilter: embedded,
+      }),
+    [
+      experiments,
+      snapshots,
+      metric,
+      projects,
+      startDate,
+      endDate,
+      adjusted,
+      embedded,
+    ],
+  );
+
+  const availabilityState = !metric
+    ? "metric_required"
+    : experiments.length === 0
+      ? "no_matching_metric_experiments"
+      : snapshotLoadFailed
+        ? "data_load_failed"
+        : experimentsWithNoImpact.length > 0
+          ? "scaled_impact_missing"
+          : "ready";
+
+  useEffect(() => {
+    if (loading) return;
+    track("Experiment Impact Availability Evaluated", {
+      surface,
+      entitled: true,
+      state: availabilityState,
+      ...(metric ? { metricId: metric } : {}),
+      experimentCount: experiments.length,
+      missingScaledImpactCount: experimentsWithNoImpact.length,
+    });
+  }, [
+    availabilityState,
+    experiments.length,
+    experimentsWithNoImpact.length,
+    loading,
+    metric,
+    snapshotLoadFailed,
+    surface,
+  ]);
+
+  useEffect(() => {
+    const element = impactContainerRef.current;
+    if (loading || !element || viewedRef.current) return;
+
+    const trackViewed = () => {
+      if (viewedRef.current) return;
+      viewedRef.current = true;
+      setHasBeenViewed(true);
+      track("Experiment Impact Viewed", {
+        surface,
+        state: availabilityState,
+        ...(metric ? { metricId: metric } : {}),
+        experimentCount: experiments.length,
+        missingScaledImpactCount: experimentsWithNoImpact.length,
+        hasResults: !!summaryObj,
+      });
+    };
+
+    if (typeof IntersectionObserver === "undefined") {
+      trackViewed();
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          trackViewed();
+          observer.disconnect();
+        }
+      },
+      { threshold: 0.1 },
     );
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [
+    availabilityState,
+    experiments.length,
+    experimentsWithNoImpact.length,
+    loading,
+    metric,
+    summaryObj,
+    surface,
+  ]);
+
+  useEffect(() => {
+    if (!isCloud() || !hasBeenViewed || !summaryObj || !metric) return;
+
+    const resultRows = (
+      [
+        ["winner", summaryObj.winners.experiments],
+        ["loser", summaryObj.losers.experiments],
+        ["other", summaryObj.others.experiments],
+      ] as const
+    ).flatMap(([resultType, resultExperiments]) =>
+      resultExperiments.flatMap((resultExperiment) => {
+        if (!resultExperiment.snapshotId || !resultExperiment.analysisKey) {
+          return [];
+        }
+        return resultExperiment.variationImpact.map(
+          (variationImpact, variationOffset) => ({
+            experimentId: resultExperiment.experiment.id,
+            snapshotId: resultExperiment.snapshotId,
+            analysisKey: resultExperiment.analysisKey,
+            variationIndex: variationOffset + 1,
+            resultType,
+            isKeyVariation:
+              resultExperiment.keyVariationId === variationOffset + 1,
+            selected: variationImpact.selected,
+            scaledImpact: variationImpact.scaledImpact,
+            scaledImpactAdjusted:
+              variationImpact.scaledImpactAdjusted ??
+              variationImpact.scaledImpact,
+            standardError: variationImpact.se,
+            ...(variationImpact.relativeEffect !== undefined
+              ? { relativeEffect: variationImpact.relativeEffect }
+              : {}),
+            ...(variationImpact.relativeEffectStandardError !== undefined
+              ? {
+                  relativeEffectStandardError:
+                    variationImpact.relativeEffectStandardError,
+                }
+              : {}),
+          }),
+        );
+      }),
+    );
+
+    const resultsKey = JSON.stringify({
+      metric,
+      surface,
+      appliedShrinkageFactor,
+      resultRows,
+    });
+    if (lastTrackedResultsKeyRef.current === resultsKey) return;
+    lastTrackedResultsKeyRef.current = resultsKey;
+
+    resultRows.forEach((result) => {
+      track("Experiment Impact Result Evaluated", {
+        surface,
+        metricId: metric,
+        ...result,
+        annualScaledImpact: result.scaledImpact * 365,
+        annualScaledImpactAdjusted: result.scaledImpactAdjusted * 365,
+        debiasEnabled: adjusted,
+        adjustmentEligible: nExpsUsedForAdjustment >= 5,
+        adjustmentExperimentCount: nExpsUsedForAdjustment,
+        estimatedShrinkageFactor,
+        appliedShrinkageFactor,
+      });
+    });
+  }, [
+    adjusted,
+    appliedShrinkageFactor,
+    estimatedShrinkageFactor,
+    hasBeenViewed,
+    metric,
+    nExpsUsedForAdjustment,
+    summaryObj,
+    surface,
+  ]);
 
   // top winning experiments by scaled impact:
   const topWinningExperiments = useMemo(() => {
@@ -316,7 +502,7 @@ export default function ExecExperimentImpact({
     );
   }
   return (
-    <>
+    <Box ref={impactContainerRef}>
       {!embedded && (
         <Flex justify="between" align="start" mb="2">
           <Box>
@@ -338,9 +524,13 @@ export default function ExecExperimentImpact({
             <label className="mb-1">Metric</label>
             <MetricSelector
               value={metric}
-              onChange={(metric) => {
+              onChange={(nextMetric) => {
                 if (setMetric) {
-                  setMetric(metric);
+                  trackInteraction("metric_changed", {
+                    hasSelection: !!nextMetric,
+                    ...(nextMetric ? { metricId: nextMetric } : {}),
+                  });
+                  setMetric(nextMetric);
                 }
               }}
               projects={projects}
@@ -379,13 +569,18 @@ export default function ExecExperimentImpact({
                         action={
                           <Button
                             color="inherit"
-                            onClick={() =>
-                              updateSnapshots(experimentsWithNoImpact).then(
-                                () => {
-                                  fetchSnapshots(experiments);
+                            onClick={async () => {
+                              trackInteraction(
+                                "calculate_scaled_impact_requested",
+                                {
+                                  experimentCount:
+                                    experimentsWithNoImpact.length,
+                                  experimentIds: experimentsWithNoImpact,
                                 },
-                              )
-                            }
+                              );
+                              await updateSnapshots(experimentsWithNoImpact);
+                              await fetchSnapshots(experiments);
+                            }}
                           >
                             Calculate Scaled Impact
                           </Button>
@@ -569,7 +764,12 @@ export default function ExecExperimentImpact({
                               id="adjust-scaled-impact"
                               label="De-bias?"
                               disabled={nExpsUsedForAdjustment < 5}
-                              onChange={(v) => form.setValue("adjusted", v)}
+                              onChange={(v) => {
+                                trackInteraction("debias_toggled", {
+                                  enabled: v,
+                                });
+                                form.setValue("adjusted", v);
+                              }}
                               value={adjusted && nExpsUsedForAdjustment >= 5}
                             />
                           </DSTooltip>
@@ -627,6 +827,9 @@ export default function ExecExperimentImpact({
                           sort={false}
                           value={experimentsToShow}
                           onChange={(v) => {
+                            trackInteraction("experiment_filter_changed", {
+                              filter: v,
+                            });
                             setExperimentsToShow(v);
                           }}
                           style={{
@@ -678,6 +881,12 @@ export default function ExecExperimentImpact({
                           <Link
                             href={`/experiment/${obj.experiment.id}`}
                             className="d-block"
+                            onClick={() => {
+                              trackInteraction("experiment_opened", {
+                                experimentId: obj.experiment.id,
+                                resultType: obj.type,
+                              });
+                            }}
                           >
                             <Flex align="center" gap="2">
                               <ExperimentDot
@@ -767,17 +976,19 @@ export default function ExecExperimentImpact({
               {showMoreExperiments && (
                 <Box mb="4" mt="2">
                   <Flex justify="center">
-                    <a
-                      href="#"
-                      onClick={(e) => {
-                        e.preventDefault();
+                    <Link
+                      onClick={() => {
+                        trackInteraction("experiment_list_toggled", {
+                          expanded: !showAllExperiments,
+                          experimentCount: showExperiments.length,
+                        });
                         setShowAllExperiments(!showAllExperiments);
                       }}
                     >
                       {showAllExperiments
                         ? "Show fewer"
                         : `Show all ${showExperiments.length} experiments`}
-                    </a>
+                    </Link>
                   </Flex>
                 </Box>
               )}
@@ -803,6 +1014,6 @@ export default function ExecExperimentImpact({
           </Box>
         )}
       </Flex>
-    </>
+    </Box>
   );
 }
