@@ -92,6 +92,7 @@ import {
   isExperimentResultsUpdateDisabled,
   EXPERIMENT_RESULTS_UPDATE_DISABLED_MESSAGE,
   getSnapshotSideEffects,
+  getMetricFilterForCarriedQueries,
 } from "shared/experiments";
 import { getValidDate, hoursBetween, resolveScheduledStop } from "shared/dates";
 import { buildAnalysisKey } from "shared/snapshot-analysis-chunks";
@@ -284,6 +285,7 @@ import {
 } from "back-end/src/services/experimentUpdateExecutionLogger";
 import { PAYLOAD_AFFECTING_EXPERIMENT_FIELDS } from "back-end/src/services/experimentPayloadFields";
 import { getScheduledAnalysisEndDate } from "back-end/src/services/scheduledAnalysisEndDate";
+import { planMetricRefresh } from "back-end/src/services/metricRefresh";
 import { isStandaloneBreakdownSnapshot } from "back-end/src/queryRunners/unitDimensionQueryNaming";
 import { getMetricForSnapshot } from "./reports";
 import {
@@ -2968,6 +2970,7 @@ export async function createExperimentSnapshot({
   type,
   reweight,
   bypassResultsUpdateDisabled,
+  missingMetricsOnly,
 }: {
   context: ReqContext;
   experiment: ExperimentInterface;
@@ -2979,6 +2982,7 @@ export async function createExperimentSnapshot({
   type?: SnapshotType;
   reweight?: boolean;
   bypassResultsUpdateDisabled?: boolean;
+  missingMetricsOnly?: boolean;
 }): Promise<{
   snapshot: ExperimentSnapshotInterface;
   queryRunner: ExperimentSnapshotQueryRunner;
@@ -2994,6 +2998,7 @@ export async function createExperimentSnapshot({
     type,
     reweight,
     bypassResultsUpdateDisabled,
+    missingMetricsOnly,
   });
 
   return createExperimentSnapshotFromPlan({
@@ -3048,6 +3053,7 @@ export async function planExperimentSnapshot({
   reweight,
   throwIfRequiresFullRefresh,
   bypassResultsUpdateDisabled,
+  missingMetricsOnly,
 }: {
   context: ReqContext;
   experiment: ExperimentInterface;
@@ -3061,6 +3067,7 @@ export async function planExperimentSnapshot({
   throwIfRequiresFullRefresh?: boolean;
   // Skip the org "disable updating results for stopped experiments" setting.
   bypassResultsUpdateDisabled?: boolean;
+  missingMetricsOnly?: boolean;
 }): Promise<PlannedExperimentSnapshot> {
   if (
     !bypassResultsUpdateDisabled &&
@@ -3161,7 +3168,7 @@ export async function planExperimentSnapshot({
     metricGroups,
   });
 
-  const plan = await planSnapshot({
+  const planSnapshotArgs = {
     experiment,
     context,
     phaseIndex: phase,
@@ -3176,8 +3183,20 @@ export async function planExperimentSnapshot({
     type: snapshotType,
     triggeredBy: triggeredBy ?? "manual",
     throwIfRequiresFullRefresh,
-  });
-  return plan;
+  };
+  if (missingMetricsOnly) {
+    return planMetricRefresh({
+      context,
+      experiment,
+      datasource,
+      phase,
+      dimension,
+      useCache,
+      metricGroups,
+      planSnapshotAt: (cutoff) => planSnapshot({ ...planSnapshotArgs, cutoff }),
+    });
+  }
+  return planSnapshot(planSnapshotArgs);
 }
 
 export type SnapshotAnalysisParams = {
@@ -3279,6 +3298,7 @@ async function getSnapshotAnalyses(
       queryMap,
       expandedMetricMap,
       snapshot.settings,
+      getMetricFilterForCarriedQueries(snapshot),
     );
     const id = `${i}_${experiment.id}_${snapshot.id}`;
     const variationNames = getLatestPhaseVariations(experiment).map(
@@ -3382,6 +3402,7 @@ export async function createSnapshotAnalysis(
     variationNames: getLatestPhaseVariations(experiment).map((v) => v.name),
     metricMap: metricMap,
     isStandaloneBreakdown: isStandaloneBreakdownSnapshot(snapshot),
+    analyzedMetricIds: getMetricFilterForCarriedQueries(snapshot),
   });
   analysis.results = results[0]?.dimensions || [];
   analysis.status = "success";
@@ -3448,6 +3469,7 @@ export async function createSnapshotAnalysesBatched(
       variationNames: getLatestPhaseVariations(experiment).map((v) => v.name),
       metricMap,
       isStandaloneBreakdown: isStandaloneBreakdownSnapshot(snapshot),
+      analyzedMetricIds: getMetricFilterForCarriedQueries(snapshot),
     });
 
     completedAnalyses = analyses.map((analysis, i) => ({

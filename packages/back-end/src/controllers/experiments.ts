@@ -2538,6 +2538,7 @@ export async function postSnapshot(
       dimension?: string;
       users?: number[];
       metrics?: { [key: string]: MetricStats[] };
+      missingMetricsOnly?: boolean;
     },
     { id: string },
     { force?: string }
@@ -2547,6 +2548,7 @@ export async function postSnapshot(
   const context = getContextFromReq(req);
   const { id } = req.params;
   const { phase, dimension } = req.body;
+  const missingMetricsOnly = req.body.missingMetricsOnly === true;
 
   const experiment = await getExperimentById(context, id);
   if (!experiment) {
@@ -2610,6 +2612,7 @@ export async function postSnapshot(
     phase: phaseIndex,
     useCache,
     type: experiment.type === "multi-armed-bandit" ? "exploratory" : undefined,
+    missingMetricsOnly,
   });
 
   await req.audit({
@@ -2623,6 +2626,7 @@ export async function postSnapshot(
       dimension,
       useCache,
       manual: false,
+      ...(missingMetricsOnly ? { missingMetricsOnly } : {}),
     }),
   });
   res.status(200).json({

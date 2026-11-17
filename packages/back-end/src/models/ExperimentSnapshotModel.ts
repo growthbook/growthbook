@@ -1233,6 +1233,32 @@ export async function findLatestSuccessfulSnapshotEndDate(
   return doc?.settings?.endDate ? new Date(doc.settings.endDate) : null;
 }
 
+/** The latest successful Overall snapshot, without its analysis results. */
+export async function findLatestSuccessfulOverallSnapshot(
+  context: Context,
+  { experiment, phase }: { experiment: string; phase: number },
+): Promise<ExperimentSnapshotInterface | null> {
+  const doc = await ExperimentSnapshotModel.findOne(
+    latestSuccessfulOverallQuery(context, experiment, phase),
+    null,
+    { sort: { dateCreated: -1 } },
+  );
+  return doc ? toInterface(doc) : null;
+}
+
+export async function getSnapshotQueryPointers(
+  context: Context,
+  id: string,
+): Promise<Queries | null> {
+  const doc = await ExperimentSnapshotModel.findOne(
+    { organization: context.org.id, id },
+    { queries: 1 },
+  )
+    .lean<Pick<ExperimentSnapshotInterface, "queries">>()
+    .exec();
+  return doc?.queries ?? null;
+}
+
 async function hasNewerSuccessfulOverallSnapshot(
   context: Context,
   snapshot: Pick<

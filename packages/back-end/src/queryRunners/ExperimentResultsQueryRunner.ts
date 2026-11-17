@@ -5,8 +5,10 @@ import { addDays } from "date-fns";
 import {
   ExperimentMetricInterface,
   getAllMetricIdsFromExperiment,
+  getDefinitionMetricId,
   getFactTableIdsForMetrics,
   getIsolatedDimensionIds,
+  getMetricFilterForCarriedQueries,
   quantileMetricType,
 } from "shared/experiments";
 import { FALLBACK_EXPERIMENT_MAX_LENGTH_DAYS } from "shared/constants";
@@ -34,6 +36,7 @@ import {
   ExperimentSnapshotHealth,
   ExperimentSnapshotInterface,
   ExperimentSnapshotSettings,
+  SnapshotMetricRefresh,
   SnapshotType,
 } from "shared/types/experiment-snapshot";
 import { MetricInterface } from "shared/types/metric";
@@ -69,6 +72,7 @@ import { expandDenominatorMetrics } from "back-end/src/util/sql";
 import { FactTableMap } from "back-end/src/models/FactTableModel";
 import SqlIntegration from "back-end/src/integrations/SqlIntegration";
 import { updateReport } from "back-end/src/models/ReportModel";
+import { carryMetricRefreshQueries } from "back-end/src/services/metricRefresh";
 import {
   QueryRunner,
   QueryMap,
@@ -77,7 +81,10 @@ import {
   StartQueryParams,
 } from "./QueryRunner";
 import { shouldRunHealthTrafficQuery } from "./snapshotQueryHelpers";
-import { getUnitDimQueryName } from "./unitDimensionQueryNaming";
+import {
+  getUnitDimQueryName,
+  parseUnitDimQueryName,
+} from "./unitDimensionQueryNaming";
 export type SnapshotResult = {
   unknownVariations: string[];
   multipleExposures: number;
@@ -104,6 +111,45 @@ export const CLUSTER_HEALTH_QUERY_NAME = "clusterHealth";
 
 export const UNITS_TABLE_PREFIX = "growthbook_tmp_units";
 
+const GROUP_QUERY_NAME = /^group_(\d+)$/;
+
+/**
+ * Which of a metric refresh's parent queries it copies: metric groups and
+ * traffic always, a single metric's query only while that metric is still
+ * analyzed, never the parent's units table or its drop.
+ */
+export function isCarriedMetricRefreshQuery(
+  name: string,
+  parentSnapshotId: string,
+  analyzedMetricIds: ReadonlySet<string>,
+): boolean {
+  if (name === parentSnapshotId || name === `drop_${parentSnapshotId}`) {
+    return false;
+  }
+  if (
+    name === TRAFFIC_QUERY_NAME ||
+    name === CLUSTER_TRAFFIC_QUERY_NAME ||
+    name === CLUSTER_HEALTH_QUERY_NAME
+  ) {
+    return true;
+  }
+  const baseName = parseUnitDimQueryName(name)?.baseQueryName ?? name;
+  return GROUP_QUERY_NAME.test(baseName) || analyzedMetricIds.has(baseName);
+}
+
+export function getIndexAfterLastGroup(queryNames: readonly string[]): number {
+  return queryNames.reduce((next, name) => {
+    const baseName = parseUnitDimQueryName(name)?.baseQueryName ?? name;
+    const index = GROUP_QUERY_NAME.exec(baseName)?.[1];
+    return index === undefined ? next : Math.max(next, Number(index) + 1);
+  }, 0);
+}
+
+type ResultQueryScope = {
+  metricIds: ReadonlySet<string>;
+  firstGroupIndex: number;
+};
+
 export const startExperimentResultQueries = async (
   context: ApiReqContext,
   params: ExperimentResultsQueryParams,
@@ -111,6 +157,7 @@ export const startExperimentResultQueries = async (
   startQuery: (
     params: StartQueryParams<RowsType, ProcessedRowsType>,
   ) => Promise<QueryPointer>,
+  scope?: ResultQueryScope,
 ): Promise<Queries> => {
   const snapshotType = params.snapshotType;
   const snapshotSettings = params.snapshotSettings;
@@ -128,7 +175,9 @@ export const startExperimentResultQueries = async (
   const selectedMetrics = getQueryableMetricsFromSnapshotSettings(
     snapshotSettings,
     metricMap,
-  );
+  ).filter((m) => !scope || scope.metricIds.has(getDefinitionMetricId(m.id)));
+  const groupQueryName = (i: number) =>
+    `group_${i + (scope?.firstGroupIndex ?? 0)}`;
   if (!selectedMetrics.length) {
     throw new UnrecoverableSnapshotError(
       "Experiment must have at least 1 metric selected.",
@@ -219,11 +268,13 @@ export const startExperimentResultQueries = async (
       : "";
 
   // Settings for health query
-  const runTrafficQuery = shouldRunHealthTrafficQuery({
-    snapshotType,
-    snapshotDimensions: snapshotSettings.dimensions,
-    runHealthTrafficQuery: org.settings?.runHealthTrafficQuery,
-  });
+  const runTrafficQuery =
+    !scope &&
+    shouldRunHealthTrafficQuery({
+      snapshotType,
+      snapshotDimensions: snapshotSettings.dimensions,
+      runHealthTrafficQuery: org.settings?.runHealthTrafficQuery,
+    });
 
   const { eligibleDimensionsWithSlices: dimensionsForTraffic } = exposureQuery
     ? getExposureQueryEligibleDimensions({
@@ -362,7 +413,7 @@ export const startExperimentResultQueries = async (
 
     queries.push(
       await startQuery({
-        name: `group_${i}`,
+        name: groupQueryName(i),
         query: integration.getExperimentFactMetricsQuery(queryParams),
         dependencies: unitQuery ? [unitQuery.query] : [],
         run: (query, setExternalId, queryMetadata) =>
@@ -408,7 +459,7 @@ export const startExperimentResultQueries = async (
       };
       queries.push(
         await startQuery({
-          name: getUnitDimQueryName(dimensionId, `group_${i}`),
+          name: getUnitDimQueryName(dimensionId, groupQueryName(i)),
           query: integration.getExperimentFactMetricsQuery(queryParams),
           dependencies,
           run: (query, setExternalId, queryMetadata) =>
@@ -628,17 +679,64 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
       );
     }
     if (
-      this.integration.getSourceProperties().separateExperimentResultQueries
+      !this.integration.getSourceProperties().separateExperimentResultQueries
     ) {
-      return startExperimentResultQueries(
-        this.context,
-        params,
-        this.integration,
-        this.startQuery.bind(this),
-      );
-    } else {
       return this.startLegacyQueries(params);
     }
+    if (this.model.metricRefresh) {
+      return this.startMetricRefreshQueries(params, this.model.metricRefresh);
+    }
+    return startExperimentResultQueries(
+      this.context,
+      params,
+      this.integration,
+      this.startQuery.bind(this),
+    );
+  }
+
+  private async startMetricRefreshQueries(
+    params: ExperimentResultsQueryParams,
+    metricRefresh: SnapshotMetricRefresh,
+  ): Promise<Queries> {
+    const analyzedMetricIds = new Set(
+      this.model.settings.metricSettings.map((m) => m.id),
+    );
+    const carried = await carryMetricRefreshQueries(
+      this.context,
+      metricRefresh,
+      ({ name }) =>
+        isCarriedMetricRefreshQuery(
+          name,
+          metricRefresh.parentSnapshotId,
+          analyzedMetricIds,
+        ),
+    );
+    const started = await startExperimentResultQueries(
+      this.context,
+      params,
+      this.integration,
+      this.startQuery.bind(this),
+      {
+        metricIds: new Set(metricRefresh.metricIds),
+        firstGroupIndex: getIndexAfterLastGroup(carried.map((q) => q.name)),
+      },
+    );
+    return [...carried, ...started];
+  }
+
+  protected override getOverallQueryStatus(): QueryStatus {
+    const status = super.getOverallQueryStatus();
+    return status === "partially-succeeded" && this.isIncompleteMetricRefresh()
+      ? "failed"
+      : status;
+  }
+
+  private isIncompleteMetricRefresh(): boolean {
+    if (!this.model.metricRefresh) return false;
+    const ownDropQuery = `drop_${this.model.id}`;
+    return this.model.queries.some(
+      (q) => q.status === "failed" && q.name !== ownDropQuery,
+    );
   }
 
   async runAnalysis(queryMap: QueryMap): Promise<SnapshotResult> {
@@ -649,6 +747,7 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
         analysisSettings: this.model.analyses.map((a) => a.settings),
         variationNames: this.variationNames,
         metricMap: this.metricMap,
+        analyzedMetricIds: getMetricFilterForCarriedQueries(this.model),
       });
 
     const result: SnapshotResult = {
