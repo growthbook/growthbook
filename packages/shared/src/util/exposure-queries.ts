@@ -1,6 +1,7 @@
 import isEqual from "lodash/isEqual";
 import omit from "lodash/omit";
 import {
+  DataSourceInterface,
   DataSourceSettings,
   ExposureQuery,
   ExposureQueryColumnMapping,
@@ -12,6 +13,7 @@ import type {
   ApiAssignmentQueryRefInput,
   AssignmentQueryField,
 } from "../validators/assignment-query-field";
+import { isManagedWarehouse } from "./managedWarehouse";
 import { isProjectListValidForProject } from ".";
 
 type ExposureQueryIdentity = Pick<
@@ -634,10 +636,41 @@ export function resolveExposureQueryForAnalysis(
   };
 }
 
+type ClusterSubUnitDataSource = Pick<DataSourceInterface, "type"> & {
+  settings?: Pick<DataSourceSettings, "userIdTypes">;
+};
+
+/**
+ * Managed Warehouse queries each declare one identifier, but every one of
+ * them returns a column for each of the warehouse's identifiers.
+ */
+export function getClusterSubUnitIdentifierTypes(
+  query: Pick<ExposureQuery, "userIdType" | "userIdTypes">,
+  datasource: ClusterSubUnitDataSource | null | undefined,
+  clusterIdentifierType: string | undefined,
+): string[] {
+  const types =
+    datasource && isManagedWarehouse(datasource)
+      ? (datasource.settings?.userIdTypes ?? []).map((t) => t.userIdType)
+      : getExposureQueryIdentifierTypes(query);
+  return types.filter((type) => type !== clusterIdentifierType);
+}
+
+export function getClusterSubUnitMissingError(
+  query: Pick<ExposureQuery, "id" | "name">,
+  datasource: ClusterSubUnitDataSource | null | undefined,
+  subUnitIdentifierType: string,
+): string {
+  return datasource && isManagedWarehouse(datasource)
+    ? `This Data Source doesn't have the subunit identifier type "${subUnitIdentifierType}".`
+    : `Assignment query "${query.name || query.id}" doesn't declare the subunit identifier type "${subUnitIdentifierType}".`;
+}
+
 type ClusterIdentifierValidation = { ok: true } | { ok: false; error: string };
 
 export function validateClusterExperimentIdentifiers(
   query: SelectableExposureQuery | undefined,
+  datasource: ClusterSubUnitDataSource | null | undefined,
   clusterIdentifierType: string | undefined,
   subUnitIdentifierType: string | undefined,
 ): ClusterIdentifierValidation {
@@ -668,17 +701,26 @@ export function validateClusterExperimentIdentifiers(
     };
   }
   const name = query.name || query.id;
-  const declared = getExposureQueryIdentifierTypes(query);
-  if (!declared.includes(clusterIdentifierType)) {
+  if (!getExposureQueryIdentifierTypes(query).includes(clusterIdentifierType)) {
     return {
       ok: false,
       error: `Assignment query "${name}" doesn't declare the cluster identifier type "${clusterIdentifierType}".`,
     };
   }
-  if (!declared.includes(subUnitIdentifierType)) {
+  if (
+    !getClusterSubUnitIdentifierTypes(
+      query,
+      datasource,
+      clusterIdentifierType,
+    ).includes(subUnitIdentifierType)
+  ) {
     return {
       ok: false,
-      error: `Assignment query "${name}" doesn't declare the subunit identifier type "${subUnitIdentifierType}".`,
+      error: getClusterSubUnitMissingError(
+        query,
+        datasource,
+        subUnitIdentifierType,
+      ),
     };
   }
   return { ok: true };

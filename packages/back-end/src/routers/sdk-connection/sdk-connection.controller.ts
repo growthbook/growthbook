@@ -27,6 +27,7 @@ import { validateRequireProjectForSdkConnections } from "back-end/src/api/sdk-co
 import { withReadablePayloadBreakdowns } from "back-end/src/services/sdkPayloadSize";
 import { queueSDKPayloadRefresh } from "back-end/src/services/features";
 import { resolvePremiumSdkSetting } from "back-end/src/util/sdkConnectionPremiumSettings";
+import { NotFoundError } from "back-end/src/util/errors";
 
 export const getSDKConnections = async (
   req: AuthRequest,
@@ -112,7 +113,7 @@ export const putSDKConnection = async (
   const connection = await findSDKConnectionById(context, id);
 
   if (!connection) {
-    throw new Error("Could not find SDK Connection");
+    throw new NotFoundError("Could not find SDK Connection");
   }
 
   if (!context.permissions.canUpdateSDKConnection(connection, req.body)) {
@@ -161,7 +162,7 @@ export const deleteSDKConnection = async (
 
   const connection = await findSDKConnectionById(context, id);
   if (!connection) {
-    throw new Error("Could not find SDK Connection");
+    throw new NotFoundError("Could not find SDK Connection");
   }
 
   if (!context.permissions.canDeleteSDKConnection(connection)) {
@@ -187,7 +188,7 @@ export const checkSDKConnectionProxyStatus = async (
   const connection = await findSDKConnectionById(context, id);
 
   if (!connection) {
-    throw new Error("Could not find SDK Connection");
+    throw new NotFoundError("Could not find SDK Connection");
   }
 
   if (!context.permissions.canUpdateSDKConnection(connection, {})) {
@@ -256,7 +257,7 @@ export const getSDKConnectionWebhooks = async (
 
   const conn = await findSDKConnectionById(context, id);
   if (!conn) {
-    throw new Error("Could not find SDK connection");
+    throw new NotFoundError("Could not find SDK connection");
   }
 
   const webhooks =
@@ -288,7 +289,7 @@ export async function postSDKConnectionWebhook(
   const { id } = req.params;
   const connection = await findSDKConnectionById(context, id);
   if (!connection) {
-    throw new Error("Could not find SDK Connection");
+    throw new NotFoundError("Could not find SDK Connection");
   }
 
   if (!context.permissions.canCreateSDKWebhook(connection)) {

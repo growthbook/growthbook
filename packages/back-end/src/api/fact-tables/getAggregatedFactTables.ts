@@ -7,13 +7,14 @@ import {
 } from "back-end/src/services/aggregatedFactTables";
 import { buildAggregatedFactTableSchemaState } from "back-end/src/enterprise/services/data-pipeline";
 import { getNextUpdateOccurrence } from "back-end/src/util/factTable";
+import { NotFoundError } from "back-end/src/util/errors";
 
 export const getAggregatedFactTables = createApiRequestHandler(
   getAggregatedFactTablesValidator,
 )(async (req) => {
   const factTable = await getFactTable(req.context, req.params.id);
   if (!factTable) {
-    throw new Error("Could not find factTable with that id");
+    throw new NotFoundError("Could not find factTable with that id");
   }
 
   const idTypes = factTable.aggregatedFactTableSettings?.idTypes ?? [];

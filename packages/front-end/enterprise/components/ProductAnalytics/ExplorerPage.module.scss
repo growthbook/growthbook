@@ -1,0 +1,16 @@
+// The page frame's side and top padding, less the explorer's own 8px inside,
+// so it lines up with pages in the frame. Explorer.tsx fills the window under
+// it, less --explorer-frame-y.
+.page {
+  --explorer-frame-y: var(--page-top-padding);
+  position: relative;
+  padding: calc(var(--page-top-padding) - var(--space-2))
+    calc(var(--page-padding) - var(--space-2)) 8px;
+}
+
+// SQL starts with the data source picker, which has 4px of its own, and no
+// actions row above it.
+.sql {
+  --explorer-frame-y: calc(var(--page-top-padding) + var(--space-1));
+  padding-top: calc(var(--page-top-padding) - var(--space-1));
+}
