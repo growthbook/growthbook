@@ -226,7 +226,9 @@ export default function ReportAnalysisSettingsBar({
                   label={unitDisplayName}
                   value={
                     <Tooltip content="Cluster counts aren't available when results are broken down by a dimension.">
-                      <span>—</span>
+                      <span tabIndex={0} style={{ cursor: "help" }}>
+                        —
+                      </span>
                     </Tooltip>
                   }
                   style={{ whiteSpace: "nowrap" }}
