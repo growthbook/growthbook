@@ -40,6 +40,7 @@ import {
   getIsExperimentIncludedInIncrementalRefresh,
   NewMetricRowState,
 } from "@/services/experiments";
+import { getSnapshotFreshnessInputs } from "@/services/snapshots";
 import { useIncrementalPipelineUnsupportedReason } from "@/hooks/useIncrementalPipelineUnsupportedReason";
 import { useRunningExperimentStatus } from "@/hooks/useExperimentStatusIndicator";
 import { hasHealthData } from "@/components/HealthTab/constants";
@@ -387,7 +388,11 @@ const Results: FC<{
           pValueCorrection={pValueCorrection}
           startDate={phaseObj?.dateStarted ?? ""}
           endDate={phaseObj?.dateEnded ?? ""}
-          reportDate={snapshot?.dateCreated ?? new Date()}
+          reportDate={
+            snapshot
+              ? getSnapshotFreshnessInputs(snapshot).dateCreated
+              : new Date()
+          }
           isLatestPhase={phase === experiment.phases.length - 1}
           sequentialTestingEnabled={analysis.settings?.sequentialTesting}
           lookbackOverride={getEffectiveLookbackOverride(
@@ -452,7 +457,7 @@ const Results: FC<{
               phase={phase}
               startDate={phaseObj?.dateStarted ?? ""}
               endDate={phaseObj?.dateEnded ?? ""}
-              reportDate={snapshot.dateCreated}
+              reportDate={getSnapshotFreshnessInputs(snapshot).dateCreated}
               activationMetric={experiment.activationMetric}
               status={experiment.status}
               statsEngine={
@@ -514,7 +519,7 @@ const Results: FC<{
               multipleExposures={snapshot.multipleExposures || 0}
               results={analysis.results[0]}
               queryStatusData={queryStatusData}
-              reportDate={snapshot.dateCreated}
+              reportDate={getSnapshotFreshnessInputs(snapshot).dateCreated}
               startDate={phaseObj?.dateStarted ?? ""}
               endDate={phaseObj?.dateEnded ?? ""}
               isLatestPhase={phase === experiment.phases.length - 1}

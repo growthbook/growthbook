@@ -23,6 +23,7 @@ import CompactResults from "@/components/Experiment/CompactResults";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { MetricDrilldownProvider } from "@/components/MetricDrilldown/MetricDrilldownContext";
 import PublicExperimentAnalysisSettingsBar from "@/components/Experiment/Public/PublicExperimentAnalysisSettingsBar";
+import { getSnapshotFreshnessInputs } from "@/services/snapshots";
 
 export default function PublicExperimentResults({
   experiment,
@@ -152,7 +153,7 @@ export default function PublicExperimentResults({
             pValueCorrection={pValueCorrection}
             startDate={phaseObj?.dateStarted ?? ""}
             endDate={phaseObj?.dateEnded ?? ""}
-            reportDate={snapshot.dateCreated}
+            reportDate={getSnapshotFreshnessInputs(snapshot).dateCreated}
             isLatestPhase={phase === experiment.phases.length - 1}
             sequentialTestingEnabled={analysis?.settings?.sequentialTesting}
             lookbackOverride={getEffectiveLookbackOverride(
@@ -194,7 +195,7 @@ export default function PublicExperimentResults({
                 phase={phase}
                 startDate={phaseObj?.dateStarted ?? ""}
                 endDate={phaseObj?.dateEnded ?? ""}
-                reportDate={snapshot.dateCreated}
+                reportDate={getSnapshotFreshnessInputs(snapshot).dateCreated}
                 activationMetric={experiment.activationMetric}
                 status={experiment.status}
                 statsEngine={analysis.settings.statsEngine}
@@ -215,7 +216,7 @@ export default function PublicExperimentResults({
                 multipleExposures={snapshot.multipleExposures || 0}
                 results={analysis.results[0]}
                 queryStatusData={queryStatusData}
-                reportDate={snapshot.dateCreated}
+                reportDate={getSnapshotFreshnessInputs(snapshot).dateCreated}
                 startDate={phaseObj?.dateStarted ?? ""}
                 endDate={phaseObj?.dateEnded ?? ""}
                 isLatestPhase={phase === experiment.phases.length - 1}
