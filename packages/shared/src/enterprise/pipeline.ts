@@ -2,6 +2,7 @@ import { getValidDate } from "shared/dates";
 import {
   getClusterSubUnit,
   getExperimentOutdatedReasonLabel,
+  getSnapshotDataAsOf,
   isFactMetric,
   isExperimentOutdatedReasonField,
   quantileMetricType,
@@ -412,7 +413,10 @@ export function overallResultsBuiltWithoutIncrementalPipeline({
 export function isNewerOverallResultsDataAvailable(
   sourceSnapshot: SourceSnapshotRef | undefined,
   latestSuccessfulOverallResultsSnapshot:
-    | Pick<ExperimentSnapshotInterface, "dateCreated">
+    | Pick<
+        ExperimentSnapshotInterface,
+        "type" | "dateCreated" | "metricRefresh"
+      >
     | undefined,
 ): boolean {
   if (!sourceSnapshot || !latestSuccessfulOverallResultsSnapshot) {
@@ -420,7 +424,8 @@ export function isNewerOverallResultsDataAvailable(
   }
 
   return (
-    getValidDate(latestSuccessfulOverallResultsSnapshot.dateCreated).getTime() >
-    getValidDate(sourceSnapshot.dateCreated).getTime()
+    getValidDate(
+      getSnapshotDataAsOf(latestSuccessfulOverallResultsSnapshot),
+    ).getTime() > getValidDate(sourceSnapshot.dateCreated).getTime()
   );
 }
