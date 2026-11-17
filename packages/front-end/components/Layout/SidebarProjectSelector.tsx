@@ -10,6 +10,7 @@ import {
 } from "./ProjectMenu";
 import { SidebarItemLook, SidebarMenuInPlace } from "./SidebarMenu";
 import { useMenuTriggerTooltip } from "./SidebarTooltip";
+import { useIsTruncated } from "./useIsTruncated";
 import styles from "./SidebarProjectSelector.module.scss";
 
 export default function SidebarProjectSelector({
@@ -29,20 +30,8 @@ export default function SidebarProjectSelector({
 
   // A truncated name gets a tooltip, as the collapsed avatar always does.
   const triggerRef = useRef<HTMLButtonElement>(null);
-  const labelRef = useRef<HTMLSpanElement>(null);
-  const [truncated, setTruncated] = useState(false);
-  useEffect(() => {
-    const el = labelRef.current;
-    if (!el) {
-      setTruncated(false);
-      return;
-    }
-    const check = () => setTruncated(el.scrollWidth > el.clientWidth);
-    check();
-    const observer = new ResizeObserver(check);
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, [collapsed, name]);
+  const [labelEl, setLabelEl] = useState<HTMLSpanElement | null>(null);
+  const truncated = useIsTruncated(labelEl, name);
 
   const tooltip = useMenuTriggerTooltip({
     label: name,
@@ -71,7 +60,7 @@ export default function SidebarProjectSelector({
       {avatar}
       {/* The badge follows the name, as Beta does a page's. */}
       <span className={styles.nameWithBadge}>
-        <span ref={labelRef} className={sidebarItem.labelClassName}>
+        <span ref={setLabelEl} className={sidebarItem.labelClassName}>
           {name}
         </span>
         {current && isDemo(current.id) ? <DemoBadge /> : null}

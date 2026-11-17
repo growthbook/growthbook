@@ -6,7 +6,6 @@ import {
   ReactNode,
   SetStateAction,
   useEffect,
-  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -47,6 +46,7 @@ import Badge from "@/ui/Badge";
 import Text from "@/ui/Text";
 import { planNameFromAccountPlan } from "@/services/utils";
 import { TooltipContainerContext } from "@/ui/Tooltip";
+import { useIsomorphicLayoutEffect } from "@/hooks/useIsomorphicLayoutEffect";
 import { BOTTOM_TOOLTIP_DELAY_MS, SidebarTooltip } from "./SidebarTooltip";
 import GrowthBookLogo, {
   WORDMARK_BASELINE_PX,
@@ -56,9 +56,11 @@ import ProfileMenu from "./ProfileMenu";
 import HelpMenu from "./HelpMenu";
 import OrgMenu from "./OrgMenu";
 import SidebarProjectSelector from "./SidebarProjectSelector";
+import { prefersReducedMotion, visibleFocusables } from "./dom";
 import { OPTICAL_STROKE, withOpticalWeight } from "./opticalWeight";
 import {
   buildSidebarLinkFilterProps,
+  NavGroupId,
   navlinks,
   settingsNavLink,
   SidebarLinkFilterProps,
@@ -104,16 +106,22 @@ const LightbulbNoHighlight: IconType = GenIcon({
   ],
 });
 
-const SECTION_ICONS: Record<string, IconType> = {
-  Features: withOpticalWeight(PiFlagPennant),
-  Experimentation: withOpticalWeight(PiFlask),
-  "Product Analytics": withOpticalWeight(PiChartLine),
-  "Metrics and Data": PiDatabase,
-  Insights: LightbulbNoHighlight,
-  "SDK Configuration": withOpticalWeight(PiCode),
+/**
+ * Every top-level group gets a place here: an icon makes it a section, null
+ * means it's drawn elsewhere in the sidebar.
+ */
+const GROUP_ICONS: Record<NavGroupId, IconType | null> = {
+  home: null,
+  features: withOpticalWeight(PiFlagPennant),
+  experimentation: withOpticalWeight(PiFlask),
+  productAnalytics: withOpticalWeight(PiChartLine),
+  metricsAndData: PiDatabase,
+  insights: LightbulbNoHighlight,
+  sdkConfiguration: withOpticalWeight(PiCode),
+  settings: null,
+  admin: null,
 };
-const SIDEBAR_SECTIONS = navlinks.filter((l) => !!SECTION_ICONS[l.name]);
-const ADMIN_LINK = navlinks.find((l) => l.name === "Admin");
+const ADMIN_LINK = navlinks.find((l) => l.id === "admin");
 
 /** On <html>; sets --sidebar-width (global.scss). */
 const COLLAPSED_CLASS = "app-sidebar-collapsed";
@@ -142,9 +150,6 @@ const HOVER_CLOSE_DELAY_MS = 150;
  * Runs before paint in the browser, so a saved collapsed sidebar never flashes
  * open.
  */
-const useIsomorphicLayoutEffect =
-  typeof window !== "undefined" ? useLayoutEffect : useEffect;
-
 const isMac = () =>
   typeof navigator !== "undefined" &&
   /Mac|iPhone|iPad/.test(navigator.userAgent);
@@ -206,17 +211,6 @@ function useSidebarCollapsed(
   return [collapsed, save];
 }
 
-const FOCUSABLE =
-  "a[href], button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex='-1'])";
-/** Skips hidden elements, such as a closed section's pages. */
-function drawerFocusables(nav: HTMLElement): HTMLElement[] {
-  return Array.from(nav.querySelectorAll<HTMLElement>(FOCUSABLE)).filter(
-    (el) =>
-      el.getClientRects().length > 0 &&
-      getComputedStyle(el).visibility !== "hidden",
-  );
-}
-
 function Keycap({ children }: { children: ReactNode }) {
   return (
     <span className={styles.keycap} aria-hidden="true">
@@ -232,13 +226,15 @@ type Section = {
 };
 
 function permittedSections(filterProps: SidebarLinkFilterProps): Section[] {
-  return SIDEBAR_SECTIONS.flatMap((link) => {
+  return navlinks.flatMap((link) => {
+    const Icon = GROUP_ICONS[link.id];
+    if (!Icon) return [];
     if (link.filter && !link.filter(filterProps)) return [];
     const pages = (link.subLinks || []).filter(
       (l) => !l.filter || l.filter(filterProps),
     );
     if (!pages.length) return [];
-    return [{ link, Icon: SECTION_ICONS[link.name], pages }];
+    return [{ link, Icon, pages }];
   });
 }
 
@@ -757,7 +753,7 @@ export default function Sidebar() {
       if (active && !nav.contains(active) && active !== document.body) {
         if (active.closest("[data-radix-popper-content-wrapper]")) return;
       }
-      const items = drawerFocusables(nav);
+      const items = visibleFocusables(nav);
       if (!items.length) return;
       const first = items[0];
       const last = items[items.length - 1];
@@ -860,10 +856,7 @@ export default function Sidebar() {
     const animate = userToggled.current;
     userToggled.current = false;
     if (!collapsed) setContentCollapsed(false);
-    const reducedMotion = window.matchMedia?.(
-      "(prefers-reduced-motion: reduce)",
-    ).matches;
-    if (!animate || reducedMotion) {
+    if (!animate || prefersReducedMotion()) {
       setContentCollapsed(collapsed);
       setResizing(false);
       return;
@@ -935,12 +928,9 @@ export default function Sidebar() {
       setSectionsFolded(true);
       return;
     }
-    const reducedMotion = window.matchMedia?.(
-      "(prefers-reduced-motion: reduce)",
-    ).matches;
     const timer = setTimeout(
       () => setSectionsFolded(false),
-      reducedMotion ? 0 : SIDEBAR_WIDTH_TRANSITION_MS,
+      prefersReducedMotion() ? 0 : SIDEBAR_WIDTH_TRANSITION_MS,
     );
     return () => clearTimeout(timer);
   }, [collapsed]);

@@ -44,9 +44,15 @@ export function DemoBadge() {
   );
 }
 
+function useIsDemoProject() {
+  const { orgId } = useAuth();
+  return (id: string) =>
+    isDemoDatasourceProject({ projectId: id, organizationId: orgId || "" });
+}
+
 export function useProjectSelector() {
   const { projects, project, getProjectById, setProject } = useDefinitions();
-  const { orgId } = useAuth();
+  const isDemo = useIsDemoProject();
   const permissions = usePermissions();
   const current = getProjectById(project);
 
@@ -55,9 +61,6 @@ export function useProjectSelector() {
   useEffect(() => {
     if (heldToOneProject) setProject(projects[0].id);
   }, [heldToOneProject, projects, setProject]);
-
-  const isDemo = (id: string) =>
-    isDemoDatasourceProject({ projectId: id, organizationId: orgId || "" });
 
   return {
     projects,
@@ -144,8 +147,8 @@ function useProjectMenuItems() {
     defaultSortField: "name",
     localStorageKey: "project-selector",
     searchFields: ["name^3", "description"],
-    // Without a search field, the page's ?q= would filter the menu unseen.
-    disableUrlSearchTerm: !showSearch,
+    // The page's ?q= is the page's search, not this menu's.
+    disableUrlSearchTerm: true,
   });
   // Nor a term typed before the field went away (a deleted project took the
   // count under the threshold): the sidebar's menu stays mounted, term and all.
@@ -201,7 +204,7 @@ export function ProjectMenu({
   anchorRef: RefObject<HTMLElement>;
 }) {
   const { project, setProject } = useDefinitions();
-  const { isDemo } = useProjectSelector();
+  const isDemo = useIsDemoProject();
   const searchRef = useRef<HTMLInputElement>(null);
   const { items, searchInputProps, showSearch } = useProjectMenuItems();
 
@@ -322,7 +325,7 @@ export function ProjectMenuInPlace({
   inPlace: SidebarMenuInPlace;
 }) {
   const { project, setProject } = useDefinitions();
-  const { isDemo } = useProjectSelector();
+  const isDemo = useIsDemoProject();
   const { items, searchInputProps, showSearch } = useProjectMenuItems();
   const searchRef = useRef<HTMLInputElement>(null);
 

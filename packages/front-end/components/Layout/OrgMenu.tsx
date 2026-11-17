@@ -72,13 +72,8 @@ export default function OrgMenu({
         key: o.id,
         onSelect: () => {
           setOpen(false);
-          if (current) {
-            inPlace?.onBack(false);
-            return;
-          }
-          // In the drawer, switching closes it, as choosing an item does.
-          inPlace?.onDone();
-          switchOrg(o.id);
+          // In the drawer, the menu closes it after any choice (InPlaceMenu).
+          if (!current) switchOrg(o.id);
         },
         content: (
           // The current one is bold, as in the project menu.

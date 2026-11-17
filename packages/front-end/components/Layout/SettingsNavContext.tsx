@@ -6,22 +6,19 @@ import {
   useCallback,
   useContext,
   useEffect,
-  useLayoutEffect,
   useMemo,
   useRef,
   useState,
 } from "react";
 import { useRouter } from "next/router";
 import useMediaQuery from "@/hooks/useMediaQuery";
+import { useIsomorphicLayoutEffect } from "@/hooks/useIsomorphicLayoutEffect";
 import usePageAreaCrowded from "./usePageAreaCrowded";
 import { isSettingsRoute } from "./sidebarNav";
 import {
   SETTINGS_NAV_MIN_WIDTH_PX,
   SETTINGS_WIDE_MIN_PAGE_AREA_PX,
 } from "./constants";
-
-const useIsomorphicLayoutEffect =
-  typeof window !== "undefined" ? useLayoutEffect : useEffect;
 
 type SettingsNavContextValue = {
   query: string;

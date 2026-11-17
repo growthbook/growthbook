@@ -1,7 +1,6 @@
 import React, {
   useCallback,
   useEffect,
-  useLayoutEffect,
   useRef,
   useState,
   useMemo,
@@ -69,6 +68,11 @@ import { useMetricMentionItems } from "@/enterprise/components/AIChat/Composer/u
 import { useSkillMenuItems } from "@/enterprise/components/AIChat/Composer/useSkillCommandItems";
 import { GHOST_TEXT_CLASS } from "@/enterprise/components/AIChat/Composer/extensions/ghostText";
 import { useAgentInteractionPrompts } from "@/enterprise/hooks/useAgentInteractionPrompts";
+import { useIsomorphicLayoutEffect } from "@/hooks/useIsomorphicLayoutEffect";
+import {
+  prefersReducedMotion,
+  visibleFocusables,
+} from "@/components/Layout/dom";
 import AgentChatHistory from "./AgentChatHistory";
 import {
   AGENT_DOCK_MOTION_MS,
@@ -214,9 +218,6 @@ function preWorkToSteps(
 // Past the AI Assistant button's fade back in, however slow the frames.
 const FOCUS_RETURN_MAX_MS = 1000;
 const LIMIT_CALLOUT_ID = "ai-assistant-limit-callout";
-// Before paint in the browser, as a plain effect on the server.
-const useIsomorphicLayoutEffect =
-  typeof window !== "undefined" ? useLayoutEffect : useEffect;
 // Below 1024px there's too little room beside it, so the panel covers the
 // window.
 const OVERLAY_MAX_WIDTH = "(max-width: 1023px)";
@@ -233,9 +234,6 @@ function markTableFrameEdges(tableFrame: HTMLElement) {
     scrollLeft + clientWidth < scrollWidth - 1,
   );
 }
-
-const PANEL_FOCUSABLE =
-  "a[href], button:not([disabled]), input:not([disabled]), textarea:not([disabled]), [contenteditable='true'], [tabindex]:not([tabindex='-1'])";
 
 // ---------------------------------------------------------------------------
 // Component
@@ -597,9 +595,7 @@ export default function AgentPanel({
     panelRef.current?.getBoundingClientRect();
     setShown(true);
   }, [open, rendered, shown]);
-  const reduceMotion =
-    typeof window !== "undefined" &&
-    !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+  const reduceMotion = prefersReducedMotion();
 
   useEffect(() => {
     const el = scrollContainerRef.current;
@@ -642,8 +638,11 @@ export default function AgentPanel({
     },
     [conversationId, reduceMotion],
   );
+  const stopRevealPin = useRef<(() => void) | null>(null);
+  useEffect(() => () => stopRevealPin.current?.(), []);
   const revealConversation = useCallback(() => {
     setSwitchHolding(false);
+    stopRevealPin.current?.();
     const scroller = scrollContainerRef.current;
     const el = conversationRef.current;
     if (!scroller || !el) return;
@@ -660,11 +659,24 @@ export default function AgentPanel({
       },
     );
     // Charts settle their height after mounting, so hold the end meanwhile.
+    // Until you scroll, or another reveal or the panel closing takes over.
     const end = performance.now() + AGENT_DOCK_MOTION_MS;
+    const userEvents = ["wheel", "touchstart", "pointerdown", "keydown"];
+    let frame = 0;
+    const stop = () => {
+      cancelAnimationFrame(frame);
+      userEvents.forEach((type) => scroller.removeEventListener(type, stop));
+      if (stopRevealPin.current === stop) stopRevealPin.current = null;
+    };
     const pin = () => {
       scroller.scrollTop = scroller.scrollHeight;
-      if (performance.now() < end) requestAnimationFrame(pin);
+      if (performance.now() < end) frame = requestAnimationFrame(pin);
+      else stop();
     };
+    userEvents.forEach((type) =>
+      scroller.addEventListener(type, stop, { passive: true }),
+    );
+    stopRevealPin.current = stop;
     pin();
   }, [scrollContainerRef]);
   useIsomorphicLayoutEffect(() => {
@@ -777,13 +789,7 @@ export default function AgentPanel({
       const panelEl = panelRef.current;
       const active = document.activeElement;
       if (!panelEl || !active || !panelEl.contains(active)) return;
-      const items = Array.from(
-        panelEl.querySelectorAll<HTMLElement>(PANEL_FOCUSABLE),
-      ).filter(
-        (el) =>
-          el.getClientRects().length > 0 &&
-          getComputedStyle(el).visibility !== "hidden",
-      );
+      const items = visibleFocusables(panelEl);
       if (!items.length) return;
       const first = items[0];
       const last = items[items.length - 1];
@@ -949,15 +955,37 @@ export default function AgentPanel({
     const panel = panelRef.current;
     if (!panel) return;
     let frame = 0;
-    const updateAll = () => {
+    // Only the tables that changed: an answer streams a token at a time.
+    const pending = new Set<HTMLTableElement>();
+    const update = () => {
       frame = 0;
-      panel.querySelectorAll("table").forEach((table) => {
+      pending.forEach((table) => {
         const tableFrame = table.parentElement;
         if (tableFrame) markTableFrameEdges(tableFrame);
       });
+      pending.clear();
     };
     const schedule = () => {
-      if (!frame) frame = requestAnimationFrame(updateAll);
+      if (!frame) frame = requestAnimationFrame(update);
+    };
+    const scheduleAll = () => {
+      panel.querySelectorAll("table").forEach((table) => pending.add(table));
+      schedule();
+    };
+    const onMutations = (records: MutationRecord[]) => {
+      for (const record of records) {
+        const changed =
+          record.target instanceof Element
+            ? record.target.closest("table")
+            : null;
+        if (changed) pending.add(changed);
+        record.addedNodes.forEach((node) => {
+          if (!(node instanceof Element)) return;
+          if (node instanceof HTMLTableElement) pending.add(node);
+          node.querySelectorAll("table").forEach((table) => pending.add(table));
+        });
+      }
+      if (pending.size) schedule();
     };
     // Scroll doesn't bubble: caught on the way down.
     const onScroll = (e: Event) => {
@@ -968,12 +996,12 @@ export default function AgentPanel({
         markTableFrameEdges(e.target);
       }
     };
-    schedule();
+    scheduleAll();
     panel.addEventListener("scroll", onScroll, true);
-    const resize = new ResizeObserver(schedule);
+    const resize = new ResizeObserver(scheduleAll);
     resize.observe(panel);
     // New and streaming answers.
-    const mutations = new MutationObserver(schedule);
+    const mutations = new MutationObserver(onMutations);
     mutations.observe(panel, { childList: true, subtree: true });
     return () => {
       cancelAnimationFrame(frame);

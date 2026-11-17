@@ -110,7 +110,9 @@ export default function AgentPanelResizeHandle({
     const d = drag.current;
     if (!d) return;
     endDrag();
-    onPreview(d.startWidth);
+    // The saved width, not the one measured at the start: that one is already
+    // limited to this window and would stick after the window widens.
+    onPreview(width);
   };
   useEffect(() => {
     if (!dragging) return;
@@ -175,8 +177,12 @@ export default function AgentPanelResizeHandle({
     endDrag();
     if (d.armed) {
       // Expanding keeps the width you had, for when it docks again.
-      onPreview(d.startWidth);
+      onPreview(width);
       onExpand();
+    } else if (d.width === d.startWidth) {
+      // A press without a move saves nothing: on a small window the width
+      // shown is less than the saved one.
+      onPreview(width);
     } else {
       onCommit(d.width);
     }

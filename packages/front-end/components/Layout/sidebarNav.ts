@@ -52,13 +52,31 @@ export function buildSidebarLinkFilterProps(input: {
   };
 }
 
-export const navlinks: SidebarLinkProps[] = [
+/**
+ * A stable id per top-level group, so the sidebar places each one by id and a
+ * new group can't be left out (Sidebar.tsx's GROUP_ICONS).
+ */
+export type NavGroupId =
+  | "home"
+  | "features"
+  | "experimentation"
+  | "productAnalytics"
+  | "metricsAndData"
+  | "insights"
+  | "sdkConfiguration"
+  | "settings"
+  | "admin";
+export type NavGroup = SidebarLinkProps & { id: NavGroupId };
+
+export const navlinks: NavGroup[] = [
   {
+    id: "home",
     name: "Home",
     href: "/",
     path: /^$/,
   },
   {
+    id: "features",
     name: "Features",
     href: "/features",
     path: /^(features|constants|configs)/,
@@ -84,6 +102,7 @@ export const navlinks: SidebarLinkProps[] = [
     ],
   },
   {
+    id: "experimentation",
     name: "Experimentation",
     href: "/experiments",
     path: /^(experiments|experiment\/|bandit|contextual-bandit|holdout|namespaces|power-calculator)/,
@@ -143,6 +162,7 @@ export const navlinks: SidebarLinkProps[] = [
     ],
   },
   {
+    id: "productAnalytics",
     name: "Product Analytics",
     href: "/product-analytics/explore",
     path: /^(product-analytics|sql-explorer|session-replay)/,
@@ -183,6 +203,7 @@ export const navlinks: SidebarLinkProps[] = [
     ],
   },
   {
+    id: "metricsAndData",
     name: "Metrics and Data",
     href: "/metrics",
     path: /^(metric\/|metrics|segment|dimension|datasources|fact-|metric-group|populations)/,
@@ -222,6 +243,7 @@ export const navlinks: SidebarLinkProps[] = [
     ],
   },
   {
+    id: "insights",
     name: "Insights",
     href: "/dashboard",
     path: /^(dashboard|learnings|timeline|metric-effect|correlations|presentation)/,
@@ -264,6 +286,7 @@ export const navlinks: SidebarLinkProps[] = [
     ],
   },
   {
+    id: "sdkConfiguration",
     name: "SDK Configuration",
     href: "/sdks",
     path: /^(attributes|environments|saved-groups|sdks|archetypes)/,
@@ -301,6 +324,7 @@ export const navlinks: SidebarLinkProps[] = [
     ],
   },
   {
+    id: "settings",
     name: "Settings",
     href: "/settings",
     path: /^(settings|projects?|integrations|events|importing)/,
@@ -409,6 +433,7 @@ export const navlinks: SidebarLinkProps[] = [
     ],
   },
   {
+    id: "admin",
     name: "Admin",
     href: "/admin",
     path: /^admin/,
