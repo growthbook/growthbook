@@ -1,4 +1,7 @@
-import { postSdkConnectionValidator } from "shared/validators";
+import {
+  postSdkConnectionValidator,
+  pickSdkConnectionSettings,
+} from "shared/validators";
 import {
   toApiSDKConnectionInterface,
   createSDKConnection,
@@ -6,7 +9,6 @@ import {
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { ensureLiveRevisionExists } from "back-end/src/revisions/util";
 import { runValidateSdkConnectionHooks } from "back-end/src/enterprise/sandbox/sandbox-eval";
-import { pickSettingsSnapshot } from "back-end/src/revisions/adapters/sdk-connection.adapter";
 import { sdkWriteFields } from "back-end/src/services/sdkConnectionApprovals";
 import { validatePostPayload } from "./validations";
 
@@ -25,7 +27,7 @@ export const postSdkConnection = createApiRequestHandler(
     context: req.context,
     original: null,
     sdkConnection: {
-      sdkConnection: pickSettingsSnapshot(params),
+      sdkConnection: pickSdkConnectionSettings(params),
       sdkWebhooks: [],
     },
   });

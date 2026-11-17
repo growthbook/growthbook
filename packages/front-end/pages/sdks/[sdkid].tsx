@@ -7,8 +7,8 @@ import {
 import {
   isActiveDraftStatus,
   parseSdkWebhookSnapshot,
+  sdkConnectionSettingsOf,
   SDKConnectionRevisionSnapshot,
-  SDKConnectionSettingsRevisionSnapshot,
 } from "shared/validators";
 import { useRouter } from "next/router";
 import { holdsSdkConnectionDraftDestination } from "shared/permissions";
@@ -99,84 +99,8 @@ function flattenConnection(
   connection: SDKConnectionInterface,
   webhooks: WebhookInterface[],
 ): SDKConnectionRevisionSnapshot {
-  const settings: SDKConnectionSettingsRevisionSnapshot = {
-    id: connection.id,
-    organization: connection.organization,
-    name: connection.name,
-    ...(connection.eventTracker !== undefined && {
-      eventTracker: connection.eventTracker,
-    }),
-    languages: connection.languages,
-    ...(connection.sdkVersion !== undefined && {
-      sdkVersion: connection.sdkVersion,
-    }),
-    environment: connection.environment,
-    projects: connection.projects,
-    encryptPayload: connection.encryptPayload,
-    ...(connection.hashSecureAttributes !== undefined && {
-      hashSecureAttributes: connection.hashSecureAttributes,
-    }),
-    ...(connection.includeVisualExperiments !== undefined && {
-      includeVisualExperiments: connection.includeVisualExperiments,
-    }),
-    ...(connection.includeDraftExperiments !== undefined && {
-      includeDraftExperiments: connection.includeDraftExperiments,
-    }),
-    ...(connection.includeDraftExperimentRefs !== undefined && {
-      includeDraftExperimentRefs: connection.includeDraftExperimentRefs,
-    }),
-    ...(connection.includeExperimentNames !== undefined && {
-      includeExperimentNames: connection.includeExperimentNames,
-    }),
-    ...(connection.includeRedirectExperiments !== undefined && {
-      includeRedirectExperiments: connection.includeRedirectExperiments,
-    }),
-    ...(connection.includeRuleIds !== undefined && {
-      includeRuleIds: connection.includeRuleIds,
-    }),
-    ...(connection.includeProjectIdInMetadata !== undefined && {
-      includeProjectIdInMetadata: connection.includeProjectIdInMetadata,
-    }),
-    ...(connection.includeCustomFieldsInMetadata !== undefined && {
-      includeCustomFieldsInMetadata: connection.includeCustomFieldsInMetadata,
-    }),
-    ...(connection.allowedCustomFieldsInMetadata !== undefined && {
-      allowedCustomFieldsInMetadata: connection.allowedCustomFieldsInMetadata,
-    }),
-    ...(connection.includeTagsInMetadata !== undefined && {
-      includeTagsInMetadata: connection.includeTagsInMetadata,
-    }),
-    ...(connection.includeExperimentScheduleInMetadata !== undefined && {
-      includeExperimentScheduleInMetadata:
-        connection.includeExperimentScheduleInMetadata,
-    }),
-    ...(connection.remoteEvalEnabled !== undefined && {
-      remoteEvalEnabled: connection.remoteEvalEnabled,
-    }),
-    ...(connection.tracesEnabled !== undefined && {
-      tracesEnabled: connection.tracesEnabled,
-    }),
-    ...(connection.savedGroupReferencesEnabled !== undefined && {
-      savedGroupReferencesEnabled: connection.savedGroupReferencesEnabled,
-    }),
-    ...(connection.savedGroupFormat !== undefined && {
-      savedGroupFormat: connection.savedGroupFormat,
-    }),
-    ...(connection.includeReferencedPrerequisites !== undefined && {
-      includeReferencedPrerequisites: connection.includeReferencedPrerequisites,
-    }),
-    // Omitted when unset: an explicit `undefined` isn't isEqual to an absent
-    // key, which would show as a phantom diff.
-    ...(connection.proxy.enabled !== undefined && {
-      proxyEnabled: connection.proxy.enabled,
-    }),
-    ...(connection.proxy.host !== undefined && {
-      proxyHost: connection.proxy.host,
-    }),
-    ...(connection.archived !== undefined && { archived: connection.archived }),
-  };
   return {
-    sdkConnection: settings,
+    sdkConnection: sdkConnectionSettingsOf({ ...connection }),
     sdkWebhooks: webhooks.map((wh) => parseSdkWebhookSnapshot(wh)),
   };
 }

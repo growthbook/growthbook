@@ -2,7 +2,6 @@ import { isEqual, omit } from "lodash";
 import { z } from "zod";
 import {
   EditSDKConnectionParams,
-  ProxyConnection,
   SDKConnectionInterface,
 } from "shared/types/sdk-connection";
 import { WebhookInterface } from "shared/types/webhook";
@@ -28,6 +27,8 @@ import {
   parseSdkWebhookSnapshot,
   sdkWebhookSnapshotValidator,
   sdkWebhookStableId,
+  pickSdkConnectionSettings,
+  sdkConnectionSettingsOf,
 } from "shared/validators";
 import type { Context } from "back-end/src/models/BaseModel";
 import {
@@ -84,10 +85,6 @@ function sendLandedWebhookEdits(
   }
   webhooks.forEach((w) => context.models.sdkWebhooks.send(w));
 }
-
-const SETTINGS_ALLOWED_KEYS = Object.keys(
-  sdkConnectionSettingsSnapshotValidator.shape,
-);
 
 export const CONNECTION_UPDATABLE_FIELDS: ReadonlySet<string> = new Set(
   Object.keys(sdkConnectionUpdatableFieldsSchema.shape),
@@ -191,7 +188,7 @@ export function sdkConnectionRevertChanges(
   live: SDKConnectionRevisionSnapshot,
   then: SDKConnectionRevisionSnapshot,
 ): Partial<SDKConnectionRevisionSnapshot> {
-  const sdkConnection = pickSettingsSnapshot(
+  const sdkConnection = pickSdkConnectionSettings(
     sdkConnectionDraftSettingsAfterSave(
       live.sdkConnection,
       live.sdkConnection,
@@ -248,31 +245,6 @@ export type SDKConnectionLiveSnapshot = SDKConnectionRevisionSnapshot & {
   dateUpdated?: Date;
 };
 
-// The settings a revision holds, from a connection flattened to them. Secrets
-// and system fields are dropped by the key whitelist.
-export function pickSettingsSnapshot(
-  flat: Record<string, unknown>,
-): SDKConnectionSettingsRevisionSnapshot {
-  const settings: Record<string, unknown> = {};
-  for (const key of SETTINGS_ALLOWED_KEYS) {
-    const value = flat[key];
-    if (value === null || value === undefined) continue;
-    settings[key] = value;
-  }
-  return settings as unknown as SDKConnectionSettingsRevisionSnapshot;
-}
-
-function toConnectionSettingsSnapshot(
-  entity: Record<string, unknown>,
-): SDKConnectionSettingsRevisionSnapshot {
-  const proxy = entity.proxy as ProxyConnection | undefined;
-  return pickSettingsSnapshot({
-    ...entity,
-    proxyEnabled: proxy ? proxy.enabled : entity.proxyEnabled,
-    proxyHost: proxy ? proxy.host : entity.proxyHost,
-  });
-}
-
 function toWebhookSnapshot(wh: WebhookInterface): SDKWebhookRevisionSnapshot {
   return {
     id: wh.id,
@@ -294,7 +266,7 @@ function toSnapshot(
 ): SDKConnectionRevisionSnapshot {
   const whs = (entity._webhooks as WebhookInterface[] | undefined) ?? [];
   return {
-    sdkConnection: toConnectionSettingsSnapshot(entity),
+    sdkConnection: sdkConnectionSettingsOf(entity),
     sdkWebhooks: whs.map(toWebhookSnapshot),
   };
 }
@@ -309,7 +281,7 @@ function toLiveSnapshot(
     ...(connection.dateUpdated !== undefined && {
       dateUpdated: connection.dateUpdated,
     }),
-    sdkConnection: toConnectionSettingsSnapshot({ ...connection }),
+    sdkConnection: sdkConnectionSettingsOf({ ...connection }),
     sdkWebhooks,
   };
 }
@@ -398,7 +370,7 @@ export const sdkConnectionAdapter: EntityRevisionAdapter<SDKConnectionRevisionSn
       // dropped on purpose.
       if ("sdkConnection" in raw) {
         return {
-          sdkConnection: toConnectionSettingsSnapshot(
+          sdkConnection: sdkConnectionSettingsOf(
             (raw.sdkConnection ?? {}) as Record<string, unknown>,
           ),
           sdkWebhooks: (raw.sdkWebhooks ?? []) as SDKWebhookRevisionSnapshot[],

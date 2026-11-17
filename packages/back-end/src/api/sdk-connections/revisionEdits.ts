@@ -15,13 +15,13 @@ import {
   putSdkConnectionRevisionArchiveValidator,
   putSdkConnectionRevisionSettingsValidator,
   putSdkConnectionRevisionWebhookValidator,
+  pickSdkConnectionSettings,
 } from "shared/validators";
 import { withLegacySavedGroupFlag } from "shared/sdk-versioning";
 import { SDKConnectionInterface } from "shared/types/sdk-connection";
 import { ApiReqContext } from "back-end/types/api";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
-import { pickSettingsSnapshot } from "back-end/src/revisions/adapters/sdk-connection.adapter";
 import {
   assertCanChangeSdkWebhooks,
   assertSdkWebhookFields,
@@ -54,7 +54,7 @@ function stageSettings(
 ) {
   const liveSettings = loaded.live.sdkConnection;
   const settingsAfter = (row: Revision | null) =>
-    pickSettingsSnapshot(
+    pickSdkConnectionSettings(
       sdkConnectionDraftSettingsAfterSave(
         row
           ? (row.target.snapshot as SDKConnectionRevisionSnapshot).sdkConnection

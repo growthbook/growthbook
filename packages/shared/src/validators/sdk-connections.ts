@@ -147,6 +147,38 @@ export type SDKConnectionSettingsRevisionSnapshot = z.infer<
   typeof sdkConnectionSettingsSnapshotValidator
 >;
 
+const SETTINGS_SNAPSHOT_KEYS = Object.keys(
+  sdkConnectionSettingsSnapshotValidator.shape,
+);
+
+// The settings a revision holds, from a connection flattened to them. Secrets
+// and system fields are dropped by the key whitelist, and unset ones left out.
+export function pickSdkConnectionSettings(
+  flat: Record<string, unknown>,
+): SDKConnectionSettingsRevisionSnapshot {
+  const settings: Record<string, unknown> = {};
+  for (const key of SETTINGS_SNAPSHOT_KEYS) {
+    const value = flat[key];
+    if (value === null || value === undefined) continue;
+    settings[key] = value;
+  }
+  return settings as unknown as SDKConnectionSettingsRevisionSnapshot;
+}
+
+// The same, from a stored connection, whose proxy settings are nested.
+export function sdkConnectionSettingsOf(
+  connection: Record<string, unknown>,
+): SDKConnectionSettingsRevisionSnapshot {
+  const proxy = connection.proxy as
+    | { enabled?: boolean; host?: string }
+    | undefined;
+  return pickSdkConnectionSettings({
+    ...connection,
+    proxyEnabled: proxy ? proxy.enabled : connection.proxyEnabled,
+    proxyHost: proxy ? proxy.host : connection.proxyHost,
+  });
+}
+
 // Runtime and secret webhook fields are omitted.
 export const sdkWebhookSnapshotValidator = z.object({
   id: z.string(),

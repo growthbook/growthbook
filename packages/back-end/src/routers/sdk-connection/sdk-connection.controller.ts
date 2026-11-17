@@ -17,6 +17,7 @@ import {
   sdkWebhookStableId,
   SDKConnectionRevisionSnapshot,
   SDKWebhookRevisionSnapshot,
+  pickSdkConnectionSettings,
 } from "shared/validators";
 import {
   Revision,
@@ -63,7 +64,6 @@ import { publishRevision } from "back-end/src/revisions/revisionActions";
 import {
   CONNECTION_UPDATABLE_FIELDS,
   isSdkConnectionRevert,
-  pickSettingsSnapshot,
   restoreWebhookHeaders,
   SDKConnectionLiveSnapshot,
 } from "back-end/src/revisions/adapters/sdk-connection.adapter";
@@ -121,7 +121,7 @@ export const postSDKConnection = async (
     context,
     original: null,
     sdkConnection: {
-      sdkConnection: pickSettingsSnapshot(createParams),
+      sdkConnection: pickSdkConnectionSettings(createParams),
       sdkWebhooks: [],
     },
   });
@@ -362,10 +362,10 @@ export const putSDKConnection = async (
   // Editing a draft replaces its op even when the result matches live, or a
   // setting reset back to live would keep the draft's old value.
   const editsExistingDraft = !!revisionId && !explicitPublish;
-  const currentSettingsSnapshot = pickSettingsSnapshot(currentState);
+  const currentSettingsSnapshot = pickSdkConnectionSettings(currentState);
   // A draft's object is its own: live fills in nothing it doesn't hold.
   const draftSettingsAfterSave = (row: Revision) =>
-    pickSettingsSnapshot(
+    pickSdkConnectionSettings(
       sdkConnectionDraftSettingsAfterSave(
         (row.target.snapshot as SDKConnectionRevisionSnapshot).sdkConnection,
         applyPatchToSnapshot(
@@ -382,7 +382,10 @@ export const putSDKConnection = async (
   const proposedSettingsSnapshot =
     editsExistingDraft && targetRevision
       ? draftSettingsAfterSave(targetRevision)
-      : pickSettingsSnapshot({ ...settingsComparisonBase, ...fieldsToUpdate });
+      : pickSdkConnectionSettings({
+          ...settingsComparisonBase,
+          ...fieldsToUpdate,
+        });
 
   const patchOps: JsonPatchOperation[] = [];
   // What landing this request writes, keyed like the composite snapshot.
