@@ -158,7 +158,10 @@ export function confirmationStatusQuery(
   const cutOff = new Date(now.getTime() - RUN_CUT_OFF_MS);
   return {
     pending: [{ status: "pending", expiresAt: { $gte: now } }],
-    expired: [{ status: "pending", expiresAt: { $lt: now } }],
+    expired: [
+      { status: "expired" },
+      { status: "pending", expiresAt: { $lt: now } },
+    ],
     running: [{ status: "running", decidedAt: { $gte: cutOff } }],
     completed: [
       { status: "completed" },
