@@ -7,11 +7,14 @@ import React, {
   useMemo,
   useState,
 } from "react";
-import { FaCompressAlt, FaExpandAlt } from "react-icons/fa";
+import { PiArrowsInSimple, PiArrowsOutSimple } from "react-icons/pi";
 import cloneDeep from "lodash/cloneDeep";
-import { HiOutlineClipboard, HiOutlineClipboardCheck } from "react-icons/hi";
+import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
+import { CopyIcon } from "@/ui/ActionIcons";
+import Text from "@/ui/Text";
+import UITooltip from "@/ui/Tooltip";
 import { CODE_FONT_SIZE, CODE_LINE_HEIGHT, getCodeTheme } from "./codeTheme";
 import PrismFallback from "./PrismFallback";
 import styles from "./Code.module.scss";
@@ -106,6 +109,9 @@ export default function Code({
     };
     style['pre[class*="language-"]'].backgroundColor = codeBackgrounds[theme];
     style['pre[class*="language-"]'].border = "1px solid var(--slate-a4)";
+    // Square on top, where the header meets it.
+    style['pre[class*="language-"]'].borderRadius =
+      "0 0 var(--radius-2) var(--radius-2)";
 
     if (maxHeight) {
       style['pre[class*="language-"]'].maxHeight = maxHeight;
@@ -137,74 +143,78 @@ export default function Code({
   });
 
   return (
-    <div
-      className={clsx(
-        "d-flex flex-column",
-        styles.codeHolder,
-        containerClassName,
-        {
-          [styles.collapsible]: expandable && enoughLines,
-          [styles.collapsed]: !isExpanded,
-        },
-      )}
+    <Flex
+      direction="column"
+      className={clsx(styles.codeHolder, containerClassName, {
+        [styles.collapsible]: expandable && enoughLines,
+        [styles.collapsed]: !isExpanded,
+      })}
       style={{
         maxWidth: "100%",
         ..._style,
       }}
     >
-      <div
-        className={clsx(
-          "bg-light d-flex align-items-center rounded-top",
-          styles.actionButtons,
-        )}
+      <Flex
+        align="center"
+        gap="3"
+        px="2"
+        py="1"
+        className={styles.actionButtons}
+        style={{
+          background: "var(--slate-a2)",
+          borderRadius: "var(--radius-2) var(--radius-2) 0 0",
+        }}
       >
-        <div>
-          <small className="text-muted px-2">{display}</small>
-        </div>
-        <div className="ml-auto"></div>
-        {copySuccess && (
-          <div className={styles.message}>
-            copied!
-            <div className={styles.arrow} />
-          </div>
-        )}
+        <Text size="sm" color="text-low">
+          {display}
+        </Text>
+        <Box flexGrow="1" />
         {copySupported && (
-          <div
-            className="p-1 text-muted"
-            title="Copy to Clipboard"
-            role="button"
-            style={{ cursor: "pointer", fontSize: "1.1rem" }}
-            onClick={async (e) => {
-              e.preventDefault();
-              performCopy(code);
-            }}
-          >
-            {copySuccess ? <HiOutlineClipboardCheck /> : <HiOutlineClipboard />}
-          </div>
+          <UITooltip content={copySuccess ? "Copied" : "Copy to clipboard"}>
+            <IconButton
+              type="button"
+              size="1"
+              radius="full"
+              variant="ghost"
+              aria-label="Copy to clipboard"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                if (!copySuccess) performCopy(code);
+              }}
+            >
+              <CopyIcon copied={copySuccess} size="sm" />
+            </IconButton>
+          </UITooltip>
         )}
 
         {expandable && enoughLines && (
-          <div
-            className="p-1 text-muted"
-            title={isExpanded ? "Collapse" : "Expand"}
-            role="button"
-            style={{ cursor: "pointer" }}
-            onClick={async (e) => {
-              e.preventDefault();
-              isExpanded ? setIsExpanded(false) : expand();
-            }}
-          >
-            {isExpanded ? <FaCompressAlt /> : <FaExpandAlt />}
-          </div>
+          <UITooltip content={isExpanded ? "Collapse" : "Expand"}>
+            <IconButton
+              type="button"
+              size="1"
+              radius="full"
+              variant="ghost"
+              aria-label={isExpanded ? "Collapse" : "Expand"}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                if (isExpanded) setIsExpanded(false);
+                else expand();
+              }}
+            >
+              {isExpanded ? <PiArrowsInSimple /> : <PiArrowsOutSimple />}
+            </IconButton>
+          </UITooltip>
         )}
-      </div>
+      </Flex>
       {!shouldRenderPrism ? (
         // Keep the fallback rendering until expanded
         // this way it is more lightweight and does not block the UI
         <PrismFallback
           language={language}
           style={style}
-          className={clsx("rounded-bottom", className)}
+          className={className}
           code={code}
           showLineNumbers={showLineNumbers}
           startingLineNumber={startingLineNumber ?? 1}
@@ -217,7 +227,7 @@ export default function Code({
             <PrismFallback
               language={language}
               style={style}
-              className={clsx("rounded-bottom", className)}
+              className={className}
               code={code}
               showLineNumbers={showLineNumbers}
               startingLineNumber={startingLineNumber ?? 1}
@@ -227,7 +237,7 @@ export default function Code({
           <Prism
             language={language}
             style={style}
-            className={clsx("rounded-bottom", className)}
+            className={className}
             showLineNumbers={showLineNumbers}
             startingLineNumber={startingLineNumber ?? 1}
             {...(errorLine
@@ -264,6 +274,6 @@ export default function Code({
           </Prism>
         </Suspense>
       )}
-    </div>
+    </Flex>
   );
 }

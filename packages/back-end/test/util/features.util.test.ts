@@ -1,6 +1,7 @@
 import type { LegacyFeatureInterface } from "shared/types/feature";
 import {
   applyEnvironmentInheritance,
+  filterRefreshableSDKConnections,
   indexRevisions,
   toFeatureMetaInfo,
 } from "../../src/util/features";
@@ -281,6 +282,20 @@ describe("feature utils", () => {
         );
         expect(result.staging).toEqual({ enabled: true });
       });
+    });
+  });
+
+  describe("filterRefreshableSDKConnections", () => {
+    it("drops archived connections and keeps the rest in order", () => {
+      const connections = [
+        { key: "a", archived: false },
+        { key: "b", archived: true },
+        { key: "c" },
+        { key: "d", archived: undefined },
+      ];
+      expect(
+        filterRefreshableSDKConnections(connections).map((c) => c.key),
+      ).toEqual(["a", "c", "d"]);
     });
   });
 });

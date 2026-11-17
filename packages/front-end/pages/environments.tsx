@@ -61,7 +61,9 @@ const EnvironmentsPage: FC = () => {
       )
     : environments;
 
-  const { data: sdkConnectionData } = useSDKConnections();
+  const { data: sdkConnectionData } = useSDKConnections({
+    includeArchived: true,
+  });
   const sdkConnectionsMap = useMemo(() => {
     const map: Record<string, string[]> = {};
     sdkConnectionData?.connections?.forEach((c) => {

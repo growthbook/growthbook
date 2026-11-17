@@ -32,7 +32,7 @@ const TAB_FILLS_RAIL = {
 } as const;
 
 // Whether a page's details panel shows, how wide, and on which of its tabs. On
-// the page's home tab the open state is remembered; off it the panel starts
+// the page's home tabs the open state is remembered; off them the panel starts
 // closed, and opening it there lasts until the tab changes. When narrow, it
 // opens only on request, over the content; the stored choice is for a wide
 // window, so narrowing never overwrites it.
@@ -45,7 +45,7 @@ export function useDetailsPanel({
   openKey: string;
   widthKey: string;
   tab: string;
-  homeTab: string;
+  homeTab: string | string[];
 }) {
   const [storedOpen, setStoredOpen] = useLocalStorage(openKey, true);
   const [width, setWidth] = useLocalStorage(widthKey, PANEL_WIDTH_PX);
@@ -56,7 +56,7 @@ export function useDetailsPanel({
   useEffect(() => setOpenOffHome(false), [tab]);
   const [open, setOpen]: [boolean, (open: boolean) => void] = narrow
     ? [openWhileNarrow, setOpenWhileNarrow]
-    : tab === homeTab
+    : [homeTab].flat().includes(tab)
       ? [storedOpen, setStoredOpen]
       : [openOffHome, setOpenOffHome];
   // Held here because the panel unmounts whenever it closes.
@@ -112,8 +112,44 @@ export function DetailsPanelLayout({
   );
 }
 
-// A page's right rail: its details, and its comment thread.
-export default function DetailsPanel({
+// The details, scrolling within the rail.
+function DetailsScroll({ children }: { children: ReactNode }) {
+  return (
+    <ScrollArea fill fillMinHeight="300px" style={{ flex: 1, minHeight: 0 }}>
+      <Flex px="5" pt="4" pb="8" direction="column" gap="4">
+        {children}
+      </Flex>
+    </ScrollArea>
+  );
+}
+
+type Discussion = {
+  type: DiscussionParentType;
+  id: string;
+  projects: string[];
+  allowNewComments: boolean;
+};
+
+// A page's right rail: its details, and its comment thread if it has one.
+export default function DetailsPanel(
+  props:
+    | { children: ReactNode }
+    | {
+        tab: DetailsPanelTab;
+        setTab: (tab: DetailsPanelTab) => void;
+        discussion: Discussion;
+        children: ReactNode;
+      },
+) {
+  if ("discussion" in props) return <DetailsWithDiscussion {...props} />;
+  return (
+    <Flex direction="column" flexGrow="1" minHeight="0">
+      <DetailsScroll>{props.children}</DetailsScroll>
+    </Flex>
+  );
+}
+
+function DetailsWithDiscussion({
   tab,
   setTab,
   discussion,
@@ -121,12 +157,7 @@ export default function DetailsPanel({
 }: {
   tab: DetailsPanelTab;
   setTab: (tab: DetailsPanelTab) => void;
-  discussion: {
-    type: DiscussionParentType;
-    id: string;
-    projects: string[];
-    allowNewComments: boolean;
-  };
+  discussion: Discussion;
   children: ReactNode;
 }) {
   // The thread's own request, so a new comment updates the count too.
@@ -184,15 +215,7 @@ export default function DetailsPanel({
       {/* Each held to the rail's height. The comments scroll on their own,
           outside any scroll area, so their composer can stick to the window. */}
       <TabsContent value="details" style={TAB_FILLS_RAIL}>
-        <ScrollArea
-          fill
-          fillMinHeight="300px"
-          style={{ flex: 1, minHeight: 0 }}
-        >
-          <Flex px="5" pt="4" pb="8" direction="column" gap="4">
-            {children}
-          </Flex>
-        </ScrollArea>
+        <DetailsScroll>{children}</DetailsScroll>
       </TabsContent>
       <TabsContent value="comments" style={TAB_FILLS_RAIL}>
         <DiscussionThread

@@ -4,6 +4,7 @@ import {
   draftRevertedFromVersion,
   isPureFeatureArchive,
   isPureFeatureRevert,
+  proposedProjectScope,
 } from "../../src/util/featureDraftPurity";
 
 // Live feature: drifted away from the target on defaultValue and rules, and it
@@ -395,5 +396,37 @@ describe("draftRevertedFromVersion", () => {
 
   it("is undefined for a draft that reverts nothing", () => {
     expect(draftRevertedFromVersion({})).toBeUndefined();
+  });
+});
+
+describe("proposedProjectScope", () => {
+  it("reads root project / projects ops", () => {
+    expect(
+      proposedProjectScope([
+        { op: "replace", path: "/project", value: "p1" },
+        { op: "add", path: "/projects", value: ["p1", "p2"] },
+      ]),
+    ).toEqual({ project: "p1", projects: ["p1", "p2"] });
+  });
+
+  it("sees a relocation inside a composite `/sdkConnection` replace", () => {
+    expect(
+      proposedProjectScope([
+        {
+          op: "replace",
+          path: "/sdkConnection",
+          value: { name: "c", environment: "staging", projects: ["p9"] },
+        },
+      ]),
+    ).toEqual({ projects: ["p9"] });
+  });
+
+  it("ignores a `/sdkConnection` replace that carries no projects", () => {
+    expect(
+      proposedProjectScope([
+        { op: "replace", path: "/sdkConnection", value: { name: "c" } },
+        { op: "remove", path: "/projects" },
+      ]),
+    ).toEqual({});
   });
 });

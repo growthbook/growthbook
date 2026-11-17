@@ -66,10 +66,13 @@ export const REVISION_MODEL = {
   "saved-group": "savedGroup",
   constant: "constant",
   config: "config",
+  "sdk-connection": "sdkConnection",
 } as const satisfies Record<
   RevisionTargetType | "feature",
   ConfirmationLink["type"]
 >;
+type RevisionModelName = (typeof REVISION_MODEL)[keyof typeof REVISION_MODEL];
+type PatchRevisionModelName = Exclude<RevisionModelName, "feature">;
 
 // The ramp plans staged on a flag draft: each starts a schedule or edits one when
 // the draft lands.
@@ -493,7 +496,7 @@ type ArmableRevision = {
 const isArmed = (revision: ArmableRevision) =>
   !!revision.autoPublishOnApproval || !!revision.scheduledPublishAt;
 const patchDraftState = (
-  model: "savedGroup" | "constant" | "config",
+  model: PatchRevisionModelName,
   revision: (ArmableRevision & { target: { proposedChanges: unknown } }) | null,
 ): DraftState =>
   revision && {
@@ -596,15 +599,19 @@ async function armedRevisionActions(
 }
 
 // Publishing a draft: the publish, plus any archive or ramp plan it carries.
+// SDK connections have no publish/archive actions; any landing is an edit.
 export const landingActions = (
-  model: "feature" | "savedGroup" | "constant" | "config",
+  model: RevisionModelName,
   archives: boolean,
   ramps: ConfirmAction[] = [],
-): ConfirmAction[] => [
-  `${model}.publish`,
-  ...(archives ? ([`${model}.archive`] as const) : []),
-  ...ramps,
-];
+): ConfirmAction[] =>
+  model === "sdkConnection"
+    ? ["sdkConnection.edit"]
+    : [
+        `${model}.publish`,
+        ...(archives ? ([`${model}.archive`] as const) : []),
+        ...ramps,
+      ];
 const featureLanding = (revision: FeatureRevisionInterface) =>
   landingActions(
     "feature",
@@ -636,7 +643,7 @@ export const editDisarmsFeatureDraft = (
 ) => editDisarms(context, featureDraftState(revision));
 export const editDisarmsDraft = (
   context: ReqContext,
-  model: "savedGroup" | "constant" | "config",
+  model: PatchRevisionModelName,
   revision: ArmableRevision & { target: { proposedChanges: unknown } },
 ) => editDisarms(context, patchDraftState(model, revision));
 export const DISARMED_BY_EDIT =
