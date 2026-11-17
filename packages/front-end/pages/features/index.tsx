@@ -383,6 +383,7 @@ export default function FeaturesPage() {
                   <TableColumnHeader>
                     Recent Usage{" "}
                     <Tooltip
+                      usePortal
                       flipTheme={false}
                       body="Client-side feature evaluations for the past 30 minutes. Blue means the feature was 'on', Gray means it was 'off'."
                     />
