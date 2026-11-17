@@ -567,6 +567,37 @@ describe("metric refresh (metrics-only runs)", () => {
     ]);
   });
 
+  it("keeps a finished target's cache and every stored one when another target's cache fails", async () => {
+    const { recorded, updateState } = await refreshDag(["a3", "c1"]);
+    const maxTimestampOf = (factTableId: string) => {
+      const query = recorded.find((r) =>
+        r.name.startsWith(`max_timestamp_metrics_source_${factTableId}_`),
+      );
+      if (!query) throw new Error(`no ${factTableId} target cache`);
+      return query;
+    };
+    const a3 = maxTimestampOf("ft_a");
+    const c1 = maxTimestampOf("ft_c");
+
+    await a3.onSuccess?.([{ max_timestamp: "2026-11-10T11:59:30Z" }]);
+    c1.onFailure?.();
+    await Promise.resolve();
+
+    const stored = [
+      ...baseState().metricSources,
+      expect.objectContaining({
+        groupId: a3.name.replace("max_timestamp_metrics_source_", ""),
+        factTableId: "ft_a",
+        metrics: [storedMetric("a3")],
+      }),
+    ];
+    expect(
+      updateState.mock.calls
+        .map((c) => c[2])
+        .filter((w) => "metricSources" in w),
+    ).toEqual([{ metricSources: stored }, { metricSources: stored }]);
+  });
+
   it("lets the next update append to every cache, the refresh's included", async () => {
     const refreshed = await refreshDag(["a3", "c1"]);
     const state = baseState();

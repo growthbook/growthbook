@@ -528,6 +528,89 @@ describe("snapshot lifecycle", () => {
       expect(resultsQueryRunnerMock).toHaveBeenCalled();
     });
 
+    describe("for a metric refresh", () => {
+      const cutoff = new Date("2025-02-01T00:00:00.000Z");
+      const refreshPlan = () =>
+        makePlan({
+          runnerKind: "incremental-update",
+          snapshot: {
+            settings: {
+              endDate: cutoff,
+              endDateIsCutoff: true,
+            } as ExperimentSnapshotSettings,
+            metricRefresh: {
+              baseSnapshotId: "snp_base",
+              baseDateCreated: cutoff,
+              baseCutoffDate: cutoff,
+              parentSnapshotId: "snp_base",
+              metricIds: ["met_new"],
+            },
+          },
+        });
+      const run = (
+        context: ApiReqContext,
+        experiment: ExperimentInterface = makeExperiment(),
+      ) =>
+        createSnapshotFromPlan({
+          plan: refreshPlan(),
+          context,
+          experiment,
+          metricMap: new Map<string, ExperimentMetricInterface>(),
+          factTableMap: new Map() as FactTableMap,
+        });
+
+      it("names the running update when the lock is busy, before creating a snapshot", async () => {
+        const context = makeContext();
+        Object.assign(context.models.incrementalRefresh, {
+          acquireLock: jest.fn().mockResolvedValue(false),
+          getByExperimentIdAndPhase: jest
+            .fn()
+            .mockResolvedValue({ currentExecutionSnapshotId: "snp_running" }),
+        });
+
+        await expect(run(context)).rejects.toMatchObject({
+          code: "snapshot_in_progress",
+          details: { snapshotId: "snp_running" },
+        });
+        expect(createExperimentSnapshotModelMock).not.toHaveBeenCalled();
+        expect(incrementalQueryRunnerMock).not.toHaveBeenCalled();
+      });
+
+      it("queries only the new metrics up to the plan's cutoff, even after the phase ended", async () => {
+        const context = makeContext();
+        Object.assign(context.models.incrementalRefresh, {
+          getLockedBySnapshotId: jest.fn().mockResolvedValue({
+            unitsTableFullName: "t_units",
+            unitsMaxTimestamp: cutoff,
+            materializedBySnapshotId: "snp_base",
+            metricSources: [],
+          }),
+        });
+        const experiment = makeExperiment({
+          phases: [
+            {
+              dateStarted: new Date("2025-01-01T00:00:00.000Z"),
+              dateEnded: new Date("2025-03-01T00:00:00.000Z"),
+              variationWeights: [0.5, 0.5],
+            },
+          ] as ExperimentInterface["phases"],
+        });
+
+        await run(context, experiment);
+
+        const queryRunner = incrementalQueryRunnerMock.mock.results[0].value;
+        expect(queryRunner.startAnalysis).toHaveBeenCalledWith(
+          expect.objectContaining({
+            incrementalRefreshStartTime: cutoff,
+            mode: {
+              kind: "metrics-only",
+              definitionMetricIds: new Set(["met_new"]),
+            },
+          }),
+        );
+      });
+    });
+
     it("does not release lock on failure for non-incremental plans", async () => {
       const context = makeContext();
       const experiment = makeExperiment();

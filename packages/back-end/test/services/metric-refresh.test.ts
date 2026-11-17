@@ -22,12 +22,17 @@ import {
   mergeMetricRefreshSettings,
   parseIncrementalRefreshBase,
   planMetricRefresh,
+  resolveIncrementalMetricRefreshRun,
 } from "back-end/src/services/metricRefresh";
 import {
   ExperimentResultsQueryRunner,
   getIndexAfterLastGroup,
   isCarriedMetricRefreshQuery,
 } from "back-end/src/queryRunners/ExperimentResultsQueryRunner";
+import {
+  ExperimentIncrementalRefreshQueryRunner,
+  isCarriedIncrementalQuery,
+} from "back-end/src/queryRunners/ExperimentIncrementalRefreshQueryRunner";
 import {
   findLatestSuccessfulOverallSnapshot,
   getLatestSnapshotStatus,
@@ -53,6 +58,7 @@ jest.mock("back-end/src/models/ExperimentSnapshotModel", () => ({
   findLatestSuccessfulOverallSnapshot: jest.fn(),
   getLatestSnapshotStatus: jest.fn(),
   getSnapshotQueryPointers: jest.fn(),
+  updateSnapshot: jest.fn(),
 }));
 
 jest.mock("back-end/src/models/QueryModel", () => ({
@@ -599,6 +605,63 @@ describe("parseIncrementalRefreshBase", () => {
   });
 });
 
+describe("resolveIncrementalMetricRefreshRun", () => {
+  function resolve(plan: PlannedExperimentSnapshot) {
+    const getLockedBySnapshotId = jest.fn().mockResolvedValue({
+      unitsTableFullName: "t_units",
+      unitsMaxTimestamp: PARENT_END,
+      materializedBySnapshotId: "snp_parent",
+      metricSources: [],
+    });
+    const run = resolveIncrementalMetricRefreshRun({
+      context: {
+        ...context,
+        models: { incrementalRefresh: { getLockedBySnapshotId } },
+      } as unknown as ReqContext,
+      snapshot: plan.snapshot,
+      metricRefresh: getMetricRefreshLineage(makeParent(), ["met_c"]),
+    });
+    return { run, getLockedBySnapshotId };
+  }
+
+  it("scans to the plan's cutoff over the state read under the lock", async () => {
+    const { run, getLockedBySnapshotId } = resolve(
+      makePlan({ runnerKind: "incremental-update" }),
+    );
+
+    await expect(run).resolves.toEqual({
+      definitionMetricIds: new Set(["met_c"]),
+      scanEnd: PARENT_END,
+    });
+    expect(getLockedBySnapshotId).toHaveBeenCalledWith("exp_1", "snp_new");
+  });
+
+  it.each(["results", "incremental-full"] as const)(
+    "rejects a plan for the %s runner",
+    async (runnerKind) => {
+      const { run, getLockedBySnapshotId } = resolve(makePlan({ runnerKind }));
+
+      await expect(run).rejects.toMatchObject({
+        details: { reason: "incremental_pipeline" },
+      });
+      expect(getLockedBySnapshotId).not.toHaveBeenCalled();
+    },
+  );
+
+  it("rejects a plan with no cutoff as an ended phase", async () => {
+    const { run } = resolve(
+      makePlan({
+        runnerKind: "incremental-update",
+        settings: { endDateIsCutoff: false },
+      }),
+    );
+
+    await expect(run).rejects.toMatchObject({
+      details: { reason: "phase_ended" },
+    });
+  });
+});
+
 describe("getSettingsChangedSinceParent", () => {
   it("ignores the metric set, the cutoff flag and the metric counts", () => {
     const parent = makeParent();
@@ -954,6 +1017,141 @@ describe("metric refresh status", () => {
     expect(
       makeRunner(makeParent({ queries: queries("met_c") })).overallStatus(),
     ).toBe("partially-succeeded");
+  });
+});
+
+describe("Incremental Pipeline carry-over", () => {
+  it.each([
+    ["statistics_fta_0", true],
+    ["statistics_multi_fta_0__ftb_0", true],
+    ["unitdim:precomputed:country:statistics_fta_0", true],
+    ["traffic", true],
+    ["clusterTraffic", true],
+    ["clusterHealth", true],
+    ["update_snp_parent", false],
+    ["max_timestamp_snp_parent", false],
+    ["create_metrics_source_table_ftc_1", false],
+    ["insert_metrics_source_data_ftc_1", false],
+    ["insert_metrics_covariate_data_ftc_1", false],
+    ["max_timestamp_metrics_source_ftc_1", false],
+  ])("carries %s: %s", (name, carried) => {
+    expect(isCarriedIncrementalQuery(name)).toBe(carried);
+  });
+
+  class IncrementalStatusProbe extends ExperimentIncrementalRefreshQueryRunner {
+    overallStatus() {
+      return this.getOverallQueryStatus();
+    }
+  }
+  const queries = [
+    "statistics_fta_0",
+    "traffic",
+    "insert_metrics_source_data_ftc_1",
+    "statistics_ftc_1",
+  ].map((name) => ({
+    name,
+    query: `qry_${name}`,
+    status:
+      name === "insert_metrics_source_data_ftc_1"
+        ? ("failed" as const)
+        : ("succeeded" as const),
+  }));
+  const status = (snapshot: ExperimentSnapshotInterface) =>
+    new IncrementalStatusProbe(
+      context,
+      snapshot,
+      {} as SourceIntegrationInterface,
+      false,
+    ).overallStatus();
+
+  it("fails a refresh when one of its queries fails", () => {
+    expect(
+      status(
+        makeParent({
+          id: "snp_refresh",
+          runnerKind: "incremental-update",
+          queries,
+          metricRefresh: getMetricRefreshLineage(makeParent(), ["met_c"]),
+        }),
+      ),
+    ).toBe("failed");
+  });
+
+  it("leaves a normal update's rollup alone", () => {
+    expect(
+      status(makeParent({ runnerKind: "incremental-update", queries })),
+    ).toBe("partially-succeeded");
+  });
+});
+
+describe("a metric refresh that succeeds on the Incremental Pipeline", () => {
+  it("records itself as the tables' builder, so the next refresh builds on it", async () => {
+    const updateState = jest.fn().mockResolvedValue(true);
+    const incrementalContext = {
+      ...context,
+      models: {
+        incrementalRefresh: {
+          updateByExperimentIdIfCurrentExecution: updateState,
+          releaseLock: jest.fn().mockResolvedValue(undefined),
+        },
+      },
+    } as unknown as ReqContext;
+    const root = makeParent({ runnerKind: "incremental-update" });
+    const firstRefresh = makeParent({
+      id: "snp_refresh",
+      runnerKind: "incremental-update",
+      dateCreated: new Date("2026-11-11T00:00:00Z"),
+      settings: makeSettings(["met_a", "met_b", "met_c"]),
+      queries: [
+        { name: "statistics_fta_0", query: "qry_a", status: "succeeded" },
+        { name: "statistics_ftc_1", query: "qry_c", status: "succeeded" },
+      ],
+      metricRefresh: getMetricRefreshLineage(root, ["met_c"]),
+    });
+
+    await new ExperimentIncrementalRefreshQueryRunner(
+      incrementalContext,
+      firstRefresh,
+      {} as SourceIntegrationInterface,
+      false,
+    ).updateModel({ status: "succeeded", queries: firstRefresh.queries });
+
+    expect(updateState).toHaveBeenCalledWith("exp_1", "snp_refresh", {
+      materializedBySnapshotId: "snp_refresh",
+    });
+
+    findParentMock.mockResolvedValue(firstRefresh);
+    const allMetrics = ["met_a", "met_b", "met_c", "met_d"];
+    const plan = await planMetricRefresh(
+      refreshArgs({
+        experiment: makeExperiment({ goalMetrics: allMetrics }),
+        planSnapshotAt: async () =>
+          makePlan({ runnerKind: "incremental-update", metricIds: allMetrics }),
+      }),
+    );
+    const lineage = plan.snapshot.metricRefresh;
+    expect(lineage).toEqual({
+      baseSnapshotId: "snp_parent",
+      baseDateCreated: PARENT_CREATED,
+      baseCutoffDate: PARENT_END,
+      parentSnapshotId: "snp_refresh",
+      metricIds: ["met_d"],
+    });
+
+    const [, , written] = updateState.mock.calls[0];
+    expect(
+      parseIncrementalRefreshBase({
+        state: {
+          unitsTableFullName: "t_units",
+          unitsMaxTimestamp: PARENT_END,
+          metricSources: [],
+          ...written,
+        },
+        parentSnapshotId: lineage?.parentSnapshotId ?? "",
+        definitionMetricIds: new Set(["met_d"]),
+        scanEnd: PARENT_END,
+      }),
+    ).toEqual({ definitionMetricIds: new Set(["met_d"]), scanEnd: PARENT_END });
   });
 });
 
