@@ -14,13 +14,13 @@ import {
   getChosenUnits,
   getMetricIdentifierTypes,
   getMetricMixClass,
+  getPopulationMetricFactTableId,
+  isSupportedWithPopulation,
   metricSupportsUnitSelection,
   parseMetricExplorationPopulation,
+  resolveSavedPopulation,
 } from "shared/enterprise";
-import {
-  getSinglePopulationStep,
-  type PopulationRuleFactTable,
-} from "shared/populations";
+import type { PopulationRuleFactTable } from "shared/populations";
 import { isProjectListValidForProject } from "shared/util";
 import type { MetricMixClass } from "shared/enterprise";
 import type { GroupedValue, SingleValue } from "@/components/Forms/SelectField";
@@ -84,12 +84,12 @@ export function getPopulationConflict(
 ): string | null {
   if (populationFactTable === null) return null;
   const { id, name } = populationFactTable;
-  if (metric.metricType !== "proportion") {
+  if (!isSupportedWithPopulation(metric)) {
     return name
       ? `Charts with this Population only support proportion metrics on the ${name} Fact Table.`
       : "Charts with a Population only support proportion metrics.";
   }
-  if (metric.numerator.factTableId !== id) {
+  if (getPopulationMetricFactTableId(metric) !== id) {
     return name
       ? `Charts with this Population only support metrics on the ${name} Fact Table.`
       : "This metric doesn't use the Population's Fact Table.";
@@ -224,9 +224,8 @@ export function getPopulationFactTableId(
     const metric = getFactMetricById(value.metricId);
     // Unknown until it loads, which isn't the same as incompatible.
     if (!metric) continue;
-    if (metric.metricType !== "proportion") return null;
-
-    const factTableId = metric.numerator.factTableId;
+    if (!isSupportedWithPopulation(metric)) return null;
+    const factTableId = getPopulationMetricFactTableId(metric);
     if (sharedFactTableId === null) {
       sharedFactTableId = factTableId;
     } else if (factTableId !== sharedFactTableId) {
@@ -238,14 +237,15 @@ export function getPopulationFactTableId(
 
 /**
  * Whether a saved Population can be offered for a metric chart: it's in the
- * current Project, on the chart's Data Source, reads from the metrics' shared
- * Fact Table, and supports the chart's identifier type (any, when none is
- * chosen yet).
+ * current Project, the query would accept it (`resolveSavedPopulation`: the
+ * chart's Data Source, a single step, the chart's identifier type, or any
+ * when none is chosen yet), and its step reads from the metrics' shared Fact
+ * Table.
  */
 export function populationFitsMetricChart(
   candidate: Pick<
     PopulationInterface,
-    "projects" | "datasource" | "userIdTypes" | "steps"
+    "id" | "projects" | "datasource" | "userIdTypes" | "steps"
   >,
   chart: {
     project: string;
@@ -255,13 +255,21 @@ export function populationFitsMetricChart(
     unit: string | null;
   },
 ): boolean {
-  return (
-    isProjectListValidForProject(candidate.projects, chart.project) &&
-    candidate.datasource === chart.datasource &&
-    getSinglePopulationStep(candidate)?.source.factTableId ===
-      chart.factTableId &&
-    (!chart.unit || candidate.userIdTypes.includes(chart.unit))
-  );
+  if (!isProjectListValidForProject(candidate.projects, chart.project)) {
+    return false;
+  }
+  const units = chart.unit ? [chart.unit] : candidate.userIdTypes;
+  return units.some((unit) => {
+    const resolved = resolveSavedPopulation({
+      population: { populationId: candidate.id, unit },
+      savedPopulation: candidate,
+      datasource: chart.datasource,
+    });
+    return (
+      resolved.ok &&
+      resolved.population.source.factTableId === chart.factTableId
+    );
+  });
 }
 
 /**

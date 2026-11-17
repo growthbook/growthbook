@@ -312,6 +312,7 @@ describe("populationFitsMetricChart", () => {
     rowFilters: [],
   };
   const candidate: Candidate = {
+    id: "pop_1",
     projects: [],
     datasource: "ds",
     userIdTypes: ["user_id"],

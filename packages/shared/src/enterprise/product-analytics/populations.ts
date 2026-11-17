@@ -14,7 +14,6 @@ import {
 import type {
   FactMetricInterface,
   FactMetricType,
-  StandardFactMetricInterface,
 } from "shared/types/fact-table";
 
 export function configHasPopulation(config: ExplorationConfig | null): boolean {
@@ -26,10 +25,21 @@ export function configHasPopulation(config: ExplorationConfig | null): boolean {
 // are rejected.
 const POPULATION_METRIC_TYPES = new Set<FactMetricType>(["proportion"]);
 
-function isSupportedWithPopulation(
+export function isSupportedWithPopulation(
   metric: FactMetricInterface,
-): metric is StandardFactMetricInterface {
+): boolean {
   return POPULATION_METRIC_TYPES.has(metric.metricType);
+}
+
+/**
+ * The Fact Table a metric's events come from, which a Population on the
+ * metric must share. Null for funnel and compound metrics, which have no
+ * numerator.
+ */
+export function getPopulationMetricFactTableId(
+  metric: FactMetricInterface,
+): string | null {
+  return metric.numerator?.factTableId ?? null;
 }
 
 export type ParsedMetricExplorationPopulation =
@@ -146,7 +156,9 @@ export function parseMetricExplorationPopulation({
       );
       continue;
     }
-    if (metric.numerator.factTableId !== resolved.source.factTableId) {
+    if (
+      getPopulationMetricFactTableId(metric) !== resolved.source.factTableId
+    ) {
       violations.push(
         `Metric "${metric.name}" must use the same Fact Table as the Population.`,
       );
