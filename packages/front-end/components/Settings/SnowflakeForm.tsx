@@ -130,7 +130,7 @@ const SnowflakeForm: FC<{
         />
       </div>
 
-      <div className="col-md-6">
+      <div className="form-group col-md-6">
         <SelectField
           size="md"
           // Matches the plain labels of the fields around it

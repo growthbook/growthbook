@@ -63,7 +63,9 @@ import UITooltip from "@/ui/Tooltip";
 import ConfirmDialog from "@/ui/ConfirmDialog";
 import Modal from "@/ui/Modal";
 import ModalForm, { useModalForm } from "@/ui/Modal/ModalForm";
-import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
+import ModalStandard, {
+  focusFirstField,
+} from "@/ui/Modal/Patterns/ModalStandard";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { DocLink } from "@/components/DocLink";
 import {
@@ -541,12 +543,7 @@ function EventForwarderModal({
         }}
         size="lg"
         // First field, not the label's help icon, whose tooltip would pop open
-        onOpenAutoFocus={(e) => {
-          e.preventDefault();
-          (e.currentTarget as HTMLElement)
-            .querySelector<HTMLElement>("input:not([disabled])")
-            ?.focus();
-        }}
+        onOpenAutoFocus={focusFirstField}
         trackingEventModalType=""
       >
         <ModalForm
