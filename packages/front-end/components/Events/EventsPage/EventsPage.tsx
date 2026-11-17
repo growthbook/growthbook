@@ -94,8 +94,6 @@ export const EventsPage: FC<EventsPageProps> = ({
         }
       />
 
-      {/* Wraps onto more lines where it doesn't fit, rather than running off
-          the page. */}
       <Flex justify="between" align="center" gap="4" wrap="wrap" mt="2">
         {filters}
       </Flex>
@@ -113,8 +111,6 @@ export const EventsPage: FC<EventsPageProps> = ({
       {!error && (
         <Box position="relative" mt="3">
           {refreshing && <LoadingOverlay />}
-          {/* Scrolls sideways inside its frame where it's wider than the
-              page. */}
           <div className="appbox" style={{ overflowX: "auto" }}>
             <table className="table gbtable">
               <thead>

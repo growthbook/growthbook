@@ -15,7 +15,7 @@ import PrerequisiteStatesTable, {
 } from "@/components/Features/PrerequisiteStatesTable";
 import { getPrerequisites, useEnvironments } from "@/services/features";
 import { useFeatureMetaInfo } from "@/hooks/useFeatureMetaInfo";
-import track from "@/services/track";
+import track, { entityTrackingHash } from "@/services/track";
 import ValueDisplay from "@/components/Features/ValueDisplay";
 import { useAuth } from "@/services/auth";
 import useOrgSettings from "@/hooks/useOrgSettings";
@@ -288,6 +288,7 @@ export default function PrerequisiteModal({
         const action = i === prerequisites.length ? "add" : "edit";
 
         track("Save Prerequisite", {
+          entity_id_hash: entityTrackingHash(feature.id),
           source: action,
           prerequisiteIndex: i,
         });
@@ -362,10 +363,8 @@ export default function PrerequisiteModal({
       )}
       <Text as="div" mt="2" mb="3">
         Prerequisite features must evaluate to{" "}
-        <span className="rounded px-1 bg-light">
-          <ValueDisplay value={"true"} type="boolean" />
-        </span>{" "}
-        for this feature to be enabled.{" "}
+        <ValueDisplay value={"true"} type="boolean" /> for this feature to be
+        enabled.{" "}
         <Tooltip
           body={
             <>

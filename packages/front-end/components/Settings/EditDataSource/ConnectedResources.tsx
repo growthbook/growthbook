@@ -101,7 +101,7 @@ function ResourceSection({
     <Frame
       id={sectionId}
       mb="0"
-      style={{ scrollMarginTop: "calc(var(--header-height) + 24px)" }}
+      style={{ scrollMarginTop: "calc(var(--page-top-offset) + 24px)" }}
     >
       <Flex align="center" gap="3" wrap="wrap" mb="3">
         <Flex align="center" gap="2">

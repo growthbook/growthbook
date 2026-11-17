@@ -4,7 +4,7 @@
 
 from unittest import TestCase, main as unittest_main
 import numpy as np
-from dataclasses import asdict
+from dataclasses import asdict, replace
 from typing import Literal
 
 from gbstats.messages import ZERO_NEGATIVE_VARIANCE_MESSAGE
@@ -16,6 +16,8 @@ from gbstats.models.statistics import (
     SampleMeanStatistic,
     QuantileStatistic,
     compute_theta,
+    compute_theta_regression_adjusted_ratio,
+    create_theta_adjusted_statistics,
 )
 
 from gbstats.frequentist.tests import FrequentistConfig, TwoSidedTTest
@@ -190,6 +192,130 @@ class TestComputeTheta(TestCase):
             theta=999,
         )
         self.assertEqual(compute_theta(ra_stat_a, ra_stat_b), 0)
+
+    def test_returns_0_near_zero_relative_variance(self):
+        # A pre-period covariate with a large mean and a tiny (but strictly
+        # positive) variance: var / mean-of-squares is far below the numerical
+        # floor, so theta = cov / var is unstable and CUPED must revert. The old
+        # exact `== 0` check missed this because the variance is not exactly zero.
+        #
+        # The post metric is correlated with the tiny pre deviations, giving a
+        # genuine nonzero covariance. Without the guard theta = cov / var_pre
+        # would be ~1000; the scale-free guard reverts it to 0. (A zero-covariance
+        # fixture would return 0 regardless of the guard and would not test it.)
+        n = 1000
+        eps = np.where(np.arange(n) % 2 == 0, 1e-3, -1e-3)
+        pre = 100.0 + eps
+        post = 3.0 + 1000.0 * eps
+        pre_stat = SampleMeanStatistic(
+            n=n, sum=float(pre.sum()), sum_squares=float((pre**2).sum())
+        )
+        post_stat = SampleMeanStatistic(
+            n=n, sum=float(post.sum()), sum_squares=float((post**2).sum())
+        )
+        sum_of_products = float((pre * post).sum())
+        ra_stat_a = RegressionAdjustedStatistic(
+            post_statistic=post_stat,
+            pre_statistic=pre_stat,
+            n=n,
+            post_pre_sum_of_products=sum_of_products,
+            theta=None,
+        )
+        ra_stat_b = RegressionAdjustedStatistic(
+            post_statistic=post_stat,
+            pre_statistic=pre_stat,
+            n=n,
+            post_pre_sum_of_products=sum_of_products,
+            theta=None,
+        )
+        # The variance is positive (the old `== 0` guard would not fire)...
+        self.assertGreater(pre_stat.variance, 0)
+        # ...and the pre/post covariance is nonzero, so without the guard theta
+        # would be large; it is negligible relative to its scale, so theta
+        # reverts to 0.
+        self.assertEqual(compute_theta(ra_stat_a, ra_stat_b), 0)
+
+
+class TestCupedRatioNearZeroPreVariance(TestCase):
+    """Regression test for the CUPED near-zero-division bug on ratio metrics.
+
+    The variation's pre-period covariate is static (near-constant), so the pooled
+    pre-period variance is ~1.58e-10: positive, so the old exact ``== 0`` guard
+    let it through. theta = -cov / var_pre then divided by that near-zero value
+    and exploded. Before the fix, this exact data produced theta ~= 2.92e3 and a
+    relative lift of ~= -102,564% (the same class of nonsense as the billions of
+    percent seen in production). After the fix, theta reverts to 0 and the lift is
+    the sensible unadjusted ratio lift of 3.593 / 2.846 - 1 = 26.3%.
+    """
+
+    @staticmethod
+    def _stat(
+        m_post: np.ndarray, d_post: np.ndarray, m_pre: np.ndarray, d_pre: np.ndarray
+    ) -> RegressionAdjustedRatioStatistic:
+        n = len(m_post)
+        return RegressionAdjustedRatioStatistic(
+            n=n,
+            m_statistic_post=SampleMeanStatistic(
+                n=n, sum=float(np.sum(m_post)), sum_squares=float(np.sum(m_post**2))
+            ),
+            d_statistic_post=SampleMeanStatistic(
+                n=n, sum=float(np.sum(d_post)), sum_squares=float(np.sum(d_post**2))
+            ),
+            m_statistic_pre=SampleMeanStatistic(
+                n=n, sum=float(np.sum(m_pre)), sum_squares=float(np.sum(m_pre**2))
+            ),
+            d_statistic_pre=SampleMeanStatistic(
+                n=n, sum=float(np.sum(d_pre)), sum_squares=float(np.sum(d_pre**2))
+            ),
+            m_post_m_pre_sum_of_products=float(np.sum(m_post * m_pre)),
+            d_post_d_pre_sum_of_products=float(np.sum(d_post * d_pre)),
+            m_pre_d_pre_sum_of_products=float(np.sum(m_pre * d_pre)),
+            m_post_d_post_sum_of_products=float(np.sum(m_post * d_post)),
+            m_post_d_pre_sum_of_products=float(np.sum(m_post * d_pre)),
+            m_pre_d_post_sum_of_products=float(np.sum(m_pre * d_post)),
+            theta=None,
+        )
+
+    def setUp(self):
+        # Control: 387 booster uses across 136 booster users (ratio 2.846).
+        m_post_a = np.array([3.0] * 129 + [0.0] * 7)  # sums to 387
+        # small_static variation: 424 across 118 booster users (ratio 3.593).
+        m_post_b = np.array([4.0] * 106 + [0.0] * 12)  # sums to 424
+        # The pre-period covariate is "static": near-constant within each arm (so
+        # the pooled pre-period variance is ~0), at different levels across arms
+        # (the between-arm imbalance that an exploding theta would multiply).
+        m_pre_a = np.full(136, 2.0)
+        m_pre_a[0] += 1e-4
+        m_pre_b = np.full(118, 3.0)
+        m_pre_b[0] += 1e-4
+        self.control = self._stat(m_post_a, np.ones(136), m_pre_a, np.ones(136))
+        self.variation = self._stat(m_post_b, np.ones(118), m_pre_b, np.ones(118))
+
+    def test_pre_variance_is_near_zero_but_not_exactly_zero(self):
+        # Guard against the test trivially passing through the old exact-zero
+        # path: the pooled pre-period variance must be positive yet tiny.
+        a_one = replace(self.control, theta=1)
+        b_one = replace(self.variation, theta=1)
+        pooled_var_pre = a_one.var_pre + b_one.var_pre
+        self.assertGreater(pooled_var_pre, 0)
+        self.assertLess(pooled_var_pre, 1e-6)
+
+    def test_theta_reverts_to_zero(self):
+        # Before the fix this returned ~2.92e3 (cov / near-zero var_pre); the
+        # scale-free guard now reverts it to exactly 0.
+        self.assertEqual(
+            compute_theta_regression_adjusted_ratio(self.control, self.variation), 0
+        )
+
+    def test_reverts_to_unadjusted_ratio_lift(self):
+        stat_a, stat_b = create_theta_adjusted_statistics(self.control, self.variation)
+        # CUPED is disabled under the hood: both revert to plain ratio statistics.
+        self.assertIsInstance(stat_a, RatioStatistic)
+        self.assertIsInstance(stat_b, RatioStatistic)
+        lift = (stat_b.mean - stat_a.mean) / abs(stat_a.mean)
+        expected = (424 / 118) / (387 / 136) - 1
+        self.assertAlmostEqual(lift, expected)
+        self.assertAlmostEqual(lift, 0.2624, places=3)
 
 
 class TestSumStats(TestCase):

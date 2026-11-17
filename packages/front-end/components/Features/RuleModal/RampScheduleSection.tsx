@@ -26,7 +26,6 @@ import {
   PiCalendarBlank,
   PiArrowCounterClockwise,
   PiTrash,
-  PiXBold,
   PiCheck,
 } from "react-icons/pi";
 import type {
@@ -1559,7 +1558,6 @@ export default function RampScheduleSection({
               setValue={(v) => setPatchFn("force", v)}
               feature={feature}
               useDropdown={feature.valueType === "boolean"}
-              hideCopyButton
               sparse={sparse}
               condensed
             />
@@ -3816,16 +3814,8 @@ export default function RampScheduleSection({
         precision="datetime"
         timeZone="local"
         disableBefore={new Date().toISOString()}
+        clearButton
       />
-      <IconButton
-        variant="ghost"
-        color="gray"
-        size="2"
-        radius="full"
-        onClick={() => patchState({ cutoffDate: "" })}
-      >
-        <PiXBold />
-      </IconButton>
     </Flex>
   );
 

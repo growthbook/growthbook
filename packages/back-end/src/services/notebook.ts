@@ -14,6 +14,7 @@ import {
 import { ExperimentInterface } from "shared/types/experiment";
 import type { DataForStatsEngine } from "shared/types/stats";
 import { APP_ORIGIN } from "back-end/src/util/secrets";
+import { NotFoundError } from "back-end/src/util/errors";
 import { findSnapshotById } from "back-end/src/models/ExperimentSnapshotModel";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import { getMetricMap } from "back-end/src/models/MetricModel";
@@ -58,7 +59,7 @@ export async function generateReportNotebook(
 ): Promise<string> {
   const report = await getReportById(context.org.id, reportId);
   if (!report) {
-    throw new Error("Could not find report");
+    throw new NotFoundError("Could not find report");
   }
 
   if (report.type === "experiment") {

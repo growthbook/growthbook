@@ -1581,8 +1581,6 @@ export default function ConfigDetailPage(): React.ReactElement {
           </Box>
 
           <Box style={{ flex: 1, minWidth: 0 }}>
-            {/* The revision picker moves under the title where both don't
-              fit, rather than squeezing it. */}
             <Flex align="start" justify="between" gap="2" mb="2" wrap="wrap">
               <Box>
                 <Flex align="center" gap="3">

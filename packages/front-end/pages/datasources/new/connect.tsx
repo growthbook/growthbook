@@ -129,8 +129,10 @@ const NewDataSourceConnectPage = () => {
         onCancel={() => {
           router.push("/datasources/new");
         }}
-        onSuccess={async (id) => {
-          await router.push(`/datasources/${id}`);
+        onSuccess={async (id, { googleAnalytics4 }) => {
+          await router.push(
+            `/datasources/${id}${googleAnalytics4 ? "?setup=ga4" : ""}`,
+          );
         }}
       />
     </>

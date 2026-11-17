@@ -54,6 +54,49 @@ export function interleavingInSDKPayload(il: {
   return il.status === "running" && !il.archived;
 }
 
+type InterleavingAnalysisConfig = Pick<
+  InterleavingInterface,
+  "datasourceId" | "interleavingExposureQueryId" | "userIdType"
+>;
+
+type InterleavingResultsInputs = InterleavingAnalysisConfig &
+  Pick<InterleavingInterface, "metrics">;
+
+export function interleavingAnalysisConfigured(
+  il: InterleavingAnalysisConfig,
+): boolean {
+  return (
+    !!il.datasourceId && !!il.interleavingExposureQueryId && !!il.userIdType
+  );
+}
+
+export function getInterleavingResultsBlocker(
+  il: InterleavingResultsInputs,
+): string | null {
+  if (!interleavingAnalysisConfigured(il)) {
+    return "Choose a Data Source, exposure query, and identifier type for this interleaving experiment before updating results.";
+  }
+  if (!il.metrics.length) {
+    return "Add at least one metric to this interleaving experiment before updating results.";
+  }
+  return null;
+}
+
+export function interleavingAutoSnapshotScheduled(
+  il: InterleavingResultsInputs & {
+    status: string;
+    archived: boolean;
+    autoSnapshots?: boolean;
+  },
+): boolean {
+  return (
+    il.status === "running" &&
+    !il.archived &&
+    !!il.autoSnapshots &&
+    !getInterleavingResultsBlocker(il)
+  );
+}
+
 export function interleavingInPayloadScope(
   il: InterleavingInterface,
   environment: string,
@@ -183,9 +226,6 @@ export function getInterleavingMetricIssue({
   return null;
 }
 
-// Tracking keys must be unique per Data Source, so a later experiment reusing a
-// code key gets a suffix. Loops rather than counting collisions, so a manually
-// set `key_v1` is skipped rather than clobbered.
 export function nextAvailableTrackingKey(
   key: string,
   taken: Set<string>,

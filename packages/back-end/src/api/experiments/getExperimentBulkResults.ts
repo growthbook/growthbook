@@ -4,7 +4,10 @@ import { getExperimentBulkResultsValidator } from "shared/validators";
 import { ApiRequestLocals } from "back-end/types/api";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import { findSnapshotsByExperiment } from "back-end/src/models/ExperimentSnapshotModel";
-import { getMetricMapForExperimentSnapshots } from "back-end/src/services/experiments";
+import {
+  getHealthSettingsForOrg,
+  getMetricMapForExperimentSnapshots,
+} from "back-end/src/services/experiments";
 import { toExperimentSnapshotBulkResultsApiInterface } from "back-end/src/api/experiments/bulkResultSerialization";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import {
@@ -101,6 +104,7 @@ export const getExperimentBulkResults = createApiRequestHandler({
       ),
     ),
   );
+  const healthSettings = getHealthSettingsForOrg(req.context);
   const results = snapshots.flatMap((snapshot) =>
     toExperimentSnapshotBulkResultsApiInterface(
       experiment,
@@ -109,6 +113,7 @@ export const getExperimentBulkResults = createApiRequestHandler({
       exposureQueriesByDatasource.get(
         snapshot.settings.datasourceId || experiment.datasource,
       ) ?? [],
+      healthSettings,
     ),
   );
 

@@ -8,7 +8,10 @@ const PYLON_CLEARANCE_PX = 76;
 
 /** Loads Pylon, which draws its own chat bubble; the Help menu is HelpMenu. */
 export default function PylonLoader() {
-  const config = useFeature("pylon-config").value;
+  const config = useFeature("pylon-config").value as {
+    script_content: string;
+    app_id: string;
+  } | null;
   const {
     name,
     email,

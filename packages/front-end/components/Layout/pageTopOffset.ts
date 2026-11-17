@@ -1,10 +1,10 @@
 import { useCallback, useRef, useSyncExternalStore } from "react";
 import { useHeaderHeight } from "./headerHeight";
 
-// Bars pinned under the app header (the getting-started bar, the demo data
-// banner) push down what sticks or fills the window below them. Their
-// tallest is --pinned-bar-height; with the header's height, whatever that is
-// at the window's width, it makes --page-top-offset (global.scss).
+// A bar pinned under the app header (the getting-started bar) pushes down
+// what sticks or fills the window below it. The tallest is
+// --pinned-bar-height; with the header's height it makes --page-top-offset
+// (global.scss). The demo data banner isn't one: it overlaps what pins there.
 const barHeights = new Map<Element, number>();
 const listeners = new Set<() => void>();
 let barHeight = 0;
@@ -57,13 +57,15 @@ export function usePinnedBar<T extends HTMLElement>() {
   }, []);
 }
 
+function subscribe(listener: () => void) {
+  listeners.add(listener);
+  return () => listeners.delete(listener);
+}
+
 // Where sticky bars pin, for code that measures against it.
 export function usePageTopOffset(): number {
   const pinnedBarHeight = useSyncExternalStore(
-    (listener) => {
-      listeners.add(listener);
-      return () => listeners.delete(listener);
-    },
+    subscribe,
     () => barHeight,
     () => 0,
   );
@@ -78,10 +80,10 @@ export function useTabsTop(): number {
   return usePageTopOffset() - 1;
 }
 
-/** Keep in sync with --tabs-bar-height in global.scss. */
-const TABS_BAR_HEIGHT_PX = 40;
+// The original feature page's tab row (--tabs-bar-height there). Banners pin
+// under it on both versions of the feature page.
+const FEATURE_TABS_BAR_HEIGHT_PX = 40;
 
-/** Keep in sync with --tabs-bottom in global.scss. */
-export function useTabsBottom(): number {
-  return useTabsTop() + TABS_BAR_HEIGHT_PX;
+export function useFeatureTabsBottom(): number {
+  return useTabsTop() + FEATURE_TABS_BAR_HEIGHT_PX;
 }

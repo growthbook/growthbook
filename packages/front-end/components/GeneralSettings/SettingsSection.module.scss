@@ -1,7 +1,5 @@
 .section {
   padding-top: 28px;
-  // Clears the fixed top nav (and below 1024px the pinned Settings select)
-  // when scrolled to.
   scroll-margin-top: calc(var(--settings-section-top) + 8px);
 
   // Anchors inside a section also clear its sticky header (~48px).
@@ -15,7 +13,8 @@
   top: var(--settings-section-top);
   z-index: 6;
   background: var(--color-background);
-  padding: 12px 0 6px;
+  --header-pad-top: 12px;
+  padding: var(--header-pad-top) 0 6px;
   border-bottom: 1px solid var(--slate-a4);
 }
 
@@ -49,25 +48,25 @@
       var(--settings-nav-left) +
         var(--settings-nav-inset) - var(--unsaved-bar-left)
     );
-  // Ends Save at the cards' right edge: the page's padding plus the 920px
-  // column, or the page's padding (and the docked AI panel, which the bar
-  // runs under) where the column is narrower.
+  // Ends Save at the cards' right edge.
   padding-right: max(
     calc(var(--page-padding) + var(--agent-rail-width, 0px)),
-    calc(100% - var(--settings-layout-left) - var(--page-padding) - 920px)
+    calc(
+      100% - var(--settings-layout-left) - var(--page-padding) - var(
+          --settings-general-width
+        )
+    )
   );
   background: var(--color-panel-solid);
   border-top: 1px solid var(--gray-a5);
   box-shadow:
-    0 -1px 2px rgba(0, 0, 0, 0.1),
-    0 -4px 4px rgba(0, 0, 0, 0.025);
-  // Follows the sidebar as it collapses.
+    0 -1px 2px var(--lift-shadow-near),
+    0 -4px 4px var(--lift-shadow-far);
   transition: left 200ms ease;
 
   @media (prefers-reduced-motion: reduce) {
     transition: none;
   }
-
   // The sidebar slides away here and the content starts at the window edge.
   @media (max-width: 1180px) {
     --unsaved-bar-left: 0px;
@@ -79,23 +78,6 @@
   }
   :global(html.settings-narrow) & {
     padding-left: var(--page-padding);
-  }
-}
-
-// The bar's summary, cut short with an ellipsis where space runs out (the
-// label is Button's Text).
-.unsavedSummary {
-  max-width: 100%;
-
-  :global(.rt-Text) {
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  svg {
-    flex-shrink: 0;
   }
 }
 
@@ -159,29 +141,34 @@
 }
 
 .generalContent {
-  max-width: 920px;
+  max-width: var(--settings-general-width);
   padding-top: var(--space-3);
 
-  // Under the pinned Settings select (the narrow layout), the first section
-  // starts as close as a page's title does.
-  @mixin under-pinned-select {
+  // Under the jump menu, the first item starts as close as a page's title
+  // does.
+  @mixin under-jump-menu {
     padding-top: 0;
 
-    .section:first-of-type,
-    .section:first-of-type .header {
+    // 12px under the jump menu's trigger: takes back the gap under its row.
+    .searchSummary {
+      margin-top: calc(-1 * var(--space-2));
+    }
+
+    .section:first-child {
       padding-top: 0;
+    }
+    .section:first-child .header {
+      margin-top: calc(-1 * var(--header-pad-top));
     }
   }
   @media (max-width: 1023px) {
-    @include under-pinned-select;
+    @include under-jump-menu;
   }
   :global(html.settings-narrow) & {
-    @include under-pinned-select;
+    @include under-jump-menu;
   }
 }
 
-// The Settings title stands in for it, beside or above the Settings nav;
-// screen readers still get the h1.
 .visuallyHidden {
   position: absolute;
   width: 1px;

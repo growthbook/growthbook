@@ -17,7 +17,6 @@ import { formatAIRateLimitRetryMessage } from "shared/ai";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { isBinomialMetric } from "shared/experiments";
 import { useGrowthBook } from "@growthbook/growthbook-react";
-import { AppFeatures } from "shared/types/app-features";
 import Link from "@/ui/Link";
 import Callout from "@/ui/Callout";
 import Text from "@/ui/Text";
@@ -86,7 +85,7 @@ const MetricPage: FC = () => {
   } = useDefinitions();
   const settings = useOrgSettings();
   const { getOwnerDisplay } = useUser();
-  const gb = useGrowthBook<AppFeatures>();
+  const gb = useGrowthBook();
 
   const [editModalOpen, setEditModalOpen] = useState<boolean | number>(false);
   const [duplicateModalOpen, setDuplicateModalOpen] = useState<boolean>(false);
@@ -431,7 +430,7 @@ const MetricPage: FC = () => {
       <ReplacedByCallout metricId={metric.id} />
 
       <Flex align="start" justify="between" gap="2" mb="2">
-        <Flex align="center" gap="3" style={{ marginTop: "-4px" }}>
+        <Flex align="center" gap="3">
           <Heading size="xl" as="h1" overflowWrap="anywhere" mb="0">
             <MetricName id={metric.id} />
           </Heading>
@@ -446,7 +445,7 @@ const MetricPage: FC = () => {
                 size="2"
                 highContrast
                 // Within the title row, level with the title, which starts
-                // --page-top-padding under the header (global.scss).
+                // --page-top-padding under the header.
                 style={{ marginTop: 0, marginBottom: 0 }}
               >
                 <BsThreeDotsVertical size={16} />
@@ -949,7 +948,7 @@ const MetricPage: FC = () => {
           </Tabs>
         </div>
         <div className="col-12 col-md-4 mt-md-5">
-          <div className="appbox p-3" style={{ marginTop: "7px" }}>
+          <div className="appbox p-3 mb-0" style={{ marginTop: "7px" }}>
             <RightRailSection
               title="Owner"
               open={() => setEditOwnerModal(true)}

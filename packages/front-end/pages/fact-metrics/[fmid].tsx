@@ -4,7 +4,7 @@ import { isFactFunnelMetric } from "shared/experiments";
 import { ExperimentWithSnapshot } from "shared/types/experiment-snapshot";
 
 import { Flex, IconButton } from "@radix-ui/themes";
-import { BsThreeDotsVertical } from "react-icons/bs";
+import { PiDotsThreeVertical } from "react-icons/pi";
 import Text from "@/ui/Text";
 import Heading from "@/ui/Heading";
 import Metadata from "@/ui/Metadata";
@@ -164,9 +164,11 @@ export default function FactMetricPage() {
   const datasource = factMetric.datasource
     ? getDatasourceById(factMetric.datasource)
     : null;
-  const canOpenInExplorer = datasource
-    ? permissionsUtil.canRunMetricQueries(datasource)
-    : false;
+  // Product Analytics has no compound exploration.
+  const canOpenInExplorer =
+    datasource && factMetric?.metricType !== "compound"
+      ? permissionsUtil.canRunMetricQueries(datasource)
+      : false;
 
   return (
     <div className="pagecontents container-fluid">
@@ -315,7 +317,10 @@ export default function FactMetricPage() {
                       : editDisabledReason
                 }
               >
-                <span style={{ cursor: "not-allowed" }}>
+                <span
+                  tabIndex={0}
+                  style={{ cursor: "not-allowed", display: "inline-flex" }}
+                >
                   <Button
                     variant="soft"
                     disabled
@@ -364,8 +369,10 @@ export default function FactMetricPage() {
                 radius="full"
                 size="2"
                 highContrast
+                // Ghost's negative margin would eat the row gap.
+                style={{ margin: 0 }}
               >
-                <BsThreeDotsVertical size={16} />
+                <PiDotsThreeVertical size={16} />
               </IconButton>
             }
             menuPlacement="end"
@@ -403,6 +410,29 @@ export default function FactMetricPage() {
                 }}
               >
                 Convert to Official Metric
+              </DropdownMenuItem>
+            ) : null}
+            {canEdit &&
+            factMetric.managedBy === "admin" &&
+            permissionsUtil.canCreateOfficialResources(factMetric) &&
+            hasCommercialFeature("manage-official-resources") ? (
+              <DropdownMenuItem
+                confirmation={{
+                  confirmationTitle: "Remove official status",
+                  cta: "Remove",
+                  getConfirmationContent: async () =>
+                    "Anyone with edit access will be able to change this metric.",
+                  submit: async () => {
+                    await apiCall(`/fact-metrics/${factMetric.id}`, {
+                      method: "PUT",
+                      body: JSON.stringify({ managedBy: "" }),
+                    });
+                    await mutateDefinitions();
+                  },
+                  closeDropdown: () => setOpenDropdown(false),
+                }}
+              >
+                Remove official status
               </DropdownMenuItem>
             ) : null}
             <DropdownMenuItem
@@ -444,7 +474,7 @@ export default function FactMetricPage() {
           </DropdownMenu>
           <div
             ref={setActionsContainer}
-            style={{ minHeight: isEditing ? 40 : 0, minWidth: 1 }}
+            style={{ minHeight: isEditing ? 32 : 0, minWidth: 1 }}
           />
         </Flex>
       </Flex>

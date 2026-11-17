@@ -1,6 +1,7 @@
 import {
   getFactMetricFactTableIds,
   getFactMetricPrimaryFactTableId,
+  isFactCompoundMetric,
   isFactFunnelMetric,
   isRatioMetric,
   isRegressionAdjusted,
@@ -132,8 +133,9 @@ export function planMetricFanOut(metrics: FactMetricInterface[]): MetricFanOut {
       );
     }
 
-    // Funnel metrics: register in ALL step fact tables so each gets a cache.
-    if (isFactFunnelMetric(metric)) {
+    // Funnel and compound metrics: register in ALL step / component fact
+    // tables so each gets a cache.
+    if (isFactFunnelMetric(metric) || isFactCompoundMetric(metric)) {
       const allFtIds = getFactMetricFactTableIds(metric);
       allFtIds.forEach((ftId) => upsertMetric(ftId, metric));
       if (allFtIds.length > 1) {

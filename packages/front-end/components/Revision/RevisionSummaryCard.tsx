@@ -38,7 +38,7 @@ import Metadata from "@/ui/Metadata";
 import EventUser from "@/components/Avatar/EventUser";
 import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
 import { getStatusBadge } from "@/components/Revision/revisionUtils";
-import { useTabsBottom } from "@/components/Layout/pageTopOffset";
+import { useFeatureTabsBottom } from "@/components/Layout/pageTopOffset";
 import { useUser } from "@/services/UserContext";
 
 const DRAFT_STATUSES = ["draft", "pending-review", "changes-requested"];
@@ -92,7 +92,7 @@ export default function RevisionSummaryCard({
   const { getOwnerDisplay } = useUser();
   const [bannerPinned, setBannerPinned] = useState(false);
   // Pins where the feature page's draft banner does (FeaturesOverview).
-  const bannerTop = useTabsBottom() + 15;
+  const bannerTop = useFeatureTabsBottom() + 15;
   // Pinned once a sentinel above the banner scrolls past its sticky offset
   // (more reliable than getBoundingClientRect). Ref callback so the observer
   // re-attaches if the sentinel mounts later (e.g. a draft created on a bare page).
@@ -344,7 +344,7 @@ export default function RevisionSummaryCard({
             <div
               style={{
                 width: "100%",
-                backgroundColor: "var(--color-background)",
+                backgroundColor: "var(--color-panel-solid)",
                 borderRadius: "var(--radius-3)",
                 overflow: "hidden",
                 maxWidth: bannerPinned ? 1280 : 1500,

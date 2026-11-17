@@ -3,9 +3,11 @@ import { isEqual } from "lodash";
 import {
   ClusterMetricAnalysisLevel,
   ExperimentMetricInterface,
+  getAggregateFilters,
   getAutoSliceMetrics,
   getFactMetricPrimaryFactTableId,
   getFactTableTimestampColumn,
+  isFactCompoundMetric,
   isFactFunnelMetric,
   isSliceMetric,
 } from "shared/experiments";
@@ -42,7 +44,10 @@ import {
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { ExperimentIncrementalPipelineRequiresFullRefreshError } from "back-end/src/util/errors";
 import { SourceIntegrationInterface } from "back-end/src/types/Integration";
-import { getFiltersForHash } from "back-end/src/services/experimentTimeSeries";
+import {
+  getCompoundComponentFactTablesForHash,
+  getFiltersForHash,
+} from "back-end/src/services/experimentTimeSeries";
 import { getColumnsForMetric } from "back-end/src/integrations/sql/fact-metrics/columns-for-metric";
 import { getQueryableMetricsFromSnapshotSettings } from "back-end/src/services/experimentQueries/experimentQueries";
 import type { MetricFanOut } from "back-end/src/services/experimentQueries/planMetricFanOut";
@@ -321,6 +326,14 @@ export function getMetricSettingsHashForIncrementalRefresh({
         )
       : {};
 
+  // Each component's cache column is computed from its own table and filters,
+  // so hash every one of them. Only present for compound metrics, so other
+  // hashes are unchanged.
+  const compoundComponentFactTables = getCompoundComponentFactTablesForHash(
+    factMetric,
+    factTableMap,
+  );
+
   return hashObject({
     ...hashedComputedSettings,
     metricType: factMetric.metricType,
@@ -331,6 +344,10 @@ export function getMetricSettingsHashForIncrementalRefresh({
     ...(isFactFunnelMetric(factMetric)
       ? { funnelSettings: factMetric.funnelSettings }
       : {}),
+    ...(isFactCompoundMetric(factMetric)
+      ? { compoundSettings: factMetric.compoundSettings }
+      : {}),
+    ...(compoundComponentFactTables ? { compoundComponentFactTables } : {}),
     // Only present for cluster experiments, so non-cluster hashes are unchanged.
     ...(clusterMetricLevel ? { clusterMetricLevel } : {}),
     numeratorFactTable: {
@@ -442,17 +459,28 @@ export function getMetricSettingsHashForAggregatedFactTable({
     factMetric.denominator.factTableId === factTableId;
 
   // Only the column-ref parts that change stored data type / column name. The
-  // aggregate-filter threshold is omitted (it changes values, not schema).
+  // aggregate-filter threshold is omitted (it changes values, not schema); the
+  // filter column is what gets summed and stored, so it's included while a
+  // filter is active and left undefined otherwise to keep older hashes stable.
   const schemaBreakingColumnRef = (
     ref: FactMetricInterface["numerator"] | null | undefined,
-  ) =>
-    ref
-      ? {
-          factTableId: ref.factTableId,
-          column: ref.column,
-          aggregation: ref.aggregation,
-        }
-      : null;
+  ) => {
+    if (!ref) return null;
+    const hasAggregateFilter =
+      getAggregateFilters({
+        columnRef: ref,
+        column: ref.column,
+        ignoreInvalid: true,
+      }).length > 0;
+    return {
+      factTableId: ref.factTableId,
+      column: ref.column,
+      aggregation: ref.aggregation,
+      aggregateFilterColumn: hasAggregateFilter
+        ? ref.aggregateFilterColumn
+        : undefined,
+    };
+  };
 
   return hashObject({
     metricType: factMetric.metricType,

@@ -217,13 +217,7 @@ export default function FactTablesPage() {
         <NewFactTableModal close={() => setCreateFactOpen(false)} />
       )}
       <PageHead breadcrumb={[{ display: "Fact Tables" }]} />
-      <Flex
-        className="page-title-row"
-        align="center"
-        justify="between"
-        gap="3"
-        mb="4"
-      >
+      <Flex align="center" justify="between" gap="3" mb="4">
         <Heading as="h1" size="xl" mb="2">
           Fact Tables
         </Heading>
@@ -447,8 +441,6 @@ export default function FactTablesPage() {
             <Box
               className="relative"
               width={{ initial: "100%", sm: "40%" }}
-              // No narrower than 160px when space is short, e.g. beside the
-              // docked AI Assistant panel.
               style={{ minWidth: 160 }}
             >
               <Field

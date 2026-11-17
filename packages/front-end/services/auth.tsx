@@ -26,6 +26,7 @@ import { getApiHost, getAppOrigin, isCloud, isSentryEnabled } from "./env";
 import { getGrowthBookTrackingHeaders } from "./utils";
 import { useProject, LOCALSTORAGE_PROJECT_KEY } from "./DefinitionsContext";
 import { captureAttribution } from "./attribution-capture";
+import { recordLastActive } from "./last-active-cookie";
 import { ApiCallError } from "./apiCallError";
 import { isSameOriginRelativePath } from "./redirectPath";
 
@@ -309,6 +310,8 @@ export const AuthProvider: React.FC<{
     }
     const resp = await refreshToken();
     if ("token" in resp) {
+      // Let the marketing site and docs know this browser uses the app
+      recordLastActive();
       setInitError("");
       setToken(resp.token);
       if (resp.ssoConnectionId) {

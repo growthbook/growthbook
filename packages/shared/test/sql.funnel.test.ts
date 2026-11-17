@@ -279,6 +279,57 @@ describe("buildFunnelSql", () => {
     expect(finalSelect).not.toContain("WHERE");
   });
 
+  it("ranks top-N dimension values on step-1 events only", () => {
+    const config = baseFunnelConfig(
+      [
+        { name: "Step 1", factTableId: "visits" },
+        { name: "Step 2", factTableId: "visits" },
+      ],
+      {
+        dimensions: [
+          { dimensionType: "dynamic", column: "page", maxValues: 5 },
+        ],
+      },
+    );
+    if (config.dataset.type !== "funnel") throw new Error("expected funnel");
+    config.dataset.steps[0].rowFilters = [
+      { column: "page", operator: "=", values: ["/home"] },
+    ];
+    config.dataset.steps[1].rowFilters = [
+      { column: "page", operator: "=", values: ["/checkout"] },
+    ];
+
+    const { sql } = buildFunnelSql(config, factTableMap, helpers);
+    const step1Rows = sql.slice(
+      sql.indexOf("__funnel_step1_rows AS"),
+      sql.indexOf("_dimension0_top AS"),
+    );
+    expect(step1Rows).toContain("(page = '/home')");
+    expect(step1Rows).not.toContain("/checkout");
+    const topN = sql.slice(sql.indexOf("_dimension0_top AS"));
+    expect(topN).toMatch(/FROM __funnel_step1_rows\s+GROUP BY/);
+  });
+
+  it("ranks top-N dimension values on the raw scan when step 1 has no filters", () => {
+    const config = baseFunnelConfig(
+      [
+        { name: "Step 1", factTableId: "orders" },
+        { name: "Step 2", factTableId: "orders" },
+      ],
+      {
+        dimensions: [
+          { dimensionType: "dynamic", column: "country", maxValues: 5 },
+        ],
+      },
+    );
+
+    const { sql } = buildFunnelSql(config, factTableMap, helpers);
+    expect(sql).not.toContain("__funnel_step1_rows");
+    expect(sql.slice(sql.indexOf("_dimension0_top AS"))).toMatch(
+      /FROM __funnel_ft0_raw\s+GROUP BY/,
+    );
+  });
+
   it("filters to pinned values via a WHERE clause for a static dimension", () => {
     const config = baseFunnelConfig(
       [

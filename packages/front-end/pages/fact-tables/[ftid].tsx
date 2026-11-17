@@ -637,7 +637,7 @@ export default function FactTablePage() {
         </div>
       </div>
 
-      <Tabs defaultValue="metrics">
+      <Tabs defaultValue="metrics" persistInURL>
         <TabsList>
           <TabsTrigger value="metrics">
             Metrics{" "}
@@ -671,7 +671,7 @@ export default function FactTablePage() {
         <Box pt="4">
           <TabsContent value="metrics">
             <h3>Metrics</h3>
-            <div className="mb-5">
+            <div>
               <Text as="div" mb="2" color="text-mid">
                 Metrics are built on top of Columns and Filters. These are what
                 you use as Goals and Guardrails in experiments. This page only

@@ -9,6 +9,8 @@ import {
 export function getDraftMetricPreview(
   draft: CreateFactMetricFormProps,
 ): FactMetricInterface | null {
+  // Not previewable; see getMetricPreviewUnavailableReason.
+  if (draft.metricType === "compound") return null;
   // Check the raw form filters, like "View sample rows" does:
   // fromFactMetricFormValues drops `col = ""`, so a half-filled filter would
   // otherwise vanish and the preview would run unfiltered.
@@ -81,6 +83,9 @@ export function getMetricPreviewUnavailableReason(
     metric.metricType === "dailyParticipation"
   ) {
     return "Calculating this rate requires an eligible user population from an experiment.";
+  }
+  if (metric.metricType === "compound") {
+    return "Compound metrics can only be calculated in an experiment.";
   }
   return null;
 }

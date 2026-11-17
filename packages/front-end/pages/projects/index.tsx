@@ -31,11 +31,7 @@ import HistoryTable from "@/components/HistoryTable";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import SettingsPage from "@/components/Layout/SettingsPage";
 
-/**
- * Narrower than this, the table scrolls sideways in its frame rather than
- * squeezing its columns (e.g. beside the docked AI panel). Measured: at 836px
- * the Owner header breaks mid-word.
- */
+// Narrower, the Owner header breaks mid-word, so the table scrolls sideways.
 const PROJECTS_TABLE_MIN_WIDTH = 838;
 
 const ProjectsPage: FC = () => {
@@ -158,7 +154,7 @@ const ProjectsPage: FC = () => {
         </ModalStandard>
       )}
 
-      <Box mb="5">
+      <Box>
         {projects.length > 0 ? (
           <>
             <Flex align="center" gap="3" mb="3">
@@ -177,7 +173,8 @@ const ProjectsPage: FC = () => {
               </Text>
             </Flex>
             <Table
-              variant="surface"
+              variant="list"
+              stickyHeader={false}
               layout="fixed"
               minTableWidth={PROJECTS_TABLE_MIN_WIDTH}
             >

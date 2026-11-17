@@ -20,7 +20,6 @@ import {
   SETTINGS_WIDE_MIN_PAGE_AREA_PX,
 } from "./constants";
 
-// Before paint in the browser, as a plain effect on the server.
 const useIsomorphicLayoutEffect =
   typeof window !== "undefined" ? useLayoutEffect : useEffect;
 
@@ -35,41 +34,34 @@ type SettingsNavContextValue = {
   counts: Record<string, number>;
   setCount: (sectionId: string, count: number | null) => void;
   searchRef: RefObject<HTMLInputElement>;
-  /**
-   * The narrow layout: the nav as a select at the page's top
-   * (SettingsPageTop) and stacked cards. On a narrow window, or when the
-   * docked AI panel leaves too little room beside the side nav.
-   */
-  narrow: boolean;
+  navMode: "column" | "jumpMenu";
 };
 
 const SettingsNavContext = createContext<SettingsNavContextValue | null>(null);
 
 export function SettingsNavProvider({ children }: { children: ReactNode }) {
   const [query, setQuery] = useState("");
-  // Clears on leaving Settings, not when the nav moves into the header.
   const inSettings = isSettingsRoute(useRouter().route);
   useEffect(() => {
     if (!inSettings) setQuery("");
   }, [inSettings]);
-
-  // A narrow window gets the narrow layout from CSS too (global.scss), from
-  // the first paint.
   const narrowWindow = useMediaQuery(
     `(max-width: ${SETTINGS_NAV_MIN_WIDTH_PX - 1}px)`,
   );
-  // Or the docked AI panel leaves less page area than the wide layout needs.
   const crowded = usePageAreaCrowded(
     SETTINGS_WIDE_MIN_PAGE_AREA_PX,
     inSettings,
   );
-  const narrow = narrowWindow || crowded;
-  // For Settings' CSS, beside its narrow-window media queries.
+  const navMode: SettingsNavContextValue["navMode"] =
+    narrowWindow || crowded ? "jumpMenu" : "column";
   useIsomorphicLayoutEffect(() => {
     const root = document.documentElement;
-    root.classList.toggle("settings-narrow", inSettings && narrow);
+    root.classList.toggle(
+      "settings-narrow",
+      inSettings && navMode === "jumpMenu",
+    );
     return () => root.classList.remove("settings-narrow");
-  }, [inSettings, narrow]);
+  }, [inSettings, navMode]);
 
   const [activeSection, setActiveSection] = useState("");
   const [counts, setCounts] = useState<Record<string, number>>({});
@@ -101,9 +93,9 @@ export function SettingsNavProvider({ children }: { children: ReactNode }) {
       counts,
       setCount,
       searchRef,
-      narrow,
+      navMode,
     }),
-    [query, activeSection, counts, setCount, pinSection, narrow],
+    [query, activeSection, counts, setCount, pinSection, navMode],
   );
 
   return (
@@ -113,9 +105,8 @@ export function SettingsNavProvider({ children }: { children: ReactNode }) {
   );
 }
 
-/** Settings' narrow layout; false outside the provider. */
 export function useSettingsNarrow(): boolean {
-  return useContext(SettingsNavContext)?.narrow ?? false;
+  return useContext(SettingsNavContext)?.navMode === "jumpMenu";
 }
 
 export function useSettingsNav() {

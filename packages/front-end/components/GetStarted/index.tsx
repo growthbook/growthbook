@@ -283,8 +283,8 @@ const GetStartedAndHomePage = ({
         <Grid
           className={createInColumn ? styles.withCreate : undefined}
           columns={{
-            // Stacked, too: a wide table further down mustn't widen the
-            // column, and the heading row with Create, past the window.
+            // A wide table further down mustn't widen the stacked column
+            // past the window.
             initial: "minmax(0, 1fr)",
             sm: `minmax(0, 1fr) ${DOCUMENTATION_SIDEBAR_WIDTH}`,
           }}
@@ -300,8 +300,6 @@ const GetStartedAndHomePage = ({
               align="center"
               justify="between"
               gap="3"
-              // Padding, not margin: the page wrapper trims a grid item's
-              // bottom margin (global.scss).
               pb="3"
               style={{ gridColumn: "1 / -1" }}
             >
@@ -359,7 +357,7 @@ const GetStartedAndHomePage = ({
               </Flex>
               <AutoRunCallout />
               {!showGettingStarted && (
-                <Callout status="info" size="md" mb="4">
+                <Callout status="info" size="md">
                   <Text size="2">
                     Customize your account setup and learn how to get started
                     with GrowthBook.

@@ -11,6 +11,7 @@ import {
 } from "back-end/src/services/features";
 import { resolveOwnerEmail } from "back-end/src/services/owner";
 import { createApiRequestHandler } from "back-end/src/util/handler";
+import { NotFoundError } from "back-end/src/util/errors";
 
 export const getFeature = createApiRequestHandler(getFeatureValidator)(async (
   req,
@@ -21,7 +22,7 @@ export const getFeature = createApiRequestHandler(getFeatureValidator)(async (
   );
   const feature = await getFeatureDB(req.context, req.params.id);
   if (!feature) {
-    throw new Error("Could not find a feature with that key");
+    throw new NotFoundError("Could not find a feature with that key");
   }
 
   const experimentMap = await getExperimentMapForFeature(

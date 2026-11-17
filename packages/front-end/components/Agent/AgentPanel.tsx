@@ -26,6 +26,7 @@ import Tooltip from "@/ui/Tooltip";
 import Text from "@/ui/Text";
 import Heading from "@/ui/Heading";
 import track from "@/services/track";
+import { AIFeedbackEventName } from "@/types/app-events";
 import { suggestedReplyFromOptions } from "@/enterprise/components/AIChat/Composer/useAutocomplete";
 import { useUser } from "@/services/UserContext";
 import { useAuth } from "@/services/auth";
@@ -1538,7 +1539,7 @@ function PersistedTurn({
     rating: "positive" | "negative" | null,
     comment: string,
   ) => void;
-  feedbackTrackingEventName?: string;
+  feedbackTrackingEventName?: AIFeedbackEventName;
   stepsExpanded: boolean;
   onStepsToggle?: (expanded: boolean) => void;
   awaitingInteraction: boolean;

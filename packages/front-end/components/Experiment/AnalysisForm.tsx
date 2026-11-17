@@ -227,9 +227,8 @@ const AnalysisForm: FC<{
               )
             : [],
         ),
-        hashAttributeIdentifierTypeMap: getHashAttributeIdentifierTypeMap(
-          initialDatasourceSettings?.userIdTypes,
-        ),
+        hashAttributeIdentifierTypeMap:
+          getHashAttributeIdentifierTypeMap(initialDatasource),
         hashAttribute: experiment.hashAttribute,
       });
 
@@ -721,9 +720,7 @@ const AnalysisForm: FC<{
                             : [],
                         ),
                         hashAttributeIdentifierTypeMap:
-                          getHashAttributeIdentifierTypeMap(
-                            ds?.settings?.userIdTypes,
-                          ),
+                          getHashAttributeIdentifierTypeMap(ds),
                         hashAttribute: experiment.hashAttribute,
                       }),
                     );
@@ -805,6 +802,7 @@ const AnalysisForm: FC<{
             {supportsClusterExperiments && !isBandit && !isHoldout && (
               <ClusterExperimentFields
                 asRows
+                datasource={datasource}
                 exposureQuery={exposureQuery}
                 identifierType={
                   exposureQuery

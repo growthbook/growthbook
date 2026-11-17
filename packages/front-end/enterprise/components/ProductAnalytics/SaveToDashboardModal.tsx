@@ -121,7 +121,7 @@ export default function SaveToDashboardModal({
     string | undefined
   >(undefined);
 
-  const hasSharing = hasCommercialFeature("share-product-analytics-dashboards");
+  const hasSharing = hasCommercialFeature("product-analytics-dashboards");
 
   const form = useForm<{
     title: string;

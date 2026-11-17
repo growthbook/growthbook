@@ -9,7 +9,6 @@
   overflow: hidden;
   z-index: 999;
   font-size: 13px;
-  // Follows the sidebar as it collapses.
   transition: left 200ms ease;
 
   @media (prefers-reduced-motion: reduce) {
@@ -49,13 +48,17 @@
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  // The bottom leaves room for General's fixed save bar, so the last items scroll clear of it.
   // 4px on the left: the items' text sits on the title's edge, their fills
   // 8px outside it.
-  padding: 4px 12px var(--space-8) 4px;
+  padding: 4px 12px var(--space-3) 4px;
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
+
+  // Room for General's fixed save bar, so the last items scroll clear of it.
+  .nav & {
+    padding-bottom: var(--space-8);
+  }
 }
 
 .group {

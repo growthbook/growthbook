@@ -213,18 +213,19 @@ The return value of init has 3 properties:
 
 #### Fallback Payload
 
-To use a bundled payload only when features can't be downloaded, pass it to `setPayload` when `init` doesn't succeed:
+To use a bundled payload only when features can't be downloaded, pass it to `init` as `fallbackPayload` (SDK version 2.1.0+):
 
 ```ts
-const res = await gbClient.init({ timeout: 2000 });
-if (!res.success) {
-  await gbClient.setPayload(fallbackPayload);
-}
+await gbClient.init({ timeout: 2000, fallbackPayload });
 ```
 
-Don't pass the fallback to `init({ payload })` because that skips the network request entirely. A cached payload counts as a success, so the fallback is only used when there's nothing usable in the cache.
+The fallback is only used when the request fails or times out and there's nothing usable in the cache. The return value still reports the failure (`success: false`) so you can log it.
+
+Don't pass the fallback as `payload` because that skips the network request entirely. On older SDK versions, call `gbClient.setPayload(fallbackPayload)` yourself when `init` returns `success: false`.
 
 The fallback stays in place until a later request succeeds. If `init` timed out and `streaming` or `pollingInterval` is enabled, the SDK applies the original request when it finishes. After a network error, only `pollingInterval` retries.
+
+See [Bundling a fallback at build time](/lib/js#bundling-a-fallback-at-build-time) for how to produce the file in CI/CD.
 
 ### Custom Integration
 
@@ -648,34 +649,74 @@ console.log(feature.value);
 
 ### Strict Typing
 
-If you want to enforce stricter types in your application, you can do that when creating the GrowthBook instance:
+To enforce stricter types, register your feature flags and attributes once, in any `.ts` file that imports the SDK, such as the one where you create your GrowthBook instance (SDK version 2.1.0+):
 
 ```ts
-// Define all your feature flags and types here
+import { GrowthBookClient } from "@growthbook/growthbook";
+
 interface AppFeatures {
   "button-color": string;
   "font-size": number;
   "newForm": boolean;
 }
 
-// Pass into the GrowthBook instance
-const gbClient = new GrowthBookClient<AppFeatures>({
+interface AppAttributes {
+  id: string;
+  loggedIn: boolean;
+  country?: string;
+}
+
+declare module "@growthbook/growthbook" {
+  interface Register {
+    features: AppFeatures;
+    attributes: AppAttributes;
+  }
+}
+```
+
+Now every client, user context, and scoped instance is strictly typed, with no generics or wrappers:
+
+```ts
+const gbClient = new GrowthBookClient({ ... });
+
+const userContext: UserContext = {
+  attributes: { id: "123", loggedIn: true },
+};
+
+// feature.value will be type `number`
+const feature = gbClient.evalFeature("font-size", userContext);
+
+// Typos will cause compile-time errors
+gbClient.isOn("buton-color", userContext); // "buton" instead of "button"
+
+// So will missing, unknown, or mistyped attributes
+gbClient.isOn("newForm", { attributes: { id: "123" } }); // missing "loggedIn"
+```
+
+Payloads written in code are checked as well, for example in tests or offline defaults:
+
+```ts
+gbClient.initSync({
+  payload: {
+    features: {
+      "font-size": { defaultValue: "large" }, // must be a number
+      "fontSize": { defaultValue: 12 }, // not a known feature
+    },
+  },
+});
+```
+
+Features can be left out. A payload that was fetched or imported from JSON is typed `FeatureApiResponse` and isn't checked.
+
+If you'd rather not register types globally, pass them to a single client instead:
+
+```ts
+const gbClient = new GrowthBookClient<AppFeatures, AppAttributes>({
   ...
 });
 ```
 
-Now, all feature flag methods will be strictly typed.
-
-```ts
-// feature.value will be type `number`
-const feature = gbClient.evalFeature("font-size", userContext);
-console.log(feature.value);
-
-// Typos will cause compile-time errors
-gbClient.isOn("buton-color", userContext); // "buton" instead of "button"
-```
-
-Instead of defining the `AppFeatures` interface manually like above, you can auto-generate it from your GrowthBook account using the [GrowthBook CLI](/tools/cli).
+Instead of writing any of this by hand, you can [generate both types and the registration from your GrowthBook account and keep them up to date automatically](/tools/cli#generating-typescript-types).
 
 ## Updating
 

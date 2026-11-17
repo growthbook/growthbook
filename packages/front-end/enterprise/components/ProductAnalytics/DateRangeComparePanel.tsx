@@ -437,7 +437,7 @@ export default function DateRangeComparePanel({
                   setDraft((prev) => ({
                     ...prev,
                     comparison: checked
-                      ? { enabled: true, mode: "previousPeriod" }
+                      ? { enabled: true, mode: "previousPeriodMatchDayOfWeek" }
                       : null,
                   }))
                 }

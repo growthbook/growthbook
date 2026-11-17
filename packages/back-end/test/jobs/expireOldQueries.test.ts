@@ -864,14 +864,13 @@ function mockCollection(
 
 // Every BaseModel-backed snapshot family goes through the same raw-collection
 // fan-out and stalled reaper, so the one suite runs against each collection.
-// Safe rollout snapshots are only in the fan-out: addSafeRolloutSnapshotJob
-// reaps them lazily, so the stalled cases below must not fire for them.
 describe.each([
   { collection: "interleavingsnapshots", parent: { interleavingId: "il_1" } },
   {
     collection: "contextualbanditsnapshots",
     parent: { contextualBandit: "cb_1" },
   },
+  { collection: "saferolloutsnapshots", parent: { safeRolloutId: "sr_1" } },
 ])("expireOldQueries $collection", ({ collection, parent }) => {
   const HOUR = 60 * 60 * 1000;
   const updateOne = jest.fn();
@@ -1053,6 +1052,56 @@ describe.each([
     );
   });
 
+  it("errors a stalled snapshot whose query doc is missing", async () => {
+    familyDocs = [
+      snapshot({
+        queries: [
+          { name: "ft_cart", query: "qry_1", status: "running" },
+          { name: "ft_gone", query: "qry_gone", status: "running" },
+        ],
+      }),
+    ];
+    // qry_gone has no doc: it can never finish, so after the legacy age +
+    // grace it is treated as failed rather than skipped forever.
+    (getQueryStatusesByIds as jest.Mock).mockResolvedValue([
+      {
+        id: "qry_1",
+        status: "succeeded",
+        finishedAt: new Date(Date.now() - HOUR),
+      },
+    ]);
+
+    await runJob();
+
+    expect(updateOne).toHaveBeenCalledWith(
+      { id: "ilsnp_1", status: "running" },
+      expect.objectContaining({
+        $set: expect.objectContaining({
+          status: "error",
+          error: expect.stringContaining("never finalized"),
+          queries: [
+            { name: "ft_cart", query: "qry_1", status: "succeeded" },
+            { name: "ft_gone", query: "qry_gone", status: "failed" },
+          ],
+        }),
+      }),
+    );
+  });
+
+  it("leaves a snapshot with a missing query doc alone until the full stall threshold", async () => {
+    familyDocs = [
+      snapshot({
+        dateCreated: new Date(Date.now() - 30 * 60 * 1000),
+        queries: [{ name: "ft_gone", query: "qry_gone", status: "running" }],
+      }),
+    ];
+    (getQueryStatusesByIds as jest.Mock).mockResolvedValue([]);
+
+    await runJob();
+
+    expect(updateOne).not.toHaveBeenCalled();
+  });
+
   it("errors a snapshot whose queries the stale-query sweep just failed", async () => {
     familyDocs = [
       snapshot({
@@ -1161,14 +1210,36 @@ describe.each([
   });
 });
 
-describe("expireOldQueries saferolloutsnapshots", () => {
+// addSafeRolloutSnapshotJob defers a full interval while the latest snapshot
+// is running, so the reaper pulls the safe rollout's next attempt back to now
+// after erroring one. Mirrors the experiment reaper's retry.
+describe("expireOldQueries safe rollout retry", () => {
   const HOUR = 60 * 60 * 1000;
   const updateOne = jest.fn();
   let srDocs: Record<string, unknown>[] = [];
 
+  // mockCollection only captures one collection; the retry writes to another.
+  function updateOneCallsFor(collection: string): unknown[][] {
+    const mock = getCollection as jest.Mock;
+    return mock.mock.calls.flatMap(([name], i) =>
+      name === collection
+        ? mock.mock.results[i].value.updateOne.mock.calls
+        : [],
+    );
+  }
+
   beforeEach(() => {
     jest.clearAllMocks();
-    srDocs = [];
+    srDocs = [
+      {
+        id: "srsnp_1",
+        organization: "org_1",
+        safeRolloutId: "sr_1",
+        status: "running",
+        dateCreated: new Date(Date.now() - 2 * HOUR),
+        queries: [],
+      },
+    ];
     updateOne.mockResolvedValue({ modifiedCount: 1 });
     mockCollection("saferolloutsnapshots", () => srDocs, updateOne);
     (getStaleQueries as jest.Mock).mockResolvedValue([]);
@@ -1178,49 +1249,31 @@ describe("expireOldQueries saferolloutsnapshots", () => {
     ).mockResolvedValue([]);
   });
 
-  it("errors a snapshot whose queries the stale-query sweep just failed", async () => {
-    srDocs = [
-      {
-        id: "srsnp_1",
-        organization: "org_1",
-        status: "running",
-        dateCreated: new Date(Date.now() - 5 * 60 * 1000),
-        queries: [{ name: "main", query: "qry_1", status: "running" }],
-      },
-    ];
-    (getStaleQueries as jest.Mock).mockResolvedValue([{ id: "qry_1" }]);
-
+  it("schedules the safe rollout's next attempt for now after a reap", async () => {
     await runJob();
 
     expect(updateOne).toHaveBeenCalledWith(
       { id: "srsnp_1", status: "running" },
       {
-        $set: {
-          error: "Queries were interrupted. Please try updating results again.",
-          status: "error",
-          queries: [{ name: "main", query: "qry_1", status: "failed" }],
-          dateUpdated: expect.any(Date),
-        },
+        $set: expect.objectContaining({
+          error: expect.stringContaining("A retry has been scheduled."),
+        }),
       },
     );
+    expect(updateOneCallsFor("saferollout")).toEqual([
+      [
+        { id: "sr_1", status: "running", autoSnapshots: true },
+        { $set: { nextSnapshotAttempt: expect.any(Date) } },
+      ],
+    ]);
   });
 
-  it("leaves stalled snapshots to addSafeRolloutSnapshotJob", async () => {
-    // Would be reaped as "never recorded" if safe rollouts were in the stalled
-    // reaper list; that job reaps lazily with scheduler-accurate copy instead.
-    srDocs = [
-      {
-        id: "srsnp_1",
-        organization: "org_1",
-        status: "running",
-        dateCreated: new Date(Date.now() - 2 * HOUR),
-        queries: [],
-      },
-    ];
+  it("does not touch the safe rollout when the reap loses the race", async () => {
+    updateOne.mockResolvedValue({ modifiedCount: 0 });
 
     await runJob();
 
-    expect(updateOne).not.toHaveBeenCalled();
+    expect(updateOneCallsFor("saferollout")).toEqual([]);
   });
 });
 
@@ -1229,7 +1282,10 @@ describe("expireOldQueries aggregated fact table runs", () => {
   const updateOne = jest.fn();
   let runDocs: Record<string, unknown>[] = [];
 
-  function run(queries: { query: string; status: string }[]) {
+  function run(
+    queries: { query: string; status: string }[],
+    overrides: Record<string, unknown> = {},
+  ) {
     return {
       id: "aftr_1",
       organization: "org_1",
@@ -1239,6 +1295,7 @@ describe("expireOldQueries aggregated fact table runs", () => {
       finishedAt: null,
       dateCreated: new Date(Date.now() - 2 * HOUR),
       queries: queries.map((q) => ({ name: q.query, ...q })),
+      ...overrides,
     };
   }
 
@@ -1320,5 +1377,72 @@ describe("expireOldQueries aggregated fact table runs", () => {
     await runJob();
 
     expect(markPendingQueriesAsFailed).not.toHaveBeenCalled();
+  });
+
+  it("concludes an orphaned run whose queued heartbeats went stale, minutes after death", async () => {
+    // Under the old hour-long window this run would sit unfinished for ~60
+    // minutes before being examined at all.
+    const createdAt = new Date(Date.now() - 7 * 60 * 1000);
+    runDocs = [
+      run([{ query: "qry_1", status: "queued" }], { dateCreated: createdAt }),
+    ];
+    (getQueryStatusesByIds as jest.Mock).mockResolvedValue([
+      {
+        id: "qry_1",
+        status: "queued",
+        createdAt,
+        heartbeat: new Date(createdAt.getTime() + 60 * 1000),
+      },
+    ]);
+
+    await runJob();
+
+    expect(updateOne).toHaveBeenCalledWith(
+      { id: "aftr_1", finishedAt: null },
+      expect.objectContaining({
+        $set: expect.objectContaining({
+          error: expect.stringContaining("never started"),
+        }),
+      }),
+    );
+  });
+
+  it("pages past a full page of live runs to reach a stalled one", async () => {
+    const live = Array.from({ length: 50 }, (_, i) =>
+      run([{ query: `qry_l${i}`, status: "running" }], {
+        id: `aftr_live_${i}`,
+        dateCreated: new Date(Date.now() - 3 * HOUR),
+      }),
+    );
+    runDocs = [
+      ...live,
+      run([{ query: "qry_dead", status: "queued" }], { id: "aftr_dead" }),
+    ];
+    (getQueryStatusesByIds as jest.Mock).mockImplementation(
+      async (...[, ids]: [string, string[]]) =>
+        ids.map((id) =>
+          id === "qry_dead"
+            ? {
+                id,
+                status: "queued",
+                createdAt: new Date(Date.now() - 2 * HOUR),
+                heartbeat: new Date(Date.now() - 2 * HOUR + 60 * 1000),
+              }
+            : { id, status: "running" },
+        ),
+    );
+
+    await runJob();
+
+    // Without $nin paging the 50 live, older runs would fill the only page
+    // every tick and the dead one would never be examined.
+    expect(updateOne).toHaveBeenCalledWith(
+      { id: "aftr_dead", finishedAt: null },
+      expect.objectContaining({
+        $set: expect.objectContaining({
+          error: expect.stringContaining("never started"),
+        }),
+      }),
+    );
   });
 });

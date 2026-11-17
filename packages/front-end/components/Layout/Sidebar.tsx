@@ -31,7 +31,6 @@ import {
 } from "react-icons/pi";
 import { IconButton } from "@radix-ui/themes";
 import { useGrowthBook } from "@growthbook/growthbook-react";
-import { AppFeatures } from "shared/types/app-features";
 import { useUser } from "@/services/UserContext";
 import { RadixTheme } from "@/services/RadixTheme";
 import {
@@ -897,7 +896,7 @@ export default function Sidebar() {
       ? planNameFromAccountPlan(effectiveAccountPlan)
       : null;
   const { project, segments } = useDefinitions();
-  const growthbook = useGrowthBook<AppFeatures>();
+  const growthbook = useGrowthBook();
   const permissionsUtils = usePermissionsUtil();
   const filterProps = buildSidebarLinkFilterProps({
     permissionsUtils,

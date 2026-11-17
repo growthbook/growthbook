@@ -6,6 +6,7 @@ import {
   normalizeSuperAdmin,
   userHasPermission,
 } from "shared/permissions";
+import { AppAttributes } from "shared/types/app-features";
 import { AuditInterface } from "shared/types/audit";
 import { Permission } from "shared/types/organization";
 import { UserInterface } from "shared/types/user";
@@ -394,7 +395,8 @@ export async function processJWT(
         discountCode: org?.discountCode,
         organizationId: hashedOrganizationId,
         cloudOrgId: IS_CLOUD ? orgId : "",
-        accountPlan: org ? getEffectiveAccountPlan(org) : "loading",
+        // null until the plan is known, which the tracking plugin's eventFilter checks
+        accountPlan: org ? getEffectiveAccountPlan(org) : null,
         superAdmin: hasSuperAdminPermission(req.superAdmin, "view"),
         orgDateCreated: org?.dateCreated
           ? new Date(org.dateCreated).toISOString()
@@ -412,7 +414,8 @@ export async function processJWT(
         buildVersion: build.lastVersion,
         orgOwnerJobTitle: org?.demographicData?.ownerJobTitle,
         orgOwnerUsageIntents: org?.demographicData?.ownerUsageIntents,
-      };
+        // Checks every key here; without it, only the value types are checked
+      } satisfies AppAttributes;
 
       try {
         // Apply sticky bucketing and get user context

@@ -1,0 +1,45 @@
+// A card with something to show once selected.
+.option {
+  display: grid;
+}
+
+// Selected, the wrapper wears Radix's checked-card classes, so it's framed and
+// filled as any checked card is. The card inside draws nothing of its own.
+.group {
+  isolation: isolate;
+  padding: 0;
+  // Radix centers a card's content; here it's one full-width column.
+  grid-template-columns: minmax(0, 1fr);
+
+  // Radix shows a checked card's focus on the card; here, on the frame.
+  &:has(> :global(.rt-RadioCardsItem:focus-visible)) {
+    &::before {
+      background-image: linear-gradient(var(--focus-a3), var(--focus-a3));
+    }
+    &::after {
+      outline-color: var(--focus-10);
+    }
+  }
+
+  // Doubled to outrank Radix's own state rules.
+  > :global(.rt-BaseCard.rt-RadioCardsItem.rt-RadioCardsItem) {
+    width: 100%;
+
+    &,
+    &::before,
+    &::after {
+      background: none;
+      outline: none;
+      box-shadow: none;
+    }
+  }
+}
+
+.selectedContent {
+  padding: 0 16px 16px;
+
+  // Shaded, so it stands out from the checked frame around it.
+  :global(.rt-BaseCard.rt-RadioCardsItem[data-state="checked"])::before {
+    background-color: var(--violet-a3);
+  }
+}

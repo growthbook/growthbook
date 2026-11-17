@@ -1,10 +1,15 @@
+import { describe, expect, it, vi } from "vitest";
 import { DetectedColumn } from "shared/types/fact-table";
+import { Permissions } from "shared/permissions";
 import { SchemaWithPath } from "shared/types/integrations";
 import {
   findColumnByName,
   getRemappedUserIdColumns,
   rematchUserIdColumns,
   GA4_EVENTS_TEMPLATE,
+  getGA4EventsFactTable,
+  createGA4EventsFactTable,
+  getAllowedNewFactTableProjects,
   getColumnMappingError,
   getDefaultPartitionColumn,
   getDefaultTimestampColumn,
@@ -435,5 +440,119 @@ describe("getRemappedUserIdColumns", () => {
         anonymous_id: "device_id",
       }),
     ).toEqual({ anonymous_id: "device_id" });
+  });
+});
+
+describe("getGA4EventsFactTable", () => {
+  const factTable = getGA4EventsFactTable({
+    datasourceId: "ds_1",
+    eventsTablePath: "`proj.analytics_1.events_*`",
+    projects: ["prj_1"],
+  });
+
+  it("is an event stream over the export, filtered by event_name", () => {
+    expect(factTable).toMatchObject({
+      name: "GA4 Events",
+      datasource: "ds_1",
+      projects: ["prj_1"],
+      tableType: "event",
+      userIdTypes: ["user_id", "anonymous_id"],
+      timestampColumn: "timestamp",
+      columnRefreshPending: true,
+    });
+    expect(factTable.sql).toContain("FROM\n  `proj.analytics_1.events_*`");
+    expect(
+      factTable.columns
+        ?.filter((c) => c.alwaysInlineFilter)
+        .map((c) => c.column),
+    ).toEqual(["event_name"]);
+  });
+
+  it("declares every column its SQL returns", () => {
+    expect(factTable.columns?.map((c) => c.column)).toEqual(
+      GA4_EVENTS_TEMPLATE.columns.map((c) => c.column),
+    );
+  });
+});
+
+describe("createGA4EventsFactTable", () => {
+  const props = {
+    datasourceId: "ds_1",
+    eventsTablePath: "`proj.analytics_1.events_*`",
+    projects: ["prj_1"],
+  };
+
+  it("posts the GA4 Events fact table", async () => {
+    const apiCall = vi.fn(async () => ({}));
+    await createGA4EventsFactTable(apiCall, props);
+    expect(apiCall).toHaveBeenCalledWith("/fact-tables", {
+      method: "POST",
+      body: JSON.stringify(getGA4EventsFactTable(props)),
+    });
+  });
+
+  it("throws the server's error", async () => {
+    const apiCall = vi.fn(async () => ({ error: "Name already in use" }));
+    await expect(createGA4EventsFactTable(apiCall, props)).rejects.toThrow(
+      "Name already in use",
+    );
+  });
+});
+
+describe("getAllowedNewFactTableProjects", () => {
+  // Can create fact tables only in the listed Projects, or everywhere.
+  function permissions(allowed: string[] | "all") {
+    return {
+      canCreateFactTable: ({ projects }: { projects: string[] }) =>
+        allowed === "all" ||
+        (projects.length > 0 && projects.every((p) => allowed.includes(p))),
+    } as unknown as Permissions;
+  }
+
+  it("narrows a scoped Data Source to the Projects the user can create in", () => {
+    expect(
+      getAllowedNewFactTableProjects({
+        datasource: { projects: ["prj_a", "prj_b"] },
+        project: "",
+        permissionsUtil: permissions(["prj_b"]),
+      }),
+    ).toEqual(["prj_b"]);
+  });
+
+  it("uses the current Project for an all-Projects Data Source", () => {
+    expect(
+      getAllowedNewFactTableProjects({
+        datasource: { projects: [] },
+        project: "prj_a",
+        permissionsUtil: permissions(["prj_a"]),
+      }),
+    ).toEqual(["prj_a"]);
+  });
+
+  it("keeps all Projects for a user who can create everywhere", () => {
+    expect(
+      getAllowedNewFactTableProjects({
+        datasource: { projects: [] },
+        project: "prj_a",
+        permissionsUtil: permissions("all"),
+      }),
+    ).toEqual([]);
+  });
+
+  it("returns null when the user can't create in any of them", () => {
+    expect(
+      getAllowedNewFactTableProjects({
+        datasource: { projects: ["prj_a"] },
+        project: "",
+        permissionsUtil: permissions(["prj_b"]),
+      }),
+    ).toBeNull();
+    expect(
+      getAllowedNewFactTableProjects({
+        datasource: { projects: [] },
+        project: "",
+        permissionsUtil: permissions(["prj_b"]),
+      }),
+    ).toBeNull();
   });
 });

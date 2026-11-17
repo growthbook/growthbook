@@ -3,7 +3,6 @@ import { GlobalPermission } from "shared/types/organization";
 import { Permissions, hasSuperAdminPermission } from "shared/permissions";
 import { SuperAdmin } from "shared/validators";
 import { SegmentInterface } from "shared/types/segment";
-import { AppFeatures } from "shared/types/app-features";
 import { isCloud, isMultiOrg } from "@/services/env";
 import { isInterleavingEnabled } from "@/services/interleaving";
 import { PermissionFunctions } from "@/services/UserContext";
@@ -15,7 +14,7 @@ export type SidebarLinkFilterProps = {
   superAdmin: boolean;
   isCloud: boolean;
   isMultiOrg: boolean;
-  gb?: GrowthBook<AppFeatures>;
+  gb?: GrowthBook;
   project?: string;
 };
 
@@ -36,7 +35,7 @@ export function buildSidebarLinkFilterProps(input: {
   permissionsUtils: Permissions;
   permissions: Record<GlobalPermission, boolean> & PermissionFunctions;
   superAdmin: SuperAdmin | undefined;
-  gb: GrowthBook<AppFeatures> | undefined;
+  gb: GrowthBook | undefined;
   project: string | undefined;
   segments: SegmentInterface[];
 }): SidebarLinkFilterProps {

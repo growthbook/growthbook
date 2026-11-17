@@ -13,6 +13,7 @@ import { BsThreeDotsVertical } from "react-icons/bs";
 import { PiEye, PiWarning } from "react-icons/pi";
 import { REVIEW_REQUESTED_STATUSES, HoldoutInterface } from "shared/validators";
 import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
+import { PageBleed } from "@/components/Layout/PageFrame";
 import Text from "@/ui/Text";
 import FeatureValueTypeDisplay from "@/components/Features/FeatureValueTypeDisplay";
 import Heading from "@/ui/Heading";
@@ -460,7 +461,7 @@ export default function FeaturesHeader({
 
   return (
     <>
-      <Box className="features-header contents container-fluid pagecontents pb-0">
+      <PageBleed>
         <Box>
           <Flex align="start" justify="between" gap="2">
             <Flex align="center" mb="2" gap="3">
@@ -607,7 +608,7 @@ export default function FeaturesHeader({
             </Callout>
           ) : null}
         </Box>
-      </Box>
+      </PageBleed>
       <>
         <div
           ref={tabsPinSentinelRef}
@@ -619,14 +620,18 @@ export default function FeaturesHeader({
             pointerEvents: "none",
           }}
         />
-        <div
-          className={clsx("feature-tabs page-bleed d-print-none", {
+        <PageBleed
+          className={clsx("feature-tabs d-print-none", {
             pinned: headerPinned,
           })}
         >
           <div className="header-tabs">
             <Tabs value={tab} onValueChange={setTab}>
-              <TabsList size="lg" style={{ width: "100%" }}>
+              <TabsList
+                size="lg"
+                overflowMenu={false}
+                style={{ width: "100%" }}
+              >
                 <TabsTrigger value="overview">Overview</TabsTrigger>
                 <TabsTrigger value="review">
                   Review &amp; Publish
@@ -657,7 +662,7 @@ export default function FeaturesHeader({
               </TabsList>
             </Tabs>
           </div>
-        </div>
+        </PageBleed>
       </>
       {auditModal && (
         <CompareFeatureEventsModal

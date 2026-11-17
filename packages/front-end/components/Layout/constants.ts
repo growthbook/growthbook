@@ -1,3 +1,7 @@
+// The experiment page's and the redesigned feature page's tab row. Keep in
+// sync with --tabs-bar-height in global.scss.
+export const TABS_BAR_HEIGHT_PX = 45;
+
 /** Below this width the sidebar becomes a drawer. */
 export const NARROW_LAYOUT_BREAKPOINT_PX = 1180;
 
@@ -7,11 +11,8 @@ export const NARROW_LAYOUT_BREAKPOINT_PX = 1180;
  */
 export const SETTINGS_NAV_MIN_WIDTH_PX = 1024;
 
-/**
- * With the AI panel docked, the narrowest page area (the window less the side
- * nav and the panel) that holds the Settings nav column and two-column cards;
- * narrower, Settings takes its narrow layout too. Measured across every
- * Settings page, tab and search: at 1010px the Bandits card's "Day(s)" select
- * starts to push into the card's padding.
- */
 export const SETTINGS_WIDE_MIN_PAGE_AREA_PX = 1012;
+
+// Where an in-page link lands, just under the pinned tab bar.
+export const SCROLL_MARGIN_UNDER_TABS =
+  "calc(var(--tabs-bottom) + var(--space-1))";

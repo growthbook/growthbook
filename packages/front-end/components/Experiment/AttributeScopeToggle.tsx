@@ -1,6 +1,6 @@
 import clsx from "clsx";
 import { PiFunnel } from "react-icons/pi";
-import Tooltip from "@/ui/Tooltip";
+import FieldIndicator from "@/ui/FieldIndicator";
 import { useDefinitions } from "@/services/DefinitionsContext";
 
 export default function AttributeScopeToggle({
@@ -26,38 +26,22 @@ export default function AttributeScopeToggle({
       ? "Projects: "
       : "Project: ";
 
-  const handleClick = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setAllProjects(!allProjects);
-  };
-
-  const handleMouseDown = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-  };
-
   return (
-    <Tooltip
-      content={
+    <FieldIndicator
+      label={`Showing attributes for ${scopePrefix}${scopeLabel}`}
+      tooltip={
         <>
           Showing attributes for {scopePrefix}
           <strong>{scopeLabel}</strong>
         </>
       }
+      onClick={() => setAllProjects(!allProjects)}
+      className={clsx("gb-select__toggle", {
+        "gb-select__toggle--on": !allProjects,
+      })}
+      aria-pressed={!allProjects}
     >
-      <button
-        type="button"
-        className={clsx("gb-select__scope-toggle", {
-          "gb-select__scope-toggle--filtering": !allProjects,
-        })}
-        aria-label={`Showing attributes for ${scopePrefix}${scopeLabel}`}
-        aria-pressed={!allProjects}
-        onClick={handleClick}
-        onMouseDown={handleMouseDown}
-      >
-        <PiFunnel />
-      </button>
-    </Tooltip>
+      <PiFunnel />
+    </FieldIndicator>
   );
 }

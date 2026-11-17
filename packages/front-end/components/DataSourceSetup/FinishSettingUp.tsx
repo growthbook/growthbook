@@ -142,8 +142,10 @@ function getCompletion(
   steps.identifiers = identifierTypes.length > 0;
   // One exposure query is enough. Identifier types are also used for joins
   // and metrics, so they don't each need to appear in an exposure query.
-  // Skipping is enough too, for orgs that do not run experiments.
-  steps.queries = exposureQueries.length > 0 || exposureQuerySkipped;
+  // Skipping is enough too, for orgs that do not run experiments. A query
+  // that failed its last test doesn't count, since experiments can't use it.
+  steps.queries =
+    exposureQueries.some((query) => !query.error) || exposureQuerySkipped;
   steps.factTable = factTableCount > 0;
   return steps;
 }
@@ -789,21 +791,31 @@ export default function FinishSettingUp({
                     py="3"
                     style={index > 0 ? IDENTIFIER_ROW_BORDER : undefined}
                   >
-                    <Flex align="center" gap="2" wrap="wrap" minWidth="0">
-                      <Text weight="medium">{query.name}</Text>
-                      {isEventForwarderManaged(query) && (
-                        <EventForwarderManagedBadge type="assignment query" />
+                    <Box minWidth="0">
+                      <Flex align="center" gap="2" wrap="wrap">
+                        <Text weight="medium">{query.name}</Text>
+                        {query.error && (
+                          <Badge label="Query failed" color="red" />
+                        )}
+                        {isEventForwarderManaged(query) && (
+                          <EventForwarderManagedBadge type="assignment query" />
+                        )}
+                        {getExposureQueryIdentifierTypes(query).map(
+                          (userIdType) => (
+                            <Badge
+                              key={userIdType}
+                              label={<Text mono>{userIdType}</Text>}
+                              color="gray"
+                            />
+                          ),
+                        )}
+                      </Flex>
+                      {query.error && (
+                        <HelperText status="error" size="sm" mt="1">
+                          {query.error}
+                        </HelperText>
                       )}
-                      {getExposureQueryIdentifierTypes(query).map(
-                        (userIdType) => (
-                          <Badge
-                            key={userIdType}
-                            label={<Text mono>{userIdType}</Text>}
-                            color="gray"
-                          />
-                        ),
-                      )}
-                    </Flex>
+                    </Box>
                     {canEdit && !isEventForwarderManaged(query) && (
                       <Button
                         variant="outline"

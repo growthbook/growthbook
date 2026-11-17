@@ -47,11 +47,7 @@ export { CUSTOM_FIELD_SECTION_LABELS } from "@/components/CustomFields/constants
 /** FE-only: array index for delete disambiguation (legacy duplicate ids) */
 export type CustomFieldWithArrayIndex = CustomField & { arrayIndex: number };
 
-/**
- * Narrower than this, the table scrolls sideways in its frame rather than
- * squeezing its columns (e.g. beside the docked AI panel). Measured: at 818px
- * the end of the Field Name header is hidden behind the next column.
- */
+// Narrower, the Field Name header is cut off, so the table scrolls sideways.
 const CUSTOM_FIELDS_TABLE_MIN_WIDTH = 820;
 
 function CustomFieldsTable({
@@ -93,10 +89,11 @@ function CustomFieldsTable({
     <Table
       variant="list"
       stickyHeader={false}
+      stickyLastColumn
       roundedCorners
       layout="fixed"
       minTableWidth={CUSTOM_FIELDS_TABLE_MIN_WIDTH}
-      className="appbox"
+      mb="4"
     >
       <CustomFieldColGroup showRequired={showRequired} />
       <TableHeader>
@@ -271,7 +268,7 @@ const CustomFields: FC = () => {
 
   return (
     <>
-      <Box mb="5">
+      <Box>
         <SettingsPageHeader
           title="Custom Fields"
           description="Add custom metadata to feature flags, experiments, and targeting attributes. Choose which of those each field applies to."

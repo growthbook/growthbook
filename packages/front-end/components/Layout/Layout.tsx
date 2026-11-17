@@ -42,12 +42,10 @@ const otherPageTitles = [
 const Layout = (): React.ReactElement => {
   const { open, setOpen } = useSidebarOpen();
   const { breadcrumb } = usePageHead();
-  // Narrow, the Settings nav is a select at the page's top
-  // (SettingsPageTop).
-  const { narrow: settingsNarrow } = useSettingsNav();
 
   // hacky:
   const router = useRouter();
+  const { navMode: settingsNavMode } = useSettingsNav();
   const path = router.route.substr(1);
   // don't show the nav for presentations
   if (path.match(/^present\//)) {
@@ -79,12 +77,13 @@ const Layout = (): React.ReactElement => {
     }
   });
 
-  const inSettings = isSettingsRoute(router.route);
+  const showSettingsNav =
+    isSettingsRoute(router.route) && settingsNavMode === "column";
 
   return (
     <>
       <Sidebar />
-      {inSettings && !settingsNarrow ? <SettingsNav /> : null}
+      {showSettingsNav && <SettingsNav />}
       <TopNav
         pageTitle={pageTitle}
         showNotices={true}

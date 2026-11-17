@@ -47,11 +47,7 @@ import {
   DropdownMenuSeparator,
 } from "@/ui/DropdownMenu";
 
-/**
- * Narrower than this, the table scrolls sideways in its frame rather than
- * squeezing its columns (e.g. beside the docked AI panel). Measured: at 596px
- * the Members header breaks mid-word.
- */
+// Narrower, the Members header breaks mid-word, so the table scrolls sideways.
 const TEAMS_TABLE_MIN_WIDTH = 598;
 
 // The team's role fields, as PUT /teams/:id expects them.
@@ -277,8 +273,6 @@ const ProjectTeams: FC<{ project: string }> = ({ project }) => {
         />
       )}
 
-      {/* The description wraps beside Create team; with too little room for
-          it there, the button moves below it. */}
       <Flex align="end" justify="between" gap="3" wrap="wrap" mb="2">
         <Box flexGrow="1" flexShrink="1" flexBasis="280px" minWidth="0">
           <Heading as="h5" size="sm" mb="1">

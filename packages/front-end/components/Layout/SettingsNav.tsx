@@ -5,7 +5,6 @@ import clsx from "clsx";
 import { PiMagnifyingGlass, PiX } from "react-icons/pi";
 import { IconButton } from "@radix-ui/themes";
 import { useGrowthBook } from "@growthbook/growthbook-react";
-import { AppFeatures } from "shared/types/app-features";
 import Badge from "@/ui/Badge";
 import Heading from "@/ui/Heading";
 import { TextField } from "@/ui/TextField";
@@ -29,12 +28,11 @@ import {
 import { useSettingsNav } from "./SettingsNavContext";
 import styles from "./SettingsNav.module.scss";
 
-/** The Organization pages this user may open. */
 export function useSettingsPages(): SidebarLinkProps[] {
   const { permissions, superAdmin } = useUser();
   const { project, segments } = useDefinitions();
   const permissionsUtils = usePermissionsUtil();
-  const gb = useGrowthBook<AppFeatures>();
+  const gb = useGrowthBook();
   const filterProps = buildSidebarLinkFilterProps({
     permissionsUtils,
     permissions,
@@ -48,7 +46,27 @@ export function useSettingsPages(): SidebarLinkProps[] {
   );
 }
 
-/** Cmd/Ctrl+/ searches settings; Cmd/Ctrl+K stays on the command palette. */
+function sectionIdForRoute(route: string, activeSection: string) {
+  if (route === "/settings") return activeSection;
+  if (route.startsWith("/importing")) return "import";
+  return null;
+}
+
+export function useCurrentSettingsItem(): {
+  page: SidebarLinkProps | null;
+  section: (typeof SETTINGS_SECTIONS)[number] | null;
+} {
+  const { route } = useRouter();
+  const { activeSection } = useSettingsNav();
+  const page =
+    useSettingsPages().find((l) => l.path.test(route.substring(1))) ?? null;
+  const sectionId = page ? null : sectionIdForRoute(route, activeSection);
+  return {
+    page,
+    section: SETTINGS_SECTIONS.find((s) => s.id === sectionId) ?? null,
+  };
+}
+
 export function useSettingsSearchShortcut(onShortcut: () => void) {
   const onShortcutRef = useRef(onShortcut);
   onShortcutRef.current = onShortcut;
@@ -64,24 +82,14 @@ export function useSettingsSearchShortcut(onShortcut: () => void) {
   }, []);
 }
 
-/**
- * The search and the General and Organization lists, in the Settings nav's
- * column and in SettingsJumpMenu.
- */
-export function SettingsNavBody({
-  onNavigate,
-}: {
-  /** Runs after an item is chosen. */
-  onNavigate?: () => void;
-}) {
+export function SettingsNavBody({ onNavigate }: { onNavigate?: () => void }) {
   const router = useRouter();
-  const { query, setQuery, activeSection, counts, searchRef, pinSection } =
-    useSettingsNav();
+  const { query, setQuery, counts, searchRef, pinSection } = useSettingsNav();
   const { dirtySectionIds } = useSettingsForm();
   const permissionsUtils = usePermissionsUtil();
+  const current = useCurrentSettingsItem();
   const onGeneral = router.route === "/settings";
   const showGeneral = permissionsUtils.canManageOrgSettings();
-  const path = router.route.substr(1);
   const tokens = tokenizeSettingsQuery(query);
   const hasQuery = tokens.length > 0;
 
@@ -96,12 +104,6 @@ export function SettingsNavBody({
         tokens,
       ),
   );
-
-  // One sub-nav item is current. A listed page wins; otherwise the importer
-  // pages fall back to Import & Export, which links to them.
-  const activePage = pages.find((l) => l.path.test(path));
-  const fallbackSection =
-    !activePage && /^importing/.test(path) ? "import" : null;
 
   const cardTotal = Object.values(counts).reduce((a, b) => a + b, 0);
   const matchedSections = Object.values(counts).filter((n) => n > 0).length;
@@ -180,9 +182,7 @@ export function SettingsNavBody({
           <nav aria-label="General settings sections" className={styles.group}>
             <div className={styles.groupLabel}>General</div>
             {sections.map((s) => {
-              const active = onGeneral
-                ? s.id === activeSection
-                : s.id === fallbackSection;
+              const active = s.id === current.section?.id;
               return (
                 <button
                   key={s.id}
@@ -232,7 +232,7 @@ export function SettingsNavBody({
           <nav aria-label="Organization settings" className={styles.group}>
             <div className={styles.groupLabel}>Organization</div>
             {pages.map((l) => {
-              const active = l === activePage;
+              const active = l === current.page;
               return (
                 <Link
                   key={l.href}
@@ -252,7 +252,6 @@ export function SettingsNavBody({
   );
 }
 
-/** A column beside the sidebar, from SETTINGS_NAV_MIN_WIDTH_PX. */
 export default function SettingsNav() {
   const { searchRef } = useSettingsNav();
   useSettingsSearchShortcut(() => {

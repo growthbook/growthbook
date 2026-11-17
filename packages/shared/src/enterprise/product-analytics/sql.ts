@@ -5,6 +5,7 @@ import {
   quoteColumnIdentifier,
   SQL_ROW_LIMIT,
   stripTrailingSemicolon,
+  getSqlStringRules,
 } from "shared/sql";
 import {
   buildPrevResolvedExpr,
@@ -50,6 +51,7 @@ import {
   getFactTableIdColumnExpression,
   getAggregateFilters,
   getFactTableTimestampColumn,
+  isFactCompoundMetric,
   isFactFunnelMetric,
 } from "../../experiments/experiments";
 import { getCappingTailState, FunnelStep } from "../../validators/fact-table";
@@ -314,11 +316,13 @@ function getFactTableGroups({
   factTableMap,
   metricMap,
   datasource,
+  dialect,
 }: {
   config: ExplorationConfig;
   factTableMap: FactTableMap;
   metricMap: Map<string, FactMetricInterface>;
   datasource: MinimalDatasourceInterface;
+  dialect: SqlDialect;
 }): FactTableGroup[] {
   if (!config.dataset) {
     throw new Error("Dataset is required");
@@ -356,7 +360,10 @@ function getFactTableGroups({
         {
           index: 0,
           factTable: createStubFactTable(
-            stripTrailingSemicolon(config.dataset.sql),
+            stripTrailingSemicolon(
+              config.dataset.sql,
+              getSqlStringRules(dialect),
+            ),
             config.dataset.timestampColumn,
             config.dataset.columnTypes,
             datasourceSettings,
@@ -403,6 +410,11 @@ function getFactTableGroups({
           if (isFactFunnelMetric(originalMetric)) {
             throw new Error(
               `Metric ${value.metricId} is a funnel metric, which is not supported here. Use a funnel exploration instead.`,
+            );
+          }
+          if (isFactCompoundMetric(originalMetric)) {
+            throw new Error(
+              `Metric ${value.metricId} is a compound metric, which is not supported here.`,
             );
           }
 
@@ -1075,12 +1087,12 @@ function getMetricData(
 
   // Always expose a denominator (unit count) for unit-aggregated non-ratio,
   // non-quantile metrics so the frontend can render either the raw numerator
-  // (totals) or numerator/denominator (per-unit averages) based on the
-  // chart-level `showAs` setting.
+  // (totals) or numerator/denominator (per-unit averages) based on each
+  // value's `showAs` setting.
   //
   // Intentionally symmetric across dataset types: fact_table/data_source
-  // datasets (where `showAsAppliesTo` returns false and the denominator is
-  // never surfaced) still emit this column. The extra `COUNT(...)` is cheap
+  // datasets (which offer no Show as options, so the denominator is never
+  // surfaced) still emit this column. The extra `COUNT(...)` is cheap
   // relative to the rest of the rollup and keeps the SQL shape / result
   // column set identical regardless of dataset type, which simplifies the
   // downstream parser and test fixtures. If this ever becomes a measurable
@@ -1758,13 +1770,29 @@ export function buildFunnelSql(
   // so the inlined dimensionExpr (which references _dimension0_top) is
   // resolvable.
   if (dimension?.dimensionType === "dynamic") {
+    // Rank on step-1 rows only; later steps on the same table skew the top N.
     const initialRawCte = ctes[0];
+    const step1Filters = generateRowFilterSQL(
+      steps[0].rowFilters,
+      ftGroups[0].factTable,
+      dialect,
+    );
+    const topNSourceCte: CTE = step1Filters.length
+      ? {
+          name: "__funnel_step1_rows",
+          sql: `
+        SELECT * FROM ${initialRawCte.name}
+        WHERE ${step1Filters.join(" AND ")}
+      `,
+        }
+      : initialRawCte;
+    if (topNSourceCte !== initialRawCte) ctes.push(topNSourceCte);
     ctes.push(
       generateDynamicDimensionCTE(
         initialFactTableGroup,
         dimension as ProductAnalyticsDynamicDimension,
         0,
-        initialRawCte,
+        topNSourceCte,
         dialect,
       ),
     );
@@ -2074,6 +2102,7 @@ export function generateProductAnalyticsSQL(
     factTableMap,
     metricMap,
     datasource,
+    dialect,
   });
 
   // Get all metric aliases
@@ -2299,7 +2328,7 @@ function generateProductAnalyticsRawTableSQL(
 
   return format(
     dialect.selectStarLimit(
-      `(\n${stripTrailingSemicolon(config.dataset.sql)}\n) t`,
+      `(\n${stripTrailingSemicolon(config.dataset.sql, getSqlStringRules(dialect))}\n) t`,
       SQL_ROW_LIMIT + 1,
       whereClause,
     ),

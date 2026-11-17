@@ -46,7 +46,7 @@ import {
   RampScheduleInterface,
 } from "shared/validators";
 import EventUser from "@/components/Avatar/EventUser";
-import { useTabsBottom } from "@/components/Layout/pageTopOffset";
+import { useFeatureTabsBottom } from "@/components/Layout/pageTopOffset";
 import CoAuthors from "@/components/Reviews/Feature/CoAuthors";
 import Button from "@/ui/Button";
 import { FeatureBadge } from "@/components/Features/FeatureBadge";
@@ -54,7 +54,7 @@ import Callout from "@/ui/Callout";
 import Checkbox from "@/ui/Checkbox";
 import { useAuth } from "@/services/auth";
 import ForceSummary from "@/components/Features/ForceSummary";
-import track from "@/services/track";
+import track, { entityTrackingHash } from "@/services/track";
 import EditDefaultValueModal from "@/components/Features/EditDefaultValueModal";
 import KillSwitchModal from "@/components/Features/KillSwitchModal";
 import EditProjectForm from "@/components/Experiment/EditProjectForm";
@@ -388,8 +388,7 @@ export default function FeaturesOverview({
 
   const bannerRef = useRef<HTMLDivElement>(null);
   const [bannerPinned, setBannerPinned] = useState(false);
-  // The draft banner pins 15px under the feature tabs.
-  const bannerTop = useTabsBottom() + 15;
+  const bannerTop = useFeatureTabsBottom() + 15;
 
   const [envGridWidth, setEnvGridWidth] = useState(0);
   const envGridRef = useCallback((el: HTMLDivElement | null) => {
@@ -1366,6 +1365,7 @@ export default function FeaturesOverview({
                         i: getPrerequisites(feature).length,
                       });
                       track("Viewed prerequisite feature modal", {
+                        entity_id_hash: entityTrackingHash(feature.id),
                         source: "add-prerequisite",
                       });
                     }}
@@ -1503,6 +1503,7 @@ export default function FeaturesOverview({
                         i: getPrerequisites(feature).length,
                       });
                       track("Viewed prerequisite feature modal", {
+                        entity_id_hash: entityTrackingHash(feature.id),
                         source: "add-prerequisite",
                       });
                     }}

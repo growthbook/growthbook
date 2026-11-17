@@ -129,7 +129,7 @@ export default function DashboardModal({
   const { cronString, cronError } = useCronValidation(currentUpdateSchedule);
 
   const hasGeneralDashboardSharing = hasCommercialFeature(
-    "share-product-analytics-dashboards",
+    "product-analytics-dashboards",
   );
 
   const renderViewAccessSelector = ({

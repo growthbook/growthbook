@@ -1,3 +1,4 @@
+import md5 from "md5";
 import { getAutoSliceMetrics, isSliceMetric } from "shared/experiments";
 import { bigQueryDialect } from "shared/dialects";
 import {
@@ -152,6 +153,65 @@ describe("getMetricSettingsHashForAggregatedFactTable", () => {
         factTableId: FT_ID,
       }),
     );
+  });
+
+  describe("user-level aggregate filters", () => {
+    const withUserFilter = (
+      aggregateFilterColumn: string,
+      aggregateFilter = ">= 10",
+    ) => {
+      const metric = factMetricFactory.build({ metricType: "proportion" });
+      return {
+        ...metric,
+        numerator: {
+          factTableId: FT_ID,
+          column: "$$distinctUsers",
+          rowFilters: [],
+          aggregateFilterColumn,
+          aggregateFilter,
+        },
+      };
+    };
+    const hash = (factMetric: ReturnType<typeof withUserFilter>) =>
+      getMetricSettingsHashForAggregatedFactTable({
+        factMetric,
+        factTableId: FT_ID,
+      });
+
+    it("changes when the filter column changes", () => {
+      expect(hash(withUserFilter("$$count"))).not.toEqual(
+        hash(withUserFilter("amount")),
+      );
+    });
+
+    it("ignores the filter threshold", () => {
+      expect(hash(withUserFilter("amount", ">= 10"))).toEqual(
+        hash(withUserFilter("amount", ">= 20")),
+      );
+    });
+
+    it("changes when a filter is added", () => {
+      const unfiltered = withUserFilter("amount", "");
+      expect(hash(unfiltered)).not.toEqual(hash(withUserFilter("amount")));
+    });
+
+    it("keeps the hash unchanged for metrics without an active filter", () => {
+      const unfiltered = withUserFilter("amount", "");
+      // Same shape the hash had before the filter column was included.
+      expect(hash(unfiltered)).toEqual(
+        md5(
+          JSON.stringify({
+            metricType: "proportion",
+            numerator: {
+              factTableId: FT_ID,
+              column: "$$distinctUsers",
+            },
+            denominator: null,
+            quantileType: null,
+          }),
+        ),
+      );
+    });
   });
 });
 

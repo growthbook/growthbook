@@ -77,7 +77,7 @@ export const dashboardInterface = z
     isDeleted: z.boolean(), // For soft-deletes (currently unused)
     userId: z.string(),
     editLevel: dashboardEditLevel,
-    shareLevel: dashboardShareLevel, // Only configurable for orgs with share-product-analytics-dashboards commercialFeature (PA) or dashboards commercialFeature (Exp)
+    shareLevel: dashboardShareLevel, // Only configurable for orgs with product-analytics-dashboards commercialFeature (PA) or dashboards commercialFeature (Exp)
     enableAutoUpdates: z.boolean(),
     updateSchedule: dashboardUpdateSchedule.optional(),
     title: z.string(),

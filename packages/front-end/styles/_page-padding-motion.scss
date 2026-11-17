@@ -1,0 +1,15 @@
+// The page's side padding moves only with the side nav
+// (html.app-sidebar-motion, Sidebar.tsx), so resizing the window switches it
+// at once.
+@mixin page-padding-motion($props...) {
+  :global(html.app-sidebar-motion) & {
+    transition-property: $props;
+    transition-duration: 200ms;
+    transition-timing-function: ease;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    :global(html.app-sidebar-motion) & {
+      transition: none;
+    }
+  }
+}

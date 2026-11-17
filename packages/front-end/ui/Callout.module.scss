@@ -19,10 +19,11 @@
 
 .body {
   flex: 1 1 0%;
+  min-width: 0;
+  overflow-wrap: break-word;
 }
 
 .bodyWithAction {
   flex-basis: 16rem;
-  min-width: 0;
   max-width: max-content;
 }

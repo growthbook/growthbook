@@ -31,6 +31,7 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import BanditSRMCard from "@/components/HealthTab/BanditSRMCard";
 import Callout from "@/ui/Callout";
 import { PowerCard } from "@/components/HealthTab/PowerCard";
+import { SCROLL_MARGIN_UNDER_TABS } from "@/components/Layout/constants";
 import {
   HealthTabConfigParams,
   HealthTabOnboardingModal,
@@ -403,11 +404,11 @@ function ClusterIssueCards({
             error={clusterSubUnitMapping.error}
             onNotify={onNotify}
             healthyMessage={
-              <b>
+              <>
                 Every <IdentifierCode>{clusterIds.subUnit}</IdentifierCode>{" "}
                 mapped to one{" "}
                 <IdentifierCode>{clusterIds.cluster}</IdentifierCode>.
-              </b>
+              </>
             }
             belowThresholdMessage={(threshold, share) => (
               <>
@@ -424,7 +425,6 @@ function ClusterIssueCards({
             )}
             warningMessage={(share) => (
               <>
-                <strong>Cluster Mapping Warning</strong>.{" "}
                 {numberFormatter.format(
                   clusterSubUnitMapping.multiClusterUnits,
                 )}{" "}
@@ -460,10 +460,10 @@ function ClusterIssueCards({
             error={clusterAssignment.error}
             onNotify={onNotify}
             healthyMessage={
-              <b>
+              <>
                 Every <IdentifierCode>{clusterIds.cluster}</IdentifierCode> had
                 a single variation.
-              </b>
+              </>
             }
             belowThresholdMessage={(threshold, share) => (
               <>
@@ -479,7 +479,6 @@ function ClusterIssueCards({
             )}
             warningMessage={(share) => (
               <>
-                <strong>Cluster Assignment Warning</strong>.{" "}
                 {numberFormatter.format(clusterAssignment.mixedClusters)} of{" "}
                 {numberFormatter.format(clusterAssignment.totalClusters)}{" "}
                 <IdentifierCode>{clusterIds.cluster}</IdentifierCode>{" "}
@@ -588,7 +587,7 @@ function HealthSnapshotCards({
       />
       <div
         id="balanceCheck"
-        style={{ scrollMarginTop: "calc(var(--tabs-bottom) + var(--space-1))" }}
+        style={{ scrollMarginTop: SCROLL_MARGIN_UNDER_TABS }}
       >
         {isBandit ? (
           <BanditSRMCard
@@ -624,7 +623,7 @@ function HealthSnapshotCards({
         <div
           id="covariateBalanceCheck"
           style={{
-            scrollMarginTop: "calc(var(--tabs-bottom) + var(--space-1))",
+            scrollMarginTop: SCROLL_MARGIN_UNDER_TABS,
           }}
         >
           <CovariateImbalanceCard
@@ -639,7 +638,7 @@ function HealthSnapshotCards({
         <div
           id="multipleExposures"
           style={{
-            scrollMarginTop: "calc(var(--tabs-bottom) + var(--space-1))",
+            scrollMarginTop: SCROLL_MARGIN_UNDER_TABS,
           }}
         >
           <MultipleExposuresCard

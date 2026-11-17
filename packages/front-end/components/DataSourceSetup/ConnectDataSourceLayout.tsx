@@ -1,14 +1,16 @@
 import {
   ChangeEventHandler,
+  ReactNode,
   useCallback,
   useEffect,
   useMemo,
   useRef,
   useState,
 } from "react";
-import { Box, Flex, Grid, IconButton } from "@radix-ui/themes";
+import { Box, Flex, Grid, IconButton, Separator } from "@radix-ui/themes";
 import {
   PiArrowClockwise,
+  PiCheck,
   PiCheckBold,
   PiQuestion,
   PiXBold,
@@ -42,13 +44,25 @@ import {
   DEFAULT_DATA_REGION,
   useDataRegionOptions,
 } from "@/services/dataRegions";
+import {
+  applyGoogleAnalytics4Settings,
+  GA4_EXPOSURE_QUERY_ID,
+  getGA4DatasetName,
+} from "@/services/datasources";
 import { dataSourceConnections } from "@/services/eventSchema";
+import {
+  GA4_EVENTS_TEMPLATE,
+  createGA4EventsFactTable,
+  getAllowedNewFactTableProjects,
+} from "@/services/factTables";
 import track from "@/services/track";
 import Badge from "@/ui/Badge";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
+import Checkbox from "@/ui/Checkbox";
 import Frame from "@/ui/Frame";
 import Heading from "@/ui/Heading";
+import { Select, SelectItem } from "@/ui/Select";
 import SelectField from "@/components/Forms/SelectField";
 import Text from "@/ui/Text";
 import TextField from "@/ui/TextField";
@@ -109,7 +123,10 @@ export type ConnectDataSourceLayoutProps = {
   eventForwarderRegion?: DataRegion | null;
   source: string;
   onCancel: () => void;
-  onSuccess: (id: string) => Promise<void>;
+  onSuccess: (
+    id: string,
+    options: { googleAnalytics4: boolean },
+  ) => Promise<void>;
 };
 
 export default function ConnectDataSourceLayout({
@@ -129,6 +146,7 @@ export default function ConnectDataSourceLayout({
     mutateDefinitions,
     ready: definitionsReady,
     projects: orgProjects,
+    project,
   } = useDefinitions();
   const { apiCall, orgId } = useAuth();
   const permissionsUtil = usePermissionsUtil();
@@ -154,6 +172,10 @@ export default function ConnectDataSourceLayout({
   const [writeStatus, setWriteStatus] = useState<TestStatus>("idle");
   const [readMessage, setReadMessage] = useState<string | null>(null);
   const [writeMessage, setWriteMessage] = useState<string | null>(null);
+  // GA4 exports the last connection test found, and whether to set one up.
+  const [ga4Exports, setGA4Exports] = useState<string[]>([]);
+  const [ga4Table, setGA4Table] = useState<string | null>(null);
+  const [ga4Enabled, setGA4Enabled] = useState(true);
   const [eventDestinationDraft, setEventDestination] = useState(() =>
     defaultEventForwarderDestination(initial.type || "bigquery"),
   );
@@ -203,6 +225,8 @@ export default function ConnectDataSourceLayout({
     setWriteStatus("idle");
     setReadMessage(null);
     setWriteMessage(null);
+    setGA4Exports([]);
+    setGA4Table(null);
     setResolvedRegion(null);
     setRegionChoiceRequired(false);
     setRegionBlockedMessage(null);
@@ -557,6 +581,8 @@ export default function ConnectDataSourceLayout({
     setWriteStatus("idle");
     setReadMessage(null);
     setWriteMessage(null);
+    setGA4Exports([]);
+    setGA4Table(null);
     setHasError(false);
     clearDetectedRegion();
 
@@ -579,26 +605,29 @@ export default function ConnectDataSourceLayout({
     };
 
     try {
-      const res = await apiCall<{ status: number; message?: string }>(
-        "/datasources/test-connection",
-        {
-          method: "POST",
-          body: JSON.stringify({
-            type: datasource.type,
-            params: datasource.params || {},
-            projects: datasource.projects,
-            ...(existing && datasource.id
-              ? { datasourceId: datasource.id }
-              : {}),
-          }),
-        },
-      );
+      const res = await apiCall<{
+        status: number;
+        message?: string;
+        ga4Exports?: string[];
+      }>("/datasources/test-connection", {
+        method: "POST",
+        body: JSON.stringify({
+          type: datasource.type,
+          params: datasource.params || {},
+          projects: datasource.projects,
+          ...(existing && datasource.id ? { datasourceId: datasource.id } : {}),
+          // An Event Forwarder sets up its own queries, so GA4 isn't offered.
+          findGoogleAnalytics4Exports: !existing && !checksWrite,
+        }),
+      });
       if (res.status > 200) {
         throw new Error(res.message || "Unable to connect to the Data Source");
       }
       // Params changed while this test was in flight; its result is stale.
       if (runId !== testRunRef.current) return;
       setReadStatus("passed");
+      setGA4Exports(res.ga4Exports ?? []);
+      setGA4Table(res.ga4Exports?.[0] ?? null);
     } catch (e) {
       fail(
         e instanceof Error ? e.message : "Unable to connect to the Data Source",
@@ -748,6 +777,34 @@ export default function ConnectDataSourceLayout({
     return "";
   })();
 
+  // Only for a new Data Source without an Event Forwarder, which sets up its
+  // own identifier types, queries, and fact table.
+  const showGA4Offer =
+    !existing && !checksWrite && readStatus === "passed" && ga4Table !== null;
+  // The GA4 export to set up on save, if any.
+  const ga4TableToSetUp = showGA4Offer && ga4Enabled ? ga4Table : null;
+
+  // GA4's events become the first fact table. The Data Source is already
+  // saved, so a failure here leaves that step for Finish Setting Up.
+  const createGA4FactTable = async (datasourceId: string, path: string) => {
+    const projects = getAllowedNewFactTableProjects({
+      datasource: { projects: datasource.projects },
+      project,
+      permissionsUtil,
+    });
+    if (projects === null) return;
+    try {
+      await createGA4EventsFactTable(apiCall, {
+        datasourceId,
+        eventsTablePath: path,
+        projects,
+      });
+      track("Create Fact Table", { source: "ga4-connect" });
+    } catch (e) {
+      console.error("Could not create the GA4 Events fact table", e);
+    }
+  };
+
   const handleSave = async () => {
     if (!canSave || !datasource.type) return;
     setSaving(true);
@@ -756,6 +813,8 @@ export default function ConnectDataSourceLayout({
 
     try {
       let id = datasource.id;
+      // Whether GA4 was set up and its query works, for the success notice.
+      let ga4SetUp = false;
 
       if (existing && id) {
         // Only send what this page edits. Description and Projects are edited
@@ -793,21 +852,28 @@ export default function ConnectDataSourceLayout({
         });
       } else {
         // Identifier types and exposure queries stay empty until Finish
-        // Setting Up writes them. Keep settings the form did collect, such
-        // as query limits and cache time.
-        const res = await apiCall<{ id: string }>("/datasources", {
+        // Setting Up writes them, unless GA4 is set up now. Keep settings the
+        // form did collect, such as query limits and cache time.
+        const settings = {
+          ...datasource.settings,
+          schemaFormat,
+          userIdTypes: [],
+          queries: {
+            ...datasource.settings?.queries,
+            exposure: [],
+          },
+        };
+        const res = await apiCall<{
+          id: string;
+          datasource?: DataSourceInterfaceWithParams;
+        }>("/datasources", {
           method: "POST",
           body: JSON.stringify({
             ...datasource,
-            settings: {
-              ...datasource.settings,
-              schemaFormat,
-              userIdTypes: [],
-              queries: {
-                ...datasource.settings?.queries,
-                exposure: [],
-              },
-            },
+            settings:
+              ga4TableToSetUp !== null
+                ? applyGoogleAnalytics4Settings(settings, ga4TableToSetUp)
+                : settings,
             ...(eventForwarderDraft
               ? { eventForwarderConfig: eventForwarderDraft }
               : {}),
@@ -819,7 +885,19 @@ export default function ConnectDataSourceLayout({
           mode: "create",
           type: datasource.type,
           setup,
+          ga4: ga4TableToSetUp !== null,
         });
+        // The server tests the GA4 query on save but keeps it even if it
+        // fails, for example when the credentials can list tables but not
+        // read them. Then the query is left for Finish Setting Up to fix, and
+        // there's no point creating a fact table over the same rows.
+        const ga4QueryError = res.datasource?.settings?.queries?.exposure?.find(
+          (query) => query.id === GA4_EXPOSURE_QUERY_ID,
+        )?.error;
+        ga4SetUp = ga4TableToSetUp !== null && !ga4QueryError;
+        if (res.id && ga4SetUp && ga4TableToSetUp !== null) {
+          await createGA4FactTable(res.id, ga4TableToSetUp);
+        }
       }
 
       if (!id) {
@@ -829,7 +907,7 @@ export default function ConnectDataSourceLayout({
       setDirty(false);
       setParamsDirty(false);
       await mutateDefinitions({});
-      await onSuccess(id);
+      await onSuccess(id, { googleAnalytics4: ga4SetUp });
     } catch (e) {
       const message =
         e instanceof Error ? e.message : "Failed to save the Data Source";
@@ -1033,6 +1111,68 @@ export default function ConnectDataSourceLayout({
                   name={readAccessTarget}
                   error={readStatus === "failed" ? readMessage : null}
                 />
+                {showGA4Offer ? (
+                  <Box>
+                    <Separator size="4" mb="4" />
+                    <Heading as="h4" size="sm" mb="1">
+                      Google Analytics 4 Detected
+                    </Heading>
+                    <Text as="p" color="text-mid" mb="0">
+                      GrowthBook can configure your Data Source for GA4 so you
+                      can start creating metrics right away.
+                    </Text>
+                    {ga4Exports.length > 1 ? (
+                      <Box mt="3">
+                        <Select
+                          label="GA4 dataset"
+                          disabled={!ga4Enabled}
+                          value={ga4Table}
+                          setValue={setGA4Table}
+                        >
+                          {ga4Exports.map((path) => (
+                            <SelectItem key={path} value={path}>
+                              {getGA4DatasetName(path)}
+                            </SelectItem>
+                          ))}
+                        </Select>
+                      </Box>
+                    ) : null}
+                    {/* Stays put when unchecked, so the checkbox doesn't jump. */}
+                    <Box
+                      mt="4"
+                      p="4"
+                      style={{
+                        border: "1px solid var(--gray-a5)",
+                        borderRadius: "var(--radius-3)",
+                        background: "var(--gray-a2)",
+                      }}
+                    >
+                      <Text as="p" weight="semibold" mb="3">
+                        Configuring GA4 creates:
+                      </Text>
+                      <Flex direction="column" gap="2" mb="3">
+                        <GA4SetupItem label="Identifier types">
+                          <Text mono>user_id</Text>,{" "}
+                          <Text mono>anonymous_id</Text>
+                        </GA4SetupItem>
+                        <GA4SetupItem label="Experiment assignment query" />
+                        <GA4SetupItem label="Fact table">
+                          {GA4_EVENTS_TEMPLATE.name} (event stream)
+                        </GA4SetupItem>
+                      </Flex>
+                      <Text as="p" size="sm" color="text-mid" mb="0">
+                        You can edit or remove any of these later.
+                      </Text>
+                    </Box>
+                    <Checkbox
+                      mt="4"
+                      weight="regular"
+                      label="Yes, configure my Data Source for GA4"
+                      value={ga4Enabled}
+                      setValue={setGA4Enabled}
+                    />
+                  </Box>
+                ) : null}
                 {checksWrite &&
                 writeStatus === "running" &&
                 !detectingRegion ? (
@@ -1187,6 +1327,26 @@ export default function ConnectDataSourceLayout({
         </Button>
       </Flex>
     </Grid>
+  );
+}
+
+function GA4SetupItem({
+  label,
+  children,
+}: {
+  label: string;
+  children?: ReactNode;
+}) {
+  return (
+    <Flex align="center" gap="2">
+      <Box style={{ color: "var(--violet-11)" }} flexShrink="0">
+        <PiCheck />
+      </Box>
+      <Text>
+        <Text weight="semibold">{label}</Text>
+        {children ? <> {children}</> : null}
+      </Text>
+    </Flex>
   );
 }
 

@@ -727,12 +727,9 @@ export async function _dangerousAdminPutMember(
   });
 }
 
+// Requiring the connection is a separate organization update
 export async function _dangerousAdminUpsertSSOConnection(
-  req: AuthRequest<
-    SSOConnectionInterface & {
-      enforceSSO: boolean;
-    }
-  >,
+  req: AuthRequest<SSOConnectionInterface>,
   res: Response,
 ) {
   if (!hasSuperAdminPermission(req.superAdmin, "sso")) {
@@ -752,7 +749,6 @@ export async function _dangerousAdminUpsertSSOConnection(
     extraQueryParams,
     idpType,
     tenantId,
-    enforceSSO,
   } = req.body;
 
   // Taken from the body rather than X-Organization, so managing SSO doesn't
@@ -846,25 +842,6 @@ export async function _dangerousAdminUpsertSSOConnection(
         id: ssoConnection.id || "",
       },
       details: auditDetailsCreate(ssoConnection),
-    });
-  }
-
-  const currentEnforce = org.restrictLoginMethod === id;
-  if (enforceSSO !== currentEnforce) {
-    const newValue = enforceSSO ? id : "";
-    await updateOrganization(org.id, {
-      restrictLoginMethod: newValue,
-    });
-    await req.audit({
-      event: "organization.update",
-      entity: {
-        object: "organization",
-        id: org.id,
-      },
-      details: auditDetailsUpdate(
-        { restrictLoginMethod: org.restrictLoginMethod },
-        { restrictLoginMethod: newValue },
-      ),
     });
   }
 

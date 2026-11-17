@@ -4,6 +4,11 @@ import useAccountPlanNotices from "@/components/Notices/useAccountPlanNotices";
 import { useUser } from "@/services/UserContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 
+const traceIngest = vi.hoisted(() => ({ on: true }));
+vi.mock("@growthbook/growthbook-react", async (importOriginal) => ({
+  ...(await importOriginal<object>()),
+  useFeatureIsOn: () => traceIngest.on,
+}));
 vi.mock("@/services/UserContext");
 vi.mock("@/hooks/usePermissionsUtils");
 vi.mock("@/services/track");
@@ -58,6 +63,39 @@ describe("useAccountPlanNotices", () => {
       title: expect.stringContaining("Approaching Event Forwarder event limit"),
       upgrade: { commercialFeature: "unlimited-event-forwarder-usage" },
     });
+  });
+
+  const tracesOver = () =>
+    vi.mocked(useUser).mockReturnValue({
+      // @ts-expect-error "partial test mock"
+      usage: {
+        cdn: { lastUpdated: new Date(), status: "under" },
+        traces: { lastUpdated: new Date(), status: "over" },
+      },
+      license: null,
+      seatsInUse: 0,
+    });
+
+  it("shows an error, with a generic upgrade, when traces usage is over", () => {
+    traceIngest.on = true;
+    tracesOver();
+    canManageBilling(true);
+
+    const [notice] = renderHook(() => useAccountPlanNotices()).result.current;
+    expect(notice).toMatchObject({
+      severity: "error",
+      title: "Traces usage limit exceeded",
+      upgrade: { commercialFeature: null },
+    });
+  });
+
+  it("hides the traces notice while trace ingest is off", () => {
+    traceIngest.on = false;
+    tracesOver();
+    canManageBilling(true);
+
+    expect(titles()).not.toContain("Traces usage limit exceeded");
+    traceIngest.on = true;
   });
 
   describe("enterprise license seat quota", () => {

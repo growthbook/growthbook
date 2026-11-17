@@ -23,8 +23,11 @@ const REACHABLE: Record<InterleavingStatus, InterleavingStatus[]> = {
   stopped: ["running"],
 };
 
-function statusOptions(current: InterleavingStatus) {
-  return [current, ...REACHABLE[current]].map((value) => ({
+function statusOptions(current: InterleavingStatus, archived: boolean) {
+  const reachable = archived
+    ? REACHABLE[current].filter((status) => status !== "running")
+    : REACHABLE[current];
+  return [current, ...reachable].map((value) => ({
     value,
     label: LABELS[value],
   }));
@@ -66,9 +69,15 @@ export default function EditInterleavingStatusModal({
         label="Status"
         value={status}
         onChange={(v) => setStatus(v as InterleavingStatus)}
-        options={statusOptions(il.status)}
+        options={statusOptions(il.status, il.archived)}
         sort={false}
       />
+      {il.archived && (
+        <Callout status="info">
+          This interleaving experiment is archived. Unarchive it to start it
+          again.
+        </Callout>
+      )}
       {status === "stopped" && il.status === "running" && (
         <Callout status="warning">
           <StopInterleavingWarning />

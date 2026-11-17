@@ -37,6 +37,10 @@ export default {
     plan: "pro",
     displayName: "Code References",
   },
+  "compound-metrics": {
+    plan: "pro",
+    displayName: "Compound Metrics",
+  },
   "contextual-bandits": {
     plan: "enterprise",
     displayName: "Contextual Bandits",
@@ -280,10 +284,6 @@ export default {
   "sequential-testing": {
     plan: "pro",
     displayName: "Sequential Testing",
-  },
-  "share-product-analytics-dashboards": {
-    plan: "enterprise",
-    displayName: "Share Product Analytics Dashboards",
   },
   simulate: {
     plan: "pro",

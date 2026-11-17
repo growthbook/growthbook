@@ -74,7 +74,9 @@ const PendingMemberList: FC<{
         />
       )}
       <Table
-        variant="surface"
+        variant="list"
+        stickyHeader={false}
+        stickyLastColumn
         layout="fixed"
         minTableWidth={MEMBER_TABLE_MIN_WIDTH}
       >
@@ -141,7 +143,7 @@ const PendingMemberList: FC<{
                     Approve
                   </Button>
                 </TableCell>
-                <TableCell>
+                <TableCell justify="center" px="0">
                   <DropdownMenu
                     trigger={
                       <IconButton

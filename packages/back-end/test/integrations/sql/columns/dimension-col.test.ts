@@ -3,6 +3,7 @@ import type { DimensionInterface } from "shared/types/dimension";
 import { redshiftDialect } from "shared/dialects";
 import { getDimensionCol } from "back-end/src/integrations/sql/columns/dimension-col";
 import { concatSql } from "back-end/src/integrations/sql/primitives/concat";
+import { getDimensionValuePerUnit } from "back-end/src/integrations/sql/fact-metrics/dimension-value-per-unit";
 
 describe("concatSql", () => {
   it("nests binary CONCAT so warehouses that reject 3+ arguments stay valid", () => {
@@ -46,5 +47,37 @@ describe("getDimensionCol combo", () => {
       ),
     );
     expect(col.value.startsWith("CONCAT(CONCAT(")).toBe(true);
+  });
+});
+
+describe("getDimensionValuePerUnit null label", () => {
+  const userDimension: DimensionInterface = {
+    id: "dim_u1",
+    organization: "org1",
+    owner: "",
+    datasource: "ds1",
+    userIdType: "user_id",
+    name: "Plan",
+    sql: "SELECT user_id, plan AS value FROM plans",
+    dateCreated: null,
+    dateUpdated: null,
+  };
+
+  it("falls back to the null sentinel by default", () => {
+    expect(
+      getDimensionValuePerUnit(redshiftDialect, {
+        type: "user",
+        dimension: userDimension,
+      }),
+    ).toContain(`'${NULL_DIMENSION_VALUE}'`);
+  });
+
+  it("uses the escaped null label when set", () => {
+    const value = getDimensionValuePerUnit(redshiftDialect, {
+      type: "user",
+      dimension: { ...userDimension, nullLabel: "No plan ('free')" },
+    });
+    expect(value).toContain("'No plan (''free'')'");
+    expect(value).not.toContain(NULL_DIMENSION_VALUE);
   });
 });

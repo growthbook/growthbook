@@ -4,7 +4,7 @@ export default function EmptyPowerCalculation({
   showModal: () => void;
 }) {
   return (
-    <div className="pagecontents">
+    <div>
       <div className="row mb-4" style={{ alignItems: "center" }}>
         <div className="col">
           <div className="d-flex justify-space-between align-items-center">

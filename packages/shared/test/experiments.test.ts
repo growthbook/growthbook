@@ -15,8 +15,6 @@ import {
   getAggregateFilters,
   getColumnExpression,
   expandVirtualColumnsInSql,
-  sqlReferencesColumn,
-  sqlReferencesColumnAllowingQualified,
   validateVirtualColumnExpression,
   getSelectedColumnDatatype,
   adjustPValuesBenjaminiHochberg,
@@ -36,6 +34,7 @@ import {
   isAutoSnapshotScheduled,
   getClusterMetricAnalysisLevel,
   getClusterExperimentMetricEligibility,
+  isScalableClusterSubUnitMetric,
   ExperimentMetricInterface,
   withScheduledBy,
   areVariationWeightsValid,
@@ -2604,136 +2603,6 @@ describe("Virtual Columns", () => {
     });
   });
 
-  describe("sqlReferencesColumn", () => {
-    it("detects a bare identifier reference", () => {
-      expect(sqlReferencesColumn("margin_vc / price", "margin_vc")).toBe(true);
-    });
-
-    it("does not match a name inside a string literal", () => {
-      expect(sqlReferencesColumn("status = 'margin_vc'", "margin_vc")).toBe(
-        false,
-      );
-    });
-
-    it("does not match a partial identifier", () => {
-      expect(sqlReferencesColumn("gross_margin_vc + 1", "margin_vc")).toBe(
-        false,
-      );
-    });
-
-    it("does not match an already-qualified identifier", () => {
-      expect(sqlReferencesColumn("m.price", "price")).toBe(false);
-    });
-
-    it("does not match a qualified identifier with whitespace around the dot", () => {
-      expect(sqlReferencesColumn("m . price", "price")).toBe(false);
-      expect(sqlReferencesColumn("m.\n  price", "price")).toBe(false);
-      expect(sqlReferencesColumn('m . "price"', "price")).toBe(false);
-      expect(sqlReferencesColumn("`m` . `price`", "price", "`")).toBe(false);
-    });
-
-    it("matches a double-quoted identifier in the default dialect", () => {
-      expect(sqlReferencesColumn('"margin_vc" / 2', "margin_vc")).toBe(true);
-    });
-
-    it("treats a double-quoted span as a string literal in a backtick dialect", () => {
-      expect(sqlReferencesColumn('label = "margin_vc"', "margin_vc", "`")).toBe(
-        false,
-      );
-    });
-
-    it("matches a backtick-quoted identifier in a backtick dialect", () => {
-      expect(sqlReferencesColumn("`margin_vc` / 2", "margin_vc", "`")).toBe(
-        true,
-      );
-    });
-
-    it("does not match a name inside a line comment", () => {
-      expect(sqlReferencesColumn("price -- margin_vc\n + 1", "margin_vc")).toBe(
-        false,
-      );
-    });
-
-    it("does not match a name inside a block comment", () => {
-      expect(
-        sqlReferencesColumn("price /* margin_vc */ + 1", "margin_vc"),
-      ).toBe(false);
-    });
-
-    it("does not match a name inside a dollar-quoted string", () => {
-      expect(sqlReferencesColumn("$$margin_vc$$", "margin_vc")).toBe(false);
-      expect(sqlReferencesColumn("$tag$margin_vc$tag$", "margin_vc")).toBe(
-        false,
-      );
-    });
-
-    it("still matches around a lone dollar sign with no closing delimiter", () => {
-      expect(sqlReferencesColumn("margin_vc + $1", "margin_vc")).toBe(true);
-    });
-  });
-
-  describe("sqlReferencesColumnAllowingQualified", () => {
-    it("detects a bare identifier reference", () => {
-      expect(
-        sqlReferencesColumnAllowingQualified("margin_vc / price", "margin_vc"),
-      ).toBe(true);
-    });
-
-    it("detects a table-qualified reference", () => {
-      expect(
-        sqlReferencesColumnAllowingQualified(
-          "SELECT e.bandit_version FROM exposures e",
-          "bandit_version",
-        ),
-      ).toBe(true);
-    });
-
-    it("detects a qualified reference with whitespace around the dot", () => {
-      expect(sqlReferencesColumnAllowingQualified("e . price", "price")).toBe(
-        true,
-      );
-      expect(sqlReferencesColumnAllowingQualified("e.\n  price", "price")).toBe(
-        true,
-      );
-      expect(sqlReferencesColumnAllowingQualified('e . "price"', "price")).toBe(
-        true,
-      );
-      expect(
-        sqlReferencesColumnAllowingQualified("`e` . `price`", "price", "`"),
-      ).toBe(true);
-    });
-
-    it("does not match a name inside a string literal", () => {
-      expect(
-        sqlReferencesColumnAllowingQualified(
-          "status = 'bandit_version'",
-          "bandit_version",
-        ),
-      ).toBe(false);
-    });
-
-    it("does not match a partial identifier", () => {
-      expect(
-        sqlReferencesColumnAllowingQualified("e.gross_margin_vc", "margin_vc"),
-      ).toBe(false);
-    });
-
-    it("does not match a name inside a comment", () => {
-      expect(
-        sqlReferencesColumnAllowingQualified(
-          "e.price -- e.margin_vc\n",
-          "margin_vc",
-        ),
-      ).toBe(false);
-      expect(
-        sqlReferencesColumnAllowingQualified(
-          "e.price /* e.margin_vc */",
-          "margin_vc",
-        ),
-      ).toBe(false);
-    });
-  });
-
   describe("validateVirtualColumnExpression", () => {
     const ok = (sql: string, quote?: "`" | '"') =>
       validateVirtualColumnExpression(sql, quote);
@@ -3260,6 +3129,67 @@ describe("getClusterExperimentMetricEligibility", () => {
         },
       ),
     ).toEqual({ allowed: true, level: "cluster" });
+  });
+});
+
+describe("isScalableClusterSubUnitMetric", () => {
+  const clusterSettings = {
+    isClusterExperiment: true,
+    clusterSubUnitIdentifier: "user_id",
+    clusterLevelMetricIds: ["fact__cluster"],
+  };
+  const factMetric = (metricType: string, id = "fact__m") =>
+    ({
+      id,
+      metricType,
+      numerator: { factTableId: "ft", column: "value", aggregation: "sum" },
+      denominator:
+        metricType === "ratio"
+          ? { factTableId: "ft", column: "value", aggregation: "sum" }
+          : null,
+    }) as unknown as ExperimentMetricInterface;
+
+  it("is true for mean/proportion/retention sub-unit cluster metrics", () => {
+    for (const metricType of ["mean", "proportion", "retention"]) {
+      expect(
+        isScalableClusterSubUnitMetric(factMetric(metricType), clusterSettings),
+      ).toBe(true);
+    }
+  });
+
+  it("is false for ratio and quantile sub-unit cluster metrics", () => {
+    expect(
+      isScalableClusterSubUnitMetric(factMetric("ratio"), clusterSettings),
+    ).toBe(false);
+    expect(
+      isScalableClusterSubUnitMetric(factMetric("quantile"), clusterSettings),
+    ).toBe(false);
+  });
+
+  it("is false for cluster-level metrics analyzed with the cluster as the unit", () => {
+    expect(
+      isScalableClusterSubUnitMetric(
+        factMetric("mean", "fact__cluster"),
+        clusterSettings,
+      ),
+    ).toBe(false);
+  });
+
+  it("is false outside a cluster experiment or without a sub-unit identifier", () => {
+    expect(
+      isScalableClusterSubUnitMetric(factMetric("mean"), {
+        isClusterExperiment: false,
+        clusterSubUnitIdentifier: "user_id",
+        clusterLevelMetricIds: [],
+      }),
+    ).toBe(false);
+    expect(
+      isScalableClusterSubUnitMetric(factMetric("mean"), {
+        isClusterExperiment: true,
+        clusterSubUnitIdentifier: "",
+        clusterLevelMetricIds: [],
+      }),
+    ).toBe(false);
   });
 });
 

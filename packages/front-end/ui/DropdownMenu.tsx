@@ -23,7 +23,7 @@ import React, {
 import { createPortal } from "react-dom";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import Button from "@/ui/Button";
-import Tooltip from "@/components/Tooltip/Tooltip";
+import Tooltip from "@/ui/Tooltip";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import { radixSize, Size } from "@/ui/sizes";
 
@@ -62,9 +62,7 @@ type DropdownProps = {
   onCloseAutoFocus?: React.ComponentProps<
     typeof RadixDropdownMenu.Content
   >["onCloseAutoFocus"];
-  /** Radix's sideOffset. */
   menuSideOffset?: number;
-  /** Radix's alignOffset. */
   menuAlignOffset?: number;
   menuClassName?: string;
 } & MarginProps;
@@ -207,8 +205,8 @@ export function DropdownMenu({
         </RadixDropdownMenu.Trigger>
         <RadixDropdownMenu.Content
           side={menuSide}
-          // Only when set: Radix Themes defaults sideOffset to 4, and an
-          // explicit undefined would replace that default with 0.
+          // Only when set: an explicit undefined would replace Radix Themes'
+          // default sideOffset of 4 with 0.
           {...(menuSideOffset === undefined
             ? {}
             : { sideOffset: menuSideOffset })}
@@ -315,7 +313,7 @@ type DropdownItemProps = {
   color?: "red" | "default";
   shortcut?: RadixDropdownMenu.ItemProps["shortcut"];
   tooltip?: string;
-  tooltipStyle?: React.CSSProperties;
+  tooltipSide?: "top" | "right" | "bottom" | "left";
   /**
    * Typeahead text (Radix's textValue); defaults to the item's text content.
    */
@@ -343,7 +341,7 @@ export function DropdownMenuItem({
   onClick,
   confirmation,
   tooltip,
-  tooltipStyle = { width: "max-content" },
+  tooltipSide = "bottom",
   ...props
 }: DropdownItemProps) {
   if (color === "default") {
@@ -424,8 +422,11 @@ export function DropdownMenuItem({
           <Box width="14px" className="ml-3">
             {loading ? <LoadingSpinner /> : null}
             {error ? (
-              <Tooltip body={`Error: ${error}. Exit menu and try again.`}>
-                <PiWarningFill color={amber.amber11} />
+              <Tooltip content={`Error: ${error}. Exit menu and try again.`}>
+                {/* An icon can't hold the tooltip's ref. */}
+                <span>
+                  <PiWarningFill color={amber.amber11} />
+                </span>
               </Tooltip>
             ) : null}
           </Box>
@@ -452,7 +453,7 @@ export function DropdownMenuItem({
         </ModalStandard>
       )}
       {tooltip ? (
-        <Tooltip body={tooltip} popperStyle={tooltipStyle}>
+        <Tooltip content={tooltip} side={tooltipSide}>
           {menuItem}
         </Tooltip>
       ) : (
