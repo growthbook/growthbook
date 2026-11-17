@@ -37,7 +37,7 @@ export const postSdkConnectionWebhookEndpoint = {
   zodReturnObject: apiSdkWebhookReturn,
   summary: "Add a webhook to an SDK Connection",
   description:
-    "Called whenever the connection's payload changes. `httpMethod` defaults to POST. More than one webhook per organization requires a paid plan. When the organization requires approvals for the connection, add it in a draft revision instead (`POST /sdk-connections-revisions/{id}/new/webhooks`), or pass `bypassApproval`.",
+    "Called whenever the connection's payload changes. `httpMethod` defaults to POST. More than one webhook per organization requires a paid plan. The change is recorded as a published revision of the connection. When the organization requires approvals for the connection, add it in a draft revision instead (`POST /sdk-connections-revisions/{id}/new/webhooks`), or pass `bypassApproval`.",
 };
 
 export const putSdkWebhookEndpoint = {
@@ -53,7 +53,7 @@ export const putSdkWebhookEndpoint = {
   zodReturnObject: apiSdkWebhookReturn,
   summary: "Update an SDK webhook",
   description:
-    "The webhook fires once after an update. Webhooks managed by the Vercel integration can't be changed. When the organization requires approvals for a connection the webhook fires for, change it in a draft revision instead (`PUT /sdk-connections-revisions/{id}/new/webhooks/{webhookId}`), or pass `bypassApproval`.",
+    "The webhook fires once after an update, and the change is recorded as a published revision of each connection it fires for. Webhooks managed by the Vercel integration can't be changed. When the organization requires approvals for a connection the webhook fires for, change it in a draft revision instead (`PUT /sdk-connections-revisions/{id}/new/webhooks/{webhookId}`), or pass `bypassApproval`.",
 };
 
 export const deleteSdkWebhookEndpoint = {
@@ -69,7 +69,7 @@ export const deleteSdkWebhookEndpoint = {
   zodReturnObject: apiSdkWebhookDeleteReturn,
   summary: "Delete an SDK webhook",
   description:
-    "Webhooks managed by the Vercel integration can't be deleted here. When the organization requires approvals for a connection the webhook fires for, remove it in a draft revision instead (`DELETE /sdk-connections-revisions/{id}/new/webhooks/{webhookId}`), or pass `bypassApproval`.",
+    "The removal is recorded as a published revision of each connection the webhook fired for. Webhooks managed by the Vercel integration can't be deleted here. When the organization requires approvals for a connection the webhook fires for, remove it in a draft revision instead (`DELETE /sdk-connections-revisions/{id}/new/webhooks/{webhookId}`), or pass `bypassApproval`.",
 };
 
 // A successful test clears `disabled`, which resumes delivery

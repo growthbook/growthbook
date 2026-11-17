@@ -267,6 +267,8 @@ export const getSdkConnectionRevisionValidator = {
   path: `${BASE}/:version`,
   operationId: "getSdkConnectionRevision",
   summary: "Get a single SDK Connection revision",
+  description:
+    "Returns one revision: the settings and webhooks it started from, the ones it proposes, its reviews, and its activity.",
   tags: TAGS,
   paramsSchema: versionParams,
   bodySchema: z.never(),
@@ -514,6 +516,7 @@ export const postSdkConnectionRevisionReopenValidator = {
   confirmation: ["sdkConnection.draft"] as const,
   operationId: "postSdkConnectionRevisionReopen",
   summary: "Reopen a discarded revision",
+  description: "Returns a discarded revision to `draft`.",
   tags: TAGS,
   paramsSchema: versionParams,
   bodySchema: emptyBody,
@@ -648,6 +651,8 @@ export const postSdkConnectionRevisionDiscardValidator = {
   confirmation: ["sdkConnection.draft"] as const,
   operationId: "postSdkConnectionRevisionDiscard",
   summary: "Discard a draft revision",
+  description:
+    "Abandons an open draft. A published or already discarded revision is refused.",
   tags: TAGS,
   paramsSchema: versionParams,
   bodySchema: z.object({ reason: z.string().optional() }).strict(),

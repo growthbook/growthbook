@@ -23250,6 +23250,9 @@ paths:
     get:
       operationId: getSdkConnectionRevision
       summary: Get a single SDK Connection revision
+      description: >-
+        Returns one revision: the settings and webhooks it started from, the
+        ones it proposes, its reviews, and its activity.
       tags: *ref_0
       parameters:
         - name: id
@@ -24156,6 +24159,7 @@ paths:
     post:
       operationId: postSdkConnectionRevisionReopen
       summary: Reopen a discarded revision
+      description: Returns a discarded revision to `draft`.
       tags: *ref_0
       parameters:
         - name: id
@@ -24447,6 +24451,9 @@ paths:
     post:
       operationId: postSdkConnectionRevisionDiscard
       summary: Discard a draft revision
+      description: >-
+        Abandons an open draft. A published or already discarded revision is
+        refused.
       tags: *ref_0
       parameters:
         - name: id
@@ -33138,8 +33145,10 @@ paths:
         A blocked publish returns one 422 listing every gate across every item
         and the flag that clears each. A concurrent change to any target aborts
         with a 409 and nothing publishes. A failure after the commit starts
-        rolls everything back and emits `revision.publishFailed` for each
-        revision in the set. SDK payloads refresh once per request. Pass
+        rolls everything back, including an SDK Connection's webhooks, and emits
+        `revision.publishFailed` for each revision in the set that has revision
+        events. SDK payloads refresh once per request, and a webhook an SDK
+        Connection revision edits is sent only once the release has landed. Pass
         `dryRun: true` for the full gate report with zero writes.
 
 
@@ -69022,7 +69031,8 @@ paths:
       description: >-
         Called whenever the connection's payload changes. `httpMethod` defaults
         to POST. More than one webhook per organization requires a paid plan.
-        When the organization requires approvals for the connection, add it in a
+        The change is recorded as a published revision of the connection. When
+        the organization requires approvals for the connection, add it in a
         draft revision instead (`POST
         /sdk-connections-revisions/{id}/new/webhooks`), or pass
         `bypassApproval`.
@@ -69147,10 +69157,11 @@ paths:
       operationId: putSdkWebhook
       summary: Update an SDK webhook
       description: >-
-        The webhook fires once after an update. Webhooks managed by the Vercel
-        integration can't be changed. When the organization requires approvals
-        for a connection the webhook fires for, change it in a draft revision
-        instead (`PUT
+        The webhook fires once after an update, and the change is recorded as a
+        published revision of each connection it fires for. Webhooks managed by
+        the Vercel integration can't be changed. When the organization requires
+        approvals for a connection the webhook fires for, change it in a draft
+        revision instead (`PUT
         /sdk-connections-revisions/{id}/new/webhooks/{webhookId}`), or pass
         `bypassApproval`.
       tags:
@@ -69278,9 +69289,10 @@ paths:
       operationId: deleteSdkWebhook
       summary: Delete an SDK webhook
       description: >-
-        Webhooks managed by the Vercel integration can't be deleted here. When
-        the organization requires approvals for a connection the webhook fires
-        for, remove it in a draft revision instead (`DELETE
+        The removal is recorded as a published revision of each connection the
+        webhook fired for. Webhooks managed by the Vercel integration can't be
+        deleted here. When the organization requires approvals for a connection
+        the webhook fires for, remove it in a draft revision instead (`DELETE
         /sdk-connections-revisions/{id}/new/webhooks/{webhookId}`), or pass
         `bypassApproval`.
       tags:

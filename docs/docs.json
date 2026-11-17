@@ -95,6 +95,7 @@
                     "pages": [
                       "features/publishing-and-approval-flows",
                       "features/saved-group-revisions-api",
+                      "features/sdk-connection-revisions-api",
                       "features/json-schema-validation",
                       "features/stale-detection",
                       "features/code-references",
