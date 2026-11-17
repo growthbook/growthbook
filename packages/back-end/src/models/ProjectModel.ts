@@ -110,6 +110,12 @@ export class ProjectModel extends BaseClass {
     dashboardId: string | null,
   ) {
     if (dashboardId !== null) {
+      // Clearing stays allowed, so an org that lost the feature can remove it.
+      if (!this.context.hasPremiumFeature("product-analytics-dashboards")) {
+        this.context.throwPlanDoesNotAllowError(
+          "Your plan does not support dashboards.",
+        );
+      }
       const dashboard =
         await this.context.models.dashboards.getById(dashboardId);
       if (
