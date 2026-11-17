@@ -15,6 +15,7 @@ import {
   HoldoutInterface,
 } from "shared/validators";
 import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
+import { PageBleed } from "@/components/Layout/PageFrame";
 import Heading from "@/ui/Heading";
 import Badge from "@/ui/Badge";
 import { useUser } from "@/services/UserContext";
@@ -58,8 +59,8 @@ import FeatureDeleteModal from "./FeatureDeleteModal";
 import AddToHoldoutModal from "./AddToHoldoutModal";
 
 // From the details panel's default edge to where the cards' content ends: the
-// page gutter, a card's padding and border (49px).
-const REVISION_SELECTOR_WIDTH_PX = PANEL_WIDTH_PX - 49;
+// page padding at desktop widths, a card's padding and border (57px).
+const REVISION_SELECTOR_WIDTH_PX = PANEL_WIDTH_PX - 57;
 
 export default function FeaturesHeaderNew({
   feature,
@@ -233,7 +234,7 @@ export default function FeaturesHeaderNew({
       {viewingDraft ? null : canEditDrafts ? (
         // Ends over the revision picker: into the menu button's gap, then
         // back by a border as wide as a card's, which zoom rounds the same way.
-        <Box style={{ marginRight: -10, borderRight: "1px solid transparent" }}>
+        <Box style={{ marginRight: -9, borderRight: "1px solid transparent" }}>
           <NewDraftButton
             feature={baseFeature}
             revisionList={revisions}
@@ -249,7 +250,7 @@ export default function FeaturesHeaderNew({
             size="lg"
             // Above the details toggle, past the row's end. Inline, not
             // margin props: a ghost button adds its own offset to those.
-            style={{ marginLeft: 0, marginRight: -17 }}
+            style={{ marginLeft: 0, marginRight: -16 }}
           />
         }
         open={dropdownOpen}
@@ -423,16 +424,18 @@ export default function FeaturesHeaderNew({
     </Flex>
   );
 
-  // White over the page's violet, which only the content column below shows.
+  // White over the page's violet, which only the content column below shows,
+  // from the side nav to the window, its content on the page's edges.
   return (
     <>
-      {/* Padding inline: container-fluid's own outranks Radix's props. */}
-      <Box
-        className="container-fluid pagecontents"
-        position="relative"
+      <PageBleed
         style={{
+          position: "relative",
           background: "var(--color-panel-solid)",
-          padding: "var(--space-4) var(--space-5) var(--space-2)",
+          // From the app header down: it holds the page's top padding itself.
+          marginTop: "calc(-1 * var(--page-top-padding))",
+          paddingTop: "var(--page-top-padding)",
+          paddingBottom: "var(--space-2)",
         }}
       >
         <Box>
@@ -474,7 +477,7 @@ export default function FeaturesHeaderNew({
             </Callout>
           ) : null}
         </Box>
-      </Box>
+      </PageBleed>
       <>
         <div
           ref={tabsPinSentinelRef}
@@ -487,16 +490,12 @@ export default function FeaturesHeaderNew({
             background: "var(--color-panel-solid)",
           }}
         />
-        <div
+        <PageBleed
           className={clsx("feature-tabs redesign d-print-none", {
             pinned: headerPinned,
           })}
         >
-          <Box
-            className="container-fluid pagecontents"
-            position="relative"
-            style={{ paddingInline: "var(--space-5)" }}
-          >
+          <Box position="relative">
             <Flex align="center" className="header-tabs">
               <Tabs
                 value={tab}
@@ -552,7 +551,7 @@ export default function FeaturesHeaderNew({
             </Flex>
           </Box>
           {statusBar}
-        </div>
+        </PageBleed>
       </>
       {auditModal && (
         <CompareFeatureEventsModal

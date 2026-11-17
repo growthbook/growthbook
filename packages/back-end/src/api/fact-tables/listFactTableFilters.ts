@@ -7,13 +7,14 @@ import {
   applyPagination,
   createApiRequestHandler,
 } from "back-end/src/util/handler";
+import { NotFoundError } from "back-end/src/util/errors";
 
 export const listFactTableFilters = createApiRequestHandler(
   listFactTableFiltersValidator,
 )(async (req) => {
   const factTable = await getFactTable(req.context, req.params.factTableId);
   if (!factTable) {
-    throw new Error("Could not find factTable with that id");
+    throw new NotFoundError("Could not find factTable with that id");
   }
 
   // TODO: Move sorting/limiting to the database query for better performance

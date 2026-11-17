@@ -306,7 +306,7 @@ import {
 } from "back-end/src/services/experiment-feature";
 import { validateSafeRolloutFields } from "back-end/src/validators/safe-rollout";
 import { getSafeRolloutRuleFromFeature } from "back-end/src/routers/safe-rollout/safe-rollout.helper";
-import { UnrecoverableApiError } from "back-end/src/util/errors";
+import { UnrecoverableApiError, NotFoundError } from "back-end/src/util/errors";
 import {
   MAX_IDS_QUERY_LENGTH,
   parseIdsQuery,
@@ -929,7 +929,7 @@ export async function postFeatureRebase(
   const feature = await getFeature(context, id);
 
   if (!feature) {
-    throw new Error("Could not find feature");
+    throw new NotFoundError("Could not find feature");
   }
 
   const allEnvironments = getEnvironments(org);
@@ -944,7 +944,7 @@ export async function postFeatureRebase(
     version: parseInt(version),
   });
   if (!revision) {
-    throw new Error("Could not find feature revision");
+    throw new NotFoundError("Could not find feature revision");
   }
   const rebasableStatuses = [
     "draft",
@@ -1069,7 +1069,7 @@ export async function postFeatureScheduledPublish(
   const { scheduledPublishAt, lockEdits, lockOthers } = req.body;
 
   const feature = await getFeature(context, id);
-  if (!feature) throw new Error("Could not find feature");
+  if (!feature) throw new NotFoundError("Could not find feature");
 
   const revision = await getRevision({
     context,
@@ -1078,7 +1078,7 @@ export async function postFeatureScheduledPublish(
     feature,
     version: parseInt(version),
   });
-  if (!revision) throw new Error("Could not find feature revision");
+  if (!revision) throw new NotFoundError("Could not find feature revision");
 
   if (
     !["draft", "pending-review", "changes-requested", "approved"].includes(
@@ -1183,7 +1183,7 @@ export async function postFeatureRequestReview(
   } = req.body;
   const feature = await getFeature(context, id);
   if (!feature) {
-    throw new Error("Could not find feature");
+    throw new NotFoundError("Could not find feature");
   }
   const revision = await getRevision({
     context,
@@ -1193,7 +1193,7 @@ export async function postFeatureRequestReview(
     version: parseInt(version),
   });
   if (!revision) {
-    throw new Error("Could not find feature revision");
+    throw new NotFoundError("Could not find feature revision");
   }
   // Draft authority, or revert authority over a draft that only restores a
   // published revision — otherwise a revert-only role can open a rollback it
@@ -1297,7 +1297,7 @@ export async function postFeatureReviewOrComment(
   const { comment, review = "Comment" } = req.body;
   const feature = await getFeature(context, id);
   if (!feature) {
-    throw new Error("Could not find feature");
+    throw new NotFoundError("Could not find feature");
   }
 
   // A verdict is the review atom; a plain comment is participation, so the
@@ -1339,7 +1339,7 @@ export async function postFeatureReviewOrComment(
     version: parseInt(version),
   });
   if (!revision) {
-    throw new Error("Could not find feature revision");
+    throw new NotFoundError("Could not find feature revision");
   }
 
   // A verdict is judged against what the draft changes, so it waits on the
@@ -1464,7 +1464,7 @@ export async function postFeatureApproveAndPublish(
   const { id, version } = req.params;
   const { comment } = req.body;
   const feature = await getFeature(context, id);
-  if (!feature) throw new Error("Could not find feature");
+  if (!feature) throw new NotFoundError("Could not find feature");
 
   // Coarse refusal first: no review rights should 403, not 404 on a bad version.
   if (
@@ -1484,7 +1484,7 @@ export async function postFeatureApproveAndPublish(
     feature,
     version: parseInt(version),
   });
-  if (!revision) throw new Error("Could not find feature revision");
+  if (!revision) throw new NotFoundError("Could not find feature revision");
 
   // Granting the approval, so judge it against what the draft would change.
   const approveFootprint = await getFeatureReviewFootprint({
@@ -1784,7 +1784,7 @@ export async function postFeatureToggleAutoPublish(
   const { enabled } = req.body;
 
   const feature = await getFeature(context, id);
-  if (!feature) throw new Error("Could not find feature");
+  if (!feature) throw new NotFoundError("Could not find feature");
 
   const revision = await getRevision({
     context,
@@ -1793,7 +1793,7 @@ export async function postFeatureToggleAutoPublish(
     feature,
     version: parseInt(version),
   });
-  if (!revision) throw new Error("Could not find feature revision");
+  if (!revision) throw new NotFoundError("Could not find feature revision");
 
   if (
     !["draft", "pending-review", "changes-requested", "approved"].includes(
@@ -1858,7 +1858,7 @@ export async function postFeatureRecallReview(
   const context = getContextFromReq(req);
   const { id, version } = req.params;
   const feature = await getFeature(context, id);
-  if (!feature) throw new Error("Could not find feature");
+  if (!feature) throw new NotFoundError("Could not find feature");
   const revision = await getRevision({
     context,
     organization: context.org.id,
@@ -1866,7 +1866,7 @@ export async function postFeatureRecallReview(
     feature,
     version: parseInt(version),
   });
-  if (!revision) throw new Error("Could not find feature revision");
+  if (!revision) throw new NotFoundError("Could not find feature revision");
   if (!(await canRecallFeatureReview({ context, feature, draft: revision }))) {
     context.permissions.throwPermissionError();
   }
@@ -1902,7 +1902,7 @@ export async function postFeatureUndoReview(
   const context = getContextFromReq(req);
   const { id, version } = req.params;
   const feature = await getFeature(context, id);
-  if (!feature) throw new Error("Could not find feature");
+  if (!feature) throw new NotFoundError("Could not find feature");
   const revision = await getRevision({
     context,
     organization: context.org.id,
@@ -1910,7 +1910,7 @@ export async function postFeatureUndoReview(
     feature,
     version: parseInt(version),
   });
-  if (!revision) throw new Error("Could not find feature revision");
+  if (!revision) throw new NotFoundError("Could not find feature revision");
   await assertCanUndoFeatureReview({
     context,
     feature,
@@ -1964,7 +1964,7 @@ export async function putFeatureRevisionLogComment(
     throw new Error("Comment cannot be empty");
   }
   const feature = await getFeature(context, id);
-  if (!feature) throw new Error("Could not find feature");
+  if (!feature) throw new NotFoundError("Could not find feature");
   await context.models.featureRevisionLogs.updateCommentText(logId, comment, {
     featureId: feature.id,
     version: parseInt(version),
@@ -1985,7 +1985,7 @@ export async function deleteFeatureRevisionLogEntry(
   const context = getContextFromReq(req);
   const { id, version, logId } = req.params;
   const feature = await getFeature(context, id);
-  if (!feature) throw new Error("Could not find feature");
+  if (!feature) throw new NotFoundError("Could not find feature");
   await context.models.featureRevisionLogs.deleteOwnedEntry(logId, {
     featureId: feature.id,
     version: parseInt(version),
@@ -2017,7 +2017,7 @@ export async function postFeaturePublish(
   const feature = await getFeature(context, id);
 
   if (!feature) {
-    throw new Error("Could not find feature");
+    throw new NotFoundError("Could not find feature");
   }
 
   const allEnvironments = getEnvironments(org);
@@ -2040,7 +2040,7 @@ export async function postFeaturePublish(
     "approved",
   ];
   if (!revision) {
-    throw new Error("Could not find feature revision");
+    throw new NotFoundError("Could not find feature revision");
   }
   const { live, base } = await getLiveAndBaseRevisionsForFeature({
     context,
@@ -2500,7 +2500,7 @@ export async function postFeatureRevert(
 
   const feature = await getFeature(context, id);
   if (!feature) {
-    throw new Error("Could not find feature");
+    throw new NotFoundError("Could not find feature");
   }
 
   const allEnvironments = getEnvironments(org);
@@ -2515,7 +2515,7 @@ export async function postFeatureRevert(
     version: parseInt(version),
   });
   if (!revision) {
-    throw new Error("Could not find feature revision");
+    throw new NotFoundError("Could not find feature revision");
   }
 
   if (revision.version === feature.version || revision.status !== "published") {
@@ -2867,7 +2867,7 @@ export async function postFeatureRevertDraft(
 
   const feature = await getFeature(context, id);
   if (!feature) {
-    throw new Error("Could not find feature");
+    throw new NotFoundError("Could not find feature");
   }
 
   const revision = await getRevision({
@@ -2878,7 +2878,7 @@ export async function postFeatureRevertDraft(
     version: parseInt(version),
   });
   if (!revision) {
-    throw new Error("Could not find feature revision");
+    throw new NotFoundError("Could not find feature revision");
   }
 
   if (revision.version === feature.version || revision.status !== "published") {
@@ -2991,7 +2991,7 @@ export async function postFeatureFork(
   const feature = await getFeature(context, id);
 
   if (!feature) {
-    throw new Error("Could not find feature");
+    throw new NotFoundError("Could not find feature");
   }
 
   const revision = await getRevision({
@@ -3002,7 +3002,7 @@ export async function postFeatureFork(
     version: parseInt(version),
   });
   if (!revision) {
-    throw new Error("Could not find feature revision");
+    throw new NotFoundError("Could not find feature revision");
   }
 
   if (!context.permissions.canEditFeatureDrafts(feature)) {
@@ -3043,7 +3043,7 @@ export async function postFeatureDiscard(
   const feature = await getFeature(context, id);
 
   if (!feature) {
-    throw new Error("Could not find feature");
+    throw new NotFoundError("Could not find feature");
   }
 
   const revision = await getRevision({
@@ -3054,7 +3054,7 @@ export async function postFeatureDiscard(
     version: parseInt(version),
   });
   if (!revision) {
-    throw new Error("Could not find feature revision");
+    throw new NotFoundError("Could not find feature revision");
   }
 
   if (revision.status === "published" || revision.status === "discarded") {
@@ -3125,7 +3125,7 @@ export async function postFeatureReopen(
   const feature = await getFeature(context, id);
 
   if (!feature) {
-    throw new Error("Could not find feature");
+    throw new NotFoundError("Could not find feature");
   }
 
   const revision = await getRevision({
@@ -3136,7 +3136,7 @@ export async function postFeatureReopen(
     version: parseInt(version),
   });
   if (!revision) {
-    throw new Error("Could not find feature revision");
+    throw new NotFoundError("Could not find feature revision");
   }
 
   if (revision.status !== "discarded") {
@@ -3203,7 +3203,7 @@ export async function postFeatureRule(
 
   const feature = await getFeature(context, id);
   if (!feature) {
-    throw new Error("Could not find feature");
+    throw new NotFoundError("Could not find feature");
   }
 
   const allEnvironments = getEnvironments(context.org);
@@ -3717,7 +3717,7 @@ export async function postFeatureExperimentRefRule(
 
   const feature = await getFeature(context, id);
   if (!feature) {
-    throw new Error("Could not find feature");
+    throw new NotFoundError("Could not find feature");
   }
 
   const experiment = await getExperimentById(context, rule.experimentId);
@@ -3765,7 +3765,7 @@ export async function postFeatureContextualBanditRefRule(
 
   const feature = await getFeature(context, id);
   if (!feature) {
-    throw new Error("Could not find feature");
+    throw new NotFoundError("Could not find feature");
   }
 
   const contextualBandit = await context.models.contextualBandits.getById(
@@ -3813,7 +3813,7 @@ export async function putRevisionComment(
 
   const feature = await getFeature(context, id);
   if (!feature) {
-    throw new Error("Could not find feature");
+    throw new NotFoundError("Could not find feature");
   }
 
   // Editing a comment is commenting, judged by the same shared predicate as posting
@@ -3834,7 +3834,7 @@ export async function putRevisionComment(
     version: parseInt(version),
   });
   if (!revision) {
-    throw new Error("Could not find feature revision");
+    throw new NotFoundError("Could not find feature revision");
   }
 
   const updatedRevisionAfterComment = await updateRevision(
@@ -3874,7 +3874,7 @@ export async function putRevisionTitle(
 
   const feature = await getFeature(context, id);
   if (!feature) {
-    throw new Error("Could not find feature");
+    throw new NotFoundError("Could not find feature");
   }
 
   if (!context.permissions.canEditFeatureDrafts(feature)) {
@@ -3889,7 +3889,7 @@ export async function putRevisionTitle(
     version: parseInt(version),
   });
   if (!revision) {
-    throw new Error("Could not find feature revision");
+    throw new NotFoundError("Could not find feature revision");
   }
 
   const updatedRevisionAfterTitle = await updateRevision(
@@ -3939,7 +3939,7 @@ export async function postFeatureDefaultValue(
 
   const feature = await getFeature(context, id);
   if (!feature) {
-    throw new Error("Could not find feature");
+    throw new NotFoundError("Could not find feature");
   }
 
   if (!context.permissions.canEditFeatureDrafts(feature)) {
@@ -4036,7 +4036,7 @@ export async function postFeatureSchema(
   const feature = await getFeature(context, id);
 
   if (!feature) {
-    throw new Error("Could not find feature");
+    throw new NotFoundError("Could not find feature");
   }
 
   if (!context.permissions.canEditFeatureDrafts(feature)) {
@@ -4111,7 +4111,7 @@ export async function putSafeRolloutStatus(
   const { org } = context;
   const feature = await getFeature(context, id);
   if (!feature) {
-    throw new Error("Could not find feature");
+    throw new NotFoundError("Could not find feature");
   }
 
   // A status flip is a live write in one environment; the revision below is
@@ -4265,7 +4265,7 @@ export async function putFeatureRule(
 
   const feature = await getFeature(context, id);
   if (!feature) {
-    throw new Error("Could not find feature");
+    throw new NotFoundError("Could not find feature");
   }
 
   const allEnvironments = getEnvironments(context.org);
@@ -4726,7 +4726,7 @@ export async function postFeatureCreateDraft(
   const feature = await getFeature(context, id);
 
   if (!feature) {
-    throw new Error("Could not find feature");
+    throw new NotFoundError("Could not find feature");
   }
 
   if (!context.permissions.canEditFeatureDrafts(feature)) {
@@ -4816,7 +4816,7 @@ export async function postFeatureToggle(
   const feature = await getFeature(context, id);
 
   if (!feature) {
-    throw new Error("Could not find feature");
+    throw new NotFoundError("Could not find feature");
   }
 
   if (!environments || typeof environments !== "object") {
@@ -5029,7 +5029,7 @@ export async function postFeatureMoveRule(
   const feature = await getFeature(context, id);
 
   if (!feature) {
-    throw new Error("Could not find feature");
+    throw new NotFoundError("Could not find feature");
   }
 
   if (!context.permissions.canEditFeatureDrafts(feature)) {
@@ -5117,7 +5117,7 @@ export async function deleteFeatureRule(
 
   const feature = await getFeature(context, id);
   if (!feature) {
-    throw new Error("Could not find feature");
+    throw new NotFoundError("Could not find feature");
   }
 
   const allEnvironments = getEnvironments(context.org);
@@ -5229,7 +5229,7 @@ export async function putFeature(
   const feature = await getFeature(context, id);
 
   if (!feature) {
-    throw new Error("Could not find feature");
+    throw new NotFoundError("Could not find feature");
   }
 
   const {
@@ -5673,7 +5673,7 @@ export async function postFeatureEvaluate(
 
   const feature = await getFeature(context, id);
   if (!feature) {
-    throw new Error("Could not find feature");
+    throw new NotFoundError("Could not find feature");
   }
 
   const revision = await getRevision({
@@ -5684,7 +5684,7 @@ export async function postFeatureEvaluate(
     version: parseInt(version),
   });
   if (!revision) {
-    throw new Error("Could not find feature revision");
+    throw new NotFoundError("Could not find feature revision");
   }
   const date = evalDate ? new Date(evalDate) : new Date();
 
@@ -5823,7 +5823,7 @@ export async function postFeatureArchive(
   const feature = await getFeature(context, id);
 
   if (!feature) {
-    throw new Error("Could not find feature");
+    throw new NotFoundError("Could not find feature");
   }
 
   const {
@@ -6025,7 +6025,7 @@ export async function getFeatureCodeRefs(
   const context = getContextFromReq(req);
   const feature = await getFeature(context, req.params.id);
   if (!feature) {
-    throw new Error("Could not find feature");
+    throw new NotFoundError("Could not find feature");
   }
   const codeRefs = await getAllCodeRefsForFeature({
     feature: feature.id,
@@ -6044,7 +6044,7 @@ export async function getFeatureRevisions(
 
   const feature = await getFeature(context, id);
   if (!feature) {
-    throw new Error("Could not find feature");
+    throw new NotFoundError("Could not find feature");
   }
 
   const versionsParam = req.query.versions ?? "";
@@ -6085,7 +6085,7 @@ export async function getRevisionLog(
 
   const feature = await getFeature(context, id);
   if (!feature) {
-    throw new Error("Could not find feature");
+    throw new NotFoundError("Could not find feature");
   }
 
   // In the past logs were stored on the revisions.
@@ -6098,7 +6098,7 @@ export async function getRevisionLog(
     includeLog: true,
   });
   if (!revision) {
-    throw new Error("Could not find feature revision");
+    throw new NotFoundError("Could not find feature revision");
   }
 
   // But now we store logs in a separate table as they are too large
@@ -6137,7 +6137,7 @@ export async function getFeatureById(
 
   const feature = await getFeature(context, id);
   if (!feature) {
-    throw new Error("Could not find feature");
+    throw new NotFoundError("Could not find feature");
   }
 
   const [minimalRevisions, rampScheduleDocs, holdout] = await Promise.all([
@@ -6299,7 +6299,7 @@ export async function getFeatureUsage(
   const feature = await getFeature(context, id);
 
   if (!feature) {
-    throw new Error("Could not find feature");
+    throw new NotFoundError("Could not find feature");
   }
 
   const allEnvironments = getEnvironments(org);
@@ -6507,7 +6507,7 @@ export async function toggleStaleFFDetectionForFeature(
 
   const feature = await getFeature(context, id);
   if (!feature) {
-    throw new Error("Could not find feature");
+    throw new NotFoundError("Could not find feature");
   }
 
   if (!context.permissions.canEditFeatureDrafts(feature)) {
@@ -6680,7 +6680,7 @@ export async function postPrerequisite(
 
   const feature = await getFeature(context, id);
   if (!feature) {
-    throw new Error("Could not find feature");
+    throw new NotFoundError("Could not find feature");
   }
 
   if (!context.permissions.canEditFeatureDrafts(feature)) {
@@ -6748,7 +6748,7 @@ export async function putPrerequisite(
 
   const feature = await getFeature(context, id);
   if (!feature) {
-    throw new Error("Could not find feature");
+    throw new NotFoundError("Could not find feature");
   }
 
   if (!context.permissions.canEditFeatureDrafts(feature)) {
@@ -6829,7 +6829,7 @@ export async function deletePrerequisite(
 
   const feature = await getFeature(context, id);
   if (!feature) {
-    throw new Error("Could not find feature");
+    throw new NotFoundError("Could not find feature");
   }
 
   if (!context.permissions.canEditFeatureDrafts(feature)) {
@@ -6900,7 +6900,7 @@ export async function getPrerequisiteStates(
 
   const baseFeature = await getFeature(context, id);
   if (!baseFeature) {
-    throw new Error("Could not find feature");
+    throw new NotFoundError("Could not find feature");
   }
 
   let envIds: string[];

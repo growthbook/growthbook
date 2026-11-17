@@ -28,11 +28,7 @@ import CollapsiblePanelLayout, {
   PANEL_WIDTH_PX,
 } from "@/components/CollapsiblePanelLayout";
 import usePinnedHeader from "@/hooks/usePinnedHeader";
-import {
-  NARROW_LAYOUT_BREAKPOINT_PX,
-  TABS_BAR_HEIGHT_PX,
-  TABS_HEADER_HEIGHT_PX,
-} from "@/components/Layout/constants";
+import { NARROW_LAYOUT_BREAKPOINT_PX } from "@/components/Layout/constants";
 
 export async function getServerSideProps(context) {
   const { e } = context.params;
@@ -238,7 +234,7 @@ export default function PublicExperimentPage(props: PublicExperimentPageProps) {
         >
           <CollapsiblePanelLayout
             open={onOverview && detailsShown}
-            top={TABS_HEADER_HEIGHT_PX + TABS_BAR_HEIGHT_PX}
+            top="var(--tabs-bottom)"
             width={detailsWidth}
             onWidthChange={setDetailsWidth}
             onCollapse={() => setDetailsOpen(false)}

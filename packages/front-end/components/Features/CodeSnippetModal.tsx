@@ -205,7 +205,7 @@ export default function CodeSnippetModal({
         trackingEventModalType=""
         close={close}
         secondaryCTA={secondaryCTA}
-        className="mb-4 appbox"
+        className={inline ? "appbox mb-0" : "mb-4 appbox"}
         bodyClassName="p-0"
         open={true}
         inline={inline}

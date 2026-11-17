@@ -132,6 +132,7 @@ import { logger } from "back-end/src/util/logger";
 import { errorStringFromZodResult } from "back-end/src/util/validation";
 import {
   BadRequestError,
+  NotFoundError,
   PaymentRequiredError,
 } from "back-end/src/util/errors";
 import { getAnalysisEndDateSettingsError } from "back-end/src/services/scheduledAnalysisEndDate";
@@ -1129,7 +1130,7 @@ export async function acceptInvite(key: string, userId: string, email: string) {
 
   const invite = organization.invites.filter((invite) => invite.key === key)[0];
   if (!invite) {
-    throw new Error("Could not find invitation with that key");
+    throw new NotFoundError("Could not find invitation with that key");
   }
 
   // Ensure the invite was issued to the authenticated user's email; otherwise a
@@ -1164,7 +1165,7 @@ export async function acceptInvite(key: string, userId: string, email: string) {
       );
     }
     if (!latestOrganization.invites.some((existing) => existing.key === key)) {
-      throw new Error("Could not find invitation with that key");
+      throw new NotFoundError("Could not find invitation with that key");
     }
     throw new Error("Unable to accept organization invitation");
   }
