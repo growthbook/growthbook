@@ -45,6 +45,7 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import ShareStatusBadge from "@/components/Report/ShareStatusBadge";
 import LinkButton from "@/ui/LinkButton";
 import Badge from "@/ui/Badge";
+import RadixTooltip from "@/ui/Tooltip";
 import DefaultDashboardMenuItems from "@/enterprise/components/Dashboards/DefaultDashboardMenuItems";
 
 export default function DashboardsPage() {
@@ -453,19 +454,24 @@ export default function DashboardsPage() {
                                   isOwner={d.userId === userId}
                                 />
                                 {defaultForProjects.length > 0 && (
-                                  <Badge
-                                    ml="2"
-                                    color="violet"
-                                    variant="soft"
-                                    label={
-                                      defaultForProjects.length === 1
-                                        ? `Default for ${defaultForProjects[0].name}`
-                                        : `Default for ${defaultForProjects.length} Projects`
-                                    }
-                                    title={`Home page default for ${defaultForProjects
+                                  // One Project is already named in the label.
+                                  <RadixTooltip
+                                    enabled={defaultForProjects.length > 1}
+                                    content={`Home page default for ${defaultForProjects
                                       .map((p) => p.name)
                                       .join(", ")}`}
-                                  />
+                                  >
+                                    <Badge
+                                      ml="2"
+                                      color="violet"
+                                      variant="soft"
+                                      label={
+                                        defaultForProjects.length === 1
+                                          ? `Default for ${defaultForProjects[0].name}`
+                                          : `Default for ${defaultForProjects.length} Projects`
+                                      }
+                                    />
+                                  </RadixTooltip>
                                 )}
                               </td>
                               <td>
