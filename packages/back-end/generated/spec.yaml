@@ -40144,12 +40144,12 @@ paths:
       description: >-
         Send the SDK payload as JSON in the request body. For Feature Flags kept
         in a local `flags.ts`, that is `JSON.stringify(flags)`. The upload is
-        checked and kept for 24 hours, and the response has a claim link.
-        Whoever opens the link signs up or signs in, claims the upload for their
-        workspace and chooses what to import. No API key is needed. A top-level
-        `env` in a rule's condition becomes the environments that rule applies
-        to. A rule with `variations` becomes a draft experiment linked to its
-        Feature Flag.
+        checked and the response has a claim link that lasts one hour. After
+        that, upload again to get a new one. Whoever opens the link signs up or
+        signs in, claims the upload for their workspace and chooses what to
+        import. No API key is needed. A top-level `env` in a rule's condition
+        becomes the environments that rule applies to. A rule with `variations`
+        becomes a draft experiment linked to its Feature Flag.
       security: []
       tags:
         - flag-imports

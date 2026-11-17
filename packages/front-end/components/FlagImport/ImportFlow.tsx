@@ -616,8 +616,8 @@ export default function ImportFlow({
 }
 
 // An upload can be imported once, so what was left behind needs a new one.
-// Sending the same file is safe: Feature Flags that exist are left alone.
-const RETRY = "To try again, send the file again to get a new link.";
+// Uploading the same file is safe: Feature Flags that exist are left alone.
+const RETRY = "To try again, rerun the upload to get a new link.";
 
 export function ImportDone({
   flagImport,

@@ -86,7 +86,8 @@ const REPORT_ORDER: Artifact["kind"][] = [
   "attribute",
 ];
 
-const EXPIRED = "This link has expired or does not exist.";
+const EXPIRED =
+  "This link has expired or does not exist. Upload again to get a new one.";
 
 function toApiStatus(doc: FlagImportInterface): ApiFlagImportStatus {
   return { status: doc.status, expiresAt: doc.expiresAt.toISOString() };
@@ -171,7 +172,7 @@ export async function createFlagImportFromFile({
     warnings: plan.warnings,
     howToUse: [
       "Give claimUrl to your user and repeat it in your last message: opening it and signing in lets them import these Feature Flags into their GrowthBook workspace.",
-      `The link works once and stops on ${expiresAt}.`,
+      `The link works once and stops on ${expiresAt}. After that, upload again to get a new one.`,
       "GET /api/v1/flag-imports/{token} says when it has been claimed and when it has been imported.",
       ...(plan.warnings.length
         ? [

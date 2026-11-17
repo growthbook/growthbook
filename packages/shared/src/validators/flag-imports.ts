@@ -17,7 +17,8 @@ export const FLAG_IMPORT_MAX_PROBLEMS = 50;
 // below this; reading a file walks every level.
 export const FLAG_IMPORT_MAX_DEPTH = 50;
 export const FLAG_IMPORT_MAX_BYTES = 256 * 1024;
-export const FLAG_IMPORT_LIFETIME_HOURS = 24;
+// An unclaimed upload and its link last this long.
+export const FLAG_IMPORT_LIFETIME_HOURS = 1;
 // Once claimed, an upload waits this long to be imported.
 export const FLAG_IMPORT_CLAIMED_LIFETIME_DAYS = 7;
 // Claimed uploads a workspace can hold before it has to import one.
@@ -471,7 +472,7 @@ export const postFlagImportValidator = {
   summary:
     "Upload Feature Flags defined in code for someone to claim, with no account",
   description:
-    "Send the SDK payload as JSON in the request body. For Feature Flags kept in a local `flags.ts`, that is `JSON.stringify(flags)`. The upload is checked and kept for 24 hours, and the response has a claim link. Whoever opens the link signs up or signs in, claims the upload for their workspace and chooses what to import. No API key is needed. A top-level `env` in a rule's condition becomes the environments that rule applies to. A rule with `variations` becomes a draft experiment linked to its Feature Flag.",
+    "Send the SDK payload as JSON in the request body. For Feature Flags kept in a local `flags.ts`, that is `JSON.stringify(flags)`. The upload is checked and the response has a claim link that lasts one hour. After that, upload again to get a new one. Whoever opens the link signs up or signs in, claims the upload for their workspace and chooses what to import. No API key is needed. A top-level `env` in a rule's condition becomes the environments that rule applies to. A rule with `variations` becomes a draft experiment linked to its Feature Flag.",
   operationId: "postFlagImport",
   tags: ["flag-imports"],
   method: "post" as const,

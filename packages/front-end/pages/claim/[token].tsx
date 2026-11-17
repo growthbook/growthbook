@@ -2,7 +2,8 @@ import { ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/router";
 import useSWR from "swr";
 import { Box, Flex } from "@radix-ui/themes";
-import { date } from "shared/dates";
+import { format } from "date-fns";
+import { getValidDate } from "shared/dates";
 import {
   ApiFlagImport,
   ApiFlagImportStatus,
@@ -74,7 +75,8 @@ function Page({
 function LinkNote({ expiresAt }: { expiresAt: string }) {
   return (
     <Text as="p" size="sm" color="text-mid" align="center" mt="5" mb="0">
-      This link works once · Expires {date(expiresAt)}
+      This link works once · Expires at{" "}
+      {format(getValidDate(expiresAt), "h:mm a")}
     </Text>
   );
 }
@@ -155,11 +157,15 @@ const ClaimPage = (): React.ReactElement => {
     claimed && claimed.orgId === orgId ? claimed.flagImport : fetched;
 
   const claim = useCallback(async () => {
-    const res = await restApiCall(postFlagImportClaimValidator, {
-      params: { token },
-    });
-    if (orgId) setClaimed({ orgId, flagImport: res.flagImport });
-    await mutateStatus();
+    try {
+      const res = await restApiCall(postFlagImportClaimValidator, {
+        params: { token },
+      });
+      if (orgId) setClaimed({ orgId, flagImport: res.flagImport });
+    } finally {
+      // A link that ran out in the meantime then shows as expired.
+      await mutateStatus();
+    }
   }, [restApiCall, token, orgId, mutateStatus]);
 
   // A new workspace's claim waits until its id reaches the request headers
@@ -253,7 +259,7 @@ const ClaimPage = (): React.ReactElement => {
     return (
       <Page narrow>
         <ImportHero title="This Link Has Expired">
-          Uploads are kept for 24 hours. Send the file again to get a new link.
+          Rerun the upload to get a new link.
         </ImportHero>
         <Flex justify="center">
           <LinkButton href="/">Go to GrowthBook</LinkButton>
@@ -411,7 +417,7 @@ const ClaimPage = (): React.ReactElement => {
       <ImportHero title="This Link Was Already Claimed">
         {organizations.length > 1
           ? "Switch to the workspace that claimed it to continue."
-          : "Another workspace claimed it. Send the file again to get a new link."}
+          : "Another workspace claimed it. Rerun the upload to get a new link."}
       </ImportHero>
       {organizations.length > 1 ? (
         workspaceSelect
