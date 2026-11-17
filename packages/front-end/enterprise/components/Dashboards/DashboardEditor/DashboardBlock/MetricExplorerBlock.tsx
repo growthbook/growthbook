@@ -288,7 +288,7 @@ export default function MetricExplorerBlock({
               display="View error(s)"
               color="danger"
               status="failed"
-              icon={<PiWarningFill className="mr-2" />}
+              icon={<PiWarningFill style={{ marginRight: "var(--space-2)" }} />}
               condensed={true}
               hideQueryCount={true}
             />

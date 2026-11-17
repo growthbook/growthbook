@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import {
   DashboardBlockInterfaceOrData,
   ExperimentsWinRateBlockInterface,
@@ -8,8 +8,8 @@ import EChartsReact from "echarts-for-react";
 import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
 import {
   EXPERIMENT_RESULT_COLORS,
-  cssColorToHex,
   getChartThemeColors,
+  useResolvedChartColors,
 } from "@/components/DataViz/chart-theme";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Text from "@/ui/Text";
@@ -34,16 +34,12 @@ const GOOD_PERCENT_LOW = 15;
 const GOOD_PERCENT_HIGH = 38;
 const GAUGE_HEIGHT = 200;
 
-type DialColors = { good: string; track: string };
-
-// ECharts draws on canvas, which can't read CSS variables, so resolve the
-// tokens to hex. The good range uses the same green as Velocity's "Won".
-function resolveDialColors(): DialColors {
-  return {
-    good: cssColorToHex(EXPERIMENT_RESULT_COLORS.won),
-    track: cssColorToHex("var(--gray-6)"),
-  };
-}
+// The good range uses the same green as Velocity's "Won".
+const DIAL_COLORS = {
+  good: EXPERIMENT_RESULT_COLORS.won,
+  track: "var(--gray-6)",
+};
+type DialColors = Record<keyof typeof DIAL_COLORS, string>;
 
 function gaugeOption(
   winRate: number,
@@ -119,11 +115,7 @@ function GaugePanel({
   periodLabel?: string;
   periodRange?: string;
 }) {
-  // Re-resolve in an effect, not during render: the theme provider swaps the
-  // <html> theme class in a layout effect that runs after this renders.
-  const { theme } = useAppearanceUITheme();
-  const [dialColors, setDialColors] = useState(resolveDialColors);
-  useEffect(() => setDialColors(resolveDialColors()), [theme]);
+  const dialColors = useResolvedChartColors(DIAL_COLORS);
 
   return (
     <Flex direction="column" align="center" style={{ flex: 1, minWidth: 0 }}>

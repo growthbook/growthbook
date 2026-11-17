@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import {
   DashboardBlockInterfaceOrData,
   ExperimentsStatusBlockInterface,
@@ -15,8 +15,8 @@ import { CompareChartLegendItem } from "@/enterprise/components/ProductAnalytics
 import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
 import {
   EXPERIMENT_RESULT_COLORS,
-  cssColorToHex,
   getChartThemeColors,
+  useResolvedChartColors,
 } from "@/components/DataViz/chart-theme";
 import { useDashboardCharts } from "@/enterprise/components/Dashboards/DashboardChartsContext";
 import LoadingSpinner from "@/components/LoadingSpinner";
@@ -164,17 +164,6 @@ function compactBucketLabel(
   }
 }
 
-// ECharts draws on canvas, which can't read CSS variables, so resolve the
-// tokens to hex.
-function resolveResultColors(): Record<VelocityResultKey, string> {
-  return {
-    won: cssColorToHex(EXPERIMENT_RESULT_COLORS.won),
-    lost: cssColorToHex(EXPERIMENT_RESULT_COLORS.lost),
-    inconclusive: cssColorToHex(EXPERIMENT_RESULT_COLORS.inconclusive),
-    dnf: cssColorToHex(EXPERIMENT_RESULT_COLORS.dnf),
-  };
-}
-
 // Simple centered legend used when comparison is off.
 function LegendDot({ color, label }: { color: string; label: string }) {
   return (
@@ -204,11 +193,8 @@ export default function VelocityBlockChart({
   const { textColor } = getChartThemeColors(theme);
   const chartsContext = useDashboardCharts();
 
-  // Re-resolve in an effect, not during render: the theme provider swaps the
-  // <html> theme class in a layout effect that runs after this component
-  // renders, so a render-time read would get the previous theme's colors.
-  const [resultColors, setResultColors] = useState(resolveResultColors);
-  useEffect(() => setResultColors(resolveResultColors()), [theme]);
+  const resultColors: Record<VelocityResultKey, string> =
+    useResolvedChartColors(EXPERIMENT_RESULT_COLORS);
 
   // Which ECharts series are toggled off via the legend.
   const [hiddenSeries, setHiddenSeries] = useState<Set<string>>(new Set());
@@ -304,7 +290,7 @@ export default function VelocityBlockChart({
       },
     };
 
-    const option = {
+    return {
       tooltip: {
         appendTo: "body",
         trigger: "axis",
@@ -346,7 +332,6 @@ export default function VelocityBlockChart({
         : {}),
       series: [...currentSeries, ...previousSeries],
     };
-    return option;
   }, [
     block.dateGranularity,
     current,
