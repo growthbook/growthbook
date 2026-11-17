@@ -12,7 +12,7 @@ const row = (id: string, overrides: Row = {}): EventForwarderConfigInterface =>
 
 function check(
   rows: EventForwarderConfigInterface[],
-  environment: string | undefined,
+  environment: string | string[] | undefined,
   options?: Parameters<typeof assertNoEventForwarderEnvironmentOverlap>[2],
 ) {
   const context = {
@@ -29,7 +29,7 @@ function check(
   } as never;
   return assertNoEventForwarderEnvironmentOverlap(
     context,
-    environment,
+    typeof environment === "string" ? [environment] : environment,
     options,
   );
 }
@@ -41,7 +41,7 @@ describe("assertNoEventForwarderEnvironmentOverlap", () => {
   });
 
   it("lets a lone forwarder go back to all environments", async () => {
-    const current = row("a", { environment: "production" });
+    const current = row("a", { environments: ["production"] });
     await expect(
       check([current], undefined, { current }),
     ).resolves.toBeUndefined();
@@ -55,14 +55,14 @@ describe("assertNoEventForwarderEnvironmentOverlap", () => {
   });
 
   it("allows one forwarder per environment", async () => {
-    const rows = [row("a", { environment: "production" })];
+    const rows = [row("a", { environments: ["production"] })];
     await expect(check(rows, "staging")).resolves.toBeUndefined();
     await expect(check(rows, "production")).rejects.toThrow(/already receives/);
   });
 
   it("rejects a new forwarder with no environment, or beside one that receives all", async () => {
     await expect(
-      check([row("a", { environment: "production" })], undefined),
+      check([row("a", { environments: ["production"] })], undefined),
     ).rejects.toThrow(/Choose an environment/);
     await expect(check([row("a")], "staging")).rejects.toThrow(
       /receives all environments/,
@@ -74,7 +74,7 @@ describe("assertNoEventForwarderEnvironmentOverlap", () => {
   });
 
   it("ignores the row being updated and rows that never received events", async () => {
-    const current = row("a", { environment: "production" });
+    const current = row("a", { environments: ["production"] });
     const rows = [
       current,
       row("b", { status: "unconfigured" }),
@@ -92,7 +92,7 @@ describe("assertNoEventForwarderEnvironmentOverlap", () => {
     await expect(
       check([a, b], "production", { current: a }),
     ).resolves.toBeUndefined();
-    const bound = row("a", { environment: "production" });
+    const bound = row("a", { environments: ["production"] });
     await expect(
       check([bound, b], undefined, { current: bound }),
     ).rejects.toThrow(/Choose an environment/);
@@ -100,7 +100,7 @@ describe("assertNoEventForwarderEnvironmentOverlap", () => {
 
   it("only blocks an unconfigured forwarder up front when another receives everything", async () => {
     await expect(
-      check([row("a", { environment: "production" })], undefined, {
+      check([row("a", { environments: ["production"] })], undefined, {
         allowUnset: true,
       }),
     ).resolves.toBeUndefined();
@@ -111,7 +111,7 @@ describe("assertNoEventForwarderEnvironmentOverlap", () => {
 
   it("still rejects an environment held by a row that never received events (unique index)", async () => {
     const rows = [
-      row("a", { status: "error", connectorName: "", environment: "dev" }),
+      row("a", { status: "error", connectorName: "", environments: ["dev"] }),
     ];
     await expect(check(rows, "dev")).rejects.toThrow(/already receives/);
     await expect(check(rows, "staging")).resolves.toBeUndefined();
@@ -120,7 +120,7 @@ describe("assertNoEventForwarderEnvironmentOverlap", () => {
   it("applies the rules per data region, with absent as us-east-1", async () => {
     const rows = [
       row("a"),
-      row("b", { environment: "dev", region: "eu-west-1" }),
+      row("b", { environments: ["dev"], region: "eu-west-1" }),
     ];
     // Same environment, or all environments, in the other region
     await expect(
@@ -137,10 +137,50 @@ describe("assertNoEventForwarderEnvironmentOverlap", () => {
       /receives all environments/,
     );
     // An update is checked in its own row's region
-    const current = row("c", { environment: "staging", region: "eu-west-1" });
+    const current = row("c", {
+      environments: ["staging"],
+      region: "eu-west-1",
+    });
     await expect(check(rows, "dev", { current })).rejects.toThrow(
       /already receives/,
     );
+  });
+});
+
+describe("several environments on one forwarder", () => {
+  it("claims each listed environment", async () => {
+    const rows = [row("a", { environments: ["production", "staging"] })];
+    await expect(check(rows, "dev")).resolves.toBeUndefined();
+    await expect(check(rows, "staging")).rejects.toThrow(
+      /already receives the "staging" environment/,
+    );
+    await expect(check(rows, ["dev", "production"])).rejects.toThrow(
+      /already receives the "production" environment/,
+    );
+  });
+
+  it("lists one claim per environment", () => {
+    expect(
+      getClaimedEventForwarderEnvironments([
+        row("a", { datasourceId: "ds_a", environments: ["production", "dev"] }),
+      ]),
+    ).toEqual([
+      { datasourceId: "ds_a", environment: "production", region: "us-east-1" },
+      { datasourceId: "ds_a", environment: "dev", region: "us-east-1" },
+    ]);
+  });
+
+  it("keeps a live forwarder's set, in any order", () => {
+    const context = {
+      org: {
+        settings: { environments: [{ id: "production" }, { id: "dev" }] },
+      },
+    } as never;
+    const live = row("a", { environments: ["production", "dev"] });
+    const to = (next: string[]) => () =>
+      assertEventForwarderEnvironmentUnchanged(context, live, next);
+    expect(to(["dev", "production"])).not.toThrow();
+    expect(to(["production"])).toThrow(/cannot be changed/);
   });
 });
 
@@ -148,14 +188,14 @@ describe("getClaimedEventForwarderEnvironments", () => {
   it("lists bound rows and live unbound ones, and skips unbound rows that never received events", () => {
     expect(
       getClaimedEventForwarderEnvironments([
-        row("a", { datasourceId: "ds_a", environment: "production" }),
+        row("a", { datasourceId: "ds_a", environments: ["production"] }),
         row("b", { datasourceId: "ds_b" }),
         row("c", { datasourceId: "ds_c", status: "unconfigured" }),
         row("d", {
           datasourceId: "ds_d",
           status: "error",
           connectorName: "",
-          environment: "dev",
+          environments: ["dev"],
         }),
       ]),
     ).toEqual([
@@ -170,11 +210,16 @@ describe("assertEventForwarderEnvironmentUnchanged", () => {
   const context = {
     org: { settings: { environments: [{ id: "production" }, { id: "dev" }] } },
   } as never;
-  const change = (existing: EventForwarderConfigInterface, to?: string) => () =>
-    assertEventForwarderEnvironmentUnchanged(context, existing, to);
+  const change =
+    (existing: EventForwarderConfigInterface, to?: string | string[]) => () =>
+      assertEventForwarderEnvironmentUnchanged(
+        context,
+        existing,
+        typeof to === "string" ? [to] : to,
+      );
 
   it("rejects moving a live forwarder to another environment or back to all", () => {
-    const live = row("a", { environment: "production" });
+    const live = row("a", { environments: ["production"] });
     expect(change(live, "dev")).toThrow(/cannot be changed/);
     expect(change(live, undefined)).toThrow(/cannot be changed/);
     expect(change(live, "production")).not.toThrow();
@@ -184,10 +229,10 @@ describe("assertEventForwarderEnvironmentUnchanged", () => {
     expect(change(row("a"), "dev")).not.toThrow();
     expect(
       change(
-        row("a", { environment: "dev", status: "unconfigured" }),
+        row("a", { environments: ["dev"], status: "unconfigured" }),
         "production",
       ),
     ).not.toThrow();
-    expect(change(row("a", { environment: "gone" }), "dev")).not.toThrow();
+    expect(change(row("a", { environments: ["gone"] }), "dev")).not.toThrow();
   });
 });

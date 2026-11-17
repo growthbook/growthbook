@@ -63,7 +63,7 @@ export default function EventForwarders({
   orgId: string;
   environments: string[];
 }) {
-  const migrateEnvironment = useRef("");
+  const migrateEnvironments = useRef<string[]>([]);
   const { apiCall } = useAuth();
   // Not useApi, which can only fetch for the current organization
   const { data, error, mutate } = useSWR(
@@ -115,7 +115,7 @@ export default function EventForwarders({
             <Text>{row.name}</Text>
             <Text color="text-mid" size="sm">
               {SINK_TYPE_LABELS[row.sinkType]} ·{" "}
-              {row.environment || "All Environments"}
+              {row.environments?.join(", ") || "All Environments"}
               {row.status === "paused" ? " · Paused" : ""}
             </Text>
           </Flex>
@@ -135,10 +135,10 @@ export default function EventForwarders({
                   cta: "Migrate",
                   submit: () =>
                     run(row.id, "/migrate", "POST", {
-                      environment: migrateEnvironment.current,
+                      environments: migrateEnvironments.current,
                     })(),
                   getConfirmationContent: async () => {
-                    migrateEnvironment.current = row.environment ?? "";
+                    migrateEnvironments.current = row.environments ?? [];
                     return (
                       <Flex direction="column" gap="3">
                         <Text>
@@ -153,21 +153,28 @@ export default function EventForwarders({
                                 r.id !== row.id &&
                                 (r.region ?? "us-east-1") ===
                                   (row.region ?? "us-east-1") &&
-                                (r.environment ||
+                                (r.environments?.length ||
                                   !(
                                     r.status === "unconfigured" ||
                                     (r.status === "error" && !r.connectorName)
                                   )),
                             )
-                            .map((r) => r.environment ?? "")}
-                          savedAll={!row.environment}
-                          // Server keeps a live forwarder's environment, unless it was deleted
+                            .flatMap((r) =>
+                              r.environments?.length ? r.environments : [""],
+                            )}
+                          savedAll={!row.environments?.length}
+                          // Server keeps a live forwarder's environments, unless one was deleted
                           disabled={
-                            !!row.environment &&
-                            environments.includes(row.environment)
+                            !!row.environments?.length &&
+                            row.environments.every((e) =>
+                              environments.includes(e),
+                            )
                           }
-                          initial={row.environment ?? ""}
-                          onChange={(v) => (migrateEnvironment.current = v)}
+                          // Single select for now: sends a one-item list when changed
+                          initial={row.environments?.[0] ?? ""}
+                          onChange={(v) =>
+                            (migrateEnvironments.current = v ? [v] : [])
+                          }
                         />
                       </Flex>
                     );

@@ -16,7 +16,7 @@ const eventForwarderConfigAudit = createModelAuditLogger({
 });
 
 export const EVENT_FORWARDER_ENVIRONMENT_INDEX =
-  "organization_region_environment_unique";
+  "organization_region_environments_unique";
 
 const BaseClass = MakeModelClass({
   schema: eventForwarderConfigValidator,
@@ -31,12 +31,14 @@ const BaseClass = MakeModelClass({
       unique: true,
     },
     // One forwarder per environment per data region, so simultaneous saves
-    // cannot both claim it. Rows with no environment are not indexed.
+    // cannot both claim it.
+    // - Multikey: one entry per listed environment, unique across forwarders
+    // - Rows with no environments are not indexed
     {
-      fields: { organization: 1, region: 1, environment: 1 },
+      fields: { organization: 1, region: 1, environments: 1 },
       unique: true,
       name: EVENT_FORWARDER_ENVIRONMENT_INDEX,
-      partialFilterExpression: { environment: { $gt: "" } },
+      partialFilterExpression: { environments: { $gt: "" } },
     },
   ],
   auditLog: {

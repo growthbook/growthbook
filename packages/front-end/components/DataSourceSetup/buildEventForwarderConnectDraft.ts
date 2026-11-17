@@ -34,7 +34,7 @@ export function buildEventForwarderConnectDraft({
   const regionField = {
     ...(region ? { region } : {}),
     ...(destination.environment
-      ? { environment: destination.environment }
+      ? { environments: [destination.environment] }
       : {}),
   };
 

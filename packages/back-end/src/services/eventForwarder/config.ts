@@ -197,70 +197,87 @@ export function getClaimedEventForwarderEnvironments(
   region: "us-east-1" | "eu-west-1";
 }[] {
   return configs
-    .filter((c) => c.environment || !hasNeverReceivedEvents(c))
-    .map((c) => ({
-      datasourceId: c.datasourceId,
-      environment: c.environment ?? "",
-      region: c.region ?? "us-east-1",
-    }));
+    .filter((c) => c.environments?.length || !hasNeverReceivedEvents(c))
+    .flatMap((c) =>
+      // One entry per environment
+      (c.environments?.length ? c.environments : [""]).map((environment) => ({
+        datasourceId: c.datasourceId,
+        environment,
+        region: c.region ?? ("us-east-1" as const),
+      })),
+    );
 }
 
-const environmentTakenMessage = (environment: string) =>
-  `Another Event Forwarder in this data region already receives the "${environment}" environment.`;
+// Without blanks or repeats; empty means all environments
+export function normalizeEventForwarderEnvironments(
+  environments: string[] | undefined,
+): string[] {
+  return [...new Set((environments ?? []).filter(Boolean))];
+}
+
+const environmentTakenMessage = (environments: string[]) =>
+  environments.length === 1
+    ? `Another Event Forwarder in this data region already receives the "${environments[0]}" environment.`
+    : `Another Event Forwarder in this data region already receives one of these environments: ${environments.join(", ")}.`;
 
 // Turns a lost race on the unique environment index into the usual message
 async function claimingEnvironment<T>(
-  environment: string | undefined,
+  environments: string[],
   write: () => Promise<T>,
 ): Promise<T> {
   try {
     return await write();
   } catch (e) {
     if (
-      environment &&
+      environments.length &&
       e instanceof Error &&
       "code" in e &&
       e.code === 11000 &&
       e.message.includes(EVENT_FORWARDER_ENVIRONMENT_INDEX)
     ) {
-      throw new Error(environmentTakenMessage(environment));
+      throw new Error(environmentTakenMessage(environments));
     }
     throw e;
   }
 }
 
-// A forwarder that has received events keeps its environment: changing it
+// A forwarder that has received events keeps its environments: changing them
 // would send another environment's events into the same tables
-// - All environments can still be narrowed to one
-// - An environment deleted from the organization can be replaced
+// - All environments can still be narrowed
+// - Environments deleted from the organization can be replaced
 export function assertEventForwarderEnvironmentUnchanged(
   context: ReqContext,
   existing: EventForwarderConfigInterface | null | undefined,
-  environment: string | undefined,
+  environments: string[] | undefined,
 ): void {
-  const saved = existing?.environment;
+  const saved = existing?.environments ?? [];
+  const next = normalizeEventForwarderEnvironments(environments);
+  const known = getEnvironmentIdsFromOrg(context.org);
   if (
     !existing ||
-    !saved ||
-    saved === (environment ?? "") ||
+    !saved.length ||
+    (saved.length === next.length && saved.every((e) => next.includes(e))) ||
     hasNeverReceivedEvents(existing) ||
-    !getEnvironmentIdsFromOrg(context.org).includes(saved)
+    saved.some((e) => !known.includes(e))
   ) {
     return;
   }
   throw new Error(
-    `This Event Forwarder is set to the "${saved}" environment, which cannot be changed. To use a different environment, delete it and set up a new one.`,
+    saved.length === 1
+      ? `This Event Forwarder is set to the "${saved[0]}" environment, which cannot be changed. To use a different environment, delete it and set up a new one.`
+      : `This Event Forwarder is set to these environments, which cannot be changed: ${saved.join(", ")}. To use different environments, delete it and set up a new one.`,
   );
 }
 
 // Rules apply per data region: each regional ingestor only sees its own forwarders
 // - No two forwarders may receive the same environment (events and usage would double)
-// - No environment means all environments, which only a lone forwarder may have
+// - A forwarder may list several environments; each one counts
+// - No environments means all of them, which only a lone forwarder may have
 // - Rows that never received events only conflict on the same environment (unique index)
 // - Org-wide, so forwarders on unreadable Projects count
 export async function assertNoEventForwarderEnvironmentOverlap(
   context: ReqContext,
-  environment: string | undefined,
+  environments: string[] | undefined,
   {
     current,
     adding = !current,
@@ -277,11 +294,11 @@ export async function assertNoEventForwarderEnvironmentOverlap(
     region?: "us-east-1" | "eu-west-1";
   } = {},
 ): Promise<void> {
-  if (
-    environment &&
-    !getEnvironmentIdsFromOrg(context.org).includes(environment)
-  ) {
-    throw new Error(`Cannot find environment "${environment}".`);
+  const wanted = normalizeEventForwarderEnvironments(environments);
+  const known = getEnvironmentIdsFromOrg(context.org);
+  const missing = wanted.find((e) => !known.includes(e));
+  if (missing) {
+    throw new Error(`Cannot find environment "${missing}".`);
   }
   const ownRegion = region ?? current?.region ?? "us-east-1";
   const all = (
@@ -289,25 +306,28 @@ export async function assertNoEventForwarderEnvironmentOverlap(
   ).filter(
     (c) => c.id !== current?.id && (c.region ?? "us-east-1") === ownRegion,
   );
-  if (environment && all.some((c) => c.environment === environment)) {
-    throw new Error(environmentTakenMessage(environment));
+  const taken = wanted.filter((e) =>
+    all.some((c) => c.environments?.includes(e)),
+  );
+  if (taken.length) {
+    throw new Error(environmentTakenMessage(taken));
   }
   // Alone, a forwarder may receive all environments
   const others = all.filter((c) => !hasNeverReceivedEvents(c));
   if (!others.length) return;
 
   if (adding) {
-    if (others.some((c) => !c.environment)) {
+    if (others.some((c) => !c.environments?.length)) {
       throw new Error(
         "Another Event Forwarder in this data region receives all environments. Set it to one environment first, so events are not sent twice.",
       );
     }
-    if (!environment && !allowUnset) {
+    if (!wanted.length && !allowUnset) {
       throw new Error(
         "Choose an environment. This data region has another Event Forwarder.",
       );
     }
-  } else if (!environment && current?.environment) {
+  } else if (!wanted.length && current?.environments?.length) {
     throw new Error(
       "Choose an environment. This data region has another Event Forwarder.",
     );
@@ -695,8 +715,8 @@ export function toEventForwarderConfigDraft(
   config: EventForwarderConfigInterface | null,
 ): EventForwarderConfigDraft | null {
   if (!config) return null;
-  const environment = config.environment
-    ? { environment: config.environment }
+  const environments = config.environments?.length
+    ? { environments: config.environments }
     : {};
 
   switch (config.sinkType) {
@@ -707,7 +727,7 @@ export function toEventForwarderConfigDraft(
       return {
         sinkType: "bigquery",
         region: config.region,
-        ...environment,
+        ...environments,
         config: {
           projectId: decrypted.projectId || "",
           dataset: decrypted.dataset || "",
@@ -723,7 +743,7 @@ export function toEventForwarderConfigDraft(
       return {
         sinkType: "snowflake",
         region: config.region,
-        ...environment,
+        ...environments,
         config: {
           database: decrypted.database || "",
           schema: decrypted.schema || "",
@@ -741,7 +761,7 @@ export function toEventForwarderConfigDraft(
       return {
         sinkType: "databricks",
         region: config.region,
-        ...environment,
+        ...environments,
         config: {
           catalog: decrypted.catalog || "",
           schema: decrypted.schema || "",
@@ -768,16 +788,16 @@ export function stripEventForwarderConfigMetadata(
     return draft;
   }
   // Conditional, since isEqual treats an undefined key as a difference
-  const environment = draft.environment
-    ? { environment: draft.environment }
+  const environments = draft.environments?.length
+    ? { environments: draft.environments }
     : {};
   switch (draft.sinkType) {
     case "bigquery":
-      return { sinkType: "bigquery", config: draft.config, ...environment };
+      return { sinkType: "bigquery", config: draft.config, ...environments };
     case "snowflake":
-      return { sinkType: "snowflake", config: draft.config, ...environment };
+      return { sinkType: "snowflake", config: draft.config, ...environments };
     case "databricks":
-      return { sinkType: "databricks", config: draft.config, ...environment };
+      return { sinkType: "databricks", config: draft.config, ...environments };
   }
 }
 
@@ -831,7 +851,7 @@ export async function migrateEventForwarderToInHouseConsumer(
   context: ReqContext,
   existing: EventForwarderConfigInterface,
   datasourceParams: EventForwarderDatasourceParams,
-  environment?: string,
+  requestedEnvironments?: string[],
 ): Promise<{
   migrated: EventForwarderConfigInterface;
   // The row the CAS actually claimed; revert and audit must use it, not `existing`
@@ -842,15 +862,18 @@ export async function migrateEventForwarderToInHouseConsumer(
   }
   // Same forwarder on a new transport, so the rules for an edit apply:
   // it may keep all environments, or be narrowed to a free one
-  assertEventForwarderEnvironmentUnchanged(context, existing, environment);
-  await assertNoEventForwarderEnvironmentOverlap(context, environment, {
+  const environments = normalizeEventForwarderEnvironments(
+    requestedEnvironments,
+  );
+  assertEventForwarderEnvironmentUnchanged(context, existing, environments);
+  await assertNoEventForwarderEnvironmentOverlap(context, environments, {
     current: existing,
   });
   let previous = existing;
   // All checks run on the freshly read row inside the CAS, guarded on the
   // fields they decide on, so a pause, credential update or second migrate
   // landing in between is seen rather than overwritten.
-  const migrated = await claimingEnvironment(environment, () =>
+  const migrated = await claimingEnvironment(environments, () =>
     context.models.eventForwarderConfigs.updateWithCas(
       existing.id,
       ["topic", "status", "config"],
@@ -881,7 +904,7 @@ export async function migrateEventForwarderToInHouseConsumer(
         );
         return {
           topic: getInHouseConsumerTopicName(fresh.sinkType),
-          environment: environment ?? "",
+          environments,
           config: encryptSinkConfig(normalizedPayload),
           status: "pending",
           lastProvisioningError: "",
@@ -1029,23 +1052,20 @@ export async function syncEventForwarderConfigFromDatasource({
 
   const projects = [...(datasource.projects ?? [])].sort();
 
-  assertEventForwarderEnvironmentUnchanged(
-    context,
-    existing,
-    draft.environment,
-  );
-  await assertNoEventForwarderEnvironmentOverlap(context, draft.environment, {
+  const environments = normalizeEventForwarderEnvironments(draft.environments);
+  assertEventForwarderEnvironmentUnchanged(context, existing, environments);
+  await assertNoEventForwarderEnvironmentOverlap(context, environments, {
     current: existing,
     adding: !existing || hasNeverReceivedEvents(existing),
     region: existing ? undefined : (draft.region ?? "us-east-1"),
   });
 
   if (!existing) {
-    return await claimingEnvironment(draft.environment, () =>
+    return await claimingEnvironment(environments, () =>
       context.models.eventForwarderConfigs.create({
         datasourceId: datasource.id,
         projects,
-        environment: draft.environment ?? "",
+        environments,
         topic: isInHouseConsumerSink(draft.sinkType)
           ? getInHouseConsumerTopicName(draft.sinkType)
           : getEventForwarderTopicName(datasource.organization, datasource.id),
@@ -1063,7 +1083,7 @@ export async function syncEventForwarderConfigFromDatasource({
   }
 
   // Guarded on the row just checked, so a concurrent save can't slip past the lock
-  return await claimingEnvironment(draft.environment, () =>
+  return await claimingEnvironment(environments, () =>
     context.models.eventForwarderConfigs.updateIfUnchanged(existing, {
       datasourceId: existing.datasourceId || datasource.id,
       projects,
@@ -1071,7 +1091,7 @@ export async function syncEventForwarderConfigFromDatasource({
         existing.topic ||
         getEventForwarderTopicName(datasource.organization, datasource.id),
       schemaId: existing.schemaId || 0,
-      environment: draft.environment ?? "",
+      environments,
       config: encryptSinkConfig(normalizedPayload),
       status: "pending",
       lastProvisioningError: "",

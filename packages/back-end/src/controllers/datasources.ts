@@ -229,7 +229,7 @@ export async function postDataSources(
     ) {
       await assertNoEventForwarderEnvironmentOverlap(
         context,
-        eventForwarderConfig?.environment,
+        eventForwarderConfig?.environments,
         {
           allowUnset: !eventForwarderConfig,
           region:
@@ -1994,7 +1994,7 @@ function getManagedWarehouseJsonSettings(
 // Super admin only: moves a Confluent-connector forwarder onto the in-house
 // consumer and provisions it. Confluent resources are torn down manually later.
 export async function postMigrateEventForwarder(
-  req: AuthRequest<{ environment?: string } | null, { id: string }>,
+  req: AuthRequest<{ environments?: string[] } | null, { id: string }>,
   res: Response<{ status: 200 } | { status: 400 | 404; message: string }>,
 ) {
   const context = getContextFromReq(req);
@@ -2023,8 +2023,9 @@ export async function postMigrateEventForwarder(
       context,
       existing,
       datasourceParams,
-      typeof req.body?.environment === "string"
-        ? req.body.environment
+      Array.isArray(req.body?.environments) &&
+        req.body.environments.every((e) => typeof e === "string")
+        ? req.body.environments
         : undefined,
     );
     try {
@@ -2036,26 +2037,26 @@ export async function postMigrateEventForwarder(
     } catch (e) {
       // Restore the pre-migrate row so the Confluent connector keeps serving it
       // and Migrate can be retried; lastProvisioningError keeps the cause.
-      // - Environment goes back only if that no longer overlaps: another
+      // - Environments go back only if that no longer overlaps: another
       //   forwarder may have been added while this one was narrowed
-      let environment = migrated.environment ?? "";
+      let environments = migrated.environments ?? [];
       try {
         await assertNoEventForwarderEnvironmentOverlap(
           context,
-          previous.environment || undefined,
+          previous.environments,
           { current: migrated },
         );
-        environment = previous.environment ?? "";
+        environments = previous.environments ?? [];
       } catch (overlapError) {
         req.log.warn(
           { err: overlapError, datasourceId: previous.datasourceId },
-          "Keeping the migrated environment on revert",
+          "Keeping the migrated environments on revert",
         );
       }
       const ids = {
         topic: previous.topic,
         status: previous.status,
-        environment,
+        environments,
         schemaId: previous.schemaId,
         connectorName: previous.connectorName,
         connectorId: previous.connectorId,

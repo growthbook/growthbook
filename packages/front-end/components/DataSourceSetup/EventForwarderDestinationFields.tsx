@@ -26,7 +26,7 @@ export type EventForwarderDestination = {
   location: string;
   tablePrefix: string;
   zerobusEndpoint: string;
-  /** Empty or absent means all environments. */
+  /** Empty or absent means all environments. Saved as a one-item list. */
   environment?: string;
 };
 
@@ -204,19 +204,21 @@ export function EventForwarderEnvironmentField({
 }) {
   const environments = useEnvironments();
   const eventForwarderEnvironments = useEventForwardersInRegion(region);
-  const saved = eventForwarderEnvironments.find(
+  // One claim per environment, so a forwarder with several has several
+  const own = eventForwarderEnvironments.filter(
     (e) => e.datasourceId === datasourceId,
   );
-  // Same rule as the server: fixed once live, unless the environment was deleted
+  const saved = own.map((e) => e.environment).filter(Boolean);
+  // Same rule as the server: fixed once live, unless an environment was deleted
   const locked =
     live &&
-    !!saved?.environment &&
-    environments.some((e) => e.id === saved.environment);
+    saved.length > 0 &&
+    saved.every((id) => environments.some((e) => e.id === id));
   if (locked) {
     return (
       <EventForwarderLockedField
         label="Environment"
-        value={saved.environment}
+        value={saved.join(", ")}
         helpText={`${ENVIRONMENT_HELP_TEXT} Set at creation.`}
       />
     );
@@ -230,10 +232,10 @@ export function EventForwarderEnvironmentField({
       others={eventForwarderEnvironments
         .filter((e) => e.datasourceId !== datasourceId)
         .map((e) => e.environment)}
-      savedAll={!!saved && !saved.environment}
+      savedAll={own.length > 0 && !saved.length}
       // Moving a live forwarder to one environment drops the rest on save
       helpText={
-        saved && value && value !== saved.environment
+        own.length && value && !saved.includes(value)
           ? `${ENVIRONMENT_HELP_TEXT} Events from other environments stop being forwarded when you save.`
           : undefined
       }
@@ -285,8 +287,9 @@ export function eventForwarderDestinationFromDatasource(
   datasource: Partial<DataSourceInterfaceWithParams>,
 ): EventForwarderDestination {
   const config = datasource.eventForwarderConfig;
-  const environment = config?.environment
-    ? { environment: config.environment }
+  // Single select for now: the form edits the first one
+  const environment = config?.environments?.[0]
+    ? { environment: config.environments[0] }
     : {};
   if (config?.sinkType === "bigquery") {
     return {

@@ -159,14 +159,14 @@ function getEventForwarderDraft(
   dataSource: DataSourceInterfaceWithParams,
 ): EventForwarderConfigDraft | null {
   const existing = dataSource.eventForwarderConfig;
-  const environment = existing?.environment
-    ? { environment: existing.environment }
+  const environments = existing?.environments?.length
+    ? { environments: existing.environments }
     : {};
   if (existing?.sinkType === "bigquery") {
     return {
       sinkType: "bigquery",
       region: existing.region,
-      ...environment,
+      ...environments,
       config: {
         projectId: existing.config.projectId,
         dataset: existing.config.dataset,
@@ -179,7 +179,7 @@ function getEventForwarderDraft(
     return {
       sinkType: "snowflake",
       region: existing.region,
-      ...environment,
+      ...environments,
       config: {
         database: existing.config.database,
         schema: existing.config.schema,
@@ -194,7 +194,7 @@ function getEventForwarderDraft(
     return {
       sinkType: "databricks",
       region: existing.region,
-      ...environment,
+      ...environments,
       config: {
         catalog: existing.config.catalog,
         schema: existing.config.schema,
@@ -628,7 +628,8 @@ function EventForwarderModal({
                 <Grid columns="2" gap="4" align="start">
                   <Box>
                     <EventForwarderEnvironmentField
-                      value={eventForwarderConfig.environment ?? ""}
+                      // Single select for now, saved as a one-item list
+                      value={eventForwarderConfig.environments?.[0] ?? ""}
                       region={
                         eventForwarderConfig.region ?? DEFAULT_DATA_REGION
                       }
@@ -641,7 +642,7 @@ function EventForwarderModal({
                       onChange={(environment) =>
                         setEventForwarderConfig({
                           ...eventForwarderConfig,
-                          environment,
+                          environments: environment ? [environment] : [],
                         })
                       }
                     />
@@ -1185,7 +1186,10 @@ export default function EventForwarder({
               ) : null}
               <EventForwarderConfigField
                 label="Environment"
-                value={eventForwarderConfig.environment || "All Environments"}
+                value={
+                  eventForwarderConfig.environments?.join(", ") ||
+                  "All Environments"
+                }
               />
               <EventForwarderConfigField
                 label="Data region"
