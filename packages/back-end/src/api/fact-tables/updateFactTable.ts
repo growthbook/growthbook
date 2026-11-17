@@ -187,7 +187,7 @@ export const updateFactTable = createApiRequestHandler(
       // A virtual column must be removed via the delete endpoint so the
       // dependency guard runs; a soft delete here would strip its expression
       // out of generated SQL and break dependents silently.
-      if (col.deleted !== undefined) {
+      if (col.deleted) {
         throw new Error(
           "Virtual columns must be deleted using the virtual column endpoint",
         );
