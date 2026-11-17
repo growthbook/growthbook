@@ -410,6 +410,12 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
         onChange={(f) => form.setValue("datatype", f as FactTableColumnType)}
         initialOption="Unknown"
         required
+        disabled={!!existing?.isVirtual}
+        helpText={
+          existing?.isVirtual
+            ? "Change a virtual column's type from its Edit dialog"
+            : undefined
+        }
         sort={false}
         options={[
           {

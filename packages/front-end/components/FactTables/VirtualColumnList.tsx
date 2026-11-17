@@ -66,16 +66,17 @@ function VirtualColumnRowMenu({
             Edit
           </DropdownMenuItem>
         )}
-        {canEdit && (
-          <DropdownMenuItem
-            onClick={() => {
-              onEditSettings();
-              setOpen(false);
-            }}
-          >
-            Configure slices
-          </DropdownMenuItem>
-        )}
+        {canEdit &&
+          (column.datatype === "string" || column.datatype === "boolean") && (
+            <DropdownMenuItem
+              onClick={() => {
+                onEditSettings();
+                setOpen(false);
+              }}
+            >
+              Configure slices
+            </DropdownMenuItem>
+          )}
       </DropdownMenuGroup>
       {canDelete && (
         <>
