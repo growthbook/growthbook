@@ -1,12 +1,17 @@
 import { FC, useEffect, useState } from "react";
+import { Flex } from "@radix-ui/themes";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { isProjectListValidForProject } from "shared/util";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useAuth } from "@/services/auth";
 import useOrgSettings from "@/hooks/useOrgSettings";
-import Modal from "@/components/Modal";
-import SelectField from "@/components/Forms/SelectField";
+import LoadingSpinner from "@/components/LoadingSpinner";
+import Modal from "@/ui/Modal";
+import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
+import Link from "@/ui/Link";
+import { Select, SelectItem } from "@/ui/Select";
+import Text from "@/ui/Text";
 import ImportExperimentList from "./ImportExperimentList";
 import NewExperimentForm from "./NewExperimentForm";
 
@@ -89,56 +94,73 @@ const ImportExperimentModal: FC<{
     );
   }
 
+  const footer = (
+    <Modal.Footer>
+      <Flex justify="between" align="center" flexGrow="1" pl="3">
+        <Text color="text-mid">
+          Don&apos;t see your experiment?{" "}
+          <Link onClick={() => setImportModal(false)}>Create from scratch</Link>
+        </Text>
+        <Button variant="ghost" onClick={onClose}>
+          Close
+        </Button>
+      </Flex>
+    </Modal.Footer>
+  );
+
   return (
-    <Modal
-      trackingEventModalType="import-experiment"
-      header="Import Experiment"
+    <Modal.Root
       open={true}
-      size="max"
-      close={() => onClose()}
+      onOpenChange={(open) => {
+        if (!open) onClose();
+      }}
+      size="xl"
+      dismissible
+      hasDescription={!!importId && !error}
+      trackingEventModalType="import-experiment"
     >
-      <Callout status="info" mb="3">
-        Don&apos;t see your experiment listed below?{" "}
-        <a
-          role="button"
-          className="link"
-          onClick={(e) => {
-            e.preventDefault();
-            setImportModal(false);
-          }}
-        >
-          Create From Scratch
-        </a>
-      </Callout>
-      <h2>Import from Data source</h2>
-      {importId && (
+      {importId && !error ? (
         <ImportExperimentList
           key={importId}
-          onImport={(create) => {
-            setSelected(create);
-          }}
+          onImport={setSelected}
           changeDatasource={setDatasourceId}
           importId={importId}
+          footer={footer}
         />
-      )}
-      {error ? (
+      ) : (
         <>
-          <Callout status="error" mb="3">
-            {error}
-          </Callout>
-          <SelectField
-            size="legacy"
-            label="Choose a Data Source"
-            value={datasourceId}
-            onChange={(value) => setDatasourceId(value)}
-            options={validDatasources.map((d) => ({
-              label: d.name,
-              value: d.id,
-            }))}
-          />
+          <Modal.Header>
+            <Modal.Title>Import Experiment</Modal.Title>
+          </Modal.Header>
+          <Modal.Body>
+            {error ? (
+              <>
+                <Callout status="error" mb="3">
+                  {error}
+                </Callout>
+                <Select
+                  label="Choose a Data Source"
+                  value={datasourceId}
+                  setValue={(value) => setDatasourceId(value)}
+                  style={{ width: 320, maxWidth: "100%" }}
+                >
+                  {validDatasources.map((d) => (
+                    <SelectItem key={d.id} value={d.id}>
+                      {d.name}
+                    </SelectItem>
+                  ))}
+                </Select>
+              </>
+            ) : (
+              <Flex justify="center" py="6">
+                <LoadingSpinner />
+              </Flex>
+            )}
+          </Modal.Body>
+          {footer}
         </>
-      ) : null}
-    </Modal>
+      )}
+    </Modal.Root>
   );
 };
 export default ImportExperimentModal;

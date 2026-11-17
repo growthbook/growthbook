@@ -2,6 +2,7 @@ import {
   ChangeEvent,
   FC,
   Fragment,
+  ReactNode,
   useCallback,
   useEffect,
   useMemo,
@@ -80,7 +81,7 @@ export interface BaseSearchFiltersProps {
 }
 
 export const FilterHeading: FC<{
-  heading: string;
+  heading: ReactNode;
   open: boolean;
 }> = ({ heading, open }) => {
   return (
