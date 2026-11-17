@@ -86,6 +86,21 @@ export const CONNECTION_UPDATABLE_FIELDS: ReadonlySet<string> = new Set(
   Object.keys(sdkConnectionUpdatableFieldsSchema.shape),
 );
 
+// Settings a stored connection may lack. The proxy ones map onto the nested
+// `proxy`, which every connection has.
+const UNSETTABLE_SETTINGS = Object.entries(
+  sdkConnectionUpdatableFieldsSchema.shape,
+)
+  .filter(
+    ([key, schema]) =>
+      schema.isOptional() && key !== "proxyEnabled" && key !== "proxyHost",
+  )
+  .map(
+    ([key]) =>
+      key as keyof SDKConnectionSettingsRevisionSnapshot &
+        keyof SDKConnectionInterface,
+  );
+
 // Who may see a webhook's headers, as the live webhook list decides it: someone
 // who could update the webhook on every connection it fires for. Looked up
 // once per request and connection.
@@ -589,6 +604,7 @@ export const sdkConnectionAdapter: EntityRevisionAdapter<SDKConnectionRevisionSn
       changes: Record<string, unknown>,
       options?: {
         isRevert?: boolean;
+        isCompensation?: boolean;
         guarded?: boolean;
         onPersisted?: (result: ApplyChangesResult) => void;
       },
@@ -619,10 +635,22 @@ export const sdkConnectionAdapter: EntityRevisionAdapter<SDKConnectionRevisionSn
             CONNECTION_UPDATABLE_FIELDS,
           )
         : {};
+      // A restore writes back a whole pre-image, so a setting it lacks was
+      // unset before the failed write. A publish lands only what it changed.
+      const clearedSettings =
+        newSettings && options?.isCompensation
+          ? UNSETTABLE_SETTINGS.filter(
+              (key) =>
+                newSettings[key] === undefined &&
+                entity.sdkConnection[key] !== undefined,
+            )
+          : [];
+      const settingsChanged =
+        Object.keys(settingsChanges).length > 0 || clearedSettings.length > 0;
       const webhooksChanged =
         newWebhooks !== undefined && !isEqual(newWebhooks, entity.sdkWebhooks);
 
-      if (Object.keys(settingsChanges).length === 0 && !webhooksChanged) {
+      if (!settingsChanged && !webhooksChanged) {
         // `written: null` means "ran and wrote nothing", which compensation
         // has to tell apart from "never reported".
         report();
@@ -644,7 +672,7 @@ export const sdkConnectionAdapter: EntityRevisionAdapter<SDKConnectionRevisionSn
       // The generic move guards read the source scope only, so authorize the
       // destination here.
       if (
-        Object.keys(settingsChanges).length > 0 &&
+        settingsChanged &&
         !context.permissions.canUpdateSDKConnection(connection, {
           ...(settingsChanges.projects !== undefined && {
             projects: settingsChanges.projects as string[],
@@ -671,14 +699,16 @@ export const sdkConnectionAdapter: EntityRevisionAdapter<SDKConnectionRevisionSn
       }
 
       let liveConnection: SDKConnectionInterface = connection;
-      if (Object.keys(settingsChanges).length > 0) {
+      if (settingsChanged) {
+        const editOptions = {
+          ...(options?.guarded && { casOnDateUpdated: baselineStamp ?? null }),
+          ...(clearedSettings.length > 0 && { unset: clearedSettings }),
+        };
         liveConnection = await editSDKConnection(
           context,
           connection,
           settingsChanges as EditSDKConnectionParams,
-          options?.guarded
-            ? { casOnDateUpdated: baselineStamp ?? null }
-            : undefined,
+          Object.keys(editOptions).length > 0 ? editOptions : undefined,
         );
         persistedKeys.push("sdkConnection");
         written = toLiveSnapshot(liveConnection, entity.sdkWebhooks);

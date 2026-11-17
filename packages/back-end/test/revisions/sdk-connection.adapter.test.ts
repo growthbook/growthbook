@@ -9,6 +9,7 @@ import { CasConflictError, type Context } from "back-end/src/models/BaseModel";
 import type { DeferredEventBuffer } from "back-end/src/events/bulkPublishCorrelation";
 import { sdkConnectionAdapter } from "back-end/src/revisions/adapters/sdk-connection.adapter";
 import { getAdapter } from "back-end/src/revisions/index";
+import { restoreEntityPreImage } from "back-end/src/revisions/landingSequence";
 import {
   restoreScrubbedOps,
   scrubConflictsForViewer,
@@ -1000,6 +1001,116 @@ describe("sdkConnectionAdapter", () => {
       });
       expect(mockedEdit).toHaveBeenCalledTimes(1);
       expect(mockedEdit.mock.calls[0][3]).toBeUndefined();
+    });
+
+    describe("settings the snapshot lacks", () => {
+      // An older connection that predates the setting.
+      const olderConnection = omit(
+        baseConnection,
+        "includeDraftExperiments",
+      ) as SDKConnectionInterface;
+      const olderSettings = omit(
+        baseSnapshot.sdkConnection,
+        "includeDraftExperiments",
+      );
+      // What a publish that renamed it and turned the setting on left live.
+      const published = {
+        ...baseConnection,
+        name: "Renamed",
+        dateUpdated: new Date("2025-01-03"),
+      } as SDKConnectionInterface;
+      const publishedEntity = {
+        ...liveEntity,
+        dateUpdated: new Date("2025-01-03"),
+        sdkConnection: settings({ name: "Renamed" }),
+      };
+
+      it("a restore unsets them along with the fields it puts back", async () => {
+        mockedFind.mockResolvedValue(published);
+        const result = await sdkConnectionAdapter.applyChanges(
+          makeContext({}),
+          publishedEntity,
+          { sdkConnection: olderSettings },
+          { isRevert: true, isCompensation: true, guarded: true },
+        );
+        const [, , changes, editOptions] = mockedEdit.mock.calls[0];
+        expect(changes).toEqual({ name: "Prod Web" });
+        expect(editOptions).toEqual({
+          casOnDateUpdated: new Date("2025-01-03"),
+          unset: ["includeDraftExperiments"],
+        });
+        expect(result.persistedKeys).toEqual(["sdkConnection"]);
+      });
+
+      it("a restore that only has a setting to unset still writes", async () => {
+        mockedFind.mockResolvedValue({ ...published, name: "Prod Web" });
+        await sdkConnectionAdapter.applyChanges(
+          makeContext({}),
+          liveEntity,
+          { sdkConnection: olderSettings },
+          { isRevert: true, isCompensation: true },
+        );
+        const [, , changes, editOptions] = mockedEdit.mock.calls[0];
+        expect(changes).toEqual({});
+        expect(editOptions).toEqual({ unset: ["includeDraftExperiments"] });
+      });
+
+      it("a publish leaves them as they are", async () => {
+        await sdkConnectionAdapter.applyChanges(
+          makeContext({}),
+          liveEntity,
+          { sdkConnection: { ...olderSettings, name: "Renamed" } },
+          { guarded: true },
+        );
+        const [, , changes, editOptions] = mockedEdit.mock.calls[0];
+        expect(changes).toEqual({ name: "Renamed" });
+        expect(editOptions).toEqual({
+          casOnDateUpdated: new Date("2025-01-02"),
+        });
+      });
+
+      it("rolling back a failed landing returns the connection to its pre-image", async () => {
+        let stored: SDKConnectionInterface = published;
+        mockedFind.mockImplementation(async () => stored);
+        mockedEdit.mockImplementation(
+          async (
+            _ctx: Context,
+            conn: SDKConnectionInterface,
+            changes: Record<string, unknown>,
+            editOptions?: { unset?: (keyof SDKConnectionInterface)[] },
+          ) => {
+            stored = omit(
+              { ...conn, ...changes, dateUpdated: new Date("2025-01-04") },
+              editOptions?.unset ?? [],
+            ) as SDKConnectionInterface;
+            return stored;
+          },
+        );
+        const ctx = makeContext({});
+        const preImage = {
+          ...liveEntity,
+          sdkConnection: olderSettings,
+        } as SDKConnectionRevisionSnapshot & { id: string };
+
+        await restoreEntityPreImage({
+          context: ctx,
+          entityType: "sdk-connection",
+          preImage,
+          persistedKeys: ["sdkConnection"],
+          written: publishedEntity,
+        });
+
+        expect(stored).toEqual({
+          ...olderConnection,
+          dateUpdated: new Date("2025-01-04"),
+        });
+        const restored = await getAdapter("sdk-connection")
+          .getModel(ctx)
+          ?.getById("sdk-1");
+        expect(
+          (restored as SDKConnectionRevisionSnapshot).sdkConnection,
+        ).toEqual(olderSettings);
+      });
     });
 
     it("checks the destination scope when a revision relocates the connection", async () => {

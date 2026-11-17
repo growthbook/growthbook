@@ -480,7 +480,10 @@ export async function editSDKConnection(
   connection: SDKConnectionInterface,
   updates: EditSDKConnectionParams,
   // `null` guards a connection that has never been stamped.
-  options?: { casOnDateUpdated?: Date | null },
+  options?: {
+    casOnDateUpdated?: Date | null;
+    unset?: readonly (keyof SDKConnectionInterface)[];
+  },
 ) {
   const { proxyEnabled, proxyHost, languages, ...rest } =
     editSDKConnectionValidator.parse(updates);
@@ -557,18 +560,23 @@ export async function editSDKConnection(
     "savedGroupFormat",
     "includeReferencedPrerequisites",
   ] as const;
-  keysRequiringProxyUpdate.forEach((key) => {
-    if (key in otherChanges && !isEqual(otherChanges[key], connection[key])) {
-      needsProxyUpdate = true;
-    }
-  });
-
   const fullChanges = {
     ...otherChanges,
     proxy: newProxy,
     project: "",
     dateUpdated: new Date(),
   };
+  // A key also being set (the legacy saved group flag) can't be unset too.
+  const unset = (options?.unset ?? []).filter((key) => !(key in fullChanges));
+
+  keysRequiringProxyUpdate.forEach((key) => {
+    if (
+      (key in otherChanges && !isEqual(otherChanges[key], connection[key])) ||
+      (unset.includes(key) && connection[key] !== undefined)
+    ) {
+      needsProxyUpdate = true;
+    }
+  });
 
   const casOnDateUpdated = options?.casOnDateUpdated;
   const result = await SDKConnectionModel.updateOne(
@@ -582,13 +590,17 @@ export async function editSDKConnection(
     },
     {
       $set: fullChanges,
+      ...(unset.length > 0 && {
+        $unset: Object.fromEntries(unset.map((key) => [key, ""])),
+      }),
     },
   );
   if (casOnDateUpdated !== undefined && result.matchedCount === 0) {
     throw new CasConflictError();
   }
 
-  const updated = { ...connection, ...fullChanges };
+  const updated: SDKConnectionInterface = { ...connection, ...fullChanges };
+  unset.forEach((key) => delete updated[key]);
 
   // An archived connection stops serving: purge its cache instead of refreshing.
   if (updated.archived) {
