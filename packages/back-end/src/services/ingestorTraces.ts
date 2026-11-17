@@ -106,10 +106,11 @@ function getTracer(): Tracer | null {
       new AsyncLocalStorageContextManager().enable(),
     );
   }
+  const { sha } = getBuild();
   provider = new TracerProvider({
     resource: resourceFromAttributes({
       [ATTR_SERVICE_NAME]: "growthbook",
-      [ATTR_SERVICE_VERSION]: getBuild().sha,
+      ...(sha ? { [ATTR_SERVICE_VERSION]: sha } : {}),
     }),
     // Not parent-based: a request's Sentry or Datadog sampling doesn't apply.
     sampler: new AlwaysOnSampler(),
