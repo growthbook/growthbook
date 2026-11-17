@@ -150,23 +150,21 @@ export function toApiConfirmation(c: ConfirmationInterface): ApiConfirmation {
   };
 }
 
-// The stored rows that toApiConfirmation reports with this status.
+// The stored rows that toApiConfirmation reports with this status, as $or branches.
 export function confirmationStatusQuery(
   status: ApiConfirmation["status"],
-): FilterQuery<ConfirmationInterface> {
+): FilterQuery<ConfirmationInterface>[] {
   const now = new Date();
   const cutOff = new Date(now.getTime() - RUN_CUT_OFF_MS);
   return {
-    pending: { status: "pending", expiresAt: { $gte: now } },
-    expired: { status: "pending", expiresAt: { $lt: now } },
-    running: { status: "running", decidedAt: { $gte: cutOff } },
-    completed: {
-      $or: [
-        { status: "completed" },
-        { status: "running", decidedAt: { $not: { $gte: cutOff } } },
-      ],
-    },
-    rejected: { status: "rejected" },
+    pending: [{ status: "pending", expiresAt: { $gte: now } }],
+    expired: [{ status: "pending", expiresAt: { $lt: now } }],
+    running: [{ status: "running", decidedAt: { $gte: cutOff } }],
+    completed: [
+      { status: "completed" },
+      { status: "running", decidedAt: { $not: { $gte: cutOff } } },
+    ],
+    rejected: [{ status: "rejected" }],
   }[status];
 }
 

@@ -53,15 +53,19 @@ export class ConfirmationModel extends BaseClass {
   public async findByRequester(
     apiKeyId: string | null,
     userId: string | null,
-    statusQuery: FilterQuery<ConfirmationInterface>,
+    statusQuery: FilterQuery<ConfirmationInterface>[],
     { limit, offset }: { limit: number; offset: number },
   ) {
-    const or = [
+    const requesters = [
       ...(apiKeyId ? [{ apiKeyId }] : []),
       ...(userId ? [{ userId }] : []),
     ];
-    if (!or.length) return { docs: [], total: 0 };
-    const query = { $and: [{ $or: or }, statusQuery] };
+    if (!requesters.length) return { docs: [], total: 0 };
+    // One flat $or of requester × status branches: each matches an index through
+    // status, so Mongo merges them in sort order. Nesting the $ors forces an in-memory sort.
+    const query = {
+      $or: requesters.flatMap((r) => statusQuery.map((s) => ({ ...r, ...s }))),
+    };
     const [docs, total] = await Promise.all([
       this._find(query, {
         sort: { dateCreated: -1, id: -1 },
