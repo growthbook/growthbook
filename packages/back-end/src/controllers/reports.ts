@@ -52,7 +52,10 @@ import {
   createReportSnapshot,
   generateExperimentReportSSRData,
 } from "back-end/src/services/reports";
-import { getExperimentQueryMetadata } from "back-end/src/services/experiments";
+import {
+  assertCanEnableClusterExperiment,
+  getExperimentQueryMetadata,
+} from "back-end/src/services/experiments";
 import { BadRequestError } from "back-end/src/util/errors";
 
 export async function postReportFromSnapshot(
@@ -597,6 +600,13 @@ export async function putReport(
           ),
         };
       }
+    }
+
+    if (
+      updates.experimentAnalysisSettings?.isClusterExperiment &&
+      !report.experimentAnalysisSettings.isClusterExperiment
+    ) {
+      assertCanEnableClusterExperiment(context);
     }
 
     if (updates.experimentAnalysisSettings) {

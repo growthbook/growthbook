@@ -27,6 +27,7 @@ import { MetricsSelectorTooltip } from "@/components/Experiment/MetricsSelector"
 import ExperimentMetricsSelector from "@/components/Experiment/ExperimentMetricsSelector";
 import CustomMetricSlicesSelector from "@/components/Experiment/CustomMetricSlicesSelector";
 import AssignmentQueryFields, {
+  ClusterExperimentFields,
   useAssignmentQuerySelection,
 } from "@/components/Experiment/AssignmentQueryFields";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -99,6 +100,12 @@ export default function ConfigureReport({
 
     if (useToday && value.experimentAnalysisSettings) {
       value.experimentAnalysisSettings.dateEnded = null;
+    }
+    if (
+      value.experimentAnalysisSettings?.isClusterExperiment &&
+      !value.experimentAnalysisSettings.clusterSubUnitIdentifier
+    ) {
+      throw new Error("Choose a subunit identifier type.");
     }
     await apiCall<{
       updatedReport: ExperimentSnapshotReportInterface;
@@ -184,6 +191,21 @@ export default function ConfigureReport({
   const hasOverrideMetricsFeature = hasCommercialFeature("override-metrics");
 
   const isBandit = experiment?.type === "multi-armed-bandit";
+  const supportsClusterExperiments =
+    !!datasourceProperties?.exposureQueries && !isBandit && !isHoldout;
+  const isClusterExperiment =
+    supportsClusterExperiments &&
+    !!form.watch("experimentAnalysisSettings.isClusterExperiment");
+  const clusterSubUnitIdentifier =
+    form.watch("experimentAnalysisSettings.clusterSubUnitIdentifier") ?? "";
+  const setClusterSubUnitIdentifier = useCallback(
+    (value: string) =>
+      form.setValue(
+        "experimentAnalysisSettings.clusterSubUnitIdentifier",
+        value,
+      ),
+    [form],
+  );
 
   const hasMetrics =
     form.watch("experimentAnalysisSettings.goalMetrics").length > 0 ||
@@ -590,6 +612,26 @@ export default function ConfigureReport({
                 size="legacy"
               />
             ) : null}
+            {supportsClusterExperiments && (
+              <ClusterExperimentFields
+                datasource={datasource}
+                exposureQuery={exposureQuery}
+                identifierType={
+                  exposureQuery
+                    ? assignmentQuerySelection.identifierType
+                    : undefined
+                }
+                isClusterExperiment={isClusterExperiment}
+                subUnitIdentifier={clusterSubUnitIdentifier}
+                setIsClusterExperiment={(value) =>
+                  form.setValue(
+                    "experimentAnalysisSettings.isClusterExperiment",
+                    value,
+                  )
+                }
+                setSubUnitIdentifier={setClusterSubUnitIdentifier}
+              />
+            )}
             <Field
               size="legacy"
               label="Tracking Key"
