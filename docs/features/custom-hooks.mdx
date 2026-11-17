@@ -16,7 +16,7 @@ Custom Hooks are JavaScript snippets that run on the server during validation. U
 
 You can create multiple hooks of the same type for flexible, granular validation rules. Each hook has a **scope** that controls which resources it runs for:
 
-- **Global** — runs for every feature or experiment (depending on hook type).
+- **Global** — runs for every feature, experiment, or SDK Connection (depending on hook type).
 - **Project** — runs only for resources in the selected projects.
 - **Feature** — runs only for a single feature.
 
@@ -24,6 +24,11 @@ Manage global and Project-scoped hooks under **Settings → Custom Hooks**. Mana
 a hook for one Feature Flag from that flag's **Validation** tab. This tab also
 lists the global and Project hooks that apply to the Feature Flag. Experiment
 hooks can only use a global or Project scope.
+
+SDK Connections work the same way as Feature Flags. The `validateSdkConnection`
+and `validateSdkConnectionRevision` hook types can use a global, Project, or
+SDK Connection scope. Manage a hook for one SDK Connection from that
+connection's **Validation** tab.
 
 The same model applies to [Configs](/features/configs). The `validateConfig` and
 `validateConfigRevision` hook types run when a Config is saved or published and
@@ -487,5 +492,65 @@ Example: Warn without blocking when an experiment has no hypothesis.
 ```js
 if (!experiment.hypothesis && experiment.status !== "draft") {
   addWarning("Consider adding a hypothesis before starting this experiment.");
+}
+```
+
+### validateSdkConnection
+
+Called whenever the SDK Connection itself is written: on create, when a change to it or to one of its webhooks is saved directly, and on publish. Changes staged into a draft are covered by `validateSdkConnectionRevision` instead.
+
+Receives two arguments:
+
+- `sdkConnection`: the connection's settings as the change leaves them, such as `name`, `environment`, `projects`, `languages`, `encryptPayload`, and `archived`. Client keys, encryption keys, and other secrets are left out.
+- `sdkWebhooks`: the connection's webhooks as the change leaves them. Each has its `name`, `endpoint`, `httpMethod`, and `payloadFormat`. Their headers are left out, since headers often hold credentials.
+
+A Project-scoped hook runs for an SDK Connection that is limited to at least one of the hook's Projects. An SDK Connection that serves all Projects is checked by global hooks only.
+
+Example: Require payload encryption in production.
+
+```js
+if (sdkConnection.environment === "production" && !sdkConnection.encryptPayload) {
+  throw new Error("Production SDK Connections must encrypt their payload.");
+}
+```
+
+Example: Only allow webhooks that call an approved host.
+
+```js
+for (const webhook of sdkWebhooks) {
+  if (new URL(webhook.endpoint).hostname !== "hooks.example.com") {
+    throw new Error(`Webhook "${webhook.name}" must call hooks.example.com.`);
+  }
+}
+```
+
+### validateSdkConnectionRevision
+
+Called whenever an SDK Connection revision is created or updated: each save into a draft, a rebase onto the live version, and a change saved directly, which lands as a revision that is already published. It runs again when a draft is published.
+
+Receives three arguments:
+
+- `sdkConnection`: the live connection's settings, as they stand before this revision publishes.
+- `sdkWebhooks`: the live connection's webhooks, without their headers.
+- `revision`: the revision being written. `revision.sdkConnection` and `revision.sdkWebhooks` hold what it proposes, in the same shape as the live values. It also carries `version`, `status`, `title`, `comment`, `authorId`, `contributors`, `author`, `coauthors`, and `reviews`. Reviews use the same shape as feature revisions, described under [validateFeatureRevision](#validatefeaturerevision), so one policy can be written against both. A revision that is being created has no `version` yet, and its `status` is `draft`, or `merged` for a change saved directly.
+
+Example: Block staging a move to another environment.
+
+```js
+if (revision.sdkConnection.environment !== sdkConnection.environment) {
+  throw new Error("An SDK Connection cannot be moved to another environment.");
+}
+```
+
+Example: Require an approval from a named reviewer before a draft is published. A draft is `approved` by the time it publishes, so the rule leaves earlier saves alone.
+
+```js
+if (revision.status === "approved") {
+  const approvals = (revision.reviews || []).filter(
+    (review) => review.status === "approved",
+  );
+  if (!approvals.some((review) => review.userId === "key_abc123")) {
+    throw new Error("Requires release-bot approval.");
+  }
 }
 ```

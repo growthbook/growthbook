@@ -26,6 +26,7 @@ import {
   assertNoLockingScheduledDraft,
   sdkConnectionReviewRules,
 } from "back-end/src/services/sdkConnectionApprovals";
+import { runValidateSdkConnectionHooks } from "back-end/src/enterprise/sandbox/sandbox-eval";
 import { validatePutPayload } from "./validations";
 
 export const putSdkConnection = createApiRequestHandler(
@@ -103,7 +104,7 @@ export const putSdkConnection = createApiRequestHandler(
     if (!bypassApproval) {
       throw new BadRequestError(
         "This organization requires approvals on SDK connections. " +
-          "Open a draft from the SDK connection page, " +
+          `Use \`PUT /sdk-connections-revisions/${sdkConnection.id}/new/settings\` to stage the change in a draft, ` +
           'or pass `{ "bypassApproval": true }` if you have the `bypassApprovalSDKConnections` permission.',
       );
     }
@@ -120,6 +121,12 @@ export const putSdkConnection = createApiRequestHandler(
   if (!canBypass) {
     await assertNoLockingScheduledDraft(req.context, sdkConnection.id);
   }
+
+  await runValidateSdkConnectionHooks({
+    context: req.context,
+    original: baseline,
+    sdkConnection: { ...baseline, sdkConnection: proposedSettings },
+  });
 
   await ensureLiveRevisionExists(req.context, "sdk-connection", liveEntity);
 

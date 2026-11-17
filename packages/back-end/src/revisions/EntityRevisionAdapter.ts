@@ -311,6 +311,22 @@ export interface EntityRevisionAdapter<
     incoming: Partial<TSnapshot>,
   ): Partial<TSnapshot>;
 
+  // Runs whenever a revision's content is written: a save into a draft, a
+  // rebase, or a direct landing. Throwing refuses the write. `revision` is null
+  // when the write creates it. `proposed` is the entity as the revision leaves
+  // it; `before` is what it proposed until now, which is live for a new one.
+  validateRevisionWrite?(
+    context: Context,
+    write: {
+      live: TSnapshot;
+      revision: Revision | null;
+      // A direct landing: the revision is created already published.
+      direct?: boolean;
+      proposed: TSnapshot;
+      before: TSnapshot;
+    },
+  ): Promise<void>;
+
   // Validate what a merge would apply BEFORE the merge is claimed: throwing here leaves
   // the revision open and editable, instead of stranding it "merged" and relying on a
   // post-merge reopen. Runs on every internal publish path — bypass skips approval, not

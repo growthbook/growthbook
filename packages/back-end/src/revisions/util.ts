@@ -252,6 +252,27 @@ export async function createOrUpdateRevision(
     revisionId,
   } = options;
 
+  const adapter = getAdapter(entityType);
+  // Asked once, on the row as read. A CAS retry re-derives without asking again.
+  const validateWrite = async (row: Revision | null) => {
+    if (!adapter.validateRevisionWrite) return;
+    const live = adapter.buildSnapshot(entity);
+    const base = (row?.target.snapshot ?? live) as Record<string, unknown>;
+    const before = row
+      ? applyPatchToSnapshot(base, row.target.proposedChanges)
+      : live;
+    const derived =
+      typeof proposedChanges === "function"
+        ? await proposedChanges(row)
+        : proposedChanges;
+    await adapter.validateRevisionWrite(context, {
+      live,
+      revision: row,
+      proposed: applyPatchToSnapshot(replaceChanges ? base : before, derived),
+      before,
+    });
+  };
+
   if (revisionId) {
     // Live-entity basis, matching the handlers that resolved this id: the
     // snapshot basis returns null for a moved entity, and falling through to
@@ -295,6 +316,7 @@ export async function createOrUpdateRevision(
                 proposedChanges,
               );
 
+      await validateWrite(targetRevision);
       return context.models.revisions.updateProposedChanges(
         targetRevision.id,
         finalChanges,
@@ -332,6 +354,7 @@ export async function createOrUpdateRevision(
                 proposedChanges,
               );
 
+      await validateWrite(existingRevision);
       return context.models.revisions.updateProposedChanges(
         existingRevision.id,
         finalChanges,
@@ -341,8 +364,9 @@ export async function createOrUpdateRevision(
     }
   }
 
-  const snapshot = getAdapter(entityType).buildSnapshot(entity);
+  const snapshot = adapter.buildSnapshot(entity);
 
+  await validateWrite(null);
   return context.models.revisions.createRequest({
     type: entityType,
     id: entity.id,

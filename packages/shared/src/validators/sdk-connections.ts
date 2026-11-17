@@ -96,7 +96,7 @@ export const apiSdkConnectionValidator = namedSchema(
         .boolean()
         .optional()
         .describe(
-          "An archived connection serves no payload. When the organization requires approvals for the connection, it must be archived before it can be deleted.",
+          "An archived connection serves no payload. A connection must be archived before it can be deleted.",
         ),
     })
     .strict(),
@@ -246,7 +246,7 @@ const postSdkConnectionBody = z
   .strict();
 
 // Corresponds to payload-schemas/PutSdkConnectionPayload.yaml
-const putSdkConnectionBody = postSdkConnectionBody
+export const putSdkConnectionBody = postSdkConnectionBody
   .partial()
   .extend({
     archived: z
@@ -338,7 +338,7 @@ export const putSdkConnectionValidator = {
     .strict(),
   summary: "Update a single sdk connection",
   description:
-    "Applies the change immediately and records it as a published revision, so it appears in the connection's history. When the organization requires approvals for this connection's Projects and environment, open a draft from the SDK Connection page instead, or pass `bypassApproval`. Set `archived` to archive or restore the connection.",
+    "Applies the change immediately and records it as a published revision, so it appears in the connection's history. When the organization requires approvals for this connection's Projects and environment, stage the change in a draft revision instead (`PUT /sdk-connections-revisions/{id}/new/settings`), or pass `bypassApproval`. Set `archived` to archive or restore the connection.",
   confirmation: [
     "sdkConnection.edit",
     "override.bypassApproval",
@@ -351,24 +351,15 @@ export const putSdkConnectionValidator = {
 };
 
 export const deleteSdkConnectionValidator = {
-  bodySchema: z
-    .object({ bypassApproval: sdkConnectionBypassApprovalBodyField })
-    .strict()
-    .optional(),
+  bodySchema: z.never(),
   querySchema: z.never(),
   paramsSchema: idParams,
-  responseSchema: z
-    .object({
-      deletedId: z.string(),
-      bypassedGates: publishBypassedGatesField,
-    })
-    .strict(),
+  responseSchema: z.object({ deletedId: z.string() }).strict(),
   summary: "Deletes a single SDK connection",
   description:
-    "When the organization requires approvals for this connection's Projects and environment, archive it first (`PUT /sdk-connections/{id}` with `archived: true`), then delete it. To delete a live connection in one step, pass `bypassApproval`.",
+    "Deletes an archived SDK Connection. Archive a live one first (`PUT /sdk-connections/{id}` with `archived: true`, or in a draft revision when the organization requires approvals for it), then delete it. A live connection deletes in one step only when the organization enables 'REST API always bypasses approval requirements'.",
   confirmation: [
     "sdkConnection.delete",
-    "override.bypassApproval",
     "override.restBypassesReviews",
   ] as const,
   operationId: "deleteSdkConnection",

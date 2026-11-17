@@ -34,6 +34,8 @@ import useApi from "@/hooks/useApi";
 import { useSDKConnectionRevision } from "@/hooks/useSDKConnectionRevision";
 import PageHead from "@/components/Layout/PageHead";
 import SdkWebhooks from "@/components/Features/SDKConnections/SdkWebhooks";
+import CustomHooksSection from "@/components/CustomHooks/CustomHooksSection";
+import { isCloud } from "@/services/env";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useUser } from "@/services/UserContext";
@@ -85,7 +87,12 @@ import {
   TABS_HEADER_HEIGHT_PX,
 } from "@/components/Layout/constants";
 
-const SDK_CONNECTION_TABS = ["overview", "webhooks", "review"] as const;
+const SDK_CONNECTION_TABS = [
+  "overview",
+  "webhooks",
+  "validation",
+  "review",
+] as const;
 type SDKConnectionTab = (typeof SDK_CONNECTION_TABS)[number];
 
 // Webhooks are required: an empty list reads as "every webhook was added" and
@@ -269,7 +276,7 @@ export default function SDKConnectionPage() {
     openKey: `sdk-connection-details-panel-open__${sdkid}`,
     widthKey: "sdk-connection-details-panel-width",
     tab,
-    homeTab: ["overview", "webhooks"],
+    homeTab: ["overview", "webhooks", "validation"],
   });
 
   const [setStatusBarEl, statusBarHeight] = useRevisionStatusBarHeight();
@@ -543,8 +550,7 @@ export default function SDKConnectionPage() {
             </DropdownMenuItem>
           )}
         </DropdownMenuGroup>
-        {/* Under an approval rule, live must be archived before deleting. */}
-        {canDelete && (connection.archived || !approvalRequired) && (
+        {canDelete && connection.archived && (
           <>
             <DropdownMenuSeparator />
             <DropdownMenuGroup>
@@ -736,6 +742,9 @@ export default function SDKConnectionPage() {
               Webhooks
               <TabCount count={webhookData?.webhooks?.length ?? 0} />
             </TabsTrigger>
+            {!isCloud() && (
+              <TabsTrigger value="validation">Validation</TabsTrigger>
+            )}
             <TabsTrigger value="review">
               Review &amp; Publish
               <ReviewTabCount statuses={allRevisions.map((r) => r.status)} />
@@ -890,6 +899,22 @@ export default function SDKConnectionPage() {
                     mutateWebhooks(),
                   ]);
                 }}
+              />
+            )}
+            {tab === "validation" && (
+              <CustomHooksSection
+                scope={{
+                  entityType: "sdkConnection",
+                  entityId: connection.id,
+                  label: "SDK Connection",
+                }}
+                projects={connection.projects}
+                description="Run sandboxed JavaScript validation before this SDK Connection or its webhooks are changed."
+                // A connection-scoped hook is saved with no Projects.
+                canManage={permissionsUtil.canCreateCustomHook({
+                  projects: [],
+                })}
+                modalProps={{ sdkConnection: liveSnapshot }}
               />
             )}
             {tab === "webhooks" && (

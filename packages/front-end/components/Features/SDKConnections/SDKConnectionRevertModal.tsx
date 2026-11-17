@@ -3,6 +3,7 @@ import { SDKConnectionRevisionSnapshot } from "shared/validators";
 import RevisionDraftSelectorForChanges from "@/components/Revision/RevisionDraftSelectorForChanges";
 import { RevisionDiffConfig } from "@/components/Revision/useRevisionDiff";
 import RevertModal from "@/components/Revision/RevertModal";
+import useOrgSettings from "@/hooks/useOrgSettings";
 import {
   snapshotWithAbsentSettings,
   withAbsentSettings,
@@ -52,6 +53,7 @@ export default function SDKConnectionRevertModal({
   close: () => void;
   onRevisionCreated: (revision: Revision) => void;
 }) {
+  const { revertsBypassApproval } = useOrgSettings();
   return (
     <RevertModal<LiveSnapshot>
       liveEntity={liveSnapshot}
@@ -63,8 +65,7 @@ export default function SDKConnectionRevertModal({
       allRevisions={allRevisions}
       // The diff reads only the snapshot; `id` is there for the endpoint path.
       diffConfig={diffConfig as unknown as RevisionDiffConfig<LiveSnapshot>}
-      // The SDK connection endpoint has no revert-specific approval exemption.
-      revertsBypassApproval={false}
+      revertsBypassApproval={!!revertsBypassApproval}
       approvalRequired={approvalRequired}
       canBypassApproval={canBypassApproval}
       canRevert={canRevert}

@@ -89,21 +89,19 @@ export type DirectWriteBypass = {
   restBypass: boolean;
 };
 
-export const ARCHIVE_BEFORE_DELETE =
-  "This SDK connection requires approval, so it must be archived before it can be deleted.";
-
 export function assertDirectWriteAllowed(
   context: Context,
   connections: SDKConnectionInterface[],
   bypass?: DirectWriteBypass,
-  refusal = "This SDK connection requires approval. Change its webhooks in a draft revision.",
 ): BypassedGate[] {
   const gated = connections.filter((c) => isSdkConnectionGated(context, c));
   if (!gated.length) return [];
+  const refusal =
+    "This SDK connection requires approval. Change its webhooks in a draft revision.";
   if (!bypass) throw new BadRequestError(refusal);
   if (!bypass.bypassApproval) {
     throw new BadRequestError(
-      `${refusal} Or pass \`{ "bypassApproval": true }\` if you have Bypass draft approvals access.`,
+      `${refusal} Use the \`/sdk-connections-revisions/{id}/new/webhooks\` endpoints. Or pass \`{ "bypassApproval": true }\` if you have Bypass draft approvals access.`,
     );
   }
   if (

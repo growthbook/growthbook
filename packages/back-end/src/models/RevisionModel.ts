@@ -2650,15 +2650,21 @@ export class RevisionModel extends BaseClass {
     bypass?: boolean;
     title?: string;
     revertedFrom?: string;
+    // For a change a permission of its own already authorized, such as an SDK
+    // webhook write: recording it takes no revision authority.
+    bypassPermission?: boolean;
   }) {
     const cleanedSnapshot = getAdapter(params.type).buildSnapshot(
       params.snapshot,
     );
     const userId = this.context.actorId;
     const now = new Date();
+    const create = params.bypassPermission
+      ? this.dangerousCreateBypassPermission.bind(this)
+      : this.create.bind(this);
 
     return this.createWithVersionRetry(() =>
-      this.create({
+      create({
         target: {
           type: params.type,
           id: params.id,

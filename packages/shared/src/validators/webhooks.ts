@@ -121,7 +121,7 @@ export const apiSdkWebhookValidator = namedSchema(
   }),
 );
 
-const sdkWebhookFields = {
+export const sdkWebhookFields = {
   name: z.string(),
   endpoint: z.string().url(),
   httpMethod: z

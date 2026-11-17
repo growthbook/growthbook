@@ -78,6 +78,8 @@ export const CONFIRM_ACTIONS = [
   "customField.edit",
   "customField.delete",
   "sdkConnection.create",
+  "sdkConnection.draft",
+  "sdkConnection.review",
   "sdkConnection.edit",
   "sdkConnection.delete",
   "metric.create",

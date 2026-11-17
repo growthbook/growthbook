@@ -48,8 +48,6 @@ import {
 } from "back-end/src/util/errors";
 import {
   assertCanChangeSdkWebhooks,
-  ARCHIVE_BEFORE_DELETE,
-  assertDirectWriteAllowed,
   assertNoLockingScheduledDraft,
   sdkConnectionReviewRules,
   isSdkConnectionGated,
@@ -60,9 +58,11 @@ import {
   ensureLiveRevisionExists,
 } from "back-end/src/revisions/util";
 import { getAdapter } from "back-end/src/revisions";
+import { runValidateSdkConnectionHooks } from "back-end/src/enterprise/sandbox/sandbox-eval";
 import { publishRevision } from "back-end/src/revisions/revisionActions";
 import {
   CONNECTION_UPDATABLE_FIELDS,
+  isSdkConnectionRevert,
   pickSettingsSnapshot,
   restoreWebhookHeaders,
   SDKConnectionLiveSnapshot,
@@ -116,11 +116,17 @@ export const postSDKConnection = async (
     ]),
   );
 
-  const doc = await createSDKConnection(context, {
-    ...params,
-    ...withoutPlan,
-    organization: org.id,
+  const createParams = { ...params, ...withoutPlan, organization: org.id };
+  await runValidateSdkConnectionHooks({
+    context,
+    original: null,
+    sdkConnection: {
+      sdkConnection: pickSettingsSnapshot(createParams),
+      sdkWebhooks: [],
+    },
   });
+
+  const doc = await createSDKConnection(context, createParams);
 
   // Baseline for history and later edits; a new connection has no webhooks.
   await ensureLiveRevisionExists(context, "sdk-connection", {
@@ -407,8 +413,30 @@ export const putSDKConnection = async (
   };
   const adapter = getAdapter("sdk-connection");
   // Answers before a revision exists, so a refused publish leaves no draft behind.
-  const needsApproval =
+  const underReview =
     sdkConnectionReviewRules(context, baselineSnapshot, patchOps).length > 0;
+  // A revert restores a state that was already reviewed, so the org can let
+  // one land without approval. The change comes from the caller's body, so it
+  // counts only when it is exactly what reverting to that revision does.
+  const revertTarget =
+    underReview && revertedFrom && context.org.settings?.revertsBypassApproval
+      ? await context.models.revisions.getById(revertedFrom)
+      : null;
+  const revertsWithoutApproval =
+    revertTarget?.status === "merged" &&
+    revertTarget.target.type === "sdk-connection" &&
+    revertTarget.target.id === connection.id &&
+    isSdkConnectionRevert(
+      baselineSnapshot,
+      adapter.buildSnapshot(
+        applyPatchToSnapshot(
+          revertTarget.target.snapshot as SDKConnectionRevisionSnapshot,
+          revertTarget.target.proposedChanges,
+        ),
+      ) as SDKConnectionRevisionSnapshot,
+      desiredChanges,
+    );
+  const needsApproval = underReview && !revertsWithoutApproval;
   // A move needs bypass authority in the destination scope too.
   const canBypass = adapter.canBypassApproval(
     context,
@@ -439,6 +467,8 @@ export const putSDKConnection = async (
       baselineSnapshot,
       desiredChanges,
       {
+        // Publishing a draft along with this edit: hooks see that draft.
+        ...(revisionId ? targetRevision : null),
         target: {
           type: "sdk-connection",
           id: connection.id,
@@ -520,7 +550,9 @@ export const putSDKConnection = async (
     dateUpdated: connection.dateUpdated,
   };
   revision = await publishRevision(context, revision, landingEntity, {
-    bypass: needsApproval,
+    bypass: underReview,
+    // They ran in `assertPublishable` above.
+    skipHooks: true,
   });
 
   return res.status(200).json({ status: 200, revision });
@@ -542,14 +574,9 @@ export const deleteSDKConnection = async (
     context.permissions.throwPermissionError();
   }
 
-  // Under an approval rule, archiving is the reviewable step, so the hard
-  // delete requires it first.
   if (!connection.archived) {
-    assertDirectWriteAllowed(
-      context,
-      [connection],
-      undefined,
-      ARCHIVE_BEFORE_DELETE,
+    throw new BadRequestError(
+      "SDK Connection must be archived before it can be deleted",
     );
   }
 

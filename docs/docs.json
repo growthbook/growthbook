@@ -794,6 +794,32 @@
                 ]
               },
               {
+                "group": "SDK Connection Revisions",
+                "pages": [
+                  "api/sdk-connection-revisions/operation/listSdkConnectionRevisions",
+                  "api/sdk-connection-revisions/operation/getSdkConnectionRevisions",
+                  "api/sdk-connection-revisions/operation/postSdkConnectionRevision",
+                  "api/sdk-connection-revisions/operation/getSdkConnectionRevisionLatest",
+                  "api/sdk-connection-revisions/operation/getSdkConnectionRevision",
+                  "api/sdk-connection-revisions/operation/getSdkConnectionRevisionMergeStatus",
+                  "api/sdk-connection-revisions/operation/putSdkConnectionRevisionSettings",
+                  "api/sdk-connection-revisions/operation/putSdkConnectionRevisionArchive",
+                  "api/sdk-connection-revisions/operation/postSdkConnectionRevisionWebhook",
+                  "api/sdk-connection-revisions/operation/putSdkConnectionRevisionWebhook",
+                  "api/sdk-connection-revisions/operation/deleteSdkConnectionRevisionWebhook",
+                  "api/sdk-connection-revisions/operation/postSdkConnectionRevisionRequestReview",
+                  "api/sdk-connection-revisions/operation/postSdkConnectionRevisionSubmitReview",
+                  "api/sdk-connection-revisions/operation/postSdkConnectionRevisionRecallReview",
+                  "api/sdk-connection-revisions/operation/postSdkConnectionRevisionUndoReview",
+                  "api/sdk-connection-revisions/operation/postSdkConnectionRevisionReopen",
+                  "api/sdk-connection-revisions/operation/postSdkConnectionRevisionSchedulePublish",
+                  "api/sdk-connection-revisions/operation/postSdkConnectionRevisionRebase",
+                  "api/sdk-connection-revisions/operation/postSdkConnectionRevisionPublish",
+                  "api/sdk-connection-revisions/operation/postSdkConnectionRevisionDiscard",
+                  "api/sdk-connection-revisions/operation/postSdkConnectionRevisionRevert"
+                ]
+              },
+              {
                 "group": "Visual Changesets",
                 "pages": [
                   "api/visual-changesets/operation/listVisualChangesets",
@@ -1381,6 +1407,11 @@
               "api/ScheduledStopPlan_model",
               "api/SdkConnection_model",
               "api/SdkConnectionApprovalRule_model",
+              "api/SdkConnectionRevision_model",
+              "api/SdkConnectionRevisionActivityLogEntry_model",
+              "api/SdkConnectionRevisionReview_model",
+              "api/SdkConnectionRevisionSettings_model",
+              "api/SdkConnectionRevisionWebhook_model",
               "api/SdkWebhook_model",
               "api/Segment_model",
               "api/Settings_model",

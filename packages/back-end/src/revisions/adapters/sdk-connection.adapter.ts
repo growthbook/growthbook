@@ -13,8 +13,11 @@ import {
   orgHasAnySdkConnectionApproval,
   isAutopublishOnApprovalEnabled,
   normalizeProposedChanges,
+  sdkConnectionDraftSettingsAfterSave,
   sdkConnectionPublishFootprint,
   sdkConnectionSettingsAfter,
+  sdkConnectionSettingsEqual,
+  withAbsentSdkSettings,
 } from "shared/enterprise";
 import {
   SDKConnectionRevisionSnapshot,
@@ -53,6 +56,10 @@ type SdkConnectionValidations =
   typeof import("back-end/src/api/sdk-connections/validations");
 function loadValidations(): Promise<SdkConnectionValidations> {
   return import("back-end/src/api/sdk-connections/validations");
+}
+// Likewise for the hook runner.
+function loadHooks() {
+  return import("back-end/src/enterprise/sandbox/sandbox-eval");
 }
 
 const SETTINGS_ALLOWED_KEYS = Object.keys(
@@ -109,6 +116,66 @@ export function restoreWebhookHeaders(
     w.headers === undefined && kept.get(w.id) !== undefined
       ? { ...w, headers: kept.get(w.id) }
       : w,
+  );
+}
+
+// A landed webhook stores no headers as "".
+const withHeaders = (wh: SDKWebhookRevisionSnapshot) => ({
+  ...wh,
+  headers: wh.headers ?? "",
+});
+
+// What reverting to the state a published revision left changes on the live
+// connection: live's settings with that state's on top, where a setting the
+// state predates is turned off, and the webhooks as they were. Archiving is
+// its own action, so a revert leaves it alone.
+export function sdkConnectionRevertChanges(
+  live: SDKConnectionRevisionSnapshot,
+  then: SDKConnectionRevisionSnapshot,
+): Partial<SDKConnectionRevisionSnapshot> {
+  const sdkConnection = pickSettingsSnapshot(
+    sdkConnectionDraftSettingsAfterSave(
+      live.sdkConnection,
+      live.sdkConnection,
+      withAbsentSdkSettings(omit(then.sdkConnection, "archived")),
+    ),
+  );
+  const liveById = new Map(live.sdkWebhooks.map((wh) => [wh.id, wh]));
+  const sdkWebhooks = then.sdkWebhooks.map((wh) => {
+    // Rows predating `httpMethod` lack it.
+    const was = parseSdkWebhookSnapshot({
+      ...wh,
+      httpMethod: wh.httpMethod ?? "POST",
+    });
+    const now = liveById.get(was.id);
+    return now && isEqual(withHeaders(was), withHeaders(now)) ? now : was;
+  });
+  return {
+    ...(!sdkConnectionSettingsEqual(sdkConnection, live.sdkConnection) && {
+      sdkConnection,
+    }),
+    ...(!isEqual(sdkWebhooks, live.sdkWebhooks) && { sdkWebhooks }),
+  };
+}
+
+// Whether a change is exactly that revert. The change may come from a
+// caller's request, so naming a revision is not enough to count as one.
+export function isSdkConnectionRevert(
+  live: SDKConnectionRevisionSnapshot,
+  then: SDKConnectionRevisionSnapshot,
+  changes: Partial<SDKConnectionRevisionSnapshot>,
+): boolean {
+  const revert = sdkConnectionRevertChanges(live, then);
+  return (
+    Object.keys(revert).length > 0 &&
+    sdkConnectionSettingsEqual(
+      changes.sdkConnection ?? live.sdkConnection,
+      revert.sdkConnection ?? live.sdkConnection,
+    ) &&
+    isEqual(
+      (changes.sdkWebhooks ?? live.sdkWebhooks).map(withHeaders),
+      (revert.sdkWebhooks ?? live.sdkWebhooks).map(withHeaders),
+    )
   );
 }
 
@@ -434,6 +501,11 @@ export const sdkConnectionAdapter: EntityRevisionAdapter<SDKConnectionRevisionSn
       };
     },
 
+    async validateRevisionWrite(context, write) {
+      const { runValidateSdkConnectionRevisionHooks } = await loadHooks();
+      await runValidateSdkConnectionRevisionHooks({ context, ...write });
+    },
+
     // For the generic publish paths that skip the PUT controller. Runs before
     // the merge is claimed, so a rejection leaves the draft open.
     async assertPublishable(
@@ -441,6 +513,7 @@ export const sdkConnectionAdapter: EntityRevisionAdapter<SDKConnectionRevisionSn
       entity: SDKConnectionRevisionSnapshot,
       desiredState: Record<string, unknown>,
       revision: Revision,
+      options?: { hooksAlreadyRan?: boolean },
     ): Promise<void> {
       // A draft cut before the connection moved was judged against the rules
       // of where it used to be, so it takes on the new scope first. A claimed
@@ -460,10 +533,12 @@ export const sdkConnectionAdapter: EntityRevisionAdapter<SDKConnectionRevisionSn
         );
       }
 
+      const proposed = { ...entity };
       if (desiredState.sdkConnection !== undefined) {
         const settings = sdkConnectionSettingsSnapshotValidator.parse(
           desiredState.sdkConnection,
         );
+        proposed.sdkConnection = settings;
         const changes = filterUpdatableChanges(
           settings,
           entity.sdkConnection,
@@ -487,6 +562,7 @@ export const sdkConnectionAdapter: EntityRevisionAdapter<SDKConnectionRevisionSn
 
       if (desiredState.sdkWebhooks !== undefined) {
         const webhooks = webhookListValidator.parse(desiredState.sdkWebhooks);
+        proposed.sdkWebhooks = webhooks;
         const proposedIds = new Set(webhooks.map((w) => w.id));
         const baselineIds = new Set(entity.sdkWebhooks.map((w) => w.id));
         await assertSdkWebhookPlanLimit(
@@ -538,6 +614,28 @@ export const sdkConnectionAdapter: EntityRevisionAdapter<SDKConnectionRevisionSn
               "A webhook used by other SDK connections can't be changed from this one. Change it through the API.",
             );
           }
+        }
+      }
+
+      if (!options?.hooksAlreadyRan) {
+        const {
+          runValidateSdkConnectionHooks,
+          runValidateSdkConnectionRevisionHooks,
+        } = await loadHooks();
+        await runValidateSdkConnectionHooks({
+          context,
+          original: entity,
+          sdkConnection: proposed,
+        });
+        // A direct write checks itself against a stand-in with no id.
+        if (revision.id) {
+          await runValidateSdkConnectionRevisionHooks({
+            context,
+            live: entity,
+            revision,
+            proposed,
+            before: entity,
+          });
         }
       }
     },

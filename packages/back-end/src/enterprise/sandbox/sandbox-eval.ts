@@ -1,4 +1,8 @@
-import type { EventUser } from "shared/validators";
+import { omit, pick } from "lodash";
+import type {
+  EventUser,
+  SDKConnectionRevisionSnapshot,
+} from "shared/validators";
 import {
   CustomHookEntityType,
   CustomHookErrorDetail,
@@ -521,6 +525,34 @@ export type ConfigRevisionHookInput = {
   activityLog?: { user?: EventUser }[];
 };
 
+// The `revision` argument a hook receives when a draft is published: the stored
+// fields plus who wrote it and each reviewer's verdict. Every entity's hook
+// gets this shape, so one approval policy can be written against all of them.
+async function revisionHookArg(
+  context: Context,
+  revision: ConfigRevisionHookInput,
+) {
+  return {
+    // Named fields only: a whole revision also carries the entity's snapshot,
+    // which can hold secrets.
+    ...pick(revision, [
+      "version",
+      "status",
+      "title",
+      "comment",
+      "authorId",
+      "contributors",
+    ]),
+    ...(await hookAuthorship(
+      context,
+      revision.authorId,
+      revision.contributors,
+      revision,
+    )),
+    reviews: await hookReviewerVerdicts(context, revision.reviews),
+  };
+}
+
 type ConfigRevisionHookArgs = {
   context: Context;
   config: ConfigHookInput;
@@ -542,16 +574,7 @@ async function prepareConfigRevisionHookCall({
   }
   const enriched = await prepareConfigHookArgs(context, config, original);
   const revisionArg = revision
-    ? {
-        ...revision,
-        ...(await hookAuthorship(
-          context,
-          revision.authorId,
-          revision.contributors,
-          revision,
-        )),
-        reviews: await hookReviewerVerdicts(context, revision.reviews),
-      }
+    ? await revisionHookArg(context, revision)
     : null;
   // Args are injected by destructuring, so `revision` must always be bound —
   // an absent key makes `if (revision)` a ReferenceError inside the hook.
@@ -630,6 +653,108 @@ export async function runValidateExperimentHooks({
   );
 }
 
+// Webhook headers can hold credentials, which a hook's error or log would show
+// to someone who can't see them, so hooks get everything else.
+const sdkConnectionHookArgs = ({
+  sdkConnection,
+  sdkWebhooks,
+}: SDKConnectionRevisionSnapshot) => ({
+  sdkConnection,
+  sdkWebhooks: sdkWebhooks.map((webhook) => omit(webhook, "headers")),
+});
+
+type SdkConnectionHookInput = {
+  context: Context;
+  sdkConnection: SDKConnectionRevisionSnapshot;
+  original: SDKConnectionRevisionSnapshot | null;
+};
+const sdkConnectionHookCall = ({
+  context,
+  sdkConnection,
+  original,
+}: SdkConnectionHookInput) =>
+  [
+    context,
+    "validateSdkConnection",
+    sdkConnectionHookArgs(sdkConnection),
+    sdkConnection.sdkConnection.projects,
+    sdkConnection.sdkConnection.id,
+    original ? sdkConnectionHookArgs(original) : undefined,
+  ] as const;
+
+export async function runValidateSdkConnectionHooks(
+  input: SdkConnectionHookInput,
+): Promise<void> {
+  return _runCustomHooks(...sdkConnectionHookCall(input));
+}
+
+export async function collectValidateSdkConnectionHookResults(
+  input: SdkConnectionHookInput,
+): Promise<CustomHookResults> {
+  return collectCustomHookResults(...sdkConnectionHookCall(input));
+}
+
+// As for Feature Flags: the live connection, and the revision being written
+// with what it proposes.
+type SdkConnectionRevisionHookInput = {
+  context: Context;
+  live: SDKConnectionRevisionSnapshot;
+  // Null for a revision this write creates, which has only its author so far:
+  // a draft, or one a direct write lands already published.
+  revision: ConfigRevisionHookInput | null;
+  direct?: boolean;
+  // What the revision proposes once this write lands, and what it proposed
+  // before: live's state, for a new draft and at publish.
+  proposed: SDKConnectionRevisionSnapshot;
+  before: SDKConnectionRevisionSnapshot;
+};
+async function sdkConnectionRevisionHookCall({
+  context,
+  live,
+  revision,
+  direct,
+  proposed,
+  before,
+}: SdkConnectionRevisionHookInput) {
+  if (!customHooksActive(context)) return null;
+  const details = await revisionHookArg(
+    context,
+    revision ?? {
+      status: direct ? "merged" : "draft",
+      authorId: context.actorId,
+      reviews: [],
+    },
+  );
+  const liveArgs = sdkConnectionHookArgs(live);
+  return [
+    context,
+    "validateSdkConnectionRevision",
+    {
+      ...liveArgs,
+      revision: { ...details, ...sdkConnectionHookArgs(proposed) },
+    },
+    live.sdkConnection.projects,
+    live.sdkConnection.id,
+    { ...liveArgs, revision: { ...details, ...sdkConnectionHookArgs(before) } },
+  ] as const;
+}
+
+export async function runValidateSdkConnectionRevisionHooks(
+  input: SdkConnectionRevisionHookInput,
+): Promise<void> {
+  const call = await sdkConnectionRevisionHookCall(input);
+  if (call) await _runCustomHooks(...call);
+}
+
+export async function collectValidateSdkConnectionRevisionHookResults(
+  input: SdkConnectionRevisionHookInput,
+): Promise<CustomHookResults> {
+  const call = await sdkConnectionRevisionHookCall(input);
+  return call
+    ? collectCustomHookResults(...call)
+    : { hardErrors: [], warnings: [] };
+}
+
 // The aggregated custom-hook outcome for one entity change: hard errors (a hook
 // threw — validation-class) and soft warnings (a hook called addWarning —
 // acknowledge-class). Non-throwing so the caller can either throw (the assert
@@ -643,6 +768,7 @@ const entityNoun: Record<CustomHookEntityType, string> = {
   feature: "Feature Flag",
   config: "Config",
   experiment: "experiment",
+  sdkConnection: "SDK Connection",
 };
 
 // Rejections show as written; failures collapse to one retry hint (detail stays in `details`).
@@ -665,7 +791,7 @@ export async function collectCustomHookResults(
   context: Context,
   hookType: CustomHookType,
   functionArgs: Record<string, unknown>,
-  project: string = "",
+  project: string | string[] = "",
   entityId: string = "",
   originalFunctionArgs?: Record<string, unknown>,
   configBases?: { parent?: string; extends?: string[] },
@@ -704,7 +830,7 @@ async function _runCustomHooks(
   context: Context,
   hookType: CustomHookType,
   functionArgs: Record<string, unknown>,
-  project: string = "",
+  project: string | string[] = "",
   entityId: string = "",
   originalFunctionArgs?: Record<string, unknown>,
   // Staged immediate bases of the target config (config hook types only) —
@@ -731,11 +857,13 @@ async function _runCustomHooks(
   // hooks. `hookEntityType` already maps that; experiment hooks have no flag
   // family, so nothing clears them by permission alone.
   const hookFamily = hookEntityType[hookType];
-  const canSkip =
+  const canSkip = () =>
     hookFamily === "feature" || hookFamily === "config"
       ? context.canSkipHooksFor(hookFamily)
-      : false;
-  if (hardErrors.length && !canSkip) {
+      : hookFamily === "sdkConnection"
+        ? context.canSkipHooksFor("sdk-connection")
+        : false;
+  if (hardErrors.length && !canSkip()) {
     throw new CustomHookError(
       customHookErrorMessage(hardErrors, hookFamily),
       hardErrors,

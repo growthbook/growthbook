@@ -1,4 +1,4 @@
-import { omit, uniq } from "lodash";
+import { isEqual, omit, uniq } from "lodash";
 import { z } from "zod";
 import { WEBHOOK_CONSECUTIVE_FAILURES_THRESHOLD } from "shared/constants";
 import { WebhookInterface } from "shared/types/webhook";
@@ -11,6 +11,9 @@ import {
   CreateSdkWebhookProps,
   UpdateSdkWebhookProps,
   apiSdkWebhookValidator,
+  parseSdkWebhookSnapshot,
+  SDKConnectionRevisionSnapshot,
+  SDKWebhookRevisionSnapshot,
   postSdkConnectionWebhookValidator,
   putSdkWebhookValidator,
   webhookSchema,
@@ -42,6 +45,14 @@ import {
 } from "back-end/src/services/sdkConnectionApprovals";
 import type { BypassedGate } from "back-end/src/revisions/publishGates";
 import { canUseRestApiBypassSetting } from "back-end/src/api/features/reviewBypass";
+import { getAdapter } from "back-end/src/revisions";
+import { ensureLiveRevisionExists } from "back-end/src/revisions/util";
+import { logger } from "back-end/src/util/logger";
+import {
+  customHooksActive,
+  runValidateSdkConnectionHooks,
+  runValidateSdkConnectionRevisionHooks,
+} from "back-end/src/enterprise/sandbox/sandbox-eval";
 import { MakeModelClass } from "./BaseModel";
 import {
   assertCanUseSDKConnections,
@@ -49,6 +60,13 @@ import {
   findSDKConnectionsByIds,
   touchSDKConnections,
 } from "./SdkConnectionModel";
+
+// Rows predating `httpMethod` lack it.
+const toSnapshot = (webhook: Partial<WebhookInterface>) =>
+  parseSdkWebhookSnapshot({
+    ...webhook,
+    httpMethod: webhook.httpMethod ?? "POST",
+  });
 
 type ApiSdkWebhook = z.infer<typeof apiSdkWebhookValidator>;
 type ApiSdkWebhookReturn = z.infer<typeof apiSdkWebhookReturn>;
@@ -238,6 +256,92 @@ export class SdkWebhookModel extends BaseClass {
     }
   }
 
+  // Lands a direct write on every connection it changes. Each one's validation
+  // hooks see its webhooks as the write would leave them, and the change is
+  // recorded there as a published revision before it is made, so it shows in
+  // the connection's history and can be reverted. The webhook permission
+  // authorized the write, and recording it takes nothing more.
+  private async landOnConnections<T>(
+    conns: SDKConnectionInterface[],
+    after: (
+      webhooks: SDKWebhookRevisionSnapshot[],
+      conn: SDKConnectionInterface,
+    ) => SDKWebhookRevisionSnapshot[],
+    bypass: boolean,
+    write: () => Promise<T>,
+  ): Promise<T> {
+    const { context } = this;
+    const adapter = getAdapter("sdk-connection");
+    const landings: {
+      entity: Record<string, unknown> & { id: string };
+      original: SDKConnectionRevisionSnapshot;
+      sdkWebhooks: SDKWebhookRevisionSnapshot[];
+    }[] = [];
+    for (const conn of conns) {
+      const entity = {
+        ...conn,
+        _webhooks: await this.findLiveSdkWebhooksForRevision([conn.id]),
+      };
+      const original = adapter.buildSnapshot(
+        entity,
+      ) as SDKConnectionRevisionSnapshot;
+      const sdkWebhooks = after(original.sdkWebhooks, conn);
+      if (!isEqual(sdkWebhooks, original.sdkWebhooks)) {
+        landings.push({ entity, original, sdkWebhooks });
+      }
+    }
+    if (customHooksActive(context)) {
+      for (const { original, sdkWebhooks } of landings) {
+        const proposed = { ...original, sdkWebhooks };
+        await runValidateSdkConnectionHooks({
+          context,
+          original,
+          sdkConnection: proposed,
+        });
+        await runValidateSdkConnectionRevisionHooks({
+          context,
+          live: original,
+          revision: null,
+          direct: true,
+          proposed,
+          before: original,
+        });
+      }
+    }
+
+    const recorded: string[] = [];
+    try {
+      for (const { entity, original, sdkWebhooks } of landings) {
+        await ensureLiveRevisionExists(context, "sdk-connection", entity);
+        const merged = await context.models.revisions.createMerged({
+          type: "sdk-connection",
+          id: entity.id,
+          snapshot: original,
+          proposedChanges: [
+            { op: "replace", path: "/sdkWebhooks", value: sdkWebhooks },
+          ],
+          bypass,
+          bypassPermission: true,
+        });
+        recorded.push(merged.id);
+      }
+      return await write();
+    } catch (e) {
+      // A record of a write that never happened is false history.
+      for (const id of recorded) {
+        await context.models.revisions
+          .dangerousDeleteByIdBypassPermission(id)
+          .catch((err) =>
+            logger.error(
+              err,
+              `Failed to remove revision ${id}, which records an SDK webhook write that did not happen`,
+            ),
+          );
+      }
+      throw e;
+    }
+  }
+
   // The direct writes a person or key makes, shared by the app and REST.
   // Status and integration writes use the base methods. `bypass` is REST's way
   // past an approval rule; the app changes a gated connection's webhooks in a
@@ -256,11 +360,14 @@ export class SdkWebhookModel extends BaseClass {
     await this.assertNotScheduleLocked([conn], bypass);
     assertSdkWebhookNotManaged(null, props.payloadFormat);
     await assertSdkWebhookPlanLimit(context, 1);
-
-    const webhook = await this.create({
-      ...this.getDefaultCreateProps(conn.id),
-      ...props,
-    });
+    const id = this._generateId();
+    const webhook = await this.landOnConnections(
+      [conn],
+      (webhooks) => [...webhooks, parseSdkWebhookSnapshot({ ...props, id })],
+      bypassedGates.length > 0,
+      () =>
+        this.create({ ...this.getDefaultCreateProps(conn.id), ...props, id }),
+    );
     await touchSDKConnections(context, [conn.id]);
     return { webhook, bypassedGates };
   }
@@ -298,10 +405,20 @@ export class SdkWebhookModel extends BaseClass {
       );
     }
 
-    const updated = await this.applyEdit(webhook, {
-      ...updates,
-      ...(sdks ? { sdks } : {}),
-    });
+    const next = toSnapshot({ ...webhook, ...updates });
+    const updated = await this.landOnConnections(
+      affected,
+      (webhooks, conn) => {
+        if (sdks && !sdks.includes(conn.id)) {
+          return webhooks.filter((w) => w.id !== id);
+        }
+        return webhooks.some((w) => w.id === id)
+          ? webhooks.map((w) => (w.id === id ? next : w))
+          : [...webhooks, next];
+      },
+      bypassedGates.length > 0,
+      () => this.applyEdit(webhook, { ...updates, ...(sdks ? { sdks } : {}) }),
+    );
     await touchSDKConnections(context, uniq([...webhook.sdks, ...added]));
     return { webhook: updated, bypassedGates };
   }
@@ -316,7 +433,12 @@ export class SdkWebhookModel extends BaseClass {
     const bypassedGates = assertDirectWriteAllowed(context, conns, bypass);
     await this.assertNotScheduleLocked(conns, bypass);
     assertSdkWebhookNotManaged(webhook);
-    await this.delete(webhook);
+    await this.landOnConnections(
+      conns,
+      (webhooks) => webhooks.filter((w) => w.id !== id),
+      bypassedGates.length > 0,
+      () => this.delete(webhook),
+    );
     await touchSDKConnections(context, webhook.sdks);
     return { bypassedGates };
   }

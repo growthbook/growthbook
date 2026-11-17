@@ -6,7 +6,10 @@ import {
 } from "shared/validators";
 import type { SDKConnectionInterface } from "shared/types/sdk-connection";
 import { CasConflictError, type Context } from "back-end/src/models/BaseModel";
-import { sdkConnectionAdapter } from "back-end/src/revisions/adapters/sdk-connection.adapter";
+import {
+  isSdkConnectionRevert,
+  sdkConnectionAdapter,
+} from "back-end/src/revisions/adapters/sdk-connection.adapter";
 import { getAdapter } from "back-end/src/revisions/index";
 import {
   restoreScrubbedOps,
@@ -520,6 +523,39 @@ describe("sdkConnectionAdapter", () => {
           snapshotWith({ environment: "dev" }),
         ),
       ).toBe(false);
+    });
+  });
+
+  describe("isSdkConnectionRevert", () => {
+    // Live renamed the connection and dropped its webhook since `then`.
+    const then = snapshotWith({ name: "Prod Web" }, [baseWebhook]);
+    const live = snapshotWith({ name: "Renamed" });
+
+    it("accepts the revert however its settings object was assembled", () => {
+      expect(
+        isSdkConnectionRevert(live, then, {
+          sdkConnection: settings({ name: "Prod Web" }),
+          // A client that was never shown the headers leaves them out.
+          sdkWebhooks: [omit(baseWebhook, "headers")],
+        }),
+      ).toBe(true);
+    });
+
+    it.each([
+      ["a value the revision never held", { name: "Something else" }, true],
+      ["another setting changed alongside", { remoteEvalEnabled: true }, true],
+      ["only part of the revert", { name: "Prod Web" }, false],
+    ])("refuses %s", (_case, overrides, withWebhook) => {
+      expect(
+        isSdkConnectionRevert(live, then, {
+          sdkConnection: settings({ name: "Prod Web", ...overrides }),
+          ...(withWebhook ? { sdkWebhooks: [baseWebhook] } : {}),
+        }),
+      ).toBe(false);
+    });
+
+    it("refuses when the revision already matches live", () => {
+      expect(isSdkConnectionRevert(live, live, {})).toBe(false);
     });
   });
 

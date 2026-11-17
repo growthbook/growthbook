@@ -40,6 +40,7 @@ import { getAdapter } from "back-end/src/revisions";
 import type { ApplyChangesResult } from "back-end/src/revisions/EntityRevisionAdapter";
 import { resolvePublishFootprint } from "back-end/src/revisions/revisionPublishEnvironments";
 import {
+  applyPatchToSnapshot,
   buildMergeDesiredState,
   isRevisionDiverged,
 } from "back-end/src/revisions/util";
@@ -1745,6 +1746,14 @@ export async function rebaseRevision({
       }
     }
   }
+
+  const live = adapter.buildSnapshot(entity);
+  await adapter.validateRevisionWrite?.(context, {
+    live,
+    revision,
+    proposed: applyPatchToSnapshot(live, newOps),
+    before: applyPatchToSnapshot(baseSnapshot, revision.target.proposedChanges),
+  });
 
   const updated = await context.models.revisions.rebase(
     revision.id,
