@@ -11,6 +11,25 @@ const BaseClass = MakeModelClass({
   idPrefix: "cnf_",
   additionalIndexes: [
     { fields: { organization: 1, apiKeyId: 1, requestHash: 1 } },
+    // findByRequester: one per $or branch, so each is merged in dateCreated order.
+    {
+      fields: {
+        organization: 1,
+        userId: 1,
+        status: 1,
+        dateCreated: -1,
+        id: -1,
+      },
+    },
+    {
+      fields: {
+        organization: 1,
+        apiKeyId: 1,
+        status: 1,
+        dateCreated: -1,
+        id: -1,
+      },
+    },
     { fields: { deleteAt: 1 }, expireAfterSeconds: 0 },
   ],
 });
