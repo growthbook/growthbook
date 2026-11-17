@@ -356,6 +356,7 @@ export async function syncManagedWarehouseIdentifiers(
   newColumns.forEach((col) => {
     if (
       !col.deleted &&
+      !col.isVirtual &&
       !desiredColumnNames.has(col.column) &&
       !MANAGED_WAREHOUSE_RESERVED_COLUMN_NAMES.has(col.column.toLowerCase())
     ) {
