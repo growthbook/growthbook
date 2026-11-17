@@ -525,6 +525,9 @@ export async function createReportSnapshot({
     queries: [],
     unknownVariations: [],
     multipleExposures: 0,
+    // Report snapshots don't run health queries, so drop the health carried
+    // over from the experiment; warnings then use the report's own results.
+    health: undefined,
     hasChunkedAnalyses: false,
     chunkedAnalysesMeta: {},
     analyses: [
@@ -537,13 +540,6 @@ export async function createReportSnapshot({
       },
     ],
   };
-  if (
-    snapshotData?.health?.traffic &&
-    !snapshotData?.health?.traffic?.dimension
-  ) {
-    // fix a weird corruption in the model where formerly-empty Mongoose Map comes back missing:
-    snapshotData.health.traffic.dimension = {};
-  }
 
   const snapshot = await createExperimentSnapshotModel({
     context,
