@@ -3,6 +3,7 @@ import type { ApiRequestLocals } from "back-end/types/api";
 import { type OpenApiRoute, runApiHandler } from "back-end/src/util/handler";
 import { allRoutes } from "back-end/src/api/api.router";
 import { logger } from "back-end/src/util/logger";
+import { runAsRequestOrigin } from "back-end/src/services/growthbook";
 
 /**
  * In-process dispatcher for the public REST API surface. Lets internal callers
@@ -81,6 +82,15 @@ export async function dispatchInternal(
   }
 
   return result;
+}
+
+// A call the in-app agent makes. Its events say the agent made it.
+export function dispatchForAgent(
+  ctx: ReqContext,
+  input: DispatchInput,
+  hooks?: DispatchHooks,
+): Promise<DispatchResult> {
+  return runAsRequestOrigin("agent", () => dispatchInternal(ctx, input, hooks));
 }
 
 /**

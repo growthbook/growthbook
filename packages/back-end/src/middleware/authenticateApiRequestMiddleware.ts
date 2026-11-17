@@ -48,6 +48,10 @@ import { ProjectModel } from "back-end/src/models/ProjectModel";
 import { ApiKeyModel } from "back-end/src/models/ApiKeyModel";
 import { getAuthConnection, processJWT } from "back-end/src/services/auth";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
+import {
+  getRequestOrigin,
+  runAsRequestOrigin,
+} from "back-end/src/services/growthbook";
 
 export default function authenticateApiRequestMiddleware(
   req: Request & ApiRequestLocals,
@@ -182,7 +186,7 @@ function authenticateWithJwt(
 
       await licenseInit(context.org, getUserCodesForOrg, getLicenseMetaData);
 
-      next();
+      runAsRequestOrigin(getRequestOrigin(req), next);
     })
     .catch((e) => {
       if (res.headersSent) return;
@@ -428,7 +432,7 @@ function authenticateWithApiKey(
       await licenseInit(org, getUserCodesForOrg, getLicenseMetaData);
 
       // Continue to the actual request handler
-      next();
+      runAsRequestOrigin(getRequestOrigin(req), next);
     })
     .catch((e) => {
       res.status(401).json({

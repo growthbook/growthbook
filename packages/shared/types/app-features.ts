@@ -187,6 +187,7 @@ export type AppAttributes = {
     | null;
   organizationId?: string | null;
   page_id?: string | null;
+  requestOrigin?: "app" | "api" | "mcp" | "agent" | "system" | null;
   requestSource?: "backend" | "frontend" | null;
   request_path?: string | null;
   role?: string | null;

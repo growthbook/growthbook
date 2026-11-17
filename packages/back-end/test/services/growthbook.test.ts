@@ -1,8 +1,11 @@
 import { EventEmitter } from "events";
 import type { OrganizationInterface } from "shared/types/organization";
 import {
+  getRequestOrigin,
   getRoutePath,
   parseContentLength,
+  runAsRequestOrigin,
+  trackAIUsage,
   trackEventForContext,
   trackMcpRequestCompletion,
 } from "back-end/src/services/growthbook";
@@ -16,6 +19,10 @@ jest.mock("@growthbook/growthbook", () => ({
   GrowthBookClient: jest.fn().mockImplementation(() => ({
     logEvent: mockOrgClientLogEvent,
     init: mockOrgClientInit,
+    createScopedInstance: (userContext: unknown) => ({
+      logEvent: (name: string, properties: unknown) =>
+        mockOrgClientLogEvent(name, properties, userContext),
+    }),
   })),
   setPolyfills: jest.fn(),
 }));
@@ -76,6 +83,22 @@ describe("getRoutePath", () => {
   });
 });
 
+describe("getRequestOrigin", () => {
+  const req = (originalUrl: string, mcpTool?: string) => ({
+    originalUrl,
+    get: (name: string) => (name === "x-gb-mcp-tool" ? mcpTool : undefined),
+  });
+  it.each([
+    ["the app's API", req("/feature/my-flag"), "app"],
+    ["the REST API", req("/api/v1/features"), "api"],
+    ["the MCP server", req("/api/v1/features", "list_features"), "mcp"],
+    // Only the REST API reads the MCP header.
+    ["an app call with the MCP header", req("/feature/x", "tool"), "app"],
+  ])("says %s is %s", (_, request, origin) => {
+    expect(getRequestOrigin(request)).toBe(origin);
+  });
+});
+
 describe("trackEventForContext", () => {
   const org = {
     id: "org_123",
@@ -84,47 +107,128 @@ describe("trackEventForContext", () => {
     members: [],
     settings: {},
   } as unknown as OrganizationInterface;
+  type Context = Parameters<typeof trackEventForContext>[0];
+  const appRequest = {
+    originalUrl: "/feature/my-flag",
+    get: () => undefined,
+    gbUserContext: {
+      attributes: { id: "u_1", session_id: "s_1", requestOrigin: "app" },
+      url: "https://app.growthbook.io/features/my-flag",
+    },
+  };
+  const logged = () => mockOrgClientLogEvent.mock.calls[0];
 
   beforeEach(() => {
     mockOrgClientLogEvent.mockClear();
   });
 
-  it("uses the request-scoped client when `req.gb` is present", () => {
-    const scopedLogEvent = jest.fn();
-    const context = {
-      org,
-      req: { gb: { logEvent: scopedLogEvent } },
-    } as unknown as Parameters<typeof trackEventForContext>[0];
-
-    trackEventForContext(context, "Experiment Started", {
-      source: "dashboard",
-    });
-
-    expect(scopedLogEvent).toHaveBeenCalledTimes(1);
-    expect(scopedLogEvent).toHaveBeenCalledWith("Experiment Started", {
-      source: "dashboard",
-    });
-    expect(mockOrgClientLogEvent).not.toHaveBeenCalled();
+  it("logs an app request with its user, session and page", () => {
+    runAsRequestOrigin("app", () =>
+      trackEventForContext(
+        { org, req: appRequest } as unknown as Context,
+        "Experiment Started",
+        {
+          source: "dashboard",
+        },
+      ),
+    );
+    expect(logged()).toEqual([
+      "Experiment Started",
+      { source: "dashboard" },
+      appRequest.gbUserContext,
+    ]);
   });
 
-  it("falls back to org-scoped tracking when there is no scoped client", () => {
-    const context = {
-      org,
-      req: undefined,
-    } as unknown as Parameters<typeof trackEventForContext>[0];
-
-    trackEventForContext(context, "Experiment Started", {
-      source: "scheduled-status-update",
-    });
-
-    expect(mockOrgClientLogEvent).toHaveBeenCalledTimes(1);
-    expect(mockOrgClientLogEvent).toHaveBeenCalledWith(
-      "Experiment Started",
-      { source: "scheduled-status-update" },
-      {
-        attributes: expect.objectContaining({ cloudOrgId: expect.anything() }),
-      },
+  it("logs the in-app agent's calls as the agent's, keeping the user", () => {
+    runAsRequestOrigin("app", () =>
+      runAsRequestOrigin("agent", () =>
+        trackEventForContext(
+          { org, req: appRequest } as unknown as Context,
+          "Experiment Started",
+          {
+            source: "dashboard",
+          },
+        ),
+      ),
     );
+    expect(logged()[2]).toEqual({
+      ...appRequest.gbUserContext,
+      attributes: {
+        ...appRequest.gbUserContext.attributes,
+        requestOrigin: "agent",
+      },
+    });
+  });
+
+  // A context made inside a request to act for someone else, as an
+  // approval's publish runs as its author, still logs the request's origin.
+  it("keeps the request's origin across awaits and other contexts", async () => {
+    await runAsRequestOrigin("app", async () => {
+      await Promise.resolve();
+      trackEventForContext(
+        { org, actingUserId: "u_author" } as unknown as Context,
+        "Experiment Started",
+        {
+          source: "dashboard",
+        },
+      );
+    });
+    expect(logged()[2].attributes).toEqual(
+      expect.objectContaining({ id: "u_author", requestOrigin: "app" }),
+    );
+  });
+
+  it.each([
+    ["a key", "api", ""],
+    ["a personal access token", "api", "u_2"],
+    ["the MCP server", "mcp", "u_2"],
+    ["a background job", null, ""],
+  ] as const)(
+    "logs %s's events with the org and whoever it acts for",
+    (_, origin, actingUserId) => {
+      const log = () =>
+        trackEventForContext(
+          { org, actingUserId } as unknown as Context,
+          "Experiment Started",
+          {
+            source: "api",
+          },
+        );
+      if (origin) runAsRequestOrigin(origin, log);
+      else log();
+      const { attributes } = logged()[2];
+      expect(attributes).toEqual(
+        expect.objectContaining({
+          cloudOrgId: expect.anything(),
+          requestOrigin: origin ?? "system",
+        }),
+      );
+      expect(attributes.id).toBe(actingUserId || undefined);
+      expect(attributes.user_id).toBe(actingUserId || undefined);
+    },
+  );
+});
+
+describe("trackAIUsage", () => {
+  const usage = {
+    organizationId: "org_123",
+    userId: "u_1",
+    type: "chat",
+    model: "gpt",
+    usedDefaultPrompt: true,
+    usedOwnKey: false,
+  };
+  beforeEach(() => mockOrgClientLogEvent.mockClear());
+
+  it.each([
+    ["the request it runs in", "app"],
+    ["no request", null],
+  ] as const)("logs its origin as %s's", (_, origin) => {
+    if (origin) runAsRequestOrigin(origin, () => trackAIUsage(usage));
+    else trackAIUsage(usage);
+    expect(
+      mockOrgClientLogEvent.mock.calls[0][2].attributes.requestOrigin,
+    ).toBe(origin ?? "system");
   });
 });
 
@@ -204,6 +308,7 @@ describe("trackMcpRequestCompletion", () => {
           id: "",
           accountPlan: expect.anything(),
           cloudOrgId: expect.anything(),
+          requestOrigin: "mcp",
         }),
       },
     );

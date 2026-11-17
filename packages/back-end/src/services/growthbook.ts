@@ -1,10 +1,15 @@
+import { AsyncLocalStorage } from "async_hooks";
 import { createHash } from "crypto";
-import { GrowthBookClient, setPolyfills } from "@growthbook/growthbook";
+import {
+  GrowthBookClient,
+  setPolyfills,
+  UserContext,
+} from "@growthbook/growthbook";
 import { growthbookTrackingPlugin } from "@growthbook/growthbook/plugins";
 import { EventSource } from "eventsource";
 import { NextFunction, Request, Response } from "express";
 import { GROWTHBOOK_SECURE_ATTRIBUTE_SALT } from "shared/constants";
-import { AppFeatures } from "shared/types/app-features";
+import { AppAttributes, AppFeatures } from "shared/types/app-features";
 import { OrganizationInterface } from "shared/types/organization";
 import { AppEventName, AppEvents } from "back-end/src/types/app-events";
 import { getEffectiveAccountPlan } from "back-end/src/enterprise";
@@ -26,6 +31,8 @@ setPolyfills({ EventSource });
 
 let gbClient: GrowthBookClient | null = null;
 let initPromise: Promise<void> | null = null;
+// Where the request whose work is running came from; see runAsRequestOrigin.
+const requestOrigins = new AsyncLocalStorage<RequestOrigin>();
 
 function createGrowthBookClient(): GrowthBookClient {
   const client = new GrowthBookClient({
@@ -206,7 +213,10 @@ const MCP_TRANSPORT_HEADER = "x-gb-mcp-transport";
 const MCP_CLIENT_HEADER = "x-gb-mcp-client";
 const MAX_MCP_HEADER_LENGTH = 200;
 
-function getMcpHeader(req: Request, name: string): string | undefined {
+function getMcpHeader(
+  req: Pick<Request, "get">,
+  name: string,
+): string | undefined {
   return req.get(name)?.slice(0, MAX_MCP_HEADER_LENGTH) || undefined;
 }
 
@@ -263,6 +273,7 @@ export function trackMcpRequestCompletion(
           ...getTrustedOrgAttributes(req.organization),
           id: userId,
           user_id: userId,
+          requestOrigin: "mcp",
         },
       });
     } catch (e) {
@@ -333,6 +344,7 @@ export function trackAIUsage({
         user_id: userId || "",
         organizationId: hashOrganizationId(organizationId),
         cloudOrgId: IS_CLOUD ? organizationId : "",
+        requestOrigin: requestOrigins.getStore() ?? "system",
       },
     });
 
@@ -452,8 +464,20 @@ export function getTrustedOrgAttributes(
   };
 }
 
+export type RequestOrigin = NonNullable<AppAttributes["requestOrigin"]>;
+
+// Where the request behind an event came from: the app, the REST API (or the
+// MCP server calling it) or the in-app agent, else a background job. Not
+// requestSource, which says where the event was logged: always the back end.
+export function getRequestOrigin(
+  req: Pick<Request, "originalUrl" | "get">,
+): "app" | "api" | "mcp" {
+  if (!req.originalUrl.startsWith("/api/")) return "app";
+  return getMcpHeader(req, MCP_TOOL_HEADER) ? "mcp" : "api";
+}
+
 /**
- * Log a telemetry event from a background job, where there is no `req.gb`.
+ * Log a telemetry event from a background job, where there is no request.
  * Sets org attributes so the accountPlan filter doesn't drop the event, and
  * never throws — callers fire these inside business-logic try/catch blocks.
  */
@@ -462,16 +486,37 @@ export function trackEventForOrganization<K extends AppEventName>(
   eventName: K,
   properties: AppEvents[K],
 ): void {
-  try {
-    const client = getGrowthBookClient();
-    if (!client) return;
+  logAppEvent(eventName, properties, {
+    attributes: { ...getTrustedOrgAttributes(org), requestOrigin: "system" },
+  });
+}
 
-    client.logEvent(eventName, properties, {
-      attributes: getTrustedOrgAttributes(org),
-    });
-  } catch (e) {
-    logger.warn({ err: e, eventName }, "Failed to log GrowthBook event");
+// Runs the rest of a request, or an agent's call, as coming from `origin`.
+// Everything it logs says so, whichever context logs it, including one made
+// to act for someone else (an approval's publish, as its author).
+export function runAsRequestOrigin<T>(origin: RequestOrigin, fn: () => T): T {
+  return requestOrigins.run(origin, fn);
+}
+
+// A signed-in request's own user context, with the user, session and page;
+// else the org's, with whoever a key acts for.
+function eventUserContext(context: ReqContext): UserContext {
+  const req = context.req as AuthRequest | undefined;
+  const requestOrigin = requestOrigins.getStore() ?? "system";
+  if (req?.gbUserContext) {
+    return {
+      ...req.gbUserContext,
+      attributes: { ...req.gbUserContext.attributes, requestOrigin },
+    };
   }
+  const userId = context.actingUserId;
+  return {
+    attributes: {
+      ...getTrustedOrgAttributes(context.org),
+      ...(userId ? { id: userId, user_id: userId } : {}),
+      requestOrigin,
+    },
+  };
 }
 
 export function trackEventForContext<K extends AppEventName>(
@@ -479,16 +524,19 @@ export function trackEventForContext<K extends AppEventName>(
   eventName: K,
   properties: AppEvents[K],
 ): void {
-  const gb = (context.req as AuthRequest | undefined)?.gb;
-  if (gb) {
-    try {
-      gb.logEvent<AppEventName>(eventName, properties);
-    } catch (e) {
-      logger.warn({ err: e, eventName }, "Failed to log GrowthBook event");
-    }
-    return;
+  logAppEvent(eventName, properties, eventUserContext(context));
+}
+
+function logAppEvent<K extends AppEventName>(
+  eventName: K,
+  properties: AppEvents[K],
+  userContext: UserContext,
+): void {
+  try {
+    getGrowthBookClient()?.logEvent(eventName, properties, userContext);
+  } catch (e) {
+    logger.warn({ err: e, eventName }, "Failed to log GrowthBook event");
   }
-  trackEventForOrganization(context.org, eventName, properties);
 }
 
 /**
