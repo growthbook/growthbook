@@ -85,6 +85,14 @@ export const apiSdkConnectionApprovalRule = namedSchema(
 export const apiApprovalFlows = z
   .object({
     savedGroups: z.array(apiSavedGroupApprovalRule),
+    sdkConnections: z.array(apiSdkConnectionApprovalRule),
+  })
+  .strict();
+
+// Writes replace each supplied family wholesale and leave an omitted one as is.
+export const apiApprovalFlowsInput = z
+  .object({
+    savedGroups: z.array(apiSavedGroupApprovalRule).optional(),
     sdkConnections: z.array(apiSdkConnectionApprovalRule).optional(),
   })
   .strict();
@@ -204,7 +212,7 @@ export const putApprovalSettingsValidator = {
   bodySchema: z
     .object({
       requireReviews: z.array(apiRequireReviewRuleInput).optional(),
-      approvalFlows: apiApprovalFlows.optional(),
+      approvalFlows: apiApprovalFlowsInput.optional(),
       targetingReviewMode: z.array(apiTargetingReviewRule).optional(),
     })
     .strict(),

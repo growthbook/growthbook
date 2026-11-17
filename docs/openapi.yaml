@@ -36467,8 +36467,6 @@ paths:
                       type: array
                       items:
                         $ref: '#/components/schemas/SdkConnectionApprovalRule'
-                  required:
-                    - savedGroups
                   additionalProperties: false
                 targetingReviewMode:
                   type: array
@@ -79990,6 +79988,7 @@ components:
                 $ref: '#/components/schemas/SdkConnectionApprovalRule'
           required:
             - savedGroups
+            - sdkConnections
           additionalProperties: false
         targetingReviewMode:
           type: array
@@ -92002,6 +92001,7 @@ components:
             $ref: '#/components/schemas/SdkConnectionApprovalRule'
       required:
         - savedGroups
+        - sdkConnections
       additionalProperties: false
     monitoring:
       type: object
