@@ -26,14 +26,14 @@ function VirtualColumnRowMenu({
   canEdit,
   canDelete,
   onEdit,
-  onEditSettings,
+  onConfigureSlices,
 }: {
   column: ColumnInterface;
   factTableId: string;
   canEdit: boolean;
   canDelete: boolean;
   onEdit: () => void;
-  onEditSettings: () => void;
+  onConfigureSlices: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const { apiCall } = useAuth();
@@ -73,7 +73,7 @@ function VirtualColumnRowMenu({
           (column.datatype === "string" || column.datatype === "boolean") && (
             <DropdownMenuItem
               onClick={() => {
-                onEditSettings();
+                onConfigureSlices();
                 setOpen(false);
               }}
             >
@@ -221,7 +221,7 @@ export default function VirtualColumnList({ factTable }: Props) {
                       canEdit={canEdit}
                       canDelete={canEdit}
                       onEdit={() => setEditOpen(column.column)}
-                      onEditSettings={() => setSettingsOpen(column.column)}
+                      onConfigureSlices={() => setSettingsOpen(column.column)}
                     />
                   </td>
                 </tr>
