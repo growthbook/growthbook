@@ -12,7 +12,7 @@ import {
   getSnapshotAnalysis,
   isString,
 } from "shared/util";
-import { getSnapshotSideEffects } from "shared/experiments";
+import { getMetricRefresh } from "shared/experiments";
 import {
   SnapshotType,
   ExperimentSnapshotAnalysis,
@@ -624,10 +624,15 @@ export async function updateSnapshot({
       });
     }
 
+    const metricRefresh = getMetricRefresh(experimentSnapshot);
     superseded =
-      getSnapshotSideEffects(experimentSnapshot).yieldsToNewerOverallSnapshot &&
+      !!metricRefresh &&
       experimentSnapshot.status === "success" &&
-      (await hasNewerSuccessfulOverallSnapshot(context, experimentSnapshot));
+      !(await isParentStillLatestOverall(
+        context,
+        experimentSnapshot,
+        metricRefresh.parentSnapshotId,
+      ));
 
     const shouldUpdateExperimentAnalysisSummary =
       experimentSnapshot.type === "standard" &&
@@ -1259,22 +1264,26 @@ export async function getSnapshotQueryPointers(
   return doc?.queries ?? null;
 }
 
-async function hasNewerSuccessfulOverallSnapshot(
+async function isParentStillLatestOverall(
   context: Context,
-  snapshot: Pick<
-    ExperimentSnapshotInterface,
-    "experiment" | "phase" | "dateCreated"
-  >,
+  snapshot: Pick<ExperimentSnapshotInterface, "id" | "experiment" | "phase">,
+  parentSnapshotId: string,
 ): Promise<boolean> {
-  const newer = await ExperimentSnapshotModel.exists({
-    ...latestSuccessfulOverallQuery(
-      context,
-      snapshot.experiment,
-      snapshot.phase,
-    ),
-    dateCreated: { $gt: snapshot.dateCreated },
-  });
-  return newer !== null;
+  const latestOther = await ExperimentSnapshotModel.findOne(
+    {
+      ...latestSuccessfulOverallQuery(
+        context,
+        snapshot.experiment,
+        snapshot.phase,
+      ),
+      id: { $ne: snapshot.id },
+    },
+    { id: 1 },
+    { sort: { dateCreated: -1 } },
+  )
+    .lean<{ id: string }>()
+    .exec();
+  return latestOther?.id === parentSnapshotId;
 }
 
 export async function dangerousFindStalledRunningSnapshotsFromAllOrgs(

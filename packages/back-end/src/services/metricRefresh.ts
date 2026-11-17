@@ -1,10 +1,17 @@
 import isEqual from "lodash/isEqual";
+import omitBy from "lodash/omitBy";
 import {
   getDefinitionMetricId,
   getMetricIdsMissingFromSnapshot,
 } from "shared/experiments";
-import { getSnapshotCutoffDate } from "shared/util";
-import type { DataSourceInterface } from "shared/types/datasource";
+import {
+  getIdentifierTypeForSettingsHash,
+  getSnapshotCutoffDate,
+} from "shared/util";
+import type {
+  DataSourceInterface,
+  ExposureQuery,
+} from "shared/types/datasource";
 import type { ExperimentInterface } from "shared/types/experiment";
 import type {
   ExperimentSnapshotAnalysisSettings,
@@ -27,6 +34,7 @@ import {
   getQueriesByIds,
 } from "back-end/src/models/QueryModel";
 import { getSourceIntegrationObject } from "back-end/src/services/datasource";
+import { isCarriedMetricRefreshQuery } from "back-end/src/queryRunners/ExperimentResultsQueryRunner";
 import {
   BadRequestError,
   MetricRefreshUnavailableError,
@@ -40,6 +48,8 @@ const UNAVAILABLE_MESSAGES: Record<MetricRefreshUnavailableReason, string> = {
     "This experiment has no results to add metrics to yet. Run a full update first.",
   not_latest_phase:
     "Only the current phase's results can be updated for newly added metrics.",
+  phase_ended:
+    "This phase has ended, so newly added metrics can't be updated on their own. Run a full update instead.",
   unsupported_experiment_type:
     "Bandits and holdouts can't update newly added metrics on their own. Run a full update instead.",
   unsupported_data_source:
@@ -124,9 +134,6 @@ export async function planMetricRefresh({
   if (!parent) {
     throw unavailable("no_base_snapshot");
   }
-  if (parent.queries.some((q) => q.status !== "succeeded")) {
-    throw unavailable("base_incomplete");
-  }
 
   const missingMetricIds = getMetricIdsMissingFromSnapshot({
     experiment,
@@ -138,9 +145,16 @@ export async function planMetricRefresh({
   }
 
   const plan = await planSnapshotAt(parent.settings.endDate);
+  if (!getSnapshotCutoffDate(plan.snapshot.settings)) {
+    throw unavailable("phase_ended");
+  }
   assertResultsPipeline({ parent, planned: plan.snapshot });
   if (
-    getSettingsChangedSinceParent({ parent, planned: plan.snapshot }).length
+    getSettingsChangedSinceParent({
+      parent,
+      planned: plan.snapshot,
+      exposureQueries: datasource.settings.queries?.exposure ?? [],
+    }).length
   ) {
     throw unavailable("settings_changed");
   }
@@ -152,6 +166,16 @@ export async function planMetricRefresh({
   });
   if (!queriedMetricIds.length) {
     throw new MetricsAlreadyUpToDateError(parent.id);
+  }
+  const analyzedMetricIds = new Set(settings.metricSettings.map((m) => m.id));
+  if (
+    parent.queries.some(
+      (q) =>
+        q.status !== "succeeded" &&
+        isCarriedMetricRefreshQuery(q.name, parent.id, analyzedMetricIds),
+    )
+  ) {
+    throw unavailable("base_incomplete");
   }
 
   return {
@@ -193,15 +217,21 @@ const METRIC_COUNT_ANALYSIS_SETTINGS = [
   "numGuardrailMetrics",
 ] as const satisfies readonly (keyof ExperimentSnapshotAnalysisSettings)[];
 
+const isEmptySetting = (value: unknown): boolean =>
+  value === null ||
+  value === false ||
+  value === "" ||
+  (typeof value === "object" && !Object.keys(value).length);
+
 function getChangedKeys(
   before: object,
   after: object,
   ignored: readonly string[],
 ): string[] {
-  const asJson = (value: object): Record<string, unknown> =>
-    JSON.parse(JSON.stringify(value));
-  const a = asJson(before);
-  const b = asJson(after);
+  const withoutEmptySettings = (value: object): Record<string, unknown> =>
+    omitBy(JSON.parse(JSON.stringify(value)), isEmptySetting);
+  const a = withoutEmptySettings(before);
+  const b = withoutEmptySettings(after);
   return [...new Set([...Object.keys(a), ...Object.keys(b)])].filter(
     (key) => !ignored.includes(key) && !isEqual(a[key], b[key]),
   );
@@ -210,20 +240,39 @@ function getChangedKeys(
 export function getSettingsChangedSinceParent({
   parent,
   planned,
+  exposureQueries,
 }: {
   parent: Pick<ExperimentSnapshotInterface, "settings" | "analyses">;
   planned: Pick<ExperimentSnapshotInterface, "settings" | "analyses">;
+  exposureQueries: Pick<ExposureQuery, "id" | "userIdType" | "userIdTypes">[];
 }): string[] {
+  const parentAdjustsNoMetric = parent.settings.metricSettings.every(
+    (m) => m.computedSettings?.regressionAdjustmentEnabled === false,
+  );
+  const comparable = (settings: ExperimentSnapshotSettings) => ({
+    ...settings,
+    exposureQueryIdentifierType: getIdentifierTypeForSettingsHash(
+      settings.exposureQueryId,
+      settings.exposureQueryIdentifierType,
+      exposureQueries,
+    ),
+  });
   return [
     ...getChangedKeys(
-      parent.settings,
-      planned.settings,
-      REFRESH_SPECIFIC_SETTINGS,
+      comparable(parent.settings),
+      comparable(planned.settings),
+      [
+        ...REFRESH_SPECIFIC_SETTINGS,
+        ...(parentAdjustsNoMetric ? ["regressionAdjustmentEnabled"] : []),
+      ],
     ),
     ...getChangedKeys(
       parent.analyses[0]?.settings ?? {},
       planned.analyses[0]?.settings ?? {},
-      METRIC_COUNT_ANALYSIS_SETTINGS,
+      [
+        ...METRIC_COUNT_ANALYSIS_SETTINGS,
+        ...(parentAdjustsNoMetric ? ["regressionAdjusted"] : []),
+      ],
     ).map((key) => `analysis.${key}`),
   ];
 }

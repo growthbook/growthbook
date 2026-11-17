@@ -2,6 +2,7 @@ import type { ExperimentInterface } from "shared/types/experiment";
 import type {
   ExperimentSnapshotInterface,
   ExperimentSnapshotSettings,
+  SnapshotMetricRefresh,
 } from "shared/types/experiment-snapshot";
 import type { MetricGroupInterface } from "shared/types/metric-groups";
 import {
@@ -35,21 +36,26 @@ export function getMetricIdsMissingFromSnapshot({
 
 type SnapshotLineage = Pick<
   ExperimentSnapshotInterface,
-  "dateCreated" | "metricRefresh"
+  "type" | "dateCreated" | "metricRefresh"
 >;
+
+export function getMetricRefresh(
+  snapshot: Pick<ExperimentSnapshotInterface, "type" | "metricRefresh">,
+): SnapshotMetricRefresh | null {
+  return snapshot.type === "standard" ? (snapshot.metricRefresh ?? null) : null;
+}
 
 /**
  * Side effects that differ between a full run and a metric refresh. Callers
  * keep their own conditions and also require the flag.
  */
 export function getSnapshotSideEffects(snapshot: SnapshotLineage) {
-  const refresh = snapshot.metricRefresh;
+  const refresh = getMetricRefresh(snapshot);
   if (!refresh) {
     return {
       advanceUpdateSchedule: true,
       refreshDashboards: true,
       ownsUpdateFailedAlert: true,
-      yieldsToNewerOverallSnapshot: false,
       timeSeries: {
         includesMetric: (): boolean => true,
         pointDate: snapshot.dateCreated,
@@ -61,7 +67,6 @@ export function getSnapshotSideEffects(snapshot: SnapshotLineage) {
     advanceUpdateSchedule: false,
     refreshDashboards: false,
     ownsUpdateFailedAlert: false,
-    yieldsToNewerOverallSnapshot: true,
     timeSeries: {
       includesMetric: (metricId: string): boolean =>
         refreshed.has(getDefinitionMetricId(metricId)),
@@ -71,8 +76,11 @@ export function getSnapshotSideEffects(snapshot: SnapshotLineage) {
 }
 
 export function getMetricFilterForCarriedQueries(
-  snapshot: Pick<ExperimentSnapshotInterface, "metricRefresh" | "settings">,
+  snapshot: Pick<
+    ExperimentSnapshotInterface,
+    "type" | "metricRefresh" | "settings"
+  >,
 ): ReadonlySet<string> | undefined {
-  if (!snapshot.metricRefresh) return undefined;
+  if (!getMetricRefresh(snapshot)) return undefined;
   return new Set(snapshot.settings.metricSettings.map((m) => m.id));
 }

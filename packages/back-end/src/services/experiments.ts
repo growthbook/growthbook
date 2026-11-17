@@ -93,6 +93,7 @@ import {
   EXPERIMENT_RESULTS_UPDATE_DISABLED_MESSAGE,
   getSnapshotSideEffects,
   getMetricFilterForCarriedQueries,
+  getMetricRefresh,
 } from "shared/experiments";
 import { getValidDate, hoursBetween, resolveScheduledStop } from "shared/dates";
 import { buildAnalysisKey } from "shared/snapshot-analysis-chunks";
@@ -3890,10 +3891,11 @@ export function toSnapshotApiInterface(
     phase: snapshot.phase + "",
     dimension: dimension,
     dateStart: phase?.dateStarted?.toISOString() || "",
-    dateEnd:
-      phase?.dateEnded?.toISOString() ||
-      snapshot.runStarted?.toISOString() ||
-      "",
+    dateEnd: getMetricRefresh(snapshot)
+      ? snapshot.settings.endDate.toISOString()
+      : phase?.dateEnded?.toISOString() ||
+        snapshot.runStarted?.toISOString() ||
+        "",
     settings: {
       datasourceId: experiment.datasource || "",
       /**

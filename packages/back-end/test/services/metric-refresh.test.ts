@@ -932,7 +932,6 @@ describe("getSnapshotSideEffects", () => {
       advanceUpdateSchedule: false,
       refreshDashboards: false,
       ownsUpdateFailedAlert: false,
-      yieldsToNewerOverallSnapshot: true,
     });
     expect(effects.timeSeries.pointDate).toEqual(PARENT_CREATED);
     expect(effects.timeSeries.includesMetric("met_c?dim:os=ios")).toBe(true);

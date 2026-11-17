@@ -72,6 +72,7 @@ export async function postReportFromSnapshot(
   snapshot.id = generateId("snp_");
   snapshot.type = "report";
   snapshot.triggeredBy = "manual";
+  delete snapshot.metricRefresh;
   if (snapshot?.health?.traffic && !snapshot?.health?.traffic?.dimension) {
     // fix a weird corruption in the model where formerly-empty Mongoose Map comes back missing:
     snapshot.health.traffic.dimension = {};

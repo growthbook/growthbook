@@ -9,6 +9,7 @@ import {
   getFactTableIdsForMetrics,
   getIsolatedDimensionIds,
   getMetricFilterForCarriedQueries,
+  getMetricRefresh,
   quantileMetricType,
 } from "shared/experiments";
 import { FALLBACK_EXPERIMENT_MAX_LENGTH_DAYS } from "shared/constants";
@@ -683,8 +684,9 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
     ) {
       return this.startLegacyQueries(params);
     }
-    if (this.model.metricRefresh) {
-      return this.startMetricRefreshQueries(params, this.model.metricRefresh);
+    const metricRefresh = getMetricRefresh(this.model);
+    if (metricRefresh) {
+      return this.startMetricRefreshQueries(params, metricRefresh);
     }
     return startExperimentResultQueries(
       this.context,
@@ -732,7 +734,7 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
   }
 
   private isIncompleteMetricRefresh(): boolean {
-    if (!this.model.metricRefresh) return false;
+    if (!getMetricRefresh(this.model)) return false;
     const ownDropQuery = `drop_${this.model.id}`;
     return this.model.queries.some(
       (q) => q.status === "failed" && q.name !== ownDropQuery,

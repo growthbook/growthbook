@@ -102,6 +102,7 @@ export const apiErrorRegistry = {
       reason: z.enum([
         "no_base_snapshot",
         "not_latest_phase",
+        "phase_ended",
         "unsupported_experiment_type",
         "unsupported_data_source",
         "incremental_pipeline",
