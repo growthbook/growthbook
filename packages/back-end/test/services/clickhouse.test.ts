@@ -209,6 +209,10 @@ describe("syncManagedWarehouseIdentifiers", () => {
       (c) => c.column === "attributes",
     );
     expect(attributes?.jsonFields).toEqual({ age: { datatype: "string" } });
+    // The sync skips writes equal to its input, so the input must stay untouched.
+    expect(
+      ft.columns.find((c) => c.column === "attributes")?.jsonFields,
+    ).toEqual({ age: { datatype: "number" } });
   });
 
   it("preserves data-discovered JSON fields not present in the schema", async () => {
@@ -234,7 +238,7 @@ describe("syncManagedWarehouseIdentifiers", () => {
     });
   });
 
-  it("deletes removed custom identifiers but keeps refresh-discovered real columns", async () => {
+  it("deletes removed custom identifiers but keeps real and virtual columns", async () => {
     const schema: SDKAttributeSchema = [
       { property: "plan", datatype: "string" },
     ];
@@ -243,6 +247,12 @@ describe("syncManagedWarehouseIdentifiers", () => {
       cols.push(makeFactTableColumn("session_id"));
       // A former custom identifier no longer in the schema (non-reserved).
       cols.push(makeFactTableColumn("company_id"));
+      cols.push(
+        makeFactTableColumn("request_source_vc", {
+          isVirtual: true,
+          sql: "attributes.requestSource::Nullable(String)",
+        }),
+      );
     });
     mockGetFactTableById.mockResolvedValue(ft);
 
@@ -252,6 +262,9 @@ describe("syncManagedWarehouseIdentifiers", () => {
     const synced = getSyncedColumns();
     expect(synced.find((c) => c.column === "session_id")?.deleted).toBe(false);
     expect(synced.find((c) => c.column === "company_id")?.deleted).toBe(true);
+    expect(synced.find((c) => c.column === "request_source_vc")?.deleted).toBe(
+      false,
+    );
   });
 
   it("does not write the fact table when nothing changed", async () => {

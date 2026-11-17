@@ -936,7 +936,7 @@ export class RampScheduleModel extends BaseClass {
   ) {
     const schedule = await this.getById(req.params.id);
     if (!schedule) {
-      throw new Error("Ramp schedule not found");
+      throw new NotFoundError("Ramp schedule not found");
     }
 
     if (schedule.status === "running") {

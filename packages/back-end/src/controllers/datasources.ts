@@ -103,7 +103,7 @@ import {
 } from "back-end/src/models/DimensionSlicesModel";
 import { DimensionSlicesQueryRunner } from "back-end/src/queryRunners/DimensionSlicesQueryRunner";
 import { logger } from "back-end/src/util/logger";
-import { BadRequestError } from "back-end/src/util/errors";
+import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { errorStringFromZodResult } from "back-end/src/util/validation";
 import {
   cancelRunningQuery,
@@ -131,7 +131,7 @@ export async function deleteDataSource(
 
   const datasource = await getDataSourceById(context, id);
   if (!datasource) {
-    throw new Error("Cannot find datasource");
+    throw new NotFoundError("Cannot find datasource");
   }
 
   await deleteDataSourceWithChecks(context, datasource);
@@ -1640,7 +1640,7 @@ export async function cancelDataSourceQuery(
 
   const datasource = await getDataSourceById(context, datasourceId);
   if (!datasource) {
-    throw new Error("Could not find datasource");
+    throw new NotFoundError("Could not find datasource");
   }
 
   req.checkPermissions(
@@ -1650,7 +1650,7 @@ export async function cancelDataSourceQuery(
 
   const query = await getQueryById(context, queryId);
   if (!query) {
-    throw new Error("Could not find query");
+    throw new NotFoundError("Could not find query");
   }
   if (query.datasource !== datasourceId) {
     throw new Error("Query does not belong to this datasource");
@@ -1847,7 +1847,7 @@ export async function postRecreateManagedWarehouse(
   const { datasourceId } = req.params;
   const datasource = await getDataSourceById(context, datasourceId);
   if (!datasource) {
-    throw new Error("Cannot find datasource");
+    throw new NotFoundError("Cannot find datasource");
   }
 
   if (datasource.type !== "growthbook_clickhouse") {
@@ -1895,7 +1895,7 @@ export async function postRemoveManagedWarehouseLegacyIdentifier(
 
   const datasource = await getDataSourceById(context, datasourceId);
   if (!datasource) {
-    throw new Error("Cannot find datasource");
+    throw new NotFoundError("Cannot find datasource");
   }
   if (datasource.type !== "growthbook_clickhouse") {
     throw new Error(
@@ -1927,7 +1927,7 @@ export async function putManagedWarehouseIdAttributeIdentifier(
 
   const datasource = await getDataSourceById(context, datasourceId);
   if (!datasource) {
-    throw new Error("Cannot find datasource");
+    throw new NotFoundError("Cannot find datasource");
   }
   if (datasource.type !== "growthbook_clickhouse") {
     throw new Error(

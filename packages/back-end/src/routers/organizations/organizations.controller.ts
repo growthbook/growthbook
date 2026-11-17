@@ -82,7 +82,7 @@ import {
   setLicenseKey,
   assertProjectRulesReferenceProjects,
 } from "back-end/src/services/organizations";
-import { BadRequestError } from "back-end/src/util/errors";
+import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { updatePassword } from "back-end/src/services/users";
 import {
   auditDetailsCreate,
@@ -1204,7 +1204,7 @@ export async function putNamespaces(
   // Make sure this namespace exists
   const target = namespaces.find((n) => n.name === name);
   if (!target) {
-    throw new Error("Namespace not found.");
+    throw new NotFoundError("Namespace not found.");
   }
 
   await assertNamespaceHashAttributeChangeAllowed(
@@ -1278,7 +1278,7 @@ export async function deleteNamespace(
   });
 
   if (namespaces.length === updatedNamespaces.length) {
-    throw new Error("Namespace not found.");
+    throw new NotFoundError("Namespace not found.");
   }
 
   await assertNamespaceNotInUse(context, name, "delete");
@@ -2340,7 +2340,7 @@ export async function testSDKWebhook(
   const context = getContextFromReq(req);
   const webhook = await context.models.sdkWebhooks.getById(webhookId);
   if (!webhook) {
-    throw new Error("Could not find webhook");
+    throw new NotFoundError("Could not find webhook");
   }
 
   const conns = await findSDKConnectionsByIds(context, webhook.sdks);
@@ -2369,7 +2369,7 @@ export async function putSDKWebhook(
   const { id } = req.params;
   const webhook = await context.models.sdkWebhooks.getById(id);
   if (!webhook) {
-    throw new Error("Could not find webhook");
+    throw new NotFoundError("Could not find webhook");
   }
 
   const conns = await findSDKConnectionsByIds(context, webhook.sdks);
@@ -2553,8 +2553,8 @@ export async function addOrphanedUser(
   // Make sure user exists
   const user = await getUserById(id);
   if (!user) {
-    return res.status(400).json({
-      status: 400,
+    return res.status(404).json({
+      status: 404,
       message: "Cannot find user with that id",
     });
   }
@@ -2634,8 +2634,8 @@ export async function deleteOrphanedUser(
   // Make sure user exists
   const user = await getUserById(id);
   if (!user) {
-    return res.status(400).json({
-      status: 400,
+    return res.status(404).json({
+      status: 404,
       message: "Cannot find user with that id",
     });
   }

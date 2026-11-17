@@ -62,6 +62,7 @@ import {
   ChecklistIncompleteError,
   ConflictError,
   InvalidStatusError,
+  NotFoundError,
   PendingDraftPublishFailedError,
 } from "back-end/src/util/errors";
 import {
@@ -245,7 +246,7 @@ async function loadAndValidateExperimentForStatusChange(
 ) {
   const experiment = await getExperimentById(context, experimentId);
   if (!experiment) {
-    throw new Error("Could not find experiment");
+    throw new NotFoundError("Could not find experiment");
   }
   if (experiment.organization !== context.org.id) {
     throw new Error("You do not have access to this experiment");
