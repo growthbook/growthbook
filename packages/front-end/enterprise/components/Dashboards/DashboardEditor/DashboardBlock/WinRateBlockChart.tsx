@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   DashboardBlockInterfaceOrData,
   ExperimentsWinRateBlockInterface,
@@ -6,7 +6,11 @@ import {
 import { Box, Flex } from "@radix-ui/themes";
 import EChartsReact from "echarts-for-react";
 import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
-import { getChartThemeColors } from "@/components/DataViz/chart-theme";
+import {
+  EXPERIMENT_RESULT_COLORS,
+  cssColorToHex,
+  getChartThemeColors,
+} from "@/components/DataViz/chart-theme";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Text from "@/ui/Text";
 import Table, {
@@ -28,11 +32,24 @@ import { useCompletedExperimentsComparison } from "./completedExperiments";
 
 const GOOD_PERCENT_LOW = 15;
 const GOOD_PERCENT_HIGH = 38;
-const DIAL_GRAY = "rgb(217,217,217)";
-const DIAL_GREEN = "rgba(125,243,200,0.9)";
 const GAUGE_HEIGHT = 200;
 
-function gaugeOption(winRate: number, textColor: string) {
+type DialColors = { good: string; track: string };
+
+// ECharts draws on canvas, which can't read CSS variables, so resolve the
+// tokens to hex. The good range uses the same green as Velocity's "Won".
+function resolveDialColors(): DialColors {
+  return {
+    good: cssColorToHex(EXPERIMENT_RESULT_COLORS.won),
+    track: cssColorToHex("var(--gray-6)"),
+  };
+}
+
+function gaugeOption(
+  winRate: number,
+  textColor: string,
+  dialColors: DialColors,
+) {
   return {
     series: [
       {
@@ -48,9 +65,9 @@ function gaugeOption(winRate: number, textColor: string) {
           lineStyle: {
             width: 14,
             color: [
-              [GOOD_PERCENT_LOW / 100, DIAL_GRAY],
-              [GOOD_PERCENT_HIGH / 100, DIAL_GREEN],
-              [1, DIAL_GRAY],
+              [GOOD_PERCENT_LOW / 100, dialColors.track],
+              [GOOD_PERCENT_HIGH / 100, dialColors.good],
+              [1, dialColors.track],
             ],
           },
         },
@@ -102,6 +119,12 @@ function GaugePanel({
   periodLabel?: string;
   periodRange?: string;
 }) {
+  // Re-resolve in an effect, not during render: the theme provider swaps the
+  // <html> theme class in a layout effect that runs after this renders.
+  const { theme } = useAppearanceUITheme();
+  const [dialColors, setDialColors] = useState(resolveDialColors);
+  useEffect(() => setDialColors(resolveDialColors()), [theme]);
+
   return (
     <Flex direction="column" align="center" style={{ flex: 1, minWidth: 0 }}>
       {periodLabel && (
@@ -115,7 +138,7 @@ function GaugePanel({
         </Box>
       )}
       <EChartsReact
-        option={gaugeOption(summary.winRate, textColor)}
+        option={gaugeOption(summary.winRate, textColor, dialColors)}
         style={{ width: "100%", height: GAUGE_HEIGHT }}
       />
       <Text as="div" size="sm" align="center" color="text-mid">

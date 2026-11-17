@@ -31,7 +31,7 @@ export const EXPERIMENT_RESULT_COLORS = {
   won: "var(--green-9)",
   lost: "var(--red-9)",
   inconclusive: "var(--gray-9)",
-  dnf: "var(--amber-9)",
+  dnf: "var(--orange-9)",
 } as const;
 
 export const COMPARISON_SERIES_COLORS = [
