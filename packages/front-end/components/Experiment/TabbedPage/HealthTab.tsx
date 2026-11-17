@@ -414,11 +414,11 @@ function ClusterIssueCards({
             error={clusterSubUnitMapping.error}
             onNotify={onNotify}
             healthyMessage={
-              <b>
+              <>
                 Every <IdentifierCode>{clusterIds.subUnit}</IdentifierCode>{" "}
                 mapped to one{" "}
                 <IdentifierCode>{clusterIds.cluster}</IdentifierCode>.
-              </b>
+              </>
             }
             belowThresholdMessage={(threshold, share) => (
               <>
@@ -435,7 +435,6 @@ function ClusterIssueCards({
             )}
             warningMessage={(share) => (
               <>
-                <strong>Cluster Mapping Warning</strong>.{" "}
                 {numberFormatter.format(
                   clusterSubUnitMapping.multiClusterUnits,
                 )}{" "}
@@ -471,10 +470,10 @@ function ClusterIssueCards({
             error={clusterAssignment.error}
             onNotify={onNotify}
             healthyMessage={
-              <b>
+              <>
                 Every <IdentifierCode>{clusterIds.cluster}</IdentifierCode> had
                 a single variation.
-              </b>
+              </>
             }
             belowThresholdMessage={(threshold, share) => (
               <>
@@ -490,7 +489,6 @@ function ClusterIssueCards({
             )}
             warningMessage={(share) => (
               <>
-                <strong>Cluster Assignment Warning</strong>.{" "}
                 {numberFormatter.format(clusterAssignment.mixedClusters)} of{" "}
                 {numberFormatter.format(clusterAssignment.totalClusters)}{" "}
                 <IdentifierCode>{clusterIds.cluster}</IdentifierCode>{" "}
