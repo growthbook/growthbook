@@ -1,5 +1,10 @@
 import { MetricGroupInterface } from "shared/types/metric-groups";
-import { getMetricIdsMissingFromSnapshot } from "../src/experiments/metric-refresh";
+import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
+import {
+  getMetricFilterForCarriedQueries,
+  getMetricIdsMissingFromSnapshot,
+  getSnapshotSideEffects,
+} from "../src/experiments/metric-refresh";
 
 function snapshotSettingsFor(metricIds: string[]) {
   return {
@@ -132,5 +137,36 @@ describe("getMetricIdsMissingFromSnapshot", () => {
         metricGroups: [metricGroup("mg_core", ["fact__a", "fact__b"])],
       }),
     ).toEqual([]);
+  });
+});
+
+describe("a report snapshot copied from a metric refresh", () => {
+  const report = {
+    type: "report",
+    dateCreated: new Date("2026-11-12T00:00:00Z"),
+    settings: { metricSettings: [{ id: "fact__a" }] },
+    metricRefresh: {
+      baseSnapshotId: "snp_base",
+      baseDateCreated: new Date("2026-11-10T00:00:00Z"),
+      baseCutoffDate: null,
+      parentSnapshotId: "snp_base",
+      metricIds: ["fact__new"],
+    },
+  } as unknown as ExperimentSnapshotInterface;
+
+  it("has the side effects of a report, not of a metric refresh", () => {
+    const effects = getSnapshotSideEffects(report);
+
+    expect(effects).toMatchObject({
+      advanceUpdateSchedule: true,
+      refreshDashboards: true,
+      ownsUpdateFailedAlert: true,
+    });
+    expect(effects.timeSeries.pointDate).toEqual(report.dateCreated);
+    expect(effects.timeSeries.includesMetric("fact__a")).toBe(true);
+  });
+
+  it("analyzes every metric its queries return", () => {
+    expect(getMetricFilterForCarriedQueries(report)).toBeUndefined();
   });
 });

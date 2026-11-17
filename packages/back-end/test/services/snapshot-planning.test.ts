@@ -3,6 +3,7 @@ import {
   expandDerivedMetricsInMap,
   getMetricSnapshotSettings,
 } from "shared/experiments";
+import { getScopedSettings } from "shared/settings";
 import { ExperimentInterface } from "shared/types/experiment";
 import { DataSourceInterface } from "shared/types/datasource";
 import {
@@ -25,10 +26,14 @@ import {
 import {
   BadRequestError,
   ExperimentIncrementalPipelineRequiresFullRefreshError,
+  MetricRefreshUnavailableError,
 } from "back-end/src/util/errors";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import {
   createExperimentSnapshot,
+  getAdditionalExperimentAnalysisSettings,
+  getDefaultExperimentAnalysisSettings,
+  getSettingsForSnapshotMetrics,
   getSnapshotSettings,
   planExperimentSnapshot,
   planSnapshot,
@@ -44,6 +49,7 @@ import { updateExperiment } from "back-end/src/models/ExperimentModel";
 import { getMetricMap } from "back-end/src/models/MetricModel";
 import {
   createExperimentSnapshotModel,
+  findLatestSuccessfulOverallSnapshot,
   findSnapshotById,
   getLatestSuccessfulSnapshot,
 } from "back-end/src/models/ExperimentSnapshotModel";
@@ -63,7 +69,9 @@ jest.mock("back-end/src/models/ExperimentModel", () => ({
 
 jest.mock("back-end/src/models/ExperimentSnapshotModel", () => ({
   createExperimentSnapshotModel: jest.fn(),
+  findLatestSuccessfulOverallSnapshot: jest.fn(),
   findSnapshotById: jest.fn(),
+  getLatestSnapshotStatus: jest.fn(),
   getLatestSuccessfulSnapshot: jest.fn(),
 }));
 
@@ -134,6 +142,9 @@ const getLatestSuccessfulSnapshotMock =
   getLatestSuccessfulSnapshot as jest.MockedFunction<
     typeof getLatestSuccessfulSnapshot
   >;
+const findLatestSuccessfulOverallSnapshotMock = jest.mocked(
+  findLatestSuccessfulOverallSnapshot,
+);
 const getDataSourceByIdMock = getDataSourceById as jest.MockedFunction<
   typeof getDataSourceById
 >;
@@ -1112,6 +1123,73 @@ describe("snapshot planning", () => {
     );
 
     expect(createExperimentSnapshotModelMock).not.toHaveBeenCalled();
+  });
+
+  it("never copies a metric refresh lineage into a report snapshot", async () => {
+    getDataSourceByIdMock.mockResolvedValue(
+      makeDatasource({
+        settings: {
+          queries: {
+            exposure: [
+              {
+                id: "exposure_user",
+                name: "Users",
+                userIdType: "user_id",
+                query: "",
+                dimensions: [],
+              },
+            ],
+          },
+        },
+      }),
+    );
+    createExperimentSnapshotModelMock.mockRejectedValue(
+      new Error("stop after the insert"),
+    );
+
+    await expect(
+      createReportSnapshot({
+        report: {
+          id: "rep_123",
+          experimentAnalysisSettings: {
+            datasource: "ds_123",
+            exposureQueryId: "exposure_user",
+            trackingKey: "exp_123",
+            goalMetrics: [],
+            secondaryMetrics: [],
+            guardrailMetrics: [],
+            metricOverrides: [],
+          },
+          experimentMetadata: {
+            phases: [{ variationWeights: [0.5, 0.5] }],
+            variations: [
+              { key: "0", name: "Control" },
+              { key: "1", name: "Treatment" },
+            ],
+          },
+        } as unknown as ExperimentSnapshotReportInterface,
+        previousSnapshot: {
+          id: "snp_refresh",
+          type: "standard",
+          phase: 0,
+          settings: { datasourceId: "ds_123" },
+          metricRefresh: {
+            baseSnapshotId: "snp_base",
+            baseDateCreated: new Date("2025-01-01T00:00:00.000Z"),
+            baseCutoffDate: null,
+            parentSnapshotId: "snp_base",
+            metricIds: ["met_new"],
+          },
+        } as unknown as ExperimentSnapshotInterface,
+        context: makeContext(),
+        metricMap: new Map<string, ExperimentMetricInterface>(),
+        factTableMap: new Map() as FactTableMap,
+      }),
+    ).rejects.toThrow("stop after the insert");
+
+    const [{ data }] = createExperimentSnapshotModelMock.mock.calls[0];
+    expect(data.type).toBe("report");
+    expect(data).not.toHaveProperty("metricRefresh");
   });
 
   it("surfaces pipeline validation errors as incremental fallback reasons", async () => {
@@ -2493,5 +2571,178 @@ describe("planExperimentSnapshot output on trunk", () => {
         JSON.stringify(plan, null, 2),
       ),
     ).toMatchSnapshot();
+  });
+
+  describe("with missingMetricsOnly", () => {
+    const refreshTime = new Date("2025-02-15T15:00:00.000Z");
+
+    function asParent(snapshot: ExperimentSnapshotInterface) {
+      return {
+        ...snapshot,
+        id: "snp_parent",
+        status: "success",
+        queries: [
+          { name: "group_0", query: "qry_group_0", status: "succeeded" },
+        ],
+      } as ExperimentSnapshotInterface;
+    }
+
+    async function planManualParent(
+      { context, datasource }: ReturnType<typeof makeFixture>,
+      experiment: ExperimentInterface,
+    ) {
+      const plan = await planExperimentSnapshot({
+        context: context as never,
+        experiment,
+        datasource,
+        dimension: undefined,
+        phase: 0,
+      });
+      return asParent(plan.snapshot);
+    }
+
+    async function planRefresh(
+      { context, datasource }: ReturnType<typeof makeFixture>,
+      experiment: ExperimentInterface,
+      parent: ExperimentSnapshotInterface,
+    ) {
+      findLatestSuccessfulOverallSnapshotMock.mockResolvedValue(parent);
+      getSourceIntegrationObjectMock.mockReturnValue({
+        getSourceProperties: () => ({ separateExperimentResultQueries: true }),
+      } as never);
+      jest.setSystemTime(refreshTime);
+      return planExperimentSnapshot({
+        context: context as never,
+        experiment,
+        datasource,
+        dimension: undefined,
+        phase: 0,
+        missingMetricsOnly: true,
+      });
+    }
+
+    it("plans only the newly added metric, pinned to its parent's end date", async () => {
+      const fixture = makeFixture();
+      const parent = await planManualParent(fixture, {
+        ...fixture.experiment,
+        guardrailMetrics: [],
+      });
+
+      const plan = await planRefresh(fixture, fixture.experiment, parent);
+
+      expect(plan.snapshot.metricRefresh).toEqual({
+        baseSnapshotId: "snp_parent",
+        baseDateCreated: now,
+        baseCutoffDate: null,
+        parentSnapshotId: "snp_parent",
+        metricIds: ["fact__guard"],
+      });
+      expect(plan.snapshot).toMatchObject({
+        type: "standard",
+        runnerKind: "results",
+        dateCreated: refreshTime,
+        queries: [],
+      });
+      expect(plan.snapshot.settings).toMatchObject({
+        endDate: parent.settings.endDate,
+        endDateIsCutoff: true,
+        guardrailMetrics: ["fact__guard"],
+      });
+      const { metricSettings } = plan.snapshot.settings;
+      expect(metricSettings.filter((m) => m.id !== "fact__guard")).toEqual(
+        parent.settings.metricSettings,
+      );
+      expect(metricSettings.map((m) => m.id)).toContain("fact__guard");
+      expect(plan.snapshot.analyses[0].settings.numGuardrailMetrics).toBe(1);
+    });
+
+    it("accepts a parent the scheduled update planned", async () => {
+      const fixture = makeFixture();
+      const { context } = fixture;
+      const base: ExperimentInterface = {
+        ...fixture.experiment,
+        goalMetrics: ["fact__guard"],
+        secondaryMetrics: [],
+        guardrailMetrics: [],
+      };
+      const { settings: scopedSettings } = getScopedSettings({
+        organization: context.org,
+        experiment: base,
+      });
+      const { regressionAdjustmentEnabled, settingsForSnapshotMetrics } =
+        await getSettingsForSnapshotMetrics(context, base);
+      const analysisSettings = getDefaultExperimentAnalysisSettings({
+        statsEngine: base.statsEngine || scopedSettings.statsEngine.value,
+        experiment: base,
+        organization: context.org,
+        regressionAdjustmentEnabled,
+        postStratificationEnabled:
+          scopedSettings.postStratificationEnabled.value,
+        pValueThreshold: scopedSettings.pValueThreshold.value,
+        metricGroups: await context.models.metricGroups.getAll(),
+      });
+      const scheduled = await planSnapshot({
+        experiment: base,
+        context,
+        phaseIndex: 0,
+        useCache: true,
+        defaultAnalysisSettings: analysisSettings,
+        additionalAnalysisSettings:
+          getAdditionalExperimentAnalysisSettings(analysisSettings),
+        settingsForSnapshotMetrics,
+        metricMap: await getMetricMapMock(context),
+        factTableMap: await getFactTableMapMock(context),
+        type: "standard",
+        triggeredBy: "schedule",
+        cutoff: null,
+      });
+
+      const plan = await planRefresh(
+        fixture,
+        { ...base, secondaryMetrics: ["fact__aov"] },
+        asParent(scheduled.snapshot),
+      );
+
+      expect(plan.snapshot.metricRefresh?.metricIds).toEqual(["fact__aov"]);
+    });
+
+    it("accepts a parent saved before the cluster and assignment identifier settings existed", async () => {
+      const fixture = makeFixture();
+      const parent = await planManualParent(fixture, {
+        ...fixture.experiment,
+        guardrailMetrics: [],
+      });
+      delete parent.settings.isClusterExperiment;
+      delete parent.settings.exposureQueryIdentifierType;
+
+      const plan = await planRefresh(fixture, fixture.experiment, parent);
+
+      expect(plan.snapshot.metricRefresh?.metricIds).toEqual(["fact__guard"]);
+    });
+
+    it("rejects a refresh of a phase that has ended", async () => {
+      const fixture = makeFixture();
+      const stopped: ExperimentInterface = {
+        ...fixture.experiment,
+        status: "stopped",
+        phases: [
+          {
+            ...fixture.experiment.phases[0],
+            dateEnded: new Date("2025-02-14T00:00:00.000Z"),
+          },
+        ],
+      };
+      const parent = await planManualParent(fixture, {
+        ...stopped,
+        guardrailMetrics: [],
+      });
+
+      const plan = planRefresh(fixture, stopped, parent);
+
+      await expect(plan).rejects.toBeInstanceOf(MetricRefreshUnavailableError);
+      await expect(plan).rejects.toMatchObject({
+        details: { reason: "phase_ended" },
+      });
+    });
   });
 });

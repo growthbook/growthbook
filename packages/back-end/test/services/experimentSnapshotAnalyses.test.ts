@@ -363,6 +363,44 @@ describe("toSnapshotApiInterface (legacy contract)", () => {
     expect(settings.assignmentQueryId).toBe("eq_new");
   });
 
+  it("ends a metric refresh's results at the date its data ends, not its run time", () => {
+    const refresh = makeSnapshot();
+    const dataEnd = new Date("2025-01-02T00:00:00.000Z");
+    const ranAt = new Date("2025-01-05T09:30:00.000Z");
+    Object.assign(refresh, {
+      dateCreated: ranAt,
+      runStarted: ranAt,
+      settings: { ...refresh.settings, endDate: dataEnd },
+      metricRefresh: {
+        baseSnapshotId: "snp_base",
+        baseDateCreated: dataEnd,
+        baseCutoffDate: dataEnd,
+        parentSnapshotId: "snp_base",
+        metricIds: ["met_1"],
+      },
+    });
+    const fullRun = { ...refresh, metricRefresh: undefined };
+
+    const toDates = (snapshot: typeof refresh) => {
+      const { dateEnd, dateUpdated } = toSnapshotApiInterface(
+        makeExperiment(),
+        snapshot,
+        new Map(),
+        [],
+      );
+      return { dateEnd, dateUpdated };
+    };
+
+    expect(toDates(refresh)).toEqual({
+      dateEnd: dataEnd.toISOString(),
+      dateUpdated: ranAt.toISOString(),
+    });
+    expect(toDates(fullRun)).toEqual({
+      dateEnd: ranAt.toISOString(),
+      dateUpdated: ranAt.toISOString(),
+    });
+  });
+
   it("emits 0 (not null) for missing statistics to preserve its contract", () => {
     const snapshot = makeSnapshot();
     snapshot.analyses = [

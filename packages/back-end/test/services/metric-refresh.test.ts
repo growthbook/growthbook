@@ -279,6 +279,17 @@ describe("planMetricRefresh", () => {
       expected: unavailable("not_latest_phase"),
     },
     {
+      name: "an ended phase, whose plan is not pinned to the parent's end date",
+      setup: () => ({
+        experiment: makeExperiment({
+          phases: [{ dateEnded: PARENT_END }] as ExperimentInterface["phases"],
+        }),
+        planSnapshotAt: async () =>
+          makePlan({ settings: { endDateIsCutoff: false } }),
+      }),
+      expected: unavailable("phase_ended"),
+    },
+    {
       name: "a single-query Data Source",
       setup: () => stubIntegration(false),
       expected: unavailable("unsupported_data_source"),
@@ -304,13 +315,13 @@ describe("planMetricRefresh", () => {
       expected: unavailable("no_base_snapshot"),
     },
     {
-      name: "a parent with a failed query",
+      name: "a parent with a failed query it would copy",
       setup: () => {
         findParentMock.mockResolvedValue(
           makeParent({
             queries: [
               { name: "group_0", query: "qry_group", status: "succeeded" },
-              { name: "met_x", query: "qry_x", status: "failed" },
+              { name: "group_1", query: "qry_group_1", status: "failed" },
             ],
           }),
         );
@@ -380,6 +391,28 @@ describe("planMetricRefresh", () => {
       });
     }
   });
+
+  it.each([
+    ["its own units table drop", "drop_snp_parent"],
+    ["the query of a metric since removed", "met_gone"],
+  ])(
+    "accepts a parent whose only failed query is %s, which it does not copy",
+    async (_, failed) => {
+      findParentMock.mockResolvedValue(
+        makeParent({
+          settings: makeSettings(["met_a", "met_b", "met_gone"]),
+          queries: [
+            { name: "group_0", query: "qry_group", status: "succeeded" },
+            { name: failed, query: "qry_failed", status: "failed" },
+          ],
+        }),
+      );
+
+      const plan = await planMetricRefresh(refreshArgs());
+
+      expect(plan.snapshot.metricRefresh?.metricIds).toEqual(["met_c"]);
+    },
+  );
 });
 
 describe("getSettingsChangedSinceParent", () => {
@@ -389,7 +422,9 @@ describe("getSettingsChangedSinceParent", () => {
     planned.settings.manual = true;
     planned.settings.endDateIsCutoff = false;
 
-    expect(getSettingsChangedSinceParent({ parent, planned })).toEqual([]);
+    expect(
+      getSettingsChangedSinceParent({ parent, planned, exposureQueries: [] }),
+    ).toEqual([]);
   });
 
   it("names every other difference, including fields only one side has", () => {
@@ -400,7 +435,13 @@ describe("getSettingsChangedSinceParent", () => {
     }).snapshot;
     Object.assign(planned.settings, { newSetting: true });
 
-    expect(getSettingsChangedSinceParent({ parent, planned }).sort()).toEqual(
+    expect(
+      getSettingsChangedSinceParent({
+        parent,
+        planned,
+        exposureQueries: [],
+      }).sort(),
+    ).toEqual(
       [
         "analysis.regressionAdjusted",
         "newSetting",
@@ -408,6 +449,116 @@ describe("getSettingsChangedSinceParent", () => {
         "segment",
       ].sort(),
     );
+  });
+
+  describe("regression adjustment", () => {
+    const parentWithAdjustment = (adjusted: boolean) =>
+      makeParent({
+        settings: makeSettings(["met_a", "met_b"], {
+          regressionAdjustmentEnabled: false,
+          metricSettings: ["met_a", "met_b"].map((id) => ({
+            id,
+            computedSettings: { regressionAdjustmentEnabled: adjusted },
+          })) as unknown as ExperimentSnapshotSettings["metricSettings"],
+        }),
+      });
+    const planned = () =>
+      makePlan({
+        settings: { regressionAdjustmentEnabled: true },
+        analysisSettings: { regressionAdjusted: true },
+      }).snapshot;
+
+    it("ignores its flags when no copied metric is regression adjusted", () => {
+      expect(
+        getSettingsChangedSinceParent({
+          parent: parentWithAdjustment(false),
+          planned: planned(),
+          exposureQueries: [],
+        }),
+      ).toEqual([]);
+    });
+
+    it("names its flags when a copied metric is regression adjusted", () => {
+      expect(
+        getSettingsChangedSinceParent({
+          parent: parentWithAdjustment(true),
+          planned: planned(),
+          exposureQueries: [],
+        }).sort(),
+      ).toEqual(["analysis.regressionAdjusted", "regressionAdjustmentEnabled"]);
+    });
+  });
+
+  it("treats a setting one side lacks as that setting left empty", () => {
+    const parent = makeParent();
+    const planned = makePlan({
+      analysisSettings: { postStratificationEnabled: false },
+    }).snapshot;
+    Object.assign(planned.settings, {
+      isClusterExperiment: false,
+      clusterSubUnitIdentifier: "",
+      customFields: {},
+      precomputedUnitDimensionIds: [],
+      lookbackOverride: null,
+    });
+
+    expect(
+      getSettingsChangedSinceParent({ parent, planned, exposureQueries: [] }),
+    ).toEqual([]);
+  });
+
+  it("still names a setting one side lacks when the other side sets it", () => {
+    const parent = makeParent();
+    const planned = makePlan({
+      analysisSettings: { postStratificationEnabled: true },
+    }).snapshot;
+    Object.assign(planned.settings, {
+      isClusterExperiment: true,
+      coverage: 0,
+    });
+
+    expect(
+      getSettingsChangedSinceParent({
+        parent,
+        planned,
+        exposureQueries: [],
+      }).sort(),
+    ).toEqual([
+      "analysis.postStratificationEnabled",
+      "coverage",
+      "isClusterExperiment",
+    ]);
+  });
+
+  it("treats a missing assignment identifier as the query's legacy one", () => {
+    const exposureQueries = [
+      {
+        id: "eq_1",
+        userIdType: "user_id",
+        userIdTypes: ["user_id", "anonymous_id"],
+      },
+    ];
+    const parent = makeParent();
+    const plannedWith = (identifierType: string) => {
+      const planned = makePlan().snapshot;
+      planned.settings.exposureQueryIdentifierType = identifierType;
+      return planned;
+    };
+
+    expect(
+      getSettingsChangedSinceParent({
+        parent,
+        planned: plannedWith("user_id"),
+        exposureQueries,
+      }),
+    ).toEqual([]);
+    expect(
+      getSettingsChangedSinceParent({
+        parent,
+        planned: plannedWith("anonymous_id"),
+        exposureQueries,
+      }),
+    ).toEqual(["exposureQueryIdentifierType"]);
   });
 });
 
@@ -591,6 +742,107 @@ describe("metric refresh status", () => {
     expect(
       makeRunner(makeParent({ queries: queries("met_c") })).overallStatus(),
     ).toBe("partially-succeeded");
+  });
+});
+
+describe("starting a metric refresh's queries", () => {
+  const metricMap = new Map<string, ExperimentMetricInterface>(
+    ["met_a", "met_b", "met_c"].map((id) => [
+      id,
+      factMetricFactory.build({ id, datasource: "ds_1" }),
+    ]),
+  );
+  const integration = {
+    datasource: {
+      id: "ds_1",
+      type: "postgres",
+      settings: {
+        queries: {
+          exposure: [
+            {
+              id: "eq_1",
+              name: "Users",
+              userIdType: "user_id",
+              query: "SELECT * FROM exposures",
+              dimensions: [],
+            },
+          ],
+        },
+      },
+    },
+    getSourceProperties: () => ({ separateExperimentResultQueries: true }),
+    getExperimentFactMetricsQuery: () => "SELECT metrics",
+    runExperimentFactMetricsQuery: jest.fn(),
+    getExperimentAggregateUnitsQuery: () => "SELECT traffic",
+  } as unknown as SourceIntegrationInterface;
+  const trafficContext = {
+    ...context,
+    org: { id: "org_1", settings: { runHealthTrafficQuery: true } },
+  } as unknown as ReqContext;
+
+  async function start(snapshot: ExperimentSnapshotInterface) {
+    const runner = new ExperimentResultsQueryRunner(
+      trafficContext,
+      snapshot,
+      integration,
+      true,
+    );
+    const started: string[] = [];
+    jest.spyOn(runner, "startQuery").mockImplementation(async ({ name }) => {
+      started.push(name);
+      return { name, query: `qry_${name}`, status: "running" };
+    });
+    const queries = await runner.startQueries({
+      snapshotType: snapshot.type ?? "standard",
+      snapshotSettings: snapshot.settings,
+      variationNames: ["Control", "Treatment"],
+      metricMap,
+      factTableMap: new Map(),
+      queryParentId: snapshot.id,
+      experimentQueryMetadata: null,
+    });
+    return { started, names: queries.map((q) => q.name) };
+  }
+
+  const refresh = () =>
+    makeParent({
+      id: "snp_refresh",
+      settings: makeSettings(["met_a", "met_b", "met_c"], {
+        exposureQueryId: "eq_1",
+      }),
+      metricRefresh: getMetricRefreshLineage(makeParent(), ["met_c"]),
+    });
+
+  beforeEach(() => {
+    queryPointersMock.mockResolvedValue(
+      ["snp_parent", "group_0", "group_1", "traffic", "drop_snp_parent"].map(
+        (name) => ({ name, query: `qry_parent_${name}`, status: "succeeded" }),
+      ),
+    );
+    getQueriesByIdsMock.mockImplementation(async (_ctx, ids) =>
+      ids.map((id) => ({ id, status: "succeeded" }) as QueryInterface),
+    );
+    createFromCachedMock.mockImplementation(
+      async ({ existing }) =>
+        ({
+          id: `copy_of_${existing.id}`,
+          status: "succeeded",
+        }) as QueryInterface,
+    );
+  });
+
+  it("starts only the new metric's query, numbered after the copied groups, with no traffic query", async () => {
+    const { started, names } = await start(refresh());
+
+    expect(started).toEqual(["group_2"]);
+    expect(names).toEqual(["group_0", "group_1", "traffic", "group_2"]);
+  });
+
+  it("runs every query of a report snapshot that still carries a refresh lineage", async () => {
+    const { started } = await start({ ...refresh(), type: "report" });
+
+    expect(queryPointersMock).not.toHaveBeenCalled();
+    expect(started).toEqual(["group_0", "group_1", "group_2"]);
   });
 });
 
