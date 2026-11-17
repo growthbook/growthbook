@@ -8,7 +8,7 @@ import {
 import { ago, date, datetime } from "shared/dates";
 import React, { RefObject, useMemo, useState } from "react";
 import { PiEye } from "react-icons/pi";
-import { Box, Text } from "@radix-ui/themes";
+import { Box, Flex, Text } from "@radix-ui/themes";
 import {
   getResultsSubUnitTotal,
   getUnitDisplayName,
@@ -215,19 +215,19 @@ export default function ReportAnalysisSettingsBar({
         </div>
         <div className="row flex-grow-1 flex-shrink-0 pt-1 px-2 justify-content-end align-items-center">
           <div className="col-auto mr-2" style={{ fontSize: "12px" }}>
-            <Metadata
-              label={unitDisplayName}
-              value={numberFormatter.format(totalUnits ?? 0)}
-            />
-          </div>
-          {clusterSubUnitIdentifier && totalSubUnits !== null ? (
-            <div className="col-auto mr-2" style={{ fontSize: "12px" }}>
+            <Flex align="center" gap="4">
               <Metadata
-                label={getUnitDisplayName(clusterSubUnitIdentifier)}
-                value={numberFormatter.format(totalSubUnits)}
+                label={unitDisplayName}
+                value={numberFormatter.format(totalUnits ?? 0)}
               />
-            </div>
-          ) : null}
+              {clusterSubUnitIdentifier && totalSubUnits !== null ? (
+                <Metadata
+                  label={getUnitDisplayName(clusterSubUnitIdentifier)}
+                  value={numberFormatter.format(totalSubUnits)}
+                />
+              ) : null}
+            </Flex>
+          </div>
           <div className="col-auto px-0">
             {hasData && snapshot.runStarted ? (
               <Box style={{ lineHeight: 1.2, fontSize: "12px" }}>

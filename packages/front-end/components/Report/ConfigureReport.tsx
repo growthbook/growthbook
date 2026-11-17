@@ -4,7 +4,8 @@ import {
   getExposureQueryIdentifierTypes,
   resolveAnalysisIdentifierType,
 } from "shared/util";
-import React, { RefObject, useCallback, useState } from "react";
+import React, { RefObject, useCallback, useMemo, useState } from "react";
+import { getClusterSubUnit } from "shared/experiments";
 import { useForm } from "react-hook-form";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { date, getValidDate } from "shared/dates";
@@ -31,6 +32,11 @@ import AssignmentQueryFields, {
   useAssignmentQuerySelection,
 } from "@/components/Experiment/AssignmentQueryFields";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import { getIneligibleClusterMetrics } from "@/services/experiments";
+import {
+  getIneligibleGroupsMessage,
+  IneligibleClusterMetricsCallouts,
+} from "@/components/Experiment/AnalysisForm";
 import MetricAnalysisWindowSelector from "@/components/Experiment/MetricAnalysisWindowSelector";
 import MetricsOverridesSelector from "@/components/Experiment/MetricsOverridesSelector";
 import StatsEngineSelect from "@/components/Settings/forms/StatsEngineSelect";
@@ -60,7 +66,13 @@ export default function ConfigureReport({
   canEdit?: boolean;
   runQueriesButtonRef?: RefObject<HTMLButtonElement>;
 }) {
-  const { getDatasourceById, segments } = useDefinitions();
+  const {
+    getDatasourceById,
+    segments,
+    getFactTableById,
+    metricGroups,
+    getExperimentMetricById,
+  } = useDefinitions();
   const orgSettings = useOrgSettings();
   const { hasCommercialFeature } = useUser();
   const { apiCall } = useAuth();
@@ -109,6 +121,18 @@ export default function ConfigureReport({
     }
     if (isClusterExperiment && value.experimentAnalysisSettings) {
       value.experimentAnalysisSettings.activationMetric = "";
+      const { droppedIds, groupNames } = ineligibleClusterMetrics;
+      if (groupNames.length) {
+        throw new Error(getIneligibleGroupsMessage(groupNames));
+      }
+      if (droppedIds.size) {
+        const keep = (ids: string[] = []) =>
+          ids.filter((id) => !droppedIds.has(id));
+        const settings = value.experimentAnalysisSettings;
+        settings.goalMetrics = keep(settings.goalMetrics);
+        settings.secondaryMetrics = keep(settings.secondaryMetrics);
+        settings.guardrailMetrics = keep(settings.guardrailMetrics);
+      }
     }
     await apiCall<{
       updatedReport: ExperimentSnapshotReportInterface;
@@ -209,6 +233,46 @@ export default function ConfigureReport({
       ),
     [form],
   );
+  const goalMetrics = form.watch("experimentAnalysisSettings.goalMetrics");
+  const secondaryMetrics = form.watch(
+    "experimentAnalysisSettings.secondaryMetrics",
+  );
+  const guardrailMetrics = form.watch(
+    "experimentAnalysisSettings.guardrailMetrics",
+  );
+  const clusterIdentifier = assignmentQuerySelection.identifierType;
+  // Same check as the experiment editor, so both agree on what's eligible.
+  const ineligibleClusterMetrics = useMemo(() => {
+    const clusterSubUnit = getClusterSubUnit({
+      isClusterExperiment,
+      clusterSubUnitIdentifier,
+    });
+    return getIneligibleClusterMetrics(
+      clusterSubUnit && exposureQuery
+        ? [...goalMetrics, ...secondaryMetrics, ...guardrailMetrics]
+        : [],
+      {
+        clusterIdentifier,
+        clusterSubUnitIdentifier: clusterSubUnit,
+        getFactTable: getFactTableById,
+        datasourceSettings: datasource?.settings,
+        metricGroups,
+        getExperimentMetricById,
+      },
+    );
+  }, [
+    isClusterExperiment,
+    clusterSubUnitIdentifier,
+    exposureQuery,
+    goalMetrics,
+    secondaryMetrics,
+    guardrailMetrics,
+    clusterIdentifier,
+    getFactTableById,
+    datasource?.settings,
+    metricGroups,
+    getExperimentMetricById,
+  ]);
 
   const hasMetrics =
     form.watch("experimentAnalysisSettings.goalMetrics").length > 0 ||
@@ -635,6 +699,9 @@ export default function ConfigureReport({
                 setSubUnitIdentifier={setClusterSubUnitIdentifier}
               />
             )}
+            <IneligibleClusterMetricsCallouts
+              ineligible={ineligibleClusterMetrics}
+            />
             <Field
               size="legacy"
               label="Tracking Key"
