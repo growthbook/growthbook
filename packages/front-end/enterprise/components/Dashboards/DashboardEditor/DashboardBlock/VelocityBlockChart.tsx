@@ -15,6 +15,7 @@ import { CompareChartLegendItem } from "@/enterprise/components/ProductAnalytics
 import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
 import {
   EXPERIMENT_RESULT_COLORS,
+  cssColorToHex,
   getChartThemeColors,
 } from "@/components/DataViz/chart-theme";
 import { useDashboardCharts } from "@/enterprise/components/Dashboards/DashboardChartsContext";
@@ -28,9 +29,6 @@ import {
   rangeLabel,
 } from "./completedExperimentsData";
 import { useCompletedExperimentsComparison } from "./completedExperiments";
-
-const RESULT_COLORS: Record<VelocityResultKey, string> =
-  EXPERIMENT_RESULT_COLORS;
 
 // Capitalized display labels for the legend + tooltip.
 const RESULT_LABELS: Record<VelocityResultKey, string> = {
@@ -94,6 +92,7 @@ function neutralRow(color: string, name: string, value: number): string {
 }
 
 function buildVelocityTooltip({
+  resultColors,
   index,
   currentBuckets,
   previousBuckets,
@@ -101,6 +100,7 @@ function buildVelocityTooltip({
   prevTooltipLabels,
   comparisonEnabled,
 }: {
+  resultColors: Record<VelocityResultKey, string>;
   index: number;
   currentBuckets: { [k in VelocityResultKey]: number }[];
   previousBuckets: ({ [k in VelocityResultKey]: number } | null)[];
@@ -117,7 +117,7 @@ function buildVelocityTooltip({
   }
 
   VELOCITY_RESULT_KEYS.forEach((key) => {
-    const color = RESULT_COLORS[key];
+    const color = resultColors[key];
     if (comparisonEnabled) {
       html +=
         `<div style="margin-top:8px">` +
@@ -209,7 +209,16 @@ export default function VelocityBlockChart({
   // single-period view, even if an older block still has comparison persisted.
   const comparisonEnabled = false;
 
-  const option = useMemo(() => {
+  const { option, resultColors } = useMemo(() => {
+    // ECharts draws on canvas, which can't read CSS variables, so resolve the
+    // tokens to hex. textColor is a dep of this memo, so a theme switch
+    // re-resolves them.
+    const resultColors: Record<VelocityResultKey, string> = {
+      won: cssColorToHex(EXPERIMENT_RESULT_COLORS.won),
+      lost: cssColorToHex(EXPERIMENT_RESULT_COLORS.lost),
+      inconclusive: cssColorToHex(EXPERIMENT_RESULT_COLORS.inconclusive),
+      dnf: cssColorToHex(EXPERIMENT_RESULT_COLORS.dnf),
+    };
     const resolvedGranularity: ResolvedGranularity = getDateGranularity(
       block.dateGranularity || "auto",
       { startDate: window.startDate, endDate: window.endDate },
@@ -254,7 +263,7 @@ export default function VelocityBlockChart({
       xAxisIndex: 0,
       barWidth: comparisonEnabled ? "45%" : "60%",
       z: 3,
-      itemStyle: { color: RESULT_COLORS[key] },
+      itemStyle: { color: resultColors[key] },
       data: currentBuckets.map((b) => b[key]),
     }));
 
@@ -272,7 +281,7 @@ export default function VelocityBlockChart({
           barGap: "-100%",
           barWidth: "62%",
           z: 1,
-          itemStyle: { color: fadedColor(RESULT_COLORS[key]) },
+          itemStyle: { color: fadedColor(resultColors[key]) },
           data: prevAligned(key),
         }))
       : [];
@@ -287,13 +296,14 @@ export default function VelocityBlockChart({
       },
     };
 
-    return {
+    const option = {
       tooltip: {
         appendTo: "body",
         trigger: "axis",
         axisPointer: { type: "shadow" },
         formatter: (params: { dataIndex: number }[]) =>
           buildVelocityTooltip({
+            resultColors,
             index: params?.[0]?.dataIndex ?? 0,
             currentBuckets,
             previousBuckets,
@@ -328,6 +338,7 @@ export default function VelocityBlockChart({
         : {}),
       series: [...currentSeries, ...previousSeries],
     };
+    return { option, resultColors };
   }, [
     block.dateGranularity,
     current,
@@ -342,8 +353,8 @@ export default function VelocityBlockChart({
   const legendItems: CompareChartLegendItem[] = VELOCITY_RESULT_KEYS.map(
     (key) => ({
       baseName: RESULT_LABELS[key],
-      currentColor: RESULT_COLORS[key],
-      previousColor: fadedColor(RESULT_COLORS[key]),
+      currentColor: resultColors[key],
+      previousColor: fadedColor(resultColors[key]),
       currentSeriesName: currentSeriesName(key),
       previousSeriesName: previousSeriesName(key),
     }),
@@ -371,7 +382,7 @@ export default function VelocityBlockChart({
           {VELOCITY_RESULT_KEYS.map((key) => (
             <LegendDot
               key={key}
-              color={RESULT_COLORS[key]}
+              color={resultColors[key]}
               label={RESULT_LABELS[key]}
             />
           ))}

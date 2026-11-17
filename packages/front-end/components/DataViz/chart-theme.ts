@@ -10,12 +10,13 @@ export const CHART_COLORS = [
   "#6b7280",
 ];
 
-// Semantic colors for experiment results (Velocity dashboard block).
+// Semantic colors for experiment results, as Radix tokens so they follow the
+// theme. ECharts draws on canvas, so resolve them with cssColorToHex first.
 export const EXPERIMENT_RESULT_COLORS = {
-  won: "#22c55e",
-  lost: "#ef4444",
-  inconclusive: "#6b7280",
-  dnf: "#eab308",
+  won: "var(--green-9)",
+  lost: "var(--red-9)",
+  inconclusive: "var(--gray-9)",
+  dnf: "var(--amber-9)",
 } as const;
 
 export const COMPARISON_SERIES_COLORS = [

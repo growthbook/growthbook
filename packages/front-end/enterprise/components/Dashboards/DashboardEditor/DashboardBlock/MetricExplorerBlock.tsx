@@ -6,7 +6,7 @@ import { useMemo } from "react";
 import { getValidDate } from "shared/dates";
 import { Box, Text, Flex } from "@radix-ui/themes";
 import EChartsReact from "echarts-for-react";
-import { FaExclamationTriangle } from "react-icons/fa";
+import { PiWarningFill } from "react-icons/pi";
 import { isString } from "shared/util";
 import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
 import { getChartThemeColors } from "@/components/DataViz/chart-theme";
@@ -288,7 +288,7 @@ export default function MetricExplorerBlock({
               display="View error(s)"
               color="danger"
               status="failed"
-              icon={<FaExclamationTriangle className="mr-2" />}
+              icon={<PiWarningFill className="mr-2" />}
               condensed={true}
               hideQueryCount={true}
             />
