@@ -489,7 +489,7 @@ describe("isMetricRefreshUnavailable", () => {
     expect(unavailable({ datasource: null })).toBe(true);
   });
 
-  it("refuses an experiment on the incremental pipeline", () => {
+  it("allows an experiment on the incremental pipeline", () => {
     expect(
       unavailable({
         datasource: {
@@ -504,7 +504,7 @@ describe("isMetricRefreshUnavailable", () => {
           },
         } as DataSourceInterfaceWithParams,
       }),
-    ).toBe(true);
+    ).toBe(false);
   });
 
   it("refuses when analysis settings changed since the last update", () => {

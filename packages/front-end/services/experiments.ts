@@ -279,7 +279,7 @@ export function isMetricRefreshUnavailable({
   datasource,
   settingsOutdated,
 }: {
-  experiment: Pick<ExperimentInterfaceStringDates, "id" | "type" | "phases">;
+  experiment: Pick<ExperimentInterfaceStringDates, "type" | "phases">;
   phase: number;
   datasource: DataSourceInterfaceWithParams | null;
   settingsOutdated: boolean;
@@ -288,11 +288,6 @@ export function isMetricRefreshUnavailable({
     (experiment.type ?? "standard") !== "standard" ||
     !!experiment.phases[phase]?.dateEnded ||
     !datasource?.properties?.separateExperimentResultQueries ||
-    getIsExperimentIncludedInIncrementalRefresh(
-      datasource ?? undefined,
-      experiment.id,
-      experiment.type,
-    ) ||
     settingsOutdated
   );
 }
