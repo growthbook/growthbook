@@ -31,23 +31,30 @@ export class ConfirmationModel extends BaseClass {
     return false;
   }
 
-  public findByRequester(
+  public async findByRequester(
     apiKeyId: string | null,
     userId: string | null,
     statusQuery: FilterQuery<ConfirmationInterface>,
+    { limit, offset }: { limit: number; offset: number },
   ) {
     const or = [
       ...(apiKeyId ? [{ apiKeyId }] : []),
       ...(userId ? [{ userId }] : []),
     ];
-    if (!or.length) return Promise.resolve([]);
-    return this._find(
-      { $and: [{ $or: or }, statusQuery] },
-      {
-        sort: { dateCreated: -1 },
+    if (!or.length) return { docs: [], total: 0 };
+    const query = { $and: [{ $or: or }, statusQuery] };
+    const [docs, total] = await Promise.all([
+      this._find(query, {
+        sort: { dateCreated: -1, id: -1 },
         projection: { body: 0, query: 0, links: 0, notices: 0 },
-      },
-    );
+        limit,
+        skip: offset,
+        // canRead allows every row, and bypassing it lets the database do the paging.
+        bypassReadPermissionChecks: true,
+      }),
+      this._countDocuments(query),
+    ]);
+    return { docs, total };
   }
 
   public findPending(apiKeyId: string, requestHash: string) {

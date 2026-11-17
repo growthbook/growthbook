@@ -1,7 +1,8 @@
 import { listConfirmationsValidator } from "shared/validators";
 import {
-  applyPagination,
   createApiRequestHandler,
+  getPaginationReturnFields,
+  validatePagination,
 } from "back-end/src/util/handler";
 import {
   confirmationStatusQuery,
@@ -12,16 +13,17 @@ import {
 export const listConfirmations = createApiRequestHandler(
   listConfirmationsValidator,
 )(async (req) => {
-  const status = req.query.status ?? "pending";
-  const docs = await req.context.models.confirmations.findByRequester(
-    req.context.apiKey || null,
-    req.context.userId || null,
-    confirmationStatusQuery(status),
-  );
-  // Drops a row whose status changed between the query and now, e.g. one that just expired.
-  const { filtered, returnFields } = applyPagination(
-    docs.map(toApiConfirmation).filter((c) => c.status === status),
-    req.query,
-  );
-  return { confirmations: filtered, ...returnFields };
+  const pagination = validatePagination(req.query);
+  const { docs, total } =
+    await req.context.models.confirmations.findByRequester(
+      req.context.apiKey || null,
+      req.context.userId || null,
+      confirmationStatusQuery(req.query.status ?? "pending"),
+      pagination,
+    );
+  const confirmations = docs.map(toApiConfirmation);
+  return {
+    confirmations,
+    ...getPaginationReturnFields(confirmations, total, pagination),
+  };
 });
