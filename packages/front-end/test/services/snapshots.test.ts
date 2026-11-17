@@ -1,8 +1,13 @@
 import { vi } from "vitest";
 import { isAnalysisDateRangeOutdated } from "shared/experiments";
+import type {
+  ExperimentSnapshotAnalysisSettings,
+  ExperimentSnapshotInterface,
+} from "shared/types/experiment-snapshot";
 import {
   getResultsFreshness,
   getSnapshotFreshnessInputs,
+  isAwaitingSelectedAnalysis,
 } from "@/services/snapshots";
 
 describe("getResultsFreshness", () => {
@@ -152,5 +157,52 @@ describe("getSnapshotFreshnessInputs", () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+});
+
+describe("isAwaitingSelectedAnalysis", () => {
+  const defaultSettings = {
+    baselineVariationIndex: 0,
+    differenceType: "relative",
+    numGoalMetrics: 2,
+  } as ExperimentSnapshotAnalysisSettings;
+  const otherBaseline = {
+    ...defaultSettings,
+    baselineVariationIndex: 1,
+    numGoalMetrics: 1,
+  };
+  const snapshotWith = (
+    metricRefresh?: ExperimentSnapshotInterface["metricRefresh"],
+  ) =>
+    ({
+      type: "standard",
+      metricRefresh,
+      analyses: [{ settings: defaultSettings }],
+    }) as ExperimentSnapshotInterface;
+  const refresh = {
+    baseSnapshotId: "snp_base",
+    baseDateCreated: new Date("2026-11-17T09:00:00Z"),
+    baseCutoffDate: null,
+    parentSnapshotId: "snp_base",
+    metricIds: ["met_new"],
+  };
+
+  it("waits while a refresh lacks the selected analysis", () => {
+    expect(
+      isAwaitingSelectedAnalysis(snapshotWith(refresh), otherBaseline),
+    ).toBe(true);
+  });
+
+  it("does not wait once the refresh has the selected analysis", () => {
+    expect(
+      isAwaitingSelectedAnalysis(snapshotWith(refresh), defaultSettings),
+    ).toBe(false);
+    expect(isAwaitingSelectedAnalysis(snapshotWith(refresh), null)).toBe(false);
+  });
+
+  it("does not wait on a full update, which resets the selection", () => {
+    expect(isAwaitingSelectedAnalysis(snapshotWith(), otherBaseline)).toBe(
+      false,
+    );
   });
 });
