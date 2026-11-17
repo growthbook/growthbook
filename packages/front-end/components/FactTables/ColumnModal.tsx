@@ -328,7 +328,7 @@ export default function ColumnModal({
       cta={"Save"}
       header={
         slicesOnly
-          ? "Configure Auto Slices"
+          ? `Configure Auto Slices: ${existing?.name || existing?.column}`
           : existing
             ? "Edit Column"
             : "Add Column"

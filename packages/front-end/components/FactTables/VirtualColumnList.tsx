@@ -74,7 +74,7 @@ function VirtualColumnRowMenu({
                 setOpen(false);
               }}
             >
-              Configure auto slices
+              Configure Auto Slices
             </DropdownMenuItem>
           )}
       </DropdownMenuGroup>
