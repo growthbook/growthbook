@@ -12,7 +12,7 @@ function mockContext(
   others: EventForwarderConfigInterface[],
   stored?: EventForwarderConfigInterface,
 ) {
-  const updateWithCas = jest.fn(async (id, _guard, compute) => {
+  const updateWithCas = jest.fn(async (id, guardFields, compute) => {
     const fresh = stored ?? row(id);
     return { ...fresh, ...(await compute(fresh)) };
   });
