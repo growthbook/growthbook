@@ -232,7 +232,8 @@ function operation(
   const op = model.operations[action];
   if (!op) return "nil";
   const paginated = op.paginated ? ", paginated: true" : "";
-  return `&operation{method: ${goString(op.method)}, path: ${goString(op.path)}, responseKey: ${goString(op.responseKey)}${paginated}}`;
+  const bypass = op.bypassApproval ? ", bypassApproval: true" : "";
+  return `&operation{method: ${goString(op.method)}, path: ${goString(op.path)}, responseKey: ${goString(op.responseKey)}${paginated}${bypass}}`;
 }
 
 const stringSlice = (values: string[]) =>

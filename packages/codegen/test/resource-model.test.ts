@@ -16,9 +16,16 @@ describe("analyzeResource", () => {
       path: "/v1/widgets/{id}",
       responseKey: "widget",
       paginated: false,
+      bypassApproval: false,
     });
     expect(model.operations.list).toBeUndefined();
     expect(model.operations.delete?.responseKey).toBe("");
+  });
+
+  it("sends bypassApproval as a switch, not an attribute", () => {
+    expect(model.operations.update?.bypassApproval).toBe(true);
+    expect(model.operations.delete?.bypassApproval).toBe(true);
+    expect(field("bypassApproval")).toBeUndefined();
   });
 
   it("derives Terraform flags from where each field appears", () => {

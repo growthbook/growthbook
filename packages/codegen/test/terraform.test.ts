@@ -8,7 +8,7 @@ describe("renderResource", () => {
   it("emits the descriptor the engine reads", () => {
     expect(go).toContain("var widgetResource = resourceDescriptor{");
     expect(go).toContain(
-      'update:              &operation{method: "PUT", path: "/v1/widgets/{id}", responseKey: "widget"},',
+      'update:              &operation{method: "PUT", path: "/v1/widgets/{id}", responseKey: "widget", bypassApproval: true},',
     );
     expect(go).toContain(
       'createFields:        []string{"kind", "name", "slug"},',

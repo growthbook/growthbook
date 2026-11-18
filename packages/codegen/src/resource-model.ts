@@ -41,6 +41,7 @@ export type ModelOperation = {
   path: string;
   responseKey: string;
   paginated: boolean;
+  bypassApproval: boolean;
 };
 
 export type ResourceModel = {
@@ -73,6 +74,9 @@ export const stableComputedFields = [
 // dateUpdated changes on every write, so tracking it would show a diff after
 // each apply; the org id is implied by the API key.
 const volatileFields = ["dateUpdated", "organization"];
+
+// A per-request switch, not a field: Terraform sends it on every write that takes it.
+const approvalBypassField = "bypassApproval";
 
 // Acronyms stay one word: `targetMDE` is `target_mde`, not `target_m_d_e`.
 export function attributeName(field: string): string {
@@ -278,6 +282,9 @@ export function analyzeResource(spec: Spec, name: string): ResourceModel {
       paginated: !!operation.operation.parameters?.some(
         (p) => p.name === "limit" || p.$ref?.endsWith("/limit"),
       ),
+      bypassApproval:
+        approvalBypassField in
+        (schemaProperties(spec, requestSchema(operation.operation)) ?? {}),
     };
   }
 
@@ -318,6 +325,7 @@ export function analyzeResource(spec: Spec, name: string): ResourceModel {
   ].filter(
     (json) =>
       !volatileFields.includes(json) &&
+      json !== approvalBypassField &&
       // New Terraform configs shouldn't start on fields the API is retiring.
       ![model, createBody, updateBody].some(
         (fields) => json in fields && schemaNode(spec, fields[json]).deprecated,
