@@ -34,6 +34,7 @@ import {
   ProductAnalyticsExploration,
 } from "shared/validators";
 import { QueryInterface } from "shared/types/query";
+import { isManagedWarehousePendingQueryError } from "shared/util";
 import useApi from "@/hooks/useApi";
 import { useAuth } from "@/services/auth";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
@@ -45,6 +46,8 @@ import {
 import { useDefinitions } from "@/services/DefinitionsContext";
 import ExplorerChart from "@/enterprise/components/ProductAnalytics/MainSection/ExplorerChart";
 import ExplorerDataTable from "@/enterprise/components/ProductAnalytics/MainSection/ExplorerDataTable";
+import ComparisonErrorCallout from "@/enterprise/components/ProductAnalytics/MainSection/ComparisonErrorCallout";
+import ManagedWarehouseNoEventsCallout from "@/components/ManagedWarehouse/ManagedWarehouseNoEventsCallout";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import Callout from "@/ui/Callout";
 import Button from "@/ui/Button";
@@ -418,7 +421,23 @@ export function ProductAnalyticsExplorerVisualization({
   // one only for a block with no stored result: the header can't run that
   // block's first result, and its button is disabled when nothing has run.
   const tileUpdates = !!runConfig && (headerless || !block.explorerAnalysisId);
+  const updateButton = canRun ? (
+    <Button variant="outline" size="sm" onClick={tileRun.run}>
+      {/* Name the scope when the header's Update is also shown */}
+      {headerless ? "Update" : "Update block"}
+    </Button>
+  ) : undefined;
   const updatePrompt = (message: string, status: "info" | "error" = "info") => {
+    // A managed warehouse with no events yet gets the Explorer's onboarding
+    // message, with Update kept so the tile can retry once events arrive.
+    const failure = tileRun.error ?? (status === "error" ? message : null);
+    if (failure && isManagedWarehousePendingQueryError(failure)) {
+      return (
+        <Flex direction="column" align="center" gap="3" p="4">
+          <ManagedWarehouseNoEventsCallout size="sm" action={updateButton} />
+        </Flex>
+      );
+    }
     const [calloutStatus, text] = tileRun.error
       ? (["error", tileRun.error] as const)
       : !runDatasource
@@ -437,14 +456,7 @@ export function ProductAnalyticsExplorerVisualization({
         <Callout
           status={calloutStatus}
           contentAlign="center"
-          action={
-            canRun ? (
-              <Button variant="outline" size="sm" onClick={tileRun.run}>
-                {/* Name the scope when the header's Update is also shown */}
-                {headerless ? "Update" : "Update block"}
-              </Button>
-            ) : undefined
-          }
+          action={updateButton}
         >
           {text}
         </Callout>
@@ -461,8 +473,7 @@ export function ProductAnalyticsExplorerVisualization({
     return (
       <Flex direction="column" align="center" gap="3" p="4">
         <Callout status="info">
-          Please click the <code>Update</code> button to generate the necessary
-          data.
+          Click <strong>Update</strong> to generate the necessary data.
         </Callout>
       </Flex>
     );
@@ -489,8 +500,8 @@ export function ProductAnalyticsExplorerVisualization({
     return (
       <Flex direction="column" align="center" gap="3" p="4">
         <Callout status="info">
-          Global controls changed. Click the <code>Update</code> button to
-          refresh this block.
+          Global controls changed. Click <strong>Update</strong> to refresh this
+          block.
         </Callout>
       </Flex>
     );
@@ -501,9 +512,7 @@ export function ProductAnalyticsExplorerVisualization({
   return (
     <Flex direction="column" gap="2" style={{ height: "100%", minHeight: 0 }}>
       {compareEnabled && tileRun.comparisonError && (
-        <Callout status="warning" size="sm">
-          {`The comparison period could not be loaded, so only the current period is shown: ${tileRun.comparisonError}`}
-        </Callout>
+        <ComparisonErrorCallout error={tileRun.comparisonError} />
       )}
       {shouldShowTable ? (
         <ExplorerDataTable

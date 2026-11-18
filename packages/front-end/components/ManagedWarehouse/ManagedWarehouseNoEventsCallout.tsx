@@ -1,3 +1,4 @@
+import { ReactNode } from "react";
 import {
   MANAGED_WAREHOUSE_MIGRATING_MESSAGE,
   MANAGED_WAREHOUSE_NO_EVENTS_MESSAGE,
@@ -11,8 +12,10 @@ import Text from "@/ui/Text";
 
 export default function ManagedWarehouseNoEventsCallout({
   size = "md",
+  action,
 }: {
   size?: "sm" | "md";
+  action?: ReactNode;
 }) {
   const { datasources } = useDefinitions();
   // A provisioned warehouse mid-migration shows "upgrading" copy instead of the
@@ -21,14 +24,14 @@ export default function ManagedWarehouseNoEventsCallout({
 
   if (migrating) {
     return (
-      <Callout status="info" size={size}>
+      <Callout status="info" size={size} action={action}>
         <Text size={size}>{MANAGED_WAREHOUSE_MIGRATING_MESSAGE}</Text>
       </Callout>
     );
   }
 
   return (
-    <Callout status="info" size={size}>
+    <Callout status="info" size={size} action={action}>
       <Text size={size}>
         {MANAGED_WAREHOUSE_NO_EVENTS_MESSAGE} Read{" "}
         <Link

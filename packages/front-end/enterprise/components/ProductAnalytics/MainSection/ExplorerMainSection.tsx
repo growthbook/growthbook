@@ -21,6 +21,7 @@ import {
 import Callout from "@/ui/Callout";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { useOptionalSqlEditorContext } from "@/enterprise/components/ProductAnalytics/SqlEditorContext";
+import ComparisonErrorCallout from "./ComparisonErrorCallout";
 import ExplorerChart from "./ExplorerChart";
 import ExplorerDataTable from "./ExplorerDataTable";
 import SqlQuerySection from "./SqlQuerySection";
@@ -120,9 +121,7 @@ function ExplorerVisualizationPane({ emptyState }: { emptyState: ReactNode }) {
     >
       <Toolbar />
       {compareEnabled && comparisonError && !loading && (
-        <Callout status="warning" size="sm">
-          {`The comparison period could not be loaded, so only the current period is shown: ${comparisonError}`}
-        </Callout>
+        <ComparisonErrorCallout error={comparisonError} />
       )}
       <Flex
         direction="column"
