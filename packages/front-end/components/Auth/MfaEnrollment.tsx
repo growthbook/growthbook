@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Flex } from "@radix-ui/themes";
+import { QRCodeSVG } from "qrcode.react";
 import { useAuth } from "@/services/auth";
 import Field from "@/components/Forms/Field";
 import Button from "@/ui/Button";
@@ -83,8 +84,16 @@ export default function MfaEnrollment() {
       }}
     >
       <Flex direction="column" gap="3">
+        <Text>Scan this QR code with your authenticator app:</Text>
+        <QRCodeSVG
+          value={setup.otpauthUrl}
+          size={176}
+          marginSize={2}
+          title="MFA setup QR code"
+          style={{ alignSelf: "center", background: "white" }}
+        />
         <Text>
-          Add GrowthBook to your authenticator app with this setup key, or{" "}
+          Can&apos;t scan it? Enter this setup key instead, or{" "}
           <a href={setup.otpauthUrl}>open it in your authenticator app</a>:
         </Text>
         <code style={{ fontSize: "1.1em", wordBreak: "break-all" }}>
