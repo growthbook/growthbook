@@ -58,17 +58,18 @@ function MigrateEnvironmentField({
       ) : null}
       <EventForwarderEnvironmentSelect
         {...props}
-        helpText={
-          saved.length > 1
-            ? "Other environments stop being forwarded when you migrate."
-            : undefined
-        }
         value={value}
         onChange={(v) => {
           setValue(v);
           onChange(v);
         }}
       />
+      {saved.length > 1 ? (
+        <Callout status="warning" mt="3">
+          Other environments stop being forwarded when you migrate. This
+          can&apos;t be changed later.
+        </Callout>
+      ) : null}
     </>
   );
 }

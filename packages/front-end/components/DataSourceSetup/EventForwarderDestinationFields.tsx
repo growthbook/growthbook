@@ -99,6 +99,7 @@ export function EventForwarderEnvironmentSelect({
   savedAll = false,
   disabled = false,
   helpText,
+  markRequired = true,
 }: {
   value: string;
   onChange: (value: string) => void;
@@ -107,6 +108,8 @@ export function EventForwarderEnvironmentSelect({
   savedAll?: boolean;
   disabled?: boolean;
   helpText?: string;
+  // Off where the other fields mark "(optional)" instead
+  markRequired?: boolean;
 }) {
   const allowAll = !others.length || savedAll;
   return (
@@ -120,7 +123,7 @@ export function EventForwarderEnvironmentSelect({
       initialOption={allowAll ? "All Environments" : undefined}
       placeholder="Select an environment"
       required={!allowAll}
-      markRequired={!allowAll}
+      markRequired={markRequired && !allowAll}
       options={environments.map((e) => {
         const taken = others.includes(e);
         return {
@@ -220,6 +223,42 @@ export function EventForwarderAllTakenCallout({
   );
 }
 
+// Narrowing a live forwarder locks it to that environment
+// - Also when it has several: the select shows and keeps only one
+// - Not before it receives events, while it can still change
+// - Separate from the field, so a caller can give it the full width
+export function EventForwarderNarrowingCallout({
+  value,
+  region,
+  datasourceId,
+  live,
+}: {
+  value: string;
+  region?: DataRegion | null;
+  datasourceId?: string;
+  live: boolean;
+}) {
+  const own = useEventForwardersInRegion(region).filter(
+    (e) => e.datasourceId === datasourceId,
+  );
+  const saved = own.map((e) => e.environment).filter(Boolean);
+  if (
+    !live ||
+    !own.length ||
+    !value ||
+    (saved.length <= 1 && saved.includes(value))
+  ) {
+    return null;
+  }
+  return (
+    <Callout status="warning">
+      After you save, only events from {value} are forwarded. This can&apos;t be
+      changed later, so set up another Event Forwarder for any other
+      environments you need.
+    </Callout>
+  );
+}
+
 // For the current organization; pass the Data Source once it exists.
 // Render EventForwarderAllTakenCallout alongside it.
 export function EventForwarderEnvironmentField({
@@ -229,6 +268,7 @@ export function EventForwarderEnvironmentField({
   datasourceId,
   live = false,
   disabled = false,
+  markRequired,
 }: {
   value: string;
   onChange: (value: string) => void;
@@ -237,6 +277,7 @@ export function EventForwarderEnvironmentField({
   // Has received events, so a saved environment can no longer be changed
   live?: boolean;
   disabled?: boolean;
+  markRequired?: boolean;
 }) {
   const environments = useEnvironments();
   const eventForwarderEnvironments = useEventForwardersInRegion(region);
@@ -266,22 +307,12 @@ export function EventForwarderEnvironmentField({
       onChange={onChange}
       // Nothing can be picked while another forwarder receives all
       disabled={disabled || !!allTakenBy}
+      markRequired={markRequired}
       environments={environments.map((e) => e.id)}
       others={eventForwarderEnvironments
         .filter((e) => e.datasourceId !== datasourceId)
         .map((e) => e.environment)}
       savedAll={own.length > 0 && !saved.length}
-      // Narrowing a live forwarder locks it to that environment
-      // - Also when it has several: the select shows and keeps only one
-      // - Not before it receives events, while it can still change
-      helpText={
-        live &&
-        own.length &&
-        value &&
-        (saved.length > 1 || !saved.includes(value))
-          ? `After you save, only events from ${value} are forwarded. This can't be changed later, so set up another Event Forwarder for any other environments you need.`
-          : undefined
-      }
     />
   );
 }

@@ -48,6 +48,7 @@ import DatabricksEventForwarderForm from "@/components/Settings/DatabricksEventF
 import { useEventForwarderAccessTest } from "@/components/Settings/useEventForwarderAccessTest";
 import {
   EventForwarderAllTakenCallout,
+  EventForwarderNarrowingCallout,
   useEventForwarderAllTakenBy,
   EventForwarderEnvironmentField,
   EventForwarderLockedField,
@@ -411,7 +412,7 @@ function EventForwarderConfirmButton({
     <UITooltip
       content={
         allTaken
-          ? `Another Event Forwarder receives all environments in ${getDataRegionLabel(region)}.`
+          ? `Another Event Forwarder receives all environments in ${getDataRegionLabel(region)}. Choose another data region to continue.`
           : `Confirm that event data flows through GrowthBook's servers in ${getDataRegionLabel(region)} to continue.`
       }
       enabled={allTaken || !usEventForwarderFlowConsent}
@@ -508,6 +509,11 @@ function EventForwarderModal({
     }));
   const saved = dataSource.eventForwarderConfig;
   const isEditingEventForwarder = !!saved;
+  // Has received events, so its environments are locked
+  const live =
+    !!saved &&
+    saved.status !== "unconfigured" &&
+    !(saved.status === "error" && !saved.connectorName);
   const [usEventForwarderFlowConsent, setUsEventForwarderFlowConsent] =
     useState(isEditingEventForwarder);
   const setEventForwarderConfig = (
@@ -637,17 +643,14 @@ function EventForwarderModal({
                 <Grid columns="2" gap="4" align="start">
                   <Box>
                     <EventForwarderEnvironmentField
+                      markRequired={false}
                       // Single select for now, saved as a one-item list
                       value={eventForwarderConfig.environments?.[0] ?? ""}
                       region={
                         eventForwarderConfig.region ?? DEFAULT_DATA_REGION
                       }
                       datasourceId={dataSource.id}
-                      live={
-                        !!saved &&
-                        saved.status !== "unconfigured" &&
-                        !(saved.status === "error" && !saved.connectorName)
-                      }
+                      live={live}
                       onChange={(environment) =>
                         setEventForwarderConfig({
                           ...eventForwarderConfig,
@@ -682,6 +685,14 @@ function EventForwarderModal({
                     />
                   )}
                 </Grid>
+              ) : null}
+              {eventForwarderConfig ? (
+                <EventForwarderNarrowingCallout
+                  value={eventForwarderConfig.environments?.[0] ?? ""}
+                  region={eventForwarderConfig.region ?? DEFAULT_DATA_REGION}
+                  datasourceId={dataSource.id}
+                  live={live}
+                />
               ) : null}
               {isEditingEventForwarder ? (
                 <Callout status="info" mb="0">
