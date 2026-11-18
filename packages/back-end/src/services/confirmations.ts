@@ -76,14 +76,14 @@ function mapSecretFields(
   });
   return record;
 }
-export const sealSecretFields = (
+export const encryptSecretFields = (
   body: unknown,
   fields: readonly string[] | undefined,
 ) =>
   mapSecretFields(body, fields, (v) =>
     AES.encrypt(JSON.stringify(v), ENCRYPTION_KEY).toString(),
   );
-export const openSecretFields = (
+export const decryptSecretFields = (
   body: unknown,
   fields: readonly string[] | undefined,
 ) =>
@@ -370,7 +370,7 @@ export async function requireConfirmation(
       oauthClientId: context.apiKeyData?.oauthClientId,
       project: opts.project || "",
       ...request,
-      body: sealSecretFields(request.body, opts.secretBodyFields),
+      body: encryptSecretFields(request.body, opts.secretBodyFields),
       ...(opts.secretBodyFields?.length
         ? { secretBodyFields: [...opts.secretBodyFields] }
         : {}),

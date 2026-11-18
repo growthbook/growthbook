@@ -4,7 +4,7 @@ import { dispatchInternal, HttpMethod } from "back-end/src/agent/dispatcher";
 import { getContextForApiKeyIdInOrg } from "back-end/src/services/organizations";
 import { encodeArmingApiKeyId } from "back-end/src/util/armingApiKeyId";
 import {
-  openSecretFields,
+  decryptSecretFields,
   toApiConfirmation,
 } from "back-end/src/services/confirmations";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
@@ -118,7 +118,7 @@ export async function decideConfirmation(
       };
     }
     requester.confirmationId = id;
-    const body = openSecretFields(c.body, c.secretBodyFields);
+    const body = decryptSecretFields(c.body, c.secretBodyFields);
     requester.dispatchedRequest = { body, query: c.query };
     response = await dispatchInternal(
       requester,

@@ -1,7 +1,7 @@
 import {
-  openSecretFields,
+  decryptSecretFields,
+  encryptSecretFields,
   redactSecretFields,
-  sealSecretFields,
 } from "back-end/src/services/confirmations";
 
 const body = {
@@ -11,10 +11,10 @@ const body = {
 
 describe("secret body fields", () => {
   it("stores the field encrypted and replays it unchanged", () => {
-    const sealed = sealSecretFields(body, ["connection"]);
-    expect(JSON.stringify(sealed)).not.toContain("hunter2");
-    expect(sealed).toMatchObject({ name: "Warehouse" });
-    expect(openSecretFields(sealed, ["connection"])).toEqual(body);
+    const encrypted = encryptSecretFields(body, ["connection"]);
+    expect(JSON.stringify(encrypted)).not.toContain("hunter2");
+    expect(encrypted).toMatchObject({ name: "Warehouse" });
+    expect(decryptSecretFields(encrypted, ["connection"])).toEqual(body);
   });
 
   it("redacts the field for display", () => {
@@ -25,9 +25,9 @@ describe("secret body fields", () => {
   });
 
   it("leaves bodies without secret fields alone", () => {
-    expect(sealSecretFields(body, undefined)).toBe(body);
-    expect(openSecretFields(body, undefined)).toBe(body);
-    expect(sealSecretFields({ name: "x" }, ["connection"])).toEqual({
+    expect(encryptSecretFields(body, undefined)).toBe(body);
+    expect(decryptSecretFields(body, undefined)).toBe(body);
+    expect(encryptSecretFields({ name: "x" }, ["connection"])).toEqual({
       name: "x",
     });
   });
