@@ -843,6 +843,39 @@ export function toEventForwarderConfigWithMetadata(
   };
 }
 
+// Super admin: changes only which environments a forwarder receives, on
+// either transport. Nothing to re-provision: the ingestor routes by it.
+// - Same rules as an edit: the lock and the overlap check
+// - Rechecked on the fresh row inside the guarded write
+export async function setEventForwarderEnvironments(
+  context: ReqContext,
+  existing: EventForwarderConfigInterface,
+  requestedEnvironments: string[],
+): Promise<EventForwarderConfigInterface> {
+  const environments = normalizeEventForwarderEnvironments(
+    requestedEnvironments,
+  );
+  assertEventForwarderEnvironmentUnchanged(context, existing, environments);
+  await assertNoEventForwarderEnvironmentOverlap(context, environments, {
+    current: existing,
+    adding: hasNeverReceivedEvents(existing),
+  });
+  const updated = await claimingEnvironment(environments, () =>
+    context.models.eventForwarderConfigs.updateWithCas(
+      existing.id,
+      ["environments", "status"],
+      (fresh) => {
+        assertEventForwarderEnvironmentUnchanged(context, fresh, environments);
+        return { environments };
+      },
+    ),
+  );
+  if (!updated) {
+    throw new Error("Cannot find event forwarder config");
+  }
+  return updated;
+}
+
 // Moves a pre-consumer (Confluent connector) config onto the shared consumer
 // topic. Re-normalizes the stored config so it carries `tables`. Confluent
 // resources are left for manual teardown. Only claims the row; the caller
