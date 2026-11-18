@@ -66,6 +66,7 @@ const openApiTags = [
   "segments",
   "reports",
   "sdk-connections",
+  "sdk-connection-revisions",
   "visual-changesets",
   "saved-groups",
   "saved-group-revisions",
@@ -77,6 +78,8 @@ const openApiTags = [
   "custom-hooks",
   "organizations",
   "members",
+  "event-webhooks",
+  "audits",
   "code-references",
   "archetypes",
   "queries",
@@ -179,6 +182,11 @@ const tags: Record<OpenApiTag, { display: string; description: string }> = {
     description:
       "Client keys and settings for connecting SDKs to a GrowthBook instance",
   },
+  "sdk-connection-revisions": {
+    display: "SDK Connection Revisions",
+    description:
+      'Draft revisions for SDK Connections: staged changes to a connection\'s settings and webhooks, their review, and their lifecycle (publish, discard, rebase).\n\nPass `version: "new"` on the edit endpoints to create the draft. Use these when the organization requires approvals for a connection, or to group several changes into one publish.',
+  },
   "visual-changesets": {
     display: "Visual Changesets",
     description:
@@ -258,6 +266,16 @@ const tags: Record<OpenApiTag, { display: string; description: string }> = {
   usage: {
     display: "Usage",
     description: "Usage information for metrics in experiments.",
+  },
+  "event-webhooks": {
+    display: "Event Webhooks",
+    description:
+      "Send GrowthBook events (feature, experiment and other changes) to your own endpoint.",
+  },
+  audits: {
+    display: "Audit Logs",
+    description:
+      "Audit history of who changed what, and the event log that drives event webhooks. Requires permission to view audit logs.",
   },
   meta: {
     display: "Meta",
@@ -352,6 +370,15 @@ function toOpenApiSchema(schema: z.ZodType): z.core.JSONSchema.BaseSchema {
       ) {
         delete (jsonSchema as Record<string, unknown>).pattern;
       }
+      if (isStringOrBooleanUnion(jsonSchema)) {
+        delete jsonSchema.anyOf;
+        jsonSchema.type = "boolean";
+      }
+      // zod 4.6 drops a $ref's description when it equals the target's; keep it so property docs still render
+      const description = z.globalRegistry.get(ctx.zodSchema)?.description;
+      if (jsonSchema.$ref && description && !jsonSchema.description) {
+        jsonSchema.description = description;
+      }
     },
   }) as Record<string, unknown>;
   if ($defs && typeof $defs === "object") {
@@ -366,6 +393,23 @@ function toOpenApiSchema(schema: z.ZodType): z.core.JSONSchema.BaseSchema {
     }
   }
   return rewriteRefs(rest) as z.core.JSONSchema.BaseSchema;
+}
+
+// Boolean query params also accept "true"/"false"/"0"/"1" at runtime; clients should just see a boolean.
+const BOOLEAN_STRINGS: unknown[] = ["true", "false", "0", "1"];
+function isStringOrBooleanUnion(schema: z.core.JSONSchema.BaseSchema): boolean {
+  const members = schema.anyOf as z.core.JSONSchema.BaseSchema[] | undefined;
+  if (!members) return false;
+  const isBoolean = (m: z.core.JSONSchema.BaseSchema) =>
+    m.type === "boolean" && m.const === undefined;
+  return (
+    members.some(isBoolean) &&
+    members.every(
+      (m) =>
+        isBoolean(m) ||
+        (m.type === "string" && BOOLEAN_STRINGS.includes(m.const)),
+    )
+  );
 }
 
 // Remove `default`-bearing properties from every `required` array in a schema
@@ -636,23 +680,14 @@ async function run() {
         bearerAuth: {
           type: "http",
           scheme: "bearer",
-          description: `If using Bearer auth, pass the Secret Key as the token:
-\`\`\`bash
-curl https://api.growthbook.io/api/v1/features \
-  -H "Authorization: Bearer secret_abc123DEF456"
-\`\`\`
-`,
+          description:
+            "Pass your API key as the Bearer token. See [Authentication](/api/introduction#authentication).",
         },
         basicAuth: {
           type: "http",
           scheme: "basic",
-          description: `If using HTTP Basic auth, pass the Secret Key as the username and leave the password blank:
-\`\`\`bash
-curl https://api.growthbook.io/api/v1/features \
-  -u secret_abc123DEF456:
-# The ":" at the end stops curl from asking for a password
-\`\`\`
-`,
+          description:
+            "Pass your API key as the username and leave the password blank. See [Authentication](/api/introduction#authentication).",
         },
       },
     },
@@ -1013,14 +1048,12 @@ curl https://api.growthbook.io/api/v1/features \
   // even if it was never referenced as a sub-schema of a response body.
   for (const [name, zodSchema] of namedSchemaRegistry) {
     if (!componentSchemas[name]) {
-      const {
-        $schema: _,
-        id: _id,
-        ...rest
-      } = z.toJSONSchema(zodSchema, {
-        unrepresentable: "any",
-      }) as Record<string, unknown>;
-      componentSchemas[name] = rewriteRefs(rest);
+      // zod 4.6 emits an id'd root as `$ref` + `$defs`, which toOpenApiSchema hoists into componentSchemas
+      const { id: _id, ...rest } = toOpenApiSchema(zodSchema) as Record<
+        string,
+        unknown
+      >;
+      componentSchemas[name] ??= rest;
     }
   }
 

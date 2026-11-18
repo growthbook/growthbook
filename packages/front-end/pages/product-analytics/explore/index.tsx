@@ -25,8 +25,15 @@ export default function ExplorePage() {
 
   return (
     <Box
-      className="pagecontents container-fluid position-relative"
-      style={{ display: "flex", flex: 1, flexDirection: "column" }}
+      // Full height, so not in the page frame, but with its side and top
+      // padding.
+      className="position-relative"
+      style={{
+        display: "flex",
+        flex: 1,
+        flexDirection: "column",
+        padding: "var(--page-top-padding) var(--page-padding) var(--space-4)",
+      }}
     >
       <Box
         width="100%"
@@ -41,3 +48,4 @@ export default function ExplorePage() {
 }
 
 ExplorePage.mainClassName = "product-analytics-explore-landing";
+ExplorePage.noPageWrapper = true;

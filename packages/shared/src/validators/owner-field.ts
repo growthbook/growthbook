@@ -6,7 +6,7 @@ import { z } from "zod";
 export const ownerField = z
   .string()
   .describe(
-    "The userId of the owner (or raw owner name/email for legacy records)",
+    "The userId of the owner (or raw owner name/email for legacy records). An owner set by email comes back here as its userId; compare against `ownerEmail` instead.",
   );
 
 /**
@@ -17,7 +17,7 @@ export const ownerEmailField = z
   .string()
   .optional()
   .describe(
-    "The email address of the owner, when the owner can be resolved to a known user.",
+    "The email address of the owner, when the owner can be resolved to a known user. Matches an `owner` that was sent as an email address.",
   );
 
 /**

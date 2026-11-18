@@ -5,7 +5,10 @@ import type {
   ProductAnalyticsExploration,
 } from "shared/validators";
 import { ago, datetime } from "shared/dates";
-import { getEffectiveMetricValue } from "shared/enterprise";
+import {
+  getExplorationRenderOpts,
+  getEffectiveMetricValue,
+} from "shared/enterprise";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Text from "@/ui/Text";
 import Tooltip from "@/ui/Tooltip";
@@ -61,9 +64,10 @@ export default function MetricPreviewChart({
 
   const parts = getMetricPreviewPartLabels(metric.metricType);
   const summary = getMetricPreviewSummary(rows, metric);
-  const perUnit =
-    metric.metricType === "ratio" ||
-    submittedExploreState.showAs === "per_unit";
+  const renderOpts = getExplorationRenderOpts(
+    submittedExploreState,
+    getFactMetricById,
+  );
   const cellsByDay = new Map(
     rows.map((row) => [
       String(row.dimensions[0] ?? "").slice(0, 10),
@@ -73,11 +77,9 @@ export default function MetricPreviewChart({
   const days = getDailyBuckets(exploration);
   const dailyValue = (day: string) => {
     const cell = cellsByDay.get(day);
+    // Metric editor previews never have a Population.
     return cell
-      ? getEffectiveMetricValue(cell, {
-          showAs: perUnit ? "per_unit" : "total",
-          isRatio: perUnit,
-        })
+      ? (getEffectiveMetricValue(cell, renderOpts.values[0], undefined) ?? 0)
       : 0;
   };
 

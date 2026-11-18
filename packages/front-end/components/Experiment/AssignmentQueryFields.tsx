@@ -5,7 +5,11 @@ import {
   DataSourceInterfaceWithParams,
   ExposureQuery,
 } from "shared/types/datasource";
-import { getExposureQueryIdentifierTypes } from "shared/util";
+import {
+  getClusterSubUnitIdentifierTypes,
+  getExposureQueryIdentifierTypes,
+  isManagedWarehouse,
+} from "shared/util";
 import { PiInfo, PiWarningFill } from "react-icons/pi";
 import {
   AssignmentQueryNotice,
@@ -113,9 +117,9 @@ export function useAssignmentQuerySelection({
   const hashAttributeIdentifierTypeMap = useMemo(
     () =>
       useHashAttribute
-        ? getHashAttributeIdentifierTypeMap(datasource?.settings?.userIdTypes)
+        ? getHashAttributeIdentifierTypeMap(datasource)
         : new Map<string, string[]>(),
-    [useHashAttribute, datasource?.settings?.userIdTypes],
+    [useHashAttribute, datasource],
   );
   const identifierTypes = useMemo(() => {
     const selectable = getSelectableIdentifierTypes(exposureQueries);
@@ -492,16 +496,22 @@ export default function AssignmentQueryFields({
 export const POST_STRATIFICATION_CLUSTER_MESSAGE =
   "Post-stratification isn't supported for cluster experiments.";
 
-/** The query's identifier types a cluster experiment can analyze on. */
-export function getClusterSubUnitOptions(
+export function useClusterSubUnitOptions(
+  datasource: DataSourceInterfaceWithParams | null | undefined,
   exposureQuery: ExposureQuery | undefined,
   identifierType: string | undefined,
 ): string[] {
-  return exposureQuery
-    ? getExposureQueryIdentifierTypes(exposureQuery).filter(
-        (type) => type !== identifierType,
-      )
-    : [];
+  return useMemo(
+    () =>
+      exposureQuery
+        ? getClusterSubUnitIdentifierTypes(
+            exposureQuery,
+            datasource,
+            identifierType,
+          )
+        : [],
+    [datasource, exposureQuery, identifierType],
+  );
 }
 
 export const CLUSTER_OFF_FOR_DATASOURCE_MESSAGE =
@@ -533,6 +543,7 @@ export function getClusterChangeAfterLaunch(
 }
 
 export function ClusterExperimentFields({
+  datasource,
   exposureQuery,
   identifierType,
   isClusterExperiment,
@@ -543,6 +554,7 @@ export function ClusterExperimentFields({
   changedAfterLaunch,
   asRows = false,
 }: {
+  datasource: DataSourceInterfaceWithParams | null | undefined;
   exposureQuery: ExposureQuery | undefined;
   identifierType: string | undefined;
   isClusterExperiment: boolean;
@@ -555,9 +567,10 @@ export function ClusterExperimentFields({
   asRows?: boolean;
 }) {
   const { hasCommercialFeature } = useUser();
-  const subUnitOptions = useMemo(
-    () => getClusterSubUnitOptions(exposureQuery, identifierType),
-    [exposureQuery, identifierType],
+  const subUnitOptions = useClusterSubUnitOptions(
+    datasource,
+    exposureQuery,
+    identifierType,
   );
   // A new query or identifier can leave the chosen subunit off the list.
   useEffect(() => {
@@ -643,6 +656,8 @@ export function ClusterExperimentFields({
             <IdentifierCode>{subUnitIdentifier}</IdentifierCode> wherever they
             can be.
           </>
+        ) : datasource && isManagedWarehouse(datasource) ? (
+          "This Data Source has no other identifier type to analyze on."
         ) : exposureQuery ? (
           `${exposureQuery.name} doesn't declare another identifier type to analyze on.`
         ) : (

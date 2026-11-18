@@ -13,6 +13,7 @@ const revisionEntityTypeField = z.enum([
   "saved-group",
   "config",
   "constant",
+  "sdk-connection",
 ]);
 const entityTypeField = z.enum([
   ...revisionEntityTypeField.options,
@@ -64,6 +65,16 @@ export const publishRevisionsItem = z.union([
       .object({
         entityType: z.literal("constant"),
         key: z.string().describe("Constant key."),
+        version: z.number().int().describe("Revision version to publish."),
+      })
+      .strict(),
+  ),
+  namedSchema(
+    "SdkConnectionRevisionRef",
+    z
+      .object({
+        entityType: z.literal("sdk-connection"),
+        id: z.string().describe("SDK Connection id."),
         version: z.number().int().describe("Revision version to publish."),
       })
       .strict(),
@@ -161,9 +172,9 @@ export const postReleasePublishRevisionsValidator = {
   operationId: "postReleasePublishRevisions",
   summary: "Atomically publish revisions across multiple entities",
   description:
-    'Publishes a set of revisions — at most one per entity — across Feature Flags, Saved Groups, configs, and constants as a single all-or-nothing operation. A Values experiment\'s managed Feature Flag is addressed by experiment with `entityType: "managed-feature"`; the experiment must already be running, since a draft experiment publishes its pending values when it starts.\n\n' +
+    'Publishes a set of revisions — at most one per entity — across Feature Flags, Saved Groups, Configs, Constants, and SDK Connections as a single all-or-nothing operation. A Values experiment\'s managed Feature Flag is addressed by experiment with `entityType: "managed-feature"`; the experiment must already be running, since a draft experiment publishes its pending values when it starts.\n\n' +
     "Validation, guards, and custom hooks run against the combined end-state of the whole set, so interdependent changes (e.g. a config schema change plus the values that depend on it) publish together even when the in-between states would be invalid.\n\n" +
-    "A blocked publish returns one 422 listing every gate across every item and the flag that clears each. A concurrent change to any target aborts with a 409 and nothing publishes. A failure after the commit starts rolls everything back and emits `revision.publishFailed` for each revision in the set. SDK payloads refresh once per request. Pass `dryRun: true` for the full gate report with zero writes.\n\n" +
+    "A blocked publish returns one 422 listing every gate across every item and the flag that clears each. A concurrent change to any target aborts with a 409 and nothing publishes. A failure after the commit starts rolls everything back, including an SDK Connection's webhooks, and emits `revision.publishFailed` for each revision in the set that has revision events. SDK payloads refresh once per request, and a webhook an SDK Connection revision edits is sent only once the release has landed. Pass `dryRun: true` for the full gate report with zero writes.\n\n" +
     "Requires the `releases` commercial feature.",
   tags: ["releases"],
   paramsSchema: z.never(),
@@ -195,7 +206,7 @@ export const postReleasePublishRevisionsValidator = {
         .boolean()
         .optional()
         .describe(
-          `Set to true to publish despite Custom Hook rejections. The caller must have Bypass draft approvals access for Feature Flags, Configs, and Constants in every Project. ${HUMAN_OVERRIDE_NOTE}`,
+          `Set to true to publish despite Custom Hook rejections. The caller must have Bypass draft approvals access for Feature Flags, Configs, and Constants in every Project. A Custom Hook on an SDK Connection takes that access for SDK Connections. ${HUMAN_OVERRIDE_NOTE}`,
         ),
       comment: z
         .string()

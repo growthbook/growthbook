@@ -12,6 +12,7 @@ import { HoldoutSchedule } from "@/components/Holdout/HoldoutSchedule";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
 import { hasStatusSchedule } from "@/components/Experiment/TabbedPage/statusSchedule";
+import { SCROLL_MARGIN_UNDER_TABS } from "@/components/Layout/constants";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
@@ -51,7 +52,12 @@ export default function SetupTabOverview({
   return (
     <div>
       {isHoldout && holdout && hasStatusSchedule(holdout) && editSchedule ? (
-        <Frame id="holdout-schedule" style={{ scrollMarginTop: "100px" }}>
+        <Frame
+          id="holdout-schedule"
+          style={{
+            scrollMarginTop: SCROLL_MARGIN_UNDER_TABS,
+          }}
+        >
           <Flex align="center" justify="between" className="text-dark">
             <Heading color="text-high" mb="0" as="h4" size="sm">
               Holdout Schedule

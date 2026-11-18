@@ -7,7 +7,7 @@ import {
 import { eventUserIdentity, FeatureInterface } from "shared/validators";
 import { EventUser } from "shared/types/events/event-types";
 import { ReqContext } from "back-end/types/request";
-import { BadRequestError } from "back-end/src/util/errors";
+import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { mayBeRevisionAuthor } from "back-end/src/revisions/revisionAuthority";
 import { ApiReqContext } from "back-end/types/api";
 import {
@@ -69,7 +69,7 @@ export async function submitFeatureRevisionReview({
     });
   const revision = await loadRevision();
   if (!revision) {
-    throw new Error("Could not find feature revision");
+    throw new NotFoundError("Could not find feature revision");
   }
 
   if (review !== "Comment") {

@@ -74,6 +74,7 @@ import Heading from "@/ui/Heading";
 import Frame from "@/ui/Frame";
 import useExperimentEditing from "@/components/Experiment/TabbedPage/useExperimentEditing";
 import type { AnalysisFormFocus } from "@/components/Experiment/AnalysisForm";
+import { SCROLL_MARGIN_UNDER_TABS } from "@/components/Layout/constants";
 import HoldoutEnvironments from "./HoldoutEnvironments";
 import {
   FlagEnvironmentsDraft,
@@ -134,6 +135,8 @@ export interface Props {
   urlRedirects: URLRedirectInterface[];
   mutate: () => void;
   editTargeting?: (() => void) | null;
+  /** Opens the Make Changes form, set where it's the way to edit delivery. */
+  makeChanges?: ((openAt?: "traffic") => void) | null;
   targetingDraft?: TargetingDraft;
   analysisSettingsOpen: boolean;
   setAnalysisSettingsOpen: (open: boolean) => void;
@@ -163,6 +166,7 @@ export default function Implementation({
   urlRedirects,
   mutate,
   editTargeting,
+  makeChanges,
   targetingDraft,
   analysisSettingsOpen,
   setAnalysisSettingsOpen,
@@ -662,7 +666,7 @@ export default function Implementation({
       <div
         id={IMPLEMENTATION_ID}
         className="my-4"
-        style={{ scrollMarginTop: "100px" }}
+        style={{ scrollMarginTop: SCROLL_MARGIN_UNDER_TABS }}
       >
         <Heading as="h4" size="sm" color="text-high" mb="2">
           Implementation
@@ -680,6 +684,7 @@ export default function Implementation({
               editTargeting={
                 pendingScheduledStart || !canEdit ? null : editTargeting
               }
+              makeChanges={canEdit ? makeChanges : null}
               targetingDraft={targetingDraft}
               editNamespace={
                 pendingScheduledStart || !canEdit ? null : editNamespace

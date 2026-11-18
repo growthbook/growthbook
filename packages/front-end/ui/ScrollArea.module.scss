@@ -94,7 +94,12 @@
     right: -6px;
     width: 6px;
     pointer-events: none;
-    background: linear-gradient(to right, var(--edge-shadow), 30%, transparent);
+    background: linear-gradient(
+      to right,
+      var(--edge-shadow-deep),
+      30%,
+      transparent
+    );
   }
 }
 
@@ -134,8 +139,11 @@
     height: var(--shadow-size);
   }
 
+  // Sideways shadows fall beside columns of plain cells, where the faint
+  // shade a header casts doesn't show.
   &[data-edge="left"],
   &[data-edge="right"] {
+    --shadow-color: var(--edge-shadow-deep);
     top: 0;
     bottom: 0;
     width: var(--shadow-size);

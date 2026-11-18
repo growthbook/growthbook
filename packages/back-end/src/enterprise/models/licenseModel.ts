@@ -19,6 +19,10 @@ const licenseSchema = new mongoose.Schema({
   inviteSeatsInUse: { type: Number }, // Number of invite seats currently in use
   stripeCustomerId: String, // The Stripe customer ID for the license
   remoteDowngrade: { type: Boolean, default: false }, // True if this license was downgraded remotely
+  paymentFailure: {
+    invoiceId: String,
+    downgradeAt: Date,
+  },
   message: {
     text: String, // The text to show in the account notice
     className: String, // The class name to apply to the account notice
@@ -117,6 +121,17 @@ export async function _dangerousGetLicenseRefsBySubscriptionStatus(
       "stripeSubscription.status": { $in: statuses },
     },
   ];
+  // Same check as isOrbPaymentPastDue
+  const orbPaymentPastDue = {
+    "orbSubscription.id": { $nin: [null, ""] },
+    "orbSubscription.status": "active",
+    "paymentFailure.invoiceId": { $nin: [null, ""] },
+  };
+  if (status === "past_due") {
+    return getLicenseRefs({
+      $or: [...subscriptionMatches([status]), orbPaymentPastDue],
+    });
+  }
   return getLicenseRefs({
     $or:
       status === "trialing"
@@ -125,7 +140,10 @@ export async function _dangerousGetLicenseRefsBySubscriptionStatus(
             // getAdminOrgSummary shows past_due and canceled over isTrial
             {
               isTrial: true,
-              $nor: subscriptionMatches(["past_due", "canceled"]),
+              $nor: [
+                ...subscriptionMatches(["past_due", "canceled"]),
+                orbPaymentPastDue,
+              ],
             },
           ]
         : subscriptionMatches([status]),

@@ -93,6 +93,7 @@ interface BaseSettings {
   banditScheduleUnit: "hours" | "days";
   banditBurnInValue: number;
   banditBurnInUnit: "hours" | "days";
+  banditPeriodWeighting: boolean;
   experimentMinLengthDays: number;
   defaultExperimentImplementation: SelectableImplementationType;
   experimentMaxLengthDays: number | undefined;

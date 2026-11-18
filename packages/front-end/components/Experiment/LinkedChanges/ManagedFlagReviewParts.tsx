@@ -232,7 +232,7 @@ export function ManagedValues({
 
   const envState = (envId: string, enabled: boolean) => (
     <Flex align="center" gap="2" minWidth="0">
-      <EnvEnabledIndicator enabled={enabled} />
+      <EnvEnabledIndicator enabled={enabled} besideApprovals />
       <Text weight="medium" color="text-high" truncate title={envId}>
         {envId}
       </Text>

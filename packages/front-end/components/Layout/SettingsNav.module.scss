@@ -1,26 +1,20 @@
 .nav {
   position: fixed;
-  top: calc(56px + var(--settings-nav-inset));
-  bottom: 0;
-  // Against the sidebar, its right edge where the page content expects it.
-  left: var(--settings-sidebar-width);
-  width: calc(var(--settings-nav-width) + var(--settings-nav-inset));
-  padding-left: var(--settings-nav-inset);
+  top: var(--header-height);
+  bottom: var(--settings-nav-inset);
+  left: var(--settings-nav-left);
+  width: var(--settings-nav-width);
   display: flex;
   flex-direction: column;
   overflow: hidden;
   z-index: 999;
   font-size: 13px;
-
-  // Below this, pages beside it get too narrow; the sidebar lists the pages instead.
-  @media (max-width: 1399px) {
-    display: none;
-  }
 }
 
-// Lines the title up with the page titles beside it.
+// The title starts where page titles do, --page-top-padding under the
+// header.
 .header {
-  padding: var(--space-4) var(--space-3);
+  padding: var(--page-top-padding) var(--space-3) var(--space-4);
 }
 
 .kbd {
@@ -40,22 +34,26 @@
 }
 
 .resultText {
-  padding: 0 14px 8px;
+  padding: 0 var(--space-3) 8px;
   font-size: 12px;
   color: var(--gray-11);
 }
 
-.scrollArea {
+.scroll {
   flex: 1;
   min-height: 0;
-}
-
-.scroll {
-  // The bottom leaves room for General's fixed save bar, so the last items scroll clear of it.
-  padding: 4px 12px var(--space-8);
+  overflow-y: auto;
+  // 4px on the left: the items' text sits on the title's edge, their fills
+  // 8px outside it.
+  padding: 4px 12px var(--space-3) 4px;
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
+
+  // Room for General's fixed save bar, so the last items scroll clear of it.
+  .nav & {
+    padding-bottom: var(--space-8);
+  }
 }
 
 .group {
@@ -64,9 +62,8 @@
   gap: 1px;
 }
 
-// Flush with the search box; the items indent past it.
 .groupLabel {
-  padding: 0 0 6px;
+  padding: 0 8px 6px;
   font-size: 11px;
   font-weight: 600;
   text-transform: uppercase;

@@ -34,10 +34,8 @@ import {
   revisionStatusIcon,
   revisionStatusLabel,
 } from "@/components/Reviews/RevisionStatusBadge";
-import {
-  TABS_BAR_HEIGHT_PX,
-  TABS_HEADER_HEIGHT_PX,
-} from "@/components/Layout/constants";
+import { TABS_BAR_HEIGHT_PX } from "@/components/Layout/constants";
+import { useTabsTop } from "@/components/Layout/pageTopOffset";
 import useManagedFlagReview, {
   ManagedFlagReview,
 } from "@/components/Experiment/LinkedChanges/useManagedFlagReview";
@@ -48,9 +46,6 @@ import {
 } from "@/components/Experiment/LinkedChanges/ManagedFlagReviewParts";
 import { getExperimentReviewTitle } from "./startActions";
 import { useEditsBlockedReason } from "./ExperimentEdits";
-
-// Under the sticky header and tab bar, with a gap.
-const CARD_TOP_PX = TABS_HEADER_HEIGHT_PX + TABS_BAR_HEIGHT_PX + 16;
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
@@ -106,6 +101,8 @@ export default function ExperimentReview({
   exit,
 }: Props) {
   const review = useManagedFlagReview({ experiment, info, mutate });
+  // Under the sticky header and tab bar, with a gap.
+  const cardTop = useTabsTop() + TABS_BAR_HEIGHT_PX + 16;
   const editsBlocked = useEditsBlockedReason();
   const isDraft = experiment.status === "draft";
 
@@ -159,7 +156,7 @@ export default function ExperimentReview({
           width={{ initial: "100%", md: "360px" }}
           minWidth={{ initial: "0", md: "360px" }}
           flexShrink="0"
-          style={{ position: "sticky", top: CARD_TOP_PX }}
+          style={{ position: "sticky", top: cardTop }}
         >
           <ReviewCard
             experimentId={experiment.id}

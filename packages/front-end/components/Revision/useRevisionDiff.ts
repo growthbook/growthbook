@@ -1,5 +1,6 @@
 import { ReactNode, useMemo, useState } from "react";
 import isEqual from "lodash/isEqual";
+import type { Revision } from "shared/enterprise";
 import type { DiffBadge } from "@/components/AuditHistoryExplorer/types";
 
 // Export DiffBadge for external use
@@ -17,6 +18,15 @@ export interface RevisionDiffSection<T> {
 export interface RevisionDiffConfig<T> {
   sections: RevisionDiffSection<T>[];
   normalizeSnapshot?: (snapshot: T) => T;
+  // A snapshot, less what is managed outside the entity. Asking whether live
+  // has moved since a draft was cut compares these.
+  behindLiveView?: (snapshot: T) => T;
+  // What publishing a draft would make of live. Defaults to overlaying the
+  // draft's top-level ops; supplied where the server merges them more finely.
+  proposedStateFor?: (
+    revision: { target: { snapshot: unknown; proposedChanges: unknown } },
+    live: T,
+  ) => T;
 }
 
 export interface DiffItem {
@@ -147,4 +157,39 @@ export function useRevisionDiff<T>(
     badges,
     customRenderGroups,
   };
+}
+
+function stripNullish<T>(obj: T): T {
+  if (!obj || typeof obj !== "object") return obj;
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(obj as Record<string, unknown>)) {
+    if (v === null || v === undefined) continue;
+    out[k] = v;
+  }
+  return out as T;
+}
+
+// Whether live has moved since a revision's base snapshot was taken. Both
+// sides are nullish-stripped as the server stores snapshots, or an unset
+// optional field (absent in the snapshot, `null` on live) reads as a change no
+// rebase can clear.
+export function useRevisionBehindLive<T>(
+  revision: Revision | null,
+  live: T,
+  config: RevisionDiffConfig<T>,
+): boolean {
+  const snapshot = revision?.target.snapshot;
+  const view = config.behindLiveView;
+  const current = useMemo(
+    () => stripNullish(view ? view(live) : live),
+    [live, view],
+  );
+  const base = useMemo(
+    () =>
+      snapshot
+        ? stripNullish(view ? view(snapshot as T) : (snapshot as T))
+        : current,
+    [snapshot, current, view],
+  );
+  return useRevisionDiff<T>(base, current, config).diffs.length > 0;
 }

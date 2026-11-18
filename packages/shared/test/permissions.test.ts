@@ -1237,6 +1237,45 @@ describe("event webhook permissions", () => {
   });
 });
 
+describe("SDK webhook permissions", () => {
+  const none: UserPermission = {
+    permissions: {},
+    limitAccessByEnvironment: false,
+    environments: [],
+  };
+
+  it("take the SDK webhook permission, scoped by the connection", () => {
+    const p = new Permissions({
+      global: none,
+      projects: {
+        prj_a: {
+          permissions: { manageSDKWebhooks: true },
+          limitAccessByEnvironment: true,
+          environments: ["dev"],
+        },
+      },
+    });
+    const connection = (project: string, environment: string) => ({
+      projects: [project],
+      environment,
+    });
+    expect(p.canManageSomeSDKWebhooks()).toBe(true);
+    expect(p.canUpdateSDKWebhook(connection("prj_a", "dev"))).toBe(true);
+    expect(p.canUpdateSDKWebhook(connection("prj_a", "prod"))).toBe(false);
+    expect(p.canUpdateSDKWebhook(connection("prj_b", "dev"))).toBe(false);
+    expect(p.canManageLegacySDKWebhooks()).toBe(false);
+  });
+
+  it("aren't opened by the event webhook permission", () => {
+    const p = new Permissions({
+      global: { ...none, permissions: { manageEventWebhooks: true } },
+      projects: {},
+    });
+    expect(p.canManageSomeSDKWebhooks()).toBe(false);
+    expect(p.canManageLegacySDKWebhooks()).toBe(true);
+  });
+});
+
 describe("canManageFeatureCustomHooks", () => {
   const testOrg: OrganizationInterface = {
     id: "org_sktwi1id9l7z9xkjb",
@@ -1795,5 +1834,41 @@ describe("assignment query permissions", () => {
     expect(
       p.canRunPastExperimentQuery({ projects: ["prj_a"] }, datasource),
     ).toBe(false);
+  });
+});
+
+describe("canViewCreatePopulation", () => {
+  const managePopulations: UserPermission = {
+    permissions: { managePopulations: true },
+    limitAccessByEnvironment: false,
+    environments: [],
+  };
+  const none: UserPermission = {
+    permissions: {},
+    limitAccessByEnvironment: false,
+    environments: [],
+  };
+  const allProjects = [{ id: "prj_a" }, { id: "prj_b" }];
+
+  it("checks the selected Project", () => {
+    const p = new Permissions({
+      global: none,
+      projects: { prj_a: managePopulations },
+    });
+    expect(p.canViewCreatePopulation("prj_a", allProjects)).toBe(true);
+    expect(p.canViewCreatePopulation("prj_b", allProjects)).toBe(false);
+  });
+
+  it("allows All Projects when the user can create in one Project", () => {
+    const p = new Permissions({
+      global: none,
+      projects: { prj_a: managePopulations },
+    });
+    expect(p.canViewCreatePopulation("", allProjects)).toBe(true);
+  });
+
+  it("blocks All Projects when the user can't create anywhere", () => {
+    const p = new Permissions({ global: none, projects: {} });
+    expect(p.canViewCreatePopulation("", allProjects)).toBe(false);
   });
 });

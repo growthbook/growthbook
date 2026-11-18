@@ -1,6 +1,8 @@
 import { AES, enc } from "crypto-js";
 import uniqid from "uniqid";
 import { isReadOnlySQL } from "shared/sql";
+import { getDimensionRequiredColumns } from "shared/experiments";
+import { DimensionInterface } from "shared/types/dimension";
 import {
   SqlDialect,
   SqlIdentifierQuote,
@@ -543,7 +545,7 @@ export async function testQueryValidity(
     return undefined;
   }
 
-  // Dimensions and name columns aren't remappable, so they stay canonical
+  // Dimensions aren't remappable, so they stay canonical
   const requiredColumns = new Set([
     getExposureQueryExperimentIdColumn(query),
     getExposureQueryVariationIdColumn(query),
@@ -571,6 +573,35 @@ export async function testQueryValidity(
       sql,
       undefined,
       "exposureQueryValidation",
+      null,
+    );
+    return findMissingRequiredColumns(
+      results,
+      requiredColumns,
+      integration.columnNamesAreCaseSensitive,
+    );
+  } catch (e) {
+    return e.message;
+  }
+}
+
+export async function testDimensionQueryValidity(
+  integration: SourceIntegrationInterface,
+  dimension: Pick<DimensionInterface, "sql" | "userIdType" | "timing">,
+  testDays?: number,
+): Promise<string | undefined> {
+  if (!integration.getTestValidityQuery || !integration.runTestQuery) {
+    return undefined;
+  }
+
+  const requiredColumns = new Set(getDimensionRequiredColumns(dimension));
+
+  const sql = integration.getTestValidityQuery(dimension.sql, testDays);
+  try {
+    const results = await integration.runTestQuery(
+      sql,
+      undefined,
+      "dimensionValidation",
       null,
     );
     return findMissingRequiredColumns(

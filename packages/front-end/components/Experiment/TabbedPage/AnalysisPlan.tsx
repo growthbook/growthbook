@@ -56,7 +56,7 @@ import { getOverridesBlockedReason } from "@/services/metricOverrides";
 import AssignmentQueryFields, {
   CLUSTER_OFF_FOR_DATASOURCE_MESSAGE,
   ClusterExperimentFields,
-  getClusterSubUnitOptions,
+  useClusterSubUnitOptions,
   getClusterChangeAfterLaunch,
   useAssignmentQuerySelection,
 } from "@/components/Experiment/AssignmentQueryFields";
@@ -521,11 +521,8 @@ export default function AnalysisPlan({
   const hiddenDatasource =
     !!datasource && !selectedDatasource && !deletedDatasource;
   const hashAttributeIdentifierTypeMap = useMemo(
-    () =>
-      getHashAttributeIdentifierTypeMap(
-        selectedDatasource?.settings?.userIdTypes,
-      ),
-    [selectedDatasource?.settings?.userIdTypes],
+    () => getHashAttributeIdentifierTypeMap(selectedDatasource),
+    [selectedDatasource],
   );
   const resolution = resolveSelection(
     selectedDatasource,
@@ -940,6 +937,11 @@ function DataSourceModal({
   const clusterIdentifier = exposureQuery
     ? resolveAnalysisIdentifierType(exposureQuery, identifierType)
     : undefined;
+  const clusterSubUnitOptions = useClusterSubUnitOptions(
+    selected,
+    exposureQuery,
+    clusterIdentifier,
+  );
   const supportsClusterExperiments = !!selected?.properties?.exposureQueries;
   const isClusterExperiment = supportsClusterExperiments && clusterChecked;
   const clusterChangedAfterLaunch = getClusterChangeAfterLaunch(experiment, {
@@ -963,9 +965,7 @@ function DataSourceModal({
       ctaEnabled={
         changed &&
         (!isClusterExperiment ||
-          getClusterSubUnitOptions(exposureQuery, clusterIdentifier).includes(
-            clusterSubUnitIdentifier,
-          ))
+          clusterSubUnitOptions.includes(clusterSubUnitIdentifier))
       }
       trackingEventModalType="experiment-data-source"
       submit={() => {
@@ -1000,6 +1000,7 @@ function DataSourceModal({
       ) : null}
       {supportsClusterExperiments ? (
         <ClusterExperimentFields
+          datasource={selected}
           exposureQuery={exposureQuery}
           identifierType={clusterIdentifier}
           isClusterExperiment={isClusterExperiment}
@@ -1039,9 +1040,8 @@ function resolveSelection(
     query: settings?.queries?.exposure?.find((q) => q.id === exposureQueryId),
     identifierType,
     hashAttribute,
-    hashAttributeIdentifierTypeMap: getHashAttributeIdentifierTypeMap(
-      settings?.userIdTypes,
-    ),
+    hashAttributeIdentifierTypeMap:
+      getHashAttributeIdentifierTypeMap(datasource),
   });
 }
 

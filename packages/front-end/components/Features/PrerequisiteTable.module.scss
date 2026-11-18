@@ -1,0 +1,35 @@
+.table {
+  :global(.rt-ScrollAreaRoot),
+  :global(.rt-ScrollAreaViewport),
+  :global(.rt-TableRootTable) {
+    overflow: visible !important;
+  }
+
+  :global(.rt-ScrollAreaScrollbar) {
+    display: none;
+  }
+
+  // A row's name, details and statuses on one line.
+  :global(.rt-TableCell),
+  :global(.rt-TableColumnHeaderCell) {
+    vertical-align: middle;
+  }
+}
+
+// Stays put while the environments scroll under it.
+.pinned {
+  position: sticky;
+  z-index: 1;
+  background: var(--color-panel-solid);
+}
+
+.environmentColumnName {
+  margin: 0 auto;
+  // As the environment cards name it.
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-mid);
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

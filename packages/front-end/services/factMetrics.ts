@@ -23,5 +23,6 @@ export function getFactMetricCommercialFeature(
   if (metricType === "quantile") return "quantile-metrics" as const;
   if (metricType === "retention") return "retention-metrics" as const;
   if (metricType === "funnel") return "funnel-metrics" as const;
+  if (metricType === "compound") return "compound-metrics" as const;
   return null;
 }

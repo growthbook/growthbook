@@ -15,7 +15,7 @@ import {
   PiGearFill,
   PiFilePlus,
   PiGitCommit,
-  PiPencilSimpleFill,
+  PiPencilSimple,
   PiPlusMinusBold,
   PiProhibitFill,
   PiRocketLaunch,
@@ -220,7 +220,7 @@ export function rowVisual(action: string): RowVisual {
       return {
         color: "gray",
         verb: "edited the revision description",
-        icon: <PiPencilSimpleFill />,
+        icon: <PiPencilSimple />,
         showCommentBody: false,
         showAuditDetails: false,
       };
@@ -228,7 +228,7 @@ export function rowVisual(action: string): RowVisual {
       return {
         color: "gray",
         verb: "edited the revision title",
-        icon: <PiPencilSimpleFill />,
+        icon: <PiPencilSimple />,
         showCommentBody: false,
         showAuditDetails: false,
       };
