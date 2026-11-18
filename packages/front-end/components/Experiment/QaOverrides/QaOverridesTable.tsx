@@ -17,7 +17,6 @@ import { ExperimentQaOverrideWithStatus } from "shared/types/experiment-qa-overr
 import { QaOverrideGroup, QaOverrideNameLookups } from "@/services/qaOverrides";
 import useSortableItem from "@/hooks/useSortableItem";
 import FunnelStepDragHandle from "@/components/FactTables/FunnelStepDragHandle";
-import Link from "@/ui/Link";
 import Text from "@/ui/Text";
 import VariationLabel from "@/ui/VariationLabel";
 import {
@@ -39,15 +38,11 @@ import styles from "./QaOverridesTable.module.scss";
 
 export type QaOverrideRow = {
   override: ExperimentQaOverrideWithStatus;
-  // Set on the SDK Connection page, where rows span experiments.
-  experiment?: { id: string; name: string };
   variations: { id: string; name: string }[];
 };
 
 export type QaOverridesTableProps = {
   groups: QaOverrideGroup<QaOverrideRow>[];
-  /** First column of the flat layout: the environment, or the experiment. */
-  leading: "environment" | "experiment";
   /** Environment header rows with priority numbers, for when order matters. */
   grouped?: boolean;
   /** Drag handles inside each environment group. Needs `grouped`. */
@@ -92,7 +87,6 @@ function VariationCell({ row }: { row: QaOverrideRow }) {
 function RowCells({
   row,
   priority,
-  leading,
   grouped,
   handle,
   showActions,
@@ -108,7 +102,6 @@ function RowCells({
   showActions: boolean;
 } & Pick<
   QaOverridesTableProps,
-  | "leading"
   | "grouped"
   | "lookups"
   | "canEdit"
@@ -125,16 +118,6 @@ function RowCells({
           <Text size="sm" weight="semibold" color="text-mid">
             {priority}
           </Text>
-        </TableCell>
-      ) : leading === "experiment" ? (
-        <TableCell>
-          {row.experiment ? (
-            <Link href={`/experiment/${row.experiment.id}`}>
-              {row.experiment.name}
-            </Link>
-          ) : (
-            row.override.experiment
-          )}
         </TableCell>
       ) : (
         <TableCell>
@@ -226,7 +209,6 @@ function Group({
   reorderable: boolean;
 } & Pick<
   QaOverridesTableProps,
-  | "leading"
   | "grouped"
   | "lookups"
   | "canEdit"
@@ -314,7 +296,6 @@ function Group({
 
 export default function QaOverridesTable({
   groups,
-  leading,
   grouped = false,
   reorderable = false,
   lookups,
@@ -343,10 +324,8 @@ export default function QaOverridesTable({
           {grouped ? (
             <TableColumnHeader aria-label="Priority" style={{ width: 36 }} />
           ) : (
-            <TableColumnHeader
-              style={{ width: leading === "environment" ? 136 : undefined }}
-            >
-              {leading === "environment" ? "Environment" : "Experiment"}
+            <TableColumnHeader style={{ width: 136 }}>
+              Environment
             </TableColumnHeader>
           )}
           <TableColumnHeader>Filters</TableColumnHeader>
@@ -363,7 +342,6 @@ export default function QaOverridesTable({
             key={group.environment}
             group={group}
             columns={columns}
-            leading={leading}
             grouped={grouped}
             reorderable={showHandles}
             showActions={showActions}

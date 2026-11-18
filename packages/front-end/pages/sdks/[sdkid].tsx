@@ -36,7 +36,6 @@ import useApi from "@/hooks/useApi";
 import { useSDKConnectionRevision } from "@/hooks/useSDKConnectionRevision";
 import PageHead from "@/components/Layout/PageHead";
 import SdkWebhooks from "@/components/Features/SDKConnections/SdkWebhooks";
-import SdkQaOverridesSection from "@/components/Features/SDKConnections/SdkQaOverridesSection";
 import CustomHooksSection from "@/components/CustomHooks/CustomHooksSection";
 import { isCloud } from "@/services/env";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
@@ -781,27 +780,23 @@ export default function SDKConnectionPage() {
         <div className="details-column">
           <Box className="contents container-fluid pagecontents">
             {tab === "overview" && (
-              <>
-                <SDKConnectionOverview
-                  // Starts over from what's saved when the viewed revision changes.
-                  key={selectedRevisionId ?? "live"}
-                  connection={displayedConnection}
-                  liveConnection={connection}
-                  staged={staged}
-                  canEdit={canUpdate && !isReadOnly}
-                  blockedReason={editBlockedReason}
-                  connections={data.connections.map((c) =>
-                    c.id === displayedConnection.id ? displayedConnection : c,
-                  )}
-                  mutate={refreshAll}
-                  viewingLive={
-                    !selectedRevision ||
-                    selectedRevision.id === liveRevision?.id
-                  }
-                  onRevisionCreated={onRevisionCreated}
-                />
-                <SdkQaOverridesSection connection={connection} />
-              </>
+              <SDKConnectionOverview
+                // Starts over from what's saved when the viewed revision changes.
+                key={selectedRevisionId ?? "live"}
+                connection={displayedConnection}
+                liveConnection={connection}
+                staged={staged}
+                canEdit={canUpdate && !isReadOnly}
+                blockedReason={editBlockedReason}
+                connections={data.connections.map((c) =>
+                  c.id === displayedConnection.id ? displayedConnection : c,
+                )}
+                mutate={refreshAll}
+                viewingLive={
+                  !selectedRevision || selectedRevision.id === liveRevision?.id
+                }
+                onRevisionCreated={onRevisionCreated}
+              />
             )}
             {tab === "review" && (
               <ReviewAndPublishTab<SDKConnectionRevisionSnapshot>

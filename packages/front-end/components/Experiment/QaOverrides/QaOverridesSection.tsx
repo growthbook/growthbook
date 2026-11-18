@@ -219,7 +219,6 @@ export default function QaOverridesSection({
         {overrides.length > 0 && (
           <QaOverridesTable
             groups={groups}
-            leading="environment"
             grouped={grouped}
             // Order only matters with a Feature Flag; Visual Editor and URL
             // Redirect changes each ship as their own experiment copy.

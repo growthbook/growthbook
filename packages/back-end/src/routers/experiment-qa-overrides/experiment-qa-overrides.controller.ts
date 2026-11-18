@@ -15,33 +15,14 @@ import { getQaOverrideWaitingFeatures } from "shared/util";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { getContextFromReq } from "back-end/src/services/organizations";
 import { getLinkedFeatureInfo } from "back-end/src/services/experiments";
-import {
-  getExperimentById,
-  getExperimentsByIds,
-} from "back-end/src/models/ExperimentModel";
-import {
-  findSDKConnectionById,
-  findSDKConnectionsByIds,
-} from "back-end/src/models/SdkConnectionModel";
+import { getExperimentById } from "back-end/src/models/ExperimentModel";
+import { findSDKConnectionsByIds } from "back-end/src/models/SdkConnectionModel";
 
 type Context = ReturnType<typeof getContextFromReq>;
 
 type QaOverrideSdkConnection = Pick<
   SDKConnectionInterface,
   "id" | "name" | "environment" | "projects" | "key" | "languages"
->;
-
-type QaOverrideExperiment = Pick<
-  ExperimentInterface,
-  | "id"
-  | "name"
-  | "status"
-  | "trackingKey"
-  | "variations"
-  | "phases"
-  | "type"
-  | "project"
-  | "hashAttribute"
 >;
 
 type OverrideResponse = {
@@ -59,18 +40,6 @@ const toConnectionSummary = (
   projects: c.projects,
   key: c.key,
   languages: c.languages,
-});
-
-const toExperimentSummary = (e: ExperimentInterface): QaOverrideExperiment => ({
-  id: e.id,
-  name: e.name,
-  status: e.status,
-  trackingKey: e.trackingKey,
-  variations: e.variations,
-  phases: e.phases,
-  type: e.type,
-  project: e.project,
-  hashAttribute: e.hashAttribute,
 });
 
 function withStatus(
@@ -280,43 +249,4 @@ export const deleteExperimentQaOverride = async (
   const context = getContextFromReq(req);
   await context.models.experimentQaOverrides.deleteById(req.params.id);
   res.status(200).json({ status: 200 });
-};
-
-export const getSdkConnectionQaOverrides = async (
-  req: AuthRequest<null, { id: string }>,
-  res: Response<{
-    status: 200;
-    overrides: ExperimentQaOverrideWithStatus[];
-    experiments: QaOverrideExperiment[];
-  }>,
-) => {
-  const context = getContextFromReq(req);
-  const connection = await findSDKConnectionById(context, req.params.id);
-  if (!connection) {
-    return context.throwNotFoundError("SDK Connection not found");
-  }
-
-  const overrides =
-    await context.models.experimentQaOverrides.findForSdkConnection(connection);
-  const experiments = overrides.length
-    ? (
-        await getExperimentsByIds(context, [
-          ...new Set(overrides.map((o) => o.experiment)),
-        ])
-      ).filter((e) =>
-        context.permissions.canReadSingleProjectResource(e.project),
-      )
-    : [];
-  const linkedByExperiment = new Map<string, LinkedFeatureInfo[]>();
-  for (const e of experiments) {
-    linkedByExperiment.set(e.id, await getLinkedFeatureInfo(context, e));
-  }
-
-  res.status(200).json({
-    status: 200,
-    overrides: overrides
-      .filter((o) => linkedByExperiment.has(o.experiment))
-      .map((o) => withStatus(o, linkedByExperiment.get(o.experiment) ?? [])),
-    experiments: experiments.map(toExperimentSummary),
-  });
 };

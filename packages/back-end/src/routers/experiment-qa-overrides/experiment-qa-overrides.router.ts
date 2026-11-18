@@ -42,12 +42,6 @@ router.delete(
   controller.deleteExperimentQaOverrides,
 );
 
-router.get(
-  "/sdk-connection/:id",
-  validateRequestMiddleware({ params: idParams }),
-  controller.getSdkConnectionQaOverrides,
-);
-
 router.put(
   "/:id",
   validateRequestMiddleware({

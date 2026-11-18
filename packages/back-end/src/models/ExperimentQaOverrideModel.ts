@@ -3,12 +3,10 @@ import {
   experimentSupportsQaOverrides,
   isProductionEnvironment,
   PermissionError,
-  qaOverrideAppliesToConnection,
   qaOverrideHasCondition,
   sortQaOverrides,
 } from "shared/util";
 import { ExperimentQaOverrideInterface } from "shared/types/experiment-qa-override";
-import { SDKConnectionInterface } from "shared/types/sdk-connection";
 import { experimentQaOverrideValidator } from "shared/validators";
 import { queueSDKPayloadRefresh } from "back-end/src/services/features";
 import {
@@ -60,18 +58,6 @@ export class ExperimentQaOverrideModel extends BaseClass<WriteOptions> {
   public async getAllForPayload() {
     const docs = await this._find({}, { bypassReadPermissionChecks: true });
     return sortQaOverrides(docs);
-  }
-
-  // Overrides a connection receives: its environment, plus any connection or
-  // project filter that names it.
-  public async findForSdkConnection(connection: SDKConnectionInterface) {
-    const docs = await this._find(
-      { environment: connection.environment },
-      { bypassReadPermissionChecks: true },
-    );
-    return sortQaOverrides(docs).filter((o) =>
-      qaOverrideAppliesToConnection(o, connection),
-    );
   }
 
   public countByExperiment(experiment: string): Promise<number> {
