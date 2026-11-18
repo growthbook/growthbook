@@ -166,10 +166,10 @@ const apiSdkConnectionRevisionValidator = namedSchema(
       proposedSdkConnection: apiSdkConnectionRevisionSettingsValidator.describe(
         "The settings with this revision's changes applied",
       ),
-      baseWebhooks: z
+      baseSdkWebhooks: z
         .array(apiSdkConnectionRevisionWebhookValidator)
         .describe("The webhooks when the revision was created"),
-      proposedWebhooks: z
+      proposedSdkWebhooks: z
         .array(apiSdkConnectionRevisionWebhookValidator)
         .describe("The webhooks with this revision's changes applied"),
       proposedChanges: z
@@ -379,7 +379,7 @@ export const postSdkConnectionRevisionWebhookValidator = {
   operationId: "postSdkConnectionRevisionWebhook",
   summary: "Add a webhook in a draft revision",
   description:
-    'Stages a new webhook on the draft. Its id is in the returned revision\'s `proposedWebhooks`. Pass `version: "new"` to create the draft.',
+    'Stages a new webhook on the draft. Its id is in the returned revision\'s `proposedSdkWebhooks`. Pass `version: "new"` to create the draft.',
   tags: TAGS,
   paramsSchema: editParams,
   bodySchema: z.object({ ...newDraftFields, ...draftWebhookFields }).strict(),

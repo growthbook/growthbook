@@ -46,8 +46,8 @@ The response contains the revision and its integer `version`, which you pass to 
     "status": "draft",
     "baseSdkConnection": { "...": "settings when the draft opened" },
     "proposedSdkConnection": { "...": "settings with the draft applied" },
-    "baseWebhooks": [],
-    "proposedWebhooks": []
+    "baseSdkWebhooks": [],
+    "proposedSdkWebhooks": []
   }
 }
 ```
@@ -64,7 +64,7 @@ curl -X PUT 'https://api.growthbook.io/api/v1/sdk-connections-revisions/sdk_abc1
 Add, change, or remove a webhook in the same draft:
 
 ```bash
-# Add. The new webhook's id is in the returned revision's proposedWebhooks.
+# Add. The new webhook's id is in the returned revision's proposedSdkWebhooks.
 curl -X POST 'https://api.growthbook.io/api/v1/sdk-connections-revisions/sdk_abc123/4/webhooks' \
   -H 'Authorization: Bearer YOUR_API_KEY' \
   -H 'Content-Type: application/json' \

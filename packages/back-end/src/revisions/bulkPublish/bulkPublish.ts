@@ -270,10 +270,9 @@ export async function planBulkPublish(
       skipHooks: flags.skipHooks && orgWideBypass,
       bypassApprovalPermission: bypassPermission,
       restApiBypassesReviews: flags.restApiBypassesReviews,
-      canForceMergeStaleBase:
-        bypassPermission ||
-        (l.adapter.staleBaseForceAllowsRestBypass &&
-          flags.restApiBypassesReviews),
+      // As a single publish: the REST bypass setting clears approval, not an
+      // out-of-date draft.
+      canForceMergeStaleBase: bypassPermission,
     };
 
     const bypassedGates: PlannedItemPublish["bypassedGates"] = [];

@@ -163,8 +163,8 @@ export async function toApiSdkConnectionRevision(
     ...revisionEnvelopeToApi(revision),
     baseSdkConnection: base.settings,
     proposedSdkConnection: proposed.settings,
-    baseWebhooks: base.webhooks,
-    proposedWebhooks: proposed.webhooks,
+    baseSdkWebhooks: base.webhooks,
+    proposedSdkWebhooks: proposed.webhooks,
     proposedChanges: normalizeProposedChanges(revision.target.proposedChanges),
   };
 }

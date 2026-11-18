@@ -69,8 +69,6 @@ export function makeGenericBulkAdapter(
   },
 ): BulkPublishableAdapter {
   return {
-    staleBaseForceAllowsRestBypass: true,
-
     applyScanOverlay(overlayContext, proposedEntities) {
       options.setScanOverlay(overlayContext, proposedEntities);
     },

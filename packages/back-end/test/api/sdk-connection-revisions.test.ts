@@ -136,7 +136,7 @@ describe("SDK Connection revision endpoints", () => {
       })
       .set(auth);
     expect(added.status).toBe(200);
-    const [webhook] = added.body.revision.proposedWebhooks;
+    const [webhook] = added.body.revision.proposedSdkWebhooks;
     expect(webhook).toMatchObject({
       name: "Purge",
       httpMethod: "POST",
@@ -151,7 +151,7 @@ describe("SDK Connection revision endpoints", () => {
       .send({ endpoint: "https://example.com/purge-v2" })
       .set(auth);
     expect(edited.status).toBe(200);
-    expect(edited.body.revision.proposedWebhooks).toEqual([
+    expect(edited.body.revision.proposedSdkWebhooks).toEqual([
       { ...webhook, endpoint: "https://example.com/purge-v2" },
     ]);
     // Both edits ride the one draft.
@@ -165,7 +165,7 @@ describe("SDK Connection revision endpoints", () => {
 
     const latest = await request(app).get(`${BASE}/${id}/latest`).set(auth);
     expect(latest.body.revision.version).toBe(version);
-    expect(latest.body.revision.proposedWebhooks[0].headers).toBe(
+    expect(latest.body.revision.proposedSdkWebhooks[0].headers).toBe(
       '{"X-Token":"abc"}',
     );
 
@@ -437,7 +437,7 @@ describe("SDK Connection revision endpoints", () => {
       .post(`${BASE}/${id}/${v2}/webhooks`)
       .send({ name: "Purge", endpoint: "https://example.com/purge" })
       .set(auth);
-    const webhookId = added.body.revision.proposedWebhooks[0].id;
+    const webhookId = added.body.revision.proposedSdkWebhooks[0].id;
     await publish(v2);
     const [original] = await liveWebhooks(id);
 
@@ -461,7 +461,7 @@ describe("SDK Connection revision endpoints", () => {
       revision: {
         status: "draft",
         proposedSdkConnection: { name: "Web app", includeRuleIds: true },
-        proposedWebhooks: [{ id: webhookId }],
+        proposedSdkWebhooks: [{ id: webhookId }],
       },
     });
     // Nothing is recreated until the revert lands.

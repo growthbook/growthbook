@@ -23584,7 +23584,7 @@ paths:
       summary: Add a webhook in a draft revision
       description: >-
         Stages a new webhook on the draft. Its id is in the returned revision's
-        `proposedWebhooks`. Pass `version: "new"` to create the draft.
+        `proposedSdkWebhooks`. Pass `version: "new"` to create the draft.
       tags: *ref_0
       parameters:
         - name: id
@@ -77280,12 +77280,12 @@ components:
         proposedSdkConnection:
           description: The settings with this revision's changes applied
           $ref: '#/components/schemas/SdkConnectionRevisionSettings'
-        baseWebhooks:
+        baseSdkWebhooks:
           type: array
           items:
             $ref: '#/components/schemas/SdkConnectionRevisionWebhook'
           description: The webhooks when the revision was created
-        proposedWebhooks:
+        proposedSdkWebhooks:
           type: array
           items:
             $ref: '#/components/schemas/SdkConnectionRevisionWebhook'
@@ -77393,8 +77393,8 @@ components:
         - dateUpdated
         - baseSdkConnection
         - proposedSdkConnection
-        - baseWebhooks
-        - proposedWebhooks
+        - baseSdkWebhooks
+        - proposedSdkWebhooks
         - proposedChanges
       additionalProperties: false
     SdkConnectionRevisionReview:

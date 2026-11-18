@@ -43,13 +43,6 @@ export type BulkRevisionRef = {
 
 /** Entity adapter for planning, guarded claims/apply, compensation, and effects. */
 export interface BulkPublishableAdapter {
-  /**
-   * Whether the org REST-bypass setting (in addition to the bypass-approval
-   * permission) grants stale-base force-merge authority — true for the
-   * generic entities, false for features.
-   */
-  staleBaseForceAllowsRestBypass: boolean;
-
   // ---------- Plan phase (read-only) ----------
 
   loadEntity(
