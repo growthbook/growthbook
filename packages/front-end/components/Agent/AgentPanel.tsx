@@ -73,11 +73,13 @@ import {
   prefersReducedMotion,
   visibleFocusables,
 } from "@/components/Layout/dom";
+import { useSidebarOpen } from "@/components/Layout/SidebarOpenProvider";
 import AgentChatHistory from "./AgentChatHistory";
 import {
   AGENT_DOCK_MOTION_MS,
   AGENT_PANEL_PORTAL_Z_INDEX,
   AGENT_PANEL_Z_INDEX,
+  useAgentPanel,
 } from "./AgentPanelContext";
 import {
   type MessageTurn,
@@ -218,9 +220,6 @@ function preWorkToSteps(
 // Past the AI Assistant button's fade back in, however slow the frames.
 const FOCUS_RETURN_MAX_MS = 1000;
 const LIMIT_CALLOUT_ID = "ai-assistant-limit-callout";
-// Below 1024px there's too little room beside it, so the panel covers the
-// window.
-const OVERLAY_MAX_WIDTH = "(max-width: 1023px)";
 /**
  * Marks a table's scrolling frame with which edges have more to scroll
  * (data-more-left, data-more-right), for the fade (AgentPanel.module.scss).
@@ -308,8 +307,11 @@ export default function AgentPanel({
     conversationIdRef: feedbackConversationIdRef,
   } = useChatFeedback("/agent/chat");
 
-  const [overlay, setOverlay] = useState(false);
-  const docked = !overlay;
+  const { docked, presence } = useAgentPanel();
+  const overlay = !docked;
+  // Kept mounted while it slides out ("closing").
+  const rendered = presence === "open" || presence === "closing";
+  const { open: drawerOpen } = useSidebarOpen();
   const panelRef = useRef<HTMLDivElement>(null);
 
   // Docked, its width is yours to drag (AgentPanelResizeHandle), saved for
@@ -345,15 +347,6 @@ export default function AgentPanel({
     const css = panelWidthCss(width);
     document.documentElement.style.setProperty("--agent-rail-width", css);
     panelRef.current?.style.setProperty("--agent-panel-width", css);
-  }, []);
-
-  useEffect(() => {
-    if (typeof window === "undefined" || !window.matchMedia) return;
-    const mq = window.matchMedia(OVERLAY_MAX_WIDTH);
-    const update = () => setOverlay(mq.matches);
-    update();
-    mq.addEventListener("change", update);
-    return () => mq.removeEventListener("change", update);
   }, []);
 
   const { mutate } = useSWRConfig();
@@ -508,12 +501,6 @@ export default function AgentPanel({
     };
   }, [askPrompt, messages, loading]);
 
-  // Kept mounted while it slides out. It mounts off-screen and starts sliding
-  // before the first paint: the read below makes the browser take in the
-  // off-screen position first, which waiting a frame doesn't guarantee on a
-  // busy page (the slide is then skipped).
-  const [rendered, setRendered] = useState(open);
-
   // The panel has no DOM while closed, so the listeners start once it's open
   // and rendered, when the scroll container exists.
   const { scrollContainerRef, handleScroll, resumeAutoScroll } = useAutoScroll({
@@ -571,24 +558,14 @@ export default function AgentPanel({
     prevLoadingRef.current = loading;
   }, [loading, open, focusInput]);
 
+  // It mounts off-screen and starts sliding before the first paint: the read
+  // below makes the browser take in the off-screen position first, which
+  // waiting a frame doesn't guarantee on a busy page (the slide is then
+  // skipped). html.agent-dock-motion is on by then (AgentPanelContext), so
+  // what moves on its own timing (the side nav) picks it up.
   const [shown, setShown] = useState(false);
-  // For the whole slide in and out, and set first, before the read below
-  // applies styles, so what moves on its own timing (the side nav) picks it up.
-  const dockMotion = docked && (open || rendered);
   useIsomorphicLayoutEffect(() => {
-    document.documentElement.classList.toggle("agent-dock-motion", dockMotion);
-  }, [dockMotion]);
-  useIsomorphicLayoutEffect(() => {
-    if (open) {
-      setRendered(true);
-      return;
-    }
-    setShown(false);
-    const timer = window.setTimeout(
-      () => setRendered(false),
-      AGENT_DOCK_MOTION_MS,
-    );
-    return () => window.clearTimeout(timer);
+    if (!open) setShown(false);
   }, [open]);
   useIsomorphicLayoutEffect(() => {
     if (!open || !rendered || shown) return;
@@ -714,11 +691,15 @@ export default function AgentPanel({
     }
     root.classList.toggle("agent-dock-full", dockedShown);
   }, [dockedShown, panelWidth]);
+  // Passive on purpose. Entering or leaving Settings remounts the panel and
+  // the page: as a layout cleanup this would clear the rail before the new
+  // panel's forced read, so the new page would start without the panel's room
+  // and slide into it.
   useEffect(
     () => () => {
       const root = document.documentElement;
       root.style.removeProperty("--agent-rail-width");
-      root.classList.remove("agent-dock-full", "agent-dock-motion");
+      root.classList.remove("agent-dock-full");
     },
     [],
   );
@@ -772,12 +753,9 @@ export default function AgentPanel({
   // Not while the side nav's drawer is open over it (it keeps its own), nor
   // once focus has left the panel.
   useEffect(() => {
-    if (!overlay || !open) return;
+    if (!overlay || !open || drawerOpen) return;
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key !== "Tab" || e.defaultPrevented) return;
-      if (document.documentElement.classList.contains("app-drawer-open")) {
-        return;
-      }
       const panelEl = panelRef.current;
       const active = document.activeElement;
       if (!panelEl || !active || !panelEl.contains(active)) return;
@@ -795,7 +773,7 @@ export default function AgentPanel({
     };
     document.addEventListener("keydown", onKeyDown);
     return () => document.removeEventListener("keydown", onKeyDown);
-  }, [overlay, open]);
+  }, [overlay, open, drawerOpen]);
 
   // The editor claims every Esc (ProseMirror), so whether the message box
   // owns it is decided before it sees the key: only an open suggestion or

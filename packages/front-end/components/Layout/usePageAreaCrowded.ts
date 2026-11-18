@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useAgentPanel } from "@/components/Agent/AgentPanelContext";
 
 /**
  * Whether the docked AI panel leaves less page area (the window less the side
@@ -15,12 +16,11 @@ export default function usePageAreaCrowded(
   minWidth: number,
   enabled = true,
 ): boolean {
-  const [crowded, setCrowded] = useState(false);
+  const { docked, open } = useAgentPanel();
+  const active = enabled && docked && open;
+  const [tooNarrow, setTooNarrow] = useState(false);
   useEffect(() => {
-    if (!enabled) {
-      setCrowded(false);
-      return;
-    }
+    if (!active) return;
     const probe = document.createElement("div");
     probe.setAttribute("aria-hidden", "true");
     Object.assign(probe.style, {
@@ -33,19 +33,16 @@ export default function usePageAreaCrowded(
       pointerEvents: "none",
     });
     document.body.appendChild(probe);
-    const observer = new ResizeObserver(([entry]) => {
-      // Set on the root only while the panel is docked (AgentPanel).
-      const docked =
-        document.documentElement.style.getPropertyValue(
-          "--agent-rail-width",
-        ) !== "";
-      setCrowded(docked && entry.contentRect.width < minWidth);
-    });
+    const observer = new ResizeObserver(([entry]) =>
+      setTooNarrow(entry.contentRect.width < minWidth),
+    );
     observer.observe(probe);
     return () => {
       observer.disconnect();
       probe.remove();
+      // The next docked panel measures afresh.
+      setTooNarrow(false);
     };
-  }, [minWidth, enabled]);
-  return crowded;
+  }, [minWidth, active]);
+  return active && tooNarrow;
 }

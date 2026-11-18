@@ -20,8 +20,6 @@ export type SidebarMemory = {
   preferCollapsed: boolean | null;
   /** Triggers you expanded it over (sidebarAutoCollapse.ts). */
   expandedOver: AutoCollapseTrigger[];
-  /** Whether it last showed collapsed, so a remount eases from there. */
-  lastCollapsed: boolean | null;
   /** Whether one is mounted: across a remount, the old one's cleanup skips. */
   mounted: boolean;
 };
@@ -30,6 +28,12 @@ type Context = {
   open: boolean;
   setOpen: React.Dispatch<boolean>;
   memory: MutableRefObject<SidebarMemory>;
+  /**
+   * Whether the new sidebar shows collapsed, as it sets on <html>; null until
+   * one mounts. It outlives the sidebar's remounts, so one eases from it.
+   */
+  navCollapsed: boolean | null;
+  setNavCollapsed: React.Dispatch<boolean>;
 };
 
 const SidebarOpenContext = createContext<Context | null>(null);
@@ -39,11 +43,13 @@ export const SidebarOpenProvider = ({ children }: Props) => {
   const memory = useRef<SidebarMemory>({
     preferCollapsed: null,
     expandedOver: [],
-    lastCollapsed: null,
     mounted: false,
   });
+  const [navCollapsed, setNavCollapsed] = useState<boolean | null>(null);
   return (
-    <SidebarOpenContext.Provider value={{ open, setOpen, memory }}>
+    <SidebarOpenContext.Provider
+      value={{ open, setOpen, memory, navCollapsed, setNavCollapsed }}
+    >
       {children}
     </SidebarOpenContext.Provider>
   );

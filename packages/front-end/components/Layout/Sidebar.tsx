@@ -592,7 +592,13 @@ function SidebarItem({
 export default function Sidebar() {
   const router = useRouter();
   const route = router.route.substring(1);
-  const { open: drawerOpen, setOpen: setDrawerOpen, memory } = useSidebarOpen();
+  const {
+    open: drawerOpen,
+    setOpen: setDrawerOpen,
+    memory,
+    navCollapsed,
+    setNavCollapsed,
+  } = useSidebarOpen();
   const [collapsedPref, setCollapsedPref] = useSidebarCollapsed(memory);
 
   // Below 1180px the sidebar is a drawer, always expanded.
@@ -603,7 +609,11 @@ export default function Sidebar() {
   // The app collapses it, on top of your saved choice and never saving it
   // (sidebarAutoCollapse.ts), while the docked AI Assistant panel is open below
   // 1600px.
-  const { open: agentOpen } = useAgentPanel();
+  const {
+    open: agentOpen,
+    docked: agentDocked,
+    presence: agentPresence,
+  } = useAgentPanel();
   const panelDocked = agentOpen && !isNarrow;
   const belowAutoCollapseWidth = useMediaQuery(AUTO_COLLAPSE_MAX_WIDTH);
   const panelTrigger = panelDocked && belowAutoCollapseWidth;
@@ -629,14 +639,10 @@ export default function Sidebar() {
   const sidebarCollapsed = isSidebarCollapsed(autoCollapseState);
   // Where a remount eases from: what it last showed, when that differs.
   const [remountFrom] = useState(() =>
-    memory.current.lastCollapsed !== null &&
-    memory.current.lastCollapsed !== sidebarCollapsed
-      ? memory.current.lastCollapsed
+    navCollapsed !== null && navCollapsed !== sidebarCollapsed
+      ? navCollapsed
       : null,
   );
-  useEffect(() => {
-    memory.current.lastCollapsed = sidebarCollapsed;
-  }, [sidebarCollapsed, memory]);
   // Crossing that width briefly turns transitions off (global.scss), so
   // nothing slides. In a layout effect, so it lands before the frame's styles.
   const switchedFrom = useRef(isNarrow);
@@ -790,7 +796,8 @@ export default function Sidebar() {
     }
     easeFrom.current = null;
     root.classList.toggle(COLLAPSED_CLASS, sidebarCollapsed);
-  }, [sidebarCollapsed]);
+    setNavCollapsed(sidebarCollapsed);
+  }, [sidebarCollapsed, setNavCollapsed]);
   // Cleared when it goes away, but not when it's remounting (entering or
   // leaving Settings): the new sidebar starts from it and eases on.
   useIsomorphicLayoutEffect(() => {
@@ -867,7 +874,7 @@ export default function Sidebar() {
         setContentCollapsed(collapsed);
         setResizing(false);
       },
-      document.documentElement.classList.contains("agent-dock-motion")
+      agentDocked && agentPresence !== "closed"
         ? AGENT_DOCK_MOTION_MS
         : SIDEBAR_WIDTH_TRANSITION_MS,
     );

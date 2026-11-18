@@ -51,14 +51,15 @@ export function SettingsNavProvider({ children }: { children: ReactNode }) {
   );
   const navMode: SettingsNavContextValue["navMode"] =
     narrowWindow || crowded ? "jumpMenu" : "column";
+  // Only for the docked panel: below 1024px the stylesheets' own media
+  // queries give the same layout, as they do in the old shell.
+  const crowdedSettings = inSettings && crowded;
   useIsomorphicLayoutEffect(() => {
+    if (!crowdedSettings) return;
     const root = document.documentElement;
-    root.classList.toggle(
-      "settings-narrow",
-      inSettings && navMode === "jumpMenu",
-    );
+    root.classList.add("settings-narrow");
     return () => root.classList.remove("settings-narrow");
-  }, [inSettings, navMode]);
+  }, [crowdedSettings]);
 
   const [activeSection, setActiveSection] = useState("");
   const [counts, setCounts] = useState<Record<string, number>>({});

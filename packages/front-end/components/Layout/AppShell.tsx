@@ -1,12 +1,4 @@
-import {
-  createContext,
-  ReactNode,
-  useCallback,
-  useContext,
-  useEffect,
-  useRef,
-  useState,
-} from "react";
+import { ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import { useFeatureIsOn, useGrowthBook } from "@growthbook/growthbook-react";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
@@ -17,13 +9,14 @@ import Layout from "./Layout";
 import LayoutLite from "./LayoutLite";
 import LegacyLayout from "./legacy/Layout";
 import LegacyLayoutLite from "./legacy/LayoutLite";
+import { NewAppShellContext, useNewAppShell } from "./newAppShellContext";
+
+export { useNewAppShell };
 
 // Past this, with the user and org loaded, the old shell renders.
 const DECISION_TIMEOUT_MS = 400;
 // Sets the new shell's sizes in global.scss.
 const NEW_SHELL_CLASS = "app-shell-new";
-
-const AppShellContext = createContext<boolean | null>(null);
 
 // Decides once per mount; ProtectedPage remounts it with each org.
 export function AppShellProvider({
@@ -84,14 +77,10 @@ export function AppShellProvider({
   }, [newShell, organizationRequired]);
 
   return (
-    <AppShellContext.Provider value={newShell}>
+    <NewAppShellContext.Provider value={newShell}>
       {children}
-    </AppShellContext.Provider>
+    </NewAppShellContext.Provider>
   );
-}
-
-export function useNewAppShell(): boolean | null {
-  return useContext(AppShellContext);
 }
 
 export function AppShellGate({ children }: { children: ReactNode }) {

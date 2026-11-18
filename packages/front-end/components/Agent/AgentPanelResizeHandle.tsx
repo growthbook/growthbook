@@ -8,6 +8,8 @@ import {
 } from "react";
 import clsx from "clsx";
 import Tooltip from "@/ui/Tooltip";
+import { useIsomorphicLayoutEffect } from "@/hooks/useIsomorphicLayoutEffect";
+import { useSidebarOpen } from "@/components/Layout/SidebarOpenProvider";
 import {
   PANEL_DEFAULT_WIDTH,
   PANEL_MIN_WIDTH,
@@ -58,22 +60,16 @@ export default function AgentPanelResizeHandle({
   const [max, setMax] = useState(() =>
     typeof window === "undefined" ? PANEL_DEFAULT_WIDTH : currentMax(),
   );
-  // With the window, and with the side nav collapsing or expanding (its
-  // class on <html> sets --page-nav-width).
-  useEffect(() => {
+  // With the window, and with the side nav collapsing or expanding, which
+  // sets --page-nav-width before this runs. A layout effect, so the new limit
+  // is in place before the paint.
+  const { navCollapsed } = useSidebarOpen();
+  useIsomorphicLayoutEffect(() => {
     const update = () => setMax(currentMax());
     update();
     window.addEventListener("resize", update);
-    const observer = new MutationObserver(update);
-    observer.observe(document.documentElement, {
-      attributes: true,
-      attributeFilter: ["class"],
-    });
-    return () => {
-      window.removeEventListener("resize", update);
-      observer.disconnect();
-    };
-  }, []);
+    return () => window.removeEventListener("resize", update);
+  }, [navCollapsed]);
   const shown = clampPanelWidth(width, max);
 
   const drag = useRef<{
