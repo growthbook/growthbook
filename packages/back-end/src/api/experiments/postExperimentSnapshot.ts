@@ -11,7 +11,7 @@ import {
   PlannedExperimentSnapshot,
 } from "back-end/src/services/experiments";
 import { validateSnapshotDimension } from "back-end/src/services/snapshotDimension";
-import { toSnapshotApiInterface } from "back-end/src/api/snapshots/toSnapshotApiInterface";
+import { toApiExperimentSnapshot } from "back-end/src/api/snapshots/toApiExperimentSnapshot";
 import {
   BadRequestError,
   DimensionAlreadyUpToDateError,
@@ -212,5 +212,5 @@ export const postExperimentSnapshot = createApiRequestHandler(
       ...(missingMetricsOnly ? { missingMetricsOnly } : {}),
     }),
   });
-  return { snapshot: toSnapshotApiInterface(snapshot) };
+  return { snapshot: toApiExperimentSnapshot(snapshot) };
 });
