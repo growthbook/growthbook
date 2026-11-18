@@ -86,7 +86,7 @@ export default function SectionFrame({
         >
           {/* As tall as an action button, so headers match whatever they hold
               and don't grow when a late addon (a sparkline) arrives. */}
-          <Flex align="center" gap="4" minWidth="0" minHeight="32px">
+          <Flex align="center" gap="2" minWidth="0" minHeight="32px">
             <Heading as="h4" size="md" mb="0">
               {title}
             </Heading>

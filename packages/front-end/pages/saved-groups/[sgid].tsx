@@ -22,16 +22,16 @@ import {
   getApprovalFlowSettings,
 } from "shared/enterprise";
 import { isActiveDraftStatus } from "shared/validators";
-import { PiArrowsDownUp, PiPlus } from "react-icons/pi";
+import { PiPlus } from "react-icons/pi";
 import { isIdListSupportedAttribute, restoredProjectScope } from "shared/util";
 import { Box, Flex } from "@radix-ui/themes";
 import Link from "@/ui/Link";
 import Field from "@/components/Forms/Field";
 import PageHead from "@/components/Layout/PageHead";
 import Pagination from "@/ui/Pagination";
-import SearchFilterRow from "@/components/Search/SearchFilterRow";
 import SectionFrame from "@/components/SectionFrame";
 import Text from "@/ui/Text";
+import { SortButton, ariaSort } from "@/services/search";
 import Badge from "@/ui/Badge";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import useApi from "@/hooks/useApi";
@@ -116,7 +116,7 @@ import {
 import { TABS_BAR_HEIGHT_PX } from "@/components/Layout/constants";
 import { useTabsTop } from "@/components/Layout/pageTopOffset";
 
-const NUM_PER_PAGE = 50;
+const NUM_PER_PAGE = 10;
 
 const savedGroupTabs = ["overview", "review"] as const;
 type SavedGroupTab = (typeof savedGroupTabs)[number];
@@ -131,7 +131,7 @@ export default function EditSavedGroupPage() {
   );
   const savedGroup = data?.savedGroup;
   // Alphabetical once a direction is picked; newest first until then.
-  const [sortNewestFirst, setSortNewestFirst] = useState<boolean>(true);
+  const [newestFirst, setNewestFirst] = useState(true);
   const [addItems, setAddItems] = useState<boolean>(false);
   const [itemsToAdd, setItemsToAdd] = useState<string[]>([]);
   const [showAuditModal, setShowAuditModal] = useState<boolean>(false);
@@ -322,9 +322,14 @@ export default function EditSavedGroupPage() {
       ? displayedValues.filter((v) => v.toLowerCase().includes(term))
       : displayedValues;
   }, [displayedValues, filter]);
+  // Where each item sits in the list, 1 being the first added.
+  const positions = useMemo(
+    () => new Map(displayedValues.map((v, i) => [v, i + 1])),
+    [displayedValues],
+  );
   const sortedValues = useMemo(
-    () => (sortNewestFirst ? [...filteredValues].reverse() : filteredValues),
-    [filteredValues, sortNewestFirst],
+    () => (newestFirst ? [...filteredValues].reverse() : filteredValues),
+    [filteredValues, newestFirst],
   );
 
   const start = (currentPage - 1) * NUM_PER_PAGE;
@@ -1436,48 +1441,11 @@ export default function EditSavedGroupPage() {
                 ) : (
                   <SectionFrame
                     title="List Items"
-                    titleAddon={<TabCount count={displayedValues.length} />}
-                    actions={
+                    titleAddon={
                       <>
-                        <Tooltip body={editBlockedReason ?? ""}>
-                          <Button
-                            variant="ghost"
-                            color="red"
-                            disabled={!!editBlockedReason}
-                            onClick={() => openItemsModal("replace")}
-                          >
-                            Overwrite list
-                          </Button>
-                        </Tooltip>
-                        <Tooltip body={editBlockedReason ?? ""}>
-                          <Button
-                            variant="outline"
-                            disabled={!!editBlockedReason}
-                            icon={<PiPlus />}
-                            onClick={() => openItemsModal("append")}
-                          >
-                            Add items
-                          </Button>
-                        </Tooltip>
-                      </>
-                    }
-                  >
-                    <SearchFilterRow
-                      mb="3"
-                      search={
-                        <Field
-                          placeholder="Search..."
-                          type="search"
-                          value={filter}
-                          onChange={(e) => {
-                            setFilter(e.target.value);
-                            setCurrentPage(1);
-                          }}
-                        />
-                      }
-                      filters={
-                        selected.size > 0 ? (
-                          <Flex align="center" gap="4">
+                        <TabCount count={displayedValues.length} />
+                        {selected.size > 0 ? (
+                          <Flex align="center" gap="4" ml="2">
                             <Text color="text-mid">
                               {selected.size} selected
                             </Text>
@@ -1511,10 +1479,34 @@ export default function EditSavedGroupPage() {
                               </Button>
                             </Tooltip>
                           </Flex>
-                        ) : null
-                      }
-                    />
-
+                        ) : null}
+                      </>
+                    }
+                    actions={
+                      <>
+                        <Tooltip body={editBlockedReason ?? ""}>
+                          <Button
+                            variant="ghost"
+                            color="red"
+                            disabled={!!editBlockedReason}
+                            onClick={() => openItemsModal("replace")}
+                          >
+                            Overwrite list
+                          </Button>
+                        </Tooltip>
+                        <Tooltip body={editBlockedReason ?? ""}>
+                          <Button
+                            variant="outline"
+                            disabled={!!editBlockedReason}
+                            icon={<PiPlus />}
+                            onClick={() => openItemsModal("append")}
+                          >
+                            Add items
+                          </Button>
+                        </Tooltip>
+                      </>
+                    }
+                  >
                     <Table variant="list" stickyHeader={false}>
                       <TableHeader>
                         <TableRow align="center">
@@ -1533,23 +1525,36 @@ export default function EditSavedGroupPage() {
                               align="center"
                             />
                           </TableColumnHeader>
+                          <TableColumnHeader
+                            style={{ width: 72 }}
+                            aria-sort={ariaSort(true, newestFirst ? -1 : 1)}
+                          >
+                            <SortButton
+                              active
+                              dir={newestFirst ? -1 : 1}
+                              onClick={() => {
+                                setNewestFirst(!newestFirst);
+                                setCurrentPage(1);
+                              }}
+                            >
+                              #
+                            </SortButton>
+                          </TableColumnHeader>
                           <TableColumnHeader>
-                            <Flex justify="between" align="center">
+                            <Flex justify="between" align="center" gap="3">
                               <span>{savedGroup.attributeKey}</span>
-                              <Button
-                                variant="ghost"
-                                size="md"
-                                icon={<PiArrowsDownUp />}
-                                onClick={() => {
-                                  setSortNewestFirst(!sortNewestFirst);
-                                  setCurrentPage(1);
-                                }}
-                              >
-                                Showing{" "}
-                                {sortNewestFirst
-                                  ? "newest first"
-                                  : "oldest first"}
-                              </Button>
+                              <Box style={{ width: 240 }}>
+                                <Field
+                                  size="sm"
+                                  placeholder="Search..."
+                                  type="search"
+                                  value={filter}
+                                  onChange={(e) => {
+                                    setFilter(e.target.value);
+                                    setCurrentPage(1);
+                                  }}
+                                />
+                              </Box>
                             </Flex>
                           </TableColumnHeader>
                         </TableRow>
@@ -1569,13 +1574,18 @@ export default function EditSavedGroupPage() {
                                 align="center"
                               />
                             </TableCell>
+                            <TableCell>
+                              <Text color="text-low">
+                                {positions.get(value)}
+                              </Text>
+                            </TableCell>
                             <TableCell>{value}</TableCell>
                           </TableRow>
                         ))}
                         {!valuesPage.length && (
                           <TableRow>
                             <TableCell
-                              colSpan={2}
+                              colSpan={3}
                               style={{ textAlign: "center" }}
                             >
                               {displayedValues.length
