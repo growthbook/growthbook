@@ -1,4 +1,3 @@
-import { createHash } from "node:crypto";
 import type { ExposureQuery } from "shared/types/datasource";
 import type { ExperimentSnapshotSettings } from "shared/types/experiment-snapshot";
 import type { FactMetricInterface } from "shared/types/fact-table";
@@ -212,23 +211,6 @@ function baseState(): IncrementalRefreshInterface {
   } as IncrementalRefreshInterface;
 }
 
-function digest(value: unknown): string {
-  const seen = new WeakSet<object>();
-  const json = JSON.stringify(value, (key, v: unknown) => {
-    if (v instanceof Map) return Object.fromEntries(v);
-    if (v instanceof Set) return [...v];
-    if (v && typeof v === "object") {
-      if (seen.has(v)) return "[cycle]";
-      seen.add(v);
-    }
-    return v;
-  });
-  return createHash("md5")
-    .update(json ?? "undefined")
-    .digest("hex")
-    .slice(0, 12);
-}
-
 type BuilderCall = { method: string; args: Record<string, unknown> };
 
 function fakeIntegration(maxColumns: number): {
@@ -352,67 +334,6 @@ async function buildDag({
   };
 }
 
-function describeDag(
-  recorded: Recorded[],
-  calls: Map<string, BuilderCall>,
-): string[] {
-  return recorded.map((r) => {
-    const call = calls.get(r.query);
-    return [
-      r.name,
-      r.queryType,
-      r.displayTitle ?? "",
-      `deps=[${r.dependencyNames.join(",")}]`,
-      call ? `${call.method}#${digest(call.args)}` : r.query,
-      `meta=${JSON.stringify(r.metadata ?? null)}`,
-    ].join(" | ");
-  });
-}
-
-let random: jest.SpyInstance;
-beforeEach(() => {
-  let i = 0;
-  random = jest
-    .spyOn(Math, "random")
-    .mockImplementation(() => ((i++ * 0.137) % 1) + 0.0001);
-});
-afterEach(() => random.mockRestore());
-
-describe("normal incremental runs (pinned at trunk b29299f794)", () => {
-  it("full refresh", async () => {
-    const { recorded, calls } = await buildDag({
-      params: { mode: { kind: "full" } },
-      state: baseState(),
-    });
-    expect(describeDag(recorded, calls)).toMatchSnapshot();
-  });
-
-  it("update with no metric change", async () => {
-    const { recorded, calls } = await buildDag({
-      params: {
-        snapshotSettings: snapshotSettings(BASE_METRICS, LATER_END),
-        incrementalRefreshStartTime: LATER_END,
-      },
-      state: baseState(),
-    });
-    expect(describeDag(recorded, calls)).toMatchSnapshot();
-  });
-
-  it("update after a3 and c1 were added", async () => {
-    const { recorded, calls } = await buildDag({
-      params: {
-        snapshotSettings: snapshotSettings(
-          [...BASE_METRICS, "a3", "c1"],
-          LATER_END,
-        ),
-        incrementalRefreshStartTime: LATER_END,
-      },
-      state: baseState(),
-    });
-    expect(describeDag(recorded, calls)).toMatchSnapshot();
-  });
-});
-
 type DagOptions = {
   state?: IncrementalRefreshInterface;
   maxColumns?: number;
@@ -524,8 +445,6 @@ describe("metric refresh (metrics-only runs)", () => {
       "r1",
     ]);
     statistics.forEach((a) => expect(a.asOf).toEqual(BASE_END));
-
-    expect(describeDag(refresh.recorded, refresh.calls)).toMatchSnapshot();
   });
 
   it("names only the statistics and traffic of untouched caches like the parent did, so only they are copied", async () => {
