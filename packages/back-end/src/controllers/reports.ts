@@ -49,6 +49,7 @@ import {
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { getFactTableMap } from "back-end/src/models/FactTableModel";
 import {
+  assertValidReportClusterConfig,
   createReportSnapshot,
   generateExperimentReportSSRData,
 } from "back-end/src/services/reports";
@@ -617,6 +618,11 @@ export async function putReport(
         requestedIdentifierType:
           data.experimentAnalysisSettings?.exposureQueryIdentifierType,
       });
+      await assertValidReportClusterConfig(
+        context,
+        updates.experimentAnalysisSettings,
+        report.experimentAnalysisSettings,
+      );
     }
 
     updates.dateUpdated = new Date();

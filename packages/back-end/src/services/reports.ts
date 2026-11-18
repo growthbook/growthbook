@@ -87,6 +87,8 @@ import {
   getSnapshotQueryMetadata,
   getDefaultExperimentAnalysisSettings,
   createMetricEligibilityResolver,
+  assertValidClusterExperimentConfig,
+  ClusterExperimentConfigFields,
 } from "back-end/src/services/experiments";
 import { ReqContextClass } from "back-end/src/services/context";
 import { findDimensionsByOrganization } from "back-end/src/models/DimensionModel";
@@ -375,6 +377,23 @@ export function getMetricForSnapshot({
         DEFAULT_TARGET_MDE,
     },
   };
+}
+
+export async function assertValidReportClusterConfig(
+  context: ReqContext | ApiReqContext,
+  current: ClusterExperimentConfigFields,
+  previous: ClusterExperimentConfigFields,
+) {
+  if (!current.isClusterExperiment) return;
+  const datasource = current.datasource
+    ? await getDataSourceById(context, current.datasource)
+    : null;
+  await assertValidClusterExperimentConfig({
+    context,
+    datasource,
+    current,
+    previous,
+  });
 }
 
 export async function createReportSnapshot({
