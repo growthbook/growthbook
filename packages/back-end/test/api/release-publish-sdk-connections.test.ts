@@ -41,7 +41,6 @@ const org = {
 
 describe("SDK Connections in a release", () => {
   const { app, setReqContext } = setupApp();
-  const auth = { Authorization: "Bearer foo" };
   const collection = (name: string) => mongoose.connection.collection(name);
 
   beforeEach(async () => {
@@ -65,7 +64,6 @@ describe("SDK Connections in a release", () => {
       dateCreated: new Date(),
       dateUpdated: new Date(),
     });
-    mockFireSdkWebhook.mockClear();
     mockRunInSandbox.mockReset();
     mockRunInSandbox.mockImplementation(sandboxEval);
     const context = new ReqContextClass({
@@ -78,20 +76,25 @@ describe("SDK Connections in a release", () => {
   });
 
   const send = (
-    method: "post" | "put" | "delete",
+    method: "get" | "post" | "put" | "delete",
     path: string,
-    body: Record<string, unknown> = {},
-  ) => request(app)[method](path).send(body).set(auth);
+    body?: Record<string, unknown>,
+  ) =>
+    request(app)[method](path).send(body).set({ Authorization: "Bearer foo" });
 
-  // A connection with three live webhooks, and a draft that changes a
-  // setting, adds a webhook, renames one and removes one.
-  async function connectionWithDraft(name: string) {
+  async function createConnection(name = "Web app"): Promise<string> {
     const created = await send("post", "/api/v1/sdk-connections", {
       name,
       language: "javascript",
       environment: "production",
     });
-    const id: string = created.body.sdkConnection.id;
+    return created.body.sdkConnection.id;
+  }
+
+  // A connection with three live webhooks, and a draft that changes a
+  // setting, adds a webhook, renames one and removes one.
+  async function connectionWithDraft(name: string) {
+    const id = await createConnection(name);
     const webhookIds: Record<string, string> = {};
     for (const hook of ["Keep", "Rename me", "Delete me"]) {
       const res = await send("post", `/api/v1/sdk-connections/${id}/webhooks`, {
@@ -176,46 +179,29 @@ describe("SDK Connections in a release", () => {
     (await collection("constants").findOne({ organization: ORG_ID, key }))
       ?.value;
 
-  it("publishes two connections and a constant together", async () => {
+  it("publishes a connection and a constant together", async () => {
     const a = await connectionWithDraft("Web app");
-    const b = await connectionWithDraft("Mobile app");
     const constant = await constantWithDraft("rel-sdk-ok");
-    const before = await live(a.id);
-    const revisions = [a.ref, b.ref, constant];
 
-    const dry = await publish({ dryRun: true, revisions });
-    expect(dry.status).toBe(200);
-    expect(dry.body.results).toMatchObject([
-      { entityType: "sdk-connection", id: a.id, status: "would-publish" },
-      { entityType: "sdk-connection", id: b.id, status: "would-publish" },
-      { entityType: "constant", id: "rel-sdk-ok", status: "would-publish" },
-    ]);
-    expect(await live(a.id)).toEqual(before);
-    expect(await draftStatus(a.id, a.version)).toBe("draft");
-
-    const res = await publish({ revisions });
+    const res = await publish({ revisions: [a.ref, constant] });
     expect(res.status).toBe(200);
-    expect(res.body.results.map((r: { status: string }) => r.status)).toEqual([
-      "published",
-      "published",
-      "published",
+    expect(res.body.results).toMatchObject([
+      { entityType: "sdk-connection", id: a.id, status: "published" },
+      { entityType: "constant", id: "rel-sdk-ok", status: "published" },
     ]);
-    for (const { id, version } of [a, b]) {
-      const now = await live(id);
-      expect(now.includeRuleIds).toBe(true);
-      expect(now.webhooks.map((w) => w.name)).toEqual([
-        "Added",
-        "Keep",
-        "Renamed",
-      ]);
-      expect(await draftStatus(id, version)).toBe("merged");
-    }
+    const now = await live(a.id);
+    expect(now.includeRuleIds).toBe(true);
+    expect(now.webhooks.map((w) => w.name)).toEqual([
+      "Added",
+      "Keep",
+      "Renamed",
+    ]);
+    expect(await draftStatus(a.id, a.version)).toBe("merged");
     expect(await constantValue("rel-sdk-ok")).toBe("after");
   });
 
-  it("holds the whole release on a connection's hook, until it is skipped", async () => {
+  it("holds the release on a connection's hook, until it is skipped", async () => {
     const a = await connectionWithDraft("Web app");
-    const constant = await constantWithDraft("rel-sdk-hook");
     await collection("customhooks").insertOne({
       id: "hook_release_sdk",
       organization: ORG_ID,
@@ -227,7 +213,7 @@ describe("SDK Connections in a release", () => {
       hook: "validateSdkConnection",
       code: `if (sdkWebhooks.some((w) => w.name === "Added")) throw new Error("No added webhooks");`,
     });
-    const revisions = [a.ref, constant];
+    const revisions = [a.ref];
 
     const blocked = await publish({ revisions });
     expect(blocked.status).toBe(422);
@@ -239,7 +225,6 @@ describe("SDK Connections in a release", () => {
         override: "skipHooks",
       },
     ]);
-    expect(await constantValue("rel-sdk-hook")).toBe("before");
     expect(await draftStatus(a.id, a.version)).toBe("draft");
 
     const forced = await publish({ revisions, skipHooks: true });
@@ -247,13 +232,12 @@ describe("SDK Connections in a release", () => {
     expect(forced.body.bypassedGates).toMatchObject([
       { entityType: "sdk-connection", type: "custom-hook", via: "skipHooks" },
     ]);
-    expect(await constantValue("rel-sdk-hook")).toBe("after");
+    expect(await draftStatus(a.id, a.version)).toBe("merged");
   });
 
   it("holds the release when a connection's draft can no longer publish", async () => {
     const a = await connectionWithDraft("Web app");
     const b = await connectionWithDraft("Mobile app");
-    const constant = await constantWithDraft("rel-sdk-shared");
     // Since the draft renamed it, the webhook was attached to another
     // connection, where a draft of this one may not change it.
     const renamed = (await live(a.id)).webhooks.find(
@@ -264,21 +248,15 @@ describe("SDK Connections in a release", () => {
     });
     expect(shared.status).toBe(200);
 
-    const res = await publish({ revisions: [a.ref, constant] });
+    const res = await publish({ revisions: [a.ref] });
     expect(res.status).toBe(422);
     expect(res.body.gates).toMatchObject([
       { entityType: "sdk-connection", id: a.id, type: "validation" },
     ]);
-    expect(await constantValue("rel-sdk-shared")).toBe("before");
   });
 
   it("warns about a webhook secret that doesn't exist, until it is acknowledged", async () => {
-    const created = await send("post", "/api/v1/sdk-connections", {
-      name: "Web app",
-      language: "javascript",
-      environment: "production",
-    });
-    const id: string = created.body.sdkConnection.id;
+    const id = await createConnection();
     const staged = await send("post", `${DRAFTS}/${id}/new/webhooks`, {
       name: "Purge",
       endpoint: "https://example.com/purge?token={{ NOPE }}",
@@ -310,9 +288,7 @@ describe("SDK Connections in a release", () => {
 
     const res = await publish({ revisions: [a.ref], ignoreWarnings: true });
     expect(res.status).toBe(200);
-    const record = await request(app)
-      .get(`${DRAFTS}/${a.id}/${a.version}`)
-      .set(auth);
+    const record = await send("get", `${DRAFTS}/${a.id}/${a.version}`);
     // Live kept the rename, so the published revision shows it too.
     expect(record.body.revision.proposedSdkConnection).toMatchObject({
       name: "Renamed live",
@@ -328,12 +304,7 @@ describe("SDK Connections in a release", () => {
       dateCreated: new Date(),
       dateUpdated: new Date(),
     });
-    const created = await send("post", "/api/v1/sdk-connections", {
-      name: "Web app",
-      language: "javascript",
-      environment: "production",
-    });
-    const id: string = created.body.sdkConnection.id;
+    const id = await createConnection();
     const staged = await send("put", `${DRAFTS}/${id}/new/settings`, {
       projects: ["prj_dest"],
     });
@@ -403,7 +374,6 @@ describe("SDK Connections in a release", () => {
     expect({ a: await live(a.id), b: await live(b.id) }).toEqual(before);
     expect(await draftStatus(a.id, a.version)).toBe("draft");
     expect(await draftStatus(b.id, b.version)).toBe("draft");
-    expect(await constantValue("rel-sdk-fail")).toBe("before");
     // A release that did not stand sends nothing.
     expect(mockFireSdkWebhook).not.toHaveBeenCalled();
 

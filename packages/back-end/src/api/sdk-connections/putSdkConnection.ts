@@ -20,7 +20,7 @@ import { canLandArchivedState } from "back-end/src/revisions/archiveTransition";
 import { ensureLiveRevisionExists } from "back-end/src/revisions/util";
 import { landDirectChange } from "back-end/src/revisions/revertActions";
 import { runGuardedWrite } from "back-end/src/revisions/landingSequence";
-import { getRevisionWebhookAdapter } from "back-end/src/events/revisionWebhookAdapters";
+import { dispatchSdkConnectionRevisionEvent } from "back-end/src/services/sdkConnectionRevisionEvents";
 import type { BypassedGate } from "back-end/src/revisions/publishGates";
 import { canUseRestApiBypassSetting } from "back-end/src/api/features/reviewBypass";
 import {
@@ -169,11 +169,9 @@ export const putSdkConnection = createApiRequestHandler(
       }) as SDKConnectionRevisionSnapshot),
     }),
   });
-  await getRevisionWebhookAdapter("sdk-connection")?.dispatch(
-    req.context,
-    merged,
-    { type: "published" },
-  );
+  await dispatchSdkConnectionRevisionEvent(req.context, merged, {
+    type: "published",
+  });
 
   return {
     sdkConnection: toApiSDKConnectionInterface(updatedSdkConnection),

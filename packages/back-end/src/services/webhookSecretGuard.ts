@@ -1,5 +1,8 @@
 import type { Revision } from "shared/enterprise";
-import type { SDKWebhookRevisionSnapshot } from "shared/validators";
+import {
+  referencedWebhookSecrets,
+  SDKWebhookRevisionSnapshot,
+} from "shared/validators";
 import type { Context } from "back-end/src/models/BaseModel";
 import {
   SoftWarningError,
@@ -9,9 +12,6 @@ import type { PublishGate } from "back-end/src/revisions/publishGates";
 import { getArmAcknowledgment } from "back-end/src/services/armGuards";
 
 const GUARD = "webhook-secrets";
-
-// `{{ KEY }}`, or `{{[key with spaces]}}` as the sender rewrites those.
-const REFERENCE = /\{\{\s*\[?([^{}[\]]+?)\]?\s*\}\}/g;
 
 type MissingSecret = { id: string; warning: string };
 
@@ -29,9 +29,7 @@ export async function missingWebhookSecrets(
     const old = was.get(webhook.id);
     const text = `${webhook.endpoint} ${webhook.headers ?? ""}`;
     if (old && `${old.endpoint} ${old.headers ?? ""}` === text) continue;
-    const keys = new Set(
-      [...text.matchAll(REFERENCE)].map((match) => match[1].trim()),
-    );
+    const keys = new Set(referencedWebhookSecrets(text));
     if (!keys.size || !URL.canParse(webhook.endpoint)) continue;
     const usable = await context.models.webhookSecrets.getUsableKeys(
       new URL(webhook.endpoint).origin,

@@ -101,7 +101,7 @@ function flattenConnection(
 ): SDKConnectionRevisionSnapshot {
   return {
     sdkConnection: sdkConnectionSettingsOf({ ...connection }),
-    sdkWebhooks: webhooks.map((wh) => parseSdkWebhookSnapshot(wh)),
+    sdkWebhooks: webhooks.map(parseSdkWebhookSnapshot),
   };
 }
 

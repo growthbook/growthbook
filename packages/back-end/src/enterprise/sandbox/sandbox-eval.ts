@@ -8,6 +8,7 @@ import {
   CustomHookErrorDetail,
   CustomHookInterface,
   CustomHookType,
+  HOOK_REVISION_FIELDS,
   customHookEntityNoun,
   eventUserIdentity,
   hookEntityType,
@@ -539,16 +540,7 @@ async function revisionHookArg(
   revision: ConfigRevisionHookInput,
 ) {
   return {
-    // Named fields only: a whole revision also carries the entity's snapshot,
-    // which can hold secrets.
-    ...pick(revision, [
-      "version",
-      "status",
-      "title",
-      "comment",
-      "authorId",
-      "contributors",
-    ]),
+    ...pick(revision, HOOK_REVISION_FIELDS),
     ...(await hookAuthorship(
       context,
       revision.authorId,
@@ -885,9 +877,9 @@ async function _runCustomHooks(
   // schema error. This is the assert-path equivalent of the custom-hook gate the
   // REST publish handlers emit.
   // Which family's bypass authority clears a hook rejection depends on WHOSE hook
-  // it is — this runner serves feature, feature-revision, experiment and config
-  // hooks. `hookEntityType` already maps that; experiment hooks have no flag
-  // family, so nothing clears them by permission alone.
+  // it is — this runner serves feature, feature-revision, experiment, config and
+  // SDK Connection hooks. `hookEntityType` already maps that; experiment hooks
+  // have no flag family, so nothing clears them by permission alone.
   const hookFamily = hookEntityType[hookType];
   const canSkip = () =>
     hookFamily === "feature" || hookFamily === "config"

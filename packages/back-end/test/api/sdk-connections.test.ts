@@ -656,31 +656,6 @@ describe("sdk-connections API", () => {
       expect(response.status).toBe(403);
       expect(editSDKConnection).not.toHaveBeenCalled();
     });
-
-    it("lands an in-scope edit with bypass authority and reports the bypassed gate", async () => {
-      setReqContext(
-        buildContext({
-          settings: withRule([org.environments[0].id]),
-          premium: true,
-        }),
-      );
-      const existing = existingConnection();
-      findSDKConnectionById.mockReturnValue(existing);
-
-      const response = await request(app)
-        .put(`/api/v1/sdk-connections/${existing.id}`)
-        .send({ name: "my-new-connection", bypassApproval: true })
-        .set("Authorization", "Bearer foo");
-
-      expect(response.status).toBe(200);
-      expect(response.body.bypassedGates).toEqual([
-        {
-          type: "approval-required",
-          outcome: "bypassed",
-          via: "bypassApprovalPermission",
-        },
-      ]);
-    });
   });
 
   it("archives sdk-connections through PUT", async () => {

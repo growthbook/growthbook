@@ -363,3 +363,14 @@ export const testCustomHookValidator = {
     },
   },
 };
+
+// What a revision hook is told about the revision itself. Named fields only: a
+// whole revision also carries the entity's snapshot, which can hold secrets.
+export const HOOK_REVISION_FIELDS = [
+  "version",
+  "status",
+  "title",
+  "comment",
+  "authorId",
+  "contributors",
+] as const;

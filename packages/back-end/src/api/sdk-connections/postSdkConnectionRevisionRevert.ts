@@ -52,7 +52,6 @@ export const postSdkConnectionRevisionRevert = createApiRequestHandler(
 
   const changes = sdkConnectionRevertChanges(live, targetState);
   const settings = changes.sdkConnection ?? live.sdkConnection;
-  const webhooks = changes.sdkWebhooks ?? live.sdkWebhooks;
   const patchOps: JsonPatchOperation[] = Object.entries(changes).map(
     ([field, value]) => ({ op: "replace", path: `/${field}`, value }),
   );
@@ -88,10 +87,6 @@ export const postSdkConnectionRevisionRevert = createApiRequestHandler(
     links: [confirmationLink("sdkConnection", live.id, name)],
     pin: connection.dateUpdated,
   };
-  const liveIds = new Set(live.sdkWebhooks.map((wh) => wh.id));
-  const recreatedWebhookIds = webhooks
-    .filter((wh) => !liveIds.has(wh.id))
-    .map((wh) => wh.id);
   const newDraft = {
     revisionTitle:
       req.body.title ??
@@ -176,6 +171,10 @@ export const postSdkConnectionRevisionRevert = createApiRequestHandler(
     // They ran in `assertPublishable` above.
     skipHooks: true,
   });
+  const liveIds = new Set(live.sdkWebhooks.map((wh) => wh.id));
+  const recreatedWebhookIds = (changes.sdkWebhooks ?? [])
+    .filter((wh) => !liveIds.has(wh.id))
+    .map((wh) => wh.id);
   return {
     revision: await toApiSdkConnectionRevision(context, published),
     ...(bypassedGates.length ? { bypassedGates } : {}),

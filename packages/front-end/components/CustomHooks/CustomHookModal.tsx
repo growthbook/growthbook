@@ -4,6 +4,7 @@ import { useForm } from "react-hook-form";
 import {
   CustomHookInterface,
   CustomHookType,
+  HOOK_REVISION_FIELDS,
   SDKConnectionRevisionSnapshot,
   customHookEntityNoun,
   sdkConnectionHookArgs,
@@ -559,14 +560,7 @@ export default function CustomHookModal({
   };
   const sdkConnectionRevisionArg = sdkConnectionRevision
     ? {
-        ...pick(sdkConnectionRevision, [
-          "version",
-          "status",
-          "title",
-          "comment",
-          "authorId",
-          "contributors",
-        ]),
+        ...pick(sdkConnectionRevision, HOOK_REVISION_FIELDS),
         author: {
           userId: sdkConnectionRevision.authorId,
           ...member(sdkConnectionRevision.authorId),

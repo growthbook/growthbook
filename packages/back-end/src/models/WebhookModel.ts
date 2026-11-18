@@ -35,7 +35,7 @@ import {
   sdkWebhookApiSpec,
 } from "back-end/src/api/specs/sdk-webhook.spec";
 import { fireSdkWebhook } from "back-end/src/jobs/sdkWebhooks";
-import { getRevisionWebhookAdapter } from "back-end/src/events/revisionWebhookAdapters";
+import { dispatchSdkConnectionRevisionEvent } from "back-end/src/services/sdkConnectionRevisionEvents";
 import {
   assertDirectWriteAllowed,
   sdkWriteFields,
@@ -252,11 +252,8 @@ export class SdkWebhookModel extends BaseClass {
     }
   }
 
-  // Lands a direct write on every connection it changes. Each one's validation
-  // hooks see its webhooks as the write would leave them, and the change is
-  // recorded there as a published revision before it is made, so it shows in
-  // the connection's history and can be reverted. The webhook permission
-  // authorized the write, and recording it takes nothing more.
+  // Records a direct write on each connection it changes as a published
+  // revision, before the write. The webhook permission already authorized it.
   private async landOnConnections<T>(
     conns: SDKConnectionInterface[],
     after: (
@@ -322,11 +319,9 @@ export class SdkWebhookModel extends BaseClass {
       }
       const result = await write();
       for (const merged of recorded) {
-        await getRevisionWebhookAdapter("sdk-connection")?.dispatch(
-          context,
-          merged,
-          { type: "published" },
-        );
+        await dispatchSdkConnectionRevisionEvent(context, merged, {
+          type: "published",
+        });
       }
       return result;
     } catch (e) {

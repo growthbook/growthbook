@@ -24,7 +24,7 @@ type SdkConnectionRevisionEvent = Extract<
 
 // The `change` discriminator on the `revision.updated` event. Archiving rides
 // inside the settings op, so it is read from the settings themselves.
-export function deriveChange(
+function deriveChange(
   base: { archived?: boolean },
   proposed: { archived?: boolean },
   proposedChanges: { path: string }[],

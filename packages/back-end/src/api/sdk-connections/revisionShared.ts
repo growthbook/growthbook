@@ -14,10 +14,10 @@ import { findSDKConnectionById } from "back-end/src/models/SdkConnectionModel";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { getAdapter } from "back-end/src/revisions";
 import {
-  applyPatchToSnapshot,
   createOrUpdateRevision,
   ensureLiveRevisionExists,
 } from "back-end/src/revisions/util";
+import { revertTargetState } from "back-end/src/revisions/revertActions";
 import { scrubRevisionForViewer } from "back-end/src/revisions/scrub";
 import { canDoRevisionAction } from "back-end/src/revisions/revisionActions";
 import { SDKConnectionLiveSnapshot } from "back-end/src/revisions/adapters/sdk-connection.adapter";
@@ -78,10 +78,7 @@ export async function loadConnectionAndRevision(
 export function proposedSnapshot(
   revision: Revision,
 ): SDKConnectionRevisionSnapshot {
-  return applyPatchToSnapshot(
-    revision.target.snapshot as SDKConnectionRevisionSnapshot,
-    revision.target.proposedChanges,
-  );
+  return revertTargetState(revision) as SDKConnectionRevisionSnapshot;
 }
 
 // The connection an edit endpoint writes to and its draft; null for "new".

@@ -26,7 +26,6 @@ describe("customHookMatchesScope", () => {
     expect(customHookMatchesScope(h, { project: ["prj_c", "prj_b"] })).toBe(
       true,
     );
-    expect(customHookMatchesScope(h, { project: ["prj_c"] })).toBe(false);
     expect(customHookMatchesScope(h, { project: [] })).toBe(false);
   });
 

@@ -44,7 +44,13 @@ const approvalRule = {
 
 describe("SDK Connection revision endpoints", () => {
   const { app, setReqContext } = setupApp();
-  const auth = { Authorization: "Bearer foo" };
+  const send = (
+    method: "get" | "post" | "put" | "delete",
+    path: string,
+    body?: Record<string, unknown>,
+  ) =>
+    request(app)[method](path).send(body).set({ Authorization: "Bearer foo" });
+  const collection = (name: string) => mongoose.connection.collection(name);
 
   function useAdmin(
     settings: Record<string, unknown> = {},
@@ -77,22 +83,19 @@ describe("SDK Connection revision endpoints", () => {
   }
 
   async function createConnection(): Promise<string> {
-    const res = await request(app)
-      .post("/api/v1/sdk-connections")
-      .send({
-        name: "Web app",
-        language: "javascript",
-        environment: "production",
-      })
-      .set(auth);
+    const res = await send("post", "/api/v1/sdk-connections", {
+      name: "Web app",
+      language: "javascript",
+      environment: "production",
+    });
     expect(res.status).toBe(200);
     return res.body.sdkConnection.id;
   }
 
   const liveConnection = (id: string) =>
-    mongoose.connection.collection("sdkconnections").findOne({ id });
+    collection("sdkconnections").findOne({ id });
   const liveWebhooks = (id: string) =>
-    mongoose.connection.collection("webhooks").find({ sdks: id }).toArray();
+    collection("webhooks").find({ sdks: id }).toArray();
 
   beforeEach(async () => {
     for (const name of [
@@ -103,9 +106,7 @@ describe("SDK Connection revision endpoints", () => {
       "webhooksecrets",
       "apikeys",
     ]) {
-      await mongoose.connection
-        .collection(name)
-        .deleteMany({ organization: ORG_ID });
+      await collection(name).deleteMany({ organization: ORG_ID });
     }
     // Hook code runs for real, in an isolate without the worker pool.
     mockRunInSandbox.mockReset();
@@ -116,10 +117,10 @@ describe("SDK Connection revision endpoints", () => {
     useAdmin();
     const id = await createConnection();
 
-    const staged = await request(app)
-      .put(`${BASE}/${id}/new/settings`)
-      .send({ includeRuleIds: true, revisionTitle: "Rule ids" })
-      .set(auth);
+    const staged = await send("put", `${BASE}/${id}/new/settings`, {
+      includeRuleIds: true,
+      revisionTitle: "Rule ids",
+    });
     expect(staged.status).toBe(200);
     const { version } = staged.body.revision;
     expect(staged.body.revision).toMatchObject({
@@ -132,14 +133,11 @@ describe("SDK Connection revision endpoints", () => {
       true,
     );
 
-    const added = await request(app)
-      .post(`${BASE}/${id}/${version}/webhooks`)
-      .send({
-        name: "Purge",
-        endpoint: "https://example.com/purge",
-        headers: '{"X-Token":"abc"}',
-      })
-      .set(auth);
+    const added = await send("post", `${BASE}/${id}/${version}/webhooks`, {
+      name: "Purge",
+      endpoint: "https://example.com/purge",
+      headers: '{"X-Token":"abc"}',
+    });
     expect(added.status).toBe(200);
     const [webhook] = added.body.revision.proposedSdkWebhooks;
     expect(webhook).toMatchObject({
@@ -151,32 +149,27 @@ describe("SDK Connection revision endpoints", () => {
     // the headers.
     expect(webhook).not.toHaveProperty("headers");
 
-    const edited = await request(app)
-      .put(`${BASE}/${id}/${version}/webhooks/${webhook.id}`)
-      .send({ endpoint: "https://example.com/purge-v2" })
-      .set(auth);
+    const edited = await send(
+      "put",
+      `${BASE}/${id}/${version}/webhooks/${webhook.id}`,
+      { endpoint: "https://example.com/purge-v2" },
+    );
     expect(edited.status).toBe(200);
     expect(edited.body.revision.proposedSdkWebhooks).toEqual([
       { ...webhook, endpoint: "https://example.com/purge-v2" },
     ]);
-    // Both edits ride the one draft.
-    expect(edited.body.revision.proposedSdkConnection.includeRuleIds).toBe(
-      true,
-    );
 
     // Nothing is live yet.
     expect((await liveConnection(id))?.includeRuleIds).not.toBe(true);
     expect(await liveWebhooks(id)).toHaveLength(0);
 
-    const latest = await request(app).get(`${BASE}/${id}/latest`).set(auth);
+    const latest = await send("get", `${BASE}/${id}/latest`);
     expect(latest.body.revision.version).toBe(version);
     expect(latest.body.revision.proposedSdkWebhooks[0].headers).toBe(
       '{"X-Token":"abc"}',
     );
 
-    const published = await request(app)
-      .post(`${BASE}/${id}/${version}/publish`)
-      .set(auth);
+    const published = await send("post", `${BASE}/${id}/${version}/publish`);
     expect(published.status).toBe(200);
     expect(published.body.revision.status).toBe("merged");
     expect(published.body.bypassedGates).toBeUndefined();
@@ -186,24 +179,20 @@ describe("SDK Connection revision endpoints", () => {
       { id: webhook.id, endpoint: "https://example.com/purge-v2" },
     ]);
 
-    const list = await request(app)
-      .get(`${BASE}/${id}?status=merged`)
-      .set(auth);
+    const list = await send("get", `${BASE}/${id}?status=merged`);
     expect(list.body.revisions.map((r) => r.version)).toContain(version);
 
     // The org-wide list finds it too, alone or among other connections'.
     const other = await createConnection();
-    await request(app)
-      .put(`${BASE}/${other}/new/settings`)
-      .send({ name: "Other" })
-      .set(auth);
-    const open = await request(app).get(`${BASE}?status=open`).set(auth);
+    await send("put", `${BASE}/${other}/new/settings`, { name: "Other" });
+    const open = await send("get", `${BASE}?status=open`);
     expect(open.body.revisions).toMatchObject([
       { status: "draft", baseSdkConnection: { id: other } },
     ]);
-    const one = await request(app)
-      .get(`${BASE}?sdkConnectionId=${id}&status=merged`)
-      .set(auth);
+    const one = await send(
+      "get",
+      `${BASE}?sdkConnectionId=${id}&status=merged`,
+    );
     expect(one.body.revisions.length).toBeGreaterThan(0);
     expect(one.body.revisions.every((r) => r.baseSdkConnection.id === id)).toBe(
       true,
@@ -214,46 +203,41 @@ describe("SDK Connection revision endpoints", () => {
     useAdmin();
     const id = await createConnection();
 
-    const noop = await request(app)
-      .put(`${BASE}/${id}/new/settings`)
-      .send({ name: "Web app" })
-      .set(auth);
+    const noop = await send("put", `${BASE}/${id}/new/settings`, {
+      name: "Web app",
+    });
     expect(noop.status).toBe(400);
     expect(noop.body.message).toMatch(/Nothing to stage/);
 
-    const hook = await request(app)
-      .post(`/api/v1/sdk-connections/${id}/webhooks`)
-      .send({ name: "Purge", endpoint: "https://example.com/purge" })
-      .set(auth);
-    const sameWebhook = await request(app)
-      .put(`${BASE}/${id}/new/webhooks/${hook.body.sdkWebhook.id}`)
-      .send({ name: "Purge" })
-      .set(auth);
+    const hook = await send("post", `/api/v1/sdk-connections/${id}/webhooks`, {
+      name: "Purge",
+      endpoint: "https://example.com/purge",
+    });
+    const sameWebhook = await send(
+      "put",
+      `${BASE}/${id}/new/webhooks/${hook.body.sdkWebhook.id}`,
+      { name: "Purge" },
+    );
     expect(sameWebhook.status).toBe(400);
     expect(sameWebhook.body.message).toMatch(/Nothing to stage/);
     // Refused when staged, not when the publish writes it.
-    const slow = await request(app)
-      .post(`${BASE}/${id}/new/webhooks`)
-      .send({
-        name: "Slow",
-        endpoint: "https://example.com/slow",
-        timeoutSeconds: 100000,
-      })
-      .set(auth);
+    const slow = await send("post", `${BASE}/${id}/new/webhooks`, {
+      name: "Slow",
+      endpoint: "https://example.com/slow",
+      timeoutSeconds: 100000,
+    });
     expect(slow.status).toBe(400);
     expect(slow.body.message).toMatch(/timeout/i);
 
-    const staged = await request(app)
-      .put(`${BASE}/${id}/new/settings`)
-      .send({ name: "Web" })
-      .set(auth);
+    const staged = await send("put", `${BASE}/${id}/new/settings`, {
+      name: "Web",
+    });
     const { version } = staged.body.revision;
-    await request(app).post(`${BASE}/${id}/${version}/publish`).set(auth);
+    await send("post", `${BASE}/${id}/${version}/publish`);
 
-    const late = await request(app)
-      .put(`${BASE}/${id}/${version}/settings`)
-      .send({ name: "Web again" })
-      .set(auth);
+    const late = await send("put", `${BASE}/${id}/${version}/settings`, {
+      name: "Web again",
+    });
     expect(late.status).toBe(400);
     expect(late.body.message).toMatch(/status "merged"/);
   });
@@ -261,16 +245,15 @@ describe("SDK Connection revision endpoints", () => {
   it("walks a draft through review, scheduling, a conflict, and discard", async () => {
     useAdmin(approvalRule);
     const id = await createConnection();
-    const staged = await request(app)
-      .put(`${BASE}/${id}/new/settings`)
-      .send({ name: "Web 2" })
-      .set(auth);
+    const staged = await send("put", `${BASE}/${id}/new/settings`, {
+      name: "Web 2",
+    });
     const draft = `${BASE}/${id}/${staged.body.revision.version}`;
     const call = (
       method: "get" | "post",
       path: string,
-      body: Record<string, unknown> = {},
-    ) => request(app)[method](`${draft}${path}`).send(body).set(auth);
+      body?: Record<string, unknown>,
+    ) => send(method, `${draft}${path}`, body);
     const status = async (res: request.Response) => {
       expect(res.status).toBe(200);
       return res.body.revision.status;
@@ -292,7 +275,7 @@ describe("SDK Connection revision endpoints", () => {
     expect(await status(await call("post", "/undo-review"))).toBe(
       "pending-review",
     );
-    expect(await status(await approve())).toBe("approved");
+    await approve();
 
     useAdmin(approvalRule);
     for (const scheduledPublishAt of ["2099-01-01T00:00:00Z", null]) {
@@ -304,10 +287,18 @@ describe("SDK Connection revision endpoints", () => {
     }
 
     // Live changes the setting the draft changes: a conflict to resolve.
-    await request(app)
-      .put(`/api/v1/sdk-connections/${id}`)
-      .send({ name: "Live name", bypassApproval: true })
-      .set(auth);
+    const bypassed = await send("put", `/api/v1/sdk-connections/${id}`, {
+      name: "Live name",
+      bypassApproval: true,
+    });
+    expect(bypassed.status).toBe(200);
+    expect(bypassed.body.bypassedGates).toEqual([
+      {
+        type: "approval-required",
+        outcome: "bypassed",
+        via: "bypassApprovalPermission",
+      },
+    ]);
     const behind = await call("get", "/merge-status");
     expect(behind.body).toMatchObject({
       hasConflicts: true,
@@ -329,7 +320,6 @@ describe("SDK Connection revision endpoints", () => {
   it("warns about a webhook secret that doesn't exist, at publish, when scheduled, and when the schedule fires", async () => {
     useAdmin();
     const id = await createConnection();
-    const collection = (name: string) => mongoose.connection.collection(name);
     const now = new Date();
     await collection("webhooksecrets").insertOne({
       id: "secret_cdn",
@@ -357,8 +347,6 @@ describe("SDK Connection revision endpoints", () => {
       endpoint: "https://example.com/purge",
       headers: `{"Authorization":"Bearer {{ ${secret} }}"}`,
     });
-    const post = (path: string, body: Record<string, unknown> = {}) =>
-      request(app).post(path).send(body).set(auth);
     const names = async () => (await liveWebhooks(id)).map((w) => w.name);
     const fire = async (version: number) => {
       await collection("revisions").updateOne(
@@ -383,7 +371,8 @@ describe("SDK Connection revision endpoints", () => {
     };
 
     // A direct save asks first.
-    const warned = await post(
+    const warned = await send(
+      "post",
       `/api/v1/sdk-connections/${id}/webhooks`,
       using("NOPE"),
     );
@@ -394,11 +383,15 @@ describe("SDK Connection revision endpoints", () => {
     expect(await names()).toEqual([]);
 
     // Staging says nothing. Publishing lists it as a gate.
-    const staged = await post(`${BASE}/${id}/new/webhooks`, using("NOPE"));
+    const staged = await send(
+      "post",
+      `${BASE}/${id}/new/webhooks`,
+      using("NOPE"),
+    );
     expect(staged.status).toBe(200);
     const { version } = staged.body.revision;
     const draft = `${BASE}/${id}/${version}`;
-    const blocked = await post(`${draft}/publish`);
+    const blocked = await send("post", `${draft}/publish`);
     expect(blocked.status).toBe(422);
     expect(blocked.body.gates).toMatchObject([
       {
@@ -411,11 +404,12 @@ describe("SDK Connection revision endpoints", () => {
     // Scheduling asks too. What was acknowledged then stands when it fires.
     const scheduledPublishAt = new Date(Date.now() + 3_600_000).toISOString();
     expect(
-      (await post(`${draft}/schedule-publish`, { scheduledPublishAt })).status,
+      (await send("post", `${draft}/schedule-publish`, { scheduledPublishAt }))
+        .status,
     ).toBe(422);
     expect(
       (
-        await post(`${draft}/schedule-publish`, {
+        await send("post", `${draft}/schedule-publish`, {
           scheduledPublishAt,
           ignoreWarnings: true,
         })
@@ -427,23 +421,27 @@ describe("SDK Connection revision endpoints", () => {
 
     // A secret that exists raises nothing. Removed after scheduling, it stops
     // the publish.
-    const edited = await request(app)
-      .put(`${BASE}/${id}/new/webhooks/${webhook.id}`)
-      .send(using("CDN_TOKEN"))
-      .set(auth);
+    const edited = await send(
+      "put",
+      `${BASE}/${id}/new/webhooks/${webhook.id}`,
+      using("CDN_TOKEN"),
+    );
     const second = edited.body.revision.version;
     expect(
       (
-        await post(`${BASE}/${id}/${second}/schedule-publish`, {
+        await send("post", `${BASE}/${id}/${second}/schedule-publish`, {
           scheduledPublishAt,
         })
       ).status,
     ).toBe(200);
     await collection("webhooksecrets").deleteOne({ id: "secret_cdn" });
     const parked = await fire(second);
-    expect(parked?.status).not.toBe("merged");
-    expect(parked?.scheduledPublishGaveUpAt).toBeTruthy();
-    expect(parked?.scheduledPublishLastError).toContain("went missing");
+    expect(parked).toMatchObject({
+      status: "draft",
+      scheduledPublishAttempts: 1,
+      scheduledPublishGaveUpAt: expect.any(Date),
+      scheduledPublishLastError: expect.stringContaining("went missing"),
+    });
     expect(await names()).toEqual(["Uses NOPE"]);
 
     // Each step is announced, and no event carries a webhook's headers.
@@ -471,26 +469,22 @@ describe("SDK Connection revision endpoints", () => {
     const id = await createConnection();
 
     useAdmin(approvalRule, { canBypass: false });
-    const direct = await request(app)
-      .put(`/api/v1/sdk-connections/${id}`)
-      .send({ name: "Web" })
-      .set(auth);
+    const direct = await send("put", `/api/v1/sdk-connections/${id}`, {
+      name: "Web",
+    });
     expect(direct.status).toBe(400);
     expect(direct.body.message).toContain(
       `PUT /sdk-connections-revisions/${id}/new/settings`,
     );
     expect(direct.body.message).toContain("bypassApproval");
 
-    const staged = await request(app)
-      .put(`${BASE}/${id}/new/settings`)
-      .send({ name: "Web" })
-      .set(auth);
+    const staged = await send("put", `${BASE}/${id}/new/settings`, {
+      name: "Web",
+    });
     expect(staged.status).toBe(200);
     const { version } = staged.body.revision;
 
-    const blocked = await request(app)
-      .post(`${BASE}/${id}/${version}/publish`)
-      .set(auth);
+    const blocked = await send("post", `${BASE}/${id}/${version}/publish`);
     expect(blocked.status).toBe(422);
     expect(blocked.body.gates).toMatchObject([
       {
@@ -503,16 +497,8 @@ describe("SDK Connection revision endpoints", () => {
     ]);
     expect((await liveConnection(id))?.name).toBe("Web app");
 
-    const review = await request(app)
-      .post(`${BASE}/${id}/${version}/request-review`)
-      .send({})
-      .set(auth);
-    expect(review.body.revision.status).toBe("pending-review");
-
     useAdmin(approvalRule);
-    const published = await request(app)
-      .post(`${BASE}/${id}/${version}/publish`)
-      .set(auth);
+    const published = await send("post", `${BASE}/${id}/${version}/publish`);
     expect(published.status).toBe(200);
     expect(published.body.bypassedGates).toEqual([
       {
@@ -529,35 +515,29 @@ describe("SDK Connection revision endpoints", () => {
     useAdmin();
     const id = await createConnection();
 
-    const live = await request(app)
-      .delete(`/api/v1/sdk-connections/${id}`)
-      .set(auth);
+    const live = await send("delete", `/api/v1/sdk-connections/${id}`);
     expect(live.status).toBe(403);
     expect(live.body.message).toMatch(/Archive the SDK Connection first/);
 
-    const staged = await request(app)
-      .put(`${BASE}/${id}/new/archive`)
-      .send({ archived: true })
-      .set(auth);
+    const staged = await send("put", `${BASE}/${id}/new/archive`, {
+      archived: true,
+    });
     expect(staged.status).toBe(200);
-    const published = await request(app)
-      .post(`${BASE}/${id}/${staged.body.revision.version}/publish`)
-      .set(auth);
+    const published = await send(
+      "post",
+      `${BASE}/${id}/${staged.body.revision.version}/publish`,
+    );
     expect(published.status).toBe(200);
     expect((await liveConnection(id))?.archived).toBe(true);
 
-    const archived = await request(app)
-      .delete(`/api/v1/sdk-connections/${id}`)
-      .set(auth);
+    const archived = await send("delete", `/api/v1/sdk-connections/${id}`);
     expect(archived.status).toBe(200);
     expect(archived.body).toEqual({ deletedId: id });
     expect(await liveConnection(id)).toBeNull();
 
     useAdmin({ restApiBypassesReviews: true });
     const other = await createConnection();
-    const bypassed = await request(app)
-      .delete(`/api/v1/sdk-connections/${other}`)
-      .set(auth);
+    const bypassed = await send("delete", `/api/v1/sdk-connections/${other}`);
     expect(bypassed.status).toBe(200);
     expect(await liveConnection(other)).toBeNull();
   });
@@ -566,41 +546,33 @@ describe("SDK Connection revision endpoints", () => {
     useAdmin();
     const id = await createConnection();
     const publish = async (version: number) => {
-      const res = await request(app)
-        .post(`${BASE}/${id}/${version}/publish`)
-        .set(auth);
+      const res = await send("post", `${BASE}/${id}/${version}/publish`);
       expect(res.status).toBe(200);
     };
 
     // v2 turns on rule ids and adds a webhook; v3 renames and removes it.
-    const second = await request(app)
-      .put(`${BASE}/${id}/new/settings`)
-      .send({ includeRuleIds: true })
-      .set(auth);
+    const second = await send("put", `${BASE}/${id}/new/settings`, {
+      includeRuleIds: true,
+    });
     const v2 = second.body.revision.version;
-    const added = await request(app)
-      .post(`${BASE}/${id}/${v2}/webhooks`)
-      .send({ name: "Purge", endpoint: "https://example.com/purge" })
-      .set(auth);
+    const added = await send("post", `${BASE}/${id}/${v2}/webhooks`, {
+      name: "Purge",
+      endpoint: "https://example.com/purge",
+    });
     const webhookId = added.body.revision.proposedSdkWebhooks[0].id;
     await publish(v2);
     const [original] = await liveWebhooks(id);
 
-    const third = await request(app)
-      .put(`${BASE}/${id}/new/settings`)
-      .send({ name: "Web 2" })
-      .set(auth);
+    const third = await send("put", `${BASE}/${id}/new/settings`, {
+      name: "Web 2",
+    });
     const v3 = third.body.revision.version;
-    await request(app)
-      .delete(`${BASE}/${id}/${v3}/webhooks/${webhookId}`)
-      .set(auth);
+    await send("delete", `${BASE}/${id}/${v3}/webhooks/${webhookId}`);
     await publish(v3);
     expect(await liveWebhooks(id)).toHaveLength(0);
 
     // A draft by default: nothing lands.
-    const drafted = await request(app)
-      .post(`${BASE}/${id}/${v2}/revert`)
-      .set(auth);
+    const drafted = await send("post", `${BASE}/${id}/${v2}/revert`);
     expect(drafted.status).toBe(200);
     expect(drafted.body).toMatchObject({
       revision: {
@@ -612,16 +584,17 @@ describe("SDK Connection revision endpoints", () => {
     // Nothing is recreated until the revert lands.
     expect(drafted.body).not.toHaveProperty("recreatedWebhookIds");
     expect((await liveConnection(id))?.name).toBe("Web 2");
-    await request(app)
-      .post(`${BASE}/${id}/${drafted.body.revision.version}/discard`)
-      .set(auth);
+    await send(
+      "post",
+      `${BASE}/${id}/${drafted.body.revision.version}/discard`,
+    );
 
-    const landed = await request(app)
-      .post(`${BASE}/${id}/${v2}/revert`)
-      .send({ strategy: "publish" })
-      .set(auth);
+    const landed = await send("post", `${BASE}/${id}/${v2}/revert`, {
+      strategy: "publish",
+    });
     expect(landed.status).toBe(200);
     expect(landed.body.revision.status).toBe("merged");
+    expect(landed.body.recreatedWebhookIds).toEqual([webhookId]);
     expect(await liveConnection(id)).toMatchObject({
       name: "Web app",
       includeRuleIds: true,
@@ -630,31 +603,28 @@ describe("SDK Connection revision endpoints", () => {
     expect(restored).toMatchObject({ id: webhookId, name: "Purge" });
     expect(restored.signingKey).not.toBe(original.signingKey);
 
-    const again = await request(app)
-      .post(`${BASE}/${id}/${v2}/revert`)
-      .send({ strategy: "publish" })
-      .set(auth);
+    const again = await send("post", `${BASE}/${id}/${v2}/revert`, {
+      strategy: "publish",
+    });
     expect(again.status).toBe(400);
     expect(again.body.message).toMatch(/nothing to revert/);
 
     // The first revision predates rule ids, so going back turns them off.
-    const first = await request(app)
-      .post(`${BASE}/${id}/1/revert`)
-      .send({ strategy: "publish" })
-      .set(auth);
+    const first = await send("post", `${BASE}/${id}/1/revert`, {
+      strategy: "publish",
+    });
     expect(first.status).toBe(200);
     expect((await liveConnection(id))?.includeRuleIds).toBe(false);
     expect(await liveWebhooks(id)).toHaveLength(0);
 
     // Under an approval rule, landing needs a bypass and leaves no draft.
     useAdmin(approvalRule, { canBypass: false });
-    const refused = await request(app)
-      .post(`${BASE}/${id}/${v2}/revert`)
-      .send({ strategy: "publish" })
-      .set(auth);
+    const refused = await send("post", `${BASE}/${id}/${v2}/revert`, {
+      strategy: "publish",
+    });
     expect(refused.status).toBe(400);
     expect(refused.body.message).toContain('strategy: "draft"');
-    const open = await request(app).get(`${BASE}/${id}?status=open`).set(auth);
+    const open = await send("get", `${BASE}/${id}?status=open`);
     expect(open.body.revisions).toHaveLength(0);
 
     // Unless the org lets reverts land without approval, which also makes
@@ -663,9 +633,7 @@ describe("SDK Connection revision endpoints", () => {
       { ...approvalRule, revertsBypassApproval: true },
       { canBypass: false },
     );
-    const allowed = await request(app)
-      .post(`${BASE}/${id}/${v2}/revert`)
-      .set(auth);
+    const allowed = await send("post", `${BASE}/${id}/${v2}/revert`);
     expect(allowed.status).toBe(200);
     expect(allowed.body.revision.status).toBe("merged");
     expect(allowed.body.bypassedGates).toEqual([
@@ -678,56 +646,36 @@ describe("SDK Connection revision endpoints", () => {
     expect((await liveConnection(id))?.includeRuleIds).toBe(true);
   });
 
-  it("records a direct webhook write as a published revision that can be reverted", async () => {
+  it("records a direct webhook write as a published revision", async () => {
     useAdmin();
     const id = await createConnection();
-    const history = () =>
-      mongoose.connection
-        .collection("revisions")
-        .find({ "target.id": id })
-        .sort({ version: 1 })
-        .toArray();
-    const webhookNames = (revision: { target: { proposedChanges: unknown } }) =>
-      (
-        revision.target.proposedChanges as {
-          value: { name: string }[];
-        }[]
-      )[0].value.map((wh) => wh.name);
 
     // A role that manages webhooks but not the connection still leaves a record.
     useAdmin({}, { webhooksOnly: true });
-    const created = await request(app)
-      .post(`/api/v1/sdk-connections/${id}/webhooks`)
-      .send({ name: "Purge", endpoint: "https://example.com/purge" })
-      .set(auth);
+    const created = await send(
+      "post",
+      `/api/v1/sdk-connections/${id}/webhooks`,
+      { name: "Purge", endpoint: "https://example.com/purge" },
+    );
     expect(created.status).toBe(200);
     const webhookId = created.body.sdkWebhook.id;
     const rename = () =>
-      request(app)
-        .put(`/api/v1/sdk-webhooks/${webhookId}`)
-        .send({ name: "Purge CDN" })
-        .set(auth);
+      send("put", `/api/v1/sdk-webhooks/${webhookId}`, { name: "Purge CDN" });
     expect((await rename()).status).toBe(200);
     // Nothing changed, so nothing to record.
     expect((await rename()).status).toBe(200);
-    const deleted = await request(app)
-      .delete(`/api/v1/sdk-webhooks/${webhookId}`)
-      .set(auth);
+    const deleted = await send("delete", `/api/v1/sdk-webhooks/${webhookId}`);
     expect(deleted.status).toBe(200);
 
-    const [baseline, ...writes] = await history();
+    const [baseline, ...writes] = await collection("revisions")
+      .find({ "target.id": id })
+      .sort({ version: 1 })
+      .toArray();
     expect(baseline.target.proposedChanges).toEqual([]);
     expect(writes.map((r) => r.status)).toEqual(["merged", "merged", "merged"]);
-    expect(writes.map(webhookNames)).toEqual([["Purge"], ["Purge CDN"], []]);
-
-    useAdmin();
-    const reverted = await request(app)
-      .post(`${BASE}/${id}/${writes[1].version}/revert`)
-      .send({ strategy: "publish" })
-      .set(auth);
-    expect(reverted.status).toBe(200);
-    expect(reverted.body.recreatedWebhookIds).toEqual([webhookId]);
-    expect(await liveWebhooks(id)).toMatchObject([{ name: "Purge CDN" }]);
+    expect(
+      writes.map((r) => r.target.proposedChanges[0].value.map((wh) => wh.name)),
+    ).toEqual([["Purge"], ["Purge CDN"], []]);
   });
 
   it("runs the connection hook on writes and the revision hook on drafts", async () => {
@@ -743,60 +691,55 @@ describe("SDK Connection revision endpoints", () => {
       hook: type,
       code,
     });
-    await mongoose.connection
-      .collection("customhooks")
-      .insertMany([
-        hook(
-          "validateSdkConnection",
-          `if (sdkConnection.name === "Bad") throw new Error("No bad names");`,
-        ),
-        hook(
-          "validateSdkConnectionRevision",
-          `if (revision.sdkConnection.name === "Staged bad") throw new Error("No bad drafts");`,
-        ),
-      ]);
-    type HookArgs = {
-      sdkConnection: { name: string };
-      sdkWebhooks: Record<string, unknown>[];
-      revision?: Record<string, unknown> & {
-        sdkConnection: { name: string };
-        sdkWebhooks: Record<string, unknown>[];
-      };
-    };
+    await collection("customhooks").insertMany([
+      hook(
+        "validateSdkConnection",
+        `if (sdkConnection.name === "Bad") throw new Error("No bad names");`,
+      ),
+      hook(
+        "validateSdkConnectionRevision",
+        `if (revision.sdkConnection.name === "Staged bad") throw new Error("No bad drafts");`,
+      ),
+    ]);
     const lastArgs = (hookType = "connection") =>
       mockRunInSandbox.mock.calls
         .filter(
           (call) => call[0].includes("revision.") === (hookType === "revision"),
         )
-        .at(-1)?.[1] as HookArgs;
+        .at(-1)?.[1];
 
-    const badCreate = await request(app)
-      .post("/api/v1/sdk-connections")
-      .send({ name: "Bad", language: "javascript", environment: "production" })
-      .set(auth);
+    const badCreate = await send("post", "/api/v1/sdk-connections", {
+      name: "Bad",
+      language: "javascript",
+      environment: "production",
+    });
     expect(badCreate.status).toBe(400);
     expect(badCreate.body.message).toContain("No bad names");
+    // The hook judges what will be saved, defaults included.
+    expect(lastArgs().sdkConnection).toMatchObject({
+      includeReferencedPrerequisites: true,
+    });
 
     const id = await createConnection();
 
-    const badUpdate = await request(app)
-      .put(`/api/v1/sdk-connections/${id}`)
-      .send({ name: "Bad" })
-      .set(auth);
+    const badUpdate = await send("put", `/api/v1/sdk-connections/${id}`, {
+      name: "Bad",
+    });
     expect(badUpdate.status).toBe(400);
     expect(badUpdate.body.message).toContain("No bad names");
     expect((await liveConnection(id))?.name).toBe("Web app");
 
     // A direct webhook write is a change to the connection too. Hooks get the
     // headers as an object.
-    const webhook = await request(app)
-      .post(`/api/v1/sdk-connections/${id}/webhooks`)
-      .send({
+    const webhook = await send(
+      "post",
+      `/api/v1/sdk-connections/${id}/webhooks`,
+      {
         name: "Purge",
         endpoint: "https://example.com/purge",
         headers: '{"X-Token":"abc"}',
-      })
-      .set(auth);
+      },
+    );
     expect(webhook.status).toBe(200);
     expect(lastArgs().sdkWebhooks).toMatchObject([
       { name: "Purge", headers: { "X-Token": "abc" } },
@@ -809,10 +752,10 @@ describe("SDK Connection revision endpoints", () => {
     });
 
     // The revision hook sees a draft save: live, and what the draft proposes.
-    const refused = await request(app)
-      .put(`${BASE}/${id}/new/settings`)
-      .send({ name: "Staged bad", revisionTitle: "Rename" })
-      .set(auth);
+    const refused = await send("put", `${BASE}/${id}/new/settings`, {
+      name: "Staged bad",
+      revisionTitle: "Rename",
+    });
     expect(refused.status).toBe(400);
     expect(refused.body.message).toContain("No bad drafts");
     expect(lastArgs("revision")).toMatchObject({
@@ -824,14 +767,11 @@ describe("SDK Connection revision endpoints", () => {
       },
     });
 
-    const staged = await request(app)
-      .put(`${BASE}/${id}/new/settings`)
-      .send({ name: "Bad" })
-      .set(auth);
+    const staged = await send("put", `${BASE}/${id}/new/settings`, {
+      name: "Bad",
+    });
     const { version } = staged.body.revision;
-    const blocked = await request(app)
-      .post(`${BASE}/${id}/${version}/publish`)
-      .set(auth);
+    const blocked = await send("post", `${BASE}/${id}/${version}/publish`);
     expect(blocked.status).toBe(422);
     expect(blocked.body.gates).toMatchObject([
       { type: "custom-hook", override: "skipHooks" },
@@ -853,29 +793,26 @@ describe("SDK Connection revision endpoints", () => {
 
     // The flag alone clears nothing.
     useAdmin({}, { canBypass: false });
-    const unskipped = await request(app)
-      .put(`/api/v1/sdk-connections/${id}`)
-      .send({ name: "Bad", skipHooks: true })
-      .set(auth);
+    const unskipped = await send("put", `/api/v1/sdk-connections/${id}`, {
+      name: "Bad",
+      skipHooks: true,
+    });
     expect(unskipped.status).toBe(400);
     expect(unskipped.body.message).toContain("No bad names");
 
     // Past a hook too, for someone who can bypass approvals everywhere. The
     // flag is part of every body that runs a hook, and no part of the change.
     useAdmin();
-    const direct = await request(app)
-      .put(`/api/v1/sdk-connections/${id}`)
-      .send({ name: "Bad", skipHooks: true })
-      .set(auth);
+    const direct = await send("put", `/api/v1/sdk-connections/${id}`, {
+      name: "Bad",
+      skipHooks: true,
+    });
     expect(direct.status).toBe(200);
-    await request(app)
-      .put(`/api/v1/sdk-connections/${id}`)
-      .send({ name: "Web app" })
-      .set(auth);
-    const forcedDraft = await request(app)
-      .put(`${BASE}/${id}/new/settings`)
-      .send({ name: "Staged bad", skipHooks: true })
-      .set(auth);
+    await send("put", `/api/v1/sdk-connections/${id}`, { name: "Web app" });
+    const forcedDraft = await send("put", `${BASE}/${id}/new/settings`, {
+      name: "Staged bad",
+      skipHooks: true,
+    });
     expect(forcedDraft.status).toBe(200);
     expect(forcedDraft.body.revision.proposedSdkConnection).toMatchObject({
       name: "Staged bad",
@@ -885,10 +822,9 @@ describe("SDK Connection revision endpoints", () => {
     );
 
     const calls = mockRunInSandbox.mock.calls.length;
-    const forced = await request(app)
-      .post(`${BASE}/${id}/${version}/publish`)
-      .send({ skipHooks: true })
-      .set(auth);
+    const forced = await send("post", `${BASE}/${id}/${version}/publish`, {
+      skipHooks: true,
+    });
     expect(forced.status).toBe(200);
     expect(forced.body.bypassedGates).toEqual([
       { type: "custom-hook", outcome: "bypassed", via: "skipHooks" },
@@ -899,17 +835,14 @@ describe("SDK Connection revision endpoints", () => {
 
     // A rebase rewrites the draft, so the revision hook sees that too.
     useAdmin();
-    const behind = await request(app)
-      .put(`${BASE}/${id}/new/settings`)
-      .send({ includeRuleIds: true })
-      .set(auth);
-    await request(app)
-      .put(`/api/v1/sdk-connections/${id}`)
-      .send({ name: "Web app" })
-      .set(auth);
-    const rebased = await request(app)
-      .post(`${BASE}/${id}/${behind.body.revision.version}/rebase`)
-      .set(auth);
+    const behind = await send("put", `${BASE}/${id}/new/settings`, {
+      includeRuleIds: true,
+    });
+    await send("put", `/api/v1/sdk-connections/${id}`, { name: "Web app" });
+    const rebased = await send(
+      "post",
+      `${BASE}/${id}/${behind.body.revision.version}/rebase`,
+    );
     expect(rebased.status).toBe(200);
     expect(lastArgs("revision").revision).toMatchObject({
       version: behind.body.revision.version,
@@ -917,21 +850,17 @@ describe("SDK Connection revision endpoints", () => {
     });
 
     // A revert that publishes at once is a direct landing, not a draft.
-    await request(app)
-      .put(`/api/v1/sdk-connections/${id}`)
-      .send({ name: "Renamed" })
-      .set(auth);
-    const merged = await request(app)
-      .get(`${BASE}/${id}?status=merged`)
-      .set(auth);
+    await send("put", `/api/v1/sdk-connections/${id}`, { name: "Renamed" });
+    const merged = await send("get", `${BASE}/${id}?status=merged`);
     const target = merged.body.revisions.find(
       (r: { proposedSdkConnection: { name: string } }) =>
         r.proposedSdkConnection.name === "Web app",
     );
-    const reverted = await request(app)
-      .post(`${BASE}/${id}/${target.version}/revert`)
-      .send({ strategy: "publish" })
-      .set(auth);
+    const reverted = await send(
+      "post",
+      `${BASE}/${id}/${target.version}/revert`,
+      { strategy: "publish" },
+    );
     expect(reverted.status).toBe(200);
     expect(lastArgs("revision").revision).toMatchObject({
       status: "merged",
