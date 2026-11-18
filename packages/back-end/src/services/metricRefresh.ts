@@ -88,7 +88,7 @@ const UNAVAILABLE_MESSAGES: Record<MetricRefreshUnavailableReason, string> = {
   settings_changed:
     "The last update's results can't be reused for newly added metrics. Run a full update instead.",
   base_incomplete:
-    "Some queries of the last update failed, so its results can't be reused. Run a full update instead.",
+    "The last update's results are incomplete, so they can't be reused. Run a full update instead.",
 };
 
 function unavailable(
@@ -222,6 +222,10 @@ export async function planMetricRefresh({
     })
   ) {
     throw new MetricRefreshOutsideWindowError();
+  }
+  // A refresh extends the parent's default analysis.
+  if (parent.analyses[0]?.status !== "success") {
+    throw unavailable("base_incomplete");
   }
 
   const plan = await planSnapshotAt(parent.settings.endDate).catch(

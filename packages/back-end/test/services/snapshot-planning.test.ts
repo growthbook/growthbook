@@ -2598,6 +2598,7 @@ describe("planExperimentSnapshot output on trunk", () => {
         queries: [
           { name: "group_0", query: "qry_group_0", status: "succeeded" },
         ],
+        analyses: snapshot.analyses.map((a) => ({ ...a, status: "success" })),
       } as ExperimentSnapshotInterface;
     }
 

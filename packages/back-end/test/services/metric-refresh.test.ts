@@ -493,6 +493,24 @@ describe("planMetricRefresh", () => {
     }
   });
 
+  it.each(["results", "incremental-update"] as const)(
+    "refuses before planning when the parent's default analysis failed (%s)",
+    async (runnerKind) => {
+      findParentMock.mockResolvedValue(
+        makeParent({
+          runnerKind,
+          analyses: [{ ...makeParent().analyses[0], status: "error" }],
+        }),
+      );
+      const args = refreshArgs();
+
+      await expect(planMetricRefresh(args)).rejects.toMatchObject({
+        details: { reason: "base_incomplete" },
+      });
+      expect(args.planSnapshotAt).not.toHaveBeenCalled();
+    },
+  );
+
   describe("with a window", () => {
     const window = (minutesAfterParent: number) => ({
       windowMinutes: 60,
