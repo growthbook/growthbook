@@ -2,7 +2,7 @@
 
 ## **2.2.0** - Nov 18, 2026
 
-- Add `defaultHashVersion` option, the hash version for percentage rollouts and experiments that are missing a `hashVersion`. Defaults to `1` for backwards compatibily. Recommend setting to `2` for new installations.
+- Add `defaultHashVersion` option, the hash version for percentage rollouts and experiments that are missing a `hashVersion`. Defaults to `1` for backwards compatibility. Recommend setting to `2` for new installations.
 - Add `LocalFeatures` type for feature flags hard-coded in a local file
 - Add `getInterleaveRankers()` and `getInterleaveRankersForKey()` to the interleaving plugin, for reading every ranker's config out of the payload — useful for pre-computing rankings in a background job
 
