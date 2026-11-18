@@ -211,7 +211,7 @@ export async function postMfaEnable(
     throw new Error("MFA is already turned on for your account.");
   }
   if (!user.mfaSecret) throw new Error("Start MFA setup first.");
-  await assertMfaCode(user, req.body.mfaCode, res);
+  await assertMfaCode(user, req.body.mfaCode);
   const { codes, hashes } = generateRecoveryCodes();
   await enableMfa(user.id, hashes);
   await reissueLocalSession(req as Request, res, user, true);
@@ -226,7 +226,7 @@ export async function postMfaRecoveryCodes(
   if (!user.mfaEnabled) {
     throw new Error("MFA is not turned on for your account.");
   }
-  await assertMfaCode(user, req.body.mfaCode, res);
+  await assertMfaCode(user, req.body.mfaCode);
   const { codes, hashes } = generateRecoveryCodes();
   await setMfaRecoveryCodes(user.id, hashes);
   res.status(200).json({ status: 200, recoveryCodes: codes });
@@ -246,7 +246,7 @@ export async function postMfaDisable(
       "An organization you belong to requires MFA, so it can't be turned off.",
     );
   }
-  await assertMfaCode(user, req.body.mfaCode, res);
+  await assertMfaCode(user, req.body.mfaCode);
   await disableMfa(user.id);
   await AuthRefreshModel.updateMany(
     { userId: user.id },

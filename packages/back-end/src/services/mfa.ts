@@ -1,6 +1,5 @@
 import crypto from "crypto";
 import { Request, Response } from "express";
-import rateLimit from "express-rate-limit";
 import { AES, enc } from "crypto-js";
 import { UserInterface } from "shared/types/user";
 import { ENCRYPTION_KEY } from "back-end/src/util/secrets";
@@ -12,7 +11,7 @@ import { AuthRefreshModel } from "back-end/src/models/AuthRefreshModel";
 import { RefreshTokenCookie, setIdTokenCookie } from "back-end/src/util/cookie";
 import { getAuthConnection } from "back-end/src/services/auth";
 import { base32Encode, verifyTotp } from "back-end/src/util/totp";
-import { AuthRequest } from "back-end/src/types/AuthRequest";
+import { TooManyRequestsError } from "back-end/src/util/errors";
 
 export function encryptMfaSecret(secret: Buffer): string {
   return AES.encrypt(secret.toString("hex"), ENCRYPTION_KEY).toString();
@@ -62,37 +61,34 @@ async function verifyUserMfaCode(
   return claimMfaStep(user.id, user.mfaLastUsedStep, step);
 }
 
-// Throws, and flags the response for mfaCodeRateLimit, when the code is wrong
+const MFA_WINDOW_MS = 15 * 60 * 1000;
+const MFA_MAX_FAILURES = 10;
+// Per replica, keyed by user, so only someone past the password check can add to it
+const mfaFailures = new Map<string, { count: number; resetAt: number }>();
+
 export async function assertMfaCode(
   user: Pick<UserInterface, "id" | "mfaSecret" | "mfaLastUsedStep">,
   code: unknown,
-  res: Response,
 ) {
-  if (!(await verifyUserMfaCode(user, code))) {
-    res.locals.mfaCodeRejected = true;
-    throw new Error("Invalid authentication code");
+  const now = Date.now();
+  let entry = mfaFailures.get(user.id);
+  if (!entry || entry.resetAt <= now) {
+    entry = { count: 0, resetAt: now + MFA_WINDOW_MS };
+    mfaFailures.set(user.id, entry);
   }
+  if (entry.count >= MFA_MAX_FAILURES) {
+    throw new TooManyRequestsError(
+      "Too many authentication code attempts. Try again later.",
+    );
+  }
+  // Counted before the await so concurrent guesses can't overshoot the limit
+  entry.count++;
+  if (await verifyUserMfaCode(user, code)) {
+    entry.count--;
+    return;
+  }
+  throw new Error("Invalid authentication code");
 }
-
-// Counts only rejected codes, so a wrong password can't lock the real user out
-export const mfaCodeRateLimit = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 10,
-  standardHeaders: true,
-  legacyHeaders: false,
-  skipSuccessfulRequests: true,
-  requestWasSuccessful: (_req: Request, res: Response) =>
-    !res.locals.mfaCodeRejected,
-  keyGenerator: (req: Request) =>
-    (req as AuthRequest).userId ||
-    String(req.body?.email || "").toLowerCase() ||
-    req.ip ||
-    "",
-  message: {
-    status: 429,
-    message: "Too many authentication code attempts. Try again later.",
-  },
-});
 
 // Swaps the current local-auth session for one whose MFA state matches the account's
 export async function reissueLocalSession(

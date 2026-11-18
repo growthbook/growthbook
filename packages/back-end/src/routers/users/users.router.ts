@@ -2,7 +2,6 @@ import express, { Request } from "express";
 import rateLimit from "express-rate-limit";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { wrapController } from "back-end/src/routers/wrapController";
-import { mfaCodeRateLimit } from "back-end/src/services/mfa";
 import * as usersControllerRaw from "./users.controller";
 
 const router = express.Router();
@@ -33,12 +32,8 @@ router.post("/unwatch/:type/:id", usersController.postUnwatchItem);
 router.get("/getRecommendedOrgs", usersController.getRecommendedOrgs);
 router.get("/history", usersController.getHistoryByUser);
 router.post("/mfa/setup", usersController.postMfaSetup);
-router.post("/mfa/enable", mfaCodeRateLimit, usersController.postMfaEnable);
-router.post("/mfa/disable", mfaCodeRateLimit, usersController.postMfaDisable);
-router.post(
-  "/mfa/recovery-codes",
-  mfaCodeRateLimit,
-  usersController.postMfaRecoveryCodes,
-);
+router.post("/mfa/enable", usersController.postMfaEnable);
+router.post("/mfa/disable", usersController.postMfaDisable);
+router.post("/mfa/recovery-codes", usersController.postMfaRecoveryCodes);
 
 export { router as usersRouter };

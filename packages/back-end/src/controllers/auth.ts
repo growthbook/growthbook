@@ -246,7 +246,7 @@ export async function postLogin(
     if (!mfaCode) {
       return res.status(200).json({ status: 200, mfaRequired: true });
     }
-    await assertMfaCode(user, mfaCode, res);
+    await assertMfaCode(user, mfaCode);
   }
 
   sendLocalSuccessResponse(req, res, user, { mfa: !!user.mfaEnabled });

@@ -192,6 +192,14 @@ export class PaymentRequiredError extends Error {
   }
 }
 
+export class TooManyRequestsError extends Error {
+  status = 429;
+  constructor(message: string) {
+    super(message);
+    this.name = "TooManyRequestsError";
+  }
+}
+
 export class PlanDoesNotAllowError extends Error {
   status = 403;
   constructor(message: string) {
