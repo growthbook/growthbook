@@ -3924,7 +3924,7 @@ export function toSnapshotApiInterface(
 
   return {
     id: snapshot.id,
-    dateUpdated: snapshot.dateCreated.toISOString(),
+    dateUpdated: getSnapshotDataAsOf(snapshot).toISOString(),
     experimentId: snapshot.experiment,
     phase: snapshot.phase + "",
     dimension: dimension,

@@ -363,9 +363,10 @@ describe("toSnapshotApiInterface (legacy contract)", () => {
     expect(settings.assignmentQueryId).toBe("eq_new");
   });
 
-  it("ends a metric refresh's results at the date its data ends, not its run time", () => {
+  it("dates a metric refresh's results by its base update, not its own run", () => {
     const refresh = makeSnapshot();
     const dataEnd = new Date("2025-01-02T00:00:00.000Z");
+    const baseRanAt = new Date("2025-01-02T00:05:00.000Z");
     const ranAt = new Date("2025-01-05T09:30:00.000Z");
     Object.assign(refresh, {
       dateCreated: ranAt,
@@ -373,7 +374,7 @@ describe("toSnapshotApiInterface (legacy contract)", () => {
       settings: { ...refresh.settings, endDate: dataEnd },
       metricRefresh: {
         baseSnapshotId: "snp_base",
-        baseDateCreated: dataEnd,
+        baseDateCreated: baseRanAt,
         baseCutoffDate: dataEnd,
         parentSnapshotId: "snp_base",
         metricIds: ["met_1"],
@@ -393,7 +394,7 @@ describe("toSnapshotApiInterface (legacy contract)", () => {
 
     expect(toDates(refresh)).toEqual({
       dateEnd: dataEnd.toISOString(),
-      dateUpdated: ranAt.toISOString(),
+      dateUpdated: baseRanAt.toISOString(),
     });
     expect(toDates(fullRun)).toEqual({
       dateEnd: ranAt.toISOString(),
