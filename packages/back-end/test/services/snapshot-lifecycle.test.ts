@@ -556,6 +556,7 @@ describe("snapshot lifecycle", () => {
             metricRefresh: {
               baseSnapshotId: "snp_base",
               baseDateCreated: cutoff,
+              baseRunStarted: null,
               baseCutoffDate: cutoff,
               parentSnapshotId: "snp_base",
               metricIds: ["met_new"],

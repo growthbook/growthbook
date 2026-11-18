@@ -816,6 +816,7 @@ describe("a metric refresh run on the Incremental Pipeline", () => {
         metricRefresh: {
           baseSnapshotId: "snp_base",
           baseDateCreated: BASE_END,
+          baseRunStarted: null,
           baseCutoffDate: BASE_END,
           parentSnapshotId: "snp_base",
           metricIds: ["a3"],

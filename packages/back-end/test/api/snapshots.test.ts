@@ -1069,6 +1069,7 @@ describe("snapshots API", () => {
         metricRefresh: {
           baseSnapshotId: "snp_base",
           baseDateCreated: refreshEndDate,
+          baseRunStarted: null,
           baseCutoffDate: null,
           parentSnapshotId: "snp_base",
           metricIds: ["fact__new"],

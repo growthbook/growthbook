@@ -88,6 +88,22 @@ export function getSnapshotDataAsOf(snapshot: SnapshotLineage): Date {
 }
 
 /**
+ * The results endpoint's `dateEnd`. A metric refresh reports what its base
+ * reported, so adding metrics never moves it.
+ */
+export function getResultsDateEnd(
+  snapshot: Pick<
+    ExperimentSnapshotInterface,
+    "type" | "metricRefresh" | "runStarted"
+  >,
+  phase: { dateEnded?: Date | null } | undefined,
+): Date | null {
+  if (phase?.dateEnded) return phase.dateEnded;
+  const refresh = getMetricRefresh(snapshot);
+  return (refresh ? refresh.baseRunStarted : snapshot.runStarted) ?? null;
+}
+
+/**
  * Side effects that differ between a full run and a metric refresh. Callers
  * keep their own conditions and also require the flag.
  */

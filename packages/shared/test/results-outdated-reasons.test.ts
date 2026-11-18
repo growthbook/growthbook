@@ -265,6 +265,7 @@ describe("getResultsOutdatedReasons", () => {
             parentSnapshotId: "snp_base",
             metricIds: ["fact__a"],
             baseDateCreated: threeDaysAgo,
+            baseRunStarted: null,
             baseCutoffDate: laggedSettings.endDate,
           },
         }),

@@ -827,7 +827,7 @@ export async function getMetricIdsMissingFromResults({
 export function getMetricRefreshLineage(
   parent: Pick<
     ExperimentSnapshotInterface,
-    "id" | "dateCreated" | "settings" | "metricRefresh"
+    "id" | "dateCreated" | "runStarted" | "settings" | "metricRefresh"
   >,
   metricIds: string[],
 ): SnapshotMetricRefresh {
@@ -835,11 +835,13 @@ export function getMetricRefreshLineage(
     ? {
         baseSnapshotId: parent.metricRefresh.baseSnapshotId,
         baseDateCreated: parent.metricRefresh.baseDateCreated,
+        baseRunStarted: parent.metricRefresh.baseRunStarted ?? null,
         baseCutoffDate: parent.metricRefresh.baseCutoffDate ?? null,
       }
     : {
         baseSnapshotId: parent.id,
         baseDateCreated: parent.dateCreated,
+        baseRunStarted: parent.runStarted,
         baseCutoffDate: getSnapshotCutoffDate(parent.settings),
       };
   return { ...root, parentSnapshotId: parent.id, metricIds };

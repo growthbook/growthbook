@@ -1195,6 +1195,7 @@ describe("snapshot planning", () => {
           metricRefresh: {
             baseSnapshotId: "snp_base",
             baseDateCreated: new Date("2025-01-01T00:00:00.000Z"),
+            baseRunStarted: null,
             baseCutoffDate: null,
             parentSnapshotId: "snp_base",
             metricIds: ["met_new"],
@@ -2636,6 +2637,7 @@ describe("planExperimentSnapshot", () => {
       expect(plan.snapshot.metricRefresh).toEqual({
         baseSnapshotId: "snp_parent",
         baseDateCreated: now,
+        baseRunStarted: now,
         baseCutoffDate: null,
         parentSnapshotId: "snp_parent",
         metricIds: ["fact__guard"],

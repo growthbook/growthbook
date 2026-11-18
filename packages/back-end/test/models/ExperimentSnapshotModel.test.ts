@@ -1356,6 +1356,7 @@ describe("ExperimentSnapshotModel", () => {
           metricRefresh: {
             baseSnapshotId: parentSnapshotId,
             baseDateCreated: at(0),
+            baseRunStarted: null,
             baseCutoffDate: at(0),
             parentSnapshotId,
             metricIds: ["met_1"],

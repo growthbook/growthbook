@@ -300,6 +300,7 @@ describe("isNewerOverallResultsDataAvailable", () => {
       metricRefresh: {
         baseSnapshotId: "root",
         baseDateCreated,
+        baseRunStarted: null,
         baseCutoffDate: null,
         parentSnapshotId: "root",
         metricIds: ["met_new"],

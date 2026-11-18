@@ -83,6 +83,7 @@ describe("refreshLacksSelectedAnalysis", () => {
   const refresh = {
     baseSnapshotId: "snp_base",
     baseDateCreated: new Date("2026-11-17T09:00:00Z"),
+    baseRunStarted: null,
     baseCutoffDate: null,
     parentSnapshotId: "snp_base",
     metricIds: ["met_new"],

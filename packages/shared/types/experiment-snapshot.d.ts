@@ -241,6 +241,8 @@ export interface SnapshotMetricRefresh {
   // The full (non-refresh) snapshot the chain of refreshes started from.
   baseSnapshotId: string;
   baseDateCreated: Date;
+  // The base's runStarted, which the results endpoint reports as its dateEnd.
+  baseRunStarted: Date | null;
   // The base's analysis cutoff, or null when it analyzed through its run time.
   baseCutoffDate: Date | null;
   // The snapshot whose queries were copied and whose metric settings were kept.

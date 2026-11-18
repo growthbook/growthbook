@@ -151,6 +151,7 @@ describe("getSnapshotSideEffects", () => {
       metricRefresh: {
         baseSnapshotId: "snp_base",
         baseDateCreated,
+        baseRunStarted: null,
         baseCutoffDate: null,
         parentSnapshotId: "snp_base",
         metricIds: ["met_c"],
@@ -177,6 +178,7 @@ describe("a report snapshot copied from a metric refresh", () => {
     metricRefresh: {
       baseSnapshotId: "snp_base",
       baseDateCreated: new Date("2026-11-10T00:00:00Z"),
+      baseRunStarted: null,
       baseCutoffDate: null,
       parentSnapshotId: "snp_base",
       metricIds: ["fact__new"],
@@ -214,6 +216,7 @@ describe("getSnapshotDataAsOf", () => {
         metricRefresh: {
           baseSnapshotId: "snp_root",
           baseDateCreated: rootRan,
+          baseRunStarted: null,
           baseCutoffDate: null,
           parentSnapshotId: "snp_parent",
           metricIds: ["met_c"],

@@ -10,11 +10,15 @@ import type {
 import type { ExperimentReportResultDimension } from "shared/types/report";
 import type { QueryInterface, QueryPointer } from "shared/types/query";
 import type { ExperimentMetricInterface } from "shared/experiments";
-import { getMetricFilterForCarriedQueries } from "shared/experiments";
+import {
+  getMetricFilterForCarriedQueries,
+  getResultsDateEnd,
+} from "shared/experiments";
 import type { ReqContext } from "back-end/types/request";
 import type { PlannedExperimentSnapshot } from "back-end/src/services/experiments";
 import type { SourceIntegrationInterface } from "back-end/src/types/Integration";
 import type { QueryMap } from "back-end/src/queryRunners/QueryRunner";
+import { toApiExperimentSnapshot } from "back-end/src/api/snapshots/toApiExperimentSnapshot";
 import {
   analyzeMetricRefresh,
   carryMetricRefreshQueries,
@@ -334,6 +338,7 @@ describe("planMetricRefresh", () => {
     expect(plan.snapshot.metricRefresh).toEqual({
       baseSnapshotId: "snp_parent",
       baseDateCreated: PARENT_CREATED,
+      baseRunStarted: null,
       baseCutoffDate: PARENT_END,
       parentSnapshotId: "snp_parent",
       metricIds: ["met_c"],
@@ -706,6 +711,7 @@ describe("planMetricRefresh", () => {
         metricRefresh: {
           baseSnapshotId: "snp_base",
           baseDateCreated: PARENT_CREATED,
+          baseRunStarted: null,
           baseCutoffDate: PARENT_END,
           parentSnapshotId,
           metricIds,
@@ -1392,9 +1398,14 @@ describe("getMetricIdsMissingFromResults", () => {
 
 describe("getMetricRefreshLineage", () => {
   it("points a refresh of a full run at that run", () => {
-    expect(getMetricRefreshLineage(makeParent(), ["met_c"])).toEqual({
+    expect(
+      getMetricRefreshLineage(makeParent({ runStarted: PARENT_CREATED }), [
+        "met_c",
+      ]),
+    ).toEqual({
       baseSnapshotId: "snp_parent",
       baseDateCreated: PARENT_CREATED,
+      baseRunStarted: PARENT_CREATED,
       baseCutoffDate: PARENT_END,
       parentSnapshotId: "snp_parent",
       metricIds: ["met_c"],
@@ -1405,16 +1416,110 @@ describe("getMetricRefreshLineage", () => {
     const refresh = makeParent({
       id: "snp_refresh",
       dateCreated: new Date("2026-11-11T00:00:00Z"),
-      metricRefresh: getMetricRefreshLineage(makeParent(), ["met_c"]),
+      runStarted: new Date("2026-11-11T00:00:01Z"),
+      metricRefresh: getMetricRefreshLineage(
+        makeParent({ runStarted: PARENT_CREATED }),
+        ["met_c"],
+      ),
     });
 
     expect(getMetricRefreshLineage(refresh, ["met_d"])).toEqual({
       baseSnapshotId: "snp_parent",
       baseDateCreated: PARENT_CREATED,
+      baseRunStarted: PARENT_CREATED,
       baseCutoffDate: PARENT_END,
       parentSnapshotId: "snp_refresh",
       metricIds: ["met_d"],
     });
+  });
+});
+
+// The results endpoint must report the same dateEnd before and after a
+// refresh; metricRefresh.dateEnd is the analysis end the refresh is pinned to.
+describe("dateEnd of a refresh", () => {
+  const baseRan = new Date("2026-11-18T22:17:36.299Z");
+  const runningPhase = { dateEnded: undefined };
+
+  function refreshOf(
+    parent: ExperimentSnapshotInterface,
+    id: string,
+    ran: Date,
+  ): ExperimentSnapshotInterface {
+    return makeParent({
+      id,
+      runStarted: ran,
+      dateCreated: ran,
+      settings: { ...parent.settings },
+      metricRefresh: getMetricRefreshLineage(parent, ["met_c"]),
+    });
+  }
+
+  it.each([
+    {
+      base: "a base analyzed through its run time",
+      endDate: new Date("2026-11-18T22:17:36.208Z"),
+      endDateIsCutoff: false,
+    },
+    {
+      base: "a base analyzed through a lagged cutoff",
+      endDate: new Date("2026-11-17T21:17:36.208Z"),
+      endDateIsCutoff: true,
+    },
+  ])("keeps the base's dateEnd for $base", ({ endDate, endDateIsCutoff }) => {
+    const base = makeParent({
+      runStarted: baseRan,
+      settings: makeSettings(["met_a", "met_b"], { endDate, endDateIsCutoff }),
+    });
+    const refresh = refreshOf(
+      base,
+      "snp_refresh",
+      new Date("2026-11-18T23:00:00Z"),
+    );
+
+    expect(getResultsDateEnd(base, runningPhase)).toEqual(baseRan);
+    expect(getResultsDateEnd(refresh, runningPhase)).toEqual(baseRan);
+    expect(toApiExperimentSnapshot(refresh).metricRefresh?.dateEnd).toBe(
+      endDate.toISOString(),
+    );
+  });
+
+  it("keeps the base's dateEnd for a refresh of a refresh", () => {
+    const endDate = new Date("2026-11-17T21:17:36.208Z");
+    const base = makeParent({
+      runStarted: baseRan,
+      settings: makeSettings(["met_a", "met_b"], {
+        endDate,
+        endDateIsCutoff: true,
+      }),
+    });
+    const first = refreshOf(
+      base,
+      "snp_refresh_1",
+      new Date("2026-11-18T23:00:00Z"),
+    );
+    const second = refreshOf(
+      first,
+      "snp_refresh_2",
+      new Date("2026-11-19T01:00:00Z"),
+    );
+
+    expect(getResultsDateEnd(second, runningPhase)).toEqual(baseRan);
+    expect(toApiExperimentSnapshot(second).metricRefresh?.dateEnd).toBe(
+      endDate.toISOString(),
+    );
+  });
+
+  it("reports the phase's end date once the phase ends", () => {
+    const base = makeParent({ runStarted: baseRan });
+    const refresh = refreshOf(
+      base,
+      "snp_refresh",
+      new Date("2026-11-18T23:00:00Z"),
+    );
+    const dateEnded = new Date("2026-11-20T00:00:00Z");
+
+    expect(getResultsDateEnd(base, { dateEnded })).toEqual(dateEnded);
+    expect(getResultsDateEnd(refresh, { dateEnded })).toEqual(dateEnded);
   });
 });
 

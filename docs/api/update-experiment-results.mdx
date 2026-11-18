@@ -57,7 +57,7 @@ The response is the snapshot the update creates:
 ```
 
 - `updateScope` says which update ran: `new_metrics` or `all_metrics`.
-- `metricRefresh` is present only when `updateScope` is `new_metrics`. `metricIds` lists the metrics this update computes. `dateEnd` is the end date of the results, which is the end date of the earlier update named by `baseSnapshotId`.
+- `metricRefresh` is present only when `updateScope` is `new_metrics`. `metricIds` lists the metrics this update computes. `dateEnd` is where the data ends for every metric: the end date of the earlier update named by `baseSnapshotId`. It can be earlier than `result.dateEnd`, which is when that update ran, for example by the data lag of a scheduled update.
 
 If the response is a 409, see [Errors](#errors).
 
