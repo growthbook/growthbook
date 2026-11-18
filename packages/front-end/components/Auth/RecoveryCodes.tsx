@@ -1,5 +1,6 @@
 import { Code, Flex, Grid } from "@radix-ui/themes";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
+import { saveAs } from "@/services/files";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
 
@@ -30,15 +31,12 @@ export default function RecoveryCodes({ codes }: { codes: string[] }) {
         )}
         <Button
           variant="outline"
-          onClick={() => {
-            const a = document.createElement("a");
-            a.href = URL.createObjectURL(
-              new Blob([text], { type: "text/plain" }),
-            );
-            a.download = "growthbook-recovery-codes.txt";
-            a.click();
-            URL.revokeObjectURL(a.href);
-          }}
+          onClick={() =>
+            saveAs({
+              textContent: text,
+              fileName: "growthbook-recovery-codes.txt",
+            })
+          }
         >
           Download
         </Button>

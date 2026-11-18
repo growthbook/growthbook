@@ -115,6 +115,8 @@ export default function MfaEnrollment({
           inputMode="numeric"
           autoComplete="one-time-code"
           pattern="[0-9]{6}"
+          title="The 6-digit code from your authenticator app"
+          helpText="Enter the 6-digit code from your authenticator app."
           value={code}
           onChange={(e) => setCode(e.target.value)}
         />
