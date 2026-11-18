@@ -3608,13 +3608,29 @@ describe("experiments API", () => {
         prerequisites: [],
         namespace: { enabled: false },
       };
+      const metric = (id: string, userIdTypes = ["user_id"]) => ({
+        id,
+        datasource: "ds_123",
+        userIdTypes,
+      });
       const getResults = async ({
         snapshot = {},
         query = "",
+        metrics = ["met_1", "met_2", "met_3"].map((id) => metric(id)),
       }: {
         snapshot?: object;
         query?: string;
+        metrics?: ReturnType<typeof metric>[];
       } = {}) => {
+        (getMetricsByIds as jest.Mock).mockResolvedValue(metrics);
+        (getDataSourceById as jest.Mock).mockResolvedValue({
+          id: "ds_123",
+          settings: {
+            queries: {
+              exposure: [{ id: "user_id", userIdType: "user_id" }],
+            },
+          },
+        });
         updateReqContext({
           org,
           permissions: { canViewExperiment: () => true },
@@ -3630,6 +3646,8 @@ describe("experiments API", () => {
         });
         (getExperimentById as jest.Mock).mockResolvedValue({
           ...experiment,
+          datasource: "ds_123",
+          exposureQueryId: "user_id",
           goalMetrics: ["met_1", "mg_1"],
           secondaryMetrics: [],
           guardrailMetrics: [],
@@ -3666,6 +3684,22 @@ describe("experiments API", () => {
 
         expect(res.status).toBe(200);
         expect(res.body.result.missingMetricIds).toEqual(["met_3"]);
+      });
+
+      it("leaves out a metric no update computes, so it doesn't stay missing", async () => {
+        const unjoinable = await getResults({
+          metrics: [
+            metric("met_1"),
+            metric("met_2"),
+            metric("met_3", ["anonymous_id"]),
+          ],
+        });
+        const deleted = await getResults({
+          metrics: [metric("met_1"), metric("met_2")],
+        });
+
+        expect(unjoinable.body.result.missingMetricIds).toEqual([]);
+        expect(deleted.body.result.missingMetricIds).toEqual([]);
       });
 
       it("is an empty list when the results cover every metric", async () => {

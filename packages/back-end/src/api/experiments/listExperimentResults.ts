@@ -1,8 +1,15 @@
 import { getAllMetricIdsFromExperiment } from "shared/experiments";
 import { listExperimentResultsValidator } from "shared/validators";
+import type { DataSourceInterface } from "shared/types/datasource";
 import { getAllExperiments } from "back-end/src/models/ExperimentModel";
 import { getLatestSnapshotMultipleExperiments } from "back-end/src/models/ExperimentSnapshotModel";
+import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import {
+  type FactTableMap,
+  getFactTableMap,
+} from "back-end/src/models/FactTableModel";
+import {
+  createSnapshotComputesMetric,
   getExperimentMetricsByIds,
   getHealthSettingsForOrg,
   toSnapshotApiInterface,
@@ -79,13 +86,34 @@ export const listExperimentResults = createApiRequestHandler(
   // Preserve the experiment ordering from getAllExperiments and drop
   // experiments without a completed snapshot. `count` is overridden below so it
   // reflects the response array, not the page slice.
-  const experimentResults = filtered.flatMap((experiment) => {
-    const snapshot = snapshotsByExperiment.get(experiment.id);
-    const missingMetricIds =
-      snapshot &&
-      getMetricIdsMissingFromResults({ experiment, snapshot, metricGroups });
-    return snapshot
-      ? [
+  let factTableMap: Promise<FactTableMap> | undefined;
+  const datasources = new Map<string, Promise<DataSourceInterface | null>>();
+  const getDatasource = (id: string) => {
+    const datasource =
+      datasources.get(id) ?? getDataSourceById(req.context, id);
+    datasources.set(id, datasource);
+    return datasource;
+  };
+  const experimentResults = (
+    await Promise.all(
+      filtered.map(async (experiment) => {
+        const snapshot = snapshotsByExperiment.get(experiment.id);
+        if (!snapshot) return [];
+        const missingMetricIds = await getMetricIdsMissingFromResults({
+          experiment,
+          snapshot,
+          metricGroups,
+          loadSnapshotComputesMetric: async () =>
+            createSnapshotComputesMetric({
+              experiment,
+              datasource: await getDatasource(experiment.datasource),
+              metricMap: metricsById,
+              factTableMap: await (factTableMap ??= getFactTableMap(
+                req.context,
+              )),
+            }),
+        });
+        return [
           {
             ...toSnapshotApiInterface(
               experiment,
@@ -96,9 +124,10 @@ export const listExperimentResults = createApiRequestHandler(
             health: toApiResultHealth({ experiment, snapshot, healthSettings }),
             ...(missingMetricIds ? { missingMetricIds } : {}),
           },
-        ]
-      : [];
-  });
+        ];
+      }),
+    )
+  ).flat();
 
   return {
     experimentResults,

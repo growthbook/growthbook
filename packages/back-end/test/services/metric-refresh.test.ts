@@ -22,6 +22,7 @@ import {
   analyzeMetricRefresh,
   carryMetricRefreshQueries,
   getParentQueryCopiers,
+  getMetricIdsMissingFromResults,
   getMetricRefreshLineage,
   getQueriesStartedByRefresh,
   getQueriesWithChangedSql,
@@ -1496,6 +1497,46 @@ describe("mergeMetricRefreshSettings", () => {
     ]);
     expect(settings.clusterLevelMetricIds).toEqual(["met_a", "met_c"]);
     expect(queriedMetricIds).toEqual(["met_c"]);
+  });
+});
+
+describe("getMetricIdsMissingFromResults", () => {
+  const missingFrom = (
+    metricIds: string[],
+    snapshotComputesMetric = (id: string) => id !== "met_unjoinable",
+  ) => {
+    const loadSnapshotComputesMetric = jest.fn(
+      async () => snapshotComputesMetric,
+    );
+    return {
+      loadSnapshotComputesMetric,
+      missing: getMetricIdsMissingFromResults({
+        experiment: makeExperiment({
+          goalMetrics: ["met_a", "met_b", "met_unjoinable"],
+        }),
+        snapshot: {
+          dimension: "",
+          phase: 0,
+          settings: makeSettings(metricIds),
+        },
+        metricGroups: [],
+        loadSnapshotComputesMetric,
+      }),
+    };
+  };
+
+  it("lists only the missing metrics an update would compute", async () => {
+    await expect(missingFrom(["met_a"]).missing).resolves.toEqual(["met_b"]);
+  });
+
+  it("loads nothing when no metric is missing", async () => {
+    const { missing, loadSnapshotComputesMetric } = missingFrom([
+      "met_a",
+      "met_b",
+      "met_unjoinable",
+    ]);
+    await expect(missing).resolves.toEqual([]);
+    expect(loadSnapshotComputesMetric).not.toHaveBeenCalled();
   });
 });
 

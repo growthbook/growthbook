@@ -5,7 +5,10 @@ import {
 import { NotFoundError } from "back-end/src/util/errors";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import { getLatestSuccessfulSnapshot } from "back-end/src/models/ExperimentSnapshotModel";
+import { getDataSourceById } from "back-end/src/models/DataSourceModel";
+import { getFactTableMap } from "back-end/src/models/FactTableModel";
 import {
+  createSnapshotComputesMetric,
   getHealthSettingsForOrg,
   getMetricMapForExperiment,
   toExperimentApiInterface,
@@ -40,12 +43,6 @@ export const getExperimentResults = createApiRequestHandler(
     throw new Error("No results found for that experiment");
   }
 
-  const missingMetricIds = getMetricIdsMissingFromResults({
-    experiment,
-    snapshot,
-    metricGroups: await req.context.models.metricGroups.getAll(),
-  });
-
   const [apiExperiment, metricsById, exposureQueries] = await Promise.all([
     // Holdouts have no enhanced status. Non-holdout requests do have enhanced status
     // but we should not return it if the user requested data from an older phase
@@ -61,6 +58,18 @@ export const getExperimentResults = createApiRequestHandler(
     getMetricMapForExperiment(req.context, experiment),
     getExposureQueriesForDatasource(req.context, experiment.datasource),
   ]);
+  const missingMetricIds = await getMetricIdsMissingFromResults({
+    experiment,
+    snapshot,
+    metricGroups: await req.context.models.metricGroups.getAll(),
+    loadSnapshotComputesMetric: async () =>
+      createSnapshotComputesMetric({
+        experiment,
+        datasource: await getDataSourceById(req.context, experiment.datasource),
+        metricMap: metricsById,
+        factTableMap: await getFactTableMap(req.context),
+      }),
+  });
   const result = toSnapshotApiInterface(
     experiment,
     snapshot,

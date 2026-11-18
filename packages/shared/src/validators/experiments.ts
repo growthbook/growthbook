@@ -1494,7 +1494,7 @@ export const apiExperimentResultsValidator = namedSchema(
       missingMetricIds: z
         .array(z.string())
         .describe(
-          "Metrics on the experiment that these results don't include yet, because they were added after the results were computed. Create a snapshot (POST /experiments/{id}/snapshot) to compute them. Present only on Overall Results of the latest phase.",
+          "Metrics on the experiment that these results don't include yet, because they were added after the results were computed. Create a snapshot (POST /experiments/{id}/snapshot) to compute them. Metrics no snapshot can compute, such as ones that can't join the experiment's assignment identifier, aren't listed. Present only on Overall Results of the latest phase.",
         )
         .optional(),
       results: z.array(

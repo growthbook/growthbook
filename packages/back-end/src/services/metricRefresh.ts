@@ -758,14 +758,17 @@ export function mergeMetricRefreshSettings({
 }
 
 /**
- * The experiment's metrics that a results snapshot does not cover yet, or
- * undefined when the snapshot is not the latest phase's Overall results, the
- * only results an update adds newly added metrics to.
+ * The experiment's metrics that a results snapshot does not cover yet and an
+ * update would compute, or undefined when the snapshot is not the latest
+ * phase's Overall results, the only results an update adds newly added
+ * metrics to. Loads what it needs to tell which metrics an update computes
+ * only when some are missing.
  */
-export function getMetricIdsMissingFromResults({
+export async function getMetricIdsMissingFromResults({
   experiment,
   snapshot,
   metricGroups,
+  loadSnapshotComputesMetric,
 }: {
   experiment: Pick<
     ExperimentInterface,
@@ -775,7 +778,8 @@ export function getMetricIdsMissingFromResults({
     settings: Partial<Pick<ExperimentSnapshotSettings, "metricSettings">>;
   };
   metricGroups: MetricGroupInterface[];
-}): string[] | undefined {
+  loadSnapshotComputesMetric: () => Promise<(metricId: string) => boolean>;
+}): Promise<string[] | undefined> {
   const { metricSettings } = snapshot.settings;
   // Legacy snapshots predate per-metric settings, so they can't say which metrics they hold.
   if (
@@ -785,11 +789,14 @@ export function getMetricIdsMissingFromResults({
   ) {
     return undefined;
   }
-  return getMetricIdsMissingFromSnapshot({
+  const missing = getMetricIdsMissingFromSnapshot({
     experiment,
     snapshotSettings: { metricSettings },
     metricGroups,
   });
+  return missing.length
+    ? missing.filter(await loadSnapshotComputesMetric())
+    : missing;
 }
 
 export function getMetricRefreshLineage(

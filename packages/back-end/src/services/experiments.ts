@@ -733,6 +733,46 @@ export function createMetricEligibilityResolver(params: {
   };
 }
 
+/**
+ * Whether a snapshot of the experiment would analyze a metric: one that no
+ * longer exists, or that getSnapshotSettings finds ineligible, is never
+ * computed.
+ */
+export function createSnapshotComputesMetric({
+  experiment,
+  datasource,
+  metricMap,
+  factTableMap,
+}: {
+  experiment: Pick<
+    ExperimentInterface,
+    | "exposureQueryId"
+    | "exposureQueryIdentifierType"
+    | "isClusterExperiment"
+    | "clusterSubUnitIdentifier"
+  >;
+  datasource: DataSourceInterface | null;
+  metricMap: Map<string, ExperimentMetricInterface>;
+  factTableMap: FactTableMap;
+}): (metricId: string) => boolean {
+  const exposureQuery = datasource?.settings?.queries?.exposure?.find(
+    (q) => q.id === experiment.exposureQueryId,
+  );
+  const { isEligible } = createMetricEligibilityResolver({
+    metricMap,
+    factTableMap,
+    datasource: datasource ?? undefined,
+    exposureQueryIdentifierType: resolveAnalysisIdentifierType(
+      exposureQuery,
+      experiment.exposureQueryIdentifierType,
+    ),
+    clusterSubUnitIdentifier: experiment.isClusterExperiment
+      ? experiment.clusterSubUnitIdentifier
+      : undefined,
+  });
+  return (metricId) => metricMap.has(metricId) && isEligible(metricId);
+}
+
 export function getSnapshotSettings({
   experiment,
   phaseIndex,
