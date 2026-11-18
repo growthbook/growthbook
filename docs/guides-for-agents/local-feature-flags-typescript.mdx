@@ -597,9 +597,11 @@ test("uploadLimitMb is 20 for Pro users and 10 for everyone else", () => {
 });
 ```
 
-## QA in the browser
+When a flag doesn't evaluate the way you expect, `gb.evalFeature("newCheckout")` returns the `value` along with its `source`: `"force"` when a rule matched and `"defaultValue"` when none did. For a step-by-step trace, create the instance with `debug: true`. The SDK then logs each rule it skips and why.
 
-To QA different flag values in the browser without editing `flags.ts`, turn on dev mode:
+## Let the user QA in the browser
+
+In a browser or React app, turn on dev mode so the user can try different flag values without editing `flags.ts`:
 
 ```ts
 export const gb = new GrowthBook({
@@ -609,13 +611,13 @@ export const gb = new GrowthBook({
 }).initSync({ payload: { features } });
 ```
 
-Then install the [GrowthBook DevTools browser extension](/tools/chrome-extension) for Chrome or Firefox. It connects to the instance on the page and lets you:
+Dev mode is for the user, not for you. Verify your own work as described in [Testing](#testing). When you hand the project back, tell the user that they can install the [GrowthBook DevTools browser extension](https://docs.growthbook.io/tools/chrome-extension) for Chrome or Firefox to:
 
 - See every flag, its current value, and the rule that produced it
 - Override a flag's value
 - Override attributes, for example to see the page as a Pro user
 
-Overrides apply instantly and only in your own browser session. Dev mode exposes every flag and its rules to anyone with the extension, so keep it off in production.
+Overrides apply instantly and only in their own browser session. Dev mode exposes every flag and its rules to anyone with the browser extension, so keep it off in production.
 
 ## Finish the local setup
 
@@ -625,5 +627,6 @@ Before handing the project back:
 - Verify safe defaults, environment overrides, and attribute targeting for the flags you added. For percentage rollouts, check that the same ID gets the same result across repeated evaluations and that a missing ID is excluded from the percentage rollout.
 - Check the flag reads in the application, including attribute changes such as login or a plan change when applicable.
 - Return the flags you added, their defaults and rules, the files you changed, and the verification results. Explain any checks you could not complete.
+- If you turned on dev mode, tell the user how to QA flags with the DevTools extension.
 
 The local setup is complete. No GrowthBook account or client key is required.
