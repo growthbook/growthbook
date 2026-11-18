@@ -14,6 +14,7 @@ import { validateSnapshotDimension } from "back-end/src/services/snapshotDimensi
 import {
   DimensionAlreadyUpToDateError,
   ExperimentIncrementalPipelineRequiresFullRefreshError,
+  NotFoundError,
 } from "back-end/src/util/errors";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { logger } from "back-end/src/util/logger";
@@ -33,7 +34,7 @@ export const postExperimentSnapshot = createApiRequestHandler(
   const experiment = await getExperimentById(context, id);
 
   if (!experiment) {
-    throw new Error("Experiment not found");
+    throw new NotFoundError("Experiment not found");
   }
   if (!experiment.datasource) {
     throw new Error("No datasource set for experiment");

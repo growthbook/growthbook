@@ -3,7 +3,11 @@ import Link from "next/link";
 import { flushSync } from "react-dom";
 import { date, datetime } from "shared/dates";
 import { isProjectListValidForProject } from "shared/util";
-import { getMetricLink, isFactMetricId } from "shared/experiments";
+import {
+  getFactMetricPrimaryFactTableId,
+  getMetricLink,
+  isFactMetricId,
+} from "shared/experiments";
 import { FactMetricInterface } from "shared/types/fact-table";
 import { useRouter } from "next/router";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
@@ -40,6 +44,7 @@ import {
   MetricModal,
   MetricModalState,
 } from "@/components/FactTables/NewMetricModal";
+import SearchFilterRow from "@/components/Search/SearchFilterRow";
 import MetricSearchFilters from "@/components/Search/MetricSearchFilters";
 import PremiumCallout from "@/ui/PremiumCallout";
 import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
@@ -306,11 +311,7 @@ export function useCombinedMetrics({
     }),
     ...factMetrics.map((m) => {
       // Match /fact-metrics/new: the copy gets its fact table's Projects.
-      const seedTable = getFactTableById(
-        m.metricType === "funnel"
-          ? (m.funnelSettings?.steps[0]?.factTableId ?? "")
-          : (m.numerator?.factTableId ?? ""),
-      );
+      const seedTable = getFactTableById(getFactMetricPrimaryFactTableId(m));
       const canDuplicate = permissionsUtil.canCreateFactMetric({
         projects: seedTable ? seedTable.projects || [] : m.projects,
       });
@@ -632,22 +633,27 @@ const MetricsList = (): React.ReactElement => {
       <Box mt="4">
         <CustomMarkdown page={"metricList"} />
       </Box>
-      <Flex justify="between" mb="3" gap="3" align="center">
-        <Box className="relative" width="40%">
-          <Field
-            size="legacy"
-            placeholder="Search..."
-            type="search"
-            {...searchInputProps}
+      <SearchFilterRow
+        mb="3"
+        search={
+          <Box className="relative">
+            <Field
+              size="legacy"
+              placeholder="Search..."
+              type="search"
+              {...searchInputProps}
+            />
+          </Box>
+        }
+        filters={
+          <MetricSearchFilters
+            combinedMetrics={combinedMetrics}
+            searchInputProps={searchInputProps}
+            setSearchValue={setSearchValue}
+            syntaxFilters={syntaxFilters}
           />
-        </Box>
-        <MetricSearchFilters
-          combinedMetrics={combinedMetrics}
-          searchInputProps={searchInputProps}
-          setSearchValue={setSearchValue}
-          syntaxFilters={syntaxFilters}
-        />
-      </Flex>
+        }
+      />
       {metrics.length > 4 && !metricGroups.length ? (
         <PremiumCallout
           commercialFeature="metric-groups"

@@ -126,17 +126,17 @@ export function getAutoExposureQueryId({
 
   if (exposureQueries.length === 1) return exposureQueries[0].id;
 
-  // Managed warehouses don't populate userIdType.attributes links, so the generic
-  // lookup below can't resolve the assignment query. Map the hash attribute to its
-  // exposure query directly instead.
+  // Managed warehouses map attributes to their exposure queries themselves.
+  // Older ones can also have userIdType.attributes links added by hand, so fall
+  // back to the generic lookup below when the mapping finds nothing.
   if (datasource?.type === "growthbook_clickhouse") {
     const managedQueryId = getManagedWarehouseExposureQueryIdForAttribute({
       settings: datasource.settings,
       attribute: hashAttribute,
     });
-    return exposureQueries.some((q) => q.id === managedQueryId)
-      ? managedQueryId
-      : "";
+    if (exposureQueries.some((q) => q.id === managedQueryId)) {
+      return managedQueryId;
+    }
   }
 
   // A hash attribute can be linked to several identifier types, each with its

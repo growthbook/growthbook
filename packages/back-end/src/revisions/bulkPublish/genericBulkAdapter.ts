@@ -11,7 +11,10 @@ import {
 } from "back-end/src/revisions/moveAuthority";
 import { canPublishRevisionChange } from "back-end/src/revisions/revisionActions";
 import { resolvePublishFootprint } from "back-end/src/revisions/revisionPublishEnvironments";
-import { buildMergeDesiredState } from "back-end/src/revisions/util";
+import {
+  buildMergeDesiredState,
+  landedTarget,
+} from "back-end/src/revisions/util";
 import type { Context } from "back-end/src/models/BaseModel";
 import {
   type EntityRevisionAdapter,
@@ -66,8 +69,6 @@ export function makeGenericBulkAdapter(
   },
 ): BulkPublishableAdapter {
   return {
-    staleBaseForceAllowsRestBypass: true,
-
     applyScanOverlay(overlayContext, proposedEntities) {
       options.setScanOverlay(overlayContext, proposedEntities);
     },
@@ -91,8 +92,12 @@ export function makeGenericBulkAdapter(
       return adapter.canUpdate(context, entity);
     },
 
-    canBypassApproval(context, entity) {
-      return adapter.canBypassApproval(context, entity);
+    canBypassApproval(context, entity, revision) {
+      return adapter.canBypassApproval(
+        context,
+        entity,
+        (revision.raw as Revision).target.proposedChanges,
+      );
     },
 
     async buildDesiredState(context, entity, revision) {
@@ -281,7 +286,12 @@ export function makeGenericBulkAdapter(
       );
     },
 
-    async claim(context, revision, baseline, { isApprovalBypass, comment }) {
+    async claim(
+      context,
+      revision,
+      baseline,
+      { entityPreImage, isApprovalBypass, comment },
+    ) {
       try {
         const merged = await context.models.revisions.merge(
           revision.id,
@@ -293,6 +303,11 @@ export function makeGenericBulkAdapter(
               status: baseline.revisionStatus,
               dateUpdated: baseline.revisionDateUpdated,
             },
+            landed: landedTarget(
+              adapter,
+              revision.raw as Revision,
+              entityPreImage,
+            ),
           },
         );
         revision.claimStamp = merged.dateUpdated;

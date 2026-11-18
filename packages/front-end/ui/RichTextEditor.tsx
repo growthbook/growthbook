@@ -58,6 +58,7 @@ import { getLinkLabelFromUrl } from "@/components/Markdown/markdownLinkUtils";
 import Collapse from "@/ui/Collapse";
 import HelperText from "@/ui/HelperText";
 import { Size } from "@/ui/sizes";
+import ScrollArea from "@/ui/ScrollArea";
 import Tooltip from "@/ui/Tooltip";
 import {
   $createImageNode,
@@ -84,7 +85,10 @@ export interface Props {
   height?: RichTextHeight;
   /** Grow past `height` with the content, up to `maxHeight`, instead of scrolling. */
   autoGrow?: boolean;
-  /** Where growing stops and the content scrolls. Only applies with `autoGrow`. */
+  /**
+   * Where growing stops and the content scrolls. Only applies with `autoGrow`.
+   * Defaults to `2xl` for md text and `lg` for sm.
+   */
   maxHeight?: RichTextHeight;
   autoFocus?: boolean;
   /** Rendered under the editable area, for a caller's own controls. */
@@ -109,6 +113,7 @@ const RICH_TEXT_HEIGHTS = {
   md: 150,
   lg: 220,
   xl: 360,
+  "2xl": 500,
 } as const;
 
 export type RichTextHeight = keyof typeof RICH_TEXT_HEIGHTS;
@@ -345,7 +350,7 @@ export default forwardRef<RichTextEditorHandle, Props>(function RichTextEditor(
     size = "md",
     height = "md",
     autoGrow = false,
-    maxHeight = "lg",
+    maxHeight = size === "md" ? "2xl" : "lg",
     autoFocus = false,
     footer,
     simpleToolbar = false,
@@ -448,24 +453,28 @@ export default forwardRef<RichTextEditorHandle, Props>(function RichTextEditor(
           toolbar
         )}
         <div className={styles.editableWrap}>
-          <RichTextPlugin
-            contentEditable={
-              <ContentEditable
-                // Browsers report contenteditable as -1, so a dialog's
-                // autofocus would skip past the text without this.
-                tabIndex={0}
-                className={styles.editable}
-                aria-placeholder={placeholder ?? ""}
-                aria-labelledby={ariaLabelledBy}
-                placeholder={
-                  placeholder ? (
-                    <div className={styles.placeholder}>{placeholder}</div>
-                  ) : null
+          <ScrollArea fill className={styles.scroll}>
+            <div className={styles.scrollContent}>
+              <RichTextPlugin
+                contentEditable={
+                  <ContentEditable
+                    // Browsers report contenteditable as -1, so a dialog's
+                    // autofocus would skip past the text without this.
+                    tabIndex={0}
+                    className={styles.editable}
+                    aria-placeholder={placeholder ?? ""}
+                    aria-labelledby={ariaLabelledBy}
+                    placeholder={
+                      placeholder ? (
+                        <div className={styles.placeholder}>{placeholder}</div>
+                      ) : null
+                    }
+                  />
                 }
+                ErrorBoundary={LexicalErrorBoundary}
               />
-            }
-            ErrorBoundary={LexicalErrorBoundary}
-          />
+            </div>
+          </ScrollArea>
           {/* After the text, so a dialog focuses the text rather than this. */}
           {collapsibleToolbar ? (
             <Tooltip

@@ -1,4 +1,6 @@
 import { randomUUID } from "crypto";
+import { once } from "events";
+import { createServer } from "http";
 import mongoose from "mongoose";
 import merge from "lodash/merge";
 import { testMongoUri, disconnectTestMongo } from "back-end/test/test-helpers";
@@ -38,6 +40,7 @@ const defaultLimits = {
 };
 
 export const setupApp = () => {
+  const server = createServer(app);
   // These specs boot the real Express app against an in-memory Mongo, so a
   // single test is app setup plus several round trips. Jest's 5s default is a
   // unit-test budget and several of these files legitimately run for 40s+, so
@@ -59,6 +62,9 @@ export const setupApp = () => {
       authenticateApiRequestMiddleware.mockImplementation((req, res, next) => {
         req.audit = auditMock;
         req.context = reqContext;
+        // As the real middleware builds it: override flags are read from the
+        // request that was sent, not from a stand-in.
+        if (reqContext instanceof ReqContextClass) reqContext.req = req;
         req.organization = reqContext?.org;
         // The /api/v1 router rate-limits per req.apiKey (60 req/min). The real
         // auth middleware sets this; under this mock we give each request a
@@ -104,10 +110,20 @@ export const setupApp = () => {
       });
       // Wait for all model indexes to be created before running tests
       await waitForIndexes();
+
+      // Bind to Supertest's destination: on macOS, :: can share a port with an
+      // unrelated IPv4 listener, causing requests to reach the wrong server.
+      server.listen(0, "127.0.0.1");
+      await once(server, "listening");
       resolve();
     }, 60000); // Increase timeout to 60s for CI environment
 
     afterAll(async () => {
+      if (server.listening) {
+        await new Promise<void>((resolve, reject) => {
+          server.close((err) => (err ? reject(err) : resolve()));
+        });
+      }
       await getAgendaInstance().stop();
       await disconnectTestMongo();
       process.env = OLD_ENV;
@@ -124,7 +140,7 @@ export const setupApp = () => {
   });
 
   return {
-    app,
+    app: server,
     auditMock,
     isReady,
     setReqContext: (v) => {

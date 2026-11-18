@@ -89,24 +89,17 @@ export default function MultipleExposuresCard({
     <HealthCard title={title} description={description} status={health.status}>
       {health.status === "healthy" ? (
         <Callout status="success">
-          {multipleExposures === 0 ? (
-            <b>Multiple exposures were not detected.</b>
-          ) : (
-            `${numberFormatter.format(
-              multipleExposures,
-            )} multiple exposures detected, but that is below your threshold of ${percentFormatter.format(
-              minPercentThreshold,
-            )}`
-          )}
+          {multipleExposures === 0
+            ? "Multiple exposures were not detected."
+            : `${numberFormatter.format(
+                multipleExposures,
+              )} multiple exposures detected, but that is below your threshold of ${percentFormatter.format(
+                minPercentThreshold,
+              )}`}
         </Callout>
       ) : (
         <Callout status="warning">
-          <strong>
-            {isClusterExperiment
-              ? "Subunit Multiple Exposures Warning"
-              : "Multiple Exposures Warning"}
-          </strong>
-          . {numberFormatter.format(multipleExposures)} {unitNoun} (
+          {numberFormatter.format(multipleExposures)} {unitNoun} (
           {percentFormatter.format(health.rawDecimal)}) saw multiple variations
           {isBandit
             ? " and were left out of the balance check, but remain in results on their first exposure"

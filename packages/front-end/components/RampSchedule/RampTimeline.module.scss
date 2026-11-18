@@ -160,7 +160,9 @@
 }
 
 .timelineScroll {
-  padding: 6px 8px;
+  // Room for focus rings and an overlay scrollbar, little more below: the
+  // rule card's own padding ends it.
+  padding: 6px 8px 2px;
 }
 
 .timelineRow {

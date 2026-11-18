@@ -14,10 +14,10 @@ import {
   computeExplorationComparisonPayload,
   getComparisonAlignmentStrategy,
   hasTimestampColumn,
+  withRequestedDisplayConfig,
 } from "shared/enterprise";
 import { QueryInterface } from "shared/types/query";
 import type { FactMetricInterface } from "shared/types/fact-table";
-import { toClientJourneyExploration } from "shared/journeys";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { getContextFromReq } from "back-end/src/services/organizations";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
@@ -324,7 +324,7 @@ export const getExplorationById = async (
 
   return res.status(200).json({
     status: 200,
-    exploration: toClientJourneyExploration(exploration, exploration.config),
+    exploration: withRequestedDisplayConfig(exploration, exploration.config),
     query,
   });
 };

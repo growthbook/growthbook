@@ -10,7 +10,8 @@ import styles from "./Link.module.scss";
 
 type RadixProps = Omit<RadixLinkProps, "color" | "href" | "size"> & {
   type?: "submit" | "reset" | "button";
-  color?: RadixLinkProps["color"] | "dark";
+  // "inherit" takes the surrounding text's color, until hovered.
+  color?: RadixLinkProps["color"] | "dark" | "inherit";
   size?: Size<"sm" | "md" | "lg" | "xl">;
   // Mirrors the naming of LinkButton's own `external` prop, but actually
   // bakes in `rel="noopener noreferrer"` too — LinkButton's only sets
@@ -29,11 +30,14 @@ type NextProps = Omit<
 type ConditionalProps =
   | ({
       href: NextLinkProps["href"];
+      disabled?: never;
     } & NextProps)
   | {
       href?: never;
       type?: "submit" | "reset" | "button";
       onClick?: RadixLinkProps["onClick"];
+      // A real disabled button: skipped by the keyboard and inert to clicks.
+      disabled?: boolean;
     };
 
 type Props = RadixProps & ConditionalProps;
@@ -48,17 +52,23 @@ const Link = forwardRef<HTMLAnchorElement, Props>(
       size,
       type = "button",
       external,
+      disabled,
       ...props
     },
     ref: ForwardedRef<HTMLAnchorElement>,
   ) => {
     const isCustomDarkColor = color === "dark";
+    const inheritsColor = color === "inherit";
 
     let childrenWrapper: JSX.Element | null;
     let radixProps = props;
 
     if (href === undefined) {
-      childrenWrapper = <button type={type}>{children}</button>;
+      childrenWrapper = (
+        <button type={type} disabled={disabled}>
+          {children}
+        </button>
+      );
     } else {
       const {
         replace,
@@ -95,8 +105,9 @@ const Link = forwardRef<HTMLAnchorElement, Props>(
         ref={ref}
         className={clsx(styles.link, className, {
           [styles.darkLink]: isCustomDarkColor,
+          [styles.inheritLink]: inheritsColor,
         })}
-        color={isCustomDarkColor ? undefined : color}
+        color={isCustomDarkColor || inheritsColor ? undefined : color}
         size={size !== undefined ? radixSize(size) : undefined}
         {...radixProps}
         asChild

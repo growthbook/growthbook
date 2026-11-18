@@ -371,7 +371,7 @@
 .gb-select__copy-button,
 .gb-multi-select__copy-button,
 .gb-multi-select__tag-button,
-.gb-select__scope-toggle,
+.gb-select__toggle,
 .gb-field-indicator {
   width: 22px;
   height: 22px;
@@ -396,7 +396,7 @@
 .gb-select__copy-button,
 .gb-multi-select__copy-button,
 .gb-multi-select__tag-button,
-.gb-select__scope-toggle,
+.gb-select__toggle,
 .gb-field-indicator {
   display: flex;
   align-items: center;
@@ -427,7 +427,7 @@
   .gb-select__copy-button,
   .gb-multi-select__copy-button,
   .gb-multi-select__tag-button,
-  .gb-select__scope-toggle:not(.gb-select__scope-toggle--filtering),
+  .gb-select__toggle:not(.gb-select__toggle--on),
   .gb-field-indicator {
     color: var(--gray-a9) !important;
 
@@ -435,6 +435,22 @@
       color: var(--gray-12) !important;
     }
   }
+}
+
+// A field holding indicators; a corner set pins against it.
+.gb-field-indicator-host {
+  position: relative;
+}
+
+// Hidden until the field holding it is hovered or focused.
+.gb-field-indicator--reveal {
+  opacity: 0;
+  transition: opacity 0.1s ease-in-out;
+}
+.gb-field-indicator-host:hover .gb-field-indicator--reveal,
+.gb-field-indicator-host:focus-within .gb-field-indicator--reveal,
+.gb-field-indicator--reveal[data-state="open"] {
+  opacity: 1;
 }
 
 .gb-field-indicator:hover .gb-field-indicator__accent,
@@ -447,7 +463,7 @@
 .gb-select__control--is-focused .gb-select__copy-button,
 .gb-multi-select__control--is-focused .gb-multi-select__copy-button,
 .gb-multi-select__control--is-focused .gb-multi-select__tag-button,
-.gb-select__control--is-focused .gb-select__scope-toggle {
+.gb-select__control--is-focused .gb-select__toggle {
   color: hsl(0, 0%, 40%);
   &:hover {
     color: hsl(0, 0%, 20%);
@@ -460,9 +476,9 @@
   background-color: var(--gray-a3) !important;
 }
 
-// Always visible, unlike the hover-only indicators — it carries state.
-.gb-select__control .gb-select__scope-toggle--filtering,
-.gb-select__control--is-focused .gb-select__scope-toggle--filtering {
+// A toggle stays visible, unlike the hover-only indicators: it carries state.
+.gb-select__control .gb-select__toggle--on,
+.gb-select__control--is-focused .gb-select__toggle--on {
   color: var(--violet-11);
   background-color: var(--violet-a3) !important;
   &:hover {

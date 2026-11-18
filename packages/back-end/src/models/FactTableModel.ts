@@ -3,9 +3,12 @@ import uniqid from "uniqid";
 import {
   getFactMetricColumnRefs,
   getMetricAutoSliceFactTableIds,
-  sqlReferencesColumn,
 } from "shared/experiments";
-import { explorationConfigReferencesColumn } from "shared/enterprise";
+import { sqlReferencesColumn } from "shared/sql";
+import {
+  explorationConfigReferencesColumn,
+  populationReferencesColumn,
+} from "shared/enterprise";
 import { SqlIdentifierQuote } from "shared/types/sql";
 import { isEqual, omit } from "lodash";
 import {
@@ -33,6 +36,7 @@ import {
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 import { promiseAllChunks } from "back-end/src/util/promise";
+import { NotFoundError } from "back-end/src/util/errors";
 import { projectFilterQuery } from "back-end/src/util/mongo.util";
 import { createModelAuditLogger } from "back-end/src/services/audit";
 import { deferAggregatedFactTableToNextSlot } from "back-end/src/services/aggregatedFactTables";
@@ -671,7 +675,7 @@ export async function updateColumn({
   changes: UpdateColumnProps;
 }) {
   const columnIndex = factTable.columns.findIndex((c) => c.column === column);
-  if (columnIndex < 0) throw new Error("Could not find that column");
+  if (columnIndex < 0) throw new NotFoundError("Could not find that column");
 
   if (
     changes.alwaysInlineFilter &&
@@ -886,7 +890,7 @@ export async function deleteColumn(
 ): Promise<void> {
   const col = factTable.columns.find((c) => c.column === columnName);
   if (!col) {
-    throw new Error("Could not find that column");
+    throw new NotFoundError("Could not find that column");
   }
   // Only virtual columns can be hard-deleted. SQL-detected columns are managed
   // by the column refresh (soft delete) and must not be removed here.
@@ -913,9 +917,16 @@ export async function deleteColumn(
   );
   // Org-wide for the same reason as explorations/dashboards below: a metric in a
   // project the caller cannot read must still block the delete.
-  const [allFactMetrics, visibleFactMetrics] = await Promise.all([
+  const [
+    allFactMetrics,
+    visibleFactMetrics,
+    allPopulations,
+    visiblePopulations,
+  ] = await Promise.all([
     context.models.factMetrics.dangerousGetAllForDependencyScan(),
     context.models.factMetrics.getAll(),
+    context.models.populations.dangerousGetAllForDependencyScan(),
+    context.models.populations.getAll(),
   ]);
   const visibleFactMetricIds = new Set(visibleFactMetrics.map((m) => m.id));
   const allDependentMetrics = allFactMetrics.filter((metric) =>
@@ -933,6 +944,24 @@ export async function deleteColumn(
   );
   const hiddenMetricCount =
     allDependentMetrics.length - dependentMetrics.length;
+
+  // Explorations reference saved Populations by id, so a column a Population
+  // reads would otherwise break every exploration and dashboard using it.
+  const visiblePopulationIds = new Set(visiblePopulations.map((p) => p.id));
+  const allDependentPopulations = allPopulations.filter((population) =>
+    populationReferencesColumn(
+      population,
+      factTable,
+      columnName,
+      identifierQuote,
+      factTable.filters,
+    ),
+  );
+  const dependentPopulations = allDependentPopulations.filter((p) =>
+    visiblePopulationIds.has(p.id),
+  );
+  const hiddenPopulationCount =
+    allDependentPopulations.length - dependentPopulations.length;
 
   // Explorations and dashboard blocks persist column references (valueColumn,
   // dimensions, row filters) that resolve through the same query-time
@@ -958,12 +987,13 @@ export async function deleteColumn(
     ),
     ...dependentFilters.map((f) => `\n - Filter: ${f.name || f.id}`),
     ...dependentMetrics.map((m) => `\n - Fact Metric: ${m.name || m.id}`),
+    ...dependentPopulations.map((p) => `\n - Population: ${p.name || p.id}`),
     ...dependentExplorations.map((e) => `\n - Exploration: ${e.name || e.id}`),
     ...dependentDashboards.map((d) => `\n - Dashboard: ${d.name || d.id}`),
   ];
   // Counted, not named, so the error never reveals resources the caller cannot
   // read — while still blocking the delete.
-  const totalHidden = hiddenCount + hiddenMetricCount;
+  const totalHidden = hiddenCount + hiddenMetricCount + hiddenPopulationCount;
   if (totalHidden > 0) {
     lines.push(
       `\n - ${totalHidden} other resource(s) you do not have access to`,
@@ -1162,7 +1192,8 @@ export async function updateFactFilter(
   const filters = [...factTable.filters];
 
   const filterIndex = filters.findIndex((f) => f.id === filterId);
-  if (filterIndex < 0) throw new Error("Could not find filter with that id");
+  if (filterIndex < 0)
+    throw new NotFoundError("Could not find filter with that id");
 
   const existingFilter = filters[filterIndex];
 
@@ -1252,6 +1283,19 @@ export async function projectHasFactTables(
   }));
 }
 
+// Ignores read permissions, so a dependency check can't miss a hidden table
+export async function datasourceHasFactTables(
+  context: ReqContext | ApiReqContext,
+  datasourceId: string,
+  ignoreIds: string[] = [],
+): Promise<boolean> {
+  return !!(await FactTableModel.exists({
+    organization: context.org.id,
+    datasource: datasourceId,
+    id: { $nin: ignoreIds },
+  }));
+}
+
 export async function deleteAllFactTablesForAProject({
   projectId,
   context,
@@ -1290,7 +1334,7 @@ export async function deleteFactFilter(
   const newFilters = factTable.filters.filter((f) => f.id !== filterId);
 
   if (newFilters.length === factTable.filters.length) {
-    throw new Error("Could not find filter with that id");
+    throw new NotFoundError("Could not find filter with that id");
   }
 
   await FactTableModel.updateOne(
@@ -1378,7 +1422,7 @@ export function toFactTableFilterApiInterface(
   const filter = factTable.filters.find((f) => f.id === filterId);
 
   if (!filter) {
-    throw new Error("Cannot find filter with that id");
+    throw new NotFoundError("Cannot find filter with that id");
   }
 
   return {

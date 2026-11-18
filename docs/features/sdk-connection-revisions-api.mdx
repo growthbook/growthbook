@@ -1,0 +1,236 @@
+---
+title: SDK Connection Revisions API
+description: Change SDK Connections and their webhooks through draft revisions with the REST API, including review when required.
+sidebarTitle: SDK Connection Revisions API
+---
+
+import { CommercialFeature } from "/snippets/CommercialFeature.jsx";
+
+The SDK Connection revisions REST API is the programmatic counterpart to the workflow described in [Publishing & Approval Flows](/features/publishing-and-approval-flows#sdk-connections). A draft started over REST can be reviewed and published in the app, and the other way around.
+
+A revision covers an SDK Connection's settings and its [SDK Webhooks](/app/webhooks/sdk-webhooks) together. One draft can change a payload option, add a webhook, and remove another, and they all go live in the same publish.
+
+The full endpoint reference lives in the [REST API docs](/api/#tag/sdk-connection-revisions). This page covers the lifecycle and the requests you'll typically reach for.
+
+## Direct Writes
+
+If you only need to change a connection or a webhook, and it is not under an approval rule, keep using the direct endpoints:
+
+- [`PUT /sdk-connections/{id}`](/api/#operation/putSdkConnection) for settings.
+- `POST /sdk-connections/{id}/webhooks`, `PUT /sdk-webhooks/{id}`, and `DELETE /sdk-webhooks/{id}` for webhooks.
+
+A direct write goes live at once and is recorded as a published revision, so it shows in the connection's history and can be reverted.
+
+When the connection requires approval, a direct write is refused with a message that names the draft endpoint to use. Pass `bypassApproval: true` to make the write anyway. This requires **Bypass draft approvals** access for SDK Connections, or the organization's **REST API always bypasses approval requirements** setting.
+
+## Drafts and Publishing
+
+A draft holds proposed changes against a snapshot of the connection and its webhooks from when the draft was opened. Nothing reaches your SDKs until the draft is published.
+
+Open a new draft:
+
+```bash
+curl -X POST 'https://api.growthbook.io/api/v1/sdk-connections-revisions/sdk_abc123' \
+  -H 'Authorization: Bearer YOUR_API_KEY' \
+  -H 'Content-Type: application/json' \
+  -d '{"title": "Include rule ids"}'
+```
+
+The response contains the revision and its integer `version`, which you pass to the edit calls:
+
+```json
+{
+  "revision": {
+    "id": "rev_...",
+    "version": 4,
+    "status": "draft",
+    "baseSdkConnection": { "...": "settings when the draft opened" },
+    "proposedSdkConnection": { "...": "settings with the draft applied" },
+    "baseSdkWebhooks": [],
+    "proposedSdkWebhooks": []
+  }
+}
+```
+
+Change settings in the draft. Send only the fields you want to change:
+
+```bash
+curl -X PUT 'https://api.growthbook.io/api/v1/sdk-connections-revisions/sdk_abc123/4/settings' \
+  -H 'Authorization: Bearer YOUR_API_KEY' \
+  -H 'Content-Type: application/json' \
+  -d '{"includeRuleIds": true}'
+```
+
+Add, change, or remove a webhook in the same draft:
+
+```bash
+# Add. The new webhook's id is in the returned revision's proposedSdkWebhooks.
+curl -X POST 'https://api.growthbook.io/api/v1/sdk-connections-revisions/sdk_abc123/4/webhooks' \
+  -H 'Authorization: Bearer YOUR_API_KEY' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "name": "Purge CDN",
+    "endpoint": "https://example.com/purge",
+    "headers": "{\"Authorization\":\"Bearer {{ CDN_TOKEN }}\"}"
+  }'
+
+# Change
+curl -X PUT 'https://api.growthbook.io/api/v1/sdk-connections-revisions/sdk_abc123/4/webhooks/wh_abc123' \
+  -H 'Authorization: Bearer YOUR_API_KEY' \
+  -H 'Content-Type: application/json' \
+  -d '{"name": "Purge CDN (EU)"}'
+
+# Remove
+curl -X DELETE 'https://api.growthbook.io/api/v1/sdk-connections-revisions/sdk_abc123/4/webhooks/wh_abc123' \
+  -H 'Authorization: Bearer YOUR_API_KEY'
+```
+
+`headers` is a JSON-encoded object. A header or endpoint can reference a [webhook secret](/app/webhooks#webhook-secrets) as `{{ SECRET_KEY }}`. Responses to write calls leave webhook headers out. The read endpoints return them to callers who can edit the webhook.
+
+Archive or restore the connection with `PUT .../archive` and `{"archived": true}` or `{"archived": false}`.
+
+Publish to apply the draft to the live connection and its webhooks:
+
+```bash
+curl -X POST 'https://api.growthbook.io/api/v1/sdk-connections-revisions/sdk_abc123/4/publish' \
+  -H 'Authorization: Bearer YOUR_API_KEY' \
+  -H 'Content-Type: application/json' \
+  -d '{}'
+```
+
+After publish, the revision's status is `merged`.
+
+### Auto-creating a draft on edit
+
+Every edit endpoint (`PUT .../settings`, `PUT .../archive`, and the webhook endpoints) accepts the literal `new` in place of a version number. This opens a draft, applies the edit, and returns the revision in one call. Pass `revisionTitle` and `revisionComment` to label the new draft:
+
+```bash
+curl -X PUT 'https://api.growthbook.io/api/v1/sdk-connections-revisions/sdk_abc123/new/settings' \
+  -H 'Authorization: Bearer YOUR_API_KEY' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "revisionTitle": "Encrypt the production payload",
+    "encryptPayload": true
+  }'
+```
+
+`revisionTitle` and `revisionComment` are ignored when editing an existing draft. An edit to `new` that changes nothing is refused, so it never opens an empty draft.
+
+## Revisions
+
+An SDK Connection has one live revision and any number of open drafts. Statuses are the same as for [Saved Group revisions](/features/saved-group-revisions-api#revisions): `draft`, `pending-review`, `changes-requested`, `approved`, `merged`, and `discarded`.
+
+| Endpoint                                                     | Use it for                                                                             |
+| ------------------------------------------------------------ | -------------------------------------------------------------------------------------- |
+| `GET /sdk-connections-revisions`                             | List revisions across every SDK Connection.                                            |
+| `GET /sdk-connections-revisions/{id}`                        | List revisions for one connection. Filter with `status`, such as `status=merged`.      |
+| `GET /sdk-connections-revisions/{id}/latest`                 | The most recently updated open draft. `mine=true` restricts it to your own drafts.     |
+| `GET /sdk-connections-revisions/{id}/{version}`              | One revision, with its base and proposed settings and webhooks, reviews, and activity. |
+| `GET /sdk-connections-revisions/{id}/{version}/merge-status` | Whether the draft can merge into the live connection, and the conflicts if it can't.   |
+
+### Reverting
+
+`POST .../{version}/revert` restores the settings and webhooks that a published revision left the connection with. It creates a draft by default. Pass `{"strategy": "publish"}` to apply it at once. When the connection requires approval, that needs **Bypass draft approvals** access, unless the organization lets reverts bypass approval.
+
+- Whether the connection is archived is not restored.
+- A webhook that the revert brings back is created again with a new signing key, so update whatever verifies its signature. When the revert is applied at once, the response lists those webhooks in `recreatedWebhookIds`.
+
+### Discarding and Reopening
+
+`POST .../discard` abandons an open draft. `POST .../reopen` brings a discarded one back as a draft.
+
+### Scheduling a Publish
+
+<CommercialFeature feature="scheduled-revisions" />
+
+`POST .../schedule-publish` with `{"scheduledPublishAt": "2027-01-31T09:00:00Z"}` publishes the draft at that time. Send `null` to cancel. A draft that still needs approval must request review first.
+
+A warning that would apply at publish is raised when you schedule, and `ignoreWarnings` acknowledges it. The scheduled publish goes ahead with what was acknowledged. If something new appears before it fires, such as a secret a webhook references being deleted, the publish stops, the draft stays open, and `sdkConnection.revision.publishFailed` is emitted.
+
+## Merge Conflicts
+
+A draft falls behind when the live connection changes after the draft was opened. Changes to different settings, and to different webhooks, merge on their own. A conflict is two different changes to the same setting or the same webhook.
+
+```bash
+# 1. Inspect conflicts
+curl 'https://api.growthbook.io/api/v1/sdk-connections-revisions/sdk_abc123/4/merge-status' \
+  -H 'Authorization: Bearer YOUR_API_KEY'
+
+# 2. Rebase onto live, choosing a side for each conflicting field
+curl -X POST 'https://api.growthbook.io/api/v1/sdk-connections-revisions/sdk_abc123/4/rebase' \
+  -H 'Authorization: Bearer YOUR_API_KEY' \
+  -H 'Content-Type: application/json' \
+  -d '{"conflictResolutions": {"sdkConnection": "overwrite"}}'
+```
+
+The conflicting fields are `sdkConnection` (settings) and `sdkWebhooks`. For each, `overwrite` keeps the draft's value and `discard` keeps the live value.
+
+## Approval Flows
+
+<CommercialFeature feature="require-approvals" />
+
+When [SDK Connection approvals are required](/features/publishing-and-approval-flows#sdk-connection-approval-flows), a draft must be approved before it can be published.
+
+```bash
+# Request review
+curl -X POST 'https://api.growthbook.io/api/v1/sdk-connections-revisions/sdk_abc123/4/request-review' \
+  -H 'Authorization: Bearer YOUR_API_KEY' \
+  -H 'Content-Type: application/json' \
+  -d '{}'
+
+# Review. decision is approve, request-changes, or comment.
+curl -X POST 'https://api.growthbook.io/api/v1/sdk-connections-revisions/sdk_abc123/4/submit-review' \
+  -H 'Authorization: Bearer YOUR_API_KEY' \
+  -H 'Content-Type: application/json' \
+  -d '{"decision": "approve", "comment": "LGTM"}'
+```
+
+`POST .../recall-review` withdraws a review request, and `POST .../undo-review` retracts your own verdict.
+
+A draft that moves the connection to another Project or environment is reviewed under the rules of both where it leaves and where it lands.
+
+Approval is not required when the caller has **Bypass draft approvals** access for SDK Connections in every Project involved, or when the organization enables **REST API always bypasses approval requirements**.
+
+## Blocked Publishes
+
+A publish that can't go ahead returns one `422` listing every gate that blocks it. Each gate names the request flag that clears it, the permission that flag needs, or the route that resolves it:
+
+```json
+{
+  "message": "Publish blocked by 1 gate(s): ...",
+  "gates": [
+    {
+      "type": "custom-hook",
+      "severity": "blocker",
+      "messages": ["A custom validation hook rejected this publish:", "..."],
+      "override": "skipHooks",
+      "requiresPermission": "bypassApprovalSDKConnections"
+    }
+  ]
+}
+```
+
+| Flag             | Clears                                                                                                                     | Needs                                                            |
+| ---------------- | -------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
+| `ignoreWarnings` | Warnings: one raised by a [Custom Hook](/features/custom-hooks), or a webhook that references a secret that doesn't exist. | Nothing further.                                                 |
+| `skipHooks`      | A Custom Hook rejection.                                                                                                   | **Bypass draft approvals** for SDK Connections in every Project. |
+
+A webhook that references a secret that doesn't exist, or one not allowed for its endpoint, would fail every send. Saving such a webhook directly, or publishing a draft that adds or changes one, raises a warning. Staging it in a draft does not.
+
+Both flags are accepted on every endpoint that runs a Custom Hook: the direct writes, the draft edits, rebase, publish, and revert. A successful publish reports what it bypassed in `bypassedGates`.
+
+## Publishing With Other Changes
+
+To publish an SDK Connection draft together with Feature Flag, Saved Group, Config, or Constant drafts as one all-or-nothing operation, use [`POST /releases/publish-revisions`](/features/publishing-and-approval-flows#publishing-several-changes-together).
+
+## Deleting
+
+`DELETE /sdk-connections/{id}` deletes an archived connection. Deleting a live one is refused unless the organization enables **REST API always bypasses approval requirements**. Archive it first, directly or in a draft.
+
+## Permissions
+
+- **SDK Connections Full Access** covers the whole lifecycle: creating a connection, opening and changing drafts, reviewing, publishing, reverting, archiving, and deleting. It is checked in the connection's environment.
+- Any change to a connection's webhooks, in a draft or directly, also needs the SDK Webhooks permission, which that policy includes. A custom role with only the SDK Webhooks permission can still change webhooks directly, and each change is recorded as a revision.
+- **Bypass draft approvals** for SDK Connections skips required review, allows an out-of-date draft to be force-published, and is what `skipHooks` requires. It is checked per Project.
+
+GrowthBook checks permissions again when a draft is published. If the draft moves the connection to another Project or environment, the caller needs the required access in both.

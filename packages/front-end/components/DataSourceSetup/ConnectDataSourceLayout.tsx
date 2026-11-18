@@ -42,6 +42,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import {
   DataRegion,
   DEFAULT_DATA_REGION,
+  getDataRegionLabel,
   useDataRegionOptions,
 } from "@/services/dataRegions";
 import {
@@ -84,6 +85,7 @@ import EventForwarderDestinationFields, {
   eventDestinationEntryHint,
   eventDestinationWithConnectionSchema,
   eventForwarderDestinationFromDatasource,
+  useEventForwarderEnvironmentRequired,
 } from "./EventForwarderDestinationFields";
 import {
   generateSnowflakeKeyPair,
@@ -147,6 +149,7 @@ export default function ConnectDataSourceLayout({
     ready: definitionsReady,
     projects: orgProjects,
     project,
+    eventForwarderEnvironments,
   } = useDefinitions();
   const { apiCall, orgId } = useAuth();
   const permissionsUtil = usePermissionsUtil();
@@ -244,6 +247,8 @@ export default function ConnectDataSourceLayout({
   const eventForwarderRegion = checksWrite
     ? resolvedRegion
     : savedEventForwarderRegion;
+  const environmentRequired =
+    useEventForwarderEnvironmentRequired(eventForwarderRegion);
   const sinkType = isEventForwarderSink(datasource.type)
     ? datasource.type
     : null;
@@ -714,6 +719,18 @@ export default function ConnectDataSourceLayout({
   // us-east-1, because it cannot be changed later.
   const needsEventForwarderRegion =
     !existing && setup === "event_forwarder" && !eventForwarderRegion;
+  // The detected region turned out to have the picked one taken
+  const eventForwarderEnvironmentTaken =
+    checksWrite &&
+    !!eventDestination.environment &&
+    eventForwarderEnvironments.some(
+      (e) =>
+        e.region === eventForwarderRegion &&
+        e.environment === eventDestination.environment,
+    );
+  const needsEventForwarderEnvironment =
+    eventForwarderEnvironmentTaken ||
+    (checksWrite && !eventDestination.environment && environmentRequired);
   const noCreatableProjects =
     !existing &&
     definitionsReady &&
@@ -732,6 +749,7 @@ export default function ConnectDataSourceLayout({
     !needsProjectSelection &&
     !needsEventForwarderRegion &&
     (!checksWrite || !!eventForwarderDraft) &&
+    !needsEventForwarderEnvironment &&
     (!needsSuccessfulTest || testStatus === "passed") &&
     (existing ? dirty : true);
 
@@ -750,6 +768,12 @@ export default function ConnectDataSourceLayout({
     }
     if (regionBlockedMessage) {
       return "The EU ingestor is not enabled for this organization";
+    }
+    if (eventForwarderEnvironmentTaken && eventForwarderRegion) {
+      return `${eventDestination.environment} already has an Event Forwarder in ${getDataRegionLabel(eventForwarderRegion)}. Select another environment to continue`;
+    }
+    if (needsEventForwarderEnvironment) {
+      return "Select an environment to continue";
     }
     if (needsSuccessfulTest && !connectionInputsReady) {
       return missingTestInputsHint;
@@ -955,7 +979,7 @@ export default function ConnectDataSourceLayout({
         initial: '"form" "instructions" "footer"',
         lg: '"form instructions" "footer instructions"',
       }}
-      height={{ initial: "auto", lg: "calc(100dvh - 56px)" }}
+      height={{ initial: "auto", lg: "calc(100dvh - var(--page-top-offset))" }}
       overflow={{ initial: "visible", lg: "hidden" }}
     >
       <Box
@@ -1048,6 +1072,11 @@ export default function ConnectDataSourceLayout({
             location={eventDestination.location}
             tablePrefix={eventDestination.tablePrefix}
             zerobusEndpoint={eventDestination.zerobusEndpoint}
+            environment={eventDestination.environment}
+            region={eventForwarderRegion}
+            onEnvironmentChange={(environment) =>
+              updateEventDestination({ environment })
+            }
             onLocationChange={(location) =>
               updateEventDestination({ location })
             }

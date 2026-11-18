@@ -45,12 +45,14 @@ import { SidebarOpenProvider } from "@/components/Layout/SidebarOpenProvider";
 import { SettingsNavProvider } from "@/components/Layout/SettingsNavContext";
 import { SettingsFormProvider } from "@/components/GeneralSettings/SettingsFormProvider";
 import { isSettingsRoute } from "@/components/Layout/sidebarNav";
+import PageFrame from "@/components/Layout/PageFrame";
 import { HoverTooltipProvider } from "@/hooks/useHoverTooltip";
 import { FeatureHealthStatesProvider } from "@/hooks/useFeatureHealthStates";
 import { CommandPaletteLauncher } from "@/components/CommandPalette/CommandPalette";
 import AgentLauncher from "@/components/Agent/AgentLauncher";
 import { AgentPanelProvider } from "@/components/Agent/AgentPanelContext";
 import Callout from "@/ui/Callout";
+import { TooltipProvider } from "@/ui/Tooltip";
 
 // Make useLayoutEffect isomorphic (for SSR)
 if (typeof window === "undefined") React.useLayoutEffect = React.useEffect;
@@ -75,6 +77,7 @@ type ModAppProps = AppProps & {
     progressiveAuthTopNav?: boolean;
     noLoadingOverlay?: boolean;
     mainClassName?: string;
+    noPageWrapper?: boolean;
   };
 };
 
@@ -158,7 +161,7 @@ function App({
       eventFilter: (event) => {
         // Wait for account plan to load before sending events
         // When the plan does load, the app will re-render, so no events will be lost
-        if (event.attributes.accountPlan === "loading") return false;
+        if (event.attributes.accountPlan === null) return false;
         return true;
       },
       dedupeKeyAttributes: ["id", "organizationId"],
@@ -166,8 +169,10 @@ function App({
   }, [ready]);
 
   useEffect(() => {
-    // Load feature definitions JSON from GrowthBook API
-    growthbook.init({ streaming: true }).catch(() => {
+    // Load feature definitions JSON from GrowthBook API. The timeout settles a
+    // fetch that hangs, so pages waiting on flags (the feature page's A/B
+    // test) stop waiting once rather than on every visit.
+    growthbook.init({ streaming: true, timeout: 3000 }).catch(() => {
       console.log("Failed to fetch GrowthBook feature definitions");
     });
   }, []);
@@ -212,6 +217,8 @@ function App({
     );
   };
 
+  const page = <Component {...{ ...pageProps, envReady: ready }} />;
+
   return (
     <>
       <GlobalFontStyles />
@@ -221,89 +228,95 @@ function App({
       </Head>
       <AppearanceUIThemeProvider>
         <RadixTheme>
-          {ready || noLoadingOverlay ? (
-            <HoverTooltipProvider>
-              <SidebarOpenProvider>
-                <GrowthBookProvider growthbook={growthbook}>
-                  <div id="portal-root" />
-                  {preAuth || progressiveAuth ? (
-                    renderPreAuth()
-                  ) : (
-                    <PageHeadProvider>
-                      <AuthProvider>
-                        <ProtectedPage
-                          organizationRequired={organizationRequired}
-                        >
-                          {organizationRequired ? (
-                            <GetStartedProvider>
-                              <DefinitionsProvider>
-                                <FeatureHealthStatesProvider>
-                                  <AgentPanelProvider>
-                                    <SettingsNavProvider>
-                                      <SettingsForm>
-                                        {liteLayout ? (
-                                          <LayoutLite />
-                                        ) : (
-                                          <Layout />
-                                        )}
-                                        <CommandPaletteLauncher />
-                                        <AgentLauncher />
-                                        <main
-                                          className={clsx("main", parts[0], {
-                                            "settings-layout": inSettings,
-                                          })}
-                                        >
-                                          <OrgSuspendedBannerContainer />
-                                          <OrganizationMessagesContainer />
-                                          <DemoDataSourceGlobalBannerContainer />
-                                          <NPSSurvey />
-                                          <OrgPageContent>
-                                            <GuidedGetStartedBar />
-                                            <DefinitionsGuard>
-                                              <Component
-                                                {...{
-                                                  ...pageProps,
-                                                  envReady: ready,
-                                                }}
-                                              />
-                                            </DefinitionsGuard>
-                                          </OrgPageContent>
-                                        </main>
-                                      </SettingsForm>
-                                    </SettingsNavProvider>
-                                  </AgentPanelProvider>
-                                </FeatureHealthStatesProvider>
-                              </DefinitionsProvider>
-                            </GetStartedProvider>
-                          ) : (
-                            <div>
-                              <TopNavLite />
-                              <main className="container">
-                                <Component
-                                  {...{ ...pageProps, envReady: ready }}
-                                />
-                              </main>
-                            </div>
-                          )}
-                        </ProtectedPage>
-                      </AuthProvider>
-                    </PageHeadProvider>
-                  )}
-                </GrowthBookProvider>
-              </SidebarOpenProvider>
-            </HoverTooltipProvider>
-          ) : error ? (
-            <Container mt="9">
-              <Callout status="error">
-                Error Initializing GrowthBook:
-                <br />
-                <br />
-                {error}
-              </Callout>
-            </Container>
-          ) : (
-            <LoadingOverlay />
-          )}
+          <TooltipProvider>
+            {ready || noLoadingOverlay ? (
+              <HoverTooltipProvider>
+                <SidebarOpenProvider>
+                  <GrowthBookProvider growthbook={growthbook}>
+                    <div id="portal-root" />
+                    {preAuth || progressiveAuth ? (
+                      renderPreAuth()
+                    ) : (
+                      <PageHeadProvider>
+                        <AuthProvider>
+                          <ProtectedPage
+                            organizationRequired={organizationRequired}
+                          >
+                            {organizationRequired ? (
+                              <GetStartedProvider>
+                                <DefinitionsProvider>
+                                  <FeatureHealthStatesProvider>
+                                    <AgentPanelProvider>
+                                      <SettingsNavProvider>
+                                        <SettingsForm>
+                                          {liteLayout ? (
+                                            <LayoutLite />
+                                          ) : (
+                                            <Layout />
+                                          )}
+                                          <CommandPaletteLauncher />
+                                          <AgentLauncher />
+                                          <main
+                                            className={clsx("main", parts[0], {
+                                              "settings-layout": inSettings,
+                                            })}
+                                          >
+                                            <OrgSuspendedBannerContainer />
+                                            <OrganizationMessagesContainer />
+                                            <DemoDataSourceGlobalBannerContainer />
+                                            <NPSSurvey />
+                                            <OrgPageContent>
+                                              <GuidedGetStartedBar />
+                                              <DefinitionsGuard>
+                                                {Component.noPageWrapper ||
+                                                liteLayout ? (
+                                                  page
+                                                ) : (
+                                                  <PageFrame
+                                                    settings={inSettings}
+                                                  >
+                                                    {page}
+                                                  </PageFrame>
+                                                )}
+                                              </DefinitionsGuard>
+                                            </OrgPageContent>
+                                          </main>
+                                        </SettingsForm>
+                                      </SettingsNavProvider>
+                                    </AgentPanelProvider>
+                                  </FeatureHealthStatesProvider>
+                                </DefinitionsProvider>
+                              </GetStartedProvider>
+                            ) : (
+                              <div>
+                                <TopNavLite />
+                                <main className="container">
+                                  <Component
+                                    {...{ ...pageProps, envReady: ready }}
+                                  />
+                                </main>
+                              </div>
+                            )}
+                          </ProtectedPage>
+                        </AuthProvider>
+                      </PageHeadProvider>
+                    )}
+                  </GrowthBookProvider>
+                </SidebarOpenProvider>
+              </HoverTooltipProvider>
+            ) : error ? (
+              <Container mt="9">
+                <Callout status="error">
+                  Error Initializing GrowthBook:
+                  <br />
+                  <br />
+                  {error}
+                </Callout>
+              </Container>
+            ) : (
+              <LoadingOverlay />
+            )}
+          </TooltipProvider>
         </RadixTheme>
       </AppearanceUIThemeProvider>
     </>

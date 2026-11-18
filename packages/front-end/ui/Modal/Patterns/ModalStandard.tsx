@@ -52,7 +52,7 @@ function CloseButton({
 
 export type Props = TrackingEventModalProps & {
   open: boolean;
-  header: string;
+  header: ReactNode;
   headerAction?: ReactNode;
   subheader?: ReactNode;
   cta?: string;
@@ -78,7 +78,7 @@ export type Props = TrackingEventModalProps & {
 
 // Radix focuses the first tabbable node, which pops an icon button's tooltip.
 // Prefer the first field to type into, else the dialog itself.
-const focusFirstField: NonNullable<
+export const focusFirstField: NonNullable<
   ComponentProps<typeof Modal.Root>["onOpenAutoFocus"]
 > = (e) => {
   const content = e.currentTarget as HTMLElement;

@@ -329,6 +329,24 @@ describe("getAutoExposureQueryId", () => {
       }),
     ).toBe("");
   });
+
+  it("falls back to a hand-added link when the managed warehouse mapping misses", () => {
+    expect(
+      getAutoExposureQueryId({
+        datasource: makeDatasourceWithSettings(
+          makeSettings(
+            [
+              makeExposureQuery("user_id", "user_id"),
+              makeExposureQuery("device_id", "device_id"),
+            ],
+            [makeUserIdType("user_id", ["accountId"])],
+          ),
+          "growthbook_clickhouse",
+        ),
+        hashAttribute: "accountId",
+      }),
+    ).toBe("user_id");
+  });
 });
 
 describe("getAutoExposureQueryId project scope", () => {

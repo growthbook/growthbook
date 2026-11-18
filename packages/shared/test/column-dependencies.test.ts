@@ -1,5 +1,8 @@
-import { explorationConfigReferencesColumn } from "shared/enterprise";
-import { ExplorationConfig, ExplorationPopulation } from "shared/validators";
+import {
+  explorationConfigReferencesColumn,
+  populationReferencesColumn,
+} from "shared/enterprise";
+import { ExplorationConfig, PopulationStep } from "shared/validators";
 
 const baseConfig = {
   datasource: "ds1",
@@ -40,89 +43,6 @@ function factTableConfig(
 
 describe("explorationConfigReferencesColumn", () => {
   const filters = [{ id: "flt_1", value: "margin_vc > 0" }];
-
-  describe("metric dataset population", () => {
-    const population: ExplorationPopulation = {
-      source: { type: "factTable", factTableId: "ft1" },
-      rowFilters: [],
-      unit: "user_id",
-    };
-
-    function metricConfig(
-      population: ExplorationPopulation | null | undefined,
-    ): ExplorationConfig {
-      return {
-        ...baseConfig,
-        type: "metric",
-        dataset: {
-          type: "metric",
-          values: [
-            {
-              type: "metric",
-              name: "Metric",
-              metricId: "metric1",
-              unit: "user_id",
-              denominatorUnit: null,
-              rowFilters: [],
-            },
-          ],
-          population,
-        },
-      };
-    }
-
-    it.each<Partial<ExplorationPopulation>>([
-      { unit: "margin_vc" },
-      { aggregateFilter: ">0", aggregateFilterColumn: "margin_vc" },
-      { rowFilters: [{ column: "margin_vc", operator: ">", values: ["0"] }] },
-      { rowFilters: [{ operator: "sql_expr", values: ["margin_vc > 0"] }] },
-      { rowFilters: [{ operator: "saved_filter", values: ["flt_1"] }] },
-    ])("detects population column references: %j", (references) => {
-      const config = metricConfig({ ...population, ...references });
-      expect(
-        explorationConfigReferencesColumn(
-          config,
-          "ft1",
-          "margin_vc",
-          '"',
-          filters,
-        ),
-      ).toBe(true);
-      expect(
-        explorationConfigReferencesColumn(
-          config,
-          "other",
-          "margin_vc",
-          '"',
-          filters,
-        ),
-      ).toBe(false);
-      expect(
-        explorationConfigReferencesColumn(
-          config,
-          "ft1",
-          "other_column",
-          '"',
-          filters,
-        ),
-      ).toBe(false);
-    });
-
-    it.each([undefined, null, population])(
-      "ignores an absent population or one without column references: %j",
-      (p) => {
-        expect(
-          explorationConfigReferencesColumn(
-            metricConfig(p),
-            "ft1",
-            "margin_vc",
-            '"',
-            filters,
-          ),
-        ).toBe(false);
-      },
-    );
-  });
 
   it("detects a direct valueColumn reference", () => {
     const config = factTableConfig([{ valueColumn: "margin_vc" }]);
@@ -175,5 +95,84 @@ describe("explorationConfigReferencesColumn", () => {
         filters,
       ),
     ).toBe(false);
+  });
+});
+
+describe("populationReferencesColumn", () => {
+  const filters = [{ id: "flt_1", value: "plan = 'pro'" }];
+  const population = (
+    step: Partial<PopulationStep> = {},
+    userIdTypes = ["user_id"],
+  ) => ({
+    userIdTypes,
+    steps: [
+      {
+        source: { type: "factTable" as const, factTableId: "ft1" },
+        rowFilters: [],
+        ...step,
+      },
+    ],
+  });
+  const references = (p: ReturnType<typeof population>, column: string) =>
+    populationReferencesColumn(p, { id: "ft1" }, column, '"', filters);
+
+  it.each<[string, ReturnType<typeof population>, string]>([
+    ["an identifier type", population(), "user_id"],
+    [
+      "an aggregate filter column",
+      population({ aggregateFilter: ">10", aggregateFilterColumn: "revenue" }),
+      "revenue",
+    ],
+    [
+      "a row filter column",
+      population({
+        rowFilters: [{ operator: "=", column: "country", values: ["US"] }],
+      }),
+      "country",
+    ],
+    [
+      "a saved filter's SQL",
+      population({
+        rowFilters: [{ operator: "saved_filter", values: ["flt_1"] }],
+      }),
+      "plan",
+    ],
+  ])("detects %s", (_, p, column) => {
+    expect(references(p, column)).toBe(true);
+  });
+
+  it("ignores columns the Population doesn't read", () => {
+    expect(references(population(), "revenue")).toBe(false);
+  });
+
+  it("ignores a Population on another fact table", () => {
+    expect(
+      populationReferencesColumn(
+        population(),
+        { id: "ft2" },
+        "user_id",
+        '"',
+        filters,
+      ),
+    ).toBe(false);
+  });
+
+  describe("with an identifier type mapped to another column", () => {
+    const mapped = (column: string) =>
+      populationReferencesColumn(
+        population(),
+        { id: "ft1", userIdColumns: { user_id: "customer.id" } },
+        column,
+        '"',
+        filters,
+      );
+
+    it("detects the mapped column", () => {
+      expect(mapped("customer")).toBe(true);
+    });
+
+    it("ignores a column named like the identifier type", () => {
+      expect(mapped("user_id")).toBe(false);
+    });
   });
 });

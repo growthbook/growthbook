@@ -4,7 +4,7 @@
 // avoid circular imports with the broader validator graph.
 
 import { z } from "zod";
-import { ownerField } from "./owner-field";
+import { ownerEmailField, ownerField } from "./owner-field";
 import { revisionWebhookReference } from "./revision-webhook-reference";
 
 const deprecated = <T extends z.ZodType>(schema: T, instead: string) =>
@@ -50,6 +50,7 @@ export const featureWebhookPayload = z
     archived: z.boolean(),
     description: z.string(),
     owner: ownerField,
+    ownerEmail: ownerEmailField,
     project: z.string(),
     valueType: z.enum(["boolean", "string", "number", "json"]),
     defaultValue: z.string(),

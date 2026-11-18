@@ -1,11 +1,23 @@
+import { pick } from "lodash";
 import React, { useState } from "react";
 import { useForm } from "react-hook-form";
 import {
   CustomHookInterface,
   CustomHookType,
+  HOOK_REVISION_FIELDS,
+  SDKConnectionRevisionSnapshot,
+  customHookEntityNoun,
+  sdkConnectionHookArgs,
   hookEntityType,
 } from "shared/validators";
 import { CreateProps } from "shared/types/base-model";
+import {
+  Revision,
+  applyTopLevelPatchOps,
+  coauthorIds,
+  toHookReviewerVerdicts,
+} from "shared/enterprise";
+import { teamsForMember } from "shared/permissions";
 import { Box, Flex, Kbd, Separator } from "@radix-ui/themes";
 import stringify from "json-stringify-pretty-compact";
 import { FeatureInterface } from "shared/types/feature";
@@ -15,6 +27,7 @@ import {
   ExperimentInterfaceStringDates,
 } from "shared/types/experiment";
 import { useAuth } from "@/services/auth";
+import { useUser } from "@/services/UserContext";
 import { useFeaturesList } from "@/services/features";
 import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
@@ -37,6 +50,8 @@ const EXAMPLE_DOC_SECTIONS: Record<CustomHookType, DocSection> = {
   validateConfig: "customHooks#validateconfig",
   validateConfigRevision: "customHooks#validateconfigrevision",
   validateExperiment: "customHooks#validateexperiment",
+  validateSdkConnection: "customHooks#validatesdkconnection",
+  validateSdkConnectionRevision: "customHooks#validatesdkconnectionrevision",
 };
 
 const dummyFeature: FeatureInterface = {
@@ -242,6 +257,54 @@ const dummyConfigRevision = {
   ],
 };
 
+const dummySdkConnection: SDKConnectionRevisionSnapshot = {
+  sdkConnection: {
+    id: "sdk_abc123",
+    organization: "org_abc123",
+    name: "Web app",
+    languages: ["javascript"],
+    sdkVersion: "1.6.0",
+    environment: "production",
+    projects: [],
+    encryptPayload: false,
+    hashSecureAttributes: false,
+    includeVisualExperiments: false,
+    includeDraftExperiments: false,
+    includeDraftExperimentRefs: false,
+    includeExperimentNames: false,
+    includeRedirectExperiments: false,
+    includeRuleIds: false,
+    includeProjectIdInMetadata: false,
+    includeCustomFieldsInMetadata: false,
+    allowedCustomFieldsInMetadata: [],
+    includeTagsInMetadata: false,
+    remoteEvalEnabled: false,
+    savedGroupFormat: "inline",
+    includeReferencedPrerequisites: true,
+    proxyEnabled: false,
+    proxyHost: "",
+    archived: false,
+  },
+  sdkWebhooks: [
+    {
+      id: "wh_abc123",
+      name: "Purge CDN",
+      endpoint: "https://example.com/purge",
+      httpMethod: "POST",
+      headers: '{"Authorization":"Bearer {{ CDN_TOKEN }}"}',
+      payloadFormat: "standard",
+      timeoutSeconds: 10,
+    },
+  ],
+};
+const dummySdkConnectionArgs = sdkConnectionHookArgs(dummySdkConnection);
+
+const dummySdkConnectionRevision = {
+  ...dummyConfigRevision,
+  title: "Include rule ids",
+  comment: "Needed to debug targeting in production",
+};
+
 export const hookTypes: Record<
   CustomHookType,
   {
@@ -336,6 +399,45 @@ export const hookTypes: Record<
     },
     example: `\n// Block the save (hard error):\nconst attributes = experiment.customFields?.contextualAttributes || [];\nif (!attributes.length) {\n  throw new Error("Select at least one contextual attribute");\n}\n\n// Or raise a soft warning the user can acknowledge:\nif (!experiment.hypothesis) {\n  addWarning("Consider adding a hypothesis");\n}`,
   },
+  validateSdkConnection: {
+    label: "Validate SDK Connection",
+    availableArguments: {
+      sdkConnection: {
+        description:
+          "The SDK Connection's settings as the change leaves them. Keys and other secrets are left out",
+        testValue: stringify(dummySdkConnectionArgs.sdkConnection),
+      },
+      sdkWebhooks: {
+        description:
+          "The SDK Connection's webhooks as the change leaves them. A secret referenced in a header or endpoint stays as written",
+        testValue: stringify(dummySdkConnectionArgs.sdkWebhooks),
+      },
+    },
+    example: `\n// Block the save (hard error):\nif (sdkConnection.environment === "production" && !sdkConnection.encryptPayload) {\n  throw new Error("Production SDK Connections must encrypt their payload");\n}\n\n// Or raise a soft warning the user can acknowledge:\nif (sdkWebhooks.some((webhook) => !webhook.endpoint.startsWith("https://"))) {\n  addWarning("Webhooks should use HTTPS");\n}`,
+  },
+  validateSdkConnectionRevision: {
+    label: "Validate SDK Connection Revision",
+    availableArguments: {
+      sdkConnection: {
+        description:
+          "The live SDK Connection's settings, before this revision is published. Keys and other secrets are left out",
+        testValue: stringify(dummySdkConnectionArgs.sdkConnection),
+      },
+      sdkWebhooks: {
+        description: "The live SDK Connection's webhooks",
+        testValue: stringify(dummySdkConnectionArgs.sdkWebhooks),
+      },
+      revision: {
+        description:
+          "The revision being written: what it proposes (`sdkConnection`, `sdkWebhooks`) and where it stands (version, status, author, reviews)",
+        testValue: stringify({
+          ...dummySdkConnectionRevision,
+          ...dummySdkConnectionArgs,
+        }),
+      },
+    },
+    example: `\n// Block staging a change (hard error):\nif (revision.sdkConnection.environment !== sdkConnection.environment) {\n  throw new Error("An SDK Connection cannot be moved to another environment");\n}\n\n// Gate on approval policy:\nconst approvals = (revision.reviews || []).filter(r => r.status === "approved");\nif (revision.status === "approved" && !approvals.some(r => r.userId === "key_abc123")) {\n  throw new Error("Requires release-bot approval");\n}`,
+  },
 };
 
 export default function CustomHookModal({
@@ -346,6 +448,8 @@ export default function CustomHookModal({
   experiment,
   revision,
   config,
+  sdkConnection,
+  sdkConnectionRevision,
 }: {
   close: () => void;
   current?: CustomHookInterface;
@@ -373,23 +477,36 @@ export default function CustomHookModal({
       isLeaf: boolean;
     };
   };
+  // When set, scopes the hook to this SDK Connection and hides the Projects
+  // field. Its settings and webhooks prefill the test arguments.
+  sdkConnection?: SDKConnectionRevisionSnapshot;
+  // The draft being viewed, which prefills the revision test argument.
+  sdkConnectionRevision?: Revision | null;
 }) {
-  // The entity this modal is scoped to (feature or config), if any. Drives the
-  // hook-type options, the hidden Projects field, and the submit/test scope.
-  const scope: "feature" | "config" | "experiment" | null = feature
-    ? "feature"
+  // The entity this modal is scoped to, if any. Drives the hook-type options,
+  // the hidden Projects field, and the submit/test scope.
+  const entity = feature
+    ? { entityType: "feature" as const, entityId: feature.id }
     : experiment
-      ? "experiment"
+      ? { entityType: "experiment" as const, entityId: experiment.id }
       : config
-        ? "config"
-        : null;
+        ? { entityType: "config" as const, entityId: config.key }
+        : sdkConnection
+          ? {
+              entityType: "sdkConnection" as const,
+              entityId: sdkConnection.sdkConnection.id,
+            }
+          : null;
+  const scope = entity?.entityType ?? null;
   const defaultHook: CustomHookType =
     current?.hook ||
     (scope === "config"
       ? "validateConfigRevision"
       : scope === "experiment"
         ? "validateExperiment"
-        : "validateFeature");
+        : scope === "sdkConnection"
+          ? "validateSdkConnection"
+          : "validateFeature");
 
   const form = useForm<CreateProps<CustomHookInterface>>({
     defaultValues: {
@@ -417,6 +534,52 @@ export default function CustomHookModal({
     )
     .map(([value, { label }]) => ({ value, label }));
 
+  const sdkConnectionArgs: Record<string, unknown> | null = sdkConnection
+    ? sdkConnectionHookArgs(sdkConnection)
+    : null;
+  // The draft as its hook sees it: its details, its author and reviewers
+  // resolved, and what it proposes.
+  const { users, teams } = useUser();
+  const member = (userId: string) => {
+    const found = users.get(userId);
+    return {
+      user: found
+        ? {
+            type: "dashboard" as const,
+            id: userId,
+            name: found.name,
+            email: found.email,
+          }
+        : { type: "api_key" as const, apiKey: userId },
+      teams: teamsForMember(
+        userId,
+        { members: [...users.values()] },
+        teams ?? [],
+      ),
+    };
+  };
+  const sdkConnectionRevisionArg = sdkConnectionRevision
+    ? {
+        ...pick(sdkConnectionRevision, HOOK_REVISION_FIELDS),
+        author: {
+          userId: sdkConnectionRevision.authorId,
+          ...member(sdkConnectionRevision.authorId),
+        },
+        coauthors: coauthorIds(
+          sdkConnectionRevision.authorId,
+          sdkConnectionRevision.contributors,
+        ).map((userId) => ({ userId, ...member(userId) })),
+        reviews: toHookReviewerVerdicts(sdkConnectionRevision.reviews, member),
+        ...sdkConnectionHookArgs(
+          applyTopLevelPatchOps(
+            sdkConnectionRevision.target
+              .snapshot as SDKConnectionRevisionSnapshot,
+            sdkConnectionRevision.target.proposedChanges,
+          ),
+        ),
+      }
+    : { ...dummySdkConnectionRevision, ...sdkConnectionArgs };
+
   const initialTestValues = (h: CustomHookType): Record<string, string> =>
     Object.fromEntries(
       Object.entries(hookTypes[h].availableArguments).map(([k, v]) => [
@@ -436,7 +599,11 @@ export default function CustomHookModal({
                     hookTargetKey: config.key,
                     isHookTarget: true,
                   })
-                : v.testValue,
+                : sdkConnectionArgs && k in sdkConnectionArgs
+                  ? stringify(sdkConnectionArgs[k])
+                  : sdkConnectionArgs && k === "revision"
+                    ? stringify(sdkConnectionRevisionArg)
+                    : v.testValue,
       ]),
     );
 
@@ -504,13 +671,7 @@ export default function CustomHookModal({
           ...(incrementalChangesOnly
             ? { originalFunctionArgs: parseArgs(priorTestValues) }
             : {}),
-          ...(feature
-            ? { entityType: "feature" as const, entityId: feature.id }
-            : experiment
-              ? { entityType: "experiment" as const, entityId: experiment.id }
-              : config
-                ? { entityType: "config" as const, entityId: config.key }
-                : {}),
+          ...entity,
         }),
       });
       setTestResult({
@@ -541,25 +702,7 @@ export default function CustomHookModal({
         const body = {
           ...value,
           enabled: current?.enabled ?? true,
-          ...(feature
-            ? {
-                projects: [],
-                entityType: "feature" as const,
-                entityId: feature.id,
-              }
-            : experiment
-              ? {
-                  projects: [],
-                  entityType: "experiment" as const,
-                  entityId: experiment.id,
-                }
-              : config
-                ? {
-                    projects: [],
-                    entityType: "config" as const,
-                    entityId: config.key,
-                  }
-                : {}),
+          ...(entity ? { projects: [], ...entity } : {}),
         };
         if (current?.id) {
           await apiCall(`/custom-hooks/${current.id}`, {
@@ -651,7 +794,7 @@ export default function CustomHookModal({
           <Text as="div" size="sm" color="text-low" mt="1" mb="5">
             Need a starting point? See an{" "}
             <DocLink docSection={exampleDocSection}>
-              example {hookEntityType[hookType]} hook
+              example {customHookEntityNoun[hookEntityType[hookType]]} hook
             </DocLink>
             .
           </Text>

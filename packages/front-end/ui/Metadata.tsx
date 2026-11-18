@@ -13,27 +13,37 @@ type Props = {
   stacked?: boolean;
   /** A stacked row's own button (e.g. its pencil), clicked by the whole row. */
   action?: React.ReactNode;
+  /** Inline: keeps the label on one line, so a long value gives way instead. */
+  noWrapLabel?: boolean;
 };
 
 export default forwardRef<HTMLDivElement, Props>(function Metadata(
-  { label, value, style, size = "md", stacked, action, ...props },
+  {
+    label,
+    value,
+    style,
+    size = "md",
+    stacked,
+    action,
+    noWrapLabel = false,
+    ...props
+  },
   ref,
 ) {
   if (stacked) {
-    const content = (
-      <>
-        <Text weight="regular" color="text-low" size={size}>
-          {label}
-        </Text>
-        {typeof value === "string" ? (
-          <Text weight="regular" color="text-high" size={size}>
-            {value}
-          </Text>
-        ) : (
-          value
-        )}
-      </>
+    const labelText = (
+      <Text weight="regular" color="text-low" size={size}>
+        {label}
+      </Text>
     );
+    const valueContent =
+      typeof value === "string" ? (
+        <Text weight="regular" color="text-high" size={size}>
+          {value}
+        </Text>
+      ) : (
+        value
+      );
 
     if (!action) {
       return (
@@ -45,14 +55,16 @@ export default forwardRef<HTMLDivElement, Props>(function Metadata(
           {...props}
           ref={ref}
         >
-          {content}
+          {labelText}
+          {valueContent}
         </Flex>
       );
     }
     return (
       <Flex
+        direction="column"
+        gap="1"
         align="start"
-        gap="2"
         className={styles.actionRow}
         style={style}
         // Hovering the row reveals its action.
@@ -60,15 +72,8 @@ export default forwardRef<HTMLDivElement, Props>(function Metadata(
         {...props}
         ref={ref}
       >
-        <Flex
-          direction="column"
-          gap="1"
-          align="start"
-          flexGrow="1"
-          minWidth="0"
-        >
-          {content}
-        </Flex>
+        <span className={styles.label}>{labelText}</span>
+        {valueContent}
         <span className={styles.action}>{action}</span>
       </Flex>
     );
@@ -76,7 +81,12 @@ export default forwardRef<HTMLDivElement, Props>(function Metadata(
 
   return (
     <Flex gap="1" align="center" style={style} {...props} ref={ref}>
-      <Text weight="medium" color="text-high" size={size}>
+      <Text
+        weight="medium"
+        color="text-high"
+        size={size}
+        whiteSpace={noWrapLabel ? "nowrap" : undefined}
+      >
         {label}:
       </Text>
       {typeof value === "string" ? (

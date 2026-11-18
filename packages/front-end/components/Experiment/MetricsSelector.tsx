@@ -47,6 +47,7 @@ import { IdentifierCode } from "@/components/Experiment/AssignmentQueryFields";
 import { useUser } from "@/services/UserContext";
 import MetricGroupInlineForm from "@/enterprise/components/MetricGroupInlineForm";
 import Link from "@/ui/Link";
+import FieldIndicator from "@/ui/FieldIndicator";
 import {
   DropdownMenu,
   DropdownMenuItem,
@@ -83,22 +84,12 @@ function MetricTagPicker({
       menuPlacement="end"
       variant="soft"
       trigger={
-        <button
-          type="button"
+        <FieldIndicator
+          label="Add metrics by tag"
           className="gb-multi-select__tag-button"
-          aria-label="Add metrics by tag"
-          onMouseDown={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-          }}
-          onClick={(e) => e.stopPropagation()}
         >
-          <UITooltip content={<Text align="left">Add metrics by tag</Text>}>
-            <span style={{ display: "flex" }}>
-              <PiTag />
-            </span>
-          </UITooltip>
-        </button>
+          <PiTag />
+        </FieldIndicator>
       }
     >
       <DropdownMenuLabel>Add metrics by tag</DropdownMenuLabel>

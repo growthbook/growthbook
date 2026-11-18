@@ -750,6 +750,69 @@ describe("computeContextualBanditWeights", () => {
     expect(w1).toBeGreaterThan(w0);
   });
 
+  it("uses folded main_sum_squares for binomial variance under period weighting", () => {
+    // Period weighting folds reweighted rows in the assignment query, so a
+    // binomial arm's `main_sum_squares` no longer equals its `main_sum` (the
+    // unweighted 0/1 identity x^2 = x). The variance must then come from the
+    // folded `main_sum_squares`; reverting the binomial branch to the
+    // unweighted `sumSquares = main_sum` would silently shrink the variance and
+    // shift the Thompson allocation while every other test still passed.
+    const data = [
+      observation({ country: "US" }, 0, {
+        n: 200,
+        main_sum: 40,
+        main_sum_squares: 72,
+      }),
+      observation({ country: "US" }, 1, {
+        n: 200,
+        main_sum: 120,
+        main_sum_squares: 160,
+      }),
+    ];
+
+    const weightedSettings: ContextualBanditWeightsInput = {
+      ...input(data),
+      periodWeighting: true,
+      metricSettings: {
+        ...meanMetric(),
+        main_metric_type: "binomial",
+      },
+    };
+    const weighted = computeContextualBanditWeights(weightedSettings);
+    const wr = weighted.responses[0];
+
+    // variance = (main_sum_squares - main_sum^2 / n) / (n - 1), using the
+    // folded sum of squares.
+    expect(wr.sampleVariances[0]).toBeCloseTo((72 - 40 ** 2 / 200) / 199, 10);
+    expect(wr.sampleVariances[1]).toBeCloseTo((160 - 120 ** 2 / 200) / 199, 10);
+
+    // Same observations, but without period weighting the binomial branch falls
+    // back to the unweighted identity sumSquares = main_sum, so the variance is
+    // strictly smaller and the resulting weights differ.
+    const unweighted = computeContextualBanditWeights({
+      ...weightedSettings,
+      periodWeighting: false,
+    });
+    const ur = unweighted.responses[0];
+
+    expect(ur.sampleVariances[0]).toBeCloseTo((40 - 40 ** 2 / 200) / 199, 10);
+    expect(ur.sampleVariances[1]).toBeCloseTo((120 - 120 ** 2 / 200) / 199, 10);
+
+    // The folded variance is larger, so both arms carry more posterior
+    // uncertainty under period weighting. The allocation it feeds must change:
+    // the winning arm (v1) is weighted less aggressively than in the unweighted
+    // run, confirming the variance actually drives traffic.
+    expect(wr.sampleVariances[0]).toBeGreaterThan(ur.sampleVariances[0]);
+    expect(wr.sampleVariances[1]).toBeGreaterThan(ur.sampleVariances[1]);
+
+    const ww = wr.updatedWeights as number[];
+    const uw = ur.updatedWeights as number[];
+    expect(ww[1]).toBeGreaterThan(ww[0]);
+    expect(uw[1]).toBeGreaterThan(uw[0]);
+    expect(ww).not.toEqual(uw);
+    expect(ww[1]).toBeLessThan(uw[1]);
+  });
+
   it.each([
     { statistic_type: "ratio" as const },
     { statistic_type: "ratio_ra" as const },

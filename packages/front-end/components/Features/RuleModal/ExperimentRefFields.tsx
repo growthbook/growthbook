@@ -249,7 +249,6 @@ export default function ExperimentRefFields({
               valueType={feature.valueType}
               feature={feature}
               renderJSONInline={false}
-              showFullscreenButton={true}
               codeInputDefaultHeight={80}
               sparse={!!form.watch("sparse")}
               allowConfigBacking={isConfigBacked}

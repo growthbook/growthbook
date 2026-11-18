@@ -1,22 +1,21 @@
 import { useForm } from "react-hook-form";
 import { UpdateWebhookSecretProps } from "shared/validators";
-import Modal from "@/components/Modal";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Field from "@/components/Forms/Field";
 import { useAuth } from "@/services/auth";
 import StringArrayField from "@/ui/StringArrayField";
 import { KEEP_EXISTING_PLACEHOLDER } from "@/components/Forms/secretInput";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
+import { validatedSubmit } from "@/ui/Modal/validatedSubmit";
 
 export default function WebhookSecretModal({
   existingId,
   close,
   onSuccess,
-  increasedElevation = false,
 }: {
   existingId?: string;
   close: () => void;
   onSuccess?: (webhookSecretKey: string) => void;
-  increasedElevation?: boolean;
 }) {
   const { webhookSecrets, mutateDefinitions } = useDefinitions();
 
@@ -36,13 +35,12 @@ export default function WebhookSecretModal({
   });
 
   return (
-    <Modal
+    <ModalStandard
       open={true}
       close={close}
-      increasedElevation={increasedElevation}
       trackingEventModalType={`webhook_secret_${existingId ? "edit" : "add"}`}
       header={existingId ? "Edit Secret" : "Add Secret"}
-      submit={form.handleSubmit(async (data) => {
+      submit={validatedSubmit(form, async (data) => {
         // Validation for allowed origins
         if (data.allowedOrigins?.length) {
           if (!data.allowedOrigins.every((o) => o.startsWith("http"))) {
@@ -116,6 +114,6 @@ export default function WebhookSecretModal({
         label="Restrict to Specific Origins"
         helpText="Only allow using this secret in requests to the specified origins. Leave empty for no origin restrictions."
       />
-    </Modal>
+    </ModalStandard>
   );
 }

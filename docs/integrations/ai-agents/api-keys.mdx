@@ -55,7 +55,7 @@ New rules default to **recommended actions**, which hold:
 
 Creating things, working on drafts, AI Visual Editor changes, and writes like dashboards and comments run without confirmation. Arming a publish or an Experiment start to happen later, on approval or on a schedule, counts as the publish or start itself, including any archive or ramp plan it carries. Editing a draft that's armed counts as everything its publish could do, and editing an Experiment that's scheduled to start counts as the start plus the change as if it were live. If a key whose publishes need confirmation edits an armed draft any other way, GrowthBook cancels that draft's schedule or publish on approval, so nothing it changed goes live without a person. Creating a Feature Flag that's on in an environment counts as publishing there.
 
-If your organization lets REST requests bypass reviews, a key's publishes and archives of Feature Flags, Saved Groups, Constants and Configs also count as skipping a review.
+If your organization lets REST requests bypass reviews, a key's publishes and archives of Feature Flags, Saved Groups, Constants and Configs also count as skipping a review. So do its edits to SDK Connections and their webhooks.
 
 Choose **All actions** to hold every write, including creates and drafts. Reads and calculations never wait.
 

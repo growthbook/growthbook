@@ -1,7 +1,11 @@
 .demo-datasource-banner__wrapper {
   position: sticky;
-  top: 56px;
-  z-index: 100;
+  top: var(--header-height);
+  // Over what pins under the header (tabs 930, table headers 900), which
+  // slides under it; under the Settings nav and the side nav (999, 1000).
+  z-index: 940;
+  // Only the label takes clicks, so the tabs under the rest stay usable.
+  pointer-events: none;
 }
 
 .demo-datasource-banner {
@@ -28,6 +32,7 @@
   border-bottom-left-radius: 6px;
   border-bottom-right-radius: 6px;
   padding: 0.2em 0.5em;
+  pointer-events: auto;
 }
 
 .demo-datasource-banner__text {
@@ -43,7 +48,7 @@
   max-width: 100%;
   width: 100vw;
   height: 100vh;
-  max-height: calc(100vh - 56px); // 56px = .topbar height
+  max-height: calc(100vh - var(--header-height));
   z-index: 10;
   position: fixed;
   top: 0px;
