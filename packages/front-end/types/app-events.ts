@@ -32,6 +32,12 @@ type ModalEventProps = {
   [key: string]: unknown;
 };
 
+// urlPlan is the ?plan= value the user arrived with ("pro" or "starter"), or
+// "" when it was not recorded.
+type InitialSignupEventProps = {
+  urlPlan: string;
+};
+
 type AIFeedbackProps = {
   action: string;
   rating: string | null;
@@ -508,16 +514,17 @@ export type AppEvents = {
   "Import request submitted": {
     service: string;
   };
-  "Initial signup: dismissed plan selection": {
+  "Initial signup: dismissed plan selection": InitialSignupEventProps & {
     plan: string;
   };
-  "Initial signup: flow completed": {
+  "Initial signup: flow completed": InitialSignupEventProps & {
     plan: string;
   };
-  "Initial signup: selected Pro plan": NoProps;
-  "Initial signup: selected Starter plan": NoProps;
-  "Initial signup: submitted payment method": NoProps;
-  "Initial signup: submitted tax details": NoProps;
+  "Initial signup: selected Pro plan": InitialSignupEventProps;
+  "Initial signup: selected Starter plan": InitialSignupEventProps;
+  "Initial signup: submitted payment method": InitialSignupEventProps;
+  "Initial signup: submitted tax details": InitialSignupEventProps;
+  "Initial signup: viewed plan selection": InitialSignupEventProps;
   "Join Organization": NoProps;
   "LaunchDarkly import fetch started": {
     step: number;
@@ -589,6 +596,14 @@ export type AppEvents = {
   };
   "Presentation created": NoProps;
   "Presentation edited": NoProps;
+  // Sent once the license server has created the Pro subscription.
+  "Pro subscription started": {
+    flow: "initial-signup" | "upgrade-modal";
+    // The upgrade modal's CTA source; only sent by the upgrade modal
+    source?: string;
+    // Only sent by the initial signup flow
+    urlPlan?: string;
+  };
   "Product Analytics Explorer: Chart Type Changed": {
     from_chart_type: string;
     type: string;

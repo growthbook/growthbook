@@ -1,4 +1,4 @@
-import { FC, useState, useCallback } from "react";
+import { FC, useState, useCallback, useEffect } from "react";
 import { useRouter } from "next/router";
 import { Box, Flex } from "@radix-ui/themes";
 import {
@@ -59,10 +59,12 @@ const SelectInitialPlan: FC = () => {
   const {
     initialPlanSelection,
     setInitialPlanSelection,
+    initialPlanFromUrl,
     organizations,
     orgId,
     setOrgId,
   } = useAuth();
+  const urlPlan = initialPlanFromUrl ?? "";
   const { email } = useUser();
   const {
     status: organizationRefreshStatus,
@@ -86,17 +88,21 @@ const SelectInitialPlan: FC = () => {
     },
   });
 
+  useEffect(() => {
+    track("Initial signup: viewed plan selection", { urlPlan });
+  }, [urlPlan]);
+
   const completeFlow = useCallback(() => {
-    track("Initial signup: flow completed", { plan });
+    track("Initial signup: flow completed", { plan, urlPlan });
     setInitialPlanSelection?.("");
     router.push("/");
-  }, [plan, router, setInitialPlanSelection]);
+  }, [plan, urlPlan, router, setInitialPlanSelection]);
 
   const handleDismiss = useCallback(() => {
-    track("Initial signup: dismissed plan selection", { plan });
+    track("Initial signup: dismissed plan selection", { plan, urlPlan });
     setInitialPlanSelection?.("");
     router.push("/");
-  }, [plan, router, setInitialPlanSelection]);
+  }, [plan, urlPlan, router, setInitialPlanSelection]);
 
   const handleStarter = async () => {
     if (loading) return;
@@ -180,7 +186,9 @@ const SelectInitialPlan: FC = () => {
                     <Button
                       color="primary"
                       onClick={() => {
-                        track("Initial signup: selected Starter plan");
+                        track("Initial signup: selected Starter plan", {
+                          urlPlan,
+                        });
                         handleStarter();
                       }}
                       disabled={loading || plan !== "starter"}
@@ -226,7 +234,9 @@ const SelectInitialPlan: FC = () => {
                     <Button
                       color="primary"
                       onClick={() => {
-                        track("Initial signup: selected Pro plan");
+                        track("Initial signup: selected Pro plan", {
+                          urlPlan,
+                        });
                         handleNext();
                       }}
                       disabled={loading || plan !== "pro"}
@@ -340,6 +350,7 @@ const ProBillingStep: FC<ProBillingStepProps> = ({
   onBack,
   setError,
 }) => {
+  const { initialPlanFromUrl } = useAuth();
   const handleNext = () => {
     setError(null);
     form.handleSubmit(() => onNext())();
@@ -397,7 +408,9 @@ const ProBillingStep: FC<ProBillingStepProps> = ({
         <Button
           color="primary"
           onClick={() => {
-            track("Initial signup: submitted tax details");
+            track("Initial signup: submitted tax details", {
+              urlPlan: initialPlanFromUrl ?? "",
+            });
             handleNext();
           }}
         >
@@ -463,7 +476,8 @@ const ProPaymentFormInner: FC<ProPaymentFormProps> = ({
   error,
   refreshOrganizationAfterUpgrade,
 }) => {
-  const { apiCall } = useAuth();
+  const { apiCall, initialPlanFromUrl } = useAuth();
+  const urlPlan = initialPlanFromUrl ?? "";
   const { organization } = useUser();
   const stripe = useStripe();
   const elements = useElements();
@@ -474,7 +488,7 @@ const ProPaymentFormInner: FC<ProPaymentFormProps> = ({
   });
 
   const handleSubmit = async () => {
-    track("Initial signup: submitted payment method");
+    track("Initial signup: submitted payment method", { urlPlan });
     if (!stripe || !elements || !clientSecret) return;
     setError(null);
     setLoading(true);
@@ -527,6 +541,7 @@ const ProPaymentFormInner: FC<ProPaymentFormProps> = ({
               : undefined,
         }),
       });
+      track("Pro subscription started", { flow: "initial-signup", urlPlan });
     } catch (e) {
       setLoading(false);
       const message = e instanceof Error ? e.message : "Something went wrong";
