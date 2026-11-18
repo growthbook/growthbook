@@ -135,6 +135,12 @@ export interface EntityRevisionAdapter<
   /** Normalize an entity object for storage as a revision snapshot. */
   buildSnapshot(entity: TSnapshot): TSnapshot;
 
+  /**
+   * A built snapshot, less what is managed outside the entity. Asking whether
+   * live has moved since a draft was cut compares these.
+   */
+  behindLiveView?(snapshot: TSnapshot): TSnapshot;
+
   /** Whether the approval-flow revision workflow is required for this org/entity. */
   isRevisionRequired(context: Context): boolean;
 

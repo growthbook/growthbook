@@ -6,6 +6,7 @@ import {
 } from "shared/sdk-versioning";
 import {
   isActiveDraftStatus,
+  omitProxySettings,
   parseSdkWebhookSnapshot,
   sdkConnectionSettingsOf,
   SDKConnectionRevisionSnapshot,
@@ -135,10 +136,12 @@ function buildDisplayedConnection(
 ): SDKConnectionInterface {
   if (!revision) return connection;
   // A draft shows what it holds: its own changes over where it started.
-  const settings = sdkConnectionSettingsAfter(
+  const held = sdkConnectionSettingsAfter(
     revision.target.snapshot as SDKConnectionRevisionSnapshot,
     revision.target.proposedChanges,
   ) as Record<string, unknown>;
+  // Self-hosted reads the proxy from its environment, whatever a revision says.
+  const settings = isCloud() ? held : omitProxySettings(held);
   // A setting history left out was off then, whatever live says now. A draft
   // keeps live's, as publishing it would.
   return overlayFlattenedOnConnection(

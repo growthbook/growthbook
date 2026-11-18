@@ -33,8 +33,10 @@ import {
 } from "@/components/Revision/revisionUtils";
 import {
   RevisionDiffConfig,
+  useRevisionBehindLive,
   useRevisionDiff,
 } from "@/components/Revision/useRevisionDiff";
+import useOrgSettings from "@/hooks/useOrgSettings";
 
 /**
  * The generic revision model's bar under the page's tabs, as the feature page
@@ -94,13 +96,21 @@ export default function RevisionStatusBar<T>({
     diffConfig,
   );
   const changeCount = diffs.length;
+  const behindLive = useRevisionBehindLive(
+    isDraft ? selectedRevision : null,
+    liveSnapshot,
+    diffConfig,
+  );
+  const { requireRebaseBeforePublish } = useOrgSettings();
+  const mustRebase = behindLive && !!requireRebaseBeforePublish;
   // Straight from the bar only when publishing needs no review: no approval,
-  // something to publish, no conflicts. The server still checks the rest, such
-  // as rebasing first, and the bar says why it refused.
+  // something to publish, no rebase to do first, no conflicts. The server
+  // still checks the rest, and the bar says why it refused.
   const publishable =
     isDraft &&
     !requiresApproval &&
     changeCount > 0 &&
+    !mustRebase &&
     !isScheduledPublishPending(selectedRevision) &&
     checkMergeConflicts(
       selectedRevision.target.snapshot as Record<string, unknown>,

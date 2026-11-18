@@ -30,6 +30,7 @@ import {
   sdkWebhookStableId,
   pickSdkConnectionSettings,
   sdkConnectionSettingsOf,
+  withoutProxySettings,
 } from "shared/validators";
 import type { Context } from "back-end/src/models/BaseModel";
 import {
@@ -49,6 +50,7 @@ import {
   TerminalPublishError,
   getErrorMessage,
 } from "back-end/src/util/errors";
+import { IS_CLOUD } from "back-end/src/util/secrets";
 import { buildArmAcknowledgments } from "back-end/src/services/armGuards";
 import {
   assertWebhookSecrets,
@@ -403,6 +405,9 @@ export const sdkConnectionAdapter: EntityRevisionAdapter<SDKConnectionRevisionSn
 
       return toSnapshot(raw);
     },
+
+    behindLiveView: (snapshot) =>
+      IS_CLOUD ? snapshot : withoutProxySettings(snapshot),
 
     isRevisionRequired(context: Context): boolean {
       return isSdkConnectionApprovalRequired(context);

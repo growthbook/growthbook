@@ -13,6 +13,7 @@ import {
 } from "back-end/src/revisions/adapters/sdk-connection.adapter";
 import { getAdapter } from "back-end/src/revisions/index";
 import { restoreEntityPreImage } from "back-end/src/revisions/landingSequence";
+import { isRevisionDiverged } from "back-end/src/revisions/util";
 import {
   restoreScrubbedOps,
   scrubConflictsForViewer,
@@ -294,6 +295,23 @@ describe("sdkConnectionAdapter", () => {
         baseSnapshot,
       );
     });
+  });
+
+  // Self-hosted reads the proxy settings from its environment.
+  it("doesn't read a draft as behind live over the proxy settings alone", () => {
+    const cut = snapshotWith({ proxyEnabled: false, proxyHost: "" });
+    const live = (
+      overrides: Partial<SDKConnectionRevisionSnapshot["sdkConnection"]>,
+    ) =>
+      snapshotWith({
+        proxyEnabled: true,
+        proxyHost: "https://proxy.example.com",
+        ...overrides,
+      });
+    expect(isRevisionDiverged(sdkConnectionAdapter, cut, live({}))).toBe(false);
+    expect(
+      isRevisionDiverged(sdkConnectionAdapter, cut, live({ name: "Renamed" })),
+    ).toBe(true);
   });
 
   describe("getUpdatableFields", () => {

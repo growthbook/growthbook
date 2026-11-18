@@ -199,6 +199,40 @@ describe("SDK Connection revision endpoints", () => {
     );
   });
 
+  it("never lets a revision or a direct write set the proxy on a self-hosted instance", async () => {
+    useAdmin();
+    const id = await createConnection();
+    const proxy = {
+      proxyEnabled: true,
+      proxyHost: "https://proxy.example.com",
+    };
+    const live = async () =>
+      (await send("get", `/api/v1/sdk-connections/${id}`)).body.sdkConnection;
+
+    const staged = await send("put", `${BASE}/${id}/new/settings`, {
+      ...proxy,
+      name: "Renamed",
+    });
+    expect(staged.status).toBe(200);
+    const published = await send(
+      "post",
+      `${BASE}/${id}/${staged.body.revision.version}/publish`,
+    );
+    expect(published.status).toBe(200);
+    await send("put", `/api/v1/sdk-connections/${id}`, proxy);
+
+    // The rename landed. The proxy is the environment's, read and stored.
+    expect(await live()).toMatchObject({
+      name: "Renamed",
+      proxyEnabled: false,
+      proxyHost: "",
+    });
+    expect((await liveConnection(id))?.proxy).toMatchObject({
+      enabled: false,
+      host: "",
+    });
+  });
+
   it("refuses to open a draft that changes nothing, or to edit a published one", async () => {
     useAdmin();
     const id = await createConnection();

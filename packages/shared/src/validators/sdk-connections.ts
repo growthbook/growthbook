@@ -1,4 +1,5 @@
 import { z } from "zod";
+import omit from "lodash/omit";
 import {
   apiPaginationFieldsValidator,
   booleanQueryField,
@@ -164,6 +165,22 @@ export function pickSdkConnectionSettings(
   }
   return settings as unknown as SDKConnectionSettingsRevisionSnapshot;
 }
+
+// Settings without the proxy's. A self-hosted instance reads those from its
+// environment, so a change to them isn't a change to the connection.
+export const omitProxySettings = <
+  T extends { proxyEnabled?: unknown; proxyHost?: unknown },
+>(
+  settings: T,
+): Omit<T, "proxyEnabled" | "proxyHost"> =>
+  omit(settings, ["proxyEnabled", "proxyHost"]);
+
+export const withoutProxySettings = (
+  snapshot: SDKConnectionRevisionSnapshot,
+): SDKConnectionRevisionSnapshot => ({
+  ...snapshot,
+  sdkConnection: omitProxySettings(snapshot.sdkConnection),
+});
 
 // The same, from a stored connection, whose proxy settings are nested.
 export function sdkConnectionSettingsOf(

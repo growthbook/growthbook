@@ -6,7 +6,9 @@ import {
   SDKConnectionSettingsRevisionSnapshot,
   SDKWebhookRevisionSnapshot,
   webhookHeadersObject,
+  withoutProxySettings,
 } from "shared/validators";
+import { isCloud } from "@/services/env";
 import Text from "@/ui/Text";
 import { ChangeField } from "@/components/AuditHistoryExplorer/DiffRenderUtils";
 import {
@@ -660,6 +662,8 @@ export const REVISION_SDK_CONNECTION_DIFF_CONFIG: RevisionDiffConfig<SDKConnecti
   {
     // Rows skip a setting the newer side lacks, so fill both sides first.
     normalizeSnapshot: snapshotWithAbsentSettings,
+    behindLiveView: (snapshot) =>
+      isCloud() ? snapshot : withoutProxySettings(snapshot),
     proposedStateFor: draftLandedState,
     sections: [
       {

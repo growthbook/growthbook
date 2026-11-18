@@ -426,8 +426,12 @@ export function isRevisionDiverged(
   snapshot: Record<string, unknown>,
   entity: Record<string, unknown>,
 ): boolean {
-  const base = adapter.buildSnapshot(snapshot);
-  const live = adapter.buildSnapshot(entity);
+  const view = (value: Record<string, unknown>) => {
+    const built = adapter.buildSnapshot(value);
+    return adapter.behindLiveView?.(built) ?? built;
+  };
+  const base = view(snapshot);
+  const live = view(entity);
   return [...adapter.getUpdatableFields()].some(
     (key) => !isEqual(deepOmitNullish(base[key]), deepOmitNullish(live[key])),
   );
