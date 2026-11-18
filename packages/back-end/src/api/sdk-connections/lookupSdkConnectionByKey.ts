@@ -12,6 +12,8 @@ export const lookupSdkConnectionByKey = createApiRequestHandler(
   const sdkConnection = await findSDKConnectionByKeyForOrg(
     req.context,
     req.params.key,
+    // Like GET by id, so an archived connection can still be found and restored.
+    { includeArchived: true },
   );
   if (!sdkConnection) {
     throw new NotFoundError("Could not find sdkConnection with that key");

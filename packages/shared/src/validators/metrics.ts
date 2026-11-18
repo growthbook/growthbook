@@ -830,12 +830,9 @@ export const listMetricExperimentsValidator = {
           "Filter by comma-separated experiment types (feature, visualChange, redirect)",
         )
         .optional(),
-      bandits: z
-        .enum(["true", "false"])
-        .describe(
-          "When true, return only multi-armed bandits; when false, exclude them",
-        )
-        .optional(),
+      bandits: booleanQueryField.describe(
+        "When true, return only multi-armed bandits; when false, exclude them",
+      ),
       startDate: z
         .string()
         .refine((v) => !Number.isNaN(Date.parse(v)), {
@@ -879,7 +876,11 @@ export const putMetricValidator = {
   paramsSchema: idParams,
   responseSchema: z
     .object({
-      updatedId: z.string(),
+      metric: apiMetricValidator,
+      updatedId: z
+        .string()
+        .describe("Deprecated: use `metric.id`.")
+        .meta({ deprecated: true }),
     })
     .strict(),
   summary: "Update a metric",

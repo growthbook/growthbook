@@ -360,36 +360,40 @@ info:
 
 
     | Flag                      | Where        | Gets
-    past                                                                                                   
+    past                                                                                                                  
     |
 
     | ------------------------- | ------------ |
-    ------------------------------------------------------------------------------------------------------------
+    ---------------------------------------------------------------------------------------------------------------------------
     |
 
     | `ignoreWarnings`          | Body         | Warnings
-    (`422`)                                                                                            
+    (`422`)                                                                                                           
     |
 
     | `skipSchemaValidation`    | Body         | Schema and invariant failures,
     with **Bypass draft approvals**
-    access                                        |
+    access                                                       |
 
     | `skipHooks`               | Body         | Custom Hook
-    rejections                                                                                      
+    rejections                                                                                                     
     |
 
     | `skipChecklist`           | Body         | An experiment start's
     incomplete launch checklist items (`409` `checklist_incomplete`), but not
-    its blockers |
+    its blockers                |
 
     | `allowUnscopedRules`      | Body         | A rule for All Environments and
-    All Projects where the organization requires a scope (`422` `unscoped_rule`)
-    |
+    All Projects where the organization requires a scope (`422`
+    `unscoped_rule`)                |
 
     | `overrideDraftLimit=true` | Query string | Creating a draft past the draft
-    limit                                                                       
+    limit                                                                                      
     |
+
+    | `bypassApproval`          | Body         | A direct write to a resource
+    that requires approval, with **Bypass draft approvals** access or the REST
+    API approval bypass |
 servers:
   - url: https://api.growthbook.io/api
     description: GrowthBook Cloud
@@ -1092,6 +1096,11 @@ tags:
   - name: SdkConnection_model
     x-displayName: Sdk Connection
     description: <SchemaDefinition schemaRef="#/components/schemas/SdkConnection" />
+  - name: SdkConnectionApprovalRule_model
+    x-displayName: Sdk Connection Approval Rule
+    description: >-
+      <SchemaDefinition
+      schemaRef="#/components/schemas/SdkConnectionApprovalRule" />
   - name: SdkWebhook_model
     x-displayName: Sdk Webhook
     description: <SchemaDefinition schemaRef="#/components/schemas/SdkWebhook" />
@@ -4890,16 +4899,7 @@ paths:
               If true, return only the most recent active draft authored by or
               contributed to by the calling user. Needs a personal access token,
               or an organization API key that assumes a named member's role.
-            anyOf:
-              - type: string
-                const: 'true'
-              - type: string
-                const: 'false'
-              - type: string
-                const: '0'
-              - type: string
-                const: '1'
-              - type: boolean
+            type: boolean
       responses:
         '200':
           description: Successful response
@@ -8564,14 +8564,6 @@ paths:
           schema:
             type: string
         - $ref: '#/components/parameters/version'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties: {}
-              additionalProperties: false
       responses:
         '200':
           description: Resource created
@@ -11050,16 +11042,7 @@ paths:
             description: >-
               If true, return only revisions authored by or contributed to by
               the calling user.
-            anyOf:
-              - type: string
-                const: 'true'
-              - type: string
-                const: 'false'
-              - type: string
-                const: '0'
-              - type: string
-                const: '1'
-              - type: boolean
+            type: boolean
         - name: archived
           in: query
           description: >-
@@ -11071,16 +11054,7 @@ paths:
               Whether to include revisions for archived features. Defaults to
               `false` (non-archived features only). Pass `true` to include
               revisions for archived features alongside non-archived ones.
-            anyOf:
-              - type: string
-                const: 'true'
-              - type: string
-                const: 'false'
-              - type: string
-                const: '0'
-              - type: string
-                const: '1'
-              - type: boolean
+            type: boolean
       responses:
         '200':
           description: Successful response
@@ -11267,16 +11241,7 @@ paths:
             description: >-
               If true, return only the most recent active draft authored by or
               contributed to by the calling user.
-            anyOf:
-              - type: string
-                const: 'true'
-              - type: string
-                const: 'false'
-              - type: string
-                const: '0'
-              - type: string
-                const: '1'
-              - type: boolean
+            type: boolean
         - $ref: '#/components/parameters/status'
         - name: author
           in: query
@@ -14850,14 +14815,6 @@ paths:
           schema:
             type: string
         - $ref: '#/components/parameters/version'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties: {}
-              additionalProperties: false
       responses:
         '200':
           description: Resource created
@@ -14904,14 +14861,6 @@ paths:
           schema:
             type: string
         - $ref: '#/components/parameters/version'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties: {}
-              additionalProperties: false
       responses:
         '200':
           description: Resource created
@@ -15050,14 +14999,6 @@ paths:
             type: string
         - $ref: '#/components/parameters/version'
         - $ref: '#/components/parameters/logId'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties: {}
-              additionalProperties: false
       responses:
         '200':
           description: Resource deleted
@@ -15595,14 +15536,6 @@ paths:
           schema:
             type: string
         - $ref: '#/components/parameters/version'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties: {}
-              additionalProperties: false
       responses:
         '200':
           description: Resource created
@@ -15643,14 +15576,6 @@ paths:
           schema:
             type: string
         - $ref: '#/components/parameters/version'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties: {}
-              additionalProperties: false
       responses:
         '200':
           description: Resource created
@@ -16023,16 +15948,7 @@ paths:
               Filter by archived status. Set to `true` to return only archived
               experiments, `false` to exclude them. If omitted, both archived
               and non-archived experiments are returned.
-            anyOf:
-              - type: string
-                const: 'true'
-              - type: string
-                const: 'false'
-              - type: string
-                const: '0'
-              - type: string
-                const: '1'
-              - type: boolean
+            type: boolean
         - $ref: '#/components/parameters/sortBy'
         - $ref: '#/components/parameters/sortOrder'
       responses:
@@ -17880,14 +17796,6 @@ paths:
         - experiments
       parameters:
         - $ref: '#/components/parameters/id'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties: {}
-              additionalProperties: false
       responses:
         '200':
           description: Resource created
@@ -21005,9 +20913,14 @@ paths:
               schema:
                 type: object
                 properties:
+                  metric:
+                    $ref: '#/components/schemas/Metric'
                   updatedId:
                     type: string
+                    description: 'Deprecated: use `metric.id`.'
+                    deprecated: true
                 required:
+                  - metric
                   - updatedId
                 additionalProperties: false
         '202':
@@ -22461,6 +22374,18 @@ paths:
         - $ref: '#/components/parameters/projectId'
         - $ref: '#/components/parameters/withProxy'
         - $ref: '#/components/parameters/multiOrg'
+        - name: archived
+          in: query
+          description: >-
+            Whether to include archived SDK Connections. Defaults to `false`
+            (non-archived only). Pass `true` to include archived SDK Connections
+            alongside non-archived ones.
+          schema:
+            description: >-
+              Whether to include archived SDK Connections. Defaults to `false`
+              (non-archived only). Pass `true` to include archived SDK
+              Connections alongside non-archived ones.
+            type: boolean
       responses:
         '200':
           description: Successful response
@@ -22538,6 +22463,11 @@ paths:
                 includeTagsInMetadata:
                   type: boolean
                 includeExperimentScheduleInMetadata:
+                  type: boolean
+                tracesEnabled:
+                  description: >-
+                    Send SDK evaluation traces to GrowthBook. Only available to
+                    organizations with tracing enabled.
                   type: boolean
                 proxyEnabled:
                   type: boolean
@@ -22617,6 +22547,12 @@ paths:
     put:
       operationId: putSdkConnection
       summary: Update a single sdk connection
+      description: >-
+        Applies the change immediately and records it as a published revision,
+        so it appears in the connection's history. When the organization
+        requires approvals for this connection's Projects and environment, open
+        a draft from the SDK Connection page instead, or pass `bypassApproval`.
+        Set `archived` to archive or restore the connection.
       tags:
         - sdk-connections
       parameters:
@@ -22672,6 +22608,11 @@ paths:
                   type: boolean
                 includeExperimentScheduleInMetadata:
                   type: boolean
+                tracesEnabled:
+                  description: >-
+                    Send SDK evaluation traces to GrowthBook. Only available to
+                    organizations with tracing enabled.
+                  type: boolean
                 proxyEnabled:
                   type: boolean
                 proxyHost:
@@ -22695,6 +22636,20 @@ paths:
                     they target other Projects. Defaults to true for new
                     connections.
                   type: boolean
+                archived:
+                  description: >-
+                    Archive (true) or restore (false) the connection. Archiving
+                    takes the same authority as deleting it; restoring takes
+                    publish authority.
+                  type: boolean
+                bypassApproval:
+                  description: >-
+                    Set to true to write directly to the live SDK Connection
+                    without approval. The caller must have Bypass draft
+                    approvals access in the SDK Connection's Projects, unless
+                    the organization enables the REST API approval bypass. This
+                    field has no effect when approval is not required.
+                  type: boolean
               additionalProperties: false
       responses:
         '200':
@@ -22706,6 +22661,14 @@ paths:
                 properties:
                   sdkConnection:
                     $ref: '#/components/schemas/SdkConnection'
+                  bypassedGates:
+                    description: >-
+                      Gates that would have blocked this publish but were
+                      bypassed by the caller's authority. Present only when at
+                      least one gate was bypassed.
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/bypassedGates'
                 required:
                   - sdkConnection
                 additionalProperties: false
@@ -22720,10 +22683,31 @@ paths:
     delete:
       operationId: deleteSdkConnection
       summary: Deletes a single SDK connection
+      description: >-
+        When the organization requires approvals for this connection's Projects
+        and environment, archive it first (`PUT /sdk-connections/{id}` with
+        `archived: true`), then delete it. To delete a live connection in one
+        step, pass `bypassApproval`.
       tags:
         - sdk-connections
       parameters:
         - $ref: '#/components/parameters/id'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                bypassApproval:
+                  description: >-
+                    Set to true to write directly to the live SDK Connection
+                    without approval. The caller must have Bypass draft
+                    approvals access in the SDK Connection's Projects, unless
+                    the organization enables the REST API approval bypass. This
+                    field has no effect when approval is not required.
+                  type: boolean
+              additionalProperties: false
       responses:
         '200':
           description: Resource deleted
@@ -22734,6 +22718,14 @@ paths:
                 properties:
                   deletedId:
                     type: string
+                  bypassedGates:
+                    description: >-
+                      Gates that would have blocked this publish but were
+                      bypassed by the caller's authority. Present only when at
+                      least one gate was bypassed.
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/bypassedGates'
                 required:
                   - deletedId
                 additionalProperties: false
@@ -24097,16 +24089,7 @@ paths:
               If true, return only revisions authored by the calling user. Needs
               a personal access token, or an organization API key that assumes a
               named member's role. Mutually exclusive with `author`.
-            anyOf:
-              - type: string
-                const: 'true'
-              - type: string
-                const: 'false'
-              - type: string
-                const: '0'
-              - type: string
-                const: '1'
-              - type: boolean
+            type: boolean
       responses:
         '200':
           description: Successful response
@@ -24857,16 +24840,7 @@ paths:
               If true, return only revisions authored by the calling user. Needs
               a personal access token, or an organization API key that assumes a
               named member's role. Mutually exclusive with `author`.
-            anyOf:
-              - type: string
-                const: 'true'
-              - type: string
-                const: 'false'
-              - type: string
-                const: '0'
-              - type: string
-                const: '1'
-              - type: boolean
+            type: boolean
       responses:
         '200':
           description: Successful response
@@ -24991,16 +24965,7 @@ paths:
               If true, return only the most recent active draft authored by the
               calling user. Needs a personal access token, or an organization
               API key that assumes a named member's role.
-            anyOf:
-              - type: string
-                const: 'true'
-              - type: string
-                const: 'false'
-              - type: string
-                const: '0'
-              - type: string
-                const: '1'
-              - type: boolean
+            type: boolean
       responses:
         '200':
           description: Successful response
@@ -25750,14 +25715,6 @@ paths:
           schema:
             type: string
         - $ref: '#/components/parameters/version'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties: {}
-              additionalProperties: false
       responses:
         '200':
           description: Resource created
@@ -25797,14 +25754,6 @@ paths:
           schema:
             type: string
         - $ref: '#/components/parameters/version'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties: {}
-              additionalProperties: false
       responses:
         '200':
           description: Resource created
@@ -25930,14 +25879,6 @@ paths:
           schema:
             type: string
         - $ref: '#/components/parameters/version'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties: {}
-              additionalProperties: false
       responses:
         '200':
           description: Resource created
@@ -26464,16 +26405,7 @@ paths:
               If true, return only revisions authored by the calling user. Needs
               a personal access token, or an organization API key that assumes a
               named member's role. Mutually exclusive with `author`.
-            anyOf:
-              - type: string
-                const: 'true'
-              - type: string
-                const: 'false'
-              - type: string
-                const: '0'
-              - type: string
-                const: '1'
-              - type: boolean
+            type: boolean
       responses:
         '200':
           description: Successful response
@@ -26957,16 +26889,7 @@ paths:
               If true, return only revisions authored by the calling user. Needs
               a personal access token, or an organization API key that assumes a
               named member's role. Mutually exclusive with `author`.
-            anyOf:
-              - type: string
-                const: 'true'
-              - type: string
-                const: 'false'
-              - type: string
-                const: '0'
-              - type: string
-                const: '1'
-              - type: boolean
+            type: boolean
       responses:
         '200':
           description: Successful response
@@ -27088,16 +27011,7 @@ paths:
               If true, return only the most recent active draft authored by the
               calling user. Needs a personal access token, or an organization
               API key that assumes a named member's role.
-            anyOf:
-              - type: string
-                const: 'true'
-              - type: string
-                const: 'false'
-              - type: string
-                const: '0'
-              - type: string
-                const: '1'
-              - type: boolean
+            type: boolean
       responses:
         '200':
           description: Successful response
@@ -27606,14 +27520,6 @@ paths:
           schema:
             type: string
         - $ref: '#/components/parameters/version'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties: {}
-              additionalProperties: false
       responses:
         '200':
           description: Resource created
@@ -27653,14 +27559,6 @@ paths:
           schema:
             type: string
         - $ref: '#/components/parameters/version'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties: {}
-              additionalProperties: false
       responses:
         '200':
           description: Resource created
@@ -27809,14 +27707,6 @@ paths:
           schema:
             type: string
         - $ref: '#/components/parameters/version'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties: {}
-              additionalProperties: false
       responses:
         '200':
           description: Resource created
@@ -28536,16 +28426,7 @@ paths:
               If true, return only revisions authored by the calling user. Needs
               a personal access token, or an organization API key that assumes a
               named member's role. Mutually exclusive with `author`.
-            anyOf:
-              - type: string
-                const: 'true'
-              - type: string
-                const: 'false'
-              - type: string
-                const: '0'
-              - type: string
-                const: '1'
-              - type: boolean
+            type: boolean
       responses:
         '200':
           description: Successful response
@@ -29406,16 +29287,7 @@ paths:
               If true, return only revisions authored by the calling user. Needs
               a personal access token, or an organization API key that assumes a
               named member's role. Mutually exclusive with `author`.
-            anyOf:
-              - type: string
-                const: 'true'
-              - type: string
-                const: 'false'
-              - type: string
-                const: '0'
-              - type: string
-                const: '1'
-              - type: boolean
+            type: boolean
       responses:
         '200':
           description: Successful response
@@ -29536,16 +29408,7 @@ paths:
               If true, return only the most recent active draft authored by the
               calling user. Needs a personal access token, or an organization
               API key that assumes a named member's role.
-            anyOf:
-              - type: string
-                const: 'true'
-              - type: string
-                const: 'false'
-              - type: string
-                const: '0'
-              - type: string
-                const: '1'
-              - type: boolean
+            type: boolean
       responses:
         '200':
           description: Successful response
@@ -30671,14 +30534,6 @@ paths:
           schema:
             type: string
         - $ref: '#/components/parameters/version'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties: {}
-              additionalProperties: false
       responses:
         '200':
           description: Resource created
@@ -30719,14 +30574,6 @@ paths:
           schema:
             type: string
         - $ref: '#/components/parameters/version'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties: {}
-              additionalProperties: false
       responses:
         '200':
           description: Resource created
@@ -30766,14 +30613,6 @@ paths:
           schema:
             type: string
         - $ref: '#/components/parameters/version'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties: {}
-              additionalProperties: false
       responses:
         '200':
           description: Resource created
@@ -36343,9 +36182,9 @@ paths:
       summary: Update approval settings
       description: >-
         Replace the approval requirements for feature flags, configs and
-        constants, for saved groups, and the Targeting Projects review mode.
-        Each family is replaced wholesale when supplied; omit one to leave it
-        unchanged.
+        constants, for saved groups, for SDK connections, and the Targeting
+        Projects review mode. Each family is replaced wholesale when supplied;
+        omit one to leave it unchanged.
       tags:
         - settings
       requestBody:
@@ -36366,8 +36205,10 @@ paths:
                       type: array
                       items:
                         $ref: '#/components/schemas/SavedGroupApprovalRule'
-                  required:
-                    - savedGroups
+                    sdkConnections:
+                      type: array
+                      items:
+                        $ref: '#/components/schemas/SdkConnectionApprovalRule'
                   additionalProperties: false
                 targetingReviewMode:
                   type: array
@@ -36433,6 +36274,53 @@ paths:
         - lang: cURL
           source: |-
             curl -X GET 'https://api.growthbook.io/api/v1/version' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/confirmations:
+    get:
+      operationId: listConfirmations
+      summary: List confirmations
+      description: >-
+        Lists the held requests made by this API key, or by any token of the
+        same person, newest first. Returns pending ones unless `status` is set.
+      tags:
+        - meta
+      parameters:
+        - $ref: '#/components/parameters/limit'
+        - $ref: '#/components/parameters/offset'
+        - name: status
+          in: query
+          description: Only return confirmations with this status
+          schema:
+            description: Only return confirmations with this status
+            default: pending
+            type: string
+            enum:
+              - pending
+              - running
+              - completed
+              - rejected
+              - expired
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - type: object
+                    properties:
+                      confirmations:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Confirmation'
+                    required:
+                      - confirmations
+                    additionalProperties: false
+                  - $ref: '#/components/schemas/PaginationFields'
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X GET 'https://api.growthbook.io/api/v1/confirmations' \
               -H 'Authorization: Bearer YOUR_API_KEY'
   /v1/confirmations/{id}:
     get:
@@ -66173,16 +66061,7 @@ paths:
             description: >-
               Filter by archived state. Omit to return both archived and
               unarchived Holdouts.
-            anyOf:
-              - type: string
-                const: 'true'
-              - type: string
-                const: 'false'
-              - type: string
-                const: '0'
-              - type: string
-                const: '1'
-              - type: boolean
+            type: boolean
       responses:
         '200':
           description: Successful response
@@ -67184,6 +67063,9 @@ paths:
       description: >-
         Called whenever the connection's payload changes. `httpMethod` defaults
         to POST. More than one webhook per organization requires a paid plan.
+        When the organization requires approvals for the connection, change its
+        webhooks in a draft from the SDK Connection page instead, or pass
+        `bypassApproval`.
       tags:
         - SdkWebhooks
       parameters:
@@ -67237,6 +67119,14 @@ paths:
                   description: >-
                     Request timeout in seconds, up to the server maximum (120
                     unless configured). Null uses the default.
+                bypassApproval:
+                  description: >-
+                    Set to true to write directly to the live SDK Connection
+                    without approval. The caller must have Bypass draft
+                    approvals access in the SDK Connection's Projects, unless
+                    the organization enables the REST API approval bypass. This
+                    field has no effect when approval is not required.
+                  type: boolean
               required:
                 - name
                 - endpoint
@@ -67251,6 +67141,14 @@ paths:
                 properties:
                   sdkWebhook:
                     $ref: '#/components/schemas/SdkWebhook'
+                  bypassedGates:
+                    description: >-
+                      Gates that would have blocked this publish but were
+                      bypassed by the caller's authority. Present only when at
+                      least one gate was bypassed.
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/bypassedGates'
                 required:
                   - sdkWebhook
                 additionalProperties: false
@@ -67268,7 +67166,9 @@ paths:
       summary: Update an SDK webhook
       description: >-
         The webhook fires once after an update. Webhooks managed by the Vercel
-        integration can't be changed.
+        integration can't be changed. When the organization requires approvals
+        for a connection the webhook fires for, change it in a draft from the
+        SDK Connection page instead, or pass `bypassApproval`.
       tags:
         - SdkWebhooks
       parameters:
@@ -67325,6 +67225,14 @@ paths:
                   description: >-
                     Request timeout in seconds, up to the server maximum (120
                     unless configured). Null uses the default.
+                bypassApproval:
+                  description: >-
+                    Set to true to write directly to the live SDK Connection
+                    without approval. The caller must have Bypass draft
+                    approvals access in the SDK Connection's Projects, unless
+                    the organization enables the REST API approval bypass. This
+                    field has no effect when approval is not required.
+                  type: boolean
                 sdkConnections:
                   minItems: 1
                   type: array
@@ -67342,6 +67250,14 @@ paths:
                 properties:
                   sdkWebhook:
                     $ref: '#/components/schemas/SdkWebhook'
+                  bypassedGates:
+                    description: >-
+                      Gates that would have blocked this publish but were
+                      bypassed by the caller's authority. Present only when at
+                      least one gate was bypassed.
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/bypassedGates'
                 required:
                   - sdkWebhook
                 additionalProperties: false
@@ -67355,7 +67271,11 @@ paths:
     delete:
       operationId: deleteSdkWebhook
       summary: Delete an SDK webhook
-      description: Webhooks managed by the Vercel integration can't be deleted here.
+      description: >-
+        Webhooks managed by the Vercel integration can't be deleted here. When
+        the organization requires approvals for a connection the webhook fires
+        for, remove it in a draft from the SDK Connection page instead, or pass
+        `bypassApproval`.
       tags:
         - SdkWebhooks
       parameters:
@@ -67365,6 +67285,22 @@ paths:
           description: ''
           schema:
             type: string
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                bypassApproval:
+                  description: >-
+                    Set to true to write directly to the live SDK Connection
+                    without approval. The caller must have Bypass draft
+                    approvals access in the SDK Connection's Projects, unless
+                    the organization enables the REST API approval bypass. This
+                    field has no effect when approval is not required.
+                  type: boolean
+              additionalProperties: false
       responses:
         '200':
           description: Resource deleted
@@ -67375,6 +67311,14 @@ paths:
                 properties:
                   deletedId:
                     type: string
+                  bypassedGates:
+                    description: >-
+                      Gates that would have blocked this publish but were
+                      bypassed by the caller's authority. Present only when at
+                      least one gate was bypassed.
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/bypassedGates'
                 required:
                   - deletedId
                 additionalProperties: false
@@ -67465,22 +67409,13 @@ components:
         Self-hosted only. Has no effect unless API_ALLOW_SKIP_PAGINATION is set
         to true or 1.
       schema:
-        anyOf:
-          - type: string
-            const: 'true'
-          - type: string
-            const: 'false'
-          - type: string
-            const: '0'
-          - type: string
-            const: '1'
-          - type: boolean
         description: >-
           If true, return all matching items and ignore limit/offset.
 
           Self-hosted only. Has no effect unless API_ALLOW_SKIP_PAGINATION is
           set to true or 1.
         default: false
+        type: boolean
       x-selfHostedOnly: true
       x-requiresEnv: API_ALLOW_SKIP_PAGINATION
     id:
@@ -67559,16 +67494,7 @@ components:
           calling user. Needs a personal access token, or an organization API
           key that assumes a named member's role. Mutually exclusive with
           `author`.
-        anyOf:
-          - type: string
-            const: 'true'
-          - type: string
-            const: 'false'
-          - type: string
-            const: '0'
-          - type: string
-            const: '1'
-          - type: boolean
+        type: boolean
     version:
       name: version
       in: path
@@ -67592,16 +67518,7 @@ components:
           rejected with a 409. Pass `true` to create the draft anyway. Only set
           this when a person has explicitly asked you to. If a check blocks you,
           stop and ask a person instead of working around it.
-        anyOf:
-          - type: string
-            const: 'true'
-          - type: string
-            const: 'false'
-          - type: string
-            const: '0'
-          - type: string
-            const: '1'
-          - type: boolean
+        type: boolean
     ruleId:
       name: ruleId
       in: path
@@ -67621,16 +67538,7 @@ components:
           Whether to include archived features. Defaults to `false`
           (non-archived only). Pass `true` to include archived features
           alongside non-archived ones.
-        anyOf:
-          - type: string
-            const: 'true'
-          - type: string
-            const: 'false'
-          - type: string
-            const: '0'
-          - type: string
-            const: '1'
-          - type: boolean
+        type: boolean
     skipSchemaValidation:
       name: skipSchemaValidation
       in: query
@@ -67638,16 +67546,7 @@ components:
       schema:
         description: Deprecated — pass `skipSchemaValidation` in the request body instead.
         deprecated: true
-        anyOf:
-          - type: string
-            const: 'true'
-          - type: string
-            const: 'false'
-          - type: string
-            const: '0'
-          - type: string
-            const: '1'
-          - type: boolean
+        type: boolean
     ignoreWarnings:
       name: ignoreWarnings
       in: query
@@ -67655,16 +67554,7 @@ components:
       schema:
         description: Deprecated — pass `ignoreWarnings` in the request body instead.
         deprecated: true
-        anyOf:
-          - type: string
-            const: 'true'
-          - type: string
-            const: 'false'
-          - type: string
-            const: '0'
-          - type: string
-            const: '1'
-          - type: boolean
+        type: boolean
     format:
       name: format
       in: query
@@ -67825,11 +67715,8 @@ components:
       in: query
       description: When true, return only multi-armed bandits; when false, exclude them
       schema:
-        type: string
-        enum:
-          - 'true'
-          - 'false'
         description: When true, return only multi-armed bandits; when false, exclude them
+        type: boolean
     sortBy:
       name: sortBy
       in: query
@@ -67922,16 +67809,7 @@ components:
         description: >-
           Publish the resulting revision immediately instead of leaving it as a
           draft.
-        anyOf:
-          - type: string
-            const: 'true'
-          - type: string
-            const: 'false'
-          - type: string
-            const: '0'
-          - type: string
-            const: '1'
-          - type: boolean
+        type: boolean
     draftVersion:
       name: draftVersion
       in: query
@@ -67955,16 +67833,7 @@ components:
         description: >-
           Whether to include archived metrics. Defaults to `true`. Pass `false`
           to return only non-archived metrics.
-        anyOf:
-          - type: string
-            const: 'true'
-          - type: string
-            const: 'false'
-          - type: string
-            const: '0'
-          - type: string
-            const: '1'
-          - type: boolean
+        type: boolean
     type:
       name: type
       in: query
@@ -68072,12 +67941,7 @@ components:
           When true, includes fields inherited across the lineage (the family's
           accumulated schema). When false (default), returns only this config's
           own fields.
-        anyOf:
-          - type: string
-            const: 'true'
-          - type: string
-            const: 'false'
-          - type: boolean
+        type: boolean
     source:
       name: source
       in: query
@@ -68138,14 +68002,11 @@ components:
         Whether to delete code references that are no longer present in the
         submitted data
       schema:
-        type: string
-        enum:
-          - 'true'
-          - 'false'
         description: >-
           Whether to delete code references that are no longer present in the
           submitted data
-        default: 'false'
+        default: false
+        type: boolean
     userName:
       name: userName
       in: query
@@ -68457,11 +68318,14 @@ components:
           maxLength: 10000
         owner:
           type: string
-          description: The userId of the owner (or raw owner name/email for legacy records)
+          description: >-
+            The userId of the owner (or raw owner name/email for legacy
+            records). An owner set by email comes back here as its userId;
+            compare against `ownerEmail` instead.
         ownerEmail:
           description: >-
             The email address of the owner, when the owner can be resolved to a
-            known user.
+            known user. Matches an `owner` that was sent as an email address.
           type: string
         project:
           type: string
@@ -69565,7 +69429,8 @@ components:
               type: string
               description: >-
                 The userId of the owner (or raw owner name/email for legacy
-                records)
+                records). An owner set by email comes back here as its userId;
+                compare against `ownerEmail` instead.
             project:
               type: string
             tags:
@@ -71173,7 +71038,8 @@ components:
               type: string
               description: >-
                 The userId of the owner (or raw owner name/email for legacy
-                records)
+                records). An owner set by email comes back here as its userId;
+                compare against `ownerEmail` instead.
             project:
               type: string
             tags:
@@ -72709,11 +72575,14 @@ components:
           maxLength: 10000
         owner:
           type: string
-          description: The userId of the owner (or raw owner name/email for legacy records)
+          description: >-
+            The userId of the owner (or raw owner name/email for legacy
+            records). An owner set by email comes back here as its userId;
+            compare against `ownerEmail` instead.
         ownerEmail:
           description: >-
             The email address of the owner, when the owner can be resolved to a
-            known user.
+            known user. Matches an `owner` that was sent as an email address.
           type: string
         isPublic:
           type: boolean
@@ -72777,11 +72646,14 @@ components:
             type: string
         owner:
           type: string
-          description: The userId of the owner (or raw owner name/email for legacy records)
+          description: >-
+            The userId of the owner (or raw owner name/email for legacy
+            records). An owner set by email comes back here as its userId;
+            compare against `ownerEmail` instead.
         ownerEmail:
           description: >-
             The email address of the owner, when the owner can be resolved to a
-            known user.
+            known user. Matches an `owner` that was sent as an email address.
           type: string
         archived:
           type: boolean
@@ -73935,11 +73807,14 @@ components:
             type: string
         owner:
           type: string
-          description: The userId of the owner (or raw owner name/email for legacy records)
+          description: >-
+            The userId of the owner (or raw owner name/email for legacy
+            records). An owner set by email comes back here as its userId;
+            compare against `ownerEmail` instead.
         ownerEmail:
           description: >-
             The email address of the owner, when the owner can be resolved to a
-            known user.
+            known user. Matches an `owner` that was sent as an email address.
           type: string
         archived:
           type: boolean
@@ -74504,11 +74379,14 @@ components:
           type: string
         owner:
           type: string
-          description: The userId of the owner (or raw owner name/email for legacy records)
+          description: >-
+            The userId of the owner (or raw owner name/email for legacy
+            records). An owner set by email comes back here as its userId;
+            compare against `ownerEmail` instead.
         ownerEmail:
           description: >-
             The email address of the owner, when the owner can be resolved to a
-            known user.
+            known user. Matches an `owner` that was sent as an email address.
           type: string
         datasourceId:
           type: string
@@ -74843,11 +74721,14 @@ components:
           type: string
         owner:
           type: string
-          description: The userId of the owner (or raw owner name/email for legacy records)
+          description: >-
+            The userId of the owner (or raw owner name/email for legacy
+            records). An owner set by email comes back here as its userId;
+            compare against `ownerEmail` instead.
         ownerEmail:
           description: >-
             The email address of the owner, when the owner can be resolved to a
-            known user.
+            known user. Matches an `owner` that was sent as an email address.
           type: string
         datasourceId:
           type: string
@@ -74908,11 +74789,14 @@ components:
           type: string
         owner:
           type: string
-          description: The userId of the owner (or raw owner name/email for legacy records)
+          description: >-
+            The userId of the owner (or raw owner name/email for legacy
+            records). An owner set by email comes back here as its userId;
+            compare against `ownerEmail` instead.
         ownerEmail:
           description: >-
             The email address of the owner, when the owner can be resolved to a
-            known user.
+            known user. Matches an `owner` that was sent as an email address.
           type: string
         datasourceId:
           type: string
@@ -75000,11 +74884,14 @@ components:
             new targeting (and All Projects); existing targeting is kept.
         owner:
           type: string
-          description: The userId of the owner (or raw owner name/email for legacy records)
+          description: >-
+            The userId of the owner (or raw owner name/email for legacy
+            records). An owner set by email comes back here as its userId;
+            compare against `ownerEmail` instead.
         ownerEmail:
           description: >-
             The email address of the owner, when the owner can be resolved to a
-            known user.
+            known user. Matches an `owner` that was sent as an email address.
           type: string
         settings:
           type: object
@@ -75167,6 +75054,11 @@ components:
           type: boolean
         includeExperimentScheduleInMetadata:
           type: boolean
+        tracesEnabled:
+          description: >-
+            Send SDK evaluation traces to GrowthBook. Only available to
+            organizations with tracing enabled.
+          type: boolean
         key:
           type: string
         proxyEnabled:
@@ -75195,6 +75087,12 @@ components:
             - referencesV1
             - referencesV2
         includeReferencedPrerequisites:
+          type: boolean
+        archived:
+          description: >-
+            An archived connection serves no payload. When the organization
+            requires approvals for the connection, it must be archived before it
+            can be deleted.
           type: boolean
       required:
         - id
@@ -75598,11 +75496,14 @@ components:
           type: string
         owner:
           type: string
-          description: The userId of the owner (or raw owner name/email for legacy records)
+          description: >-
+            The userId of the owner (or raw owner name/email for legacy
+            records). An owner set by email comes back here as its userId;
+            compare against `ownerEmail` instead.
         ownerEmail:
           description: >-
             The email address of the owner, when the owner can be resolved to a
-            known user.
+            known user. Matches an `owner` that was sent as an email address.
           type: string
         condition:
           type: string
@@ -76314,11 +76215,14 @@ components:
             - json
         owner:
           type: string
-          description: The userId of the owner (or raw owner name/email for legacy records)
+          description: >-
+            The userId of the owner (or raw owner name/email for legacy
+            records). An owner set by email comes back here as its userId;
+            compare against `ownerEmail` instead.
         ownerEmail:
           description: >-
             The email address of the owner, when the owner can be resolved to a
-            known user.
+            known user. Matches an `owner` that was sent as an email address.
           type: string
         value:
           type: string
@@ -76800,11 +76704,14 @@ components:
           type: string
         owner:
           type: string
-          description: The userId of the owner (or raw owner name/email for legacy records)
+          description: >-
+            The userId of the owner (or raw owner name/email for legacy
+            records). An owner set by email comes back here as its userId;
+            compare against `ownerEmail` instead.
         ownerEmail:
           description: >-
             The email address of the owner, when the owner can be resolved to a
-            known user.
+            known user. Matches an `owner` that was sent as an email address.
           type: string
         parent:
           type: string
@@ -78015,11 +77922,14 @@ components:
           maxLength: 10000
         owner:
           type: string
-          description: The userId of the owner (or raw owner name/email for legacy records)
+          description: >-
+            The userId of the owner (or raw owner name/email for legacy
+            records). An owner set by email comes back here as its userId;
+            compare against `ownerEmail` instead.
         ownerEmail:
           description: >-
             The email address of the owner, when the owner can be resolved to a
-            known user.
+            known user. Matches an `owner` that was sent as an email address.
           type: string
         projects:
           type: array
@@ -78738,11 +78648,14 @@ components:
           maxLength: 10000
         owner:
           type: string
-          description: The userId of the owner (or raw owner name/email for legacy records)
+          description: >-
+            The userId of the owner (or raw owner name/email for legacy
+            records). An owner set by email comes back here as its userId;
+            compare against `ownerEmail` instead.
         ownerEmail:
           description: >-
             The email address of the owner, when the owner can be resolved to a
-            known user.
+            known user. Matches an `owner` that was sent as an email address.
           type: string
         projects:
           type: array
@@ -79532,8 +79445,15 @@ components:
             Additional roles granted alongside this one, in the same scope. Each
             is granted independently and environment access is the union across
             them.
+        managedByIdp:
+          type: boolean
+          description: >-
+            Whether the member is provisioned and managed by an identity
+            provider (SCIM).
         managedbyIdp:
           type: boolean
+          description: 'Deprecated: use `managedByIdp`.'
+          deprecated: true
         teams:
           type: array
           items:
@@ -79791,11 +79711,6 @@ components:
           type: string
         killswitchConfirmation:
           type: boolean
-        featureKillSwitchBehavior:
-          type: string
-          enum:
-            - 'off'
-            - warn
         requireReviews:
           type: array
           items:
@@ -79807,8 +79722,13 @@ components:
               type: array
               items:
                 $ref: '#/components/schemas/SavedGroupApprovalRule'
+            sdkConnections:
+              type: array
+              items:
+                $ref: '#/components/schemas/SdkConnectionApprovalRule'
           required:
             - savedGroups
+            - sdkConnections
           additionalProperties: false
         targetingReviewMode:
           type: array
@@ -79942,6 +79862,38 @@ components:
         autopublishOnApproval:
           type: boolean
         requiredApproverTeams:
+          type: array
+          items:
+            type: string
+      required:
+        - required
+      additionalProperties: false
+    SdkConnectionApprovalRule:
+      type: object
+      properties:
+        required:
+          type: boolean
+        projects:
+          type: array
+          items:
+            type: string
+        resetReviewOnChange:
+          type: boolean
+        requireMetadataReview:
+          type: boolean
+        blockSelfApproval:
+          type: boolean
+        autopublishOnApproval:
+          type: boolean
+        requiredApproverTeams:
+          type: array
+          items:
+            type: string
+        environments:
+          description: >-
+            Environment IDs this rule applies to. Omitted or empty means every
+            environment. Unlike the other fields, a Project rule does not
+            inherit this from the all-Projects rule.
           type: array
           items:
             type: string
@@ -81062,7 +81014,7 @@ components:
         ownerEmail:
           description: >-
             The email address of the owner, when the owner can be resolved to a
-            known user.
+            known user. Matches an `owner` that was sent as an email address.
           type: string
         snapshotId:
           type: string
@@ -85399,11 +85351,14 @@ components:
                 additionalProperties: false
         owner:
           type: string
-          description: The userId of the owner (or raw owner name/email for legacy records)
+          description: >-
+            The userId of the owner (or raw owner name/email for legacy
+            records). An owner set by email comes back here as its userId;
+            compare against `ownerEmail` instead.
         ownerEmail:
           description: >-
             The email address of the owner, when the owner can be resolved to a
-            known user.
+            known user. Matches an `owner` that was sent as an email address.
           type: string
       required:
         - id
@@ -85516,11 +85471,14 @@ components:
           type: string
         owner:
           type: string
-          description: The userId of the owner (or raw owner name/email for legacy records)
+          description: >-
+            The userId of the owner (or raw owner name/email for legacy
+            records). An owner set by email comes back here as its userId;
+            compare against `ownerEmail` instead.
         ownerEmail:
           description: >-
             The email address of the owner, when the owner can be resolved to a
-            known user.
+            known user. Matches an `owner` that was sent as an email address.
           type: string
         tags:
           type: array
@@ -85784,11 +85742,14 @@ components:
           format: date-time
         owner:
           type: string
-          description: The userId of the owner (or raw owner name/email for legacy records)
+          description: >-
+            The userId of the owner (or raw owner name/email for legacy
+            records). An owner set by email comes back here as its userId;
+            compare against `ownerEmail` instead.
         ownerEmail:
           description: >-
             The email address of the owner, when the owner can be resolved to a
-            known user.
+            known user. Matches an `owner` that was sent as an email address.
           type: string
         datasourceId:
           type: string
@@ -85828,11 +85789,14 @@ components:
           format: date-time
         owner:
           type: string
-          description: The userId of the owner (or raw owner name/email for legacy records)
+          description: >-
+            The userId of the owner (or raw owner name/email for legacy
+            records). An owner set by email comes back here as its userId;
+            compare against `ownerEmail` instead.
         ownerEmail:
           description: >-
             The email address of the owner, when the owner can be resolved to a
-            known user.
+            known user. Matches an `owner` that was sent as an email address.
           type: string
         datasourceId:
           type: string
@@ -85880,11 +85844,14 @@ components:
           type: string
         owner:
           type: string
-          description: The userId of the owner (or raw owner name/email for legacy records)
+          description: >-
+            The userId of the owner (or raw owner name/email for legacy
+            records). An owner set by email comes back here as its userId;
+            compare against `ownerEmail` instead.
         ownerEmail:
           description: >-
             The email address of the owner, when the owner can be resolved to a
-            known user.
+            known user. Matches an `owner` that was sent as an email address.
           type: string
         tags:
           type: array
@@ -86598,11 +86565,14 @@ components:
           format: date-time
         owner:
           type: string
-          description: The userId of the owner (or raw owner name/email for legacy records)
+          description: >-
+            The userId of the owner (or raw owner name/email for legacy
+            records). An owner set by email comes back here as its userId;
+            compare against `ownerEmail` instead.
         ownerEmail:
           description: >-
             The email address of the owner, when the owner can be resolved to a
-            known user.
+            known user. Matches an `owner` that was sent as an email address.
           type: string
         name:
           type: string
@@ -86756,11 +86726,14 @@ components:
           type: string
         owner:
           type: string
-          description: The userId of the owner (or raw owner name/email for legacy records)
+          description: >-
+            The userId of the owner (or raw owner name/email for legacy
+            records). An owner set by email comes back here as its userId;
+            compare against `ownerEmail` instead.
         ownerEmail:
           description: >-
             The email address of the owner, when the owner can be resolved to a
-            known user.
+            known user. Matches an `owner` that was sent as an email address.
           type: string
         templateMetadata:
           type: object
@@ -89275,11 +89248,14 @@ components:
           format: date-time
         owner:
           type: string
-          description: The userId of the owner (or raw owner name/email for legacy records)
+          description: >-
+            The userId of the owner (or raw owner name/email for legacy
+            records). An owner set by email comes back here as its userId;
+            compare against `ownerEmail` instead.
         ownerEmail:
           description: >-
             The email address of the owner, when the owner can be resolved to a
-            known user.
+            known user. Matches an `owner` that was sent as an email address.
           type: string
         authors:
           type: array
@@ -89353,11 +89329,14 @@ components:
             Projects.
         owner:
           type: string
-          description: The userId of the owner (or raw owner name/email for legacy records)
+          description: >-
+            The userId of the owner (or raw owner name/email for legacy
+            records). An owner set by email comes back here as its userId;
+            compare against `ownerEmail` instead.
         ownerEmail:
           description: >-
             The email address of the owner, when the owner can be resolved to a
-            known user.
+            known user. Matches an `owner` that was sent as an email address.
           type: string
         tags:
           type: array
@@ -89789,11 +89768,14 @@ components:
             type: string
         owner:
           type: string
-          description: The userId of the owner (or raw owner name/email for legacy records)
+          description: >-
+            The userId of the owner (or raw owner name/email for legacy
+            records). An owner set by email comes back here as its userId;
+            compare against `ownerEmail` instead.
         ownerEmail:
           description: >-
             The email address of the owner, when the owner can be resolved to a
-            known user.
+            known user. Matches an `owner` that was sent as an email address.
           type: string
         name:
           type: string
@@ -91783,8 +91765,13 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/SavedGroupApprovalRule'
+        sdkConnections:
+          type: array
+          items:
+            $ref: '#/components/schemas/SdkConnectionApprovalRule'
       required:
         - savedGroups
+        - sdkConnections
       additionalProperties: false
     monitoring:
       type: object
@@ -92067,11 +92054,14 @@ components:
           format: date-time
         owner:
           type: string
-          description: The userId of the owner (or raw owner name/email for legacy records)
+          description: >-
+            The userId of the owner (or raw owner name/email for legacy
+            records). An owner set by email comes back here as its userId;
+            compare against `ownerEmail` instead.
         ownerEmail:
           description: >-
             The email address of the owner, when the owner can be resolved to a
-            known user.
+            known user. Matches an `owner` that was sent as an email address.
           type: string
         authors:
           type: array
@@ -92128,29 +92118,15 @@ components:
     bearerAuth:
       type: http
       scheme: bearer
-      description: >
-        If using Bearer auth, pass the Secret Key as the token:
-
-        ```bash
-
-        curl https://api.growthbook.io/api/v1/features   -H "Authorization:
-        Bearer secret_abc123DEF456"
-
-        ```
+      description: >-
+        Pass your API key as the Bearer token. See
+        [Authentication](/api/introduction#authentication).
     basicAuth:
       type: http
       scheme: basic
-      description: >
-        If using HTTP Basic auth, pass the Secret Key as the username and leave
-        the password blank:
-
-        ```bash
-
-        curl https://api.growthbook.io/api/v1/features   -u secret_abc123DEF456:
-
-        # The ":" at the end stops curl from asking for a password
-
-        ```
+      description: >-
+        Pass your API key as the username and leave the password blank. See
+        [Authentication](/api/introduction#authentication).
 x-tagGroups:
   - name: Endpoints
     tags:
@@ -92325,6 +92301,7 @@ x-tagGroups:
       - ScheduleRule_model
       - ScheduledStopPlan_model
       - SdkConnection_model
+      - SdkConnectionApprovalRule_model
       - SdkWebhook_model
       - Segment_model
       - Settings_model

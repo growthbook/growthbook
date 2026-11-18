@@ -423,6 +423,7 @@
                 "group": "Guides for Agents",
                 "pages": [
                   "guides-for-agents/start-here",
+                  "guides-for-agents/local-feature-flags-typescript",
                   "guides-for-agents/nextjs-app-router-production-feature-flags",
                   "guides-for-agents/free-ab-test-javascript",
                   "guides-for-agents/migrate-diy-feature-flags",
@@ -1045,6 +1046,7 @@
                 "group": "Meta",
                 "pages": [
                   "api/meta/operation/getVersion",
+                  "api/meta/operation/listConfirmations",
                   "api/meta/operation/getConfirmation"
                 ]
               },
@@ -1381,6 +1383,7 @@
               "api/ScheduleRule_model",
               "api/ScheduledStopPlan_model",
               "api/SdkConnection_model",
+              "api/SdkConnectionApprovalRule_model",
               "api/SdkWebhook_model",
               "api/Segment_model",
               "api/Settings_model",

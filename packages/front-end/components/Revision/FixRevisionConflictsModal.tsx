@@ -7,6 +7,7 @@ import {
   Revision,
   checkMergeConflicts,
   Conflict,
+  mergeNestedBranch,
   normalizeProposedChanges,
   patchOpsToPartial,
   getRevisionUpdatableFields,
@@ -227,16 +228,32 @@ export default function FixRevisionConflictsModal({
           resolvedChanges[conflict.field] = conflict.proposedValue;
         }
       } else if (strategy === "discard") {
-        // Keep the live value — no-op
+        // As the server rebases: a nested branch keeps the draft's settings
+        // that don't collide with live.
+        const nested = mergeNestedBranch(
+          conflict.field,
+          conflict.baseValue,
+          conflict.liveValue,
+          conflict.proposedValue,
+          "live",
+        );
+        if (nested) resolvedChanges[conflict.field] = nested.merged;
       } else {
         unresolvedConflicts.push(conflict);
       }
     });
 
-    // Include non-conflicting proposed changes
+    // Include non-conflicting proposed changes, re-based onto live per setting.
     Object.entries(proposedAsPartial).forEach(([field, value]) => {
       if (value !== undefined && !conflicts.find((c) => c.field === field)) {
-        resolvedChanges[field] = value;
+        const nested = mergeNestedBranch(
+          field,
+          baseSnapshot[field],
+          liveSnapshot[field],
+          value,
+          "proposed",
+        );
+        resolvedChanges[field] = nested ? nested.merged : value;
       }
     });
 
@@ -257,7 +274,13 @@ export default function FixRevisionConflictsModal({
       newProposedChanges:
         unresolvedConflicts.length === 0 ? newProposedChanges : undefined,
     };
-  }, [liveSnapshot, proposedChanges, rawConflictCheck, strategies]);
+  }, [
+    baseSnapshot,
+    liveSnapshot,
+    proposedChanges,
+    rawConflictCheck,
+    strategies,
+  ]);
 
   const hasChanges =
     mergeResult.newProposedChanges &&
