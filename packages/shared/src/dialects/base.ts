@@ -215,4 +215,11 @@ export const baseDialect: Omit<SqlDialect, "unpivotLabeledPairs"> = {
 
   arrayElement: (arrayCol: string, index: number) =>
     `${arrayCol}[${index + 1}]`,
+
+  lagLead: (
+    fn: "LAG" | "LEAD",
+    column: string,
+    offset: number,
+    windowSpec: string,
+  ) => `${fn}(${column}, ${offset}) OVER (${windowSpec})`,
 };
