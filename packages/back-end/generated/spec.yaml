@@ -18592,7 +18592,7 @@ paths:
                     "triggeredBy": "schedule".
 
                     - "all_metrics": always runs a normal update, which computes
-                    every metric up to the time of the request.
+                    every metric, as an update did before "updateScope" existed.
 
 
                     The returned snapshot's "updateScope" says which ran. After
@@ -18670,8 +18670,8 @@ paths:
                       - details
                   - type: object
                     description: >-
-                      Every metric of the experiment already has results in the
-                      latest Overall Results
+                      Every metric of the experiment that an update can compute
+                      already has results in the latest Overall Results
                     properties:
                       message:
                         type: string
@@ -18703,8 +18703,8 @@ paths:
                       - details
                   - type: object
                     description: >-
-                      Newly added metrics can't be updated on their own; run a
-                      full update instead
+                      Newly added metrics can't be updated on their own; send
+                      "updateScope": "all_metrics" instead
                     properties:
                       message:
                         type: string
@@ -90138,7 +90138,7 @@ components:
             baseSnapshotId:
               type: string
               description: >-
-                The full update this snapshot is anchored to. Its end date is
+                The normal update this snapshot is anchored to. Its end date is
                 this snapshot's end date
             metricIds:
               type: array
@@ -90166,9 +90166,9 @@ components:
             - new_metrics
           description: >-
             "new_metrics" when the update computed only the newly added metrics
-            and kept the last full update's end date, so no result covers newer
-            data. "all_metrics" for a normal update, which computes every metric
-            up to the time of the request
+            and kept the last normal update's end date, so no result covers
+            newer data. "all_metrics" for a normal update, which computes every
+            metric
       required:
         - id
         - experiment
@@ -91633,7 +91633,7 @@ components:
             baseSnapshotId:
               type: string
               description: >-
-                The full update this snapshot is anchored to. Its end date is
+                The normal update this snapshot is anchored to. Its end date is
                 this snapshot's end date
             metricIds:
               type: array
@@ -91661,9 +91661,9 @@ components:
             - new_metrics
           description: >-
             "new_metrics" when the update computed only the newly added metrics
-            and kept the last full update's end date, so no result covers newer
-            data. "all_metrics" for a normal update, which computes every metric
-            up to the time of the request
+            and kept the last normal update's end date, so no result covers
+            newer data. "all_metrics" for a normal update, which computes every
+            metric
       required:
         - id
         - experiment

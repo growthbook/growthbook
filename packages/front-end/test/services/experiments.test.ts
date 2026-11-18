@@ -239,8 +239,8 @@ describe("getNewMetricRowStates", () => {
         },
       }),
     ).toEqual({
-      met_goal: { status: "running" },
-      met_secondary: { status: "running" },
+      met_goal: { status: "running", newMetricsOnly: true },
+      met_secondary: { status: "running", newMetricsOnly: true },
       met_guardrail: { status: "notComputed" },
     });
   });
@@ -254,9 +254,9 @@ describe("getNewMetricRowStates", () => {
         },
       }),
     ).toEqual({
-      met_goal: { status: "running" },
-      met_secondary: { status: "running" },
-      met_guardrail: { status: "running" },
+      met_goal: { status: "running", newMetricsOnly: false },
+      met_secondary: { status: "running", newMetricsOnly: false },
+      met_guardrail: { status: "running", newMetricsOnly: false },
     });
   });
 

@@ -535,8 +535,11 @@ export default function AnalysisSettingsSummary({
     : [];
   const fullRefreshRequired =
     !viewingDimensionThatRequiresOverallFirst && overallNeedsFullRefresh;
+  // The "New metrics" label needs results to sit next to, and the split
+  // button never shows without it.
   const offerNewMetricsUpdate =
     !!snapshot &&
+    hasData &&
     !dimension &&
     !fullRefreshRequired &&
     getResultsUpdateSituation({

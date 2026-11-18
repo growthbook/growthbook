@@ -58,25 +58,25 @@ import {
 
 const UNAVAILABLE_MESSAGES: Record<MetricRefreshUnavailableReason, string> = {
   no_base_snapshot:
-    "This experiment has no results to add metrics to yet. Run a full update first.",
+    'This experiment has no results to add metrics to yet. Send "updateScope": "all_metrics" to compute every metric.',
   not_latest_phase:
     "Only the current phase's results can be updated for newly added metrics.",
   phase_ended:
-    "This phase has ended, so newly added metrics can't be updated on their own. Run a full update instead.",
+    'This phase has ended, so newly added metrics can\'t be updated on their own. Send "updateScope": "all_metrics" instead.',
   unsupported_experiment_type:
-    "Bandits and holdouts can't update newly added metrics on their own. Run a full update instead.",
+    'Bandits and holdouts can\'t update newly added metrics on their own. Send "updateScope": "all_metrics" instead.',
   unsupported_data_source:
-    "This Data Source analyzes every metric in one query, so newly added metrics can't be updated on their own. Run a full update instead.",
+    'This Data Source analyzes every metric in one query, so newly added metrics can\'t be updated on their own. Send "updateScope": "all_metrics" instead.',
   incremental_pipeline:
-    "The experiment's Incremental Pipeline tables don't match its latest results, for example because a later update failed. A full update fixes this.",
+    'The experiment\'s Incremental Pipeline tables don\'t match its latest results, for example because a later update failed. Send "updateScope": "all_metrics" to fix this.',
   metric_not_supported:
-    "The latest results ran on a different pipeline than this experiment's metrics need now, so newly added metrics can't be updated on their own. Run a full update instead.",
+    'The latest results ran on a different pipeline than this experiment\'s metrics need now, so newly added metrics can\'t be updated on their own. Send "updateScope": "all_metrics" instead.',
   settings_changed:
-    "The last update's results can't be reused for newly added metrics. Run a full update instead.",
+    'The last update\'s results can\'t be reused for newly added metrics. Send "updateScope": "all_metrics" instead.',
   analysis_dates_changed:
-    "The analysis dates changed by a day or more since the latest results, so newly added metrics would cover different dates than the other metrics. Run a full update instead.",
+    'The analysis dates changed by a day or more since the latest results, so newly added metrics would cover different dates than the other metrics. Send "updateScope": "all_metrics" instead.',
   base_incomplete:
-    "The last update's results are incomplete, so they can't be reused. Run a full update instead.",
+    'The last update\'s results are incomplete, so they can\'t be reused. Send "updateScope": "all_metrics" instead.',
 };
 
 function unavailable(
@@ -312,14 +312,17 @@ function assertRefreshablePipeline({
   const parentKind = parent.runnerKind ?? "results";
   const expected = parentKind === "results" ? "results" : "incremental-update";
   if (plan.snapshot.runnerKind === expected) return;
-  // The pipeline still runs this experiment but has no tables to append to.
+  // The pipeline runs this experiment but has no tables to append to.
   if (plan.snapshot.runnerKind === "incremental-full") {
-    throw unavailable("incremental_pipeline");
+    throw unavailable(
+      "incremental_pipeline",
+      'The Incremental Pipeline has no tables for this experiment\'s current settings yet, so newly added metrics can\'t be updated on their own. Send "updateScope": "all_metrics" to build them.',
+    );
   }
   throw plan.incrementalFallbackReason
     ? unavailable(
         "metric_not_supported",
-        `The latest results ran on the Incremental Pipeline, which can't run this experiment now. ${plan.incrementalFallbackReason} Run a full update instead.`,
+        `The latest results ran on the Incremental Pipeline, which can't run this experiment now. ${plan.incrementalFallbackReason} Send "updateScope": "all_metrics" instead.`,
       )
     : unavailable("metric_not_supported");
 }
@@ -341,7 +344,7 @@ async function loadMetricRefreshLineage(
     if (lineage.length >= MAX_METRIC_REFRESH_LINEAGE_LENGTH) {
       throw unavailable(
         "base_incomplete",
-        `The latest results come from ${MAX_METRIC_REFRESH_LINEAGE_LENGTH - 1} updates of newly added metrics in a row, the most that can build on each other. Run a full update instead.`,
+        `The latest results come from ${MAX_METRIC_REFRESH_LINEAGE_LENGTH - 1} updates of newly added metrics in a row, the most that can build on each other. Send "updateScope": "all_metrics" instead.`,
       );
     }
     const ancestor = await findMetricRefreshAncestor(
@@ -351,7 +354,7 @@ async function loadMetricRefreshLineage(
     if (!ancestor) {
       throw unavailable(
         "base_incomplete",
-        "An earlier update the latest results were built from no longer exists, so they can't be reused. Run a full update instead.",
+        'An earlier update the latest results were built from no longer exists, so they can\'t be reused. Send "updateScope": "all_metrics" instead.',
       );
     }
     lineage.unshift(ancestor);

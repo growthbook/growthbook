@@ -22,7 +22,7 @@ export default function NewMetricRowStatus({
     case "running":
       return (
         <HelperText status="neutral" size="sm" mx="2" icon={<LoadingSpinner />}>
-          Updating new metrics
+          {state.newMetricsOnly ? "Updating new metrics" : "Updating"}
         </HelperText>
       );
     case "failed":

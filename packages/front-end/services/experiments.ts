@@ -259,7 +259,7 @@ export type ExperimentTableRow = {
 
 export type NewMetricRowState =
   | { status: "notComputed" }
-  | { status: "running" }
+  | { status: "running"; newMetricsOnly: boolean }
   | { status: "failed"; error: string | null };
 
 export function getUnjoinableMetricIds({
@@ -364,7 +364,7 @@ export function getNewMetricRowStates({
   const getState = (metricId: string): NewMetricRowState => {
     if (latest?.status === "running") {
       return !refresh || refresh.metricIds.includes(metricId)
-        ? { status: "running" }
+        ? { status: "running", newMetricsOnly: !!refresh }
         : { status: "notComputed" };
     }
     if (latest?.status === "error" && refresh?.metricIds.includes(metricId)) {

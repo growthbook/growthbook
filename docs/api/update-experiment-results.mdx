@@ -145,17 +145,17 @@ A 409 response has a `message`, a `code` and `details`:
 
 ```json
 {
-  "message": "The analysis dates changed by a day or more since the latest results, so newly added metrics would cover different dates than the other metrics. Run a full update instead.",
+  "message": "The analysis dates changed by a day or more since the latest results, so newly added metrics would cover different dates than the other metrics. Send \"updateScope\": \"all_metrics\" instead.",
   "code": "metric_refresh_unavailable",
   "details": { "reason": "analysis_dates_changed" }
 }
 ```
 
-| `code`                       | Meaning                                                                                   | What to do                                                                                                                                                           |
-| ---------------------------- | ----------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `snapshot_in_progress`       | Another update of the experiment's results is running.                                    | Poll the snapshot in `details.snapshotId` until it finishes, then send your request again. When `snapshotId` is absent, wait a few seconds before you send it again. |
-| `metrics_already_up_to_date` | Every metric already has results. `details.baseSnapshotId` is the snapshot that has them. | Read the results.                                                                                                                                                    |
-| `metric_refresh_unavailable` | The new metrics can't be computed on their own. `details.reason` says why.                | Send `"updateScope": "all_metrics"`.                                                                                                                                 |
+| `code`                       | Meaning                                                                                                         | What to do                                                                                                                                                           |
+| ---------------------------- | --------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `snapshot_in_progress`       | Another update of the experiment's results is running.                                                          | Poll the snapshot in `details.snapshotId` until it finishes, then send your request again. When `snapshotId` is absent, wait a few seconds before you send it again. |
+| `metrics_already_up_to_date` | Every metric an update can compute already has results. `details.baseSnapshotId` is the snapshot that has them. | Read the results.                                                                                                                                                    |
+| `metric_refresh_unavailable` | The new metrics can't be computed on their own. `details.reason` says why.                                      | Send `"updateScope": "all_metrics"`.                                                                                                                                 |
 
 `metrics_already_up_to_date` and `metric_refresh_unavailable` come only from `"updateScope": "new_metrics"`. `snapshot_in_progress` can come with any `updateScope`. Two other 409 codes, `requires_full_refresh` and `dimension_already_up_to_date`, come only from requests with a `dimension`.
 
@@ -170,7 +170,7 @@ A 409 response has a `message`, a `code` and `details`:
 | `phase_ended`                 | The phase has ended.                                                                                                                       |
 | `unsupported_experiment_type` | The experiment is a Bandit or a holdout.                                                                                                   |
 | `unsupported_data_source`     | The Data Source analyzes every metric in one query.                                                                                        |
-| `incremental_pipeline`        | The experiment's Incremental Pipeline tables don't match its latest results, for example because a later update failed.                    |
+| `incremental_pipeline`        | The experiment's Incremental Pipeline tables are missing, or don't match its latest results, for example because a later update failed.    |
 | `metric_not_supported`        | The latest results ran on a different pipeline than the experiment's metrics need now.                                                     |
 | `settings_changed`            | An analysis setting changed since the latest results, or their queries can't be reused.                                                    |
 | `analysis_dates_changed`      | The analysis dates moved by a day or more since the latest results. This includes results that are more than a day old.                    |
@@ -183,7 +183,7 @@ A 409 response has a `message`, a `code` and `details`:
 - Check whether there is anything to compute before you start an update.
 - Confirm that the new metrics have results after the update finishes. The list is empty then.
 
-`missingMetricIds` leaves out metrics that no update can compute, such as a metric that can't join the experiment's assignment identifier. It is present only for the Overall results of the latest phase: it is absent when you pass `dimension` or an earlier `phase`.
+`missingMetricIds` leaves out metrics that no update can compute, such as a metric that can't join the experiment's assignment identifier, or a holdout's guardrail and conversion-window metrics. It is present only for the Overall results of the latest phase: it is absent when you pass `dimension` or an earlier `phase`.
 
 ## On the Incremental Pipeline
 

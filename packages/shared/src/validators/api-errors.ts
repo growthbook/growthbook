@@ -95,7 +95,7 @@ export const apiErrorRegistry = {
   metrics_already_up_to_date: {
     status: 409,
     description:
-      "Every metric of the experiment already has results in the latest Overall Results",
+      "Every metric of the experiment that an update can compute already has results in the latest Overall Results",
     detailsSchema: z.object({
       baseSnapshotId: z.string(),
     }),
@@ -115,7 +115,7 @@ export const apiErrorRegistry = {
   metric_refresh_unavailable: {
     status: 409,
     description:
-      "Newly added metrics can't be updated on their own; run a full update instead",
+      'Newly added metrics can\'t be updated on their own; send "updateScope": "all_metrics" instead',
     detailsSchema: z.object({
       reason: z.enum(metricRefreshUnavailableReasons),
     }),

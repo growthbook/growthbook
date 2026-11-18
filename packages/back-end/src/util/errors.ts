@@ -350,7 +350,7 @@ export class MetricsAlreadyUpToDateError extends ApiError<"metrics_already_up_to
   constructor(baseSnapshotId: string) {
     super(
       "metrics_already_up_to_date",
-      "Every metric of this experiment already has results in the latest update.",
+      "Every metric of this experiment that an update can compute already has results in the latest update.",
       { baseSnapshotId },
     );
     this.name = "MetricsAlreadyUpToDateError";
