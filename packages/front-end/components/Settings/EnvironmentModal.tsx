@@ -49,7 +49,9 @@ export default function EnvironmentModal({
   const { apiCall } = useAuth();
   const environments = useEnvironments();
 
-  const { data: sdkConnectionData } = useSDKConnections();
+  const { data: sdkConnectionData } = useSDKConnections({
+    includeArchived: true,
+  });
   const sdkConnections = useMemo(() => {
     if (!existing.id) return [];
     if (!sdkConnectionData?.connections) return [];

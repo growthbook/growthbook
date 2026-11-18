@@ -1,14 +1,14 @@
 ---
 title: Publishing & Approval Flows
-description: Draft feature revisions, request review, resolve merge conflicts, and require approval before publishing.
+description: Draft revisions, request review, resolve merge conflicts, and require approval before publishing Feature Flags, Saved Groups, and SDK Connections.
 sidebarTitle: Publishing & Approval Flows
 ---
 
 import { CommercialFeature } from "/snippets/CommercialFeature.jsx";
 
-When you make changes to a feature flag or [saved group](/features/targeting#saved-groups) in GrowthBook, those changes go through a publishing workflow before they reach your users. This page covers the full lifecycle: drafts, publishing, revisions, merge conflicts, and optional approval flows.
+When you make changes to a Feature Flag, a [Saved Group](/features/targeting#saved-groups), or an SDK Connection in GrowthBook, those changes go through a publishing workflow before they reach your users. This page covers the full lifecycle: drafts, publishing, revisions, merge conflicts, and optional approval flows.
 
-The same revision and approval model applies to both feature flags and saved groups. The sections below describe the flow for feature flags first; the [Saved Groups](#saved-groups) section at the end calls out where the saved group experience differs.
+The same revision and approval model applies to all three. The sections below describe the flow for Feature Flags first. The [Saved Groups](#saved-groups) and [SDK Connections](#sdk-connections) sections call out where their experience differs, and [Publishing Several Changes Together](#publishing-several-changes-together) covers publishing drafts of different kinds as one operation.
 
 ## Drafts and Publishing
 
@@ -221,3 +221,83 @@ flows are enabled, that revision must be approved before it takes effect.
 Archiving requires **Archive & delete** access; unarchiving requires **Publish**
 access. A Saved Group with active references from Feature Flags, experiments, or
 other Saved Groups cannot be archived until those references are removed.
+
+## SDK Connections
+
+SDK Connections follow the same draft → review → publish lifecycle. A connection's settings and its [SDK Webhooks](/app/webhooks/sdk-webhooks) are tracked together, so one revision can change a payload option, add a webhook, and remove another, and they all go live in the same publish.
+
+### SDK Connection Revisions
+
+Every change to a connection or its webhooks is recorded as a revision. That includes changes that need no review and changes made through the REST API, so the connection's history is complete and any published revision can be reverted.
+
+From an SDK Connection's page you can:
+
+- **Switch revisions** — Use the revision dropdown to view the live revision or any open draft.
+- **Create a new draft** — Click **New draft** from the live revision.
+- **Edit in a draft** — Changes made on the **Overview** and **Webhooks** tabs are saved into the draft you are viewing.
+- **Review and publish** — The **Review & Publish** tab shows what the draft changes and where it stands.
+- **Compare revisions** — Click **Compare revisions** to see a diff of any two revisions.
+- **Revert** — Restore the settings and webhooks that an earlier published revision left. A webhook that a revert brings back is created again with a new signing key, so update whatever verifies its signature. Whether the connection is archived is not restored.
+- **Discard a draft** — Abandon a draft you no longer want to publish.
+- **Fix conflicts** — If the connection changes while your draft is open, changes to different settings and different webhooks merge on their own. You only resolve a conflict when the same setting or the same webhook was changed in both.
+
+### SDK Connection Approval Flows
+
+<CommercialFeature feature="require-approvals" />
+
+You can require approval for SDK Connection changes independently from Feature Flags and Saved Groups.
+
+#### Settings
+
+Enable SDK Connection approvals from **Settings → General → Approval Flows**. The SDK Connections section has its own toggle:
+
+- **Require approval to modify SDK Connections** — When enabled, a change to a connection or its webhooks must be reviewed and approved by someone else before it goes live.
+- **Specific environments** — Limit the rule to connections in the environments you pick. An SDK Connection serves one environment.
+- **Required approver teams** — A draft cannot publish until someone from one of these teams approves it. Leave blank to accept an approval from anyone who can review.
+- **Require approval for** — Approval is always required for connection settings and webhooks, such as Projects, environment, and payload options. Use the **Metadata changes** checkbox to also require approval for a change to the connection's name.
+- **Reset review on changes** — If a draft is modified after it has been approved, the approval is revoked and a new review is required before publishing.
+- **Block contributors from self-approving** — Anyone who edited the draft is blocked from approving it.
+- **Allow approve & publish in one step** — Adds an "Approve & Publish" option so reviewers who can publish can do both together.
+
+A rule can apply to all Projects or be overridden for specific ones. A connection in several Projects follows the rule of each.
+
+#### How Approval Changes the Workflow
+
+- While a connection requires approval, its settings and webhooks can only be changed in a draft in the app.
+- A draft that moves a connection to another Project or environment is reviewed under the rules of both where it leaves and where it lands.
+- **Bypass draft approvals** for SDK Connections lets a user publish without an approval.
+- The REST API can change a connection that requires approval directly only with `bypassApproval: true`. That needs the same access, or the organization's **REST API always bypasses approval requirements** setting. See the [SDK Connection Revisions API](/features/sdk-connection-revisions-api).
+
+### Validation
+
+[Custom Hooks](/features/custom-hooks#validatesdkconnection) can check an SDK Connection and its webhooks whenever they are saved or published, for example to require payload encryption in production or an `Authorization` header on every webhook.
+
+## Publishing Several Changes Together
+
+<CommercialFeature feature="releases" />
+
+Some changes only make sense together, such as a Config schema change and the values that depend on it, or a new SDK Connection setting and the Feature Flag that relies on it. The REST API can publish a set of draft revisions as one all-or-nothing operation:
+
+```bash
+curl -X POST 'https://api.growthbook.io/api/v1/releases/publish-revisions' \
+  -H 'Authorization: Bearer YOUR_API_KEY' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "revisions": [
+      { "entityType": "feature", "id": "checkout-redesign", "version": 12 },
+      { "entityType": "config", "key": "checkout", "version": 5 },
+      { "entityType": "sdk-connection", "id": "sdk_abc123", "version": 4 }
+    ]
+  }'
+```
+
+- **What it accepts** — Up to 50 revisions, at most one per entity, across Feature Flags, Saved Groups, Configs, Constants, and SDK Connections. Name each by its identifier and version, or by its revision id.
+- **All or nothing** — Validation, guards, and Custom Hooks run against the combined end state of the whole set. If any item is blocked, nothing publishes and one `422` lists every gate across every item, with the flag that clears each.
+- **Dry run** — Pass `"dryRun": true` for the full report with no writes.
+- **Concurrent changes** — If any target changes while the release is being prepared, it stops with a `409` and nothing publishes.
+- **Failures** — A failure after publishing has started rolls every item back, including an SDK Connection's webhooks.
+- **SDK payloads** refresh once for the whole release. A webhook edited by an SDK Connection revision is sent only after the release has landed.
+
+Checks on one item read the live state of SDK Connections, not what another item in the same release proposes. A release that upgrades a connection's SDK version and publishes a flag that depends on it judges the flag against the current version.
+
+See [`POST /releases/publish-revisions`](/api/#operation/postReleasePublishRevisions) for the full request and response.

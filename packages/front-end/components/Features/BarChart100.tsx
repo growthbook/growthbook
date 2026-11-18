@@ -4,6 +4,7 @@ import { scaleBand, scaleLinear, scaleOrdinal } from "@visx/scale";
 import { ParentSizeModern } from "@visx/responsive";
 import { Group } from "@visx/group";
 import { truncateString } from "shared/util";
+import ScrollArea from "@/ui/ScrollArea";
 
 const formatter = Intl.NumberFormat("en-US", {
   notation: "compact",
@@ -93,7 +94,7 @@ export default function BarChart100({
           );
         }}
       </ParentSizeModern>
-      <div style={{ maxHeight: 200, overflowY: "auto" }}>
+      <ScrollArea edgeCue="fade" style={{ maxHeight: 200 }}>
         <table className="w-100 gbtable table table-sm">
           <tbody>
             {keys.map((key) => (
@@ -115,7 +116,7 @@ export default function BarChart100({
             ))}
           </tbody>
         </table>
-      </div>
+      </ScrollArea>
     </div>
   );
 }

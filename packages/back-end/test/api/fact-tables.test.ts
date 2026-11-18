@@ -4,14 +4,17 @@ import {
   FactTableInterface,
   UpdateFactTableProps,
 } from "shared/types/fact-table";
+import { updateFactTableValidator } from "shared/validators";
 import {
   connectTestMongo,
   disconnectTestMongo,
 } from "back-end/test/test-helpers";
 import {
   authorizeAndPersistFactTableUpdate,
+  isUnchangedColumn,
   needsColumnRefresh,
 } from "back-end/src/api/fact-tables/updateFactTable";
+import { toFactTableColumnApiInterface } from "back-end/src/models/FactTableModel";
 import { columnsNeedDetection } from "back-end/src/util/factTable";
 import { ReqContext } from "back-end/types/request";
 
@@ -197,5 +200,47 @@ describe("authorizeAndPersistFactTableUpdate", () => {
         .db!.collection("definitionsversions")
         .countDocuments({ organization: organization.id }),
     ).toBe(0);
+  });
+});
+
+describe("isUnchangedColumn", () => {
+  const virtualColumn: ColumnInterface = {
+    column: "amount_x2",
+    name: "amount_x2",
+    description: "",
+    numberFormat: "",
+    datatype: "number",
+    dateCreated: new Date("2026-01-01"),
+    dateUpdated: new Date("2026-01-01"),
+    deleted: false,
+    isVirtual: true,
+    sql: "amount * 2",
+  };
+  // What a client sends back after a GET, through the request validator.
+  const roundTripped = () => {
+    const got = JSON.parse(
+      JSON.stringify(toFactTableColumnApiInterface(virtualColumn)),
+    );
+    return updateFactTableValidator.bodySchema.parse({ columns: [got] })
+      .columns![0];
+  };
+
+  it("treats a GET -> PUT round-trip as unchanged", () => {
+    expect(isUnchangedColumn(virtualColumn, roundTripped())).toBe(true);
+  });
+
+  it("treats a column with only its key as unchanged", () => {
+    expect(isUnchangedColumn(virtualColumn, { column: "amount_x2" })).toBe(
+      true,
+    );
+  });
+
+  it("detects a changed expression or metadata", () => {
+    expect(
+      isUnchangedColumn(virtualColumn, { ...roundTripped(), sql: "amount" }),
+    ).toBe(false);
+    expect(
+      isUnchangedColumn(virtualColumn, { ...roundTripped(), name: "Double" }),
+    ).toBe(false);
   });
 });

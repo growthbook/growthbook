@@ -22,11 +22,12 @@ import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import { BigQueryConnectionParams } from "shared/types/integrations/bigquery";
 import { DatabricksConnectionParams } from "shared/types/integrations/databricks";
 import { SnowflakeConnectionParams } from "shared/types/integrations/snowflake";
-import { Box, Card, Flex } from "@radix-ui/themes";
+import { Box, Card, Flex, Grid } from "@radix-ui/themes";
 import {
   PiArrowClockwise,
   PiCaretRight,
   PiPause,
+  PiTrash,
   PiPencilSimple,
   PiPlay,
 } from "react-icons/pi";
@@ -45,6 +46,14 @@ import BigQueryEventForwarderForm from "@/components/Settings/BigQueryEventForwa
 import SnowflakeEventForwarderForm from "@/components/Settings/SnowflakeEventForwarderForm";
 import DatabricksEventForwarderForm from "@/components/Settings/DatabricksEventForwarderForm";
 import { useEventForwarderAccessTest } from "@/components/Settings/useEventForwarderAccessTest";
+import {
+  EventForwarderAllTakenCallout,
+  EventForwarderNarrowingCallout,
+  useEventForwarderAllTakenBy,
+  EventForwarderEnvironmentField,
+  EventForwarderLockedField,
+} from "@/components/DataSourceSetup/EventForwarderDestinationFields";
+import TextField from "@/ui/TextField";
 import Badge from "@/ui/Badge";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
@@ -52,10 +61,13 @@ import Checkbox from "@/ui/Checkbox";
 import Heading from "@/ui/Heading";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
-import Tooltip from "@/components/Tooltip/Tooltip";
+import UITooltip from "@/ui/Tooltip";
 import ConfirmDialog from "@/ui/ConfirmDialog";
 import Modal from "@/ui/Modal";
 import ModalForm, { useModalForm } from "@/ui/Modal/ModalForm";
+import ModalStandard, {
+  focusFirstField,
+} from "@/ui/Modal/Patterns/ModalStandard";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { DocLink } from "@/components/DocLink";
 import {
@@ -75,6 +87,8 @@ type Props = {
   onRefresh: () => Promise<void>;
   /** Title the section when it isn't on its own Event Forwarder tab. */
   showTitle?: boolean;
+  /** After a new forwarder is saved and the Data Source reloaded. */
+  onCreated?: () => void;
 };
 
 type EventForwarderDatasourceDraft = {
@@ -149,10 +163,14 @@ function getEventForwarderDraft(
   dataSource: DataSourceInterfaceWithParams,
 ): EventForwarderConfigDraft | null {
   const existing = dataSource.eventForwarderConfig;
+  const environments = existing?.environments?.length
+    ? { environments: existing.environments }
+    : {};
   if (existing?.sinkType === "bigquery") {
     return {
       sinkType: "bigquery",
       region: existing.region,
+      ...environments,
       config: {
         projectId: existing.config.projectId,
         dataset: existing.config.dataset,
@@ -165,6 +183,7 @@ function getEventForwarderDraft(
     return {
       sinkType: "snowflake",
       region: existing.region,
+      ...environments,
       config: {
         database: existing.config.database,
         schema: existing.config.schema,
@@ -179,6 +198,7 @@ function getEventForwarderDraft(
     return {
       sinkType: "databricks",
       region: existing.region,
+      ...environments,
       config: {
         catalog: existing.config.catalog,
         schema: existing.config.schema,
@@ -370,27 +390,94 @@ function SyncSubmittingRef({
 
 function EventForwarderConfirmButton({
   usEventForwarderFlowConsent,
+  editing,
+  region,
+  datasourceId,
 }: {
   usEventForwarderFlowConsent: boolean;
+  editing: boolean;
+  region: DataRegion;
+  datasourceId: string;
 }) {
   const { loading } = useModalForm();
+  const allTaken = !!useEventForwarderAllTakenBy(region, datasourceId);
+
+  if (editing) {
+    return (
+      <Button type="submit" loading={loading}>
+        Save changes
+      </Button>
+    );
+  }
 
   return (
-    <Tooltip
-      body="Acknowledge US data flow and authorization to use Confirm."
-      shouldDisplay={!usEventForwarderFlowConsent}
-      tipPosition="top"
+    <UITooltip
+      content={
+        allTaken
+          ? `Another Event Forwarder receives all environments in ${getDataRegionLabel(region)}. Choose another data region to continue.`
+          : `Confirm that event data flows through GrowthBook's servers in ${getDataRegionLabel(region)} to continue.`
+      }
+      enabled={allTaken || !usEventForwarderFlowConsent}
+      side="top"
     >
       <Button
         type="submit"
-        disabled={!usEventForwarderFlowConsent}
+        disabled={allTaken || !usEventForwarderFlowConsent}
         loading={loading}
         icon={<PiCaretRight size={12} />}
         iconPosition="right"
       >
         Confirm
       </Button>
-    </Tooltip>
+    </UITooltip>
+  );
+}
+
+// Delete stays disabled until "confirm" is typed, case sensitive
+function DeleteEventForwarderModal({
+  datasourceId,
+  onClose,
+  onRefresh,
+}: {
+  datasourceId: string;
+  onClose: () => void;
+  onRefresh: () => Promise<void>;
+}) {
+  const { apiCall } = useAuth();
+  const [confirmText, setConfirmText] = useState("");
+  return (
+    <ModalStandard
+      open
+      header="Delete Event Forwarder?"
+      cta="Delete"
+      ctaColor="red"
+      ctaEnabled={confirmText === "confirm"}
+      close={onClose}
+      submit={async () => {
+        await apiCall(`/datasource/${datasourceId}/event-forwarder`, {
+          method: "DELETE",
+        });
+        await onRefresh();
+      }}
+      trackingEventModalType=""
+    >
+      <Flex direction="column" gap="3">
+        <Text as="div">
+          Once this Event Forwarder is deleted, events your SDKs keep sending
+          are no longer forwarded and may be rejected with an error. Stop
+          sending events from your SDKs first.
+        </Text>
+        <Text as="div">
+          The tables already in your warehouse and the queries on this Data
+          Source are kept.
+        </Text>
+        <TextField
+          label={'Type "confirm" to delete (case sensitive)'}
+          value={confirmText}
+          onChange={(e) => setConfirmText(e.target.value)}
+        />
+      </Flex>
+    </ModalStandard>
   );
 }
 
@@ -400,12 +487,14 @@ function EventForwarderModal({
   onRefresh,
   onClearError,
   onRefreshError,
+  onCreated,
 }: {
   dataSource: DataSourceInterfaceWithParams;
   onCancel: () => void;
   onRefresh: () => Promise<void>;
   onClearError: () => void;
   onRefreshError: (message: string) => void;
+  onCreated?: () => void;
 }) {
   const { apiCall } = useAuth();
   const isSubmittingRef = useRef(false);
@@ -422,7 +511,13 @@ function EventForwarderModal({
       projects: dataSource.projects,
       eventForwarderConfig: getEventForwarderDraft(dataSource),
     }));
-  const isEditingEventForwarder = !!dataSource.eventForwarderConfig;
+  const saved = dataSource.eventForwarderConfig;
+  const isEditingEventForwarder = !!saved;
+  // Has received events, so its environments are locked
+  const live =
+    !!saved &&
+    saved.status !== "unconfigured" &&
+    !(saved.status === "error" && !saved.connectorName);
   const [usEventForwarderFlowConsent, setUsEventForwarderFlowConsent] =
     useState(isEditingEventForwarder);
   const setEventForwarderConfig = (
@@ -437,7 +532,7 @@ function EventForwarderModal({
   const eventForwarderConfig = datasourceDraft.eventForwarderConfig;
   const modalTitle = isEditingEventForwarder
     ? "Edit Event Forwarder"
-    : "Set Up Event Forwarder";
+    : "Set up Event Forwarder";
   const params = datasourceDraft.params || {};
 
   const { testEventForwarderAccess } = useEventForwarderAccessTest({
@@ -464,7 +559,9 @@ function EventForwarderModal({
         onOpenChange={(nextOpen) => {
           if (!nextOpen) attemptClose();
         }}
-        size="md"
+        size="lg"
+        // First field, not the label's help icon, whose tooltip would pop open
+        onOpenAutoFocus={focusFirstField}
         trackingEventModalType=""
       >
         <ModalForm
@@ -497,8 +594,10 @@ function EventForwarderModal({
             }
 
             onClearError();
+            let refreshed = false;
             try {
               await onRefresh();
+              refreshed = true;
             } catch (e) {
               const detail = e instanceof Error ? ` ${e.message}` : "";
               onRefreshError(
@@ -506,6 +605,8 @@ function EventForwarderModal({
               );
             }
             onCancel();
+            // Its tab only exists once the reload shows it; else stay on the error
+            if (!isEditingEventForwarder && refreshed) onCreated?.();
           }}
         >
           <SyncSubmittingRef submittingRef={isSubmittingRef} />
@@ -513,61 +614,113 @@ function EventForwarderModal({
             <Modal.Title>{modalTitle}</Modal.Title>
           </Modal.Header>
           <Modal.Body>
-            {eventForwarderConfig?.sinkType === "bigquery" ? (
-              <BigQueryEventForwarderForm
-                eventForwarderConfig={eventForwarderConfig}
-                setEventForwarderConfig={setEventForwarderConfig}
-                className="form-group col-md-12 px-0"
-              />
-            ) : null}
-            {eventForwarderConfig?.sinkType === "snowflake" ? (
-              <SnowflakeEventForwarderForm
-                eventForwarderConfig={eventForwarderConfig}
-                setEventForwarderConfig={setEventForwarderConfig}
-              />
-            ) : null}
-            {eventForwarderConfig?.sinkType === "databricks" ? (
-              <DatabricksEventForwarderForm
-                eventForwarderConfig={eventForwarderConfig}
-                setEventForwarderConfig={setEventForwarderConfig}
-                catalogReadOnly={!!databricksParams.catalog}
-                zerobusPlaceholder={
-                  suggestDatabricksEventForwarderZerobusEndpoint(
-                    databricksParams.host,
-                  ) ||
-                  "https://<workspace-id>.zerobus.<region>.cloud.databricks.com"
-                }
-              />
-            ) : null}
-            {eventForwarderConfig ? (
-              <SelectField
-                size="md"
-                legacyLabelFormatting={false}
-                label="Data region"
-                value={eventForwarderConfig.region ?? DEFAULT_DATA_REGION}
-                onChange={(value) => {
-                  setEventForwarderConfig({
-                    ...eventForwarderConfig,
-                    region: value as DataRegion,
-                  });
-                  setUsEventForwarderFlowConsent(false);
-                }}
-                disabled={isEditingEventForwarder}
-                options={dataRegionOptions}
-                helpText="Where GrowthBook processes event data before writing to your warehouse. This cannot be changed later."
-              />
-            ) : null}
-            <Callout status="info" mb="0" mt="3" icon={null}>
-              <Checkbox
-                value={usEventForwarderFlowConsent}
-                setValue={setUsEventForwarderFlowConsent}
-                disabled={isEditingEventForwarder}
-                label={`I understand that event data will flow through GrowthBook's servers in ${getDataRegionLabel(
-                  eventForwarderConfig?.region ?? DEFAULT_DATA_REGION,
-                )} and confirm I'm authorized to enable this for my organization.`}
-                weight="regular"
-              />
-            </Callout>
+            <Flex direction="column" gap="4">
+              {eventForwarderConfig?.sinkType === "bigquery" ? (
+                <BigQueryEventForwarderForm
+                  eventForwarderConfig={eventForwarderConfig}
+                  setEventForwarderConfig={setEventForwarderConfig}
+                />
+              ) : null}
+              {eventForwarderConfig?.sinkType === "snowflake" ? (
+                <SnowflakeEventForwarderForm
+                  eventForwarderConfig={eventForwarderConfig}
+                  setEventForwarderConfig={setEventForwarderConfig}
+                />
+              ) : null}
+              {eventForwarderConfig?.sinkType === "databricks" ? (
+                <DatabricksEventForwarderForm
+                  eventForwarderConfig={eventForwarderConfig}
+                  setEventForwarderConfig={setEventForwarderConfig}
+                  catalogReadOnly={!!databricksParams.catalog}
+                  zerobusPlaceholder={
+                    suggestDatabricksEventForwarderZerobusEndpoint(
+                      databricksParams.host,
+                    ) ||
+                    "https://<workspace-id>.zerobus.<region>.cloud.databricks.com"
+                  }
+                />
+              ) : null}
+              {eventForwarderConfig ? (
+                <EventForwarderAllTakenCallout
+                  region={eventForwarderConfig.region ?? DEFAULT_DATA_REGION}
+                  datasourceId={dataSource.id}
+                  regionSelectable={!isEditingEventForwarder}
+                />
+              ) : null}
+              {eventForwarderConfig ? (
+                <Grid columns="2" gap="4" align="start">
+                  <Box>
+                    <EventForwarderEnvironmentField
+                      markRequired={false}
+                      // Single select for now, saved as a one-item list
+                      value={eventForwarderConfig.environments?.[0] ?? ""}
+                      region={
+                        eventForwarderConfig.region ?? DEFAULT_DATA_REGION
+                      }
+                      datasourceId={dataSource.id}
+                      live={live}
+                      onChange={(environment) =>
+                        setEventForwarderConfig({
+                          ...eventForwarderConfig,
+                          environments: environment ? [environment] : [],
+                        })
+                      }
+                    />
+                  </Box>
+                  {isEditingEventForwarder ? (
+                    <EventForwarderLockedField
+                      label="Data region"
+                      value={getDataRegionLabel(
+                        eventForwarderConfig.region ?? DEFAULT_DATA_REGION,
+                      )}
+                      helpText="Where GrowthBook processes event data before writing to your warehouse. Set at creation."
+                    />
+                  ) : (
+                    <SelectField
+                      size="md"
+                      legacyLabelFormatting={false}
+                      label="Data region"
+                      value={eventForwarderConfig.region ?? DEFAULT_DATA_REGION}
+                      onChange={(value) => {
+                        setEventForwarderConfig({
+                          ...eventForwarderConfig,
+                          region: value as DataRegion,
+                        });
+                        setUsEventForwarderFlowConsent(false);
+                      }}
+                      options={dataRegionOptions}
+                      helpText="Where GrowthBook processes event data before writing to your warehouse. Can't be changed later."
+                    />
+                  )}
+                </Grid>
+              ) : null}
+              {eventForwarderConfig ? (
+                <EventForwarderNarrowingCallout
+                  value={eventForwarderConfig.environments?.[0] ?? ""}
+                  region={eventForwarderConfig.region ?? DEFAULT_DATA_REGION}
+                  datasourceId={dataSource.id}
+                  live={live}
+                />
+              ) : null}
+              {isEditingEventForwarder ? (
+                <Callout status="info" mb="0">
+                  {`Event data flows through GrowthBook's servers in ${getDataRegionLabel(
+                    eventForwarderConfig?.region ?? DEFAULT_DATA_REGION,
+                  )}. Your organization authorized this when the Event Forwarder was created.`}
+                </Callout>
+              ) : (
+                <Callout status="info" mb="0" icon={null}>
+                  <Checkbox
+                    value={usEventForwarderFlowConsent}
+                    setValue={setUsEventForwarderFlowConsent}
+                    label={`I understand that event data will flow through GrowthBook's servers in ${getDataRegionLabel(
+                      eventForwarderConfig?.region ?? DEFAULT_DATA_REGION,
+                    )} and confirm I'm authorized to enable this for my organization.`}
+                    weight="regular"
+                  />
+                </Callout>
+              )}
+            </Flex>
           </Modal.Body>
           <Modal.Footer>
             <Button variant="ghost" onClick={attemptClose}>
@@ -575,6 +728,9 @@ function EventForwarderModal({
             </Button>
             <EventForwarderConfirmButton
               usEventForwarderFlowConsent={usEventForwarderFlowConsent}
+              editing={isEditingEventForwarder}
+              region={eventForwarderConfig?.region ?? DEFAULT_DATA_REGION}
+              datasourceId={dataSource.id}
             />
           </Modal.Footer>
         </ModalForm>
@@ -677,11 +833,13 @@ export default function EventForwarder({
   canEdit = true,
   onRefresh,
   showTitle = false,
+  onCreated,
 }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showUpgrade, setShowUpgrade] = useState(false);
   const [pauseResumeLoading, setPauseResumeLoading] = useState(false);
+  const [showDelete, setShowDelete] = useState(false);
   const { apiCall } = useAuth();
   const { effectiveAccountPlan, subscription, hasCommercialFeature, usage } =
     useUser();
@@ -791,33 +949,62 @@ export default function EventForwarder({
             )}
           </Flex>
 
-          {canToggle || canRestart ? (
-            <Button
-              variant="outline"
-              color={"color" in actionButton ? actionButton.color : undefined}
-              icon={actionButton.icon}
-              iconPosition="left"
-              loading={pauseResumeLoading}
-              onClick={async () => {
-                setError(null);
-                setPauseResumeLoading(true);
-                try {
-                  await apiCall(
-                    `/datasource/${dataSource.id}/event-forwarder/${action}`,
-                    { method: "POST" },
-                  );
-                  await onRefresh();
-                } catch (e) {
-                  setError(e instanceof Error ? e.message : "Action failed");
-                } finally {
-                  setPauseResumeLoading(false);
-                }
-              }}
-            >
-              {actionButton.label}
-            </Button>
-          ) : null}
+          {/* One group, so the header's space-between keeps them together */}
+          <Flex align="center" gap="2">
+            {canToggle || canRestart ? (
+              <Button
+                variant="outline"
+                color={"color" in actionButton ? actionButton.color : undefined}
+                icon={actionButton.icon}
+                iconPosition="left"
+                loading={pauseResumeLoading}
+                onClick={async () => {
+                  setError(null);
+                  setPauseResumeLoading(true);
+                  try {
+                    await apiCall(
+                      `/datasource/${dataSource.id}/event-forwarder/${action}`,
+                      { method: "POST" },
+                    );
+                    await onRefresh();
+                  } catch (e) {
+                    setError(e instanceof Error ? e.message : "Action failed");
+                  } finally {
+                    setPauseResumeLoading(false);
+                  }
+                }}
+              >
+                {actionButton.label}
+              </Button>
+            ) : null}
+            {/* Running forwarders show it disabled, so deletion is discoverable */}
+            {canEdit && (isReady || isPaused) ? (
+              <UITooltip
+                content="Pause the Event Forwarder before deleting it."
+                enabled={!isPaused}
+                side="top"
+              >
+                <Button
+                  variant="outline"
+                  color="red"
+                  icon={<PiTrash />}
+                  iconPosition="left"
+                  disabled={!isPaused}
+                  onClick={() => setShowDelete(true)}
+                >
+                  Delete
+                </Button>
+              </UITooltip>
+            ) : null}
+          </Flex>
         </Flex>
+      ) : null}
+      {showDelete ? (
+        <DeleteEventForwarderModal
+          datasourceId={dataSource.id}
+          onClose={() => setShowDelete(false)}
+          onRefresh={onRefresh}
+        />
       ) : null}
 
       {eventForwarderConfig &&
@@ -1028,6 +1215,17 @@ export default function EventForwarder({
                 </>
               ) : null}
               <EventForwarderConfigField
+                label={
+                  (eventForwarderConfig.environments?.length ?? 0) > 1
+                    ? "Environments"
+                    : "Environment"
+                }
+                value={
+                  eventForwarderConfig.environments?.join(", ") ||
+                  "All Environments"
+                }
+              />
+              <EventForwarderConfigField
                 label="Data region"
                 value={getDataRegionLabel(
                   eventForwarderConfig.region ?? DEFAULT_DATA_REGION,
@@ -1044,6 +1242,7 @@ export default function EventForwarder({
           onClearError={() => setError(null)}
           onRefresh={onRefresh}
           onRefreshError={setError}
+          onCreated={onCreated}
         />
       ) : null}
     </Box>

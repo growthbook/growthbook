@@ -12,13 +12,14 @@ import type { FactMetricInterface } from "shared/types/fact-table";
 // barrel forms a require cycle with this file, leaving the array undefined.
 import { comparisonMode } from "../../validators/product-analytics";
 import { calculateProductAnalyticsDateRange, getDateGranularity } from "./sql";
+import { configHasPopulation } from "./populations";
 import {
   buildExplorationColumns,
   getEffectiveMetricValue,
-  getEffectiveShowAs,
   getExplorationCellValue,
-  getIsRatioByIndex,
+  getExplorationRenderOpts,
   sortExplorationRows,
+  type ExplorationRenderOpts,
 } from "./utils";
 
 type ResolvedGranularity = "hour" | "day" | "week" | "month" | "year";
@@ -546,6 +547,11 @@ export function buildAlignedComparisonRowLookup(
   comparisonRows: ProductAnalyticsResultRow[],
   firstDimensionIsDate: boolean,
   strategy: ComparisonAlignmentStrategy = "calendarYearOverYear",
+  // The current period's buckets to rank against, when it has more than
+  // `primaryRows` (see `densifyPopulationTimeseriesRows`).
+  currentXValues: readonly string[] = primaryRows.map((r) =>
+    String(r.dimensions[0] ?? ""),
+  ),
 ): (currentDims: (string | null)[]) => ProductAnalyticsResultRow | null {
   if (!firstDimensionIsDate) {
     const byKey = new Map<string, ProductAnalyticsResultRow>();
@@ -555,8 +561,9 @@ export function buildAlignedComparisonRowLookup(
     return (currentDims) => byKey.get(dimensionsTupleKey(currentDims)) ?? null;
   }
 
-  const primaryKeys = primaryRows.map((r) => String(r.dimensions[0] ?? ""));
-  const sortedXValues = [...new Set(primaryKeys)].sort(compareDateStringsAsc);
+  const sortedXValues = [...new Set(currentXValues)].sort(
+    compareDateStringsAsc,
+  );
   const comparisonXValues = comparisonRows.map((r) =>
     String(r.dimensions[0] ?? ""),
   );
@@ -711,16 +718,12 @@ function orderedMetricIdsForDensify(
 
 function buildZeroValueRow(
   metricIds: string[],
-  isRatioByIndex: boolean[],
 ): ProductAnalyticsResultRow["values"] {
-  return metricIds.map((metricId, i) => {
-    const isRatio = isRatioByIndex[i] ?? false;
-    return {
-      metricId,
-      numerator: 0,
-      denominator: isRatio ? 0 : null,
-    };
-  });
+  return metricIds.map((metricId) => ({
+    metricId,
+    numerator: 0,
+    denominator: null,
+  }));
 }
 
 /** Composite merge key for a date bucket + optional breakdown value. */
@@ -744,17 +747,11 @@ export function densifyComparisonExplorationTimeseries(params: {
   comparison: ProductAnalyticsExploration | null;
   submittedConfig: ExplorationConfig;
   previousTimeFrame: ExplorationDateRange;
-  getFactMetricById: (id: string) => FactMetricInterface | null;
   /** Primary-period rows; used to seed breakdown series in the grouped case. */
   primaryRows?: ProductAnalyticsResultRow[];
 }): ProductAnalyticsExploration | null {
-  const {
-    comparison,
-    submittedConfig,
-    previousTimeFrame,
-    getFactMetricById,
-    primaryRows,
-  } = params;
+  const { comparison, submittedConfig, previousTimeFrame, primaryRows } =
+    params;
 
   if (!comparison) return null;
 
@@ -762,14 +759,6 @@ export function densifyComparisonExplorationTimeseries(params: {
   const firstIsDate = dims[0]?.dimensionType === "date";
   const isGrouped = dims.length === 2 && firstIsDate;
   if (!((dims.length === 1 && firstIsDate) || isGrouped)) {
-    return null;
-  }
-
-  const columns = buildExplorationColumns(submittedConfig, getFactMetricById);
-  const hasAnyRatio = columns.some(
-    (c) => c.kind === "metric" && c.sub !== "single",
-  );
-  if (hasAnyRatio) {
     return null;
   }
 
@@ -798,10 +787,9 @@ export function densifyComparisonExplorationTimeseries(params: {
     return null;
   }
 
-  const isRatioByIndex = getIsRatioByIndex(submittedConfig, getFactMetricById);
   // buildZeroValueRow always returns an array; the `| undefined` comes from
   // the union type on ProductAnalyticsResultRow["values"] (funnel rows omit it).
-  const zeroValues = buildZeroValueRow(metricIds, isRatioByIndex)!;
+  const zeroValues = buildZeroValueRow(metricIds)!;
   const comparisonRows = comparison.result?.rows ?? [];
 
   if (!isGrouped) {
@@ -888,6 +876,27 @@ export function densifyComparisonExplorationTimeseries(params: {
   return { ...comparison, result: { rows: merged } };
 }
 
+/**
+ * A result's rows with a row for every date bucket in its range when a
+ * Population is applied. A bucket with no members has no row, so without these
+ * a "% of Population" line would join across it, and rank-based comparison
+ * pairing would shift every later bucket by one.
+ */
+export function densifyPopulationTimeseriesRows(
+  exploration: ProductAnalyticsExploration,
+  config: ExplorationConfig,
+): ProductAnalyticsResultRow[] {
+  const rows = exploration.result?.rows ?? [];
+  if (!configHasPopulation(config)) return rows;
+  return (
+    densifyComparisonExplorationTimeseries({
+      comparison: exploration,
+      submittedConfig: config,
+      previousTimeFrame: config.dateRange,
+    })?.result?.rows ?? rows
+  );
+}
+
 // --- Comparison payload for POST /product-analytics/run ---------------------
 
 function round2(n: number): number {
@@ -902,6 +911,47 @@ function dateRangeToPeriodStrings(dateRange: ExplorationDateRange): {
   return {
     startDate: dr.startDate.toISOString().slice(0, 10),
     endDate: dr.endDate.toISOString().slice(0, 10),
+  };
+}
+
+/**
+ * The change in one value's aggregate (first) row between the two periods.
+ * Null when either period has no data for it, or when the previous value is 0,
+ * where a percentage change is undefined.
+ */
+export function computeBigNumberTrend(
+  primary: ProductAnalyticsExploration | null,
+  comparison: ProductAnalyticsExploration | null,
+  renderOpts: ExplorationRenderOpts,
+  metricIndex: number,
+): ProductAnalyticsRunComparisonPayload["bigNumberTrends"][number] {
+  const currRow = primary?.result?.rows?.[0];
+  const prevRow = comparison?.result?.rows?.[0];
+  const currCell = currRow?.values?.[metricIndex];
+  const prevCell = prevRow?.values?.[metricIndex];
+  if (!currCell || !prevCell) return null;
+
+  const currentValue = getEffectiveMetricValue(
+    currCell,
+    renderOpts.values[metricIndex],
+    currRow.populationCount,
+  );
+  const previousValue = getEffectiveMetricValue(
+    prevCell,
+    renderOpts.values[metricIndex],
+    prevRow.populationCount,
+  );
+  if (currentValue === null || previousValue === null || previousValue === 0) {
+    return null;
+  }
+
+  const pctChangeFraction =
+    (currentValue - previousValue) / Math.abs(previousValue);
+  return {
+    currentValue,
+    previousValue,
+    pctChangeFraction,
+    pctChangePercent: round2(pctChangeFraction * 100),
   };
 }
 
@@ -945,26 +995,25 @@ export function computeExplorationComparisonPayload(
     };
   }
 
-  const renderOpts = {
-    showAs: getEffectiveShowAs(submittedConfig, getFactMetricById),
-    isRatioByIndex: getIsRatioByIndex(submittedConfig, getFactMetricById),
-  };
+  const renderOpts = getExplorationRenderOpts(
+    submittedConfig,
+    getFactMetricById,
+  );
 
-  const columns = buildExplorationColumns(submittedConfig, getFactMetricById);
+  const columns = buildExplorationColumns(submittedConfig, renderOpts);
   const hasAnyRatio = columns.some(
     (c) => c.kind === "metric" && c.sub !== "single",
   );
 
-  const densifiedComparison =
-    !hasAnyRatio && comparison
-      ? densifyComparisonExplorationTimeseries({
-          comparison,
-          submittedConfig,
-          previousTimeFrame,
-          getFactMetricById,
-          primaryRows: primary?.result?.rows,
-        })
-      : null;
+  // Zero-filled ratio rows would read as 0/0, so ratios aren't densified.
+  const densifiedComparison = hasAnyRatio
+    ? null
+    : densifyComparisonExplorationTimeseries({
+        comparison,
+        submittedConfig,
+        previousTimeFrame,
+        primaryRows: primary?.result?.rows,
+      });
 
   const exploration = densifiedComparison ?? comparison;
 
@@ -977,34 +1026,9 @@ export function computeExplorationComparisonPayload(
     };
   }
 
-  const bigNumberTrends = Array.from({ length: n }, (_, metricIndex) => {
-    const currCell = primary.result.rows[0]?.values?.[metricIndex];
-    const prevCell = exploration.result.rows[0]?.values?.[metricIndex];
-    if (!currCell || !prevCell) return null;
-
-    const isRatio = renderOpts.isRatioByIndex[metricIndex] ?? false;
-    const currentValue = getEffectiveMetricValue(currCell, {
-      showAs: renderOpts.showAs,
-      isRatio,
-    });
-    const previousValue = getEffectiveMetricValue(prevCell, {
-      showAs: renderOpts.showAs,
-      isRatio,
-    });
-
-    if (previousValue === 0) {
-      return null;
-    }
-
-    const pctChangeFraction =
-      (currentValue - previousValue) / Math.abs(previousValue);
-    return {
-      currentValue,
-      previousValue,
-      pctChangeFraction,
-      pctChangePercent: round2(pctChangeFraction * 100),
-    };
-  });
+  const bigNumberTrends = Array.from({ length: n }, (_, metricIndex) =>
+    computeBigNumberTrend(primary, exploration, renderOpts, metricIndex),
+  );
 
   if (hasAnyRatio) {
     return {
@@ -1033,6 +1057,9 @@ export function computeExplorationComparisonPayload(
     cmpSorted,
     isTimeseries,
     alignment,
+    densifyPopulationTimeseriesRows(primary, submittedConfig).map((r) =>
+      String(r.dimensions[0] ?? ""),
+    ),
   );
 
   const tableTrendsByRow = sortedRows.map((row) => {

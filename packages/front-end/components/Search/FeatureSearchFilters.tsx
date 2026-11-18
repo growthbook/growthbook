@@ -443,7 +443,7 @@ const FeatureSearchFilters: FC<
   );
 
   return (
-    <Flex gap="5" align="center">
+    <Flex gapX="5" gapY="2" align="center" wrap="wrap">
       {!project && (
         <FilterDropdown
           filter="project"

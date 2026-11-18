@@ -4,6 +4,7 @@ import {
   toApiSDKConnectionInterface,
 } from "back-end/src/models/SdkConnectionModel";
 import { createApiRequestHandler } from "back-end/src/util/handler";
+import { NotFoundError } from "back-end/src/util/errors";
 
 export const lookupSdkConnectionByKey = createApiRequestHandler(
   lookupSdkConnectionByKeyValidator,
@@ -11,9 +12,11 @@ export const lookupSdkConnectionByKey = createApiRequestHandler(
   const sdkConnection = await findSDKConnectionByKeyForOrg(
     req.context,
     req.params.key,
+    // Like GET by id, so an archived connection can still be found and restored.
+    { includeArchived: true },
   );
   if (!sdkConnection) {
-    throw new Error("Could not find sdkConnection with that key");
+    throw new NotFoundError("Could not find sdkConnection with that key");
   }
   if (
     !req.context.permissions.canReadMultiProjectResource(sdkConnection.projects)

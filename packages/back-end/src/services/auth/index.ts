@@ -6,6 +6,7 @@ import {
   normalizeSuperAdmin,
   userHasPermission,
 } from "shared/permissions";
+import { AppAttributes } from "shared/types/app-features";
 import { AuditInterface } from "shared/types/audit";
 import { Permission } from "shared/types/organization";
 import { UserInterface } from "shared/types/user";
@@ -56,7 +57,9 @@ import {
   getGrowthBookClient,
   getGrowthBookRequestUrl,
   getGrowthBookTrackingAttributes,
+  getRequestSource,
   hashOrganizationId,
+  runAsRequestSource,
 } from "back-end/src/services/growthbook";
 import { TeamModel } from "back-end/src/models/TeamModel";
 import { ProjectModel } from "back-end/src/models/ProjectModel";
@@ -139,6 +142,7 @@ export async function processJWT(
 ): Promise<void> {
   const parsedJWT = getInitialDataFromJWT(req.user);
   const { email, name, verified } = parsedJWT;
+  const requestSource = getRequestSource(req);
 
   req.authSubject = parsedJWT.sub || "";
   req.email = email || "";
@@ -394,7 +398,8 @@ export async function processJWT(
         discountCode: org?.discountCode,
         organizationId: hashedOrganizationId,
         cloudOrgId: IS_CLOUD ? orgId : "",
-        accountPlan: org ? getEffectiveAccountPlan(org) : "loading",
+        // null until the plan is known, which the tracking plugin's eventFilter checks
+        accountPlan: org ? getEffectiveAccountPlan(org) : null,
         superAdmin: hasSuperAdminPermission(req.superAdmin, "view"),
         orgDateCreated: org?.dateCreated
           ? new Date(org.dateCreated).toISOString()
@@ -403,6 +408,7 @@ export async function processJWT(
           ? new Date(user.dateCreated).toISOString()
           : "",
         ...trackingAttributes,
+        requestSource,
         role: org?.members.find((m) => m.id === user.id)?.role,
         hasLicenseKey: org?.licenseKey ? true : false,
         configFile: usingFileConfig(),
@@ -412,7 +418,8 @@ export async function processJWT(
         buildVersion: build.lastVersion,
         orgOwnerJobTitle: org?.demographicData?.ownerJobTitle,
         orgOwnerUsageIntents: org?.demographicData?.ownerUsageIntents,
-      };
+        // Checks every key here; without it, only the value types are checked
+      } satisfies AppAttributes;
 
       try {
         // Apply sticky bucketing and get user context
@@ -426,6 +433,7 @@ export async function processJWT(
         );
 
         // Create scoped instance for this request (reuses singleton)
+        req.gbUserContext = userContext;
         req.gb = gbClient.createScopedInstance(userContext);
       } catch (error) {
         logger.error("Failed to create GrowthBook scoped instance", {
@@ -441,7 +449,7 @@ export async function processJWT(
     };
   }
 
-  next();
+  runAsRequestSource(requestSource, next);
 }
 
 // For setting up anything that later acts as the stored user, since that carries their stored super admin

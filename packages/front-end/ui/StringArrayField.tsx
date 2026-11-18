@@ -7,11 +7,10 @@ import {
 } from "react-select";
 import TextareaAutosize from "react-textarea-autosize";
 import { PiRepeatBold, PiXBold } from "react-icons/pi";
-import { Tooltip } from "@radix-ui/themes";
 import Field, { FieldProps } from "@/components/Forms/Field";
 import { ReactSelectProps } from "@/components/Forms/SelectField";
 import { Size } from "@/ui/sizes";
-import { CopyIcon } from "@/ui/ActionIcons";
+import FieldIndicator, { CopyFieldIndicator } from "@/ui/FieldIndicator";
 
 export type StringArrayFieldSize = Size<"md" | "lg">;
 
@@ -104,51 +103,13 @@ function RawTextModeToggleButton({
   onToggle: () => void;
 }) {
   return (
-    <Tooltip
-      content={rawTextMode ? "Switch to token mode" : "Switch to raw text mode"}
+    <FieldIndicator
+      label={rawTextMode ? "Switch to token mode" : "Switch to raw text mode"}
+      onClick={onToggle}
+      className="gb-select__raw-text-mode-indicator"
     >
-      <button
-        type="button"
-        className="gb-select__raw-text-mode-indicator"
-        onClick={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          onToggle();
-        }}
-      >
-        <PiRepeatBold />
-      </button>
-    </Tooltip>
-  );
-}
-
-function CopyButton({ value }: { value: string[] }) {
-  const [copied, setCopied] = useState(false);
-
-  const handleCopy = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-
-    const text = value.join(", ");
-    navigator.clipboard.writeText(text).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 750);
-    });
-  };
-
-  return (
-    <Tooltip
-      content={copied ? "Copied" : "Copy to clipboard"}
-      open={copied ? true : undefined}
-    >
-      <button
-        type="button"
-        className="gb-select__copy-button"
-        onClick={handleCopy}
-      >
-        <CopyIcon />
-      </button>
-    </Tooltip>
+      <PiRepeatBold />
+    </FieldIndicator>
   );
 }
 
@@ -168,7 +129,12 @@ function IndicatorsContainerWithButtons(
 
   return (
     <SelectComponents.IndicatorsContainer {...props}>
-      {showCopy && value && <CopyButton value={value} />}
+      {showCopy && value && (
+        <CopyFieldIndicator
+          value={value.join(", ")}
+          className="gb-select__copy-button"
+        />
+      )}
       {showToggle && (
         <RawTextModeToggleButton
           rawTextMode={false}

@@ -199,8 +199,8 @@ export const putEnvironment = async (
   const existingEnvIndex = envsArr.findIndex((env) => env.id === id);
 
   if (existingEnvIndex < 0) {
-    return res.status(400).json({
-      status: 400,
+    return res.status(404).json({
+      status: 404,
       message: `Could not find environment: ${id}`,
     });
   }
@@ -367,8 +367,8 @@ export const deleteEnvironment = async (
   const envToDelete = existingEnvs.find((existing) => existing.id === id);
 
   if (!envToDelete) {
-    return res.status(400).json({
-      status: 400,
+    return res.status(404).json({
+      status: 404,
       message: `Unable to find environment: ${id}`,
     });
   }

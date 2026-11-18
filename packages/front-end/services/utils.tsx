@@ -12,7 +12,9 @@ import md5 from "md5";
 import { v4 as uuidv4 } from "uuid";
 import { AccountPlan } from "shared/enterprise";
 import { GB_SDK_ID_DEV, GB_SDK_ID_PROD } from "shared/constants";
-import { AppFeatures } from "shared/types/app-features";
+// Registers AppFeatures with the SDK, which types every GrowthBook instance
+// and hook. Types-only, so it has to be imported somewhere to take effect.
+import type {} from "shared/types/app-features";
 import track, {
   getJitsuAnonymousId,
   getTrackingPageUrl,
@@ -65,9 +67,10 @@ export const gbContext: Context = {
     session_id: getOrGenerateSessionId(),
     device_id: getOrGenerateDeviceId(),
     page_id: getOrGeneratePageId(),
+    requestSource: "app",
   },
 };
-export const growthbook = new GrowthBook<AppFeatures>(gbContext);
+export const growthbook = new GrowthBook(gbContext);
 
 export function trafficSplitPercentages(weights: number[]): number[] {
   const sum = weights.reduce((sum, n) => sum + n, 0);

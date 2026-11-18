@@ -1,10 +1,11 @@
 import { postFactMetricAnalysisValidator } from "shared/validators";
 import { MetricAnalysisSettings } from "shared/types/metric-analysis";
-import { isFactFunnelMetric } from "shared/experiments";
+import { isFactCompoundMetric, isFactFunnelMetric } from "shared/experiments";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { createMetricAnalysis } from "back-end/src/services/metric-analysis";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { getFactTableMap } from "back-end/src/models/FactTableModel";
+import { NotFoundError } from "back-end/src/util/errors";
 
 export const postFactMetricAnalysis = createApiRequestHandler(
   postFactMetricAnalysisValidator,
@@ -25,7 +26,7 @@ export const postFactMetricAnalysis = createApiRequestHandler(
   const factMetric = await context.models.factMetrics.getById(id);
 
   if (!factMetric) {
-    throw new Error("Fact metric not found");
+    throw new NotFoundError("Fact metric not found");
   }
 
   const datasource = await getDataSourceById(context, factMetric.datasource);
@@ -47,6 +48,9 @@ export const postFactMetricAnalysis = createApiRequestHandler(
 
   if (isFactFunnelMetric(factMetric)) {
     throw new Error("Metric analysis is not supported for funnel metrics");
+  }
+  if (isFactCompoundMetric(factMetric)) {
+    throw new Error("Metric analysis is not supported for compound metrics");
   }
 
   // Get fact table to determine default user ID types

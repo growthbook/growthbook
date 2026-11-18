@@ -401,6 +401,7 @@ const experimentSchema = new mongoose.Schema({
   analysisSummary: {
     _id: false,
     snapshotId: String,
+    phase: Number,
     health: {
       _id: false,
       srm: Number,

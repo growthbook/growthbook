@@ -3,7 +3,7 @@ import { Box, Flex } from "@radix-ui/themes";
 import { PiCaretDown, PiLockSimple } from "react-icons/pi";
 import { FeatureInterface } from "shared/types/feature";
 import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
-import { ACTIVE_DRAFT_STATUSES } from "shared/validators";
+import { isActiveDraftStatus } from "shared/validators";
 import { date } from "shared/dates";
 import Text from "@/ui/Text";
 import Tooltip from "@/ui/Tooltip";
@@ -72,7 +72,7 @@ export default function DraftSelectorDropdown({
         .filter(
           (r) =>
             !isRampGenerated(r) &&
-            (ACTIVE_DRAFT_STATUSES as readonly string[]).includes(r.status) &&
+            isActiveDraftStatus(r.status) &&
             (!eligibleDraftVersions || eligibleDraftVersions.has(r.version)),
         )
         .sort((a, b) => b.version - a.version),
