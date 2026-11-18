@@ -96,7 +96,7 @@ export default function CustomHooksSection({
       mb="2"
       minHeight="32px"
     >
-      <Heading as="h3" size="md" mb="0">
+      <Heading as={first ? "h3" : "h4"} size={first ? "md" : "sm"} mb="0">
         {title}
       </Heading>
       {action}
