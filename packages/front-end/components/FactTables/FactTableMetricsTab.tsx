@@ -120,7 +120,7 @@ export default function FactTableMetricsTab({
         )}
         {factMetricFlow.createButton(
           { factTable: factTable.id },
-          { children: "New Fact Metric", size: "sm", variant: "outline" },
+          { size: "sm" },
         )}
       </Flex>
       {items.length ? (

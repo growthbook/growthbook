@@ -96,8 +96,8 @@ export default function FactTableFiltersTab({
           <span />
         )}
         {editor.canCreate ? (
-          <Button size="sm" variant="outline" onClick={editor.openNew}>
-            New Saved Filter
+          <Button size="sm" onClick={editor.openNew}>
+            Add Saved Filter
           </Button>
         ) : null}
       </Flex>

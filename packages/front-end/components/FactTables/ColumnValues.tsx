@@ -20,6 +20,7 @@ import Text from "@/ui/Text";
 import HelperText from "@/ui/HelperText";
 import Tooltip from "@/ui/Tooltip";
 import { getColumnTopValues } from "@/services/factTableColumns";
+import columnStyles from "./FactTableDetailsPage.module.scss";
 
 const CHIPS = 4;
 
@@ -150,67 +151,77 @@ export function ColumnValuesPanel({
           Couldn&apos;t refresh values: {error}
         </HelperText>
       ) : null}
-      <Table variant="list" roundedCorners>
-        <TableHeader>
-          <TableRow>
-            <TableColumnHeader>Value</TableColumnHeader>
-            {showCounts ? (
-              <>
-                <TableColumnHeader justify="end">Rows</TableColumnHeader>
-                <TableColumnHeader>
-                  <Tooltip
-                    content={`Each value's share of all rows across the top ${rows.length} values from the last ${lookbackDays} days. Rows with values not listed aren't counted.`}
-                  >
-                    <Flex align="center" gap="1" display="inline-flex">
-                      Share of sample rows <PiInfo />
-                    </Flex>
-                  </Tooltip>
-                </TableColumnHeader>
-              </>
-            ) : null}
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {visible.map((r) => (
-            <TableRow key={r.value}>
-              <TableCell>
-                <code>{r.value}</code>
-              </TableCell>
+      {rows.length === 0 ? (
+        <Text color="text-mid">
+          No values found for{" "}
+          <span className={columnStyles.mono}>{column.column}</span> yet.
+          {onLoad ? " Refresh to load them." : ""}
+        </Text>
+      ) : (
+        <Table variant="list" roundedCorners>
+          <TableHeader>
+            <TableRow>
+              <TableColumnHeader>Value</TableColumnHeader>
               {showCounts ? (
                 <>
-                  <TableCell justify="end">
-                    {r.count !== undefined ? (
-                      <span title={r.count.toLocaleString()}>
-                        {compact.format(r.count)}
-                      </span>
-                    ) : (
-                      <Text color="text-low">…</Text>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    <CountBar count={r.count} max={totalCount} />
-                  </TableCell>
+                  <TableColumnHeader justify="end">Rows</TableColumnHeader>
+                  <TableColumnHeader>
+                    <Tooltip
+                      content={`Each value's share of all rows across the top ${rows.length} values from the last ${lookbackDays} days. Rows with values not listed aren't counted.`}
+                    >
+                      <Flex align="center" gap="1" display="inline-flex">
+                        Share of sample rows <PiInfo />
+                      </Flex>
+                    </Tooltip>
+                  </TableColumnHeader>
                 </>
               ) : null}
             </TableRow>
-          ))}
-          {!visible.length ? (
-            <TableRow>
-              <TableCell colSpan={showCounts ? 3 : 1}>
-                <Text color="text-mid">No values match “{search}”.</Text>
-              </TableCell>
-            </TableRow>
-          ) : null}
-        </TableBody>
-      </Table>
-      <Text size="sm" color="text-low">
-        {`Top ${rows.length} values${showCounts ? " by row count" : ""} over the last ${lookbackDays} days.`}
-        {showCounts
-          ? " Counts may be approximate on some Data Sources."
-          : onLoad
-            ? " Refresh to load row counts."
-            : ""}
-      </Text>
+          </TableHeader>
+          <TableBody>
+            {visible.map((r) => (
+              <TableRow key={r.value}>
+                <TableCell>
+                  <code>{r.value}</code>
+                </TableCell>
+                {showCounts ? (
+                  <>
+                    <TableCell justify="end">
+                      {r.count !== undefined ? (
+                        <span title={r.count.toLocaleString()}>
+                          {compact.format(r.count)}
+                        </span>
+                      ) : (
+                        <Text color="text-low">…</Text>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <CountBar count={r.count} max={totalCount} />
+                    </TableCell>
+                  </>
+                ) : null}
+              </TableRow>
+            ))}
+            {!visible.length ? (
+              <TableRow>
+                <TableCell colSpan={showCounts ? 3 : 1}>
+                  <Text color="text-mid">No values match “{search}”.</Text>
+                </TableCell>
+              </TableRow>
+            ) : null}
+          </TableBody>
+        </Table>
+      )}
+      {rows.length > 0 ? (
+        <Text size="sm" color="text-low">
+          {`Top ${rows.length} values${showCounts ? " by row count" : ""} over the last ${lookbackDays} days.`}
+          {showCounts
+            ? " Counts may be approximate on some Data Sources."
+            : onLoad
+              ? " Refresh to load row counts."
+              : ""}
+        </Text>
+      ) : null}
     </Flex>
   );
 }

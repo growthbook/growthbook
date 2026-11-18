@@ -373,7 +373,7 @@ export default function FactTableDetailsPage({
           </TabsContent>
 
           <TabsContent value="sample">
-            <FactTableSampleRows factTableId={factTable.id} />
+            <FactTableSampleRows factTable={factTable} />
           </TabsContent>
 
           <TabsContent value="filters">

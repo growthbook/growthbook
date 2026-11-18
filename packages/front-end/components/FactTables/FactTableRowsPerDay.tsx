@@ -105,7 +105,7 @@ export default function FactTableRowsPerDay({
                 {compact.format(chart.total / chart.days.length)}
               </Text>
               <Text color="text-mid">
-                {compact.format(chart.total)} rows in the last{" "}
+                Daily average of {compact.format(chart.total)} rows in the last{" "}
                 {chart.days.length} days
               </Text>
             </>

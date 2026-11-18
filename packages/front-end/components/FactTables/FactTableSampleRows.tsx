@@ -1,6 +1,11 @@
 import { useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
-import { RowFilter, RowFilterTestResults } from "shared/types/fact-table";
+import { PiArrowClockwise } from "react-icons/pi";
+import {
+  FactTableInterface,
+  RowFilter,
+  RowFilterTestResults,
+} from "shared/types/fact-table";
 import { parseWarehouseDate } from "shared/dates";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -55,8 +60,8 @@ const SKELETON_WIDTHS = [
 ];
 
 // Kept for the page session so switching tabs or rows doesn't re-run the query.
-// Keyed by organization, since fact table IDs are only unique within one.
-// shortcut: never invalidated until a full page reload; add a refresh button if stale rows become a problem
+// Keyed by organization, since fact table IDs are only unique within one, and
+// by SQL, so editing the SQL goes back to the load button.
 const resultCache = new Map<string, RowFilterTestResults>();
 
 // Rows shown inside a table row; the full sample is on the Sample rows tab
@@ -64,26 +69,41 @@ const COMPACT_ROWS = 10;
 
 // Sample rows cost a warehouse query, so they only load on a click
 export default function FactTableSampleRows({
-  factTableId,
+  factTable,
   rowFilters = [],
   compact = false,
 }: {
-  factTableId: string;
+  factTable: Pick<FactTableInterface, "id" | "sql" | "datasource">;
   rowFilters?: RowFilter[];
   // Smaller rows that grow to the full sample, for use inside a table row
   compact?: boolean;
 }) {
   const { apiCall, orgId } = useAuth();
-  const { getFactTableById, getDatasourceById } = useDefinitions();
+  const { getDatasourceById } = useDefinitions();
   const permissionsUtil = usePermissionsUtil();
-  const cacheKey = `${orgId}:${factTableId}:${JSON.stringify(rowFilters)}`;
-  const [result, setResult] = useState<RowFilterTestResults | null>(
-    resultCache.get(cacheKey) ?? null,
-  );
+  const cacheKey = `${orgId}:${factTable.id}:${factTable.sql}:${JSON.stringify(rowFilters)}`;
+  const [loaded, setLoaded] = useState<{
+    key: string;
+    result: RowFilterTestResults;
+  } | null>(null);
+  const result =
+    (loaded?.key === cacheKey ? loaded.result : resultCache.get(cacheKey)) ??
+    null;
   const [error, setError] = useState<string | null>(null);
-  const datasourceId = getFactTableById(factTableId)?.datasource;
-  const datasource = datasourceId ? getDatasourceById(datasourceId) : null;
+  const datasource = getDatasourceById(factTable.datasource);
   const canRun = !!datasource && permissionsUtil.canRunTestQueries(datasource);
+
+  const load = async () => {
+    const res = await apiCall<{ result: RowFilterTestResults }>(
+      `/fact-tables/${factTable.id}/test-row-filters`,
+      { method: "POST", body: JSON.stringify({ rowFilters }) },
+    );
+    // Warehouse errors come back as a result; keep them out of the cache and
+    // leave the button up to retry
+    if (res.result.error) throw new Error(res.result.error);
+    resultCache.set(cacheKey, res.result);
+    setLoaded({ key: cacheKey, result: res.result });
+  };
 
   if (!result) {
     return (
@@ -107,17 +127,7 @@ export default function FactTableSampleRows({
                 variant="outline"
                 size="sm"
                 setError={setError}
-                onClick={async () => {
-                  const res = await apiCall<{ result: RowFilterTestResults }>(
-                    `/fact-tables/${factTableId}/test-row-filters`,
-                    { method: "POST", body: JSON.stringify({ rowFilters }) },
-                  );
-                  // Warehouse errors come back as a result; keep them out of
-                  // the cache and leave the button up to retry
-                  if (res.result.error) throw new Error(res.result.error);
-                  resultCache.set(cacheKey, res.result);
-                  setResult(res.result);
-                }}
+                onClick={load}
               >
                 {error ? "Try again" : "Load sample rows"}
               </Button>
@@ -139,15 +149,30 @@ export default function FactTableSampleRows({
   return (
     <Flex
       direction="column"
+      gap="2"
       className={compact ? styles.compact : styles.full}
-      style={
-        compact
-          ? // Without inline-size containment, a wide result widens the
-            // enclosing table cell instead of scrolling inside it
-            { contain: "inline-size" }
-          : undefined
-      }
+      // Without inline-size containment, a wide result widens its container
+      // and gets clipped instead of scrolling inside it
+      style={{ contain: "inline-size" }}
     >
+      {canRun ? (
+        <Flex align="center" justify="end" gap="2">
+          {error ? (
+            <Text size="sm" color="text-mid">
+              Couldn&apos;t refresh: {error}
+            </Text>
+          ) : null}
+          <Button
+            size="sm"
+            variant="ghost"
+            icon={<PiArrowClockwise />}
+            setError={setError}
+            onClick={load}
+          >
+            Refresh
+          </Button>
+        </Flex>
+      ) : null}
       <TestQueryResultsTable
         duration={result.duration || 0}
         results={

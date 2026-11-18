@@ -216,7 +216,7 @@ export default function FactTableEventsTab({
                             </Text>
                             <FactTableSampleRows
                               key={`${column.column}:${r.value}`}
-                              factTableId={factTable.id}
+                              factTable={factTable}
                               compact
                               rowFilters={[
                                 {
