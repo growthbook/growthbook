@@ -18580,15 +18580,16 @@ paths:
                     "new_metrics". With "dimension" or with "triggeredBy":
                     "schedule", always runs a normal update.
 
-                    - "new_metrics": computes only the newly added metrics,
-                    however old the latest Overall Results are. The new metrics
-                    are computed up to those results' end date and every other
+                    - "new_metrics": computes only the newly added metrics and
+                    ignores the organization's window. The new metrics are
+                    computed up to those results' end date and every other
                     result is copied, so no result covers newer data. Returns
                     409 "metrics_already_up_to_date" when no metric is missing,
                     and 409 "metric_refresh_unavailable" when the results can't
-                    be reused, for example because a setting or the analysis
-                    dates changed. Never falls back to a normal update. Can't be
-                    combined with "dimension" or with "triggeredBy": "schedule".
+                    be reused, for example because a setting changed or the
+                    results end a day or more ago. Never falls back to a normal
+                    update. Can't be combined with "dimension" or with
+                    "triggeredBy": "schedule".
 
                     - "all_metrics": always runs a normal update, which computes
                     every metric up to the time of the request.
@@ -90127,6 +90128,7 @@ components:
           type: string
         status:
           type: string
+          description: '"running" while the update is in progress, then "success" or "error"'
         error:
           type: string
           description: Why the update failed. Present only when "status" is "error"
@@ -91621,6 +91623,7 @@ components:
           type: string
         status:
           type: string
+          description: '"running" while the update is in progress, then "success" or "error"'
         error:
           type: string
           description: Why the update failed. Present only when "status" is "error"

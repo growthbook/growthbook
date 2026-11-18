@@ -1242,7 +1242,11 @@ export const apiExperimentWithEnhancedStatus = namedSchema(
 const apiExperimentSnapshotShape = z.object({
   id: z.string(),
   experiment: z.string(),
-  status: z.string(),
+  status: z
+    .string()
+    .describe(
+      '"running" while the update is in progress, then "success" or "error"',
+    ),
   error: z
     .string()
     .describe('Why the update failed. Present only when "status" is "error"')
@@ -3006,7 +3010,7 @@ export const postExperimentSnapshotValidator = {
       updateScope: z
         .enum(snapshotUpdateScopes)
         .describe(
-          `Which metrics the update computes.\n\n- "auto" (default): computes only the metrics added to the experiment since its latest Overall Results when they are the only change since then and those results end less than ${DEFAULT_NEW_METRICS_UPDATE_WINDOW_HOURS} hours ago by default (the organization setting "newMetricsUpdateWindowHours"; 0 turns this off). Otherwise runs a normal update. Never returns the 409s listed for "new_metrics". With "dimension" or with "triggeredBy": "schedule", always runs a normal update.\n- "new_metrics": computes only the newly added metrics, however old the latest Overall Results are. The new metrics are computed up to those results' end date and every other result is copied, so no result covers newer data. Returns 409 "metrics_already_up_to_date" when no metric is missing, and 409 "metric_refresh_unavailable" when the results can't be reused, for example because a setting or the analysis dates changed. Never falls back to a normal update. Can't be combined with "dimension" or with "triggeredBy": "schedule".\n- "all_metrics": always runs a normal update, which computes every metric up to the time of the request.\n\nThe returned snapshot's "updateScope" says which ran. After a "metric_refresh_unavailable" error, send "all_metrics".`,
+          `Which metrics the update computes.\n\n- "auto" (default): computes only the metrics added to the experiment since its latest Overall Results when they are the only change since then and those results end less than ${DEFAULT_NEW_METRICS_UPDATE_WINDOW_HOURS} hours ago by default (the organization setting "newMetricsUpdateWindowHours"; 0 turns this off). Otherwise runs a normal update. Never returns the 409s listed for "new_metrics". With "dimension" or with "triggeredBy": "schedule", always runs a normal update.\n- "new_metrics": computes only the newly added metrics and ignores the organization's window. The new metrics are computed up to those results' end date and every other result is copied, so no result covers newer data. Returns 409 "metrics_already_up_to_date" when no metric is missing, and 409 "metric_refresh_unavailable" when the results can't be reused, for example because a setting changed or the results end a day or more ago. Never falls back to a normal update. Can't be combined with "dimension" or with "triggeredBy": "schedule".\n- "all_metrics": always runs a normal update, which computes every metric up to the time of the request.\n\nThe returned snapshot's "updateScope" says which ran. After a "metric_refresh_unavailable" error, send "all_metrics".`,
         )
         .optional(),
       ignoreWarnings: ignoreWarningsBodyField,
