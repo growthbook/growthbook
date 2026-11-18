@@ -977,17 +977,6 @@ async function getParentQuerySources(
 }
 
 /**
- * The parent's analyses a refresh extends. One that failed or is still being
- * computed is left out, so a request for it computes it like any analysis a
- * snapshot lacks.
- */
-export function getAnalysesToExtend(
-  parentAnalyses: ExperimentSnapshotAnalysis[],
-): ExperimentSnapshotAnalysis[] {
-  return parentAnalyses.filter((a) => a.status === "success");
-}
-
-/**
  * Each parent analysis with the copied metrics' results kept verbatim and the
  * fresh metrics' results added. A copied metric is one the refresh still
  * analyzes and no query of this run returned rows for. Units are the most any
@@ -1095,7 +1084,9 @@ export async function analyzeMetricRefresh({
       `Snapshot ${metricRefresh.parentSnapshotId} has no finished results to add the new metrics to`,
     );
   }
-  const analyses = getAnalysesToExtend(parent.analyses);
+  // An analysis that failed or is still being computed is left out, so a
+  // request for it computes it like any analysis a snapshot lacks.
+  const analyses = parent.analyses.filter((a) => a.status === "success");
   const freshQueries = getQueriesStartedByRefresh(
     queryMap,
     await getParentQuerySources(context, parent.queries),

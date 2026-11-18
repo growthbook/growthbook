@@ -722,13 +722,13 @@ export const startExperimentIncrementalRefreshQueries = async (
   const storedCovariateSources =
     incrementalRefreshModel?.metricCovariateSources ?? [];
 
-  // Drop existing source records for FTs flagged for rebuild above (added /
-  // removed metric, moved cross-FT side, or changed metric settings). The
-  // per-FT loop below will see no `existingSource` and rebuild the cache from
-  // scratch (CREATE + full INSERT) instead of incrementally appending — the
-  // cache's schema/values may be out of shape with the desired metric set. The
-  // matching covariate sources are dropped at the same time so CUPED state
-  // stays consistent.
+  // Caches of FTs flagged for rebuild above (added / removed metric, moved
+  // cross-FT side, or changed metric settings) are replaced: the per-FT loop
+  // below sees no `existingSource` and rebuilds them from scratch (CREATE +
+  // full INSERT) instead of appending, since their schema/values may be out of
+  // shape with the desired metric set. Their covariate caches are replaced
+  // with them so CUPED state stays consistent, and the replaced tables are
+  // dropped once the replacements are recorded.
   const isReplaced = (source: { factTableId: string }) =>
     factTablesToRebuild.has(source.factTableId);
   const replacedSources = storedSources.filter(isReplaced);
@@ -744,12 +744,12 @@ export const startExperimentIncrementalRefreshQueries = async (
 
   const metricSourceGroups = getIncrementalRefreshMetricSources({
     metrics: factMetrics,
-    existingMetricSources: existingSources ?? [],
+    existingMetricSources: existingSources,
     integration,
     snapshotSettings,
   });
-  let runningSourceData = existingSources ?? [];
-  let runningCovariateSourceData = existingCovariateSources ?? [];
+  let runningSourceData = existingSources;
+  let runningCovariateSourceData = existingCovariateSources;
 
   // Track per-group state we need from the per-FT pass for the cross-FT
   // pair pass below: each pipeline's cache table name (so the stats query

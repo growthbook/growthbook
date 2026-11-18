@@ -21,7 +21,6 @@ import type { QueryMap } from "back-end/src/queryRunners/QueryRunner";
 import {
   analyzeMetricRefresh,
   carryMetricRefreshQueries,
-  getAnalysesToExtend,
   getParentQueryCopiers,
   getMetricRefreshLineage,
   getQueriesStartedByRefresh,
@@ -2058,18 +2057,6 @@ describe("getQueriesStartedByRefresh", () => {
     expect([
       ...getQueriesStartedByRefresh(queryMap, parentSources).keys(),
     ]).toEqual(["group_1", "group_2", "statistics_ft_1"]);
-  });
-});
-
-describe("getAnalysesToExtend", () => {
-  it("extends only the parent's finished analyses", () => {
-    const finished = analysis({}, []);
-    const failed = analysis({ baselineVariationIndex: 1 }, [], "error");
-    const running = analysis({ differenceType: "absolute" }, [], "running");
-
-    expect(getAnalysesToExtend([finished, failed, running])).toEqual([
-      finished,
-    ]);
   });
 });
 
