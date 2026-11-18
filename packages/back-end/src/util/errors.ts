@@ -385,6 +385,15 @@ export class MetricRefreshUnavailableError extends ApiError<"metric_refresh_unav
   }
 }
 
+// The last full update is too old for an update the caller didn't ask for
+// explicitly. Callers run a normal update instead; it never reaches a client.
+export class MetricRefreshOutsideWindowError extends Error {
+  constructor() {
+    super("The last full update is outside the new-metrics-only update window");
+    this.name = "MetricRefreshOutsideWindowError";
+  }
+}
+
 // Snapshot failures that repeat on every retry; auto-updates get disabled, even for bandits
 export class UnrecoverableSnapshotError extends Error {
   constructor(message: string) {

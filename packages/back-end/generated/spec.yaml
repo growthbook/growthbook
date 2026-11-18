@@ -18489,6 +18489,13 @@ paths:
     post:
       operationId: postExperimentSnapshot
       summary: Create Experiment Snapshot
+      description: >-
+        Starts an update of the experiment's results and returns the snapshot it
+        creates. When metrics were added to the experiment since its latest
+        Overall Results and that update ran less than 60 minutes ago
+        (configurable), only the new metrics are computed and the snapshot has
+        "metricRefresh". See "missingMetricsOnly". Poll GET /snapshots/{id}
+        until "status" is "success" or "error".
       tags:
         - experiments
         - snapshots
@@ -18542,16 +18549,35 @@ paths:
                 missingMetricsOnly:
                   type: boolean
                   description: >-
-                    Set to true to compute only the metrics added to the
-                    experiment since its latest Overall Results, without
-                    rerunning the rest of the analysis. The new metrics are
-                    computed up to that update's end date, so they are as stale
-                    as the other results. Returns 409
+                    Whether to compute only the metrics added to the experiment
+                    since its latest Overall Results, without rerunning the rest
+                    of the analysis. The new metrics are computed up to that
+                    update's end date, so they are as stale as the other
+                    results.
+
+
+                    - Omitted (default): computes only the newly added metrics
+                    when some are missing and the full update the latest Overall
+                    Results are based on ran less than 60 minutes ago by default
+                    (the organization setting
+                    "newMetricsOnlyUpdateWindowMinutes"; 0 turns this off).
+                    Otherwise runs a normal update. Never returns the 409s
+                    listed for `true`. Does not apply with "dimension" or with
+                    "triggeredBy": "schedule".
+
+                    - `true`: computes only the newly added metrics, however old
+                    the last full update is. Returns 409
                     "metrics_already_up_to_date" when nothing is missing, and
                     409 "metric_refresh_unavailable" when a full update is
-                    needed instead; it never falls back to a full update by
-                    itself. Cannot be combined with "dimension" or with
-                    "triggeredBy": "schedule".
+                    needed instead; it never falls back to a full update. Cannot
+                    be combined with "dimension" or with "triggeredBy":
+                    "schedule".
+
+                    - `false`: always runs a normal update.
+
+
+                    The returned snapshot has "metricRefresh" only when it
+                    computes just the newly added metrics.
                 ignoreWarnings:
                   description: >-
                     Set to true to acknowledge the warnings listed in a blocked
@@ -90119,7 +90145,9 @@ components:
             - metricIds
             - dateEnd
           additionalProperties: false
-          description: 'Present only on a snapshot created with "missingMetricsOnly": true'
+          description: >-
+            Present only on a snapshot that computed just the experiment's newly
+            added metrics
       required:
         - id
         - experiment
@@ -91597,7 +91625,9 @@ components:
             - metricIds
             - dateEnd
           additionalProperties: false
-          description: 'Present only on a snapshot created with "missingMetricsOnly": true'
+          description: >-
+            Present only on a snapshot that computed just the experiment's newly
+            added metrics
       required:
         - id
         - experiment

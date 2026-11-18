@@ -3,6 +3,7 @@ import {
   statsEngines,
   MAX_PRECOMPUTED_UNIT_DIMENSIONS,
   MAX_DESCRIPTION_LENGTH,
+  DEFAULT_NEW_METRICS_ONLY_UPDATE_WINDOW_MINUTES,
 } from "shared/constants";
 import { REQUIRES_PERSON_NOTE } from "./event-user";
 import { FEATURE_LANDING_ACTIONS } from "./confirmations";
@@ -1263,7 +1264,7 @@ const apiExperimentSnapshotShape = z.object({
         ),
     })
     .describe(
-      'Present only on a snapshot created with "missingMetricsOnly": true',
+      "Present only on a snapshot that computed just the experiment's newly added metrics",
     )
     .optional(),
 });
@@ -2998,7 +2999,7 @@ export const postExperimentSnapshotValidator = {
       missingMetricsOnly: z
         .boolean()
         .describe(
-          'Set to true to compute only the metrics added to the experiment since its latest Overall Results, without rerunning the rest of the analysis. The new metrics are computed up to that update\'s end date, so they are as stale as the other results. Returns 409 "metrics_already_up_to_date" when nothing is missing, and 409 "metric_refresh_unavailable" when a full update is needed instead; it never falls back to a full update by itself. Cannot be combined with "dimension" or with "triggeredBy": "schedule".',
+          `Whether to compute only the metrics added to the experiment since its latest Overall Results, without rerunning the rest of the analysis. The new metrics are computed up to that update's end date, so they are as stale as the other results.\n\n- Omitted (default): computes only the newly added metrics when some are missing and the full update the latest Overall Results are based on ran less than ${DEFAULT_NEW_METRICS_ONLY_UPDATE_WINDOW_MINUTES} minutes ago by default (the organization setting "newMetricsOnlyUpdateWindowMinutes"; 0 turns this off). Otherwise runs a normal update. Never returns the 409s listed for \`true\`. Does not apply with "dimension" or with "triggeredBy": "schedule".\n- \`true\`: computes only the newly added metrics, however old the last full update is. Returns 409 "metrics_already_up_to_date" when nothing is missing, and 409 "metric_refresh_unavailable" when a full update is needed instead; it never falls back to a full update. Cannot be combined with "dimension" or with "triggeredBy": "schedule".\n- \`false\`: always runs a normal update.\n\nThe returned snapshot has "metricRefresh" only when it computes just the newly added metrics.`,
         )
         .optional(),
       ignoreWarnings: ignoreWarningsBodyField,
@@ -3017,6 +3018,7 @@ export const postExperimentSnapshotValidator = {
     })
     .strict(),
   summary: "Create Experiment Snapshot",
+  description: `Starts an update of the experiment's results and returns the snapshot it creates. When metrics were added to the experiment since its latest Overall Results and that update ran less than ${DEFAULT_NEW_METRICS_ONLY_UPDATE_WINDOW_MINUTES} minutes ago (configurable), only the new metrics are computed and the snapshot has "metricRefresh". See "missingMetricsOnly". Poll GET /snapshots/{id} until "status" is "success" or "error".`,
   confirmation: [],
   operationId: "postExperimentSnapshot",
   tags: ["experiments", "snapshots"],

@@ -1817,6 +1817,18 @@ export async function putOrganization(
       );
     }
 
+    const newMetricsWindow = settings?.newMetricsOnlyUpdateWindowMinutes;
+    if (
+      (newMetricsWindow ?? null) !== null &&
+      (typeof newMetricsWindow !== "number" ||
+        !Number.isFinite(newMetricsWindow) ||
+        newMetricsWindow < 0)
+    ) {
+      context.throwBadRequestError(
+        "The new-metrics-only update window must be a number of minutes, at least 0",
+      );
+    }
+
     const topValuesLookbackValue = settings?.topValuesLookbackValue;
     if (
       typeof topValuesLookbackValue === "number" &&

@@ -23,6 +23,7 @@ import {
   parseIncrementalRefreshBase,
   planMetricRefresh,
   resolveIncrementalMetricRefreshRun,
+  shouldUpdateNewMetricsOnly,
 } from "back-end/src/services/metricRefresh";
 import {
   ExperimentResultsQueryRunner,
@@ -47,6 +48,7 @@ import { analyzeExperimentResults } from "back-end/src/services/stats";
 import {
   BadRequestError,
   ExperimentIncrementalPipelineRequiresFullRefreshError,
+  MetricRefreshOutsideWindowError,
   MetricRefreshUnavailableError,
   MetricsAlreadyUpToDateError,
   SnapshotInProgressError,
@@ -429,6 +431,47 @@ describe("planMetricRefresh", () => {
     }
   });
 
+  describe("with a window", () => {
+    const window = (minutesAfterParent: number) => ({
+      windowMinutes: 60,
+      now: new Date(PARENT_CREATED.getTime() + minutesAfterParent * 60_000),
+    });
+
+    it("plans the refresh when the parent ran within the window", async () => {
+      const plan = await planMetricRefresh(refreshArgs({ window: window(30) }));
+      expect(plan.snapshot.metricRefresh?.metricIds).toEqual(["met_c"]);
+    });
+
+    it("refuses before planning when the parent ran before the window", async () => {
+      const args = refreshArgs({ window: window(90) });
+      await expect(planMetricRefresh(args)).rejects.toBeInstanceOf(
+        MetricRefreshOutsideWindowError,
+      );
+      expect(args.planSnapshotAt).not.toHaveBeenCalled();
+    });
+
+    it("measures from the base full update when the latest results are a refresh", async () => {
+      const refreshRanAt = new Date(PARENT_CREATED.getTime() + 80 * 60_000);
+      findParentMock.mockResolvedValue(
+        makeParent({
+          id: "snp_refresh",
+          dateCreated: refreshRanAt,
+          metricRefresh: {
+            baseSnapshotId: "snp_parent",
+            baseDateCreated: PARENT_CREATED,
+            baseCutoffDate: PARENT_END,
+            parentSnapshotId: "snp_parent",
+            metricIds: ["met_b"],
+          },
+        }),
+      );
+
+      await expect(
+        planMetricRefresh(refreshArgs({ window: window(90) })),
+      ).rejects.toBeInstanceOf(MetricRefreshOutsideWindowError);
+    });
+  });
+
   it.each([
     ["its own units table drop", "drop_snp_parent"],
     ["the query of a metric since removed", "met_gone"],
@@ -509,6 +552,40 @@ describe("planMetricRefresh", () => {
       expect(plan.snapshot.metricRefresh?.metricIds).toEqual(["met_c"]);
     },
   );
+});
+
+describe("shouldUpdateNewMetricsOnly", () => {
+  const baseComputedAt = new Date("2026-11-18T10:00:00Z");
+  const minutesLater = (minutes: number) =>
+    new Date(baseComputedAt.getTime() + minutes * 60_000);
+  const decide = (
+    overrides: Partial<Parameters<typeof shouldUpdateNewMetricsOnly>[0]>,
+  ) =>
+    shouldUpdateNewMetricsOnly({
+      missingMetricIds: ["met_c"],
+      baseComputedAt,
+      now: minutesLater(30),
+      windowMinutes: 60,
+      ...overrides,
+    });
+
+  it("applies when metrics are missing and the base ran within the window", () => {
+    expect(decide({})).toBe(true);
+    expect(decide({ now: minutesLater(59.9) })).toBe(true);
+  });
+
+  it("does not apply once the window has passed", () => {
+    expect(decide({ now: minutesLater(60) })).toBe(false);
+    expect(decide({ now: minutesLater(600) })).toBe(false);
+  });
+
+  it("does not apply when nothing is missing", () => {
+    expect(decide({ missingMetricIds: [] })).toBe(false);
+  });
+
+  it("never applies with a window of 0", () => {
+    expect(decide({ windowMinutes: 0, now: baseComputedAt })).toBe(false);
+  });
 });
 
 describe("parseIncrementalRefreshBase", () => {

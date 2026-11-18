@@ -3,6 +3,7 @@ import omitBy from "lodash/omitBy";
 import {
   getDefinitionMetricId,
   getMetricIdsMissingFromSnapshot,
+  getSnapshotDataAsOf,
 } from "shared/experiments";
 import {
   getIdentifierTypeForSettingsHash,
@@ -40,6 +41,7 @@ import { isCarriedIncrementalQuery } from "back-end/src/queryRunners/ExperimentI
 import {
   BadRequestError,
   ExperimentIncrementalPipelineRequiresFullRefreshError,
+  MetricRefreshOutsideWindowError,
   MetricRefreshUnavailableError,
   MetricRefreshUnavailableReason,
   MetricsAlreadyUpToDateError,
@@ -74,11 +76,35 @@ function unavailable(
   );
 }
 
+export type NewMetricsOnlyUpdateWindow = { windowMinutes: number; now: Date };
+
+/**
+ * Whether a request that didn't choose a path should update only the newly
+ * added metrics: some are missing and the full update the latest results are
+ * based on ran less than the window ago. A window of 0 never applies.
+ */
+export function shouldUpdateNewMetricsOnly({
+  missingMetricIds,
+  baseComputedAt,
+  now,
+  windowMinutes,
+}: NewMetricsOnlyUpdateWindow & {
+  missingMetricIds: readonly string[];
+  baseComputedAt: Date;
+}): boolean {
+  return (
+    missingMetricIds.length > 0 &&
+    windowMinutes > 0 &&
+    now.getTime() - baseComputedAt.getTime() < windowMinutes * 60_000
+  );
+}
+
 /**
  * Plans a snapshot that queries only the experiment's metrics missing from
  * the latest successful Overall snapshot (its parent) and copies the
  * parent's query results for every other metric, pinned to the parent's end
- * date. Throws a typed error before anything is written.
+ * date. Throws a typed error before anything is written. With `window`, also
+ * throws MetricRefreshOutsideWindowError when shouldUpdateNewMetricsOnly says no.
  */
 export async function planMetricRefresh({
   context,
@@ -89,6 +115,7 @@ export async function planMetricRefresh({
   useCache,
   metricGroups,
   planSnapshotAt,
+  window,
 }: {
   context: ReqContext | ApiReqContext;
   experiment: ExperimentInterface;
@@ -98,6 +125,7 @@ export async function planMetricRefresh({
   useCache: boolean;
   metricGroups: MetricGroupInterface[];
   planSnapshotAt: (cutoff: Date) => Promise<PlannedExperimentSnapshot>;
+  window?: NewMetricsOnlyUpdateWindow;
 }): Promise<PlannedExperimentSnapshot> {
   if (dimension) {
     throw new BadRequestError(
@@ -145,6 +173,16 @@ export async function planMetricRefresh({
   });
   if (!missingMetricIds.length) {
     throw new MetricsAlreadyUpToDateError(parent.id);
+  }
+  if (
+    window &&
+    !shouldUpdateNewMetricsOnly({
+      ...window,
+      missingMetricIds,
+      baseComputedAt: getSnapshotDataAsOf(parent),
+    })
+  ) {
+    throw new MetricRefreshOutsideWindowError();
   }
 
   const plan = await planSnapshotAt(parent.settings.endDate).catch(

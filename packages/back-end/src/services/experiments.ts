@@ -289,6 +289,7 @@ import { PAYLOAD_AFFECTING_EXPERIMENT_FIELDS } from "back-end/src/services/exper
 import { getScheduledAnalysisEndDate } from "back-end/src/services/scheduledAnalysisEndDate";
 import {
   getMetricRefreshLockConflict,
+  type NewMetricsOnlyUpdateWindow,
   planMetricRefresh,
   resolveIncrementalMetricRefreshRun,
 } from "back-end/src/services/metricRefresh";
@@ -3009,6 +3010,7 @@ export async function createExperimentSnapshot({
   reweight,
   bypassResultsUpdateDisabled,
   missingMetricsOnly,
+  newMetricsOnlyWindow,
 }: {
   context: ReqContext;
   experiment: ExperimentInterface;
@@ -3021,6 +3023,7 @@ export async function createExperimentSnapshot({
   reweight?: boolean;
   bypassResultsUpdateDisabled?: boolean;
   missingMetricsOnly?: boolean;
+  newMetricsOnlyWindow?: NewMetricsOnlyUpdateWindow;
 }): Promise<{
   snapshot: ExperimentSnapshotInterface;
   queryRunner: ExperimentSnapshotQueryRunner;
@@ -3037,6 +3040,7 @@ export async function createExperimentSnapshot({
     reweight,
     bypassResultsUpdateDisabled,
     missingMetricsOnly,
+    newMetricsOnlyWindow,
   });
 
   return createExperimentSnapshotFromPlan({
@@ -3092,6 +3096,7 @@ export async function planExperimentSnapshot({
   throwIfRequiresFullRefresh,
   bypassResultsUpdateDisabled,
   missingMetricsOnly,
+  newMetricsOnlyWindow,
 }: {
   context: ReqContext;
   experiment: ExperimentInterface;
@@ -3106,6 +3111,8 @@ export async function planExperimentSnapshot({
   // Skip the org "disable updating results for stopped experiments" setting.
   bypassResultsUpdateDisabled?: boolean;
   missingMetricsOnly?: boolean;
+  // With missingMetricsOnly: refuse unless shouldUpdateNewMetricsOnly agrees.
+  newMetricsOnlyWindow?: NewMetricsOnlyUpdateWindow;
 }): Promise<PlannedExperimentSnapshot> {
   if (
     !bypassResultsUpdateDisabled &&
@@ -3233,6 +3240,7 @@ export async function planExperimentSnapshot({
       metricGroups,
       planSnapshotAt: (cutoff) =>
         planSnapshot({ ...planSnapshotArgs, cutoff, forMetricRefresh: true }),
+      window: newMetricsOnlyWindow,
     });
   }
   return planSnapshot(planSnapshotArgs);

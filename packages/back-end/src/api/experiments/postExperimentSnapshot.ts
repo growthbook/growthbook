@@ -1,4 +1,8 @@
 import isEqual from "lodash/isEqual";
+import { DEFAULT_NEW_METRICS_ONLY_UPDATE_WINDOW_MINUTES } from "shared/constants";
+import { getMetricRefresh } from "shared/experiments";
+import type { ExperimentInterface } from "shared/types/experiment";
+import type { DataSourceInterface } from "shared/types/datasource";
 import { postExperimentSnapshotValidator } from "shared/validators";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
@@ -16,8 +20,13 @@ import {
   BadRequestError,
   DimensionAlreadyUpToDateError,
   ExperimentIncrementalPipelineRequiresFullRefreshError,
+  MetricRefreshOutsideWindowError,
+  MetricRefreshUnavailableError,
+  MetricsAlreadyUpToDateError,
   NotFoundError,
+  SnapshotInProgressError,
 } from "back-end/src/util/errors";
+import type { ApiReqContext } from "back-end/types/api";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { logger } from "back-end/src/util/logger";
 
@@ -26,6 +35,81 @@ const REQUIRES_FULL_REFRESH_RESUBMIT_INSTRUCTIONS =
 const DIMENSION_ALREADY_UP_TO_DATE_RESUBMIT_INSTRUCTIONS =
   'Send "dimension": "" to update Overall Results, wait for that snapshot to finish, then resubmit this request.';
 
+/**
+ * - "auto": update only the newly added metrics when the last full update is
+ *   recent enough, otherwise a normal update.
+ * - "missing": update only the newly added metrics, or refuse.
+ * - "all": a normal update.
+ */
+type NewMetricsUpdateMode = "auto" | "missing" | "all";
+
+function getNewMetricsUpdateMode({
+  missingMetricsOnly,
+  dimension,
+  triggeredBy,
+  windowMinutes,
+}: {
+  missingMetricsOnly: boolean | undefined;
+  dimension: string | undefined;
+  triggeredBy: "manual" | "schedule" | undefined;
+  windowMinutes: number;
+}): NewMetricsUpdateMode {
+  const otherUpdateRequested = !!dimension || triggeredBy === "schedule";
+  if (missingMetricsOnly === true) {
+    if (otherUpdateRequested) {
+      throw new BadRequestError(
+        '"missingMetricsOnly" cannot be combined with "dimension" or with "triggeredBy": "schedule".',
+      );
+    }
+    return "missing";
+  }
+  if (
+    missingMetricsOnly === false ||
+    otherUpdateRequested ||
+    windowMinutes <= 0
+  ) {
+    return "all";
+  }
+  return "auto";
+}
+
+const isNewMetricsOnlyRefusal = (error: unknown): boolean =>
+  error instanceof ExperimentIncrementalPipelineRequiresFullRefreshError ||
+  error instanceof MetricRefreshUnavailableError ||
+  error instanceof MetricsAlreadyUpToDateError ||
+  error instanceof SnapshotInProgressError ||
+  error instanceof MetricRefreshOutsideWindowError;
+
+async function updateNewMetricsOnlyIfRecent({
+  context,
+  experiment,
+  datasource,
+  phase,
+  windowMinutes,
+}: {
+  context: ApiReqContext;
+  experiment: ExperimentInterface;
+  datasource: DataSourceInterface;
+  phase: number;
+  windowMinutes: number;
+}): Promise<Awaited<ReturnType<typeof createExperimentSnapshot>> | null> {
+  try {
+    return await createExperimentSnapshot({
+      context,
+      experiment,
+      datasource,
+      phase,
+      dimension: undefined,
+      useCache: true,
+      missingMetricsOnly: true,
+      newMetricsOnlyWindow: { windowMinutes, now: new Date() },
+    });
+  } catch (error) {
+    if (isNewMetricsOnlyRefusal(error)) return null;
+    throw error;
+  }
+}
+
 export const postExperimentSnapshot = createApiRequestHandler(
   postExperimentSnapshotValidator,
 )(async (req) => {
@@ -33,12 +117,15 @@ export const postExperimentSnapshot = createApiRequestHandler(
   const id = req.params.id;
 
   const { triggeredBy, dimension, phase } = req.body ?? {};
-  const missingMetricsOnly = req.body?.missingMetricsOnly === true;
-  if (missingMetricsOnly && (dimension || triggeredBy === "schedule")) {
-    throw new BadRequestError(
-      '"missingMetricsOnly" cannot be combined with "dimension" or with "triggeredBy": "schedule".',
-    );
-  }
+  const windowMinutes =
+    context.org.settings?.newMetricsOnlyUpdateWindowMinutes ??
+    DEFAULT_NEW_METRICS_ONLY_UPDATE_WINDOW_MINUTES;
+  const mode = getNewMetricsUpdateMode({
+    missingMetricsOnly: req.body?.missingMetricsOnly,
+    dimension,
+    triggeredBy,
+    windowMinutes,
+  });
   const experiment = await getExperimentById(context, id);
 
   if (!experiment) {
@@ -86,6 +173,16 @@ export const postExperimentSnapshot = createApiRequestHandler(
 
   let useCache = true;
   let result: Awaited<ReturnType<typeof createExperimentSnapshot>>;
+  const newMetricsOnlyResult =
+    mode === "auto"
+      ? await updateNewMetricsOnlyIfRecent({
+          context,
+          experiment,
+          datasource,
+          phase: phaseIndex,
+          windowMinutes,
+        })
+      : null;
 
   if (dimension) {
     let plan: PlannedExperimentSnapshot;
@@ -150,7 +247,7 @@ export const postExperimentSnapshot = createApiRequestHandler(
       context,
       experiment,
     });
-  } else if (missingMetricsOnly) {
+  } else if (mode === "missing") {
     // No Full Refresh fallback: the caller asked for the cheap path only.
     result = await createExperimentSnapshot({
       context,
@@ -161,6 +258,8 @@ export const postExperimentSnapshot = createApiRequestHandler(
       useCache: true,
       missingMetricsOnly: true,
     });
+  } else if (newMetricsOnlyResult) {
+    result = newMetricsOnlyResult;
   } else {
     try {
       result = await createExperimentSnapshot({
@@ -209,7 +308,7 @@ export const postExperimentSnapshot = createApiRequestHandler(
       dimension,
       useCache,
       manual: false,
-      ...(missingMetricsOnly ? { missingMetricsOnly } : {}),
+      ...(getMetricRefresh(snapshot) ? { missingMetricsOnly: true } : {}),
     }),
   });
   return { snapshot: toApiExperimentSnapshot(snapshot) };
