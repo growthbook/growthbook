@@ -43773,10 +43773,11 @@ paths:
                                           **Beta** — this field is new and may
                                           change in backwards-incompatible ways. A
                                           saved Population applied to every metric
-                                          in the request. Only proportion metrics
-                                          on the Population's Fact Table are
-                                          supported; the request is rejected if
-                                          any metric is incompatible.
+                                          in the request. Only proportion and mean
+                                          metrics on the Population's Fact Table
+                                          are supported, and mean metrics can't
+                                          use percentile capping; the request is
+                                          rejected if any metric is incompatible.
                                         $ref: >-
                                           #/components/schemas/ExplorationPopulation
                                     required:
@@ -47226,10 +47227,11 @@ paths:
                                           **Beta** — this field is new and may
                                           change in backwards-incompatible ways. A
                                           saved Population applied to every metric
-                                          in the request. Only proportion metrics
-                                          on the Population's Fact Table are
-                                          supported; the request is rejected if
-                                          any metric is incompatible.
+                                          in the request. Only proportion and mean
+                                          metrics on the Population's Fact Table
+                                          are supported, and mean metrics can't
+                                          use percentile capping; the request is
+                                          rejected if any metric is incompatible.
                                         $ref: >-
                                           #/components/schemas/ExplorationPopulation
                                     required:
@@ -50874,10 +50876,11 @@ paths:
                                       **Beta** — this field is new and may
                                       change in backwards-incompatible ways. A
                                       saved Population applied to every metric
-                                      in the request. Only proportion metrics on
-                                      the Population's Fact Table are supported;
-                                      the request is rejected if any metric is
-                                      incompatible.
+                                      in the request. Only proportion and mean
+                                      metrics on the Population's Fact Table are
+                                      supported, and mean metrics can't use
+                                      percentile capping; the request is
+                                      rejected if any metric is incompatible.
                                     $ref: '#/components/schemas/ExplorationPopulation'
                                 required:
                                   - type
@@ -54524,10 +54527,11 @@ paths:
                                       **Beta** — this field is new and may
                                       change in backwards-incompatible ways. A
                                       saved Population applied to every metric
-                                      in the request. Only proportion metrics on
-                                      the Population's Fact Table are supported;
-                                      the request is rejected if any metric is
-                                      incompatible.
+                                      in the request. Only proportion and mean
+                                      metrics on the Population's Fact Table are
+                                      supported, and mean metrics can't use
+                                      percentile capping; the request is
+                                      rejected if any metric is incompatible.
                                     $ref: '#/components/schemas/ExplorationPopulation'
                                 required:
                                   - type
@@ -60644,8 +60648,9 @@ paths:
                       description: >-
                         **Beta** — this field is new and may change in
                         backwards-incompatible ways. A saved Population applied
-                        to every metric in the request. Only proportion metrics
-                        on the Population's Fact Table are supported; the
+                        to every metric in the request. Only proportion and mean
+                        metrics on the Population's Fact Table are supported,
+                        and mean metrics can't use percentile capping; the
                         request is rejected if any metric is incompatible.
                       $ref: '#/components/schemas/ExplorationPopulation'
                   required:
@@ -61121,10 +61126,11 @@ paths:
                                       **Beta** — this field is new and may
                                       change in backwards-incompatible ways. A
                                       saved Population applied to every metric
-                                      in the request. Only proportion metrics on
-                                      the Population's Fact Table are supported;
-                                      the request is rejected if any metric is
-                                      incompatible.
+                                      in the request. Only proportion and mean
+                                      metrics on the Population's Fact Table are
+                                      supported, and mean metrics can't use
+                                      percentile capping; the request is
+                                      rejected if any metric is incompatible.
                                     $ref: '#/components/schemas/ExplorationPopulation'
                                 required:
                                   - type
@@ -86035,9 +86041,10 @@ components:
                               **Beta** — this field is new and may change in
                               backwards-incompatible ways. A saved Population
                               applied to every metric in the request. Only
-                              proportion metrics on the Population's Fact Table
-                              are supported; the request is rejected if any
-                              metric is incompatible.
+                              proportion and mean metrics on the Population's
+                              Fact Table are supported, and mean metrics can't
+                              use percentile capping; the request is rejected if
+                              any metric is incompatible.
                             $ref: '#/components/schemas/ExplorationPopulation'
                         required:
                           - type
@@ -89703,8 +89710,9 @@ components:
                       description: >-
                         **Beta** — this field is new and may change in
                         backwards-incompatible ways. A saved Population applied
-                        to every metric in the request. Only proportion metrics
-                        on the Population's Fact Table are supported; the
+                        to every metric in the request. Only proportion and mean
+                        metrics on the Population's Fact Table are supported,
+                        and mean metrics can't use percentile capping; the
                         request is rejected if any metric is incompatible.
                       $ref: '#/components/schemas/ExplorationPopulation'
                   required:

@@ -440,6 +440,44 @@ describe("metric explorations with a population", () => {
       },
     ],
     [
+      "limits mean metrics to members, mixed with a proportion",
+      explore({
+        metrics: [revenue, purchaseDevices, purchasers],
+        population: mobileUsers(),
+      }),
+      {
+        // Members: Alice, Bob, NULL user. Revenue is $12 + $99 from the two
+        // purchasers; Dylan's desktop $21 is left out. Bob has no purchases,
+        // so he isn't in any metric's denominator.
+        "2026-09-01": {
+          populationCount: 3,
+          values: [
+            [111, 2],
+            [2, 2],
+            [2, 2],
+          ],
+        },
+        // Members: Alice, Bob, Erin, Gina. Bob ($5) and Erin ($20) purchased.
+        "2026-09-02": {
+          populationCount: 4,
+          values: [
+            [25, 2],
+            [2, 2],
+            [2, 2],
+          ],
+        },
+        // Member: Frank, who didn't purchase.
+        "2026-09-03": {
+          populationCount: 1,
+          values: [
+            [null, 0],
+            [null, 0],
+            [null, 0],
+          ],
+        },
+      },
+    ],
+    [
       "returns an empty overall row when nothing happened in the date range",
       explore({
         metrics: [purchasers],
@@ -460,25 +498,9 @@ describe("metric explorations with a population", () => {
   describe("rejected requests", () => {
     it.each<[string, MetricExplorationConfig, string]>([
       [
-        "a mean metric alongside a proportion",
-        explore({
-          metrics: [purchasers, revenue],
-          population: mobileRevenueOver10,
-        }),
-        'Metric "Revenue" can\'t be combined with a Population.',
-      ],
-      [
         "an unsupported metric listed first",
         explore({
-          metrics: [purchaseDevices, purchasers],
-          population: mobileRevenueOver10,
-        }),
-        'Metric "Purchase devices" can\'t be combined with a Population.',
-      ],
-      [
-        "a ratio metric",
-        explore({
-          metrics: [revenuePerPurchase],
+          metrics: [revenuePerPurchase, purchasers],
           population: mobileRevenueOver10,
         }),
         'Metric "Revenue per purchase" can\'t be combined with a Population.',
@@ -626,8 +648,38 @@ describe("metric explorations with a population", () => {
       ).toBe("Populations require at least one metric.");
     });
 
+    it("rejects a mean metric with percentile capping", () => {
+      const cappedRevenue = {
+        ...revenue,
+        cappingSettings: { type: "percentile", value: 0.99 },
+      } as FactMetricInterface;
+      expect(
+        violations(
+          explore({ metrics: [cappedRevenue], population: mobileUsers() }),
+          [cappedRevenue],
+        ),
+      ).toBe(
+        "Metric \"Revenue\" can't be combined with a Population because it uses percentile capping, which is computed across all units rather than the Population's members.",
+      );
+    });
+
+    it("accepts a mean metric with an absolute cap", () => {
+      const cappedRevenue = {
+        ...revenue,
+        cappingSettings: { type: "absolute", value: 50 },
+      } as FactMetricInterface;
+      expect(
+        violations(
+          explore({ metrics: [cappedRevenue], population: mobileUsers() }),
+          [cappedRevenue],
+        ),
+      ).toBe("");
+    });
+
     it.each(
-      metricTypeValidator.options.filter((type) => type !== "proportion"),
+      metricTypeValidator.options.filter(
+        (type) => type !== "proportion" && type !== "mean",
+      ),
     )("rejects a %s metric", (metricType) => {
       const config = explore({
         metrics: [purchasers],
@@ -639,7 +691,7 @@ describe("metric explorations with a population", () => {
         numerator: metricType === "funnel" ? null : purchasers.numerator,
       } as FactMetricInterface;
       expect(violations(config, [metric])).toContain(
-        "Populations currently support only proportion metrics",
+        "Populations currently support only proportion and mean metrics",
       );
     });
   });

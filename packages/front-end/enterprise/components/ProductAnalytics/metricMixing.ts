@@ -14,8 +14,9 @@ import {
   getChosenUnits,
   getMetricIdentifierTypes,
   getMetricMixClass,
+  getPopulationIncompatibility,
   getPopulationMetricFactTableId,
-  isSupportedWithPopulation,
+  isPopulationEligible,
   metricSupportsUnitSelection,
   parseMetricExplorationPopulation,
   resolveSavedPopulation,
@@ -73,28 +74,29 @@ export function getAddMetricConflict(
 
 /**
  * Why a metric can't join a chart whose Population reads from
- * `populationFactTable`, or null if it can (or the chart has no Population,
- * or its definition hasn't loaded). Populations only support proportion
- * metrics on their own Fact Table, which the reason names so it says what to
- * pick instead.
+ * `populationFactTable`, or null if it can. Populations only support
+ * proportion and mean metrics on their own Fact Table, which the reason names
+ * so it says what to pick instead.
  */
 export function getPopulationConflict(
   metric: FactMetricInterface,
-  populationFactTable: { id: string; name: string | null } | null,
+  populationFactTable: { id: string; name: string | null },
 ): string | null {
-  if (populationFactTable === null) return null;
   const { id, name } = populationFactTable;
-  if (!isSupportedWithPopulation(metric)) {
-    return name
-      ? `Charts with this Population only support proportion metrics on the ${name} Fact Table.`
-      : "Charts with a Population only support proportion metrics.";
+  switch (getPopulationIncompatibility(metric, id)) {
+    case null:
+      return null;
+    case "metricType":
+      return name
+        ? `Charts with this Population only support proportion and average per unit metrics on the ${name} Fact Table.`
+        : "Charts with a Population only support proportion and average per unit metrics.";
+    case "percentileCap":
+      return "Metrics with percentile capping can't be combined with a Population.";
+    case "factTable":
+      return name
+        ? `Charts with this Population only support metrics on the ${name} Fact Table.`
+        : "This metric doesn't use the Population's Fact Table.";
   }
-  if (getPopulationMetricFactTableId(metric) !== id) {
-    return name
-      ? `Charts with this Population only support metrics on the ${name} Fact Table.`
-      : "This metric doesn't use the Population's Fact Table.";
-  }
-  return null;
 }
 
 /** Why a metric can't join a chart locked to `lockedUnit`, or null if it can. */
@@ -210,9 +212,10 @@ export function getReadOnlyUnit(
 /**
  * The Fact Table a Population must read from to be combined with these
  * metrics, or null when they can't take one. Populations only support
- * proportion metrics, and every metric must share the Population's Fact Table.
- * Empty slots and metrics that haven't loaded yet are skipped, so they don't
- * hide the picker; null when no loaded proportion is left.
+ * proportion and uncapped-by-percentile mean metrics, and every metric must
+ * share the Population's Fact Table. Empty slots and metrics that haven't
+ * loaded yet are skipped, so they don't hide the picker; null when no loaded
+ * metric is left.
  */
 export function getPopulationFactTableId(
   values: MetricValue[],
@@ -224,7 +227,7 @@ export function getPopulationFactTableId(
     const metric = getFactMetricById(value.metricId);
     // Unknown until it loads, which isn't the same as incompatible.
     if (!metric) continue;
-    if (!isSupportedWithPopulation(metric)) return null;
+    if (!isPopulationEligible(metric)) return null;
     const factTableId = getPopulationMetricFactTableId(metric);
     if (sharedFactTableId === null) {
       sharedFactTableId = factTableId;

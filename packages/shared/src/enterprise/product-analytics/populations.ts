@@ -15,6 +15,10 @@ import type {
   FactMetricInterface,
   FactMetricType,
 } from "shared/types/fact-table";
+import {
+  getCappingTailState,
+  isCappableFactMetric,
+} from "../../validators/fact-table";
 
 export function configHasPopulation(config: ExplorationConfig | null): boolean {
   if (config?.dataset.type !== "metric") return false;
@@ -23,12 +27,66 @@ export function configHasPopulation(config: ExplorationConfig | null): boolean {
 
 // Metric types that can be combined with a population. Types not listed here
 // are rejected.
-const POPULATION_METRIC_TYPES = new Set<FactMetricType>(["proportion"]);
+const POPULATION_METRIC_TYPES = new Set<FactMetricType>(["proportion", "mean"]);
 
-export function isSupportedWithPopulation(
-  metric: FactMetricInterface,
+/** Why a metric can't be combined with any Population. */
+export type PopulationIneligibilityReason = "metricType" | "percentileCap";
+
+/**
+ * Why a metric can't be combined with a given Population, including reasons
+ * why it can't be combined with any Population, or because of an incompatible Fact Table.
+ */
+export type PopulationIncompatibilityReason =
+  | PopulationIneligibilityReason
+  | "factTable";
+
+/** The parts of a metric's definition that decide whether any Population can use it. */
+type PopulationEligibilityFields = Pick<
+  FactMetricInterface,
+  "metricType" | "cappingSettings" | "lowerCappingSettings"
+>;
+
+/**
+ * Why a metric can't be combined with any Population, or null if it can. It
+ * reads only the metric's definition, so it can run before a Population is
+ * chosen. Percentile caps are computed over every unit's rows, not just the
+ * Population's members, so they would clip members' values at the wrong cap.
+ */
+export function getPopulationIneligibility(
+  metric: PopulationEligibilityFields,
+): PopulationIneligibilityReason | null {
+  if (!POPULATION_METRIC_TYPES.has(metric.metricType)) return "metricType";
+  const appliesPercentileCap =
+    // Proportions never apply caps, but ones saved before capping was
+    // validated (#5601) can still carry percentile settings, which mustn't
+    // block them.
+    isCappableFactMetric(metric.metricType) &&
+    getCappingTailState(metric.cappingSettings, metric.lowerCappingSettings)
+      .usesPercentile;
+  if (appliesPercentileCap) return "percentileCap";
+  return null;
+}
+
+export function isPopulationEligible(
+  metric: PopulationEligibilityFields,
 ): boolean {
-  return POPULATION_METRIC_TYPES.has(metric.metricType);
+  return getPopulationIneligibility(metric) === null;
+}
+
+/**
+ * Why a metric can't be combined with the Population that reads from
+ * `populationFactTableId`, or null if it can: it must be eligible for any
+ * Population and share this one's Fact Table.
+ */
+export function getPopulationIncompatibility(
+  metric: FactMetricInterface,
+  populationFactTableId: string,
+): PopulationIncompatibilityReason | null {
+  const ineligibility = getPopulationIneligibility(metric);
+  if (ineligibility !== null) return ineligibility;
+  const sharesFactTable =
+    getPopulationMetricFactTableId(metric) === populationFactTableId;
+  return sharesFactTable ? null : "factTable";
 }
 
 /**
@@ -175,16 +233,23 @@ export function parseMetricExplorationPopulation({
       violations.push(`Metric ${value.metricId} not found.`);
       continue;
     }
-    if (!isSupportedWithPopulation(metric)) {
-      const supported = [...POPULATION_METRIC_TYPES].join(", ");
+    const incompatibility = getPopulationIncompatibility(
+      metric,
+      resolved.source.factTableId,
+    );
+    if (incompatibility === "metricType") {
       violations.push(
-        `Metric "${metric.name}" can't be combined with a Population. Populations currently support only ${supported} metrics, and the Population applies to every metric in the request.`,
+        `Metric "${metric.name}" can't be combined with a Population. Populations currently support only proportion and mean metrics, and the Population applies to every metric in the request.`,
       );
       continue;
     }
-    if (
-      getPopulationMetricFactTableId(metric) !== resolved.source.factTableId
-    ) {
+    if (incompatibility === "percentileCap") {
+      violations.push(
+        `Metric "${metric.name}" can't be combined with a Population because it uses percentile capping, which is computed across all units rather than the Population's members.`,
+      );
+      continue;
+    }
+    if (incompatibility === "factTable") {
       violations.push(
         `Metric "${metric.name}" must use the same Fact Table as the Population.`,
       );

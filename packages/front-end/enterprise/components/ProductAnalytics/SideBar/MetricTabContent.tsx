@@ -74,10 +74,16 @@ export default function MetricTabContent() {
   const populationFactTableId = appliedPopulation
     ? (getSinglePopulationStep(appliedPopulation)?.source.factTableId ?? null)
     : null;
-  const populationFactTableName =
-    populationFactTableId !== null
-      ? (getFactTableById(populationFactTableId)?.name ?? null)
-      : null;
+  const populationFactTable = useMemo(
+    () =>
+      populationFactTableId !== null
+        ? {
+            id: populationFactTableId,
+            name: getFactTableById(populationFactTableId)?.name ?? null,
+          }
+        : null,
+    [getFactTableById, populationFactTableId],
+  );
   const unitState = getMetricValuesUnitState(
     values,
     getFactMetricById,
@@ -146,16 +152,17 @@ export default function MetricTabContent() {
       metric: FactMetricInterface,
       lockedClass: Exclude<MetricMixClass, "unknown"> | null,
       lockedUnit: string | null,
-    ): string | null =>
-      getPopulationConflict(
-        metric,
-        populationFactTableId !== null
-          ? { id: populationFactTableId, name: populationFactTableName }
-          : null,
-      ) ??
-      getMixClassConflict(metric.metricType, lockedClass) ??
-      getUnitConflict(metric, lockedUnit, getFactTableById),
-    [getFactTableById, populationFactTableId, populationFactTableName],
+    ): string | null => {
+      if (populationFactTable !== null) {
+        const conflict = getPopulationConflict(metric, populationFactTable);
+        if (conflict !== null) return conflict;
+      }
+      return (
+        getMixClassConflict(metric.metricType, lockedClass) ??
+        getUnitConflict(metric, lockedUnit, getFactTableById)
+      );
+    },
+    [getFactTableById, populationFactTable],
   );
 
   // Each slot lists its enabled metrics first. Slots with the same locks share
