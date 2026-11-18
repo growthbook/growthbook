@@ -8,6 +8,7 @@ import { createApiRequestHandler } from "back-end/src/util/handler";
 import {
   toApiRequireReviews,
   toApiSavedGroupApprovals,
+  toApiSdkConnectionApprovals,
 } from "./approvalRuleShapes";
 
 export const getSettings = createApiRequestHandler(getSettingsValidator)(async (
@@ -36,6 +37,9 @@ export const getSettings = createApiRequestHandler(getSettingsValidator)(async (
     approvalFlows: {
       savedGroups: toApiSavedGroupApprovals(
         orgSettings?.approvalFlows?.savedGroups ?? [],
+      ),
+      sdkConnections: toApiSdkConnectionApprovals(
+        req.context.org.settings?.approvalFlows?.sdkConnections ?? [],
       ),
     },
     restApiBypassesReviews: !!orgSettings?.restApiBypassesReviews,

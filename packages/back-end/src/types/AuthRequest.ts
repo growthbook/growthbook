@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import { UserScopedGrowthBook } from "@growthbook/growthbook";
+import { UserContext, UserScopedGrowthBook } from "@growthbook/growthbook";
 import { SSOConnectionInterface } from "shared/types/sso-connection";
 import { AuditInterface } from "shared/types/audit";
 import {
@@ -56,6 +56,8 @@ export type AuthRequest<
     data: Omit<AuditInterface, "organization" | "id" | "user" | "dateCreated">,
   ) => Promise<void>;
   gb?: UserScopedGrowthBook;
+  // What `gb` was made with, for events that log as something else (an agent).
+  gbUserContext?: UserContext;
 } & PermissionFunctions;
 
 export type ResponseWithStatusAndError<T = unknown> = Response<

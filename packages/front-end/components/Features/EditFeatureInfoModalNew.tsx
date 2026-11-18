@@ -342,7 +342,6 @@ const EditFeatureInfoModalNew: FC<{
         {section === "targetingProjects" ? (
           <TargetingProjectsField
             mb="4"
-            startOpen
             primaryProject={form.watch("project")}
             allProjects={form.watch("targetingAllProjects")}
             setAllProjects={(v) =>

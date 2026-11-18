@@ -8,6 +8,7 @@ import {
   findVisualChangesetById,
   updateVisualChange,
 } from "back-end/src/models/VisualChangesetModel";
+import { NotFoundError } from "back-end/src/util/errors";
 
 export const putVisualChange = createApiRequestHandler(
   putVisualChangeValidator,
@@ -22,7 +23,7 @@ export const putVisualChange = createApiRequestHandler(
     req.organization.id,
   );
   if (!visualChangeset) {
-    throw new Error("Visual Changeset not found");
+    throw new NotFoundError("Visual Changeset not found");
   }
 
   const owner = await resolveChangesetOwner(req.context, visualChangeset);

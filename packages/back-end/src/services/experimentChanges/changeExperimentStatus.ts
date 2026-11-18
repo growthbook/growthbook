@@ -30,7 +30,7 @@ import {
   getExperimentById,
   updateExperiment,
 } from "back-end/src/models/ExperimentModel";
-import { findSDKConnectionsByOrganization } from "back-end/src/models/SdkConnectionModel";
+import { findServingSDKConnections } from "back-end/src/models/SdkConnectionModel";
 import { findVisualChangesetsByExperiment } from "back-end/src/models/VisualChangesetModel";
 import { ReqContext } from "back-end/types/request";
 import { flagBypass } from "back-end/src/services/featurePublishGates";
@@ -62,6 +62,7 @@ import {
   ChecklistIncompleteError,
   ConflictError,
   InvalidStatusError,
+  NotFoundError,
   PendingDraftPublishFailedError,
 } from "back-end/src/util/errors";
 import {
@@ -206,7 +207,7 @@ export async function getExperimentStartChecklistStatus(
         experiment,
         arming ? { publisher: context } : {},
       ),
-      findSDKConnectionsByOrganization(context),
+      findServingSDKConnections(context),
       findVisualChangesetsByExperiment(experiment.id, context.org.id),
       context.models.urlRedirects.findByExperiment(experiment.id),
     ]);
@@ -245,7 +246,7 @@ async function loadAndValidateExperimentForStatusChange(
 ) {
   const experiment = await getExperimentById(context, experimentId);
   if (!experiment) {
-    throw new Error("Could not find experiment");
+    throw new NotFoundError("Could not find experiment");
   }
   if (experiment.organization !== context.org.id) {
     throw new Error("You do not have access to this experiment");

@@ -4,13 +4,14 @@ import { getMetricById } from "back-end/src/models/MetricModel";
 import { toMetricApiInterface } from "back-end/src/services/experiments";
 import { resolveOwnerEmail } from "back-end/src/services/owner";
 import { createApiRequestHandler } from "back-end/src/util/handler";
+import { NotFoundError } from "back-end/src/util/errors";
 
 export const getMetric = createApiRequestHandler(getMetricValidator)(async (
   req,
 ) => {
   const metric = await getMetricById(req.context, req.params.id, false);
   if (!metric) {
-    throw new Error("Could not find metric with that id");
+    throw new NotFoundError("Could not find metric with that id");
   }
 
   const datasource = metric.datasource

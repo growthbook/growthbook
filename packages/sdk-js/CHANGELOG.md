@@ -1,5 +1,9 @@
 # Changelog
 
+## **2.2.0** - Unreleased
+
+- Add `getInterleaveRankers()` and `getInterleaveRankersForKey()` to the interleaving plugin, for reading every ranker's config out of the payload — useful for pre-computing rankings in a background job
+
 ## **2.1.0** - Nov 16, 2026
 
 - Add `fallbackPayload` option to `init` - used when features can't be downloaded and nothing is cached

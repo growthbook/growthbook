@@ -15,7 +15,7 @@ import {
 } from "back-end/src/enterprise/services/agent-handler";
 import { AWAITING_CONFIRMATION_RESULT } from "back-end/src/enterprise/services/stream-processor";
 import {
-  dispatchInternal,
+  dispatchForAgent,
   normalizePath,
   type DispatchInput,
   type DispatchResult,
@@ -726,7 +726,7 @@ export function buildCoreAgentTools(
           return AWAITING_CONFIRMATION_RESULT;
         }
 
-        const result = await dispatchInternal(ctx, dispatchInput);
+        const result = await dispatchForAgent(ctx, dispatchInput);
 
         // SQL cost confirmation gate: when run-query returns
         // confirmation_required, park a confirmed re-call as a pending
