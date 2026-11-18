@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Flex } from "@radix-ui/themes";
 import { QRCodeSVG } from "qrcode.react";
 import { useAuth } from "@/services/auth";
-import Field from "@/components/Forms/Field";
+import TextField from "@/ui/TextField";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
 import Text from "@/ui/Text";
@@ -11,7 +11,12 @@ import CopyableCode from "@/components/Settings/CopyableCode";
 import RecoveryCodes from "./RecoveryCodes";
 
 // Enable/disable swap the session cookies, so a reload picks up the new token
-export default function MfaEnrollment() {
+// onEnabled lets a host show the recovery codes itself and own the exit
+export default function MfaEnrollment({
+  onEnabled,
+}: {
+  onEnabled?: (recoveryCodes: string[]) => void;
+}) {
   const { apiCall } = useAuth();
   const [setup, setSetup] = useState<{
     secret: string;
@@ -81,7 +86,8 @@ export default function MfaEnrollment() {
               body: JSON.stringify({ mfaCode: code }),
             },
           );
-          setRecoveryCodes(res.recoveryCodes);
+          if (onEnabled) onEnabled(res.recoveryCodes);
+          else setRecoveryCodes(res.recoveryCodes);
         });
       }}
     >
@@ -102,7 +108,7 @@ export default function MfaEnrollment() {
           :
         </Text>
         <CopyableCode value={setup.secret} framed />
-        <Field
+        <TextField
           label="Authentication code"
           required
           autoFocus

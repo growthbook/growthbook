@@ -1,4 +1,4 @@
-import { Flex, Grid } from "@radix-ui/themes";
+import { Code, Flex, Grid } from "@radix-ui/themes";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
@@ -17,7 +17,9 @@ export default function RecoveryCodes({ codes }: { codes: string[] }) {
       </Callout>
       <Grid columns="2" gap="2">
         {codes.map((code) => (
-          <code key={code}>{code}</code>
+          <Code key={code} variant="ghost">
+            {code}
+          </Code>
         ))}
       </Grid>
       <Flex gap="2">

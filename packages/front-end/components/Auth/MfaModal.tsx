@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
-import Field from "@/components/Forms/Field";
+import TextField from "@/ui/TextField";
 import Modal from "@/ui/Modal";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
@@ -16,6 +16,9 @@ export default function MfaModal({ close }: { close: () => void }) {
   const [error, setError] = useState("");
   const [pending, setPending] = useState<"codes" | "disable" | null>(null);
   const [newCodes, setNewCodes] = useState<string[] | null>(null);
+  // Turning MFA on swaps the session cookies, so leaving must reload
+  const [enabledHere, setEnabledHere] = useState(false);
+  const finish = () => (enabledHere ? window.location.reload() : close());
 
   const run = async (action: "codes" | "disable", fn: () => Promise<void>) => {
     setError("");
@@ -32,7 +35,7 @@ export default function MfaModal({ close }: { close: () => void }) {
     <Modal.Root
       open={true}
       onOpenChange={(open) => {
-        if (!open) close();
+        if (!open) finish();
       }}
       trackingEventModalType="mfa-settings"
     >
@@ -40,10 +43,15 @@ export default function MfaModal({ close }: { close: () => void }) {
         <Modal.Title>Multi-Factor Authentication</Modal.Title>
       </Modal.Header>
       <Modal.Body>
-        {!mfaEnabled ? (
-          <MfaEnrollment />
-        ) : newCodes ? (
+        {newCodes ? (
           <RecoveryCodes codes={newCodes} />
+        ) : !mfaEnabled ? (
+          <MfaEnrollment
+            onEnabled={(codes) => {
+              setEnabledHere(true);
+              setNewCodes(codes);
+            }}
+          />
         ) : (
           <>
             <Text as="p" mb="3">
@@ -57,7 +65,7 @@ export default function MfaModal({ close }: { close: () => void }) {
                 can still log in if you lose your authenticator app.
               </Callout>
             )}
-            <Field
+            <TextField
               label="Authentication code"
               helpText="Enter a code from your authenticator app, or a recovery code, to make changes."
               autoFocus
@@ -71,7 +79,7 @@ export default function MfaModal({ close }: { close: () => void }) {
       </Modal.Body>
       <Modal.Footer>
         <Modal.Close>
-          <Button variant="ghost" onClick={close}>
+          <Button variant="ghost" onClick={finish}>
             {newCodes ? "Done" : "Cancel"}
           </Button>
         </Modal.Close>
