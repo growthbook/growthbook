@@ -1,14 +1,10 @@
 import {
-  Attributes,
   Context,
   context as otelContext,
   createContextKey,
-  INVALID_SPAN_CONTEXT,
   ROOT_CONTEXT,
   Span,
-  SpanKind,
   SpanOptions,
-  SpanStatusCode,
   trace,
   Tracer,
 } from "@opentelemetry/api";
@@ -35,7 +31,7 @@ import {
 } from "back-end/src/util/secrets";
 
 // Separate from the app's Datadog or OpenTelemetry tracing: never registered
-// globally, and only the spans below are handed its tracer.
+// globally, and only the AI SDK is handed its tracer.
 let provider: TracerProvider | null | undefined;
 let tracer: Tracer | null = null;
 
@@ -50,7 +46,7 @@ const OWN_SPAN_KEY = createContextKey("growthbook-ingestor-traces-span");
 
 // Our spans run inside request spans from Sentry, Datadog or OpenTelemetry,
 // which never reach this exporter. Our parent is kept under its own context key
-// so each job or AI call is its own trace, and the app's other instrumentation
+// so each AI call is its own trace, and the app's other instrumentation
 // keeps parenting off the request span.
 export class OwnParentTracer implements Tracer {
   constructor(private inner: Tracer) {}
@@ -126,38 +122,6 @@ function getTracer(): Tracer | null {
   });
   tracer = new OwnParentTracer(provider.getTracer("growthbook"));
   return tracer;
-}
-
-export async function runInSpan<T>(
-  tracer: Tracer,
-  name: string,
-  options: { kind?: SpanKind; attributes?: Attributes },
-  fn: (span: Span) => Promise<T>,
-): Promise<T> {
-  return tracer.startActiveSpan(name, options, async (span) => {
-    try {
-      return await fn(span);
-    } catch (e) {
-      span.recordException(e instanceof Error ? e : String(e));
-      span.setStatus({
-        code: SpanStatusCode.ERROR,
-        message: e instanceof Error ? e.message : String(e),
-      });
-      throw e;
-    } finally {
-      span.end();
-    }
-  });
-}
-
-export function withSpan<T>(
-  name: string,
-  options: { kind?: SpanKind; attributes?: Attributes },
-  fn: (span: Span) => Promise<T>,
-): Promise<T> {
-  const tracer = getTracer();
-  if (!tracer) return fn(trace.wrapSpanContext(INVALID_SPAN_CONTEXT));
-  return runInSpan(tracer, name, options, fn);
 }
 
 export function getAITelemetry(

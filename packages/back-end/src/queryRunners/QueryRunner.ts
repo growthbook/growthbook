@@ -1,5 +1,4 @@
 import EventEmitter from "events";
-import { SpanKind } from "@opentelemetry/api";
 import { ExternalIdCallback, QueryResponse } from "shared/types/integrations";
 import {
   Queries,
@@ -28,7 +27,6 @@ import {
 import { SourceIntegrationInterface } from "back-end/src/types/Integration";
 import { getErrorMessage } from "back-end/src/util/errors";
 import { logger } from "back-end/src/util/logger";
-import { withSpan } from "back-end/src/services/ingestorTraces";
 import {
   cancelExternalJobsForQueries,
   cancelQueryAndConfirm,
@@ -1151,8 +1149,7 @@ export abstract class QueryRunner<
       }
     };
 
-    const tracedRun = this.withQuerySpan(doc, run);
-    tracedRun(doc.query, setExternalId, {
+    run(doc.query, setExternalId, {
       ...metadata,
       queryType: doc.queryType || "unknown",
       queryId: doc.id,
@@ -1192,42 +1189,6 @@ export abstract class QueryRunner<
           logger.error(err);
         }
       });
-  }
-
-  private withQuerySpan<Rows extends RowsType>(
-    doc: QueryInterface,
-    run: (
-      query: string,
-      setExternalId: ExternalIdCallback,
-      queryMetadata: RunQueryMetadata,
-    ) => Promise<QueryResponse<Rows>>,
-  ): typeof run {
-    return (query, setExternalId, queryMetadata) =>
-      withSpan(
-        `query ${doc.queryType || "unknown"}`,
-        {
-          kind: SpanKind.CLIENT,
-          attributes: {
-            "db.system.name": this.integration.datasource.type,
-            "db.query.text": query,
-            "growthbook.organization": this.context.org.id,
-            "growthbook.datasource": this.integration.datasource.id,
-            "growthbook.query.id": doc.id,
-            "growthbook.query.type": doc.queryType || "unknown",
-          },
-        },
-        async (span) => {
-          const response = await run(query, setExternalId, queryMetadata);
-          span.setAttribute("db.response.returned_rows", response.rows.length);
-          for (const [key, value] of Object.entries(
-            response.statistics ?? {},
-          )) {
-            if (value !== undefined)
-              span.setAttribute(`db.statistics.${key}`, value);
-          }
-          return response;
-        },
-      );
   }
 
   public async startQuery<
