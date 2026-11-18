@@ -4,7 +4,6 @@ import {
   Revision,
   RevisionTargetType,
   checkMergeConflicts,
-  landedOps,
   mergeNestedBranch,
   normalizeProposedChanges,
   isUserBlockedFromApproving,
@@ -43,6 +42,7 @@ import {
   applyPatchToSnapshot,
   buildMergeDesiredState,
   isRevisionDiverged,
+  landedTarget,
 } from "back-end/src/revisions/util";
 import {
   holdsMoveDestination,
@@ -987,7 +987,6 @@ async function publishRevisionInner(
   // nothing applied) or will lose (its `close` CAS-fails once we've merged).
   // This closes the window where a discard landing between applyChanges and
   // merge would orphan a half-applied change on the live entity.
-  const baseSnapshot = revision.target.snapshot as Record<string, unknown>;
   const merged = await context.models.revisions.merge(
     revision.id,
     context.actorId,
@@ -995,19 +994,7 @@ async function publishRevisionInner(
       bypass: isBypass,
       // Same authorized-content pin as the no-op branch and bulk's claim.
       expected: { status: revision.status, dateUpdated: revision.dateUpdated },
-      // Behind live, what lands isn't what the draft holds: live keeps what
-      // changed since, and history should say so.
-      ...(isRevisionDiverged(adapter, baseSnapshot, entity) && {
-        landed: {
-          snapshot: adapter.buildSnapshot(entity),
-          proposedChanges: landedOps(
-            entity,
-            baseSnapshot,
-            revision.target.proposedChanges,
-            updatableFields,
-          ),
-        } as Pick<Revision["target"], "snapshot" | "proposedChanges">,
-      }),
+      landed: landedTarget(adapter, revision, entity),
     },
   );
 

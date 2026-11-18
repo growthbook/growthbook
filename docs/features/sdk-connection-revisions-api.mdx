@@ -114,7 +114,7 @@ curl -X PUT 'https://api.growthbook.io/api/v1/sdk-connections-revisions/sdk_abc1
   }'
 ```
 
-`revisionTitle` and `revisionComment` are ignored when editing an existing draft. An edit that changes nothing is refused, so it never opens an empty draft.
+`revisionTitle` and `revisionComment` are ignored when editing an existing draft. An edit to `new` that changes nothing is refused, so it never opens an empty draft.
 
 ## Revisions
 
@@ -133,7 +133,7 @@ An SDK Connection has one live revision and any number of open drafts. Statuses 
 `POST .../{version}/revert` restores the settings and webhooks that a published revision left the connection with. It creates a draft by default. Pass `{"strategy": "publish"}` to apply it at once. When the connection requires approval, that needs **Bypass draft approvals** access, unless the organization lets reverts bypass approval.
 
 - Whether the connection is archived is not restored.
-- A webhook that the revert brings back is created again with a new signing key. Its id is listed in `recreatedWebhookIds`, so you can update whatever verifies its signature.
+- A webhook that the revert brings back is created again with a new signing key, so update whatever verifies its signature. When the revert is applied at once, the response lists those webhooks in `recreatedWebhookIds`.
 
 ### Discarding and Reopening
 

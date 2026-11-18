@@ -66,6 +66,12 @@ describe("SDK Connection revision endpoints", () => {
     context.hasPremiumFeature = () => true;
     if (!canBypass) {
       context.permissions.canBypassSDKConnectionApprovalChecks = () => false;
+      const can = context.permissions.canRevisionAction.bind(
+        context.permissions,
+      );
+      context.permissions.canRevisionAction = (
+        ...args: Parameters<typeof can>
+      ) => args[1] !== "bypass" && can(...args);
     }
     if (webhooksOnly) {
       context.permissions.canUpdateSDKConnection = () => false;
@@ -216,6 +222,28 @@ describe("SDK Connection revision endpoints", () => {
       .set(auth);
     expect(noop.status).toBe(400);
     expect(noop.body.message).toMatch(/Nothing to stage/);
+
+    const hook = await request(app)
+      .post(`/api/v1/sdk-connections/${id}/webhooks`)
+      .send({ name: "Purge", endpoint: "https://example.com/purge" })
+      .set(auth);
+    const sameWebhook = await request(app)
+      .put(`${BASE}/${id}/new/webhooks/${hook.body.sdkWebhook.id}`)
+      .send({ name: "Purge" })
+      .set(auth);
+    expect(sameWebhook.status).toBe(400);
+    expect(sameWebhook.body.message).toMatch(/Nothing to stage/);
+    // Refused when staged, not when the publish writes it.
+    const slow = await request(app)
+      .post(`${BASE}/${id}/new/webhooks`)
+      .send({
+        name: "Slow",
+        endpoint: "https://example.com/slow",
+        timeoutSeconds: 100000,
+      })
+      .set(auth);
+    expect(slow.status).toBe(400);
+    expect(slow.body.message).toMatch(/timeout/i);
 
     const staged = await request(app)
       .put(`${BASE}/${id}/new/settings`)
@@ -374,8 +402,9 @@ describe("SDK Connection revision endpoints", () => {
         proposedSdkConnection: { name: "Web app", includeRuleIds: true },
         proposedWebhooks: [{ id: webhookId }],
       },
-      recreatedWebhookIds: [webhookId],
     });
+    // Nothing is recreated until the revert lands.
+    expect(drafted.body).not.toHaveProperty("recreatedWebhookIds");
     expect((await liveConnection(id))?.name).toBe("Web 2");
     await request(app)
       .post(`${BASE}/${id}/${drafted.body.revision.version}/discard`)
@@ -610,6 +639,20 @@ describe("SDK Connection revision endpoints", () => {
     });
     expect(lastArgs("revision").revision).not.toHaveProperty("target");
     expect((await liveConnection(id))?.name).toBe("Web app");
+
+    // Hooks get no key of the connection's or its webhooks'.
+    expect(lastArgs().sdkConnection).not.toHaveProperty("key");
+    expect(lastArgs().sdkConnection).not.toHaveProperty("encryptionKey");
+    expect(lastArgs().sdkWebhooks[0]).not.toHaveProperty("signingKey");
+
+    // The flag alone clears nothing.
+    useAdmin({}, { canBypass: false, body: { skipHooks: true } });
+    const unskipped = await request(app)
+      .put(`/api/v1/sdk-connections/${id}`)
+      .send({ name: "Bad", skipHooks: true })
+      .set(auth);
+    expect(unskipped.status).toBe(400);
+    expect(unskipped.body.message).toContain("No bad names");
 
     // Past a hook too, for someone who can bypass approvals everywhere. The
     // flag is part of every body that runs a hook, and no part of the change.

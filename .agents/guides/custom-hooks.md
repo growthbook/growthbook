@@ -47,7 +47,8 @@ publish and receives revision details without the proposed content, and
    stops on errors.
 8. **Run once per change.** A handler that collected hook results as gates
    publishes with `skipHooks: true`, so the engine does not run them again.
-9. **Who manages them:** an entity-scoped hook takes `manageCustomHooks`.
+9. **Who manages them:** an entity-scoped hook takes `manageCustomHooks`. A
+   Feature Flag's takes Edit access to that flag instead.
 10. **UI:** the shared `CustomHooksSection` on the entity page's Validation
     tab, with no per-entity layout. Settings → Custom Hooks lists entity-scoped
     hooks and links to that tab.

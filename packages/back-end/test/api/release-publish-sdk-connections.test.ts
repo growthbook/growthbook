@@ -52,6 +52,7 @@ describe("SDK Connections in a release", () => {
       "revisions",
       "customhooks",
       "constants",
+      "projects",
     ]) {
       await collection(name).deleteMany({ organization: ORG_ID });
     }
@@ -155,6 +156,8 @@ describe("SDK Connections in a release", () => {
         name: w.name,
         endpoint: w.endpoint,
         headers: w.headers,
+        signingKey: w.signingKey,
+        lastSuccess: w.lastSuccess,
       })),
     };
   }
@@ -261,6 +264,83 @@ describe("SDK Connections in a release", () => {
     expect(await constantValue("rel-sdk-shared")).toBe("before");
   });
 
+  it("records what landed when a draft behind live publishes in a release", async () => {
+    const a = await connectionWithDraft("Web app");
+    const renamed = await send("put", `/api/v1/sdk-connections/${a.id}`, {
+      name: "Renamed live",
+    });
+    expect(renamed.status).toBe(200);
+
+    const res = await publish({ revisions: [a.ref], ignoreWarnings: true });
+    expect(res.status).toBe(200);
+    const record = await request(app)
+      .get(`${DRAFTS}/${a.id}/${a.version}`)
+      .set(auth);
+    // Live kept the rename, so the published revision shows it too.
+    expect(record.body.revision.proposedSdkConnection).toMatchObject({
+      name: "Renamed live",
+      includeRuleIds: true,
+    });
+  });
+
+  it("asks for bypass access where a draft moves a connection", async () => {
+    await collection("projects").insertOne({
+      id: "prj_dest",
+      organization: ORG_ID,
+      name: "Destination",
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
+    });
+    const created = await send("post", "/api/v1/sdk-connections", {
+      name: "Web app",
+      language: "javascript",
+      environment: "production",
+    });
+    const id: string = created.body.sdkConnection.id;
+    const staged = await send("put", `${DRAFTS}/${id}/new/settings`, {
+      projects: ["prj_dest"],
+    });
+    expect(staged.status).toBe(200);
+
+    // Approval is required, and the caller may bypass it everywhere but in
+    // the Project the draft moves the connection to.
+    const context = new ReqContextClass({
+      org: {
+        ...org,
+        settings: {
+          ...org.settings,
+          approvalFlows: {
+            sdkConnections: [
+              { required: true, projects: [], environments: [] },
+            ],
+          },
+        },
+      } as OrganizationInterface,
+      auditUser: { type: "api_key", apiKey: "key_test" },
+      role: "admin",
+      req: { query: {}, headers: {}, body: {} } as unknown as Request,
+    });
+    context.hasPremiumFeature = () => true;
+    context.permissions.canBypassSDKConnectionApprovalChecks = (scope) =>
+      scope.project !== "prj_dest";
+    setReqContext(context);
+
+    const res = await publish({
+      revisions: [
+        {
+          entityType: "sdk-connection",
+          id,
+          version: staged.body.revision.version,
+        },
+      ],
+    });
+    expect(res.status).toBe(422);
+    expect(res.body.gates).toMatchObject([{ type: "approval-required" }]);
+    expect(
+      (await collection("sdkconnections").findOne({ id }))?.projects,
+    ).toEqual([]);
+  });
+
   it("puts back a connection that landed and one that failed partway", async () => {
     const a = await connectionWithDraft("Web app");
     const b = await connectionWithDraft("Mobile app");
@@ -283,7 +363,7 @@ describe("SDK Connections in a release", () => {
 
     const res = await publish({ revisions });
     expect(res.status).toBe(500);
-    // Removed webhooks are back under their own ids, with their headers.
+    // Removed and renamed webhooks are back as they were, signing key included.
     expect({ a: await live(a.id), b: await live(b.id) }).toEqual(before);
     expect(await draftStatus(a.id, a.version)).toBe("draft");
     expect(await draftStatus(b.id, b.version)).toBe("draft");

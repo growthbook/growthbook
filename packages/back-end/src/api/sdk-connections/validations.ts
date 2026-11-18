@@ -15,6 +15,7 @@ import { OrganizationInterface } from "shared/types/organization";
 import { ApiReqContext } from "back-end/types/api";
 import { ReqContext } from "back-end/types/request";
 import { getEnvironments } from "back-end/src/services/organizations";
+import { assertCanEnableTraces } from "back-end/src/models/SdkConnectionModel";
 import { IS_CLOUD } from "back-end/src/util/secrets";
 
 const capabilityParams = [
@@ -198,6 +199,7 @@ type SettingsScope = {
   environment?: string;
   projects?: string[];
   languages?: string[];
+  tracesEnabled?: boolean;
 };
 
 // What every write path checks about the settings it changes: the app, a
@@ -225,6 +227,9 @@ export async function validateSdkConnectionChanges(
   const addedProjects = added(changes.projects, current?.projects);
   if (addedProjects.length) await validateProjects(context, addedProjects);
   added(changes.languages, current?.languages).forEach(validateLanguage);
+  if (changes.tracesEnabled && !current?.tracesEnabled) {
+    assertCanEnableTraces(context);
+  }
 }
 
 export function validateSdkVersion(sdkVersion: string, language: SDKLanguage) {

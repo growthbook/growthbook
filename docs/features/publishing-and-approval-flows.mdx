@@ -6,9 +6,9 @@ sidebarTitle: Publishing & Approval Flows
 
 import { CommercialFeature } from "/snippets/CommercialFeature.jsx";
 
-When you make changes to a feature flag, a [saved group](/features/targeting#saved-groups), or an SDK Connection in GrowthBook, those changes go through a publishing workflow before they reach your users. This page covers the full lifecycle: drafts, publishing, revisions, merge conflicts, and optional approval flows.
+When you make changes to a Feature Flag, a [Saved Group](/features/targeting#saved-groups), or an SDK Connection in GrowthBook, those changes go through a publishing workflow before they reach your users. This page covers the full lifecycle: drafts, publishing, revisions, merge conflicts, and optional approval flows.
 
-The same revision and approval model applies to all three. The sections below describe the flow for feature flags first. The [Saved Groups](#saved-groups) and [SDK Connections](#sdk-connections) sections call out where their experience differs, and [Publishing Several Changes Together](#publishing-several-changes-together) covers publishing drafts of different kinds as one operation.
+The same revision and approval model applies to all three. The sections below describe the flow for Feature Flags first. The [Saved Groups](#saved-groups) and [SDK Connections](#sdk-connections) sections call out where their experience differs, and [Publishing Several Changes Together](#publishing-several-changes-together) covers publishing drafts of different kinds as one operation.
 
 ## Drafts and Publishing
 
@@ -266,7 +266,7 @@ A rule can apply to all Projects or be overridden for specific ones. A connectio
 - While a connection requires approval, its settings and webhooks can only be changed in a draft in the app.
 - A draft that moves a connection to another Project or environment is reviewed under the rules of both where it leaves and where it lands.
 - **Bypass draft approvals** for SDK Connections lets a user publish without an approval.
-- The REST API can change a connection that requires approval directly only with `bypassApproval: true` and that same access, or when the organization enables **REST API always bypasses approval requirements**. See the [SDK Connection Revisions API](/features/sdk-connection-revisions-api).
+- The REST API can change a connection that requires approval directly only with `bypassApproval: true`. That needs the same access, or the organization's **REST API always bypasses approval requirements** setting. See the [SDK Connection Revisions API](/features/sdk-connection-revisions-api).
 
 ### Validation
 

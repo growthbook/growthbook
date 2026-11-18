@@ -66,8 +66,15 @@ export interface BulkPublishableAdapter {
   /** Update authority — rechecked against the post-merge desired state. */
   canUpdate(context: Context, entity: Record<string, unknown>): boolean;
 
-  /** Whether the caller's authority bypasses the approval requirement. */
-  canBypassApproval(context: Context, entity: Record<string, unknown>): boolean;
+  /**
+   * Whether the caller's authority bypasses the approval requirement, where
+   * the entity is and where the revision moves it.
+   */
+  canBypassApproval(
+    context: Context,
+    entity: Record<string, unknown>,
+    revision: BulkRevisionRef,
+  ): boolean;
 
   /**
    * Compute the post-merge changes, or throw MergeConflictError when the

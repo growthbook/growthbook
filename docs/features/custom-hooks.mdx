@@ -543,7 +543,7 @@ Receives three arguments:
 
 - `sdkConnection`: the live connection's settings, as they stand before this revision publishes.
 - `sdkWebhooks`: the live connection's webhooks, in the same shape as for `validateSdkConnection`.
-- `revision`: the revision being written. `revision.sdkConnection` and `revision.sdkWebhooks` hold what it proposes, in the same shape as the live values. It also carries `version`, `status`, `title`, `comment`, `authorId`, `contributors`, `author`, `coauthors`, and `reviews`. Reviews use the same shape as feature revisions, described under [validateFeatureRevision](#validatefeaturerevision), so one policy can be written against both. A revision that is being created has no `version` yet. Its `status` is `draft`, or `merged` when a direct REST write records it already published.
+- `revision`: the revision being written. `revision.sdkConnection` and `revision.sdkWebhooks` hold what it proposes, in the same shape as the live values. It also carries `version`, `status`, `title`, `comment`, `authorId`, `contributors`, `author`, `coauthors`, and `reviews`. Reviews use the same shape as feature revisions, described under [validateFeatureRevision](#validatefeaturerevision), so one policy can be written against both. A revision that is being created has no `version` yet. Its `status` is `draft`, or `merged` when a direct write records it already published.
 
 Example: Block staging a move to another environment.
 

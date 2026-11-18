@@ -287,7 +287,12 @@ export const sdkConnectionBypassApprovalBodyField = z
 
 // The ways past a Custom Hook, on every SDK Connection write that runs one.
 export const sdkConnectionHookOverrideFields = {
-  ignoreWarnings: ignoreWarningsBodyField,
+  ignoreWarnings: z
+    .boolean()
+    .optional()
+    .describe(
+      `Set to true to continue past a warning raised by a Custom Hook. On publish, it also force-publishes an out-of-date draft when the caller has Bypass draft approvals access. It never clears a Custom Hook rejection. ${HUMAN_OVERRIDE_NOTE}`,
+    ),
   skipHooks: z
     .boolean()
     .optional()

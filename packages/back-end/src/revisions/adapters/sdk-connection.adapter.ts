@@ -70,19 +70,15 @@ function loadHooks() {
 
 // Run once the landing stands. A payload rebuild it queued for the connection
 // sends every webhook itself, after the new payload is cached.
+// `refresh` is the buffer the landing wrote into: a release has detached it
+// from the context by the time this runs.
 function sendLandedWebhookEdits(
   context: Context,
+  refresh: Context["sdkPayloadRefreshBuffer"],
   connection: SDKConnectionInterface,
   webhooks: WebhookInterface[],
 ) {
-  const refresh = context.sdkPayloadRefreshBuffer;
-  if (
-    refresh &&
-    !refresh.closed &&
-    refresh.sdkConnections?.some((c) => c.key === connection.key)
-  ) {
-    return;
-  }
+  if (refresh?.sdkConnections?.some((c) => c.key === connection.key)) return;
   webhooks.forEach((w) => context.models.sdkWebhooks.send(w));
 }
 
@@ -244,6 +240,21 @@ export type SDKConnectionLiveSnapshot = SDKConnectionRevisionSnapshot & {
   projects: string[];
   dateUpdated?: Date;
 };
+
+// Webhook rows a landing in this request changed or removed, as they were. A
+// snapshot leaves out the signing key and delivery state, so a rollback puts
+// these back instead of rebuilding the row from one.
+const replacedWebhookRows = new WeakMap<
+  Context,
+  Map<string, WebhookInterface>
+>();
+function replacedRows(context: Context): Map<string, WebhookInterface> {
+  const rows = replacedWebhookRows.get(context) ?? new Map();
+  replacedWebhookRows.set(context, rows);
+  return rows;
+}
+const asStored = (row: WebhookInterface) =>
+  omit(row, ["id", "organization", "dateCreated", "dateUpdated"]);
 
 function toWebhookSnapshot(wh: WebhookInterface): SDKWebhookRevisionSnapshot {
   return {
@@ -821,6 +832,7 @@ export const sdkConnectionAdapter: EntityRevisionAdapter<SDKConnectionRevisionSn
       if (webhooksChanged) {
         const oldById = new Map(entity.sdkWebhooks.map((w) => [w.id, w]));
         const newById = new Map(newWebhooks.map((w) => [w.id, w]));
+        const replaced = replacedRows(context);
 
         // Reported after every write, so a failure part-way leaves compensation
         // the webhooks that are actually live.
@@ -835,13 +847,16 @@ export const sdkConnectionAdapter: EntityRevisionAdapter<SDKConnectionRevisionSn
 
         for (const wh of newWebhooks) {
           if (oldById.has(wh.id)) continue;
+          const removed = options?.isCompensation && replaced.get(wh.id);
           // A retried landing skips webhooks an earlier attempt created.
           const row =
             (await context.models.sdkWebhooks.getById(wh.id)) ??
             (await context.models.sdkWebhooks.create({
-              ...context.models.sdkWebhooks.getDefaultCreateProps(
-                entity.sdkConnection.id,
-              ),
+              ...(removed
+                ? asStored(removed)
+                : context.models.sdkWebhooks.getDefaultCreateProps(
+                    entity.sdkConnection.id,
+                  )),
               id: wh.id,
               name: wh.name,
               endpoint: wh.endpoint,
@@ -868,18 +883,22 @@ export const sdkConnectionAdapter: EntityRevisionAdapter<SDKConnectionRevisionSn
             newWh.id,
           );
           if (liveWebhook) {
-            const saved = await context.models.sdkWebhooks.saveEdit(
-              liveWebhook,
-              {
-                name: newWh.name,
-                endpoint: newWh.endpoint,
-                httpMethod: newWh.httpMethod,
-                headers: newWh.headers,
-                payloadFormat: newWh.payloadFormat,
-                payloadKey: newWh.payloadKey,
-                timeoutSeconds: newWh.timeoutSeconds ?? null,
-              },
-            );
+            const original = options?.isCompensation && replaced.get(newWh.id);
+            if (!replaced.has(newWh.id)) replaced.set(newWh.id, liveWebhook);
+            const saved = original
+              ? await context.models.sdkWebhooks.update(
+                  liveWebhook,
+                  asStored(original),
+                )
+              : await context.models.sdkWebhooks.saveEdit(liveWebhook, {
+                  name: newWh.name,
+                  endpoint: newWh.endpoint,
+                  httpMethod: newWh.httpMethod,
+                  headers: newWh.headers,
+                  payloadFormat: newWh.payloadFormat,
+                  payloadKey: newWh.payloadKey,
+                  timeoutSeconds: newWh.timeoutSeconds ?? null,
+                });
             edited.push(saved);
             current = current.map((w) =>
               w.id === newWh.id ? toWebhookSnapshot(saved) : w,
@@ -894,6 +913,7 @@ export const sdkConnectionAdapter: EntityRevisionAdapter<SDKConnectionRevisionSn
             oldWh.id,
           );
           if (liveWebhook) {
+            if (!replaced.has(oldWh.id)) replaced.set(oldWh.id, liveWebhook);
             await context.models.sdkWebhooks.delete(liveWebhook);
           }
           current = current.filter((w) => w.id !== oldWh.id);
@@ -906,8 +926,10 @@ export const sdkConnectionAdapter: EntityRevisionAdapter<SDKConnectionRevisionSn
         recordWebhooks();
 
         if (edited.length) {
+          const refresh = context.sdkPayloadRefreshBuffer;
           await emitOrDeferBulkPublishEvent(
-            async () => sendLandedWebhookEdits(context, liveConnection, edited),
+            async () =>
+              sendLandedWebhookEdits(context, refresh, liveConnection, edited),
             entityKey("sdk-connection", entity.sdkConnection.id),
             captureEventBuffer(context),
           );

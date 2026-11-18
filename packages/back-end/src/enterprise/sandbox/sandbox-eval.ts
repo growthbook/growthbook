@@ -761,10 +761,6 @@ async function collectValidateSdkConnectionRevisionHookResults(
     : { hardErrors: [], warnings: [] };
 }
 
-// The aggregated custom-hook outcome for one entity change: hard errors (a hook
-// threw — validation-class) and soft warnings (a hook called addWarning —
-// acknowledge-class). Non-throwing so the caller can either throw (the assert
-// wrappers) or emit gates (the REST publish handlers).
 // Both hooks' results for a publish, as its gates.
 export async function collectSdkConnectionPublishHookGates({
   context,
@@ -798,6 +794,10 @@ export async function collectSdkConnectionPublishHookGates({
   ];
 }
 
+// The aggregated custom-hook outcome for one entity change: hard errors (a hook
+// threw — validation-class) and soft warnings (a hook called addWarning —
+// acknowledge-class). Non-throwing so the caller can either throw (the assert
+// wrappers) or emit gates (the REST publish handlers).
 export type CustomHookResults = {
   hardErrors: CustomHookErrorDetail[];
   warnings: string[];

@@ -421,6 +421,26 @@ function deepOmitNullish(value: unknown): unknown {
 // `buildSnapshot` only strips top-level nullish keys, so nested optional-null
 // shapes (e.g. a config's `schema`/`renderProjections` objects) would reopen
 // the same false-positive; `deepOmitNullish` normalizes at every depth.
+// Behind live, what lands isn't what the draft holds: live keeps what changed
+// since, and history should say so. Undefined when the draft is up to date.
+export function landedTarget(
+  adapter: EntityRevisionAdapter,
+  revision: Revision,
+  entity: Record<string, unknown>,
+): Pick<Revision["target"], "snapshot" | "proposedChanges"> | undefined {
+  const baseSnapshot = revision.target.snapshot as Record<string, unknown>;
+  if (!isRevisionDiverged(adapter, baseSnapshot, entity)) return undefined;
+  return {
+    snapshot: adapter.buildSnapshot(entity),
+    proposedChanges: landedOps(
+      entity,
+      baseSnapshot,
+      revision.target.proposedChanges,
+      adapter.getUpdatableFields(),
+    ),
+  } as Pick<Revision["target"], "snapshot" | "proposedChanges">;
+}
+
 export function isRevisionDiverged(
   adapter: EntityRevisionAdapter,
   snapshot: Record<string, unknown>,

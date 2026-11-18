@@ -340,7 +340,7 @@ export const createSDKConnectionValidator = z
   })
   .strict();
 
-function assertCanEnableTraces(context: ReqContext | ApiReqContext) {
+export function assertCanEnableTraces(context: ReqContext | ApiReqContext) {
   if (
     !getBackendFeatureValue(
       "trace-ingest",

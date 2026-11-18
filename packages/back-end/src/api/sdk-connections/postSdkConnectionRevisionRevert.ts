@@ -99,14 +99,6 @@ export const postSdkConnectionRevisionRevert = createApiRequestHandler(
     revisionComment: req.body.comment,
     revertedFrom: target.id,
   };
-  const respond = async (
-    revision: Revision,
-    bypassedGates: BypassedGate[] = [],
-  ) => ({
-    revision: await toApiSdkConnectionRevision(context, revision),
-    ...(bypassedGates.length ? { bypassedGates } : {}),
-    ...(recreatedWebhookIds.length ? { recreatedWebhookIds } : {}),
-  });
 
   // A revert restores a state that was already reviewed, so the org can let
   // one land without approval.
@@ -120,9 +112,18 @@ export const postSdkConnectionRevisionRevert = createApiRequestHandler(
       actions: ["sdkConnection.draft"],
       summary: `Draft a revert of ${name} to revision ${version}`,
     });
-    return respond(
-      await stageDraftChanges(context, loaded, null, newDraft, () => patchOps),
-    );
+    return {
+      revision: await toApiSdkConnectionRevision(
+        context,
+        await stageDraftChanges(
+          context,
+          loaded,
+          null,
+          newDraft,
+          () => patchOps,
+        ),
+      ),
+    };
   }
 
   // Everything that could refuse the landing runs before the draft exists, so
@@ -176,12 +177,14 @@ export const postSdkConnectionRevisionRevert = createApiRequestHandler(
     { ...newDraft, direct: true },
     () => patchOps,
   );
-  return respond(
-    await publishRevision(context, draft, live, {
-      bypass: underReview,
-      // They ran in `assertPublishable` above.
-      skipHooks: true,
-    }),
-    bypassedGates,
-  );
+  const published = await publishRevision(context, draft, live, {
+    bypass: underReview,
+    // They ran in `assertPublishable` above.
+    skipHooks: true,
+  });
+  return {
+    revision: await toApiSdkConnectionRevision(context, published),
+    ...(bypassedGates.length ? { bypassedGates } : {}),
+    ...(recreatedWebhookIds.length ? { recreatedWebhookIds } : {}),
+  };
 });

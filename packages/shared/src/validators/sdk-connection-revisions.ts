@@ -12,7 +12,6 @@ import {
   apiPaginationFieldsValidator,
   booleanQueryField,
   ignoreWarningsBodyField,
-  bypassApprovalPublishBodyField,
   sdkConnectionHookOverrideFields,
   publishBypassedGatesField,
   revisionScheduleResponseFields,
@@ -590,12 +589,7 @@ export const postSdkConnectionRevisionPublishValidator = {
     "Applies the draft's changes to the live SDK Connection and its webhooks. When approval is required, the draft must be approved unless the caller has Bypass draft approvals access. A 422 response lists every blocking gate and how to resolve it.",
   tags: TAGS,
   paramsSchema: versionParams,
-  bodySchema: z
-    .object({
-      bypassApproval: bypassApprovalPublishBodyField,
-      ...sdkConnectionHookOverrideFields,
-    })
-    .strict(),
+  bodySchema: z.object(sdkConnectionHookOverrideFields).strict(),
   querySchema: z.never(),
   responseSchema: revisionResponse.extend({
     bypassedGates: publishBypassedGatesField,
@@ -616,7 +610,7 @@ export const postSdkConnectionRevisionRevertValidator = {
   operationId: "postSdkConnectionRevisionRevert",
   summary: "Revert the SDK Connection to a prior revision",
   description:
-    'Restores the settings and webhooks a published revision left the SDK Connection with. Creates a draft by default, or applies it now with `strategy: "publish"`. Whether the connection is archived is not restored. A webhook the revert brings back is recreated with a new signing key, and its id is listed in `recreatedWebhookIds`.',
+    'Restores the settings and webhooks a published revision left the SDK Connection with. Creates a draft by default, or applies it now with `strategy: "publish"`. Whether the connection is archived is not restored. A webhook the revert brings back is recreated with a new signing key. When the revert is applied at once, its id is listed in `recreatedWebhookIds`.',
   tags: TAGS,
   paramsSchema: versionParams,
   bodySchema: z
@@ -639,7 +633,7 @@ export const postSdkConnectionRevisionRevertValidator = {
       .array(z.string())
       .optional()
       .describe(
-        "Webhooks this revert brings back. Each is created again with a new signing key, so a receiver that verifies signatures needs the new key from `GET /sdk-connections/{id}/webhooks`.",
+        "Webhooks this revert brought back, when it was applied at once. Each is created again with a new signing key, so a receiver that verifies signatures needs the new key from `GET /sdk-connections/{id}/webhooks`. A revert staged as a draft recreates them when the draft is published.",
       ),
   }),
   exampleRequest: EXAMPLE,

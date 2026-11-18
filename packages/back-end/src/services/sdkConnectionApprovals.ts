@@ -9,6 +9,7 @@ import type { SDKConnectionRevisionSnapshot } from "shared/validators";
 import type { SDKConnectionInterface } from "shared/types/sdk-connection";
 import type { WebhookInterface } from "shared/types/webhook";
 import type { Context } from "back-end/src/models/BaseModel";
+import { validateWebhookTimeoutSeconds } from "back-end/src/util/http.util";
 import {
   BadRequestError,
   PlanDoesNotAllowError,
@@ -149,9 +150,13 @@ export async function assertSdkWebhookPlanLimit(
   }
 }
 
-type SdkWebhookFields = { endpoint?: string; headers?: string };
+type SdkWebhookFields = {
+  endpoint?: string;
+  headers?: string;
+  timeoutSeconds?: number | null;
+};
 
-// Checks the endpoint and headers that differ from `previous`.
+// Checks the endpoint, headers and timeout that differ from `previous`.
 export function assertSdkWebhookFields(
   next: SdkWebhookFields,
   previous?: SdkWebhookFields | null,
@@ -159,6 +164,9 @@ export function assertSdkWebhookFields(
   const endpoint =
     next.endpoint !== previous?.endpoint ? next.endpoint : undefined;
   const headers = next.headers !== previous?.headers ? next.headers : undefined;
+  if (next.timeoutSeconds !== previous?.timeoutSeconds) {
+    validateWebhookTimeoutSeconds(next.timeoutSeconds);
+  }
   if (endpoint !== undefined && !z.string().url().safeParse(endpoint).success) {
     throw new BadRequestError("endpoint must be a URL");
   }

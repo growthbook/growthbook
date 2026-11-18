@@ -22640,16 +22640,12 @@ paths:
                   type: boolean
                 ignoreWarnings:
                   description: >-
-                    Set to true to acknowledge the warnings listed in a blocked
-                    response and continue. This covers experiment guards, locked
-                    dependents, and references affected by an archive. When the
-                    organization treats schema failures as warnings, it also
-                    covers schema and invariant warnings. It never bypasses a
-                    rejected Custom Hook. On revision publish endpoints, it can
-                    also force-publish an out-of-date draft when the caller has
-                    Bypass draft approvals access. Only set this when a person
-                    has explicitly asked you to. If a check blocks you, stop and
-                    ask a person instead of working around it.
+                    Set to true to continue past a warning raised by a Custom
+                    Hook. On publish, it also force-publishes an out-of-date
+                    draft when the caller has Bypass draft approvals access. It
+                    never clears a Custom Hook rejection. Only set this when a
+                    person has explicitly asked you to. If a check blocks you,
+                    stop and ask a person instead of working around it.
                   type: boolean
                 skipHooks:
                   description: >-
@@ -22821,16 +22817,12 @@ paths:
                   type: boolean
                 ignoreWarnings:
                   description: >-
-                    Set to true to acknowledge the warnings listed in a blocked
-                    response and continue. This covers experiment guards, locked
-                    dependents, and references affected by an archive. When the
-                    organization treats schema failures as warnings, it also
-                    covers schema and invariant warnings. It never bypasses a
-                    rejected Custom Hook. On revision publish endpoints, it can
-                    also force-publish an out-of-date draft when the caller has
-                    Bypass draft approvals access. Only set this when a person
-                    has explicitly asked you to. If a check blocks you, stop and
-                    ask a person instead of working around it.
+                    Set to true to continue past a warning raised by a Custom
+                    Hook. On publish, it also force-publishes an out-of-date
+                    draft when the caller has Bypass draft approvals access. It
+                    never clears a Custom Hook rejection. Only set this when a
+                    person has explicitly asked you to. If a check blocks you,
+                    stop and ask a person instead of working around it.
                   type: boolean
                 skipHooks:
                   description: >-
@@ -23143,16 +23135,12 @@ paths:
                   description: Markdown. What changed and why, for reviewers.
                 ignoreWarnings:
                   description: >-
-                    Set to true to acknowledge the warnings listed in a blocked
-                    response and continue. This covers experiment guards, locked
-                    dependents, and references affected by an archive. When the
-                    organization treats schema failures as warnings, it also
-                    covers schema and invariant warnings. It never bypasses a
-                    rejected Custom Hook. On revision publish endpoints, it can
-                    also force-publish an out-of-date draft when the caller has
-                    Bypass draft approvals access. Only set this when a person
-                    has explicitly asked you to. If a check blocks you, stop and
-                    ask a person instead of working around it.
+                    Set to true to continue past a warning raised by a Custom
+                    Hook. On publish, it also force-publishes an out-of-date
+                    draft when the caller has Bypass draft approvals access. It
+                    never clears a Custom Hook rejection. Only set this when a
+                    person has explicitly asked you to. If a check blocks you,
+                    stop and ask a person instead of working around it.
                   type: boolean
                 skipHooks:
                   description: >-
@@ -23449,16 +23437,12 @@ paths:
                   type: boolean
                 ignoreWarnings:
                   description: >-
-                    Set to true to acknowledge the warnings listed in a blocked
-                    response and continue. This covers experiment guards, locked
-                    dependents, and references affected by an archive. When the
-                    organization treats schema failures as warnings, it also
-                    covers schema and invariant warnings. It never bypasses a
-                    rejected Custom Hook. On revision publish endpoints, it can
-                    also force-publish an out-of-date draft when the caller has
-                    Bypass draft approvals access. Only set this when a person
-                    has explicitly asked you to. If a check blocks you, stop and
-                    ask a person instead of working around it.
+                    Set to true to continue past a warning raised by a Custom
+                    Hook. On publish, it also force-publishes an out-of-date
+                    draft when the caller has Bypass draft approvals access. It
+                    never clears a Custom Hook rejection. Only set this when a
+                    person has explicitly asked you to. If a check blocks you,
+                    stop and ask a person instead of working around it.
                   type: boolean
                 skipHooks:
                   description: >-
@@ -23549,16 +23533,12 @@ paths:
                     when `version` is "new"; ignored for existing drafts.
                 ignoreWarnings:
                   description: >-
-                    Set to true to acknowledge the warnings listed in a blocked
-                    response and continue. This covers experiment guards, locked
-                    dependents, and references affected by an archive. When the
-                    organization treats schema failures as warnings, it also
-                    covers schema and invariant warnings. It never bypasses a
-                    rejected Custom Hook. On revision publish endpoints, it can
-                    also force-publish an out-of-date draft when the caller has
-                    Bypass draft approvals access. Only set this when a person
-                    has explicitly asked you to. If a check blocks you, stop and
-                    ask a person instead of working around it.
+                    Set to true to continue past a warning raised by a Custom
+                    Hook. On publish, it also force-publishes an out-of-date
+                    draft when the caller has Bypass draft approvals access. It
+                    never clears a Custom Hook rejection. Only set this when a
+                    person has explicitly asked you to. If a check blocks you,
+                    stop and ask a person instead of working around it.
                   type: boolean
                 skipHooks:
                   description: >-
@@ -23642,16 +23622,12 @@ paths:
                     when `version` is "new"; ignored for existing drafts.
                 ignoreWarnings:
                   description: >-
-                    Set to true to acknowledge the warnings listed in a blocked
-                    response and continue. This covers experiment guards, locked
-                    dependents, and references affected by an archive. When the
-                    organization treats schema failures as warnings, it also
-                    covers schema and invariant warnings. It never bypasses a
-                    rejected Custom Hook. On revision publish endpoints, it can
-                    also force-publish an out-of-date draft when the caller has
-                    Bypass draft approvals access. Only set this when a person
-                    has explicitly asked you to. If a check blocks you, stop and
-                    ask a person instead of working around it.
+                    Set to true to continue past a warning raised by a Custom
+                    Hook. On publish, it also force-publishes an out-of-date
+                    draft when the caller has Bypass draft approvals access. It
+                    never clears a Custom Hook rejection. Only set this when a
+                    person has explicitly asked you to. If a check blocks you,
+                    stop and ask a person instead of working around it.
                   type: boolean
                 skipHooks:
                   description: >-
@@ -23771,16 +23747,12 @@ paths:
                     when `version` is "new"; ignored for existing drafts.
                 ignoreWarnings:
                   description: >-
-                    Set to true to acknowledge the warnings listed in a blocked
-                    response and continue. This covers experiment guards, locked
-                    dependents, and references affected by an archive. When the
-                    organization treats schema failures as warnings, it also
-                    covers schema and invariant warnings. It never bypasses a
-                    rejected Custom Hook. On revision publish endpoints, it can
-                    also force-publish an out-of-date draft when the caller has
-                    Bypass draft approvals access. Only set this when a person
-                    has explicitly asked you to. If a check blocks you, stop and
-                    ask a person instead of working around it.
+                    Set to true to continue past a warning raised by a Custom
+                    Hook. On publish, it also force-publishes an out-of-date
+                    draft when the caller has Bypass draft approvals access. It
+                    never clears a Custom Hook rejection. Only set this when a
+                    person has explicitly asked you to. If a check blocks you,
+                    stop and ask a person instead of working around it.
                   type: boolean
                 skipHooks:
                   description: >-
@@ -23896,16 +23868,12 @@ paths:
                     when `version` is "new"; ignored for existing drafts.
                 ignoreWarnings:
                   description: >-
-                    Set to true to acknowledge the warnings listed in a blocked
-                    response and continue. This covers experiment guards, locked
-                    dependents, and references affected by an archive. When the
-                    organization treats schema failures as warnings, it also
-                    covers schema and invariant warnings. It never bypasses a
-                    rejected Custom Hook. On revision publish endpoints, it can
-                    also force-publish an out-of-date draft when the caller has
-                    Bypass draft approvals access. Only set this when a person
-                    has explicitly asked you to. If a check blocks you, stop and
-                    ask a person instead of working around it.
+                    Set to true to continue past a warning raised by a Custom
+                    Hook. On publish, it also force-publishes an out-of-date
+                    draft when the caller has Bypass draft approvals access. It
+                    never clears a Custom Hook rejection. Only set this when a
+                    person has explicitly asked you to. If a check blocks you,
+                    stop and ask a person instead of working around it.
                   type: boolean
                 skipHooks:
                   description: >-
@@ -24317,16 +24285,12 @@ paths:
                       - discard
                 ignoreWarnings:
                   description: >-
-                    Set to true to acknowledge the warnings listed in a blocked
-                    response and continue. This covers experiment guards, locked
-                    dependents, and references affected by an archive. When the
-                    organization treats schema failures as warnings, it also
-                    covers schema and invariant warnings. It never bypasses a
-                    rejected Custom Hook. On revision publish endpoints, it can
-                    also force-publish an out-of-date draft when the caller has
-                    Bypass draft approvals access. Only set this when a person
-                    has explicitly asked you to. If a check blocks you, stop and
-                    ask a person instead of working around it.
+                    Set to true to continue past a warning raised by a Custom
+                    Hook. On publish, it also force-publishes an out-of-date
+                    draft when the caller has Bypass draft approvals access. It
+                    never clears a Custom Hook rejection. Only set this when a
+                    person has explicitly asked you to. If a check blocks you,
+                    stop and ask a person instead of working around it.
                   type: boolean
                 skipHooks:
                   description: >-
@@ -24386,26 +24350,14 @@ paths:
             schema:
               type: object
               properties:
-                bypassApproval:
-                  description: >-
-                    Deprecated and ignored. Approval is bypassed automatically
-                    when the caller has Bypass draft approvals access for this
-                    resource or when the organization enables the REST API
-                    approval bypass. Otherwise, the revision must be approved
-                    before it can be published.
-                  type: boolean
                 ignoreWarnings:
                   description: >-
-                    Set to true to acknowledge the warnings listed in a blocked
-                    response and continue. This covers experiment guards, locked
-                    dependents, and references affected by an archive. When the
-                    organization treats schema failures as warnings, it also
-                    covers schema and invariant warnings. It never bypasses a
-                    rejected Custom Hook. On revision publish endpoints, it can
-                    also force-publish an out-of-date draft when the caller has
-                    Bypass draft approvals access. Only set this when a person
-                    has explicitly asked you to. If a check blocks you, stop and
-                    ask a person instead of working around it.
+                    Set to true to continue past a warning raised by a Custom
+                    Hook. On publish, it also force-publishes an out-of-date
+                    draft when the caller has Bypass draft approvals access. It
+                    never clears a Custom Hook rejection. Only set this when a
+                    person has explicitly asked you to. If a check blocks you,
+                    stop and ask a person instead of working around it.
                   type: boolean
                 skipHooks:
                   description: >-
@@ -24505,7 +24457,8 @@ paths:
         Connection with. Creates a draft by default, or applies it now with
         `strategy: "publish"`. Whether the connection is archived is not
         restored. A webhook the revert brings back is recreated with a new
-        signing key, and its id is listed in `recreatedWebhookIds`.
+        signing key. When the revert is applied at once, its id is listed in
+        `recreatedWebhookIds`.
       tags: *ref_0
       parameters:
         - name: id
@@ -24542,16 +24495,12 @@ paths:
                   description: Markdown. What changed and why, for reviewers.
                 ignoreWarnings:
                   description: >-
-                    Set to true to acknowledge the warnings listed in a blocked
-                    response and continue. This covers experiment guards, locked
-                    dependents, and references affected by an archive. When the
-                    organization treats schema failures as warnings, it also
-                    covers schema and invariant warnings. It never bypasses a
-                    rejected Custom Hook. On revision publish endpoints, it can
-                    also force-publish an out-of-date draft when the caller has
-                    Bypass draft approvals access. Only set this when a person
-                    has explicitly asked you to. If a check blocks you, stop and
-                    ask a person instead of working around it.
+                    Set to true to continue past a warning raised by a Custom
+                    Hook. On publish, it also force-publishes an out-of-date
+                    draft when the caller has Bypass draft approvals access. It
+                    never clears a Custom Hook rejection. Only set this when a
+                    person has explicitly asked you to. If a check blocks you,
+                    stop and ask a person instead of working around it.
                   type: boolean
                 skipHooks:
                   description: >-
@@ -24583,10 +24532,11 @@ paths:
                       $ref: '#/components/schemas/bypassedGates'
                   recreatedWebhookIds:
                     description: >-
-                      Webhooks this revert brings back. Each is created again
-                      with a new signing key, so a receiver that verifies
-                      signatures needs the new key from `GET
-                      /sdk-connections/{id}/webhooks`.
+                      Webhooks this revert brought back, when it was applied at
+                      once. Each is created again with a new signing key, so a
+                      receiver that verifies signatures needs the new key from
+                      `GET /sdk-connections/{id}/webhooks`. A revert staged as a
+                      draft recreates them when the draft is published.
                     type: array
                     items:
                       type: string
@@ -69099,16 +69049,12 @@ paths:
                   type: boolean
                 ignoreWarnings:
                   description: >-
-                    Set to true to acknowledge the warnings listed in a blocked
-                    response and continue. This covers experiment guards, locked
-                    dependents, and references affected by an archive. When the
-                    organization treats schema failures as warnings, it also
-                    covers schema and invariant warnings. It never bypasses a
-                    rejected Custom Hook. On revision publish endpoints, it can
-                    also force-publish an out-of-date draft when the caller has
-                    Bypass draft approvals access. Only set this when a person
-                    has explicitly asked you to. If a check blocks you, stop and
-                    ask a person instead of working around it.
+                    Set to true to continue past a warning raised by a Custom
+                    Hook. On publish, it also force-publishes an out-of-date
+                    draft when the caller has Bypass draft approvals access. It
+                    never clears a Custom Hook rejection. Only set this when a
+                    person has explicitly asked you to. If a check blocks you,
+                    stop and ask a person instead of working around it.
                   type: boolean
                 skipHooks:
                   description: >-
@@ -69230,16 +69176,12 @@ paths:
                   type: boolean
                 ignoreWarnings:
                   description: >-
-                    Set to true to acknowledge the warnings listed in a blocked
-                    response and continue. This covers experiment guards, locked
-                    dependents, and references affected by an archive. When the
-                    organization treats schema failures as warnings, it also
-                    covers schema and invariant warnings. It never bypasses a
-                    rejected Custom Hook. On revision publish endpoints, it can
-                    also force-publish an out-of-date draft when the caller has
-                    Bypass draft approvals access. Only set this when a person
-                    has explicitly asked you to. If a check blocks you, stop and
-                    ask a person instead of working around it.
+                    Set to true to continue past a warning raised by a Custom
+                    Hook. On publish, it also force-publishes an out-of-date
+                    draft when the caller has Bypass draft approvals access. It
+                    never clears a Custom Hook rejection. Only set this when a
+                    person has explicitly asked you to. If a check blocks you,
+                    stop and ask a person instead of working around it.
                   type: boolean
                 skipHooks:
                   description: >-
@@ -69321,16 +69263,12 @@ paths:
                   type: boolean
                 ignoreWarnings:
                   description: >-
-                    Set to true to acknowledge the warnings listed in a blocked
-                    response and continue. This covers experiment guards, locked
-                    dependents, and references affected by an archive. When the
-                    organization treats schema failures as warnings, it also
-                    covers schema and invariant warnings. It never bypasses a
-                    rejected Custom Hook. On revision publish endpoints, it can
-                    also force-publish an out-of-date draft when the caller has
-                    Bypass draft approvals access. Only set this when a person
-                    has explicitly asked you to. If a check blocks you, stop and
-                    ask a person instead of working around it.
+                    Set to true to continue past a warning raised by a Custom
+                    Hook. On publish, it also force-publishes an out-of-date
+                    draft when the caller has Bypass draft approvals access. It
+                    never clears a Custom Hook rejection. Only set this when a
+                    person has explicitly asked you to. If a check blocks you,
+                    stop and ask a person instead of working around it.
                   type: boolean
                 skipHooks:
                   description: >-

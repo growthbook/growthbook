@@ -1,4 +1,4 @@
-import { isUndefined, omitBy } from "lodash";
+import { isEqual, isUndefined, omitBy } from "lodash";
 import uniqid from "uniqid";
 import {
   Revision,
@@ -86,13 +86,14 @@ function stageWebhooks(
   const webhooksOf = (row: Revision | null) =>
     editedSnapshot(loaded, row).sdkWebhooks.map(parseSdkWebhookSnapshot);
   const before = webhooksOf(draft);
+  const after = edit(before);
+  if (!draft && isEqual(after, before)) {
+    throw new BadRequestError(
+      "Nothing to stage: the live SDK Connection already has these webhooks.",
+    );
+  }
   const { projects, environment } = loaded.connection;
-  assertCanChangeSdkWebhooks(
-    context,
-    { projects, environment },
-    before,
-    edit(before),
-  );
+  assertCanChangeSdkWebhooks(context, { projects, environment }, before, after);
   return stageDraftChanges(context, loaded, draft, newDraft, (row) => [
     { op: "replace", path: "/sdkWebhooks", value: edit(webhooksOf(row)) },
   ]);
